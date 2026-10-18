@@ -1,34 +1,19 @@
-"""The query layer — a natural-language target becomes a shortlist of paths.
+"""Rank the files a request most likely means.
 
-The orchestrator's whole cost argument is that a model reads a few files rather
-than a repository. Something has to choose those few files, and if that chooser
-were itself a model the saving would be circular. So this is the deterministic
-bridge: it takes a phrase a caller would actually type — ``"the fetch helper"``,
-``"config loader"``, ``AttachedRepo`` — and turns it into a ranked, bounded
-shortlist of candidate paths, each carrying the evidence that put it there. No
-model is called; there is nothing here but the index (#47) and string work.
+Resolution is deterministic and needs no model. A lookup corpus is derived from
+an ``Index`` -- its paths, filename stems, directory names, and the symbols the
+index already extracted -- and a query is scored against it twice: once as a
+whole, for a caller who names a file or symbol outright, and once token by
+token, rarity-weighted, with a bonus for the file that matched the most of the
+query's distinct words.
 
-Three commitments shape the resolver, straight from the acceptance criteria:
-
-* **Ranking is by specificity, and the evidence is shown.** A phrase that names
-  a symbol outright outranks one that merely brushes a filename, which outranks
-  a stray path-component hit. Every candidate reports *why* it ranked, so the
-  expensive reader can judge the shortlist instead of trusting a black box.
-* **The shortlist is bounded.** A resolver that returned fifty candidates would
-  have resolved nothing; ``limit`` caps what comes back, best-first.
-* **Ambiguity is an outcome, not a guess.** When no candidate clearly wins, the
-  resolution says so (:attr:`Verdict.AMBIGUOUS`) and hands back the contenders,
-  rather than silently promoting a coin-flip to "the answer".
-
-The scoring is deliberately two-tier. *Whole-query* matches come first: if the
-phrase, reduced to its content words and squashed to letters, equals a symbol
-name or a filename, that is a near-certain hit and scores far above anything
-fuzzy. Failing that, *per-token* matches accumulate — each query word scored
-against symbol names, filenames and path components — with each word weighted by
-how rare it is across the repository, so a common word like "helper" cannot
-outvote a rare one like "fetch", and with a bonus for a candidate that covers
-more of the query. The weights are ordinary numbers, tuned against real phrasings
-on real repositories; they are not a model, and they are not magic.
+Each candidate carries the evidence that earned its score, in a form a caller
+can read, so a shortlist is explained rather than merely asserted. Scores are
+adjusted for the role of the file (a test is demoted behind the code it
+exercises), ranked and cut to a limit, and ``_verdict`` then says whether the
+leader is the answer, whether the top of the shortlist is too close to call, or
+whether nothing scored at all. What a caller does with the shortlist -- reading
+excerpts under a token budget -- belongs to ``mcgyvr.orchestrator.read``.
 """
 
 from __future__ import annotations
@@ -43,13 +28,12 @@ from pathlib import Path
 from mcgyvr.orchestrator.index import Index
 from mcgyvr.orchestrator.symbols import Symbol, SymbolKind
 
-# Words that describe the *shape* of a target rather than name it — a caller
-# says "the fetch helper", not "fetch". They are dropped from the query before
-# matching so they neither squash a whole-query match ("thefetchhelper") nor add
-# noise as standalone tokens. Kept small and generic: these are English glue and
-# the handful of role-nouns that recur in how people point at code, not a
-# project vocabulary. A word that is *part of a name* (``fetchHelper``) still
-# matches, because the symbol's own tokens include it.
+# Words that say nothing about *which* file a query means. They are dropped
+# before scoring, so a request phrased as prose ("the fetch helper function")
+# is matched on "fetch" alone. The list holds two kinds: English function
+# words, and the vocabulary of code talk -- "function", "method", "class",
+# "helper", "code" -- which a caller uses to describe a target rather than to
+# name one, and which on its own would match nearly every file in the repository.
 _STOPWORDS = frozenset(
     {
         "a",
@@ -87,68 +71,66 @@ _STOPWORDS = frozenset(
     }
 )
 
-# The strong, whole-query signals: the phrase names the thing outright. These
-# dwarf per-token scores so that an exact name is never out-argued by a pile of
-# weak partial hits.
+# Weights for a match on the whole query rather than on its tokens. A filename
+# mention is near-certain, a symbol named exactly as the query is the strongest
+# code signal, and a matching filename stem alone is weaker than either.
 _W_PATH_EXACT = 100.0
 _W_SYMBOL_EXACT = 60.0
 _W_STEM_EXACT = 45.0
 
-# Per-token signal strengths, before rarity weighting. A token landing on a
-# symbol name is worth more than one landing on a filename, which beats a bare
-# path-component hit — specificity, descending.
+# Base strengths for a single token found inside a longer name, ranking where it
+# was found: inside a symbol name counts for most, inside a filename stem for
+# less, in a directory name for least. Each is scaled by how much of the name
+# the token accounts for.
 _S_SYMBOL = 6.0
 _S_STEM = 5.0
 _S_PATH = 2.0
 
-# A candidate that accounts for more of the query is more likely the one meant;
-# this rewards coverage on top of the raw token strengths.
+# Bonus for breadth: a file that matched a larger share of the query's distinct
+# tokens is preferred over one that matched a single token very well.
 _W_COVERAGE = 4.0
 
-# A test file shadows the names of the code it exercises, so it will match many
-# of the same phrasings — but a caller who describes a target by name almost
-# always means the implementation, and says "test" when they mean the test. This
-# demotes test files so they still appear in the shortlist without crowding out
-# the source; it is a ranking nudge, not an exclusion.
+# Tests mention the code they exercise by name, so a query for a function
+# matches its tests as readily as its definition. A test file keeps its score
+# but is scaled down, so the definition leads unless nothing else matched. The
+# pattern names the layouts that count: a `tests/` or `test/` directory, a
+# `test_foo.py` module, a `foo_test.py`/`foo_test.go` module, or a
+# `foo.test.ts`/`foo.spec.ts` sibling.
 _TEST_DEMOTION = 0.6
 _TEST_PATH = re.compile(
     r"(?:^|/)tests?/|(?:^|/)test_[^/]*$|(?:^|/)[^/]*_test\.[^/]+$|\.(?:test|spec)\.[^/]+$"
 )
 
-# An export or a top-level definition is a better landing site than a method
-# buried in a class; a small nudge so the free ``fetch`` outranks ``X.fetch``
-# when both match equally otherwise.
+# An export is a file's public surface and the likelier target of a request, so
+# a match on an export scores above the same match on a plain definition. The
+# ranking is repeated in `_kind_rank`, which decides which of several symbols
+# sharing a name and a path is kept.
 _KIND_BONUS = {SymbolKind.EXPORT: 1.5, SymbolKind.DEFINITION: 1.0}
 
-# Which kinds make a file a candidate for a name. Named positively, because the
-# two that are excluded are excluded for the same reason: a reference and an
-# import are both occurrences of a name declared somewhere else, and ranking a
-# file as the place to look because it calls or imports ``fetch`` would point a
-# reader away from the definition rather than at it.
+# The symbol kinds the corpus indexes as places a query can land. References and
+# imports are recorded in the index but deliberately left out: a mention of a
+# name at a call site says where code *uses* something, not where the answer to
+# a request lives, and indexing them would let any file that merely mentions a
+# name compete with the file that defines it.
 _LANDING_KINDS = frozenset({SymbolKind.DEFINITION, SymbolKind.EXPORT})
 
-# How decisively the leader must beat the runner-up to count as resolved rather
-# than ambiguous. Below this ratio the field is too close to call, and the
-# resolution reports the tie instead of breaking it.
+# How far ahead of the runner-up the leader must be to count as the answer. A
+# shortlist whose top two are closer than this factor is reported ambiguous
+# rather than resolved, so a near-tie is never presented as a decision.
 _DOMINANCE = 1.5
 
 
 class Verdict(StrEnum):
-    """The confidence of a resolution — the reportable state #48 asks for."""
+    """What a shortlist as a whole decided: one file, a tie, or nothing."""
 
-    RESOLVED = "resolved"  # one candidate clearly leads
-    AMBIGUOUS = "ambiguous"  # several plausible, none dominant
-    EMPTY = "empty"  # nothing matched the query
+    RESOLVED = "resolved"  # the leader is clear of the runner-up
+    AMBIGUOUS = "ambiguous"  # several scored, and the leaders are too close
+    EMPTY = "empty"  # nothing scored, so the query matched nothing indexed
 
 
 @dataclass(frozen=True)
 class Candidate:
-    """One path the query might mean, with its score and the evidence for it.
-
-    ``evidence`` is a tuple of short human-readable reasons, strongest first —
-    the material the reader (or a person) uses to judge the shortlist rather than
-    trust the number.
-    """
+    """A file in the shortlist: its path, its score, and why it scored."""
 
     path: str
     score: float
@@ -157,13 +139,7 @@ class Candidate:
 
 @dataclass(frozen=True)
 class Resolution:
-    """The outcome of resolving one query: a verdict and a bounded shortlist.
-
-    ``candidates`` is ranked best-first and capped at the caller's limit. On
-    :attr:`Verdict.EMPTY` it is empty; on :attr:`Verdict.AMBIGUOUS` it holds the
-    contenders that could not be separated; on :attr:`Verdict.RESOLVED` its first
-    entry is the resolver's answer and the rest are context.
-    """
+    """The shortlist for one query: its verdict and its candidates, best first."""
 
     query: str
     verdict: Verdict
@@ -171,18 +147,23 @@ class Resolution:
 
     @property
     def best(self) -> Candidate | None:
-        """The leading candidate, or ``None`` when nothing matched."""
+        """The leading candidate, or None when nothing scored."""
         return self.candidates[0] if self.candidates else None
 
 
 def resolve(index: Index, query: str, *, limit: int = 10) -> Resolution:
-    """Resolve ``query`` to a ranked, bounded shortlist of candidate paths.
+    """Rank the files ``query`` most likely means, over ``index``.
 
-    Scores every indexed path against the phrase using whole-query and per-token
-    matching over symbols, filenames and path components (see the module
-    docstring), returns at most ``limit`` candidates best-first, and reports a
-    :class:`Verdict` describing whether one candidate clearly won. Calls no
-    model and reads no file beyond what the index already holds.
+    The query is reduced to content tokens (stopwords dropped, plurals folded),
+    a lookup corpus is built from the index, and two passes award each file a
+    score with the evidence that earned it: the whole-query pass for a literal
+    path, filename or symbol-name match, then the token pass for tokens found in
+    symbol names, filename stems and directory names, rarity-weighted, plus a
+    coverage bonus for the file that matched more of the query.
+
+    ``limit`` is keyword-only and caps how many candidates are returned. Files
+    with no positive score are dropped, the rest are ordered best first with
+    ties broken by path, and ``_verdict`` turns the order into a verdict.
     """
     tokens = _content_tokens(query)
     corpus = _Corpus(index)
@@ -197,35 +178,32 @@ def resolve(index: Index, query: str, *, limit: int = 10) -> Resolution:
     return Resolution(query=query, verdict=_verdict(candidates), candidates=candidates)
 
 
-# --- corpus: the index reshaped for matching -------------------------------
+# The lookup tables a query is scored against, built once per resolve() call.
 
 
 class _Corpus:
-    """The index inverted the way matching needs it — built once per resolve.
+    """The indexed repository, cut into the lookups a query is matched against.
 
-    Names and filenames are indexed both whole (squashed to letters and digits,
-    for the strong whole-query match) and by sub-token (``fetchHelper`` ->
-    ``fetch``, ``helper``, for the fuzzy per-token match). Only definitions and
-    exports feed the symbol maps: a *reference* to ``fetch`` marks a caller, not
-    the helper itself, and pointing a reader at callers would defeat the resolve.
+    Built once per resolution; none of it is specific to one query.
     """
 
     def __init__(self, index: Index) -> None:
         self.paths: frozenset[str] = frozenset(f.path for f in index.files)
         self.basenames: dict[str, set[str]] = defaultdict(set)
 
-        # Symbol maps: squashed whole-name and per-token, each keyed to the path
-        # and the representative symbol that justify an evidence line. Both keep
-        # one symbol per (key, path) — the strongest kind wins the slot — so a
-        # name that is both defined and exported in a file is not counted twice.
+        # Symbols, keyed two ways: by the squashed form of the whole name, so a
+        # query that names the symbol outright is answered without tokenising
+        # it, and by each token the name splits into, so a partial name still
+        # finds it. Both map a path to one symbol per path -- the best kind of
+        # symbol found there for that key.
         self.symbol_exact: dict[str, dict[str, Symbol]] = defaultdict(dict)
         self.symbol_token: dict[str, dict[str, Symbol]] = defaultdict(dict)
 
-        # Filename maps: the stem (basename without extension), whole and tokened.
+        # Filename stems, whole and by token, each mapping to the paths with it.
         self.stem_exact: dict[str, set[str]] = defaultdict(set)
         self.stem_token: dict[str, set[str]] = defaultdict(set)
 
-        # Path-component tokens: directory names along the way, the weakest hint.
+        # Tokens found in directory names, mapping to the paths beneath them.
         self.path_token: dict[str, set[str]] = defaultdict(set)
 
         for file in index.files:
@@ -241,19 +219,20 @@ class _Corpus:
         self.stem_exact[_squash(stem)].add(path)
         for token in _tokenize(stem):
             self.stem_token[token].add(path)
-        # Directory components, minus the filename itself.
+        # Directory names are weaker evidence than the filename, so they are
+        # keyed by token only, never as a whole-query match.
         for part in Path(path).parent.parts:
             for token in _tokenize(part):
                 self.path_token[token].add(path)
 
     def _index_symbol(self, symbol: Symbol) -> None:
-        # Whole-name slot: the strongest *kind* wins, since the name matches in
-        # full and only the export/definition distinction is left to break.
+        # A whole-name match must name the symbol exactly, so one slot per
+        # squashed name holds the most public symbol found at each path.
         _keep_best(self.symbol_exact[_squash(symbol.name)], symbol)
-        # Per-token slot: the symbol that will *score* highest for this token
-        # wins — the one whose name the token accounts for most. Choosing by kind
-        # alone would let an exported ``AttachError`` displace the exact ``attach``
-        # in a file and then score it as the weaker fragment match.
+        # Tokens are indexed separately for a partial match, and the slot keeps
+        # the symbol for which the token accounts for the largest share of the
+        # name -- the one the token actually characterises. That share is
+        # measured by `_token_strength`, the same figure the scorer awards.
         for token in _tokenize(symbol.name):
             slot = self.symbol_token[token]
             current = slot.get(symbol.path)
@@ -263,7 +242,7 @@ class _Corpus:
                 slot[symbol.path] = symbol
 
 
-# --- whole-query scoring: the phrase names the thing -----------------------
+# Pass one: the query taken as a whole, matched literally rather than by token.
 
 
 def _score_whole_query(
@@ -273,13 +252,11 @@ def _score_whole_query(
     scores: dict[str, float],
     evidence: dict[str, list[tuple[float, str]]],
 ) -> None:
-    """Award the strong signals: the phrase, taken whole, *is* a name or a path.
+    """Award the files a query names outright, by path, symbol name or stem.
 
-    An explicit path the caller typed (``src/mcgyvr/scope.py``) is as certain as
-    it gets. Otherwise the content words are squashed to letters — so "the fetch
-    helper" becomes ``fetchhelper`` — and compared against whole symbol names and
-    filename stems, catching the common case where a caller names the target
-    almost exactly.
+    This is the confident pass: a caller who names a file or a symbol gets a
+    score large enough to settle the shortlist, and the token pass can only add
+    to it. A partial match is not awarded here -- that is `_score_tokens`.
     """
     raw = query.strip()
     for path in _paths_named_literally(raw, corpus):
@@ -304,7 +281,11 @@ def _score_whole_query(
 
 
 def _paths_named_literally(raw: str, corpus: _Corpus) -> set[str]:
-    """Paths the query names outright — a full repo-relative path or a basename."""
+    """The indexed paths ``raw`` names outright.
+
+    A hit is the index path exactly as ``raw`` gives it, or any path whose
+    filename equals ``raw`` ignoring case. An empty query names nothing.
+    """
     if not raw:
         return set()
     hits: set[str] = set()
@@ -314,7 +295,8 @@ def _paths_named_literally(raw: str, corpus: _Corpus) -> set[str]:
     return hits
 
 
-# --- per-token scoring: the fuzzy tail -------------------------------------
+# Pass two: the query's content tokens, each matched on its own and weighted by
+# how rare it is across the corpus.
 
 
 def _score_tokens(
@@ -323,13 +305,15 @@ def _score_tokens(
     scores: dict[str, float],
     evidence: dict[str, list[tuple[float, str]]],
 ) -> None:
-    """Accumulate per-token matches, weighting rare words over common ones.
+    """Award every file a content token reaches, weighted by the token's rarity.
 
-    Each distinct query token is scored against symbol names, filenames and path
-    components. A token is weighted by its inverse document frequency — a word
-    matching many paths carries little signal, a word matching few carries a lot
-    — so "helper" cannot outvote "fetch". A final coverage bonus rewards a path
-    that a larger share of the query's tokens agree on.
+    A token repeated in the query counts once. Its weight is ``_idf`` over the
+    files it reached, so a token present in every file contributes its base
+    strength unchanged while a rare one contributes several times that. Once all
+    tokens are scored, a file that matched a larger share of the query's
+    distinct tokens is given the coverage bonus -- the breadth signal that
+    separates a file matching three words from one matching a single word of the
+    same request.
     """
     unique = list(dict.fromkeys(tokens))
     if not unique:
@@ -352,13 +336,11 @@ def _score_tokens(
 
 
 def _collect(token: str, corpus: _Corpus) -> list[tuple[str, float, str]]:
-    """Every (path, strength, evidence) this token contributes, across signals.
+    """Everything one token matches, as (path, strength, evidence) per file.
 
-    A token match is scaled by how much of the *name* it accounts for: a token
-    that is the whole symbol ``attach`` is decisive, the same token buried in
-    ``test_repository_with_no_commit_attributes`` is a fragment and scores far
-    lower. This is the specificity ranking #48 asks for, and it is what keeps a
-    long-named test from outranking the implementation it exercises.
+    Strength is the token's share of the symbol name for a symbol hit,
+    ``_S_STEM`` scaled by its share of the stem for a filename hit, and the flat
+    ``_S_PATH`` for a directory-name hit, the weakest of the three.
     """
     out: list[tuple[str, float, str]] = []
     for path, symbol in corpus.symbol_token.get(token, {}).items():
@@ -374,7 +356,7 @@ def _collect(token: str, corpus: _Corpus) -> list[tuple[str, float, str]]:
     return out
 
 
-# --- ranking and the ambiguity verdict -------------------------------------
+# Adjust each score for the role of its file, then order and cut the shortlist.
 
 
 def _rank(
@@ -382,11 +364,14 @@ def _rank(
     evidence: dict[str, list[tuple[float, str]]],
     limit: int,
 ) -> tuple[Candidate, ...]:
-    """The scored paths as candidates, best-first, capped at ``limit``.
+    """Turn raw scores into the ordered shortlist.
 
-    Ties in score break on path so the shortlist is deterministic. Evidence for
-    each candidate is ordered strongest-first and de-duplicated, since one path
-    can earn the same reason from several tokens.
+    Every score is multiplied by ``_role_weight`` first, so a test file competes
+    with the code it exercises at ``_TEST_DEMOTION`` of its raw score. Files are
+    ordered by descending score and then by path, so a tie always breaks the
+    same way, and the list is cut to ``limit``. A file with no positive score is
+    not a candidate at all, and each candidate keeps the strongest few pieces of
+    evidence that earned it.
     """
     adjusted = {path: score * _role_weight(path) for path, score in scores.items()}
     ordered = sorted(adjusted.items(), key=lambda item: (-item[1], item[0]))
@@ -403,7 +388,12 @@ def _rank(
 
 
 def _top_evidence(reasons: list[tuple[float, str]], keep: int = 4) -> tuple[str, ...]:
-    """The strongest, distinct evidence lines for a candidate, best-first."""
+    """The strongest reasons for a candidate, each said once, at most ``keep``.
+
+    Reasons arrive with the amount each one awarded, so sorting by that amount
+    puts the decisive evidence first; a reason worded the same way as one
+    already kept adds nothing and is dropped.
+    """
     seen: set[str] = set()
     ordered: list[str] = []
     for _, why in sorted(reasons, key=lambda item: -item[0]):
@@ -416,11 +406,11 @@ def _top_evidence(reasons: list[tuple[float, str]], keep: int = 4) -> tuple[str,
 
 
 def _verdict(candidates: tuple[Candidate, ...]) -> Verdict:
-    """Resolved, ambiguous or empty — the confidence, reported not hidden.
+    """Read the shortlist as one answer: resolved, ambiguous, or empty.
 
-    One candidate, or a leader beating the runner-up by :data:`_DOMINANCE`, is a
-    resolution. A close field is ambiguity: the contenders are still returned,
-    but the resolver declines to promote a near-tie to an answer.
+    One candidate is resolved by definition. With more, the leader is the answer
+    only if the runner-up scored nothing or the leader is at least
+    ``_DOMINANCE`` times its score; anything closer is ambiguous.
     """
     if not candidates:
         return Verdict.EMPTY
@@ -432,30 +422,24 @@ def _verdict(candidates: tuple[Candidate, ...]) -> Verdict:
     return Verdict.AMBIGUOUS
 
 
-# --- small deterministic helpers -------------------------------------------
+# One tokeniser for queries and corpus names, so the same text splits the same
+# way on both sides and their tokens are comparable.
 
-# A token is a run of letters/digits; camel and snake boundaries split names.
-# ``HTTPClient`` -> ``HTTP``, ``Client``; ``fetch_data`` -> ``fetch``, ``data``.
+# A camelCase/snake_case splitter: a capital run followed by a normal word, a
+# normal word, a bare capital run, or a number, each taken as its own token.
 _TOKEN = re.compile(r"[A-Z]+(?=[A-Z][a-z])|[A-Z]?[a-z]+|[A-Z]+|\d+")
 
 
 def _tokenize(text: str) -> list[str]:
-    """Lowercased, plural-folded sub-tokens of an identifier or phrase.
-
-    Splitting is camel/snake-aware; folding is the same on the corpus and the
-    query, so it can only unite a singular with its plural, never separate a
-    word from itself — which is what lets ``"secret"`` reach the ``secrets``
-    module without a real stemmer's risks.
-    """
+    """Split text into lowercase, plural-folded tokens."""
     return [_fold(match.group(0).lower()) for match in _TOKEN.finditer(text)]
 
 
 def _fold(token: str) -> str:
-    """Drop a simple trailing plural ``s`` so ``secrets`` and ``secret`` agree.
+    """Drop a trailing plural "s", so "files" and "file" are one token.
 
-    Only a lone ``s`` on a token of real length is shed, and never from an ``ss``
-    ending (``class``, ``process`` stay whole) — a conservative fold that catches
-    the ordinary English plural and leaves the awkward ones exact.
+    "is" is left alone for being shorter than four characters and "class" for
+    ending in "ss", so neither is mangled into a different word.
     """
     if len(token) >= 4 and token.endswith("s") and not token.endswith("ss"):
         return token[:-1]
@@ -463,26 +447,35 @@ def _fold(token: str) -> str:
 
 
 def _content_tokens(query: str) -> list[str]:
-    """The query's meaningful tokens: split, lowercased, stopwords removed."""
+    """The query's tokens without the stopwords, in the order they appear."""
     return [token for token in _tokenize(query) if token not in _STOPWORDS]
 
 
 def _squash(text: str) -> str:
-    """A name reduced to bare letters and digits, for whole-name comparison."""
+    """Lowercase text and drop everything but letters and digits.
+
+    "fetch_helper" and "fetchHelper" both squash to "fetchhelper", so the two
+    spellings of a name compare equal.
+    """
     return re.sub(r"[^a-z0-9]", "", text.lower())
 
 
 def _token_strength(token: str, symbol: Symbol) -> float:
-    """A symbol-token match's score: base kind strength scaled by name coverage."""
+    """What one symbol contributes for a token.
+
+    Its base strength for the kind, scaled by how much of the symbol's name the
+    token accounts for.
+    """
     return (_S_SYMBOL + _kind_bonus(symbol)) * _fraction_of_name(token, symbol.name)
 
 
 def _fraction_of_name(token: str, name: str) -> float:
-    """How much of ``name`` the ``token`` accounts for, in [0, 1].
+    """How much of ``name`` a ``token`` accounts for, capped at 1.0.
 
-    A token equal to the whole name scores 1; a token that is one short piece of
-    a long identifier scores low. Measured on the squashed letters so casing and
-    separators don't distort the ratio.
+    The ratio of squashed lengths: a token at least as long as the name covers
+    all of it, while a short token in a long name covers proportionally less,
+    which is what keeps "get" from scoring on "get_or_create_client" as strongly
+    as the whole name would. An empty name yields 0.0.
     """
     squashed = _squash(name)
     if not squashed:
@@ -491,26 +484,39 @@ def _fraction_of_name(token: str, name: str) -> float:
 
 
 def _role_weight(path: str) -> float:
-    """A quiet ranking factor: test files are demoted, everything else neutral."""
+    """The multiplier a path's score is adjusted by.
+
+    A test file is demoted to ``_TEST_DEMOTION``; every other path counts in
+    full.
+    """
     return _TEST_DEMOTION if _TEST_PATH.search(path) else 1.0
 
 
 def _keep_best(slot: dict[str, Symbol], symbol: Symbol) -> None:
-    """Record ``symbol`` for its path, letting a stronger kind win a shared slot."""
+    """Store ``symbol`` at its path unless a more public kind is already there."""
     current = slot.get(symbol.path)
     if current is None or _kind_rank(symbol) > _kind_rank(current):
         slot[symbol.path] = symbol
 
 
 def _idf(document_frequency: int, total: int) -> float:
-    """Rarity weight: a token matching few paths outweighs one matching many."""
+    """Inverse document frequency: ``1 + ln(total / document_frequency)``.
+
+    A token found in every file weighs 1.0 and leaves the base strengths as they
+    are; a rarer token weighs several times that. A token that reached no file
+    weighs nothing, which keeps its contributions at zero and avoids dividing by
+    zero.
+    """
     if document_frequency <= 0:
         return 0.0
     return 1.0 + math.log(total / document_frequency)
 
 
 def _kind_rank(symbol: Symbol) -> int:
-    """Order symbol kinds so the strongest wins a shared (token, path) slot."""
+    """Order symbol kinds by how public they are.
+
+    Export ranks above definition, and any other kind lowest.
+    """
     return {SymbolKind.EXPORT: 2, SymbolKind.DEFINITION: 1}.get(symbol.kind, 0)
 
 
@@ -525,6 +531,11 @@ def _award(
     amount: float,
     why: str,
 ) -> None:
-    """Add ``amount`` to ``path``'s score and file the reason for the evidence."""
+    """Add ``amount`` to a path's score and record the reason beside the amount.
+
+    Evidence is kept per path as (amount, reason), so `_top_evidence` can show
+    the decisive reasons first and every award carries the reason it was made
+    for.
+    """
     scores[path] += amount
     evidence[path].append((amount, why))

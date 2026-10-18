@@ -1,34 +1,26 @@
-"""What kind of link two cards share, decided by what any machine has.
+"""The two classes of link a pair of cards can talk over, and how a pair is classed.
 
-Two cards in one machine talk over that machine's bus; two machines talk over
-the network between them. That is all a link's class says, and it is decided by
-whether the two cards sit in one machine, never by a machine's name, so a
-machine nobody here has seen is classed the same way. The numbers of each class
-(its bandwidth and latency) are estimates shipped with mcgyvr that the user's
-own setting or reading replaces; they live in :mod:`mcgyvr.derived`, keyed by
-the classes named here.
-
-This module imports nothing from mcgyvr: :mod:`mcgyvr.derived` imports it, to
-take :data:`LINK_CLASSES` as the key space of the link numbers.
+A link joins two cards. Two cards in one machine talk over that machine's bus
+(PCIE) and two cards in different machines talk over the network (NETWORK).
+Which class a link is depends only on whether the two hosts are one machine,
+so a host nobody has seen is classed the same way, and a host name's capitals
+do not make it another machine.
 """
 
 from __future__ import annotations
 
-#: Two cards in one machine: the link is that machine's bus.
+#: The class of a link whose two cards sit in one machine and talk over its bus.
 PCIE = "pcie"
-#: Two cards in two machines: the link is the network between them.
+#: The class of a link whose two cards sit in two machines and talk over the network.
 NETWORK = "network"
-#: Every class a link can be in; each link number states a value for each.
+#: Every class a link can be in, in the order they are offered and named in messages.
 LINK_CLASSES: tuple[str, ...] = (PCIE, NETWORK)
 
 
 def link_class(host_a: str, host_b: str) -> str:
-    """The class of the link between a card on ``host_a`` and a card on ``host_b``.
+    """The class of the link between two cards, given the hosts they sit on.
 
-    A link is classed by what any machine has (two cards in one machine talk
-    over the bus; two machines talk over the network), never by a machine's
-    name. Host names are the names a scan and an address use, so they are
-    compared without regard to case: a name is the same machine however it is
-    capitalised.
+    The two hosts are one machine, and so the link is a bus link, exactly when
+    their names match once case is folded; any other pair is a network link.
     """
     return PCIE if host_a.casefold() == host_b.casefold() else NETWORK

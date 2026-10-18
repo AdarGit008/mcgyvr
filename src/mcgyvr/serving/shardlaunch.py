@@ -1,39 +1,13 @@
-"""The processes that start a model split across cards and machines.
+"""What a sizing plan of a split model becomes: the processes to start.
 
-:mod:`mcgyvr.serving.sharding` says what each card holds. This module says what
-has to run for that to be true, and nothing else: it turns one sizing plan into
-the processes to start, each with the cards it holds, the flags it is given and
-the environment it reads. It starts nothing, and it sizes nothing -- a number
-here is read off the plan or stated by the caller, never worked out again.
-
-**llama.cpp** runs one server, the *head*, on the machine of the unit's first
-card. The cards of other machines are reached over RPC: each is lent by its own
-``rpc-server`` worker, one card per worker, so two cards of one machine are two
-workers on two ports. The head is told ``--split-mode``, ``--tensor-split`` (the
-plan's whole-layer counts, in the engine's device order, which is the order the
-plan's shards are already in; under ``--split-mode tensor``, which spans one
-machine's cards and nothing else, an even share each) and ``--rpc`` with the
-workers in that same order.
-The workers' listeners are the plan's ``bind`` and nothing else: ``rpc-server``
-is unauthenticated, so a name that is not an address, the address that means
-"every interface", or an address reachable from the internet is refused here
-rather than started.
-
-**vLLM** runs one process per machine under its own multiprocessing backend:
-every node is told the grid, and when there is more than one every node is also
-told how many nodes there are, which one it is and where node zero rendezvouses;
-every node but the first adds ``--headless`` and answers nothing. The pipeline's
-layer counts are stated through ``VLLM_PP_LAYER_PARTITION`` so the engine does
-not split the blocks again somewhere the sizing did not put them.
-
-Both engines number cards in the order the driver does unless told to follow
-the bus, and a plan's card indexes are bus indexes, so the order is pinned in
-every process's environment.
-
-The upstream llama.cpp CUDA images are built without RPC, so what a head with
-``--rpc`` and every worker run in is an image the operator built; that is the
-renderer's refusal (:mod:`mcgyvr.emit`), not this module's, because the image
-is not part of what a plan says.
+A plan says which cards hold which blocks; this module turns it into the
+processes those cards need -- for llama.cpp one server on the head's machine
+plus one ``rpc-server`` per card of every other machine, for vLLM one process
+per machine -- and each process carries its host, role, cards, port, engine
+flags, trailing arguments, environment and the shards it holds. What is not a
+split (one card, a split that does not fit, an rpc worker with no address it
+may bind, an engine with no launch) is refused with a LaunchError instead of
+being started.
 """
 
 from __future__ import annotations
@@ -52,30 +26,37 @@ from mcgyvr.serving.sharding import (
     Target,
 )
 
-#: The environment variable that makes a CUDA process number its cards by bus
-#: position, which is what a plan's card indexes are.
+#: Every process is told to number its cards by PCI bus, so the order the
+#: driver would otherwise pick cannot move a plan's card onto another device.
 DEVICE_ORDER_ENV = "CUDA_DEVICE_ORDER"
 DEVICE_ORDER_BUS = "PCI_BUS_ID"
-#: vLLM's statement of the layers each pipeline stage holds, comma-joined.
+#: vLLM takes the layers of each pipeline stage from this variable, so the
+#: plan's per-card layer counts are stated in it.
 PIPELINE_PARTITION_ENV = "VLLM_PP_LAYER_PARTITION"
-#: The one device an ``rpc-server`` lends: the only card its container sees.
+#: A worker holds one card, which is device 0 of the process it runs in.
 RPC_DEVICE = "CUDA0"
-#: vLLM's valueless switch for a node that runs ranks and answers nothing.
+#: A vLLM node other than the first is started with this trailing switch.
 HEADLESS_SWITCH = "--headless"
 
 
 class LaunchError(Exception):
-    """A plan cannot be turned into processes, and the message says why."""
+    """A plan that cannot be started as the processes it asks for.
+
+    The message names the model and what is wrong with the plan or the
+    shard it would have started.
+    """
 
 
 @dataclass(frozen=True)
 class Process:
-    """One process to start: where, what it is, which cards, and how.
+    """One process to start, and what it is started with.
 
-    ``args`` is flag to value, the shape :attr:`mcgyvr.serving.Unit.args` has;
-    ``extra`` are valueless switches, appended after them. ``port`` is where the
-    process listens -- the renderer states it as ``--port``, so it is not in
-    ``args``. ``shards`` are the plan's shards this process holds.
+    ``host`` is the machine it runs on and ``role`` is what it is there for
+    (serving, an rpc worker lending a card, a headless vLLM node); ``gpus``
+    are the cards it holds, ``port`` the one it serves or listens on, ``args``
+    the engine's flags, ``extra`` the trailing arguments after them, ``env``
+    the environment it needs, and ``shards`` the plan's shards whose cards it
+    holds.
     """
 
     host: str
@@ -101,18 +82,12 @@ def processes(
     rpc_port: int,
     master_port: int,
 ) -> tuple[Process, ...]:
-    """The processes that run ``plan``: the head first, then the workers in plan order.
+    """The processes that serve this plan, the serving one first.
 
-    ``port`` is where the head answers. ``rpc_port`` is the first port a
-    llama.cpp worker listens on and ``master_port`` where vLLM's nodes
-    rendezvous; each is the other engine's and ignored by it. ``weights`` is the
-    model file llama.cpp loads; vLLM resolves its model by repository id in the
-    rig's cache, which is the renderer's.
-
-    Refused, by ``model``'s name: a plan that does not fit (a launch is the
-    claim that it does), a plan of one card (an ordinary unit serves that), a
-    plan whose shards are not in the order its engine numbers devices, a worker
-    that cannot be bound to an address, and ports that collide.
+    A plan that does not fit is refused rather than started to fail at load,
+    and a plan of fewer than two cards is not a split to launch. The engine
+    the plan was sized for picks the shape: llama.cpp gives a head server and
+    its rpc workers, vLLM one process per machine.
     """
     if not plan.fits:
         raise LaunchError(
@@ -148,7 +123,7 @@ def processes(
 
 
 def _same(host_a: str, host_b: str) -> bool:
-    """Host names compare as the sizing compares them: without case."""
+    """Whether two host names name the same machine, ignoring case."""
     return host_a.lower() == host_b.lower()
 
 
@@ -157,25 +132,21 @@ def _pinned() -> dict[str, str]:
 
 
 def worker_may_listen(address: ipaddress.IPv4Address) -> bool:
-    """Whether an ``rpc-server`` worker may listen on ``address``: not the
-    address that means every interface, not loopback, and not one reachable
-    from the internet. A private (RFC 1918), shared (RFC 6598, as overlay
-    networks use) or link-local address may. The one rule :func:`_bind` holds
-    a worker to and the rig file holds a recorded address to."""
+    """Whether a worker on another machine may bind this address.
+
+    rpc-server has no authentication, so the address must be one the head
+    reaches that worker at and nothing wider: not every interface, not
+    loopback, and not an address the internet can reach.
+    """
     return not (address.is_unspecified or address.is_loopback or address.is_global)
 
 
 def _bind(target: Target, *, model: str) -> str:
-    """The IPv4 address a worker on this card's machine listens on.
+    """The IPv4 literal a worker on this card's machine listens on for the head.
 
-    ``rpc-server`` binds only an IPv4 literal, and it is unauthenticated, so
-    the address is the one the unit stated or the host when that already is one.
-    A name is not guessed into an address (resolving it would answer with
-    whatever the resolver says today), and the address that means every
-    interface is the one thing this must never be. Nor is a globally routable
-    one: whoever reached it would have the card's memory and compute. A private
-    (RFC 1918), shared (RFC 6598, as overlay networks use) or link-local
-    address is accepted.
+    What the shard states as ``bind``, or the target's host when it states
+    none; either way it must be an IPv4 literal, because rpc-server binds
+    one.
     """
     stated = target.bind if target.bind is not None else target.host
     where = f"card {target.gpu} of {target.host}"
@@ -230,7 +201,14 @@ def _llama(
     n_ubatch: int,
     rpc_port: int,
 ) -> tuple[Process, ...]:
-    """The llama.cpp head and, for each card of another machine, its worker."""
+    """The head server and one rpc worker per card of another machine.
+
+    llama.cpp numbers its devices in the plan's order -- the cards reached
+    over RPC first, then the head's own -- so a plan whose cards are in
+    another order is refused rather than split onto the wrong cards. Each
+    worker machine counts its rpc ports from ``rpc_port`` up, one card per
+    port, and the head is handed the resulting endpoints as ``--rpc``.
+    """
     if plan.grid.split is None:
         raise LaunchError(f"{model}: a llama.cpp plan states no --split-mode")
     local = _head_shards(plan, model=model)
@@ -247,14 +225,14 @@ def _llama(
             f"for {len(plan.shards)} cards"
         )
 
-    # Flags the ordinary llama.cpp unit writes, so one model split and one not
-    # are launched alike; no --n-cpu-moe, because a split keeps every block on
-    # its cards.
+    # The head server's flags: what an ordinary one-card unit is given, with
+    # the plan's context, batch, slot and cache figures, plus the split the
+    # plan sized across the cards this launch holds.
     args: dict[str, str] = {
         "--model": str(weights),
-        # Every layer, the output layer included, is on a card: a layer
-        # split's counts are stated over all of them, and a smaller -ngl would
-        # leave the first blocks on the host and shift every other one.
+        # Every block the plan puts on a card, plus the one output layer: any
+        # smaller count would leave the first blocks on the host and shift
+        # every other block onto a card it was not sized for.
         "-ngl": str(len({b for shard in plan.shards for b in shard.blocks}) + 1),
         "-c": str(plan.ctx_per_slot * plan.slots),
         "-ub": str(n_ubatch),
@@ -316,7 +294,17 @@ def _vllm(
     cache_type_k: str,
     master_port: int,
 ) -> tuple[Process, ...]:
-    """One vLLM process per machine, the head's serving and the rest headless."""
+    """One process per machine, the head's machine first and the one answering.
+
+    Machines are ranked in the order their first card appears in the plan,
+    and a plan whose first card is not on the head's machine is refused,
+    vLLM's first node being the one that answers. Every node states the
+    plan's tensor and pipeline sizes, and a pipeline of more than one stage
+    is told the plan's layer partition through the environment. A grid over
+    several machines also states the backend, node count, rank and
+    rendezvous, and starts every node but the first with ``--headless``; a
+    grid on one machine states none of them.
+    """
     hosts: list[str] = []
     for shard in plan.shards:
         if not any(_same(shard.target.host, seen) for seen in hosts):
@@ -377,7 +365,11 @@ def _vllm(
 
 
 def _master_addr(head: tuple[Shard, ...], *, model: str) -> str:
-    """Where node zero is reached: a stated ``bind``, else the head's host name."""
+    """The address the head's machine is reached at for the vLLM rendezvous.
+
+    The first ``bind`` the head's cards state, when one of them states it,
+    otherwise the head host as the plan names it.
+    """
     for shard in head:
         if shard.target.bind is not None:
             try:

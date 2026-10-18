@@ -1,18 +1,13 @@
-"""The numbers mcgyvr sizes and judges a machine with, and where each one comes from.
+"""The numbers mcgyvr sizes and judges a machine with that it cannot read.
 
-Some numbers cannot be read off the machine or the model: how far a healthy
-unit's speed varies between starts, how much host memory a llama.cpp server
-holds beyond the experts it keeps there. mcgyvr ships an estimate of each in
-``data/numbers.json`` (inside the installed package, :func:`shipped_path`),
-keyed by something every machine has (a tolerance class, an engine) and never
-by a machine's name. The user may set their own value for any of them in
-``numbers.yaml`` in the config folder (:func:`overrides_path`); their value
-answers first.
-
-Nothing here falls back to a literal in code. A number that neither layer
-states is a named refusal (:class:`DerivedNumbersError`) naming every missing
-number and key and the file where a value can be set, because a silent inline
-default is a number nobody stated for the machine in hand.
+Two files answer for a number: the estimates shipped with mcgyvr, and the
+user's own settings in ``numbers.yaml`` in the config folder, which answer
+first. Each entry is keyed by what every machine has (an engine, a unit's
+tolerance class, a class of link) and stated in a unit whose bounds are
+checked, so no answer is keyed by a machine's name. A number and key that
+neither file states is refused by name: none of them falls back to a default
+in code. Every answer carries the file it was read from, so a reader can tell
+a starting value from their own.
 """
 
 from __future__ import annotations
@@ -34,37 +29,42 @@ from mcgyvr.fleet.links import LINK_CLASSES
 from mcgyvr.fleet.tolerance import CLASSES
 from mcgyvr.strict_yaml import strict_loader
 
-#: The shipped estimates' file name, in the package's ``data`` folder.
+#: The shipped estimates' file name, in the package's data folder and a checkout's.
 NUMBERS_FILENAME = "numbers.json"
-#: The user's own settings' file name, in mcgyvr's own folder.
+#: The user's own numbers: the layer that answers before the shipped estimates.
 OVERRIDES_FILENAME = "numbers.yaml"
-#: The shape of the shipped file this code reads, stated as its ``schema``.
+#: The schema of the shipped file that this code reads, stated in the file itself.
 NUMBERS_SCHEMA = 1
-#: Where a checkout keeps the shipped file, for a mcgyvr run from its source.
+#: Where a checkout keeps the shipped file: the repository root's data folder.
 CHECKOUT_DATA = Path(__file__).resolve().parents[2] / "data"
 
-#: Which layer answered a number: the user's own setting, or the shipped estimate.
+#: Where an answer came from: the user's own setting, or the estimate shipped.
 Source = Literal["override", "estimate"]
 
 
 def _engine_choices() -> tuple[str, ...]:
-    """The engines a unit may name, spelled as the config's ``engine`` field is."""
+    """The engines the config schema accepts, for keying the numbers by engine.
+
+    Read off the config schema's own engine field rather than restated here, so
+    a number keyed by an engine follows whatever engines the schema accepts. A
+    schema with no engine field is a fault of this module, so it asserts.
+    """
     for field in UNIT_FIELDS:
         if field.name == "engine":
             return field.choices
     raise AssertionError("the config schema names no engine field")
 
 
-#: The closed spaces a number may be keyed by, each read from the code that
-#: owns it. Every key of the shipped file and of the user's file is a member
-#: of its number's space, so a machine's name can never become a key.
+#: The keys a number may be stated under, named by the ``key`` field of its entry:
+#: the tolerance classes, the config schema's engines, and the link classes, each
+#: read from the module that defines it rather than spelled again here.
 KEY_SPACES: dict[str, tuple[str, ...]] = {
     "tolerance_class": CLASSES,
     "engine": _engine_choices(),
     "link_class": LINK_CLASSES,
 }
 
-#: The units a number may be stated in: each one's bound, and the bound in words.
+#: Each unit, with the test a value in it passes and the words a refusal names it by.
 _BOUNDS: dict[str, tuple[Callable[[float], bool], str]] = {
     "percent": (lambda value: 0.0 < value < 100.0, "above 0 and below 100"),
     "GiB": (lambda value: value >= 0.0, "0 or more"),
@@ -74,16 +74,16 @@ _BOUNDS: dict[str, tuple[Callable[[float], bool], str]] = {
 UNITS: tuple[str, ...] = tuple(_BOUNDS)
 
 
-#: What a number the product sizes, judges, refuses, waits or picks with is, as
-#: the shipped file's ``constants`` block says of each one still written in
-#: code: a fact (true on any machine), a choice of the product, or an estimate
-#: (a starting value that another machine may prove wrong). The loader reads
-#: only the ``numbers`` block; the ``constants`` block is held to these lists by
-#: the check that every such number says what it is.
+#: The kinds a number written in mcgyvr's code can be, as the ``constants`` block
+#: of the shipped file names each one: a fact about the world or the package, a
+#: choice of mcgyvr's that a setting may change, or an estimate still waiting for
+#: an id in the ``numbers`` block. The file is written in these words and this
+#: module keeps them, so a reader of the one and of the other meets one spelling;
+#: no number of the ``numbers`` block is anything but an estimate.
 NUMBER_KINDS: tuple[str, ...] = ("fact", "choice", "estimate")
 
-#: What makes a fact true on any machine. Every fact names one of these, so no
-#: number becomes a fact by saying so.
+#: The reasons an entry of the file may give for calling a constant a fact: each
+#: names what settles the value, so that mcgyvr is not the one choosing it.
 FACT_REASONS: tuple[str, ...] = (
     "a definition or arithmetic",
     "the specification of a format, protocol or tool",
@@ -91,16 +91,16 @@ FACT_REASONS: tuple[str, ...] = (
     "the layout of the package or its checkout",
 )
 
-#: Where a user sets a choice, or an estimate still in code: a key of the
-#: config, a field of a contract, or a command line flag. An entry's ``set_by``
-#: is one of these words, a space, and the key or the flag.
+#: The sources a setting may come from, as the first word of a ``set_by`` of the
+#: shipped file: a setting in the config, a unit's contract, or a launch flag.
+#: A choice whose value no setting changes carries no ``set_by`` at all.
 SETTING_SOURCES: tuple[str, ...] = ("config", "contract", "flag")
 
-#: The reason a choice gives when it repeats another entry, which it then names.
+#: The reason a ``choice`` entry gives when it only repeats another entry's value.
 DUPLICATE_REASON = "a duplicate of another entry"
 
-#: Why a choice has no setting a user can change. A choice names one of these
-#: or how it is set, never neither, so no number becomes a choice by saying so.
+#: Why a ``choice`` entry may be a choice: mcgyvr made the call, since nothing
+#: outside it settles the value; a duplicate of another entry is stated as one.
 CHOICE_REASONS: tuple[str, ...] = (
     "a protocol or tool default",
     "a code or version other programs or files read",
@@ -117,46 +117,50 @@ CHOICE_REASONS: tuple[str, ...] = (
 )
 
 
-#: The number for the host memory a llama.cpp server holds beyond the experts
-#: it keeps on the host, and its one key: llama.cpp, the engine whose expert
-#: offload the sizing prices.
+#: The host memory a llama.cpp server holds beyond the experts it keeps in host
+#: memory, and the engine key it is stated under: charged only to such a unit, and
+#: never to a unit of another engine.
 RUNTIME_RESIDENT = "runtime_resident_gb"
 RUNTIME_RESIDENT_KEY = "llama.cpp"
 
-#: The number for the card memory a rank holds beyond its weights and KV pool,
-#: keyed by the engine.
+#: The card memory each shard of a tensor split holds beyond its share of the
+#: weights and its cache, stated for each engine.
 SHARD_ALLOWANCE = "shard_allowance_gib"
 
-#: The numbers for a link's bandwidth and its latency, keyed by link class.
+#: The two numbers of a link, stated for the class of link the traffic crosses.
 LINK_GIB_S = "link_gib_s"
 LINK_LATENCY_US = "link_latency_us"
 
-#: The engines whose host memory figure is to be read on the user's machine and
-#: is never shipped: no layer is asked for it, nothing is charged for it until
-#: it is read, and every sizing of a unit of one of them says so.
+#: The engines whose host memory figure is read off the model's geometry instead
+#: of being shipped as a number: their entry of ``RUNTIME_RESIDENT`` is never
+#: asked for, so a user's setting of it is reported unused and not priced in.
 RUNTIME_RESIDENT_READ: tuple[str, ...] = ("vllm",)
 
 
-#: How a refusal spells a value it was given: a few levels, items and characters
-#: of it, never all of it, so a value the YAML reader builds far larger than its
-#: text (one alias repeated inside another) is refused as fast as any other.
+#: How much of a value a refusal spells: ``reprlib`` cut to two levels and a few
+#: entries a collection, 60 characters of any one string, number or other value, so
+#: a refusal stays about the size of the file that caused it.
 _SHOWN = reprlib.Repr(
     maxlevel=2, maxdict=4, maxlist=4, maxset=4, maxstring=60, maxlong=60, maxother=60
 )
 
 
 def _shown(value: object) -> str:
-    """``value`` as a refusal spells it: its ``repr``, cut short when it is long."""
+    """``value``'s repr, cut short the way a refusal spells a value."""
     return _SHOWN.repr(value)
 
 
 class DerivedNumbersError(Exception):
-    """A number was asked for and no layer states it, or a layer cannot be read."""
+    """A number could not be read, was stated wrongly, or is stated nowhere."""
 
 
 @dataclass(frozen=True)
 class Number:
-    """One number's answer for one key, and the layer and file that gave it."""
+    """One number answered for one key, and the file that answered it.
+
+    ``source`` is the layer that stated it, the user's own setting or the
+    estimate shipped with mcgyvr, and ``where`` is that layer's file.
+    """
 
     id: str
     key: str
@@ -166,14 +170,11 @@ class Number:
     where: Path
 
     def says(self) -> str:
-        """The answer: value, unit, the layer and file, then the setting as YAML.
+        """The number as a sentence: what it is, the file, and how to set it.
 
-        The setting after the blank line is what the user's file holds, or
-        would hold, for this number and key (its name, then the key and value
-        indented below it), so it can be copied into that file as it is. An
-        estimate adds where to write your own; your own setting does not. The
-        value is stated once, as the setting spells it, and the head repeats
-        that same text, so the two never differ by a rounding.
+        An answer from the shipped estimate also spells the setting to write in
+        the user's own file, with their value in place of the shipped one; an
+        answer from that file already is what they wrote, so it does not.
         """
         setting = yaml.safe_dump(
             {self.id: {self.key: self.value}}, default_flow_style=False
@@ -191,11 +192,11 @@ class Number:
 
 
 def shipped_path() -> Path:
-    """The shipped estimates: the package's own copy first, a checkout's second.
+    """The shipped numbers file: the package's own copy, else a checkout's.
 
-    An installed mcgyvr finds the file inside the package; one run from its
-    source finds it in the checkout's ``data`` folder. With neither, the
-    numbers are refused by name and read from nowhere else.
+    The packaged copy is looked for first, so an installed mcgyvr finds the file
+    inside itself; a checkout without that copy finds it beside ``src``. With
+    neither, the numbers are refused rather than read from anywhere else.
     """
     packaged = resources.files("mcgyvr") / "data" / NUMBERS_FILENAME
     if packaged.is_file():
@@ -211,27 +212,21 @@ def shipped_path() -> Path:
 
 
 def overrides_path() -> Path:
-    """The user's own settings file: ``numbers.yaml`` in the config folder.
-
-    The one place that says where it is. It depends on no config, working
-    folder, command line flag or live fleet, so every command reads the same
-    file. A HOME that cannot be resolved raises ``RuntimeError`` before there
-    is a path to name, as it does for every reader of mcgyvr's own folder.
-    """
+    """Where the user's own numbers live: ``numbers.yaml`` in the config folder."""
     return roots.home() / OVERRIDES_FILENAME
 
 
-#: What reading the shipped JSON raises for text it cannot read: ``ValueError``
-#: for invalid JSON or a number too long to read, ``RecursionError`` for
-#: nesting deeper than the reader goes.
+#: What ``json.loads`` raises on text it cannot read, besides the refusal this
+#: module makes itself through its hooks: a document that is not JSON, and the
+#: recursion limit reached on text nested too deep to be built.
 _UNREADABLE_JSON: tuple[type[Exception], ...] = (ValueError, RecursionError)
 
-#: What reading the user's YAML raises for text it cannot build into values:
-#: ``yaml.YAMLError`` for YAML that does not parse and ``ValueError`` for a
-#: number too long to read, and, from PyYAML's own constructors, ``LookupError``
-#: (``!!int ''``, ``!!bool 'maybe'``), ``AttributeError`` (``!!timestamp 'abc'``)
-#: and ``TypeError`` (``!!map [1]``) for an explicit tag on text it cannot mean,
-#: and ``RecursionError`` for nesting deeper than the reader goes.
+#: What ``yaml.load`` with the strict loader may raise on a file that is not the
+#: mapping of number names to keys and values this module reads: a malformed
+#: document, an error while building a value the document asks for (a lookup, an
+#: attribute or a type that is not there), and the recursion a file of nested
+#: aliases runs into. The strict loader's own refusal is a ``DerivedNumbersError``
+#: caught on its own, so these are the errors YAML raises around it.
 _UNREADABLE_YAML: tuple[type[Exception], ...] = (
     yaml.YAMLError,
     ValueError,
@@ -244,7 +239,13 @@ _UNREADABLE_YAML: tuple[type[Exception], ...] = (
 
 @dataclass(frozen=True)
 class _NotANumber:
-    """What JSON's ``NaN``, ``Infinity`` or ``-Infinity`` is read as: never a float."""
+    """A JSON constant where a number should be, kept as the spelling it had.
+
+    ``json.loads`` is handed this class as ``parse_constant``, so ``NaN``,
+    ``Infinity`` and ``-Infinity`` arrive as an instance rather than a float; a
+    value that is one is then refused as not a number, and its repr spells the
+    constant so the refusal quotes it.
+    """
 
     spelled: str
 
@@ -253,10 +254,10 @@ class _NotANumber:
 
 
 def _once_each(pairs: list[tuple[str, Any]]) -> dict[str, Any]:
-    """A JSON object's pairs as a dict, refused when a key is stated twice.
+    """``pairs`` as one object, refusing a key stated twice in it.
 
-    JSON would keep the last of a repeated key silently, so the file would not
-    mean what it looks like it means; the user's YAML is refused the same way.
+    Handed to ``json.loads`` as ``object_pairs_hook``, so the duplicate a JSON
+    object may hold is refused instead of silently keeping only the last value.
     """
     made: dict[str, Any] = {}
     for key, value in pairs:
@@ -270,11 +271,13 @@ def _once_each(pairs: list[tuple[str, Any]]) -> dict[str, Any]:
 
 
 def _load_shipped(path: Path | None) -> tuple[Path, dict[str, Any]]:
-    """The shipped layer's ``numbers`` object, refused by name when unreadable.
+    """The shipped numbers: the file read, and the entries of its ``numbers`` block.
 
-    A JSON object with no ``numbers`` object states no number: every ask is
-    then refused per number, not as a schema error. One that has a ``numbers``
-    object is read only when its ``schema`` is :data:`NUMBERS_SCHEMA`.
+    The file is ``path`` if given, else :func:`shipped_path`. Text that is not
+    UTF-8, not JSON, not a JSON object, or not of ``NUMBERS_SCHEMA`` is refused
+    by its path, and every entry is checked by :func:`_check_entry`. A document
+    with no ``numbers`` object states no numbers, and is read without checking
+    its schema.
     """
     where = shipped_path() if path is None else path
     try:
@@ -312,13 +315,12 @@ def _load_shipped(path: Path | None) -> tuple[Path, dict[str, Any]]:
 
 
 def _check_entry(number: str, entry: object, where: Path) -> None:
-    """Refuse, by name, a shipped entry with no known unit or keyed outside its space.
+    """Refuse an entry of the shipped file that is not one this code can read.
 
-    Its ``unit`` must be one of :data:`UNITS`, its ``key`` must name a space of
-    :data:`KEY_SPACES`, and every key of its ``values`` must be a member of that
-    space, so no entry can be keyed by a machine's name. Every entry is checked
-    on every read, asked for or not, and a broken one is reported against the
-    shipped file, even when the user's file sets it.
+    ``number`` names the entry and ``where`` the file. The unit must be one
+    ``_BOUNDS`` knows, the ``key`` must name a space of ``KEY_SPACES``, and the
+    ``values`` must be an object keyed only by that space's keys. What each value
+    is belongs to :func:`_checked`, which is asked when a value is answered for.
     """
     if not isinstance(entry, dict):
         raise DerivedNumbersError(f"{number} in {where} is not an object")
@@ -350,10 +352,11 @@ def _check_entry(number: str, entry: object, where: Path) -> None:
 
 
 def _checked(value: object, unit: str, what: str, where: Path) -> float:
-    """``value`` as a float when it is a finite number inside ``unit``'s bounds.
+    """``value`` as a float in ``unit``, refused by name if it is not one.
 
-    ``unit`` is one of :data:`UNITS`: every shipped entry's unit is checked
-    when the file is read (:func:`_check_entry`), before any value is.
+    ``what`` names the number and key, and ``where`` the file, so the refusal is
+    one sentence about the value it refuses. A bool is not a number here, and the
+    value must be finite and inside its unit's bounds.
     """
     if isinstance(value, bool) or not isinstance(value, (int, float)):
         raise DerivedNumbersError(
@@ -378,15 +381,13 @@ def _checked(value: object, unit: str, what: str, where: Path) -> float:
 def _load_overrides(
     shipped: Mapping[str, Any],
 ) -> tuple[Path, dict[tuple[str, str], float]]:
-    """The user's own settings, every one checked, keyed by (number, key).
+    """The user's own numbers: the file they are read from, and their values.
 
-    A file that is not there sets nothing. Every other failure is refused by
-    name with the file's path: unreadable, not UTF-8 text, not YAML, not a
-    mapping of numbers to mappings of keys to values, a number the shipped file
-    does not know, a key outside that number's key space, or a value that is
-    not a finite number inside its unit's bounds. The whole file is checked on
-    every read, so a typo in a number nobody asked for is refused too, never
-    silently ignored.
+    A file that is not there states nothing, and is not an error. ``shipped``
+    names the numbers, their key spaces and their units, so a number or key the
+    shipped file does not state is refused in the path of the user's file, as is
+    a value outside its unit's bounds; a key stated twice is refused by the
+    strict loader.
     """
     where = overrides_path()
     try:
@@ -447,7 +448,14 @@ def _resolve(
     *,
     sizing: str | None = None,
 ) -> dict[tuple[str, str], Number]:
-    """Every ask answered by the first layer that states it, or one refusal."""
+    """Answer every ``(number, key)`` asked for, refusing those nobody states.
+
+    Each answer is the user's own setting where their file states one, else the
+    shipped estimate. ``path`` replaces the shipped file, as a test's own file
+    does; ``sizing`` names what is being sized, so a refusal can say what was
+    under way. One refusal names every missing number and key together, both
+    files it looked in, and where to set a value.
+    """
     shipped_where, shipped = _load_shipped(path)
     user_where, settings = _load_overrides(shipped)
     answered: dict[tuple[str, str], Number] = {}
@@ -492,29 +500,20 @@ def _resolve(
 def lookup_all(
     asked: Sequence[tuple[str, str]], *, path: Path | None = None
 ) -> dict[tuple[str, str], Number]:
-    """Every (number, key) asked, each from the first layer that states it.
-
-    The user's own setting answers first, the shipped estimate second. When
-    any ask is stated by neither, one refusal names every missing number and
-    key, the shipped file, and the user's file where a value can be set.
-    ``path`` replaces the shipped file only; the user's file applies either
-    way. Each layer is read once per call.
-    """
+    """Answer each ``(number, key)`` of ``asked``, refusing if any is unstated."""
     return _resolve(asked, path)
 
 
 def lookup(number: str, key: str, *, path: Path | None = None) -> Number:
-    """One number for one key, from the first layer that states it."""
+    """Answer one ``number`` for one ``key``, refusing if no file states it."""
     return _resolve([(number, key)], path)[(number, key)]
 
 
 def runtime_resident_gb(host: str | None = None, *, path: Path | None = None) -> float:
-    """The host memory, in GiB, a llama.cpp server holds beyond its host-side experts.
+    """Host memory a llama.cpp server holds beyond the experts held in host memory.
 
-    What a sizing adds to the spilled experts when a llama.cpp unit keeps
-    expert blocks in host memory. The number is keyed by the engine, never by
-    the machine: ``host`` only names, in a refusal, the machine that was being
-    sized, and never changes the answer.
+    ``host`` names the machine being sized and is used only in a refusal, since
+    the number is keyed by engine and the key asked for is llama.cpp's.
     """
     asked = (RUNTIME_RESIDENT, RUNTIME_RESIDENT_KEY)
     return _resolve([asked], path, sizing=host)[asked].value
@@ -523,34 +522,27 @@ def runtime_resident_gb(host: str | None = None, *, path: Path | None = None) ->
 def shard_allowance_gib(
     engine: str, *, sizing: str | None = None, path: Path | None = None
 ) -> float:
-    """The card memory, in GiB, a rank of ``engine`` holds beyond its weights and KV.
+    """The card memory, in GiB, each shard of ``engine``'s tensor split holds.
 
-    What a sizing adds to each shard's weights, cache and state for the engine's
-    own working memory (its CUDA context, activation peak, graph pools and
-    collective buffers). Keyed by the engine, never by the machine: ``sizing``
-    only names, in a refusal, what was being sized, and never changes the answer.
+    ``sizing`` names the unit being sized, so a refusal names it too.
     """
     asked = (SHARD_ALLOWANCE, engine)
     return _resolve([asked], path, sizing=sizing)[asked].value
 
 
 def user_setting(number: str, key: str, *, path: Path | None = None) -> Path | None:
-    """The user's own file when it sets ``number`` for ``key``, else ``None``.
+    """The file the user sets ``number`` for ``key`` in, or ``None`` if they set none.
 
-    It says only that the user's file sets it, never the value, and asks the
-    shipped layer for nothing but what the user's file is checked against.
-    The sizing asks it of an engine of :data:`RUNTIME_RESIDENT_READ`,
-    whose figure no layer answers, to say that a setting of it is not used.
-    The whole file is checked as on every read: one that cannot be read is
-    refused by name.
+    Both files are read to answer, so a malformed one is refused here as it is
+    when a number is asked for.
     """
     _, shipped = _load_shipped(path)
     where, settings = _load_overrides(shipped)
     return where if (number, key) in settings else None
 
 
-#: A judged field -> the number that states its percent per tolerance class.
-#: Each field has its own: prefill is not judged by warm decode's.
+#: The two tolerance numbers, by the unit field each one judges: how far, in percent,
+#: a healthy unit's speed of that field may fall from one start of the unit to the next.
 CLASS_PCT_ENTRIES: dict[str, str] = {
     "warm_decode_tok_s": "warm_decode_class_pct",
     "prefill_tok_s": "prefill_class_pct",
@@ -560,12 +552,10 @@ CLASS_PCT_ENTRIES: dict[str, str] = {
 def class_tolerance_numbers(
     *, path: Path | None = None
 ) -> dict[str, dict[str, Number]]:
-    """Judged field -> tolerance class -> its number, with the layer that gave it.
+    """Both tolerance numbers, by unit field and by tolerance class, with their file.
 
-    Every class of :data:`mcgyvr.fleet.tolerance.CLASSES` is asked for each
-    judged field of :data:`CLASS_PCT_ENTRIES`; any that no layer states is
-    refused by name, all of them in one refusal, so no judge guesses a number
-    or borrows another field's.
+    Every class of ``CLASSES`` is asked for, so a class that neither the shipped
+    file nor the user's states is refused by name.
     """
     asked = [(entry, name) for entry in CLASS_PCT_ENTRIES.values() for name in CLASSES]
     answered = _resolve(asked, path)
@@ -576,14 +566,7 @@ def class_tolerance_numbers(
 
 
 def class_tolerances(*, path: Path | None = None) -> dict[str, dict[str, float]]:
-    """Judged field -> tolerance class -> the percent that field may fall.
-
-    ``warm_decode_tok_s`` is what a live probe judges a unit's warm decode
-    against, and what locking a fleet allows a unit's warm decode to fall
-    below the baseline its evidence states. ``prefill_tok_s`` is what a live
-    probe judges its prefill against. The values of
-    :func:`class_tolerance_numbers`, without their layers.
-    """
+    """Both tolerance numbers as plain percentages, by unit field and class."""
     return {
         field: {name: number.value for name, number in by_class.items()}
         for field, by_class in class_tolerance_numbers(path=path).items()

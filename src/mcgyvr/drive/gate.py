@@ -1,4 +1,25 @@
-"""The gate half of the drive seam: judging, ceiling, and the verifier."""
+"""The gate as the driver asks it of a sandbox.
+
+``gate_workspace`` is the one function an attempt and the delivery path both
+gate a change through: it refuses a workspace that holds a nested git entry,
+and otherwise runs the gate over the tree the model left — the contract's scope
+and the secret scan first, then the structured-data check, the language
+adapters, the output-evidence rungs, the type check, the semantic rung and the
+contract's acceptance commands, each skipped once an earlier one has recorded a
+finding, with the contract's prose passed to the rungs that read it.
+``gate_prose_workspace`` is the narrow form a prose or media reply gets, where
+only the output rungs apply.
+
+The rest of the module is what the attempt loop composes around those two: a
+reply written into a fresh sandbox (``gate_in_sandbox``), a format-only
+rejection tidied and gated again (``_cleaned``), a rejected tree repaired by
+the deterministic tools and gated again (``_repair_and_regate``), the
+reviewer's JEV check asked of the winning draw alone (``_typed_checks``), and
+the reviewer's calls sent through the waker so a card that was slept is woken
+for them (``_through``). ``task_ceiling``, ``acceptance_for``,
+``output_checks_for`` and ``gate_adapters`` are the seams that turn a contract
+and a config into the inputs those rungs take.
+"""
 
 from __future__ import annotations
 
@@ -34,13 +55,13 @@ if TYPE_CHECKING:  # pragma: no cover - typing only
 
 
 def _jev_for(builder: str, reviewing: Reviewer | None) -> JevCheck | None:
-    """The gate's typed-question rung, asked of ``builder``'s reviewer, or ``None``.
+    """The reviewer's JEV check, or ``None`` when it is not the one to ask.
 
-    ``None`` where there is no reviewer, where it has no typed seam, and where
-    it is not independent of the builder: the rung's questions are asked of
-    the reviewer, and a model judging its own added lines is the self-review
-    :func:`~mcgyvr.verify.verify` refuses before a verdict — so it is refused
-    before the gate's questions too, before anything is spent.
+    The check is asked only of a reviewer that was settled and whose model
+    identity differs from the builder's: a model is not shown its own build to
+    judge. ``None`` here means the typed rung does not run at all, which is why
+    the caller carries the value as ``JevCheck | None`` rather than as an empty
+    check that would answer nothing.
     """
     if reviewing is None or not independent(builder, reviewing.model):
         return None
@@ -50,17 +71,16 @@ def _jev_for(builder: str, reviewing: Reviewer | None) -> JevCheck | None:
 def _through(
     waker: Waker | None, reviewer: Reviewer, *, jev_resident: bool = False
 ) -> Reviewer:
-    """``reviewer`` with every seam sent through ``waker``, as a builder's is.
+    """A reviewer whose calls are sent through the waker for its own unit.
 
-    The same :meth:`~mcgyvr.wake.Waker.dispatching` the builder's dispatch
-    goes through, keyed by the unit the reviewer runs on: a refused port wakes
-    that card once and the ask is sent again. ``waker`` is ``None`` for a
-    config that did not enable sleep and wake, and then nothing changes.
-
-    ``jev_resident`` says a ``jev.unit`` answers the typed seams (``decide`` and
-    the Jev rung): that unit is resident and never woken (owner ruling), so
-    those seams go around the waker and only the prose ``ask`` still goes
-    through it. A typed decision never wakes anything first.
+    A reviewer with no unit — one reached by a command rather than by a rung the
+    waker holds a card for — comes back as it is, and so does every reviewer
+    when no waker was handed in. Otherwise ``ask`` and ``decide`` are wrapped in
+    :meth:`~mcgyvr.wake.Waker.dispatching`, so a card that was put to sleep is
+    woken before the call is sent, and a refusal is retried once the wake has
+    run. ``jev_resident`` says the JEV unit is bound and so never slept: its
+    ``decide`` is left unwrapped, since a wake around a resident unit would spend
+    a round trip on a call that cannot be refused.
     """
     if waker is None or reviewer.unit is None:
         return reviewer
@@ -90,18 +110,19 @@ def _typed_checks(
     bound: Accepted,
     jev: JevCheck | None,
 ) -> tuple[GateResult, Accepted]:
-    """Ask the reviewer's typed checks of the accepted change, once.
+    """Ask the reviewer's JEV check of the winning draw, once it was accepted.
 
-    The gate's Jev rung, run here rather than inside every draw's gate: each
-    question is a request to the reviewer, and a draw the gate rejected, or
-    one that lost to another draw, is not worth one. Nothing is asked of a
-    change the gate did not accept.
+    The check reads the workspace's change, so the winner is written back into a
+    reset sandbox first: whichever tree the sandbox was left holding, the text
+    the check reads is ``bound.content`` and nothing else. The report's findings,
+    observations and environment issues are folded into the gate result and the
+    report is carried on ``jev``; the content is then read back out of the
+    workspace, so what the caller delivers is the tree the check saw.
 
-    The winning bytes are written back into the workspace — ``best_of`` has
-    restored it after every draw — so the rung reads the added lines from the
-    tree, as it does inside the gate, and the binding is minted again from that
-    tree with the answers in it, the verdict and its bytes moving together as
-    :func:`_cleaned` moves them.
+    Nothing is asked when there is no check, or when the gate refused: a
+    rejected change has no accepted draw for a typed verdict to be about. A
+    ``JevCheck`` is non-blocking by default, so what it says arrives as
+    observations and this cannot turn an acceptance into a rejection.
     """
     if jev is None or not gate.accepted:
         return gate, bound
@@ -129,32 +150,13 @@ def _cleaned(
     adapters: Sequence[LanguageAdapter] | None = None,
     config: Config | None = None,
 ) -> tuple[GateResult, Accepted]:
-    """Tidy the winning draw, and re-judge it when the tidy-up changed it.
+    """Tidy a format-only rejection with the deterministic cleaner, and regate.
 
-    The verdict and the binding move together or not at all, which is the whole
-    reason this is one function rather than two lines at the call site. A
-    :class:`~mcgyvr.cleanup.Cleanup` reports :attr:`~mcgyvr.cleanup.Cleanup.regate`
-    when the bytes it hands back were rewritten, and its own
-    :attr:`~mcgyvr.cleanup.Cleanup.accepted` is the verdict about the bytes that
-    went *in* — deliberately, because behind a format rejection the gate stopped
-    before its typecheck, semantic and acceptance rungs and this module has no
-    idea what they would have said. Carrying that verdict forward beside the new
-    file would be a verdict about bytes that are not the file's.
-
-    So the answer to ``regate`` is a gate run, not a re-read. ``gate_in_sandbox``
-    writes the cleaned bytes into the workspace and judges what is now there,
-    and the binding is minted from that same tree — so the pair that leaves here
-    is a verdict and the file it was computed over, as the pair that arrived was.
-
-    ``tidy`` is handed :attr:`~mcgyvr.deliver.Accepted.content` rather than a
-    string carried from the reply, and ``repo`` is the sandbox workspace rather
-    than the user's checkout: the tree whose formatter configuration decides what
-    clean means has to be the tree the gate checked, or the cleanup tidies a file
-    into a shape the gate then complains about.
-
-    One pass, not a loop. ``ruff format`` is a fixed point, so a second cleanup
-    over the first one's output would rewrite nothing; a loop would be a retry
-    budget nobody declared, inside an attempt that already has one.
+    ``tidy`` rewrites the bound text only where the verdict is one the
+    formatter itself raised, so a rejection on anything else comes back with
+    ``regate`` false and the result and the bound value are returned untouched.
+    A tidied text is gated again in the sandbox, and the verdict and the content
+    come from that second run rather than from the first.
     """
     cleanup = _drive.tidy(
         content=bound.content,
@@ -180,23 +182,17 @@ def _repair_and_regate(
     adapters: Sequence[LanguageAdapter] | None = None,
     config: Config | None = None,
 ) -> GateResult:
-    """Repair and re-gate, on the same rung and with no model retry.
+    """Repair a rejected workspace with the deterministic tools, and regate it.
 
-    The gate judges and never writes; :func:`mcgyvr.repair.repair` writes and
-    never judges — the declared imports, the linter's own autofixes and the
-    formatter, over the contract's scope and nothing else. A rejected draw is
-    repaired in place and judged again before the ladder spends anything,
-    under ``cleanup.enabled``, which is on unless an install says otherwise.
+    ``repair`` runs the tools over the tree the model left; where it rewrote a
+    file, the repaired tree is gated again and the verdict returned is the
+    regate's, not the one that was rejected. Each rewritten path also arrives as
+    a style observation saying that the tools changed the file before the
+    verdict, so a reader knows the delivered tree is the repaired one rather
+    than the reply.
 
-    The tree is what is delivered. ``best_of`` mints the winner's binding off
-    this sandbox one line after this returns, so an accepted verdict here is
-    a verdict about the repaired bytes and the file that leaves is the file
-    that was judged; the reply the model sent is in the journal. When the
-    tools changed nothing the first verdict stands unrepeated — a second
-    gate over identical bytes is a subprocess for an answer already in hand.
-    A repair that ran is said out loud as an observation, so a reader of the
-    row knows the delivered file is not the reply verbatim; what the repair
-    could not run rides along as an environment issue.
+    A repair that changed nothing leaves the rejection standing as it was, with
+    whatever environment issues the repair reported appended to it.
     """
     from mcgyvr.gate.findings import Finding
     from mcgyvr.gate.typecheck import STYLE
@@ -238,23 +234,15 @@ def gate_in_sandbox(
     adapters: Sequence[LanguageAdapter] | None = None,
     config: Config | None = None,
 ) -> GateResult:
-    """Write ``content`` as the contract's target in ``sandbox`` and gate it.
+    """Gate ``content`` as the contract's target, in a reset sandbox.
 
-    Shared by both tiers, which is the point: a change is judged by the same
-    rungs whether a program produced it or a model did, and a floor with its own
-    weaker gate would make "the deterministic tier is cheap" mean "the
-    deterministic tier is unchecked".
-
-    The write is through ``surrogateescape``: a reply is text that came off a
-    socket and may carry bytes no codec round-trips, and a writer that raised
-    on them would fail the attempt for the one reason the worker cannot do
-    anything about.
-
-    The acceptance commands are the contract's own, split by
-    :attr:`~mcgyvr.contract.Contract.acceptance_commands`, and they run inside
-    this sandbox — never on the host. That is the whole reason the gate takes an
-    :class:`~mcgyvr.gate.acceptance.Acceptance` bound to a sandbox rather than a
-    list of commands.
+    The text is written to the target's path inside the workspace — confined to
+    the workspace, parents created, and encoded with ``surrogateescape`` so a
+    byte that is not valid UTF-8 survives the round trip — and the whole gate is
+    then run over that tree. The gate is reached through the package's name, so
+    a caller that substitutes ``mcgyvr.drive.gate_workspace`` is answered by its
+    own version: this is the seam a test judges a change it already holds
+    through, with no model in the way.
     """
     sandbox.reset()
     target = inside(sandbox.workspace, contract.target)
@@ -264,24 +252,12 @@ def gate_in_sandbox(
 
 
 def task_ceiling(config: Config | None = None) -> float | None:
-    """The policy's ``task_timeout_s``, or ``None`` where no config settles it.
+    """The task ceiling in seconds, or ``None`` when nothing declares one.
 
-    A contract's acceptance command runs any program it names, and this is the ceiling
-    one that hangs is held to.
-
-    ``config`` is the run's own — the one ``--config`` named — and when a caller
-    holds one it is the only answer: a run judged under another setup's ceiling
-    is judged under a budget nobody gave it. A caller holding none gets the
-    config at the default location.
-
-    A *missing* default config is not an error here: refusing a gate because
-    there is no config would make the ceiling a requirement rather than a
-    bound, and a bare install is supported. No config means no declared
-    ceiling, which is what `None` says. A config that is *there* and does not
-    load is the other situation and raises (owner ruling): it is a ceiling the
-    operator wrote, and reading it as "no ceiling" hands a contract's arbitrary
-    shell no wall clock at all — silently, on the one surface a user is asked
-    to edit.
+    The value is the config's ``task_timeout_s``. With no config handed in, one
+    is loaded here, and a missing config file answers ``None`` rather than
+    raising: a caller asking how long a command may run is not the thing that
+    failed.
     """
     if config is None:
         from mcgyvr.config import ConfigMissingError, load
@@ -297,13 +273,12 @@ def task_ceiling(config: Config | None = None) -> float | None:
 def acceptance_for(
     contract: Contract, sandbox: Sandbox, *, config: Config | None = None
 ) -> Acceptance | None:
-    """The contract's acceptance rung, bound to ``sandbox`` and to the ceiling.
+    """The contract's acceptance rung, or ``None`` when it names no commands.
 
-    ``None`` when the contract declares neither list — there is nothing to run
-    and nothing to time. Built here rather than inside `Gate` because only this
-    layer holds the open sandbox, and read by both the preflight in
-    `cli._climb` and by :func:`gate_workspace`, so the commands a run is judged
-    on are the commands its baseline was taken with.
+    Acceptance commands and demonstration commands both count: a contract that
+    declares either has something to run, and either way the commands run in the
+    sandbox, held to the task ceiling. ``None`` means the rung is not wired at
+    all, so the gate never runs one.
     """
     if not (contract.acceptance_commands or contract.demonstration_commands):
         return None
@@ -316,12 +291,13 @@ def acceptance_for(
 
 
 def output_checks_for(contract: Contract, workspace: Path) -> OutputChecks | None:
-    """The gate's output-checks rung, or ``None`` when the contract declares none.
+    """The output-evidence rungs a contract declares, or ``None`` for none.
 
-    Only the three structural evidence kinds the gate makes itself are mapped
-    here; the command-producing kinds have their own rungs. Built beside
-    :func:`acceptance_for` rather than inside ``Gate`` because the declared
-    evidence and the workspace are what this layer holds.
+    Only ``media_valid``, ``safety_pass`` and ``asr_wer`` are rungs the output
+    check implements, and they run in that order whatever order the contract's
+    evidence names them in; the declared names are read as a set, so a name
+    declared twice is still one rung. ``None`` when the contract declares none
+    of them — a coding contract produces no output for these to read.
     """
     declared = set(contract.evidence_names)
     checks = tuple(
@@ -340,13 +316,13 @@ def output_checks_for(contract: Contract, workspace: Path) -> OutputChecks | Non
 
 
 def gate_prose_workspace(contract: Contract, sandbox: Sandbox) -> GateResult:
-    """Judge a raw-text reply by the contract's output checks and nothing else.
+    """Gate a prose or media reply: the output rungs, and nothing else.
 
-    A raw-text reply is the answer itself, not a file to be tidied, repaired or
-    verifier-reviewed. The only bar it must clear is the structural output
-    evidence the contract declares — a media artifact's ``media_valid`` — and a
-    ``chat`` or ``agent`` session, which declares none, is accepted with no gate
-    at all (owner, e2e run 2 R11: "agent and chat have no gates").
+    A prose or media reply changes no source, so the one rung it faces is the
+    output-evidence rung. A contract that declares no output evidence is
+    answered with an empty result, and an empty result is an acceptance: a
+    ``GateResult`` is accepted when it holds no findings and no inconclusive
+    rung. That is how a chat or agent reply runs no check at all.
     """
     rung = output_checks_for(contract, sandbox.workspace)
     if rung is None:
@@ -366,29 +342,21 @@ def gate_workspace(
     adapters: Sequence[LanguageAdapter] | None = None,
     config: Config | None = None,
 ) -> GateResult:
-    """Judge whatever is in ``sandbox`` right now against ``contract``.
+    """Run the whole gate over a sandbox's workspace, and return its verdict.
 
-    The half of :func:`gate_in_sandbox` that does not write, because the two
-    tiers arrive at a change differently and are judged identically. A model
-    hands back content and something has to put it on disk; a program on the
-    deterministic floor has already written the tree itself, and a gate that
-    insisted on being handed content would have to read the file back out and
-    write it again — two more chances for the bytes to stop being the bytes.
-
-    "Against ``contract``" includes the contract's own words
-    (``contract_text``). Two rungs can only be as right as what the contract
-    asked for — the acceptance commands, and ``param-mutation``, which rejects
-    a function for mutating its caller's object and has to stand down where the
-    contract *ordered* that.
-
-    With no ``adapters`` handed in, the gate's are the ones ``config`` asks for
-    (:func:`gate_adapters`), built here rather than handed down by the driver:
-    the adapters :func:`worker_attempt` holds also decide what a worker is sent.
+    A workspace holding a nested git entry is refused before any change is read:
+    host git would run that repository's config over the tree, so the change is
+    not accepted and the entry that caused it is named. Otherwise the gate is
+    handed the workspace's detected change, the contract's scope, its acceptance
+    and demonstration commands, a type check, the semantic rung, the output rungs
+    its evidence declares, and the contract's prose for the rungs that read it.
+    The adapters are the caller's when given and ``gate_adapters(config)``'
+    otherwise.
     """
     nested = nested_git(sandbox.workspace)
     if nested is not None:
-        # Before any host git reads the tree (owner ruling): a nested
-        # repository's config is run by the child git host git starts in it.
+        # A git entry below the workspace is a repository of its own, and host
+        # git would run its config over this tree, so nothing is read here.
         return GateResult(
             findings=(
                 Finding(
@@ -405,20 +373,20 @@ def gate_workspace(
             )
         )
     acceptance = acceptance_for(contract, sandbox, config=config)
-    # The checkers that load code from the workspace's own configuration — the
-    # type checker's plugins, eslint's and prettier's config modules — run
-    # where the task's commands do, never on the host beside it.
+    # The acceptance rung runs the contract's own commands inside this sandbox,
+    # so a command reads the change and not the host, and it is held to the
+    # task ceiling rather than to a model's timeout.
     runner = SandboxRunner(sandbox)
     owners = adapters if adapters is not None else gate_adapters(config)
     return Gate(tuple(adapter.running_in(runner) for adapter in owners)).run(
         ChangeSet.detect(sandbox.workspace),
         contract.scope,
         acceptance=acceptance,
-        # The other two rungs `Gate.run` accepts. They are built here and not
-        # inside `Gate` because both need what only this layer holds: the open
-        # sandbox, and the workspace the declaration lives in. A repository
-        # that declares no checker still gets `None` from
-        # `TypeCheck.declared_command`, so the absence is not a rejection.
+        # The JEV rung is left out on purpose: it is a model, and the attempt
+        # loop asks it of the winning draw only, after a verdict has picked one
+        # (see ``_typed_checks``). Each rung passed here is skipped once a
+        # finding is recorded, in this order: output evidence, the type check,
+        # the semantic rung, and the acceptance commands last.
         typecheck=TypeCheck(repo=sandbox.workspace, runner=runner),
         semantic=SemanticCheck(sandbox=sandbox),
         output=output_checks_for(contract, sandbox.workspace),
@@ -427,13 +395,13 @@ def gate_workspace(
 
 
 def gate_adapters(config: Config | None) -> tuple[LanguageAdapter, ...]:
-    """The gate's language adapters as ``config`` asks for them.
+    """The language adapters the gate runs, with the setup's mutation mode.
 
-    The only setting they read is ``gate.param_mutation``; a caller holding no
-    config gets the strict reading, the same pair ``Gate()`` builds on its own.
-    That pair is spelled in four other places (``gate/runner.py``,
-    ``deliver.py``, ``orchestrator/decompose.py``, ``worker/bundle.py``); the
-    last two only ask which files an adapter owns, which no setting changes.
+    The Python adapter's reading of a function that changes a parameter it was
+    handed comes from ``gate.param_mutation`` and defaults to
+    ``ParamMutation.REFUSE``, the mode that refuses such a change; ``SKIP`` does
+    not look for it and ``REPORT`` reports it as style. The JavaScript adapter
+    takes no setting, and a caller with no config gets the defaults.
     """
     mode = (
         config.get("gate.param_mutation", ParamMutation.REFUSE)

@@ -1,42 +1,17 @@
-"""Typed decisions over a unit's next-token probabilities.
+"""Typed decisions read from a single token of an endpoint's reply.
 
-The Jev-class primitive: a caller hands a :class:`~mcgyvr.local_pool.Endpoint` some
-``state`` and a set of typed ``questions``, and gets back typed ``answers``
-with a probability per option — never prose. A :class:`Choice` picks one of
-several options, a :class:`Noul` answers yes or no, and a :class:`Score` rates
-on a rubric. Each is a bounded judgment, and the model is asked to produce it
-as a single token, so there is nothing to parse and no way to get an invalid
-class back.
+A question is one of three shapes: a Choice of named options, a Noul asking
+yes or no, or a Score rating on an ordered scale. build_prompt renders the
+state, the question and the labels a reply may use; classify sends that to an
+OpenAI-compatible chat completions endpoint for exactly one token with the log
+probabilities of the alternatives at that position, and answer_for turns the
+resulting distribution over the label tokens into a ChoiceAnswer, BoolAnswer
+or ScoreAnswer. A caller therefore gets a value together with the probability
+of every option and a confidence, instead of a string to parse.
 
-The mechanism is next-token probability, not generation. Every question
-becomes one chat prompt — the state, the question, and the options under
-single-token labels — sent with ``max_tokens: 1`` and ``logprobs``. The answer
-is read from the labels' probabilities in the reply's ``top_logprobs``, so a
-small model served by llama.cpp or vLLM answers a decision without ever
-composing a sentence. Labels are ``Yes``/``No`` for a :class:`Noul`, digits for
-a :class:`Score`, and letters for a :class:`Choice`.
-
-Two limits are named rather than hidden:
-
-* **A choice holds at most 62 options, and a score at most 10 levels.** Those
-  are the single-token labels this module can hand back (letters, then digits).
-* **``top_logprobs`` is capped at 20**, the value the OpenAI-compatible
-  servers agree on. A choice with more than 20 options cannot see every label
-  in one call: labels beyond the server's top 20 read as zero. Larger choices
-  want a two-stage ranking (shortlist, then re-judge), which is a caller's
-  decision, not this module's.
-
-The transport is :func:`~mcgyvr.runner._post_json` and
-:func:`~mcgyvr.runner._url_for`, the same wire path the runner uses, so a
-decision and a dispatch reach a unit identically: the unit is asked for a
-stream behind the scenes (:func:`mcgyvr.whole.asking`), so a hang-up reaches
-it at its next write, and the whole answer is assembled from it with the
-token's ``logprobs`` under its choice as the unit's answer not streamed
-carries them; a decision runs under the thread's
-:class:`~mcgyvr.runner.Hangup` and the dispatch deadline as any dispatch
-does. The only differences are in the request body: ``logprobs`` instead of
-a generation cap, and the template argument that turns a thinking model's
-thinking off for the one token asked (``chat_template_kwargs``).
+classify_role and classify_rung resolve an endpoint out of a SourceMap, and
+classify_for chooses between the two, preferring the jev role when a unit is
+bound to it.
 """
 
 from __future__ import annotations
@@ -54,36 +29,37 @@ from mcgyvr.runner import SERVER_SAMPLED, _post_json, _url_for, request_timeout
 if TYPE_CHECKING:  # pragma: no cover - typing only
     from mcgyvr.capacity import Capacity
 
-#: Single-token labels for a choice, most common first. 26 upper-case letters,
-#: then 26 lower-case, then 10 digits — 62 labels, the most one token can carry
-#: without inventing multi-token labels.
+#: Labels a Choice reply may use, in order: upper case letters, then lower
+#: case ones, then digits. A Choice with more options than there are labels
+#: has no single-token label per option, which labels_for refuses.
 _CHOICE_LABELS = tuple("ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789")
 
-#: The two single-token labels a yes/no question is asked to pick between.
+#: Labels a Noul reply may use, in order: index 0 is Yes, index 1 is No.
 _YES_LABELS = ("Yes", "No")
 
-#: The highest ``top_logprobs`` the compatible servers agree to return.
+#: Ceiling on how many alternatives a request asks the endpoint for per position.
 _MAX_TOP_LOGPROBS = 20
 
-#: What the pool calls the unit that answers every typed decision, once
-#: ``jev.unit`` binds one (:func:`classify_for`).
+#: Role that answers every decision once a unit is bound to it: the judge of
+#: every verdict. classify_for prefers it over the role its caller names.
 JEV_ROLE = "jev"
 
 
 class DecisionError(Exception):
-    """The endpoint answered, but not in a shape a decision can be read from."""
+    """The reply cannot be read as a decision, so no answer can be taken from it."""
 
 
 class UnboundRoleError(PoolError):
     """A decision was asked of a role that has no unit bound to answer it."""
 
 
-# --- questions -------------------------------------------------------------
+# A question is the instructions put to the endpoint plus the shape of its reply;
+# the Question union below is the three shapes that can be asked.
 
 
 @dataclass(frozen=True)
 class Choice:
-    """Pick exactly one option, keyed by name, with a probability for each."""
+    """Pick one of `options`: the reply's label names the option key answered."""
 
     instructions: str
     options: Mapping[str, str]
@@ -91,14 +67,14 @@ class Choice:
 
 @dataclass(frozen=True)
 class Noul:
-    """A yes/no question."""
+    """A yes or no question: the answer is true when Yes is at least as likely as No."""
 
     instructions: str
 
 
 @dataclass(frozen=True)
 class Score:
-    """Rate on a rubric of ``levels``, lowest first."""
+    """Rate on 2 to 10 named levels, lowest first; the reply's digit is the index."""
 
     instructions: str
     levels: tuple[str, ...]
@@ -107,7 +83,8 @@ class Score:
 Question = Choice | Noul | Score
 
 
-# --- answers ---------------------------------------------------------------
+# What each kind of question is answered with, with its probabilities and
+# confidence.
 
 
 @dataclass(frozen=True)
@@ -136,20 +113,22 @@ Answer = ChoiceAnswer | BoolAnswer | ScoreAnswer
 
 @dataclass(frozen=True)
 class Decision:
-    """One answer per question, keyed by the question's name."""
+    """The answers to the questions asked, keyed by the name each was asked under."""
 
     answers: Mapping[str, Answer]
 
 
-# --- the label scheme ------------------------------------------------------
+# Reading a question into labels and a prompt, and a reply back into a decision.
 
 
 def labels_for(question: Question) -> tuple[str, ...]:
-    """The single-token labels a question is answered under, in order.
+    """The single-token labels a reply to this question may use, in the order
+    its values take them: Yes and No for a Noul, one digit per level for a
+    Score, and one letter per option for a Choice.
 
-    :class:`Noul` is ``("Yes", "No")``; :class:`Score` is the digits up to its
-    level count; :class:`Choice` is letters. The returned order is the order
-    the probabilities are read back in.
+    A Score is held to 2 to 10 levels and a Choice to 1 to 62 options, since
+    outside those ranges a label would need more than one token; a ValueError
+    says which limit was crossed.
     """
     if isinstance(question, Noul):
         return _YES_LABELS
@@ -170,15 +149,15 @@ def labels_for(question: Question) -> tuple[str, ...]:
     return _CHOICE_LABELS[: len(question.options)]
 
 
-# --- the prompt ------------------------------------------------------------
+# The text of a question: the state it is about, then the question and the
+# labels it may be answered with.
 
 
 def build_prompt(state: Any, name: str, question: Question) -> str:
-    """The chat prompt that asks ``question`` for a single-token answer.
-
-    The state is serialized once and placed before the question. The options
-    are listed under their labels, so the label is the only token the model is
-    asked to produce.
+    """Render the prompt for one question: the state as JSON, the question's
+    instructions under its name, and then the labels from `labels_for` the
+    reply may use, each with what it stands for, so the model answers with a
+    single label token.
     """
     state_json = json.dumps(state, ensure_ascii=False)
     lines = [
@@ -209,18 +188,21 @@ def build_prompt(state: Any, name: str, question: Question) -> str:
     return "\n".join(lines)
 
 
-# --- reading an answer -----------------------------------------------------
+# A reply's log probabilities read as label probabilities, and how decided they
+# are.
 
 
 def probabilities_from_logprobs(
     top_logprobs: Sequence[Mapping[str, Any]], labels: Sequence[str]
 ) -> tuple[float, ...]:
-    """The normalized probability of each label, from a ``top_logprobs`` list.
+    """The probability of each label, in label order, from the alternatives the
+    endpoint reported at the reply's first position.
 
-    Each entry is a ``{"token": ..., "logprob": ...}`` object. A label the
-    server did not return reads as zero. The result sums to 1 when any label
-    is present, and raises :class:`ProtocolError` when none is — an answer
-    whose labels are all absent is not a weak answer, it is unreadable.
+    Each reported token's logprob is exponentiated; a label the endpoint did
+    not report counts as 0.0. The values are then divided by their own total,
+    so the returned probabilities sum to 1 over the labels alone and any mass
+    the endpoint gave to other tokens is dropped. When no label was reported
+    at all the total is 0.0 and a DecisionError says the reply cannot be read.
     """
     by_token: dict[str, float] = {}
     for entry in top_logprobs:
@@ -239,10 +221,9 @@ def probabilities_from_logprobs(
 
 
 def confidence(probabilities: Sequence[float]) -> float:
-    """How far the peak stands above a uniform answer, from 0 to 1.
-
-    ``(n * peak - 1) / (n - 1)``: a flat distribution is 0, a single certain
-    label is 1. A single option has no spread and reads as certain.
+    """How far the likeliest label stands above a flat distribution over the
+    same number of labels: 0.0 when they are all equally likely, 1.0 when one
+    holds all the probability, and 1.0 for fewer than two labels.
     """
     count = len(probabilities)
     if count <= 1:
@@ -252,7 +233,15 @@ def confidence(probabilities: Sequence[float]) -> float:
 
 
 def answer_for(question: Question, top_logprobs: Sequence[Mapping[str, Any]]) -> Answer:
-    """The typed answer a ``top_logprobs`` list reads as, for one question."""
+    """Read a reply, by its top logprobs, as the answer its question asks for.
+
+    A Noul is true when Yes is at least as likely as No, with
+    `probability_true` the probability of Yes. A Score reports the expected
+    level, the sum of each level's index times its probability, alongside the
+    probabilities per level. A Choice reports the key of the likeliest option,
+    the first of them when two tie. All three carry the same `confidence` for
+    the distribution they were read from.
+    """
     labels = labels_for(question)
     probabilities = probabilities_from_logprobs(top_logprobs, labels)
     strength = confidence(probabilities)
@@ -281,7 +270,12 @@ def answer_for(question: Question, top_logprobs: Sequence[Mapping[str, Any]]) ->
 
 
 def _top_logprobs(document: Mapping[str, Any]) -> tuple[Mapping[str, Any], ...]:
-    """The first token's ``top_logprobs`` list, or a :class:`ProtocolError`."""
+    """The reported alternatives for the reply's first token, taken from
+    `choices[0].logprobs.content[0].top_logprobs`; entries that are not
+    mappings are dropped. A document missing any of those levels raises a
+    DecisionError naming what the endpoint left out, since no answer can be
+    read without them.
+    """
     choices = document.get("choices")
     if not isinstance(choices, list) or not choices:
         raise DecisionError(
@@ -303,7 +297,7 @@ def _top_logprobs(document: Mapping[str, Any]) -> tuple[Mapping[str, Any], ...]:
     return tuple(item for item in top if isinstance(item, dict))
 
 
-# --- the network call ------------------------------------------------------
+# Asking an endpoint the questions one request at a time, and reading each reply.
 
 
 def classify(
@@ -314,13 +308,22 @@ def classify(
     *,
     timeout_s: float | None = None,
 ) -> Decision:
-    """Answer ``questions`` about ``state`` on ``model``, served by ``endpoint``.
+    """Ask `endpoint`, serving `model`, every question in `questions`, and read
+    each reply into an answer under the name the question was asked by.
 
-    One request per question, each sent with ``max_tokens: 1`` and ``logprobs``
-    and read from the reply's ``top_logprobs``. A keyless endpoint gets no
-    ``Authorization`` header, the same as a dispatch through the runner.
-    ``timeout_s`` ``None`` leaves the bound to the unit, as a dispatch's does
-    (:func:`~mcgyvr.runner.request_timeout`).
+    Each question is one streamed chat completion for a single token, with the
+    alternatives at that position reported: one per label of the question, but
+    never more than `_MAX_TOP_LOGPROBS`, and thinking disabled in the chat
+    template so the one token is the answer rather than the start of a
+    reasoning trace. A credential from the endpoint, when it has one, is sent
+    as a bearer token. Unless the unit fixes its own sampling on the server
+    side, the temperature is set to 0.0.
+
+    A transport or endpoint failure surfaces as the error `_post_json` raises,
+    and a reply carrying no readable alternative raises DecisionError. The
+    endpoint is asked once per question, in the order the questions are given.
+    The timeout is `timeout_s` when it is given, otherwise the one resolved
+    from the endpoint.
     """
     url = _url_for(endpoint.base_url, "/v1/chat/completions")
     headers = {"Content-Type": "application/json"}
@@ -337,25 +340,25 @@ def classify(
             "max_tokens": 1,
             "logprobs": True,
             "top_logprobs": min(_MAX_TOP_LOGPROBS, len(labels)),
-            # A thinking model's template opens every reply with its thinking
-            # tag — Qwen3's first token was `<think>` at probability 1.0 in the
-            # pilot — so no label can appear in the first token's top_logprobs
-            # and every question is unreadable. The template argument turns
-            # it off for this request alone, whatever the unit was launched
-            # with: llama-server and vLLM both read `chat_template_kwargs` as
-            # template arguments (the llama.cpp server README: "Allows sending
-            # additional parameters to the json templating system. For
-            # example: {"enable_thinking": false}"; vllm ChatCompletionRequest
-            # .chat_template_kwargs). A generation (mcgyvr.runner) sends none:
-            # a conversing model keeps its thinking.
+            # One token is the whole reply: max_tokens asks for exactly one, so
+            # the first position of the reply is the answer, and logprobs asks
+            # for the log probabilities the endpoint reports at that position.
+            # top_logprobs sets how many alternatives to report there: one per
+            # label, capped at _MAX_TOP_LOGPROBS, so every label the question
+            # offers has a chance to appear. A shorter list would hide probability
+            # the answer depends on, and a longer one would report tokens no
+            # label of this question uses.
+            # enable_thinking is off in the chat template, so a reasoning unit
+            # spends its single token on the label itself instead of opening a
+            # thinking block that would use up the token and leave no label to read.
             "chat_template_kwargs": {"enable_thinking": False},
         }
         if endpoint.sampling != SERVER_SAMPLED:
-            # Greedy, as a decision must be; a unit whose server fixes its own
-            # sampling refuses the field (`units.<unit>.sampling: server`).
+            # This unit takes its sampling from the request, so pin the
+            # temperature to 0.0 and let the labels be as reproducible as it allows.
             payload["temperature"] = 0.0
-        # The stream and its counts, as every dispatch asks: the transport
-        # assembles the whole answer, the token's logprobs under its choice.
+        # A server-sampled unit fixes its own sampling and refuses a temperature
+        # parameter, so the field is left out of its request entirely.
         document = _post_json(
             url, whole.asking(payload), headers, request_timeout(endpoint, timeout_s)
         )
@@ -372,18 +375,11 @@ def classify_role(
     capacity: Capacity | None = None,
     timeout_s: float | None = None,
 ) -> Decision | None:
-    """Answer ``questions`` on the model a non-ladder ``role`` binds, or ``None``.
+    """Ask the unit bound to `role`, or return None when no unit is bound to it.
 
-    :func:`classify` takes an :class:`~mcgyvr.local_pool.Endpoint`; this is the same
-    seam crossing :func:`~mcgyvr.runner.dispatch_role` performs for a
-    generation, done here for a decision. ``None`` mirrors
-    :meth:`~mcgyvr.local_pool.SourceMap.role`: a role with no binding is an ordinary
-    answer, not a failure, and a role declared but unusable still raises.
-
-    ``capacity`` bounds the decision the way a dispatch is bounded — the role
-    is the same machine as the ladder, and holding its source's slot for the
-    length of the decision is what keeps a batch of classifications from
-    describing a different machine than the one under load.
+    An unknown role, or one whose unit could not be built, raises from the
+    source map instead of returning None. When `capacity` is given, the
+    request is made while holding that endpoint's slot.
     """
     binding = source_map.role(role)
     if binding is None:
@@ -407,13 +403,12 @@ def classify_rung(
     capacity: Capacity | None = None,
     timeout_s: float | None = None,
 ) -> Decision:
-    """Answer ``questions`` on the model a ladder ``rung`` serves.
+    """Ask the rung named `rung`, resolving its endpoint and model from the map.
 
-    :func:`classify_role` one seam over, for a rung rather than a role: the
-    endpoint is the rung's own (:meth:`~mcgyvr.local_pool.SourceMap.bind`), the model
-    is the one the rung names, and the slot is the per-source one a dispatch
-    to that rung holds. Raises what ``bind`` raises for a rung the ladder does
-    not offer, because asking a rung that is not there is a caller's mistake.
+    An unknown or unavailable rung raises from the source map. The model is the
+    one the rung is configured with, falling back to the rung name when the map
+    holds no rung by that name. When `capacity` is given, the request is made
+    while holding that endpoint's slot.
     """
     endpoint = source_map.bind(rung)
     offered = source_map.get(rung)
@@ -425,12 +420,8 @@ def classify_rung(
 
 
 def jev_bound(source_map: SourceMap) -> bool:
-    """Whether ``jev.unit`` binds a unit, so every typed decision asks it.
-
-    Raises what :meth:`~mcgyvr.local_pool.SourceMap.role_model` raises for a Jev
-    unit declared on a source that cannot serve: a ``jev.unit`` that is
-    misconfigured is not the same answer as no ``jev.unit`` at all, and
-    falling back to the old askers in silence would hide the binding.
+    """Whether a unit is bound to the jev role, which is what makes classify_for
+    send it the decisions rather than the role its caller names.
     """
     return source_map.role_model(JEV_ROLE) is not None
 
@@ -445,19 +436,14 @@ def classify_for(
     capacity: Capacity | None = None,
     timeout_s: float | None = None,
 ) -> Decision:
-    """Ask the Jev unit when one is bound; else the ``role`` or ``rung`` named.
+    """Ask for a decision through the source map, naming exactly one of `role`
+    and `rung`; naming both or neither raises ValueError.
 
-    The one place that chooses who answers a typed decision. With ``jev.unit``
-    bound, every caller's questions go to that unit (:func:`classify_role` on
-    :data:`JEV_ROLE`). Without it, each caller's go where they went before a
-    Jev unit existed: the fallback ``role`` through :func:`classify_role`, or
-    the fallback ``rung`` through :func:`classify_rung`. Exactly one of the two
-    is named, or this raises :class:`ValueError`.
-
-    A fallback role with no unit raises :class:`UnboundRoleError` rather than
-    returning ``None``: every caller checked that its role was bound before it
-    built the thing that asks, so reaching an unbound one here is a fault, not
-    an ordinary absence.
+    When a unit is bound to the `jev` role it answers whatever `role` says, so
+    the caller's choice of role only matters while jev is unbound. Otherwise
+    the named role answers, and a role the map reports as bound to nothing
+    raises UnboundRoleError. With jev unbound and no role named, the rung
+    answers.
     """
     if (role is None) == (rung is None):
         raise ValueError(
@@ -466,7 +452,7 @@ def classify_for(
         )
     asked = JEV_ROLE if jev_bound(source_map) else role
     if asked is None:
-        assert rung is not None  # narrowed by the check above
+        assert rung is not None  # the check above guarantees the rung was named
         return classify_rung(
             source_map, rung, state, questions, capacity=capacity, timeout_s=timeout_s
         )

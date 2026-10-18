@@ -1,30 +1,15 @@
-"""A contract's ``sources``, read for the worker that answers from them.
+"""The files a contract names as `sources`, read out of the workspace and handed
+to a worker as text.
 
-E2e run 2, R11: an ``agent`` worker was asked to cite sources it was never
-given, because ``sources`` never reached its prompt. They reach it now —
-numbered, whole, in the user message (:mod:`mcgyvr.worker.prompt`) — and this
-module is the read, held to the rules every other read of the tree for a worker
-already follows, so a source is never a way around them:
-
-* **From the tree the run started from.** The attempt reads each source off its
-  sandbox workspace, as it reads the target's own content: HEAD's tracked files
-  for a git repository, so an ignored ``.env`` is not there to be named, and a
-  non-git source copied minus the files that hold secrets.
-* **Inside the tree.** Through :func:`mcgyvr.scope.inside`, so an absolute
-  path, ``..``, a symlink and ``.git`` are refused rather than followed.
-* **Not a secret.** A file the sandbox's non-git copy leaves behind for
-  holding a secret (:func:`mcgyvr.sandbox.base.holds_a_secret`) — a dotenv
-  file, a key, a credential folder — is refused here too, tracked or not:
-  a prompt may go to a hosted API.
-* **Text, and bounded.** The orchestrator's own reader
-  (:func:`mcgyvr.orchestrator.index.read_source`) refuses a binary file and
-  one over its size cap; the prompt's fit check then holds every source,
-  whole, to the contract's ``context.max_input_tokens``. Nothing is truncated:
-  a worker handed half a file is answering a question about a file it has not
-  seen.
-
-A source that cannot be given raises :class:`SourceError`, before anything is
-sent, and names the source the way the contract does.
+`read_sources` returns the content of each named source in the order the contract
+states them, and it reads under the rules every read of the tree for a worker
+follows: a path must stay inside the workspace (no absolute path, no `.git`
+entry, no symlink crossing, no climb out of the root), no file on the way to it
+may be one `holds_a_secret` recognizes, and it must be a text file the run's base
+tree still has and that the orchestrator will read at its size. A source that
+fails any of these raises `SourceError` naming the source and saying nothing was
+sent, so the attempt is refused before a token is spent — a single unreadable
+source does not silently vanish from the prompt.
 """
 
 from __future__ import annotations
@@ -38,11 +23,19 @@ from mcgyvr.scope import OutsideTreeError, inside
 
 
 class SourceError(Exception):
-    """A source that cannot be given to the worker; nothing was sent."""
+    """A source the contract named cannot be given to the worker as text, so no
+    prompt is sent. The message names the source by its position in the contract
+    and its relative path, says why it was refused, and ends by stating that
+    nothing was sent."""
 
 
 def read_sources(workspace: Path, sources: Sequence[str]) -> tuple[str, ...]:
-    """The content of each of ``sources``, in order, read off ``workspace``."""
+    """The content of each source in `sources`, in the order they were named.
+
+    The result lines up with `sources` by position, so the index of each is what
+    `SourceError` reports. The first source that cannot be read raises, before
+    any content is returned; `_read` holds the rules a read follows.
+    """
     return tuple(_read(workspace, index, rel) for index, rel in enumerate(sources))
 
 

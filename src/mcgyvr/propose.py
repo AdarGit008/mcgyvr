@@ -1,19 +1,11 @@
-"""Turn what running model servers list into the rungs of a ladder.
+"""Turn the models each reachable source lists into ladder rungs.
 
-Detection says which servers answered and which models each one lists; this
-module turns those listings into rungs, one per listed model, and names each
-rung. It reads no hardware, no table and no network: everything it needs
-arrives as arguments, which is what keeps it testable against machines nobody
-here owns.
-
-A ladder is climbed cheapest first, and each rung is meant to do better than
-the one below it: a rung that costs more and does no better makes escalation
-actively harmful, because it spends the cheaper rung's tokens and its own.
-Without a quality figure this module cannot know which of two models does
-better, so it judges nothing. The rungs come in the order the models were
-found: the machines in the order they were named, then on each machine the
-server programs in mcgyvr's fixed probe order, then each server's own listing
-order. The user sets the order.
+A source reports the model ids it has in `models_present`; every id becomes one
+rung whose unit name `binding_name` derives from the id, provided the id is
+printable and that name is still free. Ids that cannot be bound are kept as
+`Rejection`s with the sentence explaining why, and the same sentences go into
+`notes`, which also carry any closing advice. Nothing here dispatches a request
+or writes config: a `Proposal` is data for whoever builds the ladder.
 """
 
 from __future__ import annotations
@@ -22,18 +14,19 @@ import re
 from collections.abc import Sequence
 from dataclasses import dataclass
 
-# Naming tokens for a ladder unit: <locality>_<model>. There is no role
-# token: a binding's role is derived from where it sits in the schema, and
-# the ladder holds workers only.
+# The locality a binding name is prefixed with: `local` for a source on this
+# machine, `api` for one reached over the network. `binding_name` defaults to
+# `LOCAL` and `propose` never passes another, so every rung it builds is local.
 LOCAL = "local"
 API = "api"
 
-# A marginal fit can run markedly slower rather than fail, which makes it
-# look like a working binding. Absolute, not a fraction — see
-# CapabilityTable.
+# Gigabytes kept free on a local card when a model is checked for fit, so the
+# footprint is not measured against the whole of the memory.
+# `propose` declares the figure but does not read it: fit is not judged here.
 DEFAULT_HEADROOM_GB = 2.0
 
-#: What the proposal says when no model server answered at all.
+#: What `propose` puts in `notes` when it was handed no sources at all, so an
+#: empty proposal can say why it is empty and what the caller can do about it.
 NO_BACKEND_NOTE = (
     "No local backend is reachable, so the local ladder is empty. "
     "Bind an API source, start a backend and re-run, or name the "
@@ -43,11 +36,13 @@ NO_BACKEND_NOTE = (
 
 @dataclass(frozen=True)
 class AvailableSource:
-    """A model server that answered, and the models it lists, in its order.
+    """A source that can be reached and the model ids it lists.
 
-    Deliberately a plain input rather than anything imported from detection:
-    the proposal is a pure function of the sources, which is what lets it be
-    tested against machines nobody here owns.
+    `name` is how the config names the source and becomes a rung's `source`;
+    `backend` labels the server behind it and is not read here;
+    `models_present` holds the ids the source reported, in its own order; and
+    `host` is where it is reached. `has` tests membership of that listing, and
+    `is_local` decides from `host` alone.
     """
 
     name: str
@@ -60,16 +55,23 @@ class AvailableSource:
 
     @property
     def is_local(self) -> bool:
-        """Whether this source runs on the machine doing the proposing.
+        """Whether the source sits on this machine.
 
-        An unnamed host means local.
+        True when `host` is empty or one of the loopback names `localhost`,
+        `127.0.0.1`, `::1` or `[::1]`; any other host counts as remote.
         """
         return self.host in ("", "localhost", "127.0.0.1", "::1", "[::1]")
 
 
 @dataclass(frozen=True)
 class Rung:
-    """One listed model, bound, with why."""
+    """One step of the proposed ladder.
+
+    The unit `name` it binds, the `model` id sent to that unit, the `source`
+    the id was listed by, the `host` that source is reached at, and the
+    `reasons` the rung is on the ladder — `propose` fills that with the
+    listing itself.
+    """
 
     name: str
     model: str
@@ -80,7 +82,11 @@ class Rung:
 
 @dataclass(frozen=True)
 class Rejection:
-    """A listing that was not bound, and why not."""
+    """A model id left out of the ladder, with the sentence saying why.
+
+    `Proposal.why` finds one by model id, and the same sentence is usually in
+    the proposal's notes as well.
+    """
 
     model: str
     reason: str
@@ -94,35 +100,29 @@ class Proposal:
 
     @property
     def is_local_empty(self) -> bool:
-        """Whether no listed model could be bound. Not an error condition."""
+        """Whether the proposal holds no rungs at all.
+
+        Read straight from `rungs`, so the `local` in the name is not tested:
+        the shared reasons for the emptiness are in `notes`.
+        """
         return not self.rungs
 
     def why(self, model_id: str) -> str | None:
-        """The reason a listing of a model was not bound, if one was not."""
+        """The rejection reason recorded for `model_id`.
+
+        `None` when the id was bound or never listed at all.
+        """
         return next((r.reason for r in self.rejected if r.model == model_id), None)
 
 
 def binding_name(model_id: str, *, locality: str = LOCAL) -> str:
-    """Name a ladder unit ``<locality>_<model>``.
+    """The unit name a model id binds to under a locality.
 
-    The name is what everything downstream refers to a unit by — routing
-    policy, telemetry — so it says what the thing IS (local or behind an
-    API) rather than where it sits in an ordering. An index-based name would
-    silently change meaning when a rung is inserted, which for a policy
-    reference is a rename that looks like an edit.
-
-    There is no role token. A binding's role is derived from where it sits
-    in the schema: under ``orchestrator`` it is the orchestrator, under
-    ``verifier`` it is the verifier, and in the ladder it is a worker. Only
-    units carry a name, so a role token would be constant across every name
-    that exists — it would spend characters saying the one thing already
-    known from the name's location.
-
-    The model segment is normalized because a model id is not a safe name:
-    ``Qwen/Qwen2.5-Coder-14B-Instruct-AWQ`` carries a path separator and
-    ``qwen2.5-coder:7b`` a colon, and both end up as YAML keys a human
-    edits. Only the final path segment is kept, lowercased, with anything
-    outside ``[a-z0-9.-]`` folded to a dash.
+    The id's last `/`-separated segment, lowercased, with each run of
+    characters outside `[a-z0-9.-]` replaced by one `-` and any `-` at either
+    end stripped, then prefixed with the locality: `Qwen/Qwen2.5-7B` yields
+    `local_qwen2.5-7b`. Different ids can therefore land on one name, which
+    `propose` rejects rather than binding twice.
     """
     segment = model_id.rsplit("/", 1)[-1].lower()
     segment = re.sub(r"[^a-z0-9.-]+", "-", segment).strip("-")
@@ -130,11 +130,11 @@ def binding_name(model_id: str, *, locality: str = LOCAL) -> str:
 
 
 def _second_listing(model: str, source: AvailableSource, first: Rung) -> str:
-    """Why a listing that mints a name already taken is not bound.
+    """The rejection reason for a model whose binding name is already taken.
 
-    Both models and both servers are named, because the two listings may be
-    one model on two servers or two models whose ids end the same way, and
-    the reader cannot tell which from the shared name alone.
+    `first` is the rung that holds the name; the sentence names both models and
+    says a ladder lists a unit once, so the second model has to be added by
+    hand under a name of its own.
     """
     return (
         f"{model} listed by {source.name} is not bound: its unit name "
@@ -145,13 +145,10 @@ def _second_listing(model: str, source: AvailableSource, first: Rung) -> str:
 
 
 def _unwritable(model: str, source: AvailableSource) -> str:
-    """Why a listed id that a setup file may not carry as it is is not bound.
+    """The rejection reason for an id that cannot name a unit.
 
-    A blank id names nothing a unit could serve, and the loader refuses a unit
-    whose model is empty. An id with space at either end reads back from the
-    file without it, and one with a character that is not printable (a line
-    break among them) may not read back at all, so a unit bound to either
-    could name a model the server does not list.
+    Covers the three cases `propose` tests: the id is blank, it has space at
+    either end, or it holds a character that is not printable.
     """
     return (
         f"{source.name} lists the id {model!r}, which is blank, has space at "
@@ -161,16 +158,16 @@ def _unwritable(model: str, source: AvailableSource) -> str:
 
 
 def propose(*, sources: Sequence[AvailableSource]) -> Proposal:
-    """One rung per model a source lists, in the order the sources come.
+    """Bind each listed model to a rung, or reject it with a reason.
 
-    Sources are taken in the order given and each source's models in its own
-    listing order. A listing that mints a unit name an earlier one took is
-    not bound, and neither is an id that is blank, has space at either end or
-    holds a character that is not printable; the proposal names each.
-
-    Never raises. No source, or sources that list nothing, give an empty
-    ladder: a coherent API-only install, not a failure. The note on
-    concurrency is about the units bound, so it is given only when one is.
+    Sources and their models are visited in the order given, and the first
+    model to claim a binding name keeps it. An id that is blank, space-padded
+    or non-printable is rejected as unwritable, and a later model whose name is
+    already taken is rejected as a second listing; both land in `rejected` and
+    their sentences in `notes`. Rungs are never dropped, so the result is empty
+    only when nothing bound: with sources given it then carries just the
+    rejection notes, and with no sources at all it carries `NO_BACKEND_NOTE`.
+    A non-empty proposal ends with the note from `_concurrency_note`.
     """
     rungs: list[Rung] = []
     taken: dict[str, Rung] = {}
@@ -209,13 +206,13 @@ def propose(*, sources: Sequence[AvailableSource]) -> Proposal:
 
 
 def _concurrency_note(rungs: Sequence[Rung]) -> str:
-    """What raising a unit's ``width`` does and does not buy.
+    """The closing note of a non-empty proposal.
 
-    Stated in the proposal because this is the moment an operator decides what
-    the machine is for, and because the failure it warns about is invisible
-    afterwards: a single-slot server handed four concurrent requests **serializes
-    them rather than refusing them**, so an over-declared capacity looks exactly
-    like a source that is merely slow.
+    It names the distinct sources the rungs come from, sorted, so the reader
+    knows which units get `width: 1` written by `init`, and adds that raising
+    the figure only helps when the backend was started with its parallel-slot
+    setting enabled — an over-declared capacity shows up as a queue, not an
+    error.
     """
     sources = sorted({rung.source for rung in rungs})
     named = ", ".join(sources)

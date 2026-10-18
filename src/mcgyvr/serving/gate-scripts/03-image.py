@@ -1,18 +1,21 @@
 #!/usr/bin/env python3
-"""gate 3 — the daemon a tag is resolved through is the rig's, and answers now.
+# Gate 3 of a serve run. It runs the `docker` client on PATH and refuses the
+# run unless the daemon that client reaches names itself the machine gate 2
+# read, so no tag is resolved through one daemon while the container starts on
+# another. No image is pulled and no container is started here.
+"""Gate 3 of a serve run: the `docker` that resolves image tags has to answer,
+and has to be the daemon on the machine gate 2 read.
 
-The door owns the daemon; a serve step owns its tags. What is checked here
-is that `docker` — the shim on the PATH the door exports, which reaches
-`ssh://RUN_HOST` — answers, that the daemon answering is the machine gate 2
-read (its `Name` is the snapshot's hostname), and the version it runs is said,
-not compared. A tag resolved against one
-daemon and a container started on another is the hole this gate closes; a
-daemon on the wrong docker mounts a different set of device files (the Vulkan
-ICD manifest, 2026-09-03) and benches a different machine under the same name.
-
-`command -v docker` is not this check. A CLI with no daemon behind it passes
-that and fails inside the step, after the run is stamped, rather than as a
-refusal to start.
+The gate uses the `docker` on PATH, so the daemon asked is whichever one that
+client is pointed at — on a door standing on the rig, the rig's own. It asks
+that daemon for its name with `docker info --format {{.Name}}` and compares it
+with the `hostname=` gate 2 exported in RUN_PRE_RIG; then it runs
+`docker version` for the server's version, which proves the server answers and
+not only that a client exists. A client missing from PATH, an unanswerable
+daemon, a reading without `hostname=`, and a daemon naming another machine all
+refuse the run, since a tag resolved through one daemon and a container started
+on another is the hole this gate closes. Nothing about images happens here; a
+passing gate prints the hostname and the server version.
 """
 
 from __future__ import annotations

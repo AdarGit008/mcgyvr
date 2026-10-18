@@ -1,94 +1,25 @@
-"""The ladder manager: Jev keeps the local ladder sized to the work queued on it.
+"""The ladder manager: sizing the local rungs to their queues, by asking Jev.
 
-Tasks start on the cheap, fast local rungs. Over a batch, the work that those
-rungs could not finish climbs, and the dearest local rung that is awake fills
-with it: dispatches wait for its slots, its own server reports more in flight
-than it serves at once, and tasks that climbed to it pile up. That queue is
-the signal. A sleeping dearer unit could take it; an idle dearer unit is
-holding a card the fast rungs could use. This module watches the queue and
-moves the ladder between those two shapes.
+``mcgyvr manage`` builds a :class:`Manager` and calls :meth:`Manager.tick` every
+``manager.interval_s`` seconds; ``mcgyvr run`` asks :func:`for_task` what a task
+should climb under. Both mean nothing unless :func:`applicable` returns ``None``
+— ``serving.enable_sleep_wake`` is on and the ladder holds a local rung that can
+sleep and wake — and every function here then hands back what it was given.
 
-**Optional, per fleet.** It runs only under ``mcgyvr manage``, and only where
-the ladder has units that can sleep and wake — a local rung whose card holds
-exactly one launch spec (:func:`mcgyvr.wake.wakeable_rungs`) — and
-``serving.enable_sleep_wake`` is on. :func:`applicable` says why not otherwise,
-and every hook a task process takes from here (:func:`effective`,
-:func:`gauge_for`, :func:`presence_for`) is then the identity or ``None``: a
-ladder with nothing to sleep or wake behaves exactly as it did before this
-module existed.
+A tick reads pressure on each resident local rung and works out the moves the
+queue allows: a wake of a sleeping dearer rung once the dearest awake one is
+full, and a sleep of an idle dearer rung once nothing anywhere is queued. Those
+moves, the fan-out modes and the lead rungs the config lists become
+:class:`mcgyvr.decision.Choice` questions for Jev, and a switch is made only
+after the same answer ``manager.confirm`` times running, and never sooner than
+``manager.dwell_s`` after the last switch. A wake first sleeps the units whose
+memory the woken rung needs and wakes them again if the wake fails or the woken
+rung is later slept; a queue that sleeping and waking cannot answer is printed
+as a recommendation and left alone.
 
-**Jev decides, in types and never in prose.** Every ``interval_s`` the manager
-reads the queue on each local rung and asks Jev — the ``jev.unit`` when one
-is bound, the fast local rung when not, through
-:func:`mcgyvr.decision.classify_for` — a :class:`~mcgyvr.decision.Choice`
-for each decision that has more than one legal answer: the ladder move (hold,
-wake a sleeping unit, put an idle one back to sleep), the fan-out mode and the
-lead rung. A question with one legal answer is not asked, so a quiet ladder
-costs no decision at all.
-
-**What is legal is decided here, and is the hysteresis band.** A wake is
-offered only while the dearest awake local rung is full — its server's own
-count at its width, by the one check the climb's idle spill makes too
-(:meth:`mcgyvr.capacity.Capacity.judge`); a sleep only for a unit whose whole
-card has read idle — nothing in flight, nothing waiting and nothing climbed —
-for at least ``dwell_s`` without a break, over a ladder with no queue
-anywhere. Between the two bands only "hold" is legal. Then Jev must give the
-same answer ``confirm`` times in a row before anything moves, and no two
-switches are closer than ``dwell_s``, so a queue that flickers across one band
-does not flap the ladder.
-
-**A switch somebody else made counts as one.** A task that climbs to a sleeping
-unit wakes it itself, through the dispatch-side door
-(:meth:`mcgyvr.wake.Waker.dispatching`), and a person may run ``mcgyvr serve``.
-The manager notices a unit whose state changed without it and starts the dwell
-from there, so a unit a task just woke is not put back to sleep a few ticks
-later only to be woken by the next climb.
-
-**Its powers are sleep and wake, and nothing else.** The manager acts through
-:class:`Switches`, whose only verbs are ``wake`` and ``sleep`` of a unit that
-can do both — reversible acts, through the same gated door a person's
-``mcgyvr serve`` uses (:class:`mcgyvr.wake.CardSwitches`). It never puts a
-different model on a card, never changes a unit or a fleet: a flood that only a
-model it cannot wake would answer, or a wake that needs room held by a unit it
-may not sleep, is printed as a recommendation for a person to act on.
-
-**What a sleep is.** A card whose units are all vLLM, run with sleep mode, is
-slept at vLLM's level 2: the process and its container stay up, the weights and
-the KV cache leave the card, and a wake reads the weights back from disk into
-the same process through vLLM's wake route — no container start. Any other
-card, and a vLLM card with no sleep route, is stopped instead, as ``mcgyvr
-serve sleep`` stops it: its containers go down, and a wake starts them from the
-launch spec and loads the model from disk. Either way a wake is a load from
-disk, so ``dwell_s`` should be longer than the wake time ``mcgyvr serve wake``
-prints.
-
-**What a swap is.** On a card whose units are each their own vLLM or
-llama.cpp container in one launch spec, a unit sleeps and wakes alone: vLLM at
-level 2, llama.cpp by stopping and starting its container. A unit that starts
-asleep (``units.<u>.role: sleeps-until-needed``), such as a strong RAM+CPU
-rung above the fast ones, shares that spec under a compose profile; waking it
-stops the units whose room it needs (``room_for``) and its sleep starts them
-again.
-
-* It never sleeps the card Jev itself runs on, and always leaves an awake rung
-  below the unit it sleeps — the ladder keeps a floor.
-* It never wakes or sleeps a unit that is cooling down, and a wake or sleep
-  that fails is recorded as a failure against that unit (:class:`Cooling`).
-  The record is the manager's own: a task's cooldown does not read it.
-* A wake that needs another unit's room sleeps that unit first, and the sleep
-  that ends the wake wakes it again: the card goes back to the fast rungs.
-
-**Pipeline choices stay inside their bounds.** Fan-out and the lead rung — the
-local unit new tasks start on — are chosen only among ``manager.fanouts`` and
-``manager.leads``; empty bounds mean the question is never asked and nothing
-is published. A task applies a published choice through :func:`effective`
-only while it is fresh and only for the ladder it was made for, so a manager
-that stopped, or that runs over another config, changes nothing.
-
-**Above the seam.** It names rungs and never a machine: the pressure it reads
-(:class:`mcgyvr.pressure.Pressure`), the switches it throws and the decision it
-asks for are below-the-seam answers handed in through seams that speak in rung
-names.
+The fan-out and lead in force are published to the board in the rendezvous
+directory, where :func:`effective` picks them up for a task that starts soon
+after, on the same ladder.
 """
 
 from __future__ import annotations
@@ -109,29 +40,30 @@ if TYPE_CHECKING:  # pragma: no cover - typing only
     from mcgyvr.local_pool import SourceMap
     from mcgyvr.pressure import Gauge, Reading
 
-#: The question names Jev is asked under. One spelling each, because the
-#: answer is read back by the same key.
+#: The names of the three questions a tick may put to Jev. Each name keys the
+#: question in ``questions``, its answer in ``answers``, and its streak of answers.
 ASK_LADDER = "ladder"
 ASK_FANOUT = "fanout"
 ASK_LEAD = "lead"
 
-#: The name one host's ladder manager holds (:func:`mcgyvr.pressure.exclusive`)
-#: while it runs: two managers of one ladder would each sleep what the other
-#: had just woken.
+#: The rendezvous lock name ``mcgyvr manage`` takes before it manages anything, so
+#: two managers on one host cannot sleep and wake the same cards. It is held for
+#: the whole run, because every sleep and wake is a side effect on shared hardware.
 MANAGER_LOCK = "ladder-manager"
 
-#: The ladder move that changes nothing, and the lead that keeps the order the
-#: config wrote.
+#: The key of the move that changes nothing, always offered so the ladder question
+#: has a way to leave the ladder alone; and the answer that leaves the ladder's own
+#: order as the lead.
 HOLD = "hold"
 KEEP_ORDER = "ladder"
 
 
 class Switches(Protocol):
-    """The only acts the manager has: wake and sleep a unit that can do both.
+    """The power to sleep and wake rungs, and the card each rung sits on.
 
-    ``room_for`` names the units that must sleep before ``rung`` can wake, and
-    ``card_of`` the rungs a sleep of ``rung`` takes down with it — sleep and
-    wake are whole-card acts.
+    ``sleep`` and ``wake`` answer whether the switch happened. ``room_for`` names
+    the units that must sleep to give ``rung`` its card's memory, and ``card_of``
+    names the units sharing ``rung``'s card, ``rung`` among them.
     """
 
     def wake(self, rung: str) -> bool: ...
@@ -144,13 +76,17 @@ class Switches(Protocol):
 
 
 class PressureSource(Protocol):
-    """One reading of the queue on a rung, now."""
+    """Where one rung's queue is read from, by rung name."""
 
     def read(self, rung: str) -> Reading: ...
 
 
 class Cooling(Protocol):
-    """The units held out after failing, and the record of what failed."""
+    """Which rungs are cooling down, and how the last switch on one turned out.
+
+    ``cooled`` answers for a batch of rungs and names the ones to leave alone;
+    ``worked`` and ``failed`` report a switch the manager just attempted.
+    """
 
     def cooled(self, rungs: tuple[str, ...]) -> frozenset[str]: ...
 
@@ -159,7 +95,8 @@ class Cooling(Protocol):
     def worked(self, rung: str) -> None: ...
 
 
-#: Jev, as a seam: a state and typed questions in, a typed decision out.
+#: The decision seam: state and questions in, a decision out. A test passes a plain
+#: function; ``mcgyvr manage`` passes ``decide_on(...)``, which asks Jev.
 Decide = Callable[
     [Mapping[str, Any], Mapping[str, decision.Question]], decision.Decision
 ]
@@ -167,7 +104,14 @@ Decide = Callable[
 
 @dataclass(frozen=True)
 class Bounds:
-    """The ``manager`` block: how often, how sure, how far apart, and within what."""
+    """The ``manager`` block of the config, as the manager uses it.
+
+    ``interval_s`` is how long :func:`run` waits between ticks, ``confirm`` how
+    many identical answers in a row it takes to act, ``dwell_s`` the least time
+    between two switches — and also how long a rung must stay idle before it may
+    be slept — and ``fanouts``/``leads`` the only values the manager may move the
+    fan-out and the lead rung to. :meth:`of` reads them from a config.
+    """
 
     interval_s: float
     confirm: int
@@ -187,18 +131,22 @@ class Bounds:
 
     @property
     def pipeline(self) -> bool:
-        """Whether any pipeline choice is Jev's to make at all."""
+        """Whether the config lets the manager touch fan-out or the lead at all.
+
+        True when at least two fan-out modes are listed or any lead is, which is
+        also the one case in which a tick publishes what it chose.
+        """
         return len(self.fanouts) >= 2 or bool(self.leads)
 
 
 @dataclass(frozen=True)
 class View:
-    """The ladder as the manager sees it: rung names and nothing that runs.
+    """The ladder as the manager sees it for the whole run.
 
-    ``resident`` is the local rungs in ladder order, cheapest first;
-    ``sleepable`` the ones that can sleep and wake; ``jev`` the rung the
-    decisions run on; ``fanout`` and ``ladder`` the config's own, which a
-    publication is checked against.
+    ``resident`` is the local rungs in ladder order, cheapest first; ``sleepable``
+    the rungs it may put down; ``jev`` the rung Jev answers on, whose card is never
+    slept; and ``fanout``/``ladder`` the config's fan-out mode and rung order as
+    they were at startup. :meth:`of` builds it from a config.
     """
 
     resident: tuple[str, ...]
@@ -220,7 +168,14 @@ class View:
 
 @dataclass(frozen=True)
 class Tick:
-    """What one tick read, asked, heard and did."""
+    """What one pass saw, asked and did.
+
+    ``readings`` is one pressure reading per resident rung. ``asked`` maps each
+    question name to the option keys it offered, ``answers`` each answered name to
+    the choice picked. ``acted`` holds the lines printed for what the manager
+    actually did, and ``recommended`` the printed recommendation, if the queue
+    called for something the manager may not do itself.
+    """
 
     readings: Mapping[str, Reading]
     asked: Mapping[str, tuple[str, ...]] = field(default_factory=dict)
@@ -257,25 +212,42 @@ class _Streak:
 
 
 def _queued(reading: Reading) -> int:
-    """Work on this rung beyond what it serves at once: waiting plus overflow."""
+    """How much work is backed up behind a rung.
+
+    That is what is waiting plus the part of what is in flight that runs past the
+    rung's width; a count that was not read counts as nothing.
+    """
     overflow = max(0, (reading.in_flight or 0) - reading.width)
     return (reading.waiting or 0) + overflow
 
 
 def _load(reading: Reading) -> str:
-    """A rung's load in words, for a recommendation a person reads."""
+    """A reading's queue as the prose a recommendation prints it in.
+
+    A count that was not read is printed as ``unread`` rather than guessed at.
+    """
     in_flight = "unread" if reading.in_flight is None else str(reading.in_flight)
     waiting = "unread" if reading.waiting is None else str(reading.waiting)
     return f"{in_flight} in flight of {reading.width}, {waiting} waiting"
 
 
 def _idle(reading: Reading) -> bool:
-    """Provably idle: every count read, and every one of them zero."""
+    """Whether a reading shows a rung with nothing in flight, waiting or climbed.
+
+    A count that was not read is not zero, so an unread reading is not idle.
+    """
     return reading.in_flight == 0 and reading.waiting == 0 and reading.climbed == 0
 
 
 class Manager:
-    """One ladder's manager: reads the queue, asks Jev, throws switches."""
+    """One ladder's manager: reads pressure, asks Jev, sleeps and wakes rungs.
+
+    Every seam is injected — pressure readings, the switches that sleep and wake,
+    the decision function, cooling, the clock, where lines are printed, and where
+    the fan-out and lead in force are published — so a tick can be driven by fakes
+    in a test. The manager owns no thread: :meth:`tick` is one pass, and
+    :func:`run` calls it.
+    """
 
     def __init__(
         self,
@@ -305,20 +277,21 @@ class Manager:
             ASK_LEAD: _Streak(),
         }
         self._last_switch: float | None = None
-        #: Whether each rung was awake as of the last tick, with the manager's
-        #: own switches applied: a reading that disagrees is a switch somebody
-        #: else made.
+        #: What each resident rung was last seen to be doing. A rung that wakes or
+        #: goes down without the manager — a task, or a person running ``mcgyvr
+        #: serve`` — is found here, counts as a switch, and starts the dwell.
         self._expected: dict[str, bool] = {}
-        #: When each awake rung was first read idle in the run of idle readings
-        #: it is in now; a rung that is busy or asleep has no entry.
+        #: When each resident rung was first seen awake and idle, so ``dwell_s`` of
+        #: idleness has to pass before it is put to sleep.
         self._idle_since: dict[str, float] = {}
-        #: The units each wake slept to make room, given back by its sleep.
+        #: The units each woken rung needed asleep for its room, to wake back when
+        #: that rung sleeps.
         self._room: dict[str, tuple[str, ...]] = {}
         self._fanout = view.fanout
         self._lead = KEEP_ORDER
         self._recommended: str | None = None
 
-    # --- reading ------------------------------------------------------------
+    # Queries over one pass's readings: which rungs are cooling, which is dearest.
 
     def _cooled(self) -> frozenset[str]:
         if self._cooling is None:
@@ -332,7 +305,7 @@ class Manager:
     def _rank(self, rung: str) -> int:
         return self._view.resident.index(rung)
 
-    # --- what is legal ------------------------------------------------------
+    # The moves the queue allows: wakes above a full rung, sleeps of idle rungs.
 
     def _wakes(
         self,
@@ -340,12 +313,13 @@ class Manager:
         cooled: frozenset[str],
         top: str | None,
     ) -> tuple[list[_Move], str | None]:
-        """The legal wakes, and the recommendation a flood with none earns.
+        """The wakes a full dearest rung licenses, or a recommendation instead.
 
-        A flood is the dearest awake local rung being **full** — the one
-        definition, :meth:`mcgyvr.capacity.Capacity.judge`, that the climb's
-        idle spill reads too: its server's own count at width, which sees every
-        client, or this process's load, which here is nothing.
+        ``top`` is the dearest awake local rung. While it is full, every sleeping
+        resident rung above it on the ladder is a candidate wake, unless it is
+        cooling down or the units whose memory it needs may not be slept. With no
+        candidate left, the second item is a recommendation saying that the queue
+        is past what sleeping and waking can answer.
         """
         if top is None or not readings[top].full:
             return [], None
@@ -357,7 +331,8 @@ class Manager:
             if rung in cooled:
                 blocked.append(f"{rung} is cooling down")
                 continue
-            # A neighbour already asleep holds no room: nothing to sleep for it.
+            # A room unit that is down holds nothing, so only the ones that are up,
+            # or that were not read at all, are still left to sleep.
             room = tuple(
                 unit
                 for unit in self._switches.room_for(rung)
@@ -385,12 +360,13 @@ class Manager:
     def _may_sleep(
         self, rung: str, readings: Mapping[str, Reading], *, room: bool = False
     ) -> bool:
-        """Whether ``rung`` is a unit the manager may put to sleep at all.
+        """Whether the manager may put ``rung`` to sleep.
 
-        Never the card Jev runs on, never a unit that cannot wake again, never
-        one already asleep, and never the last awake rung below it. ``room``
-        is a sleep that makes way for a wake, which drains rather than waiting
-        for idle.
+        It must be a sleepable resident rung that is awake, its card must not hold
+        Jev, and some awake rung below it on the ladder must sit on another card,
+        so its work has somewhere cheaper to go. With ``room`` the rest of its card
+        need not be idle: the caller is clearing the card for a wake, the one case
+        where a card is emptied in order to be filled again.
         """
         if rung not in self._view.sleepable or not readings[rung].awake:
             return False
@@ -409,13 +385,11 @@ class Manager:
     def _sleeps(
         self, readings: Mapping[str, Reading], cooled: frozenset[str], now: float
     ) -> list[_Move]:
-        """The legal sleeps: idle units whose whole card has idled for the dwell.
+        """The sleeps the queue allows.
 
-        The band is a duration, not a count of answers: a unit is offered only
-        once every rung of its card has read idle for ``dwell_s`` without a
-        break, so a batch that climbs to it now and then keeps it awake. A
-        cooling unit is not offered either — a sleep that keeps failing would
-        otherwise be asked about again every dwell.
+        Nothing is put to sleep while any awake rung has work backed up behind it;
+        otherwise every rung that :meth:`_may_sleep` permits, that is not cooling
+        down, and whose card has been idle for ``dwell_s`` is a candidate.
         """
         awake = [r for r in self._view.resident if readings[r].awake]
         if any(_queued(readings[r]) > 0 for r in awake):
@@ -429,7 +403,11 @@ class Manager:
         ]
 
     def _idled(self, rung: str, readings: Mapping[str, Reading], now: float) -> bool:
-        """Whether every rung of ``rung``'s card has idled for ``dwell_s`` by now."""
+        """Whether every rung on ``rung``'s card has been idle for ``dwell_s``.
+
+        A rung missing from ``readings`` is skipped, and one whose idle time was
+        never recorded fails the test.
+        """
         for r in self._switches.card_of(rung):
             if r not in readings:
                 continue
@@ -439,14 +417,12 @@ class Manager:
         return True
 
     def _observe(self, readings: Mapping[str, Reading], now: float) -> list[str]:
-        """Keep the idle clocks, and count a switch somebody else made as one.
+        """Record idle times, and notice rungs that changed state on their own.
 
-        A task that climbs to a sleeping unit wakes it through the dispatch-side
-        door (:meth:`mcgyvr.wake.Waker.dispatching`), and a person may run
-        ``mcgyvr serve``. Either is a unit that changed state without the
-        manager, and it earns the dwell a switch of the manager's own would:
-        otherwise a unit a task just woke could be put back to sleep a few ticks
-        later, and the next climb would wake it again.
+        Returns one line per rung found awake when it was expected down, or the
+        other way round. Such a change counts as a switch, so the dwell starts
+        again and the streaks reset. The first pass only records, since nothing is
+        expected of a rung yet.
         """
         for rung in self._view.resident:
             if readings[rung].awake and _idle(readings[rung]):
@@ -469,23 +445,37 @@ class Manager:
         ]
 
     def _now_awake(self, rung: str, awake: bool) -> None:
-        """Record a switch of the manager's own, for the whole card it moved."""
+        """Expect ``awake`` of ``rung`` and of every rung sharing its card.
+
+        Only rungs already expected are updated, so a switch the manager makes
+        before its first pass is not mistaken for someone else's.
+        """
         for r in self._switches.card_of(rung):
             if r in self._expected:
                 self._expected[r] = awake
 
-    # --- one tick -------------------------------------------------------------
+    # One pass, as :func:`run` drives it: read, ask, act, publish, report.
 
     def tick(self) -> Tick:
-        """Read, decide whether to ask, ask, and act on a confirmed answer."""
+        """One pass: read the ladder, ask Jev, act on confirmed answers, publish.
+
+        Pressure is read on every resident rung, the moves the queue allows are
+        worked out, and the questions the config permits are put to Jev. If the
+        last switch is at least ``dwell_s`` old, an answer confirmed ``confirm``
+        times running is acted on — one switch per pass, because acting starts the
+        dwell — while inside the dwell answers only lengthen their streaks. A
+        decision that fails is printed as a warning and resets every streak. The
+        fan-out and lead in force are published to the board when the config lets
+        either change. Returns what this pass saw, asked and did.
+        """
         now = self._clock()
         readings = {rung: self._pressure.read(rung) for rung in self._view.resident}
         cooled = self._cooled()
         top = self._top(readings)
         acted: list[str] = self._observe(readings, now)
 
-        # A lead that is asleep or cooling is not a place to start tasks, and
-        # dropping it is a safety reset, not a decision to be confirmed.
+        # A lead that is no longer serving — asleep, or cooling down — falls back
+        # to the ladder's own order without asking, since it is no longer a choice.
         if self._lead != KEEP_ORDER and (
             not readings[self._lead].awake or self._lead in cooled
         ):
@@ -593,10 +583,10 @@ class Manager:
             recommended=recommended,
         )
 
-    # --- hysteresis -----------------------------------------------------------
+    # The brakes: how many answers in a row it takes, and how long between switches.
 
     def _confirmed(self, name: str, answer: str) -> bool:
-        """Hear ``answer``; true once it is the ``confirm``-th in a row."""
+        """Hear ``answer`` once more and say whether its run reached ``confirm``."""
         return self._streaks[name].hear(answer) >= self._bounds.confirm
 
     def _may_switch(self, now: float) -> bool:
@@ -613,7 +603,7 @@ class Manager:
         for streak in self._streaks.values():
             streak.reset()
 
-    # --- acting ---------------------------------------------------------------
+    # Carrying a move out, and the switch calls and give-backs behind it.
 
     def _act(self, move: _Move) -> list[str]:
         assert move.rung is not None
@@ -661,7 +651,13 @@ class Manager:
         return lines
 
     def _record(self, rung: str, ok: bool, *, awake: bool) -> None:
-        """Record a switch's outcome: the state it left, and what cooling learns."""
+        """Take down how one switch call turned out.
+
+        On success the rung's card is expected to match the new state, and cooling
+        is told the switch worked; on failure the expectation is left alone and
+        cooling is told it failed, which is what can hold a rung out of the next
+        attempt.
+        """
         if ok:
             self._now_awake(rung, awake)
         if self._cooling is None:
@@ -675,10 +671,14 @@ class Manager:
         self._lead = lead
         return f"lead: {lead} ({why})"
 
-    # --- what Jev is told -----------------------------------------------------
+    # A recommendation is printed when it changes, and reported on every pass.
 
     def _recommend(self, line: str | None) -> tuple[str, ...]:
-        """Print a recommendation once, and again only when it changes."""
+        """Keep and print a recommendation only while it stays the same.
+
+        Returns the line as a one-item tuple for the pass to report, or an empty
+        tuple when there is nothing to recommend.
+        """
         if line is None:
             self._recommended = None
             return ()
@@ -750,10 +750,11 @@ def run(
     sleep: Callable[[float], object] = time.sleep,
     ticks: int | None = None,
 ) -> int:
-    """Tick ``manager`` every ``interval_s`` until ``ticks`` (forever by default).
+    """Call :meth:`Manager.tick` every ``interval_s`` until ``ticks`` passes are done.
 
-    Stopped by the caller (``KeyboardInterrupt`` under ``mcgyvr manage``);
-    returns how many ticks ran.
+    ``ticks=None`` runs until it is interrupted. Returns the number of passes made,
+    and never sleeps after the last one. ``sleep`` is injected so a test can drive
+    the loop without waiting.
     """
     count = 0
     while ticks is None or count < ticks:
@@ -764,7 +765,7 @@ def run(
     return count
 
 
-# --- what a config says about the manager ----------------------------------
+# The ladder's local rungs, read from a config: who is resident, who can sleep.
 
 
 def _local(config: Config) -> tuple[str, ...]:
@@ -776,11 +777,12 @@ def _local(config: Config) -> tuple[str, ...]:
 
 
 def sleepable_rungs(config: Config) -> tuple[str, ...]:
-    """The local ladder rungs that can sleep and wake, in ladder order.
+    """The resident rungs the manager may put to sleep, in ladder order.
 
-    :func:`mcgyvr.wake.wakeable_rungs`' answer — a card that holds exactly one
-    launch spec — reused rather than restated, and kept to the ladder's local
-    rungs, less those :func:`mcgyvr.wake.left_alone` leaves to a person.
+    A rung qualifies when it is local — its unit needs no credential — and mcgyvr
+    can sleep and wake its card: exactly one launch spec sits under
+    ``serving.compose_dir``, the card holds no unit of Jev's, and no shard of the
+    unit runs on another host.
     """
     from mcgyvr.wake import left_alone, wakeable_rungs
 
@@ -789,7 +791,12 @@ def sleepable_rungs(config: Config) -> tuple[str, ...]:
 
 
 def applicable(config: Config) -> str | None:
-    """``None`` when this ladder has a manager, else the sentence saying why not."""
+    """Why the ladder manager has nothing to do here, or ``None`` when it has work.
+
+    The reasons are prose for a person: ``serving.enable_sleep_wake`` is off, or no
+    local rung on the ladder can sleep and wake, in which case every card that is
+    left alone says why.
+    """
     if not config.get("serving.enable_sleep_wake"):
         return (
             "serving.enable_sleep_wake is off, so mcgyvr may not sleep or wake "
@@ -811,15 +818,14 @@ def applicable(config: Config) -> str | None:
 def effective(
     config: Config, published: Mapping[str, Any] | None, *, now: float
 ) -> Config:
-    """The config a task runs under, with the manager's fresh choice applied.
+    """The config a task should climb under, given what the manager published.
 
-    ``config`` itself — the same object — unless all of these hold: the ladder
-    is managed (:func:`applicable`); a choice was published for this exact
-    ladder; it is fresh, written within ``confirm`` ticks of ``now`` (wall
-    clock, since the manager is another process) — a manager that missed as
-    many ticks as it takes to act is no longer watching; and each value it
-    carries is inside this config's own bounds. A value outside them is
-    ignored on its own, and the rest still apply.
+    A published board is used only when the manager applies, the board is a
+    mapping for this same ladder, and its ``written_at`` is a number no more than
+    ``interval_s * confirm`` seconds old and not in the future. A fan-out outside
+    ``manager.fanouts`` and a lead outside ``manager.leads`` are ignored. When
+    nothing changes this returns ``config`` itself, so an unchanged result can be
+    told apart from one the manager had a say in.
     """
     if applicable(config) is not None or not isinstance(published, Mapping):
         return config
@@ -851,7 +857,12 @@ def effective(
 
 
 def _led_by(config: Config, lead: str) -> tuple[str, ...]:
-    """The ladder with ``lead`` first among the local rungs; the rest in order."""
+    """The ladder order with ``lead`` placed first among the local rungs.
+
+    The other rungs keep their order: ``lead`` is inserted just before the first
+    local rung, which is the front of the ladder when no other local rung is left.
+    Hosted rungs ahead of that point stay ahead of it.
+    """
     local = _local(config)
     rest = [name for name in config.ladder.names if name != lead]
     at = next((i for i, name in enumerate(rest) if name in local), 0)
@@ -859,7 +870,11 @@ def _led_by(config: Config, lead: str) -> tuple[str, ...]:
 
 
 def gauge_for(config: Config) -> Gauge | None:
-    """The host-wide gauge a managed ladder's tasks report to, or ``None``."""
+    """A :class:`~mcgyvr.pressure.Gauge` for counting climbs, or ``None``.
+
+    One is made only when the manager applies, since only a manager asks whether a
+    rung with work climbing through it is idle.
+    """
     if applicable(config) is not None:
         return None
     from mcgyvr.pressure import Gauge
@@ -870,9 +885,12 @@ def gauge_for(config: Config) -> Gauge | None:
 def presence_for(
     config: Config, gauge: Any
 ) -> Callable[[str], AbstractContextManager[object]] | None:
-    """The climb's ``presence`` hook: mark a task that climbed to a rung.
+    """A hook marking a rung as climbed for as long as a task is on it.
 
-    ``None`` for a ladder with no manager, which is the climb as it was.
+    Returns ``None`` when the manager does not apply or no gauge was made.
+    Otherwise the hook takes a rung name and returns a context manager to hold
+    while a task climbs there, whose marker the gauge counts so the rung's
+    pressure reads as climbed rather than idle.
     """
     if applicable(config) is not None or gauge is None:
         return None
@@ -887,18 +905,20 @@ def presence_for(
 
 @dataclass(frozen=True)
 class ForTask:
-    """What a task process takes from the manager: its config and two hooks.
+    """What one task climbs under, and the hooks that need the manager's accounts.
 
-    ``note`` says what a published choice changed, for the operator, and is
-    ``None`` when it changed nothing.
+    ``config`` is the config to climb with, changed only when the manager published
+    a choice this task is fresh enough to apply. ``gauge`` and ``presence`` are
+    ``None`` when nothing is managed. ``note`` is a line to print when the
+    manager's choice shaped this task.
     """
 
     config: Config
     gauge: Gauge | None = None
     presence: Callable[[str], AbstractContextManager[object]] | None = None
     note: str | None = None
-    #: The host-wide cooldown record a managed ladder's tasks share with the
-    #: manager (:class:`mcgyvr.pressure.HostCooling`), or ``None``.
+    #: Where the task's cooldown writes its holds, so the manager's cooling and
+    #: every other process on the host read the same record of what is cooling.
     held: SharedHold | None = None
 
 
@@ -908,11 +928,12 @@ def for_task(
     read_board: Callable[[], Mapping[str, Any] | None],
     now: Callable[[], float] = time.time,
 ) -> ForTask:
-    """The config, gauge and presence hook one ``mcgyvr run`` climbs with.
+    """What this task should climb under, settled once before the climb starts.
 
-    An unmanaged ladder gets ``ForTask(config)`` and nothing else, and the
-    board is not so much as read: no file is opened, no gauge is built and the
-    climb takes no hook, which is the run exactly as it was.
+    When the manager does not apply, the config is passed through untouched and no
+    gauge, presence or hold is handed on. Otherwise the board is read once,
+    :func:`effective` applies any fresh choice, and ``note`` is set when that
+    choice differs from the config on disk.
     """
     if applicable(config) is not None:
         return ForTask(config)
@@ -936,8 +957,14 @@ def for_task(
 
 
 def decide_on(pool: SourceMap, rung: str, *, timeout_s: float) -> Decide:
-    """Jev through :func:`mcgyvr.decision.classify_for`: the ``jev.unit`` when
-    one is bound, ``rung`` when not. Nothing here binds an endpoint."""
+    """A :data:`Decide` that asks Jev, or the unit at ``rung``, for the manager.
+
+    ``rung`` is checked against the pool at once, so a name that is not there
+    fails where the manager is built rather than inside a pass. The returned
+    function hands the state and questions to
+    :func:`mcgyvr.decision.classify_for`, which asks the bound Jev role when the
+    pool has one and the unit at ``rung`` when it does not.
+    """
     if pool.get(rung) is None:
         raise ValueError(f"no rung named {rung!r} for the ladder manager to ask")
 

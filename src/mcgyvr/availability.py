@@ -1,103 +1,14 @@
-"""Is anything actually there — per-source liveness, priced at one timeout a run.
+"""Whether an endpoint can take a dispatch, asked before any work is sent.
 
-:mod:`mcgyvr.local_pool` resolves the ladder *structurally*: a rung whose source names
-a credential the environment does not hold is unusable, and that is knowable
-without touching the network. This module answers the other half: a source that
-is declared, credentialled and simply **down**.
+Each endpoint is asked for its model list once. The status code decides live or
+down, and where the list can be read it also says which weights the source holds
+right now — a source can answer and still hold other weights than a rung names,
+and llama.cpp answers a request naming weights it is not holding from the
+weights it is, so such a reply would be another model's with nothing saying so.
 
-**Two kinds of source, and they fail in different ways.** A source is an endpoint
-and a wire protocol, so the same code reaches both — but reading the results
-without keeping them apart is how a classification here goes wrong:
-
-* A **local backend** is a server on hardware the user controls —
-  llama-server, vLLM, LM Studio, TGI. Typically keyless, on ``localhost`` or a
-  LAN address. Its characteristic failures are *the process is not running*
-  (connection refused, which returns instantly) and *the machine is off or
-  asleep* (no route or no SYN-ACK, which costs the whole timeout). It is also the
-  kind that produces the awkward **404**: a small server may implement
-  ``/v1/chat/completions`` and never implement ``/v1/models``.
-* A **hosted provider** is somebody else's API behind a key. Its characteristic
-  failures are *the key is wrong, expired or revoked* (401/403), *the provider is
-  having an outage* (5xx), and *this machine has no working internet*
-  (timeout). It essentially never 404s at the model listing, because publishing
-  one is table stakes for a commercial API.
-
-The distinction is descriptive, not a type: nothing here branches on it, because
-nothing reliably tells them apart — a local server can require a key, and a
-self-hosted vLLM can sit behind a public hostname. What it does is explain why
-the classification below is asymmetric. **The 401 arm is there for hosted
-providers and the 404 arm is there for local backends**, and each would look
-like an over-reaction if only the other kind existed.
-
-It is also why :attr:`~mcgyvr.local_pool.Endpoint.credential_env` is reported rather
-than assumed: the reason text names the variable when there is one and says that
-none is configured when there is not, so the message is actionable for whichever
-kind it turns out to be.
-
-Distinct from :mod:`mcgyvr.detect`, which is install-time and local-only: it
-sweeps *candidate* default ports (:data:`mcgyvr.detect.PORT_CONVENTIONS`) to find
-out what this machine happens to be running. This module probes the sources a config
-actually *declares*, local or hosted, and does it per run.
-
-The shape of the problem is a cost problem, not a detection problem. Finding out
-that a host is not answering is easy; finding it out once is the work. A ladder
-escalates — a task that fails on the cheap rung is retried on the next — so a
-dead source that is discovered at dispatch time is discovered again on every
-attempt, and each discovery costs a connect timeout. So:
-
-* **A verdict is cached for the life of an** :class:`Availability`. One instance
-  per run; a source is probed at most once, however many times it is asked
-  for. The cache has no expiry on purpose — a run is short, and a source that
-  comes back mid-run being missed is a better failure than a re-probe storm at
-  every escalation.
-* **A batch is probed concurrently**, so the wall clock for *n* dead sources is
-  one timeout rather than *n*. This is the same trick :mod:`mcgyvr.detect` plays
-  at install time, for the same reason.
-* **The timeout is short and is not the dispatch timeout.**
-  :data:`PROBE_TIMEOUT_S` is seconds where
-  :data:`~mcgyvr.runner.GENERATE_TIMEOUT_S` is two minutes. They measure
-  different things: a local 7B taking ninety seconds to answer a capped
-  generation is healthy, while a host taking ninety seconds to accept a TCP
-  connection is not. Reusing the dispatch timeout here would make "is anything
-  there" cost as much as asking it something.
-
-**A probe is a question about the source, never a generation.** It reads the
-protocol's model-list path, which is free, immediate and side-effect-free. It
-deliberately does *not* send a completion to see whether one comes back: that
-costs tokens and seconds, and it conflates two failures a caller has to tell
-apart — a host that is down and a model that is not loaded. Whether a *model* is
-present is :meth:`mcgyvr.detect.Backend.has_model`'s question, asked at install
-time against what the backend reports holding.
-
-**Any HTTP answer proves something is listening; the question is whether a
-dispatch would work.** That distinction decides the whole classification, and it
-is why this is not simply "2xx is up":
-
-* **Transport failure** — refused, DNS failure, timeout — is down. Nothing is
-  listening, or nothing is listening fast enough to be worth a dispatch. Both
-  kinds land here; only the wall clock differs, since a refused connection to a
-  local port is instant where an unreachable host costs the whole budget.
-* **401 and 403 are down.** *Chiefly the hosted-provider case*, and the one worth
-  stating: the source *is* answering, so a naive reachability check would call it
-  live and hand it dispatches that all fail identically. A key that
-  is wrong, expired or revoked does not improve with retries. Note this is a
-  different fault from the one :func:`mcgyvr.local_pool.source_map` already catches
-  structurally — there the variable is *unset*, here it is set and rejected.
-* **5xx is down.** The server is there and is telling us it cannot serve. A
-  provider outage, most often.
-* **404 and 405 are LIVE**, the classification most likely to look like a bug and
-  the one that matters most. *Chiefly the local-backend case*: the model-list
-  path is optional, and a small OpenAI-compatible server may serve
-  ``/v1/chat/completions`` perfectly well while never implementing
-  ``/v1/models``. Reading that as down would skip a *working* source — a false
-  negative that silently shortens the ladder, which is strictly worse than the
-  wasted attempt it would be trying to save. Anything that answered HTTP without
-  refusing us on credentials is treated as reachable.
-
-**What this does not do.** It does not retry: one probe, one verdict, and a
-source that was down when the run started stays down for that run. It does not
-bound concurrency — that is :mod:`mcgyvr.capacity`. It does not decide *which*
-rung a contract goes to, only which rungs are on the ladder at all.
+A verdict is kept per source, so one source is probed once however many rungs
+and roles sit on it, and `check_all` asks a whole config at once rather than one
+timeout after another.
 """
 
 from __future__ import annotations
@@ -114,41 +25,40 @@ from mcgyvr.local_pool import Endpoint, PoolError, Protocol
 from mcgyvr.redact import safe_url
 from mcgyvr.weights import is_model
 
-# Short by design, and far below the dispatch timeout: this bounds "did anything
-# accept a connection and answer", not "did a model finish thinking". A local
-# host that cannot answer a model list in this long is not going to serve a
-# generation.
+# Seconds one probe waits for the model list before the source is called
+# silent. The probe asks a question, it does not dispatch, so the wait is short;
+# `Availability` and `cooldown` take it as a parameter where a slow machine is
+# expected.
 PROBE_TIMEOUT_S = 2.0
 
-# How much of a model listing is read. A listing is a handful of ids and this is
-# generous for one; a source that answers with more than this is a source whose
-# body is not being read to the end, and the answer is then the same as an
-# unreadable one — `None`, which claims nothing.
+# Most of a model-list body read from one probe. The list is wanted only for the
+# ids in it, and a source that answers something enormous should not hold the
+# probe open; a body cut short is not parsable JSON, so `_listed` answers
+# `None` and the verdict rests on the status code alone.
 _LIST_BODY_BYTES = 1 << 20
 
-# The free, side-effect-free listing each protocol offers. Chosen over a
-# generation for the reason in the module docstring, and over a bare TCP connect
-# because a connect proves a socket is open, not that an HTTP server is behind
-# it.
+# Where each protocol states what it serves, appended to the endpoint's base
+# URL. The list is optional, so an endpoint that does not answer this path is
+# still read as reachable when its status code allows it.
 _LIST_PATH: dict[Protocol, str] = {
     Protocol.OPENAI: "/v1/models",
 }
 
-# Statuses that mean "answering, but a dispatch would fail the same way every
-# time". Everything else that answered HTTP at all is read as reachable — see
-# the docstring on why 404 must not be in here.
+# Statuses saying the source is up but will not take the credential as it is
+# configured. Every dispatch to it would fail the same way, so it is called down
+# rather than reachable.
 _CREDENTIAL_REFUSED = frozenset({401, 403})
 
 
 @dataclass(frozen=True)
 class AvailabilityVerdict:
-    """What one probe found, and how it found it.
+    """What one probe of one endpoint concluded.
 
-    ``reason`` is written to be read by whoever sees a shortened ladder, because
-    it becomes :attr:`mcgyvr.local_pool.Skipped.reason` verbatim. ``how`` follows
-    :mod:`mcgyvr.detect`'s rule that a detected fact carries its provenance: a
-    verdict with no account of how it was reached is indistinguishable from a
-    guess, and this one shortens a ladder.
+    `live` is the answer a caller acts on: whether a dispatch may be sent at
+    all. `reason` says why not, in words fit to show the person holding the
+    config, and is empty for a live source. `how` records what the probe did to
+    reach the answer, kept apart from `reason` so an audit shows a status code
+    even where the reason is a paragraph of advice.
     """
 
     source: str
@@ -156,13 +66,12 @@ class AvailabilityVerdict:
     reason: str
     how: str
     elapsed_s: float
-    #: The model ids this endpoint said it is holding, or ``None`` where it did
-    #: not say. The distinction is the whole of :meth:`Availability.not_serving`
-    #: and it is not a nicety: a 404 on the listing, a body that is not JSON, a
-    #: body of another shape and an empty list are all ``None``, because the
-    #: model-list path is optional and a server may not publish a usable one.
-    #: Only an explicit, readable listing may take a rung out of service: a
-    #: probe that failed closed on an unreadable answer would empty the ladder.
+    #: The model ids the endpoint listed, when the body could be read and held
+    #: at least one. `None` when no list was read: the source is down, the body
+    #: did not parse, or the status skipped the body. `not_serving` needs it to
+    #: tell a source holding the wrong weights from one whose list says nothing,
+    #: and only where a list was read can the absence of a model be held against
+    #: the source.
     models: tuple[str, ...] | None = None
 
 
@@ -170,16 +79,12 @@ ProbeFn = Callable[[Endpoint, float], AvailabilityVerdict]
 
 
 class Availability:
-    """Per-source liveness for one run, probed at most once per source.
+    """Probes endpoints over the network, remembering each source's verdict.
 
-    Construct one per run and pass it to :func:`mcgyvr.local_pool.source_map`. Holding
-    it for longer is the one thing that breaks it: the cache never expires, so a
-    long-lived instance would keep reporting a verdict from whenever it first
-    looked.
-
-    ``probe`` exists so the classification can be tested without a network and so
-    a caller with its own transport can supply one; the default is
-    :func:`probe_endpoint`.
+    A source is asked about once however many rungs and roles sit on it, so a
+    config spread thin over a few machines costs those machines' probes and not
+    one probe per name. The probe itself is injectable: `cooldown` and the
+    tests pass their own and no socket is opened.
     """
 
     def __init__(
@@ -195,11 +100,19 @@ class Availability:
 
     @property
     def verdicts(self) -> Mapping[str, AvailabilityVerdict]:
-        """Every verdict reached so far, by source name."""
+        """The verdicts gathered so far, keyed by source name.
+
+        A copy, so a caller may read it without disturbing the cache, and so
+        asking for it probes nothing new.
+        """
         return dict(self._verdicts)
 
     def check(self, endpoint: Endpoint) -> AvailabilityVerdict:
-        """The verdict for this endpoint's source, probing only if unseen."""
+        """The verdict for `endpoint`, probing only the first time.
+
+        The source name is the key, so a later call about a different endpoint
+        on the same source is answered from the cache without a socket.
+        """
         cached = self._verdicts.get(endpoint.source)
         if cached is not None:
             return cached
@@ -210,12 +123,12 @@ class Availability:
     def check_all(
         self, endpoints: Sequence[Endpoint]
     ) -> Mapping[str, AvailabilityVerdict]:
-        """Probe every unseen source at once; return the verdict for each.
+        """The verdict for each source among `endpoints`, keyed by source.
 
-        Concurrent because the cost being managed is wall clock: ``n`` dead
-        sources probed in sequence is ``n`` timeouts, and probed together is one.
-        Sources already in the cache are not re-probed, so calling this twice in
-        a run costs nothing the second time.
+        Sources already answered are not asked again; the rest are probed at
+        the same time, one worker each, so a set of silent sources costs one
+        timeout rather than one apiece. The result covers the sources
+        `endpoints` named, whatever their order.
         """
         wanted = _distinct(endpoints)
         fresh = [e for e in wanted if e.source not in self._verdicts]
@@ -230,26 +143,17 @@ class Availability:
     def not_serving(
         self, bound: Sequence[tuple[Endpoint, str]]
     ) -> Mapping[tuple[str, str], str]:
-        """Which (source, model) pairs the port is not currently holding, and why.
+        """Why each `(endpoint, model)` pair would be answered by other weights.
 
-        **The routing hole this closes.** :meth:`unavailable` answers whether a
-        source's address answers. Units that alternate on one card may declare
-        the same address, only one of them is up at a time, and the address
-        answers 200 for whichever that is. llama-server started on one model
-        ignores a request's ``model`` field: a dispatch aimed at the unit that
-        is not up is answered from the resident one's weights, and the server
-        reports no error. A ladder that marked both rungs up would spend a
-        request on a rung that is not up before the runner refused the answer
-        (:class:`~mcgyvr.runner.WrongWeightsError`).
+        Keyed by `(source, model)`, for the pairs a live source is not holding.
+        A pair is left out when the source serves the model under any name
+        `is_model` accepts. Sources that are down, or whose model list could not
+        be read, are left out too: their liveness is `unavailable`'s question,
+        and a list that says nothing is no evidence that a model is missing.
 
-        So the question a rung needs answered is not "did the port answer" but
-        "is *this model* what is behind it", and the listing the probe already
-        fetched is where that is written. **No second request is made**: the
-        verdicts are the cached ones :meth:`check_all` produced.
-
-        A source whose verdict carries no listing (:attr:`AvailabilityVerdict.models`
-        is ``None``) is not reported here at all. It said nothing, and nothing is
-        not a no.
+        Each reason says what the source does hold and what to do about it,
+        because such a dispatch would be taken and answered from the wrong
+        weights with nothing reporting it.
         """
         wanted = _distinct([endpoint for endpoint, _ in bound])
         self.check_all(wanted)
@@ -272,13 +176,9 @@ class Availability:
         return not_there
 
     def unavailable(self, endpoints: Sequence[Endpoint]) -> Mapping[str, str]:
-        """Which of these sources cannot serve, and why — the pool's seam.
+        """The sources among `endpoints` that are not live, each mapped to why.
 
-        Deliberately the narrowest thing :func:`mcgyvr.local_pool.source_map` could
-        need: a mapping of source name to reason, holding only the sources that
-        are down. :mod:`mcgyvr.local_pool` therefore learns nothing about probes,
-        verdicts or HTTP, and this module stays the only place that knows the
-        network exists.
+        A source the mapping leaves out is one a dispatch may be sent to.
         """
         return {
             source: verdict.reason
@@ -290,12 +190,14 @@ class Availability:
 def probe_endpoint(
     endpoint: Endpoint, timeout_s: float = PROBE_TIMEOUT_S
 ) -> AvailabilityVerdict:
-    """Ask one endpoint whether it is there. Never raises.
+    """Ask `endpoint` what it serves and read the answer as a verdict.
 
-    Every outcome is a :class:`AvailabilityVerdict`, including the ones that
-    would ordinarily be exceptions: a probe that raised would have to be wrapped
-    at every call site, and the whole point is that an unreachable source is an
-    ordinary state of the world rather than an error in the program.
+    The model list is fetched over the network, so this is the only place in
+    the module that opens a socket. A credential the endpoint needs and does not
+    have is caught here rather than raised: every dispatch would fail the same
+    way, so the source is down. Nothing answering within `timeout_s` is down
+    too. Otherwise the status code decides, in `_from_status`, with the model
+    ids passed along when the body could be read.
     """
     path = _LIST_PATH[endpoint.protocol]
     url = endpoint.base_url.rstrip("/") + path
@@ -307,26 +209,26 @@ def probe_endpoint(
         if key:
             headers["Authorization"] = f"Bearer {key}"
     except PoolError as exc:
-        # The credential vanished between the structural pass and here. Not
-        # reachability, but the rung is just as unusable and saying so beats
-        # probing with no key and reporting a 401.
+        # A key that is needed and missing raises here instead of being sent as
+        # nothing: the source cannot be dispatched to at all, so the resolution
+        # error is the reason and no request is made.
         return _verdict(endpoint, False, str(exc), "credential unresolved", started)
 
     request = urllib.request.Request(url, headers=headers, method="GET")
     try:
         with urllib.request.urlopen(request, timeout=timeout_s) as response:
             status = response.status
-            # Read here and not in a second call: the listing is the answer to
-            # "which weights are behind this port", and the request that asked
-            # for it has already been paid for. Bounded, because a probe is not
-            # a download and a source that answered with a gigabyte of JSON is a
-            # source this is not going to read all of.
+            # Bounded read: the list is wanted for its ids, not its size, and
+            # this is a probe rather than a dispatch. A body cut short does not
+            # parse, so `_listed` answers `None` and the verdict stands on the
+            # status code: the endpoint answered, which is the question asked.
             body = response.read(_LIST_BODY_BYTES)
     except urllib.error.HTTPError as exc:
         return _from_status(endpoint, exc.code, url, started)
     except OSError as exc:
-        # URLError and the socket timeout are both OSError, and to a caller they
-        # mean one thing: nothing usable answered inside the budget.
+        # Nothing answered: a refused connection, a name that does not resolve
+        # and a socket timing out all arrive here, and none can take a
+        # dispatch.
         return _verdict(
             endpoint,
             False,
@@ -341,14 +243,13 @@ def probe_endpoint(
 
 
 def _listed(body: bytes) -> tuple[str, ...] | None:
-    """The model ids in an OpenAI-shaped listing, or ``None`` if it did not say.
+    """The model ids in a model-list body, or `None` when there are none to read.
 
-    Every way of not saying is ``None`` and never an empty tuple: a body that is
-    not JSON, a document of another shape, a ``data`` that is not a list, a list
-    whose entries carry no ``id``. An empty listing is ``None`` too — a server
-    that publishes the route and lists nothing has told us nothing about what it
-    is holding, and reading that as "your model is not here" would take the rung
-    out of service on the strength of a server's own omission.
+    `None` covers every way the body can fail to be a list: not JSON, not a
+    JSON object, no `data` array, or an array carrying no string `id`. Rows that
+    are malformed are skipped rather than failing the whole list. An empty
+    result is also `None`, so a caller never reads "listed nothing" as evidence
+    that a model is missing.
     """
     try:
         doc = json.loads(body.decode("utf-8", "replace"))
@@ -374,12 +275,13 @@ def _from_status(
     started: float,
     models: tuple[str, ...] | None = None,
 ) -> AvailabilityVerdict:
-    """Read an HTTP status as a liveness verdict.
+    """Turn the status code an endpoint answered with into a verdict.
 
-    The asymmetry is deliberate and is argued in the module docstring: a
-    credential refusal and a server error are down, and *everything else that
-    answered* is live — including 404, because the model-list path is optional
-    and a source that does not offer it may still serve generations.
+    A refused credential and a server error both mean a dispatch would fail, so
+    the source is down with a reason saying which. Any other refusal of the
+    model list is not held against the source: the list is optional and a
+    dispatch may still succeed, so it counts as reachable. Everything else is
+    live, carrying the model ids when they were read.
     """
     if status in _CREDENTIAL_REFUSED:
         named = (
@@ -444,10 +346,10 @@ def _verdict(
 
 
 def _distinct(endpoints: Sequence[Endpoint]) -> tuple[Endpoint, ...]:
-    """One endpoint per source name, first occurrence winning, order kept.
+    """One endpoint per source, in the order the sources are first named.
 
-    Ordering is preserved so a report reads in ladder order rather than in
-    whatever order a set iterated.
+    A source is asked about once, so the first endpoint named for it is the one
+    probed; the others differ only in what the rung does with the answer.
     """
     seen: dict[str, Endpoint] = {}
     for endpoint in endpoints:

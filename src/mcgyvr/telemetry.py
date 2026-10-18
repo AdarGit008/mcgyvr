@@ -1,119 +1,23 @@
-"""Attempt telemetry — one appended record per attempt, and how it landed (X02).
+"""A journal of dispatches: one JSON line per attempt, blobs beside it.
 
-A :class:`~mcgyvr.runner.Completion` carries host-side latency, the backend's
-own token counts and the cap it was issued under; a gate run carries findings
-and the rungs that could not say; a judgement carries the assurance an
-acceptance rests on. One appended record per attempt is what keeps a run
-answerable after it exits — what it cost, which rung did the work, whether
-climbing the ladder was worth it.
+``observe`` wraps a single attempt. Before calling it, it gathers the identity
+of the attempt — condition, endpoint, task type, operation, tier, temperature,
+session file, prompt digests and the run tags the environment names — and then
+writes the row that says how the attempt went. A row is a flat JSON object
+stamped with its record kind, the layout version, a wall-clock time and the
+attempt id.
 
-The shape is one JSON object per line, appended and never rewritten. Each of its
-properties is load-bearing:
+The bytes a row quotes instead of inlining — the rendered prompt, the scrubbed
+reply — are stored under ``blobs`` beside the sink, named by the SHA-256 of
+their own content, so a row points at its evidence by digest and identical
+bytes are stored once however many rows cite them. Rows and blobs can be copied
+into mirror directories; a failed copy is reported to an ``on_copy_error``
+callback when one is given, and raises otherwise.
 
-* **Exactly one record per attempt, including the attempt that raised.** The
-  write sits inside an ``except`` that re-raises rather than after the call, so
-  the failing path — reached by an exception, and therefore the path a sink
-  written after the call site never sees — is recorded by construction. A store
-  holding only the attempts that returned describes only the runs that went
-  well, which is worse than no store, because the numbers look complete.
-* **A correction is appended, never edited in.** How the work finally landed is
-  learned after the attempt was written, and the cheap way to apply it is to
-  rewrite the line. That trades away the two properties append-only is chosen
-  for: it is the only shape several orchestrators can write at once, and the
-  only one that survives a crash mid-write. So :func:`correct` writes a small
-  record of its own keyed by the attempt's id, and :func:`fold` applies it at
-  read time, latest-wins.
-* **A correction naming no attempt is surfaced, not dropped.** It is an
-  authoring error, and a fold that discarded it would turn a visible mistake
-  into missing data. It comes back from :func:`fold` verbatim, after the
-  attempts; a reader that wants attempts alone filters on ``record_kind``.
-* **An unreported token count is absent, never zero.** :mod:`mcgyvr.runner`
-  states the rule twice in its own words — "a zero would average into telemetry
-  as a real measurement of nothing" — and this is the module where it is kept or
-  lost, because ``0`` is what a dataclass default and a ``dict.get(key, 0)``
-  both produce, and both look deliberate. A count the backend did not report has
-  no key here at all. A reader that reads a missing key as zero is making the
-  error the rule exists to prevent; one that reads it as "not reported" is
-  reading the store correctly.
-
-**The v2 constraint (the lab's port-from-local-ai note, §9).** The queue
-architecture puts several orchestrators behind one stream, so this module holds no
-state: there is no logger object, no default sink, and nothing module-level for a
-second orchestrator to share by accident. ``path`` is required at every call —
-an implicit sink is exactly how two orchestrators come to write one file without
-either of them saying so — and every attempt record names the ``orchestrator``
-that produced it, because a field added on the day the second orchestrator
-starts leaves every record written before it unattributable forever. Writes are
-serialised with an exclusive ``flock`` around a single appending write, so
-concurrent callers in one process or across processes interleave whole lines and
-never halves of two.
-
-**What is deliberately not here.** No dispatch: :func:`observe` takes a callable
-and records whatever it returns — a completion or anything else — because what
-has to be recorded is not a property of how the work was done, and a telemetry
-module that knew how to run an attempt could not record one it did not run. No
-derived quantities: a cost in
-dollars, an overran-cap flag and a success rate are all computable from fields
-already on the row, and freezing one here would store today's price list as
-though it were a measurement.
-
-**The text is kept — beside the row, never in it.** A measurement stream
-should not grow by a worker's output per row, and a journal that keeps the hash
-and not the text can be counted and never reviewed. So the row carries digests
-and the text is kept beside it. Four rules govern how the text is kept:
-
-* **Content-addressed, under ``<sink dir>/blobs/<sha256>``.** The row carries
-  ``prompt_sha256`` — the name the bench's identity script gives it — and
-  ``reply_sha256``, and a blob is named by the digest of its own
-  bytes, so a reader can verify a blob without trusting the row that named it.
-  It is also what keeps the store small: one scaffold shared by
-  thousands of prompts is one blob, and the same text dispatched twice costs
-  nothing the second time. The store sits beside the sink rather than inside
-  it because a sink is one orchestrator's file and the blobs are every
-  orchestrator's — whoever dispatched the scaffold, it is the same scaffold.
-* **Scrubbed before it is hashed.** :func:`~mcgyvr.redact.scrub` names
-  telemetry as a sink an operator pastes into an issue, and a credential that
-  reached a blob has left the machine the moment the blob is shared. Scrubbing
-  first means the digest names the scrubbed bytes, so a reader who hashes the
-  blob gets the row's name back; scrubbing after would leave the row naming
-  bytes that exist nowhere on disk.
-* **A raised attempt still names its prompt.** The prompt blob is written
-  before the attempt runs, so ``prompt_sha256`` is a fact of the attempt
-  whether or not anything came back — a failed dispatch that cannot say what
-  it asked is the hole quality review exists to fill. ``reply_sha256`` is then
-  absent: not null, and not the digest of the empty string, which looks
-  exactly like a model that answered with nothing.
-* **A blob that cannot be written raises**, by the sink rule above and without
-  softening. A row naming a ``prompt_sha256`` whose blob was never written is
-  worse than no row, because the hash reads as evidence that exists.
-
-**A row names what answered it, and under which round.** The bench's identity
-script names what a measurement records; a live row that carried none of those
-names
-could not be laid beside a bench cell, because it would not say which endpoint
-served it, which system prompt it carried or which product revision dispatched
-it. So each row also carries ``endpoint``,
-``model``, ``protocol``, ``condition`` — always ``"stock"``: live work is the
-product as shipped, never an ablation, and the field is what tells a live row
-from a bench cell by content rather than by path — and ``bundle_sha256`` (the
-system prompt, hashed as the bench hashes it). The round and the product
-revision are the caller's to say, as tags (below).
-
-**What the run belongs to is said by whoever started it, not looked up.** The
-product cannot know which experiment, build or round a process is part of, and
-it does not go looking: ``$MCGYVR_RUN_TAGS`` holds a small JSON object of text,
-number and true/false values, and every row the process writes carries it,
-scrubbed and otherwise as given, under ``run_tags`` (:func:`run_tags`). Under
-one key and not spread over the row, so no tag can stand in for a field this
-module writes — ``outcome`` is what :func:`fold` folds a correction into — and
-so a reader can tell what was measured here from what the caller asserted. A
-variable that is set and is not such an object is refused, as an unusable
-``$MCGYVR_HOME`` is: a run whose rows silently lost their tags is noticed a
-week later, when they cannot be told apart. Unset or empty, the row has no
-``run_tags``. The round a run measured under and the product revision that
-dispatched it are tags like any other, said by whoever started it; the product
-runs no code of the development checkout to find them.
-"""
+``correct`` appends a later stage's verdict on an attempt, and ``fold`` reads a
+file back with those verdicts laid over the attempts they name. Text the journal
+quotes and did not build itself passes through ``scrub`` first, since a URL
+carrying credentials is what a model endpoint tends to look like."""
 
 from __future__ import annotations
 
@@ -133,79 +37,68 @@ from mcgyvr.runner import Completion
 if TYPE_CHECKING:  # pragma: no cover - typing only
     from collections.abc import Callable, Mapping, Sequence
 
-# One record is one JSON object. Deliberately not a dataclass on the way out:
-# a reader is looking at records written by versions of mcgyvr other than its
-# own, and a schema class would refuse the ones it does not recognise rather
-# than handing them over as what they are.
+# A row of the journal: a flat mapping from field name to JSON value, assembled
+# by joining a stamp — record kind, layout version, timestamp, attempt id — with
+# the fields of the attempt or correction it records. Rows are written as one
+# JSON object per line and read back as plain dicts, never as typed objects.
 type Record = dict[str, Any]
 
-# Bump when what a field *means* changes. Additive fields do not need it — a
-# reader that has never heard of a key ignores it, which is the durability the
-# line-per-record shape is for.
+# The layout version stamped on every row. It names the shape of the row, so a
+# reader holding a line can tell which set of fields, and which meanings for
+# them, it was written under.
 TELEMETRY_VERSION = 1
 
-# ``record_kind`` discriminates the two line shapes sharing one sink: an
-# attempt is the full per-attempt row, a correction is the small append-only
-# statement of how that attempt's work finally landed.
+# The two kinds of row a journal holds: an attempt that dispatched something,
+# and a correction a later stage appended to say how that attempt turned out.
+# ``_read`` keeps both as they are; ``fold`` is what brings them back together.
 ATTEMPT_KIND = "attempt"
 CORRECTION_KIND = "correction"
 
-# What a correction is allowed to say about its attempt, and the whole of it. A
-# correction that could set any field could rewrite which orchestrator ran the
-# work or how long it took, which is the in-place edit this shape exists to
-# refuse — spelled differently.
-#
-# ``outcome`` is the verdict, and the other two are attributes of *that*
-# verdict: the detail is its own words and ``applied_by`` is the writer who
-# gave it. So :func:`fold` moves the three as one block rather than field by
-# field — a byline left standing beside somebody else's newer verdict is a row
-# that credits a judgement to whoever last happened to write prose about the
-# attempt, and a journal indexer copies that into a column whose whole
-# question is "who judged this". ``applied_by`` is carried onto the row rather
-# than left on the correction line alone because a folded row is all a reader
-# of the fold gets, and under §9 the one applying a correction need not be the
-# one that ran the attempt — ``orchestrator`` says who ran, and only this says
-# who judged.
+# The field a correction's verdict is written under, and the fields on an
+# attempt that a correction may overwrite: the verdict, the free-text detail,
+# and the orchestrator recorded as having applied it. The verdict is also what
+# makes a correction actionable — ``fold`` applies one only when it carries an
+# ``outcome``, and passes over one that does not, on the grounds that it says
+# nothing about how the attempt went. An applied correction works from the
+# values the attempt row itself carried, not from an earlier correction, so a
+# field left out of a later correction restores the attempt's own value and
+# removes the field if the attempt had none to restore.
 _VERDICT = "outcome"
 _CORRECTABLE = (_VERDICT, "detail", "applied_by")
 
-# Where the text lives: a directory beside the sink, one file per distinct
-# scrubbed text, named by the sha256 of its bytes. Beside rather than inside
-# the sink because the sink is one orchestrator's and the blobs are shared.
+# The directory, created beside a journal file, holding the bytes a row names
+# by digest rather than inlining: the rendered prompt and the scrubbed reply.
 BLOB_DIR = "blobs"
 
-# The bench's word for "no ablation" (the identity script's `condition`).
-# Written on every live row, because a live row and a bench cell have to be
-# told apart by content: a directory of rows says nothing about which it holds.
+# The condition written on every row. Nothing in this module varies a
+# condition, so every row it writes says stock; the field is there so a row can
+# be compared with a measurement taken under another condition.
 STOCK = "stock"
 
-#: The variable whoever starts a run sets to tag every row it writes: a JSON
-#: object of text, number and true/false values (:func:`run_tags`).
+#: The environment variable naming a JSON object of tags to stamp on every row
+#: this process writes.
 RUN_TAGS_ENV = "MCGYVR_RUN_TAGS"
 
-#: The row key the tags land under, whole. One key rather than spread over the
-#: row: a tag named ``outcome`` or ``attempt_id`` would otherwise rewrite what
-#: :func:`fold` folds by, and a reader could not tell a caller's claim from a
-#: measurement.
+#: The key the tags land under. Nested under one key rather than spread over the
+#: row, so a tag can never stand in for a field this module writes itself, and so
+#: a reader can tell what the product measured from what its caller asserted.
 RUN_TAGS_KEY = "run_tags"
 
-#: The most bytes the variable may hold. The tags are copied onto every row, so
-#: the cap is what stops a run from writing a document thousands of times; a
-#: round id and a sha256 are about 120 bytes, and this leaves room for dozens.
+#: The limit on the raw variable, in bytes: the object is copied onto every row,
+#: so it is held to something a row can afford to carry.
 RUN_TAGS_MAX_BYTES = 4096
 
-#: The largest integer a tag may be, either sign: past 2**53 a reader that
-#: holds JSON numbers as doubles (JavaScript, jq) no longer reads it exactly.
+#: The largest magnitude a numeric tag may have, set so a reader that models
+#: JSON numbers as doubles reads back exactly the number that was written.
 RUN_TAGS_MAX_INT = 2**53
 
 type TagValue = str | int | float | bool
 
 
 class RunTagsError(ValueError):
-    """``$MCGYVR_RUN_TAGS`` is set and is not a small object of scalar values.
-
-    A ``ValueError``, so ``mcgyvr run`` refuses it with the one-line ``error:``
-    it gives every other recording it cannot set up.
+    """Refused run tags: the variable does not hold a small JSON object of text,
+    finite numbers and true/false values. The message names the variable and the
+    fault.
     """
 
 
@@ -227,61 +120,24 @@ def observe[T](
     mirrors: Sequence[Path] = (),
     on_copy_error: CopyError | None = None,
 ) -> T:
-    """Run one attempt, append exactly one record for it, and hand back its answer.
+    """Run ``attempt`` once, journal the attempt, and return what it returned.
 
-    The answer is returned unchanged — the same object, not a copy — so that
-    recording an attempt is never a decision about whether to record it: a call
-    site can be wrapped without its result changing identity or shape. It need
-    not be a :class:`~mcgyvr.runner.Completion`: a deterministic-floor run
-    produces no completion, and its row simply omits the completion-only
-    fields.
+    The identity of the attempt is gathered and the prompt blobs written before
+    ``attempt`` is called; if that fails, an unlanded row is appended and the
+    failure propagates, so no attempt runs unrecorded. A failure raised by
+    ``attempt`` is journaled the same way — ``ok`` false, the exception's type
+    name and its scrubbed message, and the identity gathered so far — and is
+    then re-raised unchanged.
 
-    ``model`` is only read when the attempt raised. A completion names the model
-    that actually answered, which is the better fact and wins whenever there is
-    one; a dispatch that died never produced one, and a failed attempt that
-    cannot say which model failed is a hole in exactly the data this exists to
-    collect.
-
-    ``messages`` is the prompt as sent — ``{"role", "content"}`` pairs in the
-    order the backend received them — and ``endpoint`` is the base URL that
-    served it. Both are optional because an attempt need not be a dispatch at
-    all, and both are absent from the row rather than null when not given.
-    When ``messages`` is given, the prompt is scrubbed and stored as a blob
-    *before* the attempt runs, so the row for an attempt that raised still
-    names what it asked, and the system message is hashed onto the row as
-    ``bundle_sha256``. A caller that has the prompt and does not pass it is
-    writing a row nobody can review.
-
-    ``task_type`` is the contract's kind of work and ``session_file`` is the
-    transcript of the session that typed the command (:mod:`mcgyvr.session`).
-    Both are identity, known before the attempt and written on both rows: a
-    feedback loop that wants to say "this rung fails implementations" needs
-    the type beside the verdict, and a reviewer who wants the conversation
-    behind an attempt needs the path beside the row. Absent, not null, when
-    the caller has neither. ``operation`` is the deterministic operation a
-    ``code`` contract named, on the same terms: identity, absent when none.
-
-    ``temperature`` is what the dispatch sampled at, and it is identity too:
-    decided before the request goes out and the same fact on the answering row
-    and the failing one. It is the column that turns breadth from a suspicion
-    into a measurement — draw 0 of an attempt is greedy and the draws after it
-    sample, and a row that could not say which it was could not say what N
-    draws bought. Absent, not zero, for an attempt that was never a dispatch:
-    a deterministic run has no temperature, and ``0.0`` there would read as a
-    greedy one.
-
-    A sink that cannot be written raises rather than being swallowed. Silence
-    here is the failure this module was built to end, and an unwritable path is
-    an operator error that is cheap to fix at the moment it happens and
-    impossible to notice a week later, when the answer is simply missing rows.
-    The blob store is a sink under the same rule — *both* of its blobs — and
-    the row still goes down when either fails, because *exactly one record* is
-    what this promises and a dispatch that left none is one no caller can tell
-    from a dispatch nobody made.
+    A successful row carries ``elapsed_s`` for the call as a whole. When the answer
+    is a ``Completion``, the row also carries what ``_completion_fields`` draws
+    from it, and the scrubbed reply text is stored as a blob named by
+    ``reply_sha256``. Any other answer is journaled as ok with no reply blob.
+    Every row and blob is copied into ``mirrors`` as well.
     """
-    # The clock starts before anything this call can fail on, so that a row
-    # written because a blob could not be stored still carries an elapsed time.
-    # What it measures is this call, which is what ``elapsed_s`` says it is.
+    # The clock the row's ``elapsed_s`` is measured from starts here, so
+    # gathering identity and writing blobs count towards it. Both helpers below
+    # carry this attempt's mirrors and copy-error handler.
     started = time.monotonic()
 
     def append(record: Record) -> None:
@@ -290,12 +146,11 @@ def observe[T](
     def store(data: bytes) -> str:
         return _store(path, data, mirrors=mirrors, on_copy_error=on_copy_error)
 
-    # What the attempt *is* — its prompt, its endpoint, the revision
-    # dispatching it — is known before the attempt runs and is the same fact
-    # whichever of the two rows below gets written. `unlanded` reads it out of
-    # this dict rather than off a parameter, which is what lets a failure
-    # part-way through assembling it still write a row saying everything the
-    # steps before it knew.
+    # The identity is filled in place before the attempt runs, and filling it is
+    # fallible because it writes the prompt blobs. Filling it in rather than
+    # returning it means a failure part-way through still leaves the fields
+    # gathered so far available to the row that records that failure, so a row
+    # that cannot say everything about what was asked still says what it can.
     identity: Record = {}
 
     def unlanded(failure: BaseException) -> Record:
@@ -316,10 +171,9 @@ def observe[T](
         return record
 
     try:
-        # Assembling the identity writes the prompt blob to the store, which
-        # can fail (an unreadable product revision is recorded, not raised).
-        # Inside the guard, so a failure here still writes its one row:
-        # "exactly one record per call".
+        # Identity first and on its own: it writes the prompt blobs, and without
+        # them the row cannot say what was asked. A failure here is journaled as
+        # an unlanded attempt and re-raised before ``attempt`` is ever called.
         _identity(
             identity,
             store,
@@ -338,11 +192,11 @@ def observe[T](
     try:
         answer = attempt()
     except BaseException as failure:
-        # BaseException rather than Exception: an interrupted run is still an
-        # attempt that happened, and the moment a run is killed is exactly when
-        # a hole in the record is hardest to account for afterwards. The record
-        # is written before the re-raise, so the caller's exception is what
-        # propagates and this line is not in its path.
+        # Journal the failure before letting it out. The row says what was asked
+        # (the identity already gathered), that the attempt did not land, the
+        # exception's type name, and its message with any credentialed URL
+        # removed, so a run that dies is visible in the journal and not only in
+        # a traceback.
         append(unlanded(failure))
         raise
 
@@ -352,11 +206,10 @@ def observe[T](
             "orchestrator": orchestrator,
             "rung": rung,
             "ok": True,
-            # Two timings that are two different quantities. ``latency_s`` is
-            # the runner's, around the request alone; ``elapsed_s`` is this
-            # call's, around everything the attempt did — prompt, dispatch,
-            # apply, gate. Their difference is the host-side cost of an
-            # attempt, which no single measurement states.
+            # ``elapsed_s`` times the call as a whole, identity work and blob
+            # writes included; a Completion's ``latency_s``, added below, times
+            # only the request that produced it. Keeping both shows how much of
+            # the dispatch the request itself accounted for.
             "elapsed_s": _since(started),
         }
         | identity
@@ -364,11 +217,10 @@ def observe[T](
     if isinstance(answer, Completion):
         record |= _completion_fields(answer)
         try:
-            # Stored before the row that names it is appended, never after: a
-            # reader must not find a row whose ``reply_sha256`` names nothing
-            # on disk. A blob that cannot be written still raises — the sink
-            # rule, not an exception to it — but the row goes down first, as
-            # the failure it now is, with no ``reply_sha256`` on it.
+            # The reply is stored as a blob under the digest of its scrubbed
+            # bytes, and only the digest goes on the row. A failure to store it
+            # is journaled as an unlanded attempt and re-raised, so no row names
+            # a digest that is not on disk.
             record["reply_sha256"] = store(_bytes(scrub(answer.text)))
         except BaseException as failure:
             append(unlanded(failure))
@@ -378,10 +230,13 @@ def observe[T](
 
 
 def _completion_fields(answer: Completion) -> Record:
-    """The completion-only fields of a row, read from a real completion.
+    """The row fields a ``Completion`` contributes, keyed as the row spells them.
 
-    A deterministic attempt produces no completion, so these keys are absent
-    from its row — the same absence-is-honest rule that governs token counts.
+    The fields every completion has are always present. Everything a backend may
+    or may not report — why the reply cap came out where it did, notes, token
+    counts, throughput, in-flight requests, draft counts, tool calls — is added
+    only when the completion carries it, so an absent field means the backend
+    did not measure it rather than that it measured zero.
     """
     fields: Record = {
         "latency_s": answer.latency_s,
@@ -393,35 +248,34 @@ def _completion_fields(answer: Completion) -> Record:
         "max_output_tokens": answer.max_output_tokens,
         "quality_safe": answer.quality_safe,
     }
-    # ``max_output_tokens`` is the cap the request was issued under, and
-    # ``null`` there means the request was uncapped (a raw-text reply) — a
-    # different fact from the absent-count fields below, which mean the
-    # backend did not report a number.
+    # Everything below is optional and goes on the row only when the completion
+    # carries it, so an absent field means the backend did not report it rather
+    # than that it reported zero. The fields written above are always present,
+    # even when a backend has left them at their defaults.
     if answer.cap_basis:
-        # How that cap was reached — the contract's own number, a unit's, or
-        # the automatic sizing from the target — so a reply cut at it names
-        # the term to raise.
+        # Why the reply cap came out where it did: which limit bound it. Kept as
+        # text, so the empty string means the runner recorded no reason.
         fields["cap_basis"] = answer.cap_basis
     if answer.notes:
         fields["notes"] = list(answer.notes)
-    # The rule, in the one place it can be broken: a count the backend did not
-    # report is left out of the row entirely. Writing ``None`` would be honest
-    # too, but a key present in some rows and null in others invites a reader to
-    # coerce it, and coercing an absent count is how it becomes a zero.
+    # Token counts come from the backend's usage block, when it sends one. A
+    # backend that omits a count has not measured it, and zero tokens is a claim
+    # about the reply rather than an absence, so a count is copied only when it
+    # is not None.
     for key, count in (
         ("input_tokens", answer.input_tokens),
         ("output_tokens", answer.output_tokens),
-        # The share of `output_tokens` a reasoning model spent thinking, which
-        # counts against the cap and never reaches the reply.
+        # Reasoning tokens are the part of the output a backend attributes to
+        # thinking; only some backends report them.
         ("reasoning_tokens", answer.reasoning_tokens),
     ):
         if count is not None:
             fields[key] = count
-    # The same rule for what the dispatch measured about the unit: a rate the
-    # runner could not read, and the source it would have named, stay out of
-    # the row. Each rate is written with its source because the two ways of
-    # reading one (a server's own timings, or tokens over host-side latency)
-    # are different quantities, and a tolerance check compares like with like.
+    # Throughput and in-flight concurrency, and speculative-draft counts. The
+    # rates and the request count are followed by a ``*_source`` string saying
+    # how the number was arrived at, so a rate derived from usage over latency
+    # can be told from one the server measured itself. Everything here is
+    # optional and is copied only when the completion carries it.
     for key, value in (
         ("decode_tok_s", answer.decode_tok_s),
         ("decode_source", answer.decode_source),
@@ -429,16 +283,16 @@ def _completion_fields(answer: Completion) -> Record:
         ("prefill_source", answer.prefill_source),
         ("in_flight", answer.in_flight),
         ("in_flight_source", answer.in_flight_source),
-        # What the unit's speculative draft did on this reply, when it had
-        # one: llama-server reports the two counts only when it drafted, so
-        # a plain unit's row has neither key and an MTP unit's has both.
+        # ``draft_n`` is how many tokens speculative decoding proposed and
+        # ``draft_n_accepted`` how many the target model kept; together they
+        # give an acceptance rate. Backends without drafting report neither.
         ("draft_n", answer.draft_n),
         ("draft_n_accepted", answer.draft_n_accepted),
     ):
         if value is not None:
             fields[key] = value
-    # How many tools the reply asked for, only when it asked for any: a row
-    # with no calls has no count, by the same rule as the counts above.
+    # Tool calls are counted, not copied: the row says how many the reply asked
+    # for, and nothing of what they contained.
     if answer.tool_calls:
         fields["tool_calls"] = len(answer.tool_calls)
     return fields
@@ -447,23 +301,24 @@ def _completion_fields(answer: Completion) -> Record:
 def _prompt_identity(
     store: Callable[[bytes], str], messages: Sequence[Mapping[str, str]] | None
 ) -> Record:
-    """The prompt's own identity: its blob in the store, and the bundle digest.
+    """The digests that identify the prompt, as row fields.
 
-    Split out of :func:`_identity` because it is the step of an attempt's
-    identity that writes to the blob store, and the store is a sink: it raises
-    rather than being swallowed, so where the step sits decides whether the
-    dispatch it belongs to is recorded at all. Its caller runs it inside the
-    guard that turns that raise into a row.
+    ``prompt_sha256`` is the blob digest of the prompt as ``_render`` lays it
+    out, so the rendered prompt can be recovered from ``blobs``.
+    ``bundle_sha256`` is the SHA-256 of the system message alone, hashed as it
+    was given, so rows built on the same system text can be grouped without
+    reading a blob. No system message leaves that field out, and no messages
+    leaves the mapping empty.
     """
     if messages is None:
         return {}
     fields: Record = {"prompt_sha256": store(_render(messages))}
     system = next((m["content"] for m in messages if m.get("role") == "system"), None)
     if system is not None:
-        # Raw, not scrubbed: this is the bench's ``bundle_sha256``
-        # (``sha256(prompt.system)``, the bench's breadth measure) and has to
-        # equal it for a live row to lie beside a bench cell. A digest
-        # discloses nothing, so scrubbing would only make the two disagree.
+        # The system message alone, digested as given and with no blob of its
+        # own: the whole prompt is already stored under ``prompt_sha256``, and
+        # this second digest is what lets rows be grouped by the bundle they
+        # were built from without opening any of them.
         fields["bundle_sha256"] = hashlib.sha256(_bytes(system)).hexdigest()
     return fields
 
@@ -480,37 +335,13 @@ def _identity(
     temperature: float | None = None,
     operation: str | None = None,
 ) -> None:
-    """What the attempt is, known before it runs and shared by both rows it can write.
+    """Add the attempt's identity fields to ``fields`` in place.
 
-    The failing row and the succeeding row name the same prompt, endpoint and
-    run tags, which is what makes a raised attempt reviewable at all.
-    Every key here is absent, not null, when the caller could not supply it —
-    an attempt that is not a dispatch has no endpoint and no prompt — under the
-    rule that keeps an unreported token count out of the row.
-
-    **Written into ``fields`` step by step rather than returned whole**, which
-    is the whole reason this takes a dict instead of building one. Two of the
-    steps can raise — :func:`_prompt_identity` writes the prompt to the blob
-    store, which is a sink, and :func:`run_tags` refuses a variable it cannot
-    use. Filling the caller's dict as it goes means the row it writes for that
-    failure still carries everything the earlier steps established: what
-    endpoint was about to be asked and under what condition. Returning a value
-    would make that row empty of all of it, and an empty row is the shape a
-    reader cannot act on.
-
-    **Which makes the order a contract and not a layout.** Everything the
-    caller handed in — the condition, the endpoint, the task type, the session
-    file — is established by being passed and cannot fail, so all of it is
-    written before the step that can. Writing a fact after a step that may
-    raise gives it away for nothing: ``observe`` promises ``task_type`` and
-    ``session_file`` on both rows and a reader takes their absence to mean the
-    caller had neither, so a full disk would silently unsay what the caller
-    said. The only keys a failure row can be missing are the prompt's two,
-    which nothing can establish without touching the disk, and the tags it
-    refused.
-
-    ``condition`` is the one key always written: live work is the product as
-    shipped, and the bench's word for "no ablation" is ``"stock"``.
+    ``condition`` is always written. The rest are written only when the caller
+    supplied them — an empty ``operation`` counts as not supplied — so an absent
+    field means the caller said nothing about it. The prompt digests come from
+    ``_prompt_identity``, and the run tags from the environment are added under
+    ``run_tags`` when there are any.
     """
     fields["condition"] = STOCK
     if endpoint is not None:
@@ -526,35 +357,30 @@ def _identity(
     if temperature is not None:
         fields["temperature"] = temperature
     fields |= _prompt_identity(store, messages)
-    # After the prompt, so a row for tags refused still names what it asked.
+    # Read from the environment per row: a run whose caller said what it belongs
+    # to carries that on every record, and a caller who said nothing adds
+    # nothing.
     tags = run_tags()
     if tags:
         fields[RUN_TAGS_KEY] = tags
 
 
 def _render(messages: Sequence[Mapping[str, str]]) -> bytes:
-    """The prompt as one blob: ``[role]``, the content, a blank line, per message.
+    """The prompt as the bytes to be stored.
 
-    Deterministic — the same messages always render to the same bytes, which
-    is what lets one prompt dispatched a thousand times be one blob — and
-    readable as it is, every content a plain substring, so a reviewer who
-    opens the blob reads what the model read rather than a JSON encoding of
-    it. Each content is scrubbed on the way in, before the bytes exist to be
-    hashed; the role is a vocabulary word and carries nothing to scrub.
+    Each message becomes a ``[role]`` line, its scrubbed content, then a blank
+    line, in the order given. The role header keeps two prompts that differ only
+    in who said what from hashing alike, and encoding with ``surrogateescape``
+    keeps text that is not valid UTF-8 from failing to encode.
     """
     rendered = "\n".join(f"[{m['role']}]\n{scrub(m['content'])}\n" for m in messages)
     return _bytes(rendered)
 
 
 def _bytes(text: str) -> bytes:
-    """``text`` as UTF-8, encoded the way every other writer in the project encodes.
-
-    ``surrogateescape`` rather than strict: the prompt carries the target file,
-    which :mod:`mcgyvr.drive` reads with ``surrogateescape`` so a byte no codec
-    round-trips still reaches the worker, and the blob has to be able to hold
-    what was sent. For text that is plain UTF-8 — every reply, and every prompt
-    over a clean file — the bytes are identical to a strict encode; for the
-    rest, a strict encode would raise out of an attempt that has not failed.
+    """Encode text as UTF-8, writing undecodable surrogates back as the bytes
+    they stand for, so a string that came from bytes that were not valid UTF-8
+    encodes back to those same bytes.
     """
     return text.encode("utf-8", "surrogateescape")
 
@@ -566,26 +392,10 @@ def _store(
     mirrors: Sequence[Path] = (),
     on_copy_error: CopyError | None = None,
 ) -> str:
-    """Put ``data`` in the sink's blob store and return the name it is stored under.
+    """Store ``data`` as a blob beside ``path`` and return the digest.
 
-    The name is the sha256 of the bytes, so the store is a store and not a
-    lookup table: a reader who hashes what it opened gets the name back. An
-    existing blob is left alone — same bytes, same name — and a new one is
-    written whole to a private staging name and moved into place, so a reader
-    never opens a blob whose bytes do not yet hash to its name, and a crash
-    mid-write leaves a stray ``.part`` file rather than a blob that lies about
-    itself and, being "existing", would never be rewritten.
-
-    Every ``OSError`` propagates, ``mkdir`` included: a file sitting where the
-    directory must go is the cheapest way to be unwritable and is refused the
-    same as a full disk. The row that would have named the blob is not
-    written, which is the sink rule applied one level down.
-
-    ``mirrors`` get the same bytes under the same name. The digest is the
-    bytes' own, so every store that holds them agrees on it without being told,
-    and a copy that failed leaves a row naming a blob the *caller's* store
-    lacks — which a journal reviewer already prints as missing, because that
-    is a thing a journal can be.
+    The same bytes are stored in each mirror's blob directory, with mirror
+    failures routed through ``on_copy_error``.
     """
     digest = _store_one(path, data)
     _also(mirrors, on_copy_error, lambda mirror: _store_one(mirror / path.name, data))
@@ -593,41 +403,33 @@ def _store(
 
 
 def _store_one(path: Path, data: bytes) -> str:
-    """The store itself, for one directory: ``path.parent / BLOB_DIR``."""
+    """Store ``data`` in the ``blobs`` directory beside ``path``; return its digest.
+
+    The digest is the SHA-256 of the bytes, so the same content stored twice
+    lands in one file. The write goes through ``atomic.write``, which stages the
+    file and renames it, so a reader never sees a partial blob.
+    """
     digest = hashlib.sha256(data).hexdigest()
     blobs = path.parent / BLOB_DIR
     blobs.mkdir(parents=True, exist_ok=True)
     blob = blobs / digest
     if blob.exists():
         return digest
-    # Two threads or processes storing the same text at once each stage their
-    # own copy and the last ``replace`` wins with bytes identical to the first.
+    # Content addressing makes the write idempotent: a blob under this digest
+    # already holds these bytes.
     atomic.write(blob, data)
     return digest
 
 
 def run_tags() -> dict[str, TagValue] | None:
-    """``$MCGYVR_RUN_TAGS`` as the row will carry it, or ``None`` when it is unset.
+    """The run tags ``MCGYVR_RUN_TAGS`` names, or None when it is unset or empty.
 
-    Read on every call rather than once, so a process that sets the variable
-    between runs tags the next one; it is a few kilobytes of JSON at most.
-    Unset and empty are the same answer, as for ``$MCGYVR_HOME``: no tags.
-    ``{}`` is set and names nothing, and a row carries no ``run_tags`` for it
-    either.
-
-    Refused with :class:`RunTagsError` naming the variable when it is not a
-    JSON object; when it holds more than :data:`RUN_TAGS_MAX_BYTES`; when a key
-    is empty or appears twice (JSON keeps the last silently, so one of the two
-    would be lost unsaid); or when a value is anything but text, a finite
-    number or true/false. ``null`` is refused under the absent-is-honest rule
-    of every other key here, a list or an object because a tag is a column a
-    reader filters on, ``NaN`` because the row would no longer be JSON, an
-    integer past :data:`RUN_TAGS_MAX_INT` because a reader in doubles would
-    read another number, and a lone surrogate in a key or a value because it
-    has no UTF-8 and the row could not be written.
-    Text values are scrubbed (:func:`~mcgyvr.redact.scrub`), as every string a
-    row quotes that it did not build; a key the scrub would change is refused
-    instead, unechoed, because a renamed key could collide with another.
+    The variable is parsed as one JSON object, and every value is copied onto the
+    row as given, except that text is scrubbed. A value that is not text, a
+    finite number within ``RUN_TAGS_MAX_INT`` or a boolean is refused, as are a
+    variable over ``RUN_TAGS_MAX_BYTES``, text that is not JSON or not an object,
+    and keys that are empty, invalid UTF-8, duplicated or carrying credentials.
+    Every refusal raises ``RunTagsError``.
     """
     value = os.environ.get(RUN_TAGS_ENV)
     if not value:
@@ -688,7 +490,9 @@ def run_tags() -> dict[str, TagValue] | None:
 
 
 def _utf8(text: str) -> bool:
-    """Whether ``text`` encodes as UTF-8: no lone surrogate in it."""
+    """Whether ``text`` encodes as UTF-8, which text holding a lone surrogate
+    does not.
+    """
     try:
         text.encode("utf-8")
     except UnicodeEncodeError:
@@ -706,25 +510,12 @@ def correct(
     mirrors: Sequence[Path] = (),
     on_copy_error: CopyError | None = None,
 ) -> None:
-    """Append how one attempt's work finally landed, leaving its record alone.
+    """Append a correction row recording how the named attempt turned out.
 
-    ``outcome`` is a word, not an enum, because the vocabulary belongs to
-    whatever finally accepts the work — a merge gate, a review, another
-    orchestrator taking it off the out-queue — and this module is not entitled
-    to decide what those may say. What it does decide is that the statement
-    arrives as its own line: an attempt's record is bytes on disk that no later
-    fact rewrites.
-
-    ``orchestrator`` is the one applying the correction, which under §9 need not
-    be the one that ran the attempt. It is required, not optional, because a
-    correction that names no known attempt has no attempt row to borrow an
-    author from: the one place an orphan could be anonymous is the one place a
-    reader most needs to know who wrote it.
-
-    ``mirrors`` are the caller's copies of the journal, and a correction goes
-    to all of them for the same reason the attempt row did: a copy holding the
-    dispatch and not its verdict is a copy that reads as a run nobody ever
-    judged, which is the one reading breadth's telemetry must not invite.
+    ``outcome`` is the verdict ``fold`` lays onto the attempt, ``detail`` the
+    free text that goes with it, and ``orchestrator`` the name recorded as
+    having applied it. The row is stamped as a correction and appended to the
+    same sinks and mirrors an attempt row is.
     """
     record = _stamp(CORRECTION_KIND, attempt_id) | {
         "outcome": outcome,
@@ -735,44 +526,15 @@ def correct(
 
 
 def fold(*, path: Path) -> list[Record]:
-    """Attempt records in the order they were written, corrections folded in.
+    """The attempts in the journal at ``path``, with corrections laid over them.
 
-    This is what a report or a learning loop reads; the raw lines are for
-    forensics. Each correction is applied onto the attempt whose id it names,
-    latest-wins, where "latest" is position in the file — the order the writes
-    actually happened. A correction's own ``ts`` is wall-clock metadata a reader
-    can inspect, not a ranking: two hosts writing one sink have two clocks, and
-    the file's order is the only order they share. A repeat attempt id is a
-    collision, not a supersede — every attempt row survives, and a correction
-    binds to the latest row carrying its id.
-
-    A correction naming no known attempt comes back verbatim at the end rather
-    than being dropped. It is a mistake somebody made, and a mistake that is
-    visible costs one question; a mistake that deletes itself costs the trust in
-    every other number in the file.
-
-    **A verdict arrives whole.** ``outcome``, ``detail`` and ``applied_by``
-    are one statement, not three fields, and a correction that states an
-    outcome supplies all three — a field it does not state is not inherited
-    from the verdict it supersedes. A correction stating no outcome judges
-    nothing and repaints none of them.
-
-    What a verdict replaces is the last verdict, not the row under it. The
-    corrections are an overlay: a field the newest one leaves unstated falls
-    back to what the *attempt row itself* said, and is absent only where the
-    row said nothing either. An attempt row of this module's carries none of
-    the three, so this is invisible here and decides a foreign row — one whose
-    ``detail`` is "run 42, arm B", the runner's own word for what it ran. That
-    is the attempt's statement about itself, and a merge gate appending
-    ``{outcome: "merged"}`` has said nothing about it; saying nothing must not
-    delete it.
-    :func:`correct` always writes all three, so this only ever decides what a
-    line written elsewhere means; that is most of the point, since the sink is
-    shared by other hosts, other processes and other versions of this module
-    by construction. The alternative — each field latest-wins on its own —
-    produces a row whose ``applied_by`` names somebody who did not give its
-    ``outcome``, which is a lie a journal indexer then stores in a column and
-    a reviewer then weighs.
+    Correction rows are separated out and the remaining rows are read as
+    attempts. A correction names an ``attempt_id`` and is laid onto the last
+    attempt row carrying that id; corrections are applied in file order, and
+    each acts on the values that attempt row itself carried. A correction naming
+    an id with no attempt row has nothing to correct and is returned after the
+    attempts rather than dropped. A ``path`` that does not exist folds to no
+    records at all.
     """
     attempts: list[Record] = []
     corrections: list[tuple[int, Record]] = []
@@ -782,21 +544,19 @@ def fold(*, path: Path) -> list[Record]:
             continue
         attempts.append(record)
 
-    # A correction binds to the latest attempt row carrying its id — the one a
-    # corrector most plausibly just corrected — but a repeat id never makes a
-    # row disappear.
+    # Corrections are held back rather than applied where they are read: folding
+    # needs each one's position in the file, and an attempt row has to exist
+    # before a correction can be laid onto it.
     latest: dict[str, int] = {}
     for index, record in enumerate(attempts):
         latest[str(record.get("attempt_id", ""))] = index
 
     orphans: list[Record] = []
-    # What each attempt row said about itself, before any verdict was painted
-    # over it. A verdict is an overlay on the row and not a rewrite of it: the
-    # block it replaces is the *previous verdict's*, so lifting one uncovers
-    # what the row underneath stated rather than a hole. Nothing this module
-    # writes puts a `detail` or an `applied_by` on an attempt row, but a
-    # foreign writer's "run 42, arm B" is its own statement, and a correction
-    # that says nothing about it has not said to delete it.
+    # Corrections are applied in file order, so the last one written for an
+    # attempt has the last word. ``said`` snapshots an attempt's own values the
+    # first time a correction touches it, to be fallen back on for fields a later
+    # correction leaves out: the attempt row as written is the baseline, not the
+    # previous correction.
     said: dict[int, Record] = {}
     for _, correction in sorted(corrections, key=lambda entry: entry[0]):
         match = latest.get(str(correction.get("attempt_id", "")))
@@ -805,19 +565,19 @@ def fold(*, path: Path) -> list[Record]:
             continue
         base = attempts[match]
         if correction.get(_VERDICT) is None:
-            # No verdict, so nothing to attach a detail or a byline to: a line
-            # that judges nothing does not get to rewrite how the work landed,
-            # nor to sign somebody else's judgement. Absence is not a
-            # retraction — the standing verdict keeps all three of its fields.
+            # A correction with no ``outcome`` says nothing about how the attempt
+            # turned out, so there is no verdict to fold and nothing is applied.
+            # The row was counted as a correction, so it is not returned as an
+            # attempt either.
             continue
         own = said.setdefault(
             match, {key: base[key] for key in _CORRECTABLE if key in base}
         )
         for key in _CORRECTABLE:
-            # The whole block, from this one correction: a field it does not
-            # state is not inherited from the verdict this one supersedes. It
-            # falls back to the row's own word for it, and where the row had
-            # none it is absent.
+            # A field the correction leaves out falls back to the value the
+            # attempt carried; when the attempt carried none there either, the
+            # field is removed from the attempt rather than left standing, so a
+            # correction can take a field away.
             value = correction.get(key)
             if value is None:
                 value = own.get(key)
@@ -830,11 +590,8 @@ def fold(*, path: Path) -> list[Record]:
 
 
 def _stamp(kind: str, attempt_id: str) -> Record:
-    """The fields every line carries, whatever its kind.
-
-    ``ts`` is wall-clock rather than monotonic on purpose: it has to be
-    comparable against a record another process wrote, and a monotonic clock is
-    only meaningful within the process that read it.
+    """The fields common to every row: its kind, the layout version, the time it
+    was written, and the attempt it belongs to.
     """
     return {
         "record_kind": kind,
@@ -845,13 +602,15 @@ def _stamp(kind: str, attempt_id: str) -> Record:
 
 
 def _since(started: float) -> float:
-    """Wall time since ``started``, measured on the clock that cannot go back."""
+    """Seconds elapsed on the monotonic clock since ``started``, rounded to
+    microseconds.
+    """
     return round(time.monotonic() - started, 6)
 
 
-#: What a failed write to one of the caller's copies is reported through: the
-#: copy's directory and what went wrong. Called at most once per failed write,
-#: and never for the primary sink, which raises.
+#: What ``on_copy_error`` receives when a copy fails: the mirror directory and
+#: the exception. Left as None, a failed copy propagates; given a handler, that
+#: handler decides and the remaining mirrors are still written.
 type CopyError = Callable[[Path, BaseException], None]
 
 
@@ -860,24 +619,10 @@ def _also(
     on_copy_error: CopyError | None,
     write: Callable[[Path], object],
 ) -> None:
-    """Do the same write into each of the caller's copies, and survive it failing.
+    """Run ``write`` for each mirror, handing a failure to ``on_copy_error``.
 
-    The asymmetry between this and the primary sink is deliberate and is the
-    whole of the copy feature's contract. ``journal.dir`` is where mcgyvr keeps
-    its own record and is a sink under the rule this module opens with: it
-    raises, because a run whose record is missing is the silence the module
-    exists to end. A copy is something a caller asked for on top of that, for
-    their own reading, in a directory of their choosing — and ending a run we
-    have recorded correctly, over a directory that is not ours and not needed,
-    would be the product punishing somebody for using a feature.
-
-    So a copy's failure is handed to ``on_copy_error`` and the write goes on.
-    A caller that passes none gets the sink rule for its copies too, which is
-    the right default for a caller that has not said what else to do.
-
-    ``Exception`` and not ``BaseException``: an interrupt is not this copy's
-    news to swallow, and a run being killed must not be turned into a note
-    about a directory.
+    Without a handler the first failure propagates; with one, the handler is
+    called and the remaining mirrors are still written.
     """
     for mirror in mirrors:
         try:
@@ -895,22 +640,9 @@ def _append(
     mirrors: Sequence[Path] = (),
     on_copy_error: CopyError | None = None,
 ) -> None:
-    """Add one line to the sink, whole, under an exclusive lock.
+    """Append ``record`` to ``path`` as one JSON line, and to each mirror.
 
-    The lock and the append mode do two different jobs, and both are needed for
-    the concurrency §9 asks for: ``O_APPEND`` puts every write at the end of the
-    file as it is *now*, so a writer that waited does not overwrite what it
-    waited for, and the ``flock`` keeps two writers from interleaving parts of
-    two lines. Two more rules keep one line from destroying the next: the file
-    is checked to end on a line boundary first — a torn line left by a crash is
-    terminated, not glued onto — and the write is counted, because a short write
-    on a full disk is a failure to signal, not a stump to leave behind.
-
-    ``mirrors`` are the caller's own copies of the journal, each a *directory*
-    the same line is appended into under this file's name. The line is
-    serialised once and written into ours first: a copy is a copy of a record
-    that exists, and one that got the line while the sink did not would be a
-    reader's only evidence of a run this machine has no record of.
+    The line is serialized once and the same bytes are written to every sink.
     """
     line = (json.dumps(record) + "\n").encode("utf-8")
     _append_line(path, line)
@@ -918,7 +650,12 @@ def _append(
 
 
 def _append_line(path: Path, line: bytes) -> None:
-    """One line into one file, whole, under that file's own exclusive lock."""
+    """Append ``line`` to the journal file at ``path``, creating it if needed.
+
+    The parent directory is created, and the write happens under an exclusive
+    ``flock`` on the file so concurrent writers append whole lines instead of
+    interleaving them.
+    """
     path.parent.mkdir(parents=True, exist_ok=True)
     fd = os.open(path, os.O_RDWR | os.O_CREAT | os.O_APPEND, 0o666)
     try:
@@ -933,11 +670,10 @@ def _append_line(path: Path, line: bytes) -> None:
 
 
 def _terminate_stump(fd: int) -> None:
-    """End the file on a line boundary if it does not already end on one.
+    """End the file in a newline before more is appended to it.
 
-    A write that crashed, or that a full disk accepted only half of, leaves
-    bytes with no trailing newline. The next record must not be glued onto them,
-    so the stump is terminated before the new line is written.
+    A writer that died mid-line would otherwise leave a partial line for the next
+    record to be glued onto, and ``_read`` would drop both of them.
     """
     end = os.lseek(fd, 0, os.SEEK_END)
     if end == 0:
@@ -948,12 +684,10 @@ def _terminate_stump(fd: int) -> None:
 
 
 def _write_all(fd: int, data: bytes) -> None:
-    """Write ``data`` whole, raising if the sink accepts less than all of it.
+    """Write all of ``data`` to ``fd``, looping while the kernel takes less.
 
-    A regular file on a full disk can take a short write without an error from
-    ``os.write``; the only way to know the line is intact is to count. A partial
-    line is the exact stump this module's append-only shape exists to survive,
-    and it is survivable only if the writer does not silently declare victory.
+    ``os.write`` may accept fewer bytes than it was given; a write that accepts
+    none is raised as an error naming how much of the record reached the sink.
     """
     view = memoryview(data)
     while view:
@@ -966,15 +700,11 @@ def _write_all(fd: int, data: bytes) -> None:
 
 
 def _read(path: Path) -> list[Record]:
-    """Every record in the sink, in file order. A sink that does not exist is empty.
+    """The records in the journal at ``path``, oldest first.
 
-    A line that will not decode or parse is skipped rather than raising. The
-    append-only shape is chosen because it survives a crash mid-write, and it
-    only actually survives one if the reader does too: a torn last line is
-    already lost, and letting it take every record before it as well would give
-    up the property the shape was chosen for. An undecodable byte is the same
-    case one step earlier — the line is decoded on its own, so one bad byte
-    loses one line, not the whole sink.
+    Lines that are blank, not decodable UTF-8, not JSON, or not JSON objects are
+    skipped, so one damaged line cannot hide the rest of the file. A missing file
+    reads as no records at all.
     """
     try:
         raw = path.read_bytes()

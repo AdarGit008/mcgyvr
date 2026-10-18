@@ -1,48 +1,21 @@
-"""The relief rungs a hub matched this rider to, kept in ``relief.yaml``.
+"""Ask the hub for the relief rungs this setup may ride, and keep them written.
 
-A hub matches a rider to other people's open slots (hitchhike) and lists them
-at ``/api/v1/me/rungs``. :func:`sync` ``POST``s the rider's ladder there
-(:func:`ladder_report`) and reads the list back, with the rider's *personal*
-key — not the rig token — and writes it whole into ``relief.yaml``
-beside the setup (:data:`mcgyvr.config.RELIEF_FILENAME`): one relief rung per
-listed rung, so a rung the hub no longer lists is gone, and nothing else in the
-setup is touched. Each rung names the variable that holds the key
-(``api_key_env``), never the key: the runner reads it at dispatch, as it reads
-every unit's. Each also names the hub's answers that mean it cannot take the
-request now (``busy_answers``, :data:`BUSY`): the hub's vocabulary is kept
-here, and the runner reads it from the file.
+A relief rung is a unit other people lend you through the hub (hitchhike): it
+is never a step of the ladder, so all this module does is report the ladder's
+shape to the hub and record the rungs it answers with.
 
-**The key goes only where the rig token may.** The hub is asked over
-``https://``, or ``http://`` on this machine, by the one rule
-(:func:`mcgyvr.rig.verbs.hub_address`), and a redirect is not followed: it
-would carry the key to an address nobody checked. Every address a rung names is
-held to the same rule and must be the hub's own (scheme, host and port), since
-the key is sent there with every ride.
-
-**The rider reports their ladder, and only its shape.** The hub places each
-host's model against the rider's own (above their ceiling, below their floor,
-or within) from the model rungs in the order work climbs them, each with its
-family, the weights file's size and the parameter count where the product
-knows them (a unit's geometry scan, else the shipped capability table for the
-count), and ``floor`` and ``ceiling``: the rung work starts on and the highest
-one ``max_escalations`` lets it reach. No address, key or variable name is in
-it, and no relief rung; it is checked against the contract before it is sent.
-
-**The answer is hostile until read.** :func:`read` checks every field the
-contract names — its type, its size, the model's pattern and that it names its
-own rung, a width of at least one, a position the contract knows, an id once —
-and refuses the whole answer at the first that fails, naming it. A hub that
-half-speaks the contract is not trusted for the half it seems to get right, and
-refusing whole keeps the relief rungs already kept as they were. Fields the
-contract does not name are not read, so a newer hub may add some. The written
-file is loaded with the rest of the setup before it replaces the old one, so a
-sync never leaves a setup that does not load.
-
-**The agent keeps them fresh when it may.** With the key's variable set, the
-rig agent hands its heartbeat a :class:`Refresher` (:func:`refresher_for`),
-which syncs at the first beat and then no sooner than the hub's ``refresh_s``,
-on a thread of its own, one sync at a time, saying a failure rather than
-raising it.
+* :func:`ladder_report` is what is reported: each model rung's model, family,
+  file size and parameter count where known, plus the floor and ceiling the hub
+  places the ladder at. No address, no key, no variable's name leaves here.
+* :func:`fetch` posts that report to ``RUNGS_PATH`` on the hub's own address
+  with the personal key, and :func:`read` validates the answer whole: one
+  unreadable rung refuses the answer rather than being half-kept.
+* :func:`render` turns the answer into the ``relief`` block of the setup's
+  ``relief.yaml``, and :func:`sync` writes it, loading the setup with it first
+  so an answer the setup would refuse is never written.
+* :class:`Refresher` re-runs a sync off the rig agent's heartbeat, no more
+  often than the hub's ``refresh_s``, and once every ``RETRY_S`` after a
+  failure.
 """
 
 from __future__ import annotations
@@ -78,40 +51,41 @@ from mcgyvr.config import (
 )
 from mcgyvr.rig.verbs import AGENT_PATH, _RefusalError, hub_address
 
-#: The rider's rungs, under a hub's address.
+#: The hub's rider API path, taken on the hub's own address and not on a rung's.
 RUNGS_PATH = "/api/v1/me/rungs"
-#: The variable the personal key is read from when none is named.
+#: The variable name a sync reads the rider's personal hub key from.
 KEY_ENV = "MCGYVR_HUB_API_KEY"
-#: What the key is called where a refusal names it.
+#: What the address check names as the credential that would travel in clear.
 CARRYING = "your personal hub key"
-#: How long asking the hub may take, in seconds.
+#: Seconds one request to the hub may take before it counts as unreachable.
 FETCH_TIMEOUT_S = 15.0
-#: The largest answer read; a listing of :data:`MAX_RUNGS` rungs is far smaller.
+#: Most bytes of the hub's answer that are read; one more is read to tell an
+#: overrun from an answer that fills the mark exactly.
 MAX_ANSWER_BYTES = 256 * 1024
-#: The most rungs one answer may list.
+#: Most relief rungs one answer may list.
 MAX_RUNGS = 64
-#: The longest handle and model description kept, in characters.
+#: Longest host handle or served model an answer may name.
 MAX_TEXT = 256
-#: The longest privacy warning shown, in characters.
+#: Longest privacy warning the hub may send, which a sync prints as it reads it.
 MAX_PRIVACY = 2000
-#: The longest rung address kept, in characters.
+#: Longest rung address an answer may carry.
 MAX_ADDRESS = 2048
-#: The widest rung kept: no unit serves more requests at once.
+#: Widest a rung may say it takes at once, which becomes its width in relief.yaml.
 MAX_RUNG_WIDTH = 1024
-#: A relief rung's name in ``relief.yaml``: this prefix and the rung's id.
+#: What a relief rung's name in relief.yaml starts with: the hub's rung id follows.
 NAME_PREFIX = "hitchhike-"
-#: The most rungs a reported ladder may hold, as the hub takes it.
+#: Most rungs a reported ladder may have: the hub takes 1 to this many.
 MAX_LADDER_RUNGS = 64
-#: A reported rung's model, as the hub takes it.
+#: What a reported rung's model must match: 1 to 128 characters, and no spaces.
 _LADDER_MODEL = re.compile(r"[A-Za-z0-9][A-Za-z0-9._+=@/:-]{0,127}")
-#: The hub's answers that say a relief rung cannot take the request now, as
-#: (HTTP status, error code): not served yet (the relay to the host's unit),
-#: its host gone away (a hub that does not know that code yet says "not served
-#: yet" for it), or no longer matched (a stale ``relief.yaml``). Each is a pair
-#: the rider schema publishes (``x-openai-errors``). A sync writes them into
-#: every rung it keeps (``busy_answers``), and the runner reads them there: an
-#: answer a rung names is a full rung, passed over at no cost. The literal
-#: lives here, the one place the product spells it.
+#: The answers that say a relief rung cannot take a request now: an HTTP status
+#: and the error code its body carries. `render` writes them all into every
+#: rung's `busy_answers`, in the sorted order below: the hub has not yet
+#: matched this host to work (503 `hitchhike_not_served_yet`), the host's
+#: machine is away (503 `hitchhike_host_away`), and the hub names no host
+#: running the model asked for (404 `model_not_found`). A busy answer is a
+#: full rung, passed over at no cost; an answer not listed here is read as on
+#: any rung.
 BUSY: tuple[tuple[int, str], ...] = tuple(
     sorted(
         {
@@ -121,8 +95,8 @@ BUSY: tuple[tuple[int, str], ...] = tuple(
         }
     )
 )
-#: How long the agent's refresher waits after a sync that failed, in seconds:
-#: the hub's own re-match interval in the contract's example.
+#: Seconds before a failed sync is tried again, whatever the hub last asked for:
+#: a failure leaves no refresh interval behind to wait by.
 RETRY_S = 60.0
 
 _ID = re.compile(r"[0-9a-f]{32}")
@@ -131,16 +105,30 @@ _HTTP = {"http": "http", "https": "https", "ws": "http", "wss": "https"}
 
 
 class SyncError(Exception):
-    """A sync that could not be made: no setup here, or the hub not reached."""
+    """A sync that could not be done on this machine's side.
+
+    A folder with no ``fleet.yaml``, a setup that does not load, a ladder the
+    hub cannot take, a file that cannot be read, or a hub that could not be
+    reached. Whatever ``relief.yaml`` already holds is left as it was.
+    """
 
 
 class HubAnswerError(Exception):
-    """The hub's answer is refused: it said no, or said something unreadable."""
+    """The hub's answer refused whole, so nothing of it is written.
+
+    A refusal status, a body over ``MAX_ANSWER_BYTES``, a body that is not
+    JSON, a listing shaped otherwise than :func:`read` requires, or a listing
+    the setup would not load with. ``relief.yaml`` is left as it was.
+    """
 
 
 @dataclass(frozen=True)
 class Ride:
-    """One relief rung, as the hub listed it."""
+    """One relief rung as the hub describes it.
+
+    ``id`` is the 32 hex digits its name carries, and ``address`` is checked to
+    be the hub's own origin because the key is sent there.
+    """
 
     id: str
     hosted_by: str
@@ -152,13 +140,19 @@ class Ride:
 
     @property
     def name(self) -> str:
-        """The rung's name in ``relief.yaml``, keyed on its id."""
+        """The rung's name in ``relief.yaml``: the prefix, then the rung id."""
         return f"{NAME_PREFIX}{self.id}"
 
 
 @dataclass(frozen=True)
 class Rides:
-    """The hub's whole answer: whether the rider rides, and what to."""
+    """One hub answer, validated whole.
+
+    ``ride`` is whether the hub matches this rider to work at all, ``privacy``
+    is the warning it wants shown, ``refresh_s`` is how long to wait before
+    asking again, and ``rungs`` are the relief rungs to write, in the order the
+    hub listed them.
+    """
 
     ride: bool
     privacy: str
@@ -167,18 +161,22 @@ class Rides:
 
 
 def _origin(parts: urllib.parse.SplitResult) -> tuple[str, str, int]:
-    """Scheme, host and port, the agent's schemes read as the web's."""
+    """The scheme, host and port a parsed hub address points at.
+
+    ws reads as the http scheme it carries and wss as https, and a scheme's
+    default port stands in for one left unsaid. Two addresses with the same
+    triple are the same origin, so the key may be sent to either.
+    """
     scheme = _HTTP[parts.scheme.lower()]
     port = parts.port or (443 if scheme == "https" else 80)
     return scheme, (parts.hostname or "").lower(), port
 
 
 def rungs_url(hub: str) -> str:
-    """Where the hub at ``hub`` lists this rider's rungs.
+    """The hub's rider API address, built from the hub's own address.
 
-    ``ValueError`` and :class:`~mcgyvr.rig.verbs._RefusalError` as
-    :func:`~mcgyvr.rig.verbs.hub_address` raises them. A kept address that
-    names the agent channel is read as the hub it belongs to.
+    An ``AGENT_PATH`` suffix is dropped and ``RUNGS_PATH`` put in its place, so
+    the report goes to the host and port the key is meant for and not to a rung.
     """
     parts = hub_address(hub, carrying=CARRYING)
     scheme, _, _ = _origin(parts)
@@ -189,21 +187,28 @@ def rungs_url(hub: str) -> str:
 
 
 class _NoRedirect(urllib.request.HTTPRedirectHandler):
-    """Refuse every redirect: it would carry the key to an unchecked address."""
+    """A hub that answers where it stands: a redirect is read as an HTTP error.
+
+    Following one would send the personal key to an address the hub names, not
+    to the one the setup names.
+    """
 
     def redirect_request(self, *args: Any, **kwargs: Any) -> None:
         return None
 
 
 def ladder_report(config: Config) -> dict[str, Any]:
-    """The rider's ladder as the hub is told it: ``{"ladder": {...}}``.
+    """The ladder this setup runs, in the shape the hub places rungs by.
 
-    The model rungs of ``config``'s ladder in the order work climbs them —
-    families by the catalog's rank, the ladder's own order within each, which
-    is the ladder's written order whenever it is written cheapest first — and
-    the floor and ceiling as indexes into them. Relief rungs are not in it.
-    :class:`SyncError` for a ladder the contract cannot carry, so nothing is
-    sent that the hub would refuse.
+    The units the ladder names are sorted by family rank and each reported with
+    its model, its family name, its file size in bytes and its parameter count
+    in billions where either is known. ``floor`` is the index of the first rung
+    at or above the lowest family any task type starts on, and ``ceiling`` is as
+    many rungs above the floor as ``max_escalations`` allows, so a ladder
+    shorter than that reports a ceiling below its top rung.
+
+    Raises :class:`SyncError` when the ladder has no rungs, has more than
+    ``MAX_LADDER_RUNGS``, or names a model outside ``_LADDER_MODEL``.
     """
     from mcgyvr.catalog import catalog
     from mcgyvr.escalate import Ceiling
@@ -243,12 +248,12 @@ def ladder_report(config: Config) -> dict[str, Any]:
 
 
 def _what_is_known(unit: Unit) -> tuple[int | None, float | None]:
-    """The weights file's size and the parameter count in billions, or ``None``.
+    """The unit's size in bytes and its parameter count in billions.
 
-    Read from the unit's geometry scan (``launch.geometry_json``) where it names
-    one that reads; the count otherwise from the shipped capability table by
-    the unit's model. Anything that does not read is not known: a report says
-    ``null`` rather than guess.
+    Both are read from the geometry file the unit's ``geometry_json`` launch
+    setting names, and the parameter count falls back to the capability table
+    when the geometry file states none. Either is ``None`` when nothing states
+    it or what states it cannot be read: a rung is reported without it.
     """
     size: int | None = None
     params: float | None = None
@@ -285,11 +290,12 @@ def fetch(
     *,
     timeout: float = FETCH_TIMEOUT_S,
 ) -> Rides:
-    """Report ``report`` to the hub at ``hub`` with ``key``, and read its rungs.
+    """POST the report to the hub and read the answer whole.
 
-    :class:`HubAnswerError` for an error status (the hub's refusal) and for an
-    answer :func:`read` refuses; :class:`SyncError` when the hub cannot be
-    reached. No message carries the key.
+    The key travels in an ``Authorization: Bearer`` header, never in the URL,
+    and a redirect is not followed. :class:`HubAnswerError` covers a refusal
+    status, an answer over ``MAX_ANSWER_BYTES`` and a body that is not JSON;
+    :class:`SyncError` covers a hub that could not be reached at all.
     """
     url = rungs_url(hub)
     request = urllib.request.Request(
@@ -380,7 +386,7 @@ def _ride(raw: object, where: str, origin: tuple[str, str, int]) -> Ride:
         raise _refused(
             f"{where}.position", f"is not one of {', '.join(POSITION_CHOICES)}"
         )
-    assert isinstance(position, str)  # one of the choices
+    assert isinstance(position, str)  # POSITION_CHOICES is text: the type narrows
     return Ride(
         id=rung_id,
         hosted_by=_text(raw.get("host"), f"{where}.host", MAX_TEXT),
@@ -393,9 +399,13 @@ def _ride(raw: object, where: str, origin: tuple[str, str, int]) -> Ride:
 
 
 def read(document: object, hub: str) -> Rides:
-    """The hub's answer for the hub at ``hub``, read whole, or refused whole.
+    """Validate the hub's answer as a whole and return it.
 
-    :class:`HubAnswerError` names the first field that fails.
+    ``ride`` must be a boolean, ``privacy`` text, ``refresh_s`` a finite number
+    above zero and ``rungs`` a list of at most ``MAX_RUNGS`` entries. Every rung
+    must name its own model, carry the hub's own origin as its address, and be
+    listed once; one bad entry raises :class:`HubAnswerError` naming where it
+    is, so no partial listing is ever returned.
     """
     origin = _origin(hub_address(hub, carrying=CARRYING))
     if not isinstance(document, dict):
@@ -431,7 +441,13 @@ def read(document: object, hub: str) -> Rides:
 
 
 def render(rides: Rides, key_env: str) -> str:
-    """``relief.yaml`` for ``rides``, each rung naming ``key_env`` for its key."""
+    """The ``relief.yaml`` text for one answer.
+
+    Every rung becomes a block under ``relief``, keyed by its name and carrying
+    its address, model, key variable name, width, position, host, served model
+    and the ``BUSY`` answers. A header says a sync rewrites the file whole and
+    that each host can read the prompts sent to their rung.
+    """
     block = {
         each.name: {
             "address": each.address,
@@ -463,11 +479,12 @@ def _read_text(path: Path) -> str:
 
 
 def sync(folder: Path, hub: str, key: str, key_env: str) -> tuple[Rides, Path]:
-    """Ask the hub and keep its answer in ``folder``'s ``relief.yaml``.
+    """Sync once: report the setup's ladder, then write the answer beside it.
 
-    ``folder`` must hold a setup (a ``fleet.yaml``): a sync adds relief rungs to
-    a setup and never starts one. The new file is loaded with the setup before
-    it replaces the old one, and replaces it whole or not at all.
+    The folder must hold a ``fleet.yaml``. The answer is loaded with that setup
+    as its ``relief_text`` before anything is written, so an answer the setup
+    would refuse raises :class:`HubAnswerError` and leaves ``relief.yaml`` as
+    it was. Returns the answer read and the file it was written to.
     """
     fleet = folder / FLEET_FILENAME
     if not fleet.is_file():
@@ -508,13 +525,12 @@ def _say(line: str) -> None:
 
 
 class Refresher:
-    """A sync of the relief rungs, kept from the rig agent's heartbeat.
+    """A sync kept fresh against a clock, one run at a time.
 
-    :meth:`tick` is the agent's ``on_beat``: it returns at once. A sync is
-    started when one is due — at the first tick, then once the hub's
-    ``refresh_s`` has passed since the last sync ended, or :data:`RETRY_S`
-    after one failed — and never while one is still going. A failure is said,
-    once while it keeps failing the same way, and never raised.
+    :meth:`tick` decides whether a sync is due and hands the work to the thread
+    ``start`` gives it, so the caller is never blocked. The next sync is due
+    ``refresh_s`` after an answer, or ``RETRY_S`` after a failure, and a failure
+    is said once rather than on every tick that follows it.
     """
 
     def __init__(
@@ -535,7 +551,13 @@ class Refresher:
         self._last_failure = ""
 
     def tick(self) -> None:
-        """Start a sync if one is due and none is going."""
+        """Start a sync off the calling thread if one is due and none is going.
+
+        Returns at once either way. With no failure and no answer yet the first
+        call syncs immediately; after that the hub's own interval, or ``RETRY_S``,
+        holds the next one back. Nothing is printed here: the failure is said on
+        the thread that ran it.
+        """
         with self._lock:
             now = self._clock()
             if self._going or (self._due is not None and now < self._due):
@@ -567,14 +589,11 @@ def refresher_for(
     environ: Mapping[str, str] = os.environ,
     folder: Path | None = None,
 ) -> Refresher | None:
-    """The agent's refresher for the hub it joined, or ``None`` without a key.
+    """A :class:`Refresher` for this machine, or ``None`` where no key is set.
 
-    Only when :data:`KEY_ENV` is set: the rig token is the agent's, and the
-    rider's personal key is theirs to give. The key is read at each sync, so
-    a variable changed under the agent is the one used next; the setup is
-    ``folder`` (the agent's ``--config``), else the one
-    :func:`mcgyvr.config.config_path` locates, as ``mcgyvr rig rungs sync``
-    does.
+    ``$KEY_ENV`` must hold a key or nothing is synced at all. Each run reads the
+    key again, since it may have been removed since, and the setup synced is
+    ``folder`` or, left unsaid, the config path the rig itself reads.
     """
     if not environ.get(KEY_ENV):
         return None

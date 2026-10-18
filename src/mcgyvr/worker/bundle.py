@@ -1,37 +1,16 @@
-"""The worker's system prompt: a small, measured skill bundle.
+"""The skill bundles a worker is sent as its system prompt.
 
-A system-prompt bundle is a worker-tier device: it pays where a small worker
-over-produces without output rules, and only there. Figures and method are in
-the lab's python-bundle and jsts-bundle measurements; the lab's bundle
-instrument produced them.
+A bundle is a prompt file under `mcgyvr/prompts/` loaded whole, minus a leading
+provenance comment, and shipped with the standing its own sweep found. For the
+`coding` use case the contract's target picks the language bundle through the
+gate adapter that owns it; the other use cases carry one bundle each. `chat` and
+any unregistered or unowned target get `None`, because another language's
+standards are worse than no system prompt at all.
 
-**The ceiling is enforced here, not documented.** :data:`MAX_BUNDLE_BYTES` is a
-load-time refusal, because a size limit that lives in a comment is a size limit
-that a helpful edit walks straight through. The failure is loud and at
-import-adjacent time rather than a quiet quality regression nobody attributes.
-
-**The shipped Python bundle is the measured artifact, byte for byte.**
-``prompts/python.md`` is a copy of the experiment's ``c2.md`` condition, and a
-test holds the two files equal. Rewording it — even improving it — would mean
-the measurement describes a file that is not the one being shipped. If the
-bundle should change, the change has to be measured first.
-
-**Standing.** ``prompts/javascript.md`` is
-:data:`BundleStanding.MEASURED_NO_EFFECT`: no bundle-size condition (c1-c3)
-separated from no bundle at all. ``prompts/python.md`` is
-:data:`BundleStanding.MEASURED_REDUNDANT`: its effect is real, and
-:func:`~mcgyvr.worker.prompt.render_user_message` already produces it by ending
-every user message with a demand for the whole file as one fenced block and
-nothing else. Both files still ship — measuring no benefit is not measuring
-harm. The marker stating a file's standing is stripped by
-:func:`strip_provenance`, which keeps the standing sayable in the file without
-spending the worker's prompt on it.
-
-One bundle per use case; only the coding use case splits by language, selected
-by asking the gate's adapters which one owns the contract's target. Chat gets
-no bundle — it is a raw un-gated endpoint, and a system prompt would bias a
-pass-through. Agent and media-gen each carry one bundle, unmeasured until a
-sweep is run on them (``BundleStanding.UNMEASURED``).
+Nothing here runs a sweep — it only carries what a sweep said. `BundleStanding`
+keeps never-swept, swept-and-flat and swept-and-redundant-with-this-harness
+apart, and `load_bundle` refuses an artifact over `MAX_BUNDLE_BYTES` rather than
+sending it.
 """
 
 from __future__ import annotations
@@ -45,25 +24,21 @@ from mcgyvr.config import CHAT
 from mcgyvr.gate.adapter import LanguageAdapter
 from mcgyvr.gate.adapters import JavaScriptAdapter, PythonAdapter
 
-# The ceiling, in bytes of UTF-8. 2 KiB holds the shipped c2 condition; the
-# original sweep measured the 8 KB condition below it on the small worker.
-# Raising it is a claim about quality and needs a measurement, not an edit.
-#
-# It stays ONE constant across languages: on the JS/TS task set no rung
-# separated from c0, so there is no JS/TS peak to place a different ceiling
-# at.
+# The measured ceiling on one bundle, in bytes of UTF-8 text after provenance is
+# stripped — the number `load_bundle` enforces and the marker never spends.
+# It is evidence, not a budget: the 8 KB condition measured worse than this one,
+# so an oversized artifact is refused at load with instructions to re-measure
+# rather than truncated to fit. One constant covers every language because a
+# per-language ceiling needs a curve with a peak, and JS/TS measured flat, so
+# there is no peak here to place one at.
 MAX_BUNDLE_BYTES = 2048
 
 
 class BundleStanding(StrEnum):
-    """What a measurement says about a bundle — not merely whether one ran.
+    """What a bundle's own measurement licenses a reader to say about it.
 
-    A bare "measured" boolean is not enough. Both shipped bundles are the
-    artifact a sweep was taken on, so a boolean would read the same for a
-    bundle measured at +25 pp and one measured at nothing — and "measured" is a
-    word a reader takes as endorsement. The outcome is the part worth carrying,
-    so it is the part the type names.
-    """
+    It travels with the artifact from the registry through `Bundle` to whatever
+    reports on a run, because no other field records it."""
 
     UNMEASURED = "unmeasured"
     """No sweep has been run on this artifact."""
@@ -93,47 +68,46 @@ class BundleStanding(StrEnum):
     difference between a fact and a shrug."""
 
 
-# The coding use case keeps per-language bundles, keyed by
-# ``LanguageAdapter.name``. A language with no entry gets no bundle rather
-# than another language's: the standards and pitfalls sections are
-# language-specific, and handing a Go worker the Python rules would be worse
-# than handing it nothing.
+# Language bundles, keyed by the gate adapter's `name` rather than by a second
+# table of extensions: `bundle_for` asks the adapters which one owns the target
+# and looks that name up here, so a language the gate knows but this registry
+# does not gets no bundle. Each entry carries the standing its own sweep found;
+# `python.md` is measured redundant with this harness, `javascript.md` flat.
 _LANGUAGE_BUNDLES: dict[str, tuple[str, BundleStanding]] = {
     "python": ("python.md", BundleStanding.MEASURED_REDUNDANT),
     "js/ts": ("javascript.md", BundleStanding.MEASURED_NO_EFFECT),
 }
 
-#: The use-case bundles, keyed by use-case name. Chat is deliberately absent:
-#: it is a raw endpoint and gets no system prompt. Agent and media-gen are
-#: unmeasured — no sweep has been run on either artifact yet.
+#: Use-case bundles, keyed by the contract's use case. Neither file has been
+#: swept, so both ship `UNMEASURED`; `chat` has no entry because it is a raw
+#: pass-through and a system prompt would bias it.
 _USE_CASE_BUNDLES: dict[str, tuple[str, BundleStanding]] = {
     "agent": ("agent.md", BundleStanding.UNMEASURED),
     "media-gen": ("media-gen.md", BundleStanding.UNMEASURED),
 }
 
-#: The one registry ``load_bundle`` reads, so a key names exactly one artifact
-#: and its standing, whatever axis (language or use case) it came from.
+#: Both key kinds in one registry. The namespaces do not collide today, and
+#: `load_bundle` names the whole sorted set when a key is missing.
 _BUNDLES: dict[str, tuple[str, BundleStanding]] = {
     **_LANGUAGE_BUNDLES,
     **_USE_CASE_BUNDLES,
 }
 
-#: The use case whose worker edits files, and so keeps per-language bundles.
+#: The use case whose bundle is chosen by the target's language; every other use
+#: case carries a single bundle.
 CODING = "coding"
 
 _DEFAULT_ADAPTERS: tuple[LanguageAdapter, ...] = (PythonAdapter(), JavaScriptAdapter())
 
 
 class BundleError(Exception):
-    """A bundle could not be supplied as the shipped, measured artifact."""
+    """Base for bundle load failures: an unregistered key, an absent file, or an
+    artifact over the ceiling."""
 
 
 class BundleTooLargeError(BundleError):
-    """A bundle exceeds the measured ceiling.
-
-    Carries both sizes so the message says how far over it is, rather than
-    only that it is over.
-    """
+    """A bundle's stripped text exceeds `MAX_BUNDLE_BYTES`, so it is refused at
+    load. Keeps `name` and `size` so a caller can report what to re-measure."""
 
     def __init__(self, name: str, size: int) -> None:
         super().__init__(
@@ -146,12 +120,14 @@ class BundleTooLargeError(BundleError):
 
 
 class BundleMissingError(BundleError):
-    """A bundle named in the registry is not present in the installation."""
+    """No bundle is registered for the key, or its file is not present in this
+    installation."""
 
 
 @dataclass(frozen=True)
 class Bundle:
-    """One bundle's system prompt, with what is known about its standing."""
+    """One loaded prompt file: its text, the size the ceiling was checked
+    against, and what its own sweep found."""
 
     key: str
     """The registry key this bundle was loaded under — a language for the
@@ -170,12 +146,8 @@ class Bundle:
 
     @property
     def measured(self) -> bool:
-        """Whether this bundle is the artifact a measurement was taken on.
-
-        Provenance only, and deliberately says nothing about the outcome — read
-        :attr:`standing` for that. True here means a sweep covers *this file*
-        rather than a file that inspired it.
-        """
+        """Whether any sweep has been run on this artifact, whatever it found.
+        Says nothing about benefit; `standing` is what names the outcome."""
         return self.standing is not BundleStanding.UNMEASURED
 
 
@@ -187,23 +159,12 @@ def _read(filename: str) -> str | None:
 
 
 def strip_provenance(text: str) -> str:
-    """A bundle without its leading HTML-comment marker.
+    """Drop a leading `<!-- ... -->` provenance comment and return the rest.
 
-    A marker says what standing the file has — which measurement it is, or that
-    it is none. That is a note to a reader of the repository; sent to the model
-    it would spend the ceiling :data:`MAX_BUNDLE_BYTES` enforces on text that is
-    not instructions, and put meta-commentary where a small model expects its
-    role.
-
-    Stripping here makes the marker provenance rather than prompt: a bundle can
-    carry a standing marker *and* be byte-identical to the condition a sweep
-    measured, because the marker is not in the bytes either one sends. Without
-    this, marking a file and measuring it are mutually exclusive.
-
-    Only a marker at the very start is removed, and only through the first
-    ``-->``. A comment further down is content — the file is Markdown, and this
-    is not a comment stripper.
-    """
+    The marker stays in the file so the caveat cannot be lost by reading the
+    artifact alone, but it must not open the worker's system prompt or be
+    charged against `MAX_BUNDLE_BYTES`. Text that does not start with a comment,
+    or whose comment is never closed, is returned unchanged."""
     if not text.startswith("<!--"):
         return text
     _, separator, rest = text.partition("-->\n")
@@ -211,16 +172,12 @@ def strip_provenance(text: str) -> str:
 
 
 def load_bundle(key: str) -> Bundle:
-    """Load one bundle by registry key, refusing it if it broke the ceiling.
+    """Load the bundle registered under `key`, stripped of provenance.
 
-    A key is a language (the coding use case) or a use-case name (agent,
-    media-gen). The bundle is the file's body: a leading provenance marker is
-    stripped by :func:`strip_provenance` before anything else, so neither the
-    ceiling nor the worker ever sees it.
-
-    Raises :class:`BundleMissingError` for a key with no bundle file and
-    :class:`BundleTooLargeError` for one that outgrew the measurement.
-    """
+    Raises `BundleMissingError` for an unregistered key or a file absent from
+    this installation, and `BundleTooLargeError` when the stripped text is over
+    `MAX_BUNDLE_BYTES`. The size recorded and checked is the UTF-8 length of
+    what a worker would actually be sent."""
     entry = _BUNDLES.get(key)
     if entry is None:
         raise BundleMissingError(
@@ -250,17 +207,14 @@ def bundle_for(
     target: str = "",
     adapters: Sequence[LanguageAdapter] | None = None,
 ) -> Bundle | None:
-    """The bundle for ``use_case``, or ``None``.
+    """The bundle for a contract's use case, or `None` when it should get none.
 
-    Chat is a raw endpoint and gets none; coding picks the language bundle
-    whose adapter owns ``target`` (or none, when no adapter does); agent and
-    media-gen each get their one bundle. ``None`` is a real answer: a coding
-    target no adapter owns has no language-specific standards to state, and
-    inventing some would put unmeasured instructions in front of a worker. A
-    caller that gets ``None`` dispatches with no system prompt — the c0
-    condition — and should say so rather than silently substituting another
-    bundle.
-    """
+    `chat` is refused: it is a raw, un-gated endpoint where a system prompt
+    would bias the reply. A use-case bundle is returned as-is; for `coding`, the
+    adapter that owns `target` names the language, and no owning adapter — or
+    one whose name has no registered bundle — yields `None`. `adapters` defaults
+    to the Python and JavaScript adapters and exists so a caller can restrict
+    the languages in play."""
     if use_case == CHAT:
         return None
     if use_case in _USE_CASE_BUNDLES:

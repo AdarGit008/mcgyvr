@@ -1,43 +1,25 @@
-"""The two seams between the levers and a run that happens.
+"""The driver: one attempt at one contract, from prompt to recorded judgement.
 
-**A ``ToolStep`` executor.** :func:`~mcgyvr.deterministic.tool_steps` plans the
-whole command and leaves running it to the caller. :func:`run_tool_step` is
-that caller.
+``mcgyvr.drive`` sits between a parsed contract and the rungs that serve it.
+Its submodules assemble the worker prompt and refuse a contract the bound
+endpoint cannot be sent, dispatch the draws, gate what came back in a
+sandbox, judge the gate's result, and turn one :class:`~mcgyvr.route.Try`
+into a :class:`~mcgyvr.escalate.Judgement` — recording the attempt when a
+:class:`Recording` is handed in. ``run_tool_step`` covers the deterministic
+floor, for a contract a program answers instead of a model.
 
-**A dispatch binding.** :func:`~mcgyvr.worker.prompt.build_prompt` assembles a
-:class:`~mcgyvr.worker.prompt.WorkerPrompt`; :func:`~mcgyvr.runner.dispatch`
-takes a :class:`~mcgyvr.runner.Request`. :func:`dispatch_prompt` turns one into
-the other, and :func:`worker_attempt` is the attempt built on it.
-
-**Two things this module refuses rather than papers over.**
-
-*An over-budget prompt is not sent.* ``build_prompt`` already measures the
-assembled prompt against the contract's ceiling and records a
-:class:`~mcgyvr.gate.preflight.PreflightIssue` when it does not fit. A binding
-that dispatched anyway would make that measurement decorative — the cost of the
-check paid, the answer discarded — and would send a request whose reply is
-truncated at a boundary nobody chose. Refusing costs nothing at the one moment
-it is still free.
-
-*An in-process step is not run as a program.* ``rename_symbol`` is executed by
-mcgyvr's own index and its :attr:`~mcgyvr.deterministic.ToolStep.argv` is
-empty. Distinguishing it is this module's half of that bargain: an executor
-that read an empty argv as "nothing to do, exit 0" would report every rename
-contract complete without touching a file.
-
-**What is deliberately not here.** Where work runs is :mod:`mcgyvr.route` and
-:mod:`mcgyvr.escalate`; whether a change is acceptable is :mod:`mcgyvr.gate`;
-whether it lands is :mod:`mcgyvr.deliver`; what a retry is told is held here,
-per rung. Putting policy here would give decisions already settled in one
-place a second place to be settled differently.
+This module holds no logic of its own: it re-exports the driver's surface,
+and the services that surface composes, so the CLI and the tests import one
+name.
 """
 
 from __future__ import annotations
 
-# The seam below is monkeypatched at package level by the tests
-# (`monkeypatch.setattr(mcgyvr.drive, "<name>", ...)`). The drive submodules
-# resolve these names through this package at call time (`_drive.<name>`), so
-# one patch reaches every caller exactly as it did when this was one module.
+# isort: off
+# The services the driver composes, re-exported so a caller needs one
+# import: jobs run in parallel under a capacity, the cleanup of a rejected
+# change, best-of-n consensus over draws, the escalation judge, the model
+# runner, the sleep/wake waker and the worker prompt builder.
 from mcgyvr.capacity import run_batch
 from mcgyvr.cleanup import tidy
 from mcgyvr.consensus import best_of
@@ -46,11 +28,11 @@ from mcgyvr.runner import dispatch
 from mcgyvr.wake import for_config as wake_for_config
 from mcgyvr.worker.prompt import build_prompt
 
-# Leaf-first on purpose: attempt depends on gate/prompt/record/errors, so the
-# leaves are imported before their dependents. Nothing dereferences `_drive`
-# at import time (the seam is read inside function bodies), so no submodule
-# ever sees a half-built package.
-# isort: off
+# The driver's own layers: the refusal errors that stop a contract before a
+# prompt is sent or a step is run, the identity of a recorded attempt, the
+# deterministic floor's tool steps, the pre-dispatch checks and prompt
+# rendering, the sandbox gate that judges a reply, and the attempt loop that
+# turns one `Try` into a `Judgement`.
 from mcgyvr.drive.errors import (
     ContractTooLargeForRungError,
     DriveError,
@@ -81,6 +63,7 @@ from mcgyvr.drive.gate import (
 )
 from mcgyvr.drive.attempt import SESSION_REPLY, _in_order, worker_attempt
 # isort: on
+# The exported surface, underscored helpers included: the tests reach them here.
 
 __all__ = [
     "SESSION_REPLY",

@@ -1,23 +1,17 @@
-"""A green sample stamps its fleet: the stamp folder, and no lock.
+"""Stamp a sample that came out green: the staged setup and its evidence.
 
-Owner, Round 4 (2026-10-07), FLEET FLOW TWEAK: sample GREEN = fleet STAMPED;
-sample red = no stamp, and why. Owner, 2026-10-14: "one script that locks a
-fleet, one script that stamps a fleet without locking". Plan section 8.2: the
-sample's results are the dev-run evidence the lock is written from.
+A stamp is a folder of its own under the data folder,
+``<data folder>/stamps/<fleet>/<run_id>/``, holding a ``setup/`` copy of
+`fleet.yaml` and `policy.yaml` and the ``evidence.json`` the sample's verdict
+built. Nothing else is written: no lock, no promoted folder, no ``live.json``.
+:func:`mcgyvr.fleet.lock.write_from_stamp` is what locks a stamp, and a
+promotion starts from there.
 
-:func:`stamp` judges the sample (:func:`mcgyvr.fleet.sample.judge`) and, only
-when it is green, writes the stamp folder ``<data folder>/stamps/<fleet>/
-<run_id>/`` (:func:`folder`; owner call, Round 8): ``setup/`` (the staged
-``fleet.yaml`` and ``policy.yaml``) and ``evidence.json``. That is all a stamp
-is. Locking it is :func:`mcgyvr.fleet.lock.write_from_stamp`'s, which
-``mcgyvr setup`` calls on the user's yes: it writes the lock into the stamp
-folder as a dev root of its own, so a stamp from an install needs no lab
-checkout; from there the fleet takes the path every live fleet takes, promote then use
-(:mod:`mcgyvr.fleet.promote`). Nothing is started or stopped here: what runs is
-the sample's.
-
-A red sample is "no stamp", by its own reasons, and leaves nothing behind: the
-folder is built beside its place and renamed in only once it is whole.
+A sample refused for any reason — an unusable name, a setup or a rig that
+cannot be read, a red verdict, no evidence — stamps nothing and comes back as a
+red :class:`Stamp` carrying the reasons. A green stamp is built in a staging
+folder beside its target and renamed into place, so a failure part-way leaves
+no half-stamp behind and a run id already stamped is refused, not overwritten.
 """
 
 from __future__ import annotations
@@ -31,24 +25,28 @@ from pathlib import Path
 from mcgyvr.fleet.roots import FolderError, data_home, is_live
 from mcgyvr.fleet.sample import Sample, SampleError, judge
 
-#: The folder of stamps under the data folder.
+#: The data folder's subfolder of stamps, one folder per fleet and sample run.
 STAMPS_DIR = "stamps"
-#: The staged setup, as a stamp folder keeps it.
+#: The stamp's copy of the staged setup, holding the two setup files below.
 SETUP_DIR = "setup"
-#: The dev-run evidence the lock is written from.
+#: The dev-run evidence the sample's verdict built, which the lock is read from.
 EVIDENCE_FILE = "evidence.json"
-#: The two files a staged setup holds.
+#: What a stamp copies out of `Sample.setup`, by the names the setup is read by.
 SETUP_FILES = ("fleet.yaml", "policy.yaml")
 
 
 @dataclass(frozen=True)
 class Stamp:
-    """What :func:`stamp` did: the stamp folder written, or why not."""
+    """What one sample's stamp came to: the fleet, and its folder when green.
+
+    `folder` is the stamp folder that was written, and is ``None`` for a red
+    sample, whose `why` holds the reasons and whose folder was never made.
+    """
 
     fleet: str
-    #: The stamp folder under the data folder; ``None`` when nothing was stamped.
+    #: The stamp folder once it is written, or ``None`` when nothing was written.
     folder: Path | None = None
-    #: Why nothing was stamped, one reason per line.
+    #: Why the sample was not stamped; empty for a green stamp.
     why: tuple[str, ...] = ()
 
     @property
@@ -56,19 +54,19 @@ class Stamp:
         return self.folder is not None
 
     def lines(self) -> list[str]:
-        """What a caller prints: the stamp and where it is, or each reason."""
+        """The stamp as lines to print: its folder when green, else the reasons."""
         if self.folder is not None:
             return [f"stamped: {self.fleet} ({self.folder})"]
         return [f"no stamp: {self.fleet}", *(f"  {reason}" for reason in self.why)]
 
 
 def stamps_dir() -> Path:
-    """``<data folder>/stamps``: one folder per fleet, one per sample run in it."""
+    """The folder holding every stamp, under the data folder."""
     return data_home() / STAMPS_DIR
 
 
 def folder(fleet: str, run_id: str) -> Path:
-    """``<data folder>/stamps/<fleet>/<run_id>``, the dev root of one stamp."""
+    """The stamp folder of one sample run: ``<stamps>/<fleet>/<run_id>``."""
     return stamps_dir() / fleet / run_id
 
 
@@ -79,8 +77,17 @@ def _plain(name: str) -> bool:
 
 
 def stamp(sample: Sample, *, run_id: str) -> Stamp:
-    """Write ``sample``'s stamp folder when the sample is green; say why not
-    otherwise. Nothing is locked, promoted or named live here."""
+    """Judge `sample` and, if it is green, write its stamp under `run_id`.
+
+    The fleet and the run id must each be a plain name, the sample must judge
+    green with evidence, the stamps folder must not lie under the config folder
+    where only promoted fleets live, and the target folder must not exist yet;
+    any of these stamps nothing and returns a red :class:`Stamp` with the
+    reason. The stamp is otherwise built in a staging folder beside the target
+    — the setup files copied in and the evidence written as sorted, indented
+    JSON — then renamed into place, so a target that appeared meanwhile is
+    refused and a failure part-way leaves nothing behind.
+    """
 
     def red(*why: str) -> Stamp:
         return Stamp(fleet=sample.fleet, why=tuple(why))

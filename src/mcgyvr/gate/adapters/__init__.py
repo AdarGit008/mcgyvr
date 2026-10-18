@@ -1,8 +1,7 @@
-"""Concrete language adapters.
+"""Concrete language adapters for the gate.
 
-Each module here implements :class:`mcgyvr.gate.adapter.LanguageAdapter` for one
-language. The Python adapter is the reference; the JS/TS adapter (#36) proves
-the interface is real rather than Python-shaped.
+Exposes the Python and JavaScript/TypeScript adapter implementations and lists
+them in ``__all__`` so they can be imported from this package directly.
 """
 
 from __future__ import annotations

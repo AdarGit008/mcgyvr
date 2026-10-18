@@ -1,23 +1,25 @@
 #!/usr/bin/env python3
 # RUN_REWRITES: serve-fetch.json
-"""The door's serve step, fetch: download weights on the rig, held to their sha256.
+# The `serve-fetch` gate: read the fetch list the door exported for this run,
+# run the fetcher on the run's host over ssh, and record what landed there.
+"""
+Fetch a run's weight files onto its host, from this side of `ssh`.
 
-Reads the fetch list the door read and held to a hash before any gate
-(RUN_FETCH, :mod:`mcgyvr.serving.fetchlist`), says how many files and how
-many bytes in all before a byte moves (no cap; owner, 2026-10-07), and ships
-the fetcher (:mod:`mcgyvr.serving.fetcher`) to the rig through the ssh shim
-with its job on stdin. The fetcher resumes from a ``.part``, renames a file
-into the weights folder only when its sha256 matches, and deletes one that
-does not.
+The script is a gate started by the door, so it takes the fetch list
+(`RUN_FETCH`), the target host (`RUN_HOST`), the export directory
+(`RUN_OUT_DIR`) and the run id (`RUN_ID`) from the environment and refuses to
+run without them. It parses and validates the list, resolves the hub endpoint
+from `HF_ENDPOINT`, and prints every file with its pinned revision and size,
+plus the total — with no size cap, so a large list is a slow run rather than a
+refused one.
 
-A Hugging Face token is read here from the variable the door names
-(RUN_FETCH_TOKEN_ENV) and goes only into that stdin. It is never printed and
-never filed: serve-fetch.json carries what became of each file and nothing
-of the token.
-
-A file that did not end present, fetched or resumed is exit 1: a result, not
-a refusal. A download that ended short keeps its ``.part``, and the next fetch
-resumes it.
+The host is not assumed to have mcgyvr installed: the fetcher's own source and
+a JSON job describing each file are piped to `python3 -` on the host
+(`fetchlist.REMOTE_COMMAND`). The fetcher's last stdout line is read as the
+JSON report of what happened to each file; the rows are joined back to the
+wanted repo, revision and path by filename, echoed, and written with the run's
+settings to `<RUN_OUT_DIR>/serve-fetch.json`. The exit status is 0 only when
+the fetcher exited 0 and every file ended in one of `fetcher.GOOD`'s states.
 """
 
 from __future__ import annotations
@@ -59,9 +61,10 @@ def main() -> int:
         done = ssh(
             host,
             fetchlist.REMOTE_COMMAND,
-            # Held to no fixed bound: a download takes as long as its bytes do.
-            # The fetcher's own reads time out (fetcher.TIMEOUT_S), so a
-            # stalled one ends and keeps its .part.
+            # REMOTE_COMMAND is `python3 -`, so the payload travels on stdin:
+            # it carries the fetcher's source and the token, which must not be
+            # readable in the host's process list. No timeout: the run ends
+            # when the files have been transferred, however long that takes.
             timeout=None,
             input=fetchlist.payload(wants, hub, token_env, token),
         )

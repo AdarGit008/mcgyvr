@@ -1,41 +1,19 @@
-"""The language adapter interface.
+"""The adapter seam: what a language answers about a change, and where its tools
+are run.
 
-A language adapter is everything the gate needs to know that is specific to one
-language, and nothing else. The interface is deliberately language-neutral —
-adding a language is implementing this interface and registering it, with no
-change anywhere else in the gate (#35). If a Python concept leaks into a method
-signature here, the JS/TS adapter (#36) will not be able to satisfy it, so the
-interface is the contract that keeps the second language affordable.
+`LanguageAdapter` is the interface a language backend implements — one file's
+syntax and structure, the whole change's lint and format rungs, and where the
+repository says its tests and its type check live. Every rung answers in the
+same `Finding` shape, so the gate can mix rungs from different languages.
 
-An adapter supplies six capabilities:
+`ToolRunner` is the other half: the tool invocations those rungs make, run
+either on this host or inside the task's sandbox, with the paths a tool prints
+read back through the same runner so that a finding names a file in the change
+and not a path on some machine.
 
-* **syntax** — a cheap parse that fails fast, so a file that does not even
-  parse never reaches an expensive linter or a command execution;
-* **structural checks** — language hazards, reported only on worker-added
-  lines;
-* **lint** and **format** — the project's own tools, with findings attributed
-  to added lines so pre-existing style can never fail a worker's change;
-* **test-command location** — the conventional way this stack names its tests,
-  a fallback for when a contract does not declare one;
-* **type-check location** — the checker the repository itself declares, or
-  none.
-
-Lint and format shell out to real tools, and a tool can fail the adapter in two
-distinct ways. Neither is the worker's fault, and the gate's verdict turns on
-telling them apart:
-
-* **absent** — not on PATH at all. The reduction in the bar is legible from the
-  outside: the operator knows which rung did not run, and a keyless or minimal
-  install is expected to reach a verdict on the rungs it has. The adapter raises
-  :class:`ToolUnavailableError` and the gate records it and carries on.
-* **present and untrustworthy** — the tool ran and its result cannot be read: a
-  fatal exit, or output that is not the format it promised. Here the rung
-  reports *clean* while having applied no bar at all, which is the one failure
-  mode a gate must not have. The adapter raises :class:`ToolFailedError` and the
-  gate refuses the change.
-
-Both derive from :class:`EnvironmentFaultError`, so a caller that only wants
-"a check could not run" can catch the base.
+A rung that cannot reach a verdict because the tooling rather than the change
+is at fault raises an `EnvironmentFaultError`, which the gate records as an
+environment issue or an inconclusive rung, never as a finding.
 """
 
 from __future__ import annotations
@@ -56,20 +34,15 @@ from mcgyvr.sandbox.base import Sandbox, safe_env
 
 
 class EnvironmentFaultError(Exception):
-    """A check could not be run, or its result cannot be trusted.
+    """A rung could not be judged, because the environment it runs in failed.
 
-    Never a verdict on the worker's change: the base of both faults an adapter
-    raises, so the gate can separate "the environment let us down" from "the
-    change is bad" without knowing which tool was involved.
+    The change is not implicated: a caller reports the fault as an environment
+    issue, so the run is inconclusive rather than rejected.
     """
 
 
 class ToolUnavailableError(EnvironmentFaultError):
-    """A required external tool is not on PATH — an environment fault.
-
-    Carries the tool name so the gate can tell the operator exactly what to
-    install, and can record the rung as skipped rather than failed.
-    """
+    """A tool a rung needs is not on PATH, so the rung cannot run at all."""
 
     def __init__(self, tool: str) -> None:
         super().__init__(f"required tool not found on PATH: {tool}")
@@ -77,17 +50,11 @@ class ToolUnavailableError(EnvironmentFaultError):
 
 
 class ToolFailedError(EnvironmentFaultError):
-    """A tool ran and its result cannot be trusted — the rung is inconclusive.
+    """A tool ran, but exited in a way that leaves its output unreadable.
 
-    Distinct from :class:`ToolUnavailableError` in the one way that matters: the
-    tool was *there*, so nothing about the run looks degraded from the outside.
-    A ruff or eslint that dies on a malformed config exits 2 and writes **an
-    empty stdout**, which every JSON reader here turns into zero diagnostics —
-    a clean pass over a bar that never ran (#261).
-
-    Carries the exit code and the tool's own first line of complaint, because
-    the operator's next action is fixing the tool, and a bare "lint was
-    inconclusive" does not say what to fix.
+    `exit_code` is outside the set the caller expected for a report — a crash, a
+    usage error, a missing argument — so stdout is not a verdict and `detail`
+    carries whatever the tool said about it.
     """
 
     def __init__(self, tool: str, exit_code: int, detail: str = "") -> None:
@@ -101,149 +68,99 @@ class ToolFailedError(EnvironmentFaultError):
 
 
 class LanguageAdapter(ABC):
-    """One language's view of a change. Implement it; register it; done."""
+    """What one language has to say about a change.
+
+    `owns` picks the paths this adapter answers for and `name` labels it in a
+    report; the rungs then run over those files alone. Syntax and structure are
+    asked per file, so a file that does not parse is reported and dropped from
+    the rungs that would parse it again; lint and format are asked of the whole
+    change, once its files are known to parse. Each rung returns findings
+    attributed to the paths and lines the change added, so a worker is never
+    charged for code it did not touch. An adapter that shells out does so
+    through the `ToolRunner` it was given in `running_in`.
+    """
 
     @property
     @abstractmethod
     def name(self) -> str:
-        """Short identifier, e.g. ``python`` or ``javascript``."""
+        """The label this adapter's findings and environment issues carry."""
 
     @abstractmethod
     def owns(self, path: str) -> bool:
-        """Whether this adapter is responsible for the file at ``path``.
-
-        Ownership is by filename convention (usually extension). A file no
-        adapter owns is carried by the language-agnostic checks only.
-        """
+        """Whether this adapter is responsible for `path`."""
 
     @abstractmethod
     def check_syntax(self, change: FileChange, repo: Path) -> list[Finding]:
-        """Parse the file cheaply. A non-empty result fails the file fast.
+        """Parse `change`'s file in `repo` and report what does not parse.
 
-        Must not run a subprocess or any expensive analysis: this exists to
-        cut off lint and command execution for a file that cannot parse.
+        A finding here means the file cannot be read as this language at all,
+        so the caller leaves it out of the rungs that would parse it again.
         """
 
     @abstractmethod
     def structural_checks(
         self, change: FileChange, repo: Path, *, contract_text: str = ""
     ) -> list[Finding]:
-        """Language hazards on worker-added lines only.
+        """Report this language's hazards on the lines `change` added.
 
-        Called only after :meth:`check_syntax` passes for the file. Findings
-        must be attributed to lines in ``change.added_lines``; a hazard the
-        worker did not introduce is out of scope by construction.
-
-        ``contract_text`` is the contract's own prose
-        (:attr:`~mcgyvr.contract.Contract.prose`), and it is here because this
-        is the only rung whose hazards a contract can *order*. ``param-mutation``
-        rejects a function that mutates the object its caller passed in, and a
-        contract that says "sort the rows in place" has told the worker to do
-        exactly that; without the prose the rung rejects the worker for obeying
-        and the contract cannot be satisfied by any change at all.
-
-        It is passed as text rather than as a :class:`~mcgyvr.contract.Contract`
-        so an adapter cannot reach past what the worker was told and start
-        judging by ``risk`` or ``verification`` — orchestrator fields #94 keeps
-        off every worker-facing surface. It defaults to empty because a caller
-        with no contract to hand must get the *strict* reading: silence is not
-        permission, and delivery and every bench harness gate without one.
+        `contract_text` is the contract's own prose. It reaches the checks that
+        read the worker's stated intent — a function that mutates a parameter it
+        was handed is not reported where the contract asks for an in-place
+        change.
         """
 
     @abstractmethod
     def lint(
         self, changes: Sequence[FileChange], repo: Path, *, base: str | None = None
     ) -> list[Finding]:
-        """Lint every owned file in one invocation; attribute to added lines.
+        """Run the linter over the owned files in `changes`.
 
-        Batched, not per-file, so the subprocess count stays flat as the
-        change grows. ``base`` is the tree-ish the change is measured against
-        (:attr:`~mcgyvr.gate.changeset.ChangeSet.base`). A line the change
-        rewrote is an added line whatever it says, so an adapter that can lint
-        the base drops an added-line diagnostic the base file already had; one
-        that cannot, or a caller with no base, gets every added-line
-        diagnostic — the strict reading.
-
-        Raises :class:`ToolUnavailableError` if the linter is
-        absent, and :class:`ToolFailedError` if it ran but its output cannot be
-        trusted — an empty list means *this change is clean*, and must never be
-        the answer to *we could not tell*.
+        `base` names the revision the change is diffed against; when it is
+        given, diagnostics the base tree already produced are dropped, so the
+        rung reports only what this change brought in.
         """
 
     @abstractmethod
     def format_check(self, changes: Sequence[FileChange], repo: Path) -> list[Finding]:
-        """Report formatting that would alter a worker-added line.
+        """Report where the formatter would reflow a line the change added.
 
-        A formatter wanting to reflow a pre-existing line is not the worker's
-        fault and is ignored; only reformatting that touches an added line is
-        a finding. Raises :class:`ToolUnavailableError` if the formatter is
-        absent, and :class:`ToolFailedError` if it ran untrustworthily — the
-        same distinction, for the same reason, as :meth:`lint`.
+        The formatter is asked for a diff rather than for a rewrite, so the
+        check never alters the tree it reads.
         """
 
     @abstractmethod
     def locate_test_command(self, repo: Path) -> list[str] | None:
-        """The conventional test command for this stack, or ``None``.
-
-        A fallback for when the contract declares no acceptance command; the
-        contract always wins when it does.
-        """
+        """The argv the repo declares for its tests, or None when it declares none."""
 
     @abstractmethod
     def locate_type_check_command(self, repo: Path) -> list[str] | None:
-        """The type checker **this repository declares**, or ``None`` (#114).
-
-        Sibling of :meth:`locate_test_command` and a fallback in exactly the
-        same sense: the contract always wins when it declares its own commands,
-        so a sniff can never overrule a caller who has said what to run.
-
-        The policy is one of restraint: mcgyvr never chooses a type checker
-        and never synthesises its flags. It finds what the repository already
-        configured and returns that invocation. **Strictness is whatever the
-        repository set** — imposing ``--strict`` on a repository that carries
-        no annotations is not a stricter version of this check, it is a
-        different check that always fails, and one no rung can clear because
-        clearing it means annotating files outside the contract's scope.
-
-        ``None`` is an ordinary answer meaning *this repository runs no type
-        checker*, and it is load-bearing rather than a shrug: where it is
-        returned, a ``code`` contract with ``type_check: true`` is not emitted
-        for that repository, because its guarantee needs evidence only a command can
-        produce.
-
-        Implementations must not import, execute or otherwise evaluate the
-        target's code to answer — reading configuration is the whole of the
-        permitted method. Running anything at all belongs in the sandbox, and
-        this is called on the host.
-        """
+        """The type checker the repo declares, as an argv prefix, or None."""
 
     def running_in(self, runner: ToolRunner) -> LanguageAdapter:
-        """This adapter, with its config-executing tools run by ``runner``.
+        """Return this adapter with its tool invocations going to `runner`.
 
-        An adapter whose tools load no code from the tree they check has
-        nothing to move and returns itself; the Python adapter is one (ruff's
-        configuration is data). One whose tools do — eslint and prettier load
-        JS config modules — returns a copy that runs them through ``runner``,
-        which the gate hands it over a task's workspace.
+        The default returns the adapter unchanged, which suits an adapter that
+        does not shell out. One that does returns a copy bound to the runner, so
+        a single adapter definition serves both the host and the sandbox.
         """
         return self
 
     def loads_as_code(self, path: str) -> Mapping[str, str]:
-        """The rungs whose tool would import ``path`` as its configuration.
+        """Map each rung that loads `path` as code to the tool that does it.
 
-        Rung (``lint``, ``format``) to the tool's name. Checking a tree loads
-        that tree's config, and a config module is code, so running the tool
-        over a change that *is* its config runs the change. Empty for an
-        adapter whose tools read their configuration as data, which is the
-        default; the Python adapter is one.
+        Empty means no rung executes the file as anything but data, which is the
+        answer for most paths. A linter or format config module is the case that
+        matters: a caller drops the named rungs rather than hand the worker's
+        bytes to a tool that would import them.
         """
         return {}
 
     def owned(self, changes: Sequence[FileChange]) -> list[FileChange]:
-        """The subset of ``changes`` this adapter owns and can scan.
+        """The changes this adapter can check.
 
-        Deletions, binaries and symlinks are dropped — there is no text to
-        check, and a symlink's is somewhere else's (:attr:`FileChange.is_link`).
+        That is the paths it owns, minus everything that is not a file to read:
+        a deletion, binary content, and a symlink, which the checkers would
+        follow out of the tree.
         """
         return [
             c
@@ -256,7 +173,7 @@ class LanguageAdapter(ABC):
 
 
 def require_tool(tool: str) -> str:
-    """Resolve ``tool`` on PATH or raise :class:`ToolUnavailableError`."""
+    """Return the path of `tool` on PATH, or raise `ToolUnavailableError`."""
     found = shutil.which(tool)
     if found is None:
         raise ToolUnavailableError(tool)
@@ -269,43 +186,45 @@ def trusted_stdout(
     *,
     expected: Sequence[int],
 ) -> str:
-    """``proc.stdout``, or raise :class:`ToolFailedError` if the run means nothing.
+    """Return a tool's stdout, or raise instead of reading a verdict out of it.
 
-    ``expected`` is the set of exit codes under which the tool is *reporting*
-    rather than *failing* — for every checker the adapters drive that is
-    ``(0, 1)``: nothing to say, and something to say. Anything else is the tool
-    telling us it did not do the job.
-
-    The exit code has to be the test, and a format check on the output cannot
-    replace it. ruff, eslint and prettier each answer a fatal config error with
-    **exit 2 and an empty stdout**, which ``json.loads(stdout or "[]")`` reads
-    as zero diagnostics and ``if not stdout.strip()`` reads as nothing to
-    reformat. Both are a clean pass. The bad output never arrives to be caught.
+    `expected` lists the exit codes that mean the tool ran and printed its
+    report — 0 for clean, 1 for "I found something". Any other code is a broken
+    invocation, so its first complaint on stderr becomes the error and stdout is
+    never parsed.
     """
     if proc.returncode in expected:
         return proc.stdout
     raise ToolFailedError(tool, proc.returncode, _first_complaint(proc.stderr))
 
 
-#: Enough of the tool's own words to act on, without pasting a stack trace into
-#: every row of a manifest.
+#: How much of a tool's own complaint is kept when it is attached to an error:
+#: enough for a message a reader can act on, short enough to sit in a report or
+#: in a line of a model's context.
 _DETAIL_LIMIT = 200
 
 
 def added_by_resolved_path(
     changes: Sequence[FileChange], repo: Path
 ) -> dict[Path, tuple[str, frozenset[int]]]:
-    """Map each file's resolved absolute path to its repo-relative path and added lines.
+    """Index `changes` by resolved path, for matching what a checker printed.
 
-    Linters report absolute filenames; the change set carries repo-relative ones.
-    Resolving both sides is what lets a lint diagnostic be matched back to the
-    right file's added-line set.
+    A checker reports the absolute path it walked, which is not the path the
+    change names — the repository may be reached through a symlink, and a
+    sandbox reports its own view. Resolution is what both sides can agree on.
+    Each value is the repo-relative path the finding should carry, beside the
+    added line numbers that decide whether a diagnostic belongs to the change.
     """
     return {(repo / c.path).resolve(): (c.path, c.added_lines) for c in changes}
 
 
 def _first_complaint(stderr: str) -> str:
-    """The tool's first non-empty line of stderr, clipped; ``""`` if it said nothing."""
+    """Return the first non-blank line of `stderr`, capped at `_DETAIL_LIMIT`.
+
+    A tool states what went wrong before the context that follows it, and the
+    surrounding blank lines say nothing, so the first line with content in it is
+    the one worth quoting.
+    """
     for line in stderr.splitlines():
         stripped = line.strip()
         if stripped:
@@ -313,41 +232,21 @@ def _first_complaint(stderr: str) -> str:
     return ""
 
 
-#: Variables by which a surrounding shell tells a tool to colourise even when
-#: its output is a pipe. `NO_COLOR` is the conventional opt-out and every tool
-#: the adapters shell out to honours it.
+#: Variables that ask a tool for colour whatever its output is attached to. They
+#: are removed from a checker's environment rather than set to "0" — some tools
+#: read any value as wanting colour — and `NO_COLOR` is set in their place, so
+#: nothing a checker prints carries ANSI escapes into a finding's message.
 _COLOUR_FORCING = ("FORCE_COLOR", "CLICOLOR_FORCE")
 
 
 def plain_env() -> dict[str, str]:
-    """The environment to run a checking tool in, with colour forced off.
+    """The environment a checker is run in: no colour, no caches, no secrets.
 
-    Every adapter reads its tool's output as structured text — a unified diff
-    by its leading ``-`` and ``+``, or a JSON document by its first character.
-    A tool that colourises writes ANSI escapes ahead of exactly those
-    characters, so a `FORCE_COLOR` in the developer's shell does not make a
-    gate fail: it makes the gate **stop reporting**. That is a silent false
-    negative, which is the one failure mode a gate must not have, and it is
-    invisible because the tool still exits with the right status.
-
-    Passing this to every :func:`subprocess.run` in an adapter costs nothing
-    and removes the whole class.
-
-    It also keeps the tools' caches off. A checker here runs on the host over a
-    workspace a task's commands may have written, under that workspace's own
-    configuration — and ruff's ``cache-dir`` and mypy's ``cache_dir`` take any
-    absolute path from it, so a cache honoured would be a write outside the
-    workspace wherever a contract pointed it. Each variable outranks the
-    configuration file for its tool; ``os.devnull`` is mypy's own spelling for
-    "write no cache". The workspace is thrown away after the task, so a cache
-    kept there bought nothing that lasts.
-
-    And it holds no credential. That configuration can be code — a
-    ``mypy.ini`` names a plugin by file path, an ``eslint.config.js`` is a
-    module — and it runs with whatever environment the checker was handed, so
-    the host's is passed through :func:`~mcgyvr.sandbox.base.safe_env`, the
-    filter a sandbox's environment goes through: no credential-shaped name,
-    and no value carrying ``user:password@``.
+    The inherited environment is filtered through `safe_env`, so a credential
+    never reaches a tool. Colour-forcing variables are dropped and `NO_COLOR`
+    set, because escapes would otherwise land in parsed diagnostics. Ruff's and
+    mypy's caches are sent to the null device, so no run inherits the results of
+    the last one.
     """
     env = safe_env({k: v for k, v in os.environ.items() if k not in _COLOUR_FORCING})
     env["NO_COLOR"] = "1"
@@ -356,24 +255,28 @@ def plain_env() -> dict[str, str]:
     return env
 
 
-# --- where a checker that runs the workspace's config runs ----------------
-#
-# The type checker, eslint and prettier read their configuration from the tree
-# they check, and part of that configuration is code: a `mypy.ini` names a
-# plugin by file path, an `eslint.config.js` or `prettier.config.js` is a
-# module. Over a task's workspace that code is the task's, so where the checker
-# runs is where that code runs. With a sandbox open they run through
-# `Sandbox.run`, as a contract's own commands do: in the task's container in
-# docker mode, on the host with the sandbox's scrubbed environment in tempdir
-# mode. With none (delivery, which judges the user's own checkout; a bench
-# harness) they run on the host in `plain_env()`.
-#
-# ruff stays on the host in every case: its configuration is TOML data, with no
-# plugin to load, and the gate pins its own settings over it.
+# Where a check runs. Every rung that shells out does so through a runner, so
+# the same adapter serves the host and the sandbox: `HostRunner` runs a tool
+# over the tree in place, and `SandboxRunner` runs it inside the task's
+# workspace, where the change lives. The seam covers the three things that
+# differ between them — running a tool, reading back a path a tool printed, and
+# handing out a directory a checker may write into. A reported path needs
+# translating because a sandbox prints its own view of the filesystem, and a
+# finding carrying one would name no file in the change; a scratch directory
+# has to sit inside that view for the same reason, or the tool cannot see it.
+# A tool that is missing, or that exits in a way its output cannot be read
+# from, raises an `EnvironmentFaultError` through either runner, so a caller
+# handles the environment the same way wherever the check happened.
 
 
 class ToolRunner(ABC):
-    """Where the gate runs a checker that executes the workspace's configuration."""
+    """Where a rung's tool invocations happen.
+
+    A rung asks its runner rather than `subprocess` directly, which is what lets
+    the same adapter read a tree here and read the change in a sandbox there:
+    `run` executes a tool, `host_path` reads a printed path back into this
+    filesystem, and `scratch` hands out a directory a checker may write into.
+    """
 
     @abstractmethod
     def run(
@@ -384,25 +287,39 @@ class ToolRunner(ABC):
         *,
         timeout: float | None = None,
     ) -> subprocess.CompletedProcess[str]:
-        """Run ``tool args`` in ``cwd`` and capture its result.
+        """Run `tool` with `args` in `cwd` and capture its text output.
 
-        Raises :class:`ToolUnavailableError` when the tool is not there to run,
-        and :class:`subprocess.TimeoutExpired` when it runs past ``timeout``.
+        `timeout` bounds the run and a tool that outlives it raises
+        `subprocess.TimeoutExpired`. A non-zero exit code is a result rather
+        than an exception here: only the caller knows which codes it can read.
         """
 
     def host_path(self, reported: str) -> Path:
-        """A path the tool printed, as the host reads it."""
+        """Where a path a tool printed lives, as this side of the runner has it.
+
+        The base answer is the path itself, which is right for a tool run on the
+        host. A sandbox overrides this to map its own view back onto this host.
+        """
         return Path(reported)
 
     @contextmanager
     def scratch(self) -> Iterator[Path]:
-        """An empty directory the tool can be run in, gone after the ``with``."""
+        """Yield a temporary directory a checker may write into.
+
+        The base version sits in the system temporary directory and is removed
+        on exit: nothing outside this process needs to see it.
+        """
         with tempfile.TemporaryDirectory(prefix="mcgyvr-check-") as name:
             yield Path(name)
 
 
 class HostRunner(ToolRunner):
-    """The host, in :func:`plain_env`: no credential, no colour, no cache."""
+    """A runner that executes tools on this host, over the tree as it stands.
+
+    The tool is resolved on PATH through `require_tool`, so a checker that is
+    not installed fails as an environment fault before anything is spawned, and
+    the child gets `plain_env` rather than the caller's environment.
+    """
 
     def run(
         self,
@@ -424,13 +341,11 @@ class HostRunner(ToolRunner):
 
 
 class SandboxRunner(ToolRunner):
-    """An open sandbox, through :meth:`~mcgyvr.sandbox.base.Sandbox.run`.
+    """A runner that executes tools inside a sandbox's workspace.
 
-    The tool is named, not resolved on the host: it is found where it runs,
-    on the container's ``PATH`` in docker mode. A tool that is not there is
-    :class:`ToolUnavailableError`, the same skipped rung an absent host tool
-    is. Only ``cwd`` inside the workspace can be run in, because that is the
-    only tree the sandbox has.
+    The command runs through the sandbox's own `run`, with `cwd` expressed
+    relative to the workspace root. Paths the tools print are the workspace's
+    own, so `host_path` translates them before a finding quotes one.
     """
 
     def __init__(self, sandbox: Sandbox) -> None:
@@ -456,8 +371,9 @@ class SandboxRunner(ToolRunner):
             raise subprocess.TimeoutExpired(
                 argv, timeout or 0.0, output=result.stdout, stderr=result.stderr
             )
-        # The statuses both sandbox modes report for a command that never ran
-        # (not found, not runnable), read from the one place they are stated.
+        # A sandbox that cannot find the program reports it the way a shell
+        # does — 126 or 127 with nothing on stdout — so the tool is missing
+        # rather than having said something about the change.
         if result.exit_code in DID_NOT_RUN and not result.stdout:
             raise ToolUnavailableError(tool)
         return subprocess.CompletedProcess(
@@ -469,9 +385,10 @@ class SandboxRunner(ToolRunner):
 
     @contextmanager
     def scratch(self) -> Iterator[Path]:
-        # Inside the workspace, the only tree the sandbox can run in, and under
-        # a name no change set holds: it is gone before anything reads the
-        # workspace again.
+        # The workspace is all a sandboxed tool can see, so the directory has to
+        # be made inside it; the dot prefix keeps it out of the way of a listing
+        # of the tree, and `TemporaryDirectory` removes it on exit so it cannot
+        # end up inside a diff of the workspace.
         with tempfile.TemporaryDirectory(
             prefix=".mcgyvr-check-", dir=self._sandbox.workspace
         ) as name:
@@ -479,12 +396,13 @@ class SandboxRunner(ToolRunner):
 
 
 def _checker_env(sandbox: Sandbox) -> dict[str, str]:
-    """What a checker run in ``sandbox`` is told beyond the sandbox's own env.
+    """The whole environment a checker is given inside the sandbox.
 
-    The colour and cache settings :func:`plain_env` gives a host checker. The
-    sandbox's environment cannot drop a variable, so a forced colour is turned
-    off by value. A container is Linux whatever the host is, hence its own
-    spelling of "no file".
+    `Sandbox.run` passes `env` through as the complete environment, so only what
+    a checker reads is set here: colour is turned off in both the spellings a
+    tool might test, and the type checker's cache goes to a null device. A
+    container has `/dev/null` at that path; a checker running against a host
+    directory uses the host's own null device.
     """
     devnull = "/dev/null" if sandbox.isolation == "container" else os.devnull
     return {

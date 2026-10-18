@@ -1,28 +1,15 @@
-"""The hub's UDP formats as a rig speaks them: binding requests, probes, relay binds.
+"""Wire format and socket helpers for the MCG UDP protocol.
 
-The hub's protocol schema states these formats (its ``x-udp`` block: the
-constants, and a test vector of each layout); the tests hold every constant
-here, and the bytes this file writes and reads, to the pinned copy. All are
-big-endian, and a request is never smaller than its answer, so nothing here
-is an amplifier::
+Three packet families share a 4-byte magic, a 1-byte version (VERSION) and a
+1-byte kind byte: binding requests and answers ("MCGS"), probes ("MCGP") and
+relay binds and answers ("MCGR").  Builders pack a fixed header, append the
+variable part (a ticket, an address) and zero-pad the result to a size inside
+a fixed range; readers accept a datagram only if its length, magic, version
+and kind line up, and return None otherwise.
 
-    binding request  "MCGS" 01 01 0000 token[16] txid[12] zeros  (64-512 bytes)
-    binding answer   "MCGS" 01 02 family(04|06) 00 txid[12] port[2] address
-    probe packet     "MCGP" 01 kind 0000 secret[16] seq[4] stamp[8] padding
-                     (36-1200 bytes; kind 1 ping, 2 pong — the ping echoed,
-                     same length — 3 bulk)
-    relay bind       "MCGR" 01 01 length[2] ticket zeros  (96-512 bytes)
-    relay answer     "MCGR" 01 02 port[2]  |  "MCGR" 01 03 reason[1]
-                     (reason 1 bad ticket, 2 expired, 3 full, 4 rate limited)
-
-Everything read here comes off the network, so every reader takes bytes of
-any length and returns ``None`` for anything that is not exactly its format:
-the caller drops it without an answer.
-
-This file imports nothing of the product's, only the standard library: the
-tunnel container runs it as it is (``python3 -c <this file> stun …``) to
-send its binding requests from the WireGuard port itself, so the address the
-hub sees is the one WireGuard's packets will leave by (:func:`main`).
+The module works as a library (ask_bindings, bind_relay) and as a script
+(main) with the "stun" and "keep" subcommands, which is how it is run inside
+a container to discover bindings and to keep them alive.
 """
 
 from __future__ import annotations
@@ -39,12 +26,12 @@ import time
 from collections.abc import Sequence
 from dataclasses import dataclass
 
-#: The formats' version byte.
+#: Magic prefixes identifying each packet family on the wire.
 VERSION = 1
 STUN_MAGIC = b"MCGS"
 PROBE_MAGIC = b"MCGP"
 RELAY_MAGIC = b"MCGR"
-#: The bounds the formats state, in bytes.
+#: Size floors and ceilings in bytes; RELAY_MAX_PACKET_BYTES caps one relay packet.
 STUN_REQUEST_MIN_BYTES = 64
 STUN_REQUEST_MAX_BYTES = 512
 PROBE_PACKET_MIN_BYTES = 36
@@ -54,19 +41,19 @@ RELAY_BIND_MAX_BYTES = 512
 RELAY_MAX_PACKET_BYTES = 2048
 TOKEN_BYTES = 16
 TXID_BYTES = 12
-#: The kinds of a probe packet.
+#: Probe kinds carried in the packet's kind byte.
 PING = 1
 PONG = 2
 BULK = 3
-#: Why a relay refuses a bind (:class:`RelayRefused`'s ``reason``).
+#: Relay refusal reasons carried in a refusal's last byte.
 BAD_TICKET = 1
 EXPIRED = 2
 FULL = 3
 RATE_LIMITED = 4
-#: A relay ticket, as the hub's schema shapes it.
+#: Shape a relay ticket must have: 22 to 256 URL-safe base64 characters.
 TICKET = re.compile(r"[A-Za-z0-9_-]{22,256}")
-#: The largest datagram any reader here is handed: a full UDP payload, so a
-#: datagram over a format's bound is seen whole and refused, never cut.
+#: Buffer size for recvfrom, large enough to hold any single UDP datagram.
+#: Every receive path uses it, so a datagram is never read in pieces.
 RECEIVE_BYTES = 65535
 
 _REQUEST = 1
@@ -78,17 +65,21 @@ _PROBE_HEAD = struct.Struct(f"!4sBBH{TOKEN_BYTES}sIQ")
 _RELAY_HEAD = struct.Struct("!4sBBH")
 _RELAY_REFUSED = struct.Struct("!4sBBB")
 _FAMILIES = {4: 4, 6: 16}
-#: How many rounds of binding requests a rig sends the hub's responder (from
-#: a probe's socket or a tunnel's port) before it goes on without an answer.
+#: Request/answer rounds to try per server before treating it as silent;
+#: the stun subcommand is handed this count by its caller.
 STUN_ATTEMPTS = 3
-#: The largest sequence number and stamp the probe format carries.
+#: Largest value the 32-bit seq and 64-bit stamp header fields can hold.
 MAX_SEQ = (1 << 32) - 1
 MAX_STAMP = (1 << 64) - 1
 
 
 @dataclass(frozen=True, kw_only=True)
 class BindingAnswer:
-    """What the hub's responder saw: the request's source, by transaction."""
+    """A server's report of the public address it saw a binding request from.
+
+    txid echoes the transaction id of the answered request, host is the
+    address as text and port is the observed source port.
+    """
 
     txid: bytes
     host: str
@@ -97,7 +88,11 @@ class BindingAnswer:
 
 @dataclass(frozen=True, kw_only=True)
 class Probe:
-    """One probe packet, read."""
+    """A decoded ping, pong or bulk packet.
+
+    seq and stamp are the header counters as sent, and size is the length of
+    the whole datagram, so it includes the padding after the header.
+    """
 
     kind: int
     secret: bytes
@@ -108,7 +103,10 @@ class Probe:
 
 @dataclass(frozen=True, kw_only=True)
 class RelayRefused:
-    """The relay would not bind; ``reason`` is its code."""
+    """A relay's rejection of a bind request.
+
+    reason is one of BAD_TICKET, EXPIRED, FULL or RATE_LIMITED.
+    """
 
     reason: int
 
@@ -122,7 +120,12 @@ def _pad(head: bytes, size: int, low: int, high: int) -> bytes:
 def binding_request(
     token: bytes, txid: bytes, *, size: int = STUN_REQUEST_MIN_BYTES
 ) -> bytes:
-    """A binding request carrying ``token``, as transaction ``txid``."""
+    """Build a binding request of kind _REQUEST with the token and txid.
+
+    Both fields must be of their fixed lengths; the packet is zero-padded to
+    size bytes, which must lie between STUN_REQUEST_MIN_BYTES and
+    STUN_REQUEST_MAX_BYTES.
+    """
     if len(token) != TOKEN_BYTES or len(txid) != TXID_BYTES:
         raise ValueError("token and txid: not of their lengths")
     head = _STUN_HEAD.pack(STUN_MAGIC, VERSION, _REQUEST, 0, token, txid)
@@ -130,7 +133,11 @@ def binding_request(
 
 
 def read_binding_answer(data: bytes) -> BindingAnswer | None:
-    """The binding answer ``data`` is, or ``None``."""
+    """Decode a binding answer, or return None if data is not one.
+
+    The raw address follows the fixed header, and its length must be exactly
+    what the family byte selects (_FAMILIES); a zero port is rejected too.
+    """
     if len(data) < _STUN_ANSWER.size:
         return None
     magic, version, kind, family, txid, port = _STUN_ANSWER.unpack_from(data)
@@ -150,7 +157,12 @@ def probe_packet(
     *,
     size: int = PROBE_PACKET_MIN_BYTES,
 ) -> bytes:
-    """A probe packet of ``kind`` between the pair ``secret`` names."""
+    """Build a PING, PONG or BULK packet carrying secret, seq and stamp.
+
+    secret must be TOKEN_BYTES long, seq must fit MAX_SEQ and stamp MAX_STAMP;
+    the packet is zero-padded to size bytes, between PROBE_PACKET_MIN_BYTES
+    and PROBE_PACKET_MAX_BYTES.
+    """
     if kind not in (PING, PONG, BULK) or len(secret) != TOKEN_BYTES:
         raise ValueError("kind and secret: not a probe's")
     if not (0 <= seq <= MAX_SEQ and 0 <= stamp <= MAX_STAMP):
@@ -160,7 +172,11 @@ def probe_packet(
 
 
 def read_probe(data: bytes) -> Probe | None:
-    """The probe packet ``data`` is, or ``None``."""
+    """Decode a probe packet, or return None if data is not one.
+
+    Bytes past the fixed header are padding; only their total length survives,
+    as Probe.size, and the header's reserved field is ignored.
+    """
     if not PROBE_PACKET_MIN_BYTES <= len(data) <= PROBE_PACKET_MAX_BYTES:
         return None
     magic, version, kind, _, secret, seq, stamp = _PROBE_HEAD.unpack_from(data)
@@ -170,7 +186,11 @@ def read_probe(data: bytes) -> Probe | None:
 
 
 def pong(ping: bytes) -> bytes | None:
-    """The answer to a ping: the same bytes, the same length, kind pong."""
+    """Return a pong for a ping packet, or None if ping is not a ping.
+
+    Only the kind byte is rewritten; the rest of the datagram, padding
+    included, is echoed back unchanged.
+    """
     read = read_probe(ping)
     if read is None or read.kind != PING:
         return None
@@ -178,8 +198,13 @@ def pong(ping: bytes) -> bytes | None:
 
 
 def relay_bind(ticket: str, *, size: int | None = None) -> bytes:
-    """A relay bind carrying ``ticket``: the format's least size, or the
-    ticket's own when longer, unless ``size`` says."""
+    """Build a relay bind request of kind _REQUEST carrying the ticket text.
+
+    The ticket must match TICKET and is appended as ASCII after the fixed
+    header.  When size is None the packet is padded to the larger of
+    RELAY_BIND_MIN_BYTES and the header length; either way it must fit between
+    RELAY_BIND_MIN_BYTES and RELAY_BIND_MAX_BYTES.
+    """
     if not TICKET.fullmatch(ticket):
         raise ValueError("ticket: not of its shape")
     raw = ticket.encode("ascii")
@@ -189,7 +214,12 @@ def relay_bind(ticket: str, *, size: int | None = None) -> bytes:
 
 
 def read_relay_answer(data: bytes) -> int | RelayRefused | None:
-    """The port the relay bound this rig's side to, its refusal, or ``None``."""
+    """Decode a relay reply into a granted port or a RelayRefused.
+
+    An answer is exactly _RELAY_HEAD.size bytes and must carry a non-zero
+    port; a refusal is exactly _RELAY_REFUSED.size bytes.  Any other length,
+    magic, version or kind gives None.
+    """
     if len(data) == _RELAY_HEAD.size:
         magic, version, kind, port = _RELAY_HEAD.unpack(data)
         if (magic, version, kind) == (RELAY_MAGIC, VERSION, _ANSWER) and port:
@@ -214,10 +244,15 @@ def ask_bindings(
     attempts: int,
     wait_s: float,
 ) -> dict[tuple[str, int], tuple[int, BindingAnswer]]:
-    """Send binding requests from ``sock`` to each server, ``attempts`` rounds
-    ``wait_s`` apart; the first round trip (in microseconds) and answer of
-    each server that answered. Only an answer from the server asked, to a
-    transaction this call sent, is taken."""
+    """Ask each server for the binding it sees and gather the answers.
+
+    Every attempt sends a request with a fresh random txid to each server that
+    has not answered yet, then reads for up to wait_s seconds.  An answer only
+    counts when its txid was sent in this call and it arrives from that txid's
+    server address.  The returned map holds, per answering server, the
+    round-trip time in microseconds and the decoded answer; servers that
+    stayed silent are left out.
+    """
     sent: dict[bytes, tuple[tuple[str, int], int]] = {}
     found: dict[tuple[str, int], tuple[int, BindingAnswer]] = {}
     for _ in range(attempts):
@@ -252,13 +287,13 @@ def ask_bindings(
 def bind_relay(
     host: str, port: int, ticket: str, *, attempts: int = 3, wait_s: float = 1.0
 ) -> int | RelayRefused | None:
-    """Bind this rig's side of a relay: send ``ticket`` to ``host``:``port``
-    from a socket of its own, ``attempts`` times ``wait_s`` apart; the port the
-    relay bound, its refusal, or ``None`` when it never answered. Only an
-    answer from the relay asked is read. The relay admits the bind's source
-    address and latches the first packet from it, so the bind may leave by
-    any port of this machine's: the tunnel's packets leave by the same
-    address."""
+    """Send the relay bind request and report the relay's reply.
+
+    relay_bind(ticket) is sent from a fresh IPv4 UDP socket to (host, port) up
+    to attempts times, waiting wait_s seconds per try and ignoring datagrams
+    from other addresses.  Returns the granted port, the RelayRefused, or None
+    when no valid reply arrived.
+    """
     packet = relay_bind(ticket)
     target = (host, port)
     with socket.socket(socket.AF_INET, socket.SOCK_DGRAM) as sock:
@@ -290,15 +325,19 @@ def _servers(words: Sequence[str]) -> list[tuple[str, int]]:
 
 
 def main(argv: Sequence[str]) -> int:
-    """The tunnel container's helper, run before WireGuard takes its port:
+    """Run the stun or keep subcommand over argv (program name excluded).
 
-    * ``stun PORT TOKEN ATTEMPTS WAIT_MS HOST SPORT [HOST SPORT]`` sends
-      binding requests from ``PORT`` and prints ``rtt HOST SPORT US`` for
-      each server that answered;
-    * ``keep PORT TOKEN EVERY_S LIFETIME_S PIDFILE HOST SPORT [HOST SPORT]``
-      sends one request to each server every ``EVERY_S`` from ``PORT``, so
-      the address the hub saw stays the port's, until ``LIFETIME_S`` is up or
-      it is ended (its pid is in ``PIDFILE``); answers are read and dropped.
+    "stun PORT TOKEN ATTEMPTS WAIT_MS HOST PORT [HOST PORT ...]" binds a UDP
+    socket to PORT and prints "rtt HOST PORT MICROSECONDS" for each server
+    that answered.
+
+    "keep PORT TOKEN EVERY_S LIFETIME_S PIDFILE HOST PORT [HOST PORT ...]"
+    binds the same socket, writes its pid to PIDFILE, and sends a fresh
+    binding request to every server each EVERY_S seconds for LIFETIME_S
+    seconds, discarding whatever comes back; SIGTERM exits with status 0.
+
+    A missing command or too few arguments, and a TOKEN that is not 16 bytes,
+    print a message to stderr and return 2.
     """
     if len(argv) < 7 or argv[0] not in ("stun", "keep"):
         print("usage: stun|keep …", file=sys.stderr)

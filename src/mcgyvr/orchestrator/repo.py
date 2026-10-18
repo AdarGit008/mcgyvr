@@ -1,32 +1,10 @@
-"""Attach a repository — the required first input to any orchestration.
+"""Attach the orchestrator to a git repository.
 
-Everything the orchestrator does is judged against a repository at a known
-starting revision: the index (#47) reads its files, the resolver (#48) points
-at them, and delivery (E8) diffs and pushes against the revision established
-here. So attach is where the two forms of input — a local checkout and a
-remote URL — are collapsed into **one** internal state, and where the design
-boundary "a repository is required" is enforced loudly rather than guessed
-around.
-
-Three things are settled at attach time, once, so nothing downstream has to
-re-derive them or disagree:
-
-* **The working location.** A local path is used in place; a URL is cloned to
-  a working location with a *declared lifetime* — ephemeral (removed when the
-  attach context closes) unless the caller names a directory it will own.
-* **The starting revision.** The commit everything is judged against. A
-  repository with no commit yet resolves to git's empty tree, matching the
-  gate's own convention (:mod:`mcgyvr.gate.changeset`) so a first-ever change
-  is attributed as wholly added rather than failing to resolve.
-* **Whether the working tree is dirty.** Uncommitted changes in a local
-  checkout are captured and reported *before any work begins*, because a dirty
-  tree is the difference between a diff that reflects the worker and one that
-  also carries the human's unfinished edits. A fresh clone is clean by
-  construction.
-
-Both input forms flow through one describe step (:func:`_describe`), so "both
-reach the same internal state" is a property of the code path, not a promise
-maintained in two places.
+``attach`` resolves a caller-supplied source — a local checkout or a clonable
+URL — into an :class:`AttachedRepo`, which records the repository root, the
+revision everything downstream is judged against, how the repository was
+obtained, whether the root is temporary, and the paths that were dirty at
+attach time. ssh remotes are refused: nothing here opens an ssh connection.
 """
 
 from __future__ import annotations
@@ -40,25 +18,26 @@ from contextlib import contextmanager
 from dataclasses import dataclass
 from pathlib import Path
 
-# The well-known SHA-1 of git's empty tree. A repository with no commit has no
-# HEAD to name as its starting revision; the empty tree stands in, so an
-# unborn repo attaches with a revision like any other and its whole content
-# reads as added. This is the same sentinel the gate uses (changeset._EMPTY_TREE).
+# The object id of git's empty tree. Used as the revision sentinel for a
+# repository with no commits yet: `git rev-parse HEAD^{commit}` fails there,
+# and the empty tree is the only revision such a repository can be compared
+# against.
 _EMPTY_TREE = "4b825dc642cb6eb9a060e54bf8d69288fbee4904"
 
-# A URL with an explicit scheme: https://, ssh://, git://, file://, http://.
+# Matches a leading ``scheme://``, which is how a string is recognised as a URL
+# rather than a filesystem path.
 _URL_SCHEME = re.compile(r"^[a-zA-Z][a-zA-Z0-9+.-]*://")
 
-# The scp-like short form git accepts: `git@github.com:owner/repo.git`. A host
-# and a path separated by a colon, with an optional `user@`. This deliberately
-# will not match a bare Windows drive path (`C:\...`) — the path part after the
-# colon must not start with a backslash.
+# Matches git's scp-like ``[user@]host:path`` form. git clones that form over
+# ssh, so it is recognised here in order to be refused rather than cloned.
+# The negative lookahead requires the character after the colon not to be a
+# backslash, so a Windows drive path such as ``C:\src`` is not a remote.
 _SCP_LIKE = re.compile(r"^([\w.-]+@)?[\w.-]+:(?![\\]).+$")
 
-# The schemes git resolves over ssh. With the scp-like form above, these are
-# every input that makes `git clone` spawn `ssh` from PATH — which would be the
-# only ssh spawn in the product outside the rig door
-# (mcgyvr.serving.gatelib.ssh). All of them are refused before git is run.
+# The URL schemes that carry git over ssh, matched case-insensitively: a
+# source matching this is refused before any clone is attempted, and
+# ``git+ssh://`` and ``ssh+git://`` are alternative spellings of the same
+# transport, so all three are treated alike.
 _SSH_SCHEME = re.compile(r"^(?:ssh|git\+ssh|ssh\+git)://", re.IGNORECASE)
 
 _SSH_REFUSED = (
@@ -68,23 +47,15 @@ _SSH_REFUSED = (
 
 
 class AttachError(Exception):
-    """A repository could not be attached.
-
-    Raised loudly and early: no repository supplied, an input that is neither a
-    checkout nor a URL, a local path that is not a git repository, or a clone
-    that failed. The message always names what to supply or fix — attach never
-    guesses a repository into existence.
-    """
+    """A source could not be attached: it was blank, missing, not a git
+    checkout, not a clonable URL, or an ssh remote."""
 
 
 @dataclass(frozen=True)
 class AttachedRepo:
-    """A repository ready to orchestrate against, at a known revision.
-
-    Both a local checkout and a freshly cloned URL produce this same state.
-    Instances are immutable; the working tree they point at is not, but every
-    fact recorded here (``revision``, ``dirty``) is a snapshot taken at attach.
-    """
+    """A repository the orchestrator has attached to, together with the
+    revision and working-tree state it started from. Frozen: an instance
+    describes a moment rather than a live handle."""
 
     root: Path
     """The repository root — a canonical, absolute path. For a clone this is
@@ -114,35 +85,25 @@ class AttachedRepo:
 
     @property
     def is_dirty(self) -> bool:
-        """Whether the working tree had uncommitted changes at attach."""
+        """Whether any path had uncommitted changes at attach time."""
         return bool(self.dirty)
 
     @property
     def is_unborn(self) -> bool:
-        """Whether the repository had no commit, so ``revision`` is the empty tree."""
+        """Whether the repository had no commit at attach time, so the
+        revision is the empty-tree sentinel."""
         return self.revision == _EMPTY_TREE
 
 
 @contextmanager
 def attach(source: str | None, *, into: Path | None = None) -> Iterator[AttachedRepo]:
-    """Attach ``source`` and yield the repository for the duration of the block.
+    """Attach to the repository named by ``source`` and yield its descriptor.
 
-    ``source`` is either a path to a local git checkout or a URL git can clone
-    without opening an ssh (``https://``, ``git://``, ``file://``). An ssh
-    remote — ``ssh://``, ``git+ssh://``, or the scp-like ``git@host:owner/repo``
-    and ``host:path`` forms — is refused before git runs: nothing in mcgyvr
-    opens ssh except the rig door. A path that exists is used in place; a URL
-    is cloned.
-
-    ``into`` names where a clone lands and declares its lifetime. Omitted, a
-    clone goes to an ephemeral temp directory removed when this context closes.
-    Given a directory, the clone lands there and is left for the caller to own —
-    ``into`` is ignored for a local checkout, which is never copied.
-
-    Raises :class:`AttachError` — before yielding — when nothing is supplied,
-    when the input is neither a checkout nor a clonable URL, when a local path
-    is not a git repository, or when a clone fails. This is the "a repository is
-    required" boundary: attach fails loud rather than proceeding without one.
+    An existing directory is used in place. A URL — https://, git://, file://
+    or the scp-like ``host:path`` form — is cloned into ``into`` when given,
+    otherwise into a fresh temporary directory that is removed when the context
+    exits. ssh remotes are refused, as is a source that is neither an existing
+    directory nor a clonable URL, and a blank or missing source.
     """
     if source is None or not source.strip():
         raise AttachError(
@@ -153,7 +114,8 @@ def attach(source: str | None, *, into: Path | None = None) -> Iterator[Attached
 
     local = _as_local_dir(supplied)
     if local is not None:
-        # A checkout used in place: nothing to tear down, `into` does not apply.
+        # An existing directory is attached in place: nothing is cloned and
+        # nothing is cleaned up afterwards.
         yield _attach_local(local, supplied)
         return
 
@@ -173,12 +135,9 @@ def attach(source: str | None, *, into: Path | None = None) -> Iterator[Attached
 
 
 def _as_local_dir(source: str) -> Path | None:
-    """The source as an existing local directory, or None if it is not one.
-
-    A path that exists but is a file is a caller error, not a URL to try, so it
-    is rejected here with a message rather than falling through to a confusing
-    "not a URL" further down.
-    """
+    """Return ``source`` as a directory path when it names one, None when it
+    names nothing that exists on disk, and raise AttachError when it names
+    something that is not a directory."""
     path = Path(source)
     if path.is_dir():
         return path
@@ -188,22 +147,15 @@ def _as_local_dir(source: str) -> Path | None:
 
 
 def _looks_remote(source: str) -> bool:
-    """Whether ``source`` is shaped like a URL git could clone.
-
-    Shape only: an ssh remote is shaped like one and is still refused, by
-    :func:`_ssh_form`, which :func:`attach` consults first.
-    """
+    """Whether ``source`` has a URL scheme or the scp-like form, i.e. whether
+    it is a candidate for cloning."""
     return bool(_URL_SCHEME.match(source) or _SCP_LIKE.match(source))
 
 
 def _ssh_form(source: str) -> str | None:
-    """How ``source`` would make git open an ssh, or None if it would not.
-
-    A scheme is decisive when present: ``ssh://`` and ``git+ssh://`` are ssh,
-    ``https://``/``git://``/``file://`` are not. Without a scheme, the scp-like
-    ``[user@]host:path`` form is ssh — git never names the transport, it just
-    spawns ``ssh`` from PATH.
-    """
+    """Name the ssh form ``source`` would be cloned over, or None when it is
+    not ssh. A URL with an ssh scheme is reported as such; a scp-like
+    ``host:path`` is reported because git clones that form over ssh."""
     if _URL_SCHEME.match(source):
         return "an ssh:// URL" if _SSH_SCHEME.match(source) else None
     if _SCP_LIKE.match(source):
@@ -212,12 +164,8 @@ def _ssh_form(source: str) -> str | None:
 
 
 def _attach_local(path: Path, source: str) -> AttachedRepo:
-    """Describe a local checkout, normalising a subdirectory to the repo root.
-
-    ``git rev-parse --show-toplevel`` both validates that the path is inside a
-    git repository and yields its canonical root, so being handed a
-    subdirectory attaches the whole repository rather than a fragment of it.
-    """
+    """Describe ``path`` as a checkout used in place, resolving the repository
+    toplevel so that a subdirectory input still yields the root."""
     toplevel = _git(
         path,
         "rev-parse",
@@ -232,11 +180,12 @@ def _attach_local(path: Path, source: str) -> AttachedRepo:
 
 
 def _attach_clone(source: str, into: Path | None) -> Iterator[AttachedRepo]:
-    """Clone ``source`` and yield it, tearing an ephemeral clone down after.
+    """Clone ``source`` and yield the descriptor of the clone.
 
-    A generator so the caller's ``with`` block brackets the clone's lifetime:
-    an ephemeral clone (``into`` omitted) is removed on exit; a clone into a
-    caller-named directory is left in place.
+    The clone goes into ``into``, created if absent and left in place, or into
+    a new temporary directory when ``into`` is None — in that case the clone is
+    ephemeral and the directory is removed when the generator is closed, which
+    happens when the ``attach`` context exits.
     """
     ephemeral = into is None
     if into is not None:
@@ -255,12 +204,8 @@ def _attach_clone(source: str, into: Path | None) -> Iterator[AttachedRepo]:
 
 
 def _clone(source: str, dest: Path) -> None:
-    """Clone ``source`` into ``dest`` (which must be empty), failing loud.
-
-    ``--`` guards against a source that begins with a dash being read as a
-    flag; the error carries git's own stderr so a bad URL or an unreachable
-    host is reported as what it is.
-    """
+    """Run ``git clone`` of ``source`` into ``dest``, raising AttachError with
+    git's own error text when the clone fails."""
     proc = subprocess.run(
         ["git", "clone", "--quiet", "--", source, str(dest)],
         capture_output=True,
@@ -272,7 +217,8 @@ def _clone(source: str, dest: Path) -> None:
 
 
 def _describe(root: Path, *, source: str, origin: str, ephemeral: bool) -> AttachedRepo:
-    """The one path both input forms flow through to reach identical state."""
+    """Build the AttachedRepo for ``root`` by reading its starting revision and
+    its dirty paths."""
     return AttachedRepo(
         root=root,
         revision=_revision(root),
@@ -284,12 +230,8 @@ def _describe(root: Path, *, source: str, origin: str, ephemeral: bool) -> Attac
 
 
 def _revision(root: Path) -> str:
-    """The HEAD commit, or the empty-tree sentinel for an unborn repository.
-
-    An unborn repository (``git init`` with no commit) has no HEAD to name;
-    rather than fail, it resolves to the empty tree so it attaches like any
-    other and its whole content reads as added downstream.
-    """
+    """Return the commit HEAD resolves to, or the empty-tree sentinel when the
+    repository has no commit yet or HEAD cannot be resolved."""
     proc = subprocess.run(
         ["git", "rev-parse", "--verify", "--quiet", "HEAD^{commit}"],
         cwd=root,
@@ -301,17 +243,12 @@ def _revision(root: Path) -> str:
 
 
 def head_only_note(root: Path) -> str | None:
-    """What a sandbox built from ``root`` leaves out, or ``None`` when nothing.
+    """Warn that the sandbox is built from a commit, so the working tree's
+    uncommitted and untracked paths will not be in it — or None when there is
+    nothing to warn about.
 
-    A sandbox is a ``git archive`` of HEAD (:mod:`mcgyvr.sandbox.base`), and
-    deliberately so: delivery diffs against a concrete source revision. So an
-    uncommitted edit or an untracked file — a test just written, say — is not
-    in it, and a contract command that needs it fails there for a reason the
-    working tree does not show. This is the line that says so, without the
-    ``note:`` prefix, so the terminal and the result file carry one text.
-
-    ``None`` for a clean tree, and for a directory that is not a git checkout
-    of its own (a parent repository's status is not this one's).
+    None is returned when ``root`` is not a checkout (no ``.git``), when the
+    tree is clean, and when git cannot be read.
     """
     if not (root / ".git").exists():
         return None
@@ -327,8 +264,8 @@ def head_only_note(root: Path) -> str | None:
         )
     except AttachError:
         return None
-    # Three names and a count: enough to recognise the test just written,
-    # short enough to stay one line on a tree with hundreds of edits.
+    # Name only the first few paths and count the rest, so the note stays
+    # readable however much of the tree is dirty.
     shown = 3
     named = ", ".join(dirty[:shown])
     more = len(dirty) - shown
@@ -342,13 +279,10 @@ def head_only_note(root: Path) -> str | None:
 
 
 def _dirty_paths(root: Path) -> tuple[str, ...]:
-    """Paths with uncommitted changes, read from ``status --porcelain -z``.
+    """Return the paths git reports as changed or untracked, in git's order.
 
-    ``-z`` makes the output NUL-delimited, so a filename with spaces or
-    non-ASCII bytes is carried through verbatim rather than quoted — the same
-    quoting hazard :mod:`mcgyvr.gate.changeset` guards against. Each record is
-    a two-character status followed by the path; renames (``R``) carry an extra
-    NUL-delimited origin path, which is skipped.
+    Parses the NUL-separated ``--porcelain -z`` output, so paths containing
+    spaces or quotes come back verbatim.
     """
     raw = _git(root, "status", "--porcelain", "-z").encode("utf-8", "surrogateescape")
     tokens = raw.split(b"\x00")
@@ -356,12 +290,13 @@ def _dirty_paths(root: Path) -> tuple[str, ...]:
     i = 0
     while i < len(tokens):
         record = tokens[i]
-        if not record:  # trailing NUL leaves an empty final token
+        if not record:  # the trailing NUL leaves an empty token
             break
         status = record[:2]
-        path = record[3:]  # skip the two status chars and the separating space
+        path = record[3:]  # two status columns, one space, then the path
         paths.append(path.decode("utf-8", "surrogateescape"))
-        # A rename/copy record is followed by its origin path as its own token.
+        # A rename or copy record is followed by the original path as a
+        # separate token; skip it so only the current path is reported.
         if status[:1] in (b"R", b"C"):
             i += 2
         else:
@@ -370,12 +305,9 @@ def _dirty_paths(root: Path) -> tuple[str, ...]:
 
 
 def _git(root: Path, *args: str, on_error: str | None = None) -> str:
-    """Run a git command in ``root``, returning stdout as text.
-
-    ``on_error`` overrides the message when the command fails — used to turn
-    "rev-parse failed" into "not a git repository", which is the actionable
-    thing the caller needs to hear.
-    """
+    """Run git with ``args`` inside ``root`` and return its stdout, raising
+    AttachError carrying ``on_error`` — or a generic message naming the
+    subcommand — when git exits non-zero."""
     proc = subprocess.run(
         ["git", *args],
         cwd=root,

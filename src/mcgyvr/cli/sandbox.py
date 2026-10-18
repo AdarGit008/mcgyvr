@@ -1,4 +1,10 @@
-"""Sandbox policy and tree-reading helpers shared by sandbox, run and delegate."""
+"""The sandbox inputs the CLI commands share.
+
+`_reads_the_tree` decides whether a contract reads the committed tree at all,
+`_say_what_the_sandbox_leaves_out` prints and returns the note naming what that
+tree leaves out, and `_sandbox_policy` reads the settings a run hands to the
+sandbox it opens.
+"""
 
 from __future__ import annotations
 
@@ -15,18 +21,12 @@ if TYPE_CHECKING:  # pragma: no cover - typing only
 
 
 def _reads_the_tree(contract: Contract) -> bool:
-    """Whether a run of ``contract`` reads anything off the repository's HEAD.
+    """Whether the contract's commands look at the tree the sandbox is built from.
 
-    The note :func:`_say_what_the_sandbox_leaves_out` prints is about what a
-    sandbox of HEAD holds, so it is worth reading only to a run that looks in
-    it. Every run that writes a change does. A session (``chat``, ``agent``)
-    writes nothing and has no target: it reads the tree only through the
-    ``sources`` it names and the commands it declares. One with neither — a
-    plain ``chat`` — reads nothing there, and telling it to commit files it
-    never opens is noise (e2e run 3, T4). An ``agent``'s sources are read off
-    HEAD, so it is told. Read off the contract and the catalog's ``session``
-    flag, never a task type's name, which no consumer of the vocabulary
-    spells.
+    A session task that names no source, acceptance or demonstration command only
+    stages its reply, so the tree is irrelevant to it; every other contract, and
+    a session that does name one of those, reads the tree and needs to hear which
+    parts of it the sandbox does not have.
     """
     if not contract.is_session:
         return True
@@ -34,10 +34,13 @@ def _reads_the_tree(contract: Contract) -> bool:
 
 
 def _say_what_the_sandbox_leaves_out(repo: Path) -> list[str]:
-    """Say on stderr what a sandbox of ``repo``'s HEAD will not hold.
+    """Print the note naming what the sandbox, built from HEAD, does not hold.
 
-    Returns the note as a one-item list, or an empty one when there is
-    nothing to say, for a run to carry into its result file as well.
+    `head_only_note` composes that sentence, and gives None where there is
+    nothing to report: not a git repository, no uncommitted or untracked path, or
+    git unable to answer. The note is written to stderr as it is found, and
+    returned as a one-item list so a caller can keep it on the result; an empty
+    list means there was nothing to say.
     """
     from mcgyvr.orchestrator import head_only_note
 
@@ -49,12 +52,13 @@ def _say_what_the_sandbox_leaves_out(repo: Path) -> list[str]:
 
 
 def _sandbox_policy(config: Config | None) -> dict[str, Any]:
-    """What the `sandbox` block says about a sandbox beyond its mode.
+    """The `allow_fallback` and `network` a sandbox is opened with.
 
-    Read in one place for both paths that open one, so the floor and the climb
-    cannot come to disagree about whether a missing daemon falls back or what
-    network a container gets. No config is the schema's defaults: refuse
-    rather than fall back, and Docker's default network.
+    With no config at all both take their defaults: no fallback to the weaker
+    tempdir backend when Docker does not answer, and Docker's `bridge` network.
+    Otherwise they are read from `sandbox.allow_fallback` (default off) and
+    `sandbox.network` (default `bridge`), so the same policy reaches a run that
+    has a setup and one that does not.
     """
     if config is None:
         return {"allow_fallback": False, "network": "bridge"}

@@ -1,109 +1,12 @@
-"""The correctness rung: declared types, and the hazards a type checker cannot see.
+"""The typecheck rung, plus the AST compliance rules that ride with it.
 
-Two capabilities live here because they answer the same question — *is this
-change wrong*, as opposed to *is it untidy* — and because the answer has to be
-split along that line before either is worth having.
-
-**The type checker the repository declared.** :class:`TypeCheck` runs what
-:meth:`~mcgyvr.gate.adapter.LanguageAdapter.locate_type_check_command` finds,
-so where a checker is declared, a worker that annotates a function with a
-return type it does not return is rejected. It runs **only** what the
-repository configured, in whichever file that checker reads its own
-configuration from, and it runs nothing at all where the repository configured
-nothing — no default checker, no synthesised strictness, and no environment
-issue for the absence. The choice of type checker is outside this project; a
-gate that ran one anyway would apply a bar the repository never agreed to, and
-one that recorded "no type checker" as degraded coverage would say every
-install that never wanted one is broken.
-
-*Why this names the changed files when ``locate_type_check_command`` refuses
-to.* That method emits the **contract's own acceptance command**, so appending
-a target there would substitute mcgyvr's idea of the repository's scope for the
-one the project wrote down (#142) — and mypy does not apply ``exclude`` to a
-file named on the command line, so the substitution would be silent. This rung
-is the other kind of thing: a per-change rung, sibling to lint and format,
-whose input set is the worker's own diff and whose cost must stay flat in the
-size of the repository rather than growing with it. Both of those rungs name
-the changed files for exactly that reason. The ``exclude`` asymmetry is real
-and is the price: a file the repository excludes *and the worker changed* is
-checked here. That is the safe direction — the change is what the gate is for,
-and a worker cannot be told a file was too excluded to be judged after it was
-edited.
-
-**The hazards a type checker cannot see, split by severity.**
-``_HazardVisitor`` in the Python adapter collects three language hazards and
-every one of them rejects. That is fine while the list is mutable defaults,
-bare excepts and wildcard imports — all three are faults. It stops being fine
-the moment the list grows a member that is a house-style preference, because
-then a *correct* change is rejected for a fashion, and the cheapest possible
-fix (a deterministic rewrite at zero model spend, :mod:`mcgyvr.repair`) is
-unreachable from a verdict that only says "no".
-
-So the two families ported here carry the split with them:
-
-* ``param-mutation`` is **correctness**. A function that mutates the object its
-  caller passed in changes state the caller still owns; the caller's next read
-  is wrong, and no amount of reformatting makes it right. It rejects, so it is
-  reported on the ``structure`` axis the adapter's existing hazards already use.
-  That is the default and not the only answer: a setup may turn the family to
-  ``report`` (the same finding, on the ``style`` axis) or ``skip`` (not run)
-  with ``gate.param_mutation`` — :class:`ParamMutation`.
-* ``type-form`` — ``from typing import List`` where ``list[int]`` is the pinned
-  form — is **style**. The code is correct. Rejecting it spends a model call, a
-  gate run and a rung of the ladder to change six characters that a tool
-  changes for nothing. It is reported on the ``style`` axis, which the gate
-  folds into :attr:`~mcgyvr.gate.GateResult.observations`: said out loud,
-  never fatal.
-
-The style axis has to reach the **lint** rung as well, which is why
-:data:`STYLE_LINT_CODES` is here and not only the AST family. ruff already
-reports the deprecated typing form by default, as UP035 and UP006, and every
-lint finding rejects — so on a machine with ruff the change costs an attempt
-over six characters, and on a machine without it nothing reports the form at
-all. Those are one missing behaviour seen from two sides: there is no axis on
-which a finding can be said out loud without also being fatal. Both sides are
-answered here, so under the product's default rule selection
-(:data:`~mcgyvr.gate.adapters.python.DEFAULT_RUFF_SELECT`) the verdict does
-not depend on which tools the operator happens to have. A repository that
-states its own ruff configuration has said which codes refuse its changes, and
-a UP006 or UP035 it selects refuses this one. There the verdict does depend on
-the tools: without ruff the lint rung does not run, the change is accepted
-with the ``type-form`` note, and the missing linter is listed among the
-environment issues.
-
-**A demotion is per fault, not per lint code.** UP035 is one code over two
-unrelated faults. ``from typing import Mapping`` is the deprecated spelling
-above: the module imports, the code runs, and demoting it is the whole point.
-``from collections import Mapping`` is not a spelling — ``collections``
-re-exported the abstract base classes as a compatibility shim through 3.9 and
-stopped in 3.10, so the line raises ``ImportError`` on every interpreter this
-project supports and nothing in the module runs at all. Demoting *that* is a
-gate accepting a module it could have proven unimportable, and telling the
-reviewer, in :func:`~mcgyvr.verify.gate_summary`'s own words, that no check is
-asking for it to be fixed. So ``unimportable`` is a family of its own here —
-not ported, found — and it carries the same two-sided answer as the two that
-were: it is an AST family so a machine without ruff still rejects it, and it
-withdraws the UP035 demotion on the lines it found so a machine *with* ruff
-does not say the same fault twice with opposite verdicts.
-
-*Why the AST and not ruff's message.* Ruff's words for the two halves are
-identical — "Import from ``collections.abc`` instead: ``Mapping``" — as are
-the rule name, the severity, the documentation url and the fix it offers; the
-two diagnostics differ in the filename and the end column and in nothing else
-(pinned in ``tests/test_unimportable_is_not_style.py``). A message rule could
-not separate them even in principle, and one keyed on the imported *name*
-would reject ``from typing import Mapping`` too. The module an import names is
-the fault, it is one field on one node, and it does not move when a linter
-rewords itself.
-
-local-ai's third family, ``forbidden-construct`` (bare except, mutable default,
-unasked-for IO), is deliberately **not** ported. Its first two members already
-exist in ``_HazardVisitor`` as rejecting findings, and demoting them to style
-would weaken a bar mcgyvr already holds — a port may not quietly regress the
-thing it is porting into. A **formatting** violation stays rejecting for the
-same reason from the other direction: it is what makes the repair rung worth
-running at all, and demoting it would accept a change no one had tidied rather
-than tidying it for free.
+:class:`TypeCheck` runs the type checker a repo declares over the Python files a
+changeset touches, keeps only the diagnostics this diff is responsible for — the
+lines the worker added, and faults absent from the same file at the base commit —
+and turns them into findings. :func:`compliance_findings` covers what no checker
+reports as an error: mutation of a caller-owned parameter, imports that cannot
+import, and deprecated ``typing`` spellings, each sorted onto the rejecting
+``structure`` axis or the observational ``style`` one.
 """
 
 from __future__ import annotations
@@ -131,37 +34,31 @@ from mcgyvr.gate.adapter import (
 from mcgyvr.gate.changeset import ChangeSet
 from mcgyvr.gate.findings import Finding
 
-if TYPE_CHECKING:  # see _python_adapter — a runtime import here closes a cycle
+if TYPE_CHECKING:  # type-only: the adapter imports this module at runtime
     from mcgyvr.gate.adapters.python import PythonAdapter
 
-#: The check name every type-check finding carries, so a caller can group by it.
+#: The check name attached to every finding this rung produces.
 CHECK = "typecheck"
 
-#: The axis a correctness hazard reports on — the same one the adapter's
-#: existing structural hazards use, because they mean the same thing and a
-#: second rejecting name would only make a manifest harder to read.
+#: Findings land on one of two axes: ``structure`` faults reject the work and
+#: send it back, ``style`` faults are printed as observations and leave the
+#: verdict alone.
 CORRECTNESS = "structure"
 
-#: The axis a style hazard reports on: real, line-attributed, and outside the
-#: verdict. Findings carrying this check belong in
-#: :attr:`~mcgyvr.gate.GateResult.observations`. It is the gate's one axis for
-#: "said out loud, never fatal", so a correctness finding a setup asked to have
-#: reported rather than refused (:attr:`ParamMutation.REPORT`) travels on it
-#: too, under its own code.
+#: The observational axis. A finding filed here is real and line-attributed but
+#: never rejects the work, so a worker is not charged a rung of the ladder for a
+#: prose-level preference.
 STYLE = "style"
 
-#: The code every ``param-mutation`` finding carries, on whichever axis.
+#: Code shared by every parameter-mutation finding, whichever axis it lands on.
 PARAM_MUTATION = "PARAM-MUTATION"
 
 
 class ParamMutation(StrEnum):
-    """What the gate does with a ``param-mutation`` finding.
+    """What to do when a function mutates an object its caller owns.
 
-    A setup states it as ``gate.param_mutation``, and the default is the strict
-    reading. ``REPORT`` keeps the finding and moves it to :data:`STYLE`, where
-    the gate lists it among its observations and does not reject on it.
-    ``SKIP`` does not run the family. Under every mode a contract that asks for
-    in-place work stands the family down (:func:`_asks_for_mutation`).
+    ``REFUSE`` reports the mutation on the rejecting ``structure`` axis, ``REPORT``
+    keeps those findings on ``style`` instead, and ``SKIP`` turns the rule off.
     """
 
     REFUSE = "refuse"
@@ -169,81 +66,57 @@ class ParamMutation(StrEnum):
     SKIP = "skip"
 
 
-#: Lint rule codes that report the ``type-form`` family under another name, and
-#: therefore belong on :data:`STYLE` rather than on the rejecting ``lint``
-#: axis. ruff's default rule set already flags ``from typing import List``
-#: (UP035) and ``List[int]`` in an annotation (UP006) with no configuration
-#: discoverable, so this is what a bare install reports. Left where they are, a
-#: correct change costs a model call, a gate run and a rung of the ladder over
-#: six characters, which is the exact spend the split exists to stop. Kept
-#: deliberately narrow: it is the family ported below, named in the other
-#: vocabulary, and nothing else. A gate that says one thing twice must not mean
-#: something different each time.
-#:
-#: The demotion is withdrawn per *line* by :func:`unimportable_lines`: UP035
-#: covers a second fault that is not style at all, and a code in this set is
-#: only demoted where the line it sits on is not one of those. Membership here
-#: says "this code can carry a style fault", never "every report of this code
-#: is one".
-#:
-#: It is applied only under the product's default rule selection
-#: (:data:`~mcgyvr.gate.adapters.python.DEFAULT_RUFF_SELECT`), for a repository
-#: that states no ruff configuration. A repository that states its own is
-#: judged as it says: where it selects these codes, they refuse the change, and
-#: the same line may then carry the ``type-form`` note beside the refusal. The
-#: note is the product's reading, the refusal is the project's own rule, and
-#: the verdict is the refusal.
+#: Ruff codes demoted from the rejecting ``lint`` axis to ``style`` under the
+#: product's default rule selection — a repo that states no ruff config of its
+#: own. Both are default rules there: ``UP006``
+#: (``List`` where ``list`` would do) and ``UP035`` (import from a deprecated
+#: location). They describe code that runs, in a dialect the project has moved
+#: away from, which is an observation rather than a defect. ``UP035`` also covers
+#: a fault that is not a spelling: ``from collections import Mapping`` stops
+#: importing on 3.10, where the re-export shim was removed. That line is a
+#: compliance finding (see :func:`unimportable_lines`), and the lint path
+#: re-promotes it rather than demoting it with the rest of the code.
 STYLE_LINT_CODES = frozenset({"UP006", "UP035"})
 
-#: Wall-clock ceiling for one type-check pass. A checker reads a repository's
-#: whole import graph and can be slow on a cold cache, so the bound is generous;
-#: exceeding it is a skipped rung, never a verdict on the worker.
+#: Wall-clock budget for a single checker invocation. Exceeding it is an
+#: environment fault, not a finding against the worker's code.
 TYPECHECK_TIMEOUT_S = 300.0
 
-#: A checker is *reporting* on 0 (clean) and 1 (diagnostics). Both mypy and
-#: pyright reserve 2 and above for "I did not do the job", which must never be
-#: read as a clean pass — the same rule, for the same reason, as the lint rung
-#: (#261).
+#: Exit codes that mean "the checker ran and this is its report": 0 for a clean
+#: pass, 1 for diagnostics found. Any other code is a broken tool, and
+#: :func:`trusted_stdout` raises instead of reading a verdict out of it.
 _REPORTING = (0, 1)
 
-#: ``path:line[:col[:end_line:end_col]]: severity: message``. The trailing
-#: positions appear under ``--show-column-numbers`` / ``--show-error-end``,
-#: which a repository may well have configured, so they are tolerated rather
-#: than assumed absent.
+#: ``path:line[:col[:end]]: severity: message`` — the format mypy and other
+#: compiler-style tools print. The line is what a finding is attributed to; up to
+#: three extra numeric segments (column, end line, end column) may follow it.
 _DIAGNOSTIC = re.compile(
     r"^(?P<path>[^:]+):(?P<line>\d+)(?::\d+){0,3}: "
     r"(?P<severity>error|warning|note): (?P<message>.*)$"
 )
 
-#: pyright's spelling of the same line:
-#: ``  /abs/path.py:line:col - severity: message (reportRule)``. Its severities
-#: are ``error``, ``warning`` and ``information``; only ``error`` rejects.
+#: pyright's format: ``path:line:col - severity: message``. It needs its own
+#: pattern because the column is mandatory, a spaced hyphen separates location from
+#: severity, and pyright says ``information`` where the others say ``note``.
 _PYRIGHT_DIAGNOSTIC = re.compile(
     r"^\s*(?P<path>[^:]+):(?P<line>\d+):\d+ - "
     r"(?P<severity>error|warning|information): (?P<message>.*)$"
 )
 
-#: The rule identifier a checker appends: mypy in brackets (``[return-value]``),
-#: pyright in parentheses (``(reportReturnType)``).
+#: The code a checker appends to its message: ruff and mypy use ``[code]``,
+#: pyright uses ``(reportRule)``.
 _CODE = re.compile(r"\s+(?:\[([a-z0-9-]+)\]|\((report[A-Za-z]+)\))$")
 
-#: Only outright errors reject. A ``note`` is elaboration attached to the error
-#: above it and carries no independent verdict; reporting it as its own finding
-#: would charge a worker twice for one fault.
+#: Only ``error`` rejects. ``warning``, ``note`` and ``information`` come out of
+#: the same parsers but describe code that still runs, so they are never collected.
 _REJECTING = frozenset({"error"})
 
 
 def _python_adapter() -> PythonAdapter:
-    """The Python adapter, imported at call time rather than at module scope.
+    """Return a Python adapter with the default configuration.
 
-    This module has to reach the adapter for two things it must not answer
-    twice — which files are Python, and which checker the repository declared —
-    while the adapter reaches *this* module for :func:`compliance_findings`. A
-    module-level import would close that cycle and break
-    ``import mcgyvr.gate`` outright, so the direction that runs once per gate
-    rung is the one deferred. Nothing is cached: ``sys.modules`` already is the
-    cache, and neither question asked of the adapter here reads the one setting
-    an adapter carries, so the default one answers them for every setup.
+    The import is local because ``mcgyvr.gate.adapters.python`` imports this module
+    for its compliance helpers, so a module-level import would be circular.
     """
     from mcgyvr.gate.adapters.python import PythonAdapter
 
@@ -251,30 +124,16 @@ def _python_adapter() -> PythonAdapter:
 
 
 class TypeCheckTimeoutError(ToolFailedError):
-    """The declared checker did not finish in budget — a load fault, not a verdict.
-
-    A timeout is not the same as :class:`ToolFailedError`: the checker produced
-    no output at all, rather than output that cannot be read. Treating it as a
-    rejection makes the verdict depend on machine load — the same change is
-    accepted on a quiet machine and rejected on a loaded one, which is a verdict
-    on the machine rather than on the worker. The gate records it as a skipped
-    rung, the way it records an absent checker.
-    """
+    """The declared checker did not finish inside the configured timeout."""
 
 
 @dataclass(frozen=True)
 class TypeCheck:
-    """The declared type checker, run over the lines a worker added.
+    """One repository's typecheck rung.
 
-    ``repo`` is where the declaration lives, so it is constructor state; the
-    files to check come from the change set handed to :meth:`run`. Instances
-    are immutable and cheap — the declaration is re-read per run rather than
-    cached, because a contract may add the config file it is being judged by.
-
-    ``runner`` is where the checker runs. Its configuration can be code (a
-    mypy plugin named by file path), so over a task's workspace it runs where
-    the task's commands do: a :class:`~mcgyvr.gate.adapter.SandboxRunner` over
-    the open sandbox. The default is the host, for a caller with no sandbox.
+    ``repo`` is the tree the checker reads, ``timeout`` bounds each invocation, and
+    ``runner`` is where those invocations and the base-tree extraction happen: the
+    host, or a sandbox whose reported paths come back through ``host_path``.
     """
 
     repo: Path
@@ -282,28 +141,20 @@ class TypeCheck:
     runner: ToolRunner = field(default_factory=HostRunner)
 
     def declared_command(self) -> list[str] | None:
-        """The checker this repository configured, or ``None`` for none.
+        """Return the command the repo declares for type checking, or None.
 
-        Delegated rather than re-derived: the adapter already knows the four
-        places mypy reads its configuration from and parses rather than greps
-        for them, and a second detector that disagreed would fabricate a
-        type-check for a repository that runs none.
+        No declaration means the rung has nothing to run and stays silent.
         """
         return _python_adapter().locate_type_check_command(self.repo)
 
     def run(self, changeset: ChangeSet) -> list[Finding]:
-        """Type-check the worker's Python files; report only on added lines.
+        """Return the findings the checker reports against this changeset.
 
-        Returns an empty list where there is nothing to say **and** where there
-        is nobody to ask: a repository that declared no checker is not failed
-        for the absence and is not reported as degraded either.
-
-        Raises :class:`~mcgyvr.gate.ToolUnavailableError` when a *declared*
-        checker is not installed, and :class:`~mcgyvr.gate.ToolFailedError`
-        when it ran and its answer cannot be read — the same two faults, with
-        the same meanings, as :meth:`~mcgyvr.gate.LanguageAdapter.lint`, so the
-        gate records the rung as skipped or inconclusive without needing to
-        know a type checker was involved.
+        Only Python files the changeset touches and that still exist on disk are
+        checked. Diagnostics attributed to lines the worker added become findings
+        directly; diagnostics anywhere else in those files are compared against the
+        same file at the base commit, so a fault that was already there is not
+        charged to this diff. The result is sorted by path, then line.
         """
         command = self.declared_command()
         if command is None:
@@ -335,28 +186,29 @@ class TypeCheck:
     def _check(
         self, command: Sequence[str], tool: str, repo: Path, paths: Sequence[str]
     ) -> str:
-        """Run the declared checker over ``paths`` in ``repo``; return its report."""
+        """Run the checker over ``paths`` and return the stdout it produced.
+
+        A timeout is an environment fault, as is an exit code outside
+        ``_REPORTING``. Exit 1 with no readable diagnostic in the output is treated
+        the same way: the tool did complain, in a shape this rung cannot parse.
+        """
         try:
             proc = self.runner.run(
                 tool, [*command[1:], *paths], repo, timeout=self.timeout
             )
         except subprocess.TimeoutExpired as exc:
-            # The checker ran out of budget. That is a fact about the machine's
-            # load, not about the worker's change, so it is reported as a skip
-            # rather than a rejection: a verdict that flips with how loaded the
-            # machine is, is a verdict on the machine.
+            # Out of time. Raised as an environment fault that names the tool and
+            # the budget, because nothing about the worker's code was learned; -1
+            # stands in for the exit code that was never produced.
             raise TypeCheckTimeoutError(
                 tool, -1, f"timed out after {self.timeout:g}s"
             ) from exc
-        # A checker that exits 2 writes its complaint to stderr and leaves
-        # stdout empty, which reads as "no diagnostics" — a clean pass over a
-        # bar that never ran. The exit code is the only thing that separates
-        # the two, so it is checked before the output is parsed.
+        # Anything outside the reporting exits — a crash, a bad config, a missing
+        # dependency — raises here, with the tool's first stderr line as the detail.
         stdout = trusted_stdout(tool, proc, expected=_REPORTING)
-        # Exit 1 is the checker saying it found errors. If not one line of the
-        # report reads as an error, the report is in a form this rung does not
-        # parse, and zero findings would be a clean pass over a change the
-        # checker rejected.
+        # The tool exited 1 but printed nothing this module can read: a traceback on
+        # stderr, a config complaint, an unknown flag. Reported as a broken tool,
+        # since otherwise an unparsed report would look exactly like a clean pass.
         if proc.returncode == 1 and not any(
             _rejecting(raw) for raw in stdout.splitlines()
         ):
@@ -374,26 +226,12 @@ class TypeCheck:
         command: Sequence[str],
         tool: str,
     ) -> list[_Diagnostic]:
-        """Of the diagnostics off the worker's added lines, the ones it caused.
+        """Return the off-diff diagnostics this changeset actually introduced.
 
-        A line number is a proxy for novelty and this is where the proxy breaks.
-        ``def fetch(url):`` annotated to ``def fetch(url: int) -> str:`` changes
-        line 1; mypy's complaint lands on line 2, ``return url``, which the
-        worker did not touch. That error is not pre-existing — line 2 checked
-        clean before the change — and dropping it is how a `code` contract
-        with `type_check: true` could be annotated wrong and accepted.
-
-        So "pre-existing" is measured rather than inferred: the same checker
-        runs over the base tree, and a diagnostic absent there is the worker's
-        wherever it sits. The base run happens only when something landed off
-        the added lines, so the common change — clean, or wrong on its own
-        line — still costs one checker invocation.
-
-        Where the base cannot be materialised — no commit yet, or ``git
-        archive`` refusing — the tree comes back empty, every file reads as one
-        the base did not have, and the diagnostics are the worker's. That is
-        the same answer the change set already gives such a repository: a first
-        change against no history is attributed as wholly added.
+        The touched files are materialised at the changeset's base commit and checked
+        again. A diagnostic survives when the base tree has no such file at all, or
+        when it occurs more times now than it did there — a count rather than a set
+        comparison, so a fault the diff added a second copy of is still caught.
         """
         with _base_tree(changeset, self.runner) as root:
             present = sorted({d.path for d in elsewhere if (root / d.path).is_file()})
@@ -412,8 +250,8 @@ class TypeCheck:
             caused: list[_Diagnostic] = []
             for diagnostic in elsewhere:
                 if not (root / diagnostic.path).is_file():
-                    # The base does not have the file, so the file is the
-                    # worker's and so is everything the checker says about it.
+                    # The file does not exist at the base commit, so nothing in it
+                    # can predate this changeset.
                     caused.append(diagnostic)
                     continue
                 seen[diagnostic.key] += 1
@@ -424,7 +262,7 @@ class TypeCheck:
 
 @dataclass(frozen=True)
 class _Diagnostic:
-    """One error a checker reported, before anything decides whose it is."""
+    """One error-severity diagnostic parsed out of a checker's output."""
 
     path: str
     line: int
@@ -433,11 +271,10 @@ class _Diagnostic:
 
     @property
     def key(self) -> tuple[str, str | None, str]:
-        """What makes two reports of the same problem the same problem.
+        """Identity used to match a diagnostic against the same fault at the base.
 
-        The line is deliberately not part of it. A worker that inserts three
-        lines above a pre-existing error moves that error without causing it,
-        and a key carrying the line would read the move as a new fault.
+        The line number is left out on purpose: code the diff inserted above a
+        pre-existing fault moves it without making it new.
         """
         return (self.path, self.code, self.message)
 
@@ -458,21 +295,12 @@ def _diagnostics(
     repo: Path,
     host_path: Callable[[str], Path] = Path,
 ) -> list[_Diagnostic]:
-    """Parse a checker's report, keeping errors in the files that were checked.
+    """Return the error diagnostics in ``stdout`` that belong to ``paths``.
 
-    A checker follows imports, so it reports on files the worker never touched;
-    those are dropped, because the gate's core promise is that pre-existing
-    state in the repository can never fail a change. Which of the surviving
-    lines the worker is answerable for is decided by the caller, against the
-    base tree — not here.
-
-    The reported path is normalised to the repository-relative form the change
-    set keys on first: a checker configured with ``show_absolute_path`` reports
-    absolute paths, and a bare report may carry a ``./`` prefix, and either
-    spelling must still land on the worker's file or the whole rung silently
-    reports clean over a change it could not attribute. An absolute path is
-    read through ``host_path`` first: printed inside a container, it names the
-    workspace at the container's mount.
+    An absolute path goes through ``host_path`` first (a sandbox reports paths from
+    its own view of the filesystem) and is then made repo-relative; a line whose
+    path falls outside ``paths`` is dropped. A trailing ``[code]`` or
+    ``(reportRule)`` is split off the message and kept as the finding's code.
     """
     wanted = set(paths)
     diagnostics: list[_Diagnostic] = []
@@ -500,7 +328,12 @@ def _diagnostics(
 
 
 def _rejecting(raw: str) -> re.Match[str] | None:
-    """``raw`` parsed as an error line in mypy's or pyright's format, else ``None``."""
+    """Return the match when this line is an error-severity diagnostic.
+
+    Both supported formats are tried here. Warnings, notes and pyright's
+    ``information`` are dropped at this point, so nothing downstream has to check
+    severity again.
+    """
     match = _DIAGNOSTIC.match(raw) or _PYRIGHT_DIAGNOSTIC.match(raw)
     if match is None or match["severity"] not in _REJECTING:
         return None
@@ -509,22 +342,11 @@ def _rejecting(raw: str) -> re.Match[str] | None:
 
 @contextmanager
 def _base_tree(changeset: ChangeSet, runner: ToolRunner) -> Iterator[Path]:
-    """The pre-worker tree, checked out whole, for the length of the ``with``.
+    """Yield a scratch directory holding the changeset's base tree.
 
-    Whole rather than the changed files alone: a type checker reads the
-    repository's own configuration and follows its imports, and a base tree
-    missing either would answer a different question from the worker tree's
-    run — which is the one thing a difference of two runs must not do.
-
-    ``git archive`` is used rather than a worktree or a stash because neither
-    the repository's index nor its refs are this rung's to touch: the gate is
-    judging a tree, not editing one.
-
-    It is laid out where ``runner`` can run the checker over it (its
-    :meth:`~mcgyvr.gate.adapter.ToolRunner.scratch`): inside the sandbox's
-    workspace when the checker runs there, so both runs are the same checker in
-    the same place, and nothing in the base tree runs anywhere the worker's
-    tree does not.
+    The tree is unpacked from ``git archive`` of the base commit. When the archive
+    fails — an unborn base, a missing ref — the directory is yielded empty, and
+    every diagnostic in a touched file then counts as new.
     """
     with runner.scratch() as root:
         archive = subprocess.run(
@@ -535,7 +357,7 @@ def _base_tree(changeset: ChangeSet, runner: ToolRunner) -> Iterator[Path]:
             check=False,
         )
         if archive.returncode != 0:
-            yield root  # empty: an empty base is a base in which nothing existed
+            yield root  # empty: no base copy for a fault to be inherited from
             return
         with tarfile.open(fileobj=io.BytesIO(archive.stdout)) as tar:
             tar.extractall(root, filter="data")
@@ -543,11 +365,11 @@ def _base_tree(changeset: ChangeSet, runner: ToolRunner) -> Iterator[Path]:
 
 
 def _relative_to_repo(path: str, repo: Path) -> str:
-    """A checker's reported path, as the repository-relative form the change set uses.
+    """Return ``path`` as a repo-relative POSIX path.
 
-    An absolute path is made relative to ``repo``; a ``./`` prefix is dropped.
-    A path that cannot be attributed (a different root) is returned as-is, where
-    it will simply fail to match any changed file and be dropped.
+    An absolute path inside ``repo`` is made relative; one outside it stays
+    absolute, so it cannot silently match a repo file that happens to end the same
+    way. A leading ``./`` on a relative path is stripped.
     """
     candidate = Path(path)
     if candidate.is_absolute():
@@ -558,15 +380,14 @@ def _relative_to_repo(path: str, repo: Path) -> str:
     return candidate.as_posix().removeprefix("./")
 
 
-# --- the AST families -----------------------------------------------------
-#
-# Ported from local-ai's `compliance.py`, which found them by looking at the
-# failures no context bundle rescued: input mutation through an aliased inner
-# list, and deprecated typing aliases against the pinned modern form. Both are
-# AST-detectable in milliseconds, which is what makes them worth a rung.
+# The rules below read the worker's syntax tree for faults no checker reports as
+# an error. They share one idea of ownership: ``owned`` holds the parameter names
+# that still alias an object the caller passed in, and it shrinks at every
+# rebinding, shadowing and scope boundary. A mutation is only a fault while the
+# name really does reach the caller's object.
 
-#: Methods that change the receiver rather than returning a new object. A call
-#: to one of these on something the caller still owns is the whole hazard.
+#: Methods that change their receiver in place. Called on an ``owned`` name, they
+#: mutate data the caller is still holding.
 _MUTATING_METHODS = frozenset(
     {
         "append",
@@ -585,44 +406,30 @@ _MUTATING_METHODS = frozenset(
     }
 )
 
-#: Wording in a contract that *asks* for mutation. A contract that says "sort
-#: the list in place" has told the worker to do the thing this family rejects,
-#: and rejecting it anyway would make the contract unsatisfiable. A contract
-#: that says "keep appending to it in place and return that same list" is
-#: asking for the ``if tags is None: tags = []`` shape this family flags, and
-#: whether it can be satisfied at all rests on the prose reaching here. The
-#: stand-down holds under every :class:`ParamMutation` mode.
-#:
-#: Word-boundary rather than substring, because the opposite wording must not
-#: stand the rung down: "do not mutate the caller's list" *forbids* the very
-#: thing this family flags, and a substring match would read it as an ask.
-#: ``permutation`` is the same trap from the other side — it contains
-#: "mutation" and has nothing to do with it. :func:`_asks_for_mutation` does the
-#: matching, so the negation lives beside the ask it cancels.
+#: The contract is the escape hatch. When the task asks for a parameter to be
+#: changed in place, mutating it is what was requested, and the rule stands down for
+#: the whole file: prose is the only statement of intent available, and it routinely
+#: says "mutate the list you are given" for exactly the case this rule would
+#: otherwise reject. The ask is read from that prose rather than a marker because the
+#: contract is written by a model; the pattern is narrow, and a negation among the
+#: few words before the match ("do not mutate") turns it off.
 _INPLACE_ASK = re.compile(r"\bin[- ]place\b|\bmutat(?:e|es|ion|ing)\b", re.IGNORECASE)
 
-#: A negation within the three words before an ask turns it into a prohibition.
-#: "Three words" is the window because the negation and the ask are never far
-#: apart in prose worth trusting: "do not mutate", "never mutate", "without
-#: mutation", "no mutation".
+#: Words that turn an in-place request into a prohibition. Only the words just
+#: before the match are inspected, which is where English puts the negation.
 _NEGATION = frozenset(
     {"not", "no", "never", "without", "don't", "dont", "cannot", "can't", "cant"}
 )
 
-#: Bound by the language rather than by the caller, so mutating them is not the
-#: caller's problem: a method's receiver is the object the method exists to
-#: change, and ``*args``/``**kwargs`` are built fresh at every call site.
+#: ``self`` and ``cls`` are not caller-owned: mutating them is how a method does
+#: its work.
 _NOT_CALLER_OWNED = frozenset({"self", "cls"})
 
-#: The abstract base classes ``collections`` re-exported for compatibility
-#: until 3.9 and stopped re-exporting in 3.10 — ``_collections_abc.__all__`` as
-#: it stood in 3.9, the list the shim was keyed on. Written out rather than
-#: read from the running interpreter, and it is a closed list either way: the
-#: removal has already happened, so nothing will ever join it, and introspecting
-#: ``collections`` here would make the gate's verdict a fact about whichever
-#: Python mcgyvr happens to run under instead of a fact about the worker's
-#: file. ``Buffer`` is *not* here: it arrived in ``collections.abc`` in 3.12 and
-#: was never in ``collections`` to lose.
+#: The abstract base classes ``collections`` re-exported from ``collections.abc`` as
+#: a compatibility shim through 3.9, plus the deprecated ``ByteString``. Importing
+#: any of them from ``collections`` raises ImportError on every interpreter this
+#: project supports — on 3.10 and later because the shim is gone — so a line that
+#: does it cannot run.
 _MOVED_TO_COLLECTIONS_ABC = frozenset(
     {
         "AsyncGenerator",
@@ -653,24 +460,14 @@ _MOVED_TO_COLLECTIONS_ABC = frozenset(
     }
 )
 
-#: ``typing`` aliases mapped to the form the codebase pins, so the AST half of
-#: the rung can report them on a machine without ruff. The six builtin
-#: generics are joined by the ``collections`` and ``collections.abc`` aliases
-#: and a few from ``re`` and ``contextlib``, because the gate's verdict must
-#: not depend on which tools the operator happens to have: without this, a
-#: ``from typing import Mapping`` was reported by nothing, and a module
-#: importing a 3.10-removed name sailed past the AST half of the rung. It is a
-#: mapping rather than a set because the pinned form is not always
-#: ``name.lower()`` — ``Mapping`` pins to ``collections.abc.Mapping``, not
-#: ``mapping``.
+#: Deprecated spellings and the form to use instead: the abstract base classes that
+#: live in ``collections.abc``, the builtin containers, and the stdlib types that
+#: replaced the rest. A deprecated spelling still runs, so a hit here is style. The
+#: same names imported from ``collections`` do not run at all, and
+#: :func:`unimportable_lines` reports those on the structure axis.
 _DEPRECATED_TYPING: dict[str, str] = {
-    # The ``collections.abc`` names map to themselves, and the explicit
-    # entries override where the two lists disagree. ``Set`` is the one name
-    # in both: ``typing.Set`` is the builtin ``set`` (``typing.Set[int]``
-    # is ``set[int]``), while ``collections.Set`` is the 3.9 shim for
-    # ``collections.abc.Set`` — the first is this family's ``typing`` pin and
-    # the second is :func:`_unimportable`'s, so the ``**`` spread must not
-    # win. Ordering the spread first makes every explicit entry authoritative.
+    # The abstract base classes live in collections.abc; the collections module
+    # only re-exported them, and stopped doing so in 3.10.
     **{name: f"collections.abc.{name}" for name in _MOVED_TO_COLLECTIONS_ABC},
     "List": "list",
     "Dict": "dict",
@@ -691,22 +488,11 @@ _DEPRECATED_TYPING: dict[str, str] = {
 
 
 def unimportable_lines(source: str | None) -> dict[int, str]:
-    """Lines in ``source`` holding an import that cannot resolve, and why.
+    """Return ``{line: message}`` for imports that cannot import.
 
-    Keyed by the line ruff and :mod:`ast` both attribute the statement to — the
-    ``from`` line, including where the import spans several lines — so the lint
-    rung can look a diagnostic's row up here and withdraw its demotion without
-    re-deriving anything.
-
-    Takes source rather than a parsed tree, unlike :func:`compliance_findings`,
-    because the one caller that is not :meth:`~PythonAdapter.structural_checks`
-    is the lint rung, which works from a linter's JSON and has no tree to hand.
-    Tolerating ``None`` and unparseable text here rather than at each call site
-    keeps that single answer in one place: **nothing found**, deliberately, and
-    not "nothing is wrong". A file that will not parse has already been
-    rejected by the syntax rung, and a second finding for one fault would
-    charge the worker twice — the same rule the ``note`` severity follows in
-    :func:`_diagnostics`.
+    Only ``from collections import ...`` lines naming a member of
+    :data:`_MOVED_TO_COLLECTIONS_ABC` are reported. Source that does not parse
+    yields no hits; the parse error itself is the syntax check's finding.
     """
     if source is None:
         return {}
@@ -718,13 +504,9 @@ def unimportable_lines(source: str | None) -> dict[int, str]:
 
 
 def _unimportable(tree: ast.Module) -> dict[int, str]:
-    """``from collections import <an ABC>``, by line.
+    """Return ``{lineno: message}`` for each unimportable ``from collections`` line.
 
-    Only the ``from`` form. ``import collections`` followed by
-    ``collections.Mapping`` is an ``AttributeError`` when the attribute is
-    read, not an ``ImportError`` when the module is loaded, and this family
-    claims the second — a check whose message named the wrong exception would
-    be worse than one that stayed narrow.
+    One entry per importing statement, covering every moved name it names.
     """
     hits: dict[int, str] = {}
     for node in ast.walk(tree):
@@ -737,12 +519,7 @@ def _unimportable(tree: ast.Module) -> dict[int, str]:
 
 
 def _unimportable_verdict(names: Sequence[str]) -> str:
-    """Every moved name on the statement, because the import fails on the first.
-
-    A worker told about one of two bad names fixes one of them and comes back
-    to the same rejection, which costs a whole attempt to learn what the gate
-    already knew.
-    """
+    """Return the finding message for a ``from collections`` line naming ``names``."""
     return (
         f"'from collections import {', '.join(names)}' raises ImportError on "
         f"Python 3.10 and later — collections re-exported the collections.abc "
@@ -752,24 +529,9 @@ def _unimportable_verdict(names: Sequence[str]) -> str:
 
 
 def deprecated_typing_import_lines(source: str | None) -> frozenset[int]:
-    """Lines in ``source`` holding a deprecated ``from typing import X``.
+    """Return the line numbers importing a deprecated spelling from ``typing``.
 
-    Under the product's default rule selection, the lint rung demotes I001 —
-    ruff's unsorted-imports rule — where its row is one of these lines; under a
-    repository's own ruff configuration it demotes nothing. ruff reports I001
-    on the first line of an import block that is unsorted or unformatted, not
-    for the spelling: a deprecated ``from typing import X`` followed by one
-    blank line before a function draws UP035 and I001 on the same line, and
-    the same import followed by two draws UP035 alone. Demoting I001 wholesale
-    would also demote every unsorted import block, so the grant is keyed on
-    the line holding the deprecated spelling instead — the same per-line shape
-    :func:`unimportable_lines` gives the withdrawal. An I001 on any other line
-    still rejects; one on such a line is reported, including a genuinely
-    unsorted block that starts there.
-
-    Same signature and same tolerance as :func:`unimportable_lines`: the
-    caller is the lint rung, which holds a linter's JSON and no tree, and a
-    file that will not parse has already been rejected by the syntax rung.
+    Unparseable source yields an empty set, as in :func:`unimportable_lines`.
     """
     if source is None:
         return frozenset()
@@ -781,11 +543,10 @@ def deprecated_typing_import_lines(source: str | None) -> frozenset[int]:
 
 
 def _deprecated_typing_imports(tree: ast.Module) -> frozenset[int]:
-    """``from typing import X`` where ``X`` is a deprecated alias, by line.
+    """Return the lines of ``from typing import ...`` naming a deprecated spelling.
 
-    Only the ``from`` form, for the same reason :func:`_unimportable` stays on
-    the ``from`` form: I001 reports on the import statement itself, never on a
-    ``typing.X`` attribute read elsewhere in the file.
+    ``import typing`` followed by ``typing.List`` is caught by :func:`_type_form`,
+    not here.
     """
     return frozenset(
         node.lineno
@@ -804,26 +565,14 @@ def compliance_findings(
     contract_text: str = "",
     param_mutation: ParamMutation = ParamMutation.REFUSE,
 ) -> list[Finding]:
-    """The three AST families, attributed to worker-added lines.
+    """Return the AST compliance findings that fall on the worker's added lines.
 
-    Takes the parsed tree rather than the source because the caller
-    (:meth:`~mcgyvr.gate.adapters.PythonAdapter.structural_checks`) has already
-    parsed it, and a third parse of the same file per gate run buys nothing.
-
-    ``contract_text`` is the contract's own prose —
-    :attr:`~mcgyvr.contract.Contract.prose`, which is ``task`` and
-    ``interface`` joined. It stands the mutation family down when the contract
-    asked for in-place behaviour, which is the difference between a correctness
-    check and a house rule, and a caller that has no contract to hand gets the
-    strict reading. It does *not* stand ``unimportable`` down, and there is no
-    wording that could: a contract cannot ask for a module that will not load.
-
-    ``param_mutation`` is the setup's word on the mutation family and on
-    nothing else (:class:`ParamMutation`): the default rejects, ``REPORT``
-    carries the same finding on :data:`STYLE`, and ``SKIP`` does not run it.
-
-    It reaches here from :meth:`~mcgyvr.gate.Gate.run` through
-    :meth:`~mcgyvr.gate.adapter.LanguageAdapter.structural_checks`.
+    Three rules run. Deprecated ``typing`` spellings are always ``style``.
+    Parameter mutation is ``structure`` unless the mode is ``REPORT``, absent under
+    ``SKIP``, and suppressed when the contract asks for in-place change. Imports
+    that cannot import are always ``structure``. Only findings whose line is in
+    ``added_lines`` survive, so the worker is never charged for code it did not
+    touch.
     """
     style = [
         Finding(check=STYLE, path=path, line=line, code="TYPE-FORM", message=message)
@@ -858,7 +607,10 @@ def compliance_findings(
 
 
 def _type_form(tree: ast.Module) -> list[tuple[int, str]]:
-    """Deprecated typing aliases, by import and by attribute access."""
+    """Return ``(line, message)`` for every deprecated ``typing`` spelling.
+
+    Both spellings are found: ``from typing import List`` and ``typing.List``.
+    """
     hits: list[tuple[int, str]] = []
     for node in ast.walk(tree):
         if isinstance(node, ast.ImportFrom) and node.module == "typing":
@@ -882,14 +634,9 @@ def _pinned_form(alias: str) -> str:
 
 
 def _asks_for_mutation(contract_text: str) -> bool:
-    """Whether the prose asks for in-place mutation, rather than forbids it.
+    """Return True when the contract asks, without a negation, for in-place change.
 
-    Word-boundary rather than substring, and negation-aware. "Sort the rows in
-    place" stands the rung down; "do not mutate the caller's list" does not —
-    it orders the worker to keep its hands off the caller's object, which is
-    the exact behaviour the rung exists to check, and standing down for it
-    would remove the backstop from the one contract that needs it. A negation
-    within the three words before the ask cancels it.
+    A request anywhere in the prose suppresses the rule for the whole file.
     """
     for match in _INPLACE_ASK.finditer(contract_text):
         before = contract_text[: match.start()].lower()
@@ -900,17 +647,10 @@ def _asks_for_mutation(contract_text: str) -> bool:
 
 
 def _param_mutation(tree: ast.Module, contract_text: str) -> list[tuple[int, str]]:
-    """Mutation of an object the caller still owns, per function.
+    """Return ``(line, message)`` for each mutation of a caller-owned parameter.
 
-    A heuristic by design, and local-ai's note on why is worth keeping: it
-    tracks direct mutation of parameters, of their elements, and of ``for``
-    aliases into them, and stands down for a parameter rebound to a new object
-    **before** the mutation — ``items = list(items)`` is the sanctioned
-    defensive copy, and after it the name is no longer the caller's object.
-    *Before* is the load-bearing word and :func:`_mutations_in` is where it is
-    enforced. Aliasing through other locals is still not tracked. The
-    contract's acceptance suite remains the real catch; this is the backstop
-    for contracts whose tests do not look.
+    Empty when the contract asked for the mutation, because the code then does what
+    it was told, and empty when no function has a caller-owned parameter to mutate.
     """
     if _asks_for_mutation(contract_text):
         return []
@@ -918,52 +658,16 @@ def _param_mutation(tree: ast.Module, contract_text: str) -> list[tuple[int, str
     for node in ast.walk(tree):
         if isinstance(node, ast.FunctionDef | ast.AsyncFunctionDef):
             hits += _mutations_in(node)
-    # `ast.walk` descends into nested functions, so an inner mutation is seen
-    # once from its own definition and again from every definition enclosing
-    # it. Deduplicating is cheaper than restricting the walk, and restricting
-    # it would lose the closure that mutates the parameter it closed over.
+    # A line can be recorded more than once — ``a[k] = b[k] = 1`` yields one hit
+    # per target — so duplicates are collapsed, and sorting keeps the report order
+    # stable across runs.
     return sorted(set(hits))
 
 
 def _mutations_in(
     func: ast.FunctionDef | ast.AsyncFunctionDef,
 ) -> list[tuple[int, str]]:
-    """Every mutation some path reaches while the object is still the caller's.
-
-    The body is walked in **execution order** rather than with
-    :func:`ast.walk`, and that is the whole of this family. The rebind is the
-    sanctioned defence — after ``items = list(items)`` the rest of the function
-    is working on a list the caller does not hold — but a rebind defends only
-    what it runs *before*. Asking instead whether the name is rebound anywhere
-    in the body would accept three shapes that leave the caller's object exposed:
-    the copy written after the mutation, the copy in a branch that does not
-    reach it, and
-
-    .. code-block:: python
-
-        if target is None:
-            target = []
-        target.append(extra)
-
-    which is the most common way the fault is written and the one that reads
-    most like its own fix. The rebind runs only for the caller that passed
-    nothing; every caller that passed a list has it appended to.
-
-    So the state threaded through the walk is *which names may still be the
-    caller's object on some path to here*, and the merge at a branch is a
-    **union**: a name is still owned after an ``if`` if it is owned after
-    either arm. A rebind on a path that cannot fall through — a branch that
-    returns or raises — is not merged in, because nothing leaves it. Rebinds
-    inside a loop or an ``except`` handler do not survive the block: a loop can
-    run zero times and a handler runs only when something raised.
-
-    Every approximation points the same way. Where the walk cannot tell, the
-    name stays owned and the mutation is reported, because the alternative is a
-    rung certifying a function it did not follow. What is still not tracked is
-    aliasing through another local — ``other = items`` then ``other.append(x)``
-    passes — which is the heuristic local-ai shipped, and the reason the
-    contract's own acceptance suite remains the real catch rather than this.
-    """
+    """Return the mutation hits inside one function, seeded with its parameters."""
     owned = _parameters(func)
     if not owned:
         return []
@@ -973,12 +677,11 @@ def _mutations_in(
 
 
 def _parameters(func: ast.FunctionDef | ast.AsyncFunctionDef) -> set[str]:
-    """The declared parameters that are the caller's objects to begin with.
+    """Return the parameter names a caller could have handed an object to.
 
-    A receiver (``self``/``cls``) and the packed ``*args``/``**kwargs`` never
-    are: the tuple and the dict are built fresh at every call site, so
-    ``kwargs.pop(...)`` is a local edit and rejecting it would fail a correct
-    and idiomatic function.
+    Positional-only, positional-or-keyword and keyword-only parameters count.
+    ``self`` and ``cls`` do not, and neither do ``*args`` and ``**kwargs``, whose
+    names bind a tuple and a dict built from the call.
     """
     args = func.args
     return {
@@ -991,7 +694,7 @@ def _parameters(func: ast.FunctionDef | ast.AsyncFunctionDef) -> set[str]:
 def _scan(
     body: Sequence[ast.stmt], owned: set[str], hits: list[tuple[int, str]]
 ) -> set[str]:
-    """Run a block statement by statement; return what is still the caller's."""
+    """Scan ``body`` in order and return the names still owned after it."""
     for statement in body:
         owned = _scan_statement(statement, owned, hits)
     return owned
@@ -1000,12 +703,13 @@ def _scan(
 def _scan_statement(
     node: ast.stmt, owned: set[str], hits: list[tuple[int, str]]
 ) -> set[str]:
-    """One statement: report what it mutates, then say what it rebound.
+    """Scan one statement and return the owned names after it.
 
-    Dispatch is explicit per statement type rather than generic, because the
-    two questions a statement answers here are different for each of them —
-    *which of its parts run now* and *which of its parts run on every path out*
-    — and a generic walk cannot tell them apart.
+    Expressions report their mutation hits into ``hits``; statements that bind
+    names drop those names, because the name no longer refers to what the caller
+    passed. Branches, loops and ``try`` return the union of the states they can
+    reach, and an unhandled statement kind is walked for the expressions among its
+    children.
     """
     if isinstance(node, ast.FunctionDef | ast.AsyncFunctionDef):
         return _scan_nested_function(node, owned, hits)
@@ -1024,7 +728,7 @@ def _scan_statement(
         return _scan_for(node, owned, hits)
     if isinstance(node, ast.While):
         _report(node.test, owned, hits)
-        _scan(node.body, owned, hits)  # zero iterations is a path; discard it
+        _scan(node.body, owned, hits)  # a while body may run zero times
         _scan(node.orelse, owned, hits)
         return owned
     if isinstance(node, ast.With | ast.AsyncWith):
@@ -1039,7 +743,7 @@ def _scan_statement(
         hits += _writes_into(node.lineno, node.targets, owned, "assignment into")
         return owned - set().union(*map(_target_names, node.targets), set())
     if isinstance(node, ast.AnnAssign):
-        if node.value is None:  # a bare `x: int` declares; it does not bind
+        if node.value is None:  # annotation only: nothing is bound or written
             return owned
         for expr in (node.value, node.target):
             _report(expr, owned, hits)
@@ -1066,15 +770,11 @@ def _scan_nested_function(
     owned: set[str],
     hits: list[tuple[int, str]],
 ) -> set[str]:
-    """A nested ``def``: decorators and defaults now, the body against today's state.
+    """Scan a nested ``def`` and return the owned names after the statement.
 
-    The body is scanned rather than skipped because a closure that mutates the
-    parameter it closed over is the same hazard reached one level down, and it
-    is scanned with the enclosing state at the point of definition because that
-    is the only state this walk can know. Names the inner function binds itself
-    are dropped first: an inner parameter that shadows an outer one is a
-    different object, and it is judged when :func:`_param_mutation` reaches
-    that function on its own.
+    The def's arguments shadow outer names inside its body, its decorators and
+    defaults still evaluate in the enclosing scope and are scanned there, and the
+    function's own name stops aliasing anything once it is bound.
     """
     args = node.args
     shadowed = {
@@ -1102,19 +802,18 @@ def _scan_branches(
     owned: set[str],
     hits: list[tuple[int, str]],
 ) -> set[str]:
-    """Scan every arm from the same state, and union what reaches the far side.
+    """Scan every arm from the same starting state and return the states reached.
 
-    Union, not intersection, is the direction that makes a rebind a defence
-    only where it is unavoidable: a name that is still the caller's on *any*
-    arm is still the caller's after the branch. An arm that cannot fall through
-    contributes nothing, which is what lets ``else: return ...`` leave a
-    single-armed rebind standing.
+    An arm that always returns, raises, breaks or continues contributes nothing: no
+    code after the statement runs with its bindings. Arms that fall through are
+    unioned, so a name stays owned while any live path still owns it, and an empty
+    arm passes the state through unchanged.
     """
     if test is not None:
         _report(test, owned, hits)
     reached: list[set[str]] = []
     for arm in arms:
-        if not arm:  # an absent `else` is the path that changes nothing
+        if not arm:  # no else body: the state passes through unchanged
             reached.append(owned)
             continue
         after = _scan(arm, owned, hits)
@@ -1126,13 +825,12 @@ def _scan_branches(
 def _scan_for(
     node: ast.For | ast.AsyncFor, owned: set[str], hits: list[tuple[int, str]]
 ) -> set[str]:
-    """A ``for``: the target aliases into what is iterated, or rebinds away from it.
+    """Scan a ``for`` loop and return the owned names after it.
 
-    Iterating a tracked object hands the body the caller's own elements, so the
-    target joins the set; iterating anything else rebinds the target away from
-    whatever it named. Nothing the body rebinds survives the loop, because a
-    loop that runs zero times reaches the code after it with the state it
-    started in.
+    When the loop iterates an owned object, its targets hand back pieces of that
+    object and are owned too; otherwise they shadow. The body and the ``else`` are
+    scanned with that state, and it is also the state after the loop, since the
+    loop may run zero times.
     """
     _report(node.iter, owned, hits)
     names = _target_names(node.target)
@@ -1145,7 +843,11 @@ def _scan_for(
 def _scan_with(
     node: ast.With | ast.AsyncWith, owned: set[str], hits: list[tuple[int, str]]
 ) -> set[str]:
-    """A ``with``: its body always runs, so a rebind in it does survive."""
+    """Scan a ``with`` block, treating each ``as`` target as a new binding.
+
+    Context expressions run in the enclosing scope; the targets shadow owned names
+    for the length of the block.
+    """
     bound: set[str] = set()
     for item in node.items:
         _report(item.context_expr, owned, hits)
@@ -1157,13 +859,12 @@ def _scan_with(
 def _scan_try(
     node: ast.Try | ast.TryStar, owned: set[str], hits: list[tuple[int, str]]
 ) -> set[str]:
-    """A ``try``: every handler starts from the state the ``try`` was entered in.
+    """Scan a ``try`` statement and return the states that reach the code after.
 
-    An exception can be raised at any point in the body, including before a
-    rebind the body was going to perform, so a handler may not assume the body
-    got that far. That is why ``except ...: items = list(items)`` alone does
-    not defend a mutation after the block: the path where nothing raised did
-    not copy anything.
+    The body's state counts when the ``else`` (or, without one, the body) can fall
+    through; each handler starts from the state before the ``try`` minus its ``as``
+    name and counts when it can fall through. With no reachable path the entry state
+    is kept rather than guessed away.
     """
     after_body = _scan(node.body, owned, hits)
     after_body = _scan(node.orelse, after_body, hits)
@@ -1178,19 +879,19 @@ def _scan_try(
         if _falls_through(handler.body):
             reached.append(after_handler)
     after = set().union(*reached, set()) if reached else owned
-    # `finally` runs on the way out of every one of those paths and on the way
-    # out of the ones that raised again, so it is read against all of them.
+    # ``finally`` runs from every path, so it is scanned with the state on entry
+    # unioned with the states the body and handlers reached.
     return _scan(node.finalbody, after | owned, hits) if node.finalbody else after
 
 
 def _scan_match(
     node: ast.Match, owned: set[str], hits: list[tuple[int, str]]
 ) -> set[str]:
-    """A ``match``: one arm per case, plus the path where nothing matched.
+    """Scan a ``match`` statement and return the states that reach past it.
 
-    That last path is dropped only for a final unguarded ``case _``, which
-    cannot fail to match — otherwise a ``match`` whose every case rebinds would
-    still be reached, unchanged, by a subject none of them accepted.
+    Each case removes the names its pattern binds. The state before the match is
+    also a reached state unless the last case cannot fail to match — a bare
+    ``case _`` with no guard — so an unmatched subject is accounted for.
     """
     _report(node.subject, owned, hits)
     reached: list[set[str]] = []
@@ -1207,7 +908,7 @@ def _scan_match(
 
 
 def _always_matches(case: ast.match_case) -> bool:
-    """Whether this case is the irrefutable ``case _`` with no guard."""
+    """Return True when this case is an unguarded bare ``case _:``."""
     return (
         case.guard is None
         and isinstance(case.pattern, ast.MatchAs)
@@ -1216,7 +917,7 @@ def _always_matches(case: ast.match_case) -> bool:
 
 
 def _pattern_names(pattern: ast.pattern) -> set[str]:
-    """Every name a ``match`` pattern binds — captures, stars and mapping rests."""
+    """Return every name a pattern binds, including ``as`` and ``*rest`` names."""
     names: set[str] = set()
     for node in ast.walk(pattern):
         for attribute in ("name", "rest"):
@@ -1227,14 +928,11 @@ def _pattern_names(pattern: ast.pattern) -> set[str]:
 
 
 def _falls_through(body: Sequence[ast.stmt]) -> bool:
-    """Whether control can reach the statement after this block.
+    """Return True when execution can continue past ``body``.
 
-    Deliberately shallow: ``return``, ``raise``, ``break`` and ``continue`` at
-    the end, and an ``if`` whose arms all end that way. Answering *false* where
-    the truth is *true* would drop a real path from the merge and stand the
-    rung down on it, so the unknown answer is *true* — the mutation is
-    reported, and a conservative read of a block this walk did not follow costs
-    a finding rather than a silent pass.
+    Only a final ``return``, ``raise``, ``break`` or ``continue`` stops it; a final
+    ``if`` or ``with`` is judged by its own bodies, and anything else — including an
+    empty body — falls through.
     """
     if not body:
         return True
@@ -1249,28 +947,24 @@ def _falls_through(body: Sequence[ast.stmt]) -> bool:
 
 
 def _report(node: ast.expr, owned: set[str], hits: list[tuple[int, str]]) -> None:
-    """Record every mutating method call this expression makes on an owned name.
-
-    The walk is scope-aware rather than :func:`ast.walk`. A lambda binds its own
-    parameters and a comprehension binds its own targets, so a name they bind
-    shadows the enclosing parameter of the same spelling:
-    ``(lambda target: target.append(1))([])`` mutates the lambda's argument,
-    not the caller's object, and reporting it as the parameter's is a false
-    positive that rejects correct code. The walk drops those bound names as it
-    crosses into the inner scope; a name the inner scope does *not* bind still
-    means the caller's object and stays owned.
-    """
+    """Record mutation hits found anywhere inside the expression ``node``."""
     _report_in_scope(node, owned, hits)
 
 
 def _report_in_scope(
     node: ast.AST, owned: set[str], hits: list[tuple[int, str]]
 ) -> None:
-    """The body of :func:`_report`, threading the still-owned names per scope."""
+    """Walk an expression and record mutations of ``owned`` names into ``hits``.
+
+    Scopes are honoured: a lambda's parameters and the targets of a comprehension's
+    generators shadow outer names inside their bodies, while defaults and the
+    outermost iterable still evaluate in the enclosing scope. A call to a mutating
+    method on an owned name is the hit this exists to find.
+    """
     if isinstance(node, ast.Lambda):
         bound = _lambda_bound_names(node)
-        # Defaults are evaluated in the enclosing scope, before the lambda's
-        # own names exist; the body is the inner scope.
+        # A lambda's defaults are evaluated where the lambda is written, so they
+        # are scanned in the enclosing scope; only its body sees the parameters.
         for default in (*node.args.defaults, *node.args.kw_defaults):
             if default is not None:
                 _report_in_scope(default, owned, hits)
@@ -1295,13 +989,11 @@ def _report_comprehension(
     owned: set[str],
     hits: list[tuple[int, str]],
 ) -> None:
-    """A comprehension: the first iterable is outer, the rest is a fresh scope.
+    """Walk a comprehension with its generator targets treated as new bindings.
 
-    Python evaluates a comprehension's first iterable in the enclosing scope,
-    then everything else — later iterables, filters, the element — in the
-    comprehension's own scope with its targets bound. The bound targets are
-    dropped from ``owned`` for that inner scope, so a comprehension that reuses
-    a parameter's name is not read as a mutation of the parameter.
+    The first iterable evaluates in the enclosing scope; every later iterable, the
+    ``if`` clauses and the element (or key and value) are inside the
+    comprehension's own scope.
     """
     generators = node.generators
     _report_in_scope(generators[0].iter, owned, hits)
@@ -1321,7 +1013,7 @@ def _report_comprehension(
 
 
 def _lambda_bound_names(node: ast.Lambda) -> set[str]:
-    """Every name a lambda binds — its positional, keyword and packed parameters."""
+    """Return the names a lambda's argument list binds."""
     args = node.args
     names = {arg.arg for arg in (*args.posonlyargs, *args.args, *args.kwonlyargs)}
     if args.vararg is not None:
@@ -1334,11 +1026,11 @@ def _lambda_bound_names(node: ast.Lambda) -> set[str]:
 def _writes_into(
     lineno: int, targets: Iterable[ast.expr], tracked: set[str], what: str
 ) -> list[tuple[int, str]]:
-    """Targets that write *through* a tracked name rather than rebinding it.
+    """Return hits for targets that write into an owned object.
 
-    ``items[0] = x`` and ``items.field = x`` reach the caller's object;
-    ``items = x`` only moves a local name and is what makes a defensive copy
-    work, so a bare :class:`ast.Name` target is not a hazard here.
+    Only subscript and attribute targets count — ``params["k"] = v``,
+    ``item.field = v`` — because a plain name target only rebinds, and the name is
+    dropped by the caller instead.
     """
     return [
         (lineno, _verdict(what, target))
@@ -1356,7 +1048,7 @@ def _verdict(what: str, node: ast.expr) -> str:
 
 
 def _target_names(target: ast.expr) -> set[str]:
-    """Every plain name an assignment target binds, through nesting and stars."""
+    """Return the names a target binds, looking through tuples, lists and stars."""
     if isinstance(target, ast.Name):
         return {target.id}
     if isinstance(target, ast.Starred):
@@ -1367,7 +1059,7 @@ def _target_names(target: ast.expr) -> set[str]:
 
 
 def _root_name(node: ast.expr) -> str | None:
-    """Unwrap a subscript/attribute chain to the name underneath it."""
+    """Return the innermost name of an attribute or subscript chain, else None."""
     while isinstance(node, ast.Subscript | ast.Attribute):
         node = node.value
     return node.id if isinstance(node, ast.Name) else None

@@ -1,41 +1,11 @@
-"""Reader for the decomposition catalog — the vocabulary of what may be asked for.
+"""What mcgyvr can be asked to do, read from `data/task-catalog.json`.
 
-The catalog (``data/task-catalog.json``) is *data*, and the acceptance
-criterion for this module is that it stays that way: adding a task type must be
-an edit to that file and nothing else. So there are no per-type branches here,
-no name is written down twice, and nothing downstream may match on a type name
-— it asks the entry what it guarantees instead. ``tests/test_catalog.py``
-enforces this by inventing a type in a temporary file and driving it through
-contract validation: a source scan can be satisfied by a file that still
-branches, but a type that exists nowhere in the repository cannot load unless
-the code really is generic over the vocabulary.
-
-Each entry states three things the rest of the system needs:
-
-* **A guarantee** — what accepting a change of this type actually promises.
-  This is the sentence a caller is owed, and it is why some inherited types are
-  not here: a type whose guarantee cannot be stated is one nothing can accept.
-* **A starting family** — where on the ladder work of this type may begin.
-  Deliberately a *family* (deterministic → local → api) rather than a rung: rung
-  names are chosen by whoever wrote the config, so a catalog naming rungs would
-  only be valid on the machine it was written for. A family resolves against any
-  ladder, because a rung is ``api`` exactly when its unit declares an
-  ``api_key_env``.
-* **Required evidence** — what a contract of this type must carry to be
-  judgeable. Evidence needing a command to produce it is enforced at contract
-  load, so a type that promises a test demonstrated the fix cannot be dispatched
-  with nothing to run.
-
-The start is a floor, and it is the *type's* floor only; escalation climbs
-from it, and that is not decided here.
-
-The vocabulary is four task types — ``code``, ``chat``, ``agent`` and ``media``
-— and a set of **deterministic operations** that are not task types. An
-operation is an entry of the same shape that names the task type a contract
-asks for it under: ``task_type: code`` with ``operation: format`` is how a
-contract has a tool do the work. The one place a name that used to be a task
-type survives is :data:`RETIRED_TASK_TYPES`, so a contract that still names one
-is told what replaced it.
+The JSON is the only definition of the vocabulary: the families a contract may
+start on, the use cases, the evidence kinds and the task types, each with the
+guarantee accepting it makes. This module gives that data a shape (`Family`,
+`UseCase`, `Evidence`, `TaskType`, `Catalog`), validates it on load, and answers
+the questions callers ask of it — look a type up by name, resolve a unit to the
+family serving it, list the types a config's ladder can reach.
 """
 
 from __future__ import annotations
@@ -53,10 +23,10 @@ if TYPE_CHECKING:  # pragma: no cover - typing only
 CATALOG_FILENAME = "task-catalog.json"
 SCHEMA_VERSION = 2
 
-#: Names that used to be task types, and the spelling that replaced each. Not
-#: vocabulary: nothing resolves to these. They are kept only so a contract or a
-#: caller that still names one is refused with the replacement rather than with
-#: a bare "unknown" — the one table where an old name survives.
+#: Task types the catalog no longer declares, mapped to what to ask for instead.
+#: `Catalog.require` reads this so a contract naming one is answered with the
+#: replacement it should use rather than a bare "unknown task type" — the values
+#: are the surviving spellings, keyed by the retired names.
 RETIRED_TASK_TYPES: dict[str, str] = {
     "format": "'code' with operation: format",
     "import_sort": "'code' with operation: import_sort",
@@ -71,12 +41,17 @@ RETIRED_TASK_TYPES: dict[str, str] = {
 
 
 class CatalogError(Exception):
-    """The catalog is missing, malformed, or internally inconsistent."""
+    """A catalog that cannot be found, read, parsed or validated, or a lookup of
+    a name the catalog does not declare."""
 
 
 @dataclass(frozen=True)
 class Family:
-    """One family of the ladder, and where it sits in the cheap-to-dear order."""
+    """Where work may start, independent of the rung names a config chose.
+
+    `rank` is the index in the file's cheapest-to-dearest order, so rank 0 is the
+    family of tools.
+    """
 
     name: str
     rank: int
@@ -85,7 +60,8 @@ class Family:
 
 @dataclass(frozen=True)
 class UseCase:
-    """One use case the vocabulary serves; task types are grouped by it."""
+    """One of the kinds of work the install can be put to; a task type belongs to
+    exactly one."""
 
     name: str
     doc: str
@@ -93,21 +69,11 @@ class UseCase:
 
 @dataclass(frozen=True)
 class Evidence:
-    """One kind of evidence a task type can require.
+    """One kind of evidence a contract can be required to carry.
 
-    ``needs_commands`` is the load-bearing bit: evidence a structural check can
-    produce costs a contract nothing to declare, while evidence that only a
-    command can produce means a contract with no commands cannot supply it.
-    That distinction is enforced rather than documented.
-
-    ``baseline`` says what those commands must do on the *unchanged* tree —
-    ``"pass"`` for a regression signal, ``"fail"`` for a demonstration
-    (``failing_test_first``: a command that does not fail before the change
-    demonstrates nothing). The two expectations are opposite, so they cannot
-    share one contract list; ``baseline`` is what routes a kind to the right
-    one (``acceptance`` vs ``demonstration``, #183) without any consumer
-    naming a kind. Only meaningful where ``needs_commands`` is true — a
-    structural check has no baseline run.
+    `needs_commands` says whether the gate runs commands for it. `baseline` says
+    what those commands must do on the unchanged tree: `pass` for a regression
+    check, `fail` for a demonstration of the defect.
     """
 
     name: str
@@ -118,7 +84,13 @@ class Evidence:
 
 @dataclass(frozen=True)
 class TaskType:
-    """One kind of work mcgyvr knows how to be asked for."""
+    """A unit of work with a promise attached.
+
+    `starts_on` is the family it may begin on, `guarantee` what accepting it
+    promises, `required_evidence` what a contract of this type must carry,
+    `warrant` why the type is worth asking, and `doc` the one-line description
+    shown to callers and to models.
+    """
 
     name: str
     starts_on: Family
@@ -127,50 +99,46 @@ class TaskType:
     required_evidence: tuple[Evidence, ...]
     warrant: str
     doc: str
-    #: For a deterministic operation, the task type a contract names to ask for
-    #: it (``task_type: code`` with ``operation: <name>``); empty on a task
-    #: type itself.
+    #: Set only on entries of `deterministic_operations`: the task type a
+    #: contract asks for this operation under (`task_type: code` with
+    #: `operation: <name>`). Empty on task types themselves.
     task_type: str = ""
-    #: Whether this type's evidence is computed per contract from the
-    #: contract's own fields rather than read off ``required_evidence``. Only
-    #: ``code`` sets it: its evidence is ``gate`` plus the kinds its
-    #: ``demonstration``, ``acceptance``, ``no_semantic_change`` and
-    #: ``type_check`` fields derive. The derivation itself lives in
-    #: :mod:`mcgyvr.contract`, because it reads contract fields this module
-    #: deliberately knows nothing about.
+    #: True when the contract's own contents decide the evidence rather than
+    #: the catalog listing it: the gate always, plus failing_test_first for a
+    #: demonstration, tests_pass for acceptance commands, no_semantic_change
+    #: and type_check for the matching flags. Callers then describe that
+    #: derivation instead of a fixed list, so the model is told it never
+    #: chooses evidence itself. Declared per entry in the JSON and False when
+    #: the entry leaves the key out.
     evidence_derived: bool = False
-    #: Whether a run of this type is a session: its reply is the answer,
-    #: returned in the result file and kept in the journal's session log, and
-    #: nothing is written to the tree — so a contract of it names no
-    #: ``target`` and no ``scope``. ``chat`` and ``agent`` set it (owner
-    #: decision, e2e run 1 F7: "chat and agent are sessions and should be
-    #: logged as such").
+    #: True for a task type asked for a reply, not a change to the tree. It
+    #: has no target and no scope, so nothing is written: the answer is
+    #: returned in the result file's `answer` and kept in the session log, and no
+    #: acceptance bar is met. Being a session type also exempts it from the
+    #: output cap a judged, model-written change must state, and `mcgyvr inspect`
+    #: prints it as a session type.
     session: bool = False
 
     @property
     def deterministic(self) -> bool:
-        """Whether the deterministic tier executes this type outright.
-
-        Derived from the starting family rather than declared, so the two can
-        never disagree.
-        """
+        """True when the type starts on the cheapest family, where a tool
+        owns the output and no model is asked."""
         return self.starts_on.rank == 0
 
     @property
     def needs_acceptance_commands(self) -> bool:
-        """Whether this type needs commands that pass at baseline (``acceptance``).
-
-        Deliberately *not* "any command-needing evidence": a demonstration has
-        the opposite baseline expectation and its own contract list, so each is
-        checked against the list that can actually satisfy it (#183).
-        """
+        """True when some required evidence runs commands that must already
+        pass on the unchanged tree, so the contract must supply
+        `acceptance` commands."""
         return any(
             e.needs_commands and e.baseline == "pass" for e in self.required_evidence
         )
 
     @property
     def needs_demonstration_commands(self) -> bool:
-        """Whether this type needs commands failing at baseline (``demonstration``)."""
+        """True when some required evidence runs commands that must fail on
+        the unchanged tree, so the contract must supply `demonstration`
+        commands."""
         return any(
             e.needs_commands and e.baseline == "fail" for e in self.required_evidence
         )
@@ -181,32 +149,27 @@ class TaskType:
 
     @property
     def judges_a_change(self) -> bool:
-        """Whether the gate judges work of this kind as a change to the tree.
-
-        True where the kind carries the ``gate`` evidence, or derives its
-        evidence per contract (which always starts at the gate): a change to
-        a file, which a reviewer can be asked about. A kind that does neither
-        is a reply — judged by the output checks it declares, if any, and
-        never sent to a reviewer, because there is no change to review.
-        """
+        """True when a change of this type is judged, not merely produced:
+        either the evidence is derived from the contract, or the gate is
+        among the required evidence."""
         return self.evidence_derived or "gate" in self.evidence_names
 
     @property
     def needs_output_cap(self) -> bool:
-        """Whether a contract of this kind must state ``limits.max_output_tokens``.
-
-        True of the work mcgyvr's harness bounds: a change a model writes and
-        the gate judges. Not of a session, which is a raw connection to a
-        model, nor of a deterministic operation, which calls none, nor of a
-        reply judged only by its output checks (``media``). Owner decision,
-        2026-10-14 (e2e run 3 T1).
-        """
+        """True when a model writes a change that something then judges —
+        not a tool's work and not a session reply — so the contract must
+        state `limits.max_output_tokens`."""
         return not self.deterministic and not self.session and self.judges_a_change
 
 
 @dataclass(frozen=True)
 class Catalog:
-    """The loaded catalog."""
+    """The whole vocabulary, in the order the file declares it.
+
+    `task_types` is what a contract may name. `operations` are the
+    deterministic entries a `code` contract asks for by operation name;
+    they share the `TaskType` shape but are not task types themselves.
+    """
 
     families: tuple[Family, ...]
     use_cases: tuple[UseCase, ...]
@@ -216,24 +179,17 @@ class Catalog:
 
     @property
     def names(self) -> tuple[str, ...]:
-        """The model vocabulary: the task types a model may choose."""
+        """Every declared task type name, in file order."""
         return tuple(t.name for t in self.task_types)
 
     def get(self, name: str) -> TaskType | None:
-        """The task type called ``name``, or ``None``.
-
-        Task types only: an operation is not one, and is resolved by
-        :meth:`operation`.
-        """
+        """The task type called `name`, or None if none is declared."""
         return next((t for t in self.task_types if t.name == name), None)
 
     def require(self, name: str) -> TaskType:
-        """The task type called ``name``, or a rejection naming what to use.
-
-        An unknown task type is exactly the case where a caller needs to see the
-        valid set rather than a boolean, and a name that used to be a task type
-        is told what replaced it (:data:`RETIRED_TASK_TYPES`).
-        """
+        """The task type called `name`; raises `CatalogError` naming the
+        replacement when the name was retired, and listing the valid names
+        when it was never declared."""
         found = self.get(name)
         if found is None:
             if name in RETIRED_TASK_TYPES:
@@ -244,12 +200,12 @@ class Catalog:
         return found
 
     def operation(self, name: str) -> TaskType | None:
-        """The deterministic operation called ``name``, or ``None``."""
+        """The deterministic operation called `name`, or None."""
         return next((t for t in self.operations if t.name == name), None)
 
     def require_operation(self, name: str) -> TaskType:
-        """The deterministic operation called ``name``, or a rejection naming
-        the valid ones."""
+        """The operation called `name`; raises `CatalogError` listing the
+        valid operation names."""
         found = self.operation(name)
         if found is None:
             valid = ", ".join(t.name for t in self.operations)
@@ -266,12 +222,8 @@ class Catalog:
         return found
 
     def evidence(self, name: str) -> Evidence:
-        """The declared evidence kind called ``name``.
-
-        Looked up by name for the one type whose evidence is derived per
-        contract: the derivation names kinds, and the catalog is the only
-        place a name maps to the kind's ``needs_commands`` and ``baseline``.
-        """
+        """The evidence kind called `name`; raises `CatalogError` listing the
+        valid kind names."""
         found = next((e for e in self.evidence_kinds if e.name == name), None)
         if found is None:
             valid = ", ".join(e.name for e in self.evidence_kinds)
@@ -279,32 +231,15 @@ class Catalog:
         return found
 
     def family_of(self, source: Unit) -> Family:
-        """Which family a rung served by the unit ``source`` belongs to.
-
-        The one definition of the rule, so that nothing else has to restate it:
-        a rung is ``api`` exactly when its unit declares a credential, and
-        ``local`` when it does not. It is deliberately a property of the
-        *unit* rather than of the model — a 30B model on a keyless local box
-        and a 30B model behind a hosted API differ in what they cost to ask,
-        which is what the families order.
-
-        Note what this cannot return. ``deterministic`` is not a rung on any
-        ladder — it is tools, and it binds no source — so no configuration can
-        produce it here. :mod:`mcgyvr.route` says what follows from that.
-        """
+        """The family a unit is served from: `api` when it declares an
+        `api_key_env`, `local` when it does not."""
         return self.family("api" if source.requires_credential else "local")
 
-    # --- resolving against a configured ladder ----------------------------
+    # Servability: what this config's ladder can and cannot start.
 
     def unservable(self, config: Config) -> tuple[TaskType, ...]:
-        """Types this configuration has no rung for, cheapest-first.
-
-        The catalog's own acceptance says no entry may exist that no configured
-        ladder can serve. That is checked against a *configuration*, not
-        asserted in the abstract: a keyless install genuinely cannot serve a type
-        that must start on `api`, and the honest answer is to say so by name
-        rather than to route the work optimistically and fail at dispatch.
-        """
+        """The task types whose starting family this config's ladder does
+        not reach, so they cannot be asked for here."""
         available = _families_present(self, config)
         return tuple(t for t in self.task_types if t.starts_on.name not in available)
 
@@ -314,18 +249,9 @@ class Catalog:
 
 
 def _families_present(catalog: Catalog, config: Config) -> frozenset[str]:
-    """Which families a configuration can start work in.
-
-    The deterministic family is always present — it is tools, and it needs no
-    binding. Beyond that a rung is `api` when its source needs a credential and
-    `local` when it does not.
-
-    A starting family is a *floor*, so a rung satisfies it when the rung is at
-    least as dear: work that may start on `local` is served perfectly well by an
-    api-only ladder, just dearly. The reverse does not hold — a keyless install
-    cannot serve a type that must start on `api`, and it is the dearest bound
-    rung, not the cheapest, that decides how far up the floors can be met.
-    """
+    """The families a config's ladder reaches: the first declared family
+    always, plus every family up to the dearest one bound by a rung's
+    unit. Rungs naming no declared unit are ignored."""
     present = {catalog.families[0].name}
     bound = {
         catalog.family_of(config.units[name]).rank
@@ -338,11 +264,13 @@ def _families_present(catalog: Catalog, config: Config) -> frozenset[str]:
     return frozenset(present)
 
 
-# --- loading ---------------------------------------------------------------
+# Where the catalog file comes from.
 
 
 def catalog_path() -> Path:
-    """Locate the shipped catalog, whether running from a checkout or a wheel."""
+    """The catalog file: the copy packaged inside `mcgyvr/data` when it is
+    there, otherwise `data/` in the source checkout this module sits in.
+    Raises `CatalogError` when neither exists."""
     packaged = resources.files("mcgyvr") / "data" / CATALOG_FILENAME
     if packaged.is_file():
         return Path(str(packaged))
@@ -366,12 +294,11 @@ def _load_entries(
     by_evidence: dict[str, Evidence],
     reserved: set[str],
 ) -> tuple[TaskType, ...]:
-    """Load and validate one catalog entry list (``task_types`` or operations).
-
-    An operation is a task type in every respect except that it is not in the
-    model vocabulary: same fields, same guarantee/starts_on/use_case/evidence
-    rules, so the same walk loads both lists.
-    """
+    """Build the `TaskType` tuple for one JSON list, resolving each entry's
+    `starts_on`, `use_case` and `required_evidence` against the declared
+    ones. `reserved` carries the names already taken across both lists, so
+    a name is declared once. Any missing key, unknown reference or repeat
+    raises `CatalogError` naming the entry."""
     entries: list[TaskType] = []
     for entry in raw.get(key, []):
         name = str(entry.get("name", ""))
@@ -427,7 +354,12 @@ def _load_entries(
 
 
 def load(path: Path | None = None) -> Catalog:
-    """Load and validate the catalog."""
+    """Read and validate the catalog at `path`, defaulting to
+    `catalog_path()`. Raises `CatalogError` for a file that cannot be read or
+    is not JSON, for a `schema_version` this build does not read, for a file
+    declaring no families, use cases or task types, for an evidence kind
+    whose baseline contradicts `needs_commands`, and for an operation naming
+    a task type that is not declared."""
     path = path or catalog_path()
     try:
         raw = json.loads(path.read_text(encoding="utf-8"))
@@ -512,19 +444,5 @@ def load(path: Path | None = None) -> Catalog:
 
 @cache
 def catalog() -> Catalog:
-    """The shipped catalog, loaded once.
-
-    The file ships with the package and cannot change under a running process,
-    so re-reading it per contract would be cost with no meaning.
-
-    Memoised rather than held in a module variable, so no assignable name can
-    replace the catalog under a running process, and for one more reason
-    specific to this file: contract digest identity is derived from the catalog, and
-    the lab's instruments script pins ``sha256(dumps(contract))`` as the
-    evidence that a recorded run was run against a declared instrument. A
-    module variable holding the catalog is therefore an assignable name that
-    silently re-keys
-    every contract in the process. Reloading is ``catalog.cache_clear()`` after
-    repointing :func:`catalog_path`.
-    """
+    """The catalog, loaded once and cached for the process."""
     return load()

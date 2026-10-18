@@ -1,33 +1,15 @@
-"""What one run came to, as a file the caller reads instead of the scrollback.
+"""What a run came to, as data, and the record a session leaves behind.
 
-The agent that types ``mcgyvr run`` decides what to do next from what the run
-came to: accept the change, commit it, or write a different contract.
+``RunResult`` is one ``mcgyvr run`` written out: the outcome and the sentence
+behind it, every attempt that was spent, the commit as fields, a chat or agent
+reply, and the paths to the run's own result file, journal and session record.
+``SessionRecord`` is the narrower answer a session contract keeps, so its
+question and reply outlive the result file.
 
-This module is the run's answer as data. One JSON file per run, under the
-journal's ``results/``, named by the contract and a UTC stamp so two runs of
-one contract are two files; ``mcgyvr run`` prints ``result: <path>`` and no
-more. A file rather than a dump on stdout: an agent's context is the scarce
-thing, and a file costs nothing until it is opened. Nothing here lands in the
-repository a run works on.
-
-The fields are the questions a replanner asks. ``outcome`` is ``accepted``, the
-word :class:`~mcgyvr.escalate.Outcome` gives a halt (``ladder_spent``,
-``escalation_ceiling``, ...), or one of the CLI's own: ``rejected``,
-``nothing_to_change``, ``delivery_refused``, ``error``; ``attempts`` is every
-rung touched with its verdict and the gate's finding lines;
-``committed``/``commit``/``branch`` say where the work went;
-``orchestrator``/``session_file``/``journal``/``attempt_id`` say where the
-rows are, so the same agent can find its own prompt and reply.
-
-**A ``chat`` or ``agent`` run is a session, and is logged as one** (owner
-decision, e2e run 1 F7: "answers are not throwaway nowhere"). Its reply is
-never written to the tree, so besides ``answer`` in the result file it gets a
-:class:`SessionRecord` of its own under the journal's ``sessions/``, beside
-``results/`` and named the same way: what was asked, under which contract, what
-answered, when, how it was judged and how it came out. The result file's
-``session_record`` names it, and ``mcgyvr sessions`` lists and shows them.
-"Session" here is that exchange; the conversation that typed the command is
-the *orchestrator's* session (:mod:`mcgyvr.session`, ``session_file``).
+Both land under the journal — ``results/`` and ``sessions/`` — through
+:func:`write` and :func:`write_session`, which go through
+:mod:`mcgyvr.atomic`, so a reader sees the previous file or the new one and
+never a half-written one.
 """
 
 from __future__ import annotations
@@ -48,92 +30,92 @@ SESSIONS_DIR = "sessions"
 
 @dataclass
 class AttemptResult:
-    """One rung's try, as the climb recorded it."""
+    """One try at one rung, as the result file reports it."""
 
-    #: Which rung answered. The name stays ``rung`` and is not renamed: the
-    #: journal rows and tests say ``rung``, and a second word for one concept is
-    #: new vocabulary.
+    #: The rung this try ran on and its number there, the verdict it came to
+    #: (`passed`, `failed`, `declined`, `error`) with `detail` and `findings`
+    #: behind it, and `attempt_id`, the journal row it was recorded as.
     rung: str
     attempt: int
     verdict: str
     detail: str = ""
     findings: list[str] = field(default_factory=list)
     attempt_id: str | None = None
-    #: Which draw the entry is about. ``null`` on an attempt that raised where
-    #: no dispatch of it is the culprit; ``attempt_id`` is ``null`` with it,
-    #: because there is no row to name. ``rows`` says which such raise it was:
-    #: ``0`` is a raise before any dispatch, and anything more is a raise past
-    #: draw ``rows - 1``, the last one that answered.
+    #: An attempt can spend several draws: independent dispatches of the same
+    #: try, so breadth buys more than one answer to choose between. `draw` is
+    #: the one this entry is about, and `None` when no single dispatch caused
+    #: the error it reports — `rows` of `0` means it raised before dispatching
+    #: at all, and any more means it raised past draw `rows - 1`.
     draw: int | None = 0
-    #: The breadth the run asked for (``breadth.draws``), on every attempt and
-    #: whatever the verdict.
+    #: `draws` is the breadth the attempt asked for — `breadth.draws`, or this
+    #: rung's entry under `draws` — whatever the verdict turned out to be.
     draws: int = 1
-    #: How many of those draws left a journal row — how far the attempt got.
-    #: Below ``draws`` only where the attempt did not finish its draws.
+    #: `rows` is how many of those draws left a journal row: `draws` unless the
+    #: attempt raised part-way, and `0` for a try that declined before dispatch.
     rows: int = 1
 
 
 @dataclass
 class RunResult:
-    """Everything a caller needs to decide what to do after one run."""
+    """A run's answer as data: the shape the result file is written in."""
 
     contract: str
     task_type: str
     target: str
     orchestrator: str
-    #: The stamp that names this run: the result file's, and the one every
-    #: journal row of the run carries in its ``attempt_id``.
+    #: `run` is this run's stamp, the id its journal rows and result file share;
+    #: `journal` is the directory it was recorded under.
     run: str = ""
     session_file: str | None = None
     journal: str | None = None
     outcome: str = "error"
-    #: Why the run ended as it did. On an accepted run, the judgement in its
-    #: own words — verified by whom, unverified and why, or a reply's checks —
-    #: and never where the change went, which is :attr:`delivery`'s. On any
-    #: other outcome, what stopped it: an outcome that is not ``accepted`` is
-    #: explained here, a refused delivery included.
+    #: `outcome` is one word for what the run came to — `accepted`, `rejected`,
+    #: `nothing_to_change`, `delivery_refused`, one of the ceilings that stopped
+    #: the climb (`ladder_spent`, `escalation_ceiling`, `attempt_ceiling`,
+    #: `nothing_to_run`, `declined_throughout`), or `error` when nothing was
+    #: judged at all — and `detail` says it in a sentence.
     detail: str = ""
-    #: Where delivery put the accepted change, in its own words: left in the
-    #: tree uncommitted, the commit it landed in, or why it was refused (then
-    #: also :attr:`detail`, since the refusal is the outcome). Empty on a run
-    #: that never reached delivery. A field of its own so that saying where the
-    #: change went never writes over how it was judged (#183).
+    #: `delivery` is where the work went: the commit, the fact that the change
+    #: was left in the tree uncommitted, or why the write to it was refused —
+    #: the same sentence `detail` carries for a refused delivery. Empty on a run
+    #: that never reached delivery, which is every rejected one: those stop at
+    #: the gate, with the change still in the sandbox and nothing written.
     delivery: str = ""
-    #: The rung the run came to rest on, not renamed for the reason
-    #: :attr:`AttemptResult.rung` gives.
+    #: `rung` is the rung the accepted change came from, `assurance` what
+    #: accepting it rests on, and `attempts` every try in the order they were made.
     rung: str | None = None
     assurance: str | None = None
     attempts: list[AttemptResult] = field(default_factory=list)
-    #: The deterministic gate's findings, for a contract that dispatched
-    #: nothing; a climb's findings live on its attempts.
+    #: `findings` is why a change was refused, one line per reason; `committed`,
+    #: `commit`, `branch` and `handoff` are the commit as fields.
     findings: list[str] = field(default_factory=list)
     committed: bool = False
     commit: str = ""
     branch: str = ""
     handoff: str = ""
-    #: The raw-text reply (prose / media_artifact), for a run whose answer is
-    #: text rather than a committed file. Empty for a whole_file run.
+    #: `answer` is a `chat`, `agent` or `media` reply — the prose the run
+    #: produced and never wrote to the tree; empty for one that changed files.
     answer: str = ""
-    #: The session record of a ``chat`` or ``agent`` run
-    #: (``<journal>/sessions/<contract>-<stamp>.json``); ``None`` for every
-    #: other run, and for a session whose record could not be written.
+    #: `session_record` is where a session's record landed under `sessions/`, so
+    #: the question and answer can be read back without the result file;
+    #: `exit_code` is what the process returned for this run.
     session_record: str | None = None
     exit_code: int | None = None
-    #: A copy of the journal the caller asked for (``--record DIR``) that could
-    #: not be written, and why — keyed by the directory. Empty on almost every
-    #: run. It is here and not only on stderr because the skill tells a caller
-    #: to read this file rather than the scrollback, and "your copy is short"
-    #: is exactly the kind of fact a caller reading the file would otherwise
-    #: never learn. mcgyvr's own record under ``journal`` is complete whatever
-    #: this says: a copy is not a sink, and its failure does not stop a run.
+    #: `copy_errors` is a `--record DIR` copy that could not be written, keyed by
+    #: the mirror directory it was meant for and holding the reason it was not.
+    #: A copy is not a sink: mcgyvr's own record under `journal` is complete
+    #: whatever this says, and a copy going missing must not turn a run that
+    #: reached an answer into an error — so the failure is said on stderr, the
+    #: run goes on, and the result file names it here. Empty on almost every
+    #: run, which is what makes a non-empty one worth reading.
     copy_errors: dict[str, str] = field(default_factory=dict)
-    #: What the caller should know about how the run was set up, one line
-    #: each, empty on a run with nothing to say. Today: the uncommitted and
-    #: untracked paths a sandbox built from HEAD does not hold
-    #: (:func:`mcgyvr.orchestrator.repo.head_only_note`), and what the
-    #: preflight's baseline commands left behind and had cleaned up
-    #: (:meth:`mcgyvr.gate.acceptance.Acceptance.baseline`). Here and not only
-    #: on stderr for the reason ``copy_errors`` gives.
+    #: `notes` is what the run said in passing and the result would otherwise
+    #: lose: the uncommitted and untracked paths the sandbox of HEAD left out,
+    #: what a tool printed as it worked, and what an acceptance baseline left
+    #: behind before cleanup took it away. `started` and `finished` are epoch
+    #: stamps — `started` when the run began, `finished` when this file was
+    #: written — kept as numbers so a caller can measure a run without parsing
+    #: the ISO times beside them in a session record.
     notes: list[str] = field(default_factory=list)
     started: float = field(default_factory=time.time)
     finished: float | None = None
@@ -144,7 +126,13 @@ class RunResult:
 
 @dataclass
 class SessionContract:
-    """The contract a session ran, kept whole: contract files are often scratch."""
+    """The contract a session was asked under, kept with the question.
+
+    ``path`` and ``sha256`` are what the bytes were when the session ran, and
+    ``text`` is those bytes decoded as UTF-8 with undecodable ones replaced —
+    so a record still says what was asked after the contract file is edited or
+    gone.
+    """
 
     id: str
     path: str
@@ -154,31 +142,36 @@ class SessionContract:
 
 @dataclass
 class SessionRecord:
-    """One ``chat`` or ``agent`` exchange: the question, the answer, and how."""
+    """A session as it is filed under ``sessions/``, for ``mcgyvr sessions``.
 
-    #: ``<contract>-<stamp>``, the record's file name and the result file's.
+    A ``chat`` or ``agent`` contract writes nothing to the tree, so this record
+    is all that is left of it: the question, the answer, which unit answered,
+    the times at both ends, and where the run's own result and journal are.
+    """
+
+    #: `session` is `<contract id>-<run stamp>`, the name it is filed under.
     session: str
     task_type: str
     contract: SessionContract
-    #: The contract's ``task``: what was asked. The whole prompt the unit was
-    #: sent is in the journal row ``attempt_id`` names (``prompt_sha256``).
+    #: `question` is the contract's task verbatim, kept with the contract's bytes
+    #: above so the record still reads as a question after the file changes.
     question: str
-    #: The reply, as the result file's ``answer`` carries it; empty when the
-    #: run was not accepted.
+    #: `answer` is the reply a session contract produced; where there is none it
+    #: is empty and `detail` says why.
     answer: str
-    #: The unit that answered (the rung the run came to rest on).
+    #: `unit` is the rung that answered; the outcome, assurance and detail are its.
     unit: str | None
     outcome: str
     assurance: str | None
     detail: str
     attempt_id: str | None
-    #: Who typed the command, and that conversation's transcript.
+    #: `orchestrator` is who typed the session, and `session_file` its transcript.
     orchestrator: str
     session_file: str | None
-    #: mcgyvr's own copy of the run's result file, and the journal rows.
+    #: `result` and `journal` are the run's result file and its journal, as paths.
     result: str
     journal: str
-    #: UTC, ISO 8601: a log is read by people as well as programs.
+    #: `started` and `finished` are ISO 8601 UTC stamps ending in `Z`.
     started: str
     finished: str
 
@@ -194,7 +187,14 @@ def session_record(
     result: Path,
     journal: Path,
 ) -> SessionRecord:
-    """The session record of a finished run, from its result and its contract file."""
+    """Build the record a finished run leaves under ``sessions/``.
+
+    The contract is read back from ``contract_path`` rather than taken from the
+    run, so the record carries the bytes the run was judged against and a
+    sha256 a later reader can check them with. ``unit`` is the rung the answer
+    came from and ``attempt_id`` the last attempt's — the one that landed. The
+    clock starts at the run's own ``started`` and ends here, at the write.
+    """
     data = contract_path.read_bytes()
     landed = report.attempts[-1] if report.attempts else None
     return SessionRecord(
@@ -227,44 +227,56 @@ def _iso(stamp: float) -> str:
 
 
 def session_path(journal_dir: Path, contract_id: str, stamp: str) -> Path:
-    """``<journal>/sessions/<contract>-<stamp>.json``, one per session."""
+    """Where a session's record goes: ``<journal>/sessions/<id>-<stamp>.json``."""
     return journal_dir / SESSIONS_DIR / f"{contract_id}-{stamp}.json"
 
 
 def write_session(path: Path, record: SessionRecord) -> Path:
-    """Write ``record`` whole, as :func:`write` writes a result."""
+    """Write a session record as JSON and return the path it went to."""
     return _write_json(path, record.as_json())
 
 
 def sessions(journal_dir: Path) -> list[Path]:
-    """Every session record under ``journal_dir``, newest first.
+    """Every session record in the journal, newest first.
 
-    By name, which ends in the run's UTC stamp: the stamp is fixed-width, so
-    within one contract the order is the order the runs started; across
-    contracts the stamp is compared, not the contract id.
+    Ordered by the run stamp each file name ends in, not by mtime, so the order
+    is the order the runs were made in. A journal with no ``sessions/`` yet
+    lists nothing.
     """
     found = (journal_dir / SESSIONS_DIR).glob("*.json")
     return sorted(found, key=lambda p: p.stem.rsplit("-", 1)[-1], reverse=True)
 
 
 def run_stamp(now: datetime | None = None) -> str:
-    """The UTC stamp that names one run, to the microsecond."""
+    """This run's stamp: UTC as ``YYYYMMDDTHHMMSS.ffffffZ``, sortable as text.
+
+    ``now`` lets the caller supply the clock instead of it being read here.
+    """
     return (now or datetime.now(UTC)).strftime("%Y%m%dT%H%M%S.%fZ")
 
 
 def result_path(journal_dir: Path, contract_id: str, stamp: str) -> Path:
-    """``<journal>/results/<contract>-<stamp>.json``, one per run."""
+    """Where a run's result file goes: ``<journal>/results/<id>-<stamp>.json``."""
     return journal_dir / RESULTS_DIR / f"{contract_id}-{stamp}.json"
 
 
 def write(path: Path, result: RunResult) -> Path:
-    """Write ``result`` whole: a reader never sees half a file."""
+    """Write a result as JSON and return the path it went to.
+
+    ``finished`` is stamped here, at the moment of writing, rather than by the
+    caller, so the closing time is the time the file was written.
+    """
     result.finished = time.time()
     return _write_json(path, result.as_json())
 
 
 def _write_json(path: Path, data: dict[str, Any]) -> Path:
-    """``data`` as JSON at ``path``, through a staging name: whole or not at all."""
+    """Write ``data`` as JSON at ``path`` and return the path.
+
+    The parent directory is made first — a run's ``results/`` need not exist
+    yet — and the bytes are indented, key-sorted and newline-terminated, then
+    written through :func:`mcgyvr.atomic.write` so the file is replaced whole.
+    """
     path.parent.mkdir(parents=True, exist_ok=True)
     atomic.write(path, json.dumps(data, indent=2, sort_keys=True) + "\n")
     return path

@@ -1,67 +1,15 @@
-"""Cleaning a style violation out of a change, at no model cost.
+"""Deterministic cleanup of a change the gate rejected on formatting alone.
 
-mcgyvr already draws the distinction this module acts on.
-:class:`~mcgyvr.gate.GateResult` splits what the rungs saw into ``findings``,
-which reject, ``observations``, which are real, line-attributed and deliberately
-outside the verdict, and ``environment_issues``, which are checks that could not
-run. The gate only reports: ``ruff format`` is run with ``--diff`` and
-``ruff check`` without ``--fix``. This module acts on the split: the gate's own
-verdict decides whether a change is tidied or left alone, and the tidying is a
-formatter, not a model.
+The gate's verdict is what decides whether any rewrite happens: where every
+finding came from a formatter check, the text is run through ruff's formatter
+and handed back ready to be gated again, at no model cost. Where the rejection
+was about anything else, the bytes come back exactly as the worker wrote them,
+because what the next attempt is shown has to be what the worker produced.
 
-**Style is cleaned; correctness is rejected and never tidied.** The gate's two
-buckets are most of that decision and not all of it. ``observations`` never
-reject, so a change carrying only those is already accepted and is tidied. The
-format rung is the awkward one: it emits ``check="format"``, which lands in
-``findings``, so the single case this module was built for arrives as a
-*rejection*. It is tidied anyway, and it is the only rejection that is — a
-change is cleaned when every reason the gate gave for rejecting it is one the
-formatter itself raised. That is the same rule the buckets were standing in for,
-stated where the gate actually files the item rather than where the bucket's
-name suggests it would. Every other rejection comes back byte-identical on
-purpose: rewriting it would hand the next attempt a file the worker never wrote,
-and every retry note about "your change" would then be about somebody else's.
-
-**A cleanup overturns nothing, and it settles nothing either.** The gate
-short-circuits — its typecheck, semantic and acceptance rungs run only while
-nothing has rejected yet — so behind a format finding the contract's own suite
-never ran at all. :attr:`Cleanup.accepted` is therefore the gate's own verdict
-carried through unchanged, and it is a verdict about the bytes that went *in*.
-:attr:`Cleanup.regate` is true whenever bytes came out different, acceptance or
-rejection alike: what makes a verdict true is the file it was computed over, and
-this module replaced that file. The caller re-runs the gate. Nothing here
-reports a bar that nobody applied, and nothing here lets a file travel onward
-under a verdict about a different one.
-
-**The spend is zero, structurally.** :attr:`Cleanup.tokens_spent` is a property
-returning ``0`` rather than a field anything could set, and this module imports
-nothing that can dispatch. That is the entire economic argument for the lever: a
-cleanup that could reach a model is a retry wearing a cheaper name, and the way
-to make that claim checkable is to leave no shape for it to happen in.
-
-**A cleanup that cannot run does not overturn a verdict it arrived after.** The
-gate reached its answer before this module was called, so a formatter that
-crashed, is not installed, or met syntax it cannot parse leaves the change
-exactly as accepted as it already was. It also never *claims* to have cleaned:
-:attr:`Cleanup.cleaned` is false unless the bytes actually changed, because an
-outcome that reports work it did not do is how a file with a known problem
-stops being looked at.
-
-**Determinism, because this sits inside the acceptance path.** ``ruff format``
-is a fixed point — the same input gives the same bytes, and formatting
-already-formatted content changes nothing — which is what makes the cleanup
-safe to run twice. A rewriter with an opinion that varied would put a coin flip
-inside an acceptance.
-
-**Why the whole file, and when that stops being right.** ``ruff format`` reflows
-everything, including lines the worker never touched, where the gate's format
-rung reports only reformatting that lands on a worker-added line. That is safe
-under ``whole_file`` — the default ``output_schema``, where the content handed
-here is a file the worker wrote in its entirety — and would need an added-line
-filter under a scoped-edit shape. ``ruff check
---fix`` is deliberately *not* run for the mirror-image reason: the gate already
-rejects lint findings on worker-added lines, so a fix pass could only rewrite
-lines the worker never wrote, which is diff expansion rather than cleanup.
+Every way a rewrite can fail — no ruff on PATH, a formatter that crashes or
+times out, text that cannot be handed over as UTF-8, syntax the formatter
+refuses — is "nothing to apply". The rung already reached its verdict, and a
+tidy-up running behind it has no standing to overturn one.
 """
 
 from __future__ import annotations
@@ -83,36 +31,31 @@ if TYPE_CHECKING:  # pragma: no cover - typing only
 
     from mcgyvr.gate import GateResult
 
-#: A best-effort tidy-up must not be able to wedge a change the gate already
-#: accepted, so the formatter is given a bound and a hang is answered the same
-#: way an absent tool is: the content comes back untouched.
+#: A formatter is a child process reading a pipe, so it can hang or outlive its
+#: usefulness with no verdict to show for it. The run is bounded instead, and a
+#: timeout arrives as "nothing to apply" like every other failure.
 _FORMAT_TIMEOUT_S = 30.0
 
-#: The rejecting checks a formatter answers on its own. Only the format rung is
-#: here, and only because it *is* the formatter: its finding says ruff format
-#: would reflow a worker-added line, so running ruff format is not a guess at
-#: what would satisfy it but the same tool reaching the same fixed point. Both
-#: language adapters spell it this way. The lint rung's style-classed codes are
-#: deliberately absent — answering those means ``ruff check --fix``, which the
-#: module docstring declines.
+#: The checks a rewrite is allowed to answer. ``format`` is the only one whose
+#: finding is about the bytes the worker wrote rather than about what they mean,
+#: so it is the only one a deterministic tool can clear; any other name in a
+#: verdict means the change goes back to the worker untouched. The set holds
+#: check names because that is what a finding carries, and the one name here is
+#: the string ``Gate.run`` files in ``findings`` for a formatting problem, so the
+#: split the caller sees and the split this module trusts are the same split.
 _FORMATTER_CHECKS = frozenset({"format"})
 
 
 @dataclass(frozen=True)
 class Cleanup:
-    """What a tidy-up left behind, and whether it happened at all.
+    """The outcome of one deterministic tidy-up, and what it moved.
 
-    ``content`` is what the caller carries forward — always the input bytes
-    unless something actually rewrote them, so a caller can use this result
-    without first asking which branch it came from.
-
-    Where they *were* rewritten, they are bytes no rung has read:
-    :attr:`accepted` is the verdict the gate reached over what went in, and this
-    is what came out. :attr:`regate` is how that is said, and it is the reason
-    these bytes are allowed to travel as a plain ``str`` at all — a caller
-    cannot get them into a tree that anything commits without running the gate
-    again, and what it delivers is minted there
-    (:meth:`mcgyvr.deliver.Accepted.read`).
+    ``content`` is what the caller carries forward: the rewritten text where a
+    cleaner ran and changed something, the input unchanged everywhere else.
+    ``accepted`` is the gate's verdict restated rather than improved, since a
+    cleanup that runs only behind a rejection cannot accept anything and one
+    that fails cannot reject. ``cleaned`` is true only where the bytes actually
+    changed, and ``detail`` is the line a reader is shown saying why.
     """
 
     content: str
@@ -122,79 +65,53 @@ class Cleanup:
 
     @property
     def tokens_spent(self) -> int:
-        """Always zero, and a property so that it cannot be anything else.
-
-        Not a field with a default: a field is something a future caller can
-        set, and the one claim this lever rests on is that cleaning a style
-        violation costs nothing. Whoever makes this dispatch has to change the
-        type, which is the point at which someone would notice.
-        """
+        """Zero: a local formatter rewrites the text and no model is asked."""
         return 0
 
     @property
     def regate(self) -> bool:
-        """Whether the verdict behind this result is now stale.
-
-        True whenever the bytes were rewritten, which is the only thing that can
-        make a verdict stale: what makes one true is the file it was computed
-        over, and the formatter replaced that file.
-
-        Behind a rejection the gate also stopped before its typecheck, semantic
-        and acceptance rungs, so there what is owed is a whole gate run rather
-        than a re-read of this one. After an acceptance every rung did run, and
-        the re-run is the cheap confirmation that a deterministic reformat
-        changed nothing they cared about — which costs a subprocess and no
-        tokens, the same trade this module already makes against a dispatch.
-
-        Derived rather than stored, for the reason :attr:`tokens_spent` is: it
-        is a fact about what happened, and a field would be somewhere to write
-        a more convenient answer.
-        """
+        """Whether the verdict in hand is stale and the gate has to run again."""
         return self.cleaned
 
 
 def _ruff_format(content: str, target: str, repo: Path | None) -> str | None:
-    """``content`` as ``ruff format`` would write it, or ``None`` if it could not.
+    """Return ``content`` as ruff's formatter would write it, or ``None``.
 
-    ``None`` covers every way this can fail to produce a trustworthy answer, and
-    they are collapsed on purpose: an absent ruff, a ruff that timed out, and a
-    file whose syntax it cannot parse all mean the same thing to a caller that
-    has already accepted the change — nothing to apply.
+    ``target`` is the name the formatter is given for the text, so per-file
+    rules, extension dispatch and excludes apply as they would to the file on
+    disk; ``repo`` is the directory the tool runs in, and the tree whose own
+    ruff configuration is used where it declares one.
 
-    ``--stdin-filename`` is what makes the run configuration-correct without a
-    temporary file: ruff resolves the same settings it would for that path, and
-    with ``--force-exclude`` an excluded path is echoed back unchanged rather
-    than reformatted, which is the gate's own behaviour for the same file.
-
-    The pipe is bytes on both sides. ``text=True`` would encode with the
-    process's preferred encoding under ``strict``, which raises on the
-    ``surrogateescape`` characters the rest of mcgyvr uses to carry an
-    undecodable byte through a ``str`` — a crash out of
-    the one function in this module that promises never to raise. It would also
-    translate the newlines on the way back, so a file with CRLF endings would
-    come out of a *cleanup* with different ones.
+    ``None`` means nothing is to be applied. That is the answer for every
+    failure — no ruff on PATH, a subprocess that fails or times out, a
+    formatter that exits non-zero, and text that cannot be handed over as
+    UTF-8 — so the caller keeps the bytes the gate judged.
     """
     try:
-        # The gate's own formatter, named here and nowhere else in this module:
-        # a cleanup that ran a different tool than the format rung checks would
-        # tidy a file into a shape the gate then complains about.
+        # Best effort from here on: a missing ruff is an environment
+        # fault the gate has already had its say about, so it comes
+        # back as "nothing to apply" rather than as an exception out
+        # of a function whose contract is that it raises none.
         ruff = require_tool("ruff")
     except EnvironmentFaultError:
         return None
     try:
         stdin = content.encode("utf-8", "surrogateescape")
     except UnicodeEncodeError:
-        # `surrogateescape` is total over bytes that came off a disk and
-        # partial over text that came off the wire: a lone `\ud800` is a legal
-        # JSON escape and has no byte form at all. There is nothing to hand the
-        # formatter, which is the same answer as a formatter that is not there.
+        # Text that will not round-trip through UTF-8 is
+        # surrogate-escaped bytes off the wire, which no formatter
+        # will read. Nothing is applied: rewriting those bytes would
+        # be rewriting what the worker wrote.
         return None
     try:
         done = subprocess.run(
             [
                 ruff,
-                # The gate's own configuration, so what is tidied is what the
-                # format rung then checks — never a user-level one found instead.
+                # The config flags come first so they govern the
+                # invocation as a whole; ``--stdin-filename`` is the
+                # path that decides the file's excludes and per-file
+                # rules, since the text arrives on a pipe rather than
+                # from disk, and ``-`` is where it is read from.
                 *(ruff_config_args(repo) if repo is not None else []),
                 "format",
                 "--force-exclude",
@@ -212,21 +129,21 @@ def _ruff_format(content: str, target: str, repo: Path | None) -> str | None:
     except (OSError, subprocess.SubprocessError):
         return None
     if done.returncode != 0:
-        # Exit 2 is ruff refusing to parse; its stdout is empty, and writing
-        # that back would delete the file. The exit code is the test, and
-        # nothing else is consulted. Bytes ruff cannot read as UTF-8 arrive
-        # here too, with the same answer.
+        # A formatter that exited non-zero formatted nothing:
+        # unparseable syntax, a crash, a temporary it could not
+        # write. Nothing is applied, so the caller keeps the bytes
+        # the gate judged and the cleanup reports no change.
         return None
     if not done.stdout and content.strip():
         return None
     return done.stdout.decode("utf-8", "surrogateescape")
 
 
-#: Suffix to formatter. Python's is ruff — the tool this project already gates
-#: with, so a cleanup produces exactly the shape the format rung asks for rather
-#: than a second opinion about it. A second language is an entry here: the gate's
-#: :class:`~mcgyvr.gate.adapter.LanguageAdapter` has no "rewrite" method to
-#: borrow, and this module deliberately does not need one added to it.
+#: One deterministic cleaner per suffix: the caller's target decides which
+#: language's formatter answers, and a suffix absent here is one no rewrite is
+#: registered for. Every entry takes the same arguments as ``_ruff_format`` and
+#: follows the same contract — ``None`` for "nothing to apply", and no exception
+#: for any reason.
 _CLEANERS: dict[str, Callable[[str, str, Path | None], str | None]] = {
     ".py": _ruff_format,
     ".pyi": _ruff_format,
@@ -240,27 +157,21 @@ def tidy(
     target: str,
     repo: Path | None = None,
 ) -> Cleanup:
-    """Clean a change whose only problem is formatting, or hand it back untouched.
+    """Tidy a change with the deterministic cleaner, and say what that moved.
 
-    ``result`` is the gate's verdict on this change and is the only thing that
-    decides which of those happens. A change it accepted is tidied; so is one it
-    rejected *only* on the formatter's own rung, which is the case this module
-    exists for and the one the gate files under ``findings`` rather than under
-    ``observations``. Any other rejection — a lint code, a failed acceptance
-    command, a rung that could not say what bar it applied — leaves the bytes
-    alone, whatever else the result carries.
+    The rewrite happens only where ``result`` is a rejection a formatter can
+    answer: a verdict with findings from formatter checks alone, and no rung
+    left inconclusive. Anything else is handed back untouched, because what the
+    next attempt is shown has to be what the worker wrote. Where ``target``'s
+    suffix has a cleaner registered in ``_CLEANERS``, that cleaner formats the
+    text, with ``repo`` supplying the tooling configuration and the directory
+    the tool runs in.
 
-    The verdict itself is never overturned: :attr:`Cleanup.accepted` is
-    ``result.accepted`` unchanged, and a cleaned rejection is reported through
-    :attr:`Cleanup.regate` for the caller to re-gate. This function has no way
-    of knowing what the rungs behind the rejection would have said, because
-    behind a rejection they did not run.
-
-    ``repo`` names the tree whose formatter configuration decides what clean
-    means. It matters that this is the same tree the gate checked: a cleanup run
-    under a different line length would tidy a file into a shape the gate then
-    complains about, which is worse than not cleaning at all. ``None`` runs
-    where the process already is.
+    A cleaner that cannot run, or that returns the text unchanged, leaves the
+    verdict exactly where it stood. One that changes bytes sets ``cleaned`` and
+    so ``regate``: the verdict in hand is then about text nobody carries
+    forward, and the gate has to run again. No model is involved in any branch,
+    so ``tokens_spent`` stays zero.
     """
     if not _cleanable(result):
         return Cleanup(
@@ -298,16 +209,16 @@ def tidy(
         return Cleanup(
             content=content,
             accepted=result.accepted,
-            # Covers both "already formatted" and "the formatter declined this
-            # path", which are the same fact to a caller: nothing to write.
+            # A fixed point: there was nothing to rewrite, so the
+            # verdict is still about exactly these bytes.
             detail=f"nothing to rewrite in {target}; it came back unchanged.",
         )
     return Cleanup(
         content=tidied,
         accepted=result.accepted,
         cleaned=True,
-        # Unconditional: the verdict in hand is about the bytes that went in,
-        # accepted or not.
+        # The bytes changed, so the verdict is stale and the caller
+        # has to re-run the gate over this text.
         detail=(
             f"{target} was reformatted deterministically, at no model cost, "
             f"and the gate wants re-running over it."
@@ -316,14 +227,15 @@ def tidy(
 
 
 def _cleanable(result: GateResult) -> bool:
-    """Whether these bytes are this module's to rewrite.
+    """Whether ``result`` is a verdict a deterministic rewrite may move.
 
-    True for a change the gate accepted, and for exactly one kind of rejection:
-    one where every finding came from the formatter itself, so re-running the
-    formatter removes all of it. An inconclusive rung disqualifies a change even
-    with no findings beside it — a rung that ran and cannot say what bar it
-    applied has not told anyone the problem is formatting, and tidying on that
-    would be answering a question that was never asked.
+    An inconclusive rung is never cleanable: the change was not rejected for
+    anything a reader can point at, and treating "we do not know" as "it is
+    only whitespace" would rewrite the bytes under a bar that never ran.
+    Otherwise every finding must name a check in ``_FORMATTER_CHECKS``.
+
+    An accepting verdict has no findings, so it passes here — which is what
+    keeps the ordinary case, tidying a change that already passed, working.
     """
     if result.inconclusive:
         return False

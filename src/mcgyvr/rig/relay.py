@@ -1,94 +1,21 @@
-"""Relaying one request from the hub to the head this rig serves, and its answer back.
+"""Relay one OpenAI-protocol request from the hub to the server that runs it.
 
-The hub relays OpenAI-compatible requests to a session's head; on the head's
-rig the agent is the only way in, since the head's API is published on this
-machine's loopback alone (:mod:`mcgyvr.rig.pooled`). A relay is:
+A ``relay_request`` names a session of this rig and a ``unit_relay_request`` a
+unit the rig shares with riders. Either way the hub sends the request body in
+``relay_data`` frames of its own, and this module posts it to the one address
+that serves it — the head session's API on loopback, or the shared unit's
+advertised URL, each at the path the endpoint names — then streams the answer
+back as one ``relay_response``, ``relay_data`` frames within the credit the hub
+grants, and exactly one ``relay_end``.
 
-* ``relay_request``, then the body in ``relay_data`` frames numbered from 0,
-  exactly as many bytes as announced — a frame out of order, or bytes past
-  the announced count, end the relay;
-* one ``POST`` of that body to the one path the relayed endpoint maps to
-  (:data:`mcgyvr.rig.sessionwire.RELAY_PATHS`) on ``127.0.0.1``, at the port
-  the session's head was published on. The hub names an endpoint, never a
-  path, a host or a port: this is no general proxy;
-* the answer as ``relay_response`` (status, content type), then ``relay_data``
-  frames of at most :data:`~mcgyvr.rig.sessionwire.RELAY_MAX_CHUNK_BYTES`
-  each, never more of them uncredited than the hub's window: out of credit,
-  the relay stops reading the head, and the head's own socket holds it. A
-  frame is filled when the agent takes it to send, not when it is queued
-  (:meth:`Relays._data`): it carries all the head wrote up to then, and one
-  frame of a relay waits at a time. The agent's frame rate is for all the
-  rig's relays together and a head writes each token as an event of its own,
-  so a frame per read would cap the rig's tokens at that rate; filled late,
-  a frame that waited its turn carries the events written meanwhile, and the
-  first is not held back for more. The bytes go unchanged and in order, and
-  a relay whose full frame waits stops reading the head;
-* exactly one ``relay_end`` — ``complete``; ``cancelled`` on the hub's
-  ``relay_cancel`` or when the session ends; ``timeout`` past the hub's time;
-  ``too_large`` past its size; or ``error`` with the hub's code.
-
-A head serves as many requests at once as it has slots (``head_start``'s
-``slots``), so a session takes at most that many relays at once, and the
-next is answered ``busy`` without reaching the head. :data:`MAX_ACTIVE`
-bounds each head's relays besides, never below what a head may take: a rig
-may serve several heads at once (a session per card), and a head with a
-slot free is never refused because another head is full.
-
-A ride (``unit_relay_request``) is the same relay aimed elsewhere: at a unit
-this host runs for themselves and shares with riders (hitchhike,
-:mod:`mcgyvr.rig.hitchhike`), named by the id its advert gave it. The frames,
-the credit, the deadline and the one ``relay_end`` are the head relay's, by
-this same code; only the :class:`Target` differs. It is the unit's own
-address, from the host's setup and never from the hub, joined to the
-endpoint's one path as a run joins it, so this stays no general proxy. A unit
-no advert named ends ``unknown_unit``; a unit that has its riders, or whose
-host would be left short, ends ``busy`` (:meth:`Units.ride`, which also holds
-one of the unit's slots for as long as the ride runs). The body is asked of
-the unit as a stream, as a head's is (below), with the unit's model already in
-it and the rest as it came. The rides together are bounded by
-:data:`MAX_ACTIVE` as a head's relays are, and share the relays' request ids.
-
-A cancel or a deadline hangs up on the head, which stops generating: so
-does a requester who leaves mid-answer (the hub cancels the relay, or its
-channel takes no more frames), a normal end that is one ``relay_end`` and
-nothing printed. The head notices a hang-up only when it writes, and an
-answer not streamed is written once, at its end: left alone, a slot would
-decode the rest of such an answer for nobody. So the head, and a ride's
-unit, is asked for a stream whatever the requester asked
-(:func:`mcgyvr.whole.as_stream`: ``stream`` and its counts,
-``stream_options.include_usage``, set on the request's JSON object), and for
-a request not streamed the agent assembles the whole answer itself with
-:class:`mcgyvr.whole.Whole`, the product piece the runner also uses, as the
-server would have written it: the same content, finish reason, usage and
-shape, the standard fields assembled from any OpenAI-compatible stream and
-what else the last event carries (llama.cpp's ``timings``) passed through.
-A shared unit may not be llama.cpp, so this is the one path for a head and a
-ride alike. The hub still gets one ``relay_response`` and the answer in
-frames once it is whole; a head or unit that answers anything but a 200
-stream is passed through as it answers (status, type and body), an error
-event mid-stream becomes the status and body the server gives a request not
-streamed, and a stream that ends with neither its answer nor an error is
-the server's failure (``upstream_failed``). A body that is no JSON object
-goes to the head or the unit as it came. A relay or a ride the hub cancels
-says in that ``relay_end`` what its head or unit made by then (``tokens_in``,
-``tokens_out``), which the hub charges the requester who left (and, for a
-ride, pays the host): the server's own status page (llama.cpp's
-:data:`SLOTS_PATH`, at the root of the address the relay posts to) is read
-just before the hang-up, on a thread of its own, never the one that hears the
-hub. The page does not say which slot serves which request, so the counts go
-only when the slot at work cannot be another's (:meth:`Relays._made`); in any
-doubt, the relay ends with no counts, as it always did, and the hub keeps to
-what it did before. A ride's unit is its host's and may not be llama.cpp: a
-unit with no such page, or one that answers it differently, reports nothing,
-as does one its host is using too (the host's request at work is a second
-slot at work). Hanging up shuts the head's socket down under the relay's
-read and no more; the relay's own thread, woken by it, closes the
-connection.
-``http.client`` closed from another thread while a read of it ends fails in
-whichever loses (an ``AttributeError`` on the file it no longer has), so the
-connection is closed by the one thread that reads it. What a
-relay carries is the users' and is never printed or put in a message: a
-failure says only its class.
+Each relay runs on a thread of its own: it waits for the body, posts it, reads
+the answer, and ends with its outcome — ``complete``, ``cancelled`` on the
+hub's word or on a channel that takes no more frames, ``timeout`` at the
+request's deadline, or ``error`` with a code. What this rig cannot serve is
+refused in the frame that ends the relay rather than started: a request id
+used before, a session with no ready head, a unit not advertised, a rig
+already as wide as it goes. A relay holds at most one chunk of the answer
+beyond what has gone out, and waits for credit before it sends another.
 """
 
 from __future__ import annotations
@@ -112,28 +39,36 @@ from mcgyvr.rig import commands, protocol, sessionwire
 from mcgyvr.rig.protocol import ErrorCode, ProtocolError
 from mcgyvr.rig.sessionwire import SessionCode
 
-#: How many relays may run at once to one head, and how many rides to the
-#: shared units together: a safety net under each head's own bound (its
-#: slots) and each unit's (its riders), never below the most slots one head
-#: may have. It bounds each head, not the rig: a rig in several sessions at
-#: once serves each head its own slots.
+#: The default cap on the relays this rig runs at once. A session's relays are
+#: held to its head's slot count or this, whichever is lower; the rides on all
+#: of the rig's shared units together are held to this. Past either, the hub is
+#: answered ``busy`` in the frame that ends the relay, never queued behind it:
+#: every relay is a thread and a connection to a server already at work.
 MAX_ACTIVE = sessionwire.MAX_SLOTS
-#: How many request ids are remembered, so one is never used twice.
+#: How many request ids last taken are remembered, so a hub that repeats one is
+#: told ``duplicate`` rather than given a second relay of the same id.
 REMEMBERED_IDS = 4096
-#: The longest a frame of the answer waits for the outbox, in seconds.
+#: Seconds one frame of a relay may wait for room in the channel before the
+#: relay counts as cancelled: the hub is gone or too far behind to answer.
 SEND_WAIT_S = 30.0
-#: llama.cpp's status page, at the root of the head's or the unit's own API:
-#: each slot, whether it is at work, and its counts.
+#: The path of the status page on which a head reports each of its slots: read
+#: on the API the relay posts to, and only to say what a leave had made.
 SLOTS_PATH = "/slots"
-#: The longest a cancelled relay's hang-up waits for that page, in seconds:
-#: under the moment the hub waits for the ``relay_end``.
+#: Seconds that page has to connect and arrive, on a thread of the relay's own,
+#: so that a leave is never held up by a head that does not answer.
 REPORT_WAIT_S = 1.0
-#: The most of that page that is read, in bytes.
+#: The most the page may be; a longer one is read as no page at all.
 MAX_PAGE_BYTES = 1 << 20
 
 
 class Heads(Protocol):
-    """Where a session's head is: :class:`mcgyvr.rig.session.Sessions`."""
+    """The sessions this rig runs, asked about the heads among them.
+
+    ``head_port`` gives the loopback port of a session whose head is ready to take
+    a request, and ``None`` when it is not; ``head_slots`` the slots that head was
+    asked for; ``state_of`` its state and role, which name the code a refused
+    relay ends with.
+    """
 
     def head_port(self, session_id: str) -> int | None: ...
 
@@ -143,8 +78,11 @@ class Heads(Protocol):
 
 
 class RideRefusedError(Exception):
-    """A ride its unit will not take now; ``code`` is what its ``relay_end``
-    says."""
+    """A shared unit would not take the ride it was asked for.
+
+    ``code`` is the code the relay ends with: the unit is not advertised, or it has
+    no room left under its rider cap or its own free slots.
+    """
 
     def __init__(self, code: str) -> None:
         super().__init__(code)
@@ -152,7 +90,8 @@ class RideRefusedError(Exception):
 
 
 class Ride(Protocol):
-    """An advertised unit as a ride reaches it: :class:`mcgyvr.rig.hitchhike.Shared`."""
+    """A shared unit as it is advertised to riders: how many may ride at once, and
+    the address a ride's request is posted to."""
 
     @property
     def rider_cap(self) -> int: ...
@@ -161,7 +100,12 @@ class Ride(Protocol):
 
 
 class Units(Protocol):
-    """The units this host shares: :class:`mcgyvr.rig.hitchhike.Units`."""
+    """The units this rig shares with other rigs' riders.
+
+    ``advertised`` names one as it stands now, or ``None`` when it is not shared;
+    ``ride`` is entered around the posting of a ride's request and holds the unit's
+    room meanwhile, raising :class:`RideRefusedError` when there is none.
+    """
 
     def advertised(self, unit_id: str) -> Ride | None: ...
 
@@ -170,8 +114,7 @@ class Units(Protocol):
 
 @dataclass(frozen=True)
 class Target:
-    """Where a relay's one ``POST`` goes: a host, a port and a path, over TLS
-    or not. A head's is its loopback port; a ride's its unit's address."""
+    """Where one relayed request is posted: one host, one port, one path."""
 
     host: str
     port: int
@@ -180,12 +123,16 @@ class Target:
 
     @classmethod
     def loopback(cls, port: int, endpoint: str) -> Target:
-        """The head's API, published on this machine's loopback at ``port``."""
+        """A head's API on this rig's own loopback, at the path the endpoint names."""
         return cls("127.0.0.1", port, sessionwire.RELAY_PATHS[endpoint])
 
     @classmethod
     def of_url(cls, url: str) -> Target:
-        """The target ``url`` names; ``ValueError`` when it is no http(s) URL."""
+        """A URL that a unit advertises, as a target to post to.
+
+        Only an http(s) URL with a host is taken; a port left out defaults by scheme
+        and a path left out to ``/``. A URL of any other shape is a ``ValueError``.
+        """
         parts = urllib.parse.urlsplit(url)
         scheme = parts.scheme.lower()
         if scheme not in ("http", "https") or not parts.hostname:
@@ -215,17 +162,17 @@ class _Relay:
     body: bytearray = field(default_factory=bytearray)
     next_seq: int = 0
     credit: int = 0
-    outcome: str | None = None  # why it ends early, once decided
+    outcome: str | None = None  # the wire outcome, None while running
     code: str | None = None
     ended: bool = False
     changed: threading.Condition = field(default_factory=threading.Condition)
     connection: http.client.HTTPConnection | None = None
     deadline: float = 0.0
-    working: bool = False  # the head has the request and has not answered it
-    made: tuple[int, int] | None = None  # the server's counts, read at a cancel
-    pending: bytearray = field(default_factory=bytearray)  # read, in no frame yet
-    queued: bool = False  # a frame of the answer waits to be sent
-    seq: int = 0  # the next frame of the answer
+    working: bool = False  # request posted, its answer not in hand
+    made: tuple[int, int] | None = None  # tokens in and out at a leave
+    pending: bytearray = field(default_factory=bytearray)  # bytes read, no frame yet
+    queued: bool = False  # its frame waits to be sent
+    seq: int = 0  # seq of the next relay_data frame
 
     @property
     def complete(self) -> bool:
@@ -233,7 +180,17 @@ class _Relay:
 
 
 class Relays:
-    """The relays running on this rig, by request id."""
+    """The relays this rig runs, one per request the hub sends it to serve.
+
+    Each is begun by :meth:`request` for a session of this rig or
+    :meth:`unit_request` for a ride on a shared unit, and runs on a thread of its
+    own: it waits for the body, posts it to the one address that serves it, sends
+    the answer back within the hub's credit, and ends with exactly one
+    ``relay_end``. The frames of a relay already running — more body, credit, a
+    cancel — are taken by :meth:`data`, :meth:`credit` and :meth:`cancel`, and a
+    session that ends or a rig going away ends its relays through
+    :meth:`session_ended` and :meth:`cancel_all`.
+    """
 
     def __init__(
         self,
@@ -251,14 +208,25 @@ class Relays:
         self._clock = clock
         self._lock = threading.Lock()
         self._active: dict[str, _Relay] = {}
-        self._begun = 0  # relays ever begun: one more, and a head is not as it was
+        self._begun = 0  # every relay begun, for the page check
         self._used: deque[str] = deque(maxlen=REMEMBERED_IDS)
         self._used_set: set[str] = set()
 
-    # -- the handlers --------------------------------------------------------
+    # The hub's frames of a relay: begin one, or feed one already begun.
 
     def request(self, envelope: protocol.Envelope) -> str | None:
-        """``relay_request``: every one is answered with one ``relay_end``."""
+        """A session's relay, begun or refused.
+
+        The body is read off the envelope, and its request id remembered, so that a
+        repeat of it is answered ``duplicate``. A session with no ready head is
+        refused with the code its state and role give, and one already holding as many
+        relays as its head's slots or the rig's width allow with ``busy``. Otherwise a
+        thread posts the request to the head's loopback API at the endpoint's path.
+
+        The answer is a frame the caller must send, or ``None`` when the relay runs. A
+        body that cannot be read is answered ``BAD_MESSAGE`` when it still carries a
+        request id, and raises otherwise.
+        """
         try:
             asked = sessionwire.read_relay_request(envelope)
         except ProtocolError:
@@ -303,10 +271,16 @@ class Relays:
         return None
 
     def unit_request(self, envelope: protocol.Envelope) -> str | None:
-        """``unit_relay_request``: a ride, answered with one ``relay_end`` as a
-        relay is. Refused here at once: an id no advert named, a unit with its
-        riders already, a rig at its bound. The host's own load is read on the
-        ride's thread (:meth:`Units.ride`), since reading a server takes time."""
+        """A ride's relay, begun or refused.
+
+        As :meth:`request`, but the unit must be advertised now: one that is not is
+        refused ``unknown_unit``. Its advertised rider cap, and the rig's width over
+        all its rides, refuse ``busy`` here; the unit's own free slots are weighed
+        when the ride is taken on the relay's thread, and a refusal there ends the
+        relay ``busy`` too. The request is posted to the address the unit advertises
+        at the endpoint's path, and an address that is no http(s) URL is refused
+        ``upstream_failed``.
+        """
         try:
             asked = sessionwire.read_unit_relay_request(envelope)
         except ProtocolError:
@@ -362,7 +336,14 @@ class Relays:
         return None
 
     def data(self, envelope: protocol.Envelope) -> str | None:
-        """``relay_data`` from the hub: the next piece of a request's body."""
+        """One chunk of a relay's request body, in the order the hub counted it.
+
+        A chunk out of that order, or one that would carry the body past the length
+        the request announced, ends the relay there — ``BAD_MESSAGE`` or
+        ``too_large``. A chunk of a relay that has ended already, or whose body is
+        whole, is ignored, so nothing is read past the end of the body. A request id
+        of no relay this rig is serving is refused instead.
+        """
         piece = sessionwire.read_relay_data(envelope)
         with self._lock:
             relay = self._active.get(piece.request_id)
@@ -386,7 +367,11 @@ class Relays:
         return None
 
     def credit(self, envelope: protocol.Envelope) -> None:
-        """``relay_credit``: the hub forwarded ``chunks`` more frames."""
+        """The hub grants room for more frames of a relay's answer.
+
+        The chunks are added to what the relay may still send, never above the window
+        the request asked for. A request id of no relay now running is ignored.
+        """
         given = sessionwire.read_relay_credit(envelope)
         with self._lock:
             relay = self._active.get(given.request_id)
@@ -396,10 +381,11 @@ class Relays:
                 relay.changed.notify_all()
 
     def cancel(self, envelope: protocol.Envelope) -> None:
-        """``relay_cancel``: end the relay or the ride, hanging up on its head
-        or unit, which first reads what that made (:meth:`_leave`), on a
-        thread of its own: this one hears the hub and sends every frame, and
-        waits for no page."""
+        """The hub has left a relay, which is ended as cancelled on a thread of its own.
+
+        That thread reads what the head's slot had made before hanging up, so the
+        thread that hears the hub never waits on a head.
+        """
         asked = sessionwire.read_relay_cancel(envelope)
         with self._lock:
             relay = self._active.get(asked.request_id)
@@ -410,19 +396,28 @@ class Relays:
         ).start()
 
     def _leave(self, relay: _Relay) -> None:
-        """End ``relay`` as cancelled, with what its head or unit made by now
-        when that can be told for certain."""
+        """Read what the head made for a leaving relay, then end it cancelled.
+
+        The counts are kept only if no outcome is settled by the time they are in
+        hand, so an outcome settled first — a timeout, an answer, a failure — is not
+        overwritten by the leave.
+        """
         try:
             made = self._made(relay)
             with relay.changed:
                 if relay.outcome is None:
                     relay.made = made
-        finally:  # whatever became of the reading, the relay ends
+        finally:  # here the relay ends, page read or not
             self._stop(relay, "cancelled", SessionCode.CANCELLED)
 
     def _alone(self, relay: _Relay) -> int | None:
-        """How many relays ever began, when ``relay`` is the only one in its
-        head or unit and that is working on it; else ``None``."""
+        """The count of relays begun so far, when the head is this relay's alone.
+
+        Which is when this is the only relay on its target and the head is still
+        working on it; ``None`` otherwise, or once the relay has ended. The count is
+        what :meth:`_made` compares before and after the page to tell whether another
+        relay began while it was being read.
+        """
         with self._lock:
             others = any(
                 other is not relay and other.target == relay.target
@@ -434,20 +429,12 @@ class Relays:
         return begun if working and not others else None
 
     def _made(self, relay: _Relay) -> tuple[int, int] | None:
-        """What ``relay``'s head or unit made of it so far, by the server's
-        own count, or ``None`` when that is not certain.
+        """What the head's one working slot had made: tokens in and out, or ``None``.
 
-        The page lists the slots, not whose request each serves. The one slot
-        at work is this relay's only if nothing else is in the server: this
-        relay is alone in it, before the page is read and after, no relay
-        began meanwhile, and the server is still working on it (its request
-        is in, and its stream has not ended, or an answer passed through
-        whole not begun: a slot whose answer is given is free, and counts
-        nothing). The head's API is on this machine's loopback alone and the
-        agent is the only way in, so then the slot is this relay's. A ride's
-        unit is its host's too, reached outside the agent: the host's own
-        request at work there is a second slot at work, and the page says
-        nothing for certain (:func:`slot_made`)."""
+        No page is read unless what it says can only be this relay's slot's:
+        :meth:`_alone` must answer, and answer the same before and after the read,
+        since a page does not say which relay a busy slot is serving.
+        """
         begun = self._alone(relay)
         if begun is None:
             return None
@@ -455,8 +442,11 @@ class Relays:
         return made if self._alone(relay) == begun else None
 
     def session_ended(self, session_id: str) -> None:
-        """End every relay of ``session_id``: its head is gone. A ride is no
-        session's, and goes on."""
+        """Every relay of a session that has ended is ended as cancelled, at once.
+
+        The head is not read for these, and rides on shared units are not the
+        session's to end.
+        """
         with self._lock:
             ending = [
                 r
@@ -468,18 +458,26 @@ class Relays:
             self._stop(relay, "cancelled", SessionCode.CANCELLED)
 
     def cancel_all(self) -> None:
-        """End every relay: the hub that asked for them is gone."""
+        """Every relay this rig runs is ended as cancelled at once, the heads unread.
+
+        Used when the rig goes offline or closes, when no answer can be delivered any
+        more.
+        """
         with self._lock:
             ending = list(self._active.values())
         for relay in ending:
             self._stop(relay, "cancelled", SessionCode.CANCELLED)
 
-    # -- the relay's thread --------------------------------------------------
+    # The private side: reading what the hub sent, deciding and ending.
 
     @staticmethod
     def _unread(envelope: protocol.Envelope) -> str | None:
-        """The ``relay_end`` of a relay or a ride whose request does not read,
-        when its id does; ``None`` when not even that reads."""
+        """The frame refusing a request whose body could not be read, or ``None``.
+
+        A body that still carries a well-formed request id is one the hub can be told
+        about, so its relay is ended ``BAD_MESSAGE`` at once; a body without one leaves
+        the caller to raise, as there is nothing to name it by.
+        """
         request_id = envelope.body.get("request_id")
         if isinstance(request_id, str) and protocol.MESSAGE_ID.fullmatch(request_id):
             return sessionwire.relay_end(
@@ -503,7 +501,12 @@ class Relays:
 
     @staticmethod
     def _decide(relay: _Relay, outcome: str, code: str | None) -> bool:
-        """Settle why ``relay`` ends, unless that is settled; whether it was not."""
+        """Settle a relay's outcome, unless one is settled already.
+
+        Returns whether this call was the one that settled it, so that the first
+        outcome decided — a cancel from the hub, a timeout, a failure — is the one the
+        relay ends with.
+        """
         if relay.outcome is not None:
             return False
         relay.outcome = outcome
@@ -571,10 +574,11 @@ class Relays:
             body = bytes(relay.body)
             connection = relay.target.connect(max(0.001, self._left(relay)))
             relay.connection = connection
-        # A head or a ride's unit is asked for a stream whatever the requester
-        # asked, so a hang-up is noticed at the next token: an answer not
-        # streamed is assembled from it (``assembly``), when the body is one to
-        # ask it of.
+        # A requester who asked for one body is served the same way: the head is asked
+        # to stream and the events are joined here, so a requester who leaves stops the
+        # head's slot at its next write, not at the end of an answer nobody waits for.
+        # A body `as_stream` will not rewrite — no JSON object, or text UTF-8 cannot
+        # carry — is posted as it came.
         assembly = None
         if not relay.asked.stream:
             streamed = whole.as_stream(body)
@@ -607,11 +611,15 @@ class Relays:
         connection: http.client.HTTPConnection,
         assembly: whole.Whole | None,
     ) -> None:
-        """The head's answer to the request it has, back to the hub: as the
-        head writes it, or, for a request not streamed that the head streams
-        to the agent, assembled whole first (``assembly``). A head or unit
-        that answers anything but a 200 stream is passed through as it
-        answers, whatever engine it runs."""
+        """Send the head's answer back: its status and content type, then its body.
+
+        The content type is taken only in the shape the wire carries, and anything else
+        goes as ``application/octet-stream``. A streamed answer that was asked for as
+        one body is assembled first and sent whole; a head that answers such a request
+        with another status, or with no stream, is passed through as it answered. Every
+        chunk is checked against the length the request allowed, and no chunk is read
+        while the frame before it waits for the hub's credit.
+        """
         response = connection.getresponse()
         status = response.status
         kind = response.getheader("Content-Type", "") or ""
@@ -630,7 +638,8 @@ class Relays:
             status, kind, body = answer
             source = io.BytesIO(body)
         if not relay.asked.stream:
-            # The answer is whole, in hand or on its way: the head has made it.
+            # The whole answer is in hand, so the head is no longer at work on it:
+            # a leave from here on has no page worth reading.
             with relay.changed:
                 relay.working = False
         if relay.outcome is not None:
@@ -647,7 +656,8 @@ class Relays:
         limit = sessionwire.RELAY_MAX_CHUNK_BYTES
         while True:
             with relay.changed:
-                # A full frame waits its turn: the head's socket holds the rest.
+                # One frame of the answer at a time: the next chunk is read only once
+                # the frame of the last one has been sent.
                 while relay.outcome is None and len(relay.pending) >= limit:
                     relay.changed.wait(max(0.0, self._left(relay)))
                 if relay.outcome is not None:
@@ -662,7 +672,7 @@ class Relays:
             sent += len(chunk)
             with relay.changed:
                 relay.pending += chunk
-                if relay.queued:  # the frame that waits carries this too
+                if relay.queued:  # a frame is already going out
                     continue
                 while relay.outcome is None and relay.credit <= 0:
                     relay.changed.wait(max(0.0, self._left(relay)))
@@ -676,8 +686,13 @@ class Relays:
 
     @staticmethod
     def _data(relay: _Relay) -> str:
-        """The frame of ``relay``'s answer that waits, made as the agent
-        takes it to send: all that was read and is in no frame yet."""
+        """The next frame of the answer, made as the channel takes it.
+
+        The bytes read since the last frame go out as one ``relay_data`` under the next
+        seq, and the reader waiting for room is woken. Being made late is the point: a
+        frame carries whatever the head had written by the time it is sent, so the
+        agent's frame rate is not a cap on tokens.
+        """
         with relay.changed:
             data, relay.pending = bytes(relay.pending), bytearray()
             seq, relay.seq = relay.seq, relay.seq + 1
@@ -691,11 +706,16 @@ class Relays:
         response: http.client.HTTPResponse,
         assembly: whole.Whole,
     ) -> tuple[int, str, bytes] | None:
-        """The head's stream read to its end and assembled as the answer the
-        requester asked for: its status, type and body. ``None`` when the
-        relay ends instead: cancelled or timed out meanwhile (the hang-up
-        ends the read), an answer past the hub's size, or a stream that ends
-        with neither an answer nor an error (the head failed)."""
+        """Join a streamed answer into the one body it was asked for.
+
+        The stream is read a chunk at a time into ``assembly``, which counts the text
+        and logprobs it holds; that count running past the length the request allowed
+        ends the relay ``too_large``, as does an assembled body that is too long. An
+        assembly that never completes — no choice at all, or a choice the head never
+        finished — ends it ``error`` against the upstream, and ``None`` comes back so
+        that nothing more is sent. An error event inside the stream is no failure
+        here: it is carried out as the error body the head would have answered with.
+        """
         limit = relay.asked.max_response_bytes
         while True:
             with relay.changed:
@@ -719,26 +739,16 @@ class Relays:
 
 
 def slot_made(page: bytes | None) -> tuple[int, int] | None:
-    """The counts of the one slot at work on llama.cpp's ``/slots`` page: the
-    prompt's tokens and the tokens generated so far. ``None`` for anything
-    else: no page, a page that is not a list of slots each saying whether it
-    is at work, none or several at work, a count that is missing, no whole
-    number, out of bounds, a prompt not counted yet, or counts that do not
-    add up.
+    """What a llama.cpp ``/slots`` page says its one working slot had made.
 
-    The prompt's tokens are the slot's ``n_prompt_tokens_processed`` plus
-    ``n_prompt_tokens_cache`` (reused from the last task), the tokens
-    generated its ``next_token`` ``n_decoded`` (an object, or on the heads'
-    build a list of one). ``n_prompt_tokens`` is the check: on older servers
-    it is the prompt and stands still; on the heads' build (llama.cpp b10644,
-    ``prompt.tokens.size()``) it is the slot's whole context and grows by
-    one with each token generated, so it is the prompt plus the answer, or
-    one off it: a page read as a token is added (about one read in fifty)
-    counts the token before the context grows, and the counts as read still
-    hold. Anything else is a slot between tasks (the last task's context
-    with nothing of this one processed yet) or a shape this does not know,
-    and nothing is reported for it. While the prompt is still being read,
-    the tokens read so far are the prompt and nothing is generated yet."""
+    The counts are tokens in and out: the prompt as the processed and cached
+    prompt tokens, and the answer as the next token's ``n_decoded``. ``None``
+    comes back unless the page is one whose counts can only be that slot's — a
+    JSON list whose every entry says whether it is processing, exactly one of
+    them busy, every count a number in bounds, a prompt of at least one token,
+    and a context that is either the prompt or the prompt and the answer
+    together, give or take the one token a read can land on.
+    """
     if page is None:
         return None
     try:
@@ -757,7 +767,7 @@ def slot_made(page: bytes | None) -> tuple[int, int] | None:
     if len(at_work) != 1:
         return None
     (slot,) = at_work
-    # The slot's next token is an object, or (newer servers) a list of one.
+    # the last token's data is a list of one here, and one object elsewhere
     following = slot.get("next_token")
     if isinstance(following, list) and len(following) == 1:
         following = following[0]
@@ -778,15 +788,22 @@ def slot_made(page: bytes | None) -> tuple[int, int] | None:
 
 
 def _count(value: object) -> int | None:
-    """``value`` as a count a ``relay_end`` may carry, or ``None``."""
+    """A value of the page as a token count, or ``None`` when it is no count.
+
+    A bool, no int at all, or a number outside the wire's bounds is no count.
+    """
     if isinstance(value, bool) or not isinstance(value, int):
         return None
     return value if 0 <= value <= sessionwire.RELAY_MAX_TOKENS else None
 
 
 def _page(target: Target) -> bytes | None:
-    """The status page of the server at ``target``, or ``None``: it has
-    none, did not answer in :data:`REPORT_WAIT_S`, or sent too much."""
+    """The ``/slots`` page of the server a relay posts to, or ``None``.
+
+    Read over a connection of its own within ``REPORT_WAIT_S`` and at most
+    ``MAX_PAGE_BYTES``: one that cannot be read whole — no connection, an answer
+    of anything but 200, or a page longer than that — is no page.
+    """
     try:
         connection = target.connect(REPORT_WAIT_S)
     except (OSError, ValueError):
@@ -806,9 +823,13 @@ def _page(target: Target) -> bytes | None:
 
 
 def _hang_up(connection: http.client.HTTPConnection | None) -> None:
-    """Shut ``connection``'s socket down under the relay reading it, which
-    then ends and closes it: the head sees the hang-up at once, and the
-    connection is never closed from two threads."""
+    """Shut the socket under a relay's request down, so a read on it fails now.
+
+    Only the relay's own thread closes a connection it reads, since ``http.client``
+    fails when one is closed from two threads at once; whoever stops a relay does
+    this much and no more. There is nothing to do without a connection, or once
+    its socket has gone.
+    """
     if connection is None:
         return
     sock = connection.sock
@@ -818,7 +839,12 @@ def _hang_up(connection: http.client.HTTPConnection | None) -> None:
 
 
 def register(dispatcher: commands.Dispatcher, relays: Relays) -> None:
-    """Handle the hub's relay messages with ``relays``."""
+    """Answer the relay frames of the wire with the relays of this rig.
+
+    ``relay_request``, ``unit_relay_request`` and ``relay_data`` may each answer
+    with a frame the caller sends; ``relay_credit`` and ``relay_cancel`` answer
+    nothing, since the relay's own thread is the one that ends it.
+    """
     dispatcher.register("relay_request", lambda envelope, _: relays.request(envelope))
     dispatcher.register(
         "unit_relay_request", lambda envelope, _: relays.unit_request(envelope)

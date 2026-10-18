@@ -1,25 +1,12 @@
-"""The session and relay messages of the hub's protocol v1, as the agent speaks them.
+"""The wire shapes of the rig's session, probe, relay and advert messages.
 
-The hub's schema is the one definition (``tests/rig_schema.py`` pins it);
-this module reads the commands the hub sends a rig that offered to lend
-(``session_prepare``, ``tunnel_up``, ``worker_start``, ``head_start``,
-``session_query``, ``session_stop``, ``relay_request``, ``relay_data``,
-``relay_credit``, ``relay_cancel``, the latency probe's ``probe_open`` and
-``probe_run``, and a ride to a shared unit, ``unit_relay_request``) and writes
-the agent's side (``session_prepared``, ``session_status``,
-``tunnel_report``, ``relay_response``, ``relay_data``, ``relay_end``,
-``peer_rtt``, ``probe_opened``, ``probe_result``, and the shared units'
-``unit_advert``).
-
-Reading is the shape and the bounds the schema states, checked here with
-nothing taken on trust: every field is read by name and type (a ``true`` is
-not a number), every string whole against its pattern, every address as an
-address, every list against its bounds and its uniqueness rule. A refusal is
-:class:`mcgyvr.rig.protocol.ProtocolError` with ``bad_message`` naming the
-field, never the value. What a valid command may *mean* on this rig (an
-address it will not reach, a card it does not lend, a model it does not
-have) is not read here; :mod:`mcgyvr.rig.tunnel` and :mod:`mcgyvr.rig.session`
-decide that.
+Every frame is a JSON envelope as defined in `mcgyvr.rig.protocol`. The
+`read_*` functions turn a received envelope into a checked dataclass,
+raising ProtocolError that names the first field which does not fit. The
+builders (`session_prepared`, `tunnel_report`, `probe_result`,
+`session_status`, `relay_*`, `unit_advert`, ...) go the other way: they
+check their arguments with ValueError and return the finished frame text.
+The limits both ends have to agree on live here as module constants.
 """
 
 from __future__ import annotations
@@ -36,7 +23,8 @@ from typing import Any, Literal
 from mcgyvr.rig import protocol
 from mcgyvr.rig.protocol import ErrorCode, ProtocolError
 
-#: The bounds the schema states, by name.
+#: Bounds on the fields read below: how many of each may appear and how
+#: far they may go.
 MAX_ENDPOINTS = protocol.MAX_ENDPOINTS
 MAX_PEERS = 15
 MAX_ALLOWED_IPS = 4
@@ -47,15 +35,15 @@ MAX_CTX = 1 << 20
 MIN_CTX = 256
 MAX_TENSOR_SHARE = 1 << 20
 MAX_GPU_LAYERS = 4096
-#: How many requests a head serves at once: ``head_start``'s ``slots``, each
-#: with ``ctx`` of its own. The hub sends more than one only to an agent that
-#: speaks the ``head_slots`` feature.
+#: Slots are a unit's concurrency budget, one session per slot: MAX_SLOTS is
+#: the most a head may ask for and DEFAULT_SLOTS is what a start request
+#: gets when it leaves the field out.
 MAX_SLOTS = 16
 DEFAULT_SLOTS = 1
-#: The units a host shares with riders (hitchhike, the ``hitchhike_units``
-#: feature): the most one ``unit_advert`` carries; how often, in seconds, the
-#: agent sends one at least; and how old, in seconds, one is when the hub takes
-#: it as withdrawn.
+#: Units advertise themselves so other rigs know what they may ride: an
+#: advert repeats every UNIT_ADVERT_INTERVAL_S and is stale after
+#: UNIT_ADVERT_STALE_S. Keepalives and the GPU layer default follow, next to
+#: the port, log excerpt and relay bounds the ends of a session share.
 MAX_UNITS = 16
 UNIT_ADVERT_INTERVAL_S = 60
 UNIT_ADVERT_STALE_S = 180
@@ -70,12 +58,15 @@ RELAY_MAX_RESPONSE_BYTES = 64 << 20
 RELAY_MAX_WINDOW = 64
 RELAY_MAX_TIMEOUT_S = 3600
 RELAY_MAX_SEQ = 1 << 31
-#: The most a ``relay_end`` reports of either count.
+#: The most prompt or completion tokens a relayed call may report at its end.
 RELAY_MAX_TOKENS = 1 << 31
 MAX_CONTENT_TYPE = 128
-#: The longest base64 text of one relay chunk.
+#: Longest base64 text that still decodes to one relay chunk, rounded up to
+#: whole four-character groups.
 RELAY_MAX_CHUNK_B64 = 4 * -(-RELAY_MAX_CHUNK_BYTES // 3)
-#: The probe's and the traversal's bounds, and their defaults.
+#: STUN-assisted probes: how many STUN endpoints one end may offer, how long
+#: a probe stays open, how many echoes it sends and how far apart, and the
+#: bulk payload and overall deadline used to measure throughput.
 MAX_STUN_ENDPOINTS = 2
 MIN_PROBE_TTL_S = 5
 MAX_PROBE_TTL_S = 120
@@ -94,7 +85,8 @@ MAX_CONNECT_TIMEOUT_S = 300
 MAX_RATE_KBPS = 100_000_000
 MAX_PCT = 100
 
-#: The shapes of the wire's strings, matched whole.
+#: Shapes of the string fields these bodies carry; the ones the rest of the
+#: protocol already defines are reused as they are.
 SESSION_ID = protocol.MESSAGE_ID
 MODEL_NAME = protocol.MODEL_NAME
 DIGEST = protocol.DIGEST
@@ -106,14 +98,14 @@ CONTENT_TYPE = re.compile(
     r"[A-Za-z0-9!#$&^_.+-]+/[A-Za-z0-9!#$&^_.+-]+(; ?[A-Za-z0-9_-]+=[A-Za-z0-9_.-]+)?"
 )
 BASE64 = re.compile(r"[A-Za-z0-9+/]*={0,2}")
-#: A token or a probe secret: 16 random bytes as 32 hex digits.
+#: A 16-byte traversal token, sent as hex in the STUN binding requests.
 TOKEN = re.compile(r"[0-9a-f]{32}")
-#: A relay ticket, opaque to the rig.
+#: The ticket a relay grant carries, which binds a tunnel with the relay.
 TICKET = re.compile(r"[A-Za-z0-9_-]{22,256}")
 
 Role = Literal["head", "worker"]
 ROLES = protocol.ROLES
-#: The states a session is reported in, as the schema lists them.
+#: Session states a status may report, and the outcomes a relayed call ends with.
 STATES = (
     "absent",
     "preparing",
@@ -126,13 +118,13 @@ STATES = (
     "stopped",
 )
 RELAY_OUTCOMES = ("complete", "error", "cancelled", "timeout", "too_large")
-#: The relayed endpoints, and the head's path for each: the only paths the
-#: agent ever asks the head for on a relay.
+#: The endpoints a relayed request may name on the wire, mapped to the path
+#: the relay fetches upstream.
 RELAY_PATHS = {"chat_completions": "/v1/chat/completions"}
 
 
 class SessionCode:
-    """The error codes of session and relay answers, as the hub names them."""
+    """Codes a refusal carries to say why a rig would not take a request."""
 
     BUSY = "busy"
     NOT_CAPABLE = "not_capable"
@@ -149,19 +141,19 @@ class SessionCode:
     MODEL_MISMATCH = "model_mismatch"
     NO_PATH = "no_path"
     UNKNOWN_UNIT = "unknown_unit"
-    #: A head whose load stopped moving.
+    #: The load stopped moving bytes for long enough that the head gave up.
     LOAD_STALLED = "load_stalled"
-    #: A peer whose last path answers a small ping and loses every full-size
-    #: one.
+    #: A path to the peer does exist, but it lost every full-size packet: its
+    #: MTU is too small to carry the tunnel.
     PATH_TOO_NARROW = "path_too_narrow"
 
 
-# --- what the hub sends ----------------------------------------------------------
+# The bodies the rigs exchange, whether read from the wire or built for it.
 
 
 @dataclass(frozen=True, kw_only=True)
 class Endpoint:
-    """A candidate address a tunnel is reached at."""
+    """One address a peer was or might be reached at, and what kind it is."""
 
     host: str
     port: int
@@ -170,7 +162,11 @@ class Endpoint:
 
 @dataclass(frozen=True, kw_only=True)
 class Traversal:
-    """Where a session's binding requests go, and the token they carry."""
+    """What a prepare offers for punching through NAT.
+
+    The token both ends match their packets on, and the STUN endpoints that
+    report the addresses they see.
+    """
 
     token: bytes
     stun: tuple[Endpoint, ...]
@@ -185,7 +181,10 @@ class SessionPrepare:
 
 @dataclass(frozen=True, kw_only=True)
 class RelayGrant:
-    """A relay this rig may fall back to for one peer; ``ticket`` is opaque."""
+    """How to reach a peer through a relay when no direct path works.
+
+    A relay host and port, and the ticket the relay issued for the tunnel.
+    """
 
     host: str
     port: int
@@ -265,8 +264,8 @@ class HeadStart:
     session_id: str
     model: str
     digest: str | None
-    ctx: int  # the context of one slot
-    devices: tuple[LocalDevice | RpcDevice, ...]  # in the hub's order, kept
+    ctx: int  # the context window, in tokens, that each slot gets
+    devices: tuple[LocalDevice | RpcDevice, ...]  # local cards and rpc ends, in order
     tensor_split: tuple[int, ...]
     n_gpu_layers: int
     slots: int = DEFAULT_SLOTS
@@ -297,8 +296,7 @@ class RelayRequest:
 
 @dataclass(frozen=True, kw_only=True)
 class UnitRelayRequest:
-    """A ride: a ``relay_request`` aimed at a unit this host shares, named by
-    the ``unit_id`` its advert gave it, in place of a session."""
+    """A relayed call aimed at a unit, which the relay reaches at its URL."""
 
     unit_id: str
     request_id: str
@@ -330,7 +328,7 @@ class RelayCancel:
 
 
 class _Body:
-    """One body read field by field; a refusal names the field."""
+    """A body being read, which refuses a bad field with a ProtocolError."""
 
     def __init__(self, body: Mapping[str, Any], at: str, re_id: str) -> None:
         self._body = body
@@ -430,9 +428,7 @@ def _endpoints(body: _Body, field: str) -> tuple[Endpoint, ...]:
 
 
 def _slots(body: _Body) -> int:
-    """``slots`` of ``body``: how many requests a unit serves at once, 1 to
-    :data:`MAX_SLOTS`, :data:`DEFAULT_SLOTS` when it is left out. One reading
-    for every message that carries it."""
+    """Read the optional slots field, defaulting to one slot."""
     return body.number("slots", 1, MAX_SLOTS, default=DEFAULT_SLOTS)
 
 
@@ -445,7 +441,7 @@ def _token(body: _Body, field: str) -> bytes:
 
 
 def read_session_prepare(envelope: protocol.Envelope) -> SessionPrepare:
-    """The ``session_prepare`` in ``envelope``, or :class:`ProtocolError`."""
+    """Read a session_prepare body: who asks, and the traversal offered."""
     body = _start(envelope)
     role = body.one_of("role", ROLES)
     traversal = None
@@ -463,7 +459,7 @@ def read_session_prepare(envelope: protocol.Envelope) -> SessionPrepare:
 
 
 def read_tunnel_up(envelope: protocol.Envelope) -> TunnelUp:
-    """The ``tunnel_up`` in ``envelope``, or :class:`ProtocolError`."""
+    """Read a tunnel_up body: the head's address, port and peers to reach."""
     body = _start(envelope)
     session_id = body.text("session_id", SESSION_ID)
     address = _cidr(body.text("address", IPV4_CIDR))
@@ -521,7 +517,7 @@ def read_tunnel_up(envelope: protocol.Envelope) -> TunnelUp:
 
 
 def read_worker_start(envelope: protocol.Envelope) -> WorkerStart:
-    """The ``worker_start`` in ``envelope``, or :class:`ProtocolError`."""
+    """Read a worker_start body: which cards, on which ports, to serve."""
     body = _start(envelope)
     session_id = body.text("session_id", SESSION_ID)
     cards = []
@@ -539,7 +535,11 @@ def read_worker_start(envelope: protocol.Envelope) -> WorkerStart:
 
 
 def read_head_start(envelope: protocol.Envelope) -> HeadStart:
-    """The ``head_start`` in ``envelope``, or :class:`ProtocolError`."""
+    """Read a head_start body: the model, its devices and its slots.
+
+    Context is the window each slot gets; tensor_split holds one share per
+    device and must not sum to zero.
+    """
     body = _start(envelope)
     session_id = body.text("session_id", SESSION_ID)
     model = body.nested("model", body.raw("model"))
@@ -597,13 +597,13 @@ def read_head_start(envelope: protocol.Envelope) -> HeadStart:
 
 
 def read_session_query(envelope: protocol.Envelope) -> SessionQuery:
-    """The ``session_query`` in ``envelope``, or :class:`ProtocolError`."""
+    """Read a session_query body: the session being asked about."""
     body = _start(envelope)
     return SessionQuery(session_id=body.text("session_id", SESSION_ID))
 
 
 def read_session_stop(envelope: protocol.Envelope) -> SessionStop:
-    """The ``session_stop`` in ``envelope``, or :class:`ProtocolError`."""
+    """Read a session_stop body: the session to stop, and why."""
     body = _start(envelope)
     return SessionStop(
         session_id=body.text("session_id", SESSION_ID),
@@ -612,7 +612,7 @@ def read_session_stop(envelope: protocol.Envelope) -> SessionStop:
 
 
 def read_probe_open(envelope: protocol.Envelope) -> ProbeOpen:
-    """The ``probe_open`` in ``envelope``, or :class:`ProtocolError`."""
+    """Read a probe_open body: the probe, its token, STUN endpoints and ttl."""
     body = _start(envelope)
     stun = _endpoints(body, "stun")
     if len(stun) > MAX_STUN_ENDPOINTS:
@@ -628,7 +628,7 @@ def read_probe_open(envelope: protocol.Envelope) -> ProbeOpen:
 
 
 def read_probe_run(envelope: protocol.Envelope) -> ProbeRun:
-    """The ``probe_run`` in ``envelope``, or :class:`ProtocolError`."""
+    """Read a probe_run body: the peers to echo with and how hard to hit them."""
     body = _start(envelope)
     peers = []
     for item in body.items("peers", 1, MAX_PEERS):
@@ -666,7 +666,7 @@ def read_probe_run(envelope: protocol.Envelope) -> ProbeRun:
 
 
 def _relayed(body: _Body) -> dict[str, Any]:
-    """The fields a relay and a ride share, read one way for both."""
+    """Read the fields a relay_request and a unit_relay_request share."""
     return {
         "request_id": body.text("request_id", protocol.MESSAGE_ID),
         "endpoint": body.one_of("endpoint", tuple(RELAY_PATHS)),
@@ -681,7 +681,7 @@ def _relayed(body: _Body) -> dict[str, Any]:
 
 
 def read_relay_request(envelope: protocol.Envelope) -> RelayRequest:
-    """The ``relay_request`` in ``envelope``, or :class:`ProtocolError`."""
+    """Read a relay_request body: the session, plus the relayed fields."""
     body = _start(envelope)
     return RelayRequest(
         session_id=body.text("session_id", SESSION_ID), **_relayed(body)
@@ -689,7 +689,7 @@ def read_relay_request(envelope: protocol.Envelope) -> RelayRequest:
 
 
 def read_unit_relay_request(envelope: protocol.Envelope) -> UnitRelayRequest:
-    """The ``unit_relay_request`` in ``envelope``, or :class:`ProtocolError`."""
+    """Read a unit_relay_request body: the unit, plus the relayed fields."""
     body = _start(envelope)
     return UnitRelayRequest(
         unit_id=body.text("unit_id", protocol.MESSAGE_ID), **_relayed(body)
@@ -697,7 +697,7 @@ def read_unit_relay_request(envelope: protocol.Envelope) -> UnitRelayRequest:
 
 
 def read_relay_data(envelope: protocol.Envelope) -> RelayData:
-    """The ``relay_data`` in ``envelope``, or :class:`ProtocolError`."""
+    """Read a relay_data body: one base64 chunk of a body being sent."""
     body = _start(envelope)
     request_id = body.text("request_id", protocol.MESSAGE_ID)
     seq = body.number("seq", 0, RELAY_MAX_SEQ)
@@ -718,7 +718,7 @@ def read_relay_data(envelope: protocol.Envelope) -> RelayData:
 
 
 def read_relay_credit(envelope: protocol.Envelope) -> RelayCredit:
-    """The ``relay_credit`` in ``envelope``, or :class:`ProtocolError`."""
+    """Read a relay_credit body: how many more chunks the sender may push."""
     body = _start(envelope)
     return RelayCredit(
         request_id=body.text("request_id", protocol.MESSAGE_ID),
@@ -727,7 +727,7 @@ def read_relay_credit(envelope: protocol.Envelope) -> RelayCredit:
 
 
 def read_relay_cancel(envelope: protocol.Envelope) -> RelayCancel:
-    """The ``relay_cancel`` in ``envelope``, or :class:`ProtocolError`."""
+    """Read a relay_cancel body: the request to drop, and why."""
     body = _start(envelope)
     return RelayCancel(
         request_id=body.text("request_id", protocol.MESSAGE_ID),
@@ -735,7 +735,7 @@ def read_relay_cancel(envelope: protocol.Envelope) -> RelayCancel:
     )
 
 
-# --- what the agent sends ---------------------------------------------------------
+# Building frames: check what we were given, then wrap it in an envelope.
 
 
 def _need(ok: bool, why: str) -> None:
@@ -759,7 +759,7 @@ def _frame(kind: str, body: dict[str, Any], re: str | None) -> str:
 
 
 def endpoint_body(endpoint: Endpoint) -> dict[str, Any]:
-    """An endpoint as the wire carries it; ``ValueError`` if it is not one."""
+    """Check one endpoint and return it in the shape a body carries it."""
     _need(bool(HOST.fullmatch(endpoint.host)), "endpoints: a host not of its shape")
     _need(1 <= endpoint.port <= MAX_PORT, "endpoints: a port that is not one")
     _need(bool(protocol.TAG.fullmatch(endpoint.kind)), "endpoints: a kind not a tag")
@@ -779,7 +779,7 @@ def session_prepared(
     endpoints: Sequence[Endpoint],
     stun_rtt_us: int | None = None,
 ) -> str:
-    """The ``session_prepared`` answering ``re``."""
+    """Build a session_prepared reply: the head's key, port and endpoints."""
     _need(bool(SESSION_ID.fullmatch(session_id)), "session_id: not a session id")
     _need(bool(WIREGUARD_KEY.fullmatch(public_key)), "public_key: not a key")
     _need(1 <= listen_port <= MAX_PORT, "listen_port: not a port")
@@ -798,8 +798,11 @@ def session_prepared(
 
 @dataclass(frozen=True, kw_only=True)
 class PeerPath:
-    """How this rig reaches one peer: ``path`` is ``lan``, ``ipv6``,
-    ``direct``, ``relay`` or ``none``."""
+    """How one peer of a session was reached.
+
+    The path that worked (or "none"), the endpoint it was reached at and the
+    round trip seen there.
+    """
 
     rig_id: str
     path: str
@@ -808,7 +811,7 @@ class PeerPath:
 
 
 def tunnel_report(re: str | None, *, session_id: str, peers: Sequence[PeerPath]) -> str:
-    """The ``tunnel_report`` answering ``tunnel_up`` ``re``, or unprompted."""
+    """Build a tunnel_report: the path found to each peer of the session."""
     _need(bool(SESSION_ID.fullmatch(session_id)), "session_id: not a session id")
     _need(1 <= len(peers) <= MAX_PEERS, f"peers: not 1 to {MAX_PEERS}")
     _need(len({p.rig_id for p in peers}) == len(peers), "peers: a rig twice")
@@ -833,7 +836,7 @@ def probe_opened(
     endpoints: Sequence[Endpoint],
     stun_rtt_us: int | None,
 ) -> str:
-    """The ``probe_opened`` answering ``probe_open`` ``re``."""
+    """Build a probe_opened reply: its endpoints and the STUN round trip."""
     _need(bool(protocol.MESSAGE_ID.fullmatch(probe_id)), "probe_id: not an id")
     _need(len(endpoints) <= MAX_ENDPOINTS, f"endpoints: more than {MAX_ENDPOINTS}")
     _rtt(stun_rtt_us, "stun_rtt_us")
@@ -848,7 +851,7 @@ def probe_opened(
 
 @dataclass(frozen=True, kw_only=True)
 class ProbeOutcome:
-    """What a probe found of one peer."""
+    """What a probe measured for one peer, and how well it answered."""
 
     rig_id: str
     reached: bool
@@ -860,7 +863,7 @@ class ProbeOutcome:
 
 
 def probe_result(re: str, *, probe_id: str, results: Sequence[ProbeOutcome]) -> str:
-    """The ``probe_result`` answering ``probe_run`` ``re``."""
+    """Build a probe_result: what the probe measured, peer by peer."""
     _need(bool(protocol.MESSAGE_ID.fullmatch(probe_id)), "probe_id: not an id")
     _need(len(results) <= MAX_PEERS, f"results: more than {MAX_PEERS}")
     _need(len({r.rig_id for r in results}) == len(results), "results: a rig twice")
@@ -889,8 +892,7 @@ def probe_result(re: str, *, probe_id: str, results: Sequence[ProbeOutcome]) -> 
 
 
 def scrub(text: str) -> str:
-    """``text`` with control characters and bidirectional overrides replaced,
-    newlines and tabs kept, cut to the longest log excerpt."""
+    """Keep only printable characters, and only the tail that fits the cap."""
     kept = "".join(
         char
         if char in "\n\t" or protocol.CARD_NAME.fullmatch(char)
@@ -910,7 +912,7 @@ def session_status(
     progress_pct: int | None = None,
     log_excerpt: str = "",
 ) -> str:
-    """A ``session_status``, answering ``re`` or unprompted."""
+    """Build a session_status: the state, plus role, error, progress and log."""
     _need(bool(SESSION_ID.fullmatch(session_id)), "session_id: not a session id")
     _need(state in STATES, "state: not a session state")
     body: dict[str, Any] = {"session_id": session_id, "state": state}
@@ -929,7 +931,7 @@ def session_status(
 
 
 def relay_response(request_id: str, *, status: int, content_type: str) -> str:
-    """The ``relay_response`` that opens a relayed answer."""
+    """Build a relay_response: the status and content type answered with."""
     _need(bool(protocol.MESSAGE_ID.fullmatch(request_id)), "request_id: not an id")
     _need(100 <= status <= 599, "status: not an HTTP status")
     _need(
@@ -945,7 +947,7 @@ def relay_response(request_id: str, *, status: int, content_type: str) -> str:
 
 
 def relay_data(request_id: str, *, seq: int, data: bytes) -> str:
-    """One ``relay_data`` frame of the relayed answer."""
+    """Build a relay_data: one base64 chunk of a relayed response body."""
     _need(bool(protocol.MESSAGE_ID.fullmatch(request_id)), "request_id: not an id")
     _need(0 <= seq <= RELAY_MAX_SEQ, "seq: out of bounds")
     _need(0 < len(data) <= RELAY_MAX_CHUNK_BYTES, "data: not one chunk")
@@ -967,10 +969,7 @@ def relay_end(
     error_code: str | None = None,
     made: tuple[int, int] | None = None,
 ) -> str:
-    """The one ``relay_end`` of a relayed request. ``made`` is what the rig
-    made before it stopped, as its model server counted it: the prompt's
-    tokens and the tokens generated (``tokens_in``, ``tokens_out``; both or
-    neither, and a hub that does not know them reads past them)."""
+    """Build a relay_end: how a relayed call finished and what it cost."""
     _need(bool(protocol.MESSAGE_ID.fullmatch(request_id)), "request_id: not an id")
     _need(outcome in RELAY_OUTCOMES, "outcome: not a relay outcome")
     body: dict[str, Any] = {"request_id": request_id, "outcome": outcome}
@@ -987,7 +986,7 @@ def relay_end(
 
 
 def peer_rtt(samples: Sequence[tuple[str, int]]) -> str:
-    """A ``peer_rtt`` of ``(rig_id, rtt_us)`` samples."""
+    """Build a peer_rtt: the round trips measured to each peer."""
     _need(1 <= len(samples) <= MAX_RTT_SAMPLES, "samples: not 1 to 32")
     body = []
     for rig_id, rtt_us in samples:
@@ -999,16 +998,10 @@ def peer_rtt(samples: Sequence[tuple[str, int]]) -> str:
 
 @dataclass(frozen=True, kw_only=True)
 class AdvertisedUnit:
-    """One unit a host shares with riders, as its advert says it.
+    """A unit this rig offers to riders.
 
-    ``slots`` is how many requests the unit serves at once and ``ctx`` the
-    context of each; ``free_slots`` the slots the host's own requests leave
-    free now (the rides it serves are not taken off); ``rider_cap`` the most
-    rides at once the host allows, below ``slots``, so rides alone never fill
-    a unit. The host's own requests go first, and a free slot is enough: a
-    unit takes a ride while one of its slots is free and fewer than
-    ``rider_cap`` rides run on it; no slot is kept free for the host beyond
-    that.
+    What it serves, how many slots it has, how much context, how much room
+    is left and how many riders it will take.
     """
 
     unit_id: str
@@ -1024,8 +1017,7 @@ def _whole(value: object, low: int, high: int) -> bool:
 
 
 def unit_advert(units: Sequence[AdvertisedUnit]) -> str:
-    """The ``unit_advert`` of every unit the host shares, the whole set: an
-    empty one withdraws them all. ``ValueError`` for one the schema refuses."""
+    """Build a unit_advert: one entry per unit this rig offers riders."""
     _need(len(units) <= MAX_UNITS, f"units: more than {MAX_UNITS}")
     _need(len({unit.unit_id for unit in units}) == len(units), "units: an id twice")
     _need(len({unit.model for unit in units}) == len(units), "units: a model twice")
@@ -1061,10 +1053,10 @@ def unit_advert(units: Sequence[AdvertisedUnit]) -> str:
 
 
 def ack(re: str) -> str:
-    """The ``ack`` of a command done, or accepted: ``re`` is the command's id."""
+    """Build an ack for the message being answered."""
     return _frame("ack", {}, re)
 
 
 def refusal(re: str, code: str, message: str) -> str:
-    """The ``error`` refusing command ``re`` with ``code``."""
+    """Build an error frame refusing the message being answered."""
     return protocol.error(protocol.new_id(), code=code, message=message, re=re)

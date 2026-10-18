@@ -1,41 +1,35 @@
-"""One definition of "safe to quote", for the strings that reach an operator.
+"""What is safe to quote to an operator.
 
-A URL is the project's only structure that can carry a credential inside a
-value that is otherwise fine to print. ``https://user:key@host`` appears in
-transport errors, probe verdicts, telemetry rows and ``mcgyvr local_pool``, and
-each of those is a sink an operator reads, pastes into an issue, or ships to a
-log collector.
+One shape of credential is removed here: the userinfo of a URL, the
+``user:token@`` part that a model endpoint's address tends to carry.
+``safe_url`` redacts a single URL by parsing it into its parts and rebuilding it
+without the userinfo, so an address can still name its host in a message.
+``scrub`` redacts the same thing by pattern in free text — a prompt, a reply, an
+exception's message, an environment value — where the URL is a fragment of a
+larger string and there is nothing to parse.
 
-:func:`~mcgyvr.config._refuse_userinfo` stops such a URL entering the config at
-all, which is the fix that scales: a value that cannot exist cannot be printed.
-This module is the second line, for the paths a URL can reach without passing
-through the loader — a caller constructing an :class:`~mcgyvr.local_pool.Endpoint`
-directly, a test, a future direct-mode API. Two lines rather than one because
-the first is a validator in another module, and a docstring in *this* one that
-claims "no message interpolates a credential" should be true of the code under
-it rather than of a check three imports away.
-
-Lives at the top level, beside :mod:`mcgyvr.lines`, and for the same reason:
-the alternative to one definition is several.
-"""
+Neither function alters a URL that has no userinfo, so a caller can compare the
+result with its argument to ask whether a credential was present."""
 
 from __future__ import annotations
 
 import re
 import urllib.parse
 
-#: What a redacted userinfo section is replaced with. Kept recognisable rather
-#: than blanked: an operator debugging a 401 needs to see that the URL carried
-#: credentials at all, which is often the answer.
+#: What a removed userinfo is replaced with. Bracketed and spelled out rather
+#: than emptied, so a reader of a message can see that something was dropped and
+#: can still read the host, port and path that were kept.
 REDACTED = "<redacted>"
 
 
 def safe_url(url: str) -> str:
-    """``url`` with any userinfo replaced, ready to put in a message.
+    """``url`` with the userinfo in it replaced by ``REDACTED``.
 
-    Returns the input unchanged when there is nothing to redact, which is every
-    URL the config will load — so this costs a parse on the error path and
-    changes nothing an operator normally reads.
+    The address is split on its last ``@``: everything before it is the
+    userinfo and goes, everything after it is host, port, path, query and
+    fragment, and those are carried through unchanged, so the result is still
+    an address a reader can follow. A URL with no ``@`` in its netloc has no
+    userinfo to remove and is returned exactly as given.
     """
     parts = urllib.parse.urlsplit(url)
     _, at, hostport = parts.netloc.rpartition("@")
@@ -52,21 +46,20 @@ def safe_url(url: str) -> str:
     )
 
 
-#: A URL with userinfo, anywhere inside a longer string. Deliberately narrow:
-#: this runs over exception text an operator needs to read, and a scrubber that
-#: guessed at credential shapes would eat the diagnostic it was meant to
-#: preserve. The one shape it does know is the one the project can actually
-#: produce — a credentialed URL travelling inside a message.
+#: Every ``scheme://userinfo@`` in free text: the scheme is the RFC 3986 shape
+#: and must start at a word boundary, and the userinfo runs up to the next ``@``,
+#: ``/`` or whitespace, so a match cannot run past the authority into the path.
+#: A pattern rather than a parse, because the URL being redacted is a fragment of
+#: a sentence, a log line or a JSON string and there is nothing to parse around.
 _URL_WITH_USERINFO = re.compile(r"\b([a-zA-Z][a-zA-Z0-9+.-]*://)([^\s/@]+)@")
 
 
 def scrub(text: str) -> str:
-    """``text`` with any credentialed URL inside it redacted.
+    """``text`` with the userinfo of every URL in it replaced by ``REDACTED``.
 
-    For sinks that quote a string they did not build — telemetry's
-    ``error_detail`` is the case this exists for, where the value is an
-    arbitrary exception's ``str()`` and the module writing it cannot know what
-    produced it. Every deliberate quoting of a URL should use :func:`safe_url`
-    on the URL itself instead; this is what catches the ones that did not.
+    Everything else in the string is passed through, including the rest of each
+    URL, so the text keeps its shape and stays readable. Text with no
+    credentialed URL comes back unchanged, which is how callers test for one:
+    a value this had to alter is a value holding a secret.
     """
     return _URL_WITH_USERINFO.sub(rf"\1{REDACTED}@", text)

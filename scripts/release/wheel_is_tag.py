@@ -3,11 +3,11 @@
 
     python scripts/release/wheel_is_tag.py v0.1.0 dist/mcgyvr-0.1.0-py3-none-any.whl
 
-The release workflow runs this between `uv build` and `gh release create`.
-A mismatch is a tag on the wrong commit, or a build that read something
-other than the tag, and a product that says one version while its tag says
-another is the thing the release exists to make impossible. Compared as
-versions and not as strings: a wheel's filename is PEP 440-normalised, so
+The release workflow runs this after `uv build`, before the release is
+published. A mismatch is a tag on the wrong commit, or a build that read
+something other than the tag, and a product that says one version while its
+tag says another is the thing the release exists to make impossible. Compared
+as versions and not as strings: a wheel's filename is PEP 440-normalised, so
 `v0.1.0-rc1` builds `mcgyvr-0.1.0rc1-…` and the two are the same version.
 """
 

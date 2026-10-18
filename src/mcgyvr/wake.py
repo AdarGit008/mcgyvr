@@ -1,58 +1,25 @@
-"""A card that is down and has a launch spec is asleep, and asleep is not a decline.
+"""Sleep, wake and stop the cards a ladder's units are served from.
 
-Three neighbours already answer liveness questions and none of them answers
-this one.
+A card is one host and every rung it serves. What can be done to it depends on
+the config and on the launch spec `mcgyvr emit` wrote into
+`serving.compose_dir`: `up` starts the units that are meant to be awake, `down`
+stops them, `sleep` asks the card's vLLM units to sleep at level 2 (weights and
+cache leave the card, its process stays) and `wake` brings slept units back. A
+card that is down is gone, while one that is sleeping is resting with its
+process still running: which of the two it is decides `up` from `wake`.
 
-* :mod:`mcgyvr.cooldown` is failure-driven and its outcome is a **decline**:
-  after consecutive dispatch failures ``drive`` declines a rung on that source
-  (``Verdict.DECLINED``) until the cooldown ends. A sleeping card must wake, not
-  step aside.
-* :mod:`mcgyvr.availability` is liveness-driven and reads a sleeping rig as
-  **down**, correctly on its own terms — nothing is listening — and with the
-  wrong consequence.
-* :mod:`mcgyvr.capacity` bounds a wait for a *slot* on a server that exists.
+A sleeping card keeps no record of its own that can be asked, so two small
+records are kept in a per-user directory under the temp dir: how long the last
+`up` on a card took, which is what the next wake is measured against, and one
+mark per port saying that unit is resting rather than stopped, which is what
+decides `wake` from `up`. Both are read and written only in a directory this
+user owns and nobody else may write, and a record that cannot be read is simply
+no record.
 
-So ``asleep`` is not a fourth state to store. It is ``down`` plus one more fact
-mcgyvr already holds: **a launch spec it wrote for that card**::
-
-    up      the unit answers                          -> dispatch, unchanged
-    asleep  it does not answer, and this config's
-            serving.compose_dir holds a file for it   -> wake, then dispatch
-    down    it does not answer, and there is no
-            such file                                 -> availability's DOWN
-
-There is no state machine, no field to keep in sync with a rig and no third
-liveness module. The distinction that matters to a caller — *can mcgyvr bring
-this back?* — is answered by *does mcgyvr have the file?*, which is answerable
-without touching the network. It degrades honestly by construction: an api
-source has no compose file and is never asleep, a rig somebody else runs has no
-compose file and is never asleep, and a config with no ``serving.compose_dir``
-has no sleeping cards at all.
-
-**Fail-first, never probe-first.** A card that is up must cost nothing extra, so
-this module does not ask whether a rig is awake before sending work. It sends
-the work. A sleeping rig has nothing listening, so the connection is refused in
-under a millisecond and **that instant refusal is the wake signal**. A
-probe-first design would pay a round trip on every dispatch to learn something
-the dispatch itself reports for free, which is the cost
-:mod:`mcgyvr.availability` exists to avoid, re-added per request.
-
-**One door and nothing else.** A wake is
-``python -m mcgyvr.serving.run serve up --host H --compose FILE --suffix S``,
-spawned as a subprocess, and a sleep is the same with ``down``. The ladder
-manager also uses ``sleep`` and ``wake``, vLLM's level 2 and its way back,
-where the process stays up (see :class:`CardSwitches` and :func:`resting`),
-and ``up``/``down --unit`` to start and stop one llama.cpp unit of a card
-alone, the swap's wake and sleep.
-Nothing here
-runs ``docker`` or ``ssh``: under the door those two names resolve to shims that
-"admit exactly the host the door was opened for and refuse any process the door
-did not start" (:mod:`mcgyvr.serving.run`), and ``tests/test_one_door.py`` bans
-the way round it. :func:`spawn_door` is therefore the whole of this module's
-contact with a machine, which is what lets a test own all of it.
-
-The design is the lab's sleep-wake plan, approved; the budget argument is the
-lab's wake-timeout plan.
+Every action is one door run per card — `python -m mcgyvr.serving.run serve
+<direction> ...` — and the exit code it answers with is the answer. `Waker`
+turns a refused connection into one wake per card; `CardSwitches` is what the
+ladder manager sleeps, wakes and makes room with.
 """
 
 from __future__ import annotations
@@ -79,38 +46,32 @@ from mcgyvr.serving import DEFAULT_ENGINE, Card, cards, host_of, port_of
 if TYPE_CHECKING:  # pragma: no cover - typing only
     from mcgyvr.scan import Scan
 
-# The module the door is spelled as -- an ``-m`` and never a path, because the
-# door mints its own ``RUN_*`` vocabulary, refuses to start under an inherited
-# one and files write-once evidence under its own envelope, so a wake that
-# reached a rig any other way would be the second way in that
-# ``src/mcgyvr/serving/run.py`` says the seal is against.
-#
-# Imported rather than restated: two spellings of one door is a door that can
-# be half-renamed. `gatelib` is the definition and this is the reader.
+# The door: one process per card, run as `python -m mcgyvr.serving.run serve
+# <up|down|sleep|wake> --host H --compose <spec> [--suffix S] [--unit C ...]`.
+# DOOR_MODULE is the module spawned below and the one the "name the file
+# yourself" message tells a person to run; NO_SLEEP_ROUTE is the exit code a
+# `sleep` run answers with when a unit on the card has no sleep route, which
+# means the card can only be stopped. Both names are taken from here so this
+# file never spells the door's module again, and so the exit code the fallback
+# in `put_down` depends on is the one the gate scripts themselves return.
 from mcgyvr.serving.gatelib import DOOR_MODULE, NO_SLEEP_ROUTE
 
-#: What one dispatch answers with. Named so that :meth:`Waker.dispatching`
-#: hands back exactly what the call it wrapped would have, which is what lets it
-#: sit inside `drive` without `drive` learning anything about wakes.
+#: The answer of whatever is being sent through `Waker.dispatching`: a draw or a
+#: read, sent again after a wake, and always of the type it would have been
+#: without the wake, since the caller is handed the send's own value back.
 Answer = TypeVar("Answer")
 
 
 class WakeError(Exception):
-    """A card could not be woken or slept, and the reason is worth reading."""
+    """A card cannot be slept or woken, and the message says what is missing."""
 
 
 def spawn_door(argv: Sequence[str], **kwargs: object) -> int:
-    """Run the door to completion and return its exit code.
+    """Run the door with this argv and answer with the exit code it left.
 
-    The one seam. It is a module-level function rather than a method so that a
-    test can substitute it with one ``monkeypatch.setattr`` and thereby own
-    every path from this module to a machine — which is the property D3 buys by
-    refusing to let anything here run ``docker`` or ``ssh`` directly.
-
-    Output is inherited rather than captured: the door writes its own evidence
-    envelope and its refusals are worth reading verbatim, and a wake that
-    swallowed "no run root, refusing before gate 1" would silently decline a
-    rung on an install that simply cannot wake a card.
+    `check=False` keeps a non-zero code an answer rather than an exception: a
+    door that could not sleep a card says so with its code. Any `kwargs` are
+    handed to `subprocess.run` unchanged.
     """
     done = subprocess.run(list(argv), check=False, **kwargs)  # type: ignore[call-overload]
     code: int = done.returncode
@@ -125,16 +86,12 @@ def door_argv(
     suffix: str,
     units: Sequence[str] = (),
 ) -> tuple[str, ...]:
-    """The one command a wake or a sleep is.
+    """The command line of one door run.
 
-    ``--suffix`` is not optional and is not cosmetic. Gate 5 claims the
-    ``RUN_ID`` with ``O_CREAT | O_EXCL`` and refuses a second run that mints the
-    same one, so without a suffix two wakes on one day collide with each other
-    and with an operator's hand-run ``serve up``. It is derived from the waker's
-    pid and clock, so every wake gets an envelope of its own.
-
-    ``units`` names the containers a ``sleep`` or ``wake`` acts on alone
-    (``--unit``), the rest of the card left as it is; empty is the whole card.
+    This interpreter and the door module, then `serve` and the direction, then
+    the host, the launch spec, a suffix naming the run and one `--unit` pair per
+    container the run is to act on. The suffix and the units are what this side
+    chooses; the direction is the verb the caller asked for.
     """
     return (
         sys.executable,
@@ -153,20 +110,22 @@ def door_argv(
 
 
 def _suffix() -> str:
-    """A RUN_ID suffix no other wake on this host will mint.
+    """A suffix that tells this door run from another re-run of it.
 
-    Only ``[A-Za-z0-9_.-]`` — gate 5 requires it because the id prefixes
-    container names.
+    The pid and the millisecond clock, so two runs in a row do not share a
+    RUN_ID and one run's record is not written over another's.
     """
     return f"wake-{os.getpid()}-{int(time.monotonic() * 1000) % 1_000_000}"
 
 
 @dataclass(frozen=True)
 class Wake:
-    """What one door run cost, beside what the last wake of this card cost.
+    """What one door run did, as the caller is told it.
 
-    ``predicted_s`` is carried as data and nothing here compares the two — see
-    :func:`predicted_wake_s` and :attr:`deviation`.
+    `seconds` is how long the run took and `predicted_s` the number the clock
+    directory held before it started, which is the last wake's timing and never
+    this one's. `code` is the door's exit code, `direction` the verb it ran, and
+    `ports` the ports of the rungs the run acted on.
     """
 
     host: str
@@ -175,8 +134,8 @@ class Wake:
     seconds: float
     predicted_s: float | None
     code: int
-    #: The ports of the units this run acted on: the whole card's, or the one
-    #: unit a ``--unit`` sleep or wake named.
+    #: The ports of the rungs the run acted on: every rung of the card, or only
+    #: the ones named with --unit, and what the resting marks are kept by.
     ports: tuple[int, ...] = ()
 
     @property
@@ -185,43 +144,31 @@ class Wake:
 
     @property
     def deviation(self) -> str | None:
-        """Always ``None``: this module holds no rule that judges a wake."""
+        """How far the run's `seconds` fell from its `predicted_s`, or None.
+
+        Nothing here works that gap out yet, so this is always None and the
+        warning `_run_door` would print is never printed.
+        """
         return None
 
 
 def _clock_dir() -> Path:
-    """Where this host keeps what it has learned about its own wakes.
+    """The per-user directory the wake records are kept in.
 
-    Beside the capacity rendezvous directory and keyed by uid for the same
-    reason D7 gives: twenty ``mcgyvr run`` processes have twenty memories and
-    one filesystem, and a record that lived in memory would be a record the
-    next run could not read. Nothing here is a lock and nothing here is
-    authoritative — it is one number per card, and a missing or unreadable file
-    means the card has no history, which is the ordinary state on the first
-    wake after an install.
+    One per uid under the temp dir, so two users running the same ladder do not
+    read or write each other's record, and every process of one user agrees on
+    where the record is.
     """
     return Path(tempfile.gettempdir()) / f"mcgyvr-wake-{os.getuid()}"
 
 
 def _ours(where: Path) -> bool:
-    """Whether this directory is one only this user can have put anything in.
+    """True when `where` is a directory this user owns outright.
 
-    ``/tmp/mcgyvr-wake-<uid>/`` is a predictable path in a world-writable
-    directory, so the first process to create it wins the name — and
-    ``mkdir(exist_ok=True)`` adopts whatever is there, including a directory
-    another local user made, and including a symlink pointing somewhere else
-    entirely.
-
-    Nothing in this cache is secret. What is at stake is that the number in it
-    is read back and printed to an operator as what the card did last time, and
-    that a wake writes into the directory afterwards. So it is used only when it
-    is a real directory, owned by this user, and writable by nobody else — the
-    conditions ``mkdir(mode=0o700)`` establishes when we are the one who made
-    it. Anything else degrades to no history, which is free: it is the ordinary
-    state of the first wake after an install.
-
-    ``lstat`` and not ``stat``, because a symlink is precisely the case a
-    ``stat`` would follow into and approve.
+    `lstat`, so a symlink does not pass for the directory it points at. It has
+    to be a directory, owned by this uid, and not writable by group or other: a
+    path another local user could have got to first is not read from, and
+    nothing is written into it.
     """
     try:
         found = os.lstat(where)
@@ -243,29 +190,14 @@ def _safe(host: str) -> str:
 
 
 def predicted_wake_s(card: Card) -> float | None:
-    """How long this card took to wake last time, or ``None`` the first time.
+    """What the last `up` on this card took, in seconds, or None.
 
-    **The last actual is the prediction; no curve is fitted** (why: the lab's
-    wake-timeout plan, §4).
-
-    **It never shortens or aborts a wake.** It is recorded on the :class:`Wake`
-    and nothing acts on it: the door's own health poll
-    (``mcgyvr.config.HEALTH_POLLS`` x ``HEALTH_INTERVAL_S``) is what gives up.
-
-    **Every way of not being a number is no prediction, and none of them is an
-    exception.** This function must be unable to stop a wake, and a raise stops
-    one — :func:`_run_door` calls this *before* it spawns the door, so an
-    ``AttributeError`` here is a card that never comes back for a rung that is
-    queued on it. What is on the other end is a file in a temporary directory
-    written by a process that may have been killed halfway through it, so JSON
-    ``null``, a list, a number, a string, half a document and a file of bytes
-    that are not text are all things that have to arrive as ``None``. The read
-    catches ``ValueError`` as well as ``OSError`` because a file that is not
-    UTF-8 raises ``UnicodeDecodeError`` out of ``read_text``, which is neither
-    an ``OSError`` nor something ``json`` ever sees.
-
-    A boolean is not a number of seconds either, however much
-    ``isinstance(True, int)`` says otherwise.
+    The number comes from the record in the clock directory. It is None when
+    this user has no clock directory, the file is missing or unreadable, it is
+    not a JSON object, or its `seconds` is not a finite number — a bool is
+    turned away too, though `isinstance` would have it as an int. Every failure
+    degrades to no prediction, because a prediction may never shorten or abort a
+    wake.
     """
     where = _clock_dir()
     if not _ours(where):
@@ -283,22 +215,18 @@ def predicted_wake_s(card: Card) -> float | None:
     seconds = said.get("seconds")
     if isinstance(seconds, bool) or not isinstance(seconds, (int, float)):
         return None
-    # `NaN` and `inf` are JSON that `json` accepts and not a number of seconds.
+    # `isinstance(True, int)` holds, so a bool is turned away above, not read as 1.0
     number = float(seconds)
     return number if math.isfinite(number) else None
 
 
 def _remember(made: Wake) -> None:
-    """Write down what this wake actually cost, for the next one to carry.
+    """Write down how long a successful `up` took, as the next wake's yardstick.
 
-    Best-effort and silent on failure: a wake that landed must not be reported
-    as failed because a temporary directory was not writable, and the only thing
-    lost is the next wake's ``predicted_s``.
-
-    ``mode=0o700`` on the directory, and :func:`_ours` before writing into one
-    that already exists. ``mkdir(exist_ok=True)`` on a predictable path under
-    ``/tmp`` adopts whatever another local user put there first, symlink
-    included, and this is the write that would then land in it.
+    Only `up` is recorded: a `sleep`, a `wake` or a `down` says nothing about
+    how long coming up takes. The directory is made 0o700 and written into only
+    when it is ours. Every failure is dropped — a record is not worth a wake,
+    and a wake with no record simply has no prediction.
     """
     if not made.ok or made.direction != "up":
         return
@@ -320,23 +248,12 @@ def _rest_mark(host: str, port: int) -> Path:
 
 
 def resting(host: str, port: int | None = None) -> bool:
-    """Whether mcgyvr put a unit on ``host`` to sleep with its process kept.
+    """Whether this card, or one port of it, is resting: slept, process kept.
 
-    Per unit, by the port it serves on: a card's co-resident vLLM units each
-    sleep on their own, one to make room for another. ``port`` omitted asks
-    whether any unit of the card is resting.
-
-    A card slept at vLLM's level 2 keeps its containers and answers
-    ``/v1/models``, and then hangs on a real request. So it never gives the
-    instant refusal fail-first waits for, and liveness reads it as up. This
-    mark is what mcgyvr knows instead: written when a ``serve sleep`` of the
-    card worked, and removed by any wake or stop of it that worked. Reading it
-    is a file lookup and no network, so a dispatch that finds no mark costs
-    what it cost before.
-
-    Host-wide, beside the wake history and for the same reason: the manager
-    that slept the card and the task that next climbs to it are different
-    processes. A directory that is not ours is no mark.
+    A resting card needs `wake`, not `up`. With a port the answer is that port's
+    mark; without one, any mark for the host, which is the question asked before
+    the port is known. A clock directory that is not ours answers False, so a
+    card this user has no record of is treated as stopped rather than slept.
     """
     where = _clock_dir()
     if not _ours(where):
@@ -357,7 +274,13 @@ def resting(host: str, port: int | None = None) -> bool:
 
 
 def _note_rest(made: Wake) -> None:
-    """Keep the resting mark in step with a door run that worked; best-effort."""
+    """Keep the resting marks in step with a door run that answered.
+
+    A `sleep` leaves a mark for each port the run acted on; any other direction
+    clears them, a `down` included, since a card that was stopped is not
+    resting. Failure is dropped: the cost of a missing mark is the next wake
+    sent as `up` where `wake` was wanted.
+    """
     if not made.ok:
         return
     try:
@@ -375,11 +298,11 @@ def _note_rest(made: Wake) -> None:
 
 
 def _wake_direction(card: Card, ports: Sequence[int] = ()) -> str:
-    """``wake`` for units resting with their process kept, ``up`` for a card stopped.
+    """`wake` for a card that is resting, `up` for one that is not.
 
-    ``serve up`` opens only on an idle rig, and a resting unit's container is
-    running, so the door would refuse it; ``serve wake`` is the route back.
-    ``ports`` are the units asked about; none is the whole card.
+    `ports` asks the question for the units being acted on rather than for the
+    whole card, which is what a card whose units switch one at a time asks; with
+    none, any resting mark for the host answers for the card.
     """
     if ports:
         return "wake" if any(resting(card.host, port) for port in ports) else "up"
@@ -387,40 +310,61 @@ def _wake_direction(card: Card, ports: Sequence[int] = ()) -> str:
 
 
 def _ports(config: Config, rungs: Sequence[str]) -> tuple[int, ...]:
-    """The ports the named rungs' units serve on, from the config."""
+    """The port each named rung is served on, in the order given.
+
+    A rung this config holds no unit for is skipped rather than raising, so a
+    caller gets no port for it instead of a KeyError.
+    """
     return tuple(
         port_of(config.units[rung].address) for rung in rungs if rung in config.units
     )
 
 
 def _all_vllm(config: Config, card: Card) -> bool:
-    """Whether every unit of the card is vLLM, so each can sleep at level 2."""
+    """True when every source of this card is a vLLM unit the config holds.
+
+    Only then can the card be slept at level 2: one unit of another engine on
+    the card means stopping the card is the only way to give its memory back.
+    """
     units = [config.units.get(name) for name in card.sources]
     return bool(units) and all(
         unit is not None and unit.engine == "vllm" for unit in units
     )
 
 
-#: The engines whose units a card can switch one at a time: vLLM sleeps one
-#: unit at level 2 (``serve sleep --unit``), and a llama.cpp unit's sleep is a
-#: stop of its container (``serve down --unit``) and its wake a start
-#: (``serve up --unit``).
+#: The engines whose units can be acted on one at a time: vLLM keeps its
+#: process through a level-2 sleep, and a llama.cpp unit is a container of its
+#: own that `serve down --unit` stops without touching its neighbours. Any other
+#: engine is acted on only with the whole card.
 _ALONE_ENGINES = ("vllm", DEFAULT_ENGINE)
 
 
 def _engine(config: Config, rung: str) -> str | None:
-    """The engine a rung's unit runs, llama.cpp where it states none."""
+    """The engine a rung runs: what its unit states, else llama.cpp.
+
+    None for a rung this config holds no unit for, which is how a caller tells a
+    missing unit from one that states no engine of its own.
+    """
     unit = config.units.get(rung)
     return None if unit is None else unit.engine or DEFAULT_ENGINE
 
 
 def _stopped_alone(config: Config, rungs: Sequence[str]) -> bool:
-    """Whether every one of ``rungs`` is a llama.cpp unit: stopped, not slept."""
+    """True when every named rung is a llama.cpp unit.
+
+    Such a unit is one container, so the door can stop that container with
+    `--unit` and leave the card's other units as they are; a vLLM unit is slept
+    instead, which is why it is not covered here.
+    """
     return bool(rungs) and all(_engine(config, r) == DEFAULT_ENGINE for r in rungs)
 
 
 def _sleeper(config: Config, rung: str) -> bool:
-    """Whether ``rung``'s unit starts asleep, a swap partner (``role``)."""
+    """True when the rung's unit is the config's sleeper, `sleeps-until-needed`.
+
+    Such a unit starts asleep by design, so its refusal is the state its role
+    asks for rather than an outage to be woken out of.
+    """
     unit = config.units.get(rung)
     return unit is not None and unit.role == ROLE_SLEEPER
 
@@ -428,12 +372,12 @@ def _sleeper(config: Config, rung: str) -> bool:
 def _unit_containers(
     config: Config, card: Card, compose: Path, rungs: Sequence[str]
 ) -> tuple[str, ...] | None:
-    """The containers that serve ``rungs`` in the card's launch spec, or ``None``.
+    """The compose container name of each named rung, found by its port.
 
-    Matched by port: a unit's address names the port, and the spec's command
-    names it too (the door reads both the same way, :func:`servelib.services`).
-    ``None`` when the spec cannot be read that way or does not hold a rung's
-    port — then nothing can act on one unit alone, and the card acts whole.
+    The launch spec is read for the port each service serves. None when the spec
+    cannot be read, a rung's port is not in it, or fewer containers were found
+    than rungs asked for: with no container named, no run can be aimed at single
+    units, so the caller acts on the whole card instead.
     """
     from mcgyvr.serving import servelib
 
@@ -452,12 +396,12 @@ def _unit_containers(
 
 
 def _per_unit(config: Config, card: Card) -> bool:
-    """Whether this card's units sleep and wake one at a time.
+    """True when this card's units can be slept, woken or stopped one at a time.
 
-    A card of co-resident vLLM and llama.cpp units, each its own container in
-    the card's one launch spec: a vLLM unit sleeps at level 2 alone, and a
-    llama.cpp unit is stopped and started alone, so one can make room for
-    another. Every other card acts whole.
+    All of: the card serves two rungs or more, every source runs an engine that
+    acts alone, the card has exactly one launch spec, and every rung's container
+    can be found in that spec. Where any of it fails, a door run on the card
+    acts on every unit it serves.
     """
     if len(card.rungs) < 2 or not all(
         _engine(config, name) in _ALONE_ENGINES for name in card.sources
@@ -470,12 +414,10 @@ def _per_unit(config: Config, card: Card) -> bool:
 
 
 def card_rooms(scans: Mapping[str, Scan]) -> dict[str, dict[int, int]]:
-    """Each scanned host's card memory in MiB, by card index.
+    """Each host's card memory by card index, in MiB, from recorded scans.
 
-    The figure ``emit`` sizes a card against, from the scan ``mcgyvr scan``
-    recorded, keyed by the index the scan read the card at — the index ``emit``
-    reserves for a unit in its launch spec. Which card a unit is on is the
-    spec's to say, not the config's (:meth:`CardSwitches.room_for`).
+    A host whose scan holds no GPUs is left out, so a host missing from the
+    mapping means no scan of it rather than a host with no cards.
     """
     return {
         host: {gpu.index: gpu.vram.total_mib for gpu in scan.gpus}
@@ -485,23 +427,11 @@ def card_rooms(scans: Mapping[str, Scan]) -> dict[str, dict[int, int]]:
 
 
 def compose_for(card: Card) -> Path | None:
-    """The launch spec that would bring this card back, if there is exactly one.
+    """The one launch spec this card is served from, or None.
 
-    **One, or none, and never a choice.** A card whose directory holds several
-    of mcgyvr's launch specs is a card mcgyvr cannot bring back, because
-    ``serve up`` starts one file and nothing in a config says which of them is
-    the current one (D2, the lab's sleep-wake plan). Picking is not a
-    tie-break to be got right later; it is the fleet-shape controller's
-    question (the lab's fleet-shape plan) and no line of it is implemented.
-
-    Declining is not conservatism for its own sake. ``emit`` deletes nothing,
-    so a leftover ``compose.<host>.yml`` can hold units that do not sum onto
-    the card, and a name-based pick would start it — the overcommit
-    ``hold_together`` refuses — with ``emit --check`` clean, because a check
-    reads only the paths a config plans.
-
-    :func:`mcgyvr.emit.unplanned` is the other half: it names the leftover so
-    the operator can delete it, and one spec is left, and this answers again.
+    None when the config holds no spec for the card and when it holds two: with
+    more than one, which of them is current is not something mcgyvr can tell, so
+    no door is aimed at a guess.
     """
     if len(card.specs) == 1:
         return card.specs[0]
@@ -509,19 +439,21 @@ def compose_for(card: Card) -> Path | None:
 
 
 def resident_units(config: Config) -> frozenset[str]:
-    """The units that are never slept and never woken: the bound ``jev.unit``.
+    """The unit bound to `jev.unit`: resident, and so never slept or woken.
 
-    Owner ruling: the Jev unit is dedicated VRAM, an opt-in at setup, resident
-    so that every typed decision is answered at once. Any card that holds it
-    goes with it — a sleep acts on the card whole — so the question every
-    sleep or wake path asks is :func:`holds_resident`.
+    Empty when nothing is bound, which is the ordinary case — then no card is
+    resident and every card of the ladder is a switch.
     """
     bound = config.get("jev.unit")
     return frozenset({str(bound)}) if bound else frozenset()
 
 
 def holds_resident(config: Config, card: Card) -> str | None:
-    """The resident unit ``card`` holds, or ``None``: a unit on the card's host."""
+    """The resident unit's name when it sits on this card's host, else None.
+
+    A card that holds the resident unit is not slept or woken at all: sleeping
+    it would take down the one unit that is meant to stay up.
+    """
     for name in resident_units(config):
         unit = config.units.get(name)
         if unit is not None and host_of(unit.address) == card.host:
@@ -530,17 +462,10 @@ def holds_resident(config: Config, card: Card) -> str | None:
 
 
 def wakeable_rungs(config: Config) -> tuple[str, ...]:
-    """The rung names whose card this config can wake, in ladder order.
+    """The rungs that can be slept and woken: one launch spec, no resident unit.
 
-    A card holding a resident unit (:func:`holds_resident`) is not among them,
-    whatever spec it holds: it is never slept, so there is nothing to wake.
-
-    The read-only half of :meth:`Waker.wake_for`: which rungs *could* be woken
-    — their card is asleep, meaning down but holding exactly one launch spec
-    mcgyvr wrote — without the door run that does it. The one-or-none rule is
-    :func:`compose_for`'s, reused rather than restated. A caller that wants to
-    *route* to an asleep rung reads this; a caller that wants to wake one asks
-    :meth:`Waker.wake_for`.
+    This is the ladder's set of switches. `left_alone` narrows it further, to the
+    rungs whose units are not split over several machines.
     """
     return tuple(
         name
@@ -550,11 +475,13 @@ def wakeable_rungs(config: Config) -> tuple[str, ...]:
 
 
 def _split_elsewhere(config: Config, card: Card) -> str | None:
-    """Which unit of ``card`` is split onto another machine, and onto which.
+    """A sentence naming a source of this card that is split onto other rigs.
 
-    ``launch.shards`` naming a host other than the unit's address. ``None``
-    where no unit of the card is; a unit split over its own machine's cards is
-    one launch spec on one machine and is not.
+    Each source's `launch` shards are read and every shard's rig compared with
+    the host the unit's own address is on; the first source with a shard
+    elsewhere is named, with the rigs it is spread over. None when every source
+    runs where it is addressed, and a source whose address will not parse is
+    passed over rather than raised on.
     """
     from mcgyvr.serving import SHARDS_KEY, UnitError, host_of
 
@@ -579,13 +506,11 @@ def _split_elsewhere(config: Config, card: Card) -> str | None:
 
 
 def left_alone(config: Config) -> dict[str, str]:
-    """The wakeable rungs the ladder manager leaves to a person, and why.
+    """The wakeable rungs whose units are split across machines, with the why.
 
-    A card holding a unit split onto another machine
-    (:func:`_split_elsewhere`): the door acts on one machine, so sleeping or
-    waking that card puts down or brings up half of the unit. Every rung of
-    such a card is left alone, because a sleep of any of them may take the
-    card whole.
+    A sleep or a wake acts on one host, and vLLM's level 2 is not measured for a
+    unit spread over several, so these rungs are left out of what the manager may
+    sleep and wake, and the sentence says which rigs are involved.
     """
     wakeable = set(wakeable_rungs(config))
     found: dict[str, str] = {}
@@ -599,7 +524,13 @@ def left_alone(config: Config) -> dict[str, str]:
 
 
 def _why_not_one(card: Card) -> str:
-    """The sentence a caller is owed when there is no single spec to start."""
+    """Why this card has no single launch spec to run a door with.
+
+    Two cases, told apart: no spec was emitted for the card, so the person is
+    pointed at `serving.compose_dir` and `mcgyvr emit`; or several were, and then
+    they are listed, since which one is current is not something the config
+    answers and mcgyvr will not guess.
+    """
     if not card.specs:
         return (
             f"{card.host}: this config holds no launch spec for that card. "
@@ -626,10 +557,14 @@ def _run_door(
     *,
     only: Sequence[str] = (),
 ) -> Wake:
-    """One door run for ``card``; ``only`` names the rungs a sleep or wake acts on.
+    """Run one door for a card and answer with what it did.
 
-    ``only`` empty, or rungs whose containers the spec does not name, is the
-    whole card.
+    The prediction is read before the door is spawned, so it is the last wake's
+    number and not this run's. `only` narrows the run to those rungs' containers
+    when the spec names every one of them; the ports recorded in the `Wake` are
+    the ones the run really acted on, which on a narrowed run is `only` and
+    otherwise every rung of the card. A `deviation` is printed as a warning when
+    there is one to print.
     """
     predicted = predicted_wake_s(card)
     containers = _unit_containers(config, card, compose, only) if only else None
@@ -662,65 +597,57 @@ def _run_door(
 
 
 class Waker:
-    """The dispatch-time half: a refused port becomes a wake and one retry.
+    """Wakes a card when a draw on it is refused, once per card per outage.
 
-    Built by :func:`for_config` and ``None`` for a config that did not ask, so
-    that "the switch is off" and "the feature does not exist" are the same code
-    path rather than a branch that could be got wrong. That equality is the
-    design's safety property: mcgyvr must not be able to take a card down for an
-    operator who did not ask, and a switch that gated only *some* of the
-    behaviour would leave "asked" meaning nothing.
+    `for_config` makes one for a ladder and everything drawing on that ladder
+    shares it, so a card already being woken is not woken a second time by a
+    second draw refused in the meantime.
     """
 
     def __init__(self, config: Config) -> None:
         self._config = config
         self._cards = cards(config)
-        #: Cards this run has already woken, with whether the wake worked and
-        #: when it ended. One wake per card per run: a refusal after a
-        #: successful wake is a real fault of the rung — the card is up and
-        #: something else is wrong — and re-running the door for it would
-        #: spend minutes of rig time proving that twice.
+        #: The answer of each card's last wake, with the clock reading the run
+        #: ended at: whether it worked, and when. The key is the card's host, or
+        #: `host:rung` on a card whose units switch one at a time, so one unit's
+        #: wake does not answer for its neighbour. Written under that card's own
+        #: lock, taken below.
         self._woken: dict[str, tuple[bool, float]] = {}
-        #: The draws of one attempt are dispatched together, so two of them
-        #: can be refused by the same sleeping card at once. One wake per card
-        #: per run has to hold across them, so each card's check-then-wake is
-        #: taken under that card's own lock: a draw refused while the door
-        #: runs waits for it and is sent again if it worked, and a wake of one
-        #: card never waits on another's. `_lock` guards only the map.
+        #: `_lock` guards `_card_locks` and nothing else, and is held only long
+        #: enough to take out one card's lock; the door run itself happens under
+        #: that card's lock. A second draw refused by the same card therefore
+        #: waits for the run already happening instead of starting another, and
+        #: finds the card awake when it is let in. Two different cards never wait
+        #: on each other.
         self._lock = threading.Lock()
         self._card_locks: dict[str, threading.Lock] = {}
 
     def dispatching(self, rung: str, send: Callable[[], Answer]) -> Answer:
-        """Send, and on a refused port wake the card once and send again.
+        """Send one draw to a rung, waking its card when the send is refused.
 
-        The retry spends **no attempt**: nothing was asked and nothing answered,
-        which is the rule ``drive`` already applies to a declined rung and the
-        reason it has to hold here too — a refusal charged as a failure would
-        exhaust a one-attempt rung on a card that was merely off.
-
-        A wake that *fails* is a different thing and is a real verdict against
-        the rung: the original refusal is re-raised with the door's exit code
-        left where the operator can read it, and the run reports the transport
-        fault it actually had.
+        A card the record says is resting is woken before the draw is sent; any
+        other card is sent to first, and only an instant refusal wakes it, since
+        a read timeout on a card that is up is not an outage. A draw is sent once
+        more after a wake that worked, and re-raised when the wake did not.
         """
         card = self._cards.get(rung)
         if rung in resident_units(self._config) or (
             card is not None and holds_resident(self._config, card) is not None
         ):
-            # Resident: never slept, so a refusal is the rung's own fault and
-            # no wake is tried for it.
+            # The card holding the jev unit is resident: it is never slept, so
+            # a refusal here is not something a wake would fix.
             return send()
         if _sleeper(self._config, rung):
-            # A swap partner is started by the ladder manager, which stops the
-            # units whose room it needs first. Started here, it would load
-            # beside them on a card that holds one or the other.
+            # A unit that starts asleep is not woken on a refusal: it is in the
+            # state its role asks for, so the draw goes as it is and its own
+            # refusal is the answer.
             return send()
         if card is not None and any(
             resting(card.host, port) for port in _ports(self._config, (rung,))
         ):
-            # Slept with its process kept: it would answer and then hang, so
-            # the refusal fail-first waits for never comes. The mark is that
-            # refusal, and the wake is the same one a refusal earns.
+            # The record says this card was slept with its process kept, so
+            # every port on it answers with a refusal until something wakes it.
+            # Wake first, and let the draw be refused only if the wake fails.
             if not self.wake_for(rung, refused_at=time.monotonic()):
                 raise RefusedConnectionError(
                     f"{rung}: its card {card.host} was put to sleep with its "
@@ -730,25 +657,18 @@ class Waker:
         try:
             return send()
         except RefusedConnectionError as refused:
-            # Only a refusal. A timeout is a card that is up and busy, and
-            # waking it would start a door run and send the generation twice.
+            # An instant refusal, not a timeout: nothing is listening, which is
+            # what a card that was stopped looks like. Wake it and send again.
             if not self.wake_for(rung, refused_at=time.monotonic()):
                 raise refused
             return send()
 
     def wake_for(self, rung: str, *, refused_at: float | None = None) -> bool:
-        """Bring this rung's card back, or say why nothing was tried.
+        """Wake the card serving this rung, one wake per card at a time.
 
-        ``False`` is not a failure. It is every one of the honest degradations
-        D2 asks for — an api rung, a rig somebody else runs, a config that
-        states no ``compose_dir``, a card mcgyvr never wrote a spec for, and a
-        card this run has already woken once — and in each of them the caller's
-        refusal stands exactly as it stands today.
-
-        ``refused_at`` is when the caller was refused. A refusal from before a
-        wake of this card ended was given by the sleeping card, so the caller
-        gets that wake's result and sends again; one from after it is the real
-        fault above, and gets ``False``.
+        True when the card is up by the end, and False for a rung no card serves.
+        `refused_at` is when the draw was refused: it is what tells a second
+        refusal from the same outage apart from one that came after the wake.
         """
         card = self._cards.get(rung)
         if card is None:
@@ -759,21 +679,21 @@ class Waker:
             return self._wake_for(card, refused_at, rung)
 
     def _wake_for(self, card: Card, refused_at: float | None, rung: str) -> bool:
-        # A card of co-resident vLLM or llama.cpp units wakes one unit at a
-        # time, so a run remembers each unit's wake; any other card wakes
-        # whole, once.
+        # A card whose units switch one at a time is woken for this one rung and
+        # remembered per rung; any other card is woken and remembered whole,
+        # because a door run on it acts on every unit it serves.
         alone = _per_unit(self._config, card)
         key = f"{card.host}:{rung}" if alone else card.host
         if key in self._woken:
             ok, ended = self._woken[key]
             return ok and refused_at is not None and refused_at < ended
-        # Live wakes only along a listed switch, and a switch exists only on a
-        # locked fleet. With no live lock naming this rig — the lock of the
-        # fleet the config folder's live.json names, never whatever directory
-        # the run was started in — there is no switch to be along, so the wake
-        # is refused
-        # before any door run. No live.json is no live lock. A run that is not
-        # held to the live lock (`runs_live`) wakes along no switch.
+        # A live fleet's lock says which hosts mcgyvr may act on: when this
+        # config is run against a fleet, only a host the fleet holds locked is
+        # woken, since an unlocked one is another's to run or is being admitted.
+        # No fleet directory, or a host that is not locked, means no wake; a
+        # fleet directory that cannot be read is said out loud and also means no
+        # wake. Neither is a reason to wake a card without the lock, so both
+        # answer False and the draw keeps its refusal.
         from mcgyvr.fleet.roots import LiveFleetError, live_fleet_dir, runs_live
 
         if runs_live(self._config.path):
@@ -788,26 +708,20 @@ class Waker:
                 return False
         compose = compose_for(card)
         if compose is None:
-            # `down`, not `asleep`. Waking a card mcgyvr never sized would be
-            # sizing and starting in one act, which is exactly what
-            # `mcgyvr.emit`'s boundary forbids: sizing is a judgement a person
-            # reviews.
-            #
-            # A card with *several* specs is the same refusal for the opposite
-            # reason, and it is the one worth a sentence: nothing is missing,
-            # something is ambiguous, and the difference is a directory listing
-            # an operator has not looked at. Said once per card per run — the
-            # `_woken` map is what bounds it — because a rung that declines for
-            # a reason only the filesystem holds is the silence this whole
-            # module exists to stop.
+            # No single launch spec is this card's, so there is nothing to aim a
+            # door at: waking would be a guess at which spec is current. The
+            # failure is remembered like any other answer, so the same draw is
+            # not retried against the same gap, but only a card the config holds
+            # specs for is worth a warning — a card with none was never emitted
+            # for, and `_why_not_one` says what to set and run to fix that.
             if card.specs:
                 self._woken[key] = (False, time.monotonic())
                 print(f"warning: {_why_not_one(card)}", file=sys.stderr)
             return False
         if alone:
             direction = _wake_direction(card, _ports(self._config, (rung,)))
-            # A resting unit wakes alone, and so does a stopped llama.cpp
-            # unit: its container is started beside its running neighbours.
+            # Name the unit when it is asleep, so the card's other units are
+            # left as they are, or when it is a llama.cpp unit being stopped.
             only: tuple[str, ...] = (
                 (rung,)
                 if direction == "wake" or _stopped_alone(self._config, (rung,))
@@ -821,12 +735,11 @@ class Waker:
 
 
 def for_config(config: Config) -> Waker | None:
-    """A waker for this run, or ``None`` where the config did not ask for one.
+    """The waker for this config, or None when mcgyvr may not switch cards.
 
-    Two keys and both of them have to be there. ``enable_sleep_wake`` is the
-    permission and ``compose_dir`` is the means: a config that says yes and
-    names no directory holds no launch spec for anything, so there is nothing
-    to wake and nothing to be wrong about.
+    None unless `serving.enable_sleep_wake` is on and `serving.compose_dir` is
+    set: with the setting off, a person has said mcgyvr may not sleep or wake a
+    unit itself, and with no emitted spec there is nothing to aim a door at.
     """
     if not config.get("serving.enable_sleep_wake"):
         return None
@@ -836,7 +749,11 @@ def for_config(config: Config) -> Waker | None:
 
 
 def card_named(config: Config, host: str) -> Card:
-    """The card an operator named by host, refused by name where there is none."""
+    """The card served by `host`, or `WakeError` naming the rigs this ladder has.
+
+    A host is a card, so a host no rung is served from is a typo or another
+    ladder's rig, and the message lists the rigs this config does serve.
+    """
     for card in cards(config).values():
         if card.host == host:
             return card
@@ -848,24 +765,10 @@ def card_named(config: Config, host: str) -> Card:
 
 
 def sleep(config: Config, host: str) -> Wake:
-    """Put the whole card to sleep, after draining every slot it serves.
+    """Sleep or stop the card served by `host`, and answer with the door's run.
 
-    The person's verb, and the manager's path (:func:`put_down`): a card whose
-    units are all vLLM rests at level 2 with its processes kept, and any other
-    card is stopped. Either way the whole card goes, in one door run, and the
-    operator never spells a container name.
-
-    **The drain is the caller's and is not optional in practice.** An eviction
-    takes all of the card's slots before it takes the card down, never
-    interrupts a dispatch already in flight, and is best-effort against
-    processes the flock cannot see (D8) — and the thing that owns those slots is
-    a :class:`~mcgyvr.capacity.Capacity`, which is built from a config by the
-    caller and is not this module's to construct. So the drain is spelled where
-    the capacity is, as ``capacity.drain(card.sources)`` around this call, and
-    :func:`mcgyvr.cli.commands.ladder._serve` is the worked example. Calling this
-    without one is
-    correct only where there is no capacity at all; with one and unused, it is
-    putting a card down under requests that were already admitted.
+    Raises `WakeError` when no rung is served by that host, when the card holds
+    the resident jev unit, or when the card has no single launch spec.
     """
     card = card_named(config, host)
     _refuse_resident(config, card, "slept")
@@ -873,23 +776,12 @@ def sleep(config: Config, host: str) -> Wake:
 
 
 def put_down(config: Config, card: Card, only: tuple[str, ...] = ()) -> Wake:
-    """Sleep a vLLM card at level 2, and stop any other; inside the caller's drain.
+    """Give a card back: sleep its vLLM units, or stop the card.
 
-    One path for a person's ``mcgyvr serve sleep`` and the ladder manager's
-    :class:`CardSwitches`. ``only`` naming llama.cpp units of a card that
-    switches one unit at a time stops their containers alone (``serve down
-    --unit``), the swap's sleep. A card all of whose units are vLLM is asked to sleep
-    first (``serve sleep``): the process stays, the weights and KV cache leave
-    the card, the card is marked resting (:func:`resting`), and the wake reads
-    them back without a container start. One that turns out to have no sleep
-    route — vLLM run without its development routes — is left exactly as it
-    was by that run, which says so with
-    :data:`~mcgyvr.serving.gatelib.NO_SLEEP_ROUTE`, and is stopped instead.
-    Any other engine has no sleep to ask for and is stopped, and so is a card
-    holding a unit split onto another machine (:func:`_split_elsewhere`),
-    whose level-2 sleep is not measured: it says so in one line. ``only`` is
-    the one unit of a shared vLLM card to sleep; the fallback stops the whole
-    card, which is the only stop there is.
+    Sleep where every source is vLLM and no unit of it is split over machines,
+    and stop where the door answers with no sleep route. `only` narrows a card
+    whose units switch one at a time to the unit being put down. Raises
+    `WakeError` when the card holds the resident unit or has no single spec.
     """
     _refuse_resident(config, card, "slept")
     compose = compose_for(card)
@@ -897,8 +789,8 @@ def put_down(config: Config, card: Card, only: tuple[str, ...] = ()) -> Wake:
         raise WakeError(_why_not_one(card))
     split = _split_elsewhere(config, card)
     if split is not None:
-        # An unmeasured nap is one the unit cannot take: stopped, with no
-        # resting mark, so the next wake is `up`.
+        # A unit split over machines is stopped rather than slept: level 2 is
+        # not measured for one, and the note says which rigs it is spread over.
         print(
             f"note: {split}; vLLM's sleep at level 2 is not measured for a unit "
             f"split across machines, so {card.host} is stopped instead",
@@ -910,9 +802,9 @@ def put_down(config: Config, card: Card, only: tuple[str, ...] = ()) -> Wake:
         asked = _run_door(config, card, "sleep", compose, only=only)
         if asked.code != NO_SLEEP_ROUTE:
             return asked
-    # Whole-card eviction is not a behaviour to build; it is the behaviour
-    # ``serve down`` already has, because the down step tears down every
-    # service in the file it is given.
+    # Either the card has a unit that is not vLLM, which only stopping gives
+    # back, or the sleep run found no sleep route on it: stopping the card is
+    # what is left to do.
     return _run_door(config, card, "down", compose)
 
 
@@ -927,32 +819,31 @@ def _refuse_resident(config: Config, card: Card, verb: str) -> None:
 
 
 def wake(config: Config, host: str) -> Wake:
-    """Bring the whole card back, through the door and through nothing else."""
+    """Wake the card served by `host`, and answer with the door's run.
+
+    `wake` for a card the record says is resting, `up` for one that is not.
+    Raises `WakeError` when no rung is served by that host, when the card holds
+    the resident jev unit, or when it has no single launch spec.
+    """
     card = card_named(config, host)
     _refuse_resident(config, card, "woken")
     compose = compose_for(card)
     if compose is None:
-        # Two refusals in one sentence, and `_why_not_one` tells them apart. No
-        # spec at all is emit's boundary — waking a card mcgyvr never sized
-        # would be sizing and starting in one act. Several specs is D2's gap:
-        # mcgyvr holds the files and not the answer to which.
+        # No single launch spec is this card's, so there is nothing to aim a
+        # door at and a wake would be a guess at which spec is current. Say why
+        # instead: a card whose config holds no spec at all, and one that holds
+        # two, are told apart by `_why_not_one`.
         raise WakeError(_why_not_one(card))
     return _run_door(config, card, _wake_direction(card), compose)
 
 
 def drain_timeout(config: Config, card: Card) -> float | None:
-    """How long a sleep of ``card`` waits for each of its slots, or ``None``.
+    """How long to wait for in-flight requests before a drain gives up.
 
-    A dispatch in flight either finishes inside its own unit's transport bound
-    or the transport has already given up on it, so waiting longer than that is
-    waiting for something that is no longer running. The card may hold units
-    with different bounds; the longest is what covers them all. ``None`` where
-    no unit of the card states one: the drain then waits as long as it takes,
-    which is :meth:`~mcgyvr.capacity.Capacity.drain`'s own default.
-
-    One place for it, because a person's ``mcgyvr serve sleep`` and the ladder
-    manager's :class:`CardSwitches` drain the same card and must not wait
-    differently for it.
+    The longest `request_timeout_s` any source of the card states, since a
+    request on any one of them may still be running when the drain starts. None
+    when no source states one, which is a drain that waits as long as the
+    capacity locks take.
     """
     timeouts: list[float] = []
     for name in card.sources:
@@ -963,57 +854,13 @@ def drain_timeout(config: Config, card: Card) -> float | None:
 
 
 class CardSwitches:
-    """The ladder manager's two verbs, thrown through the door ``serve`` uses.
+    """The sleep and wake switches of a card, as the ladder manager asks them.
 
-    :class:`mcgyvr.ladder_manager.Switches` is a protocol over rung names; this
-    is its answer, and it adds nothing to what a person typing ``mcgyvr serve``
-    can do. A sleep comes after a drain. For a card whose units are all vLLM
-    it is the door's ``sleep``: vLLM's level 2, which keeps the process and
-    drops the weights and KV cache. For any other card, and for a vLLM card
-    with no sleep route, it is the door's ``down``: the containers stop. A wake
-    is the door's ``wake`` for a card resting at level 2, which reads the
-    weights back into the same process, and ``up`` for one that was stopped.
-    Both verbs are gated by ``serving.enable_sleep_wake``
-    — the switch exists so that mcgyvr takes no card down or up on its own
-    unless asked, and this is the "on its own" (``mcgyvr serve`` is the person
-    asking, and is not gated).
-
-    **A fresh waker per wake.** :class:`Waker` remembers that it woke a card so
-    that one run wakes it once. The manager lives for hours and may wake a card
-    it slept in between, so each wake builds its own and the memory dies with
-    it. The live-lock gate inside :meth:`Waker._wake_for` therefore applies to
-    every wake the manager makes.
-
-    **A sleep is a drain and then the door.** The card's slots are taken before
-    its containers are stopped (:meth:`~mcgyvr.capacity.Capacity.drain`), and a
-    dispatch that is still running is a sleep that does not happen now: ``False``,
-    and the manager asks again on a later tick. So is a dispatch that queued for
-    the card while the drain held it (:meth:`~mcgyvr.capacity.Capacity.queued`),
-    and a capacity with no gauge to say: either would take a slot as the card
-    went down and wake it straight back up. A door that fails, or refuses, is
-    ``False`` as well.
-
-    **A card goes whole, except a card of co-resident vLLM or llama.cpp
-    units.** Sleep evicts the entire card and wake brings the entire launch
-    spec back, which was sized whole by ``emit``. A card whose co-resident
-    units are vLLM or llama.cpp is the exception: each unit is its own
-    container, a vLLM unit sleeps at level 2 alone (``serve sleep --unit``) and
-    a llama.cpp unit is stopped and started alone (``serve down|up --unit``),
-    so :meth:`card_of` is the unit and one unit can make room for another.
-    That is the swap: a unit that starts asleep (``role:
-    sleeps-until-needed``) shares the card's one launch spec with the fast
-    units, and waking it stops the ones whose room it needs; its sleep starts
-    them again (:mod:`mcgyvr.ladder_manager`).
-
-    **Room is arithmetic on facts already held.** :meth:`room_for` adds each
-    unit's ``room_mib`` and compares the sum with the memory of the card the
-    waking unit is on, from the host's recorded scan (``card_mib``, by card
-    index, :func:`card_rooms`). The card a unit is on is the one its launch
-    spec reserves for it — what ``emit`` wrote and the door starts — so on a
-    host with several cards only the units on that card are neighbours. Where
-    the unit waking does not fit beside them, the smallest of them sleep first
-    until it does. A missing figure, or a card that cannot be told, is no
-    answer: no room is made, and :meth:`why_no_room` says why.
+    Every answer is a yes or a sentence rather than an exception, so the manager
+    can leave a card alone and say why: `wake` and `sleep` answer whether the door
+    worked, `room_for` says which units must be slept to make room for a wake,
+    `why_no_room` says what stops room being reckoned, and `card_of` says which
+    rungs one sleep or wake acts on.
     """
 
     def __init__(
@@ -1035,36 +882,46 @@ class CardSwitches:
         )
 
     def _resident(self, rung: str) -> bool:
-        """Whether ``rung`` is, or shares its card with, the resident jev unit."""
+        """Whether this rung, or the card serving it, holds the resident jev unit."""
         if rung in resident_units(self._config):
             return True
         card = self._cards.get(rung)
         return card is not None and holds_resident(self._config, card) is not None
 
     def wake(self, rung: str) -> bool:
-        """Bring the rung's card back through the door; ``False`` if it was not."""
+        """Wake this rung's card, answering False where it is not mcgyvr's to wake.
+
+        False for a resident card and for a ladder where sleep and wake is off;
+        otherwise whatever the door answered.
+        """
         if self._resident(rung):
             return False
         waker = for_config(self._config)
         return waker is not None and waker.wake_for(rung)
 
     def sleep(self, rung: str) -> bool:
-        """Drain the rung's card and take it down; ``False`` if it was not."""
+        """Sleep or stop this rung's card, answering False where it was not done.
+
+        False unless sleep and wake is on, the card is not resident, and the card
+        has a single launch spec. The card is drained first, and if anything is
+        still queued once the capacity locks are held, nothing is put down. A
+        lock that cannot be taken and a `WakeError` both answer False.
+        """
         if not self._allowed() or self._resident(rung):
             return False
         card = self._cards.get(rung)
         if card is None or compose_for(card) is None:
             return False
         alone = _per_unit(self._config, card)
-        # One unit of a shared card drains alone; any other card whole.
+        # One unit drains alone on a card whose units switch one at a time.
         sources = (rung,) if alone else card.sources
         try:
             with self._capacity.drain(
                 sources, timeout=drain_timeout(self._config, card)
             ):
-                # The drain holds every slot, so anyone queued now is a dispatch
-                # that would take one the moment the card went down, be refused,
-                # and wake it again. Not now, then; and no reading is not zero.
+                # The card is drained: anything still queued on these sources
+                # arrived after the capacity locks and would be killed by the
+                # sleep, so the card stays up and the answer is no.
                 if self._capacity.queued(sources) != 0:
                     return False
                 return self._put_down(card, (rung,) if alone else ())
@@ -1072,26 +929,19 @@ class CardSwitches:
             return False
 
     def _put_down(self, card: Card, only: tuple[str, ...]) -> bool:
-        """:func:`put_down`, inside the drain; ``False`` where it did not work."""
+        """Put the card down and answer the door's verdict, not the `Wake`."""
         return put_down(self._config, card, only).ok
 
     def room_for(self, rung: str) -> tuple[str, ...]:
-        """The co-resident units that must sleep before ``rung`` can wake.
+        """The units to sleep first to make room for this rung, smallest first.
 
-        Only on a card whose units switch one at a time (vLLM or llama.cpp),
-        and only from figures held:
-        every unit's ``room_mib``, the card each is on and that card's memory.
-        Where the waking unit and its neighbours on its card do not fit, the
-        smallest neighbours are named first until the rest would. ``()`` where
-        they fit, or where there is no answer (:meth:`why_no_room`).
+        Empty where nothing has to sleep, and where no room can be reckoned at
+        all — `why_no_room` says which of the two it is.
         """
         return self._room(rung)[0]
 
     def why_no_room(self, rung: str) -> str | None:
-        """Why no room can be reckoned for ``rung`` on its card, or ``None``.
-
-        ``None`` too where room is not a question: a card that acts whole.
-        """
+        """Why room cannot be reckoned for this rung, or None where it need not be."""
         return self._room(rung)[1]
 
     def _room(self, rung: str) -> tuple[tuple[str, ...], str | None]:
@@ -1132,14 +982,14 @@ class CardSwitches:
         return tuple(making), None
 
     def _placement(self, card: Card, sizes: Mapping[int, int]) -> dict[str, int] | str:
-        """The card index each rung of ``card`` is on, or why it cannot be told.
+        """Which card each rung of the card is on, by the scan's card index.
 
-        Read from the reservation in the launch spec, matched by port as the
-        door matches it. A service that reserves no card is on the host's only
-        card, and on a host of several it is on a card nobody can name. A
-        service reserving several cards is a unit split across them, whose
-        share of each this does not reckon, and an id that is not an index is
-        not one a scan can be read at.
+        Read from the device reservations of the containers that serve the rungs:
+        a single index is taken as it stands, and a rung whose reservation names
+        no device is put on the only card when the host has one. A sentence
+        instead of a mapping where the spec cannot be read, says nothing and the
+        host has several cards, reserves a unit more than one card, or names a
+        card by something that is not a card index.
         """
         from mcgyvr.serving import servelib
 
@@ -1176,9 +1026,11 @@ class CardSwitches:
         return on
 
     def card_of(self, rung: str) -> tuple[str, ...]:
-        """The rungs a sleep of ``rung`` takes down: the unit alone on a card
-        whose units switch one at a time, every rung the card serves otherwise,
-        and the rung alone where it has no card."""
+        """The rungs a sleep or wake on this rung acts on.
+
+        The rung alone on a card whose units switch one at a time, every rung of
+        the card otherwise, and the rung itself when no card serves it.
+        """
         card = self._cards.get(rung)
         if card is None:
             return (rung,)

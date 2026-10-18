@@ -1,41 +1,11 @@
-"""What can actually run the work, detected without benchmarking it.
+"""Detect what this machine can offer a run: GPU cards and their VRAM,
+system RAM, Docker availability, and any inference backend answering on
+the well-known local ports.
 
-``mcgyvr setup`` binds the models that running servers list; this module finds
-those servers and what each one lists, and the cards this machine has. It
-measures nothing: benchmarking would turn a 30-second install into an hour.
-
-Two rules shape everything below:
-
-1. **Absence is an outcome, not an error.** No GPU, no Docker and no
-   reachable backend is a machine this module describes, not one it fails
-   on. Nothing here raises on a missing tool.
-2. **Every fact carries how it was found.** A detected value with no
-   provenance is indistinguishable from a guess, and the proposal built on
-   top of it has to be explainable to someone whose machine it describes.
-   What could *not* be determined is recorded too, in ``notes`` — silence
-   about a failed probe reads as "absent" when it may mean "unknown".
-
-**The host is an input, not a literal.** The port conventions below are what
-a backend ships with; the machine they are asked of is supplied by the caller.
-``localhost`` is the default, and the deployment this project exists for — an
-agent on a laptop, offloading to rigs elsewhere — is expressible.
-The hardware half of detection stays local by definition: the one reader
-(:mod:`mcgyvr.serving.rigscan`) run here describes this machine, and a remote
-rig's card is not something this module can see. What it *can* see of a
-remote rig is the models that rig lists, and a listing cannot be wrong about
-which machine it describes.
-
-A probed host is identified by name in every backend it yields, because with
-more than one host in play "a backend answered" identifies nothing.
-Names stay bare for a single-host sweep.
-
-Every backend here is asked and dispatched to on the same protocol.
-
-Probes run concurrently against a short timeout, so an endpoint that
-accepts a connection and then hangs costs the timeout once rather than
-serially — and a sweep of two hosts costs the same wall clock as one. This
-module only observes. Turning observations into a proposed ladder is a
-separate concern and does not live here.
+Every value carries a `how`/provenance string naming where it came from,
+and everything that could not be read becomes a note instead of a silent
+zero, so a degraded reading is reported as incomplete rather than as
+absent.
 """
 
 from __future__ import annotations
@@ -52,62 +22,53 @@ from concurrent.futures import ThreadPoolExecutor
 from dataclasses import dataclass, field
 from typing import Any
 
-# An unreachable port fails fast; a reachable one that hangs costs this
-# once, because probes run concurrently.
+# Seconds allowed for one HTTP probe of a candidate backend.
+# Seconds allowed for one helper command started by _run.
 PROBE_TIMEOUT_S = 1.0
 COMMAND_TIMEOUT_S = 5.0
 
 MIB_PER_GB = 1024.0
 
-# The machine a sweep asks about when the caller names none.
+# Host assumed when none is named: the machine detect itself runs on.
 DEFAULT_HOST = "localhost"
 
-# The names that are the machine mcgyvr runs on, decided by the name the user
-# gave rather than by resolving it (see :attr:`Backend.is_local`).
+# Host spellings that mean "this machine", compared as exact strings:
+# the default host plus the loopback literals with and without brackets.
 LOCAL_HOSTS = (DEFAULT_HOST, "127.0.0.1", "::1", "[::1]")
 
 
 def is_local_host(host: str) -> bool:
-    """Whether ``host`` names the machine mcgyvr is running on."""
+    """True when host is one of LOCAL_HOSTS, i.e. this machine; the match is
+    an exact string comparison, no DNS lookup."""
     return host in LOCAL_HOSTS
 
 
 @dataclass(frozen=True)
 class ProbeTarget:
-    """A place a backend might be listening, and the protocol to ask in.
-
-    A *candidate* address, not a resolved one: nothing is known to be here
-    until :func:`probe` gets an answer. Distinct from
-    :class:`mcgyvr.local_pool.Endpoint`, which is somewhere a rung is configured to
-    run and exists only once there is a config to resolve.
-
-    ``host`` is carried alongside ``base_url`` rather than parsed back out of
-    it, because it is what the user named and what every downstream report
-    identifies the machine by. ``name`` is what a source will be called; it
-    is qualified with the host only when a sweep covers more than one, so a
-    single-host install keeps bare names.
-    """
+    """One candidate backend to ask: a display name, the base URL to call, the
+    API dialect it speaks, the host it lives on, and the kind that decides
+    which context-window source (WINDOW_SOURCES) applies to it."""
 
     name: str
     base_url: str
-    api: str  # the wire protocol, asked and dispatched alike: "openai"
+    api: str  # Wire dialect label, copied unchanged into Backend.api.
     host: str = DEFAULT_HOST
-    kind: str = ""  # the backend convention: "vllm", "llama-server", ...
+    kind: str = ""  # Empty means "same as name"; filled in by __post_init__.
 
     def __post_init__(self) -> None:
-        # `kind` is what the server IS; `name` is what it will be called. They
-        # part company the moment a sweep covers two hosts, and the capability
-        # table's `requires_backend` matches on the former — a model measured
-        # on vLLM is measured on vLLM whether the source is called `vllm` or
-        # `box_example_vllm`.
+        # A target built without an explicit kind takes its own name as the
+        # kind, because WINDOW_SOURCES is keyed by kind; the window lookup
+        # therefore still works for callers that only pass a name.
+        # The instance is frozen, so the default is written through
+        # object.__setattr__ rather than by plain assignment.
         if not self.kind:
             object.__setattr__(self, "kind", self.name)
 
 
-# Default ports each backend ships with, and the one wire protocol it is asked
-# and dispatched to on. Identification is by port convention, which is a guess
-# about identity but not about capability: the model list is read from the
-# answer rather than assumed.
+# The (kind, port, api) triples every default sweep is built from: the
+# conventional local port of each well-known server.
+# Names here double as kinds for WINDOW_SOURCES lookups, and the order is
+# the order targets are probed and reported in.
 PORT_CONVENTIONS: tuple[tuple[str, int, str], ...] = (
     ("llama-server", 8080, "openai"),
     ("vllm", 8000, "openai"),
@@ -117,14 +78,10 @@ PORT_CONVENTIONS: tuple[tuple[str, int, str], ...] = (
 
 
 def _host_token(host: str) -> str:
-    """A host as a name segment: safe in a YAML key and in a tier name.
-
-    An address (``192.0.2.10``) and a DNS name
-    (``box.example.net``) both have to survive becoming a config key
-    someone edits by hand, so the separators become underscores and the
-    leading character is guaranteed non-numeric. The result identifies the
-    host to a reader; it is not required to be reversible.
-    """
+    """Turn a host into a short identifier usable inside a target name: runs
+    of non-alphanumerics collapse to one underscore, the result is
+    lowercased, never starts with a digit, and an empty result becomes
+    "host"."""
     token = re.sub(r"[^A-Za-z0-9]+", "_", host).strip("_").lower()
     if not token:
         return "host"
@@ -135,17 +92,10 @@ def targets_for(
     hosts: Sequence[str] = (DEFAULT_HOST,),
     conventions: Sequence[tuple[str, int, str]] = PORT_CONVENTIONS,
 ) -> tuple[ProbeTarget, ...]:
-    """Expand hosts into the candidate endpoints to sweep on each.
-
-    The cross product of hosts and port conventions. A host is a bare name or
-    address — ``box.example``, ``192.0.2.10`` — and never a port, because
-    identification here is *by* port convention and a port nobody
-    conventionally uses carries no claim about which protocol answers on it.
-    An endpoint on a non-standard port is bound by hand.
-
-    Duplicate hosts collapse, so naming the same rig twice does not probe it
-    twice or mint two sources for it.
-    """
+    """Build one ProbeTarget per (host, convention) pair. Hosts are stripped
+    and de-duplicated in first-seen order; when more than one host is
+    swept, every target name gets a host token prefix so names stay
+    unique."""
     unique = tuple(dict.fromkeys(h.strip() for h in hosts if h.strip()))
     qualify = len(unique) > 1
     targets: list[ProbeTarget] = []
@@ -166,20 +116,22 @@ def targets_for(
 DEFAULT_PROBE_TARGETS: tuple[ProbeTarget, ...] = targets_for()
 
 
-#: How a note begins for a card that is listed but whose memory size the card
-#: tool printed as not available: the card is there, its size is not known.
+#: Note prefix for a card nvidia-smi named but whose total memory could
+#: not be read: the card is still listed, with no size, and VRAM for it is
+#: bound by hand instead.
 GPU_SIZE_UNDETERMINED = "GPU: memory size not determined"
-#: How a note begins for a card the card tool printed whose name could not be
-#: read. The note quotes why, so the card is named, not dropped.
+#: Note prefix for a printed nvidia-smi row that could not be read as a
+#: card, and for the tool itself failing after some rows were still read.
 GPU_ROW_NOT_READ = "GPU: nvidia-smi printed a row that could not be read as a card"
-#: The most characters of a reason a note quotes. A reason may hold what a tool
-#: printed, of any length, and a note is printed and written into a setup, so
-#: a longer quote keeps both ends and not the middle.
+#: Longest repr() of a machine-produced string kept whole inside a note,
+#: so unexpected output cannot flood the message with a wall of text.
+#: Longer strings are shortened in the middle by _quoted, keeping both ends.
 ROW_QUOTED_AT_MOST = 200
 
 
 def _quoted(text: str) -> str:
-    """``text`` quoted, cut in the middle when longer than the bound."""
+    """Return repr() of text for use inside a note, with the middle cut out
+    of anything longer than ROW_QUOTED_AT_MOST characters."""
     shown = repr(text)
     if len(shown) <= ROW_QUOTED_AT_MOST:
         return shown
@@ -189,12 +141,9 @@ def _quoted(text: str) -> str:
 
 @dataclass(frozen=True)
 class Gpu:
-    """One card. ``vram_gb`` is ``None`` when its size could not be determined.
-
-    A card of undetermined size is still a card: it is listed, and a note says
-    its size is unknown. It is left out of :attr:`Detection.largest_vram_gb`,
-    because a size nobody read is not a size.
-    """
+    """One NVIDIA card as rigscan read it: its name, its VRAM in GB rounded
+    to one decimal (None when the size could not be read), and the `how`
+    string naming the source."""
 
     name: str
     vram_gb: float | None
@@ -202,7 +151,8 @@ class Gpu:
 
     @property
     def size(self) -> str:
-        """The card's memory as a reader should see it."""
+        """Display form of the VRAM: "N GB" without trailing zeros, or a plain
+        statement that the size was not determined."""
         if self.vram_gb is None:
             return "memory size not determined"
         return f"{self.vram_gb:g} GB"
@@ -210,7 +160,10 @@ class Gpu:
 
 @dataclass(frozen=True)
 class Backend:
-    """A backend that answered, with what it said it can serve."""
+    """A model server that answered a probe: where it lives, its API dialect
+    and kind, the model ids it listed, the `how` string recording the request
+    that succeeded, and the context window it advertises when the kind is
+    known."""
 
     name: str
     base_url: str
@@ -218,12 +171,13 @@ class Backend:
     models: tuple[str, ...]
     how: str
     host: str = DEFAULT_HOST
-    kind: str = ""  # the backend convention; see ProbeTarget.kind
-    #: The context length the backend serves in one request, read off the
-    #: running process where its convention states it (:data:`WINDOW_SOURCES`),
-    #: or ``None`` when it could not be read. Setup writes it as the unit's
-    #: ``window``, the ceiling a `code` contract's cap is held to beside its
-    #: prompt; a number nobody read is not written.
+    kind: str = ""  # Left empty to mean "same as name"; filled by __post_init__.
+    #: Context window the server advertises for its models, in tokens, as read
+    #: from the endpoint that WINDOW_SOURCES lists for this kind.
+    #: None when the kind has no known window source, when the extra request
+    #: failed, or when the payload carried no usable positive number - so None
+    #: means "not learned here", never "unbounded".
+    #: Set during probing by _served_window, and left None everywhere else.
     window: int | None = None
 
     def __post_init__(self) -> None:
@@ -232,28 +186,19 @@ class Backend:
 
     @property
     def is_local(self) -> bool:
-        """Whether this backend is on the machine mcgyvr is running on.
-
-        Decided by the name the user gave, not by resolving the address: a
-        rig reachable as ``localhost`` through an SSH tunnel really is being
-        treated as local by everything else here, and one named by its
-        network address is not, whatever it resolves to.
-        """
+        """True when this backend's host is one of LOCAL_HOSTS."""
         return is_local_host(self.host)
 
     def has_model(self, model_id: str) -> bool:
-        """Whether this backend already holds a model, by exact id only.
-
-        A server may report a path, a bare name or a tagged name for the same
-        weights, and they are not interchangeable. An exact match is the only
-        claim made here — a near match is reported as absent.
-        """
+        """True when model_id appears verbatim among the ids the server listed."""
         return model_id in self.models
 
 
 @dataclass(frozen=True)
 class Detection:
-    """What was found, how it was found, and what could not be determined."""
+    """Everything one detection pass established: what was read, the
+    provenance strings saying how each value was obtained, notes describing
+    what could not be read, and the targets that were swept."""
 
     gpus: tuple[Gpu, ...] = ()
     cpu_count: int | None = None
@@ -262,8 +207,8 @@ class Detection:
     docker: bool = False
     provenance: Mapping[str, str] = field(default_factory=dict)
     notes: tuple[str, ...] = ()
-    # Every endpoint the sweep asked, answered or not, in probe order. Empty
-    # for a detection that was not swept (one built by hand).
+    # The targets the sweep actually asked, so a later reader can tell
+    # "this machine had nothing" apart from "these hosts were never probed".
     swept: tuple[ProbeTarget, ...] = ()
 
     @property
@@ -272,26 +217,15 @@ class Detection:
 
     @property
     def largest_vram_gb(self) -> float | None:
-        """VRAM of the biggest single card whose size is known, else None.
-
-        Deliberately not a sum: a model runs on one card, so several cards
-        are one decision per card, never one decision over their total.
-        Multi-GPU sharding would change that and is not something this detects.
-
-        A card of undetermined size takes no part: it is not the largest, and
-        with no card of known size this is None, as for a machine without a
-        card. The card is still in :attr:`gpus` and named in :attr:`notes`.
-        """
+        """VRAM of the card chosen by sizing_gpu, or None when no card
+        reported a size."""
         sizing = self.sizing_gpu
         return None if sizing is None else sizing.vram_gb
 
     @property
     def sizing_gpu(self) -> Gpu | None:
-        """The card :attr:`largest_vram_gb` reads: the biggest of known size.
-
-        Of cards of one size, the first the tool listed. None when no card's
-        size is known.
-        """
+        """The card with the largest known VRAM. Cards whose size could not
+        be read are ignored, and None comes back when no card has a size."""
         sized = [g for g in self.gpus if g.vram_gb is not None]
         return max(sized, key=lambda g: g.vram_gb or 0.0, default=None)
 
@@ -299,26 +233,26 @@ class Detection:
         return next((b for b in self.backends if b.name == name), None)
 
     def models_present(self) -> frozenset[str]:
-        """Every model id any reachable backend reports holding."""
+        """Every model id listed by any backend, de-duplicated into a
+        frozenset."""
         return frozenset(m for b in self.backends for m in b.models)
 
     @property
     def hosts_answering(self) -> tuple[str, ...]:
-        """Every host that answered on at least one endpoint, in probe order."""
+        """Hosts of the backends that answered, de-duplicated in first-seen
+        order."""
         return tuple(dict.fromkeys(b.host for b in self.backends))
 
     @property
     def has_remote_backend(self) -> bool:
-        """Whether any reachable backend is on another machine.
-
-        Such a backend serves from that machine's card, which this machine's
-        card tool does not see.
-        """
+        """True when at least one answering backend is not on this machine."""
         return any(not b.is_local for b in self.backends)
 
 
 def _run(command: Sequence[str]) -> str | None:
-    """Run a command, returning its stdout or None if it cannot be run."""
+    """Run command and return its stdout, or None when the program is not on
+    PATH, when running it raised or timed out, or when it exited non-zero.
+    stderr is captured and discarded."""
     if shutil.which(command[0]) is None:
         return None
     try:
@@ -335,15 +269,9 @@ def _run(command: Sequence[str]) -> str | None:
 
 
 def _get_json(url: str, timeout: float) -> Any | None:
-    """GET a JSON document, returning None on any failure whatsoever.
-
-    Every failure mode here — refused, timed out, 404, not JSON, a status line
-    that is not one, a body that ends before the length it stated — means the
-    same thing to the caller: nothing usable is listening. The last two are
-    ``http.client.HTTPException``, which is not an ``OSError``. JSON nested
-    deeper than the reader follows raises ``RecursionError``, which is neither,
-    and means the same.
-    """
+    """GET url and parse the body as JSON, returning None on any failure:
+    connection error, HTTP status error, undecodable or over-nested
+    body."""
     try:
         with urllib.request.urlopen(url, timeout=timeout) as response:
             return json.loads(response.read().decode("utf-8"))
@@ -352,7 +280,9 @@ def _get_json(url: str, timeout: float) -> Any | None:
 
 
 def _models_from(payload: Any, api: str) -> tuple[str, ...]:
-    """Pull model ids out of the listing. ``api`` names the protocol asked."""
+    """Pull model ids out of an OpenAI-shaped listing: the "data" rows whose
+    "id" is a string, de-duplicated in order. Any other shape yields (). The
+    api argument is accepted but not consulted."""
     if not isinstance(payload, dict):
         return ()
     rows = payload.get("data")
@@ -364,14 +294,15 @@ def _models_from(payload: Any, api: str) -> tuple[str, ...]:
         for row in rows
         if isinstance(row, dict) and isinstance(row.get(key), str)
     ]
-    return tuple(dict.fromkeys(found))  # de-duplicated, order preserved
+    return tuple(dict.fromkeys(found))  # De-duplicate, keeping the server's order.
 
 
-#: Where each backend convention states the context length it serves: the
-#: path asked, and the keys read off the answer. A list of rows is read row by
-#: row, and the smallest is the window: a window larger than the model loaded
-#: would let a cap pass that the backend then refuses. ``/v1/models`` is the
-#: listing :func:`probe` already holds, so vLLM costs no second request.
+#: Per-kind recipe for learning the served context window: the path to GET
+#: and the key path down into the JSON that path answers with.
+#: "/v1/models" reuses the listing the probe already fetched; every other
+#: path is a second request made only after a target has answered.
+#: The key path drops one element per nesting level and ends at a positive
+#: int; a list met on the way is reduced to the smallest value found.
 WINDOW_SOURCES: Mapping[str, tuple[str, tuple[str, ...]]] = {
     "vllm": ("/v1/models", ("data", "max_model_len")),
     "llama-server": ("/props", ("default_generation_settings", "n_ctx")),
@@ -381,12 +312,10 @@ WINDOW_SOURCES: Mapping[str, tuple[str, tuple[str, ...]]] = {
 
 
 def _window_from(payload: Any, keys: tuple[str, ...]) -> int | None:
-    """The positive whole number at ``keys`` in ``payload``, or ``None``.
-
-    A list met on the way is read row by row and the smallest number kept.
-    Anything else — a missing key, a string, a bool, zero — is a window that
-    was not stated, and ``None`` says so rather than guessing one.
-    """
+    """Walk keys down into payload and return the context window found. An
+    empty key path means payload itself should be the number; a list is
+    searched element-wise with the smallest value winning; a missing,
+    boolean or non-positive value yields None."""
     if not keys:
         if isinstance(payload, int) and not isinstance(payload, bool):
             return payload if payload > 0 else None
@@ -403,7 +332,10 @@ def _window_from(payload: Any, keys: tuple[str, ...]) -> int | None:
 def _served_window(
     target: ProbeTarget, listing: Any, timeout: float
 ) -> tuple[int | None, str]:
-    """The window ``target`` serves, and where it was read; ``None`` if unread."""
+    """Read the advertised context window for target, reusing listing when
+    the source path is /v1/models. Returns (window, suffix), where suffix is
+    "" when nothing was learned and otherwise a clause naming the window and
+    the path it came from, to be appended to the probe's `how` text."""
     source = WINDOW_SOURCES.get(target.kind)
     if source is None:
         return None, ""
@@ -420,11 +352,10 @@ def _served_window(
 
 
 def probe(target: ProbeTarget, timeout: float = PROBE_TIMEOUT_S) -> Backend | None:
-    """Ask one target what it is serving. None means nothing usable there.
-
-    What it serves is the models it lists and, where its convention states it,
-    the context length it serves in one request (:data:`WINDOW_SOURCES`).
-    """
+    """Ask one target for its model list on /v1/models and describe it as a
+    Backend. Returns None when the request failed or its body did not parse
+    as JSON (a literal null included); an empty model list still counts as
+    answering."""
     path = "/v1/models"
     url = target.base_url.rstrip("/") + path
     payload = _get_json(url, timeout)
@@ -447,7 +378,9 @@ def probe_all(
     targets: Sequence[ProbeTarget] = DEFAULT_PROBE_TARGETS,
     timeout: float = PROBE_TIMEOUT_S,
 ) -> tuple[Backend, ...]:
-    """Probe every target at once, so the wall clock is one timeout."""
+    """Probe every target concurrently, one worker per target, and return the
+    backends that answered in target order, dropping the ones that did
+    not."""
     if not targets:
         return ()
     with ThreadPoolExecutor(max_workers=len(targets)) as pool:
@@ -456,7 +389,9 @@ def probe_all(
 
 
 def _reading() -> Mapping[str, Any]:
-    """This machine's short reading, by the one reader of a machine."""
+    """Return rigscan.read_machine(), the card and memory reading detection is
+    built on; mcgyvr.serving.rigscan is imported inside the call rather than
+    at module import."""
     from mcgyvr.serving import rigscan
 
     return rigscan.read_machine()
@@ -465,17 +400,11 @@ def _reading() -> Mapping[str, Any]:
 def detect_gpus(
     reading: Mapping[str, Any] | None = None,
 ) -> tuple[tuple[Gpu, ...], tuple[str, ...]]:
-    """The first vendor's cards as the one reader read them; anything else is
-    reported as undetermined.
-
-    Nothing here runs a card tool: :mod:`mcgyvr.serving.rigscan` reads every
-    card, on any vendor, and names each field it could not read with why. The
-    cards proposed from are the ones its first vendor's tool read, since the
-    engines a setup launches are that vendor's; another vendor's card is in
-    the reading and not here. A card whose size was not read is a card of
-    undetermined size, with a note; one whose name was not read is named in a
-    note, never dropped in silence.
-    """
+    """Turn a rigscan reading into Gpu entries, keeping only NVIDIA cards. A
+    card with a readable name is kept even when its size is missing (vram_gb
+    None); a row that could not be read as a card is dropped and noted.
+    Returns (gpus, notes): the notes flag the list as incomplete rather than
+    short, and when no card is read at all they say why instead."""
     reading = _reading() if reading is None else reading
     how = "nvidia-smi, read by mcgyvr.serving.rigscan"
     unread = {
@@ -509,8 +438,8 @@ def detect_gpus(
         gpus.append(Gpu(name=name, vram_gb=round(total / MIB_PER_GB, 1), how=how))
     tool = unread.get("cards.nvidia-smi")
     if tool is not None and (gpus or notes):
-        # Cards were read, and the tool's list may still be short: a line that
-        # was no card, or more cards in sysfs than it printed.
+        # The tool itself failed or printed something unreadable, yet some
+        # rows were still read: keep those cards and flag the list as incomplete.
         notes.append(
             f"{GPU_ROW_NOT_READ}: {_quoted(tool)}. Read the card list as "
             "incomplete, not short."
@@ -533,8 +462,8 @@ def detect_gpus(
 
 
 def detect_ram_gb(reading: Mapping[str, Any] | None = None) -> tuple[float | None, str]:
-    """Total system RAM, as fallback context when there is no GPU, as the one
-    reader read it."""
+    """Total system RAM in GB from a rigscan reading, plus the `how` string
+    naming the source; (None, reason) when the reading carried no total."""
     reading = _reading() if reading is None else reading
     memory = reading.get("memory")
     total = memory.get("total_gb") if isinstance(memory, Mapping) else None
@@ -546,12 +475,10 @@ def detect_ram_gb(reading: Mapping[str, Any] | None = None) -> tuple[float | Non
 
 
 def detect_docker() -> tuple[bool, str]:
-    """Whether a usable Docker daemon is here — it decides the sandbox mode.
-
-    "Here" is this machine. With the environment pointing docker at another
-    daemon nothing is probed — the `docker info` would go wherever it points,
-    a rig included — and the answer is no, carrying the sandbox's refusal.
-    """
+    """Decide whether a usable Docker daemon is available: refuse when a
+    foreign daemon is configured, otherwise require docker on PATH and a
+    `docker info` that prints a server version. Returns (available, how),
+    where how explains the verdict either way."""
     from mcgyvr.sandbox.image import foreign_daemon
 
     refusal = foreign_daemon()
@@ -569,9 +496,11 @@ def detect(
     targets: Sequence[ProbeTarget] = DEFAULT_PROBE_TARGETS,
     timeout: float = PROBE_TIMEOUT_S,
 ) -> Detection:
-    """Survey the machine. Never raises: a bare machine is a valid answer.
-
-    The machine is read once, by the one reader, for its cards and its RAM."""
+    """Run one full pass: read the machine once, derive GPUs, RAM and Docker
+    from it, probe every target concurrently, and record os.cpu_count().
+    Everything unresolved becomes a note (no backend answered, no Docker for
+    the docker sandbox, no CPU count), and each value obtained gets a
+    provenance entry."""
     reading = _reading()
     gpus, gpu_notes = detect_gpus(reading)
     ram_gb, ram_how = detect_ram_gb(reading)

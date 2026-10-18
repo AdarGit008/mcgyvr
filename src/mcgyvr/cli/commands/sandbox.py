@@ -1,6 +1,12 @@
-"""The `mcgyvr sandbox` command.
+"""The `sandbox` command: report the sandbox this host would give a task, and
+the stack detected for a repository.
 
-Only what is built is exposed.
+For a repository it resolves the configured sandbox mode against whether a
+Docker daemon answered, prints the mode with the notes that came with it, then
+prints the detected stack — base image, each component's package manager,
+whether it is pinned, and the install and manifest lines. It does not build an
+image or run anything. Two flags instead work over the image cache: `--cache`
+lists the task images built so far, and `--clear-cache` removes them.
 """
 
 from __future__ import annotations
@@ -66,17 +72,17 @@ def _sandbox(args: argparse.Namespace) -> int:
         return 1
     _say_what_the_sandbox_leaves_out(repo)
 
-    # Show what a run here would resolve to: the setup's `sandbox.mode` and
-    # `sandbox.allow_fallback`, read as a run reads them. No setup at all is
-    # the schema's defaults (`docker`, no fallback); a setup that cannot be
-    # read has no resolved mode to show.
+    # The setup is optional: with no `--config` the default setup path is
+    # consulted, and its absence only means the `sandbox` block keeps its
+    # defaults. A setup the user named is not optional, so failing to read it
+    # is an error.
     chosen = Path(args.config) if getattr(args, "config", None) else None
     try:
         config: Config | None = load_config(chosen)
     except ConfigMissingError as exc:
         if chosen is not None:
-            # Named with --config and not there: an error, as on `run`, not
-            # the defaults a bare install reads.
+            # Only the default setup may be absent; a path that was named
+            # has to be there.
             print(f"error: {exc}", file=sys.stderr)
             return 1
         config = None
@@ -122,7 +128,8 @@ def _sandbox(args: argparse.Namespace) -> int:
 
 
 def add_parser(sub: argparse._SubParsersAction[argparse.ArgumentParser]) -> None:
-    """Register the `sandbox` command."""
+    """Register the `sandbox` subcommand: its repository argument, its two
+    image-cache flags, the optional `--config`, and `_sandbox` as its handler."""
 
     sbx = sub.add_parser(
         "sandbox",

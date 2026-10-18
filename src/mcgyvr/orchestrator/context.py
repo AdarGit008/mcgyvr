@@ -1,47 +1,12 @@
-"""Agent-supplied context — an accelerator that is never load-bearing.
+"""Verify the context a caller supplies against a built index, then use what
+survives to re-rank a resolution.
 
-In delegated mode the caller is usually another agent that has *already* read
-the repository. Making it re-pay for that knowledge is pure waste, so this layer
-lets it hand over what it holds: the paths it believes matter, and the file text
-it already has in context. Used well, that turns paid reads into free ones.
-
-The danger is obvious and it is the whole reason this module is small and
-suspicious. A hint is an assertion by something that can be wrong — stale after
-an edit, confused about a name, or simply hallucinated. If a hint could steer
-the plan, the orchestrator would inherit the caller's mistakes and the
-deterministic guarantee of #47/#48 would be worth nothing. So the rules here are
-structural, not advisory:
-
-* **The deterministic pass always runs, and cannot be turned off.** There is no
-  flag in this module that skips index, resolve or region planning. Supplied
-  context enters *after* :func:`~mcgyvr.orchestrator.resolve.resolve` has already
-  produced its shortlist, and it may only re-rank what is already there. Nothing
-  here can add a path the index did not shortlist, and nothing here can remove
-  one. The set of files a plan targets is the deterministic pass's alone.
-
-* **A hint is checked against the index before it is believed.** A path that is
-  not in the index is dropped. Supplied text that does not match what the
-  repository actually holds is dropped, and the repository wins. Every rejection
-  becomes a :class:`ContextFinding` on the result — contradiction is *reported*,
-  never silently absorbed and never silently trusted.
-
-* **The hint's strength is bounded below the resolver's own dominance
-  threshold.** This is the sharp end. A candidate the caller names has its score
-  multiplied by :data:`_HINT_BOOST`, which is pinned strictly under
-  :data:`~mcgyvr.orchestrator.resolve._DOMINANCE`. Since a ``RESOLVED`` leader
-  beats its runner-up by at least the dominance factor, a boost smaller than that
-  factor cannot overtake it — *arithmetically*, not by convention. So a wrong
-  hint cannot re-point a plan the index already resolved. Its reach is confined
-  to the shortlist the resolver declined to separate: there it decides read
-  *order*, and it can finish a call the index had already nearly made, but it
-  cannot turn a dead tie into a verdict. Corroboration is allowed to settle
-  something; assertion alone is not.
-
-The saving shows up in :mod:`~mcgyvr.orchestrator.read`: a file whose supplied
-text was *verified equal* to the indexed content is already in the caller's
-context, so reading it costs the exploration budget nothing. The region is still
-planned, still attributed, still reported — it is just free, and the budget it
-did not consume is available for regions the caller has not seen.
+`verify` turns a `SuppliedContext` into a `VerifiedContext`: paths the index
+confirms, supplied text that matches the indexed lines, and a finding for every
+mismatch. `accelerate` folds that verdict back into an existing `Resolution`
+with a bounded boost for trusted paths. A hint cannot add a candidate the
+deterministic pass did not shortlist, and it cannot lower a verdict that pass
+already reached.
 """
 
 from __future__ import annotations
@@ -60,39 +25,33 @@ from mcgyvr.orchestrator.resolve import (
     _verdict,
 )
 
-# The hint's entire strength, as a multiplier on a candidate's deterministic
-# score. It is *derived* from the resolver's dominance threshold rather than
-# written as a literal, because the safety argument depends on the relationship
-# between the two and must not drift if either is retuned: a RESOLVED leader
-# beats its runner-up by at least `_DOMINANCE`, so a boost strictly below
-# `_DOMINANCE` can never lift the runner-up past it. Keeping the boost at a fixed
-# fraction of the gap makes that inequality structural.
+# Score multiplier for a candidate whose path the caller named: at the current
+# resolver tuning that is 1.4, i.e. 80% of the way from a neutral score to the
+# dominance the resolver demands. The unboosted 20% is what keeps a hint honest:
+# the boost can settle a decision the index was already leaning toward, yet on its
+# own it stays under the dominance ratio — it reorders a field or flips a
+# near-tie, but cannot overtake a leader that is already dominant, so the
+# recomputed verdict reports what the hint actually achieved.
 _HINT_BOOST = 1.0 + (_DOMINANCE - 1.0) * 0.8
 
 
 class Discrepancy(StrEnum):
-    """Why a piece of supplied context was not believed.
+    """The ways supplied context can disagree with the index, recorded on a finding
+    instead of being silently absorbed."""
 
-    Each value is a way the caller's picture and the repository disagree. They
-    are reported on the result rather than raised: a bad hint is an ordinary,
-    expected event that degrades the acceleration, not an error that should stop
-    a plan the deterministic pass can produce perfectly well on its own.
-    """
-
-    UNKNOWN_PATH = "unknown_path"  # named a path the index does not hold
-    STALE_CONTENT = "stale_content"  # supplied text differs from the repository
+    UNKNOWN_PATH = "unknown_path"  # named path absent from the index; hint dropped
+    STALE_CONTENT = "stale_content"  # supplied text differs from the indexed lines
     UNCORROBORATED = (
-        "uncorroborated"  # real path, but the resolver did not shortlist it
+        "uncorroborated"  # trusted path the deterministic pass never shortlisted
     )
 
 
 @dataclass(frozen=True)
 class ContextFinding:
-    """One rejected hint: which path, which disagreement, and the detail.
+    """One mismatch between what the caller supplied and what the index holds.
 
-    ``detail`` is a short human-readable line explaining the specific mismatch,
-    so a caller can fix a stale cache rather than merely learn that it was
-    ignored.
+    `path` is spelled the way the caller spelled it, `discrepancy` says which kind
+    of disagreement this is, and `detail` states its consequence in prose.
     """
 
     path: str
@@ -102,13 +61,11 @@ class ContextFinding:
 
 @dataclass(frozen=True)
 class SuppliedContext:
-    """What the calling agent claims to already know about the repository.
+    """What the caller claims to know before exploration: paths it hints at, and
+    the text it already holds for any of them.
 
-    ``paths`` are repo-relative paths the caller believes are relevant.
-    ``contents`` maps a path to the text the caller currently holds for it —
-    supplying content also counts as naming the path, since it is the stronger
-    claim. Nothing here is trusted until :func:`verify` has checked it against
-    the index.
+    Either side may be empty and either may stand alone; supplying `contents` for
+    a path names that path just as `paths` does.
     """
 
     paths: tuple[str, ...] = ()
@@ -116,20 +73,16 @@ class SuppliedContext:
 
     @property
     def named(self) -> tuple[str, ...]:
-        """Every path this context refers to, named or supplied, in a stable order."""
+        """Every path the caller named, whether by hint or by holding its text,
+        deduplicated in first-seen order."""
         return tuple(dict.fromkeys([*self.paths, *self.contents]))
 
 
 @dataclass(frozen=True)
 class VerifiedContext:
-    """Supplied context after it has been checked against the index.
-
-    ``trusted`` are paths that genuinely exist in the index and may therefore
-    re-rank the shortlist. ``fresh`` are the subset whose supplied text was found
-    equal to the indexed content — only these can satisfy a read for free, since
-    only these are provably what the caller thinks they are. ``findings`` records
-    everything that was rejected and why.
-    """
+    """What a `SuppliedContext` turned out to be worth: `trusted` paths are the ones
+    the index confirms, `fresh` is the subset whose supplied text matched the
+    indexed lines, and `findings` holds every mismatch that was reported."""
 
     trusted: frozenset[str]
     fresh: frozenset[str]
@@ -137,24 +90,20 @@ class VerifiedContext:
 
     @classmethod
     def none(cls) -> VerifiedContext:
-        """An empty verification — the neutral element, for callers with no hints."""
+        """The neutral result: nothing trusted, nothing fresh, nothing to report."""
         return cls(trusted=frozenset(), fresh=frozenset(), findings=())
 
     def __bool__(self) -> bool:
-        """True when anything survived verification and could accelerate a plan."""
+        """True when at least one path was trusted, so an empty verification is
+        falsy."""
         return bool(self.trusted)
 
 
 @dataclass(frozen=True)
 class Acceleration:
-    """A re-ranked resolution, plus a full account of how the hints were treated.
-
-    ``resolution`` holds exactly the candidate paths the deterministic pass
-    produced — re-ordered, possibly, but never added to or removed from.
-    ``promoted`` names the candidates the hints lifted, and ``findings`` lists
-    every hint that was rejected, so the acceleration is auditable rather than
-    an invisible thumb on the scale.
-    """
+    """A resolution re-ranked with trusted hints: the adjusted `resolution`, the
+    paths whose score was actually boosted, and every finding raised by both the
+    verification and the re-ranking."""
 
     resolution: Resolution
     promoted: tuple[str, ...]
@@ -162,14 +111,13 @@ class Acceleration:
 
 
 def verify(index: Index, supplied: SuppliedContext) -> VerifiedContext:
-    """Check supplied context against the index, keeping only what holds up.
+    """Check every path the caller named against `index` and sort the outcome into
+    trusted paths, fresh text, and findings.
 
-    A named path is trusted when the index actually holds it. Supplied text is
-    trusted only when it matches the indexed content exactly, line for line — the
-    repository is the authority, and a caller working from a stale copy must not
-    be able to feed that copy back as fact. Everything rejected is returned as a
-    :class:`ContextFinding`; nothing raises, because a bad hint is a normal event
-    that the deterministic pass is entirely capable of surviving.
+    A path the index does not know is dropped and reported as unknown. A real path
+    is always trusted, since only the path is being vouched for; its supplied text
+    then either matches the indexed lines and earns freshness, or is reported as
+    stale so the file is read normally instead of believed.
     """
     indexed = {file.path: file for file in index.files}
     trusted: set[str] = set()
@@ -193,10 +141,10 @@ def verify(index: Index, supplied: SuppliedContext) -> VerifiedContext:
         text = _content_for(supplied, raw, path)
         if text is None:
             continue
-        # Byte-equality against what the index decoded, compared the same way the
-        # index split it. Anything less strict would let a "close enough" copy
-        # stand in for the real file, which is exactly the substitution that makes
-        # a hint load-bearing.
+        # Believe the caller's text only if it matches the indexed lines exactly,
+        # compared with the same split the index applied, so a missing or extra
+        # trailing newline still counts as stale. A stale file stays trusted for
+        # re-ranking and is simply read normally, which is why it is only reported.
         if tuple(text.split("\n")) == file.lines:
             fresh.add(path)
         else:
@@ -217,25 +165,14 @@ def verify(index: Index, supplied: SuppliedContext) -> VerifiedContext:
 
 
 def accelerate(resolution: Resolution, verified: VerifiedContext) -> Acceleration:
-    """Re-rank a resolution using verified hints, without changing what it targets.
+    """Re-rank `resolution` with a bounded boost for every candidate whose path the
+    caller had trusted.
 
-    Candidates the caller named are boosted by :data:`_HINT_BOOST` and the
-    shortlist is re-sorted. The candidate *set* is untouched, so the files a plan
-    targets remain the deterministic pass's decision. A resolution that was
-    already :attr:`~mcgyvr.orchestrator.resolve.Verdict.RESOLVED` keeps both its
-    verdict and its leader — the boost is too small to overturn a dominant
-    leader, and confidence is never *lowered* by a hint, so an accelerated plan
-    is never less certain than the one the index produced alone.
-
-    Within an ``AMBIGUOUS`` shortlist the hint has real effect: it reorders, so
-    the named candidate is read first, and where the field was already leaning it
-    can carry that leader past the dominance threshold into ``RESOLVED``. It
-    cannot do so from a dead tie — with the boost capped below that threshold,
-    two equally-scored candidates stay ambiguous however firmly one is asserted.
-    A hint may confirm a judgement; it may not supply one.
-
-    Hints that survived verification but name nothing on the shortlist are
-    reported as :attr:`Discrepancy.UNCORROBORATED` and have no other effect.
+    A promoted candidate keeps its deterministic evidence and gains a note that
+    supplied context named it. The candidate set is untouched, so a hint can only
+    reorder what the deterministic pass already shortlisted; a verdict that was
+    already resolved is inherited as-is, while an unresolved one is recomputed from
+    the boosted ranking, so only a real dominance gap becomes a resolution.
     """
     boosted: list[Candidate] = []
     promoted: list[str] = []
@@ -253,9 +190,10 @@ def accelerate(resolution: Resolution, verified: VerifiedContext) -> Acceleratio
             boosted.append(candidate)
 
     ranked = tuple(sorted(boosted, key=lambda item: (-item.score, item.path)))
-    # Never downgrade: the hint may settle an ambiguity, but it may not introduce
-    # one. A resolution the index called outright stays called, with the leader it
-    # already had — which `_HINT_BOOST < _DOMINANCE` guarantees is still first.
+    # Re-sort after boosting: scores are rounded and ties fall back to the path, so
+    # the order is stable whatever order the hints arrived in. A verdict the
+    # resolver already reached is never downgraded; an unresolved one is recomputed
+    # against the new scores rather than assumed to follow the hint.
     verdict = (
         Verdict.RESOLVED if resolution.verdict is Verdict.RESOLVED else _verdict(ranked)
     )
@@ -285,17 +223,15 @@ def accelerate(resolution: Resolution, verified: VerifiedContext) -> Acceleratio
     )
 
 
-# --- small deterministic helpers -------------------------------------------
+# Helpers that map a caller's spelling of a path onto the index's relative form and
+# retrieve whatever text they supplied for it.
 
 
 def _normalize(raw: str, root: Path) -> str:
-    """A supplied path reduced to the repo-relative form the index uses.
-
-    Callers hand over paths in whatever shape they had them: absolute, prefixed
-    with ``./``, or with native separators. Normalising here means a correct hint
-    is not rejected over punctuation, while a genuinely unknown path still fails
-    the index lookup that follows.
-    """
+    """Return `raw` in the index's relative posix form: whitespace stripped, backslashes
+    folded to slashes, and an absolute path made relative to `root` when it resolves
+    inside it. Anything that cannot be made relative comes back in the stripped form,
+    so a path from outside the repository simply fails to match the index."""
     text = raw.strip().replace("\\", "/")
     if not text:
         return text
@@ -309,7 +245,8 @@ def _normalize(raw: str, root: Path) -> str:
 
 
 def _content_for(supplied: SuppliedContext, raw: str, normalized: str) -> str | None:
-    """The text supplied for a path, looked up under either spelling of it."""
+    """The text the caller supplied for this path, looked up first under the spelling
+    they used and then under the normalized form; `None` when they supplied none."""
     if raw in supplied.contents:
         return supplied.contents[raw]
     return supplied.contents.get(normalized)

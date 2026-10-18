@@ -1,22 +1,10 @@
-"""How a served model id is read against the name a config declares.
+"""Helpers for finding model weight files that are already on disk.
 
-**Two vocabularies.** vLLM's served id is the model it was started with — the
-repository id a config names — and those compare as strings. llama.cpp's is
-the **path it was handed**, as ``/models/dense/<name>.gguf`` (the lab's
-serving evidence for lcpp-box1), against a config that declares ``<name>``.
-``emit`` passes ``--alias <name>`` beside ``--model <path>``, so a unit it
-rendered serves the declared name; a server started
-without one (by hand, or from a file emitted before the alias was written)
-still lists and answers by its path, and the two differ by construction.
-
-This rule lives in a module of its own because two layers need it and it belongs
-to neither. :mod:`mcgyvr.availability` reads it against a rig's *listing*, to
-decide whether a rung is in service. :mod:`mcgyvr.runner` reads it against the
-model a completion says it *answered with*, to decide whether an answer came
-from the weights that were asked for, on a rung of one's own and on a relief
-rung alike. One rule, spelled once: a reading that
-drifted between those two would put a rung in service on one definition and
-refuse its answers on the other.
+Walks configured root directories for ".gguf" and ".safetensors" files, derives
+a model name and a GGUF quantization tag from each filename, and offers lookup
+and confirmation helpers so a caller can reuse local weights instead of
+downloading them again. Also decides whether a served model reference names the
+same model as a declared model id.
 """
 
 from __future__ import annotations
@@ -25,19 +13,21 @@ import re
 from collections.abc import Callable, Iterable, Sequence
 from pathlib import Path
 
-#: What a weights file is called on this fleet. Only these are stripped off a
-#: served id, and only off the last segment of a path: a suffix list is a claim
-#: about file names and not about model names, and a model whose name genuinely
-#: ends in one of these is a model nobody has.
+#: Filename suffixes treated as model weight files, used by is_model to strip
+#: the extension off a served model reference before comparing the base name
+#: with the declared model id. ".bin" and ".pt" appear only in this list,
+#: since models_in scans for ".gguf" and ".safetensors" alone.
 WEIGHTS_SUFFIXES = (".gguf", ".safetensors", ".bin", ".pt")
 
-#: The tail llama.cpp's own convention puts on a quant too big for one file —
-#: ``...-00001-of-00002.gguf``. The server is given the first shard and lists
-#: that path, so a stem that is the declared model plus this is the declared
-#: model.
+#: Split checkpoints put a shard counter before the extension, for example
+#: "model-00001-of-00002.safetensors". This pattern matches that trailing
+#: "-00001-of-00002" so the counter can be removed and the sharded file still
+#: compares equal to the unsuffixed declared model id.
 _SHARD = re.compile(r"-\d{1,5}-of-\d{1,5}$")
 
-#: A GGUF quantisation as file names spell it, at the end of the name.
+#: Quantization tag in a GGUF filename, e.g. "q4_k_m", "Q8_0", "BF16", "F32" or
+#: "MXFP4_MOE": a separator (or underscore variant) followed by the tag and the
+#: ".gguf" extension.
 _GGUF_QUANT = re.compile(
     r"[-_.]((?:I?Q\d+(?:_[A-Z0-9]+)*)|BF16|FP16|F16|F32|MXFP4(?:_MOE)?)\.gguf$",
     re.IGNORECASE,
@@ -45,11 +35,12 @@ _GGUF_QUANT = re.compile(
 
 
 def _name_and_quant(path: Path) -> tuple[str, str | None]:
-    """A weights file's model id/name and quant, read off its name.
+    """Derive a model name and quantization tag from a weight filename.
 
-    A GGUF names its model before its quant tag; a safetensors shard names its
-    model by the directory that holds it, and its quant is None (the dtype is
-    in the header, not the file name).
+    For ".gguf" files the name is everything before the quantization tag and
+    the tag is upper-cased, or the name is the whole stem with a tag of None
+    when no tag matches. For ".safetensors" files the name is the stem. Any
+    other filename is returned unchanged.
     """
     name = path.name
     lower = name.lower()
@@ -64,8 +55,15 @@ def _name_and_quant(path: Path) -> tuple[str, str | None]:
 
 
 def models_in(roots: Iterable[Path]) -> tuple[tuple[str, str | None, int], ...]:
-    """``(name, quant, size_bytes)`` for every ``*.gguf``/``*.safetensors``
-    under ``roots``, used before a download to find one already on disk."""
+    """List the weight files found under the given roots.
+
+    Each root is expanded and skipped unless it is an existing directory; the
+    remaining roots are searched recursively for ".gguf" and ".safetensors"
+    files. Every file contributes a ``(name, quant, size)`` triple, where the
+    first two fields come from :func:`_name_and_quant` and the third is the
+    size in bytes. A path is reported only once, and files whose size cannot
+    be read are dropped.
+    """
     found: list[tuple[str, str | None, int]] = []
     seen: set[Path] = set()
     for root in roots:
@@ -95,10 +93,13 @@ def existing_model(
     size_bytes: int | None = None,
     roots: Sequence[Path] = (),
 ) -> tuple[str, str | None, int] | None:
-    """The first on-disk model matching ``model_id`` + ``quant`` + ``size``.
+    """Look for a weight file on disk that matches the requested model.
 
-    The size is matched only when the caller knows one; a file of the same id
-    and quant but another size is a different checkpoint and must not be reused.
+    The name and the quantization tag are compared case-insensitively, with a
+    missing tag treated as an empty string. When ``size_bytes`` is given the
+    file size must match exactly as well. Returns the first matching
+    ``(name, quant, size)`` triple from :func:`models_in`, or None when nothing
+    matches.
     """
     wanted = model_id.lower()
     wanted_quant = (quant or "").lower()
@@ -121,9 +122,12 @@ def reuse_or_download(
     roots: Sequence[Path] = (),
     prompt: Callable[[str], str] = input,
 ) -> bool:
-    """Whether to reuse an on-disk match, asking once; defaults to reuse.
+    """Ask whether an already-downloaded weight file should be reused.
 
-    ``prompt`` is injectable so a test can state the answer without a terminal.
+    Returns False without prompting when :func:`existing_model` finds no match.
+    Otherwise the found file name, quantization tag and size are shown through
+    ``prompt``, and the answer counts as reuse unless it is "n" or "no", so an
+    empty answer means reuse.
     """
     hit = existing_model(model_id, quant=quant, size_bytes=size_bytes, roots=roots)
     if hit is None:
@@ -138,21 +142,13 @@ def reuse_or_download(
 
 
 def is_model(served: str, declared: str) -> bool:
-    """Whether a served id names the weights a rung declares.
+    """Report whether a served model reference names the declared model.
 
-    Equal strings match. Otherwise a weights file is read as one: the last path
-    segment, one weights suffix removed, and llama.cpp's own ``-00001-of-00002``
-    shard tail with it. **Only where a weights suffix was actually there**,
-    which is what keeps the reading narrow: ``model.v2`` is not ``model``, and
-    ``org/model`` is not ``model`` either — a repository id is a name and not a
-    file, and two organisations publishing one basename are two checkpoints.
-    Compared case-insensitively: a file system may not preserve case, the config
-    and the file name are written by different hands, and the direction to err
-    in is the one that leaves a rung in service.
-
-    Every loosening here can only *keep* a rung, never take one out, which is
-    the discipline the whole check runs on: only an explicit, readable listing
-    may shorten the ladder, and this is the reading of it.
+    Identical strings match immediately. Otherwise the served reference is
+    reduced to its basename, one of :data:`WEIGHTS_SUFFIXES` is removed, and
+    the remaining stem, with any :data:`_SHARD` counter stripped, is compared
+    case-insensitively against ``declared``. A reference ending in an
+    unrecognized suffix, or in no suffix at all, does not match.
     """
     if served == declared:
         return True

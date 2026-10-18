@@ -1,6 +1,11 @@
-"""The `mcgyvr detect`/`scan`/`recommend` commands.
+"""The ``mcgyvr`` commands that measure a machine and plan on it.
 
-Only what is built is exposed.
+``detect`` says what can run the work here -- cards, host CPU and RAM, Docker
+-- and which backends answer, with how each fact was found; ``scan`` measures
+this machine or a named rig over ssh, records the reading as that rig's file,
+and says what moved since the record it replaces; ``recommend`` prints one JSON
+plan naming the checkpoint and engine that serve a profile on the given rigs.
+``add_parser`` registers the three.
 """
 
 from __future__ import annotations
@@ -73,19 +78,16 @@ def _detect(args: argparse.Namespace) -> int:
 
 
 def _scan(args: argparse.Namespace) -> int:
-    """Measure this machine, record it as its rig file, and say what moved.
+    """Measure this machine, or a rig with ``--rig``, and record the reading.
 
-    ``--json`` exits :attr:`Exit.OK` even when the scan disagrees with the
-    record, and that asymmetry is the point rather than an oversight.
-    ``--json`` is not a quieter mode of this command for a person; it prints
-    the wire format that :func:`mcgyvr.scan.Scan.from_json` reads — the same
-    shape the one reader prints on a rig. The exit-code
-    channel belongs to the human-facing command, which keeps exit 4: a rig
-    that lost a DIMM or a card still delivers its measurement down the wire
-    and the mismatch goes to stderr, where the operator reads it. The record is
-    this machine's rig file (``localhost``, :mod:`mcgyvr.serving.rigfile`), the
-    one record of a machine; what moved since it is said, and exit 4 is kept
-    for the hardware changing under it (a card, RAM, cores, bandwidth).
+    Without ``--rig`` the reading is this machine's, saved as the ``localhost``
+    rig file, and the human report goes to stdout. ``--json`` writes the scan to
+    stdout and nothing else -- the wire format the remote transport parses -- so
+    the drift report goes to stderr and the status stays ``Exit.OK``; exiting 4
+    there would have the transport discard the scan as a failed command and drop
+    a drifted rig out of the sweep. Otherwise a moved card, total RAM, the cores
+    or the bandwidth is ``Exit.MISMATCH``, and a rig file that cannot be written
+    is ``Exit.ERROR``.
     """
     if args.rig is not None:
         return _scan_rig(args.rig, as_json=args.json)
@@ -94,10 +96,10 @@ def _scan(args: argparse.Namespace) -> int:
     reading = scan_module.reading(
         model_stores=tuple(Path(store) for store in (args.model_store or ()))
     )
-    # Recorded before anything is reported, and recorded even when it
-    # disagrees with the last record. A mismatch is a successful measurement of
-    # a machine that changed, not a failed one; withholding it would leave the
-    # stale record in place for the next run to disagree with all over again.
+    # `save` writes this machine's rig file from the reading, and keeps the
+    # record it replaces when that one knew its cards and this read did not.
+    # `moved` names every field that differs from the earlier record, and
+    # `is_hardware` narrows those to the drift that earns a non-zero exit.
     try:
         saved = rigfile.save(rigfile.LOCAL, reading)
     except (OSError, rigfile.RigFileError) as exc:
@@ -112,10 +114,10 @@ def _scan(args: argparse.Namespace) -> int:
     path = saved.path
 
     if args.json:
-        # stdout is the wire format `Scan.from_json` reads — the same shape the
-        # one reader prints on the rig. One banner line
-        # here and the scan stops parsing, so everything a person would read
-        # goes to stderr.
+        # `--json` is the remote transport's wire format, and a transport that
+        # reads a command's stdout throws it away for any non-zero status: the
+        # measurement goes to stdout alone and the drift report to stderr, so a
+        # rig that lost a card still delivers its scan and exits 0.
         sys.stdout.write(measured.to_json())
         _report_moved(saved.before, changes, sys.stderr)
         return Exit.OK
@@ -174,13 +176,16 @@ def _scan(args: argparse.Namespace) -> int:
 
 
 def _scan_rig(rig: str, *, as_json: bool) -> int:
-    """Scan ``rig`` over ssh and save it as the door's rig file; say what moved.
+    """Scan ``rig`` over the user's own ssh, save its rig file, report movement.
 
-    The read is the read-only one ``mcgyvr recommend`` takes (the one reader,
-    shipped over the user's own ssh config and keys with ``BatchMode``), and
-    the file is what a user-mode door run holds the rig to
-    (:mod:`mcgyvr.serving.rigfile`). A rig that does not answer writes
-    nothing.
+    The ssh runs in BatchMode, so it uses that user's config and keys and never
+    prompts for a password, and it only reads. A rig file there that already
+    knew its cards survives a scan that could not read them (``save`` returns
+    ``kept``), and what the earlier record held is read before the scan so the
+    report can say what moved. ``as_json`` sends the saved reading to stdout and
+    the human report to stderr. ``Exit.USAGE`` for a rig name the rig-file
+    folder refuses, ``Exit.ERROR`` for an ssh that does not answer, a scan that
+    does not run there, or a rig file that cannot be written.
     """
     from mcgyvr.serving import rigfile
 
@@ -270,7 +275,7 @@ def _scan_rig(rig: str, *, as_json: bool) -> int:
 
 
 def _users_count(value: str) -> int:
-    """``single`` or a positive count — the two spellings ``recommend`` takes."""
+    """``--users`` as a count: ``single`` is one, anything else a whole number >= 1."""
     if value == "single":
         return 1
     try:
@@ -285,10 +290,13 @@ def _users_count(value: str) -> int:
 
 
 def _recommend(args: argparse.Namespace) -> int:
-    """Print one JSON plan: which checkpoint and engine serve ``args.profile``.
+    """Print the placement plan for a profile as one JSON document.
 
-    Read-only: the rigs are re-read over the sanctioned detection ssh path and
-    nothing is written, woken or slept. The plan is the only thing on stdout.
+    ``plan`` re-reads every ``--host`` over ssh and picks the checkpoint and
+    engine from ``--model-store`` when one there fits, otherwise from the
+    shipped catalog; the document is written to stdout, sorted and indented. A
+    profile that cannot be placed, or a catalog that cannot be read, is
+    ``Exit.ERROR``; nothing is written, woken or slept.
     """
     try:
         made = recommend_module.plan(
@@ -305,7 +313,12 @@ def _recommend(args: argparse.Namespace) -> int:
 
 
 def _report_moved(before: Any, changes: Sequence[Any], stream: TextIO) -> None:
-    """What moved since this machine's last record, one line each."""
+    """Say what moved since ``before``, on ``stream``; silent if nothing did.
+
+    ``before`` is the record the changes are measured from, so no earlier
+    record and no changes both print nothing, and the caller decides the stream
+    the report belongs on.
+    """
     if before is None or not changes:
         return
     print(f"moved since the record of {before.read_at}:", file=stream)
@@ -314,7 +327,7 @@ def _report_moved(before: Any, changes: Sequence[Any], stream: TextIO) -> None:
 
 
 def add_parser(sub: argparse._SubParsersAction[argparse.ArgumentParser]) -> None:
-    """Register `detect`, `scan`, `recommend`."""
+    """Add ``detect``, ``scan`` and ``recommend``, with their flags, to ``sub``."""
 
     det = sub.add_parser(
         "detect",

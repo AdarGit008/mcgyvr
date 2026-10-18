@@ -1,44 +1,18 @@
-"""Bounded targeted reads — the one place in exploration where tokens are spent.
+"""Turn a resolution into a bounded set of excerpts worth reading.
 
-Attach (#46) and index (#47) cost nothing; resolve (#48) costs nothing. Here is
-where the orchestrator finally reads source, and so here is where the north star
-is won or lost: read only what the shortlist justifies, only the regions that
-matter, and never one token past the budget without saying so.
+`explore` walks the resolution's candidates in rank order, turns each one into
+line windows around its anchors (see `_plan_regions`), and charges every
+window's estimated token cost to a budget. Windows that fit become
+`TargetedRead`s. The first window that would overrun the budget stops the plan:
+it and every later charged region are recorded as `Deferral`s, so
+`Exploration.exhausted` announces a partial plan instead of hiding one. Regions
+whose text the caller already supplied verbatim (`VerifiedContext.fresh`) are
+planned and reported like any other, but they cost nothing — their estimated
+cost is summed into `Exploration.saved` instead of `Exploration.spent`, which is
+what lets the same budget reach further.
 
-Three commitments, straight from #49's acceptance:
-
-* **The spend is bounded and recorded.** A budget, in estimated tokens, caps the
-  exploration; every region read carries its own estimated cost and the total is
-  reported on the plan. The estimate is a plain, deterministic function of the
-  text — there is no model here to ask — and it is injectable, so a caller that
-  owns a real tokenizer can account exactly.
-* **Every read is attributed.** A :class:`TargetedRead` names the candidate rank
-  that motivated it and the reason the region mattered — a definition, a text
-  match, or a filename-only fallback to the file head. The spend is auditable
-  against the shortlist, not a black box.
-* **Exhaustion forces a decision, never silent continuation.** When the budget
-  cannot cover the next region, that region is *deferred*, recorded on the plan
-  with what it would have cost, and :attr:`Exploration.exhausted` is set. The
-  plan always states plainly what it covered and what it left; a caller that
-  overruns gets an explicit partial plan, never a quietly truncated one.
-
-The regions themselves come from the index: a candidate's query-relevant symbol
-definitions and text hits become line anchors, each widened to a bounded window
-and merged with its neighbours so an overlap is read once. A candidate that
-matched only on its filename has no line anchor, so its window is the file head —
-the imports and top-level shape that stand in for "what is this file".
-
-**Who the budget is for.** :func:`explore` takes the budget as a number and the
-caller says what it is. Whatever the budget is derived from, it is derived
-where a rung is chosen, not here.
-
-What does *not* change with the budget is which regions exist. Planning belongs to
-the index and the shortlist, so a smaller budget reads less of the same plan and
-never a different plan, and the regions it could not reach are deferred with their
-cost. That is the property to hold on to while porting a budget in: the cheap way
-to make context smaller is to cut the text, and every such implementation would
-still look like it was following the model while quietly handing a worker half a
-function.
+Nothing here re-ranks: supplied context changes what a plan costs, never which
+candidates or line regions it covers.
 """
 
 from __future__ import annotations
@@ -57,44 +31,43 @@ from mcgyvr.orchestrator.resolve import (
 )
 from mcgyvr.orchestrator.symbols import Symbol, SymbolKind
 
-# A default exploration budget, in estimated tokens — a few windows' worth, on
-# the assumption that a resolved shortlist needs sampling, not wholesale reading.
-# The caller sets it; this is only the floor of "enough to look".
+# Default ceiling on an exploration's estimated token spend. It only bounds a plan
+# when the caller states nothing better; a caller that knows its real context
+# window passes `budget` explicitly, and no region is read once it would overrun.
 _DEFAULT_BUDGET = 2000
 
-# A region's shape: how many lines it spans, and how many of those sit *above*
-# the anchor so the line that matched has context leading into it.
+# Window sizing: a region spans `context` lines, starting `_LEAD` lines above its
+# anchor, so a definition keeps the few lines that precede it.
 _DEFAULT_CONTEXT = 25
 _LEAD = 3
 
-# How many text-match anchors to take per candidate before merging. Symbol
-# anchors are unbounded (a file has few definitions); raw text hits can be many,
-# and past a handful they stop adding regions the windows don't already cover.
+# Cap on query-word text anchors per file, so one long file whose lines happen to
+# repeat the query cannot fill the plan on its own. Symbol anchors are not capped:
+# a matched definition is already a bounded, meaningful site.
 _MAX_TEXT_ANCHORS = 5
 
-# Which symbol kinds may anchor a window. A definition or an export is a place
-# worth reading; a reference and an import are mentions of something declared
-# elsewhere, and anchoring on an import line would spend the budget on a file's
-# header instead of on its substance.
+# Symbol kinds worth reading at their site. A definition or an export is code the
+# caller can act on, so it anchors a region; imports and references only point
+# elsewhere and are left out of anchoring, which is why a file without either
+# falls back to query-word lines or to its head.
 _ANCHOR_KINDS = frozenset({SymbolKind.DEFINITION, SymbolKind.EXPORT})
 
 
 class ExplorationError(Exception):
-    """Exploration was asked for the impossible — a non-positive budget."""
+    """Raised when a request cannot be honoured at all, such as a budget that is
+    not positive."""
 
 
 @dataclass(frozen=True)
 class TargetedRead:
-    """One region actually read, with its cost and what motivated it.
+    """One planned excerpt: the inclusive 1-based line range `start`-`end` of
+    `path`, the text of those lines, and why they were chosen.
 
-    ``start`` and ``end`` are 1-based inclusive line numbers; ``text`` is exactly
-    those lines. ``candidate_rank`` is the 1-based shortlist position that pulled
-    this region in, and ``reason`` says why the region mattered.
-
-    ``estimated_tokens`` is always the region's real estimated cost, whether or
-    not the budget paid it. ``supplied`` marks a region the caller already holds
-    (#51): its content was verified equal to the repository's, so it was charged
-    nothing. The two fields together are the audit trail for what a hint saved.
+    `reason` describes the anchors that justified the window, `candidate_rank` is
+    the 1-based position of `path` in the resolution that motivated the read, so
+    every read stays attributable to a candidate, and `estimated_tokens` is what
+    the region would cost — always recorded, even when `supplied` is true and
+    nothing was charged for it.
     """
 
     path: str
@@ -109,11 +82,9 @@ class TargetedRead:
 
 @dataclass(frozen=True)
 class Deferral:
-    """A region the budget could not afford — recorded, so exhaustion is visible.
-
-    Carries what the read *would* have cost, so a caller can see how far over the
-    budget the full exploration would have run and decide what to do about it.
-    """
+    """A region the budget could not cover, carrying the same range, reason,
+    candidate rank and estimated cost the read would have had, so the overrun is
+    named and costed rather than dropped."""
 
     path: str
     start: int
@@ -125,17 +96,13 @@ class Deferral:
 
 @dataclass(frozen=True)
 class Exploration:
-    """The plan a bounded exploration produces: what was read, and what was left.
+    """The whole plan for one query: what was read, what was deferred, and what it
+    cost.
 
-    Always returned, complete or not. ``reads`` are attributed and in the order
-    they were taken; ``deferred`` are the regions the budget could not reach;
-    ``exhausted`` is true exactly when something was deferred. The plan is the
-    forced decision surface — a caller reads ``exhausted`` and acts, rather than
-    receiving a silently shortened result.
-
-    ``saved`` is the estimated cost of the regions the caller already held, which
-    the budget therefore did not pay — the measurable value of supplied context
-    (#51), and zero when none was given.
+    `spent` is the estimated tokens charged for reads the caller did not already
+    hold, `budget` the ceiling it was held to, `saved` the estimated tokens of
+    reads that were free because the caller supplied them, and `exhausted` is true
+    exactly when at least one region had to be deferred.
     """
 
     query: str
@@ -148,13 +115,15 @@ class Exploration:
 
     @property
     def complete(self) -> bool:
-        """Whether every region the shortlist justified was read within budget."""
+        """True when every planned region was read, so a plan with deferrals is
+        partial."""
         return not self.exhausted
 
 
 @dataclass(frozen=True)
 class _Region:
-    """A candidate line-window before it is read: where, why, and from which rank."""
+    """A window the plan intends to read, before budgeting: its range, the anchor
+    description that justified it, and the rank of the candidate it came from."""
 
     path: str
     start: int
@@ -172,25 +141,19 @@ def explore(
     estimate: Callable[[str], int] | None = None,
     supplied: VerifiedContext | None = None,
 ) -> Exploration:
-    """Read the regions the shortlist justifies, best-first, within ``budget``.
+    """Plan and serve the excerpts `resolution` justifies, within `budget` tokens.
 
-    Walks ``resolution``'s candidates in rank order, turns each into bounded line
-    windows over the regions that matched, and reads them until the next region
-    would exceed ``budget`` — deferring the rest. Returns a plan recording the
-    reads (each attributed and costed), the deferrals, and whether the budget was
-    exhausted. ``estimate`` counts a region's tokens; the default is a
-    deterministic character-based approximation.
+    Candidates are taken in rank order and each is turned into merged line windows
+    around its anchors (see `_plan_regions`). Regions are then charged in that
+    order, in the unit `estimate` reports or `estimate_tokens` when no estimator
+    is supplied. A region whose path is in `supplied.fresh` costs nothing: the
+    caller already holds that text, so its cost is added to `saved` rather than
+    `spent`. The first charged region that would overrun the budget stops the
+    spending; it and every later charged region become deferrals, which is what
+    makes `exhausted` true and `complete` false.
 
-    ``supplied`` is verified caller context (#51). A region in a file whose text
-    the caller already holds — and which :func:`~mcgyvr.orchestrator.context.verify`
-    confirmed matches the repository — is charged nothing, because the caller is
-    not being asked to read anything it does not already have. Region planning is
-    unaffected: which regions exist is still decided entirely by the index and the
-    shortlist, so supplied context can make exploration cheaper but never
-    different. Unverified or contradicted context never reaches here.
-
-    Raises :class:`ExplorationError` when ``budget`` is not positive — there is
-    no bounded exploration to perform.
+    `context` sets the window length. `supplied` is optional: without it every
+    region is charged. Raises `ExplorationError` when `budget` is not positive.
     """
     if budget <= 0:
         raise ExplorationError(f"exploration budget must be positive, got {budget}")
@@ -209,15 +172,15 @@ def explore(
     for region in regions:
         text = _slice(files[region.path], region.start, region.end)
         cost = tokens(text)
-        # A region the caller already holds is free, so it is always taken — even
-        # after the budget has run out. Taking it cannot displace anything, since
-        # it charges nothing and the prefix below is defined over *charged*
-        # regions only; refusing it would discard a saving for no gain.
+        # A region the caller already holds verbatim is still planned and
+        # reported, so coverage does not depend on the hints; it is simply not
+        # charged, and its cost is counted as saved instead.
         held = region.path in free
-        # Read a strict best-first prefix: the first region that does not fit ends
-        # the exploration, and it and everything after it are deferred. A cheaper
-        # region further down is *not* pulled ahead of a costlier higher-priority
-        # one — the deferral list stays a faithful account of where budget ran out.
+        # Charging happens in rank order, and once a region the caller does not
+        # hold would overrun the budget, no later charged region is read at all:
+        # the plan stops spending and records them as deferred. Regions the caller
+        # already holds are unaffected by that stop — they stay free, are still
+        # read, and keep adding to `saved`.
         if held or (not stopped and spent + cost <= budget):
             if held:
                 saved += cost
@@ -259,7 +222,7 @@ def explore(
     )
 
 
-# --- region planning: candidates become bounded windows --------------------
+# Turning the ranked candidates into the line regions worth reading.
 
 
 def _plan_regions(
@@ -269,13 +232,12 @@ def _plan_regions(
     query_tokens: frozenset[str],
     context: int,
 ) -> list[_Region]:
-    """Every candidate's merged windows, flattened best-first for the budget.
+    """Turn each candidate, in rank order, into the line regions worth reading.
 
-    Regions are emitted in candidate-rank order, and within a candidate in line
-    order, so spending is depth-first down the ranked shortlist: the best
-    candidate is read before the next is begun. What the budget cannot reach is
-    deferred in exactly this order, which is what makes the deferral list a
-    faithful account of "where the money ran out".
+    Definitions and exports are collected per path up front; each candidate's
+    anchors are drawn from them by `_anchors`, widened and merged by `_windows`,
+    and every resulting window is tagged with the candidate's 1-based rank. A
+    candidate path the index does not hold contributes nothing.
     """
     symbols_by_path: dict[str, list[Symbol]] = defaultdict(list)
     for symbol in index.symbols.all():
@@ -285,7 +247,7 @@ def _plan_regions(
     regions: list[_Region] = []
     for rank, candidate in enumerate(candidates, start=1):
         file = files.get(candidate.path)
-        if file is None:  # a candidate always indexes, but stay defensive
+        if file is None:  # a path with no indexed lines has nothing to read
             continue
         anchors = _anchors(symbols_by_path[candidate.path], file, query_tokens)
         for start, end, reason in _windows(anchors, len(file.lines), context):
@@ -298,12 +260,14 @@ def _anchors(
     file: IndexedFile,
     query_tokens: frozenset[str],
 ) -> list[tuple[int, str]]:
-    """Line anchors for a candidate: its matched definitions, then text hits.
+    """The `(line, reason)` pairs in `file` that justify reading it.
 
-    A definition or export whose name carries a query token is the strongest
-    anchor. Text hits for those tokens catch matches that are not symbols — a
-    mention in a comment or string. When neither fires (a filename-only match),
-    the file head stands in, so the candidate is never read as nothing.
+    A definition or export anchors its line when its name shares a token with the
+    query, reported as "defines ...". Then, up to `_MAX_TEXT_ANCHORS` of them,
+    lines whose text carries a query token anchor themselves as "match ...",
+    which covers hits that are not symbols. A line anchors once, symbol anchors
+    are collected first, and a file with no anchor at all is read from its head so
+    a filename-only match still yields a region.
     """
     anchors: list[tuple[int, str]] = []
     seen_lines: set[int] = set()
@@ -339,12 +303,13 @@ def _windows(
     total_lines: int,
     context: int,
 ) -> list[tuple[int, int, str]]:
-    """Bounded, non-overlapping (start, end, reason) windows around anchors.
+    """Widen every anchor into a `context`-line window and merge what overlaps.
 
-    Each anchor becomes a window of ``context`` lines with a short lead above it,
-    clamped to the file. Overlapping or adjacent windows are merged so a region
-    is read once; a merged window keeps the reasons of every anchor it absorbed,
-    since all of them motivated it.
+    Each anchor yields the span that starts `_LEAD` lines above it, never before
+    line 1, and is clamped to `total_lines`. Spans that touch or overlap — the
+    next one starts at most one line after the previous end — become a single
+    span whose end is the furthest end and whose reasons are joined with "; " in
+    first-seen order, so neighbouring anchors are read once instead of twice.
     """
     spans = sorted(
         (
@@ -364,42 +329,42 @@ def _windows(
     return [(start, end, "; ".join(_unique(reasons))) for start, end, reasons in merged]
 
 
-# --- small deterministic helpers -------------------------------------------
+# Reading indexed lines back out, and the token sizing and lookup they need.
 
 
 def _slice(file: IndexedFile, start: int, end: int) -> str:
-    """The 1-based inclusive line range ``[start, end]`` of a file, as text."""
+    """The text of lines `start`-`end` inclusive, 1-based, joined as the index
+    split them."""
     return "\n".join(file.lines[start - 1 : end])
 
 
 def _unique(items: list[str]) -> list[str]:
-    """The items with duplicates dropped, first occurrence order preserved."""
+    """`items` deduplicated, keeping first-seen order."""
     return list(dict.fromkeys(items))
 
 
 def estimate_tokens(text: str) -> int:
-    """A deterministic, model-free token estimate — roughly four characters each.
+    """Rough token cost of `text`: one token per four characters, never zero.
 
-    Not a tokenizer: a stable proxy so the budget is enforced the same way every
-    run. A caller with a real tokenizer passes its own ``estimate`` to account
-    exactly; this only has to be monotonic in the text it is given.
-
-    Public so that anything else sizing a budget in tokens — the decomposer
-    sizing ``context.max_input_tokens`` (#50) — measures with the same proxy the
-    read plan spends against, rather than growing a second one that could drift
-    from it. The proxy's measured error is charged by
-    :data:`mcgyvr.gate.preflight.ESTIMATE_RESERVE`.
+    This is the default `explore` charges against its budget when the caller
+    supplies no estimator of its own, so plans stay comparable across runs
+    without a model tokenizer.
     """
     return max(1, (len(text) + 3) // 4)
 
 
 def _name_tokens(name: str) -> list[str]:
-    """The lowercased, plural-folded sub-tokens of a name — the resolver's own."""
+    """The word tokens of `name`, folded exactly as the resolver folds query
+    words, so anchors and queries are compared on equal terms."""
     return _tokenize(name)
 
 
 def _first_token_in(line: str, query_tokens: frozenset[str]) -> str | None:
-    """The first query token appearing as a sub-token of ``line``, or ``None``."""
+    """The alphabetically first query token contained in `line`, or `None`.
+
+    Both sides are tokenized the same way, and sorting makes the choice of which
+    token to report deterministic when a line carries several of them.
+    """
     line_tokens = set(_name_tokens(line))
     for token in sorted(query_tokens):
         if token in line_tokens:

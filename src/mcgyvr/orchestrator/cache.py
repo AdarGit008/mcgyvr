@@ -1,34 +1,22 @@
-"""The index cache — exploration cost amortized across tasks (#52).
+"""A per-repository index cache on disk, so repeat builds skip the parsing.
 
-Building the index is cheap next to a model reading a repository, but it is not
-free: every file is read, decoded and parsed. Paying that on every task throws
-away work that was valid the moment it finished, because between two tasks on
-the same repository almost nothing has changed. This module persists a build
-and reuses the parts of it that still hold.
+One JSON file is written per repository, named from the repository directory
+plus a hash of its resolved absolute path. It records, for every indexed file,
+the size and mtime used to recognise it, a content digest, the decoded lines,
+and the extracted symbols.
 
-Three properties shape the design, and each is structural rather than a rule
-someone has to remember:
+A later build always re-enumerates the working tree (``git ls-files`` decides
+what exists and what is ignored) and then takes the cheapest path per file: an
+entry whose size and mtime still match is reused without opening the file at
+all; otherwise the bytes are read and hashed, and a matching digest means the
+entry is reused with a refreshed stamp; only when both checks fail is the file
+parsed again. Files that are gone, binary, or over the size cap are skipped and
+left out of the rewritten cache, so their old entries disappear with them.
 
-* **The file list is never cached.** Every build re-enumerates through
-  :func:`~mcgyvr.orchestrator.index.enumerate_files`, and only per-file content
-  is looked up. A deleted path is therefore absent from the enumeration and
-  nothing ever asks the cache about it — a stale index *cannot* serve a file
-  that no longer exists, rather than merely being expected not to.
-* **Invalidation is per file.** Each entry carries its own validity stamp, so a
-  change to one file rebuilds that file and leaves every other entry standing.
-  There is no whole-index generation number to invalidate the world.
-* **The cache is an accelerator, never load-bearing.** Every failure to read,
-  parse or write it degrades to a full build. A corrupt or unreadable cache
-  makes a task slower; it can never make it wrong, and it can never make it
-  fail.
-
-Validity is decided in two steps, cheapest first. A file whose size and
-modification time match the stamp is reused without being opened at all — the
-fast path that makes a second task on an unchanged repository skip essentially
-all of the build. A file whose stamp moved is read and fingerprinted; if the
-content is identical the indexed result is reused anyway and only the stamp is
-refreshed, so a checkout that rewrites mtimes without changing bytes does not
-force a reparse. Only genuinely new content is parsed again.
+The cache never carries correctness. A missing, unreadable, malformed,
+version-mismatched, root-mismatched, or unwritable file degrades to a full
+build and says why in the returned stats, and a build that reads the cache
+returns the same index a fresh build would produce.
 """
 
 from __future__ import annotations
@@ -57,37 +45,30 @@ from mcgyvr.orchestrator.index import (
 )
 from mcgyvr.orchestrator.symbols import Symbol, SymbolKind
 
-# The on-disk format's version. Bump this whenever what a cached entry means
-# changes — a new field, a different stamp, or any change to symbol extraction
-# that would make yesterday's symbols wrong for today's code. A mismatched
-# version is discarded wholesale rather than migrated: the cache is
-# reconstructible from the repository, so rebuilding is always cheaper than
-# being subtly wrong about what a stale entry contains.
+# Bumped whenever the persisted format changes: _load compares the "version"
+# recorded inside the file against this number and discards the whole cache on
+# any mismatch, so a file written by a build with a different entry layout, key
+# set, or symbol encoding is never decoded under the wrong assumptions. Nothing
+# migrates between versions, so an equal version is read and anything else is
+# rebuilt from the working tree.
 CACHE_VERSION = 2
 
-# Bound on how much disk the cache may occupy across all repositories. Beyond
-# it, whole repository caches are evicted least-recently-used first. A default,
-# not a law: a real ceiling belongs in config, and this is only what an
-# unconfigured install falls back to. Evicting only ever costs a rebuild, so an
-# over-eager bound is a performance choice, never a correctness one.
+# Budget for the combined size of every cache file in the cache directory, not
+# for one repository's file on its own. prune() adds up the .json files it finds
+# there and unlinks them oldest-first until the total fits; build_index_cached
+# runs that same prune after each successful write, so this one number bounds
+# the disk the cache may cost all repositories sharing the area.
 DEFAULT_MAX_CACHE_BYTES = 256 << 20
 
-# A modification time no real file can carry, used to mark an entry whose stamp
-# must not be trusted. It compares unequal to every genuine stat, so the entry
-# falls through to content validation without needing a second field to check.
+# Sentinel mtime that no real stat produces, so an entry carrying it fails
+# _matches and is read back. _derace assigns it to entries not older than the
+# build that wrote the cache, whose stamp could hide a same-tick rewrite.
 _NO_STAMP = -1
 
 
 @dataclass(frozen=True)
 class CacheStats:
-    """What the cache did for one build — reported so its value is visible.
-
-    A cache that silently does nothing looks exactly like a cache that works,
-    which is why these numbers are returned rather than logged. ``reused`` is
-    the fast path (stamp matched, file never opened), ``restamped`` counts
-    files that were read but whose content was unchanged, and ``rebuilt`` is
-    the work that actually had to happen.
-    """
+    """What one cache-aware build did, in counts callers can report."""
 
     path: Path
     """The cache file for this repository, whether or not it existed."""
@@ -115,14 +96,16 @@ class CacheStats:
 
     @property
     def hit_ratio(self) -> float:
-        """Share of indexed files that cost no parsing this build."""
+        """Share of enumerated files that avoided parsing: reused plus restamped
+        over all three outcomes, and 0.0 when no file was counted at all."""
         total = self.reused + self.restamped + self.rebuilt
         return (self.reused + self.restamped) / total if total else 0.0
 
 
 @dataclass(frozen=True)
 class CachedBuild:
-    """An index plus the account of how much of it came from cache."""
+    """The index a cache-aware build assembled, with the stats saying how much
+    of it came from the cache and whether it was saved for the next build."""
 
     index: Index
     cache: CacheStats
@@ -130,7 +113,9 @@ class CachedBuild:
 
 @dataclass(frozen=True)
 class _Entry:
-    """One file's cached index content, with the stamp that validates it."""
+    """One file's cached state: the stamp that makes the fast path possible, the
+    digest that decides whether a re-read needs a reparse, and the parsed result
+    itself (language, lines, symbols) ready to be served without touching disk."""
 
     size: int
     mtime_ns: int
@@ -140,11 +125,9 @@ class _Entry:
     symbols: tuple[Symbol, ...]
 
     def as_file_index(self, path: str) -> FileIndex:
-        """Rebuild the in-memory result this entry stands for.
-
-        ``path`` comes from the caller because it is the cache's key — storing
-        it in the value too would let the two disagree.
-        """
+        """Rebuild the FileIndex for `path` from this entry. The path is the
+        cache key and is not stored with each symbol, so it is stamped onto
+        every symbol here; size and digest come from the entry as recorded."""
         return FileIndex(
             file=IndexedFile(path=path, language=self.language, lines=self.lines),
             symbols=tuple(replace(s, path=path) for s in self.symbols),
@@ -154,26 +137,18 @@ class _Entry:
 
 
 def cache_dir() -> Path:
-    """Where index caches live: ``$XDG_CACHE_HOME/mcgyvr/index``.
-
-    ``$XDG_CACHE_HOME`` when set, else ``~/.cache`` — cached data is
-    regenerable and belongs under the cache root, not beside the user's
-    settings.
-    """
+    """The directory holding every cache file: $XDG_CACHE_HOME/mcgyvr/index,
+    or ~/.cache/mcgyvr/index when that variable is unset or empty."""
     xdg = os.environ.get("XDG_CACHE_HOME")
     base = Path(xdg).expanduser() if xdg else Path.home() / ".cache"
     return base / "mcgyvr" / "index"
 
 
 def cache_path(root: Path, *, directory: Path | None = None) -> Path:
-    """The cache file for the repository at ``root``.
-
-    Keyed by the absolute path, not the repository name: two worktrees of the
-    same repository are different working trees at different revisions, and
-    sharing one cache between them would hand each the other's files. The
-    readable prefix is there so the directory can be understood by looking at
-    it; the hash is what actually distinguishes.
-    """
+    """The JSON file that holds this repository's cache: the repository
+    directory name reduced to filesystem-safe characters, plus an 8-byte blake2b
+    of the resolved absolute path, so two checkouts with the same basename get
+    different files. `directory` overrides the default cache directory."""
     absolute = root.resolve()
     stamp = hashlib.blake2b(
         str(absolute).encode("utf-8", "surrogateescape"), digest_size=8
@@ -190,28 +165,27 @@ def build_index_cached(
     max_cache_bytes: int = DEFAULT_MAX_CACHE_BYTES,
     refresh: bool = False,
 ) -> CachedBuild:
-    """Build the index of ``root``, reusing everything that has not changed.
+    """Build the index for `root`, reusing whatever the cache can vouch for.
 
-    Behaves exactly like :func:`~mcgyvr.orchestrator.index.build_index` — same
-    enumeration, same bounds, same resulting :class:`Index` — but reads each
-    file's text and symbols from the previous build when the file is unchanged.
-    The result is persisted for the next call, and the cache directory is pruned
-    to ``max_cache_bytes`` afterwards.
+    Files come from a fresh `enumerate_files` walk every time, so additions,
+    deletions, and ignore rules always apply. Each enumerated path is resolved
+    by matching its size and mtime against the cached entry (reused, not read),
+    else by comparing the digest of its bytes with the cached digest (restamped,
+    read but not parsed), else by parsing it (rebuilt). Paths that read as a
+    SkipReason are counted as skipped and get no entry, which is how large,
+    binary, and vanished files also fall out of the cache.
 
-    ``refresh`` ignores any existing cache and rebuilds from source, then writes
-    the fresh result. It is the escape hatch for the one thing a content stamp
-    cannot see: a change in what indexing a file *means*, such as an upgraded
-    grammar. Routine correctness does not depend on it.
-
-    Raises :class:`~mcgyvr.orchestrator.index.IndexBuildError` when ``root`` is
-    not a usable git repository, exactly as the uncached build does. No cache
-    failure is ever raised: an unreadable or unwritable cache degrades to a
-    full build and is reported on :attr:`CachedBuild.cache`.
+    The result is written back unless `refresh` was passed or the write fails,
+    and a successful write is followed by a prune against `max_cache_bytes`.
+    `max_file_bytes` is part of the cache identity: a cache built under a
+    different cap is ignored rather than trusted for a different subset of
+    files. Cache trouble of any kind is reported in the returned stats instead
+    of raised; a failure to enumerate the repository still propagates.
     """
     path = cache_path(root, directory=directory)
-    # Captured before the first stat: any file whose recorded mtime is at or
-    # after this could have been modified after we looked at it, and its stamp
-    # is not evidence of anything. See _load, which distrusts exactly those.
+    # Recorded before any file is read, so every entry stored by this build has
+    # an mtime at or before it. _load gives that number to _derace, which strips
+    # the stamp from entries not strictly older than the build that wrote them.
     built_ns = time.time_ns()
     entries: dict[str, _Entry] = {}
     note = ""
@@ -238,14 +212,14 @@ def build_index_cached(
 
         raw = read_source(root, rel, max_file_bytes=max_file_bytes)
         if isinstance(raw, SkipReason):
-            # No entry is recorded, so a file that grew past the cap or turned
-            # binary drops out of the cache rather than lingering as a ghost.
+            # Gone, binary, or over the cap: counted as a skip and given no entry,
+            # so a cached copy of this path does not survive into the rewrite.
             assembler.skipped(raw)
             continue
 
-        # Re-stamp from after the read: a file written between the stat above
-        # and the read here would otherwise be recorded under the older stamp
-        # and never re-read. Losing the fast path once is the safe direction.
+        # Stat again, since the file may have been rewritten between the first
+        # stat and this read; this stamp is the one paired with these bytes. With
+        # no stat at all, (len(raw), 0) is stored and matches no real file.
         stamp = _stamp(root / rel) or stamp
         size, mtime_ns = stamp if stamp is not None else (len(raw), 0)
         content = digest_of(raw)
@@ -288,14 +262,14 @@ def build_index_cached(
             reused=reused,
             restamped=restamped,
             rebuilt=rebuilt,
-            # Entries the new cache does not carry forward: the file was
-            # deleted, ignored, or is no longer indexable. A file that was
-            # merely rebuilt is still an entry, so it is not a drop.
+            # Loaded entries that did not make it into fresh: the path is no longer
+            # enumerated, or it now reads as a skip. A restamped entry is kept in
+            # fresh, so a rewritten-but-identical file is not counted as dropped.
             dropped=len(entries.keys() - fresh.keys()),
             written=written,
-            # Both halves can fail independently — an unreadable cache that is
-            # also unwritable is two different things to fix, so report both
-            # rather than letting the first one mask the second.
+            # Load reason and write reason joined, when either exists: the first
+            # comes from _load (why the cache was not used) and the second from
+            # _write (why it was not saved), so an empty note means both worked.
             note="; ".join(part for part in (note, write_note) if part),
         ),
     )
@@ -304,13 +278,9 @@ def build_index_cached(
 def clear(
     root: Path | None = None, *, directory: Path | None = None
 ) -> tuple[Path, ...]:
-    """Remove cached indexes — one repository's, or all of them.
-
-    The documented way to reset, for when a cache is suspected rather than
-    proven wrong. Returns what was removed. Scoped to mcgyvr's own cache
-    directory and its own file naming, so it can never reach a file it did not
-    write.
-    """
+    """Delete cache files and return the ones actually removed. With `root`,
+    only that repository's file is a candidate; with no root, every .json file in
+    the cache directory goes. Missing or undeletable files are not an error."""
     if root is not None:
         path = cache_path(root, directory=directory)
         return (path,) if _unlink(path) else ()
@@ -320,14 +290,10 @@ def clear(
 def prune(
     max_bytes: int = DEFAULT_MAX_CACHE_BYTES, *, directory: Path | None = None
 ) -> tuple[Path, ...]:
-    """Evict whole repository caches until the directory fits ``max_bytes``.
-
-    Least-recently-used first, where "used" is the file's modification time —
-    every build rewrites its own cache, so that is exactly the last time the
-    repository was indexed. Eviction is per repository rather than per entry:
-    a half-evicted repository would be indistinguishable from one whose files
-    all changed, and would cost the same rebuild anyway.
-    """
+    """Shrink the cache directory to at most `max_bytes` by deleting files, oldest
+    mtime first, and return the paths removed. The bound covers all cache files in
+    the directory together; files that cannot be stat'ed are left out of the total
+    and never removed. A negative bound raises ValueError."""
     if max_bytes < 0:
         raise ValueError("max_bytes cannot be negative")
     sized: list[tuple[float, int, Path]] = []
@@ -340,7 +306,7 @@ def prune(
 
     total = sum(size for _, size, _ in sized)
     removed: list[Path] = []
-    for _, size, path in sorted(sized):  # oldest first
+    for _, size, path in sorted(sized):  # oldest mtime first
         if total <= max_bytes:
             break
         if _unlink(path):
@@ -349,20 +315,19 @@ def prune(
     return tuple(removed)
 
 
-# --- persistence ---------------------------------------------------------
+# Reading a stored cache back into entries.
 
 
 def _load(
     path: Path, *, root: Path, max_file_bytes: int
 ) -> tuple[dict[str, _Entry], str]:
-    """Read a cache file, or explain why it cannot be used.
+    """Read the cache at `path` and return its entries keyed by relative path,
+    paired with a note saying why it was not used ("" when it was).
 
-    Every rejection returns empty entries and a note rather than raising. The
-    checks beyond "does it parse" are the ones that would otherwise serve
-    plausible-looking wrong answers: a different format version, a cache
-    written for a different repository, or one built under a different size cap
-    (whose skipped files are missing for a reason that no longer applies).
-    """
+    The file is only believed when it parses as a dict whose version, resolved
+    root, and size cap all match this build and whose entries decode; anything
+    else yields no entries and a note, leaving the caller to rebuild. Decoded
+    entries are deraced against the stored build time first."""
     try:
         raw = json.loads(path.read_text(encoding="utf-8"))
     except FileNotFoundError:
@@ -391,16 +356,9 @@ def _load(
 
 
 def _derace(entry: _Entry, built_ns: int) -> _Entry:
-    """Strip the stamp from an entry that could have changed under the build.
-
-    A file modified in the same clock tick it was read keeps the modification
-    time we recorded, so on a filesystem with coarse timestamp granularity its
-    stamp would still "match" while its content had moved on. Git calls these
-    entries racily clean and rechecks their content; so does this. Blanking the
-    stamp forces the read-and-fingerprint path, which still avoids reparsing
-    when the content really is unchanged — the cost of the guard is one read,
-    and never a wrong answer.
-    """
+    """Drop the stamp of an entry whose mtime was not strictly older than the
+    build that wrote the cache, since the file could have changed again within
+    the same timestamp tick. A stampless entry is always read back instead."""
     if entry.mtime_ns < built_ns:
         return entry
     return replace(entry, mtime_ns=_NO_STAMP)
@@ -414,14 +372,10 @@ def _write(
     entries: dict[str, _Entry],
     built_ns: int,
 ) -> tuple[bool, str]:
-    """Persist entries atomically. Returns whether it happened, and why not.
-
-    The write goes to a temporary file in the same directory and is renamed
-    into place, so a reader — another lane indexing the same repository — sees
-    either the old cache or the new one, never a half-written one. Failing to
-    write is not an error: the build already succeeded, and the only cost is
-    that the next one pays full price.
-    """
+    """Persist `entries` as the cache for `root` at `path`, creating the parent
+    directory and replacing the file atomically. Returns whether it was written
+    and, when it was not, a note naming the failure; an unwritable cache is never
+    an error for the build."""
     payload = {
         "version": CACHE_VERSION,
         "root": str(root.resolve()),
@@ -438,12 +392,8 @@ def _write(
 
 
 def _encode(entry: _Entry) -> dict[str, Any]:
-    """One entry as JSON. Symbols are positional and carry no path.
-
-    A symbol's path is always its entry's key, so storing it per symbol would
-    repeat the path once per occurrence — the single largest avoidable cost in
-    a file this shape. Positional tuples over objects for the same reason.
-    """
+    """Flatten an entry into JSON-ready data: tuples become lists and each symbol
+    becomes a positional row of name, kind, line, detail, and signature."""
     return {
         "size": entry.size,
         "mtime_ns": entry.mtime_ns,
@@ -457,12 +407,9 @@ def _encode(entry: _Entry) -> dict[str, Any]:
 
 
 def _decode(raw: Any) -> _Entry:
-    """One entry from JSON, strictly — a malformed field raises, never guesses.
-
-    The caller turns any raise into "rebuild this repository", so being strict
-    here costs a rebuild and buys the guarantee that a mangled cache cannot
-    become a mangled index.
-    """
+    """Rebuild an entry from the data _encode wrote. Symbols come back with an
+    empty path, since the relative path is the cache key and is reattached when
+    the entry is turned into a FileIndex; a bad row raises rather than guessing."""
     return _Entry(
         size=int(raw["size"]),
         mtime_ns=int(raw["mtime_ns"]),
@@ -470,18 +417,19 @@ def _decode(raw: Any) -> _Entry:
         language=None if raw["language"] is None else str(raw["language"]),
         lines=tuple(str(line) for line in raw["lines"]),
         symbols=tuple(
-            # The path is filled in from the cache key by _Entry.as_file_index.
+            # Path left blank on purpose: the key restores it, not the file.
             Symbol(str(name), SymbolKind(kind), "", int(line), str(detail), str(sig))
             for name, kind, line, detail, sig in raw["symbols"]
         ),
     )
 
 
-# --- helpers -------------------------------------------------------------
+# Comparing stored entries against what the working tree holds now.
 
 
 def _stamp(absolute: Path) -> tuple[int, int] | None:
-    """A file's ``(size, mtime_ns)``, or None if it cannot be stat'd."""
+    """The (size, mtime_ns) pair used to recognise a file without reading it, or
+    None when it cannot be stat'ed (deleted, unreadable) and must be read."""
     try:
         stat = absolute.stat()
     except OSError:
@@ -490,12 +438,14 @@ def _stamp(absolute: Path) -> tuple[int, int] | None:
 
 
 def _matches(entry: _Entry, stamp: tuple[int, int]) -> bool:
-    """Whether a stamp says the file is byte-identical to what was indexed."""
+    """Whether an entry's recorded size and mtime are exactly the current ones,
+    which is what allows the file to be served without being opened."""
     return (entry.size, entry.mtime_ns) == stamp
 
 
 def _cache_files(directory: Path | None) -> tuple[Path, ...]:
-    """Every cache file in the directory, ignoring anything else living there."""
+    """Every regular .json file in the cache directory (`directory` or the
+    default one), or nothing if the directory cannot be listed."""
     target = directory or cache_dir()
     try:
         return tuple(p for p in target.iterdir() if p.is_file() and p.suffix == ".json")
@@ -504,7 +454,8 @@ def _cache_files(directory: Path | None) -> tuple[Path, ...]:
 
 
 def _unlink(path: Path) -> bool:
-    """Remove ``path``, reporting whether it was there to remove."""
+    """Delete a cache file and report whether it actually went away; a missing or
+    undeletable file is reported as False rather than raising."""
     try:
         path.unlink()
     except OSError:

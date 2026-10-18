@@ -1,21 +1,11 @@
-"""The models a rig can serve, named for the hub and never addressed by path.
+"""The models a rig holds under its models folder, named the way the hub names them.
 
-The hub names a model; the agent finds it in its own inventory. So a hello
-says of each model file under the owner's models folder its *name* (the
-file's own name, which carries no folder), its size, and what planning reads
-from its header — the architecture, layer count, trained context, embedding
-width, KV heads, and the KV cache's bytes per token of context at the KV type
-the head runs with, and the sizes of its token embedding and output tensors
-— read by the product's own GGUF reader
-(:func:`mcgyvr.serving.ggufscan.scan`), never guessed from the size.
-
-A head is started only on a model this inventory holds (:func:`resolve`): the
-name is looked up, never joined to a path, so no name the hub sends can
-reach a file outside the folder. A file is held only when it lies under the
-folder once its links are resolved, is a regular file, and its name is one
-the protocol carries; of a split model only its first part is named. Two
-files of one name keep the first (by path) and say so. A header that does not
-read leaves its counts unsaid, not guessed.
+A model reaches the hub by name only: :func:`read` walks the folder, keeps the
+``.gguf`` files that are safe to name, reads each one's header once per path,
+size and modification time, and records both the header fields and the
+folder-relative path the name stands for, so :func:`resolve` can turn a name
+back into a file. Files left unnamed, and folders that are not there, are said
+in ``notes`` instead.
 """
 
 from __future__ import annotations
@@ -30,12 +20,14 @@ from typing import Any
 from mcgyvr.rig import pooled, protocol
 from mcgyvr.serving import ggufscan
 
-#: How deep under the models folder files are looked for.
+#: How many folders below the models folder the walk descends; nothing deeper is read.
 MAX_DEPTH = 4
-#: A split model's later parts: ``-00002-of-00003.gguf`` and on.
+#: A split model's first part carries this in its name; the parts after it are
+#: not named.
 _SPLIT_FIRST = "-00001-of-"
 
-#: The GGML type number of each KV cache type the head may run with.
+#: The ggml type id of each KV cache type a head can be run with, looked up in the
+#: reader's table of block elements and block bytes.
 _KV_TYPES = {"f16": 1, "q8_0": 8}
 
 Scan = Callable[[str], Mapping[str, Any]]
@@ -43,8 +35,15 @@ Scan = Callable[[str], Mapping[str, Any]]
 
 @dataclass(frozen=True, kw_only=True)
 class Inventory:
-    """The models found, their files relative to the folder (its links
-    resolved), and notes."""
+    """What one models folder holds, and what of it the hub may name.
+
+    ``folder`` is the resolved models folder, or None when the rig has no folder
+    to read; ``models`` is one :class:`protocol.ModelInfo` per file named, in the
+    order the walk found them; ``files`` maps each name to the path of the file it
+    stands for, relative to ``folder`` and with any link already resolved; and
+    ``notes`` says, in the owner's words, why the folder or a file in it was left
+    out.
+    """
 
     folder: Path | None
     models: tuple[protocol.ModelInfo, ...] = ()
@@ -53,9 +52,14 @@ class Inventory:
 
 
 def kv_bytes_per_token(row: Mapping[str, Any], kv_type: str) -> int | None:
-    """The KV cache's bytes per token of context of the model ``row`` reads
-    (one :func:`~mcgyvr.serving.ggufscan.scan` row), at ``kv_type``; ``None``
-    when the row names no caching layer."""
+    """The bytes one token of context occupies in the KV cache at ``kv_type``.
+
+    The row's ``kv_layers`` names the layers that cache and, for each, the key and
+    value elements a token takes there; those elements are summed, turned into
+    bytes at the ggml block size of ``kv_type`` and rounded up. None when the row
+    gives no usable per-layer elements, or when the result is not a size the
+    protocol would carry.
+    """
     layers = row.get("kv_layers")
     if not isinstance(layers, list) or not layers:
         return None
@@ -73,9 +77,12 @@ def kv_bytes_per_token(row: Mapping[str, Any], kv_type: str) -> int | None:
 
 
 def tensor_bytes(row: Mapping[str, Any]) -> tuple[int | None, int | None]:
-    """The token embedding's and the output tensor's bytes in ``row``: the
-    output is 0 when the file has none (it reuses the embedding), and both
-    are ``None`` when the file has no token embedding."""
+    """The bytes of the token embedding tensor and of the output tensor.
+
+    A file with no output tensor reuses the embedding, so it is charged 0 output
+    bytes. None for both when the embedding size is missing or either size is not
+    one the protocol would carry.
+    """
     embd, output = row.get("token_embd_bytes"), row.get("output_bytes")
     if type(embd) is not int or not 1 <= embd <= protocol.MAX_MODEL_BYTES:
         return None, None
@@ -92,7 +99,14 @@ def _count(row: Mapping[str, Any], key: str, high: int) -> int | None:
 
 
 def describe(name: str, size: int, row: Mapping[str, Any]) -> protocol.ModelInfo:
-    """Model ``name`` of ``size`` bytes as a hello carries it, from its row."""
+    """A :class:`protocol.ModelInfo` for the file ``name`` of ``size`` bytes.
+
+    Every header field is kept only if the protocol would carry it: ``arch`` must
+    be a short tag, the counts must be positive and within their limits, and the
+    KV bytes per token are taken at the KV cache type the pool runs heads with.
+    A row carrying "error" is a header that did not read and gives the name and
+    size alone.
+    """
     if "error" in row:
         return protocol.ModelInfo(name=name, size_bytes=size)
     arch = row.get("arch")
@@ -138,13 +152,24 @@ def _scan_cached(path: Path, size: int, mtime_ns: int, scan: Scan) -> Mapping[st
     if key not in _SCANNED:
         try:
             _SCANNED[key] = scan(str(path))
-        except Exception as exc:  # a header that does not read says nothing
+        except Exception as exc:  # a broken header is cached as an error row too
             _SCANNED[key] = {"error": exc.__class__.__name__}
     return _SCANNED[key]
 
 
 def read(folder: str | None, *, scan: Scan = ggufscan.scan) -> Inventory:
-    """The models under ``folder``; an empty inventory when there is none."""
+    """The models under ``folder``, ready to be named to the hub.
+
+    Each ``.gguf`` file the walk finds is named by its own file name, never by a
+    path, and its header is read (from the cache when the path, size and
+    modification time are unchanged) into a :class:`protocol.ModelInfo`. A file
+    is not named, and the reason is put in ``notes``, when a link leads out of
+    the folder, when the protocol cannot carry its name, when an earlier file
+    already has that name, and when there are already ``protocol.MAX_MODELS`` of
+    them; a file of no size the protocol carries is passed over in silence. With
+    no folder, or a folder that cannot be resolved or is not a directory,
+    nothing is held and the notes say so.
+    """
     if folder is None:
         return Inventory(folder=None)
     root = Path(folder)
@@ -188,5 +213,9 @@ def read(folder: str | None, *, scan: Scan = ggufscan.scan) -> Inventory:
 
 
 def resolve(inventory: Inventory, name: str) -> str | None:
-    """Model ``name``'s file, relative to the models folder, or ``None``."""
+    """The path of the file held under ``name``, relative to the models folder.
+
+    None when the inventory holds no such name, so a name the hub invents or one
+    that spells a path rather than a file is not one a head can be started on.
+    """
     return inventory.files.get(name)

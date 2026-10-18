@@ -1,42 +1,12 @@
-"""This machine as a rig of a hub: joined, described, and kept in touch.
+"""Package root for the rig side of mcgyvr.
 
-A hub is where users publish their machines and pool them; a rig is one
-machine published there. ``mcgyvr rig join`` keeps the rig token the hub gave
-the user, opens the hub's agent channel (a websocket), says ``hello`` with this
-machine's hardware as the product reads it, and then sends heartbeats until it
-is stopped, reconnecting with backoff when the channel drops.
-
-* :mod:`mcgyvr.rig.protocol` — the hub's wire protocol, version 1: the limits
-  the agent needs, reading a hub frame, writing an agent frame.
-* :mod:`mcgyvr.rig.websocket` — a websocket client on the standard library.
-* :mod:`mcgyvr.rig.hardware` — the hardware report, from the product's own
-  machine reading.
-* :mod:`mcgyvr.rig.credentials` — where the rig token is kept, and how.
-* :mod:`mcgyvr.rig.commands` — what the agent does with each message the hub
-  sends; the seam later commands are added at.
-* :mod:`mcgyvr.rig.agent` — the session, the heartbeats and the reconnects.
-* :mod:`mcgyvr.rig.verbs` — ``mcgyvr rig join | run | status | leave | rungs |
-  share``.
-* :mod:`mcgyvr.rig.rungs` — the relief rungs the hub matched this rider to,
-  kept in ``relief.yaml``.
-
-A rig may lend its cards to the hub's pooled-inference sessions:
-
-* :mod:`mcgyvr.rig.sharing` — what the owner lends, and where that is kept.
-* :mod:`mcgyvr.rig.inventory` — the models it can serve, named, never pathed.
-* :mod:`mcgyvr.rig.sessionwire` — the session and relay messages.
-* :mod:`mcgyvr.rig.tunnel` — which addresses a session's tunnel may use.
-* :mod:`mcgyvr.rig.session` — one state machine per session, and teardown.
-* :mod:`mcgyvr.rig.tensorcache` — the workers' tensor cache, hashed before
-  it is mounted.
-* :mod:`mcgyvr.rig.relay` — a relayed request to the head, and its answer.
-* :mod:`mcgyvr.rig.outbox` — what sessions and relays say, waiting its turn.
-* :mod:`mcgyvr.rig.pooled` — a session's containers: its tunnel, its workers
-  and its head.
-
-A rig here is a machine on a hub. It is not the ``rigs`` of a ``fleet.yaml``,
-which name machines a fleet's units are served on; the two meet only when the
-same machine is both.
+Nothing is imported eagerly here: importing any ``mcgyvr.rig`` submodule runs
+this file first, so an eager import of ``mcgyvr.rig.agent`` (and the commands,
+hardware, protocol and websocket modules it pulls in) would be paid on every
+one of those imports. ``Channel`` is instead resolved lazily by the module
+``__getattr__`` below, so ``from mcgyvr.rig import Channel`` works unchanged
+while the agent module is only imported when that name is first accessed, and
+not while the agent module is in the middle of importing from this package.
 """
 
 from __future__ import annotations
@@ -50,6 +20,13 @@ __all__ = ["Channel"]
 
 
 def __getattr__(name: str) -> type[Channel]:
+    """Import and return ``Channel`` on first attribute access; raise for any
+    other name.
+
+    Only ``"Channel"`` is resolvable here; every other name raises
+    ``AttributeError`` naming the module, as normal module attribute lookup
+    would.
+    """
     if name == "Channel":
         from mcgyvr.rig.agent import Channel
 

@@ -1,32 +1,12 @@
-"""The temp-directory sandbox: the weaker mode, for installs without Docker.
+"""The temp-directory sandbox: a contract's commands run as ordinary host
+processes inside the throwaway git workspace the base class builds, each under
+a temporary HOME that is deleted when the call returns.
 
-Docker is the default, not a hard requirement — nobody is locked out for the
-lack of it, but nobody is moved here without having chosen it either: this
-mode runs when ``sandbox.mode: tempdir`` names it, or when ``docker`` has no
-daemon and ``sandbox.allow_fallback`` opts into the fallback. It runs the
-worker's output and the gate in an ephemeral git workspace and executes
-commands **on the host**. It is explicitly weaker and
-says so once at open (:data:`base._WEAKER_MODE_NOTE`), because the isolation a
-container gives — process, network, resource — is the host's here.
-
-Almost nothing lives in this file. The workspace, its git base, reset and
-teardown are all inherited from :class:`~mcgyvr.sandbox.base.Sandbox`; the
-only thing a temp directory does differently from a container is *where* a
-command runs, so :meth:`run` is the whole of it. That is what lets the two
-modes share one test suite rather than having two (#30).
-
-Two properties are still held, weaker mode or not:
-
-- **Credentials stay out.** The command environment is the host's minus every
-  credential-shaped variable (:func:`~mcgyvr.sandbox.base.safe_env`), rather
-  than the empty base a container starts from — the host env is needed for a
-  command to find its own tools, but a key is never among what it keeps. The
-  host HOME is not kept either: each command gets a fresh empty one, with the
-  toolchain homes (cargo, rustup, uv's cache) pinned to the host's.
-- **Nothing survives.** The ephemeral directory is removed on success,
-  failure and interrupt by the shared context manager, and each command runs in
-  its own session, killed whole when the command ends — so a child it left in
-  the background neither outlives it nor holds its verdict open.
+There is no container here, so process, network and resource isolation are the
+host's. What this module does provide: the child environment is the host's own
+minus everything that names a home, plus the caller's variables, plus the
+throwaway HOME and the host's package caches, and the merged result is scrubbed
+for credentials on the way through — so no key the host holds reaches a command.
 """
 
 from __future__ import annotations
@@ -49,26 +29,25 @@ from mcgyvr.sandbox.base import (
     workdir,
 )
 
-# Conventional shell exit codes for a command that never ran: 127 when the
-# binary is not found, 126 when it is found but cannot be executed. Both let a
-# caller tell "did not run" apart from "ran and exited non-zero".
+# Exit codes a POSIX shell reports when the program named could not be run at
+# all, as opposed to running and failing; used when the spawn itself fails so a
+# caller sees the same numbers a shell would have given it.
 _COMMAND_NOT_FOUND = 127
 _COMMAND_NOT_EXECUTABLE = 126
 
 _HOME_PREFIX = "mcgyvr-home-"
 
-#: Host variables that point a command back into the host HOME's dot files.
-#: Unset, each falls back to its default under the command's own HOME.
+#: Variables whose values point into a home directory. The host's values are
+#: dropped, so a command resolves them against the throwaway HOME instead.
 _HOME_DERIVED = frozenset(
     {"HOME", "XDG_CONFIG_HOME", "XDG_DATA_HOME", "XDG_CACHE_HOME", "XDG_STATE_HOME"}
 )
 
 
 def host_tool_homes() -> dict[str, str]:
-    """Where the host's toolchains live, resolved as each tool resolves it.
-
-    A variable the host sets is kept as set; an unset one is the tool's own
-    default under the host HOME (uv's cache honours ``XDG_CACHE_HOME``).
+    """The host's cargo, rustup and uv cache locations, read from the
+    environment when set (so a non-default one is honoured) and otherwise
+    spelled as the conventional path under the real home.
     """
     env = os.environ
     home = Path.home()
@@ -82,17 +61,24 @@ def host_tool_homes() -> dict[str, str]:
 
 
 class TempDirSandbox(Sandbox):
-    """Run a task in an ephemeral host directory. The weaker isolation mode."""
+    """A sandbox whose commands run on the host, inside the throwaway git
+    workspace, with no container around them.
+
+    It adds nothing to the workspace the base class builds: there is no session
+    to start or stop. `isolation` is `process` because the only thing between a
+    command and the host is a separate process with a scrubbed environment and
+    its own HOME.
+    """
 
     isolation: ClassVar[str] = "process"
 
     def _start(self) -> None:
-        # The workspace and its git base are prepared by the base class;
-        # there is nothing to stand up on the host.
+        # Nothing to start: the workspace is already there, and every command
+        # is spawned directly by `run`.
         pass
 
     def _stop(self) -> None:
-        # Teardown is just the workspace removal the base class does.
+        # Nothing to stop: every command is reaped inside `_run`.
         pass
 
     def run(
@@ -104,8 +90,8 @@ class TempDirSandbox(Sandbox):
         cwd: str | None = None,
     ) -> CommandResult:
         where = self.workspace.joinpath(*workdir(cwd).parts)
-        # A fresh empty HOME per command, outside the workspace so nothing
-        # written there reaches the gated diff, and removed when it returns.
+        # A throwaway HOME for this one call, removed when it returns, so
+        # whatever a command writes under its home does not survive the run.
         with tempfile.TemporaryDirectory(
             prefix=_HOME_PREFIX, ignore_cleanup_errors=True
         ) as home:
@@ -119,17 +105,17 @@ class TempDirSandbox(Sandbox):
         home: str,
         where: Path,
     ) -> CommandResult:
-        # Host env minus credentials, plus the caller's vetted extras. The
-        # container mode starts from nothing; here the host env is what lets a
-        # command find its own toolchain, and the credential filter is what
-        # keeps a key from riding along. The host HOME is not kept: its dot
-        # files are where credentials live. Tool homes stay where the host
-        # resolves them, so a toolchain found through HOME still works.
+        # The child gets the host environment minus every variable that names a
+        # home, so `CARGO_HOME` and its neighbours cannot point a command back
+        # at the real one. The caller's variables layer on next and the
+        # throwaway HOME plus the host's tool caches last, later layers winning,
+        # and `merge_env` scrubs the merged result for credentials, so a key the
+        # host holds is not passed on even when the caller asked for it.
         host = {k: v for k, v in os.environ.items() if k not in _HOME_DERIVED}
         full_env = merge_env(host, env, {**host_tool_homes(), "HOME": home})
-        # Output goes to files rather than pipes: a child the command left in
-        # the background holds a pipe open, and waiting for it to close would
-        # report a command that exited as one that timed out.
+        # Real files rather than pipes: a command that writes more than a pipe
+        # buffer holds would block on a pipe nobody is reading until it exits,
+        # and these are read back only after it has.
         with tempfile.TemporaryFile() as out, tempfile.TemporaryFile() as err:
             try:
                 proc = subprocess.Popen(
@@ -142,10 +128,10 @@ class TempDirSandbox(Sandbox):
                     start_new_session=True,
                 )
             except OSError as unrunnable:
-                # The binary is missing (FileNotFoundError) or present but not
-                # executable (PermissionError, NotADirectoryError). Either way
-                # it never ran; report the shell code rather than raising, so
-                # the gate sees a command outcome like any other.
+                # The program could not be spawned at all — not found, or found
+                # but not executable — which is not the same as a program that
+                # ran and failed. It is reported with the exit code a shell
+                # would give it and the OS error as stderr, rather than raised.
                 code = (
                     _COMMAND_NOT_FOUND
                     if isinstance(unrunnable, FileNotFoundError)
@@ -161,8 +147,8 @@ class TempDirSandbox(Sandbox):
                 timed_out = True
                 exit_code = TIMEOUT_EXIT
             finally:
-                # The command's whole session goes when it ends, on a timeout,
-                # an exit or an interrupt: nothing it started outlives it.
+                # Kill the whole session, not just the process, so children the
+                # command left running do not outlive the call.
                 _kill_session(proc)
             return CommandResult(
                 command=argv,
@@ -174,10 +160,13 @@ class TempDirSandbox(Sandbox):
 
 
 def _kill_session(proc: subprocess.Popen[bytes]) -> None:
-    """SIGKILL every process in ``proc``'s session and reap ``proc``.
+    """Kill the process group the leader `proc` heads, then reap the leader.
 
-    A process that left the session (``setsid``, a daemon) is not reached:
-    this mode's process isolation is the host's.
+    The group is signalled because `_run` starts the process in its own
+    session, which makes it a group leader, so the command's children are in
+    that group and would otherwise survive. A group that is already gone or is
+    not ours is not an error; the wait afterwards reaps the leader so no zombie
+    is left behind.
     """
     with contextlib.suppress(ProcessLookupError, PermissionError):
         os.killpg(proc.pid, signal.SIGKILL)

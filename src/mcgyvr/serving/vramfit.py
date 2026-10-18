@@ -1,45 +1,28 @@
-"""What a MoE checkpoint will hold on a card, and the lowest ``--n-cpu-moe`` that fits.
+"""Per-card VRAM sizing for llama.cpp, from a scanned GGUF geometry.
 
-**Every term here is either read from the GGUF header or measured on the rig.
-None is fitted, and none is a constant carried over from another model.**
+The card holds two kinds of bytes: a constant, and the expert blocks that
+`--n-cpu-moe` leaves on it. The constant is the non-expert weights, the KV and
+sliding-window caches, the recurrent state, and an allowance for what the engine
+allocates beside them; `experts_on_card` prices the rest block by block.
 
-The split this module rests on:
+That split is what a placement search needs, because the expert cost follows a
+block index while the constant does not follow the placement.
+`constant_from_probe` reads the constant once off a live load, `floor` finds the
+fewest host blocks that make a card fit, and `predict` says what the resulting
+placement holds.
 
-``expert weight``
-    Exact, per block, from the tensor table. Summed over the blocks actually on
-    the card -- never averaged, because the distribution is bimodal wherever the
-    quant mix is (Qwen3.6 IQ3_XXS is 262.0 MiB on 37 blocks and 300.0 on three).
+The constant steps once an expert block sits on the host and is flat after
+that: llama.cpp's op offload copies a host-stored expert tensor into the device
+compute buffer for a large batch, which roughly doubles that buffer relative to
+a placement with every expert on the card. A probe therefore describes the
+placements on its own side of that step, and one taken with every expert on the
+card under-states every placement that offloads.
 
-``everything else``
-    The NON-EXPERT model weights -- which are the largest part of it, 1080.83 of
-    2126.00 MiB on KAT -- plus cache, recurrent state, compute scratch, the CUDA
-    primary context, and whatever device memory the engine allocates without
-    naming. Called ``C`` here. **It held across every placement measured that
-    keeps expert blocks on the host**: five placements of KAT, where every term
-    held to the last printed digit, and three of nemotron spanning 9.6 GB of
-    experts. That remainder may differ from one card to the next -- it is net of
-    the card's idle baseline -- but ``C`` itself is per (model, serve config)
-    and subsumes it.
-
-    **It steps when the first expert block leaves the card.** llama.cpp's
-    op offload copies a host-stored expert tensor into the device compute
-    buffer for a large batch, so that buffer grows once any expert is on the
-    host and then stays: deepseek-coder-v2-16b on one rig reads 76.13 MiB at
-    ``--n-cpu-moe 0`` and 151.51 MiB at 13 and at 26, and ``C`` moves by the
-    same 74 MiB. ``--no-op-offload`` removes the step and is banned for what it
-    costs prefill, which op offload runs on the card. Nor is the offloaded side
-    proven flat for every checkpoint: Qwen3.6's ``C`` read 2 MiB higher at
-    ncmoe 20 and 38 MiB higher at 40 than at 7, experts on the host at all
-    three, and nobody has attributed that yet.
-    -> the lab's measuring-gaps measurement, Q4 and Q6, and its flexibility
-    measurement, Q11
-
-The floor is derived from the header laws below (:func:`kv_bytes`,
-:func:`rs_bytes`) plus :data:`SCRATCH_AND_CONTEXT_MIB`, by
-``mcgyvr.serving._placement`` and ``gate-scripts/data-30-placement.py``.
-:func:`constant_from_probe` reads ``C`` off a launch instead, for the
-placements on the probe's own side of that step: a probe with every expert on
-the card under-states every placement that offloads, by the op-offload copy.
+Every figure here is fitted to what the engine's allocator summary or
+`nvidia-smi` printed, never to a share of the file size: expert costs come from
+the scan's per-block totals, the sliding split from the checkpoint's declared
+per-layer pattern, and a sliding window with no declared pattern is refused
+rather than guessed.
 """
 
 from __future__ import annotations
@@ -47,65 +30,65 @@ from __future__ import annotations
 from dataclasses import dataclass
 from typing import Any
 
-#: Bytes per cache element by ``--cache-type-k/v``. ``q8_0`` is 34 bytes per
-#: 32-element block, so 17/16 of a byte -- verified exactly: a 192.00 MiB f16
-#: cache became 102.00 MiB, which is 192 x 17/32.
+#: Bytes one cached element costs, by llama.cpp cache type. f32/f16/bf16 are
+#: their widths; q8_0 spends 34 bytes on a block of 32 elements (a
+#: half-precision scale and offset each), so it is 17/32 of an f16 cache.
 CACHE_ELEM_BYTES = {"f32": 4.0, "f16": 2.0, "bf16": 2.0, "q8_0": 34.0 / 32.0}
 
-#: The two device terms no GGUF header can supply: the compute buffer and the
-#: allocation the engine never names. THE one allowance in a floor derivation,
-#: and it lives here because this is the module every caller of that derivation
-#: already loads -- the door's placement script and the bench gate both read it
-#: from here, so the two cannot come to different conclusions about one card.
-#:
-#: Measured 255-521 MiB at ``-ub 256`` across two rigs and four checkpoints
-#: (deepseek 259.5, gpt-oss 255.1/302.1, Qwen3.6 302.7, nemotron 521.2), and
-#: the compute half grows with ``-ub``: the same nemotron reads 517.06 at
-#: ``-ub 1024``, for 652. 768 bounds every reading taken, with margin.
-#:
-#: **Deliberately generous, because it is only ever walked DOWN from.**
-#: Over-stating it predicts a floor above the true one, which costs throughput
-#: until the walk-down; under-stating it admits a cell that clears every gate
-#: and then OOMs at load.
-#: -> the lab's context-decomposition measurement
+#: The allowance, in MiB, that `allowance_mib` returns when it has no reading
+#: for the architecture it was asked about, or none for the ubatch: what the
+#: engine and the driver hold beyond the weights and the caches -- the CUDA
+#: context, the compute buffers, and the allocations that move with a batch.
+#: The scan cannot state this figure; the engine's own allocator decides it,
+#: which is why the architectures in `MEASURED_SCRATCH_MIB` were read off a
+#: load on a rig. An unmeasured model is gated on this number rather than on
+#: nothing, so its prediction still leaves the card room for what llama.cpp
+#: will allocate next to the tensors. It is a default, not a ceiling: no load
+#: here was measured against it. `Placement.allowance_mib` carries the result
+#: beside the predicted bytes, and `Placement.required_mib` sums the two, so a
+#: caller comparing a placement with free VRAM compares against the tensors,
+#: the caches they sit in, and this headroom together rather than the tensors
+#: alone. A caller that wants the figure for one architecture at one batch
+#: asks `allowance_mib`; this constant is only what it returns on a miss, and
+#: 768 MiB is that answer, not a measurement of any particular model.
 SCRATCH_AND_CONTEXT_MIB = 768
 
-#: The same quantity MEASURED, per checkpoint, from the readings the paragraph
-#: above bounds. 768 is a bound over every architecture probed and it is the
-#: right number for a *derivation*, which walks down from it and has no
-#: measurement of the card in hand. It is the wrong number for judging a
-#: placement somebody is holding: on one rig, 2026-09-06, the card hands out 5726
-#: MiB, the running ``--n-cpu-moe 32`` placement occupies 5306, and this
-#: module's own prediction for it is 5347.2 -- accurate to 41 MiB. Adding 768
-#: to that refuses a placement the rig has been running for hours, and derives
-#: 34 instead. A measurement in hand outranks an allowance.
-#:
-#: Each reading names the ``-ub`` it was read at: the compute half of this
-#: quantity grows with ``-ub``, so a reading is used only at its own batch and
-#: a number with no batch beside it cannot be told apart from one taken at 512.
-#: qwen35moe's 512 = 316.57 MiB comes from the lab's kv-dtype measurement
-#: (S1, the measuring-gaps Q3 method; the 256 control of 304.57 reproduces the
-#: pinned 302.7 to 0.6%). S1 read it at ``--n-cpu-moe 30 -c 16384 --parallel 2``,
-#: not the served ``ncmoe 32 / c 32768 / np 8``: the ~3 MiB placement spread is
-#: inside the 62 MiB margin the reading leaves, and it over-states rather than
-#: under-states.
-#:
-#: Absent an entry, the bound stands: an architecture nobody has probed gets
-#: the conservative number, which is the direction that costs throughput rather
-#: than the one that admits a cell that OOMs at load.
-#: -> the lab's context-decomposition measurement
+#: The scratch allowance measured on a rig, in MiB, filed under the ubatch it
+#: was read at: what that load actually held beyond the weights, the KV cache
+#: and the recurrent state that `kv_bytes` and `rs_bytes` predict. Each figure
+#: is the gap left by the engine's allocator summary (`--verbose`, whose second
+#: loader pass is the real one) cross-checked against `nvidia-smi`, and that
+#: gap carries the CUDA context, the compute buffers, and whatever else the
+#: engine allocates beside the tensors. It differs by architecture -- the
+#: kernels and per-layer buffers are the model's own -- and it grows with the
+#: ubatch, which is why a reading is filed under the batch it was taken at as
+#: well as under the arch. `allowance_mib` reads this table and nothing else
+#: derives from it: a hit returns the measured figure, a miss on the
+#: architecture or on the ubatch returns `SCRATCH_AND_CONTEXT_MIB`. Neither the
+#: entries nor the gaps between them are averaged or interpolated, because a
+#: value computed between two readings would be a guess written down as a
+#: measurement; a new placement batch means a new reading. The arch name is the
+#: one the scan writes, so `qwen35moe` and `gptoss` are spellings of an
+#: architecture family and not of a checkpoint: two quantizations of one arch
+#: share a row, since the quant changes the tensors and not the buffers the
+#: engine allocates around them. A row says nothing about slots or context:
+#: those are in the cache figures, not in the gap. A reading missing for an
+#: arch, or for the batch a placement runs at, is a reading to take, not a
+#: value to carry over from the neighbouring entry -- keying by ubatch says
+#: that the buffer sizes it describes are not interchangeable between
+#: batches.
 MEASURED_SCRATCH_MIB = {
     "deepseek2": {256: 259.5},
     "gptoss": {256: 302.1},
     "qwen35moe": {256: 302.7, 512: 316.57},
     "nemotron_h_moe": {256: 521.2},
-    #: Read at -ub 512 (DEFAULT_UBATCH), the batch units run at (Q3, the
-    #: lab's measuring-gaps measurement).
+    #: qwen3next's reading is at ubatch 512 (829.0 MiB), not 256 like the rest, so
+    #: it is filed under the batch the load actually ran with.
     "qwen3next": {512: 829.0},
 }
 
-#: llama.cpp pads the sliding-window cache to a multiple of this. Measured at
-#: 256 with flash-attention both on and off, so it is not an FA alignment.
+#: Cell granule llama.cpp pads the sliding-window cache to: the engine rounds
+#: its SWA cell count up to a multiple of 256, so a partial chunk costs a whole.
 SWA_PAD = 256
 
 
@@ -114,25 +97,12 @@ def _pad(value: int, to: int) -> int:
 
 
 def context_per_sequence(n_ctx: int, n_seq_max: int) -> int:
-    """What each slot actually gets, which is not ``n_ctx / n_seq_max``.
-
-    llama.cpp pads the per-sequence context UP to a multiple of 256 and then
-    rewrites the total to match, so ``-c`` is a request and not a setting. Its
-    own warning says "rounding down", which is the opposite of what it does.
-    Measured on a 28-layer dense model at ``--parallel 8``: ``-c 8000`` yields
-    8192 and ``-c 8200`` yields **10240**, a 25% jump from a 0.1% change in the
-    request. At ``--parallel 5``, ``-c 8192`` yields 8960.
-
-    This matters here because ``MIN_CTX_PER_SLOT`` is 987 -- not a multiple of
-    256 -- so a cell declaring ``ctx_per_slot 987 x parallel 8`` asks for 7896
-    and is given 8192, and a predictor that divides instead of padding
-    under-counts its cache by 3.6%.
-    """
+    """Cells per sequence: `n_ctx` divided by `n_seq_max`, rounded up to 256."""
     if n_seq_max <= 0:
         raise ValueError("n_seq_max must be positive")
-    # ceil, not truncate. The two agree except when `n_ctx` does not divide by
-    # `n_seq_max` AND the quotient is already 256-aligned -- `-c 8193 -np 8`
-    # yields 1280 on the rig and 1024 by truncation, a 20% under-count.
+    # `-c` is the total across sequences, not one sequence's context: llama.cpp
+    # divides it, rounds each sequence up to 256 cells, and rewrites the total to
+    # slots x per-sequence cells, so the allocation can exceed the request.
     return _pad(-(-n_ctx // n_seq_max), 256)
 
 
@@ -148,42 +118,46 @@ def kv_bytes(
     kv_unified: bool = False,
     layers: list[dict[str, Any]] | None = None,
 ) -> dict[str, int]:
-    """Cache bytes on the device, summed over the layers that actually cache.
+    """Bytes the KV caches take for `n_ctx` of total context over `n_seq_max` sequences.
 
-    **Per layer, because no scalar summary survives this store.** ``gemma4``
-    caches five layers at 1024 elements and slides twenty-five at 2048 -- two
-    head counts and two key widths in one file. ``bailingmoe3`` absorbs V into
-    a compressed KV and allocates no V cache at all. K and V are weighed
-    separately for the same reason: ``deepseek2`` carries a 192-wide key
-    against a 128-wide value, and treating them as equal overstates it by 20%.
+    `rows` is `geometry["kv_layers"]` unless a caller passes `layers`, which lets a
+    shard size only the blocks it holds. Each row states its `k_elems`, its
+    `v_elems`, and whether it slides; those widths are priced at `cache_type_k` and
+    `cache_type_v` per element and summed into a full-attention total and a
+    sliding-window total.
 
-    **Sliding-window checkpoints allocate two caches** over disjoint layer
-    sets, sized independently -- the full one at the per-sequence context, the
-    sliding one at ``PAD256(n_swa x seqs + n_ubatch)`` capped there. Which
-    layers slide is read from ``sliding_window_pattern`` where declared: the
-    split is 12/12 on gpt-oss, 13/36 on cohere2moe and 5/25 on gemma4, so
-    assuming an alternating pattern is wrong for two of the three.
+    Cells come from `context_per_sequence` per sequence, or from `n_ctx` once when
+    `kv_unified`, since the total is divided rather than multiplied; the
+    per-sequence widths are then summed across the sequences. The sliding rows are
+    charged the window plus `n_ubatch` tokens in flight, padded to `SWA_PAD` and
+    capped at the per-sequence cell count, since that cache only ever holds a window
+    and a batch -- while `swa_full`, or a geometry that declares no `sliding_window`,
+    charges them the full context like any other layer.
 
-    The sliding cache is the only term here that grows with ``n_ubatch``, and
-    the only one that shrinks with ``--parallel``.
-    """
+    Returns `total`, `non_swa` and `swa` in bytes, `cells_swa` as the sliding cell
+    count left after the cap (0 when no row slides), and `n_ctx_seq` as the
+    per-sequence cell count every cell total is capped against.
+
+    A sliding-capable geometry whose rows leave `is_swa` unstated raises
+    `ValueError`: the split decides the bytes, and it is read from the checkpoint's
+    pattern or from the engine's own cache lines, never assumed."""
     rows = geometry["kv_layers"] if layers is None else layers
 
-    # **Refuse an undeclared sliding-window split rather than assume one.** A
-    # checkpoint that declares `attention.sliding_window` without the per-layer
-    # `sliding_window_pattern` does not say WHICH layers slide, and the answer
-    # is not derivable from the header. An alternating assumption stood here
-    # and is wrong for two of the three split checkpoints measured (gemma4
-    # slides 25 of 30, cohere2moe 36 of 49); it survived only because both of
-    # those declare a pattern, leaving it exercised on the one file whose
-    # sliding and full layers are the same width and where it therefore cannot
-    # be caught. Sizing a cache from an invented split is the failure this
-    # module exists to end -- the number would be confident, plausible and
-    # unfalsifiable, and a floor derived from it puts a cell through the gate
-    # that then OOMs at load.
-    #
-    # The split is observable, so this is a request for a measurement and not a
-    # dead end: llama.cpp names the layer count of each cache it creates.
+    # Every row must state whether it slides. A checkpoint can declare
+    # `attention.sliding_window` and no `sliding_window_pattern`, and then the
+    # file says that some layers slide without saying which; `is_swa` is None and
+    # the cache cannot be sized from the scan. The two caches are not sized alike
+    # -- the full one per sequence over the whole context, the sliding one over
+    # the window plus a batch -- so the bytes depend on which layers fall on which
+    # side. An alternating guess is right only for a checkpoint whose layers are
+    # all one width, where a wrong assignment cannot show up in the sum, and wrong
+    # for the mixed ones. Refusing here is the point: llama.cpp prints its own
+    # `llama_kv_cache_iswa: creating non-SWA/SWA KV cache` cell counts at load,
+    # and the message names that measurement and `layers=`, so a caller can read
+    # the split and pass the rows back instead of accepting a number built on a
+    # guess. That keeps the bytes a measurement wherever the split is genuinely
+    # unknown, and costs only a re-read of the load log where it is not: the
+    # engine states the split it chose, so the caller can hand the rows back.
     unknown = [r["layer"] for r in rows if r.get("is_swa") is None]
     if unknown:
         raise ValueError(
@@ -205,9 +179,9 @@ def kv_bytes(
     full = sum(width(r) for r in rows if not r["is_swa"])
     swa = sum(width(r) for r in rows if r["is_swa"])
 
-    # Unified: one cache shared by every sequence, sized against the whole
-    # context and neither divided nor multiplied by the slot count.
-    # Non-unified: a per-sequence cache, so per-sequence size times slots.
+    # `-c` is a total, not a slot's context. Unified KV shares one cache across
+    # the sequences, so `n_ctx` cells are the whole allocation and no per-sequence
+    # multiplier applies; otherwise each sequence is charged its own padded cells.
     if kv_unified:
         cells_full, seq_factor = n_ctx, 1
     else:
@@ -217,10 +191,10 @@ def kv_bytes(
     if swa_full or not window:
         cells_swa = cells_full
     else:
-        # Under a unified cache the window is claimed once for all sequences,
-        # so `n_swa x seqs + n_ubatch` is already the TOTAL cell count. Capping
-        # that against the per-sequence context and then multiplying by the
-        # slots again overstated it by 5.3x.
+        # The sliding cache need hold only the window, plus one batch of tokens in
+        # flight. Unified, the window is claimed once for every sequence together, so
+        # the count is against the total; otherwise it is claimed per sequence and
+        # multiplied by `seq_factor` below, padded to the engine's granule, capped.
         want = int(window) * (n_seq_max if kv_unified else 1) + n_ubatch
         cells_swa = min(cells_full, _pad(want, SWA_PAD))
 
@@ -241,23 +215,19 @@ def rs_bytes(
     n_seq_max: int,
     recurrent_layers_on_device: int | None = None,
 ) -> dict[str, int]:
-    """Recurrent-state bytes on the device: the SSM state plus the conv state.
+    """Bytes the recurrent state takes for `n_seq_max` sequences, or zeros if dense.
 
-    ``S`` is the term everyone finds -- ``d_inner x d_state x 4 B`` per layer
-    per sequence. ``R``, the convolution state, is the one that gets dropped:
-    ``(d_conv - 1) x (d_inner + 2 x n_group x d_state) x 4 B``, worth 4.7% of
-    the buffer on ``qwen35moe`` and 3.5% on ``nemotron_h_moe``.
+    `s` is the state proper: `ssm_inner_size` x `ssm_state_size` per recurrent
+    block per sequence, at four bytes an element. `r` is the convolution term the
+    kernel keeps beside it: `conv_kernel - 1` taps of the inner size plus two
+    group-scaled state vectors, per block per sequence, likewise at four bytes.
 
-    Charged per SEQUENCE rather than per token, so ``--parallel`` is the
-    expensive axis for these architectures while ``-c`` is free. That is the
-    exact reverse of ``deepseek2``, where the cache scales with context and
-    slots cost nothing, so an intuition formed on one does not transfer.
+    Both scale with the sequence count. `recurrent_layers_on_device` lets a shard
+    charge only the recurrent blocks it holds, defaulting to all of them.
 
-    **Raises rather than returning zero when a recurrent model states no state
-    parameters.** ``bailingmoe3`` describes its state under ``kda.*`` instead of
-    ``ssm.*``; a guard that returns zero there silently loses 154.12 MiB and
-    makes a missing header indistinguishable from a model that has no state.
-    """
+    A geometry that claims recurrent blocks but states no state size raises
+    `ValueError`: returning zero there would look exactly like a dense model and
+    would hide an allocation the launch is about to make."""
     layers = geometry.get("n_recurrent", 0)
     if recurrent_layers_on_device is not None:
         layers = recurrent_layers_on_device
@@ -278,26 +248,14 @@ def rs_bytes(
 
 
 def experts_on_card(geometry: dict[str, Any], n_cpu_moe: int) -> int:
-    """Expert bytes the card holds at ``--n-cpu-moe N``.
+    """Expert bytes the card keeps at `--n-cpu-moe n_cpu_moe`.
 
-    **``N`` is a block INDEX, not a count of expert-bearing blocks.** llama.cpp
-    emits tensor overrides matching ``blk.0`` through ``blk.(N-1)``, so a block
-    whose index is below ``N`` goes to the CPU whether or not it carries
-    experts, and one above it stays on the card. Taking the ``N``-th *placeable*
-    block instead gives the same set only when expert blocks start at zero and
-    run contiguously -- which fails on four of the eleven checkpoints measured,
-    worst on ``nemotron_h_moe``, whose expert blocks are ``1,3,6,8,10,...,51``.
-
-    What the positional reading cost, against the engine's own ``CUDA0 model
-    buffer size``: at ``--n-cpu-moe 40`` nemotron holds 4110.75 MiB of experts
-    and the positional sum said 0 -- a third of one rig's card. Its floor came out
-    9 where the rig loads at 21 and refuses at 20, i.e. a cell that clears the
-    gate and then OOMs at load, which is the single outcome the gate exists to
-    prevent. On ``deepseek2``, whose block 0 is dense, ``--n-cpu-moe 1`` moves
-    nothing at all while the positional sum booked a 297.00 MiB move.
-
-    Clamps at zero, as the engine does: a negative ``N`` places everything.
-    """
+    Blocks are selected by their block index, not by their position in the
+    placeable list: every placeable block whose index is at least `n_cpu_moe`
+    keeps its experts on the device. That makes a checkpoint whose expert blocks
+    are non-contiguous or do not start at 0 come out right, and makes the first
+    offload step a no-op when block 0 carries no experts. Multi-token-prediction
+    blocks are not in `placeable_blocks` and are not counted here."""
     by_block = geometry["expert_bytes_by_block"]
     floor_index = max(0, n_cpu_moe)
     return sum(
@@ -306,40 +264,10 @@ def experts_on_card(geometry: dict[str, Any], n_cpu_moe: int) -> int:
 
 
 def mtp_head_bytes(geometry: dict[str, Any]) -> int:
-    """What ``--spec-type draft-mtp`` adds to the card: the head's expert bytes.
+    """Expert bytes carried by the multi-token-prediction head blocks.
 
-    A grafted multi-token-prediction head is a block by tensor naming that
-    ``--n-cpu-moe`` never places, so :func:`experts_on_card` leaves it out of
-    every placement (``ggufscan`` reports it under ``nextn_blocks`` and keeps
-    it out of ``placeable_blocks``). Without the flag the engine leaves it off
-    the card: at ``--n-cpu-moe 8`` KAT's card held 32 x 278.0 MiB of experts
-    exactly, blocks 8..39 with block 40 absent. With the flag the head is
-    loaded and run as the draft, and the rig pays for it: the baseline loads at
-    ``ncmoe 4`` and MTP is refused there with ``cudaMalloc failed``, loading at
-    8 -- the lab's mtp-ornith measurement, section 1.
-
-    The figure is read off the tensor table and nowhere else: the nextn block's
-    expert set, ``expert_bytes_by_block`` at each ``nextn_blocks`` index, 816.0
-    MiB on KAT/Ornith Q2_K-AllGPU (the graft keeps its head at a higher quant
-    than its 278 MiB neighbours). The head's few non-expert tensors
-    (``nextn.{eh_proj,enorm,hnorm,shared_head_norm}`` and its attention) are
-    already inside ``bytes_nonexpert``, which is the table less every ``_exps``
-    tensor, so they are charged in every fit and are not counted twice here.
-    Zero for a checkpoint with no nextn block, which is every stock GGUF.
-
-    **The head's own cache is not charged, and the fit is optimistic by it.**
-    Nothing in the header prices it: ``kv_layers`` follows the declared
-    ``full_attention_interval`` and stops at the last ordinary block, and no
-    measurement on either rig separates the head's state from the main cache
-    or the compute buffer. The README's "~1 GB" against this 816 MiB is the
-    only bound on what is uncharged, about 200 MiB; the derivation's scratch
-    allowance is the only margin in front of it and was not sized for it. From
-    the probe ``test_serving_vramfit`` pins (C 2127 MiB, 11911 free) this term
-    derives the MTP floor 8, and 8 is where the rig loaded with MTP after 4
-    refused -- 5, 6 and 7 were never tried. A constant asserted for the state
-    would be the fitted number this module exists to refuse; when it is
-    measured, it is charged here and nowhere else.
-    """
+    `--n-cpu-moe` never moves these, because they are not in `placeable_blocks`, so
+    their expert tensors are charged to the card whatever the placement."""
     by_block = geometry["expert_bytes_by_block"]
     return sum(int(by_block[str(b)]) for b in geometry.get("nextn_blocks") or ())
 
@@ -347,41 +275,30 @@ def mtp_head_bytes(geometry: dict[str, Any]) -> int:
 def constant_from_probe(
     geometry: dict[str, Any], n_cpu_moe: int, vram_used_bytes: int
 ) -> int:
-    """``C``: everything on the card that is not expert weight, from one launch.
+    """The card constant `C`, from one probe load at `--n-cpu-moe n_cpu_moe`.
 
-    Subtracting the expert weight the placement implies from what the driver
-    says the card holds. What remains is cache, recurrent state, compute
-    scratch, the CUDA primary context and any device allocation the engine never
-    prints -- as one lump, which is all a placement decision needs.
+    `C` is everything the card holds that does not follow the expert placement:
+    non-expert weights, the KV and sliding-window caches, recurrent state, and the
+    scratch allowance. The probe's `vram_used_bytes` minus the expert bytes that
+    placement left on the card is that remainder, reused at every other placement
+    on the same side of the step.
 
-    **Pass ``vram_used_bytes`` net of the card's idle baseline.** ``memory.used``
-    is card-wide; one rig idles at 17 MiB and another at 1 MiB, and letting that ride
-    along puts a 16 MiB rig difference into a number that has nothing to do with
-    either rig.
-
-    **Probe with at least one expert block on the host** when the ``C`` is for
-    placements that offload. Op offload grows the compute buffer the moment an
-    expert leaves the card -- 76.13 to 151.51 MiB on deepseek2 -- so a probe
-    taken with every expert on the card under-states each of those placements by
-    that step, and :func:`floor` then admits a cell past the card's edge.
-    """
+    The probe has to be taken with an expert on the host. Op offload copies a
+    host-stored expert into the device compute buffer for a large batch, so the
+    buffer roughly doubles at the first offloaded block and is flat after; a probe
+    with every expert on the card measures the smaller buffer and under-states
+    every placement that offloads."""
     return vram_used_bytes - experts_on_card(geometry, n_cpu_moe)
 
 
 def floor(geometry: dict[str, Any], free_bytes: int, constant: int) -> int | None:
-    """The lowest ``--n-cpu-moe`` whose expert weight still fits beside ``C``.
+    """The fewest host blocks that make the card fit, or `None` if none does.
 
-    Walks placements from most-on-card to least and returns the first that fits,
-    rather than dividing headroom by a per-block average: with a bimodal block
-    distribution the two disagree, and the division is what put a predicted
-    floor three steps above the measured one.
-
-    ``None`` when even full offload does not fit. That means ``C`` alone
-    exceeds the card: the non-expert weights, cache and scratch do not fit
-    before a single expert block is placed. It is a statement about the CARD,
-    not the host -- whether host RAM can hold the offloaded experts is a
-    separate question this function never sees.
-    """
+    Walks `n_cpu_moe` from 0 upward and returns the first value whose `constant`
+    plus `experts_on_card` fits `free_bytes`, so the answer leaves the most experts
+    on the device that still fit. The walk stops at `len(placeable_blocks)`, and
+    `None` says no count in that range fits: the card is too small at every
+    placement searched, and there is nothing to return."""
     n = len(geometry["placeable_blocks"])
     for n_cpu_moe in range(0, n + 1):
         if constant + experts_on_card(geometry, n_cpu_moe) <= free_bytes:
@@ -390,44 +307,32 @@ def floor(geometry: dict[str, Any], free_bytes: int, constant: int) -> int | Non
 
 
 def predict(geometry: dict[str, Any], n_cpu_moe: int, constant: int) -> int:
-    """Card bytes at a placement: the probe's constant plus that placement's experts."""
+    """Predicted card bytes at `--n-cpu-moe n_cpu_moe`.
+
+    `constant` plus the expert blocks that placement leaves on the device."""
     return constant + experts_on_card(geometry, n_cpu_moe)
 
 
 @dataclass(frozen=True)
 class Placement:
-    """A placement's card usage, with the claim and the policy kept apart.
-
-    ``predicted_mib`` is what this module says the card will hold at this
-    offload: non-expert weights, cache, recurrent state and the experts that
-    stay. It is a claim about the card, checkable against ``nvidia-smi`` — on
-    one rig, 2026-09-06, it reads 5347.2 against a measured 5306.
-
-    ``allowance_mib`` is the room demanded past that claim, which is policy.
-    Reported separately, because one summed figure that misses a measurement
-    cannot say whether the law or the allowance is what missed.
-    """
+    """One placement in MiB: what it predicts and what it must leave free."""
 
     predicted_mib: float
     allowance_mib: float
 
     @property
     def required_mib(self) -> float:
-        """What the card must hand out for this placement: the claim plus the room."""
+        """The two figures summed: the card bytes the placement needs in total."""
         return self.predicted_mib + self.allowance_mib
 
 
 def allowance_mib(geometry: dict[str, Any], *, n_ubatch: int = 512) -> float:
-    """The working room this checkpoint must have past its own prediction.
+    """The scratch allowance in MiB for `geometry`'s arch at `n_ubatch`.
 
-    Its own measured compute buffer at exactly ``n_ubatch`` where one has been
-    probed, and :data:`SCRATCH_AND_CONTEXT_MIB` otherwise -- including a batch
-    the architecture has no reading for, because the compute half of this
-    quantity grows with ``-ub`` and a reading is only the allowance at the
-    batch it was read at. See :data:`MEASURED_SCRATCH_MIB` for why the bound is
-    the wrong number to judge a placement with and the right one to derive a
-    floor from.
-    """
+    Returns the measured reading from `MEASURED_SCRATCH_MIB` when that architecture
+    has one for that ubatch, and `SCRATCH_AND_CONTEXT_MIB` when it has none -- for
+    the arch or for the batch. A miss falls back rather than interpolating, so the
+    answer is either a reading or a stated default."""
     readings = MEASURED_SCRATCH_MIB.get(str(geometry.get("arch")))
     if readings is None:
         return SCRATCH_AND_CONTEXT_MIB
@@ -443,18 +348,13 @@ def explain(
     n_ubatch: int = 512,
     speculative: str = "none",
 ) -> Placement:
-    """What this placement is predicted to occupy, and what is demanded beyond it.
+    """A `Placement` for one geometry at one placement, in MiB.
 
-    ``ctx_per_slot`` has no default here for the reason stated at the top of
-    :mod:`mcgyvr.serving`: the cache is priced against the window, so a
-    prediction made at a window nobody declared is a prediction about a process
-    nobody is running. The figures above are at 4096 per slot across eight
-    slots, which is the ``-c 32768 --parallel 8`` it was measured serving.
-
-    ``speculative`` is the unit's ``launch.speculative``: under ``mtp``
-    the grafted head is on the card and :func:`mtp_head_bytes` is added, and
-    under ``none`` nothing moves.
-    """
+    Sums the non-expert weights, `kv_bytes` at `ctx_per_slot * slots` cells over
+    `slots` sequences and `n_ubatch`, `rs_bytes` over `slots` sequences, the expert
+    blocks `n_cpu_moe` leaves on the card, and the MTP head blocks when
+    `speculative` is `"mtp"`; divides by 2**20 and pairs the result with
+    `allowance_mib` at the same ubatch."""
     kv = kv_bytes(geometry, ctx_per_slot * slots, n_seq_max=slots, n_ubatch=n_ubatch)
     rs = rs_bytes(geometry, n_seq_max=slots)
     predicted = (

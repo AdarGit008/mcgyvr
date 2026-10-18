@@ -1,63 +1,18 @@
-"""Decomposition — from an understood repository and a request to contracts (#50).
+"""Decompose a request into contracts, or into refusals that say why not.
 
-This is the judgment step, and it is the one place in the orchestrator where a
-model's opinion becomes a document the rest of the system executes. The whole
-design question is therefore *how little* of that document the opinion is
-allowed to author.
+`decompose` is the whole of this module's interface: it resolves a prompt
+against an index, reads what the prompt touches, and hands that evidence to a
+`Proposer` once. Each proposal that comes back is checked — the task type must
+be servable, the target must be a file the index holds, the acceptance a
+`type_check` implies must be locatable, every dependency must have a signature
+the index can state, the id must be unused, and the worker view must fit the
+ceiling — and is then either emitted as a validated contract document or
+refused with the reason it could not be.
 
-The answer is a split. A model decides **relevance** — which kind of work this
-is, which file it lands in, which of a file's forty symbols the target actually
-needs. The repository decides **fact** — what those symbols look like, whether
-the file exists at all. So the seam this module draws is not "the model writes a
-contract and we check it"; it is "the model writes *references* and the index
-resolves them". A :class:`Proposal` names a symbol; it cannot state a signature,
-because there is no field for one.
-
-Seven properties are structural rather than remembered:
-
-* **Every emitted contract came through the public loader.** A proposal is
-  assembled into a document, serialised, and parsed by
-  :func:`mcgyvr.contract.loads` — the same entry point direct mode uses. There is
-  no other way out of this module, so "an emitted contract is one the direct-mode
-  API accepts" is a property of the code path rather than a claim a test has to
-  chase. A document the loader rejects becomes a refusal carrying the loader's
-  own message, which already names the field and states the fix.
-* **The target's current content is a fact, so it is read rather than proposed.**
-  #150 gave the contract a slot for it and #155 fills it here. There is no
-  ``Proposal`` field for it and there will not be one: a proposer that could
-  state a file's content could state one the repository does not hold, which is
-  the exact failure the seam is drawn to prevent. The bytes come from the
-  index — the same read that resolution and exploration already judged from —
-  so two contracts emitted from one decomposition cannot disagree about one
-  file. See :func:`_content_of`.
-* **A dependency the index cannot name is refused, never described.** That
-  gives up any dependency the parser cannot state — a dynamically constructed
-  attribute, a re-export through a barrel file — and the asymmetry is the
-  argument: a missing dep degrades a prompt, an invented one poisons it and
-  reads as authoritative.
-* **A request that cannot be decomposed produces an explanation.** There is no
-  fallback that wraps an unparsed prompt in one big contract. A degenerate
-  single contract is worse than a refusal, because it looks like a plan.
-* **Nothing is emitted whose worker view will not fit under a stated ceiling.**
-  :func:`_resize` sizes ``context.max_input_tokens`` to what the worker will
-  actually be sent, and a budget derived from the content can never be exceeded
-  by the content — so without a stop, inlining a large file would raise the
-  ceiling to swallow it and the fit check would become a tautology. The ceiling
-  is the stop, and exceeding it is a refusal (#155).
-* **Nothing is emitted that no configured ladder can serve.** The check is the
-  catalog's own :meth:`~mcgyvr.catalog.Catalog.servable`, against a real config —
-  a keyless install genuinely cannot run a type that must start on ``api``, and
-  the honest answer is to say so by name rather than to route optimistically and
-  fail at dispatch.
-* **A type whose evidence only a checker can produce is emitted with that
-  checker's command, or not emitted.** See :func:`_acceptance_for`.
-
-**The proposer seam.** :data:`Proposer` is where judgment enters, and it has no
-default binding. A caller supplies one; the tests supply a fixed one, which is
-what makes "the same prompt and repository yield the same shape" an assertion
-about this module rather than about a model's temperature. The deterministic
-pass always runs first and is handed to the proposer as evidence — a proposer
-cannot ask for the repository, only read what exploration already found.
+Nothing here decides what the work is. It decides whether the work can be
+stated as something runnable, and says what stands in the way when it cannot:
+refusals are returned as values, not raised, so one bad proposal does not lose
+the others.
 """
 
 from __future__ import annotations
@@ -85,28 +40,27 @@ if TYPE_CHECKING:  # pragma: no cover - typing only
 
     from mcgyvr.config import Config
 
-# How much of the identifying material goes into a contract id. Short enough to
-# read in a log line, long enough that two different units of work in one
-# decomposition do not collide by accident — and a collision is refused rather
-# than silently resolved, so this is a readability choice, not a safety one.
+# Bytes of digest kept in every contract id. Five bytes is ten hex characters:
+# short enough that an id is still a filename a caller can write, long enough
+# that two different changes to the same target do not land on one id. The
+# digest itself is blake2b over the proposal, in `_identify`.
 _ID_DIGEST_BYTES = 5
 
-# The default ceiling `context.max_input_tokens` may be sized up to, in
-# estimated tokens, when the caller passes none: `decompose(...,
-# max_input_tokens=...)`. A policy number, not a measurement. A rung's declared
-# window is enforced separately by
-# `mcgyvr.gate.preflight.check_contract_against_rung`.
+# The ceiling on a contract's worker view, in estimated tokens, when the
+# caller names none. `_resize` refuses a view over it: the worker must return
+# every token it is sent, so a target this large is neither sendable nor
+# answerable. `decompose`'s `max_input_tokens` argument overrides it, and
+# `context.max_input_tokens` is a separate, per-contract number.
 _DEFAULT_MAX_INPUT_TOKENS = 32768
 
 
 @dataclass(frozen=True)
 class DepRef:
-    """A reference to a dependency: where it lives and what it is called.
+    """A dependency a proposal wants restated on its contract.
 
-    Deliberately not a signature. The decomposer names the symbol; the index
-    states what it looks like. ``note`` is the one free-text field,
-    because "how the target is expected to use this" is a judgement about
-    relevance and there is nothing in the repository to read it off.
+    Only the path and the symbol are stated here: `_emit` looks the signature
+    up in the index, so a dependency whose signature cannot be read is refused
+    rather than described in prose.
     """
 
     path: str
@@ -116,18 +70,12 @@ class DepRef:
 
 @dataclass(frozen=True)
 class Proposal:
-    """One unit of work the judgment step proposes — references, not facts.
+    """One unit of work as a proposer states it, before it is a contract.
 
-    Everything here is either a choice from a fixed vocabulary (``task_type``),
-    a pointer into the repository (``target``, ``deps``), or text a model is the
-    right author of (``task``, ``interface``, ``note``). What a symbol looks
-    like, whether the type can be served, and whether the whole thing validates
-    are all decided downstream, from the repository and the schema.
-
-    ``allow`` defaults to the target alone. That is the smallest scope a
-    contract can have, and #50 asks for the smallest well-scoped unit a rung can
-    actually complete — so widening the scope is a decision a proposer has to
-    make explicitly rather than one it gets by leaving a field blank.
+    These are the proposer's answers. What the repository can answer better —
+    the acceptance command a `type_check` implies, the demonstration and
+    acceptance a baseline run yields — `_emit` fills in or checks, and refuses
+    the proposal when it cannot be had.
     """
 
     task_type: str
@@ -138,9 +86,9 @@ class Proposal:
     allow: tuple[str, ...] = ()
     forbid: tuple[str, ...] = ()
     stop_conditions: tuple[str, ...] = ()
-    #: The reply cap the proposal states, written on the document. Required
-    #: of a model-written ``code`` proposal, which is refused without one
-    #: (owner, 2026-10-14); ``None`` for a type that carries no cap.
+    #: What the reply to this unit of work is worth, in output tokens. A
+    #: model-written contract that is judged by evidence must state one, so
+    #: `_emit` refuses such a proposal while this is None.
     max_output_tokens: int | None = None
     acceptance: tuple[str, ...] = ()
     demonstration: tuple[str, ...] = ()
@@ -160,13 +108,12 @@ class Proposal:
 
 @dataclass(frozen=True)
 class Evidence:
-    """The deterministic pass a proposer is given to judge from.
+    """What a proposer is shown: the prompt and what the readers found in it.
 
-    Handed over rather than made available: a proposer receives what
-    exploration already found and has no way to ask the repository for more.
-    Supplied context accelerates the deterministic pass and cannot replace it,
-    and a seam that could re-read the tree would be a second, unbounded
-    exploration nobody costed.
+    Everything here was read from the repository without a model — resolution
+    and exploration of the prompt, the servable task types, and the baseline
+    observation — so a proposer judges a repository it has actually been
+    shown rather than one it remembers.
     """
 
     prompt: str
@@ -195,11 +142,11 @@ which is a refusal to decompose and is reported as one.
 
 @dataclass(frozen=True)
 class Refusal:
-    """One thing that was not emitted, and what would have to change.
+    """A piece of work that was not emitted, and why.
 
-    ``subject`` names what was refused — a target path, or the request itself
-    when nothing could be proposed at all — so a refusal list reads as an
-    account rather than as a wall of prose.
+    The subject is what the refusal is about — a target, a task type, or the
+    request as a whole — so a reader sees which proposal failed without
+    counting them; `str` is the one-line form.
     """
 
     subject: str
@@ -211,11 +158,13 @@ class Refusal:
 
 @dataclass(frozen=True)
 class Decomposition:
-    """What a prompt and a repository yielded: contracts, and what was refused.
+    """What one call to `decompose` produced.
 
-    Both halves are always present. A decomposition that emitted nothing is not
-    an error — it is a result with an empty contract list and refusals that say
-    why, which is the difference between "I cannot do this" and a traceback.
+    `contracts` and `documents` are parallel and in the same order: each
+    document is the emitted text of the contract beside it. `refusals` are the
+    proposals that could not become contracts — a decomposition may hold both
+    kinds. When no proposal could be made at all, both tuples are empty and the
+    single refusal is against the request.
     """
 
     contracts: tuple[Contract, ...] = ()
@@ -228,11 +177,11 @@ class Decomposition:
 
     @property
     def empty(self) -> bool:
-        """Whether nothing was emitted. Always accompanied by a refusal."""
+        """Whether no contract was emitted at all; refusals do not count."""
         return not self.contracts
 
     def explain(self) -> str:
-        """Why nothing was emitted, or what was — one line per outcome."""
+        """One line per contract, `id: task_type -> target`, then one per refusal."""
         lines = [f"{c.id}: {c.task_type} -> {c.target}" for c in self.contracts]
         lines.extend(str(r) for r in self.refusals)
         return "\n".join(lines)
@@ -249,44 +198,24 @@ def decompose(
     max_input_tokens: int = _DEFAULT_MAX_INPUT_TOKENS,
     located: Mapping[str, Sequence[str]] | None = None,
 ) -> Decomposition:
-    """Turn ``prompt`` and an indexed repository into validated contracts.
+    """Turn a prompt into contracts, or into refusals that say why not.
 
-    Runs the deterministic pass — resolution, then bounded reads — hands it to
-    ``propose`` as :class:`Evidence`, and turns each proposal into a contract by
-    resolving its references against the index and putting the result through
-    the public contract loader. Anything that cannot be emitted comes back as a
-    :class:`Refusal` naming what would have to change.
+    Resolution and exploration are read from the index, the task types from the
+    catalog — all of them when no config is given, and only those whose
+    starting family the configured ladder binds otherwise — the adapters from
+    the defaults unless they are supplied, and the baseline from the
+    repository's own test runner. All of it goes to `propose` in one call.
 
-    ``config`` is what makes "no configured ladder can serve this" answerable.
-    Without one the ladder check is skipped and the whole vocabulary is offered,
-    which is the right behaviour for inspecting a repository before a machine is
-    configured — and the emitted contracts are then only as routable as the
-    config that eventually loads them.
+    An empty answer is a refusal to decompose, reported against the request
+    with the servable types named. Otherwise every proposal goes through
+    `_emit`, and a refusal against one does not stop the others; the proposer's
+    order is kept in `contracts` and `documents`.
 
-    ``adapters`` are consulted for the one thing a proposal cannot state and the
-    repository can: which type checker it runs (:func:`_acceptance_for`). The
-    default is the gate's own set, so a decomposition and the gate that later
-    judges it agree on which language owns a file by construction rather than by
-    two lists being kept in step.
-
-    ``max_input_tokens`` is the ceiling a contract's own budget may be sized up
-    to (:func:`_resize`), and therefore what decides whether a target is small
-    enough to send. The default is a policy number — see
-    :data:`_DEFAULT_MAX_INPUT_TOKENS` — so a caller that knows what its
-    ladder can actually accept should pass its own.
-
-    ``located`` is the checker each adapter located, by adapter name, found by
-    a caller that ran where the repository is (``mcgyvr read --json``); when
-    given it stands in for every read of the disk :func:`_acceptance_for`
-    would make, so a server holding an index assembled from a document — whose
-    ``index.root`` is a label, not a repository — emits a `type_check: true`
-    ``code`` contract with the command the repository declared and refuses one
-    it did not, the same answers the disk gives. ``None`` reads the disk as
-    before.
-
-    Never raises for an undecomposable request: a prompt nothing can be made of
-    returns a :class:`Decomposition` whose ``contracts`` is empty and whose
-    ``refusals`` say why.
+    `budget` is passed to exploration when stated. `max_input_tokens` is the
+    ceiling on a contract's worker view, above which the target is refused as
+    too large. `located` carries checker commands a caller has already found,
+    keyed by adapter name, so a `type_check` acceptance can be derived without
+    probing the disk again.
     """
     resolution = resolve(index, prompt)
     exploration = (
@@ -355,7 +284,7 @@ def decompose(
 
 
 def _vocabulary(config: Config | None) -> tuple[TaskType, ...]:
-    """The task types on offer: all of them, or the ones a config can serve."""
+    """The task types this configuration can serve; every known type otherwise."""
     known = catalog()
     if config is None:
         return known.task_types
@@ -363,11 +292,10 @@ def _vocabulary(config: Config | None) -> tuple[TaskType, ...]:
 
 
 def _default_adapters() -> tuple[LanguageAdapter, ...]:
-    """The gate's own adapter set.
+    """The adapters this build carries when the caller names none.
 
-    The same pair :class:`~mcgyvr.gate.runner.Gate` builds, so "which language
-    owns this file" means one thing on both sides of the seam rather than two
-    lists that have to be kept in step.
+    Python first, then JavaScript — the order `_owner` and `locate_checkers`
+    consult.
     """
     return (PythonAdapter(), JavaScriptAdapter())
 
@@ -382,16 +310,19 @@ def _emit(
     located: Mapping[str, Sequence[str]] | None = None,
     baseline: BaselineObservation | None = None,
 ) -> tuple[Contract, str] | Refusal:
-    """One proposal as a validated contract, or the reason it is not one.
+    """Emit one proposal as a validated contract, or refuse it.
 
-    The order of the checks is the order in which a failure is cheapest to
-    explain: the vocabulary before the repository, the repository before the
-    schema. A caller that named an unservable type is told that, rather than
-    being told about a target that was never the problem. The repository's
-    type checker is looked for before this proposal's own references are
-    resolved for the same reason — "this repository runs no checker" is a fact
-    about the whole tree, and reporting it first stops one repository-level
-    truth arriving disguised as a different complaint per proposal.
+    The checks run in sequence: the task type must be servable, the target must
+    be a file the index holds, the acceptance a `type_check` implies must be
+    locatable, and the demonstration and acceptance a baseline run yields fill
+    in whatever the proposal left unstated. Each dependency is restated as the
+    index's signature for that symbol, with its notes deduplicated per path.
+
+    The document is then built, identified and loaded as a contract. A
+    duplicate id, a schema error, a judged model-written contract with no
+    output cap, and a worker view beyond `ceiling` are refusals rather than
+    exceptions, each reported against the proposal's target. The returned text
+    is that contract dumped as the document a caller writes out.
     """
     servable = {t.name for t in vocabulary}
     if proposal.task_type not in servable:
@@ -414,8 +345,8 @@ def _emit(
     proposal = replace(proposal, acceptance=acceptance)
     proposal = _baseline_for(proposal, kind, baseline)
 
-    # One entry per file, as the loader requires: two helpers from one module
-    # are one dependency whose signature states both.
+    # Each dependency is restated as the signature the index holds for it, and
+    # its notes kept once per path: prose here would be the worker's to guess.
     signatures: dict[str, list[str]] = {}
     notes: dict[str, list[str]] = {}
     for ref in proposal.deps:
@@ -456,10 +387,10 @@ def _emit(
     if isinstance(built, Refusal):
         return Refusal(proposal.target, built.reason)
     if built.needs_output_cap and built.limits.max_output_tokens is None:
-        # Valid to the loader, and certain to be refused at dispatch (owner,
-        # 2026-10-14): a model-written contract states what its reply is
-        # worth. Emitting it would hand `mcgyvr run` a refusal; naming it
-        # here costs nothing.
+        # The document validates without the cap, but `mcgyvr run` refuses a
+        # judged, model-written contract that states none — the reply must say
+        # what it is worth — so emitting it would hand the caller a contract
+        # certain to be refused. Refuse here instead, naming the field.
         return Refusal(
             proposal.target,
             f"a model-written {proposal.task_type!r} contract states "
@@ -475,7 +406,11 @@ def _emit(
 
 
 def _unservable_reason(task_type: str, servable: set[str]) -> str:
-    """Why a type is not on offer: unknown, or known but unreachable here."""
+    """Why a task type cannot be served here.
+
+    The catalog's own error when the type is unknown; otherwise the family the
+    type must start on, and the types this ladder does serve.
+    """
     known = catalog()
     try:
         family = known.require(task_type).starts_on.name
@@ -495,67 +430,14 @@ def _acceptance_for(
     adapters: Sequence[LanguageAdapter],
     located: Mapping[str, Sequence[str]] | None = None,
 ) -> tuple[str, ...] | Refusal:
-    """The contract's acceptance list: the proposal's, or the repository's checker.
+    """The acceptance commands a `type_check` proposal implies beyond its own.
 
-    ``located`` is a caller's answer to the lookup — adapter name → argv, read
-    where the repository is — and when given replaces the read of ``root``
-    entirely: ``root`` is then a label and is not opened.
-
-    A `type_check: true` `code` proposal derives the `type_check` evidence,
-    which only a command can produce. The locator (#114) reads what the
-    repository declared; this puts it where #38's sandboxed runner already
-    looks.
-
-    Three rules, in this order:
-
-    * **A proposal that declares its own commands is never touched** — not
-      overruled, and not appended to. ``locate_type_check_command`` documents
-      itself as "a fallback for when the contract declares no acceptance
-      command; the contract always wins when it does", and appending would make
-      the contract win *and also* lose.
-    * **Only ``type_check`` is filled in.** ``tests_pass`` and
-      ``failing_test_first`` also need commands and are deliberately left to
-      fail at the loader. A located test command is a much weaker claim than a
-      located checker — ``locate_test_command`` returns ``pytest`` for any
-      repository with a ``tests/`` directory, which is a guess about the runner,
-      not a reading of a declaration — and ``failing_test_first`` needs a
-      *specific* test that fails before the change and passes after, which no
-      locator can name at all.
-    * **No checker means no contract.** Where the locator returns ``None``, the
-      decomposer does not emit a `type_check: true` `code` contract for that
-      repository — the flag would be unbacked. Refusing here rather than
-      letting :func:`_load` reject it is what turns a schema complaint into a
-      sentence about the repository.
-
-    **The command is emitted exactly as located.** Nothing is appended — not
-    the target, not a path, not a flag — even for a repository whose
-    ``[tool.mypy]`` sets no ``files`` and whose command therefore needs a
-    target. Three reasons:
-
-    1. ``tsc --noEmit path/to/file.ts`` **does not load ``tsconfig.json``**:
-       before TypeScript 6.0 it checks the named file without the project's
-       options, and from 6.0 it refuses to run beside a ``tsconfig.json``
-       (``TS5112``) unless told ``--ignoreConfig``. Appending the target would
-       not narrow the check; it would replace it with a weaker one or with an
-       error.
-    2. mypy's ``exclude`` is not applied to a file named on the command line. On
-       a tree whose ``[tool.mypy]`` excludes ``pkg/vendor/``, bare ``mypy``
-       exits 0 and ``mypy pkg/vendor/bad.py`` exits 1 on the same file.
-       Appending the target would type-check a file the repository said to skip
-       — inventing scope.
-    3. A command that needs a target does not reach the worker.
-       :meth:`~mcgyvr.gate.acceptance.Acceptance.precondition` runs the whole
-       list against the **unchanged** tree before the first attempt, so a
-       repository whose bare ``mypy`` cannot run (exit 2, "Missing target
-       module, package, files, or command") is a ``PreflightIssue`` — an
-       orchestration fault, named, with no attempt spent. So is a repository
-       carrying a backlog of pre-existing type errors, which is the larger
-       version of the same problem and which no amount of argument-appending
-       would fix.
-
-    A per-file type check is not a smaller version of a project-wide one. It is
-    a different check, and in one of the two launch languages it is not
-    expressible at all.
+    A proposal that states its own acceptance keeps it, and any task type that
+    is not evidence-derived — or any proposal not asking for `type_check` —
+    implies nothing. Otherwise the command is the checker the repository
+    declared, as located by the adapter owning the target, or, when `located`
+    is given, the command already found for that adapter. It is refused when no
+    adapter owns the target, and when the repository declares no checker.
     """
     if proposal.acceptance:
         return proposal.acceptance
@@ -596,19 +478,11 @@ def _baseline_for(
     kind: TaskType,
     baseline: BaselineObservation | None,
 ) -> Proposal:
-    """Fill ``demonstration`` / ``acceptance`` from the observed red/green split.
+    """Fill demonstration and acceptance from the baseline run where none were stated.
 
-    Only ``code`` (whose evidence is derived from those fields) and only the
-    fields the proposal left empty. A proposal's own command always wins, and
-    an acceptance already filled from the located type checker is never
-    replaced — the repository's red/green split is a fallback for the model
-    that said nothing, in exactly the sense the type-check locator is.
-
-    The mapping is the repository's one red/green split, not a per-proposal
-    fact: a proposal that leaves ``demonstration`` empty receives the red test
-    (or tests) the run found, and one that leaves ``acceptance`` empty receives
-    the passing suite. A proposal whose defect is not that red test must name
-    its own demonstration; the model's explicit field is the override.
+    Only for evidence-derived task types, and only when the repository's runner
+    was observed: the proposal's own commands always win, and a proposal that
+    nothing changed is returned as it was rather than rebuilt.
     """
     if baseline is None or not kind.evidence_derived:
         return proposal
@@ -622,12 +496,10 @@ def _baseline_for(
 def locate_checkers(
     root: Path, adapters: Sequence[LanguageAdapter] | None = None
 ) -> dict[str, list[str]]:
-    """Every checker the adapters locate in ``root``, by adapter name.
+    """The type-check command each adapter locates here, keyed by adapter name.
 
-    The lookup :func:`_acceptance_for` makes, done once for a whole repository
-    by whoever stands where it is (``mcgyvr read --json``), so that a reader
-    elsewhere can pass the answer back as ``located``. An adapter that locates
-    none is absent, never filled in.
+    Adapters that find no checker are absent, so an empty mapping means this
+    repository declares none in a language this build carries.
     """
     found: dict[str, list[str]] = {}
     for adapter in adapters if adapters is not None else _default_adapters():
@@ -638,7 +510,7 @@ def locate_checkers(
 
 
 def _owner(path: str, adapters: Sequence[LanguageAdapter]) -> LanguageAdapter | None:
-    """The first adapter claiming ``path``, or ``None`` if no language owns it."""
+    """The first adapter that claims this path, or None when none does."""
     return next((a for a in adapters if a.owns(path)), None)
 
 
@@ -647,24 +519,10 @@ def _indexed(index: Index, path: str) -> bool:
 
 
 def _content_of(index: Index, target: str) -> str:
-    """The target's current content as the index holds it, or ``""``.
+    """The target's lines joined as one text for the contract to carry.
 
-    **From the index, not from a fresh read.** The index is the state resolution
-    and exploration already judged from, so taking the bytes from anywhere else
-    would let one decomposition emit two contracts that disagree about one file
-    — and would put a second, unbounded read inside a step whose whole cost
-    model is "the index was built once". The reconstruction is exact rather than
-    approximate: :func:`~mcgyvr.orchestrator.index.index_source` builds
-    ``lines`` as ``text.split("\\n")`` over a ``surrogateescape`` decode, and
-    joining on the same separator inverts it byte for byte.
-
-    Absence is not an error, and it has three causes that the empty string does
-    not distinguish between, because nothing downstream needs it to: the file
-    does not exist, the index skipped it (binary, or past its size cap), or the
-    target is a pattern and there is no one file it could be the content of. The
-    contract loader states the same rule from the other side — content against a
-    pattern target is rejected — so an empty result here is the only one that
-    could load anyway.
+    Empty when the index does not hold the path — `_emit` has already checked
+    that it does.
     """
     for file in index.files:
         if file.path == target:
@@ -673,11 +531,10 @@ def _content_of(index: Index, target: str) -> str:
 
 
 def _signature_for(index: Index, ref: DepRef) -> str | None:
-    """The signature the index holds for ``ref``, or ``None`` if it holds none.
+    """The signature the index states for `ref.symbol`, or None.
 
-    Only a definition in the named file counts. A symbol defined somewhere else
-    under the same name is a different symbol, and an import of it is a mention
-    rather than a statement of what it looks like.
+    Only a definition in `ref.path` counts: a same-named symbol elsewhere is a
+    different dependency.
     """
     for symbol in index.symbols.definitions(ref.symbol):
         if symbol.path == ref.path and symbol.kind is SymbolKind.DEFINITION:
@@ -686,13 +543,12 @@ def _signature_for(index: Index, ref: DepRef) -> str | None:
 
 
 def _identify(proposal: Proposal) -> str:
-    """A contract id that is a function of the work, not of when it was made.
+    """The contract id: the task type, and a digest of what makes this unit of work.
 
-    Reproducibility is the whole point: the same prompt over the same repository
-    must yield the same contracts, and an id drawn from a clock or a counter
-    would defeat that at the first field. Derived from what makes this unit of
-    work distinct, so two genuinely identical proposals collide — which is
-    caught and refused rather than papered over with an ordinal.
+    The digest covers the type, target, task, interface and the two flags, plus
+    each dependency's path and symbol — so two proposals share an id exactly
+    when they direct the same change at the same target, which is what lets
+    `_emit` detect one unit of work stated twice.
     """
     material = json.dumps(
         [
@@ -720,16 +576,14 @@ def _document(
     target_content: str = "",
     max_input_tokens: int | None = None,
 ) -> dict[str, Any]:
-    """The contract as plain data, before the loader has agreed to it.
+    """Assemble the contract document from the proposal.
 
-    Only the fields the proposal actually determines are written. Everything
-    else is left out so the schema's own defaults apply — writing them here
-    would copy the schema into this module, and the copy would be the thing that
-    drifts.
-
-    ``target_content`` is passed rather than read off the proposal for the
-    reason the module docstring gives: it is a fact about the repository, and
-    :class:`Proposal` has no field a judgement could state it in.
+    `scope.allow` defaults to the target itself, and every other optional field
+    is written only when the proposal states something for it, so the emitted
+    document stays what was asked for rather than a full schema. The two
+    exceptions are supplied by the caller: `target_content`, written when
+    non-empty, and `max_input_tokens`, written as `context` when a resize has
+    measured the worker view.
     """
     document: dict[str, Any] = {
         "id": contract_id,
@@ -767,22 +621,15 @@ def _document(
 
 
 def _reply_cap(proposal: Proposal) -> int | None:
-    """The ``limits.max_output_tokens`` a delegated contract is written with.
-
-    The proposal's own figure, or none. Nothing is derived here: a number this
-    module chose would be a number nobody chose, and a model-written ``code``
-    contract that states none is refused before it is emitted (owner,
-    2026-10-14).
-    """
+    """The reply cap the proposal states, or None when it states none."""
     return proposal.max_output_tokens
 
 
 def _load(document: dict[str, Any]) -> Contract | Refusal:
-    """The document through the public loader, or the loader's own complaint.
+    """Load an assembled document as a contract, or refuse it with the schema error.
 
-    Serialising and re-parsing rather than constructing a :class:`Contract`
-    directly is the point: this is the same path a hand-written contract takes,
-    so an emission that direct mode would reject cannot leave this module.
+    Its refusals carry no subject: `_emit` reports them against the proposal's
+    target, which is the subject a caller reads.
     """
     try:
         return contract_module.loads(json.dumps(document))
@@ -793,31 +640,14 @@ def _load(document: dict[str, Any]) -> Contract | Refusal:
 def _resize(
     built: Contract, document: dict[str, Any], ceiling: int
 ) -> tuple[Contract, str] | Refusal:
-    """Size ``context.max_input_tokens`` to what the worker will actually be sent.
+    """Fit the contract's worker view inside the ceiling, or refuse it as too large.
 
-    The budget is declared on the contract so that a prompt which will not fit
-    fails before a rung is spent (`contract.py`), and
-    :func:`~mcgyvr.gate.preflight.check_prompt_fits` is what enforces it.
-    Sizing it here measures :meth:`~mcgyvr.contract.Contract.worker_view`,
-    which is the only accessor a worker prompt may be built from, so what is
-    measured is what will be sent.
-
-    The schema's default is a floor, never a ceiling — a small contract keeps the
-    declared default rather than being given a suspiciously precise budget. No
-    margin is added here: :func:`~mcgyvr.gate.preflight.check_prompt_fits`
-    charges the estimator's measured reserve.
-
-    ``ceiling`` is where the sizing stops, and #155 is why it has to exist at
-    all. Once the target's own content is part of the view, a budget derived
-    from the view is a budget the view can never exceed: inline a 4 000-line
-    file and ``max_input_tokens`` simply grows to fit it, so
-    :func:`~mcgyvr.gate.preflight.check_prompt_fits` would be asking whether a
-    number exceeds itself. Refusing at the ceiling is what keeps that check
-    answerable — and refusing rather than emitting a blind contract is the
-    honest reading of the output protocol, not merely the strict one: with
-    ``output_schema: whole_file`` the worker's reply *is* the file's complete
-    new content, so a target too large to send is a target too large to receive
-    back. The contract would be undispatchable in both directions.
+    The view is estimated as JSON. Over `ceiling` the target is refused: the
+    worker must return everything it is sent. A view that already fits the
+    contract's own `context.max_input_tokens` is returned untouched. Otherwise
+    the document is rebuilt with `max_input_tokens` raised to the measured size
+    and the reloaded contract is returned — or, if that rebuild does not
+    validate, the original contract stands.
     """
     needed = estimate_tokens(json.dumps(built.worker_view(), sort_keys=True))
     if needed > ceiling:
@@ -841,12 +671,11 @@ def _resize(
 
 
 def _too_large_reason(built: Contract, needed: int, ceiling: int) -> str:
-    """Why a contract will not be emitted, in the terms that make it actionable.
+    """The refusal a target too large for the ceiling gets.
 
-    The target's own share is named separately when it has one, because the two
-    cases have different fixes: a view dominated by the file says narrow the
-    target, and a view that is large without it says the contract is carrying
-    too much else.
+    It names the estimate, the ceiling, and how much of the estimate is the
+    target's own content, since that is what makes the reply as large as the
+    prompt.
     """
     share = (
         f", {estimate_tokens(built.target_content)} of it the target's own content"
@@ -863,7 +692,12 @@ def _too_large_reason(built: Contract, needed: int, ceiling: int) -> str:
 
 
 def _proposal_of(built: Contract) -> Proposal:
-    """The proposal a built contract stands for, for the one rebuild above."""
+    """The proposal that reproduces an already-loaded contract.
+
+    Dependencies are not carried: `_resize` hands `_document` the contract's own
+    deps itself, and every field rebuilt here is one the contract stores
+    verbatim.
+    """
     return Proposal(
         task_type=built.task_type,
         task=built.task,
@@ -883,13 +717,10 @@ def _proposal_of(built: Contract) -> Proposal:
 
 @dataclass(frozen=True)
 class RecordedProposer:
-    """A proposer that returns a fixed list — the seam's testing counterpart.
+    """A proposer that answers the same proposals and keeps the evidence it was shown.
 
-    Not a stand-in for judgment. It exists so that "the same prompt and
-    repository yield the same shape" can be asserted about *this* module, with
-    the one non-deterministic ingredient held still, and so that a caller
-    holding proposals from anywhere else — a file, another agent, a model it
-    called itself — can drive decomposition without implementing the protocol.
+    For callers that already know what to propose: `seen` receives each
+    `Evidence` in the order the calls arrived.
     """
 
     proposals: tuple[Proposal, ...] = ()

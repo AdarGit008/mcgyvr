@@ -1,66 +1,59 @@
-"""Errors the drive seam raises before a dispatch or a step runs."""
+"""The drive layer's refusal types: a base `DriveError` plus one subclass per
+reason a contract or tool step is refused. Refusals are raised with the text
+explaining what was refused and why, and callers such as the run command catch
+`DriveError` as a group to report `str(exc)` instead of a traceback.
+"""
 
 from __future__ import annotations
 
 
 class DriveError(Exception):
-    """A step could not be executed as planned, for a reason in this module."""
+    """Base class for the drive layer's refusals; carries the refusal message.
+
+    Callers catch this type rather than the subclasses when they only need to
+    stop the run and show the reason.
+    """
 
 
 class UnrunnableStepError(DriveError):
-    """The step names no program, so a subprocess executor cannot run it."""
+    """A tool step names an operation with no command to run and no in-process
+    executor in mcgyvr, so the step cannot be performed — and reporting it
+    complete would claim a file changed that nothing opened.
+    """
 
 
 class PromptTooLargeError(DriveError):
-    """The assembled prompt does not fit the ceiling its own contract set."""
+    """The assembled prompt does not fit its own ceiling, so the request is
+    refused before it is sent instead of being truncated; the message includes
+    the prompt's fit issue.
+    """
 
 
 class OutputCapUnstatedError(DriveError):
-    """A model-written ``code`` contract states no ``limits.max_output_tokens``.
-
-    Owner decision (2026-10-14, e2e run 3 T1): such a contract loads, and
-    ``mcgyvr contract`` says what it is missing, but it is never sent — no
-    number is invented for it. Refused at the seam that would have sent it,
-    before any model is called, and not a :class:`~mcgyvr.runner.RunnerError`:
-    the unit did nothing wrong, so the cooldown does not learn from it.
+    """A model-written contract states no `limits.max_output_tokens`, so there
+    is no cap to send and no model is called for it; the message is the stated
+    preflight issue.
     """
 
 
 class OutputCapTooLargeError(DriveError):
-    """The contract's reply cap is above the ceiling of the unit it reaches.
-
-    For model-written ``code``, the ceiling is what the unit's window leaves
-    beside the prompt, or its ``output_tokens``, or the smaller of the two
-    (:class:`~mcgyvr.gate.preflight.UnitCeiling`); for any other reply, the
-    whole window. Distinct from :class:`PromptTooLargeError` because the
-    repair is: one is a contract to re-decompose, the other is a number to
-    re-declare, and the message names the cap, the unit, the window, the
-    prompt as charged and the ceiling. A cap above the ceiling is not lowered
-    to fit — that would send a number nobody chose — so it is refused at the
-    seam that would have sent it.
+    """The contract's output cap is more than the rung can honour — above the
+    unit's ceiling for this prompt, or at least as large as the rung's window,
+    leaving no room for the prompt. Raised for preflight issues whose reason is
+    `output-cap`.
     """
 
 
 class UnitCeilingUnknownError(DriveError):
-    """The unit states no ceiling a ``code`` contract's cap can be held to.
-
-    Neither ``units.<unit>.window`` nor ``units.<unit>.output_tokens`` is set,
-    so whether the contract's cap fits cannot be known (owner, 2026-10-14).
-    Setup writes one on every unit it can read; one it could not is listed as
-    not configured, and a dispatch to it refuses until either is set.
+    """The unit serving the rung states neither the window it serves nor the
+    room its replies are given, so the contract's cap has no ceiling to be held
+    to. Raised for preflight issues whose reason is `unit-ceiling-unknown`.
     """
 
 
 class ContractTooLargeForRungError(DriveError):
-    """The contract does not fit the window of the rung it was sent to.
-
-    Its declared ceiling is larger than the window, its assembled prompt and
-    reply do not fit inside it, or it claims more of the window than its share
-    allows — the stricter of its own ``limits.max_window_fraction`` and the
-    run's ``max_window_fraction``
-    (:func:`~mcgyvr.gate.preflight.check_contract_against_rung`). Owner ruling:
-    a task too big for the rung it was sent to fails, before it is sent and
-    without being moved up the ladder on its own. Not a
-    :class:`~mcgyvr.runner.RunnerError`, so the cooldown does not learn the
-    source as failing: the source did nothing wrong.
+    """The catch-all refusal for a contract that does not fit the rung for any
+    reason the more specific classes do not name, such as declared input tokens
+    exceeding the rung's window or prompt plus reserve exceeding the run's
+    share of the window.
     """

@@ -1,57 +1,12 @@
-"""Queue pressure — what a manager reads, host-wide, without being in the way.
+"""Pressure signals shared across processes through files in a temporary directory.
 
-A long-running process that decides how the ladder should run — which rung to
-keep awake, how widely to fan out — has to read the same thing the work is
-doing, and the work is not in its process. ``mcgyvr run`` is one process per
-task, so a count in memory is a count of one task. Every signal here is
-therefore *host-wide*, and kept in the same place the capacity bound already is:
-files on this host's filesystem that the kernel keeps honest.
-
-* **Presence is a locked file.** :meth:`Gauge.present` makes a marker, takes an
-  exclusive ``flock`` on it, and keeps both for the length of a block.
-  :meth:`Gauge.count` counts the markers whose lock is still held. There is no
-  daemon to start, no socket to find and no heartbeat to lose: the lock is the
-  heartbeat, and the kernel releases it when its holder dies however it dies.
-  That is :mod:`mcgyvr.capacity`'s reason for ``flock``, restated for a count
-  rather than a bound — a ``finally`` cannot cover a ``SIGKILL``, and a count
-  that did would climb with every crash and never come back down.
-* **A marker whose holder is gone is not counted, and is removed.** Whoever
-  counts finds out by trying to take the lock: getting it means nobody held it.
-  Removal is the counter's, and it is safe to do there because a marker is
-  renamed into place only *after* it is locked — a file that exists under its
-  final name and is unlocked can only be one whose holder died, never one whose
-  holder has not got to it yet. A scratch file whose maker died before the
-  rename is removed by the same count, told apart by the maker's pid in its
-  name.
-* **A gauge must never fail the work it is attached to.** It is bookkeeping for
-  somebody else's decision. Every way the filesystem can refuse — no space, no
-  permission, a path that is a file — leaves the body running unmarked, and the
-  reader sees a smaller count than the truth or none at all. A gauge that raised
-  would turn "the temporary directory is full" into "the task failed", which is
-  the wrong way round.
-* **A gauge without its directory degrades to no reading, never to an error.**
-  :meth:`Gauge.count` is ``None`` — which is not zero — whenever the directory
-  cannot be made or is not one only this user can have written into. The
-  rendezvous is a predictable path in a shared temporary directory, so the first
-  process to create it wins the name; :func:`mcgyvr.wake._ours` is the test of
-  whether it is ours, and it is the same one the wake clock applies to its own,
-  for the same reason: a count read back from a directory somebody else made is
-  a number somebody else chose.
-
-:class:`Board` is the other half of the same rendezvous: the one document the
-manager *publishes*, which the work reads. It is a file, moved into place whole,
-so a reader sees the previous document or the new one and never a part of
-either, and it is read with the same suspicion — a document that is absent,
-unreadable, not JSON or not a mapping is no document.
-
-:class:`Pressure` assembles one rung's reading from the places each fact is
-already kept: whether the rung answers (:mod:`mcgyvr.availability`), what the
-unit itself says it has in flight (:func:`mcgyvr.runner.unit_in_flight`), how
-many dispatches are queued for its slots (:meth:`~mcgyvr.capacity.Capacity.waiting`),
-and how many tasks are working on it after climbing to it from a cheaper rung
-(:func:`climbed_key`). It invents none of them, and it decides nothing: what
-the numbers mean is the manager's, and this is below the seam, where a rung has
-already resolved to an endpoint.
+Nothing here owns a daemon or a socket. A holder says it is present by making a
+file and keeping a ``flock`` on it, so any other process on the host can count
+the live holders, read the one document a manager publishes, and see how long a
+source is held out. Every one of those operations is best-effort: when the
+directory is missing, not ours, or the data is unreadable, the answer is
+``None`` (never a guess), and a failed write is left silent rather than raised
+into the work it is attached to.
 """
 
 from __future__ import annotations
@@ -82,21 +37,21 @@ if TYPE_CHECKING:  # pragma: no cover - typing only
     from mcgyvr.capacity import Capacity
     from mcgyvr.local_pool import Endpoint, SourceMap
 
-# Marker names keep a readable prefix of the key for an operator listing the
-# directory, and a digest for identity — two keys that sanitize alike must not
-# be one count by accident. The same idiom, and the same reason, as
-# `mcgyvr.capacity._slot_stem`.
+# Everything in a key that is not a letter, digit, dot or hyphen, collapsed to
+# runs so a key can be used as part of a file name. Applied to a key before it
+# is shortened: two keys that slug alike are still kept apart by the digest
+# that `_stem` appends.
 _SLUG = re.compile(r"[^A-Za-z0-9.-]+")
 
-# The file the manager's published choice lives in, beside the markers.
+# The one file name a manager publishes its answer under, in the directory.
 _BOARD = "pipeline.json"
-#: A scratch file :meth:`Gauge.present` or :meth:`Board.publish` makes before
-#: renaming it into place: ``<name>.<pid>.<n>.tmp``, the pid its maker's.
+#: A staging file left behind by a write: `<name>.<pid>.<n>.tmp`. The pid is
+#: captured so a sweep can tell whether the process that made it is still alive.
 _SCRATCH = re.compile(r"^.+\.(\d+)\.\d+\.tmp$")
 
-# Marker and scratch names must not collide between threads of one process, and
-# the process id separates the processes; a counter and the lock that makes
-# taking the next one a single step is what separates the threads.
+# Numbers handed out per process, under a lock, so that two marks made by
+# different threads of one process never try to use the same file name, and
+# a file name says nothing about any other process.
 _numbers = itertools.count()
 _numbers_lock = threading.Lock()
 
@@ -107,23 +62,20 @@ def _next_number() -> int:
 
 
 def default_directory() -> Path:
-    """The per-user rendezvous directory for this host's pressure signals.
+    """The per-user rendezvous directory under the temporary directory.
 
-    Keyed by uid, beside the capacity and wake directories and for the same
-    reason: two users on one host have two sets of work and one temporary
-    directory. Processes that resolve different temporary directories — a
-    session-scoped ``TMPDIR``, say — are reading different files, honestly and
-    separately; point :class:`Gauge` and :class:`Board` at a stable directory
-    when the environment does that.
+    Naming it after the uid keeps one user's processes together and out of
+    another's; the directory is only used once `_usable` confirms it is ours.
     """
     return Path(tempfile.gettempdir()) / f"mcgyvr-pressure-{os.getuid()}"
 
 
 def _stem(key: str) -> str:
-    """A filesystem-safe identity for one key: a readable slug and a digest.
+    """A file-name stem for a key: a shortened slug plus a digest of the key.
 
-    The digest is of the key as given, so a key that differs only in what the
-    slug throws away is still a different key.
+    The slug is for a person reading a directory listing; the 12 hex characters
+    of the sha256 are what identify the key, so two keys that slug to the same
+    text (`a/b` and `a-b`) still get different stems.
     """
     slug = _SLUG.sub("-", key).strip("-")[-40:] or "key"
     digest = hashlib.sha256(key.encode("utf-8")).hexdigest()[:12]
@@ -131,25 +83,21 @@ def _stem(key: str) -> str:
 
 
 def climbed_key(rung: str) -> str:
-    """The gauge key for "a task that climbed to this rung is working on it".
+    """The gauge key a task holds while it is climbing onto `rung`.
 
-    A *climb* is what :func:`mcgyvr.escalate.escalate` marks: an attempt on a
-    rung reached after attempts were spent on a cheaper one. It is a key of its
-    own, apart from the waiting keys :mod:`mcgyvr.capacity` writes, because the
-    two answer different questions — a dispatch queued for a slot is demand for a
-    rig, and a task that outgrew the rungs beneath this one is evidence about
-    them.
+    Prefixed so climbers are never counted as waiters, whose keys are the slot
+    stems of a capacity.
     """
     return f"climbed.{rung}"
 
 
 def _usable(where: Path, *, make: bool) -> Path | None:
-    """``where`` if it is a directory only this user can have written into.
+    """The directory if it is ours to use, otherwise `None`.
 
-    ``make`` creates it first, private. :func:`mcgyvr.wake._ours` is the one
-    judgement of whether a directory in the shared temporary directory is ours;
-    anything else is no directory at all, which every caller turns into "no
-    reading" or "not written" and never into an error.
+    With `make`, the directory is created first, privately (0o700) and with
+    parents. Either way the answer is `None` unless `_ours` accepts it: a
+    directory owned by another user, or one anyone else may write into, would
+    let somebody else choose the numbers read from it.
     """
     if make:
         try:
@@ -167,12 +115,12 @@ def _quietly_remove(path: Path) -> None:
 
 
 class Gauge:
-    """Host-wide presence counts, kept as locked marker files.
+    """A cross-process count of who is present under a key.
 
-    ``directory`` defaults to :func:`default_directory`; tests and callers with
-    an unusual temporary directory pass one. Safe to share across threads, and
-    shared with every other gauge on this host that names the same directory by
-    construction — a marker is a file both can see.
+    Each holder keeps a file locked for as long as it is present, so a count
+    taken here sees holders in other interpreters. Nothing is remembered in
+    memory: the directory is the whole state, and a directory that is missing or
+    not ours means no reading (`None`) rather than a count of zero.
     """
 
     def __init__(self, directory: Path | None = None) -> None:
@@ -180,18 +128,11 @@ class Gauge:
 
     @contextmanager
     def present(self, key: str) -> Iterator[None]:
-        """Be counted under ``key`` for the length of the block.
+        """Say this process is present under `key` for the life of the block.
 
-        Best-effort and silent on failure, which is the contract rather than a
-        leniency: any ``OSError``, or a directory that is not ours, runs the
-        body unmarked. Nothing raised *by the body* is touched — it propagates
-        after the marker is given back.
-
-        The marker is made under a scratch name, locked, and only then renamed
-        to the name :meth:`count` looks for, so a counter never sees a marker
-        that exists and is not yet held. On the way out it is removed *and then*
-        closed: the removal is what lets a counter that arrives next find
-        nothing, and the close is what releases the lock.
+        Failing to mark is not an error: the body runs either way, and only a
+        mark that was actually made is removed on the way out. An exception
+        raised in the body passes through.
         """
         held = self._mark(key)
         try:
@@ -224,22 +165,11 @@ class Gauge:
         return fd, marker
 
     def count(self, key: str) -> int | None:
-        """How many holders are present under ``key`` on this host right now.
+        """How many live holders there are under `key`, or `None` for no reading.
 
-        ``None`` when there is no reading to give: the directory cannot be made
-        or is not ours. Zero is a reading — it is what a host nobody has marked
-        anything on says — and the directory is made here as well as in
-        :meth:`present`, so a manager started before any task reads zero rather
-        than nothing.
-
-        A marker is counted when its lock is held. It is probed by trying to
-        take the lock without waiting: failing means somebody holds it, and
-        succeeding means nobody does, so the marker is removed and not counted.
-        Scratch files, which are markers not yet locked, are not markers.
-
-        Two counters probing a dead marker at once can each see the other's
-        probe as a holder and count it for one reading; the next reading is
-        right, and nothing here is worth a lock of its own to prevent that.
+        A mark whose holder has died is not counted and is unlinked on the way
+        past, since the kernel dropped its lock when the process went; staging
+        files a dead process left behind are swept at the same time.
         """
         where = _usable(self._directory, make=True)
         if where is None:
@@ -254,13 +184,10 @@ class Gauge:
 
 
 def _sweep_scratch(where: Path, names: list[str]) -> None:
-    """Remove the scratch files whose maker is no longer running.
+    """Remove staging files whose making process is no longer running.
 
-    A scratch file is renamed into place moments after it is made, so one
-    still here belongs either to a process that is making it now or to one that
-    died in between — and nothing else will ever name the second kind. The pid
-    in its name tells them apart; a pid that was reused since leaves a file
-    that waits for the next sweep, which is harmless.
+    A process killed between creating a staging file and renaming it into place
+    would otherwise leave a file that nothing ever names again.
     """
     for name in names:
         found = _SCRATCH.match(name)
@@ -269,7 +196,11 @@ def _sweep_scratch(where: Path, names: list[str]) -> None:
 
 
 def _running(pid: int) -> bool:
-    """Whether a process with this pid exists, as far as this user can tell."""
+    """Whether a process with this pid exists, asked without touching it.
+
+    A pid that cannot be signalled but is there (another user's) counts as
+    running; only a pid the kernel reports as gone is dead.
+    """
     try:
         os.kill(pid, 0)
     except ProcessLookupError:
@@ -280,12 +211,17 @@ def _running(pid: int) -> bool:
 
 
 def _held(marker: Path) -> bool:
-    """Whether somebody holds this marker's lock; a dead holder's is removed."""
+    """Whether a mark still has a live holder keeping its lock.
+
+    The lock is taken without waiting, so a refusal means the holder is alive; a
+    lock this process can take means the holder is gone, and the mark is removed
+    here rather than left to be counted again.
+    """
     try:
         fd = os.open(marker, os.O_RDONLY | os.O_NOFOLLOW)
     except OSError:
-        # Gone since it was listed — its holder just left — or not ours to
-        # open. Neither is a holder this can vouch for.
+        # Gone, or not a plain file this process may open (a symlink is refused
+        # by O_NOFOLLOW): either way there is no live mark to count.
         return False
     try:
         try:
@@ -301,32 +237,22 @@ def _held(marker: Path) -> bool:
 
 
 class Board:
-    """The manager's published choice: one JSON document, replaced whole.
+    """The manager's one published answer, kept in a single JSON file.
 
-    A file named for it beside the gauge's markers. :meth:`publish` writes the
-    document next to it and moves it over, so a reader that arrives in the
-    middle sees the previous one; :meth:`read` takes only what is shaped like a
-    document, and is ``None`` for everything else — which every reader treats as
-    "the manager has said nothing", the ordinary state of an install that did
-    not ask for one.
-
-    Nothing about a published choice is authoritative beyond its age. The
-    ``written_at`` it carries is the publisher's clock, added here so a reader
-    can decide for itself how long a choice stays in force without the publisher
-    having to say.
+    Publishing replaces the document atomically, so a reader never sees half of
+    it; reading treats an absent, unreadable or wrongly shaped file as no answer
+    rather than raising, since the reader is a process that must keep working.
     """
 
     def __init__(self, directory: Path | None = None) -> None:
         self._directory = directory if directory is not None else default_directory()
 
     def publish(self, doc: Mapping[str, Any]) -> bool:
-        """Replace the published document with ``doc`` plus ``written_at``.
+        """Publish `doc` with the time it was written, replacing the last answer.
 
-        ``False`` — and the previous document left as it was — when it could not
-        be done: a directory that is not ours, a filesystem that refused, or a
-        document that is not JSON. A caller that publishes on a timer simply
-        tries again on the next tick; none of these is worth an exception in a
-        loop whose job is to keep running.
+        The mapping given is copied, never modified: `written_at` is added to the
+        copy. A document that cannot be serialized, or a write that cannot
+        finish, is reported as `False` and leaves the previous document whole.
         """
         where = _usable(self._directory, make=True)
         if where is None:
@@ -343,12 +269,10 @@ class Board:
         return True
 
     def read(self) -> dict[str, Any] | None:
-        """The published document, or ``None`` if there is not a usable one.
+        """The last published document, or `None` if there is no usable one.
 
-        Absent, unreadable, not UTF-8, not JSON, nested past what the parser
-        will follow, or JSON that is not an object are all the same answer. The
-        directory is not made for a read: nobody has published into one that
-        does not exist.
+        A missing file, bytes that cannot be decoded, invalid JSON, or JSON that
+        is not an object all read as `None`.
         """
         where = _usable(self._directory, make=False)
         if where is None:
@@ -362,23 +286,12 @@ class Board:
 
 
 class HostCooling:
-    """The host-wide cooldown record: which units are held out, and until when.
+    """Per-source cooldown deadlines kept in files, and so shared host-wide.
 
-    :class:`mcgyvr.cooldown.SharedHold` over small files beside the gauge's
-    markers, one per source, each holding the wall-clock time its hold ends. A
-    process whose own streak earns a source the sentence writes it; every
-    process's cooldown reads it, so a unit that failed for the ladder manager
-    is held out from the tasks, and one that failed for a task from the
-    manager.
-
-    The board's rules, for the board's reasons: a directory only this user can
-    have written into, a write made under a scratch name and renamed into
-    place whole — a scratch file a dead writer left is swept by
-    :meth:`Gauge.count` — and anything unreadable is no hold. The wall clock
-    and not a monotonic one, because the processes that read it do not share a
-    monotonic clock. A hold never shortens one already written: the longer
-    sentence stands. Two writers racing can each keep their own; the next
-    failure re-arms it, and nothing here is worth a lock of its own.
+    A hold recorded by one process is seen by every other process of the same
+    user, so a source that just failed is not retried by the next task in line.
+    Deadlines are wall-clock instants from `clock` (`time.time` by default), which
+    is what lets a deadline written by one process mean the same to another.
     """
 
     def __init__(
@@ -391,7 +304,12 @@ class HostCooling:
         return where / f"held.{_stem(source)}.json"
 
     def hold(self, source: str, seconds: float) -> None:
-        """Hold ``source`` out for ``seconds`` from now, unless already held longer."""
+        """Hold `source` out for `seconds` from now, if that is longer than it is.
+
+        An existing deadline that is the same or later is left alone, so a hold
+        is only ever extended and never cut short by a later caller. Failing to
+        write the file is not an error: the hold is then simply not shared.
+        """
         where = _usable(self._directory, make=True)
         if where is None:
             return
@@ -407,7 +325,11 @@ class HostCooling:
             return
 
     def held(self, source: str) -> float | None:
-        """Seconds ``source`` is still held out for, or ``None`` if it is not."""
+        """The seconds `source` is still held out for, or `None` if it is not held.
+
+        A deadline that has already passed reads as `None`, as does a document
+        that cannot be read or carries no numeric `until`.
+        """
         where = _usable(self._directory, make=False)
         if where is None:
             return None
@@ -430,17 +352,15 @@ class HostCooling:
 
 @contextmanager
 def exclusive(name: str, directory: Path | None = None) -> Iterator[bool | None]:
-    """Hold ``name`` on this host for the block, if nobody else does.
+    """Hold an exclusive lock on `name` for the life of the block.
 
-    Yields ``True`` when this block holds it, ``False`` when another holder
-    already does, and ``None`` when there is no lock to be had: the directory
-    cannot be made or is not ours. ``None`` is not "nobody holds it", and a
-    caller that needs to be the only one refuses on it as on ``False``.
-
-    A ``flock`` on a file named for ``name`` in the rendezvous directory,
-    taken without waiting. The kernel releases it when its holder dies however
-    it dies, so a manager that was killed holds nothing and the file it leaves
-    is only a name.
+    Yields `True` when this process took the lock, `False` when the name is
+    already held through another open file (another process, or another call
+    here), and `None` when there is no lock to be had at all — the directory is
+    not ours, or the file cannot be opened or locked for some reason other than
+    another holder. `None` is not `False`: it says nothing about who else holds
+    the name. The lock is the kernel's, so a process that dies holds nothing and
+    the next one takes the name.
     """
     where = _usable(
         directory if directory is not None else default_directory(), make=True
@@ -471,21 +391,13 @@ def exclusive(name: str, directory: Path | None = None) -> Iterator[bool | None]
 
 @dataclass(frozen=True)
 class Reading:
-    """What is known about one rung's load right now, each fact as far as it goes.
+    """One rung as pressure sees it at the moment of the reading.
 
-    ``None`` is *not read*, never zero: a rung that does not answer has no status
-    page to count, a capacity without a gauge cannot count its waiters, and a
-    gauge whose directory is not ours cannot count anything, and a manager that
-    read those as zero would see an idle rig where it had seen nothing.
-
-    ``awake`` is whether the rung answers. ``in_flight`` is what the unit itself
-    reports serving. ``waiting`` is the host-wide count of dispatches queued for
-    its slots, and ``climbed`` the host-wide count of tasks working on it after
-    climbing from a cheaper rung. ``width`` is the number of slots it enforces,
-    which is what the other three are to be read against. ``full`` is
-    :meth:`mcgyvr.capacity.Capacity.judge`'s answer for the rung with
-    ``in_flight`` as the server's count: the one definition of a full local
-    rung, which the climb's idle spill reads as well.
+    Frozen, so a reading can be compared, held and logged as the answer it was.
+    A rung that is not awake carries `in_flight=None`, not zero, because nobody
+    asked a server that was not there. `waiting` and `climbed` are `None` when
+    there is no gauge to count them, and `full` is the capacity's judgement of
+    its own load against the server count.
     """
 
     rung: str
@@ -498,13 +410,10 @@ class Reading:
 
 
 def _probed(endpoint: Endpoint) -> bool:
-    """Whether the endpoint serves: it answers, and mcgyvr did not rest its card.
+    """Whether the endpoint answers, with a host put to rest counted as not awake.
 
-    :mod:`mcgyvr.availability`'s own probe, and one fact it cannot see. A card
-    slept at vLLM's level 2 keeps its process and answers the probe, then
-    hangs on real work; :func:`mcgyvr.wake.resting` is mcgyvr's own record that
-    it did that, and it reads as asleep here. The probe is not asked then: the
-    answer is already known, and a resting unit is not one to wait on.
+    A resting host is not probed at all: it would refuse the connection, and
+    that refusal says nothing about the source.
     """
     if resting(host_of(endpoint.base_url), port_of(endpoint.base_url)):
         return False
@@ -512,26 +421,18 @@ def _probed(endpoint: Endpoint) -> bool:
 
 
 def _status(endpoint: Endpoint) -> int | None:
-    """What the unit says it has in flight, read the way a dispatch reads it."""
+    """The server's count of work in flight for the endpoint, `None` if unread."""
     return unit_in_flight(
         endpoint.source, endpoint.base_url, endpoint.engine, endpoint.max_parallel
     )
 
 
 class Pressure:
-    """Reads one rung's :class:`Reading` from where each fact is kept.
+    """Reads the pressure signals for one rung out of a pool and a capacity.
 
-    ``live`` and ``in_flight`` take the rung's endpoint and are injectable so
-    that nothing here needs a network to be asserted; the defaults are the real
-    probe and the real status read. The pool is a :class:`~mcgyvr.local_pool.SourceMap`
-    built *without* an availability filter, because the question is whether a
-    rung that is declared answers, and a map that had already dropped it would
-    have no endpoint to ask about.
-
-    An unknown rung raises the pool's own error: a manager asking about a rung
-    nobody declared is holding a config that is not this one, which is the
-    mistake :meth:`~mcgyvr.local_pool.SourceMap.bind` names, and answering it with an
-    empty reading would hide it.
+    The probes are injectable so a reading can be taken without touching a
+    network; the defaults ask the availability probe and the runner's status
+    read.
     """
 
     def __init__(
@@ -550,12 +451,13 @@ class Pressure:
         self._in_flight = in_flight if in_flight is not None else _status
 
     def read(self, rung: str) -> Reading:
-        """One rung's reading.
+        """Assemble everything known about `rung` into one `Reading`.
 
-        A rung that does not answer is not asked what it has in flight: there is
-        no status page to read, and asking would spend a connection timeout per
-        reading on a rig that is asleep — which a manager reading every rung on
-        a timer would pay on every tick.
+        The pool's own error is raised for a rung nobody declared. In-flight work
+        is only asked of a rung that is awake, since a host that is asleep or
+        down has no server to ask; waiting and width come from the capacity for
+        the rung's source and rung, the climbers from the gauge, and `full` from
+        the capacity's single judgement of the two counts.
         """
         endpoint = self._pool.bind(rung)
         awake = self._live(endpoint)
@@ -572,13 +474,10 @@ class Pressure:
 
 
 def server_counts(pool: SourceMap) -> Callable[[str], int | None]:
-    """What each unit's own server says it has in flight, by source; ``None`` unread.
+    """Build the capacity's server-count reader: source name to work in flight.
 
-    The reader :class:`~mcgyvr.capacity.Capacity` is handed for
-    :meth:`~mcgyvr.capacity.Capacity.fullness`: the runner's own status read
-    (:func:`mcgyvr.runner.unit_in_flight`) at the unit's address. A source the
-    pool does not bind is unread, not refused: a capacity bounds every unit of
-    a config, and only the ladder's are on the pool.
+    A name the pool has no rung for reads as `None` instead of raising, since the
+    capacity may ask about a unit it was given no address for.
     """
 
     from mcgyvr.local_pool import UnknownRungError
@@ -594,11 +493,11 @@ def server_counts(pool: SourceMap) -> Callable[[str], int | None]:
 
 
 def _asleep_is_not_down(endpoint: Endpoint, timeout_s: float) -> AvailabilityVerdict:
-    """A probe that always answers live, for a cooldown that must not read sleep.
+    """A probe that finds every endpoint live, for a cooldown that must not probe.
 
-    A unit the manager has put to sleep answers nothing, and asleep is the state
-    it wakes; a cooldown that read that as down would hold out the very unit the
-    manager is about to wake. What a cooldown learns here is failures only.
+    Cooling here is decided by recorded failures alone. Probing a rung that is
+    deliberately asleep would call it down and hold out a source that is fine, so
+    the verdict is live with no network, no elapsed time and no reason.
     """
     return AvailabilityVerdict(
         source=endpoint.source,
@@ -610,27 +509,13 @@ def _asleep_is_not_down(endpoint: Endpoint, timeout_s: float) -> AvailabilityVer
 
 
 class RungCooling:
-    """The units held out after failing switches, in rung names.
+    """Cooldown of rungs, for a caller that has a source map.
 
-    :class:`mcgyvr.ladder_manager.Cooling` over :class:`mcgyvr.cooldown.Cooldown`:
-    a wake or a sleep that failed is recorded against the unit as a failed
-    dispatch is, and the same consecutive-failures rule and expiry take the unit
-    out of the manager's reach for a while. The cooldown is built with a probe
-    that always reads live (:func:`_asleep_is_not_down`), so the only thing that
-    can cool a unit is what the manager itself did to it.
-
-    A rung the pool does not hold is not cooled and not recorded: the manager
-    names rungs of its own config, and one with no endpoint has nothing to hold
-    out.
-
-    ``hold_s`` is the least time a cooled unit is held out. The manager passes
-    its ``dwell_s``: it may not switch again inside the dwell anyway, so a
-    sentence shorter than that would expire before it could keep the manager
-    from anything. The dispatch cooldown's own sentence is the floor.
-
-    ``shared`` is the host-wide record (:class:`HostCooling`): a unit the
-    manager's switches failed is held out from the tasks too, and one the
-    tasks' dispatches failed is held out from the manager.
+    Failures and successes are recorded against the rung's source, so rungs
+    sharing a source cool together, and a hold may also come from another process
+    on this host through a `SharedHold`. Unless one is supplied, the cooldown is
+    built with the stub probe below (so it never calls a host down by probing it)
+    and is held for `hold_s`, never shorter than the standard cooldown.
     """
 
     def __init__(
@@ -653,16 +538,27 @@ class RungCooling:
         self._cooldown = cooldown
 
     def cooled(self, rungs: tuple[str, ...]) -> frozenset[str]:
-        """The rungs among ``rungs`` that are cooling down now."""
+        """The sources among `rungs` that are out of service right now.
+
+        A name the pool does not have is skipped rather than bound, since binding
+        it would raise. The names returned are sources, so rungs sharing one cool
+        together; what counts as out of service is the cooldown's own answer,
+        which covers its liveness verdicts, recorded failures and any hold another
+        process on this host left behind.
+        """
         endpoints = [self._pool.bind(r) for r in rungs if self._pool.get(r) is not None]
         return frozenset(self._cooldown.unavailable(endpoints))
 
     def failed(self, rung: str) -> None:
-        """A wake or sleep of ``rung`` failed."""
+        """Record one failure of `rung`'s source, which may hold it out for a while."""
         self._cooldown.record_failure(self._source(rung))
 
     def worked(self, rung: str) -> None:
-        """A wake or sleep of ``rung`` worked, so its streak of failures is over."""
+        """Record one success of `rung`'s source, forgetting its failures.
+
+        A source already cooling stays cooling until its deadline: a success
+        resets the count of failures but does not lift the hold.
+        """
         self._cooldown.record_success(self._source(rung))
 
     def _source(self, rung: str) -> str:

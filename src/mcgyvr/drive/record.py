@@ -1,4 +1,12 @@
-"""Where attempt records go, and the id one dispatch's row is keyed by."""
+"""Where a run's attempt records go, and which orchestrator is writing them.
+
+`Recording` is the value the driver hands to `telemetry.observe` for every
+dispatch and to `telemetry.correct` for every row it corrects afterwards: the
+journal sink, the orchestrator id the rows are filed under, the run stamp, the
+session transcript and any copies the caller asked for. `attempt_id` is what
+those rows are keyed by, and `copy_failed` collects a copy that could not be
+written instead of raising it.
+"""
 
 from __future__ import annotations
 
@@ -8,74 +16,48 @@ from pathlib import Path
 
 @dataclass(frozen=True)
 class Recording:
-    """Where attempt records go, and which orchestrator is writing them.
+    """Where one run's records go, and who is writing them.
 
-    Records carry an orchestrator id and nothing here keeps global mutable
-    state, so two orchestrators can share a stream.
-    :func:`~mcgyvr.telemetry.observe` takes ``orchestrator`` as a required
-    parameter.
-
-    The id is a value the caller constructs rather than something this module
-    derives from the process. A default — a hostname, a pid, a literal
-    ``"mcgyvr"`` — would be a single-orchestrator assumption: two orchestrators
-    sharing a stream would then write rows that agree about who produced them,
-    and the field's whole purpose is telling them apart.
-
-    Recording is optional at this seam because a run that cannot write its
-    telemetry should fail loudly rather than silently — ``observe`` raises on
-    an unwritable sink on purpose — and a caller that has not chosen a sink
-    has not chosen to accept that failure. ``mcgyvr run`` always chooses one
-    for a dispatching contract: the config's ``journal.dir``, or ``--record``.
-
-    ``path`` is the line sink. The prompts and replies the run dispatches land
-    beside it, content-addressed under ``path.parent / "blobs"``, so two
-    orchestrators recording into one directory share one blob store and own
-    one file each — the layout ``<journal dir>/<orchestrator>.jsonl`` relies
-    on.
-
-    ``run`` tells one run of a contract from the next. The orchestrator is
-    a whole session, and a session re-runs a contract exactly when the last
-    run failed, so without it two runs would key their rows identically and
-    :func:`~mcgyvr.telemetry.fold` would bind every correction to the latest
-    row — erasing the failure from the folded view. It is the stamp the run's
-    result file carries, so a row and its result name the same run.
+    `path` is the JSONL sink the rows are appended to, `orchestrator` the id
+    every row is filed under, and `run` this run's stamp — empty when the caller
+    made none, and the ids then name the orchestrator alone. A recording is
+    built once per run, and the driver reads it to reach the sink rather than to
+    open it: nothing here writes, and the journal directory is not created.
     """
 
     path: Path
     orchestrator: str
     run: str = ""
-    #: The transcript of the session that typed the command, when the
-    #: orchestrator is one (:mod:`mcgyvr.session`). Written on every row so an
-    #: attempt can be followed back to the conversation that produced it.
+    #: `session_file` is the transcript of the session that typed the command, so
+    #: a row can be followed back to the conversation that produced it:
+    #: `observe` writes it into the row's identity, and `None` means no session
+    #: named one.
     session_file: Path | None = None
-    #: Directories the caller asked for a copy of this journal in (``--record``).
-    #: Every line and every blob goes to each of them as well as to
-    #: :attr:`path`, which is mcgyvr's own and is the one that cannot move: the
-    #: journal is a corpus to be compounded, and a run recorded only in a
-    #: directory somebody chose for that run is a run no later question reaches.
-    #: A copy lives in a repository as often as not, and repositories are
-    #: cloned, go stale and are thrown away.
+    #: `mirrors` are further directories this run's record is written into, for a
+    #: caller that asked for a copy — `--record DIR` when it is not the journal
+    #: directory itself. They are copies and not sinks: the record under `path`
+    #: is written first and is complete whatever happens here, so a mirror that
+    #: cannot be written is reported through `copy_failed` and the run goes on.
+    #: Empty on almost every run, which is what makes a non-empty `copy_errors`
+    #: worth reading.
     mirrors: tuple[Path, ...] = ()
-    #: The first failure seen per copy, kept rather than raised. Mutable inside
-    #: a frozen record on purpose: the failures are learned while the run is
-    #: happening and are reported once when it ends, and the alternative — a
-    #: line per row — is thousands of lines about one full disk.
-    #:
-    #: Out of ``__eq__`` and ``__hash__`` (``compare=False``), which a frozen
-    #: dataclass generates from its fields: two recordings pointed at the same
-    #: sink are the same recording whatever has since gone wrong with somebody's
-    #: copy, and a dict field left in would make this class unhashable the day
-    #: anything put one in a set.
+    #: `copy_errors` is the mirrors that could not be written, keyed by the
+    #: mirror directory and holding `"<ExcType>: <message>"`. It is filled by
+    #: `copy_failed` when a copy raises, and never raised from here. `compare`
+    #: of `False` keeps it out of equality: a copy that failed does not make this
+    #: a different recording of the same run, and comparing a dict a caller can
+    #: still fill would compare state rather than identity. Empty on almost every
+    #: run; the CLI copies it into the result file and says each failure on
+    #: stderr, so a lost copy is neither silent nor a reason to stop.
     copy_errors: dict[Path, str] = field(default_factory=dict, compare=False)
 
     def copy_failed(self, mirror: Path, exc: BaseException) -> None:
-        """Keep the first thing that went wrong with one copy, and carry on.
+        """Record that this run's record could not be copied to `mirror`.
 
-        Handed to :mod:`mcgyvr.telemetry` as its ``on_copy_error``. First and
-        not last, because the first is the one that says what happened: a
-        directory that is a file fails identically on every row after the
-        first, and the last failure of a thousand identical ones is no more
-        informative than the first and arrives with the wrong timestamp.
+        `mirror` is the directory the copy was meant for and `exc` the failure
+        that stopped it, kept as `"<ExcType>: <message>"`. Only the first
+        failure per mirror is kept; a later one leaves it unchanged. Nothing is
+        raised: a copy is not a sink.
         """
         self.copy_errors.setdefault(mirror, f"{type(exc).__name__}: {exc}")
 
@@ -88,22 +70,13 @@ class Recording:
             )
 
     def attempt_id(self, contract: str, rung: str, attempt: int, draw: int = 0) -> str:
-        """The id one dispatch's row is keyed by.
+        """The id this run records one dispatch under.
 
-        The orchestrator is part of it, and that is not decoration.
-        :func:`~mcgyvr.telemetry.fold` binds a correction to the latest row
-        carrying this string, so two orchestrators working the same contract on
-        the same rung would otherwise share an id, and a correction meant for
-        one row would land on the other. The rest is derived rather than random
-        so a row can be found again from a report naming the contract, the rung
-        and the attempt.
-
-        ``draw`` is here for the same reason the orchestrator is. An attempt
-        that asks its rung for several candidates makes one dispatch per draw,
-        and a key that named only the attempt would give every draw's row one
-        id, so a correction could reach only the last. The first draw is left
-        unsuffixed: rows a journal already holds carry keys with no draw, and a
-        correction finds its row by that key.
+        Built as `[orchestrator:run:]contract:rung:attempt`, with the run stamp
+        left out when `run` is empty, and suffixed `#<draw>` for a draw past the
+        first. Draw `0` therefore carries the unsuffixed id an install without
+        breadth already writes, and draws `1` and up get `#1`, `#2`, … of their
+        own, so the rows of one attempt stay distinct without renumbering it.
         """
         who = f"{self.orchestrator}:{self.run}" if self.run else self.orchestrator
         row = f"{who}:{contract}:{rung}:{attempt}"

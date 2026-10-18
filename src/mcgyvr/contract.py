@@ -1,67 +1,9 @@
-"""The task contract: the boundary between the calling agent and mcgyvr.
+"""The contract: one unit of work declared as text, and the code that validates it.
 
-In delegated mode a contract is an internal artifact the orchestrator produces.
-In direct mode it is **public API an agent authors** — which makes its schema,
-its validation errors and its guarantees a compatibility surface from v1
-onward (#13). Both modes go through the one loader here, so "a contract the
-orchestrator emits is one the direct-mode API accepts" is a property of there
-being a single definition, not a promise maintained in two places.
-
-Five things are load-bearing, and each is enforced at load rather than
-discovered later:
-
-1. **Every rejection names the field and the fix.** This is API surface for an
-   agent, so an unparseable rejection is a defect: a caller that cannot tell
-   which key was wrong cannot correct it. Errors here read
-   ``path.to.key: what is wrong. What a valid value looks like.``
-2. **Unknown keys fail.** A silently ignored key is a contract that does
-   something other than what it says — the same rule :mod:`mcgyvr.config`
-   holds for the config file, for the same reason.
-3. **Self-contradiction is rejected at load, not at execution.** A target its
-   own scope forbids, a pattern that is both allowed and forbidden, a scope
-   that permits nothing: each fails here, naming the contradiction, rather
-   than failing mysteriously mid-task once a rung has already been spent.
-4. **Single-target discipline.** A model worker's output has exactly one
-   literal destination. A glob-scoped target is legal only for task types the
-   deterministic tier can execute outright, because only those can fan a
-   change across files without a model guessing where its output goes.
-5. **A type's required evidence must be producible — each kind by the list
-   that can satisfy it.** The catalog states what evidence each task type
-   needs to be judgeable at all; where that evidence can only come from
-   running something, the contract must carry a command *in the right slot*:
-   evidence expecting a pass at baseline needs ``acceptance``, evidence
-   expecting a failure at baseline (``failing_test_first``) needs
-   ``demonstration``. The one exception is ``code``, whose evidence is
-   derived from the contract's own fields rather than demanded: a ``code``
-   contract with no ``acceptance``, no ``demonstration`` and no flags is
-   judged on the gate alone, which is its honest floor.
-
-The field layout follows the split #94 arrived at from small-model research:
-worker-facing fields (``id``, ``task_type``, ``task``, ``target``,
-``target_content``, ``interface``, ``deps``, ``stop_conditions``,
-``output_schema``, ``sources``, ``context``) are separated from orchestrator-only ones
-(``scope``, ``acceptance``, ``demonstration``, ``depends_on``, ``risk``,
-``verification``, ``limits``, ``rename``), and :meth:`Contract.worker_view` is
-the only way to reach the former.
-
-``SCHEMA`` below is declarative data, not hand-written checks — the same
-approach :mod:`mcgyvr.config` takes, so the authoring guide (#18) can be
-rendered from the definitions the validator walks rather than written beside
-them. The ``Field`` type is deliberately *not* shared with the config schema:
-the two validate different documents with different value kinds (a config has
-credentials and URLs; a contract has globs and token budgets), and coupling
-them would make every contract key answerable to a config concern. What is
-emphatically *not* duplicated is path matching — every scope decision here
-goes through :class:`mcgyvr.scope.Scope`, the one canonical matcher.
-
-The task-type vocabulary is **not defined here**. :mod:`mcgyvr.catalog` reads it
-from ``data/task-catalog.json`` (#15), and this module asks the catalog what a
-type guarantees rather than knowing any type by name — which is what keeps
-"adding a task type does not require a code change" true of this file too. What
-this module reads off a catalog entry: ``deterministic`` (the glob rule above,
-the stop-condition rule, the output cap), ``needs_acceptance_commands`` /
-``needs_demonstration_commands`` (the two halves of rule 5), and
-``required_evidence`` (the output cap and the refusal text).
+`SCHEMA` names every key and what it may hold, `parse` checks a document against
+that table and then against the rules spanning several fields in
+`_cross_validate`, and `Contract` is the frozen result that the prompt builder,
+the gate and the planner all read.
 """
 
 from __future__ import annotations
@@ -84,96 +26,75 @@ from mcgyvr.strict_yaml import strict_loader
 
 SCHEMA_VERSION = 1
 
-# Characters that make a path a pattern rather than a destination. A target
-# containing any of these names a set of files, not a file, which is why the
-# single-target rule keys on them. A ``]`` alone opens nothing: a glob, a
-# shell and a git pathspec all read it as the character it is.
+# Glob metacharacters: `*`, `?` and the start of a character class. A target or
+# a `sources` entry containing one names a set of files, which only a
+# deterministic operation may do; everything else names exactly one literal path
+# and the checks below refuse it otherwise.
 _GLOB_META = re.compile(r"[*?\[]")
 
 
 def is_pattern(target: str) -> bool:
-    """Whether ``target`` names a set of files rather than one file.
-
-    The one answer: the loader refuses a pattern target by it and delivery
-    re-checks by it, so a target the loader takes as one file is one file at
-    the delivery seam too.
-    """
+    """Whether `target` holds a glob metacharacter, i.e. names several paths."""
     return _GLOB_META.search(target) is not None
 
 
-# A contract id: something a record, a log line and a branch name can all carry
-# without quoting. Deliberately narrow — an id is a join key, not prose.
+# Contract ids reach records, telemetry and branch names, so they are limited to
+# 1-64 characters safe in all three: letters, digits, dot, dash, underscore.
 _ID = re.compile(r"^[A-Za-z0-9][A-Za-z0-9._-]{0,63}$")
 
-# A leading ``NAME=value`` word. A shell reads it as an assignment for the
-# command after it; executed with no shell it is the program's name.
+# A leading `NAME=value` token. Commands are executed without a shell, so such a
+# token would be looked up as a program name instead of being applied.
 _ENV_ASSIGNMENT = re.compile(r"^[A-Za-z_][A-Za-z0-9_]*=")
 
-# The characters a POSIX shell reads as an operator when unquoted: the list
-# separators, the pipe and the redirects. Executed with no shell, each one is
-# handed to the program as an argument instead.
+# The characters shell operators are built from (`&&`, `||`, `;`, `|`, `<`, `>`,
+# `2>`). Commands run without a shell, so one of these outside quotes is refused
+# rather than handed to the program as an argument.
 _SHELL_OPERATOR_CHARS = frozenset("&|;<>")
 
 
 class ContractError(Exception):
-    """Base class for every contract failure."""
+    """The base of every error about a contract's text, caught as one family."""
 
 
 class ContractFileError(ContractError):
-    """The contract is missing, unreadable, or not parseable."""
+    """The contract could not be read or parsed: no file, or not valid YAML."""
 
 
 class ContractSchemaError(ContractError):
-    """The contract parsed, but does not satisfy the schema.
-
-    Every message names the offending field and says what a valid value looks
-    like. That is the acceptance criterion for this class, not a stylistic
-    preference: the reader is an agent trying to correct its own output.
-    """
+    """Parsed, but the content breaks the schema or a rule across several fields."""
 
 
-# --- the task-type vocabulary (owned by mcgyvr.catalog / #15) --------------
+# Vocabulary accessors: everything the schema offers as a choice is read from the
+# catalog, so a type added there appears here without a second list to keep.
 
-# Re-exported so a caller validating a contract does not need to know the
-# catalog exists. These are thin views over the loaded catalog, computed once,
-# and NOT a second definition — nothing here names a task type.
+# `task_type`, `kind_of` and the `*_names` functions are what the schema and the
+# cross-field checks call, and each turns a catalog failure into a
+# ContractSchemaError naming the field that asked, so an unknown name is answered
+# as a bad contract rather than as a crash.
 
 
 def task_types() -> tuple[CatalogTaskType, ...]:
-    """Every task type the catalog declares (the model vocabulary)."""
+    """Every task type the catalog declares, in its own order."""
     return catalog().task_types
 
 
 def operations() -> tuple[CatalogTaskType, ...]:
-    """The deterministic operations the catalog declares.
-
-    Not task types: a contract asks for one as ``operation`` beside the task
-    type the operation names (``task_type: code``), and the product runs it
-    with a tool rather than a model.
-    """
+    """Every deterministic operation: work a tool performs instead of a model."""
     return catalog().operations
 
 
 def task_type_names() -> tuple[str, ...]:
-    """Every task type the catalog declares — the whole vocabulary."""
+    """The names of every task type — the valid choices for `task_type`."""
     return catalog().names
 
 
 def operation_names() -> tuple[str, ...]:
-    """Every name a contract may carry as ``operation``."""
+    """The names of every operation — the valid choices for `operation`."""
     return tuple(t.name for t in catalog().operations)
 
 
 def task_type(name: str) -> CatalogTaskType:
-    """The declared task type called ``name``.
-
-    Raises :class:`ContractSchemaError` naming the vocabulary, because an
-    unknown task type is exactly the case where a caller needs to see the valid
-    set rather than a boolean, and naming the replacement for a name that used
-    to be a task type. The catalog raises its own error type; it is translated
-    here so that everything a contract can be rejected for is one exception
-    family.
-    """
+    """The entry for `name`, or a schema error saying it is not a task type."""
     try:
         return catalog().require(name)
     except CatalogError as exc:
@@ -181,12 +102,7 @@ def task_type(name: str) -> CatalogTaskType:
 
 
 def kind_of(task_type_name: str, operation: str = "") -> CatalogTaskType:
-    """The catalog entry that governs a contract: its operation's, or its type's.
-
-    A contract that names an ``operation`` is run, routed, capped and judged by
-    that operation's entry — its starting family, its guarantee, its evidence —
-    and one that names none by its task type's.
-    """
+    """What a contract runs: the operation when one is named, else the task type."""
     if not operation:
         return task_type(task_type_name)
     try:
@@ -195,29 +111,18 @@ def kind_of(task_type_name: str, operation: str = "") -> CatalogTaskType:
         raise ContractSchemaError(f"operation: {exc}") from exc
 
 
-# --- the output cap -------------------------------------------------------
-#
-# Decided by task type (owner, 2026-10-14, e2e run 3 T1), and never sized here.
-#
-# `code` written by a model is the work mcgyvr's harness runs, so it is bounded
-# twice and both bounds are written by somebody: the contract states
-# `limits.max_output_tokens`, what the work is worth, and every unit carries a
-# ceiling from setup — its served `window`, less the prompt as charged, or its
-# `output_tokens` where the window is not known
-# (`mcgyvr.gate.preflight.unit_ceiling`). The contract's cap is sent exactly
-# when it is within the ceiling and refused by name when it is not; a contract
-# that states none still loads and is refused at dispatch
-# (`mcgyvr.gate.preflight.check_cap_stated`), before any model is called.
-#
-# `chat` and `agent` are a raw connection to a model: no cap, and a contract
-# that states one is refused at load. A deterministic operation calls no model,
-# so there is no reply to cap. `media` keeps the cap it states, which is none
-# for a `media_artifact` reply.
-#
-# Nothing is derived for a contract that states nothing. The automatic sizing
-# that used to fill the gap — a floor for the task type, twice the target and a
-# reasoning allowance — sent a number nobody chose, and a unit's `output_tokens`
-# then replaced even a stated one: a contract's 16 left as 32768 (e2e run 3).
+# Evidence is derived from what the contract states, never declared by the
+# author: the commands and flags that are set decide the list, and `gate` comes
+# first because every judged contract produces it. `failing_test_first` follows
+# when a demonstration command is given, `tests_pass` when an acceptance command
+# is, and `no_semantic_change` and `type_check` when their flags are on. Kinds
+# that are not `evidence_derived` — sessions, which write nothing, and the media
+# types, whose whole judgement is the artifact — know their evidence from the
+# catalog and are returned exactly as it lists them. The order matters
+# downstream: the gate records evidence in it, and a result whose names differ
+# from `Contract.evidence_names` is a mismatch rather than something to take at
+# face value. Nothing here reads a contract, only these flags, so the same
+# derivation serves one that is planned but not yet built.
 
 
 def evidence_for(
@@ -228,16 +133,7 @@ def evidence_for(
     no_semantic_change: bool = False,
     type_check: bool = False,
 ) -> tuple[CatalogEvidence, ...]:
-    """The evidence a contract of ``kind`` carries, given its own fields.
-
-    Every type but ``code`` carries its catalog's static ``required_evidence``
-    unchanged. ``code`` derives it: always ``gate``, then the kinds its fields
-    name — ``failing_test_first`` from a non-empty ``demonstration``,
-    ``tests_pass`` from a non-empty ``acceptance``, and ``no_semantic_change``
-    / ``type_check`` from the two flags. This is the one place the derivation
-    is spelled, so the loader and the gate read the same evidence for a
-    contract rather than two copies that can drift.
-    """
+    """The catalog evidence this kind implies for these commands and flags."""
     if not getattr(kind, "evidence_derived", False):
         return kind.required_evidence
     book = catalog()
@@ -254,20 +150,16 @@ def evidence_for(
 
 
 def generic_stop_condition(task_type_name: str, subject: str) -> str:
-    """The stop condition to start from: decide nothing the contract left open.
-
-    One spelling, because three places say it — the proposer writes it into
-    the contracts it emits, the field doc shows it, and the loader's refusal
-    hands it to an author who named none — and a condition that read
-    differently in each would be three conditions.
-    """
+    """A ready-made stop condition, quoted to a worker that must not guess."""
     return (
         f"{task_type_name} on {subject} would require deciding something the "
         "contract does not state — report BLOCKED rather than guess"
     )
 
 
-# --- the declared schema --------------------------------------------------
+# The value kinds a field may hold. `block` nests a fixed set of fields and
+# `block_list` is a list of those blocks; the glob kinds are string lists whose
+# entries must additionally be repo-relative patterns.
 
 Kind = Literal[
     "int",
@@ -284,23 +176,7 @@ Kind = Literal[
 
 @dataclass(frozen=True)
 class Field:
-    """One key in the contract schema, with what is needed to validate and document it.
-
-    ``doc`` has no default: a key that cannot be explained does not belong in
-    a surface an agent is asked to author against. ``worker_facing`` marks the
-    keys :meth:`Contract.worker_view` may expose — the split is declared on the
-    schema so it cannot drift from the prompt builder that honours it. "May be
-    exposed" is not "is rendered": ``id`` and ``context.max_input_tokens`` are
-    both in the view and neither is spent on the worker, because a join key and
-    an input ceiling are things the orchestrator acts on and a model cannot.
-
-    ``choices_from`` is for an enum whose valid set is owned elsewhere — today
-    only ``task_type``, whose vocabulary lives in the catalog. Resolving it per
-    validation rather than freezing it into ``choices`` at import is what makes
-    "adding a task type does not require a code change" true: a snapshot taken
-    when this module was imported would be a copy of the catalog living in code,
-    which is the thing #15 forbids.
-    """
+    """One declared key: its name, its kind, and the rules the schema walk applies."""
 
     name: str
     kind: Kind
@@ -310,25 +186,24 @@ class Field:
     choices: tuple[str, ...] = ()
     block: tuple[Field, ...] = ()
     min_value: float | None = None
-    #: Inclusive upper bound, for a value that is a share of something rather
-    #: than a count of it. Absent on every counting field: a token cap has no
-    #: natural ceiling, and inventing one would refuse a contract nobody has
-    #: shown to be wrong.
+    #: Numeric bounds. A value outside them is refused by name rather than
+    #: clamped: a contract that quietly did something other than what it says
+    #: would be worse than one that fails, so the two ends are stated as data
+    #: here and enforced by `_int` and `_float`.
     max_value: float | None = None
     worker_facing: bool = False
     hint: str = ""
     choices_from: Callable[[], tuple[str, ...]] | None = None
-    #: For an enum whose values were renamed: the old value and its
-    #: replacement, so a contract still naming one is told what to write.
+    #: Retired enum values, mapped to the spelling that replaced them, so an old
+    #: contract is answered with what to write instead of a bare "not valid".
     retired: Mapping[str, str] | None = None
-    #: A required key a session's contract may leave out (a task type the
-    #: catalog marks ``session``: ``chat``, ``agent``). A session writes
-    #: nothing to the tree, so it has no destination to name and no surface to
-    #: scope; asking for one would ask for a file that is never written.
+    #: True for a key a chat or agent session may leave out. A session writes no
+    #: file, so `target` and `scope.allow` are not required of it; `_for_sessions`
+    #: rewrites the schema from this flag, and only for a session's task type.
     session_optional: bool = False
 
     def valid_choices(self) -> tuple[str, ...]:
-        """The enum's valid set, resolved now rather than at import."""
+        """The values it accepts, from the catalog when one is given, else `choices`."""
         return self.choices_from() if self.choices_from is not None else self.choices
 
 
@@ -728,12 +603,13 @@ SCHEMA: tuple[Field, ...] = (
 )
 
 
-# --- the loaded contract --------------------------------------------------
+# The parsed contract. `_build` is the only place a validated document becomes
+# one of these, so the fields below are always filled and already checked.
 
 
 @dataclass(frozen=True)
 class Dependency:
-    """One dependency, carried as a signature rather than as source."""
+    """One dependency handed to the worker as a signature, never as source."""
 
     path: str
     signature: str
@@ -742,11 +618,7 @@ class Dependency:
 
 @dataclass(frozen=True)
 class Rename:
-    """The symbol a ``rename_symbol`` operation renames, and what it becomes.
-
-    Both empty is the ordinary state of every contract that is not a rename,
-    and :attr:`stated` is how a caller asks whether this one said anything.
-    """
+    """What `rename_symbol` is told: the symbol today, and the name it becomes."""
 
     old: str = ""
     new: str = ""
@@ -758,32 +630,27 @@ class Rename:
 
 @dataclass(frozen=True)
 class Verification:
-    """How a change is judged once the deterministic gate has passed."""
+    """How the change is judged once the gate has passed."""
 
     policy: str
 
 
 @dataclass(frozen=True)
 class Limits:
-    """Hard ceilings on one execution of a contract."""
+    """What one execution may spend: the reply cap, retries, the window share."""
 
     max_output_tokens: int | None
     attempts: int
-    #: The share of a rung's window this contract may claim, or ``None`` when
-    #: it declared none. ``None`` rather than ``1.0`` because "no share was
-    #: stated" and "the whole window was allowed" are different declarations,
-    #: and only one of them should read as an operator's choice in a record.
+    #: The contract's own share of the model's window: the assembled prompt plus
+    #: `max_output_tokens`, over the whole window. `None` records that the contract
+    #: declared none, which is not the same as 1.0 — the run's own cap still applies
+    #: on top, and the stricter of the two wins.
     max_window_fraction: float | None = None
 
 
 @dataclass(frozen=True)
 class Contract:
-    """A validated unit of work: what to do, where it goes, and how it is judged.
-
-    Immutable, and valid by construction — every instance came through
-    :func:`parse`, so nothing downstream re-checks what the loader already
-    settled. Build one with :func:`parse`, :func:`loads` or :func:`load`.
-    """
+    """One validated unit of work, with the schema's nested keys flattened onto it."""
 
     id: str
     task_type: str
@@ -811,36 +678,26 @@ class Contract:
     rename: Rename = Rename()
     no_semantic_change: bool = False
     type_check: bool = False
-    #: The content of each of ``sources``, in order, once the attempt has read
-    #: them off the tree the run started from (:func:`mcgyvr.drive.worker_attempt`,
-    #: :mod:`mcgyvr.worker.sources`). Not a schema key: a contract names its
-    #: sources, and the run reads them — so a contract on disk never carries a
-    #: copy that could disagree with the tree. Empty until read.
+    #: The text of each entry in `sources`, in that order, filled in when the
+    #: contract is dispatched against a workspace rather than parsed from a
+    #: document. It is empty, or of another length, when the sources were never
+    #: read: `worker_view` then reports no content and the worker reads each file
+    #: from the tree it is given.
     source_content: tuple[str, ...] = ()
 
     @property
     def type(self) -> CatalogTaskType:
-        """The declared task type, as its catalog entry."""
+        """The task type `task_type` names, ignoring any `operation` beside it."""
         return catalog().require(self.task_type)
 
     @property
     def kind(self) -> CatalogTaskType:
-        """The catalog entry that governs this contract.
-
-        Its ``operation``'s entry when it names one — the operation decides the
-        starting family, the guarantee and the evidence — and its task type's
-        when it does not.
-        """
+        """What runs: the operation when one is named, otherwise the task type."""
         return kind_of(self.task_type, self.operation)
 
     @property
     def evidence(self) -> tuple[CatalogEvidence, ...]:
-        """The evidence this contract carries, derived from its own fields.
-
-        For ``code`` this is computed per contract from ``demonstration``,
-        ``acceptance``, ``no_semantic_change`` and ``type_check``; every other
-        type carries its catalog's static ``required_evidence`` unchanged.
-        """
+        """The evidence this contract's commands and flags derive, in gate order."""
         return evidence_for(
             self.kind,
             acceptance=self.acceptance,
@@ -851,97 +708,41 @@ class Contract:
 
     @property
     def evidence_names(self) -> tuple[str, ...]:
-        """The names of the evidence kinds this contract carries."""
+        """The names of `evidence`, for checking what a result reported back."""
         return tuple(e.name for e in self.evidence)
 
     @property
     def is_deterministic(self) -> bool:
-        """Whether the deterministic tier can execute this contract outright."""
+        """Whether a tool performs the work rather than a model."""
         return self.kind.deterministic
 
     @property
     def is_session(self) -> bool:
-        """Whether a run of this contract is a session (``chat``, ``agent``).
-
-        Its reply is the answer: returned in the result file and kept in the
-        journal's session log, never written to the tree. ``target`` and
-        ``scope`` are not used — empty unless the contract gave them anyway.
-        """
+        """Whether this is a session: the reply is the answer, nothing is written."""
         return self.kind.session
 
     @property
     def needs_output_cap(self) -> bool:
-        """Whether this contract must state ``limits.max_output_tokens`` to run.
-
-        True of the work mcgyvr's harness bounds: a change a model writes and
-        the gate judges (``code`` without an ``operation``). Not of a session,
-        which is a raw connection to a model, nor of a deterministic operation,
-        which calls none, nor of a reply judged only by its output checks
-        (``media``). Read off the catalog entry rather than the type's name, so
-        the rule follows what the work is and not what it is called.
-        """
+        """Whether `limits.max_output_tokens` must be stated for this work."""
         return self.kind.needs_output_cap
 
     @property
     def acceptance_commands(self) -> tuple[tuple[str, ...], ...]:
-        """``acceptance``, split into argv the acceptance rung can run.
-
-        A contract writes a command the way a person types it —
-        ``"pytest -q"`` — and :class:`~mcgyvr.gate.acceptance.Acceptance` takes
-        argv, because it runs commands without a shell (a shell would give an
-        acceptance command the metacharacters to do things an acceptance
-        command must not do, starting with writing to the tree).
-
-        The split is here rather than at each caller for the reason
-        :attr:`demonstration_commands` shares: two spellings of "what this
-        contract's commands are" would eventually disagree about quoting, and a
-        contract whose acceptance bar means one thing to the gate and another
-        to a report is a contract nothing can be said to have passed.
-        """
+        """The acceptance commands split into argv, as they will be executed."""
         return tuple(tuple(shlex.split(command)) for command in self.acceptance)
 
     @property
     def demonstration_commands(self) -> tuple[tuple[str, ...], ...]:
-        """``demonstration``, split into argv, with the opposite baseline.
-
-        Separate from :attr:`acceptance_commands` because the two lists are
-        judged against opposite expectations at baseline (#183) and the gate
-        takes them as two arguments; folding them here would lose exactly the
-        distinction the split exists for.
-        """
+        """The demonstration commands split into argv, as they will be executed."""
         return tuple(tuple(shlex.split(command)) for command in self.demonstration)
 
     @property
     def prose(self) -> str:
-        """What this contract asked for, in its own words, for a rung to read.
-
-        ``task`` and ``interface`` and nothing else: they are the two fields
-        that state the work, they are the two a worker is given, and a gate
-        rung standing itself down on the strength of something the worker never
-        saw would be excusing a change nobody asked for.
-
-        ``param-mutation`` stands down for a contract that *ordered* in-place
-        work — "sort the rows in place" — and reads this to find out. Joined
-        here rather than at each gate call site so the two callers cannot come
-        to disagree about which fields count.
-        """
+        """The task and the interface as one block of text, for a reader of prose."""
         return f"{self.task}\n{self.interface}"
 
     def worker_view(self) -> dict[str, Any]:
-        """Exactly the fields a worker prompt may be built from.
-
-        The one way to reach worker-facing content, so "orchestrator-only
-        fields never reach the worker prompt" (#94) is enforced by there being
-        no other accessor rather than by reviewing every prompt builder. What
-        is excluded is excluded on purpose: ``risk``, ``verification``,
-        ``acceptance``, ``demonstration`` and ``limits`` are how the
-        *orchestrator* decides where to run the work and whether to believe
-        the result, and a worker that could read them could argue with them.
-
-        ``sources`` carries each path with its content once the attempt has
-        read it (:attr:`source_content`), and ``None`` before — what
-        ``mcgyvr contract --worker-view`` shows, since no tree has been read.
-        """
+        """The fields the worker is shown, as data — never scope, commands or limits."""
         return {
             "id": self.id,
             "task_type": self.task_type,
@@ -970,42 +771,27 @@ class Contract:
         }
 
     def as_dict(self) -> dict[str, Any]:
-        """The whole contract as plain data, in schema declaration order.
-
-        Round-trips: ``parse(dumps(c))`` reconstructs ``c``. That is what makes
-        "a contract the orchestrator emits is one the direct-mode API accepts"
-        testable rather than asserted.
-
-        ``depends_on`` is emitted only when the contract states one, where
-        every other key is emitted empty or not. The difference is not
-        tidiness: this form is an identity — a digest of ``dumps(contract)``
-        names a contract by what it says — so a key every contract carries
-        whether or not it means anything changes that digest for every contract
-        ever emitted, and whatever was keyed by the old digest no longer finds
-        its contract. A key that appears exactly when it says something costs
-        nothing to add later.
-        """
+        """The contract as schema keys, so `parse(dumps(c))` round-trips it."""
         stated = {"depends_on": sorted(self.depends_on)} if self.depends_on else {}
-        # Emitted on the same rule and for the same reason: a key every
-        # contract carries whether or not it means anything re-keys every
-        # contract ever emitted, and every record of a run keyed by one.
+        # `rename` is written only when both halves are stated: a half-stated pair
+        # names nothing, and emitting it would turn a contract that says nothing
+        # about renaming into one that claims to.
         renamed = (
             {"rename": {"from": self.rename.old, "to": self.rename.new}}
             if self.rename.stated
             else {}
         )
-        # Same rule again, for the share: one carried whether or not it was
-        # declared would change the serialised form of every contract that
-        # never mentioned one, and with it the digest each recorded run is
-        # keyed by.
+        # An unset `max_window_fraction` is not a default to be filled in: "the
+        # contract declared no share" is a different statement from 1.0, so the key
+        # is left out rather than written with a number nobody asked for. The same
+        # holds for every optional key below.
         share = (
             {"max_window_fraction": self.limits.max_window_fraction}
             if self.limits.max_window_fraction is not None
             else {}
         )
-        # The two code flags appear exactly when they say something, for the
-        # same reason as ``depends_on`` and the share above: a key carried
-        # whether or not it means anything re-keys every contract ever emitted.
+        # Flags likewise: a key appears only when the contract asked for that check,
+        # so its presence in the output always means the author turned it on.
         flags: dict[str, bool] = {}
         if self.no_semantic_change:
             flags["no_semantic_change"] = True
@@ -1015,8 +801,8 @@ class Contract:
             "version": self.version,
             "id": self.id,
             "task_type": self.task_type,
-            # Emitted exactly when one is named, for the reason ``depends_on``
-            # is: a key every contract carried would re-key every contract.
+            # `operation` appears only when one is named: writing "" would name an
+            # operation that does not exist, and absent means the task type alone.
             **({"operation": self.operation} if self.operation else {}),
             "task": self.task,
             "target": self.target,
@@ -1056,11 +842,11 @@ class Contract:
         }
 
 
-# --- loading --------------------------------------------------------------
+# Reading a contract: from a file and from text, both through the same pipeline.
 
 
 def load(path: Path) -> Contract:
-    """Read and validate the contract at ``path``."""
+    """Read and parse the file at `path`, reporting an unreadable one as an error."""
     try:
         text = path.read_text(encoding="utf-8")
     except OSError as exc:
@@ -1069,12 +855,12 @@ def load(path: Path) -> Contract:
 
 
 def loads(text: str) -> Contract:
-    """Validate a contract from YAML or JSON text (YAML is a JSON superset)."""
+    """Parse contract text that has no file name, so errors name only the field."""
     return parse(text)
 
 
 def parse(text: str, path: Path | None = None) -> Contract:
-    """Validate a contract, naming the offending field on any failure."""
+    """Parse a document: strict YAML, `SCHEMA`, then the cross-field rules."""
     where = f"{path}: " if path else ""
     try:
         raw = yaml.load(text, Loader=strict_loader(ContractSchemaError))
@@ -1096,20 +882,20 @@ def parse(text: str, path: Path | None = None) -> Contract:
     session = _is_session(raw)
     data = _block(raw, _for_sessions(SCHEMA) if session else SCHEMA, "")
     if session and "output_schema" not in raw:
-        # A session's reply is the answer, so prose is its shape; whole_file,
-        # the schema's default, would have a chat reply written over a target.
+        # A session's reply is the answer itself, so prose is the shape it is
+        # given when the author says nothing; anything file-shaped is refused below.
         data["output_schema"] = "prose"
     _cross_validate(data)
     return _build(data)
 
 
 def dumps(contract: Contract) -> str:
-    """The contract as JSON, in schema order — the emitted form of the API."""
+    """Render the contract as JSON text under the key names `parse` accepts."""
     return json.dumps(contract.as_dict(), indent=2)
 
 
 def _build(data: Mapping[str, Any]) -> Contract:
-    """Assemble the validated mapping into a Contract."""
+    """Build a `Contract` from validated block data, flattening the nested keys."""
     return Contract(
         id=data["id"],
         task_type=data["task_type"],
@@ -1147,11 +933,12 @@ def _build(data: Mapping[str, Any]) -> Contract:
     )
 
 
-# --- schema walking -------------------------------------------------------
+# The schema walk: every block is validated against its own `Field` table, one key
+# at a time, so the error for a bad key can name the path that reached it.
 
 
 def _block(raw: object, fields: tuple[Field, ...], path: str) -> dict[str, Any]:
-    """Validate one mapping against its declared fields."""
+    """Validate one block: defaults filled in, unknown and missing keys refused."""
     given = _mapping(raw if raw is not None else {}, path)
     known = {f.name: f for f in fields}
 
@@ -1177,7 +964,7 @@ def _block(raw: object, fields: tuple[Field, ...], path: str) -> dict[str, Any]:
 
 
 def _value(raw: object, spec: Field, path: str) -> Any:
-    """One value, validated against its field's kind."""
+    """Coerce one raw value by the field's `kind`, leaving the rules to the helpers."""
     if spec.kind == "int":
         return _int(raw, spec, path)
     if spec.kind == "float":
@@ -1187,9 +974,9 @@ def _value(raw: object, spec: Field, path: str) -> Any:
             raise ContractSchemaError(f"{path}: must be true or false, got {raw!r}.")
         return raw
     if spec.kind == "str":
-        # An optional string may be empty: "" is how "not stated" round-trips
-        # through the emitted form. A required one may not — an empty `task`
-        # is a contract with nothing to do.
+        # Only an optional string may be blank: "" is a real value for keys like
+        # `interface`, while a required one that is empty was left unfilled and is
+        # refused rather than accepted as an empty promise.
         return _str(raw, path, allow_empty=not spec.required)
     if spec.kind == "enum":
         text = _str(raw, path)
@@ -1232,8 +1019,8 @@ def _int(raw: object, spec: Field, path: str) -> int:
 
 
 def _float(raw: object, spec: Field, path: str) -> float:
-    # A whole number is a valid decimal and a bool is not, which is the same
-    # rule `_int` runs on: `max_window_fraction: true` is not a share.
+    # `bool` is a subclass of `int`, so it is refused before the numeric check; a
+    # whole number is accepted and widened, since YAML need not write `1.0`.
     if isinstance(raw, bool) or not isinstance(raw, (int, float)):
         raise ContractSchemaError(f"{path}: must be a number, got {raw!r}.")
     if spec.min_value is not None and raw < spec.min_value:
@@ -1269,7 +1056,7 @@ def _string_list(raw: object, spec: Field, path: str) -> tuple[str, ...]:
 
 
 def _check_glob(pattern: str, path: str) -> None:
-    """Reject a pattern that cannot mean what its author intended."""
+    """Refuse a scope pattern that is absolute or climbs out with `..`."""
     if pattern.startswith("/"):
         raise ContractSchemaError(
             f"{path}: {pattern!r} is absolute. Scope patterns are "
@@ -1302,11 +1089,7 @@ def _mapping(raw: object, path: str) -> Mapping[str, Any]:
 
 
 def _is_session(raw: object) -> bool:
-    """Whether ``raw`` declares a session task type, read before validation.
-
-    Before, because which keys are required turns on it. An unknown or
-    malformed ``task_type`` is not a session; ``_block`` refuses it by name.
-    """
+    """Whether the document names a session type, which decides the schema walked."""
     if not isinstance(raw, Mapping):
         return False
     name = raw.get("task_type")
@@ -1316,7 +1099,7 @@ def _is_session(raw: object) -> bool:
 
 
 def _for_sessions(fields: tuple[Field, ...]) -> tuple[Field, ...]:
-    """``fields`` with every ``session_optional`` key made optional, nested too."""
+    """The schema with `session_optional` fields made optional, nested blocks too."""
     return tuple(
         replace(
             spec,
@@ -1346,19 +1129,13 @@ def _join(path: str, name: str) -> str:
     return f"{path}.{name}" if path else name
 
 
-# --- self-contradiction ---------------------------------------------------
+# Commands are split like a shell but run without one, so whatever a shell would
+# have interpreted is refused here rather than reaching the program as a surprise
+# argument.
 
 
 def _check_command(command: str, path: str) -> None:
-    """Refuse shell syntax in a command that will be executed with no shell.
-
-    ``acceptance`` and ``demonstration`` are split like a shell would split
-    them and executed directly (:attr:`Contract.acceptance_commands`). Syntax
-    only a shell gives meaning to would otherwise fail at run time and read
-    as something else — a ``VAR=x`` prefix as exit 127, "a missing
-    dependency", and an unclosed quote as a ``ValueError`` out of the split —
-    so it is named here, before a sandbox is built.
-    """
+    """Refuse a command a shell-less run would not execute as its author meant."""
     try:
         argv = shlex.split(command)
     except ValueError as exc:
@@ -1385,12 +1162,7 @@ def _check_command(command: str, path: str) -> None:
 
 
 def _unquoted_operator(command: str) -> str | None:
-    """The first run of shell-operator characters outside quotes, or ``None``.
-
-    Read with POSIX quoting — single quotes, double quotes and the backslash —
-    so ``grep -q '|' f`` passes and ``pytest 2>/dev/null`` does not. Only
-    called on a command ``shlex.split`` accepted, so every quote closes.
-    """
+    """The operator characters left unquoted in `command`, or `None`."""
     run = ""
     quote = ""
     escaped = False
@@ -1414,11 +1186,7 @@ def _unquoted_operator(command: str) -> str | None:
 
 
 def _cross_validate(data: Mapping[str, Any]) -> None:
-    """Reject contracts that satisfy the schema but contradict themselves.
-
-    Each check here is a failure that would otherwise surface mid-task, after
-    a rung had already been spent on work that could never have been accepted.
-    """
+    """The rules spanning several fields, run after the schema walk on flat data."""
     identity = data["id"]
     if not _ID.match(identity):
         raise ContractSchemaError(
@@ -1443,9 +1211,9 @@ def _cross_validate(data: Mapping[str, Any]) -> None:
     forbid = data["scope"]["forbid"]
 
     if kind.session:
-        # Nothing is written, so there is no destination or surface to check:
-        # a target or scope given anyway is not used, and judging it would
-        # refuse a session for a file it never writes.
+        # A session's reply is the answer, returned in the result file and kept in
+        # the session log, never written to a target — so a file-shaped
+        # `output_schema` names a protocol the run cannot honour.
         if data["output_schema"] != "prose":
             raise ContractSchemaError(
                 f"output_schema: {data['output_schema']!r} is a file-shaped "
@@ -1454,10 +1222,10 @@ def _cross_validate(data: Mapping[str, Any]) -> None:
                 f"log, never written. Drop output_schema; 'prose' is the "
                 f"default."
             )
-        # A session is a raw connection to a model (owner, 2026-10-14, e2e
-        # run 3 T1): mcgyvr wraps no harness around it, so it sends no output
-        # cap and measures no prompt or window. A cap stated anyway would read
-        # as a bound nothing enforces.
+        # A session is a raw connection to a model: mcgyvr sends no output cap and
+        # makes no prompt or window check, so a stated cap would be a promise the
+        # run does not keep. Refused rather than ignored, because an ignored key is
+        # a contract that does not do what it says.
         stated = data["limits"]["max_output_tokens"]
         if stated is not None:
             raise ContractSchemaError(
@@ -1469,10 +1237,10 @@ def _cross_validate(data: Mapping[str, Any]) -> None:
     else:
         _check_destination(data, kind, target, allow, forbid)
 
-    # Required only where a BLOCKED reply is heard: a whole_file reply is
-    # parsed, and a refusal in it escalates (worker/reply.py), while a raw-text
-    # reply is served as the answer whatever it says — a condition there would
-    # be filler nothing reads.
+    # `whole_file` is the reply shape whose refusal escalates: a model that meets
+    # something the contract never stated either stops or guesses, and a guess is
+    # applied straight to the target. So a model-written whole-file contract must
+    # name at least one condition that sends it to BLOCKED instead.
     if (
         not kind.deterministic
         and data["output_schema"] == "whole_file"
@@ -1529,11 +1297,11 @@ def _cross_validate(data: Mapping[str, Any]) -> None:
             f"shows the defect."
         )
 
-    # Output evidence kinds that name a contract parameter: the gate makes the
-    # check, but the contract must say what to check against. The names live in
-    # gate/output.py — imported lazily because the gate package's __init__
-    # imports gate.preflight, which imports this module, so a top-level import
-    # here would be circular.
+    # Media and ASR types are judged on their artifact, so the gate has to be told
+    # what to look for: the media kind for `media_valid`, and the expected
+    # transcript with its word-error ceiling for `asr_wer`. The evidence names are
+    # imported from the gate's own module rather than restated, so the two cannot
+    # drift apart.
     from mcgyvr.gate.output import ASR_WER, MEDIA_VALID
 
     evidence_names = {e.name for e in kind.required_evidence}
@@ -1556,10 +1324,10 @@ def _cross_validate(data: Mapping[str, Any]) -> None:
         )
     _check_sources(data["sources"])
 
-    # A dependency is a join key onto another contract's id, and every way of
-    # writing one that no contract could ever match is a plan that deadlocks
-    # instead of running — which is only visible once a driver has ordered the
-    # whole set, long after this contract was accepted.
+    # `depends_on` is checked for shape, not for existence: the ids may name
+    # contracts written later, so only the ones that could never be satisfied —
+    # this contract's own id, an unusable id, a repeat — are refused here. Whether
+    # a dependency exists at all is a question for the plan.
     waiting: set[str] = set()
     for index, needed in enumerate(data["depends_on"]):
         if needed == identity:
@@ -1593,25 +1361,18 @@ def _cross_validate(data: Mapping[str, Any]) -> None:
             )
         seen.add(dep["path"])
 
-    # No bound of `limits.max_output_tokens` by `context.max_input_tokens`.
-    # There was one, on the ground that a reply larger than the prompt budget
-    # could not be assembled into a next attempt — but the cap counts the
-    # hidden reasoning a hosted reasoning model spends before it writes, which
-    # is never read back into anything, and the visible reply is bounded where
-    # it competes for room: against the window of the rung it is sent to
-    # (`mcgyvr.gate.preflight.check_contract_against_rung`). The rule only
-    # forced a reasoning model's cap to drag the prompt budget up with it (the
-    # e2e run of 2026-10-13).
+    # A repeat in `deps` is caught by path rather than by content: two entries for
+    # one file would put the same signature in the prompt twice and pad it. What
+    # is left is answered at dispatch, not from text: whether each `sources` entry
+    # exists, is text and is not a secret, what `target_content` becomes when the
+    # contract left it empty, and whether `limits` fits the unit the run reaches.
+    # None of those can be settled here, and refusing a contract for something a
+    # later stage can report with a better message would only move the error
+    # somewhere less useful.
 
 
 def _check_sources(sources: Sequence[str]) -> None:
-    """Each source names one file in the tree, once.
-
-    Checked here, where it costs nothing, for the shape a path must have to be
-    read at all; whether the file is there, and may be given to a worker, is
-    the attempt's question (:mod:`mcgyvr.worker.sources`), asked of the tree
-    the run starts from.
-    """
+    """Check `sources`: repo-relative literal files, each named once."""
     seen: set[str] = set()
     for index, source in enumerate(sources):
         where = f"sources.{index}: {source!r}"
@@ -1654,7 +1415,7 @@ def _check_destination(
     allow: Sequence[str],
     forbid: Sequence[str],
 ) -> None:
-    """The target and scope of a contract that writes: one file, in its scope."""
+    """Check the target against the scope: literal or pattern by tier, and writable."""
     if not allow:
         raise ContractSchemaError(
             "scope.allow: is empty, which permits nothing — the contract "

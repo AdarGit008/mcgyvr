@@ -1,29 +1,11 @@
-"""The JavaScript/TypeScript adapter — the second language (#36).
+"""The gate's JavaScript/TypeScript adapter.
 
-This is what proves the adapter interface is real rather than Python-shaped:
-it satisfies the very same :class:`~mcgyvr.gate.adapter.LanguageAdapter`
-contract with none of Python's tools or concepts.
-
-Syntax and structural checks use **tree-sitter** — the same grammar investment
-the orchestrator's index needs, which is what makes a second language
-affordable rather than a rewrite. One error-tolerant parse per file gives both
-a fast syntax verdict (``root.has_error``) and a walkable tree for hazards, at
-no subprocess cost, exactly as the standard-library parser does for Python.
-
-Lint and format defer to the JS ecosystem's own tools — **eslint** and
-**prettier** — batched over all changed files and filtered to worker-added
-lines, so a file's pre-existing style can never fail the change. When a tool is
-absent that is an *environment* fault, surfaced as
-:class:`~mcgyvr.gate.adapter.ToolUnavailableError`, not a rejection — the same
-distinction the Python adapter and the acceptance rung (#38) draw. When a tool
-is present but its run cannot be read, that is
-:class:`~mcgyvr.gate.adapter.ToolFailedError` and the change is refused:
-eslint and prettier both answer a fatal config error with exit 2 and an empty
-stdout, which every reader here would otherwise score as clean.
-
-The three grammars (JavaScript, TypeScript, TSX) are selected by extension.
-JSX rides on the JavaScript grammar, which parses it; ``.tsx`` needs its own
-grammar because the type syntax and the angle brackets are otherwise ambiguous.
+Owns the .js/.jsx/.mjs/.cjs and .ts/.tsx/.mts/.cts family. Syntax and the
+structural hazard checks run on tree-sitter parses, so they need no toolchain;
+lint and format shell out to eslint and prettier and then attribute what those
+tools say to the lines the change added, so a defect the worker did not
+introduce is not counted against it. The adapter also names the repo's type
+check and test commands when the repo declares them.
 """
 
 from __future__ import annotations
@@ -58,37 +40,29 @@ from mcgyvr.sandbox.declared import CONFIG_MODULES, ESLINT, PRETTIER
 _ESLINT = ESLINT
 _PRETTIER = PRETTIER
 
-# Grammars are built once at import — they are hard dependencies, cheap to
-# construct, and immutable, so a fresh Parser per parse is all a call needs.
+# One parser per grammar: TypeScript proper, TSX (the JSX dialect, which has a
+# grammar of its own), and JavaScript. _language_for picks between them.
 _JS = Language(_js_language())
 _TS = Language(_ts_language())
 _TSX = Language(_tsx_language())
 
-# Extension → grammar. ``.tsx`` is its own grammar; ``.jsx`` is not — the
-# JavaScript grammar already parses JSX. TypeScript's module variants (``.mts``,
-# ``.cts``) share the plain TypeScript grammar.
+# The suffixes each grammar covers, kept apart so _language_for can pick one.
+# `.tsx` is listed on its own because JSX is not valid in the other TypeScript
+# suffixes, and _EXTENSIONS is the whole family that `owns` accepts.
 _TS_EXTENSIONS = (".ts", ".mts", ".cts")
 _TSX_EXTENSIONS = (".tsx",)
 _JS_EXTENSIONS = (".js", ".jsx", ".mjs", ".cjs")
 _EXTENSIONS = _TS_EXTENSIONS + _TSX_EXTENSIONS + _JS_EXTENSIONS
 
-# eslint marks a real error with severity 2 and an advisory with 1. Only an
-# error rejects a change: a warning is, by the project's own config, not
-# fatal, so charging the worker for one would contradict the project's intent.
-#
-# ruff has no severity to filter on; the Python adapter's only non-rejecting
-# lint findings are the ones `PythonAdapter.lint` demotes to `STYLE`.
+# eslint's severity scale: 1 is a warning and 2 is an error. Only errors reject
+# a change, so the number is named here rather than spelled inline below. The
+# gate looks for problems rather than style opinions, and a warning is an
+# opinion; anything eslint cannot grade — a fatal message — is a tool fault.
 _ESLINT_ERROR = 2
 
 
 class JavaScriptAdapter(LanguageAdapter):
-    """One adapter for the JS/TS family: ``.js/.jsx/.mjs/.cjs/.ts/.tsx/.mts/.cts``.
-
-    eslint and prettier load their configuration from the tree they check, and
-    an ``eslint.config.js`` or ``prettier.config.js`` is a module they run. So
-    they run through ``runner``: the host by default, the open sandbox when the
-    gate judges a task's workspace (:meth:`running_in`).
-    """
+    """Check JS/TS changes with tree-sitter, eslint and prettier."""
 
     def __init__(self, runner: ToolRunner | None = None) -> None:
         self._runner: ToolRunner = runner if runner is not None else HostRunner()
@@ -115,7 +89,7 @@ class JavaScriptAdapter(LanguageAdapter):
         if root is None or not root.has_error:
             return []
         node = _first_error(root)
-        if node is None:  # has_error with no locatable node — nothing to point at
+        if node is None:  # has_error is set, yet no node was found to point at
             return []
         detail = f": missing '{node.type}'" if node.is_missing else ""
         return [
@@ -130,15 +104,14 @@ class JavaScriptAdapter(LanguageAdapter):
     def structural_checks(
         self, change: FileChange, repo: Path, *, contract_text: str = ""
     ) -> list[Finding]:
-        # `contract_text` is accepted and unread: every hazard in `_HAZARDS` is
-        # a fault no contract can order — `==` where `===` was meant, a `var`,
-        # a stray `debugger` — so there is nothing here for a contract to stand
-        # down. Taking the argument anyway keeps one adapter signature; an
-        # adapter that refused it would make the gate's call site conditional
-        # on which language it was talking to.
+        # The hazard rules are fixed rather than contract-driven: contract prose
+        # carries nothing JS/TS-specific to interpret, so `contract_text` is
+        # unused and _HAZARDS is the whole rule set. A hazard is reported only
+        # when it sits on a line the change added, and a file that does not
+        # parse is skipped here so check_syntax reports it once.
         root = self._parse(repo / change.path)
         if root is None or root.has_error:
-            return []  # the syntax pass owns a broken file; do not double-report
+            return []  # unparseable, so no node can be trusted as a hazard
         findings: list[Finding] = []
         for node in _walk(root):
             hazard = _HAZARDS.get(node.type)
@@ -164,19 +137,19 @@ class JavaScriptAdapter(LanguageAdapter):
     def lint(
         self, changes: Sequence[FileChange], repo: Path, *, base: str | None = None
     ) -> list[Finding]:
-        # ``base`` is not read: eslint's diagnostics on a rewritten line are all
-        # charged to the change, the strict reading the interface allows.
+        # One eslint run over every owned file; `base` plays no part because the
+        # added lines already say which of them the worker touched.
         files = self.owned(changes)
         if not files:
             return []
         proc = _run(
             self._runner, _ESLINT, ["--format", "json", "--", *_paths(files)], repo
         )
-        # eslint reports on 0 (nothing to say) and 1 (problems found); 2 is a
-        # fatal error — no config, an unloadable config, an internal failure —
-        # and it writes **no stdout at all**, which the JSON read below turns
-        # into zero results. That is a clean pass under a linter that never ran
-        # (#261), and only the exit code distinguishes it.
+        # eslint exits 0 when it has nothing to report and 1 when it reports
+        # problems; both carry a JSON report on stdout. Any other exit — an
+        # unloadable config, an internal error — prints an empty stdout, which
+        # must never read as "nothing found", so trusted_stdout raises
+        # ToolFailedError rather than letting the empty string parse as clean.
         stdout = trusted_stdout(_ESLINT, proc, expected=(0, 1))
         try:
             results = json.loads(stdout or "[]")
@@ -195,9 +168,9 @@ class JavaScriptAdapter(LanguageAdapter):
             for message in result.get("messages", []):
                 line = message.get("line")
                 if message.get("fatal") and line not in added_lines:
-                    # eslint could not parse the file, so no rule ran on it.
-                    # Dropped as off the worker's lines, it would leave a clean
-                    # pass over a file that was never linted.
+                    # A fatal message is eslint failing to judge the file, not a
+                    # rule violation: no line it names can be trusted, so it is
+                    # a fault for the whole run instead of a finding.
                     raise ToolFailedError(
                         _ESLINT,
                         proc.returncode,
@@ -221,12 +194,11 @@ class JavaScriptAdapter(LanguageAdapter):
         if not files:
             return []
         prettier = self._runner
-        # One batched call finds which files differ at all; in the common case
-        # (the worker's code is already formatted) it finds none and this is the
-        # only prettier invocation. Only a file that both differs and gained
-        # worker lines is then diffed to attribute the change to a line —
-        # prettier has no batched per-line diff, so the precise attribution
-        # that keeps a pre-existing reflow off the worker is done per such file.
+        # --list-different names the files prettier would rewrite, so only those
+        # are worth diffing line by line. For each of them prettier's formatted
+        # output is diffed against the file on disk, and a finding is raised
+        # only when a reflowed line is one the change added — pre-existing
+        # formatting is not the worker's doing.
         differing = _prettier_differing(prettier, _paths(files), repo)
         findings: list[Finding] = []
         for change in files:
@@ -246,23 +218,7 @@ class JavaScriptAdapter(LanguageAdapter):
         return findings
 
     def locate_type_check_command(self, repo: Path) -> list[str] | None:
-        """``tsc --noEmit`` when the repository carries a ``tsconfig.json``.
-
-        The presence of the file *is* the declaration: a repository with a
-        ``tsconfig.json`` has said how its TypeScript should be checked, and
-        every option that shapes the check — ``strict``, ``lib``, ``target``,
-        ``paths`` — is read from it by ``tsc`` itself. Nothing is added here.
-
-        ``--noEmit`` is the one argument, and it is not a strictness flag: it
-        says *check without writing output*, which is the difference between
-        running a check and running a build. A repository whose config already
-        sets ``noEmit`` is unaffected, and one that emits to an ``outDir`` is
-        spared having a gate step scatter build artefacts through its tree.
-
-        Deliberately not read: ``package.json`` scripts. A repository that
-        declares its own ``typecheck`` script has declared an acceptance
-        command, and that belongs in the contract, which outranks this.
-        """
+        """`tsc --noEmit` when the repo has a tsconfig.json, else no check."""
         return ["tsc", "--noEmit"] if (repo / "tsconfig.json").is_file() else None
 
     def locate_test_command(self, repo: Path) -> list[str] | None:
@@ -272,12 +228,11 @@ class JavaScriptAdapter(LanguageAdapter):
         try:
             manifest = json.loads(package.read_text(encoding="utf-8"))
         except (OSError, json.JSONDecodeError, UnicodeDecodeError):
-            # An unreadable manifest is not a declaration, and nothing here
-            # raises: the answer to "does this repository declare a test
-            # command" is no. `UnicodeDecodeError` is named because the read is
-            # strict and it is a `ValueError`, so it belongs to neither of the
-            # other two — the same hole, and the same fix, as
-            # `python.py`'s `_has_toml_table` over `pyproject.toml`.
+            # An unreadable or malformed manifest says only that no test command
+            # can be located, so it is reported as absence rather than raised:
+            # the caller treats a missing command as no test rung. Raising here
+            # would turn a broken package.json into a gate fault before any
+            # check of the delivered code had run.
             return None
         scripts = manifest.get("scripts")
         if not isinstance(scripts, dict) or "test" not in scripts:
@@ -285,12 +240,7 @@ class JavaScriptAdapter(LanguageAdapter):
         return [_package_manager(repo), "test"]
 
     def _parse(self, path: Path) -> Node | None:
-        """Parse ``path`` with the grammar its extension names; ``None`` if unread.
-
-        Bytes, not text: tree-sitter works on bytes and its line numbers index
-        the bytes we hand it, which keeps attribution aligned with the change
-        set's own line numbering.
-        """
+        """Parse `path` with the grammar its suffix picks, or None if unreadable."""
         language = _language_for(path.name)
         if language is None:
             return None
@@ -301,12 +251,11 @@ class JavaScriptAdapter(LanguageAdapter):
         return Parser(language).parse(source).root_node
 
 
-# --- structural hazards --------------------------------------------------
-#
-# Each entry maps a tree-sitter node type to a function returning the finding's
-# (code, message), or (None, "") when a node of that type is not in fact a
-# hazard (a `==` inside a `===` shares no type, but loose vs strict equality is
-# told apart by the operator token, so the check lives in the function).
+# Structural hazard handlers. Each receives a tree-sitter node and returns
+# ``(code, message)`` to report it, or ``(None, "")`` to leave it alone.
+# _HAZARDS binds them to the node types that trigger them, so structural_checks
+# walks the tree once and consults the table instead of pattern-matching node
+# types inline.
 
 
 def _loose_equality(node: Node) -> tuple[str | None, str]:
@@ -349,7 +298,7 @@ def _language_for(filename: str) -> Language | None:
 
 
 def _walk(root: Node) -> Iterator[Node]:
-    """Every node in the tree, iteratively — no recursion limit on deep files."""
+    """Yield `root` and every node beneath it, each node before its children."""
     stack = [root]
     while stack:
         node = stack.pop()
@@ -358,23 +307,18 @@ def _walk(root: Node) -> Iterator[Node]:
 
 
 def _first_error(root: Node) -> Node | None:
-    """The earliest error or missing node, so a syntax finding points at the cause."""
+    """Return the first error or missing node under `root`, or None."""
     errors = [n for n in _walk(root) if n.is_error or n.is_missing]
     return min(errors, key=lambda n: n.start_point) if errors else None
 
 
-# --- prettier ------------------------------------------------------------
+# Shell out through the adapter's runner, reporting a timeout as a tool fault.
 
 
 def _run(
     runner: ToolRunner, tool: str, args: Sequence[str], repo: Path
 ) -> subprocess.CompletedProcess[str]:
-    """Run ``tool`` through ``runner``; a run past its ceiling is unreadable.
-
-    No ceiling is asked for, as none ever was: on the host the tool runs
-    unbounded, and in a sandbox under the sandbox's own. A run that hit that
-    ceiling produced no answer, which is :class:`ToolFailedError`.
-    """
+    """Run `tool` in `repo`, turning a timeout into a ToolFailedError."""
     try:
         return runner.run(tool, args, repo)
     except subprocess.TimeoutExpired as exc:
@@ -384,32 +328,19 @@ def _run(
 def _prettier_differing(
     prettier: ToolRunner, paths: Sequence[str], repo: Path
 ) -> set[str]:
-    """The owned files prettier would reformat, from one batched call.
-
-    ``--list-different`` prints, one per line, the paths (as passed) that are
-    not already formatted, and exits 1 when there are any — an expected outcome
-    here, not a failure. Exit 2 is prettier failing (an invalid config, an
-    unresolvable plugin), and it prints nothing, so an unguarded read of stdout
-    would say every file is already formatted (#261).
-    """
+    """Return the paths prettier's ``--list-different`` says it would rewrite."""
     proc = _run(prettier, _PRETTIER, ["--list-different", "--", *paths], repo)
     stdout = trusted_stdout(_PRETTIER, proc, expected=(0, 1))
     return {line.strip() for line in stdout.splitlines() if line.strip()}
 
 
 def _prettier_reflowed_lines(prettier: ToolRunner, path: str, repo: Path) -> set[int]:
-    """Current-file line numbers prettier would change in ``path``.
-
-    Prettier emits no diff, so we take its formatted output for the one file and
-    diff it against the file on disk ourselves, recording the lines on the
-    *current* side of a change. Intersected with the worker's added lines by the
-    caller, this is what keeps a reflow of pre-existing code off the worker.
-    """
+    """Return the 1-based lines of `path` that prettier's formatting would change."""
     proc = _run(prettier, _PRETTIER, ["--", path], repo)
-    # Printing a file's formatted output is a 0-or-nothing operation: prettier
-    # is not reporting a count here, so 1 is a failure like any other. This
-    # runs only for a file prettier has *already* said differs, so returning an
-    # empty set on a bad exit would silently unsay it (#261).
+    # Only exit 0 is accepted here: the file has already been listed as
+    # differing, so a prettier that cannot print it is a fault rather than
+    # evidence that nothing reflowed. Exit 0 also means stdout carries the
+    # formatted file, ready to diff.
     stdout = trusted_stdout(_PRETTIER, proc, expected=(0,))
     try:
         original = (repo / path).read_text(encoding="utf-8", errors="surrogateescape")
@@ -421,15 +352,15 @@ def _prettier_reflowed_lines(prettier: ToolRunner, path: str, repo: Path) -> set
     matcher = difflib.SequenceMatcher(a=old_lines, b=new_lines, autojunk=False)
     for tag, i1, i2, _j1, _j2 in matcher.get_opcodes():
         if tag in ("replace", "delete"):
-            touched.update(range(i1 + 1, i2 + 1))  # 1-based current-file lines
+            touched.update(range(i1 + 1, i2 + 1))  # 0-based diff, 1-based lines
     return touched
 
 
-# --- package manager -----------------------------------------------------
+# Lockfile detection, so the test command runs under the manager the repo uses.
 
 
 def _package_manager(repo: Path) -> str:
-    """The runner that fronts ``<pm> test`` for this repo, by its lockfile."""
+    """Return the package manager whose lockfile `repo` carries, or npm."""
     if (repo / "pnpm-lock.yaml").is_file():
         return "pnpm"
     if (repo / "yarn.lock").is_file():

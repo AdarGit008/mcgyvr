@@ -1,64 +1,12 @@
-"""Deterministic repair of a rejected change.
+"""Mechanical repair of a change set: bring the Python files a contract permits
+up to the toolchain's own standard before anything is reviewed.
 
-The gate is read-only on purpose: ``ruff format --diff`` reports what the
-formatter *would* change, ``ruff check`` runs without ``--fix``, and a
-formatting violation becomes a :class:`~mcgyvr.gate.Finding` rather than a
-rewrite. A checker that edits what it is checking cannot be trusted to have
-checked it, so that separation stays.
-
-What it leaves behind is a bill. Every rejection a *tool* could have fixed for
-nothing — an unused import, an unsorted block, a line the formatter would
-reflow — is instead paid for with a model call, and on a weak local model the
-call is the scarce thing. A 7B that produced correct logic with a blank line in
-the wrong place is asked to try again, and it is at least as likely to produce
-different logic as the same logic formatted.
-
-So this module is the other half of the separation. The gate judges and never
-writes; :func:`repair` writes and never judges. The caller's loop is::
-
-    result = gate.run(changeset, contract.scope)
-    if not result.accepted and repair(repo=repo, contract=contract, base=base).changed:
-        result = gate.run(ChangeSet.detect(repo, base), contract.scope)
-
-and the point of it is the rung that does *not* appear: on a repaired file the
-gate is re-run **on the same rung, with no model retry**. A failed attempt
-becomes a free pass.
-
-Four constraints hold the lever honest, and each is a way it could otherwise
-buy nothing, cost something, or write somewhere it was not asked to:
-
-* **It reports what it did, by the bytes.** ``changed`` is computed by
-  comparing each file before and after, not by trusting a tool's exit code. A
-  caller told "repaired" re-runs the gate; told that on a file nothing touched,
-  it re-runs a gate whose answer it already has, and on a failing attempt that
-  is a loop that ends at the attempt ceiling rather than a recovery.
-* **It stays inside the contract's scope — the file's, not the name's.** The
-  tools are pointed at an explicit file list drawn from the change set and
-  filtered through :class:`~mcgyvr.scope.Scope`, never at a directory. A
-  formatter run across a tree is exactly how a tidy-up escapes its contract: it
-  rewrites a human's unrelated file, and the gate never notices because the gate
-  only looks at the change. Checking the *path* is not enough for the same
-  reason: a symlink the worker left inside the scope is an in-scope name for an
-  out-of-scope file, and ``ruff format`` writes through it. Resolving the path
-  is not enough either, because a hard link has nothing to resolve — it *is*
-  the file, under a second name, and the formatter writing through the name the
-  scope allows rewrites the one it forbids (see :func:`_repairable`).
-* **It says what it left behind, and not what that is.** ``repair`` mutates the
-  working tree, so the tree is where the bytes are and there is no second place
-  they could be. :attr:`RepairOutcome.repaired` names the paths that differ from
-  what the worker left — the claim a caller acts on, because it is what makes a
-  second gate run worth a subprocess. No copy of those bytes is handed back:
-  delivery takes an :class:`~mcgyvr.deliver.Accepted` minted off the tree.
-* **The one step that adds code may only transcribe.** Auto-import insertion
-  writes ``from <module> import <name>`` for an undefined name **only** when
-  some ``deps`` entry in the contract already declares that name. The repair is
-  writing down something the contract said, not inventing a dependency.
-
-Everything here is best effort. A missing ruff, a ruff that dies, a file that
-will not decode: all are recorded as environment issues and none of them
-raises. The verdict on the change belongs to the gate, and a tidy-up that could
-not run has no standing to overturn one — it just reports that it changed
-nothing, and the caller escalates exactly as it would have without this module.
+`repair` detects the files changed against a base revision (or against the base
+of an already-open sandbox), keeps the ones the contract's scope allows, inserts
+imports for names the contract declares as dependencies, then runs
+`ruff check --fix` and `ruff format` over the survivors. The outcome names the
+files the tools actually rewrote and the environment problems — a missing
+`ruff`, a timeout, an unexpected exit code — that stopped a fix from happening.
 """
 
 from __future__ import annotations
@@ -83,63 +31,41 @@ from mcgyvr.lines import parser_lines, terminator
 if TYPE_CHECKING:  # pragma: no cover - typing only
     from mcgyvr.sandbox.base import Sandbox
 
-#: ruff reports on 0 (clean) and 1 (diagnostics, or fixes applied with some
-#: left); anything else is ruff telling us it did not do the job. Same split
-#: the adapters make (:func:`mcgyvr.gate.adapter.trusted_stdout`) — read here
-#: rather than reused, because an untrustworthy repair is an environment issue
-#: and not, as it is for a gate rung, a reason to refuse the change.
+#: Ruff exit codes that mean "the run itself succeeded": 0 for a clean result,
+#: 1 for findings or would-reformat, which is exactly what `--fix` and `format`
+#: report when they have work to do.
 _REPORTING = frozenset({0, 1})
 
-#: Wall-clock ceiling for one ruff invocation. A repair is a best-effort tidy-up
-#: and must never be the thing that hangs an attempt loop; a ruff that does not
-#: finish in this budget is recorded as an environment issue, not waited on.
+#: Ceiling on any single ruff invocation; a run that outlives it is abandoned and
+#: recorded as an environment issue instead of stalling the repair.
 RUFF_TIMEOUT_S = 120.0
 
-#: Directory prefixes that are a packaging root rather than a package. ``src``
-#: carries no ``__init__.py`` and is never importable, so ``src/pkg/x.py`` is
-#: the module ``pkg.x``; keeping the prefix would emit an import that does not
-#: resolve, which replaces one failure with another.
+#: Path prefixes stripped from a dependency's file path when turning it into an
+#: importable module name, so `src/pkg/mod.py` indexes as `pkg.mod`.
 _SOURCE_ROOTS = ("src/",)
 
-#: The name ruff quotes in ``Undefined name `foo```. Read from the message
-#: rather than from the source span, because the span is a byte range and the
-#: message already carries the identifier ruff resolved.
+#: Pulls the offending name out of ruff's F821 message, which quotes it in
+#: backticks: "Undefined name `foo`".
 _UNDEFINED_NAME = re.compile(r"`([A-Za-z_][A-Za-z0-9_]*)`")
 
 
 @dataclass(frozen=True)
 class RepairOutcome:
-    """What a repair pass actually did.
-
-    ``repaired`` holds the paths whose bytes differ from what the worker left,
-    which is the only claim a caller can act on: it is what makes re-running
-    the gate worth a second subprocess rather than a guaranteed repeat of the
-    verdict already in hand.
-
-    There is deliberately no copy of those bytes here. A repair writes the tree
-    in place, so the tree is the owner: what the re-run gate is about to read is
-    what is on disk, and a second copy travelling beside the paths is a thing a
-    caller can hand onward without a gate in between. The bytes reach delivery
-    as an :class:`mcgyvr.deliver.Accepted`, minted off this tree after the
-    re-run gate speaks over it.
-
-    ``environment_issues`` mirror
-    :class:`~mcgyvr.gate.acceptance.AcceptanceReport`'s — a step that could not
-    run, phrased so an operator knows what to install. They never imply
-    anything about the change.
-    """
+    """What a repair run did: the files it rewrote and the environment problems
+    that kept it from doing more."""
 
     repaired: tuple[str, ...] = ()
     environment_issues: tuple[str, ...] = ()
 
     @property
     def changed(self) -> bool:
-        """Whether any file on disk is different from what the worker wrote."""
+        """True when at least one file's bytes differ from what they were."""
         return bool(self.repaired)
 
 
 class RepairError(Exception):
-    """A repair call was misconfigured — a caller error, not an environment fault."""
+    """Raised when `repair` cannot tell which tree to work on: both a sandbox and
+    a repo were given, or neither was."""
 
 
 def repair(
@@ -149,27 +75,12 @@ def repair(
     contract: Contract,
     base: str = "HEAD",
 ) -> RepairOutcome:
-    """Apply every fix a tool can make to the worker's change, in place.
+    """Repair the contract-permitted Python files changed against `base`, either
+    in `repo` or in `sandbox`'s workspace (where `base` comes from the sandbox).
 
-    Exactly one of ``repo`` and ``sandbox`` says where the repair happens. A
-    caller mid-attempt already holds the sandbox the gate just judged, and
-    passing it derives the workspace and its base from the sandbox rather than
-    making the caller thread two values it already has; passing ``repo`` repairs
-    that tree against ``base``, which is the pre-worker tree the gate measured
-    the change against. Nothing outside ``contract.scope`` is opened, and no
-    model is reached at any point — this module imports nothing from
-    :mod:`mcgyvr.runner` and calls no dispatcher, which is the whole economic
-    argument for the lever.
-
-    The order is deliberate: imports are inserted **first**, then the fixer,
-    then the formatter. The insertion is the only step that writes new code, so
-    running the tools after it means they see the file the re-run gate will see
-    and the repair never leaves behind a line it added but did not tidy.
-
-    The outcome carries the paths and not the bytes. The caller's next move is to
-    re-run the gate on this tree, and what it delivers is minted from the tree
-    there — the string it was holding when it called this stopped being the
-    change the moment the formatter ran.
+    Exactly one of `repo` and `sandbox` must be given. A change set that cannot
+    be computed is returned as an environment issue rather than raised, because
+    the tree has then been left untouched.
     """
     if sandbox is not None and repo is not None:
         raise RepairError(
@@ -184,14 +95,15 @@ def repair(
     if sandbox is not None:
         repo = sandbox.workspace
         base = sandbox.base_changeset_ref()
-    assert repo is not None  # the neither/nor guard above
+    assert repo is not None  # narrowing: the checks above leave exactly one source
 
     issues: list[str] = []
     try:
         changeset = ChangeSet.detect(repo, base)
     except ChangeSetError as exc:
-        # No change set, no file list: repairing a tree we cannot describe is
-        # exactly the unscoped tidy-up this module refuses to be.
+        # Detection needs a usable git tree and a resolvable base. When either is
+        # missing nothing can be repaired, but this is the environment's fault
+        # rather than the change's, so it is reported instead of raised.
         return RepairOutcome(environment_issues=(f"repair: {exc}",))
 
     targets = _repairable(changeset, contract)
@@ -215,25 +127,9 @@ def repair(
 
 
 def _repairable(changeset: ChangeSet, contract: Contract) -> list[FileChange]:
-    """The changed files a repair may open: Python, in scope, still a real file.
-
-    ``owned`` is the adapter's own answer to "is this a Python file the gate
-    scans", already excluding deletions and binaries — asking it rather than
-    re-deriving the suffix list keeps the repair pointed at precisely the files
-    the gate's Python rungs rejected on.
-
-    Scope is asked about the name, and then about the file, because those are
-    not the same question and the gap is a way out of the contract. ``is_file()``
-    follows symlinks: a link the worker left at an allowed path is an in-scope
-    *name* for whatever it points at, and ``ruff format`` writes through it —
-    rewriting a file the contract explicitly forbids, reporting the repair
-    against the in-scope name, and leaving the gate none the wiser because the
-    gate only ever looks at the change. So the answer is taken about the bytes
-    that would actually be rewritten: still inside the repository, permitted
-    where the name really lands, and — because a file may have more than one
-    name and resolving finds only the first kind — permitted under *every* name
-    it has (:func:`_writes_where_it_says`).
-    """
+    """The changed Python files that may be rewritten: owned by the Python
+    adapter (so no deletions, binaries or links) and permitted by the contract's
+    scope both as named and as resolved."""
     return [
         change
         for change in PythonAdapter().owned(changeset.files)
@@ -243,16 +139,9 @@ def _repairable(changeset: ChangeSet, contract: Contract) -> list[FileChange]:
 
 
 def _writes_where_it_says(repo: Path, path: str, contract: Contract) -> bool:
-    """Whether opening ``path`` for writing rewrites only bytes the contract allows.
-
-    ``False`` for a path that is not a regular file, that resolves outside the
-    repository, that resolves onto a file the scope does not permit, or that is
-    one of several names for a file whose other names the scope does not permit —
-    one check rather than four because the answer to all of them is the same:
-    this is not ours to rewrite. A path with no link in it resolves to itself and
-    has one name, and the scope has already said yes to that, so the ordinary
-    case costs two ``stat`` calls.
-    """
+    """True when `path` is a regular file inside `repo` that resolves to a
+    location the scope permits and whose every other name for the same inode is
+    permitted too."""
     target = repo / path
     if not target.is_file():
         return False
@@ -266,24 +155,9 @@ def _writes_where_it_says(repo: Path, path: str, contract: Contract) -> bool:
 
 
 def _every_name_is_in_scope(anchor: Path, resolved: Path, contract: Contract) -> bool:
-    """Whether every name this file has is one the contract permits.
-
-    ``resolve()`` answers for symlinks and cannot answer for hard links, because
-    a hard link is not a reference to a file — it *is* the file, under a second
-    directory entry, with nothing to see through and nothing to resolve. The
-    formatter writes to the inode, so what it writes through the name the scope
-    allows appears under the name the scope forbids: in a directory the contract
-    excluded, or in a tree the repository does not contain.
-
-    An inode cannot be asked for its names, and the names that matter most are
-    the ones outside the repository, where there is nowhere to look. So the
-    question is asked the other way round. ``st_nlink`` is how many names the
-    file has; count the ones inside the repository that the scope permits, and if
-    that is fewer, at least one name exists that this repair may not write to —
-    without ever having to find it. Two in-scope names for one inode is a file
-    the contract permits, written twice, and is repaired as normal: the refusal
-    is about where the other names are, not about there being more than one.
-    """
+    """For files with more than one hard link, require that every name for the
+    inode sits inside the scope, so editing through one name cannot silently
+    rewrite a file the contract never granted."""
     try:
         inode = resolved.stat()
     except OSError:
@@ -294,19 +168,8 @@ def _every_name_is_in_scope(anchor: Path, resolved: Path, contract: Contract) ->
 
 
 def _in_scope_names(anchor: Path, inode: os.stat_result, contract: Contract) -> int:
-    """How many names inside the repository, and inside scope, this inode has.
-
-    The walk is paid for only by a file that has more than one name, which in a
-    source tree is rare enough to cost nothing in the ordinary case, and it stops
-    as soon as the count can no longer change the answer.
-
-    ``lstat`` rather than ``stat`` so that a symlink counts as the separate file
-    it is rather than as a second name for its target: counted the other way, a
-    symlink and a hard link both aimed at one forbidden file would look like two
-    permitted names and let the pair through. ``.git`` is not walked — nothing in
-    it is a repair's to rewrite, and leaving a name found there out of the count
-    can only refuse a file, never admit one.
-    """
+    """Count the in-scope entries under `anchor` that point at `inode`, stopping
+    as soon as `st_nlink` is reached; `.git` is skipped."""
     device, number = inode.st_dev, inode.st_ino
     found = 0
     for directory, subdirectories, names in os.walk(anchor):
@@ -326,11 +189,12 @@ def _in_scope_names(anchor: Path, inode: os.stat_result, contract: Contract) -> 
     return found
 
 
-# --- the tools ------------------------------------------------------------
+# Locating ruff and running it over the target paths.
 
 
 def _locate_ruff(issues: list[str]) -> str | None:
-    """ruff's path, or ``None`` with the absence recorded for the operator."""
+    """Path to `ruff`, or None with an environment issue recorded when the tool
+    is not installed and therefore no fix at all can be applied."""
     try:
         return require_tool(RUFF)
     except ToolUnavailableError as exc:
@@ -341,13 +205,8 @@ def _locate_ruff(issues: list[str]) -> str | None:
 def _run_ruff(
     repo: Path, ruff: str, args: Sequence[str], paths: Sequence[str], issues: list[str]
 ) -> None:
-    """Run one ruff rung over ``paths``, noting a fault instead of raising.
-
-    ``--force-exclude`` because the paths are named explicitly: without it ruff
-    edits a file its own configuration excludes, and a repository that excluded
-    a path has said not to rewrite it. ``--`` because a worker-created filename
-    may begin with a dash.
-    """
+    """Run ruff with `args` over `paths` inside `repo`, recording a timeout or an
+    exit code outside `_REPORTING` as an environment issue rather than failing."""
     try:
         proc = subprocess.run(
             [ruff, *ruff_config_args(repo), *args, "--", *paths],
@@ -368,7 +227,7 @@ def _run_ruff(
         )
 
 
-# --- auto-import insertion ------------------------------------------------
+# Supplying the imports the contract already declares as dependencies.
 
 
 def _insert_declared_imports(
@@ -378,15 +237,8 @@ def _insert_declared_imports(
     deps: Sequence[Dependency],
     issues: list[str],
 ) -> None:
-    """Give every undefined name the contract already declared its import.
-
-    The index is built from the contract's ``deps`` — their *signatures*, which
-    are the contract's own statement of what each dependency exposes, and the
-    only thing this step is permitted to write down. A name ruff cannot resolve
-    and the contract never mentioned is a real failure and stays one: guessing
-    a module for it would turn a legible rejection into an import that does not
-    resolve.
-    """
+    """Insert `from <module> import <name>` for each name ruff reports as
+    undefined on `paths`, when the contract's `deps` declare that name."""
     index = _declared_modules(repo, deps)
     if not index:
         return
@@ -399,15 +251,9 @@ def _insert_declared_imports(
 
 
 def _declared_modules(repo: Path, deps: Sequence[Dependency]) -> dict[str, str]:
-    """Name → module, over every dependency the contract states and that exists.
-
-    First declaration wins, matching the order the contract lists them in: two
-    dependencies exporting one name is the contract's ambiguity to resolve, and
-    picking the later one would make the repair depend on iteration order. A
-    dependency whose file is not in the repository is skipped: an import of it
-    cannot resolve, and writing one turns a legible rejection into an
-    acceptance plus a ``ModuleNotFoundError`` at run time.
-    """
+    """Map each name declared by a dependency to the module it should be imported
+    from, skipping dependencies whose file is absent from `repo`; the first
+    declaration of a name wins."""
     index: dict[str, str] = {}
     for dep in deps:
         module = _module_of(dep.path)
@@ -421,15 +267,9 @@ def _declared_modules(repo: Path, deps: Sequence[Dependency]) -> dict[str, str]:
 
 
 def _declared_names(signature: str) -> tuple[str, ...]:
-    """The names a declared signature defines, parsed rather than matched.
-
-    A signature is a header without a body, so it is completed with a
-    placeholder until it parses — ``def f(x) -> None`` and ``class C(B):`` need
-    different endings, and a signature that is already whole needs none. A
-    signature that parses under none of them is not a declaration of a name and
-    contributes nothing: the contract said something this step cannot read, and
-    inventing a name from it is the one thing it must not do.
-    """
+    """Top-level function and class names declared by a dependency signature,
+    parsed first as written and then with a trailing `:`/`...` appended so both
+    `def f(x)` and `def f(x): ...` yield names."""
     for completion in ("", ": ...", " ..."):
         try:
             tree = ast.parse(signature + completion)
@@ -446,13 +286,9 @@ def _declared_names(signature: str) -> tuple[str, ...]:
 
 
 def _module_of(path: str) -> str | None:
-    """The dotted module a repo-relative ``.py`` path is imported as.
-
-    ``None`` where the path cannot name a module — a suffix that is not
-    ``.py``, or a directory segment that is not an identifier (``my-pkg/x.py``).
-    An import line that does not resolve is a new failure rather than a repair,
-    so an unnameable path is skipped instead of guessed at.
-    """
+    """Dotted module name for a repo-relative `.py` path, with any `_SOURCE_ROOTS`
+    prefix and a trailing `__init__` removed; None when the remainder is not a run
+    of identifiers."""
     if not path.endswith(".py"):
         return None
     relative = path
@@ -462,7 +298,7 @@ def _module_of(path: str) -> str | None:
             break
     parts = relative.removesuffix(".py").split("/")
     if parts[-1] == "__init__":
-        parts = parts[:-1]  # a package is imported by its directory
+        parts = parts[:-1]  # a package's `__init__.py` names the package itself
     if not parts or not all(part.isidentifier() for part in parts):
         return None
     return ".".join(parts)
@@ -471,14 +307,8 @@ def _module_of(path: str) -> str | None:
 def _undefined_names(
     repo: Path, ruff: str, paths: Sequence[str], issues: list[str]
 ) -> dict[str, set[str]]:
-    """Per file, the names ruff says are undefined.
-
-    ``--select F821`` asks ruff one question rather than reading whatever the
-    repository happens to have enabled: the repair needs the undefined names
-    specifically, and a project that never selected ``F`` still has undefined
-    names worth an import. JSON rather than the human format for the same
-    reason the lint rung uses it — a message layout is not an interface.
-    """
+    """Ask ruff for its F821 diagnostics on `paths` as JSON and group the
+    undefined names by file, keyed by the path as the caller spelled it."""
     try:
         proc = subprocess.run(
             [
@@ -513,13 +343,13 @@ def _undefined_names(
     try:
         diagnostics = json.loads(proc.stdout or "[]")
     except json.JSONDecodeError:
-        # ruff promised JSON on a reporting exit code and did not deliver it.
-        # Nothing here is trustworthy enough to write an import from.
+        # Output that is not JSON cannot be trusted to name undefined symbols,
+        # so nothing is inserted and the mismatch is reported instead.
         issues.append(f"repair: {RUFF} F821 output is not JSON")
         return {}
 
-    # ruff prints absolute filenames; the change set carries repo-relative
-    # ones. Resolving both sides is what maps a diagnostic back to its file.
+    # Ruff prints absolute filenames, so resolve each candidate path once to map
+    # a diagnostic back onto the repo-relative path the caller passed.
     by_resolved = {(repo / path).resolve(): path for path in paths}
     undefined: dict[str, set[str]] = {}
     for diagnostic in diagnostics:
@@ -531,7 +361,9 @@ def _undefined_names(
 
 
 def _insert_imports(path: Path, imports: Sequence[str], issues: list[str]) -> None:
-    """Splice import lines into a file below whatever already imports there."""
+    """Write the `imports` that are not already present into `path`, after its
+    shebang, docstring and existing import block, using the file's own line
+    terminator."""
     source = _read_text(path)
     if source is None:
         issues.append(f"repair: {path.name} could not be decoded — no import inserted")
@@ -539,9 +371,9 @@ def _insert_imports(path: Path, imports: Sequence[str], issues: list[str]) -> No
     try:
         tree = ast.parse(source)
     except SyntaxError:
-        # A file that does not parse is a syntax rejection, which is the
-        # gate's to report and a model's to fix. Editing it blind would only
-        # move the error.
+        # Without a parse tree there is no reliable place to put the import, and
+        # an unparseable file is ruff's problem to fix first, so skip it here
+        # rather than risk writing an import into the middle of broken syntax.
         return
     lines = parser_lines(source)
     present = {line.strip() for line in lines}
@@ -555,17 +387,8 @@ def _insert_imports(path: Path, imports: Sequence[str], issues: list[str]) -> No
 
 
 def _import_anchor(tree: ast.Module, source: str) -> int:
-    """The line index to insert imports at: after the docstring and imports.
-
-    Placing them at line 0 would push a module docstring down a line and demote
-    it to a plain string expression — valid Python that has quietly deleted the
-    module's documentation. Stopping at the first statement that is neither
-    keeps the block where a reader expects it, and where ``__future__`` imports
-    (which must come first) already are. A shebang is the same trap one line
-    earlier and is invisible to the parser entirely — ``ast`` reads ``#!`` as a
-    comment, so the anchor starts below it rather than at 0, or the import
-    lands *above* the shebang and the executable stops being one.
-    """
+    """Number of lines to insert new imports after: past a shebang, a module
+    docstring and any leading `import`/`from` statements."""
     body = list(tree.body)
     anchor = 1 if source.startswith("#!") else 0
     if body and _is_docstring(body[0]):
@@ -586,16 +409,12 @@ def _is_docstring(node: ast.stmt) -> bool:
     )
 
 
-# --- io -------------------------------------------------------------------
+# File helpers; the readers swallow errors so a caller can record an issue.
 
 
 def _read_bytes(path: Path) -> bytes | None:
-    """The file's exact bytes, or ``None`` if it cannot be read.
-
-    Bytes, not text: "did the repair change this file" has to be answered on
-    what is on disk, and a decode step could report two different files as the
-    same one.
-    """
+    """File contents for the before/after comparison, or None when the file has
+    gone or cannot be read."""
     try:
         return path.read_bytes()
     except OSError:
@@ -603,15 +422,8 @@ def _read_bytes(path: Path) -> bytes | None:
 
 
 def _read_text(path: Path) -> str | None:
-    """The file as text with its line endings intact, or ``None`` if unreadable.
-
-    ``newline=""`` turns off universal-newline translation, which is not a
-    detail: with it on, a CRLF file arrives as LF, is written back as LF, and a
-    repair asked to add one import has rewritten every line ending in the file —
-    the whole file reported as repaired, and every line of it in the diff a
-    reviewer reads. The parser is handed this same string and numbers its lines
-    over ``\\r\\n`` and ``\\r`` exactly as it does over ``\\n``.
-    """
+    """File decoded as UTF-8 with line endings left untouched, or None when it is
+    missing or not valid UTF-8."""
     try:
         with path.open(encoding="utf-8", newline="") as handle:
             return handle.read()
@@ -620,13 +432,8 @@ def _read_text(path: Path) -> str | None:
 
 
 def _write_text(path: Path, source: str) -> None:
-    """Write ``source`` back as it is, line endings included.
-
-    ``newline=""`` for the other half of :func:`_read_text`'s reason: the default
-    translates every ``\\n`` written to ``os.linesep``, so on a platform whose
-    linesep is not ``\\n`` even a file read without translation would come back
-    with its endings changed.
-    """
+    """Write `source` back with `newline=""` so the line endings it already
+    carries are written verbatim."""
     with path.open("w", encoding="utf-8", newline="") as handle:
         handle.write(source)
 

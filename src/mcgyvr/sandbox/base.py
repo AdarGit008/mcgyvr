@@ -1,31 +1,14 @@
-"""The sandbox interface both modes implement, and everything they share.
+"""The sandbox contract: a throwaway git workspace per task, and the git
+plumbing that fills it, judges it, restores it and takes it away again.
 
-Two modes exist — a container (:mod:`mcgyvr.sandbox.docker`) and a temp
-directory (:mod:`mcgyvr.sandbox.tempdir`) — and #30 requires that nothing
-above them cares which is in use and that they share their test suite rather
-than having two. So the seam between them is kept as small as it can be:
-
-**everything except where a command runs lives here.** The workspace is a
-throwaway directory with a fresh git repository, populated from the target
-repository and committed once as the *base*. The gate judges the worker's
-change as a real diff against that base, and :meth:`Sandbox.reset` restores
-it between attempts. That workspace, its git repository, and its teardown are
-identical in both modes; only :meth:`Sandbox.run` differs — on the host for a
-temp directory, inside a container for Docker.
-
-Two invariants are enforced here rather than trusted to each mode:
-
-1. **Nothing survives a finished task.** The workspace is removed on success,
-   on failure and on interrupt, by a context manager whose ``__exit__`` runs
-   even when the body raises ``KeyboardInterrupt`` — and, as a backstop for
-   an interpreter exit with a sandbox still open, by an ``atexit`` reaper that
-   reaps whatever is still registered. The reaper does not run on
-   ``os._exit``, a fatal signal or an interpreter crash.
-2. **No credential reaches a task.** The environment a command runs in is
-   built from an explicit allowlist, never inherited from the host, and any
-   caller-supplied variable whose name looks like a credential is dropped
-   before it can enter. ``SECURITY.md`` makes this a red-failing invariant,
-   so :func:`credential_env_names` is the check a test asserts against.
+`Sandbox` is the abstract backend — a subclass supplies `run`, `_start` and
+`_stop` — and everything the backends share lives here. The workspace is
+populated from a source tree at a base revision and committed as its own git
+base; checkpoints, snapshots and restores are expressed as git commits and tree
+objects from there. Credentials are kept both out of a copied tree and out of
+the environment a command is handed, every workspace is registered for removal
+if its context manager is never exited, and `open_sandbox` picks the backend the
+configuration asks for.
 """
 
 from __future__ import annotations
@@ -51,8 +34,8 @@ from mcgyvr.redact import scrub
 
 _WORKSPACE_PREFIX = "mcgyvr-task-"
 
-# Identity used for the base commit. Deliberately not the host user's: the
-# sandbox's git history is scaffolding the gate reads, never authorship.
+# The identity every commit inside a workspace is made under, so no host git
+# configuration and no signing key have to be consulted.
 _GIT_IDENTITY = {
     "GIT_AUTHOR_NAME": "mcgyvr",
     "GIT_AUTHOR_EMAIL": "sandbox@mcgyvr.invalid",
@@ -60,15 +43,16 @@ _GIT_IDENTITY = {
     "GIT_COMMITTER_EMAIL": "sandbox@mcgyvr.invalid",
 }
 
-# A variable name that looks like a secret. Broad on purpose: this guards a
-# security invariant, so a false positive (dropping a harmless var) is the
-# safe direction and a false negative is not.
+# The shape of a variable name that names a credential: the word appearing
+# anywhere in the name is enough, so `AWS_SECRET_ACCESS_KEY` and
+# `SESSION_TOKEN` both match; `_KNOWN_CREDENTIAL_VARS` covers the names this
+# pattern misses.
 _CREDENTIAL_NAME = re.compile(
     r"(KEY|TOKEN|SECRET|PASSWORD|PASSWD|CREDENTIAL|_AUTH|APIKEY|SESSION)",
     re.IGNORECASE,
 )
 
-# Provider variables that do not match the shape above but still hold keys.
+# Credentials whose names the pattern above would not catch, listed by name.
 _KNOWN_CREDENTIAL_VARS = frozenset(
     {
         "ANTHROPIC_API_KEY",
@@ -89,47 +73,45 @@ _KNOWN_CREDENTIAL_VARS = frozenset(
 )
 
 
-#: The exit code reported for a command the wall-clock ceiling killed.
+#: The exit code a command is reported with when the sandbox killed it at the
+#: timeout: negative, so it cannot be mistaken for a status the command itself
+#: chose to exit with.
 TIMEOUT_EXIT = -1
 
-#: The ceiling a sandbox command runs under when nothing else supplies one —
-#: no caller ceiling and no ``task_timeout_s`` in config. A command with no
-#: bound at all hangs a task forever, so the sandbox carries its own. It is a
-#: default, not a measurement: the same 900s the config schema defaults
-#: ``task_timeout_s`` to, chosen so a configured install and an unconfigured
-#: one behave alike. The bounds on the docker CLI calls beneath a command are
-#: :data:`~mcgyvr.sandbox.image.DOCKER_CALL_TIMEOUT_S` and
-#: :data:`~mcgyvr.sandbox.image.DOCKER_BUILD_TIMEOUT_S`, and are defaults in
-#: the same sense.
+#: The timeout a command gets when the caller names none, in seconds: a command
+#: that outlives it is killed and reported as timed out, with `TIMEOUT_EXIT` as
+#: its exit code. Fifteen minutes is long enough for a build or a test suite and
+#: short enough that a hung command still ends while the task can report it;
+#: both backends resolve a `None` timeout through `command_timeout`, so this one
+#: number governs each of them.
 DEFAULT_COMMAND_TIMEOUT_S = 900.0
 
 
 def command_timeout(timeout: float | None) -> float:
-    """The ceiling one command runs under: the caller's, or the built-in one.
-
-    Both modes run this over what they were handed, so ``run(..., timeout=None)``
-    is a command with the default ceiling rather than an unbounded one.
-    """
+    """The timeout to give one command: `DEFAULT_COMMAND_TIMEOUT_S` when the
+    caller names none, and otherwise the caller's value as given."""
     return DEFAULT_COMMAND_TIMEOUT_S if timeout is None else timeout
 
 
 class SandboxError(Exception):
-    """A sandbox could not be created, populated, or torn down."""
+    """A sandbox could not do what was asked of it: a git command failed, the
+    source could not be populated, or the workspace was used outside the context
+    manager that creates it."""
 
 
 class NestedGitError(SandboxError):
-    """A ``.git`` entry below the workspace root, which host git would enter."""
+    """A `.git` entry was found below the workspace root. Host git would read the
+    configuration of that repository, so work over this tree stops instead."""
 
 
 def nested_git(root: Path) -> str | None:
-    """The first ``.git`` entry below ``root``, as a relative path, or ``None``.
+    """The path, relative to `root`, of a `.git` entry below the workspace root,
+    or `None` when there is none.
 
-    Host git over a tree holding a nested repository runs a child git inside
-    it, and that child runs the nested repository's own ``core.fsmonitor`` and
-    filter drivers. The top-level ``.git`` is the host's and is mounted
-    read-only into a container; any other one was written by a command, so no
-    host git is run over a tree that holds one. Directory or file (a
-    ``gitdir:`` pointer), in any case. Symlinks are not followed.
+    The workspace's own `.git` at `root` is what makes it a repository and is
+    skipped, as are the hidden entries beneath it. Names are visited in sorted
+    order within each directory, so the reported entry is the first one met in a
+    top-down walk.
     """
     for here, dirs, files in os.walk(root):
         top = Path(here) == root
@@ -142,7 +124,8 @@ def nested_git(root: Path) -> str | None:
 
 
 def refuse_nested_git(root: Path) -> None:
-    """Raise :class:`NestedGitError` naming the entry when ``root`` holds one."""
+    """Raise `NestedGitError`, naming the entry, when the workspace holds a nested
+    `.git`; say nothing when it does not."""
     found = nested_git(root)
     if found is not None:
         raise NestedGitError(
@@ -153,12 +136,8 @@ def refuse_nested_git(root: Path) -> None:
 
 @dataclass(frozen=True)
 class CommandResult:
-    """The outcome of one command run inside a sandbox.
-
-    ``timed_out`` is distinct from a non-zero ``exit_code``: a command the
-    contract's wall-clock ceiling killed is not the same as one that ran and
-    failed, and #38's acceptance logic needs to tell them apart.
-    """
+    """What one command did: the argv it was given, the exit code, the captured
+    `stdout` and `stderr`, and whether the sandbox killed it at the timeout."""
 
     command: tuple[str, ...]
     exit_code: int
@@ -173,13 +152,8 @@ class CommandResult:
 
 @dataclass(frozen=True)
 class Snapshot:
-    """The workspace as a command found it, for :meth:`Sandbox.restore`.
-
-    ``tree`` is the content the gate judges — a ``write-tree`` of the whole
-    working tree staged in a throwaway index, so it honours ``.gitignore`` and
-    holds the change's own untracked files — and ``ignored`` the ignored
-    entries that were already there, one per directory git collapses them to.
-    """
+    """A workspace state to come back to: the git tree object standing for every
+    tracked and non-ignored file, plus the ignored entries present at the time."""
 
     tree: str
     ignored: frozenset[str]
@@ -187,13 +161,8 @@ class Snapshot:
 
 @dataclass(frozen=True)
 class Restored:
-    """What :meth:`Sandbox.restore` undid after one command.
-
-    ``removed`` is what the command created — a directory it made is one entry
-    ending in ``/`` — and ``reverted`` what was there before and that it
-    rewrote or deleted, put back from the snapshot. Both empty: the command
-    left the tree as it found it.
-    """
+    """What a restore changed: `removed` entries it deleted (directories ending in
+    `/`) and `reverted` paths it took back from the snapshot."""
 
     removed: tuple[str, ...] = ()
     reverted: tuple[str, ...] = ()
@@ -202,7 +171,8 @@ class Restored:
         return bool(self.removed or self.reverted)
 
     def named(self, limit: int = 5) -> str:
-        """The first ``limit`` paths, sorted, and how many more there are."""
+        """The changed paths, deduplicated and sorted, in one line: the first
+        `limit` of them, then how many more there are."""
         paths = sorted({*self.removed, *self.reverted})
         shown = ", ".join(paths[:limit])
         more = len(paths) - limit
@@ -210,79 +180,68 @@ class Restored:
 
 
 def is_credential_var(name: str) -> bool:
-    """Whether an environment variable name looks like it holds a secret."""
+    """Whether an environment variable name names a credential."""
     return name in _KNOWN_CREDENTIAL_VARS or bool(_CREDENTIAL_NAME.search(name))
 
 
 def credential_env_names(env: Mapping[str, str]) -> frozenset[str]:
-    """The credential-shaped names in ``env`` — empty is the required state.
-
-    A task container's environment must satisfy ``credential_env_names(env)
-    == frozenset()``. This is the exact assertion ``SECURITY.md`` calls for,
-    factored out so the same check guards construction and the test.
-    """
+    """The names in `env` that `is_credential_var` calls credentials."""
     return frozenset(name for name in env if is_credential_var(name))
 
 
 def safe_env(extra: Mapping[str, str] | None = None) -> dict[str, str]:
-    """Build a task environment from nothing, adding only vetted extras.
+    """`extra` reduced to the entries that can be passed to a command.
 
-    The base is empty — the host environment is never inherited — so a
-    credential can only appear if a caller passes one, and this drops those
-    before they enter. Everything a runtime needs on top of the image's own
-    defaults (a working directory, a locale) is set by the mode, not here.
-    A value holding a URL with ``user:password@`` in it is a credential under
-    any name (an index, database or proxy URL), and is dropped the same way.
+    A name that looks like a credential is dropped, and so is any value the
+    redactor would have to alter — that value is a secret whatever the variable
+    is called.
     """
     env: dict[str, str] = {}
     for name, value in (extra or {}).items():
         if is_credential_var(name) or scrub(value) != value:
-            continue  # a caller mistake must not become a leak
+            continue  # a name or a value that holds a secret never reaches a command
         env[name] = value
     return env
 
 
-# --- process-exit reaper -------------------------------------------------
-#
-# The context manager is the primary teardown path and covers interrupt,
-# because a `with` unwinds on KeyboardInterrupt. This registry is the
-# backstop for the case the context manager cannot cover — a normal
-# interpreter exit with a sandbox still registered. It does not run on
-# `os._exit`, a fatal signal or an interpreter crash. Each mode registers a
-# cheap idempotent callable.
+# The open sandboxes, keyed by `id`, so that a workspace is still removed when
+# its context manager is never exited: at interpreter exit the registrations
+# are replayed. A value holds that sandbox's cleanup callables; the first
+# removes the workspace and a backend may add more through `_register_reaper`.
+# Keying by `id` rather than by the object keeps this mapping from holding a
+# sandbox alive, and an entry is dropped as soon as its context exits.
 _LIVE_REAPERS: dict[int, tuple[Callable[[], None], ...]] = {}
 
 
 @cache
 def _install_reaper() -> None:
-    """Register the exit reaper, once per process.
-
-    Memoised rather than latched behind a module flag. The registry above has
-    to be process-wide — there is one process exit to hook — but the *flag* did
-    not have to be rebindable, and "no global mutable state" is checkable
-    only if the exceptions are zero: a guard that allows one legitimate
-    ``global`` allows the next one that claims to be legitimate.
-    """
+    """Register `_reap_all` with `atexit`, once; later calls do nothing."""
     atexit.register(_reap_all)
 
 
 def _reap_all() -> None:
     for reapers in list(_LIVE_REAPERS.values()):
         for reap in reapers:
-            # A reaper must never raise on exit: a failed cleanup of one
-            # resource must not block cleanup of the next.
+            # Reaping is best effort and runs while the interpreter is going
+            # down: one stubborn workspace must not keep the others from going.
             with contextlib.suppress(Exception):
                 reap()
 
 
 class Sandbox(ABC):
-    """One task's isolated workspace. Use as a context manager.
+    """One task's isolation: a throwaway git workspace built from `source` at
+    `base`, driven as a context manager.
 
-    Populating the workspace, its git base commit, resetting it, and tearing
-    it down are shared; a subclass supplies only how a command runs and any
-    mode-specific setup/teardown around the workspace (a container's create
-    and remove). ``isolation`` names the strength of the mode for the user,
-    and ``notes`` carry anything that had to be surfaced once at open.
+    Entering the context creates a fresh temporary directory, populates it,
+    commits it as the workspace's base and calls `_start`; leaving it calls
+    `_stop` and removes the directory. From there the workspace is tracked with
+    git: `checkpoint` and `restore_to` move along its own branch, while
+    `snapshot` and `restore` judge the working tree without committing to it, and
+    `reset` throws everything back to the base commit.
+
+    A backend supplies `run`, `_start` and `_stop`, names the isolation it gives
+    in `isolation`, and may list top-level workspace names it owns in `_kept` so
+    that cleaning the workspace leaves them standing.
     """
 
     isolation: ClassVar[str]
@@ -301,11 +260,12 @@ class Sandbox(ABC):
         self._source_commit: str = ""
         self.notes: tuple[str, ...] = tuple(notes)
 
-    # -- lifecycle --------------------------------------------------------
+    # The workspace exists only between `__enter__` and `__exit__`, and these
+    # accessors refuse rather than pretend otherwise.
 
     @property
     def workspace(self) -> Path:
-        """The host path of the workspace. Valid only inside the context."""
+        """The temporary directory this sandbox works in."""
         if self._workspace is None:
             raise SandboxError("sandbox is not open — use it as a context manager")
         return self._workspace
@@ -324,7 +284,8 @@ class Sandbox(ABC):
                 self.notes = (*self.notes, _left_out_note(left_out))
             self._start()
         except BaseException:
-            # A failure mid-open must not leave a half-built sandbox behind.
+            # Setup failed part-way: take the workspace down again before the
+            # error reaches the caller, so nothing stays on disk or registered.
             self.__exit__(None, None, None)
             raise
         return self
@@ -338,27 +299,22 @@ class Sandbox(ABC):
             self._workspace = None
 
     def reset(self) -> None:
-        """Discard everything since the base commit, so the next attempt is clean.
+        """Throw the workspace back to the base commit.
 
-        A failed attempt leaves no trace in the next (#27): tracked edits are
-        reverted and untracked files — including ignored ones a command may
-        have written — are removed. Runs on the host workspace, which both
-        modes share.
+        Tracked changes are reverted and untracked and ignored files are removed,
+        except the top-level entries `_kept` names. Checkpoints made since are no
+        longer on the branch.
         """
         if self._base_commit is None:
             raise SandboxError("sandbox is not open")
         _git(self.workspace, "reset", "--hard", self._base_commit)
-        # `-ff` removes nested repositories too; neither command runs their config.
+        # `-x` takes ignored files too, so what an earlier run left behind is
+        # not there for the next one to read.
         _git(self.workspace, "clean", "-ffdx", *self._kept_args())
 
     def checkpoint(self) -> str:
-        """Commit the workspace's current state and return the commit to restore to.
-
-        A snapshot for a caller that is about to write and reset and wants to
-        come back to exactly this state — a best-of draw loop, say. Paired with
-        :meth:`drop_checkpoint`, which returns ``HEAD`` to the base once the
-        caller is done, leaving the working tree where it was.
-        """
+        """Commit the whole working tree, empty commits included, and return the
+        new commit id — a point `restore_to` can bring the workspace back to."""
         if self._base_commit is None:
             raise SandboxError("sandbox is not open")
         refuse_nested_git(self.workspace)
@@ -377,13 +333,10 @@ class Sandbox(ABC):
         return _git(self.workspace, "rev-parse", "HEAD").decode("ascii").strip()
 
     def restore_to(self, checkpoint: str) -> None:
-        """Return the workspace to a :meth:`checkpoint` snapshot, dropping the rest.
+        """Put the workspace back on a commit `checkpoint` returned.
 
-        Everything since the snapshot — tracked edits, new files, deletions —
-        is discarded. Ignored files are deliberately left alone: the snapshot
-        does not commit them (``git add -A`` honours ``.gitignore``), so a
-        caller's ignored files are part of the state to preserve, not draw
-        by-product to sweep.
+        `reset --hard` to it, then remove the untracked files left since; ignored
+        files and the entries `_kept` names are left alone.
         """
         if self._base_commit is None:
             raise SandboxError("sandbox is not open")
@@ -391,23 +344,20 @@ class Sandbox(ABC):
         _git(self.workspace, "clean", "-ffd", *self._kept_args())
 
     def drop_checkpoint(self) -> None:
-        """Return ``HEAD`` to the base commit, keeping the working tree as it is.
-
-        The reverse of :meth:`checkpoint`: the snapshot commit is left for git to
-        collect, ``HEAD`` moves back to the base, and the working tree — the
-        caller's state, restored by :meth:`restore_to` — stays put as uncommitted
-        changes again.
-        """
+        """Point the workspace branch back at the base commit and reset the index,
+        leaving the working tree as it is, so the checkpoint commits in between
+        are no longer part of what this workspace would deliver."""
         if self._base_commit is None:
             raise SandboxError("sandbox is not open")
         refuse_nested_git(self.workspace)
         _git(self.workspace, "reset", "--mixed", self._base_commit)
 
     def snapshot(self) -> Snapshot:
-        """Record the workspace before a command, to :meth:`restore` it after.
+        """Record the workspace as it stands.
 
-        Refuses a tree that already holds a nested repository, for the reason
-        :func:`nested_git` gives: staging it would run that repository's git.
+        The tree object covering its tracked and non-ignored files, plus the
+        ignored entries present. A nested `.git` refuses the snapshot: nothing is
+        judged over such a tree.
         """
         refuse_nested_git(self.workspace)
         return Snapshot(
@@ -416,21 +366,13 @@ class Sandbox(ABC):
         )
 
     def restore(self, snapshot: Snapshot) -> Restored:
-        """Put the workspace back as :meth:`snapshot` found it, and say what moved.
+        """Bring the workspace back to `snapshot`, without committing anything.
 
-        What a command leaves behind is its own — a test runner's
-        ``__pycache__`` and ``.pytest_cache``, a tool cache with a ``.git`` of
-        its own — and not part of anything the gate judges. So it is removed,
-        the files the command rewrote or deleted are put back, and the next
-        step starts on the tree the last one was handed.
-
-        Nested repositories go first, by plain file removal, before any host git
-        runs: their config is code (:func:`nested_git`). Then ignored entries
-        that were not there before, then new files git sees, each collapsed to
-        the first directory the command created. An ignored directory that was
-        already there keeps whatever the command added inside it: git cannot
-        see into it, so it is neither judged nor delivered. The mode's own
-        entries (:meth:`_kept`) are never removed.
+        Nested `.git` entries go, ignored entries the snapshot did not have go,
+        paths added since go — taking any directory they brought into being with
+        them — and paths changed or deleted since are checked out again. The
+        top-level entries `_kept` names are left untouched. Returns what was
+        removed and what was reverted.
         """
         workspace = self.workspace
         kept = set(self._kept())
@@ -454,7 +396,9 @@ class Sandbox(ABC):
                 if entry.split("/", 1)[0] not in kept:
                     _remove_entry(workspace, entry)
                     removed.append(entry)
-            # A nested `.git` came out alone; the directory it made is now empty.
+            # Only directories the snapshot did not have are pruned, so a
+            # directory the source legitimately has keeps standing even when it is
+            # empty now.
             for entry in removed:
                 _prune_empty_parents(workspace, entry, existed)
         if reverted:
@@ -462,7 +406,8 @@ class Sandbox(ABC):
         return Restored(tuple(removed), tuple(reverted))
 
     def changed_since_base(self, snapshot: Snapshot) -> frozenset[str]:
-        """The paths where ``snapshot`` differs from the base commit: the change."""
+        """The paths that differ between the base commit and `snapshot`'s tree,
+        with no rename detection: a renamed path is reported under both names."""
         if self._base_commit is None:
             raise SandboxError("sandbox is not open")
         raw = _git(
@@ -478,33 +423,19 @@ class Sandbox(ABC):
         return frozenset(_nul_split(raw))
 
     def base_changeset_ref(self) -> str:
-        """The base ref the gate diffs the worker's change against.
-
-        A commit in the *workspace's* own repository — the one ``git init``
-        made here — and therefore meaningful only inside this workspace. It is
-        not a revision of the source repository and resolves nowhere else, so it
-        is not what :func:`mcgyvr.deliver.deliver` diffs against; that wants
-        :meth:`source_base_commit`.
-        """
+        """The commit in this workspace that `source` was populated at — the
+        revision a delivery out of this workspace is compared against."""
         if self._base_commit is None:
             raise SandboxError("sandbox is not open")
         return self._base_commit
 
     def source_base_commit(self) -> str:
-        """The revision of the *source* repository this workspace was built from.
+        """The commit in `source` that this workspace was built from.
 
-        The same question ``base`` asked at construction, answered as a
-        concrete commit: it is the revision the worker started from, and it is
-        the one value here that means anything back in the repository a
-        delivery commits into. :meth:`base_changeset_ref` is its
-        workspace-local twin and the two are never equal — a delivery handed
-        the wrong one fails to resolve its base.
-
-        Raises when the source could name no commit — a non-git directory, or a
-        repository with nothing committed yet. Both are populated by copying, and
-        neither has a revision for a caller to diff against, so there is no
-        answer to give. Delivery refuses an empty base by name, and this
-        refuses to produce one.
+        Raises when `source` names no committed revision — it is not a git
+        repository, or nothing is committed yet — because delivery would then
+        have no base to diff against, and a moving `HEAD` is not a substitute for
+        one.
         """
         if self._base_commit is None:
             raise SandboxError("sandbox is not open")
@@ -518,16 +449,14 @@ class Sandbox(ABC):
         return self._source_commit
 
     def _register_reaper(self, reaper: Callable[[], None]) -> None:
-        """Add a teardown callback the process-exit reaper runs on a hard crash.
-
-        A mode registers whatever it stood up (a container) so it is reaped
-        even when a crash skips ``__exit__``. Reapers must be idempotent and
-        must not raise. The workspace already registers itself in ``__enter__``.
-        """
+        """Add a cleanup callable to run at interpreter exit alongside the
+        workspace removal, for whatever the backend brought up."""
         existing = _LIVE_REAPERS.get(id(self), ())
         _LIVE_REAPERS[id(self)] = (*existing, reaper)
 
-    # -- mode seam --------------------------------------------------------
+    # What a backend supplies: `run` executes one command inside the isolation,
+    # `_start` brings the isolation up once the workspace is populated, and
+    # `_stop` takes it down again.
 
     @abstractmethod
     def run(
@@ -538,81 +467,62 @@ class Sandbox(ABC):
         env: Mapping[str, str] | None = None,
         cwd: str | None = None,
     ) -> CommandResult:
-        """Run one command in the sandbox and capture its result.
+        """Run `command` inside the isolation, with no shell in between.
 
-        ``env`` is additive and vetted: it is layered onto the mode's minimal
-        environment through :func:`safe_env`, so no credential can enter even
-        if a caller forwards one.
-
-        ``timeout`` is a ceiling in seconds; ``None`` asks for the built-in
-        :data:`DEFAULT_COMMAND_TIMEOUT_S` rather than for no ceiling at all.
-        Nothing a sandbox runs is unbounded.
-
-        ``cwd`` is a directory inside the workspace, relative to it, to run
-        in; ``None`` is the workspace itself (:func:`workdir`).
+        `timeout` of `None` means `DEFAULT_COMMAND_TIMEOUT_S`; `env` is the whole
+        environment the command gets; `cwd` is relative to the workspace. The
+        result carries the exit code and the captured output, and a command that
+        outlives its timeout is killed and reported as timed out with
+        `TIMEOUT_EXIT` as its exit code.
         """
 
     def host_path(self, reported: str) -> Path:
-        """A path a command printed, as the host reads it.
-
-        The workspace is the same directory on both sides in the temp-directory
-        mode; the container mode sees it at another path and overrides this.
-        """
+        """Where a path the sandbox reported lives on this host. The base answer is
+        the path itself: a workspace in a temporary directory is already on this
+        host, which is what a backend with its own filesystem overrides."""
         return Path(reported)
 
     @abstractmethod
     def _start(self) -> None:
-        """Mode-specific setup after the workspace exists (create a container)."""
+        """Bring the isolation up, once the workspace has been populated."""
 
     def _kept(self) -> tuple[str, ...]:
-        """Top-level workspace entries a clean must leave: the mode's own.
-
-        None by default. The container mode names the mount points of the
-        dependency volumes it keeps visible (see
-        :class:`~mcgyvr.sandbox.docker.DockerSandbox`).
-        """
+        """Top-level workspace names this backend owns, which cleaning the
+        workspace must not touch."""
         return ()
 
     def _kept_args(self) -> list[str]:
-        # `-e` holds under `-x` too: it is the one ignore rule `-x` keeps.
+        # `git clean` exclusions for those names, anchored at the workspace root.
         return [arg for name in self._kept() for arg in ("-e", f"/{name}")]
 
     @abstractmethod
     def _stop(self) -> None:
-        """Mode-specific teardown before the workspace is removed. Idempotent."""
+        """Take the isolation down; called on leaving, even when setup failed."""
 
 
-# --- workspace population (shared, host-side git) ------------------------
+# Building the workspace: get the source into it, note which source revision it
+# came from, and commit the result as the workspace's own base.
 
 
 def _populate(
     source: Path, workspace: Path, base: str, *, left_out: list[str] | None = None
 ) -> tuple[str, str]:
-    """Fill ``workspace`` from ``source``, commit it, and name both bases.
+    """Fill `workspace` with `source` at `base`, and commit it as the base.
 
-    When ``source`` is a git repository the base tree is taken with
-    ``git archive`` — exactly the tracked content of ``base``, no ``.git``,
-    no untracked heavyweight directories (``node_modules``, ``.venv``) that a
-    copy would drag in. A non-git source is copied whole minus the files that
-    hold secrets (:func:`_copy_into`), whose paths are appended to
-    ``left_out``. Either way the
-    workspace then gets its own fresh git repository with a single base
-    commit, which is what makes the worker's change a real diff and
-    :meth:`Sandbox.reset` possible.
+    A source that is a git repository with `base` committed is archived from that
+    revision; anything else is copied file by file, minus `.git` and minus the
+    files that hold secrets, whose relative paths are appended to `left_out`.
 
-    Two commits come back because they answer two different questions and
-    conflating them raises: the workspace's own base commit, which the gate
-    diffs against here, and the source revision that workspace was built from,
-    which is what a delivery back in the source repository can diff against. The
-    second is ``""`` when the source has no commit to name.
+    Returns the workspace's base commit and the source revision, the latter `""`
+    when the source names none.
     """
     revision = _source_commit(source, base)
     if (source / ".git").exists() and _has_commit(source, base):
         _archive_into(source, workspace, base)
     else:
-        # A non-git source, or a git repo with no commit yet to archive, is
-        # copied minus its secrets; the fresh git repository below becomes its
-        # base.
+        # There is no committed revision to archive, so the tree is copied as it
+        # lies on disk — minus `.git`, which would bring the source's hooks and
+        # config along, and minus anything that holds a secret.
         skipped = _copy_into(source, workspace)
         if left_out is not None:
             left_out.extend(skipped)
@@ -634,13 +544,8 @@ def _populate(
 
 
 def _source_commit(source: Path, base: str) -> str:
-    """``base`` as a concrete commit in ``source``, or ``""`` if it names none.
-
-    Resolved at open rather than left as the caller's string, because ``HEAD``
-    is a moving name: a delivery diffing against ``HEAD`` after the run is
-    diffing against wherever the branch has got to, which is not where the
-    worker started.
-    """
+    """`base` resolved to a commit id in `source`, or `""` when it does not
+    resolve: not a git repository, or nothing committed under that name."""
     proc = subprocess.run(
         [
             "git",
@@ -659,12 +564,8 @@ def _source_commit(source: Path, base: str) -> str:
 
 
 def _has_commit(source: Path, base: str) -> bool:
-    """Whether ``base`` resolves to a commit in ``source``.
-
-    A freshly ``git init``'d repository has none; there is nothing to archive,
-    so population copies the working tree instead. When ``base`` is not
-    ``HEAD`` it names a specific ref the caller asserts exists.
-    """
+    """Whether `base` names a commit in `source`, peeling a bare `HEAD` to the
+    commit it points at."""
     ref = base if base != "HEAD" else "HEAD^{commit}"
     proc = subprocess.run(
         ["git", "-C", str(source), "rev-parse", "--verify", "--quiet", ref],
@@ -674,7 +575,8 @@ def _has_commit(source: Path, base: str) -> bool:
 
 
 def _archive_into(source: Path, workspace: Path, base: str) -> None:
-    """Extract ``base``'s tracked tree from a git ``source`` into ``workspace``."""
+    """Extract the `git archive` of `source` at `base` into `workspace`, through
+    the host `tar`; either step failing raises `SandboxError`."""
     archive = subprocess.run(
         ["git", "-C", str(source), "archive", "--format=tar", base],
         capture_output=True,
@@ -692,8 +594,8 @@ def _archive_into(source: Path, workspace: Path, base: str) -> None:
         raise SandboxError(f"could not extract archive into {workspace}: {detail}")
 
 
-#: File names a non-git source is copied without, whatever they hold: each is a
-#: place a secret is kept. A pattern is matched against the name alone.
+#: A source that is not a git repository is copied rather than archived, so the
+#: files that hold secrets have to be recognised by name: these names are refused.
 _SECRET_FILES = (
     ".env",
     ".env.*",
@@ -714,31 +616,31 @@ _SECRET_FILES = (
     "id_ed25519",
 )
 
-#: Directories a non-git source is copied without: cloud and remote-login
-#: credential folders.
+#: Directories that hold credentials as a whole, refused whenever they are a
+#: directory.
 _SECRET_DIRS = frozenset({".aws", ".gcloud", ".azure", ".ssh", ".gnupg", ".kube"})
 
-#: Credential files that live inside a folder that is otherwise harmless, keyed
-#: by the folder's name: ``.docker/config.json`` holds registry logins,
-#: ``.config/gcloud`` and ``.config/gh`` hold cloud and GitHub tokens.
+#: Directories where only named children hold credentials, the rest being
+#: ordinary configuration: `.docker/config.json` holds registry logins, and
+#: `.config/gcloud` and `.config/gh` hold theirs.
 _SECRET_UNDER = {
     ".docker": frozenset({"config.json"}),
     ".config": frozenset({"gcloud", "gh"}),
 }
 
-#: Package-manager settings files that are copied unless they hold a login: a
-#: registry URL is configuration, a token beside it is a secret.
+#: Login files that are only secret when they carry something: `holds_a_secret`
+#: reads them and looks for a token, password or auth entry.
 _LOGIN_RC = frozenset({".npmrc", ".pypirc", ".yarnrc", ".yarnrc.yml"})
 
 _RC_LOGIN = re.compile(r"(auth|token|password|passwd|secret)\w*\s*[=:]", re.IGNORECASE)
 
 
 def holds_a_secret(path: Path) -> bool:
-    """Whether a non-git copy leaves ``path`` behind, by its name or its login.
+    """Whether `path` has to be kept out of the workspace.
 
-    Also the rule a contract's ``sources`` are held to before one is given to a
-    worker (:mod:`mcgyvr.worker.sources`): a file the task is not given by
-    copy is not handed over in its prompt either.
+    True for a secret directory, for a known secret child of a configuration
+    directory, for a name matching `_SECRET_FILES`, and for a login file whose
+    text holds a credential — one that cannot be read counts as holding one.
     """
     name = path.name
     if name in _SECRET_DIRS and path.is_dir():
@@ -757,15 +659,11 @@ def holds_a_secret(path: Path) -> bool:
 
 
 def _copy_into(source: Path, workspace: Path) -> tuple[str, ...]:
-    """Copy a non-git ``source`` into ``workspace``, minus VCS metadata and secrets.
+    """Copy `source` into `workspace`, leaving out every `.git` entry and every path
+    `holds_a_secret` refuses.
 
-    A git source brings its tracked files only, so an ignored ``.env`` stays
-    behind on its own. A non-git source has no ignore rules to say what is
-    whose, so what is left behind is decided by name: dotenv files, keys and
-    certificates, ``.netrc``, cloud and SSH credential folders, a registry
-    login, and a package-manager settings file that carries a token. The
-    paths left behind come back, relative to ``source``, so the run can say
-    which files its task does not have.
+    Returns the sorted relative paths left out; a tree that cannot be copied
+    raises `SandboxError`.
     """
     skipped: list[str] = []
 
@@ -786,7 +684,8 @@ def _copy_into(source: Path, workspace: Path) -> tuple[str, ...]:
 
 
 def _left_out_note(paths: Sequence[str]) -> str:
-    """The note a sandbox carries when its non-git copy left secrets behind."""
+    """The note recording that the source was not a git repository and was copied
+    whole, minus the secret-bearing paths the task therefore does not get."""
     return (
         "The source is not a git repository, so it was copied whole except for "
         "files that hold secrets, which the task does not get: " + ", ".join(paths)
@@ -798,7 +697,11 @@ def _git(
     *args: str,
     env: Mapping[str, str] | None = None,
 ) -> bytes:
-    """Run a git command in ``root``, raising :class:`SandboxError` on failure."""
+    """Run git in `root` with `args` and return its stdout.
+
+    The output is captured, `env` replaces the environment when given, and a
+    non-zero exit raises `SandboxError` carrying git's stderr.
+    """
     proc = subprocess.run(
         ["git", "-C", str(root), *args],
         capture_output=True,
@@ -810,14 +713,16 @@ def _git(
     return proc.stdout
 
 
-# --- snapshot and restore (host-side git, throwaway index) ----------------
+# Judging a workspace: the tree object that stands for what it holds, the
+# ignored entries git reports, and the diff between two such tree objects.
 
 
 def _judged_tree(workspace: Path) -> str:
-    """The SHA of the working tree as the gate's change-set sees it.
+    """The tree object for the workspace as it stands.
 
-    Staged in a throwaway index so the workspace's own index is never touched;
-    ``add -A`` honours ``.gitignore``, so this is exactly what is judged.
+    A throwaway index is filled with `git add -A`, so tracked and non-ignored
+    files are all in and ignored files are all out, and the tree written from it
+    names that state without touching the workspace's own index or history.
     """
     with tempfile.TemporaryDirectory(prefix="mcgyvr-snap-") as tmp:
         env = {**os.environ, "GIT_INDEX_FILE": str(Path(tmp) / "index")}
@@ -826,7 +731,8 @@ def _judged_tree(workspace: Path) -> str:
 
 
 def _ignored_entries(workspace: Path) -> set[str]:
-    """Ignored paths present, a wholly ignored directory as one ``dir/`` entry."""
+    """The ignored, untracked entries in the workspace, each directory collapsed to
+    its path with a trailing slash."""
     raw = _git(
         workspace,
         "ls-files",
@@ -841,7 +747,8 @@ def _ignored_entries(workspace: Path) -> set[str]:
 
 
 def _tree_changes(workspace: Path, before: str) -> list[tuple[str, str]]:
-    """``(status, path)`` for each file the working tree changed since ``before``."""
+    """`(status, path)` pairs for what differs between tree `before` and the
+    workspace now, with no rename detection; empty when the trees are equal."""
     after = _judged_tree(workspace)
     if after == before:
         return []
@@ -864,7 +771,8 @@ def _tree_paths(workspace: Path, tree: str) -> list[str]:
 
 
 def _directories_of(paths: Sequence[str]) -> set[str]:
-    """Every directory holding one of ``paths``; a ``dir/`` entry is one itself."""
+    """Every directory path implied by `paths`: the ancestors of a file, and for an
+    entry ending in `/` the directory itself as well."""
     found: set[str] = set()
     for path in paths:
         parts = path.rstrip("/").split("/")
@@ -874,7 +782,9 @@ def _directories_of(paths: Sequence[str]) -> set[str]:
 
 
 def _first_new(path: str, existed: set[str]) -> str:
-    """``path``, or the shallowest directory above it that did not exist (``dir/``)."""
+    """The shallowest ancestor directory of `path` that `existed` does not have, as
+    a path ending in `/` — the entry to remove to take the whole new subtree with
+    it — or `path` itself when every ancestor was already there."""
     parts = path.split("/")
     for end in range(1, len(parts)):
         directory = "/".join(parts[:end])
@@ -884,10 +794,11 @@ def _first_new(path: str, existed: set[str]) -> str:
 
 
 def _remove_entry(workspace: Path, entry: str) -> None:
-    """Remove one file, link or directory below ``workspace``; raise if it stays.
+    """Delete `entry` from `workspace`: a file or symlink, or a directory with
+    everything under it.
 
-    A link is removed, never followed. A directory a command took the
-    permissions off is given them back first, as :func:`_remove_tree` does.
+    A directory that resists removal is unlocked and tried once more, and
+    `SandboxError` is raised if anything is still there afterwards.
     """
     path = workspace / entry.rstrip("/")
     if path.is_symlink() or path.is_file():
@@ -905,16 +816,18 @@ def _remove_entry(workspace: Path, entry: str) -> None:
 
 
 def _prune_empty_parents(workspace: Path, entry: str, existed: set[str]) -> None:
-    """Remove the now-empty directories above ``entry`` that did not exist before."""
+    """Remove the parent directories of a removed `entry` that are empty now,
+    stopping at the first one that `existed` before the restore."""
     parts = entry.rstrip("/").split("/")[:-1]
     while parts and "/".join(parts) not in existed:
-        with contextlib.suppress(OSError):  # not empty, or already gone
+        with contextlib.suppress(OSError):  # not empty, or already gone: leave it
             (workspace.joinpath(*parts)).rmdir()
         parts.pop()
 
 
 def _checkout_from(workspace: Path, tree: str, paths: Sequence[str]) -> None:
-    """Write ``paths`` back as ``tree`` holds them, through a throwaway index."""
+    """Write `paths` from tree `tree` back into `workspace` through a throwaway
+    index, content and mode included; a failure raises `SandboxError`."""
     with tempfile.TemporaryDirectory(prefix="mcgyvr-snap-") as tmp:
         env = {**os.environ, "GIT_INDEX_FILE": str(Path(tmp) / "index")}
         _git(workspace, "read-tree", tree, env=env)
@@ -934,13 +847,9 @@ def _nul_split(raw: bytes) -> list[str]:
 
 
 def _remove_tree(path: Path | None) -> None:
-    """Remove a workspace, tolerating a partially-created or already-gone one.
-
-    A command runs as the host user and can take the permissions off a
-    directory it made, so a tree that will not go is given them back and
-    removed again. One that still survives is named on stderr rather than left
-    behind in silence.
-    """
+    """Remove the workspace directory, best effort: a tree that will not go is
+    unlocked and tried again, and a survivor is reported on stderr rather than
+    raised, since this runs while unwinding or at interpreter exit."""
     if path is None:
         return
     shutil.rmtree(path, ignore_errors=True)
@@ -953,10 +862,8 @@ def _remove_tree(path: Path | None) -> None:
 
 
 def _unlock(root: Path) -> None:
-    """Give the owner full access to every directory under ``root``.
-
-    Symlinks are not followed, so nothing outside the tree is touched.
-    """
+    """Give every directory under `root` owner read-write-search permission, so a
+    tree a command made read-only can be removed; failures are ignored."""
     pending = [root]
     while pending:
         here = pending.pop()
@@ -967,12 +874,14 @@ def _unlock(root: Path) -> None:
             pending.extend(here.iterdir())
 
 
-# --- factory -------------------------------------------------------------
+# Choosing the backend: which mode a task runs in, and the caveats that come
+# with it.
 
 
 @dataclass(frozen=True)
 class _SandboxChoice:
-    """Which mode was chosen and why — used to surface the weaker mode once."""
+    """The mode chosen for a task, and the notes to attach to its sandbox
+    explaining anything weaker about how it runs."""
 
     mode: str
     notes: tuple[str, ...] = field(default_factory=tuple)
@@ -981,15 +890,11 @@ class _SandboxChoice:
 def choose_mode(
     configured: str, docker_available: bool, *, allow_fallback: bool = False
 ) -> _SandboxChoice:
-    """Resolve the effective sandbox mode from config and Docker availability.
+    """The mode `configured` resolves to, given whether a Docker daemon answered.
 
-    ``docker`` configured without a daemon is refused (:class:`SandboxError`):
-    falling back puts a contract's acceptance commands on the host, and that is
-    for the user to choose ahead of time, not to read about in a note after the
-    run started. The refusal names both ways on: ``tempdir`` by name, or
-    ``allow_fallback`` (``sandbox.allow_fallback``), which falls back and says
-    so once. ``tempdir`` configured is an explicit choice and carries the same
-    weaker-mode note.
+    `tempdir` asked for by name resolves to `tempdir`, noted as the weaker mode.
+    `docker` with no daemon raises unless `allow_fallback` lets the task fall back
+    to `tempdir`, which is then noted as a fallback as well as a weaker mode.
     """
     if configured == "tempdir":
         return _SandboxChoice("tempdir", (_WEAKER_MODE_NOTE,))
@@ -1016,13 +921,14 @@ _NO_DAEMON_REFUSAL = (
     "it whenever no daemon answers."
 )
 
-#: Where a task container is attached: Docker's own default network, or none.
-#: The names are Docker's, passed to ``--network`` untouched.
+#: The networks a task may be given. The container backend honours both; the
+#: tempdir backend runs on this host and cannot take the network away, so it
+#: refuses anything but `bridge`.
 NETWORKS = ("bridge", "none")
 
 
 def check_network(network: str) -> str:
-    """``network`` if a task can be given it, else :class:`SandboxError` by name."""
+    """`network` itself when it is one of `NETWORKS`, and a refusal otherwise."""
     if network not in NETWORKS:
         raise SandboxError(
             f"`sandbox.network: {network}` is not a network a task is given; "
@@ -1052,27 +958,22 @@ def open_sandbox(
     allow_fallback: bool = False,
     network: str = "bridge",
 ) -> Sandbox:
-    """Construct the sandbox a task should run in, not yet entered.
+    """The backend the mode and configuration ask for, not yet entered.
 
-    ``mode`` comes from ``sandbox.mode`` in config; ``image``/``setup``,
-    ``allow_fallback`` and ``network`` from the rest of the ``sandbox`` block.
-    ``docker`` with no daemon is refused unless ``allow_fallback`` is set
-    (:func:`choose_mode`). ``network="none"`` is kept by a container and
-    refused by the temp-directory mode, which runs commands on the host and
-    cannot take the network away — chosen by name or reached by the fallback,
-    it is not claimed and then not kept. ``endpoints`` are the configured worker
-    ``base_url``s the container must be able to reach; loopback ones are
-    translated to the host alias by the Docker mode, and they are passed only
-    there — the temp-directory mode already runs on the host. Docker
-    availability is detected here unless the caller supplies it (tests, and
-    callers that already probed). The returned sandbox carries ``notes`` naming
-    the weaker mode when one is in force — the caller surfaces them once at open.
+    A mode that may start a container first refuses a daemon named through
+    `DOCKER_HOST` or `DOCKER_CONTEXT`: a task's container must run on this
+    machine's daemon. Docker availability is
+    detected when the caller does not say, and `choose_mode` then decides between
+    the two backends — refusing, or falling back when `allow_fallback` permits it,
+    when `docker` was asked for and no daemon answered. The tempdir backend needs
+    `network` to be `bridge`: it runs on this host and cannot take the network
+    away.
     """
     check_network(network)
     if mode != "tempdir":
-        # Before the daemon is even probed: a `docker info` under DOCKER_HOST
-        # would go wherever the variable points, a rig included, and the
-        # sandbox runs on this machine's daemon or nowhere.
+        # Whatever `mode` says, a daemon reached through `DOCKER_HOST` or
+        # `DOCKER_CONTEXT` is not this machine's, and no container the product
+        # starts may land there; that is refused before any mode is chosen.
         from mcgyvr.sandbox.image import foreign_daemon
 
         refusal = foreign_daemon()
@@ -1114,11 +1015,8 @@ def open_sandbox(
 
 
 def workdir(cwd: str | None) -> PurePosixPath:
-    """``cwd`` as a path under the workspace, refused if it would leave it.
-
-    Both modes resolve a command's working directory through this, so a
-    caller's ``cwd`` means the same place in each and never one outside.
-    """
+    """`cwd` as a path inside the workspace: `.` when none was given, and an
+    absolute path or one that climbs out with `..` is refused."""
     if cwd is None:
         return PurePosixPath(".")
     within = PurePosixPath(cwd)
@@ -1128,11 +1026,8 @@ def workdir(cwd: str | None) -> PurePosixPath:
 
 
 def merge_env(*layers: Mapping[str, str] | None) -> dict[str, str]:
-    """Combine env layers left-to-right, vetting the whole result.
-
-    Used by both modes to fold their minimal base env together with a
-    caller's extras through the same credential filter.
-    """
+    """`layers` merged in order, later layers winning, and the result reduced by
+    `safe_env` to what a command may be handed."""
     merged: dict[str, str] = {}
     for layer in layers:
         merged.update(layer or {})

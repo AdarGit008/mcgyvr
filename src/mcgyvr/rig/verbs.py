@@ -1,31 +1,12 @@
-"""``mcgyvr rig``: join a hub, run the agent, say where it stands, leave.
+"""The `mcgyvr rig` verbs: the agent that holds a channel to a hub, and the
+commands that join, run, inspect, leave, sync relief rungs and set what this
+machine lends.
 
-* ``join <hub-url> --token <token>`` keeps the rig token the hub showed when
-  the rig was created (``--token -`` reads it from stdin, out of the shell's
-  history and the process list), then runs the agent in the foreground.
-* ``run`` runs the agent again from what ``join`` kept (after a reboot, say).
-* ``status`` says what is kept, what the agent last heard from the hub, and
-  what this machine reads as now — never the token's secret.
-* ``leave`` forgets the token here. The rig stays on the hub until it is
-  deleted there, or its token rotated.
-* ``rungs sync`` keeps the relief rungs the hub matched this rider to
-  (hitchhike) in the setup's ``relief.yaml`` (:mod:`mcgyvr.rig.rungs`), asking
-  with the rider's personal key, read from a variable it names and never
-  shown or written; the hub's privacy warning is shown every time.
-* ``share`` says what this rig lends to the hub's pooled-inference sessions,
-  and changes it (:mod:`mcgyvr.rig.sharing`): nothing until the owner turns
-  it on, and then only the roles, cards, memory and models folder allowed.
-  While it lends, the agent runs each session in containers that hold no
-  privilege and reach no network but the session's tunnel
-  (:mod:`mcgyvr.rig.session`), and tears every one down when the session,
-  the hub's channel or the agent ends.
-
-A token or key is never sent in clear past this machine: a hub reached over
-the network is ``https://``; ``http://`` is taken only for a hub on this
-machine (:func:`hub_address`).
-
-:func:`add_parser` is all ``mcgyvr.cli`` knows of this: it adds the ``rig``
-group, and every handler imports what it needs when it runs.
+`run_agent` is the substance: it wires sessions, relays, probes and hitchhike
+units together behind one outbox and runs `agent.Agent` until a signal stops it
+or the hub refuses it. `add_parser` registers the verbs; each `_<verb>` function
+is what a parsed command line runs, and each returns the `Exit` code of its
+outcome.
 """
 
 from __future__ import annotations
@@ -47,18 +28,18 @@ from mcgyvr.exits import Exit
 if TYPE_CHECKING:
     from mcgyvr.rig.credentials import Credentials
 
-#: The agent channel's path under a hub's address.
+#: The path on a hub under which an agent is given its channel.
 AGENT_PATH = "/api/v1/agent"
-#: How long reaching the hub and the upgrade may take, in seconds.
+#: How long opening the hub's websocket may take, in seconds.
 CONNECT_TIMEOUT_S = 15.0
-#: The user a session's containers run as when the agent runs as root: none.
+#: The uid and gid containers take as root: the unprivileged nobody account.
 NOBODY = 65534
 
 _SCHEMES = {"http": "ws", "https": "wss", "ws": "ws", "wss": "wss"}
 
 
 class _RefusalError(Exception):
-    """A hub address this machine will not send a token to."""
+    "A well-formed address refused on policy; callers answer Exit.REFUSED."
 
 
 def _is_this_machine(host: str) -> bool:
@@ -73,14 +54,13 @@ def _is_this_machine(host: str) -> bool:
 def hub_address(
     address: str, *, carrying: str = "the rig token"
 ) -> urllib.parse.SplitResult:
-    """``address`` split, when it is a hub's that ``carrying`` may be sent to.
+    """Check a hub's address and hand it back split into parts.
 
-    The one rule for every credential this machine sends a hub — the rig
-    token over the agent channel, the personal key a sync and a relief rung
-    carry: ``https://`` (``wss://``), or ``http://`` (``ws://``) only for a hub
-    on this machine. ``ValueError`` when ``address`` is not a hub's address,
-    :class:`_RefusalError` when the credential would cross the network in
-    clear.
+    The scheme must be http, https, ws or wss; the address must name a host,
+    carry no credentials, no query and no fragment, and give a port that is a
+    number. A plain ws:// address for a hub off this machine is refused rather
+    than rejected, since `carrying` (a token or a key) would cross the network in
+    clear. Anything malformed raises ValueError.
     """
     parts = urllib.parse.urlsplit(address.strip())
     scheme = _SCHEMES.get(parts.scheme.lower())
@@ -106,8 +86,13 @@ def hub_address(
 
 
 def agent_url(hub: str) -> str:
-    """The agent channel of the hub at ``hub``; ``ValueError`` when ``hub``
-    is not a hub's address, :class:`_RefusalError` when it is not a safe one."""
+    """The websocket URL to reach the hub `hub` names as its agent.
+
+    The scheme becomes ws or wss, an IPv6 host is bracketed, the port is kept,
+    and the agent path is appended unless the path already ends with it. The
+    address goes through `hub_address`, then `websocket.parse_url` approves the
+    URL that comes out.
+    """
     parts = hub_address(hub)
     scheme = _SCHEMES[parts.scheme.lower()]
     host = (parts.hostname or "").lower()
@@ -134,11 +119,22 @@ def _agent_version() -> str:
 
 
 def run_agent(kept: Credentials, config: Path | None = None) -> int:
-    """Run the agent for ``kept`` in the foreground until stopped or refused.
+    """Run an agent for `kept` in the foreground and return its `Exit` code.
 
-    ``config`` is the setup ``--config`` named, whose shared units the agent
-    advertises and whose ``relief.yaml`` the heartbeat refreshes; ``None``
-    locates it the way every verb does (:func:`mcgyvr.config.config_path`).
+    What this machine lends comes from the sharing settings, so settings that
+    will not load refuse the run. `config` is the setup folder whose units are
+    shared, or None to let the loader default.
+
+    Everything a hub can ask of this rig is built here and joined: sessions run
+    in a pooled docker pool on a machine whose sharing, hardware report, model
+    inventory, interfaces, ports and cache folder are read only when asked;
+    hitchhike units share a setup's units; relays carry a session's traffic;
+    probes measure the paths to peers. Each answers envelopes through one
+    dispatcher and sends through one outbox. Containers left by a gone agent are
+    swept first, a relief-rungs refresher starts only when the hub key is in the
+    environment, and SIGTERM and SIGHUP are routed to the agent's stop, with the
+    earlier handlers put back after it ends. The code is Exit.OK when the agent
+    was asked to stop and Exit.ERROR otherwise.
     """
     from mcgyvr.fleet import roots
     from mcgyvr.rig import (
@@ -201,7 +197,7 @@ def run_agent(kept: Credentials, config: Path | None = None) -> int:
         try:
             return sharing.load()
         except sharing.SharingError:
-            return sharing.Sharing()  # a file that does not read lends nothing
+            return sharing.Sharing()  # unreadable settings lend nothing
 
     read: list[hardware.Report] = []
 
@@ -243,9 +239,9 @@ def run_agent(kept: Credentials, config: Path | None = None) -> int:
         ),
         send=box.put,
     )
-    # The units this host shares with riders (hitchhike), read from its own
-    # setup: advertised once the hello is acked, then kept fresh on the
-    # heartbeat and a ticker of their own; a ride to one is a relay.
+    # The parts of a rig: hitchhike units ride other rigs and offer this setup's
+    # units to riders, relays carry what a session sends and receives, probes
+    # measure the paths to peers. Each of them speaks through the one outbox.
     units = hitchhike.Units(send=box.put, setup=lambda: hitchhike.load_setup(config))
     relays = relay.Relays(heads=sessions, send=box.put, units=units)
     sessions.on_end(relays.session_ended)
@@ -270,8 +266,8 @@ def run_agent(kept: Credentials, config: Path | None = None) -> int:
                 f"note: this machine's containers were not read: {exc}", file=sys.stderr
             )
 
-    # With the rider's personal key in the environment, the heartbeat keeps
-    # the relief rungs fresh too (`mcgyvr rig rungs sync`, on the agent's tick).
+    # The relief rungs kept beside the setup are refreshed from the hub only
+    # while the personal hub key is in the environment.
     refresher = rungs.refresher_for(kept.hub, folder=config)
     if refresher is not None:
         print(
@@ -396,7 +392,7 @@ def _join(args: argparse.Namespace) -> int:
 
 
 def _named(args: argparse.Namespace) -> Path | None:
-    """The setup ``--config`` named, or ``None`` to locate it."""
+    """The setup folder --config named, or None to let the caller default."""
     named: str | None = getattr(args, "config", None)
     return Path(named) if named else None
 
@@ -447,8 +443,8 @@ def _status(args: argparse.Namespace) -> int:
         print("agent:   no word from an agent yet")
     else:
         running = "running" if session._alive(last.pid) else "not running"
-        # The hub's row id for this rig, which its ack gave; the machine's own
-        # rig- id is the `machine:` line below.
+        # A state file outlives the agent that wrote it, so the pid it names
+        # is checked for life; the hub's rig id is masked before printing.
         rig = (
             f"the hub's rig {agent.shown(last.rig_id)}"
             if last.rig_id
@@ -659,12 +655,10 @@ def add_parser(
     *,
     add_config: Callable[..., None],
 ) -> None:
-    """Add the ``rig`` group to ``mcgyvr``'s subcommands.
+    """Add the `rig` verb and the verbs under it: join, run, status, leave,
+    rungs sync and share, each with the defaults its parser starts from.
 
-    ``add_config`` is :func:`mcgyvr.cli.common.add_config`, handed in rather than
-    imported so this module never imports the CLI: the verbs that read the
-    setup (``join``, ``run``, ``rungs sync``) take ``--config`` as every
-    other verb does.
+    `add_config` attaches the setup option to the verbs that read a setup.
     """
     rig = sub.add_parser("rig", help="publish this machine as a rig of a hub")
     verbs = rig.add_subparsers(dest="rig_command", required=True)

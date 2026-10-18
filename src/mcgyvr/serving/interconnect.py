@@ -1,28 +1,13 @@
-"""What a link between two cards carries, and whose word for it is used.
+"""What two cards' link is worth: its bandwidth and latency, read or estimated.
 
-A model split across cards pays for the traffic between them, and that cost is
-set by the link, not by the model: two cards in one machine talk over its bus,
-two machines over the network (:mod:`mcgyvr.fleet.links` classes a link by what
-any machine has, never by a machine's name). mcgyvr cannot read a link off a
-machine it has not been shown, so each class starts from an estimate shipped
-with mcgyvr (``link_gib_s`` and ``link_latency_us`` in :mod:`mcgyvr.derived`),
-and gives way, in this order, to
-
-1. the user's own setting of either number in ``numbers.yaml`` (derived's
-   override layer: the user's word always answers first);
-2. the user's own reading of their link, kept in the data folder
-   (:func:`readings_path`) by :func:`read_link` and used from then on;
-3. the estimate shipped with mcgyvr, which says it is one.
-
-The two numbers are layered one at a time: if the user's file sets only the
-bandwidth, the latency comes from the next layer down, and the :class:`Link`
-says so. A reading is of one pair of cards and is kept for the class of that
-pair: it replaces the estimate for every link of that class, because the
-estimate it replaces was for the class, not for a pair.
-
-Nothing here touches a machine. The timed transfers come from a reader the
-caller passes in; this module only fits a line to them, keeps what the fit says,
-and answers.
+A link is classed by `mcgyvr.fleet.links` from the two hosts its cards sit on.
+For a class of link this module answers two numbers, bandwidth in GiB/s and
+latency in microseconds, from the strongest layer that states them: the user's
+own setting in the numbers override file, else their own reading timed between
+their hosts, else the estimate shipped with mcgyvr. A timed set of transfers is
+fitted to a line whose slope is seconds per byte and whose intercept is the
+latency, and the reading is kept in `links.json` under the data home beside the
+readings taken for the other classes of link.
 """
 
 from __future__ import annotations
@@ -37,48 +22,46 @@ from typing import Any
 from mcgyvr import atomic, derived
 from mcgyvr.fleet import links, roots
 
-#: The readings file's name, in the user's data folder.
+#: The name of the file, under the data home, that holds the user's own readings.
 READINGS_FILENAME = "links.json"
-#: The shape of the readings file this code reads, stated as its ``schema``.
+#: The schema number a readings file must state; a file stating another is refused.
 READINGS_SCHEMA = 1
-#: How many bytes make one GiB, and how many microseconds one second.
+#: Bytes in a GiB, and microseconds in a second, for turning a fitted slope and
+#: intercept (seconds per byte, seconds) into GiB/s and microseconds.
 _BYTES_PER_GIB = 2**30
 _MICROSECONDS_PER_SECOND = 1_000_000.0
 
-#: Which layer answered, strongest first.
+#: The layers a number can come from: the user's own setting, the user's own
+#: reading, and the estimate shipped with mcgyvr, in that order, strongest first.
 OVERRIDE = "override"
 READING = "reading"
 ESTIMATE = "estimate"
 _LAYERS: tuple[str, ...] = (OVERRIDE, READING, ESTIMATE)
 
-#: One timed transfer: how many payload bytes moved, and how many seconds it took.
+#: One timed transfer: a payload in bytes and the seconds it took.
 Transfer = tuple[int, float]
-#: What times a link: given the two hosts, the timed transfers between them.
-#: The reader is the caller's; this module never opens a connection.
+#: Times each transfer between two named hosts: a payload in bytes and its
+#: seconds, at least two distinct payload sizes, the way a link is read.
 LinkReader = Callable[[str, str], Sequence[Transfer]]
 
 
 class InterconnectError(Exception):
-    """A link cannot be answered, read, fitted or recorded, and why."""
+    """A link, a reading, or a set of timed transfers cannot be stated."""
 
 
 def readings_path() -> Path:
-    """The user's readings of their own links: ``links.json`` in the data folder.
-
-    Fleet readings the product needs belong in the user's data folder, not the
-    config folder, which holds only what the user writes themselves.
-    """
+    """Where the user's own link readings live: ``links.json`` in the data home."""
     return roots.data_home() / READINGS_FILENAME
 
 
 @dataclass(frozen=True)
 class Link:
-    """One class of link: its bandwidth and latency, and whose word they are.
+    """One class of link, its bandwidth and latency, and which layers stated them.
 
-    ``source`` is the weakest layer either number came from (``override`` only
-    when the user's file sets both, ``reading`` when neither is an estimate), and
-    ``where`` the file of that layer. ``gib_s_source`` and ``latency_us_source``
-    say each number's own layer; empty means ``source``.
+    ``source`` is the weakest of the two layers that answered, and ``where`` is
+    that layer's file, so a message can point at the least settled number;
+    ``gib_s_source`` and ``latency_us_source`` name the layer behind each number
+    on its own.
     """
 
     link_class: str
@@ -90,7 +73,7 @@ class Link:
     latency_us_source: str = ""
 
     def _layer(self, layer: str) -> str:
-        """``layer`` in words, with the file that holds it."""
+        """The file behind a number, as a phrase naming whose file it is."""
         if layer == OVERRIDE:
             return f"your own setting in {derived.overrides_path()}"
         if layer == READING:
@@ -98,10 +81,12 @@ class Link:
         return f"an estimate shipped with mcgyvr in {self.where}"
 
     def says(self) -> str:
-        """One line: the class, both values with units, and which layer gave them.
+        """The link as a sentence: both numbers, the file behind each, and the fix.
 
-        An estimate says that it is one, that the first reading of the user's
-        own link replaces it, and where the user can set their own value now.
+        Both numbers are named in one clause when one layer stated both, and in
+        two clauses otherwise. When either number is still only the shipped
+        estimate, the sentence adds that an estimate is not a reading of the
+        user's link, and names the settings that replace it.
         """
         bandwidth = self.gib_s_source or self.source
         latency = self.latency_us_source or self.source
@@ -125,7 +110,7 @@ class Link:
 
 
 def _positive(value: object, what: str, where: Path) -> float:
-    """``value`` as a float when it is a finite number above 0, else refused."""
+    """``value`` as a finite float above 0, refusing a bool or anything else."""
     if isinstance(value, bool) or not isinstance(value, (int, float)):
         raise InterconnectError(f"{what} in {where} is {value!r}, not a number")
     try:
@@ -142,14 +127,14 @@ def _positive(value: object, what: str, where: Path) -> float:
 
 
 def _words(value: object, what: str, where: Path) -> str:
-    """``value`` when it is text with something in it, else refused."""
+    """``value`` as a string holding something besides blanks, refusing the rest."""
     if not isinstance(value, str) or not value.strip():
         raise InterconnectError(f"{what} in {where} must be words, not {value!r}")
     return value
 
 
 def _hosts(value: object, where: Path) -> list[str]:
-    """The two hosts a reading was taken between, else refused."""
+    """The two host names a reading was taken between, refusing any other shape."""
     if (
         not isinstance(value, (list, tuple))
         or len(value) != 2
@@ -163,7 +148,12 @@ def _hosts(value: object, where: Path) -> list[str]:
 
 
 def _checked(name: str, reading: object, where: Path) -> dict[str, Any]:
-    """One class's reading as the file keeps it, refused by name when it is not one."""
+    """One reading for a class of link, checked field by field, as a plain dict.
+
+    The class must be one `mcgyvr.fleet.links` knows, and the reading an object
+    stating its bandwidth, latency, the method and time it was taken, and the
+    two hosts it was taken between.
+    """
     if name not in links.LINK_CLASSES:
         raise InterconnectError(
             f"{where} holds a reading for {name!r}, which is not a class of link "
@@ -181,15 +171,11 @@ def _checked(name: str, reading: object, where: Path) -> dict[str, Any]:
 
 
 def _read_readings(where: Path) -> dict[str, dict[str, Any]]:
-    """The readings file's ``links`` object, checked; ``{}`` when no file is there.
+    """Every reading in the readings file, by class of link, checked.
 
-    A file that is not there is no reading. Every other failure is refused by
-    name with the file's path: unreadable, not UTF-8, not JSON, not an object of
-    this schema, a class outside :data:`mcgyvr.fleet.links.LINK_CLASSES`, or a
-    reading without finite positive values or the words that say how, when and
-    between what it was taken. A file mcgyvr cannot read is never read as "no
-    reading", because the estimate would then answer for a link the user has
-    measured.
+    A file that is not there reads as no readings at all; a file that is there
+    is refused unless it is UTF-8 JSON of this module's schema holding a
+    ``links`` object, and each of its readings is checked with ``_checked``.
     """
     try:
         text = where.read_text(encoding="utf-8")
@@ -220,14 +206,13 @@ def _read_readings(where: Path) -> dict[str, dict[str, Any]]:
 
 
 def link(link_class: str) -> Link:
-    """The link of ``link_class``, each number from the first layer that states it.
+    """The link of one class, each number from the strongest layer stating it.
 
-    Per number: the user's own setting in ``numbers.yaml`` first, then the
-    user's own reading, then the estimate shipped with mcgyvr. When the user
-    sets only one of the two, that one is theirs and the other comes from the
-    next layer down; the answer's ``source`` is then the weaker layer and its
-    :meth:`Link.says` names each. A class mcgyvr does not know, an unreadable
-    readings file, or a number no layer states is refused by name.
+    A class that `mcgyvr.fleet.links` does not know is refused. For each of the
+    two numbers the user's own setting in the numbers override file wins over
+    the reading kept in the readings file, which wins over the shipped
+    estimate; the returned link names the weakest layer it used and that
+    layer's file.
     """
     if link_class not in links.LINK_CLASSES:
         raise InterconnectError(
@@ -267,19 +252,13 @@ def link(link_class: str) -> Link:
 
 
 def fit_transfers(samples: Sequence[Transfer]) -> tuple[float, float]:
-    """The ``(gib_s, latency_us)`` of the line seconds = latency + bytes / bandwidth.
+    """Fit timed transfers to a bandwidth in GiB/s and a latency in microseconds.
 
-    A least-squares fit over timed transfers, because one transfer cannot say
-    its bandwidth and its latency apart: a small payload is nearly all latency
-    and a large one nearly all bandwidth, and the line through several sizes
-    separates them. It needs at least two distinct payload sizes. It refuses
-    what cannot be a link: a payload that is negative or not a whole number of
-    bytes, a time that is not finite and above 0, a slope that is not above 0
-    (a bigger payload took no longer, so no bandwidth can be named), and an
-    intercept that is not above 0 (no transfer is free, so timings that say it
-    is came from a clock too coarse for the payloads, or from payloads too large
-    to show the latency; add a small payload). An intercept is never clamped to
-    zero, because a latency made up to fit would be a number nobody read.
+    Each sample is a payload in whole bytes, 0 or more, and the seconds its
+    transfer took, finite and above 0. A least-squares line through the points
+    gives seconds per byte as its slope and the latency as its intercept, so the
+    samples must include two distinct payload sizes, must grow with payload, and
+    must fit a latency above 0; a fit failing any of these is refused.
     """
     points: list[tuple[float, float]] = []
     for payload, seconds in samples:
@@ -341,13 +320,11 @@ def record_reading(
     at: str,
     between: tuple[str, str],
 ) -> Path:
-    """Keep the user's reading of a link class in the readings file, and say where.
+    """Keep one reading for a class of link in the readings file, and say where.
 
-    The file is merged, not replaced: a reading of one class leaves the other
-    class's reading as it was. A file that cannot be read is refused rather than
-    written over, since writing over it would destroy what it held. The write is
-    atomic (a temporary file beside it, then ``os.replace``), and the folder is
-    created when it is not there.
+    The reading is checked as the file's readings are, the file's existing
+    readings for other classes are read and kept, and the whole document is
+    written back as JSON private to the user, creating the folder it lives in.
     """
     where = readings_path()
     entry = _checked(
@@ -372,17 +349,13 @@ def record_reading(
 def read_link(
     host_a: str, host_b: str, reader: LinkReader, *, how: str, at: str
 ) -> Link:
-    """Read the link between two hosts, keep the reading, and answer for its class.
+    """Time the link between two hosts, keep the reading, and answer that link.
 
-    The pair is classed (:func:`mcgyvr.fleet.links.link_class`), ``reader`` times
-    transfers between the two hosts, the fit becomes the user's own reading of
-    that class, and the answer is :func:`link`'s: source ``reading`` unless the
-    user's own setting in ``numbers.yaml`` outranks it, in which case the setting
-    answers and the reading is kept all the same, for the day the setting goes.
-    ``how`` (what timed the transfers) and ``at`` (when) are the caller's words,
-    kept with the reading, because a reading nobody can date or repeat is worth
-    no more than an estimate. The reader is the caller's; nothing here opens a
-    connection.
+    ``reader`` times the transfers between the two hosts, which are fitted to a
+    bandwidth and a latency, checked and written to the readings file under the
+    class `mcgyvr.fleet.links` gives the pair. The answer is ``link`` for that
+    class, so a number the user sets themselves still wins over the reading just
+    taken.
     """
     kind = links.link_class(host_a, host_b)
     gib_s, latency_us = fit_transfers(reader(host_a, host_b))

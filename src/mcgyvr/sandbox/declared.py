@@ -1,15 +1,10 @@
-"""Which checkers a repository declares, read from its files as data.
+"""Answer which checker a repository declares, by reading files only.
 
-One answer for two readers: the gate, which runs the checker a repository
-configured (``PythonAdapter.locate_type_check_command``, the JS adapter's
-eslint and prettier), and the task image, which installs it
-(:mod:`mcgyvr.sandbox.stack`). It lives
-here, below the gate, because the sandbox may not import the gate and the gate
-may import the sandbox.
-
-Nothing here imports, executes or otherwise evaluates the repository's code.
-Reading configuration is the whole of the method; a file that does not parse
-is not a declaration, and nothing raises.
+Every probe here is a static read of the repository root: file names, TOML
+tables in ``pyproject.toml``, INI sections in ``setup.cfg``, and keys in
+``package.json``. Nothing is imported, evaluated, or spawned, so a repository
+whose own modules would explode on import still reports its declaration, and
+the answer never depends on what is installed on the host.
 """
 
 from __future__ import annotations
@@ -24,9 +19,9 @@ PYRIGHT = "pyright"
 ESLINT = "eslint"
 PRETTIER = "prettier"
 
-# The file names each JS tool imports as its configuration: a module, so code.
-# The legacy `.eslintrc.js`/`.cjs` is listed because an eslint that still reads
-# it runs it.
+# Suffixes of a JavaScript/TypeScript module. A config file with one of these
+# is a program the tool imports, so these names are kept apart from the
+# data-format config files below and grouped per tool in CONFIG_MODULES.
 _MODULE_SUFFIXES = (".js", ".cjs", ".mjs", ".ts", ".cts", ".mts")
 CONFIG_MODULES = {
     ESLINT: frozenset(
@@ -39,8 +34,8 @@ CONFIG_MODULES = {
     ),
 }
 
-# The data forms of the same configuration, and the `package.json` key each
-# tool also reads: a declaration as much as a module is.
+# Config files the tool parses as data rather than importing, plus the
+# package.json key that carries the same settings inline in _PACKAGE_KEYS.
 _CONFIG_DATA = {
     ESLINT: frozenset(
         {".eslintrc", ".eslintrc.json", ".eslintrc.yaml", ".eslintrc.yml"}
@@ -60,12 +55,11 @@ _PACKAGE_KEYS = {ESLINT: "eslintConfig", PRETTIER: "prettier"}
 
 
 def declared_type_checker(repo: Path) -> str | None:
-    """The type checker the gate runs for ``repo``, or ``None``.
+    """The type checker the gate runs for `repo`, or None when it declares none.
 
-    The order mypy appears in before pyright is ARBITRARY and must stay that
-    way: mcgyvr does not rank type checkers. A repository configuring both is
-    telling us it runs both; this returns one, and a repository that cares
-    which declares the command in its contract, which always wins over a sniff.
+    The order mypy is checked before pyright is arbitrary, not a ranking: mcgyvr
+    does not rank type checkers. A repository that cares which one to run
+    declares the command in its contract, which always wins over a sniff.
     """
     if declares_mypy(repo):
         return MYPY
@@ -75,14 +69,14 @@ def declared_type_checker(repo: Path) -> str | None:
 
 
 def declares_mypy(repo: Path) -> bool:
-    """Whether mypy is configured here, in any of the four places it looks."""
+    """Whether mypy is declared by pyproject.toml, an ini file, or setup.cfg."""
     if has_toml_table(repo / "pyproject.toml", "mypy"):
         return True
     if (repo / "mypy.ini").is_file() or (repo / ".mypy.ini").is_file():
         return True
-    # setup.cfg is INI, and a bare substring would match a comment or a
-    # `[mypy-somepackage.*]` per-module override in a file that never
-    # configures mypy itself. The section header is the declaration.
+    # setup.cfg is INI rather than TOML, so the same declaration appears there
+    # as a [mypy] section instead of a [tool.mypy] table. Bare presence of the
+    # file is not enough: a setup.cfg without that section declares no checker.
     return has_ini_section(repo / "setup.cfg", "mypy")
 
 
@@ -93,7 +87,11 @@ def declares_pyright(repo: Path) -> bool:
 
 
 def declares_js(repo: Path, tool: str) -> bool:
-    """Whether ``repo`` configures ``tool`` (eslint or prettier) at its root."""
+    """Whether the repository configures `tool` (eslint or prettier).
+
+    The dedicated config files are checked first, in both their module and
+    data-format spellings; failing those, the tool's key inside package.json.
+    """
     names = CONFIG_MODULES[tool] | _CONFIG_DATA[tool]
     if any((repo / name).is_file() for name in names):
         return True
@@ -108,31 +106,28 @@ def declares_js(repo: Path, tool: str) -> bool:
 
 
 def has_toml_table(path: Path, name: str) -> bool:
-    """Whether ``[tool.<name>]`` is really present — parsed, not grepped.
-
-    A substring test would fire on a comment, on a dependency pin naming the
-    tool, or on ``[tool.ruff.lint.mypy-init-return]``. Getting this wrong
-    fabricates a type-check command for a repository that runs none.
-    """
+    """Whether `path` is a readable TOML file holding a [tool.<name>] table."""
     if not path.is_file():
         return False
     try:
         with path.open("rb") as handle:
             document = tomllib.load(handle)
     except (OSError, tomllib.TOMLDecodeError, UnicodeDecodeError):
-        # An unparseable manifest is not a declaration. Nothing here raises:
-        # a malformed file is the target's business, and the honest answer to
-        # "does it declare a checker" is no. `UnicodeDecodeError` is named
-        # separately because `tomllib` decodes the bytes itself and answers a
-        # non-UTF-8 manifest with that rather than with `TOMLDecodeError` — and
-        # it is a `ValueError`, which neither of the other two catches.
+        # A manifest that cannot be read, decoded, or parsed declares nothing.
+        # A broken pyproject.toml is a pre-existing property of the target, not
+        # of the probe, so it is answered in the negative here rather than
+        # raised: locating a command must not fail because the repository is
+        # malformed, and the table lookup below only ever sees a real document.
         return False
     tool = document.get("tool")
     return isinstance(tool, dict) and isinstance(tool.get(name), dict)
 
 
 def has_ini_section(path: Path, name: str) -> bool:
-    """Whether an INI file carries a ``[name]`` section, parsed as INI."""
+    """Whether `path` is an INI file with a section named `name`.
+
+    A file that cannot be read or parsed is treated as having no such section.
+    """
     if not path.is_file():
         return False
     parser = configparser.ConfigParser()

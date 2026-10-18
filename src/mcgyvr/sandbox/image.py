@@ -1,33 +1,16 @@
-"""Build the task image once per repository, and cache it.
+"""Per-repo task images: key them, build them, list them, evict them.
 
-Installing a project's dependencies for every task is unusable; installing
-them once per repository is not (#29). So the sandbox image carries the
-repository's dependencies, and the expensive build happens the first time a
-repository is seen and is reused across every task and session after.
+The cache key digests everything a dependency install depends on - the
+generated Dockerfile layout version, the base image, the manifest contents,
+and the install, checker and setup commands - so an unchanged dependency set
+reuses one tag, and editing source never invalidates an image. Built images
+are labelled with the repo slug, the key and the pinned base digest, which
+lets the cache be listed and trimmed from Docker's own state instead of a
+side file.
 
-Three properties make that safe:
-
-1. **The cache key is exactly the dependency set.** It is a hash of the base
-   image reference, the *contents* of the manifests and lockfiles the stack
-   detector named, and the build-time setup commands — and nothing else. A
-   lockfile change produces a new key and rebuilds; an unrelated source
-   change produces the same key and reuses. This is the whole of "invalidate
-   on a dependency change and on nothing else".
-2. **The base image is pinned by digest.** The tag (``python:3.12-slim``) is
-   resolved to an immutable ``sha256`` digest at build time and the Dockerfile
-   is written ``FROM ref@sha256:…``, so a task built today and a task built
-   after the tag floats to new content get the same base. The resolved digest
-   is recorded on the image as a label.
-3. **The cache is bounded and inspectable.** Every image carries mcgyvr
-   labels; :func:`list_cached` reads them back with sizes, :func:`prune`
-   evicts the oldest beyond a bound, and :func:`clear` removes them outright.
-   The eviction rule is deliberately dull — oldest-created first — so it is
-   predictable rather than clever.
-
-Nothing here runs Docker directly: every call goes through a
-:data:`DockerRunner`, so the argv and the generated Dockerfile are what a
-test asserts on, and a machine without a daemon is never required to check
-the logic (the pattern :mod:`mcgyvr.detect` established).
+Every docker invocation goes through a :data:`DockerRunner`, so the argv, the
+rendered Dockerfile and the key arithmetic can be checked on a machine with
+no daemon.
 """
 
 from __future__ import annotations
@@ -43,38 +26,43 @@ from pathlib import Path
 
 from mcgyvr.sandbox.stack import NODE_MODULES, TOOL_PATH, VENV, WORKSPACE, Stack
 
-# Labels stamped on every image mcgyvr builds, so the cache is discoverable
-# and prunable without guessing at names.
+# Labels stamped onto every image built here; `list_cached` filters the cache
+# on the repo label, and a reused image's base digest is read from its label.
 LABEL_REPO = "mcgyvr.repo"
 LABEL_KEY = "mcgyvr.cache-key"
 LABEL_BASE_DIGEST = "mcgyvr.base-digest"
 
-#: The shape of the image this module writes, beyond its inputs. Part of the
-#: cache key, so an image built to an older shape is rebuilt rather than
-#: reused: 2 put the environments' tool folders on the PATH and the declared
-#: checkers in the image.
+#: Version of the Dockerfile layout :func:`render_dockerfile` produces. It is
+#: hashed into the cache key, so changing how images are built changes the tags
+#: instead of silently reusing images built the old way. Bump it whenever that
+#: rendering changes in a way existing images cannot serve.
 IMAGE_LAYOUT = 2
 
-#: The dependency folders a task keeps visible over its workspace mount, by
-#: their names in the workspace, each one only when the image populated it
-#: (:func:`seeded_folders`).
+#: Workspace-relative folders an install fills inside the image (.venv,
+#: node_modules). The container mounts an anonymous volume over each one it
+#: finds populated, so writes land in the volume, not in the host checkout.
 SEEDABLE = tuple(path.removeprefix(f"{WORKSPACE}/") for path in (VENV, NODE_MODULES))
 
-# Bound on how many task images the cache keeps. Oldest beyond this are
-# evicted. A default, not a law: a real ceiling belongs in config, and this
-# is only what an unconfigured install falls back to.
+# How many images :func:`prune` keeps when the caller does not say: room for a
+# few repositories on recent dependency sets, and a bound on how large the
+# cache can grow.
 DEFAULT_MAX_CACHED_IMAGES = 8
 
-# The variables that point `docker` at another daemon. The sandbox runs on
-# this machine's daemon and nowhere else: a container the product starts must
-# never land on a rig, and the door (python -m mcgyvr.serving.run) is the only
-# way there. So every place the sandbox spawns docker refuses under either —
-# it does not honour the variable, and it does not strip it and carry on.
+# Environment variables that would aim the docker CLI at a daemon other than
+# this machine's. Any of them being set is a refusal, because the sandbox runs
+# on the local daemon and reaching another one is what the door
+# (python -m mcgyvr.serving.run) is for.
+# :func:`foreign_daemon` is the single place this tuple is read.
 DAEMON_OVERRIDES = ("DOCKER_HOST", "DOCKER_CONTEXT")
 
 
 def foreign_daemon() -> str | None:
-    """Why docker must not be spawned now, or None: a daemon override is set."""
+    """Why the docker CLI cannot be trusted here, or ``None`` if it can.
+
+    Returns a refusal naming the first :data:`DAEMON_OVERRIDES` variable found
+    in the environment, and ``None`` when none is set - i.e. when the CLI
+    would talk to this machine's daemon.
+    """
     for name in DAEMON_OVERRIDES:
         if name in os.environ:
             return (
@@ -87,12 +75,16 @@ def foreign_daemon() -> str | None:
 
 
 class ImageError(Exception):
-    """A task image could not be resolved, built, or inspected."""
+    """An image could not be keyed, resolved, listed or built."""
 
 
 @dataclass(frozen=True)
 class DockerResult:
-    """The outcome of one ``docker`` invocation."""
+    """One finished docker invocation: exit status plus captured output.
+
+    Failures are returned, never raised, so a caller decides whether a
+    non-zero exit is fatal.
+    """
 
     returncode: int
     stdout: str
@@ -103,36 +95,38 @@ class DockerResult:
         return self.returncode == 0
 
 
-# The wall clock on each docker call, so a hung daemon or a stalled pull fails
-# the call instead of wedging the task (or interpreter exit, where the reaper
-# removes containers). The two bounds every docker call the product makes is
-# held to, and the only place either is written: pulling and building fetch and
-# install a stack's dependencies and get the long one; every other call is
-# bookkeeping and gets the short one.
-#
-# Both are defaults, not measurements. Nothing here timed a build or a pull;
-# they are bounds chosen to be far above a working call and far below forever,
-# and a real ceiling for an install that needs one belongs in config. The
-# ceiling on the command *inside* the container is
-# :data:`~mcgyvr.sandbox.base.DEFAULT_COMMAND_TIMEOUT_S`.
+# Timeouts and conventions for the real CLI behind :func:`subprocess_runner`.
+# Ordinary verbs are bounded tightly; `build` and `pull` are not, because a
+# cold layer cache or a slow registry legitimately takes minutes.
+# Failures follow the shell's conventions: exit 124 when the bound expires, 127
+# when docker is missing, 2 when the daemon is overridden, so a caller sees
+# every failure as a DockerResult and no exception escapes this layer.
+# _LONG_VERBS is the set that earns DOCKER_BUILD_TIMEOUT_S; every other verb is
+# held to DOCKER_CALL_TIMEOUT_S, which is a backstop against a hung CLI rather
+# than a budget for how long an install may take.
+# Both values are in seconds, the unit subprocess.run takes, and the pair is
+# module level so a bound can be reasoned about without reading the runner's
+# body; :func:`subprocess_runner` is the only place either one is used.
 DOCKER_CALL_TIMEOUT_S = 120.0
 DOCKER_BUILD_TIMEOUT_S = 3600.0
 _LONG_VERBS = frozenset({"build", "pull"})
 
 
-# The seam. A runner takes docker's argv (without the leading "docker") and
-# optional stdin, and returns the result. Production uses the subprocess
-# runner below; tests pass a stub that records argv and returns canned output.
+# The seam: a callable that takes docker argv plus optional stdin and reports
+# the outcome. Tests pass recording stubs through it, so none of this module
+# needs a daemon to be checked.
 DockerRunner = Callable[[Sequence[str], "bytes | None"], DockerResult]
 
 
 def subprocess_runner(args: Sequence[str], stdin: bytes | None = None) -> DockerResult:
-    """Run a real ``docker`` command. The default :data:`DockerRunner`.
+    """Run the real docker CLI, reporting the result instead of raising.
 
-    One of the places the sandbox spawns docker, each of which applies
-    :func:`foreign_daemon`: with ``DOCKER_HOST`` or ``DOCKER_CONTEXT`` set
-    nothing is spawned, and the result carries the refusal as its stderr, which
-    every caller raises as its own error.
+    Refuses before spawning anything when the daemon is overridden (see
+    :func:`foreign_daemon`, exit 2) or when docker is not on PATH (exit 127),
+    with the reason in stderr. `build` and `pull` get
+    :data:`DOCKER_BUILD_TIMEOUT_S` and every other verb
+    :data:`DOCKER_CALL_TIMEOUT_S`; an expired bound gives exit 124. `stdin` is
+    fed to the process, and both streams are decoded leniently.
     """
     refusal = foreign_daemon()
     if refusal is not None:
@@ -163,17 +157,26 @@ def subprocess_runner(args: Sequence[str], stdin: bytes | None = None) -> Docker
 
 @dataclass(frozen=True)
 class TaskImage:
-    """A resolved task image: its tag, its pinned base, and whether it was built."""
+    """The image a task runs in: its tag, its cache key, its pinned base.
+
+    `base_digest` is what the image was built from - resolved for a fresh
+    build, read back from :data:`LABEL_BASE_DIGEST` for a cache hit.
+    """
 
     tag: str
     base_digest: str
     cache_key: str
-    built: bool  # False means it was already cached — the point of the cache
+    built: bool  # True when this call built it, False when the cache had it
 
 
 @dataclass(frozen=True)
 class CachedImage:
-    """One image in the cache, as read back from Docker's own metadata."""
+    """One image found in the cache, as read back from docker.
+
+    `repo` and `cache_key` come from :data:`LABEL_REPO` and :data:`LABEL_KEY`;
+    `created` is docker's own timestamp string, which is what :func:`prune`
+    orders the cache by.
+    """
 
     tag: str
     repo: str
@@ -183,14 +186,14 @@ class CachedImage:
 
 
 def cache_key(stack: Stack, repo: Path, setup: Sequence[str]) -> str:
-    """The content hash that decides when the image rebuilds.
+    """Digest the inputs of the dependency install into a 16-character key.
 
-    Built from the base reference, each manifest's path and bytes, the install
-    commands and the setup commands — the complete and only inputs to the
-    dependency set. Manifests are read in sorted order so the key is
-    independent of detection order, and their *content* is hashed so an edit
-    to a lockfile changes the key while a rename of an unrelated source file
-    does not.
+    Hashed in order: the layout version, the base image reference, each
+    manifest's name and bytes, each language's install command, each checker
+    command, and the caller's setup commands. Source files are absent by
+    design, so editing code keeps the image while moving a dependency does
+    not. A manifest that cannot be read raises :class:`ImageError` rather than
+    keying an image that could not have been built from it.
     """
     hasher = hashlib.sha256()
     hasher.update(f"layout:{IMAGE_LAYOUT}\n".encode())
@@ -213,34 +216,35 @@ def cache_key(stack: Stack, repo: Path, setup: Sequence[str]) -> str:
 
 
 def image_tag(repo: Path, key: str) -> str:
-    """The tag a repository's task image is stored under.
+    """Name an image after its repo directory and its cache key.
 
-    ``mcgyvr/<repo-slug>:<cache-key>`` — the slug keeps images legible in
-    ``docker images`` and the key in the tag means a dependency change lands
-    as a distinct image rather than overwriting the last one.
+    The slug keeps the tag legible in `docker image ls`; the key keeps two
+    dependency sets of one repository apart, so a rebuilt set lands on a new tag
+    instead of overwriting the image another checkout is still using.
     """
     return f"mcgyvr/{_slug(repo.resolve().name)}:{key}"
 
 
 def render_dockerfile(stack: Stack, base_digest_ref: str, setup: Sequence[str]) -> str:
-    """Generate the Dockerfile that installs the repository's dependencies.
+    """Render the Dockerfile that builds a stack on ``base_digest_ref``.
 
-    Only the manifests are copied into the build — never the whole repository
-    — so the image is the dependency layer and nothing else, and the source
-    the worker changes is mounted at task time rather than baked in.
+    The order is what makes the layer cache useful: workdir, then PATH, then
+    only the manifests (so the install layers survive source edits), then one
+    RUN per language joining its install command, then the checker installs,
+    then the caller's setup commands last so they see the installed tooling.
     """
     lines = [
         f"FROM {base_digest_ref}",
         "WORKDIR /workspace",
-        # The environments the install makes lead the PATH, so a checker or a
-        # project script installed there is what a command finds — at build
-        # time for the checker installs below, and in every task after.
+        # PATH leads with the tool path, so the venv's and node_modules/.bin's
+        # executables are what `python`, `pytest` and `npx` resolve to in every
+        # RUN below, and in the container's own shell.
         f"ENV PATH={TOOL_PATH}:$PATH",
     ]
     manifests = stack.manifest_paths()
     if manifests:
-        # Copy each manifest to its own path so a nested one keeps its
-        # location; the install commands assume the repository layout.
+        # Manifests only, never the source tree: the install layers below stay
+        # valid until a dependency actually changes.
         for name in manifests:
             lines.append(f"COPY {name} {name}")
     for command in stack.install_commands():
@@ -253,13 +257,13 @@ def render_dockerfile(stack: Stack, base_digest_ref: str, setup: Sequence[str]) 
 
 
 def seeded_folders(tag: str, runner: DockerRunner) -> tuple[str, ...]:
-    """Which of :data:`SEEDABLE` the image ``tag`` holds, populated, in its workspace.
+    """Ask the image which of its seeded folders the install actually filled.
 
-    Asked of the image itself, in a throwaway container with no network and no
-    workspace, because only the build knows: ``uv sync`` always makes a
-    ``.venv``, yarn's plug'n'play makes no ``node_modules``, and a pipenv or
-    pip install leaves neither. An image that cannot answer holds nothing to
-    keep visible, and the task runs as it did.
+    Runs a network-less throwaway container from `tag` that echoes each of
+    :data:`SEEDABLE` that exists and is non-empty, and returns those folders in
+    :data:`SEEDABLE` order. A failed run, or a folder the install left empty,
+    just drops out of the tuple; the caller then mounts volumes over the
+    folders that are really there.
     """
     script = f"cd {WORKSPACE} || exit 0; " + "; ".join(
         f'[ -d "{folder}" ] && [ -n "$(ls -A "{folder}")" ] && echo "{folder}"'
@@ -286,12 +290,11 @@ def seeded_folders(tag: str, runner: DockerRunner) -> tuple[str, ...]:
 
 
 def resolve_base_digest(base_ref: str, runner: DockerRunner) -> str:
-    """Pull ``base_ref`` and return its immutable ``ref@sha256:…``.
+    """Pull ``base_ref`` and return it pinned to its sha256 digest.
 
-    The tag is pulled so the digest reflects what would actually run, then
-    read from the local image's repo-digests. A base that cannot be resolved
-    to a digest is an error, not a silent fall back to the floating tag —
-    reproducibility is the whole point.
+    Building from a digest rather than a tag is what keeps a cache key honest:
+    one key can then only mean one base. An unpullable base, or one whose first
+    RepoDigest carries no ``@sha256:`` reference, raises :class:`ImageError`.
     """
     pull = runner(["pull", base_ref], None)
     if not pull.ok:
@@ -310,7 +313,7 @@ def resolve_base_digest(base_ref: str, runner: DockerRunner) -> str:
 
 
 def image_present(tag: str, runner: DockerRunner) -> bool:
-    """Whether an image with ``tag`` already exists locally."""
+    """Whether a local image with this tag exists."""
     return runner(["image", "inspect", tag], None).ok
 
 
@@ -321,12 +324,13 @@ def ensure_image(
     *,
     runner: DockerRunner = subprocess_runner,
 ) -> TaskImage:
-    """Return the repository's task image, building it once if it is absent.
+    """Return this repository's task image, building it only if it is missing.
 
-    The first task for a repository pays the build; every task after finds the
-    tag present and returns immediately (``built=False``). A change to a
-    manifest changes the cache key, hence the tag, hence triggers exactly one
-    rebuild.
+    :func:`cache_key` picks the tag, so an image already present is reused and
+    its base digest is read back from :data:`LABEL_BASE_DIGEST`. Otherwise the
+    base is resolved to a digest, the Dockerfile rendered, and the image built
+    with the labels :func:`list_cached` later needs. A stack that was never
+    detected, or a build docker rejected, raises :class:`ImageError`.
     """
     if not stack.detected:
         raise ImageError(
@@ -359,7 +363,14 @@ def _build(
     setup: Sequence[str],
     runner: DockerRunner,
 ) -> None:
-    """Build ``tag`` from a context holding only the manifests and Dockerfile."""
+    """Build `tag` from a throwaway context holding the Dockerfile and manifests.
+
+    The repository is not the build context: the Dockerfile and the manifests
+    are copied into a temp directory and only that directory is sent, so no
+    source tree reaches the daemon. The repo slug, key and base digest are
+    attached as labels, and a rejected build raises :class:`ImageError`
+    carrying docker's stderr.
+    """
     with tempfile.TemporaryDirectory(prefix="mcgyvr-build-") as context:
         context_dir = Path(context)
         (context_dir / "Dockerfile").write_text(dockerfile, encoding="utf-8")
@@ -389,10 +400,13 @@ def _build(
 
 
 def list_cached(runner: DockerRunner = subprocess_runner) -> tuple[CachedImage, ...]:
-    """Every image mcgyvr has cached, newest first, with its size.
+    """List the images this module built, newest first.
 
-    Reads Docker's own metadata filtered to the mcgyvr repo label, so the
-    cache is inspectable without a side ledger that could drift from reality.
+    Docker is asked for the ids carrying :data:`LABEL_REPO`, then each id is
+    inspected for its first tag, size, creation time, repo slug and cache key.
+    An image that disappears between the two calls, or reports an unexpected
+    field count, is skipped; an unparseable size becomes 0. A listing that
+    cannot be taken at all raises :class:`ImageError`.
     """
     fmt = (
         "{{.ID}}\t{{index .RepoTags 0}}\t{{.Size}}\t{{.Created}}"
@@ -432,8 +446,8 @@ def list_cached(runner: DockerRunner = subprocess_runner) -> tuple[CachedImage, 
                 created=created,
             )
         )
-    # Newest first: Docker returns creation order-ish, but sort explicitly so
-    # the eviction rule does not depend on listing order.
+    # Newest first: docker's creation timestamps order lexically, and :func:`prune`
+    # evicts from the tail, so this sort decides what survives.
     images.sort(key=lambda c: c.created, reverse=True)
     return tuple(images)
 
@@ -443,12 +457,11 @@ def prune(
     *,
     runner: DockerRunner = subprocess_runner,
 ) -> tuple[str, ...]:
-    """Evict the oldest images beyond ``max_images``. Returns what was removed.
+    """Keep the ``max_images`` newest cached images and remove the rest.
 
-    The rule is oldest-created-first, which is predictable and needs no access
-    tracking. Removing an image only costs the next task for that repository a
-    rebuild, so an over-eager bound is a performance choice, never a
-    correctness one.
+    Returns the tags actually removed; an image docker refuses to remove is
+    left in place and omitted from the result. A negative bound raises
+    :class:`ImageError`, and a bound of 0 empties the cache.
     """
     if max_images < 0:
         raise ImageError("max_images cannot be negative")
@@ -466,10 +479,10 @@ def clear(
     *,
     runner: DockerRunner = subprocess_runner,
 ) -> tuple[str, ...]:
-    """Remove cached images — all of them, or one repository's. Returns removed.
+    """Remove every cached image, or only those built from ``repo_slug``.
 
-    The documented way to reset the cache (#29). Scoped to mcgyvr's own label
-    so it never touches an image the user built themselves.
+    Works off the same listing as :func:`prune`, so only images carrying this
+    module's labels are ever touched, and returns the tags removed.
     """
     removed: list[str] = []
     for image in list_cached(runner):
@@ -487,7 +500,12 @@ def _read_label(tag: str, label: str, runner: DockerRunner) -> str:
 
 
 def _slug(name: str) -> str:
-    """A docker-safe repository slug: lowercase, ``[a-z0-9._-]`` only."""
+    """Make a repo directory name usable as a docker repository name.
+
+    Lowercased, with anything outside alphanumerics and ``._-`` replaced by
+    ``-`` and any leading or trailing separator trimmed; a name with no usable
+    character left becomes ``repo``.
+    """
     safe = "".join(c if c.isalnum() or c in "._-" else "-" for c in name.lower())
     return safe.strip("-._") or "repo"
 

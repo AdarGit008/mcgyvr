@@ -1,17 +1,14 @@
-"""What the door's two serve steps share: reading a compose file, asking a
-unit whether it answers, and talking to the rig's daemon through the shims.
+"""What a serve step does to a rig, shared by the four serve gate scripts.
 
-A compose file is read and never executed to learn its services: the
-``container_name`` and the ``--port`` in each service's ``command`` are what
-gate 7 and the health check need, and both are literal in the file
-:mod:`mcgyvr.emit` wrote. A service without either is refused by name, before
-anything is started, because a unit the door cannot name is a unit gate 7
-cannot tell from a stranger.
-
-**Answering is not the same as serving.** A vLLM unit slept at level 2 answers
-``/v1/models`` with 200, reports ``{"is_sleeping": true}``, and then hangs on a
-real request (the lab's vllm-sleep measurement). So the probe asks a second
-question, and :func:`sleeping` is careful about what an answer to it is.
+A serve step (`serve up`, `serve sleep`, `serve wake`, `serve down`) runs
+behind the door and reaches the one host the door named. This module holds
+what they share: reading the emitted compose file into `Service` records,
+running `docker compose` against it, probing the units over ssh on their
+serving ports (`/v1/models`, `/is_sleeping`, `/sleep`, `/wake_up`, the
+shipped card reader), polling a unit until it serves, and filing what the
+step saw as a `serve-<mode>.json` record. `rigfile`, `run.py` and `wake.py`
+read the same file through `services` when they need its containers and
+ports.
 """
 
 from __future__ import annotations
@@ -26,39 +23,60 @@ from pathlib import Path
 
 import yaml
 
-# Re-exported, not merely used: the door polls by these, and a caller checking
-# a wake budget against the door reads them off the door.
+# The health budget `wait_for` spends on every unit, re-exported under this
+# module's name so a caller — and a test — reads and cuts it here.
 from mcgyvr.config import HEALTH_INTERVAL_S as HEALTH_INTERVAL_S
 from mcgyvr.config import HEALTH_POLLS as HEALTH_POLLS
 from mcgyvr.serving.gatelib import door_required, need, ssh
 
-#: The compose project every live unit is filed under on a rig. One name, so
-#: ``down`` finds exactly what ``up`` started and nothing another run left.
+#: The compose project every file is brought up under, passed as `-p`, so a
+#: container's project is this tool; fleet read calls such a container ours.
 PROJECT = "mcgyvr"
 
 
 class ComposeError(Exception):
-    """The compose file does not name its units the way the door needs."""
+    """A compose file cannot be read as the spec a serve step acts on.
+
+    Raised for a file that cannot be read or is not YAML, carries no
+    `services:` mapping, or declares a service that is not a mapping,
+    names no container or names no port, and for a `docker ps` that
+    failed. The serve steps print it as a refusal rather than act on a
+    half-read file.
+    """
 
 
 @dataclass(frozen=True)
 class Service:
-    """One unit as the compose file spells it: what to look for, where to knock."""
+    """One compose service, as the emitted file states it.
+
+    `name` is the service key the `docker compose` verbs take, `container` the
+    `container_name` the file must state (gate 7 tells this run's unit from a
+    stranger by that name), `port` the number after `--port` in the service's
+    command, `devices` the card indexes it reserves, and `asleep` whether a
+    profile keeps it down.
+    """
 
     name: str
     container: str
     port: int
-    #: The card ids the service reserves, as written (``emit`` writes one
-    #: index); empty where it reserves none.
+    #: The `device_ids` the service reserves under deploy.resources.reservations,
+    #: in file order; rigfile reads them as the card indexes the unit takes.
     devices: tuple[str, ...] = ()
-    #: Whether the service names a compose profile, so a whole ``compose up``
-    #: leaves it down: a swap partner that starts asleep
-    #: (:data:`mcgyvr.serving.SLEEPER_PROFILE`), started only by name.
+    #: A service written under a compose profile, so a plain `docker compose up`
+    #: leaves it down: that is how the swap partner that starts asleep is declared.
+    #: A whole `serve up` does not wait for it; a whole `serve down` names it.
     asleep: bool = False
 
 
 def services(compose: Path) -> tuple[Service, ...]:
-    """Every service in ``compose``, by container name and port, or refused."""
+    """Read every service the compose file declares, or refuse the whole file.
+
+    The document must be a mapping with a `services:` mapping, and each service
+    a mapping with a non-empty `container_name` and a `command` list carrying
+    `--port` followed by a number, that being where the health probe knocks. Any
+    departure — including a file with no services — raises `ComposeError`, so no
+    caller acts on a partial reading.
+    """
     try:
         doc = yaml.safe_load(compose.read_text(encoding="utf-8"))
     except (OSError, yaml.YAMLError) as exc:
@@ -105,10 +123,10 @@ def services(compose: Path) -> tuple[Service, ...]:
 
 
 def _devices(block: dict[object, object]) -> tuple[str, ...]:
-    """The card ids a service's ``deploy`` reservation names, as written.
+    """The card indexes a service reserves, in file order.
 
-    Read, never required: the door starts a service whatever it reserves, and
-    a reservation in a shape this does not read names no card.
+    Read from `deploy.resources.reservations.devices[].device_ids`. A missing or
+    malformed chain at any step yields no devices rather than an error.
     """
     found: list[str] = []
     node: object = block.get("deploy")
@@ -124,7 +142,14 @@ def _devices(block: dict[object, object]) -> tuple[str, ...]:
 def compose(
     compose_file: Path, *args: str, timeout: float = 900.0
 ) -> subprocess.CompletedProcess[str]:
-    """``docker compose`` against ``compose_file``, through the door's shim."""
+    """Run one `docker compose` verb against the file, capturing its output.
+
+    The project name is always `-p mcgyvr`, so every container the call
+    creates is traceable to this tool. The call is never `check=True`: a
+    non-zero exit comes back as the result for the caller to judge, while
+    a call that outlasts `timeout` (900s by default) raises
+    `subprocess.TimeoutExpired`.
+    """
     return subprocess.run(
         ["docker", "compose", "-f", str(compose_file), "-p", PROJECT, *args],
         capture_output=True,
@@ -137,14 +162,12 @@ def compose(
 def up(
     compose_file: Path, units: tuple[Service, ...] = ()
 ) -> subprocess.CompletedProcess[str]:
-    """Start the file's units, or only ``units`` of it, through the door's shim.
+    """Bring units up in the background, and say how the call ended.
 
-    The whole file comes up with ``--remove-orphans``, so the project holds
-    exactly what the file names. Named units come up alone: by their compose
-    services, with ``--no-deps``, so a neighbour the file orders ahead of one
-    (``depends_on``) is not started with it, and with no ``--remove-orphans``,
-    so nothing else of the project is touched. A swap starts a unit that
-    cannot sleep this way.
+    With no units named, compose starts everything the file starts by default
+    and removes orphans. With units named, only those services start
+    (`--no-deps`), which is how `serve up --unit` brings up a sleeper written
+    under a profile without pulling in the partners it swaps with.
     """
     if not units:
         return compose(compose_file, "up", "-d", "--remove-orphans")
@@ -154,14 +177,12 @@ def up(
 def down(
     compose_file: Path, units: tuple[Service, ...] = ()
 ) -> subprocess.CompletedProcess[str]:
-    """Stop the file's units, or only ``units`` of it, through the door's shim.
+    """Take units down, and say how the call ended.
 
-    The whole file goes down with ``--remove-orphans``. Named units are
-    stopped and removed alone (``rm --stop --force`` of their services), and
-    the file's other units keep running. A swap puts away a unit that cannot
-    sleep this way, and a whole down puts away a swap partner a swap left
-    running the same way (:attr:`Service.asleep`): a profile is not something
-    ``compose down`` is promised to reach.
+    With no units named this is `docker compose down --remove-orphans` over the
+    whole file. With units named it is `docker compose rm --stop --force` on
+    those services only — the verb that also reaches a service written under a
+    profile, which `down` is not promised to touch.
     """
     if not units:
         return compose(compose_file, "down", "--remove-orphans")
@@ -169,7 +190,11 @@ def down(
 
 
 def containers_up() -> list[str]:
-    """The names the rig's daemon lists now, through the shim."""
+    """The names of every container the docker daemon reports as up.
+
+    Raises `ComposeError` when `docker ps` fails, so a daemon that could not be
+    read is never mistaken for a rig with nothing left running.
+    """
     done = subprocess.run(
         ["docker", "ps", "--format", "{{.Names}}"],
         capture_output=True,
@@ -183,13 +208,11 @@ def containers_up() -> list[str]:
 
 
 def restart_count(container: str) -> int:
-    """The container's ``docker inspect`` ``RestartCount``, or 0 if unreadable.
+    """How many times the daemon has restarted the container, for the serve record.
 
-    Read through the door's shim, so it asks the rig's daemon and nothing
-    else. Restarts are held at exactly 0, and the one thing worse than
-    recording a restart is not asking; a daemon that cannot answer after a
-    successful ``compose up`` is recorded as 0 rather than as a count that
-    was never read.
+    0 when the container cannot be inspected — a timeout, a non-zero exit, a
+    container that is gone — because an unreadable count is no evidence of a
+    restart.
     """
     try:
         done = subprocess.run(
@@ -210,10 +233,11 @@ def restart_count(container: str) -> int:
 
 
 def models_served(host: str, port: int) -> list[str] | None:
-    """The model ids a unit on ``host``:``port`` lists, or None if it does not answer.
+    """The model ids the unit on `host:port` lists at `/v1/models`, or None.
 
-    ``/v1/models`` rather than ``/health``: both engines serve it, and it
-    names what was loaded.
+    None means the probe could not be read at all: ssh timed out, curl failed,
+    the body did not parse. A list — possibly empty — means the unit answered;
+    each row's `id`, else `name`, else `model` is taken as its id.
     """
     try:
         done = ssh(host, f"curl -sf http://localhost:{port}/v1/models", timeout=30)
@@ -237,26 +261,19 @@ def models_served(host: str, port: int) -> list[str] | None:
     return ids
 
 
-#: What :func:`sleeping` answers when the unit's ``/is_sleeping`` could not be
-#: read: not a 404, not a readable answer. Owner ruling on FLT-02: a failed read.
+#: What `sleeping` answers when the unit's sleep state could not be read: an
+#: answer of its own, so a failed probe reads neither as awake nor as asleep.
 SLEEP_UNREAD = "unread"
 
 
 def sleeping(host: str, port: int) -> bool | str | None:
-    """Whether the unit says it is asleep; None with no sleep route; else unread.
+    """Whether the unit on `host:port` says it is asleep, or why that is unread.
 
-    ``/is_sleeping`` is a **vLLM** development route, registered only when the
-    server runs with ``VLLM_SERVER_DEV_MODE=1`` (sleeping also needs
-    ``--enable-sleep-mode``); without the variable it is 404, and llama.cpp has
-    no such route at any launch (the lab's vllm-sleep measurement). **So a
-    404 is None, the ordinary answer, and it means awake.** An engine that
-    cannot report a sleep has no way to be asleep.
-
-    ``{"is_sleeping": true}`` or ``false`` is the unit's own answer. Everything
-    else — the ssh failing, a 5xx, a body that does not parse, a body of some
-    other shape — is :data:`SLEEP_UNREAD` (owner ruling, FLT-02): the probe was
-    asked and could not read the answer, and a unit that may be asleep hangs
-    the first contract dispatched to it.
+    `True` or `False` is the unit's own `is_sleeping` answer. None means the
+    route is not there at all (404): a unit with no sleep route has no way to be
+    asleep, so it is awake. `SLEEP_UNREAD` means the probe failed in any other
+    way — ssh timed out, curl failed, a non-404 status, a body that does not
+    parse or states no bool — and such a unit never reads as serving.
     """
     try:
         done = ssh(
@@ -282,44 +299,23 @@ def sleeping(host: str, port: int) -> bool | str | None:
 
 
 class SleepLevelError(ValueError):
-    """A sleep was asked for at a level this fleet has measured and banned."""
+    """A sleep level this fleet does not issue was asked for, and nothing dialled."""
 
 
-#: The host RAM a level-1 sleep surrenders for the life of the process, measured
-#: on one rig twice on 2026-09-09 with identical results: 3.14 GiB for the 3B and
-#: 10.32 for the 7B. A later level-2 sleep does not release it and sixty seconds
-#: idle does not release it; only a container restart does.
+#: The host RAM a level-1 sleep surrenders and never gives back — a later
+#: level-2 sleep does not release it, only a container restart does — measured
+#: in GiB on this fleet, and carried here for one purpose: the refusal in
+#: `sleep` states the number rather than only naming the ban.
 _LEVEL_ONE_RAM_GIB = 13.46
 
 
 def sleep(host: str, port: int, level: int) -> bool:
-    """Put the unit on ``host``:``port`` to sleep, refusing every banned level.
+    """Sleep the unit on `host:port` at level 2; say whether the request landed.
 
-    **The one place in ``src/`` a sleep level is spelled**, so that the ban
-    below has somewhere to live.
-
-    **Level 1 is refused.** It keeps the weights in host RAM to wake faster, and
-    on this fleet it never gives that RAM back: 3.14 GiB for the 3B, 10.32 for
-    the 7B, 13.46 GiB in total, for the life of the process. It is bounded
-    rather than a leak — a second cycle costs nothing more — and it buys nothing
-    at all, because it releases the same card as level 2 (within 14-26 MiB)
-    while being slower to sleep and to wake. Its only distinguishing
-    property on this fleet is RAM it does not return (the lab's fleet-gaps
-    measurement, M7).
-
-    The refusal is raised **before the transport**, because the cost is paid by
-    the request arriving rather than by it succeeding: a ban that dialled first
-    and refused the answer would have surrendered the RAM already.
-
-    Anything that is not 1 or 2 is refused for a different reason — nobody has
-    measured it. Two levels exist and one is banned, which leaves exactly one; a
-    third number is not a conservative default, it is an unmeasured call to a
-    live rig.
-
-    A rig that cannot be reached is ``False`` and not a refusal. That is the
-    same distinction :func:`sleeping` keeps between ``None`` and ``False``: a
-    transport that failed has not been asked to do anything wrong, and reading
-    one as the other would make an ssh timeout look like a policy violation.
+    Level 1 and every other level are refused with `SleepLevelError` before the
+    transport is dialled, so a banned request costs the rig nothing. False is a
+    transport answer only: the rig was asked and did not accept, or did not
+    answer in 60s.
     """
     if level == 1:
         raise SleepLevelError(
@@ -347,17 +343,12 @@ def sleep(host: str, port: int, level: int) -> bool:
 
 
 def wake(host: str, port: int) -> bool:
-    """Wake the unit on ``host``:``port`` from the level-2 sleep :func:`sleep` made.
+    """Wake the unit on `host:port`; say whether the whole sequence landed.
 
-    Level 2 discarded the weights, so vLLM's wake is three calls and their
-    order is the point: map the weights' memory back, have every worker read
-    the weights from disk into it, then map the KV cache back. A wake that only
-    called ``/wake_up`` would leave a unit that answers with no weights in it.
-
-    ``False`` as soon as one call fails or the rig cannot be reached; the
-    caller's health poll (:func:`wait_for`) is what says whether the unit came
-    back. The weights are read from disk, so the second call takes as long as a
-    load does, and its budget is the one a compose start gets.
+    Three calls over ssh, in order: `/wake_up?tags=weights` (60s),
+    `/collective_rpc` with `reload_weights` (900s, the rig reloads the weights
+    from disk), then `/wake_up?tags=kv_cache` (60s). A timeout or a non-zero
+    exit stops there and returns False — a half-woken unit is not woken.
     """
     calls = (
         (f"curl -sf -X POST 'http://localhost:{port}/wake_up?tags=weights'", 60),
@@ -380,28 +371,15 @@ def wake(host: str, port: int) -> bool:
 
 
 def wait_for(host: str, service: Service) -> dict[str, object]:
-    """Poll one unit until it is serving, or the budget is spent.
+    """Poll a unit until it serves, and describe what was seen.
 
-    Serving is two readings and not one: the unit lists its models *and* does
-    not say it is asleep. A sleeper reads as not-yet rather than as no, so the
-    poll keeps waiting: giving up the first time ``is_sleeping`` came back true
-    would abandon a wake that may already be under way.
-
-    ``/v1/models`` stays the gate on asking at all: a unit still reading its
-    weights — 50-129 s of it on one rig — cannot answer either question, and a
-    second ssh per poll for two minutes buys nothing.
-
-    The row carries ``sleeping`` so the envelope can tell the two failures
-    apart, and ``restarts`` so it records the container's restart count.
-    A unit that never came up wants its container log read; one that is
-    asleep wants a wake, and its log is clean. :func:`sleep` sleeps only at
-    level 2, which discards the weights, so vLLM's wake is three calls:
-    ``POST /wake_up?tags=weights``, ``POST /collective_rpc`` with
-    ``{"method": "reload_weights"}``, then ``POST /wake_up?tags=kv_cache``.
-    ``None`` is "never got an answer to that question" — nobody asked, or the
-    engine has no sleep route — and it is deliberately not ``False``, which is
-    an engine that was asked and said no. :data:`SLEEP_UNREAD` is an answer that
-    could not be read, and it does not read as serving.
+    `/v1/models` is asked first and `/is_sleeping` only once that answered,
+    so a unit that is not answering is not credited with a sleep state
+    either. At most `HEALTH_POLLS` polls, `HEALTH_INTERVAL_S` apart, ending
+    as soon as the unit lists models and does not read as asleep; if the
+    budget runs out first, the unit is reported down. The row carries
+    container, port, healthy, sleeping, seconds, models and restarts, and
+    is what the serve steps print and file.
     """
     started = time.monotonic()
     asleep: bool | str | None = None
@@ -433,11 +411,14 @@ def wait_for(host: str, service: Service) -> dict[str, object]:
 
 
 def card(host: str) -> dict[str, object]:
-    """The first card's used and free MiB as the rig reads them now, or why not.
+    """The first NVIDIA card's memory on `host`, or why it could not be read.
 
-    Read by the one reader's short reading (``--cards``), shipped under the
-    door: nothing here runs a card tool, and the figures are the ones the
-    door's gates and the hub read of the same card.
+    The reading comes from the shipped card reader, whose command
+    `gatelib.cards_read_command` builds and which is imported in the call. The
+    lowest `index` wins. Anything short of two integers says so in `error` — the
+    reader did not answer in 60s, exited non-zero, printed something unreadable,
+    listed no NVIDIA card, or stated no used/free pair — so a record never
+    carries a memory figure that was guessed.
     """
     from mcgyvr.serving.gatelib import cards_read_command
 
@@ -463,8 +444,14 @@ def card(host: str) -> dict[str, object]:
 
 @dataclass(frozen=True)
 class ServeContext:
-    """What the shared serve prologue read: everything a compose serve step
-    needs before its own body, minus the per-mode filtering."""
+    """What a serve step acts on, read from the door's environment once.
+
+    `host` is the one host the run reaches, `compose_file` the emitted compose
+    file, `out` the `serve-<mode>.json` path inside `RUN_OUT_DIR`, `units` every
+    service that file declares, `expected` the containers the door read from it,
+    and `only` the containers `--unit` narrowed the step to (empty for a
+    whole-stack step).
+    """
 
     host: str
     compose_file: Path
@@ -475,15 +462,17 @@ class ServeContext:
 
 
 def serve_prologue(mode: str, *, verify_refusal: str = "") -> ServeContext | None:
-    """The four compose serve steps' shared opening.
+    """Gate the step, read the run from the environment, re-read the compose file.
 
-    ``door_required``, the run's host/compose/out, the services read, the
-    expected-units verification, and the ``--unit`` set. Returns ``None`` after
-    printing a REFUSED for the two refusals the caller turns into exit 2 — a
-    compose file that cannot be read as services, and one whose services no
-    longer match the door's reading. The refusals that stop the process
-    themselves (``door_required`` and ``need``) still raise ``SystemExit(2)``
-    and are not caught here.
+    `door_required` refuses a step that does not descend from the door. The
+    host, compose file, out directory, expected containers and `--unit` set are
+    then read from the environment, and the compose file is read again into
+    `units`. A file that no longer names the containers the door read from it is
+    refused, since nothing is started or stopped from a file that changed under
+    the run; the refusal carries `verify_refusal`, so a step can say what it did
+    not do. A refusal prints `serve-<mode>: REFUSED — ...` on stderr and returns
+    None, which the gate script answers with exit 2; otherwise the context comes
+    back.
     """
     door_required(f"serve-{mode}")
     host = need("RUN_HOST")
@@ -507,8 +496,13 @@ def serve_prologue(mode: str, *, verify_refusal: str = "") -> ServeContext | Non
 
 
 def write_serve_record(ctx: ServeContext, mode: str, body: dict[str, object]) -> None:
-    """File a compose serve step's record: the common prefix, the per-mode
-    ``body``, and the card reading taken after the body ran."""
+    """File what the step did as `serve-<mode>.json` in `RUN_OUT_DIR`.
+
+    The record names the run, host, mode, compose file and `--unit` set, spreads
+    `body`'s findings, and ends with `card_after`: the card the host holds when
+    the step ends, so a step that freed or refilled memory states it in its own
+    record.
+    """
     record: dict[str, object] = {
         "run_id": need("RUN_ID"),
         "host": ctx.host,

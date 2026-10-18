@@ -1,28 +1,18 @@
 #!/usr/bin/env python3
-"""What every gate script needs and nothing else.
+# What the door and its gate scripts share, and the shims a run's PATH answers with.
+"""What the door and each gate script under it are written against.
 
-Importable, unlike the scripts under ``gate-scripts/``: this holds the plumbing
-each gate repeats, and ONE rule — :func:`ssh` opens a connection only for a
-process the door started, and only to the host the door was opened for. That
-rule lives here and not in a gate because it guards the gates themselves: a
-gate that could reach a rig by hand would be a gate that reads a machine
-nobody compared with its declaration. :func:`door_required` is the same rule
-for a whole script: every gate and every step calls it before anything
-else, so a hand-set ``RUN_*`` environment admits nothing. Everything else
-that decides whether a run may proceed belongs in a gate, where the door can
-see it in :data:`~mcgyvr.serving.run.SEQUENCE`.
+The door (`mcgyvr.serving.run`) starts a gate script as a subprocess and hands it
+the run as environment variables and one `RUN_EXPORT_FD` pipe, and the script
+imports this module rather than spelling either. `need()` and `root()` read the
+run back, `export()` answers on the pipe, `refuse()` ends the script with a rule
+and a status, `ssh()` and `ssh_read_only()` are the only ways a run reaches a
+rig, `envelope_of()` with the claim and escape helpers guards where a run's
+artifacts may land, and the lease functions keep one live run on a rig at a time.
 
-One narrow exception is named, not hidden: :func:`ssh_read_only` opens a rig
-for a read-only detection command — the shipped reader
-(:mod:`mcgyvr.serving.rigscan`, the one reader of a machine, which ``mcgyvr
-scan --rig``, ``mcgyvr recommend`` and first approval take), the ``*.gguf``
-discovery and the shipped-reader header read ``mcgyvr recommend`` runs —
-without the door. It admits only those three command shapes, so launch,
-sleep, wake and every step still require the door through :func:`ssh`.
-
-Nothing here runs at import. A product module imports this, and a module that
-read the environment or touched a descriptor on import would make "import
-gatelib" an action.
+The same module is the code behind the `ssh` and `docker` shims the door puts
+first on PATH: each reads the command line it was handed, admits only the host
+the run was opened for, and executes the real tool.
 """
 
 from __future__ import annotations
@@ -43,35 +33,34 @@ from datetime import UTC, datetime
 from pathlib import Path
 from typing import NoReturn
 
-#: How a run is started. Named in every refusal, because the operator reading
-#: one is the operator most inclined to work around it.
+#: The door's command line as every refusal here spells it out for a person who
+#: started a script by hand: the three verbs, and the host they all take.
 DOOR = "python -m mcgyvr.serving.run serve|read|link --host H ..."
 
-#: What an ancestor's command line carries when it is the door: the module
-#: file by path (matched on its suffix, so a copy of the door in a test tree
-#: is the door too) or the `-m` pair.
+#: How a process is recognized as the door while its ancestors' command lines are
+#: walked: the file the door is, and the module that `-m` names. Both are spelled
+#: here so the rest of the tree does not spell the door's path again.
 DOOR_FILE = "mcgyvr/serving/run.py"
 DOOR_MODULE = "mcgyvr.serving.run"
 
-#: What ``serve sleep`` exits with when a unit of the card has no sleep route:
-#: nothing was asked of any unit, every container is as it was, and the caller
-#: may stop the card with ``serve down`` instead. Its own code, apart from the
-#: door's 1 (a result) and 2 (a refusal), because it asks for a different act.
+#: The status a `sleep` step answers with when one of its units has no sleep
+#: route: nothing was asked of any unit and the card can only be stopped. It sits
+#: here, rather than in the gate that returns it, so the caller that reads it as
+#: proof a card is not asleep compares against one number.
 NO_SLEEP_ROUTE = 3
 
-#: The ssh options this shim knows consume the next argument. Anything else
-#: beginning with `-` is read as a flag.
+#: The single-letter ssh flags that take the next argument as their value, which
+#: `_ssh_options()` must know to tell an option's value from the host it ends at.
 SSH_TAKES_VALUE = frozenset("bcDeEFiIJlLmoOpPQRSwW")
 
 
 def export(key: str, value: object) -> None:
-    """Hand one named fact back to the door. Declared in SEQUENCE or refused.
+    """Answer on the door's pipe with one `KEY=VALUE` line from this gate.
 
-    The door hands facts back on a pipe whose descriptor number it names in
-    RUN_EXPORT_FD — not a hardcoded 3, because `pass_fds` keeps a descriptor
-    at the number it already has, so a gate writing to a fixed 3 writes to
-    whatever happened to be there. Read here and not at import: a module that
-    read the environment on import could not be imported without a door.
+    The door reads the pipe back and accepts only the keys the gate declares, so
+    this is how a gate says what it settled and nothing else. With no
+    `RUN_EXPORT_FD` in the environment there is no door reading what this script
+    learned, which means it was started outside `mcgyvr.serving.run`.
     """
     raw = os.environ.get("RUN_EXPORT_FD")
     if not raw:
@@ -80,24 +69,29 @@ def export(key: str, value: object) -> None:
             "was started outside mcgyvr.serving.run, where no door reads what "
             "a gate learned and nothing is guarded"
         )
-    # The descriptor was named and is not writable: that is a broken door,
-    # not a gate run by hand, so an OSError here is not swallowed.
+    # One line, written in a single call so the door never reads half of it: the
+    # door refuses a line of any shape but `KEY=VALUE`.
     os.write(int(raw), f"{key}={value}\n".encode())
 
 
 def refuse(rule: str, status: int = 2) -> NoReturn:
-    """Say which rule refused, then stop. Never returns.
+    """Say `rule` on stderr as one line and exit with `status`.
 
-    The message is the whole product of a refusal: an operator reads it at the
-    moment they are most inclined to work around it, so it names what was
-    checked and what to do, not merely that something failed.
+    The line is prefixed with this script's own name, so a refusal reads as a
+    statement about the script that made it. The default status, 2, is the one
+    the door takes as a gate's refusal.
     """
     sys.stderr.write(f"{Path(sys.argv[0]).name}: {rule}\n")
     raise SystemExit(status)
 
 
 def need(key: str) -> str:
-    """A variable the door promised. Absent means the gate ran out of order."""
+    """The variable `key` the door exported, refused when it is unset or empty.
+
+    A gate reads its run from this environment and nowhere else, so an empty
+    value means the script was started outside `mcgyvr.serving.run`, where no
+    gate has run and nothing is guarded.
+    """
     value = os.environ.get(key)
     if not value:
         refuse(
@@ -112,33 +106,39 @@ def root() -> Path:
     return Path(need("RUN_ROOT"))
 
 
-#: The door's one mode: a run from an install, held to the user's rig file
-#: (:mod:`mcgyvr.serving.rigfile`) and filed under the data folder's
-#: :data:`DOOR_LOG`.
+#: The mode a person's run is recorded under: gate 5 writes `USER_MODE` into the
+#: header of the envelope it mints, beside the command and the compose file the
+#: person ran.
 USER_MODE = "user"
-#: The folder of the door's log, under the data folder.
+#: The directory under the data home that holds the door's envelopes, by run date.
 DOOR_LOG = "door"
 
 
 def step_name(step_file: Path) -> str:
-    """The step a run id names: the file's stem without its ``<n>-`` order."""
+    """The step's name: the stem of `step_file` with its `NN-` prefix removed.
+
+    `05-envelope.py` is the step `envelope`, which is what a run id and a lease
+    both carry.
+    """
     return re.sub(r"^\d+-", "", step_file.stem)
 
 
 def run_id_of(run_date: str, host: str, step_file: Path, suffix: str) -> str:
-    """The RUN_ID gate 5 mints: ``<date>-<host>-<step>[-<suffix>]``."""
+    """The run id for a step: `<date>-<host>-<step>`, plus `-<suffix>` if given.
+
+    `suffix` is what a same-day re-run adds, so two runs of one step on one host
+    never share an id.
+    """
     return f"{run_date}-{host}-{step_name(step_file)}" + (
         f"-{suffix}" if suffix else ""
     )
 
 
 def envelope_of(run_date: str, run_id: str) -> Path:
-    """Where a run's envelope is made: its own folder of the door's log.
+    """The envelope a run keeps its artifacts in: `<data home>/door/<date>/<id>`.
 
-    ``<data folder>/door/<date>/<RUN_ID>/``. The data folder is named by
-    :func:`mcgyvr.fleet.roots.data_home`, imported only here, so a shim
-    loading this file by path needs nothing beyond the stdlib; it raises what
-    that raises when the folder cannot be named.
+    The data home is resolved in the call, so this module does not import the
+    fleet's roots until an envelope is actually named.
     """
     from mcgyvr.fleet.roots import data_home
 
@@ -146,7 +146,11 @@ def envelope_of(run_date: str, run_id: str) -> Path:
 
 
 def is_door(argv: list[str]) -> bool:
-    """Whether one command line is the door's."""
+    """Whether a command line is the door's own, by its script or by its module.
+
+    A script is the door when its path ends in the door's file, and a `-m`
+    invocation when the module it names is the door's.
+    """
     for index, arg in enumerate(argv):
         if arg.endswith(DOOR_FILE):
             return True
@@ -156,25 +160,21 @@ def is_door(argv: list[str]) -> bool:
 
 
 def under_door() -> bool:
-    """Whether some ancestor of this process is ``mcgyvr.serving.run``.
+    """Whether some ancestor of this process is the door.
 
-    Read from ``/proc``, which a process cannot lie to: an environment
-    variable saying "the door started me" is set by whoever wants it set,
-    while a parent chain is what actually happened. Walked to pid 1, bounded
-    so a corrupt reading cannot loop.
-
-    THE ACCEPTED LIMIT, in one sentence: the proof is an ancestor's command
-    line plus RUN_HOST, both of which an operator can forge with
-    ``bash -c ... x/mcgyvr/serving/run.py``, so the seal is against every code
-    path in this repository — none reaches a rig without the door — and not
-    against an operator impersonating the door.
+    The walk reads each ancestor's command line from `/proc` — up to 128 of them
+    — and answers False as soon as it reaches pid 1 or a process whose files
+    cannot be read. A `RUN_*` variable set by hand does not stand in for this.
+    The proof is forgeable by an operator — a command line plus `RUN_HOST` can
+    be faked with ``bash -c ...`` — so the seal is against every code path in
+    this repository, not against an operator impersonating the door.
     """
     pid = os.getpid()
     for _ in range(128):
         try:
             record = Path(f"/proc/{pid}/stat").read_text(encoding="utf-8")
-            # `pid (comm) state ppid ...`, and comm may hold spaces or parens,
-            # so the fields are taken after the LAST closing paren.
+            # The parent's pid follows the parenthesised command name, which may
+            # hold spaces and brackets, so the record is split at its last `)`.
             ppid = int(record.rsplit(")", 1)[1].split()[1])
             if ppid <= 1:
                 return False
@@ -189,7 +189,12 @@ def under_door() -> bool:
 
 
 def _require_door(what: str) -> None:
-    """Refuse unless an ancestor is the door. The one message for that."""
+    """Refuse `what` unless this process descends from the door.
+
+    Every reach for a rig and every read of a run comes through here, so a
+    script started by hand is refused even when its `RUN_*` variables are set
+    correctly: what is admitted is the door as a process, not the variables.
+    """
     if not under_door():
         refuse(
             f"{what} refused: this process was not started by the door — it "
@@ -200,16 +205,11 @@ def _require_door(what: str) -> None:
 
 
 def door_required(what: str) -> None:
-    """Refuse — exit 2, naming the door and ``what`` — unless this is a door run.
+    """Refuse `what` unless an ancestor is the door and it exported this run.
 
-    A gate script's ``main()`` calls this FIRST, before any subprocess; a
-    step calls it at startup. Two things are required: an ancestor that is
-    the door (:func:`under_door`, read from /proc), AND the door's own mark on
-    the environment — ``RUN_EXPORT_FD`` for a gate, which the door sets per
-    entry, or ``RUN_ID`` for a step, which gate 5 exported. The
-    environment alone was never enough: every ``RUN_*`` can be typed into a
-    shell, and a caller that guarded itself on those alone reached a real
-    ``ssh <rig>`` by hand, with no shim on PATH to stop it.
+    `_require_door()` proves the ancestry; this also demands that the door's
+    export pipe or a run id came down to this process, which is what tells a
+    gate in the door's sequence from one merely started under it.
     """
     _require_door(what)
     if not (os.environ.get("RUN_EXPORT_FD") or os.environ.get("RUN_ID")):
@@ -221,10 +221,11 @@ def door_required(what: str) -> None:
 
 
 def _admit(what: str, host: str | None) -> str:
-    """The one rule: under the door, and to the host the door was opened for.
+    """Refuse `what` unless the door was opened for `host`, and return that host.
 
-    Returns the door's host. ``host`` is None for a caller that has no host
-    of its own to name (the docker shim, which takes the door's).
+    `host` None checks nothing beyond the door's ancestry, for a caller that has
+    no host of its own to name. The returned `RUN_HOST` is the one host the door
+    named, which is what a caller sends its traffic to.
     """
     _require_door(what)
     expected = need("RUN_HOST")
@@ -244,21 +245,12 @@ def ssh(
     *,
     input: str | None = None,
 ) -> subprocess.CompletedProcess[str]:
-    """How everything in this repository reaches a rig.
+    """Run `command` on `host` over ssh, once the door has admitted the host.
 
-    The other ssh spawn is :func:`ssh_read_only`, the one
-    sanctioned read-only detection path (the shipped reader, the ``*.gguf``
-    discovery and the shipped-reader header read). This function refuses — exit 2,
-    naming the door — unless this process descends from
-    ``mcgyvr.serving.run`` and ``host`` is the one it was opened for.
-    ``BatchMode=yes`` so a host that wants a password fails in seconds instead
-    of hanging on a prompt nobody is watching, and a timeout because a rig that
-    hard-locks takes the ssh pipe with it. ``input`` is piped to the remote
-    command's stdin (how a reader is shipped without landing on the rig's disk).
-    ``timeout=None`` is for the one caller held to no fixed timeout: a load's
-    harness run under ``read`` (``gate-scripts/read-02-rig.py``), which is held
-    to its own ``mcgyvr.fleet.harness.LOAD_LIMIT_S`` and then waits for the
-    unit to read idle with no limit.
+    `BatchMode=yes` keeps the call from prompting for a password nobody is there
+    to give, `ConnectTimeout=10` bounds the connect itself, and `timeout` bounds
+    the whole call. `input` is fed to the remote command's stdin, and the exit
+    status is left to the caller (`check=False`).
     """
     _admit(f"ssh to {host}", host)
     return subprocess.run(
@@ -279,24 +271,21 @@ def ssh(
     )
 
 
-#: The fixed suffix of the one read-only line that ships the one reader.
-#: Isolated (``-I``): the rig's working folder and the user's site folder give
-#: it no module, so a ``json.py`` planted where it runs changes no reading; and
-#: ``-B``: it writes no bytecode on the rig, which keeps nothing of the read.
+#: A read-only command ships the reader's own source, base64-encoded, and decodes
+#: it into python3 on the rig, so the rig runs the file this checkout has and
+#: nothing has to be installed there. `_SCAN_READ_SUFFIX` is that tail for the
+#: scanner, run isolated (`-I`) and without writing bytecode (`-B`) on the rig.
 _SCAN_READ_SUFFIX = " | base64 -d | python3 -I -B -"
 
-#: The fixed middle of the one read-only line that ships the header reader.
+#: The same tail for the header reader, which is followed by the path it reads.
 _HEADER_READ_MIDDLE = " | base64 -d | python3 - "
 
 
 def _header_read_blob() -> str:
-    """The shipped header reader, base64-encoded, the only payload it ships.
+    """The header reader's source from this checkout, base64-encoded to ship.
 
-    Read lazily so importing gatelib still touches nothing. The reader is
-    :mod:`mcgyvr.serving.ggufscan`, the one copy, read by file — a second copy
-    would be a second parser, and the first thing a second parser does is
-    disagree with the first about the file a published measurement was
-    computed from.
+    `ggufscan` is imported in the call, so the bytes encoded are the file as it
+    stands when the command is built.
     """
     from mcgyvr.serving import ggufscan
 
@@ -305,13 +294,10 @@ def _header_read_blob() -> str:
 
 
 def _scan_read_blob() -> str:
-    """The shipped reader, base64-encoded, the only payload it ships.
+    """The rig scanner's source from this checkout, base64-encoded to ship.
 
-    Read lazily so importing gatelib still touches nothing. The reader is
-    :mod:`mcgyvr.serving.rigscan`, the one copy, read by file — the same
-    single-copy rule as the header reader, because the far end reads the
-    machine and two readers would be two opinions about what the same rig
-    reported.
+    `rigscan` is imported in the call, so the bytes encoded are the file as it
+    stands when the command is built.
     """
     from mcgyvr.serving import rigscan
 
@@ -320,13 +306,10 @@ def _scan_read_blob() -> str:
 
 
 def _single_quote(token: str) -> str:
-    """``token`` as one single-quoted shell word, refusing an embedded quote.
+    """Wrap a path or directory in single quotes, refusing one holding a quote.
 
-    ``shlex.quote`` leaves a safe token unquoted, which is still a single
-    shell word but not a shape the sanction can prove by looking at it. The
-    sanction admits only the single-quoted form, so the builders produce that
-    form, and a token with an embedded single quote is refused rather than
-    shipped in a shape the sanction cannot prove.
+    A token with an embedded single quote cannot be quoted safely for the shell
+    line it is shipped in, so it is refused rather than escaped.
     """
     if "'" in token:
         raise ValueError(
@@ -337,58 +320,32 @@ def _single_quote(token: str) -> str:
 
 
 def scan_read_command() -> str:
-    """The one read-only remote line that reads a rig whole.
-
-    The reader ships as ``python3 -I -B -`` and nothing lands on the rig's
-    disk; the blob never comes back. It takes no argument: the reader reads the machine
-    it runs on, so a fresh rig needs only python3 plus the tools it reads.
-    """
+    """The read-only command that runs the shipped scanner on a rig."""
     return f"echo {_scan_read_blob()}{_SCAN_READ_SUFFIX}"
 
 
 def cards_read_command() -> str:
-    """The door's remote line that reads a rig's cards alone (``--cards``).
-
-    The same shipped reader, asked for its short reading: what a serve step
-    files of the card after it acts, with no timed copy and no disk walk. It is
-    sent through :func:`ssh` under the door, and :func:`ssh_read_only` does not
-    admit it: the read-only line carries no argument.
-    """
+    """The same shipped scanner, asked only for the rig's cards (`--cards`)."""
     return f"echo {_scan_read_blob()}{_SCAN_READ_SUFFIX} --cards"
 
 
 def header_read_command(path: str) -> str:
-    """The one read-only remote line that reads a checkpoint header on the rig.
+    """The read-only command that reads the header of `path` on a rig.
 
-    ``path`` is a rig-local ``*.gguf`` path already discovered by the ``find``
-    line. The reader ships as ``python3 -`` and nothing lands on the rig's
-    disk; the blob never comes back. The path travels as one single-quoted
-    token, so it reaches the far shell as a filename argument and never as a
-    command.
+    `path` is the file as the rig spells it, single-quoted by `_single_quote()`
+    so it cannot break out of the shell line.
     """
     return f"echo {_header_read_blob()}{_HEADER_READ_MIDDLE}{_single_quote(path)}"
 
 
 def _read_only_command(command: str) -> bool:
-    """Whether ``command`` is a sanctioned read-only detection line.
+    """Whether `command` is one of the read-only lines this module builds.
 
-    Three shapes are admitted, and nothing else:
-
-    * the shipped-reader line ``echo <reader> | base64 -d | python3 -I -B -``, whose
-      payload is exactly the shipped :mod:`mcgyvr.serving.rigscan` (base64)
-      and which carries no argument;
-    * the model-store discovery line ``mcgyvr recommend`` builds,
-      ``find '<dir>' -maxdepth 1 -name '*.gguf' -print``, whose directory is
-      one single-quoted token with no embedded quote;
-    * the header-read line ``echo <reader> | base64 -d | python3 - '<path>'``,
-      whose payload is exactly the shipped ggufscan reader (base64) and whose
-      path is one single-quoted token with no embedded quote.
-
-    The quote is what makes a directory or a path a filename argument on the
-    far shell and never a command, so the sanction refuses one it could not
-    prove was quoted. The base64 is the lock that keeps an arbitrary script
-    out of the read-only path: only the shipped reader or header reader
-    matches.
+    Three shapes pass: the shipped scanner's run, the `find` that discovers
+    `*.gguf` files one level down a quoted directory, and the shipped header read
+    with one quoted path. Each blob is compared against the one this checkout
+    builds, so anything else — a hand-edited line included — is not traffic a
+    read is allowed to make.
     """
     if command.startswith("echo ") and command.endswith(_SCAN_READ_SUFFIX):
         blob = command[len("echo ") : -len(_SCAN_READ_SUFFIX)]
@@ -421,14 +378,11 @@ def ssh_read_only(
     command: str,
     timeout: float | None = 120.0,
 ) -> subprocess.CompletedProcess[str]:
-    """Open ssh for a sanctioned read-only detection command, outside the door.
+    """Run one sanctioned read-only command on `host`, or refuse the command.
 
-    The ONE exception to the door rule, and it is narrow: ``command`` must be
-    the shipped-reader line, the ``*.gguf`` discovery shape, or the
-    shipped-reader header-read shape
-    :func:`_read_only_command` admits. Nothing that launches, sleeps, wakes,
-    writes, or runs a step is admitted here; those all still require the door
-    through :func:`ssh`. The door's launch/sleep/wake path is untouched.
+    What is admitted is the command — the three shapes `_read_only_command()`
+    recognizes — so nothing but a read reaches a rig down this channel. The ssh
+    options are those of `ssh()`, and the exit status is left to the caller.
     """
     if not _read_only_command(command):
         refuse(
@@ -455,7 +409,12 @@ def ssh_read_only(
 
 
 def ssh_or_refuse(host: str, command: str, what: str, timeout: float = 120.0) -> str:
-    """``ssh``, refusing on a non-zero exit. A rig that cannot answer is not read."""
+    """Run `command` on `host` and return its stdout, or refuse under `what`.
+
+    A call that times out and one that exits non-zero are both refusals said
+    under `what`: a rig that cannot be read is not compared, and nothing is
+    measured on it. A failed call's stderr is kept, trimmed, in the refusal.
+    """
     try:
         done = ssh(host, command, timeout=timeout)
     except subprocess.TimeoutExpired:
@@ -473,29 +432,20 @@ def ssh_or_refuse(host: str, command: str, what: str, timeout: float = 120.0) ->
     return done.stdout
 
 
-# --------------------------------------------------------------------------
-# the envelope: what a declared artifact is, and the claim on a RUN_ID
-# --------------------------------------------------------------------------
+# Where a run's artifacts may land: inside the envelope. These two checks say why
+# a path is not — the envelope is a link, or the artifact is a link, a hard link,
+# not a regular file, or resolves elsewhere.
 
 
 def artifact_escape(path: Path, envelope: Path) -> str | None:
-    """Why ``path`` is not one regular file of ``envelope``, or None if it is.
+    """Why `path` cannot be trusted as an artifact name in `envelope`, or None.
 
-    Gates 5, 7 and 8 ask this of every declared artifact before they read,
-    stamp or parse it, because a step is operator code and the envelope is
-    the one directory it may write: a step once planted ``ln -sf <other
-    envelope>/sizing.tsv $RUN_OUT_DIR/probe.tsv`` after gate 5 and wrote
-    through it, so committed evidence elsewhere was overwritten and gate 8
-    parsed the victim as this run's green artifact. A symlink is therefore
-    named with its target and where that lands; a file with a second name on
-    disk (a hard link) is named with the count, because a write under one
-    name lands under the other; anything but a regular file is named; and a
-    path that resolves outside the resolved envelope is named with where it
-    resolves. The envelope itself must not be a symlink — see
-    :func:`envelope_escape`, which this checks first.
-
-    A path that does not exist is NOT an escape: the caller says what an
-    absent artifact means (gate 8: not green; gate 5: not yet written).
+    None means the path is absent, or a regular file of one name whose real
+    parent is the envelope's real path. Anything else is returned as the reason:
+    a symlink, with the target and where it lands; a non-regular file; a hard
+    link, whose writes would land under another name too; or a path that
+    resolves outside the envelope. The envelope is checked first, because a link
+    standing in for it makes every name under it suspect.
     """
     escape = envelope_escape(envelope)
     if escape is not None:
@@ -525,7 +475,11 @@ def artifact_escape(path: Path, envelope: Path) -> str | None:
 
 
 def envelope_escape(envelope: Path) -> str | None:
-    """Why ``envelope`` is not a directory of its own, or None if it is."""
+    """Why `envelope` is no fit directory for a run's artifacts, or None.
+
+    The envelope is a directory the door makes, never a link; a link is reported
+    with its target and where it lands.
+    """
     if envelope.is_symlink():
         target = os.readlink(envelope)
         try:
@@ -540,20 +494,16 @@ def envelope_escape(envelope: Path) -> str | None:
 
 
 def claim_path(out_dir: Path, run_id: str) -> Path:
-    """Where a run's claim on its RUN_ID sits while the run is in progress."""
+    """Where the claim file for `run_id` sits in `out_dir`: `.<run id>.running`."""
     return out_dir / f".{run_id}.running"
 
 
 def claim(out_dir: Path, run_id: str) -> Path:
-    """Claim ``run_id`` for this run, atomically, or refuse (exit 2).
+    """Claim `run_id` in `out_dir` by creating its claim file, or refuse.
 
-    Two door invocations of one step on one day mint one RUN_ID, and before
-    this both passed write-once because neither had written yet. The claim is
-    ``O_CREAT | O_EXCL`` on one file in the envelope, so exactly one of two
-    concurrent runs gets it; the door releases it (:func:`release`) on every
-    exit path, including an interrupt. A claim that is still there names a
-    run that is in progress, or one that died without the door — and the
-    door cannot tell which, so the operator decides.
+    The file is created exclusively and holds this process's pid, so a second
+    invocation that finds one refuses rather than share the id: two door
+    invocations never share a run id, and a same-day re-run takes `--suffix`.
     """
     path = claim_path(out_dir, run_id)
     try:
@@ -571,32 +521,32 @@ def claim(out_dir: Path, run_id: str) -> Path:
 
 
 def release(out_dir: Path, run_id: str) -> None:
-    """Release the claim :func:`claim` took. Absent is fine: nothing to release."""
+    """Drop the claim on `run_id`, if one is still there."""
     claim_path(out_dir, run_id).unlink(missing_ok=True)
 
 
-# --------------------------------------------------------------------------
-# the rig lease: one run on a rig at a time, and no run takes it from another
-# --------------------------------------------------------------------------
+# The lease: the one file on a rig that says which run is on it, and what keeps
+# two live runs off one rig. The holder is named by pid and that process's start
+# time, so a recycled pid is not mistaken for the run that took the lease.
 
-#: Where a rig keeps the lease on itself. ON the rig, because the rig is the
-#: contended resource: a laptop and a rig both reach it, and a file on either
-#: of them would be a lock only one of them could see.
+#: Where the lease lives on the rig, spelled for the shell that reads and writes
+#: it: a directory the lease scripts make when it is missing, and the file inside
+#: it.
 LEASE_DIR = "~/.mcgyvr"
 LEASE_FILE = f"{LEASE_DIR}/lease"
-#: What a lease value may be: one whitespace-free token that survives a
-#: single-quoted shell line and a `k=v` stamp as-is. Matched whole.
+#: What one field of a lease line may hold: one plain token, since a lease line is
+#: shipped to the rig inside a quoted shell command.
 LEASE_TOKEN = re.compile(r"[A-Za-z0-9._@:+/-]+")
-#: The environment variable a run carries its own lease in (gate 2 exports
-#: it), read by gate 5 and the lease release.
+#: The variable a run's lease is handed down to it in, so a step releases the rig
+#: from what the door exported instead of reading the lease back off the rig.
 LEASE_VAR = "RUN_LEASE"
-#: How every lease script reaches the rig: a POSIX shell is pinned, as the
-#: snapshot pins one, so `set -C` and `>` mean what the lease needs them to
-#: mean whatever the rig's login shell is. The script goes on stdin.
+#: How every lease operation reaches the rig: bash reads the script from stdin and
+#: `lease` becomes argv[0], so a process listing on the rig says what the shell is
+#: for.
 LEASE_SHELL = "bash -s -- lease"
 
-#: How a lease script runs on the rig: ``(host, command, stdin) ->`` a
-#: completed process. The gates hand in :func:`ssh`.
+#: What a lease operation is sent through in place of ssh: the host and the script
+#: for its stdin, answering with the finished call.
 Transport = Callable[[str, str, "str | None"], "subprocess.CompletedProcess[str]"]
 
 
@@ -607,13 +557,10 @@ def _over_ssh(
 
 
 def os_machine_id() -> str:
-    """What tells this machine from another with the same hostname.
+    """This machine's id, from the shipped reader, else its hostname.
 
-    The machine's id as the one reader derives it
-    (:func:`mcgyvr.serving.rigscan.machine_id`: systemd's machine id where
-    there is one, hashed) — two cloud images or containers are both `ubuntu`
-    and a lease judged stale by hostname alone would be taken from a run that
-    is still alive — and the hostname where no id can be read.
+    The lease records it for the machine its holder runs on, and `is_stale()`
+    compares against it to tell a lease taken here from one taken elsewhere.
     """
     from mcgyvr.serving import rigscan
 
@@ -621,12 +568,11 @@ def os_machine_id() -> str:
 
 
 def process_start(pid: int) -> str | None:
-    """When process ``pid`` on this machine started, or ``None`` if it cannot
-    be read (no such process, or no ``/proc``).
+    """Field 22 of `/proc/<pid>/stat` — when `pid` started — or None.
 
-    The kernel's own count (``/proc/<pid>/stat`` field 22, clock ticks since
-    boot), which no process sets: it tells the process that took a lease from
-    a later one the kernel gave the same pid, whichever program either is.
+    It is ever only compared with the same field read later, so a pid recycled
+    by a new process is not mistaken for the one that took a lease. None means
+    the field could not be read, or was not a number.
     """
     try:
         stat = Path(f"/proc/{pid}/stat").read_text(encoding="utf-8")
@@ -638,17 +584,14 @@ def process_start(pid: int) -> str | None:
 
 @dataclass(frozen=True)
 class Lease:
-    """One run's hold on one rig, as the line at ``~/.mcgyvr/lease`` says it.
+    """One rig's lease: who holds the rig, from where, and since when.
 
-    ``lease_id`` is minted per run and is what makes a lease *this* run's:
-    the file is compared by it before it is released or rewritten, so a run
-    never removes a lease it does not hold. ``holder`` is ``user@host`` for a
-    person; ``machine``, ``pid`` — the door's pid on that machine — and
-    ``pid_start`` — when that process started (:func:`process_start`) — are
-    the only way to tell a dead run's lease from a live one's, and only from
-    the machine the pid is on (:meth:`is_stale`). ``run_id`` is ``none``
-    until gate 5 mints one. ``raw`` is the line as read off the rig, kept so a
-    lease the door did not write can still be named whole.
+    A lease is one line of `key=value` fields on the rig, which `line()` builds
+    and `parse()` reads back, and every field is one token because that line is
+    shipped inside a quoted shell command. `lease_id` names this taking of the
+    rig, so a hold can be told from any other; `pid` and `pid_start` identify the
+    holding process on `machine`; `step` says what the run is doing; `run_id` is
+    `none` until the run has one; and `raw` keeps the line as it was read.
     """
 
     lease_id: str
@@ -683,12 +626,12 @@ class Lease:
 
     @classmethod
     def parse(cls, text: str) -> Lease | None:
-        """The lease a file's text describes, or ``None`` for an empty file.
+        """The lease on the first line of `text`, or None when there is none.
 
-        A line the door did not write — a field missing, a pid that is not a
-        number — is still a lease: something holds the rig, and it is handed
-        back with what could be read (and the raw line) so a refusal can
-        name it.
+        Fields the line does not carry take placeholder values — `?`, `0`,
+        `none` — so a lease read off a rig is never mistaken for a well-formed
+        one: an id that is not 16 hex characters fails `has_id`. The line itself
+        is kept in `raw`.
         """
         line = text.strip().splitlines()[0].strip() if text.strip() else ""
         if not line:
@@ -722,33 +665,23 @@ class Lease:
         return bool(re.fullmatch(r"[0-9a-f]{16}", self.lease_id))
 
     def is_stale(self) -> bool:
-        """Whether the run that holds this lease is gone, so a door may reclaim it.
+        """Whether the process that took this lease is gone from this machine.
 
-        Stale only when all of these hold, and honoured (live) otherwise:
-
-        * the lease carries an id (:attr:`has_id`), so it can be replaced
-          only if it is still exactly this lease;
-        * its ``machine`` is THIS machine: a pid on another machine cannot be
-          asked, so a lease from elsewhere is never stale here — a door on
-          that machine, or its operator, is the one who can tell;
-        * and its pid is gone: no process has it, or the process that has it
-          now started at another time than ``pid_start`` (the run died and
-          the kernel gave its pid to something else). A lease that names no
-          ``pid_start``, or whose process start cannot be read, is judged by
-          the pid alone.
-
-        Whichever door wrote the lease — the product's, or any other writing
-        this format — the rule is the same, because it asks the kernel about
-        the process and never what program it is.
+        Only a lease with a well-formed id, taken on this machine, for a positive
+        pid can be stale; anything else answers False, because a lease taken
+        elsewhere cannot be checked from here. The pid is probed with signal 0:
+        no such process is a stale lease, a process this user may not signal is
+        taken as alive, and — when the lease recorded a start time — a pid whose
+        start time has changed is a recycled pid, so the lease is stale too.
         """
         if not self.has_id or self.machine != os_machine_id() or self.pid <= 0:
             return False
         try:
             os.kill(self.pid, 0)
         except (ProcessLookupError, OverflowError):
-            return True  # no such process; past the largest pid there is none
+            return True  # no such process: the holder is gone
         except PermissionError:
-            pass  # alive, somebody else's; judged by its start below
+            pass  # alive, just not this user's to signal
         if self.pid_start == "none":
             return False
         now = process_start(self.pid)
@@ -756,7 +689,10 @@ class Lease:
 
 
 def whoami() -> str:
-    """``user@host`` for this door, as a lease names its holder."""
+    """`user@hostname` for the person running this, as a lease records them.
+
+    A user that cannot be read falls back to the numeric uid.
+    """
     try:
         user = getpass.getuser()
     except (KeyError, OSError):
@@ -765,7 +701,12 @@ def whoami() -> str:
 
 
 def new_lease(step: str, pid: int) -> Lease:
-    """A new lease for the door whose pid is ``pid`` on this machine."""
+    """Mint a lease for `step` held by `pid` on this machine, with no run id.
+
+    `lease_id` is 16 hex characters from `secrets`, `pid_start` is the pid's
+    start time, and `started_at` is UTC as `%Y-%m-%dT%H:%M:%SZ`. The run id is
+    put on by `lease_stamp()` once the run has one.
+    """
     return Lease(
         lease_id=secrets.token_hex(8),
         holder=whoami(),
@@ -778,11 +719,11 @@ def new_lease(step: str, pid: int) -> Lease:
 
 
 def held_by(host: str, held: Lease) -> str:
-    """The one line a run is refused with when a live run holds ``host``.
+    """The refusal a run gets while another live lease holds `host`.
 
-    Names the holder's run (or its step, before it has minted a run id), who
-    holds it and from which host, and what to do. No run takes a rig another
-    live run holds (owner's ruling, 2026-10-15: "no one can take from no one").
+    The sentence names the holder, its run, pid and start time, and what can be
+    done about it — including that a lease left by a run that died on another
+    machine is removed by hand.
     """
     who = f" of {held.holder}" if held.holder != "?" else ""
     run = (
@@ -810,13 +751,13 @@ def _lease_script(
         )
 
 
-#: The scripts, on the rig's own bash. A written lease lands whole: staged
-#: beside the file and moved over it, so a reader never sees a line half
-#: written and a crash mid-write leaves the old lease, not an empty file.
+#: The lease scripts, run on the rig as `bash -s -- lease` with their fields
+#: filled in. Each answers with its status: 0 the lease now reads as this run
+#: wrote it, 3 the lease is not the one expected, 4 no lease directory.
 _READ = f"cat {LEASE_FILE} 2>/dev/null || true\n"
 _TAKE_FREE = "mkdir -p {dir} || exit 4\nset -C\nprintf '%s\\n' '{line}' > {file}\n"
-#: A stale lease is replaced only if it is still exactly the one judged stale;
-#: an empty file (``held`` empty) only while it still holds nothing but blanks.
+#: Replacing a lease is the same write behind a check: it only goes through while
+#: the file still holds the lease the caller was told about, or holds nothing.
 _TAKE_STALE = (
     "mkdir -p {dir} || exit 4\nf={file}\n"
     "if [ -z '{held}' ]; then grep -qs -- '[^[:space:]]' \"$f\" && exit 3; "
@@ -832,8 +773,11 @@ _RELEASE = 'f={file}\ngrep -qs -- \'lease_id={held} \' "$f" && rm -f "$f"\ntrue\
 
 
 def lease_read(host: str, *, via: Transport | None = None) -> Lease | None:
-    """The lease on ``host`` now, or ``None`` when the rig is free (or the
-    file is empty — a write that never finished holds nothing)."""
+    """The lease `host` holds right now, or None when it holds none.
+
+    A lease that cannot be read at all is a refusal: a rig whose lease cannot be
+    read is not entered. `via` sends the script by something other than ssh.
+    """
     done = _lease_script(via or _over_ssh, host, _READ)
     if done.returncode != 0:
         refuse(
@@ -845,18 +789,14 @@ def lease_read(host: str, *, via: Transport | None = None) -> Lease | None:
 
 
 def lease_take(host: str, lease: Lease, *, held: Lease | None) -> Lease | None:
-    """Write ``lease`` on ``host``. Returns the lease that stands in the way, if any.
+    """Take `host`'s lease for `lease`, and say what got in the way.
 
-    ``held`` is what the caller read: ``None`` for a free rig, and the write
-    is then ``set -C`` (noclobber) — the rig's shell refuses to overwrite, so
-    of two runs arriving at once exactly one holds the rig, and the other is
-    handed back what it found. Otherwise ``held`` is a lease the caller judged
-    stale (:meth:`Lease.is_stale`) — never a live one: no run takes a rig
-    another live run holds — and it is replaced only if the rig still holds
-    exactly that lease (compare-and-swap on its id): a holder that changed
-    meanwhile comes back for the caller to judge again. An empty file holds
-    nothing a run can be told to wait for, and is written over while it is
-    still empty.
+    None means the lease on the rig now reads as this run's. A `Lease` is
+    another run's, come back with the answer for the caller to report. With
+    `held` None only a rig carrying no lease is taken, so a lease that appeared
+    meanwhile is not overwritten; with `held` a lease this machine has found
+    stale, only a file still holding that same lease is replaced. A lease a live
+    run holds is a refusal.
     """
     if held is None:
         done = _lease_script(
@@ -870,8 +810,8 @@ def lease_take(host: str, lease: Lease, *, held: Lease | None) -> Lease | None:
         if now is not None and now.lease_id != lease.lease_id:
             return now
         if now is not None:
-            return None  # written, and only the exit was lost
-        held_id = ""  # exists and empty: a write that never finished
+            return None  # the write landed: the lease already carries our id
+        held_id = ""  # nothing to match: only a file with nothing in it is replaced
     elif held.is_stale():
         held_id = held.lease_id
     else:
@@ -887,9 +827,9 @@ def lease_take(host: str, lease: Lease, *, held: Lease | None) -> Lease | None:
         return None
     now = lease_read(host)
     if now is not None and now.lease_id == lease.lease_id:
-        return None  # written, and only the exit was lost
+        return None  # the write landed after all: the lease carries our id
     if done.returncode == 3 and now is not None:
-        return now  # the holder changed under the read; judged again
+        return now  # another run took the lease between the check and the write
     refuse(
         f"lease: the lease on {host} could not be written (exit "
         f"{done.returncode}): {done.stderr.strip()[:300] or '(no stderr)'}"
@@ -897,12 +837,11 @@ def lease_take(host: str, lease: Lease, *, held: Lease | None) -> Lease | None:
 
 
 def lease_stamp(host: str, lease: Lease, run_id: str) -> Lease:
-    """Add the RUN_ID gate 5 minted to this run's lease on the rig.
+    """Put `run_id` on this run's lease on `host`, and return the lease written.
 
-    Rewritten only if the lease there is still this run's; if it is not, the
-    run is refused here rather than allowed to start a step under a lease it
-    no longer holds — named with what stands there now, or with the fact
-    that nothing does.
+    The write only goes through while the file still holds this lease id, so a
+    lease removed by hand and taken by another run is caught and is a refusal:
+    nothing is minted on a rig this run no longer holds.
     """
     stamped = replace(lease, run_id=run_id)
     done = _lease_script(
@@ -914,7 +853,7 @@ def lease_stamp(host: str, lease: Lease, run_id: str) -> Lease:
         return stamped
     now = lease_read(host)
     if now is not None and now.lease_id == lease.lease_id:
-        return stamped  # written, and only the exit was lost
+        return stamped  # the stamp landed: the lease carries our id and the run's
     refuse(
         f"gate 5: the lease on {host} is no longer this run's — "
         + (
@@ -928,9 +867,11 @@ def lease_stamp(host: str, lease: Lease, run_id: str) -> Lease:
 
 
 def lease_release(host: str, lease_id: str, *, via: Transport | None = None) -> bool:
-    """Remove the lease on ``host`` if it is still ``lease_id``'s.
+    """Remove this run's lease from `host`, and say whether it is gone.
 
-    False when the rig could not be reached; the caller says so.
+    The script removes the file only while it still holds `lease_id`, so a lease
+    another run has taken since is left alone. False means the release could not
+    be confirmed — a shell that timed out or exited non-zero.
     """
     try:
         done = (via or _over_ssh)(
@@ -942,24 +883,24 @@ def lease_release(host: str, lease_id: str, *, via: Transport | None = None) -> 
 
 
 def lease_of_run() -> Lease | None:
-    """The lease this process's run holds, from the environment gate 2 exported."""
+    """The lease the door handed this run in `LEASE_VAR`, or None without one."""
     raw = os.environ.get(LEASE_VAR, "")
     return Lease.parse(raw) if raw else None
 
 
-# --------------------------------------------------------------------------
-# the shims under gate-scripts/bin/: what `ssh` and `docker` resolve to on
-# the PATH the door exports, so a step reaches only the door's host
-# --------------------------------------------------------------------------
+# Reading the ssh command line a shim was handed: which options it carries, which
+# of them take a value, and where the host and the remote command begin. A shim
+# cannot call ssh's own parser, and it has to be sure it read what ssh will read,
+# so the walk here is the left-to-right one ssh itself makes.
 
 
 def _ssh_options(argv: list[str]) -> tuple[list[tuple[str, str, bool]], int]:
-    """The options before the host as ssh's getopt reads them, and the host's index.
+    """The options in an ssh argv, and the index where the host begins.
 
-    Each option is ``(flag, value, attached)``. Short flags bundle the way
-    getopt bundles them: `-vJ <rig>` is `-v` then `-J <rig>`, and `-vJ<rig>` is
-    `-v` then `-J` with `<rig>` attached — a value-taking flag ends its token.
-    `--` ends option parsing.
+    Each option is `(flag, value, attached)`: the single letter, the value it
+    took — the rest of the argument, the next argument, or `""` — and whether
+    that value came attached to its flag. The walk stops at `--`, at the first
+    argument that is no option, or when the arguments run out.
     """
     options: list[tuple[str, str, bool]] = []
     index = 0
@@ -988,11 +929,9 @@ def _ssh_options(argv: list[str]) -> tuple[list[tuple[str, str, bool]], int]:
 
 
 def ssh_target(argv: list[str]) -> str | None:
-    """The host an ssh command line names, or None if it names none.
+    """The host an ssh argv ends at, with any `user@` stripped, or None.
 
-    The first argument that is not an option, with the value-taking options
-    skipped (attached, `-p22`, detached, `-p 22`, or bundled, `-vp 22`) and
-    `--` ending option parsing. A leading `user@` is not part of the host.
+    None means the command line names no host at all.
     """
     _, index = _ssh_options(argv)
     if index >= len(argv):
@@ -1000,10 +939,10 @@ def ssh_target(argv: list[str]) -> str | None:
     return argv[index].rpartition("@")[2]
 
 
-#: ssh options that send the connection somewhere other than the host on the
-#: line, or open a tunnel through it: a jump host, a stdio forward, another
-#: config file, a control socket, a port forward, and the `-o` keys that do
-#: the same. Compared case-insensitively, the way ssh reads them.
+#: What would carry an ssh connection somewhere other than the host on the command
+#: line: the flags themselves (`-J`, `-W`, `-F`, `-S`, ...), and the `-o` keys that
+#: name a proxy, a jump, another host name, another config file, a control socket
+#: or a forward. A shim refuses a command line carrying any of them.
 SSH_REDIRECT_FLAGS = frozenset("JWFSLRDG")
 SSH_REDIRECT_KEYS = frozenset(
     k.lower()
@@ -1030,12 +969,11 @@ SSH_REDIRECT_KEYS = frozenset(
 
 
 def ssh_redirects(argv: list[str]) -> list[str]:
-    """The options before the host that would carry the connection elsewhere.
+    """Every option in an ssh argv that would redirect the connection, as text.
 
-    ``ssh_target`` admits the positional host; ``-J <other>``, ``-W <other>:22``,
-    ``-o Hostname=<other>`` and ``-o ProxyCommand=…`` all keep that host on the
-    line and connect somewhere else. An adversarial pass found them; the shim
-    refuses them by name. Options after the host are the remote command's.
+    Each is spelled the way it was given — `-Jhost`, `-J host`, `-oKey=Value` —
+    so a refusal can quote what it found. An empty list means the argv reaches
+    only the host it names.
     """
     found: list[str] = []
     for flag, value, attached in _ssh_options(argv)[0]:
@@ -1049,10 +987,11 @@ def ssh_redirects(argv: list[str]) -> list[str]:
 
 
 def next_on_path(name: str, *, skip: Path) -> str | None:
-    """The first executable ``name`` on PATH outside the directory ``skip``.
+    """The first `name` on PATH outside the `skip` directory, or None.
 
-    The shims are ``ssh`` and ``docker`` themselves, so the real one is the
-    next hit on PATH — never the shim's own directory, whatever PATH says.
+    This is how a shim finds the real tool: its own directory is skipped, so a
+    shim never executes itself. A candidate has to be a file this process may
+    execute, and a directory that cannot be resolved is passed over.
     """
     own = skip.resolve()
     for entry in os.environ.get("PATH", os.defpath).split(os.pathsep):
@@ -1063,9 +1002,9 @@ def next_on_path(name: str, *, skip: Path) -> str | None:
         except OSError:
             continue
         candidate = directory / name
-        # A PATH entry the caller cannot stat (another user's ~/.local/bin, a
-        # dead mount) is not the real binary; it is skipped, not a crash --
-        # the first door run on a rig died here at gate 2 on /root/.local/bin.
+        # `is_file()` and `access()` are asked inside the guard: an entry that
+        # vanished or cannot be stat'ed is passed over, rather than ending the
+        # search for the real tool.
         try:
             found = candidate.is_file() and os.access(candidate, os.X_OK)
         except OSError:
@@ -1076,7 +1015,14 @@ def next_on_path(name: str, *, skip: Path) -> str | None:
 
 
 def shim_ssh(argv: list[str], *, own: Path) -> NoReturn:
-    """``bin/ssh``: admit the door's host, then become the real ssh."""
+    """Become ssh for a command line that reaches only the door's host.
+
+    The host is read off the argv and admitted against `RUN_HOST`, and any option
+    that would redirect the connection — a jump host, a forward, another config,
+    a control socket — is refused. The real ssh is then found on PATH past the
+    shim and executed with `BatchMode=yes` and `ConnectTimeout=10` in front of the
+    caller's arguments. This function does not return.
+    """
     host = ssh_target(argv)
     if host is None:
         refuse(
@@ -1099,16 +1045,17 @@ def shim_ssh(argv: list[str], *, own: Path) -> NoReturn:
 
 
 def docker_names_a_daemon(argv: list[str]) -> list[str]:
-    """The GLOBAL docker options in ``argv`` that name a daemon or context.
+    """The leading docker options that name a daemon or a context of their own.
 
-    Only the tokens before the subcommand are docker's own; everything after
-    ``run … IMAGE`` belongs to the container. The first door run on a rig was
-    refused because llama-server's ``--host 0.0.0.0`` was read as docker's.
+    Only the options before the subcommand are read — the walk stops at the first
+    argument that is no option — and `-H`, `--host`, `--context` and `-c` are
+    taken, attached or apart, since any of them points the client at a daemon
+    other than the one the door sends it to.
     """
     named: list[str] = []
     for arg in argv:
         if not arg.startswith("-"):
-            break  # the subcommand: what follows is its business
+            break  # the subcommand: what follows is its business, not a daemon
         if arg in ("-H", "--host", "--context", "-c") or arg.startswith(
             ("-H=", "--host=", "--context=", "-c=")
         ):
@@ -1117,12 +1064,12 @@ def docker_names_a_daemon(argv: list[str]) -> list[str]:
 
 
 def shim_docker(argv: list[str], *, own: Path) -> NoReturn:
-    """``bin/docker``: admit, then become the real docker AT the door's host.
+    """Become docker pointed at the rig the door was opened for.
 
-    ``-H ssh://<RUN_HOST>`` is prepended so every docker call a gate or a step
-    makes reaches the rig's daemon and not the operator's — and the ssh that
-    docker opens for it goes through ``bin/ssh``, which admits the same host.
-    A caller naming a daemon of its own is refused: the door names it.
+    A command line that names a daemon of its own is refused, so the client
+    cannot be pointed anywhere but `ssh://RUN_HOST`. The real docker is then
+    found on PATH past the shim and executed with `-H ssh://<RUN_HOST>` in front
+    of the caller's arguments. This function does not return.
     """
     named = docker_names_a_daemon(argv)
     if named:

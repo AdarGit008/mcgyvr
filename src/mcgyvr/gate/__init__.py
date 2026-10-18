@@ -1,14 +1,24 @@
-"""The deterministic acceptance gate (E5).
+"""Public surface of the gate subpackage.
 
-The gate decides whether a worker's change is acceptable, deterministically
-and before any model is asked for an opinion. In a keyless install it is the
-entire acceptance bar, so it is the component a stranger's first successful
-task depends on most.
+Re-exports the gate's building blocks so callers can import them from
+``mcgyvr.gate`` instead of the individual modules:
 
-Every check in the gate reads the same two facts — which files changed, and
-which lines the worker added — from a single shared :class:`ChangeSet`, so
-the change is detected in a fixed number of git invocations, not once per
-check or per file. See :mod:`mcgyvr.gate.changeset`.
+- acceptance: :class:`Acceptance` and :class:`AcceptanceReport`.
+- adapter: :class:`LanguageAdapter` plus the environment, tool-failure, and
+  tool-unavailable errors.
+- adapters: the :class:`JavaScriptAdapter` and :class:`PythonAdapter`
+  implementations of :class:`LanguageAdapter`.
+- changeset: :class:`ChangeSet`, :class:`FileChange`, and
+  :class:`ChangeSetError`.
+- findings: :class:`Finding`.
+- jev: :class:`JevCheck` and :class:`JevReport`.
+- preflight: the prompt/reply budget helpers (``reply_cap``,
+  ``sized_reply_cap``, ``unit_ceiling``, ``ESTIMATE_RESERVE``, and their
+  types), plus the ``check_*`` preflight validators.
+- runner: :class:`Gate`, :class:`GateResult`, and :class:`InconclusiveRung`.
+- semantic: :class:`SemanticCheck` and :class:`SemanticReport`.
+
+``__all__`` lists exactly the names re-exported here.
 """
 
 from __future__ import annotations

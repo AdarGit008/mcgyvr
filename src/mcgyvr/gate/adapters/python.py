@@ -1,11 +1,10 @@
-"""The Python language adapter — the reference implementation of #35.
+"""The Python language adapter for the gate.
 
-Syntax is checked with the standard library's own parser, so it costs no
-subprocess and fails before anything expensive runs. Structural hazards are
-found by walking the AST and keeping only nodes the worker actually added.
-Lint and format defer to ruff — the tool this very project uses — run once
-over all changed Python files, with every finding filtered down to
-worker-added lines so a file's pre-existing style can never fail the change.
+``PythonAdapter`` answers the gate's questions about a Python change set: does it
+parse (``ast``), does the new code carry structural hazards, what does ``ruff``
+report about it, and which test and type-check commands apply to the repo. Every
+finding is attributed to a line the worker added, so code it did not touch is
+never charged against it.
 """
 
 from __future__ import annotations
@@ -41,55 +40,26 @@ from mcgyvr.sandbox.declared import has_toml_table as _has_toml_table
 
 _EXTENSIONS = (".py", ".pyi")
 
-#: The Python toolchain binary, named once. Both gate rungs here are the same
-#: program, and `mcgyvr.repair` imports this rather than restating it: repairing
-#: with a different tool than the one that rejected would be a second opinion,
-#: and a second opinion cannot guarantee the re-run gate accepts.
+#: The adapter shells out to ``ruff`` for both lint and format. The binary is
+#: resolved through ``require_tool``, so a missing one is an environment fault
+#: rather than a finding against the change. The constants below pin the
+#: configuration used when the repo declares none of its own.
 RUFF = "ruff"
 
-#: The product's default rule selection, for a repository that states no ruff
-#: configuration of its own. It is stated here rather than left to ruff,
-#: because ruff with no configuration enables a different and larger rule set —
-#: TRY004 among it, which rejects raising ``ValueError`` where the worker bundle
-#: says to. pycodestyle is narrowed for the reason stated at the bottom of this
-#: comment. A repository that states its own ``[tool.ruff]``, ``ruff.toml`` or
-#: ``.ruff.toml`` keeps it, whatever it selects: the default is for the
-#: repository that said nothing.
-#:
-#: This selection is also the only one the lint rung softens. Under it, UP006
-#: and UP035 on a deprecated ``typing`` spelling, and an I001 on the line of
-#: such an import, are reported and do not refuse the change
-#: (:data:`~mcgyvr.gate.typecheck.STYLE_LINT_CODES`). A repository's own
-#: configuration is judged as it says: one that selects those rules refuses the
-#: change under them, like any other rule it selects.
-#:
-#: **pycodestyle is spelled ``E4``/``E7``/``E9``, not ``E``, and that is not a
-#: typo.** The whole ``E`` family carries E501, line-too-long, and E501 is the
-#: one rule in this selection the bundled formatter structurally cannot satisfy:
-#: ``ruff format`` rewraps *code*, and never a long string, comment or
-#: docstring. :mod:`mcgyvr.cleanup` then declines correctly and uselessly — a
-#: change is cleaned there only when every reason the gate gave for rejecting it
-#: is one the formatter itself raised, and E501 arrives as a *lint* finding — so
-#: the attempt is spent and nothing is produced over a docstring a few
-#: characters too wide.
-#:
-#: **Line length has not stopped mattering.** ``DEFAULT_RUFF_LINE_LENGTH`` is
-#: unchanged and is still handed to ``ruff format`` below, which still wraps
-#: code at 88; over-wide *code* still rejects, on the format rung, and that is
-#: the one rejection :mod:`mcgyvr.cleanup` repairs at zero model cost. A line
-#: the formatter *cannot* wrap is not a rejection.
-#:
-#: Narrowing the select rather than adding ``lint.ignore = ["E501"]`` — the
-#: other honest spelling — because the ignore is a trap at this call site.
-#: In ruff 0.16, a ``--config lint.ignore`` that *follows* a
-#: ``--config lint.select`` on the same command line is silently discarded, and
-#: :func:`ruff_config_args` appends in exactly that order. The ignore would
-#: read correctly and change nothing, which is the hole that looks like a pass.
-#: Narrowing needs no second layer: ``E4``, ``E7`` and ``E9`` are
-#: pycodestyle sub-families that carry neither E501 nor the whitespace rules
-#: the formatter owns. Beyond E501 it drops exactly one further stable rule,
-#: E101 (mixed-spaces-and-tabs), which ``ruff format`` normalises — so the
-#: format rung still catches it and cleanup still fixes it for free.
+#: The fallback rule set, used only when the repo says nothing about ruff (see
+#: ``declares_ruff_config``). Families are named instead of individual rules so
+#: the adapter picks up the ones ruff grows inside them: E4, E7 and E9 for import
+#: and statement layout plus runtime errors; F for the names pyflakes finds unused
+#: or undefined, and W for the warnings it carries; I for import order and
+#: grouping; N for pep8-naming; UP for spellings the language has since absorbed;
+#: B for the constructs bugbear treats as mistakes; SIM for simplify; and RUF for
+#: ruff's own rules. Width and quote style are pinned to ruff's defaults, so a
+#: repo that declares nothing is judged against this stated selection — wider than
+#: ruff's own default of E4/E7/E9/F — not left to ruff. ``_RUFF_CONFIG_FILES``
+#: names the files ruff searches
+#: for itself: when one of them is present, or a ``[tool.ruff]`` table exists in
+#: ``pyproject.toml``, the gate runs ruff unconfigured and lets the repo's
+#: settings stand.
 DEFAULT_RUFF_SELECT: tuple[str, ...] = (
     "E4",
     "E7",
@@ -108,13 +78,12 @@ _RUFF_CONFIG_FILES = ("ruff.toml", ".ruff.toml")
 
 
 def declares_ruff_config(repo: Path) -> bool:
-    """Whether ``repo`` states a ruff configuration of its own at its root.
+    """Return whether ``repo`` carries a ruff configuration of its own.
 
-    A ``pyproject.toml`` that does not parse counts as declared: ruff must be
-    let read it and fault, loudly, on the rung — the default is for the
-    repository that said nothing, never for one whose statement is broken.
-    A linter that could not load its config and quietly lints under another
-    is the hole that looks like a pass (#261).
+    A ``ruff.toml`` or ``.ruff.toml`` at the repo root counts, as does a
+    ``[tool.ruff]`` table in ``pyproject.toml``. A ``pyproject.toml`` that cannot
+    be read or parsed also counts: the gate defers to a config it cannot inspect
+    instead of overriding it with the pinned defaults.
     """
     if any((repo / name).is_file() for name in _RUFF_CONFIG_FILES):
         return True
@@ -130,16 +99,14 @@ def declares_ruff_config(repo: Path) -> bool:
 
 
 def ruff_config_args(repo: Path) -> list[str]:
-    """The arguments that hold ruff to the basic default for a repo that
-    declares none — ``--isolated`` so no configuration is found by walking up
-    from the workspace, then the default stated inline. Empty when the repo
-    has its own, so ruff reads it exactly as it would for the repo's owner.
+    """Return the ruff arguments that select the configuration for ``repo``.
 
-    ``line-length`` is here for the formatter, not for a lint threshold: it is
-    the width ``ruff format`` wraps code to on both rungs below, and the default
-    selection does not carry E501 (see :data:`DEFAULT_RUFF_SELECT`). Nothing
-    may be appended after ``lint.select``: in ruff 0.16, a later
-    ``--config lint.ignore`` on the same command line is silently discarded."""
+    A repo that declares its own config gets no extra arguments, so ruff
+    resolves the same settings a developer running it there would get. Otherwise
+    the returned arguments put ruff in ``--isolated`` mode and rebuild the
+    default config inline, keeping the project's own ``pyproject.toml`` out of
+    the run.
+    """
     if declares_ruff_config(repo):
         return []
     select = ", ".join(f'"{family}"' for family in DEFAULT_RUFF_SELECT)
@@ -155,14 +122,12 @@ def ruff_config_args(repo: Path) -> list[str]:
 
 
 class PythonAdapter(LanguageAdapter):
-    """The Python adapter, holding the one gate setting that is Python's alone.
+    """The gate's adapter for ``.py`` and ``.pyi`` files.
 
-    ``param_mutation`` is the setup's ``gate.param_mutation``
-    (:class:`~mcgyvr.gate.typecheck.ParamMutation`): read once, when the adapter
-    is built, and never changed after, so an adapter is still a value a caller
-    can build per call and share. Built with nothing, it is the strict reading.
-    A mode the gate does not implement is refused here by name, for a caller
-    that builds an adapter in code rather than through the loader.
+    Syntax is decided by ``ast``, structure by an ``ast`` visitor plus the shared
+    compliance rules, lint and format by ``ruff``. ``param_mutation`` chooses
+    where the shared parameter-mutation rule lands: rejecting, observational, or
+    off.
     """
 
     def __init__(
@@ -195,9 +160,10 @@ class PythonAdapter(LanguageAdapter):
         try:
             ast.parse(source, filename=change.path)
         except SyntaxError as exc:
-            # Every other way source can fail to be Python arrives here, null
-            # bytes included ("source code string cannot contain null bytes"
-            # is a SyntaxError from 3.12, which is this project's floor).
+            # The parser's own line and message are reported verbatim, since they
+            # name the token that broke the file. ``lineno`` is None for a fault
+            # detected before any line is known, and a finding without a line is
+            # still well formed.
             return [
                 Finding(
                     check="syntax",
@@ -219,7 +185,7 @@ class PythonAdapter(LanguageAdapter):
         try:
             tree = ast.parse(source, filename=change.path)
         except (SyntaxError, UnicodeEncodeError):
-            return []  # syntax pass already owns this; do not double-report
+            return []  # a file that does not parse is the syntax check's finding
         visitor = _HazardVisitor(change.path, change.added_lines)
         visitor.visit(tree)
         return visitor.findings + compliance_findings(
@@ -237,9 +203,9 @@ class PythonAdapter(LanguageAdapter):
         if not files:
             return []
         ruff = require_tool(RUFF)
-        # Read once: the same answer decides how ruff runs and, below, whether
-        # the demotion applies. It is empty exactly when the repository states
-        # its own ruff configuration.
+        # A missing binary raises out of ``require_tool`` as an environment
+        # fault. The config arguments pin the rule set when the repo declares
+        # none, and stay empty when it does.
         config_args = ruff_config_args(repo)
         proc = subprocess.run(
             [
@@ -256,17 +222,18 @@ class PythonAdapter(LanguageAdapter):
             text=True,
             env=plain_env(),
         )
-        # ruff reports on 0 (nothing to say) and 1 (diagnostics); 2 is ruff
-        # telling us it failed. On 2 it writes an *empty* stdout, so the JSON
-        # read below succeeds and yields no diagnostics — a clean pass under a
-        # linter that never ran (#261). The exit code is the only thing that
-        # separates the two, so it is checked first.
+        # Exit 0 means ruff found nothing and exit 1 means it printed a report;
+        # both carry JSON on stdout and either is trusted. Any other exit code is
+        # a ruff that did not run to completion, and ``trusted_stdout`` raises
+        # ``ToolFailedError`` carrying ruff's first stderr line instead of
+        # reading a verdict out of output that means nothing.
         stdout = trusted_stdout(RUFF, proc, expected=(0, 1))
         try:
             diagnostics = json.loads(stdout or "[]")
         except json.JSONDecodeError as exc:
-            # An expected exit code with unreadable output: not a shape ruff
-            # produces today, and inconclusive rather than clean if it ever does.
+            # The exit code was one ruff reports with, but the payload is not the
+            # JSON it promises, so the tool is broken in a way the gate cannot
+            # read and there is no finding to attribute.
             raise ToolFailedError(
                 RUFF, proc.returncode, f"stdout is not JSON: {exc}"
             ) from exc
@@ -275,10 +242,10 @@ class PythonAdapter(LanguageAdapter):
             diagnostics = _without_pre_existing(
                 diagnostics, added, repo, base, [ruff, "check", *config_args]
             )
-        # The demotion below is the product's, so it holds only where the
-        # product's selection does. A repository that states its own ruff
-        # configuration is judged as that configuration says: a UP006, UP035
-        # or I001 it selects refuses the change like any other code it selects.
+        # ``shipped_default`` records that the rule set came from the gate rather
+        # than from the repo's own ruff config, which is what makes the
+        # demotion below appropriate: a repo that configures ruff has already made
+        # its choice about those codes.
         shipped_default = bool(config_args)
         unimportable = _Unimportable(repo)
         deprecated_typing = _DeprecatedTyping(repo)
@@ -292,25 +259,18 @@ class PythonAdapter(LanguageAdapter):
             path, added_lines = rel
             if row in added_lines:
                 code = diag.get("code")
-                # Under the shipped default, a demotable code is only demoted
-                # where the line it sits on is a style fault. UP035 is one code
-                # over two faults, and its other half —
-                # `from collections import Mapping` — is an ImportError that
-                # this line withdraws the demotion for. The AST family reports
-                # it too, on the same line and the same side of the verdict, so
-                # a machine with ruff and a machine without one reject the same
-                # change — and the two voices, where both are heard, are not
-                # saying opposite things.
-                #
-                # I001 is the same shape in the other direction. ruff reports
-                # it on the first line of an import block that is unsorted or
-                # unformatted, not for the spelling: a deprecated
-                # `from typing import X` with one blank line before a function
-                # draws UP035 and I001 on the same line, and with two blank
-                # lines UP035 alone. The grant is keyed on the line holding a
-                # deprecated `from typing import X`: an I001 on any other line
-                # still rejects, and one on such a line is reported, including
-                # a genuinely unsorted block that starts there.
+                # Two ruff codes are moved from the rejecting ``lint`` axis to
+                # the observational ``style`` one, and only under the gate's own
+                # default rule set. ``STYLE_LINT_CODES`` are the deprecated typing
+                # spellings: they describe code that runs, so they are
+                # observations — except on a line that cannot import at all, which
+                # is a real fault the compliance pass reports as ``UNIMPORTABLE``
+                # on the rejecting axis, and demoting it here would bury it.
+                # ``I001`` is isort's complaint about an unsorted import block,
+                # filed on the block's first line. When that line imports a
+                # deprecated typing name the block reads as unsorted only because
+                # ruff would rewrite that import, so charging the worker for the
+                # ordering would undo the excusal above.
                 demoted = shipped_default and (
                     (code in STYLE_LINT_CODES and row not in unimportable.at(path))
                     or (code == "I001" and row in deprecated_typing.at(path))
@@ -346,9 +306,9 @@ class PythonAdapter(LanguageAdapter):
             text=True,
             env=plain_env(),
         )
-        # Same shape as lint, same reason: `ruff format --diff` exits 0 already
-        # formatted, 1 would reformat, 2 failed — and on 2 the diff is empty,
-        # which reads as "nothing to reflow" (#261).
+        # ``--diff`` makes ruff format report instead of rewrite: exit 0 with no
+        # output when nothing would change, exit 1 with a unified diff of what it
+        # would touch.
         stdout = trusted_stdout(RUFF, proc, expected=(0, 1))
         if not stdout.strip():
             return []
@@ -377,37 +337,24 @@ class PythonAdapter(LanguageAdapter):
         return None
 
     def locate_type_check_command(self, repo: Path) -> list[str] | None:
-        """Whichever checker this repository configured, invoked bare.
+        """Return the declared type checker as a command, or None if there is none.
 
-        Bare on purpose. ``mypy`` with no arguments reads the repository's own
-        ``files``/``exclude`` and checks what the repository said to check;
-        adding a path here would substitute mcgyvr's idea of the scope for the
-        one the project wrote down, which is the same error as adding a flag.
-
-        **Nothing appends a target anywhere**: mypy's ``exclude`` is not
-        applied to a file named on the command line, so appending one would
-        check a file the repository said to skip. A ``[tool.mypy]`` that sets
-        no ``files`` — bare ``mypy`` exiting 2 with "Missing target module,
-        package, files, or command" — is caught by
-        :meth:`~mcgyvr.gate.acceptance.Acceptance.precondition` against the
-        unchanged tree, before an attempt is spent and without charging a
-        worker. See :func:`mcgyvr.orchestrator.decompose._acceptance_for`.
-
-        Detection reads the files each checker itself reads, rather than only
-        ``pyproject.toml``: a project with ``mypy.ini`` has declared mypy every
-        bit as much as one with ``[tool.mypy]``, and the policy turns on what
-        the repository declared, not on where it chose to write it down.
+        ``declared_type_checker`` finds mypy or pyright from the repo's own
+        configuration, preferring mypy when both are declared; a repo declaring
+        neither gets no type-check rung.
         """
         checker = declared_type_checker(repo)
         return [checker] if checker is not None else None
 
 
 class _HazardVisitor(ast.NodeVisitor):
-    """Collects language hazards, keeping only worker-added occurrences.
+    """Flag hand-written hazards on the worker's added lines.
 
-    The whole file is walked, but a node is reported only when its own line is
-    one the worker added — so a hazard already present in the file is never
-    charged to the worker's change.
+    Three shapes are reported, all on the rejecting ``structure`` axis: mutable
+    default arguments, which are shared across calls; bare ``except``, which
+    swallows ``KeyboardInterrupt``; and wildcard imports, which hide the names
+    they bind. A hazard whose line is not in ``added_lines`` is dropped, so code
+    the worker did not touch is never re-reported.
     """
 
     def __init__(self, path: str, added_lines: frozenset[int]) -> None:
@@ -477,22 +424,11 @@ def _is_mutable_literal(node: ast.expr) -> bool:
 
 
 class _Unimportable:
-    """Which lines of which file hold an import that cannot resolve.
+    """Cache :func:`unimportable_lines` per file for the length of one lint pass.
 
-    One of these lives for the length of one :meth:`PythonAdapter.lint` call.
-    The lint rung is batched — one ruff invocation for every changed Python
-    file — so a diagnostic arrives with a path and a row and no source, and the
-    only way to ask what was imported there is to read and parse the file. That
-    is done once per path and only for paths ruff raised a *demotable* code on,
-    which on a normal change is none of them: the short circuit in
-    :meth:`PythonAdapter.lint` means an ordinary lint finding never opens a
-    file. A cache rather than a precomputation for the same reason.
-
-    Deliberately not shared with :meth:`PythonAdapter.structural_checks`, which
-    parses every changed file a few milliseconds earlier. Threading a tree
-    cache between two rungs would make the lint rung's answer depend on another
-    rung having run, and the rungs are run independently on purpose — each is
-    tried even when the one before it faulted.
+    The lint loop asks about the same paths repeatedly, so each file's source is
+    read and parsed at most once; ``at`` answers with the ``{line: message}`` map
+    of imports that cannot import.
     """
 
     def __init__(self, repo: Path) -> None:
@@ -506,13 +442,10 @@ class _Unimportable:
 
 
 class _DeprecatedTyping:
-    """Which lines of which file hold a deprecated ``from typing import X``.
+    """Cache :func:`deprecated_typing_import_lines` per file for one lint pass.
 
-    The I001 half of the demotion's counterpart to :class:`_Unimportable`: one
-    of these lives for one :meth:`PythonAdapter.lint` call and reads a file
-    only when ruff reported I001 on it, so an ordinary lint finding still never
-    opens a file. Same cache-not-precomputation reason, and same independence
-    from the structural rung.
+    Lazily filled on the first query for a path and answered from memory after
+    that, so the lint loop parses each file at most once.
     """
 
     def __init__(self, repo: Path) -> None:
@@ -536,33 +469,18 @@ def _read_or_empty(path: Path) -> str:
     return _read(path) or ""
 
 
-#: Where ``surrogateescape`` parks a byte it could not decode: bytes ``0x80``
-#: to ``0xff`` land on ``U+DC80`` to ``U+DCFF``, so subtracting this base from
-#: the surrogate recovers the byte the file actually holds.
+#: Source is read with ``errors="surrogateescape"``, which turns each undecodable
+#: byte into the lone surrogate U+DC80..U+DCFF (the byte plus 0xDC00). Subtracting
+#: this base recovers the original byte value for the error message.
 _SURROGATE_BASE = 0xDC00
 
 
 def _not_utf8(path: str, source: str, exc: UnicodeEncodeError) -> Finding:
-    """The finding for source the parser will not even be handed.
+    """Return the ``syntax`` finding for Python source that is not valid utf-8.
 
-    :func:`_read` decodes with ``surrogateescape`` deliberately — that is the
-    byte convention the rest of mcgyvr is written to, and it is what lets a
-    file with an undecodable byte reach the gate at all
-    instead of raising on the way in. ``compile()`` refuses such a string:
-    ``ast.parse`` answers a lone surrogate with ``UnicodeEncodeError``, which is
-    not a ``SyntaxError`` and is caught separately.
-
-    A *syntax* finding, for the same reason a stray brace is one: Python source
-    is UTF-8 by definition (:pep:`3120`), so this is a file the parser cannot
-    accept — which is precisely what this rung reports, and precisely what has
-    to stop the file reaching lint, the type checker and the sandboxed rungs
-    below. Returning nothing would let a file no checker ever read pass clean.
-
-    The offending byte is named rather than the codec's message quoted. The
-    codec counts characters from the top of the file and a reviewer needs a
-    line, and its wording is about a *character* the file does not contain: the
-    surrogate is this decoder's placeholder for the byte, so the byte is what is
-    reported.
+    ``ast.parse`` raises ``UnicodeEncodeError`` on a surrogate the reader let
+    through; the message names the offending byte, or the lone surrogate itself
+    when the character did not come from the escaped range.
     """
     offending = ord(exc.object[exc.start])
     detail = (
@@ -573,9 +491,9 @@ def _not_utf8(path: str, source: str, exc: UnicodeEncodeError) -> Finding:
     return Finding(
         check="syntax",
         path=path,
-        # Characters up to the offending one, counted in newlines. `exc.start`
-        # indexes the very string handed to the parser, so this is the line the
-        # byte is on in the file as it is on disk.
+        # The parser reports a character offset rather than a line, so the
+        # newlines before that offset are counted to place the finding on the
+        # line the offending character sits on.
         line=source.count("\n", 0, exc.start) + 1,
         message=f"{detail} is not valid utf-8, which Python source must be",
     )
@@ -586,9 +504,12 @@ def _paths(changes: Sequence[FileChange]) -> list[str]:
 
 
 def _diagnostic_key(diag: dict[str, object]) -> tuple[object, str]:
-    """What makes two ruff diagnostics the same fault: its code and its words.
+    """Return the ``(code, message)`` pair that identifies a diagnostic.
 
-    Not the row — the row is exactly what a rewrite moves."""
+    The pair is what gets compared between a base-revision run and the current
+    one, so the location is deliberately left out of it: the same complaint
+    about the same code is the same complaint even if it moved.
+    """
     return diag.get("code"), str(diag.get("message") or "").strip()
 
 
@@ -599,23 +520,16 @@ def _without_pre_existing(
     base: str,
     check: list[str],
 ) -> list[dict[str, object]]:
-    """``diagnostics`` less those on added lines that the base file already had.
+    """Drop the diagnostics that the base revision already produced.
 
-    A line counts as added when the change rewrote it, whatever it says now, so
-    a formatter's ``import os, sys`` over ``import os,sys`` carries the base's
-    E401, I001 and both F401s onto an added line — faults the change did not
-    bring and could not have removed without editing outside its brief (e2e
-    run 1, F2). The base file is linted once, from git, under the same command,
-    and its diagnostics are a multiset keyed by :func:`_diagnostic_key`. Each
-    fault the changed file still carries on an untouched line spends its own
-    base copy first; what is left excuses added-line diagnostics, one apiece,
-    top to bottom. So a second copy of a fault the base had once is the
-    change's, and so is any fault the base did not have.
-
-    One ruff run per changed file that both existed at the base and has a
-    diagnostic on an added line; a new file has nothing to excuse. A base that
-    cannot be read or linted excuses nothing: the strict reading, never a
-    clean pass on a check that did not run.
+    Diagnostics for files the change does not touch, and diagnostics for a file
+    with nothing on its added lines, pass through untouched. Every other file is
+    re-checked at ``base`` by piping its old text to the same ``check`` command,
+    and each ``(code, message)`` is excused once per report of it in that run.
+    The base's reports on lines the change did not add are removed from the tally
+    first, so untouched code cannot excuse a new complaint. A diagnostic that
+    still finds an excuse when its turn comes existed before the change and is
+    dropped; the rest are kept.
     """
     by_file: dict[Path, list[dict[str, object]]] = {}
     for diag in diagnostics:
@@ -634,7 +548,7 @@ def _without_pre_existing(
         excused.subtract(
             _diagnostic_key(d) for d in diags if _row(d) not in added_lines
         )
-        for diag in diags:  # ruff reports in row order
+        for diag in diags:  # one base report excuses one matching diagnostic
             key = _diagnostic_key(diag)
             if _row(diag) in added_lines and excused[key] > 0:
                 excused[key] -= 1
@@ -651,7 +565,13 @@ def _row(diag: dict[str, object]) -> object:
 def _base_diagnostics(
     repo: Path, base: str, path: str, check: list[str]
 ) -> Counter[tuple[object, str]]:
-    """The base file's ruff diagnostics as a multiset; empty where it has none."""
+    """Return the ``(code, message)`` counts of the base revision's report.
+
+    The old file text is piped to the same tool invocation on stdin, so the run
+    needs no checkout of the base tree. A file absent at ``base``, an exit code
+    the tool does not report with, and unreadable JSON all yield an empty tally:
+    the caller then has nothing to excuse and keeps every diagnostic.
+    """
     text = read_text_at(repo, base, path)
     if text is None:
         return Counter()
@@ -673,13 +593,12 @@ def _base_diagnostics(
 
 
 def _format_touched_lines(diff: str) -> dict[str, set[int]]:
-    """Per file, the current-file line numbers ``ruff format`` would change.
+    """Return the old-side line numbers a format diff would rewrite.
 
-    Reads the unified diff ruff emits and records only the lines actually on
-    the minus side of a hunk — the current-file lines the formatter would
-    rewrite. Context lines advance the old-file counter but are left untouched,
-    so a hunk that merely spans a worker-added line without changing it does
-    not implicate the worker.
+    Keys are the paths named by the diff's ``---`` headers, values are the lines
+    its hunks remove, which is where the formatter's changes land. Added lines
+    start nothing, because the question asked of this map is whether a line the
+    worker added would be reflowed.
     """
     touched: dict[str, set[int]] = {}
     current: str | None = None
@@ -697,26 +616,22 @@ def _format_touched_lines(diff: str) -> dict[str, set[int]]:
             touched.setdefault(current, set()).add(old_ln)
             old_ln += 1
         elif line.startswith("+"):
-            continue  # added on the new side; does not consume an old line
+            continue  # an added line consumes no old-side line number
         else:
-            old_ln += 1  # context line
+            old_ln += 1  # a context line is present on both sides
     return touched
 
 
 def _strip_diff_path(raw: str) -> str:
-    """The path on a ``---`` header, taken as printed.
-
-    ``ruff format --diff`` prints the path it was given, with no git-style
-    ``a/``/``b/`` prefix, so a leading ``a/`` is a real directory named ``a``.
-    """
+    """Return the path from a diff header, dropping any trailing timestamp."""
     return raw.strip().split("\t", 1)[0]
 
 
 def _hunk_old_range(header: str) -> tuple[int, int]:
-    """Parse ``@@ -a,b +c,d @@`` into the old-file ``(start, count)``.
+    """Return the ``(start, count)`` old-side range of a unified diff hunk header.
 
-    ``-a`` without a count means ``-a,1``. A pure insertion is written ``-a,0``
-    and contributes no current-file lines.
+    ``@@ -12,7 +12,8 @@`` gives the line the hunk starts on at the old side and
+    how many old lines it covers; the count is written as one when it is omitted.
     """
     minus = header.split("-", 1)[1].split(" ", 1)[0]
     if "," in minus:

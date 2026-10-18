@@ -1,39 +1,31 @@
-"""Where a line ends, answered once for the whole project.
+"""Line splitting that matches the line numbers CPython's parser reports.
 
-Python's tokenizer and :meth:`str.splitlines` disagree. ``splitlines`` breaks on
-eleven characters; the tokenizer breaks on three. The eight it does not count —
-``\\x0b \\x0c \\x1c \\x1d \\x1e \\x85 \\u2028 \\u2029`` — are all legal inside a
-string literal, so a file holding one is ordinary source that ``ast`` numbers one
-way and ``splitlines`` cuts another.
-
-Every one of those disagreements is an off-by-one against an AST line number, and
-a *silent* one: the splice still joins into something that parses, so the file is
-accepted, the requested change is gone, and the caller reports success —
-:mod:`mcgyvr.repair` splicing an import by AST line span is where it bites.
-
-Hence one home. :mod:`mcgyvr.scope` states the rule this follows: there is exactly
-one matcher, and a second, subtly different one elsewhere is a defect. A second
-definition of *line* is the same kind of defect.
+Two parsers in this package (the Python one and the tree-sitter one) number a
+file by physical lines, and repairs rewrite the file through a splice at a
+reported index. This module is the single cut they all splice through: it keeps
+each terminator with the line it ends, so the pieces rejoin into exactly the
+bytes that were read.
 """
 
 from __future__ import annotations
 
 import re
 
-#: The line terminators the parser counts, longest first so ``\r\n`` is one line
-#: rather than two. Deliberately not ``\\s`` or :meth:`str.splitlines` — see the
-#: module docstring for the eight characters that difference is about.
+#: The three terminators CPython's line accounting recognises. `\n`, `\r\n` and
+#: `\r` all advance the parser's line number by one, so the cut must agree with
+#: them; a cut that knew only `\n` would sit one line off per CR-terminated line
+#: and a splice at that index would move the file. Longer alternatives come first
+#: so `\r\n` is one terminator rather than two.
 LINE_END = re.compile(r"\r\n|\r|\n")
 
 
 def parser_lines(source: str) -> list[str]:
-    """``source`` cut where the parser cuts it, terminators kept.
+    """`source` cut into physical lines, each keeping its own terminator.
 
-    Worth a function only because the cut has to agree with ``lineno`` and
-    ``end_lineno`` exactly: the list is indexed 0-based against their 1-based
-    numbering, and any disagreement about where a line ends is an off-by-one per
-    disagreeing character. Terminators are kept so that joining the slices back
-    is the original bytes rather than a reconstruction of them.
+    Indexing the result 0-based reaches the line the parsers call `lineno`, so
+    `lines[lineno - 1]` is the text of line `lineno`. Nothing is dropped and
+    nothing is added: `"".join(parser_lines(source)) == source`, which is what
+    lets a caller splice a line and rejoin without rewriting other bytes.
     """
     cut: list[str] = []
     start = 0
@@ -41,21 +33,16 @@ def parser_lines(source: str) -> list[str]:
         cut.append(source[start : terminator.end()])
         start = terminator.end()
     if start < len(source):
-        cut.append(source[start:])  # a last line nobody ended
+        cut.append(source[start:])  # text after the last terminator, as the final line
     return cut
 
 
 def terminator(source: str) -> str:
-    """The line ending ``source`` already uses, or ``\\n`` for a file with none.
+    """The first line terminator appearing in `source`, falling back to `\n`.
 
-    A line written *into* a file has to end the way that file's other lines end.
-    A ``\\n`` spliced into a CRLF file leaves a mixed-ending file behind, which
-    the next formatter normalises — so a change that added one import, or one
-    definition, is recorded as having rewritten every line in the file.
-
-    Here rather than beside the caller for the reason this module exists:
-    :func:`mcgyvr.repair._insert_imports` makes the splice, and two answers to
-    "where does a line end" is the defect.
+    Callers building a new line to insert use this to match the file's existing
+    endings; an empty source or one holding a single unterminated line offers
+    none, so `\n` is assumed.
     """
     found = LINE_END.search(source)
     return found.group(0) if found else "\n"

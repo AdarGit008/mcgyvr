@@ -1,32 +1,14 @@
-"""Delegated mode: the orchestrator role turns a prompt and a repository into
-proposals.
+"""Turning a request into proposals through the orchestrator role.
 
-Direct mode hands mcgyvr a contract it wrote itself. Delegated mode is the
-other half of the product: a natural-language prompt plus a repository become
-contracts, and this module is where a model first enters that path. It builds
-the orchestrator role's prompt from the deterministic pass
-(:class:`~mcgyvr.orchestrator.decompose.Evidence`), asks the role through
-:func:`mcgyvr.runner.dispatch_role`, and reads the reply back as the
-:class:`~mcgyvr.orchestrator.decompose.Proposal` objects
-:func:`~mcgyvr.orchestrator.decompose.decompose` consumes.
+Two proposers live here. ``proposer_for`` renders the evidence as a prose
+prompt, dispatches it to the ``orchestrator`` role and parses the JSON reply
+into proposals. ``classifier_proposer_for`` asks the same role a short series
+of typed multiple-choice questions — task type, target, then symbol — and
+turns the answers into one proposal, declining when a confidence falls short.
+``proposer_by_authoring`` picks between them for the configured strategy.
 
-The shape of the reply is the :class:`~mcgyvr.orchestrator.decompose.Proposal`
-type, spelled as JSON — ``task_type``, ``task``, ``target``, and the optional
-``interface``, ``deps``, ``allow``, ``forbid``, ``stop_conditions``,
-``acceptance``, ``demonstration``, ``no_semantic_change``, ``type_check`` and
-``risk``. A proposal names references;
-the repository supplies the facts, exactly as the decompose module's seam
-draws the line. The role is *not* shown a contract document and is
-not asked to author one: the proposal→document→contract round trip
-(:func:`mcgyvr.orchestrator.decompose._document` and the public loader) runs in
-``decompose``, after the index has resolved each reference, which is what keeps
-"an emitted contract is one direct mode accepts" a property of the code path
-rather than something this module re-implements.
-
-The verifier role (:mod:`mcgyvr.verify`) is the template. ``proposer_for``
-mirrors ``reviewer_for``: ``None`` for a keyless install is an ordinary answer,
-not a failure, and a role that is bound but cannot dispatch raises instead of
-being silently skipped.
+``NO_ORCHESTRATOR_ROLE`` is what a caller prints when no orchestrator unit is
+bound, so no prompt can be turned into contracts.
 """
 
 from __future__ import annotations
@@ -55,13 +37,13 @@ if TYPE_CHECKING:  # pragma: no cover - typing only
     from mcgyvr.capacity import Capacity
     from mcgyvr.local_pool import SourceMap
 
-#: What the pool calls the orchestrator. One name, in one place, because a role
-#: spelled differently here than in :mod:`mcgyvr.local_pool` is a role that is
-#: silently never found.
+#: The role whose bound unit turns a prompt into contracts: `proposer_for`
+#: dispatches the prose prompt there, `classifier_proposer_for` asks the typed
+#: questions there. No binding means nothing here can propose.
 ORCHESTRATOR_ROLE = "orchestrator"
 
-#: The documented answer a keyless install gets. ``proposer_for`` returns
-#: ``None``; the CLI prints this and exits REFUSED, never a traceback.
+#: Printed, with a refusal exit, when no orchestrator unit is bound and so no
+#: prompt can be turned into contracts: the text names the ways forward.
 NO_ORCHESTRATOR_ROLE = (
     "the orchestrator role is not configured, so a prompt cannot be turned "
     "into contracts here. Bind `orchestrator.unit` and `orchestrator.model` "
@@ -71,25 +53,27 @@ NO_ORCHESTRATOR_ROLE = (
 
 
 class DelegationError(RuntimeError):
-    """The orchestrator role could not produce proposals."""
+    """Base for every way delegation can fail to produce proposals."""
 
 
 class OrchestratorUnavailableError(DelegationError):
-    """The orchestrator role had a binding and then had nothing to dispatch to."""
+    """The role resolves to no unit, so its prompt cannot be dispatched."""
 
 
 class UnreadableProposalError(DelegationError):
-    """The orchestrator's reply could not be read as proposals."""
+    """A reply that cannot be read as proposals: not JSON, or the wrong shape."""
 
 
 def build_prompt(evidence: Evidence) -> str:
-    """The deterministic pass, written for the orchestrator to judge from.
+    """Render the evidence as the prose prompt the orchestrator replies to.
 
-    The role is shown only what exploration already found — the ranked
-    shortlist, the read regions, and the task types this configuration can
-    serve — and is told to answer in the proposal shape. It has no way to ask
-    the repository for more: exploration is deterministic, and the prompt is
-    where that boundary is held.
+    The request comes first, then the resolution's candidates with each one's
+    score and the signals that matched it, then the regions already read —
+    labelled with their file, line span, selection reason and the candidate
+    that motivated them — then the regions deferred for budget, the task-type
+    vocabulary and the reply format. Sections that would carry nothing (no
+    candidates, no deferred regions) are omitted, and the rest are joined with
+    blank lines.
     """
     resolution = evidence.resolution
     exploration = evidence.exploration
@@ -136,12 +120,12 @@ def build_prompt(evidence: Evidence) -> str:
 
 
 def _vocabulary(vocabulary: Sequence[Any]) -> str:
-    """The task types on offer, each with what its evidence requires.
+    """List the servable task types with the facts a proposal has to respect.
 
-    ``vocabulary`` is typed loosely because :data:`Evidence.vocabulary` is a
-    tuple of :class:`~mcgyvr.catalog.TaskType` and the fields read here are the
-    only ones the prompt needs; importing the catalog for one annotation buys
-    nothing.
+    Each block names the type, its doc and its guarantee, then either the
+    evidence derived from the contract (for evidence-derived types, rule by
+    rule) or the evidence it requires, flagged when the type also needs
+    acceptance or demonstration commands. An empty vocabulary renders "(none)".
     """
     blocks: list[str] = []
     for task in vocabulary:
@@ -169,7 +153,13 @@ def _vocabulary(vocabulary: Sequence[Any]) -> str:
 
 
 def _reply_format() -> str:
-    """The exact proposal shape the role must answer in."""
+    """Describe the JSON array `proposals_from_reply` reads, field by field.
+
+    It states the keys every object needs — plus the output cap a code type must
+    also carry — what each optional key means and what it derives downstream,
+    that optional keys are omitted rather than written as null, and that `[]` is
+    the reply when nothing can be proposed.
+    """
     return (
         "REPLY FORMAT:\n"
         "Return one JSON array of proposal objects and no prose. Each object "
@@ -213,13 +203,11 @@ def _reply_format() -> str:
 
 
 def proposals_from_reply(reply: str) -> tuple[Proposal, ...]:
-    """The proposals a reply carries, or a named failure.
+    """Read an orchestrator reply as proposals, in the order it listed them.
 
-    Accepts a JSON array of proposals, or a single proposal object, bare or
-    inside the first markdown fence of the reply. A reply that is not JSON, a
-    JSON scalar, or a proposal missing a required field is an
-    :class:`UnreadableProposalError` naming what was wrong, never a guess at a
-    proposal.
+    The body is unwrapped from any code fence and parsed as JSON; a single
+    object is read as a one-item array. Raises `UnreadableProposalError` when
+    the body is not JSON, is not an array, or any entry fails validation.
     """
     body = _fenced_body(reply)
     try:
@@ -245,10 +233,12 @@ def proposals_from_reply(reply: str) -> tuple[Proposal, ...]:
 
 
 def _fenced_body(reply: str) -> str:
-    """The body of the first markdown fence if it closes, else the whole reply.
+    """Return the reply's body, without the first fenced block around it.
 
-    Unlike the worker reply parser it accepts an unfenced reply, and ignores
-    every fence after the first.
+    Line endings are normalised and the text trimmed first. A fence opens with
+    up to three spaces then three or more backticks and closes with a line of
+    at least as many backticks and nothing else; the lines between them are
+    returned. Without a closed fence, the whole trimmed reply is returned.
     """
     text = reply.replace("\r\n", "\n").replace("\r", "\n").strip()
     lines = text.split("\n")
@@ -266,7 +256,7 @@ def _fenced_body(reply: str) -> str:
 
 
 def _proposal_of(item: object) -> Proposal:
-    """One reply entry as a :class:`Proposal`, refusing anything malformed."""
+    """Build one `Proposal` from one reply entry, validating each field."""
     if not isinstance(item, dict):
         raise UnreadableProposalError(
             f"a proposal entry is a {type(item).__name__}, not an object"
@@ -299,7 +289,10 @@ def _required_str(item: dict[str, object], key: str) -> str:
 
 
 def _optional_cap(item: dict[str, object]) -> int | None:
-    """``max_output_tokens`` as a whole number of at least 1, or ``None``."""
+    """Read `max_output_tokens`: absent means no cap.
+
+    Anything present but not a whole number of at least 1 is refused.
+    """
     value = item.get("max_output_tokens")
     if value is None:
         return None
@@ -320,7 +313,7 @@ def _optional_str(item: dict[str, object], key: str) -> str:
 
 
 def _optional_bool(item: dict[str, object], key: str) -> bool:
-    """``key`` as a boolean, defaulting to false when absent."""
+    """Read a boolean flag: absent means false, and a non-boolean is refused."""
     value = item.get(key)
     if value is None:
         return False
@@ -367,20 +360,12 @@ def proposer_for(
     capacity: Capacity | None = None,
     max_output_tokens: int | None = None,
 ) -> Proposer | None:
-    """The install's orchestrator role as a :class:`Proposer`, or ``None``.
+    """Build the prose proposer on the `orchestrator` role, or None if unbound.
 
-    ``None`` mirrors :meth:`~mcgyvr.local_pool.SourceMap.role_model` and is an
-    ordinary answer: a keyless install has no orchestrator, which the CLI
-    answers with :data:`NO_ORCHESTRATOR_ROLE` rather than by failing. The
-    request is not marked ``quality_sensitive`` for the same reason the
-    verifier's is not — a proposal is work, and refusing a caveated backend
-    would turn the ordinary local install into one with no orchestrator at all
-    while telling the operator nothing.
-
-    ``max_output_tokens`` is ``None`` (uncapped) by default: the ruling is
-    that the orchestrator carries no output cap — a chatty model is a
-    prompting/model issue, not a cap issue. A caller that still wants a bound
-    on a decomposition may pass one.
+    The role has to name a model, else nothing can propose. The returned
+    callable renders the evidence with `build_prompt`, dispatches it to the
+    role — through `capacity`, when one is given, and capped by
+    `max_output_tokens` — and parses the reply with `proposals_from_reply`.
     """
     if source_map.role_model(ORCHESTRATOR_ROLE) is None:
         return None
@@ -395,7 +380,7 @@ def proposer_for(
             ),
             capacity=capacity,
         )
-        if completion is None:  # the role was bound a moment ago
+        if completion is None:  # The role lists a model but resolves to no unit.
             raise OrchestratorUnavailableError(
                 f"the {ORCHESTRATOR_ROLE!r} role has no unit to dispatch to"
             )
@@ -404,42 +389,30 @@ def proposer_for(
     return propose
 
 
-#: How decisively the model must commit before a choice is acted on.
-#: :func:`~mcgyvr.decision.confidence` is 0 for a flat answer and 1 for a
-#: certain one; below this the proposer refuses rather than guessing, and the
-#: caller falls back to the agent or a stronger proposer.
+#: The confidence a typed answer must reach for its proposal to be trusted. A
+#: classifier answering below it counts as having declined to choose: nothing is
+#: proposed, and the caller can fall back to the prose proposer.
 MIN_CONFIDENCE = 0.5
 
-#: The option key that says "no specific symbol" — the whole target is the work.
+#: The option that picks no symbol, because the whole file is the work.
 _NO_SYMBOL = ""
 
-#: How many options one :class:`~mcgyvr.decision.Choice` may carry, matching the
-#: decision primitive's 62 single-token labels. Candidate lists are capped at
-#: this; the symbol question keeps one label free for the no-symbol sentinel.
+#: One typed question carries at most 62 options: the single-token labels read
+#: back are A-Z, a-z and 0-9. Targets are truncated to this, and the symbol
+#: question keeps one slot back for the "no specific symbol" option.
 _MAX_CHOICE_OPTIONS = 62
 
 
 @dataclass(frozen=True)
 class ClassifierProposer:
-    """A proposer whose judgment is typed single-token choices, never prose.
+    """A proposer that asks typed multiple-choice questions rather than prose.
 
-    Where :func:`proposer_for` asks the orchestrator role for a free-text JSON
-    reply and parses it, this proposer asks three
-    :class:`~mcgyvr.decision.Choice` questions through
-    :func:`~mcgyvr.decision.classify_for` — the task type over the servable
-    vocabulary, the target file over the resolver's ranked shortlist, and the
-    symbol the task works on over that target's definitions — and builds one
-    proposal from the answers. The model's contribution is *relevance*; the
-    repository supplies the facts downstream in
-    :func:`~mcgyvr.orchestrator.decompose.decompose` exactly as before.
-
-    ``classify`` is the bound decision call the factory supplies: it already
-    knows the endpoint and model, so this type holds neither — which is what
-    keeps it above the seam. On low confidence in any answer the proposer
-    returns nothing, a refusal the caller answers by falling back to the agent
-    or a stronger proposer, rather than by guessing. It returns nothing too when
-    the model chooses a type whose contract must state its reply cap
-    (``code``): the prose proposer writes that work, cap included.
+    `classify` is the seam — it answers named questions about a state — and
+    `confidence` is the floor each answer must clear. A call asks the task type
+    and the target, then a symbol inside the target, and returns one proposal
+    built from those answers, or nothing when any of them is unusable, falls
+    short of the floor, or names a type needing an output cap this proposer
+    cannot supply.
     """
 
     classify: Callable[[Any, Mapping[str, Question]], Decision]
@@ -475,12 +448,12 @@ class ClassifierProposer:
         ):
             return ()
         kind = _kind_for(kind_answer.choice, vocabulary)
-        if kind is None:  # the model answered with a name not on offer
+        if kind is None:  # The name is not a type this config can serve.
             return ()
         if kind.needs_output_cap:
-            # The work must state what its reply is worth, and no choice here
-            # can say it (owner, 2026-10-14, e2e run 3): nothing is proposed,
-            # and the prose proposer behind this one writes it with its cap.
+            # A type needing an output cap gets no proposal here: the cap says
+            # what a reply is worth in tokens, and this proposer has no way to
+            # judge that, so it declines instead of guessing.
             return ()
         target = target_answer.choice
 
@@ -515,16 +488,12 @@ def classifier_proposer_for(
     capacity: Capacity | None = None,
     confidence: float = MIN_CONFIDENCE,
 ) -> Proposer | None:
-    """A typed :class:`Proposer` over the ``jev.unit`` or the orchestrator role,
-    or ``None`` when neither is bound.
+    """Build the typed proposer, or None when neither Jev nor a role is bound.
 
-    The same ``None`` contract as :func:`proposer_for`: a keyless install has no
-    orchestrator, answered with :data:`NO_ORCHESTRATOR_ROLE` rather than a
-    failure. The decisions are dispatched through
-    :func:`~mcgyvr.decision.classify_for`, below the seam — to the ``jev.unit``
-    when one is bound, which is then all this proposer needs, and to the
-    orchestrator role's unit when not — so this factory holds no endpoint and
-    the proposer it returns holds none either.
+    The questions go through `classify_for`, which reads them with the `jev`
+    role when that one is bound and with the `orchestrator` role — the role
+    named here — otherwise. `capacity` gates each question, `confidence` is the
+    floor the returned proposer holds its answers to.
     """
     if not jev_bound(source_map) and source_map.role_model(ORCHESTRATOR_ROLE) is None:
         return None
@@ -541,21 +510,20 @@ def classifier_proposer_for(
     return ClassifierProposer(classify=classify, confidence=confidence)
 
 
-# --- the typed decisions, assembled ----------------------------------------
+# Reading one decision into one proposal.
 
 
 def _choice(decision: Decision, name: str) -> ChoiceAnswer | None:
-    """The ``name`` answer as a :class:`ChoiceAnswer`, or ``None`` if unreadable."""
+    """Read the typed answer filed under `name`, or None if absent or not a choice."""
     answer = decision.answers.get(name)
     return answer if isinstance(answer, ChoiceAnswer) else None
 
 
 def _candidate_targets(evidence: Evidence) -> tuple[str, ...]:
-    """The paths the model may pick as the target, best-first.
+    """Paths the evidence points at: candidates first, then reads, deduplicated.
 
-    The resolver's ranked shortlist, then any file a bounded read actually
-    opened, de-duplicated in that order. Capped at the decision primitive's
-    :class:`~mcgyvr.decision.Choice` limit.
+    Truncated to `_MAX_CHOICE_OPTIONS`, since each becomes one option of a
+    single typed question.
     """
     paths: list[str] = []
     seen: set[str] = set()
@@ -571,7 +539,7 @@ def _candidate_targets(evidence: Evidence) -> tuple[str, ...]:
 
 
 def _symbols_of(evidence: Evidence, target: str) -> tuple[Symbol, ...]:
-    """The symbols defined in ``target``, in discovery order."""
+    """The symbols the index holds as definitions in `target`, in index order."""
     return tuple(
         symbol
         for symbol in evidence.index.symbols.all()
@@ -580,11 +548,11 @@ def _symbols_of(evidence: Evidence, target: str) -> tuple[Symbol, ...]:
 
 
 def _symbol_options(symbols: Sequence[Symbol]) -> dict[str, str]:
-    """The symbols the model may pick, plus the no-symbol sentinel.
+    """Render up to 61 symbols as question options, plus one for "no symbol".
 
-    Keyed by name with the symbol's detail as the description; a name defined
-    twice keeps the first. One label is held back for the sentinel, so the
-    choice stays within the primitive's 62-option bound.
+    A symbol's detail is its option text, falling back to "symbol", and a name
+    appears once. `_NO_SYMBOL` is added last and means the whole file is the
+    work, so the question never exceeds `_MAX_CHOICE_OPTIONS` options.
     """
     options: dict[str, str] = {}
     for symbol in symbols[: _MAX_CHOICE_OPTIONS - 1]:
@@ -595,29 +563,21 @@ def _symbol_options(symbols: Sequence[Symbol]) -> dict[str, str]:
 
 
 def _kind_for(name: str, vocabulary: Sequence[TaskType]) -> TaskType | None:
-    """The vocabulary entry the model's answer names, or ``None``."""
+    """Find the servable type named `name`, or None when this config cannot serve it."""
     return next((task for task in vocabulary if task.name == name), None)
 
 
 def _directive(kind: TaskType, target: str, symbol: str | None) -> str:
-    """The worker's directive, rendered from the relevance the model decided.
-
-    The model decided which kind, which file, which symbol; this is that triple
-    spelled as one imperative sentence, not new prose the model authored, so the
-    directive cannot say something the typed decisions did not.
-    """
+    """The task line: the type's doc up to its first full stop, then the subject."""
     return f"{kind.doc.split('.', 1)[0]}: {_subject(target, symbol)}."
 
 
 def _stop_condition(kind: TaskType, target: str, symbol: str | None) -> tuple[str, ...]:
-    """The stop condition a model-executed type must carry, or none for a tool.
+    """Stop conditions: none for a deterministic type, else the generic one.
 
-    A deterministic operation is executed by a tool that cannot guess, so it has no
-    trigger to report BLOCKED. A model-executed type must name one — every
-    contract this proposer emits replies with a whole file, and the loader
-    refuses one of those with none — and the one this proposer writes is the
-    honest default: stop rather than decide anything the typed choices did not
-    already settle.
+    A deterministic type starts on a gate and needs no stop condition; any other
+    gets `generic_stop_condition`, which tells the worker to report BLOCKED
+    rather than decide something the contract does not state.
     """
     if kind.deterministic:
         return ()
@@ -625,14 +585,14 @@ def _stop_condition(kind: TaskType, target: str, symbol: str | None) -> tuple[st
 
 
 def _subject(target: str, symbol: str | None) -> str:
-    """How the worker's directive names what it works on."""
+    """Name the work's subject: the file alone, or the symbol within it."""
     return target if symbol is None else f"{symbol} in {target}"
 
 
 def _state(
     evidence: Evidence, targets: tuple[str, ...], vocabulary: Sequence[TaskType]
 ) -> dict[str, Any]:
-    """The state the decision prompt carries: the request and what is on offer."""
+    """The state the typed questions are about: request, targets, type names."""
     return {
         "request": evidence.prompt,
         "candidates": list(targets),
@@ -641,16 +601,10 @@ def _state(
 
 
 def completable(vocabulary: Sequence[TaskType]) -> tuple[TaskType, ...]:
-    """The task types whose contract this proposer can complete.
+    """The servable types a classifier can propose: those needing no commands.
 
-    A type whose evidence needs commands — ``acceptance`` that passes at
-    baseline, or a ``demonstration`` that fails there — needs a contract that
-    carries them, and this proposer writes neither: its contribution is
-    relevance, three single-token choices. A contract of such a type from it
-    is one the loader refuses (``contract.py``: "acceptance: is empty, but
-    task type ... requires"), and in the pilot every one was. So those types
-    are not offered; a vocabulary that leaves none is answered with nothing,
-    and the caller falls back to a proposer that writes commands.
+    A type whose evidence requires acceptance or demonstration commands is left
+    out, because a typed answer cannot supply the commands themselves.
     """
     return tuple(
         task
@@ -662,15 +616,12 @@ def completable(vocabulary: Sequence[TaskType]) -> tuple[TaskType, ...]:
 def proposer_by_authoring(
     strategy: str | None, *, typed: Proposer | None, prose: Proposer | None
 ) -> Proposer | None:
-    """The proposer ``orchestrator.authoring`` names for ``mcgyvr delegate``.
+    """Pick the proposer for the configured `strategy`.
 
-    ``classifier`` asks ``typed`` first and falls back to ``prose`` when it
-    returns nothing — a low-confidence refusal or a request outside what it
-    can complete. Any other value is ``prose``, the proposer the command has
-    always used: ``direct`` is a strategy only a conversing rung carries out,
-    and an unbound field is the file not choosing. ``None`` where there is no
-    prose proposer to fall back to, which is the ``NO_ORCHESTRATOR_ROLE``
-    answer the command already gives.
+    Only "classifier" opts into the typed proposer, and even then only in front
+    of a prose proposer: the typed one answers first and prose stands in when it
+    declines. Every other strategy proposes in prose. None means nothing can
+    propose — no prose proposer, or a typed one with no prose to fall back on.
     """
     if strategy != "classifier" or typed is None:
         return prose

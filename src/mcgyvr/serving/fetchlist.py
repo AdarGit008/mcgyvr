@@ -1,24 +1,10 @@
-"""What ``serve fetch`` is asked to download, held to a hash before any gate runs.
+"""The fetch list: the JSON document saying exactly which files to download.
 
-A fetch list is a JSON object ``{"files": [{repo, revision, file, sha256,
-bytes, name}, ...]}``: each file a weights file of a Hugging Face repository
-at one pinned revision (a commit id), its sha256 as the Hub states it, its
-size, and the local name it is saved under in the weights folder.
-These are what the model knowledge records of a downloadable file
-(:class:`mcgyvr.knowledge.record.Weights` and ``size_bytes``), and
-:func:`from_weights` writes the list from them. The door reads the list
-before any gate (:func:`read`), so a file it could not hold to a hash, a
-revision that is a branch rather than a commit, or a name that could leave
-the weights folder is refused before anything reaches a rig.
-
-On the rig the files land directly in the weights folder under the explicit
-local ``name`` each entry carries (:mod:`mcgyvr.serving.fetcher`) — the
-canonical name a model id is served from — where ``mcgyvr emit`` mounts it
-and the scan measured its disk.
-
-The Hub is ``HF_ENDPOINT`` when that is set (the Hub's own variable for a
-mirror), else :data:`HUB`; a plain ``http`` address
-is refused unless it is this machine's loopback, since a token may go to it.
+A `Want` is a repository at a pinned commit, a path inside it, the sha256 the
+bytes must hash to, the byte count and the plain filename the file takes in the
+weights folder. This module validates such lists, reads and writes them, builds
+them from model knowledge records, and turns them into the program text the
+fetcher runs on the far side of `ssh`.
 """
 
 from __future__ import annotations
@@ -33,17 +19,20 @@ from pathlib import Path, PurePosixPath
 
 from mcgyvr.knowledge.record import ModelRecord, Number, Weights
 
-#: The Hugging Face Hub, where a fetch list's files are downloaded from.
+#: The hub used when HF_ENDPOINT is unset or empty.
 HUB = "https://huggingface.co"
-#: The remote line the fetch step runs; the fetcher and its job come on stdin.
+#: The command `ssh` runs on the host: the payload arrives on stdin and
+#: "mcgyvr-fetch" is argv[0] of the `python3 -` process.
 REMOTE_COMMAND = "python3 - mcgyvr-fetch"
-#: The fetcher shipped to the rig, read by file: it is never imported there.
+#: The fetcher's own source, embedded in the payload so the host needs no
+#: installed mcgyvr.
 FETCHER = Path(__file__).resolve().parent / "fetcher.py"
-#: The variable a token is read from when the caller names none.
+#: The variable a Hugging Face token is read from when --hf-token-env is not given.
 DEFAULT_TOKEN_ENV = "HF_TOKEN"
-#: The Hub's own variable for another address of it (a mirror).
+#: The variable that replaces HUB, e.g. with a mirror.
 ENDPOINT_ENV = "HF_ENDPOINT"
-#: The most bytes of a fetch list the door reads.
+#: The largest fetch list `read` accepts, so a wrong --weights file is refused
+#: without holding it whole in memory.
 MAX_LIST_BYTES = 1024 * 1024
 
 _KEYS = ("repo", "revision", "file", "sha256", "bytes", "name")
@@ -56,27 +45,24 @@ _VARIABLE = re.compile(r"[A-Za-z_][A-Za-z0-9_]*")
 
 
 class FetchListError(ValueError):
-    """The fetch list cannot be held to a hash; the message says which entry."""
+    """A fetch list, hub endpoint or token variable that cannot be accepted.
+
+    A ValueError, so a caller validating user input can catch it as one.
+    """
 
 
 def _weights_file_name(model_id: str) -> str:
-    """The local file a model id is served from, as ``emit`` names it.
-
-    Kept in step with :func:`mcgyvr.serving._weights_file_name`. The fetch
-    list does not import :mod:`mcgyvr.serving` — that would pull the whole
-    serving seam into the door's list reader — so the one-line rule lives here
-    too and must match it.
-    """
+    """The weights-folder name for a model id: "/" made "_", plus ".gguf"."""
     return f"{model_id.replace('/', '_')}.gguf"
 
 
 @dataclass(frozen=True)
 class Want:
-    """One file a fetch downloads, pinned to its revision and its sha256.
+    """One file to fetch, already validated.
 
-    ``name`` is the file's local name in the rig's weights folder — the
-    canonical name a model id is served from — and ``file`` its name inside
-    the Hugging Face repository.
+    The repo at a pinned commit, the path inside it, the sha256 its bytes must
+    hash to, how many bytes that is, and the plain filename it lands under in
+    the weights folder.
     """
 
     repo: str
@@ -134,7 +120,13 @@ def _want(raw: object, where: str) -> Want:
 
 
 def parse(text: str) -> tuple[Want, ...]:
-    """The fetch list ``text`` holds, or :class:`FetchListError` naming the entry."""
+    """Parse the JSON text of a fetch list into the files it names.
+
+    The document must be an object holding `files` and nothing else, and each
+    entry must be an object of exactly the six keys. Two entries that would land
+    under the same name are allowed only if they carry the same sha256; where a
+    name repeats, the last entry for it is the one returned.
+    """
     try:
         doc = json.loads(text)
     except (json.JSONDecodeError, RecursionError) as exc:
@@ -157,7 +149,11 @@ def parse(text: str) -> tuple[Want, ...]:
 
 
 def read(path: Path) -> tuple[Want, ...]:
-    """The fetch list in the file ``path``."""
+    """Read a fetch list file, refusing one that will not be trusted.
+
+    Unreadable, larger than MAX_LIST_BYTES, not UTF-8 or not a valid list is a
+    `FetchListError`; valid text is handed to `parse`.
+    """
     try:
         with path.open("rb") as handle:
             raw = handle.read(MAX_LIST_BYTES + 1)
@@ -173,12 +169,16 @@ def read(path: Path) -> tuple[Want, ...]:
 
 
 def dump(wants: Iterable[Want]) -> str:
-    """``wants`` as a fetch list, the text :func:`parse` reads back."""
+    """Write `wants` as fetch list JSON: an object of `files` alone, keys sorted."""
     return json.dumps({"files": [want.as_json() for want in wants]}, sort_keys=True)
 
 
 def _want_for(weights: Weights, size: Number, name: str) -> Want:
-    """One ``Want`` for ``weights`` at ``size``, saved under the local ``name``."""
+    """A `Want` for one record's weights, its recorded size and landing name.
+
+    The entry goes through `_want`, so a record that would make a fetch list no
+    one may act on is refused here, named by `<repo>/<file>`.
+    """
     return _want(
         {
             "repo": weights.repo,
@@ -193,10 +193,10 @@ def _want_for(weights: Weights, size: Number, name: str) -> Want:
 
 
 def from_weights(picked: Iterable[tuple[Weights, Number]]) -> tuple[Want, ...]:
-    """The fetch list for each picked file and its recorded size.
+    """A `Want` per `(weights, size)` pair, each named after its file in the repo.
 
-    With no model id the local name falls back to the file's Hub base name;
-    :func:`from_records` names it canonically from the record's model id.
+    The landing name is the base name of the path inside the repo, so the file
+    keeps the name the hub gave it.
     """
     return tuple(
         _want_for(weights, size, PurePosixPath(weights.file).name)
@@ -205,7 +205,12 @@ def from_weights(picked: Iterable[tuple[Weights, Number]]) -> tuple[Want, ...]:
 
 
 def from_records(records: Iterable[ModelRecord]) -> tuple[Want, ...]:
-    """The fetch list for model knowledge records, each naming its file."""
+    """A `Want` per model record, sized by its recorded `size_bytes`.
+
+    A record naming no weights is refused, since it names nothing to download.
+    Each file lands under the record's model id with "/" made "_" and ".gguf"
+    appended, which is not necessarily the hub file's own base name.
+    """
     wants: list[Want] = []
     for record in records:
         weights = record.weights
@@ -224,12 +229,11 @@ def total_bytes(wants: Iterable[Want]) -> int:
 
 
 def token_variable(named: str | None, env: Mapping[str, str]) -> str:
-    """The variable a token is read from: ``named``, or :data:`DEFAULT_TOKEN_ENV`.
+    """The environment variable a Hugging Face token is to be read from.
 
-    A variable the caller named is refused when it is not a variable name, or
-    when it holds nothing: the caller said the download needs a token, and a
-    gated download without one fails after the rig is leased. The token itself
-    is never read here.
+    With no name given, DEFAULT_TOKEN_ENV is used. A name given on the command
+    line must be a variable name and must be set to a non-empty value in `env`,
+    so a token meant to be supplied is not silently missing.
     """
     if named is None:
         return DEFAULT_TOKEN_ENV
@@ -245,7 +249,12 @@ def token_variable(named: str | None, env: Mapping[str, str]) -> str:
 
 
 def endpoint(env: Mapping[str, str]) -> str:
-    """The Hub's address: ``HF_ENDPOINT``, else the Hub's own."""
+    """The hub base URL, HUB unless HF_ENDPOINT in `env` names another.
+
+    A replacement must be https, or plain http only on this machine's loopback,
+    because a token may be sent to it. A trailing slash is dropped, since `url`
+    builds the rest of the path.
+    """
     named = env.get(ENDPOINT_ENV, "").strip()
     if not named:
         return HUB
@@ -264,7 +273,11 @@ def endpoint(env: Mapping[str, str]) -> str:
 
 
 def url(want: Want, hub: str) -> str:
-    """Where ``want`` is downloaded from on the Hub at ``hub``."""
+    """The hub URL of one file: `<hub>/<repo>/resolve/<revision>/<file>`.
+
+    Repo, revision and file are each percent-quoted, so the pinned commit in the
+    path cannot be read as anything but a revision.
+    """
     return (
         f"{hub}/{urllib.parse.quote(want.repo)}/resolve/"
         f"{urllib.parse.quote(want.revision)}/{urllib.parse.quote(want.file)}"
@@ -272,7 +285,13 @@ def url(want: Want, hub: str) -> str:
 
 
 def payload(wants: Iterable[Want], hub: str, token_env: str, token: str | None) -> str:
-    """The fetcher's source with its job appended: what goes to the rig on stdin."""
+    """The program text to pipe into `python3 -` on the host.
+
+    It is the fetcher's own source followed by a call to its `main` with the job
+    as a JSON literal: every file with its name, size, hash and resolved `url`,
+    plus the token variable's name and the token itself, empty when there is
+    none.
+    """
     job = {
         "files": [
             {**want.as_json(), "name": want.name, "url": url(want, hub)}

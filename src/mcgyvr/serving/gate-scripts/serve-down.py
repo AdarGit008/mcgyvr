@@ -1,20 +1,31 @@
 #!/usr/bin/env python3
 # RUN_REWRITES: serve-down.json
-"""The door's serve step, down: stop every unit the compose file names.
+# serve-down — the script gate 6 runs for the `serve down` direction: the one
+# host the door named is taken back down to the containers the run expects, and
+# whatever the daemon still reports up is printed and filed as `serve-down.json`.
+"""Take this run's units down on the one host the door named, and file the step.
 
-The inverse of serve-up, filed in the same envelope under its own name. After
-`docker compose down` the rig's daemon is listed again, and any declared name
-still up is exit 1 — a result gate 7 then repeats as a finding, because in
-this mode gate 7 expects an empty daemon.
+`serve_prologue("down")` gates the step and reads the run from the environment,
+so `ctx` carries the host, the compose file re-read into `units`, the containers
+the door read from that file as `expected`, and the `--unit` set as `only`. A
+refusal there prints `serve-down: REFUSED — ...` on stderr and returns None,
+which this answers with exit 2.
 
-`serve down --unit C` (RUN_SERVE_ONLY) stops and removes only the named
-containers, by their compose services, and leaves the file's other units
-running (:func:`mcgyvr.serving.servelib.down`); a named one still up after
-it is exit 1. This is how a unit that cannot sleep is put away in a swap.
+A `--unit` step is narrowed to the services whose container `only` names, and
+`expected` becomes those containers; a whole-stack step keeps the door's list.
+The narrowed step is one `docker compose rm --stop --force` on those services.
+The whole-stack step is `docker compose down --remove-orphans`, and only if it
+succeeded a second call names the services written under a compose profile
+(`asleep`), which `down` is not promised to reach. A failed compose call prints
+the first 800 characters of its trimmed stderr on stderr.
 
-A whole `down` also names the file's services that start asleep (a compose
-profile, a swap partner) and removes them alone: a swap may have left one
-running, and `compose down` is not promised to reach a profile.
+The daemon is then read again through `containers_up()`: the expected
+containers still up become `remaining`, and a daemon that could not be read is
+filed as `daemon_read: False` instead of being taken for a host with nothing
+left running. `serve-down.json` carries `compose_down_exit`, `expected`,
+`remaining` and `daemon_read`. The step exits 1 when the compose call failed,
+an expected container is still up, or the daemon could not be read, and 0 when
+the host was left clear.
 """
 
 from __future__ import annotations

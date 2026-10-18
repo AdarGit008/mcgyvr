@@ -1,16 +1,24 @@
-"""Exit codes a caller can branch on without reading prose.
+"""The process exit codes mcgyvr commands return.
 
-"It worked" and "it did not" do not cover two outcomes. A host nobody has
-scanned is a *refusal*: nothing went wrong, mcgyvr declined to invent numbers it
-was never given, and the fix is a command rather than a bug report. Hardware
-that stopped matching its last scan is a *mismatch*: the scan succeeded and has
-something to say about the machine underneath it. Collapsing either into ``1``
-makes a script parse English to tell "your rig lost a DIMM" from "the config is
-malformed", and a wrapper that cannot tell those apart either retries a refusal
-forever or treats a changed machine as a crash.
+Every command resolves to one of these five ``int`` values, so a script can
+branch on the outcome without parsing stderr:
 
-``2`` is argparse's own code for a usage error and is named here rather than
-redefined, so the enum covers every value the process can leave behind.
+``OK`` (0)
+    The command did what was asked.
+``ERROR`` (1)
+    Something failed while doing it -- a config that would not load, a host
+    that did not answer, a file that could not be written.
+``USAGE`` (2)
+    The invocation itself was wrong: an argument that cannot be used as given.
+``REFUSED`` (3)
+    The command was understood and declined to act, because the declared
+    configuration or the recorded state does not admit it (a host that has
+    never been scanned, a unit this config does not plan, a lock already
+    held). Nothing is wrong with the code path; the answer is no.
+``MISMATCH`` (4)
+    The command ran and produced its output, but the machine no longer
+    matches the record it was read against -- drift worth reporting rather
+    than a failure.
 """
 
 from __future__ import annotations
@@ -19,7 +27,13 @@ from enum import IntEnum
 
 
 class Exit(IntEnum):
-    """Every status ``mcgyvr`` exits with. ``int`` valued, because a shell reads it."""
+    """The exit code a command hands back to the shell.
+
+    An ``IntEnum``, so the members compare and print as the plain integers a
+    process returns, while callers can still name the outcome (``Exit.REFUSED``)
+    instead of spelling a number. The values are stable: they are part of the
+    command-line contract scripts branch on.
+    """
 
     OK = 0
     ERROR = 1

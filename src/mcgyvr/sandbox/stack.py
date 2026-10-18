@@ -1,31 +1,18 @@
-"""Work out what the target repository needs to run its own checks.
+"""Detect a repository's language stack and turn it into sandbox build inputs.
 
-A fresh container has none of a project's dependencies, so an acceptance
-command fails because an import is missing rather than because the worker was
-wrong — and the gate cannot tell those two apart. The answer is to build the
-sandbox image with the project's dependencies already installed, which means
-knowing, from the repository alone, three things:
+`detect_stack` reads the repository root for Python manifests (`pyproject.toml`,
+the requirement files `requirements.lock`, `requirements.txt` and
+`requirements-dev.txt`, `setup.py`, `setup.cfg`, `Pipfile`, and the lockfiles
+`uv.lock` and `poetry.lock`) and for a Node `package.json` with a lockfile, and
+returns a `Stack`.
 
-1. **which base image** carries the right runtime,
-2. **which files define its dependencies** — because a change to exactly
-   those, and nothing else, is what should rebuild the image (#29), and
-3. **which command installs them.**
-
-Detection is by manifest and lockfile, never by reading code. Two rules
-shape it, both inherited from :mod:`mcgyvr.detect`:
-
-- **Absence is an explicit outcome.** A repository whose stack cannot be
-  determined produces a :class:`Stack` with no components and a note saying
-  so, plus the config key that overrides it — never a silent guess that
-  fails later at command time.
-- **Every fact carries how it was found.** A base image or install command
-  with no provenance is indistinguishable from a default, and a stranger
-  whose build it describes has to be able to see why.
-
-The package manager is derived from the lockfile that is present, because the
-lockfile is the file whose change must invalidate the image cache. When a
-language ships a manifest but no lockfile, the weaker unpinned install is
-used and said so.
+A `Stack` holds one `StackComponent` per detected language - its package
+manager, the manifests that were found, the install commands, and whether a
+lockfile pins versions - plus the base image the sandbox builds from (a slim
+Python image when Python was detected first, a slim Node image otherwise,
+`None` when nothing was detected), the prose `notes` collected on the way, and
+a `CheckerInstall` for every declared checker (mypy, pyright, eslint, prettier)
+the image can install, with its version read out of the ecosystem's lockfile.
 """
 
 from __future__ import annotations
@@ -44,21 +31,22 @@ from mcgyvr.sandbox.declared import (
     declares_js,
 )
 
-# Config keys that override detection, named in every "undetectable" message
-# so the remedy travels with the failure.
+# Config keys a repository can set to override the detected image and to add
+# build-time commands; this module only interpolates their names into notes.
 IMAGE_OVERRIDE_KEY = "sandbox.image"
 SETUP_OVERRIDE_KEY = "sandbox.setup"
 
-# Base images are referenced by tag here; the exact digest is resolved and
-# frozen when the image is first built (see mcgyvr.sandbox.image).
-# Slim images keep the build small; the install step adds the toolchain the
-# base omits (uv, poetry, corepack) rather than assuming a fat base.
+# Base images the sandbox builds from, chosen by the first detected language.
+# Both are slim, so a non-default package manager (uv, poetry, pipenv, pnpm,
+# yarn, bun) has to be brought in by the component's own install commands,
+# which is what those commands do before installing dependencies.
 _PYTHON_BASE = "python:3.12-slim"
 _NODE_BASE = "node:22-slim"
 
-#: Where the image's dependency install leaves its environments. The task
-#: keeps each one the image populated visible over the workspace's mount
-#: (:mod:`mcgyvr.sandbox.docker`), and their tool folders lead the PATH.
+#: Paths inside the task image: the repository is mounted at `WORKSPACE`,
+#: dependencies land in `VENV` (Python) or `NODE_MODULES` (Node), and
+#: `TOOL_PATH` is prepended to PATH so a checker installed into either is
+#: found by name.
 WORKSPACE = "/workspace"
 VENV = f"{WORKSPACE}/.venv"
 NODE_MODULES = f"{WORKSPACE}/node_modules"
@@ -67,11 +55,11 @@ TOOL_PATH = f"{VENV}/bin:{NODE_MODULES}/.bin"
 
 @dataclass(frozen=True)
 class CheckerInstall:
-    """A checker the repository declares, installed into the image if absent.
+    """One checker the image installs.
 
-    ``command`` installs it only when the dependency install did not provide
-    it. ``pin`` is the version the repository's lockfile holds for it, or
-    ``None`` when nothing pins it and the install is unpinned (said in a note).
+    `command` installs `tool` only when its binary is not already there, and
+    `pin` is the version the repository's lockfile fixes, or `None` when
+    nothing pinning it was found.
     """
 
     tool: str
@@ -81,29 +69,30 @@ class CheckerInstall:
 
 @dataclass(frozen=True)
 class StackComponent:
-    """One language found in the repository, and how to provision it.
+    """One detected language and how to install its dependencies.
 
-    ``manifests`` are the repository-relative paths whose content defines the
-    dependency set. They are the cache key for the image (#29): a change to
-    one of them rebuilds, a change to anything else does not. ``install`` is
-    the command sequence that installs the dependencies inside the image.
+    `manifests` are the files the install reads; they are copied into the
+    image and hashed into its cache key. `install` is the command sequence to
+    run, `pinned` says whether a lockfile fixes the versions, and `how` is the
+    phrase detection reports its decision with.
     """
 
-    language: str  # "python" | "node"
+    language: str  # "python" or "node"
     package_manager: str
     manifests: tuple[str, ...]
     install: tuple[str, ...]
-    pinned: bool  # whether a lockfile makes the install reproducible
+    pinned: bool  # a lockfile fixes the dependency versions
     how: str
 
 
 @dataclass(frozen=True)
 class Stack:
-    """What a repository needs to run its checks, or an explicit nothing.
+    """What was detected for one repository, i.e. what the image is built from.
 
-    ``base_image`` is the tag the sandbox image is built ``FROM``. ``notes``
-    carry what could not be determined and what to do about it — the same
-    contract :class:`mcgyvr.detect.Detection` holds.
+    `components` is empty when nothing was detected, and `base_image` is then
+    `None`; otherwise the first component chose `base_image`. `notes` holds the
+    prose warnings gathered along the way, and `checkers` the tools to install
+    on top of the dependencies.
     """
 
     components: tuple[StackComponent, ...]
@@ -116,26 +105,30 @@ class Stack:
         return bool(self.components)
 
     def manifest_paths(self) -> tuple[str, ...]:
-        """Every dependency-defining path, sorted and de-duplicated.
+        """Every manifest the components read, deduplicated and sorted.
 
-        This is the set whose change invalidates the per-repo image and
-        nothing else does (#29). Sorted so the cache key is order-stable.
+        The image cache key hashes these files and the Dockerfile copies them
+        in before running the installs.
         """
         seen = {m for c in self.components for m in c.manifests}
         return tuple(sorted(seen))
 
     def install_commands(self) -> tuple[tuple[str, ...], ...]:
-        """The install command of each component, in detection order."""
+        """Each component's install command sequence, in component order.
+
+        The first component's sequence runs first, and the image joins each
+        sequence into one shell step.
+        """
         return tuple(c.install for c in self.components)
 
     def checker_commands(self) -> tuple[str, ...]:
-        """The command installing each declared checker the install may lack."""
+        """The install command of each entry in `checkers`, in order."""
         return tuple(c.command for c in self.checkers)
 
 
-# Each detector returns a component when its language is present. Ordered so
-# that, in a polyglot repository, the first match picks the base image and
-# the rest are reported as needing a combined base (see ``detect_stack``).
+# Python detection, tried before Node: it prefers the managers whose lockfile
+# pins versions, then bare requirement lists, then a pyproject or setup file,
+# and returns None when no Python manifest is present at all.
 def _detect_python(repo: Path) -> StackComponent | None:
     def has(name: str) -> bool:
         return (repo / name).is_file()
@@ -156,9 +149,9 @@ def _detect_python(repo: Path) -> StackComponent | None:
             "python",
             "poetry",
             _present(repo, "pyproject.toml", "poetry.lock"),
-            # In the project, so the environment is /workspace/.venv: by
-            # default poetry keeps it under root's home, which is off the PATH
-            # and unreadable to the task's user.
+            # `POETRY_VIRTUALENVS_IN_PROJECT` puts the venv at `VENV`
+            # (`/workspace/.venv`), which is where the checker commands probe for
+            # a binary; `--no-root` installs the dependencies only.
             (
                 "pip install poetry",
                 "POETRY_VIRTUALENVS_IN_PROJECT=true "
@@ -184,8 +177,8 @@ def _detect_python(repo: Path) -> StackComponent | None:
             "pip",
             requirements,
             (f"pip install -r {primary}",),
-            # A requirements file may or may not be a full lock; treat it as
-            # reproducible only when it is the conventional lock name.
+            # Only `requirements.lock` counts as pinned: the other requirement
+            # files are plain lists whose versions can move at install time.
             pinned=primary == "requirements.lock",
             how=f"{primary} present",
         )
@@ -200,10 +193,10 @@ def _detect_python(repo: Path) -> StackComponent | None:
                 pinned=False,
                 how=how,
             )
-        # `pip install .` skips PEP 735 dependency groups, and `dev` is where
-        # a project keeps the linter the gate runs and the test runner its
-        # acceptance commands name — without it they exit 127 (e2e run 1, F3).
-        # pip reads `--group` from 25.1; the slim base may ship an older one.
+        # A dev group is installed with `pip install --group`, a flag that pip
+        # only gained in 25.1 (PEP 735 `[dependency-groups]`); pip is upgraded
+        # first so the flag exists by the time the install runs).
+        # A pyproject without a dev group takes the `pip install .` branch above.
         return StackComponent(
             "python",
             "pip",
@@ -256,8 +249,8 @@ def _detect_node(repo: Path) -> StackComponent | None:
         manager, install, pinned = ("npm", ("npm ci",), True)
         lock = "package-lock.json"
     else:
-        # No lockfile: `npm install` resolves fresh, so the build is not
-        # reproducible. Said so via ``pinned`` and a note upstream.
+        # No lockfile: `npm install` resolves versions fresh, so the component
+        # is unpinned and there is no lockfile to copy or to read a pin from.
         manager, install, pinned = ("npm", ("npm install",), False)
         lock = ""
 
@@ -269,12 +262,16 @@ def _detect_node(repo: Path) -> StackComponent | None:
 
 
 def detect_stack(repo: str | Path) -> Stack:
-    """Determine what ``repo`` needs to run its checks. Never raises.
+    """Detect the stack of the repository at `repo`.
 
-    A base image is chosen from the first language detected; a second language
-    is still reported, with a note that a combined base image must be supplied
-    via config, because a single slim base cannot serve two runtimes and
-    guessing one is the failure this module exists to prevent.
+    Python and Node are probed in that order. With no manifest at all the
+    result is empty and a single note names the two config keys a caller can
+    set to supply an image and setup commands anyway. Otherwise the first
+    component chooses the base image, an unpinned first component and a
+    polyglot repository each add a note, and every declared checker becomes a
+    `CheckerInstall` pinned from the lockfile, with a note when the lockfile
+    pins the tool to no version - except pyright, which is skipped with a note
+    because its package fetches a Node build over the network on first run.
     """
     root = Path(repo)
     components = tuple(
@@ -346,7 +343,12 @@ def detect_stack(repo: str | Path) -> Stack:
 
 
 def _declared_for(repo: Path, language: str) -> tuple[str, ...]:
-    """The checkers ``repo`` declares that the gate runs over ``language``."""
+    """The checkers `repo` declares configuration for, for one detected language.
+
+    Python yields its type checker (mypy when declared, else pyright) or
+    nothing; any other language yields eslint and prettier, each only if the
+    repository configures it.
+    """
     if language == "python":
         checker = declared_type_checker(repo)
         return (checker,) if checker is not None else ()
@@ -354,7 +356,15 @@ def _declared_for(repo: Path, language: str) -> tuple[str, ...]:
 
 
 def _checker_command(component: StackComponent, tool: str, pin: str | None) -> str:
-    """Install ``tool`` into ``component``'s environment unless it is there."""
+    """The shell command that installs `tool` at `pin` for `component`.
+
+    Every command is a guard plus an install, so the install runs only when
+    the guard's check fails. Node checkers are guarded on a binary in
+    `NODE_MODULES/.bin` and installed with `npm install --global`; uv and
+    poetry checkers are guarded on `VENV/bin` and installed into that venv;
+    any other manager's checker is installed with plain pip into the
+    interpreter on PATH.
+    """
     if component.language == "node":
         spec = f"{tool}@{pin}" if pin else tool
         return f"[ -x {NODE_MODULES}/.bin/{tool} ] || npm install --global '{spec}'"
@@ -366,14 +376,16 @@ def _checker_command(component: StackComponent, tool: str, pin: str | None) -> s
         )
     if component.package_manager == "poetry":
         return f"[ -x {VENV}/bin/{tool} ] || {VENV}/bin/python -m pip install '{spec}'"
-    # pip and pipenv install into the base image's own Python.
+    # pip, pipenv (--system) and any other manager install into the python on PATH.
     return f"command -v {tool} >/dev/null || pip install '{spec}'"
 
 
 def _pin(repo: Path, component: StackComponent, tool: str) -> tuple[str | None, str]:
-    """The version ``component``'s lockfile pins for ``tool``, and what was read.
+    """The version of `tool` that `component`'s lockfile pins, and a label.
 
-    Read as data, never raising: a lockfile that does not parse pins nothing.
+    The label names the file the pin was read from, or `component.how` when
+    the manager's lockfile format has no reader here. The version is `None`
+    when that file does not list the tool or cannot be read.
     """
     manager = component.package_manager
     if manager in ("uv", "poetry"):
@@ -443,21 +455,23 @@ def _json(path: Path) -> object:
 
 
 def _normal(name: object) -> str:
-    """A package name as PyPI compares them: lower case, ``_``/``.`` as ``-``."""
+    """`name` normalised for comparing a lockfile entry with a tool name.
+
+    Runs of `-`, `_` and `.` collapse to one `-` and the result is
+    lowercased; anything that is not a string gives the empty string.
+    """
     return re.sub(r"[-_.]+", "-", name).lower() if isinstance(name, str) else ""
 
 
 def _present(repo: Path, *names: str) -> tuple[str, ...]:
-    """The given names that actually exist in ``repo``, order preserved."""
+    """The subset of `names` that exist as files in `repo`, in the given order."""
     return tuple(n for n in names if (repo / n).is_file())
 
 
 def _requirements_files(repo: Path) -> tuple[str, ...]:
-    """Requirements files at the repository root, the conventional lock first.
+    """The requirement files present in `repo`, in candidate order.
 
-    ``requirements.lock`` (a conventional name for a fully pinned set) is
-    treated as the pinned set; a bare ``requirements.txt`` may or may not be
-    pinned, so it is installed but not claimed reproducible.
+    The lock file is preferred over the plain and the dev requirement lists.
     """
     candidates = ("requirements.lock", "requirements.txt", "requirements-dev.txt")
     return tuple(name for name in candidates if (repo / name).is_file())
@@ -471,13 +485,14 @@ def _read_pyproject(repo: Path) -> dict[str, object] | None:
         with path.open("rb") as handle:
             return tomllib.load(handle)
     except (OSError, tomllib.TOMLDecodeError):
-        # An unreadable manifest is not a stack signal; other detectors still
-        # run. A malformed pyproject surfaces from the build, not from here.
+        # An unreadable or malformed `pyproject.toml` counts as absent, so
+        # detection falls through to the other Python manifests, if any.
         return None
 
 
 def _has_dev_group(pyproject: dict[str, object]) -> bool:
-    """Whether the pyproject declares a non-empty ``[dependency-groups].dev``."""
+    """True when `pyproject.toml` declares a `[dependency-groups]` table whose
+    `dev` entry is a non-empty list."""
     groups = pyproject.get("dependency-groups")
     if not isinstance(groups, dict):
         return False
@@ -486,12 +501,8 @@ def _has_dev_group(pyproject: dict[str, object]) -> bool:
 
 
 def _is_python_project(pyproject: dict[str, object]) -> bool:
-    """Whether a pyproject actually declares a project, not just tool config.
-
-    A repository can carry a ``pyproject.toml`` that only configures ruff or
-    black without being a Python package. Requiring a ``[project]`` or
-    Poetry table avoids treating tool-only config as an installable stack.
-    """
+    """True when `pyproject.toml` has a `[project]` or a `[tool.poetry]` table,
+    i.e. the file declares an installable project."""
     if "project" in pyproject:
         return True
     tool = pyproject.get("tool")

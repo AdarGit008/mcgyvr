@@ -1,21 +1,9 @@
-"""Scan worker-added lines for credentials.
+"""Scan the added text of a change set for credential-shaped lines.
 
-A model-authored change is a credible way for a secret to enter a repository —
-hallucinated, or copied out of the context the model was given. This check is
-deterministic pattern matching, not entropy heuristics: recognizable key
-prefixes, private-key blocks, and credential-shaped assignments. It runs on the
-added lines of every changed text file (which, for a brand-new untracked file,
-is the whole file) and skips binaries.
-
-**Conservative by design.** For an autonomous gate, blocking a dummy password
-is the correct trade against leaking a real one, so a placeholder-looking
-literal still fails. What the patterns deliberately do *not* flag is a value
-that is plainly a reference rather than a secret — an environment lookup, a
-config key with no literal — because those are the common, safe shapes and
-flagging them would train users to disable the check.
-
-Ordering is the runner's job: this must run before the expensive checks so a
-leak fails fast, and it is a hard failure, never a warning.
+Each pattern carries a stable finding code, a human message, and the compiled
+regex. A matching added line produces one ``Finding`` on that line; nothing is
+read from lines the worker did not add, and non-text changes (binary, deleted,
+symlink) are skipped upstream by ``ChangeSet.text_changes``.
 """
 
 from __future__ import annotations
@@ -38,9 +26,9 @@ def _p(code: str, message: str, pattern: str, flags: int = 0) -> _Pattern:
     return _Pattern(code=code, message=message, regex=re.compile(pattern, flags))
 
 
-# High-confidence token shapes: a match is almost never a false positive, so
-# these carry the strongest signal. Prefixes and lengths follow each issuer's
-# published format.
+# High-signal credential shapes: provider token prefixes and private key
+# headers, plus one conservative assignment heuristic at the end. Order is
+# load-bearing, because a line reports only the first pattern that matches it.
 _PATTERNS: tuple[_Pattern, ...] = (
     _p(
         "private-key",
@@ -59,9 +47,10 @@ _PATTERNS: tuple[_Pattern, ...] = (
         "stripe-secret-key", "Stripe secret key", r"\b(?:sk|rk)_live_[A-Za-z0-9]{16,}\b"
     ),
     _p("openai-key", "OpenAI-style secret key", r"\bsk-[A-Za-z0-9]{20,}\b"),
-    # Credential-shaped assignment: a secret-ish name bound to a quoted literal.
-    # Requires the literal immediately after the operator, so an env lookup or a
-    # bare reference (`token = os.environ["X"]`) does not match.
+    # Broadest rule: a credential-sounding name assigned a quoted literal. It
+    # stays last so a line holding a real token prefix is reported by the
+    # specific pattern above, and it deliberately ignores non-literal values
+    # such as env lookups or attribute references.
     _p(
         "hardcoded-credential",
         "credential-shaped assignment to a literal",
@@ -73,11 +62,11 @@ _PATTERNS: tuple[_Pattern, ...] = (
 
 
 def scan_secrets(changeset: ChangeSet) -> list[Finding]:
-    """Findings for every worker-added line that matches a secret pattern.
+    """Return one finding for each added line that looks like a credential.
 
-    Runs on non-binary, non-deleted changes only; binaries have no lines to
-    scan and a deletion adds nothing. Because a new file's added lines are the
-    whole file, untracked additions are scanned end to end.
+    Only text changes are examined. For each of them the added lines are read
+    from the working tree, and every line is matched against ``_PATTERNS`` in
+    order, stopping at the first hit so a single line never yields duplicates.
     """
     findings: list[Finding] = []
     for change in changeset.text_changes():
@@ -95,5 +84,5 @@ def scan_secrets(changeset: ChangeSet) -> list[Finding]:
                             message=pattern.message,
                         )
                     )
-                    break  # one finding per line is enough to fail it
+                    break  # one finding per line: the most specific pattern wins
     return findings

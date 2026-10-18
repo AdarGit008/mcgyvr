@@ -1,33 +1,22 @@
-"""The sampler: a staged setup's sample, run through the door and the task.
+"""Samples a staged setup, so a fleet is locked on what it did, not on a claim.
 
-Owner, Round 4 (2026-10-07): the owner's confirm is approval to run the
-SAMPLE -- start the servers and run the sample check task. ``mcgyvr setup``
-stages a setup (:func:`mcgyvr.fleet.roots.staging_dir`), starts its units
-through the door, and hands the staged setup here. This module builds the
-:class:`~mcgyvr.fleet.sample.Sample` :func:`~mcgyvr.fleet.stamp.stamp` judges:
+:func:`lay_out` writes the one `own` fleet a staged setup holds into its
+`fleet.yaml`: every unit on a read rig is put awake in its rig's slots with the
+room the setup sized for it, the default request timeout when it names none, and
+the unit id its lock pins it by. :func:`run` then reads every rig through the
+door, probes each awake unit with its `width x window` load, sizes each unit's
+output ceiling from its measured warm decode (:func:`_reply_ceilings`), runs the
+policy's use case task and any opted-in Jev's choice (:func:`task`), and reads
+every rig once more. The :class:`~mcgyvr.fleet.sample.Sample` it answers with
+carries the read ids, the outcomes and the door reads that failed, which
+:func:`mcgyvr.fleet.stamp.stamp` judges.
 
-* :func:`lay_out` makes the staged setup one fleet, :data:`FLEET`, laid out
-  with every unit on a rig awake on its rig: each rig pinned to the rig id its
-  read named, and each unit given the id the lock pins (:func:`unit_id`), the
-  card room it was sized at, and the request timeout it runs under.
-* :func:`run` takes the door's reads of it -- through
-  :func:`mcgyvr.wake.spawn_door`, the one seam a product caller opens the door
-  by -- ``read --fleet F`` of every rig, then ``read --fleet F --probe U --load
-  WxN`` of every awake unit, and a last plain read of every rig, its steady
-  state; and between them runs the use case's sample task (:func:`task`):
-  ``coding`` the bundled bug fix (``samples/coding.yaml``) through ``mcgyvr
-  run``, where the deterministic gate passes on any rung; ``agent`` the bundled
-  grounded contract (``samples/agent.yaml``) through ``mcgyvr run``, its reply
-  checked grounded and by the safety check; ``chat`` one completion per awake
-  unit, and the window and slots it serves read back off it. An opted-in Jev
-  unit (``jev.unit``) is asked one typed choice. ``media-gen`` has no sample
-  task (:data:`~mcgyvr.fleet.sample.MEDIA_NOT_BUILT`), and the judge says so.
-
-Nothing here locks, promotes or names a fleet live, and nothing reaches a
-machine but through the door and the units' own endpoints. ``mcgyvr run`` is
-handed in by the command line that runs it (``run_contract``: the offline core
-imports no part of the command line), and every other reach is a module-level
-function a test replaces: :func:`complete`, :func:`served`, :func:`choose`.
+The use case decides the task. `coding` runs the bundled bug fix through
+`mcgyvr run` and passes when the deterministic gate accepts it on any rung.
+`agent` runs the bundled grounded contract and passes when its reply cites its
+source, states every fact and clears the safety check. `chat` asks every awake
+unit for one word and reads back the window and slots it serves. A sample
+reaches a machine only through the door subprocess or a dispatched request.
 """
 
 from __future__ import annotations
@@ -63,35 +52,44 @@ from mcgyvr.fleet.sample import (
     Sample,
 )
 
-#: The fleet a staged setup is laid out as: the user's own.
+#: The one fleet a staged setup holds, laid out, sampled and journaled under.
 FLEET = OWN_FLEET
-#: The bundled sample tasks, by use case.
+#: The bundled sample each use case's task is taken from, in the package's folder.
 SAMPLES = {CODING_USE_CASE: "coding.yaml", AGENT: "agent.yaml"}
-#: Who ``mcgyvr run`` files the sample task's rows under.
+#: Who the sample's own `mcgyvr run` is journaled as, so its rows are told apart
+#: from the rows of whatever orchestrator is running setup.
 ORCHESTRATOR = "mcgyvr-setup"
-#: The one completion a chat sample asks of each unit.
+#: The one-word ask a chat sample puts to each awake unit, and its reply cap.
 CHAT_PROMPT = "Reply with the single word: ready."
 CHAT_TOKENS = 16
-#: The one typed choice a Jev sample asks.
+#: The typed choice the Jev unit answers, and what each of its labels means.
 JEV_INSTRUCTIONS = "Is a fleet whose every unit answered ready to serve?"
 JEV_OPTIONS = {"ready": "every unit answered", "not_ready": "a unit did not"}
 
 
 class SamplerError(Exception):
-    """The staged setup cannot be laid out or sampled; the message says why."""
+    """The staged setup cannot be read, laid out or asked, so no sample is taken."""
 
 
 @dataclass(frozen=True)
 class Ran:
-    """What :func:`run` did: the sample, and each door read that failed."""
+    """What one sample run produced: the sample to judge, and the reads that failed.
+
+    `failed` names each door read that exited non-zero, so a sample taken across
+    a flaky rig still says on its face where it was read and what did not answer.
+    """
 
     sample: Sample
     failed: tuple[str, ...] = field(default_factory=tuple)
 
 
 def unit_id(unit: Mapping[str, Any]) -> str:
-    """``unt-`` for a unit setup launched, over what it launches as: its engine,
-    image, container, launch, the model it serves and where it answers."""
+    """The id a laid-out unit is pinned by: a digest of what places and runs it.
+
+    The engine, image, container, launch spec, model and address are digested
+    under the unit prefix, a missing engine read as llama.cpp, so the id changes
+    exactly when what the unit is or where it answers changes.
+    """
     return ids.digest(
         "unt-",
         {
@@ -115,12 +113,14 @@ def _read(setup: Path) -> tuple[dict[str, Any], dict[str, Any]]:
 
 
 def lay_out(setup: Path, rigs: Mapping[str, str], rooms: Mapping[str, int]) -> None:
-    """Lay the staged setup at ``setup`` out as :data:`FLEET`, every rig unit awake.
+    """Write the `own` fleet's layout into the staged setup's `fleet.yaml`.
 
-    ``rigs`` maps each rig a unit sits on to the rig id its read named;
-    ``rooms`` each unit to the card room, MiB, it was sized at. A unit keeps
-    what it already states. Refused, with nothing written, when a unit sits on
-    a rig that was not read, or a rig unit has no room to state.
+    Every unit on a rig goes awake into its rig's slot list, with the room the
+    setup sized for it, the default request timeout where it names none, and the
+    unit id its lock pins it by. Rigs are recorded with the id each was read by,
+    and the fleet's `next` list starts empty. A unit on a rig that was not read,
+    or one with no room sized for it, refuses the layout: the lock would have no
+    card to hold the unit to, so none is written.
     """
     fleet, _policy = _read(setup)
     units: dict[str, Any] = fleet.get("units") or {}
@@ -159,10 +159,14 @@ def lay_out(setup: Path, rigs: Mapping[str, str], rooms: Mapping[str, int]) -> N
 
 
 def _reply_ceilings(setup: Path, reads: Sequence[str]) -> None:
-    """State each probed rig unit's ``output_tokens``: the longest reply its
-    measured warm decode finishes inside its ``request_timeout_s``, no longer
-    than its ``window``. A unit that states one keeps it; one whose rate was
-    not read is left as it is, and the lock then names it."""
+    """Give each read unit an output ceiling from the warm decode it measured.
+
+    The ceiling is the warm decode rate times the unit's request timeout, clipped
+    to its window, so a reply is capped at what the unit can finish inside the
+    timeout it is held to. A unit off every rig, one that already names an
+    `output_tokens`, and one whose reads measured no warm decode all keep what
+    they have, and `fleet.yaml` is written only when some unit changed.
+    """
     from mcgyvr.fleet.probe import ProbeError, journal_dir
     from mcgyvr.fleet.sample import _Reads
 
@@ -200,7 +204,14 @@ def _door_read(
     probe: Sequence[str] = (),
     load: str | None = None,
 ) -> int:
-    """One door read of ``rig``'s :data:`FLEET` of the staged setup."""
+    """Run the door's `read` on one rig under a fresh run id, and answer with its code.
+
+    The argv is this interpreter and the door module, the verb, the rig's host,
+    the `own` fleet and the run id the rows are filed under, plus the unit to
+    probe and the `width x window` load to place on the card when either is
+    given. The configuration path is the staged setup, so the door journals the
+    read into the setup being sampled.
+    """
     from mcgyvr import wake
     from mcgyvr.serving.gatelib import DOOR_MODULE
 
@@ -210,7 +221,8 @@ def _door_read(
         argv += ["--probe", *probe]
     if load:
         argv += ["--load", load]
-    # The staged folder, not its fleet.yaml: the door reads both files from it.
+    # The door answers with its exit code, so a door that could not read the rig
+    # is a code this side records rather than an exception it raises.
     return wake.spawn_door(argv, env={**os.environ, CONFIG_PATH_ENV: str(setup)})
 
 
@@ -223,7 +235,13 @@ def _bundled(use_case: str) -> dict[str, Any]:
 
 
 def _repository(where: Path, files: Mapping[str, str]) -> Path:
-    """A throwaway git repository holding ``files``, committed once."""
+    """Write the sample's starting files into a fresh git repository and commit them.
+
+    The `repo` folder under `where` is created, each named file written with its
+    body, and the tree committed as `sample` under an identity of this module's
+    own with global and system git config switched off, so the sample's run sees
+    history it did not have to trust a developer's settings for.
+    """
     repo = where / "repo"
     repo.mkdir(parents=True)
     for name, body in files.items():
@@ -241,14 +259,22 @@ def _repository(where: Path, files: Mapping[str, str]) -> Path:
     return repo
 
 
-#: ``mcgyvr run`` with its arguments, to its exit code.
+#: One `mcgyvr run`, reached by the argv to run and answered with its exit code.
 RunContract = Callable[[list[str]], int]
 
 
 def _contract_run(
     setup: Path, use_case: str, where: Path, run_contract: RunContract
 ) -> dict[str, Any]:
-    """Run the bundled sample contract on the staged setup; its result file."""
+    """Run the use case's bundled contract on the staged setup and read its result.
+
+    The bundled contract is dumped to `contract.yaml` and its files committed into
+    a repository under `where`, and the contract runner is handed the `run` argv
+    naming the contract, that repository, the staged setup, this sample's
+    orchestrator id and where the result goes. Whatever the runner wrote there is
+    returned as a dict; a result that is missing, unreadable or not an object
+    becomes an `error` outcome rather than passing for a run that never happened.
+    """
     sample = _bundled(use_case)
     where.mkdir(parents=True, exist_ok=True)
     repo = _repository(where, sample.get("files") or {})
@@ -277,8 +303,13 @@ def _contract_run(
 
 
 def grounded(answer: str, citation: str, facts: Sequence[str]) -> str | None:
-    """Why ``answer`` is not grounded, or ``None``: every sentence ends with
-    ``citation``, and the reply states every fact."""
+    """Why the reply is not grounded in its source, or None when it is.
+
+    The reply is split into sentences and every one of them must end with the
+    citation, then every fact must appear in the reply, case aside. The answer is
+    the first reason it fails, naming the sentences that do not cite or the facts
+    the reply leaves out, and an empty reply is a reason of its own.
+    """
     sentences = [s.strip() for s in answer.replace("\n", " ").split(".") if s.strip()]
     if not sentences:
         return "the reply is empty"
@@ -292,7 +323,13 @@ def grounded(answer: str, citation: str, facts: Sequence[str]) -> str | None:
 
 
 def safe(answer: str) -> str | None:
-    """Why ``answer`` does not clear the safety check, or ``None``."""
+    """Why the safety check does not clear the reply, or None when it does.
+
+    The reply is written into a scratch file and handed to the safety classifier.
+    A classifier that cannot run, or one that fails without giving a verdict, is
+    a reason not to trust the reply rather than a clean pass, and a classifier
+    that clears it leaves the findings' messages as the reason, joined.
+    """
     from mcgyvr.gate.adapter import ToolFailedError, ToolUnavailableError
     from mcgyvr.gate.output import safety_pass
 
@@ -309,7 +346,12 @@ def safe(answer: str) -> str | None:
 
 
 def complete(setup: Path, unit: str) -> str:
-    """One completion from ``unit`` of the staged setup: its text."""
+    """Ask one unit of the staged setup for the single word `ready` and answer its text.
+
+    The request is dispatched at the unit through the setup's source map with the
+    chat reply cap as its output ceiling, and the reply text is returned as it
+    was sent, so a caller can tell an empty answer from an absent one.
+    """
     from mcgyvr.config import load
     from mcgyvr.local_pool import source_map
     from mcgyvr.runner import Request, dispatch
@@ -323,10 +365,12 @@ def complete(setup: Path, unit: str) -> str:
 
 
 def served(unit: Mapping[str, Any]) -> dict[str, int]:
-    """The window per slot and the slots ``unit`` says it serves; what it states.
+    """The window and slots a unit reports serving, as its own engine reports them.
 
-    llama.cpp's ``/props`` states both; vLLM's ``/v1/models`` the window only.
-    A figure the unit does not state is left out, and the judge says so.
+    A vLLM unit's window is read from its models listing's `max_model_len`; a
+    llama.cpp unit's window from its props' `n_ctx` and its slots from
+    `total_slots`, after the address's `/v1` suffix is dropped. A figure the
+    endpoint does not state, or does not answer at all, is left out.
     """
     from mcgyvr.detect import _get_json, _window_from
 
@@ -350,7 +394,15 @@ def served(unit: Mapping[str, Any]) -> dict[str, int]:
 
 
 def choose(setup: Path) -> tuple[str, float]:
-    """The Jev unit's one typed choice: its label and that label's probability."""
+    """Ask the Jev unit whether the sampled fleet is ready, and answer its
+    choice and odds.
+
+    The question is the fleet-level one, put to the unit the staged policy binds
+    to the Jev role. The answer is the label it picked and the probability its
+    answer gave that label, -1.0 when the answer carries none. A policy that
+    binds no Jev unit, or an answer that is not a typed choice, refuses the
+    sample rather than inventing one.
+    """
     from mcgyvr.config import load
     from mcgyvr.decision import JEV_ROLE, Choice, ChoiceAnswer, classify_role
     from mcgyvr.local_pool import source_map
@@ -370,7 +422,12 @@ def choose(setup: Path) -> tuple[str, float]:
 
 
 def _guarded(check: str, unit: str | None, call: Callable[[], Outcome]) -> Outcome:
-    """``call``'s outcome, or a failed one naming what it raised."""
+    """Run one check, turning whatever it raised into an outcome it failed.
+
+    The outcome names the check and the unit it was meant to judge, and carries
+    the exception's type and message as its reason, so one check that broke on an
+    unreachable machine or a malformed reply leaves the other checks to run.
+    """
     try:
         return call()
     except Exception as exc:
@@ -382,10 +439,18 @@ def _guarded(check: str, unit: str | None, call: Callable[[], Outcome]) -> Outco
 def task(
     setup: Path, awake: Sequence[str], where: Path, run_contract: RunContract
 ) -> list[Outcome]:
-    """The use case's sample task on the staged setup, and the Jev choice.
+    """Run the policy's use case task and the Jev choice, one outcome per check.
 
-    ``run_contract`` runs ``mcgyvr run`` for the ``coding`` and ``agent``
-    sample contracts.
+    `coding` runs the bundled bug fix through the contract runner and passes when
+    the gate accepts it, naming the rung it was accepted on. `agent` runs the
+    bundled grounded contract; a reply the runner did not accept fails both the
+    grounded check and the safety check with the runner's reason, and an accepted
+    one is checked for its citations and facts and by the safety classifier, the
+    citation and the facts coming from the bundled sample. `chat` asks each awake
+    unit but the Jev unit for one word, passing with the window and slots the
+    unit reports and failing when it answers nothing. A policy that opts a unit in
+    to Jev gets one typed choice from it, checked last. Every check is guarded, so
+    a raise is one failed outcome rather than a lost sample.
     """
     fleet, policy = _read(setup)
     use_case = str(policy.get("use_case") or DEFAULT_USE_CASE)
@@ -485,12 +550,16 @@ def run(
     run_contract: RunContract,
     mint: Callable[[], str] | None = None,
 ) -> Ran:
-    """Sample the laid-out staged setup at ``setup``: the door's reads of every
-    rig and awake unit, and the use case's task between them.
+    """Sample the staged setup, reading every rig around the task it runs.
 
-    ``mint`` names each read (``run-YYYYMMDDTHHMMSS-xxxxxxxx``); the door's
-    own minting by default. A read the door refused is kept out of the sample
-    and named in :attr:`Ran.failed`; the judge then says what was not read.
+    Each rig in the `own` layout is read, and each of its awake slots is read
+    again with that unit probed and its `width x window` load placed, so the
+    journal holds both the rig and what sits in it. Those reads size the units'
+    output ceilings, the task and the Jev choice then run against the setup's
+    `sample` folder, and every rig is read once more to bracket the work. `mint`
+    names each read and defaults to a fresh read id. A layout that names no `own`
+    fleet refuses; a door that exits non-zero is kept in `failed` instead, so a
+    sample taken through a flaky rig still says what did not answer.
     """
     from mcgyvr.serving.run import mint_read_id
 

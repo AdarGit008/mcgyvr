@@ -1,27 +1,21 @@
-"""The model-knowledge record: a model's numbers, each with its source and date.
+"""The schema of the model knowledge document: every number says where it came from.
 
-A record is what mcgyvr knows about one downloadable model at one
-quantisation: what it weighs, how long a context it was made for, how much
-cache one token of context costs, how much state a slot keeps, and how the
-public boards rank it. Every one of those is a :class:`Number`, and a number
-never travels without three things:
+A document is an object with a `schema_version` and a `models` list, plus an
+optional `_purpose` note; each entry of `models` is one model at one
+quantisation, so the pair `(model_id, quant)` is its identity. A record holds
+`engines` that can serve it, `weights` naming one file at one revision when the
+record is about a downloadable file, four whole-number fields (`size_bytes`,
+`context_length`, `kv_bytes_per_token`, `recurrent_bytes_per_slot`) and the
+`scores` filed under the boards in `BOARDS`. Every number is a `Number`: a
+value, a kind from `KINDS`, a source written `<origin>:<where>` whose origin is
+one of `SOURCES`, and the day it was read.
 
-* its **kind**, from :data:`KINDS`: a *fact* (true of that file or that board
-  on that day), an *estimate* (what someone says, such as a model card's
-  self-reported score) or a *reading* (taken on a machine);
-* its **source**, ``<source>:<where>``: one of :data:`SOURCES`, then where at
-  that source (a repository at a revision, a board on a date);
-* the day it was **read**, ``read_at``.
-
-A reading is a number taken on a machine. The machines anyone could have
-read a shipped number on are the project's own, so the shipped catalog holds
-no reading (``shipped=True`` refuses one); the user's own cache may.
-
-The same document format holds the shipped catalog and every cache file:
-``{"schema_version": 2, "models": [record, ...]}``. A key a record does not
-have is refused rather than ignored, so a number cannot slip in under a new
-key without saying where it came from.
-"""
+`parse_document` reads such a document and `parse_record` one entry of it; both
+refuse a key the record does not have, a missing field, a kind, source, date or
+board metric that does not fit, and raise `KnowledgeError` with the `where` they
+were given. With `shipped=True`, a `reading` is refused as well, because a
+reading is a number taken on a machine and the shipped catalog carries none.
+`dump_document` writes records back in the shape the parsers accept."""
 
 from __future__ import annotations
 
@@ -30,24 +24,26 @@ from dataclasses import dataclass
 from datetime import date
 from typing import Any
 
-#: The version of the knowledge format, the shipped catalog's and each cache
-#: file's. Version 1 was the catalog whose numbers said no source and no date.
+#: The version of the document format these readers accept. A document that
+#: states any other version is refused rather than read on a guess.
 SCHEMA_VERSION = 2
 
-#: What a number may be. A *fact* is true of its source on the day read; an
-#: *estimate* is what its source claims; a *reading* was taken on a machine.
+#: The closed list of kinds a number may claim: a fact stated by the source it
+#: names, an estimate the model card makes about itself, or a reading taken on a
+#: machine.
 KINDS: tuple[str, ...] = ("fact", "estimate", "reading")
-#: The kind a reading has, and the only source it may come from.
+#: A reading, and the origin a reading alone comes from: a machine of the user's.
 KIND_READING = "reading"
 MEASURED = "measured"
-#: The kind a self-reported figure has: a model card states it, nobody checked.
+#: An estimate, and the origin that is always self-reported: the model card.
 KIND_ESTIMATE = "estimate"
 SELF_REPORTED = "model-card"
-#: The source a board's score comes from.
+#: The origin of a score: the leaderboard whose published figures it was read from.
 BOARD = "board"
 
-#: Where a number may come from: the word before the colon of its ``source``,
-#: and what it means. After the colon comes where at that source.
+#: Every origin a number's source may name, with what a number from that
+#: origin is a reading of. A source is `<origin>:<where>`, so what follows the colon
+#: says where at that origin the number was read, and is never empty.
 SOURCES: Mapping[str, str] = {
     "hub-api": (
         "the Hugging Face Hub model API (/api/models/<repo>), at the revision "
@@ -73,14 +69,9 @@ SOURCES: Mapping[str, str] = {
 
 @dataclass(frozen=True)
 class Board:
-    """A public leaderboard a score may come from.
-
-    ``ranks`` is what it ranks: a use case (``chat``, ``agent``, ``coding``)
-    or a part of ``media-gen`` (``image``, ``asr``). ``metric`` is the one
-    figure of it a score carries, and ``better`` says which way is better.
-    ``url`` and ``format`` are where the board is published and what it is
-    served as.
-    """
+    """One leaderboard scores can be read from: what it ranks, the metric name its
+    rows carry, whether a higher value is better, and where and as what format
+    its rows are fetched."""
 
     id: str
     ranks: str
@@ -90,7 +81,7 @@ class Board:
     format: str
 
 
-#: The boards, each verified reachable with a plain GET on 2026-10-07.
+#: The boards a score may name, each with the one metric its rows carry.
 BOARDS: tuple[Board, ...] = (
     Board(
         id="lmarena-text",
@@ -154,7 +145,7 @@ BOARDS: tuple[Board, ...] = (
     ),
 )
 
-#: What no public board ranks, and how it is ranked instead.
+#: The use cases no public board ranks, and, per use case, what ranks them instead.
 UNRANKED: Mapping[str, str] = {
     "tts": (
         "no public board publishes data; ranked by mcgyvr's own ASR-WER gate "
@@ -164,13 +155,13 @@ UNRANKED: Mapping[str, str] = {
 
 
 class KnowledgeError(Exception):
-    """A knowledge document or record is unreadable, or a number in it does not
-    say what it is, where it came from or when it was read."""
+    """A knowledge document, or one number in it, does not say what it must."""
 
 
 @dataclass(frozen=True)
 class Number:
-    """One number, with what it is, where it came from and when it was read."""
+    """One number of the knowledge: its value, the kind it claims, the source it
+    was read from and the day it was read."""
 
     value: int | float
     kind: str
@@ -180,7 +171,8 @@ class Number:
 
 @dataclass(frozen=True)
 class Score:
-    """One board's figure for a model, on the day it was read."""
+    """One board figure: the board and metric it is filed under, and the value
+    itself, which carries its own source and date."""
 
     board: str
     metric: str
@@ -189,8 +181,8 @@ class Score:
 
 @dataclass(frozen=True)
 class Weights:
-    """The one file a pick downloads: a repository, its revision, the file and
-    the file's sha256. Text, never a number."""
+    """The one file a record is about: its repository, the revision read, the file
+    name at that revision, and the file's sha256."""
 
     repo: str
     revision: str
@@ -198,14 +190,14 @@ class Weights:
     sha256: str
 
 
-#: The numbers every record carries, in the order a record is written.
+#: The whole-number fields of a record, each held as a `Number`.
 _INT_FIELDS: tuple[str, ...] = (
     "size_bytes",
     "context_length",
     "kv_bytes_per_token",
     "recurrent_bytes_per_slot",
 )
-#: The ones of those that are never zero: a context and a cache width.
+#: Of those fields, the two that must be strictly positive; the others may be zero.
 _POSITIVE = frozenset({"context_length", "kv_bytes_per_token"})
 _RECORD_KEYS = frozenset(
     {"model_id", "quant", "engines", "weights", "scores", *_INT_FIELDS}
@@ -218,13 +210,8 @@ _DOCUMENT_KEYS = frozenset({"schema_version", "models", "_purpose"})
 
 @dataclass(frozen=True)
 class ModelRecord:
-    """What is known of one model at one quantisation.
-
-    ``model_id`` is the model's repository and ``quant`` the quantisation; the
-    two are the record's :attr:`key`. ``weights`` names the file a pick
-    downloads, when one is known. ``engines`` are the engines that can serve
-    it.
-    """
+    """One model at one quantisation: what serves it, the file it names, its four
+    whole-number fields and the scores read for it."""
 
     model_id: str
     quant: str
@@ -241,7 +228,8 @@ class ModelRecord:
         return (self.model_id, self.quant)
 
     def numbers(self) -> Iterator[tuple[str, Number]]:
-        """Every number of the record, with its name."""
+        """Every number of the record, named: the four whole-number fields by their
+        field name, then each score as `scores[<board>]`."""
         for name in _INT_FIELDS:
             number = getattr(self, name)
             assert isinstance(number, Number)
@@ -357,7 +345,14 @@ def _weights(raw: Any, where: str) -> Weights | None:
 
 
 def parse_record(raw: Any, where: str, *, shipped: bool) -> ModelRecord:
-    """One record, validated: every number says its kind, source and date."""
+    """Read one entry of a knowledge document into a `ModelRecord`.
+
+    `where` names the document the entry came from and prefixes every error;
+    `shipped` marks the packaged catalog, where a reading is refused. A key the
+    record does not have, a missing field, a number out of range, a score from a
+    board not in `BOARDS` or under another metric than that board's, raises
+    `KnowledgeError`.
+    """
     if not isinstance(raw, dict):
         raise KnowledgeError(f"{where}: a model entry is not an object")
     model_id = _text(raw.get("model_id"), f"{where} model_id")
@@ -394,10 +389,12 @@ def parse_record(raw: Any, where: str, *, shipped: bool) -> ModelRecord:
 
 
 def parse_document(raw: Any, where: str, *, shipped: bool) -> tuple[ModelRecord, ...]:
-    """The records of one knowledge document (the catalog, or a cache file).
+    """Read a whole knowledge document into its records.
 
-    ``shipped`` is true for the catalog in the package, which may hold no
-    reading. A document of another ``schema_version`` is refused by name.
+    The document must be an object at `SCHEMA_VERSION` whose keys are all in
+    `_DOCUMENT_KEYS` and whose `models` is a list; `where` prefixes every error
+    and `shipped` marks the packaged catalog. Two records for one
+    `(model_id, quant)` raise `KnowledgeError`.
     """
     if not isinstance(raw, dict):
         raise KnowledgeError(f"{where}: the document is not an object")
@@ -431,7 +428,9 @@ def _dump_number(number: Number) -> dict[str, Any]:
 
 
 def dump_record(one: ModelRecord) -> dict[str, Any]:
-    """``one`` as JSON, the shape :func:`parse_record` reads back."""
+    """The object a document holds for one record: its identity and engines, the
+    weights when it has some, its four numbers and its scores, each number
+    written as value, kind, source and `read_at` day."""
     out: dict[str, Any] = {
         "model_id": one.model_id,
         "quant": one.quant,
@@ -449,7 +448,7 @@ def dump_record(one: ModelRecord) -> dict[str, Any]:
 
 
 def dump_document(records: Sequence[ModelRecord]) -> dict[str, Any]:
-    """A knowledge document holding ``records``."""
+    """A whole knowledge document of `records` at `SCHEMA_VERSION`."""
     return {
         "schema_version": SCHEMA_VERSION,
         "models": [dump_record(one) for one in records],

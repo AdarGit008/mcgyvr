@@ -1,24 +1,17 @@
-"""Per-task sandbox: one task, one throwaway workspace, torn down after.
+"""The sandbox: the throwaway workspace a task's commands are run in.
 
-A contract's acceptance commands run without a shell, but each runs whatever
-program it names, on the host unless a container holds it — so a task runs in
-a throwaway workspace, and in a container when the ``docker`` mode is
-configured and a daemon answers. This package
-provides the isolation those commands run in, in two modes that share one
-interface (:mod:`mcgyvr.sandbox.base`):
-
-- ``docker`` (:mod:`mcgyvr.sandbox.docker`): one container per task, built
-  from an image that carries the repository's own dependencies
-  (:mod:`mcgyvr.sandbox.image`), torn down afterwards.
-- ``tempdir`` (:mod:`mcgyvr.sandbox.tempdir`): the explicitly weaker mode
-  for installs without Docker — an ephemeral directory with a git repository,
-  commands executed on the host. Used when chosen by name, or when ``docker``
-  has no daemon and ``sandbox.allow_fallback`` opts into it; ``docker`` with
-  no daemon and no opt-in is refused.
-
-What the target repository needs to run its own checks is detected once
-(:mod:`mcgyvr.sandbox.stack`). Provider credentials never enter either mode
-(see ``SECURITY.md``).
+A contract's acceptance commands run without a shell, each in whatever program
+it names, on the host unless a container holds it. This package holds no logic
+of its own. It re-exports the pieces a caller
+composes so one import is enough: `open_sandbox` builds a `Sandbox` — a
+container-backed one, or the weaker temp-directory one — over a source
+repository, and raises `SandboxError` when the requested mode or network
+cannot be honoured; `CommandResult` is what `Sandbox.run` hands back. Alongside
+them come the stack detection a sandbox needs to install a repository's
+dependencies: `detect_stack` inspects the manifests present and returns a
+`Stack` of `StackComponent`s, one per detected language, with the install
+commands, base image, checker installs and the notes explaining what it could
+not pin.
 """
 
 from __future__ import annotations

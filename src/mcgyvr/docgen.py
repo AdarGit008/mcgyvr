@@ -1,50 +1,12 @@
-"""Render the config reference, the /mcgyvr skill and SETUP.md from their schemas.
+"""Render the documents that are generated from mcgyvr's schemas.
 
-``config.SCHEMA`` is declarative data — every key carries its kind, whether
-it is required, its default and the prose explaining it. That makes the
-reference a projection of the schema rather than a second description of it,
-so a documented key and a validated key cannot drift apart. Hand-written
-config docs drift the moment the schema moves; this file exists so that the
-schema is the only description there is.
-
-The reference is never kept. Every run renders it, checks it — the provenance
-marker is on it and every validated key is named — and deletes it, so no copy
-sits in the checkout to be read in place of the schema or to fall behind it. The
-skill, the examples beside it and ``SETUP.md`` are the documents that are
-written, because they are read from disk; ``make docs-check`` refuses a
-committed one that differs from what its schema renders.
-
-Two constraints shape the rendering:
-
-1. **Deterministic.** Same schema in, byte-identical document out. Nothing
-   here reads the clock, the filesystem or the environment, and nothing
-   iterates an unordered collection — the walk follows declaration order,
-   which is the order a reader of the config file meets the keys. A
-   generator that embeds a timestamp cannot be diffed against the skill it
-   last wrote, which would cost exactly the drift check.
-2. **Key descriptions are never written here.** Every key's description
-   comes from a ``Field``'s ``doc``. The workflow steps, the first-run text
-   and the value types are scaffolding written in this file, and nothing
-   checks them against the code.
-
-The second document is the ``/mcgyvr`` skill: the one explicitly-invoked
-instruction an agent reads before it authors a contract — the packaged skill
-ships ``disable-model-invocation: true``, so a fresh install never offloads
-work until someone asks for it — generated the same way from
-``contract.SCHEMA`` so the fields an agent is told about are the fields the
-validator accepts, and **setup is not part of it**. The skill points at one
-minimal example per task type, rendered beside it into
-``skills/mcgyvr/references/examples.md``; each is checked by loading it
-through the contract loader, so an example that stops validating is a build
-failure and not a lesson in the wrong shape. The scaffolding here — the steps
-— is the workflow, which is a property of the product and of no one key.
-
-The third document is ``skills/mcgyvr/SETUP.md``, what a machine's owner reads
-to stand the ladder up: the first run, and every key the two setup files
-(``fleet.yaml`` and ``policy.yaml``) accept, rendered from ``config.SCHEMA``.
-It is written and kept, the way the skill is, because it is read from disk
-rather than through the schema — and it lives beside the skill it is not part
-of, so ``install.sh`` never copies it into a harness.
+`render_reference` and `render_setup` project the config `SCHEMA` into the
+configuration reference and SETUP.md; `render_skill` and `render_examples`
+project the contract schema into the /mcgyvr skill (one instruction generated
+from that schema — setup is not part of it) and its examples file.
+`main` renders the reference to a temporary file, checks it and deletes it, then
+writes the other three — or, with `--check`, reports the ones that are out of
+date without touching them.
 """
 
 from __future__ import annotations
@@ -62,15 +24,15 @@ from mcgyvr.catalog import catalog
 from . import contract as contract_schema
 from .config import FLEET_FILENAME, POLICY_FILENAME, RELIEF_FILENAME, SCHEMA, Field
 
-# An HTML comment, so it renders as nothing but survives in the source a
-# would-be editor is looking at.
+# First line of every document generated from the config schema: the note that
+# it is generated, which source it comes from, and the command that redraws it.
 MARKER = (
     "<!-- Code generated from src/mcgyvr/config.py by `make docs`. DO NOT EDIT. -->"
 )
 
-# src/mcgyvr/docgen.py -> repo root. This is a repository maintenance tool run
-# from a checkout, never from an installed wheel, so deriving the path is
-# honest here in a way it would not be in shipped code.
+# The checkout root, taken from this file's location (src/mcgyvr/docgen.py is
+# two parents down), and the skill documents' paths inside it: where `main` writes
+# and checks them unless an output flag names somewhere else.
 REPO_ROOT = Path(__file__).resolve().parents[2]
 SKILL_PATH = Path("skills/mcgyvr/SKILL.md")
 SETUP_PATH = Path("skills/mcgyvr/SETUP.md")
@@ -80,9 +42,9 @@ SKILL_MARKER = (
     "`make docs`. DO NOT EDIT. -->"
 )
 
-# What each kind accepts, as the loader enforces it. These describe the
-# validator's behaviour, so they belong to the renderer rather than to any
-# single Field.
+# The "Value types" table of both generated documents: for each type name a
+# reader sees in a Type column, the rule the loader enforces on it, phrased for
+# someone writing the config rather than for someone reading the validator.
 _TYPES: tuple[tuple[str, str], ...] = (
     (
         "number",
@@ -151,7 +113,7 @@ _KIND_LABELS: dict[str, str] = {
 
 
 def _escape(text: str) -> str:
-    """Make prose safe inside a markdown table cell."""
+    """Escape a pipe, so the text cannot split the Markdown table cell it is in."""
     return text.replace("|", "\\|")
 
 
@@ -159,9 +121,9 @@ def _type_label(field: Field) -> str:
     if field.kind == "enum":
         return "one of " + ", ".join(f"`{c}`" for c in field.choices)
     label = _KIND_LABELS[field.kind]
-    # Both bounds, because a field that has a ceiling and shows only its floor
-    # reads as unbounded above -- which for a share of something is the half
-    # that matters.
+    # A numeric field's declared bounds are part of its type as a reader sees it:
+    # "number (min 1)" says more than "number". A field with neither bound keeps the
+    # bare label.
     bounds = []
     if field.min_value is not None:
         bounds.append(f"min {field.min_value}")
@@ -173,11 +135,12 @@ def _type_label(field: Field) -> str:
 
 
 def _default_label(field: Field) -> str:
-    """How a field reads when the config leaves it out.
+    """Return the Default cell the reference should show for a field.
 
-    A required key has no default by construction. For the rest, absence is
-    meaningful and is said so explicitly rather than shown as a blank cell:
-    the loader distinguishes "unset" from "empty", and so must the reference.
+    A required field, and a block of any shape, shows an em dash rather than a
+    value; a list shows `[]` when empty and its contents otherwise; a boolean is
+    lowercased so it reads as YAML; a field with no default at all shows
+    `unset`.
     """
     if field.required:
         return "—"
@@ -193,7 +156,12 @@ def _default_label(field: Field) -> str:
 
 
 def _describe(field: Field) -> str:
-    """The field's own prose, plus its binding hint when it carries one."""
+    """Return the Description cell: the field's doc, plus how to bind it.
+
+    A field carrying a `bind_hint` gets it appended as a sentence, because the
+    hint is what to write for a key the config may leave out. The whole cell is
+    escaped for its table row.
+    """
     text = field.doc
     if field.bind_hint:
         text = f"{text} To bind it: {field.bind_hint}."
@@ -217,13 +185,13 @@ def _table(fields: Sequence[Field], prefix: str) -> list[str]:
 
 
 def _section(field: Field, path: str, level: int, dotted: bool = False) -> list[str]:
-    """Render one block-valued key, then any block-valued keys inside it.
+    """Render one block field as a section, heading included.
 
-    ``dotted`` names each key in the table by its full path rather than by its
-    last segment. The reference leaves it off, because :func:`reference_problems`
-    looks a leaf up under the heading of the block it belongs to and a dotted
-    cell would never match. ``SETUP.md`` turns it on, because it is read start
-    to finish by someone editing one file and `sandbox.mode` says which `mode`.
+    The body is the field's own doc, a line saying what each entry is when the
+    field is a map or a list of blocks, a table of the block's keys, and a
+    section one level deeper for every inner field that has keys of its own.
+    With `dotted` each inner table key is written as its full dotted path;
+    without it, keys are named as they appear inside the block.
     """
     heading = "#" * level
     lines = [f"{heading} `{path}`", "", _escape(field.doc), ""]
@@ -242,7 +210,13 @@ def _section(field: Field, path: str, level: int, dotted: bool = False) -> list[
 
 
 def render_reference() -> str:
-    """The complete reference document, as text."""
+    """Render the configuration reference from the config `SCHEMA`.
+
+    The marker, the prose about how the loader behaves, and the value-type table
+    are fixed; the top-level key table and a section per block are projections of
+    `SCHEMA`, so a key that is documented and a key that is validated cannot
+    disagree.
+    """
     lines = [
         MARKER,
         "",
@@ -285,19 +259,19 @@ def render_reference() -> str:
     return "\n".join(lines).rstrip("\n") + "\n"
 
 
-# --- SETUP.md ----------------------------------------------------------------
+# SETUP.md alone: the constants its prose and its notes are built from.
 
-#: The three lever keys, across `fleet.yaml` and `policy.yaml`, that
-#: `mcgyvr local_pool` reads back. They are named here rather than described here:
-#: the bullet each one gets carries the
-#: `Field`'s own `doc`, so the levers cannot say one thing in SETUP.md and
-#: another in the schema the loader walks.
+#: The three keys SETUP.md lists as the levers, whose effect `mcgyvr local_pool`
+#: prints. Each bullet's text is the key's own schema doc, so the list cannot
+#: drift from the field it describes; a name here that `SCHEMA` does not declare
+#: raises `KeyError` at render time instead of printing a bullet with nothing
+#: after it.
 _LEVERS: tuple[str, ...] = ("units", "ladder", "max_escalations")
 
-#: Prose SETUP.md adds under a block's own section, after its key table, keyed
-#: by the block's name. It is advice to the machine's owner, not schema: the
-#: loader never reads it, no default follows from it, and it names what was
-#: measured and where, so the reader can weigh it. Paragraphs, each one string.
+#: Paragraphs appended after a top-level block's section in SETUP.md, keyed by
+#: that block's name: measurements and rulings a reader needs that the schema doc
+#: of a single key has no room for. A block with no entry here ends at its own
+#: tables; `_SETUP_NOTES` is only consulted for top-level fields with keys.
 _SETUP_NOTES: dict[str, tuple[str, ...]] = {
     "jev": (
         "The measured recommendation for the unit is Qwen3.5-4B (Q4_K_M, about "
@@ -312,13 +286,11 @@ _SETUP_NOTES: dict[str, tuple[str, ...]] = {
 
 
 def render_setup() -> str:
-    """``SETUP.md``, as text: the first run, the levers, then every key.
+    """Render SETUP.md: how a machine comes to have a config, and what it says.
 
-    Unlike :func:`render_reference`, which is rendered, checked and deleted,
-    this is a document that is written and kept: a machine's owner reads it
-    from disk before there is a config to read anything else from. It is still
-    a projection of :data:`SCHEMA` — the levers below are the schema's own
-    prose, and the tables are the same walk the reference makes.
+    The prose is fixed; the value types, the top-level key table and one section
+    per block are rendered from `SCHEMA`, with inner keys named by full path, and
+    the `_SETUP_NOTES` paragraphs are appended after the block they belong to.
     """
     by_name = {field.name: field for field in SCHEMA}
     lines = [
@@ -482,7 +454,7 @@ def render_setup() -> str:
     return "\n".join(lines).rstrip("\n") + "\n"
 
 
-# --- the /mcgyvr skill -------------------------------------------------------
+# Contract-side counterpart of `_KIND_LABELS`: the type names the skill prints.
 
 _CONTRACT_KIND_LABELS: dict[str, str] = {
     "int": "number",
@@ -495,12 +467,12 @@ _CONTRACT_KIND_LABELS: dict[str, str] = {
     "block_list": "list of blocks",
 }
 
-# One minimal contract per deterministic operation and one model-executed
-# ``code`` contract, keyed by the catalog entry each runs under. The ``code``
-# one states ``limits.max_output_tokens``, as every model-written contract
-# must (owner, 2026-10-14): one that states none is refused by `mcgyvr run`.
-# The deterministic ones state none — a tool does the work, and no model is
-# called whose reply could be capped.
+# The example contracts examples.md prints, keyed by name: one `code` contract a
+# model has to satisfy, and one per deterministic operation, each named after the
+# operation so `render_examples` can sort it by whether `catalog()` lists that
+# name. A value is a whole YAML document held as a string, ready to drop into a
+# fenced block verbatim; the test suite loads every one through the contract
+# validator, so an example you copy is an example known to load.
 _EXAMPLE_TEMPLATES: dict[str, str] = {
     "format": """\
 id: format-pkg
@@ -564,16 +536,11 @@ scope:
 
 
 def examples() -> dict[str, str]:
-    """One minimal valid contract per deterministic operation, and one `code`.
-
-    Each example is loaded by
-    ``tests/test_the_mcgyvr_skill_is_rendered_from_the_schema.py``; an example
-    that does not validate fails the suite.
-    """
+    """Return the example contracts as a copy, so callers cannot mutate them."""
     return dict(_EXAMPLE_TEMPLATES)
 
 
-#: :func:`examples` as built at import, for readers that want a mapping.
+#: The example contracts, materialised once at import time by `examples()`.
 EXAMPLES: dict[str, str] = examples()
 
 
@@ -582,8 +549,8 @@ def _contract_type_label(field: contract_schema.Field) -> str:
         choices = field.choices or (field.choices_from() if field.choices_from else ())
         return "one of " + ", ".join(f"`{c}`" for c in choices)
     label = _CONTRACT_KIND_LABELS[field.kind]
-    # Both bounds, for the reason the config renderer states: a ceiling that
-    # is not shown reads as no ceiling.
+    # As in the config documents, declared bounds are part of the reader-facing
+    # type; a field with neither bound keeps the bare label.
     bounds = []
     if field.min_value is not None:
         bounds.append(f"min {field.min_value}")
@@ -637,7 +604,12 @@ def _contract_table(fields: Sequence[contract_schema.Field], prefix: str) -> lis
 
 
 def _session_types() -> str:
-    """The task types whose runs are sessions, as the skill spells them."""
+    """Name the task types that run as a session, joined by `/`.
+
+    A session has no target and no scope, so a key the schema marks
+    session-optional is required for every other task type, and the contract
+    tables say which types that leaves out.
+    """
     return "/".join(f"`{t.name}`" for t in contract_schema.task_types() if t.session)
 
 
@@ -653,7 +625,13 @@ def _contract_section(field: contract_schema.Field, path: str) -> list[str]:
 
 
 def render_skill() -> str:
-    """The ``/mcgyvr`` skill, as text: four steps, the schema, one example per type."""
+    """Render SKILL.md: the /mcgyvr skill's front matter, prose and four steps.
+
+    The front matter, the walkthrough prose and the result-file key list are
+    fixed; the contract key tables and their nested sections are rendered from
+    the contract `SCHEMA`, and the deterministic operation names from
+    `contract_schema.operations()`.
+    """
     lines = [
         "---",
         "name: mcgyvr",
@@ -849,15 +827,11 @@ def render_skill() -> str:
 
 
 def render_examples() -> str:
-    """The examples file, as text: one minimal ``code`` contract, plus one per
-    deterministic operation.
+    """Render examples.md: every example contract, split into two sections.
 
-    A document that is written and kept, like the skill and ``SETUP.md``, and
-    checked the same way: it is a projection of :func:`examples`, which
-    ``tests/test_the_mcgyvr_skill_is_rendered_from_the_schema.py`` loads
-    through ``contract.load``, so an example that stops validating is still a
-    build failure. It is one file away from the skill because an agent's
-    context is the scarce thing and a file costs nothing until it is opened.
+    A name `catalog()` lists as a deterministic operation goes under the
+    operations heading and every other name under the one a model satisfies;
+    within a section the order is the order of `_EXAMPLE_TEMPLATES`.
     """
     operation_names = {op.name for op in catalog().operations}
     type_examples = {
@@ -890,7 +864,11 @@ def render_examples() -> str:
 
 
 def _keys(fields: Sequence[Field], prefix: str = "") -> list[str]:
-    """Every key in the schema, at every depth, as dotted paths."""
+    """Return every key path in a schema, depth first, parents before children.
+
+    A nested field's path is its ancestors' names joined by dots, which is the
+    form the reference's headings and table keys use.
+    """
     out: list[str] = []
     for field in fields:
         path = f"{prefix}.{field.name}" if prefix else field.name
@@ -899,33 +877,32 @@ def _keys(fields: Sequence[Field], prefix: str = "") -> list[str]:
     return out
 
 
-#: A section heading in the rendered reference: a level, and the dotted key it
-#: documents. `## `units`` opens the block `units`; a block nested inside one
-#: opens as `### `parent.child``. The two headings with no key — the document title
-#: and `## Value types` — do not match, which is correct: they document nothing
-#: the loader validates.
+#: Reading a rendered document back, so its own text can be checked against the
+#: schema it came from. `_HEADING` matches the heading `_section` emits: a level
+#: of `#`s, a space, and a backticked key path. A heading of any other shape names
+#: no section here; it only bounds one, which is how `_sections` finds where a
+#: body ends.
 _HEADING = re.compile(r"^#+ +`([A-Za-z0-9_.]+)`\s*$", re.MULTILINE)
 
-#: Where the top-level keys are tabled. It is the one block whose keys do not
-#: live under a heading named for their parent, because they have no parent.
+#: The heading the top-level key table sits under, matched as text rather than by
+#: the key-path pattern because it names no key.
 _TOP_LEVEL = "## Top-level keys"
 
 
 def _sections(text: str) -> dict[str, str]:
-    """The document split by heading: dotted key (or ``_TOP_LEVEL``) to body.
+    """Map each section name in a rendered document to the body beneath it.
 
-    A body runs to the next heading of ANY level, so a block's own table is not
-    conflated with the tables of the blocks nested inside it. That is the whole
-    of what makes the check below a whole-key check: `mode` found under
-    `sandbox` is found in `sandbox`'s body and nowhere near `delivery`'s.
+    A name is a backticked key path taken from a heading, or `_TOP_LEVEL` for the
+    top-level table's heading. A body runs to the next heading of any kind, so a
+    section carries its own tables and not its children's.
     """
     starts: list[tuple[int, int, str]] = []
     for match in _HEADING.finditer(text):
         starts.append((match.start(), match.end(), match.group(1)))
     for match in re.finditer(rf"^{re.escape(_TOP_LEVEL)}\s*$", text, re.MULTILINE):
         starts.append((match.start(), match.end(), _TOP_LEVEL))
-    # Every heading, keyed or not, bounds a body — a keyed section must not run
-    # on through `## Value types` and inherit whatever is tabled there.
+    # The offset of every heading, whatever its shape: the first one after a
+    # section start is where that section's body ends.
     bounds = sorted(
         {match.start() for match in re.finditer(r"^#+ .*$", text, re.MULTILINE)}
     )
@@ -937,14 +914,11 @@ def _sections(text: str) -> dict[str, str]:
 
 
 def reference_problems(text: str) -> list[str]:
-    """What is wrong with ``text`` as a reference for :data:`SCHEMA`.
+    """Return what a rendered reference fails to document, in plain words.
 
-    Nothing, when it is sound. Every key is checked **where it belongs**: a
-    top-level key in the top-level table, and a nested key in the body of the
-    section named for its parent block. A leaf name alone is not enough:
-    `mode`, `model`, `enabled`, `image`, `unit` and `draws` recur across blocks,
-    so a check against the whole document would pass on a namesake while a
-    whole block had stopped rendering.
+    The DO NOT EDIT marker has to be the first line, and every key path in
+    `SCHEMA` has to be named under its parent's section. An empty list means the
+    document agrees with the schema.
     """
     problems: list[str] = []
     if not text.startswith(MARKER):
@@ -956,11 +930,11 @@ def reference_problems(text: str) -> list[str]:
         where = parent or _TOP_LEVEL
         body = sections.get(where)
         if body is None and parent:
-            # Reported once for the block, not once per key inside it: a
-            # missing section is one fault, and naming its twelve leaves would
-            # bury it. Only for a NAMED block — a document with no top-level
-            # table at all has no block to name, and every key it dropped is
-            # reported by name below.
+            # The block itself is undocumented, so every key in it is missing for
+            # one reason. Report the block once — `absent` keeps the rest of its
+            # keys from repeating the finding — and say it is missing entirely,
+            # which is a different repair from a section that forgot to name a
+            # key it does document.
             if parent not in absent:
                 absent.add(parent)
                 problems.append(f"the `{parent}` block is not documented at all")
@@ -973,14 +947,10 @@ def reference_problems(text: str) -> list[str]:
 
 
 def check_reference(target: Path) -> list[str]:
-    """Render the reference to ``target``, check it, and delete it.
+    """Render the reference into `target`, read it back, delete it, check it.
 
-    Returns what is wrong with it — nothing, when it is sound. The file is gone
-    when this returns whatever the verdict: the schema is the reference, and a
-    rendered copy that outlives its check becomes a second description of the
-    config that then has to be kept current. The check is the one a reader would
-    make — the provenance marker is on it, and every key the loader validates is
-    named under the block it belongs to.
+    The text is validated as the file on disk, and `target` is removed whether
+    the check passed, failed or raised.
     """
     rendered = render_reference()
     try:
@@ -992,12 +962,12 @@ def check_reference(target: Path) -> list[str]:
 
 
 def _write_or_check(target: Path, rendered: str, schema: str, check: bool) -> int:
-    """Write ``rendered`` to ``target``, or report a committed copy that drifted.
+    """Write a rendered document, or in check mode compare it with the copy.
 
-    Returns 1 when ``check`` is on and the committed document is not what its
-    schema renders, 0 otherwise. All three kept documents — the skill, its
-    examples and ``SETUP.md`` — go through here, so a stale one fails
-    ``make docs-check`` whichever of the two schemas moved.
+    Without `check` it creates the parent directory, writes the document and
+    returns 0. With `check` it returns 0 when the file already holds what the
+    schema renders, and 1 when the file is stale or missing, after naming the
+    document and the schema it was generated from.
     """
     if not check:
         target.parent.mkdir(parents=True, exist_ok=True)

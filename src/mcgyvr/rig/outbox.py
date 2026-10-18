@@ -1,22 +1,13 @@
-"""The frames the agent's sessions and relays send on their own, waiting their turn.
+"""The bounded queue of frames an agent's sessions hand to its one sending thread.
 
-A command's answer is sent when its handler returns; everything else a
-session or a relay says (a session became ready, a relayed answer's chunks,
-its end) is said later, from a thread of its own, and goes here. The agent
-takes frames out between reads of its channel, at no more than its frame
-rate (:mod:`mcgyvr.rig.agent`); a put wakes the agent from a read that waits
-(the ``wake`` the box is opened with), so a frame goes out at once rather than
-when the read's timeout ends.
-
-The box is bounded, and a put waits while it is full: a relay that streams
-faster than the channel carries stops reading its upstream, which is the
-backpressure. While the channel is down the box is closed: a put is refused
-at once and what was waiting is dropped, since it was said to a hub that is
-no longer listening (the hub asks again after a reconnect).
-
-A frame is its text, or what makes its text when the agent takes it to send
-(:data:`Frame`): a relay's frame of an answer is filled then, with all its
-head wrote while the frame waited (:mod:`mcgyvr.rig.relay`).
+An agent owns a single websocket, so everything a session says — a relayed
+answer, a session become ready, a stream chunk — is put here instead of being
+sent from the session's own thread. :class:`Outbox` is that hand-off: a
+`threading.Condition`-guarded deque that `put` fills and blocks on when full,
+`take` empties one frame at a time, and `open`/`close` gate around a live
+session. The `wake` callback given to `open` lets a producer interrupt the
+sending thread's wait on a read, so a frame queued between reads goes out at
+once.
 """
 
 from __future__ import annotations
@@ -26,15 +17,20 @@ import time
 from collections import deque
 from collections.abc import Callable
 
-#: How many frames wait at most before a put waits too.
+#: How many frames the queue holds before `put` waits for the sender to make room.
 CAPACITY = 256
 
-#: A frame that waits: its text, or what makes it once, when it is sent.
+#: A queued frame: text ready to send, or a thunk rendered when the sender takes it.
 type Frame = str | Callable[[], str]
 
 
 class Outbox:
-    """A bounded, closable queue of frames to send."""
+    """A thread-safe, capacity-bounded queue of frames, closed until opened.
+
+    Frames are dropped, not kept, while the outbox is closed: a session that
+    puts to a closed outbox is told so, and `close` empties whatever was still
+    queued.
+    """
 
     def __init__(self, capacity: int = CAPACITY) -> None:
         self._frames: deque[Frame] = deque()
@@ -44,15 +40,18 @@ class Outbox:
         self._wake: Callable[[], None] | None = None
 
     def open(self, wake: Callable[[], None] | None = None) -> None:
-        """Take frames: the channel is up. ``wake`` is called after each put,
-        outside the box's lock, to have the sender send at once."""
+        """Open the outbox for a session, calling `wake` after each frame is put.
+
+        `wake` is the sending thread's way out of a blocking read; the caller
+        passes the channel's own wake here.
+        """
         with self._changed:
             self._open = True
             self._wake = wake
             self._changed.notify_all()
 
     def close(self) -> None:
-        """Refuse frames and drop those waiting: the channel is down."""
+        """Close the outbox and drop the frames still queued, releasing any waiters."""
         with self._changed:
             self._open = False
             self._wake = None
@@ -60,8 +59,14 @@ class Outbox:
             self._changed.notify_all()
 
     def put(self, frame: Frame, timeout: float | None = None) -> bool:
-        """Queue ``frame``; ``False`` when the box is closed, or stayed full
-        for ``timeout`` seconds."""
+        """Queue a frame and return whether it was queued.
+
+        While the outbox is open and full, wait for the sender to take one:
+        `timeout` seconds at most, or forever when it is None. Return False if
+        the outbox is closed, or if the wait ran out — the frame is then
+        dropped rather than the producer blocking. `wake` is called outside the
+        lock so the sending thread is not woken while this one holds it.
+        """
         deadline = None if timeout is None else time.monotonic() + timeout
         with self._changed:
             while self._open and len(self._frames) >= self._capacity:
@@ -79,7 +84,7 @@ class Outbox:
         return True
 
     def take(self) -> Frame | None:
-        """The next frame to send, or ``None``."""
+        """Take the oldest frame, or None when the outbox holds none."""
         with self._changed:
             if not self._frames:
                 return None
@@ -88,6 +93,7 @@ class Outbox:
             return frame
 
     def pending(self) -> bool:
-        """Whether a frame waits."""
+        """Return whether any frame is waiting, so the sender need not block on
+        a read."""
         with self._changed:
             return bool(self._frames)

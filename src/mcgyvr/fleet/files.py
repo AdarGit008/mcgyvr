@@ -1,23 +1,12 @@
-"""``fleet.yaml`` is what runs where; ``policy.yaml`` is how work moves between units.
+"""The one reader of a setup's `fleet.yaml`, `policy.yaml` and `relief.yaml`.
 
-Two files, one vocabulary (the lab's fleet-identity plan, §2):
-
-* ``fleet.yaml`` is locked. It holds the ``units``, the ``rigs`` and the
-  ``fleets``. A unit carries every fact about what it is and can physically
-  do: its rig, address, engine, model, width, context window, reply size and
-  request timeout.
-* ``policy.yaml`` is not locked. It holds how work moves: the ``ladder`` (an
-  ordered list of unit names), then fanout, attempts, escalations and the rest.
-* ``relief.yaml`` is neither locked nor written by hand: ``mcgyvr rig rungs
-  sync`` writes it whole from the hub, and it holds the ``relief`` block, the
-  units other people lend this rider (hitchhike). They are not your rigs', so
-  they are not in the lock, and a sync must not rewrite a file a person
-  comments, so they are not in the policy.
-* "source", "rung" and "tier" are gone: a unit is the one term.
-
-The files are loaded separately and each refuses what belongs in another, so a
-fact about a unit cannot ride in the policy file and a routing decision cannot
-ride in the fleet file. Unknown keys are refused, never ignored.
+Three files, three vocabularies. `load_fleet` reads what runs where — the
+units, the rigs and the fleets; `load_policy` reads how work moves over those
+units — the ladder and the policy settings; `load_relief` reads the units a hub
+lends, which `mcgyvr rig rungs sync` writes and nothing else does. Each file
+refuses a key that belongs to another, an unknown key, and a word that was
+retired, naming in the message what to write instead, because a file that does
+not say what it means must not be read under rules it never agreed to.
 """
 
 from __future__ import annotations
@@ -28,14 +17,16 @@ import yaml
 
 
 class FleetFileError(Exception):
-    """``fleet.yaml`` or ``policy.yaml`` parsed, but does not satisfy the schema."""
+    """A setup file this module will not read: invalid YAML, a key that is not
+    text or is duplicated, an unknown, retired or misplaced key, or a value of
+    the wrong shape where a block, a list or a name was expected."""
 
 
-#: What a unit is or can physically do. Locked: these belong in ``fleet.yaml``.
-#: Every field the lock (and live admission) reads off a unit is here: a field
-#: consumed but not accepted here can never reach the lock from ``fleet.yaml``,
-#: so the two lists are held in sync by
-#: ``tests/test_the_loader_accepts_every_field_its_consumers_read.py``.
+#: The keys a unit block may carry in `fleet.yaml`: one process at one address,
+#: with every fact about what it is and what it can physically do. The loader
+#: accepts exactly these and refuses anything else, so a consumer that reads a
+#: named field off a loaded unit can never see a key the parser ignored.
+#: `unit_id` is the lock's identity field — authored here, read by the lock.
 _UNIT_KEYS = frozenset(
     {
         "rig",
@@ -60,7 +51,11 @@ _UNIT_KEYS = frozenset(
     }
 )
 
-#: How work moves between units. Not locked: these belong in ``policy.yaml``.
+#: The keys `policy.yaml` may carry: `ladder` plus how work moves and how much
+#: it may do — fanout, attempts, draws, escalations, timeouts, the window
+#: fraction, breadth, cleanup, users — the units a job goes to (orchestrator,
+#: verifier, jev, manager), what the gate refuses, and how a run is sandboxed,
+#: delivered, served and journaled.
 _POLICY_KEYS = frozenset(
     {
         "use_case",
@@ -89,18 +84,21 @@ _POLICY_KEYS = frozenset(
     }
 )
 
-#: The blocks ``fleet.yaml`` holds: what runs where.
+#: The top-level keys `fleet.yaml` may carry; a policy setting, a `relief` block
+#: or anything else at that level is refused rather than carried along unseen.
 _FLEET_KEYS = frozenset({"units", "rigs", "fleets"})
 
-#: What a fleet block holds: its layout as room slots, and the fleets it moves to.
+#: What a `fleets` entry may say: `layout` (rig -> slots) and `next` (the fleets
+#: this one may switch to).
 _FLEET_BLOCK_KEYS = frozenset({"layout", "next"})
 
-#: What ``relief.yaml`` holds: the relief block, and only it. Each entry's keys
-#: are the schema's (``mcgyvr.config.RELIEF_FIELDS``), checked where the setup
-#: is validated.
+#: The one key `relief.yaml` may carry. Its units are lent through a hub and
+#: written whole by `mcgyvr rig rungs sync`, so they are read as units marked
+#: `relief` and never join `units` or the ladder.
 _RELIEF_FILE_KEYS = frozenset({"relief"})
 
-#: Words the vocabulary retired. One term — "unit" — replaced several.
+#: Words a file may no longer use, each mapped to what replaced it, so a refusal
+#: can name the term to write instead of only saying the key is unknown.
 _RETIRED_WORDS = {
     "sources": "name what serves under `units` — a unit is the one term",
     "source": "a unit is the one term",
@@ -112,7 +110,8 @@ _RETIRED_WORDS = {
 
 
 class _StrictLoader(yaml.SafeLoader):
-    """SafeLoader that refuses duplicate keys instead of taking the last one."""
+    """A `SafeLoader` that builds every mapping through `_no_duplicate_keys`, so
+    a key repeated anywhere in the file is refused instead of last-one-wins."""
 
 
 def _no_duplicate_keys(
@@ -124,7 +123,7 @@ def _no_duplicate_keys(
         try:
             hash(key)
         except TypeError:
-            # `[dev]: x` — a list as a key. YAML allows it; a file does not.
+            # A list or a mapping cannot be a key: a key is one word.
             mark = key_node.start_mark
             raise FleetFileError(
                 f"key {key!r} at line {mark.line + 1} is not a plain name; a "
@@ -254,8 +253,8 @@ def _fleets(raw: object) -> dict[str, Any]:
 
 
 def _rigs(raw: object) -> dict[str, Any]:
-    # Only that the block is a mapping is checked here; a rig's `rig_id` is
-    # checked where the lock is written (`mcgyvr.fleet.lock`).
+    # A rig is checked only as a block of text keys: which fields one carries
+    # is the lock's business (`rig_id` above all), so they are not listed here.
     return _document(raw, "fleet.yaml: rigs")
 
 
@@ -285,7 +284,14 @@ def _ladder(raw: object, where: str) -> list[str]:
 
 
 def load_fleet(text: str) -> dict[str, Any]:
-    """Parse a ``fleet.yaml`` document: units, rigs and fleets."""
+    """Parse `fleet.yaml` into `units`, `rigs` and `fleets`, refusing the rest.
+
+    Each unit block is held to `_UNIT_KEYS` and each fleet entry to
+    `_FLEET_BLOCK_KEYS`; `rigs` is checked only as a block. A policy setting, a
+    `relief` block, an unknown key (including a retired word, which is named
+    with what replaced it) or a value that is not a block of text keys raises
+    `FleetFileError`.
+    """
     given = _document(_yaml(text), "fleet.yaml")
     data: dict[str, Any] = {}
     for key, value in given.items():
@@ -305,7 +311,13 @@ def load_fleet(text: str) -> dict[str, Any]:
 
 
 def load_policy(text: str) -> dict[str, Any]:
-    """Parse a ``policy.yaml`` document: how work moves between units."""
+    """Parse how work moves over the units: `policy.yaml`.
+
+    `ladder` is normalised to a list of stripped unit names, cheap first; a
+    ladder written as an empty block is refused. Every other top-level key must
+    be in `_POLICY_KEYS`. A fact about a unit, a `relief` block, an unknown key
+    or a retired word raises `FleetFileError` naming the file it belongs in.
+    """
     given = _document(_yaml(text), "policy.yaml")
     data: dict[str, Any] = {}
     for key, value in given.items():
@@ -323,12 +335,11 @@ def load_policy(text: str) -> dict[str, Any]:
 
 
 def load_relief(text: str) -> dict[str, Any]:
-    """Parse a ``relief.yaml`` document: the relief block, and nothing else.
+    """Parse `relief.yaml`: the units a hub lends, under the one key `relief`.
 
-    Only that the block is a mapping of names to blocks is checked here; each
-    entry's keys and values are the schema's, checked with the rest of the
-    setup. An empty block is no relief rungs, which is what a sync writes when
-    the hub matched none.
+    The `relief` entry and each unit's block are checked only as blocks of text
+    keys and kept as given, since their fields are the schema's. Any other key
+    raises `FleetFileError`; nothing here joins `units` or the ladder.
     """
     given = _document(_yaml(text), "relief.yaml")
     data: dict[str, Any] = {}

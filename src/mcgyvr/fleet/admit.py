@@ -1,10 +1,14 @@
-"""Live admits only a locked fleet on its own rigs, and cleans what is not in it.
+"""Whether a fleet may run live, and what a live run must do on its rigs first.
 
-Live is production: mcgyvr delegating real code tasks. It runs a fleet the
-operator picked from the locked set, and nothing else. ``admit_live`` checks the
-lock, the pin, the rig and the holders of the card, and returns what to clean
-and what to restore. ``wake`` finds the one listed switch that wakes a unit.
-(the lab's fleet-identity plan, §6.)
+Live is production, so it is admitted only for a fleet the setup names and a
+lock pins: :func:`admit_live` re-derives the layout's digest, refuses a layout
+that left its pin, refuses a rig whose observed id is not the locked one,
+refuses a rig a foreign process holds or whose units' sleep state could not be
+read, and returns the units of ours to clean plus the fleet's own units to
+restore. :func:`wake` spawns one door run toward a fleet the current one lists
+as a switch, and only when that fleet holds the unit awake. The remaining
+helpers answer the narrower question the live gate and the waker ask of a lock
+with no sample behind it: which containers and which host it covers.
 """
 
 from __future__ import annotations
@@ -25,12 +29,18 @@ from mcgyvr.fleet.roots import LOCK_DIR
 
 
 class LiveRefusedError(Exception):
-    """A live run was refused: not locked, not this rig, or the card is held."""
+    """A live run is refused: the fleet, its lock, a rig, or a process on it says no."""
 
 
 @dataclass
 class Plan:
-    """What live must do on a rig: clean units it does not name, restore its own."""
+    """What a live run must do on the rigs before the fleet may serve.
+
+    ``clean`` pairs a rig name with a unit id of ours that the fleet's layout
+    does not place on that rig; ``restore`` triples a rig name with a unit id
+    the layout does place there and the sleep state the layout gives it, for a
+    unit found in some other state.
+    """
 
     clean: list[tuple[str, str]]
     restore: list[tuple[str, str, str]]
@@ -45,7 +55,12 @@ def _unit_ids(fleet: dict[str, Any]) -> dict[str, str]:
 
 
 def layout_ids(fleet: dict[str, Any], layout: dict[str, Any]) -> dict[str, str]:
-    """``rig id -> combination id``, the same spelling the lock pins."""
+    """Map each rig id to the combination id of the slots the layout gives it.
+
+    Slots are spelled with unit names in the setup and with unit ids here, so
+    the digest follows the units rather than the names they happen to have;
+    this map is what a lock pins as its ``layout_sha256``.
+    """
     rig_ids = {name: block["rig_id"] for name, block in fleet.get("rigs", {}).items()}
     unit_ids = _unit_ids(fleet)
     out: dict[str, str] = {}
@@ -70,13 +85,21 @@ def admit_live(
     *,
     policy: Mapping[str, Any] | None = None,
 ) -> Plan:
-    """Refuse a live run the lock does not approve, else say what to do.
+    """Decide whether a live run of ``fleet_name`` is admitted, and what it must fix.
 
-    ``observed`` maps each rig name to ``{rig_id, units: {unit id: state},
-    foreign: [process]}`` — what is actually on the rig right now. ``policy``
-    is the live setup's ``policy.yaml``, as written: an mcorch orchestrator
-    refuses a fleet that does not hold its units awake
-    (:func:`mcgyvr.fleet.layout.mcorch_units`).
+    Refuses when no fleet is named, when the name is not a fleet of this setup,
+    when the fleet has no lock in ``root``, when the layout no longer hashes to
+    the ``layout_sha256`` its lock pinned, and — given a ``policy`` — when
+    mcorch needs a unit awake that the layout does not hold awake. Then, for
+    each rig of the layout, it refuses an observed rig id that is not the
+    locked one, a rig a process that is not ours holds, and a unit whose sleep
+    state was read as ``unread``, since whether it would serve is then unknown.
+
+    ``observed`` is the door's reading keyed by rig name, each with ``rig_id``,
+    a ``units`` map of unit id to state, and ``foreign`` process names. The
+    returned plan lists the units of ours on a rig that this fleet does not
+    place there as ``clean``, and this fleet's own units found in a state other
+    than their locked one as ``restore``.
     """
     if fleet_name is None:
         raise LiveRefusedError("no fleet named for a live run")
@@ -124,8 +147,10 @@ def admit_live(
         obs_units = obs.get("units") or {}
         unread = sorted(uid for uid, said in obs_units.items() if said == "unread")
         if unread:
-            # Owner ruling on FLT-02: a unit whose sleep could not be read is
-            # neither state a layout locks, and no restore can promise it.
+            # Unread is neither of the two states a layout can lock, so no
+            # restore can honestly promise to reach it: the rig is refused.
+            # Nothing is planned for it, since a run never acts on a rig it
+            # was not admitted on.
             raise LiveRefusedError(
                 f"{rig_name}: the sleep state of {', '.join(unread)} could not "
                 "be read, so whether it would serve is unknown"
@@ -152,10 +177,14 @@ def wake(
     unit_name: str,
     spawn: Any,
 ) -> str:
-    """Wake a unit along one listed switch, and say which fleet it leads to.
+    """Run one door switch that wakes ``unit_name``, and name the fleet switched to.
 
-    ``spawn`` is called once with the door run, only for a switch ``from_fleet``
-    lists toward a fleet where ``unit_name`` is awake.
+    A fleet holds the unit awake when some slot of its layout names the unit in
+    the awake state. ``from_fleet`` may switch only to a fleet it lists under
+    ``next``, so the first listed fleet that holds the unit awake is passed to
+    ``spawn`` as ``("serve", "up", from_fleet, target, unit_name)`` and its name
+    is returned. ``root`` is not read here, and nothing is spawned unless a
+    listed switch holds the unit awake.
     """
     fleets = fleet.get("fleets", {})
     if from_fleet not in fleets:
@@ -183,20 +212,7 @@ def wake(
 
 
 def _pinned_rig_id(root: Path, host: str) -> str | None:
-    """The rig id ``host`` is pinned to by the ``fleet.yaml`` beside the lock.
-
-    ``None`` when there is nothing to read it from — no file, a file that does
-    not parse, or one naming no such host — and then the lock is read as it
-    always was. Narrowing must never turn a locked host into an unlocked one
-    somewhere the pin cannot be read.
-
-    Only ``rigs`` is read, and with plain YAML rather than
-    :func:`mcgyvr.fleet.files.load_fleet`: that loader validates the whole
-    document, so one unknown key under any unit would refuse the file and leave
-    this reading every rig id again — the bug it exists to close, back without
-    a word. What is wanted here is one string, and nothing about a unit can
-    make it wrong.
-    """
+    """The rig id ``root``'s ``fleet.yaml`` pins for ``host``, or None if none."""
     import yaml
 
     try:
@@ -210,20 +226,14 @@ def _pinned_rig_id(root: Path, host: str) -> str | None:
 
 
 def _unsampled_slots(root: Path, host: str) -> Iterator[tuple[str | None, bool]]:
-    """Each unit a lock under ``root`` approved on no evidence lays out on
-    ``host``, as ``(container, pinned)``: the container its ``fleet.yaml``
-    entry names now (``None`` for none), and whether that is the one the lock
-    pinned for it: the lock's ``containers``
-    (:func:`mcgyvr.fleet.lock.pinned_containers`), where a unit the lock
-    pinned none for must name none.
+    """Yield ``(container, pinned)`` per slot ``host`` carries in an unsampled fleet.
 
-    Read from the ``fleet.yaml`` beside the lock, and only while that file's
-    layout still matches the lock's pin: a rig edited into the layout after the
-    approval is not locked by it. The layout's hash pins unit ids, and a
-    container edited into ``fleet.yaml`` afterwards leaves those as they were;
-    the pinned container is what catches it. The one rule both
-    :func:`host_is_locked` and the door's gate 1 (:func:`unsampled_containers`)
-    read, so the two cannot drift apart.
+    A fleet qualifies when its layout places units on ``host`` and its lock was
+    approved on no evidence and still hashes to the layout's pin as the setup
+    lays it out now. Each yielded entry is the container the setup gives that
+    slot's unit, and whether it is the container the lock recorded for
+    ``host``. A fleet, layout, or lock that cannot be read or resolved is
+    skipped rather than refused.
     """
     import yaml
 
@@ -265,24 +275,13 @@ def _unsampled_slots(root: Path, host: str) -> Iterator[tuple[str | None, bool]]
 
 
 def _laid_out_unsampled(root: Path, host: str) -> bool:
-    """Whether a lock under ``root`` approved on no evidence lays out ``host``
-    with every unit there still naming the container it pinned
-    (:func:`_unsampled_slots`). One edited unit unlocks the host: a wake
-    serves the rig's whole launch spec, the edited container with it."""
+    """True when each slot ``host`` carries in an unsampled locked fleet is pinned."""
     found = list(_unsampled_slots(root, host))
     return bool(found) and all(pinned for _container, pinned in found)
 
 
 def unsampled_containers(root: Path, host: str) -> set[str]:
-    """The containers a lock under ``root`` approved on no evidence pinned on
-    ``host`` that its layout there still names: each unit the pinned layout
-    places there whose ``fleet.yaml`` entry names the container the lock
-    pinned for it (:func:`_unsampled_slots`).
-
-    Such a lock writes no combination record, so this is what the door's gate 1
-    admits a live ``serve up`` of for it; a lock measured from dev evidence
-    adds nothing here and answers from its records alone.
-    """
+    """The containers a live lock with no sample pins on ``host``, as now laid out."""
     return {
         container
         for container, pinned in _unsampled_slots(root, host)
@@ -291,22 +290,13 @@ def unsampled_containers(root: Path, host: str) -> set[str]:
 
 
 def host_is_locked(root: Path, host: str) -> bool:
-    """Whether the lock under ``root`` names ``host`` under the rig id it pins.
+    """Whether a live fleet's lock covers ``host``.
 
-    ``root`` is the live fleet's folder
-    (:func:`mcgyvr.fleet.roots.live_fleet_dir`), never the working directory.
-
-    A record's ``rig`` field is the rig's NAME; its identity is the rig id of
-    the directory it sits in. :func:`mcgyvr.fleet.lock.write` writes one
-    directory per rig id and never prunes, so a rig whose id changed leaves
-    its old records behind, still naming it. Reading every directory would let
-    those answer for a machine that no longer exists — a second source of
-    truth, and the older one — so only the pinned rig id's records answer
-    (owner, 2026-09-16).
-
-    A lock approved on no evidence (:func:`mcgyvr.fleet.lock.write_unsampled`)
-    writes no combination record, as nothing was validated; for it the
-    layout answers (:func:`_laid_out_unsampled`).
+    True when ``host`` carries slots only of fleets approved on no evidence,
+    each still the container its lock recorded. Otherwise a combination record
+    under the lock's ``rigs`` folder that names ``host`` as its rig, looked for
+    under the rig id the setup pins for ``host`` when there is one and under
+    every folder when there is not.
     """
     if _laid_out_unsampled(root, host):
         return True

@@ -1,60 +1,10 @@
-"""The source map — where work runs, and the seam that keeps it a secret.
+"""What a config resolves into: the sources work may be dispatched to.
 
-A source is an endpoint with a capacity and a wire protocol, and it is one
-declared unit: :func:`_endpoint` names each endpoint after its unit. This module
-is the one place that knows where a rung runs, and it exists so that nothing
-above it has to. Above the seam a caller sees a *ladder of rungs*: named
-steps, cheapest first, each with a model. Below it, a rung resolves to an
-:class:`Endpoint` a runner can dispatch against. The resolution happens here and
-nowhere else.
-
-That division is the whole point:
-
-* **A rung moves between machines with a config edit and no code change.** The
-  ladder names units, resolved at call time. Nothing is compiled against a
-  host, so re-pointing a rung at a different machine — or at a hosted API — is
-  a line in the config file, not a patch.
-* **Nothing outside the seam reads a source or a backend.** :class:`Rung`
-  carries a name and a model and deliberately nothing else: no URL, no protocol,
-  no source name. A caller cannot accidentally depend on where work ran, because
-  the type it holds does not say. Only :meth:`SourceMap.bind` produces an
-  ``Endpoint``, and only a runner should be calling it.
-* **Backend support is a protocol question, not a per-vendor integration.**
-  There is exactly one wire protocol, :class:`Protocol`. ``openai`` covers
-  vLLM, llama-server, LM Studio, TGI and the hosted providers; adding a backend
-  that speaks it is a config entry, not code.
-* **An unusable source degrades the ladder rather than raising.** A rung whose
-  source cannot serve it is dropped from :attr:`SourceMap.rungs` and recorded in
-  :attr:`SourceMap.skipped` with a reason in words. A pool with nothing usable
-  is an empty ladder that says why, not an exception — the caller decides what
-  an empty ladder means, because for a keyless install it may be expected.
-
-**What is deliberately not here.** A ladder naming a unit that was never
-declared is a typo, and the config loader refuses it at load time; that is the
-right place for it, and this module does not re-litigate it. Live reachability —
-is the endpoint actually answering — is :mod:`mcgyvr.availability`'s, and it
-enters through :class:`SourceProbe`: a caller passes something that can say
-which sources are down, and its answers become ordinary :class:`Skipped`
-entries. The narrowness of that interface is the point. This module still knows
-nothing about HTTP, timeouts, caching or retries; it knows only that a source
-may turn out to be unusable for a reason it did not compute itself. Capacity is
-*carried* here (:attr:`Endpoint.max_parallel`) and enforced in
-:mod:`mcgyvr.capacity`, which keys its bounds by the source name this module
-resolves to (its slot files by the endpoint's ``base_url``) and holds one for
-the length of a single dispatch — so a task escalating across sources accounts
-correctly without this module learning what a thread is. So the degradation this
-module performs is structural only: a source whose credential is named but
-absent from the environment cannot serve anything, and that is knowable without
-touching the network.
-
-**On credentials.** An ``Endpoint`` carries the environment variable's *name*,
-never its value. The value is read at dispatch through :meth:`Endpoint.credential`
-so that a secret never sits in a dataclass, never lands in a repr, and never
-reaches a log through one. Presence is checked when the map is built — that is
-what lets an unusable rung be skipped early — and the value is resolved later,
-which means a variable exported mid-run is picked up and one unset mid-run fails
-loudly at the point of use. That gap is deliberate: the alternative is holding
-the secret for the lifetime of the process.
+`source_map` reads a `Config` and answers what it can actually use: which
+ladder rungs survive the key they name, which are dropped and why, the
+`Endpoint` each name is dispatched at, and which unit each role runs on. A
+`SourceProbe` may be handed in to drop sources that are not answering, or that
+answer while holding weights other than the model their rung names.
 """
 
 from __future__ import annotations
@@ -71,54 +21,51 @@ _ROLES = ("orchestrator", "verifier", "jev")
 
 
 class SourceProbe(TypingProtocol):
-    """Anything that can say which sources cannot currently serve, and why.
+    """What a caller may ask about endpoints before any work is dispatched.
 
-    The whole of the availability probe as this module sees it. It is a
-    structural type rather than an import so that resolving a ladder never
-    drags in a network stack: :class:`~mcgyvr.availability.Availability`
-    satisfies it, and so does a dict-backed stub in a test, and neither is named here.
-
-    Implementations must not raise. A source that cannot be probed is a source
-    that is down, and it is reported as such with a reason — the same rule that
-    keeps :func:`source_map` from raising on a missing credential.
+    `source_map` asks `unavailable`, and asks `not_serving` only when the probe
+    has it, so a probe may answer liveness alone.
     """
 
     def unavailable(self, endpoints: Sequence[Endpoint]) -> Mapping[str, str]:
-        """Source name → why it cannot serve, holding only the ones that cannot."""
+        """The sources among `endpoints` that are not live, each mapped to why.
+
+        A source the mapping leaves out is taken as live.
+        """
         ...
 
-    # A probe may also answer a second, *per rung* question — whether the model
-    # a rung names is the one its port is currently holding — and it is
-    # deliberately not declared here. This protocol is satisfied by a
-    # dict-backed stub in three lines, and requiring the second method would
-    # make every such stub claim an answer it has no way to have. So
-    # :func:`source_map` asks for it by name and skips the question where it is
-    # absent, which is the same rule the answer itself takes: a probe that
-    # cannot tell which weights are resident shortens no ladder. The
-    # implementation is :meth:`mcgyvr.availability.Availability.not_serving`,
-    # and what it exists to prevent is llama.cpp answering a request that names
-    # weights it is not holding from the weights it is, silently.
+    # `source_map` is the only caller that asks a probe: it is how a caller
+    # that has already looked at the machines says which of them to drop.
+    # The second question a probe may answer, `not_serving`, is not declared
+    # here because answering it is optional. It takes `(endpoint, model)`
+    # pairs and returns why each model is not held, keyed by
+    # `(source, model)`. It is asked because a source can be live and still
+    # hold other weights: llama.cpp answers a request naming weights it is
+    # not serving from the weights it is, so such a reply is another
+    # model's and nothing in it says so.
+    # A probe is asked about ladder rungs and role endpoints, never relief
+    # rungs: a lent rung is reached through a hub, not probed here.
 
 
 class PoolError(Exception):
-    """A dispatch could not be resolved to somewhere to run."""
+    """Base class for what goes wrong resolving or using the source map."""
 
 
 class UnknownRungError(PoolError):
-    """A rung was asked for by a name the ladder does not offer."""
+    """A name was asked for that the config lists nowhere, as rung or role."""
 
 
 class SourceUnavailableError(PoolError):
-    """A rung's source exists but cannot currently serve it."""
+    """A source the config declares cannot be used: it was skipped, or the
+    environment variable holding its key is unset."""
 
 
 class Protocol(StrEnum):
-    """A wire protocol, which is the only thing a runner needs to know.
+    """The request shape an endpoint answers.
 
-    ``OPENAI`` is the OpenAI-compatible chat-completions shape, which vLLM,
-    llama-server, LM Studio, TGI and the hosted providers all speak. Supporting
-    a new backend is therefore a config entry naming it, not a new integration —
-    which is why this enum has one member.
+    `OPENAI` is the OpenAI-compatible one every backend behind a unit serves,
+    and the one that states where liveness is read: `GET /v1/models` on the
+    endpoint's base URL.
     """
 
     OPENAI = "openai"
@@ -126,15 +73,11 @@ class Protocol(StrEnum):
 
 @dataclass(frozen=True)
 class Endpoint:
-    """Everything needed to dispatch, and nothing about who asked. Below the seam.
+    """One address work is dispatched at, with the limits it is sent within.
 
-    ``max_parallel`` is the unit's declared ``width``, carried so
-    :mod:`mcgyvr.capacity` can bound concurrency at this seam; this module does
-    not enforce it. ``source`` is the declared source name, kept for capacity
-    accounting and telemetry — both of which live below the seam.
-
-    ``credential_env`` is the *name* of the variable holding the key, never the
-    key. Use :meth:`credential` to resolve it at the moment of dispatch.
+    Built from the `Unit` a rung or role names. It is the pool's unit of
+    dispatch: its `source` is the unit's name, which is what a probe reports on
+    and what a refusal names.
     """
 
     source: str
@@ -142,71 +85,69 @@ class Endpoint:
     protocol: Protocol
     max_parallel: int
     credential_env: str | None
-    #: Tokens the process behind this URL serves in one request, or ``None``
-    #: when its unit declared none. Below the seam on purpose: a window is a
-    #: fact about the machine, and :class:`Rung` stays empty so that a rung can
-    #: be re-pointed at another one. ``None`` enforces nothing rather than
-    #: standing in for a number — see
-    #: :func:`mcgyvr.gate.preflight.check_contract_against_rung`.
+    #: NAME of the environment variable holding this endpoint's key. `None`
+    #: means no key is sent, which is how a local backend that checks nothing
+    #: is asked. The value never lives here: a key that is needed and missing
+    #: raises rather than sending an unauthenticated request.
+    #: `requires_credential` says whether a key is needed; `credential`
+    #: resolves it.
     context_window: int | None = None
-    #: Room a reply on this unit is given, from ``units.*.output_tokens``, or
-    #: ``None`` when the unit declared none. Below the seam with ``context_window``
-    #: and for the same reason — both are facts about the machine that answers,
-    #: and :class:`Rung` stays empty so a rung can be re-pointed at another one.
-    #: A ceiling on the contract's ``limits.max_output_tokens``, beside the room
-    #: ``context_window`` leaves for the prompt, and never a number sent in its
-    #: place; see :class:`mcgyvr.gate.preflight.UnitCeiling`.
+    #: Tokens this endpoint serves in one request, as the unit states them,
+    #: prompt and reply together; `None` means the unit says nothing. The
+    #: prompt is budgeted from this number: what it may claim is this window
+    #: less the room reserved for the reply, and a `code` contract with
+    #: neither this nor `output_tokens` behind it is refused rather than
+    #: guessed at. It limits the whole request, where `output_tokens` limits
+    #: the reply alone.
     output_tokens: int | None = None
-    #: The most room a reply here is given whatever else was declared, or
-    #: ``None`` for no such bound. Set for a relief rung, which declares no
-    #: ``output_tokens`` of its own: it is the local unit's, the first usable
-    #: rung of the rider's own ladder (the one a ride stands in for when it is
-    #: full), so a ride is sent the smaller of the contract's cap and that,
-    #: and that alone where the contract has no cap. A bound and never a
-    #: number that wins: it can lower the cap sent, not raise it
-    #: (:func:`mcgyvr.gate.preflight.reply_cap`).
+    #: Room a reply on this endpoint is given, hidden reasoning included, as
+    #: the unit states it. It is a ceiling a contract's
+    #: `limits.max_output_tokens` is held to, never a replacement for it: the
+    #: contract's cap is what is sent. `None` means the unit states no room,
+    #: and the ceiling is then whatever the window leaves.
+    #: It is kept apart from `context_window` because one is room one reply is
+    #: given and the other is room the whole request is served in, and where
+    #: both are stated the smaller one holds.
     output_ceiling: int | None = None
-    #: How long one dispatch to this unit may take, from the unit's own
-    #: ``request_timeout_s``, or ``None`` when it declared none. Per unit, not
-    #: per config: two units on one host are two processes with two budgets.
+    #: The reply room of the rung this one stands in for, set on relief
+    #: rungs alone by `source_map`: a lent rung answers as one of yours
+    #: would, so a contract's cap is checked against this ceiling.
     request_timeout_s: float | None = None
-    #: The server program behind this address, from the unit's ``engine`` —
-    #: ``"llama.cpp"``, ``"vllm"``, or ``None`` where the unit declared none,
-    #: which the config reads as llama.cpp. Below the seam because it decides
-    #: which status page the runner reads beside a dispatch: llama-server
-    #: publishes ``/slots`` and answers ``/metrics`` 501 unless started with
-    #: ``--metrics``; vLLM publishes ``/metrics``.
+    #: Seconds one dispatched request to this endpoint may take before the
+    #: transport gives up. `None` means nothing is stated here and the
+    #: caller's default holds, which differs between a hosted and a local
+    #: endpoint. It is kept unresolved rather than filled in, so that an
+    #: unstated timeout and a stated one stay different facts and a caller
+    #: can tell which one applies.
     engine: str | None = None
-    #: Whether this is a relief rung's endpoint: another person's unit behind
-    #: a hub, whose "cannot take the request now" answers the runner reads as
-    #: a full rung rather than as an error (:mod:`mcgyvr.runner`).
+    #: The server program behind the address, as the unit declares it;
+    #: `None` means llama.cpp. Read where a request or a status poll has to
+    #: speak the engine's own API rather than the one path they share.
     relief: bool = False
-    #: A relief rung's ``served_model``: the host's model, which a ridden
-    #: answer must name, or ``None`` where the rung's entry states none.
+    #: Whether this endpoint is a rung lent through a hub rather than one
+    #: of your own. A relief rung is never a step of the ladder.
     served_model: str | None = None
-    #: The answers, as ``(HTTP status, error code)``, that say this endpoint
-    #: cannot take a request now, which the runner reads as a full rung; or
-    #: ``None`` where its unit names none (:mod:`mcgyvr.runner`).
+    #: What the host says its unit runs, for people to read; it is not what
+    #: is asked for. On a relief rung it is what a reply's own model is
+    #: checked against, and a mismatch passes the rung over as full.
     busy_answers: frozenset[tuple[int, str]] | None = None
-    #: Who sets a request's sampling parameters (``units.<unit>.sampling``):
-    #: ``request`` sends a temperature, ``server`` sends none because the
-    #: unit's model refuses the parameter. Carried, not enforced: the runner
-    #: and the decision primitive read it when they build a body.
+    #: The (status, code) answers that say this endpoint cannot take a
+    #: request now. On a relief rung one of them raises
+    #: `ReliefUnavailableError`, which is what makes a full lent rung cost
+    #: nothing to pass over; elsewhere an answer is read as any other.
     sampling: str = "request"
 
     @property
     def requires_credential(self) -> bool:
-        """Whether this endpoint expects a key at all — local ones do not."""
+        """Whether a key must be resolved before this endpoint is called."""
         return self.credential_env is not None
 
     def credential(self) -> str | None:
-        """The key for this endpoint, read from the environment at call time.
+        """The key read from the environment variable `credential_env` names.
 
-        ``None`` for a keyless endpoint, which is the ordinary case for a local
-        backend. Raises :class:`SourceUnavailableError` when a key is expected and the
-        variable is unset — the map checks presence when it is built, so reaching
-        this means the environment changed underneath the run, and saying so is
-        better than dispatching an unauthenticated request.
+        `None` when the endpoint names no variable, meaning nothing is sent.
+        Raises `SourceUnavailableError` when the variable is unset or empty:
+        the value is never written into a config file.
         """
         if self.credential_env is None:
             return None
@@ -223,13 +164,7 @@ class Endpoint:
 
 @dataclass(frozen=True)
 class Rung:
-    """One usable step of the ladder, as seen from above the seam.
-
-    A name and a model, and by construction nothing else. There is no endpoint,
-    protocol or source here, so a caller holding a ``Rung`` cannot come to depend
-    on where its work runs — which is the property that lets a rung be re-pointed
-    at a different machine without anything above noticing.
-    """
+    """One step of the ladder: the unit's name, and the model sent to it."""
 
     name: str
     model: str
@@ -237,11 +172,10 @@ class Rung:
 
 @dataclass(frozen=True)
 class Skipped:
-    """A rung the pool cannot offer, with the reason stated in words.
+    """A rung the pool will not offer, with the reason it was dropped.
 
-    Kept beside the usable rungs rather than discarded, because a ladder that
-    quietly got shorter is indistinguishable from one that was always that
-    length — and the difference is usually the thing worth knowing.
+    The reason is either structural, the key the unit names being unset, or
+    what a probe said about the source.
     """
 
     name: str
@@ -251,7 +185,8 @@ class Skipped:
 
 @dataclass(frozen=True)
 class RoleBinding:
-    """A non-ladder role (orchestrator, verifier, jev) resolved to somewhere to run."""
+    """What a role runs on: its unit, the model it asks for, and where to
+    dispatch."""
 
     role: str
     model: str
@@ -259,17 +194,12 @@ class RoleBinding:
 
 
 class SourceMap:
-    """The ladder, resolved against the declared sources.
+    """A config resolved into what can be dispatched, and what cannot.
 
-    Built by :func:`source_map`. Holds the usable rungs in declared order —
-    cheapest first, since that is how a ladder is written — the rungs that were
-    skipped and why, and the single method that crosses the seam.
-
-    The relief rungs (``relief.yaml``) are held beside the ladder and never on
-    it: :attr:`relief` and :attr:`relief_skipped`, in the order the hub listed
-    them. :meth:`get` and :meth:`bind` answer for them as for any rung, because
-    a dispatch to one is a dispatch like any other; what keeps them off the
-    climb is that :attr:`rungs`, the ladder, never holds one.
+    `rungs` are the ladder's usable steps in the ladder's own order, `relief`
+    the usable lent rungs, and `skipped` and `relief_skipped` the rest with
+    their reasons. `bind` turns a rung name into the `Endpoint` to call and
+    `role` a role into its `RoleBinding`. `source_map` builds it.
     """
 
     def __init__(
@@ -292,48 +222,43 @@ class SourceMap:
 
     @property
     def rungs(self) -> tuple[Rung, ...]:
-        """The usable rungs, cheapest first."""
+        """The usable ladder rungs, in the order the ladder lists them."""
         return self._rungs
 
     @property
     def skipped(self) -> tuple[Skipped, ...]:
-        """The rungs that could not be offered, each with its reason."""
+        """The ladder rungs that cannot be dispatched, each with its reason."""
         return self._skipped
 
     @property
     def relief(self) -> tuple[Rung, ...]:
-        """The usable relief rungs, in the order the hub listed them."""
+        """The usable relief rungs: lent units, never a step of the ladder."""
         return self._relief
 
     @property
     def relief_skipped(self) -> tuple[Skipped, ...]:
-        """The relief rungs that could not be offered, each with its reason."""
+        """The relief rungs that cannot be dispatched, each with its reason."""
         return self._relief_skipped
 
     def __bool__(self) -> bool:
-        """True when at least one rung is usable."""
+        """Whether any ladder rung is usable. Relief rungs alone are not."""
         return bool(self._rungs)
 
     def __len__(self) -> int:
         return len(self._rungs)
 
     def get(self, name: str) -> Rung | None:
-        """The usable rung of this name, ladder or relief, or ``None``."""
+        """The rung of that name on the ladder, else among the relief, or `None`."""
         return next(
             (rung for rung in (*self._rungs, *self._relief) if rung.name == name),
             None,
         )
 
     def bind(self, name: str) -> Endpoint:
-        """Resolve a rung to the endpoint that serves it — the seam crossing.
+        """The endpoint to dispatch at for the rung of that name.
 
-        This is the only way to obtain an :class:`Endpoint`, and it is meant for
-        a runner about to dispatch. Everything above the seam should be working
-        with :class:`Rung`, which cannot tell it where anything runs.
-
-        Raises :class:`UnknownRungError` when no rung has this name, and
-        :class:`SourceUnavailableError` when the rung exists but was skipped — the two
-        are different mistakes and the messages keep them apart.
+        Raises `SourceUnavailableError` when the rung was skipped, carrying the
+        reason, and `UnknownRungError` when no rung or relief rung is named so.
         """
         endpoint = self._endpoints.get(name)
         if endpoint is not None:
@@ -350,13 +275,11 @@ class SourceMap:
         raise UnknownRungError(f"no rung named {name!r}. Offered: {offered}")
 
     def role(self, role: str) -> RoleBinding | None:
-        """The binding for a non-ladder role, or ``None`` when it has no source.
+        """The binding for a role, or `None` when the config binds none.
 
-        ``None`` is an ordinary answer, not a failure: a role is "unset until
-        something needs it", and a keyless install runs with no verifier at all.
-        A role whose source is declared but unusable raises
-        :class:`SourceUnavailableError`, because that is a misconfiguration the caller
-        asked about rather than a role it declined to use.
+        The role must be one of `orchestrator`, `verifier` and `jev`. One bound
+        to a unit that was skipped raises `SourceUnavailableError` rather than
+        reading as unbound.
         """
         if role not in _ROLES:
             raise UnknownRungError(f"no such role {role!r}. Roles: {', '.join(_ROLES)}")
@@ -369,69 +292,35 @@ class SourceMap:
         return None
 
     def role_model(self, role: str) -> str | None:
-        """Which model ``role`` runs, or ``None`` when it has no source.
+        """The model string of a role, or `None` when it is not bound.
 
-        What a caller *above* the seam may ask about a role, and the reason
-        :meth:`role` is not that caller's method. A ``RoleBinding`` carries an
-        :class:`Endpoint`, and an endpoint carries ``credential()`` — so a
-        presence check written as ``source_map.role(VERIFIER_ROLE) is None``
-        puts a live credential in the hands of a module that only wants to know
-        whether a verifier exists, and no import guard sees it: the object
-        arrives through an accessor, not through an import.
-
-        The two questions above the seam actually asks are "is this role bound"
-        and "which model is it" — ``mcgyvr.cli`` prints the second, ``verify``
-        asks the first — and both are answered here without anything to dispatch
-        with. Raises the same :class:`SourceUnavailableError` as :meth:`role`
-        for a role declared but unusable, because a caller that cannot see the
-        endpoint still has to be able to tell "no verifier" from "the verifier
-        is misconfigured".
+        Raises what `role` raises.
         """
         binding = self.role(role)
         return None if binding is None else binding.model
 
 
 def source_map(config: Config, probe: SourceProbe | None = None) -> SourceMap:
-    """Resolve a config's ladder against its sources, degrading where it must.
+    """Resolve `config` into the `SourceMap` work is dispatched from.
 
-    Every rung whose source can serve it becomes a :class:`Rung`, in declared
-    order. A rung whose source cannot becomes a :class:`Skipped` with the reason.
-    Nothing raises: an install with no usable rung at all yields an empty ladder
-    that can say why, which the caller is better placed to interpret than this
-    module is.
-
-    Without ``probe`` the resolution is **structural** and touches no network: a
-    source whose named credential is absent from the environment cannot
-    authenticate, and that is knowable here. With one, live reachability is
-    folded in afterwards on the same terms — an unreachable source's rungs move
-    to :attr:`SourceMap.skipped` carrying the probe's own words, so nothing
-    downstream has to distinguish "skipped because unconfigured" from "skipped
-    because down" unless it wants to.
-
-    The probe runs **once for the whole map**, over the distinct sources that
-    survived the structural pass, which is what makes a dead source cost one
-    timeout per run rather than one per attempt. Sources already
-    ruled out structurally are never probed: there is nothing to learn from
-    asking whether a host we have no key for is awake.
-
-    A ladder naming an undeclared unit cannot reach here; the config loader
-    rejects that at load time, where a typo belongs.
-
-    The relief rungs are resolved by the same structural rule — a rung whose
-    key variable is unset is skipped, with the reason — and are not probed: a
-    hub that cannot serve one says so at dispatch, in words the runner reads
-    as a full rung, which is the answer a probe would only guess at.
+    Each ladder unit is checked for the key it names and, when it passes, given
+    an endpoint; relief rungs are taken the same way and kept off the ladder.
+    Each role bound in the config becomes a `RoleBinding`, its model defaulting
+    to its unit's own. With a `probe`, sources it reports unreachable are
+    dropped, and so are rungs whose source is up but not holding their model.
+    A relief rung ends up with `output_ceiling` set to the reply room of the
+    cheapest usable rung, so a lent rung is held to what it stands in for.
     """
     usable: list[Rung] = []
     skipped: list[Skipped] = []
     endpoints: dict[str, Endpoint] = {}
 
     def _served(unit: Unit, name: str) -> int:
-        # The local orchestrator unit is launched at the user count when the
-        # unit declares no width of its own; the endpoint must carry the
-        # number the capacity's declaration will agree with. That only holds
-        # when the ruling provisions one — a local-only non-chat use case.
-        # Every other unit's served width is the width it declares.
+        # Requests this unit is asked to take at once: the width it states,
+        # or one. The exception is a deployment that runs its orchestrator
+        # locally: the unit bound to `orchestrator.unit` needs no credential
+        # and takes one request per user, so where it states no width its
+        # slot count is the configured `users` rather than one.
         if (
             config.provisions_local_orchestrator
             and name == config.get("orchestrator.unit")
@@ -468,12 +357,12 @@ def source_map(config: Config, probe: SourceProbe | None = None) -> SourceMap:
             continue
         unit = config.units[bound]
         if model is None:
-            # `model` absent means the unit's own, for every role: the schema
-            # says so of each role block, and a bound unit with no spelling is
-            # a binding, not a decision to bind nothing. A reviewer left
-            # unbound for want of a spelling is a review that silently never
-            # happens; an orchestrator left unbound is `mcgyvr delegate`
-            # reporting a role the file plainly binds as unconfigured.
+            # A role may name a unit and no model: it then asks for the model
+            # that unit names, so the string lives in one place and the role
+            # follows the unit when the unit's own model is rewritten.
+            # A model stated on the role wins instead: that is what a unit
+            # serving more than one model is pointed at, and the string is
+            # sent as stated.
             model = unit.model
         reason = _unusable(unit)
         if reason is not None:
@@ -486,9 +375,9 @@ def source_map(config: Config, probe: SourceProbe | None = None) -> SourceMap:
         )
 
     if probe is not None:
-        # One endpoint per source: a role bound to a unit that is also on the
-        # ladder would otherwise be handed to the probe twice. Relief rungs are
-        # not asked (see above).
+        # One endpoint per source, so each source is asked about once however
+        # many rungs and roles sit on it. Relief rungs are left out, being
+        # another person's machine reached through a hub.
         asking: dict[str, Endpoint] = {}
         for endpoint in (*endpoints.values(), *(b.endpoint for b in roles.values())):
             if endpoint.relief:
@@ -504,14 +393,14 @@ def source_map(config: Config, probe: SourceProbe | None = None) -> SourceMap:
                 if reason is not None:
                     role_skips[role] = reason
                     del roles[role]
-        # A port that answers is not a port serving *your* model, and the
-        # question is per rung where the one above is per source. Asked through
-        # `getattr` and not through the protocol because :class:`SourceProbe` is
-        # a structural type that a dict-backed stub satisfies in three lines —
-        # requiring a second method would make every such stub a liar about a
-        # question it has no way to answer, and a probe that cannot tell which
-        # weights are resident should shorten no ladder. See
-        # :meth:`mcgyvr.availability.Availability.not_serving`.
+        # Then the question a probe need not answer: a source can be up and
+        # still not hold the model its rung names. llama.cpp answers a
+        # request naming weights it is not serving from the weights it is,
+        # so such a reply is another model's with nothing saying so.
+        # It is looked up with `getattr` rather than declared on the protocol,
+        # so a probe answering only `unavailable` is still a `SourceProbe`;
+        # one answering this too has its verdict applied to the ladder rungs
+        # still standing.
         asks_models = getattr(probe, "not_serving", None)
         if asks_models is not None and usable:
             bound = tuple(
@@ -525,10 +414,10 @@ def source_map(config: Config, probe: SourceProbe | None = None) -> SourceMap:
                     config, usable, skipped, endpoints, elsewhere
                 )
 
-    # A ride stands in for the rider's own rung when it is full, so it is given
-    # no more room than that rung's replies are: the first rung still usable,
-    # after the probe, in the ladder's own order. Read here, once, and carried
-    # on the relief endpoint for `reply_cap` to bound the contract's cap by.
+    # A lent rung answers as one of yours would, so it is held to a ceiling
+    # of yours: `output_ceiling` is the reply room of the cheapest usable
+    # rung, and a contract's cap is checked against it as it would be
+    # against the rung the lent one stands in for.
     if usable and relief:
         local = endpoints[usable[0].name].output_tokens
         for rung in relief:
@@ -552,14 +441,11 @@ def _drop_unreachable(
     endpoints: dict[str, Endpoint],
     down: Mapping[str, str],
 ) -> tuple[list[Rung], list[Skipped], dict[str, Endpoint]]:
-    """Move the rungs on unreachable sources over to ``skipped``.
+    """Drop the usable rungs whose source `down` reports unreachable.
 
-    Both lists are rebuilt in declared ladder order rather than filtered in place.
-    The ladder is written cheapest-first, so a report that reordered it while
-    shortening it would be harder to read than one that simply got shorter — and
-    that applies to the skipped list too, which would otherwise end up with the
-    structurally-skipped rungs first and the unreachable ones bolted on the end,
-    in an order matching neither the config nor anything else.
+    The ladder's order is walked, so the kept rungs stay in it. A rung already
+    skipped keeps the reason it was skipped for; a rung dropped here is recorded
+    with the probe's reason and loses its endpoint.
     """
     by_name = {rung.name: rung for rung in usable}
     already = {skip.name: skip for skip in skipped}
@@ -571,7 +457,7 @@ def _drop_unreachable(
             grew.append(structural)
             continue
         rung = by_name.get(name)
-        if rung is None:  # not usable and not skipped: cannot happen
+        if rung is None:  # not one of this walk's usable rungs
             continue
         reason = down.get(endpoints[name].source)
         if reason is None:
@@ -589,14 +475,12 @@ def _drop_wrong_model(
     endpoints: dict[str, Endpoint],
     elsewhere: Mapping[tuple[str, str], str],
 ) -> tuple[list[Rung], list[Skipped], dict[str, Endpoint]]:
-    """Move rungs whose model is not what their port is holding into ``skipped``.
+    """Drop the usable rungs whose source is up but not serving their model.
 
-    The same shape as :func:`_drop_unreachable` and deliberately a second
-    function rather than a parameter on it: one is keyed by source and the other
-    by (source, model), and a rung dropped for the wrong reason would be
-    reported to an operator with advice that does not apply. Declared order is
-    rebuilt from the config for the same reason that one does — a ladder read
-    out of order is a ladder nobody can check against the file.
+    `elsewhere` is keyed by `(source, model)`, so one endpoint serving several
+    rungs loses only the rungs asking for the model it lacks. The ladder's order
+    is walked, an earlier skip keeps its reason, and a rung dropped here is
+    recorded with the probe's reason and loses its endpoint.
     """
     by_name = {rung.name: rung for rung in usable}
     already = {skip.name: skip for skip in skipped}
@@ -608,7 +492,7 @@ def _drop_wrong_model(
             grew.append(structural)
             continue
         rung = by_name.get(name)
-        if rung is None:  # not usable and not skipped: cannot happen
+        if rung is None:  # not one of this walk's usable rungs
             continue
         endpoint = endpoints.get(name)
         reason = (
@@ -624,15 +508,14 @@ def _drop_wrong_model(
     return kept, grew, endpoints
 
 
-# --- small deterministic helpers -------------------------------------------
+# Turning a unit into an endpoint, and saying why a unit cannot be used.
 
 
 def _endpoint(unit: Unit, *, width: int | None = None) -> Endpoint:
-    """A declared unit as the endpoint a runner dispatches against.
+    """Build the endpoint for `unit`, with the limits it is dispatched within.
 
-    ``width`` overrides the unit's own ``width`` for a unit whose served slot
-    count is derived elsewhere — the local orchestrator unit, which the serving
-    plan runs at ``users`` slots when the unit declares none.
+    `width` replaces the slot count taken from the unit's own `width`, for a
+    caller that knows how many requests the unit has to take at once.
     """
     return Endpoint(
         source=unit.name,
@@ -654,13 +537,10 @@ def _endpoint(unit: Unit, *, width: int | None = None) -> Endpoint:
 
 
 def _unusable(unit: Unit) -> str | None:
-    """Why this unit cannot serve anything, or ``None`` when it can.
+    """Why `unit` cannot be used, or `None` when it can be.
 
-    Structural only, and knowable without the network: a unit that names a
-    credential the environment does not hold cannot authenticate, so it is
-    unusable before a request is ever attempted. Whether a reachable unit is
-    actually *answering* is :mod:`mcgyvr.availability`'s question, and needs a
-    probe.
+    One thing stops a unit here: it names a key variable that is unset in the
+    environment. A unit naming no variable is usable as it stands.
     """
     if unit.api_key_env and not os.environ.get(unit.api_key_env):
         return (

@@ -1,30 +1,12 @@
-"""The fleet-manager hook: a Jev difficulty judgment that routes a task to the
-smarter resident rung before the API.
+"""Judge whether a task is worth waking the smart resident rung for.
 
-Jev may **route and wake** — a bounded, dispatch-time judgment over a task.
-This per-task hook still only routes and never sleeps, and nothing in this
-module reaches for the door's ``down`` direction: putting a unit back to sleep
-is the ladder manager's (:mod:`mcgyvr.ladder_manager`, run by ``mcgyvr
-manage``), bounded to units that can sleep and wake and gated by the same
-``serving.enable_sleep_wake`` switch. Flavor A only: asleep + wake-on-demand;
-multi-model resident hot-swap is out of scope.
-
-The judgment is one :class:`~mcgyvr.decision.Noul` question — "is this task hard
-enough to want the smarter rung?" — answered as a single-token probability,
-never prose, through :func:`mcgyvr.decision.classify_for` — on the ``jev.unit``
-when one is bound, on the fast rung when not. The wake itself is not
-this module's: the rung the hook names is dispatched through the ordinary
-:mod:`mcgyvr.drive` path, whose :class:`mcgyvr.wake.Waker` wakes a sleeping
-card on the refused connection it returns (fail-first, never probe-first). So
-the hook *routes*, and the existing wake-on-demand does the waking, still gated
-by ``serving.enable_sleep_wake`` and live admission exactly as it is today.
-
-This module sits above the seam: it names rungs and reads a contract, and it
-never imports an :class:`~mcgyvr.local_pool.Endpoint` or :mod:`mcgyvr.serving`. It
-asks :mod:`mcgyvr.decision` to judge, naming a rung and never binding one —
-the decision module resolves the endpoint — and it asks :mod:`mcgyvr.wake` which
-rungs are asleep — both below-the-seam answers, read through seams that return
-rungs and names rather than machines.
+The climb hands `escalate` a wake hook built here. Before the climb gives up on
+a rung and falls to the API, the hook asks the fast local model one yes-or-no
+question about the task, and when the answer is yes it names the smart rung to
+try instead: the wake itself is the climb's, and nothing in this module puts a
+card to rest. Two conditions can take the hook away entirely: sleep and wake
+off in the config, or a ladder with no sleeping rung or no credential-free rung
+to ask. A rung the run is already holding out is never routed to.
 """
 
 from __future__ import annotations
@@ -42,7 +24,8 @@ if TYPE_CHECKING:  # pragma: no cover - typing only
     from mcgyvr.contract import Contract
     from mcgyvr.local_pool import SourceMap
 
-#: The one bounded question Jev is asked. A single-token ``Yes``/``No``.
+#: The one question a judgment puts: a `Noul`, so the answer's value is true when
+#: the task reads as too hard for the fast resident model and the API alike.
 INSTRUCTIONS = (
     "Is this task hard enough that the smarter resident rung should be woken "
     "to try it, instead of the fast resident model or the API?"
@@ -50,23 +33,27 @@ INSTRUCTIONS = (
 
 
 class Cooling(Protocol):
-    """What the hook asks a cooldown: which of these endpoints cannot serve now.
+    """What the hook asks before routing to a rung: which endpoints are held out.
 
-    :class:`mcgyvr.cooldown.Cooldown` answers it; the endpoints are the ones
-    :meth:`~mcgyvr.local_pool.SourceMap.bind` hands back, and the hook passes them
-    through without looking inside.
+    The signatures are the pool's and the cooldown's, so a run's own hold and
+    any stand-in answer here; a mapping that leaves an endpoint out takes it as
+    available.
     """
 
     def unavailable(self, endpoints: Sequence[Any]) -> Mapping[str, str]: ...
 
 
 class FleetManagerError(Exception):
-    """A difficulty judgment could not be made, or a wake it routed to was refused."""
+    """A judgment could not be asked: the rung to ask it of is not on the pool."""
 
 
 @dataclass(frozen=True)
 class Difficulty:
-    """Jev's answer to the routing question, with how sure it was."""
+    """What the judgment answered about one task.
+
+    `wake` is the answer itself, `probability_true` the probability the reply put
+    on Yes, and `confidence` how sure the reply was of the answer it gave.
+    """
 
     wake: bool
     probability_true: float
@@ -80,14 +67,12 @@ def judge(
     *,
     timeout_s: float | None = None,
 ) -> Difficulty:
-    """Ask Jev whether to wake the smarter rung for this task.
+    """Ask the rung named `rung` whether `state` is hard enough to wake for.
 
-    One :class:`~mcgyvr.decision.Noul` question through
-    :func:`~mcgyvr.decision.classify_for`, so the answer arrives as a
-    single-token probability — never prose and never a second HTTP path. The
-    judgment runs on the ``jev.unit`` when one is bound, and otherwise on the
-    unit ``rung`` names, so a decision and a dispatch reach that unit
-    identically. Either way the endpoint is resolved below the seam.
+    The one question is asked through `decision.classify_for` and read back as a
+    bool answer, so the judgment is one request at the rung given, within
+    `timeout_s`. `state` is copied into the request rather than read in place.
+    Raises `FleetManagerError` when the pool names no such rung.
     """
     if pool.get(rung) is None:
         raise FleetManagerError(f"no rung named {rung!r} to judge with")
@@ -96,7 +81,7 @@ def judge(
         pool, dict(state), question, rung=rung, timeout_s=timeout_s
     ).answers
     answer = answers["wake_smarter"]
-    assert isinstance(answer, decision.BoolAnswer)  # narrowed by classify
+    assert isinstance(answer, decision.BoolAnswer)  # Noul asked, so bool is the answer
     return Difficulty(
         wake=answer.value,
         probability_true=answer.probability_true,
@@ -105,7 +90,12 @@ def judge(
 
 
 def state_for(contract: Contract, *, detail: str = "") -> dict[str, Any]:
-    """The state the judgment reads: the task, and what the fast rung said."""
+    """The state a judgment is made from: the contract's task type, task and
+    target, plus `detail`, free text about the attempt being judged.
+
+    The hook judges a contract alone, so it passes no `detail`; a caller that
+    knows why the attempt is being judged can say so.
+    """
     return {
         "task_type": contract.task_type,
         "task": contract.task,
@@ -115,12 +105,11 @@ def state_for(contract: Contract, *, detail: str = "") -> dict[str, Any]:
 
 
 def asleep_rungs(config: Config, pool: SourceMap) -> tuple[Rung, ...]:
-    """The resident rungs mcgyvr holds a launch spec for, in ladder order.
+    """The pool's rungs that can be slept and woken, in the ladder's own order.
 
-    "Asleep" is "down plus a file mcgyvr wrote" (:mod:`mcgyvr.wake`), and the
-    file's presence is answerable without the network. The names are
-    :func:`mcgyvr.wake.wakeable_rungs`', reused rather than restated; a rung is
-    a candidate exactly when its card holds exactly one launch spec.
+    `wake.wakeable_rungs` names the units with a launch spec and no resident
+    unit; the pool narrows that to the rungs it can actually dispatch at. Empty
+    when nothing on this ladder is a switch.
     """
     from mcgyvr.wake import wakeable_rungs
 
@@ -129,20 +118,18 @@ def asleep_rungs(config: Config, pool: SourceMap) -> tuple[Rung, ...]:
 
 
 def smart_rung(config: Config, pool: SourceMap) -> Rung | None:
-    """The dearest resident rung this config can wake, or ``None``.
-
-    The ladder is cheapest-first, so the last wakeable resident rung is the
-    "smarter" one the difficulty judgment may route to.
-    """
+    """The rung a wake would bring up: the last of the sleepable ones, the
+    ladder's smartest sleeping rung. None when nothing can be woken."""
     rungs = asleep_rungs(config, pool)
     return rungs[-1] if rungs else None
 
 
 def fast_rung(config: Config, pool: SourceMap) -> Rung | None:
-    """The cheapest resident rung — the model the judgment is asked on.
+    """The rung a judgment is asked of: the first rung whose unit needs no
+    credential, so the question is answered by a local model and not the API.
 
-    The fast resident model is the one already up and cheap to ask, which is
-    why it carries the judgment.
+    The pool keeps the ladder's cheapest-first order. None when every rung on
+    it names a key.
     """
     for rung in pool.rungs:
         unit = config.units.get(rung.name)
@@ -160,14 +147,12 @@ def wake_before_api(
     timeout_s: float | None = None,
     cooldown: Cooling | None = None,
 ) -> str | None:
-    """The hook: name the smarter rung to route to before the API, or ``None``.
+    """The smart rung's name when this contract is worth waking it for, else None.
 
-    Returns the rung name when Jev judges the task hard enough to want the
-    smarter rung; ``None`` says escalate straight to the API. ``judge_with`` is
-    the fast rung the judgment runs on. Routing to the returned rung wakes it
-    on demand through the ordinary dispatch path — the hook does not wake, and
-    it never sleeps a card. A smart rung the ``cooldown`` holds out is never
-    routed to, and Jev is not asked: the answer would be a wake that fails.
+    None comes back when nothing on the ladder can be woken, when `cooldown`
+    holds out the smart rung's endpoint, or when the judgment says the task is
+    not hard enough. The question is asked of `judge_with`, normally the fast
+    rung the climb is already trying.
     """
     target = smart_rung(config, pool)
     if target is None:
@@ -185,15 +170,14 @@ def hook_for(
     cooldown: Cooling | None = None,
     timeout_s: float | None = None,
 ) -> Callable[[Contract], str | None] | None:
-    """The hook for an install that can judge, or ``None`` when nothing to decide.
+    """The wake hook the climb calls before it gives up on a rung, or None.
 
-    ``None`` is the honest answer for a ladder with no asleep smarter rung —
-    including one whose only resident rung is also the cheapest, so "fast" and
-    "smart" name the same model — because there is then no routing decision for
-    the judgment to make. It is also ``None`` where ``serving.enable_sleep_wake``
-    is off: the hook routes to wake, and a rung nothing may wake is a rung a
-    route to would fail on. ``cooldown`` is read at each task, so a smart rung
-    that cools after the hook was built is not routed to either.
+    None when `serving.enable_sleep_wake` is off, when the ladder has no rung
+    that can be woken, when no rung is free of a credential to ask the judgment
+    of, or when the fast and smart rungs are the same one: in each case there is
+    nothing to offer that trying again would not. The hook answers with a rung
+    name or None, judging every contract with the fast rung, within `timeout_s`
+    and against the run's own `cooldown`.
     """
     if not config.get("serving.enable_sleep_wake"):
         return None

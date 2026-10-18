@@ -1,4 +1,10 @@
-"""Model and host sizing shared across ladder and setup commands."""
+"""The inputs a sizing pass runs on: fleet scans, ladder hosts, and the models to fit.
+
+The rig files in the fleet's rigs folder supply the scans, the config's ladder
+supplies the hostnames a scan may be found under, and the models come from the
+shipped knowledge catalogue and from the capability table, each row turned into
+a `ModelSpec` the placement code can weigh.
+"""
 
 from __future__ import annotations
 
@@ -33,20 +39,11 @@ if TYPE_CHECKING:  # pragma: no cover - typing only
 
 
 def _scans() -> dict[str, Scan]:
-    """Every machine recorded as a rig file, keyed by the name it calls itself
-    and by its rig name.
+    """Every scan the fleet's rig files record, keyed by rig name and by hostname.
 
-    The name it calls itself is ``platform.node()``, which is not the name a
-    unit's ``address`` carries; :func:`_resolve_hosts` is what bridges the two.
-    The rig name is what the user's ssh names it, which a unit's address often
-    does carry. Keying by both — never by an invented name — keeps this a
-    faithful reading of the folder, and the reconciliation is somewhere a
-    reader can find it and argue with it.
-
-    A record that cannot be read is skipped rather than fatal, on the same rule
-    the rest of the scan layer runs on: the answer to an unreadable record is
-    to read the machine again, and that is what ``_emit``'s never-scanned
-    refusal asks for anyway.
+    A rigs folder that cannot be resolved gives no scans, and a rig file that
+    cannot be read or parsed is skipped. Both keys of one rig point at the same
+    scan, so a lookup by either name finds it.
     """
     from mcgyvr.fleet.roots import rigs_dir
     from mcgyvr.serving import rigfile
@@ -68,7 +65,11 @@ def _scans() -> dict[str, Scan]:
 
 
 def _hosts_wanted(config: Config) -> dict[str, str]:
-    """Which machine each rung would run on — rung name to host."""
+    """Each ladder rung mapped to the host its unit's address points at.
+
+    A rung with no unit of that name, or a unit whose address names no host, is
+    a `UnitError` rather than a missing entry.
+    """
     wanted: dict[str, str] = {}
     for name in config.ladder.names:
         unit = config.units.get(name)
@@ -82,12 +83,10 @@ _LOCAL_NAMES = frozenset({"localhost", "localhost.localdomain", "ip6-localhost"}
 
 
 def _names_this_machine(name: str) -> bool:
-    """Whether ``name`` can only ever mean the machine this process runs on.
+    """Whether a hostname names this machine: a localhost alias, or a local IP address.
 
-    ``0.0.0.0`` counts. It is not a loopback address, but nothing else can be
-    reached at it either: written in a unit's ``address`` it means "the server I am
-    about to start here, on every interface", which is a statement about this
-    machine.
+    Anything else, including a name that is not an IP address at all, is another
+    host's name as far as this check can tell.
     """
     lowered = name.strip().lower().rstrip(".")
     if lowered in _LOCAL_NAMES:
@@ -100,14 +99,10 @@ def _names_this_machine(name: str) -> bool:
 
 
 def _same_host(recorded: str, wanted: str) -> bool:
-    """Whether two hostnames are one machine written long and short.
+    """Whether two hostnames name one host, either being the other's full form.
 
-    ``desktop-9`` and ``desktop-9.lan`` are the same rig: a config names it the
-    way the operator types it, and ``platform.node()`` reports it the way the
-    machine was configured. Only a whole leading label counts, so ``rig`` does
-    not match ``rigel.lan`` — the failure this must never have is two different
-    machines treated as one, because that sizes a unit from the wrong rig's
-    free VRAM and the compose file it writes looks entirely reasonable.
+    The comparison ignores case and a trailing dot; an empty name on either side
+    matches nothing.
     """
     left = recorded.strip().lower().rstrip(".")
     right = wanted.strip().lower().rstrip(".")
@@ -117,26 +112,11 @@ def _same_host(recorded: str, wanted: str) -> bool:
 
 
 def _resolve_hosts(scans: dict[str, Scan], wanted: Iterable[str]) -> dict[str, Scan]:
-    """``scans`` again, with a key added for each wanted name that resolves to
-    a machine already in it.
+    """The scans, plus an entry for each wanted host that no key already names.
 
-    Without this, ``emit`` refuses the machine it is running on whenever a
-    config spells it otherwise than its record does. ``mcgyvr scan`` records
-    this machine as ``localhost`` (and :func:`_scans` keys it by the name
-    ``platform.node()`` gives it too), but a config may say
-    ``http://127.0.0.1:8080`` or ``http://0.0.0.0:8080`` — so the most ordinary
-    setup there is, one rig serving itself, would report "never been scanned"
-    the instant after it was scanned.
-
-    Resolution is by identity rather than by name wherever it can be: a
-    loopback source is matched to the local scan through
-    :func:`mcgyvr.scan.local_machine_id`, so it stays right on a machine that
-    was renamed and cannot be fooled by a second rig that happens to answer to
-    the same hostname. Only the long/short form of a real hostname is matched
-    by string, and only when exactly one recorded machine answers to it:
-    an ambiguous name resolves to nothing and falls through to the refusal,
-    because being told to run `mcgyvr scan` costs a minute and being sized
-    against another machine's hardware costs a debugging session.
+    A name for this machine is resolved by the id of the machine it runs on, any
+    other name by the hostnames the rig files recorded. A name that finds no
+    scan, or more than one machine, is left out of the result.
     """
     resolved = dict(scans)
     local: str | None = None
@@ -155,7 +135,7 @@ def _resolve_hosts(scans: dict[str, Scan], wanted: Iterable[str]) -> dict[str, S
 
 
 def _local_scan(scans: dict[str, Scan], os_machine_id: str) -> Scan | None:
-    """The recorded scan of this very machine, or None if it has never run one."""
+    """The first scan taken on the machine with this id, else none."""
     for recorded in scans.values():
         if recorded.machine.id == os_machine_id:
             return recorded
@@ -163,11 +143,10 @@ def _local_scan(scans: dict[str, Scan], os_machine_id: str) -> Scan | None:
 
 
 def _named_scan(scans: dict[str, Scan], name: str) -> Scan | None:
-    """The one recorded machine ``name`` names, or None if it is not exactly one.
+    """The scan recorded under a hostname naming `name`, or none when ambiguous.
 
-    Two records answering to one name is not a tie to be broken. They are two
-    machines, and picking either would hand back hardware the operator did not
-    ask about.
+    Several keys can point at one scan, so the matches are counted by machine id:
+    a name matching more than one machine is refused rather than guessed at.
     """
     matched = [recorded for host, recorded in scans.items() if _same_host(host, name)]
     if len({recorded.machine.id for recorded in matched}) != 1:
@@ -176,12 +155,10 @@ def _named_scan(scans: dict[str, Scan], name: str) -> Scan | None:
 
 
 def _model_spec(model: Model, moe: bool, name: str | None = None) -> ModelSpec:
-    """One serving spec from one capability row; the table's decimal GB to GiB.
+    """One table row as a `ModelSpec`, named by the row's id unless told another.
 
-    ``name`` is the key the catalogue files the spec under, which is normally
-    the row's ``id``; a row that also carries a catalog ``model_id`` is filed
-    under that id too (the same measured numbers, so a unit named by its
-    catalog pick resolves to this benchmarked row).
+    The row's GiB figures become the spec's GB ones; nothing holds host RAM, no
+    geometry came from a scan, and the KV cache is f16 in both directions.
     """
     return ModelSpec(
         name=name or model.id,
@@ -198,40 +175,10 @@ def _model_spec(model: Model, moe: bool, name: str | None = None) -> ModelSpec:
 
 
 def _model_specs() -> tuple[ModelSpec, ...]:
-    """Serving specs for the rows of the shipped capability estimates.
+    """Every model a placement may fit: the catalogue's records, then the table's rows.
 
-    The shipped model catalog's own facts are folded in first, keyed by each
-    entry's ``model_id``: a catalog pick the capability table does not name is
-    still servable, sized from the file's bytes and its own context and KV
-    figures (:func:`_catalog_specs`). Then the capability table's measured
-    rows are added, keyed by BOTH their ``id`` and (when one is mapped) their
-    ``model_id``, so the measured ``vram_gb_working`` wins over the computed
-    catalog figure wherever the two name one model.
-
-    ``vram_gb`` and ``disk_gb`` come off the typed reader. Whether a model has
-    experts — and so a knob for *where* its weights sit — is in the table file
-    but not in :class:`mcgyvr.capability.Model`, so it is read
-    from the same file rather than guessed from a name. Getting it wrong is not
-    cosmetic: a dense model that does not fit is a refusal, while an MoE that
-    does not fit is a model that fits differently (:mod:`mcgyvr.serving`).
-
-    ``geometry`` is ``None`` for every row because neither the table nor the
-    catalog carries GGUF geometry. A dense row is therefore sized on its
-    scalar figures, one slot wide; an MoE row is refused rather than sized
-    (:func:`mcgyvr.serving.fit`), because ``--n-cpu-moe`` moves whole blocks
-    and what each block's experts weigh is in the tensor table and nowhere
-    else. An operator who has scanned the file points
-    ``units.<name>.launch.geometry_json`` at the scan, and that lifts the
-    refusal for the model they scanned — on the scan's numbers, not the
-    table's.
-
-    The table is in decimal GB and sizing is in GiB; the conversion happens
-    here, once (:data:`mcgyvr.capability.GB_PER_GIB`).
-
-    ``ram_gb`` is ``0.0`` for every row, dense and MoE alike. It is a floor an
-    operator may raise, not a declaration this function can make: what an MoE
-    actually spills depends on the card and is derived per machine by
-    :func:`mcgyvr.serving._placement`.
+    A row's `moe` comes from the architecture the table declares for it, and a
+    row that also answers to a second `model_id` is listed under both names.
     """
     specs: list[ModelSpec] = list(_catalog_specs())
     architectures = _architectures()
@@ -244,16 +191,11 @@ def _model_specs() -> tuple[ModelSpec, ...]:
 
 
 def _catalog_specs() -> tuple[ModelSpec, ...]:
-    """Serving specs derived from the shipped model catalog's own facts.
+    """One `ModelSpec` per record in the shipped knowledge catalogue.
 
-    A catalog pick the capability table does not name is still servable: the
-    file's bytes and the KV cache its own ``context_length`` and
-    ``kv_bytes_per_token`` price give a dense scalar spec, one slot wide, with
-    no GGUF geometry. ``disk_gb`` is the file's bytes in GiB; ``vram_gb`` is
-    the weights plus the full-context KV cache, also in GiB, so the fit check
-    no longer relies on a measured scalar that may not exist. ``moe`` and
-    ``cpu_only`` are false because these rows are dense GGUF checkpoints, and
-    ``geometry`` is ``None``: the catalog carries no tensor table.
+    Its VRAM is the file's size plus the KV cache a token takes at the whole
+    context the record states, its disk cost the file's size alone. A catalogue
+    that cannot be read is reported as a broken capability table.
     """
     from mcgyvr.knowledge import store as knowledge_store
     from mcgyvr.knowledge.record import KnowledgeError
@@ -283,8 +225,11 @@ def _catalog_specs() -> tuple[ModelSpec, ...]:
 
 
 def _architectures() -> dict[str, str]:
-    """``model id -> architecture`` from the shipped table, for the one field
-    :mod:`mcgyvr.capability` does not carry yet."""
+    """Each capability table row's id mapped to the architecture it declares.
+
+    Rows that declare no architecture are absent from the map, which is what
+    leaves them not-MoE. A table that cannot be read is a `CapabilityTableError`.
+    """
     path = table_path()
     try:
         raw = json.loads(path.read_text(encoding="utf-8"))

@@ -1,4 +1,11 @@
-"""What names the live fleet, read by the command line."""
+"""The live gate the CLI asks before a command touches real rigs.
+
+:func:`_live` answers whether the settled config's setup is live work at all,
+and :func:`_admitted_live` asks the live fleet to admit it, printing why not and
+returning that reason when it will not. Callers refuse with ``Exit.REFUSED`` on
+a returned reason, so nothing is woken, slept, built or served on rigs that are
+not locked.
+"""
 
 from __future__ import annotations
 
@@ -14,27 +21,21 @@ if TYPE_CHECKING:  # pragma: no cover - typing only
 
 
 def _live(config: Config) -> bool:
-    """Whether a command run under ``config`` is held to the live fleet's lock.
-
-    It is whenever a fleet is live, but under a setup in the data folder: the
-    staging folder ``mcgyvr setup`` starts and samples before anything of it is
-    locked, which is admitted against nothing
-    (:func:`mcgyvr.fleet.roots.runs_live`).
-    """
+    """Whether `config` is live work: a setup under the staging directory never
+    is, a named live fleet or a setup inside the mcgyvr home always is, and a
+    folder that cannot be read is called live so the gate still runs."""
     from mcgyvr.fleet.roots import runs_live
 
     return runs_live(config.path)
 
 
 def _admitted_live(config: Config) -> str | None:
-    """``None`` when live admission admits this command, else why not, printed.
+    """Ask the live fleet to admit `config`'s units, or say why it does not.
 
-    Each rig of the live fleet is read through the door and held to the lock
-    (:func:`mcgyvr.fleet.admission.admit`), and a unit on a rig in ``config``,
-    the config the command loaded, must be one the live fleet lays out there. A
-    plan to clean or restore refuses, and the door commands that would carry it
-    out are printed and not run: that a live command carries its plan out is not
-    decided.
+    Returns `None` when the rigs read as the locked layout, so there is nothing
+    to clean and nothing to restore. Otherwise the reason is printed to stderr
+    with the door commands that would do that cleaning and restoring, and the
+    same reason is returned for the caller to refuse with.
     """
     from mcgyvr.fleet.admission import admit
     from mcgyvr.fleet.admit import LiveRefusedError

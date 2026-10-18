@@ -1,21 +1,16 @@
-"""Jev-composed setup recommendation.
+"""The setup composed from measured facts, with the choice of one left to a model.
 
-``mcgyvr setup`` writes a deterministic ladder: the models a running server
-lists, in the order they were found, with hosted ``--api`` units after them.
-This module adds the Jev-composed path: the same facts — a measured
-:class:`~mcgyvr.detect.Detection`, a :class:`~mcgyvr.propose.Proposal` and the
-hosted units asked for — are assembled into a small, deterministic family of
-candidate configs, and :func:`~mcgyvr.decision.classify` picks one by a
-priority: ``throughput``, ``quality`` or ``cost``.
+A candidate is a whole setup both config files can be rendered from: the data
+`initialize.build` writes from a `Detection`, a `Proposal` and the declared
+`ApiUnit`s. `candidate_setups` assembles every candidate the facts allow, and
+`recommend` asks one typed `Choice` question naming them, so what the model
+picks is which setup is written — never a number inside one, since each
+candidate is built by code from the measured machine and the declared schema
+before the question is asked.
 
-The one property this module exists to hold: **a model's answer can never
-invent a number.** Every candidate is produced by
-:func:`mcgyvr.initialize.build` — the same composer init already uses, whose
-numbers come from the measured machine and the declared schema — and the model
-is asked only to name one candidate. A :class:`~mcgyvr.decision.ChoiceAnswer`
-carries a candidate name and probabilities, nothing else, so nothing a model
-returns can reach the emitted config except a choice among what was already
-assembled.
+The endpoint the question is sent to is a backend the sweep already reached,
+via `endpoint_for_backend`, or one the caller names. With only one candidate
+assembled there is nothing to choose and no model is consulted at all.
 """
 
 from __future__ import annotations
@@ -32,9 +27,9 @@ from mcgyvr.propose import Proposal
 if TYPE_CHECKING:
     from mcgyvr.initialize import ApiUnit
 
-#: The three candidate compositions differ only in which units the ladder
-#: holds — a hosted unit costs money and needs a key, a listed rung is a
-#: machine the operator already has — never in a number.
+#: What each candidate is offered as in the `Choice` the model answers: one
+#: description per candidate name, saying where the work runs and what it costs,
+#: read against the priority and the measured machine that make up the state.
 OWN_DESCRIPTION = (
     "run only on the machine(s) already listed, with no hosted unit: no API "
     "spend and no key to export"
@@ -51,7 +46,9 @@ HOSTED_DESCRIPTION = (
 
 @dataclass(frozen=True)
 class SetupCandidate:
-    """One candidate config, assembled before any model is consulted."""
+    """One setup the composition may select: the `name` it is offered under, the
+    `description` the model reads beside that name, and the `data` both files are
+    rendered from, as `initialize.build` wrote it."""
 
     name: str
     description: str
@@ -60,11 +57,10 @@ class SetupCandidate:
 
 @dataclass(frozen=True)
 class Recommendation:
-    """The chosen candidate and the decision that chose it.
-
-    ``decision`` is ``None`` when a single candidate needed no judgment, so no
-    model was consulted and no request was made.
-    """
+    """The composition this module settled on: the `selected` candidate, every
+    `candidates` entry it was chosen from, the `decision` read from the endpoint
+    (None when there was a single candidate and nothing was asked), and the
+    `priority` the selection was made for."""
 
     selected: SetupCandidate
     candidates: tuple[SetupCandidate, ...]
@@ -73,11 +69,9 @@ class Recommendation:
 
 
 def endpoint_for_backend(backend: Backend) -> Endpoint:
-    """The keyless decision endpoint a detected backend provides.
-
-    The same wire path a dispatch uses: a decision asked of a detected backend
-    reaches the unit identically to a dispatch to it.
-    """
+    """The decision endpoint a detected backend answers on: the backend's own name
+    and base URL, the OpenAI-compatible protocol, one request at a time, and no
+    credential, since a backend the sweep reached is asked without a key."""
     return Endpoint(
         source=backend.name,
         base_url=backend.base_url,
@@ -95,25 +89,21 @@ def candidate_setups(
     use_case: str = "coding",
     deployment: str | None = None,
 ) -> tuple[SetupCandidate, ...]:
-    """The candidate configs, assembled deterministically from the same facts
-    :func:`mcgyvr.initialize.build` uses.
+    """Every setup these facts allow, in a fixed order.
 
-    Three compositions, each a full loadable config whose numbers are build's
-    and whose only difference is which units the ladder holds:
+    `own` comes first, and only when the proposal listed a rung. When hosted
+    units were named, `escalate` follows — it needs a listed rung to start on, so
+    it is offered only beside `own` — and `hosted` last, which binds the hosted
+    units alone. A machine with neither a listed rung nor a hosted unit yields no
+    candidate at all, which the caller sees as an empty tuple.
 
-    * ``own`` — the listed rungs only, no hosted unit;
-    * ``escalate`` — listed rungs then hosted units (init's default ladder);
-    * ``hosted`` — hosted units only.
-
-    A composition whose ladder would be empty is dropped rather than emitted:
-    an empty ladder is the one config init refuses to write.
-
-    ``use_case`` and ``deployment`` are passed to every build, so whichever
-    candidate is selected states the use case and deployment init was asked
-    for, as the deterministic ladder does.
+    Each candidate's data is what `build` writes from the same detection,
+    proposal and hosted units, plus the `use_case` and `deployment` passed
+    through unchanged, so two calls on the same facts give the same setups.
     """
-    # Deferred: initialize imports this module, so importing it here keeps the
-    # two from forming a cycle at import time.
+    # Imported here rather than at module level: `initialize` imports `recommend`
+    # and `Recommendation` from this module, so building the import at call time
+    # is what keeps the two modules from importing each other on load.
     from mcgyvr.initialize import build
 
     asked: dict[str, Any] = {"use_case": use_case, "deployment": deployment}
@@ -152,11 +142,14 @@ def decision_state(
     *,
     api_units: Sequence[ApiUnit] = (),
 ) -> dict[str, Any]:
-    """The state a decision is asked about: measured facts and the priority.
+    """The state the choice is made on, as plain JSON-ready values: the priority
+    asked for, the machine as measured (each card's name and VRAM, the CPU count,
+    RAM and whether a Docker daemon answered), the listed ladder as name, model
+    and host, and the hosted units as name and model.
 
-    Every number here is a measurement the machine made, or absent. The model
-    is shown this state and the candidate names; it is never shown a number it
-    could copy into a config, because the answer it may return is a name.
+    Every entry is a value detection, the proposal or the hosted spec already
+    established, so the model reads the facts of this machine rather than numbers
+    it could state itself.
     """
     return {
         "priority": priority,
@@ -188,16 +181,17 @@ def recommend(
     use_case: str = "coding",
     deployment: str | None = None,
 ) -> Recommendation:
-    """Compose a setup for ``priority`` by ranking the candidate configs.
+    """Compose the setup for one priority: assemble the candidates, then ask
+    `endpoint`, serving `model`, which of them fits.
 
-    ``classify`` is called once, with a single :class:`Choice` whose options
-    are the candidate names. The answer names one candidate; the returned
-    config is that candidate's, assembled before the model was consulted, so no
-    token a model returns can become a number in the config.
-
-    With a single candidate no model is consulted: there is nothing to rank,
-    and asking would be spending a request to be told the only option.
-    """
+    The question is a single `Choice` whose options are the candidate names and
+    their descriptions, asked against `decision_state`, and the reply's chosen
+    name selects the candidate returned. One candidate is returned without any
+    request — there is nothing to choose and `decision` is then None — while no
+    candidate at all raises a ValueError, since nothing can be composed from a
+    machine with no listed rung and no hosted unit. `timeout_s` bounds the request
+    and the other keyword arguments reach `build` through `candidate_setups`; a
+    reply no label can be read from raises `DecisionError` out of `classify`."""
     candidates = candidate_setups(
         detection,
         proposal,

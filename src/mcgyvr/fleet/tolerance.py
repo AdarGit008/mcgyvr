@@ -1,12 +1,12 @@
-"""One tolerance class per unit, so every judge of a unit reads one class.
+"""A unit's tolerance class: the key its speed tolerances are stated by.
 
-A live unit is judged by the tolerance of its class: vLLM, llama.cpp,
-llama.cpp with experts on the CPU, and llama.cpp drafting with the GGUF's own
-MTP head. Each judged field (warm decode, prefill) has its own tolerance per
-class, looked up in :mod:`mcgyvr.derived`: an estimate shipped with mcgyvr
-that the user can set. The probe's judge (:mod:`mcgyvr.fleet.probe`) and the
-lock's NVMe baseline check (:mod:`mcgyvr.fleet.lock`) both ask
-:func:`tolerance_class`, so the two cannot put one unit in two classes.
+Two numbers, `warm_decode_class_pct` and `prefill_class_pct`, are stated per
+tolerance class in the numbers file, so a unit is judged against the spread its
+own way of running actually has. `tolerance_class` reads one resolved unit and
+names its class: a vLLM unit is `vllm`, and a llama.cpp unit is `mtp` when it
+drafts with the GGUF's own MTP head, `cpu_experts` when it keeps expert blocks
+in host memory, and `llamacpp` otherwise. Nothing here reads a number or starts
+a unit; it classifies the mapping it is handed.
 """
 
 from __future__ import annotations
@@ -17,26 +17,27 @@ from typing import Any
 CLASS_VLLM = "vllm"
 CLASS_LLAMACPP = "llamacpp"
 CLASS_CPU_EXPERTS = "cpu_experts"
-#: llama.cpp drafting with the GGUF's own grafted head (``--spec-type
-#: draft-mtp``). A class of its own, with its own tolerances, whether or not
-#: experts are on the CPU beside it.
+#: A llama.cpp unit that drafts with the GGUF's own grafted MTP head: it launches
+#: `--spec-type draft-mtp`, or declares `speculative: mtp`, which is the same
+#: declaration stated in the fleet file instead of in the flags and the argv.
 CLASS_MTP = "mtp"
-#: Every class a unit can be in; each judged field states a tolerance for each.
+#: Every class, in the order the per-class tolerance tables are asked for.
 CLASSES: tuple[str, ...] = (CLASS_VLLM, CLASS_LLAMACPP, CLASS_CPU_EXPERTS, CLASS_MTP)
 
-#: The llama-server flags that put expert tensors on the CPU.
+#: The llama.cpp flags that keep expert blocks in host memory: `--cpu-moe` keeps
+#: them all off the card, and `--n-cpu-moe n` keeps the first n blocks' worth.
 _CPU_MOE = "--cpu-moe"
 _N_CPU_MOE = "--n-cpu-moe"
 _CPU_EXPERT_FLAGS = frozenset({_CPU_MOE, _N_CPU_MOE})
-#: The llama-server flag and value that run the GGUF's own MTP head as the draft.
+#: The flag that names the draft type, and the draft type the MTP head runs as.
 _SPEC_TYPE = "--spec-type"
 _DRAFT_MTP = "draft-mtp"
-#: The same pair as one word, which llama-server reads the same.
+#: The same flag and value as one token, which is how a launch may spell it.
 _SPEC_TYPE_DRAFT_MTP = f"{_SPEC_TYPE}={_DRAFT_MTP}"
-#: ``launch.speculative`` asking for the head (``mcgyvr.serving.SPECULATIVE_MTP``,
-#: not imported: :mod:`mcgyvr.serving` reaches this module through
-#: :mod:`mcgyvr.derived`). The serving layer renders it as ``--spec-type
-#: draft-mtp`` only when it builds a unit; the fleet's judges read the block.
+#: The `speculative` value a llama.cpp unit declares when it runs that head;
+#: `none`, the default, drafts with nothing. Its argv spelling above is the same
+#: declaration written as a flag, so a launch that says either one is of the MTP
+#: class.
 _SPECULATIVE_MTP = "mtp"
 
 
@@ -54,7 +55,12 @@ def _positive_digits(value: Any) -> bool:
 
 
 def _argv_keeps_experts_on_cpu(argv: Any) -> bool:
-    """``--cpu-moe``, or ``--n-cpu-moe`` followed by a positive integer."""
+    """Whether an argv holds a flag that keeps expert blocks in host memory.
+
+    That is a bare `--cpu-moe`, or an `--n-cpu-moe` whose next word is a count
+    above zero; an `--n-cpu-moe` at the end of the argv, or one followed by
+    something that is not a count, keeps nothing. Anything but a list is False.
+    """
     if not isinstance(argv, list):
         return False
     for index, token in enumerate(argv):
@@ -72,8 +78,12 @@ def _argv_keeps_experts_on_cpu(argv: Any) -> bool:
 
 
 def _drafts_with_its_own_head(words: Any) -> bool:
-    """``--spec-type`` followed by ``draft-mtp``, or ``--spec-type=draft-mtp``,
-    in an argv or a flags list."""
+    """Whether a word list names the GGUF's own MTP head as the draft.
+
+    Either spelling counts: the single word `--spec-type=draft-mtp`, or
+    `--spec-type` and `draft-mtp` as two adjacent words. Anything but a list is
+    False.
+    """
     if not isinstance(words, list):
         return False
     return _SPEC_TYPE_DRAFT_MTP in words or any(
@@ -84,20 +94,13 @@ def _drafts_with_its_own_head(words: Any) -> bool:
 
 
 def tolerance_class(unit: Mapping[str, Any]) -> str:
-    """The tolerance class of one ``fleet.yaml`` unit block.
+    """The tolerance class of one unit, as the per-class numbers are keyed.
 
-    ``engine: vllm`` is ``vllm``. Any other unit is llama.cpp (an absent engine
-    means llama.cpp, ``units.engine`` in :mod:`mcgyvr.config`), and it is
-    ``mtp`` when its launch drafts with the GGUF's own head — ``--spec-type``
-    followed by ``draft-mtp``, or ``--spec-type=draft-mtp``, in its ``argv`` or
-    among its ``flags``, or ``speculative: mtp``, whether or not experts are on
-    the CPU beside it — ``cpu_experts`` when its launch keeps experts on the
-    CPU, ``llamacpp`` otherwise. The launch keeps them there with a positive
-    ``n_cpu_moe``, with ``--cpu-moe`` / ``--n-cpu-moe`` among its ``flags``, or
-    with ``--cpu-moe`` or ``--n-cpu-moe`` followed by a positive integer in its
-    ``argv`` (a locked unit's launch, verbatim). A value after ``--n-cpu-moe``
-    in the argv that is missing or not an integer does not count, and neither
-    does ``0``. Any other ``--spec-type`` value does not make a unit ``mtp``.
+    `engine: vllm` is `vllm` on its own. A llama.cpp unit is `mtp` when its
+    launch declares `speculative: mtp` or spells `--spec-type draft-mtp` in its
+    flags or argv, `cpu_experts` when it states a positive `n_cpu_moe` or keeps
+    expert blocks in host memory by flag or argv, and `llamacpp` otherwise --
+    the answer for a unit with no launch block at all.
     """
     if unit.get("engine") == CLASS_VLLM:
         return CLASS_VLLM

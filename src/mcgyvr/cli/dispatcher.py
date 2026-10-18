@@ -1,6 +1,14 @@
-"""Command-line entrypoint: builds the parser and dispatches.
+"""The command line itself: the parser tree, the way in, and Ctrl-C.
 
-Only what is built is exposed.
+`_build` assembles the `mcgyvr` parser -- `--version` and one subparser per
+command module, each of which registers its own verbs -- and hands back both the
+top-level parser and the `run` subparser, because `main` finishes the argument
+checks that need more than one flag there. `main` parses argv, makes those checks
+for `run` and `delegate`, and calls the handler argparse selected, with the
+process hanging up on every dispatch in flight if the keyboard interrupts it. A
+`FolderError` raised out of a handler is reported on stderr and becomes exit
+status 1; otherwise the handler's own exit code is returned. `build_parser`
+exposes the tree alone, without running anything.
 """
 
 from __future__ import annotations
@@ -49,7 +57,12 @@ from mcgyvr.rig import verbs as rig_verbs
 
 
 def _build() -> tuple[argparse.ArgumentParser, argparse.ArgumentParser]:
-    """The whole command line, plus the `run` subparser on its own."""
+    """Build the whole command tree and return it with the `run` subparser.
+
+    Every command module adds its own subparser and verbs; `run` is the one
+    subparser returned, since the checks `main` makes after parsing need it to
+    report an error the way `run` does.
+    """
     parser = argparse.ArgumentParser(
         prog="mcgyvr",
         description=("Offload scoped coding work to a configurable worker ladder."),
@@ -78,16 +91,16 @@ def _build() -> tuple[argparse.ArgumentParser, argparse.ArgumentParser]:
 
 
 def build_parser() -> argparse.ArgumentParser:
-    """The command line as a person types it.
-
-    Public so what a run reads and what a person typed can be checked against
-    each other.
-    """
+    """The top-level `mcgyvr` parser, for callers that only need the tree."""
     return _build()[0]
 
 
 class _Version(argparse.Action):
-    """`--version`: the product, then the config a run here would be made under."""
+    """`--version`: print the version and the config a run here would read, then exit.
+
+    A config that is missing, unreadable, or cannot be located is reported as a
+    `config:` line rather than failing the flag, so `--version` always answers.
+    """
 
     def __call__(
         self,
@@ -112,7 +125,13 @@ class _Version(argparse.Action):
 
 @contextlib.contextmanager
 def hanging_up_on_interrupt() -> Iterator[None]:
-    """Ctrl-C hangs up on every dispatch of the process before it stops the command."""
+    """Hang up on every dispatch in flight when Ctrl-C arrives, then raise it.
+
+    The handler calls `runner.hang_up_all` and re-raises `KeyboardInterrupt`, so
+    a command sees the interrupt exactly as it did before. Nothing is installed
+    off the main thread, where a signal is not heard, or when someone else
+    already replaced Python's default handler; the default is put back on exit.
+    """
     from mcgyvr import runner
 
     if (

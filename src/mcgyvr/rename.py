@@ -1,55 +1,11 @@
-"""The in-process floor: rename a symbol across every file that references it.
+"""The in-process executor for `rename_symbol`: rewrite one symbol's references.
 
-The one deterministic operation that is not a program on PATH. Every other
-member of the floor hands a file to ``ruff`` or ``prettier`` and reads an exit
-code; ``rename_symbol`` fans across files, which no formatter does, and the
-thing that already knows where a name occurs is mcgyvr's own index together
-with the parsers it is built on. That is the whole of the catalog's warrant for
-calling this operation deterministic: what is a reference is decided by a
-parser, so this fans across files without a model.
-
-**What is renamed.** One module-level definition — a Python ``def``/``class``
-at module scope, a JS/TS top-level ``function``/``class`` or ``const f = () =>``
-— and every token that is a binding of or reference to *it*, rewritten at its
-exact span (line and byte column) and nowhere else. The index supplies the
-candidates: the files it holds, and where it saw the definition. Which tokens
-are references is decided by :mod:`mcgyvr.orchestrator.references`, a
-scope-aware walk of every file that mentions the name: imports of it, uses that
-resolve to the module binding rather than a local of the same name, ``w.name``
-where ``w`` is the defining module, ``global name``, ``__all__`` entries, JS
-re-exports. Calls are not special: ``f = name``, ``map(name, xs)`` and
-``@name`` are references too. A whole-word substitution over the lines the
-index named — what this did until e2e run 2 — renamed ``json.load(f)`` along
-with the module's own ``load``, and missed every use that was not a call.
-
-**What is refused, before anything is written.** A name defined only as a
-method or a nested function: which ``x.name`` reaches a method needs ``x``'s
-type, and nothing here has it. A name defined at module level in several files
-when the contract's ``target`` does not single one out. A definition the parser
-cannot find on the line the index named it — the index and the file disagree,
-and neither can be trusted to say what to rewrite. A scope that binds the name
-both to this symbol and to something else; a new name already bound where the
-rename would put it, or one that would capture a rewritten reference; a JS
-shorthand ``{ name }``, where renaming the variable would change a key. Refusing
-up front matters more here than in a single-file type: a rename that
-half-applied across eight files and then stopped would leave a tree that
-neither parses nor reverts to anything.
-
-**Scope is the gate's question, not this one.** The rename fans wherever the
-references are, and a contract whose ``scope.allow`` does not cover those files
-is refused, with the paths named, before anything is written to the user's
-tree. That is the visible failure; narrowing the rewrite to the allowed paths
-would instead leave a tree that half-renamed and still passed.
-
-**What is reported.** Each rewritten file with the lines it changed; every
-same-named occurrence judged to be another symbol — ``json.load``,
-``self.load``, ``from json import load``, a local that shadows the name — as
-left alone, so a reader can check the judgement rather than trust it; and what
-could not be judged at all — an index entry in a file it does not hold, a span
-whose bytes are not the name, a candidate file that does not parse, a string
-that names the symbol — as unresolved. The catalog's guarantee is that
-"references the index could not resolve are reported, not silently left
-behind", and each of those is one.
+`apply` builds the tree's index, decides which file holds the symbol's module-level
+definition, asks `mcgyvr.orchestrator.references` for a verdict on every spelling of
+the old name, splices the ones judged to be that symbol by byte column, and writes
+the result. It fails closed: a pair that is not usable, occurrences that cannot be
+told apart, a collision with the new name, a path outside the tree, or a rename that
+would rewrite nothing each raise `RenameError` before any file is written.
 """
 
 from __future__ import annotations
@@ -72,13 +28,13 @@ from mcgyvr.orchestrator.references import (
 from mcgyvr.orchestrator.symbols import language_of
 from mcgyvr.scope import OutsideTreeError, Scope, inside
 
-#: What ``to`` has to look like. The floor rewrites text, so a replacement that
-#: is not an identifier produces a tree that no longer parses while reporting
-#: that it worked.
+#: The only shape a rename may write: a plain ASCII identifier. The rewrite is a byte
+#: splice rather than a re-parse, so anything else — an expression, a dotted path, a
+#: space — would leave text that does not parse while the exit code claims success.
 _IDENTIFIER = re.compile(r"^[A-Za-z_][A-Za-z0-9_]*$")
 
-#: A file that re-exports a whole module need not mention the name, and is
-#: still a module through which the name is reachable: a candidate too.
+#: A star import (Python) or star export (JS/TS) can bring the old name into a file
+#: without ever spelling it, so a file holding one is still judged as a reference site.
 _STAR = {
     "python": re.compile(r"\bimport\s+\*"),
     "js/ts": re.compile(r"\bexport\s*\*"),
@@ -86,17 +42,18 @@ _STAR = {
 
 
 class RenameError(Exception):
-    """The rename could not be carried out, and nothing was written."""
+    """The rename was refused, so no file was written."""
 
 
 @dataclass(frozen=True)
 class RenameReport:
-    """What the rename touched, in the currency the floor reports in.
+    """What one rename did: the pair, the files and lines rewritten, and the leftovers.
 
-    ``locations`` pairs each rewritten file with the lines rewritten in it.
-    ``left_alone`` holds the same-named occurrences judged to be another symbol,
-    as ``path:line text``. ``unresolved`` holds what could not be judged and was
-    left as it was.
+    `occurrences` counts the spans actually replaced, spread over `files`; `locations`
+    gives the rewritten line numbers per file. `unresolved` and `left_alone` hold
+    `path:line` renderings of what was deliberately not touched — spellings the
+    resolver could not place, or same-named occurrences of another symbol — and
+    `summary` renders all of it for the caller's stdout.
     """
 
     old: str
@@ -132,19 +89,16 @@ class RenameReport:
 
 
 def apply(workspace: Path, old: str, new: str, *, target: str = "") -> RenameReport:
-    """Rename ``old`` to ``new`` throughout ``workspace``; return what moved.
+    """Rename `old` to `new` across `workspace` and report every rewritten span.
 
-    Writes only inside ``workspace``, which under the floor is always a sandbox
-    — the same boundary every other writer in the project runs behind, and the
-    reason a contract's own words can never reach the user's checkout.
-
-    ``target`` is the contract's: a path or a glob, matched by
-    :mod:`mcgyvr.scope`'s one matcher, that picks the defining module when the
-    name is defined at module level in more than one file. It narrows nothing
-    else — the references are wherever they are.
-
-    Raises :class:`RenameError` before writing anything for every refusal the
-    module docstring lists.
+    The pair is rejected before anything is read when either name is empty, when
+    `new` is not an identifier, or when the two are equal. `target` is the contract
+    path, used only to pick one of several module-level definitions of the name. The
+    tree is indexed, the defining module is settled by `_defining_module`, and one
+    candidate text per same-language file is handed to `resolve`, whose verdict splits
+    the occurrences into rewrites and left-alones. Rewrites are spliced in memory and
+    every resulting path is checked with `inside` before the first write, so a refusal
+    leaves the tree exactly as it was.
     """
     if not old or not new:
         raise RenameError(
@@ -170,11 +124,11 @@ def apply(workspace: Path, old: str, new: str, *, target: str = "") -> RenameRep
     held = {file.path: file for file in index.files}
     defining = _defining_module(index, held, old, target)
 
-    # The candidates: every held file in the defining module's language that
-    # could mention the name or re-export a module that does. The bytes are the
-    # ones the index read, rebuilt exactly — its lines are a split on "\n" of
-    # the surrogate-escaped text — so the judgement and the splice are made
-    # over the same bytes, and nothing is read through a path twice.
+    # Only files written in the defining module's language are candidates, and of those
+    # only ones that could hold a reference: the defining file itself, a file that
+    # spells the name as a whole word, or one with a star import/export. Each candidate
+    # is handed over as its indexed lines rejoined with "\n", which is the same text
+    # `_splice` will later cut into.
     language = language_of(defining) or ""
     word = re.compile(rf"(?<!\w){re.escape(old)}(?!\w)")
     star = _STAR[language]
@@ -199,8 +153,9 @@ def apply(workspace: Path, old: str, new: str, *, target: str = "") -> RenameRep
         else:
             others.add((occurrence.path, occurrence.line, occurrence.text))
 
-    # Every file's new bytes are planned before any is written, so a file that
-    # cannot be rewritten leaves the tree as it was rather than half-renamed.
+    # Splice in memory: the new bytes, the line numbers touched and any span the
+    # parser placed where the old name is not are all settled before the disk is
+    # touched, so nothing is half-renamed.
     planned: dict[str, bytes] = {}
     locations: list[tuple[str, tuple[int, ...]]] = []
     missed: list[str] = []
@@ -223,8 +178,9 @@ def apply(workspace: Path, old: str, new: str, *, target: str = "") -> RenameRep
             f"renamed, and a rename that renamed nothing is not a success."
         )
 
-    # Every path is checked before any is written, so a refusal leaves the tree
-    # as it was: a tracked symlink would steer the rewrite off the tree.
+    # Containment is checked for every planned path before any of them is written, so
+    # a path that climbs out of the workspace, crosses a symlink or touches `.git`
+    # refuses the whole rename instead of a part of it.
     targets: dict[str, Path] = {}
     for path in planned:
         try:
@@ -255,12 +211,15 @@ def apply(workspace: Path, old: str, new: str, *, target: str = "") -> RenameRep
 def _defining_module(
     index: Index, held: dict[str, IndexedFile], old: str, target: str
 ) -> str:
-    """The one file whose module-level definition of ``old`` is being renamed.
+    """Return the path of the module-level file the rename of `old` starts from.
 
-    Each definition the index names is confirmed by the precise parser on the
-    very line the index named. A definition the parser does not find there is
-    not taken on the index's word: the two disagree about the file, and a rename
-    that trusted either would rewrite a line nobody can point at.
+    The index's definitions of `old` are confirmed against the parser, because only a
+    module-level definition fixes which same-named occurrences are this symbol. A name
+    with no definition, a definition the parser cannot find on the line the index named,
+    and a name defined only as a method or nested function are refused. When several
+    module-level files define it, each is a different symbol: `target` is treated as a
+    scope pattern and must permit exactly one of them, otherwise the rename is refused
+    rather than guessed.
     """
     named = index.symbols.definitions(old)
     if not named:
@@ -336,15 +295,14 @@ class _Spliced:
 def _splice(
     source: bytes, occurrences: list[Occurrence], old: str, new: str
 ) -> _Spliced:
-    """``source`` with ``old`` replaced by ``new`` at each occurrence's span.
+    """Replace `old` with `new` at each occurrence's byte column in `source`.
 
-    Cut where the parser cuts lines, so a line number means what it meant to the
-    parser; spliced in bytes, because a column is a byte offset and a line with
-    ``café`` before the name is a byte longer than it is characters. Within a
-    line the spans are replaced right to left, so a splice never moves the
-    column of one still to come. A span whose bytes are not the old name is
-    missed — left as it was and reported — rather than guessed at: it is what
-    keeps a disagreement between the parser and the file from becoming an edit.
+    Occurrence columns are byte offsets into their line, so the substitutions on one
+    line are applied right to left and the earlier columns stay valid. Each line is
+    kept exactly as it was, terminators included, and reassembled without re-splitting,
+    so bytes the parser never looked at survive the rewrite. A line outside the file,
+    or a column where the bytes are not exactly `old`, is not touched and is reported
+    in `missed`; `count` and `lines` cover only the replacements actually made.
     """
     lines = parser_lines(source.decode("utf-8", "surrogateescape"))
     before, after = old.encode("utf-8"), new.encode("utf-8")

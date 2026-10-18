@@ -1,34 +1,12 @@
-"""The setup's schema, loader and failure behaviour, and the two files it reads.
+"""Read mcgyvr's setup: what the units are, what the ladder is, and the policy.
 
-A setup is two files in one directory, written by ``mcgyvr setup``: ``fleet.yaml``
-holds the units (what runs where, locked) and ``policy.yaml`` holds the ladder
-and how work moves over it (not locked). A third, ``relief.yaml``, is there
-only once ``mcgyvr rig rungs sync`` has written it: the units other people
-lend this rider through a hub. All three are read by
-:mod:`mcgyvr.fleet.files`, which owns the vocabulary and the refusals; this
-module declares the schema, fills defaults, and presents the loaded setup as
-typed ``units``, ``ladder`` and ``relief``. The files are YAML rather than JSON because
-they carry policy, and policy needs comments to stay hand-editable.
-
-Three properties are load-bearing and each is enforced here rather than
-documented and hoped for:
-
-1. **No silent defaults for things that must be bound.** A default ships
-   only when it is a real working value. Anything else is absent, and its
-   absence surfaces at the point of use naming the key and how to bind it —
-   never as a fallback that makes a misconfiguration look like a bug.
-2. **Unknown keys fail.** A typo'd key that is ignored is a config that
-   silently does something other than what it says.
-3. **Credentials are never values.** The config records only the NAME of
-   the environment variable holding each key; the orchestrator process
-   resolves it, and a task sandbox never sees it (see ``SECURITY.md``).
-
-``SCHEMA`` below is declarative data, not a set of hand-written checks: it
-is what the validator walks and what the config reference is generated
-from, so a documented key and a validated key cannot drift apart.
-
-This module only declares and loads. Detecting hardware, proposing
-bindings, and writing the file are separate concerns and do not live here.
+A setup is read from a path or from text, flattened into one mapping, checked
+key by key against `SCHEMA` (an unknown, missing or mis-typed key is refused
+rather than ignored), cross-checked as a whole, and returned as a frozen
+`Config` holding the declared `Unit`s, a `Ladder` and the values that were
+actually written. No credential is ever a value here: the config records the
+*name* of the environment variable that holds a key, and a key-shaped value or
+key name is refused wherever it appears.
 """
 
 from __future__ import annotations
@@ -55,64 +33,42 @@ from mcgyvr.fleet.roots import LiveFleetError, live_fleet_dir
 from mcgyvr.sandbox.base import NETWORKS
 from mcgyvr.strict_yaml import strict_loader
 
-#: A setup is two files in one directory. ``fleet.yaml`` is locked and holds
-#: the units, rigs and fleets — what runs where. ``policy.yaml`` is not locked
-#: and holds the ladder and the routing policy over it.
+#: The three files a setup directory holds. `load()` reads all of them: fleet.yaml
+#: is required and carries `units`; policy.yaml and relief.yaml are read as empty
+#: text when they are absent.
 FLEET_FILENAME = "fleet.yaml"
 POLICY_FILENAME = "policy.yaml"
-#: The relief rungs, written whole by ``mcgyvr rig rungs sync`` and by nothing
-#: else; a setup without one has none.
+#: The rungs a hub lent you, written whole by `mcgyvr rig rungs sync`.
 RELIEF_FILENAME = "relief.yaml"
+# Names a setup path directly, ahead of the live fleet directory.
 CONFIG_PATH_ENV = "MCGYVR_CONFIG"
 
 
 class ConfigError(Exception):
-    """Base class for every configuration failure."""
+    """Base for every error raised by this module."""
 
 
 class ConfigFileError(ConfigError):
-    """The config file is missing, unreadable, or not parseable as YAML."""
+    """A setup file could not be read: an I/O error, or text that is not
+    UTF-8."""
 
 
 class ConfigMissingError(ConfigFileError):
-    """There is no config file at all.
-
-    A class rather than a message to grep, because "there is none" and "the
-    one that is there cannot be read" ask for different answers from a caller
-    that can run without a config. The deterministic floor is one: it
-    dispatches nothing, needs no ladder, and an install with no config is a
-    supported install — so a missing file is silence, while a file the
-    operator wrote and this run could not use is something to say out loud.
-
-    Silence is the *default location's* to earn, not this class's. Whether the
-    path was one the caller named is what :func:`named_config_path` answers,
-    and a caller that treats this exception as "nothing to mention" has to ask:
-    nobody chose the empty default, whereas ``--config`` or ``$MCGYVR_CONFIG``
-    pointing at nothing is a path somebody typed, and a run that goes quietly
-    on under some other directory is the operator's problem to discover later.
-    """
+    """No setup is named, and none was found where one was expected."""
 
 
 class ConfigSchemaError(ConfigError):
-    """The config parsed, but does not satisfy the schema."""
+    """A setup was read but does not hold up: an unknown, missing, mis-typed
+    or cross-invalid key."""
 
 
 class CredentialInConfigError(ConfigSchemaError):
-    """A credential was written into the config as a literal value.
-
-    Distinct from a plain schema error because the remedy is not "fix the
-    key" — the secret is now in a file that gets committed, and it has to be
-    rotated.
-    """
+    """A key is named like a credential, or a value is shaped like one, where
+    only the name of the environment variable holding it is allowed."""
 
 
 class UnboundValueError(ConfigError):
-    """A value the running code needs is not bound.
-
-    Raised at the point of use, never at load: a config that omits an API
-    provider is valid, and only becomes a problem if something tries to use
-    one.
-    """
+    """A key is not bound, or the environment variable it names is not set."""
 
 
 Kind = Literal[
@@ -134,11 +90,8 @@ Kind = Literal[
 
 @dataclass(frozen=True)
 class Field:
-    """One key in the schema, with everything needed to validate and document it.
-
-    ``doc`` has no default on purpose: a key that cannot be explained does
-    not belong in a file a stranger is asked to edit.
-    """
+    """One declared key: how a value for it is read, checked and defaulted,
+    and the prose an error about it quotes."""
 
     name: str
     kind: Kind
@@ -148,10 +101,10 @@ class Field:
     choices: tuple[str, ...] = ()
     block: tuple[Field, ...] = ()
     min_value: float | None = None
-    #: Inclusive upper bound, for the values that have one because they are a
-    #: share of something rather than a count of it. Absent on every counting
-    #: field: attempts and timeouts have no natural ceiling, and inventing one
-    #: would refuse a config nobody has shown to be wrong.
+    #: Inclusive bounds for the `int` and `float` kinds; `min_value` also floors
+    #: each entry of an `int_map`. `choices` closes an `enum`, and `block` names
+    #: the fields a `block`, `block_map` or `block_list` holds. `bind_hint` says
+    #: how to set the key, quoted by the error that calls it unset.
     max_value: float | None = None
     bind_hint: str = ""
 
@@ -163,13 +116,13 @@ class Field:
     refused, so the config cannot resolve to it."""
 
 
-#: Where a relief rung's model sits against the rider's own, as the hub
-#: judges it: for display, and never a place on the ladder.
+#: Where a relief rung's host model sits against the models on your own rigs, as
+#: the hub judges it: shown, never a place on the ladder.
 POSITION_CHOICES: tuple[str, ...] = ("above_ceiling", "below_floor", "within")
 
-#: The fan-out modes, spelled once. ``fanout`` takes one of them and
-#: ``manager.fanouts`` lists the ones the ladder manager may choose between, so
-#: the two cannot name different sets.
+#: How a batch of work is placed across units. `none` takes the first rung in
+#: ladder order whatever its load; `idle` and `full` take the first rung with a
+#: slot free, and `idle` may also ride a relief rung once your own rungs are full.
 FANOUT_CHOICES: tuple[str, ...] = ("none", "idle", "full")
 
 SANDBOX_FIELDS: tuple[Field, ...] = (
@@ -277,10 +230,10 @@ DELIVERY_FIELDS: tuple[Field, ...] = (
     ),
 )
 
-#: Keys this build recognises and refuses, by dotted path, each with what to
-#: set instead. Recognised rather than merely unknown, because a policy.yaml
-#: written by an older setup still carries them, and "unknown key" would not
-#: say what replaced them.
+#: Keys a config may still carry from an earlier build, mapped from the dotted
+#: key to the rest of the refusal it earns. A retired key is refused rather than
+#: read as unknown, so the message can name what replaced it, and `_block` looks
+#: each key up here before it reports an unknown one.
 _RETIRED_KEYS: dict[str, str] = {
     "delivery.mode": (
         "is retired: no shipped command read it, and `run --commit` committed "
@@ -291,10 +244,10 @@ _RETIRED_KEYS: dict[str, str] = {
     ),
 }
 
-#: Where the live journal goes when `journal.dir` is left out. A literal with
-#: `~` rather than an expanded path so the reference reads the same on every
-#: machine; expanded at the point of use. The XDG state dir is the convention
-#: `mcgyvr scan` already keeps its records under.
+#: Where the journal is kept when `journal.dir` says nothing else: one directory
+#: under the user's state directory, outside any repository a run works on.
+#: A `journal.dir` overrides it, and the `~` that path may carry is expanded by
+#: the reader. Nothing on the command line moves it.
 JOURNAL_DIR_DEFAULT = "~/.local/state/mcgyvr/journal"
 
 JOURNAL_FIELDS: tuple[Field, ...] = (
@@ -318,14 +271,14 @@ JOURNAL_FIELDS: tuple[Field, ...] = (
     ),
 )
 
-# How long one dispatched request to a local unit may take before the transport
-# gives up, where the unit states no `request_timeout_s`. A hosted unit that
-# states none is given none. `mcgyvr.runner` reads it as `GENERATE_TIMEOUT_S`.
+# Seconds `budget.request_timeout_s` defaults to, and the figure a local unit's
+# unset `request_timeout_s` is quoted as. A hosted unit waits for its reply
+# however long it takes, so this bound only ever binds a unit on your own rig.
 DEFAULT_REQUEST_TIMEOUT_S = 120.0
 
-# How long `serve up` polls a unit into health after bringing it up: the wait
-# is the product of the two. The door (`mcgyvr.serving.servelib`) polls by
-# these and reads them from here.
+# How long `serving.servelib.wait_for` watches a unit come up: at most
+# `HEALTH_POLLS` polls of the models it serves, `HEALTH_INTERVAL_S` seconds
+# apart, so 120 polls of three seconds come to six minutes before it gives up.
 HEALTH_POLLS = 120
 HEALTH_INTERVAL_S = 3.0
 
@@ -529,23 +482,21 @@ SERVING_FIELDS: tuple[Field, ...] = (
     ),
 )
 
-#: A unit's ``role``: up whenever its launch spec is, or a swap partner that
-#: starts asleep in that spec and is started by the ladder manager.
+#: Whether a unit is up whenever its launch spec is (`always-on`), or a swap
+#: partner that starts asleep (`sleeps-until-needed`) and wakes when needed.
 ROLE_ALWAYS_ON = "always-on"
 ROLE_SLEEPER = "sleeps-until-needed"
 ROLES = (ROLE_ALWAYS_ON, ROLE_SLEEPER)
 
-#: The ``output_tokens`` a hosted unit is written with when ``setup --api``
-#: names none: the room its replies are given, and the ceiling a `code`
-#: contract's stated cap is held to on a unit whose window setup cannot read
-#: (`mcgyvr.gate.preflight.UnitCeiling`). Never sent in place of that cap.
-#: A hosted unit is the one most likely to serve a reasoning model, which bills
-#: hidden reasoning against the same number: the e2e run of 2026-10-13 saw
-#: DeepSeek's dearer rung spend 16216 tokens on a duration parser, and empty
-#: replies at 1024 and 4096. Twice that worst case, in a power of two the
-#: hosted reasoning APIs accept (DeepSeek's reasoner takes up to 64K); a model
-#: that serves less is stated as `--api ...,output_tokens=N`, because a
-#: provider refuses a `max_tokens` above its model's own limit.
+#: The reply room, in tokens, that `mcgyvr setup --api` writes into a hosted
+#: unit's `output_tokens`: the ceiling a `code` contract's
+#: `limits.max_output_tokens` is held to on that unit, hidden reasoning
+#: included. A hosted reasoning model spends its reasoning inside the same
+#: budget, so the number is sized for a long deliberation rather than a short
+#: answer. It is a value written into a file, not a default this module applies:
+#: a unit that states its own `output_tokens` keeps it, and a contract's own cap
+#: is sent exactly, with a cap above the ceiling refused by name. The doc of a
+#: unit's `output_tokens` quotes it.
 API_OUTPUT_TOKENS = 32768
 
 UNIT_FIELDS: tuple[Field, ...] = (
@@ -870,11 +821,11 @@ ROLE_UNIT_FIELDS: tuple[Field, ...] = (
     ),
 )
 
-#: The orchestrator types. ``proposer`` is the behaviour that shipped before
-#: the key existed; ``mcorch`` serves the bound unit as the agent itself.
+#: What the bound orchestrator unit is: a `proposer` that drafts contracts for
+#: `mcgyvr delegate`, or `mcorch`, which serves it as the agent itself.
 ORCHESTRATOR_TYPES: tuple[str, ...] = ("proposer", "mcorch")
 
-#: The orchestrator type that makes the bound unit the conversational agent.
+#: The `orchestrator.type` that serves the bound unit as the conversational agent.
 MCORCH = "mcorch"
 
 ORCHESTRATOR_FIELDS: tuple[Field, ...] = (
@@ -1274,10 +1225,10 @@ SCHEMA: tuple[Field, ...] = (
 )
 
 
-# Keys that would hold a credential as a value. They are unknown keys and
-# would be rejected anyway, but the generic "unknown key" message is the
-# wrong advice: what matters is that a secret must not be written here at
-# all.
+# Key names a config may not use, compared lowercased. A key that names a
+# credential is refused wherever it appears, so no setup can be read as holding
+# a secret value, and the refusal says to name the environment variable that
+# holds it (`api_key_env` on a unit) instead.
 _CREDENTIAL_KEYS = frozenset(
     {
         "access_key",
@@ -1297,9 +1248,10 @@ _CREDENTIAL_KEYS = frozenset(
     }
 )
 
-# High-signal credential shapes. This is a tripwire for the obvious cases,
-# not a secret scanner — the schema is what actually keeps keys out, by
-# giving them nowhere to go.
+# Values shaped like a credential of a known provider: OpenAI/Anthropic-style
+# `sk-` keys, GitHub tokens, AWS access keys, Slack tokens and Google API keys.
+# A text value matching one is refused wherever it appears, so a key pasted in
+# under a neutral key name is caught too.
 _CREDENTIAL_VALUE_PATTERNS: tuple[re.Pattern[str], ...] = (
     re.compile(r"^sk-[A-Za-z0-9_\-]{16,}$"),
     re.compile(r"^(ghp|gho|ghs|ghu|ghr)_[A-Za-z0-9]{20,}$"),
@@ -1314,15 +1266,9 @@ _ENV_NAME = re.compile(r"^[A-Za-z_][A-Za-z0-9_]*$")
 
 @dataclass(frozen=True)
 class Unit:
-    """One process at one address, and every fact about what it is.
-
-    A unit is the one term. It carries its own endpoint (``address``), the
-    model it serves, the width it was started with, the window it serves, the
-    reply room it needs, its timeout, its card room, and its whole resolved
-    ``launch`` as a free-form mapping. Nothing here is a hand-kept list
-    of launch flags: ``launch`` is whatever the operator wrote, and the engine
-    gate is what validates it.
-    """
+    """One unit as a dispatch sees it: where it answers, what it serves, and
+    how much of it one run may use. A relief rung is built as a `Unit` too,
+    with the fields a relief block states filled in and nothing else."""
 
     name: str
     address: str
@@ -1340,28 +1286,27 @@ class Unit:
     attention_backend: str | None = None
     container: str | None = None
     hf_cache: str | None = None
-    #: Who sets a request's sampling parameters: ``request`` (the default,
-    #: a temperature on every request) or ``server`` (none is sent).
+    #: Who states the sampling parameters of a request: `request` sends
+    #: `temperature`, `server` sends none because the model fixes its own.
     sampling: str = "request"
-    #: ``always-on`` or ``sleeps-until-needed`` (:data:`ROLE_SLEEPER`): whether
-    #: the unit starts asleep in its card's launch spec, as a swap partner.
+    #: `always-on`, or `sleeps-until-needed` for a swap partner started on demand.
     role: str = ROLE_ALWAYS_ON
     launch: Mapping[str, Any] = field(default_factory=dict)
-    #: How many of its slots riders the hub matches may use at once
-    #: (hitchhike), from the policy's ``rider_slots``: 0, the default, shares
-    #: none, and it is always below ``width``. Policy, so it is no part of
-    #: the unit's identity.
+    #: The slots riders from the hub may use on this unit at once, as
+    #: `rider_slots.<name>` states it and always below the unit's `width`, so
+    #: you keep one. A unit the map does not name shares none, so this is 0.
+    #: It is policy, not a fact of the unit, so it never changes its identity.
     rider_slots: int = 0
-    #: Another person's unit, lent through a hub (``relief.yaml``): a rung that
-    #: takes work when the rider's own is full and is never a step of the
-    #: ladder. ``position``, ``hosted_by`` and ``served_model`` are what the
-    #: hub said of it, for display.
+    #: True for a rung lent to you through a hub: it is never a step of the
+    #: ladder, only ridden under `fanout: idle` when your own rung is full, and
+    #: only the facts a relief block states are filled in — `position`,
+    #: `hosted_by`, `served_model`, `busy_answers` — not a rig of yours.
     relief: bool = False
     position: str | None = None
     hosted_by: str | None = None
     served_model: str | None = None
-    #: The answers, as ``(HTTP status, error code)``, that say this rung
-    #: cannot take a request now, or ``None`` where its entry names none.
+    #: The `(status, code)` answers that say the rung is full, as `busy_answers`
+    #: states them; None when the rung names none.
     busy_answers: tuple[tuple[int, str], ...] | None = None
 
     @property
@@ -1371,7 +1316,8 @@ class Unit:
 
 @dataclass(frozen=True)
 class Ladder:
-    """The ordered unit names work climbs, and how a batch spreads."""
+    """The units work climbs, cheapest first, and the fan-out mode work is
+    placed under."""
 
     names: tuple[str, ...]
     fanout: str = "none"
@@ -1380,37 +1326,40 @@ class Ladder:
         return name if name in self.names else None
 
 
-#: The one use case that needs no orchestrator: chat is a raw endpoint.
+#: The use case served by a raw, un-gated text endpoint rather than scoped edits.
 CHAT = "chat"
 
-#: The deployment value that means mcgyvr is the backend, not a skill driven
-#: from an API-tier orchestrator.
+#: The deployment in which mcgyvr is the backend: a non-chat use case provisions
+#: a local orchestrator unit, and chat is the ladder serving text.
 LOCAL_ONLY = "local-only"
 
 
 @dataclass(frozen=True)
 class LocalOrchestrator:
-    """What a setup must provision to serve the orchestrator role locally."""
+    """What `local_orchestrator` decided: whether an orchestrator unit is
+    provisioned, at what width, and whether a single-user install is flagged."""
 
-    #: Whether a local orchestrator unit is required at all.
+    #: True when this install provisions a local orchestrator unit.
     provision: bool
-    #: Its width (slot count). ``None`` when no unit is provisioned.
+    #: Slots the orchestrator is served at, one per user; None when it is not
+    #: provisioned.
     width: int | None = None
-    #: Warn the operator about single-user contention; never a refusal.
+    #: True for a single-user install, which is flagged rather than refused: the
+    #: resident orchestrator consumes the card the ladder would otherwise use.
     flag_single_user: bool = False
 
 
 def local_orchestrator(
     *, use_case: str, local_only: bool, users: int
 ) -> LocalOrchestrator:
-    """The local orchestrator a ``use_case`` needs, under a deployment model.
+    """Whether this install provisions a local orchestrator unit.
 
-    ``local_only`` is whether the deployment is ``deployment: local-only``
-    (mcgyvr is the backend). The hybrid model has an API-tier orchestrator and
-    provisions nothing here; chat is a raw un-gated endpoint and needs none
-    either. A local-only non-chat use case provisions a local orchestrator
-    whose width is the number of users, flagged (never refused) on a
-    single-user install.
+    A hybrid deployment provisions none, because an API-tier orchestrator
+    drives it, and neither does `chat`, which is just the ladder serving
+    text. Any other local-only use case provisions one, served at `users`
+    slots with one session per user, and a single user is flagged rather than
+    refused. Raises `ValueError` when `users` is below 1 on that path; the
+    other paths do not look at it.
     """
     if not local_only:
         return LocalOrchestrator(provision=False)
@@ -1429,26 +1378,9 @@ def local_orchestrator(
 
 @dataclass(frozen=True)
 class Config:
-    """A loaded, validated setup: what runs where, and the policy over it.
-
-    ``data`` is the validated tree with defaults filled in and path-valued
-    keys resolved against the config's own location (:func:`_resolved_paths`);
-    ``units`` and ``ladder`` are typed views over what runs where and in what
-    order. Values that are legitimately optional are reached through
-    ``require`` and ``secret``, which fail at the point of use rather than at
-    load.
-
-    ``declared`` is ``data`` pruned to the settings the file actually stated,
-    with every default the loader filled in left out. It is what
-    :meth:`canonical` renders.
-
-    ``path`` is where the caller found the config directory, kept for error
-    messages. It is not consulted after :func:`parse`.
-
-    ``relief`` holds the relief rungs (``relief.yaml``), each a :class:`Unit`
-    marked ``relief``. They are in neither ``units`` nor ``ladder``: what reads
-    the fleet or walks the ladder never meets one.
-    """
+    """A loaded setup: where it came from, the validated policy data, the
+    declared units, the ladder, the values that were actually written and the
+    relief rungs a hub lent you."""
 
     path: Path | None
     data: Mapping[str, Any]
@@ -1459,30 +1391,27 @@ class Config:
 
     @property
     def is_local_only(self) -> bool:
-        """Whether every laddered unit runs on an endpoint needing no credential."""
+        """True when no unit on the ladder needs a credential, so every rung
+        is one of your own local units."""
         return not any(
             self.units[name].requires_credential for name in self.ladder.names
         )
 
     @property
     def use_case(self) -> str:
-        """The use case this install serves, from the schema's own default."""
+        """`use_case` from the config, `coding` when it is not set."""
         return str(self.get("use_case", "coding"))
 
     @property
     def deployment(self) -> str:
-        """The deployment model this install runs under, from the schema's own
-        default."""
+        """`deployment` from the config, `hybrid` when it is not set."""
         return str(self.get("deployment", "hybrid"))
 
     @property
     def provisions_local_orchestrator(self) -> bool:
-        """Whether the serving plan must provision a local orchestrator unit.
-
-        The one home of the ruling, so :func:`mcgyvr.serving.units_for` and
-        :class:`mcgyvr.capacity.Capacity` agree without either importing the
-        other's half of the seam.
-        """
+        """Whether this install provisions a local orchestrator unit, as
+        `local_orchestrator` decides it from `use_case`, `deployment` and
+        `users`."""
         return local_orchestrator(
             use_case=self.use_case,
             local_only=self.deployment == LOCAL_ONLY,
@@ -1490,18 +1419,23 @@ class Config:
         ).provision
 
     def get(self, key: str, default: Any = None) -> Any:
-        """Read a dotted key, or ``default`` when it is unbound."""
+        """The value at a dotted `key`, or `default` when no such key is
+        bound.
+
+        A list may be indexed by a numeric part; a key that is not there
+        gives the default rather than an error.
+        """
         try:
             return _dig(self.data, key)
         except KeyError:
             return default
 
     def require(self, key: str) -> Any:
-        """Read a dotted key, failing loud by name when it is not bound.
+        """The value at a dotted `key`, refused when it is absent or empty.
 
-        This is the point of use. The error names the key and says how to
-        bind it, because the alternative — a plausible default — turns a
-        misconfiguration into a bug report about something else.
+        `None`, an empty string, an empty tuple and an empty list all count
+        as unbound, and the refusal names the key, the field's own doc and
+        how to bind it.
         """
         try:
             value = _dig(self.data, key)
@@ -1512,10 +1446,11 @@ class Config:
         return value
 
     def secret(self, key: str) -> str:
-        """Resolve the credential whose variable NAME is bound at ``key``.
+        """The value of the environment variable that a dotted `key` names.
 
-        Two distinct failures, kept distinct: the config does not say which
-        variable holds the key, or it does and that variable is not set.
+        Refused when the key is unbound or the variable is unset: the config
+        carries the variable's name, never the secret, so the value comes
+        from the environment and never from the file.
         """
         var = self.require(key)
         value = os.environ.get(str(var))
@@ -1529,16 +1464,8 @@ class Config:
         return value
 
     def canonical(self) -> str:
-        """The config as one YAML text, the same for every spelling of it.
-
-        Keys sorted, no anchors or aliases, block style throughout, and
-        rendered over :attr:`declared` — the settings the file stated, with
-        every default the loader filled in left out. Two files that load to
-        the same config render to the same bytes, whatever their comments,
-        blank lines or key order: a defaulted key is not identity. A relative
-        ``geometry_json`` has already been resolved into ``data`` and
-        ``declared``, so the rendering names the file the original did.
-        """
+        """A canonical dump of the values that were written, which is what a
+        setup's identity is computed from."""
         return _canonical_dump(self.declared)
 
     def _unbound(self, key: str) -> str:
@@ -1555,19 +1482,14 @@ class Config:
 
 
 def _declared(data: Any, raw: Any, fields: tuple[Field, ...]) -> dict[str, Any]:
-    """``data`` pruned to what the file declared, and only to what it changes.
+    """The values a config actually wrote, pruned against the schema's
+    defaults.
 
-    The tree :meth:`Config.canonical` renders. ``data`` is the
-    validated tree with defaults filled in and paths resolved; ``raw`` is the
-    same tree as parsed, before the loader ran. A key the file stated is kept
-    only when it states something the omission did not already mean: a key
-    spelled out at its default value is not identity, and a key the file never
-    stated is not identity either, which is what keeps a schema gaining an
-    optional key from re-identifying every config that predates it.
-
-    Path-valued keys stay resolved: the scalar kept is ``data``'s, which
-    :func:`_resolved_paths` has already made absolute, so a relative
-    ``geometry_json`` keeps naming the file it actually resolves to.
+    `data` is the validated mapping and `raw` its counterpart straight from
+    the file, so a key the schema filled in with a default is left out and
+    only stated values are declared. Blocks, block maps and block lists
+    recurse; every other kind is declared when it differs from its default,
+    and a non-empty mapping is always declared.
     """
     out: dict[str, Any] = {}
     raw_map = raw if isinstance(raw, Mapping) else {}
@@ -1581,10 +1503,10 @@ def _declared(data: Any, raw: Any, fields: tuple[Field, ...]) -> dict[str, Any]:
             if block_pruned:
                 out[name] = block_pruned
         elif spec.kind == "block_map":
-            # Every entry is kept even when its block prunes to empty, unlike
-            # ``block`` above: a map's keys are user-chosen names with no
-            # "absent" default, so an entry the file named is identity whether
-            # or not its own fields all sit at their defaults.
+            # Each entry is pruned against the raw entry of the same name, so
+            # a key a block holds only because the schema filled it in is not
+            # declared. The entry itself is kept even when it declares
+            # nothing, so the dump still names every block that was written.
             raw_entries = raw_map.get(name)
             raw_entries = raw_entries if isinstance(raw_entries, Mapping) else {}
             map_pruned: dict[str, Any] = {}
@@ -1614,11 +1536,8 @@ def _declared(data: Any, raw: Any, fields: tuple[Field, ...]) -> dict[str, Any]:
 
 
 def field_at(key: str) -> Field | None:
-    """Find the schema field a dotted key addresses, if it names one.
-
-    A segment that is a user-chosen map key is skipped —
-    ``units.local.api_key_env`` resolves.
-    """
+    """The `Field` a dotted key names, or None when the schema has no such
+    key."""
     return _field_in(SCHEMA, key.split("."))
 
 
@@ -1632,7 +1551,7 @@ def _field_in(fields: tuple[Field, ...], parts: list[str]) -> Field | None:
         if found.kind == "block":
             fields = found.block
         elif found.kind in ("block_map", "block_list"):
-            index += 1  # the caller-chosen name or index
+            index += 1  # step past the map or list key, which has no name here
             fields = found.block
         else:
             return found if index == len(parts) else None
@@ -1681,11 +1600,11 @@ def _reject_credential_key(name: str, path: str) -> None:
 
 
 def _reject_credential_anywhere(raw: object, path: str) -> None:
-    """The key and value checks, through a free-form value to every leaf.
+    """Refuse a free-form mapping that holds a credential anywhere in it.
 
-    A free-form mapping has no schema to keep a key out, and it is printed by
-    ``canonical()`` and hashed into a lock, so every key and every text leaf
-    in it is checked the way a schema field is.
+    Walks dicts and lists, checking every key name and every text value, so
+    a mapping field (a unit's `launch`) cannot become a place a key is
+    pasted into.
     """
     if isinstance(raw, dict):
         for key, item in raw.items():
@@ -1733,7 +1652,7 @@ def _missing(spec: Field, path: str) -> ConfigSchemaError:
 
 def _value(raw: object, spec: Field, path: str) -> Any:
     if spec.kind == "int":
-        # bool is an int in Python; `width: true` is not a count.
+        # A bool is an int in Python, so it is excluded by name.
         if not isinstance(raw, int) or isinstance(raw, bool):
             raise ConfigSchemaError(
                 f"{path}: expected a number, found {_typename(raw)}"
@@ -1749,7 +1668,7 @@ def _value(raw: object, spec: Field, path: str) -> Any:
         return raw
 
     if spec.kind == "float":
-        # An int is a valid decimal, but a bool is not.
+        # An int is a valid value here; a bool is not.
         if not isinstance(raw, (int, float)) or isinstance(raw, bool):
             raise ConfigSchemaError(
                 f"{path}: expected a number, found {_typename(raw)}"
@@ -1886,17 +1805,12 @@ def _block(raw: object, fields: tuple[Field, ...], path: str) -> dict[str, Any]:
 
 
 def _refuse_userinfo(name: str, base_url: str, block: str = "units") -> None:
-    """Refuse a unit ``address`` that carries a credential in its userinfo.
+    """Refuse an address that carries `user:password@` in its URL.
 
-    ``https://user:key@host`` is a credential written into the config file,
-    which :meth:`Config.secret` refuses in the one place it is asked for — "put
-    it in a git-ignored .env; never write the value into the config file". The
-    same rule, held where the value enters rather than where it is read.
-
-    Refusing here is what makes the rule cheap everywhere else. An address is
-    interpolated into operator-facing strings — runner transport errors,
-    availability verdicts, ``mcgyvr local_pool``, the init summary — and a credential
-    that cannot be in the value cannot be in any of them.
+    `name` and `block` say which address it is. The userinfo is refused
+    because a URL is quoted in error messages, probe verdicts and
+    `mcgyvr local_pool`, so a key written there reaches logs and terminals
+    that a key in the environment never does.
     """
     userinfo = urllib.parse.urlsplit(base_url).netloc.rpartition("@")[0]
     if not userinfo:
@@ -1912,22 +1826,13 @@ def _refuse_userinfo(name: str, base_url: str, block: str = "units") -> None:
 
 
 def _resolved_paths(data: dict[str, Any], path: Path | None) -> dict[str, Any]:
-    """``data`` with every path-valued key made absolute against the config.
+    """Resolve each unit's relative `launch.geometry_json` against the
+    config's own directory.
 
-    One key has this shape: ``units.<name>.launch.geometry_json``, which may
-    be written relative and means "the scan filed beside this config".
-
-    Resolved here, once: a value in ``data`` is one answer that every reader
-    gets.
-
-    **A relative path with no config location is refused, not guessed.** A
-    config parsed from text nobody filed (:func:`parse` with ``path=None``)
-    has no "beside", and resolving against the working directory would make
-    the config's meaning depend on where the operator stood.
-
-    **The config directory is resolved through symlinks before it is used**,
-    so the scan is looked for beside the real directory and not beside a link
-    to it. A relative ``path`` becomes absolute the same way.
+    A relative geometry is the scan filed beside the config file, so `path`
+    is the directory it is read from and a config parsed without one is
+    refused rather than resolved against the process's working directory. A
+    path written in full, or with `~`, is expanded but not joined to it.
     """
     beside = path.resolve() if path is not None else None
 
@@ -1967,35 +1872,18 @@ def _resolved_paths(data: dict[str, Any], path: Path | None) -> dict[str, Any]:
 
 
 def named_config_path() -> Path | None:
-    """The config path the environment names, or ``None`` if it names none.
-
-    Split out of :func:`config_path` because "somebody chose this path" is a
-    fact about the *caller*, not about the file, and it survives the file not
-    being there — which is the only moment it matters. A default location with
-    nothing in it is a bare install; ``$MCGYVR_CONFIG`` pointing at nothing is
-    a variable set ahead of the ``init`` that fills it, or a typo, and the two
-    want different sentences. Callers that take a path from a flag already know
-    the answer and do not need this.
-    """
+    """The setup path `MCGYVR_CONFIG` names, or None when it is unset."""
     override = os.environ.get(CONFIG_PATH_ENV)
     return Path(override).expanduser() if override else None
 
 
 def config_path() -> Path:
-    """Locate the config directory: the override, else the live fleet.
+    """The setup path to load: the one `MCGYVR_CONFIG` names, else the live
+    fleet directory.
 
-    The override is ``$MCGYVR_CONFIG`` (a command's ``--config`` is handed to
-    :func:`load` directly). The live fleet is the folder the config folder's
-    ``live.json`` names (:func:`mcgyvr.fleet.roots.live_fleet_dir`; the config
-    folder is ``$MCGYVR_HOME``, else ``~/.mcgyvr``): written and named live by
-    ``mcgyvr setup`` when it locks a fleet, and named by ``mcgyvr fleet use``.
-    The working directory is not consulted: a ``fleet.yaml``
-    there is a setup nobody named and nobody promoted. With neither, there is
-    no config, and :class:`ConfigMissingError` says so. A path that depends on
-    an environment variable only some shells export is a config that is found
-    from one terminal and not another, so no third place is consulted; the two
-    variables that move these places, ``$MCGYVR_CONFIG`` and ``$MCGYVR_HOME``,
-    are named in the version line's config path.
+    Raises `ConfigFileError` when the live fleet cannot be read, and
+    `ConfigMissingError` when no fleet is live, so the caller is told how to
+    name or make one.
     """
     override = named_config_path()
     if override is not None:
@@ -2020,19 +1908,14 @@ def parse(
     path: Path | None = None,
     relief_text: str = "",
 ) -> Config:
-    """Validate a setup from the documents that define it.
+    """Parse setup text into a `Config`.
 
-    ``fleet_text`` is ``fleet.yaml`` — the units, rigs and fleets: what runs
-    where. ``policy_text`` is ``policy.yaml`` — the ladder (an ordered list of
-    unit names) and the routing policy over it. ``relief_text`` is
-    ``relief.yaml`` when there is one — the relief rungs a sync wrote. Each
-    goes through :mod:`mcgyvr.fleet.files`, the one reader that knows the
-    vocabulary and refuses a key in the wrong file, so there is no second set
-    of rules here.
-
-    A caller holding one merged document (an editor, a test) may pass it as
-    ``fleet_text`` alone: it is split into the documents by key and each part
-    goes through the same reader. The loader itself reads the files.
+    `fleet_text` is the fleet document, `policy_text` the policy and
+    `relief_text` the relief rungs. With no policy text the fleet text is
+    split first, so one document holding every block is read as a whole
+    setup. `path` is where the setup was loaded from: it is quoted in errors
+    and a relative `launch.geometry_json` resolves beside it. A malformed
+    document is refused as a `ConfigSchemaError`.
     """
     if not policy_text:
         fleet_text, policy_text, split_relief = _split_setup(fleet_text)
@@ -2046,17 +1929,18 @@ def parse(
     return _build(fleet, policy, path, relief)
 
 
-#: The keys that belong in ``fleet.yaml``. Everything else in a merged
-#: document is policy, but for the relief block, which is ``relief.yaml``'s.
+#: The top-level keys belonging to the fleet and relief documents rather than
+#: the policy, used to split a setup written as one document.
 _FLEET_ONLY = frozenset({"units", "rigs", "fleets"})
 _RELIEF_ONLY = frozenset({"relief"})
 
 
 def _split_setup(text: str) -> tuple[str, str, str]:
-    """One merged document as ``(fleet.yaml, policy.yaml, relief.yaml)`` texts.
+    """Split one setup document into fleet, policy and relief texts.
 
-    A document with no ``units`` is handed through whole: it is not a merged
-    setup, and the fleet reader is the one that should refuse whatever it is.
+    Text that does not parse, or that has no `units` top-level key, is
+    returned unchanged as fleet text, so the fleet reader reports what is
+    wrong with it instead of this split guessing.
     """
     try:
         raw = yaml.load(text, Loader=strict_loader(ConfigSchemaError))
@@ -2084,15 +1968,13 @@ def _build(
     path: Path | None,
     relief: Mapping[str, Any] | None = None,
 ) -> Config:
-    """The :class:`Config` for a loaded ``fleet.yaml``, ``policy.yaml`` and
-    ``relief.yaml``.
+    """Validate the three parsed documents into a `Config`.
 
-    ``rigs``, ``fleets`` and each unit's ``unit_id`` are the lock's, not the
-    run's, and are dropped here rather than carried in the run's tree: a
-    locked ``fleet.yaml`` carries all three, and refusing them would leave
-    every locked setup unreadable by the commands that serve it. Everything
-    else is validated once, with the schema filling defaults, and then read
-    into ``units`` and ``ladder``.
+    Fleet, policy and relief are merged, `rigs`, `fleets` and each unit's
+    `unit_id` are dropped, and the result is read against `SCHEMA` and then
+    cross-checked. The units become `Unit`s (relief rungs too, flagged as
+    such), the ladder becomes a `Ladder`, and `declared` keeps only the
+    values the config actually wrote.
     """
     merged: dict[str, Any] = {
         key: value
@@ -2149,8 +2031,8 @@ def _build(
             position=block["position"],
             hosted_by=block["hosted_by"],
             served_model=block["served_model"],
-            # An empty list would fold to unset (no busy answers); the schema
-            # refuses one, so only an absent field is unset today.
+            # A rung that names no busy answers gets None, which is what a
+            # dispatch reads as a rung that named none.
             busy_answers=tuple(
                 (answer["status"], answer["code"]) for answer in block["busy_answers"]
             )
@@ -2170,7 +2052,14 @@ def _build(
 
 
 def _cross_validate_fleet(data: Mapping[str, Any]) -> None:
-    """Reject a fleet document that satisfies the schema but contradicts itself."""
+    """Check the declared units, ladder and routing maps against each other.
+
+    Every ladder step, `attempts` and `draws` entry must name a declared
+    unit, no name may be used twice, no unit address may carry credentials,
+    the draws a unit would use must be able to differ, and every role must
+    bind a unit that exists. What each check refuses is a setup that could
+    not dispatch, or would dispatch somewhere the file does not say.
+    """
     units: Mapping[str, Any] = data["units"]
     if not units:
         raise ConfigSchemaError(
@@ -2215,11 +2104,11 @@ def _cross_validate_fleet(data: Mapping[str, Any]) -> None:
                 f"Declared: {', '.join(sorted(units))}"
             )
 
-    # A cross-field refusal because neither field is wrong on its own: a
-    # breadth above one is a legal count and a temperature of zero a legal
-    # number, and it is the pair that asks for N byte-identical replies. Over
-    # the *effective* breadth, so a single unit widened by name is refused as
-    # surely as the whole ladder.
+    # More than one draw costs N gate runs, so the draws must be able to
+    # differ: a temperature of 0.0 makes every draw the first draw again, and
+    # a unit with `sampling: server` is sent no temperature at all. Either way
+    # the extra draws would buy nothing, so both are refused rather than
+    # accepted and ignored. A unit with no `draws` entry uses the breadth's.
     breadth = data["breadth"]["draws"]
     temperature = data["breadth"]["temperature"]
     widened = {
@@ -2264,12 +2153,11 @@ def _cross_validate_fleet(data: Mapping[str, Any]) -> None:
 
 
 def _cross_validate_mcorch(data: Mapping[str, Any], units: Mapping[str, Any]) -> None:
-    """Refuse a ``type: mcorch`` orchestrator that cannot be served as the agent.
+    """Check what `orchestrator.type: mcorch` needs, and nothing otherwise.
 
-    Each key is legal alone; it is mcorch that needs the rest: a local-only
-    deployment (it replaces the API-tier orchestrator ``hybrid`` describes), a
-    bound unit that states its window (what a conversation is budgeted by),
-    and a stated authoring strategy, which ships no default.
+    It needs a local-only deployment, a bound unit that states its `window`
+    (the fact a conversation is budgeted by), an `authoring` strategy, and a
+    bound `jev` unit to answer its typed decisions.
     """
     orchestrator = data["orchestrator"]
     if orchestrator["type"] != MCORCH:
@@ -2311,14 +2199,12 @@ def _cross_validate_mcorch(data: Mapping[str, Any], units: Mapping[str, Any]) ->
 
 
 def _cross_validate_shares(data: Mapping[str, Any], units: Mapping[str, Any]) -> None:
-    """Refuse a ``rider_slots`` entry naming a share no unit can give riders.
+    """Check `rider_slots`: only your own unit may be shared, and only below
+    its width.
 
-    A share is a part of a declared unit's width that riders may use, so it
-    names a unit of the fleet, and is below that unit's width: the host keeps
-    a slot of their own, and a unit whose width is unset serves one request
-    at once and has none to share. A unit that needs a key is a hosted
-    provider's, and a relief rung another person's: neither is the host's to
-    share.
+    A relief rung is not yours to share, a unit naming `api_key_env` is a
+    provider's, and a count that is not below the unit's `width` would leave
+    you no slot. A count of 0 shares nothing and passes.
     """
     for name, shared in (data.get("rider_slots") or {}).items():
         where = f"rider_slots.{name}"
@@ -2352,12 +2238,8 @@ def _cross_validate_shares(data: Mapping[str, Any], units: Mapping[str, Any]) ->
 
 
 def _cross_validate_relief(data: Mapping[str, Any], units: Mapping[str, Any]) -> None:
-    """Refuse a relief rung that would be mistaken for a unit of the fleet.
-
-    A relief rung is reached by its name wherever a rung is, so a name the
-    fleet already uses would make one name two machines. Its address is held
-    to the rule every unit's is: no credential written into the URL.
-    """
+    """Check the relief rungs: no name clashes with a unit of the fleet, since
+    a name is one machine, and no address carries credentials."""
     for name, block in data["relief"].items():
         if name in units:
             raise ConfigSchemaError(
@@ -2368,14 +2250,12 @@ def _cross_validate_relief(data: Mapping[str, Any], units: Mapping[str, Any]) ->
 
 
 def _cross_validate_manager(data: Mapping[str, Any], units: Mapping[str, Any]) -> None:
-    """Refuse a ``manager`` block that asks for more than the ladder can give.
+    """Check `manager.fanouts` and `manager.leads`.
 
-    The bounds are checked here, at load, because the manager acts on a shared
-    rig and a bound it cannot honour is found only when it is acted on. A mode
-    must be one ``fanout`` could be set to; a lead must be a unit the ladder
-    climbs and one that needs no credential, since the manager moves *local*
-    units and a hosted one is not in that family. A name listed twice is one
-    step listed twice, refused the way the ladder refuses it.
+    A mode must be one of `FANOUT_CHOICES` and listed once; a lead must be on
+    the ladder and must need no credential, because a unit with `api_key_env`
+    is hosted rather than local and cannot lead the local family. Each lead
+    is listed once too.
     """
     manager = data["manager"]
 
@@ -2416,21 +2296,12 @@ def _cross_validate_manager(data: Mapping[str, Any], units: Mapping[str, Any]) -
 
 
 def _absent_remedy(path: Path | None) -> str:
-    """What to do about a config that is not there, given who chose the path.
+    """The sentence a missing-setup error ends with.
 
-    Three situations wearing one exception. ``path`` is what the caller named
-    on purpose — a ``--config`` flag — or ``None`` when nobody did and
-    :func:`load` located the file itself; in that second case
-    ``$MCGYVR_CONFIG`` may still have named it, and that is a third answer
-    again.
-
-    Nobody named one: both remedies are open and both are said. The variable
-    named it: ``mcgyvr setup`` writes to exactly that path — ``_init`` resolves
-    its destination the same way and its help says so — so a fresh install
-    with the documented ``export MCGYVR_CONFIG=...`` already done is one
-    command from finished, and answering it with "set the variable" is advice
-    to do again what has just been done. A flag named it: the file typed is not
-    there, and only a different path helps.
+    It differs by how the setup was named: a path the caller passed means
+    name one that is there, a path `MCGYVR_CONFIG` named means run `mcgyvr
+    setup` or name an existing file, and with nothing named it means set up a
+    fleet or point the variable at one.
     """
     if path is not None:
         return "Name one that is there."
@@ -2446,22 +2317,20 @@ def _absent_remedy(path: Path | None) -> str:
 
 
 def load(path: Path | None = None) -> Config:
-    """Load and validate the setup at ``path``, or the located one.
+    """Load the setup at `path`, or at `config_path()` when none is given.
 
-    A setup is a directory holding ``fleet.yaml`` and ``policy.yaml``:
-    ``path`` names that directory, and ``None`` locates it (the environment
-    override, else the live fleet folder the config folder's ``live.json``
-    names; :func:`config_path`). A policy
-    file is optional — a fleet with one unit and no policy is the smallest
-    working install — but a fleet file is not. ``relief.yaml`` is read beside
-    them when a sync has written one.
+    A path that names a file is read as one setup document; a directory is
+    read as its fleet.yaml, with policy.yaml and relief.yaml read when they
+    are there. Every read error and every schema error carries the path it
+    came from.
     """
     chosen = path
     where = path if path is not None else config_path()
     if where.is_file():
-        # A single merged document, written by an editor or a test. A setup is
-        # a directory, but this is the same content in one file and the two
-        # readers below still see their own halves.
+        # A file is one setup document: `parse` splits it into fleet, policy
+        # and relief. Only a directory is read as the three files. The file's
+        # own directory is passed as `path`, so a relative geometry resolves
+        # beside it.
         try:
             text = where.read_text(encoding="utf-8")
         except UnicodeDecodeError as exc:

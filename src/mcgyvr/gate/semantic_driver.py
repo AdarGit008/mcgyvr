@@ -1,50 +1,23 @@
-"""Resolve a change's calls against the environment the code will run in.
+"""Resolve the attribute chains a change adds, inside the sandbox, using ghostcall.
 
-**This module is never imported by mcgyvr.** It is read as text and staged into
-the sandbox by :mod:`mcgyvr.gate.semantic`, where it runs under the *target's*
-interpreter with the target's own packages importable. That is the whole point:
-resolution by import is not an implementation detail of the check, it is the
-check, and the only environment in which its answer is true is the one the code
-declared. Nothing here may be imported into the orchestrator process — doing so
-would import target code on the host.
+``mcgyvr.gate.semantic`` reads this file as text, stages it beside a copy of the
+vendored ghostcall engine, and runs it there as a script, because the host has no
+``ghostcall``. It takes a job of ``{"targets": {path: [added line numbers]}}``
+and writes ``{"python", "platform", "files": [...]}``, which the calling rung
+interprets into findings and environment issues.
 
-It is written to run under an *old* interpreter as well as a new one: the base
-image defaults to ``python:3.12-slim``, but ``sandbox.image`` can be overridden
-with anything the repository actually runs on. Annotations are deferred
-(:pep:`563`), so nothing here needs a runtime subscript, and no syntax newer
-than 3.8 is used.
+Per target file it parses with ``ghostcall.parser.parse``, keeps only the calls
+landing on the added lines, and asks ``ghostcall.checker.check`` whether the
+chain resolves against the packages this environment really installs. A chain
+that does not resolve is reported with the missing attribute, the parent it was
+looked up on, and any suggestions.
 
-The engine is ghostcall's (vendored and digest-pinned); this module
-supplies what the gate needs around it:
-
-**Only added lines are resolved.** The job carries the line numbers
-:class:`~mcgyvr.gate.changeset.FileChange` attributed to the worker, and a
-call on any other line is never looked at. Pre-existing state in a file does
-not fail a worker's change.
-
-**Suppression of platform-conditional code.** ``check()`` introspects the
-*live* interpreter, so correctly-guarded foreign-platform code is
-indistinguishable from an invented API. Three rules answer it:
-
-1. An ``if`` whose test depends on the platform is skipped whole — both
-   branches, because deciding which branch is foreign means evaluating the
-   test, and a static pass that evaluates tests is a different and much worse
-   tool. One hop of indirection is followed: ``if WIN:`` where ``WIN`` came
-   from a relative import is the exact shape click's ``os.startfile`` sites
-   have, and it is the reason a bare-name rule is not enough.
-2. A ``try`` whose handler catches ``ImportError``/``ModuleNotFoundError`` is
-   skipped whole — that is a module the code already knows may be absent.
-3. Chains rooted at ``sys.stdout``/``stderr``/``stdin`` are never flagged.
-   Those objects are rebound at runtime by design (click's own test shim is
-   what the measurement caught, reading ``sys.stdout._original_fd``), and in a
-   container the streams are pipes, so introspecting them answers a different
-   question from the one the code is asking.
-
-``if TYPE_CHECKING:`` is skipped for a different reason: its body never runs,
-so the live interpreter has no view of it at all.
-
-Every suppression is *counted* and returned. A rung that quietly stopped
-looking at half a file would report a clean pass it did not earn.
+Calls it cannot judge honestly are counted as suppressed rather than flagged:
+lines inside ``TYPE_CHECKING`` or platform guards, inside a ``try`` that catches
+an import error, and chains rooted at ``sys.stdout``/``stderr``/``stdin``, which
+are rebound at runtime. A file that cannot be read or parsed becomes a per-file
+``error`` entry instead of an exception, so one bad path cannot take the rest of
+the job down.
 """
 
 from __future__ import annotations
@@ -56,10 +29,9 @@ import sys
 from importlib import import_module
 from typing import Any
 
-# Dotted expressions whose value is a property of the machine the code runs
-# on. A test mentioning one of these guards a branch that is not universally
-# live, so what the live interpreter can resolve inside it says nothing about
-# whether the code is right.
+# Dotted prefixes of the names that read the host platform. A test mentioning
+# one of these (or an alias imported from one) depends on the machine the code
+# runs on, so a chain underneath it is not evidence of a hallucination.
 PLATFORM_PREDICATES = (
     "sys.platform",
     "sys.getwindowsversion",
@@ -74,29 +46,36 @@ PLATFORM_PREDICATES = (
     "platform.mac_ver",
 )
 
-# `if TYPE_CHECKING:` bodies never execute, so no verdict about the live
-# interpreter applies to them.
+# The unqualified name to look for in an ``if`` test; the ``typing.TYPE_CHECKING``
+# spelling is matched separately in ``suppressed_spans``.
 TYPE_CHECKING_NAMES = frozenset({"TYPE_CHECKING"})
 
-# A handler catching one of these says the module may legitimately be absent.
+# Handler names, compared after the last dot, that mark a ``try`` as an
+# optional-import fallback rather than a real error path.
 IMPORT_ERRORS = frozenset({"ImportError", "ModuleNotFoundError"})
 
-# Module attributes that are rebound at runtime as a matter of course.
+# Calls rooted here are answered by whatever the process bound to the standard
+# stream, so their chains cannot be resolved against installed packages.
 DYNAMIC_ROOTS = frozenset({"sys.stdout", "sys.stderr", "sys.stdin"})
 
-# Why a call on an added line was not resolved. Returned per file so a caller
-# can see the shape of what was skipped rather than only what was flagged.
+# Why a call was left unflagged. Each span carries one of these, and the job
+# reports them as counts per reason under a file's ``suppressed`` map.
 REASON_PLATFORM = "platform-guarded"
 REASON_IMPORT_GUARD = "import-guarded"
 REASON_TYPE_CHECKING = "type-checking-only"
 REASON_DYNAMIC_ROOT = "runtime-rebound-root"
 
 
-# --- static suppression ---------------------------------------------------
+# AST helpers: dotted names out of nodes, the guards that make a call
+# undecidable statically, and the line lookup that ties a call to a guard.
 
 
 def dotted(node: ast.AST) -> str | None:
-    """The dotted name a Name/Attribute chain spells, or ``None`` if it is not one."""
+    """Return ``a.b.c`` for an attribute chain rooted at a plain name.
+
+    ``None`` when the chain ends in something other than a ``Name`` — a call
+    result, a subscript, a literal — since no static name can be spelled for it.
+    """
     parts: list[str] = []
     current: ast.AST = node
     while isinstance(current, ast.Attribute):
@@ -109,11 +88,17 @@ def dotted(node: ast.AST) -> str | None:
 
 
 def _names_in(node: ast.AST) -> set[str]:
-    """Every dotted name mentioned anywhere in ``node``."""
+    """Every name spelled out anywhere beneath ``node``, as dotted strings.
+
+    Both the attribute nodes and the plain names inside them are collected, so
+    ``sys.platform == "win32"`` yields ``{"sys.platform", "sys"}`` and a guard
+    written against either spelling is still recognised by its caller.
+    """
     found: set[str] = set()
     for child in ast.walk(node):
-        # Tuple form, not `X | Y`: this file runs under the target's
-        # interpreter, which may be older than 3.10.
+        # ``dotted`` already returns ``None`` for a chain it cannot spell, so
+        # the filter below keeps every whole attribute chain and every bare
+        # ``Name`` without needing to recurse into children itself.
         if isinstance(child, (ast.Name, ast.Attribute)):
             name = dotted(child)
             if name is not None:
@@ -122,7 +107,12 @@ def _names_in(node: ast.AST) -> set[str]:
 
 
 def _is_platform_expr(node: ast.AST, platform_names: set[str]) -> bool:
-    """Whether ``node`` depends on the platform, directly or via a known constant."""
+    """True when ``node`` reads the host platform, directly or through an alias.
+
+    ``platform_names`` holds the file's own flag constants (``IS_WINDOWS``);
+    ``PLATFORM_PREDICATES`` covers the raw predicates, matched on the whole
+    dotted name or as a prefix of a longer chain like ``sys.platform.startswith``.
+    """
     for name in _names_in(node):
         if name in platform_names:
             return True
@@ -133,7 +123,11 @@ def _is_platform_expr(node: ast.AST, platform_names: set[str]) -> bool:
 
 
 def _assigned_names(statement: ast.stmt) -> list[str]:
-    """The plain module-level names a statement assigns to."""
+    """The names a plain or annotated assignment binds.
+
+    Only single-name targets are returned: unpacking targets are skipped, which
+    keeps the caller's set to names that map one-to-one onto one value.
+    """
     if isinstance(statement, ast.Assign):
         return [t.id for t in statement.targets if isinstance(t, ast.Name)]
     if isinstance(statement, ast.AnnAssign) and isinstance(statement.target, ast.Name):
@@ -142,7 +136,11 @@ def _assigned_names(statement: ast.stmt) -> list[str]:
 
 
 def _platform_constants(tree: ast.Module) -> set[str]:
-    """Module-level names bound to a platform-dependent value, in one module."""
+    """Names this module binds to an expression that reads the platform.
+
+    So ``IS_WINDOWS = sys.platform == "win32"`` makes ``IS_WINDOWS`` count as a
+    platform guard wherever it is tested, not just the predicate it wraps.
+    """
     names: set[str] = set()
     for statement in tree.body:
         value = getattr(statement, "value", None)
@@ -154,16 +152,15 @@ def _platform_constants(tree: ast.Module) -> set[str]:
 
 
 def _relative_source(path: str, level: int, module: str | None) -> str | None:
-    """The file a ``from . import x`` in ``path`` refers to, if it is on disk.
+    """On-disk file that ``from ..module import name`` at ``path`` refers to.
 
-    Only *relative* imports are followed, and only one hop. An absolute import
-    would mean searching ``sys.path`` and reasoning about namespace packages —
-    a resolver of its own, for a rule whose whole job is to be conservative.
-    The relative form is what a package's own platform constant is imported
-    with, which is the case the measurement produced.
+    ``level`` one stays in the importing file's package, and each further dot
+    climbs one package up; ``module`` is then appended as path parts. Both the
+    ``<pkg>/<mod>.py`` and ``<pkg>/<mod>/__init__.py`` shapes are tried, and
+    ``None`` means no such file exists, so the import is not followed.
     """
-    parts = path.split("/")[:-1]  # the importing file's directory
-    for _ in range(level - 1):  # each extra dot climbs one package
+    parts = path.split("/")[:-1]  # directories of the importing file
+    for _ in range(level - 1):  # one more package up per extra dot
         if not parts:
             return None
         parts.pop()
@@ -176,12 +173,12 @@ def _relative_source(path: str, level: int, module: str | None) -> str | None:
 
 
 def platform_names(path: str, tree: ast.Module, cache: dict[str, set[str]]) -> set[str]:
-    """Names in ``path`` that stand for a platform test.
+    """Platform-flag names visible inside ``tree``, own and imported.
 
-    Both the constants assigned in this module and those imported from a
-    sibling module by a relative import — ``from ._compat import WIN`` and then
-    ``if WIN:`` is how the real false positives were guarded, and a rule that
-    only looked at this file would miss every one of them.
+    Starts from the constants the file defines, then adds every name imported by
+    name from a relative sibling, provided that sibling exports it as a platform
+    constant. ``cache`` maps an already-scanned source file to its exports so a
+    shared module is read once per job.
     """
     names = _platform_constants(tree)
     for statement in tree.body:
@@ -200,7 +197,11 @@ def platform_names(path: str, tree: ast.Module, cache: dict[str, set[str]]) -> s
 
 
 def _read_platform_constants(source: str) -> set[str]:
-    """Parse a sibling module and return its platform-dependent constants."""
+    """Platform constants exported by ``source``; empty if it is unusable.
+
+    A sibling that cannot be read or parsed simply contributes no extra guard
+    names — a missing constant can lose a suppression, never invent a flag.
+    """
     try:
         with open(source, encoding="utf-8") as handle:
             text = handle.read()
@@ -212,7 +213,13 @@ def _read_platform_constants(source: str) -> set[str]:
 def suppressed_spans(
     path: str, tree: ast.Module, cache: dict[str, set[str]]
 ) -> list[tuple[int, int, str]]:
-    """Line ranges whose calls carry no verdict, each with the reason why."""
+    """Line ranges where a call must not be flagged, each with its reason.
+
+    Three shapes qualify: an ``if`` whose test mentions ``TYPE_CHECKING`` or a
+    platform predicate (the whole statement, so its ``else`` branch is covered
+    too), and a ``try`` whose handlers catch an import error. Ranges are
+    inclusive and taken from the node's own start and end lines.
+    """
     guards = platform_names(path, tree, cache)
     spans: list[tuple[int, int, str]] = []
     for node in ast.walk(tree):
@@ -231,7 +238,13 @@ def suppressed_spans(
 
 
 def _catches_import_error(node: ast.Try) -> bool:
-    """Whether any handler on ``node`` catches an import failure."""
+    """True when any handler of ``node`` names an import error.
+
+    The handler type may be a bare name, a dotted name, or a tuple of either;
+    only the last dotted component is compared, so ``builtins.ImportError``
+    counts the same as ``ImportError``. A bare ``except:`` catches everything
+    and therefore says nothing about imports, so it is skipped.
+    """
     for handler in node.handlers:
         caught = handler.type
         if caught is None:
@@ -245,20 +258,32 @@ def _catches_import_error(node: ast.Try) -> bool:
 
 
 def _suppression(line: int, spans: list[tuple[int, int, str]]) -> str | None:
-    """The reason ``line`` is suppressed, or ``None`` if it carries a verdict."""
+    """Reason for the first span containing ``line``, or ``None`` if unflagged."""
     for start, end, reason in spans:
         if start <= line <= end:
             return reason
     return None
 
 
-# --- resolution -----------------------------------------------------------
+# Per-file resolution, and the job and report shapes the sandbox rung calls.
 
 
 def resolve_file(
     path: str, lines: set[int], cache: dict[str, set[str]]
 ) -> dict[str, Any]:
-    """Resolve every call on ``lines`` in ``path``. Never raises."""
+    """Resolve the calls on ``lines`` in one file and describe what happened.
+
+    ``lines`` is the set of added line numbers, so untouched calls cost nothing.
+    A call is counted in ``suppressed`` and skipped when a guard span covers it
+    or when its root is a standard stream; otherwise it is handed to the checker,
+    where a hallucinated chain becomes a ``flags`` entry and an unimportable root
+    lands in ``missing_roots``. ``resolved`` counts the calls the environment
+    could actually answer, hallucinated ones included, which is what tells the
+    caller whether a run was blind or merely found nothing.
+
+    Never raises for a bad target: an unreadable or unparsable file returns a
+    ``{"path", "error"}`` entry so the rest of the job still reports.
+    """
     parse = import_module("ghostcall.parser").parse
     check = import_module("ghostcall.checker").check
 
@@ -266,19 +291,17 @@ def resolve_file(
         with open(path, encoding="utf-8") as handle:
             source = handle.read()
     except (OSError, UnicodeDecodeError) as exc:
-        # Strict decoding is right here — `ast.parse` below cannot be handed a
-        # surrogate, so reading with `surrogateescape` would only move the
-        # failure one line down — but `UnicodeDecodeError` is a `ValueError`,
-        # not an `OSError`. Catching only `OSError` let one latin-1 byte out of
-        # a function documented never to raise, out through `run_job`, and out
-        # of the process: the whole job died, and every *other* file's
-        # resolution died with it. One unreadable file costs only itself.
+        # A strict decode is deliberate: the parser below could not take a
+        # surrogate anyway. ``UnicodeDecodeError`` is a ``ValueError``, so it
+        # has to be caught beside ``OSError`` or one bad byte anywhere in the
+        # change would abort the run for every other file in it.
         return {"path": path, "error": f"unreadable: {exc}"}
     try:
         tree = ast.parse(source)
         parsed = parse(source)
     except (SyntaxError, ValueError) as exc:
-        # The syntax rung owns this file; it is not this check's to judge.
+        # Same per-file contract for a file the parsers reject, including the
+        # ``ValueError`` they raise on source containing a null byte.
         return {"path": path, "error": f"unparsed: {exc}"}
 
     spans = suppressed_spans(path, tree, cache)
@@ -301,6 +324,8 @@ def resolve_file(
         result = check(call)
         status = result.status
         if status == "hallucinated":
+            # The root imported fine and only the attribute was absent, so the
+            # environment did resolve this call — it is a finding, not a fault.
             resolved += 1
             flags.append(
                 {
@@ -312,6 +337,8 @@ def resolve_file(
                 }
             )
         elif status == "module_missing":
+            # Nothing could be said about this chain; record the root so the
+            # caller can report an image that cannot import it.
             missing_roots.add(result.missing_attr or chain[0])
         else:
             resolved += 1
@@ -326,7 +353,12 @@ def resolve_file(
 
 
 def run_job(job: dict[str, Any]) -> dict[str, Any]:
-    """Resolve every target in ``job`` and return the whole report."""
+    """Resolve every target in ``job`` and build the report the rung reads.
+
+    Targets are visited in sorted path order and share one platform-constant
+    cache. The report names the interpreter and host platform that produced it,
+    so a fault can be traced to the image rather than to the change.
+    """
     cache: dict[str, set[str]] = {}
     files: list[dict[str, Any]] = []
     for path, lines in sorted(job["targets"].items()):

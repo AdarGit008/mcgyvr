@@ -1,43 +1,17 @@
-"""A scan is measured on the machine it describes, and says how.
+"""A machine as it was measured, and the two ways to measure it.
 
-Everything else here sizes work against numbers a machine *claims*: the
-capability table ships pre-measured, and :mod:`mcgyvr.detect` reads nameplates
-on purpose, because a 30-second install cannot afford a benchmark. This module
-is the other half of that trade, for the one question a nameplate cannot
-answer — whether a rig can hold this model *right now*. So every number below
-is read at the moment it is reported: free VRAM as well as total, available RAM
-as well as total, and bandwidth timed rather than looked up, since a
-DDR5-5600 figure describes the modules a machine was sold with and not the
-machine they ended up in.
+The dataclasses here are the shape one scan fills in: the machine, its cards and
+the VRAM each has left, its RAM, CPU, measured memory bandwidth, free disk, the
+model files on disk, docker, and its addresses. A number that was not read is
+absent rather than defaulted: what was absent is said in ``notes`` and how each
+number was obtained is said in ``facts``.
 
-Nothing here measures anything. The one reader of a machine is
-:mod:`mcgyvr.serving.rigscan`: :func:`scan` runs it here, and :func:`scan_over`
-ships it to a rig as ``python3 -I -B -`` and reads its answer back, so a
-laptop never infers a rig's hardware from the models a backend says it is
-holding. Local and SSH differ in access only; the answer has one shape,
-:class:`Scan`, parsed by :meth:`Scan.from_json`, and no access yields a
-smaller answer rather than a wrong one.
-
-Three rules shape what a scan says.
-
-1. **Absence is an outcome, not an error** — the same rule :mod:`mcgyvr.detect`
-   runs on. A missing ``nvidia-smi``, an unreadable ``/proc/meminfo`` or an
-   unreachable rig makes the scan smaller and adds a note; nothing raises
-   because a tool is not installed. A note matters as much as the absence: a
-   silent gap reads as "no GPU" when it may mean "not determined".
-2. **Volatile and stable numbers are different kinds of fact.** Used VRAM,
-   available RAM and free disk are expected to move between two scans of one
-   machine; total VRAM, GPU names, total RAM and core counts are not. The one
-   record of a machine is its rig file (:mod:`mcgyvr.serving.rigfile`), and
-   :func:`mcgyvr.serving.rigfile.moved` flags only the second kind, because an
-   alarm that fires every time someone opens a browser is an alarm nobody
-   reads.
-3. **A scan runs where it describes.** A laptop cannot see a rig's free VRAM,
-   so the remote transport reads the rig on the rig.
-
-The seam onto a remote rig — :func:`_ssh` — is a module-level function rather
-than a call inlined where it is needed, so a suite can state what a rig
-answered and assert on how this code treats it without owning the rig.
+A scan travels as json (``to_json``, ``from_json``) and is produced either here
+(``reading``, ``scan``) or on the host itself over ssh (``read_over``,
+``scan_over``), because free VRAM and memory bandwidth are only visible from the
+machine they describe. ``scan_all`` reads this machine plus each named host and
+keeps a host that could not be read as a name in ``unreachable``, not as an
+error.
 """
 
 from __future__ import annotations
@@ -50,8 +24,8 @@ from dataclasses import dataclass, replace
 from pathlib import Path
 from typing import Any
 
-# A remote scan measures bandwidth on the far end, so it is not instant; the
-# budget is for a rig that is up and working, not for one that is gone.
+# How long one ssh read may run before its host counts as unreachable.
+# Each host gets this to itself; the bound is not shared across a sweep.
 SSH_TIMEOUT_S = 60.0
 
 BYTES_PER_GB = 1024.0**3
@@ -60,11 +34,16 @@ _Facts = tuple["Fact", ...]
 _Notes = tuple[str, ...]
 
 
-# Named for the outcome it reports rather than with an Error suffix (N818):
-# an unreachable host is a fact a sweep records and hands back in
-# ``Sweep.unreachable``, not a failure of the sweep.
+# The three ways a remote read fails to produce a scan, told apart so that a
+# caller can say which one happened: the host did not answer, it answered
+# without the shipped reader, or the reader printed what no Scan can be read
+# from.
 class Unreachable(Exception):  # noqa: N818
-    """A host whose ssh transport could not be reached. Carries which one."""
+    """The host gave no answer over ssh, so nothing about it was read.
+
+    Raised for a transport failure or a timeout of the ssh call: the repair is
+    access to that host, not anything on the host.
+    """
 
     def __init__(self, host: str) -> None:
         super().__init__(f"{host}: no answer over ssh")
@@ -72,11 +51,11 @@ class Unreachable(Exception):  # noqa: N818
 
 
 class ScannerMissing(Exception):  # noqa: N818
-    """A rig that answered ssh but could not run the shipped scan command.
+    """The host answered, but the read command it was given failed there.
 
-    This is the modern spelling of "no mcgyvr installed": the rig is up and
-    reachable, but the far end has no python3 (or the shipped command failed
-    for another reason), so no measurement came back.
+    This is what a host without the shipped reader looks like from here: ssh
+    exits non-zero and the message carries up to 300 characters of its stderr,
+    which is where the reason is usually said.
     """
 
     def __init__(self, host: str, said: str = "") -> None:
@@ -86,7 +65,11 @@ class ScannerMissing(Exception):  # noqa: N818
 
 
 class ScanFailed(Exception):  # noqa: N818
-    """A rig that ran the shipped scan but printed no parseable scan."""
+    """The host answered and exited clean, but what it printed is not a scan.
+
+    Raised when the output is not json, not a json object, or a document whose
+    fields cannot be read into a :class:`Scan`.
+    """
 
     def __init__(self, host: str) -> None:
         super().__init__(f"{host}: the shipped scan printed no parseable scan")
@@ -95,10 +78,11 @@ class ScanFailed(Exception):  # noqa: N818
 
 @dataclass(frozen=True)
 class Fact:
-    """A field, and how it came to be known.
+    """One number in a scan and the means by which it was obtained.
 
-    A measured value with no provenance is indistinguishable from a guess, and
-    a scan has to be explainable to the person whose machine it describes.
+    ``field`` names the reading (``gpu[0].vram.total_mib``, ``cpu.cores``) and
+    ``how`` names the source that gave it (``lscpu CPU(s)``, ``Scan.of``), so a
+    number can always be traced back to what produced it.
     """
 
     field: str
@@ -107,7 +91,11 @@ class Fact:
 
 @dataclass(frozen=True)
 class Mismatch:
-    """A stable field that disagrees with what the last scan of this machine found."""
+    """One field whose value moved between two readings of one machine.
+
+    ``prior`` is the value recorded before and ``measured`` the one just taken;
+    both are untyped, so a count and a string are held the same way.
+    """
 
     field: str
     prior: object
@@ -116,13 +104,12 @@ class Mismatch:
 
 @dataclass(frozen=True)
 class Vram:
-    """One card's memory. ``free`` is the number that decides a fit today.
+    """One card's video memory, in MiB, as the driver reported it.
 
-    ``reserved`` is the remainder the driver holds and never hands to a process.
-    It is carried rather than folded into
-    ``used`` because the two are answerable by different people -- used is a
-    workload and reserved is the card -- and because carrying it is what lets
-    the four numbers close: ``total == used + free + reserved``, always.
+    ``total_mib`` is the card's whole memory, ``used_mib`` what is allocated
+    now, ``free_mib`` what the tool says is left, and ``reserved_mib`` the part
+    that is neither used nor free (total - used - free, and 0 when the tool did
+    not say).
     """
 
     total_mib: int
@@ -133,8 +120,12 @@ class Vram:
 
 @dataclass(frozen=True)
 class Memory:
-    """System memory. ``available_gb`` is the kernel's own estimate of what a
-    new workload could get without swapping — free memory alone understates it."""
+    """This machine's RAM, in GB of ``BYTES_PER_GB`` (1024**3) bytes.
+
+    ``total_gb`` is the installed memory and ``available_gb`` what a new process
+    could still allocate; a reading that could give only a total is not a
+    Memory at all, since ``Scan.from_json`` drops the whole section.
+    """
 
     total_gb: float
     available_gb: float
@@ -142,10 +133,11 @@ class Memory:
 
 @dataclass(frozen=True)
 class Cpu:
-    """Cores and threads kept apart, because they are different constraints.
+    """The core and hardware-thread counts this machine reports.
 
-    Twenty threads on ten cores is ten cores' worth of throughput; conflating
-    them doubles the apparent machine.
+    ``cores`` is physical cores (lscpu's Core(s) per socket x Socket(s), or
+    os.cpu_count() when lscpu is silent, which counts threads) and ``threads``
+    the logical CPUs.
     """
 
     cores: int
@@ -158,11 +150,10 @@ class Cpu:
 
 @dataclass(frozen=True)
 class Bandwidth:
-    """Measured memory throughput, and the method that produced it.
+    """A memory bandwidth figure measured on this machine, in GB/s.
 
-    ``how`` is not decoration: a number from a copy loop and a number off a
-    module's nameplate are not comparable, and only one of them describes the
-    machine it was read on.
+    ``how`` names the measurement that produced it, so a number from the copy
+    loop is never mistaken for one read off a module nameplate.
     """
 
     measured_gbps: float
@@ -171,7 +162,12 @@ class Bandwidth:
 
 @dataclass(frozen=True)
 class Disk:
-    """Free space where weights would land — the path matters as much as the number."""
+    """Free space on the filesystem that holds a weights directory.
+
+    ``path`` is the directory that was probed and ``free_gb`` what it had left;
+    ``total_gb`` and ``device`` are None when they could not be read (no usable
+    filesystem, or no entry for it in /proc/self/mounts).
+    """
 
     path: Path
     free_gb: float
@@ -181,13 +177,11 @@ class Disk:
 
 @dataclass(frozen=True)
 class ModelOnDisk:
-    """One weights file on disk, named enough to be reused instead of fetched.
+    """One model file found on this machine's disk.
 
-    ``name`` is the model id/name read off the file name; ``quant`` is the
-    GGUF quantisation when the file name carries one, else None (safetensors
-    shards name their model by the directory they sit in). ``size_bytes`` is
-    the file's size, which is what a later download step matches before it
-    spends the bandwidth.
+    ``name`` is the file's name with ``.gguf`` and any quantization suffix
+    removed, ``quant`` that suffix when the name carried one, ``size_bytes`` the
+    file's size, and ``path`` where it is.
     """
 
     name: str
@@ -198,7 +192,11 @@ class ModelOnDisk:
 
 @dataclass(frozen=True)
 class Interface:
-    """One IPv4 address on one of the machine's network interfaces."""
+    """One IPv4 address on one network interface, as ``ip`` printed it.
+
+    ``interface`` is the interface name without its ``@peer`` suffix and
+    ``address`` the address without its prefix length.
+    """
 
     interface: str
     address: str
@@ -206,14 +204,11 @@ class Interface:
 
 @dataclass(frozen=True)
 class Network:
-    """How the machine says it is reached, as it read it itself.
+    """Where this machine sits on the network, as the machine itself reports it.
 
-    ``reached_at`` is the address its ssh session arrived at (the local
-    address in ``SSH_CONNECTION``), ``None`` when it was not reached over ssh;
-    ``ipv4`` is every IPv4 address on its interfaces. Read on the far end of a
-    remote scan (:mod:`mcgyvr.serving.rigscan`), so the controller resolves no
-    name to learn where a rig is: :func:`mcgyvr.serving.rigfile.private_ipv4`
-    picks from what the rig said.
+    ``reached_at`` is the local address its ssh session arrived from
+    (``SSH_CONNECTION``), None when the machine was not read over ssh; ``ipv4``
+    holds one entry per address on its interfaces.
     """
 
     reached_at: str | None
@@ -236,7 +231,15 @@ class Machine:
 
 @dataclass(frozen=True)
 class Scan:
-    """What one machine measured of itself, with provenance and gaps."""
+    """One machine as a single reading: what it has and what could not be read.
+
+    Every field was read from the machine, or stated by ``Scan.of``, which
+    records in ``facts`` the numbers it filled; a section left None was not
+    determined, never assumed, and ``notes`` carries the sentence saying why.
+    ``docker`` is the version string the docker CLI printed and ``network`` the
+    addresses the machine reported, both None when that part of the reading is
+    absent.
+    """
 
     machine: Machine
     gpus: tuple[Gpu, ...] = ()
@@ -247,19 +250,21 @@ class Scan:
     models_on_disk: tuple[ModelOnDisk, ...] = ()
     notes: _Notes = ()
     facts: _Facts = ()
-    #: The version the machine's own docker daemon reports, read by the one
-    #: reader (:mod:`mcgyvr.serving.rigscan`) as the user it runs as. ``None``
-    #: when it was not read: a daemon may not answer its user.
+    #: The docker CLI's version string, None when there is no docker here or
+    #: its daemon gave no answer; ``notes`` says which of those it was.
     docker: str | None = None
-    #: How the machine says it is reached, read by the one reader where the
-    #: machine is. ``None`` when a reading carried none.
+    #: The address this machine was reached at, and the addresses its
+    #: interfaces hold; None when the reading carried no network section.
     network: Network | None = None
 
     @property
     def gpus_determined(self) -> bool:
-        """Whether :attr:`gpus` is every card the machine has, as far as
-        nvidia-smi can say — read off the notes, which travel with the scan:
-        the reader's own words for a card list that is not the whole answer."""
+        """True unless a note says the card list is incomplete.
+
+        A reader that was absent, or a row it printed but could not read,
+        leaves ``gpus`` possibly short of the cards actually present, which
+        downstream must not read as cards that were pulled.
+        """
         from mcgyvr.serving.rigscan import GPU_NOT_DETERMINED, GPU_ROW_UNREAD
 
         return not any(
@@ -278,12 +283,14 @@ class Scan:
         threads: int | None = None,
         bandwidth_gbps: float | None = None,
     ) -> Scan:
-        """Build a scan by hand, for callers that need a machine to reason about.
+        """A scan stated by the caller instead of measured on a machine.
 
-        Only what is named is present, so a constructed scan can express the
-        same gaps a measured one can. Every field named gets a fact saying it
-        was constructed — a hand-built scan that claimed to have been measured
-        would defeat the point of carrying provenance at all.
+        Only the sections named are filled: ``vram_mib`` makes one card at
+        index 0, ``ram_gb`` fills total and available alike, ``cores`` and
+        ``threads`` stand in for each other when only one is given, and
+        ``disk_free_gb`` is reported for ``default_weights_dir()``. Each number
+        filled is recorded in ``facts`` as having come from ``Scan.of``, so a
+        stated scan is never mistaken for a measured one.
         """
         facts: list[Fact] = []
         gpus: tuple[Gpu, ...] = ()
@@ -302,8 +309,8 @@ class Scan:
             facts.append(Fact(field="memory.total_gb", how="Scan.of"))
         cpu = None
         if cores is not None or threads is not None:
-            # One number named is a machine with no SMT claim either way, so
-            # the other takes its value rather than being invented.
+            # One count is enough from the caller: cores alone give the same
+            # number of threads, and threads alone the same number of cores.
             cpu = Cpu(cores=cores or threads or 0, threads=threads or cores or 0)
             facts.append(Fact(field="cpu.cores", how="Scan.of"))
         bandwidth = None
@@ -325,16 +332,21 @@ class Scan:
         )
 
     def with_vram_used(self, mib: int) -> Scan:
-        """The same machine with its cards holding ``mib`` — a load, not a rescan."""
+        """A copy of this scan with ``mib`` held on every card.
+
+        ``free_mib`` is recomputed as total less reserved less ``mib``, floored
+        at 0, because the measured free no longer describes a card carrying
+        this much. The scan this was called on is left as it was.
+        """
         gpus = tuple(
             replace(
                 gpu,
                 vram=Vram(
                     total_mib=gpu.vram.total_mib,
                     used_mib=mib,
-                    # The reserve is the card's, so a hypothetical load does
-                    # not get to spend it: only what was free plus what this
-                    # machine's own workload was holding is on offer.
+                    # Free is derived, not copied: the measured free describes
+                    # the card as it was, and a card holding more than it has
+                    # free floors at 0 rather than going negative.
                     free_mib=max(gpu.vram.total_mib - gpu.vram.reserved_mib - mib, 0),
                     reserved_mib=gpu.vram.reserved_mib,
                 ),
@@ -422,8 +434,14 @@ class Scan:
 
     @classmethod
     def from_json(cls, text: str) -> Scan:
-        """Read a scan back. The wire shape is the transport for a remote scan
-        as well as the on-disk record, so there is only ever one parser."""
+        """A scan read back from the json ``to_json`` writes.
+
+        Sections that are absent or null come back as None or as empty tuples
+        rather than as errors, which is how a reading from an older or a
+        partial scanner still parses, and a memory section with no available
+        memory is dropped whole. Whatever json and the field conversions raise
+        is left to the caller, and ``scan_over`` turns that into ``ScanFailed``.
+        """
         raw: Any = json.loads(text)
         machine = raw.get("machine") or {}
         memory = raw.get("memory")
@@ -445,14 +463,15 @@ class Scan:
                         total_mib=int(gpu["vram"]["total_mib"]),
                         used_mib=int(gpu["vram"]["used_mib"]),
                         free_mib=int(gpu["vram"]["free_mib"]),
-                        # A stored scan that carries no reserve reads as zero.
+                        # reserved_mib arrived after the first scans did: a
+                        # reading that omits it has nothing to report.
                         reserved_mib=int(gpu["vram"].get("reserved_mib", 0)),
                     ),
                 )
                 for gpu in raw.get("gpus") or ()
             ),
-            # A total with no available figure (sysctl's, on a Mac) is no
-            # memory a fit can be sized against.
+            # A memory section with no available_gb says nothing a process
+            # could allocate, so it reads as not determined at all.
             memory=(
                 None
                 if memory is None or memory.get("available_gb") is None
@@ -528,7 +547,11 @@ class Scan:
 
 @dataclass(frozen=True)
 class Reach:
-    """How this process can get at a machine. ``None`` is here, itself."""
+    """Which machine a scan is for.
+
+    ``host=None`` is this machine; anything else is that host, read over ssh.
+    The two differ only in transport: the same scan runs on either.
+    """
 
     host: str | None = None
 
@@ -547,11 +570,11 @@ class Reach:
 
 @dataclass(frozen=True)
 class Sweep:
-    """What a sweep of several machines found, and which ones it could not reach.
+    """What reading several machines at once produced.
 
-    The hosts that did not answer are carried rather than dropped: a plan made
-    from two rigs when three were asked for is a different plan, and the caller
-    has to be able to see which one is missing.
+    ``scans`` holds the machines that answered and ``unreachable`` the hosts
+    that did not, so a missing rig is a name in a list rather than a failure
+    that loses the rigs beside it.
     """
 
     scans: tuple[Scan, ...] = ()
@@ -559,20 +582,14 @@ class Sweep:
 
 
 def _ssh(host: str, command: str) -> str:
-    """Run one read-only detection command on another machine, or say it is not there.
+    """Run one read command on ``host`` over ssh and return its stdout.
 
-    Through :func:`mcgyvr.serving.gatelib.ssh_read_only`, the sanctioned
-    read-only ssh path: it admits only the shipped-reader line, the ``*.gguf``
-    discovery line and the shipped-reader header-read line, and refuses (exit
-    2) anything else. A remote scan is a rig read, and only the door's
-    read-only detection commands are admitted here; launch, sleep and wake
-    still go through :func:`mcgyvr.serving.gatelib.ssh` under the door.
-    ``BatchMode`` keeps a host whose key is not set up from parking the sweep
-    on a password prompt: no credentials means unreachable. A rig that answers
-    ssh but whose remote command fails is a different outcome, reported as
-    :class:`ScannerMissing` rather than a lost ssh connection.
+    The command has to be one ``gatelib.ssh_read_only`` admits, so this channel
+    can only read. A transport failure or a timeout raises ``Unreachable``, a
+    non-zero exit raises ``ScannerMissing`` carrying the host's stderr, and
+    anything else hands the stdout back for the caller to parse.
     """
-    # Imported here and not at the top: `mcgyvr.serving` imports this module.
+    # The gate library refuses any command that is not the shipped reader.
     from mcgyvr.serving import gatelib
 
     try:
@@ -585,24 +602,34 @@ def _ssh(host: str, command: str) -> str:
 
 
 def default_weights_dir() -> Path:
-    """The path whose free space a scan reports when the caller names none, as
-    the one reader names it (:func:`mcgyvr.serving.rigscan.default_weights_dir`)."""
+    """Where this machine keeps its weights.
+
+    ``MCGYVR_WEIGHTS`` when set, else ``~/.cache/mcgyvr/weights``, expanded;
+    rigscan resolves it, so a local and a remote path follow the same rule.
+    """
     from mcgyvr.serving import rigscan
 
     return Path(rigscan.default_weights_dir())
 
 
 def scan(weights_dir: Path | None = None, model_stores: Sequence[Path] = ()) -> Scan:
-    """Read this machine with the one reader. Never raises: a bare machine is a
-    valid answer."""
+    """Measure this machine and return it as a ``Scan``.
+
+    The reading is rigscan's dict, read back through ``Scan.from_json``, so a
+    local scan is parsed by the same code as a remote one.
+    """
     return Scan.from_json(json.dumps(reading(weights_dir, model_stores)))
 
 
 def reading(
     weights_dir: Path | None = None, model_stores: Sequence[Path] = ()
 ) -> dict[str, Any]:
-    """This machine's whole reading (:func:`mcgyvr.serving.rigscan.scan`): what
-    :func:`scan` parses, and what a rig file keeps."""
+    """This machine's raw reading, as the document a rig file keeps whole.
+
+    ``weights_dir`` is where models are looked for and probed for free disk;
+    rigscan defaults it to ``default_weights_dir()`` when None. ``model_stores``
+    are searched for model files in addition to that directory.
+    """
     from mcgyvr.serving import rigscan
 
     return rigscan.scan(
@@ -612,37 +639,31 @@ def reading(
 
 
 def local_machine_id() -> str:
-    """The id of *this* machine, without measuring anything.
-
-    A caller that only needs to know which record describes the machine it is
-    running on — resolving a source that says ``localhost`` to the record of
-    whatever this host calls itself — is asking about identity, not about
-    hardware, and pays for no measurement to find out. Identity, not the name:
-    the one reader derives the id from ``/etc/machine-id`` where there is one
-    (:func:`mcgyvr.serving.rigscan.machine_id`), so this stays right across a
-    rename, and two machines that happen to share a hostname stay apart.
-    """
+    """This machine's id, as rigscan derives it, without reading anything else."""
     from mcgyvr.serving import rigscan
 
     return rigscan.machine_id()
 
 
 def _remote_scan_command() -> str:
-    """The read-only line that ships the one reader to the rig."""
-    # Imported here and not at the top: `mcgyvr.serving` imports this module.
+    """The command a remote host is asked to run.
+
+    It is the shipped reader itself, base64'd from this installation and piped
+    into python3 on the host, so a rig needs no mcgyvr installed there.
+    """
+    # Nothing has to exist on the host: the reader travels inside the command.
     from mcgyvr.serving import gatelib
 
     return gatelib.scan_read_command()
 
 
 def read_over(reach: Reach) -> dict[str, Any]:
-    """The one reader's whole document of the machine ``reach`` reaches.
+    """Read one machine's raw reading over ``reach``.
 
-    The remote branch ships the one reader to the far end as
-    ``python3 -I -B -`` and reads its answer back, which is the only way the
-    numbers can be measured rather than inferred. A rig that answers ssh but
-    cannot run the reader raises :class:`ScannerMissing`; one that runs it but
-    prints no document raises :class:`ScanFailed`.
+    A local reach calls rigscan here and opens no connection; a host reach runs
+    the shipped reader there and parses what it printed. The ssh itself raises
+    ``Unreachable`` or ``ScannerMissing``, and output that is not json or not a
+    json object raises ``ScanFailed``.
     """
     if reach.host is None:
         return reading()
@@ -657,10 +678,11 @@ def read_over(reach: Reach) -> dict[str, Any]:
 
 
 def scan_over(reach: Reach) -> Scan:
-    """Scan the machine ``reach`` reaches, whichever side of the wire it is on.
+    """Read one machine over ``reach`` and return it as a ``Scan``.
 
-    One reading (:func:`read_over`), parsed: the reason the two branches
-    return one type.
+    Anything the document fails to parse as — bad json, a field missing, a
+    value of the wrong type — raises ``ScanFailed`` naming the host, since no
+    partial scan is better than none.
     """
     document = read_over(reach)
     try:
@@ -670,11 +692,12 @@ def scan_over(reach: Reach) -> Scan:
 
 
 def scan_all(hosts: Sequence[str] = ()) -> Sweep:
-    """Scan this machine and every named host. A host that is gone is reported.
+    """Read this machine and then each named host, one transport apiece.
 
-    The local machine is always in the sweep: it is the one machine access can
-    never fail for, and a sweep that returned nothing because a rig was asleep
-    would be less true than one that returns the laptop.
+    This machine always comes first and its failure is not caught. A host that
+    raises ``Unreachable``, ``ScannerMissing`` or ``ScanFailed`` lands in
+    ``unreachable`` and the rest of the sweep carries on; a host named twice is
+    read once.
     """
     scans: list[Scan] = [scan_over(Reach.local())]
     unreachable: list[str] = []

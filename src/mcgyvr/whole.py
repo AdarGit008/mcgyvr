@@ -1,36 +1,12 @@
-"""A chat completion asked of a unit as a stream, and assembled whole.
+"""Assemble a streamed chat completion into the one answer a client asked for.
 
-A model server notices that whoever asked has gone only when it writes to
-them, and an answer not streamed is written once, at its end: a slot asked for
-one and left mid-answer decodes the rest for nobody. A stream is written a
-token at a time, so a hang-up on it stops the slot within a token. So the
-product asks every unit for a stream whatever the caller asked (:func:`asking`
-on a request's JSON object, :func:`as_stream` on its bytes: ``stream`` and the
-counts in the last event, ``stream_options.include_usage``, the rest as it
-came) and, where the caller wanted the whole answer, assembles it itself
-(:class:`Whole`), as the unit would have written one not streamed.
-
-The shape assembled is the OpenAI chat completion's, as llama.cpp's
-``to_json_oaicompat_chat`` writes it and the other compatible engines agree:
-each choice's deltas joined into its message (content, reasoning, tool calls
-by index, the probabilities of each token), its finish reason, the ``usage``
-of the event that carries one, and the ``id``, ``model``, ``created`` and
-``system_fingerprint`` as the last event that names them does. What else an
-event carries at its top (llama.cpp's ``timings``, say) is no field of the
-standard and passes through as the last event that carries it says it, so an
-engine's own additions reach the caller as they would have. An error event
-(``error:`` as llama.cpp writes it, or a ``data:`` object that is an ``error``
-and no completion, as the hosted APIs write one) is the status its code says
-and the error as the body, as a request not streamed is answered; a stream
-that ends with neither its answer nor an error is the unit's failure, and
-:meth:`Whole.answer` says so with ``None``. Hostile input safe: what is no
-event, no JSON or not the shape is skipped, and an event longer than any of a
-chat completion's (:data:`MAX_EVENT_BYTES`) is a ``ValueError``, since a
-server writing one speaks no stream.
-
-The runner uses this for every dispatch (:mod:`mcgyvr.runner`); the rig
-agent's relay reuses it for the hub's pool requests and for rides
-(:mod:`mcgyvr.rig.relay`), never a copy of its own.
+A relay may have to ask an OpenAI-protocol server to stream even when its
+client wants a single JSON body: `asking` rewrites such a request, `Whole`
+feeds on the server-sent events and joins each choice's deltas, and `answer`
+returns the status, content type and body of the equivalent non-streamed
+response. An error reported inside the stream is carried out as an error body,
+and the text and logprobs taken in are counted in `size` so a caller can stop
+on a reply that grows too large.
 """
 
 from __future__ import annotations
@@ -39,43 +15,41 @@ import json
 from dataclasses import dataclass, field
 from typing import Any
 
-#: The longest one event of a unit's stream may be, in bytes, when the answer
-#: is assembled: a token's event is under a kilobyte and the last, with the
-#: counts and timings, a few; a stream with a longer one is not a chat
-#: completion's.
+#: The most one event may hold before it counts as one that never ended: a chat
+#: completion's events are far smaller, so reaching this means the blank line
+#: separating events never arrived. `feed` raises rather than buffer without
+#: end.
 MAX_EVENT_BYTES = 64 * 1024
-#: The type of a whole answer, as llama.cpp writes it.
+#: The content type of an answer dumped back as one JSON body.
 JSON_TYPE = "application/json; charset=utf-8"
-#: The type of a stream.
+#: The media type a chat completion is streamed as.
 EVENT_STREAM = "text/event-stream"
 
-#: The top-level fields of a chat completion's event that are assembled, not
-#: passed through: the choices build the messages, the object is the whole's
-#: own, the usage is the one event's that carries it.
+#: The chunk keys not carried into the answer verbatim: the choices are joined
+#: across events, the object is restated as a non-streamed completion's, and the
+#: usage is held aside to be added after the choices.
 _ASSEMBLED = frozenset({"choices", "object", "usage"})
 
 
 def media(content_type: str) -> str:
-    """The media type of ``content_type``, without its parameters, lowered."""
+    """The bare media type of a Content-Type value: parameters dropped, lowercased."""
     return content_type.split(";")[0].strip().lower()
 
 
 def dump(value: Any) -> bytes:
-    """``value`` as llama.cpp writes its JSON: compact, keys in order."""
+    """The value as compact JSON, keys sorted, non-ASCII kept as itself."""
     try:
         text = json.dumps(
             value, ensure_ascii=False, sort_keys=True, separators=(",", ":")
         )
         return text.encode()
-    except UnicodeEncodeError:  # a lone surrogate from the unit: escaped
+    except UnicodeEncodeError:  # text UTF-8 cannot carry, so escape it instead
         return json.dumps(value, sort_keys=True, separators=(",", ":")).encode()
 
 
 def asking(request: dict[str, Any]) -> dict[str, Any]:
-    """``request``, a chat completion's JSON object, asking for a stream and
-    for its counts (``stream_options.include_usage``) in the last event; its
-    own stream options are kept beside the one set. A new object: the given
-    one is not changed."""
+    """The request made to stream, keeping any stream options it already had and
+    turning on the last event's usage report."""
     options = request.get("stream_options")
     return {
         **request,
@@ -88,9 +62,8 @@ def asking(request: dict[str, Any]) -> dict[str, Any]:
 
 
 def as_stream(body: bytes) -> bytes | None:
-    """``body``, a chat completion request, asking for a stream and its counts
-    (:func:`asking`), the rest as it came; ``None`` when it is no JSON object,
-    to go as it came."""
+    """The request body rewritten to stream, or None when the body is not a JSON
+    object or holds text UTF-8 cannot carry, which the caller relays as it is."""
     try:
         asked = json.loads(body)
     except ValueError:
@@ -101,7 +74,7 @@ def as_stream(body: bytes) -> bytes | None:
         return json.dumps(
             asking(asked), ensure_ascii=False, separators=(",", ":")
         ).encode()
-    except UnicodeEncodeError:  # a lone surrogate: not a body to rewrite
+    except UnicodeEncodeError:  # text UTF-8 cannot carry, so stream nothing
         return None
 
 
@@ -114,18 +87,18 @@ class _ToolCall:
 
 @dataclass
 class _Choice:
-    """One choice of the answer, as its deltas build it."""
+    """One choice's fragments joined as they arrive: text, reasoning, tool calls,
+    logprobs, and the finish reason once the stream reports it."""
 
-    text: str = ""  # the message's content
+    text: str = ""  # the content fragments joined so far
     reasoning: str = ""
     tool_calls: dict[int, _ToolCall] = field(default_factory=dict)
     logprobs: list[Any] = field(default_factory=list)
     finish_reason: str | None = None
 
     def whole(self, index: int) -> dict[str, Any]:
-        """The choice as ``to_json_oaicompat_chat`` writes it: the message
-        with its reasoning when there is any, its content (``null`` when
-        there is none and there are tool calls), its tool calls."""
+        """This choice as one entry of a non-streamed answer, its tool calls in
+        index order and its content null only when the reply is tool calls alone."""
         message: dict[str, Any] = {"role": "assistant"}
         if self.reasoning:
             message["reasoning_content"] = self.reasoning
@@ -150,16 +123,13 @@ class _Choice:
 
 
 class Whole:
-    """A chat completion streamed from a unit, assembled as the unit writes
-    one not streamed (the module's docstring says how). Fed the stream's bytes
-    as they come (:meth:`feed`); :meth:`answer` is the whole once a finish
-    reason or an error has come. ``size`` is how much text the answer holds so
-    far, in bytes, for a caller with a bound on it."""
+    """One streamed answer being assembled: `feed` it the bytes as they arrive
+    and `answer` returns the whole body once every choice has finished."""
 
     def __init__(self) -> None:
-        self._held = b""  # the start of an event, until its end comes
+        self._held = b""  # the event so far, short of its blank-line separator
         self._choices: dict[int, _Choice] = {}
-        self._last: dict[str, Any] = {}  # the fields passed through, last wins
+        self._last: dict[str, Any] = {}  # chunk fields kept for the answer, later wins
         self._usage: dict[str, Any] | None = None
         self._error: Any = None
         self.size = 0
@@ -173,8 +143,9 @@ class Whole:
             raise ValueError("an event longer than any of a chat completion's")
 
     def answer(self) -> tuple[int, str, bytes] | None:
-        """The whole answer: status, type and body; ``None`` while no choice
-        has its finish reason and no error came."""
+        """The answer as status, content type and body, or None while any choice
+        still lacks a finish reason; an error met in the stream becomes an error
+        body, carrying its code as the status when that code is one."""
         if self._error is not None:
             code = self._error.get("code") if isinstance(self._error, dict) else None
             status = 500
@@ -231,7 +202,7 @@ class Whole:
             return
         choices = event.get("choices")
         if "choices" not in event and isinstance(event.get("error"), dict):
-            # An error in place of a completion, as the hosted APIs write one.
+            # an error event with no choices alongside it ends the assembly here
             self._error = event["error"]
             return
         for key, value in event.items():
@@ -280,7 +251,8 @@ class Whole:
             call.arguments += self._text(function.get("arguments"))
 
     def _text(self, value: Any) -> str:
-        """``value`` when it is text, counted; else nothing."""
+        """The fragment as text, empty when it is not a string, its UTF-8 length
+        added to `size`."""
         if not isinstance(value, str):
             return ""
         self.size += len(value.encode("utf-8", errors="replace"))

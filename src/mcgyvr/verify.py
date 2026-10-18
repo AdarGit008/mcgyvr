@@ -1,92 +1,16 @@
-"""Independent verification: what a reviewer is shown, and what its reply becomes.
+"""Ask a model that did not write a change to judge it against its contract.
 
-:mod:`mcgyvr.escalate` owns the policy half of this lever:
-:func:`~mcgyvr.escalate.judge` reads the gate first and returns before
-``verifier`` is so much as named on the rejected path;
-:class:`~mcgyvr.escalate.Opinion` separates a refusal from a reply that could
-not be read; and :attr:`~mcgyvr.escalate.Assurance.VERIFIED` is reachable only
-through :attr:`~mcgyvr.escalate.Opinion.AGREED`. This module is the mechanism
-between a model and that enum: it assembles the prompt, reads the reply and
-constructs the :class:`~mcgyvr.escalate.Review`, dispatching through
-:func:`~mcgyvr.runner.dispatch_role`.
+Verification is settled in a fixed order. The family's policy decides whether a
+model review is owed at all, the identity check refuses a reviewer whose
+weights are the builder's, and only then is a reviewer asked. A reply that came
+back is read as one of four outcomes (:class:`ReviewOutcome`), two of which
+agree with the change. A reviewer that could not be asked, could not be read,
+or was cut short yields an *unusable* review, which is never an approval.
 
-**The reviewer is shown the whole pre-change file, not a diff's context lines.**
-A patch carries three lines either side of an edit, which is enough to see that
-a change is syntactically plausible and not enough to see that it broke the
-caller two functions down. So :func:`build_prompt` takes the target's full
-content as it stood before the change, and a reviewer that was not given one is
-told so in the prompt rather than left to assume it saw everything.
-
-**A model never verifies its own output, and the refusal happens before the
-spend.** Identity is checked ahead of assembling anything, because a
-self-review that ran and was then discarded has already cost what the rule
-exists to save. The comparison is on the weights the two names point at, not on
-the two strings — a rule the config file can defeat by capitalising a model
-differently, appending a registry's ``:latest``, or pasting in a provider
-prefix is not a rule, and neither is one a zero-width space defeats.
-:func:`model_identity` is that reading, and it normalises only what a registry
-itself treats as noise. Two models from one family are *not* the same model:
-``qwen2.5-coder:32b`` reviewing ``qwen2.5-coder:7b`` is the ordinary local
-setup, and refusing it would leave most installs with no verifier at all.
-
-**The verdict must be the exact first token of the reply.** ``Cannot approve``
-contains the word and is a refusal; ``I would APPROVE if …`` contains it and is
-a condition; ``Sure, this looks fine`` is an agreement carrying no verdict at
-all. A substring search reads the first two as approvals, which is the single
-failure this whole path is shaped around, so :func:`read_verdict` anchors at the
-start of the first non-empty line and returns ``None`` for everything else.
-``None`` is not a refusal — see the next paragraph — and it is certainly not an
-approval.
-
-**The typed verdict is the default, and prose is the fallback.** Every
-:class:`Reviewer` carries a typed seam, so the verdict is first asked as a
-single :class:`~mcgyvr.decision.Noul` read from next-token probabilities — no
-prose, no anchor, no substring to misread — and :func:`read_typed_verdict`
-reads it. A reviewer whose unit answers without probabilities is asked in
-prose instead, through :func:`read_verdict`. A reviewer that could not be
-reached, or answered an HTTP error, is not asked twice: that is a
-reviewer-side failure, whichever way it would have been asked.
-
-**Who reviews.** ``verifier.unit`` names the reviewer outright, hosted or not
-— except of work that unit's own model wrote. Escalated work lands on the
-dearest rung, which is the unit an operator most often names to review, and a
-named reviewer that may not review the change in front of it would leave the
-climb's best work the one work nobody reads. So :func:`stand_in_rung` picks
-the next-best unit that did not write it, and the judgement says which unit
-reviewed and that it stood in. With no unit named, :func:`reviewer_rung` picks
-one per builder: the next local rung of the climb dearer than the builder's
-whose model is not the builder's. A hosted rung is never picked there, because
-asking it costs money nobody chose to spend on review. Where there is none —
-the builder is the dearest rung, or every dearer local rung serves the
-builder's model, or nothing may stand in for a named verifier — there is no
-independent reviewer, and :class:`NoReviewer` says so in words
-:func:`~mcgyvr.escalate.judge` puts on the acceptance.
-
-**A reviewer-side failure is never charged to the builder.** An unreadable
-reply, an unreachable backend, a review stopped at its output cap and a reviewer
-that is the builder are all :attr:`~mcgyvr.escalate.Opinion.UNUSABLE`, which is
-what :attr:`~mcgyvr.escalate.Judgement.reviewer_failed` exists to keep
-distinguishable from a change that was actually judged and found wanting. A
-truncated review is unusable even when it opens with ``APPROVE``: the notes a
-cap cut off may be the condition the approval was given under.
-
-**The semantic rung's non-blocking items arrive here as notes.**
-:class:`~mcgyvr.gate.GateResult` splits what a rung saw into
-``findings``, which reject, and ``observations``, which are real,
-line-attributed and deliberately outside the verdict. That is only honest if
-something still judges those items, which is what :func:`gate_summary` is for:
-it hands them to the reviewer *labelled as not having failed anything*.
-Promoting them into ``findings`` — here or in the gate — is a policy flip that
-must be argued for, not a tidy-up.
-
-**What is deliberately not here.** Which family a task climbs to next, and what
-a refused review costs it, are :mod:`mcgyvr.escalate`'s — this module hands back
-one :class:`~mcgyvr.escalate.Review` and has no opinion about who tries next,
-which is why an ``ESCALATE`` verdict is a refusal here rather than a routing
-instruction. Whether the assembled prompt fits a budget is
-:func:`~mcgyvr.gate.preflight.check_prompt_fits`'s question and belongs to the
-caller that owns the ceiling, which can ask it because :func:`build_prompt`
-returns the text instead of dispatching it.
+The reply is read two ways. Prose is read by :func:`read_verdict`, which takes
+the outcome token the first non-blank line opens with; the typed path reads a
+:class:`~mcgyvr.decision.BoolAnswer` out of next-token probabilities instead.
+:func:`reviewers_for` decides who is asked, per builder, from the ladder.
 """
 
 from __future__ import annotations
@@ -123,74 +47,66 @@ if TYPE_CHECKING:  # pragma: no cover - typing only
     from mcgyvr.gate import GateResult
     from mcgyvr.local_pool import Rung, SourceMap
 
-#: What the pool calls the reviewer. One name, in one place, because a role that
-#: is spelled differently here than in :mod:`mcgyvr.local_pool` is a role that is
-#: silently never found.
+#: The role a `verifier:` unit is bound under. The typed verdict, the typed JEV
+#: checks and the prose dispatch all ask for it by this name, so a config that
+#: binds the role gets one model behind all three.
 VERIFIER_ROLE = "verifier"
 
-#: The one family a reviewer is picked from when no unit is named: a rung
-#: whose unit declares no credential (:meth:`mcgyvr.catalog.Catalog.family_of`).
-#: A hosted rung costs money per request, so review spends it only where
-#: ``verifier.unit`` says to.
+#: The family name of rungs served on the operator's own machine. It is read in
+#: the two places that decide who may review: only a local rung is picked
+#: unprompted by `reviewer_rung`, and a stand-in is taken from anywhere in this
+#: family but from a hosted family only below a hosted `verifier.unit`.
 LOCAL_FAMILY = "local"
-#: What the reviewer is asked, given the prompt. One string in, one string out:
-#: everything about *where* it runs is the seam's business, which is what lets
-#: every rule in this module be asserted without a backend.
+#: How a reviewer is asked in prose: one prompt in, one reply out. A seam that
+#: cannot reach its reviewer raises rather than returning nothing.
 type Ask = Callable[[str], str]
 
-#: The typed-verdict seam: the assembled state in, a
-#: :class:`~mcgyvr.decision.Decision` out. Built by :func:`decider_for` from the
-#: verifier role, and the new default for a reviewer whose unit serves
-#: next-token probabilities. The free-text :data:`Ask` path remains for the
-#: installs that still bind a prose reviewer.
+#: How a reviewer is asked for a typed decision instead of prose: it takes the
+#: state built by `verdict_state` (or the JEV state) and returns the answers read
+#: from next-token probabilities. A `DecisionError` from it means the model
+#: answered something unreadable, not that it was unreachable.
 type Decide = Callable[[Any], Decision]
 
-#: The answer key a typed verdict is read from, and the single
-#: :class:`~mcgyvr.decision.Noul` asked for it.
+#: The one key a typed verdict fills, and the yes/no question that fills it. A
+#: missing or non-boolean answer under this key is not read as an approval.
 VERDICT_KEY = "verdict"
 VERDICT_QUESTION = Noul(
     "Should this change be approved against the contract it was written for?"
 )
 
-#: What a typed ask raises when the reviewer *answered* but not with
-#: probabilities: a reply with no logprobs, or none of the labels among them.
-#: That says the unit does not serve a typed verdict, which is the one reason
-#: to ask it in prose instead. An HTTP error status is not on the list: it is
-#: raised for a rate limit, a model still loading and a server fault alike,
-#: and asking the backend that just answered one a second way only spends a
-#: second request on it — so it is unusable, like an unreachable reviewer, and
-#: it is not remembered: the next ask may find the backend recovered.
+#: The errors that mean "the reviewer answered, but not in a form that can be
+#: read" — an endpoint with no choices, no logprobs, or none of the expected
+#: labels in its top tokens. They are kept apart from a transport or binding
+#: failure on purpose: `_typed_verdict` catches these and falls back to a prose
+#: prompt on the same reviewer, while anything else is reported as the reviewer
+#: being unreachable. `_TypedMemory` adds to the tuple at run time by making a
+#: reviewer's first such refusal stick, so a model that already failed one typed
+#: question is never asked another.
 _NOT_TYPED: tuple[type[Exception], ...] = (DecisionError,)
 
 
 class ReviewerUnavailableError(RuntimeError):
-    """The verifier role had a binding and then had nothing to dispatch to.
+    """A reviewer was asked for and the role had nowhere to dispatch to.
 
-    Named rather than folded into a generic failure because the two states it
-    sits between mean opposite things: an install with *no* verifier role is an
-    ordinary configuration that :func:`~mcgyvr.escalate.judge` answers with
-    ``UNVERIFIED``, while a role that was bound and then could not serve is a
-    reviewer-side fault in the middle of a task.
+    Raised by the prose seam built on the verifier role once that role turns
+    out to have no source; `verify` turns it into an unusable review.
     """
 
 
 class ReviewTruncatedError(RuntimeError):
-    """A review stopped at its output cap, so its verdict is not read.
+    """A review completion was cut short, so its text is not a verdict.
 
-    Raised inside the ask, where :func:`verify` turns every failure into
-    :attr:`~mcgyvr.escalate.Opinion.UNUSABLE`: a capped review is the
-    reviewer's failure, and it is never an approval.
+    Raised for a completion whose stop reason is `TRUNCATED`; a verdict cut off
+    mid-reply may have been about to name anything, so none of it is read.
     """
 
 
 class ReviewOutcome(StrEnum):
-    """The four words a review may open with, and nothing else.
+    """The four tokens a prose review must open with.
 
-    Named distinctly from :class:`mcgyvr.escalate.Outcome` — which says how a
-    whole *task* ended — so the two never share a bare import name on the
-    composition path. These are the vocabulary one reviewer is given: a closed
-    set is what makes "the verdict is the first token" checkable at all, where
-    free prose would have to be interpreted.
+    The two approving values map to agreement and the two refusing values to
+    refusal (`_OPINION`); the enum's string value is the token itself, which is
+    what `_TOKENS` matches against and what the prompt lists.
     """
 
     APPROVE = "APPROVE"
@@ -199,12 +115,9 @@ class ReviewOutcome(StrEnum):
     ESCALATE = "ESCALATE"
 
 
-# Four outcomes onto three opinions, and both collapses are decisions.
-# APPROVE_WITH_NOTES is an approval — a reviewer who wanted the change altered
-# had REMEDIATE to say so with, and the notes ride along in `Review.detail`.
-# ESCALATE is a refusal and not an unusable answer, because the reviewer did
-# give a verdict; who should try next is `mcgyvr.escalate`'s to decide from a
-# failed attempt, and a review that could route work would be deciding it twice.
+# What each outcome is worth to the escalation path: approval with notes is
+# still agreement, and an escalation is still a refusal of the change as
+# applied. The mapping is what keeps `as_review` from having to enumerate them.
 _OPINION: dict[ReviewOutcome, Opinion] = {
     ReviewOutcome.APPROVE: Opinion.AGREED,
     ReviewOutcome.APPROVE_WITH_NOTES: Opinion.AGREED,
@@ -215,18 +128,17 @@ _OPINION: dict[ReviewOutcome, Opinion] = {
 
 @dataclass(frozen=True)
 class ReviewVerdict:
-    """A reply that could be read: the outcome it opened with, and its notes."""
+    """A prose verdict: the outcome token a reply opened with, and its notes."""
 
     outcome: ReviewOutcome
     notes: str = ""
 
     def as_review(self) -> Review:
-        """This verdict as the answer :func:`~mcgyvr.escalate.judge` reads.
+        """Convert to the plain agreed/refused review the escalation path reads.
 
-        The outcome word is kept in ``detail`` alongside the notes rather than
-        dropped once it has chosen an opinion: ``judge`` renders that detail
-        into a retry note, and "the verifier refused" is not something a worker
-        can act on where "REMEDIATE: the retry loop has no ceiling" is.
+        The detail is the outcome token and, when there are notes, the notes
+        after it, so the refusal text names the one of the four outcomes the
+        reviewer chose.
         """
         word = self.outcome.value
         detail = f"{word}: {self.notes}" if self.notes else word
@@ -235,35 +147,31 @@ class ReviewVerdict:
         return Review.refused(detail)
 
 
-# Longest first: APPROVE is a prefix of APPROVE_WITH_NOTES, so a table tried in
-# declaration order would read the fuller verdict as a bare approval with an odd
-# suffix. `[ _]` accepts the spaced spelling, which is what a model writes when
-# it repeats the token back as English.
+# One compiled pattern per outcome, longest value first, so that
+# APPROVE_WITH_NOTES is tried before APPROVE and cannot be read as a bare
+# APPROVE with notes. The underscore is matched as either `_` or a space, and
+# matching is case-insensitive; the pattern is used with `match`, and the
+# trailing `\b` keeps a longer word that merely starts with a token from
+# counting as that token.
 _TOKENS: tuple[tuple[ReviewOutcome, re.Pattern[str]], ...] = tuple(
     (outcome, re.compile(outcome.value.replace("_", "[ _]") + r"\b", re.IGNORECASE))
     for outcome in sorted(ReviewOutcome, key=lambda o: -len(o.value))
 )
 
-#: Punctuation a model puts between its verdict and its reasons. Stripped from
-#: the front of the notes so the notes start at the first word of the argument,
-#: and never from the back, where it is the model's own sentence. The en dash is
-#: escaped rather than written because ruff reads a literal one as a confusable
-#: hyphen (RUF001), and it is in the set precisely because models write it.
+#: What may sit between the outcome token and the notes on the same line:
+#: blanks, punctuation and dashes. Everything else after the token is notes.
 _NOTE_SEPARATORS = " \t:;.,-—\u2013"
 
 
 def read_verdict(reply: str) -> ReviewVerdict | None:
-    """The verdict a reply opens with, or ``None`` when it opens with none.
+    """Read the verdict out of a prose reply, or None when it names none.
 
-    Anchored at the start of the first non-empty line, and nowhere else: a
-    token found later in the reply is a model discussing the vocabulary, not
-    using it. ``None`` is the whole safety property — a reply this function
-    cannot read is handed on as :attr:`~mcgyvr.escalate.Opinion.UNUSABLE`, which
-    fails the attempt without ever being mistaken for agreement.
-
-    Case is ignored, as in local-ai, because a lowercase ``approve`` at the head
-    of the reply is the same act as an uppercase one; what is not ignored is
-    position, which is the part a chatty reply gets wrong.
+    Only the first non-blank line is inspected: it must *begin* with one of the
+    outcome tokens. The notes are whatever follows that token on the line, less
+    `_NOTE_SEPARATORS`, joined to every later line. A reply whose first non-blank
+    line opens with anything else — including a reviewer that begins with a
+    preamble and names its outcome further down — returns None, which the caller
+    treats as no verdict rather than as an approval.
     """
     lines = reply.strip().splitlines()
     for index, line in enumerate(lines):
@@ -280,21 +188,19 @@ def read_verdict(reply: str) -> ReviewVerdict | None:
                 outcome=outcome,
                 notes="\n".join(part for part in (head, tail) if part),
             )
-        # Only the first non-empty line may carry the verdict. Reading on would
-        # find the token in "I would APPROVE if …" a paragraph later and call a
-        # condition an approval.
+        # The first non-blank line is the only place a verdict may appear, and
+        # it holds none of the four tokens: this reply states no outcome.
         return None
     return None
 
 
 def read_typed_verdict(decision: Decision) -> Review:
-    """A typed verdict as the :class:`Review` :func:`~mcgyvr.escalate.judge` reads.
+    """Read the typed verdict from a decision's answers under `VERDICT_KEY`.
 
-    A :class:`~mcgyvr.decision.Noul` is answered as a single ``Yes``/``No``
-    token read from next-token probabilities, so there is no prose to anchor
-    and no substring to misread. ``Yes`` is agreement, ``No`` is refusal, and
-    anything else — an answer key that is absent, an answer that is not a
-    :class:`~mcgyvr.decision.BoolAnswer` — is unusable rather than a guess.
+    Only a `BoolAnswer` is read: anything else (no answer at all, or an answer
+    of another kind) is unusable, because a review with no readable answer is
+    not an approval. The detail records the approve/refuse value with the
+    probability of approval and the confidence behind it.
     """
     answer = decision.answers.get(VERDICT_KEY)
     if not isinstance(answer, BoolAnswer):
@@ -310,27 +216,19 @@ def read_typed_verdict(decision: Decision) -> Review:
     return Review.agreed(detail) if answer.value else Review.refused(detail)
 
 
-# --- what the reviewer is shown --------------------------------------------
+# The deterministic gate's result as prose for the reviewer, in the three tiers
+# the gate itself distinguishes: failures, observations that did not fail the
+# change, and checks that could not run at all.
 
 
 def gate_summary(gate: GateResult) -> str:
-    """The deterministic run, written for a reviewer that did not watch it.
+    """Render a gate result as the reviewer's "DETERMINISTIC CHECKS" section.
 
-    Three channels, and they are kept apart because they mean different things
-    to someone deciding whether to approve. A finding failed the change. An
-    observation is real and was deliberately not rejected on — the reviewer
-    is told exactly that, so it weighs the item without treating it as settled.
-    An environment issue is a bar that never applied, which a reviewer has to
-    know before reading a clean gate as a strong signal.
-
-    Inconclusive rungs need no channel of their own: the gate already renders
-    each one into ``environment_issues``, so they arrive with the rest.
-
-    Findings are rendered with
-    :meth:`~mcgyvr.gate.findings.Finding.for_model`, which is the same boundary
-    :func:`_contract_block` holds one function below: a reviewer that cannot be
-    shown ``acceptance`` cannot be shown it inside a finding's path either, and
-    an acceptance finding's path is the command.
+    One line says whether the gate accepted or rejected the change. Failures
+    follow under "Failed:"; observations follow with a sentence saying they did
+    not reject the change and that judging them is the reviewer's job; and
+    environment issues follow with a sentence saying those checks never ran, so
+    the change was never tested for them.
     """
     verdict = "accepted" if gate.accepted else "rejected"
     lines = [f"The deterministic gate {verdict} this change."]
@@ -355,12 +253,12 @@ def verdict_state(
     change: str,
     original: str | None = None,
 ) -> dict[str, Any]:
-    """The structured state a typed verdict is asked over.
+    """The state a typed verdict is asked against, as one flat mapping.
 
-    The same material the free-text prompt carries — the contract's worker
-    view, the deterministic gate's run, and the change — as JSON the decision
-    primitive serializes. Nothing about how the change was written reaches it,
-    for the same reason :func:`build_prompt` shows none.
+    The task description, target, required interface and deterministic gate come
+    from the contract's worker view. `original` is the file before the change:
+    when it is None the contract's recorded target content is used instead, and
+    an empty string stands for a change that creates a new file.
     """
     view = contract.worker_view()
     pre = original if original is not None else view["target_content"]
@@ -376,20 +274,12 @@ def verdict_state(
 
 
 def _contract_block(view: dict[str, Any]) -> str:
-    """The brief the builder worked from, rendered for someone judging it.
+    """The contract as the reviewer reads it, one constraint per line.
 
-    Built from :meth:`~mcgyvr.contract.Contract.worker_view` because it is the
-    only accessor for worker-facing fields, so a reviewer cannot be shown
-    ``risk``, ``verification`` or ``acceptance`` — the orchestrator's own
-    reasons for believing a result, which a reviewer that could read them could
-    argue with instead of judging the code.
-
-    Not :func:`~mcgyvr.worker.prompt.render_user_message`, which renders the
-    same view: that one ends with the worker's OUTPUT instruction, and telling a
-    reviewer to reply with the complete new content of the target contradicts
-    the one-token protocol this prompt closes with. ``target_content`` is left
-    out for a plainer reason — the pre-change file has a section of its own
-    below, and paying for it twice buys nothing.
+    Task type and task, then the target. The interface line appears only when
+    the contract requires one, and each call the worker was allowed to make is
+    listed with its path, signature and note. The conditions the worker was told
+    to stop rather than guess on are listed last.
     """
     lines = [
         f"task ({view['task_type']}): {view['task']}",
@@ -406,14 +296,12 @@ def _contract_block(view: dict[str, Any]) -> str:
 
 
 def _original_block(original: str | None, target: str) -> str:
-    """The pre-change file, or a sentence saying which kind of absence this is.
+    """The original-file section of the prompt.
 
-    ``""`` and ``None`` are different absences and local-ai already spelled the
-    difference: an empty string is a change that creates a file, and there is
-    genuinely nothing to show; ``None`` is a caller that did not supply one. The
-    second is stated rather than omitted, because a reviewer given no original
-    and no notice has no way to know it is judging a change against a file it
-    never saw.
+    With content, the whole pre-change file is quoted. An empty string means the
+    change creates `target`, and says so. None means the file was not supplied,
+    and the reviewer is told that it is seeing the change without the file it
+    changed and should judge only what the change itself shows.
     """
     if original:
         return f"ORIGINAL FILE before the change ({target}), in full:\n{original}"
@@ -433,18 +321,14 @@ def build_prompt(
     change: str,
     original: str | None = None,
 ) -> str:
-    """Fresh context: the contract, the gate's run, the whole file, the change.
+    """The prompt a prose reviewer is asked, as blank-line separated sections.
 
-    Fresh is the whole warrant. Nothing about *how* the change was written
-    reaches this prompt — no transcript, no reasoning, no earlier attempt — so
-    the reviewer agrees with the code or it agrees with nothing. That is also
-    why the material comes before the instruction: the last thing the model
-    reads is the one sentence that fixes the shape of its reply.
-
-    ``original`` defaults to the contract's own ``target_content`` when the
-    caller does not pass one, since that field is exactly the pre-change target
-    where a contract carries it, and a reviewer left without a file the
-    orchestrator already had is a cost paid for nothing.
+    The sections are, in order: who the reviewer is and that it wrote nothing
+    here, the contract block, the deterministic gate summary, the original file,
+    the change as applied to the target, and the instruction to open the reply
+    with exactly one of the four outcome tokens. `original` follows
+    `_original_block`, with None falling back to the contract's recorded target
+    content.
     """
     view = contract.worker_view()
     pre = original if original is not None else view["target_content"]
@@ -470,17 +354,18 @@ def build_prompt(
     )
 
 
-# --- which weights a name points at -----------------------------------------
+# Model identity. Two names that resolve to one set of weights must fold to one
+# string here, and two names that resolve to different weights must not, because
+# this folding is the whole of the self-review refusal.
 
-# Latin letters that another script spells with the same pixels. Applied after
-# ``casefold``, so only the lowercase forms are needed. Deliberately short: it
-# covers the Cyrillic and Greek letters that appear in Latin-looking model
-# names, and it is not a general confusable table — the goal is that two names
-# nobody could tell apart on screen compare equal, not that every pair of
-# code points with a shared glyph does.
+# Letters that render as a Latin letter in another script: Cyrillic first, then
+# Greek. Written as escapes so that the code point under test is readable in
+# this file rather than being mistaken for the Latin letter it imitates.
 _CONFUSABLES = str.maketrans(
     {
-        # Cyrillic
+        # Cyrillic: \u0430 \u0435 \u043a \u043c \u043d \u043e \u0440 \u0441 \u0442
+        # \u0443 \u0445 \u0455 \u0456 \u0458 \u045f \u045b \u0448 are not all of
+        # them, only the ones a model name is likely to carry a homoglyph of.
         "\u0430": "a",  # CYRILLIC SMALL LETTER A
         "\u0435": "e",  # CYRILLIC SMALL LETTER IE
         "\u043a": "k",  # CYRILLIC SMALL LETTER KA
@@ -498,7 +383,7 @@ _CONFUSABLES = str.maketrans(
         "\u0501": "d",  # CYRILLIC SMALL LETTER KOMI DE
         "\u051b": "q",  # CYRILLIC SMALL LETTER QA
         "\u051d": "w",  # CYRILLIC SMALL LETTER WE
-        # Greek
+        # Greek: as with the Cyrillic group, only the letters that look like one.
         "\u03b1": "a",  # GREEK SMALL LETTER ALPHA
         "\u03b2": "b",  # GREEK SMALL LETTER BETA
         "\u03b5": "e",  # GREEK SMALL LETTER EPSILON
@@ -513,65 +398,37 @@ _CONFUSABLES = str.maketrans(
     }
 )
 
-# Characters that separate words inside a model name and carry no identity of
-# their own. Removed rather than folded to one, so ``qwen2.5-coder`` and
-# ``qwen2_5_coder`` are the same name. Every dash goes with them, by category
-# rather than by listing: NFKC leaves U+2011 NON-BREAKING HYPHEN and most of
-# the ``Pd`` block exactly as typed, and a hyphen nobody can see the difference
-# in is the same defeat as a zero-width space.
+# Separators carry no information about which weights a name points at, so they
+# are dropped after folding: `acme-coder`, `acme_coder`, `acme.coder` and
+# `acme coder` are one name. The dash category is dropped as well, which catches
+# the dash variants that are not spelled out in the literal string.
 _SEPARATORS = "-_. \t\u2212"
 _SEPARATOR_CATEGORY = "Pd"
 
-# The tag a registry supplies when a name carries none, so ``qwen2.5-coder``
-# and ``qwen2.5-coder:latest`` are one pull of one blob. Every *other* tag is
-# part of the identity: ``:7b`` and ``:32b`` are different weights.
+# Ollama treats an untagged model name as `:latest` on its own, so the two
+# spellings name the same weights and the tag is removed before comparing.
 _DEFAULT_TAG = ":latest"
 
-# llama.cpp's tail on the first shard of a split weights file,
-# ``-00001-of-00002``: the server is handed that file and the model is the
-# stem without it. Read only where a weights suffix was actually removed, the
-# same narrowness :func:`mcgyvr.weights.is_model` keeps.
+# A sharded checkpoint publishes one index name per shard. The shard marker says
+# which piece of one set of weights a name is, not which weights they are, so it
+# is dropped and every shard folds to the name of the unsharded model.
 _SHARD = re.compile(r"-\d{1,5}-of-\d{1,5}$")
 
 
 def model_identity(name: str) -> str:
-    """The weights ``name`` points at, as a string two names can be compared on.
+    """Fold a model name to the identity of the weights it resolves to.
 
-    The comparison this exists for decides whether a model is about to review
-    its own output, and both directions of getting it wrong are expensive. Read
-    two spellings of one model as two models and the refusal is defeated by a
-    tag, a prefix or an invisible character. Read two models as one and the
-    ordinary local install — a big model reviewing a small one from the same
-    family — loses its verifier entirely.
+    The steps, in the order the code applies them: NFKC-normalise; drop control,
+    format and line/paragraph/space separators (so an invisible character cannot
+    tell two names apart); casefold; replace the homoglyphs in `_CONFUSABLES`;
+    keep only the part after the last `\\` or `/`, so a provider prefix or a
+    directory does not count; drop one weights suffix and, if there was one, a
+    trailing shard marker; drop a trailing `:latest`; and finally drop the
+    characters in `_SEPARATORS` and the dash category.
 
-    So this normalises only what a registry itself treats as noise, and never
-    guesses at similarity:
-
-    * **NFKC, then invisibles removed.** A zero-width space, a soft hyphen or a
-      bidi mark is not part of a name; it is a way to write one name twice.
-    * **Confusables folded to Latin.** A Cyrillic ``U+043E`` is the same pixels
-      as a Latin ``o`` in every config file a person will ever read.
-    * **The routing prefix dropped.** ``registry/qwen2.5-coder`` and
-      ``hf.co/Qwen/qwen2.5-coder`` say where to fetch the same blob. Only the
-      last path segment names it, and a Windows ``\\`` separates segments as
-      ``/`` does.
-    * **A weights file read as the model it holds.** ``/weights/x.gguf`` is how
-      llama.cpp names the model ``x`` (:mod:`mcgyvr.weights`), so one weights
-      suffix comes off, and with it the ``-00001-of-00002`` tail of a split
-      file. Only where the suffix was there: ``x.v2`` is not ``x``.
-    * **A trailing** ``:latest`` **dropped**, because a registry appends
-      exactly that to an untagged name. No other tag is touched.
-    * **Separators removed**, so ``qwen2.5-coder``, ``qwen2_5_coder`` and
-      ``qwen25coder`` are one name.
-
-    What it does *not* do is edit-distance, prefix matching or family
-    grouping. ``mistral`` and ``mixtral`` are one letter apart and are two
-    models; a rule that collapsed them would refuse a review nobody asked it to
-    refuse.
-
-    Returns ``""`` for a name that is empty or holds nothing but noise — which
-    is an unnamed model, and :func:`_independence_fault` answers it as one
-    rather than as a match against another empty name.
+    Two spellings of one set of weights therefore fold to one string and two
+    sets of weights stay distinct — a version tag is not a file. A name that
+    folds to nothing returns the empty string, which compares equal to nothing.
     """
     folded = unicodedata.normalize("NFKC", name)
     folded = "".join(
@@ -594,19 +451,17 @@ def model_identity(name: str) -> str:
     )
 
 
-# --- one verification -------------------------------------------------------
+# The self-review refusal, as one function with two reasons so that each reason
+# can be reported in its own words.
 
 
 def _independence_fault(builder: str, reviewer: str) -> str | None:
-    """Why this pairing cannot produce an independent review, or ``None``.
+    """Why this reviewer may not review this change, or None when it may.
 
-    Both anonymous cases are faults. A reviewer or a builder that was not named
-    leaves independence unestablished, and an unestablished independence is not
-    a weaker warrant than a broken one — it is the same warrant, missing.
-
-    The names are compared through :func:`model_identity` and reported as the
-    operator wrote them. A message quoting the normalised form would send
-    someone looking for a config line that does not exist.
+    Two faults, both decided on `model_identity` alone. A name that folds to
+    nothing leaves the two names' distance unestablished, so independence cannot
+    be claimed. Two names that fold together are one model, and a model does not
+    verify its own output — that is refused here, before any request is made.
     """
     if not model_identity(builder) or not model_identity(reviewer):
         return (
@@ -624,11 +479,10 @@ def _independence_fault(builder: str, reviewer: str) -> str | None:
 
 
 def independent(builder: str, reviewer: str) -> bool:
-    """Whether ``reviewer`` is a model other than ``builder``, both named.
+    """Whether the reviewer is a different model from the builder.
 
-    The one rule :func:`verify` refuses a review by, asked before anything else
-    is asked of a reviewer: which rung reviews (:func:`reviewer_rung`), and
-    whether the gate's typed checks may be put to it.
+    The boolean face of `_independence_fault`, for the ladder code that has to
+    pass over a rung without reporting a reason.
     """
     return _independence_fault(builder, reviewer) is None
 
@@ -645,31 +499,25 @@ def verify(
     original: str | None = None,
     decide: Decide | None = None,
 ) -> Review:
-    """Ask one independent reviewer about one applied change.
+    """Have `reviewer` judge `change` against `contract`, and return its review.
 
-    Meant to be the body of the ``verifier`` callable
-    :func:`~mcgyvr.escalate.judge` takes, which is why it returns a
-    :class:`~mcgyvr.escalate.Review` and never a bare boolean: ``judge`` reaches
-    :attr:`~mcgyvr.escalate.Assurance.VERIFIED` through
-    :attr:`~mcgyvr.escalate.Opinion.AGREED` alone, so everything this function
-    decides is decided by which of the three opinions it returns.
+    The order is deliberate. A family under a `GATE_ONLY` policy owes no model
+    review at all, so the gate is the whole bar and the review is unusable
+    without anyone being asked. Next comes the independence check, before any
+    spend. Then, when a `decide` seam is given, the typed verdict is tried
+    first; it returns None only when the reviewer answered something unreadable,
+    in which case the same reviewer is asked in prose. Finally the prose prompt
+    is built and `ask` is called.
 
-    Nothing is dispatched until both refusals have had their say — the family's
-    policy, then the identity of the reviewer — because each of them exists to
-    prevent a spend, and a check that runs after the request has already been
-    sent prevents nothing.
-
-    ``decide`` is the typed verdict: when it is supplied the verdict is read
-    as a :class:`~mcgyvr.decision.Noul` through
-    :func:`~mcgyvr.decision.classify`, and ``ask`` is used only if the
-    reviewer answered without probabilities (:data:`_NOT_TYPED`). When it is
-    ``None`` the free-text ``ask`` path is used, unchanged.
+    Anything that goes wrong on the reviewer's side — the seam raising, a reply
+    that names no outcome, a truncated reply — is unusable rather than a
+    refusal: the change is not blamed for the reviewer's failure, and an
+    unusable review is never an approval.
     """
     if required_policy(contract, family) == GATE_ONLY:
-        # The deterministic family, on a contract that asked for nothing more:
-        # the gate is the whole bar there, and a review would be a warrant the
-        # policy does not describe. `judge` never routes here in that case, so
-        # reaching this is a caller's mistake and it is answered without spend.
+        # No prompt is built and no reviewer is asked: under this policy the
+        # deterministic gate is the whole bar for work in this family, and
+        # saying so is better than reporting an unasked review as agreement.
         return Review.unusable(
             f"no verifier is owed: work in the {family.name!r} family under a "
             f"{GATE_ONLY!r} contract is accepted on the deterministic gate, so "
@@ -690,14 +538,13 @@ def verify(
         reply = ask(prompt)
         verdict = read_verdict(reply)
     except Exception as exc:
-        # Deliberately everything the seam can raise: a transport error, a
-        # backend that answered rubbish, a quality caveat, a reply that is not
-        # even text. They differ in how they are fixed and not in what they
-        # mean here, which is that the reviewer produced no verdict — a
-        # reviewer-side failure, never the builder's, and `judge` records it as
-        # exactly that. The read sits inside the same protection as the ask, so
-        # a reply that cannot be read is the same category as a reply that
-        # never arrived.
+        # A reviewer-side failure is not the builder's failure and must not
+        # become one. A refused connection, a timeout, a role with no source, a
+        # reply cut short mid-sentence — each of them raises out of `ask` or
+        # `read_verdict`, and each becomes an unusable review: the caller
+        # records the change as accepted but unverified instead of failing work
+        # that may be perfectly good. Every exception is caught here for that
+        # reason, and the message keeps the type out of the way and the cause in.
         return Review.unusable(f"the reviewer {reviewer!r} could not be asked: {exc}")
 
     if verdict is None:
@@ -718,13 +565,13 @@ def _typed_verdict(
     original: str | None,
     decide: Decide,
 ) -> Review | None:
-    """Read a typed verdict through ``decide``, under the same protection as prose.
+    """The typed path, or None when it should fall back to prose.
 
-    The identity check has already run (:func:`verify` refuses a self-review
-    before this is reached), so this is only the ask and the read. A ``decide``
-    that raises is a reviewer-side failure — the builder is never charged —
-    except where it raised because the reviewer serves no probabilities
-    (:data:`_NOT_TYPED`): that is ``None``, and the caller asks in prose.
+    Builds the state, asks `decide` for a `Decision` and reads the boolean under
+    `VERDICT_KEY`. A `_NOT_TYPED` error means the reviewer answered but the
+    answer could not be read, so None sends `verify` on to a prose prompt on the
+    same reviewer; any other error is the reviewer being unreachable, and is
+    unusable.
     """
     state = verdict_state(contract, gate, change, original)
     try:
@@ -742,14 +589,11 @@ def decider_for(
     timeout_s: float | None = None,
     capacity: Capacity | None = None,
 ) -> Decide | None:
-    """The install's verifier role as a typed-verdict seam, or ``None``.
+    """A typed-verdict seam bound to the verifier role, or None if it is unbound.
 
-    Mirrors :func:`reviewer_for` one seam over: where that one dispatches a
-    prose reply, this one reads a typed :class:`~mcgyvr.decision.Decision`
-    through :func:`~mcgyvr.decision.classify_for` — the ``jev.unit`` when one
-    is bound, the verifier role's own unit when not. ``None`` is an ordinary
-    answer — an install with no verifier role bound has no verifier — and a
-    role declared but unusable raises the same way :func:`reviewer_for` does.
+    The seam asks only `VERDICT_QUESTION` under `VERDICT_KEY`, through
+    `classify_for`, so the answer is read from next-token probabilities rather
+    than from prose.
     """
     if source_map.role_model(VERIFIER_ROLE) is None:
         return None
@@ -773,30 +617,15 @@ def reviewer_for(
     capacity: Capacity | None = None,
     max_output_tokens: int | None = None,
 ) -> Ask | None:
-    """The install's verifier role as something :func:`verify` can ask, or ``None``.
+    """A prose-ask seam bound to the verifier role, or None if it is unbound.
 
-    ``None`` mirrors :meth:`~mcgyvr.local_pool.SourceMap.role` and is an ordinary
-    answer: an install with no verifier role bound has no verifier, which
-    :func:`~mcgyvr.escalate.judge` answers by labelling the acceptance
-    ``UNVERIFIED`` rather than by failing it. Callers get that path by passing
-    ``verifier=None``, so the absence is decided here, once, instead of being
-    discovered inside a dispatch.
-
-    The request is not marked ``quality_sensitive``. That flag means "this
-    output will be read as a measurement of the model" and refuses a
-    quality-caveated backend outright; a review is work, and refusing
-    would turn the ordinary local install into one with no verifier at all
-    while telling the operator nothing.
-
-    ``max_output_tokens`` is ``None`` (uncapped) by default: the ruling is
-    that the orchestrator/verifier dispatches carry no output cap — a chatty
-    model is a prompting/model issue, not a cap issue. The verdict is still
-    the first word of the reply, so an uncapped review cannot hide it.
+    The request carries only the prompt and `max_output_tokens`. A dispatch that
+    comes back empty raises `ReviewerUnavailableError`, and a truncated reply
+    raises `ReviewTruncatedError` through `_review_text`.
     """
-    # ``role_model`` rather than ``role``: this is a presence check, and a
-    # ``RoleBinding`` would hand this module an endpoint and its
-    # ``credential()`` to answer a yes/no question. Dispatch stays with
-    # ``dispatch_role``, below the seam, where the endpoint belongs.
+    # A role with no model returns None instead of raising, so the caller can say
+    # "the role has no model to ask" once, where the reviewer is chosen, rather
+    # than at the first change that needs reviewing.
     if source_map.role_model(VERIFIER_ROLE) is None:
         return None
 
@@ -807,7 +636,7 @@ def reviewer_for(
             Request(prompt=prompt, max_output_tokens=max_output_tokens),
             capacity=capacity,
         )
-        if completion is None:  # the role was bound a moment ago
+        if completion is None:  # unreachable once the role has a model
             raise ReviewerUnavailableError(
                 f"the {VERIFIER_ROLE!r} role has no source to dispatch to"
             )
@@ -817,14 +646,10 @@ def reviewer_for(
 
 
 def _review_text(completion: Completion, who: str) -> str:
-    """The text of a review, or :class:`ReviewTruncatedError` for one that was cut.
+    """The text of a review completion, unless it was cut short.
 
-    The verifier carries no output cap (the ruling: a chatty model is a
-    prompting issue, not a cap issue), but a backend can still stop a review at
-    its own limit, and a review that stopped is not read at all: ``APPROVE``
-    followed by notes the stop cut off is an approval whose conditions nobody
-    saw. Raised rather than returned, so it lands where every other
-    reviewer-side failure does — unusable, never the builder's.
+    A truncated completion raises `ReviewTruncatedError` naming `who`: the part
+    that arrived may stop before the verdict, so none of it is read.
     """
     if completion.truncated:
         raise ReviewTruncatedError(
@@ -833,22 +658,19 @@ def _review_text(completion: Completion, who: str) -> str:
     return completion.text
 
 
-# --- who reviews -------------------------------------------------------------
+# A chosen reviewer, as the caller that asks it and the result file that names it
+# both need it.
 
 
 @dataclass(frozen=True)
 class Reviewer:
-    """One reviewer, resolved: the model it is, and the ways it is asked.
+    """One reviewer that can be asked, and how it is named in the result.
 
-    ``ask`` is the prose seam :func:`verify` falls back to; ``decide`` the
-    typed verdict, asked first; ``jev`` the gate's typed-question rung
-    (:class:`~mcgyvr.gate.jev.JevCheck`) bound to the same reviewer. ``where``
-    says which part of the config chose it, for the sentence an operator reads.
-    ``unit`` is the unit every one of those dispatches to, so the driver can
-    send them through its waker as it sends the builder's
-    (:meth:`mcgyvr.wake.Waker.dispatching`). ``instead`` is why this reviewer
-    stands in for the one ``verifier.unit`` names (:func:`stand_in_rung`),
-    and ``""`` for a reviewer the config chose for this work.
+    `model` is the model behind it and `ask` its prose seam; `decide` is the
+    typed verdict seam and `jev` the typed JEV checks, either of which may be
+    absent. `where` records how it was addressed (a config key or a rung), and
+    `instead`, when set, says why this reviewer stood in for another. `unit` is
+    the rung or unit name to name it by, when there is one.
     """
 
     model: str
@@ -861,11 +683,10 @@ class Reviewer:
 
     @property
     def label(self) -> str:
-        """The reviewer as a judgement names it: its unit, and why it stood in.
+        """How the result file and the journal name this reviewer.
 
-        What follows ``verified by`` in the result file and in the journal's
-        correction, so a stand-in's approval cannot be read as the configured
-        verifier's.
+        The unit when there is one, else the model, with the stand-in reason in
+        parentheses when it stood in for the configured verifier.
         """
         who = self.unit or self.model
         return f"{who} ({self.instead})" if self.instead else who
@@ -873,21 +694,25 @@ class Reviewer:
 
 @dataclass(frozen=True)
 class NoReviewer:
-    """There is no independent reviewer for this builder, and why, in words."""
+    """No reviewer could be chosen, and the reason, in a sentence.
+
+    The caller records the change as accepted but unverified, so the reason is
+    read as the whole explanation of why nothing was asked.
+    """
 
     reason: str
 
 
-#: Which reviewer judges the work of one builder rung, named by the rung.
+#: Choose a reviewer per builder rung name; the choice is memoised by the callers
+#: of `reviewers_for`, so this is asked once per builder.
 type Reviewers = Callable[[str], Reviewer | NoReviewer]
 
 
 def _climb(config: Config, source_map: SourceMap) -> list[tuple[str, Rung]]:
-    """The usable rungs as work climbs them, each with its family's name.
+    """Every rung of the ladder in climb order, tagged with its family name.
 
-    Families in rank order, rungs in the order the ladder writes them — the
-    order :func:`~mcgyvr.route.by_family` gives — so "dearer" and "cheaper"
-    mean one thing to every rule that picks a reviewer.
+    Families come cheapest first (`Family.rank`), and each family's rungs keep
+    the order they are mapped in.
     """
     grouped = by_family(config, source_map)
     return [
@@ -898,19 +723,13 @@ def _climb(config: Config, source_map: SourceMap) -> list[tuple[str, Rung]]:
 
 
 def reviewer_rung(config: Config, source_map: SourceMap, builder: str) -> str | None:
-    """The rung that reviews ``builder``'s work when no unit is named, or ``None``.
+    """The rung that reviews work built on `builder`, or None if there is none.
 
-    The next rung of the climb dearer than ``builder`` — families in rank
-    order, rungs in the order the ladder writes them, the order
-    :func:`~mcgyvr.route.by_family` gives — whose model is not the builder's
-    by :func:`model_identity`. A dearer rung serving the builder's model
-    under another unit name or another spelling is passed over, because a
-    review is only worth the distance between the two models. Only usable
-    rungs count, and only local ones: a hosted rung costs money to ask, so it
-    reviews only when ``verifier.unit`` names it (or stands in for a hosted
-    one, :func:`stand_in_rung`). ``None`` is the dearest rung, a rung the pool
-    does not offer, or a ladder above the builder whose local rungs serve
-    nothing but the builder's model.
+    The first rung above `builder` on the climb that is in the local family and
+    serves a model other than the builder's. A hosted family is passed over
+    whatever its model: a hosted reviewer is asked only when `verifier.unit`
+    names it. None when `builder` is not on the climb, or when nothing above it
+    qualifies — the dearest local rung has nothing dearer than itself.
     """
     climb = _climb(config, source_map)
     names = [rung.name for _, rung in climb]
@@ -926,43 +745,15 @@ def reviewer_rung(config: Config, source_map: SourceMap, builder: str) -> str | 
 def stand_in_rung(
     config: Config, source_map: SourceMap, builder: str, unit: str
 ) -> str | None:
-    """The rung that reviews ``builder``'s work in place of ``unit``, or ``None``.
+    """A rung that may review in place of `unit` when the unit built the change.
 
-    Asked only where ``unit`` — the one ``verifier.unit`` names — serves the
-    model that wrote the change (e2e run 2, R8): escalated work is built on
-    the dearest rung, which is the unit most often named to review, and
-    without a stand-in the climb's best work is the one work nobody reads.
-    The rule, in three parts, each deterministic from the config alone:
-
-    **Next-best is nearest the operator's choice, the cheaper side first.**
-    The configured verifier is the operator's pick of reviewer, so its
-    replacement is the rung nearest it on the climb (:func:`_climb`'s
-    order): the rungs below it, dearest first, then — only where none below
-    qualifies — the rungs above it, cheapest first. Below first because a
-    stand-in should not cost more than the review the operator chose, and
-    because in an ordinary climb the rung just below is the one that
-    attempted the task before it escalated. Where ``unit`` is not on the
-    climb (a unit declared outside the ladder), the builder's place is used
-    instead: it serves the same model.
-
-    **Eligibility is the rule every reviewer is held to.** A rung qualifies
-    when the pool offers it and :func:`independent` holds between its model
-    and the builder's — the one rule :func:`verify` refuses a review by. So a
-    rung serving the builder's model under another unit name or spelling is
-    passed over, as :func:`reviewer_rung` passes it over; two models of one
-    family are two models there and here.
-
-    **A hosted stand-in only for a hosted verifier, and only from below it.**
-    A local rung costs nothing to ask and always qualifies. A hosted rung
-    costs money per request. Naming a hosted ``verifier.unit`` is the
-    operator choosing to spend on review, so a hosted rung below it on the
-    climb may stand in; a hosted rung above it, or any hosted rung standing in
-    for a local verifier, would spend money nobody chose to spend on review.
-    The rule reads the rung's place on the climb, never a price, and every
-    sentence that explains it says so.
-
-    ``None`` is a builder the pool does not offer, a climb holding neither
-    ``unit`` nor the builder, or no rung that qualifies.
+    The anchor is `unit`'s place on the climb, or `builder`'s when the unit is
+    not on the ladder. Candidates are the rungs below the anchor, nearest first,
+    then the rungs above it, in that order. A candidate is passed over when it is
+    the builder's own rung or serves the builder's model, whatever its name. A
+    local candidate always qualifies; a hosted one only when `unit` is itself
+    hosted, and only from below the anchor — a stand-in never costs more than the
+    review the operator chose.
     """
     built = source_map.get(builder)
     if built is None:
@@ -993,20 +784,14 @@ def reviewers_for(
     capacity: Capacity | None = None,
     timeout_s: float | None = None,
 ) -> Reviewers:
-    """Who reviews each builder's work under ``config``.
+    """Build the chooser that names a reviewer for each builder rung.
 
-    Three answers, read once. ``verifier.enabled: false`` is no reviewer for
-    anyone, said as that. A named ``verifier.unit`` is the one reviewer for
-    everyone — asked about its model here, so a role declared on a source that
-    cannot serve raises :class:`~mcgyvr.local_pool.SourceUnavailableError` now,
-    while refusing is still free — except a builder serving that unit's own
-    model, whose work :func:`stand_in_rung`'s pick reviews instead, or nobody,
-    said why. Otherwise each builder's reviewer is :func:`reviewer_rung`'s
-    pick, and a builder with none gets a :class:`NoReviewer` that says why.
-
-    Every reviewer carries a typed seam that remembers a unit that does not
-    serve probabilities, so the prose fallback costs one refused request per
-    reviewer and not one per question.
+    With `verifier.enabled: false` every builder gets the same `NoReviewer`.
+    With `verifier.unit` set, that unit is the reviewer, asked through the role
+    seams, unless it serves the model that built the change — then
+    `_standing_in` looks for a rung that may review instead. With no unit set,
+    `_on_rung` picks the next dearer local rung serving another model. The
+    answer for each builder is computed once and reused.
     """
     if not config.get("verifier.enabled", True):
         off = NoReviewer("review is switched off by `verifier.enabled: false`")
@@ -1066,11 +851,10 @@ def reviewers_for(
 
 
 def _same_model(builder: str, reviewer: str) -> bool:
-    """Whether two named models are one, by :func:`model_identity`.
+    """Whether two names fold to one model, with a blank name matching nothing.
 
-    Narrower than "not :func:`independent`": an unnamed model is a fault of
-    its own, which :func:`verify` reports as one, and is no evidence that the
-    named reviewer wrote anything.
+    The identity comparison the stand-in branch needs, kept apart from
+    `independent` so that a blank name is a non-match rather than a fault.
     """
     built = model_identity(builder)
     return bool(built) and built == model_identity(reviewer)
@@ -1086,11 +870,12 @@ def _standing_in(
     capacity: Capacity | None,
     timeout_s: float | None,
 ) -> Reviewer | NoReviewer:
-    """The reviewer :func:`stand_in_rung` picks for ``builder``, made askable.
+    """The reviewer for work the configured verifier unit's model wrote.
 
-    Its :attr:`Reviewer.instead` says it is a fallback and why, so the
-    judgement it signs — the result file's detail, the journal's correction —
-    cannot be read as the configured verifier's approval.
+    Asks `stand_in_rung` for a rung that may review instead and, when one comes
+    back with a source, builds it through `_askable` with the reason for standing
+    in. With no such rung the answer is a `NoReviewer` that says the unit serves
+    the model that wrote the change and names what a fallback would have to be.
     """
     wrote = (
         f"`verifier.unit` {unit!r} serves {model!r}, the model that wrote this change"
@@ -1125,7 +910,12 @@ def _on_rung(
     capacity: Capacity | None,
     timeout_s: float | None,
 ) -> Reviewer | NoReviewer:
-    """The reviewer :func:`reviewer_rung` picks for ``builder``, made askable."""
+    """The reviewer for a builder when no `verifier.unit` is configured.
+
+    The rung `reviewer_rung` names, built through `_askable`, or a `NoReviewer`
+    explaining that nothing above the builder in the local family serves another
+    model and that only `verifier.unit` can bring in a hosted reviewer.
+    """
     rung = reviewer_rung(config, source_map, builder)
     offered = source_map.get(rung) if rung is not None else None
     if rung is None or offered is None:
@@ -1148,8 +938,14 @@ def _askable(
     timeout_s: float | None,
     instead: str = "",
 ) -> Reviewer:
-    """Rung ``rung``, serving ``model``, as a reviewer: prose on the rung, typed
-    through the ``jev.unit`` when one is bound and the rung when not."""
+    """A `Reviewer` that dispatches everything to one rung.
+
+    The prose ask is a plain `dispatch` to `rung` with no output-token cap, and
+    the typed seams are `classify_for` on the same rung — one for the verdict,
+    one for `JEV_QUESTIONS`. Both typed seams go through one `_TypedMemory`, so a
+    refusal recorded by either is remembered by both. `instead` is carried into
+    the label when this reviewer stands in for another.
+    """
 
     def ask(prompt: str) -> str:
         completion = dispatch(
@@ -1161,8 +957,8 @@ def _askable(
         return _review_text(completion, f"rung {rung!r}")
 
     def by_rung(state: Any, questions: Mapping[str, Question]) -> Decision:
-        # The typed half: the `jev.unit` when one is bound, the reviewing rung
-        # when not. The prose `ask` above stays on the rung either way.
+        # One place to dispatch typed questions to this rung: the verdict and the
+        # JEV checks differ only in which questions they put to it.
         return classify_for(
             source_map,
             state,
@@ -1192,14 +988,12 @@ def _askable(
 
 
 class _TypedMemory:
-    """One reviewer's typed seams, refusing at once after its unit showed it
-    serves no probabilities.
+    """Remembers a reviewer's first unreadable answer, per reviewer.
 
-    The gate's typed checks ask per changed file and per gate run, and the
-    verdict asks again: against a unit that answers without logprobs every one
-    of those is a request that cannot succeed. The first refusal of the
-    :data:`_NOT_TYPED` kind is kept, for every seam guarded by the same memory,
-    and raised again without a request.
+    A reviewer that could not answer one typed question is not asked another:
+    once `refused` is set, every seam built by `guard` re-raises that same
+    exception instead of spending another request on a model that has shown it
+    cannot be read this way.
     """
 
     def __init__(self) -> None:

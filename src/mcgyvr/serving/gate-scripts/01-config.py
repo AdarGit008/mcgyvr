@@ -1,20 +1,14 @@
 #!/usr/bin/env python3
-"""gate 1 — name the config this run is under.
+# Gate 1 of the serving sequence: the first gate, and the only one run before
+# anything reaches a rig.
+"""Name the config the run is under, and keep a live ``serve up`` to the fleet lock.
 
-Runs first and reaches no rig, so the config is settled before any rig time
-is spent. The config is the one `mcgyvr` itself would load — `$MCGYVR_CONFIG`,
-else the live fleet folder the config folder's `live.json` names — and where
-it was read from is exported as RUN_CONFIG. No config at all is the live
-fleet's (owner's ruling R4: the default is prod, and forgetting the variable
-lands there); a config that is there and cannot be read, or a
-`$MCGYVR_CONFIG` naming a file that is not there, is a refusal, because a run
-whose config cannot be read cannot say which fleet it ran under. A run held
-to the live lock (:func:`mcgyvr.fleet.roots.runs_live`: whenever a fleet is
-live, but under a setup in the data folder) has a `serve up` admitted only for
-units the fleet lock names for this rig, and a `serve down` always; any other
-— the staging folder `mcgyvr setup` starts and samples, which nothing has
-locked yet — runs everything, `serve up` and `down` included (the owner ruled
-N11 on 2026-09-10).
+The gate asks :func:`mcgyvr.serving.rigread.config` which config the run was
+made under — a path, or ``"none"`` when no config is named — and refuses when a
+named config is missing, unreadable or unlocatable, since a run that cannot say
+which fleet it serves is not measured. It then holds a live ``serve up`` to the
+containers the live fleet lock names for the rig, and exports the config path as
+``RUN_CONFIG`` for the gates that follow. No gate 1 path reaches a machine.
 """
 
 from __future__ import annotations
@@ -42,19 +36,13 @@ from mcgyvr.serving.rigread import config
 def units_the_fleet_lock_names(rig: str) -> set[str]:
     """The containers the live fleet lock names for ``rig``.
 
-    The lock's combination records under its rigs tree name each locked unit
-    by its container, under the live fleet's folder
-    (:func:`mcgyvr.fleet.roots.live_fleet_dir`: the fleet folder the config
-    folder's ``live.json`` names, and no lock at all without one) and never
-    under the run root. Gate 1 reaches no rig, so this is a read of local
-    files only: a live serve up is matched against the lock offline, before
-    any rig time is spent.
-
-    A lock approved on no evidence (``mcgyvr setup``'s own, written by
-    :func:`mcgyvr.fleet.lock.write_unsampled`) has no combination record; its
-    containers are the ones its layout places on ``rig``, and only while the
-    ``fleet.yaml`` beside it still hashes to its pin
-    (:func:`mcgyvr.fleet.admit.unsampled_containers`).
+    A live run that names no live fleet names nothing; one that cannot say which
+    fleet it serves is refused rather than read as unlocked. Otherwise the
+    answer is two unions: the containers the lock's layout pins on ``rig``
+    (:func:`mcgyvr.fleet.admit.unsampled_containers`), and the ``container`` of
+    every approved unit in the lock's ``rigs/*/cmb-*.json`` combination records
+    whose ``rig`` is ``rig``. A record that cannot be read or parsed, or one
+    that carries no approved mapping, names nothing and is stepped over.
     """
     try:
         where = live_fleet_dir()
@@ -62,9 +50,10 @@ def units_the_fleet_lock_names(rig: str) -> set[str]:
         refuse(f"gate 1: {exc}. A live run cannot say which fleet it serves")
     if where is None:
         return set()
-    # A lock approved on no evidence writes no record, as nothing was
-    # validated; for it the pinned layout answers, by the rule the waker reads
-    # (`mcgyvr.fleet.admit.host_is_locked`).
+    # A lock approved on no evidence writes no combination record, so the
+    # containers it lays out on this rig are the only thing that names them.
+    # A lock measured from dev evidence names its containers per unit inside
+    # the combination records below, one record per validated setup.
     locked = unsampled_containers(where, rig)
     rigs = where / LOCK_DIR / "rigs"
     if not rigs.is_dir():
@@ -89,21 +78,19 @@ def units_the_fleet_lock_names(rig: str) -> set[str]:
 
 
 def refuse_unless_the_fleet_lock_names(serve: str, source: str) -> None:
-    """A live ``serve up`` admits only units the fleet lock names for this rig.
+    """Refuse a live ``serve up`` whose units the fleet lock for the rig does not name.
 
-    A run that is not held to the live lock (``source``, the config's folder,
-    and :func:`mcgyvr.fleet.roots.runs_live`) runs everything,
-    ``serve up`` and ``down`` included (the owner ruled N11 on 2026-09-10),
-    and a live ``serve down`` is always admitted: stopping
-    starts nothing unapproved, and it is the way out of a rig left in a state
-    nobody locked. A live ``serve up`` is the one direction that starts
-    processes, so it is matched against the fleet lock here
-    (:func:`units_the_fleet_lock_names`) — offline, before any rig is read.
-    A ``serve up --unit`` starts only the units it names, so only those are
-    matched; a ``serve fetch`` starts nothing.
+    Only ``up`` is judged: ``serve down`` starts nothing unapproved and is the
+    way out of a rig left in a state nobody locked. A run whose setup folder is
+    not live (staged under the data home, or shown by ``runs_live`` not to be
+    the live fleet) is not judged either, but a run that named no config at all
+    (``source`` is ``"none"``) cannot be shown to be staged and is judged as
+    live, as is one whose liveness cannot be settled.
     """
-    # No config at all is the live fleet's (owner's ruling R4): held to the
-    # lock, live or not, which refuses every unit of a fleet nobody named live.
+    # The units wanted are the ones `--unit` named (RUN_SERVE_ONLY), or, when
+    # `--unit` named none, every container the compose file declares
+    # (RUN_SERVE_EXPECTED); each is a container name, and the lock is read for
+    # the rig the door named in RUN_HOST.
     if serve != "up" or (source != "none" and not runs_live(Path(source))):
         return
     host = os.environ.get("RUN_HOST", "")

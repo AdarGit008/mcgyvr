@@ -1,20 +1,11 @@
-"""Repository evidence, gathered the way a pi agent gathers it: through the harness.
+"""The evidence mcorch gathers through the harness shell, and reads back.
 
-Owner ruling: mcorch gets data the way pi does. The model emits a tool call,
-the harness runs it in the working directory, and the output comes back as a
-tool result. So under an authoring strategy that needs the repository's index
-(``prose``, ``classifier``), the loop has the harness run mcgyvr's own
-deterministic reader — ``mcgyvr read "<request>" --json`` — and this module
-reads the document that comes back: the request, the resolver's shortlist,
-the regions read, and the whole text of every shortlisted and read file. From
-those texts it assembles the same :class:`~mcgyvr.orchestrator.index.Index`
-the command built, so the decomposer runs server-side over the evidence and
-nothing else. The repository never touches the server: ``root`` is a label the
-index carries, never a path anything here opens.
-
-The shell tool is whichever the harness offers — Claude Code's ``Bash``, pi's
-``bash`` — picked from the tools the request names; offered none, the
-strategy is refused by name (:func:`shell_tool`).
+Nothing here opens the repository: a work request becomes a harness shell call
+`mcgyvr read "<request>" --json`, and the JSON that call prints travels back in
+the conversation as a tool result. This module builds that command, recognises
+it and its result among the messages, parses the document it prints (prompt
+words, root label, file texts, resolution candidates, located checker commands)
+and indexes the carried file texts for the proposer.
 """
 
 from __future__ import annotations
@@ -28,50 +19,57 @@ from typing import Any
 
 from mcgyvr.orchestrator.index import Index, IndexAssembler, index_source
 
-#: The shell tools a harness may offer, by the names Claude Code and pi use.
+#: The names a harness offers a shell under (Claude Code `Bash`, pi `bash`),
+#: listed in the order `shell_tool` prefers them.
 SHELL_TOOLS = ("Bash", "bash")
 
-#: The flag that makes ``mcgyvr read`` print the document instead of a report.
+#: The flag that makes `mcgyvr read` print the document instead of a summary.
 JSON_FLAG = "--json"
 
 _READ = "mcgyvr read "
 
 
 def command(request: str) -> str:
-    """The shell command that gathers evidence for ``request`` in the harness's cwd."""
+    """The `mcgyvr read` shell command line asking for `request`, quoted."""
     return f"{_READ}{shlex.quote(request)} {JSON_FLAG}"
 
 
 def is_read_command(text: str) -> bool:
-    """Whether a shell command is one of ours: a JSON read of the repository."""
+    """Whether `text` is a `mcgyvr read ... --json` command line."""
     return text.strip().startswith(_READ) and JSON_FLAG in text
 
 
 def shell_tool(tools: Sequence[Mapping[str, Any]]) -> str | None:
-    """The shell tool the harness offers, by name, or ``None`` when it offers none."""
+    """The first name in `SHELL_TOOLS` that `tools` offers, else `None`."""
     offered = {str(tool.get("name")) for tool in tools}
     return next((name for name in SHELL_TOOLS if name in offered), None)
 
 
 @dataclass(frozen=True)
 class Document:
-    """What ``mcgyvr read --json`` printed, as the server reads it."""
+    """What `mcgyvr read --json` printed, as far as mcorch reads it.
+
+    `root` labels the repository the read happened in and is never opened;
+    `files` holds the text of each file the read carried; `candidates` holds
+    the paths the resolution shortlisted.
+    """
 
     prompt: str
     root: str
     files: tuple[tuple[str, str], ...]
     candidates: tuple[str, ...]
-    #: The checker each adapter located where the repository is, by adapter
-    #: name — the one lookup the server cannot make. Empty: none declared.
+    #: The repository's type-checker argv per language adapter name; empty when
+    #: the document carried none.
     located: dict[str, tuple[str, ...]] = field(default_factory=dict)
 
 
 def parse_document(text: str) -> Document | None:
-    """The document in ``text``, or ``None`` when it is not one whole document.
+    """The `Document` in `text`, or `None` when it is not a readable one.
 
-    A harness may cut a long tool result short; a document that does not
-    parse, or lacks its files, is not evidence and is answered as such rather
-    than guessed at.
+    `None` for text that is not JSON, is not an object with a `files` list, or
+    whose file entries lack string `path` and `text`. Missing or malformed
+    `prompt`, `root`, `resolution.candidates` and `located` degrade to empty
+    values instead of refusing the document.
     """
     try:
         raw = json.loads(text)
@@ -111,7 +109,11 @@ def parse_document(text: str) -> Document | None:
 
 
 def index_from(document: Document) -> Index:
-    """The index the command built, assembled again from the texts it sent."""
+    """Index the file texts the document carries, rooted at its label.
+
+    The file bytes come from `document.files` alone; `document.root` only names
+    the index root and no path is read from disk.
+    """
     assembler = IndexAssembler()
     for path, text in document.files:
         assembler.add(index_source(path, text.encode("utf-8", "surrogateescape")))
@@ -120,7 +122,7 @@ def index_from(document: Document) -> Index:
 
 @dataclass(frozen=True)
 class ReadResult:
-    """A read's result as the conversation carries it: the call's id and text."""
+    """A tool result that answered one read call: its id and its text."""
 
     tool_use_id: str
     text: str
@@ -138,7 +140,7 @@ def _result_text(block: Mapping[str, Any]) -> str:
 
 
 def read_calls(messages: Sequence[Mapping[str, Any]]) -> dict[str, int]:
-    """Tool-use id → message index, for every read command the assistant issued."""
+    """Map each read call's tool-use id to the position of its message."""
     found: dict[str, int] = {}
     for position, message in enumerate(messages):
         if message.get("role") != "assistant" or not isinstance(
@@ -158,7 +160,11 @@ def read_calls(messages: Sequence[Mapping[str, Any]]) -> dict[str, int]:
 
 
 def latest_result(messages: Sequence[Mapping[str, Any]]) -> ReadResult | None:
-    """The read result the latest message carries, or ``None``."""
+    """The first read result in the last message, or `None`.
+
+    Only the final message is inspected, and only when it is a user message
+    with a content list; a read result anywhere else is not reported.
+    """
     calls = read_calls(messages)
     if not calls:
         return None
@@ -175,7 +181,12 @@ def latest_result(messages: Sequence[Mapping[str, Any]]) -> ReadResult | None:
 
 
 def gathered_since_request(messages: Sequence[Mapping[str, Any]]) -> bool:
-    """Whether a read was issued after the latest plain user request."""
+    """Whether a read call was made after the last plain user request.
+
+    A user message is a plain request when its content is a string or carries
+    no tool_result block; with no plain request in the history, every read call
+    counts as gathered.
+    """
     calls = read_calls(messages)
     latest_request = max(
         (

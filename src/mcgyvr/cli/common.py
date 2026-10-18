@@ -1,4 +1,12 @@
-"""Shared argparse wiring and small helpers for the command line."""
+"""The option and argument pieces the `mcgyvr` verbs spell the same way.
+
+Two things are named on most command lines: the setup to read, with `--config`,
+and the repository to work on, with `--repo`. The helpers here attach those
+options to a subparser and carry the types and actions behind them, including
+the refusals the shapes leave room for: a blank path, a repository written as a
+positional, and two different setups named on one command line. The constants
+carry the default each option's help text states.
+"""
 
 from __future__ import annotations
 
@@ -41,29 +49,12 @@ def _mib(size_bytes: int) -> str:
 
 
 def _named_path(value: str) -> str:
-    """A path argument's value, refused when it names nothing.
+    """The type of a path argument, refusing a blank one and passing the rest.
 
-    Argparse's own ``type``, so the refusal is the subparser's usage error —
-    exit 2, with the argument's name in it — and arrives before a contract, a
-    repository or a config file is opened. That is the same seam and the same
-    code as the blank ``--orchestrator`` (:func:`_name_the_writer`), because it
-    is the same mistake: an argument given a value that names nothing.
-
-    **A blank is not "the caller named none".** Every path here is optional and
-    resolves a default when absent; an empty string is falsy and equals
-    ``Path('.')``, so unrefused it would take that default — for ``--record``,
-    the current directory.
-
-    What puts a blank there is not somebody typing two quotes. It is
-    ``--record "$JOURNAL_DIR"`` with the variable unset, which is the shape
-    every wrapper script has, and a wrapper is exactly the caller who will not
-    read the scrollback to notice.
-
-    Whitespace counts as blank, as it does for the orchestrator id. A directory
-    named three spaces is legal on this filesystem and is not what anybody
-    meant; the value is otherwise handed on untouched, because a path with a
-    space at either end is legal too and stripping it would be this function
-    choosing a different file than the caller named.
+    A blank value is what an unset environment variable leaves behind, so it is
+    told apart from a path the user meant: the help tells them to pass a path,
+    or to leave the argument off and take the default on purpose. The value is
+    returned as typed; whoever loads it expands and resolves it.
     """
     if not value.strip():
         raise argparse.ArgumentTypeError(
@@ -75,12 +66,11 @@ def _named_path(value: str) -> str:
 
 
 class _RepoByPosition(argparse.Action):
-    """The old spelling, a repository typed by position, refused by name.
+    """Refuse a repository named by position, and say to name it with `--repo`.
 
-    Hidden from the usage: it is not an argument, only the catch for one that
-    is no longer taken. Without it the old form meets argparse's bare
-    "unrecognized arguments", which says nothing about ``--repo``. Absent, it
-    is never called (its default is ``SUPPRESS``) and leaves nothing behind.
+    `_add_repo` registers this as a hidden optional positional, so a bare path
+    lands here instead of on argparse's unrecognised-argument error and the
+    message can show how the repository is spelled.
     """
 
     def __call__(
@@ -97,13 +87,11 @@ class _RepoByPosition(argparse.Action):
 
 
 def _add_repo(parser: argparse.ArgumentParser, what: str) -> None:
-    """``--repo PATH``, the one way every verb is told its repository.
+    """Attach `--repo` to `parser`, with `what` completing the help sentence.
 
-    ``run`` named it with this flag and five other verbs by position, so the
-    flag a user learned on ``run`` was refused everywhere else. Every verb now
-    takes the flag, defaulting to the current directory and refusing a blank
-    the way ``run`` always has (:func:`_named_path`); a repository typed by
-    position is refused by :class:`_RepoByPosition`.
+    The repository defaults to the working directory and must be a named path.
+    The hidden positional carrying `_RepoByPosition` is added alongside it so
+    the same repository written without the option is refused by name.
     """
     parser.add_argument(
         "--repo",
@@ -127,22 +115,14 @@ def add_config(
     dest: str = "config",
     what: str = "config to read",
 ) -> None:
-    """``--config PATH``, the one way every verb is told which setup to read.
+    """Attach `--config` to `parser`, storing the named setup under `dest`.
 
-    ``run`` took the setup as ``--config`` while ``config`` and ``local_pool``
-    took it by position, ``catalog`` as ``--against``, and ``sandbox``,
-    ``fleet alerts`` and the ``rig`` agent had no way to name it, so the flag a
-    user learned on ``run`` was refused elsewhere (e2e run 2, R9). Every verb
-    that reads the setup now takes it, with ``run``'s meaning and precedence:
-    the directory (or one merged file) it names wins over ``$MCGYVR_CONFIG``
-    and the live fleet, and leaving it off takes that chain.
-    ``tests/test_every_command_that_reads_a_config_takes_dash_dash_config.py``
-    walks the parser so a new verb cannot miss it.
-
-    ``dest`` is for a verb whose older spelling is kept beside the flag (a
-    positional, ``--against``): both store into it through
-    :class:`_OneSetup`, so the handler reads one value and two different
-    setups on one line are refused.
+    The help's parenthetical default is `CONFIG_DEFAULT_HELP`, the environment
+    variable and then the live fleet folder. The default is `SUPPRESS`, so a
+    verb reading `getattr(args, dest, None)` can tell a setup it was given from
+    one it must look up. `what` completes the help sentence, and `_OneSetup`
+    makes a setup named more than once on the command line have to be the same
+    one.
     """
     parser.add_argument(
         "--config",
@@ -156,14 +136,13 @@ def add_config(
 
 
 class _OneSetup(argparse.Action):
-    """Store a setup path, refusing a second, different one on the same line.
+    """Accept one setup, however many places on the command line name it.
 
-    The action of ``--config`` and of the older spelling a verb keeps beside it
-    (``mcgyvr config PATH``, ``catalog --against PATH``). A value that names no
-    path — an absent positional, a bare ``--against`` — never replaces one
-    that does, so the order they are typed in does not matter. Two paths that
-    differ are a usage error through the subparser's own ``error`` (exit 2):
-    picking one would be guessing which setup the person meant.
+    A global `--config` and a verb's own `--config` (or `setup`'s positional
+    PATH) all land in one destination: naming the same path twice is allowed,
+    and two paths that differ after `~` is expanded are an error saying to name
+    one. A value that is not a string — a `None` positional default, say — is
+    stored only when nothing earlier named a setup.
     """
 
     def __call__(

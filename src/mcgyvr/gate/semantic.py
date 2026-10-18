@@ -1,49 +1,23 @@
-"""Environment-resolved semantic checks: the gate's sandboxed rung (#123).
+"""The semantic rung: do the attribute chains this change adds actually resolve?
 
-`tests_pass` is a verdict on a suite, not on a diff. A call to a method that
-does not exist, sitting on a branch no test exercises, leaves the suite green —
-and where a repository declares no runnable check at all, a contract needing
-commands is rejected at load, so a `code` contract that derives command
-evidence is not weakly checked but unreachable without one. This rung is what
-closes the first gap and what makes that evidence possible in the second
-case.
+Every call in the lines a changeset added is parsed into its dotted chain, and
+each chain is checked against the packages the sandbox's interpreter installs:
+``pkg.mod.func(...)`` where ``pkg.mod`` imports but has no ``func`` raises
+``AttributeError`` the moment that line runs. The resolution is done by a vendored
+third-party engine — ghostcall, pinned below by origin, commit and per-file
+digest — staged into the sandbox and driven by
+:mod:`mcgyvr.gate.semantic_driver`, because the packages the chains must resolve
+against are the ones the repository installs into that interpreter, not the
+host's.
 
-It asks one question per call the worker added: **does this name resolve in the
-environment this code will actually run in?** Answering it means importing the
-target's own packages and introspecting them, which is why the rung lives
-inside the per-task sandbox and cannot live anywhere else. In the orchestrator
-process "installed" means pyyaml and three tree-sitter packages, and target
-code is never imported there. Under the temp-directory sandbox the resolution
-still happens in a subprocess rather than in-process — exactly the strength
-acceptance commands have in that mode, and no more.
-
-**The resolver is ghostcall's engine, staged rather than installed.** The four
-engine files are stdlib-only and are vendored under ``gate/_engine/ghostcall/``
-pinned to an upstream commit with a sha256 per file; this rung stages them into
-the workspace for the length of one run and removes them after. It is staged
-rather than baked into an image layer, so the resolver never enters the image
-and :func:`~mcgyvr.sandbox.image.cache_key` keeps covering exactly what the
-repository declared and nothing else. The digests are checked before every run
-and a mismatch is fail-closed — an environment issue, never a verdict.
-
-**It reports; it does not reject — yet.** ``blocking`` defaults to ``False``,
-so findings arrive as ``observations`` that do not fail a change. The sample
-behind its false-positive rate is thin, and the flags it produced there were
-correct platform-conditional code. :mod:`mcgyvr.gate.semantic_driver`
-suppresses that class, but a mitigation validated against a handful of sites
-is not licence to block. Flipping ``blocking`` is one field and wants a wider
-sample first.
-
-Two properties every other per-change check also holds are kept here:
-
-- **Only added lines.** Findings are filtered to
-  :attr:`~mcgyvr.gate.changeset.FileChange.added_lines` in the driver *and*
-  again here, so pre-existing state in a touched file can never fail a worker.
-- **A tool that cannot run is an environment issue, not a rejection.** An
-  import root that will not import, an interpreter that is not there, a driver
-  that dies: all are reported as degraded coverage. The failure mode that makes
-  this rung *vacuous* — every import failing, so nothing is ever flagged — is
-  the one it says loudest.
+The rung is non-blocking unless asked otherwise: the engine's false-positive
+rate was measured against the pinned bytes, so its items arrive as
+``observations`` unless ``SemanticCheck(blocking=True)`` is passed. Anything
+that stops the check from running or blinds it — an engine that is missing or
+no longer the pinned bytes, a driver that wrote no report, a file the driver
+could not read, an import root that would not import in the sandbox — is
+reported as an environment issue in prose, never as a finding against the
+change.
 """
 
 from __future__ import annotations
@@ -61,18 +35,19 @@ from mcgyvr.gate.changeset import ChangeSet, FileChange
 from mcgyvr.gate.findings import Finding
 from mcgyvr.sandbox.base import Sandbox
 
-# The check name every semantic finding carries.
+# The check name attached to every finding this rung produces.
 CHECK = "semantic"
 
-# Where the engine and the driver are staged, relative to the workspace root.
-# Dot-prefixed and removed in a ``finally``: the gate must judge the worker's
-# diff, and a staged file left behind would be part of what delivery commits.
+# Where the staged engine, driver, job and report live inside the sandbox
+# workspace. One fixed name, removed after every run, so a pass leaves nothing
+# behind and a rerun in the same workspace starts from a clean directory.
 STAGING_DIR = ".mcgyvr-semantic"
 
-# The resolver, pinned. Changing either the commit or a digest is a deliberate
-# edit to this file and re-opens the false-positive question #129 measured —
-# that is the whole of the version policy, and it is enforced rather than
-# asserted: :meth:`SemanticCheck.run` verifies these before it stages anything.
+# The vendored resolver engine, pinned by upstream origin and commit, and each
+# file it ships by sha256. The digests are checked before every run, because the
+# rung's false-positive measurement was taken against these bytes: a modified or
+# substituted engine is a check nobody has measured, and the honest answer there
+# is an environment issue rather than a verdict.
 ENGINE_COMMIT = "56b74fc266cde790ef3d4fc474c1388ee2960d5f"
 ENGINE_ORIGIN = "https://github.com/linosorice/ghostcall"
 ENGINE_DIGESTS: Mapping[str, str] = {
@@ -84,28 +59,30 @@ ENGINE_DIGESTS: Mapping[str, str] = {
 
 _DRIVER_NAME = "semantic_driver.py"
 
-# Wall-clock ceiling for the whole resolution pass. It is a sub-second pass in
-# principle, but it imports the target's packages, and a module-level import
-# can do anything at all — so it is bounded, and the bound is an environment
-# outcome rather than a verdict.
+# How long one resolution pass may take, in seconds. Importing the target's own
+# packages is what it spends the time on, so this covers imports as much as the
+# checking; a pass that overruns is killed and reported as an environment fault
+# rather than as anything about the change.
 DEFAULT_TIMEOUT = 120.0
 
 
 class SemanticError(Exception):
-    """The rung could not stage or read what it needs to run."""
+    """The engine or the driver could not be found or used, so no semantic
+    check ran."""
 
 
 @dataclass(frozen=True)
 class SemanticReport:
-    """What the rung saw, in the gate's own currency.
+    """What one pass found, and how much of the change it could see.
 
-    ``findings`` reject the change and are populated only when ``blocking`` is
-    set; otherwise the same items arrive as ``observations``, which are
-    reported and never rejecting. ``environment_issues`` mirror
-    :class:`~mcgyvr.gate.acceptance.AcceptanceReport`'s, so the gate folds one
-    into the other. ``resolved`` and ``suppressed`` are the coverage the run
-    actually achieved — a rung that silently stopped looking would otherwise
-    report a clean pass it had not earned.
+    ``findings`` and ``observations`` hold the same unresolved chains, filed on
+    whichever side the rung's ``blocking`` flag sends them, so at most one of the
+    two is non-empty. ``environment_issues`` are prose reasons the pass was
+    degraded or did not run — none of them is the change's fault.
+    ``resolved`` counts the calls the engine could judge, and a call whose import
+    root would not import is not counted, which is why a zero here over a
+    non-empty target means the check was blind. ``suppressed`` is the number of
+    calls skipped per reason, sorted by reason.
     """
 
     findings: tuple[Finding, ...] = ()
@@ -117,14 +94,15 @@ class SemanticReport:
 
 @dataclass(frozen=True)
 class SemanticCheck:
-    """The environment-resolved rung, bound to an open sandbox.
+    """The rung: stage the engine into the sandbox, run the driver, read the report.
 
-    ``interpreter`` is the argv prefix that reaches an interpreter which can
-    see *the repository's own installed dependencies* — the caller knows how
-    the image was provisioned, so it supplies this rather than the gate
-    re-deriving a stack it does not own (the reason ``detect_stack`` is not
-    called here). A wrong interpreter is not a wrong verdict: its imports fail,
-    and failed imports are environment issues.
+    ``sandbox`` supplies the workspace and the isolation the driver runs in, and
+    ``interpreter`` is the command it is launched with — the sandbox's
+    ``python3`` unless a caller says otherwise, so the packages installed there
+    are the ones the chains resolve against.
+    ``timeout`` bounds one pass (``None`` leaves it to the sandbox's default), and
+    ``blocking`` decides whether an unresolved chain rejects the work or is only
+    reported as an observation.
     """
 
     sandbox: Sandbox
@@ -133,11 +111,22 @@ class SemanticCheck:
     blocking: bool = False
 
     def run(self, changeset: ChangeSet) -> SemanticReport:
-        """Resolve the calls the worker added, inside the sandbox."""
+        """Resolve the call chains this changeset added, inside the sandbox.
+
+        The added lines are collected per Python file, the pinned engine and the
+        driver are staged into the sandbox, and the driver is run under
+        ``interpreter`` with a job file as input and a report file as output.
+        Where the pass cannot start or cannot finish, the returned report carries
+        the reason as an environment issue and no findings, so a broken rung
+        never rejects the change. The staging directory is removed when the run
+        ends, on every path through it.
+        """
         targets = _targets(changeset)
         if not targets:
-            # No Python was added — which is also how JS/TS gets its no-op
-            # until an equivalent resolver exists there (#133).
+            # No Python file in this change added a line, so there is no chain to
+            # resolve and nothing was skipped: an empty report records that the
+            # rung ran and saw nothing, which is a different statement from a
+            # rung that never ran at all.
             return SemanticReport()
 
         try:
@@ -159,9 +148,10 @@ class SemanticCheck:
                     f"{STAGING_DIR}/out.json",
                 ],
                 timeout=self.timeout,
-                # Relative to the workspace, which is the working directory in
-                # both sandbox modes. The workspace itself is on the path so a
-                # repository package that is not installed still imports.
+                # The pass's one variable: the staged engine package first, so
+                # the driver imports the pinned copy rather than anything
+                # installed, then the workspace root so the paths in the job open
+                # and import as the repository runs them.
                 env={"PYTHONPATH": f"{STAGING_DIR}/engine:."},
             )
             report_path = staging / "out.json"
@@ -177,12 +167,22 @@ class SemanticCheck:
 
         return self._interpret(raw, targets)
 
-    # -- report → gate currency -------------------------------------------
+    # What the driver wrote, turned into what the gate reads.
 
     def _interpret(
         self, raw: Mapping[str, Any], targets: Mapping[str, list[int]]
     ) -> SemanticReport:
-        """Turn the driver's report into findings, issues and coverage."""
+        """Fold the driver's JSON report into findings, observations and issues.
+
+        Each file entry either carries an ``error`` — the driver could not read or
+        parse that file, which costs only that file and is reported by name — or a
+        list of flags with counts beside it. A flag becomes a finding only on a
+        line the diff added, since the driver resolves whole files and an
+        untouched line predates this change. Suppressions are summed per reason
+        across files, and import roots that would not import are reported once
+        for the run, because that is one environment fault however many calls it
+        silenced.
+        """
         items: list[Finding] = []
         issues: list[str] = []
         missing_roots: set[str] = set()
@@ -200,10 +200,10 @@ class SemanticCheck:
             for reason, count in (entry.get("suppressed") or {}).items():
                 suppressed[reason] = suppressed.get(reason, 0) + int(count)
             for flag in entry.get("flags", ()):
-                # The driver already restricts itself to the added lines; this
-                # is the same restriction enforced where the gate can see it,
-                # so the acceptance criterion is pinned on this side of the
-                # sandbox rather than trusted to what came back through it.
+                # The driver flags every unresolved chain in the file it was
+                # given; only the lines this change added are its responsibility,
+                # so a flag anywhere else describes code the base commit already
+                # had and is dropped here rather than charged to the worker.
                 if flag.get("line") in allowed:
                     items.append(_as_finding(path, flag))
 
@@ -219,11 +219,18 @@ class SemanticCheck:
         )
 
 
-# --- staging --------------------------------------------------------------
+# The engine itself: where the pinned resolver lives, whether it is still the
+# bytes the pin was measured against, and how one run's copy is staged.
 
 
 def engine_dir() -> Path:
-    """Locate the vendored resolver: one place, inside the package."""
+    """The engine as it ships inside the package: ``gate/_engine/ghostcall``.
+
+    Raises :class:`SemanticError` when that directory has no ``checker.py``:
+    without it the rung has nothing to run, and :meth:`SemanticCheck.run` reports
+    that as an environment issue instead of returning findings it never looked
+    for.
+    """
     packaged = resources.files("mcgyvr.gate") / "_engine" / "ghostcall"
     if (packaged / "checker.py").is_file():
         return Path(str(packaged))
@@ -234,11 +241,12 @@ def engine_dir() -> Path:
 
 
 def verify_engine(engine: Path) -> str | None:
-    """Check the engine against its pinned digests. A message means refuse.
+    """Compare each pinned engine file against its recorded sha256.
 
-    Fail-closed, and closed means *not running* rather than *rejecting*: an
-    engine that is not the reviewed one is an environment fault, and charging
-    a worker for it would be the worst kind of false positive.
+    ``None`` when every file matches; otherwise a message naming the first file
+    that is unreadable or altered. A mismatch is not worked around or retried
+    with the bytes that were found: the pinned bytes are what the rung's measured
+    false-positive rate describes, so the message asks for a deliberate re-pin.
     """
     for name, expected in ENGINE_DIGESTS.items():
         try:
@@ -259,7 +267,14 @@ def verify_engine(engine: Path) -> str | None:
 
 
 def _stage(engine: Path, staging: Path, targets: Mapping[str, list[int]]) -> None:
-    """Write the engine, the driver and the job into the workspace."""
+    """Write one run's inputs under ``staging``, inside the sandbox workspace.
+
+    The pinned engine files are copied into ``engine/ghostcall`` — the package
+    name the driver imports — while the driver script and ``job.json`` sit at the
+    top of ``staging``, which is the shape the launch command and the
+    ``PYTHONPATH`` above are written against. Every file is copied rather than
+    read from the host, so the sandbox never reaches into the installed package.
+    """
     shutil.rmtree(staging, ignore_errors=True)
     destination = staging / "engine" / "ghostcall"
     destination.mkdir(parents=True)
@@ -272,7 +287,12 @@ def _stage(engine: Path, staging: Path, targets: Mapping[str, list[int]]) -> Non
 
 
 def driver_source() -> str:
-    """The driver's own source, read as text — it is never imported here."""
+    """The driver script's text, read from the installed package.
+
+    Raises :class:`SemanticError` when the package does not ship it, which
+    :meth:`SemanticCheck.run` turns into an environment issue like the engine's
+    own absence.
+    """
     packaged = resources.files("mcgyvr.gate") / _DRIVER_NAME
     if packaged.is_file():
         return packaged.read_text(encoding="utf-8")
@@ -280,7 +300,13 @@ def driver_source() -> str:
 
 
 def _targets(changeset: ChangeSet) -> dict[str, list[int]]:
-    """The Python files the worker added lines to, and which lines those are."""
+    """The added line numbers per path, for the Python files this change touched.
+
+    Keyed by repository-relative path, which is also how the driver opens them
+    relative to the workspace root. Binary, deleted and symlink entries are
+    already excluded by the changeset; what is left out here is any file with no
+    added line, and anything that is not ``.py`` or ``.pyi``.
+    """
     return {
         change.path: sorted(change.added_lines)
         for change in changeset.text_changes()
@@ -292,11 +318,18 @@ def _is_python(change: FileChange) -> bool:
     return change.path.endswith(".py") or change.path.endswith(".pyi")
 
 
-# --- messages -------------------------------------------------------------
+# The driver's flags and counts, turned into the findings and the prose the gate
+# reads.
 
 
 def _as_finding(path: str, flag: Mapping[str, Any]) -> Finding:
-    """One unresolved call, named as precisely as the resolver can name it."""
+    """One unresolved chain, as a finding on the line that wrote it.
+
+    Missing fields fall back to placeholders instead of failing the run: the
+    message is what a worker reads, and it should still name the chain when the
+    engine left a detail out. The code is always ``unresolved``, which is the one
+    thing this rung reports; the suggestions are repeated as the engine gave them.
+    """
     chain = flag.get("chain") or "?"
     parent = flag.get("parent") or "the imported module"
     missing = flag.get("missing_attr") or "?"
@@ -315,7 +348,12 @@ def _as_finding(path: str, flag: Mapping[str, Any]) -> Finding:
 
 
 def _unimportable(roots: Sequence[str], resolved: int) -> str:
-    """The environment issue for import roots the sandbox could not import."""
+    """The single environment-issue line for import roots that would not import.
+
+    The consequence is spelled out because the quieter reading — no findings —
+    looks like a pass: every call rooted at one of these went unresolved without
+    being reported, and when ``resolved`` is zero the run cleared nothing at all.
+    """
     listed = ", ".join(roots)
     vacuous = (
         " Nothing at all resolved, so this run cleared no call: the check was "
@@ -332,7 +370,12 @@ def _unimportable(roots: Sequence[str], resolved: int) -> str:
 
 
 def _driver_failed(exit_code: int, result: Any) -> str:
-    """The environment issue for a driver that produced no report."""
+    """The environment issue for a driver that exited without writing a report.
+
+    A timeout gets its own message because a killed pass has no traceback to
+    show, and the other case appends the last 600 characters of what the driver
+    wrote, so whatever it said — typically a traceback — reaches the reader.
+    """
     detail = (result.stderr or result.stdout or "").strip()[-600:]
     if result.timed_out:
         return (

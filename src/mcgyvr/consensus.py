@@ -1,60 +1,11 @@
-"""Best-of-N: several draws for one attempt, ranked by what the gate found.
+"""Best-of-N over gated draws in a sandbox.
 
-**The gate is the only scorer.** There is no majority voting over execution
-fingerprints, no generated test inputs and no ranking on a signal the gate does
-not own. Draws are judged in the order they were drawn, and a tie goes to the
-earliest — so where the gate cannot tell two candidates apart, the first
-candidate to pass the gate is what wins.
-
-**Every draw is gated; there is no early exit at the first accepted draw.** One
-verdict per draw answers "given that a gate-passing candidate exists among N, at
-what index does it first appear?" outright, and the vector it leaves is what
-turns "three draws cost three gate runs and bought nothing" into a fact rather
-than a suspicion. The price is gate runs — wall clock against
-``task_timeout_s`` — and no tokens at all.
-
-**Selection is not delivery, and the winner still travels bound.** No draw is
-left in a tree: the workspace each was judged in is restored after it and torn
-down at the end, so a rejected draw leaks nowhere. That is the invariant that
-makes breadth safe to run at all — every draw has to be written into a tree to
-be gated, and a leaked one would be committed by delivery as part of the change
-that won.
-
-The reset is why the bytes cannot simply stay put, and it is also where the
-answer is. A draw's verdict is reached in a workspace that still exists at that
-moment, which is exactly where :meth:`mcgyvr.deliver.Accepted.read` mints — so
-each draw is bound *there*, one line after its gate and one line before its
-reset, and what this returns is bindings rather than strings. A caller that
-wants the winner in a tree applies :attr:`Consensus.winner` and hands that same
-value to :func:`mcgyvr.deliver.deliver`, which re-judges it and can see a
-substitution because the digest came off the tree the verdict did.
-
-**Nothing here dispatches, and nothing here executes.** Draws are supplied and
-so is the gate, for the same reason :func:`~mcgyvr.route.climb` takes an attempt
-function: the ranking rule is then assertable without a model, and a module that
-needed one could not be tested. Where a gate runs the contract's own commands
-they must run in a sandbox, which is why a caller that already holds one passes
-it in — the draws are staged in the workspace its attempt is already using,
-against the base it is already diffing.
-
-**The default is one draw**: one draw, one verdict, and the draw is the answer.
-
-**A draw may come back with nothing in it, and that is not an exception.** A
-model reply that cannot be read — truncated, prose where a fenced block was
-asked for, a refusal in place of a file — is the common case rather than the
-exceptional one. A sampler that fabricated a string for it would have that
-string written, gated and reported as a candidate the gate rejected when there
-was never a candidate; one that raised would end the attempt and discard the
-verdicts of every draw already gated. At ``n > 1`` the second loses real work:
-draw 0 can pass the gate and be thrown away because draw 1 came back truncated.
-
-So the sampler may answer :class:`Unusable`. Such a draw is not written, not
-gated and not ranked — there is no verdict to rank it by — and it is recorded in
-:attr:`Consensus.unusable` in the sampler's own words, because "two of three
-draws were unreadable" is the measurement that says what breadth actually bought.
-Only when *every* draw refuses is there nothing to return, and that is
-:class:`NoUsableDrawError`: one unreadable reply, one failed attempt, the refusal
-in its detail.
+:func:`best_of` asks a caller's sampler for ``n`` candidates, writes each one
+at the contract's target inside a sandbox workspace, hands that workspace to
+a caller's gate, and keeps the draw whose verdict ranks highest. A draw that
+produced no candidate at all — a truncated reply, prose where a file was
+asked for — is recorded as :class:`Unusable` and skipped instead of gated, so
+one unreadable answer does not discard the verdicts the other draws paid for.
 """
 
 from __future__ import annotations
@@ -76,28 +27,22 @@ if TYPE_CHECKING:  # pragma: no cover - typing only
 
 
 class ConsensusError(Exception):
-    """A best-of run could not be made from the inputs given."""
+    """A best-of-N round could not be set up, or could not bind a verdict."""
 
 
 class NoUsableDrawError(ConsensusError):
-    """Every draw refused, so there is nothing to rank and no winner to return.
-
-    Distinct from its parent because a caller can act on it: this is an attempt
-    that failed, not a ranking that could not be performed. A driver turns it
-    into a rejected attempt and lets the ladder decide what to do next, where a
-    bare :class:`ConsensusError` — a gate that deleted the file it was judging —
-    is a fault it has no answer for.
-    """
+    """Every draw of the round was unusable, so there is nothing to gate."""
 
 
 @dataclass(frozen=True)
 class Unusable:
-    """A sampler's answer that this draw produced no candidate, and why.
+    """A draw that produced no candidate, and why.
 
-    The reason is the sampler's own sentence and is kept verbatim: it is the
-    only account of the draw that exists — nothing was written, so no gate ran
-    and no finding was recorded — and it is what the operator reads when an
-    attempt spent N dispatches and returned nothing.
+    A sampler returns this instead of a string when it has nothing to write:
+    a refused or truncated reply, a reply with no fenced file in it. The
+    reason travels into :attr:`Consensus.unusable` with the draw's index in
+    front of it, so a round in which every draw refused reports what went
+    wrong with each instead of only that nothing arrived.
     """
 
     reason: str
@@ -105,36 +50,24 @@ class Unusable:
 
 @dataclass(frozen=True)
 class Consensus:
-    """What N draws of one attempt came to: every verdict, and the winner.
+    """One best-of-N round: the candidates it gated, and which one won.
 
-    ``gates`` holds one result per draw, in the order drawn — the record that
-    makes "N draws bought nothing" checkable afterwards — and ``chosen`` indexes
-    into it, so the winner's verdict is never carried apart from the losers'.
-
-    ``draws`` holds the same draws as :class:`~mcgyvr.deliver.Accepted` bindings,
-    on the same index, each minted in the workspace its own verdict was reached
-    in. It is deliberately the only way to the bytes: there is no ``content``
-    field, because a ``str`` beside a verdict is a claim about a tree that this
-    module has already reset, and the next reader has no way to check it.
-
-    ``unusable`` holds the draws that produced no candidate at all, in the order
-    drawn and each naming its index. They are deliberately *not* in ``gates``:
-    an unusable draw has no verdict, and giving it a synthetic rejection would
-    put "the gate refused this" in the record of a gate run that never happened
-    — a fabrication. ``gates`` and ``draws`` therefore run over the draws that
-    produced a candidate, which is what ``chosen`` indexes, while ``len()``
-    still counts every draw the caller paid for.
+    ``draws``, ``gates`` and ``chosen`` are parallel over the draws that
+    produced a candidate. A refused draw is not a candidate, so it appears
+    only in ``unusable`` and ``indices``; ``chosen`` therefore indexes the
+    candidates, and :attr:`dispatched` maps it back to the draw the sampler
+    was asked for.
     """
 
     draws: tuple[Accepted, ...]
     chosen: int
     gates: tuple[GateResult, ...]
     unusable: tuple[str, ...] = ()
-    #: The dispatch index of each candidate, on the same index as ``gates``.
-    #: ``chosen`` indexes the candidates; the journal is keyed by the dispatch
-    #: (one row per ``sample(index)``), and the two part company the moment a
-    #: draw before the winner was unusable. Defaulted to the identity when no
-    #: draw was refused, which is the one case the two are the same thing.
+    #: Which dispatch each candidate came from, parallel to ``draws`` and
+    #: ``gates``: the sampler is called with a draw index while ``chosen``
+    #: counts candidates, and the two part company as soon as one draw is
+    #: refused. Empty means nothing was refused and the draws ran in order —
+    #: but a round that did refuse one must say so, or the index is a guess.
     indices: tuple[int, ...] = ()
 
     def __post_init__(self) -> None:
@@ -154,46 +87,26 @@ class Consensus:
 
     @property
     def dispatched(self) -> int:
-        """Which dispatch the winner was: the index the journal keyed its row by.
-
-        Not :attr:`chosen`. ``chosen`` counts candidates and skips the draws
-        that produced none, so with an unreadable first reply the two differ.
-        """
+        """The draw index the winning candidate came from."""
         return self.indices[self.chosen]
 
     @property
     def gate(self) -> GateResult:
-        """The winning draw's verdict."""
+        """The verdict the gate returned for the winning candidate."""
         return self.gates[self.chosen]
 
     @property
     def winner(self) -> Accepted:
-        """The best draw's bytes and verdict, bound.
-
-        Named for what it is rather than for what it passed: it is the best of
-        N whether or not the gate accepted any of them, which is why
-        :attr:`accepted` is a separate question and the one a caller asks before
-        delivering.
-        """
+        """The winning candidate, bound to the file the gate judged."""
         return self.draws[self.chosen]
 
     @property
     def accepted(self) -> bool:
-        """Whether the winner passed at all.
-
-        ``False`` is the honest answer that the best of N was still not good
-        enough, and it is what a caller checks before delivering: the winner
-        is always the best draw, which is not the same as an acceptable one.
-        """
+        """Whether the winning candidate's verdict accepted the change."""
         return self.gate.accepted
 
     def __len__(self) -> int:
-        """How many draws were made, candidates and refusals alike.
-
-        The count is what was spent, not what came back: an attempt that drew
-        three times and could read one of them cost three dispatches, and a
-        length of one would report breadth as cheaper than it was.
-        """
+        """How many draws the round made, refused ones included."""
         return len(self.gates) + len(self.unusable)
 
 
@@ -206,36 +119,21 @@ def best_of(
     repo: Path | None = None,
     sandbox: Sandbox | None = None,
 ) -> Consensus:
-    """Draw ``n`` candidates for one attempt, gate each on its own, return the best.
+    """Draw ``n`` candidates into a workspace, gate each, and keep the best.
 
-    ``sample(index)`` is the text of one draw for ``contract.target`` — a whole
-    file, which is what ``output_schema: whole_file`` means and what a
-    model-executed contract's target always is (a pattern target is refused at
-    load for every type a model runs). It is called once per draw, in order.
+    ``sample`` is called once per draw with the draw's index and returns the
+    text of the file to write, or :class:`Unusable` when it has nothing to
+    offer. ``gate`` is called with the sandbox once the candidate is on disk,
+    because the gate judges the workspace's change rather than a string.
 
-    It may instead answer :class:`Unusable`, which is how a sampler says this
-    draw produced nothing to gate. That draw is skipped and recorded, the ones
-    around it keep their verdicts, and :class:`NoUsableDrawError` is raised only if
-    none of the ``n`` produced a candidate. An *exception* out of the sampler is
-    not caught: it means not "the model answered badly" — that is ``Unusable`` —
-    but that the draw could not be made at all, which is not a verdict and must
-    not be reported as one.
+    Exactly one of ``sandbox`` and ``repo`` is required. A ``sandbox`` draws in
+    the caller's own workspace: it is checkpointed before the first draw and
+    restored to that checkpoint between draws, and the checkpoint is dropped
+    before this returns. A ``repo`` is opened in a throwaway sandbox whose
+    draws are reset to its base commit after each gate.
 
-    ``gate(sandbox)`` judges the draw that is currently in that sandbox's
-    workspace. It is handed the sandbox rather than a bare path on purpose: the
-    contract's acceptance commands run any program they name, inside a sandbox
-    and nowhere else, so a gate that received only a ``Path`` could not run them
-    and every real caller would have to close over a sandbox it was not given —
-    the workspace is not enough to gate.
-
-    Exactly one of ``repo`` and ``sandbox`` says where the draws are staged.
-    Passing ``sandbox`` draws in a caller's own workspace — a caller mid-attempt
-    already holds one and should pass it, and then a ``repo`` would be dead —
-    while passing ``repo`` opens an ephemeral temp-directory workspace populated
-    from its ``HEAD`` and removed afterwards. After every draw the workspace is
-    returned to the state it was handed over in: a caller's own sandbox keeps
-    the work it already held, every draw starts from that same state, and no
-    draw sees the last one's bytes.
+    Raises :class:`NoUsableDrawError` when no draw produced a candidate, and
+    :class:`ConsensusError` when the arguments name no workspace or name two.
     """
     if n < 1:
         raise ConsensusError(f"a rung takes at least one draw; {n} were asked for")
@@ -254,11 +152,11 @@ def best_of(
         try:
             return _draw(sandbox, contract, sample, gate, n, checkpoint=checkpoint)
         finally:
-            # Whether the draws finished, all refused, or a gate raised, the
-            # caller gets its sandbox back with ``HEAD`` at the base and the
-            # working tree at the state it handed over.
+            # The checkpoint existed only to give the draws a clean start
+            # and a place to go back to; dropping it leaves the caller's
+            # history without a commit it never made, tree unchanged.
             sandbox.drop_checkpoint()
-    assert repo is not None  # the `sandbox is None and repo is None` guard above
+    assert repo is not None  # `sandbox` returned above, so `repo` was named
     with TempDirSandbox(repo) as staged:
         return _draw(staged, contract, sample, gate, n, checkpoint=None)
 
@@ -272,11 +170,15 @@ def _draw(
     *,
     checkpoint: str | None,
 ) -> Consensus:
-    """Write each draw into ``space``, judge it, bind it, and undo it.
+    """Run ``n`` draws in ``space`` and rank the verdicts of those that landed.
 
-    ``checkpoint`` is the commit the workspace is restored to after every draw.
-    ``None`` means the sandbox is ephemeral and owned by this call, so the
-    ordinary :meth:`~mcgyvr.sandbox.base.Sandbox.reset` to the base is used.
+    Each candidate is written at the contract's target and handed to ``gate``
+    in the workspace that now holds it; a draw the sampler or the encoding
+    refused is recorded in ``unusable`` and never gated. The workspace is put
+    back between draws — to ``checkpoint`` when the caller owns the sandbox,
+    otherwise to the sandbox's base commit — so one candidate's file cannot be
+    judged as part of the next one's change. Raises
+    :class:`NoUsableDrawError` when no draw left anything for the gate.
     """
     drawn: list[Accepted] = []
     verdicts: list[GateResult] = []
@@ -286,62 +188,62 @@ def _draw(
     for index in range(n):
         content = sample(index)
         if isinstance(content, Unusable):
-            # Before the workspace is touched, which is the whole of what this
-            # branch is: nothing is written, so nothing is gated, so there is no
-            # reset to make and no verdict to record. The draw cost a dispatch
-            # and bought nothing, and that is what is kept.
+            # The sampler had nothing to offer: an unreadable reply, a
+            # refusal, or text truncated at the ceiling. Nothing is written
+            # and nothing is judged, so there is no verdict to rank — only a
+            # reason, kept with its draw index for the round's report.
             refused.append(f"draw {index}: {content.reason}")
             continue
         data = _bytes_of(content, index)
         if isinstance(data, Unusable):
-            # Encoded before the workspace is touched, for the same reason as
-            # above: a draw with no bytes is not a candidate, and a draw that
-            # passed before it keeps its verdict.
+            # Text the workspace cannot hold as bytes. Recorded like a
+            # refused draw rather than raised: writing it would end the round
+            # and take the verdicts the earlier draws already earned with it.
             refused.append(f"draw {index}: {data.reason}")
             continue
         target = inside(space.workspace, contract.target)
         try:
             target.parent.mkdir(parents=True, exist_ok=True)
-            # `write_bytes` under `surrogateescape`, the byte convention the
-            # rest of mcgyvr uses to store accepted work: `write_text`
-            # encodes with the platform's preferences under `strict` and
-            # translates line endings, so the draw the gate judged would not be
-            # the draw returned as the winner. A verdict about a file nobody
-            # kept is the one thing this ranking cannot survive.
+            # The gate judges a tree, not a string, so the candidate has to
+            # be on disk before it can be judged. `inside` has refused an
+            # absolute target, one that walks out of the workspace and one
+            # that crosses a symlink; the parent is created because a
+            # contract may name a file in a directory the repo does not have.
+            # The write replaces whatever is at the target already.
             target.write_bytes(data)
             verdict = gate(space)
-            # Inside the `try`, so the binding is taken in the tree the verdict
-            # was reached in and before the `finally` erases it. There is no
-            # other moment: after the reset the workspace holds the base again,
-            # and a binding minted from `content` would answer for the caller's
-            # own string rather than for anything the gate read.
+            # Bind the verdict to the file that is on disk right now, before
+            # the workspace is restored: `Accepted.read` reads the target
+            # back out of the tree, so it has to run while the candidate is
+            # still there. Verdict and draw index are appended together, in
+            # candidate order, so `chosen` can be translated to a dispatch.
             drawn.append(_bind(space.workspace, contract, verdict, index))
             verdicts.append(verdict)
             dispatched.append(index)
         finally:
-            # In `finally` rather than after the verdict: a gate that raises
-            # must not leave one draw's bytes in the workspace the next draw —
-            # or the caller's own attempt, when the sandbox is theirs — is
-            # judged in. Restoring to the entry checkpoint — the caller's own
-            # state, not the base — is what makes N draws cost one workspace
-            # and N-1 restores without wiping what the caller held.
+            # Put the workspace back before the next draw, so the next
+            # candidate is judged on its own change and not on this one's
+            # leftovers. A caller's sandbox returns to the checkpoint taken
+            # before the first draw, which is the tree its draws start from; a
+            # throwaway one resets to the commit it was opened at. This runs
+            # whether the gate accepted, refused, or raised.
             if checkpoint is not None:
                 space.restore_to(checkpoint)
             else:
                 space.reset()
 
     if not verdicts:
-        # Every draw refused. There is no winner and no honest way to invent
-        # one: `Consensus.winner` promises the best of what was drawn, and the
-        # best of nothing is not a rejected candidate, it is no candidate.
+        # Every draw refused, so there is no verdict to rank and no winner to
+        # report: the round fails rather than picking one of nothing, and the
+        # message carries each draw's own reason.
         raise NoUsableDrawError(
             f"none of the {n} draw(s) produced anything to gate — " + "; ".join(refused)
         )
 
-    # `max` keeps the first of equal keys, so a tie goes to the earliest draw:
-    # where the gate cannot separate two candidates, the one drawn first wins.
-    # Over the candidates, not over `range(n)`: a refused draw has no verdict to
-    # be ranked by, and the draws that did produce one keep their order.
+    # Rank by `_score` and take the highest; `max` returns the first of equal
+    # scores, so a tie goes to the earlier draw. The winner may still be a
+    # candidate the gate turned down — the gate ran and said so — and the
+    # caller reads that from `accepted` rather than having the round hide it.
     best = max(range(len(verdicts)), key=lambda index: _score(verdicts[index]))
     return Consensus(
         draws=tuple(drawn),
@@ -355,14 +257,13 @@ def _draw(
 def _bind(
     workspace: Path, contract: Contract, verdict: GateResult, index: int
 ) -> Accepted:
-    """The draw now in ``workspace``, bound to the verdict just reached on it.
+    """Read the judged candidate back out of the workspace, with its verdict.
 
-    :meth:`mcgyvr.deliver.Accepted.read` raises when the target is not there to
-    read, which here means the gate deleted or moved the file it was judging.
-    That is not a verdict about the draw and must not be reported as one — a
-    rejection would say the model wrote something the gate refused, and it wrote
-    something the gate lost. It is re-raised as this module's own error, naming
-    the draw, because the ranking cannot be completed either way.
+    ``Accepted.read`` is what carries the file's text, digest and findings,
+    and it reads the tree the gate just judged, so it is called before the
+    workspace is restored. A verdict with no file behind it means the gate
+    did not leave the target where the contract names it: that is a fault in
+    the round, not an unusable draw, so it raises instead of being skipped.
     """
     try:
         return Accepted.read(repo=workspace, contract=contract, result=verdict)
@@ -374,18 +275,13 @@ def _bind(
 
 
 def _bytes_of(content: str, index: int) -> bytes | Unusable:
-    """One draw as the bytes that go in the workspace, or why there are none.
+    """Encode a drawn file as the bytes that go into the workspace.
 
-    The convention is ``surrogateescape``, which round-trips *bytes* a decode
-    could not read (U+DC80..U+DCFF), and a **lone** surrogate is not one of
-    those. It is a legal JSON escape, so ``\\ud800`` survives ``json.loads``
-    into a completion and reaches here as ordinary draw text.
-
-    A refusal rather than a rejection, because there is no verdict to record: no
-    file was written, so no gate ran, so the draw is not a candidate that scored
-    badly — it is a candidate that does not exist. That is :class:`Unusable`,
-    the same answer a truncated reply gets, so the draws around it keep their
-    verdicts.
+    ``surrogateescape`` is the codec the rest of the tree reads bytes back
+    with, so text that came from a file round-trips unchanged. A lone
+    surrogate outside the range that codec maps stands for no byte at all and
+    has no UTF-8 encoding; it comes back as :class:`Unusable` rather than
+    raised, so the draw is lost and the draws around it are not.
     """
     try:
         return content.encode("utf-8", "surrogateescape")
@@ -399,16 +295,13 @@ def _bytes_of(content: str, index: int) -> bytes | Unusable:
 
 
 def _score(result: GateResult) -> tuple[int, int, int]:
-    """How well one draw did, higher first — the gate's verdict and nothing else.
+    """Score a verdict so a plain ``max`` prefers the better candidate.
 
-    ``accepted`` is what decides. The two counts only order the draws the gate
-    rejected, so that "best of N" still means something when none of them passed
-    and the caller reporting the failure has the closest one to report.
-
-    Observations are deliberately not scored. They are findings a rung reported
-    without rejecting on (the semantic rung, non-blocking by default), and
-    letting them pick the winner would promote a non-blocking check into a
-    selector.
+    Acceptance dominates; among verdicts that agree on it, the fewer findings
+    the better, and among those, the fewer inconclusive rungs. Both counts are
+    negated because ``max`` picks the greatest tuple. ``inconclusive`` ranks
+    last because a rung that could not run says less about a change than one
+    that ran and found nothing wrong with it.
     """
     return (
         int(result.accepted),

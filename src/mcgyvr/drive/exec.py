@@ -1,4 +1,12 @@
-"""A ``ToolStep`` executor: run a deterministic step inside a sandbox."""
+"""Running one deterministic tool step, and the outcome it reports.
+
+``run_tool_step`` is the floor's executor: handed a :class:`ToolStep` and a
+``Sandbox``, it runs the step's command in the sandbox — or, for a step naming
+an operation mcgyvr performs itself, applies it in process — and returns a
+:class:`ToolOutcome` saying what happened. A step whose program is not on the
+sandbox's PATH comes back with ``environment_issue`` set and no result, so the
+caller can report a missing dependency rather than a rejected change.
+"""
 
 from __future__ import annotations
 
@@ -20,25 +28,9 @@ if TYPE_CHECKING:  # pragma: no cover - typing only
 
 @dataclass(frozen=True)
 class ToolOutcome:
-    """What running one deterministic step came to.
-
-    Three states, kept apart for the reason :mod:`mcgyvr.gate.acceptance` keeps
-    the same three apart: a program that ran and succeeded, a program that ran
-    and failed, and a program that never ran at all. The third is an environment
-    fault — ruff is not installed — and is never the change's fault, which is
-    the distinction :class:`~mcgyvr.deterministic.Degradation` is built on and
-    the reason a missing tool degrades the contract onto a dearer family instead
-    of failing it.
-
-    ``result`` is ``None`` only when the program did not run. A caller reading
-    ``ok`` alone gets the safe answer in both failing cases; a caller deciding
-    *whose* fault it was reads :attr:`environment_issue`.
-
-    The middle state has two halves and :attr:`ok` cannot tell them apart,
-    which is what :attr:`performed` is for: a fixer that exits non-zero because
-    a diagnostic remains after fixing has carried out a ``lint_fix`` operation,
-    and a caller reading ``not ok`` as fatal never reaches the gate that judges
-    the result.
+    """What one tool step did: the step, the result it produced if it ran, and
+    the environment issue that stopped it if it never did. A step either has a
+    result or an issue, never both.
     """
 
     step: ToolStep
@@ -47,44 +39,23 @@ class ToolOutcome:
 
     @property
     def ran(self) -> bool:
-        """Whether the program executed at all."""
+        """True when the step reached a command and produced a result; a step
+        stopped by a missing program has none.
+        """
         return self.result is not None
 
     @property
     def ok(self) -> bool:
-        """Whether the program ran and reported success.
-
-        Note what this does not claim: that the file changed. A formatter given
-        an already-formatted file exits 0 having written nothing, which is a
-        success — the contract asked for a formatted file and there is one. What
-        changed is the change-set's question, and :meth:`ChangeSet.detect
-        <mcgyvr.gate.changeset.ChangeSet.detect>` is what answers it.
+        """True when the step ran and its command exited zero without timing
+        out.
         """
         return self.result is not None and self.result.ok
 
     @property
     def performed(self) -> bool:
-        """Whether the program ran and did the work its task type describes.
-
-        Wider than :attr:`ok` by exactly one thing: an exit code the invocation
-        uses to *report* rather than to *fail*
-        (:attr:`~mcgyvr.deterministic.Tool.reporting` says which). For a fixer
-        that is 1 — "I applied every autofix I have,
-        and here is what I will not fix" — and the catalog puts that residue
-        out of the type's scope in as many words, so a caller that stopped
-        there stopped on the contract having been satisfied.
-
-        **This is not "non-fatal".** A tool that could not load its config
-        exits 2 having applied nothing, and that stays outside the set: there
-        is no result for a gate to judge, and a gate reading the same config is
-        broken the same way. Nor does it soften a timeout —
-        :attr:`~mcgyvr.sandbox.base.CommandResult.ok` excludes one and so does
-        this, because a command killed at its ceiling did not finish whatever
-        it was part-way through writing.
-
-        A caller with something to say about the residue asks ``performed and
-        not ok``. Proceeding is not the same as reporting that nothing
-        happened.
+        """True when the step ran, did not time out, and exited with a code its
+        tool reports as having done the work: 0, or 1 for operations whose
+        point is to leave residue behind. A timeout performs nothing.
         """
         if self.result is None or self.result.timed_out:
             return False
@@ -97,36 +68,19 @@ def run_tool_step(
     *,
     timeout: float | None = None,
 ) -> ToolOutcome:
-    """Execute one deterministic step inside ``sandbox``.
+    """Run one step in the sandbox and report what it did.
 
-    The sandbox is required rather than optional, and the working tree is never
-    an argument: a formatter runs with ``--fix`` and writes where it is pointed,
-    so an executor that could be handed a repository path could rewrite the
-    user's checkout on the strength of a contract's ``target`` field. The
-    sandbox is the boundary that makes the write reversible.
-
-    A missing program comes back as :attr:`ToolOutcome.environment_issue`
-    rather than as a failure, read from the shell's own exit codes through
-    :data:`~mcgyvr.gate.acceptance.DID_NOT_RUN` — the same constant the
-    acceptance rung classifies with, so "could not run" cannot come to mean two
-    things in one process.
-
-    A step with no ``argv`` is not a step with nothing to do: the floor's one
-    in-process operation, ``rename_symbol``, is executed here against the
-    sandbox's own tree by :func:`mcgyvr.rename.apply`, because what performs it
-    is mcgyvr's index rather than a program on PATH. Its refusals are the
-    operation's own — an unstated pair, a symbol the index does not know — and
-    they arrive as a failed :class:`ToolOutcome`, never as an environment issue:
-    nothing is missing from the machine.
-
-    Raises :class:`UnrunnableStepError` for a step that names neither a command
-    nor an in-process executor.
+    A step with no command is run in process. A step whose target is a glob is
+    expanded to the workspace files the pattern names, and fails as a step with
+    no work to do when it names none. A step whose program cannot be executed
+    comes back with `environment_issue` set instead of a result, so a missing
+    dependency is not read as a rejected change.
     """
     if not step.argv:
         return _run_in_process(step, sandbox)
 
-    # A formatter is a program like any acceptance command, and one that hangs
-    # is held to the same ceiling.
+    # The step's command runs inside the sandbox, held to the run's task
+    # ceiling unless the caller passed its own timeout.
     if timeout is None:
         timeout = _drive.task_ceiling()
     argv = step.argv
@@ -135,9 +89,9 @@ def run_tool_step(
         if not named:
             from mcgyvr.sandbox.base import CommandResult
 
-            # Exit 2, a usage error: not a code any tool reports as having
-            # done its job, so the floor stops here rather than gating a tree
-            # nothing touched.
+            # Nothing in the workspace matches the pattern, so no program is
+            # started: the step reports a synthetic failing result carrying the
+            # reason, and the caller stops on it like any other failure.
             return ToolOutcome(
                 step=step,
                 result=CommandResult(
@@ -167,11 +121,9 @@ def run_tool_step(
 
 
 def _named_by(pattern: str, workspace: Path) -> tuple[str, ...]:
-    """The files in ``workspace`` that ``pattern`` names, sorted.
-
-    The files the gate would judge — tracked, plus untracked and not ignored,
-    the set ``git add -A`` takes — matched by :mod:`mcgyvr.scope`'s glob rules,
-    so a pattern names the same files here as it does in ``scope.allow``.
+    """The workspace files the pattern names, sorted: every tracked file plus
+    every untracked file git does not ignore, kept only where the pattern's
+    scope permits the path.
     """
     listed = subprocess.run(
         ["git", "ls-files", "-z", "--cached", "--others", "--exclude-standard"],
@@ -184,13 +136,11 @@ def _named_by(pattern: str, workspace: Path) -> tuple[str, ...]:
 
 
 def _run_in_process(step: ToolStep, sandbox: Sandbox) -> ToolOutcome:
-    """The floor's in-process executors, keyed by the operation they perform.
-
-    The outcome is shaped as a :class:`~mcgyvr.sandbox.base.CommandResult` with
-    a command of ``()`` so that every reader downstream — the journal, the
-    escalation ladder, the CLI's own reporting — handles one kind of thing. A
-    second outcome shape for the one operation with no program would have every one
-    of those readers grow a branch for it.
+    """Run a step whose tool names no command through mcgyvr's own executor for
+    its operation, reporting the executor's summary as the result's stdout. A
+    refused rename comes back as a failing result carrying the refusal, and an
+    operation with no in-process executor is refused as unrunnable rather than
+    reported done.
     """
     from mcgyvr.deterministic import IN_PROCESS
     from mcgyvr.rename import RenameError

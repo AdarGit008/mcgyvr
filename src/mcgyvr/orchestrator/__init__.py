@@ -1,10 +1,34 @@
-"""The orchestrator: a prompt plus a repository become contracts.
+"""The deterministic context layer, re-exported as one flat namespace.
 
-This is the largest single piece of v1 and the one in sharpest tension with
-the north star — it spends expensive tokens to plan work whose whole purpose
-is to save them. The resolution is deterministic-first (epic #45): a
-zero-token index shortlists before any model reads a file, and the model reads
-only what the index names.
+Each submodule owns one step and stays importable directly; this module gathers
+their public names so a caller can ``from mcgyvr.orchestrator import resolve``
+without knowing which step a name lives on.
+
+``symbols`` extracts ``Symbol``/``SymbolKind`` from source with tree-sitter, and
+``index`` builds an ``Index`` over a repository from it (``build_index``, with
+``IndexBuildError`` for a build that cannot start and ``IndexedFile``,
+``SymbolTable``, ``Match`` and ``BuildStats`` describing the result). ``resolve``
+ranks the files a request most likely means (``Resolution``/``Candidate``, and a
+``Verdict`` of resolved, ambiguous or empty), ``read`` turns that ranking into
+excerpts that fit a token budget (``explore`` returning an ``Exploration`` of
+``TargetedRead``s, a ``Deferral`` for each region the budget ran out on, and the
+tokens saved by regions the caller already supplied), and ``context`` checks the
+paths and contents a caller supplied against the index (``verify`` ->
+``VerifiedContext``/``ContextFinding``/``Discrepancy``) and re-ranks with their
+help (``accelerate`` -> ``Acceleration``). ``decompose`` runs those steps for a
+prompt, hands the evidence to a caller-supplied ``Proposer``, and turns its
+``Proposal``s into a ``Decomposition`` of contracts and ``Refusal``s.
+
+``repo`` attaches the repository a run works on (``attach`` yielding an
+``AttachedRepo``, or raising ``AttachError``) and explains what a sandbox built
+from the repository's commit would leave out (``head_only_note``). ``cache``
+memoises index builds on disk (``build_index_cached``, ``cache_path``,
+``CachedBuild``, ``CacheStats``); its ``clear`` and ``prune`` functions are
+re-exported here as ``clear_cache`` and ``prune_cache`` to say which cache they
+clear.
+
+Names not listed in ``__all__`` -- ``baseline`` and ``references`` -- remain
+reachable only through their own modules.
 """
 
 from __future__ import annotations

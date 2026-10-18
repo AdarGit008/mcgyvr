@@ -1,14 +1,18 @@
-"""mcgyvr — offload scoped coding work to a configurable worker ladder."""
+"""Package root for mcgyvr.
+
+The only public attribute defined here is ``__version__``, resolved from the
+metadata of the installed ``mcgyvr`` distribution when that metadata exists.
+"""
 
 from importlib.metadata import PackageNotFoundError, version
 
 try:
-    #: The version of the product that is installed, as the wheel's metadata
-    #: says it — which is the tag it was built from (hatch-vcs). Read from
-    #: the metadata and never spelled here, so the code cannot claim a
-    #: version other than the one it was installed as.
+    #: Ask the installed distribution metadata for the version of "mcgyvr".
+    #: The value comes from the package metadata written at install time, so it
+    #: describes which build of the package is actually importable.
+    #: When the distribution is not installed, importlib.metadata raises below.
     __version__ = version("mcgyvr")
 except PackageNotFoundError:
-    # The package is imported from a tree that was never installed — a
-    # fixture, a bare checkout on sys.path. Not a version, and said so.
+    # Distribution metadata is unavailable, e.g. when running from a source
+    # checkout rather than an installed distribution.
     __version__ = "0.0.0+uninstalled"

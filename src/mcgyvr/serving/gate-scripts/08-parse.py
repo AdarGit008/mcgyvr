@@ -1,15 +1,19 @@
 #!/usr/bin/env python3
-"""gate 8 — every declared artifact exists and parses, here, as the run ends.
+# Gate 8, run at the end of every serve run whatever gate 6 did: it reads the
+# names the step declared it writes and reports each one that is not there, is
+# not this run's evidence, or is JSON that does not parse.
 
-A run that wrote a file that does not parse is not green, and it is said
-where the rig time was spent rather than discovered later. A `.json` is read
-with `json.loads`; any other declared file is held to being there.
+"""Gate 8: every artifact the step declared exists, and the JSON ones parse.
 
-IT MUST BE ONE REGULAR FILE OF THE ENVELOPE. A declared name that is a
-symlink, a hard link or a path resolving outside the resolved envelope is
-named with where it points and is not read: a step once wrote through such a
-link into another envelope's committed evidence, and this gate parsed the
-victim as green.
+The run arrives on the environment the door exports. RUN_DECLARED maps each
+declaration directive (RUN_REWRITES) to the names the step said it writes,
+RUN_SUPERSEDED maps a name to the aside copy gate 5 moved it to before this run
+was to rewrite it, and RUN_OUT_DIR is the run's envelope. A linked envelope is
+refused before anything is read, and each declared name must be one regular
+file inside the envelope — a name that is missing is reported, and the aside
+copy, when it is a regular file inside the envelope, is renamed back under the
+declared name. Anything that fails leaves the status at 1; only a clean run
+says how many artifacts parse.
 """
 
 from __future__ import annotations
@@ -57,9 +61,9 @@ def main() -> int:
                 file=sys.stderr,
             )
             status = 1
-            # Gate 5 moved the earlier pass aside for a successor that never
-            # came. Nothing recorded is lost, and the name still resolves:
-            # it goes back under its own name (the archived door's rule).
+            # Gate 5 set a previous run's copy aside to make room for this run's
+            # rewrite; when the step writes nothing, that copy comes back to its
+            # declared name if it is still one regular file in the envelope.
             aside = out_dir / str(superseded.get(name, ""))
             if (
                 name in superseded

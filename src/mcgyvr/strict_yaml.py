@@ -1,10 +1,9 @@
-"""A strict YAML loader shared by the config and contract schemas.
+"""YAML loading that refuses ambiguous mappings.
 
-PyYAML's ``SafeLoader`` silently keeps the last of a repeated key, and lets a
-list or dict sit as a key until something hashes it. Both are defects a config
-or a contract must fail loudly on, so this loader refuses both. ``config.py``
-and ``contract.py`` share it, with the schema's own error type injected so
-every failure reads as the file that produced it.
+``strict_loader`` builds a ``yaml.SafeLoader`` subclass whose mapping
+constructor rejects a key that cannot be hashed (a list, a mapping) and rejects a
+key that already exists in the same mapping, reporting both through a caller
+supplied error factory.
 """
 
 from __future__ import annotations
@@ -17,8 +16,8 @@ import yaml
 
 ErrorFactory = Callable[[str], Exception]
 
-#: How a refusal spells a key: a real key in full, but only the start of a
-#: value that aliases build far larger than the text of the file.
+#: Bounded repr() for keys quoted in error messages, so an oversized or deeply
+#: nested key cannot flood the message.
 _KEY = reprlib.Repr(
     maxlevel=2, maxdict=4, maxlist=4, maxset=4, maxstring=200, maxlong=200, maxother=200
 )
@@ -33,9 +32,9 @@ def _no_duplicate_keys(
         try:
             hash(key)
         except TypeError:
-            # `[dev]: x` — a list as a key. YAML allows it; a config or
-            # contract does not, and `key in mapping` would have raised a
-            # TypeError past every caller expecting the schema's own error.
+            # The key is a list, mapping or other unhashable node, so it can never
+            # be looked up in the result; report it against its own source line
+            # instead of letting a bare TypeError escape.
             mark = key_node.start_mark
             raise error(
                 f"key {_KEY.repr(key)} at line {mark.line + 1} is not a plain name; a "
@@ -53,11 +52,12 @@ def _no_duplicate_keys(
 
 
 def strict_loader(error: ErrorFactory) -> type[yaml.SafeLoader]:
-    """A ``SafeLoader`` subclass that refuses duplicate and unhashable keys.
+    """Return a SafeLoader subclass whose mappings go through key checking.
 
-    ``error`` is the schema's own error class, so a duplicate key in a config
-    raises ``ConfigSchemaError`` and one in a contract raises
-    ``ContractSchemaError``.
+    Every mapping node is built by ``_no_duplicate_keys`` with the same
+    ``error`` factory, so an unhashable or repeated key raises the exception
+    that factory produces. The class is created fresh per call, so each loader
+    carries its own error factory.
     """
 
     def _constructor(
@@ -66,7 +66,7 @@ def strict_loader(error: ErrorFactory) -> type[yaml.SafeLoader]:
         return _no_duplicate_keys(loader, node, error)
 
     class _StrictLoader(yaml.SafeLoader):
-        """SafeLoader that refuses duplicate keys instead of taking the last."""
+        """SafeLoader whose default mapping tag construction is replaced."""
 
     _StrictLoader.add_constructor(
         yaml.resolver.BaseResolver.DEFAULT_MAPPING_TAG, _constructor

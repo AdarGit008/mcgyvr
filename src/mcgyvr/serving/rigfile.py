@@ -1,34 +1,24 @@
-"""The rig as its user described it: the one record of a machine.
+"""The rig file: one machine as a scan read it, kept under the rig's own name.
 
-Owner, 2026-10-07 (Round 5): a door run from an install has no lab checkout,
-so there is no lab ``hosts.json`` declaring the rig. What it has instead is
-the rig file ``<rig-file folder>/<rig>.json`` (:func:`path`): one reading of
-the rig by the one reader (:mod:`mcgyvr.serving.rigscan`), kept whole. It is
-the only record of a machine mcgyvr keeps (owner, 2026-10-14: one record per
-machine): ``mcgyvr scan`` writes this machine's as ``localhost``, ``mcgyvr
-scan --rig`` a remote rig's over the read-only ssh line, and ``mcgyvr setup``
-each rig it serves on; ``emit`` sizes from them. The rig-file folder is
-``$MCGYVR_RIGS`` when the user named one, else the config folder's ``rigs``.
+A rig file is one reading of one machine, taken by ``mcgyvr scan --rig`` and
+stored as json at ``<rigs dir>/<rig>.json`` — the rigs folder named by
+``$MCGYVR_RIGS``, else ``rigs`` under the mcgyvr home. It keeps the reading
+whole, the rig name it was read under and when it was read, and it is written
+through a part file renamed onto the target, so a half-written rig file is never
+read.
 
-What a door run holds a rig to is read off that reading (:class:`Rig`): its
-hostname, machine id and rig id (:func:`mcgyvr.fleet.ids.rig_id`), its cards
-and their memory, its RAM, cores and bandwidth, its free disk, its docker
-version, the snapshot's facts of the machine (:data:`RECORDED`: the CPU's
-model, clock and power limits, the DDR speed, the first card's slot and
-compute capability, the cards beyond it, the driver and the kernel), and its
-private IPv4 address (:func:`private_ipv4`, owner Round 9: the address an RPC
-worker of a unit spanning machines listens on, as the rig reported it;
-nothing is resolved).
+A caller asks the record through :class:`Rig`, which parses the stored reading
+into a :class:`mcgyvr.scan.Scan` once and answers from it: the cards, RAM, CPU,
+measured memory bandwidth, disk, models on disk, docker, notes, the private IPv4
+a worker may listen on, and the recorded snapshot tokens. A section the scan did
+not determine is None here, never a zero.
 
-Each user-mode door run reads the rig again with the same reader and holds the
-reading to the file (:func:`door_check`): it says what moved (:func:`moved`),
-and it refuses only when the fleet no longer fits -- a card the fleet's
-compose file reserves is gone, or holds less memory than the file records.
-Anything else that moved (RAM, docker, the driver, the kernel, the hostname, a
-card the fleet does not use) is said and admitted: a driver upgrade is a
-machine that changed, which the gate says, not another machine. The file is
-the user's record and the door never rewrites it: a rig that changed for good
-is scanned again.
+Two comparisons hold a rig to its file. :func:`moved` lists what differs from
+what the file recorded, which is printed and not acted on; :func:`misfits` names
+the cards the fleet uses that are gone or smaller, which stops a run.
+:func:`save` does not replace a file that knew its cards with a reading that
+could not read them, and :func:`required` refuses a run on a rig that has no
+file at all.
 """
 
 from __future__ import annotations
@@ -47,17 +37,20 @@ from typing import Any
 from mcgyvr.fleet.roots import FolderError, rigs_dir
 from mcgyvr.scan import ModelOnDisk, Network, Scan
 
-#: What a rig name may be: a plain file name, as an ssh alias is.
+#: A rig is named as ssh names it, so the name is a plain one: letters, digits,
+#: '.', '_' and '-', not starting with '.', which is also a file name.
 NAME = re.compile(r"[A-Za-z0-9][A-Za-z0-9._-]*")
-#: The command that writes a rig file, as a refusal names it.
+#: The command a refusal names to write the rig file it wanted: a read-only ssh
+#: scan of the rig, its name filled in.
 MAKE = "mcgyvr scan --rig {rig}"
-#: The rig name this machine's own record is kept under.
+#: The rig name a scan of this machine is filed under when no host was named.
 LOCAL = "localhost"
-#: The snapshot keys a rig file holds the rig to: the facts of the machine that
-#: are not in its rig id and do not move run to run. Volatile readings (the
-#: boot time, free memory, the reserve the firmware takes per boot) are left
-#: out, as is what :class:`Rig` reads elsewhere (the card's name and size, and
-#: docker).
+#: The snapshot tokens compared as text, one token each: the CPU's model and max
+#: MHz, the measured DDR speed, the power limits, the first card's compute
+#: capability and slot, the further cards' names, the driver and the kernel. They
+#: are read from the reading's own snapshot rather than from the parsed Scan, so a
+#: token the reader could not fill is absent here, and a key the file never held
+#: says nothing about the machine.
 RECORDED = (
     "cpu_model",
     "cpu_max_mhz",
@@ -70,21 +63,32 @@ RECORDED = (
     "driver",
     "kernel",
 )
-#: The facts a change in which is the hardware changing under the machine —
-#: what ``mcgyvr scan`` exits 4 for. A bandwidth reading repeats to within 9%
-#: of itself run to run (:mod:`mcgyvr.serving.rigscan`), so it has moved only
-#: past :data:`BANDWIDTH_TOLERANCE`: memory that lost a channel roughly halves.
+#: The fields whose change is a change of the rig's hardware rather than of what
+#: runs on it: RAM, cores, threads, and the measured memory bandwidth. The cards
+#: are compared card by card under names like "card 0", so they are not listed.
+#: Bandwidth is a measurement, so it has moved only past this fraction of the
+#: figure the file recorded; a figure either reading lacked is not compared.
 HARDWARE = ("ram_total_gb", "cpu_cores", "cpu_threads", "bandwidth_gbps")
 BANDWIDTH_TOLERANCE = 0.15
 
 
 class RigFileError(Exception):
-    """A rig name that cannot name a file, or a rig file that cannot be read."""
+    """A rig file that cannot be named, written, read, or understood.
+
+    Raised for a rig name that is not a plain name, a rigs folder that cannot be
+    named, a file that cannot be read, and a document no :class:`Rig` can be made
+    from, so a caller never acts on a partial record.
+    """
 
 
 @dataclass(frozen=True)
 class Card:
-    """One card of the rig, by the facts that do not move between two scans."""
+    """One card of a rig, as the reading records it.
+
+    ``index`` is the card's own index, ``name`` the tool's name for it, and
+    ``total_mib`` its whole VRAM in MiB — the figures :meth:`said` puts into a
+    message and :func:`misfits` compares against.
+    """
 
     index: int
     name: str
@@ -96,10 +100,15 @@ class Card:
 
 @dataclass(frozen=True)
 class Rig:
-    """One rig file: one reading of the rig, and when it was taken.
+    """One rig's file: the name it was read under, when, and the reading itself.
 
-    Every fact is read off :attr:`reading` (the one reader's document), so the
-    file holds each fact once.
+    ``reading`` is the scan's document exactly as it was printed, and every
+    property here answers through :attr:`scan`, so a caller asks the record about
+    its machine without parsing json. A section the scan did not determine is
+    None, never a default.
+
+    :meth:`to_json` and :func:`from_json` are the file's own shape: a mapping of
+    ``rig``, ``read_at`` and ``reading``.
     """
 
     rig: str
@@ -120,7 +129,12 @@ class Rig:
 
     @property
     def rig_id(self) -> str | None:
-        """The rig id the reading names, or ``None`` when it names none."""
+        """The ``rig-`` id the reading hashes to, or None when it is refused.
+
+        A reading holding a field :func:`mcgyvr.fleet.ids.rig_id` will not hash —
+        a card whose size was never read, say — has no id, so a caller comparing
+        rigs reads None instead of failing.
+        """
         from mcgyvr.fleet import ids
 
         try:
@@ -186,19 +200,32 @@ class Rig:
 
     @property
     def snapshot(self) -> dict[str, str]:
-        """The :data:`RECORDED` snapshot keys the reading read."""
+        """The recorded snapshot tokens the reading carries, folded to strings.
+
+        Only the keys in ``RECORDED``, and only those the reading's own
+        ``snapshot`` mapping holds: a token the reader could not fill is absent
+        rather than empty, and a key absent here is one the file never had.
+        """
         said = self.reading.get("snapshot")
         said = said if isinstance(said, Mapping) else {}
         return {key: str(said[key]) for key in RECORDED if key in said}
 
     @property
     def private_ipv4(self) -> str | None:
-        """The private IPv4 address a worker on this rig listens on, or None."""
+        """The private IPv4 a worker on this rig may listen on, or None.
+
+        Picked from the reading's network section each time it is asked, by
+        :func:`private_ipv4`; :attr:`private_ipv4_how` says why that one.
+        """
         return private_ipv4(self.scan.network)[0]
 
     @property
     def private_ipv4_how(self) -> str:
-        """How :attr:`private_ipv4` was picked, or why none was."""
+        """How the address above was picked, or why no address is recorded.
+
+        Every branch of :func:`private_ipv4` returns a sentence saying what the
+        reading held, so this is printed beside the address or in its place.
+        """
         return private_ipv4(self.scan.network)[1]
 
     def to_json(self) -> str:
@@ -207,7 +234,13 @@ class Rig:
 
 
 def from_json(text: str) -> Rig:
-    """A rig file read back, or :class:`RigFileError` naming what is wrong."""
+    """One rig file's text as a :class:`Rig`, or :class:`RigFileError`.
+
+    The document must be json holding ``rig``, ``read_at`` and ``reading``, and
+    the reading must parse into a :class:`mcgyvr.scan.Scan`. Anything else — text
+    that is not json, a mapping without one of those keys, a reading whose fields
+    are of the wrong type — is refused with the name of the failure.
+    """
     try:
         raw = json.loads(text)
         rig = Rig(
@@ -222,11 +255,12 @@ def from_json(text: str) -> Rig:
 
 
 def _listenable(stated: object) -> ipaddress.IPv4Address | None:
-    """``stated`` as an IPv4 address a worker may listen on, else None.
+    """The IPv4 address ``stated`` names, when a worker may listen on it.
 
-    An IPv4 address spelled as IPv6 (behind the ``::ffff:`` prefix, as a dual-stack sshd
-    reports one) is that IPv4 address. Nothing here resolves a name: a name
-    is not an address.
+    None for everything else: text that is not an address, an IPv6 address that
+    is not the mapped form of an IPv4 one, and any address the door's own rule
+    (:func:`mcgyvr.serving.shardlaunch.worker_may_listen`) excludes — every
+    interface, loopback, or one the internet can reach.
     """
     from mcgyvr.serving.shardlaunch import worker_may_listen
 
@@ -244,14 +278,13 @@ def _listenable(stated: object) -> ipaddress.IPv4Address | None:
 
 
 def private_ipv4(network: Network | None) -> tuple[str | None, str]:
-    """The rig's private IPv4 address, as the rig reported it, and how it was
-    picked -- or None, and why none was.
+    """The rig's private IPv4 and how it was chosen, from its network section.
 
-    The address the controller reached the rig at over ssh, when a worker may
-    listen there (:func:`mcgyvr.serving.shardlaunch.worker_may_listen`): it is
-    on the interface the controller reaches the rig by. Reached some other
-    way (a tunnel to loopback, IPv6, an address on the internet), the one
-    private address on its interfaces; with several, none is guessed.
+    The address the rig was reached at over ssh, when a worker may listen there,
+    because that is the one its other machines use. Otherwise its one listenable
+    interface address. Otherwise none, with the sentence saying why: a rig
+    holding several private addresses has none of them guessed, and the sentence
+    says which they are.
     """
     if network is None:
         return None, "the scan read no network (a scan from before addresses)"
@@ -288,7 +321,12 @@ def private_ipv4(network: Network | None) -> tuple[str | None, str]:
 def from_reading(
     rig: str, reading: Mapping[str, Any], read_at: str | None = None
 ) -> Rig:
-    """The rig file of ``rig`` from one reading of it (:mod:`~.rigscan`)."""
+    """A rig named ``rig`` around ``reading``, or :class:`RigFileError`.
+
+    ``read_at`` is the time stated, or this moment in UTC stamped as
+    ``YYYY-MM-DDTHH:MM:SSZ``. The reading is parsed as a :class:`Scan` at once,
+    so a reading this cannot take is refused here, before anything is written.
+    """
     now = Rig(
         rig=rig,
         read_at=read_at or datetime.now(UTC).strftime("%Y-%m-%dT%H:%M:%SZ"),
@@ -302,12 +340,11 @@ def from_reading(
 
 
 def path(rig: str) -> Path:
-    """The rig file for ``rig``: ``<rig-file folder>/<rig>.json``, or refused.
+    """Where the rig file of ``rig`` is: ``<rigs dir>/<rig>.json``.
 
-    The rig-file folder is ``$MCGYVR_RIGS`` (default ``$MCGYVR_HOME/rigs``).
-    A rig name is a plain file name: a slash, a leading dot or an empty name
-    would put the file somewhere else than the folder of rig files. A value
-    of ``$MCGYVR_RIGS`` that names no usable folder is refused the same way.
+    The name must be a plain one, and the rigs folder must be one that can be
+    named; either failing is a :class:`RigFileError`, so nothing is read from or
+    written to a path guessed from a name that is not a rig's.
     """
     if NAME.fullmatch(rig) is None:
         raise RigFileError(
@@ -322,7 +359,12 @@ def path(rig: str) -> Path:
 
 
 def write(rig: Rig) -> Path:
-    """Write ``rig``'s file whole, replacing the one before. Returns its path."""
+    """Write ``rig``'s file over whatever was there, and return its path.
+
+    The rigs folder is made when it is missing, and the text goes to a part file
+    named for this process before being renamed onto the target, so a reader
+    never sees a half-written rig file.
+    """
     target = path(rig.rig)
     target.parent.mkdir(parents=True, exist_ok=True)
     partial = target.with_name(f".{target.name}.{os.getpid()}.part")
@@ -333,23 +375,31 @@ def write(rig: Rig) -> Path:
 
 @dataclass(frozen=True)
 class Saved:
-    """What :func:`save` did: the rig file now, the one before, and where."""
+    """What :func:`save` made of one reading, and where it went.
+
+    ``now`` is the rig as the reading was read, ``before`` the rig file that was
+    there (None when there was none, it could not be read, or it is not a rig
+    file), ``path`` where the file is, and ``kept`` whether the file that was
+    there was left as it was.
+    """
 
     now: Rig
     before: Rig | None
     path: Path
-    #: Whether the file before was kept: it knew its cards and this reading
-    #: did not.
+    #: Whether the rig file that was there was left untouched: it knew its cards
+    #: and this reading could not read them, so replacing it would lose the record
+    #: of cards the machine has.
     kept: bool
 
 
 def save(rig: str, reading: Mapping[str, Any]) -> Saved:
-    """Record ``reading`` as ``rig``'s rig file, replacing the one before.
+    """Record ``reading`` under ``rig``, unless that would lose the cards it knew.
 
-    Unless the one before knew its cards and this reading does not: a card
-    list nvidia-smi could not give is no reading of the cards, and replacing
-    a record that had one would make the next healthy read report every card
-    as new — and a door run refuse a card the fleet uses as gone.
+    A rig file that knows its cards is not replaced by a reading whose card list
+    was not determined: that reading says nothing about the cards, and writing it
+    would make the next healthy scan report every recorded card as new. The
+    reading is still returned in ``now`` for comparison, with ``kept`` saying the
+    file was left as it was.
     """
     now = from_reading(rig, reading)
     try:
@@ -364,7 +414,12 @@ def save(rig: str, reading: Mapping[str, Any]) -> Saved:
 
 
 def read(rig: str) -> Rig | None:
-    """``rig``'s file, or None when there is none. Unreadable is an error."""
+    """The rig file of ``rig``, or None when there is no file there.
+
+    A file that is there but cannot be read, or is not a rig file this takes, is
+    a :class:`RigFileError` naming its path: absent and broken are told apart by
+    None against an exception, and neither is a rig.
+    """
     where = path(rig)
     try:
         text = where.read_text(encoding="utf-8")
@@ -380,7 +435,13 @@ def read(rig: str) -> Rig | None:
 
 @dataclass(frozen=True)
 class Moved:
-    """One fact of the rig that reads differently from its rig file."""
+    """One field that differs from what the rig file recorded of the rig.
+
+    ``field`` names it as a message would (``hostname``, ``bandwidth_gbps``,
+    ``card 0``), ``was`` what the file recorded and ``now`` what the later
+    reading found; both are untyped, so a number, a name and ``"absent"`` are
+    held the same way.
+    """
 
     field: str
     was: object
@@ -391,14 +452,14 @@ class Moved:
 
 
 def moved(saved: Rig, now: Rig) -> tuple[Moved, ...]:
-    """Every fact the door holds a run to that reads differently now.
+    """Every field of ``now`` that differs from ``saved``, in a fixed order.
 
-    Free disk is not among them: it moves with every download, and a
-    difference in it says nothing about the machine. Bandwidth has moved only
-    past :data:`BANDWIDTH_TOLERANCE`. Cards are compared only when both
-    readings determined them: an unanswered card tool is not a pulled card. A
-    snapshot fact the record read and the rig no longer does is said as
-    ``unread``; one the record never read is not held.
+    The identity and capacity fields are compared as they are, the measured
+    bandwidth only past :data:`BANDWIDTH_TOLERANCE` of the figure the file
+    recorded, and the recorded snapshot tokens as text, a token the reading lost
+    counting as ``"unread"``. The cards are compared card by card, and only when
+    both readings determined the card list: a card list that was not determined
+    would otherwise report every recorded card as pulled.
     """
     found = [
         Moved(field, getattr(saved, field), getattr(now, field))
@@ -421,8 +482,8 @@ def moved(saved: Rig, now: Rig) -> tuple[Moved, ...]:
         and abs(now_gbps - was_gbps) > BANDWIDTH_TOLERANCE * was_gbps
     ):
         found.append(Moved("bandwidth_gbps", was_gbps, now_gbps))
-    # The record says what the rig is held to: a fact it never read is no
-    # fact that moved, and a fact it read that now is not is said as unread.
+    # A recorded token that is gone from this reading is a move ("unread" is said
+    # for it); a token the file never held says nothing about the machine.
     for key in RECORDED:
         was, is_now = saved.snapshot.get(key), now.snapshot.get(key)
         if was is not None and was != is_now:
@@ -445,18 +506,21 @@ def moved(saved: Rig, now: Rig) -> tuple[Moved, ...]:
 
 
 def is_hardware(change: Moved) -> bool:
-    """Whether ``change`` is the hardware changing under the machine: a card,
-    RAM, cores or bandwidth (:data:`HARDWARE`)."""
+    """Whether ``change`` is a change of the rig's hardware, not of what it runs.
+
+    True for the fields in :data:`HARDWARE` and for any card, which :func:`moved`
+    names ``card N``; a new kernel, driver or docker version is not one.
+    """
     return change.field in HARDWARE or change.field.startswith("card ")
 
 
 def misfits(saved: Rig, now: Rig, used: Iterable[int] | None) -> tuple[str, ...]:
-    """Why the fleet no longer fits the rig, one line per card; empty when it does.
+    """The ways ``now`` no longer fits the fleet, one sentence each.
 
-    ``used`` names the cards the fleet reserves, or None when it cannot be
-    told, in which case every card of the rig file is held. A card the fleet
-    uses no longer fits when it is not on the rig, or holds less memory than
-    the rig file records for it.
+    ``used`` holds the card indexes the fleet's compose file reserves, and None
+    means every card the rig file records. A used card that is absent now, or
+    holds less VRAM than the file records, is answered with a sentence naming it;
+    a card that is new, or larger than recorded, fits and says nothing.
     """
     before = {card.index: card for card in saved.cards}
     after = {card.index: card for card in now.cards}
@@ -476,10 +540,12 @@ def misfits(saved: Rig, now: Rig, used: Iterable[int] | None) -> tuple[str, ...]
 
 
 def cards_used(compose: Path) -> tuple[int, ...] | None:
-    """The cards a compose file's units reserve, or None when it cannot be told.
+    """The card indexes a compose file's services reserve, or None when unreadable.
 
-    A reservation by a card id that is not an index (a UUID) is not matched
-    to a card of the rig file, so every card of the file is held then.
+    Every ``device_ids`` entry of every service is read as a card index. One that
+    is not an ASCII number — ``all``, a UUID, a card name — makes the whole
+    answer None, since the set of cards would then be a guess; an empty tuple
+    says the file reserves no card.
     """
     from mcgyvr.serving import servelib
 
@@ -493,10 +559,13 @@ def cards_used(compose: Path) -> tuple[int, ...] | None:
 
 
 def required(host: str, what: str) -> Rig:
-    """``host``'s rig file under the door, or the gate refuses naming how to make one.
+    """The rig file of ``host``, or a gate refusal when there is no file to hold it to.
 
-    Asked before anything reaches the rig, so a run with no rig file leaves
-    nothing behind.
+    ``what`` names the gate in the messages. A rig name or rigs folder this
+    cannot read, and a rig with no file, both stop the run here through
+    :func:`mcgyvr.serving.gatelib.refuse`: a door holds a rig to the rig as the
+    user described it, so nothing is started on a rig nobody described, and the
+    refusal says which command writes that file.
     """
     from mcgyvr.serving import gatelib
 
@@ -518,13 +587,14 @@ def required(host: str, what: str) -> Rig:
 def door_check(
     host: str, saved: Rig, now: Rig, used: Iterable[int] | None, what: str
 ) -> Rig:
-    """Hold ``now``, the door's one reading of ``host``, to its rig file: say what
-    moved, refuse a fleet that no longer fits. Returns ``now``.
+    """Print how ``host`` moved since its rig file, and refuse one that no longer fits.
 
-    The reading is the gate's own, taken through
-    :func:`mcgyvr.serving.gatelib.ssh` (so only a process the door started
-    reaches the rig, and only the rig the door was opened for); this reads
-    nothing itself.
+    Every move :func:`moved` finds is printed against the time the file was read,
+    and a move alone is reported and never acted on. The refusals come from
+    :func:`misfits` — a card the fleet uses that is gone or smaller — and stop
+    the run with :func:`mcgyvr.serving.gatelib.refuse`, since the fleet was
+    planned for cards this rig no longer has. ``now`` is returned, so a caller
+    that passes the check goes on with the reading that was checked.
     """
     from mcgyvr.serving import gatelib
 

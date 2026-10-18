@@ -1,38 +1,13 @@
-"""Jev-class verifier rung: typed questions over the change and contract.
+"""The gate's Jev rung: typed questions put to a model about a change.
 
-The gate's deterministic rungs answer questions a tool can answer; this one
-asks the questions that need a model, and asks them the way the Jev-class
-primitive (:mod:`mcgyvr.decision`) does — typed, single-token, read from
-next-token probabilities rather than prose. Per changed file it asks whether
-the added change satisfies the contract's task, whether it stays in scope, and
-how likely it is to regress existing behaviour.
-
-**It reports; it does not reject.** ``blocking`` defaults to ``False``, so
-findings arrive as ``observations`` that never fail a change, exactly as the
-semantic rung (:mod:`mcgyvr.gate.semantic`) ships. Flipping ``blocking`` is a
-policy decision and out of scope here.
-
-**The whole change is shown; only added lines are judged.** The state sent
-to the model carries the file at the change's base (``original``), the file
-as the worker left it (``change``) and the worker's added lines — the same
-material :func:`mcgyvr.verify.verdict_state` shows the reviewer, because in
-the pilot a rung shown added lines alone scored AUROC 0.44-0.65 and the
-reviewer shown both scored 0.73-0.75 (owner ruling). What is judged has not
-moved: a finding is attributed to an added line
-(:func:`~mcgyvr.gate.changeset.read_added_text`), so a pre-existing line in a
-touched file can never fail a worker. A change with no added lines is a no-op.
-
-**A model that cannot run is an environment issue, never a rejection.** An
-unreachable endpoint, a backend that answered outside the protocol, a decision
-that cannot be read: all are recorded as degraded coverage, the same rule the
-semantic rung and the acceptance rung hold.
-
-The rung is injected into the gate — like
-:class:`~mcgyvr.gate.semantic.SemanticCheck` — rather than constructed there,
-because it needs a model only a caller above the pool seam can bind. It holds
-a ``decide`` seam (state in, a :class:`~mcgyvr.decision.Decision` out) rather
-than an endpoint, so nothing above the seam learns where the model runs;
-:func:`jev_check_for` builds that seam from the pool's role.
+Each text change that adds lines is offered to a `decide` seam as a state of
+the contract prose, the file's path, its base and current text, and the added
+lines. `JEV_QUESTIONS` asks whether the change satisfies the contract's task,
+whether it stays in scope, and how likely it is to break existing behaviour;
+a No to either yes/no question or a regression risk of medium or above becomes
+a Finding on the file's first added line. A blocking check reports those as
+findings and a non-blocking one as observations, and a file whose decision
+could not be read is reported as an environment issue rather than judged.
 """
 
 from __future__ import annotations
@@ -64,13 +39,14 @@ from mcgyvr.local_pool import SourceMap
 if TYPE_CHECKING:  # pragma: no cover - typing only
     from mcgyvr.capacity import Capacity
 
-#: The check name every Jev finding carries.
+#: Name every finding and environment issue this check produces carries.
 CHECK = "jev"
 
-#: The typed questions asked of each changed file. A :class:`Noul` answers
-#: Yes/No; a :class:`Score` rates on the given levels, lowest first. Public so
-#: a caller can bind the same questions to a role through
-#: :func:`~mcgyvr.decision.classify_role`.
+#: The questions every judged file is put to, keyed by the name each answer is
+#: stored under on the Decision and copied onto the finding's code. Two are
+#: yes/no — does the change satisfy the task, and is it within scope — and one
+#: rates regression risk on the low/medium/high scale, where the answer's level
+#: is the expected index of a level on a 0..2 scale.
 JEV_QUESTIONS: Mapping[str, Question] = {
     "satisfies_task": Noul(
         "Does the added change satisfy the contract's task, as stated?"
@@ -82,25 +58,23 @@ JEV_QUESTIONS: Mapping[str, Question] = {
     ),
 }
 
-#: The expected Score level at or above which regression risk is reported.
-#: 0 is low, 1 medium, 2 high; flagging from medium keeps a low-risk change
-#: silent.
+#: Expected regression level, on that 0..2 scale, at which a rating is reported:
+#: medium and above are objections, low is not.
 _REGRESSION_LEVEL = 1.0
 
-#: The seam the rung holds: one change's state in, a typed decision out. Built
-#: from :func:`~mcgyvr.decision.classify` by :func:`jev_check_for`.
+#: Seam that turns a state into a Decision. It is injected rather than built
+#: here, so a caller can wrap it — with a wake, or a reviewer's remembered
+#: refusal — and a test can answer without a wire.
 type Decide = Callable[[Any], Decision]
 
 
 @dataclass(frozen=True)
 class JevReport:
-    """What the rung saw, in the gate's own currency.
+    """What one run of a Jev check produced.
 
-    ``findings`` reject the change and are populated only when ``blocking`` is
-    set; otherwise the same items arrive as ``observations``, which are
-    reported and never rejecting. ``environment_issues`` mirror
-    :class:`~mcgyvr.gate.semantic.SemanticReport`'s, so the gate folds one into
-    the other.
+    `findings` are the objections of a blocking check, `observations` the same
+    items from a non-blocking one, and `environment_issues` the files that could
+    not be judged at all.
     """
 
     findings: tuple[Finding, ...] = ()
@@ -110,19 +84,18 @@ class JevReport:
 
 @dataclass(frozen=True)
 class JevCheck:
-    """The Jev verifier rung, bound to a typed-decision seam.
-
-    ``decide`` answers :data:`JEV_QUESTIONS` about one change's state, and is
-    supplied by the caller above the pool seam (via :func:`jev_check_for`), so
-    the rung itself never holds an endpoint. ``blocking`` defaults to
-    ``False``, so a negative answer reports without rejecting.
-    """
+    """The gate rung that puts `JEV_QUESTIONS` to each changed file through `decide`."""
 
     decide: Decide
     blocking: bool = False
 
     def run(self, changeset: ChangeSet, contract_text: str = "") -> JevReport:
-        """Ask the typed questions of each changed file, over its added lines."""
+        """Judge every text change that adds lines, and report what came back.
+
+        A blocking check reports the objections as findings and a non-blocking
+        one as observations, so the default cannot turn an acceptance into a
+        rejection.
+        """
         items: list[Finding] = []
         issues: list[str] = []
         for change in _targets(changeset):
@@ -130,9 +103,9 @@ class JevCheck:
             try:
                 decision = self.decide(state)
             except Exception as exc:
-                # Anything the seam can raise — unreachable, unreadable, a
-                # credential gone mid-run — is a reviewer-side fault, never a
-                # verdict about the worker's change.
+                # A seam that raised gave no answer for this file: an unreadable
+                # reply or an unreachable unit is the environment's problem, so
+                # it is named and the remaining files are still judged.
                 issues.append(
                     f"{CHECK}: {change.path} was not judged — "
                     f"{type(exc).__name__}: {exc}"
@@ -157,16 +130,12 @@ def jev_check_for(
     blocking: bool = False,
     capacity: Capacity | None = None,
 ) -> JevCheck | None:
-    """The install's ``role`` as a Jev rung, or ``None`` when it has none.
+    """The check that asks `role` the Jev questions, or None when it cannot.
 
-    Mirrors :func:`mcgyvr.verify.reviewer_for` one seam over: the endpoint and
-    model stay below the seam inside :func:`~mcgyvr.decision.classify_for`, and
-    only the ``decide`` seam crosses it. ``capacity`` holds the answering
-    unit's source slot for each question, as a dispatch to it would.
-
-    Whether the rung exists is ``role``'s to say; who answers it is not. With
-    ``jev.unit`` bound the questions go to that unit, and without it to
-    ``role``'s own, as they did before a Jev unit existed.
+    None means the map has no model bound to `role`, so there is nothing to ask
+    and the gate is given no check at all. `decide` goes through `classify_for`,
+    so a unit bound to the `jev` role answers instead of `role`, and `timeout_s`
+    and `capacity` are passed on to that request.
     """
     if source_map.role_model(role) is None:
         return None
@@ -184,20 +153,13 @@ def jev_check_for(
     return JevCheck(decide=decide, blocking=blocking)
 
 
-# --- state -----------------------------------------------------------------
-
-
+# The state one file is judged from: the contract prose as `task`, the file's
+# path, its text at the base and as it stands now, and every added line with
+# its line number.
 def build_state(
     changeset: ChangeSet, change: FileChange, contract_text: str
 ) -> dict[str, object]:
-    """The JSON state a decision is asked over, for one changed file.
-
-    ``original`` is the file at the change's base — read from git, empty where
-    the base has no such file or the repository cannot say — and ``change`` is
-    the file as the worker left it; ``added_lines`` are the worker's, read
-    through :func:`~mcgyvr.gate.changeset.read_added_text`, and are the only
-    lines a finding is attributed to.
-    """
+    """The state describing one changed file, in the shape `JEV_QUESTIONS` reads."""
     added = read_added_text(change, changeset.repo)
     return {
         "task": contract_text,
@@ -211,16 +173,17 @@ def build_state(
 
 
 def _targets(changeset: ChangeSet) -> tuple[FileChange, ...]:
-    """The changed files the rung judges: non-binary, non-deleted, with adds."""
+    """The text changes that add at least one line, which are the ones judged."""
     return tuple(change for change in changeset.text_changes() if change.added_lines)
 
 
 def _as_finding(change: FileChange, name: str, answer: Answer) -> Finding | None:
-    """Turn a negative answer into a finding, or ``None`` for a clean answer.
+    """The objection one answer amounts to, or None when it is no objection.
 
-    A ``Yes`` on a :class:`Noul` and a low :class:`Score` are silent; a ``No``
-    and a rating at or above :data:`_REGRESSION_LEVEL` are reported, attributed
-    to the first added line of the file the question was asked about.
+    A yes/no answer objects when it said No, and a reasoned message names the
+    question; a score objects at or above `_REGRESSION_LEVEL` and names the most
+    probable level. The finding lands on the file's first added line, or on the
+    file itself when the change added none.
     """
     line = min(change.added_lines) if change.added_lines else None
     if isinstance(answer, BoolAnswer):
@@ -251,5 +214,5 @@ def _as_finding(change: FileChange, name: str, answer: Answer) -> Finding | None
 
 
 def _peak_level(answer: ScoreAnswer) -> str:
-    """The level name carrying the most probability."""
+    """The level the answer gave the most probability to."""
     return max(answer.probabilities.items(), key=lambda item: item[1])[0]

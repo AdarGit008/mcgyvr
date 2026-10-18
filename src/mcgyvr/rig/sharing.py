@@ -1,38 +1,9 @@
-"""What this rig's owner lends to a hub's sessions, and the file it is kept in.
+"""This rig's lending settings: what it offers the fleet and where it listens.
 
-Lending is off until the owner turns it on (``mcgyvr rig share --on``), and
-then only what the owner allows is lent:
-
-* ``roles`` — ``worker`` (cards run another rig's layers), ``head`` (this rig
-  serves a model and the hub relays requests to it), or both;
-* ``image`` — the engine image the head and the workers run in (it carries
-  the model server and the RPC server);
-* ``cards`` — the cards lent, by the index the hello reports them under, or
-  every card; a card of a vendor the engine is not started on is never lent.
-  A card is lent whole: the hello and the heartbeats report a lent card's
-  free memory as it is and a card not lent as having none, so the hub plans
-  on whole cards. There is no cap on part of a card (a file kept with the
-  ``max_vram_mb`` there once was is read with a note, and the cap dropped);
-* ``max_ram_mb`` — the memory each container may take, swap included: the
-  container's own limit, so the engine is ended past it;
-* ``models_dir`` — the folder models are served from, read-only; the head
-  is only offered with one, and only files under it are named;
-* ``endpoints`` — the LAN addresses the tunnel is published on, or the
-  machine's own when none are named; ``listen_port`` — the first of the
-  tunnels' UDP ports: each session the rig is in at once takes the lowest
-  free one of it and the ports after it (:meth:`Sharing.tunnel_ports`) that
-  no session held in the last two minutes, so a rig in its first session
-  listens on ``listen_port`` itself;
-* ``cache`` — whether a worker keeps the tensors its heads sent in a cache
-  folder of its own, so a reload sends only what changed, up to
-  ``cache_max_mb``. One session at a time holds the folder; a worker session
-  started while another holds it, or before the agent has hashed every file
-  in it (:mod:`mcgyvr.rig.tensorcache`), runs without one.
-
-It is kept in ``$MCGYVR_HOME/rig-sharing.json`` beside the rig credentials,
-written whole (a staging file, then a rename) and holding no secret. A file
-that does not read as this module writes it is refused by name, never
-guessed at: lending is never turned on by a file it cannot read.
+A small JSON file names the roles and hardware the rig lends, the image and
+container limits its sessions run under, and the endpoints and ports a tunnel is
+reached on. Reading refuses anything the fleet could not act on, so a settings
+file that parses is a setting every other part of the rig may rely on.
 """
 
 from __future__ import annotations
@@ -49,43 +20,52 @@ from mcgyvr import atomic
 from mcgyvr.fleet import roots
 from mcgyvr.rig import hardware, protocol, sessionwire
 
-#: The file's name in the config folder.
+#: The settings file's name inside the rig's home folder; `path()` joins the two.
 SHARING_FILE = "rig-sharing.json"
-#: The largest file read back; what this module writes is far smaller.
+#: A file larger than this is refused unread, so a stray file cannot be parsed.
 MAX_SHARING_BYTES = 16384
-#: WireGuard's own default port.
+#: The first tunnel port, and the one named when the settings name no other.
 DEFAULT_LISTEN_PORT = 51820
-#: How many tunnel ports a rig listens on at most: one per session it is in at
-#: once, and no more sessions than a hello names (the hub resumes only those).
+#: The tunnel ports a rig may take, one per session it reports at once.
+#: A range that would pass the last port stops at it instead.
 TUNNEL_PORTS = protocol.MAX_SESSIONS_REPORTED
-#: The memory a container may take, in MiB, when the owner names none.
+#: The memory a container is given when the settings name no other figure.
 DEFAULT_CONTAINER_MB = 8192
-#: The most a worker's tensor cache keeps, in MiB, when the owner names none.
+#: How large the tensor cache may grow when the settings name no other size.
 DEFAULT_CACHE_MAX_MB = 16384
-#: The engine's model server and RPC server, where the engine image keeps them.
+#: The binaries a head and a worker start inside the engine image.
 DEFAULT_HEAD_BINARY = "/app/llama-server"
 DEFAULT_WORKER_BINARY = "/app/ggml-rpc-server"
-#: The vendor whose cards the engine is started on.
+#: Only a card read from this vendor is lent, and it is lent by the vendor's own
+#: index rather than by its place in the report.
 LENT_VENDOR = "nvidia"
-#: The lowest port a tunnel may listen on: an unprivileged one.
+#: The lowest port the settings may name: below it a port needs privilege to take.
 LOWEST_PORT = 1024
-#: An engine's program inside its image: an absolute path, plainly spelled.
+#: The shape of a binary path inside the image: absolute, plain segments, no "..".
 BINARY = re.compile(r"/[A-Za-z0-9._+-]+(/[A-Za-z0-9._+-]+)*")
-#: Settings a kept file may still hold that are no longer settings, and what
-#: became of each: read with a note and dropped, never refused, so a rig that
-#: lent before keeps lending.
+#: Settings that once parsed and no longer do, each with the note shown in its
+#: place. A file naming one still loads, and the note travels on `notes` so that
+#: `rig share` can say what became of the setting.
 RETIRED = {
     "max_vram_mb": "max_vram_mb: no longer a setting; a lent card is lent whole",
 }
 
 
 class SharingError(Exception):
-    """The kept file is there but does not read; the message names the field."""
+    """Lending settings that could not be read, understood or written."""
 
 
 @dataclass(frozen=True, kw_only=True)
 class Sharing:
-    """What the owner lends; the defaults lend nothing."""
+    """What this rig lends to the fleet, and the limits its sessions run under.
+
+    `enabled` turns lending on at all; `roles` says which of head and worker are
+    offered, `image` which engine image the containers run, `cards` which cards
+    are lent (`None` for every one of them) and `max_ram_mb` how much memory a
+    container may use. A head serves models from `models_dir`, and `endpoints`
+    names the hosts a tunnel is reached on. `notes` carries what the reader said
+    about retired settings, and takes no part in comparison.
+    """
 
     enabled: bool = False
     roles: tuple[str, ...] = ("worker",)
@@ -102,8 +82,8 @@ class Sharing:
     notes: tuple[str, ...] = field(default=(), compare=False)
 
     def offered_roles(self) -> tuple[str, ...]:
-        """The roles this rig offers now: none when lending is off or there is
-        no image, and the head only with a models folder."""
+        """The roles this rig really offers: none unless lending is on with an
+        image, and the head only when a models folder is named."""
         if not self.enabled or self.image is None:
             return ()
         return tuple(
@@ -113,20 +93,26 @@ class Sharing:
         )
 
     def tunnel_ports(self) -> range:
-        """The UDP ports the sessions' tunnels listen on, one each:
-        ``listen_port`` and the ports after it, never past the last port."""
+        """The UDP ports sessions may listen on, one per session, running from
+        `listen_port` up to the count of sessions reported or the last port."""
         return range(
             self.listen_port,
             min(self.listen_port + TUNNEL_PORTS, sessionwire.MAX_PORT + 1),
         )
 
     def container_mb(self) -> int:
-        """The memory each container may take, in MiB."""
+        """The memory each container is given: the cap the settings name, or the
+        default when they name none."""
         return self.max_ram_mb if self.max_ram_mb is not None else DEFAULT_CONTAINER_MB
 
     def lends(self, card_index: int, report: hardware.Report) -> int | None:
-        """The vendor's own index of card ``card_index`` when it is lent, else
-        ``None``."""
+        """The vendor's index for the card lent as `card_index`, or `None` when
+        this rig does not lend that card.
+
+        Lending off lends nothing, and a `cards` choice lends only the indexes it
+        names. The card is looked up by its place in the report, since that is
+        where the vendor and its index are kept alongside it.
+        """
         if not self.enabled or (
             self.cards is not None and card_index not in self.cards
         ):
@@ -139,9 +125,8 @@ class Sharing:
         return None
 
     def lendable(self, report: hardware.Report) -> hardware.Report:
-        """``report`` as the hub is told of it while lending is on: a lent
-        card whole, a card not lent with none free, free RAM at most
-        :attr:`max_ram_mb`."""
+        """The report as this rig may lend it: a card it does not lend reports no
+        free VRAM, and free RAM is held down to `max_ram_mb` when one is named."""
         if not self.enabled:
             return report
         cards = []
@@ -157,7 +142,7 @@ class Sharing:
 
 
 def path() -> Path:
-    """``$MCGYVR_HOME/rig-sharing.json`` (default ``~/.mcgyvr``)."""
+    """Where this rig keeps its lending settings: the file in its home folder."""
     return roots.home() / SHARING_FILE
 
 
@@ -172,7 +157,13 @@ def _whole(value: object, field_name: str, low: int, high: int) -> int:
 
 
 def read(data: object) -> Sharing:
-    """The settings ``data`` holds, or :class:`SharingError` naming a field."""
+    """The settings a parsed JSON object names, refusing what cannot be used.
+
+    A setting the object leaves out keeps its default, so `{}` yields the
+    defaults and the object need only name what it changes. A setting the rig no
+    longer takes is turned into a note rather than refused; a name the rig never
+    had, or a value of the wrong shape, is refused with the file's path.
+    """
     if not isinstance(data, dict):
         raise _refuse("the file", "not an object")
     known = {f for f in Sharing.__dataclass_fields__ if f != "notes"}
@@ -252,7 +243,11 @@ def read(data: object) -> Sharing:
 
 
 def load() -> Sharing:
-    """The kept settings; lending off when there is no file."""
+    """The lending settings kept on disk, or the defaults when no file exists.
+
+    A file that cannot be read, is larger than `MAX_SHARING_BYTES`, or is not
+    JSON is refused with its path; one that parses is handed to `read`.
+    """
     target = path()
     try:
         with target.open("rb") as handle:
@@ -271,13 +266,18 @@ def load() -> Sharing:
 
 
 def save(sharing: Sharing) -> Path:
-    """Keep ``sharing``, whole; where it was kept."""
+    """Write the settings and return the file they were kept in.
+
+    The object about to be written is parsed again first, so settings the rig
+    would refuse on the next read are refused now and never reach the disk. The
+    file is written atomically into a folder only its owner may enter.
+    """
     data = asdict(sharing)
     data.pop("notes")
     for name in ("roles", "cards", "endpoints"):
         if data[name] is not None:
             data[name] = list(data[name])
-    read(data)  # what is written is what reads
+    read(data)  # refuse settings that would not parse back before writing them
     target = path()
     target.parent.mkdir(mode=0o700, parents=True, exist_ok=True)
     atomic.write(target, json.dumps(data, indent=2) + "\n")

@@ -1,6 +1,10 @@
-"""The read-only `mcgyvr` commands: capabilities, config, local_pool, catalog, contract.
+"""Read-only commands: what the install, a setup, and a contract resolve to.
 
-Only what is built is exposed.
+Each handler loads one document — the shipped capability table, a config, the
+task-type catalog, or a contract — prints what it resolved to, and returns a
+shell exit status: 0 when the document was read, 1 when it was not, with the
+refusal on stderr. Nothing here dispatches work, starts a model, or writes to
+the tree; the handlers resolve and print.
 """
 
 from __future__ import annotations
@@ -52,9 +56,10 @@ def _capabilities(args: argparse.Namespace) -> int:
 
 
 def _config(args: argparse.Namespace) -> int:
-    # `None` rather than a resolved path when no argument was given: a config
-    # that is not there has a different remedy depending on who named it, and
-    # resolving here throws that away — see `config.load`.
+    # `path` is filled by the positional argument or by `--config`; both land
+    # in the same dest, and `_OneSetup` refuses a command line that names two
+    # different files. No path at all loads the default config, resolved as a
+    # run here would resolve it.
     try:
         config = load_config(Path(args.path) if args.path else None)
     except ConfigError as exc:
@@ -104,28 +109,27 @@ def _local_pool(args: argparse.Namespace) -> int:
         availability = Availability(timeout_s=args.probe_timeout)
     pool = source_map(config, probe=availability)
 
-    # The ladder, not the endpoints: this command answers "what can run", and
-    # where each rung runs is the seam's business (#20). A rung that cannot run
-    # names its source in the reason, which is when that fact starts to matter.
-    #
-    # The family, the attempt budget and the breadth are shown because they
-    # are the routing decision (#24), and a decision nobody can read is one
-    # nobody can check.
-    # A family is a cost class rather than a location, so printing it says how
-    # dear a rung is to ask without saying which machine answers.
-    #
-    # The rungs are listed in the order the ladder names them, which is the
-    # order work climbs them. That is cheapest first only when the ladder was
-    # written so, and the header says the order the list is in, not the one a
-    # ladder usually has.
+    # What follows is read off `pool`: the config resolved into the rungs work
+    # may be dispatched to. A ladder unit that names the key it needs and an
+    # address is usable; one that does not is skipped with its reason. Relief
+    # rungs are resolved the same way but kept off the ladder.
+    # The header counts the usable ladder rungs; each row states the rung's
+    # name, the catalog family it is served from (`api` when its unit names
+    # `api_key_env`, `local` otherwise), its attempt budget — `attempts.<rung>`,
+    # or 1 when that is unstated — with its `draws` count when that is above
+    # one, and the model its unit names.
+    # The order is the ladder's own, because that is the order escalation
+    # climbs; a unit the ladder does not name is not a rung and is not printed.
+    # Everything left out is stated below: the ceiling, the skipped rungs, the
+    # relief rungs, and the model each role is bound to.
     print(f"{config.path}: {len(pool)} usable rung(s), in ladder order:\n")
     ladder_budget = 0
     for rung in pool.rungs:
         budget = int((config.get("attempts") or {}).get(rung.name, 1))
         ladder_budget += budget
         tries = "1 attempt" if budget == 1 else f"{budget} attempts"
-        # The breadth is a routing decision too, shown only where it is not
-        # the default, so an unconfigured install's line is unchanged.
+        # The attempt budget is the rung's own `attempts` entry; the draw count
+        # is a separate thing — how many candidates one attempt may ask for.
         draws = draws_for(config, rung.name)
         if draws > 1:
             tries += f", {draws} draws"
@@ -134,10 +138,10 @@ def _local_pool(args: argparse.Namespace) -> int:
     if not pool.rungs:
         print("  (none — every rung's source is unusable)")
     else:
-        # The escalation policy (#43). A ladder printed without its ceilings
-        # reads as though every rung will be tried, and the default is that
-        # most of them will not: what bounds the climb is as much the routing
-        # decision as the rungs are, and it is decided from this file alone.
+        # The ceiling bounds a task, not the ladder: `max_escalations` caps how
+        # many rungs a climb may take, and `max_attempts`, when the config
+        # states it, caps attempts over the whole task. The attempt cap printed
+        # is therefore the smaller of that and the ladder's summed budget.
         ceiling = Ceiling.of(config)
         cap = min(ladder_budget, ceiling.attempts or ladder_budget)
         source = (
@@ -157,9 +161,9 @@ def _local_pool(args: argparse.Namespace) -> int:
         for skip in pool.skipped:
             print(f"  {skip.name:<20} {skip.model}\n      ↳ {skip.reason}")
 
-    # Relief rungs (relief.yaml) are other people's units: printed apart from
-    # the ladder because they are never a step of it. `position` is where the
-    # hub judged the host's model against yours, and it places nothing.
+    # Relief rungs are lent units, never steps of the ladder: work rides one
+    # only under `fanout: idle` when your own rung is full, so each row states
+    # its position, its width, the model actually served, and who hosts it.
     if pool.relief or pool.relief_skipped:
         print(
             f"\nRelief rungs (hitchhike), {len(pool.relief)} usable: taken under "
@@ -186,17 +190,17 @@ def _local_pool(args: argparse.Namespace) -> int:
             print(f"\n{role}: {model}")
 
     if availability is not None:
-        # Every source that was actually asked, live ones included. A ladder
-        # that came back intact is only reassuring if you can see that the
-        # question was put — otherwise it is indistinguishable from a probe
-        # that quietly did nothing.
+        # A probe asked each source whether it was answering, and `source_map`
+        # dropped the rungs of any that was not. These are the verdicts behind
+        # that, sorted by source name: live or down, how long the answer took,
+        # and `how` — the probe's own account of what the source answered.
         print(f"\nProbed {len(availability.verdicts)} source(s):")
         for name, verdict in sorted(availability.verdicts.items()):
             state = "live" if verdict.live else "down"
             print(f"  {name:<20} {state:<5} {verdict.elapsed_s:.2f}s  {verdict.how}")
 
-    # An empty or shortened ladder is a reported state, not a command failure —
-    # for a keyless install it may be exactly what was configured.
+    # Nothing was written and nothing was run: the ladder was resolved, its
+    # rungs printed, and 0 returned unless the config could not be read.
     return 0
 
 
@@ -210,9 +214,9 @@ def _catalog(args: argparse.Namespace) -> int:
         print(f"error: {exc}", file=sys.stderr)
         return 1
 
-    # Resolving against a ladder is optional: without one there is still a
-    # vocabulary to show, and "which of these can *I* run" is a different
-    # question from "what does mcgyvr know how to be asked for".
+    # `--against` is checked only when it was named: unset leaves the catalog
+    # listed on its own, while the flag with no path resolves the default
+    # config and marks the types that ladder cannot start.
     config = None
     unservable: set[str] = set()
     if args.against is not False:
@@ -286,8 +290,8 @@ def _catalog(args: argparse.Namespace) -> int:
 
     if config is not None:
         if unservable:
-            # Naming them is the point: a count would tell a caller there is a
-            # problem without telling them which task to stop asking for.
+            # Only the names are listed: the rows above already carry each
+            # type's guarantee and evidence, in the catalog's own order.
             print(f"{len(unservable)} type(s) this ladder cannot start:")
             for name in sorted(unservable):
                 print(f"  {name}")
@@ -304,8 +308,8 @@ def _contract(args: argparse.Namespace) -> int:
     try:
         contract = load(Path(args.path))
     except ContractError as exc:
-        # The whole point of the loader is that this message is actionable:
-        # it names the field and what a valid value looks like.
+        # A contract that will not load is reported, not repaired: the refusal
+        # names the file, and the key or value in it that was refused.
         print(f"error: {exc}", file=sys.stderr)
         return 1
 
@@ -318,8 +322,8 @@ def _contract(args: argparse.Namespace) -> int:
     operation = f", operation {contract.operation}" if contract.operation else ""
     print(f"  {contract.id}  [{contract.task_type}{operation}] — {tier}")
     if contract.is_session:
-        # A session writes nothing, so there is no file to name: a target or
-        # scope line here would say the opposite of what the run does.
+        # A session contract has no target and no scope, so anything it states
+        # in them is inert: say so rather than print a target that is not used.
         print(
             "  session: the reply is returned in the result file's `answer` and "
             "kept in the session log (<journal.dir>/sessions/); nothing is "
@@ -337,9 +341,9 @@ def _contract(args: argparse.Namespace) -> int:
         print(f"  deps:    {', '.join(d.path for d in contract.deps)}")
     if contract.stop_conditions:
         print(f"  stops:   {len(contract.stop_conditions)} condition(s)")
-    # A reply (chat, agent, media) is never gated as a change or reviewed:
-    # it is judged by its output checks or by nothing, in the words its result
-    # will use (`how_judged`), and its acceptance commands never judge it.
+    # `reply` separates a reply, a type that judges no change, from work that
+    # produces one: a reply states how its output checks judge it, while a
+    # change states the verification policy it is held to.
     reply = not contract.is_deterministic and not contract.kind.judges_a_change
     if reply:
         print(f"  risk:    {contract.risk}")
@@ -349,10 +353,11 @@ def _contract(args: argparse.Namespace) -> int:
             f"  risk:    {contract.risk} — verified by "
             f"{contract.verification.policy.replace('_', ' ')}"
         )
-    # The cap model is decided by task type (owner, 2026-10-14), and this line
-    # says which rule the contract is under. A deterministic operation calls
-    # no model, so it has no reply to cap and no model attempts to count, and
-    # prints no line at all.
+    # Limits by kind: a session is a raw connection — no output cap and no
+    # prompt checks — while a model-written change states an output budget (or
+    # says that `mcgyvr run` will refuse it), the prompt-token cap, and an
+    # attempt count. A deterministic operation calls no model, so no limits
+    # are printed for it at all.
     if contract.is_session:
         print(
             f"  limits:  raw connection: no output cap, no prompt checks, "
@@ -362,9 +367,10 @@ def _contract(args: argparse.Namespace) -> int:
         if contract.limits.max_output_tokens is not None:
             output_budget = f"<={contract.limits.max_output_tokens} output tokens"
         elif contract.needs_output_cap:
-            # Valid, and never sent as it stands: the run refuses a
-            # model-written contract with no cap before any model is called,
-            # so say so here, where refusing costs nothing.
+            # `needs_output_cap` is true when a model writes the change and
+            # something then judges it, so the cap is mandatory at dispatch.
+            # The preview states that rule here rather than leaving the
+            # omission to be found when the run is refused.
             output_budget = (
                 "no output cap stated — `mcgyvr run` refuses it until "
                 "`limits.max_output_tokens` is stated"
@@ -392,12 +398,17 @@ def _contract(args: argparse.Namespace) -> int:
 
 
 def add_parser(sub: argparse._SubParsersAction[argparse.ArgumentParser]) -> None:
-    """Register `capabilities`, `config`, `local_pool`, `catalog`, `contract`."""
+    """Register these read-only commands on `sub`, the top-level subparsers.
+
+    Five subcommands, each naming its handler in `func`: `capabilities` for the
+    shipped estimates, `config` and `local_pool` for a setup and the ladder it
+    resolves to, `catalog` for the task types, and `contract` for one contract.
+    """
 
     caps = sub.add_parser(
         "capabilities",
-        # argparse does not abbreviate subcommands the way it abbreviates
-        # flags, so the short name is spelled out as an alias.
+        # `caps` is the short spelling: one subparser, so both names share the
+        # same handler and the same options.
         aliases=["caps"],
         help="show the shipped model estimates",
     )

@@ -1,14 +1,13 @@
-"""The rung's system prompt: ``prompts/mcorch.md`` with the schema rendered in.
+"""Assemble the system prompt the mcorch rung runs on.
 
-The prompt file says who the rung is and how a turn goes; it does not carry
-the contract vocabulary, because a hand-kept key table is a second copy of
-``contract.SCHEMA`` that drifts the moment a key is added. The vocabulary is
-rendered here from the schema, the way ``skills/mcgyvr/SKILL.md`` is rendered
-by :mod:`mcgyvr.docgen`, so the rung and the API-tier agent read one source.
-
-The leading HTML-comment marker is provenance, stripped before the prompt is
-sent (:func:`mcgyvr.worker.bundle.strip_provenance`): a note to a reader of the
-repository, not instructions to a model.
+``prompts/mcorch.md`` ships inside the package and holds the hand-written
+instructions plus slots. Rendering strips that file's provenance comment and
+fills the slots: the writer id (the value the rung passes to ``mcgyvr run`` as
+``--orchestrator``), the authoring strategy in force, and the contract
+vocabulary, which is rebuilt from ``contract.SCHEMA`` with the same docgen
+helpers that render ``SKILL.md`` so a key added to the schema reaches the rung
+without anyone editing a prompt. The ``{jev_notes}`` slot is not filled here:
+it survives rendering for the loop to fill.
 """
 
 from __future__ import annotations
@@ -19,11 +18,11 @@ from mcgyvr import contract
 from mcgyvr.docgen import _contract_section, _contract_table
 from mcgyvr.worker.bundle import strip_provenance
 
-#: The slot the loop fills with Jev's notes for this turn.
+#: Slot the loop fills with Jev's notes after rendering; render leaves it intact.
 NOTES_SLOT = "{jev_notes}"
-#: The slot the schema's key tables are rendered into.
+#: Slot render fills with the vocabulary table built from contract.SCHEMA.
 VOCABULARY_SLOT = "{vocabulary}"
-#: The slot the writer id and the authoring strategy fill.
+#: Slots render fills with the writer id and the authoring strategy in force.
 _WRITER_SLOT = "{writer}"
 _AUTHORING_SLOT = "{authoring}"
 
@@ -31,13 +30,16 @@ _FILENAME = "mcorch.md"
 
 
 def source() -> str:
-    """The prompt file as shipped, marker and slots included."""
+    """Return the packaged ``prompts/mcorch.md`` text as shipped, slots and
+    provenance comment included."""
     resource = resources.files("mcgyvr") / "prompts" / _FILENAME
     return resource.read_text(encoding="utf-8")
 
 
 def vocabulary() -> str:
-    """The contract schema as the key tables the skill renders."""
+    """Return the contract vocabulary as markdown: one table row per top-level
+    ``contract.SCHEMA`` field, followed by a ``####`` section per block field
+    restating its nested keys. Trailing blank lines are trimmed."""
     lines = _contract_table(contract.SCHEMA, "")
     for field in contract.SCHEMA:
         if field.block:
@@ -46,11 +48,9 @@ def vocabulary() -> str:
 
 
 def render(*, writer: str, authoring: str) -> str:
-    """The system prompt for one server: writer and strategy filled, notes slot kept.
-
-    The notes slot stays a slot so the loop can fill it per turn without
-    re-reading the file; :func:`mcgyvr.mcorch.loop.respond` does that.
-    """
+    """Return the source prompt with its provenance comment stripped and the
+    writer, authoring and vocabulary slots replaced. ``NOTES_SLOT`` is left for
+    the loop."""
     text = strip_provenance(source())
     return (
         text.replace(_WRITER_SLOT, writer)
