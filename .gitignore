@@ -25,3 +25,7 @@ graphify-out/
 
 # Headless pi agent session logs (transcripts), not project artefacts.
 .pi-sessions/
+
+# Archify diagram artefacts (workflow/diagram HTML and receipts), generated and
+# reproducible from the repo, not source.
+.archify/

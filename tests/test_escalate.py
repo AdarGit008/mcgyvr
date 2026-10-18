@@ -876,6 +876,7 @@ def test_an_attempt_that_raises_is_recorded_as_an_error_outcome() -> None:
     result = halted(escalate(config, pool, contract(), explode))
 
     assert result.outcome is Outcome.ERROR
+    assert result.entered == (LOCAL,)
     assert "local_qwen-7b" in result.detail
     assert "RuntimeError" in result.detail
     assert "the socket died" in result.detail

@@ -34,12 +34,14 @@ from pathlib import Path
 import pytest
 
 from mcgyvr.catalog import catalog
+from mcgyvr.config import parse
 from mcgyvr.escalate import (
     Delivered,
     Halted,
     Outcome,
     ascent,
     escalate,
+    redundant_relief,
 )
 from mcgyvr.route import Verdict
 from tests.relieftakes import (
@@ -52,7 +54,7 @@ from tests.relieftakes import (
     contract,
     mapped,
 )
-from tests.rungs import RIDE
+from tests.rungs import RIDE, RUNG_ID
 
 OTHER_ID = "1a2b3c4d5e6f708192a3b4c5d6e7f809"
 OTHER = f"hitchhike-{OTHER_ID}"
@@ -245,6 +247,72 @@ def test_a_relief_rung_that_cannot_take_it_now_is_passed_over_as_if_full(
     assert script.tried == [RIDE, API]
     assert (done.attempts_spent, done.escalations) == (1, 0)
     assert [a.verdict for a in done.history] == [Verdict.DECLINED, Verdict.PASSED]
+
+
+def test_a_failed_relief_ride_is_ladder_spent_not_declined_throughout(
+    tmp_path: Path,
+) -> None:
+    """A failed ride is free (no budget counts it), but it is still a rung
+    that tried: the outcome is `ladder_spent`, never `declined_throughout`,
+    even when every ladder rung then declines."""
+    config, pool = mapped()
+    cap = capacity_of(config, tmp_path)
+    cap.reserve(FAST)
+    script = Script(**{RIDE: Verdict.FAILED, API: Verdict.DECLINED})
+
+    done = escalate(config, pool, contract(), script, capacity=cap)
+
+    assert isinstance(done, Halted)
+    assert done.outcome is Outcome.LADDER_SPENT
+    assert done.attempts_spent == 0  # the ride was free; only the verdict counts
+    assert [a.verdict for a in done.history] == [Verdict.FAILED, Verdict.DECLINED]
+    assert script.tried == [RIDE, API]
+
+
+def test_a_ridden_relief_attempt_is_recorded_with_its_unit_details(
+    tmp_path: Path,
+) -> None:
+    """A relief try is recorded like any other, stamped with the borrowed unit."""
+    config, pool = mapped()
+    cap = capacity_of(config, tmp_path)
+    cap.reserve(FAST)
+    script = Script(**{RIDE: Verdict.FAILED, API: Verdict.DECLINED})
+
+    done = escalate(config, pool, contract(), script, capacity=cap)
+
+    assert isinstance(done, Halted)
+    ride = done.history[0]
+    assert ride.relief is True
+    assert ride.model == f"hitchhike@{RUNG_ID}"  # the fixture states no served_model
+    assert ride.address == "https://hub.example.org/v1"
+
+
+def test_a_relief_rung_that_duplicates_an_own_unit_is_called_out() -> None:
+    """A relief rung serving a model you already run re-sends to what you have."""
+    config = parse(
+        """
+units:
+  mine:
+    address: http://mine:8000/v1
+    model: qwen2.5-coder-3b
+    width: 1
+ladder:
+- mine
+relief:
+  borrow:
+    address: https://hub.example.org/v1
+    model: hitchhike@abc
+    api_key_env: HUB_KEY
+    width: 1
+    position: within
+    served_model: qwen2.5-coder-3b
+"""
+    )
+    notes = redundant_relief(config)
+    assert len(notes) == 1
+    assert "borrow" in notes[0]
+    assert "mine" in notes[0]
+    assert "qwen2.5-coder-3b" in notes[0]
 
 
 def test_a_ride_that_could_not_go_leaves_no_reservation_behind(

@@ -376,6 +376,14 @@ class Attempted:
     #: ever saw it. It is the one field here that is about the machinery instead
     #: of about the work.
     raised: bool = False
+    #: `relief` is `True` when the rung is one lent through a hub rather than
+    #: a step of the ladder. `model` and `address` name the unit that served
+    #: the try, so a relief attempt can be read as the borrowed machine it
+    #: actually ran on. A relief try is recorded like any other; it charges
+    #: the budget only when it passes.
+    relief: bool = False
+    model: str = ""
+    address: str = ""
 
 
 def attempted(rung: str, attempt: int, result: Result) -> Attempted:
