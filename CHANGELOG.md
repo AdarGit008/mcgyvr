@@ -9,9 +9,18 @@ the repository AdarGit008/mcgyvr-lab, under the same paths.
 
 ## [Unreleased]
 
-### Fixed
-
 ## [Unreleased]
+
+### Removed
+
+- `mcgyvr setup` no longer offers the `media-gen` use case: it has no sample,
+  so setup could not sample it, and it is off until one is built. The
+  use-case prompt is `d` coding (default), `c` chat, `a` agent; a
+  `--use-case media-gen`, or a config naming `use_case: media-gen`, is refused
+  in one line naming `coding`, `chat` and `agent`. The `media` task type is
+  unchanged (#731).
+
+### Fixed
 
 ## [0.5.1] - 2026-10-17
 
