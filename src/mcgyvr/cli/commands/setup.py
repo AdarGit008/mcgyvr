@@ -29,6 +29,8 @@ from mcgyvr.config import (
     API_OUTPUT_TOKENS,
     CONFIG_PATH_ENV,
     FLEET_FILENAME,
+    RETIRED_USE_CASES,
+    USE_CASES,
     ConfigError,
     named_config_path,
 )
@@ -219,17 +221,19 @@ def _spoken_or(names: Sequence[str]) -> str:
 def _setup_use_cases() -> tuple[str, ...]:
     """Answer the use-case names on offer, coding first because it is the default.
 
-    The catalog is read here rather than imported at module load, so the setup
-    command does not pull it in for runs that never ask.
+    Only the catalog's use cases a config accepts are offered: `media-gen` stays
+    in the catalog for the `media` task type, and is retired from setup until
+    its sample is built. The catalog is read here rather than imported at module
+    load, so the setup command does not pull it in for runs that never ask.
     """
     from mcgyvr.catalog import catalog
     from mcgyvr.fleet.sample import CODING_USE_CASE
 
-    names = tuple(u.name for u in catalog().use_cases)
+    names = tuple(u.name for u in catalog().use_cases if u.name in USE_CASES)
     return (CODING_USE_CASE, *(n for n in names if n != CODING_USE_CASE))
 
 
-_USE_CASE_LETTERS = ("d", "c", "a", "m")
+_USE_CASE_LETTERS = ("d", "c", "a")
 
 
 def _ask_setup_use_case() -> str:
@@ -655,7 +659,7 @@ def _setup_interactive(path: Path, run_id: str = "") -> int:
     ~/.local/bin on PATH. A step's error, or a refused init, config or
     capability table, is printed and answered with 1.
     """
-    from mcgyvr.fleet.sample import CODING_USE_CASE, MEDIA_GEN, MEDIA_NOT_BUILT
+    from mcgyvr.fleet.sample import CODING_USE_CASE
 
     run_id = run_id or _setup_run_id()
     try:
@@ -663,11 +667,6 @@ def _setup_interactive(path: Path, run_id: str = "") -> int:
         rigs = _ask_setup_rigs()
         print(f"Serving on: {', '.join(rigs)}")
         use_case = _ask_setup_use_case()
-        if use_case == MEDIA_GEN:
-            print(
-                f"{MEDIA_GEN} cannot be sampled yet: {MEDIA_NOT_BUILT}. Setup "
-                "stages it and asks before it locks it on no evidence."
-            )
         wants_jev = _confirm(JEV_QUESTION)
         # mcorch drives the conversational coding agent, so it is offered only
         # where there is a coding use case and a Jev unit has been asked for.
@@ -703,11 +702,7 @@ def _setup_interactive(path: Path, run_id: str = "") -> int:
         rooms = _setup_rooms(path, ctx_per_slot)
         _setup_emit(path, ctx_per_slot)
 
-        if use_case == MEDIA_GEN:
-            approved, unapproved = _setup_unsampled(
-                path, MEDIA_NOT_BUILT, acknowledged=None, readings=readings
-            )
-        elif _confirm(f"Start the serving containers on {', '.join(rigs)}? [y/N] "):
+        if _confirm(f"Start the serving containers on {', '.join(rigs)}? [y/N] "):
             _setup_start(rigs, scans, path)
             approved, unapproved = _setup_sample(path, run_id, readings, rooms)
         else:
@@ -916,6 +911,10 @@ def _setup(args: argparse.Namespace) -> int:
         return 1
     if _setup_is_interactive(args):
         return _setup_interactive(path, run_id)
+    refused = _use_case_refused(args.use_case)
+    if refused is not None:
+        print(f"error: --use-case `{args.use_case}` {refused}", file=sys.stderr)
+        return 1
     # The flag path binds what already answers: it parses each --api spec before
     # anything is written, so a malformed spec is reported first, and it hands
     # the hosts, the mapped priority and the named use case to initialize.
@@ -962,7 +961,7 @@ def _setup(args: argparse.Namespace) -> int:
     approved, unapproved = (
         _setup_unsampled(
             result.path,
-            _why_unsampled(result.path, args.use_case or "coding"),
+            _why_unsampled(result.path),
             acknowledged=args.accept_unsampled,
         )
         if result.written
@@ -996,17 +995,25 @@ def _setup(args: argparse.Namespace) -> int:
     return 0
 
 
-def _why_unsampled(setup: Path, use_case: str) -> str:
+def _use_case_refused(name: str | None) -> str | None:
+    """Answer why `--use-case` refuses `name`, or None when setup offers it.
+
+    The parser takes any name, so a retired one is refused here saying why it
+    is retired, and any other name the offered ones do not hold names them.
+    """
+    offered = _setup_use_cases()
+    if name is None or name in offered:
+        return None
+    retired = dict(RETIRED_USE_CASES).get(name)
+    return retired or f"is not a use case; setup offers {_spoken_or(offered)}."
+
+
+def _why_unsampled(setup: Path) -> str:
     """Answer why the flag-run setup was not sampled, in the words the user is shown.
 
-    A media-gen use case cannot be sampled yet; otherwise a setup that names
-    rigs was never started, and one with no rigs has no machine of the user's to
-    sample.
+    A setup that names rigs was never started, and one with no rigs has no
+    machine of the user's to sample.
     """
-    from mcgyvr.fleet.sample import MEDIA_GEN, MEDIA_NOT_BUILT
-
-    if use_case == MEDIA_GEN:
-        return MEDIA_NOT_BUILT
     return FLAGS_START_NOTHING if _rigs(setup) else ALL_HOSTED
 
 
@@ -1165,8 +1172,6 @@ def _rig_id(rig: str, reading: Mapping[str, Any]) -> str:
 
 def add_parser(sub: argparse._SubParsersAction[argparse.ArgumentParser]) -> None:
     """Add the `setup` subcommand and its flags to the CLI's parser."""
-    use_case_names = _setup_use_cases()
-
     setup = sub.add_parser(
         "setup",
         help=(
@@ -1245,12 +1250,11 @@ def add_parser(sub: argparse._SubParsersAction[argparse.ArgumentParser]) -> None
     setup.add_argument(
         "--use-case",
         default=None,
-        choices=use_case_names,
         metavar="USE_CASE",
         help=(
             "which use case this install serves: coding (the deterministic "
-            "gate), chat (raw endpoint), agent (un-gated, from its sources) or "
-            "media-gen (media_valid + safety + ASR-WER); default: coding"
+            "gate), chat (raw endpoint) or agent (un-gated, from its sources); "
+            "default: coding"
         ),
     )
     setup.add_argument(

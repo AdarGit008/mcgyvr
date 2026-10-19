@@ -24,7 +24,6 @@ from mcgyvr.fleet.sample import (
     TASK_GATE,
     TASK_GROUNDED,
     TASK_SAFETY,
-    Sample,
     _task_reasons,
 )
 from tests import sample_fleet as fx
@@ -174,10 +173,3 @@ def test_a_jev_unit_that_cannot_answer_is_a_reason(
 
     choice = next(one for one in outcomes if one.check == TASK_CHOICE)
     assert not choice.passed and "binds no unit" in choice.why
-
-
-def test_a_media_gen_fleet_has_no_sample_task(tmp_path: Path) -> None:
-    setup = _setup(tmp_path, "media-gen")
-    assert sampler.task(setup, [fx.UNIT], tmp_path / "sample", sd.accepted) == []
-    sample = Sample(setup=setup, fleet=fx.FLEET, reads=())
-    assert sample.outcomes == ()
