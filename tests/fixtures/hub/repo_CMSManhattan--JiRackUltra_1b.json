@@ -1,0 +1,102 @@
+{
+ "id": "CMSManhattan/JiRackUltra_1b",
+ "sha": "65ace7d3c9deb2ca00d5f56928e320d39ee8b4ed",
+ "pipeline_tag": "text-generation",
+ "tags": [
+  "safetensors",
+  "gguf",
+  "qwen2",
+  "text-generation",
+  "ternary",
+  "bitnet",
+  "1.58bit",
+  "cpu",
+  "qwen2.5",
+  "deepseek",
+  "efficient",
+  "low-memory",
+  "jirack",
+  "web-ui",
+  "routing",
+  "tool-call",
+  "robotics",
+  "conversational",
+  "en",
+  "zh",
+  "ja",
+  "ko",
+  "fr",
+  "es",
+  "pt",
+  "de",
+  "it",
+  "ru",
+  "ar",
+  "vi",
+  "th",
+  "license:mit",
+  "endpoints_compatible",
+  "region:us"
+ ],
+ "gguf": {
+  "total": 1777088000,
+  "architecture": "qwen2",
+  "context_length": 131072,
+  "chat_template": "{% if not add_generation_prompt is defined %}{% set add_generation_prompt = false %}{% endif %}{% set ns = namespace(is_first=false, is_tool=false, is_output_first=true, system_prompt='') %}{%- for message in messages %}{%- if message['role'] == 'system' %}{% set ns.system_prompt = message['content'] %}{%- endif %}{%- endfor %}{{bos_token}}{{ns.system_prompt}}{%- for message in messages %}{%- if message['role'] == 'user' %}{%- set ns.is_tool = false -%}{{'<｜User｜>' + message['content']}}{%- endif %}{%- if message['role'] == 'assistant' and message['content'] is none %}{%- set ns.is_tool = false -%}{%- for tool in message['tool_calls']%}{%- if not ns.is_first %}{{'<｜Assistant｜><｜tool▁calls▁begin｜><｜tool▁call▁begin｜>' + tool['type'] + '<｜tool▁sep｜>' + tool['function']['name'] + '\\n' + '```json' + '\\n' + tool['function']['arguments'] + '\\n' + '```' + '<｜tool▁call▁end｜>'}}{%- set ns.is_first = true -%}{%- else %}{{'\\n' + '<｜tool▁call▁begin｜>' + tool['type'] + '<｜tool▁sep｜>' + tool['function']['name'] + '\\n' + '```json' + '\\n' + tool['function']['arguments'] + '\\n' + '```' + '<｜tool▁call▁end｜>'}}{{'<｜tool▁calls▁end｜><｜end▁of▁sentence｜>'}}{%- endif %}{%- endfor %}{%- endif %}{%- if message['role'] == 'assistant' and message['content'] is not none %}{%- if ns.is_tool %}{{'<｜tool▁outputs▁end｜>' + message['content'] + '<｜end▁of▁sentence｜>'}}{%- set ns.is_tool = false -%}{%- else %}{% set content = message['content'] %}{% if '</think>' in content %}{% set content = content.split('</think>')[-1] %}{% endif %}{{'<｜Assistant｜>' + content + '<｜end▁of▁sentence｜>'}}{%- endif %}{%- endif %}{%- if message['role'] == 'tool' %}{%- set ns.is_tool = true -%}{%- if ns.is_output_first %}{{'<｜tool▁outputs▁begin｜><｜tool▁output▁begin｜>' + message['content'] + '<｜tool▁output▁end｜>'}}{%- set ns.is_output_first = false %}{%- else %}{{'\\n<｜tool▁output▁begin｜>' + message['content'] + '<｜tool▁output▁end｜>'}}{%- endif %}{%- endif %}{%- endfor -%}{% if ns.is_tool %}{{'<｜tool▁outputs▁end｜>'}}{% endif %}{% if add_generation_prompt and not ns.is_tool %}{{'<｜Assistant｜><think>\\n'}}{% endif %}",
+  "bos_token": "<｜begin▁of▁sentence｜>",
+  "eos_token": "<｜end▁of▁sentence｜>",
+  "totalFileSize": 924455840
+ },
+ "siblings": [
+  {
+   "rfilename": "JiRackUltra_1b.Q6_K.gguf",
+   "blobId": "02c3095dfa6b6cb9b56060b145f0d79b7781375b",
+   "size": 1464178592,
+   "lfs": {
+    "sha256": "8a7a9a4052ded2800d95b37a0bfc8b00630dc417b0e3410785203bab58238463",
+    "size": 1464178592,
+    "pointerSize": 135
+   }
+  },
+  {
+   "rfilename": "JiRackUltra_1b.Q8_0.gguf",
+   "blobId": "43bb33873e1c465672e3c8054229e3c24d69fa31",
+   "size": 1894532000,
+   "lfs": {
+    "sha256": "f56b2061f0f3bdae6de28da27cf0abebf13f36554fb1c0ba18414e08d88a25dd",
+    "size": 1894532000,
+    "pointerSize": 135
+   }
+  },
+  {
+   "rfilename": "JiRackUltra_1b.gguf",
+   "blobId": "a4fc68b5e5b2e52d3a1a549f82952695e2329c36",
+   "size": 3560416160,
+   "lfs": {
+    "sha256": "19bb919b2deb433fba4b1116d857678def467b49ca881b5f9e6dc6ad27664744",
+    "size": 3560416160,
+    "pointerSize": 135
+   }
+  },
+  {
+   "rfilename": "JiRackUltra_1b_Q3_K_M.gguf",
+   "blobId": "a1d5c548bc386829b470d2184090a57ffd5e7e4a",
+   "size": 924455840,
+   "lfs": {
+    "sha256": "73cc639081a63a3793448991c1c1ca05ea82e5a9f65736b9e571f32aca10f31d",
+    "size": 924455840,
+    "pointerSize": 134
+   }
+  },
+  {
+   "rfilename": "JiRackUltra_1b_Q4_K_M.gguf",
+   "blobId": "389c6928561df23a2637bd65bf5fa6f95b273dae",
+   "size": 1117320608,
+   "lfs": {
+    "sha256": "8db8cb25c578442e4a05a664e02c5ec90dda393671b9ef2ca02d37170bb0335f",
+    "size": 1117320608,
+    "pointerSize": 135
+   }
+  }
+ ]
+}

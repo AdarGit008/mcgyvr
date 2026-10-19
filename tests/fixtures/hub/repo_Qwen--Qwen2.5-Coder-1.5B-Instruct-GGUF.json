@@ -1,0 +1,115 @@
+{
+ "id": "Qwen/Qwen2.5-Coder-1.5B-Instruct-GGUF",
+ "sha": "f86cb2c1fa58255f8052cc32aeede1b7482d4361",
+ "pipeline_tag": "text-generation",
+ "tags": [
+  "transformers",
+  "gguf",
+  "code",
+  "codeqwen",
+  "chat",
+  "qwen",
+  "qwen-coder",
+  "text-generation",
+  "en",
+  "arxiv:2409.12186",
+  "arxiv:2407.10671",
+  "base_model:Qwen/Qwen2.5-Coder-1.5B-Instruct",
+  "base_model:quantized:Qwen/Qwen2.5-Coder-1.5B-Instruct",
+  "license:apache-2.0",
+  "endpoints_compatible",
+  "region:us",
+  "conversational"
+ ],
+ "gguf": {
+  "total": 1777088000,
+  "architecture": "qwen2",
+  "context_length": 32768,
+  "chat_template": "{%- if tools %}\n    {{- '<|im_start|>system\\n' }}\n    {%- if messages[0]['role'] == 'system' %}\n        {{- messages[0]['content'] }}\n    {%- else %}\n        {{- 'You are Qwen, created by Alibaba Cloud. You are a helpful assistant.' }}\n    {%- endif %}\n    {{- \"\\n\\n# Tools\\n\\nYou may call one or more functions to assist with the user query.\\n\\nYou are provided with function signatures within <tools></tools> XML tags:\\n<tools>\" }}\n    {%- for tool in tools %}\n        {{- \"\\n\" }}\n        {{- tool | tojson }}\n    {%- endfor %}\n    {{- \"\\n</tools>\\n\\nFor each function call, return a json object with function name and arguments within <tool_call></tool_call> XML tags:\\n<tool_call>\\n{{\\\"name\\\": <function-name>, \\\"arguments\\\": <args-json-object>}}\\n</tool_call><|im_end|>\\n\" }}\n{%- else %}\n    {%- if messages[0]['role'] == 'system' %}\n        {{- '<|im_start|>system\\n' + messages[0]['content'] + '<|im_end|>\\n' }}\n    {%- else %}\n        {{- '<|im_start|>system\\nYou are Qwen, created by Alibaba Cloud. You are a helpful assistant.<|im_end|>\\n' }}\n    {%- endif %}\n{%- endif %}\n{%- for message in messages %}\n    {%- if (message.role == \"user\") or (message.role == \"system\" and not loop.first) or (message.role == \"assistant\" and not message.tool_calls) %}\n        {{- '<|im_start|>' + message.role + '\\n' + message.content + '<|im_end|>' + '\\n' }}\n    {%- elif message.role == \"assistant\" %}\n        {{- '<|im_start|>' + message.role }}\n        {%- if message.content %}\n            {{- '\\n' + message.content }}\n        {%- endif %}\n        {%- for tool_call in message.tool_calls %}\n            {%- if tool_call.function is defined %}\n                {%- set tool_call = tool_call.function %}\n            {%- endif %}\n            {{- '\\n<tool_call>\\n{\"name\": \"' }}\n            {{- tool_call.name }}\n            {{- '\", \"arguments\": ' }}\n            {{- tool_call.arguments | tojson }}\n            {{- '}\\n</tool_call>' }}\n        {%- endfor %}\n        {{- '<|im_end|>\\n' }}\n    {%- elif message.role == \"tool\" %}\n        {%- if (loop.index0 == 0) or (messages[loop.index0 - 1].role != \"tool\") %}\n            {{- '<|im_start|>user' }}\n        {%- endif %}\n        {{- '\\n<tool_response>\\n' }}\n        {{- message.content }}\n        {{- '\\n</tool_response>' }}\n        {%- if loop.last or (messages[loop.index0 + 1].role != \"tool\") %}\n            {{- '<|im_end|>\\n' }}\n        {%- endif %}\n    {%- endif %}\n{%- endfor %}\n{%- if add_generation_prompt %}\n    {{- '<|im_start|>assistant\\n' }}\n{%- endif %}\n",
+  "bos_token": "<|endoftext|>",
+  "eos_token": "<|im_end|>",
+  "totalFileSize": 752880192
+ },
+ "siblings": [
+  {
+   "rfilename": "qwen2.5-coder-1.5b-instruct-q2_k.gguf",
+   "blobId": "caa583197433346c208b9cfdb8b137fbd04a31d7",
+   "size": 752880192,
+   "lfs": {
+    "sha256": "3ec56d48cc5acdb93c4323f0d01a3b5db0c73c54fe71831199223720d37f6fcd",
+    "size": 752880192,
+    "pointerSize": 134
+   }
+  },
+  {
+   "rfilename": "qwen2.5-coder-1.5b-instruct-q3_k_m.gguf",
+   "blobId": "46dae7afcef0dab1e7fce18ea3c254ed715bdf7b",
+   "size": 924456000,
+   "lfs": {
+    "sha256": "d281a3a0010df03c8a0e3ffebd7f9444a95244fb518f132c5475e4b48d9adb5e",
+    "size": 924456000,
+    "pointerSize": 134
+   }
+  },
+  {
+   "rfilename": "qwen2.5-coder-1.5b-instruct-q4_0.gguf",
+   "blobId": "c2720b6b92f47f4f8ee46ca0753f863bcfda5142",
+   "size": 1066227264,
+   "lfs": {
+    "sha256": "aa8353e0d0fca3a0041828701e90db7635197400f040676d11d7798665fa316e",
+    "size": 1066227264,
+    "pointerSize": 135
+   }
+  },
+  {
+   "rfilename": "qwen2.5-coder-1.5b-instruct-q4_k_m.gguf",
+   "blobId": "fd69246985bc9ee8451624c55d3118e9f5251a1c",
+   "size": 1117320768,
+   "lfs": {
+    "sha256": "cc324af070c2ecbfd324a30884d2f951a7ff756aba85cb811a6ec436933bb046",
+    "size": 1117320768,
+    "pointerSize": 135
+   }
+  },
+  {
+   "rfilename": "qwen2.5-coder-1.5b-instruct-q5_0.gguf",
+   "blobId": "fc4ff6299848fadf9d80f5ddac78208aadfdb611",
+   "size": 1259173440,
+   "lfs": {
+    "sha256": "5ce1b3d37dc2bd8a75c335c59bebfa1d28a58cab14454369c3dba71b10abe3f5",
+    "size": 1259173440,
+    "pointerSize": 135
+   }
+  },
+  {
+   "rfilename": "qwen2.5-coder-1.5b-instruct-q5_k_m.gguf",
+   "blobId": "b1c22cee9517936ac5e674f13994048e5c756c6a",
+   "size": 1285494336,
+   "lfs": {
+    "sha256": "f15d02e8e51a5c6f9448b972819acfa66aee4d8bb7d881a8b8ba3d90da08ef09",
+    "size": 1285494336,
+    "pointerSize": 135
+   }
+  },
+  {
+   "rfilename": "qwen2.5-coder-1.5b-instruct-q6_k.gguf",
+   "blobId": "a5e36c78e1eef47a2a8433c1c7ec1e4111c85c86",
+   "size": 1464178752,
+   "lfs": {
+    "sha256": "9b05dce8089197c866b9f76e1db45de8617cda98d9d06059958cb8ad32c56dfa",
+    "size": 1464178752,
+    "pointerSize": 135
+   }
+  },
+  {
+   "rfilename": "qwen2.5-coder-1.5b-instruct-q8_0.gguf",
+   "blobId": "4b0553265a9c7c6d1554ec944c109b3802bcf91b",
+   "size": 1894532160,
+   "lfs": {
+    "sha256": "507de59046601282ba768a9789900e6ccf60ed93ddf346730b7c68eb0715bc47",
+    "size": 1894532160,
+    "pointerSize": 135
+   }
+  }
+ ]
+}
