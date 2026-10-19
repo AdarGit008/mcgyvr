@@ -5,8 +5,9 @@ cards it holds. A unit that names its cards in ``launch.shards`` reserves
 exactly those of the rig being rendered: both cards of a unit split across one
 machine's two cards, card 1 for a unit pinned there. A unit that names none
 keeps the one card it always reserved, card 0. A locked launch states one
-argv, its head's, so a unit that spans rigs is refused by name rather than
-rendered as a second head on its worker's rig.
+argv, its head's, so a unit that spans rigs is never rendered as a second head
+on its worker's rig: with no address recorded for that rig it is refused by
+name.
 
 Rigs and units are invented.
 """
@@ -38,6 +39,7 @@ def unit(name: str, port: int, *, rig: str = A, shards: Any = None) -> dict[str,
         "engine": "llama.cpp",
         "image": "example.invalid/llama-server:pinned",
         "container": f"mcgyvr-{name}",
+        "model": f"example-{name}",
         "rig": rig,
         "address": f"http://{rig}:{port}",
         "launch": launch,
@@ -79,7 +81,7 @@ def test_a_unit_pinned_to_one_card_reserves_that_card(tmp_path: Path) -> None:
     assert reserved(tmp_path, A, "small") == ["0"]
 
 
-def test_a_unit_that_spans_rigs_is_refused_by_name_before_anything_is_written(
+def test_a_unit_spanning_a_rig_with_no_address_is_refused_before_anything_is_written(
     tmp_path: Path,
 ) -> None:
     shards = [{"rig": A, "gpu": 0}, {"rig": B, "gpu": 0}]
@@ -88,6 +90,8 @@ def test_a_unit_that_spans_rigs_is_refused_by_name_before_anything_is_written(
         {A: [["wide", "awake"]], B: [["wide", "awake"]]},
     )
     out = tmp_path / "compose"
-    with pytest.raises(LockedLaunchError, match=r"wide.*box-b\.example"):
+    with pytest.raises(
+        LockedLaunchError, match=r"wide: .*box-b\.example has no recorded"
+    ):
         emit_locked(doc, out)
     assert not out.exists() or not any(out.iterdir())

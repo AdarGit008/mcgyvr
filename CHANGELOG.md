@@ -11,6 +11,17 @@ the repository AdarGit008/mcgyvr-lab, under the same paths.
 
 ## [Unreleased]
 
+### Added
+
+- `mcgyvr emit` on a locked fleet emits a llama.cpp unit split across rigs:
+  its stated head on the head's rig, and on each other rig an rpc-server
+  worker per card, the same services the unlocked emit writes for that unit.
+  A worker listens at its shard's `bind`, else at the private IPv4 its rig
+  file records. A worker rig with no recorded address, an overlay
+  (100.64.0.0/10) address when the head's rig file records none on that
+  overlay, and a head whose `--rpc` names other workers are refused by name
+  (#731).
+
 ### Removed
 
 - `mcgyvr setup` no longer offers the `media-gen` use case: it has no sample,
