@@ -682,7 +682,7 @@ def _climb(
     from mcgyvr.capacity import Capacity, CapacityError
     from mcgyvr.cooldown import Cooldown
     from mcgyvr.drive import DriveError, acceptance_for, worker_attempt
-    from mcgyvr.escalate import Outcome, ascent, escalate
+    from mcgyvr.escalate import Outcome, ascent, escalate, redundant_relief
     from mcgyvr.fleet_manager import hook_for as fleet_hook_for
     from mcgyvr.local_pool import SourceUnavailableError, source_map
     from mcgyvr.route import RouteError
@@ -719,6 +719,13 @@ def _climb(
     # to everything below, the route, the capacity, the reviewers, the driver and
     # the climb itself, so they all agree on which sources exist.
     pool = source_map(config)
+
+    # Relief rungs that duplicate a unit this install already serves are said
+    # once, before any dispatch: riding them re-sends to what the user has, so
+    # the note spares a journal read to discover it after the fact.
+    for note in redundant_relief(config):
+        print(f"note: {note}", file=sys.stderr)
+        report.notes.append(note)
 
     # How many dispatches each source can take, from the width each unit
     # declares, with the ladder manager's gauge to measure what is waiting on it
@@ -967,6 +974,9 @@ def _report_climb(
                 draw=step.draw,
                 draws=step.draws,
                 rows=step.rows,
+                relief=step.relief,
+                model=step.model,
+                address=step.address,
             )
         )
 

@@ -13,7 +13,7 @@ from __future__ import annotations
 
 from collections.abc import Callable, Mapping, Sequence
 from contextlib import AbstractContextManager, nullcontext
-from dataclasses import dataclass, field
+from dataclasses import dataclass, field, replace
 from enum import StrEnum
 from typing import TYPE_CHECKING, assert_never
 
@@ -911,9 +911,9 @@ def escalate(
     def rode(this: Try) -> Result:
         """Make one try on the relief rung the task rides.
 
-        A relief rung is not a step of the ladder: it charges an attempt
-        only when it passes, and it is never a move in the escalation
-        arithmetic.
+        A relief rung is not a step of the ladder: no budget counts it, so
+        only a pass charges an attempt, and it is never a move in the
+        escalation arithmetic.
         """
         nonlocal attempts_spent, accepted_judgement
         try:
@@ -925,19 +925,42 @@ def escalate(
             accepted_judgement = judgement
         return judgement.as_result()
 
-    def raised_to_halted(raised: _AttemptError) -> Halted:
+    def _unit_of(rung: str) -> tuple[str, str, bool]:
+        """The model, address and relief flag of the unit `rung` names."""
+        unit = config.units.get(rung) or config.relief.get(rung)
+        if unit is None:
+            return "", "", False
+        return unit.served_model or unit.model or "", unit.address or "", unit.relief
+
+    def recorded() -> tuple[Attempted, ...]:
+        """The history, each try stamped with the unit that served it.
+
+        A relief rung is recorded like any other try, but `relief` is `True`
+        and it charges the budget only when it passes: the record carries it,
+        the spend does not.
+        """
+        rows: list[Attempted] = []
+        for row in history:
+            model, address, relief = _unit_of(row.rung)
+            rows.append(replace(row, relief=relief, model=model, address=address))
+        return tuple(rows)
+
+    def raised_to_halted(raised: _AttemptError, family: Family) -> Halted:
         """Build the halt for an attempt that raised.
 
         The attempts this family already made are added — `climb` never
         returned its history — and the raised one after them, so the record
-        reaches the try that ended the task.
+        reaches the try that ended the task. The raising family is entered
+        too, so `entered` and `history` name the same families.
         """
         history.extend(judged)
         history.append(_raised_attempt(raised))
+        if family not in entered:
+            entered.append(family)
         return Halted(
             outcome=Outcome.ERROR,
             entered=tuple(entered),
-            history=tuple(history),
+            history=recorded(),
             attempts_spent=attempts_spent,
             escalations=max(0, len(spent_rungs) - 1),
             detail=history[-1].detail,
@@ -954,7 +977,7 @@ def escalate(
             assurance=accepted_judgement.assurance or Assurance.UNVERIFIED,
             judgement=accepted_judgement,
             entered=tuple(entered),
-            history=tuple(history),
+            history=recorded(),
             attempts_spent=attempts_spent,
             escalations=max(0, len(spent_rungs) - 1),
         )
@@ -1003,7 +1026,7 @@ def escalate(
                     each, observed, capacity=capacity, permit=permit, claimed=taking
                 )
             except _AttemptError as raised:
-                return raised_to_halted(raised)
+                return raised_to_halted(raised, each.family)
             history.extend(result.history)
             if result.history:
                 entered.append(each.family)
@@ -1030,9 +1053,9 @@ def escalate(
                                 extra, observed, capacity=capacity, permit=permit
                             )
                         except _AttemptError as raised:
-                            return raised_to_halted(raised)
+                            return raised_to_halted(raised, extra.family)
                         history.extend(extra_result.history)
-                        if extra_result.history:
+                        if extra_result.history and extra.family not in entered:
                             entered.append(extra.family)
                         if isinstance(extra_result, Accepted):
                             return finish_accepted(
@@ -1048,11 +1071,11 @@ def escalate(
             riding.release()
 
     escalations = max(0, len(spent_rungs) - 1)
-    outcome = stopped_by or _spent_outcome(history, attempts_spent)
+    outcome = stopped_by or _spent_outcome(history)
     return Halted(
         outcome=outcome,
         entered=tuple(entered),
-        history=tuple(history),
+        history=recorded(),
         attempts_spent=attempts_spent,
         escalations=escalations,
         detail=_halt_detail(
@@ -1151,10 +1174,21 @@ def _single_rung_plan(
     return None
 
 
-def _spent_outcome(history: list[Attempted], attempts_spent: int) -> Outcome:
+def _spent_outcome(history: list[Attempted]) -> Outcome:
+    """Classify a spent ladder from what happened, not from the budget.
+
+    `attempts_spent` is a budget counter and deliberately leaves free tries
+    uncounted — a relief rung that failed or declined costs nothing — so it
+    cannot say whether any rung actually tried. `history` can: a task whose
+    only rows are declines stepped aside throughout, while any failed
+    verdict means something tried and was rejected. A raised row is neither
+    a decline nor a spent attempt, so it is skipped here exactly the way
+    `attempts_spent` skips it.
+    """
     if not history:
         return Outcome.NOTHING_TO_RUN
-    if attempts_spent == 0:
+    tried = [a for a in history if not a.raised]
+    if not tried or all(a.verdict is Verdict.DECLINED for a in tried):
         return Outcome.DECLINED_THROUGHOUT
     return Outcome.LADDER_SPENT
 
@@ -1182,7 +1216,10 @@ def _halt_detail(
     if outcome is Outcome.ATTEMPT_CEILING:
         source = (
             "max_attempts"
-            if route.ceiling.attempts is not None
+            if (
+                route.ceiling.attempts is not None
+                and route.ceiling.attempts < route.ladder_budget
+            )
             else "the ladder's own budget"
         )
         return (
@@ -1204,6 +1241,34 @@ def _halt_detail(
         f"the ladder is spent: {attempts_spent} attempt(s) and {escalations} "
         f"escalation(s) across {climbed}, and none produced an acceptable change."
     )
+
+
+def redundant_relief(config: Config) -> tuple[str, ...]:
+    """Sentences naming relief rungs that duplicate a unit you already serve.
+
+    A relief rung whose address is one of your own units, or whose
+    `served_model` is a model your own ladder already serves, re-sends to
+    what you already have: riding it cannot help, so a run says so instead
+    of letting the user discover it from the journal.
+    """
+    notes: list[str] = []
+    for name, unit in config.relief.items():
+        for own, other in config.units.items():
+            if unit.address and unit.address == other.address:
+                notes.append(
+                    f"relief rung {name!r} is the same unit as your own "
+                    f"{own!r} ({unit.address}) — riding it re-sends to the "
+                    f"unit you already have, so it will not help."
+                )
+                break
+            if unit.served_model and unit.served_model == other.model:
+                notes.append(
+                    f"relief rung {name!r} serves model {unit.served_model!r}, "
+                    f"which your own {own!r} already serves — riding it will "
+                    f"not help."
+                )
+                break
+    return tuple(notes)
 
 
 # What a halted outcome means for the work: whether it may be handed on.
