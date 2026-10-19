@@ -293,10 +293,13 @@ def _recommend(args: argparse.Namespace) -> int:
     """Print the placement plan for a profile as one JSON document.
 
     ``plan`` re-reads every ``--host`` over ssh and picks the checkpoint and
-    engine from ``--model-store`` when one there fits, otherwise from the
-    shipped catalog; the document is written to stdout, sorted and indented. A
+    engine from ``--model-store`` when one there fits (coding), otherwise from
+    the profile's candidates on the Hugging Face Hub, the cache of an earlier
+    read or the shipped catalog, and says which (``candidates_from``); the
+    document is written to stdout, sorted and indented. A
     profile that cannot be placed, or a catalog that cannot be read, is
-    ``Exit.ERROR``; nothing is written, woken or slept.
+    ``Exit.ERROR``; nothing is woken or slept, and nothing is written but the
+    cache of what the Hub answered.
     """
     try:
         made = recommend_module.plan(
@@ -412,7 +415,7 @@ def add_parser(sub: argparse._SubParsersAction[argparse.ArgumentParser]) -> None
         metavar="DIR",
         help=(
             "a directory on the rig holding *.gguf checkpoints (repeatable); "
-            "when any fits, recommend only from it"
+            "when any fits, a coding plan recommends only from it"
         ),
     )
     rec.set_defaults(func=_recommend)
