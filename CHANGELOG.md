@@ -33,6 +33,28 @@ the repository AdarGit008/mcgyvr-lab, under the same paths.
   `swaps` (refusing a sleeper whose swap did not run, pass or record its
   times), and `mcgyvr fleet use` prints them. A unit laid out asleep that is
   no sleeper is still red, and a fleet with no sleeper locks as before.
+- `mcgyvr.knowledge.hub` lists a use case's candidates from the Hugging Face
+  Hub alone: GGUF repositories by 30-day downloads, then likes, classified as
+  coding, chat or agent from their tags, pipeline, name and chat template,
+  one single-file GGUF each that the Hub states a sha256 for, sized from its
+  header read over HTTP Range. Every number names its source and day. The
+  records are cached; when the Hub cannot be asked the cache and then the
+  shipped catalog answer (#731 item 2).
+- Model records carry `use_cases`, and the Hub's `downloads` and `likes`.
+- The shipped catalog holds Qwen3.5-4B, Qwen3-8B, Qwen3-14B and
+  Qwen3-30B-A3B (chat, agent); the three coder models are tagged coding.
+
+### Changed
+
+- `mcgyvr setup` plans the use case it asked instead of coding for every
+  use case, and says whether the candidates came from the Hub, the cache or
+  the shipped catalog (#731 item 2).
+- `recommend.plan` places `chat` and `agent` as one unit: the biggest model
+  that fits, at the most context that fits and at least 8192 per user.
+  `coding` plans as before. `mcgyvr recommend --profile chatting` is now
+  `chat`, and `agent` is new.
+- Sizing reads the knowledge cache over the shipped catalog, so a model a
+  Hub read cached can be emitted.
 
 ### Removed
 
