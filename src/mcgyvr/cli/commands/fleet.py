@@ -57,13 +57,24 @@ def _fleet_alerts(args: argparse.Namespace) -> int:
     return 0
 
 
+def _timed(move: dict[str, object]) -> str:
+    """A measured move's cost as printed: its downtime, then the wakes it pays."""
+    wake_s = move.get("wake_s")
+    wakes = ", ".join(
+        f"{unit} {seconds} s"
+        for unit, seconds in sorted(wake_s.items() if isinstance(wake_s, dict) else ())
+    )
+    return f"downtime {move.get('downtime_s')} s" + (f", wake {wakes}" if wakes else "")
+
+
 def _fleet_use(args: argparse.Namespace) -> int:
     """Point `live.json` at the promoted fleet named on the command line.
 
     Says what was live before: nothing, the same fleet, a move the previous
     fleet's lock measured (with each rig's downtime and wakes), or a move that
-    lock does not measure. A refusal or a filesystem error is printed to stderr
-    and returns 1; otherwise 0.
+    lock does not measure; then each sleeper's swap the named fleet's lock
+    measured, each way with its downtime and wakes. A refusal or a filesystem
+    error is printed to stderr and returns 1; otherwise 0.
     """
     from mcgyvr.fleet.promote import PromoteRefusedError, use
     from mcgyvr.fleet.roots import layout_of
@@ -89,19 +100,19 @@ def _fleet_use(args: argparse.Namespace) -> int:
         # The moves the lock measured, each as its rig, its downtime and the
         # wakes it pays; a lock that recorded no moves prints none.
         for move in switch.moves:
-            wakes = ", ".join(
-                f"{unit} {seconds} s"
-                for unit, seconds in sorted((move.get("wake_s") or {}).items())
-            )
-            print(
-                f"  {move.get('rig')}: downtime {move.get('downtime_s')} s"
-                + (f", wake {wakes}" if wakes else "")
-            )
+            print(f"  {move.get('rig')}: {_timed(move)}")
     else:
         print(
             f"move: {switch.previous} -> {switch.name} is unmeasured: "
             f"{switch.unmeasured}. use starts nothing; a live serve up is "
             f"admitted from {switch.name}'s own lock"
+        )
+    # The swaps the named fleet's lock measured, in the same shape; a fleet
+    # that lays out no sleeper prints none.
+    for swap in switch.swaps:
+        print(
+            f"swap: {swap.get('unit')} {swap.get('way')} on {swap.get('rig')}: "
+            f"{_timed(swap)}"
         )
     return 0
 

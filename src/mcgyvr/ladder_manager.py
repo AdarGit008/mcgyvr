@@ -15,7 +15,9 @@ after the same answer ``manager.confirm`` times running, and never sooner than
 ``manager.dwell_s`` after the last switch. A wake first sleeps the units whose
 memory the woken rung needs and wakes them again if the wake fails or the woken
 rung is later slept; a queue that sleeping and waking cannot answer is printed
-as a recommendation and left alone.
+as a recommendation and left alone. :func:`wake_making_room` and
+:func:`give_back` are those two halves on their own, which a fleet's sample
+swaps a sleeper in and back with (:mod:`mcgyvr.fleet.sampler`).
 
 The fan-out and lead in force are published to the board in the rendezvous
 directory, where :func:`effective` picks them up for a task that starts soon
@@ -26,7 +28,7 @@ from __future__ import annotations
 
 import dataclasses
 import time
-from collections.abc import Callable, Mapping
+from collections.abc import Callable, Mapping, Sequence
 from contextlib import AbstractContextManager
 from dataclasses import dataclass, field
 from typing import TYPE_CHECKING, Any, Protocol
@@ -612,23 +614,9 @@ class Manager:
         return self._sleep(move.rung)
 
     def _wake(self, rung: str, room: tuple[str, ...]) -> list[str]:
-        lines: list[str] = []
-        slept: list[str] = []
-        for unit in room:
-            ok = self._switches.sleep(unit)
-            lines.append(f"sleep {unit} to make room for {rung}: {_ok(ok)}")
-            self._record(unit, ok, awake=False)
-            if not ok:
-                lines.extend(self._give_back(slept))
-                return lines
-            slept.append(unit)
-        ok = self._switches.wake(rung)
-        lines.append(f"wake {rung}: {_ok(ok)}")
-        self._record(rung, ok, awake=True)
-        if ok:
-            self._room[rung] = tuple(slept)
-        else:
-            lines.extend(self._give_back(slept))
+        lines, slept = wake_making_room(self._switches, rung, room, self._record)
+        if slept is not None:
+            self._room[rung] = slept
         return lines
 
     def _sleep(self, rung: str) -> list[str]:
@@ -639,15 +627,7 @@ class Manager:
             return lines
         if self._lead == rung:
             lines.append(self._set_lead(KEEP_ORDER, why=f"{rung} went to sleep"))
-        lines.extend(self._give_back(list(self._room.pop(rung, ()))))
-        return lines
-
-    def _give_back(self, units: list[str]) -> list[str]:
-        lines: list[str] = []
-        for unit in units:
-            ok = self._switches.wake(unit)
-            lines.append(f"wake {unit} back: {_ok(ok)}")
-            self._record(unit, ok, awake=True)
+        lines.extend(give_back(self._switches, self._room.pop(rung, ()), self._record))
         return lines
 
     def _record(self, rung: str, ok: bool, *, awake: bool) -> None:
@@ -741,6 +721,61 @@ _FANOUT_MEANING = {
 
 def _ok(ok: bool) -> str:
     return "done" if ok else "failed"
+
+
+class Record(Protocol):
+    """Takes down how one switch call on ``rung`` turned out: whether it worked,
+    and whether it was a wake (``awake``) or a sleep."""
+
+    def __call__(self, rung: str, ok: bool, *, awake: bool) -> None: ...
+
+
+def _unrecorded(rung: str, ok: bool, *, awake: bool) -> None:
+    """Take down nothing: the record of a caller that keeps no account of switches."""
+
+
+def wake_making_room(
+    switches: Switches,
+    rung: str,
+    room: tuple[str, ...],
+    record: Record = _unrecorded,
+) -> tuple[list[str], tuple[str, ...] | None]:
+    """Sleep the units in ``room``, in order, then wake ``rung`` into their memory.
+
+    The lines say what each switch call did. The second item is the units slept
+    for ``rung``, to wake back once it sleeps again, or ``None`` when ``rung`` was
+    not woken: a room unit that would not sleep stops the wake there, and either
+    that or a wake that failed wakes back every unit slept for it first.
+    """
+    lines: list[str] = []
+    slept: list[str] = []
+    for unit in room:
+        ok = switches.sleep(unit)
+        lines.append(f"sleep {unit} to make room for {rung}: {_ok(ok)}")
+        record(unit, ok, awake=False)
+        if not ok:
+            lines.extend(give_back(switches, slept, record))
+            return lines, None
+        slept.append(unit)
+    ok = switches.wake(rung)
+    lines.append(f"wake {rung}: {_ok(ok)}")
+    record(rung, ok, awake=True)
+    if not ok:
+        lines.extend(give_back(switches, slept, record))
+        return lines, None
+    return lines, tuple(slept)
+
+
+def give_back(
+    switches: Switches, units: Sequence[str], record: Record = _unrecorded
+) -> list[str]:
+    """Wake each of ``units`` back, in order: one line per wake, saying how it went."""
+    lines: list[str] = []
+    for unit in units:
+        ok = switches.wake(unit)
+        lines.append(f"wake {unit} back: {_ok(ok)}")
+        record(unit, ok, awake=True)
+    return lines
 
 
 def run(

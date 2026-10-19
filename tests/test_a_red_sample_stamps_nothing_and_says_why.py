@@ -1,10 +1,11 @@
 """A red sample stamps nothing, and says why.
 
 Owner, Round 4 (2026-10-07), FLEET FLOW TWEAK: sample green = fleet STAMPED;
-sample red = no stamp, report why. Round 8: until P10 lands, a plan with a
-llama.cpp sleeper samples red, "the swap isn't built yet (P10)". A stamp
-locks nothing, so a lock's refusal of a stamp is
-:func:`mcgyvr.fleet.lock.write_from_stamp`'s to report
+sample red = no stamp, report why. A sleeper whose swap through the ladder
+manager did not run samples red, named with the way it did not go
+(``test_a_sample_wakes_a_sleeper_through_the_ladder_manager_and_locks_its_swap.py``
+has the swap that did). A stamp locks nothing, so a lock's refusal of a stamp
+is :func:`mcgyvr.fleet.lock.write_from_stamp`'s to report
 (``test_a_stamp_writes_no_lock_and_the_lock_is_written_from_the_stamp.py``).
 
 "Stamps nothing" is checked on disk: no promoted folder, no ``live.json``
@@ -132,7 +133,7 @@ def test_a_rig_with_no_rig_file_is_red(
     assert "rig file" in said and fx.RIG in said, said
 
 
-def test_a_sleeper_is_red_until_the_swap_is_built(
+def test_a_sleeper_whose_swap_did_not_run_is_red_by_name_and_way(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
     fx.rig_file()
@@ -142,7 +143,23 @@ def test_a_sleeper_is_red_until_the_swap_is_built(
 
     said = _red(setup, _sample(setup))
 
-    assert fx.STRONG in said and "the swap isn't built yet (P10)" in said, said
+    assert f"swap: {fx.STRONG} on {fx.RIG}, in: did not run" in said, said
+    assert f"probe: {fx.STRONG}:" in said, "a sleeper is held to its probe too"
+
+
+def test_a_unit_laid_out_asleep_that_is_no_sleeper_is_red(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    fx.rig_file()
+    doc = fx.fleet_doc(asleep=True)
+    del doc["units"][fx.STRONG]["role"]
+    setup = fx.staged(tmp_path, fleet=doc)
+    fx.read(setup, fx.READS[0], text=fx.reader_text(strong=True))
+    fx.read(setup, fx.READS[1], text=fx.reader_text(strong=True), load=None)
+
+    said = _red(setup, _sample(setup))
+
+    assert fx.STRONG in said and "no sample wakes it" in said, said
 
 
 @pytest.mark.parametrize(

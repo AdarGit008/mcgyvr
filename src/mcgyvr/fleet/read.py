@@ -333,9 +333,13 @@ def prepare(
     Without `fleet_name` this is the live fleet; with it, that fleet of the
     setup the read's config was loaded from. `host` must be a rig of the fleet,
     and every unit `probe` names must be awake on it: a unit the layout leaves
-    asleep has nothing of the fleet's to measure. `load` needs `probe`, and must
-    be a `WxN` spec.
+    asleep has nothing of the fleet's to measure. A setup's sleeper is the one
+    exception, since the setup's sample swaps it in and probes it then
+    (:func:`mcgyvr.fleet.sampler.swap`). `load` needs `probe`, and must be a
+    `WxN` spec.
     """
+    from mcgyvr.fleet.sample import sleeper
+
     if load is not None:
         if not probe:
             raise ReadError(
@@ -347,7 +351,11 @@ def prepare(
     layout = fleet.fleet["fleets"][fleet.name].get("layout", {})
     if host not in layout:
         raise ReadError(f"{host} is not a rig of {which} {fleet.name}")
-    awake = {name for name, _, state in fleet.slots(host) if state == "awake"}
+    awake = {
+        name
+        for name, unit, state in fleet.slots(host)
+        if state == "awake" or (not fleet.locked and sleeper(unit, state))
+    }
     strangers = [name for name in probe if name not in awake]
     if strangers:
         raise ReadError(

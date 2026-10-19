@@ -1,14 +1,17 @@
 """Samples a staged setup, so a fleet is locked on what it did, not on a claim.
 
 :func:`lay_out` writes the one `own` fleet a staged setup holds into its
-`fleet.yaml`: every unit on a read rig is put awake in its rig's slots with the
-room the setup sized for it, the default request timeout when it names none, and
-the unit id its lock pins it by. :func:`run` then reads every rig through the
-door, probes each awake unit with its `width x window` load, sizes each unit's
-output ceiling from its measured warm decode (:func:`_reply_ceilings`), runs the
-policy's use case task and any opted-in Jev's choice (:func:`task`), and reads
-every rig once more. The :class:`~mcgyvr.fleet.sample.Sample` it answers with
-carries the read ids, the outcomes and the door reads that failed, which
+`fleet.yaml`: every unit on a read rig is put in its rig's slots, awake or, for
+a unit whose role is `sleeps-until-needed`, asleep, with the room the setup
+sized for it, the default request timeout when it names none, and the unit id
+its lock pins it by. :func:`run` then reads every rig through the door, probes
+each awake unit with its `width x window` load, swaps each sleeper in through
+the ladder manager's switches, probes it the same way and swaps it back
+(:func:`swap`), sizes each unit's output ceiling from its measured warm decode
+(:func:`_reply_ceilings`), runs the policy's use case task and any opted-in
+Jev's choice (:func:`task`), and reads every rig once more. The
+:class:`~mcgyvr.fleet.sample.Sample` it answers with carries the read ids, the
+swaps' moves, the outcomes and the door reads that failed, which
 :func:`mcgyvr.fleet.stamp.stamp` judges.
 
 The use case decides the task. `coding` runs the bundled bug fix through
@@ -26,18 +29,24 @@ import os
 import subprocess
 import sys
 import tempfile
+import time
 from collections.abc import Callable, Mapping, Sequence
 from dataclasses import dataclass, field
 from importlib import resources
 from pathlib import Path
-from typing import Any
+from typing import TYPE_CHECKING, Any
 
 import yaml
 
-from mcgyvr.config import CHAT, CONFIG_PATH_ENV, DEFAULT_REQUEST_TIMEOUT_S
+from mcgyvr.config import (
+    CHAT,
+    CONFIG_PATH_ENV,
+    DEFAULT_REQUEST_TIMEOUT_S,
+    ROLE_SLEEPER,
+)
 from mcgyvr.fleet import ids
 from mcgyvr.fleet.files import FleetFileError, load_fleet, load_policy
-from mcgyvr.fleet.layout import AWAKE
+from mcgyvr.fleet.layout import ASLEEP, AWAKE
 from mcgyvr.fleet.lock import OWN_FLEET
 from mcgyvr.fleet.sample import (
     AGENT,
@@ -48,9 +57,16 @@ from mcgyvr.fleet.sample import (
     TASK_GATE,
     TASK_GROUNDED,
     TASK_SAFETY,
+    WAY_BACK,
+    WAY_IN,
+    Move,
     Outcome,
     Sample,
+    sleeper,
 )
+
+if TYPE_CHECKING:  # pragma: no cover - typing only
+    from mcgyvr.ladder_manager import Switches
 
 #: The one fleet a staged setup holds, laid out, sampled and journaled under.
 FLEET = OWN_FLEET
@@ -115,9 +131,11 @@ def _read(setup: Path) -> tuple[dict[str, Any], dict[str, Any]]:
 def lay_out(setup: Path, rigs: Mapping[str, str], rooms: Mapping[str, int]) -> None:
     """Write the `own` fleet's layout into the staged setup's `fleet.yaml`.
 
-    Every unit on a rig goes awake into its rig's slot list, with the room the
-    setup sized for it, the default request timeout where it names none, and the
-    unit id its lock pins it by. Rigs are recorded with the id each was read by,
+    Every unit on a rig goes into its rig's slot list, asleep when its role is
+    `sleeps-until-needed` (its launch spec leaves it down) and awake otherwise,
+    with the room the setup sized for it, the default request timeout where it
+    names none, and the unit id its lock pins it by. Rigs are recorded with the
+    id each was read by,
     and the fleet's `next` list starts empty. A unit on a rig that was not read,
     or one with no room sized for it, refuses the layout: the lock would have no
     card to hold the unit to, so none is written.
@@ -150,7 +168,8 @@ def lay_out(setup: Path, rigs: Mapping[str, str], rooms: Mapping[str, int]) -> N
         body.setdefault("room_mib", int(rooms[name]) if name in rooms else None)
         body.setdefault("request_timeout_s", DEFAULT_REQUEST_TIMEOUT_S)
         body["unit_id"] = unit_id(body)
-        layout.setdefault(str(body["rig"]), []).append([name, AWAKE])
+        state = ASLEEP if body.get("role") == ROLE_SLEEPER else AWAKE
+        layout.setdefault(str(body["rig"]), []).append([name, state])
     fleet["rigs"] = {rig: {"rig_id": rigs[rig]} for rig in layout}
     fleet["fleets"] = {FLEET: {"layout": layout, "next": []}}
     (setup / "fleet.yaml").write_text(
@@ -544,22 +563,172 @@ def task(
     return outcomes
 
 
+@dataclass(frozen=True)
+class _Call:
+    """One switch call: its verb, the unit, whether it worked, and when it ran."""
+
+    verb: str
+    unit: str
+    ok: bool
+    started: float
+    ended: float
+
+
+class _Timed:
+    """The ladder manager's switches, each sleep and wake timed on `clock`.
+
+    The calls are kept in the order they ran until :meth:`move` turns them into
+    one way of a swap and starts the next way afresh.
+    """
+
+    def __init__(self, switches: Switches, clock: Callable[[], float]) -> None:
+        self._switches = switches
+        self._clock = clock
+        self._calls: list[_Call] = []
+
+    def _timed(self, verb: str, unit: str, call: Callable[[str], bool]) -> bool:
+        started = self._clock()
+        ok = bool(call(unit))
+        self._calls.append(_Call(verb, unit, ok, started, self._clock()))
+        return ok
+
+    def wake(self, rung: str) -> bool:
+        return self._timed("wake", rung, self._switches.wake)
+
+    def sleep(self, rung: str) -> bool:
+        return self._timed("sleep", rung, self._switches.sleep)
+
+    def room_for(self, rung: str) -> tuple[str, ...]:
+        return tuple(self._switches.room_for(rung))
+
+    def card_of(self, rung: str) -> tuple[str, ...]:
+        return tuple(self._switches.card_of(rung))
+
+    def move(
+        self, rig: str, unit: str, way: str, room: tuple[str, ...], lines: list[str]
+    ) -> Move:
+        """The way the calls since the last move made, one line per call.
+
+        It passed when there was a call and every call worked; its reason is the
+        line of the first call that did not. Its downtime runs from the start of
+        its first call to the end of its last, and each unit a wake that worked
+        woke is timed by that wake.
+        """
+        calls, self._calls = self._calls, []
+        failed = [line for call, line in zip(calls, lines, strict=True) if not call.ok]
+        return Move(
+            rig=rig,
+            unit=unit,
+            way=way,
+            room=room,
+            passed=bool(calls) and not failed,
+            downtime_s=(
+                round(calls[-1].ended - calls[0].started, 3) if calls else None
+            ),
+            wake_s={
+                call.unit: round(call.ended - call.started, 3)
+                for call in calls
+                if call.verb == "wake" and call.ok
+            },
+            why=failed[0] if failed else "",
+        )
+
+
+def swap(
+    rig: str,
+    unit: str,
+    switches: Switches,
+    probe: Callable[[], object],
+    *,
+    clock: Callable[[], float] = time.monotonic,
+) -> list[Move]:
+    """Swap one sleeper in through the ladder manager's switches, probe it, and
+    swap it back; one :class:`~mcgyvr.fleet.sample.Move` per way it went.
+
+    In is the manager's own wake: the units the switches name as the sleeper's
+    `room_for` are put down and the sleeper is woken into their memory
+    (:func:`mcgyvr.ladder_manager.wake_making_room`), the room woken back when
+    either fails. Only a sleeper that went in is probed, and then put down with
+    its room woken back (:func:`mcgyvr.ladder_manager.give_back`); a sleeper that
+    would not go down keeps its room, as the manager leaves it too. Each switch
+    call is timed on `clock`.
+    """
+    from mcgyvr.ladder_manager import give_back, wake_making_room
+
+    timed = _Timed(switches, clock)
+    room = timed.room_for(unit)
+    lines, slept = wake_making_room(timed, unit, room)
+    went_in = timed.move(rig, unit, WAY_IN, room, lines)
+    if slept is None:
+        return [went_in]
+    probe()
+    down = timed.sleep(unit)
+    lines = [f"sleep {unit}: {'done' if down else 'failed'}"]
+    if down:
+        lines += give_back(timed, slept)
+    return [went_in, timed.move(rig, unit, WAY_BACK, slept, lines)]
+
+
+def switches_for(setup: Path, rigs: Sequence[str]) -> Switches:
+    """The ladder manager's switches over the staged setup's cards.
+
+    Built as `mcgyvr manage` builds them, from the setup's config and its
+    capacity, with each rig's card memory read from the rig file its read
+    saved. A config that cannot be loaded, or that does not let mcgyvr sleep
+    and wake a unit itself (`serving.enable_sleep_wake` and
+    `serving.compose_dir`), is a :class:`SamplerError` saying so.
+    """
+    from mcgyvr import wake
+    from mcgyvr.capacity import Capacity, CapacityError
+    from mcgyvr.config import ConfigError, load
+    from mcgyvr.serving import rigfile
+
+    try:
+        config = load(setup)
+        capacity = Capacity.of(config)
+    except (ConfigError, CapacityError, OSError) as exc:
+        raise SamplerError(
+            f"the ladder manager's switches cannot be built for {setup}: {exc}"
+        ) from exc
+    if wake.for_config(config) is None:
+        raise SamplerError(
+            f"{setup} does not let mcgyvr sleep and wake a unit itself "
+            "(serving.enable_sleep_wake with serving.compose_dir), so the "
+            "ladder manager cannot wake it"
+        )
+    card_mib: dict[str, dict[int, int]] = {}
+    for rig in rigs:
+        try:
+            saved = rigfile.read(rig)
+        except rigfile.RigFileError:
+            saved = None
+        if saved is not None:
+            card_mib[rig] = {card.index: card.total_mib for card in saved.cards}
+    return wake.CardSwitches(config, capacity, card_mib=card_mib)
+
+
 def run(
     setup: Path,
     *,
     run_contract: RunContract,
     mint: Callable[[], str] | None = None,
+    switches: Switches | None = None,
+    clock: Callable[[], float] = time.monotonic,
 ) -> Ran:
     """Sample the staged setup, reading every rig around the task it runs.
 
     Each rig in the `own` layout is read, and each of its awake slots is read
     again with that unit probed and its `width x window` load placed, so the
-    journal holds both the rig and what sits in it. Those reads size the units'
-    output ceilings, the task and the Jev choice then run against the setup's
-    `sample` folder, and every rig is read once more to bracket the work. `mint`
-    names each read and defaults to a fresh read id. A layout that names no `own`
-    fleet refuses; a door that exits non-zero is kept in `failed` instead, so a
-    sample taken through a flaky rig still says what did not answer.
+    journal holds both the rig and what sits in it. Each sleeper is then swapped
+    in through `switches` (by default the ladder manager's own over the setup's
+    cards, :func:`switches_for`), read the same way while it is in, and swapped
+    back (:func:`swap`); switches that cannot be built are a move in that did
+    not pass. Those reads size the units' output ceilings, the task and the Jev
+    choice then run against the setup's `sample` folder, and every rig is read
+    once more to bracket the work. `mint` names each read and defaults to a
+    fresh read id. A layout that names no `own` fleet refuses; a door that exits
+    non-zero is kept in `failed` instead, so a sample taken through a flaky rig
+    still says what did not answer.
     """
     from mcgyvr.serving.run import mint_read_id
 
@@ -581,22 +750,53 @@ def run(
         else:
             failed.append(f"{what} exited {code}")
 
+    def probe(rig: str, held: str) -> None:
+        unit = units[held]
+        width, window = unit.get("width"), unit.get("window")
+        load = f"{width}x{window}" if width and window else None
+        read(rig, (held,), load)
+
     awake: list[str] = []
+    sleepers: list[tuple[str, str]] = []
     for rig, slots in layout.items():
         read(rig)
         for slot in slots or ():
-            if slot is None or slot[1] != AWAKE:
+            if slot is None:
                 continue
-            unit = units[slot[0]]
-            awake.append(str(slot[0]))
-            width, window = unit.get("width"), unit.get("window")
-            load = f"{width}x{window}" if width and window else None
-            read(rig, (str(slot[0]),), load)
+            held = str(slot[0])
+            if sleeper(units[held], str(slot[1])):
+                sleepers.append((str(rig), held))
+            elif slot[1] == AWAKE:
+                awake.append(held)
+                probe(rig, held)
+    moves: list[Move] = []
+    if sleepers:
+        try:
+            made = (
+                switches
+                if switches is not None
+                else switches_for(setup, [str(rig) for rig in layout])
+            )
+        except SamplerError as exc:
+            moves = [Move(rig, held, WAY_IN, why=str(exc)) for rig, held in sleepers]
+        else:
+            for rig, held in sleepers:
+
+                def probed(rig: str = rig, held: str = held) -> None:
+                    probe(rig, held)
+
+                moves += swap(rig, held, made, probed, clock=clock)
     _reply_ceilings(setup, reads)
     outcomes = task(setup, awake, setup / "sample", run_contract)
     for rig in layout:
         read(rig)
     return Ran(
-        sample=Sample(setup=setup, fleet=FLEET, reads=tuple(reads), outcomes=outcomes),
+        sample=Sample(
+            setup=setup,
+            fleet=FLEET,
+            reads=tuple(reads),
+            outcomes=outcomes,
+            moves=tuple(moves),
+        ),
         failed=tuple(failed),
     )

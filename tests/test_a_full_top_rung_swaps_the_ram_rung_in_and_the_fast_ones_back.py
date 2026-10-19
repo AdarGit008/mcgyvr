@@ -15,7 +15,7 @@ that cannot share the card with them:
   card's awake set still fits it;
 * when the dearest awake rung is full, the manager stops the fast rungs
   (``room_for``, smallest first) and starts the RAM rung; when the RAM rung has
-  idled, it stops it and starts the fast rungs again (``_give_back``);
+  idled, it stops it and starts the fast rungs again (``give_back``);
 * a task that climbs to the sleeping RAM rung does not start it beside the
   fast ones: making room is the manager's.
 
