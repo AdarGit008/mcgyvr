@@ -72,7 +72,12 @@ the repository AdarGit008/mcgyvr-lab, under the same paths.
   shared a name and only the last could be chosen. Each name now carries
   the rig, engine, weights (and quant) and head, and the placement carries
   the `host` it goes on (#731).
-## [Unreleased]
+- A rig's docker and virtual bridge addresses (interfaces `docker*`, `br-*`,
+  `virbr*`, `veth*`; with no interface name, docker's default 172.17.0.0/16)
+  are set aside before its `private_ipv4` is chosen, so a rig with a LAN card
+  and docker records its LAN address, and `private_ipv4_how` names the bridge
+  addresses set aside. Two LAN addresses still ask for a scan over the one
+  its other machines use (#731).
 - The skill installer's floor (`MIN_VERSION` in `skills/mcgyvr/install.sh`)
   is 0.5.1, the latest release tag; its tests plant that floor instead of a
   hard-coded 0.5.0 (#732).
