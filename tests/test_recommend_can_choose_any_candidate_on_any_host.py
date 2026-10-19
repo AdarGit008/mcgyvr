@@ -196,7 +196,7 @@ def test_every_catalog_pick_on_every_rig_is_its_own_choice(
     """The catalog's one fitting model, two engines, two rigs = 4 choices."""
     _ssh(monkeypatch, *HOSTS)
     one_model = {"models": [dict(FAKE_CATALOG["models"][0], size_bytes=10**9)]}
-    monkeypatch.setattr(recommend_module, "load_catalog", lambda: one_model)
+    monkeypatch.setattr(recommend_module, "load_catalog", lambda *a, **k: one_model)
     model_id = one_model["models"][0]["model_id"]
 
     options, placed = _every_pick(capsys, picks, HOSTS)
