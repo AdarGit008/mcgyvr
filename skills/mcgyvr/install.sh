@@ -60,7 +60,7 @@ CLI_INSTALL="uv tool install mcgyvr"
 # PEP 440 puts the dev build first (a `.devN` is a pre-release of `0.5.0`, not
 # a successor to it). A `.devN` build only ever names a version ABOVE the last
 # release tag, so comparing against a released tag never reaches that case.
-MIN_VERSION="0.5.0"
+MIN_VERSION="0.5.1"
 
 # Where a release's skill is cloned from, by its tag, when the CLI on PATH
 # refuses this checkout's skill. The same repository README.md clones.
