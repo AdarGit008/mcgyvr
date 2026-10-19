@@ -6,9 +6,11 @@ quantisation, so the pair `(model_id, quant)` is its identity. A record holds
 `engines` that can serve it, `weights` naming one file at one revision when the
 record is about a downloadable file, four whole-number fields (`size_bytes`,
 `context_length`, `kv_bytes_per_token`, `recurrent_bytes_per_slot`) and the
-`scores` filed under the boards in `BOARDS`. Every number is a `Number`: a
-value, a kind from `KINDS`, a source written `<origin>:<where>` whose origin is
-one of `SOURCES`, and the day it was read.
+`scores` filed under the boards in `BOARDS`. It may also hold the `use_cases`
+it is a candidate for, and the Hub's `downloads` (its 30-day count) and `likes`
+of the repository its weights come from. Every number is a `Number`: a value, a
+kind from `KINDS`, a source written `<origin>:<where>` whose origin is one of
+`SOURCES`, and the day it was read.
 
 `parse_document` reads such a document and `parse_record` one entry of it; both
 refuse a key the record does not have, a missing field, a kind, source, date or
@@ -48,6 +50,10 @@ SOURCES: Mapping[str, str] = {
     "hub-api": (
         "the Hugging Face Hub model API (/api/models/<repo>), at the revision "
         "the locator names: file names, bytes, sha256"
+    ),
+    "hub-search": (
+        "the Hugging Face Hub model search (/api/models?...), whose full URL is "
+        "the locator: a repository's 30-day downloads and its likes on the day read"
     ),
     "hub-config": (
         "a file of the model's repository, such as config.json, at the revision "
@@ -197,10 +203,22 @@ _INT_FIELDS: tuple[str, ...] = (
     "kv_bytes_per_token",
     "recurrent_bytes_per_slot",
 )
+#: The whole-number fields a record may leave out: what the Hub search said of the
+#: repository the weights come from. Each is held as a `Number` when present.
+_OPTIONAL_INT_FIELDS: tuple[str, ...] = ("downloads", "likes")
 #: Of those fields, the two that must be strictly positive; the others may be zero.
 _POSITIVE = frozenset({"context_length", "kv_bytes_per_token"})
 _RECORD_KEYS = frozenset(
-    {"model_id", "quant", "engines", "weights", "scores", *_INT_FIELDS}
+    {
+        "model_id",
+        "quant",
+        "engines",
+        "use_cases",
+        "weights",
+        "scores",
+        *_INT_FIELDS,
+        *_OPTIONAL_INT_FIELDS,
+    }
 )
 _NUMBER_KEYS = frozenset({"value", "kind", "source", "read_at"})
 _SCORE_KEYS = _NUMBER_KEYS | {"board", "metric"}
@@ -211,7 +229,9 @@ _DOCUMENT_KEYS = frozenset({"schema_version", "models", "_purpose"})
 @dataclass(frozen=True)
 class ModelRecord:
     """One model at one quantisation: what serves it, the file it names, its four
-    whole-number fields and the scores read for it."""
+    whole-number fields and the scores read for it, the use cases it is a
+    candidate for (empty when nothing said), and the Hub's downloads and likes of
+    its weights repository when they were read."""
 
     model_id: str
     quant: str
@@ -222,6 +242,9 @@ class ModelRecord:
     kv_bytes_per_token: Number
     recurrent_bytes_per_slot: Number
     scores: tuple[Score, ...]
+    use_cases: tuple[str, ...] = ()
+    downloads: Number | None = None
+    likes: Number | None = None
 
     @property
     def key(self) -> tuple[str, str]:
@@ -229,11 +252,16 @@ class ModelRecord:
 
     def numbers(self) -> Iterator[tuple[str, Number]]:
         """Every number of the record, named: the four whole-number fields by their
-        field name, then each score as `scores[<board>]`."""
+        field name, the downloads and likes when held, then each score as
+        `scores[<board>]`."""
         for name in _INT_FIELDS:
             number = getattr(self, name)
             assert isinstance(number, Number)
             yield name, number
+        for name in _OPTIONAL_INT_FIELDS:
+            held = getattr(self, name)
+            if held is not None:
+                yield name, held
         for score in self.scores:
             yield f"scores[{score.board}]", score.value
 
@@ -372,6 +400,17 @@ def parse_record(raw: Any, where: str, *, shipped: bool) -> ModelRecord:
         if number.value < 0 or (name in _POSITIVE and number.value == 0):
             raise KnowledgeError(f"{here} {name} {number.value} is out of range")
         numbers[name] = number
+    optional: dict[str, Number | None] = {}
+    for name in _OPTIONAL_INT_FIELDS:
+        held = None
+        if name in raw:
+            held = _number(raw[name], f"{here} {name}", shipped=shipped, integer=True)
+            if held.value < 0:
+                raise KnowledgeError(f"{here} {name} {held.value} is out of range")
+        optional[name] = held
+    use_cases = raw.get("use_cases", [])
+    if not isinstance(use_cases, list):
+        raise KnowledgeError(f"{here} use_cases is not a list")
     scores = raw.get("scores", [])
     if not isinstance(scores, list):
         raise KnowledgeError(f"{here} scores is not a list")
@@ -384,7 +423,10 @@ def parse_record(raw: Any, where: str, *, shipped: bool) -> ModelRecord:
             _score(s, f"{here} scores[{i}]", shipped=shipped)
             for i, s in enumerate(scores)
         ),
+        use_cases=tuple(dict.fromkeys(_text(u, f"{here} use case") for u in use_cases)),
         **numbers,
+        downloads=optional["downloads"],
+        likes=optional["likes"],
     )
 
 
@@ -428,18 +470,24 @@ def _dump_number(number: Number) -> dict[str, Any]:
 
 
 def dump_record(one: ModelRecord) -> dict[str, Any]:
-    """The object a document holds for one record: its identity and engines, the
-    weights when it has some, its four numbers and its scores, each number
-    written as value, kind, source and `read_at` day."""
+    """The object a document holds for one record: its identity, engines and use
+    cases, the weights when it has some, its four numbers, the downloads and likes
+    when held, and its scores, each number written as value, kind, source and
+    `read_at` day."""
     out: dict[str, Any] = {
         "model_id": one.model_id,
         "quant": one.quant,
         "engines": list(one.engines),
+        "use_cases": list(one.use_cases),
     }
     if one.weights is not None:
         out["weights"] = {key: getattr(one.weights, key) for key in _WEIGHTS_KEYS}
     for name in _INT_FIELDS:
         out[name] = _dump_number(getattr(one, name))
+    for name in _OPTIONAL_INT_FIELDS:
+        held = getattr(one, name)
+        if held is not None:
+            out[name] = _dump_number(held)
     out["scores"] = [
         {"board": s.board, "metric": s.metric, **_dump_number(s.value)}
         for s in one.scores
