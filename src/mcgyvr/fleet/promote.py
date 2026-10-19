@@ -408,6 +408,9 @@ class Switch:
     #: Why the move is not measured, or None when it is measured or when no other
     #: fleet was live.
     unmeasured: str | None = None
+    #: The swaps the named fleet's own lock measured, each way of each sleeper's
+    #: with its rig, downtime and wake times; empty when it lays out no sleeper.
+    swaps: list[dict[str, Any]] = field(default_factory=list)
 
 
 def _measured(previous: str, layout: str) -> tuple[bool, list[dict[str, Any]], str]:
@@ -443,7 +446,8 @@ def use(name: str) -> Switch:
     folder whose fleet is not the fleet its name spells, and a lock that no
     longer pins the folder's layout. The fleet that was live before is read for
     what the move from it costs, which is left unmeasured when that fleet's lock
-    lists no switch to this layout.
+    lists no switch to this layout, and the named fleet's lock for what its
+    sleepers' swaps cost.
     """
     if not is_fleet_name(name):
         raise PromoteRefusedError(f"{name!r} cannot name a fleet folder")
@@ -481,6 +485,7 @@ def use(name: str) -> Switch:
         locked=locked,
         moves=moves,
         unmeasured=unmeasured,
+        swaps=[swap for swap in lock.get("swaps") or [] if isinstance(swap, dict)],
     )
 
 

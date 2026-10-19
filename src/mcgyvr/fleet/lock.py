@@ -2,21 +2,22 @@
 
 A fleet folder's `lock/` holds two kinds of file:
 
-* `lock/<fleet>.json` holds the fleet's layout sha256, its `next` list, and for
-  each switch it lists the rig moves that switch makes;
+* `lock/<fleet>.json` holds the fleet's layout sha256, its `next` list, for
+  each switch it lists the rig moves that switch makes, and, when the fleet
+  lays out a sleeper, its `swaps`: the move each way of each sleeper's swap;
 * `lock/rigs/<rig_id>/<combination>.json` holds one rig combination's
   validation, which every fleet that lays that combination out shares.
 
 Nothing is locked on a claim. :func:`write` refuses, naming the fleet, unless a
-fleet's combination passed a dev run, every rig move a listed switch makes ran
-and recorded its downtime and wake times, each rig's dev read names the rig id
-the fleet pins, and the combination's own measured figures hold: overhead plus
-every unit's room inside its card, a vLLM unit's pinned KV size and reported
-attention backend, a llama.cpp unit's measured card peak, a reply that finishes
-inside its request timeout at its validated warm decode, and NVMe use that
-holds against its no-NVMe baseline. A setup that no sample could run on is
-locked by :func:`write_unsampled` instead, on no evidence, approved by the
-product itself.
+fleet's combination passed a dev run, every rig move a listed switch makes and
+every sleeper's swap both ways ran and recorded its downtime and wake times,
+each rig's dev read names the rig id the fleet pins, and the combination's own
+measured figures hold: overhead plus every unit's room inside its card, a vLLM
+unit's pinned KV size and reported attention backend, a llama.cpp unit's
+measured card peak, a reply that finishes inside its request timeout at its
+validated warm decode, and NVMe use that holds against its no-NVMe baseline. A
+setup that no sample could run on is locked by :func:`write_unsampled` instead,
+on no evidence, approved by the product itself.
 """
 
 from __future__ import annotations
@@ -45,6 +46,7 @@ from mcgyvr.fleet.layout import (
 # promote and admit a fleet import from here.
 from mcgyvr.fleet.roots import LOCK_DIR as LOCK_DIR
 from mcgyvr.fleet.roots import fleets_dir, split_name
+from mcgyvr.fleet.sample import WAY_IN, WAYS, sleeper
 from mcgyvr.fleet.spans import (
     Span,
     SpanError,
@@ -104,6 +106,64 @@ def _switch_moves(
         if from_slots != to_slots:
             moves.append((rig, from_slots, to_slots))
     return moves
+
+
+def _swap_move(
+    moves: list[Any], rig: str, unit: str, way: str, slots: Any
+) -> dict[str, Any] | None:
+    """The newest dev move of one way of `unit`'s swap on `rig`, or None.
+
+    The way in starts from the fleet's own slots on the rig and the way back
+    returns to them, which is how a move is told to be this fleet's.
+    """
+    side = "from" if way == WAY_IN else "to"
+    found: dict[str, Any] | None = None
+    for move in moves:
+        if (
+            isinstance(move, dict)
+            and (move.get("rig"), move.get("unit"), move.get("way")) == (rig, unit, way)
+            and _slots_key(move.get(side, [])) == _slots_key(slots)
+        ):
+            found = move
+    return found
+
+
+def _swaps(
+    fleet_name: str, layout: dict[str, Any], units: dict[str, Any], moves: list[Any]
+) -> list[dict[str, Any]]:
+    """The moves of every sleeper's swap the fleet lays out, each way in turn.
+
+    A sleeper is a unit laid out asleep whose role is `sleeps-until-needed`.
+    Each way must have run in dev, passed and recorded its downtime and wake
+    times, as a switch's rig move must; each is kept as its rig, unit and way
+    with those times.
+    """
+    swaps: list[dict[str, Any]] = []
+    for rig_name, slots in layout.items():
+        for slot in slots or ():
+            if slot is None or not sleeper(units.get(slot[0]) or {}, slot[1]):
+                continue
+            unit_name = slot[0]
+            for way in WAYS:
+                where = f"{fleet_name}: the swap of {unit_name} on {rig_name}, {way},"
+                move = _swap_move(moves, rig_name, unit_name, way, slots)
+                if move is None:
+                    raise LockRefusedError(f"{where} never ran in dev")
+                if not move.get("passed", False):
+                    raise LockRefusedError(f"{where} did not pass in dev")
+                for figure in ("downtime_s", "wake_s"):
+                    if figure not in move:
+                        raise LockRefusedError(f"{where} recorded no {figure}")
+                swaps.append(
+                    {
+                        "rig": rig_name,
+                        "unit": unit_name,
+                        "way": way,
+                        "downtime_s": move.get("downtime_s"),
+                        "wake_s": move.get("wake_s"),
+                    }
+                )
+    return swaps
 
 
 def _warm_decode_tolerance_pct(
@@ -467,8 +527,8 @@ def write(
     Lock one setup's fleets from the dev evidence its sample recorded.
 
     Refuses, naming the fleet, unless every combination a fleet lays out passed
-    a dev run, every rig move a listed switch makes ran and recorded its
-    downtime and wake times, each rig's
+    a dev run, every rig move a listed switch makes and every way of every
+    sleeper's swap ran and recorded its downtime and wake times, each rig's
     dev read names the rig id the fleet pins, no outside unit answers at a rig
     unit's address, the policy ladder names only units the fleet has, every
     fleet serves the policy's mcorch units, and every spanning unit holds a
@@ -547,6 +607,7 @@ def write(
     }
 
     fleet_switches: dict[str, Any] = {}
+    fleet_swaps: dict[str, list[dict[str, Any]]] = {}
     written: dict[str, dict[str, Any]] = {}
     for fleet_name, block in fleets.items():
         layout = block.get("layout", {})
@@ -595,6 +656,7 @@ def write(
                 )
             switches.append({"to": target, "moves": switch_moves})
         fleet_switches[fleet_name] = switches
+        fleet_swaps[fleet_name] = _swaps(fleet_name, layout, units, moves)
 
         for rig_name, slots in layout.items():
             comb = comb_by_key.get((rig_name, _slots_key(slots)))
@@ -632,6 +694,10 @@ def write(
             "next": list(block.get("next", [])),
             "switches": fleet_switches[fleet_name],
         }
+        # Only a fleet that lays out a sleeper keeps swaps, so the lock of a
+        # fleet with none reads as it always did.
+        if fleet_swaps[fleet_name]:
+            record["swaps"] = fleet_swaps[fleet_name]
         path = fleet_dir / f"{fleet_name}.json"
         path.write_text(
             json.dumps(record, indent=2, sort_keys=True) + "\n", encoding="utf-8"
