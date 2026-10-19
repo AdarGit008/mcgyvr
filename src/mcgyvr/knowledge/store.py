@@ -13,7 +13,7 @@ from __future__ import annotations
 
 import json
 import re
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
 from datetime import date
 from importlib import resources
 from pathlib import Path
@@ -159,12 +159,17 @@ def offline() -> Knowledge:
     cached record replaces the shipped record with the same model_id and
     quantisation, cache-only records follow the shipped ones, and cache files that
     could not be read or repeat a key already present are reported in
-    ``skipped``."""
+    ``skipped``. A cached record that names no use case keeps the shipped
+    record's, since a cache written before records carried use cases says nothing
+    about them."""
     cached, skipped = _cached()
     known: list[Known] = []
     for one in shipped():
         if one.key in cached:
-            known.append(Known(record=cached.pop(one.key), origin=CACHE))
+            hit = cached.pop(one.key)
+            if not hit.use_cases:
+                hit = replace(hit, use_cases=one.use_cases)
+            known.append(Known(record=hit, origin=CACHE))
         else:
             known.append(Known(record=one, origin=SHIPPED))
     known.extend(Known(record=one, origin=CACHE) for one in cached.values())

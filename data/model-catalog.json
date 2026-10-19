@@ -1,6 +1,6 @@
 {
   "schema_version": 2,
-  "_purpose": "The downloadable models `mcgyvr recommend` falls back to when no local model store fits, and that mcgyvr's model knowledge falls back to offline, after the user's cache ($MCGYVR_HOME/knowledge). Each entry is one model at one quantisation: `weights` names the file a pick downloads (repository, revision, file, sha256), and every number is an object that says its `value`, its `kind` (fact, estimate or reading; never a reading here, which would be a number taken on someone's machine), its `source` (`<source>:<where>`, the sources named in mcgyvr.knowledge.record.SOURCES) and the day it was read (`read_at`). `size_bytes` is the file's size as the Hub API lists it; `context_length` is the model's declared context (config.json max_position_embeddings), the context a catalog pick is priced at; `kv_bytes_per_token` is the KV cache one token takes over every caching layer at an f16 cache, summed from the GGUF header's per-layer heads and key/value widths; `recurrent_bytes_per_slot` is the recurrent/SSM state one slot keeps, 0 where the header has no recurrent block. `scores` are board figures, each with its board. This file is data: adding a model is an edit here, not a code change.",
+  "_purpose": "The downloadable models `mcgyvr recommend` falls back to when no local model store fits and the Hugging Face Hub cannot be asked, after the user's cache ($MCGYVR_HOME/knowledge) of an earlier Hub read (mcgyvr.knowledge.hub). Each entry is one model at one quantisation: `use_cases` names the use cases it is a candidate for (coding, chat, agent), `weights` names the file a pick downloads (repository, revision, file, and the sha256 the Hub states for it), and every number is an object that says its `value`, its `kind` (fact, estimate or reading; never a reading here, which would be a number taken on someone's machine), its `source` (`<source>:<where>`, the sources named in mcgyvr.knowledge.record.SOURCES) and the day it was read (`read_at`). `size_bytes` is the file's size as the Hub API lists it; `context_length` is the model's declared context (config.json max_position_embeddings, or the GGUF header's context length where its source says so), the context a catalog pick is priced at; `kv_bytes_per_token` is the KV cache one token takes over every caching layer at an f16 cache, summed from the GGUF header's per-layer heads and key/value widths; `recurrent_bytes_per_slot` is the recurrent/SSM state one slot keeps, 0 where the header has no recurrent block; `downloads` (the Hub's 30-day count) and `likes`, where present, are what the Hub search that listed the weights repository said of it. `scores` are board figures, each with its board. This file is data: adding a model is an edit here, not a code change.",
   "models": [
     {
       "model_id": "Qwen/Qwen2.5-Coder-7B-Instruct",
@@ -8,6 +8,9 @@
       "engines": [
         "llama.cpp",
         "vllm"
+      ],
+      "use_cases": [
+        "coding"
       ],
       "weights": {
         "repo": "Qwen/Qwen2.5-Coder-7B-Instruct-GGUF",
@@ -48,6 +51,9 @@
         "llama.cpp",
         "vllm"
       ],
+      "use_cases": [
+        "coding"
+      ],
       "weights": {
         "repo": "Qwen/Qwen2.5-Coder-14B-Instruct-GGUF",
         "revision": "d0a692ef765eefbf2fabb130b3cb2e8917e3d225",
@@ -86,6 +92,9 @@
       "engines": [
         "llama.cpp"
       ],
+      "use_cases": [
+        "coding"
+      ],
       "weights": {
         "repo": "bartowski/DeepSeek-Coder-V2-Lite-Instruct-GGUF",
         "revision": "8f248fa2072348f77a8bc37754e470de1f61866e",
@@ -115,6 +124,222 @@
         "kind": "fact",
         "source": "gguf-header-range:bartowski/DeepSeek-Coder-V2-Lite-Instruct-GGUF@8f248fa2072348f77a8bc37754e470de1f61866e/DeepSeek-Coder-V2-Lite-Instruct-Q4_K_M.gguf",
         "read_at": "2026-10-07"
+      },
+      "scores": []
+    },
+    {
+      "model_id": "Qwen/Qwen3.5-4B",
+      "quant": "Q4_K_M",
+      "engines": [
+        "llama.cpp"
+      ],
+      "use_cases": [
+        "chat",
+        "agent"
+      ],
+      "weights": {
+        "repo": "unsloth/Qwen3.5-4B-GGUF",
+        "revision": "e87f176479d0855a907a41277aca2f8ee7a09523",
+        "file": "Qwen3.5-4B-Q4_K_M.gguf",
+        "sha256": "00fe7986ff5f6b463e62455821146049db6f9313603938a70800d1fb69ef11a4"
+      },
+      "size_bytes": {
+        "value": 2740937888,
+        "kind": "fact",
+        "source": "hub-api:unsloth/Qwen3.5-4B-GGUF@e87f176479d0855a907a41277aca2f8ee7a09523/Qwen3.5-4B-Q4_K_M.gguf",
+        "read_at": "2026-10-20"
+      },
+      "context_length": {
+        "value": 262144,
+        "kind": "fact",
+        "source": "gguf-header-range:unsloth/Qwen3.5-4B-GGUF@e87f176479d0855a907a41277aca2f8ee7a09523/Qwen3.5-4B-Q4_K_M.gguf",
+        "read_at": "2026-10-20"
+      },
+      "kv_bytes_per_token": {
+        "value": 32768,
+        "kind": "fact",
+        "source": "gguf-header-range:unsloth/Qwen3.5-4B-GGUF@e87f176479d0855a907a41277aca2f8ee7a09523/Qwen3.5-4B-Q4_K_M.gguf",
+        "read_at": "2026-10-20"
+      },
+      "recurrent_bytes_per_slot": {
+        "value": 52690944,
+        "kind": "fact",
+        "source": "gguf-header-range:unsloth/Qwen3.5-4B-GGUF@e87f176479d0855a907a41277aca2f8ee7a09523/Qwen3.5-4B-Q4_K_M.gguf",
+        "read_at": "2026-10-20"
+      },
+      "downloads": {
+        "value": 1244795,
+        "kind": "fact",
+        "source": "hub-search:https://huggingface.co/api/models?filter=gguf&search=Qwen3.5-4B&sort=downloads&direction=-1&limit=100&expand%5B%5D=downloads&expand%5B%5D=likes&expand%5B%5D=tags&expand%5B%5D=pipeline_tag&expand%5B%5D=gguf",
+        "read_at": "2026-10-20"
+      },
+      "likes": {
+        "value": 495,
+        "kind": "fact",
+        "source": "hub-search:https://huggingface.co/api/models?filter=gguf&search=Qwen3.5-4B&sort=downloads&direction=-1&limit=100&expand%5B%5D=downloads&expand%5B%5D=likes&expand%5B%5D=tags&expand%5B%5D=pipeline_tag&expand%5B%5D=gguf",
+        "read_at": "2026-10-20"
+      },
+      "scores": []
+    },
+    {
+      "model_id": "Qwen/Qwen3-8B",
+      "quant": "Q4_K_M",
+      "engines": [
+        "llama.cpp"
+      ],
+      "use_cases": [
+        "chat",
+        "agent"
+      ],
+      "weights": {
+        "repo": "Qwen/Qwen3-8B-GGUF",
+        "revision": "7c41481f57cb95916b40956ab2f0b139b296d974",
+        "file": "Qwen3-8B-Q4_K_M.gguf",
+        "sha256": "d98cdcbd03e17ce47681435b5150e34c1417f50b5c0019dd560e4882c5745785"
+      },
+      "size_bytes": {
+        "value": 5027783488,
+        "kind": "fact",
+        "source": "hub-api:Qwen/Qwen3-8B-GGUF@7c41481f57cb95916b40956ab2f0b139b296d974/Qwen3-8B-Q4_K_M.gguf",
+        "read_at": "2026-10-20"
+      },
+      "context_length": {
+        "value": 40960,
+        "kind": "fact",
+        "source": "gguf-header-range:Qwen/Qwen3-8B-GGUF@7c41481f57cb95916b40956ab2f0b139b296d974/Qwen3-8B-Q4_K_M.gguf",
+        "read_at": "2026-10-20"
+      },
+      "kv_bytes_per_token": {
+        "value": 147456,
+        "kind": "fact",
+        "source": "gguf-header-range:Qwen/Qwen3-8B-GGUF@7c41481f57cb95916b40956ab2f0b139b296d974/Qwen3-8B-Q4_K_M.gguf",
+        "read_at": "2026-10-20"
+      },
+      "recurrent_bytes_per_slot": {
+        "value": 0,
+        "kind": "fact",
+        "source": "gguf-header-range:Qwen/Qwen3-8B-GGUF@7c41481f57cb95916b40956ab2f0b139b296d974/Qwen3-8B-Q4_K_M.gguf",
+        "read_at": "2026-10-20"
+      },
+      "downloads": {
+        "value": 618003,
+        "kind": "fact",
+        "source": "hub-search:https://huggingface.co/api/models?filter=gguf&search=Qwen3-8B&sort=downloads&direction=-1&limit=100&expand%5B%5D=downloads&expand%5B%5D=likes&expand%5B%5D=tags&expand%5B%5D=pipeline_tag&expand%5B%5D=gguf",
+        "read_at": "2026-10-20"
+      },
+      "likes": {
+        "value": 334,
+        "kind": "fact",
+        "source": "hub-search:https://huggingface.co/api/models?filter=gguf&search=Qwen3-8B&sort=downloads&direction=-1&limit=100&expand%5B%5D=downloads&expand%5B%5D=likes&expand%5B%5D=tags&expand%5B%5D=pipeline_tag&expand%5B%5D=gguf",
+        "read_at": "2026-10-20"
+      },
+      "scores": []
+    },
+    {
+      "model_id": "Qwen/Qwen3-14B",
+      "quant": "Q4_K_M",
+      "engines": [
+        "llama.cpp"
+      ],
+      "use_cases": [
+        "chat",
+        "agent"
+      ],
+      "weights": {
+        "repo": "Qwen/Qwen3-14B-GGUF",
+        "revision": "530227a7d994db8eca5ab5ced2fb692b614357fd",
+        "file": "Qwen3-14B-Q4_K_M.gguf",
+        "sha256": "500a8806e85ee9c83f3ae08420295592451379b4f8cf2d0f41c15dffeb6b81f0"
+      },
+      "size_bytes": {
+        "value": 9001752960,
+        "kind": "fact",
+        "source": "hub-api:Qwen/Qwen3-14B-GGUF@530227a7d994db8eca5ab5ced2fb692b614357fd/Qwen3-14B-Q4_K_M.gguf",
+        "read_at": "2026-10-20"
+      },
+      "context_length": {
+        "value": 40960,
+        "kind": "fact",
+        "source": "gguf-header-range:Qwen/Qwen3-14B-GGUF@530227a7d994db8eca5ab5ced2fb692b614357fd/Qwen3-14B-Q4_K_M.gguf",
+        "read_at": "2026-10-20"
+      },
+      "kv_bytes_per_token": {
+        "value": 163840,
+        "kind": "fact",
+        "source": "gguf-header-range:Qwen/Qwen3-14B-GGUF@530227a7d994db8eca5ab5ced2fb692b614357fd/Qwen3-14B-Q4_K_M.gguf",
+        "read_at": "2026-10-20"
+      },
+      "recurrent_bytes_per_slot": {
+        "value": 0,
+        "kind": "fact",
+        "source": "gguf-header-range:Qwen/Qwen3-14B-GGUF@530227a7d994db8eca5ab5ced2fb692b614357fd/Qwen3-14B-Q4_K_M.gguf",
+        "read_at": "2026-10-20"
+      },
+      "downloads": {
+        "value": 232949,
+        "kind": "fact",
+        "source": "hub-search:https://huggingface.co/api/models?filter=gguf&search=Qwen3-14B&sort=downloads&direction=-1&limit=100&expand%5B%5D=downloads&expand%5B%5D=likes&expand%5B%5D=tags&expand%5B%5D=pipeline_tag&expand%5B%5D=gguf",
+        "read_at": "2026-10-20"
+      },
+      "likes": {
+        "value": 151,
+        "kind": "fact",
+        "source": "hub-search:https://huggingface.co/api/models?filter=gguf&search=Qwen3-14B&sort=downloads&direction=-1&limit=100&expand%5B%5D=downloads&expand%5B%5D=likes&expand%5B%5D=tags&expand%5B%5D=pipeline_tag&expand%5B%5D=gguf",
+        "read_at": "2026-10-20"
+      },
+      "scores": []
+    },
+    {
+      "model_id": "Qwen/Qwen3-30B-A3B",
+      "quant": "Q4_K_M",
+      "engines": [
+        "llama.cpp"
+      ],
+      "use_cases": [
+        "chat",
+        "agent"
+      ],
+      "weights": {
+        "repo": "MaziyarPanahi/Qwen3-30B-A3B-GGUF",
+        "revision": "6443554b0ef1176268cae69212105bf4c7187091",
+        "file": "Qwen3-30B-A3B.Q4_K_M.gguf",
+        "sha256": "e6f5bf30da69601f01d0cc75afa1132fdb7e9dad01767ba7b250b7b1ec89cc4c"
+      },
+      "size_bytes": {
+        "value": 18556686272,
+        "kind": "fact",
+        "source": "hub-api:MaziyarPanahi/Qwen3-30B-A3B-GGUF@6443554b0ef1176268cae69212105bf4c7187091/Qwen3-30B-A3B.Q4_K_M.gguf",
+        "read_at": "2026-10-20"
+      },
+      "context_length": {
+        "value": 40960,
+        "kind": "fact",
+        "source": "gguf-header-range:MaziyarPanahi/Qwen3-30B-A3B-GGUF@6443554b0ef1176268cae69212105bf4c7187091/Qwen3-30B-A3B.Q4_K_M.gguf",
+        "read_at": "2026-10-20"
+      },
+      "kv_bytes_per_token": {
+        "value": 98304,
+        "kind": "fact",
+        "source": "gguf-header-range:MaziyarPanahi/Qwen3-30B-A3B-GGUF@6443554b0ef1176268cae69212105bf4c7187091/Qwen3-30B-A3B.Q4_K_M.gguf",
+        "read_at": "2026-10-20"
+      },
+      "recurrent_bytes_per_slot": {
+        "value": 0,
+        "kind": "fact",
+        "source": "gguf-header-range:MaziyarPanahi/Qwen3-30B-A3B-GGUF@6443554b0ef1176268cae69212105bf4c7187091/Qwen3-30B-A3B.Q4_K_M.gguf",
+        "read_at": "2026-10-20"
+      },
+      "downloads": {
+        "value": 147123,
+        "kind": "fact",
+        "source": "hub-search:https://huggingface.co/api/models?filter=gguf&search=Qwen3-30B-A3B&sort=downloads&direction=-1&limit=100&expand%5B%5D=downloads&expand%5B%5D=likes&expand%5B%5D=tags&expand%5B%5D=pipeline_tag&expand%5B%5D=gguf",
+        "read_at": "2026-10-20"
+      },
+      "likes": {
+        "value": 6,
+        "kind": "fact",
+        "source": "hub-search:https://huggingface.co/api/models?filter=gguf&search=Qwen3-30B-A3B&sort=downloads&direction=-1&limit=100&expand%5B%5D=downloads&expand%5B%5D=likes&expand%5B%5D=tags&expand%5B%5D=pipeline_tag&expand%5B%5D=gguf",
+        "read_at": "2026-10-20"
       },
       "scores": []
     }

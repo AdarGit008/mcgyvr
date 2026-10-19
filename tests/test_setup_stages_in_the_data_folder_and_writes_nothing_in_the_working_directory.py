@@ -86,7 +86,7 @@ def test_the_interactive_setup_writes_once_from_the_plan_and_emits_once(
     monkeypatch.setattr(
         cli.commands.setup,
         "_setup_placements",
-        lambda rigs, scans: {"box1": {"placement": {"context_length": 4096}}},
+        lambda rigs, scans, use_case: {"box1": {"placement": {"context_length": 4096}}},
     )
     monkeypatch.setattr(
         cli.commands.setup, "_setup_downloads", lambda plans, scans, prompt=None: ()

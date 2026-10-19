@@ -1,0 +1,46 @@
+{
+ "_purpose": "Answers of the Hugging Face Hub recorded with one plain GET each on 2026-10-20 through mcgyvr.knowledge.hub.fetch, cut down to what the tests name. Each entry says which file holds the answer to which URL and what of it was kept; nothing in a kept row was changed. No GGUF header is recorded: a test stands an invented one at a file's resolve URL.",
+ "read_at": "2026-10-20",
+ "responses": {
+  "https://huggingface.co/api/models?filter=gguf&sort=downloads&direction=-1&limit=100&search=code&expand%5B%5D=downloads&expand%5B%5D=likes&expand%5B%5D=tags&expand%5B%5D=pipeline_tag&expand%5B%5D=gguf": {
+   "file": "search_gguf_code.json",
+   "kept": "the rows of 3 of the 100 repositories it listed, whole and in the order it gave them"
+  },
+  "https://huggingface.co/api/models?filter=gguf&sort=downloads&direction=-1&limit=100&expand%5B%5D=downloads&expand%5B%5D=likes&expand%5B%5D=tags&expand%5B%5D=pipeline_tag&expand%5B%5D=gguf": {
+   "file": "search_gguf.json",
+   "kept": "the rows of 8 of the 100 repositories it listed, whole and in the order it gave them; the search chat and agent ask"
+  },
+  "https://huggingface.co/api/models/ornith-ai/Ornith-1.5-9B-GGUF?blobs=true": {
+   "file": "repo_ornith-ai--Ornith-1.5-9B-GGUF.json",
+   "kept": "id, sha, pipeline_tag, tags, gguf (its chat template whole), and the GGUF siblings whole; the other siblings and keys left out"
+  },
+  "https://huggingface.co/api/models/CMSManhattan/JiRackUltra_1b?blobs=true": {
+   "file": "repo_CMSManhattan--JiRackUltra_1b.json",
+   "kept": "id, sha, pipeline_tag, tags, gguf (its chat template whole), and the GGUF siblings whole; the other siblings and keys left out"
+  },
+  "https://huggingface.co/api/models/unsloth/gemma-4-12b-it-GGUF?blobs=true": {
+   "file": "repo_unsloth--gemma-4-12b-it-GGUF.json",
+   "kept": "id, sha, pipeline_tag, tags, gguf (its chat template whole), and the GGUF siblings whole; the other siblings and keys left out"
+  },
+  "https://huggingface.co/api/models/unsloth/Qwen3-Coder-30B-A3B-Instruct-GGUF?blobs=true": {
+   "file": "repo_unsloth--Qwen3-Coder-30B-A3B-Instruct-GGUF.json",
+   "kept": "id, sha, pipeline_tag, tags, gguf (its chat template whole), and the GGUF siblings whole; the other siblings and keys left out"
+  },
+  "https://huggingface.co/api/models/unsloth/Qwen3.5-9B-GGUF?blobs=true": {
+   "file": "repo_unsloth--Qwen3.5-9B-GGUF.json",
+   "kept": "id, sha, pipeline_tag, tags, gguf (its chat template whole), and the GGUF siblings whole; the other siblings and keys left out"
+  },
+  "https://huggingface.co/api/models/unsloth/Qwen3.5-4B-GGUF?blobs=true": {
+   "file": "repo_unsloth--Qwen3.5-4B-GGUF.json",
+   "kept": "id, sha, pipeline_tag, tags, gguf (its chat template whole), and the GGUF siblings whole; the other siblings and keys left out"
+  },
+  "https://huggingface.co/api/models/Qwen/Qwen2.5-Coder-7B-Instruct-GGUF?blobs=true": {
+   "file": "repo_Qwen--Qwen2.5-Coder-7B-Instruct-GGUF.json",
+   "kept": "id, sha, pipeline_tag, tags, gguf (its chat template whole), and the GGUF siblings whole; the other siblings and keys left out"
+  },
+  "https://huggingface.co/api/models/Qwen/Qwen2.5-Coder-1.5B-Instruct-GGUF?blobs=true": {
+   "file": "repo_Qwen--Qwen2.5-Coder-1.5B-Instruct-GGUF.json",
+   "kept": "id, sha, pipeline_tag, tags, gguf (its chat template whole), and the GGUF siblings whole; the other siblings and keys left out"
+  }
+ }
+}

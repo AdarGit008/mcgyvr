@@ -364,20 +364,37 @@ def _setup_scan_rigs(
     return scans, readings
 
 
+#: What setup says answered a plan's candidates, by the plan's `candidates_from`.
+_CANDIDATES_FROM = {
+    "live": "the Hugging Face Hub, read now",
+    "cache": "the cache of an earlier Hugging Face Hub read",
+    "shipped": "the catalog shipped with mcgyvr",
+}
+
+
 def _setup_placements(
-    rigs: Sequence[str], scans: Mapping[str, Scan]
+    rigs: Sequence[str], scans: Mapping[str, Scan], use_case: str
 ) -> dict[str, Mapping[str, Any]]:
     """Plan a placement for each rig from its own scan, print it, and answer the plans.
 
-    Each rig is planned alone, as one user of the coding profile, so what it can
-    serve is read off its own machine. A plan that recommends nothing, or that
-    carries no placement to serve, fails the step naming the rig.
+    Each rig is planned alone, as one user of the use case asked, so what it can
+    serve is read off its own machine. Setup says where each plan's candidates
+    came from: the Hub now, the cache of an earlier read, or the shipped
+    catalog. A use case recommend does not place, a plan that recommends
+    nothing, or one that carries no placement to serve, fails the step naming
+    the rig.
     """
+    if use_case not in recommend_module.PLACEMENT_PROFILES:
+        raise _SetupInteractiveError(
+            f"recommend places {', '.join(recommend_module.PLACEMENT_PROFILES)}, "
+            f"not {use_case!r}"
+        )
+    profile = use_case
     plans: dict[str, Mapping[str, Any]] = {}
     for rig in dict.fromkeys(rigs):
         try:
             plan = recommend_module.plan(
-                profile="coding",
+                profile=profile,
                 users=1,
                 hosts=(rig,),
                 premeasured={rig: scans[rig]},
@@ -385,6 +402,13 @@ def _setup_placements(
         except (recommend_module.RecommendError, recommend_module.CatalogError) as exc:
             raise _SetupInteractiveError(f"{rig}: {exc}") from exc
         sys.stdout.write(json.dumps(plan, indent=2, sort_keys=True) + "\n")
+        answered = _CANDIDATES_FROM.get(str(plan.get("candidates_from")))
+        if answered is not None:
+            read_at = plan.get("candidates_read_at")
+            print(
+                f"{rig}: the {profile} candidates came from {answered}"
+                f"{f' (read {read_at})' if read_at else ''}"
+            )
         if not isinstance(plan.get("placement"), Mapping):
             raise _SetupInteractiveError(
                 f"{rig}: recommend produced no placement to serve"
@@ -674,7 +698,7 @@ def _setup_interactive(path: Path, run_id: str = "") -> int:
             use_case == CODING_USE_CASE and wants_jev and _confirm(MCORCH_QUESTION)
         )
         scans, readings = _setup_scan_rigs(rigs)
-        plans = _setup_placements(rigs, scans)
+        plans = _setup_placements(rigs, scans, use_case)
         ctx_per_slot = _setup_context_window(plans)
         downloads = _setup_downloads(plans, scans)
         for rig, record in downloads:

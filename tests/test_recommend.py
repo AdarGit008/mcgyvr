@@ -10,9 +10,9 @@ assembles candidate placements from those measured inputs and lets
 reachable, the pick is deterministic (the largest checkpoint among the
 candidates that already fit the measured machine) and the plan says so. Every
 number in the emitted plan is a measurement the rig or the checkpoint header
-made, or a shipped constant; none is invented. The other three profiles
-(``chatting``, ``media_gen``, ``other``) are accepted as scaffolds that make
-no placement.
+made, or a shipped constant; none is invented. ``chat`` and ``agent`` place
+one unit from their own candidates; the two profiles that are not use cases
+(``media_gen``, ``other``) are accepted as scaffolds that make no placement.
 
 WHAT THIS TEST PINS
 -------------------
@@ -35,8 +35,8 @@ Models to place come from exactly one of two places:
   measured free VRAM is assembled.
 
 ``--profile coding`` makes a real placement (an engine and a checkpoint are
-chosen and the decision seam is consulted); the other three values are accepted
-but scaffolded (no engine, no decision).
+chosen and the decision seam is consulted); ``media_gen`` and ``other`` are
+accepted but scaffolded (no engine, no decision).
 
 The seams this test substitutes are existing module attributes, chosen so the
 command can be exercised without owning hardware:
@@ -90,7 +90,7 @@ MISSING_STORE_DIR = "/models/missing"
 SIZE_BYTES = 9_876_543_210
 
 ENGINES = ("llama.cpp", "vllm")
-PROFILES = ("coding", "chatting", "media_gen", "other")
+PROFILES = ("coding", "chat", "agent", "media_gen", "other")
 
 #: An invented HuggingFace catalog, the same shape ``load_catalog`` returns
 #: from ``data/model-catalog.json``. The test injects it through the seam.
@@ -449,7 +449,9 @@ def probe(monkeypatch: pytest.MonkeyPatch) -> Any:
 @pytest.fixture
 def catalog(monkeypatch: pytest.MonkeyPatch) -> Any:
     def install() -> dict[str, Any]:
-        monkeypatch.setattr(recommend_module, "load_catalog", lambda: FAKE_CATALOG)
+        monkeypatch.setattr(
+            recommend_module, "load_catalog", lambda *a, **k: FAKE_CATALOG
+        )
         return FAKE_CATALOG
 
     return install
@@ -479,16 +481,37 @@ def run_and_parse(
 
 
 def test_recommend_accepts_every_profile(
-    ssh: Any, classify: Any, probe: Any, capsys: pytest.CaptureFixture[str]
+    ssh: Any,
+    classify: Any,
+    probe: Any,
+    monkeypatch: pytest.MonkeyPatch,
+    capsys: pytest.CaptureFixture[str],
 ) -> None:
-    """The command exists, and all four profile values are accepted.
+    """The command exists, and every profile value is accepted.
 
     Each profile may be scaffolded or fully placed; the point here is that the
-    CLI accepts all four values and echoes the one it was given.
+    CLI accepts every value and echoes the one it was given. The catalog holds
+    one more invented entry, small with a long context, so a chat or agent unit
+    has a model it fits at its 8k floor.
     """
     ssh()
     classify()
     probe()
+    roomy = {
+        "models": [
+            *FAKE_CATALOG["models"],
+            {
+                "model_id": "invented-org/invented-long-context",
+                "quant": "Q4_K_M",
+                "size_bytes": 2_000_000_000,
+                "context_length": 32768,
+                "kv_bytes_per_token": 1000,
+                "recurrent_bytes_per_slot": 0,
+                "engines": ["llama.cpp"],
+            },
+        ]
+    }
+    monkeypatch.setattr(recommend_module, "load_catalog", lambda *a, **k: roomy)
     for profile in PROFILES:
         code, plan = run_and_parse(capsys, profile, "single", STORE_DIR)
         assert code == 0
@@ -659,7 +682,9 @@ def test_recommend_falls_back_to_the_catalog_when_nothing_local_fits(
 def test_coding_places_and_the_other_profiles_are_scaffolded(
     ssh: Any, classify: Any, probe: Any, capsys: pytest.CaptureFixture[str]
 ) -> None:
-    """``coding`` is honoured with a real placement; the rest are stubs.
+    """``coding`` is honoured with a real placement; the profiles that are not
+    use cases are stubs (chat and agent place too, from their own candidates,
+    in ``test_a_chat_setup_no_longer_plans_a_coding_model.py``).
 
     A real placement names a checkpoint and an engine and consults the decision
     seam. A scaffold names neither an engine nor a checkpoint and consults
@@ -677,7 +702,7 @@ def test_coding_places_and_the_other_profiles_are_scaffolded(
     assert decisions.calls
     assert plan["decision"] == "model"
 
-    for profile in ("chatting", "media_gen", "other"):
+    for profile in ("media_gen", "other"):
         decisions.calls.clear()
         code, plan = run_and_parse(capsys, profile, "single", STORE_DIR)
         assert code == 0
@@ -987,7 +1012,9 @@ def test_recommend_catalog_budgets_kv_on_top_of_size(
     ssh()
     classify()
     probe(live=False)
-    monkeypatch.setattr(recommend_module, "load_catalog", lambda: KV_HEAVY_CATALOG)
+    monkeypatch.setattr(
+        recommend_module, "load_catalog", lambda *a, **k: KV_HEAVY_CATALOG
+    )
 
     code, plan = run_and_parse(capsys, "coding", "single")
     assert code == 0

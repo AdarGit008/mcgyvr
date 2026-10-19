@@ -191,7 +191,9 @@ def _model_specs() -> tuple[ModelSpec, ...]:
 
 
 def _catalog_specs() -> tuple[ModelSpec, ...]:
-    """One `ModelSpec` per record in the shipped knowledge catalogue.
+    """One `ModelSpec` per record the knowledge holds: the shipped catalogue with
+    the cache over it, so a model a Hub read filed there is sized as a shipped
+    one is.
 
     Its VRAM is the file's size plus the KV cache a token takes at the whole
     context the record states, its disk cost the file's size alone. A catalogue
@@ -201,7 +203,7 @@ def _catalog_specs() -> tuple[ModelSpec, ...]:
     from mcgyvr.knowledge.record import KnowledgeError
 
     try:
-        records = knowledge_store.shipped()
+        records = knowledge_store.offline().records
     except KnowledgeError as exc:
         raise CapabilityTableError(str(exc)) from exc
     specs: list[ModelSpec] = []

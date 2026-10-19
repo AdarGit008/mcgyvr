@@ -324,7 +324,7 @@ def interactive(
     )
     monkeypatch.setattr(cli.commands.setup, "_setup_scan_rigs", scan_rigs)
     monkeypatch.setattr(
-        cli.commands.setup, "_setup_placements", lambda rigs, scans: plan
+        cli.commands.setup, "_setup_placements", lambda rigs, scans, use_case: plan
     )
     monkeypatch.setattr(
         cli.commands.setup, "_setup_downloads", lambda plans, scans, prompt=None: ()
