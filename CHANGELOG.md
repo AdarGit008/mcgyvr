@@ -7,6 +7,18 @@ Paths in older entries are where files were when the entry was written.
 `records/plans/`, `docs/` and the write-ups under `records/` now live in
 the repository AdarGit008/mcgyvr-lab, under the same paths.
 
+## [Unreleased]
+
+### Fixed
+
+- `mcgyvr recommend` can choose any candidate on any host. A local
+  checkpoint was named only by its speculative head
+  (`llama.cpp:no speculative head`) and a catalog pick only by engine and
+  model, so a checkpoint on two rigs, or two checkpoints in one store,
+  shared a name and only the last could be chosen. Each name now carries
+  the rig, engine, weights (and quant) and head, and the placement carries
+  the `host` it goes on (#731).
+
 ## [0.5.1] - 2026-10-17
 
 ### Fixed
