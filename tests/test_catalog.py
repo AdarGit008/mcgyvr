@@ -94,11 +94,15 @@ def test_the_use_case_vocabulary_is_the_approved_four(shipped: Catalog) -> None:
 
 def test_the_config_use_case_choices_match_the_catalog(shipped: Catalog) -> None:
     """The catalog is the vocabulary's one home; the config's `use_case` enum
-    must not drift from it into a fifth value nobody declared."""
+    must not drift from it into a fifth value nobody declared. Each catalog use
+    case is either accepted or retired (`media-gen`, until its sample is
+    built), never both."""
     from mcgyvr import config
 
     use_case = next(f for f in config.SCHEMA if f.name == "use_case")
-    assert set(use_case.choices) == {u.name for u in shipped.use_cases}
+    retired = {name for name, _ in use_case.retired}
+    assert set(use_case.choices) | retired == {u.name for u in shipped.use_cases}
+    assert not set(use_case.choices) & retired
 
 
 def test_every_entry_states_its_required_evidence(shipped: Catalog) -> None:

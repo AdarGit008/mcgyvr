@@ -2,8 +2,8 @@
 
 Owner, Round 4 (2026-10-07), FLEET FLOW TWEAK: sample green = fleet STAMPED;
 sample red = no stamp, report why. Round 8: until P10 lands, a plan with a
-llama.cpp sleeper samples red, "the swap isn't built yet (P10)"; media-gen
-waits for P11. A stamp locks nothing, so a lock's refusal of a stamp is
+llama.cpp sleeper samples red, "the swap isn't built yet (P10)". A stamp
+locks nothing, so a lock's refusal of a stamp is
 :func:`mcgyvr.fleet.lock.write_from_stamp`'s to report
 (``test_a_stamp_writes_no_lock_and_the_lock_is_written_from_the_stamp.py``).
 
@@ -143,16 +143,6 @@ def test_a_sleeper_is_red_until_the_swap_is_built(
     said = _red(setup, _sample(setup))
 
     assert fx.STRONG in said and "the swap isn't built yet (P10)" in said, said
-
-
-def test_a_media_gen_sample_is_red_until_it_is_built(
-    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
-) -> None:
-    fx.rig_file()
-    setup = fx.staged(tmp_path, policy=fx.policy_doc(tmp_path, "media-gen"))
-    _read_twice(setup)
-    said = _red(setup, _sample(setup))
-    assert "media-gen" in said and "P11" in said, said
 
 
 @pytest.mark.parametrize(

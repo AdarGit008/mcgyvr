@@ -27,7 +27,6 @@ from mcgyvr.fleet.read import RIG_ROWS
 #: and each is held to its own task in `_task_reasons`.
 CODING_USE_CASE = "coding"
 AGENT = "agent"
-MEDIA_GEN = "media-gen"
 #: A policy that names no use case is judged as a coding fleet.
 DEFAULT_USE_CASE = CODING_USE_CASE
 #: The checks `mcgyvr.fleet.sampler` runs, as `Outcome.check` names them.
@@ -39,8 +38,6 @@ TASK_CHOICE = "choice"
 CHECKS = (TASK_GATE, TASK_COMPLETION, TASK_GROUNDED, TASK_SAFETY, TASK_CHOICE)
 #: Why a unit laid out asleep makes the sample red: it cannot be woken yet.
 SWAP_NOT_BUILT = "the swap isn't built yet (P10)"
-#: Why the media-gen use case samples red: it has no sample to run yet.
-MEDIA_NOT_BUILT = "the media sample isn't built yet (P11)"
 #: The probe figures every awake unit is measured on and read back into evidence.
 PROBE_FIELDS = ("warm_decode_tok_s", "prefill_tok_s")
 #: The snapshot field that carries the card's reserve, the combination's overhead.
@@ -349,8 +346,6 @@ def _task_reasons(
             ),
             *_failed(TASK_SAFETY, _ran(outcomes, TASK_SAFETY), "the safety check"),
         ]
-    if use_case == MEDIA_GEN:
-        return [f"{MEDIA_GEN}: {MEDIA_NOT_BUILT}"]
     return [f"use case: {use_case!r} has no sample"]
 
 

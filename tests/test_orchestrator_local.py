@@ -14,7 +14,7 @@ from mcgyvr.config import CHAT, LocalOrchestrator, local_orchestrator
 
 
 def test_hybrid_provisions_no_local_orchestrator() -> None:
-    for use_case in ("coding", "chat", "agent", "media-gen"):
+    for use_case in ("coding", "chat", "agent"):
         decision = local_orchestrator(use_case=use_case, local_only=False, users=1)
         assert decision == LocalOrchestrator(provision=False)
 
@@ -25,7 +25,7 @@ def test_local_only_chat_provisions_no_local_orchestrator() -> None:
     assert decision == LocalOrchestrator(provision=False)
 
 
-@pytest.mark.parametrize("use_case", ["coding", "agent", "media-gen"])
+@pytest.mark.parametrize("use_case", ["coding", "agent"])
 def test_local_only_non_chat_provisions_an_orchestrator(use_case: str) -> None:
     decision = local_orchestrator(use_case=use_case, local_only=True, users=4)
     assert decision.provision is True

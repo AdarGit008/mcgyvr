@@ -244,6 +244,21 @@ _RETIRED_KEYS: dict[str, str] = {
     ),
 }
 
+#: The use cases an install may serve, in the order setup offers them.
+USE_CASES: tuple[str, ...] = ("coding", "chat", "agent")
+
+#: Use cases this build recognises and refuses, each with the rest of the
+#: refusal it earns. `media-gen` is off until its sample is built: setup cannot
+#: sample it, so it neither offers it nor writes it.
+RETIRED_USE_CASES: tuple[tuple[str, str], ...] = (
+    (
+        "media-gen",
+        "is retired until its sample is built: setup cannot sample it. Use "
+        + ", ".join(f"`{name}`" for name in USE_CASES[:-1])
+        + f" or `{USE_CASES[-1]}`.",
+    ),
+)
+
 #: Where the journal is kept when `journal.dir` says nothing else: one directory
 #: under the user's state directory, outside any repository a run works on.
 #: A `journal.dir` overrides it, and the `~` that path may carry is expanded by
@@ -991,13 +1006,13 @@ SCHEMA: tuple[Field, ...] = (
     Field(
         "use_case",
         "enum",
-        "Which of the four use cases this install serves: `coding` (scoped "
+        "Which of the three use cases this install serves: `coding` (scoped "
         "edits judged by the deterministic gate), `chat` (a raw un-gated "
-        "endpoint), `agent` (an un-gated session over the files a contract "
-        "names as its sources) or "
-        "`media-gen` (media_valid, safety and ASR-WER).",
-        choices=("coding", "chat", "agent", "media-gen"),
+        "endpoint) or `agent` (an un-gated session over the files a contract "
+        "names as its sources).",
+        choices=USE_CASES,
         default="coding",
+        retired=RETIRED_USE_CASES,
     ),
     Field(
         "deployment",

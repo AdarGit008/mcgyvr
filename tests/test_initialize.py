@@ -351,7 +351,7 @@ def test_the_file_carries_comments_from_the_schema(tmp_path: Path) -> None:
     text = (path / "fleet.yaml").read_text(encoding="utf-8") + (
         path / "policy.yaml"
     ).read_text(encoding="utf-8")
-    assert "# Which of the four use cases this install serves" in text
+    assert "# Which of the three use cases this install serves" in text
     assert "# Where this unit answers, including scheme and port." in text
     prose = " ".join(
         line.lstrip().removeprefix("#").strip()

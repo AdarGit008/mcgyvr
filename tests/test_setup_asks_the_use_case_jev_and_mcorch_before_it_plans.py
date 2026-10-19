@@ -1,15 +1,15 @@
 """``mcgyvr setup`` asks the use case, Jev and mcorch before it plans.
 
 Owner, 2026-10-15: the interactive setup planned ``coding`` only. It now asks,
-after the rigs and before the plan: the use case (coding, chat, agent or
-media-gen; Enter is coding), whether to dedicate a unit to Jev, the unit every
+after the rigs and before the plan: the use case (coding, chat or agent; Enter
+is coding), whether to dedicate a unit to Jev, the unit every
 typed decision asks (Enter is no), and, for coding with Jev on, whether to run
 mcorch, the local orchestrator, on a unit (Enter is no) -- the interactive
 form of ``--use-case``, ``--jev`` and ``--mcorch``. The answer is planned,
 staged and sampled: the sampler runs that use case's task and the Jev choice,
 and an mcorch opt-in's units are laid out awake and probed, as its lock
-requires. ``media-gen`` has no sample yet: setup says so and asks before it
-locks the fleet on no evidence.
+requires. ``media-gen`` is not offered: it has no sample yet, so setup cannot
+sample it (#731).
 
 The rig is :class:`tests.setup_door.FakeRig` behind the door; the prompts are
 answered through the setup's own prompt seams; nothing reaches a machine.
@@ -35,12 +35,11 @@ from mcgyvr.fleet import sampler
 from mcgyvr.fleet.roots import data_home, fleets_dir, live_file
 from tests import setup_door as sd
 
-USE_CASE = "Use case — [d] coding (default), [c] chat, [a] agent, [m] media-gen: "
+USE_CASE = "Use case — [d] coding (default), [c] chat, [a] agent: "
 JEV = "Dedicate a unit to Jev, which answers typed decisions? [y/n] "
 MCORCH = "Run mcorch, the local orchestrator, on a unit? [y/n] "
 START = "Start the serving containers"
 LOCK = "Lock the fleet and name it live?"
-ACK = "Lock it approved on no evidence? [y/N] "
 
 
 def _staged() -> Path:
@@ -137,24 +136,6 @@ def test_agent_is_planned_staged_and_sampled_by_the_grounded_contract(
     assert ran == ["mcgyvr-sample-agent"]
 
 
-@pytest.mark.parametrize("yes", [True, False])
-def test_media_gen_cannot_be_sampled_yet_and_goes_to_the_acknowledgment(
-    monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str], yes: bool
-) -> None:
-    rig = sd.FakeRig()
-    asked = sd.interactive(monkeypatch, rig, {ACK: yes}, typed={USE_CASE: "m"})
-
-    assert cli.main(["setup"]) == 0
-
-    out = capsys.readouterr().out
-    assert "media-gen cannot be sampled yet" in out
-    assert not any(START in q for q in asked), "no container is started to sample"
-    assert asked[-1] == ACK
-    assert rig.calls == []
-    assert _policy(_staged())["use_case"] == "media-gen"
-    assert live_file().exists() is yes
-
-
 def test_a_jev_opt_in_binds_the_unit_and_the_sample_asks_its_choice(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
@@ -213,7 +194,7 @@ def test_a_use_case_that_is_not_one_is_asked_again_then_refused(
 
     assert asked == [USE_CASE] * 3
     err = capsys.readouterr().err
-    assert "poetry" in err and "d, c, a or m" in err
+    assert "poetry" in err and "d, c or a" in err
     assert not (data_home() / "setup").exists() or not any(
         (data_home() / "setup").rglob("policy.yaml")
     )
@@ -221,7 +202,7 @@ def test_a_use_case_that_is_not_one_is_asked_again_then_refused(
 
 @pytest.mark.parametrize(
     ("letter", "name"),
-    [("d", "coding"), ("c", "chat"), ("a", "agent"), ("m", "media-gen")],
+    [("", "coding"), ("d", "coding"), ("c", "chat"), ("a", "agent")],
 )
 def test_each_letter_names_its_use_case(
     monkeypatch: pytest.MonkeyPatch, letter: str, name: str
@@ -236,6 +217,19 @@ def test_each_letter_names_its_use_case(
 
     assert _ask_setup_use_case() == name
     assert asked == [USE_CASE]
+
+
+def test_m_is_no_letter_now_media_gen_is_not_offered(
+    monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
+) -> None:
+    asked = sd.interactive(
+        monkeypatch, sd.FakeRig(), {START: True}, typed={USE_CASE: "m"}
+    )
+
+    assert cli.main(["setup"]) == 1
+
+    assert asked == [USE_CASE] * 3
+    assert "d, c or a" in capsys.readouterr().err
 
 
 def test_with_several_units_setup_asks_which_one_and_enter_is_the_first(

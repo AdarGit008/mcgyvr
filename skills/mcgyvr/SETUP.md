@@ -19,7 +19,7 @@ why, then what is *not* configured and what that costs.
 Run at a terminal with no flags, it asks which rigs serve — `local`,
 `remote` or `both` (Enter is `local`) — and, for `remote` or `both`,
 the ssh host(s) to read. It then asks the use case by letter (`[d]
-coding`, `[c] chat`, `[a] agent`, `[m] media-gen`; Enter or `d` is
+coding`, `[c] chat`, `[a] agent`; Enter or `d` is
 `coding`), whether to dedicate a unit to Jev (Enter is no), and, for
 `coding` with Jev on, whether to run mcorch on a unit (Enter is no):
 the questions `--use-case`, `--jev` and `--mcorch` answer. It plans a
@@ -39,8 +39,8 @@ When the interactive setup finishes, it offers to append
 `~/.config/fish/config.fish`, by `$SHELL`), once you say yes; a file
 that already carries a `.local/bin` PATH line is left alone.
 
-A fleet that could not be sampled — its containers not started, every
-unit hosted, or `media-gen`, which has no sample yet — is locked
+A fleet that could not be sampled — its containers not started, or
+every unit hosted — is locked
 approved on no evidence only once you say so: setup says why and what
 that means, and asks `Lock it approved on no evidence? [y/N]`. With
 flags, setup binds the servers already answering and starts none, so
@@ -68,8 +68,9 @@ a config that dispatches nowhere is not a head start.
 
 What the config is for comes in with these, all optional:
 
-- `--use-case` — `coding` (the deterministic gate, the default), `chat`,
-  `agent` or `media-gen`.
+- `--use-case` — `coding` (the deterministic gate, the default), `chat`
+  or `agent`. `media-gen` is retired until its sample is built, and is
+  refused naming the three.
 - `--deployment` — `hybrid` (an API-tier orchestrator drives mcgyvr) or
   `local-only` (mcgyvr is the backend); the default is `local-only` for
   `chat` and `hybrid` otherwise.
@@ -155,7 +156,7 @@ can run the work; `mcgyvr capabilities` shows the shipped capability table.
 
 | Key | Type | Required | Default | Description |
 | --- | --- | --- | --- | --- |
-| `use_case` | one of `coding`, `chat`, `agent`, `media-gen` | no | `coding` | Which of the four use cases this install serves: `coding` (scoped edits judged by the deterministic gate), `chat` (a raw un-gated endpoint), `agent` (an un-gated session over the files a contract names as its sources) or `media-gen` (media_valid, safety and ASR-WER). |
+| `use_case` | one of `coding`, `chat`, `agent` | no | `coding` | Which of the three use cases this install serves: `coding` (scoped edits judged by the deterministic gate), `chat` (a raw un-gated endpoint) or `agent` (an un-gated session over the files a contract names as its sources). |
 | `deployment` | one of `hybrid`, `local-only` | no | `hybrid` | How mcgyvr is run. `hybrid` drives it from an API-tier orchestrator in the user's session; scoped work is offloaded to the local cheap-to-dear ladder, whose dearest rung is an API model so a task always completes. `local-only` makes mcgyvr the backend: a non-chat use case provisions a local orchestrator unit, and chat is just the ladder serving text. |
 | `units` | block map | **yes** | — | What runs where, keyed by a name you choose. A unit carries every fact about what it is and can physically do: its address, engine, model, width, window, reply size and timeout. |
 | `ladder` | list of text | **yes** | — | The ordered list of unit names work climbs, cheapest first. |
