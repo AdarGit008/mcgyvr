@@ -2,7 +2,9 @@
 
 :func:`judge` reads the sample's own read rows out of the journal and the rig
 files the reads saved, holds every rig of the fleet's layout to a card reserve
-and every awake unit to its probe, then reads the use case's task outcomes
+and every awake unit to its probe, holds each sleeper (a unit laid out asleep
+whose role is ``sleeps-until-needed``) to its probe and to its swap having
+passed both ways (:class:`Move`), then reads the use case's task outcomes
 (``coding``'s gate, ``chat``'s completion, ``agent``'s grounded contract and
 safety check) and, when the policy names one, the Jev unit's typed choice. Any
 reason at all makes the sample red; with none, and with a rig file and a read
@@ -18,7 +20,7 @@ from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any, TypeGuard
 
-from mcgyvr.config import CHAT
+from mcgyvr.config import CHAT, ROLE_SLEEPER
 from mcgyvr.fleet.files import FleetFileError, load_fleet, load_policy
 from mcgyvr.fleet.layout import ASLEEP, AWAKE
 from mcgyvr.fleet.read import RIG_ROWS
@@ -36,8 +38,12 @@ TASK_GROUNDED = "grounded"
 TASK_SAFETY = "safety"
 TASK_CHOICE = "choice"
 CHECKS = (TASK_GATE, TASK_COMPLETION, TASK_GROUNDED, TASK_SAFETY, TASK_CHOICE)
-#: Why a unit laid out asleep makes the sample red: it cannot be woken yet.
-SWAP_NOT_BUILT = "the swap isn't built yet (P10)"
+#: The two ways a sleeper's swap is made, in the order the sample makes them:
+#: in wakes the sleeper and puts down the units whose room it needs, and back
+#: puts the sleeper down and wakes those units again.
+WAY_IN = "in"
+WAY_BACK = "back"
+WAYS = (WAY_IN, WAY_BACK)
 #: The probe figures every awake unit is measured on and read back into evidence.
 PROBE_FIELDS = ("warm_decode_tok_s", "prefill_tok_s")
 #: The snapshot field that carries the card's reserve, the combination's overhead.
@@ -68,21 +74,45 @@ class Outcome:
 
 
 @dataclass(frozen=True)
+class Move:
+    """One way of one sleeper's swap on its rig, as `mcgyvr.fleet.sampler` made it.
+
+    `unit` is the sleeper and `way` one of `WAYS`. `room` names the units the
+    ladder manager put down to give the sleeper its room: the move in puts them
+    down and the move back wakes them again. `passed` is whether every switch
+    call of the move worked, `downtime_s` the wall time from its first switch
+    call to the end of its last, `wake_s` the seconds each unit it woke took to
+    wake, and `why` the switch line that failed.
+    """
+
+    rig: str
+    unit: str
+    way: str
+    room: tuple[str, ...] = ()
+    passed: bool = False
+    downtime_s: float | None = None
+    wake_s: Mapping[str, float] = field(default_factory=dict)
+    why: str = ""
+
+
+@dataclass(frozen=True)
 class Sample:
     """One sample to judge.
 
     `setup` is the staged folder its `fleet.yaml` and `policy.yaml` are read
     from and that its reads were filed against, `fleet` the fleet of that setup
     that was laid out, and `reads` the run ids of its reads in the order they
-    ran, which is the order their rows are read back in. `journal` overrides the
-    folder the rows are filed in, and `validated_at` and `envelope` are carried
-    into the evidence when the caller pins them.
+    ran, which is the order their rows are read back in. `moves` are the
+    sleepers' swaps the sample made. `journal` overrides the folder the rows
+    are filed in, and `validated_at` and `envelope` are carried into the
+    evidence when the caller pins them.
     """
 
     setup: Path
     fleet: str
     reads: Sequence[str]
     outcomes: Sequence[Outcome] = ()
+    moves: Sequence[Move] = ()
     journal: Path | None = None
     validated_at: str | None = None
     envelope: str | None = None
@@ -369,13 +399,86 @@ def _rig_block(
     return block
 
 
+def sleeper(unit: Mapping[str, Any], state: str) -> bool:
+    """Whether a slot holds a sleeper: a unit laid out asleep whose role is
+    ``sleeps-until-needed``, which the sample swaps in through the ladder
+    manager."""
+    return state == ASLEEP and unit.get("role") == ROLE_SLEEPER
+
+
+def _slots(slots: Sequence[Any]) -> list[Any]:
+    return [list(slot) if slot is not None else None for slot in slots]
+
+
+def _woken(slots: Sequence[Any], unit: str, room: Sequence[str]) -> list[Any]:
+    """The rig's slots once `unit` is woken: it awake, the units in `room` asleep."""
+    out: list[Any] = []
+    for slot in slots:
+        if slot is None:
+            out.append(None)
+        elif slot[0] == unit:
+            out.append([unit, AWAKE])
+        elif slot[0] in room:
+            out.append([slot[0], ASLEEP])
+        else:
+            out.append(list(slot))
+    return out
+
+
+def _swap(
+    rig: str, name: str, slots: Sequence[Any], moves: Sequence[Move]
+) -> tuple[list[str], list[dict[str, Any]]]:
+    """A sleeper's swap judged way by way, and the evidence's record of each move.
+
+    Each way is the newest move the sample made for this rig, unit and way. The
+    first way that did not run, did not pass or was not timed is the reason,
+    named by the unit, its rig and the way; the ways after it are not judged,
+    since a move in that failed has already woken its room back. Every move
+    that ran is a record: its rig, unit and way, the slots it went from and to,
+    and what it passed and measured.
+    """
+    why: list[str] = []
+    records: list[dict[str, Any]] = []
+    for way in WAYS:
+        made = [m for m in moves if (m.rig, m.unit, m.way) == (rig, name, way)]
+        one = made[-1] if made else None
+        if one is None:
+            failed: str | None = "did not run"
+        elif not one.passed:
+            failed = one.why or "did not pass"
+        elif one.downtime_s is None:
+            failed = "its downtime was not timed"
+        else:
+            failed = None
+        if failed is not None and not why:
+            why.append(f"swap: {name} on {rig}, {way}: {failed}")
+        if one is None:
+            continue
+        woken = _woken(slots, name, one.room)
+        record: dict[str, Any] = {
+            "rig": rig,
+            "unit": name,
+            "way": way,
+            "from": _slots(slots) if way == WAY_IN else woken,
+            "to": woken if way == WAY_IN else _slots(slots),
+            "passed": one.passed,
+            "wake_s": dict(one.wake_s),
+        }
+        if one.downtime_s is not None:
+            record["downtime_s"] = one.downtime_s
+        records.append(record)
+    return why, records
+
+
 def judge(sample: Sample) -> Verdict:
     """Judge the sample: green with no reason left, else red with all of them.
 
     Each rig of the fleet's layout is held to its rig file, to a read of this
     fleet and setup among the sample's reads, and to a card reserve in the
-    snapshot; a unit laid out asleep is red because the swap is not built, and
-    every awake unit must have its probe figures, restarts, card and room. Then
+    snapshot. Every awake unit must have its probe figures, restarts, card and
+    room; a sleeper must have the same from the probe taken while it was
+    swapped in, and its swap must have passed both ways (:func:`_swap`), while
+    any other unit laid out asleep is red, as no sample wakes it. Then
     the use case's task outcomes are read, and the Jev unit's typed choice when
     the policy names one. The evidence is built only when every rig had both a
     rig file and a read, and is dated the sample's `validated_at`, else the
@@ -400,13 +503,21 @@ def judge(sample: Sample) -> Verdict:
     awake: list[str] = []
     rigs: dict[str, Any] = {}
     combinations: list[dict[str, Any]] = []
+    moves: list[dict[str, Any]] = []
     whole = True
     last_at: list[str] = []
     for rig, slots in layout.items():
         named = [slot for slot in slots or () if slot is not None]
         for name, state in named:
-            if state == ASLEEP:
-                why.append(f"swap: {name} sleeps until needed, and {SWAP_NOT_BUILT}")
+            if sleeper(units[name], state):
+                swapped, made = _swap(rig, name, slots or (), sample.moves)
+                why.extend(swapped)
+                moves.extend(made)
+            elif state == ASLEEP:
+                why.append(
+                    f"swap: {name} is laid out asleep and is no sleeper (role "
+                    f"{ROLE_SLEEPER}), so no sample wakes it"
+                )
             elif state == AWAKE:
                 awake.append(name)
         try:
@@ -441,7 +552,7 @@ def judge(sample: Sample) -> Verdict:
 
         comb: dict[str, Any] = {
             "rig": rig,
-            "slots": [list(slot) if slot is not None else None for slot in slots],
+            "slots": _slots(slots),
             "restarts": {},
             "warm_decode_tok_s": {},
             "prefill_tok_s": {},
@@ -455,7 +566,7 @@ def judge(sample: Sample) -> Verdict:
         for name, state in named:
             unit = units[name]
             read = reads.of_unit(str(unit.get("unit_id")))
-            if state == AWAKE:
+            if state == AWAKE or sleeper(unit, state):
                 why.extend(_probe_reasons(name, unit, read, rows))
             if read.restarts:
                 comb["restarts"][name] = max(read.restarts)
@@ -487,5 +598,5 @@ def judge(sample: Sample) -> Verdict:
         for comb in combinations:
             comb["passed"] = green
             comb["validated_at"] = validated_at
-        evidence = {"rigs": rigs, "combinations": combinations, "moves": []}
+        evidence = {"rigs": rigs, "combinations": combinations, "moves": moves}
     return Verdict(green=green, why=tuple(why), evidence=evidence)
