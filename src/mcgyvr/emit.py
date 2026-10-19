@@ -9,7 +9,10 @@ writing a file, and the rig's operator runs it.
 A second family renders a ``fleet.yaml`` whose units state their own
 launch -- image, container, argv, env, a "locked" unit: `emit_locked`
 writes those documents, `check_locked` compares them, and both refuse a
-unit that states too little to render.
+unit that states too little to render. A locked llama.cpp unit split
+across rigs is its stated head on the head's rig plus the rpc-server
+workers the unlocked path would start on the other rigs, at the addresses
+their shards or rig files give.
 
 Every refusal is an `EmitError`: an engine this build cannot render (see
 `MEDIA_ENGINES_NOT_WIRED`), an argument the compose file and the shell
@@ -20,6 +23,7 @@ claim, or a path that resolves outside the output directory.
 from __future__ import annotations
 
 import difflib
+import ipaddress
 import re
 import shlex
 from collections.abc import Iterable, Mapping
@@ -29,7 +33,7 @@ from typing import TYPE_CHECKING, Any, cast
 
 import yaml
 
-from mcgyvr.fleet.spans import SpanError, spans
+from mcgyvr.fleet.spans import Shard, Span, SpanError, check_spans, spans
 from mcgyvr.serving import (
     COMPOSE_PREFIX,
     COMPOSE_SUFFIX,
@@ -39,14 +43,25 @@ from mcgyvr.serving import (
     ROLE_HEADLESS,
     ROLE_RPC,
     ROLE_SERVE,
+    RPC_DEFAULT_PORT,
     SLEEPER_PROFILE,
+    Fit,
     Unit,
+    UnitKey,
+    Width,
     launch_specs,
     port_of,
+    rigfile,
     safe_host,
     safe_model,
     spec_files,
     spec_name,
+)
+from mcgyvr.serving.sharding import Target
+from mcgyvr.serving.shardlaunch import (
+    LaunchError,
+    rpc_endpoints,
+    rpc_workers,
 )
 
 # The shell command that starts each engine's own server, for the engines
@@ -741,11 +756,13 @@ def _planned_locked(
 ) -> tuple[tuple[Path, str], ...]:
     """The (path, document) pairs a locked fleet renders, plus its profiles.
 
-    `spans` says which rigs and cards each split unit occupies. A unit
-    whose shards span rigs is refused: a locked launch states one argv, its
-    head's, and rendering it on a worker rig would make a second head. A
-    unit with no card on the host it is laid out on is refused too. Each
-    fleet's layout on each host becomes one document named by
+    `spans` says which rigs and cards each split unit occupies, and
+    `check_spans` holds every layout to laying a unit that spans rigs out on
+    each of them. A unit split across rigs is its stated head on the head's
+    rig and, on each other rig, the rpc-server workers `_locked_workers`
+    renders; a worker takes no part in the start order, since it answers no
+    healthcheck. A unit with no card on the host it is laid out on is
+    refused. Each fleet's layout on each host becomes one document named by
     `spec_name(host, fleet_name)`, with services started in layout order --
     each waiting on the healthcheck of the service before it. A stated
     seccomp profile is planned as a file of its own, read from `setup` and
@@ -754,13 +771,19 @@ def _planned_locked(
     units = fleet.get("units") or {}
     try:
         found = spans(fleet)
+        for fleet_name, block in (fleet.get("fleets") or {}).items():
+            check_spans(fleet, block.get("layout") or {}, name=fleet_name)
     except SpanError as exc:
         raise LockedLaunchError(str(exc)) from exc
     planned: list[tuple[Path, str]] = []
     profiles: dict[str, Path] = {}
+    workers: dict[str, dict[str, dict[str, dict[str, object]]]] = {}
     for fleet_name, block in sorted((fleet.get("fleets") or {}).items()):
         for host, slots in sorted((block.get("layout") or {}).items()):
             services: dict[str, dict[str, object]] = {}
+            # The service names this file gives to workers, mapped to the unit
+            # each one lends a card to, so no unit or worker takes another's.
+            lent: dict[str, str] = {}
             ahead: tuple[str, int] | None = None
             for slot in slots:
                 name = slot[0]
@@ -772,13 +795,19 @@ def _planned_locked(
                     )
                 span = found.get(name)
                 if span is not None and len(span.rigs) > 1:
-                    raise LockedLaunchError(
-                        f"{name}: spans {', '.join(span.rigs)}, and a locked "
-                        f"launch states one argv, its head's on {span.head}; "
-                        f"rendered on {host} it would be a second head, not a "
-                        "worker. A locked unit split across rigs is not "
-                        "rendered until each worker's launch is stated"
-                    )
+                    if name not in workers:
+                        workers[name] = _locked_workers(name, unit, span)
+                    if host != span.head:
+                        for called, worker in workers[name].get(host, {}).items():
+                            if called in services:
+                                raise LockedLaunchError(
+                                    f"{name}: its worker on {host} would be the "
+                                    f"compose service {called!r}, which this "
+                                    "file already has"
+                                )
+                            services[called] = worker
+                            lent[called] = name
+                        continue
                 cards = span.cards.get(host, ()) if span is not None else (0,)
                 if not cards:
                     raise LockedLaunchError(
@@ -802,6 +831,11 @@ def _planned_locked(
                         waited_on: {"condition": "service_healthy"}
                     }
                     services[waited_on]["healthcheck"] = _healthcheck(port)
+                if name in lent:
+                    raise LockedLaunchError(
+                        f"{name}: on {host} it would be the compose service "
+                        f"{name!r}, which a worker of {lent[name]} already is"
+                    )
                 services[name] = service
                 ahead = (name, port_of(str(unit.get("address") or "")))
             path = root / spec_name(host, fleet_name)
@@ -881,6 +915,177 @@ def _locked_service(
     else:
         service["volumes"] = list(volumes or ())
     return service
+
+
+#: The shared address space overlay networks hand out (RFC 6598). A worker
+#: recorded at one of these is reached only by a head on the same overlay.
+OVERLAY = ipaddress.IPv4Network("100.64.0.0/10")
+
+
+def _locked_workers(
+    name: str, unit: Mapping[str, Any], span: Span
+) -> dict[str, dict[str, dict[str, object]]]:
+    """The rpc-server workers of a locked unit split across rigs, by rig.
+
+    Only llama.cpp splits across rigs as a head plus workers; another engine's
+    other ranks state no launch of their own, so it is refused. The unit must
+    state what its head renders from (`_locked_service`) and its `model`. The
+    workers are the ones the unlocked path starts -- `rpc_workers` over the
+    shards off the head's rig, their ports counted from `launch.rpc_port` --
+    each rendered by `_rpc_service` under its `_service_name`. The head's
+    stated `--rpc` must name exactly those workers, or the head would dial
+    workers that are not there, and the unit is refused.
+    """
+    head = _locked_service(name, unit, span.cards[span.head])
+    engine = unit.get("engine")
+    if engine != "llama.cpp":
+        raise LockedLaunchError(
+            f"{name}: spans {', '.join(span.rigs)}, and only a llama.cpp unit is "
+            f"rendered across rigs, as a head plus rpc-server workers; a "
+            f"{engine} unit's other ranks state no launch of their own"
+        )
+    model = unit.get("model")
+    if not isinstance(model, str) or not model:
+        raise LockedLaunchError(
+            f"{name}: spans {', '.join(span.rigs)}, and its workers are named "
+            "for its model, which it does not state"
+        )
+    stated_port = (unit.get("launch") or {}).get("rpc_port")
+    rpc_port = RPC_DEFAULT_PORT if stated_port is None else stated_port
+    if isinstance(rpc_port, bool) or not isinstance(rpc_port, int) or rpc_port < 1:
+        raise LockedLaunchError(f"{name}: launch.rpc_port is {rpc_port!r}, not a port")
+    targets = tuple(
+        Target(
+            host=shard.rig,
+            gpu=shard.gpu,
+            free_bytes=0,
+            bind=_worker_bind(name, span, shard),
+        )
+        for shard in span.shards
+        if shard.rig != span.head
+    )
+    try:
+        launched = rpc_workers(targets, model=name, rpc_port=rpc_port)
+    except LaunchError as exc:
+        raise LockedLaunchError(str(exc)) from exc
+    wanted = rpc_endpoints(launched)
+    stated = _stated_flag(cast(list[str], head["command"]), "--rpc")
+    if stated != wanted:
+        raise LockedLaunchError(
+            f"{name}: its head's launch.argv states --rpc {stated or '(none)'}, "
+            f"and its workers on {', '.join(span.workers)} listen at {wanted}; "
+            "the head would dial workers that are not there. Emit the unit "
+            "unlocked to stamp its launch again, or state each worker shard's "
+            "`bind` as the address the head names"
+        )
+    out: dict[str, dict[str, dict[str, object]]] = {}
+    for process in launched:
+        # The rpc writer reads the image, host, model, port, role, args, env
+        # and cards; weights, width and fit are sizing figures it never reads,
+        # and a locked unit is not sized again.
+        worker = Unit(
+            key=UnitKey(
+                host=process.host, model=model, engine=engine, port=process.port
+            ),
+            host=process.host,
+            model=model,
+            engine=engine,
+            gpu=process.gpus[0],
+            weights=Path(),
+            width=Width(value=1, how="default"),
+            args=process.args,
+            fit=Fit(fits=True, headroom_gb=0.0, why=f"{name}: locked"),
+            port=process.port,
+            image=str(unit["image"]),
+            extra=process.extra,
+            gpus=process.gpus,
+            role=process.role,
+            env=dict(process.env),
+        )
+        out.setdefault(process.host, {})[_service_name(worker)] = _rpc_service(worker)
+    return out
+
+
+def _worker_bind(name: str, span: Span, shard: Shard) -> str | None:
+    """The address a worker shard binds, as `rpc_workers` takes it.
+
+    The shard's own `bind`, then a rig named by its IPv4 address (None here,
+    since `rpc_workers` binds the rig name itself), as the unlocked path takes
+    them; otherwise the private IPv4 the worker rig's file records. A worker
+    rig whose file records none is refused by name, with the file's own
+    sentence for why, and so is an overlay address when the head's rig file
+    records no address on that overlay: the head would not reach it there.
+    """
+    if shard.bind is not None:
+        return shard.bind
+    try:
+        ipaddress.IPv4Address(shard.rig)
+    except ValueError:
+        pass
+    else:
+        return None
+    worker = _rig_file(name, shard.rig)
+    address = worker.private_ipv4 if worker is not None else None
+    if worker is None or address is None:
+        why = (
+            worker.private_ipv4_how
+            if worker is not None
+            else f"there is no rig file for it ({rigfile.path(shard.rig)})"
+        )
+        raise LockedLaunchError(
+            f"{name}: its worker rig {shard.rig} has no recorded address: {why}. "
+            f"`{rigfile.MAKE.format(rig=shard.rig)}` records it, or state the "
+            "address the head reaches it at as that shard's `bind`"
+        )
+    if ipaddress.IPv4Address(address) in OVERLAY:
+        head = _rig_file(name, span.head)
+        if head is None or not _on_overlay(head):
+            said = (
+                "has no rig file"
+                if head is None
+                else "records no address on that overlay"
+            )
+            raise LockedLaunchError(
+                f"{name}: its worker rig {shard.rig} records {address} "
+                f"({worker.private_ipv4_how}), an address on the {OVERLAY} "
+                f"overlay, and its head rig {span.head} {said}, so the head "
+                "would not reach the worker there. State the address the head "
+                "reaches it at as that shard's `bind`"
+            )
+    return address
+
+
+def _rig_file(name: str, rig: str) -> rigfile.Rig | None:
+    """The rig file of `rig`, None when it has none, refused when unreadable."""
+    try:
+        return rigfile.read(rig)
+    except rigfile.RigFileError as exc:
+        raise LockedLaunchError(f"{name}: rig {rig}: {exc}") from exc
+
+
+def _on_overlay(rig: rigfile.Rig) -> bool:
+    """Whether the rig's file records an address of its own on `OVERLAY`."""
+    network = rig.scan.network
+    if network is None:
+        return False
+    said = (network.reached_at, *(one.address for one in network.ipv4))
+    for stated in said:
+        try:
+            if stated is not None and ipaddress.IPv4Address(stated) in OVERLAY:
+                return True
+        except ValueError:
+            continue
+    return False
+
+
+def _stated_flag(argv: list[str], flag: str) -> str | None:
+    """The value `argv` gives `flag`, as `flag value` or `flag=value`."""
+    for at, part in enumerate(argv):
+        if part == flag and at + 1 < len(argv):
+            return argv[at + 1]
+        if part.startswith(f"{flag}="):
+            return part[len(flag) + 1 :]
+    return None
 
 
 def _profile_source(name: str, stated: str, setup: Path | None) -> Path:
