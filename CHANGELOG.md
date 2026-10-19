@@ -21,6 +21,18 @@ the repository AdarGit008/mcgyvr-lab, under the same paths.
   (100.64.0.0/10) address when the head's rig file records none on that
   overlay, and a head whose `--rpc` names other workers are refused by name
   (#731).
+- **A fleet with a sleeper samples, stamps and locks as one fleet** (#731).
+  `mcgyvr setup` lays a unit with `role: sleeps-until-needed` out asleep, and
+  its sample wakes it through the ladder manager's own switches (the units
+  `room_for` names are put down first), probes it like an awake unit, then
+  puts it down and wakes those units back. Each way is a move with its rig,
+  whether it passed, its downtime and each unit's wake time. The sample is
+  green only when the sleeper answered its probe and the swap passed both
+  ways; otherwise the reason names the unit and the way (`swap: U on R, in:`
+  / `back:`). The evidence carries the moves, the fleet lock keeps them under
+  `swaps` (refusing a sleeper whose swap did not run, pass or record its
+  times), and `mcgyvr fleet use` prints them. A unit laid out asleep that is
+  no sleeper is still red, and a fleet with no sleeper locks as before.
 
 ### Removed
 
