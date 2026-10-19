@@ -13,8 +13,8 @@ being started.
 from __future__ import annotations
 
 import ipaddress
-from collections.abc import Mapping
-from dataclasses import dataclass
+from collections.abc import Mapping, Sequence
+from dataclasses import dataclass, replace
 from pathlib import Path
 
 from mcgyvr.serving import ROLE_HEADLESS, ROLE_RPC, ROLE_SERVE
@@ -179,6 +179,50 @@ def _bind(target: Target, *, model: str) -> str:
     )
 
 
+def rpc_workers(
+    remote: Sequence[Target], *, model: str, rpc_port: int
+) -> tuple[Process, ...]:
+    """One rpc-server worker per card of a machine other than the head's.
+
+    The cards are taken in the order given, and each machine counts its ports
+    from ``rpc_port`` up, one card per port. A worker binds the address
+    ``_bind`` picks for its card and names that card as its one device; it
+    holds no shard of a plan, so a caller with a plan puts the shard on it.
+    Two workers that would listen on one address and port are refused.
+    """
+    workers: list[Process] = []
+    next_on: dict[str, int] = {}
+    for target in remote:
+        key = target.host.lower()
+        listens = rpc_port + next_on.get(key, 0)
+        next_on[key] = next_on.get(key, 0) + 1
+        workers.append(
+            Process(
+                host=target.host,
+                role=ROLE_RPC,
+                gpus=(target.gpu,),
+                port=listens,
+                args={"-H": _bind(target, model=model), "-d": RPC_DEVICE},
+                extra=(),
+                env=_pinned(),
+                shards=(),
+            )
+        )
+    endpoints = [f"{worker.args['-H']}:{worker.port}" for worker in workers]
+    if len(set(endpoints)) != len(endpoints):
+        raise LaunchError(
+            f"{model}: two workers would listen on one address and port "
+            f"({', '.join(endpoints)}); state a distinct `bind` per machine or "
+            f"a distinct rpc_port"
+        )
+    return tuple(workers)
+
+
+def rpc_endpoints(workers: Sequence[Process]) -> str:
+    """The head's ``--rpc`` value: each worker's address and port, in order."""
+    return ",".join(f"{worker.args['-H']}:{worker.port}" for worker in workers)
+
+
 def _head_shards(plan: Plan, *, model: str) -> tuple[Shard, ...]:
     held = tuple(shard for shard in plan.shards if _same(shard.target.host, plan.head))
     if not held:
@@ -246,33 +290,18 @@ def _llama(
         "--tensor-split": ",".join(str(count) for count in plan.layer_counts),
     }
 
-    workers: list[Process] = []
-    next_on: dict[str, int] = {}
-    for shard in remote:
-        key = shard.target.host.lower()
-        listens = rpc_port + next_on.get(key, 0)
-        next_on[key] = next_on.get(key, 0) + 1
-        workers.append(
-            Process(
-                host=shard.target.host,
-                role=ROLE_RPC,
-                gpus=(shard.target.gpu,),
-                port=listens,
-                args={"-H": _bind(shard.target, model=model), "-d": RPC_DEVICE},
-                extra=(),
-                env=_pinned(),
-                shards=(shard,),
-            )
+    workers = tuple(
+        replace(worker, shards=(shard,))
+        for worker, shard in zip(
+            rpc_workers(
+                tuple(shard.target for shard in remote), model=model, rpc_port=rpc_port
+            ),
+            remote,
+            strict=True,
         )
-    endpoints = [f"{worker.args['-H']}:{worker.port}" for worker in workers]
-    if len(set(endpoints)) != len(endpoints):
-        raise LaunchError(
-            f"{model}: two workers would listen on one address and port "
-            f"({', '.join(endpoints)}); state a distinct `bind` per machine or "
-            f"a distinct rpc_port"
-        )
-    if endpoints:
-        args["--rpc"] = ",".join(endpoints)
+    )
+    if workers:
+        args["--rpc"] = rpc_endpoints(workers)
     head = Process(
         host=plan.head,
         role=ROLE_SERVE,
