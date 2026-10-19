@@ -35,8 +35,7 @@ from pathlib import Path
 from typing import Any
 
 from mcgyvr.fleet.roots import FolderError, rigs_dir
-from mcgyvr.rig.tunnel import BRIDGE_PREFIXES
-from mcgyvr.scan import ModelOnDisk, Network, Scan
+from mcgyvr.scan import BRIDGE_PREFIXES, ModelOnDisk, Network, Scan
 
 #: A rig is named as ssh names it, so the name is a plain one: letters, digits,
 #: '.', '_' and '-', not starting with '.', which is also a file name.
@@ -286,7 +285,7 @@ def _bridged(address: str, interfaces: Iterable[str]) -> bool:
     """Whether ``address`` is a docker or virtual bridge's rather than the rig's.
 
     It is when every interface the reading names for it is a bridge or a
-    bridge's pair (:data:`mcgyvr.rig.tunnel.BRIDGE_PREFIXES`). When the reading
+    bridge's pair (:data:`mcgyvr.scan.BRIDGE_PREFIXES`). When the reading
     names no interface for it, it is when it lies in :data:`DOCKER_BRIDGE`.
     """
     names = [name for name in interfaces if name]

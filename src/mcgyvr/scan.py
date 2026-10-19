@@ -30,6 +30,11 @@ SSH_TIMEOUT_S = 60.0
 
 BYTES_PER_GB = 1024.0**3
 
+#: Interface names starting with these are container and VM bridges and their
+#: pairs: docker's own bridges, a compose network's br-*, each container's veth*
+#: and libvirt's virbr*.
+BRIDGE_PREFIXES = ("docker", "br-", "veth", "virbr")
+
 _Facts = tuple["Fact", ...]
 _Notes = tuple[str, ...]
 
