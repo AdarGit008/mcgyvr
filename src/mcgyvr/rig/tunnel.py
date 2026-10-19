@@ -31,15 +31,16 @@ _SIOCGIFNETMASK = 0x891B
 _IFREQ_BYTES = 256
 _IFNAME_BYTES = 16
 _SOCKADDR_ADDRESS = slice(20, 24)
+#: Interface names starting with these are container and VM bridges and their
+#: pairs: docker's own bridges, a compose network's br-*, each container's veth*
+#: and libvirt's virbr*.
+BRIDGE_PREFIXES = ("docker", "br-", "veth", "virbr")
 #: Interface names starting with these are this machine's own plumbing, not a
 #: LAN to offer a peer: loopback, container and VM bridges and their pairs,
 #: cluster and overlay networks, and other tunnels.
 VIRTUAL_PREFIXES = (
     "lo",
-    "docker",
-    "br-",
-    "veth",
-    "virbr",
+    *BRIDGE_PREFIXES,
     "vnet",
     "cni",
     "flannel",
