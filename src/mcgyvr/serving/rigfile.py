@@ -35,7 +35,7 @@ from pathlib import Path
 from typing import Any
 
 from mcgyvr.fleet.roots import FolderError, rigs_dir
-from mcgyvr.scan import ModelOnDisk, Network, Scan
+from mcgyvr.scan import BRIDGE_PREFIXES, ModelOnDisk, Network, Scan
 
 #: A rig is named as ssh names it, so the name is a plain one: letters, digits,
 #: '.', '_' and '-', not starting with '.', which is also a file name.
@@ -70,6 +70,10 @@ RECORDED = (
 #: figure the file recorded; a figure either reading lacked is not compared.
 HARDWARE = ("ram_total_gb", "cpu_cores", "cpu_threads", "bandwidth_gbps")
 BANDWIDTH_TOLERANCE = 0.15
+#: Docker's default bridge network. An address in it is taken for docker's own
+#: only when the reading names no interface it sits on; a named interface
+#: decides by its name, so a LAN numbered inside this network is kept.
+DOCKER_BRIDGE = ipaddress.IPv4Network("172.17.0.0/16")
 
 
 class RigFileError(Exception):
@@ -277,44 +281,77 @@ def _listenable(stated: object) -> ipaddress.IPv4Address | None:
     return address if worker_may_listen(address) else None
 
 
+def _bridged(address: str, interfaces: Iterable[str]) -> bool:
+    """Whether ``address`` is a docker or virtual bridge's rather than the rig's.
+
+    It is when every interface the reading names for it is a bridge or a
+    bridge's pair (:data:`mcgyvr.scan.BRIDGE_PREFIXES`). When the reading
+    names no interface for it, it is when it lies in :data:`DOCKER_BRIDGE`.
+    """
+    names = [name for name in interfaces if name]
+    if names:
+        return all(name.startswith(BRIDGE_PREFIXES) for name in names)
+    return ipaddress.IPv4Address(address) in DOCKER_BRIDGE
+
+
 def private_ipv4(network: Network | None) -> tuple[str | None, str]:
     """The rig's private IPv4 and how it was chosen, from its network section.
 
-    The address the rig was reached at over ssh, when a worker may listen there,
-    because that is the one its other machines use. Otherwise its one listenable
-    interface address. Otherwise none, with the sentence saying why: a rig
-    holding several private addresses has none of them guessed, and the sentence
-    says which they are.
+    Docker and virtual bridge addresses (:func:`_bridged`) are set aside first,
+    since no other machine reaches the rig there. Of the rest: the address the
+    rig was reached at over ssh, when a worker may listen there, because that is
+    the one its other machines use. Otherwise its one listenable interface
+    address. Otherwise none, with the sentence saying why: a rig holding several
+    private addresses has none of them guessed, and the sentence says which they
+    are. Whenever a bridge address was set aside, the sentence names it.
     """
     if network is None:
         return None, "the scan read no network (a scan from before addresses)"
-    reached = _listenable(network.reached_at)
-    if reached is not None:
-        return str(reached), "the address the rig was reached at over ssh"
-    if network.reached_at is None:
-        why = "it was not reached over ssh"
-    else:
-        why = f"it was reached at {network.reached_at}, not a private IPv4 address"
-    found: dict[str, list[str]] = {}
+    held: dict[str, list[str]] = {}
     for one in network.ipv4:
         listens = _listenable(one.address)
         if listens is not None:
-            found.setdefault(str(listens), []).append(one.interface)
+            held.setdefault(str(listens), []).append(one.interface)
+    reached = _listenable(network.reached_at)
+    if reached is not None and not _bridged(str(reached), held.get(str(reached), [])):
+        return str(reached), "the address the rig was reached at over ssh"
+    if network.reached_at is None:
+        why = "it was not reached over ssh"
+    elif reached is not None:
+        why = (
+            f"it was reached at {network.reached_at}, a docker or virtual bridge "
+            "address"
+        )
+    else:
+        why = f"it was reached at {network.reached_at}, not a private IPv4 address"
+    bridges = [address for address, names in held.items() if _bridged(address, names)]
+    found = {
+        address: names for address, names in held.items() if address not in bridges
+    }
+    aside = ""
+    if bridges:
+        listed = ", ".join(
+            f"{address} on {', '.join(held[address])}" for address in bridges
+        )
+        aside = (
+            f" once the docker and virtual bridge addresses are set aside ({listed})"
+        )
     if len(found) == 1:
         ((only, names),) = found.items()
         return (
             only,
-            f"the one private IPv4 on its interfaces ({', '.join(names)}); {why}",
+            f"the one private IPv4 on its interfaces ({', '.join(names)})"
+            f"{aside}; {why}",
         )
     if not found:
-        return None, f"{why}, and no private IPv4 is on its interfaces"
+        return None, f"{why}, and no private IPv4 is on its interfaces{aside}"
     said = ", ".join(
         f"{address} ({', '.join(names)})" for address, names in found.items()
     )
     return None, (
-        f"{why}, and it holds several private IPv4 addresses ({said}); none is "
-        "guessed. Reach it over ssh at the one its other machines use (its ssh "
-        "HostName) and scan it again"
+        f"{why}, and it holds several private IPv4 addresses ({said}){aside}; "
+        "none is guessed. Reach it over ssh at the one its other machines use (its "
+        "ssh HostName) and scan it again"
     )
 
 

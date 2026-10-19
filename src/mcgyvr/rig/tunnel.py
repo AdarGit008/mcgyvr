@@ -19,6 +19,7 @@ from collections.abc import Iterable, Sequence
 from dataclasses import dataclass
 
 from mcgyvr.rig import sessionwire
+from mcgyvr.scan import BRIDGE_PREFIXES
 
 #: The narrowest tunnel network allowed: a /30, the smallest that still holds
 #: two host addresses.
@@ -32,14 +33,12 @@ _IFREQ_BYTES = 256
 _IFNAME_BYTES = 16
 _SOCKADDR_ADDRESS = slice(20, 24)
 #: Interface names starting with these are this machine's own plumbing, not a
-#: LAN to offer a peer: loopback, container and VM bridges and their pairs,
-#: cluster and overlay networks, and other tunnels.
+#: LAN to offer a peer: loopback, container and VM bridges and their pairs
+#: (:data:`mcgyvr.scan.BRIDGE_PREFIXES`), cluster and overlay networks, and
+#: other tunnels.
 VIRTUAL_PREFIXES = (
     "lo",
-    "docker",
-    "br-",
-    "veth",
-    "virbr",
+    *BRIDGE_PREFIXES,
     "vnet",
     "cni",
     "flannel",

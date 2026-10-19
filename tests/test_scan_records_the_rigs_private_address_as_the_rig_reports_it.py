@@ -37,9 +37,11 @@ from mcgyvr.serving import rigfile, rigscan
 from tests import usermode
 
 #: The invented rig's addresses: a documentation address (RFC 5737) on its
-#: LAN card, another on its container bridge, and loopback.
+#: LAN card, another on its container bridge, and loopback; a third on a second
+#: LAN card where the rig holds two.
 LAN = "192.0.2.20"
 BRIDGE = "198.51.100.30"
+SECOND_LAN = "203.0.113.40"
 IP_ADDR = (
     "1: lo    inet 127.0.0.1/8 scope host lo\\       valid_lft forever\n"
     f"2: eth0    inet {LAN}/24 brd 192.0.2.255 scope global eth0\\       "
@@ -151,16 +153,16 @@ def test_with_several_private_addresses_and_none_reached_none_is_guessed(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
 ) -> None:
     network = _network(
-        "127.0.0.1", ("lo", "127.0.0.1"), ("eth0", LAN), ("docker0", BRIDGE)
+        "127.0.0.1", ("lo", "127.0.0.1"), ("eth0", LAN), ("eth1", SECOND_LAN)
     )
 
     saved = _scan_rig(tmp_path, monkeypatch, network)
 
     assert saved.private_ipv4 is None
     how = str(saved.private_ipv4_how)
-    assert LAN in how and BRIDGE in how
+    assert LAN in how and SECOND_LAN in how
     out = capsys.readouterr().out
-    assert "no private IPv4" in out and LAN in out and BRIDGE in out
+    assert "no private IPv4" in out and LAN in out and SECOND_LAN in out
 
 
 def test_a_reading_with_no_network_names_no_address(
