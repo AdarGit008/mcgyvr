@@ -385,12 +385,12 @@ def test_an_mcgyvr_that_cannot_state_its_version_warns_and_still_installs(
 @pytest.mark.parametrize(
     "reported",
     [
-        "0.5.0",
+        _install_constant("MIN_VERSION"),
         # The shape a real dev build has: a PEP 440 pre-release plus local
         # build metadata. Naive string comparison reads this as older than
         # `0.5.0` on the `+g...` tail; stripping the local part and comparing
         # with `sort -V` reads it as newer, which it is.
-        "0.5.1.dev376+ga624cdc2",
+        "0.5.2.dev376+ga624cdc2",
         "0.6.0",
     ],
 )
@@ -478,7 +478,7 @@ def test_install_is_quiet_when_the_cli_on_path_accepts_the_skills_examples(
 ) -> None:
     home = tmp_path / "home"
     home.mkdir()
-    path = _judging(tmp_path / "bin", "0.5.0", accepts=True)
+    path = _judging(tmp_path / "bin", _install_constant("MIN_VERSION"), accepts=True)
 
     result = _run_install_with_path(home, path)
 
