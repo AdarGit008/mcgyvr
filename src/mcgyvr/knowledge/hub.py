@@ -82,7 +82,6 @@ from mcgyvr.knowledge.record import (
     dump_record,
     parse_record,
 )
-from mcgyvr.rig.inventory import kv_bytes_per_token
 from mcgyvr.serving import fetchlist, ggufscan, vramfit
 
 #: The use cases the Hub is asked about, by the task catalog's names.
@@ -119,6 +118,9 @@ TOOL_TAGS = frozenset({"tool-use", "tool-call", "tool-calling", "function-callin
 _UNSEEN_TEMPLATE = "tools"
 #: The engines a GGUF record is served by.
 ENGINES: tuple[str, ...] = ("llama.cpp",)
+#: The bytes one cached element takes at an f16 cache, the width a record's
+#: `kv_bytes_per_token` is stated at, as the shipped catalog states it.
+F16_BYTES = 2
 
 #: Seconds one request waits for an answer before the network is taken as gone.
 TIMEOUT_S = 20.0
@@ -456,6 +458,19 @@ def read_header(
         want = min(want * 2, ceiling)
 
 
+def _kv_bytes_per_token(row: Mapping[str, Any]) -> int:
+    """The bytes one token of context takes over every caching layer of a header
+    row at an f16 cache (`F16_BYTES` an element), 0 when the row states none."""
+    total = 0
+    for layer in row.get("kv_layers") or ():
+        k = layer.get("k_elems") if isinstance(layer, dict) else None
+        v = layer.get("v_elems") if isinstance(layer, dict) else None
+        if type(k) is not int or type(v) is not int:
+            return 0
+        total += (k + v) * F16_BYTES
+    return total
+
+
 def build_record(
     one: Listed,
     repo: HubRepo,
@@ -474,8 +489,8 @@ def build_record(
     header = f"{geometry.SOURCE}:{at}"
     if file.sha256 is None:
         raise HubError(f"{at}: the Hub states no sha256 for it")
-    kv = kv_bytes_per_token(row, "f16")
-    if kv is None:
+    kv = _kv_bytes_per_token(row)
+    if not kv:
         raise HubError(f"{at}: the header prices no KV cache")
     try:
         recurrent = vramfit.rs_bytes(dict(row), n_seq_max=1)["total"]
