@@ -4,10 +4,12 @@
 discovers GGUF checkpoints in the model stores it is given, sizes their weights
 plus per-user cache against each rig's free VRAM and host RAM with `vramfit`,
 and falls back to the shipped knowledge-base catalog when no local checkpoint
-fits. The surviving candidates are offered to the decision model on the local
-endpoint when it answers, and the largest candidate wins when it does not. Only
-the `coding` profile gets a placement; every other profile returns the bare rig
-measurements with no placement.
+fits. Each candidate is named by its rig, its engine, its weights (and quant)
+and its speculative head, so no two share a name. The surviving candidates are
+offered by those names to the decision model on the local endpoint when it
+answers, and the largest candidate wins when it does not; the placement names
+the host it is for. Only the `coding` profile gets a placement; every other
+profile returns the bare rig measurements with no placement.
 """
 
 from __future__ import annotations
@@ -74,15 +76,19 @@ class RecommendError(Exception):
 
 @dataclass(frozen=True)
 class Candidate:
-    """One way to serve one model on the rigs that were scanned.
+    """One way to serve one model on one of the rigs that were scanned.
 
-    A discovered local checkpoint fills `checkpoint` and leaves `model_id` and
-    `quant` empty, while a catalog entry does the reverse; `flags` is what the
-    chosen engine should be launched with, and `wake` is true when the scan found
-    no GPU on the rig at all.
+    `host` is the rig it was sized for and would run on, and `name` carries that
+    rig with the engine, the weights and the head, so it is unique among one
+    plan's candidates and is what the decision answers with. A discovered local
+    checkpoint fills `checkpoint` and leaves `model_id` and `quant` empty, while
+    a catalog entry does the reverse; `flags` is what the chosen engine should be
+    launched with, and `wake` is true when the scan found no GPU on the rig at
+    all.
     """
 
     name: str
+    host: str
     description: str
     engine: str
     checkpoint: str | None
@@ -317,30 +323,28 @@ def _has_mtp(header: Mapping[str, Any]) -> bool:
 
 
 def _local_candidates(
-    scan: Scan, header: Mapping[str, Any], users: int
+    host: str, scan: Scan, header: Mapping[str, Any], users: int
 ) -> tuple[Candidate, ...]:
-    """Candidates for one discovered checkpoint that already fitted on this rig.
+    """Candidates for one discovered checkpoint that already fitted on `host`.
 
     A checkpoint carrying a grafted MTP head yields two candidates, one serving
     that head and one without it, so the decision can weigh speculative decode
     against the plain path; a checkpoint without one yields only the plain path.
+    A path names one file on one rig, so the rig, the path and the head name
+    each candidate.
     """
     checkpoint = str(header.get("file") or "")
     size_bytes = int(header.get("size_bytes") or 0)
     wake = not scan.gpus
-    variants: list[tuple[str, bool]] = [(checkpoint, False)]
-    if _has_mtp(header):
-        variants.append((checkpoint, True))
+    variants = [False, True] if _has_mtp(header) else [False]
     candidates: list[Candidate] = []
-    for _name, mtp in variants:
-        flag = "--spec-type draft-mtp" if mtp else "no speculative head"
+    for mtp in variants:
+        head = " with its grafted MTP head" if mtp else ""
         candidates.append(
             Candidate(
-                name=f"llama.cpp:{flag}",
-                description=(
-                    f"llama.cpp serving {checkpoint}"
-                    f"{' with its grafted MTP head' if mtp else ''}"
-                ),
+                name=f"{host}: llama.cpp {checkpoint}{' + MTP' if mtp else ''}",
+                host=host,
+                description=f"on {host}, llama.cpp serving {checkpoint}{head}",
                 engine="llama.cpp",
                 checkpoint=checkpoint,
                 model_id=None,
@@ -399,9 +403,12 @@ def _catalog_fits(scan: Scan, entry: Mapping[str, Any], users: int) -> bool:
 
 
 def _catalog_candidates(
-    scan: Scan, catalog: Mapping[str, Any], users: int
+    host: str, scan: Scan, catalog: Mapping[str, Any], users: int
 ) -> tuple[Candidate, ...]:
-    """One candidate per engine that can serve a catalog entry fitting this rig.
+    """One candidate per engine that can serve a catalog entry fitting `host`.
+
+    The rig, the engine, the model id and the quant name each candidate; the
+    catalog holds one model at one quant once, so no two names are the same.
 
     Entries that do not fit, and entries that are not objects, are skipped, and
     `wake` follows whether the scan found any GPU on the rig.
@@ -426,8 +433,9 @@ def _catalog_candidates(
                 flags = {}
             candidates.append(
                 Candidate(
-                    name=f"{engine}:{model_id}",
-                    description=f"{engine} serving {model_id} ({quant})",
+                    name=f"{host}: {engine} {model_id} {quant}",
+                    host=host,
+                    description=f"on {host}, {engine} serving {model_id} ({quant})",
                     engine=str(engine),
                     checkpoint=None,
                     model_id=model_id,
@@ -455,6 +463,19 @@ def _decision_endpoint() -> Endpoint:
 def _deterministic_pick(candidates: tuple[Candidate, ...]) -> Candidate:
     """The pick made without a model: the candidate with the largest weights."""
     return max(candidates, key=lambda candidate: candidate.size_bytes)
+
+
+def _distinct(candidates: Sequence[Candidate]) -> tuple[Candidate, ...]:
+    """`candidates` with each name kept once, at its first place.
+
+    A name carries the rig, the engine, the weights (and quant) and the head,
+    so two candidates under one name are one placement listed twice, as when
+    one store directory is given under two spellings that list the same file.
+    """
+    kept: dict[str, Candidate] = {}
+    for candidate in candidates:
+        kept.setdefault(candidate.name, candidate)
+    return tuple(kept.values())
 
 
 def _decide(
@@ -501,6 +522,7 @@ def _placement_document(candidate: Candidate, source: str) -> dict[str, Any]:
     """The chosen candidate as the plan document's `placement`, tagged with where
     it came from."""
     return {
+        "host": candidate.host,
         "engine": candidate.engine,
         "checkpoint": candidate.checkpoint,
         "model_id": candidate.model_id,
@@ -534,8 +556,9 @@ def plan(
     and kept as a candidate when it fits some rig, and when none does, or no store
     was given, the shipped catalog supplies candidates from every rig's scan.
     The candidates are then decided by `_decide`, and the plan states the
-    placement, which route decided it, and the decision endpoint for a model
-    decision. Having no candidate at all raises `RecommendError`.
+    placement with the host it is for, which route decided it, and the decision
+    endpoint for a model decision. Having no candidate at all raises
+    `RecommendError`.
     """
     rigs: list[dict[str, Any]] = []
     unreachable: list[str] = []
@@ -592,7 +615,9 @@ def plan(
             for checkpoint in _discover(host, str(directory)):
                 header = _read_header(host, checkpoint)
                 if _fits(found, header, users):
-                    local_candidates.extend(_local_candidates(found, header, users))
+                    local_candidates.extend(
+                        _local_candidates(host, found, header, users)
+                    )
 
     if model_stores and local_candidates:
         candidates = tuple(local_candidates)
@@ -602,9 +627,10 @@ def plan(
         candidates = tuple(
             candidate
             for host, found in scans.items()
-            for candidate in _catalog_candidates(found, catalog, users)
+            for candidate in _catalog_candidates(host, found, catalog, users)
         )
         source = "hf-catalog"
+    candidates = _distinct(candidates)
 
     if not candidates:
         raise RecommendError(
@@ -620,6 +646,7 @@ def plan(
         "candidates": [
             {
                 "name": candidate.name,
+                "host": candidate.host,
                 "engine": candidate.engine,
                 "checkpoint": candidate.checkpoint,
                 "model_id": candidate.model_id,
