@@ -135,6 +135,7 @@ BELOW_THE_SEAM: tuple[str, ...] = (
     "mcgyvr.initialize",
     "mcgyvr.knowledge",
     "mcgyvr.knowledge.geometry",
+    "mcgyvr.knowledge.hub",
     "mcgyvr.knowledge.record",
     "mcgyvr.knowledge.store",
     "mcgyvr.local_pool",

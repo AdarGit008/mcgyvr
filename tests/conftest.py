@@ -208,6 +208,24 @@ def _offline_probes(monkeypatch: pytest.MonkeyPatch) -> None:
 
 
 @pytest.fixture(autouse=True)
+def _the_hub_does_not_answer(monkeypatch: pytest.MonkeyPatch) -> None:
+    """No test asks the Hugging Face Hub unless it stands its own answers there.
+
+    Every Hub read goes through :func:`mcgyvr.knowledge.hub.fetch`, so that one
+    seam answers "no network" for the whole suite, which is what sends a plan to
+    the cache and the shipped catalog. A test of the Hub path substitutes it
+    again with recorded answers (``tests/hub_recorded.py``); its
+    ``monkeypatch`` applies later than this one and wins.
+    """
+    from mcgyvr.knowledge import hub
+
+    def no_network(url: str, *, headers: Any, limit: int) -> bytes:
+        raise hub.NoNetworkError(f"{url} did not answer: the suite is offline")
+
+    monkeypatch.setattr(hub, "fetch", no_network, raising=True)
+
+
+@pytest.fixture(autouse=True)
 def _no_test_opens_the_doors_read(monkeypatch: pytest.MonkeyPatch) -> None:
     """A test may not open ``python -m mcgyvr.serving.run read`` against a rig.
 
