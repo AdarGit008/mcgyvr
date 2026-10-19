@@ -1,15 +1,27 @@
 """Turn a usage profile and a set of rigs into a plan naming one placement.
 
-`plan` measures each named host (or takes scans handed in already measured),
-discovers GGUF checkpoints in the model stores it is given, sizes their weights
-plus per-user cache against each rig's free VRAM and host RAM with `vramfit`,
-and falls back to the shipped knowledge-base catalog when no local checkpoint
-fits. Each candidate is named by its rig, its engine, its weights (and quant)
-and its speculative head, so no two share a name. The surviving candidates are
-offered by those names to the decision model on the local endpoint when it
-answers, and the largest candidate wins when it does not; the placement names
-the host it is for. Only the `coding` profile gets a placement; every other
-profile returns the bare rig measurements with no placement.
+`plan` measures each named host (or takes scans handed in already measured) and
+places the profiles that are use cases (`PLACEMENT_PROFILES`: coding, chat,
+agent); every other profile returns the bare rig measurements with no
+placement.
+
+The candidates come from `load_catalog`, which asks `mcgyvr.knowledge.hub` for
+the use case's models: the Hugging Face Hub read now, else the cache of an
+earlier read, else the shipped catalog. The plan says which answered. Each
+candidate is named by its rig, its engine, its weights (and quant) and its
+speculative head, so no two share a name, and the placement names the host it
+is for.
+
+- `coding` first discovers GGUF checkpoints in the model stores it is given and
+  sizes their weights plus per-user cache against each rig's free VRAM and host
+  RAM with `vramfit`, and takes the catalog when no local checkpoint fits. The
+  surviving candidates are offered by those names to the decision model on the
+  local endpoint when it answers, and the largest candidate wins when it does
+  not.
+- `chat` and `agent` are one unit: the biggest model that fits, with the most
+  context that fits up to the model's own, and never under
+  `MIN_CONTEXT_PER_USER` per user. A tie goes to the candidate the Hub ranks
+  first.
 """
 
 from __future__ import annotations
@@ -23,8 +35,9 @@ from mcgyvr import availability, decision
 from mcgyvr import scan as scan_module
 from mcgyvr.config import DEFAULT_REQUEST_TIMEOUT_S
 from mcgyvr.decision import Choice, ChoiceAnswer
+from mcgyvr.knowledge import hub
 from mcgyvr.knowledge import store as knowledge_store
-from mcgyvr.knowledge.record import KnowledgeError
+from mcgyvr.knowledge.record import KnowledgeError, ModelRecord
 from mcgyvr.local_pool import Endpoint, Protocol
 from mcgyvr.runner import RunnerError
 from mcgyvr.scan import (
@@ -44,9 +57,14 @@ from mcgyvr.serving import (
     vramfit,
 )
 
-#: Usage profiles the CLI accepts; only PLACEMENT_PROFILE gets a placement.
-PROFILES = ("coding", "chatting", "media_gen", "other")
-PLACEMENT_PROFILE = "coding"
+#: Usage profiles the CLI accepts; only PLACEMENT_PROFILES get a placement.
+PROFILES = (*hub.USE_CASES, "media_gen", "other")
+#: The profiles that are use cases, each placed from the Hub's candidates for it.
+PLACEMENT_PROFILES = hub.USE_CASES
+#: The one placed as a ladder's rung, with local stores and the decision model.
+PLACEMENT_PROFILE = hub.CODING
+#: The least context a chat or agent unit serves each user.
+MIN_CONTEXT_PER_USER = 8192
 
 #: The tail appended to a quoted model-store directory to list the .gguf files
 #: sitting directly in it; `gatelib` admits exactly the `find '<dir>'` command
@@ -114,31 +132,52 @@ def discover_command(directory: str) -> str:
     return f"find '{directory}'{_DISCOVER_SUFFIX}"
 
 
-def load_catalog() -> dict[str, Any]:
-    """The shipped catalog, merged with the cache offline, as a JSON-shaped dict.
+def _flat(one: ModelRecord) -> dict[str, Any]:
+    """A record flattened to the fields sizing needs — id, quantisation, file
+    size, context length, per-token KV bytes, per-sequence recurrent bytes and
+    the engines that can serve it."""
+    return {
+        "model_id": one.model_id,
+        "quant": one.quant,
+        "size_bytes": one.size_bytes.value,
+        "context_length": one.context_length.value,
+        "kv_bytes_per_token": one.kv_bytes_per_token.value,
+        "recurrent_bytes_per_slot": one.recurrent_bytes_per_slot.value,
+        "engines": list(one.engines),
+    }
 
-    Each known record is flattened to the fields sizing needs — id, quantisation,
-    file size, context length, per-token KV bytes, per-sequence recurrent bytes
-    and the engines that can serve it. A `KnowledgeError` from the store is
+
+def load_catalog(
+    use_case: str | None = None, *, max_bytes: int | None = None
+) -> dict[str, Any]:
+    """The candidates as a JSON-shaped dict of flattened records under `models`.
+
+    With a use case, `hub.candidates` answers: the Hub read now, else the cache,
+    else the shipped catalog, kept to that use case, with files no larger than
+    `max_bytes`; `answered` says which (`live`, `cache` or `shipped`) and
+    `read_at` the oldest day any of its numbers was read. With none, every model
+    the cache and the shipped catalog know, offline. A `KnowledgeError` is
     re-raised as `CatalogError`.
     """
     try:
-        known = knowledge_store.offline()
+        if use_case is None:
+            merged = knowledge_store.offline()
+            records = merged.records
+            answered = (
+                knowledge_store.CACHE
+                if any(k.origin == knowledge_store.CACHE for k in merged.known)
+                else knowledge_store.SHIPPED
+            )
+            read_at = merged.oldest_read_at
+        else:
+            answer = hub.candidates(use_case, max_bytes=max_bytes)
+            records, answered, read_at = answer.records, answer.origin, answer.read_at
     except KnowledgeError as exc:
         raise CatalogError(str(exc)) from exc
     return {
-        "models": [
-            {
-                "model_id": one.model_id,
-                "quant": one.quant,
-                "size_bytes": one.size_bytes.value,
-                "context_length": one.context_length.value,
-                "kv_bytes_per_token": one.kv_bytes_per_token.value,
-                "recurrent_bytes_per_slot": one.recurrent_bytes_per_slot.value,
-                "engines": list(one.engines),
-            }
-            for one in known.records
-        ]
+        "models": [_flat(one) for one in records],
+        "answered": answered,
+        "read_at": read_at.isoformat() if read_at is not None else None,
     }
 
 
@@ -449,6 +488,47 @@ def _catalog_candidates(
     return tuple(candidates)
 
 
+def _most_context(scan: Scan, entry: Mapping[str, Any], users: int) -> int | None:
+    """The most context, over `users` sequences, a catalog entry fits on this rig
+    beside its weights and recurrent state, or None when it cannot be sized or
+    fits less than `MIN_CONTEXT_PER_USER` per user.
+
+    Each user gets the same whole multiple of 256 cells, no more than the
+    entry's own context, so `_catalog_slot_bytes` prices the answer exactly.
+    """
+    if _catalog_slot_bytes(entry, users) is None:
+        return None
+    room = (
+        _free_vram_bytes(scan)
+        - int(entry.get("size_bytes") or 0)
+        - int(entry.get("recurrent_bytes_per_slot", 0)) * users
+    )
+    per_user = min(
+        room // (int(entry["kv_bytes_per_token"]) * users),
+        int(entry["context_length"]),
+    )
+    per_user -= per_user % 256
+    if per_user < MIN_CONTEXT_PER_USER:
+        return None
+    return per_user * users
+
+
+def _one_unit_candidates(
+    host: str, scan: Scan, catalog: Mapping[str, Any], users: int
+) -> tuple[Candidate, ...]:
+    """The chat and agent candidates on one rig: each catalog entry priced at the
+    most context it fits there (`_most_context`), then made candidates as
+    `_catalog_candidates` makes them; an entry that fits too little is left out."""
+    sized: list[dict[str, Any]] = []
+    for entry in catalog.get("models", ()):
+        if not isinstance(entry, dict):
+            continue
+        context = _most_context(scan, entry, users)
+        if context is not None:
+            sized.append({**entry, "context_length": context})
+    return _catalog_candidates(host, scan, {"models": sized}, users)
+
+
 def _decision_endpoint() -> Endpoint:
     """The local OpenAI-protocol endpoint a decision model is expected to answer on."""
     return Endpoint(
@@ -552,13 +632,16 @@ def plan(
     name instead of failing the plan. Each measured rig is reported in `rigs`, and
     a host named twice is handled once.
 
-    Only the `coding` profile goes further: each .gguf in `model_stores` is read
-    and kept as a candidate when it fits some rig, and when none does, or no store
-    was given, the shipped catalog supplies candidates from every rig's scan.
-    The candidates are then decided by `_decide`, and the plan states the
-    placement with the host it is for, which route decided it, and the decision
-    endpoint for a model decision. Having no candidate at all raises
-    `RecommendError`.
+    Only the `PLACEMENT_PROFILES` go further. For `coding`, each .gguf in
+    `model_stores` is read and kept as a candidate when it fits some rig, and
+    when none does, or no store was given, the use case's catalog
+    (`load_catalog`) supplies candidates from every rig's scan; they are decided
+    by `_decide`. For `chat` and `agent` the catalog alone supplies them, each
+    at the most context it fits (`_one_unit_candidates`), and the biggest wins.
+    The plan states the placement with the host it is for, which route decided
+    it, the decision endpoint for a model decision, and which of the Hub, the
+    cache or the shipped catalog answered (`candidates_from`, None for a local
+    store). Having no candidate at all raises `RecommendError`.
     """
     rigs: list[dict[str, Any]] = []
     unreachable: list[str] = []
@@ -595,7 +678,7 @@ def plan(
             scans[str(host)] = found
             rigs.append({"host": str(host), "measured": _measured(found)})
 
-    if profile != PLACEMENT_PROFILE:
+    if profile not in PLACEMENT_PROFILES:
         return {
             "profile": profile,
             "users": users,
@@ -609,9 +692,12 @@ def plan(
             "decision": None,
         }
 
+    # A local checkpoint says nothing of the use case it serves, so only the
+    # ladder's coding rung is looked for in a store.
+    stores = model_stores if profile == PLACEMENT_PROFILE else ()
     local_candidates: list[Candidate] = []
     for host, found in scans.items():
-        for directory in dict.fromkeys(model_stores):
+        for directory in dict.fromkeys(stores):
             for checkpoint in _discover(host, str(directory)):
                 header = _read_header(host, checkpoint)
                 if _fits(found, header, users):
@@ -619,15 +705,25 @@ def plan(
                         _local_candidates(host, found, header, users)
                     )
 
-    if model_stores and local_candidates:
+    candidates_from: str | None = None
+    candidates_read_at: str | None = None
+    if stores and local_candidates:
         candidates = tuple(local_candidates)
         source = "local-store"
     else:
-        catalog = load_catalog()
+        roomiest = max((_free_vram_bytes(found) for found in scans.values()), default=0)
+        catalog = load_catalog(profile, max_bytes=roomiest or None)
+        candidates_from = catalog.get("answered")
+        candidates_read_at = catalog.get("read_at")
+        shaped = (
+            _catalog_candidates
+            if profile == PLACEMENT_PROFILE
+            else _one_unit_candidates
+        )
         candidates = tuple(
             candidate
             for host, found in scans.items()
-            for candidate in _catalog_candidates(host, found, catalog, users)
+            for candidate in shaped(host, found, catalog, users)
         )
         source = "hf-catalog"
     candidates = _distinct(candidates)
@@ -654,11 +750,18 @@ def plan(
             for candidate in candidates
         ],
     }
-    selected, decision_source = _decide(candidates, state)
+    if profile == PLACEMENT_PROFILE:
+        selected, decision_source = _decide(candidates, state)
+    else:
+        # The ruling for one chat or agent unit is the biggest model that fits,
+        # which is the largest-weights pick, with no model asked.
+        selected, decision_source = _deterministic_pick(candidates), "deterministic"
     plan: dict[str, Any] = {
         "profile": profile,
         "users": users,
         "source": source,
+        "candidates_from": candidates_from,
+        "candidates_read_at": candidates_read_at,
         "hosts": [str(host) for host in dict.fromkeys(hosts)],
         "unreachable": unreachable,
         "no_scanner": no_scanner,

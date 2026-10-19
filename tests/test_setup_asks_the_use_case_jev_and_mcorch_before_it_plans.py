@@ -64,9 +64,9 @@ def _planned_after(monkeypatch: pytest.MonkeyPatch, asked: list[str]) -> list[in
     at: list[int] = []
     planned = _setup_placements
 
-    def placements(rigs: Any, scans: Any) -> Any:
+    def placements(rigs: Any, scans: Any, use_case: str) -> Any:
         at.append(len(asked))
-        return planned(rigs, scans)
+        return planned(rigs, scans, use_case)
 
     monkeypatch.setattr(cli.commands.setup, "_setup_placements", placements)
     return at
