@@ -95,19 +95,6 @@ class Fact:
 
 
 @dataclass(frozen=True)
-class Mismatch:
-    """One field whose value moved between two readings of one machine.
-
-    ``prior`` is the value recorded before and ``measured`` the one just taken;
-    both are untyped, so a count and a string are held the same way.
-    """
-
-    field: str
-    prior: object
-    measured: object
-
-
-@dataclass(frozen=True)
 class Vram:
     """One card's video memory, in MiB, as the driver reported it.
 

@@ -45,12 +45,12 @@ CACHE_ELEM_BYTES = {"f32": 4.0, "f16": 2.0, "bf16": 2.0, "q8_0": 34.0 / 32.0}
 #: nothing, so its prediction still leaves the card room for what llama.cpp
 #: will allocate next to the tensors. It is a default, not a ceiling: no load
 #: here was measured against it. `Placement.allowance_mib` carries the result
-#: beside the predicted bytes, and `Placement.required_mib` sums the two, so a
-#: caller comparing a placement with free VRAM compares against the tensors,
-#: the caches they sit in, and this headroom together rather than the tensors
-#: alone. A caller that wants the figure for one architecture at one batch
-#: asks `allowance_mib`; this constant is only what it returns on a miss, and
-#: 768 MiB is that answer, not a measurement of any particular model.
+#: beside the predicted bytes, so a caller comparing a placement with free VRAM
+#: compares against the tensors, the caches they sit in, and this headroom
+#: together rather than the tensors alone. A caller that wants the figure for
+#: one architecture at one batch asks `allowance_mib`; this constant is only
+#: what it returns on a miss, and 768 MiB is that answer, not a measurement of
+#: any particular model.
 SCRATCH_AND_CONTEXT_MIB = 768
 
 #: The scratch allowance measured on a rig, in MiB, filed under the ubatch it
@@ -319,11 +319,6 @@ class Placement:
 
     predicted_mib: float
     allowance_mib: float
-
-    @property
-    def required_mib(self) -> float:
-        """The two figures summed: the card bytes the placement needs in total."""
-        return self.predicted_mib + self.allowance_mib
 
 
 def allowance_mib(geometry: dict[str, Any], *, n_ubatch: int = 512) -> float:
