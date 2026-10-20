@@ -124,6 +124,24 @@ def test_a_fleet_that_does_not_parse_reads_as_it_did(tmp_path: Path) -> None:
     assert host_is_locked(root, "box1") is True
 
 
+def test_a_fleet_with_a_duplicate_key_reads_as_one_that_does_not_parse(
+    tmp_path: Path,
+) -> None:
+    """The pin is read with the strict loader every setup file is read with, so
+    a repeated key is no pin rather than last-one-wins, and the refusal never
+    escapes as an error: the lock reads as it does with no pin at all."""
+    root = _lock_root(tmp_path)
+    (root / "fleet.yaml").write_text(
+        f"rigs:\n  box1:\n    rig_id: {STALE}\n  box1:\n    rig_id: {PINNED}\n",
+        encoding="utf-8",
+    )
+    assert host_is_locked(root, "box1") is True
+    root.joinpath(*RIGS, PINNED).rename(root.joinpath(*RIGS, STALE))
+    assert host_is_locked(root, "box1") is True, (
+        "a duplicate-key fleet.yaml pinned the last rig id it named"
+    )
+
+
 def test_a_fleet_that_pins_no_such_host_reads_as_it_did(tmp_path: Path) -> None:
     """A host the fleet.yaml does not name has no pinned id, so the lock reads
     as it always has rather than refusing a host it cannot pin."""

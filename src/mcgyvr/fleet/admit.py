@@ -169,14 +169,24 @@ def admit_live(
     return Plan(clean=clean, restore=restore)
 
 
-def _pinned_rig_id(root: Path, host: str) -> str | None:
-    """The rig id ``root``'s ``fleet.yaml`` pins for ``host``, or None if none."""
-    import yaml
+def _given(root: Path) -> Any:
+    """``root``'s ``fleet.yaml`` read strictly, or None if it cannot be read.
+
+    A strict refusal (a duplicate key) is a ``FleetFileError``, not a
+    ``yaml.YAMLError``, so both are caught here: an unreadable file reads as no
+    fleet, and every caller then fails closed.
+    """
+    from mcgyvr.fleet.files import FleetFileError, _yaml
 
     try:
-        given = yaml.safe_load((root / "fleet.yaml").read_text(encoding="utf-8"))
-    except (OSError, yaml.YAMLError):
+        return _yaml((root / "fleet.yaml").read_text(encoding="utf-8"))
+    except (OSError, FleetFileError):
         return None
+
+
+def _pinned_rig_id(root: Path, host: str) -> str | None:
+    """The rig id ``root``'s ``fleet.yaml`` pins for ``host``, or None if none."""
+    given = _given(root)
     rigs = given.get("rigs") if isinstance(given, dict) else None
     rig = rigs.get(host) if isinstance(rigs, dict) else None
     rig_id = rig.get("rig_id") if isinstance(rig, dict) else None
@@ -193,14 +203,9 @@ def _unsampled_slots(root: Path, host: str) -> Iterator[tuple[str | None, bool]]
     ``host``. A fleet, layout, or lock that cannot be read or resolved is
     skipped rather than refused.
     """
-    import yaml
-
     from mcgyvr.fleet.lock import approved_on_no_evidence, pinned_containers
 
-    try:
-        given = yaml.safe_load((root / "fleet.yaml").read_text(encoding="utf-8"))
-    except (OSError, yaml.YAMLError):
-        return
+    given = _given(root)
     fleets = given.get("fleets") if isinstance(given, dict) else None
     if not isinstance(fleets, dict):
         return

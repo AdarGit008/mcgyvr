@@ -15,6 +15,8 @@ from typing import Any
 
 import yaml
 
+from mcgyvr.strict_yaml import strict_loader
+
 
 class FleetFileError(Exception):
     """A setup file this module will not read: invalid YAML, a key that is not
@@ -109,40 +111,10 @@ _RETIRED_WORDS = {
 }
 
 
-class _StrictLoader(yaml.SafeLoader):
-    """A `SafeLoader` that builds every mapping through `_no_duplicate_keys`, so
-    a key repeated anywhere in the file is refused instead of last-one-wins."""
-
-
-def _no_duplicate_keys(
-    loader: yaml.SafeLoader, node: yaml.nodes.MappingNode
-) -> dict[Any, Any]:
-    mapping: dict[Any, Any] = {}
-    for key_node, value_node in node.value:
-        key = loader.construct_object(key_node, deep=True)
-        try:
-            hash(key)
-        except TypeError:
-            # A list or a mapping cannot be a key: a key is one word.
-            mark = key_node.start_mark
-            raise FleetFileError(
-                f"key {key!r} at line {mark.line + 1} is not a plain name; a "
-                "file key is one word, never a list or a mapping."
-            ) from None
-        if key in mapping:
-            mark = key_node.start_mark
-            raise FleetFileError(
-                f"duplicate key {key!r} at line {mark.line + 1} — YAML would "
-                f"silently keep only the last one, so the file does not mean "
-                f"what it looks like it means."
-            )
-        mapping[key] = loader.construct_object(value_node, deep=True)
-    return mapping
-
-
-_StrictLoader.add_constructor(
-    yaml.resolver.BaseResolver.DEFAULT_MAPPING_TAG, _no_duplicate_keys
-)
+#: The loader every setup file is read with: a key repeated anywhere in the
+#: file, or one that is a list or a mapping, is refused instead of
+#: last-one-wins, quoted through a bounded repr.
+_LOADER = strict_loader(FleetFileError)
 
 
 def _typename(value: object) -> str:
@@ -160,7 +132,7 @@ def _typename(value: object) -> str:
 
 def _yaml(text: str) -> Any:
     try:
-        return yaml.load(text, Loader=_StrictLoader)
+        return yaml.load(text, Loader=_LOADER)
     except yaml.YAMLError as exc:
         raise FleetFileError(f"not valid YAML: {exc}") from exc
 

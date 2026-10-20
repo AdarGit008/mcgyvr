@@ -117,6 +117,12 @@ the repository AdarGit008/mcgyvr-lab, under the same paths.
 - The skill installer's floor (`MIN_VERSION` in `skills/mcgyvr/install.sh`)
   is 0.5.1, the latest release tag; its tests plant that floor instead of a
   hard-coded 0.5.0 (#732).
+- A refusal of a key in `fleet.yaml`, `policy.yaml` or `relief.yaml` is
+  about the size of the file, however deeply the key nests YAML aliases: the
+  setup files are read with the same bounded strict loader as the config and
+  contract, where they once quoted the whole key. The pinned rig id and the
+  unsampled-fleet check read `fleet.yaml` with that loader too, so a
+  duplicate key there reads as no fleet instead of last-one-wins.
 
 ## [0.5.1] - 2026-10-17
 
