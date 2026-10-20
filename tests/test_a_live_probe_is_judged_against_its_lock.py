@@ -63,9 +63,6 @@ from tests.liveprobes import (
 )
 from tests.reads import UNIT_3B
 
-HOLDING |= {"ds_prefill": 307.11}
-
-
 # --- the tolerance class ----------------------------------------------------
 
 
