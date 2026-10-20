@@ -138,6 +138,26 @@ def test_no_match_is_an_empty_resolution(tmp_path: Path) -> None:
     assert result.best is None
 
 
+# --- a query naming a compound that does not exist must not resolve ---------
+
+
+def test_a_compound_name_that_does_not_exist_does_not_resolve(tmp_path: Path) -> None:
+    # "persistInterval" is one camelCase name, not two words; the index has
+    # "persist" and "interval" separately, but not the compound, so the query
+    # named something that does not exist and must not resolve on the parts.
+    index = build(
+        tmp_path,
+        {
+            "index.js": "function persist() {}\nfunction interval() {}\n",
+            "cli.js": "module.exports = ora;\n",
+        },
+    )
+    result = resolve(index, "how do I set persistInterval")
+    assert result.verdict is Verdict.EMPTY
+    assert result.candidates == ()
+    assert result.best is None
+
+
 # --- ranking properties on a realistic mix ---------------------------------
 
 
