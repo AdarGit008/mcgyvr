@@ -288,7 +288,8 @@ ABOVE_THE_SEAM: tuple[str, ...] = (
 #: file is replaced whole (``atomic.py``), the exit codes a caller branches on
 #: (``exits.py``), how git is run against a repository (``gitcmd.py``), where a
 #: line ends (``lines.py``), what is safe to quote to an
-#: operator (``redact.py``), where a shipped data file is read from
+#: operator (``redact.py``), the schema walk both schemas share (``schema.py``),
+#: where a shipped data file is read from
 #: (``shipped.py``), and the strict YAML loader both schemas share
 #: (``strict_yaml.py``), each as its module docstring's first line says. Being on this
 #: list is not an exemption: a shared module is held to *both* rules below, because a
@@ -303,6 +304,7 @@ SHARED_ACROSS_THE_SEAM: tuple[str, ...] = (
     "mcgyvr.gitcmd",
     "mcgyvr.lines",
     "mcgyvr.redact",
+    "mcgyvr.schema",
     "mcgyvr.shipped",
     "mcgyvr.strict_yaml",
 )

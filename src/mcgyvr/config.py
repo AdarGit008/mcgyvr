@@ -17,7 +17,7 @@ import urllib.parse
 from collections.abc import Mapping, Sequence
 from dataclasses import dataclass, field
 from pathlib import Path
-from typing import Any, Literal
+from typing import Any
 
 import yaml
 
@@ -31,6 +31,8 @@ from mcgyvr.fleet.files import (
 from mcgyvr.fleet.ids import _canonical_dump
 from mcgyvr.fleet.roots import LiveFleetError, live_fleet_dir
 from mcgyvr.sandbox.base import NETWORKS
+from mcgyvr.schema import Dialect, join_path, walk_block
+from mcgyvr.schema import Field as Field
 from mcgyvr.strict_yaml import strict_loader
 
 #: The three files a setup directory holds. `load()` reads all of them: fleet.yaml
@@ -69,44 +71,6 @@ class CredentialInConfigError(ConfigSchemaError):
 
 class UnboundValueError(ConfigError):
     """A key is not bound, or the environment variable it names is not set."""
-
-
-Kind = Literal[
-    "int",
-    "float",
-    "str",
-    "url",
-    "bool",
-    "enum",
-    "env_name",
-    "str_list",
-    "mapping",
-    "int_map",
-    "block",
-    "block_map",
-    "block_list",
-]
-
-
-@dataclass(frozen=True)
-class Field:
-    """One declared key: how a value for it is read, checked and defaulted,
-    and the prose an error about it quotes."""
-
-    name: str
-    kind: Kind
-    doc: str
-    required: bool = False
-    default: Any = None
-    choices: tuple[str, ...] = ()
-    block: tuple[Field, ...] = ()
-    min_value: float | None = None
-    #: Inclusive bounds for the `int` and `float` kinds; `min_value` also floors
-    #: each entry of an `int_map`. `choices` closes an `enum`, and `block` names
-    #: the fields a `block`, `block_map` or `block_list` holds. `bind_hint` says
-    #: how to set the key, quoted by the error that calls it unset.
-    max_value: float | None = None
-    bind_hint: str = ""
 
 
 #: Where a relief rung's host model sits against the models on your own rigs, as
@@ -1570,8 +1534,7 @@ def _dig(data: Mapping[str, Any], key: str) -> Any:
     return current
 
 
-def _join(path: str, name: str) -> str:
-    return f"{path}.{name}" if path else name
+_join = join_path
 
 
 def _reject_credential_literal(value: str, path: str) -> None:
@@ -1767,32 +1730,28 @@ def _value(raw: object, spec: Field, path: str) -> Any:
     raise ConfigSchemaError(f"{path}: unsupported field kind {spec.kind!r}")
 
 
+def _check_key(key: str, path: str) -> None:
+    """Refuse a credential key, and a retired key with what replaced it."""
+    _reject_credential_key(key, path)
+    retired = _RETIRED_KEYS.get(_join(path, str(key)))
+    if retired is not None:
+        raise ConfigSchemaError(f"`{_join(path, str(key))}` {retired}")
+
+
+#: The config's half of the schema walk.
+_DIALECT = Dialect(
+    noun="config",
+    error=ConfigSchemaError,
+    mapping=_mapping,
+    value=_value,
+    missing=_missing,
+    default_for=_default_for,
+    check_key=_check_key,
+)
+
+
 def _block(raw: object, fields: tuple[Field, ...], path: str) -> dict[str, Any]:
-    given = _mapping(raw if raw is not None else {}, path)
-    known = {f.name: f for f in fields}
-
-    for key in given:
-        _reject_credential_key(key, path)
-        retired = _RETIRED_KEYS.get(_join(path, str(key)))
-        if retired is not None:
-            raise ConfigSchemaError(f"`{_join(path, str(key))}` {retired}")
-        if key not in known:
-            where = f"{path}: " if path else "config: "
-            raise ConfigSchemaError(
-                f"{where}unknown key {key!r}. An ignored key is a config that "
-                f"does not do what it says. Valid keys here: "
-                f"{', '.join(sorted(known))}"
-            )
-
-    result: dict[str, Any] = {}
-    for spec in fields:
-        if spec.name in given and given[spec.name] is not None:
-            result[spec.name] = _value(given[spec.name], spec, _join(path, spec.name))
-        elif spec.required:
-            raise _missing(spec, _join(path, spec.name))
-        else:
-            result[spec.name] = _default_for(spec)
-    return result
+    return walk_block(raw, fields, path, _DIALECT)
 
 
 def _refuse_userinfo(name: str, base_url: str, block: str = "units") -> None:

@@ -11,16 +11,18 @@ from __future__ import annotations
 import json
 import re
 import shlex
-from collections.abc import Callable, Mapping, Sequence
+from collections.abc import Mapping, Sequence
 from dataclasses import dataclass, replace
 from pathlib import Path
-from typing import Any, Literal
+from typing import Any
 
 import yaml
 
 from mcgyvr.catalog import RETIRED_TASK_TYPES, CatalogError, catalog
 from mcgyvr.catalog import Evidence as CatalogEvidence
 from mcgyvr.catalog import TaskType as CatalogTaskType
+from mcgyvr.schema import Dialect, join_path, walk_block
+from mcgyvr.schema import Field as Field
 from mcgyvr.scope import Scope, enters_git_dir
 from mcgyvr.strict_yaml import strict_loader
 
@@ -154,56 +156,6 @@ def generic_stop_condition(task_type_name: str, subject: str) -> str:
         f"{task_type_name} on {subject} would require deciding something the "
         "contract does not state — report BLOCKED rather than guess"
     )
-
-
-# The value kinds a field may hold. `block` nests a fixed set of fields and
-# `block_list` is a list of those blocks; the glob kinds are string lists whose
-# entries must additionally be repo-relative patterns.
-
-Kind = Literal[
-    "int",
-    "float",
-    "str",
-    "bool",
-    "enum",
-    "str_list",
-    "glob_list",
-    "block",
-    "block_list",
-]
-
-
-@dataclass(frozen=True)
-class Field:
-    """One declared key: its name, its kind, and the rules the schema walk applies."""
-
-    name: str
-    kind: Kind
-    doc: str
-    required: bool = False
-    default: Any = None
-    choices: tuple[str, ...] = ()
-    block: tuple[Field, ...] = ()
-    min_value: float | None = None
-    #: Numeric bounds. A value outside them is refused by name rather than
-    #: clamped: a contract that quietly did something other than what it says
-    #: would be worse than one that fails, so the two ends are stated as data
-    #: here and enforced by `_int` and `_float`.
-    max_value: float | None = None
-    worker_facing: bool = False
-    hint: str = ""
-    choices_from: Callable[[], tuple[str, ...]] | None = None
-    #: Retired enum values, mapped to the spelling that replaced them, so an old
-    #: contract is answered with what to write instead of a bare "not valid".
-    retired: Mapping[str, str] | None = None
-    #: True for a key a chat or agent session may leave out. A session writes no
-    #: file, so `target` and `scope.allow` are not required of it; `_for_sessions`
-    #: rewrites the schema from this flag, and only for a session's task type.
-    session_optional: bool = False
-
-    def valid_choices(self) -> tuple[str, ...]:
-        """The values it accepts, from the catalog when one is given, else `choices`."""
-        return self.choices_from() if self.choices_from is not None else self.choices
 
 
 DEP_FIELDS: tuple[Field, ...] = (
@@ -900,28 +852,7 @@ def _build(data: Mapping[str, Any]) -> Contract:
 
 def _block(raw: object, fields: tuple[Field, ...], path: str) -> dict[str, Any]:
     """Validate one block: defaults filled in, unknown and missing keys refused."""
-    given = _mapping(raw if raw is not None else {}, path)
-    known = {f.name: f for f in fields}
-
-    for key in given:
-        if key not in known:
-            where = f"{path}: " if path else "contract: "
-            raise ContractSchemaError(
-                f"{where}unknown key {key!r}. An ignored key is a contract "
-                f"that does not do what it says. Valid keys here: "
-                f"{', '.join(sorted(known))}"
-            )
-
-    result: dict[str, Any] = {}
-    for spec in fields:
-        here = _join(path, spec.name)
-        if spec.name in given and given[spec.name] is not None:
-            result[spec.name] = _value(given[spec.name], spec, here)
-        elif spec.required:
-            raise _missing(spec, here)
-        else:
-            result[spec.name] = _default_for(spec)
-    return result
+    return walk_block(raw, fields, path, _DIALECT)
 
 
 def _value(raw: object, spec: Field, path: str) -> Any:
@@ -1086,8 +1017,17 @@ def _default_for(spec: Field) -> Any:
     return spec.default
 
 
-def _join(path: str, name: str) -> str:
-    return f"{path}.{name}" if path else name
+_join = join_path
+
+#: The contract's half of the schema walk.
+_DIALECT = Dialect(
+    noun="contract",
+    error=ContractSchemaError,
+    mapping=_mapping,
+    value=_value,
+    missing=_missing,
+    default_for=_default_for,
+)
 
 
 # Commands are split like a shell but run without one, so whatever a shell would
