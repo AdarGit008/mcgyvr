@@ -12,8 +12,11 @@ can read, so a shortlist is explained rather than merely asserted. Scores are
 adjusted for the role of the file (a test is demoted behind the code it
 exercises), ranked and cut to a limit, and ``_verdict`` then says whether the
 leader is the answer, whether the top of the shortlist is too close to call, or
-whether nothing scored at all. What a caller does with the shortlist -- reading
-excerpts under a token budget -- belongs to ``mcgyvr.orchestrator.read``.
+whether nothing scored at all. A token-only shortlist that names a compound the
+index does not hold is discarded as empty rather than answered from its parts,
+so a made-up camelCase name never resolves on its fragments. What a caller does
+with the shortlist -- reading excerpts under a token budget -- belongs to
+``mcgyvr.orchestrator.read``.
 """
 
 from __future__ import annotations
@@ -164,6 +167,11 @@ def resolve(index: Index, query: str, *, limit: int = 10) -> Resolution:
     ``limit`` is keyword-only and caps how many candidates are returned. Files
     with no positive score are dropped, the rest are ordered best first with
     ties broken by path, and ``_verdict`` turns the order into a verdict.
+
+    Unless the whole query named a file or symbol literally, the shortlist is
+    first held to an absolute signal: a compound name the index does not hold
+    means the query named nothing and the shortlist is emptied rather than
+    answered from its parts.
     """
     tokens = _content_tokens(query)
     corpus = _Corpus(index)
@@ -172,7 +180,17 @@ def resolve(index: Index, query: str, *, limit: int = 10) -> Resolution:
     evidence: dict[str, list[tuple[float, str]]] = defaultdict(list)
 
     _score_whole_query(query, tokens, corpus, scores, evidence)
+    named = set(scores)  # files the whole query named literally, if any
     _score_tokens(tokens, corpus, scores, evidence)
+
+    # A token-only shortlist is still checked for an absolute signal: a compound
+    # name the index does not hold means the query named nothing, so the
+    # incidental matches of its parts are discarded rather than reported as an
+    # answer. A whole-query literal match is exempt -- it already named a real
+    # file or symbol.
+    if not named and not _query_has_signal(query, corpus):
+        scores.clear()
+        evidence.clear()
 
     candidates = _rank(scores, evidence, limit)
     return Resolution(query=query, verdict=_verdict(candidates), candidates=candidates)
@@ -307,15 +325,17 @@ def _score_tokens(
 ) -> None:
     """Award every file a content token reaches, weighted by the token's rarity.
 
-    A token repeated in the query counts once. Its weight is ``_idf`` over the
-    files it reached, so a token present in every file contributes its base
-    strength unchanged while a rare one contributes several times that. Once all
-    tokens are scored, a file that matched a larger share of the query's
-    distinct tokens is given the coverage bonus -- the breadth signal that
-    separates a file matching three words from one matching a single word of the
-    same request.
+    A token repeated in the query counts once, and a bare number or single
+    character never counts at all: it matches anything that merely contains a
+    digit or that letter, so it is noise rather than evidence. A token's weight
+    is ``_idf`` over the files it reached, so a token present in every file
+    contributes its base strength unchanged while a rare one contributes several
+    times that. Once all tokens are scored, a file that matched a larger share
+    of the query's distinct tokens is given the coverage bonus -- the breadth
+    signal that separates a file matching three words from one matching a single
+    word of the same request.
     """
-    unique = list(dict.fromkeys(tokens))
+    unique = [token for token in dict.fromkeys(tokens) if not _is_noise_token(token)]
     if not unique:
         return
     total_paths = max(len(corpus.paths), 1)
@@ -346,7 +366,11 @@ def _collect(token: str, corpus: _Corpus) -> list[tuple[str, float, str]]:
     for path, symbol in corpus.symbol_token.get(token, {}).items():
         detail = f" ({symbol.detail})" if symbol.detail else ""
         out.append(
-            (path, _token_strength(token, symbol), f"{symbol.name}{detail} ~ {token!r}")
+            (
+                path,
+                _token_strength(token, symbol),
+                f"{symbol.name}{detail} ~ {token!r}",
+            )
         )
     for path in corpus.stem_token.get(token, set()):
         strength = _S_STEM * _fraction_of_name(token, Path(path).stem)
@@ -354,6 +378,56 @@ def _collect(token: str, corpus: _Corpus) -> list[tuple[str, float, str]]:
     for path in corpus.path_token.get(token, set()):
         out.append((path, _S_PATH, f"path ~ {token!r}"))
     return out
+
+
+def _is_noise_token(token: str) -> bool:
+    """True for a token that cannot by itself name a file or symbol.
+
+    A bare number or a single character matches nearly anything that merely
+    contains a digit or that letter, so it is dropped from token scoring rather
+    than treated as evidence. Whole-query literal matching still sees these
+    tokens, so a name like ``v8`` or ``f`` is still found when spelled out.
+    """
+    return len(token) < 2 or token.isdigit()
+
+
+def _has_broken_compound(query: str, corpus: _Corpus) -> bool:
+    """True when one word of the query is a compound the corpus does not hold.
+
+    A single, separator-free query word that splits into several content tokens
+    -- ``persistInterval`` -- names one thing, not several. If that whole name
+    is absent from the index, the parts matching separately is incidental and
+    must not count as a signal. A word that names a path literally, or whose
+    squashed whole matches a symbol or stem, is not broken; a word carrying a
+    separator (``supports-color``) is left to the token pass, since directory
+    names are only ever matched by token.
+    """
+    for word in query.split():
+        if not word.isalnum():
+            continue
+        parts = _content_tokens(word)
+        if len(parts) < 2:
+            continue
+        if _paths_named_literally(word, corpus):
+            continue
+        squashed = _squash(word)
+        if squashed in corpus.symbol_exact or squashed in corpus.stem_exact:
+            continue
+        return True
+    return False
+
+
+def _query_has_signal(query: str, corpus: _Corpus) -> bool:
+    """Whether the query named something the index actually holds.
+
+    This is the absolute check behind the token-only shortlist: a compound word
+    the index lacks means the query named nothing, so its parts matching
+    separately must not count as an answer. Everything else is left to the token
+    pass -- a focused single word, a prose phrase, and a generic sub-word alike,
+    because a generic-but-real match is indistinguishable from a coincidental
+    one without more signal than resolve has.
+    """
+    return not _has_broken_compound(query, corpus)
 
 
 # Adjust each score for the role of its file, then order and cut the shortlist.
