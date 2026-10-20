@@ -129,6 +129,28 @@ def test_unsupported_language_still_yields_text_search(tmp_path: Path) -> None:
     assert hits[0].line == 1
 
 
+def test_go_rust_and_java_files_are_indexed_with_symbols(tmp_path: Path) -> None:
+    repo = init_repo(tmp_path)
+    (repo / "server.go").write_text("package main\n\nfunc Serve() {}\n")
+    (repo / "lib.rs").write_text("pub fn render() {}\n")
+    (repo / "App.java").write_text("public class App {}\n")
+    (repo / "notes.txt").write_text("plain text\n")
+    index = build_index(repo)
+
+    assert dict(index.stats.languages) == {"go": 1, "rust": 1, "java": 1}
+    assert index.stats.degraded_extensions == (".txt",)
+    defined = {
+        (s.name, s.path, s.detail)
+        for s in index.symbols.all()
+        if s.kind is SymbolKind.DEFINITION
+    }
+    assert defined == {
+        ("Serve", "server.go", "function"),
+        ("render", "lib.rs", "function"),
+        ("App", "App.java", "class"),
+    }
+
+
 # --- text search -----------------------------------------------------------
 
 

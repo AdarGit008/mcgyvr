@@ -5,8 +5,8 @@
   can import the other.
 * ``detect._quoted`` and ``fleet.harness._bounded``: the harness is piped to a
   rig as source and must stay standard-library only.
-* ``orchestrator.symbols._walk`` and ``gate.adapters.javascript._walk``: the
-  adapter importing the orchestrator would be an import cycle.
+* ``orchestrator.languages.engine.walk`` and ``gate.adapters.javascript._walk``:
+  the adapter importing the orchestrator would be an import cycle.
 
 A fix made to one copy and not the other would leave the two disagreeing
 without any test noticing, so each pair is held to one answer here.
@@ -23,7 +23,7 @@ import pytest
 from mcgyvr import detect
 from mcgyvr.fleet import harness
 from mcgyvr.gate.adapters import javascript
-from mcgyvr.orchestrator import symbols
+from mcgyvr.orchestrator.languages import engine
 from mcgyvr.serving import fetcher, rigscan
 
 
@@ -64,7 +64,7 @@ def test_both_walks_visit_a_tree_in_the_same_order() -> None:
         "root",
         [_Node("a", [_Node("a1"), _Node("a2", [_Node("a2x")])]), _Node("b")],
     )
-    one = [cast(_Node, n).name for n in symbols._walk(cast(Any, tree))]
+    one = [cast(_Node, n).name for n in engine.walk(cast(Any, tree))]
     other = [cast(_Node, n).name for n in javascript._walk(cast(Any, tree))]
     assert one == other
     assert sorted(one) == sorted(["root", "a", "a1", "a2", "a2x", "b"])
