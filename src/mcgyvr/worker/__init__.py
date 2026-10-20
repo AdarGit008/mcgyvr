@@ -33,7 +33,6 @@ from mcgyvr.worker.bundle import (
 )
 from mcgyvr.worker.prompt import WorkerPrompt, build_prompt, render_user_message
 from mcgyvr.worker.reply import (
-    MEDIA_ARTIFACT,
     PROSE,
     WHOLE_FILE,
     ParsedFile,
@@ -44,7 +43,6 @@ from mcgyvr.worker.reply import (
 
 __all__ = [
     "MAX_BUNDLE_BYTES",
-    "MEDIA_ARTIFACT",
     "PROSE",
     "WHOLE_FILE",
     "Bundle",

@@ -75,12 +75,11 @@ _LANGUAGE_BUNDLES: dict[str, tuple[str, BundleStanding]] = {
     "js/ts": ("javascript.md", BundleStanding.MEASURED_NO_EFFECT),
 }
 
-#: Use-case bundles, keyed by the contract's use case. Neither file has been
-#: swept, so both ship `UNMEASURED`; `chat` has no entry because it is a raw
+#: Use-case bundles, keyed by the contract's use case. The file has not been
+#: swept, so it ships `UNMEASURED`; `chat` has no entry because it is a raw
 #: pass-through and a system prompt would bias it.
 _USE_CASE_BUNDLES: dict[str, tuple[str, BundleStanding]] = {
     "agent": ("agent.md", BundleStanding.UNMEASURED),
-    "media-gen": ("media-gen.md", BundleStanding.UNMEASURED),
 }
 
 #: Both key kinds in one registry. The namespaces do not collide today, and

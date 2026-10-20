@@ -16,7 +16,8 @@ import pytest
 from mcgyvr.gate.adapter import ToolFailedError, ToolUnavailableError
 from mcgyvr.gate.adapters import PythonAdapter
 from mcgyvr.gate.changeset import ChangeSet
-from mcgyvr.gate.output import MEDIA_IMAGE, MEDIA_VALID, SAFETY_PASS, OutputChecks
+from mcgyvr.gate.findings import Finding
+from mcgyvr.gate.output import SAFETY_PASS, OutputChecks
 from mcgyvr.gate.runner import Gate
 from mcgyvr.scope import Scope
 
@@ -221,21 +222,20 @@ def test_subprocess_count_is_flat_across_change_size(
     assert counts[0] == counts[1], f"gate subprocess count grew with size: {counts}"
 
 
-def test_the_gate_folds_output_check_findings(tmp_path: Path) -> None:
+def test_the_gate_folds_output_check_findings(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
     """An output check's finding is a gate finding under the same check name."""
+    unsafe = Finding(check=SAFETY_PASS, path="out.txt", code="unsafe", message="x")
+    monkeypatch.setattr("mcgyvr.gate.output.safety_pass", lambda *_args: [unsafe])
     repo = repo_with_base(tmp_path)
-    (repo / "out.png").write_bytes(b"not an image")
-    output = OutputChecks(
-        checks=(MEDIA_VALID,),
-        workspace=repo,
-        target="out.png",
-        media_kind=MEDIA_IMAGE,
-    )
+    (repo / "out.txt").write_text("unsafe\n", encoding="utf-8")
+    output = OutputChecks(checks=(SAFETY_PASS,), workspace=repo, target="out.txt")
 
     result = Gate().run(ChangeSet.detect(repo), output=output)
 
     assert not result.accepted
-    assert {f.check for f in result.findings} == {MEDIA_VALID}
+    assert {f.check for f in result.findings} == {SAFETY_PASS}
 
 
 def test_an_unwired_output_check_is_inconclusive_not_accepted(

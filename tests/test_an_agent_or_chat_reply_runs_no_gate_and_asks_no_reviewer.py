@@ -12,9 +12,6 @@ chat have no gates." So, for both session types:
 - no reviewer is asked anything — neither the prose verifier nor the gate's
   typed Jev questions — and a verifier the install cannot serve does not
   refuse a session, which would never have asked it.
-
-``media`` keeps its ``media_valid`` check; it is a reply too, so it is never
-reviewed either.
 """
 
 from __future__ import annotations
@@ -90,7 +87,6 @@ def test_no_output_check_runs_on_a_session_reply(
     from mcgyvr.sandbox.base import Sandbox
 
     monkeypatch.setattr(gate_output, "safety_pass", _never)
-    monkeypatch.setattr(gate_output, "media_valid", _never)
     contract = loads(document)
     (tmp_path / SESSION_REPLY).write_text("No citation here.", encoding="utf-8")
 

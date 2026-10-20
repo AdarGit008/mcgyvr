@@ -1,6 +1,6 @@
 {
   "schema_version": 2,
-  "_purpose": "The vocabulary of what mcgyvr can be asked to do. Each entry states what accepting it promises (`guarantee`), which family of the ladder it may start on (`starts_on`), which use case it belongs to (`use_case`), and what evidence a contract of that type must carry (`required_evidence`). `task_types` is the whole vocabulary: `code`, `chat`, `agent` and `media`. `deterministic_operations` are not task types: each names the task type a contract asks for it under (`task_type: code` with `operation: <name>`), and the product runs it with a tool, never a model. This file is the only definition: adding a task type is an edit here, not a code change.",
+  "_purpose": "The vocabulary of what mcgyvr can be asked to do. Each entry states what accepting it promises (`guarantee`), which family of the ladder it may start on (`starts_on`), which use case it belongs to (`use_case`), and what evidence a contract of that type must carry (`required_evidence`). `task_types` is the whole vocabulary: `code`, `chat` and `agent`. `deterministic_operations` are not task types: each names the task type a contract asks for it under (`task_type: code` with `operation: <name>`), and the product runs it with a tool, never a model. This file is the only definition: adding a task type is an edit here, not a code change.",
 
   "families": [
     {
@@ -31,17 +31,13 @@
     {
       "name": "agent",
       "doc": "Personal-assistant tasks over the repository files a contract names as its `sources`, answered in plain prose and ungated like chat; the backend is llama.cpp / vLLM with tool-calling, a serving-layer capability rather than a gate rung."
-    },
-    {
-      "name": "media-gen",
-      "doc": "Image, video and speech generation, judged by media-valid, safety and ASR gates."
     }
   ],
 
   "evidence_kinds": [
     {
       "name": "gate",
-      "doc": "The deterministic acceptance gate. The floor under every `code` contract; chat and agent are ungated, and media is judged by its own structural evidence through the gate's output-checks rung.",
+      "doc": "The deterministic acceptance gate. The floor under every `code` contract; chat and agent are ungated.",
       "needs_commands": false
     },
     {
@@ -78,18 +74,8 @@
       "baseline": "fail"
     },
     {
-      "name": "media_valid",
-      "doc": "The output artifact is a valid file of the declared media kind — correct format, dimensions or duration. A structural check the gate makes itself, so it needs no contract command.",
-      "needs_commands": false
-    },
-    {
       "name": "safety_pass",
-      "doc": "A deterministic safety classifier passes on the output. One kind serves media and text outputs alike — the gate runs it, the contract does not.",
-      "needs_commands": false
-    },
-    {
-      "name": "asr_wer",
-      "doc": "An ASR pass transcribes the audio output and its word-error-rate against the transcript stays under the contract's threshold. The transcript is the contract's own target, so the gate judges it without a human.",
+      "doc": "A deterministic safety classifier passes on the output — the gate runs it, the contract does not.",
       "needs_commands": false
     }
   ],
@@ -169,15 +155,6 @@
       "required_evidence": [],
       "warrant": "There is no bar to clear (owner, e2e run 2 R11: agent and chat have no gates) — the reply is served straight back, and what makes it worth having is the sources the worker is given, not a check after it answers.",
       "doc": "Answer a prompt in plain prose from the repository files the contract names as its sources, ungated."
-    },
-    {
-      "name": "media",
-      "use_case": "media-gen",
-      "starts_on": "local",
-      "guarantee": "The artifact at the target is a valid file of the contract's `media_kind` — the right format, with dimensions or a duration that can be read and are positive. Nothing else judges it.",
-      "required_evidence": ["media_valid"],
-      "warrant": "structural — media_valid reads the artifact's own header and structure, so a wrong-kind, empty or truncated output is caught without a contract command.",
-      "doc": "Generate one image, audio or video artifact, judged by the gate's media_valid check."
     }
   ]
 }

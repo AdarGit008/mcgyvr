@@ -179,19 +179,12 @@ def test_a_chat_contract_that_asks_for_a_file_reply_is_refused() -> None:
     assert "session" in said, said
 
 
-@pytest.mark.parametrize(
-    "document",
-    [
-        "id: c\ntask_type: code\ntask: Set VALUE.\nstop_conditions: [x]\n"
-        "scope:\n  allow: ['src/**']\n",
-        "id: m\ntask_type: media\ntask: Draw.\nstop_conditions: [x]\n"
-        "output_schema: media_artifact\nmedia_kind: image\n"
-        "scope:\n  allow: ['out/**']\n",
-    ],
-)
-def test_code_and_media_still_need_their_target(document: str) -> None:
+def test_code_still_needs_its_target() -> None:
     with pytest.raises(ContractSchemaError) as exc:
-        loads(document)
+        loads(
+            "id: c\ntask_type: code\ntask: Set VALUE.\nstop_conditions: [x]\n"
+            "scope:\n  allow: ['src/**']\n"
+        )
     assert str(exc.value).startswith("target: required key is not set"), exc.value
 
 
@@ -395,29 +388,11 @@ def test_the_catalog_says_a_chat_or_agent_run_is_a_session(
     assert "never written" in out, out
 
 
-MEDIA = """\
-id: picture
-task_type: media
-task: Draw a red square.
-target: out/square.png
-stop_conditions: ["The size is not stated."]
-output_schema: media_artifact
-media_kind: image
-scope:
-  allow: ["out/**"]
-"""
-
-
 @pytest.mark.parametrize(
     ("document", "said"),
     [
         (CHAT, "served unchecked: chat replies are not checked or reviewed."),
         (AGENT, "served unchecked: agent replies are not checked or reviewed."),
-        (
-            MEDIA,
-            "accepted on its output checks (media_valid); "
-            "media replies are never reviewed.",
-        ),
     ],
 )
 def test_mcgyvr_contract_says_how_a_reply_is_judged_as_the_result_does(

@@ -7,7 +7,7 @@ and the secret scan first, then the structured-data check, the language
 adapters, the output-evidence rungs, the type check, the semantic rung and the
 contract's acceptance commands, each skipped once an earlier one has recorded a
 finding, with the contract's prose passed to the rungs that read it.
-``gate_prose_workspace`` is the narrow form a prose or media reply gets, where
+``gate_prose_workspace`` is the narrow form a prose reply gets, where
 only the output rungs apply.
 
 The rest of the module is what the attempt loop composes around those two: a
@@ -35,7 +35,7 @@ from mcgyvr.gate.adapter import SandboxRunner
 from mcgyvr.gate.adapters import JavaScriptAdapter, PythonAdapter
 from mcgyvr.gate.changeset import ChangeSet
 from mcgyvr.gate.jev import JevCheck
-from mcgyvr.gate.output import ASR_WER, MEDIA_VALID, SAFETY_PASS, OutputChecks
+from mcgyvr.gate.output import SAFETY_PASS, OutputChecks
 from mcgyvr.gate.semantic import SemanticCheck
 from mcgyvr.gate.typecheck import ParamMutation, TypeCheck
 from mcgyvr.sandbox.base import nested_git
@@ -293,32 +293,24 @@ def acceptance_for(
 def output_checks_for(contract: Contract, workspace: Path) -> OutputChecks | None:
     """The output-evidence rungs a contract declares, or ``None`` for none.
 
-    Only ``media_valid``, ``safety_pass`` and ``asr_wer`` are rungs the output
-    check implements, and they run in that order whatever order the contract's
-    evidence names them in; the declared names are read as a set, so a name
-    declared twice is still one rung. ``None`` when the contract declares none
-    of them — a coding contract produces no output for these to read.
+    Only ``safety_pass`` is a rung the output check implements; the declared
+    names are read as a set, so a name declared twice is still one rung.
+    ``None`` when the contract declares none — a coding contract produces no
+    output for it to read.
     """
-    declared = set(contract.evidence_names)
-    checks = tuple(
-        name for name in (MEDIA_VALID, SAFETY_PASS, ASR_WER) if name in declared
-    )
-    if not checks:
+    if SAFETY_PASS not in contract.evidence_names:
         return None
     return OutputChecks(
-        checks=checks,
+        checks=(SAFETY_PASS,),
         workspace=workspace,
         target=contract.target,
-        media_kind=contract.media_kind,
-        transcript=contract.transcript,
-        wer_threshold=contract.wer_threshold,
     )
 
 
 def gate_prose_workspace(contract: Contract, sandbox: Sandbox) -> GateResult:
-    """Gate a prose or media reply: the output rungs, and nothing else.
+    """Gate a prose reply: the output rungs, and nothing else.
 
-    A prose or media reply changes no source, so the one rung it faces is the
+    A prose reply changes no source, so the one rung it faces is the
     output-evidence rung. A contract that declares no output evidence is
     answered with an empty result, and an empty result is an acceptance: a
     ``GateResult`` is accepted when it holds no findings and no inconclusive

@@ -62,6 +62,16 @@ the repository AdarGit008/mcgyvr-lab, under the same paths.
   `--use-case media-gen`, or a config naming `use_case: media-gen`, is refused
   in one line naming `coding`, `chat` and `agent`. The `media` task type is
   unchanged (#731).
+- **The `media` task type and the `media-gen` use case are gone** (owner
+  de-scope, 2026-10-08). There are three task types: `code`, `chat` and
+  `agent`. Removed with them: the `media_valid` and `asr_wer` evidence kinds
+  and the gate's format readers and whisper call behind them, the contract
+  keys `media_kind`, `transcript` and `wer_threshold`, the `media_artifact`
+  output schema, and the `media-gen` worker bundle. A config naming
+  `use_case: media-gen` is refused as an invalid value, naming `coding`,
+  `chat` and `agent`; a contract naming `task_type: media` is refused as an
+  unknown task type. The code is archived in mcgyvr-lab under
+  `records/evidence/2026-10-20-media-gen-archived`.
 
 ### Fixed
 

@@ -39,7 +39,7 @@ and `mcgyvr capabilities`.
   keys are refused, and credentials are recorded as environment-variable
   names, never values.
 - **Task catalog** (`data/task-catalog.json`) — the vocabulary of what mcgyvr
-  can be asked to do: task types (`code`, `chat`, `agent`, `media`), the
+  can be asked to do: task types (`code`, `chat`, `agent`), the
   families work may start on (`deterministic`, `local`, `api`), and the
   evidence each type must carry.
 - **Fleet** (`src/mcgyvr/fleet/`) — reads `fleet.yaml` (units, rigs, fleets)

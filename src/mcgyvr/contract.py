@@ -116,9 +116,8 @@ def kind_of(task_type_name: str, operation: str = "") -> CatalogTaskType:
 # first because every judged contract produces it. `failing_test_first` follows
 # when a demonstration command is given, `tests_pass` when an acceptance command
 # is, and `no_semantic_change` and `type_check` when their flags are on. Kinds
-# that are not `evidence_derived` — sessions, which write nothing, and the media
-# types, whose whole judgement is the artifact — know their evidence from the
-# catalog and are returned exactly as it lists them. The order matters
+# that are not `evidence_derived` — sessions, which write nothing — know their
+# evidence from the catalog and are returned exactly as it lists them. The order matters
 # downstream: the gate records evidence in it, and a result whose names differ
 # from `Contract.evidence_names` is a mismatch rather than something to take at
 # face value. Nothing here reads a contract, only these flags, so the same
@@ -444,9 +443,8 @@ SCHEMA: tuple[Field, ...] = (
         "instead of guessing — scope creep, an unknown API, an ambiguous "
         "directive. Required when a model writes a `whole_file` reply, the "
         "one whose refusal is caught and escalated: guessing is the documented "
-        "small-model failure mode these exist to prevent. A `prose` or "
-        "`media_artifact` reply is served whatever it says, so none is "
-        "required there. Start from "
+        "small-model failure mode these exist to prevent. A `prose` reply is "
+        "served whatever it says, so none is required there. Start from "
         f"`{generic_stop_condition('<task_type>', '<target>')}`.",
         default=(),
         worker_facing=True,
@@ -457,35 +455,11 @@ SCHEMA: tuple[Field, ...] = (
         "The shape the worker must reply in, declared so a runner can hand "
         "the model format instructions rather than hoping for a convention. "
         "`whole_file` is the single-file output protocol; `prose` is the "
-        "raw-text answer for chat and agent (their default); `media_artifact` "
-        "is the "
-        "media-generation request for media, whose artifact the bound media "
-        "engine writes to the target. `unified_diff` validates here and is "
-        "refused before dispatch.",
+        "raw-text answer for chat and agent (their default). `unified_diff` "
+        "validates here and is refused before dispatch.",
         default="whole_file",
-        choices=("whole_file", "prose", "media_artifact", "unified_diff"),
+        choices=("whole_file", "prose", "unified_diff"),
         worker_facing=True,
-    ),
-    Field(
-        "media_kind",
-        "enum",
-        "The media kind of the artifact, for `media_valid`: image, audio or video.",
-        default="",
-        choices=("image", "audio", "video"),
-    ),
-    Field(
-        "transcript",
-        "str",
-        "The text the audio output must say, for `asr_wer`.",
-        default="",
-    ),
-    Field(
-        "wer_threshold",
-        "float",
-        "The word-error-rate ceiling for `asr_wer`, a share from 0 to 1.",
-        default=None,
-        min_value=0.0,
-        max_value=1.0,
     ),
     Field(
         "sources",
@@ -664,9 +638,6 @@ class Contract:
     deps: tuple[Dependency, ...] = ()
     stop_conditions: tuple[str, ...] = ()
     output_schema: str = "whole_file"
-    media_kind: str = ""
-    transcript: str = ""
-    wer_threshold: float | None = None
     sources: tuple[str, ...] = ()
     max_input_tokens: int = 4096
     acceptance: tuple[str, ...] = ()
@@ -814,13 +785,6 @@ class Contract:
             ],
             "stop_conditions": list(self.stop_conditions),
             "output_schema": self.output_schema,
-            **({"media_kind": self.media_kind} if self.media_kind else {}),
-            **({"transcript": self.transcript} if self.transcript else {}),
-            **(
-                {"wer_threshold": self.wer_threshold}
-                if self.wer_threshold is not None
-                else {}
-            ),
             **({"sources": list(self.sources)} if self.sources else {}),
             "context": {"max_input_tokens": self.max_input_tokens},
             "scope": {
@@ -912,9 +876,6 @@ def _build(data: Mapping[str, Any]) -> Contract:
         ),
         stop_conditions=tuple(data["stop_conditions"]),
         output_schema=data["output_schema"],
-        media_kind=data["media_kind"],
-        transcript=data["transcript"],
-        wer_threshold=data["wer_threshold"],
         sources=tuple(data["sources"]),
         max_input_tokens=data["context"]["max_input_tokens"],
         acceptance=tuple(data["acceptance"]),
@@ -1297,31 +1258,6 @@ def _cross_validate(data: Mapping[str, Any]) -> None:
             f"shows the defect."
         )
 
-    # Media and ASR types are judged on their artifact, so the gate has to be told
-    # what to look for: the media kind for `media_valid`, and the expected
-    # transcript with its word-error ceiling for `asr_wer`. The evidence names are
-    # imported from the gate's own module rather than restated, so the two cannot
-    # drift apart.
-    from mcgyvr.gate.output import ASR_WER, MEDIA_VALID
-
-    evidence_names = {e.name for e in kind.required_evidence}
-    if MEDIA_VALID in evidence_names and not data["media_kind"]:
-        raise ContractSchemaError(
-            f"media_kind: is empty, but task type {kind.name!r} requires "
-            f"media_valid evidence — the gate must know which media kind to "
-            f"expect. Name image, audio or video."
-        )
-    if ASR_WER in evidence_names and not data["transcript"]:
-        raise ContractSchemaError(
-            f"transcript: is empty, but task type {kind.name!r} requires "
-            f"asr_wer evidence — the ASR gate needs the text the audio is "
-            f"expected to say."
-        )
-    if ASR_WER in evidence_names and data["wer_threshold"] is None:
-        raise ContractSchemaError(
-            f"wer_threshold: is not set, but task type {kind.name!r} requires "
-            f"asr_wer evidence — name the word-error-rate ceiling (0 to 1)."
-        )
     _check_sources(data["sources"])
 
     # `depends_on` is checked for shape, not for existence: the ids may name
