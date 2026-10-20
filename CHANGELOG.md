@@ -52,7 +52,7 @@ the repository AdarGit008/mcgyvr-lab, under the same paths.
   modules and `#[test]` functions are skipped. A file with syntax errors
   yields what parsed. New dependencies: `tree-sitter-go`, `tree-sitter-rust`,
   `tree-sitter-java` (no musllinux aarch64 wheel for `tree-sitter-java`;
-  there it builds from source).
+  there it builds from source) (#747).
 
 ### Changed
 
@@ -66,12 +66,12 @@ the repository AdarGit008/mcgyvr-lab, under the same paths.
 - Sizing reads the knowledge cache over the shipped catalog, so a model a
   Hub read cached can be emitted.
 - `rename_symbol` stays Python and JS/TS only: a symbol defined only in
-  Go, Rust or Java is refused by language, and nothing is written.
+  Go, Rust or Java is refused by language, and nothing is written (#747).
 - The `tree-sitter` floor is `>=0.24`. The Go and Rust grammars, and the
   already locked `tree-sitter-javascript` 0.25, are ABI 15, which 0.23
-  refuses to load.
+  refuses to load (#747).
 - The index cache is version 3, so a cache from an older build is rebuilt
-  once instead of serving `.go`, `.rs` and `.java` files without symbols.
+  once instead of serving `.go`, `.rs` and `.java` files without symbols (#747).
 
 ### Removed
 
