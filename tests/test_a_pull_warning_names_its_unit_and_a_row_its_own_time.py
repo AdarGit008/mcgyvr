@@ -1,6 +1,6 @@
 """A pull's warning names its unit, and each filed row carries its own time.
 
-Owner ruling F5. A warning that names no unit, rig or combination reads
+A warning that names no unit, rig or combination reads
 identically for two different units. And a row stamped with the run's start,
 though its unit was probed later, can clear a pull that a later validation
 never covered: :func:`alerts.pulled` clears a pull against the newest alert's

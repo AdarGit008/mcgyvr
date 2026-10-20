@@ -259,7 +259,7 @@ def test_cache_from_another_version_is_discarded(tmp_path: Path) -> None:
 def test_a_cache_from_before_go_had_symbols_is_rebuilt_not_served(
     tmp_path: Path,
 ) -> None:
-    """Version 2 stored a ``.go`` file as text with no language and no symbols, and
+    """Version 3 stored a ``.go`` file as text with no language and no symbols, and
     an entry is reused on its size and mtime alone, so nothing but the version
     stops that entry being served after the extractor learned Go."""
     repo = init_repo(tmp_path / "repo")
@@ -271,14 +271,14 @@ def test_a_cache_from_before_go_had_symbols_is_rebuilt_not_served(
 
     path = cache_path(repo, directory=cache)
     stored = json.loads(path.read_text())
-    stored["version"] = 2
+    stored["version"] = 3
     stored["entries"]["server.go"]["language"] = None
     stored["entries"]["server.go"]["symbols"] = []
     path.write_text(json.dumps(stored))
 
     result = build_index_cached(repo, directory=cache)
     assert result.cache.loaded is False
-    assert result.cache.note == "cache version 2 — rebuilding"
+    assert result.cache.note == "cache version 3 — rebuilding"
     assert [(s.path, s.detail) for s in result.index.symbols.definitions("Serve")] == [
         ("server.go", "function")
     ]

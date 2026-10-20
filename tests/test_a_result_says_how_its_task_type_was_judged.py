@@ -1,6 +1,6 @@
 """A result says how its task type was judged, each by its own flow.
 
-Four flows, four honest sentences, and an ``assurance`` label that never claims a
+Three flows, three honest sentences, and an ``assurance`` label that never claims a
 review was expected where none ever is:
 
 - ``code`` a model wrote: ``verified`` by a named reviewer, or ``unverified``
@@ -8,9 +8,8 @@ review was expected where none ever is:
   configured reviewer's own reason it could not be used.
 - ``code`` with a deterministic ``operation``: ``deterministic``, on the
   deterministic gate.
-- ``chat`` and ``agent``: ``unchecked`` — no checks, never reviewed (owner,
-  e2e run 2 R11: "agent and chat have no gates").
-- ``media``: ``checked`` — judged by its own output checks, never reviewed.
+- ``chat`` and ``agent``: ``unchecked`` — no checks, never reviewed;
+  agent and chat have no gates.
 
 ``mcgyvr catalog <type>`` says the same thing the result says.
 """
@@ -53,18 +52,6 @@ output_schema: prose
 sources: ["src/report.txt"]
 scope:
   allow: ["brief.txt"]
-"""
-
-MEDIA = """
-id: picture
-task_type: media
-task: Draw a red square.
-target: out/square.png
-stop_conditions: ["The size is not stated."]
-output_schema: media_artifact
-media_kind: image
-scope:
-  allow: ["out/**"]
 """
 
 CODE = """
@@ -110,21 +97,7 @@ def test_a_chat_or_agent_reply_is_served_unchecked_and_never_reviewed(
     )
 
 
-@pytest.mark.parametrize(("document", "checks"), [(MEDIA, "media_valid")])
-def test_a_media_reply_is_checked_by_its_output_checks(
-    document: str, checks: str
-) -> None:
-    contract = loads(document)
-    verdict = judge(contract, LOCAL, GateResult(), verifier=_never)
-    assert verdict.verdict is Verdict.PASSED
-    assert verdict.assurance is Assurance.CHECKED
-    assert verdict.detail == (
-        f"accepted on its output checks ({checks}); "
-        f"{contract.task_type} replies are never reviewed."
-    )
-
-
-@pytest.mark.parametrize("document", [CHAT, AGENT, MEDIA])
+@pytest.mark.parametrize("document", [CHAT, AGENT])
 def test_no_reply_reads_as_a_review_that_was_expected(document: str) -> None:
     verdict = judge(loads(document), LOCAL, GateResult())
     said = verdict.detail.lower()
@@ -280,11 +253,6 @@ def test_the_result_file_carries_the_label_and_the_sentence(
     [
         ("chat", "served unchecked: chat replies are not checked or reviewed."),
         ("agent", "served unchecked: agent replies are not checked or reviewed."),
-        (
-            "media",
-            "accepted on its output checks (media_valid); "
-            "media replies are never reviewed.",
-        ),
         ("code", "`verified`"),
         ("format", "`deterministic`"),
     ],
@@ -303,7 +271,6 @@ def test_the_catalog_names_each_reply_types_label(
     for name, label in (
         ("chat", "unchecked"),
         ("agent", "unchecked"),
-        ("media", "checked"),
     ):
         assert main(["catalog", name]) == 0
         out = capsys.readouterr().out

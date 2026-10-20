@@ -154,7 +154,7 @@ ALLOWED: dict[str, str] = {
         "the `docker` on the PATH the door exports: admits the door through "
         "gatelib, then execs the next docker on PATH at -H ssh://RUN_HOST"
     ),
-    "tests/red_port/test_dod_rig_lease.py": (
+    "tests/test_rig_lease.py": (
         "an `ssh` LINE inside a step a test runs under the door: it asks the "
         "stub rig what its lease says while the run holds it"
     ),

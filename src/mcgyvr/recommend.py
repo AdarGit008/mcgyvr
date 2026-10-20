@@ -58,7 +58,7 @@ from mcgyvr.serving import (
 )
 
 #: Usage profiles the CLI accepts; only PLACEMENT_PROFILES get a placement.
-PROFILES = (*hub.USE_CASES, "media_gen", "other")
+PROFILES = (*hub.USE_CASES, "other")
 #: The profiles that are use cases, each placed from the Hub's candidates for it.
 PLACEMENT_PROFILES = hub.USE_CASES
 #: The one placed as a ladder's rung, with local stores and the decision model.
@@ -357,7 +357,7 @@ def _llamacpp_flags(*, checkpoint: str | None, mtp: bool, users: int) -> dict[st
     return flags
 
 
-def _has_mtp(header: Mapping[str, Any]) -> bool:
+def _has_multi_token_prediction(header: Mapping[str, Any]) -> bool:
     return bool(header.get("nextn_blocks"))
 
 
@@ -375,7 +375,7 @@ def _local_candidates(
     checkpoint = str(header.get("file") or "")
     size_bytes = int(header.get("size_bytes") or 0)
     wake = not scan.gpus
-    variants = [False, True] if _has_mtp(header) else [False]
+    variants = [False, True] if _has_multi_token_prediction(header) else [False]
     candidates: list[Candidate] = []
     for mtp in variants:
         head = " with its grafted MTP head" if mtp else ""
@@ -753,7 +753,7 @@ def plan(
     if profile == PLACEMENT_PROFILE:
         selected, decision_source = _decide(candidates, state)
     else:
-        # The ruling for one chat or agent unit is the biggest model that fits,
+        # The default for one chat or agent unit is the biggest model that fits,
         # which is the largest-weights pick, with no model asked.
         selected, decision_source = _deterministic_pick(candidates), "deterministic"
     plan: dict[str, Any] = {

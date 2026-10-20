@@ -1,11 +1,11 @@
 """A full top rung swaps the RAM rung in, and the fast ones back when it sleeps.
 
-Plan 2026-10-07, §6.2 (owner, Rounds 3-4): the stronger rung on a full rig is
-a SWAP, made by the ladder manager's existing sleep/wake and nothing new. For
-llama.cpp a "sleep" is a stop of the unit's container (``serve down --unit``)
-and a "wake" is a start (``serve up --unit``). Owner ruling on P10: a unit says
-it is a swap partner with ``units.<u>.role: sleeps-until-needed``; absent, it
-is ``always-on`` and nothing changes.
+The stronger rung on a full rig is a SWAP, made by the ladder manager's
+existing sleep/wake and nothing new. For llama.cpp a "sleep" is a stop of the
+unit's container (``serve down --unit``) and a "wake" is a start
+(``serve up --unit``). A unit says it is a swap partner with
+``units.<u>.role: sleeps-until-needed``; absent, it is ``always-on`` and
+nothing changes.
 
 So, on a one-card rig holding two fast llama.cpp rungs and a strong RAM rung
 that cannot share the card with them:

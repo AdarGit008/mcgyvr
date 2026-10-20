@@ -1,7 +1,7 @@
 """One kind of run: held to the live lock whenever a fleet is live, but a staged one.
 
-There is no ``profile: live|dev`` any more (owner, 2026-10-15: all dev items
-are the lab's). What a run is held to follows from the setup it runs under and
+There is no ``profile: live|dev`` any more; all dev items are the lab's.
+What a run is held to follows from the setup it runs under and
 whether a fleet is live (:func:`mcgyvr.fleet.roots.runs_live`):
 
 * a setup in the data folder — the staging folder ``mcgyvr setup`` starts and

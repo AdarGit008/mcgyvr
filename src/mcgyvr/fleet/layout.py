@@ -1,17 +1,10 @@
-"""A fleet layout: its rigs' room slots named, pinned, and moved along its switches.
+"""A fleet layout: its rigs' room slots named and pinned.
 
 A **combination** is one rig's room slots in order, each holding a unit that is
 ``awake`` or ``asleep`` or standing free. :func:`combination_id` names it
 together with the rig, and :func:`layout_sha256` pins a whole layout, one
 combination per rig, so a layout edited after it was locked no longer matches
-its pin (:func:`check_pin`).
-
-A fleet moves only along the targets its switch map lists for it
-(:func:`approve_switch`). The switch is carried out per rig and per slot: slot k
-of the before layout pairs with slot k of the after layout, and only slots that
-differ act (:func:`actions`). Every rig that acts yields one **move**, the rig,
-the combination it starts from and its verbs, so one dev run keyed by that move
-proves every fleet switch that derives it (:func:`rig_moves`).
+its pin.
 
 :func:`mcorch_units` holds a fleet whose policy names an ``mcorch``
 orchestrator to keeping that orchestrator's unit and the ``jev`` unit awake.
@@ -33,10 +26,6 @@ _STATES = (AWAKE, ASLEEP)
 
 class FleetError(Exception):
     """A layout, its pin, or a fleet's mcorch units are not what they are held to."""
-
-
-class SwitchRefusedError(FleetError):
-    """A switch to a fleet that the fleet it starts from does not list."""
 
 
 def combination_id(rig: str, slots: list[Any]) -> str:
@@ -67,15 +56,6 @@ def layout_sha256(layout: dict[str, str]) -> str:
     not change the digest.
     """
     return hashlib.sha256(ids._canonical_dump(layout).encode("utf-8")).hexdigest()
-
-
-def check_pin(name: str, layout: dict[str, str], pinned: str) -> None:
-    """Refuse a layout that no longer hashes to the pin ``name`` was locked to.
-
-    The :class:`FleetError` names ``name`` and asks for a re-lock.
-    """
-    if layout_sha256(layout) != pinned:
-        raise FleetError(f"{name}: the layout no longer matches its pin — re-lock")
 
 
 def mcorch_units(
@@ -118,119 +98,3 @@ def mcorch_units(
             missing.append(line)
     if missing:
         raise FleetError(f"fleet {name}: " + "; ".join(missing))
-
-
-def approve_switch(
-    next_map: dict[str, list[str]], from_fleet: str, to_fleet: str
-) -> None:
-    """Allow only a switch that ``next_map`` lists as a target of the source fleet.
-
-    Anything else raises :class:`SwitchRefusedError`, naming both fleets.
-    """
-    if to_fleet not in next_map.get(from_fleet, []):
-        raise SwitchRefusedError(
-            f"switch refused: {to_fleet} is not listed as a switch from {from_fleet}"
-        )
-
-
-def _union_keys(before: dict[str, Any], after: dict[str, Any]) -> list[str]:
-    return sorted(set(before) | set(after))
-
-
-def _slot_actions(before_slot: Any, after_slot: Any) -> list[tuple[str, str]]:
-    """The verbs one room slot runs in going from ``before_slot`` to ``after_slot``.
-
-    The same unit staying in its room acts only when its state turns: awake to
-    asleep drains and then sleeps, and asleep to awake wakes. A slot that takes a
-    new unit drains and stops the leaving unit before it starts the arriving one,
-    and starts that arriving unit only when it is awake, so a slot left free or
-    handed to an asleep unit is only drained and stopped. A free slot filling
-    with an awake unit starts it, and a slot whose two sides match runs nothing.
-    """
-    if before_slot == after_slot:
-        return []
-
-    before_unit: str | None
-    before_state: str | None
-    if before_slot is None:
-        before_unit, before_state = None, None
-    else:
-        before_unit, before_state = before_slot
-
-    after_unit: str | None
-    after_state: str | None
-    if after_slot is None:
-        after_unit, after_state = None, None
-    else:
-        after_unit, after_state = after_slot
-
-    if before_unit is not None and before_unit == after_unit:
-        if before_state == AWAKE and after_state == ASLEEP:
-            return [("drain", before_unit), ("sleep", before_unit)]
-        if before_state == ASLEEP and after_state == AWAKE:
-            return [("wake", before_unit)]
-        return []
-
-    if before_unit is not None:
-        actions: list[tuple[str, str]] = [
-            ("drain", before_unit),
-            ("stop", before_unit),
-        ]
-        if after_unit is not None and after_state == AWAKE:
-            actions.append(("start", after_unit))
-        return actions
-
-    if after_unit is not None and after_state == AWAKE:
-        return [("start", after_unit)]
-    return []
-
-
-def _rig_actions(
-    rig: str, before_slots: list[Any], after_slots: list[Any]
-) -> list[tuple[str, str, str]]:
-    out: list[tuple[str, str, str]] = []
-    for k in range(max(len(before_slots), len(after_slots))):
-        before_slot = before_slots[k] if k < len(before_slots) else None
-        after_slot = after_slots[k] if k < len(after_slots) else None
-        for verb, unit in _slot_actions(before_slot, after_slot):
-            out.append((rig, verb, unit))
-    return out
-
-
-def actions(
-    before: dict[str, list[Any]], after: dict[str, list[Any]]
-) -> list[tuple[str, str, str]]:
-    """Every verb of a switch as ``(rig, verb, unit)``.
-
-    The rigs are the sorted union of both layouts' keys, so a rig present in only
-    one of them still acts, and each rig's slots are read in room order.
-    """
-    out: list[tuple[str, str, str]] = []
-    for rig in _union_keys(before, after):
-        out.extend(_rig_actions(rig, before.get(rig, []), after.get(rig, [])))
-    return out
-
-
-#: A rig move: the rig, the combination it starts from, and the verbs it runs,
-#: as (verb, unit) pairs.
-Move = tuple[str, str, tuple[tuple[str, str], ...]]
-
-
-def rig_moves(before: dict[str, list[Any]], after: dict[str, list[Any]]) -> list[Move]:
-    """One move per rig that acts, keyed by the rig and its before combination.
-
-    Two fleet switches that run the same verbs from the same combination derive
-    the same move, and a rig with no verbs contributes nothing.
-    """
-    moves: list[Move] = []
-    for rig in _union_keys(before, after):
-        before_slots = before.get(rig, [])
-        after_slots = after.get(rig, [])
-        verbs = [
-            (verb, unit)
-            for _, verb, unit in _rig_actions(rig, before_slots, after_slots)
-        ]
-        if not verbs:
-            continue
-        moves.append((rig, combination_id(rig, before_slots), tuple(verbs)))
-    return moves

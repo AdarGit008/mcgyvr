@@ -108,8 +108,7 @@ def test_a_combination_whose_overhead_dev_never_measured_is_not_locked(
     tmp_path: Path,
 ) -> None:
     """Overhead is each combination's own reading, never a rig's: the CUDA
-    context differs per card and per engine
-    (``mcgyvr-lab/records/plans/fleet-identity.md`` §8)."""
+    context differs per card and per engine."""
     lock = _lock()
     evidence = edited(EVIDENCE)
     del evidence["combinations"][1]["overhead_mib"]
@@ -282,14 +281,6 @@ def test_a_fleet_switch_is_locked_on_a_rig_move_another_switch_ran(
     fleet["fleets"]["flt-02"]["next"] = ["flt-05", "flt-06"]
     write(lock, tmp_path, fleet=fleet)
     assert (tmp_path / "lock" / "flt-06.json").is_file()
-
-
-def test_the_wake_limit_is_the_validated_wake_plus_its_tolerance() -> None:
-    """The limit is the lock's tolerance added to the validated wake, whatever
-    that tolerance is; the values are the measurement branch's."""
-    lock = _lock()
-    assert lock.wake_limit_s(20.0, {"s": 0.5}) == pytest.approx(20.5)
-    assert lock.wake_limit_s(0.25, {"s": 0.1}) == pytest.approx(0.35)
 
 
 def test_the_wake_ratio_in_code_and_the_hand_set_wake_timeout_are_gone() -> None:

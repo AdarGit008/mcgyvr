@@ -1,6 +1,6 @@
 """A journal lives where the config says, and never in the repo.
 
-The owner's ruling: a default ``mcgyvr run`` takes no action on
+A default ``mcgyvr run`` takes no action on
 the parent repository — no commit, no receipt, only the output files the gate
 accepted, left in the working tree — and the journal is a mcgyvr-development
 concern that lives on the machine, not in the user's project. So ``--record``

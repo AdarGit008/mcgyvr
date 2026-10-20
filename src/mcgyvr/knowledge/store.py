@@ -15,7 +15,6 @@ import json
 import re
 from dataclasses import dataclass, replace
 from datetime import date
-from importlib import resources
 from pathlib import Path
 
 from mcgyvr import atomic
@@ -26,6 +25,7 @@ from mcgyvr.knowledge.record import (
     dump_document,
     parse_document,
 )
+from mcgyvr.shipped import shipped_file
 
 #: The catalog file the package ships; every shipped record is read from it.
 MODEL_CATALOG_FILENAME = "model-catalog.json"
@@ -71,14 +71,9 @@ def catalog_path() -> Path:
     """The shipped catalog: the packaged data file when the package has one,
     otherwise ``data/`` of a source checkout; raises KnowledgeError when neither
     exists."""
-    packaged = resources.files("mcgyvr") / "data" / MODEL_CATALOG_FILENAME
-    if Path(str(packaged)).is_file():
-        return Path(str(packaged))
-    # No packaged data file, so this is a source checkout: data/ sits beside
-    # src/, three levels up.
-    checkout = Path(__file__).resolve().parents[3] / "data" / MODEL_CATALOG_FILENAME
-    if checkout.is_file():
-        return checkout
+    found = shipped_file(MODEL_CATALOG_FILENAME)
+    if found is not None:
+        return found
     raise KnowledgeError(
         f"model catalog not found (looked for {MODEL_CATALOG_FILENAME})"
     )

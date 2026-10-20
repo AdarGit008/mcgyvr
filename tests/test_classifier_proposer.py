@@ -132,7 +132,7 @@ def answer(choice: str, confidence: float) -> ChoiceAnswer:
 #: ``code`` contract states its reply cap, which no choice can say, so the
 #: classifier hands that work to the prose proposer
 #: (test_the_classifier_leaves_capped_work_to_the_prose_proposer.py).
-MEDIA = catalog().require("media")
+AGENT = catalog().require("agent")
 
 
 # --- the typed-decision path ----------------------------------------------
@@ -151,24 +151,24 @@ def test_a_classifier_proposer_asks_choices_and_builds_a_proposal(
             return decision_of({"symbol": answer("listing", 0.9)})
         return decision_of(
             {
-                "kind": answer("media", 0.9),
+                "kind": answer("agent", 0.9),
                 "target": answer("listing.py", 0.9),
             }
         )
 
     propose = ClassifierProposer(classify=classify)
-    proposals = propose(evidence_for(repo, "document listing", (MEDIA,)))
+    proposals = propose(evidence_for(repo, "document listing", (AGENT,)))
 
     (proposal,) = proposals
     assert proposal == Proposal(
-        task_type="media",
+        task_type="agent",
         task=(
-            "Generate one image, audio or video artifact, judged by the gate's "
-            "media_valid check: listing in listing.py."
+            "Answer a prompt in plain prose from the repository files the "
+            "contract names as its sources, ungated: listing in listing.py."
         ),
         target="listing.py",
         stop_conditions=(
-            "media on listing in listing.py would require deciding "
+            "agent on listing in listing.py would require deciding "
             "something the contract does not state — report BLOCKED rather "
             "than guess",
         ),
@@ -179,7 +179,7 @@ def test_a_classifier_proposer_asks_choices_and_builds_a_proposal(
 
     kind = first["kind"]
     assert isinstance(kind, Choice)
-    assert kind.options == {"media": MEDIA.doc}
+    assert kind.options == {"agent": AGENT.doc}
 
     target = first["target"]
     assert isinstance(target, Choice)
@@ -203,18 +203,18 @@ def test_a_classifier_proposer_offers_the_catalog_vocabulary_and_candidates(
             return decision_of({"symbol": answer("", 0.9)})
         return decision_of(
             {
-                "kind": answer("media", 0.9),
+                "kind": answer("agent", 0.9),
                 "target": answer("listing.py", 0.9),
             }
         )
 
     propose = ClassifierProposer(classify=classify)
-    proposals = propose(evidence_for(repo, "document the pagination helper", (MEDIA,)))
+    proposals = propose(evidence_for(repo, "document the pagination helper", (AGENT,)))
 
     assert len(proposals) == 1
     state, _ = seen[0]
     assert state["request"] == "document the pagination helper"
-    assert state["task_types"] == ["media"]
+    assert state["task_types"] == ["agent"]
     assert "listing.py" in state["candidates"] or "pagination.py" in state["candidates"]
 
 
@@ -227,13 +227,13 @@ def test_a_classifier_proposer_refuses_when_the_kind_is_uncertain(
     def classify(state: Any, questions: Mapping[str, Question]) -> Decision:
         return decision_of(
             {
-                "kind": answer("media", MIN_CONFIDENCE - 0.1),
+                "kind": answer("agent", MIN_CONFIDENCE - 0.1),
                 "target": answer("listing.py", 0.9),
             }
         )
 
     propose = ClassifierProposer(classify=classify)
-    assert propose(evidence_for(repo, "document listing", (MEDIA,))) == ()
+    assert propose(evidence_for(repo, "document listing", (AGENT,))) == ()
 
 
 def test_a_classifier_proposer_refuses_when_the_target_is_uncertain(
@@ -242,13 +242,13 @@ def test_a_classifier_proposer_refuses_when_the_target_is_uncertain(
     def classify(state: Any, questions: Mapping[str, Question]) -> Decision:
         return decision_of(
             {
-                "kind": answer("media", 0.9),
+                "kind": answer("agent", 0.9),
                 "target": answer("listing.py", MIN_CONFIDENCE - 0.1),
             }
         )
 
     propose = ClassifierProposer(classify=classify)
-    assert propose(evidence_for(repo, "document listing", (MEDIA,))) == ()
+    assert propose(evidence_for(repo, "document listing", (AGENT,))) == ()
 
 
 def test_a_classifier_proposer_refuses_when_the_symbol_is_uncertain(
@@ -259,13 +259,13 @@ def test_a_classifier_proposer_refuses_when_the_symbol_is_uncertain(
             return decision_of({"symbol": answer("listing", MIN_CONFIDENCE - 0.1)})
         return decision_of(
             {
-                "kind": answer("media", 0.9),
+                "kind": answer("agent", 0.9),
                 "target": answer("listing.py", 0.9),
             }
         )
 
     propose = ClassifierProposer(classify=classify)
-    assert propose(evidence_for(repo, "document listing", (MEDIA,))) == ()
+    assert propose(evidence_for(repo, "document listing", (AGENT,))) == ()
 
 
 def test_a_classifier_proposer_refuses_when_nothing_matched(
@@ -323,7 +323,7 @@ def test_classifier_proposer_for_dispatches_through_classify_role(
             return decision_of({"symbol": answer("listing", 0.9)})
         return decision_of(
             {
-                "kind": answer("media", 0.9),
+                "kind": answer("agent", 0.9),
                 "target": answer("listing.py", 0.9),
             }
         )
@@ -332,7 +332,7 @@ def test_classifier_proposer_for_dispatches_through_classify_role(
 
     propose = classifier_proposer_for(pool)
     assert propose is not None
-    (proposal,) = propose(evidence_for(repo, "document listing", (MEDIA,)))
+    (proposal,) = propose(evidence_for(repo, "document listing", (AGENT,)))
 
     assert proposal.target == "listing.py"
     assert len(sent) == 2

@@ -8,7 +8,7 @@ empty block - becomes a `ReplyError` carrying a code, so a caller can tell the
 causes apart instead of writing a plausible file. Given a target path, a block
 that holds no code for that extension is refused as a refusal rather than a file,
 and a reply that spent its whole cap on hidden reasoning is named as empty.
-`prose` and `media_artifact` replies are the raw text, never a fence hunt.
+`prose` replies are the raw text, never a fence hunt.
 """
 
 from __future__ import annotations
@@ -21,10 +21,9 @@ from typing import Any
 from mcgyvr.runner import Completion, StopReason
 
 # The output schemas with a parser here. Each names what the reply is taken to be:
-# a whole file, raw prose, or a raw media-artifact request.
+# a whole file, or raw prose.
 WHOLE_FILE = "whole_file"
 PROSE = "prose"
-MEDIA_ARTIFACT = "media_artifact"
 
 # The JSON field a schema-pinned reply is expected to carry the file text in, and the
 # field assumed when a pinned schema names no single string property. It is also the
@@ -195,11 +194,11 @@ def _unreadable(output_schema: str, stop_reason: StopReason) -> ReplyError | Non
     or None when its text may be parsed. Runs before any text is inspected, so an
     unsupported schema or an incomplete reply is reported by cause rather than as
     a malformed block."""
-    if output_schema not in (WHOLE_FILE, PROSE, MEDIA_ARTIFACT):
+    if output_schema not in (WHOLE_FILE, PROSE):
         return ReplyError(
             "unsupported-schema",
             f"output_schema {output_schema!r} has no parser; only "
-            f"{WHOLE_FILE!r}, {PROSE!r} and {MEDIA_ARTIFACT!r} are implemented",
+            f"{WHOLE_FILE!r} and {PROSE!r} are implemented",
         )
     if stop_reason is not StopReason.COMPLETE:
         return ReplyError(
@@ -330,7 +329,7 @@ def parse_reply(
 ) -> ParsedFile | ReplyError:
     """Parse a reply into the text to write, or a ReplyError saying why not.
 
-    `prose` and `media_artifact` are the raw text. A whole-file reply must be one
+    `prose` is the raw text. A whole-file reply must be one
     closed fenced block, which an unpinned reply may itself wrap a JSON envelope
     around. With no `target`, nothing is judged about the content; with one, a
     block that carries no code for that extension is refused as a refusal.
@@ -338,7 +337,7 @@ def parse_reply(
     unreadable = _unreadable(output_schema, stop_reason)
     if unreadable is not None:
         return unreadable
-    if output_schema in (PROSE, MEDIA_ARTIFACT):
+    if output_schema == PROSE:
         return ParsedFile(content=_prose(text))
     parsed = _fenced(text, output_schema=output_schema, stop_reason=stop_reason)
     if isinstance(parsed, ReplyError):
@@ -375,8 +374,8 @@ def parse_pinned(
     The file text is read from the schema's string field, falling back to a single
     fenced block when the text is not that envelope. A block that cannot be the
     file on its own terms (no target, or no code for the target) is unwrapped once
-    more in case the block itself is the envelope. `prose` and `media_artifact`
-    stay raw text, and no schema at all means `parse_reply`.
+    more in case the block itself is the envelope. `prose` stays raw text, and
+    no schema at all means `parse_reply`.
     """
     if response_schema is None:
         return parse_reply(
@@ -386,8 +385,8 @@ def parse_pinned(
     unreadable = _unreadable(output_schema, stop_reason)
     if unreadable is not None:
         return unreadable
-    if output_schema in (PROSE, MEDIA_ARTIFACT):
-        # prose and media_artifact are the raw text even under a pinned schema: the
+    if output_schema == PROSE:
+        # prose is the raw text even under a pinned schema: the
         # gate above already refused an incomplete reply, and a fence hunt here
         # would return an incidental fenced snippet as the answer.
         return ParsedFile(content=_prose(text))

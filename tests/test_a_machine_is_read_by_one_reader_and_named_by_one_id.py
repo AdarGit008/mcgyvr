@@ -1,6 +1,6 @@
 """A machine is read by one reader, and named by one id.
 
-Owner, 2026-10-14: "there should only be one script that reads user HW". The
+There is only one script that reads a user's hardware. The
 one reader is :mod:`mcgyvr.serving.rigscan`: the door ships it to a rig as
 ``python3 -I -B -``, and the product imports it here. Its one document carries
 the short reading (the machine id and every card, on any vendor), the capacity

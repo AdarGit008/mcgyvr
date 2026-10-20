@@ -112,17 +112,15 @@ def test_units_that_fit_the_card_together_need_no_room(
 
 @pytest.mark.parametrize(
     "missing",
-    ["card", "small_mib", "media"],
-    ids=["no-card-size", "no-room-mib", "not-vllm-or-llama.cpp"],
+    ["card", "small_mib"],
+    ids=["no-card-size", "no-room-mib"],
 )
-def test_without_the_numbers_or_the_engine_there_is_no_room_to_make(
+def test_without_the_numbers_there_is_no_room_to_make(
     tmp_path: Path, home: Path, missing: str
 ) -> None:
     specs = write_spec(tmp_path)
     if missing == "small_mib":
         config = parse(ladder_text(specs, small_mib=None))
-    elif missing == "media":
-        config = parse(ladder_text(specs, engine="diffusers"))
     else:
         config = parse(ladder_text(specs))
 
@@ -276,7 +274,7 @@ def test_manage_says_where_it_will_make_no_room(
 
     monkeypatch.setattr(wake, "spawn_door", lambda *a, **k: 0)
     monkeypatch.setattr(pressure, "probe_endpoint", lambda *args: Answers())
-    monkeypatch.setattr(pressure, "unit_in_flight", lambda *args: 0)
+    monkeypatch.setattr(pressure, "unit_in_flight", lambda *args, **kwargs: 0)
     path = tmp_path / "c.yaml"
     path.write_text(
         ladder_text(write_spec(tmp_path)) + f"journal:\n  dir: {tmp_path / 'j'}\n",
@@ -329,7 +327,7 @@ def test_resting_is_kept_per_unit_and_read_per_unit(
         live = True
 
     monkeypatch.setattr(pressure, "probe_endpoint", lambda *args: Answers())
-    monkeypatch.setattr(pressure, "unit_in_flight", lambda *args: 0)
+    monkeypatch.setattr(pressure, "unit_in_flight", lambda *args, **kwargs: 0)
     gauge = pressure.Gauge()
     reader = pressure.Pressure(
         source_map(config), Capacity.of(config, gauge=gauge), gauge
@@ -424,7 +422,7 @@ def test_manage_reads_the_card_sizes_from_the_scans(
     monkeypatch.setattr(wake, "CardSwitches", recording)
     monkeypatch.setattr(wake, "spawn_door", lambda *a, **k: 0)
     monkeypatch.setattr(pressure, "probe_endpoint", lambda *args: Answers())
-    monkeypatch.setattr(pressure, "unit_in_flight", lambda *args: 0)
+    monkeypatch.setattr(pressure, "unit_in_flight", lambda *args, **kwargs: 0)
     path = tmp_path / "c.yaml"
     path.write_text(
         ladder_text(write_spec(tmp_path)) + f"journal:\n  dir: {tmp_path / 'j'}\n",

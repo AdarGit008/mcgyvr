@@ -1,7 +1,7 @@
 """An empty reply cut at its cap is named as reasoning that used the cap up.
 
-On DeepSeek's reasoning models the e2e run of 2026-10-13 got back a reply
-whose text was empty (``reply_sha256`` the hash of ``""``), every token of the
+On DeepSeek's reasoning models a run can get back a reply
+whose text is empty (``reply_sha256`` the hash of ``""``), every token of the
 1024 cap spent, stop ``length`` — and the failure read "a truncated file can
 parse cleanly and still be missing its tail", which says nothing of an empty
 reply or of reasoning, and sends the reader to the wrong repair. The refusal

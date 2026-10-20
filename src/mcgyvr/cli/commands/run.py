@@ -46,7 +46,7 @@ if TYPE_CHECKING:  # pragma: no cover - typing only
     from mcgyvr.sandbox.base import Sandbox
     from mcgyvr.session import Session
 
-from mcgyvr.cli.common import CONFIG_DEFAULT_HELP, SETUP_DOC, _add_repo, _named_path
+from mcgyvr.cli.common import CONFIG_DEFAULT_HELP, _add_repo, _named_path, setup_doc
 from mcgyvr.cli.fleet_live import _admitted_live, _live
 from mcgyvr.cli.sandbox import (
     _reads_the_tree,
@@ -128,7 +128,7 @@ def _run(args: argparse.Namespace) -> int:
         # to ask and no reviewer, so nothing could run or judge the work. Stop
         # here and point at the document that sets a setup up, rather than climb
         # something the caller never declared.
-        print(f"error: {config_error} {SETUP_DOC} says how.", file=sys.stderr)
+        print(f"error: {config_error} {setup_doc()} says how.", file=sys.stderr)
         return 1
 
     # Where the journal lives: `journal.dir` from the config, or the default
@@ -683,12 +683,12 @@ def _climb(
     from mcgyvr.cooldown import Cooldown
     from mcgyvr.drive import DriveError, acceptance_for, worker_attempt
     from mcgyvr.escalate import Outcome, ascent, escalate, redundant_relief
-    from mcgyvr.fleet_manager import hook_for as fleet_hook_for
     from mcgyvr.local_pool import SourceUnavailableError, source_map
     from mcgyvr.route import RouteError
     from mcgyvr.sandbox.base import SandboxError, open_sandbox
     from mcgyvr.sandbox.tempdir import TempDirSandbox
     from mcgyvr.verify import reviewers_for
+    from mcgyvr.wake_judge import hook_for as wake_hook_for
 
     # A live setup drives real rigs: containers are built, units are woken and
     # models are served. The fleet has to read as locked before any of that, and
@@ -854,7 +854,7 @@ def _climb(
                 # a fast rung to judge with: a rung that does not answer may only be
                 # asleep, and `escalate` calls this before giving up on it. It cools
                 # sources through the same hold this run uses.
-                wake_hook=fleet_hook_for(config, pool, cooldown=cooldown),
+                wake_hook=wake_hook_for(config, pool, cooldown=cooldown),
                 presence=managed.presence,
             )
             return _report_climb(
@@ -924,8 +924,8 @@ def _report_climb(
     Each attempt in the history is printed and given a correction row per draw,
     then copied into the result's attempts. A halt sets the result's outcome and
     detail and exits 1. A delivery says which rung it landed on, what it cost in
-    attempts and escalations, and what the assurance is, then answers a prose or
-    media contract or commits a change; a judgement that bound no content is an
+    attempts and escalations, and what the assurance is, then answers a prose
+    contract or commits a change; a judgement that bound no content is an
     error, because there would be nothing to deliver.
     """
     from mcgyvr.escalate import Assurance, Delivered
@@ -1013,7 +1013,7 @@ def _report_climb(
             f"approving it — {outcome.judgement.detail}",
             file=sys.stderr,
         )
-    elif outcome.assurance in (Assurance.CHECKED, Assurance.UNCHECKED):
+    elif outcome.assurance is Assurance.UNCHECKED:
         print(f"note: {outcome.judgement.detail}", file=sys.stderr)
     bound = outcome.judgement.accepted
     if bound is None:
@@ -1027,8 +1027,8 @@ def _report_climb(
             f"{contract.id} was accepted on {outcome.rung} without bound "
             f"content, so there is nothing a delivery could re-judge.",
         )
-    if contract.output_schema in ("prose", "media_artifact"):
-        # A prose or media contract's product is its answer: there is no file to
+    if contract.output_schema == "prose":
+        # A prose contract's product is its answer: there is no file to
         # place or commit, so the content goes on the result and is printed, and
         # the run is finished.
         report.answer = bound.content

@@ -1,6 +1,6 @@
 """A Hub pick carries the Hub's sha256 and size, with their source and day.
 
-Owner, 2026-10-19: weights may come from any Hub repository, so provenance is
+Weights may come from any Hub repository, so provenance is
 weak, and every file chosen carries the sha256 the Hub itself states for it
 (``/api/models/<repo>?blobs=true``); ``serve fetch`` refuses a file without
 one. Every number read from the Hub carries its source and the day it was read.

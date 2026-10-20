@@ -6,9 +6,9 @@ combination. Content-addressed, so two processes computing the same inputs
 agree without talking, and any change to an input is a new name.
 
 A fleet is not one of them. ``flt-05`` is a name, pinned in its lock file to the
-sha256 of its layout (``mcgyvr-lab/records/plans/fleet-identity.md`` §1, §4).
-The model spec, rig shape and fleet shape of the five-id design are gone (owner
-rulings), and so is the config digest as an approval key; their prefixes are
+sha256 of its layout.
+The model spec, rig shape and fleet shape of the five-id design are gone, and
+so is the config digest as an approval key; their prefixes are
 refused, so a record written under the old design cannot pass for a current one.
 """
 
@@ -20,7 +20,7 @@ from typing import Any
 
 import pytest
 
-from tests.red_port.conftest import required
+from tests._helpers import required
 
 #: unit, rig, combination.
 PREFIXES = ("unt-", "rig-", "cmb-")

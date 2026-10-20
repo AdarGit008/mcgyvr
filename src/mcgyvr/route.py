@@ -503,9 +503,14 @@ def attempts_for(family: Family, configured: int, contract: Contract) -> int:
     the configured number capped by the contract's own ``limits.attempts``, so a
     contract can ask for less than the config allows and never for more.
     """
+    return capped_attempts(family, configured, contract.limits.attempts)
+
+
+def capped_attempts(family: Family, configured: int, limit: int) -> int:
+    """:func:`attempts_for` with the contract's ``limits.attempts`` given as `limit`."""
     if family.rank == 0:
         return 1
-    return min(configured, contract.limits.attempts)
+    return min(configured, limit)
 
 
 def plan(

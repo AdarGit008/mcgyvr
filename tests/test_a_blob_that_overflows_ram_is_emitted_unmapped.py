@@ -6,7 +6,7 @@ means evictable, so a blob larger than the host's memory does not refuse and
 does not OOM: the kernel drops expert pages to make room for the pages it is
 reading, then reads them back on the next token, for as long as the server
 serves. Nothing fails, so nothing catches it: what shows is sustained NVMe
-reads *during decode* and a slow wake (`records/measurements/wake-2026-09-08/`).
+reads *during decode* and a slow wake.
 
 ``--load-mode none`` is the cure and the whole difference: it reads the file
 once, uploads what belongs on the card, frees that copy, and keeps only the
@@ -86,8 +86,7 @@ def test_a_blob_that_overflows_ram_is_emitted_unmapped() -> None:
     makes those experts unevictable.
 
     The rig is not box1, which maps this blob under the mode gate
-    (:data:`~mcgyvr.serving.MODE_RAM_HEADROOM_GB`, swept in
-    ``records/measurements/ram-headroom-2026-09-09/``) — pinned in
+    (:data:`~mcgyvr.serving.MODE_RAM_HEADROOM_GB`) — pinned in
     ``tests/test_the_two_ram_gates_hold_back_different_margins.py``, not undone
     here. What this file is about is the arm a rig too tight for its blob
     takes, so the rig is given a number that is tight under that gate."""
@@ -101,14 +100,6 @@ def test_a_blob_with_room_to_spare_is_left_mapped() -> None:
     is a number someone will later tune."""
     unit = unit_for(rig(ram_gb=48.0), MOE, engine="llama.cpp", ctx_per_slot=WINDOW)
     assert "--load-mode" not in unit.args
-
-
-def test_the_arm_is_decided_with_headroom_not_on_the_bare_blob() -> None:
-    """A blob that fits available RAM exactly is not a blob that fits: the page
-    cache needs room to work and every other process on the host needs its own.
-    12.3 GiB of weights into 12.5 GiB available is the unmapped arm."""
-    unit = unit_for(rig(ram_gb=12.5), MOE, engine="llama.cpp", ctx_per_slot=WINDOW)
-    assert unit.args["--load-mode"] == "none"
 
 
 def test_a_model_that_fits_under_neither_mode_is_refused() -> None:

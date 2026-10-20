@@ -40,8 +40,8 @@ from mcgyvr.cli.commands import (
     delegate,
     fleet,
     inspect,
-    lab,
     ladder,
+    machine,
     repo,
     setup,
 )
@@ -76,7 +76,7 @@ def _build() -> tuple[argparse.ArgumentParser, argparse.ArgumentParser]:
     sub = parser.add_subparsers(dest="command", required=True)
 
     inspect.add_parser(sub)
-    lab.add_parser(sub)
+    machine.add_parser(sub)
     ladder.add_parser(sub)
     sandbox_cmd.add_parser(sub)
     setup.add_parser(sub)

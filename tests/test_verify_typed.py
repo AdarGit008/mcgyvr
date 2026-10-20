@@ -170,7 +170,7 @@ def test_verdict_state_carries_the_contract_and_the_change(contract: Any) -> Non
 def test_the_free_text_reviewer_dispatch_is_uncapped_by_default(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    """The ruling: the verifier carries no output cap — a chatty model is a
+    """The default: the verifier carries no output cap — a chatty model is a
     prompting issue, not a cap issue. The default dispatch is None."""
     import mcgyvr.verify as verify_module
     from mcgyvr.config import parse

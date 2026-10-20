@@ -335,7 +335,7 @@ def _field_strangers(name: str, kind: str, texts: Sequence[str]) -> list[str]:
 def test_every_schema_example_names_only_placeholder_machines() -> None:
     found: list[str] = []
     for spec in _all_fields():
-        texts = [spec.doc, spec.bind_hint, *(why for _, why in spec.retired)]
+        texts = [spec.doc, spec.bind_hint]
         found += [
             f"{spec.name}: {t}" for t in _field_strangers(spec.name, spec.kind, texts)
         ]

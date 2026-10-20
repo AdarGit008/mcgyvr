@@ -1,18 +1,16 @@
 """A vLLM unit's attention backend is read from its whole log, and the line is kept.
 
-Owner ruling: "fix the reader and record the line". ``rig-id-relock``'s
-box2-03 — a ``read`` of the b-small pair on box2 — stops with ``STOP box2-03:
-box2_3b reported no attention_backend`` when both vLLM units file
-``attention_backend: null``.
+The reader is fixed, and records the line it matched. A ``read`` of the
+b-small pair on box2 stops with ``box2_3b reported no attention_backend``
+when both vLLM units file ``attention_backend: null``.
 
 A reader that takes the FIRST line matching ``attention backend`` and looks
 for a token in that line alone reads a log that names the backend elsewhere as
 ``none``. The lock's own method
-(``records/measurements/fleet-setup-2026-09-13/box2/measure_vllm.py``)
 searches the WHOLE log for the same tokens, and so does ``rig-units.sh``.
 
 * The backend is the token the whole log carries, over the same token list.
-  Owner ruling B4 holds: a backend is never guessed, so a log naming no token
+  A backend is still never guessed, so a log naming no token
   anywhere stays ``none``.
 * The reader also reports what it saw: ``backend_line=PORT,BASE64`` carries the
   first line it matched, truncated, so a ``none`` names the real wording instead
@@ -20,7 +18,7 @@ searches the WHOLE log for the same tokens, and so does ``rig-units.sh``.
   ``attention_backend`` as data that is never judged.
 * The stop stands: ``assemble_evidence.py`` refuses a missing or
   non-unanimous backend.
-* box2-03 is logged as failed, so it gets its one retry. A ``read`` has no
+* A failed ``read`` is logged as failed, so it gets its one retry. It has no
   wrapper and no artifact of its own — its run id is minted when it runs — so
   the retry is the same door command under a new run id.
 
@@ -137,7 +135,7 @@ def test_the_backend_is_the_token_the_whole_log_carries_not_the_first_lines(
 def test_a_log_that_names_no_token_anywhere_is_none_and_still_names_its_line(
     tmp_path: Path,
 ) -> None:
-    """Owner ruling B4: a backend is never guessed."""
+    """A backend is never guessed."""
     lines = _reader(tmp_path, f"{SELECTING}\n")
     assert "backend=8001,none" in lines, lines
     assert _recorded(lines) == SELECTING
@@ -269,7 +267,7 @@ def test_a_reader_that_printed_no_line_files_an_empty_one(tmp_path: Path) -> Non
 
 
 # --------------------------------------------------------------------------
-# box2-03 runs again: a read entry's one retry
+# a failed read runs again: a read entry's one retry
 # --------------------------------------------------------------------------
 
 

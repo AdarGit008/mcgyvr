@@ -1,6 +1,6 @@
 """A sample wakes a sleeper through the ladder manager, and the lock keeps its swap.
 
-Owner, #731 item 3: a fleet whose unit says ``role: sleeps-until-needed`` is
+#731 item 3: a fleet whose unit says ``role: sleeps-until-needed`` is
 sampled as ONE fleet. ``mcgyvr setup`` lays the sleeper out asleep, its launch
 spec leaves it down, and the sample swaps it in through the ladder manager's
 own wake (:func:`mcgyvr.ladder_manager.wake_making_room`: the units

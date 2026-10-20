@@ -4,9 +4,12 @@
 TypeScript grammar and the rest with the JavaScript grammar; :func:`grammar_for`
 makes that choice, and the rename resolver uses it too.
 
-- DEFINITION: function and generator declarations, classes, methods, and a
+- DEFINITION: function and generator declarations, classes (abstract ones too),
+  methods, TypeScript enums, interfaces and type aliases, and a
   ``const``/``let``/``var`` declarator whose value is an arrow function or a function
   expression. A declarator holding any other value is not a definition.
+- FIELD: a class field. PROPERTY: a plain object-literal key, and a TypeScript
+  property signature.
 - EXPORT: every name an ``export`` statement exports, plus ``"default"`` for
   ``export default``.
 - IMPORT: one per named, namespace or default import; a side-effect import is named
@@ -62,6 +65,10 @@ _DEFINITION_TYPES = {
     "generator_function_declaration": "function",
     "class_declaration": "class",
     "method_definition": "method",
+    "enum_declaration": "enum",
+    "interface_declaration": "interface",
+    "type_alias_declaration": "type",
+    "abstract_class_declaration": "class",
 }
 
 
@@ -85,6 +92,48 @@ def _declarator_definition(path: str, node: Node) -> list[Symbol]:
         return []
     signature = _declaration_keyword(node) + header(node, value)
     return [definition(path, node, name, "function", signature)]
+
+
+def _field(path: str, node: Node) -> list[Symbol]:
+    """Record a class field as a FIELD symbol."""
+    name = _declared_name(node)
+    if name is None:
+        return []
+    return [Symbol(name, SymbolKind.FIELD, path, line(node), "field", header(node))]
+
+
+def _pair(path: str, node: Node) -> list[Symbol]:
+    """Record a plain object-literal key as a PROPERTY symbol.
+
+    A computed key (``[expr]``) names nothing literal, so it is skipped.
+    """
+    key = node.child_by_field_name("key")
+    if key is None or key.type not in ("property_identifier", "identifier"):
+        return []
+    name = node_text(key)
+    if name is None:
+        return []
+    return [Symbol(name, SymbolKind.PROPERTY, path, line(node), "property")]
+
+
+def _property_signature(path: str, node: Node) -> list[Symbol]:
+    """Record a TypeScript property signature as a PROPERTY symbol."""
+    name = field_text(node, "name")
+    if name is None:
+        return []
+    return [Symbol(name, SymbolKind.PROPERTY, path, line(node), "property")]
+
+
+def _declared_name(node: Node) -> str | None:
+    """Return a node's declared name from its ``name`` field, falling back to a
+    ``property_identifier`` child (JavaScript class fields carry no name field)."""
+    name = field_text(node, "name")
+    if name is not None:
+        return name
+    for child in node.children:
+        if child.type in ("property_identifier", "identifier"):
+            return node_text(child)
+    return None
 
 
 def _declaration_keyword(declarator: Node) -> str:
@@ -209,6 +258,10 @@ LANGUAGE = TreeSitterLanguage(
         "export_statement": _exports,
         "import_statement": _imports,
         "call_expression": _reference,
+        "field_definition": _field,
+        "public_field_definition": _field,
+        "pair": _pair,
+        "property_signature": _property_signature,
     },
 )
 extract = LANGUAGE.extract

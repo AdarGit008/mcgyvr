@@ -51,7 +51,6 @@ from mcgyvr.runner import Completion, RunnerError
 from mcgyvr.telemetry import observe
 from mcgyvr.verify import VERIFIER_ROLE, NoReviewer, Reviewer, verify
 from mcgyvr.worker.reply import (
-    MEDIA_ARTIFACT,
     PROSE,
     ReplyError,
     empty_at_cap,
@@ -189,7 +188,7 @@ def worker_attempt(
 
     def _attempt(this: Try, made: _Dispatches, draws: int) -> Judgement:
         family = family_of(config, this.rung.name)
-        prose = contract.output_schema in (PROSE, MEDIA_ARTIFACT)
+        prose = contract.output_schema == PROSE
         # The reviewer this rung would be judged by, if any: a contract whose
         # kind does not judge a change — chat and agent — is never reviewed, and
         # neither is a run with no selector. The selector's answer is kept whole
@@ -236,10 +235,10 @@ def worker_attempt(
 
         def judge_draw(space: Sandbox) -> GateResult:
             if prose:
-                # A prose or media contract is judged by its output checks, not
-                # by a code gate: `gate_prose_workspace` runs the checks the
-                # contract's task type declares over the workspace the reply was
-                # written into, and no adapter and no project check reads it.
+                # A prose contract is not judged by a code gate:
+                # `gate_prose_workspace` runs no rung over the workspace the
+                # reply was written into, and no adapter and no project check
+                # reads it.
                 return _drive.gate_prose_workspace(contract, space)
             # A code contract is gated over the tree as the reply left it: the
             # project's own checks, the adapters' static ones and the acceptance

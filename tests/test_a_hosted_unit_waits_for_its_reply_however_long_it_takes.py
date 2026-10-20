@@ -1,8 +1,8 @@
 """A hosted unit waits for its reply however long it takes.
 
 A hosted model with a large reply cap can take minutes to answer: a reasoning
-model asked for 16k tokens ran for about 229 s in e2e run 2, and the 120 s bound
-every unit got by default ended that read, and with it the whole run, as an
+model asked for 16k tokens can run for about 229 s, and the 120 s bound
+every unit used to get by default ended that read, and with it the whole run, as an
 `error`. The time a hosted reply takes is the provider's, and no number written
 here knows it. So a unit with `api_key_env` and no `request_timeout_s` sends
 its request with no bound on the reply at all.

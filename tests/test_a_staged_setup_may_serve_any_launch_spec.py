@@ -3,9 +3,8 @@
 Gate 1 (``src/mcgyvr/serving/gate-scripts/01-config.py``) admits a ``serve up``
 and ``down`` under a setup ``mcgyvr setup`` staged in the data folder whatever
 launch spec they name: nothing of it is locked yet, and setup starts and
-samples it itself (:func:`mcgyvr.fleet.roots.runs_live`; owner ruling N11 in
-``mcgyvr-lab/records/plans/sleep-wake.md``, that such a run runs everything;
-the intent is ``mcgyvr-lab/records/plans/fleet-identity.md`` §6).
+samples it itself (:func:`mcgyvr.fleet.roots.runs_live`), so such a run
+runs everything.
 
 **Where the guard on a shared rig lives.** Every other run is held to the live
 lock: gate 1 admits its ``serve up`` only for units the fleet lock names
@@ -113,8 +112,8 @@ def test_a_staged_setup_may_bring_up_a_launch_spec_of_its_own(tmp_path: Path) ->
     result = onedoor.serve_door(root, "up", theirs, env_extra={CONFIG_VAR: str(staged)})
 
     assert "gate 1:" not in result.stderr, (
-        "gate 1 refused a staged setup its own launch spec. The owner ruled "
-        "that such a run runs everything, serve up and down included.\n"
+        "gate 1 refused a staged setup its own launch spec. Such a run runs "
+        "everything, serve up and down included.\n"
         f"stderr: {result.stderr[-1500:]}"
     )
     assert result.returncode == 0, (result.stdout, result.stderr[-1500:])

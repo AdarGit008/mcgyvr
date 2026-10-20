@@ -12,7 +12,7 @@ situations make "next to me" a question:
    that load to the same config "render to the same bytes".
 
 2. **The path goes through a symlink.** A ladder selected by linking it to the
-   default config path (``mcgyvr-lab/records/plans/config-library.md`` §6/D5)
+   default config path
    is reached through the link. The link's directory is not the entry's, so an
    unresolved join would render one set of bytes two ways, one of which names
    a geometry that is not on disk.
@@ -89,8 +89,8 @@ def test_a_config_reached_through_a_symlink_is_the_same_config(
 ) -> None:
     """Identity is a property of the config, not of the route taken to it.
 
-    A ladder selected by symlinking its entry to the default path (the design
-    in ``mcgyvr-lab/records/plans/config-library.md`` §6/D5) is read through the link.
+    A ladder selected by symlinking its entry to the default path is read
+    through the link.
     The scan sits beside the entry, because that is where the entry's author filed
     it — so "beside me" is the entry's directory, and reaching the same bytes
     two ways must not produce two setups, one of which names a file that was

@@ -1,7 +1,7 @@
-"""A `chat` or `agent` run is a session, and its answer is kept (F7).
+"""A `chat` or `agent` run is a session, and its answer is kept.
 
-Owner decision (e2e run 1, F7): "chat and agent are sessions and should be
-logged as such - answers are not throwaway nowhere". So:
+Chat and agent are sessions and are logged as such: an answer is never thrown
+away. So:
 
 - a `chat` or `agent` contract names no `target` and no `scope`: nothing is
   written, so there is no file to name. One that still gives a target is told
@@ -162,7 +162,7 @@ def test_a_chat_or_agent_contract_needs_no_target_and_no_scope(document: str) ->
 
 @pytest.mark.parametrize("document", [CHAT, AGENT])
 def test_a_chat_or_agent_contract_needs_no_stop_condition(document: str) -> None:
-    """A session replies in prose, where no BLOCKED reply is heard (F10)."""
+    """A session replies in prose, where no BLOCKED reply is heard."""
     bare = "\n".join(
         line for line in document.splitlines() if not line.startswith("stop_")
     )
@@ -179,19 +179,12 @@ def test_a_chat_contract_that_asks_for_a_file_reply_is_refused() -> None:
     assert "session" in said, said
 
 
-@pytest.mark.parametrize(
-    "document",
-    [
-        "id: c\ntask_type: code\ntask: Set VALUE.\nstop_conditions: [x]\n"
-        "scope:\n  allow: ['src/**']\n",
-        "id: m\ntask_type: media\ntask: Draw.\nstop_conditions: [x]\n"
-        "output_schema: media_artifact\nmedia_kind: image\n"
-        "scope:\n  allow: ['out/**']\n",
-    ],
-)
-def test_code_and_media_still_need_their_target(document: str) -> None:
+def test_code_still_needs_its_target() -> None:
     with pytest.raises(ContractSchemaError) as exc:
-        loads(document)
+        loads(
+            "id: c\ntask_type: code\ntask: Set VALUE.\nstop_conditions: [x]\n"
+            "scope:\n  allow: ['src/**']\n"
+        )
     assert str(exc.value).startswith("target: required key is not set"), exc.value
 
 
@@ -395,29 +388,11 @@ def test_the_catalog_says_a_chat_or_agent_run_is_a_session(
     assert "never written" in out, out
 
 
-MEDIA = """\
-id: picture
-task_type: media
-task: Draw a red square.
-target: out/square.png
-stop_conditions: ["The size is not stated."]
-output_schema: media_artifact
-media_kind: image
-scope:
-  allow: ["out/**"]
-"""
-
-
 @pytest.mark.parametrize(
     ("document", "said"),
     [
         (CHAT, "served unchecked: chat replies are not checked or reviewed."),
         (AGENT, "served unchecked: agent replies are not checked or reviewed."),
-        (
-            MEDIA,
-            "accepted on its output checks (media_valid); "
-            "media replies are never reviewed.",
-        ),
     ],
 )
 def test_mcgyvr_contract_says_how_a_reply_is_judged_as_the_result_does(

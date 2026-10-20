@@ -14,12 +14,15 @@ from enum import StrEnum
 
 class SymbolKind(StrEnum):
     """What a :class:`Symbol` represents: a definition site, a call site, an
-    export site, or an import site."""
+    export site, an import site, a field on a class, or a property of an object
+    shape."""
 
     DEFINITION = "definition"
     REFERENCE = "reference"
     EXPORT = "export"
     IMPORT = "import"
+    FIELD = "field"
+    PROPERTY = "property"
 
 
 @dataclass(frozen=True)

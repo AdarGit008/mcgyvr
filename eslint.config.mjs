@@ -1,20 +1,11 @@
-// The project's JavaScript/TypeScript lint standard.
+// A JavaScript/TypeScript lint config: `recommended` from eslint and
+// typescript-eslint, nothing else.
 //
-// This file binds the *gate*, not just the bench, and the rule set moves in
-// step with `[tool.ruff.lint] select`: changing the bar re-bases every
-// JavaScript rate measured under it.
-//
-// This is the JS half of what `[tool.ruff.lint] select` is for Python:
-// `src/mcgyvr/gate/adapters/javascript.py` shells to eslint, and eslint 9
-// requires a flat config.
-//
-// **Why `recommended` and not `strict` or `stylistic`.** The Python side selects
-// a moderate, correctness-leaning set — E, F, W, I, N, UP, B, SIM, RUF — and
-// deliberately not the whole catalogue. `recommended` is that shape for this
-// language: real defects and dead code, not house style. The two arms of the
-// bench are paired, so a bar that is materially harsher on one side would show
-// up as a language effect that is really a rule-selection effect.
-//
+// mcgyvr does not read this file: its gate runs eslint with the config of the
+// repository it judges. The product no longer installs eslint (`package.json`
+// pins prettier only). The file stays because the lab's bench stages it into
+// every workspace it scores (mcgyvr-lab `tools/bench/score.py`), and the lab
+// must supply eslint, @eslint/js and typescript-eslint to load it.
 
 import js from "@eslint/js";
 import tseslint from "typescript-eslint";

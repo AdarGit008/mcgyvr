@@ -167,7 +167,7 @@ def test_two_models_on_one_endpoint_are_two_launch_specs(
 ) -> None:
     """One llama-server process serves one model, and one URL may still hold two.
 
-    This exited REFUSED until 2026-09-09 — "give each model its own source on
+    This used to exit REFUSED — "give each model its own source on
     its own port" — and the advice was right about co-residents and wrong about
     the shape the ladder is now made of. Two rungs on one URL are two models
     *taking turns* on it, and telling an owner to invent a second port is

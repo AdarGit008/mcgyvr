@@ -85,6 +85,7 @@ class BuildStats:
     files_indexed: int
     files_skipped_large: int
     files_skipped_binary: int
+    files_skipped_gone: int
     bytes_indexed: int
     symbol_count: int
     languages: Mapping[str, int]
@@ -235,6 +236,7 @@ class IndexAssembler:
         self._symbols: list[Symbol] = []
         self._skipped_large = 0
         self._skipped_binary = 0
+        self._skipped_gone = 0
         self._bytes_indexed = 0
         self._languages: dict[str, int] = defaultdict(int)
         self._degraded: set[str] = set()
@@ -250,13 +252,13 @@ class IndexAssembler:
         self._bytes_indexed += result.size_bytes
 
     def skipped(self, reason: SkipReason) -> None:
-        """Count a skipped file for the reasons that have their own counter."""
+        """Count a skipped file against its reason's counter."""
         if reason is SkipReason.LARGE:
             self._skipped_large += 1
         elif reason is SkipReason.BINARY:
             self._skipped_binary += 1
-        # GONE is not counted: the file vanished or became unreadable between
-        # enumeration and reading, so it is simply absent from the index.
+        elif reason is SkipReason.GONE:
+            self._skipped_gone += 1
 
     def finish(self, root: Path) -> Index:
         """Build the symbol table and stats snapshot and return the frozen index."""
@@ -266,6 +268,7 @@ class IndexAssembler:
             files_indexed=len(self._files),
             files_skipped_large=self._skipped_large,
             files_skipped_binary=self._skipped_binary,
+            files_skipped_gone=self._skipped_gone,
             bytes_indexed=self._bytes_indexed,
             symbol_count=len(table),
             languages=dict(self._languages),

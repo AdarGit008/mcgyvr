@@ -21,7 +21,7 @@ import pytest
 
 from mcgyvr import serving
 from mcgyvr.config import Config, Ladder, Unit
-from mcgyvr.scan import Scan
+from mcgyvr.scan import Scan, Vram
 from mcgyvr.serving import (
     DEFAULT_UBATCH,
     ModelSpec,
@@ -263,8 +263,9 @@ def test_a_scanned_fit_reports_the_scratch_allowance_it_carries(
 
 
 def test_fit_reads_free_vram_not_the_nameplate(scans: dict[str, Scan]) -> None:
-    busy = machine("box2", vram_mib=12288, ram_gb=16.0, free_gb=120.0)
-    busy = busy.with_vram_used(11286)
+    idle = machine("box2", vram_mib=12288, ram_gb=16.0, free_gb=120.0)
+    held = Vram(total_mib=12288, used_mib=11286, free_mib=12288 - 11286)
+    busy = replace(idle, gpus=(replace(idle.gpus[0], vram=held),))
     assert fit(busy, MID, ctx_per_slot=WINDOW).fits is False
 
 
@@ -500,3 +501,13 @@ def test_a_model_id_with_a_slash_mounts_the_directory_the_scan_measured(
     assert disk is not None
     assert unit.weights_dir == disk.path
     assert "/" not in unit.weights.name
+
+
+def test_an_engine_outside_known_engines_is_refused_by_name(
+    scans: dict[str, Scan],
+) -> None:
+    sized = serving.fit(scans["box2"], MOE, engine="whisper", ctx_per_slot=4096)
+    assert sized.fits is False
+    assert "not wired" in sized.why
+    with pytest.raises(UnitError, match="whisper"):
+        unit_for(scans["box2"], MOE, engine="whisper", ctx_per_slot=4096)

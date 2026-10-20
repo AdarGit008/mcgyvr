@@ -4,13 +4,12 @@
 each of them fitting alone is exactly how a card is handed a compose file asking
 for more than it has. Host RAM is the same: weighing each unit alone against the
 same ``MemAvailable`` would pass both and emit a file asking the host for twice
-what it has. The owner's ruling: **RAM summed per host, VRAM per card**, the sum
+what it has. So: **RAM summed per host, VRAM per card**, the sum
 taken after the loading modes are picked, with one host headroom applied once,
 against the recorded scan and never a live read.
 
-What each unit asks for is the arm its fit took — the law is F2.1 in
-``mcgyvr-lab/records/plans/fleet-shape/formulas.md``, and it is the same split ``fit``
-already makes:
+What each unit asks for is the arm its fit took — the law is the
+same split ``fit`` already makes:
 
 * **mapped**, the engine's default: the *blob*, because every page of it goes
   through the page cache and the kernel may evict what it does not fit;
@@ -28,10 +27,8 @@ port, added across ports — which is the rule ``alternatives()`` already carrie
 Two honest limits on all of this, stated here so a reader does not mistake the
 sum for a measurement:
 
-* **G2 in ``mcgyvr-lab/records/plans/fleet-shape/evidence_and_params.md``:
-  nothing on this fleet has ever run two llama.cpp MoE units co-resident on one
-  host**, so the
-  sum is the declared law rather than a measured one.
+* **Nothing on this fleet has ever run two llama.cpp MoE units co-resident on
+  one host**, so the sum is the declared law rather than a measured one.
 * The case that can actually arrive is a host whose card figures are
   *declared* — box2's vLLM pair states ``vram_gb`` in the config. Two
   geometry-sized units cannot reach this check, because ``_placement`` fills the
@@ -52,8 +49,8 @@ from tests._paths import TESTS
 
 WINDOW = 4096
 
-#: box1's measured idle ``MemAvailable``, 2026-09-09 — the figure both the
-#: sweep and the recorded scan agree on.
+#: The fixture box1's idle ``MemAvailable`` — the figure both the sweep and
+#: the recorded scan agree on.
 AVAILABLE_GB = 14.19
 
 GEOMETRY: dict[str, dict[str, Any]] = json.loads(
@@ -111,7 +108,7 @@ def test_two_spilling_co_residents_are_summed_against_the_host() -> None:
 
     This is the arm where being wrong is silent: the experts are allocated, the
     host swaps, and every request is still served — at 32% of the decode rate
-    the same unit reaches with room (``ram-headroom-2026-09-09``). Nothing
+    the same unit reaches with room. Nothing
     errors, so nothing but this sum catches it.
     """
     units = pair(ram_gb=6.5, disk_gb=14.0, ports=(8080, 8081))
@@ -125,7 +122,7 @@ def test_two_spilling_co_residents_are_summed_against_the_host() -> None:
 
 
 def test_a_mapped_unit_asks_for_its_blob_and_an_unmapped_one_for_its_experts() -> None:
-    """The two arms F2.1 names, and the reason the sum runs *after* the modes
+    """The two arms, and the reason the sum runs *after* the modes
     are picked rather than before: which figure a unit contributes is decided by
     the mode, so a sum taken first would be summing the wrong numbers.
 
@@ -146,7 +143,8 @@ def test_a_pair_that_fits_with_the_headroom_is_not_refused() -> None:
     fits — where a margin charged per unit would make it 15.0 and refuse a
     layout the host can hold.
     """
-    hold_together(pair(ram_gb=1.0, disk_gb=5.5, ports=(8080, 8081)), {"box1": rig()})
+    together = pair(ram_gb=1.0, disk_gb=5.5, ports=(8080, 8081))
+    assert hold_together(together, {"box1": rig()}) == ()
 
 
 def test_alternatives_are_not_summed_because_only_one_is_ever_up() -> None:
@@ -155,7 +153,10 @@ def test_alternatives_are_not_summed_because_only_one_is_ever_up() -> None:
     their memory prices a contention that cannot happen, which is exactly the
     rule ``hold_together`` already applies to the card.
     """
-    hold_together(pair(ram_gb=6.5, disk_gb=14.0, ports=(8080, 8080)), {"box1": rig()})
+    turns = pair(ram_gb=6.5, disk_gb=14.0, ports=(8080, 8080))
+    (warning,) = hold_together(turns, {"box1": rig()})
+    assert "careful" in warning and "quick" in warning, warning
+    assert "2 alternatives" in warning and "only one of them is ever up" in warning
 
 
 def test_a_unit_that_spills_nothing_asks_the_host_for_nothing() -> None:
@@ -169,8 +170,8 @@ def test_a_unit_that_spills_nothing_asks_the_host_for_nothing() -> None:
 
 
 def test_a_lone_unit_is_left_to_the_fit_that_already_admitted_it() -> None:
-    """box1 as it now stands, and the guard on the other half of 2026-09-09's
-    finding: one Qwen3.6, 12.30 GiB of blob mapped into 14.19 GiB available,
+    """The fixture box1, and the guard on the other half of the finding: one
+    Qwen3.6, 12.30 GiB of blob mapped into 14.19 GiB available,
     admitted by a mode gate that holds back 0.5. A host RAM sum charging the
     2.0 GiB refusal margin to that lone unit would refuse the very rung the
     measurement says to map. There is nothing to sum on a host with one unit.

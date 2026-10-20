@@ -138,14 +138,9 @@ def test_cores_and_threads_are_separate_numbers(bench: Bench, scan: Any) -> None
     assert scan().cpu == Cpu(cores=10, threads=20)
 
 
-def test_smt_is_derived_from_the_two_numbers(bench: Bench, scan: Any) -> None:
-    cpu = scan().cpu
-    assert cpu is not None
-    assert cpu.smt is True
+def test_a_cpu_without_smt_reports_one_thread_per_core(bench: Bench, scan: Any) -> None:
     bench(lscpu=LSCPU_NO_SMT)
-    cpu = scan().cpu
-    assert cpu is not None
-    assert cpu.smt is False
+    assert scan().cpu == Cpu(cores=8, threads=8)
 
 
 def test_bandwidth_is_measured_not_read_from_a_nameplate(
@@ -328,7 +323,7 @@ def test_nvidia_smi_answering_with_nothing_still_says_so(
     assert any("reported no device" in note for note in result.notes)
 
 
-#: box1 as nvidia-smi printed it on 2026-09-05 with the 35B unit up: the card
+#: A card as nvidia-smi prints it with a 35B unit up: the card
 #: says 6144 total, 5306 used and 438 free, which do not sum -- 400 MiB is the
 #: driver's own reserve and is never handed to a process.
 SMI_RESERVED = "0, 6144, 5306, 438, NVIDIA GeForce RTX 3050\n"
@@ -339,7 +334,7 @@ def test_free_vram_is_the_cards_own_number_not_total_minus_used(
 ) -> None:
     """``total - used`` is not what the card will hand out, and the gap decides fits.
 
-    Measured on box1 (2026-09-05): total 6144, used 5306, free 438. Deriving
+    As measured: total 6144, used 5306, free 438. Deriving
     free from the first two reports 838 -- 400 MiB that no process can have,
     because the driver is holding it. A placement sized against the derived
     number clears every gate and then OOMs at load by exactly that reserve.

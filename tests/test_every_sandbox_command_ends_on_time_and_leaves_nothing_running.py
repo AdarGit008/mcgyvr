@@ -30,8 +30,8 @@ from pathlib import Path
 
 import pytest
 
-from mcgyvr import cleanup, repair
 from mcgyvr import drive as drive_module
+from mcgyvr import repair
 from mcgyvr.contract import loads as load_contract
 from mcgyvr.deterministic import tool_steps
 from mcgyvr.drive import run_tool_step
@@ -298,7 +298,7 @@ def test_a_docker_call_that_hangs_returns_within_its_bound(
     fake.write_text("#!/bin/sh\nexec sleep 5\n", encoding="utf-8")
     fake.chmod(fake.stat().st_mode | stat.S_IXUSR)
     monkeypatch.setenv("PATH", f"{fake.parent}{os.pathsep}{os.environ['PATH']}")
-    monkeypatch.setattr(image_module, "DOCKER_CALL_TIMEOUT_S", 0.5, raising=False)
+    monkeypatch.setattr(image_module, "DOCKER_CALL_TIMEOUT_S", 0.5)
 
     started = time.monotonic()
     result = image_module.subprocess_runner(["rm", "--force", "mcgyvr-task-x"])
@@ -422,7 +422,7 @@ def test_cleanup_formats_to_the_width_the_gate_checks(users_ruff: Path) -> None:
         "result = some_function_name(argument_one, argument_two, "
         "argument_three, argument_four_xyz_long)\n"
     )
-    tidied = cleanup._ruff_format(long_line, "a.py", users_ruff)
+    tidied = repair._ruff_format(long_line, "a.py", users_ruff)
     assert tidied == (
         "result = some_function_name(\n"
         "    argument_one, argument_two, argument_three, argument_four_xyz_long\n"
@@ -444,7 +444,7 @@ def test_a_command_with_no_timeout_is_held_to_the_built_in_ceiling(
     git_repo: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
     """No config, no caller ceiling — the sandbox still has one of its own."""
-    monkeypatch.setattr(base_module, "DEFAULT_COMMAND_TIMEOUT_S", 0.5, raising=False)
+    monkeypatch.setattr(base_module, "DEFAULT_COMMAND_TIMEOUT_S", 0.5)
     with TempDirSandbox(git_repo) as sandbox:
         started = time.monotonic()
         result = sandbox.run(["sleep", "30"])

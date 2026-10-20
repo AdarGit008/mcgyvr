@@ -189,10 +189,6 @@ class Backend:
         """True when this backend's host is one of LOCAL_HOSTS."""
         return is_local_host(self.host)
 
-    def has_model(self, model_id: str) -> bool:
-        """True when model_id appears verbatim among the ids the server listed."""
-        return model_id in self.models
-
 
 @dataclass(frozen=True)
 class Detection:
@@ -210,24 +206,6 @@ class Detection:
     # The targets the sweep actually asked, so a later reader can tell
     # "this machine had nothing" apart from "these hosts were never probed".
     swept: tuple[ProbeTarget, ...] = ()
-
-    @property
-    def has_gpu(self) -> bool:
-        return bool(self.gpus)
-
-    @property
-    def largest_vram_gb(self) -> float | None:
-        """VRAM of the card chosen by sizing_gpu, or None when no card
-        reported a size."""
-        sizing = self.sizing_gpu
-        return None if sizing is None else sizing.vram_gb
-
-    @property
-    def sizing_gpu(self) -> Gpu | None:
-        """The card with the largest known VRAM. Cards whose size could not
-        be read are ignored, and None comes back when no card has a size."""
-        sized = [g for g in self.gpus if g.vram_gb is not None]
-        return max(sized, key=lambda g: g.vram_gb or 0.0, default=None)
 
     def backend(self, name: str) -> Backend | None:
         return next((b for b in self.backends if b.name == name), None)

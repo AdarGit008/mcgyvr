@@ -202,32 +202,6 @@ class Timing:
     # used within this time, and the log then says how short that rest was.
     port_rest_s: float = 120.0
 
-    @classmethod
-    def quick(cls) -> Timing:
-        """A timing short enough for a test.
-
-        Every wait on a container is a fraction of a second, and a tunnel port does
-        not rest before it is taken again.
-        """
-        return cls(
-            tick_s=0.01,
-            lease_s=60,
-            renew_s=0.02,
-            monitor_s=0.02,
-            prepare_s=0.5,
-            start_s=0.5,
-            load_s=1.0,
-            poll_s=0.01,
-            grace_s=0.1,
-            stop_wait_s=5.0,
-            peer_lost_s=0.2,
-            stall_s=5.0,
-            warm_s=1.0,
-            attempt_s=0.05,
-            connect_s=2.0,
-            port_rest_s=0.0,
-        )
-
 
 @dataclass(frozen=True, kw_only=True)
 class Machine:

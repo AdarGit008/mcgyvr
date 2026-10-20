@@ -1,6 +1,6 @@
 """A `chat` or `agent` run is a raw connection to a model: mcgyvr sets no limits.
 
-Owner decision (2026-10-14, e2e run 3 T1): the cap model is decided by task
+The cap model is decided by task
 type, and `chat` and `agent` are a raw LLM connection. mcgyvr provides no
 harness around one, so:
 

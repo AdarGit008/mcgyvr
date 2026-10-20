@@ -25,65 +25,45 @@ from mcgyvr.gate.adapter import LanguageAdapter
 from mcgyvr.gate.adapters import JavaScriptAdapter, PythonAdapter
 
 # The measured ceiling on one bundle, in bytes of UTF-8 text after provenance is
-# stripped — the number `load_bundle` enforces and the marker never spends.
-# It is evidence, not a budget: the 8 KB condition measured worse than this one,
-# so an oversized artifact is refused at load with instructions to re-measure
-# rather than truncated to fit. One constant covers every language because a
-# per-language ceiling needs a curve with a peak, and JS/TS measured flat, so
-# there is no peak here to place one at.
+# stripped. `load_bundle` refuses an artifact over it rather than truncating it
+# to fit; one constant covers every language.
 MAX_BUNDLE_BYTES = 2048
 
 
 class BundleStanding(StrEnum):
     """What a bundle's own measurement licenses a reader to say about it.
 
-    It travels with the artifact from the registry through `Bundle` to whatever
-    reports on a run, because no other field records it."""
+    It travels with the artifact from the registry through `Bundle`."""
 
     UNMEASURED = "unmeasured"
     """No sweep has been run on this artifact."""
 
-    MEASURED_BENEFIT = "measured-benefit"
-    """A sweep ran and the bundle beat its absence."""
-
     MEASURED_NO_EFFECT = "measured-no-effect"
-    """A sweep ran and no rung separated from no-bundle-at-all (`javascript.md`).
-    The file still ships because measuring no benefit is not measuring harm —
-    but nothing here licenses citing a gain."""
+    """A sweep ran and found no effect against no bundle at all
+    (`javascript.md`), so no gain may be cited."""
 
     MEASURED_REDUNDANT = "measured-redundant"
-    """The bundle's effect is real, and this project's own prompt already has it.
-
-    `python.md`: the gain was measured against a user message with no output
-    rule in it. :func:`~mcgyvr.worker.prompt.render_user_message` ends every
-    message by requiring the complete file as one fenced block and nothing
-    else, which is the device the bundle's gain runs through. Figures: the
-    lab's python-bundle measurement.
-
-    Distinct from :data:`MEASURED_NO_EFFECT`, and the distinction is
-    load-bearing in both directions. A reader must not cite a gain here — on
-    mcgyvr's path there is none. A reader must also not conclude the artifact
-    is inert: a harness whose prompt lacks output discipline gains from it.
-    What is redundant is redundant *with something*, and naming that is the
-    difference between a fact and a shrug."""
+    """The bundle's effect is real, and this project's own prompt already has it
+    (`python.md`): :func:`~mcgyvr.worker.prompt.render_user_message` ends every
+    message by requiring the complete file as one fenced block. No gain may be
+    cited on mcgyvr's path; unlike :data:`MEASURED_NO_EFFECT`, the artifact is
+    not inert in a harness without that rule."""
 
 
 # Language bundles, keyed by the gate adapter's `name` rather than by a second
 # table of extensions: `bundle_for` asks the adapters which one owns the target
 # and looks that name up here, so a language the gate knows but this registry
-# does not gets no bundle. Each entry carries the standing its own sweep found;
-# `python.md` is measured redundant with this harness, `javascript.md` flat.
+# does not gets no bundle. Each entry carries its file and its standing.
 _LANGUAGE_BUNDLES: dict[str, tuple[str, BundleStanding]] = {
     "python": ("python.md", BundleStanding.MEASURED_REDUNDANT),
     "js/ts": ("javascript.md", BundleStanding.MEASURED_NO_EFFECT),
 }
 
-#: Use-case bundles, keyed by the contract's use case. Neither file has been
-#: swept, so both ship `UNMEASURED`; `chat` has no entry because it is a raw
+#: Use-case bundles, keyed by the contract's use case. The file has not been
+#: swept, so it ships `UNMEASURED`; `chat` has no entry because it is a raw
 #: pass-through and a system prompt would bias it.
 _USE_CASE_BUNDLES: dict[str, tuple[str, BundleStanding]] = {
     "agent": ("agent.md", BundleStanding.UNMEASURED),
-    "media-gen": ("media-gen.md", BundleStanding.UNMEASURED),
 }
 
 #: Both key kinds in one registry. The namespaces do not collide today, and

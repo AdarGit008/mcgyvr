@@ -17,11 +17,11 @@ from __future__ import annotations
 
 # isort: off
 # The services the driver composes, re-exported so a caller needs one
-# import: jobs run in parallel under a capacity, the cleanup of a rejected
+# import: jobs run in parallel under a capacity, the tidy-up of a rejected
 # change, best-of-n consensus over draws, the escalation judge, the model
 # runner, the sleep/wake waker and the worker prompt builder.
 from mcgyvr.capacity import run_batch
-from mcgyvr.cleanup import tidy
+from mcgyvr.repair import tidy
 from mcgyvr.consensus import best_of
 from mcgyvr.escalate import judge
 from mcgyvr.runner import dispatch
@@ -58,7 +58,6 @@ from mcgyvr.drive.gate import (
     gate_in_sandbox,
     gate_prose_workspace,
     gate_workspace,
-    output_checks_for,
     task_ceiling,
 )
 from mcgyvr.drive.attempt import SESSION_REPLY, _in_order, worker_attempt
@@ -90,7 +89,6 @@ __all__ = [
     "gate_prose_workspace",
     "gate_workspace",
     "judge",
-    "output_checks_for",
     "refuse_unsendable",
     "refuse_unsendable_climb",
     "run_batch",

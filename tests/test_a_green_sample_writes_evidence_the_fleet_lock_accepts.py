@@ -1,14 +1,14 @@
 """A green sample writes evidence the fleet lock accepts.
 
-Owner, Round 4 (2026-10-07): the owner's confirm is approval to run the
-SAMPLE -- start the servers and run the sample check task. A green sample is
-the fleet STAMPED. Plan section 8.2: the sample's results are written as the
+The user's confirm is approval to run the SAMPLE -- start the servers and run
+the sample check task. A green sample is the fleet STAMPED. The sample's
+results are written as the
 dev-run evidence JSON the lock is written from; the stamp holds it, and the
 chain every live fleet takes runs from there -- ``lock.write_from_stamp`` ->
 ``promote.promote`` -> ``fleet use``
 (``test_a_stamp_writes_no_lock_and_the_lock_is_written_from_the_stamp.py``).
 
-* **The evidence is read from the door's own read rows** (P7a, Round 8):
+* **The evidence is read from the door's own read rows**:
   ``read --fleet F --probe U --load WxN`` of the staged setup files the
   snapshot (the rig id, the card's reserve as the combination's overhead),
   each unit's card and restarts, the probe's warm decode and prefill, and the
@@ -145,7 +145,7 @@ def test_a_rig_of_several_cards_is_held_to_each_card(
     [
         ("coding", (("gate", fx.UNIT, False), ("gate", "rig-a-other", True))),
         ("chat", (("completion", fx.UNIT, True),)),
-        ("agent", (("grounded", fx.UNIT, True), ("safety", fx.UNIT, True))),
+        ("agent", (("grounded", fx.UNIT, True),)),
     ],
 )
 def test_each_use_case_is_green_by_its_own_task(
@@ -155,7 +155,7 @@ def test_each_use_case_is_green_by_its_own_task(
     outcomes: tuple[tuple[str, str, bool], ...],
 ) -> None:
     """Coding: the gate passes on any rung. Chat: each unit answers at its
-    planned window and slots. Agent: grounded and safety both pass."""
+    planned window and slots. Agent: the grounded check passes."""
     from mcgyvr.fleet import sample
 
     setup = fx.staged(tmp_path, policy=fx.policy_doc(tmp_path, use_case))

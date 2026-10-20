@@ -17,7 +17,7 @@ import urllib.parse
 from collections.abc import Mapping, Sequence
 from dataclasses import dataclass, field
 from pathlib import Path
-from typing import Any, Literal
+from typing import Any
 
 import yaml
 
@@ -31,6 +31,8 @@ from mcgyvr.fleet.files import (
 from mcgyvr.fleet.ids import _canonical_dump
 from mcgyvr.fleet.roots import LiveFleetError, live_fleet_dir
 from mcgyvr.sandbox.base import NETWORKS
+from mcgyvr.schema import Dialect, join_path, walk_block
+from mcgyvr.schema import Field as Field
 from mcgyvr.strict_yaml import strict_loader
 
 #: The three files a setup directory holds. `load()` reads all of them: fleet.yaml
@@ -69,51 +71,6 @@ class CredentialInConfigError(ConfigSchemaError):
 
 class UnboundValueError(ConfigError):
     """A key is not bound, or the environment variable it names is not set."""
-
-
-Kind = Literal[
-    "int",
-    "float",
-    "str",
-    "url",
-    "bool",
-    "enum",
-    "env_name",
-    "str_list",
-    "mapping",
-    "int_map",
-    "block",
-    "block_map",
-    "block_list",
-]
-
-
-@dataclass(frozen=True)
-class Field:
-    """One declared key: how a value for it is read, checked and defaulted,
-    and the prose an error about it quotes."""
-
-    name: str
-    kind: Kind
-    doc: str
-    required: bool = False
-    default: Any = None
-    choices: tuple[str, ...] = ()
-    block: tuple[Field, ...] = ()
-    min_value: float | None = None
-    #: Inclusive bounds for the `int` and `float` kinds; `min_value` also floors
-    #: each entry of an `int_map`. `choices` closes an `enum`, and `block` names
-    #: the fields a `block`, `block_map` or `block_list` holds. `bind_hint` says
-    #: how to set the key, quoted by the error that calls it unset.
-    max_value: float | None = None
-    bind_hint: str = ""
-
-    retired: tuple[tuple[str, str], ...] = ()
-    """Enum values this build recognises and refuses, each with why and what to
-    set instead.
-
-    A retired value is still recognised, so the message can be specific; it is
-    refused, so the config cannot resolve to it."""
 
 
 #: Where a relief rung's host model sits against the models on your own rigs, as
@@ -165,11 +122,11 @@ SANDBOX_FIELDS: tuple[Field, ...] = (
         "enum",
         "The sandbox a `chat` or `agent` run gets when its contract declares "
         "no `acceptance` or `demonstration` command. Such a session runs no "
-        "command: its reply is only staged in a throwaway checkout of HEAD for "
-        "the output checks. `tempdir` stages it on this host, so a session "
+        "command: its reply is only staged in a throwaway checkout of HEAD, "
+        "which nothing checks. `tempdir` stages it on this host, so a session "
         "never builds, pulls or starts a container and needs no Docker. "
-        "`docker` gives it a task container as `mode: docker` gives `code` and "
-        "`media`, with `allow_fallback` and `network` applying. A session that "
+        "`docker` gives it a task container as `mode: docker` gives `code`, "
+        "with `allow_fallback` and `network` applying. A session that "
         "declares a command is sandboxed by `mode`, like any task, and "
         "`--sandbox` on `mcgyvr run` overrides both for one run. "
         "`mcgyvr setup --session-sandbox` writes it.",
@@ -247,18 +204,6 @@ _RETIRED_KEYS: dict[str, str] = {
 #: The use cases an install may serve, in the order setup offers them.
 USE_CASES: tuple[str, ...] = ("coding", "chat", "agent")
 
-#: Use cases this build recognises and refuses, each with the rest of the
-#: refusal it earns. `media-gen` is off until its sample is built: setup cannot
-#: sample it, so it neither offers it nor writes it.
-RETIRED_USE_CASES: tuple[tuple[str, str], ...] = (
-    (
-        "media-gen",
-        "is retired until its sample is built: setup cannot sample it. Use "
-        + ", ".join(f"`{name}`" for name in USE_CASES[:-1])
-        + f" or `{USE_CASES[-1]}`.",
-    ),
-)
-
 #: Where the journal is kept when `journal.dir` says nothing else: one directory
 #: under the user's state directory, outside any repository a run works on.
 #: A `journal.dir` overrides it, and the `~` that path may carry is expanded by
@@ -314,9 +259,11 @@ BUDGET_FIELDS: tuple[Field, ...] = (
         "Hard ceiling on how many attempts one task may spend in total, "
         "across every rung and every family it climbs. Unset means the "
         "ladder's own budget bounds it — the sum of each reachable rung's "
-        "`attempts`, which `mcgyvr local_pool` prints — so leaving it unset is not "
-        "unbounded. Set it when you have raised a rung's `attempts` or "
-        "`max_escalations` and want one number that still holds. A decline "
+        "`attempts`, each capped at the contract's `limits.attempts`, which "
+        "`mcgyvr local_pool` prints for a contract that states no limit — so "
+        "leaving it unset is not unbounded. Set it when you have raised a "
+        "rung's `attempts` or `max_escalations` and want one number that still "
+        "holds. A decline "
         "costs nothing against it: a rung that stepped aside spent no attempt.",
         min_value=1,
         bind_hint=(
@@ -536,8 +483,8 @@ UNIT_FIELDS: tuple[Field, ...] = (
         "Which server program runs behind this address. Absent means \
 "
         "llama.cpp.",
-        choices=("llama.cpp", "vllm", "diffusers", "tts", "comfyui"),
-        bind_hint="e.g. vllm, diffusers, tts or comfyui -- leave it out for llama.cpp",
+        choices=("llama.cpp", "vllm"),
+        bind_hint="e.g. vllm -- leave it out for llama.cpp",
     ),
     Field(
         "image",
@@ -1012,7 +959,6 @@ SCHEMA: tuple[Field, ...] = (
         "names as its sources).",
         choices=USE_CASES,
         default="coding",
-        retired=RETIRED_USE_CASES,
     ),
     Field(
         "deployment",
@@ -1590,8 +1536,7 @@ def _dig(data: Mapping[str, Any], key: str) -> Any:
     return current
 
 
-def _join(path: str, name: str) -> str:
-    return f"{path}.{name}" if path else name
+_join = join_path
 
 
 def _reject_credential_literal(value: str, path: str) -> None:
@@ -1715,15 +1660,11 @@ def _value(raw: object, spec: Field, path: str) -> Any:
                 f"empty value is not the same as an unset one."
             )
         _reject_credential_literal(value, path)
-        if spec.kind == "enum":
-            for name, why in spec.retired:
-                if value == name:
-                    raise ConfigSchemaError(f"{path}: `{value}` {why}")
-            if value not in spec.choices:
-                raise ConfigSchemaError(
-                    f"{path}: {value!r} is not a valid value. Valid: "
-                    f"{', '.join(spec.choices)}"
-                )
+        if spec.kind == "enum" and value not in spec.choices:
+            raise ConfigSchemaError(
+                f"{path}: {value!r} is not a valid value. Valid: "
+                f"{', '.join(spec.choices)}"
+            )
         if spec.kind == "url" and not value.startswith(("http://", "https://")):
             raise ConfigSchemaError(
                 f"{path}: {value!r} is not a URL — it needs a scheme, e.g. "
@@ -1791,32 +1732,28 @@ def _value(raw: object, spec: Field, path: str) -> Any:
     raise ConfigSchemaError(f"{path}: unsupported field kind {spec.kind!r}")
 
 
+def _check_key(key: str, path: str) -> None:
+    """Refuse a credential key, and a retired key with what replaced it."""
+    _reject_credential_key(key, path)
+    retired = _RETIRED_KEYS.get(_join(path, str(key)))
+    if retired is not None:
+        raise ConfigSchemaError(f"`{_join(path, str(key))}` {retired}")
+
+
+#: The config's half of the schema walk.
+_DIALECT = Dialect(
+    noun="config",
+    error=ConfigSchemaError,
+    mapping=_mapping,
+    value=_value,
+    missing=_missing,
+    default_for=_default_for,
+    check_key=_check_key,
+)
+
+
 def _block(raw: object, fields: tuple[Field, ...], path: str) -> dict[str, Any]:
-    given = _mapping(raw if raw is not None else {}, path)
-    known = {f.name: f for f in fields}
-
-    for key in given:
-        _reject_credential_key(key, path)
-        retired = _RETIRED_KEYS.get(_join(path, str(key)))
-        if retired is not None:
-            raise ConfigSchemaError(f"`{_join(path, str(key))}` {retired}")
-        if key not in known:
-            where = f"{path}: " if path else "config: "
-            raise ConfigSchemaError(
-                f"{where}unknown key {key!r}. An ignored key is a config that "
-                f"does not do what it says. Valid keys here: "
-                f"{', '.join(sorted(known))}"
-            )
-
-    result: dict[str, Any] = {}
-    for spec in fields:
-        if spec.name in given and given[spec.name] is not None:
-            result[spec.name] = _value(given[spec.name], spec, _join(path, spec.name))
-        elif spec.required:
-            raise _missing(spec, _join(path, spec.name))
-        else:
-            result[spec.name] = _default_for(spec)
-    return result
+    return walk_block(raw, fields, path, _DIALECT)
 
 
 def _refuse_userinfo(name: str, base_url: str, block: str = "units") -> None:

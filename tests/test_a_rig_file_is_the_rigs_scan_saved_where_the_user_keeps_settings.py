@@ -1,6 +1,6 @@
 """``mcgyvr scan --rig RIG`` saves the rig's scan as the door's rig file.
 
-Owner, 2026-10-07 (Round 5): the door's user mode holds each run to the rig as
+The door's user mode holds each run to the rig as
 the user described it: ``<rig-file folder>/<rig>.json``, the read-only ssh
 scan of the rig (hostname, cards and their memory, RAM, disk, docker version),
 over the user's own ssh config and keys. ``mcgyvr setup`` will write it on a

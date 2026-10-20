@@ -16,8 +16,8 @@ from typing import Any, ClassVar
 import yaml
 
 from tests import onedoor
+from tests._helpers import required
 from tests._paths import REPO
-from tests.red_port.conftest import required
 
 GATE_SCRIPTS = REPO / "src" / "mcgyvr" / "serving" / "gate-scripts"
 
@@ -108,7 +108,7 @@ EVIDENCE: dict[str, Any] = {
             "prefill_tok_s": {"box2_3b": 11500.0, "box2_7b": 12059.0},
             "attention_backend": {"box2_3b": "FLASH_ATTN", "box2_7b": "FLASH_ATTN"},
             "validated_at": "2026-09-13T21:44:00Z",
-            "envelope": "records/measurements/fleet-setup-2026-09-13/box2",
+            "envelope": "evidence/read-sample",
         }
     ],
     "moves": [],

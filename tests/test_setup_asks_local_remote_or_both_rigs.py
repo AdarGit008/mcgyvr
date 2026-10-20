@@ -1,6 +1,6 @@
 """``mcgyvr setup`` asks which rigs serve as ``local``, ``remote`` or ``both``.
 
-Owner, 2026-10-17: the rigs prompt accepted any token as a hostname, so a
+The rigs prompt accepted any token as a hostname, so a
 stray ``no`` became an ssh host and the read failed with ``no scanner over
 ssh``. It now asks one question that accepts exactly ``local``, ``remote``
 or ``both`` (Enter is ``local``), and only ``remote``/``both`` ask again for

@@ -1,7 +1,7 @@
 """Draining a source whose rung declares a width holds every slot, not raises.
 
-P0 of ``mcgyvr-lab/records/plans/fleet-identity.md`` §11: a switch drains a unit before
-it sleeps or stops it (§3), and on box1 the drain cannot run.
+A switch drains a unit before it sleeps or stops it, and on box1 the drain
+cannot run.
 """
 
 from __future__ import annotations

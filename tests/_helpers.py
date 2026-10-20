@@ -6,8 +6,11 @@ import importlib.util
 import subprocess
 import sys
 import types
+from collections.abc import Callable
 from pathlib import Path
 from typing import Any
+
+import pytest
 
 from mcgyvr.telemetry import ATTEMPT_KIND, CORRECTION_KIND, fold
 
@@ -23,6 +26,41 @@ def by_path(name: str, path: Path) -> types.ModuleType:
     sys.modules[spec.name] = module
     spec.loader.exec_module(module)
     return module
+
+
+#: The contract the behaviour tests (``repo``/``contract`` fixtures) work against.
+CONTRACT = """
+id: fetch-retry
+task_type: code
+task: Add retry with backoff to the fetch helper.
+target: src/pkg/fetch.py
+stop_conditions:
+  - The retry policy is not stated anywhere in the repo.
+acceptance: ["python -c 'import sys; sys.exit(0)'"]
+scope:
+  allow: ["src/**/*.py"]
+limits:
+  attempts: 5
+"""
+
+
+def required(behavior: str, resolve: Callable[[], Any]) -> Any:
+    """The capability a test needs, or a failure naming the behavior.
+
+    ``behavior`` is the sentence a reader should see when the test fails. It is
+    phrased as a capability of mcgyvr ("must be able to ...") rather than as a
+    missing module, because the capability is the requirement. The failure is
+    ``pytest.fail(pytrace=False)`` rather than a bare import at module scope:
+    a module-level ImportError is a collection error that takes the whole file
+    down and hides every other test in it.
+    """
+    try:
+        return resolve()
+    except (ImportError, AttributeError, ModuleNotFoundError) as absent:
+        pytest.fail(
+            f"mcgyvr must be able to: {behavior}\n  unreachable: {absent}",
+            pytrace=False,
+        )
 
 
 def git(repo: Path, *args: str) -> str:

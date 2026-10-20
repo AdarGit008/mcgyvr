@@ -1,9 +1,9 @@
-"""A `chat` or `agent` run gets a container only when the setup opts in (R10).
+"""A `chat` or `agent` run gets a container only when the setup opts in.
 
-E2e run 2, R10: a `chat` run built the docker sandbox image before replying —
+A `chat` run used to build the docker sandbox image before replying —
 114.9 s for a 3.4 s reply — though a session has no target and runs no
-command. Owner decision: "docker for chat/agent is opt-in at setup time;
-default for code/media". So:
+command. Docker for chat/agent is opt-in at setup time, and the default
+for code. So:
 
 - a session that declares no command is staged in a throwaway checkout on this
   host by default (`sandbox.sessions: tempdir`): no daemon is probed and no
@@ -240,11 +240,7 @@ def test_an_agent_run_by_default_reads_the_repository_off_a_host_checkout(
     capsys: pytest.CaptureFixture[str],
 ) -> None:
     import mcgyvr.drive as drive
-    from mcgyvr.gate import output as gate_output
 
-    # `agent` declares safety_pass, which shells out to a classifier this
-    # machine does not have; it is not what is under test here.
-    monkeypatch.setattr(gate_output, "safety_pass", lambda path, label="": [])
     _scripted(monkeypatch, "The sky is blue [1].")
     seen: list[tuple[type, str]] = []
     judge = drive.gate_prose_workspace

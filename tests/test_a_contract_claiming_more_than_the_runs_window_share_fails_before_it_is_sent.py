@@ -8,14 +8,14 @@ window" sent every contract anyway. The check that enforces a share —
 ``limits.max_window_fraction`` at dispatch (#616); it was never handed the
 run's.
 
-Owner ruling (contract assert, after #616): make the run-wide config work. A
+The run-wide config is enforced (after #616). A
 contract claiming more than that share fails before it is sent — the same
 outcome as #616's oversize refusal: ``error`` on the rung it was sent to, no
 journal row, no wake, no climb.
 
 How the two shares combine is ``test_window_fraction``'s to pin: the stricter
 of the contract's own share and the run's applies, so the run's is a ceiling a
-contract cannot raise (owner ruling, after #621; the whole run is in
+contract cannot raise (after #621; the whole run is in
 ``test_a_contract_cannot_claim_more_of_a_window_than_its_run_allows``). The
 refusal names which of the two was hit, because the fix lives in a different
 file for each.

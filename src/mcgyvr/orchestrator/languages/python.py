@@ -1,13 +1,15 @@
 """Python symbol extraction, built on the standard library :mod:`ast`.
 
 A file that does not parse (a syntax error, or a ValueError such as embedded null
-bytes) yields no symbols at all rather than aborting the scan.
+bytes) yields no symbols at all rather than aborting the scan. Class attributes are
+FIELD symbols; module-level assignments are not.
 """
 
 from __future__ import annotations
 
 import ast
 import copy
+import warnings
 
 from mcgyvr.orchestrator.languages.model import Symbol, SymbolKind
 
@@ -17,7 +19,14 @@ SUFFIXES = (".py", ".pyi")
 def extract(path: str, source: bytes) -> list[Symbol]:
     """Return the symbols of one Python file."""
     try:
-        tree = ast.parse(source.decode("utf-8", "surrogateescape"), filename=path)
+        # Legacy syntax (invalid escapes, old octal/decimal literals) makes the
+        # parser emit a SyntaxWarning. Suppress it so a build never leaks
+        # warnings to stderr, and so a caller running under ``-W error`` cannot
+        # turn the warning into an exception that would discard the whole
+        # file's symbols.
+        with warnings.catch_warnings():
+            warnings.simplefilter("ignore", SyntaxWarning)
+            tree = ast.parse(source.decode("utf-8", "surrogateescape"), filename=path)
     except (SyntaxError, ValueError):
         # Undecodable bytes already became lone surrogates above, so this is a
         # real syntax error (or a ValueError such as embedded null bytes): the
@@ -75,6 +84,32 @@ class _PythonCollector(ast.NodeVisitor):
         self._class_depth += 1
         self.generic_visit(node)
         self._class_depth -= 1
+
+    def visit_Assign(self, node: ast.Assign) -> None:
+        """Record class attributes as FIELD symbols, never module assignments."""
+        if self._class_depth > 0:
+            for target in node.targets:
+                if isinstance(target, ast.Name):
+                    self._add(
+                        target.id,
+                        SymbolKind.FIELD,
+                        node.lineno,
+                        "field",
+                        ast.unparse(node),
+                    )
+        self.generic_visit(node)
+
+    def visit_AnnAssign(self, node: ast.AnnAssign) -> None:
+        """Record annotated class attributes as FIELD symbols."""
+        if self._class_depth > 0 and isinstance(node.target, ast.Name):
+            self._add(
+                node.target.id,
+                SymbolKind.FIELD,
+                node.lineno,
+                "field",
+                ast.unparse(node),
+            )
+        self.generic_visit(node)
 
     def visit_Call(self, node: ast.Call) -> None:
         name = _called_name(node.func)

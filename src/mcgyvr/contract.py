@@ -11,16 +11,18 @@ from __future__ import annotations
 import json
 import re
 import shlex
-from collections.abc import Callable, Mapping, Sequence
+from collections.abc import Mapping, Sequence
 from dataclasses import dataclass, replace
 from pathlib import Path
-from typing import Any, Literal
+from typing import Any
 
 import yaml
 
 from mcgyvr.catalog import RETIRED_TASK_TYPES, CatalogError, catalog
 from mcgyvr.catalog import Evidence as CatalogEvidence
 from mcgyvr.catalog import TaskType as CatalogTaskType
+from mcgyvr.schema import Dialect, join_path, walk_block
+from mcgyvr.schema import Field as Field
 from mcgyvr.scope import Scope, enters_git_dir
 from mcgyvr.strict_yaml import strict_loader
 
@@ -116,9 +118,8 @@ def kind_of(task_type_name: str, operation: str = "") -> CatalogTaskType:
 # first because every judged contract produces it. `failing_test_first` follows
 # when a demonstration command is given, `tests_pass` when an acceptance command
 # is, and `no_semantic_change` and `type_check` when their flags are on. Kinds
-# that are not `evidence_derived` — sessions, which write nothing, and the media
-# types, whose whole judgement is the artifact — know their evidence from the
-# catalog and are returned exactly as it lists them. The order matters
+# that are not `evidence_derived` — sessions, which write nothing — know their
+# evidence from the catalog and are returned exactly as it lists them. The order matters
 # downstream: the gate records evidence in it, and a result whose names differ
 # from `Contract.evidence_names` is a mismatch rather than something to take at
 # face value. Nothing here reads a contract, only these flags, so the same
@@ -155,56 +156,6 @@ def generic_stop_condition(task_type_name: str, subject: str) -> str:
         f"{task_type_name} on {subject} would require deciding something the "
         "contract does not state — report BLOCKED rather than guess"
     )
-
-
-# The value kinds a field may hold. `block` nests a fixed set of fields and
-# `block_list` is a list of those blocks; the glob kinds are string lists whose
-# entries must additionally be repo-relative patterns.
-
-Kind = Literal[
-    "int",
-    "float",
-    "str",
-    "bool",
-    "enum",
-    "str_list",
-    "glob_list",
-    "block",
-    "block_list",
-]
-
-
-@dataclass(frozen=True)
-class Field:
-    """One declared key: its name, its kind, and the rules the schema walk applies."""
-
-    name: str
-    kind: Kind
-    doc: str
-    required: bool = False
-    default: Any = None
-    choices: tuple[str, ...] = ()
-    block: tuple[Field, ...] = ()
-    min_value: float | None = None
-    #: Numeric bounds. A value outside them is refused by name rather than
-    #: clamped: a contract that quietly did something other than what it says
-    #: would be worse than one that fails, so the two ends are stated as data
-    #: here and enforced by `_int` and `_float`.
-    max_value: float | None = None
-    worker_facing: bool = False
-    hint: str = ""
-    choices_from: Callable[[], tuple[str, ...]] | None = None
-    #: Retired enum values, mapped to the spelling that replaced them, so an old
-    #: contract is answered with what to write instead of a bare "not valid".
-    retired: Mapping[str, str] | None = None
-    #: True for a key a chat or agent session may leave out. A session writes no
-    #: file, so `target` and `scope.allow` are not required of it; `_for_sessions`
-    #: rewrites the schema from this flag, and only for a session's task type.
-    session_optional: bool = False
-
-    def valid_choices(self) -> tuple[str, ...]:
-        """The values it accepts, from the catalog when one is given, else `choices`."""
-        return self.choices_from() if self.choices_from is not None else self.choices
 
 
 DEP_FIELDS: tuple[Field, ...] = (
@@ -302,6 +253,9 @@ RENAME_FIELDS: tuple[Field, ...] = (
     ),
 )
 
+#: The attempts a contract allows each rung when its `limits.attempts` is unset.
+DEFAULT_ATTEMPTS = 2
+
 LIMITS_FIELDS: tuple[Field, ...] = (
     Field(
         "max_output_tokens",
@@ -341,7 +295,7 @@ LIMITS_FIELDS: tuple[Field, ...] = (
         "int",
         "How many times the work may be retried before escalating. Retrying "
         "forever is how a cheap task becomes an expensive one.",
-        default=2,
+        default=DEFAULT_ATTEMPTS,
         min_value=1,
     ),
 )
@@ -444,9 +398,8 @@ SCHEMA: tuple[Field, ...] = (
         "instead of guessing — scope creep, an unknown API, an ambiguous "
         "directive. Required when a model writes a `whole_file` reply, the "
         "one whose refusal is caught and escalated: guessing is the documented "
-        "small-model failure mode these exist to prevent. A `prose` or "
-        "`media_artifact` reply is served whatever it says, so none is "
-        "required there. Start from "
+        "small-model failure mode these exist to prevent. A `prose` reply is "
+        "served whatever it says, so none is required there. Start from "
         f"`{generic_stop_condition('<task_type>', '<target>')}`.",
         default=(),
         worker_facing=True,
@@ -457,35 +410,11 @@ SCHEMA: tuple[Field, ...] = (
         "The shape the worker must reply in, declared so a runner can hand "
         "the model format instructions rather than hoping for a convention. "
         "`whole_file` is the single-file output protocol; `prose` is the "
-        "raw-text answer for chat and agent (their default); `media_artifact` "
-        "is the "
-        "media-generation request for media, whose artifact the bound media "
-        "engine writes to the target. `unified_diff` validates here and is "
-        "refused before dispatch.",
+        "raw-text answer for chat and agent (their default). `unified_diff` "
+        "validates here and is refused before dispatch.",
         default="whole_file",
-        choices=("whole_file", "prose", "media_artifact", "unified_diff"),
+        choices=("whole_file", "prose", "unified_diff"),
         worker_facing=True,
-    ),
-    Field(
-        "media_kind",
-        "enum",
-        "The media kind of the artifact, for `media_valid`: image, audio or video.",
-        default="",
-        choices=("image", "audio", "video"),
-    ),
-    Field(
-        "transcript",
-        "str",
-        "The text the audio output must say, for `asr_wer`.",
-        default="",
-    ),
-    Field(
-        "wer_threshold",
-        "float",
-        "The word-error-rate ceiling for `asr_wer`, a share from 0 to 1.",
-        default=None,
-        min_value=0.0,
-        max_value=1.0,
     ),
     Field(
         "sources",
@@ -664,9 +593,6 @@ class Contract:
     deps: tuple[Dependency, ...] = ()
     stop_conditions: tuple[str, ...] = ()
     output_schema: str = "whole_file"
-    media_kind: str = ""
-    transcript: str = ""
-    wer_threshold: float | None = None
     sources: tuple[str, ...] = ()
     max_input_tokens: int = 4096
     acceptance: tuple[str, ...] = ()
@@ -814,13 +740,6 @@ class Contract:
             ],
             "stop_conditions": list(self.stop_conditions),
             "output_schema": self.output_schema,
-            **({"media_kind": self.media_kind} if self.media_kind else {}),
-            **({"transcript": self.transcript} if self.transcript else {}),
-            **(
-                {"wer_threshold": self.wer_threshold}
-                if self.wer_threshold is not None
-                else {}
-            ),
             **({"sources": list(self.sources)} if self.sources else {}),
             "context": {"max_input_tokens": self.max_input_tokens},
             "scope": {
@@ -912,9 +831,6 @@ def _build(data: Mapping[str, Any]) -> Contract:
         ),
         stop_conditions=tuple(data["stop_conditions"]),
         output_schema=data["output_schema"],
-        media_kind=data["media_kind"],
-        transcript=data["transcript"],
-        wer_threshold=data["wer_threshold"],
         sources=tuple(data["sources"]),
         max_input_tokens=data["context"]["max_input_tokens"],
         acceptance=tuple(data["acceptance"]),
@@ -939,28 +855,7 @@ def _build(data: Mapping[str, Any]) -> Contract:
 
 def _block(raw: object, fields: tuple[Field, ...], path: str) -> dict[str, Any]:
     """Validate one block: defaults filled in, unknown and missing keys refused."""
-    given = _mapping(raw if raw is not None else {}, path)
-    known = {f.name: f for f in fields}
-
-    for key in given:
-        if key not in known:
-            where = f"{path}: " if path else "contract: "
-            raise ContractSchemaError(
-                f"{where}unknown key {key!r}. An ignored key is a contract "
-                f"that does not do what it says. Valid keys here: "
-                f"{', '.join(sorted(known))}"
-            )
-
-    result: dict[str, Any] = {}
-    for spec in fields:
-        here = _join(path, spec.name)
-        if spec.name in given and given[spec.name] is not None:
-            result[spec.name] = _value(given[spec.name], spec, here)
-        elif spec.required:
-            raise _missing(spec, here)
-        else:
-            result[spec.name] = _default_for(spec)
-    return result
+    return walk_block(raw, fields, path, _DIALECT)
 
 
 def _value(raw: object, spec: Field, path: str) -> Any:
@@ -1125,8 +1020,17 @@ def _default_for(spec: Field) -> Any:
     return spec.default
 
 
-def _join(path: str, name: str) -> str:
-    return f"{path}.{name}" if path else name
+_join = join_path
+
+#: The contract's half of the schema walk.
+_DIALECT = Dialect(
+    noun="contract",
+    error=ContractSchemaError,
+    mapping=_mapping,
+    value=_value,
+    missing=_missing,
+    default_for=_default_for,
+)
 
 
 # Commands are split like a shell but run without one, so whatever a shell would
@@ -1297,31 +1201,6 @@ def _cross_validate(data: Mapping[str, Any]) -> None:
             f"shows the defect."
         )
 
-    # Media and ASR types are judged on their artifact, so the gate has to be told
-    # what to look for: the media kind for `media_valid`, and the expected
-    # transcript with its word-error ceiling for `asr_wer`. The evidence names are
-    # imported from the gate's own module rather than restated, so the two cannot
-    # drift apart.
-    from mcgyvr.gate.output import ASR_WER, MEDIA_VALID
-
-    evidence_names = {e.name for e in kind.required_evidence}
-    if MEDIA_VALID in evidence_names and not data["media_kind"]:
-        raise ContractSchemaError(
-            f"media_kind: is empty, but task type {kind.name!r} requires "
-            f"media_valid evidence — the gate must know which media kind to "
-            f"expect. Name image, audio or video."
-        )
-    if ASR_WER in evidence_names and not data["transcript"]:
-        raise ContractSchemaError(
-            f"transcript: is empty, but task type {kind.name!r} requires "
-            f"asr_wer evidence — the ASR gate needs the text the audio is "
-            f"expected to say."
-        )
-    if ASR_WER in evidence_names and data["wer_threshold"] is None:
-        raise ContractSchemaError(
-            f"wer_threshold: is not set, but task type {kind.name!r} requires "
-            f"asr_wer evidence — name the word-error-rate ceiling (0 to 1)."
-        )
     _check_sources(data["sources"])
 
     # `depends_on` is checked for shape, not for existence: the ids may name

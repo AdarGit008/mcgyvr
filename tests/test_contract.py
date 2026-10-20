@@ -15,7 +15,6 @@ from __future__ import annotations
 import json
 import shlex
 from pathlib import Path
-from types import SimpleNamespace
 
 import pytest
 
@@ -171,19 +170,12 @@ def test_a_prose_output_schema_is_accepted() -> None:
     assert contract.output_schema == "prose"
 
 
-def test_a_media_artifact_output_schema_is_accepted() -> None:
-    contract = loads(MINIMAL + "\noutput_schema: media_artifact\n")
-    assert contract.output_schema == "media_artifact"
-
-
 def test_no_reply_cap_is_derived_for_a_contract_that_states_none() -> None:
     """Whatever the reply's shape, an unstated cap loads as ``None``."""
     prose = loads(MINIMAL + "\noutput_schema: prose\n")
-    media = loads(MINIMAL + "\noutput_schema: media_artifact\n")
     whole = loads(MINIMAL)
 
     assert prose.limits.max_output_tokens is None
-    assert media.limits.max_output_tokens is None
     assert whole.limits.max_output_tokens is None
 
 
@@ -424,10 +416,10 @@ def test_a_model_task_type_without_stop_conditions_is_rejected() -> None:
 def test_a_prose_contract_needs_no_stop_condition_and_a_whole_file_one_still_does() -> (
     None
 ):
-    """Stop conditions are required only where a BLOCKED reply can be heard (F10).
+    """Stop conditions are required only where a BLOCKED reply can be heard.
 
     A whole_file reply is parsed, and a refusal in it is a named outcome that
-    escalates; a prose or media_artifact reply is served as the answer, so a
+    escalates; a prose reply is served as the answer, so a
     condition there is filler nothing reads. The prompt says nothing about
     stopping when none is given, and the refusal for a whole_file contract
     hands the author the generic condition to start from.
@@ -437,7 +429,6 @@ def test_a_prose_contract_needs_no_stop_condition_and_a_whole_file_one_still_doe
     for task_type, schema, extra in (
         ("chat", "prose", ""),
         ("agent", "prose", 'sources: ["src/report.txt"]\n'),
-        ("media", "media_artifact", "media_kind: image\n"),
     ):
         contract = loads(
             f"id: t\ntask_type: {task_type}\ntask: Do it.\ntarget: out.txt\n"
@@ -462,7 +453,7 @@ def test_a_prose_contract_needs_no_stop_condition_and_a_whole_file_one_still_doe
         "contract does not state — report BLOCKED rather than guess"
     ) in message, message
 
-    # A chat contract that names no output_schema is a session (F7): its reply
+    # A chat contract that names no output_schema is a session: its reply
     # is prose, where no refusal is heard, so it needs no condition; and it
     # cannot ask for a whole_file reply at all.
     chat = loads("id: t\ntask_type: chat\ntask: Answer.\n")
@@ -587,7 +578,7 @@ def _with_commands(acceptance: list[str], demonstration: list[str]) -> str:
 def test_an_acceptance_command_with_an_env_prefix_or_shell_operator_is_refused_at_load(
     command: str, said: str
 ) -> None:
-    """Contract commands are split and executed with no shell (F12).
+    """Contract commands are split and executed with no shell.
 
     Shell syntax is refused when the contract loads, naming the list and the
     entry, rather than surfacing at run time as exit 127 "missing dependency"
@@ -643,9 +634,8 @@ def test_an_output_cap_larger_than_the_prompt_budget_is_accepted() -> None:
     """The cap counts hidden reasoning, which is never read back into a prompt.
 
     The loader used to refuse a cap above ``context.max_input_tokens``, so a
-    reasoning model's cap dragged the prompt budget up with it (the e2e run of
-    2026-10-13). The visible reply is bounded against the rung's window at
-    dispatch instead.
+    reasoning model's cap dragged the prompt budget up with it. The visible
+    reply is bounded against the rung's window at dispatch instead.
     """
     contract = loads(
         MINIMAL
@@ -735,9 +725,6 @@ def test_every_declared_task_type_loads() -> None:
             if kind.needs_demonstration_commands
             else "[]"
         )
-        # A type that requires media_valid names the media kind, so the
-        # fixture supplies one rather than working around the rule.
-        sources = "media_kind: image" if "media_valid" in kind.evidence_names else ""
         document = f"""
 id: t
 task_type: {kind.name}
@@ -746,7 +733,6 @@ target: src/pkg/fetch.py
 stop_conditions: ["An unknown."]
 acceptance: {acceptance}
 demonstration: {demonstration}
-{sources}
 scope:
   allow: ["src/**"]
 """
@@ -762,93 +748,37 @@ def test_every_task_type_is_documented() -> None:
         assert kind.name.islower()
 
 
-# --- output evidence parameters (increment 4) -------------------------------
+# --- sources ----------------------------------------------------------------
 
 
-def test_output_evidence_parameters_round_trip() -> None:
+def test_sources_round_trip() -> None:
     doc = MINIMAL.replace(
         'acceptance: ["pytest -q"]',
-        'acceptance: ["pytest -q"]\n'
-        "media_kind: image\n"
-        'transcript: "hello"\n'
-        "wer_threshold: 0.25\n"
-        'sources: ["doc/a.md", "doc/b.md"]',
+        'acceptance: ["pytest -q"]\nsources: ["doc/a.md", "doc/b.md"]',
     )
     contract = loads(doc)
-    assert contract.media_kind == "image"
-    assert contract.transcript == "hello"
-    assert contract.wer_threshold == 0.25
     assert contract.sources == ("doc/a.md", "doc/b.md")
     assert parse(dumps(contract)) == contract
 
 
-def _media_type(*evidence: str) -> SimpleNamespace:
-    """A task type whose evidence declares the four structural kinds.
-
-    The shipped catalog has no media/agent type yet, so the cross-validation
-    is exercised against an invented type, the same way test_catalog.py proves
-    the loader is generic over the vocabulary.
-    """
-    kinds = tuple(
-        SimpleNamespace(name=e, needs_commands=False, baseline="pass") for e in evidence
-    )
-    return SimpleNamespace(
-        name="image_generation",
-        deterministic=False,
-        session=False,
-        needs_acceptance_commands=False,
-        needs_demonstration_commands=False,
-        required_evidence=kinds,
-        guarantee="a media artifact is produced",
-    )
-
-
-def _media_contract(*extra: str) -> str:
+def _out_contract(*extra: str) -> str:
     body = "\n".join(extra)
     return f"""
-id: img
+id: out
 task_type: code
-task: Produce an image.
-target: out.png
-stop_conditions: ["No image model is bound."]
+task: Produce the output.
+target: out.txt
+stop_conditions: ["No model is bound."]
 {body}
 scope:
-  allow: ["out.png"]
+  allow: ["out.txt"]
 """
 
 
-def test_media_valid_evidence_requires_a_media_kind(
-    monkeypatch: pytest.MonkeyPatch,
-) -> None:
-    monkeypatch.setattr(
-        "mcgyvr.contract.task_type",
-        lambda _name: _media_type("gate", "media_valid"),
-    )
-    with pytest.raises(ContractSchemaError, match="media_kind"):
-        loads(_media_contract())
-    assert loads(_media_contract("media_kind: image")).media_kind == "image"
-
-
-def test_asr_wer_evidence_requires_a_transcript_and_threshold(
-    monkeypatch: pytest.MonkeyPatch,
-) -> None:
-    monkeypatch.setattr(
-        "mcgyvr.contract.task_type",
-        lambda _name: _media_type("gate", "asr_wer"),
-    )
-    with pytest.raises(ContractSchemaError, match="transcript"):
-        loads(_media_contract("wer_threshold: 0.2"))
-    with pytest.raises(ContractSchemaError, match="wer_threshold"):
-        loads(_media_contract('transcript: "hello"'))
-    contract = loads(_media_contract('transcript: "hello"', "wer_threshold: 0.2"))
-    assert contract.transcript == "hello"
-    assert contract.wer_threshold == 0.2
-
-
 def test_no_task_type_requires_sources() -> None:
-    """`grounded`, the one check that needed a corpus, is retired (R11)."""
-    assert loads(_media_contract('sources: ["doc/a.md"]')).sources == ("doc/a.md",)
-    assert loads(_media_contract()).sources == ()
+    """`grounded`, the one check that needed a corpus, is retired."""
+    assert loads(_out_contract('sources: ["doc/a.md"]')).sources == ("doc/a.md",)
+    assert loads(_out_contract()).sources == ()
 
 
 # --- loading from a file ---------------------------------------------------

@@ -1,6 +1,6 @@
 """``mcgyvr setup`` offers to append ``~/.local/bin`` to the login shell PATH.
 
-Owner, 2026-10-17: after a successful interactive setup, the wizard offers to
+After a successful interactive setup, the wizard offers to
 append ``export PATH="$HOME/.local/bin:$PATH"`` to the login shell's rc file,
 once the user says yes. The shell is read from ``$SHELL``: ``bash`` →
 ``~/.bashrc``, ``zsh`` → ``~/.zshrc``, ``sh``/``dash`` → ``~/.profile``,

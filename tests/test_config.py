@@ -31,7 +31,6 @@ from mcgyvr.config import (
     load,
     parse,
 )
-from mcgyvr.serving import declared_models
 
 LOCAL_ONLY = """\
 units:
@@ -70,7 +69,7 @@ def test_defaults_that_ship_are_real_working_values() -> None:
     config = parse(LOCAL_ONLY)
     assert config.data["sandbox"]["mode"] == "docker"
     # Off: a run leaves an accepted change in the working tree unless the
-    # policy or `--commit` says to commit it (owner's ruling, e2e run 2 R4).
+    # policy or `--commit` says to commit it.
     assert config.data["delivery"]["commit"] is False
     assert config.get("task_timeout_s") > 0
     # Review is on unless the config switches it off, and on with no unit named
@@ -338,65 +337,13 @@ def test_invalid_enum_lists_the_valid_values() -> None:
     assert "llama.cpp" in str(exc.value), "the refusal lists what is valid"
 
 
-def test_a_unit_may_declare_the_diffusers_engine() -> None:
-    config = parse(
-        LOCAL_ONLY.replace("    rig: local", "    rig: local\n    engine: diffusers", 1)
+def test_the_removed_media_gen_use_case_is_refused() -> None:
+    with pytest.raises(ConfigSchemaError) as exc:
+        parse(LOCAL_ONLY + "use_case: media-gen\n")
+    assert (
+        "use_case: 'media-gen' is not a valid value. Valid: coding, chat, agent"
+        in str(exc.value)
     )
-    assert config.units["cheap"].engine == "diffusers"
-
-
-def test_declared_models_carries_the_stated_vae_decode_spike() -> None:
-    config = parse(
-        cfg(
-            """\
-            units:
-              cheap:
-                address: http://localhost:8080
-                model: media-image
-                rig: local
-                engine: diffusers
-                launch:
-                  vae_decode_gb: 1.2
-            ladder:
-            - cheap
-            """
-        )
-    )
-    assert declared_models(config)["media-image"].vae_decode_gb == 1.2
-
-
-def test_a_unit_may_declare_the_tts_engine() -> None:
-    config = parse(
-        LOCAL_ONLY.replace("    rig: local", "    rig: local\n    engine: tts", 1)
-    )
-    assert config.units["cheap"].engine == "tts"
-
-
-def test_a_unit_may_declare_the_comfyui_engine() -> None:
-    config = parse(
-        LOCAL_ONLY.replace("    rig: local", "    rig: local\n    engine: comfyui", 1)
-    )
-    assert config.units["cheap"].engine == "comfyui"
-
-
-def test_declared_models_carries_the_cpu_only_marker() -> None:
-    config = parse(
-        cfg(
-            """\
-            units:
-              cheap:
-                address: http://localhost:8080
-                model: media-tts
-                rig: local
-                engine: tts
-                launch:
-                  cpu_only: true
-            ladder:
-            - cheap
-            """
-        )
-    )
-    assert declared_models(config)["media-tts"].cpu_only is True
 
 
 def test_a_url_without_a_scheme_is_rejected() -> None:

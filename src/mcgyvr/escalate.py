@@ -11,7 +11,7 @@ acceptance rests on in words.
 
 from __future__ import annotations
 
-from collections.abc import Callable, Mapping, Sequence
+from collections.abc import Callable, Mapping
 from contextlib import AbstractContextManager, nullcontext
 from dataclasses import dataclass, field, replace
 from enum import StrEnum
@@ -84,14 +84,12 @@ class Assurance(StrEnum):
     `deterministic` is a tool's output accepted on the gate alone,
     `verified` a change a reviewer agreed with, `unverified` a change
     accepted on the gate alone because no usable reviewer was there, and
-    `checked`/`unchecked` a reply accepted on its named output checks, or
-    with none named.
+    `unchecked` a reply, which nothing checks or reviews.
     """
 
     DETERMINISTIC = "deterministic"
     VERIFIED = "verified"
     UNVERIFIED = "unverified"
-    CHECKED = "checked"
     UNCHECKED = "unchecked"
 
 
@@ -100,26 +98,20 @@ class Assurance(StrEnum):
 NO_REVIEWER = "no reviewer is configured — set `verifier.unit`"
 
 
-def reply_judged(name: str, checks: Sequence[str]) -> str:
+def reply_judged(name: str) -> str:
     """Say how a reply — not a change — was accepted.
 
-    A reply is never reviewed, so its bar is the output checks it named,
-    or nothing at all when it named none. `name` is the task type as the
-    user wrote it.
+    A reply is never checked or reviewed, so there is no bar to name. `name` is
+    the task type as the user wrote it.
     """
-    if not checks:
-        return f"served unchecked: {name} replies are not checked or reviewed."
-    return (
-        f"accepted on its output checks ({', '.join(checks)}); "
-        f"{name} replies are never reviewed."
-    )
+    return f"served unchecked: {name} replies are not checked or reviewed."
 
 
 def how_judged(kind: TaskType) -> str:
     """Say what acceptance of this task type rests on, and how sure it is.
 
     A tool's output is the deterministic gate; work that judges a change is
-    the gate and then a reviewer; a reply is its output checks. Each
+    the gate and then a reviewer; a reply is served unchecked. Each
     sentence names the `Assurance` the same path would report, so a printed
     bar and a recorded one cannot drift apart.
     """
@@ -134,8 +126,7 @@ def how_judged(kind: TaskType) -> str:
             f"`{Assurance.VERIFIED}` when one agrees, `{Assurance.UNVERIFIED}` "
             "when none is configured (set `verifier.unit`) or it cannot be used."
         )
-    label = Assurance.CHECKED if kind.evidence_names else Assurance.UNCHECKED
-    return f"{reply_judged(kind.name, kind.evidence_names)} (assurance `{label}`)"
+    return f"{reply_judged(kind.name)} (assurance `{Assurance.UNCHECKED}`)"
 
 
 class Opinion(StrEnum):
@@ -288,7 +279,7 @@ def judge(
     A gate that rejected the change fails the attempt and carries the failing
     checks as retry notes; no verifier is asked about a change already refused.
     A task type that does not judge a change answers with a reply, and a reply
-    is accepted on its own output checks under the policy the contract declared.
+    is accepted unchecked under the policy the contract declared.
     Under `gate_only` the gate is the whole bar. With no verifier seam the
     change is accepted on the gate alone, labelled unverified, and `absent`
     says why. Otherwise the seam is asked once: agreement is `verified`, a
@@ -312,16 +303,15 @@ def judge(
         )
 
     if not contract.kind.judges_a_change:
-        checks = contract.evidence_names
         return Judgement(
             verdict=Verdict.PASSED,
-            assurance=Assurance.CHECKED if checks else Assurance.UNCHECKED,
+            assurance=Assurance.UNCHECKED,
             # A reply is not a change, so no verification policy is applied
             # to it: the contract's own declared policy is reported as it
             # stands.
             policy=contract.verification.policy,
             upgraded=False,
-            detail=reply_judged(contract.task_type, checks),
+            detail=reply_judged(contract.task_type),
         )
 
     if policy == GATE_ONLY:
@@ -1369,8 +1359,3 @@ def disposition(outcome: Outcome) -> Disposition:
             )
         case _:  # pragma: no cover - unreachable while the match is exhaustive
             assert_never(outcome)
-
-
-def may_reassign(outcome: Outcome, budget_remaining: int) -> bool:
-    """Whether the outcome allows a reassignment and there is budget to pay for it."""
-    return disposition(outcome).reassignable and budget_remaining > 0

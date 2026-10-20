@@ -127,37 +127,7 @@ BOARDS: tuple[Board, ...] = (
         url="https://evalplus.github.io/results.json",
         format="json",
     ),
-    Board(
-        id="lmarena-text-to-image",
-        ranks="image",
-        metric="rating",
-        better="higher",
-        url=(
-            "https://datasets-server.huggingface.co/rows?dataset=lmarena-ai/"
-            "leaderboard-dataset&config=text_to_image&split=latest"
-        ),
-        format="json",
-    ),
-    Board(
-        id="open-asr",
-        ranks="asr",
-        metric="avg_wer",
-        better="lower",
-        url=(
-            "https://huggingface.co/datasets/hf-audio/open-asr-leaderboard-results/"
-            "resolve/main/english_short_latest.csv"
-        ),
-        format="csv",
-    ),
 )
-
-#: The use cases no public board ranks, and, per use case, what ranks them instead.
-UNRANKED: Mapping[str, str] = {
-    "tts": (
-        "no public board publishes data; ranked by mcgyvr's own ASR-WER gate "
-        "and Hub downloads"
-    ),
-}
 
 
 class KnowledgeError(Exception):

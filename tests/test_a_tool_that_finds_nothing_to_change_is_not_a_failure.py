@@ -1,6 +1,6 @@
 """A program that finds nothing to change has done its job; a model that does has not.
 
-Owner ruling: a delivery check runs whether or not the work is committed, so a
+A delivery check runs whether or not the work is committed, so a
 reply identical to its target — a model echoing the file it was asked to
 change — is refused either way. The same check would turn a ``format`` run over
 an already-formatted file into ``delivery_refused``, exit 1. That is a

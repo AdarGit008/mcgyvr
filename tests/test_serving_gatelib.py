@@ -256,15 +256,6 @@ def test_ssh_under_the_door_pipes_input_with_batchmode_and_a_timeout(
     ]
 
 
-def test_ssh_or_refuse_keeps_its_shape_and_propagates_the_refusal(
-    capsys: pytest.CaptureFixture[str],
-) -> None:
-    with pytest.raises(SystemExit) as raised:
-        gatelib.ssh_or_refuse("box1", "true", "a read")
-    assert raised.value.code == 2
-    assert DOOR in capsys.readouterr().err
-
-
 # --------------------------------------------------------------------------
 # export: a descriptor the door named, or a refusal — never a stderr fallback
 # --------------------------------------------------------------------------

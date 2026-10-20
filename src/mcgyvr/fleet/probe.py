@@ -52,11 +52,10 @@ from mcgyvr.fleet.tolerance import CLASS_VLLM, tolerance_class
 #: The subfolder of the journal directory the fleet's own rows are filed under.
 JOURNAL_SUBDIR = "fleet"
 
-#: How each engine's approved figures were timed, named in the reason a reading
-#: is filed without being judged. Both harnesses time inside the rig on
+#: How a vLLM unit's approved figures were timed, named in the reason a reading
+#: is filed without being judged. The harness times inside the rig on
 #: 127.0.0.1, which an off-the-rig timing of the same engine cannot match.
 VLLM_HARNESS = "the lock's vLLM harness"
-LLAMA_HARNESS = "the lock's llama.cpp harness"
 
 #: The fields only the rig itself can answer for: the MiB the unit's cards have
 #: room for and how often the unit has restarted are not on any HTTP reply an
@@ -140,18 +139,21 @@ def journal_dir(folder: Path | None) -> Path:
 
 def unit_in_flight(name: str, unit: Mapping[str, Any]) -> int | None:
     """The unit's in-flight count now, asked of `mcgyvr.runner.unit_in_flight`
-    (imported at call time) with its address, its engine and its width — a width
-    that is absent or not above 0 counts as one. None when it cannot be read.
+    (imported at call time) with its address, its engine, its width — a width
+    that is absent or not above 0 counts as one — and its `api_key_env`, so a
+    unit that needs a key is not polled. None when it cannot be read.
     """
     from mcgyvr.runner import unit_in_flight as read
 
     width = unit.get("width")
     engine = unit.get("engine")
+    key = unit.get("api_key_env")
     return read(
         name,
         str(unit["address"]),
         engine if isinstance(engine, str) else None,
         width if isinstance(width, int) and width > 0 else 1,
+        credential_env=key if isinstance(key, str) and key else None,
     )
 
 

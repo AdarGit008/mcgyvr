@@ -1,9 +1,9 @@
 """``mcgyvr scan --rig`` records the rig's private IPv4 address in its rig file.
 
-Owner, Round 9 (2026-10-07): a chat or agent unit spans several machines over
+A chat or agent unit spans several machines over
 llama.cpp RPC, and each worker listens on a private IPv4 address, never on a
-name the product would have to resolve. "Setup's scan records each machine's
-private IPv4 in its rig file": nothing extra for the user to type.
+name the product would have to resolve. Setup's scan records each machine's
+private IPv4 in its rig file: nothing extra for the user to type.
 
 Promises, over invented machines behind a stub ssh:
 

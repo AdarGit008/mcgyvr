@@ -6,7 +6,7 @@ that declares no ruff configuration of its own, and spells pycodestyle as
 E501 is the one rule ``ruff format`` structurally cannot satisfy: the formatter
 rewraps *code*, and never a long string, comment or docstring.
 
-With E501 selected, :mod:`mcgyvr.cleanup` — which tidies a change only when
+With E501 selected, :func:`mcgyvr.repair.tidy` — which tidies a change only when
 every reason the gate gave for rejecting it is one the formatter itself raised —
 declines, because E501 arrives as a *lint* finding: the attempt is spent and
 nothing is produced over a docstring a few characters too wide.

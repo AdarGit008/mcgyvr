@@ -484,10 +484,3 @@ def test_a_head_of_one_slot_takes_one_relay_at_a_time() -> None:
         head.release.set()
         relays.cancel_all()
         head.server.shutdown()
-
-
-def test_the_rigs_own_bound_never_refuses_a_slot_the_head_has() -> None:
-    from mcgyvr.rig import relay, sessionwire
-
-    # The bound is each head's, so it never refuses a slot a head may have.
-    assert relay.MAX_ACTIVE >= sessionwire.MAX_SLOTS

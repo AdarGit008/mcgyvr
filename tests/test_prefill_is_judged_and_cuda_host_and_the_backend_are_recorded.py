@@ -6,7 +6,7 @@
   every observation and never alerted. It is a figure of the unit, not of the
   rig: it moves with the KV type, the model, ``-ub`` and the context (for
   example 5.88 to 6.88 MiB for gpt-oss over ``-c 2048`` to ``16384``, the same on
-  both rigs, ``records/evidence/2026-09-05-context-decomposition/``), and every
+  both rigs), and every
   one of those is in ``unt-``.
 * **The attention backend** a vLLM unit reports at start is recorded, stamped
   like any observation, so a figure says which kernel produced it.

@@ -1,10 +1,9 @@
 """A whole ``serve up`` leaves a sleeping swap partner down, and a whole down takes it.
 
-Plan 2026-10-07, §6.2, with the owner's P10 ruling: swap partners share one
-launch spec, and the unit that starts asleep (``role: sleeps-until-needed``)
-is written under a compose profile, so ``docker compose up`` does not start
-it and the card's awake set still fits. The door reads that from the file
-like everything else it expects:
+Swap partners share one launch spec, and the unit that starts asleep
+(``role: sleeps-until-needed``) is written under a compose profile, so
+``docker compose up`` does not start it and the card's awake set still fits.
+The door reads that from the file like everything else it expects:
 
 * a whole ``serve up`` waits for, and gate 7 judges, the awake units only;
   the sleeper is neither expected up nor named as missing;

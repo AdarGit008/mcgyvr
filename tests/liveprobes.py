@@ -204,7 +204,15 @@ def rows(journal: Path) -> list[dict[str, Any]]:
     ]
 
 
-HOLDING = {"3b_decode": 126.7, "3b_prefill": 11500.0, "ds_decode": 32.56}
+#: What each unit measures when it holds its lock. Shared by every test that
+#: imports it, so no test may change it in place: one that wants other figures
+#: builds a new dict (``HOLDING | {...}``).
+HOLDING = {
+    "3b_decode": 126.7,
+    "3b_prefill": 11500.0,
+    "ds_decode": 32.56,
+    "ds_prefill": 307.11,
+}
 
 
 STAMP = {

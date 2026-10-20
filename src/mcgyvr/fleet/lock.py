@@ -81,11 +81,6 @@ def tolerances() -> dict[str, Any]:
     return {"warm_decode_class_pct": class_tolerances()["warm_decode_tok_s"]}
 
 
-def wake_limit_s(wake_s: float, tolerance: dict[str, Any]) -> float:
-    """A wake's wall time limit: its validated wake plus the tolerance in seconds."""
-    return wake_s + float(tolerance["s"])
-
-
 def _slots_key(slots: Any) -> tuple[Any, ...]:
     """Slots as tuple keys, so a combination or a rig move can be looked up by
     the slots it ran.

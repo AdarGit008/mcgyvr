@@ -1,6 +1,6 @@
 """A ``rename_symbol`` run says what it ran and which files and lines it renamed.
 
-e2e run 2, R3: the echoed command was a bare ``$ `` — ``rename_symbol`` has no
+The echoed command used to be a bare ``$ `` — ``rename_symbol`` has no
 argv, and joining nothing printed a prompt that named no command — and the
 rename's own report ("5 occurrence(s) in 2 file(s)" and the files) reached
 neither stdout, nor the result file's notes, nor the journal. The user saw an

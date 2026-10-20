@@ -3,8 +3,8 @@
 A hosted unit with no `request_timeout_s` waits for its reply however long it
 takes (`test_a_hosted_unit_waits_for_its_reply_however_long_it_takes.py`). A
 setup that wrote a number there, or put one beside the commented key as the
-thing to bind, would hand the operator back the bound that ended e2e run 2's
-slow reply as an `error`.
+thing to bind, would hand the operator back the bound that ends a slow
+reply as an `error`.
 """
 
 from __future__ import annotations

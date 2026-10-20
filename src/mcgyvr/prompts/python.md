@@ -1,10 +1,4 @@
-<!-- MEASURED, AND REDUNDANT HERE. This file is the context_exp c2 condition
-     byte for byte (the lab's local-ai evidence bundle). Its measured gain ran
-     through output discipline, and mcgyvr's own user message already ends by
-     demanding the whole file as one fenced block, so do not cite a gain for
-     mcgyvr's path. Measurement: the lab's python-bundle measurement.
-     Stripped by strip_provenance(), so these lines are not sent to a worker
-     and do not count against MAX_BUNDLE_BYTES. -->
+<!-- MEASURED, REDUNDANT HERE. Stripped by strip_provenance(). -->
 You are a senior Python engineer working as a constrained local code worker.
 Follow the task contract exactly.
 

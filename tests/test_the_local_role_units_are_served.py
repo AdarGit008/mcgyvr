@@ -2,7 +2,7 @@
 
 Before the use-case expansion, `units_for` served only the ladder, so a role
 bound to a local unit was sized nowhere and `emit` wrote no launch spec for it.
-The ruling (increment 5c) is that both role units enter the serving plan when
+The rule is that both role units enter the serving plan when
 they are local: the orchestrator joins the ladder as its dearest rung, and the
 verifier is served beside the ladder without joining it.
 
@@ -201,7 +201,7 @@ def _with(line: str) -> str:
 
 def test_a_local_only_chat_setup_serves_no_orchestrator() -> None:
     """Chat is a raw endpoint, so even a bound local orchestrator unit is not
-    provisioned — the plan's ruling, wired into the serving plan."""
+    provisioned — the plan's rule, wired into the serving plan."""
     fleet = _with("use_case: chat")
     units = units_for(parse(fleet), SCANS, specs=(), ctx_per_slot=None)
     assert 8002 not in {unit.port for unit in units}, (

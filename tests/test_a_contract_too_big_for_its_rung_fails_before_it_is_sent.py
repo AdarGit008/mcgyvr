@@ -7,7 +7,7 @@ an HTTP status rather than the two numbers that did not fit. The check that
 says so — :func:`mcgyvr.gate.preflight.check_contract_against_rung` — existed
 and nothing called it.
 
-Owner ruling (Round 7, "oversize contract"): a task too big for the rung it was
+A task too big for the rung it was
 sent to FAILS, and is not climbed to a bigger rung on its own; the size is
 asserted against that rung *before* dispatch, and the failure names the
 contract's tokens, the rung's window and the rung.
@@ -138,7 +138,7 @@ def test_a_prompt_that_leaves_too_little_room_for_the_cap_is_not_sent(
     The contract declares a ceiling the rung serves, and the prompt it is
     assembled into fits that ceiling — but not beside the reply the contract
     states. This is the request llama.cpp answered with a ``400``. The prompt
-    is the constant and the cap is what adjusts (owner, 2026-10-14), so the
+    is the constant and the cap is what adjusts, so the
     refusal names the unit's ceiling for this prompt and the cap above it.
     """
     from mcgyvr.drive import OutputCapTooLargeError, dispatch_prompt

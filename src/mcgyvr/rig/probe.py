@@ -79,13 +79,6 @@ def reachable(address: ipaddress.IPv4Address) -> bool:
     )
 
 
-def _ipv4(host: str) -> ipaddress.IPv4Address | None:
-    try:
-        return ipaddress.IPv4Address(host)
-    except ValueError:
-        return None
-
-
 @dataclass
 class _Peer:
     rig_id: str
@@ -270,7 +263,7 @@ class Probes:
             for peer in asked.peers:
                 candidates = []
                 for endpoint in peer.endpoints:
-                    address = _ipv4(endpoint.host)
+                    address = sessionwire._ipv4(endpoint.host)
                     if address is None or address in own or not self._allowed(address):
                         continue
                     candidates.append((endpoint, (str(address), endpoint.port)))
@@ -339,7 +332,7 @@ class Probes:
         servers = []
         own = set(self._own())
         for endpoint in probe.asked.stun:
-            address = _ipv4(endpoint.host)
+            address = sessionwire._ipv4(endpoint.host)
             if address is not None and address not in own and self._allowed(address):
                 servers.append((str(address), endpoint.port))
         if not servers:

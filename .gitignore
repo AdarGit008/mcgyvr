@@ -29,3 +29,8 @@ graphify-out/
 # Archify diagram artefacts (workflow/diagram HTML and receipts), generated and
 # reproducible from the repo, not source.
 .archify/
+
+# A fleet lock tree (`lock/<fleet>.json`, `lock/rigs/...`) belongs inside a
+# fleet folder, never at the repo root; one written here by a run with the repo
+# as its working directory is a stray, not source.
+/lock/

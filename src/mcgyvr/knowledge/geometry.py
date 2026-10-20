@@ -21,13 +21,13 @@ import re
 from collections.abc import Mapping
 from dataclasses import dataclass
 from datetime import date
-from importlib import resources
 from pathlib import Path
 from typing import Any
 
 from mcgyvr import atomic
 from mcgyvr.knowledge import store
 from mcgyvr.knowledge.record import KnowledgeError, Weights, _text
+from mcgyvr.shipped import shipped_file
 
 #: The geometry document format this code reads and writes; a document of any
 #: other version is refused rather than read.
@@ -114,12 +114,9 @@ def cache_file(repo: str, revision: str, file: str) -> Path:
 
 def shipped_path() -> Path:
     """The shipped geometry file: the packaged data file, else the checkout's."""
-    packaged = resources.files("mcgyvr") / "data" / SHIPPED_FILENAME
-    if Path(str(packaged)).is_file():
-        return Path(str(packaged))
-    checkout = Path(__file__).resolve().parents[3] / "data" / SHIPPED_FILENAME
-    if checkout.is_file():
-        return checkout
+    found = shipped_file(SHIPPED_FILENAME)
+    if found is not None:
+        return found
     raise KnowledgeError(f"model geometry not found (looked for {SHIPPED_FILENAME})")
 
 

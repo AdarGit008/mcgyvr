@@ -13,10 +13,11 @@ import json
 import math
 from collections.abc import Mapping
 from dataclasses import dataclass
-from importlib import resources
 from pathlib import Path
 from types import MappingProxyType
 from typing import Any
+
+from mcgyvr.shipped import shipped_file
 
 TABLE_FILENAME = "capability-table.json"
 
@@ -46,8 +47,8 @@ class CapabilityTableError(Exception):
 class Model:
     """One row of the table: what a model costs to serve.
 
-    Its size, its weights and the memory it takes to work, the server it needs
-    if any, and the fields its own modality states its work in.
+    Its size, its weights and the memory it takes to work, and the server it
+    needs if any.
     """
 
     id: str
@@ -60,15 +61,6 @@ class Model:
     notes: str
     not_for_fit: str | None = None
     model_id: str | None = None
-    # Media rows state their work in their own modality's terms; unset for text.
-    resolution: str = ""
-    steps: float | None = None
-    vae_decode_gb: float | None = None
-    frames: float | None = None
-    temporal_compress: float | None = None
-    sample_rate_hz: float | None = None
-    rtf: float | None = None
-    cpu_only: bool = False
 
 
 @dataclass(frozen=True)
@@ -105,8 +97,6 @@ class CapabilityTable:
 #: `active_params_b` and `architecture` are declared and checked but not
 #: carried into `Model`: `architecture` is read from the raw document by the
 #: sizing seam, and `active_params_b` is checked as a number and unread.
-#: A row's media fields state its modality's own work: `resolution` as text,
-#: the rest as numbers, `cpu_only` as a marker for a rung that needs no card.
 #: A declared key that is not a container holds a single value; an object
 #: under it would carry keys of no level (see `CONTAINER_KEYS`).
 DECLARED_KEYS: Mapping[str, frozenset[str]] = MappingProxyType(
@@ -131,15 +121,6 @@ DECLARED_KEYS: Mapping[str, frozenset[str]] = MappingProxyType(
                 "weights_gb",
                 "vram_gb_working",
                 "requires_backend",
-                # The media fields, for a row that is not text.
-                "resolution",
-                "steps",
-                "vae_decode_gb",
-                "frames",
-                "temporal_compress",
-                "sample_rate_hz",
-                "rtf",
-                "cpu_only",
                 "not_for_fit",
                 "notes",
             }
@@ -243,20 +224,7 @@ _MODEL_NUMBERS = (
     "active_params_b",
     "vram_gb_working",
     "weights_gb",
-    # The fields a row's modality states its work in, each checked as a number
-    # when present: steps and VAE decode memory for an image, frames and a
-    # temporal compression factor for a video, sample rate and real-time
-    # factor for speech.
-    "steps",
-    "vae_decode_gb",
-    "frames",
-    "temporal_compress",
-    "sample_rate_hz",
-    "rtf",
 )
-
-#: Flags a row may set, each checked as true or false when present.
-_MODEL_BOOLEANS = ("cpu_only",)
 
 
 def _required(
@@ -292,17 +260,6 @@ def _check_row(index: int, value: Any, path: Path) -> None:
             f"'model_id' is the catalog repository id its weights match, written "
             f"as non-empty text"
         )
-    if "resolution" in entry and not _text(entry["resolution"]):
-        raise CapabilityTableError(
-            f"{path}: {row} gives 'resolution' as {entry['resolution']!r}; it "
-            f"is the resolution the row was read at, written as non-empty text"
-        )
-    for key in _MODEL_BOOLEANS:
-        if key in entry and not isinstance(entry[key], bool):
-            raise CapabilityTableError(
-                f"{path}: {row} gives {key!r} as {entry[key]!r}; a model's "
-                f"{key!r} is true or false"
-            )
 
 
 def _check_shape(raw: Mapping[str, Any], path: Path) -> None:
@@ -330,13 +287,9 @@ def table_path() -> Path:
     A built wheel carries the file inside the package; a source tree, where
     that copy is absent, is read from the repository's `data/` directory.
     """
-    packaged = resources.files("mcgyvr") / "data" / TABLE_FILENAME
-    if packaged.is_file():
-        return Path(str(packaged))
-    # No packaged copy: an unbuilt checkout keeps the table at the repo root.
-    checkout = Path(__file__).resolve().parents[2] / "data" / TABLE_FILENAME
-    if checkout.is_file():
-        return checkout
+    found = shipped_file(TABLE_FILENAME)
+    if found is not None:
+        return found
     raise CapabilityTableError(
         f"capability table not found (looked for {TABLE_FILENAME})"
     )
@@ -385,22 +338,6 @@ def load(path: Path | None = None) -> CapabilityTable:
             notes=str(entry.get("notes", "")),
             not_for_fit=str(entry["not_for_fit"]) if "not_for_fit" in entry else None,
             model_id=(str(entry["model_id"]) if "model_id" in entry else None),
-            resolution=str(entry.get("resolution", "")),
-            steps=float(entry["steps"]) if "steps" in entry else None,
-            vae_decode_gb=(
-                float(entry["vae_decode_gb"]) if "vae_decode_gb" in entry else None
-            ),
-            frames=float(entry["frames"]) if "frames" in entry else None,
-            temporal_compress=(
-                float(entry["temporal_compress"])
-                if "temporal_compress" in entry
-                else None
-            ),
-            sample_rate_hz=(
-                float(entry["sample_rate_hz"]) if "sample_rate_hz" in entry else None
-            ),
-            rtf=float(entry["rtf"]) if "rtf" in entry else None,
-            cpu_only=bool(entry["cpu_only"]) if "cpu_only" in entry else False,
         )
         for entry in raw.get("models", [])
     )

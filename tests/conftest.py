@@ -21,6 +21,7 @@ from typing import Any
 import pytest
 
 import tests.livejournal as lj
+from tests._helpers import CONTRACT, git
 
 
 @pytest.fixture(autouse=True)
@@ -245,3 +246,30 @@ def _no_test_opens_the_doors_read(monkeypatch: pytest.MonkeyPatch) -> None:
         )
 
     monkeypatch.setattr(read, "spawn_read", refused)
+
+
+@pytest.fixture
+def repo(tmp_path: Path) -> Path:
+    """A real git repository with one commit and one target file.
+
+    Real rather than mocked: a behaviour about what git and the filesystem end
+    up holding needs a real git, since a fake one would let a wrong answer
+    pass. A module that defines its own ``repo`` fixture uses that one.
+    """
+    work = tmp_path / "work"
+    (work / "src" / "pkg").mkdir(parents=True)
+    (work / "src" / "pkg" / "fetch.py").write_text("def fetch(url):\n    return url\n")
+    git(work.parent, "init", "-q", str(work))
+    git(work, "config", "user.email", "test@example.invalid")
+    git(work, "config", "user.name", "test")
+    git(work, "add", "-A")
+    git(work, "commit", "-qm", "base")
+    return work
+
+
+@pytest.fixture
+def contract() -> Any:
+    """``CONTRACT`` loaded; a module that defines its own ``contract`` uses that."""
+    from mcgyvr.contract import loads
+
+    return loads(CONTRACT)

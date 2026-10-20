@@ -7,7 +7,7 @@ decision goes to exactly the unit it went to before the block existed —
 * the gate's Jev rung and the named reviewer's verdict to `verifier.unit`;
 * a picked reviewer's verdict and gate questions to the dearer rung that
   reviews, the one serving a model other than the builder's;
-* the fleet manager's wake judgment and the ladder manager's choices to the
+* the wake judge's judgment and the ladder manager's choices to the
   fast rung, the cheapest resident one;
 * the typed proposer's choices to `orchestrator.unit`.
 
@@ -23,7 +23,7 @@ from typing import Any
 import pytest
 
 import mcgyvr.decision as decision
-from mcgyvr import fleet_manager, ladder_manager
+from mcgyvr import ladder_manager, wake_judge
 from mcgyvr.config import Config, parse
 from mcgyvr.decision import Choice
 from mcgyvr.delegate import ClassifierProposer, classifier_proposer_for
@@ -135,14 +135,14 @@ def test_a_picked_reviewer_asks_the_dearer_independent_rung(
 
 
 @NO_JEV
-def test_the_fleet_managers_judgment_asks_the_fast_rung(
+def test_the_wake_judges_judgment_asks_the_fast_rung(
     monkeypatch: pytest.MonkeyPatch, jev: str
 ) -> None:
     sent = _wire(monkeypatch)
     config, pool = _loaded(UNITS + jev)
-    fast = fleet_manager.fast_rung(config, pool)
+    fast = wake_judge.fast_rung(config, pool)
     assert fast is not None and fast.name == "small"
-    fleet_manager.judge(pool, fast.name, {"task": "x"}, timeout_s=5.0)
+    wake_judge.judge(pool, fast.name, {"task": "x"}, timeout_s=5.0)
     assert sent == [SMALL]
 
 
@@ -152,7 +152,7 @@ def test_the_ladder_managers_decisions_ask_the_fast_rung(
 ) -> None:
     sent = _wire(monkeypatch)
     config, pool = _loaded(UNITS + jev)
-    fast = fleet_manager.fast_rung(config, pool)
+    fast = wake_judge.fast_rung(config, pool)
     assert fast is not None
     decide = ladder_manager.decide_on(pool, fast.name, timeout_s=5.0)
     decide({"queue": 0}, {"pick": Choice("which?", {"stay": "stay"})})

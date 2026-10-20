@@ -99,7 +99,7 @@ class RunResult:
     commit: str = ""
     branch: str = ""
     handoff: str = ""
-    #: `answer` is a `chat`, `agent` or `media` reply — the prose the run
+    #: `answer` is a `chat` or `agent` reply — the prose the run
     #: produced and never wrote to the tree; empty for one that changed files.
     answer: str = ""
     #: `session_record` is where a session's record landed under `sessions/`, so

@@ -18,6 +18,8 @@ from contextlib import contextmanager
 from dataclasses import dataclass
 from pathlib import Path
 
+from mcgyvr.gitcmd import run_git
+
 # The object id of git's empty tree. Used as the revision sentinel for a
 # repository with no commits yet: `git rev-parse HEAD^{commit}` fails there,
 # and the empty tree is the only revision such a repository can be compared
@@ -284,7 +286,7 @@ def _dirty_paths(root: Path) -> tuple[str, ...]:
     Parses the NUL-separated ``--porcelain -z`` output, so paths containing
     spaces or quotes come back verbatim.
     """
-    raw = _git(root, "status", "--porcelain", "-z").encode("utf-8", "surrogateescape")
+    raw = run_git(root, "status", "--porcelain", "-z", error=AttachError)
     tokens = raw.split(b"\x00")
     paths: list[str] = []
     i = 0
@@ -307,14 +309,10 @@ def _dirty_paths(root: Path) -> tuple[str, ...]:
 def _git(root: Path, *args: str, on_error: str | None = None) -> str:
     """Run git with ``args`` inside ``root`` and return its stdout, raising
     AttachError carrying ``on_error`` — or a generic message naming the
-    subcommand — when git exits non-zero."""
-    proc = subprocess.run(
-        ["git", *args],
-        cwd=root,
-        capture_output=True,
-        text=True,
-    )
-    if proc.returncode != 0:
-        detail = proc.stderr.strip()
-        raise AttachError(on_error or f"git {args[0]} failed: {detail}")
-    return proc.stdout
+    subcommand — when git exits non-zero.
+
+    ``surrogateescape`` keeps a path that is not valid UTF-8 intact, so it can
+    be encoded back to the bytes git wrote instead of failing to decode.
+    """
+    out = run_git(root, *args, error=AttachError, message=on_error)
+    return out.decode("utf-8", "surrogateescape")

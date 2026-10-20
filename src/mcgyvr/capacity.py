@@ -16,16 +16,18 @@ import hashlib
 import inspect
 import os
 import re
-import tempfile
+import stat
 import threading
 import time
 from collections.abc import Callable, Iterable, Iterator, Mapping, Sequence
 from concurrent.futures import ThreadPoolExecutor
-from contextlib import ExitStack, contextmanager
+from contextlib import ExitStack, contextmanager, suppress
 from dataclasses import dataclass
 from pathlib import Path
 from typing import TYPE_CHECKING, cast
 from typing import Protocol as TypingProtocol
+
+from mcgyvr.userdir import owned_outright, private_dir, user_tempdir
 
 if TYPE_CHECKING:  # pragma: no cover - typing only
     from mcgyvr.config import Config
@@ -49,10 +51,59 @@ def _default_lock_dir() -> Path:
     """The directory holding this user's slot files, in the temporary directory.
 
     One directory per uid, because the bound is the host's: another user's
-    dispatches are held to their own slots, and neither user can write over the
-    other's files.
+    dispatches are held to their own slots. The directory is made 0o700 and used
+    only when this user owns it outright (:func:`_private`), and each slot file
+    is 0o600, so neither user can open, hold or replace the other's slots.
     """
-    return Path(tempfile.gettempdir()) / f"mcgyvr-capacity-{os.getuid()}"
+    return user_tempdir("capacity")
+
+
+def _private(directory: Path) -> Path:
+    """`directory`, made 0o700 if missing, once it is this user's outright.
+
+    A directory this user owns that group or other may write into (as one made
+    under a umask of 002 by an older mcgyvr is) is narrowed to 0o700 first, since
+    only its owner can change its mode. A directory another user made first, or
+    a symlink, would let somebody else hold or plant this user's slots, so it is
+    refused by name rather than used: a bound silently dropped is worse than a
+    run that stops.
+    """
+    if private_dir(directory, make=True) is None:
+        with suppress(OSError):
+            found = os.lstat(directory)
+            if stat.S_ISDIR(found.st_mode) and found.st_uid == os.getuid():
+                os.chmod(directory, 0o700)
+    if not owned_outright(directory):
+        raise CapacityError(
+            f"the slot directory {directory} is not this user's own: it must be a "
+            f"directory (not a symlink) owned by uid {os.getuid()}. Remove it, and "
+            f"the next run makes it afresh with mode 0700."
+        )
+    return directory
+
+
+def _open_slot(directory: Path, name: str) -> int:
+    """Open (creating 0o600) one slot file of this user's, never through a symlink.
+
+    A slot file another user owns, left from when the directory was open to
+    them, is refused by name: its owner could hold it whatever this user does.
+    """
+    path = directory / name
+    try:
+        fd = os.open(path, os.O_RDWR | os.O_CREAT | os.O_NOFOLLOW, 0o600)
+    except OSError as exc:
+        raise CapacityError(
+            f"the slot file {path} could not be opened ({exc.strerror}); a slot "
+            f"file is a plain file, never a symlink. Remove it, and the next run "
+            f"makes it afresh."
+        ) from exc
+    if os.fstat(fd).st_uid != os.getuid():
+        os.close(fd)
+        raise CapacityError(
+            f"the slot file {path} belongs to another user, who could hold it. "
+            f"Remove it, and the next run makes it afresh."
+        )
+    return fd
 
 
 @dataclass(frozen=True)
@@ -73,10 +124,6 @@ class Fullness:
         if self.load >= self.width:
             return True
         return self.server is not None and self.server >= self.width
-
-    @property
-    def server_read(self) -> bool:
-        return self.server is not None
 
     @property
     def why(self) -> str:
@@ -210,27 +257,6 @@ class Usage:
     peak: int
     waited_seconds: float
     rung: str | None = None
-
-    @property
-    def saturated(self) -> bool:
-        """Whether the bound was ever actually filled, not merely approached."""
-        return self.peak >= self.limit
-
-
-@dataclass(frozen=True)
-class Concurrency:
-    """The whole capacity in two figures: the overlap reached, and its ceiling."""
-
-    peak: int
-    """The most dispatches in flight at once, summed across every source."""
-
-    total: int
-    """The most that could ever be, if every source were saturated together."""
-
-    @property
-    def saturated(self) -> bool:
-        """Whether every source was saturated in the same instant."""
-        return self.peak >= self.total
 
 
 class Capacity:
@@ -407,11 +433,6 @@ class Capacity:
         # bound has reached.
         self._covered = dict.fromkeys(self._bounds, 0)
         self._peak = dict.fromkeys(self._bounds, 0)
-        # Dispatches holding a slot anywhere in this capacity, and the most there
-        # have ever been at once: the pair `concurrency` answers with. A total
-        # taken at one instant is not the sum of the per-bound peaks.
-        self._in_flight = 0
-        self._in_flight_peak = 0
         self._acquisitions = dict.fromkeys(self._bounds, 0)
         self._waited = dict.fromkeys(self._bounds, 0.0)
         # Per-thread state: the slot stems this thread is holding, so a nested
@@ -607,10 +628,6 @@ class Capacity:
             for source in self._limits
         )
 
-    def in_use(self, source: str) -> int:
-        """Dispatches holding a slot on this unit's own bound, with no rung named."""
-        return self.in_flight(source)
-
     def in_flight(self, source: str, rung: str | None = None) -> int:
         """Dispatches this process is holding a slot for on this bound.
 
@@ -732,15 +749,6 @@ class Capacity:
                 self._reserved[bound] = current - 1
 
     @contextmanager
-    def reserving(self, source: str, rung: str | None = None) -> Iterator[None]:
-        """Hold one claimed slot for the block, releasing it however the block ends."""
-        self.reserve(source, rung)
-        try:
-            yield
-        finally:
-            self.release(source, rung)
-
-    @contextmanager
     def deciding(self) -> Iterator[None]:
         """Hold the counters still while a caller reads a bound and acts on it.
 
@@ -768,11 +776,6 @@ class Capacity:
                 )
                 for bound, limit in self._bounds.items()
             )
-
-    def concurrency(self) -> Concurrency:
-        """The peak overlap reached anywhere, against the ceiling it could reach."""
-        with self._lock:
-            return Concurrency(peak=self._in_flight_peak, total=self.total)
 
     @contextmanager
     def hold(
@@ -877,8 +880,6 @@ class Capacity:
             self._waited[bound] += waited
             self._in_use[bound] += 1
             self._peak[bound] = max(self._peak[bound], self._in_use[bound])
-            self._in_flight += 1
-            self._in_flight_peak = max(self._in_flight_peak, self._in_flight)
             # Mark the claim this dispatch takes up, where there is one: the
             # nearest node at this bound - this thread's, or one inherited from
             # the thread that submitted its batch - that still holds a claim not
@@ -899,7 +900,6 @@ class Capacity:
         finally:
             with self._lock:
                 self._in_use[bound] -= 1
-                self._in_flight -= 1
                 if covering is not None:
                     covering.covering[bound] -= 1
                     self._covered[bound] -= 1
@@ -970,11 +970,10 @@ class Capacity:
         :class:`SlotUnavailableError` and closes the descriptor; a dispatch
         already admitted is never interrupted to make room.
         """
-        directory = self._lock_dir
-        directory.mkdir(parents=True, exist_ok=True)
+        directory = _private(self._lock_dir)
         stem = _slot_stem(base_url, rung)
         deadline = None if timeout is None else time.monotonic() + timeout
-        fd = os.open(directory / f"{stem}.{index}.slot", os.O_RDWR | os.O_CREAT)
+        fd = _open_slot(directory, f"{stem}.{index}.slot")
         while True:
             try:
                 fcntl.flock(fd, fcntl.LOCK_EX | fcntl.LOCK_NB)
@@ -1008,17 +1007,14 @@ class Capacity:
         itself on the gauge once for as long as it waits, so another process can
         see the queue it would be cutting into.
         """
-        directory = self._lock_dir
-        directory.mkdir(parents=True, exist_ok=True)
+        directory = _private(self._lock_dir)
         stem = _slot_stem(base_url, rung)
         deadline = None if timeout is None else time.monotonic() + timeout
         with ExitStack() as queued:
             announced = False
             while True:
                 for index in range(limit):
-                    fd = os.open(
-                        directory / f"{stem}.{index}.slot", os.O_RDWR | os.O_CREAT
-                    )
+                    fd = _open_slot(directory, f"{stem}.{index}.slot")
                     try:
                         fcntl.flock(fd, fcntl.LOCK_EX | fcntl.LOCK_NB)
                     except OSError:

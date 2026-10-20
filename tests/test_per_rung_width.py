@@ -142,10 +142,6 @@ def test_a_backend_reporting_more_than_written_wins() -> None:
     assert capacity.limit("local_moe") == 12
 
 
-def test_the_source_level_width_still_parses() -> None:
-    assert parse(NO_TIER_WIDTH).units["local_moe"].width == 3
-
-
 # ---------------------------------------------------------------------------
 # The width is enforced, and not merely reported (#23)
 #
@@ -375,7 +371,7 @@ def test_full_fanout_can_see_a_rung_that_is_full_of_its_own_holds(
 ) -> None:
     """A rung's holds are load, and a fan-out that cannot see them is price order.
 
-    Once a dispatch is held against its rung, ``in_use(source)`` counts none of
+    Once a dispatch is held against its rung, ``in_flight(source)`` counts none of
     it — that is the point of a second queue — so a load read from the source
     alone reports zero for every rung with a width of its own. Every member of a
     batch would then compare zeroes, ``full`` would return the cheapest rung

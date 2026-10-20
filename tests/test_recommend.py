@@ -11,8 +11,8 @@ reachable, the pick is deterministic (the largest checkpoint among the
 candidates that already fit the measured machine) and the plan says so. Every
 number in the emitted plan is a measurement the rig or the checkpoint header
 made, or a shipped constant; none is invented. ``chat`` and ``agent`` place
-one unit from their own candidates; the two profiles that are not use cases
-(``media_gen``, ``other``) are accepted as scaffolds that make no placement.
+one unit from their own candidates; the profile that is not a use case
+(``other``) is accepted as a scaffold that makes no placement.
 
 WHAT THIS TEST PINS
 -------------------
@@ -35,8 +35,8 @@ Models to place come from exactly one of two places:
   measured free VRAM is assembled.
 
 ``--profile coding`` makes a real placement (an engine and a checkpoint are
-chosen and the decision seam is consulted); ``media_gen`` and ``other`` are
-accepted but scaffolded (no engine, no decision).
+chosen and the decision seam is consulted); ``other`` is accepted but
+scaffolded (no engine, no decision).
 
 The seams this test substitutes are existing module attributes, chosen so the
 command can be exercised without owning hardware:
@@ -90,7 +90,7 @@ MISSING_STORE_DIR = "/models/missing"
 SIZE_BYTES = 9_876_543_210
 
 ENGINES = ("llama.cpp", "vllm")
-PROFILES = ("coding", "chat", "agent", "media_gen", "other")
+PROFILES = ("coding", "chat", "agent", "other")
 
 #: An invented HuggingFace catalog, the same shape ``load_catalog`` returns
 #: from ``data/model-catalog.json``. The test injects it through the seam.
@@ -682,8 +682,8 @@ def test_recommend_falls_back_to_the_catalog_when_nothing_local_fits(
 def test_coding_places_and_the_other_profiles_are_scaffolded(
     ssh: Any, classify: Any, probe: Any, capsys: pytest.CaptureFixture[str]
 ) -> None:
-    """``coding`` is honoured with a real placement; the profiles that are not
-    use cases are stubs (chat and agent place too, from their own candidates,
+    """``coding`` is honoured with a real placement; the profile that is not a
+    use case is a stub (chat and agent place too, from their own candidates,
     in ``test_a_chat_setup_no_longer_plans_a_coding_model.py``).
 
     A real placement names a checkpoint and an engine and consults the decision
@@ -702,7 +702,7 @@ def test_coding_places_and_the_other_profiles_are_scaffolded(
     assert decisions.calls
     assert plan["decision"] == "model"
 
-    for profile in ("media_gen", "other"):
+    for profile in ("other",):
         decisions.calls.clear()
         code, plan = run_and_parse(capsys, profile, "single", STORE_DIR)
         assert code == 0

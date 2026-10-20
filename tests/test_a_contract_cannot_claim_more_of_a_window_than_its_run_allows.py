@@ -1,6 +1,6 @@
 """A contract cannot claim more of a window than its run allows.
 
-Owner ruling (after #621): the run's ``max_window_fraction`` is a hard
+After #621, the run's ``max_window_fraction`` is a hard
 ceiling. Before, a contract's own ``limits.max_window_fraction`` won wherever
 it stated one, so a contract could grant itself nine tenths of a rung's window
 under a run that allowed a quarter. Now the stricter of the two applies: a
