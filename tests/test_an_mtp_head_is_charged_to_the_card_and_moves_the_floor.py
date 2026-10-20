@@ -83,7 +83,7 @@ def test_the_floor_walks_past_exactly_the_blocks_the_head_displaces() -> None:
 
 
 def test_kats_probe_derives_the_floor_the_rig_measured_with_mtp() -> None:
-    """Plain 5, MTP 8 — the README's ``ncmoe=4 REFUSED`` / ``8`` row."""
+    """Plain 5, MTP 8 — the measured row ``ncmoe=4 REFUSED`` / ``8``."""
     geometry = GEOMETRY[KAT]
     constant = (2127 - 1) * MIB - vramfit.experts_on_card(geometry, 41)
     free = 11911 * MIB
