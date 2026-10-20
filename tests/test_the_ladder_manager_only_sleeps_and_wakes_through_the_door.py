@@ -362,7 +362,7 @@ def test_a_unit_slept_with_its_process_kept_reads_asleep_though_it_answers(
         live = True
 
     monkeypatch.setattr(pressure, "probe_endpoint", lambda *args: Answers())
-    monkeypatch.setattr(pressure, "unit_in_flight", lambda *args: 0)
+    monkeypatch.setattr(pressure, "unit_in_flight", lambda *args, **kwargs: 0)
     gauge = pressure.Gauge()
     capacity = Capacity.of(config, gauge=gauge)
     reader = pressure.Pressure(source_map(config), capacity, gauge)
@@ -529,7 +529,7 @@ def test_manage_once_on_a_quiet_ladder_with_a_sleeping_unit_asks_and_wakes_nothi
         return Answers(endpoint.base_url.startswith(f"http://{FAST_HOST}"))
 
     monkeypatch.setattr(pressure, "probe_endpoint", probe)
-    monkeypatch.setattr(pressure, "unit_in_flight", lambda *args: 0)
+    monkeypatch.setattr(pressure, "unit_in_flight", lambda *args, **kwargs: 0)
 
     code = lj.main(["manage", "--config", str(config), "--once"])
 
@@ -554,7 +554,7 @@ def test_manage_names_the_rungs_it_manages_in_one_header_line(
         live = False
 
     monkeypatch.setattr(pressure, "probe_endpoint", lambda *args: Answers())
-    monkeypatch.setattr(pressure, "unit_in_flight", lambda *args: 0)
+    monkeypatch.setattr(pressure, "unit_in_flight", lambda *args, **kwargs: 0)
 
     lj.main(["manage", "--config", str(config), "--once"])
 
@@ -663,7 +663,7 @@ def test_manage_holds_a_cooled_unit_out_for_its_dwell(
 
     monkeypatch.setattr(pressure, "RungCooling", recording)
     monkeypatch.setattr(pressure, "probe_endpoint", lambda *args: Answers())
-    monkeypatch.setattr(pressure, "unit_in_flight", lambda *args: 0)
+    monkeypatch.setattr(pressure, "unit_in_flight", lambda *args, **kwargs: 0)
 
     lj.main(["manage", "--config", str(config), "--once"])
     capsys.readouterr()

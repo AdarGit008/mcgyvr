@@ -729,7 +729,11 @@ def test_a_reading_asks_the_real_probes_by_default(
         )
 
     def unit_in_flight(
-        source: str, base_url: str, engine: str | None, max_parallel: int
+        source: str,
+        base_url: str,
+        engine: str | None,
+        max_parallel: int,
+        credential_env: str | None = None,
     ) -> int | None:
         asked.append((source, base_url, engine, max_parallel))
         return 1

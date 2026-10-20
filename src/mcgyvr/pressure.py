@@ -417,7 +417,11 @@ def _probed(endpoint: Endpoint) -> bool:
 def _status(endpoint: Endpoint) -> int | None:
     """The server's count of work in flight for the endpoint, `None` if unread."""
     return unit_in_flight(
-        endpoint.source, endpoint.base_url, endpoint.engine, endpoint.max_parallel
+        endpoint.source,
+        endpoint.base_url,
+        endpoint.engine,
+        endpoint.max_parallel,
+        credential_env=endpoint.credential_env,
     )
 
 

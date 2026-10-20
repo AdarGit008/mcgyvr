@@ -274,7 +274,7 @@ def test_manage_says_where_it_will_make_no_room(
 
     monkeypatch.setattr(wake, "spawn_door", lambda *a, **k: 0)
     monkeypatch.setattr(pressure, "probe_endpoint", lambda *args: Answers())
-    monkeypatch.setattr(pressure, "unit_in_flight", lambda *args: 0)
+    monkeypatch.setattr(pressure, "unit_in_flight", lambda *args, **kwargs: 0)
     path = tmp_path / "c.yaml"
     path.write_text(
         ladder_text(write_spec(tmp_path)) + f"journal:\n  dir: {tmp_path / 'j'}\n",
@@ -327,7 +327,7 @@ def test_resting_is_kept_per_unit_and_read_per_unit(
         live = True
 
     monkeypatch.setattr(pressure, "probe_endpoint", lambda *args: Answers())
-    monkeypatch.setattr(pressure, "unit_in_flight", lambda *args: 0)
+    monkeypatch.setattr(pressure, "unit_in_flight", lambda *args, **kwargs: 0)
     gauge = pressure.Gauge()
     reader = pressure.Pressure(
         source_map(config), Capacity.of(config, gauge=gauge), gauge
@@ -422,7 +422,7 @@ def test_manage_reads_the_card_sizes_from_the_scans(
     monkeypatch.setattr(wake, "CardSwitches", recording)
     monkeypatch.setattr(wake, "spawn_door", lambda *a, **k: 0)
     monkeypatch.setattr(pressure, "probe_endpoint", lambda *args: Answers())
-    monkeypatch.setattr(pressure, "unit_in_flight", lambda *args: 0)
+    monkeypatch.setattr(pressure, "unit_in_flight", lambda *args, **kwargs: 0)
     path = tmp_path / "c.yaml"
     path.write_text(
         ladder_text(write_spec(tmp_path)) + f"journal:\n  dir: {tmp_path / 'j'}\n",

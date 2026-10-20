@@ -129,6 +129,12 @@ the repository AdarGit008/mcgyvr-lab, under the same paths.
   surrogate escapes, as delivery already did. Every git a module runs goes
   through one runner, so a changeset's git failure now also names the
   repository it failed in.
+- A hosted unit (one with an `api_key_env`) is no longer asked its `/slots`
+  or `/metrics` without its key. The capacity's server count and the fleet
+  probe read a unit's in-flight count through one call that dropped the
+  unit's credential, so every hosted rung got an unauthenticated request to
+  its provider, waiting up to the status timeout; only a keyless unit is
+  polled now, as a dispatch's own reads already were.
 
 ### Security
 
