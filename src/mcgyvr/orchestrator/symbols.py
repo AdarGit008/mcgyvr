@@ -10,6 +10,7 @@ from __future__ import annotations
 
 import ast
 import copy
+import warnings
 from collections.abc import Iterator
 from dataclasses import dataclass
 from enum import StrEnum
@@ -34,12 +35,15 @@ _JS_EXTENSIONS = (".js", ".jsx", ".mjs", ".cjs")
 
 class SymbolKind(StrEnum):
     """What a :class:`Symbol` represents: a definition site, a call site, an
-    export site, or an import site."""
+    export site, an import site, a field on a class, or a property of an object
+    shape."""
 
     DEFINITION = "definition"
     REFERENCE = "reference"
     EXPORT = "export"
     IMPORT = "import"
+    FIELD = "field"
+    PROPERTY = "property"
 
 
 @dataclass(frozen=True)
@@ -87,7 +91,14 @@ def extract(path: str, source: bytes) -> list[Symbol]:
 
 def _python_symbols(path: str, source: bytes) -> list[Symbol]:
     try:
-        tree = ast.parse(source.decode("utf-8", "surrogateescape"), filename=path)
+        # Legacy syntax (invalid escapes, old octal/decimal literals) makes the
+        # parser emit a SyntaxWarning. Suppress it so a build never leaks
+        # warnings to stderr, and so a caller running under ``-W error`` cannot
+        # turn the warning into an exception that would discard the whole
+        # file's symbols.
+        with warnings.catch_warnings():
+            warnings.simplefilter("ignore", SyntaxWarning)
+            tree = ast.parse(source.decode("utf-8", "surrogateescape"), filename=path)
     except (SyntaxError, ValueError):
         # Undecodable bytes already became lone surrogates above, so this is a
         # real syntax error (or a ValueError such as embedded null bytes): the
@@ -145,6 +156,32 @@ class _PythonCollector(ast.NodeVisitor):
         self._class_depth += 1
         self.generic_visit(node)
         self._class_depth -= 1
+
+    def visit_Assign(self, node: ast.Assign) -> None:
+        """Record class attributes as FIELD symbols, never module assignments."""
+        if self._class_depth > 0:
+            for target in node.targets:
+                if isinstance(target, ast.Name):
+                    self._add(
+                        target.id,
+                        SymbolKind.FIELD,
+                        node.lineno,
+                        "field",
+                        ast.unparse(node),
+                    )
+        self.generic_visit(node)
+
+    def visit_AnnAssign(self, node: ast.AnnAssign) -> None:
+        """Record annotated class attributes as FIELD symbols."""
+        if self._class_depth > 0 and isinstance(node.target, ast.Name):
+            self._add(
+                node.target.id,
+                SymbolKind.FIELD,
+                node.lineno,
+                "field",
+                ast.unparse(node),
+            )
+        self.generic_visit(node)
 
     def visit_Call(self, node: ast.Call) -> None:
         name = _called_name(node.func)
@@ -282,6 +319,18 @@ def _js_symbols(path: str, source: bytes) -> list[Symbol]:
             symbol = _js_reference(path, node)
             if symbol is not None:
                 symbols.append(symbol)
+        elif node.type in ("field_definition", "public_field_definition"):
+            symbol = _js_field(path, node)
+            if symbol is not None:
+                symbols.append(symbol)
+        elif node.type == "pair":
+            symbol = _js_pair(path, node)
+            if symbol is not None:
+                symbols.append(symbol)
+        elif node.type == "property_signature":
+            symbol = _js_property_signature(path, node)
+            if symbol is not None:
+                symbols.append(symbol)
     return symbols
 
 
@@ -290,6 +339,10 @@ _DEFINITION_TYPES = {
     "generator_function_declaration": "function",
     "class_declaration": "class",
     "method_definition": "method",
+    "enum_declaration": "enum",
+    "interface_declaration": "interface",
+    "type_alias_declaration": "type",
+    "abstract_class_declaration": "class",
 }
 
 
@@ -326,6 +379,55 @@ def _js_declarator_definition(path: str, node: Node) -> Symbol | None:
         "function",
         _declaration_keyword(node) + _js_signature(node, value),
     )
+
+
+def _js_field(path: str, node: Node) -> Symbol | None:
+    """Record a class field as a FIELD symbol."""
+    name = _js_declared_name(node)
+    if name is None:
+        return None
+    return Symbol(
+        name,
+        SymbolKind.FIELD,
+        path,
+        _line(node),
+        "field",
+        _js_signature(node),
+    )
+
+
+def _js_pair(path: str, node: Node) -> Symbol | None:
+    """Record a plain object-literal key as a PROPERTY symbol.
+
+    A computed key (``[expr]``) names nothing literal, so it is skipped.
+    """
+    key = node.child_by_field_name("key")
+    if key is None or key.type not in ("property_identifier", "identifier"):
+        return None
+    name = _node_text(key)
+    if name is None:
+        return None
+    return Symbol(name, SymbolKind.PROPERTY, path, _line(node), "property")
+
+
+def _js_property_signature(path: str, node: Node) -> Symbol | None:
+    """Record a TypeScript property signature as a PROPERTY symbol."""
+    name = _field_text(node, "name")
+    if name is None:
+        return None
+    return Symbol(name, SymbolKind.PROPERTY, path, _line(node), "property")
+
+
+def _js_declared_name(node: Node) -> str | None:
+    """Return a node's declared name from its ``name`` field, falling back to a
+    ``property_identifier`` child (JavaScript class fields carry no name field)."""
+    name = _field_text(node, "name")
+    if name is not None:
+        return name
+    for child in node.children:
+        if child.type in ("property_identifier", "identifier"):
+            return _node_text(child)
+    return None
 
 
 def _declaration_keyword(declarator: Node) -> str:

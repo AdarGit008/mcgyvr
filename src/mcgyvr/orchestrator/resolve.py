@@ -12,8 +12,11 @@ can read, so a shortlist is explained rather than merely asserted. Scores are
 adjusted for the role of the file (a test is demoted behind the code it
 exercises), ranked and cut to a limit, and ``_verdict`` then says whether the
 leader is the answer, whether the top of the shortlist is too close to call, or
-whether nothing scored at all. What a caller does with the shortlist -- reading
-excerpts under a token budget -- belongs to ``mcgyvr.orchestrator.read``.
+whether nothing scored at all. A token-only shortlist that names a compound the
+index does not hold is discarded as empty rather than answered from its parts,
+so a made-up camelCase name never resolves on its fragments. What a caller does
+with the shortlist -- reading excerpts under a token budget -- belongs to
+``mcgyvr.orchestrator.read``.
 """
 
 from __future__ import annotations
@@ -105,19 +108,55 @@ _TEST_PATH = re.compile(
 # a match on an export scores above the same match on a plain definition. The
 # ranking is repeated in `_kind_rank`, which decides which of several symbols
 # sharing a name and a path is kept.
-_KIND_BONUS = {SymbolKind.EXPORT: 1.5, SymbolKind.DEFINITION: 1.0}
+_KIND_BONUS = {
+    SymbolKind.EXPORT: 1.5,
+    SymbolKind.DEFINITION: 1.0,
+    SymbolKind.FIELD: 0.6,
+    SymbolKind.PROPERTY: 0.4,
+}
 
 # The symbol kinds the corpus indexes as places a query can land. References and
 # imports are recorded in the index but deliberately left out: a mention of a
 # name at a call site says where code *uses* something, not where the answer to
 # a request lives, and indexing them would let any file that merely mentions a
 # name compete with the file that defines it.
-_LANDING_KINDS = frozenset({SymbolKind.DEFINITION, SymbolKind.EXPORT})
+_LANDING_KINDS = frozenset(
+    {
+        SymbolKind.DEFINITION,
+        SymbolKind.EXPORT,
+        SymbolKind.FIELD,
+        SymbolKind.PROPERTY,
+    }
+)
+
+# Kinds indexed for partial-token matching. FIELD and PROPERTY are landing
+# targets when a query names them outright, but their names are so often generic
+# words (``level``, ``color``, ``field``, ``document``) that letting them
+# compete in token scoring swamps the stronger definition and export signals.
+_TOKEN_KINDS = frozenset({SymbolKind.DEFINITION, SymbolKind.EXPORT})
 
 # How far ahead of the runner-up the leader must be to count as the answer. A
 # shortlist whose top two are closer than this factor is reported ambiguous
 # rather than resolved, so a near-tie is never presented as a decision.
 _DOMINANCE = 1.5
+
+# A content token that reaches at most this many files is specific enough to be
+# a confident signal on its own. A token found more widely is a generic word
+# that on its own would match almost anything and must not decide an answer.
+_SPECIFIC_DF_MAX = 2
+
+# A whole-name symbol match that reaches at least this many files is a central
+# API name: it is unambiguously a symbol, so naming it outright is a confident
+# signal even though the token is not rare. Between `_SPECIFIC_DF_MAX` and this
+# floor lies the ambiguous band -- an exact name in only a handful of files,
+# which is too often a common noun used descriptively (``document`` for
+# ``Document``) while the query's real subject is absent.
+_CORE_API_DF_MIN = 6
+
+# Without a specific token, a token-only shortlist still counts as a signal when
+# the query matched on at least this many distinct generic tokens -- breadth
+# that one incidental word does not provide.
+_MIN_MATCHING_TOKENS = 2
 
 
 class Verdict(StrEnum):
@@ -164,6 +203,11 @@ def resolve(index: Index, query: str, *, limit: int = 10) -> Resolution:
     ``limit`` is keyword-only and caps how many candidates are returned. Files
     with no positive score are dropped, the rest are ordered best first with
     ties broken by path, and ``_verdict`` turns the order into a verdict.
+
+    Unless the whole query named a file or symbol literally, the shortlist is
+    first held to an absolute signal: a compound name the index does not hold
+    means the query named nothing and the shortlist is emptied rather than
+    answered from its parts.
     """
     tokens = _content_tokens(query)
     corpus = _Corpus(index)
@@ -171,8 +215,18 @@ def resolve(index: Index, query: str, *, limit: int = 10) -> Resolution:
     scores: dict[str, float] = defaultdict(float)
     evidence: dict[str, list[tuple[float, str]]] = defaultdict(list)
 
-    _score_whole_query(query, tokens, corpus, scores, evidence)
+    _score_whole_query(query, corpus, scores, evidence)
+    named = set(scores)  # files the whole query named literally, if any
     _score_tokens(tokens, corpus, scores, evidence)
+
+    # A token-only shortlist is still checked for an absolute signal: a compound
+    # name the index does not hold means the query named nothing, so the
+    # incidental matches of its parts are discarded rather than reported as an
+    # answer. A whole-query literal match is exempt -- it already named a real
+    # file or symbol.
+    if not named and not _query_has_signal(query, corpus):
+        scores.clear()
+        evidence.clear()
 
     candidates = _rank(scores, evidence, limit)
     return Resolution(query=query, verdict=_verdict(candidates), candidates=candidates)
@@ -233,6 +287,10 @@ class _Corpus:
         # the symbol for which the token accounts for the largest share of the
         # name -- the one the token actually characterises. That share is
         # measured by `_token_strength`, the same figure the scorer awards.
+        # Fields and properties are kept only as whole-name landing targets; a
+        # partial match on them is too often a coincidental generic word.
+        if symbol.kind not in _TOKEN_KINDS:
+            return
         for token in _tokenize(symbol.name):
             slot = self.symbol_token[token]
             current = slot.get(symbol.path)
@@ -247,7 +305,6 @@ class _Corpus:
 
 def _score_whole_query(
     query: str,
-    tokens: list[str],
     corpus: _Corpus,
     scores: dict[str, float],
     evidence: dict[str, list[tuple[float, str]]],
@@ -257,12 +314,17 @@ def _score_whole_query(
     This is the confident pass: a caller who names a file or a symbol gets a
     score large enough to settle the shortlist, and the token pass can only add
     to it. A partial match is not awarded here -- that is `_score_tokens`.
+
+    The query is squashed whole -- case and separators folded, but stopwords and
+    plurals kept -- so a symbol name that begins with a stopword
+    ("fromRawHeaders", "isRedirect") or ends in a plural
+    ("getNodeRequestOptions") still matches exactly rather than only as tokens.
     """
     raw = query.strip()
     for path in _paths_named_literally(raw, corpus):
         _award(scores, evidence, path, _W_PATH_EXACT, f'path matches "{raw}"')
 
-    squashed = "".join(tokens)
+    squashed = _squash(query)
     if not squashed:
         return
     for symbol in corpus.symbol_exact.get(squashed, {}).values():
@@ -307,15 +369,17 @@ def _score_tokens(
 ) -> None:
     """Award every file a content token reaches, weighted by the token's rarity.
 
-    A token repeated in the query counts once. Its weight is ``_idf`` over the
-    files it reached, so a token present in every file contributes its base
-    strength unchanged while a rare one contributes several times that. Once all
-    tokens are scored, a file that matched a larger share of the query's
-    distinct tokens is given the coverage bonus -- the breadth signal that
-    separates a file matching three words from one matching a single word of the
-    same request.
+    A token repeated in the query counts once, and a bare number or single
+    character never counts at all: it matches anything that merely contains a
+    digit or that letter, so it is noise rather than evidence. A token's weight
+    is ``_idf`` over the files it reached, so a token present in every file
+    contributes its base strength unchanged while a rare one contributes several
+    times that. Once all tokens are scored, a file that matched a larger share
+    of the query's distinct tokens is given the coverage bonus -- the breadth
+    signal that separates a file matching three words from one matching a single
+    word of the same request.
     """
-    unique = list(dict.fromkeys(tokens))
+    unique = [token for token in dict.fromkeys(tokens) if not _is_noise_token(token)]
     if not unique:
         return
     total_paths = max(len(corpus.paths), 1)
@@ -346,7 +410,11 @@ def _collect(token: str, corpus: _Corpus) -> list[tuple[str, float, str]]:
     for path, symbol in corpus.symbol_token.get(token, {}).items():
         detail = f" ({symbol.detail})" if symbol.detail else ""
         out.append(
-            (path, _token_strength(token, symbol), f"{symbol.name}{detail} ~ {token!r}")
+            (
+                path,
+                _token_strength(token, symbol),
+                f"{symbol.name}{detail} ~ {token!r}",
+            )
         )
     for path in corpus.stem_token.get(token, set()):
         strength = _S_STEM * _fraction_of_name(token, Path(path).stem)
@@ -354,6 +422,83 @@ def _collect(token: str, corpus: _Corpus) -> list[tuple[str, float, str]]:
     for path in corpus.path_token.get(token, set()):
         out.append((path, _S_PATH, f"path ~ {token!r}"))
     return out
+
+
+def _is_noise_token(token: str) -> bool:
+    """True for a token that cannot by itself name a file or symbol.
+
+    A bare number or a single character matches nearly anything that merely
+    contains a digit or that letter, so it is dropped from token scoring rather
+    than treated as evidence. Whole-query literal matching still sees these
+    tokens, so a name like ``v8`` or ``f`` is still found when spelled out.
+    """
+    return len(token) < 2 or token.isdigit()
+
+
+def _has_broken_compound(query: str, corpus: _Corpus) -> bool:
+    """True when one word of the query is a compound the corpus does not hold.
+
+    A single, separator-free query word that splits into several content tokens
+    -- ``persistInterval`` -- names one thing, not several. If that whole name
+    is absent from the index, the parts matching separately is incidental and
+    must not count as a signal. A word that names a path literally, or whose
+    squashed whole matches a symbol or stem, is not broken; a word carrying a
+    separator (``supports-color``) is left to the token pass, since directory
+    names are only ever matched by token.
+    """
+    for word in query.split():
+        if not word.isalnum():
+            continue
+        parts = _content_tokens(word)
+        if len(parts) < 2:
+            continue
+        if _paths_named_literally(word, corpus):
+            continue
+        squashed = _squash(word)
+        if squashed in corpus.symbol_exact or squashed in corpus.stem_exact:
+            continue
+        return True
+    return False
+
+
+def _query_has_signal(query: str, corpus: _Corpus) -> bool:
+    """Whether the query named something the index actually holds.
+
+    This is the absolute check behind the token-only shortlist. A compound word
+    the index lacks means the query named nothing, so its parts matching
+    separately must not count as an answer. Beyond that, a token-only answer is
+    only confident when the query has a specific content token that matched, or
+    when it matched across enough distinct generic tokens. A token is specific
+    when it is rare (it reaches few files) or when it is a whole-name match for
+    a central API symbol (it reaches many files, so it is plainly a symbol). A
+    query whose only match is a single common word -- ``support`` across a
+    ``supports-color`` directory, ``document`` across a ``Document`` class --
+    has named its subject nowhere, so the shortlist is emptied rather than
+    answered from that one incidental word.
+    """
+    if _has_broken_compound(query, corpus):
+        return False
+    generic = 0
+    for token in dict.fromkeys(_content_tokens(query)):
+        if _is_noise_token(token):
+            continue
+        document_frequency = _token_document_frequency(token, corpus)
+        if document_frequency == 0:
+            continue
+        if document_frequency <= _SPECIFIC_DF_MAX:
+            return True
+        if (
+            document_frequency >= _CORE_API_DF_MIN
+            and _squash(token) in corpus.symbol_exact
+        ):
+            return True
+        generic += 1
+    return generic >= _MIN_MATCHING_TOKENS
+
+
+def _token_document_frequency(token: str, corpus: _Corpus) -> int:
+    """How many distinct files ``token`` reaches across the lookup corpus."""
+    return len({path for path, _, _ in _collect(token, corpus)})
 
 
 # Adjust each score for the role of its file, then order and cut the shortlist.
