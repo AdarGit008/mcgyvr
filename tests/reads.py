@@ -16,8 +16,8 @@ from typing import Any, ClassVar
 import yaml
 
 from tests import onedoor
+from tests._helpers import required
 from tests._paths import REPO
-from tests.red_port.conftest import required
 
 GATE_SCRIPTS = REPO / "src" / "mcgyvr" / "serving" / "gate-scripts"
 

@@ -16,9 +16,9 @@ from pathlib import Path
 import pytest
 
 from tests import onedoor
+from tests._helpers import required
 from tests.doors import HELD_SERVE_LEASE, HELD_SERVE_RUN, UNITS, compose_file
 from tests.fleetlocks import BOX1_EVIDENCE, BOX1_FLEET
-from tests.red_port.conftest import required
 
 
 def _live_lock() -> None:

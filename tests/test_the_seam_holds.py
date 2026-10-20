@@ -84,8 +84,6 @@ from tests.wheels import (
     _mcgyvr_imports,
 )
 
-RED_PORT = TESTS / "red_port"
-
 #: ``mcgyvr.runner``'s own words: "the first code below the seam
 #: ``mcgyvr.local_pool`` draws". This is it, and everything else that resolves a
 #: rung to something a machine actually runs: an endpoint to dispatch against
@@ -661,10 +659,10 @@ def test_the_drive_seam_is_read_only_inside_function_bodies() -> None:
 # whose only callers are its own tests exercises the function, not a decision
 # anything downstream makes.
 #
-# Both red_port files stay on disk, because the two assertions below can only
-# mean something while they do: test_dod_capability_integrity.py keeps F7 and
-# F9, and test_d12_size_aware_context.py keeps its statement that overflow is
-# deferred and never cut, asserted against explore() and two explicit budgets.
+# Both behaviour files stay on disk, because the two assertions below can only
+# mean something while they do: test_capability_integrity.py keeps F7 and F9,
+# and test_size_aware_context.py keeps its statement that overflow is deferred
+# and never cut, asserted against explore() and two explicit budgets.
 
 
 def test_the_orphaned_context_budget_helpers_are_deleted_with_their_tests() -> None:
@@ -682,10 +680,10 @@ def test_the_orphaned_context_budget_helpers_are_deleted_with_their_tests() -> N
     )
 
 
-def test_the_size_aware_context_red_port_test_no_longer_calls_explore_for() -> None:
-    """``test_d12_size_aware_context.py`` does not name ``explore_for``, which
+def test_the_size_aware_context_test_no_longer_calls_explore_for() -> None:
+    """``test_size_aware_context.py`` does not name ``explore_for``, which
     would be an import of a name that is not there."""
-    path = RED_PORT / "test_d12_size_aware_context.py"
+    path = TESTS / "test_size_aware_context.py"
     assert path.exists(), f"{path} must still exist to make this assertion meaningful"
     text = path.read_text(encoding="utf-8")
     assert "explore_for" not in text, (
@@ -693,12 +691,10 @@ def test_the_size_aware_context_red_port_test_no_longer_calls_explore_for() -> N
     )
 
 
-def test_the_capability_integrity_red_port_test_no_longer_calls_budget_for_model() -> (
-    None
-):
-    """``test_dod_capability_integrity.py`` does not name ``budget_for_model``,
+def test_the_capability_integrity_test_no_longer_calls_budget_for_model() -> None:
+    """``test_capability_integrity.py`` does not name ``budget_for_model``,
     a helper that is deleted."""
-    path = RED_PORT / "test_dod_capability_integrity.py"
+    path = TESTS / "test_capability_integrity.py"
     assert path.exists(), f"{path} must still exist to make this assertion meaningful"
     text = path.read_text(encoding="utf-8")
     assert "budget_for_model" not in text, (

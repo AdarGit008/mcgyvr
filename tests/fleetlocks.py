@@ -12,8 +12,8 @@ from typing import Any
 import pytest
 import yaml
 
+from tests._helpers import required
 from tests.doors import UNITS
-from tests.red_port.conftest import required
 
 RIG2 = "rig-" + "2" * 64
 

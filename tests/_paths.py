@@ -2,7 +2,7 @@
 
 Every test file that wanted the checkout's root used to walk up from its own
 ``__file__`` by a counted number of parents — ``parent.parent`` for a file
-directly under ``tests/``, ``parents[2]`` for one under ``tests/red_port/``.
+directly under ``tests/``, ``parents[2]`` for one a directory further down.
 That count is not a fact about the repository; it is a fact about where the
 file happened to sit. Move the file one directory down and the expression
 still evaluates, still returns a directory, and returns the wrong one: the
@@ -41,8 +41,8 @@ def root_above(start: Path) -> Path:
 #: The checkout's root — where ``make check`` is run from.
 REPO = root_above(Path(__file__).resolve().parent)
 
-#: This suite's own directory: where ``fixtures/`` and ``red_port/`` are, and
-#: where they stay when the test files around them move into levels.
+#: This suite's own directory: where ``fixtures/`` is, and where it stays when
+#: the test files around it move into levels.
 TESTS = REPO / "tests"
 
 #: The package under test, as source on disk. A test that reads the installed

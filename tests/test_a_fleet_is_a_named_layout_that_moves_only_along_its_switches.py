@@ -24,7 +24,7 @@ from typing import Any
 
 import pytest
 
-from tests.red_port.conftest import required
+from tests._helpers import required
 
 RIG1 = "rig-" + "1" * 64
 RIG2 = "rig-" + "2" * 64

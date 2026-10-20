@@ -42,6 +42,7 @@ import yaml
 
 from tests import livejournal as lj
 from tests import onedoor
+from tests._helpers import required
 from tests.doors import RUNG_7B, UNITS, compose_dir, compose_file, door_log, ladder
 from tests.fleetlocks import (
     BOX1_EVIDENCE,
@@ -67,7 +68,6 @@ from tests.fleetlocks import (
     tree,
 )
 from tests.fleetlocks import _flow_lock as _lock
-from tests.red_port.conftest import required
 
 SMALLEST_FLEET = "units:\n  {name}:\n    address: http://localhost:8080\n    model: m\n"
 SMALLEST_POLICY = "ladder: [{name}]\n"

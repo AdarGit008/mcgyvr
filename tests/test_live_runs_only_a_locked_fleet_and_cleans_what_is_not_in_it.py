@@ -31,6 +31,7 @@ from typing import Any
 
 import pytest
 
+from tests._helpers import required
 from tests.doors import RUNG_7B, compose_dir, door_log, ladder
 from tests.fleetlocks import (
     FLEET,
@@ -40,7 +41,6 @@ from tests.fleetlocks import (
     locked,
     observed,
 )
-from tests.red_port.conftest import required
 
 STRAY = "unt-" + "9" * 64
 MOVED = "rig-" + "8" * 64

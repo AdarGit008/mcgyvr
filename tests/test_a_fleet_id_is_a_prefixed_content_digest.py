@@ -20,7 +20,7 @@ from typing import Any
 
 import pytest
 
-from tests.red_port.conftest import required
+from tests._helpers import required
 
 #: unit, rig, combination.
 PREFIXES = ("unt-", "rig-", "cmb-")
