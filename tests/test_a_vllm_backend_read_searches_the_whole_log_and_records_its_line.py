@@ -8,7 +8,6 @@ box2_3b reported no attention_backend`` when both vLLM units file
 A reader that takes the FIRST line matching ``attention backend`` and looks
 for a token in that line alone reads a log that names the backend elsewhere as
 ``none``. The lock's own method
-(``records/measurements/fleet-setup-2026-09-13/box2/measure_vllm.py``)
 searches the WHOLE log for the same tokens, and so does ``rig-units.sh``.
 
 * The backend is the token the whole log carries, over the same token list.

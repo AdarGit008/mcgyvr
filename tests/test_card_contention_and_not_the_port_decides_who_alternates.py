@@ -26,7 +26,7 @@ that was ever true:
 **What it deliberately does not pin.** Which of several maximal co-resident
 subsets a fleet-shape controller should *choose* at runtime. ``emit`` writes
 launch specs and stops (``mcgyvr.emit``'s own boundary); picking the resident
-set from queue pressure is ``mcgyvr-lab/records/plans/fleet-shape/``'s and no line of it
+set from queue pressure is a fleet-shape controller's and no line of it
 is implemented.
 """
 

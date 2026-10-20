@@ -1,8 +1,7 @@
 """Draft acceptance is journaled when the server reports it.
 
 The MTP lever's effect is ``timings.draft_n_accepted / draft_n`` on each
-completion — how the evidence read acceptance
-(``records/evidence/2026-08-28-mtp-ornith/drivers/mtpsweep2.py``). llama-server
+completion — how acceptance is read. llama-server
 puts the two counts on ``timings`` only when it drafted, so a dispatch records
 ``draft_n`` and ``draft_n_accepted`` on its attempt row when they are reported
 and leaves both keys absent otherwise — never zeroed, the rule every token

@@ -9,7 +9,7 @@
   resident while the server serves, which is why it predicts *decode* — and
   decides whether the model runs on this host at all.
 
-``records/measurements/ram-headroom-2026-09-09/`` swept both, three models
+The headroom sweep covered both, three models
 across both rigs, mapped, with a locked balloon holding the clearance where it
 was wanted and the page cache dropped before every wake.
 

@@ -10,8 +10,7 @@ units that can never be up at the same time.
 Two rungs naming **one source** are two models for one process: one URL, one
 port, one card. They are alternatives, and a ladder can be made of them — box1
 alternating DeepSeek-Coder-V2-Lite with Qwen3.6-35B, box2 its vLLM pair with
-the 80B. That is "sleep funds a wake" in
-`mcgyvr-lab/records/plans/sleep-wake.md` §17. Summing both against the card
+the 80B. That is "sleep funds a wake". Summing both against the card
 would refuse a pair that never contends, and one file with both services on
 one port is a file whose second service can never bind — the outcome the port
 being part of `UnitKey` exists to prevent.

@@ -2,24 +2,18 @@
 
 * **Overhead is a combination's, not a rig's.** The CUDA context differs per
   card and per engine: llama.cpp on box1's GTX 1660 SUPER read less than box2's
-  RTX 3060 for the same model and ``-ub``, though on two images (the two
-  ``*-buffer-probe.tsv`` files of the lab's n-cpu-moe floor sweep,
-  ``records/evidence/2026-09-04-*-ncmoe-floor/``). A combination's dev run
-  measures the contexts of exactly its units on exactly its card, so the fit
-  uses that reading and nothing pooled.
+  RTX 3060 for the same model and ``-ub``, though on two images. A
+  combination's dev run measures the contexts of exactly its units on exactly
+  its card, so the fit uses that reading and nothing pooled.
 * **A llama.cpp unit is locked on its measured card peak.** Its room must hold
   the highest reading across the load and the requests, and the 2.0 GB guessed
   for a model with no geometry (``mcgyvr.propose.DEFAULT_HEADROOM_GB``) never
   stands in for that reading.
 * **A vLLM unit pins its attention backend** (``--attention-backend``, which
-  v0.26.0 resolves: the ``attn-*`` cells of
-  ``records/evidence/2026-08-24-config-sweep/box2-1.5B.jsonl``), and the lock
+  v0.26.0 resolves), and the lock
   files the backend the dev run reported. The card decides what is valid: box1
-  (cc 7.5) reports ``TRITON_ATTN``
-  (``records/evidence/2026-08-31-inventory/board3-box1-off1v1.log``), box2
-  ``FLASH_ATTN`` (``records/evidence/2026-08-24-resolved-config/box2-startup.log``),
-  and ``FLASHINFER`` under an fp8 KV cache (the ``kv-fp8`` cell of
-  ``box2-1.5B.jsonl``).
+  (cc 7.5) reports ``TRITON_ATTN``, box2 ``FLASH_ATTN``, and ``FLASHINFER``
+  under an fp8 KV cache.
 * **Prefill is locked as run**, beside warm decode, so a live run has a value
   to judge it against.
 

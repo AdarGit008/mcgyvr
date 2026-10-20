@@ -3,9 +3,8 @@
 Gate 1 (``src/mcgyvr/serving/gate-scripts/01-config.py``) admits a ``serve up``
 and ``down`` under a setup ``mcgyvr setup`` staged in the data folder whatever
 launch spec they name: nothing of it is locked yet, and setup starts and
-samples it itself (:func:`mcgyvr.fleet.roots.runs_live`; owner ruling N11 in
-``mcgyvr-lab/records/plans/sleep-wake.md``, that such a run runs everything;
-the intent is ``mcgyvr-lab/records/plans/fleet-identity.md`` §6).
+samples it itself (:func:`mcgyvr.fleet.roots.runs_live`; the owner's
+ruling is that such a run runs everything).
 
 **Where the guard on a shared rig lives.** Every other run is held to the live
 lock: gate 1 admits its ``serve up`` only for units the fleet lock names

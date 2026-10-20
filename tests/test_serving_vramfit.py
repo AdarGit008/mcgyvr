@@ -53,8 +53,6 @@ def gpt_oss_measured_rows(n_swa: int = 12) -> list[dict[str, Any]]:
     bytes follow from the count alone. The assert below is what makes that
     safe -- if a gpt-oss conversion is not uniform, a count is not enough and
     this helper fails instead of quietly inventing an assignment.
-
-    -> ``records/evidence/2026-09-05-context-decomposition/box2-gpt-oss-20b-MXFP4/``
     """
     rows = [dict(r) for r in g("gpt-oss-20b-MXFP4.gguf")["kv_layers"]]
     widths = {(r["k_elems"], r["v_elems"]) for r in rows}

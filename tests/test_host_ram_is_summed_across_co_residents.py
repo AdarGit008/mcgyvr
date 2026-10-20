@@ -8,9 +8,8 @@ what it has. The owner's ruling: **RAM summed per host, VRAM per card**, the sum
 taken after the loading modes are picked, with one host headroom applied once,
 against the recorded scan and never a live read.
 
-What each unit asks for is the arm its fit took — the law is F2.1 in
-``mcgyvr-lab/records/plans/fleet-shape/formulas.md``, and it is the same split ``fit``
-already makes:
+What each unit asks for is the arm its fit took — the law is the
+same split ``fit`` already makes:
 
 * **mapped**, the engine's default: the *blob*, because every page of it goes
   through the page cache and the kernel may evict what it does not fit;
@@ -28,10 +27,8 @@ port, added across ports — which is the rule ``alternatives()`` already carrie
 Two honest limits on all of this, stated here so a reader does not mistake the
 sum for a measurement:
 
-* **G2 in ``mcgyvr-lab/records/plans/fleet-shape/evidence_and_params.md``:
-  nothing on this fleet has ever run two llama.cpp MoE units co-resident on one
-  host**, so the
-  sum is the declared law rather than a measured one.
+* **Nothing on this fleet has ever run two llama.cpp MoE units co-resident on
+  one host**, so the sum is the declared law rather than a measured one.
 * The case that can actually arrive is a host whose card figures are
   *declared* — box2's vLLM pair states ``vram_gb`` in the config. Two
   geometry-sized units cannot reach this check, because ``_placement`` fills the

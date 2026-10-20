@@ -1,7 +1,7 @@
 """``C`` steps once an expert block is on the host, and holds after that.
 
-``C`` is not the same at every placement. On box2, deepseek-coder-v2-16b
-(``records/measurements/measuring-gaps-2026-09-10/`` Q4 and Q6), ``C`` reads
+``C`` is not the same at every placement. On box2, deepseek-coder-v2-16b,
+``C`` reads
 lower at ncmoe 0 than at 13 and 26, which agree. The engine's own ``CUDA0
 compute buffer size`` accounts for the difference: it roughly doubles as soon as
 one expert is on the host, and is flat after. llama.cpp's op offload copies a

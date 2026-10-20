@@ -1,10 +1,10 @@
 """A vLLM unit that declares ``speculative: mtp`` is refused by name.
 
 ``speculative: mtp`` is llama.cpp's ``--spec-type draft-mtp``: the grafted
-nextn block of a GGUF, run as the draft (``records/evidence/2026-08-28-mtp-
-ornith/``). vLLM's speculative decoding is ``--speculative-config``, a
-different mechanism with its own knobs, and a vLLM unit declaring this key
-would either be silently ignored or be read as something it never measured.
+nextn block of a GGUF, run as the draft. vLLM's speculative decoding is
+``--speculative-config``, a different mechanism with its own knobs, and a vLLM
+unit declaring this key would either be silently ignored or be read as something
+it never measured.
 So :func:`~mcgyvr.serving.unit_for` refuses it before sizing, naming the model,
 the key and the mechanism vLLM has instead.
 """

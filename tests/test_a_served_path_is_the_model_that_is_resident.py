@@ -6,7 +6,6 @@
 
     "id": "/models/dense/Qwen2.5-Coder-3B-Instruct-Q4_K_M.gguf"
 
-recorded on this fleet in ``records/evidence/serving-2026-08-30/lcpp-box1.json``.
 An emitted compose file passes ``--model /home/.../<name>.gguf`` with **no
 ``--alias``**, and a config declares ``model: "<name>"``. Those two strings are
 not equal, so ``Availability.not_serving`` compares through
@@ -44,8 +43,7 @@ from tests import livejournal as lj
 #: The name the live config declares for box1's ceiling rung.
 DECLARED = "Qwen3.6-35B-A3B-UD-IQ3_XXS"
 #: What the emitted compose file passes as ``--model``, and therefore what
-#: llama.cpp lists — the recorded shape, from
-#: ``records/evidence/serving-2026-08-30/lcpp-box1.json``.
+#: llama.cpp lists — the recorded shape.
 SERVED = f"/home/user/models/{DECLARED}.gguf"
 #: The other model that rig alternates with, as a path.
 OTHER = "/home/user/models/deepseek-coder-v2-16b.gguf"
@@ -201,8 +199,8 @@ def test_a_run_resolves_its_ladder_without_reaching_a_single_endpoint(
 def test_the_recorded_llama_cpp_body_is_read_as_the_model_it_holds() -> None:
     """The evidence, end to end: a real body through the real parser.
 
-    ``records/evidence/serving-2026-08-30/lcpp-box1.json`` holds what this
-    fleet's llama.cpp actually answered ``/v1/models`` with. Reading the shape
+    The body is what this fleet's llama.cpp actually answered ``/v1/models``
+    with. Reading the shape
     off a recorded body rather than a hand-written one is what keeps this honest
     about the vocabulary the server uses rather than the one we remember.
     """

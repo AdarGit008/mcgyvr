@@ -7,13 +7,12 @@ against ``mcgyvr.cooldown`` and re-raises; ``attempt`` wraps it as
 and the detail *rung ... raised TransportError*. Three of those in a row take the
 source out for sixty seconds, which is a decline.
 
-**What the design rules** (``mcgyvr-lab/records/plans/sleep-wake.md``; the
-``D``, ``N`` and ``§`` tags in this file are that document's). A card that is
+**What the design rules.** A card that is
 down and for which *this config's* ``serving.compose_dir`` holds a launch spec
-``mcgyvr emit`` wrote is ``asleep`` (D2), and asleep is a queue-and-wake rather
-than a decline. The instant refusal is the wake signal (D6, §8.1): mcgyvr does
-not probe first, because a card that is up must cost nothing extra and the check
-*is* the request. The wake goes through the door and through nothing else (D3),
+``mcgyvr emit`` wrote is ``asleep``, and asleep is a queue-and-wake rather
+than a decline. The instant refusal is the wake signal: mcgyvr
+does not probe first, because a card that is up must cost nothing extra and the
+check *is* the request. The wake goes through the door and through nothing else,
 bounded by the door's own health poll (``HEALTH_POLLS`` x
 ``HEALTH_INTERVAL_S``), and the dispatch that follows spends no attempt —
 nothing was asked and nothing answered, which is the rule ``drive`` applies to a
@@ -22,8 +21,8 @@ declined rung.
 **Two seams, and only two.** The backend is substituted with
 ``livejournal.patch_backend`` — the seam this project is built on, one layer
 below ``runner.dispatch``, so the hold, the endpoint binding and the rung lookup
-all happen. The rig is substituted at ``mcgyvr.wake.spawn_door``: D3 rules
-that a wake is one subprocess of ``python -m mcgyvr.serving.run serve up`` and
+all happen. The rig is substituted at ``mcgyvr.wake.spawn_door``: a wake
+is one subprocess of ``python -m mcgyvr.serving.run serve up`` and
 that nothing in ``mcgyvr.wake`` runs ``docker`` or ``ssh``, so one seam is the
 whole of the rig contact and a machine with no rigs can hold the module to it.
 Substituting it is what lets this suite run on a laptop.
@@ -33,10 +32,10 @@ and ``:8002``, because it is the multi-unit card and therefore the harder case:
 waking it is waking both rungs at once. Sleeping it is
 ``tests/test_sleeping_a_card_takes_every_rung_it_serves.py``.
 
-**The engine is not a predicate** (N10). A card is a card; what is on it
+**The engine is not a predicate.** A card is a card; what is on it
 decides nothing about whether it may sleep. That is pinned below.
 
-What is pinned here is the refusal-driven wake of D6: a dispatch that was aimed
+What is pinned here is the refusal-driven wake: a dispatch that was aimed
 at a card and refused by the port is a request.
 """
 
@@ -93,7 +92,7 @@ def home(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> Path:
     """A HOME and a capacity rendezvous directory nobody else writes to.
 
     ``tempfile.tempdir`` is redirected because the slot files, and under this
-    design the two clock files beside them (D7), are keyed host-wide by uid: a
+    design the two clock files beside them, are keyed host-wide by uid: a
     test that used the developer's would read another test's card as busy.
     """
     (tmp_path / "home").mkdir(exist_ok=True)
@@ -135,8 +134,8 @@ def test_with_the_switch_off_a_refused_port_ends_the_run_exactly_as_it_does_toda
     rewritten for another reason: what is pinned is that turning the switch off
     is indistinguishable from not having the feature. This is the half of the
     ruling that makes the default safe — the design's whole safety property is
-    that mcgyvr cannot take a card down anonymously or *without being asked*
-    (§14), and a switch that gated nothing would leave "asked" meaning nothing.
+    that mcgyvr cannot take a card down anonymously or *without being asked*,
+    and a switch that gated nothing would leave "asked" meaning nothing.
 
     A spec IS on disk here, and the engine IS vLLM, so the card would read as
     asleep and be woken if anything but the switch were deciding.
@@ -190,13 +189,13 @@ def test_a_refused_vllm_card_this_config_holds_a_spec_for_is_woken_not_written_o
     monkeypatch: pytest.MonkeyPatch,
     capsys: pytest.CaptureFixture[str],
 ) -> None:
-    """A refused dispatch wakes the card (§7.7).
+    """A refused dispatch wakes the card.
 
     box2 was slept, the next dispatch at ``http://box2:8001`` is refused by the
     port, and the card comes back without anyone typing anything. The wake is
     one door run against the *whole* compose file — the card is the file, and
     the file's own ``depends_on`` sequences the two units largest-first, so the
-    wake re-runs no fit and re-derives no order (D1, D8).
+    wake re-runs no fit and re-derives no order.
     """
     specs = compose_dir(tmp_path, with_spec=True)
     config = config_file(
@@ -241,7 +240,7 @@ def test_the_dispatch_that_follows_a_wake_spends_no_attempt(
     monkeypatch: pytest.MonkeyPatch,
     capsys: pytest.CaptureFixture[str],
 ) -> None:
-    """Nothing was asked and nothing answered, so nothing was spent (§8.2).
+    """Nothing was asked and nothing answered, so nothing was spent.
 
     The rung declares ``attempts: 1``. The wire is touched twice — once to be
     refused, once to be answered — and the run must show *one* attempt, because
@@ -288,13 +287,13 @@ def test_a_llama_cpp_card_is_woken_exactly_as_a_vllm_one_is(
     monkeypatch: pytest.MonkeyPatch,
     capsys: pytest.CaptureFixture[str],
 ) -> None:
-    """No rig is banned for the engine that serves it (N10).
+    """No rig is banned for the engine that serves it.
 
     This is the same config as the wake above with one field changed — every
     source says ``llama.cpp`` instead of ``vllm`` — and it must produce the same
     door run. The wake path is a compose file, ``serve up`` and a ``/v1/models``
     poll; all three are engine-agnostic, and neither engine carries a branch of
-    its own here (§6).
+    its own here.
 
     Pinned as an equality of behaviour rather than as a second set of literals:
     what would regress is somebody re-introducing a predicate on
@@ -339,7 +338,7 @@ def test_a_card_with_no_launch_spec_is_down_rather_than_asleep(
     monkeypatch: pytest.MonkeyPatch,
     capsys: pytest.CaptureFixture[str],
 ) -> None:
-    """``asleep`` is ``down`` plus a file mcgyvr wrote, and no more than that (D2).
+    """``asleep`` is ``down`` plus a file mcgyvr wrote, and no more than that.
 
     There is no fourth lifecycle state to store, no field to keep in sync with
     a rig and no third liveness module. The distinction that matters to a
@@ -351,7 +350,7 @@ def test_a_card_with_no_launch_spec_is_down_rather_than_asleep(
     ``serving.compose_dir`` has no sleeping cards at all. A wake cannot invent
     a unit, because sizing is a judgement a person reviews — ``hold_together``,
     ``--ctx-per-slot``, a measured ``--gpu-memory-utilization`` — and that is
-    the clause of §14 that keeps ``emit``'s boundary standing.
+    the clause that keeps ``emit``'s boundary standing.
     """
     specs = compose_dir(tmp_path, with_spec=False)
     config = config_file(

@@ -6,7 +6,7 @@ means evictable, so a blob larger than the host's memory does not refuse and
 does not OOM: the kernel drops expert pages to make room for the pages it is
 reading, then reads them back on the next token, for as long as the server
 serves. Nothing fails, so nothing catches it: what shows is sustained NVMe
-reads *during decode* and a slow wake (`records/measurements/wake-2026-09-08/`).
+reads *during decode* and a slow wake.
 
 ``--load-mode none`` is the cure and the whole difference: it reads the file
 once, uploads what belongs on the card, frees that copy, and keeps only the
@@ -86,8 +86,7 @@ def test_a_blob_that_overflows_ram_is_emitted_unmapped() -> None:
     makes those experts unevictable.
 
     The rig is not box1, which maps this blob under the mode gate
-    (:data:`~mcgyvr.serving.MODE_RAM_HEADROOM_GB`, swept in
-    ``records/measurements/ram-headroom-2026-09-09/``) — pinned in
+    (:data:`~mcgyvr.serving.MODE_RAM_HEADROOM_GB`) — pinned in
     ``tests/test_the_two_ram_gates_hold_back_different_margins.py``, not undone
     here. What this file is about is the arm a rig too tight for its blob
     takes, so the rig is given a number that is tight under that gate."""

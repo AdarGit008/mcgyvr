@@ -87,11 +87,10 @@ line-length = 88
 target-version = "py312"
 src = ["src", "tests"]
 # The GGUF parser in src/mcgyvr/serving/ggufscan.py (the `T`/`NAME` type maps
-# and the reader) is byte for byte the one a published bandwidth/ncmoe-floor
-# measurement vendored as evidence. The parser half must stay comparable line
-# for line with that evidence file, and a formatter pass would make that diff
-# impossible. Excluding the whole file holds that half still; the rest is
-# covered by tests/test_serving_vramfit.py rather than by the formatter.
+# and the reader) is kept comparable line for line with an external copy of
+# it, which a formatter pass would make impossible. Excluding the whole file
+# holds that half still; the rest is covered by tests/test_serving_vramfit.py
+# rather than by the formatter.
 extend-exclude = [
     "src/mcgyvr/serving/ggufscan.py",
     # The semantic rung's resolver engine: third-party source copied byte for

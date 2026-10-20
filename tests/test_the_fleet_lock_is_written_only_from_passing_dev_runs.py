@@ -108,8 +108,7 @@ def test_a_combination_whose_overhead_dev_never_measured_is_not_locked(
     tmp_path: Path,
 ) -> None:
     """Overhead is each combination's own reading, never a rig's: the CUDA
-    context differs per card and per engine
-    (``mcgyvr-lab/records/plans/fleet-identity.md`` §8)."""
+    context differs per card and per engine."""
     lock = _lock()
     evidence = edited(EVIDENCE)
     del evidence["combinations"][1]["overhead_mib"]

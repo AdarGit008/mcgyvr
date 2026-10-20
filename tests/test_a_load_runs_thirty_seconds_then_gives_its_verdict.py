@@ -33,7 +33,7 @@ stays the final reading. A status page that cannot be read at all is filed as
 ``idle_error`` and ends the wait.
 
 The card is sampled until idle: closing a request does not cancel llama.cpp's
-work on it (``records/measurements/lock-fleets/README.md``), so after the close
+work on it, so after the close
 the card is sampled beside every status reading, up to and including the first
 idle one. ``samples`` holds every sample, ``samples_before_close`` is how many
 came before the close, and ``sampled_until_idle`` says whether they run through

@@ -1,8 +1,7 @@
 """A llama.cpp unit may declare MTP, and a GGUF without a head is refused.
 
 Native multi-token-prediction self-speculation (``--spec-type draft-mtp``)
-speeds decode on box2's card
-(``mcgyvr-lab/records/evidence/2026-08-28-mtp-ornith/README.md`` §2). The
+speeds decode on box2's card. The
 declaration is two keys of a unit's ``launch`` block, ``speculative``
 (``none`` | ``mtp``) and ``spec_draft_n_max`` (the ``--spec-draft-n-max`` the
 driver ran), read into :class:`~mcgyvr.serving.ModelSpec` beside
