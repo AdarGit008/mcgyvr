@@ -4,8 +4,8 @@ Format: [Keep a Changelog](https://keepachangelog.com).
 
 Paths in older entries are where files were when the entry was written.
 `docs/` moved to `archive/docs/` (#395); most of `archive/`,
-`records/plans/`, `docs/` and the write-ups under `records/` now live in
-the repository AdarGit008/mcgyvr-lab, under the same paths.
+`records/plans/`, `docs/` and the write-ups under `records/` are now
+archived outside this repository, under the same paths.
 
 ## [Unreleased]
 
@@ -66,42 +66,49 @@ the repository AdarGit008/mcgyvr-lab, under the same paths.
   `--use-case media-gen`, or a config naming `use_case: media-gen`, is refused
   in one line naming `coding`, `chat` and `agent`. The `media` task type is
   removed in this release too (#731); see the next bullet.
-- **The `media` task type and the `media-gen` use case are gone** (owner
-  de-scope, 2026-10-08). There are three task types: `code`, `chat` and
-  `agent`. Removed with them: the `media_valid` and `asr_wer` evidence kinds
-  and the gate's format readers and whisper call behind them, the contract
-  keys `media_kind`, `transcript` and `wer_threshold`, the `media_artifact`
-  output schema, and the `media-gen` worker bundle. A config naming
-  `use_case: media-gen` is refused as an invalid value, naming `coding`,
-  `chat` and `agent`; a contract naming `task_type: media` is refused as an
-  unknown task type. The code is archived in mcgyvr-lab under
-  `records/evidence/2026-10-20-media-gen-archived`.
-- **The media serving engines are gone** (owner de-scope, 2026-10-08).
-  `units.<unit>.engine` takes `llama.cpp` or `vllm`; a config naming
-  `diffusers`, `tts` or `comfyui` is refused as an invalid value. Removed
-  with them: their sizing from declared figures and compose services, the
-  `vae_decode_gb` and `cpu_only` launch figures, the capability table's media
-  row keys (`resolution`, `steps`, `vae_decode_gb`, `frames`,
-  `temporal_compress`, `sample_rate_hz`, `rtf`, `cpu_only`), the
-  `lmarena-text-to-image` and `open-asr` boards, and `recommend --profile
-  media_gen`. The code is archived in mcgyvr-lab under
-  `records/evidence/2026-10-20-media-gen-archived`.
+- **The `media` task type and the `media-gen` use case are gone.** There are
+  three task types: `code`, `chat` and `agent`. Removed with them: the
+  `media_valid` and `asr_wer` evidence kinds and the gate's format readers and
+  whisper call behind them, the contract keys `media_kind`, `transcript` and
+  `wer_threshold`, the `media_artifact` output schema, and the `media-gen`
+  worker bundle. A config naming `use_case: media-gen` is refused as an
+  invalid value, naming `coding`, `chat` and `agent`; a contract naming
+  `task_type: media` is refused as an unknown task type. The code is archived
+  outside this repository.
+- **The media serving engines are gone.** `units.<unit>.engine` takes
+  `llama.cpp` or `vllm`; a config naming `diffusers`, `tts` or `comfyui` is
+  refused as an invalid value. Removed with them: their sizing from declared
+  figures and compose services, the `vae_decode_gb` and `cpu_only` launch
+  figures, the capability table's media row keys (`resolution`, `steps`,
+  `vae_decode_gb`, `frames`, `temporal_compress`, `sample_rate_hz`, `rtf`,
+  `cpu_only`), the `lmarena-text-to-image` and `open-asr` boards, and
+  `recommend --profile media_gen`. The code is archived outside this
+  repository.
 - `launch:` keys `cpu_only` and `vae_decode_gb` are no longer read. Launch is
   free-form, so a stale key is ignored rather than refused.
 - The root `package.json` and lockfile now pin only `prettier` (`eslint`,
   `@eslint/js`, `typescript` and `typescript-eslint` are dropped); the eslint
   and prettier configs stay for the lab bench.
-- **The `safety_pass` check is gone** (owner decision, 2026-10-20). It
-  shelled out to a `safety-classifier` binary that no implementation of
-  existed anywhere, so the `agent` setup sample, which ran it on its reply,
-  could never pass. Removed: the `safety_pass` evidence kind, the sample's
-  `safety` step (the `agent` sample is now green on its grounded check
-  alone: every sentence cites the source and the reply states each fact),
-  and the gate's output-check rung that only media and safety used
-  (`mcgyvr.gate.output`, `Gate.run(output=...)`,
-  `mcgyvr.drive.output_checks_for`). With nothing left to check a reply,
-  the `checked` assurance is gone too: a `chat` or `agent` reply is always
+- **The `safety_pass` check is gone.** It shelled out to a `safety-classifier`
+  binary that no implementation of existed anywhere, so the `agent` setup
+  sample, which ran it on its reply, could never pass. Removed: the
+  `safety_pass` evidence kind, the sample's `safety` step (the `agent` sample
+  is now green on its grounded check alone: every sentence cites the source
+  and the reply states each fact), and the gate's output-check rung that only
+  media and safety used (`mcgyvr.gate.output`, `Gate.run(output=...)`,
+  `mcgyvr.drive.output_checks_for`). With nothing left to check a reply, the
+  `checked` assurance is gone too: a `chat` or `agent` reply is always
   `unchecked`.
+- `mcgyvr.cleanup` is gone: its `tidy` lives in `mcgyvr.repair` beside
+  `repair` (and `mcgyvr.drive` still re-exports it under the same name).
+- `mcgyvr.fleet_manager` is now `mcgyvr.wake_judge`, and its
+  `FleetManagerError` is `WakeJudgeError`.
+- `mcgyvr.cli.commands.lab` is now `mcgyvr.cli.commands.machine`. No
+  command, flag or help text changes.
+- The `mcgyvr.worker` package no longer re-exports the names of its
+  modules: import them from `mcgyvr.worker.bundle`, `mcgyvr.worker.prompt`
+  and `mcgyvr.worker.reply` directly.
+- `mcgyvr.fleet.layout.actions` is gone; nothing but its tests called it.
 
 ### Fixed
 
@@ -1084,5 +1091,5 @@ the repository AdarGit008/mcgyvr-lab, under the same paths.
 
 ## Older releases
 
-The entries for 0.3.0, 0.2.0 and the ones written before 0.2.0 are kept in
-the repository AdarGit008/mcgyvr-lab.
+The entries for 0.3.0, 0.2.0 and the ones written before 0.2.0 are archived
+outside this repository.
