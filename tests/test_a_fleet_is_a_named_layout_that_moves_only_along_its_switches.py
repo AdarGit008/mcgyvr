@@ -10,14 +10,10 @@
 * A **fleet** is a name (``flt-05``) pinned to the sha256 of its layout, one
   combination per rig. A layout edited after it was locked no longer matches
   its pin.
-* A **switch** is listed: ``flt-05`` may move to ``flt-02``, ``flt-11`` or
-  ``flt-14`` and nowhere else. It is commanded at fleet level and carried out
-  per rig and per slot: slot k of the source pairs with slot k of the target,
-  and a leaving slot's stop precedes its arrival's start. Only slots that
-  differ act. Slot k is identity; the order units start in is not.
-* A switch's dev run is keyed by its **rig move** (the rig, the combination it
-  starts from and the actions), so one run proves every fleet switch that
-  derives the same move.
+* A **switch** is commanded at fleet level and carried out per rig and per
+  slot: slot k of the source pairs with slot k of the target, and a leaving
+  slot's stop precedes its arrival's start. Only slots that differ act. Slot k
+  is identity; the order units start in is not.
 """
 
 from __future__ import annotations
@@ -38,13 +34,12 @@ U4B = "unt-" + "4" * 64
 U7B = "unt-" + "7" * 64
 U9B = "unt-" + "9" * 64
 U35B = "unt-" + "5" * 64
-NEXT = {"flt-05": ["flt-02", "flt-11", "flt-14"], "flt-02": ["flt-05"]}
 
 
 def _layout() -> Any:
     return required(
-        "name a combination and a fleet layout by room slot, allow only listed "
-        "switches, and derive a switch's actions per rig and slot",
+        "name a combination and a fleet layout by room slot, and derive a "
+        "switch's actions per rig and slot",
         lambda: importlib.import_module("mcgyvr.fleet.layout"),
     )
 
@@ -75,21 +70,10 @@ def test_a_fleet_name_is_pinned_to_the_sha256_of_its_layout() -> None:
     pinned = layout.layout_sha256({RIG2: box2, RIG1: box1})
     assert re.fullmatch(r"[0-9a-f]{64}", pinned), pinned
     assert layout.layout_sha256({RIG1: box1, RIG2: box2}) == pinned
-    assert layout.check_pin("flt-05", {RIG2: box2, RIG1: box1}, pinned) is None
     edited = layout.combination_id(RIG2, [(U7B, "awake"), (U3B, "awake")])
-    with pytest.raises(layout.FleetError, match="flt-05") as refused:
-        layout.check_pin("flt-05", {RIG2: edited, RIG1: box1}, pinned)
-    assert "re-lock" in str(refused.value), refused.value
-
-
-def test_only_a_listed_switch_is_approved() -> None:
-    layout = _layout()
-    for target in NEXT["flt-05"]:
-        assert layout.approve_switch(NEXT, "flt-05", target) is None
-    with pytest.raises(layout.SwitchRefusedError, match="flt-07"):
-        layout.approve_switch(NEXT, "flt-05", "flt-07")
-    with pytest.raises(layout.SwitchRefusedError, match="flt-11"):
-        layout.approve_switch(NEXT, "flt-11", "flt-05")
+    assert layout.layout_sha256({RIG2: edited, RIG1: box1}) != pinned, (
+        "a layout edited after it was locked no longer matches its pin"
+    )
 
 
 def test_a_switch_acts_only_on_the_slots_that_differ() -> None:
@@ -135,20 +119,3 @@ def test_sleep_and_wake_are_switches_like_any_other() -> None:
         (RIG2, "sleep", U3B),
     ]
     assert layout.actions(asleep, awake) == [(RIG2, "wake", U3B)]
-
-
-def test_a_rig_move_proven_once_serves_every_fleet_switch_that_derives_it() -> None:
-    layout = _layout()
-    box2_from = [(U7B, "awake"), (U3B, "asleep")]
-    box2_to = [(U7B, "awake"), (U4B, "awake")]
-    flt05 = {RIG2: box2_from, RIG1: [(U35B, "awake")]}
-    flt02 = {RIG2: box2_to, RIG1: [(U35B, "awake")]}
-    flt07 = {RIG2: box2_from, RIG1: [(U35B, "asleep")]}
-    flt09 = {RIG2: box2_to, RIG1: [(U35B, "asleep")]}
-    one = layout.rig_moves(flt05, flt02)
-    assert len(one) == 1, one
-    assert layout.rig_moves(flt07, flt09) == one, "the same box2 move, once"
-    elsewhere = {RIG2: [(U7B, "awake"), (U3B, "awake")], RIG1: [(U35B, "awake")]}
-    assert layout.rig_moves(elsewhere, flt02) != one, (
-        "the same actions from another combination are another move"
-    )

@@ -1,6 +1,6 @@
 {
   "schema_version": 4,
-  "_purpose": "What a model costs to serve, so that serving can be sized without a benchmark of your machine; `mcgyvr setup` does not read it. Each row is a model's facts: its size, its weights and the memory it takes to serve. A memory figure is an estimate, mostly read through another server program with a file of the same model, usually of the same quantisation type; a row's `not_for_fit` says when it is not the model's own footprint. None is a reading of your machine.",
+  "_purpose": "What a model costs to serve, so that serving can be sized without a benchmark of your machine; `mcgyvr setup` and `mcgyvr emit` read it to size the room each unit takes. Each row is a model's facts: its size, its weights and the memory it takes to serve. A memory figure is an estimate, mostly read through another server program with a file of the same model, usually of the same quantisation type; a row's `not_for_fit` says when it is not the model's own footprint. None is a reading of your machine.",
   "models": [
     {
       "id": "qwen2.5-coder:1.5b",

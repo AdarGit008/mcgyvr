@@ -1099,10 +1099,13 @@ def test_idle_passes_over_a_rung_another_climb_has_reserved_but_not_yet_taken(
     config, pool = mapped(narrow("idle"))
     capacity = Capacity.of(config)
 
-    with capacity.reserving("local_qwen-7b"):
+    capacity.reserve("local_qwen-7b")
+    try:
         route = ascent(config, pool, contract(), capacity=capacity)
 
         assert route.next_free_rung == "local_qwen-14b"
+    finally:
+        capacity.release("local_qwen-7b")
 
 
 def test_a_rung_whose_load_cannot_be_read_stops_the_walk_rather_than_being_skipped(

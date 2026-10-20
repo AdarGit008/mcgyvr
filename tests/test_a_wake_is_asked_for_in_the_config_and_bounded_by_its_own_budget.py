@@ -25,8 +25,6 @@ file's:
 
 from __future__ import annotations
 
-import pytest
-
 #: One card, two vLLM sources. Every worked example in the sleep-wake design is
 #: this card because it is the multi-unit one, which is the harder case; the
 #: engine on a card decides nothing (N10).
@@ -127,17 +125,6 @@ def test_a_wake_has_no_budget_of_its_own() -> None:
     )
     assert config.units["local_qwen2.5-coder-3b"].request_timeout_s == 30.0
     assert config.get("task_timeout_s") == 60
-
-
-def test_the_wake_limit_is_the_validated_wake_plus_its_tolerance() -> None:
-    """The lock's wake limit is a unit's validated wake plus the lock's tolerance.
-
-    The values are placeholders; the rule is the lock's.
-    """
-    from mcgyvr.fleet.lock import wake_limit_s
-
-    assert wake_limit_s(20.0, {"s": 0.5}) == pytest.approx(20.5)
-    assert wake_limit_s(0.25, {"s": 0.1}) == pytest.approx(0.35)
 
 
 def test_the_doors_health_budget_is_not_a_wake_budget() -> None:

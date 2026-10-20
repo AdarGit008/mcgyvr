@@ -77,7 +77,7 @@ def test_a_server_that_cannot_be_read_leaves_the_load_to_decide_and_says_so(
     cap.reserve(FAST)
     full = cap.fullness(FAST)
 
-    assert free.full is False and free.server is None and not free.server_read
+    assert free.full is False and free.server is None
     assert full.full is True and full.server is None
     assert "not read" in free.why
 

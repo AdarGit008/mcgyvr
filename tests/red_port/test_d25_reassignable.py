@@ -3,12 +3,10 @@
 :class:`~mcgyvr.escalate.Outcome`, :class:`~mcgyvr.route.Exhaustion`,
 :class:`~mcgyvr.route.Verdict`, :class:`~mcgyvr.runner.StopReason` and the
 ``ReplyError`` codes answer *what happened*. *What to do next* is a different axis:
-:func:`mcgyvr.escalate.disposition` answers it per outcome, and
-:func:`mcgyvr.escalate.may_reassign` reads that together with the budget, so a caller
-of :func:`~mcgyvr.escalate.escalate` does not re-derive the rule from the outcome
-name.
+:func:`mcgyvr.escalate.disposition` answers it per outcome, so a caller of
+:func:`~mcgyvr.escalate.escalate` does not re-derive the rule from the outcome name.
 
-Three statements:
+Two statements:
 
 * **Every terminal outcome answers.** Iterated over the enum rather than over a list
   written here, so a member added later cannot be forgotten — a taxonomy
@@ -16,13 +14,6 @@ Three statements:
   caller at runtime. The answers are also asserted to *differ across the set*: a
   function that returned ``False`` for everything answers every member and says
   nothing, and it would pass an all-members-covered check.
-
-* **Terminal means terminal, whatever the budget.** The point of the axis is that it
-  is not a budget question. A failure outside the reassignable set stays refused
-  against a budget of a million, and — the other half, without which this is just
-  "the function returns False" — a failure inside the set *is* reassigned against a
-  budget that can pay and is *not* reassigned against a budget that cannot. Both
-  inputs have to matter or only one of them is real.
 
 * **The three ways a climb can end are three, not one.** ``LADDER_SPENT`` is the
   ladder honestly tried and not up to the work; ``ESCALATION_CEILING`` and
@@ -33,8 +24,7 @@ Three statements:
   all three are *reachable*; this holds that they are *distinguishable in what they
   tell a caller to do*.
 
-The answer exists per outcome, it carries a reason a human can read, and budget and
-reassignability are two independent inputs to one decision.
+The answer exists per outcome, and it carries a reason a human can read.
 """
 
 from __future__ import annotations
@@ -45,24 +35,12 @@ from mcgyvr.escalate import Outcome
 from tests.red_port.conftest import required
 
 DISPOSITION = "say, for every terminal outcome, whether the work may be reassigned"
-DECIDE = "refuse to reassign a terminal failure however much budget is left"
-
-# Large enough that no plausible ceiling declines it, so a refusal can only be
-# about the kind of failure and never about the money.
-PLENTY = 1_000_000
 
 
 def _disposition() -> Any:
     return required(
         DISPOSITION,
         lambda: __import__("mcgyvr.escalate", fromlist=["disposition"]).disposition,
-    )
-
-
-def _may_reassign() -> Any:
-    return required(
-        DECIDE,
-        lambda: __import__("mcgyvr.escalate", fromlist=["may_reassign"]).may_reassign,
     )
 
 
@@ -92,41 +70,6 @@ def test_every_terminal_outcome_says_whether_the_work_may_be_reassigned() -> Non
         f"every outcome in the taxonomy is reassignable={decided}: a constant is not "
         f"a classification, and nothing downstream can branch on it"
     )
-
-
-def test_a_terminal_failure_is_never_reassigned_however_much_budget_remains() -> None:
-    """Budget and kind are two inputs, and both have to matter.
-
-    Asserted in both directions. Only the first half would pass against a decision
-    that always refuses; only the second would pass against one that only ever reads
-    the budget.
-    """
-    disposition, may_reassign = _disposition(), _may_reassign()
-
-    terminal = [o for o in Outcome if not disposition(o).reassignable]
-    movable = [o for o in Outcome if disposition(o).reassignable]
-    assert terminal and movable, (
-        f"the set is degenerate — terminal={[o.value for o in terminal]}, "
-        f"movable={[o.value for o in movable]} — so nothing below distinguishes "
-        f"anything"
-    )
-
-    for outcome in terminal:
-        assert not may_reassign(outcome, budget_remaining=PLENTY), (
-            f"{outcome.value!r} is terminal and was reassigned anyway because "
-            f"{PLENTY} of budget was left: the work is sent to a dearer family that "
-            f"cannot fix it either, and the bill is the only thing that changes"
-        )
-
-    for outcome in movable:
-        assert may_reassign(outcome, budget_remaining=PLENTY), (
-            f"{outcome.value!r} is declared reassignable and was refused with "
-            f"{PLENTY} of budget left, so the declaration changes nothing"
-        )
-        assert not may_reassign(outcome, budget_remaining=0), (
-            f"{outcome.value!r} was reassigned with no budget left: reassignable "
-            f"says the work *may* move, not that it is free"
-        )
 
 
 def test_the_two_ceilings_and_a_spent_ladder_are_told_apart() -> None:

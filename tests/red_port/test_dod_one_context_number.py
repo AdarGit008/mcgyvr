@@ -17,6 +17,11 @@ reader).
 
 from __future__ import annotations
 
+import contextlib
+import json
+import threading
+from collections.abc import Iterator
+from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from typing import Any
 
 import pytest
@@ -131,6 +136,36 @@ def test_a_run_that_declares_no_window_is_refused_not_defaulted() -> None:
     )
 
 
+@contextlib.contextmanager
+def _unit_answering(answers: dict[str, Any]) -> Iterator[str]:
+    """A unit on localhost that answers each path in ``answers`` with its json,
+    and every other path with a 404; yields the unit's ``/v1`` address."""
+
+    class Handler(BaseHTTPRequestHandler):
+        def log_message(self, format: str, *args: Any) -> None:
+            pass
+
+        def do_GET(self) -> None:
+            if self.path not in answers:
+                self.send_error(404)
+                return
+            raw = json.dumps(answers[self.path]).encode()
+            self.send_response(200)
+            self.send_header("Content-Type", "application/json")
+            self.send_header("Content-Length", str(len(raw)))
+            self.end_headers()
+            self.wfile.write(raw)
+
+    server = ThreadingHTTPServer(("127.0.0.1", 0), Handler)
+    thread = threading.Thread(target=server.serve_forever, daemon=True)
+    thread.start()
+    try:
+        yield f"http://127.0.0.1:{server.server_address[1]}/v1"
+    finally:
+        server.shutdown()
+        server.server_close()
+
+
 def test_what_a_unit_serves_is_read_from_the_unit() -> None:
     """Declared going in; measured coming back. Two different questions.
 
@@ -140,13 +175,20 @@ def test_what_a_unit_serves_is_read_from_the_unit() -> None:
     """
     served: Any = required(
         "read the window a running unit actually serves, from the unit",
-        lambda: __import__("mcgyvr.serving", fromlist=["served_window"]).served_window,
+        lambda: __import__("mcgyvr.fleet.sampler", fromlist=["served"]).served,
     )
-    assert served({"data": [{"max_model_len": 4096}]}) == 4096, (
-        "vLLM publishes it as max_model_len on /v1/models"
-    )
-    assert served({"n_ctx": 4096}) == 4096, "llama.cpp publishes it on /props"
-    assert served({}) is None, (
-        "a unit that published nothing is unknown, which is not the same "
-        "answer as a window somebody assumed"
-    )
+    vllm = {"/v1/models": {"data": [{"id": "a-model", "max_model_len": 4096}]}}
+    with _unit_answering(vllm) as address:
+        assert served({"address": address, "engine": "vllm"}) == {"window": 4096}, (
+            "vLLM publishes it as max_model_len on /v1/models"
+        )
+    llama = {"/props": {"default_generation_settings": {"n_ctx": 4096}}}
+    with _unit_answering(llama) as address:
+        assert served({"address": address, "engine": "llama.cpp"}) == {
+            "window": 4096
+        }, "llama.cpp publishes it on /props"
+    with _unit_answering({}) as address:
+        assert served({"address": address, "engine": "llama.cpp"}) == {}, (
+            "a unit that published nothing is unknown, which is not the same "
+            "answer as a window somebody assumed"
+        )

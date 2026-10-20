@@ -15,7 +15,7 @@ import re
 import urllib.parse
 from collections.abc import Iterable, Mapping
 from dataclasses import dataclass
-from pathlib import Path, PurePosixPath
+from pathlib import Path
 
 from mcgyvr.knowledge.record import ModelRecord, Number, Weights
 
@@ -189,18 +189,6 @@ def _want_for(weights: Weights, size: Number, name: str) -> Want:
             "name": name,
         },
         f"{weights.repo}/{weights.file}",
-    )
-
-
-def from_weights(picked: Iterable[tuple[Weights, Number]]) -> tuple[Want, ...]:
-    """A `Want` per `(weights, size)` pair, each named after its file in the repo.
-
-    The landing name is the base name of the path inside the repo, so the file
-    keeps the name the hub gave it.
-    """
-    return tuple(
-        _want_for(weights, size, PurePosixPath(weights.file).name)
-        for weights, size in picked
     )
 
 

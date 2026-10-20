@@ -1,7 +1,9 @@
 """Fixes 1, 2, 4, 5 and 7, held as behaviour rather than as a changelog note.
 
 Each fix gets one focused test here, so the setup flow's entry points and the
-scan's on-disk inventory stay pinned while the surrounding code moves.
+scan's on-disk inventory stay pinned while the surrounding code moves. Fix 4, a
+download reused when the same model is already on disk, is held by the setup
+flow's own reuse tests under fix 5.
 """
 
 from __future__ import annotations
@@ -13,7 +15,7 @@ from pathlib import Path
 
 import pytest
 
-from mcgyvr import cli, weights
+from mcgyvr import cli
 from mcgyvr import scan as scan_module
 from mcgyvr.cli.commands.setup import (
     _setup_context_window,
@@ -110,47 +112,6 @@ def test_rig_scan_carries_bandwidth_and_models_on_disk(
     rig = rigfile.from_reading("rig", scan_module.reading(weights_dir=store))
     assert rig.bandwidth_gbps is not None
     assert [(m.name, m.quant) for m in rig.models_on_disk] == [("coder-7b", "Q4_K_M")]
-
-
-# --- Fix 4: a download is reused when the same model is already on disk -----
-
-
-def test_an_on_disk_model_is_reused_by_default(tmp_path: Path) -> None:
-    store = tmp_path / "store"
-    store.mkdir()
-    (store / "coder-7b-Q4_K_M.gguf").write_bytes(b"\x00" * 1024)
-
-    hit = weights.existing_model(
-        "coder-7b", quant="Q4_K_M", size_bytes=1024, roots=[store]
-    )
-    assert hit is not None
-    assert hit[1] == "Q4_K_M"
-
-    asked: list[str] = []
-
-    def ask(question: str) -> str:
-        asked.append(question)
-        return ""
-
-    assert weights.reuse_or_download(
-        "coder-7b",
-        quant="Q4_K_M",
-        size_bytes=1024,
-        roots=[store],
-        prompt=ask,
-    )
-    assert asked, "a reuse match is a question, not a silent overwrite"
-
-    assert (
-        weights.reuse_or_download(
-            "coder-7b",
-            quant="Q4_K_M",
-            size_bytes=1024,
-            roots=[store],
-            prompt=lambda question: "n",
-        )
-        is False
-    )
 
 
 # --- Fix 5: `setup` is the one entry point ----------------------------------

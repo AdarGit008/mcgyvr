@@ -103,14 +103,6 @@ def test_a_blob_with_room_to_spare_is_left_mapped() -> None:
     assert "--load-mode" not in unit.args
 
 
-def test_the_arm_is_decided_with_headroom_not_on_the_bare_blob() -> None:
-    """A blob that fits available RAM exactly is not a blob that fits: the page
-    cache needs room to work and every other process on the host needs its own.
-    12.3 GiB of weights into 12.5 GiB available is the unmapped arm."""
-    unit = unit_for(rig(ram_gb=12.5), MOE, engine="llama.cpp", ctx_per_slot=WINDOW)
-    assert unit.args["--load-mode"] == "none"
-
-
 def test_a_model_that_fits_under_neither_mode_is_refused() -> None:
     """The KAT shape, and the regression this whole spec exists for: experts
     that clear bare `MemAvailable` while the blob behind them cannot fit the

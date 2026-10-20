@@ -12,7 +12,6 @@ Under ``speculative: mtp`` those bytes are on the card, so:
 
 * :func:`vramfit.mtp_head_bytes` is the head's expert bytes off the table, and
   zero for a checkpoint with no nextn block;
-* :func:`vramfit.explain` moves by exactly that many bytes;
 * :func:`vramfit.floor` walks past exactly as many blocks as the head displaces
   — on a synthetic geometry, three blocks of 100 MiB for a 300 MiB head;
 * KAT's own probe (``test_serving_vramfit``: C 2127 MiB at full offload, 11911
@@ -74,15 +73,6 @@ def test_the_head_is_its_nextn_blocks_expert_bytes_off_the_table() -> None:
     assert vramfit.mtp_head_bytes(GEOMETRY[STOCK]) == 0
 
 
-def test_explain_moves_by_exactly_the_head() -> None:
-    plain = vramfit.explain(GEOMETRY[KAT], n_cpu_moe=8, slots=1, ctx_per_slot=WINDOW)
-    mtp = vramfit.explain(
-        GEOMETRY[KAT], n_cpu_moe=8, slots=1, ctx_per_slot=WINDOW, speculative="mtp"
-    )
-    assert mtp.predicted_mib - plain.predicted_mib == pytest.approx(HEAD_MIB)
-    assert mtp.allowance_mib == plain.allowance_mib
-
-
 def test_the_floor_walks_past_exactly_the_blocks_the_head_displaces() -> None:
     geometry = synthetic(blocks=10, block_mib=100, head_mib=300)
     constant = 1000 * MIB
@@ -96,7 +86,7 @@ def test_the_floor_walks_past_exactly_the_blocks_the_head_displaces() -> None:
 def test_kats_probe_derives_the_floor_the_rig_measured_with_mtp() -> None:
     """Plain 5, MTP 8 — the README's ``ncmoe=4 REFUSED`` / ``8`` row."""
     geometry = GEOMETRY[KAT]
-    constant = vramfit.constant_from_probe(geometry, 41, (2127 - 1) * MIB)
+    constant = (2127 - 1) * MIB - vramfit.experts_on_card(geometry, 41)
     free = 11911 * MIB
     assert vramfit.floor(geometry, free, constant) == 5
     assert (

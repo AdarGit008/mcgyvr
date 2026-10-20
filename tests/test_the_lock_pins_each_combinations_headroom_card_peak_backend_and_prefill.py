@@ -3,8 +3,8 @@
 * **Overhead is a combination's, not a rig's.** The CUDA context differs per
   card and per engine: llama.cpp on box1's GTX 1660 SUPER read less than box2's
   RTX 3060 for the same model and ``-ub``, though on two images (the two
-  ``*-buffer-probe.tsv`` files in
-  ``records/evidence/2026-09-04-box1-ncmoe-floor/``). A combination's dev run
+  ``*-buffer-probe.tsv`` files of the lab's n-cpu-moe floor sweep,
+  ``records/evidence/2026-09-04-*-ncmoe-floor/``). A combination's dev run
   measures the contexts of exactly its units on exactly its card, so the fit
   uses that reading and nothing pooled.
 * **A llama.cpp unit is locked on its measured card peak.** Its room must hold

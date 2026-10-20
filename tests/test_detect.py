@@ -34,10 +34,6 @@ from mcgyvr.detect import (
 #: What the first vendor's tool prints for the reader's query
 #: (``index,memory.total,memory.used,memory.free,name``).
 NVIDIA_SMI = "0, 12288, 0, 12288, NVIDIA GeForce RTX 3060\n"
-NVIDIA_SMI_TWO = (
-    "0, 12288, 0, 12288, NVIDIA GeForce RTX 3060\n"
-    "1, 6144, 0, 6144, NVIDIA GeForce GTX 1660 SUPER\n"
-)
 #: A file root that holds nothing: no file of the machine the tests run on is
 #: read by the reader.
 EMPTY_ROOT = "/nonexistent-mcgyvr-test-root"
@@ -83,8 +79,7 @@ def test_a_bare_machine_detects_without_raising(
     stub_run(monkeypatch, {})
     stub_http(monkeypatch, {})
     found = detect()
-    assert found.has_gpu is False
-    assert found.largest_vram_gb is None
+    assert found.gpus == ()
     assert found.backends == ()
     assert found.docker is False
 
@@ -155,15 +150,6 @@ def test_nvidia_smi_output_becomes_gpus(monkeypatch: pytest.MonkeyPatch) -> None
     assert gpus[0].vram_gb == 12.0
 
 
-def test_largest_vram_is_not_a_sum(monkeypatch: pytest.MonkeyPatch) -> None:
-    """A model runs on one card: two 6 GB cards are not one 12 GB decision."""
-    stub_run(monkeypatch, {"nvidia-smi": NVIDIA_SMI_TWO})
-    stub_http(monkeypatch, {})
-    found = detect()
-    assert len(found.gpus) == 2
-    assert found.largest_vram_gb == 12.0
-
-
 def test_garbage_from_nvidia_smi_does_not_raise(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
@@ -217,8 +203,6 @@ def test_a_listing_is_read_in_the_protocol_it_was_asked_on(
     found = probe(ProbeTarget("llama-server", "http://localhost:8080", "openai"))
     assert found is not None
     assert found.models == ("qwen2.5-coder:7b", "qwen2.5-coder:3b")
-    assert found.has_model("qwen2.5-coder:7b")
-    assert not found.has_model("qwen2.5-coder:14b")
 
 
 def test_openai_listing_is_read_in_its_own_protocol(

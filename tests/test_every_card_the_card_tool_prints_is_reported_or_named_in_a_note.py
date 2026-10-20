@@ -3,11 +3,11 @@
 The promise: no card disappears between the card tool's output and what
 detection reports. A card whose name carries a comma is a card. A card whose
 memory size the tool prints as not available is a card whose size is not
-determined: it is listed, a note says its size is undetermined, and it takes no
-part in sizing. A card whose name cannot be read is named in a note that
-quotes why, and the quote is of bounded length, whatever the row's. The cards
-are read by the one reader of a machine (:mod:`mcgyvr.serving.rigscan`), with
-its tool seam answered here and over a file root that holds nothing.
+determined: it is listed and a note says its size is undetermined. A card whose
+name cannot be read is named in a note that quotes why, and the quote is of
+bounded length, whatever the row's. The cards are read by the one reader of a
+machine (:mod:`mcgyvr.serving.rigscan`), with its tool seam answered here and
+over a file root that holds nothing.
 
 What the commands say holds to the same promise. ``mcgyvr detect`` prints every
 card and every note. ``mcgyvr setup`` names every card it found, of known size or
@@ -123,22 +123,11 @@ def test_a_card_whose_size_is_not_available_is_listed_without_a_size(
     assert "room_mib" in said[0], "the note says how, as the refusal does"
 
 
-def test_a_card_of_undetermined_size_takes_no_part_in_sizing() -> None:
-    sized = Gpu("Inventa Q-20", 20.0, "invented")
-    unsized = Gpu("Inventa Shared V", NO_SIZE, "invented")
-    assert Detection(gpus=(unsized, sized)).largest_vram_gb == 20.0
-    assert Detection(gpus=(sized, unsized)).largest_vram_gb == 20.0
-    assert Detection(gpus=(unsized,)).largest_vram_gb is None
-    assert Detection(gpus=(unsized, unsized)).largest_vram_gb is None
-
-
 def test_a_machine_whose_only_card_has_no_size_still_has_a_card(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     gpus, notes = read(monkeypatch, rows(("Inventa Shared V", "[N/A]")))
-    found = Detection(gpus=gpus, notes=notes)
-    assert found.has_gpu
-    assert found.largest_vram_gb is None
+    assert [g.vram_gb for g in gpus] == [NO_SIZE]
     assert not any("reported no device" in n for n in notes)
 
 
@@ -193,7 +182,6 @@ def test_a_mix_accounts_for_every_printed_row(
     for name, _ in printed:
         assert accounted(gpus, notes, name), f"{name!r} disappeared"
     assert len(gpus) == 5
-    assert Detection(gpus=gpus).largest_vram_gb == 24.0
 
 
 def test_rows_that_parse_today_read_as_they_did(

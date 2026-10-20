@@ -415,9 +415,9 @@ def test_full_fanout_spreads_a_batch_across_every_source_that_can_serve_it(
 
     The assertions are per source *and* across sources, and both are needed.
     Two per-source peaks of 2 are equally true of a batch that drained box1 and
-    only then started box2; :class:`~mcgyvr.capacity.Concurrency` removes that
-    ambiguity, and the rendezvous is what
-    turns it into a fact rather than a stopwatch reading.
+    only then started box2; the observer's ``peak_total`` removes that
+    ambiguity, and the rendezvous is what turns it into a fact rather than a
+    stopwatch reading.
     """
     config, pool = mapped(peers("full"))
     capacity = Capacity.of(config)

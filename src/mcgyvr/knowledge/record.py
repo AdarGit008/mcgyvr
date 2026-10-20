@@ -151,14 +151,6 @@ BOARDS: tuple[Board, ...] = (
     ),
 )
 
-#: The use cases no public board ranks, and, per use case, what ranks them instead.
-UNRANKED: Mapping[str, str] = {
-    "tts": (
-        "no public board publishes data; ranked by mcgyvr's own ASR-WER gate "
-        "and Hub downloads"
-    ),
-}
-
 
 class KnowledgeError(Exception):
     """A knowledge document, or one number in it, does not say what it must."""

@@ -52,11 +52,10 @@ from mcgyvr.fleet.tolerance import CLASS_VLLM, tolerance_class
 #: The subfolder of the journal directory the fleet's own rows are filed under.
 JOURNAL_SUBDIR = "fleet"
 
-#: How each engine's approved figures were timed, named in the reason a reading
-#: is filed without being judged. Both harnesses time inside the rig on
+#: How a vLLM unit's approved figures were timed, named in the reason a reading
+#: is filed without being judged. The harness times inside the rig on
 #: 127.0.0.1, which an off-the-rig timing of the same engine cannot match.
 VLLM_HARNESS = "the lock's vLLM harness"
-LLAMA_HARNESS = "the lock's llama.cpp harness"
 
 #: The fields only the rig itself can answer for: the MiB the unit's cards have
 #: room for and how often the unit has restarted are not on any HTTP reply an

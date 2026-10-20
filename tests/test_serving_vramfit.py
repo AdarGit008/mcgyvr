@@ -227,9 +227,7 @@ def test_floor_from_one_probe_matches_the_rig(
     refused: int,
 ) -> None:
     geom = g(model)
-    c = vramfit.constant_from_probe(
-        geom, probe_ncmoe, (probe_used_mib - idle_mib) * MIB
-    )
+    c = (probe_used_mib - idle_mib) * MIB - vramfit.experts_on_card(geom, probe_ncmoe)
     got = vramfit.floor(geom, free_mib * MIB, c)
     assert got == expect_floor
     # Not `predict(floor) <= free < predict(floor-1)`: that follows from the
@@ -259,7 +257,7 @@ def test_the_constant_does_not_move_with_placement() -> None:
     geom = g("KAT-Coder-V2.5-Dev_Q2_K-AllGPU.gguf")
     used = {41: 2127, 8: 11023, 7: 11301, 6: 11579, 5: 11857}
     constants = {
-        n: vramfit.constant_from_probe(geom, n, (u - 1) * MIB) / MIB
+        n: ((u - 1) * MIB - vramfit.experts_on_card(geom, n)) / MIB
         for n, u in used.items()
     }
     spread = max(constants.values()) - min(constants.values())
@@ -448,7 +446,7 @@ def test_a_dense_leading_block_means_the_first_step_moves_nothing() -> None:
 def test_the_nemotron_floor_the_positional_slice_got_wrong() -> None:
     """Floor 21, not 9. The rig loads at 21 using 11801 MiB and refuses at 20."""
     geom = g("nvidia_Nemotron-3-Nano-30B-A3B-IQ4_NL.gguf")
-    c = vramfit.constant_from_probe(geom, 52, (2211 - 1) * MIB)
+    c = (2211 - 1) * MIB - vramfit.experts_on_card(geom, 52)
     assert vramfit.floor(geom, 11911 * MIB, c) == 21
     assert vramfit.predict(geom, 21, c) / MIB == pytest.approx(11801, abs=3.0)
     assert vramfit.predict(geom, 20, c) > 11911 * MIB
@@ -463,7 +461,7 @@ def test_the_constant_holds_across_non_contiguous_placements() -> None:
     geom = g("nvidia_Nemotron-3-Nano-30B-A3B-IQ4_NL.gguf")
     used = {52: 2211, 40: 6321, 21: 11801}
     constants = [
-        vramfit.constant_from_probe(geom, n, (u - 1) * MIB) / MIB
+        ((u - 1) * MIB - vramfit.experts_on_card(geom, n)) / MIB
         for n, u in used.items()
     ]
     assert max(constants) - min(constants) < 3.0, constants

@@ -43,9 +43,6 @@ class BundleStanding(StrEnum):
     UNMEASURED = "unmeasured"
     """No sweep has been run on this artifact."""
 
-    MEASURED_BENEFIT = "measured-benefit"
-    """A sweep ran and the bundle beat its absence."""
-
     MEASURED_NO_EFFECT = "measured-no-effect"
     """A sweep ran and no rung separated from no-bundle-at-all (`javascript.md`).
     The file still ships because measuring no benefit is not measuring harm —

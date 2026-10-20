@@ -146,7 +146,8 @@ def test_a_pair_that_fits_with_the_headroom_is_not_refused() -> None:
     fits — where a margin charged per unit would make it 15.0 and refuse a
     layout the host can hold.
     """
-    hold_together(pair(ram_gb=1.0, disk_gb=5.5, ports=(8080, 8081)), {"box1": rig()})
+    together = pair(ram_gb=1.0, disk_gb=5.5, ports=(8080, 8081))
+    assert hold_together(together, {"box1": rig()}) == ()
 
 
 def test_alternatives_are_not_summed_because_only_one_is_ever_up() -> None:
@@ -155,7 +156,10 @@ def test_alternatives_are_not_summed_because_only_one_is_ever_up() -> None:
     their memory prices a contention that cannot happen, which is exactly the
     rule ``hold_together`` already applies to the card.
     """
-    hold_together(pair(ram_gb=6.5, disk_gb=14.0, ports=(8080, 8080)), {"box1": rig()})
+    turns = pair(ram_gb=6.5, disk_gb=14.0, ports=(8080, 8080))
+    (warning,) = hold_together(turns, {"box1": rig()})
+    assert "careful" in warning and "quick" in warning, warning
+    assert "2 alternatives" in warning and "only one of them is ever up" in warning
 
 
 def test_a_unit_that_spills_nothing_asks_the_host_for_nothing() -> None:

@@ -102,10 +102,10 @@ class Observer:
         self.inside: dict[str, int] = {}
         self.peak: dict[str, int] = {}
         self.order: list[str] = []
-        # The same two figures across every source, kept independently of the
-        # per-source dict for the reason `Concurrency` exists: a maximum of sums
-        # is not the sum of maxima, so `max(peak.values())` and `sum(...)` both
-        # answer a different question than "were two sources ever busy at once".
+        # The same two figures across every source, kept apart from the
+        # per-source dict because a maximum of sums is not the sum of maxima, so
+        # `max(peak.values())` and `sum(...)` both answer a different question
+        # than "were two sources ever busy at once".
         self.inside_total = 0
         self.peak_total = 0
 
@@ -215,64 +215,8 @@ def test_the_capacitys_own_record_agrees_with_what_was_observed() -> None:
     assert usage.limit == 3
     assert usage.acquisitions == 6
     assert usage.peak == observer.peak["local"] == 3
-    assert usage.saturated
     # Something waited: six jobs through three slots cannot all start at once.
     assert usage.waited_seconds > 0
-
-
-def test_the_cross_source_peak_agrees_with_what_was_observed() -> None:
-    """The same cross-check the per-source peak gets, for the figure #200 added.
-
-    ``concurrency()`` is the product's own report, and a test that asserted on
-    it alone would be asking the code under test to grade its own homework: a
-    bug in the accounting would be invisible, because the behaviour and the
-    report come from the same object. ``Observer`` counts the same thing from
-    outside, so the two are independent measurements of one fact.
-    """
-    capacity = Capacity({"local": 3, "fast": 2})
-    observer = Observer()
-    targets = [LOCAL] * 3 + [FAST] * 2
-    barrier = threading.Barrier(len(targets))
-
-    outcomes = run_batch([rendezvous(observer, t, barrier) for t in targets], capacity)
-
-    assert all(o.ok for o in outcomes)
-    reported = capacity.concurrency()
-    assert reported.peak == observer.peak_total == 5
-    assert reported.total == 5
-    assert reported.saturated
-
-
-def test_the_cross_source_peak_is_not_the_sum_of_the_per_source_peaks() -> None:
-    """Why it is tracked rather than derived: a maximum of sums is not a sum of maxima.
-
-    One source at a time, run to completion before the next begins. Each source
-    reaches its own limit, so summing the per-source peaks would report 5 — a
-    fully saturated batch — when at no instant was more than one dispatch in
-    flight. This is the reading `Usage` structurally cannot correct, and the
-    series-draining bug the mixed-batch test is guarding against.
-    """
-    capacity = Capacity({"local": 3, "fast": 2})
-    observer = Observer()
-
-    run_batch([working(observer, LOCAL, seconds=0.01)], capacity)
-    run_batch([working(observer, FAST, seconds=0.01)], capacity)
-
-    assert sum(u.peak for u in capacity.usage()) == 2
-    assert capacity.concurrency().peak == 1
-    assert not capacity.concurrency().saturated
-
-
-def test_a_source_that_never_filled_up_is_reported_unsaturated() -> None:
-    """The other half of `saturated`: it must distinguish, not always say yes."""
-    capacity = Capacity({"local": 3})
-    observer = Observer()
-
-    run_batch([working(observer, LOCAL)], capacity)
-
-    (usage,) = capacity.usage()
-    assert usage.peak == 1
-    assert not usage.saturated
 
 
 # --- escalation neither leaks nor double-counts -----------------------------
@@ -311,8 +255,8 @@ def test_every_slot_is_free_once_the_batch_is_done() -> None:
 
     run_batch([working(observer, LOCAL, FAST) for _ in range(6)], capacity)
 
-    assert capacity.in_use("local") == 0
-    assert capacity.in_use("fast") == 0
+    assert capacity.in_flight("local") == 0
+    assert capacity.in_flight("fast") == 0
     # And the source still admits its full capacity afterwards.
     assert all(o.ok for o in run_batch([working(observer, LOCAL)] * 3, capacity))
 
@@ -333,7 +277,7 @@ def test_a_dispatch_that_raises_still_gives_its_slot_back() -> None:
 
     assert [o.ok for o in outcomes] == [False, True, False, True]
     assert isinstance(outcomes[0].error, TimeoutError)
-    assert capacity.in_use("spare") == 0
+    assert capacity.in_flight("spare") == 0
     assert capacity.usage()[0].acquisitions == 4
 
 
@@ -419,10 +363,10 @@ def test_holding_two_different_sources_at_once_is_fine() -> None:
     capacity = Capacity({"local": 3, "fast": 2})
 
     with capacity.hold(LOCAL), capacity.hold(FAST):
-        assert capacity.in_use("local") == 1
-        assert capacity.in_use("fast") == 1
+        assert capacity.in_flight("local") == 1
+        assert capacity.in_flight("fast") == 1
 
-    assert capacity.in_use("local") == capacity.in_use("fast") == 0
+    assert capacity.in_flight("local") == capacity.in_flight("fast") == 0
 
 
 def test_an_undeclared_source_is_refused_rather_than_run_unbounded() -> None:
@@ -535,7 +479,7 @@ def test_every_declared_source_is_covered_not_only_the_laddered_ones() -> None:
     capacity = Capacity.of(parse(CONFIG))
 
     with capacity.hold(SPARE):
-        assert capacity.in_use("spare") == 1
+        assert capacity.in_flight("spare") == 1
 
 
 ORCHESTRATOR = """\
@@ -857,18 +801,21 @@ def test_one_dispatch_counts_once_whether_it_is_reserved_granted_or_both() -> No
     """
     capacity = Capacity({"local": 3})
 
-    with capacity.reserving("local"):
+    capacity.reserve("local")
+    try:
         assert capacity.load("local") == 1, "chosen, not yet admitted"
         with capacity.hold(LOCAL):
-            assert capacity.in_use("local") == 1
+            assert capacity.in_flight("local") == 1
             assert capacity.load("local") == 1, "one dispatch, counted once"
         assert capacity.load("local") == 1, "and still chosen between attempts"
+    finally:
+        capacity.release("local")
 
     assert capacity.load("local") == 0
 
 
 def test_a_slot_taken_without_a_reservation_still_counts_against_the_width() -> None:
-    """The over-admission `max(in_use, reserved)` let through, in its own shape.
+    """The over-admission `max(in_flight, reserved)` let through, in its own shape.
 
     Most holds never reserve: `runner.dispatch` and `dispatch_role` take a slot
     directly, so a verifier occupies a rig that nothing chose a rung for. Put
@@ -900,7 +847,7 @@ def test_a_slot_taken_without_a_reservation_still_counts_against_the_width() -> 
         assert taken.wait(timeout=BARRIER_TIMEOUT_S), "the slot was never taken"
         capacity.reserve("fast")
 
-        assert capacity.in_use("fast") == 1, "the verifier's, which reserved nothing"
+        assert capacity.in_flight("fast") == 1, "the verifier's, which reserved nothing"
         assert capacity.load("fast") == 2, "and the climb's, which holds nothing yet"
         assert capacity.limits["fast"] - capacity.load("fast") == 0, "nothing free"
     finally:
@@ -909,16 +856,6 @@ def test_a_slot_taken_without_a_reservation_still_counts_against_the_width() -> 
         holder.join(timeout=BARRIER_TIMEOUT_S)
 
     assert capacity.load("fast") == 0
-
-
-def test_a_reservation_is_given_back_however_the_block_leaves() -> None:
-    """A leaked reservation is permanent: the machine looks busy for the run."""
-    capacity = Capacity({"local": 3})
-
-    with pytest.raises(ValueError), capacity.reserving("local"):
-        raise ValueError("the attempt raised")
-
-    assert capacity.load("local") == 0
 
 
 def test_releasing_what_was_never_reserved_is_floored_rather_than_negative() -> None:
@@ -953,7 +890,7 @@ def test_reading_the_load_of_a_source_this_capacity_does_not_bound_is_refused() 
 def test_reading_the_slots_in_use_of_an_unbounded_source_is_refused_by_name() -> None:
     """Every reader refuses an unknown source in one exception and one wording.
 
-    `in_use` reached its dict directly and raised a bare ``KeyError: 'nowhere'``,
+    `in_flight` reached its dict directly and raised a bare ``KeyError: 'nowhere'``,
     which is the one failure a caller holding a ladder view from another config
     cannot catch beside the rest: it is not a `CapacityError`, it names no
     config mismatch, and it lists no known sources. The reason those words exist
@@ -962,7 +899,7 @@ def test_reading_the_slots_in_use_of_an_unbounded_source_is_refused_by_name() ->
     capacity = Capacity({"local": 3})
 
     with pytest.raises(CapacityError) as caught:
-        capacity.in_use("nowhere")
+        capacity.in_flight("nowhere")
 
     assert "no declared capacity for unit 'nowhere'" in str(caught.value)
     assert "different configs" in str(caught.value)

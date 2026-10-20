@@ -6,10 +6,9 @@ sliding-window caches, the recurrent state, and an allowance for what the engine
 allocates beside them; `experts_on_card` prices the rest block by block.
 
 That split is what a placement search needs, because the expert cost follows a
-block index while the constant does not follow the placement.
-`constant_from_probe` reads the constant once off a live load, `floor` finds the
-fewest host blocks that make a card fit, and `predict` says what the resulting
-placement holds.
+block index while the constant does not follow the placement. `floor` finds
+the fewest host blocks that make a card fit beside the constant, and `predict`
+says what the resulting placement holds.
 
 The constant steps once an expert block sits on the host and is flat after
 that: llama.cpp's op offload copies a host-stored expert tensor into the device
@@ -27,7 +26,6 @@ rather than guessed.
 
 from __future__ import annotations
 
-from dataclasses import dataclass
 from typing import Any
 
 #: Bytes one cached element costs, by llama.cpp cache type. f32/f16/bf16 are
@@ -44,13 +42,12 @@ CACHE_ELEM_BYTES = {"f32": 4.0, "f16": 2.0, "bf16": 2.0, "q8_0": 34.0 / 32.0}
 #: load on a rig. An unmeasured model is gated on this number rather than on
 #: nothing, so its prediction still leaves the card room for what llama.cpp
 #: will allocate next to the tensors. It is a default, not a ceiling: no load
-#: here was measured against it. `Placement.allowance_mib` carries the result
-#: beside the predicted bytes, and `Placement.required_mib` sums the two, so a
-#: caller comparing a placement with free VRAM compares against the tensors,
-#: the caches they sit in, and this headroom together rather than the tensors
-#: alone. A caller that wants the figure for one architecture at one batch
-#: asks `allowance_mib`; this constant is only what it returns on a miss, and
-#: 768 MiB is that answer, not a measurement of any particular model.
+#: here was measured against it. The serving sizer adds it to the card
+#: constant, so a placement compared with free VRAM is compared against the
+#: tensors, the caches they sit in, and this headroom together rather than the
+#: tensors alone. A caller that wants the figure for one architecture at one
+#: batch asks `allowance_mib`; this constant is only what it returns on a miss,
+#: and 768 MiB is that answer, not a measurement of any particular model.
 SCRATCH_AND_CONTEXT_MIB = 768
 
 #: The scratch allowance measured on a rig, in MiB, filed under the ubatch it
@@ -272,25 +269,6 @@ def mtp_head_bytes(geometry: dict[str, Any]) -> int:
     return sum(int(by_block[str(b)]) for b in geometry.get("nextn_blocks") or ())
 
 
-def constant_from_probe(
-    geometry: dict[str, Any], n_cpu_moe: int, vram_used_bytes: int
-) -> int:
-    """The card constant `C`, from one probe load at `--n-cpu-moe n_cpu_moe`.
-
-    `C` is everything the card holds that does not follow the expert placement:
-    non-expert weights, the KV and sliding-window caches, recurrent state, and the
-    scratch allowance. The probe's `vram_used_bytes` minus the expert bytes that
-    placement left on the card is that remainder, reused at every other placement
-    on the same side of the step.
-
-    The probe has to be taken with an expert on the host. Op offload copies a
-    host-stored expert into the device compute buffer for a large batch, so the
-    buffer roughly doubles at the first offloaded block and is flat after; a probe
-    with every expert on the card measures the smaller buffer and under-states
-    every placement that offloads."""
-    return vram_used_bytes - experts_on_card(geometry, n_cpu_moe)
-
-
 def floor(geometry: dict[str, Any], free_bytes: int, constant: int) -> int | None:
     """The fewest host blocks that make the card fit, or `None` if none does.
 
@@ -313,19 +291,6 @@ def predict(geometry: dict[str, Any], n_cpu_moe: int, constant: int) -> int:
     return constant + experts_on_card(geometry, n_cpu_moe)
 
 
-@dataclass(frozen=True)
-class Placement:
-    """One placement in MiB: what it predicts and what it must leave free."""
-
-    predicted_mib: float
-    allowance_mib: float
-
-    @property
-    def required_mib(self) -> float:
-        """The two figures summed: the card bytes the placement needs in total."""
-        return self.predicted_mib + self.allowance_mib
-
-
 def allowance_mib(geometry: dict[str, Any], *, n_ubatch: int = 512) -> float:
     """The scratch allowance in MiB for `geometry`'s arch at `n_ubatch`.
 
@@ -337,34 +302,3 @@ def allowance_mib(geometry: dict[str, Any], *, n_ubatch: int = 512) -> float:
     if readings is None:
         return SCRATCH_AND_CONTEXT_MIB
     return readings.get(n_ubatch, SCRATCH_AND_CONTEXT_MIB)
-
-
-def explain(
-    geometry: dict[str, Any],
-    *,
-    n_cpu_moe: int,
-    slots: int,
-    ctx_per_slot: int,
-    n_ubatch: int = 512,
-    speculative: str = "none",
-) -> Placement:
-    """A `Placement` for one geometry at one placement, in MiB.
-
-    Sums the non-expert weights, `kv_bytes` at `ctx_per_slot * slots` cells over
-    `slots` sequences and `n_ubatch`, `rs_bytes` over `slots` sequences, the expert
-    blocks `n_cpu_moe` leaves on the card, and the MTP head blocks when
-    `speculative` is `"mtp"`; divides by 2**20 and pairs the result with
-    `allowance_mib` at the same ubatch."""
-    kv = kv_bytes(geometry, ctx_per_slot * slots, n_seq_max=slots, n_ubatch=n_ubatch)
-    rs = rs_bytes(geometry, n_seq_max=slots)
-    predicted = (
-        int(geometry["bytes_nonexpert"])
-        + kv["total"]
-        + rs["total"]
-        + experts_on_card(geometry, n_cpu_moe)
-        + (mtp_head_bytes(geometry) if speculative == "mtp" else 0)
-    )
-    return Placement(
-        predicted_mib=predicted / (1 << 20),
-        allowance_mib=allowance_mib(geometry, n_ubatch=n_ubatch),
-    )

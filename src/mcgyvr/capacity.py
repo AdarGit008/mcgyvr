@@ -75,10 +75,6 @@ class Fullness:
         return self.server is not None and self.server >= self.width
 
     @property
-    def server_read(self) -> bool:
-        return self.server is not None
-
-    @property
     def why(self) -> str:
         """What is occupying the bound, in the words a refusal message wants."""
         server = (
@@ -210,27 +206,6 @@ class Usage:
     peak: int
     waited_seconds: float
     rung: str | None = None
-
-    @property
-    def saturated(self) -> bool:
-        """Whether the bound was ever actually filled, not merely approached."""
-        return self.peak >= self.limit
-
-
-@dataclass(frozen=True)
-class Concurrency:
-    """The whole capacity in two figures: the overlap reached, and its ceiling."""
-
-    peak: int
-    """The most dispatches in flight at once, summed across every source."""
-
-    total: int
-    """The most that could ever be, if every source were saturated together."""
-
-    @property
-    def saturated(self) -> bool:
-        """Whether every source was saturated in the same instant."""
-        return self.peak >= self.total
 
 
 class Capacity:
@@ -407,11 +382,6 @@ class Capacity:
         # bound has reached.
         self._covered = dict.fromkeys(self._bounds, 0)
         self._peak = dict.fromkeys(self._bounds, 0)
-        # Dispatches holding a slot anywhere in this capacity, and the most there
-        # have ever been at once: the pair `concurrency` answers with. A total
-        # taken at one instant is not the sum of the per-bound peaks.
-        self._in_flight = 0
-        self._in_flight_peak = 0
         self._acquisitions = dict.fromkeys(self._bounds, 0)
         self._waited = dict.fromkeys(self._bounds, 0.0)
         # Per-thread state: the slot stems this thread is holding, so a nested
@@ -607,10 +577,6 @@ class Capacity:
             for source in self._limits
         )
 
-    def in_use(self, source: str) -> int:
-        """Dispatches holding a slot on this unit's own bound, with no rung named."""
-        return self.in_flight(source)
-
     def in_flight(self, source: str, rung: str | None = None) -> int:
         """Dispatches this process is holding a slot for on this bound.
 
@@ -732,15 +698,6 @@ class Capacity:
                 self._reserved[bound] = current - 1
 
     @contextmanager
-    def reserving(self, source: str, rung: str | None = None) -> Iterator[None]:
-        """Hold one claimed slot for the block, releasing it however the block ends."""
-        self.reserve(source, rung)
-        try:
-            yield
-        finally:
-            self.release(source, rung)
-
-    @contextmanager
     def deciding(self) -> Iterator[None]:
         """Hold the counters still while a caller reads a bound and acts on it.
 
@@ -768,11 +725,6 @@ class Capacity:
                 )
                 for bound, limit in self._bounds.items()
             )
-
-    def concurrency(self) -> Concurrency:
-        """The peak overlap reached anywhere, against the ceiling it could reach."""
-        with self._lock:
-            return Concurrency(peak=self._in_flight_peak, total=self.total)
 
     @contextmanager
     def hold(
@@ -877,8 +829,6 @@ class Capacity:
             self._waited[bound] += waited
             self._in_use[bound] += 1
             self._peak[bound] = max(self._peak[bound], self._in_use[bound])
-            self._in_flight += 1
-            self._in_flight_peak = max(self._in_flight_peak, self._in_flight)
             # Mark the claim this dispatch takes up, where there is one: the
             # nearest node at this bound - this thread's, or one inherited from
             # the thread that submitted its batch - that still holds a claim not
@@ -899,7 +849,6 @@ class Capacity:
         finally:
             with self._lock:
                 self._in_use[bound] -= 1
-                self._in_flight -= 1
                 if covering is not None:
                     covering.covering[bound] -= 1
                     self._covered[bound] -= 1
