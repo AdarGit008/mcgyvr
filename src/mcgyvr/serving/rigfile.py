@@ -25,7 +25,6 @@ from __future__ import annotations
 
 import ipaddress
 import json
-import os
 import re
 from collections.abc import Iterable, Mapping
 from dataclasses import dataclass
@@ -34,6 +33,7 @@ from functools import cached_property
 from pathlib import Path
 from typing import Any
 
+from mcgyvr import atomic
 from mcgyvr.fleet.roots import FolderError, rigs_dir
 from mcgyvr.scan import BRIDGE_PREFIXES, ModelOnDisk, Network, Scan
 
@@ -398,15 +398,13 @@ def path(rig: str) -> Path:
 def write(rig: Rig) -> Path:
     """Write ``rig``'s file over whatever was there, and return its path.
 
-    The rigs folder is made when it is missing, and the text goes to a part file
-    named for this process before being renamed onto the target, so a reader
-    never sees a half-written rig file.
+    The rigs folder is made when it is missing, and the file is replaced whole
+    (:func:`mcgyvr.atomic.write`), so a reader never sees a half-written rig
+    file.
     """
     target = path(rig.rig)
     target.parent.mkdir(parents=True, exist_ok=True)
-    partial = target.with_name(f".{target.name}.{os.getpid()}.part")
-    partial.write_text(rig.to_json(), encoding="utf-8")
-    partial.replace(target)
+    atomic.write(target, rig.to_json())
     return target
 
 
