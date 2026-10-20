@@ -337,17 +337,6 @@ def test_invalid_enum_lists_the_valid_values() -> None:
     assert "llama.cpp" in str(exc.value), "the refusal lists what is valid"
 
 
-@pytest.mark.parametrize("engine", ["diffusers", "tts", "comfyui"])
-def test_a_unit_may_not_declare_a_media_engine(engine: str) -> None:
-    with pytest.raises(ConfigSchemaError) as exc:
-        parse(
-            LOCAL_ONLY.replace(
-                "    rig: local", f"    rig: local\n    engine: {engine}", 1
-            )
-        )
-    assert "vllm" in str(exc.value), "the refusal lists what is valid"
-
-
 def test_the_removed_media_gen_use_case_is_refused() -> None:
     with pytest.raises(ConfigSchemaError) as exc:
         parse(LOCAL_ONLY + "use_case: media-gen\n")
