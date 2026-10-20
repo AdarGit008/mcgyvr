@@ -27,7 +27,9 @@ from enum import StrEnum
 from tree_sitter import Node, Parser
 
 from mcgyvr.lines import parser_lines
-from mcgyvr.orchestrator.symbols import _grammar_for, _node_text, _walk, language_of
+from mcgyvr.orchestrator.languages.engine import node_text, walk
+from mcgyvr.orchestrator.languages.javascript import grammar_for
+from mcgyvr.orchestrator.symbols import language_of
 
 # One verdict per occurrence, the shapes they come back in, and the refusal.
 
@@ -103,7 +105,7 @@ def definitions(path: str, source: bytes, name: str) -> tuple[Definition, ...] |
         tree = _parse_python(source)
         return None if tree is None else _python_definitions(path, tree, name)
     if language == "js/ts":
-        root = Parser(_grammar_for(path)).parse(source).root_node
+        root = Parser(grammar_for(path)).parse(source).root_node
         return _js_definitions(path, root, name)
     return None
 
@@ -120,12 +122,19 @@ def resolve(
     `defining` is the file that holds the symbol's module-level definition and seeds the
     set of files whose binding of the name is the symbol; `held` is every path the tree
     holds, which is what imports are resolved against. Raises `UnsafeRenameError` when
-    an occurrence could mean either symbol, or when the new name would collide with or
-    be captured by another.
+    an occurrence could mean either symbol, when the new name would collide with or be
+    captured by another, or when `defining` is in a language other than Python or JS/TS.
     """
-    if language_of(defining) == "python":
+    language = language_of(defining)
+    if language == "python":
         return _PythonResolver(sources, held, defining, old, new).run()
-    return _JsResolver(sources, held, defining, old, new).run()
+    if language == "js/ts":
+        return _JsResolver(sources, held, defining, old, new).run()
+    raise UnsafeRenameError(
+        f"{defining} is {language or 'unparsed'} source, and references are resolved "
+        f"in Python and JS/TS only: no occurrence of {old!r} there can be told from "
+        f"a same-named other symbol"
+    )
 
 
 # Bytes that may continue an identifier: letters, digits, underscore, and non-ASCII.
@@ -1014,7 +1023,7 @@ def _declarations(root: Node) -> Iterator[tuple[Node, Node]]:
     looks for the one or the other; a parameter belongs to its function, and an import
     to the program.
     """
-    for node in _walk(root):
+    for node in walk(root):
         kind = node.type
         if kind == "variable_declarator":
             declaration = node.parent
@@ -1073,7 +1082,7 @@ def _js_definitions(path: str, root: Node, name: str) -> tuple[Definition, ...]:
     function, is not.
     """
     found: list[Definition] = []
-    for node in _walk(root):
+    for node in walk(root):
         if node.type in (
             "function_declaration",
             "generator_function_declaration",
@@ -1107,7 +1116,7 @@ def _js_definitions(path: str, root: Node, name: str) -> tuple[Definition, ...]:
 
 
 def _text(node: Node | None) -> str | None:
-    return None if node is None else _node_text(node)
+    return None if node is None else node_text(node)
 
 
 def _key(node: Node) -> tuple[int, int, str]:
@@ -1120,7 +1129,7 @@ def _specifier(statement: Node) -> str:
         return ""
     for child in source.named_children:
         if child.type == "string_fragment":
-            return _node_text(child) or ""
+            return node_text(child) or ""
     return ""
 
 
@@ -1160,14 +1169,14 @@ class _JsFile:
 
 
 def _js_file(path: str, source: bytes, old: str, new: str) -> _JsFile:
-    root = Parser(_grammar_for(path)).parse(source).root_node
+    root = Parser(grammar_for(path)).parse(source).root_node
     starts = [0]
     for line in _byte_lines(source):
         starts.append(starts[-1] + len(line))
     found = _JsFile(path, root, starts, [], {}, {}, {}, [], [])
     watched = (old, new)
     for name, scope in _declarations(root):
-        text = _node_text(name)
+        text = node_text(name)
         if text not in watched or text is None:
             continue
         found.scope_of[_key(name)] = scope
@@ -1176,7 +1185,7 @@ def _js_file(path: str, source: bytes, old: str, new: str) -> _JsFile:
         else:
             found.inner.setdefault(text, []).append(scope)
     spelled = old.encode("utf-8")
-    for node in _walk(root):
+    for node in walk(root):
         if node.type in _LEAF_TYPES:
             if node.text == spelled:
                 found.leaves.append(node)
@@ -1425,7 +1434,7 @@ class _JsResolver:
         for node in found.namespaces:
             if self._from_ours(found, _ancestor(node, "import_statement")):
                 names.update(
-                    _node_text(child) or ""
+                    node_text(child) or ""
                     for child in node.named_children
                     if child.type == "identifier"
                 )

@@ -15,6 +15,8 @@ from __future__ import annotations
 import subprocess
 from pathlib import Path
 
+import pytest
+
 from mcgyvr.orchestrator.index import Index, build_index
 from mcgyvr.orchestrator.resolve import Verdict, _fold, _tokenize, resolve
 
@@ -56,6 +58,34 @@ def test_a_phrasing_resolves_to_the_symbol_it_names(tmp_path: Path) -> None:
     assert result.best.path == "src/net.py"
     # The evidence says *why* — it named the definition, not merely brushed it.
     assert any("fetch_helper" in reason for reason in result.best.evidence)
+
+
+@pytest.mark.parametrize(
+    ("defining", "source", "other"),
+    [
+        (
+            "internal/a.go",
+            "package internal\n\nfunc RenderReport() {}\n",
+            "internal/b.go",
+        ),
+        ("src/a.rs", "pub fn render_report() {}\n", "src/b.rs"),
+        (
+            "src/A.java",
+            "class A {\n  void renderReport() {}\n}\n",
+            "src/B.java",
+        ),
+    ],
+)
+def test_a_go_rust_or_java_definition_resolves_by_its_symbol(
+    tmp_path: Path, defining: str, source: str, other: str
+) -> None:
+    """The phrase names neither file's path, so only the extracted symbol can
+    pick the file that defines it."""
+    index = build(tmp_path, {defining: source, other: source.replace("ender", "ead")})
+    result = resolve(index, "the render report helper")
+    assert result.verdict is Verdict.RESOLVED
+    assert result.best is not None
+    assert result.best.path == defining
 
 
 def test_an_exact_symbol_name_resolves(tmp_path: Path) -> None:

@@ -132,7 +132,7 @@
       "task_type": "code",
       "use_case": "coding",
       "starts_on": "deterministic",
-      "guarantee": "Every reference the index resolved is renamed, across every file that holds one. References the index could not resolve are reported, not silently left behind.",
+      "guarantee": "Every reference the index resolved is renamed, across every file that holds one. References the index could not resolve are reported, not silently left behind. References are resolved in Python and JS/TS only: a symbol defined only in another language the index reads (Go, Rust, Java) is refused, and nothing is written.",
       "required_evidence": ["gate", "references_resolved", "no_semantic_change"],
       "warrant": "structural — the index (#47) already resolved the references, so this fans across files without a model. It is the only multi-file operation in the catalog, and it is deterministic for exactly that reason.",
       "doc": "Rename a symbol across the files that reference it."

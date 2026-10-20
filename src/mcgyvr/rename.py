@@ -35,6 +35,9 @@ _IDENTIFIER = re.compile(r"^[A-Za-z_][A-Za-z0-9_]*$")
 
 #: A star import (Python) or star export (JS/TS) can bring the old name into a file
 #: without ever spelling it, so a file holding one is still judged as a reference site.
+#: Its keys are also the languages a rename is resolved in: the index extracts symbols
+#: from more languages than `mcgyvr.orchestrator.references` can bind, and a symbol
+#: defined in any other is refused rather than rewritten by spelling.
 _STAR = {
     "python": re.compile(r"\bimport\s+\*"),
     "js/ts": re.compile(r"\bexport\s*\*"),
@@ -131,7 +134,9 @@ def apply(workspace: Path, old: str, new: str, *, target: str = "") -> RenameRep
     # `_splice` will later cut into.
     language = language_of(defining) or ""
     word = re.compile(rf"(?<!\w){re.escape(old)}(?!\w)")
-    star = _STAR[language]
+    star = _STAR.get(language)
+    if star is None:  # defensive: _defining_module already refused this
+        raise _unsupported_language(old, [defining])
     sources: dict[str, bytes] = {}
     for path, file in held.items():
         if language_of(path) != language:
@@ -208,6 +213,18 @@ def apply(workspace: Path, old: str, new: str, *, target: str = "") -> RenameRep
     )
 
 
+def _unsupported_language(old: str, paths: list[str]) -> RenameError:
+    """The refusal for a symbol defined only in languages no rename is resolved in."""
+    languages = ", ".join(sorted({language_of(path) or "unparsed" for path in paths}))
+    where = ", ".join(sorted(set(paths)))
+    return RenameError(
+        f"{old!r} is defined only in {languages} source ({where}). A rename is "
+        f"resolved in Python and JS/TS only: in any other language the index finds "
+        f"the definition but nothing binds its references, so they cannot be told "
+        f"from a same-named other symbol; nothing was renamed."
+    )
+
+
 def _defining_module(
     index: Index, held: dict[str, IndexedFile], old: str, target: str
 ) -> str:
@@ -215,8 +232,9 @@ def _defining_module(
 
     The index's definitions of `old` are confirmed against the parser, because only a
     module-level definition fixes which same-named occurrences are this symbol. A name
-    with no definition, a definition the parser cannot find on the line the index named,
-    and a name defined only as a method or nested function are refused. When several
+    with no definition, one defined only in a language other than Python or JS/TS, a
+    definition the parser cannot find on the line the index named, and a name defined
+    only as a method or nested function are refused. When several
     module-level files define it, each is a different symbol: `target` is treated as a
     scope pattern and must permit exactly one of them, otherwise the rename is refused
     rather than guessed.
@@ -230,6 +248,11 @@ def _defining_module(
             f"all is spelled wrong in the contract far more often than it is "
             f"defined outside the tree."
         )
+
+    resolvable = tuple(s for s in named if language_of(s.path) in _STAR)
+    if not resolvable:
+        raise _unsupported_language(old, [symbol.path for symbol in named])
+    named = resolvable
 
     parsed: dict[str, tuple[Definition, ...] | None] = {}
     confirmed: list[Definition] = []

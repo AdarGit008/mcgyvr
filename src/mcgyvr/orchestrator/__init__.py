@@ -4,7 +4,8 @@ Each submodule owns one step and stays importable directly; this module gathers
 their public names so a caller can ``from mcgyvr.orchestrator import resolve``
 without knowing which step a name lives on.
 
-``symbols`` extracts ``Symbol``/``SymbolKind`` from source with tree-sitter, and
+``symbols`` extracts ``Symbol``/``SymbolKind`` from source (Python with ``ast``;
+JS/TS, Go, Rust and Java with tree-sitter, one module each under ``languages``), and
 ``index`` builds an ``Index`` over a repository from it (``build_index``, with
 ``IndexBuildError`` for a build that cannot start and ``IndexedFile``,
 ``SymbolTable``, ``Match`` and ``BuildStats`` describing the result). ``resolve``
