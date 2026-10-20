@@ -135,6 +135,10 @@ the repository AdarGit008/mcgyvr-lab, under the same paths.
   unit's credential, so every hosted rung got an unauthenticated request to
   its provider, waiting up to the status timeout; only a keyless unit is
   polled now, as a dispatch's own reads already were.
+- `mcgyvr local_pool` prints the attempt ceiling a task actually runs under:
+  each rung's `attempts` capped at a contract's default `limits.attempts`
+  (2), as the climb caps it. It printed the uncapped sum, so a rung with
+  `attempts: 3` was counted as 3 while a contract stating no limit spends 2.
 
 ### Security
 

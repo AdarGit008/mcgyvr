@@ -253,6 +253,9 @@ RENAME_FIELDS: tuple[Field, ...] = (
     ),
 )
 
+#: The attempts a contract allows each rung when its `limits.attempts` is unset.
+DEFAULT_ATTEMPTS = 2
+
 LIMITS_FIELDS: tuple[Field, ...] = (
     Field(
         "max_output_tokens",
@@ -292,7 +295,7 @@ LIMITS_FIELDS: tuple[Field, ...] = (
         "int",
         "How many times the work may be retried before escalating. Retrying "
         "forever is how a cheap task becomes an expensive one.",
-        default=2,
+        default=DEFAULT_ATTEMPTS,
         min_value=1,
     ),
 )

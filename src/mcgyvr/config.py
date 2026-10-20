@@ -259,9 +259,11 @@ BUDGET_FIELDS: tuple[Field, ...] = (
         "Hard ceiling on how many attempts one task may spend in total, "
         "across every rung and every family it climbs. Unset means the "
         "ladder's own budget bounds it — the sum of each reachable rung's "
-        "`attempts`, which `mcgyvr local_pool` prints — so leaving it unset is not "
-        "unbounded. Set it when you have raised a rung's `attempts` or "
-        "`max_escalations` and want one number that still holds. A decline "
+        "`attempts`, each capped at the contract's `limits.attempts`, which "
+        "`mcgyvr local_pool` prints for a contract that states no limit — so "
+        "leaving it unset is not unbounded. Set it when you have raised a "
+        "rung's `attempts` or `max_escalations` and want one number that still "
+        "holds. A decline "
         "costs nothing against it: a rung that stepped aside spent no attempt.",
         min_value=1,
         bind_hint=(

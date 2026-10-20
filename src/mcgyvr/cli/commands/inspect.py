@@ -91,10 +91,11 @@ def _config(args: argparse.Namespace) -> int:
 
 
 def _local_pool(args: argparse.Namespace) -> int:
+    from mcgyvr.contract import DEFAULT_ATTEMPTS
     from mcgyvr.decision import JEV_ROLE
     from mcgyvr.escalate import Ceiling
     from mcgyvr.local_pool import SourceUnavailableError, source_map
-    from mcgyvr.route import draws_for, family_of
+    from mcgyvr.route import capped_attempts, draws_for, family_of
 
     try:
         config = load_config(Path(args.path) if args.path else None)
@@ -123,17 +124,20 @@ def _local_pool(args: argparse.Namespace) -> int:
     # Everything left out is stated below: the ceiling, the skipped rungs, the
     # relief rungs, and the model each role is bound to.
     print(f"{config.path}: {len(pool)} usable rung(s), in ladder order:\n")
+    # What a task can spend is each rung's budget as a climb enforces it: capped
+    # by the contract's `limits.attempts`, here at a contract's default, so the
+    # ceiling printed is the one a contract that states no limit runs under.
     ladder_budget = 0
     for rung in pool.rungs:
         budget = int((config.get("attempts") or {}).get(rung.name, 1))
-        ladder_budget += budget
+        family = family_of(config, rung.name)
+        ladder_budget += capped_attempts(family, budget, DEFAULT_ATTEMPTS)
         tries = "1 attempt" if budget == 1 else f"{budget} attempts"
         # The attempt budget is the rung's own `attempts` entry; the draw count
         # is a separate thing — how many candidates one attempt may ask for.
         draws = draws_for(config, rung.name)
         if draws > 1:
             tries += f", {draws} draws"
-        family = family_of(config, rung.name)
         print(f"  {rung.name:<20} {family.name:<14} {tries:<11} {rung.model}")
     if not pool.rungs:
         print("  (none — every rung's source is unusable)")
@@ -147,7 +151,8 @@ def _local_pool(args: argparse.Namespace) -> int:
         source = (
             "max_attempts"
             if ceiling.attempts is not None
-            else "the ladder's own budget"
+            else "the ladder's own budget, each rung capped at a contract's "
+            f"default limits.attempts of {DEFAULT_ATTEMPTS}"
         )
         print(
             f"\n  Ceiling: at most {ceiling.escalations} escalation(s) — "

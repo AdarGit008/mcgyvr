@@ -1,4 +1,4 @@
-"""Independent verification of the nine B1-B9 fixes, and what survived them.
+"""Independent verification of the nine B1-B9 fixes.
 
 Written by a verifier rather than by a fixer, so nothing here reuses a fixer's
 reproduction, and every guard fails when its production change is reverted.
@@ -7,17 +7,13 @@ The tests are properties the fixes established, stated on a vector the fixer's
 own test did not take — delivery concurrency across OS processes rather than
 threads, ``parser_lines`` agreeing with CPython's own line accounting rather
 than with a list of eight characters, a cleanup preserving CRLF.
-
-An **xfail(strict=True)** test is a defect that survived. It is written as the
-assertion that *should* hold, marked expected-to-fail with the reason, so that
-the suite stays green while the defect stands and turns red the moment it is
-fixed without this file being updated.
 """
 
 from __future__ import annotations
 
 import ast
 import os
+import re
 import subprocess
 import sys
 from pathlib import Path
@@ -25,6 +21,7 @@ from pathlib import Path
 import pytest
 
 from mcgyvr.catalog import catalog
+from mcgyvr.cli import main
 from mcgyvr.config import parse
 from mcgyvr.consensus import ConsensusError, best_of
 from mcgyvr.contract import Contract
@@ -440,18 +437,13 @@ def test_pattern_a_consensus_reports_content_it_cannot_write_as_its_own_error(
         )
 
 
-@pytest.mark.xfail(
-    strict=True,
-    reason=(
-        "2026-08-29: "
-        "The `Ceiling` mcgyvr local_pool prints sums the configured attempts of every "
-        "rung; the one escalate enforces is attempts_for(), which also clamps "
-        "by contract.limits.attempts. The two do not agree."
-    ),
-)
-def test_the_printed_ceiling_is_the_one_that_is_enforced() -> None:
-    config = parse(
-        """\
+def test_the_printed_ceiling_is_the_one_that_is_enforced(
+    tmp_path: Path, capsys: pytest.CaptureFixture[str]
+) -> None:
+    """``mcgyvr local_pool`` prints the attempts a task may spend under a
+    contract that states no limit, which is what the climb enforces: each
+    rung's configured attempts capped by the default ``limits.attempts``."""
+    text = """\
 units:
   local_a:
     address: http://localhost:11434
@@ -470,16 +462,20 @@ attempts:
   local_a: 3
   local_b: 2
 """
-    )
-    pool = source_map(config)
-    printed = sum(
-        int((config.get("attempts") or {}).get(rung.name, 1)) for rung in pool.rungs
-    )
-    enforced = ascent(config, pool, work_contract("src/pkg/fetch.py")).ladder_budget
+    path = tmp_path / "mcgyvr.yaml"
+    path.write_text(text, encoding="utf-8")
+    assert main(["local_pool", str(path)]) == 0
+    out = capsys.readouterr().out
+    found = re.search(r"at most (\d+) attempt\(s\) per task", out)
+    assert found, out
+    printed = int(found.group(1))
 
-    assert printed == enforced, (
+    config = parse(text)
+    enforced = ascent(config, source_map(config), work_contract("src/pkg/fetch.py"))
+
+    assert printed == enforced.budget, (
         f"`mcgyvr local_pool` prints {printed} attempt(s) per task and the climb "
-        f"enforces {enforced}"
+        f"enforces {enforced.budget}"
     )
 
 
