@@ -252,6 +252,7 @@ class _Corpus:
         # symbol found there for that key.
         self.symbol_exact: dict[str, dict[str, Symbol]] = defaultdict(dict)
         self.symbol_token: dict[str, dict[str, Symbol]] = defaultdict(dict)
+        self.symbol_defined: dict[str, set[str]] = defaultdict(set)
 
         # Filename stems, whole and by token, each mapping to the paths with it.
         self.stem_exact: dict[str, set[str]] = defaultdict(set)
@@ -282,7 +283,13 @@ class _Corpus:
     def _index_symbol(self, symbol: Symbol) -> None:
         # A whole-name match must name the symbol exactly, so one slot per
         # squashed name holds the most public symbol found at each path.
-        _keep_best(self.symbol_exact[_squash(symbol.name)], symbol)
+        squashed = _squash(symbol.name)
+        _keep_best(self.symbol_exact[squashed], symbol)
+        # The file that defines a name is its answer; a file that merely
+        # re-exports it is tracked apart so the whole-query pass can prefer the
+        # definition over an aggregating barrel.
+        if symbol.kind is SymbolKind.DEFINITION:
+            self.symbol_defined[squashed].add(symbol.path)
         # Tokens are indexed separately for a partial match, and the slot keeps
         # the symbol for which the token accounts for the largest share of the
         # name -- the one the token actually characterises. That share is
@@ -327,14 +334,21 @@ def _score_whole_query(
     squashed = _squash(query)
     if not squashed:
         return
+    defined_paths = corpus.symbol_defined.get(squashed, ())
     for symbol in corpus.symbol_exact.get(squashed, {}).values():
+        is_definition = symbol.path in defined_paths
+        # A symbol named outright is answered by the file that defines it; a
+        # file that only re-exports the name earns no whole-query weight unless
+        # no definition exists anywhere in the corpus.
+        whole = _W_SYMBOL_EXACT if (is_definition or not defined_paths) else 0.0
         detail = f" ({symbol.detail})" if symbol.detail else ""
+        verb = "defines" if is_definition else "exports"
         _award(
             scores,
             evidence,
             symbol.path,
-            _W_SYMBOL_EXACT + _kind_bonus(symbol),
-            f"defines {symbol.name}{detail}",
+            whole + _kind_bonus(symbol),
+            f"{verb} {symbol.name}{detail}",
         )
     for path in corpus.stem_exact.get(squashed, ()):
         _award(

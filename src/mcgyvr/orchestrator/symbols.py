@@ -315,6 +315,11 @@ def _js_symbols(path: str, source: bytes) -> list[Symbol]:
             symbols.extend(_js_exports(path, node))
         elif node.type == "import_statement":
             symbols.extend(_js_imports(path, node))
+        elif node.type == "assignment_expression":
+            symbols.extend(_js_commonjs_exports(path, node))
+            prototype = _js_prototype_method(path, node)
+            if prototype is not None:
+                symbols.append(prototype)
         elif node.type == "call_expression":
             symbol = _js_reference(path, node)
             if symbol is not None:
@@ -468,6 +473,99 @@ def _js_exports(path: str, node: Node) -> list[Symbol]:
             name = _field_text(descendant, "name")
             if name is not None:
                 exports.append(Symbol(name, SymbolKind.EXPORT, path, _line(descendant)))
+    return exports
+
+
+def _js_prototype_method(path: str, node: Node) -> Symbol | None:
+    """Record a DEFINITION for a ``Klass.prototype.method = function () {}``
+    assignment, the CommonJS-era spelling of a class method."""
+    left = node.child_by_field_name("left")
+    if left is None or left.type != "member_expression":
+        return None
+    obj = left.child_by_field_name("object")
+    prop = left.child_by_field_name("property")
+    if obj is None or prop is None or obj.type != "member_expression":
+        return None
+    proto = obj.child_by_field_name("property")
+    if proto is None or _node_text(proto) != "prototype":
+        return None
+    name = _node_text(prop) if prop.type == "property_identifier" else None
+    if name is None:
+        return None
+    right = node.child_by_field_name("right")
+    if right is None or right.type not in ("function_expression", "arrow_function"):
+        return None
+    return Symbol(
+        name,
+        SymbolKind.DEFINITION,
+        path,
+        _line(node),
+        "method",
+        _js_signature(right, right),
+    )
+
+
+def _js_commonjs_exports(path: str, node: Node) -> list[Symbol]:
+    """Collect the EXPORT symbols of a CommonJS public-surface assignment.
+
+    ``exports.name = ...`` and ``module.exports.name = ...`` each export one
+    name; ``module.exports = { a, b }`` exports every literal key of the object.
+    Any other assignment exports nothing.
+    """
+    left = node.child_by_field_name("left")
+    if left is None or left.type != "member_expression":
+        return []
+    obj = left.child_by_field_name("object")
+    prop = left.child_by_field_name("property")
+    if obj is None or prop is None:
+        return []
+    obj_text = _node_text(obj)
+    prop_text = _node_text(prop)
+
+    # exports.<name> = ...
+    if (
+        obj.type == "identifier"
+        and obj_text == "exports"
+        and prop.type == "property_identifier"
+        and prop_text is not None
+    ):
+        return [Symbol(prop_text, SymbolKind.EXPORT, path, _line(node))]
+
+    # module.exports.<name> = ...
+    if (
+        obj.type == "member_expression"
+        and prop.type == "property_identifier"
+        and prop_text is not None
+    ):
+        inner_obj = obj.child_by_field_name("object")
+        inner_prop = obj.child_by_field_name("property")
+        if (
+            inner_obj is not None
+            and inner_prop is not None
+            and _node_text(inner_obj) == "module"
+            and _node_text(inner_prop) == "exports"
+        ):
+            return [Symbol(prop_text, SymbolKind.EXPORT, path, _line(node))]
+
+    # module.exports = { a, b, ... }
+    if obj.type == "identifier" and obj_text == "module" and prop_text == "exports":
+        right = node.child_by_field_name("right")
+        if right is not None and right.type == "object":
+            return _commonjs_object_exports(path, right)
+    return []
+
+
+def _commonjs_object_exports(path: str, obj: Node) -> list[Symbol]:
+    """Build an EXPORT symbol for every literal key of a ``module.exports`` object."""
+    exports: list[Symbol] = []
+    for child in obj.children:
+        if child.type != "pair":
+            continue
+        key = child.child_by_field_name("key")
+        if key is not None and key.type in ("property_identifier", "identifier"):
+            name = _node_text(key)
+            if name is not None:
+                exports.append(Symbol(name, SymbolKind.EXPORT, path, _line(child)))
     return exports
 
 
