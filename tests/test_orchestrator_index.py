@@ -220,6 +220,24 @@ def test_python_legacy_syntax_is_not_discarded_under_warnings_as_errors() -> Non
     assert "ok" in {s.name for s in symbols}
 
 
+def test_python_class_attributes_are_fields() -> None:
+    source = (
+        "class C:\n"
+        "    limit = 10\n"
+        "    ceiling: int = 20\n"
+        "    def run(self):\n"
+        "        pass\n"
+    )
+    got = _kinds("m.py", source)
+    assert ("limit", "field", "field") in got
+    assert ("ceiling", "field", "field") in got
+
+
+def test_python_module_level_assignment_is_not_a_field() -> None:
+    got = _kinds("m.py", "top = 1\n")
+    assert not any(name == "top" and kind == "field" for name, kind, _ in got)
+
+
 # --- JS/TS symbols ---------------------------------------------------------
 
 
@@ -262,6 +280,33 @@ def test_js_call_expressions_are_references() -> None:
 def test_typescript_grammar_parses_type_annotations() -> None:
     got = _kinds("m.ts", "function typed(x: number): string {\n  return ''\n}\n")
     assert ("typed", "definition", "function") in got
+
+
+def test_js_class_fields_are_fields() -> None:
+    got = _kinds("m.js", "class C {\n  flag = false\n}\n")
+    assert ("flag", "field", "field") in got
+
+
+def test_typescript_class_field_is_a_field() -> None:
+    got = _kinds("m.ts", "class C {\n  flag: boolean = false\n}\n")
+    assert ("flag", "field", "field") in got
+
+
+def test_js_object_literal_keys_are_properties() -> None:
+    source = "const o = { timeout: 1000, [computed]: 2 }\n"
+    got = _kinds("m.js", source)
+    assert ("timeout", "property", "property") in got
+    assert not any(
+        name == "computed" and kind == "property" for name, kind, _ in got
+    )
+
+
+def test_typescript_interface_type_and_enum_are_definitions() -> None:
+    source = "interface Shape {}\ntype Alias = string\nenum Color { Red }\n"
+    got = _kinds("m.ts", source)
+    assert ("Shape", "definition", "interface") in got
+    assert ("Alias", "definition", "type") in got
+    assert ("Color", "definition", "enum") in got
 
 
 def test_symbol_table_lookups_after_build(tmp_path: Path) -> None:

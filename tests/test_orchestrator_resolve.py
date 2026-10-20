@@ -187,6 +187,58 @@ def test_a_compound_name_that_does_not_exist_does_not_resolve(tmp_path: Path) ->
     assert result.best is None
 
 
+def test_a_single_generic_directory_word_is_not_a_signal(tmp_path: Path) -> None:
+    # The subject (OSC/hyperlink) is absent; only the generic word "support"
+    # matches, and it matches many files through a "supports-color" directory.
+    # One incidental common word must not stand in for the subject.
+    index = build(
+        tmp_path,
+        {
+            f"mod{n}/supports-color/index.js": f"function marker{n}() {{}}\n"
+            for n in range(4)
+        },
+    )
+    result = resolve(index, "where is the OSC hyperlink support implemented")
+    assert result.verdict is Verdict.EMPTY
+    assert result.candidates == ()
+    assert result.best is None
+
+
+def test_a_single_generic_class_word_is_not_a_signal(tmp_path: Path) -> None:
+    # The subject (schema) is absent; only the generic word "document" matches,
+    # and it matches a Document class and a docs variable rather than the asked
+    # subject. One incidental common word must not stand in for the subject.
+    index = build(
+        tmp_path,
+        {
+            "db/table.py": "class Document:\n    pass\n",
+            "db/storage.py": "class CustomDocument:\n    pass\n",
+            "docs/conf.py": "latex_documents = 1\n",
+        },
+    )
+    result = resolve(index, "where do I define a schema to validate document fields")
+    assert result.verdict is Verdict.EMPTY
+    assert result.candidates == ()
+    assert result.best is None
+
+
+def test_a_central_api_name_is_a_signal_even_when_it_reaches_many_files(
+    tmp_path: Path,
+) -> None:
+    # "curry" is an exact whole-name symbol (a definition) that also appears as
+    # the stem of several sibling files, so it reaches many files. That does not
+    # make it generic: naming a central API symbol outright is a confident
+    # answer, unlike a single incidental common word such as "document".
+    files = {"toolz/functoolz.py": "def curry(f):\n    pass\n"}
+    for n in range(6):
+        files[f"toolz/curry{n}.py"] = "pass\n"
+    index = build(tmp_path, files)
+    result = resolve(index, "where is the curry decorator class")
+    assert result.verdict is not Verdict.EMPTY
+    assert result.best is not None
+    assert result.best.path == "toolz/functoolz.py"
+
+
 # --- ranking properties on a realistic mix ---------------------------------
 
 
