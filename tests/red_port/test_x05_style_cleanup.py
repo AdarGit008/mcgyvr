@@ -4,7 +4,7 @@ nothing.
 :class:`~mcgyvr.gate.GateResult` splits what a rung saw into ``findings`` (which
 reject), ``observations`` (real, line-attributed, and deliberately outside the
 verdict) and ``environment_issues`` (a check that could not run).
-:func:`mcgyvr.cleanup.tidy` acts on the split: a change rejected only by the format
+:func:`mcgyvr.repair.tidy` acts on the split: a change rejected only by the format
 rung is reformatted at zero model spend.
 
 Where the split does not fall where its name suggests, the values below follow the
@@ -101,12 +101,12 @@ CORRECTNESS = GateResult(
 def _tidy() -> Any:
     """Deterministic cleanup of an accepted change.
 
-    :func:`mcgyvr.cleanup.tidy`. The contract is the outcome: what comes back, whether
+    :func:`mcgyvr.repair.tidy`. The contract is the outcome: what comes back, whether
     it is still accepted, and that no model was involved in getting there.
     """
     return required(
         BEHAVIOR,
-        lambda: __import__("mcgyvr.cleanup", fromlist=["tidy"]).tidy,
+        lambda: __import__("mcgyvr.repair", fromlist=["tidy"]).tidy,
     )
 
 

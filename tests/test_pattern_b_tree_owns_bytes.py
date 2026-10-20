@@ -5,8 +5,8 @@ verdict carries a ``value`` beside it. The three levers that rewrite or sample a
 tree each hold the same rule in their own shape:
 
 ``cleanup``
-    :func:`mcgyvr.cleanup.tidy` may rewrite an **accepted** change's bytes, and
-    then :attr:`~mcgyvr.cleanup.Cleanup.regate` is true and the detail line says
+    :func:`mcgyvr.repair.tidy` may rewrite an **accepted** change's bytes, and
+    then :attr:`~mcgyvr.repair.Cleanup.regate` is true and the detail line says
     the gate wants re-running: the verdict was reached on the bytes that went
     in, and no rung has read the bytes that come out.
 
@@ -40,13 +40,12 @@ from pathlib import Path
 
 import pytest
 
-from mcgyvr.cleanup import tidy
 from mcgyvr.consensus import best_of
 from mcgyvr.contract import Contract, loads
 from mcgyvr.deliver import Accepted
 from mcgyvr.gate.findings import Finding
 from mcgyvr.gate.runner import GateResult
-from mcgyvr.repair import RepairOutcome
+from mcgyvr.repair import RepairOutcome, tidy
 from mcgyvr.sandbox import Sandbox
 from tests._paths import SRC
 
@@ -199,7 +198,7 @@ UNJUDGED_CONTENT = {
     # The transformer's output, and the one type here that *is* about judged
     # bytes: it is allowed because `regate` makes the staleness explicit and a
     # caller cannot carry these anywhere without running the gate again.
-    "mcgyvr.cleanup.Cleanup",
+    "mcgyvr.repair.Cleanup",
 }
 
 

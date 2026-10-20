@@ -25,7 +25,6 @@ from pathlib import Path
 import pytest
 
 from mcgyvr.catalog import catalog
-from mcgyvr.cleanup import tidy
 from mcgyvr.config import parse
 from mcgyvr.consensus import ConsensusError, best_of
 from mcgyvr.contract import Contract
@@ -36,7 +35,7 @@ from mcgyvr.escalate import Assurance, Delivered, Judgement, ascent, escalate
 from mcgyvr.gate import ChangeSet, Gate, GateResult
 from mcgyvr.lines import parser_lines
 from mcgyvr.local_pool import source_map
-from mcgyvr.repair import _insert_imports, repair
+from mcgyvr.repair import _insert_imports, repair, tidy
 from mcgyvr.route import Verdict
 
 KEYLESS = """\

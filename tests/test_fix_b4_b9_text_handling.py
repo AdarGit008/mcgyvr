@@ -39,7 +39,6 @@ from pathlib import Path
 
 import pytest
 
-from mcgyvr.cleanup import tidy
 from mcgyvr.consensus import best_of
 from mcgyvr.contract import Contract
 from mcgyvr.contract import loads as load_contract
@@ -47,6 +46,7 @@ from mcgyvr.gate import ChangeSet, Finding, Gate, GateResult
 from mcgyvr.gate.adapter import ToolFailedError
 from mcgyvr.gate.adapters import PythonAdapter
 from mcgyvr.local_pool import Protocol
+from mcgyvr.repair import tidy
 from mcgyvr.runner import Completion, StopReason
 from mcgyvr.sandbox import Sandbox
 from mcgyvr.worker.reply import ParsedFile, parse_reply

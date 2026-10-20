@@ -1,6 +1,6 @@
 """Three levers, each reachable from something a user runs.
 
-``worker_attempt``, ``consensus.best_of`` and ``cleanup.tidy``. Each section below
+``worker_attempt``, ``consensus.best_of`` and ``repair.tidy``. Each section below
 drives one lever from the outside — the command line for the first, a configured
 install for the other two — and asserts on what a user would see rather than on the
 call having happened.
@@ -516,13 +516,13 @@ def test_an_install_that_asked_for_nothing_draws_once(
 
 
 # --------------------------------------------------------------------------
-# 3 · `cleanup.tidy` has a production caller
+# 3 · `repair.tidy` has a production caller
 # --------------------------------------------------------------------------
 
 #: Right answer, wrong shape: `RETRY` is there, so the contract's acceptance
 #: command is satisfied, and every line the worker wrote is one `ruff format`
 #: would reflow. The gate files that under `findings` and rejects — the single
-#: case `cleanup` exists for, arriving as a rejection rather than as the
+#: case `tidy` exists for, arriving as a rejection rather than as the
 #: observation its bucket name suggests.
 MESSY = "RETRY = 3\n\n\ndef fetch( url ):\n    return  url\n"
 
@@ -553,7 +553,7 @@ cleanup:
 
 
 def _tidies_seen(monkeypatch: pytest.MonkeyPatch) -> list[str]:
-    """Record every target :func:`mcgyvr.cleanup.tidy` is asked to clean.
+    """Record every target :func:`mcgyvr.repair.tidy` is asked to clean.
 
     As with the breadth spy, reaching for the name in the driver's namespace is
     itself the assertion while there is no caller.
