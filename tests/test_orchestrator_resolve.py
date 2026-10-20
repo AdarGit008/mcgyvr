@@ -72,6 +72,35 @@ def test_an_exact_symbol_name_resolves(tmp_path: Path) -> None:
     assert result.best.path == "src/repo.py"
 
 
+def test_a_symbol_whose_name_starts_with_a_stopword_still_resolves(
+    tmp_path: Path,
+) -> None:
+    # "from" and "is" are stopwords, but they are also the leading token of
+    # real symbol names (fromRawHeaders, isRedirect). Naming a symbol outright
+    # must match on the full name, so the whole-query pass may not strip a
+    # stopword that is part of the symbol's own name.
+    index = build(
+        tmp_path,
+        {
+            "src/a.js": (
+                "export function fromRawHeaders(headers = []) {\n  return headers;\n}\n"
+            ),
+            "src/b.js": (
+                "export function rawHeaders(headers = []) {\n  return headers;\n}\n"
+            ),
+            "src/c.js": (
+                "export const isRedirect = (code) => code >= 300 && code < 400;\n"
+            ),
+            "src/d.js": "export const redirectTo = (url) => url;\n",
+        },
+    )
+    for name, path in (("fromRawHeaders", "src/a.js"), ("isRedirect", "src/c.js")):
+        result = resolve(index, name)
+        assert result.verdict is Verdict.RESOLVED, name
+        assert result.best is not None
+        assert result.best.path == path, name
+
+
 def test_an_explicit_path_is_taken_literally(tmp_path: Path) -> None:
     index = build(
         tmp_path,

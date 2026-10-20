@@ -179,7 +179,7 @@ def resolve(index: Index, query: str, *, limit: int = 10) -> Resolution:
     scores: dict[str, float] = defaultdict(float)
     evidence: dict[str, list[tuple[float, str]]] = defaultdict(list)
 
-    _score_whole_query(query, tokens, corpus, scores, evidence)
+    _score_whole_query(query, corpus, scores, evidence)
     named = set(scores)  # files the whole query named literally, if any
     _score_tokens(tokens, corpus, scores, evidence)
 
@@ -265,7 +265,6 @@ class _Corpus:
 
 def _score_whole_query(
     query: str,
-    tokens: list[str],
     corpus: _Corpus,
     scores: dict[str, float],
     evidence: dict[str, list[tuple[float, str]]],
@@ -275,12 +274,17 @@ def _score_whole_query(
     This is the confident pass: a caller who names a file or a symbol gets a
     score large enough to settle the shortlist, and the token pass can only add
     to it. A partial match is not awarded here -- that is `_score_tokens`.
+
+    The query is squashed whole -- case and separators folded, but stopwords and
+    plurals kept -- so a symbol name that begins with a stopword
+    ("fromRawHeaders", "isRedirect") or ends in a plural
+    ("getNodeRequestOptions") still matches exactly rather than only as tokens.
     """
     raw = query.strip()
     for path in _paths_named_literally(raw, corpus):
         _award(scores, evidence, path, _W_PATH_EXACT, f'path matches "{raw}"')
 
-    squashed = "".join(tokens)
+    squashed = _squash(query)
     if not squashed:
         return
     for symbol in corpus.symbol_exact.get(squashed, {}).values():
