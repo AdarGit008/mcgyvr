@@ -1,15 +1,9 @@
 #!/usr/bin/env python3
 """Read a GGUF's tensor table and report what is expert weight and what is not.
 
-**Vendored from the lab's bandwidth/ncmoe-floor evidence parser, which stays
-where it is.** That copy is the evidence a dated record was computed from and
-must not move; this one is a live dependency of the door
-(``gate-scripts/data-20-geometry.py``) and of the bench's llamacpp backend
-(``_geometry``), both of which ship it to the serving host and run it there
-as ``python3 -``. Operators run it as ``python -m mcgyvr.serving.ggufscan
-<gguf>``. Two copies of one parser is a cost paid deliberately: importing a
-module out of the evidence record would let an edit made for a gate silently
-rewrite what a published measurement claims to have been computed with.
+Operators run it as ``python -m mcgyvr.serving.ggufscan <gguf>``. It imports
+the standard library only, so the file can also be sent to a serving host and
+run there as ``python3 -``.
 
 **The point of reading the header rather than the file size is that the two
 answer different questions.** ``stat -c %s`` says what the blob weighs on
@@ -86,16 +80,10 @@ def scan(path):
     exp=[t for t in tensors if "_exps" in t[0]]
     expb=sum(t[3] for t in exp)
 
-    # PER-BLOCK expert bytes, keyed by block index.
-    #
-    # `bytes_experts / n_layer` is the WRONG number to place a block with, and
-    # it is wrong for 9 of the 10 checkpoints in this store. The distribution is
-    # bimodal wherever a quant is non-uniform: Qwen3.6 IQ3_XXS is 262.0 MiB on
-    # 37 blocks and 300.0 on 3 (the UD mix lifts ffn_down_exps to IQ4_XS), so
-    # the mean of 264.85 matches NO block in the file. `--n-cpu-moe` moves whole
-    # blocks, so what a placement decision needs is the MARGINAL block, never
-    # the average. Worst case measured: nemotron_h_moe declares block_count 52
-    # while only 23 blocks carry experts, making the mean wrong by 2.26x.
+    # PER-BLOCK expert bytes, keyed by block index. `--n-cpu-moe` moves whole
+    # blocks, so a placement decision needs the MARGINAL block, never
+    # `bytes_experts / n_layer`: a non-uniform quant gives blocks different
+    # sizes, and a model may declare more blocks than carry experts.
     per_block={}
     for t in exp:
         parts=t[0].split(".")
@@ -104,27 +92,18 @@ def scan(path):
         elif parts[0]=="blk": idx=parts[1]
         if idx is not None: per_block[int(idx)]=per_block.get(int(idx),0)+t[3]
 
-    # The blocks `--n-cpu-moe` can actually move, in the order it moves them.
-    # It keeps blocks 0..N-1 on the CPU (verified 24/23/22/1/0, no off-by-one),
-    # so the marginal block for a floor of N is block N-1. A grafted MTP head
-    # (KAT/Ornith blk 40, 816 MiB) carries expert tensors but is NEVER placed by
-    # this knob: counting it put a predicted floor 3 steps above the true one.
+    # The blocks that carry experts, in the order `--n-cpu-moe` moves them. It
+    # keeps blocks 0..N-1 on the CPU, so the marginal block for a floor of N is
+    # block N-1.
     blocks=sorted(per_block)
     layers=len(blocks)
 
-    # Blocks that carry experts but that `--n-cpu-moe` NEVER places.
-    #
-    # A grafted multi-token-prediction head is a block by tensor naming and not
-    # a block by placement: KAT/Ornith `blk.40` carries the full expert set plus
-    # `nextn.{eh_proj,enorm,hnorm,shared_head_norm}` and weighs 816 MiB.
-    # Counting it as placeable puts a predicted floor above the true one.
-    # Proof it is excluded: at ncmoe 8 the card held
-    # 9976.83 - 1080.83 = 8896.00 MiB = 32 x 278.0 exactly, i.e. blocks 8..39
-    # with block 40 absent.
-    #
-    # Detected by tensor name, which is self-evidencing and needs no per-arch
-    # key; `<arch>.nextn_predict_layers` is read too and disagreement is
-    # reported rather than resolved silently.
+    # Blocks that carry experts but that `--n-cpu-moe` NEVER places: a grafted
+    # multi-token-prediction head is a block by tensor naming (a `blk.N` with
+    # `nextn.*` tensors) and not a block by placement, so counting it as
+    # placeable would put a predicted floor above the true one. Detected by
+    # tensor name, which needs no per-arch key; `<arch>.nextn_predict_layers`
+    # is reported beside it rather than reconciled with it.
     nextn=sorted({int(x.split(".")[1]) for x in
                   (t[0] for t in tensors)
                   if x.startswith("blk.") and ".nextn." in x})
