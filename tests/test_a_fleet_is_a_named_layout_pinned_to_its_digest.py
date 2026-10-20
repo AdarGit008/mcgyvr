@@ -1,4 +1,4 @@
-"""A fleet is a named layout, and it moves only along the switches listed for it.
+"""A fleet is a named layout of room slots, pinned to the sha256 of that layout.
 
 * A **combination** is one rig's **room slots**, in order. Each slot holds a
   unit, ``awake`` or ``asleep``, or is free (owner: "list position is a room
@@ -10,10 +10,6 @@
 * A **fleet** is a name (``flt-05``) pinned to the sha256 of its layout, one
   combination per rig. A layout edited after it was locked no longer matches
   its pin.
-* A **switch** is commanded at fleet level and carried out per rig and per
-  slot: slot k of the source pairs with slot k of the target, and a leaving
-  slot's stop precedes its arrival's start. Only slots that differ act. Slot k
-  is identity; the order units start in is not.
 """
 
 from __future__ import annotations
@@ -38,8 +34,7 @@ U35B = "unt-" + "5" * 64
 
 def _layout() -> Any:
     return required(
-        "name a combination and a fleet layout by room slot, and derive a "
-        "switch's actions per rig and slot",
+        "name a combination and a fleet layout by room slot",
         lambda: importlib.import_module("mcgyvr.fleet.layout"),
     )
 
@@ -74,48 +69,3 @@ def test_a_fleet_name_is_pinned_to_the_sha256_of_its_layout() -> None:
     assert layout.layout_sha256({RIG2: edited, RIG1: box1}) != pinned, (
         "a layout edited after it was locked no longer matches its pin"
     )
-
-
-def test_a_switch_acts_only_on_the_slots_that_differ() -> None:
-    """box2's slot 1 holds an asleep 3B and takes a 4B; slot 0 and box1 stay."""
-    layout = _layout()
-    flt05 = {RIG2: [(U7B, "awake"), (U3B, "asleep")], RIG1: [(U35B, "awake")]}
-    flt02 = {RIG2: [(U7B, "awake"), (U4B, "awake")], RIG1: [(U35B, "awake")]}
-    assert layout.actions(flt05, flt02) == [
-        (RIG2, "drain", U3B),
-        (RIG2, "stop", U3B),
-        (RIG2, "start", U4B),
-    ]
-
-
-def test_a_switch_pairs_slot_k_with_slot_k_and_stops_it_before_it_starts() -> None:
-    """Both slots change: each leaving unit stops before the unit that takes its
-    room starts. How the two slots interleave is not pinned: the order units
-    start in is not identity."""
-    layout = _layout()
-    before = {RIG2: [(U7B, "awake"), (U3B, "awake")]}
-    after = {RIG2: [(U9B, "awake"), (U1B, "awake")]}
-    acts = layout.actions(before, after)
-    assert set(acts) == {
-        (RIG2, "drain", U7B),
-        (RIG2, "stop", U7B),
-        (RIG2, "start", U9B),
-        (RIG2, "drain", U3B),
-        (RIG2, "stop", U3B),
-        (RIG2, "start", U1B),
-    }, acts
-    for leaving, arriving in ((U7B, U9B), (U3B, U1B)):
-        stop = acts.index((RIG2, "stop", leaving))
-        assert acts.index((RIG2, "drain", leaving)) < stop, acts
-        assert stop < acts.index((RIG2, "start", arriving)), acts
-
-
-def test_sleep_and_wake_are_switches_like_any_other() -> None:
-    layout = _layout()
-    awake = {RIG2: [(U7B, "awake"), (U3B, "awake")]}
-    asleep = {RIG2: [(U7B, "awake"), (U3B, "asleep")]}
-    assert layout.actions(awake, asleep) == [
-        (RIG2, "drain", U3B),
-        (RIG2, "sleep", U3B),
-    ]
-    assert layout.actions(asleep, awake) == [(RIG2, "wake", U3B)]
