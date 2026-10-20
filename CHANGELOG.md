@@ -61,7 +61,7 @@ the repository AdarGit008/mcgyvr-lab, under the same paths.
   use-case prompt is `d` coding (default), `c` chat, `a` agent; a
   `--use-case media-gen`, or a config naming `use_case: media-gen`, is refused
   in one line naming `coding`, `chat` and `agent`. The `media` task type is
-  unchanged (#731).
+  removed in this release too (#731); see the next bullet.
 - **The `media` task type and the `media-gen` use case are gone** (owner
   de-scope, 2026-10-08). There are three task types: `code`, `chat` and
   `agent`. Removed with them: the `media_valid` and `asr_wer` evidence kinds
@@ -82,6 +82,11 @@ the repository AdarGit008/mcgyvr-lab, under the same paths.
   `lmarena-text-to-image` and `open-asr` boards, and `recommend --profile
   media_gen`. The code is archived in mcgyvr-lab under
   `records/evidence/2026-10-20-media-gen-archived`.
+- `launch:` keys `cpu_only` and `vae_decode_gb` are no longer read. Launch is
+  free-form, so a stale key is ignored rather than refused.
+- The root `package.json` and lockfile now pin only `prettier` (`eslint`,
+  `@eslint/js`, `typescript` and `typescript-eslint` are dropped); the eslint
+  and prettier configs stay for the lab bench.
 - **The `safety_pass` check is gone** (owner decision, 2026-10-20). It
   shelled out to a `safety-classifier` binary that no implementation of
   existed anywhere, so the `agent` setup sample, which ran it on its reply,

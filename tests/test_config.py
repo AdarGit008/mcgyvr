@@ -348,6 +348,15 @@ def test_a_unit_may_not_declare_a_media_engine(engine: str) -> None:
     assert "vllm" in str(exc.value), "the refusal lists what is valid"
 
 
+def test_the_removed_media_gen_use_case_is_refused() -> None:
+    with pytest.raises(ConfigSchemaError) as exc:
+        parse(LOCAL_ONLY + "use_case: media-gen\n")
+    assert (
+        "use_case: 'media-gen' is not a valid value. Valid: coding, chat, agent"
+        in str(exc.value)
+    )
+
+
 def test_a_url_without_a_scheme_is_rejected() -> None:
     with pytest.raises(ConfigSchemaError, match="needs a scheme"):
         parse(LOCAL_ONLY.replace("http://localhost:8080", "localhost:8080"))

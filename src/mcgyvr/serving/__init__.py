@@ -1374,8 +1374,8 @@ def hold_together(units: Iterable[Unit], scans: Mapping[str, Scan]) -> tuple[str
         hungriest = sorted(up, key=lambda unit: unit.key.slug)
         wanted = sum(unit.fit.ram_gb for unit in hungriest)
         # The margin host memory is judged with: the same refusal headroom
-        # _sized() holds back, because these are process engines whose
-        # spilled experts are really allocated.
+        # _sized() holds back, because spilled experts are really allocated
+        # in host RAM and must stay clear of what the OS needs.
         margin = REFUSAL_RAM_HEADROOM_GB
         if wanted and wanted + margin > memory.available_gb:
             listed = ", ".join(
