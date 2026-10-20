@@ -246,8 +246,6 @@ Which one unit answers every typed decision: a question answered with a single-t
 | `jev.unit` | text | no | unset | Which unit serves this role. A unit is the one term. To bind it: name one of the units declared under `units`. |
 | `jev.model` | text | no | unset | Model identifier as that unit names it; absent means the unit's own. To bind it: name a model the bound unit serves. |
 
-The measured model for this unit: lab record `records/evidence/2026-10-04-jev-mcorch`.
-
 ## `sandbox`
 
 Where a task's commands run.

@@ -269,24 +269,12 @@ def render_reference() -> str:
 #: after it.
 _LEVERS: tuple[str, ...] = ("units", "ladder", "max_escalations")
 
-#: Paragraphs appended after a top-level block's section in SETUP.md, keyed by
-#: that block's name: what a reader needs that the schema doc of a single key
-#: has no room for. A block with no entry here ends at its own tables;
-#: `_SETUP_NOTES` is only consulted for top-level fields with keys.
-_SETUP_NOTES: dict[str, tuple[str, ...]] = {
-    "jev": (
-        "The measured model for this unit: lab record "
-        "`records/evidence/2026-10-04-jev-mcorch`.",
-    ),
-}
-
 
 def render_setup() -> str:
     """Render SETUP.md: how a machine comes to have a config, and what it says.
 
     The prose is fixed; the value types, the top-level key table and one section
-    per block are rendered from `SCHEMA`, with inner keys named by full path, and
-    the `_SETUP_NOTES` paragraphs are appended after the block they belong to.
+    per block are rendered from `SCHEMA`, with inner keys named by full path.
     """
     by_name = {field.name: field for field in SCHEMA}
     lines = [
@@ -451,8 +439,6 @@ def render_setup() -> str:
     for field in SCHEMA:
         if field.block:
             lines += _section(field, field.name, 2, dotted=True)
-            for note in _SETUP_NOTES.get(field.name, ()):
-                lines += [note, ""]
 
     return "\n".join(lines).rstrip("\n") + "\n"
 
