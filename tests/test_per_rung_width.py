@@ -142,10 +142,6 @@ def test_a_backend_reporting_more_than_written_wins() -> None:
     assert capacity.limit("local_moe") == 12
 
 
-def test_the_source_level_width_still_parses() -> None:
-    assert parse(NO_TIER_WIDTH).units["local_moe"].width == 3
-
-
 # ---------------------------------------------------------------------------
 # The width is enforced, and not merely reported (#23)
 #

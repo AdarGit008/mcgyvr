@@ -267,7 +267,8 @@ def test_alternatives_on_two_ports_are_not_summed_against_the_card(
         parse(port_per_model(geometry)), {"box1": box1()}, specs=(), ctx_per_slot=None
     )
 
-    hold_together(units, {"box1": box1()})
+    (warning,) = hold_together(units, {"box1": box1()})
+    assert "2 alternatives" in warning and "only one of them is ever up" in warning
 
 
 def test_a_card_that_holds_both_shapes_is_cut_into_the_sets_that_fit_it() -> None:

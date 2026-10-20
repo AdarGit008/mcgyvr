@@ -259,7 +259,8 @@ def test_alternatives_are_never_summed_against_the_card(
     units = units_for(
         parse(alternatives(geometry)), {"box1": box1()}, specs=(), ctx_per_slot=None
     )
-    hold_together(units, {"box1": box1()})
+    (warning,) = hold_together(units, {"box1": box1()})
+    assert "2 alternatives" in warning and "only one of them is ever up" in warning
 
 
 def test_a_pair_that_will_not_sum_is_cut_into_alternatives_and_said_out_loud() -> None:
