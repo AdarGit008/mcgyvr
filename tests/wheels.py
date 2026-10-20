@@ -44,7 +44,7 @@ sys.exit(1 if failed else 0)
 
 #: The only inputs a wheel build is given: the package's sources, the data it
 #: ships, and the project metadata.
-PRODUCT_ALONE = ("pyproject.toml", "LICENSE", "src", "data")
+PRODUCT_ALONE = ("pyproject.toml", "LICENSE", "src", "data", "skills/mcgyvr/SETUP.md")
 
 
 def _uv() -> str:

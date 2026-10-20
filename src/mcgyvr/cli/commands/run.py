@@ -46,7 +46,7 @@ if TYPE_CHECKING:  # pragma: no cover - typing only
     from mcgyvr.sandbox.base import Sandbox
     from mcgyvr.session import Session
 
-from mcgyvr.cli.common import CONFIG_DEFAULT_HELP, SETUP_DOC, _add_repo, _named_path
+from mcgyvr.cli.common import CONFIG_DEFAULT_HELP, _add_repo, _named_path, setup_doc
 from mcgyvr.cli.fleet_live import _admitted_live, _live
 from mcgyvr.cli.sandbox import (
     _reads_the_tree,
@@ -128,7 +128,7 @@ def _run(args: argparse.Namespace) -> int:
         # to ask and no reviewer, so nothing could run or judge the work. Stop
         # here and point at the document that sets a setup up, rather than climb
         # something the caller never declared.
-        print(f"error: {config_error} {SETUP_DOC} says how.", file=sys.stderr)
+        print(f"error: {config_error} {setup_doc()} says how.", file=sys.stderr)
         return 1
 
     # Where the journal lives: `journal.dir` from the config, or the default

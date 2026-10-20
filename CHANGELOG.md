@@ -53,6 +53,10 @@ the repository AdarGit008/mcgyvr-lab, under the same paths.
   `chat`, and `agent` is new.
 - Sizing reads the knowledge cache over the shipped catalog, so a model a
   Hub read cached can be emitted.
+- The wheel carries `SETUP.md` (as `mcgyvr/data/SETUP.md`), and `mcgyvr run`
+  with no setup to load names that copy, a file an installed mcgyvr has,
+  instead of the checkout path `skills/mcgyvr/SETUP.md`. A checkout still
+  names its own path.
 
 ### Removed
 

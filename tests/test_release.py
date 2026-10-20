@@ -57,6 +57,7 @@ BUILD_INPUTS = (
     "src",
     "data",
     "scripts/release",
+    "skills/mcgyvr/SETUP.md",
 )
 
 
