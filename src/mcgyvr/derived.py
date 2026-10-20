@@ -17,16 +17,17 @@ import math
 import reprlib
 from collections.abc import Callable, Mapping, Sequence
 from dataclasses import dataclass
-from importlib import resources
 from pathlib import Path
 from typing import Any, Literal
 
 import yaml
 
+from mcgyvr import shipped
 from mcgyvr.config import UNIT_FIELDS
 from mcgyvr.fleet import roots
 from mcgyvr.fleet.links import LINK_CLASSES
 from mcgyvr.fleet.tolerance import CLASSES
+from mcgyvr.shipped import packaged, shipped_file
 from mcgyvr.strict_yaml import strict_loader
 
 #: The shipped estimates' file name, in the package's data folder and a checkout's.
@@ -36,7 +37,7 @@ OVERRIDES_FILENAME = "numbers.yaml"
 #: The schema of the shipped file that this code reads, stated in the file itself.
 NUMBERS_SCHEMA = 1
 #: Where a checkout keeps the shipped file: the repository root's data folder.
-CHECKOUT_DATA = Path(__file__).resolve().parents[2] / "data"
+CHECKOUT_DATA = shipped.CHECKOUT_DATA
 
 #: Where an answer came from: the user's own setting, or the estimate shipped.
 Source = Literal["override", "estimate"]
@@ -155,15 +156,13 @@ def shipped_path() -> Path:
     inside itself; a checkout without that copy finds it beside ``src``. With
     neither, the numbers are refused rather than read from anywhere else.
     """
-    packaged = resources.files("mcgyvr") / "data" / NUMBERS_FILENAME
-    if packaged.is_file():
-        return Path(str(packaged))
-    checkout = CHECKOUT_DATA / NUMBERS_FILENAME
-    if checkout.is_file():
-        return checkout
+    found = shipped_file(NUMBERS_FILENAME, checkout=CHECKOUT_DATA)
+    if found is not None:
+        return found
     raise DerivedNumbersError(
-        f"shipped numbers not found: neither {packaged} (the package's own copy) "
-        f"nor {checkout} (a checkout's) is a file; no number of its `numbers` "
+        f"shipped numbers not found: neither {packaged(NUMBERS_FILENAME)} (the "
+        f"package's own copy) nor {CHECKOUT_DATA / NUMBERS_FILENAME} (a checkout's) "
+        f"is a file; no number of its `numbers` "
         "block has a default in code"
     )
 

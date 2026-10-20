@@ -287,7 +287,8 @@ ABOVE_THE_SEAM: tuple[str, ...] = (
 #: (``config.py``), the vocabulary of what may be asked for (``catalog.py``), how a
 #: file is replaced whole (``atomic.py``), the exit codes a caller branches on
 #: (``exits.py``), where a line ends (``lines.py``), what is safe to quote to an
-#: operator (``redact.py``), and the strict YAML loader both schemas share
+#: operator (``redact.py``), where a shipped data file is read from
+#: (``shipped.py``), and the strict YAML loader both schemas share
 #: (``strict_yaml.py``), each as its module docstring's first line says. Being on this
 #: list is not an exemption: a shared module is held to *both* rules below, because a
 #: shared module that reached into either half would pull that half into everything
@@ -300,6 +301,7 @@ SHARED_ACROSS_THE_SEAM: tuple[str, ...] = (
     "mcgyvr.exits",
     "mcgyvr.lines",
     "mcgyvr.redact",
+    "mcgyvr.shipped",
     "mcgyvr.strict_yaml",
 )
 
