@@ -1,7 +1,7 @@
 """A door run from an install holds the rig to the user's own rig file.
 
-Owner, 2026-10-07 (Round 5): the serving door gets a user mode, approved as
-drafted. From an install there is no lab checkout, so the round, the lab's
+The serving door has a user mode. From an install there is no lab checkout,
+so the round, the lab's
 ``hosts.json`` and its declared docker version are not asked for. What the
 run is held to instead is the rig file ``<rig-file folder>/<rig>.json``, the
 rig's read-only scan saved by ``mcgyvr scan --rig``: each run reads the rig

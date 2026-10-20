@@ -2,7 +2,7 @@
 
 Every row of the live journal names the orchestrator that produced it, and a
 name that is only whatever ``--orchestrator`` said traces a row to a string and
-no further. The owner's ruling is that a run must fail loud when nobody can be
+no further. So a run fails loud when nobody can be
 named, and that the name is a *session* — the Claude Code or Pi transcript that
 typed the command — so a row can be followed back to the full conversation that
 produced it.

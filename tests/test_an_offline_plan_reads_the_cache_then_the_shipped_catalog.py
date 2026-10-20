@@ -1,8 +1,8 @@
 """An offline plan reads the cache, then the shipped catalog.
 
-Owner, 2026-10-07: model knowledge comes from the Hub and the public boards
-when a network is there; "every number records its source and date. Offline
-falls back to the shipped catalog." The cache under ``$MCGYVR_HOME/knowledge/``
+Model knowledge comes from the Hub and the public boards when a network is
+there; every number records its source and date, and offline falls back to the
+shipped catalog. The cache under ``$MCGYVR_HOME/knowledge/``
 is what an online run left behind, so it is read first.
 
 Promises:

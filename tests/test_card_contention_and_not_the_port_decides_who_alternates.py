@@ -1,10 +1,9 @@
 """Two units alternate when their card figures will not sum, whatever ports they hold.
 
-**The owner's decision, 2026-09-09: go to port-per-model, and let the port stop
-carrying contention information.** Under port-per-model no port ever collides,
-so a port test finds nothing and every host reads as co-residents. That is not a
-loss — it proves the port was never the fact. What remains is the only thing
-that was ever true:
+**Port-per-model, and the port carries no contention information.** Under
+port-per-model no port ever collides, so a port test finds nothing and every
+host reads as co-residents. That is not a loss — it proves the port was never
+the fact. What remains is the only thing that was ever true:
 
     Two units are alternatives when their card figures will not sum onto the
     card they share.
@@ -94,7 +93,7 @@ def box2(*, vram_mib: int = 12288, ram_gb: float = 45.0) -> Scan:
 def port_per_model(geometry: dict[str, Path]) -> str:
     """box1's two candidates, each on a port of its own — and still alternating.
 
-    This is the layout the owner ruled for. Under the port discriminator it
+    This is the port-per-model layout. Under the port discriminator it
     reads as two co-residents on one 6 GiB card, which is 11.83 GiB asked of
     6.00 free: a fleet that runs perfectly well either way round, refused for a
     contention the port cannot see and the card can.
@@ -127,7 +126,7 @@ ladder:
 """
 
 
-#: box2 as the owner wants it: the vLLM pair, which co-reside, plus the 80B,
+#: box2 as it is laid out: the vLLM pair, which co-reside, plus the 80B,
 #: which takes the whole card. Three ports, none of them colliding. Figures are
 #: the measured ones -- 3.49 and 7.12 GiB on 2026-09-05, and the 80B at the
 #: 11,409 MiB two level-2 sleepers leave (``vllm-sleep-2026-09-09``).
@@ -198,7 +197,7 @@ PAIR = TRIO.replace(
 #: Two units that fit the card together and cannot both have the host's memory:
 #: 3.0 + 3.0 GiB onto 12.0 free, against 6.5 + 6.5 GiB of spilled experts and
 #: 2.0 GiB of :data:`REFUSAL_RAM_HEADROOM_GB` on 14.2 available. The card is not
-#: the only thing two co-residents share (owner's ruling, 2026-09-09).
+#: the only thing two co-residents share.
 SPILLING = """\
 units:
   local_careful:

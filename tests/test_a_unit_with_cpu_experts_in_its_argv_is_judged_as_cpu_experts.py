@@ -15,7 +15,7 @@ and pulled on a reading inside its class.
   ``llamacpp``, never a crash.
 * The probe's judge and the lock's NVMe check read that one class. Each judged
   field then has its own percent for it: prefill is 1% for both llama.cpp
-  classes (owner ruling), so the class shows in decode's 1% against 48%.
+  classes, so the class shows in decode's 1% against 48%.
 """
 
 from __future__ import annotations

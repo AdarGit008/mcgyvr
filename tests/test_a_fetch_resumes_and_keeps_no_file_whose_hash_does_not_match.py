@@ -1,9 +1,9 @@
 """``serve fetch`` downloads weights on the rig, resumes, and keeps only what hashes.
 
-Owner, 2026-10-07 (Round 5, the door's user mode, approved as drafted): the
-door gets ``serve fetch``, stdlib only and run on the rig, which resumes from
+The door's user mode has ``serve fetch``, stdlib only and run on the rig,
+which resumes from
 a ``.part`` file, checks the Hub's sha256 and renames into place only on a
-match. Downloads have no cap, and the total is shown before (Round 3, OQ3). A
+match. Downloads have no cap, and the total is shown before. A
 Hugging Face token comes from a variable the caller names and goes only to the
 fetch step: never on a command line, never into a file.
 

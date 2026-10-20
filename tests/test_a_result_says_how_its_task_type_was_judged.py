@@ -8,8 +8,8 @@ review was expected where none ever is:
   configured reviewer's own reason it could not be used.
 - ``code`` with a deterministic ``operation``: ``deterministic``, on the
   deterministic gate.
-- ``chat`` and ``agent``: ``unchecked`` — no checks, never reviewed (owner,
-  e2e run 2 R11: "agent and chat have no gates").
+- ``chat`` and ``agent``: ``unchecked`` — no checks, never reviewed;
+  agent and chat have no gates.
 
 ``mcgyvr catalog <type>`` says the same thing the result says.
 """

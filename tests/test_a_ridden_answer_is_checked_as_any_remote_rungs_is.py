@@ -1,6 +1,6 @@
 """A ridden answer is checked as any remote rung's answer is, by the same path.
 
-The owner's ruling: an answer from a relief rung gets the same gate and the
+An answer from a relief rung gets the same gate and the
 same review as an answer from any other remote (api) rung, and no path of its
 own. So:
 

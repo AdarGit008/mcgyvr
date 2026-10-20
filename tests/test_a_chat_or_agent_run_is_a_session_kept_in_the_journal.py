@@ -1,7 +1,7 @@
 """A `chat` or `agent` run is a session, and its answer is kept (F7).
 
-Owner decision (e2e run 1, F7): "chat and agent are sessions and should be
-logged as such - answers are not throwaway nowhere". So:
+Chat and agent are sessions and are logged as such: an answer is never thrown
+away. So:
 
 - a `chat` or `agent` contract names no `target` and no `scope`: nothing is
   written, so there is no file to name. One that still gives a target is told

@@ -116,7 +116,7 @@ def test_units_of_ours_the_fleet_does_not_name_are_cleaned_and_it_is_restored(
 def test_a_unit_whose_sleep_could_not_be_read_refuses_that_rig_and_names_it(
     tmp_path: Path,
 ) -> None:
-    """Owner ruling on FLT-02: an unreadable ``/is_sleeping`` is refused.
+    """An unreadable ``/is_sleeping`` is refused.
 
     A 404 (no sleep route) reads as awake and is admitted; any other failure to
     read is ``unread``, which is neither state a layout can lock, and is not

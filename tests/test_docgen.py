@@ -1,8 +1,8 @@
 """The config reference is a projection of the schema, and is never kept.
 
 The schema is the reference. A rendered copy that outlives its check becomes
-a second description of the config, so the owner's ruling (2026-09-05) is
-that every ``docgen`` run renders the reference, checks it and deletes it —
+a second description of the config, so every ``docgen`` run
+renders the reference, checks it and deletes it —
 no copy is committed and ``make docs-check`` cannot find one to compare.
 What is tested here are the properties of the generator itself: that it is
 deterministic, that it reaches every key, that the things the loader treats

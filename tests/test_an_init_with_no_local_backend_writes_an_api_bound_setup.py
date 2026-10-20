@@ -350,8 +350,7 @@ def test_a_hosted_unit_is_written_with_room_for_a_reasoning_model(
     A hosted reasoning model bills hidden reasoning against the cap, and the
     e2e run of 2026-10-13 got empty replies from DeepSeek at 1024 and 4096
     because nothing on the unit said otherwise. The unit's number is the
-    ceiling a `code` contract's stated cap is held to, and never replaces it
-    (owner, 2026-10-14).
+    ceiling a `code` contract's stated cap is held to, and never replaces it.
     """
     from mcgyvr.config import API_OUTPUT_TOKENS
 

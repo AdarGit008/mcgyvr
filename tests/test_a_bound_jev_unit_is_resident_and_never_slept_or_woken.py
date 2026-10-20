@@ -1,6 +1,6 @@
 """A bound jev unit is resident: it is never slept and never woken.
 
-Owner ruling. The Jev unit is an opt-in at setup, dedicated VRAM that answers
+The Jev unit is an opt-in at setup, dedicated VRAM that answers
 every typed decision at once; a decision that had to wait out a wake, or a
 card that could be slept from under it, would make every typed question a
 gamble. So the unit — and any card that holds it — is excluded from every

@@ -2,7 +2,7 @@
 
 E2e run 2, R11: the prompt asked the model to cite `[n]` sources it was never
 given — `sources` never reached the worker — so both rungs answered that no
-sources were provided. Owner decision: the sources are rendered into the agent
+sources were provided. Now the sources are rendered into the agent
 worker prompt, numbered, with their content, read under the rules every other
 read of the tree for a worker follows:
 
@@ -13,7 +13,7 @@ read of the tree for a worker follows:
 - never a file the sandbox's non-git copy leaves behind for holding a secret
   (``.env``, keys, credential folders), nor a binary or oversized file;
 - whole — never silently truncated. An agent run is a raw connection to a
-  model (owner, 2026-10-14), so no prompt ceiling bounds them
+  model, so no prompt ceiling bounds them
   (``tests/test_a_chat_or_agent_run_is_a_raw_connection_with_no_limits.py``).
 
 A source that cannot be read refuses the attempt before anything is sent.

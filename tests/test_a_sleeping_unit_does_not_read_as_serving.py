@@ -25,7 +25,7 @@ means "this unit has no sleep route", and a unit with no sleep route is
 awake** — which is true, because an engine with no sleep endpoint has no way to
 be asleep.
 
-**Any other failure to read is not an answer** (owner ruling on FLT-02): a
+**Any other failure to read is not an answer**: a
 connection that fails, a 5xx, a body that does not parse, a body of the wrong
 shape. That is ``sleeping == "unread"``, and a unit whose sleep could not be read
 does not read as serving. The split is pinned below in every direction: a 404
@@ -244,7 +244,7 @@ def test_a_llamacpp_unit_that_has_no_such_endpoint_at_all_reads_as_serving(
 def test_a_sleep_answer_that_cannot_be_read_does_not_read_as_serving(
     monkeypatch: pytest.MonkeyPatch, brief: None
 ) -> None:
-    """Owner ruling on FLT-02: only a 404 means "no sleep route".
+    """Only a 404 means "no sleep route".
 
     A catch-all route, a proxy's error page, a 5xx, a connection that fails, a
     body of the wrong shape: none of these say the unit is awake either. The

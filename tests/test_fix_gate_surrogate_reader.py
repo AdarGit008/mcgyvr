@@ -1,9 +1,8 @@
 """The gate's Python reader, over the byte convention the repository chose.
 
 mcgyvr reads and writes file content through ``utf-8``/``surrogateescape`` on
-purpose. The 2026-08-29 pressure test (§3, pattern A) found every *writer* the
-port added crashing on content
-that carries a surrogate escape. The writers have been fixed; one reader had
+purpose. Every *writer* the port added once crashed on content that carries a
+surrogate escape. The writers have been fixed; one reader had
 not been looked at.
 
 :func:`mcgyvr.gate.adapters.python._read` is already written to the convention

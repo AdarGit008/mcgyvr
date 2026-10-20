@@ -73,14 +73,14 @@ def test_init_writes_the_cleanup_default_the_owner_set() -> None:
     written = _built()
     # Asserted against `True` on both sides rather than against each other.
     # A symmetric comparison is satisfied by moving the *schema* to False —
-    # which would make this file green by reversing the ruling it cites.
+    # which would make this file green by reversing the default it pins.
     assert _default("cleanup", "enabled") is True, (
-        "the schema default is the owner's 2026-09-05 ruling; this test is "
+        "the schema default is the rule; this test is "
         "about init agreeing with it, not about the two matching each other"
     )
     assert written["cleanup"]["enabled"] is True, (
         "init writes cleanup.enabled=False against a schema default of True; "
-        "every fresh install disables repair-and-regate (owner, 2026-09-05)"
+        "every fresh install disables repair-and-regate"
     )
 
 

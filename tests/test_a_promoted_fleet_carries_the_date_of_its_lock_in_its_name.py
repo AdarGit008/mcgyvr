@@ -1,8 +1,7 @@
 """A promoted fleet carries the date of its lock in its name.
 
-Owner ruling: "all fleets get tagged with date - promote with the date in
-fleet name - switching between verified fleets is a common action during
-runtime".
+Every fleet is tagged with a date: it is promoted with the date in its name,
+because switching between verified fleets is a common action at runtime.
 
 * :func:`mcgyvr.fleet.promote.promote` is handed the plain fleet name and
   writes ``~/.mcgyvr/fleets/<fleet>@<YYYY-MM-DD>/``, where the
@@ -10,7 +9,7 @@ runtime".
   records the lock wrote for that fleet's layout. Never today's date.
 * Inside the folder nothing is renamed: ``fleet.yaml`` keys the fleet by its
   plain name and the lock sits at ``lock/<fleet>.json``, so a tagged
-  folder and a folder promoted before the ruling have one shape.
+  folder and a folder promoted before tagging have one shape.
 * A re-lock on a new date gets a new folder beside the old one, which stays as
   a verified config. The same tagged name is refused, as any existing folder.
 * A name that already carries a tag is refused by ``promote``: the date is the

@@ -1,6 +1,6 @@
 """``mcgyvr setup`` samples the fleet it started, stamps it, and locks it on a yes.
 
-Owner, 2026-10-14: setup runs READ -> PLAN -> STAGE -> START -> SAMPLE ->
+Setup runs READ -> PLAN -> STAGE -> START -> SAMPLE ->
 STAMP -> LOCK -> promote -> use. Once the containers are up, the staged setup
 is laid out as the user's own fleet and sampled through the door
 (``read --fleet own`` of the rig, ``--probe U --load WxN`` of every awake

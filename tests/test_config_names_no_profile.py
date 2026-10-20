@@ -3,8 +3,8 @@ the default is live.
 
 The default is prod — the live fleet folder is the unnamed fallback, another
 setup is only ever reached through ``$MCGYVR_CONFIG`` or ``--config``, and
-forgetting the variable lands on prod. There is one kind of run (owner,
-2026-10-15: the dev side is the lab's); what a run under another setup may
+forgetting the variable lands on prod. There is one kind of run (the
+dev side is the lab's); what a run under another setup may
 serve is pinned in ``tests/test_a_staged_setup_may_serve_any_launch_spec.py``, not
 here.
 

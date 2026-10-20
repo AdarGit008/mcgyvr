@@ -4,7 +4,7 @@ A test runner writes as it runs: ``__pycache__``, ``.pytest_cache``, a uv cache
 with its own ``.git``. In a repository with no ``.gitignore`` for them, the
 preflight compared the tree before and after and refused the contract with
 ``acceptance-mutates-tree`` — naming no path (e2e run 1, F4; F13 was the same
-mechanism). The owner's ruling: the preflight cleans up what the baseline run
+mechanism). Now the preflight cleans up what the baseline run
 left behind, so the model always starts on a clean copy, and does not refuse
 for it. It says what it removed.
 

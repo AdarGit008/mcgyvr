@@ -1,6 +1,6 @@
 """A read probes a unit of a named setup fleet, without its lock.
 
-Owner, 2026-09-28: a unit newly declared in the dev setup (``fleet.yaml``) has
+A unit newly declared in the dev setup (``fleet.yaml``) has
 no measured card peak until a read loads it, and ``read --probe`` only
 reached units of the fleet ``~/.mcgyvr/live.json`` names. Making a fleet live
 takes a lock, and a lock takes the whole setup's dev evidence. So

@@ -1,7 +1,7 @@
 """A live unit is judged only by a solo probe run with its lock's own method.
 
-Owner ruling F2: every dispatch row keeps its decode, prefill and in-flight
-figures as data, and only a probe judges. The lock is measured at a short
+Every dispatch row keeps its decode, prefill and in-flight figures as data,
+and only a probe judges. The lock is measured at a short
 prompt and 256 tokens out, so a dispatch is not the lock's quantity.
 
 * **The probe repeats the lock's measurement.** A vLLM unit gets the lock's
@@ -9,7 +9,7 @@ prompt and 256 tokens out, so a dispatch is not the lock's quantity.
   (``completion_tokens`` over wall seconds) and three 16-token prefills of the
   long prompt (``prompt_tokens`` over wall seconds). A llama.cpp unit gets the
   lock's llama.cpp harness: ``/completion`` with ``timings``. Both take the
-  median, as the lock did (the lab's fleet reports for box1 and box2).
+  median, as the lock did.
 * **It probes only an idle unit.** It reads the unit's own count first and
   again after; a unit busy before is not probed, and one busy after is filed
   as contended and not judged.

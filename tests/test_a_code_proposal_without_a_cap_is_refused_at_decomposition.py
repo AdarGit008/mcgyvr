@@ -1,6 +1,6 @@
 """A proposal that would be a `code` contract with no cap is refused where it is made.
 
-Owner decision (2026-10-14, e2e run 3 T1): every model-written `code` contract
+Every model-written `code` contract
 states ``limits.max_output_tokens``, and one that does not is refused at
 dispatch. A decomposition that emitted one would hand ``mcgyvr run`` a contract
 certain to be refused, so the decomposer refuses it first, naming the field,

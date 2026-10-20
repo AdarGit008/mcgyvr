@@ -5,7 +5,7 @@ In run 2 an ``import_sort`` run on a target with an uncommitted edit printed
 the edit: exit 1, outcome ``delivery_refused``, and the refusal on stderr only.
 Someone reading stdout saw an acceptance.
 
-The owner's decision: the stdout line states the real outcome —
+Now the stdout line states the real outcome —
 ``<id>: checks passed, but not written: <reason>`` — for every reason delivery
 refuses, on the floor and on the ladder alike. The exit code, the result file
 and the stderr detail stay as they were. A run that is accepted and delivered

@@ -1,6 +1,6 @@
 """Live refuses an mcorch setup whose fleet lacks its units awake.
 
-Owner ruling: the check is per fleet, and the live fleet is the fleet being
+The check is per fleet, and the live fleet is the fleet being
 admitted. ``admit_live`` takes the live policy as ``policy``; when its
 orchestrator is ``type: mcorch``, the fleet's layout must hold the
 orchestrator's unit and the ``jev`` unit, each ``awake``, or the run is

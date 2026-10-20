@@ -1,7 +1,7 @@
 """Sleep evicts the whole card, and it drains it before it does.
 
-**The owner's first ruling, and the one this file is named after: on sleep,
-mcgyvr evicts the ENTIRE GPU.** Not one model, not a share of VRAM. The design
+**The rule this file is named after: on sleep, mcgyvr evicts the ENTIRE
+GPU.** Not one model, not a share of VRAM. The design
 finds that this is not a behaviour to build but one the tree
 has — the card is the compose file, ``emit.emit_all`` writes one compose file
 per set of units that come up together, and the door's ``down`` step tears

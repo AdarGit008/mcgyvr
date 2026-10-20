@@ -1,14 +1,15 @@
 """Dev and live keep separate locks, and a fleet moves one way: dev to live.
 
-Owner, 2026-09-15: "(~/.mcgyvr/ for live), (records/fleet/ for dev) - 2
-separate locks and fleets - data flows one way dev->live"; "stamped for live =
-another fleet setup available for live (no overwrite, not in place of, new
-folder new files)"; "~/.mcgyvr/fleets/<name>/   live can switch between fleets
-runtime", with a pointer file choosing which fleet is live.
+Live (``~/.mcgyvr/``) and dev (``records/fleet/``) keep two separate locks and
+fleets, and data flows one way, dev to live. A fleet stamped for live is
+another fleet set up for live: a new folder of new files, never an overwrite or
+a replacement. Live switches between the fleets under
+``~/.mcgyvr/fleets/<name>/`` at runtime, with a pointer file choosing which
+fleet is live.
 
 * :func:`mcgyvr.fleet.promote.promote` of a fleet's lock writes a new folder
-  ``~/.mcgyvr/fleets/<fleet>@<lock date>/`` (owner, 2026-09-16: "all fleets
-  get tagged with date"; the date is the lock's own, pinned in
+  ``~/.mcgyvr/fleets/<fleet>@<lock date>/`` (every fleet is tagged with a
+  date; the date is the lock's own, pinned in
   ``test_a_promoted_fleet_carries_the_date_of_its_lock_in_its_name``) —
   ``fleet.yaml`` (that fleet's units, rigs and fleet block),
   ``policy.yaml`` (the dev policy, its ladder filtered to those units) and the
@@ -17,7 +18,7 @@ runtime", with a pointer file choosing which fleet is live.
   lock, or a combination record is missing.
 * ``mcgyvr fleet use <name>`` writes ``~/.mcgyvr/live.json``; it refuses a
   name with no folder or whose folder no longer matches its own lock. It
-  switches between any verified fleet (owner, 2026-09-16), and says whether
+  switches between any verified fleet, and says whether
   the move is one the live lock measured — pinned in
   ``test_use_switches_between_verified_fleets_and_says_whether_the_move_is_locked``.
 * The live lock root is the folder ``live.json`` names; with none there is no
@@ -252,7 +253,7 @@ def test_promote_refuses_and_writes_nothing(
 def test_use_names_the_live_fleet_among_promoted_folders(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
-    """Owner, 2026-09-16: a switch outside ``next`` is no longer refused.
+    """A switch outside ``next`` is no longer refused.
 
     That a promoted fleet outside the live lock's ``next`` may be named live
     is pinned in

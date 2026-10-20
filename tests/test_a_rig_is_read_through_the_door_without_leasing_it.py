@@ -1,6 +1,6 @@
 """A rig is read through the door without being leased, and the read is filed.
 
-Owner ruling D2: ``python -m mcgyvr.serving.run read --host H [--probe
+``python -m mcgyvr.serving.run read --host H [--probe
 UNIT...]`` is a fixed sequence of the door's own, beside ``serve``, which
 cannot read a serving rig: gate 2 takes the rig's lease, a rig another
 live run holds is refused, and a busy rig is refused unless the run is ``serve
@@ -178,7 +178,7 @@ def test_a_unit_that_says_it_is_asleep_reads_asleep(box2: tuple[Path, Path]) -> 
 def test_a_vllm_unit_whose_sleep_could_not_be_read_is_filed_unread(
     box2: tuple[Path, Path],
 ) -> None:
-    """Owner ruling on FLT-02: ``unknown`` is a read that failed, not "awake".
+    """``unknown`` is a read that failed, not "awake".
 
     ``none`` (the unit answered 404: no sleep route) is awake. Anything else
     the reader could not read is filed as ``unread`` and listed as not read, so
@@ -323,7 +323,7 @@ def test_the_units_reader_prints_containers_card_holders_and_sleep(
 def test_the_units_reader_tells_no_sleep_route_from_a_failed_read(
     tmp_path: Path, body: str, code: str, exit_code: int, printed: str
 ) -> None:
-    """Owner ruling on FLT-02: a 404 is ``none``; every other failure ``unknown``.
+    """A 404 is ``none``; every other failure ``unknown``.
 
     The stub ``curl`` answers the way curl does: the body, then — when asked
     with ``-w`` — the status code, and on a transport failure nothing at all.
@@ -376,7 +376,7 @@ def test_the_harness_shipped_to_the_rig_asks_the_locks_requests_at_127_0_0_1() -
         server.shutdown()
     assert done.returncode == 0, done.stderr
     out = json.loads(done.stdout)
-    # Every sample beside its median (owner ruling N7): the medians are judged,
+    # Every sample beside its median: the medians are judged,
     # the samples are kept.
     assert set(out["figures"]) == {
         "warm_decode_tok_s",

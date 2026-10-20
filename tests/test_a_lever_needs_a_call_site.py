@@ -238,7 +238,7 @@ def test_the_ladder_is_found_the_way_every_other_command_finds_it(
     assert code == 0
     # No `--commit`, so the accepted file is left in the working tree and the
     # repository is otherwise untouched — the same bargain the deterministic
-    # path makes (owner's ruling: output files, no commit).
+    # path makes (output files, no commit).
     assert (repo / TARGET).read_text(encoding="utf-8").startswith("RETRY = 3\n")
     log = subprocess.run(
         ["git", "-C", str(repo), "log", "--format=%s"],
@@ -541,8 +541,8 @@ cleanup:
   enabled: true
 """
 )
-#: The knob turned off by hand. A config that says nothing tidies (owner's
-#: ruling), so "not tidied" is something an install asks for.
+#: The knob turned off by hand. A config that says nothing tidies, so
+#: "not tidied" is something an install asks for.
 NOT_TIDYING = (
     LADDER
     + """
@@ -696,7 +696,7 @@ def test_an_install_that_turned_the_cleanup_off_is_not_tidied(
 
     ``tidy`` rewrites a change after the gate has spoken about it, which is a
     rewrite of somebody's file on a verdict they cannot see. That is the
-    default (owner: the formatter after a rung is the point), so the install
+    default (the formatter after a rung is the point), so the install
     that does not want it says so — and having said so, gets the
     rejection the gate reached and no fourth party touching the bytes.
 

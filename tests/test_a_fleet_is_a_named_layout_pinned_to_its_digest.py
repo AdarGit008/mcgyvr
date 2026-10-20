@@ -1,8 +1,8 @@
 """A fleet is a named layout of room slots, pinned to the sha256 of that layout.
 
 * A **combination** is one rig's **room slots**, in order. Each slot holds a
-  unit, ``awake`` or ``asleep``, or is free (owner: "list position is a room
-  slot"). An asleep unit keeps its room; a unit whose room is freed leaves its
+  unit, ``awake`` or ``asleep``, or is free: a list position is a room
+  slot. An asleep unit keeps its room; a unit whose room is freed leaves its
   slot free. Keeping the room and freeing it are two combinations and so two
   fleets ("save room vs don't save = 2 different rig setups = 2 different
   fleets"). Level-1 vLLM sleep is refused where a sleep level is spelled

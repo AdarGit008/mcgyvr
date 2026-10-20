@@ -1,7 +1,6 @@
 """A unit that drafts with its own head is judged by its own tolerance class.
 
-Owner ruling, 2026-09-16, after the mtp-ornith window: ``box2_ornith_mtp`` —
-a llama.cpp unit whose launch argv carries ``--spec-type draft-mtp`` — gets a
+A llama.cpp unit whose launch argv carries ``--spec-type draft-mtp`` gets a
 class of its own, ``mtp``, and is not judged by ``cpu_experts``' numbers. Those
 were measured on box1 offload (48% warm decode, 1% prefill), not this regime:
 the unit's own three cold starts spread 1.63% in warm decode and 4.29% in
@@ -12,13 +11,13 @@ sample the lock itself accepted.
   argv (or ``flags``) carries ``--spec-type draft-mtp`` in ``mtp``, whether or
   not experts are on the CPU beside it; any other ``--spec-type`` value, and a
   vLLM unit whatever its argv says, are judged as before.
-* Every other unit keeps the class it had: the ruling adds a class, it moves
+* Every other unit keeps the class it had: ``mtp`` adds a class, it moves
   nobody. Checked on invented units, and on each unit the committed fleet
   declares against its class with the mtp request taken out, so the check
   holds whichever units the fleet carries.
-* The lab's derived numbers state ``mtp`` in both judged fields: prefill at
-  the 5% tolerance derived from the mtp-ornith window, warm decode at the same
-  rule over the same three runs' decode samples, which is 2%. An absent
+* The derived numbers state ``mtp`` in both judged fields: prefill at the 5%
+  tolerance derived from those three cold starts, warm decode at the same rule
+  over their decode samples, which is 2%. An absent
   ``mtp`` is refused by name, as any class is.
 """
 
@@ -40,7 +39,7 @@ from mcgyvr.fleet.tolerance import (
 SPEC = ["--spec-type", "draft-mtp", "--spec-draft-n-max", "2"]
 BASE = ["--model", "/models/moe/x.gguf", "--parallel", "1", "-c", "4096", "-ngl", "99"]
 
-#: Units that do not ask for mtp, each with the class it had before the ruling.
+#: Units that do not ask for mtp, each with the class it had before mtp.
 #: Invented, so the check does not move when a unit joins or leaves the fleet.
 BEFORE: dict[str, tuple[dict[str, Any], str]] = {
     "a_vllm_unit": ({"engine": "vllm", "launch": {"argv": ["Qwen/x"]}}, CLASS_VLLM),

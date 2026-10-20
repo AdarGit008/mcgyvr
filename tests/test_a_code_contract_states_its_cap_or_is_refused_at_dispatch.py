@@ -1,6 +1,6 @@
 """A model-written `code` contract states its output cap, or it is never sent.
 
-Owner decision (2026-10-14, e2e run 3 T1): `code` is the work mcgyvr's harness
+`code` is the work mcgyvr's harness
 runs, and a reply in a harness is bounded by a number somebody wrote. Every
 unit carries one from setup, and every `code` contract states one:
 ``limits.max_output_tokens``, what the work is worth.

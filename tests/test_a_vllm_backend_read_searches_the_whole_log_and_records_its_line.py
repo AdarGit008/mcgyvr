@@ -1,6 +1,6 @@
 """A vLLM unit's attention backend is read from its whole log, and the line is kept.
 
-Owner ruling: "fix the reader and record the line". ``rig-id-relock``'s
+The reader is fixed, and records the line it matched. ``rig-id-relock``'s
 box2-03 — a ``read`` of the b-small pair on box2 — stops with ``STOP box2-03:
 box2_3b reported no attention_backend`` when both vLLM units file
 ``attention_backend: null``.
@@ -11,7 +11,7 @@ for a token in that line alone reads a log that names the backend elsewhere as
 searches the WHOLE log for the same tokens, and so does ``rig-units.sh``.
 
 * The backend is the token the whole log carries, over the same token list.
-  Owner ruling B4 holds: a backend is never guessed, so a log naming no token
+  A backend is still never guessed, so a log naming no token
   anywhere stays ``none``.
 * The reader also reports what it saw: ``backend_line=PORT,BASE64`` carries the
   first line it matched, truncated, so a ``none`` names the real wording instead
@@ -136,7 +136,7 @@ def test_the_backend_is_the_token_the_whole_log_carries_not_the_first_lines(
 def test_a_log_that_names_no_token_anywhere_is_none_and_still_names_its_line(
     tmp_path: Path,
 ) -> None:
-    """Owner ruling B4: a backend is never guessed."""
+    """A backend is never guessed."""
     lines = _reader(tmp_path, f"{SELECTING}\n")
     assert "backend=8001,none" in lines, lines
     assert _recorded(lines) == SELECTING

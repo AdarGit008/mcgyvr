@@ -165,8 +165,8 @@ def test_two_repositories_are_inside_delivery_at_the_same_moment(
     """The exclusion is per repository, which is the whole of what B3 needs.
 
     The D22 statement this must not regress: delivery holds no process-global
-    state, so two orchestrators pointed at two repositories are a supported case
-    (§9), and a module-level lock would pass B3 while destroying it.
+    state, so two orchestrators pointed at two repositories are a supported case,
+    and a module-level lock would pass B3 while destroying it.
 
     **The version of this test that shipped with the B3 fix could not tell.** It
     started two deliveries into two repositories and asserted both committed —

@@ -12,7 +12,7 @@ findings, one ``✗`` line each — the glyph the deterministic path uses.
 And every run writes one result file, ``<journal.dir>/results/<contract>-<utc
 stamp>.json`` (``--result PATH`` overrides), and prints ``result: <path>`` so
 the caller reads the file rather than the scrollback. A file, not a JSON dump
-on stdout, by the owner's ruling: an agent's context is the scarce thing, and
+on stdout, because an agent's context is the scarce thing, and
 a result it can ``grep`` costs nothing until it is opened.
 
 The result names the contract, its type and target, the outcome word, the rung

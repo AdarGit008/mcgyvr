@@ -294,12 +294,11 @@ def test_telemetry_does_not_write_a_credential_into_its_own_sink(
     assert "api.example.invalid" in str(record["error_detail"])  # still diagnostic
 
 
-# --- E4 · §9's no-global-mutable-state --------------------------------------
+# --- E4 · no global mutable state -------------------------------------------
 
 
 def test_no_module_holds_shipped_data_in_an_assignable_global() -> None:
-    """§9: "must not bake in single-orchestrator assumptions — no global
-    mutable state".
+    """No single-orchestrator assumptions: no global mutable state.
 
     Read as a source property rather than as a behaviour, because the hazard is
     a name existing at all: a module variable holding the catalog or the

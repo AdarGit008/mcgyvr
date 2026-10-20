@@ -1,7 +1,7 @@
 """The two keys sleep/wake is asked for by, and where a wake's limit comes from.
 
-Three decisions are pinned, and all three are the owner's rather than this
-file's:
+Three decisions are pinned, and all three are made elsewhere, not in this
+file:
 
 * **The switch is a config key and not a flag**.
   ``mcgyvr run --config``
@@ -75,7 +75,7 @@ def test_a_config_that_asks_for_sleep_and_wake_is_not_refused_as_an_unknown_key(
     The block is ``serving.`` and not ``ladder.`` because ``ladder.fanout``
     decides where work goes among rungs *that exist*, and this decides whether
     rungs come into existence — two authorities, and only one of them touches a
-    rig (§7.1).
+    rig.
     """
     from mcgyvr.config import parse
 

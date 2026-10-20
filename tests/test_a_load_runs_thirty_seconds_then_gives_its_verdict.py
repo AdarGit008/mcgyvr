@@ -1,7 +1,6 @@
 """A load runs at most thirty seconds, then gives its verdict.
 
-The thirty seconds are owner ruling NB5, and hold for every load, 8x4096
-included.
+The thirty seconds hold for every load, 8x4096 included.
 
 * **Each request asks to fill the whole window**: its prompt fills N - 64
   tokens and it generates the rest.
@@ -24,7 +23,7 @@ included.
 * **The row** keeps every field, plus ``limit_s``, ``pace_prompt_tok_s``,
   ``pace_source``, ``completed``, ``closed_unfinished`` and ``idle_after``.
 
-Owner ruling NBc: after the close, the load keeps reading the unit's own
+After the close, the load keeps reading the unit's own
 status page until it reads idle, with no time limit on that wait. It files
 ``idle_after_close``, whether the first reading right after the close was
 already idle (true when nothing was left to close), and ``idle_after_s``, the

@@ -1,6 +1,6 @@
 """A live run is admitted only by a read of its rigs, taken through the door.
 
-Owner ruling F2: ``admit_live`` has production callers, and what it is handed as
+``admit_live`` has production callers, and what it is handed as
 ``observed`` is the door's ``read`` of each rig (``python -m mcgyvr.serving.run
 read``), never a guess.
 
@@ -12,7 +12,7 @@ read``), never a guess.
   nothing to the fleet and is not admitted.
 * **A non-empty plan refuses** and prints what would be cleaned or restored and
   the door commands that would do it. It runs none of them: carrying a plan out
-  is the owner's decision still to make.
+  is the user's decision still to make.
 * **A dev run reads no rig.**
 * **A live ``serve sleep`` is always admitted**, and reads no rig: stopping
   starts nothing unapproved. A live ``serve wake`` is admitted like a run.

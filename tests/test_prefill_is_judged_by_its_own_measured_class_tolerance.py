@@ -1,12 +1,12 @@
 """A live prefill is judged by its own measured class tolerance, not decode's.
 
-The owner's ruling (the lab's fleet-identity plan, §12): "Prefill tolerance —
-ruled 8%". A probe's prefill is judged by the prefill class percent, never the
+vLLM's prefill tolerance is 8%. A probe's prefill is judged by the prefill
+class percent, never the
 warm decode class percent (``engine.warm_decode_class_pct``): an on-rig ``read
 --probe box2_3b`` prefill a few percent under its lock is inside vLLM's prefill
 class and outside vLLM decode's 1%.
 
-The prefill classes are the lab's fleet-identity-prefill measurement, stated as
+The prefill classes come from measured shortfalls, stated as
 ``engine.prefill_class_pct``:
 
 * **vLLM 8%**: the 3B's 7.86% worst single-sample shortfall, rounded up, after

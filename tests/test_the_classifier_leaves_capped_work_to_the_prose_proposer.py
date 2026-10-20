@@ -1,11 +1,11 @@
 """The classifier proposer leaves work that must state a cap to the prose proposer.
 
-A model-written ``code`` contract states ``limits.max_output_tokens`` (owner,
-2026-10-14, e2e run 3 T1), and a proposal without one is refused at
+A model-written ``code`` contract states ``limits.max_output_tokens``, and a
+proposal without one is refused at
 decomposition. The classifier decides relevance by single-token choices and has
 no question that could state a cap, so with ``authoring: classifier`` every
 ``code`` proposal it made was refused, and the prose proposer behind it — which
-does state one — was never asked. Owner decision (2026-10-14): when the model
+does state one — was never asked. Now, when the model
 chooses ``code``, the classifier returns nothing, and the prose proposer writes
 it. ``code`` stays on offer, so a request for code is still recognised as one
 rather than pushed onto a type that does not fit it.

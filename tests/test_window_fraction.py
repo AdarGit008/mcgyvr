@@ -204,7 +204,7 @@ def test_a_contract_that_cannot_fit_is_named_as_that_and_not_as_a_share() -> Non
 
 
 def test_the_stricter_of_the_contracts_share_and_the_runs_applies() -> None:
-    """Owner ruling (#621 follow-up): the run's share is a hard ceiling.
+    """The run's share is a hard ceiling (#621 follow-up).
 
     A contract may hold itself to less of a window than the run allows, and
     it is held to that; it may not grant itself more. 2400 characters and a

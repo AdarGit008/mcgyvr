@@ -1,8 +1,8 @@
 """A green sample writes evidence the fleet lock accepts.
 
-Owner, Round 4 (2026-10-07): the owner's confirm is approval to run the
-SAMPLE -- start the servers and run the sample check task. A green sample is
-the fleet STAMPED. Plan section 8.2: the sample's results are written as the
+The user's confirm is approval to run the SAMPLE -- start the servers and run
+the sample check task. A green sample is the fleet STAMPED. The sample's
+results are written as the
 dev-run evidence JSON the lock is written from; the stamp holds it, and the
 chain every live fleet takes runs from there -- ``lock.write_from_stamp`` ->
 ``promote.promote`` -> ``fleet use``

@@ -69,7 +69,7 @@ def test_defaults_that_ship_are_real_working_values() -> None:
     config = parse(LOCAL_ONLY)
     assert config.data["sandbox"]["mode"] == "docker"
     # Off: a run leaves an accepted change in the working tree unless the
-    # policy or `--commit` says to commit it (owner's ruling, e2e run 2 R4).
+    # policy or `--commit` says to commit it.
     assert config.data["delivery"]["commit"] is False
     assert config.get("task_timeout_s") > 0
     # Review is on unless the config switches it off, and on with no unit named

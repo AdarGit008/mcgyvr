@@ -3,7 +3,7 @@
 A digest of ``dumps(contract)`` names a contract by what it says. A contract
 that declares ``max_output_tokens`` carries that number as identity; one that
 does not carries ``null``, and nothing is derived for it on load — no number
-from ``data/task-catalog.json`` can re-key it. Owner decision (2026-10-14): a
+from ``data/task-catalog.json`` can re-key it. A
 model-written ``code`` contract that states no cap is refused at dispatch
 rather than sized
 (``tests/test_a_code_contract_states_its_cap_or_is_refused_at_dispatch.py``),

@@ -1,6 +1,6 @@
 """The rig is leased, and no run takes it from a live run that holds it.
 
-Owner's ruling, 2026-10-15: "no one can take from no one". A run that finds the
+A run that finds the
 rig's lease held by a run that is still live — whichever door wrote it, the
 product's or the lab's — is refused before it touches the rig, naming the
 holder; it does not take the lease, and nothing of the holder's is torn down.

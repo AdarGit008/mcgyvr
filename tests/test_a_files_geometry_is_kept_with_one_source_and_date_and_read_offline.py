@@ -2,8 +2,8 @@
 
 Orchestrator call on P4 (#611): "cache the GGUF header
 geometry row as its own cache file per repo@revision/file, one source+date for
-the whole row (so MoE can be sized offline by serving.fit)". Plan section 2:
-the plan is sized by the product's serving sizer, which reads one
+the whole row (so MoE can be sized offline by serving.fit)". The
+plan is sized by the product's serving sizer, which reads one
 ``ggufscan`` row; a record's sizes alone cannot place an MoE.
 
 Promises:

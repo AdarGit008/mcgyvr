@@ -1,6 +1,6 @@
 """``mcgyvr setup`` stages in the data folder and writes nothing where it runs.
 
-Owner, 2026-10-14: no dev copy. A setup run stages its ``fleet.yaml`` and
+No dev copy. A setup run stages its ``fleet.yaml`` and
 ``policy.yaml`` in ``<data folder>/setup/<run id>/``
 (:func:`mcgyvr.fleet.roots.staging_dir`), and emits, starts and samples from
 there; the working directory is never written. Only a ``PATH`` argument (or

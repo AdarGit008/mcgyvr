@@ -4,7 +4,7 @@
 each of them fitting alone is exactly how a card is handed a compose file asking
 for more than it has. Host RAM is the same: weighing each unit alone against the
 same ``MemAvailable`` would pass both and emit a file asking the host for twice
-what it has. The owner's ruling: **RAM summed per host, VRAM per card**, the sum
+what it has. So: **RAM summed per host, VRAM per card**, the sum
 taken after the loading modes are picked, with one host headroom applied once,
 against the recorded scan and never a live read.
 

@@ -1,6 +1,6 @@
 """An offline Hub read falls back to the cache, then the catalog, and says which.
 
-Owner, 2026-10-19: the Hub is asked live at setup time; a cache under the
+The Hub is asked live at setup time; a cache under the
 user's data dir answers when it cannot be, and when nothing is cached the
 shipped catalog answers. Setup says which of the three answered.
 

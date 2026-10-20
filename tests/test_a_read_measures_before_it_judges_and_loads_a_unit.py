@@ -1,23 +1,23 @@
 """A read measures and files everything before it judges, and can load a unit.
 
-Owner rulings on ``python -m mcgyvr.serving.run read``:
+What ``python -m mcgyvr.serving.run read`` does:
 
-* **B2, "probe first, judge after".** :func:`mcgyvr.fleet.read.record`
+* **Probe first, judge after.** :func:`mcgyvr.fleet.read.record`
   measures first (the probes, then the loads), files every row (units, probes,
   loads), and judges after, so a unit one MiB over its room is still measured
   whole. An alert warns and stops nothing.
-* **B1, "add a load mode to read".** ``read --host H --probe UNIT --load WxN``
+* **A load mode.** ``read --host H --probe UNIT --load WxN``
   runs W concurrent requests on the rig at 127.0.0.1, each filling the unit's
   N-token window (its prompt plus ``max_tokens``). While they run it samples the
   unit's container card MiB with the same pid -> container poll the read uses,
   and files one load row: the unit, the spec, ``peak_mib``, the samples, the
   container, when it started and finished, and the restart counts before and
-  after. The peak is judged like the card: at most ``room_mib``. Owner ruling
-  B3: ``room_mib`` is the process's measured card peak, context included. An
+  after. The peak is judged like the card: at most ``room_mib``.
+  ``room_mib`` is the process's measured card peak, context included. An
   idle unit only, no lease, and the harness imports only the standard library.
-* **B4, "read saves both".** For each vLLM unit, the attention backend its
+* **Read saves both.** For each vLLM unit, the attention backend its
   container's log names is filed in that unit's row as ``attention_backend``,
-  or null when the log names none; nothing is guessed. Owner ruling: the whole
+  or null when the log names none; nothing is guessed. The whole
   log is searched for the token, as the lock's ``measure_vllm.py`` does, and the
   line the reader matched is filed beside it
   (``tests/test_a_vllm_backend_read_searches_the_whole_log_and_records_its_line.py``).
@@ -155,7 +155,7 @@ def test_a_unit_with_work_in_flight_is_neither_probed_nor_loaded(
 def test_a_load_that_did_not_complete_every_request_is_still_judged(
     tmp_path: Path,
 ) -> None:
-    """Owner ruling NB5: a load that reached its limit with requests unfinished is
+    """A load that reached its limit with requests unfinished is
     judged on its peak. Only an error other than that close, or no sample of the
     container, leaves a load unjudged
     (``tests/test_a_load_runs_thirty_seconds_then_gives_its_verdict.py``)."""

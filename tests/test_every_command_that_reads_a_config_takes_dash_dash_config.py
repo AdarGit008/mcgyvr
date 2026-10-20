@@ -4,7 +4,7 @@
 ~/setup`` and ``mcgyvr config --config ~/setup`` failed with ``unrecognized
 arguments: --config``: those two took the setup as a positional, ``catalog`` as
 ``--against``, and ``sandbox``, ``fleet alerts`` and the ``rig`` agent read it
-with no way to name it at all. The owner's decision: every command that reads
+with no way to name it at all. Now every command that reads
 the setup accepts ``--config`` with the meaning and precedence ``run`` gives it
 — the setup directory (or one merged file), winning over ``$MCGYVR_CONFIG``,
 the working directory and the live fleet.
