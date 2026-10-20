@@ -31,6 +31,10 @@ def _imports(source: bytes) -> list[tuple[str, int, str]]:
     return sorted((s.name, s.line, s.detail) for s in _of(SymbolKind.IMPORT, source))
 
 
+def _fields(source: bytes) -> set[tuple[str, int, str]]:
+    return {(s.name, s.line, s.signature) for s in _of(SymbolKind.FIELD, source)}
+
+
 def _references(source: bytes) -> set[tuple[str, int]]:
     return {(s.name, s.line) for s in _of(SymbolKind.REFERENCE, source)}
 
@@ -362,16 +366,22 @@ def test_generic_types_and_a_generic_receiver_method_are_definitions() -> None:
     }
 
 
-def test_capitalised_types_fields_and_methods_are_exported() -> None:
-    assert _exports(TYPES) == {
-        ("Entry", 4),
-        ("Key", 5),
-        ("Value", 6),
-        ("Tuple2", 10),
-        ("A", 11),
-        ("B", 12),
-        ("Unpack", 17),
+def test_capitalised_types_and_methods_are_exported() -> None:
+    assert _exports(TYPES) == {("Entry", 4), ("Tuple2", 10), ("Unpack", 17)}
+
+
+def test_a_capitalised_struct_field_is_a_field_and_not_an_export() -> None:
+    """As Python's class attributes and JavaScript's class fields are."""
+    assert _fields(TYPES) == {
+        ("Key", 5, "Key   K"),
+        ("Value", 6, "Value V"),
+        ("A", 11, "A A"),
+        ("B", 12, "B B"),
     }
+    assert ("Hide", 16, 'Hide []string `yaml:"hide" mapstructure:"hide"`') in (
+        _fields(UI_DIFF)
+    )
+    assert "Hide" not in {name for name, _ in _exports(UI_DIFF)}
 
 
 def test_a_generic_function_with_a_lowercase_name_is_defined_but_not_exported() -> None:
@@ -496,3 +506,18 @@ def test_a_v1_element_is_the_package_name_not_a_major_version() -> None:
         5,
         "github.com/wagoodman/dive/cmd/dive/cli/internal/ui/v1",
     ) in _imports(UI_DIFF)
+
+
+def test_lowercase_struct_fields_are_fields_and_an_embedded_one_is_not() -> None:
+    fields = {(name, line) for name, line, _ in _fields(WRITER)}
+    assert fields == {
+        ("buffer", 30),
+        ("outWriter", 31),
+        ("lock", 32),
+        ("mode", 33),
+        ("streamIndent", 35),
+        ("indentNext", 36),
+        ("teeWriters", 38),
+    }
+    # `io.Writer` embedded in WriterInterface (line 21) names no field.
+    assert 21 not in {line for _, line in fields}

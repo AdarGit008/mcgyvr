@@ -5,21 +5,25 @@
   traits, type aliases, ``macro_rules!`` macros and modules (``mod m;`` as well as
   inline ``mod m { ... }``). An ``impl`` block has no name of its own and is not a
   definition; its methods are.
-- EXPORT: an item, field, ``const`` or ``static`` whose visibility is exactly
+- EXPORT: an item, ``const`` or ``static`` whose visibility is exactly
   ``pub`` and is reachable from outside the file's module: every module, struct,
   enum, union or trait around it in the file is exactly ``pub`` too, and it is not
   inside a function body. ``pub(crate)``, ``pub(super)``, ``pub(self)`` and
   ``pub(in path)`` are not exports, on the item or around it. An ``impl`` block has
   no visibility of its own: its ``pub`` methods are exported when the modules
   around the block are, whether or not its self type is ``pub`` (that type may be
-  declared in another file). ``const`` and ``static`` items, and fields, are
-  EXPORT-only, as module-level assignments are in Python. A ``pub use`` exports
+  declared in another file). ``const`` and ``static`` items are EXPORT-only, as
+  module-level assignments are in Python. A ``pub use`` exports
   each name it re-exports, under its alias when it has one, by the same rule; a
   glob re-export (``pub use m::*``) names nothing and exports nothing, and a
   restricted ``pub(...) use`` exports nothing. A ``#[macro_export]`` macro is
   exported wherever it is defined, since that attribute places it at the crate
   root; any other ``macro_rules!`` is not. Enum variants and trait members carry no
   visibility and are never exported.
+- FIELD: each named field of a struct or union, whatever its visibility and never
+  also an EXPORT, as Python's class attributes and JavaScript's class fields are
+  FIELD only. Tuple-struct fields have no name and enum-variant fields belong to
+  the variant, so neither is recorded.
 - IMPORT: one per name a ``use`` declaration brings in (its own name, not the
   alias, as Python's ``from m import a as b`` records ``a``), ``"*"`` for a glob, the
   bound module for ``self`` in a list; the detail is the ``::`` path it comes from.
@@ -51,6 +55,7 @@ from mcgyvr.orchestrator.languages.engine import (
     TreeSitterLanguage,
     definition,
     export,
+    field,
     field_text,
     header,
     line,
@@ -146,8 +151,22 @@ def _in_impl_or_trait(node: Node) -> bool:
     )
 
 
+def _field(path: str, node: Node) -> list[Symbol]:
+    """A FIELD for a named field of a struct or union, whatever its visibility.
+
+    A tuple struct's positional fields have no name, and the fields of an enum
+    variant belong to the variant, so neither is recorded.
+    """
+    name = field_text(node, "name")
+    fields = node.parent
+    owner = fields.parent if fields is not None else None
+    if name is None or owner is None or owner.type not in ("struct_item", "union_item"):
+        return []
+    return [field(path, node, name, header(node))]
+
+
 def _value_item(path: str, node: Node) -> list[Symbol]:
-    """EXPORT a ``pub`` const, static or field; never a DEFINITION."""
+    """EXPORT a ``pub`` const or static; never a DEFINITION."""
     name = field_text(node, "name")
     if name is None or not _exported(node):
         return []
@@ -288,7 +307,7 @@ LANGUAGE = TreeSitterLanguage(
         **dict.fromkeys(_DEFINITION_TYPES, _definition),
         "const_item": _value_item,
         "static_item": _value_item,
-        "field_declaration": _value_item,
+        "field_declaration": _field,
         "use_declaration": _use,
         "extern_crate_declaration": _extern_crate,
         "call_expression": _call,

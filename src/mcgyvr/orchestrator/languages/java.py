@@ -10,8 +10,13 @@
   a member of an interface or annotation type that is not ``private``, and an enum
   constant — and whose every enclosing type is exported in turn. A package-private
   member, a ``private`` interface method, and a member of a local or anonymous
-  class are not. Fields, interface constants and enum constants are EXPORT-only, as
-  module-level assignments are in Python.
+  class are not. Enum constants are EXPORT-only, as module-level assignments are in
+  Python.
+- FIELD: each declarator of a field or an interface or annotation constant, at the
+  line of its name, whatever its visibility and never also an EXPORT, as Python's
+  class attributes and JavaScript's class fields are FIELD only. A record's
+  components are parameters of its header and are not recorded, as JavaScript's
+  constructor parameter properties are not.
 - IMPORT: one per import declaration, named by its last segment (``"*"`` for a
   wildcard), with the qualifier as the detail (the whole name for a wildcard),
   ``static`` imports alike; the signature is the statement.
@@ -31,6 +36,7 @@ from mcgyvr.orchestrator.languages.engine import (
     TreeSitterLanguage,
     definition,
     export,
+    field,
     has_child,
     header,
     line,
@@ -118,15 +124,15 @@ def _definition(path: str, node: Node) -> list[Symbol]:
 
 
 def _fields(path: str, node: Node) -> list[Symbol]:
-    """EXPORT each declarator of an exported field or interface constant."""
-    if not _exported(node):
-        return []
+    """A FIELD per declarator of a field or interface constant, whatever its
+    visibility, at the line of its name."""
+    signature = header(node)
     symbols: list[Symbol] = []
     for declarator in node.children_by_field_name("declarator"):
         name_node = declarator.child_by_field_name("name")
         name = node_text(name_node)
         if name_node is not None and name is not None:
-            symbols.append(export(path, name_node, name))
+            symbols.append(field(path, name_node, name, signature))
     return symbols
 
 

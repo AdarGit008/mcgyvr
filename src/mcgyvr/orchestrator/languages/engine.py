@@ -93,6 +93,12 @@ def definition(path: str, node: Node, name: str, detail: str, signature: str) ->
     return Symbol(name, SymbolKind.DEFINITION, path, line(node), detail, signature)
 
 
+def field(path: str, node: Node, name: str, signature: str) -> Symbol:
+    """A FIELD named ``name`` at the line ``node`` starts on: a field a type
+    declares, whatever its visibility. It is never also an EXPORT."""
+    return Symbol(name, SymbolKind.FIELD, path, line(node), "field", signature)
+
+
 def export(path: str, node: Node, name: str) -> Symbol:
     """An EXPORT of ``name`` at the line ``node`` starts on."""
     return Symbol(name, SymbolKind.EXPORT, path, line(node))

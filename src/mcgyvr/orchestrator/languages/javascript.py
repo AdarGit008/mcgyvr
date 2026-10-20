@@ -30,6 +30,7 @@ from tree_sitter_typescript import language_typescript as _ts_language
 from mcgyvr.orchestrator.languages.engine import (
     TreeSitterLanguage,
     definition,
+    field,
     field_text,
     has_child,
     header,
@@ -99,7 +100,7 @@ def _field(path: str, node: Node) -> list[Symbol]:
     name = _declared_name(node)
     if name is None:
         return []
-    return [Symbol(name, SymbolKind.FIELD, path, line(node), "field", header(node))]
+    return [field(path, node, name, header(node))]
 
 
 def _pair(path: str, node: Node) -> list[Symbol]:

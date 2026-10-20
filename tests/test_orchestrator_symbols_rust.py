@@ -33,6 +33,10 @@ def _imports(source: bytes) -> set[tuple[str, int, str]]:
     return {(s.name, s.line, s.detail) for s in _of(SymbolKind.IMPORT, source)}
 
 
+def _fields(source: bytes) -> set[tuple[str, int, str]]:
+    return {(s.name, s.line, s.signature) for s in _of(SymbolKind.FIELD, source)}
+
+
 def _references(source: bytes) -> set[tuple[str, int]]:
     return {(s.name, s.line) for s in _of(SymbolKind.REFERENCE, source)}
 
@@ -607,6 +611,24 @@ macro_rules! feature {
 """
 
 
+# A `pub` struct whose fields are all `pub`.
+# Source: https://github.com/tokio-rs/axum
+#   commit 86aa6153e47b7862737acdcfe3a0eb3a162b939a
+#   axum-extra/src/response/file_stream.rs lines 47-56
+#   MIT License, Copyright (c) 2019-2025 axum Contributors
+FILE_STREAM = rb"""#[must_use]
+#[derive(Debug)]
+pub struct FileStream<S> {
+    /// stream.
+    pub stream: S,
+    /// The file name of the file.
+    pub file_name: Option<String>,
+    /// The size of the file.
+    pub content_size: Option<u64>,
+}
+"""
+
+
 def test_a_rust_file_is_rust() -> None:
     assert language_of("crates/regex/src/ban.rs") == "rust"
 
@@ -845,3 +867,20 @@ def test_a_macro_without_macro_export_is_defined_but_not_exported() -> None:
         ("feature", 17, "macro"),
     }
     assert _exports(TRACING_MACROS) == set()
+
+
+def test_pub_fields_of_a_pub_struct_are_fields_and_not_exports() -> None:
+    assert _fields(FILE_STREAM) == {
+        ("stream", 5, "pub stream: S"),
+        ("file_name", 7, "pub file_name: Option<String>"),
+        ("content_size", 9, "pub content_size: Option<u64>"),
+    }
+    assert _exports(FILE_STREAM) == {("FileStream", 3)}
+
+
+def test_private_and_restricted_struct_fields_are_fields_too() -> None:
+    assert {(n, line) for n, line, _ in _fields(MATCHER_UTIL)} == {
+        ("re", 10),
+        ("names", 11),
+    }
+    assert {(n, line) for n, line, _ in _fields(WRITE_ADAPTOR)} == {("fmt_write", 3)}

@@ -6,9 +6,11 @@
   spec up to its field list or method set.
 - EXPORT: what the Go spec calls exported, an identifier whose first character is an
   upper-case letter (Unicode class Lu) that is declared in the package block or is a
-  field or method name. Package-level ``const`` and ``var`` names, and struct field
-  names, are EXPORT-only, as module-level assignments are in Python: they are never
-  a DEFINITION.
+  method name. Package-level ``const`` and ``var`` names are EXPORT-only, as
+  module-level assignments are in Python: they are never a DEFINITION.
+- FIELD: each named struct field, capitalised or not, and never also an EXPORT, as
+  Python's class attributes and JavaScript's class fields are FIELD only. An
+  embedded field is skipped.
 - IMPORT: one per import spec, named by its alias, ``"*"`` for a dot import, the
   import path for a blank (``_``) import, and otherwise the path's last element with
   a major-version suffix (``/v2`` and up, ``.v3``) dropped. The binding of an unaliased
@@ -33,6 +35,7 @@ from mcgyvr.orchestrator.languages.engine import (
     TreeSitterLanguage,
     definition,
     export,
+    field,
     field_text,
     header,
     line,
@@ -136,11 +139,13 @@ def _value_spec(path: str, node: Node) -> list[Symbol]:
 
 
 def _field(path: str, node: Node) -> list[Symbol]:
-    """EXPORT the capitalised names of a struct field declaration."""
+    """A FIELD per name of a struct field declaration, exported or not; an
+    embedded field names no field of its own and is skipped."""
+    signature = text_before(node, None)
     return [
-        export(path, name, text)
+        field(path, node, text, signature)
         for name in _names(node)
-        if (text := node_text(name)) is not None and _exported(text)
+        if (text := node_text(name)) is not None
     ]
 
 

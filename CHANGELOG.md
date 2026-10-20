@@ -42,17 +42,19 @@ archived outside this repository, under the same paths.
 - The shipped catalog holds Qwen3.5-4B, Qwen3-8B, Qwen3-14B and
   Qwen3-30B-A3B (chat, agent); the three coder models are tagged coding.
 - The index extracts symbols from Go (`.go`), Rust (`.rs`) and Java
-  (`.java`), so `resolve`, read anchors, `decompose` and `delegate` see their
-  definitions and exports instead of paths alone. Each language has its own
-  export rule: Go a capitalised name, Rust exactly `pub` inside modules and
-  types that are exactly `pub` too (and each name a `pub use` or
+  (`.java`), so `resolve`, read anchors, `decompose` and `delegate` see
+  their definitions and exports instead of paths alone. Each language has
+  its own export rule: Go a capitalised name, Rust exactly `pub` inside
+  modules and types that are exactly `pub` too (and each name a `pub use` or
   `pub extern crate` re-exports, and every `#[macro_export]` macro), Java
   `public`, `protected` and the implicitly public members of interfaces,
-  annotation types and enums, inside exported types only. Rust `#[cfg(test)]`
-  modules and `#[test]` functions are skipped. A file with syntax errors
-  yields what parsed. New dependencies: `tree-sitter-go`, `tree-sitter-rust`,
-  `tree-sitter-java` (no musllinux aarch64 wheel for `tree-sitter-java`;
-  there it builds from source) (#747).
+  annotation types and enums, inside exported types only. Go and Rust struct
+  fields and Java fields are `FIELD` symbols, never exports, as Python and
+  JS/TS class fields are. Rust `#[cfg(test)]` modules and `#[test]`
+  functions are skipped. A file with syntax errors yields what parsed. New
+  dependencies: `tree-sitter-go`, `tree-sitter-rust`, `tree-sitter-java` (no
+  musllinux aarch64 wheel for `tree-sitter-java`; there it builds from
+  source) (#747).
 
 ### Changed
 

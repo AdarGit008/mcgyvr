@@ -40,6 +40,10 @@ def _imports(source: bytes) -> set[tuple[str, int, str]]:
     return {(s.name, s.line, s.detail) for s in _of(SymbolKind.IMPORT, source)}
 
 
+def _fields(source: bytes) -> set[tuple[str, int]]:
+    return {(s.name, s.line) for s in _of(SymbolKind.FIELD, source)}
+
+
 def _references(source: bytes) -> set[tuple[str, int]]:
     return {(s.name, s.line) for s in _of(SymbolKind.REFERENCE, source)}
 
@@ -782,8 +786,9 @@ def test_calls_and_instance_creations_are_references() -> None:
     )
 
 
-def test_an_interface_constant_is_exported_and_never_defined() -> None:
-    assert ("DEFAULT_PRIORITY", 18) in _exports(VALUE_RENDERER)
+def test_an_interface_constant_is_a_field_and_never_an_export_or_definition() -> None:
+    assert _fields(VALUE_RENDERER) == {("DEFAULT_PRIORITY", 18)}
+    assert "DEFAULT_PRIORITY" not in {name for name, _ in _exports(VALUE_RENDERER)}
     assert _definitions(VALUE_RENDERER) == {
         ("ValueRenderer", 17, "interface"),
         ("getPluginPriority", 28, "method"),
@@ -868,3 +873,17 @@ def test_package_private_methods_of_a_public_class_are_not_exported() -> None:
         ("areArrayElementsEqual", 32, "method"),
         ("isArray", 41, "method"),
     } <= _definitions(EQUALITY)
+
+
+def test_fields_are_fields_whatever_their_visibility() -> None:
+    """Private and protected alike, at the line of the name, with the declaration
+    as the signature; none is an export."""
+    assert _fields(COMPARE_TO) == {("wanted", 13)}
+    assert _fields(WEAK_IDENTITY_MAP) == {("delegate", 23), ("queue", 24), ("size", 25)}
+    assert _fields(SESSION_STORE) >= {("strictness", 19)}
+    (signature,) = {
+        s.signature for s in _of(SymbolKind.FIELD, COMPARE_TO) if s.name == "wanted"
+    }
+    assert signature == "private final T wanted;"
+    exports = {name for name, _ in _exports(WEAK_IDENTITY_MAP)}
+    assert exports.isdisjoint({"delegate", "queue", "size"})
