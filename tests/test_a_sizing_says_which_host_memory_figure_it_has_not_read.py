@@ -42,8 +42,7 @@ from tests import numbers_fixture as nf
 from tests.sizings import WINDOW, machines, spilling
 
 #: The engines that carry a ``runtime_resident_gb`` figure: the one shipped,
-#: plus the ones read on the machine. A media engine (diffusers) prices its
-#: host memory as the spec's stated ``ram_gb``, so it is not in this set.
+#: plus the ones read on the machine.
 ENGINES = (derived.RUNTIME_RESIDENT_KEY, *derived.RUNTIME_RESIDENT_READ)
 
 #: The invented dense model a unit of each engine serves.

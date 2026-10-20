@@ -58,7 +58,7 @@ from mcgyvr.serving import (
 )
 
 #: Usage profiles the CLI accepts; only PLACEMENT_PROFILES get a placement.
-PROFILES = (*hub.USE_CASES, "media_gen", "other")
+PROFILES = (*hub.USE_CASES, "other")
 #: The profiles that are use cases, each placed from the Hub's candidates for it.
 PLACEMENT_PROFILES = hub.USE_CASES
 #: The one placed as a ladder's rung, with local stores and the decision model.

@@ -35,18 +35,15 @@ each one.
 | --- | --- | --- | --- | --- |
 | `version` | number (min 1) | no | `1` | Schema version this contract is written against. A contract declaring a version this build does not read is rejected rather than interpreted under the wrong rules. (orchestrator-facing) |
 | `id` | text | **yes** | — | Identity: how this contract is referred to in records, telemetry and branch names. Letters, digits, dot, dash and underscore, up to 64 characters. e.g. fetch-helper-retry. (worker-facing) |
-| `task_type` | one of `code`, `chat`, `agent`, `media` | **yes** | — | What kind of work this is, from the declared vocabulary. The type decides what evidence the contract must carry and how its result is judged. (worker-facing) |
+| `task_type` | one of `code`, `chat`, `agent` | **yes** | — | What kind of work this is, from the declared vocabulary. The type decides what evidence the contract must carry and how its result is judged. (worker-facing) |
 | `operation` | one of `format`, `import_sort`, `lint_fix`, `rename_symbol` | no | empty | A deterministic operation a tool performs instead of a model, for `task_type: code`; its own guarantee and evidence apply, and the target may be a glob. (orchestrator-facing) |
 | `task` | text | **yes** | — | What to do, in words, addressed to the worker. Self-contained: a worker sees this and the rest of the worker-facing fields, never the conversation that produced them. (worker-facing) |
 | `target` | text | **yes**, not for `chat`/`agent` | — | Where the result goes. Exactly one literal repo-relative path for any contract a model executes — a model worker's output has one destination, and a pattern would leave it guessing. A glob is legal only for a contract with a deterministic `operation`. A session (`chat`, `agent`) writes nothing and names none. e.g. src/pkg/fetch.py. (worker-facing) |
 | `target_content` | text | no | empty | The current content of `target`, verbatim, when the file already exists. A contract that carries it is self-contained: `parse(dumps(c))` round-trips the bytes a worker is sent. Empty means the target does not exist yet, or the contract did not carry it: the worker is then given the file as the sandbox workspace holds it at dispatch, and a deterministic tool reads the file itself. (worker-facing) |
 | `interface` | text | no | empty | What the result must expose — the signature, the name, the shape a caller depends on. Stated separately from `task` because it is the machine-checkable half of done. (worker-facing) |
 | `deps` | list of blocks | no | — | Dependencies the target needs, as signatures rather than source. (worker-facing) |
-| `stop_conditions` | list of text | no | `[]` | Explicit triggers on which the worker must stop and report BLOCKED instead of guessing — scope creep, an unknown API, an ambiguous directive. Required when a model writes a `whole_file` reply, the one whose refusal is caught and escalated: guessing is the documented small-model failure mode these exist to prevent. A `prose` or `media_artifact` reply is served whatever it says, so none is required there. Start from `<task_type> on <target> would require deciding something the contract does not state — report BLOCKED rather than guess`. (worker-facing) |
-| `output_schema` | one of `whole_file`, `prose`, `media_artifact`, `unified_diff` | no | `whole_file` | The shape the worker must reply in, declared so a runner can hand the model format instructions rather than hoping for a convention. `whole_file` is the single-file output protocol; `prose` is the raw-text answer for chat and agent (their default); `media_artifact` is the media-generation request for media, whose artifact the bound media engine writes to the target. `unified_diff` validates here and is refused before dispatch. (worker-facing) |
-| `media_kind` | one of `image`, `audio`, `video` | no | empty | The media kind of the artifact, for `media_valid`: image, audio or video. (orchestrator-facing) |
-| `transcript` | text | no | empty | The text the audio output must say, for `asr_wer`. (orchestrator-facing) |
-| `wer_threshold` | decimal number (min 0.0, max 1.0) | no | unset | The word-error-rate ceiling for `asr_wer`, a share from 0 to 1. (orchestrator-facing) |
+| `stop_conditions` | list of text | no | `[]` | Explicit triggers on which the worker must stop and report BLOCKED instead of guessing — scope creep, an unknown API, an ambiguous directive. Required when a model writes a `whole_file` reply, the one whose refusal is caught and escalated: guessing is the documented small-model failure mode these exist to prevent. A `prose` reply is served whatever it says, so none is required there. Start from `<task_type> on <target> would require deciding something the contract does not state — report BLOCKED rather than guess`. (worker-facing) |
+| `output_schema` | one of `whole_file`, `prose`, `unified_diff` | no | `whole_file` | The shape the worker must reply in, declared so a runner can hand the model format instructions rather than hoping for a convention. `whole_file` is the single-file output protocol; `prose` is the raw-text answer for chat and agent (their default). `unified_diff` validates here and is refused before dispatch. (worker-facing) |
 | `sources` | list of text | no | `[]` | Repo files given whole to the worker as `[1]`, `[2]`, …; a missing, binary or secret one is refused. (worker-facing) |
 | `context` | block | no | — | Budgets governing what may be assembled into the worker's prompt. (worker-facing) |
 | `scope` | block | **yes**, not for `chat`/`agent` | — | The writable surface the gate enforces. Not worker-facing: the worker is told its one target, and scope is how the gate judges what actually changed. (orchestrator-facing) |
@@ -201,15 +198,14 @@ what the run came to. The file's keys:
 - `assurance` — what an `accepted` result rests on, and `detail` says it
   in a sentence: `deterministic` (a tool's change, on the gate),
   `verified` (a reviewer agreed), `unverified` (no reviewer could be
-  asked; `detail` says why), `checked` (a `media` reply that passed
-  its checks) or `unchecked` (a `chat` or `agent` reply: no checks,
-  no review). A reply is never reviewed.
+  asked; `detail` says why) or `unchecked` (a `chat` or `agent` reply:
+  no checks, no review). A reply is never reviewed.
 - `findings` — the deterministic gate's findings for a contract that
   dispatched nothing.
 - `delivery` — where the work went: left uncommitted in the tree (the
   default), the commit, or why it was refused (as `detail`).
   `committed`, `commit`, `branch`, `handoff` are the commit as fields.
-- `answer` — a `chat`, `agent` or `media` reply; never written to the tree.
+- `answer` — a `chat` or `agent` reply; never written to the tree.
 - `session_record` — a session's record (question, answer, unit, times,
   outcome) under `<journal>/sessions/`; `mcgyvr sessions [ID]` reads it.
 - `target`, `contract`, `task_type`, `orchestrator`, `run`, `session_file`,

@@ -1,7 +1,7 @@
-"""There are exactly four task types, and a deterministic operation is ``code``.
+"""There are exactly three task types, and a deterministic operation is ``code``.
 
-The vocabulary a contract names in ``task_type`` is ``code``, ``chat``,
-``agent`` and ``media``. The deterministic operations (``format``,
+The vocabulary a contract names in ``task_type`` is ``code``, ``chat`` and
+``agent``. The deterministic operations (``format``,
 ``import_sort``, ``lint_fix``, ``rename_symbol``) are not task types: a
 contract asks for one as ``task_type: code`` with ``operation: <name>``, and
 it still runs on the deterministic floor with no model, judged by the same
@@ -21,7 +21,7 @@ from mcgyvr.catalog import catalog, catalog_path
 from mcgyvr.contract import ContractSchemaError, dumps, loads, parse
 from mcgyvr.deterministic import tool_for
 
-FOUR = ("code", "chat", "agent", "media")
+THREE = ("code", "chat", "agent")
 
 
 def _code(operation: str, target: str = "src/pkg/messy.py", extra: str = "") -> str:
@@ -37,8 +37,8 @@ scope:
 """
 
 
-def test_the_catalog_declares_exactly_the_four_task_types() -> None:
-    assert tuple(t.name for t in catalog().task_types) == FOUR
+def test_the_catalog_declares_exactly_the_three_task_types() -> None:
+    assert tuple(t.name for t in catalog().task_types) == THREE
 
 
 def test_the_catalog_keeps_no_list_of_removed_names() -> None:
@@ -194,7 +194,7 @@ scope:
     assert replacement in said, said
 
 
-def test_a_name_that_never_was_a_type_lists_the_four() -> None:
+def test_a_name_that_never_was_a_type_lists_the_three() -> None:
     with pytest.raises(ContractSchemaError) as exc:
         loads(
             """
@@ -208,4 +208,4 @@ scope:
 """
         )
     said = str(exc.value)
-    assert "code, chat, agent, media" in said, said
+    assert "code, chat, agent" in said, said

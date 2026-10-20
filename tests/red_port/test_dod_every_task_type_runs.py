@@ -1,8 +1,8 @@
 """Every task type and deterministic operation the schema offers has something
 that can execute it.
 
-``task_type`` is a closed vocabulary of four task types (``code``, ``chat``,
-``agent``, ``media``), and ``operation`` names one of four deterministic
+``task_type`` is a closed vocabulary of three task types (``code``, ``chat``,
+``agent``), and ``operation`` names one of four deterministic
 operations of ``code`` (``format``, ``import_sort``, ``lint_fix``,
 ``rename_symbol``), each with a guarantee in
 ``data/task-catalog.json``, each rendered into the shipped skill with a minimal

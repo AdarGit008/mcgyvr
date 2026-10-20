@@ -5,11 +5,11 @@ files the reads saved, holds every rig of the fleet's layout to a card reserve
 and every awake unit to its probe, holds each sleeper (a unit laid out asleep
 whose role is ``sleeps-until-needed``) to its probe and to its swap having
 passed both ways (:class:`Move`), then reads the use case's task outcomes
-(``coding``'s gate, ``chat``'s completion, ``agent``'s grounded contract and
-safety check) and, when the policy names one, the Jev unit's typed choice. Any
-reason at all makes the sample red; with none, and with a rig file and a read
-for every rig, the verdict carries the ``rigs``/``combinations``/``moves``
-evidence a stamp writes and the lock is written from.
+(``coding``'s gate, ``chat``'s completion, ``agent``'s grounded contract) and,
+when the policy names one, the Jev unit's typed choice. Any reason at all makes
+the sample red; with none, and with a rig file and a read for every rig, the
+verdict carries the ``rigs``/``combinations``/``moves`` evidence a stamp
+writes and the lock is written from.
 """
 
 from __future__ import annotations
@@ -35,9 +35,8 @@ DEFAULT_USE_CASE = CODING_USE_CASE
 TASK_GATE = "gate"
 TASK_COMPLETION = "completion"
 TASK_GROUNDED = "grounded"
-TASK_SAFETY = "safety"
 TASK_CHOICE = "choice"
-CHECKS = (TASK_GATE, TASK_COMPLETION, TASK_GROUNDED, TASK_SAFETY, TASK_CHOICE)
+CHECKS = (TASK_GATE, TASK_COMPLETION, TASK_GROUNDED, TASK_CHOICE)
 #: The two ways a sleeper's swap is made, in the order the sample makes them:
 #: in wakes the sleeper and puts down the units whose room it needs, and back
 #: puts the sleeper down and wakes those units again.
@@ -370,12 +369,9 @@ def _task_reasons(
             )
         ]
     if use_case == AGENT:
-        return [
-            *_failed(
-                TASK_GROUNDED, _ran(outcomes, TASK_GROUNDED), "the grounded contract"
-            ),
-            *_failed(TASK_SAFETY, _ran(outcomes, TASK_SAFETY), "the safety check"),
-        ]
+        return _failed(
+            TASK_GROUNDED, _ran(outcomes, TASK_GROUNDED), "the grounded contract"
+        )
     return [f"use case: {use_case!r} has no sample"]
 
 

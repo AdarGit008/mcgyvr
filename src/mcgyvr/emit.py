@@ -14,9 +14,9 @@ across rigs is its stated head on the head's rig plus the rpc-server
 workers the unlocked path would start on the other rigs, at the addresses
 their shards or rig files give.
 
-Every refusal is an `EmitError`: an engine this build cannot render (see
-`MEDIA_ENGINES_NOT_WIRED`), an argument the compose file and the shell
-command cannot spell the same way, a file name two units would both
+Every refusal is an `EmitError`: an engine this build has no command or
+image for, an argument the compose file and the shell command cannot spell
+the same way, a file name two units would both
 claim, or a path that resolves outside the output directory.
 """
 
@@ -38,8 +38,6 @@ from mcgyvr.serving import (
     COMPOSE_PREFIX,
     COMPOSE_SUFFIX,
     HF_CACHE_MOUNT,
-    MEDIA_ENGINES,
-    MEDIA_ENGINES_NOT_WIRED,
     ROLE_HEADLESS,
     ROLE_RPC,
     ROLE_SERVE,
@@ -64,9 +62,8 @@ from mcgyvr.serving.shardlaunch import (
     rpc_workers,
 )
 
-# The shell command that starts each engine's own server, for the engines
-# that have one: a media engine's server is its image's entrypoint, so
-# `_command` refuses it rather than inventing a command line.
+# The shell command that starts each engine's own server; `_command`
+# refuses any other engine rather than inventing a command line.
 ENGINE_COMMANDS = {"llama.cpp": ("llama-server",), "vllm": ("vllm", "serve")}
 # The flags llama.cpp spells a served model's name with. `argv` adds
 # `--alias` only for a serve unit of that engine that carries none already.
@@ -124,15 +121,6 @@ class EmitError(Exception):
     """A launch that will not be rendered; the message says which unit and why."""
 
 
-def _media_engine_not_wired(unit: Unit) -> str:
-    """The refusal for an engine listed in `MEDIA_ENGINES_NOT_WIRED`."""
-    return (
-        f"{unit.key.slug}: engine {unit.engine!r} is not wired in this build; "
-        "mcgyvr will not render a unit for an engine it has no launch spec "
-        "for rather than emit another engine's flags."
-    )
-
-
 def argv(unit: Unit, *, sleep_mode: bool = False) -> tuple[str, ...]:
     """The argv of the process that serves `unit`, in one canonical order.
 
@@ -143,8 +131,6 @@ def argv(unit: Unit, *, sleep_mode: bool = False) -> tuple[str, ...]:
     A part containing whitespace is refused: the compose `command` and the
     shell command could not spell it the same way.
     """
-    if unit.engine in MEDIA_ENGINES_NOT_WIRED:
-        raise EmitError(_media_engine_not_wired(unit))
     flags = {**unit.args, "--port": str(unit.port)}
     if (
         unit.engine == "llama.cpp"
@@ -367,11 +353,6 @@ def _sequence_on_one_card(
     """
     on_card: dict[int, list[tuple[float, str, int]]] = {}
     for unit in units:
-        if unit.cpu_only:
-            continue
-        # A `cpu_only` unit stands on no card, so it has nothing to queue
-        # behind; skipping it keeps its `gpu` index (often 0) from reading as
-        # a card it shares.
         if unit.role != ROLE_SERVE:
             continue
         # Only a serve unit answers the `/v1/models` healthcheck the next unit
@@ -428,15 +409,12 @@ def _service(unit: Unit, *, sleep_mode: bool = False) -> dict[str, object]:
     """The compose service for one unit, picked by its engine and its role.
 
     `_check_role` refuses a role its engine has no process for first, then
-    the service is built by engine: vLLM by `_vllm_service`, a media engine
-    by `_media_service`, a llama.cpp rpc worker by `_rpc_service`, and
-    anything else as a llama.cpp server.
+    the service is built by engine: vLLM by `_vllm_service`, a llama.cpp rpc
+    worker by `_rpc_service`, and anything else as a llama.cpp server.
     """
     _check_role(unit)
     if unit.engine == "vllm":
         return _vllm_service(unit, sleep_mode=sleep_mode)
-    if unit.engine in MEDIA_ENGINES:
-        return _media_service(unit)
     if unit.role == ROLE_RPC:
         return _rpc_service(unit)
     return {
@@ -531,40 +509,12 @@ def _vllm_service(unit: Unit, *, sleep_mode: bool = False) -> dict[str, object]:
     }
 
 
-def _media_service(unit: Unit) -> dict[str, object]:
-    """The compose service of a media engine unit, built from what it states.
-
-    A media engine has no default image here, so the unit's own `image` is
-    required; the weights are mounted read-only at their own path, and only
-    a unit that holds a card reserves one.
-    """
-    service: dict[str, object] = {
-        "image": _image(unit),
-        "container_name": f"mcgyvr-{safe_host(unit.host)}-{_service_name(unit)}",
-        "command": list(argv(unit)),
-        "network_mode": "host",
-        "restart": "unless-stopped",
-        "volumes": [f"{unit.weights_dir}:{unit.weights_dir}:ro"],
-    }
-    if not unit.cpu_only:
-        service["deploy"] = _reservation(unit.gpu)
-    return service
-
-
 def _command(unit: Unit) -> tuple[str, ...]:
     _check_role(unit)
     if unit.role == ROLE_RPC:
         return RPC_COMMAND
     command = ENGINE_COMMANDS.get(unit.engine)
     if command is None:
-        if unit.engine in MEDIA_ENGINES_NOT_WIRED:
-            raise EmitError(_media_engine_not_wired(unit))
-        if unit.engine in MEDIA_ENGINES:
-            raise EmitError(
-                f"{unit.key.slug}: engine {unit.engine!r} has no shell command — its "
-                "server is the container image's entrypoint, so render the "
-                "compose file rather than a pasted command"
-            )
         raise EmitError(
             f"{unit.key.slug}: no command line is known for engine {unit.engine!r}"
         )
@@ -605,11 +555,6 @@ def _needs_built_image(unit: Unit) -> bool:
 def _image(unit: Unit) -> str:
     if unit.image:
         return unit.image
-    if unit.engine in MEDIA_ENGINES:
-        raise EmitError(
-            f"{unit.key.slug}: engine {unit.engine!r} has no default container image — "
-            f"set units.<unit>.image to the operator's {unit.engine} server image"
-        )
     if _needs_built_image(unit):
         what = (
             "an rpc-server worker" if unit.role == ROLE_RPC else "a server with --rpc"
@@ -622,8 +567,6 @@ def _image(unit: Unit) -> str:
         )
     image = ENGINE_IMAGES.get(unit.engine)
     if image is None:
-        if unit.engine in MEDIA_ENGINES_NOT_WIRED:
-            raise EmitError(_media_engine_not_wired(unit))
         raise EmitError(
             f"{unit.key.slug}: no container image is known for engine {unit.engine!r}"
         )

@@ -71,8 +71,7 @@ a config that dispatches nowhere is not a head start.
 What the config is for comes in with these, all optional:
 
 - `--use-case` — `coding` (the deterministic gate, the default), `chat`
-  or `agent`. `media-gen` is retired until its sample is built, and is
-  refused naming the three.
+  or `agent`.
 - `--deployment` — `hybrid` (an API-tier orchestrator drives mcgyvr) or
   `local-only` (mcgyvr is the backend); the default is `local-only` for
   `chat` and `hybrid` otherwise.
@@ -199,7 +198,7 @@ Each entry takes these keys:
 | --- | --- | --- | --- | --- |
 | `units.address` | URL | **yes** | — | Where this unit answers, including scheme and port. One address is one process. To bind it: e.g. http://box.example:8080. |
 | `units.model` | text | **yes** | — | Model identifier as the unit names it. |
-| `units.engine` | one of `llama.cpp`, `vllm`, `diffusers`, `tts`, `comfyui` | no | unset | Which server program runs behind this address. Absent means llama.cpp. To bind it: e.g. vllm, diffusers, tts or comfyui -- leave it out for llama.cpp. |
+| `units.engine` | one of `llama.cpp`, `vllm` | no | unset | Which server program runs behind this address. Absent means llama.cpp. To bind it: e.g. vllm -- leave it out for llama.cpp. |
 | `units.image` | text | no | unset | Container image this unit runs, as a tag or digest. To bind it: e.g. vllm/vllm-openai@sha256:<hex>. |
 | `units.api_key_env` | env var name | no | unset | NAME of the environment variable holding this unit's key. To bind it: set it to the variable's NAME (e.g. ANTHROPIC_API_KEY), never the key itself. |
 | `units.rig` | text | no | unset | The rig this unit runs on, by the name fleet.yaml uses. Units that share a rig and an address are served by one process. To bind it: e.g. box.example. |
@@ -247,7 +246,7 @@ Which one unit answers every typed decision: a question answered with a single-t
 | `jev.unit` | text | no | unset | Which unit serves this role. A unit is the one term. To bind it: name one of the units declared under `units`. |
 | `jev.model` | text | no | unset | Model identifier as that unit names it; absent means the unit's own. To bind it: name a model the bound unit serves. |
 
-The measured recommendation for the unit is Qwen3.5-4B (Q4_K_M, about 3.4 GB), owner ruling of 2026-10-04 on the jev-mcorch run (lab evidence `2026-10-04-jev-mcorch`): it reads mcorch's J1 intent at 0.97 and J2 ready_to_run at 0.88, and judges the reviewer's verdict at AUROC 0.77 (satisfies_task 0.81). Qwen3.5-9B scores higher on judging code (verdict AUROC 0.86) at 5.7 GB, for a card with the room. Models of 3B and under are not usable in this role.
+The measured model for this unit: lab record `records/evidence/2026-10-04-jev-mcorch`.
 
 ## `sandbox`
 
@@ -258,7 +257,7 @@ Where a task's commands run.
 | `sandbox.mode` | one of `docker`, `tempdir` | no | `docker` | `docker` runs each task in its own container, torn down after; with no Docker daemon answering, the task is refused unless `allow_fallback` is on. `tempdir` is the explicitly weaker mode for installs without Docker: a contract's acceptance commands run without a shell, but each runs whatever program it names, on the host, with only the host's process, network and resource isolation. |
 | `sandbox.allow_fallback` | boolean | no | `false` | What `mode: docker` does when no Docker daemon answers. Off, the task is refused and the refusal says how to go on. On, the task runs in the `tempdir` sandbox instead and says so once — the weaker mode, chosen ahead of time rather than read about after the run started. |
 | `sandbox.network` | one of `bridge`, `none` | no | `bridge` | The network a task container is attached to. `bridge` is Docker's default: acceptance commands can fetch dependencies and reach the configured worker endpoints — and anything else this machine can reach. `none` gives the container no network at all, so a contract whose commands download anything fails. `none` needs `mode: docker`: the `tempdir` sandbox runs on this host, where the network cannot be taken away, and is refused under it. |
-| `sandbox.sessions` | one of `tempdir`, `docker` | no | `tempdir` | The sandbox a `chat` or `agent` run gets when its contract declares no `acceptance` or `demonstration` command. Such a session runs no command: its reply is only staged in a throwaway checkout of HEAD for the output checks. `tempdir` stages it on this host, so a session never builds, pulls or starts a container and needs no Docker. `docker` gives it a task container as `mode: docker` gives `code` and `media`, with `allow_fallback` and `network` applying. A session that declares a command is sandboxed by `mode`, like any task, and `--sandbox` on `mcgyvr run` overrides both for one run. `mcgyvr setup --session-sandbox` writes it. |
+| `sandbox.sessions` | one of `tempdir`, `docker` | no | `tempdir` | The sandbox a `chat` or `agent` run gets when its contract declares no `acceptance` or `demonstration` command. Such a session runs no command: its reply is only staged in a throwaway checkout of HEAD, which nothing checks. `tempdir` stages it on this host, so a session never builds, pulls or starts a container and needs no Docker. `docker` gives it a task container as `mode: docker` gives `code`, with `allow_fallback` and `network` applying. A session that declares a command is sandboxed by `mode`, like any task, and `--sandbox` on `mcgyvr run` overrides both for one run. `mcgyvr setup --session-sandbox` writes it. |
 | `sandbox.image` | text | no | unset | Base image for task containers. Unset means detect the repository's stack and build one. To bind it: name an image tag, or leave unset to let the stack be detected. |
 | `sandbox.setup` | list of text | no | `[]` | Commands run once when the task image is built, before any task. In docker mode the gate's type checker, eslint and prettier run in the task container, because their configuration can load code from the task's workspace, so they are found on the image's PATH. The image mcgyvr builds installs the one the repository configures (mypy, eslint, prettier) when its dependency install does not, at the lockfile's version where it pins one; pyright, or a checker the repository does not configure, is yours to put on the image, here or with `sandbox.image`. A checker the image lacks is skipped and said so, as an absent checker is on the host. |
 

@@ -269,18 +269,13 @@ def render_reference() -> str:
 _LEVERS: tuple[str, ...] = ("units", "ladder", "max_escalations")
 
 #: Paragraphs appended after a top-level block's section in SETUP.md, keyed by
-#: that block's name: measurements and rulings a reader needs that the schema doc
-#: of a single key has no room for. A block with no entry here ends at its own
-#: tables; `_SETUP_NOTES` is only consulted for top-level fields with keys.
+#: that block's name: what a reader needs that the schema doc of a single key
+#: has no room for. A block with no entry here ends at its own tables;
+#: `_SETUP_NOTES` is only consulted for top-level fields with keys.
 _SETUP_NOTES: dict[str, tuple[str, ...]] = {
     "jev": (
-        "The measured recommendation for the unit is Qwen3.5-4B (Q4_K_M, about "
-        "3.4 GB), owner ruling of 2026-10-04 on the jev-mcorch run "
-        "(lab evidence `2026-10-04-jev-mcorch`): it reads "
-        "mcorch's J1 intent at 0.97 and J2 ready_to_run at 0.88, and judges the "
-        "reviewer's verdict at AUROC 0.77 (satisfies_task 0.81). Qwen3.5-9B "
-        "scores higher on judging code (verdict AUROC 0.86) at 5.7 GB, for a "
-        "card with the room. Models of 3B and under are not usable in this role.",
+        "The measured model for this unit: lab record "
+        "`records/evidence/2026-10-04-jev-mcorch`.",
     ),
 }
 
@@ -368,8 +363,7 @@ def render_setup() -> str:
         "What the config is for comes in with these, all optional:",
         "",
         "- `--use-case` — `coding` (the deterministic gate, the default), `chat`",
-        "  or `agent`. `media-gen` is retired until its sample is built, and is",
-        "  refused naming the three.",
+        "  or `agent`.",
         "- `--deployment` — `hybrid` (an API-tier orchestrator drives mcgyvr) or",
         "  `local-only` (mcgyvr is the backend); the default is `local-only` for",
         "  `chat` and `hybrid` otherwise.",
@@ -780,15 +774,14 @@ def render_skill() -> str:
         "- `assurance` — what an `accepted` result rests on, and `detail` says it",
         "  in a sentence: `deterministic` (a tool's change, on the gate),",
         "  `verified` (a reviewer agreed), `unverified` (no reviewer could be",
-        "  asked; `detail` says why), `checked` (a `media` reply that passed",
-        "  its checks) or `unchecked` (a `chat` or `agent` reply: no checks,",
-        "  no review). A reply is never reviewed.",
+        "  asked; `detail` says why) or `unchecked` (a `chat` or `agent` reply:",
+        "  no checks, no review). A reply is never reviewed.",
         "- `findings` — the deterministic gate's findings for a contract that",
         "  dispatched nothing.",
         "- `delivery` — where the work went: left uncommitted in the tree (the",
         "  default), the commit, or why it was refused (as `detail`).",
         "  `committed`, `commit`, `branch`, `handoff` are the commit as fields.",
-        "- `answer` — a `chat`, `agent` or `media` reply; never written to the tree.",
+        "- `answer` — a `chat` or `agent` reply; never written to the tree.",
         "- `session_record` — a session's record (question, answer, unit, times,",
         "  outcome) under `<journal>/sessions/`; `mcgyvr sessions [ID]` reads it.",
         "- `target`, `contract`, `task_type`, `orchestrator`, `run`, `session_file`,",

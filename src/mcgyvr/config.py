@@ -108,13 +108,6 @@ class Field:
     max_value: float | None = None
     bind_hint: str = ""
 
-    retired: tuple[tuple[str, str], ...] = ()
-    """Enum values this build recognises and refuses, each with why and what to
-    set instead.
-
-    A retired value is still recognised, so the message can be specific; it is
-    refused, so the config cannot resolve to it."""
-
 
 #: Where a relief rung's host model sits against the models on your own rigs, as
 #: the hub judges it: shown, never a place on the ladder.
@@ -165,11 +158,11 @@ SANDBOX_FIELDS: tuple[Field, ...] = (
         "enum",
         "The sandbox a `chat` or `agent` run gets when its contract declares "
         "no `acceptance` or `demonstration` command. Such a session runs no "
-        "command: its reply is only staged in a throwaway checkout of HEAD for "
-        "the output checks. `tempdir` stages it on this host, so a session "
+        "command: its reply is only staged in a throwaway checkout of HEAD, "
+        "which nothing checks. `tempdir` stages it on this host, so a session "
         "never builds, pulls or starts a container and needs no Docker. "
-        "`docker` gives it a task container as `mode: docker` gives `code` and "
-        "`media`, with `allow_fallback` and `network` applying. A session that "
+        "`docker` gives it a task container as `mode: docker` gives `code`, "
+        "with `allow_fallback` and `network` applying. A session that "
         "declares a command is sandboxed by `mode`, like any task, and "
         "`--sandbox` on `mcgyvr run` overrides both for one run. "
         "`mcgyvr setup --session-sandbox` writes it.",
@@ -246,18 +239,6 @@ _RETIRED_KEYS: dict[str, str] = {
 
 #: The use cases an install may serve, in the order setup offers them.
 USE_CASES: tuple[str, ...] = ("coding", "chat", "agent")
-
-#: Use cases this build recognises and refuses, each with the rest of the
-#: refusal it earns. `media-gen` is off until its sample is built: setup cannot
-#: sample it, so it neither offers it nor writes it.
-RETIRED_USE_CASES: tuple[tuple[str, str], ...] = (
-    (
-        "media-gen",
-        "is retired until its sample is built: setup cannot sample it. Use "
-        + ", ".join(f"`{name}`" for name in USE_CASES[:-1])
-        + f" or `{USE_CASES[-1]}`.",
-    ),
-)
 
 #: Where the journal is kept when `journal.dir` says nothing else: one directory
 #: under the user's state directory, outside any repository a run works on.
@@ -536,8 +517,8 @@ UNIT_FIELDS: tuple[Field, ...] = (
         "Which server program runs behind this address. Absent means \
 "
         "llama.cpp.",
-        choices=("llama.cpp", "vllm", "diffusers", "tts", "comfyui"),
-        bind_hint="e.g. vllm, diffusers, tts or comfyui -- leave it out for llama.cpp",
+        choices=("llama.cpp", "vllm"),
+        bind_hint="e.g. vllm -- leave it out for llama.cpp",
     ),
     Field(
         "image",
@@ -1012,7 +993,6 @@ SCHEMA: tuple[Field, ...] = (
         "names as its sources).",
         choices=USE_CASES,
         default="coding",
-        retired=RETIRED_USE_CASES,
     ),
     Field(
         "deployment",
@@ -1715,15 +1695,11 @@ def _value(raw: object, spec: Field, path: str) -> Any:
                 f"empty value is not the same as an unset one."
             )
         _reject_credential_literal(value, path)
-        if spec.kind == "enum":
-            for name, why in spec.retired:
-                if value == name:
-                    raise ConfigSchemaError(f"{path}: `{value}` {why}")
-            if value not in spec.choices:
-                raise ConfigSchemaError(
-                    f"{path}: {value!r} is not a valid value. Valid: "
-                    f"{', '.join(spec.choices)}"
-                )
+        if spec.kind == "enum" and value not in spec.choices:
+            raise ConfigSchemaError(
+                f"{path}: {value!r} is not a valid value. Valid: "
+                f"{', '.join(spec.choices)}"
+            )
         if spec.kind == "url" and not value.startswith(("http://", "https://")):
             raise ConfigSchemaError(
                 f"{path}: {value!r} is not a URL — it needs a scheme, e.g. "

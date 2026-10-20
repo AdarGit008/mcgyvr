@@ -240,11 +240,7 @@ def test_an_agent_run_by_default_reads_the_repository_off_a_host_checkout(
     capsys: pytest.CaptureFixture[str],
 ) -> None:
     import mcgyvr.drive as drive
-    from mcgyvr.gate import output as gate_output
 
-    # `agent` declares safety_pass, which shells out to a classifier this
-    # machine does not have; it is not what is under test here.
-    monkeypatch.setattr(gate_output, "safety_pass", lambda path, label="": [])
     _scripted(monkeypatch, "The sky is blue [1].")
     seen: list[tuple[type, str]] = []
     judge = drive.gate_prose_workspace

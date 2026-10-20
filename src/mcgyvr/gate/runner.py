@@ -2,9 +2,9 @@
 
 :class:`Gate` runs the checks in a fixed order — the scope scan, the secret
 scan and the structured-data parse, then each language adapter's syntax,
-structural, lint and format rungs over the files it owns, then the output,
-typecheck, semantic, acceptance and Jev rungs the caller wires — and skips each
-of the last five once an earlier one has recorded a finding.
+structural, lint and format rungs over the files it owns, then the typecheck,
+semantic, acceptance and Jev rungs the caller wires — and skips each of the
+last four once an earlier one has recorded a finding.
 :class:`GateResult` carries what came back: the findings that reject the change,
 the inconclusive rungs that keep it from being called a pass, and the
 environment issues and observations that are reported beside the verdict.
@@ -26,7 +26,6 @@ from mcgyvr.gate.adapters import JavaScriptAdapter, PythonAdapter
 from mcgyvr.gate.changeset import ChangeSet, FileChange
 from mcgyvr.gate.findings import Finding
 from mcgyvr.gate.jev import JevCheck, JevReport
-from mcgyvr.gate.output import OutputChecks
 from mcgyvr.gate.secrets import scan_secrets
 from mcgyvr.gate.semantic import SemanticCheck, SemanticReport
 from mcgyvr.gate.structured import validate_structured_data
@@ -38,7 +37,7 @@ from mcgyvr.scope import Scope
 class InconclusiveRung:
     """A rung that could not decide, and why.
 
-    ``adapter`` names the owner (or ``output``), ``rung`` the check within it,
+    ``adapter`` names the owner, ``rung`` the check within it,
     ``tool`` the executable that failed, and ``exit_code`` is ``None`` where the
     tool was absent. Rendered as text, the value reads as a statement about the
     rung — never about the change — and is what an environment issue quotes.
@@ -126,15 +125,14 @@ class Gate:
         jev: JevCheck | None = None,
         acceptance: Acceptance | None = None,
         typecheck: TypeCheck | None = None,
-        output: OutputChecks | None = None,
         contract_text: str = "",
     ) -> GateResult:
         """Run every check this call wires, in order, and return the verdict.
 
         Scope violations and secrets come first and end the run on the spot; the
         structured-data parse follows. Each adapter then walks its own files, and
-        the rungs passed as arguments follow in the order output, typecheck,
-        semantic, acceptance, Jev — each skipped once ``findings`` is non-empty,
+        the rungs passed as arguments follow in the order typecheck, semantic,
+        acceptance, Jev — each skipped once ``findings`` is non-empty,
         with Jev also skipped when any rung came back inconclusive. A rung left
         unwired is not run at all. Findings filed on the ``style`` axis are
         gathered as observations and never reject the change.
@@ -175,16 +173,6 @@ class Gate:
                 adapter, changeset, env_issues, inconclusive, contract_text
             ):
                 (observations if item.check == STYLE else findings).append(item)
-
-        # The output rung judges the produced artifact rather than the source, so
-        # it needs no syntax-clean file to exist. A validator that could not run
-        # comes back as an inconclusive rung, which rejects the change even where
-        # it adds no finding, and its text is also kept as an environment issue.
-        if output is not None and not findings:
-            output_report = output.run()
-            findings.extend(output_report.findings)
-            env_issues.extend(output_report.environment_issues)
-            inconclusive.extend(output_report.inconclusive)
 
         if typecheck is not None and not findings:
             try:

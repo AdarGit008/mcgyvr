@@ -924,8 +924,8 @@ def _report_climb(
     Each attempt in the history is printed and given a correction row per draw,
     then copied into the result's attempts. A halt sets the result's outcome and
     detail and exits 1. A delivery says which rung it landed on, what it cost in
-    attempts and escalations, and what the assurance is, then answers a prose or
-    media contract or commits a change; a judgement that bound no content is an
+    attempts and escalations, and what the assurance is, then answers a prose
+    contract or commits a change; a judgement that bound no content is an
     error, because there would be nothing to deliver.
     """
     from mcgyvr.escalate import Assurance, Delivered
@@ -1013,7 +1013,7 @@ def _report_climb(
             f"approving it — {outcome.judgement.detail}",
             file=sys.stderr,
         )
-    elif outcome.assurance in (Assurance.CHECKED, Assurance.UNCHECKED):
+    elif outcome.assurance is Assurance.UNCHECKED:
         print(f"note: {outcome.judgement.detail}", file=sys.stderr)
     bound = outcome.judgement.accepted
     if bound is None:
@@ -1027,8 +1027,8 @@ def _report_climb(
             f"{contract.id} was accepted on {outcome.rung} without bound "
             f"content, so there is nothing a delivery could re-judge.",
         )
-    if contract.output_schema in ("prose", "media_artifact"):
-        # A prose or media contract's product is its answer: there is no file to
+    if contract.output_schema == "prose":
+        # A prose contract's product is its answer: there is no file to
         # place or commit, so the content goes on the result and is printed, and
         # the run is finished.
         report.answer = bound.content

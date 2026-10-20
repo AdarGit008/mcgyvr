@@ -185,7 +185,7 @@ def test_a_chat_unit_serving_other_than_planned_is_red(
     assert fx.UNIT in said and word in said, said
 
 
-def test_an_agent_sample_needs_both_grounded_and_safety(
+def test_an_agent_sample_whose_reply_is_not_grounded_is_red(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
     from mcgyvr.fleet import sample
@@ -194,11 +194,10 @@ def test_an_agent_sample_needs_both_grounded_and_safety(
     setup = fx.staged(tmp_path, policy=fx.policy_doc(tmp_path, "agent"))
     _read_twice(setup)
     outcomes = (
-        sample.Outcome("grounded", unit=fx.UNIT, passed=True),
-        sample.Outcome("safety", unit=fx.UNIT, passed=False, why="leaked a key"),
+        sample.Outcome("grounded", unit=fx.UNIT, passed=False, why="cites nothing"),
     )
     said = _red(setup, _sample(setup, outcomes))
-    assert "safety" in said and "leaked a key" in said, said
+    assert "grounded" in said and "cites nothing" in said, said
 
 
 @pytest.mark.parametrize(("label", "probability"), [("", 0.5), ("b", 1.5), ("b", None)])

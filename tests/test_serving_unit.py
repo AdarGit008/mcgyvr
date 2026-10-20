@@ -501,3 +501,13 @@ def test_a_model_id_with_a_slash_mounts_the_directory_the_scan_measured(
     assert disk is not None
     assert unit.weights_dir == disk.path
     assert "/" not in unit.weights.name
+
+
+def test_an_engine_outside_known_engines_is_refused_by_name(
+    scans: dict[str, Scan],
+) -> None:
+    sized = serving.fit(scans["box2"], MOE, engine="whisper", ctx_per_slot=4096)
+    assert sized.fits is False
+    assert "not wired" in sized.why
+    with pytest.raises(UnitError, match="whisper"):
+        unit_for(scans["box2"], MOE, engine="whisper", ctx_per_slot=4096)

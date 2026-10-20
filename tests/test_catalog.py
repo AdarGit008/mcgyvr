@@ -83,34 +83,23 @@ def test_every_entry_states_its_use_case(shipped: Catalog) -> None:
         assert kind.use_case.name in use_cases, f"{kind.name} names no use case"
 
 
-def test_the_use_case_vocabulary_is_the_approved_four(shipped: Catalog) -> None:
-    assert {u.name for u in shipped.use_cases} == {
-        "coding",
-        "chat",
-        "agent",
-        "media-gen",
-    }
+def test_the_use_case_vocabulary_is_the_approved_three(shipped: Catalog) -> None:
+    assert {u.name for u in shipped.use_cases} == {"coding", "chat", "agent"}
 
 
 def test_the_config_use_case_choices_match_the_catalog(shipped: Catalog) -> None:
     """The catalog is the vocabulary's one home; the config's `use_case` enum
-    must not drift from it into a fifth value nobody declared. Each catalog use
-    case is either accepted or retired (`media-gen`, until its sample is
-    built), never both."""
+    must not drift from it into a value nobody declared."""
     from mcgyvr import config
 
     use_case = next(f for f in config.SCHEMA if f.name == "use_case")
-    retired = {name for name, _ in use_case.retired}
-    assert set(use_case.choices) | retired == {u.name for u in shipped.use_cases}
-    assert not set(use_case.choices) & retired
+    assert set(use_case.choices) == {u.name for u in shipped.use_cases}
 
 
 def test_every_entry_states_its_required_evidence(shipped: Catalog) -> None:
     # chat and agent are the ungated types (owner, e2e run 2 R11: "agent and
     # chat have no gates"): neither carries evidence or the gate. Every other
-    # type states evidence. Coding types carry the gate kind as their floor;
-    # media is judged by its own structural evidence through the gate's
-    # output-checks rung instead.
+    # type states evidence, and coding types carry the gate kind as their floor.
     for kind in shipped.task_types:
         if kind.use_case.name in ("chat", "agent"):
             assert kind.required_evidence == (), f"{kind.name} should be ungated"
@@ -119,13 +108,8 @@ def test_every_entry_states_its_required_evidence(shipped: Catalog) -> None:
             )
             continue
         assert kind.required_evidence, f"{kind.name} requires no evidence"
-        if kind.use_case.name == "coding":
-            assert "gate" in kind.evidence_names, f"{kind.name} does not carry the gate"
-        else:
-            assert "gate" not in kind.evidence_names, (
-                f"{kind.name} is judged by its own structural evidence, "
-                f"not the gate kind"
-            )
+        assert kind.use_case.name == "coding", kind.name
+        assert "gate" in kind.evidence_names, f"{kind.name} does not carry the gate"
 
 
 def test_the_chat_type_is_ungated(shipped: Catalog) -> None:
@@ -142,19 +126,12 @@ def test_the_agent_type_is_ungated(shipped: Catalog) -> None:
     assert agent.evidence_names == ()
 
 
-def test_the_media_type_judges_by_media_valid(shipped: Catalog) -> None:
-    media = shipped.require("media")
-    assert media.use_case.name == "media-gen"
-    assert media.starts_on.name == "local"
-    assert media.evidence_names == ("media_valid",)
-
-
 # --- deterministic operations are not task types ---------------------------
 
 
 def test_the_operations_are_not_task_types(shipped: Catalog) -> None:
     """The deterministic tools leave the model vocabulary but stay runnable."""
-    assert {t.name for t in shipped.task_types} == {"code", "chat", "agent", "media"}
+    assert {t.name for t in shipped.task_types} == {"code", "chat", "agent"}
     assert {o.name for o in shipped.operations} == {
         "format",
         "import_sort",
@@ -212,15 +189,6 @@ def test_evidence_baseline_routes_each_kind_to_the_slot_that_can_satisfy_it(
     for kind in shipped.evidence_kinds:
         if not kind.needs_commands:
             assert kind.baseline == "pass"  # the default; no baseline run exists
-
-
-def test_the_media_evidence_kinds_are_declared(shipped: Catalog) -> None:
-    """Media judges by the gate's own tools, not contract commands."""
-    by_name = {e.name: e for e in shipped.evidence_kinds}
-    for name in ("media_valid", "safety_pass", "asr_wer"):
-        assert name in by_name, f"{name} is not a declared evidence kind"
-        assert not by_name[name].needs_commands, f"{name} needs a contract command"
-        assert by_name[name].baseline == "pass"
 
 
 def test_the_command_needing_properties_split_by_baseline(shipped: Catalog) -> None:

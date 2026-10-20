@@ -10,8 +10,7 @@ before anything is spent:
 * `chat` and `agent`: a raw connection — no output cap, no prompt checks;
 * a deterministic operation calls no model: no output cap and no attempts.
   It used to print ``<=256 output tokens ... 2 attempt(s)``, a cap and a retry
-  budget for a model that is never called;
-* `media` is under development and unchanged.
+  budget for a model that is never called.
 """
 
 from __future__ import annotations
@@ -46,18 +45,6 @@ scope:
 CHAT = "id: sky\ntask_type: chat\ntask: Why is the sky blue?\n"
 
 AGENT = 'id: brief\ntask_type: agent\ntask: Summarise.\nsources: ["src/r.txt"]\n'
-
-MEDIA = """\
-id: square
-task_type: media
-task: Draw a red square.
-target: out/square.png
-stop_conditions: ["The size is not stated."]
-output_schema: media_artifact
-media_kind: image
-scope:
-  allow: ["out/**"]
-"""
 
 
 def limits(tmp_path: Path, text: str, capsys: pytest.CaptureFixture[str]) -> str:
@@ -102,8 +89,3 @@ def test_a_deterministic_operation_shows_no_cap_and_no_attempts(
     assert "deterministic tier" in out, out
     assert "output tokens" not in out, out
     assert "attempt" not in out, out
-
-
-def test_media_is_unchanged(tmp_path: Path, capsys: pytest.CaptureFixture[str]) -> None:
-    said = limits(tmp_path, MEDIA, capsys)
-    assert said.startswith("limits:  uncapped (raw text)"), said

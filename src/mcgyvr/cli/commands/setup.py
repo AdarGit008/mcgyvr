@@ -29,7 +29,6 @@ from mcgyvr.config import (
     API_OUTPUT_TOKENS,
     CONFIG_PATH_ENV,
     FLEET_FILENAME,
-    RETIRED_USE_CASES,
     USE_CASES,
     ConfigError,
     named_config_path,
@@ -221,10 +220,9 @@ def _spoken_or(names: Sequence[str]) -> str:
 def _setup_use_cases() -> tuple[str, ...]:
     """Answer the use-case names on offer, coding first because it is the default.
 
-    Only the catalog's use cases a config accepts are offered: `media-gen` stays
-    in the catalog for the `media` task type, and is retired from setup until
-    its sample is built. The catalog is read here rather than imported at module
-    load, so the setup command does not pull it in for runs that never ask.
+    Only the catalog's use cases a config accepts are offered. The catalog is
+    read here rather than imported at module load, so the setup command does not
+    pull it in for runs that never ask.
     """
     from mcgyvr.catalog import catalog
     from mcgyvr.fleet.sample import CODING_USE_CASE
@@ -1022,14 +1020,13 @@ def _setup(args: argparse.Namespace) -> int:
 def _use_case_refused(name: str | None) -> str | None:
     """Answer why `--use-case` refuses `name`, or None when setup offers it.
 
-    The parser takes any name, so a retired one is refused here saying why it
-    is retired, and any other name the offered ones do not hold names them.
+    The parser takes any name, so a name the offered ones do not hold is refused
+    here, naming them.
     """
     offered = _setup_use_cases()
     if name is None or name in offered:
         return None
-    retired = dict(RETIRED_USE_CASES).get(name)
-    return retired or f"is not a use case; setup offers {_spoken_or(offered)}."
+    return f"is not a use case; setup offers {_spoken_or(offered)}."
 
 
 def _why_unsampled(setup: Path) -> str:
@@ -1331,7 +1328,7 @@ def add_parser(sub: argparse._SubParsersAction[argparse.ArgumentParser]) -> None
             "the sandbox a chat or agent run gets when it runs no command, "
             "written as `sandbox.sessions`: tempdir (the default: no container "
             "is built or started, and Docker is not needed) or docker (opt in "
-            "to a task container, as code and media get)"
+            "to a task container, as code gets)"
         ),
     )
     setup.add_argument(

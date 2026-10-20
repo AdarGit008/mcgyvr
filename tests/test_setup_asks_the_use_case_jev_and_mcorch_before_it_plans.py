@@ -8,8 +8,7 @@ mcorch, the local orchestrator, on a unit (Enter is no) -- the interactive
 form of ``--use-case``, ``--jev`` and ``--mcorch``. The answer is planned,
 staged and sampled: the sampler runs that use case's task and the Jev choice,
 and an mcorch opt-in's units are laid out awake and probed, as its lock
-requires. ``media-gen`` is not offered: it has no sample yet, so setup cannot
-sample it (#731).
+requires.
 
 The rig is :class:`tests.setup_door.FakeRig` behind the door; the prompts are
 answered through the setup's own prompt seams; nothing reaches a machine.
@@ -29,6 +28,7 @@ from mcgyvr.cli.commands.setup import (
     _ask_setup_use_case,
     _setup_pick_unit,
     _setup_placements,
+    _setup_use_cases,
     _SetupInteractiveError,
 )
 from mcgyvr.fleet import sampler
@@ -122,11 +122,19 @@ def test_agent_is_planned_staged_and_sampled_by_the_grounded_contract(
         monkeypatch, sd.FakeRig(), {START: True, LOCK: True}, typed={USE_CASE: "a"}
     )
     ran: list[str] = []
+    reference = sampler._bundled("agent")["reference"]["answer"]
 
     def run_contract(argv: list[str]) -> int:
         contract = Path(argv[argv.index("run") + 1])
         ran.append(yaml.safe_load(contract.read_text(encoding="utf-8"))["id"])
-        return sd.accepted(argv)
+        where = Path(argv[argv.index("--result") + 1])
+        where.write_text(
+            json.dumps(
+                {"outcome": "accepted", "rung": "llama-server", "answer": reference}
+            ),
+            encoding="utf-8",
+        )
+        return 0
 
     monkeypatch.setattr(cli.commands.setup, "_setup_run_contract", run_contract)
 
@@ -134,6 +142,9 @@ def test_agent_is_planned_staged_and_sampled_by_the_grounded_contract(
 
     assert _policy(_staged())["use_case"] == "agent"
     assert ran == ["mcgyvr-sample-agent"]
+    # The grounded check (citations and facts) is the agent sample's only
+    # task check, so the reference reply samples green and the fleet is locked.
+    assert _policy(_live())["use_case"] == "agent"
 
 
 def test_a_jev_opt_in_binds_the_unit_and_the_sample_asks_its_choice(
@@ -219,7 +230,7 @@ def test_each_letter_names_its_use_case(
     assert asked == [USE_CASE]
 
 
-def test_m_is_no_letter_now_media_gen_is_not_offered(
+def test_a_letter_that_names_no_use_case_is_refused(
     monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
 ) -> None:
     asked = sd.interactive(
@@ -230,6 +241,20 @@ def test_m_is_no_letter_now_media_gen_is_not_offered(
 
     assert asked == [USE_CASE] * 3
     assert "d, c or a" in capsys.readouterr().err
+
+
+def test_setup_offers_three_use_cases_and_coding_is_the_default() -> None:
+    assert _setup_use_cases() == ("coding", "chat", "agent")
+
+
+def test_a_use_case_setup_never_offered_is_refused_naming_the_three(
+    capsys: pytest.CaptureFixture[str],
+) -> None:
+    assert cli.main(["setup", "--use-case", "poetry"]) == 1
+
+    (line,) = capsys.readouterr().err.splitlines()
+    assert "`poetry` is not a use case" in line and "coding, chat or agent" in line
+    assert not (data_home() / "setup").exists(), "nothing is staged"
 
 
 def test_with_several_units_setup_asks_which_one_and_enter_is_the_first(
