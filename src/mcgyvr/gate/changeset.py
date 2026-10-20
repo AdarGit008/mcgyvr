@@ -15,6 +15,8 @@ from collections.abc import Iterator, Mapping
 from dataclasses import dataclass
 from pathlib import Path
 
+from mcgyvr.gitcmd import run_git
+
 # Well-known git object id of the empty tree. It is used as the base when the
 # repository has no commits yet, so `git read-tree` still has a tree to start
 # the temporary index from and every worktree file shows up as added.
@@ -68,7 +70,7 @@ class ChangeSet:
 
         resolved = _resolve_base(root, base)
         with _TemporaryIndex() as index:
-            env = {**os.environ, "GIT_INDEX_FILE": str(index)}
+            env = {"GIT_INDEX_FILE": str(index)}
             # Fill the private index with the base tree, then stage the whole
             # worktree into it, so the diff against the base also covers
             # untracked files and the user's own index is never modified.
@@ -160,16 +162,7 @@ def _git(
     env: Mapping[str, str] | None = None,
 ) -> bytes:
     """Run git in `root` and return its stdout, raising `ChangeSetError` on failure."""
-    proc = subprocess.run(
-        ["git", *args],
-        cwd=root,
-        capture_output=True,
-        env=dict(env) if env is not None else None,
-    )
-    if proc.returncode != 0:
-        detail = proc.stderr.decode("utf-8", "replace").strip()
-        raise ChangeSetError(f"git {args[0]} failed: {detail}")
-    return proc.stdout
+    return run_git(root, *args, error=ChangeSetError, env=env)
 
 
 class _TemporaryIndex:

@@ -286,7 +286,8 @@ ABOVE_THE_SEAM: tuple[str, ...] = (
 #: one half of it: the package itself, the setup's schema and the two files it reads
 #: (``config.py``), the vocabulary of what may be asked for (``catalog.py``), how a
 #: file is replaced whole (``atomic.py``), the exit codes a caller branches on
-#: (``exits.py``), where a line ends (``lines.py``), what is safe to quote to an
+#: (``exits.py``), how git is run against a repository (``gitcmd.py``), where a
+#: line ends (``lines.py``), what is safe to quote to an
 #: operator (``redact.py``), where a shipped data file is read from
 #: (``shipped.py``), and the strict YAML loader both schemas share
 #: (``strict_yaml.py``), each as its module docstring's first line says. Being on this
@@ -299,6 +300,7 @@ SHARED_ACROSS_THE_SEAM: tuple[str, ...] = (
     "mcgyvr.catalog",
     "mcgyvr.config",
     "mcgyvr.exits",
+    "mcgyvr.gitcmd",
     "mcgyvr.lines",
     "mcgyvr.redact",
     "mcgyvr.shipped",

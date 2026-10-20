@@ -42,6 +42,7 @@ from mcgyvr.gate.adapters import JavaScriptAdapter, PythonAdapter
 from mcgyvr.gate.changeset import ChangeSet, ChangeSetError, FileChange
 from mcgyvr.gate.findings import Finding
 from mcgyvr.gate.runner import Gate, GateResult, InconclusiveRung
+from mcgyvr.gitcmd import run_git
 from mcgyvr.orchestrator.repo import AttachedRepo
 from mcgyvr.scope import OutsideTreeError, inside
 
@@ -1448,13 +1449,4 @@ def _git_bytes(root: Path, *args: str, env: Mapping[str, str] | None = None) -> 
     (``GIT_INDEX_FILE``) reaches a command. A non-zero status becomes a
     :class:`DeliveryError` carrying git's stderr.
     """
-    proc = subprocess.run(
-        ["git", *args],
-        cwd=root,
-        capture_output=True,
-        env={**os.environ, **env} if env else None,
-    )
-    if proc.returncode != 0:
-        detail = proc.stderr.decode("utf-8", "replace").strip()
-        raise DeliveryError(f"git {args[0]} failed in {root}: {detail}")
-    return proc.stdout
+    return run_git(root, *args, error=DeliveryError, env=env)

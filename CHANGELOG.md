@@ -123,6 +123,12 @@ the repository AdarGit008/mcgyvr-lab, under the same paths.
   contract, where they once quoted the whole key. The pinned rig id and the
   unsampled-fleet check read `fleet.yaml` with that loader too, so a
   duplicate key there reads as no fleet instead of last-one-wins.
+- Attaching a repository whose working tree holds a path that is not valid
+  UTF-8 reports that path as uncommitted instead of crashing with a
+  `UnicodeDecodeError`: git's output is kept as bytes and decoded with
+  surrogate escapes, as delivery already did. Every git a module runs goes
+  through one runner, so a changeset's git failure now also names the
+  repository it failed in.
 
 ### Security
 
