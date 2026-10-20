@@ -296,9 +296,7 @@ def test_js_object_literal_keys_are_properties() -> None:
     source = "const o = { timeout: 1000, [computed]: 2 }\n"
     got = _kinds("m.js", source)
     assert ("timeout", "property", "property") in got
-    assert not any(
-        name == "computed" and kind == "property" for name, kind, _ in got
-    )
+    assert not any(name == "computed" and kind == "property" for name, kind, _ in got)
 
 
 def test_typescript_interface_type_and_enum_are_definitions() -> None:
