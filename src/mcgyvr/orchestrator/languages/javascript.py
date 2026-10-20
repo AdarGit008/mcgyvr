@@ -5,13 +5,15 @@ TypeScript grammar and the rest with the JavaScript grammar; :func:`grammar_for`
 makes that choice, and the rename resolver uses it too.
 
 - DEFINITION: function and generator declarations, classes (abstract ones too),
-  methods, TypeScript enums, interfaces and type aliases, and a
+  methods (``Klass.prototype.m = function () {}`` included), TypeScript enums,
+  interfaces and type aliases, and a
   ``const``/``let``/``var`` declarator whose value is an arrow function or a function
   expression. A declarator holding any other value is not a definition.
 - FIELD: a class field. PROPERTY: a plain object-literal key, and a TypeScript
   property signature.
 - EXPORT: every name an ``export`` statement exports, plus ``"default"`` for
-  ``export default``.
+  ``export default``; and CommonJS ``exports.x =``, ``module.exports.x =`` and each
+  literal key of ``module.exports = {...}``.
 - IMPORT: one per named, namespace or default import; a side-effect import is named
   after its module. The module string is the detail, the statement the signature.
 - REFERENCE: a call's callee identifier, or the property of a member call.
@@ -30,6 +32,7 @@ from tree_sitter_typescript import language_typescript as _ts_language
 from mcgyvr.orchestrator.languages.engine import (
     TreeSitterLanguage,
     definition,
+    export,
     field,
     field_text,
     has_child,
@@ -178,6 +181,97 @@ def _exports(path: str, node: Node) -> list[Symbol]:
     return exports
 
 
+def _assignment(path: str, node: Node) -> list[Symbol]:
+    """The CommonJS exports and the prototype method one assignment makes."""
+    return _commonjs_exports(path, node) + _prototype_method(path, node)
+
+
+def _prototype_method(path: str, node: Node) -> list[Symbol]:
+    """Record a DEFINITION for a ``Klass.prototype.method = function () {}``
+    assignment, the CommonJS-era spelling of a class method."""
+    left = node.child_by_field_name("left")
+    if left is None or left.type != "member_expression":
+        return []
+    obj = left.child_by_field_name("object")
+    prop = left.child_by_field_name("property")
+    if obj is None or prop is None or obj.type != "member_expression":
+        return []
+    proto = obj.child_by_field_name("property")
+    if proto is None or node_text(proto) != "prototype":
+        return []
+    name = node_text(prop) if prop.type == "property_identifier" else None
+    if name is None:
+        return []
+    right = node.child_by_field_name("right")
+    if right is None or right.type not in ("function_expression", "arrow_function"):
+        return []
+    return [definition(path, node, name, "method", header(right, right))]
+
+
+def _commonjs_exports(path: str, node: Node) -> list[Symbol]:
+    """Collect the EXPORT symbols of a CommonJS public-surface assignment.
+
+    ``exports.name = ...`` and ``module.exports.name = ...`` each export one
+    name; ``module.exports = { a, b }`` exports every literal key of the object.
+    Any other assignment exports nothing.
+    """
+    left = node.child_by_field_name("left")
+    if left is None or left.type != "member_expression":
+        return []
+    obj = left.child_by_field_name("object")
+    prop = left.child_by_field_name("property")
+    if obj is None or prop is None:
+        return []
+    obj_text = node_text(obj)
+    prop_text = node_text(prop)
+
+    # exports.<name> = ...
+    if (
+        obj.type == "identifier"
+        and obj_text == "exports"
+        and prop.type == "property_identifier"
+        and prop_text is not None
+    ):
+        return [export(path, node, prop_text)]
+
+    # module.exports.<name> = ...
+    if (
+        obj.type == "member_expression"
+        and prop.type == "property_identifier"
+        and prop_text is not None
+    ):
+        inner_obj = obj.child_by_field_name("object")
+        inner_prop = obj.child_by_field_name("property")
+        if (
+            inner_obj is not None
+            and inner_prop is not None
+            and node_text(inner_obj) == "module"
+            and node_text(inner_prop) == "exports"
+        ):
+            return [export(path, node, prop_text)]
+
+    # module.exports = { a, b, ... }
+    if obj.type == "identifier" and obj_text == "module" and prop_text == "exports":
+        right = node.child_by_field_name("right")
+        if right is not None and right.type == "object":
+            return _commonjs_object_exports(path, right)
+    return []
+
+
+def _commonjs_object_exports(path: str, obj: Node) -> list[Symbol]:
+    """Build an EXPORT symbol for every literal key of a ``module.exports`` object."""
+    exports: list[Symbol] = []
+    for child in obj.children:
+        if child.type != "pair":
+            continue
+        key = child.child_by_field_name("key")
+        if key is not None and key.type in ("property_identifier", "identifier"):
+            name = node_text(key)
+            if name is not None:
+                exports.append(export(path, child, name))
+    return exports
+
+
 def _imports(path: str, node: Node) -> list[Symbol]:
     """Collect the IMPORT symbols of one ``import`` statement.
 
@@ -258,6 +352,7 @@ LANGUAGE = TreeSitterLanguage(
         "variable_declarator": _declarator_definition,
         "export_statement": _exports,
         "import_statement": _imports,
+        "assignment_expression": _assignment,
         "call_expression": _reference,
         "field_definition": _field,
         "public_field_definition": _field,

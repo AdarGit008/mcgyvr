@@ -102,6 +102,35 @@ def test_an_exact_symbol_name_resolves(tmp_path: Path) -> None:
     assert result.best.path == "src/repo.py"
 
 
+def test_a_bare_symbol_name_prefers_the_defining_file_over_a_reexport(
+    tmp_path: Path,
+) -> None:
+    # `createEntityAdapter` is defined in one module and re-exported from the
+    # package's index barrel alongside many other names. Naming the symbol
+    # outright must land on the definition, not the aggregator.
+    index = build(
+        tmp_path,
+        {
+            "src/entities/create_adapter.js": (
+                "export function createEntityAdapter() {\n  return {};\n}\n"
+            ),
+            "src/index.js": (
+                "export { createEntityAdapter } from './entities/create_adapter.js';\n"
+                "export { createSlice } from './createSlice.js';\n"
+                "export { createAsyncThunk } from './createAsyncThunk.js';\n"
+            ),
+            "src/createSlice.js": "export function createSlice() {\n  return {};\n}\n",
+            "src/createAsyncThunk.js": (
+                "export function createAsyncThunk() {\n  return {};\n}\n"
+            ),
+        },
+    )
+    result = resolve(index, "createEntityAdapter")
+    assert result.verdict is Verdict.RESOLVED
+    assert result.best is not None
+    assert result.best.path == "src/entities/create_adapter.js"
+
+
 def test_a_symbol_whose_name_starts_with_a_stopword_still_resolves(
     tmp_path: Path,
 ) -> None:
