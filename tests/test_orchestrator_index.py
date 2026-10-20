@@ -311,6 +311,27 @@ def test_js_module_exports_object_literal_keys_are_exports() -> None:
     assert {"etag", "json"} <= exports
 
 
+def test_js_export_does_not_include_nested_declarators_or_methods() -> None:
+    # A `const` declared inside an exported function's body, and a method of an
+    # exported class, are locals — not part of the module's public surface. Only
+    # the top-level export names belong in the EXPORT set.
+    source = (
+        "export const make = (...args) => {\n"
+        "  const helper = Object.assign(() => {}, { withTypes: () => helper })\n"
+        "  return helper\n"
+        "}\n"
+        "export class Widget {\n"
+        "  render() {\n"
+        "    const scratch = 1\n"
+        "  }\n"
+        "}\n"
+    )
+    exports = {
+        s.name for s in extract("m.js", source.encode()) if s.kind is SymbolKind.EXPORT
+    }
+    assert exports == {"make", "Widget"}
+
+
 def test_js_prototype_method_assignment_is_a_definition() -> None:
     # ``Klass.prototype.method = function () {}`` is the CommonJS-era spelling
     # of a class method; the method name must be a DEFINITION like any other.

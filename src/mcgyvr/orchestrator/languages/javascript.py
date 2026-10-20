@@ -24,6 +24,8 @@ A file with syntax errors yields what parsed around them (see
 
 from __future__ import annotations
 
+from collections.abc import Iterator
+
 from tree_sitter import Language, Node
 from tree_sitter_javascript import language as _js_language
 from tree_sitter_typescript import language_tsx as _tsx_language
@@ -158,18 +160,49 @@ def _declaration_keyword(declarator: Node) -> str:
     return f"{node_text(keyword) or ''} "
 
 
+_EXPORT_BOUNDARIES = {
+    "function_declaration",
+    "generator_function_declaration",
+    "function_expression",
+    "generator_function",
+    "arrow_function",
+    "method_definition",
+    "class_declaration",
+    "abstract_class_declaration",
+    "class",
+}
+
+
+def _walk_exports(root: Node) -> Iterator[Node]:
+    """Yield export-relevant descendants, never entering a nested scope.
+
+    Like :func:`walk`, but stops descending at function, arrow, method and
+    class boundaries, so a declaration inside an exported function or class body
+    is not mistaken for a module export.
+    """
+    stack = [root]
+    while stack:
+        node = stack.pop()
+        yield node
+        if node.type in _EXPORT_BOUNDARIES:
+            continue
+        stack.extend(node.children)
+
+
 def _exports(path: str, node: Node) -> list[Symbol]:
     """Collect the EXPORT symbols of one ``export`` statement.
 
     A ``default`` keyword yields an EXPORT named ``"default"``; every exported
     specifier, definition or declarator inside the statement yields one EXPORT
-    per name, each at its own line.
+    per name, each at its own line. Nested scopes — the body of an exported
+    function or class, or a declarator's arrow/function value — are not entered,
+    so a ``const`` or ``method`` inside them is never an export.
     """
     exports: list[Symbol] = []
     line_ = line(node)
     if has_child(node, "default"):
         exports.append(Symbol("default", SymbolKind.EXPORT, path, line_))
-    for descendant in walk(node):
+    for descendant in _walk_exports(node):
         if (
             descendant.type == "export_specifier"
             or descendant.type in _DEFINITION_TYPES
