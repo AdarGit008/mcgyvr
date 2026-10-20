@@ -98,10 +98,15 @@ def _index(args: argparse.Namespace) -> int:
     if stats.languages:
         langs = ", ".join(f"{name} x{n}" for name, n in sorted(stats.languages.items()))
         print(f"  languages: {langs}")
-    if stats.files_skipped_large or stats.files_skipped_binary:
+    if (
+        stats.files_skipped_large
+        or stats.files_skipped_binary
+        or stats.files_skipped_gone
+    ):
         print(
             f"  skipped: {stats.files_skipped_large} large, "
-            f"{stats.files_skipped_binary} binary"
+            f"{stats.files_skipped_binary} binary, "
+            f"{stats.files_skipped_gone} gone"
         )
     if stats.degraded_extensions:
         print("  text-only (no grammar): " + ", ".join(stats.degraded_extensions))

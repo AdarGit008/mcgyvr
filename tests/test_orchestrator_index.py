@@ -13,6 +13,7 @@ Symbols are tested directly through :func:`extract` for precision, and through
 from __future__ import annotations
 
 import subprocess
+import warnings
 from pathlib import Path
 
 import pytest
@@ -94,6 +95,20 @@ def test_binary_files_are_detected_and_skipped(tmp_path: Path) -> None:
     assert "code.py" in indexed
     assert "data.bin" not in indexed
     assert index.stats.files_skipped_binary == 1
+
+
+def test_gone_files_are_counted_in_stats(tmp_path: Path) -> None:
+    repo = init_repo(tmp_path)
+    (repo / "real.py").write_text("x = 1\n")
+    (repo / "dangling.py").symlink_to(repo / "missing.py")
+    git(repo, "add", "real.py", "dangling.py")
+    git(repo, "commit", "-q", "-m", "seed")
+
+    index = build_index(repo)
+    indexed = {f.path for f in index.files}
+    assert "real.py" in indexed
+    assert "dangling.py" not in indexed
+    assert index.stats.files_skipped_gone == 1
 
 
 # --- degradation to text-only ----------------------------------------------
@@ -193,6 +208,36 @@ def test_python_syntax_error_yields_no_symbols_not_a_crash() -> None:
     assert extract("m.py", b"def broken(\n") == []
 
 
+def test_python_legacy_syntax_is_not_discarded_under_warnings_as_errors() -> None:
+    # A file with a deprecated escape parses fine but makes ast.parse emit a
+    # SyntaxWarning. Under a caller's ``-W error`` that warning becomes an
+    # exception, and without suppression it would discard every symbol in the
+    # file. The extractor must still yield the valid definitions alongside it.
+    source = b"s = '\\z'\ndef ok():\n    return 1\n"
+    with warnings.catch_warnings():
+        warnings.simplefilter("error", SyntaxWarning)
+        symbols = extract("m.py", source)
+    assert "ok" in {s.name for s in symbols}
+
+
+def test_python_class_attributes_are_fields() -> None:
+    source = (
+        "class C:\n"
+        "    limit = 10\n"
+        "    ceiling: int = 20\n"
+        "    def run(self):\n"
+        "        pass\n"
+    )
+    got = _kinds("m.py", source)
+    assert ("limit", "field", "field") in got
+    assert ("ceiling", "field", "field") in got
+
+
+def test_python_module_level_assignment_is_not_a_field() -> None:
+    got = _kinds("m.py", "top = 1\n")
+    assert not any(name == "top" and kind == "field" for name, kind, _ in got)
+
+
 # --- JS/TS symbols ---------------------------------------------------------
 
 
@@ -235,6 +280,31 @@ def test_js_call_expressions_are_references() -> None:
 def test_typescript_grammar_parses_type_annotations() -> None:
     got = _kinds("m.ts", "function typed(x: number): string {\n  return ''\n}\n")
     assert ("typed", "definition", "function") in got
+
+
+def test_js_class_fields_are_fields() -> None:
+    got = _kinds("m.js", "class C {\n  flag = false\n}\n")
+    assert ("flag", "field", "field") in got
+
+
+def test_typescript_class_field_is_a_field() -> None:
+    got = _kinds("m.ts", "class C {\n  flag: boolean = false\n}\n")
+    assert ("flag", "field", "field") in got
+
+
+def test_js_object_literal_keys_are_properties() -> None:
+    source = "const o = { timeout: 1000, [computed]: 2 }\n"
+    got = _kinds("m.js", source)
+    assert ("timeout", "property", "property") in got
+    assert not any(name == "computed" and kind == "property" for name, kind, _ in got)
+
+
+def test_typescript_interface_type_and_enum_are_definitions() -> None:
+    source = "interface Shape {}\ntype Alias = string\nenum Color { Red }\n"
+    got = _kinds("m.ts", source)
+    assert ("Shape", "definition", "interface") in got
+    assert ("Alias", "definition", "type") in got
+    assert ("Color", "definition", "enum") in got
 
 
 def test_symbol_table_lookups_after_build(tmp_path: Path) -> None:

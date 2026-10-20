@@ -51,7 +51,7 @@ from mcgyvr.orchestrator.symbols import Symbol, SymbolKind
 # set, or symbol encoding is never decoded under the wrong assumptions. Nothing
 # migrates between versions, so an equal version is read and anything else is
 # rebuilt from the working tree.
-CACHE_VERSION = 2
+CACHE_VERSION = 3
 
 # Budget for the combined size of every cache file in the cache directory, not
 # for one repository's file on its own. prune() adds up the .json files it finds
