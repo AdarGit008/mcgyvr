@@ -5,10 +5,9 @@ lock pins: :func:`admit_live` re-derives the layout's digest, refuses a layout
 that left its pin, refuses a rig whose observed id is not the locked one,
 refuses a rig a foreign process holds or whose units' sleep state could not be
 read, and returns the units of ours to clean plus the fleet's own units to
-restore. :func:`wake` spawns one door run toward a fleet the current one lists
-as a switch, and only when that fleet holds the unit awake. The remaining
-helpers answer the narrower question the live gate and the waker ask of a lock
-with no sample behind it: which containers and which host it covers.
+restore. The remaining helpers answer the narrower question the live gate and
+the waker ask of a lock with no sample behind it: which containers and which
+host it covers.
 """
 
 from __future__ import annotations
@@ -168,47 +167,6 @@ def admit_live(
                 clean.append((rig_name, unit_id))
 
     return Plan(clean=clean, restore=restore)
-
-
-def wake(
-    root: Path,
-    fleet: dict[str, Any],
-    from_fleet: str,
-    unit_name: str,
-    spawn: Any,
-) -> str:
-    """Run one door switch that wakes ``unit_name``, and name the fleet switched to.
-
-    A fleet holds the unit awake when some slot of its layout names the unit in
-    the awake state. ``from_fleet`` may switch only to a fleet it lists under
-    ``next``, so the first listed fleet that holds the unit awake is passed to
-    ``spawn`` as ``("serve", "up", from_fleet, target, unit_name)`` and its name
-    is returned. ``root`` is not read here, and nothing is spawned unless a
-    listed switch holds the unit awake.
-    """
-    fleets = fleet.get("fleets", {})
-    if from_fleet not in fleets:
-        raise LiveRefusedError(f"{from_fleet} is not a fleet of this setup")
-
-    awake_in = [
-        name
-        for name, block in fleets.items()
-        if any(
-            slot is not None and slot[0] == unit_name and slot[1] == "awake"
-            for slots in block.get("layout", {}).values()
-            for slot in slots
-        )
-    ]
-
-    for target in fleets[from_fleet].get("next", []):
-        if target in awake_in:
-            spawn(("serve", "up", from_fleet, target, unit_name))
-            return str(target)
-
-    raise LiveRefusedError(
-        f"{from_fleet} lists no switch that wakes {unit_name}; it is awake only "
-        f"in {', '.join(sorted(set(awake_in))) or 'no fleet'}"
-    )
 
 
 def _pinned_rig_id(root: Path, host: str) -> str | None:

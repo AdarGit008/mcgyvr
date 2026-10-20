@@ -451,15 +451,18 @@ def test_a_plain_http_hub_is_refused_unless_it_is_this_machine(
 
 
 def test_the_list_is_what_the_model_knowledge_records() -> None:
-    weights = Weights(
-        repo=REPO, revision=REVISION, file="coder-s-Q4_K_M.gguf", sha256=_sha(SMALL)
-    )
-    size = Number(len(SMALL), "fact", f"hub-api:{REPO}@{REVISION}", date(2026, 10, 7))
+    record = _coder_record()
+    weights = record.weights
+    assert weights is not None
 
-    [want] = fetchlist.from_weights([(weights, size)])
+    [want] = fetchlist.from_records([record])
 
     assert fetchlist.parse(fetchlist.dump([want])) == (want,)
-    assert (want.repo, want.revision, want.file) == (REPO, REVISION, weights.file)
+    assert (want.repo, want.revision, want.file) == (
+        weights.repo,
+        REVISION,
+        weights.file,
+    )
     assert (want.sha256, want.bytes) == (_sha(SMALL), len(SMALL))
 
 

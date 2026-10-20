@@ -12,8 +12,7 @@ user picked from the locked set, and nothing else:
   rig is simply restored;
 * a process that is not ours refuses that rig and names the process, because
   live does not kill what it does not own;
-* the Waker wakes a unit only along a listed switch: it spawns one door run
-  toward a fleet the current one lists, and nothing toward one it does not.
+* the Waker spawns no door run on a live setup with no locked fleet.
 
 A run holding the rig's lease is never displaced: a run that finds the rig
 held by another live run is refused at gate 2, and the holder's serve units
@@ -34,7 +33,6 @@ import pytest
 
 from tests.doors import RUNG_7B, compose_dir, door_log, ladder
 from tests.fleetlocks import (
-    EVIDENCE,
     FLEET,
     RIG2,
     U3B,
@@ -51,8 +49,7 @@ MOVED = "rig-" + "8" * 64
 def _admit() -> Any:
     return required(
         "admit a live run only on a locked fleet on its own rigs, cleaning units "
-        "of ours it does not name, refusing a process it did not start, and "
-        "waking only along a listed switch",
+        "of ours it does not name, and refusing a process it did not start",
         lambda: importlib.import_module("mcgyvr.fleet.admit"),
     )
 
@@ -173,30 +170,3 @@ def test_the_waker_does_not_wake_toward_a_fleet_nobody_locked(
     woke = waker.wake_for(RUNG_7B) if waker is not None else False
     assert spawned == [], f"the door was spawned toward an unlocked fleet: {spawned}"
     assert woke is False
-
-
-def test_the_waker_wakes_a_unit_along_a_listed_switch(tmp_path: Path) -> None:
-    """flt-05 lists flt-02, where the asleep 3B is awake: one door run."""
-    admit = _admit()
-    root = locked(tmp_path)
-    spawned: list[Any] = []
-    target = admit.wake(root, FLEET, "flt-05", "box2_3b", spawn=spawned.append)
-    assert target == "flt-02"
-    assert len(spawned) == 1, spawned
-
-
-def test_the_waker_does_not_wake_along_a_switch_nobody_listed(tmp_path: Path) -> None:
-    """The 3B is awake only in flt-02, and flt-05 lists no switch to it."""
-    admit = _admit()
-    fleet = copy.deepcopy(FLEET)
-    for entry in fleet["fleets"].values():
-        entry["next"] = []
-    evidence = copy.deepcopy(EVIDENCE)
-    evidence["moves"] = []
-    root = locked(tmp_path, fleet, evidence)
-    spawned: list[Any] = []
-    with pytest.raises(admit.LiveRefusedError) as refused:
-        admit.wake(root, fleet, "flt-05", "box2_3b", spawn=spawned.append)
-    said = str(refused.value)
-    assert "flt-05" in said and "flt-02" in said, said
-    assert spawned == [], spawned

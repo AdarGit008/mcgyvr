@@ -408,30 +408,6 @@ def ssh_read_only(
     )
 
 
-def ssh_or_refuse(host: str, command: str, what: str, timeout: float = 120.0) -> str:
-    """Run `command` on `host` and return its stdout, or refuse under `what`.
-
-    A call that times out and one that exits non-zero are both refusals said
-    under `what`: a rig that cannot be read is not compared, and nothing is
-    measured on it. A failed call's stderr is kept, trimmed, in the refusal.
-    """
-    try:
-        done = ssh(host, command, timeout=timeout)
-    except subprocess.TimeoutExpired:
-        refuse(
-            f"{what}: ssh to {host} did not answer within {timeout:.0f}s "
-            f"({shlex.quote(command)[:80]}). A rig that cannot be read is not "
-            "compared, and nothing is measured on it"
-        )
-        raise
-    if done.returncode != 0:
-        refuse(
-            f"{what}: ssh to {host} exited {done.returncode}: "
-            f"{done.stderr.strip()[:400] or '(no stderr)'}"
-        )
-    return done.stdout
-
-
 # Where a run's artifacts may land: inside the envelope. These two checks say why
 # a path is not — the envelope is a link, or the artifact is a link, a hard link,
 # not a regular file, or resolves elsewhere.

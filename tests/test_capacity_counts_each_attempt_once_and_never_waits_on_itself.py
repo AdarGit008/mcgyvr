@@ -81,8 +81,11 @@ def test_a_reserved_attempt_dispatched_through_run_batch_counts_once() -> None:
         with held.hold("a"):
             seen.append(held.load("a"))
 
-    with capacity.reserving("a"):
+    capacity.reserve("a")
+    try:
         outcomes = run_batch([draw], capacity)
+    finally:
+        capacity.release("a")
 
     assert all(outcome.ok for outcome in outcomes), outcomes
     assert seen == [1], "one reserved attempt in flight read as more than one load"
@@ -99,8 +102,11 @@ def test_two_draws_of_one_reserved_attempt_count_as_two_slots_not_three() -> Non
             seen.append(held.load("a"))
             both.wait()
 
-    with capacity.reserving("a"):
+    capacity.reserve("a")
+    try:
         outcomes = run_batch([draw, draw], capacity)
+    finally:
+        capacity.release("a")
 
     assert all(outcome.ok for outcome in outcomes), outcomes
     assert seen == [2, 2]

@@ -1369,8 +1369,3 @@ def disposition(outcome: Outcome) -> Disposition:
             )
         case _:  # pragma: no cover - unreachable while the match is exhaustive
             assert_never(outcome)
-
-
-def may_reassign(outcome: Outcome, budget_remaining: int) -> bool:
-    """Whether the outcome allows a reassignment and there is budget to pay for it."""
-    return disposition(outcome).reassignable and budget_remaining > 0

@@ -9,9 +9,7 @@ number was obtained is said in ``facts``.
 A scan travels as json (``to_json``, ``from_json``) and is produced either here
 (``reading``, ``scan``) or on the host itself over ssh (``read_over``,
 ``scan_over``), because free VRAM and memory bandwidth are only visible from the
-machine they describe. ``scan_all`` reads this machine plus each named host and
-keeps a host that could not be read as a name in ``unreachable``, not as an
-error.
+machine they describe.
 """
 
 from __future__ import annotations
@@ -20,7 +18,7 @@ import json
 import platform
 import subprocess
 from collections.abc import Sequence
-from dataclasses import dataclass, replace
+from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
 
@@ -134,10 +132,6 @@ class Cpu:
 
     cores: int
     threads: int
-
-    @property
-    def smt(self) -> bool:
-        return self.threads > self.cores
 
 
 @dataclass(frozen=True)
@@ -322,30 +316,6 @@ class Scan:
             disk=disk,
             facts=tuple(facts),
         )
-
-    def with_vram_used(self, mib: int) -> Scan:
-        """A copy of this scan with ``mib`` held on every card.
-
-        ``free_mib`` is recomputed as total less reserved less ``mib``, floored
-        at 0, because the measured free no longer describes a card carrying
-        this much. The scan this was called on is left as it was.
-        """
-        gpus = tuple(
-            replace(
-                gpu,
-                vram=Vram(
-                    total_mib=gpu.vram.total_mib,
-                    used_mib=mib,
-                    # Free is derived, not copied: the measured free describes
-                    # the card as it was, and a card holding more than it has
-                    # free floors at 0 rather than going negative.
-                    free_mib=max(gpu.vram.total_mib - gpu.vram.reserved_mib - mib, 0),
-                    reserved_mib=gpu.vram.reserved_mib,
-                ),
-            )
-            for gpu in self.gpus
-        )
-        return replace(self, gpus=gpus)
 
     def to_json(self) -> str:
         payload: dict[str, Any] = {
@@ -560,19 +530,6 @@ class Reach:
         return self.host is None
 
 
-@dataclass(frozen=True)
-class Sweep:
-    """What reading several machines at once produced.
-
-    ``scans`` holds the machines that answered and ``unreachable`` the hosts
-    that did not, so a missing rig is a name in a list rather than a failure
-    that loses the rigs beside it.
-    """
-
-    scans: tuple[Scan, ...] = ()
-    unreachable: tuple[str, ...] = ()
-
-
 def _ssh(host: str, command: str) -> str:
     """Run one read command on ``host`` over ssh and return its stdout.
 
@@ -681,21 +638,3 @@ def scan_over(reach: Reach) -> Scan:
         return Scan.from_json(json.dumps(document))
     except (ValueError, KeyError, TypeError, AttributeError):
         raise ScanFailed(reach.host or "localhost") from None
-
-
-def scan_all(hosts: Sequence[str] = ()) -> Sweep:
-    """Read this machine and then each named host, one transport apiece.
-
-    This machine always comes first and its failure is not caught. A host that
-    raises ``Unreachable``, ``ScannerMissing`` or ``ScanFailed`` lands in
-    ``unreachable`` and the rest of the sweep carries on; a host named twice is
-    read once.
-    """
-    scans: list[Scan] = [scan_over(Reach.local())]
-    unreachable: list[str] = []
-    for host in dict.fromkeys(hosts):
-        try:
-            scans.append(scan_over(Reach.ssh(host)))
-        except (Unreachable, ScannerMissing, ScanFailed):
-            unreachable.append(host)
-    return Sweep(scans=tuple(scans), unreachable=tuple(unreachable))

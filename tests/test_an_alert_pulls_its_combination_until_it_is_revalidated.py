@@ -19,7 +19,6 @@
 * Nothing clears on its own. A pull clears only when the combination's
   validation is re-committed; ``rejudge`` reports and pulls nothing (proposed,
   not ruled: ``mcgyvr-lab/records/plans/fleet-identity.md`` §12).
-* With every combination pulled, live refuses all work loudly, naming each.
 
 Tolerances here are placeholders: the rule is pinned, not the values.
 """
@@ -44,9 +43,6 @@ from tests.reads import (
     seen,
 )
 from tests.reads import alert_rows as rows
-
-CMB_OTHER = "cmb-" + "b" * 64
-OTHER = "unt-" + "3" * 64
 
 
 def test_every_observation_is_filed_under_the_journal_by_what_it_was_computed_for(
@@ -158,7 +154,7 @@ def test_a_live_switch_slower_than_its_dev_run_alerts_naming_the_switch(
     assert [(a["switch"], a["field"]) for a in raised] == [(SWITCH, "downtime_s")]
 
 
-def test_a_live_alert_pulls_its_combination_at_once_and_its_units_stop_routing(
+def test_a_live_alert_pulls_its_combination_at_once_and_leaves_its_containers_up(
     tmp_path: Path,
 ) -> None:
     alerts = _alerts()
@@ -168,8 +164,6 @@ def test_a_live_alert_pulls_its_combination_at_once_and_its_units_stop_routing(
         "a pull leaves its containers up for inspection"
     )
     assert set(alerts.pulled(journal, lock_root)) == {CMB}
-    units = {UNIT: CMB, OTHER: CMB_OTHER}
-    assert list(alerts.routable(units, journal, lock_root)) == [OTHER]
 
 
 def test_a_pull_clears_only_when_its_validation_is_recommitted(
@@ -190,20 +184,6 @@ def test_a_pull_clears_only_when_its_validation_is_recommitted(
     )
     record.write_text(json.dumps({"validated_at": "2999-01-01T00:00:00Z"}))
     assert dict(alerts.pulled(journal, lock_root)) == {}
-
-
-def test_with_every_combination_pulled_live_refuses_all_work_naming_each(
-    tmp_path: Path,
-) -> None:
-    alerts = _alerts()
-    journal, lock_root = tmp_path / "journal", tmp_path / "repo"
-    check(alerts, [seen("restarts", 1)], journal)
-    other = {**STAMP, "combination_id": CMB_OTHER, "unit_id": OTHER}
-    check(alerts, [seen("restarts", 1, OTHER)], journal, stamp=other)
-    with pytest.raises(alerts.AllPulledError) as refused:
-        alerts.routable({UNIT: CMB, OTHER: CMB_OTHER}, journal, lock_root)
-    said = str(refused.value)
-    assert CMB in said and CMB_OTHER in said, said
 
 
 def test_a_repeated_alert_warns_once_and_is_counted(

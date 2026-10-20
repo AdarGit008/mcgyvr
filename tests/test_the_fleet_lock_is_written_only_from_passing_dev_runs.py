@@ -284,14 +284,6 @@ def test_a_fleet_switch_is_locked_on_a_rig_move_another_switch_ran(
     assert (tmp_path / "lock" / "flt-06.json").is_file()
 
 
-def test_the_wake_limit_is_the_validated_wake_plus_its_tolerance() -> None:
-    """The limit is the lock's tolerance added to the validated wake, whatever
-    that tolerance is; the values are the measurement branch's."""
-    lock = _lock()
-    assert lock.wake_limit_s(20.0, {"s": 0.5}) == pytest.approx(20.5)
-    assert lock.wake_limit_s(0.25, {"s": 0.1}) == pytest.approx(0.35)
-
-
 def test_the_wake_ratio_in_code_and_the_hand_set_wake_timeout_are_gone() -> None:
     from mcgyvr import wake
     from mcgyvr.config import field_at

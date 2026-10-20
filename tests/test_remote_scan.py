@@ -14,7 +14,7 @@ from collections.abc import Callable
 import pytest
 
 from mcgyvr import scan as scan_module
-from mcgyvr.scan import Reach, scan_all, scan_over
+from mcgyvr.scan import Reach, scan_over
 
 SCAN_JSON = """
 {"machine": {"id": "%s", "host": "%s", "kernel": "6.8.0"},
@@ -84,32 +84,6 @@ def test_a_local_reach_opens_no_connection(local: None, ssh: Ssh) -> None:
     recorder = ssh("desktop-1")
     scan_over(Reach.local())
     assert recorder.commands == []
-
-
-def test_no_access_yields_the_local_machine_only(local: None, ssh: Ssh) -> None:
-    ssh()
-    result = scan_all(hosts=("desktop-1",))
-    assert [each.machine.host for each in result.scans] == ["localhost"]
-
-
-def test_an_unreachable_host_is_reported_not_raised(local: None, ssh: Ssh) -> None:
-    ssh()
-    assert scan_all(hosts=("desktop-1",)).unreachable == ("desktop-1",)
-
-
-def test_two_desktops_produce_two_machine_ids(local: None, ssh: Ssh) -> None:
-    ssh("desktop-1", "desktop-2")
-    result = scan_all(hosts=("desktop-1", "desktop-2"))
-    assert len({each.machine.id for each in result.scans}) == 3
-
-
-def test_a_reachable_host_survives_an_unreachable_neighbour(
-    local: None, ssh: Ssh
-) -> None:
-    ssh("desktop-1")
-    result = scan_all(hosts=("desktop-1", "desktop-2"))
-    assert result.unreachable == ("desktop-2",)
-    assert "desktop-1" in {each.machine.host for each in result.scans}
 
 
 def test_a_remote_scan_never_falls_back_to_a_model_listing(

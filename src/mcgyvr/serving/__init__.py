@@ -2123,20 +2123,3 @@ def kv_bytes_for_run(
             cache_type_v=cache_type_v,
         )["total"]
     )
-
-
-def served_window(reported: Mapping[str, Any]) -> int | None:
-    """The window a running unit reports: max_model_len off a vLLM models answer, or
-    n_ctx off a llama.cpp one, and None when it reports neither."""
-    models = reported.get("data")
-    if isinstance(models, list):
-        for entry in models:
-            if not isinstance(entry, Mapping):
-                continue
-            window = entry.get("max_model_len")
-            if isinstance(window, int) and not isinstance(window, bool):
-                return window
-    window = reported.get("n_ctx")
-    if isinstance(window, int) and not isinstance(window, bool):
-        return window
-    return None

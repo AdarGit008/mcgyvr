@@ -469,6 +469,34 @@ def hash_in_this_thread(
     return found
 
 
+def quick_timing() -> Any:
+    """A :class:`mcgyvr.rig.session.Timing` short enough for a test.
+
+    Every wait on a container is a fraction of a second, and a tunnel port does
+    not rest before it is taken again.
+    """
+    from mcgyvr.rig import session as rs
+
+    return rs.Timing(
+        tick_s=0.01,
+        lease_s=60,
+        renew_s=0.02,
+        monitor_s=0.02,
+        prepare_s=0.5,
+        start_s=0.5,
+        load_s=1.0,
+        poll_s=0.01,
+        grace_s=0.1,
+        stop_wait_s=5.0,
+        peer_lost_s=0.2,
+        stall_s=5.0,
+        warm_s=1.0,
+        attempt_s=0.05,
+        connect_s=2.0,
+        port_rest_s=0.0,
+    )
+
+
 def make_pool(tmp_path: Path, **sharing_changes: Any) -> Pool:
     from mcgyvr.rig import commands, pooled
     from mcgyvr.rig import session as rs
@@ -512,7 +540,7 @@ def make_pool(tmp_path: Path, **sharing_changes: Any) -> Pool:
         docker=docker,
         machine=machine,
         send=box.put,
-        timing=rs.Timing.quick(),
+        timing=quick_timing(),
         log=logged.append,
     )
     dispatcher = commands.Dispatcher()

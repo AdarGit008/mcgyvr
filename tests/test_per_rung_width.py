@@ -375,7 +375,7 @@ def test_full_fanout_can_see_a_rung_that_is_full_of_its_own_holds(
 ) -> None:
     """A rung's holds are load, and a fan-out that cannot see them is price order.
 
-    Once a dispatch is held against its rung, ``in_use(source)`` counts none of
+    Once a dispatch is held against its rung, ``in_flight(source)`` counts none of
     it — that is the point of a second queue — so a load read from the source
     alone reports zero for every rung with a width of its own. Every member of a
     batch would then compare zeroes, ``full`` would return the cheapest rung

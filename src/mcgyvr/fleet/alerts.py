@@ -16,8 +16,8 @@ rules; the absolute and second rules need the expected/tolerance mapping. A
 field with nothing approved on file is recorded and not judged.
 
 A trip warns once on stderr and pulls its whole combination, so :func:`pulled`
-can list the pulled combinations, :func:`routable` keeps live work off their
-units, and :func:`pulled_units` names the slots a live fleet skips. Nothing
+can list the pulled combinations and :func:`pulled_units` names the slots a
+live fleet skips. Nothing
 clears a pull on its own: a combination whose lock record holds a later
 ``validated_at`` than its newest alert is no longer pulled, and :func:`rejudge`
 reports what a newly approved table would trip without rewriting the journal.
@@ -34,11 +34,6 @@ from typing import Any
 
 from mcgyvr.fleet.admit import layout_ids
 from mcgyvr.fleet.roots import LOCK_DIR
-
-
-class AllPulledError(Exception):
-    """Live has nowhere to route: every combination its units work on is pulled."""
-
 
 #: Field -> (the direction a trip runs, how its bound is read): "pct" is a
 #: percentage below a locked figure, "abs" an absolute rise above one, "s" a
@@ -441,26 +436,6 @@ def live_pulled_units() -> dict[str, list[dict[str, Any]]]:
         AttributeError,
     ) as exc:
         raise PullsUnreadableError(f"{type(exc).__name__}: {exc}") from exc
-
-
-def routable(
-    units: Mapping[str, str], journal: Path, lock_root: Path | None
-) -> list[str]:
-    """The units free to take work: those whose combination is not pulled.
-
-    With units to route and every one of their combinations pulled, live
-    refuses all work by raising :class:`AllPulledError`, naming them.
-    """
-    pulled_combs = pulled(journal, lock_root)
-    free = [
-        unit for unit, combination in units.items() if combination not in pulled_combs
-    ]
-    if not free and units:
-        named = ", ".join(sorted(c for c in units.values() if c in pulled_combs))
-        raise AllPulledError(
-            f"live refuses all work: every combination is pulled ({named})"
-        )
-    return free
 
 
 def rejudge(
