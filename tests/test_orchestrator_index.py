@@ -267,6 +267,39 @@ def test_js_named_and_default_exports() -> None:
     assert {"foo", "default", "a", "b"} <= exports
 
 
+def test_js_commonjs_exports_assignments_are_exports() -> None:
+    # CommonJS names its public surface with `exports.name = ...` and
+    # `module.exports.name = ...`; both must be extracted as EXPORT symbols so
+    # a query for the name lands on the file, exactly as an ESM `export` does.
+    source = (
+        "exports.etag = createETagGenerator({ weak: false })\n"
+        "module.exports.Axios = Axios\n"
+    )
+    exports = {
+        s.name for s in extract("m.js", source.encode()) if s.kind is SymbolKind.EXPORT
+    }
+    assert {"etag", "Axios"} <= exports
+
+
+def test_js_module_exports_object_literal_keys_are_exports() -> None:
+    source = "module.exports = { etag: x, json: y }\n"
+    exports = {
+        s.name for s in extract("m.js", source.encode()) if s.kind is SymbolKind.EXPORT
+    }
+    assert {"etag", "json"} <= exports
+
+
+def test_js_prototype_method_assignment_is_a_definition() -> None:
+    # ``Klass.prototype.method = function () {}`` is the CommonJS-era spelling
+    # of a class method; the method name must be a DEFINITION like any other.
+    source = (
+        "function View() {}\n"
+        "View.prototype.resolve = function resolve(dir, file) {\n  return dir\n}\n"
+    )
+    got = _kinds("m.js", source)
+    assert ("resolve", "definition", "method") in got
+
+
 def test_js_call_expressions_are_references() -> None:
     source = "function f() {\n  helper()\n  obj.method()\n}\n"
     refs = {
