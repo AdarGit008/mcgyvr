@@ -198,9 +198,8 @@ what the run came to. The file's keys:
 - `assurance` — what an `accepted` result rests on, and `detail` says it
   in a sentence: `deterministic` (a tool's change, on the gate),
   `verified` (a reviewer agreed), `unverified` (no reviewer could be
-  asked; `detail` says why), `checked` (a reply that passed its
-  output checks) or `unchecked` (a `chat` or `agent` reply: no checks,
-  no review). A reply is never reviewed.
+  asked; `detail` says why) or `unchecked` (a `chat` or `agent` reply:
+  no checks, no review). A reply is never reviewed.
 - `findings` — the deterministic gate's findings for a contract that
   dispatched nothing.
 - `delivery` — where the work went: left uncommitted in the tree (the

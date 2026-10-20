@@ -145,7 +145,7 @@ def test_a_rig_of_several_cards_is_held_to_each_card(
     [
         ("coding", (("gate", fx.UNIT, False), ("gate", "rig-a-other", True))),
         ("chat", (("completion", fx.UNIT, True),)),
-        ("agent", (("grounded", fx.UNIT, True), ("safety", fx.UNIT, True))),
+        ("agent", (("grounded", fx.UNIT, True),)),
     ],
 )
 def test_each_use_case_is_green_by_its_own_task(
@@ -155,7 +155,7 @@ def test_each_use_case_is_green_by_its_own_task(
     outcomes: tuple[tuple[str, str, bool], ...],
 ) -> None:
     """Coding: the gate passes on any rung. Chat: each unit answers at its
-    planned window and slots. Agent: grounded and safety both pass."""
+    planned window and slots. Agent: the grounded check passes."""
     from mcgyvr.fleet import sample
 
     setup = fx.staged(tmp_path, policy=fx.policy_doc(tmp_path, use_case))

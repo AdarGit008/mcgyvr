@@ -342,7 +342,7 @@ def _contract(args: argparse.Namespace) -> int:
     if contract.stop_conditions:
         print(f"  stops:   {len(contract.stop_conditions)} condition(s)")
     # `reply` separates a reply, a type that judges no change, from work that
-    # produces one: a reply states how its output checks judge it, while a
+    # produces one: a reply states that it is served unchecked, while a
     # change states the verification policy it is held to.
     reply = not contract.is_deterministic and not contract.kind.judges_a_change
     if reply:
@@ -384,10 +384,7 @@ def _contract(args: argparse.Namespace) -> int:
         )
     if reply:
         if contract.acceptance:
-            print(
-                "  acceptance: not run on the reply — a reply is judged by its "
-                "output checks alone"
-            )
+            print("  acceptance: not run on the reply — a reply is served unchecked")
     elif contract.acceptance:
         print("  acceptance:")
         for command in contract.acceptance:

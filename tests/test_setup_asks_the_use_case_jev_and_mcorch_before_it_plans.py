@@ -122,11 +122,19 @@ def test_agent_is_planned_staged_and_sampled_by_the_grounded_contract(
         monkeypatch, sd.FakeRig(), {START: True, LOCK: True}, typed={USE_CASE: "a"}
     )
     ran: list[str] = []
+    reference = sampler._bundled("agent")["reference"]["answer"]
 
     def run_contract(argv: list[str]) -> int:
         contract = Path(argv[argv.index("run") + 1])
         ran.append(yaml.safe_load(contract.read_text(encoding="utf-8"))["id"])
-        return sd.accepted(argv)
+        where = Path(argv[argv.index("--result") + 1])
+        where.write_text(
+            json.dumps(
+                {"outcome": "accepted", "rung": "llama-server", "answer": reference}
+            ),
+            encoding="utf-8",
+        )
+        return 0
 
     monkeypatch.setattr(cli.commands.setup, "_setup_run_contract", run_contract)
 
@@ -134,6 +142,9 @@ def test_agent_is_planned_staged_and_sampled_by_the_grounded_contract(
 
     assert _policy(_staged())["use_case"] == "agent"
     assert ran == ["mcgyvr-sample-agent"]
+    # The grounded check (citations and facts) is the agent sample's only
+    # task check, so the reference reply samples green and the fleet is locked.
+    assert _policy(_live())["use_case"] == "agent"
 
 
 def test_a_jev_opt_in_binds_the_unit_and_the_sample_asks_its_choice(

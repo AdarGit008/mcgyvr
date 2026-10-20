@@ -58,7 +58,6 @@ from mcgyvr.drive.gate import (
     gate_in_sandbox,
     gate_prose_workspace,
     gate_workspace,
-    output_checks_for,
     task_ceiling,
 )
 from mcgyvr.drive.attempt import SESSION_REPLY, _in_order, worker_attempt
@@ -90,7 +89,6 @@ __all__ = [
     "gate_prose_workspace",
     "gate_workspace",
     "judge",
-    "output_checks_for",
     "refuse_unsendable",
     "refuse_unsendable_climb",
     "run_batch",

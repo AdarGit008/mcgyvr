@@ -16,8 +16,6 @@ import pytest
 from mcgyvr.gate.adapter import ToolFailedError, ToolUnavailableError
 from mcgyvr.gate.adapters import PythonAdapter
 from mcgyvr.gate.changeset import ChangeSet
-from mcgyvr.gate.findings import Finding
-from mcgyvr.gate.output import SAFETY_PASS, OutputChecks
 from mcgyvr.gate.runner import Gate
 from mcgyvr.scope import Scope
 
@@ -220,40 +218,3 @@ def test_subprocess_count_is_flat_across_change_size(
 
     assert counts[0] == 2, f"expected exactly two ruff calls, got {counts[0]}"
     assert counts[0] == counts[1], f"gate subprocess count grew with size: {counts}"
-
-
-def test_the_gate_folds_output_check_findings(
-    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
-) -> None:
-    """An output check's finding is a gate finding under the same check name."""
-    unsafe = Finding(check=SAFETY_PASS, path="out.txt", code="unsafe", message="x")
-    monkeypatch.setattr("mcgyvr.gate.output.safety_pass", lambda *_args: [unsafe])
-    repo = repo_with_base(tmp_path)
-    (repo / "out.txt").write_text("unsafe\n", encoding="utf-8")
-    output = OutputChecks(checks=(SAFETY_PASS,), workspace=repo, target="out.txt")
-
-    result = Gate().run(ChangeSet.detect(repo), output=output)
-
-    assert not result.accepted
-    assert {f.check for f in result.findings} == {SAFETY_PASS}
-
-
-def test_an_unwired_output_check_is_inconclusive_not_accepted(
-    tmp_path: Path,
-) -> None:
-    """P2 posture: a missing validator is inconclusive, never accepted.
-
-    This is the flip from a missing linter — absent is a visible hole, but a
-    safety or ASR validator that never ran must not be reported clean, so it
-    rejects the change.
-    """
-    repo = repo_with_base(tmp_path)
-    output = OutputChecks(checks=(SAFETY_PASS,), workspace=repo, target="out.png")
-
-    result = Gate().run(ChangeSet.detect(repo), output=output)
-
-    assert not result.accepted
-    assert len(result.inconclusive) == 1
-    assert result.inconclusive[0].rung == SAFETY_PASS
-    assert result.inconclusive[0].adapter == "output"
-    assert any(SAFETY_PASS in issue for issue in result.environment_issues)

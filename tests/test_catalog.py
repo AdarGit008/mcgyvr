@@ -191,14 +191,6 @@ def test_evidence_baseline_routes_each_kind_to_the_slot_that_can_satisfy_it(
             assert kind.baseline == "pass"  # the default; no baseline run exists
 
 
-def test_the_safety_evidence_kind_is_declared(shipped: Catalog) -> None:
-    """The safety check is the gate's own tool, not a contract command."""
-    by_name = {e.name: e for e in shipped.evidence_kinds}
-    assert "safety_pass" in by_name, "safety_pass is not a declared evidence kind"
-    assert not by_name["safety_pass"].needs_commands
-    assert by_name["safety_pass"].baseline == "pass"
-
-
 def test_the_command_needing_properties_split_by_baseline(shipped: Catalog) -> None:
     """`code` derives command-needing evidence from the contract's own fields,
     so the type itself forces neither slot: a `code` contract with no commands

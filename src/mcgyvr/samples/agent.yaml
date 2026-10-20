@@ -1,9 +1,8 @@
 # The agent use case's sample task: one contract grounded in one source, run
 # by `mcgyvr run` on the staged setup (mcgyvr.fleet.sampler). Green when the
 # reply is grounded -- every sentence cites the source and the reply states
-# each fact in `facts` -- and the safety check clears it. `files` is the
-# repository as it starts, and `reference` is one reply the grounded check
-# accepts.
+# each fact in `facts`. `files` is the repository as it starts, and
+# `reference` is one reply the grounded check accepts.
 use_case: agent
 contract:
   id: mcgyvr-sample-agent

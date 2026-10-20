@@ -72,11 +72,6 @@
       "doc": "An acceptance command that demonstrates the defect — it must fail before the change and pass after. Without it a fix is indistinguishable from a plausible edit. Carried in the contract's `demonstration` list, not `acceptance`: the two lists have opposite baseline expectations, and one flat list cannot say which command is which.",
       "needs_commands": true,
       "baseline": "fail"
-    },
-    {
-      "name": "safety_pass",
-      "doc": "A deterministic safety classifier passes on the output — the gate runs it, the contract does not.",
-      "needs_commands": false
     }
   ],
 

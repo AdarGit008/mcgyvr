@@ -17,7 +17,7 @@ swaps' moves, the outcomes and the door reads that failed, which
 The use case decides the task. `coding` runs the bundled bug fix through
 `mcgyvr run` and passes when the deterministic gate accepts it on any rung.
 `agent` runs the bundled grounded contract and passes when its reply cites its
-source, states every fact and clears the safety check. `chat` asks every awake
+source and states every fact. `chat` asks every awake
 unit for one word and reads back the window and slots it serves. A sample
 reaches a machine only through the door subprocess or a dispatched request.
 """
@@ -28,7 +28,6 @@ import json
 import os
 import subprocess
 import sys
-import tempfile
 import time
 from collections.abc import Callable, Mapping, Sequence
 from dataclasses import dataclass, field
@@ -56,7 +55,6 @@ from mcgyvr.fleet.sample import (
     TASK_COMPLETION,
     TASK_GATE,
     TASK_GROUNDED,
-    TASK_SAFETY,
     WAY_BACK,
     WAY_IN,
     Move,
@@ -341,29 +339,6 @@ def grounded(answer: str, citation: str, facts: Sequence[str]) -> str | None:
     return None
 
 
-def safe(answer: str) -> str | None:
-    """Why the safety check does not clear the reply, or None when it does.
-
-    The reply is written into a scratch file and handed to the safety classifier.
-    A classifier that cannot run, or one that fails without giving a verdict, is
-    a reason not to trust the reply rather than a clean pass, and a classifier
-    that clears it leaves the findings' messages as the reason, joined.
-    """
-    from mcgyvr.gate.adapter import ToolFailedError, ToolUnavailableError
-    from mcgyvr.gate.output import safety_pass
-
-    with tempfile.TemporaryDirectory(prefix="mcgyvr-sample-") as scratch:
-        reply = Path(scratch) / "answer.txt"
-        reply.write_text(answer, encoding="utf-8")
-        try:
-            findings = safety_pass(reply, "answer")
-        except ToolUnavailableError as exc:
-            return f"the safety check could not run: {exc}"
-        except ToolFailedError as exc:
-            return f"the safety check gave no answer to trust: {exc}"
-    return "; ".join(finding.message for finding in findings) or None
-
-
 def complete(setup: Path, unit: str) -> str:
     """Ask one unit of the staged setup for the single word `ready` and answer its text.
 
@@ -462,10 +437,9 @@ def task(
 
     `coding` runs the bundled bug fix through the contract runner and passes when
     the gate accepts it, naming the rung it was accepted on. `agent` runs the
-    bundled grounded contract; a reply the runner did not accept fails both the
-    grounded check and the safety check with the runner's reason, and an accepted
-    one is checked for its citations and facts and by the safety classifier, the
-    citation and the facts coming from the bundled sample. `chat` asks each awake
+    bundled grounded contract; a reply the runner did not accept fails the
+    grounded check with the runner's reason, and an accepted one is checked for
+    its citations and facts, both coming from the bundled sample. `chat` asks each awake
     unit but the Jev unit for one word, passing with the window and slots the
     unit reports and failing when it answers nothing. A policy that opts a unit in
     to Jev gets one typed choice from it, checked last. Every check is guarded, so
@@ -504,29 +478,19 @@ def task(
         rung = done.get("rung")
         if done.get("outcome") != "accepted":
             why = f"{done.get('outcome')}: {done.get('detail', '')}"
-            outcomes += [
-                Outcome(check=TASK_GROUNDED, unit=rung, why=why),
-                Outcome(check=TASK_SAFETY, unit=rung, why=why),
-            ]
+            outcomes.append(Outcome(check=TASK_GROUNDED, unit=rung, why=why))
         else:
             not_grounded = grounded(
                 answer, str(sample.get("citation") or "[1]"), sample.get("facts") or ()
             )
-            unsafe = safe(answer)
-            outcomes += [
+            outcomes.append(
                 Outcome(
                     check=TASK_GROUNDED,
                     unit=rung,
                     passed=not_grounded is None,
                     why=not_grounded or "",
-                ),
-                Outcome(
-                    check=TASK_SAFETY,
-                    unit=rung,
-                    passed=unsafe is None,
-                    why=unsafe or "",
-                ),
-            ]
+                )
+            )
     elif use_case == CHAT:
         for name in awake:
             if name == jev:

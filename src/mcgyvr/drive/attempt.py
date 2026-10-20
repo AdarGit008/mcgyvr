@@ -235,10 +235,10 @@ def worker_attempt(
 
         def judge_draw(space: Sandbox) -> GateResult:
             if prose:
-                # A prose contract is judged by its output checks, not
-                # by a code gate: `gate_prose_workspace` runs the checks the
-                # contract's task type declares over the workspace the reply was
-                # written into, and no adapter and no project check reads it.
+                # A prose contract is not judged by a code gate:
+                # `gate_prose_workspace` runs no rung over the workspace the
+                # reply was written into, and no adapter and no project check
+                # reads it.
                 return _drive.gate_prose_workspace(contract, space)
             # A code contract is gated over the tree as the reply left it: the
             # project's own checks, the adapters' static ones and the acceptance

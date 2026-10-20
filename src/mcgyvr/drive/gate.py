@@ -4,11 +4,11 @@
 gate a change through: it refuses a workspace that holds a nested git entry,
 and otherwise runs the gate over the tree the model left — the contract's scope
 and the secret scan first, then the structured-data check, the language
-adapters, the output-evidence rungs, the type check, the semantic rung and the
-contract's acceptance commands, each skipped once an earlier one has recorded a
-finding, with the contract's prose passed to the rungs that read it.
+adapters, the type check, the semantic rung and the contract's acceptance
+commands, each skipped once an earlier one has recorded a finding, with the
+contract's prose passed to the rungs that read it.
 ``gate_prose_workspace`` is the narrow form a prose reply gets, where
-only the output rungs apply.
+no rung applies.
 
 The rest of the module is what the attempt loop composes around those two: a
 reply written into a fresh sandbox (``gate_in_sandbox``), a format-only
@@ -16,15 +16,14 @@ rejection tidied and gated again (``_cleaned``), a rejected tree repaired by
 the deterministic tools and gated again (``_repair_and_regate``), the
 reviewer's JEV check asked of the winning draw alone (``_typed_checks``), and
 the reviewer's calls sent through the waker so a card that was slept is woken
-for them (``_through``). ``task_ceiling``, ``acceptance_for``,
-``output_checks_for`` and ``gate_adapters`` are the seams that turn a contract
-and a config into the inputs those rungs take.
+for them (``_through``). ``task_ceiling``, ``acceptance_for`` and
+``gate_adapters`` are the seams that turn a contract and a config into the
+inputs those rungs take.
 """
 
 from __future__ import annotations
 
 from dataclasses import replace
-from pathlib import Path
 from typing import TYPE_CHECKING
 
 import mcgyvr.drive as _drive
@@ -35,7 +34,6 @@ from mcgyvr.gate.adapter import SandboxRunner
 from mcgyvr.gate.adapters import JavaScriptAdapter, PythonAdapter
 from mcgyvr.gate.changeset import ChangeSet
 from mcgyvr.gate.jev import JevCheck
-from mcgyvr.gate.output import SAFETY_PASS, OutputChecks
 from mcgyvr.gate.semantic import SemanticCheck
 from mcgyvr.gate.typecheck import ParamMutation, TypeCheck
 from mcgyvr.sandbox.base import nested_git
@@ -290,41 +288,15 @@ def acceptance_for(
     )
 
 
-def output_checks_for(contract: Contract, workspace: Path) -> OutputChecks | None:
-    """The output-evidence rungs a contract declares, or ``None`` for none.
-
-    Only ``safety_pass`` is a rung the output check implements; the declared
-    names are read as a set, so a name declared twice is still one rung.
-    ``None`` when the contract declares none — a coding contract produces no
-    output for it to read.
-    """
-    if SAFETY_PASS not in contract.evidence_names:
-        return None
-    return OutputChecks(
-        checks=(SAFETY_PASS,),
-        workspace=workspace,
-        target=contract.target,
-    )
-
-
 def gate_prose_workspace(contract: Contract, sandbox: Sandbox) -> GateResult:
-    """Gate a prose reply: the output rungs, and nothing else.
+    """Gate a prose reply: no rung applies, so the result is empty.
 
-    A prose reply changes no source, so the one rung it faces is the
-    output-evidence rung. A contract that declares no output evidence is
-    answered with an empty result, and an empty result is an acceptance: a
-    ``GateResult`` is accepted when it holds no findings and no inconclusive
-    rung. That is how a chat or agent reply runs no check at all.
+    A prose reply changes no source, so no rung of the gate reads it, and an
+    empty result is an acceptance: a ``GateResult`` is accepted when it holds no
+    findings and no inconclusive rung. That is how a chat or agent reply runs
+    no check at all.
     """
-    rung = output_checks_for(contract, sandbox.workspace)
-    if rung is None:
-        return GateResult()
-    report = rung.run()
-    return GateResult(
-        findings=report.findings,
-        environment_issues=report.environment_issues,
-        inconclusive=report.inconclusive,
-    )
+    return GateResult()
 
 
 def gate_workspace(
@@ -340,8 +312,8 @@ def gate_workspace(
     host git would run that repository's config over the tree, so the change is
     not accepted and the entry that caused it is named. Otherwise the gate is
     handed the workspace's detected change, the contract's scope, its acceptance
-    and demonstration commands, a type check, the semantic rung, the output rungs
-    its evidence declares, and the contract's prose for the rungs that read it.
+    and demonstration commands, a type check, the semantic rung, and the
+    contract's prose for the rungs that read it.
     The adapters are the caller's when given and ``gate_adapters(config)``'
     otherwise.
     """
@@ -377,11 +349,10 @@ def gate_workspace(
         # The JEV rung is left out on purpose: it is a model, and the attempt
         # loop asks it of the winning draw only, after a verdict has picked one
         # (see ``_typed_checks``). Each rung passed here is skipped once a
-        # finding is recorded, in this order: output evidence, the type check,
-        # the semantic rung, and the acceptance commands last.
+        # finding is recorded, in this order: the type check, the semantic
+        # rung, and the acceptance commands last.
         typecheck=TypeCheck(repo=sandbox.workspace, runner=runner),
         semantic=SemanticCheck(sandbox=sandbox),
-        output=output_checks_for(contract, sandbox.workspace),
         contract_text=contract.prose,
     )
 

@@ -704,26 +704,18 @@ def test_gate_prose_workspace_accepts_a_chat_reply_with_no_gate(
     assert result.environment_issues == ()
 
 
-def test_gate_prose_workspace_runs_no_check_on_an_agent_reply(
-    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
-) -> None:
+def test_gate_prose_workspace_runs_no_check_on_an_agent_reply(tmp_path: Path) -> None:
     """An agent reply, like a chat reply, is accepted with no gate at all.
 
     Owner, e2e run 2 R11: "agent and chat have no gates". A reply that cites
-    nothing — the reply ``grounded`` once rejected — is accepted, and no
-    external checker is so much as looked for.
+    nothing — the reply ``grounded`` once rejected — is accepted.
     """
     from types import SimpleNamespace
     from typing import cast
 
     from mcgyvr.drive import gate_prose_workspace
-    from mcgyvr.gate import output as gate_output
     from mcgyvr.sandbox.base import Sandbox
 
-    def unasked(*_: object, **__: object) -> list[object]:
-        raise AssertionError("an agent reply runs no output check")
-
-    monkeypatch.setattr(gate_output, "safety_pass", unasked)
     contract = load_contract(AGENT_CONTRACT)
     sandbox = cast(Sandbox, SimpleNamespace(workspace=tmp_path))
     (tmp_path / contract.target).write_text("The sky is blue.", encoding="utf-8")
@@ -741,7 +733,7 @@ def test_a_prose_contract_reaches_an_accepted_answer_not_a_file(
 
     The drive reuses ``best_of`` unchanged — it stages the parsed prose at
     ``contract.target`` and binds it via ``Accepted.read`` — but the gate it
-    runs is the output-checks-only rung and the judgement is never handed a
+    runs is the prose gate, which runs no rung, and the judgement is never handed a
     verifier, because there is no file change to review.
     """
     from mcgyvr.config import parse as parse_config

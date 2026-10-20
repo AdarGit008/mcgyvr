@@ -3,7 +3,7 @@
 Plan section 8.2, as :func:`mcgyvr.fleet.sample.judge` reads it: ``coding``
 runs the bundled bug fix through ``mcgyvr run`` (green when the deterministic
 gate passes on any rung); ``agent`` the bundled grounded contract, its reply
-checked grounded and by the safety check; ``chat`` one completion per awake
+checked grounded (cited and stating every fact); ``chat`` one completion per awake
 unit, with the window and slots it serves read back; and an opted-in Jev unit
 gives one typed choice. Every reach of a unit is a seam of
 :mod:`mcgyvr.fleet.sampler` the test replaces; nothing reaches a machine.
@@ -23,7 +23,6 @@ from mcgyvr.fleet.sample import (
     TASK_COMPLETION,
     TASK_GATE,
     TASK_GROUNDED,
-    TASK_SAFETY,
     _task_reasons,
 )
 from tests import sample_fleet as fx
@@ -67,9 +66,13 @@ def test_the_coding_sample_runs_the_bug_fix_on_the_staged_setup(
     assert (repo / ".git").is_dir()
 
 
-def test_the_agent_sample_is_grounded_and_safety_checked(
-    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
-) -> None:
+def test_the_agent_sample_is_green_on_its_grounded_check_alone(tmp_path: Path) -> None:
+    """The reference reply passes the one check the agent sample runs.
+
+    The grounded check (citations and facts) is the agent sample's whole task:
+    the sampler answers with that one outcome and the judge finds no reason in
+    it, so a setup whose unit gives the reference reply samples green.
+    """
     import json
 
     setup = _setup(tmp_path, "agent")
@@ -83,12 +86,35 @@ def test_the_agent_sample_is_grounded_and_safety_checked(
         )
         return 0
 
-    monkeypatch.setattr(sampler, "safe", lambda answer: None)
+    outcomes = sampler.task(setup, [fx.UNIT], tmp_path / "sample", run_contract)
 
-    grounded, safety = sampler.task(setup, [fx.UNIT], tmp_path / "sample", run_contract)
-
+    (grounded,) = outcomes
     assert (grounded.check, grounded.passed) == (TASK_GROUNDED, True)
-    assert (safety.check, safety.passed) == (TASK_SAFETY, True)
+    assert _task_reasons("agent", fx.fleet_doc(), [fx.UNIT], None, outcomes) == []
+
+
+def test_an_agent_reply_the_runner_did_not_accept_fails_the_grounded_check(
+    tmp_path: Path,
+) -> None:
+    import json
+
+    setup = _setup(tmp_path, "agent")
+
+    def run_contract(argv: list[str]) -> int:
+        where = Path(argv[argv.index("--result") + 1])
+        where.write_text(
+            json.dumps({"outcome": "error", "rung": fx.UNIT, "detail": "boom"}),
+            encoding="utf-8",
+        )
+        return 1
+
+    outcomes = sampler.task(setup, [fx.UNIT], tmp_path / "sample", run_contract)
+
+    (grounded,) = outcomes
+    assert (grounded.check, grounded.passed) == (TASK_GROUNDED, False)
+    assert grounded.why == "error: boom"
+    reasons = _task_reasons("agent", fx.fleet_doc(), [fx.UNIT], None, outcomes)
+    assert reasons == [f"{TASK_GROUNDED}: {fx.UNIT}: error: boom"]
 
 
 def test_a_reply_that_does_not_cite_or_state_the_source_is_not_grounded() -> None:
@@ -100,15 +126,6 @@ def test_a_reply_that_does_not_cite_or_state_the_source_is_not_grounded() -> Non
     assert "tuesday" in str(
         sampler.grounded("The sky was green [1].", "[1]", ["green", "tuesday"])
     )
-
-
-def test_a_safety_check_that_cannot_run_is_a_reason_not_a_pass(
-    monkeypatch: pytest.MonkeyPatch,
-) -> None:
-    import shutil
-
-    monkeypatch.setattr(shutil, "which", lambda name: None)
-    assert "could not run" in str(sampler.safe("The sky was green [1]."))
 
 
 def test_the_chat_sample_completes_once_per_unit_and_reads_back_what_it_serves(

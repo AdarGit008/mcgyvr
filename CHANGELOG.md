@@ -72,6 +72,17 @@ the repository AdarGit008/mcgyvr-lab, under the same paths.
   `chat` and `agent`; a contract naming `task_type: media` is refused as an
   unknown task type. The code is archived in mcgyvr-lab under
   `records/evidence/2026-10-20-media-gen-archived`.
+- **The `safety_pass` check is gone** (owner decision, 2026-10-20). It
+  shelled out to a `safety-classifier` binary that no implementation of
+  existed anywhere, so the `agent` setup sample, which ran it on its reply,
+  could never pass. Removed: the `safety_pass` evidence kind, the sample's
+  `safety` step (the `agent` sample is now green on its grounded check
+  alone: every sentence cites the source and the reply states each fact),
+  and the gate's output-check rung that only media and safety used
+  (`mcgyvr.gate.output`, `Gate.run(output=...)`,
+  `mcgyvr.drive.output_checks_for`). With nothing left to check a reply,
+  the `checked` assurance is gone too: a `chat` or `agent` reply is always
+  `unchecked`.
 
 ### Fixed
 

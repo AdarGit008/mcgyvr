@@ -1013,7 +1013,7 @@ def _report_climb(
             f"approving it — {outcome.judgement.detail}",
             file=sys.stderr,
         )
-    elif outcome.assurance in (Assurance.CHECKED, Assurance.UNCHECKED):
+    elif outcome.assurance is Assurance.UNCHECKED:
         print(f"note: {outcome.judgement.detail}", file=sys.stderr)
     bound = outcome.judgement.accepted
     if bound is None:

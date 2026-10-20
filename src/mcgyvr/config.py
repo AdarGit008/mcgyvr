@@ -158,8 +158,8 @@ SANDBOX_FIELDS: tuple[Field, ...] = (
         "enum",
         "The sandbox a `chat` or `agent` run gets when its contract declares "
         "no `acceptance` or `demonstration` command. Such a session runs no "
-        "command: its reply is only staged in a throwaway checkout of HEAD for "
-        "the output checks. `tempdir` stages it on this host, so a session "
+        "command: its reply is only staged in a throwaway checkout of HEAD, "
+        "which nothing checks. `tempdir` stages it on this host, so a session "
         "never builds, pulls or starts a container and needs no Docker. "
         "`docker` gives it a task container as `mode: docker` gives `code`, "
         "with `allow_fallback` and `network` applying. A session that "
