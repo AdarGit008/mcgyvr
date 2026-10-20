@@ -74,49 +74,6 @@ _BOUNDS: dict[str, tuple[Callable[[float], bool], str]] = {
 UNITS: tuple[str, ...] = tuple(_BOUNDS)
 
 
-#: The kinds a number written in mcgyvr's code can be, as the ``constants`` block
-#: of the shipped file names each one: a fact about the world or the package, a
-#: choice of mcgyvr's that a setting may change, or an estimate still waiting for
-#: an id in the ``numbers`` block. The file is written in these words and this
-#: module keeps them, so a reader of the one and of the other meets one spelling;
-#: no number of the ``numbers`` block is anything but an estimate.
-NUMBER_KINDS: tuple[str, ...] = ("fact", "choice", "estimate")
-
-#: The reasons an entry of the file may give for calling a constant a fact: each
-#: names what settles the value, so that mcgyvr is not the one choosing it.
-FACT_REASONS: tuple[str, ...] = (
-    "a definition or arithmetic",
-    "the specification of a format, protocol or tool",
-    "where a count starts",
-    "the layout of the package or its checkout",
-)
-
-#: The sources a setting may come from, as the first word of a ``set_by`` of the
-#: shipped file: a setting in the config, a unit's contract, or a launch flag.
-#: A choice whose value no setting changes carries no ``set_by`` at all.
-SETTING_SOURCES: tuple[str, ...] = ("config", "contract", "flag")
-
-#: The reason a ``choice`` entry gives when it only repeats another entry's value.
-DUPLICATE_REASON = "a duplicate of another entry"
-
-#: Why a ``choice`` entry may be a choice: mcgyvr made the call, since nothing
-#: outside it settles the value; a duplicate of another entry is stated as one.
-CHOICE_REASONS: tuple[str, ...] = (
-    "a protocol or tool default",
-    "a code or version other programs or files read",
-    "the method a stored reading was made with",
-    "a rule over the product's own shipped data",
-    "what a caller that names none gets; the product's callers name one",
-    (
-        "how much of a text the product itself shows, carries or reads, and at "
-        "what width (never a budget for a model's whole reply or whole input)"
-    ),
-    "a weight, threshold or cut of the product's own ranking of files and symbols",
-    "how often or how many times the product tries its own step again",
-    DUPLICATE_REASON,
-)
-
-
 #: The host memory a llama.cpp server holds beyond the experts it keeps in host
 #: memory, and the engine key it is stated under: charged only to such a unit, and
 #: never to a unit of another engine.
