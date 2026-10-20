@@ -24,21 +24,8 @@ from mcgyvr.serving import vramfit
 DEFAULT_ENGINE = "llama.cpp"
 
 #: Every engine this module will size and render a unit for: the two with
-#: a launch spec (llama.cpp, vllm) and the three media engines, sized from
-#: declared figures. fit() refuses any other engine by name.
-KNOWN_ENGINES = ("llama.cpp", "vllm", "diffusers", "tts", "comfyui")
-
-#: Engines whose server is their container image's entrypoint, so no
-#: argument list is built for them here: fit() sizes them from the spec's
-#: vram_gb, ram_gb, disk_gb and cpu_only rather than from a geometry,
-#: adding vae_decode_gb as a decode spike for diffusers alone.
-MEDIA_ENGINES = ("diffusers", "tts", "comfyui")
-
-#: Media engines this build cannot actually render. Empty today, and read
-#: as a gate: emit.py refuses a unit listed here rather than write a
-#: service it has no default image or command for. It stays a named
-#: tuple so an engine whose wiring is pulled is disabled in one place.
-MEDIA_ENGINES_NOT_WIRED: tuple[str, ...] = ()
+#: a launch spec. fit() refuses any other engine by name.
+KNOWN_ENGINES = ("llama.cpp", "vllm")
 
 # The llama.cpp micro-batch (-ub) and physical batch (-b) every unit is
 # launched with, and the n_ubatch every cache, recurrent-state and
@@ -197,8 +184,6 @@ class ModelSpec:
     vram_gb: float
     ram_gb: float
     disk_gb: float
-    vae_decode_gb: float = 0.0
-    cpu_only: bool = False
     moe: bool = False
     geometry: Mapping[str, Any] | None = field(default=None, compare=False)
     hf_cache: str = ""
@@ -294,14 +279,13 @@ class Fit:
     #: The VRAM the unit takes on its card, in GiB: vramfit's prediction at
     #: the offload and slot count the placement chose, or the spec's own
     #: vram_gb when there is no geometry to price it from. 0.0 on a fit that
-    #: failed, and for a unit that runs on the CPU.
+    #: failed.
     vram_gb: float = 0.0
     #: The host RAM the unit holds, in GiB, charged as the loading mode it
     #: was sized for reads it: placed.ram_gb of spilled experts when the
     #: blob is read through, the whole disk_gb when it stays mapped, and
     #: 0.0 when no expert block left the card, since llama.cpp then holds
-    #: nothing beyond the runtime this machine did not read. A media unit
-    #: carries the spec's own ram_gb, and a split unit's RAM is not
+    #: nothing beyond the runtime this machine did not read. A split unit's RAM is not
     #: recorded at all. hold_together() sums this across the units that are
     #: up on one host and refuses a set that fits only one at a time, which
     #: is why the figure is the RAM actually allocated rather than the size
@@ -311,7 +295,7 @@ class Fit:
     #: of mapping it, and None when it keeps llama.cpp's default mapping.
     #: _sized() sets it only after comparing both modes against the host's
     #: available RAM, and unit_for() writes --load-mode into the argv when
-    #: it is set. A media unit never carries one.
+    #: it is set.
     load_mode: str | None = None
     #: The free VRAM the card had when the unit was sized, in GiB, as the
     #: scan reported it. alternate() and hold_together() sum units' vram_gb
@@ -320,12 +304,10 @@ class Fit:
     #: the largest when one of them claims its card before the others are
     #: sized, since those others were then sized from a scan reduced by that
     #: claim and would otherwise be counted free against it. It is 0.0 when
-    #: the scan read no card and for a unit that runs on the CPU, and
-    #: _card_free_gb() treats a group with no positive figure as unjudgeable,
-    #: which _co_resident() reads as fitting. A CPU-only media unit carries
-    #: 0.0 too, which is what keeps such a unit out of the card arithmetic
-    #: without a branch at every call site, and a vLLM unit carries the free
-    #: VRAM of the card it was placed on like any other.
+    #: the scan read no card, and _card_free_gb() treats a group with no
+    #: positive figure as unjudgeable, which _co_resident() reads as fitting.
+    #: A vLLM unit carries the free VRAM of the card it was placed on like
+    #: any other.
     card_free_gb: float = 0.0
     #: Sentences about host memory that belong beside the fit rather than in
     #: it, from _host_figure_notes(): an engine whose host figure is not read
@@ -368,14 +350,10 @@ class Unit:
     rungs: tuple[str, ...] = ()
     #: The container image to run, when the unit's own config states one.
     #: emit.py falls back to the engine's default image and refuses where it
-    #: has none, so this is the way in for a media server or a locally built
-    #: llama.cpp with rpc support.
+    #: has none, so this is the way in for a locally built llama.cpp with rpc
+    #: support.
     image: str | None = None
     extra: tuple[str, ...] = ()
-    #: True when the model runs on the CPU rather than on a card: a media
-    #: unit then lands with gpu -1 and claims no VRAM, and alternate()
-    #: refuses to pair a CPU unit with anything else on its host.
-    cpu_only: bool = False
     #: The VRAM the orchestrator unit claims on its host before anything
     #: else there is sized: units_for() places it first, hands its fit to
     #: _remaining_scan() so later units on that host see what is left, and
@@ -409,8 +387,8 @@ class Unit:
     @property
     def weights_dir(self) -> Path:
         """The directory mounted as the HuggingFace cache: the weights path itself for
-        vLLM and the media engines, its parent for a llama.cpp GGUF file."""
-        if self.engine == "vllm" or self.engine in MEDIA_ENGINES:
+        vLLM, its parent for a llama.cpp GGUF file."""
+        if self.engine == "vllm":
             return self.weights
         return self.weights.parent
 
@@ -423,17 +401,14 @@ def fit(
     width: int | None = None,
     ctx_per_slot: int,
 ) -> Fit:
-    """Whether the model fits the rig as this engine would run it: media engines from
-    declared figures, process engines from a placement on the freest card, with the
-    host-figure notes appended to the reason."""
+    """Whether the model fits the rig as this engine would run it: a placement on the
+    freest card, with the host-figure notes appended to the reason."""
     if engine not in KNOWN_ENGINES:
         return Fit(
             fits=False,
             headroom_gb=DEFAULT_HEADROOM_GB,
             why=_engine_not_wired(spec.name, engine),
         )
-    if engine in MEDIA_ENGINES:
-        return _sized_media(scan, spec, engine=engine)
     sized = _sized(scan, spec, engine=engine, width=width, ctx_per_slot=ctx_per_slot)
     notes = _host_figure_notes(engine)
     if not notes:
@@ -593,57 +568,6 @@ def _sized(
     )
 
 
-def _sized_media(scan: Scan, spec: ModelSpec, *, engine: str) -> Fit:
-    """Size a media engine from the spec's declared figures: the card holding vram_gb
-    plus, for diffusers, the VAE decode spike, and the host holding ram_gb unless
-    it runs on the CPU."""
-    free_vram = _free_vram_bytes(scan) / _BYTES_PER_GIB
-    available_ram = scan.memory.available_gb if scan.memory else 0.0
-    if scan.disk is not None and spec.disk_gb > scan.disk.free_gb:
-        return Fit(
-            fits=False,
-            headroom_gb=DEFAULT_HEADROOM_GB,
-            why=(
-                f"{spec.name}: needs {spec.disk_gb:.1f} GB of disk, "
-                f"{scan.disk.free_gb:.1f} GB free at {scan.disk.path}"
-            ),
-        )
-    spike = spec.vae_decode_gb if engine == "diffusers" else 0.0
-    peak = 0.0 if spec.cpu_only else spec.vram_gb + spike
-    if not spec.cpu_only and peak + DEFAULT_HEADROOM_GB > free_vram:
-        return Fit(
-            fits=False,
-            headroom_gb=DEFAULT_HEADROOM_GB,
-            why=(
-                f"{spec.name}: needs {peak:.1f} GB on the card plus "
-                f"{DEFAULT_HEADROOM_GB:.1f} GB headroom, "
-                f"{free_vram:.1f} GB free"
-            ),
-        )
-    if spec.ram_gb > available_ram:
-        return Fit(
-            fits=False,
-            headroom_gb=DEFAULT_HEADROOM_GB,
-            why=(
-                f"{spec.name}: needs {spec.ram_gb:.1f} GB of RAM for the "
-                f"offloaded components, against {available_ram:.1f} GB available"
-            ),
-        )
-    ram_clause = f", {spec.ram_gb:.1f} GB in RAM" if spec.ram_gb else ""
-    if spec.cpu_only:
-        card_clause = "runs on the CPU"
-    else:
-        card_clause = f"{peak:.1f} GB on the card of {free_vram:.1f} GB free"
-    return Fit(
-        fits=True,
-        vram_gb=peak,
-        ram_gb=spec.ram_gb,
-        headroom_gb=0.0 if spec.cpu_only else DEFAULT_HEADROOM_GB,
-        card_free_gb=0.0 if spec.cpu_only else free_vram,
-        why=(f"{spec.name}: {card_clause}{ram_clause}"),
-    )
-
-
 def _require_cache_types(engine: str, spec: ModelSpec) -> tuple[str, str]:
     """The K and V cache dtypes the engine's cache is sized from, refusing a unit
     that states none: vLLM sizes from one dtype, so the V side comes back empty,
@@ -695,39 +619,10 @@ def unit_for(
     ctx_per_slot: int,
 ) -> Unit:
     """Build the Unit for one model on one rig: size it, place it, and write the
-    engine's argv, with the media, vLLM and llama.cpp paths each taking their
-    own figures."""
+    engine's argv, with the vLLM and llama.cpp paths each taking their own
+    figures."""
     if engine not in KNOWN_ENGINES:
         raise UnitError(_engine_not_wired(spec.name, engine))
-    if engine in MEDIA_ENGINES:
-        if not spec.hf_cache:
-            raise UnitError(
-                f"{spec.name}: served by {engine}, which loads its weights from "
-                f"the rig's weights directory, and nothing says where it is — "
-                f"set units.<unit>.hf_cache to its absolute path on the rig"
-            )
-        sized = fit(scan, spec, engine=engine, width=1, ctx_per_slot=ctx_per_slot)
-        if not sized.fits:
-            raise UnitError(f"{scan.machine.host}: {sized.why}")
-        weights = Path(spec.hf_cache)
-        gpu_index = -1 if spec.cpu_only else _roomiest_gpu(scan).index
-        return Unit(
-            key=UnitKey(
-                host=scan.machine.host, model=spec.name, engine=engine, port=port
-            ),
-            host=scan.machine.host,
-            model=spec.name,
-            engine=engine,
-            gpu=gpu_index,
-            weights=weights,
-            width=Width(value=1, how="default"),
-            args={"--model": str(weights)},
-            fit=sized,
-            port=port,
-            rungs=(),
-            extra=spec.serve_args,
-            cpu_only=spec.cpu_only,
-        )
     cache_type_k, cache_type_v = _require_cache_types(engine, spec)
     if engine == "vllm" and spec.speculative != SPECULATIVE_NONE:
         raise UnitError(
@@ -1297,9 +1192,6 @@ def alternate(one: Unit, other: Unit) -> bool:
         return False
     if one.port == other.port:
         return True
-    if one.cpu_only or other.cpu_only:
-        # A CPU unit holds no card on this host, so it alternates with nothing.
-        return False
     shared = set(one.cards) & set(other.cards)
     if shared and (len(one.cards) > 1 or len(other.cards) > 1):
         return True
@@ -1483,14 +1375,8 @@ def hold_together(units: Iterable[Unit], scans: Mapping[str, Scan]) -> tuple[str
         wanted = sum(unit.fit.ram_gb for unit in hungriest)
         # The margin host memory is judged with: the same refusal headroom
         # _sized() holds back, because these are process engines whose
-        # spilled experts are really allocated, and none at all for a set
-        # of media units, whose declared figures are already the whole of
-        # what they hold.
-        margin = (
-            REFUSAL_RAM_HEADROOM_GB
-            if any(unit.engine not in MEDIA_ENGINES for unit in hungriest)
-            else 0.0
-        )
+        # spilled experts are really allocated.
+        margin = REFUSAL_RAM_HEADROOM_GB
         if wanted and wanted + margin > memory.available_gb:
             listed = ", ".join(
                 f"{unit.model} ({unit.fit.ram_gb:.2f} GB "
@@ -1498,10 +1384,10 @@ def hold_together(units: Iterable[Unit], scans: Mapping[str, Scan]) -> tuple[str
                 for unit in hungriest
                 if unit.fit.ram_gb
             )
-            margin_clause = f" with {margin:.1f} GB held back" if margin else ""
             raise UnitError(
                 f"{spec.host}: {listed} fit host memory one at a time and not "
-                f"together — {wanted:.2f} GB summed{margin_clause}, against "
+                f"together — {wanted:.2f} GB summed with {margin:.1f} GB held "
+                f"back, against "
                 f"{memory.available_gb:.2f} GB available. Serve one of them "
                 f"from another host, drop one, or narrow a window"
             )
@@ -1673,8 +1559,6 @@ def declared_models(config: Config) -> dict[str, ModelSpec]:
             vram_gb=block.get("vram_gb") or 0.0,
             ram_gb=block.get("ram_gb") or 0.0,
             disk_gb=block.get("disk_gb") or 0.0,
-            vae_decode_gb=block.get("vae_decode_gb") or 0.0,
-            cpu_only=bool(block.get("cpu_only")),
             moe=bool(block.get("moe")),
             geometry=geometry,
             hf_cache=str(block.get("hf_cache") or ""),

@@ -112,17 +112,15 @@ def test_units_that_fit_the_card_together_need_no_room(
 
 @pytest.mark.parametrize(
     "missing",
-    ["card", "small_mib", "media"],
-    ids=["no-card-size", "no-room-mib", "not-vllm-or-llama.cpp"],
+    ["card", "small_mib"],
+    ids=["no-card-size", "no-room-mib"],
 )
-def test_without_the_numbers_or_the_engine_there_is_no_room_to_make(
+def test_without_the_numbers_there_is_no_room_to_make(
     tmp_path: Path, home: Path, missing: str
 ) -> None:
     specs = write_spec(tmp_path)
     if missing == "small_mib":
         config = parse(ladder_text(specs, small_mib=None))
-    elif missing == "media":
-        config = parse(ladder_text(specs, engine="diffusers"))
     else:
         config = parse(ladder_text(specs))
 

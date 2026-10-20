@@ -31,7 +31,6 @@ from mcgyvr.config import (
     load,
     parse,
 )
-from mcgyvr.serving import declared_models
 
 LOCAL_ONLY = """\
 units:
@@ -338,65 +337,15 @@ def test_invalid_enum_lists_the_valid_values() -> None:
     assert "llama.cpp" in str(exc.value), "the refusal lists what is valid"
 
 
-def test_a_unit_may_declare_the_diffusers_engine() -> None:
-    config = parse(
-        LOCAL_ONLY.replace("    rig: local", "    rig: local\n    engine: diffusers", 1)
-    )
-    assert config.units["cheap"].engine == "diffusers"
-
-
-def test_declared_models_carries_the_stated_vae_decode_spike() -> None:
-    config = parse(
-        cfg(
-            """\
-            units:
-              cheap:
-                address: http://localhost:8080
-                model: media-image
-                rig: local
-                engine: diffusers
-                launch:
-                  vae_decode_gb: 1.2
-            ladder:
-            - cheap
-            """
+@pytest.mark.parametrize("engine", ["diffusers", "tts", "comfyui"])
+def test_a_unit_may_not_declare_a_media_engine(engine: str) -> None:
+    with pytest.raises(ConfigSchemaError) as exc:
+        parse(
+            LOCAL_ONLY.replace(
+                "    rig: local", f"    rig: local\n    engine: {engine}", 1
+            )
         )
-    )
-    assert declared_models(config)["media-image"].vae_decode_gb == 1.2
-
-
-def test_a_unit_may_declare_the_tts_engine() -> None:
-    config = parse(
-        LOCAL_ONLY.replace("    rig: local", "    rig: local\n    engine: tts", 1)
-    )
-    assert config.units["cheap"].engine == "tts"
-
-
-def test_a_unit_may_declare_the_comfyui_engine() -> None:
-    config = parse(
-        LOCAL_ONLY.replace("    rig: local", "    rig: local\n    engine: comfyui", 1)
-    )
-    assert config.units["cheap"].engine == "comfyui"
-
-
-def test_declared_models_carries_the_cpu_only_marker() -> None:
-    config = parse(
-        cfg(
-            """\
-            units:
-              cheap:
-                address: http://localhost:8080
-                model: media-tts
-                rig: local
-                engine: tts
-                launch:
-                  cpu_only: true
-            ladder:
-            - cheap
-            """
-        )
-    )
-    assert declared_models(config)["media-tts"].cpu_only is True
+    assert "vllm" in str(exc.value), "the refusal lists what is valid"
 
 
 def test_a_url_without_a_scheme_is_rejected() -> None:

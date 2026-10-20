@@ -9,9 +9,8 @@ never neither, so no engine's figure is left to nobody.
 
 The engines are the ones that carry a ``runtime_resident_gb`` figure: the
 shipped key plus the engines read on the machine, both from
-:mod:`mcgyvr.derived`. A media engine (diffusers) prices its host memory as the
-spec's stated ``ram_gb``, so it carries no such figure and is not in this set.
-The shipped figures come from the shipped file.
+:mod:`mcgyvr.derived`, and they are every engine a unit may name. The shipped
+figures come from the shipped file.
 """
 
 from __future__ import annotations
@@ -63,10 +62,10 @@ def test_only_engines_a_unit_may_name_are_read_on_the_machine() -> None:
 
 def test_every_engine_a_unit_may_name_is_known_to_serving() -> None:
     """The config's engine choices are exactly the engines serving prices, so
-    every engine a unit may name is accounted for: each is either a
-    runtime_resident_gb carrier (ENGINES) or a media engine priced by ram_gb."""
+    every engine a unit may name is accounted for: each is a
+    runtime_resident_gb carrier (ENGINES)."""
     assert set(derived.KEY_SPACES["engine"]) == set(KNOWN_ENGINES), (
         "the config names engines serving does not price, or serving prices "
         "engines the config cannot name"
     )
-    assert set(ENGINES) <= set(KNOWN_ENGINES)
+    assert set(ENGINES) == set(KNOWN_ENGINES)

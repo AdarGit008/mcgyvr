@@ -72,6 +72,16 @@ the repository AdarGit008/mcgyvr-lab, under the same paths.
   `chat` and `agent`; a contract naming `task_type: media` is refused as an
   unknown task type. The code is archived in mcgyvr-lab under
   `records/evidence/2026-10-20-media-gen-archived`.
+- **The media serving engines are gone** (owner de-scope, 2026-10-08).
+  `units.<unit>.engine` takes `llama.cpp` or `vllm`; a config naming
+  `diffusers`, `tts` or `comfyui` is refused as an invalid value. Removed
+  with them: their sizing from declared figures and compose services, the
+  `vae_decode_gb` and `cpu_only` launch figures, the capability table's media
+  row keys (`resolution`, `steps`, `vae_decode_gb`, `frames`,
+  `temporal_compress`, `sample_rate_hz`, `rtf`, `cpu_only`), the
+  `lmarena-text-to-image` and `open-asr` boards, and `recommend --profile
+  media_gen`. The code is archived in mcgyvr-lab under
+  `records/evidence/2026-10-20-media-gen-archived`.
 - **The `safety_pass` check is gone** (owner decision, 2026-10-20). It
   shelled out to a `safety-classifier` binary that no implementation of
   existed anywhere, so the `agent` setup sample, which ran it on its reply,
