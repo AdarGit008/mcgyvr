@@ -124,6 +124,18 @@ the repository AdarGit008/mcgyvr-lab, under the same paths.
   unsampled-fleet check read `fleet.yaml` with that loader too, so a
   duplicate key there reads as no fleet instead of last-one-wins.
 
+### Security
+
+- A capacity's slot directory (`mcgyvr-capacity-<uid>` under the temporary
+  directory) is used only when this user owns it outright: a directory, not a
+  symlink, owned by this uid and not writable by group or other. A missing one
+  is made 0700, and one of this user's own that others may write into (as an
+  older mcgyvr made it under a umask of 002) is narrowed to 0700; another
+  user's directory, or a symlink, is refused by name, saying to remove it.
+  Each slot file is made 0600, opened with `O_NOFOLLOW`, and refused when
+  another user owns it, so another local user can no longer pre-create the
+  directory, hold this user's slots, or have a planted symlink followed.
+
 ## [0.5.1] - 2026-10-17
 
 ### Fixed

@@ -16,16 +16,18 @@ import hashlib
 import inspect
 import os
 import re
-import tempfile
+import stat
 import threading
 import time
 from collections.abc import Callable, Iterable, Iterator, Mapping, Sequence
 from concurrent.futures import ThreadPoolExecutor
-from contextlib import ExitStack, contextmanager
+from contextlib import ExitStack, contextmanager, suppress
 from dataclasses import dataclass
 from pathlib import Path
 from typing import TYPE_CHECKING, cast
 from typing import Protocol as TypingProtocol
+
+from mcgyvr.userdir import owned_outright, private_dir, user_tempdir
 
 if TYPE_CHECKING:  # pragma: no cover - typing only
     from mcgyvr.config import Config
@@ -49,10 +51,59 @@ def _default_lock_dir() -> Path:
     """The directory holding this user's slot files, in the temporary directory.
 
     One directory per uid, because the bound is the host's: another user's
-    dispatches are held to their own slots, and neither user can write over the
-    other's files.
+    dispatches are held to their own slots. The directory is made 0o700 and used
+    only when this user owns it outright (:func:`_private`), and each slot file
+    is 0o600, so neither user can open, hold or replace the other's slots.
     """
-    return Path(tempfile.gettempdir()) / f"mcgyvr-capacity-{os.getuid()}"
+    return user_tempdir("capacity")
+
+
+def _private(directory: Path) -> Path:
+    """`directory`, made 0o700 if missing, once it is this user's outright.
+
+    A directory this user owns that group or other may write into (as one made
+    under a umask of 002 by an older mcgyvr is) is narrowed to 0o700 first, since
+    only its owner can change its mode. A directory another user made first, or
+    a symlink, would let somebody else hold or plant this user's slots, so it is
+    refused by name rather than used: a bound silently dropped is worse than a
+    run that stops.
+    """
+    if private_dir(directory, make=True) is None:
+        with suppress(OSError):
+            found = os.lstat(directory)
+            if stat.S_ISDIR(found.st_mode) and found.st_uid == os.getuid():
+                os.chmod(directory, 0o700)
+    if not owned_outright(directory):
+        raise CapacityError(
+            f"the slot directory {directory} is not this user's own: it must be a "
+            f"directory (not a symlink) owned by uid {os.getuid()}. Remove it, and "
+            f"the next run makes it afresh with mode 0700."
+        )
+    return directory
+
+
+def _open_slot(directory: Path, name: str) -> int:
+    """Open (creating 0o600) one slot file of this user's, never through a symlink.
+
+    A slot file another user owns, left from when the directory was open to
+    them, is refused by name: its owner could hold it whatever this user does.
+    """
+    path = directory / name
+    try:
+        fd = os.open(path, os.O_RDWR | os.O_CREAT | os.O_NOFOLLOW, 0o600)
+    except OSError as exc:
+        raise CapacityError(
+            f"the slot file {path} could not be opened ({exc.strerror}); a slot "
+            f"file is a plain file, never a symlink. Remove it, and the next run "
+            f"makes it afresh."
+        ) from exc
+    if os.fstat(fd).st_uid != os.getuid():
+        os.close(fd)
+        raise CapacityError(
+            f"the slot file {path} belongs to another user, who could hold it. "
+            f"Remove it, and the next run makes it afresh."
+        )
+    return fd
 
 
 @dataclass(frozen=True)
@@ -919,11 +970,10 @@ class Capacity:
         :class:`SlotUnavailableError` and closes the descriptor; a dispatch
         already admitted is never interrupted to make room.
         """
-        directory = self._lock_dir
-        directory.mkdir(parents=True, exist_ok=True)
+        directory = _private(self._lock_dir)
         stem = _slot_stem(base_url, rung)
         deadline = None if timeout is None else time.monotonic() + timeout
-        fd = os.open(directory / f"{stem}.{index}.slot", os.O_RDWR | os.O_CREAT)
+        fd = _open_slot(directory, f"{stem}.{index}.slot")
         while True:
             try:
                 fcntl.flock(fd, fcntl.LOCK_EX | fcntl.LOCK_NB)
@@ -957,17 +1007,14 @@ class Capacity:
         itself on the gauge once for as long as it waits, so another process can
         see the queue it would be cutting into.
         """
-        directory = self._lock_dir
-        directory.mkdir(parents=True, exist_ok=True)
+        directory = _private(self._lock_dir)
         stem = _slot_stem(base_url, rung)
         deadline = None if timeout is None else time.monotonic() + timeout
         with ExitStack() as queued:
             announced = False
             while True:
                 for index in range(limit):
-                    fd = os.open(
-                        directory / f"{stem}.{index}.slot", os.O_RDWR | os.O_CREAT
-                    )
+                    fd = _open_slot(directory, f"{stem}.{index}.slot")
                     try:
                         fcntl.flock(fd, fcntl.LOCK_EX | fcntl.LOCK_NB)
                     except OSError:

@@ -17,7 +17,6 @@ import itertools
 import json
 import os
 import re
-import tempfile
 import threading
 import time
 from collections.abc import Callable, Iterator, Mapping
@@ -31,7 +30,8 @@ from mcgyvr.availability import PROBE_TIMEOUT_S, AvailabilityVerdict, probe_endp
 from mcgyvr.cooldown import COOLDOWN_S, Cooldown, SharedHold
 from mcgyvr.runner import unit_in_flight
 from mcgyvr.serving import host_of, port_of
-from mcgyvr.wake import _ours, resting
+from mcgyvr.userdir import private_dir, user_tempdir
+from mcgyvr.wake import resting
 
 if TYPE_CHECKING:  # pragma: no cover - typing only
     from mcgyvr.capacity import Capacity
@@ -67,7 +67,7 @@ def default_directory() -> Path:
     Naming it after the uid keeps one user's processes together and out of
     another's; the directory is only used once `_usable` confirms it is ours.
     """
-    return Path(tempfile.gettempdir()) / f"mcgyvr-pressure-{os.getuid()}"
+    return user_tempdir("pressure")
 
 
 def _stem(key: str) -> str:
@@ -94,17 +94,11 @@ def climbed_key(rung: str) -> str:
 def _usable(where: Path, *, make: bool) -> Path | None:
     """The directory if it is ours to use, otherwise `None`.
 
-    With `make`, the directory is created first, privately (0o700) and with
-    parents. Either way the answer is `None` unless `_ours` accepts it: a
-    directory owned by another user, or one anyone else may write into, would
-    let somebody else choose the numbers read from it.
+    With `make`, the directory is created first, privately (0o700). A directory
+    owned by another user, or one anyone else may write into, would let
+    somebody else choose the numbers read from it.
     """
-    if make:
-        try:
-            where.mkdir(parents=True, mode=0o700, exist_ok=True)
-        except OSError:
-            return None
-    return where if _ours(where) else None
+    return private_dir(where, make=make)
 
 
 def _quietly_remove(path: Path) -> None:

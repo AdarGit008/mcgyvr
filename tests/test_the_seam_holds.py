@@ -96,7 +96,8 @@ RED_PORT = TESTS / "red_port"
 #: (scan, capability, propose, initialize), what is known about a model
 #: before it is downloaded (knowledge.*), a serving unit to write out and
 #: launch (emit, serving.*), whether a card that is down is asleep and how it
-#: is woken (wake), how load is counted across processes and read for the
+#: is woken (wake), the per-user temporary directories those keep their
+#: files in (userdir), how load is counted across processes and read for the
 #: ladder manager (pressure), how a served model id is read against the name a
 #: config declares (weights), how a unit's stream is assembled into the whole
 #: answer it would have written (whole), and a machine published as a rig of a
@@ -189,6 +190,7 @@ BELOW_THE_SEAM: tuple[str, ...] = (
     "mcgyvr.serving.sharding",
     "mcgyvr.serving.shardlaunch",
     "mcgyvr.serving.vramfit",
+    "mcgyvr.userdir",
     "mcgyvr.wake",
     "mcgyvr.weights",
     "mcgyvr.whole",
