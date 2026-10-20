@@ -18,7 +18,7 @@ import json
 # the model was not resident, the pinned `num_ctx` branch, the concurrency
 # refusal naming the daemon-wide setting that held the answer, and the seed
 # refusal naming `llama-server`'s /slots on 127.0.0.1 where the answer actually
-# was. That surface went with its backend on 2026-09-06; the checks and the
+# was. That surface went with its backend; the checks and the
 # readings behind them are in `archive/forensic-ollama/`.
 #
 

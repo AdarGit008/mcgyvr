@@ -1,6 +1,6 @@
-"""A refused delivery says so on stdout, not "gate accepted" (e2e run 2, R2).
+"""A refused delivery says so on stdout, not "gate accepted".
 
-In run 2 an ``import_sort`` run on a target with an uncommitted edit printed
+An ``import_sort`` run on a target with an uncommitted edit used to print
 ``sort-imports: gate accepted`` on stdout, then delivery refused to write over
 the edit: exit 1, outcome ``delivery_refused``, and the refusal on stderr only.
 Someone reading stdout saw an acceptance.

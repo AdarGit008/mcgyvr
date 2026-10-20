@@ -237,7 +237,7 @@ def test_the_verifier_is_shown_the_whole_original_file_and_the_applied_change(
 def test_a_semantic_finding_stays_non_blocking_and_reaches_the_verifier_as_a_note(
     repo: Path, contract: Any
 ) -> None:
-    """M1 — a settled decision, held on both halves because they are one decision.
+    """Held on both halves, because they are one rule.
 
     An unresolvable call is real information and a thin sample: mcgyvr routes it to
     ``observations``, which are reported and never rejecting, and hands the judgement to

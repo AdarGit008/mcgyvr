@@ -15,7 +15,7 @@ the fact. What remains is the only thing that was ever true:
 2. Two units on two ports that **do** sum onto the card are co-residents, one
    launch spec, and nothing on disk moves — the compatibility rule ``d8c5cf0a``
    established.
-3. A card holding both shapes at once — box2's real trio — is cut into the
+3. A card holding both shapes at once — the fixture's trio — is cut into the
    feasible combinations rather than into ports: the pair that fits together in
    one spec, the unit that fits alone in another, every unit reachable, and the
    file names deterministic.
@@ -126,10 +126,10 @@ ladder:
 """
 
 
-#: box2 as it is laid out: the vLLM pair, which co-reside, plus the 80B,
-#: which takes the whole card. Three ports, none of them colliding. Figures are
-#: the measured ones -- 3.49 and 7.12 GiB on 2026-09-05, and the 80B at the
-#: 11,409 MiB two level-2 sleepers leave (``vllm-sleep-2026-09-09``).
+#: The fixture's box2: the vLLM pair, which co-reside, plus the 80B, which
+#: takes the whole card. Three ports, none of them colliding. Figures are
+#: measured ones -- 3.49 and 7.12 GiB, and the 80B at the 11,409 MiB two
+#: level-2 sleepers leave.
 TRIO = f"""\
 units:
   local_3b:
@@ -271,7 +271,7 @@ def test_alternatives_on_two_ports_are_not_summed_against_the_card(
 
 
 def test_a_card_that_holds_both_shapes_is_cut_into_the_sets_that_fit_it() -> None:
-    """box2's real trio: the pair that fits together, and the one that does not.
+    """The fixture's trio: the pair that fits together, and the one that does not.
 
     3.49 + 7.12 = 10.61 GiB onto 11.63 free, so the vLLM pair is one launch spec
     and keeps the ``depends_on`` that sequences it. The 80B is 9.5 and fits

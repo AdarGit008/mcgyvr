@@ -1,6 +1,6 @@
 """Pattern C — the driver, exercised against real programs and a real sandbox.
 
-The 2026-08-29 pressure test's pattern C is that the port's call graph "is five
+Pattern C is that the port's call graph "is five
 disconnected fragments, none rooted anywhere reachable", and that closing it
 needs two things: a ``ToolStep`` executor and a dispatch binding. Both are in
 :mod:`mcgyvr.drive` and both are driven here for real — ruff actually runs, the
@@ -225,8 +225,8 @@ def test_a_missing_program_is_an_environment_issue_never_a_failure(
 def test_the_floors_own_output_passes_the_gate(repo: Path) -> None:
     """A tool's change is gated like any other, not trusted for being a tool's.
 
-    This is the join the pressure test found missing everywhere: the floor
-    produced a tree and nothing carried it to the gate.
+    This is the join that was missing everywhere: the floor produced a tree
+    and nothing carried it to the gate.
     """
     contract = load_contract(FORMAT_CONTRACT)
     (step,) = tool_steps(contract)

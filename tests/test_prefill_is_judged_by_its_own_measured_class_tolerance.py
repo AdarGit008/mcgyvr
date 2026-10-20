@@ -102,7 +102,7 @@ def _judged(
 def test_a_vllm_prefill_2_98_pct_under_its_lock_does_not_alert(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
-    """The on-rig box2_3b reading of 2026-09-15: 11157.62 against 11500."""
+    """An on-rig box2_3b reading of 11157.62 against 11500."""
     raised, filed = _judged(tmp_path, monkeypatch, "box2_3b", "prefill_tok_s", 11157.62)
     assert raised == []
     assert [(r["field"], r["alert"]) for r in filed] == [("prefill_tok_s", False)]

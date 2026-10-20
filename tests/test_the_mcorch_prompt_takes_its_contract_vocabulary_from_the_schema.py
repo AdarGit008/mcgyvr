@@ -57,7 +57,7 @@ def test_the_prompt_explains_preflight_refusals_and_forbids_target_edits() -> No
     rendered = prompt.render(writer="mcorch-2026", authoring="direct")
     assert "acceptance-baseline-failing" in rendered
     assert "demonstration" in rendered
-    # Not a refusal any more (e2e run 1, F4): the preflight cleans up what a
+    # Not a refusal any more: the preflight cleans up what a
     # baseline run leaves behind, so the prompt does not teach a remedy for it.
     assert "acceptance-mutates-tree" not in rendered
     assert "never edit" in rendered.lower() or "do not edit" in rendered.lower()

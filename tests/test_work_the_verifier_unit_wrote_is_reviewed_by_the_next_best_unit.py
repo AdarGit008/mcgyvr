@@ -1,6 +1,6 @@
 """Work the configured verifier wrote is reviewed by the next-best unit instead.
 
-The case (e2e run 2, R8): ``verifier.unit`` names the dearest rung, the work
+The case: ``verifier.unit`` names the dearest rung, the work
 climbs to it, and the rung that wrote the accepted change is the one named to
 review it. A model does not review its own output, so nothing was asked and
 the change was accepted ``unverified`` — while the rung below, which could
@@ -51,7 +51,7 @@ BASE = "VALUE = 0\n"
 
 KEY = "ZETA_TEST_KEY"
 
-#: The e2e shape: two hosted rungs, the dearer one named to review.
+#: The case's shape: two hosted rungs, the dearer one named to review.
 HOSTED_PAIR = f"""\
 units:
   flash:

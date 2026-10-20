@@ -1,6 +1,6 @@
 """An `agent` reply runs no gate and asks no reviewer, as a `chat` reply does.
 
-E2e run 2, R11: an `agent` contract could never pass — its `grounded` check
+An `agent` contract used to never pass — its `grounded` check
 rejected every reply — and the run spent its ladder. Agent and
 chat have no gates. So, for both session types:
 

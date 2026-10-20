@@ -1,8 +1,8 @@
 """An `agent` worker is given its contract's `sources`, numbered, with their content.
 
-E2e run 2, R11: the prompt asked the model to cite `[n]` sources it was never
-given — `sources` never reached the worker — so both rungs answered that no
-sources were provided. Now the sources are rendered into the agent
+The prompt used to ask the model to cite `[n]` sources it was never given —
+`sources` never reached the worker — so both rungs answered that no sources
+were provided. Now the sources are rendered into the agent
 worker prompt, numbered, with their content, read under the rules every other
 read of the tree for a worker follows:
 

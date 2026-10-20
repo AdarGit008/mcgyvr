@@ -5,8 +5,8 @@ rig's lease held by a run that is still live — whichever door wrote it, the
 product's or the lab's — is refused before it touches the rig, naming the
 holder; it does not take the lease, and nothing of the holder's is torn down.
 A lease whose holder is gone is stale and is reclaimed, so a run that crashed
-does not lock a rig forever. R3: one fleet (box1, box2) is shared — mutual
-exclusion, not partitioning.
+does not lock a rig forever. A fleet's rigs are shared — mutual exclusion,
+not partitioning.
 
 Gate 5 claims the RUN_ID (``.<RUN_ID>.running`` in the envelope) so two
 invocations of one step cannot run at once. That claim is per-envelope, so it does

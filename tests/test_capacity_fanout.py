@@ -355,7 +355,7 @@ class _ReportingProbe:
     """A stand-in for the width half of #22's probe: source name -> width or None.
 
     ``None`` is an ordinary answer meaning "this backend does not say", which is
-    the ollama case measured on both rigs on 2026-08-29 — not an error, and not
+    the ollama case — not an error, and not
     the same as a source being down.
     """
 

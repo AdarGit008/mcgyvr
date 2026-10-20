@@ -33,7 +33,7 @@ from mcgyvr.serving import ModelSpec, Unit, unit_for
 from tests._helpers import required
 
 #: The window these tests were written against, stated because nothing supplies
-#: one any more. ``mcgyvr.serving.DEFAULT_CONTEXT`` was retired on 2026-09-06:
+#: one any more. ``mcgyvr.serving.DEFAULT_CONTEXT`` is retired:
 #: the window is what the run declares, so a test is a run and declares its own.
 WINDOW = 4096
 

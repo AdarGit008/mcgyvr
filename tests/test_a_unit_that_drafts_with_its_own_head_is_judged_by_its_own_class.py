@@ -2,7 +2,7 @@
 
 A llama.cpp unit whose launch argv carries ``--spec-type draft-mtp`` gets a
 class of its own, ``mtp``, and is not judged by ``cpu_experts``' numbers. Those
-were measured on box1 offload (48% warm decode, 1% prefill), not this regime:
+were measured on a CPU-offload unit (48% warm decode, 1% prefill), not this regime:
 the unit's own three cold starts spread 1.63% in warm decode and 4.29% in
 prefill, so a live probe judged by the class's 1% prefill would have failed a
 sample the lock itself accepted.

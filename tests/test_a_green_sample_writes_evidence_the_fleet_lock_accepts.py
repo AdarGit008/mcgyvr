@@ -8,7 +8,7 @@ chain every live fleet takes runs from there -- ``lock.write_from_stamp`` ->
 ``promote.promote`` -> ``fleet use``
 (``test_a_stamp_writes_no_lock_and_the_lock_is_written_from_the_stamp.py``).
 
-* **The evidence is read from the door's own read rows** (P7a, Round 8):
+* **The evidence is read from the door's own read rows**:
   ``read --fleet F --probe U --load WxN`` of the staged setup files the
   snapshot (the rig id, the card's reserve as the combination's overhead),
   each unit's card and restarts, the probe's warm decode and prefill, and the

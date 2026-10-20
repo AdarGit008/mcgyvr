@@ -1,4 +1,4 @@
-"""A `chat` or `agent` run is a session, and its answer is kept (F7).
+"""A `chat` or `agent` run is a session, and its answer is kept.
 
 Chat and agent are sessions and are logged as such: an answer is never thrown
 away. So:
@@ -162,7 +162,7 @@ def test_a_chat_or_agent_contract_needs_no_target_and_no_scope(document: str) ->
 
 @pytest.mark.parametrize("document", [CHAT, AGENT])
 def test_a_chat_or_agent_contract_needs_no_stop_condition(document: str) -> None:
-    """A session replies in prose, where no BLOCKED reply is heard (F10)."""
+    """A session replies in prose, where no BLOCKED reply is heard."""
     bare = "\n".join(
         line for line in document.splitlines() if not line.startswith("stop_")
     )

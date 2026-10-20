@@ -1,12 +1,12 @@
 """D07 — the output cap is the one the contract states, and a prompt that cannot fit
 is refused unspent.
 
-``limits.max_output_tokens`` has no default and is never derived: owner
-decision (2026-10-14, e2e run 3 T1) — a model-written ``code`` contract states
+``limits.max_output_tokens`` has no default and is never derived: a
+model-written ``code`` contract states
 what its reply is worth, and one that states nothing is refused at dispatch
 (``tests/test_a_code_contract_states_its_cap_or_is_refused_at_dispatch.py``).
 The sizing this file used to pin, a cap derived from the contract's evidence,
-is gone with that decision.
+is gone with that rule.
 
 *A contract that cannot fit is refused before dispatch* is asserted on a
 returned refusal rather than a raised one, and on a value produced from the

@@ -3,7 +3,7 @@
 ``run`` took ``--repo`` while ``sandbox``, ``index``, ``resolve``, ``read``,
 ``delegate`` and ``attach`` took the repository by position. An operator who
 had learned ``run --repo`` typed ``sandbox --repo`` and was refused, and an
-agent guessing the same did the same (e2e run 1, F14). One spelling now: the
+agent guessing the same did the same. One spelling now: the
 flag, defaulting to the current directory, refusing a blank as ``run`` does.
 
 A repository typed by position, the old form, is refused at parse time, exit

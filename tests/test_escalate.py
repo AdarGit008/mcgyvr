@@ -518,7 +518,7 @@ max_escalations: 2
 
 
 def test_ladder_spent_names_only_the_families_that_ran(key: None) -> None:
-    """A ladder with no local rung is not spent "across local, api" (e2e run 2, R6)."""
+    """A ladder with no local rung is not spent "across local, api"."""
     config, pool = mapped(API_ONLY)
     attempts = Recorder(Verdict.FAILED, Verdict.FAILED)
 

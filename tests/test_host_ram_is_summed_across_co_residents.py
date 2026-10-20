@@ -49,8 +49,8 @@ from tests._paths import TESTS
 
 WINDOW = 4096
 
-#: box1's measured idle ``MemAvailable``, 2026-09-09 — the figure both the
-#: sweep and the recorded scan agree on.
+#: The fixture box1's idle ``MemAvailable`` — the figure both the sweep and
+#: the recorded scan agree on.
 AVAILABLE_GB = 14.19
 
 GEOMETRY: dict[str, dict[str, Any]] = json.loads(
@@ -108,7 +108,7 @@ def test_two_spilling_co_residents_are_summed_against_the_host() -> None:
 
     This is the arm where being wrong is silent: the experts are allocated, the
     host swaps, and every request is still served — at 32% of the decode rate
-    the same unit reaches with room (``ram-headroom-2026-09-09``). Nothing
+    the same unit reaches with room. Nothing
     errors, so nothing but this sum catches it.
     """
     units = pair(ram_gb=6.5, disk_gb=14.0, ports=(8080, 8081))
@@ -122,7 +122,7 @@ def test_two_spilling_co_residents_are_summed_against_the_host() -> None:
 
 
 def test_a_mapped_unit_asks_for_its_blob_and_an_unmapped_one_for_its_experts() -> None:
-    """The two arms F2.1 names, and the reason the sum runs *after* the modes
+    """The two arms, and the reason the sum runs *after* the modes
     are picked rather than before: which figure a unit contributes is decided by
     the mode, so a sum taken first would be summing the wrong numbers.
 
@@ -170,8 +170,8 @@ def test_a_unit_that_spills_nothing_asks_the_host_for_nothing() -> None:
 
 
 def test_a_lone_unit_is_left_to_the_fit_that_already_admitted_it() -> None:
-    """box1 as it now stands, and the guard on the other half of 2026-09-09's
-    finding: one Qwen3.6, 12.30 GiB of blob mapped into 14.19 GiB available,
+    """The fixture box1, and the guard on the other half of the finding: one
+    Qwen3.6, 12.30 GiB of blob mapped into 14.19 GiB available,
     admitted by a mode gate that holds back 0.5. A host RAM sum charging the
     2.0 GiB refusal margin to that lone unit would refuse the very rung the
     measurement says to map. There is nothing to sum on a host with one unit.

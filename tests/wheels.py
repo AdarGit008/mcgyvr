@@ -318,8 +318,8 @@ def seam_offenders(root: Path) -> list[str]:
     """Every way a module under ``root`` reaches an endpoint, with where.
 
     Three routes, because the guard was defeated by two of them. The original
-    checked one shape — ``from mcgyvr.local_pool import Endpoint`` — and the 2026-08-29
-    pressure test found the rule crossed anyway by ``import mcgyvr.local_pool`` and by
+    checked one shape — ``from mcgyvr.local_pool import Endpoint`` — and the rule
+    was crossed anyway by ``import mcgyvr.local_pool`` and by
     a relative import, neither of which that shape matches, and once more by
     ``SourceMap.role()``, which needs no import at all: it *returns* a
     ``RoleBinding``, so a module could hold a live ``credential()`` while

@@ -18,7 +18,7 @@
   stop.
 * Nothing clears on its own. A pull clears only when the combination's
   validation is re-committed; ``rejudge`` reports and pulls nothing (proposed,
-  not ruled).
+  not decided).
 
 Tolerances here are placeholders: the rule is pinned, not the values.
 """

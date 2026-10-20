@@ -133,7 +133,7 @@ def test_with_the_switch_off_a_refused_port_ends_the_run_exactly_as_it_does_toda
     literal, so the test cannot go stale if what a refusal does is ever
     rewritten for another reason: what is pinned is that turning the switch off
     is indistinguishable from not having the feature. This is the half of the
-    ruling that makes the default safe — the design's whole safety property is
+    rule that makes the default safe — the design's whole safety property is
     that mcgyvr cannot take a card down anonymously or *without being asked*,
     and a switch that gated nothing would leave "asked" meaning nothing.
 

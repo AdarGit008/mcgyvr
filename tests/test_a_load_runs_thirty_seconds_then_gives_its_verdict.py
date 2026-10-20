@@ -40,7 +40,7 @@ to an idle reading; an unreadable status page still ends the wait, short of
 idle. The verdict is the peak over every sample, and the peak of the samples
 before the close is filed beside it as ``peak_before_close_mib``.
 
-So nothing outside the load holds it either (R1, under NB5 and NBc): the door's
+So nothing outside the load holds it either: the door's
 ssh that runs a load's harness on the rig carries no timeout, while a probe's
 keeps ``PROBE_TIMEOUT_S`` and the rig reading keeps ``READ_TIMEOUT_S``.
 

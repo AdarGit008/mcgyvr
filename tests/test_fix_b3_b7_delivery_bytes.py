@@ -1,4 +1,4 @@
-"""Four defects the pressure test found in the delivery/repair cluster.
+"""Four defects in the delivery/repair cluster.
 
 Every test here failed by execution before the fix it guards, and each states a
 property a person could check by hand rather than a call sequence:

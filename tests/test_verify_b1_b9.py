@@ -277,8 +277,8 @@ def test_b9_a_cleanup_does_not_translate_line_endings(tmp_path: Path) -> None:
     """The second defect the bytes pipe fixed, which nothing had named.
 
     ``text=True`` on the formatter pipe translated CRLF to LF on the way back,
-    so a *cleanup* silently rewrote every line ending in the file. Undocumented
-    in the pressure test and reproduced against ``HEAD``.
+    so a *cleanup* silently rewrote every line ending in the file. Reproduced
+    against ``HEAD``.
     """
     cleaned = tidy(
         content="def f( a ):\r\n    return  a\r\n", result=GateResult(), target="x.py"

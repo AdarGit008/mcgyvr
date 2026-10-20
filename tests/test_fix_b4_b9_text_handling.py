@@ -1,6 +1,6 @@
 """Text the port's writers hand to each other, and the places it was mangled.
 
-Two defects from the 2026-08-29 pressure test, both of the same family: a piece
+Two defects, both of the same family: a piece
 of code that has an idea about what text is, and a neighbour with a different
 one. Neither is caught by a type, because every one of them is ``str`` on
 both sides.
@@ -8,7 +8,7 @@ both sides.
 **B9 — the repo's own byte convention.** mcgyvr reads and writes file content
 through ``utf-8``/``surrogateescape`` on purpose. The writers the port added
 encoded with strict defaults instead, so a single undecodable byte — arriving
-here the way the pressure test says it arrives, as a ``\\udc80`` escape in a
+here the way it arrives in practice, as a ``\\udc80`` escape in a
 JSON reply, through
 :class:`~mcgyvr.runner.Completion` and
 :func:`~mcgyvr.worker.reply.parse_reply` — raised ``UnicodeEncodeError`` out of

@@ -10,7 +10,7 @@ directory was expected, and an input that is neither a path nor a URL. The
 clone path is exercised without a network by cloning a local repository through
 a ``file://`` URL.
 
-One more boundary sits here since 2026-09-05: an ssh remote is refused before
+One more boundary sits here: an ssh remote is refused before
 git runs, because ``git clone`` over ssh spawns ``ssh`` from PATH and nothing
 in mcgyvr opens ssh except the rig door (``mcgyvr.serving.gatelib.ssh``).
 """

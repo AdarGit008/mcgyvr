@@ -24,8 +24,8 @@
 #   status=PORT,BASE64                   the unit's in-flight page, as served:
 #                                         /metrics for vLLM, /slots otherwise
 #   backend=PORT,BACKEND|none            the attention backend a vLLM unit's
-#                                         whole log names, over the 09-13
-#                                         method's tokens, or `none` when the
+#                                         whole log names, over the fleet
+#                                         lock's tokens, or `none` when the
 #                                         log names none (never guessed)
 #   backend_line=PORT,BASE64             the first line of that log matching
 #                                         `attention backend`, truncated to

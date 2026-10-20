@@ -234,7 +234,7 @@ def test_a_folder_with_no_setup_is_not_written_into(
 def test_dash_dash_config_names_the_setup_over_the_environment(
     tmp_path: Path, setup: Path, hub: Hub, monkeypatch: pytest.MonkeyPatch
 ) -> None:
-    """``--config`` means what it means on ``run`` (e2e run 2, R9)."""
+    """``--config`` means what it means on ``run``."""
     empty = tmp_path / "not-a-setup"
     empty.mkdir()
     monkeypatch.setenv("MCGYVR_CONFIG", str(empty))

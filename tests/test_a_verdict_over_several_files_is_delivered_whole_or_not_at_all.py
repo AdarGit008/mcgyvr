@@ -4,7 +4,7 @@ The deterministic floor judges the sandbox's whole change, and a
 ``rename_symbol`` changes every file that references the symbol. Delivery used
 to write back ``contract.target`` alone, so a rename of ``fetch_page`` left the
 user's ``use.py`` importing a name ``web.py`` no longer defined, under a result
-that said ``accepted`` (e2e run 2, R3).
+that said ``accepted``.
 
 So an :class:`~mcgyvr.deliver.Accepted` minted over several paths carries all
 of them, and :func:`~mcgyvr.deliver.deliver` and :func:`~mcgyvr.deliver.place`
@@ -240,7 +240,7 @@ def test_place_leaves_every_renamed_file_in_the_tree(
 def test_a_dirty_file_that_is_not_the_target_refuses_and_nothing_is_written(
     repo: Path, contract: Contract, commit: bool
 ) -> None:
-    """The refusal F11/F14 made for the target, made for every delivered file."""
+    """The refusal an unfinished edit to the target gets, for every delivered file."""
     bound = _judged(repo, contract)
     edited = USE + "# a person's unfinished edit\n"
     (repo / "src/pkg/use.py").write_text(edited, encoding="utf-8")

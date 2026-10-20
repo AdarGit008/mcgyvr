@@ -1,9 +1,8 @@
 """A vLLM unit's attention backend is read from its whole log, and the line is kept.
 
-The reader is fixed, and records the line it matched. ``rig-id-relock``'s
-box2-03 — a ``read`` of the b-small pair on box2 — stops with ``STOP box2-03:
-box2_3b reported no attention_backend`` when both vLLM units file
-``attention_backend: null``.
+The reader is fixed, and records the line it matched. A ``read`` of the
+b-small pair on box2 stops with ``box2_3b reported no attention_backend``
+when both vLLM units file ``attention_backend: null``.
 
 A reader that takes the FIRST line matching ``attention backend`` and looks
 for a token in that line alone reads a log that names the backend elsewhere as
@@ -19,7 +18,7 @@ searches the WHOLE log for the same tokens, and so does ``rig-units.sh``.
   ``attention_backend`` as data that is never judged.
 * The stop stands: ``assemble_evidence.py`` refuses a missing or
   non-unanimous backend.
-* box2-03 is logged as failed, so it gets its one retry. A ``read`` has no
+* A failed ``read`` is logged as failed, so it gets its one retry. It has no
   wrapper and no artifact of its own — its run id is minted when it runs — so
   the retry is the same door command under a new run id.
 
@@ -268,7 +267,7 @@ def test_a_reader_that_printed_no_line_files_an_empty_one(tmp_path: Path) -> Non
 
 
 # --------------------------------------------------------------------------
-# box2-03 runs again: a read entry's one retry
+# a failed read runs again: a read entry's one retry
 # --------------------------------------------------------------------------
 
 

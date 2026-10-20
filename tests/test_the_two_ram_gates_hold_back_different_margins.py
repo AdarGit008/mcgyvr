@@ -74,9 +74,9 @@ def rig(*, ram_gb: float) -> Scan:
     )
 
 
-def test_box1_maps_the_blob_it_is_serving_unmapped_today() -> None:
-    """The live case, and the only one on this fleet where the split changes an
-    answer: 14.19 GiB of ``MemAvailable`` measured idle on box1 against a
+def test_a_blob_just_under_the_room_maps_at_the_smaller_margin() -> None:
+    """The fixture's case, and the only one on this fleet where the split changes
+    an answer: 14.19 GiB of ``MemAvailable`` idle on the fixture box1 against a
     12.304 GiB blob. At 2.0 held back that is 14.30 and the rung goes unmapped;
     at 0.5 it maps, which is what the measurement says it should do: at
     production ``vm.swappiness=60`` the trade is gigabytes of reclaimable

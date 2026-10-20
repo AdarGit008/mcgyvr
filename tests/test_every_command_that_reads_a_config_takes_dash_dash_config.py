@@ -1,4 +1,4 @@
-"""Every command that reads the setup takes it as ``--config`` (e2e run 2, R9).
+"""Every command that reads the setup takes it as ``--config``.
 
 ``mcgyvr run --config ~/setup`` worked, while ``mcgyvr local_pool --config
 ~/setup`` and ``mcgyvr config --config ~/setup`` failed with ``unrecognized

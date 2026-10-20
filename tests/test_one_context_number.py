@@ -170,8 +170,8 @@ def test_what_a_unit_serves_is_read_from_the_unit() -> None:
     """Declared going in; measured coming back. Two different questions.
 
     A run declares what it is asking for. What a unit ended up serving is a
-    fact about a running process, and on 2026-09-06 all three live rungs
-    published it — vLLM as ``max_model_len``, llama.cpp as ``n_ctx``.
+    fact about a running process, and every live rung publishes it — vLLM as
+    ``max_model_len``, llama.cpp as ``n_ctx``.
     """
     served: Any = required(
         "read the window a running unit actually serves, from the unit",

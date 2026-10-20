@@ -78,7 +78,7 @@ EVIDENCE_BOX1: dict[str, Any] = {
             "card_steady_mib": {"box1_q36": 5124},
             "card_peak_mib": {"box1_q36": 5150},
             "validated_at": "2026-09-11T11:00:00Z",
-            "envelope": "records/evidence/2026-09-11-fleet-box1/flt-11",
+            "envelope": "evidence/fleet-sample-a",
         },
     ],
     "moves": [],

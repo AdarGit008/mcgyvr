@@ -5,7 +5,7 @@ formatter rewrites a line without changing what it says: ``ruff format`` turns
 ``import os,sys`` into ``import os, sys``, so the line counts as added, and the
 four diagnostics on it (E401, I001, F401 twice) were there before the change
 and are there after it. Charged to the change, they rejected a ``format`` that
-did exactly what the project's own formatter does (e2e run 1, F2), against the
+did exactly what the project's own formatter does, against the
 adapter's own promise that a file's pre-existing faults never fail the change.
 
 So the rung also lints the file as it stood at the base and drops an added-line
