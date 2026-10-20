@@ -683,12 +683,12 @@ def _climb(
     from mcgyvr.cooldown import Cooldown
     from mcgyvr.drive import DriveError, acceptance_for, worker_attempt
     from mcgyvr.escalate import Outcome, ascent, escalate, redundant_relief
-    from mcgyvr.fleet_manager import hook_for as fleet_hook_for
     from mcgyvr.local_pool import SourceUnavailableError, source_map
     from mcgyvr.route import RouteError
     from mcgyvr.sandbox.base import SandboxError, open_sandbox
     from mcgyvr.sandbox.tempdir import TempDirSandbox
     from mcgyvr.verify import reviewers_for
+    from mcgyvr.wake_judge import hook_for as wake_hook_for
 
     # A live setup drives real rigs: containers are built, units are woken and
     # models are served. The fleet has to read as locked before any of that, and
@@ -854,7 +854,7 @@ def _climb(
                 # a fast rung to judge with: a rung that does not answer may only be
                 # asleep, and `escalate` calls this before giving up on it. It cools
                 # sources through the same hold this run uses.
-                wake_hook=fleet_hook_for(config, pool, cooldown=cooldown),
+                wake_hook=wake_hook_for(config, pool, cooldown=cooldown),
                 presence=managed.presence,
             )
             return _report_climb(

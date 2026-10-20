@@ -43,7 +43,7 @@ class Cooling(Protocol):
     def unavailable(self, endpoints: Sequence[Any]) -> Mapping[str, str]: ...
 
 
-class FleetManagerError(Exception):
+class WakeJudgeError(Exception):
     """A judgment could not be asked: the rung to ask it of is not on the pool."""
 
 
@@ -72,10 +72,10 @@ def judge(
     The one question is asked through `decision.classify_for` and read back as a
     bool answer, so the judgment is one request at the rung given, within
     `timeout_s`. `state` is copied into the request rather than read in place.
-    Raises `FleetManagerError` when the pool names no such rung.
+    Raises `WakeJudgeError` when the pool names no such rung.
     """
     if pool.get(rung) is None:
-        raise FleetManagerError(f"no rung named {rung!r} to judge with")
+        raise WakeJudgeError(f"no rung named {rung!r} to judge with")
     question = {"wake_smarter": decision.Noul(INSTRUCTIONS)}
     answers = decision.classify_for(
         pool, dict(state), question, rung=rung, timeout_s=timeout_s

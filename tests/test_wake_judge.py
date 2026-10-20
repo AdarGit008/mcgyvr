@@ -1,4 +1,4 @@
-"""The fleet-manager hook: a Jev difficulty judgment that routes to the smarter
+"""The wake judge's hook: a Jev difficulty judgment that routes to the smarter
 resident rung before the API.
 
 The hook answers one bounded question — "is this task hard enough to want the
@@ -36,7 +36,7 @@ from typing import Any
 import pytest
 
 from mcgyvr import decision as decision_module
-from mcgyvr import fleet_manager
+from mcgyvr import wake_judge
 from mcgyvr.config import parse
 from mcgyvr.contract import Contract
 from mcgyvr.contract import loads as load_contract
@@ -184,7 +184,7 @@ def no_judge() -> Callable[
 
 def with_hook(config: Any, pool: Any) -> Callable[[Contract], str | None]:
     """The hook the climb consults, judging on the fast rung's endpoint."""
-    hook = fleet_manager.hook_for(config, pool)
+    hook = wake_judge.hook_for(config, pool)
     assert hook is not None, "the hook should exist for a fast+smart+api ladder"
     return hook
 
@@ -231,7 +231,7 @@ def test_a_hard_task_reads_as_wake_the_smarter_rung(
 ) -> None:
     monkeypatch.setattr(decision_module, "_post_json", yes_judge())
     _, pool = judge_pool()
-    answer = fleet_manager.judge(pool, FAST, {"task": "write a parser"})
+    answer = wake_judge.judge(pool, FAST, {"task": "write a parser"})
     assert answer.wake is True
     assert answer.probability_true > 0.5
     assert 0.0 < answer.confidence <= 1.0
@@ -242,7 +242,7 @@ def test_an_easy_task_reads_as_leave_the_smarter_rung_asleep(
 ) -> None:
     monkeypatch.setattr(decision_module, "_post_json", no_judge())
     _, pool = judge_pool()
-    answer = fleet_manager.judge(pool, FAST, {"task": "tweak a string"})
+    answer = wake_judge.judge(pool, FAST, {"task": "tweak a string"})
     assert answer.wake is False
     assert answer.probability_true < 0.5
 
@@ -260,18 +260,18 @@ def test_the_judgement_is_one_bounded_question_over_the_task(
 
     monkeypatch.setattr(decision_module, "_post_json", fake_post)
     _, pool = judge_pool()
-    fleet_manager.judge(pool, FAST, {"task": "write a parser"})
+    wake_judge.judge(pool, FAST, {"task": "write a parser"})
 
     assert len(sent) == 1
     payload = sent[0]
     assert payload["max_tokens"] == 1
     assert payload["logprobs"] is True
-    assert fleet_manager.INSTRUCTIONS in payload["messages"][0]["content"]
+    assert wake_judge.INSTRUCTIONS in payload["messages"][0]["content"]
     assert "write a parser" in payload["messages"][0]["content"]
 
 
 def test_the_state_carries_the_task_and_what_the_fast_rung_said() -> None:
-    state = fleet_manager.state_for(contract(), detail="the gate rejected it")
+    state = wake_judge.state_for(contract(), detail="the gate rejected it")
     assert state["task_type"] == "code"
     assert "retry with backoff" in state["task"]
     assert state["target"] == "src/pkg/fetch.py"
@@ -287,7 +287,7 @@ def test_asleep_rungs_are_the_resident_rungs_with_a_launch_spec(
     specs = write_smart_spec(tmp_path)
     config, pool = mapped(ladder_text(str(specs), with_smart_spec=True))
 
-    asleep = fleet_manager.asleep_rungs(config, pool)
+    asleep = wake_judge.asleep_rungs(config, pool)
 
     assert [r.name for r in asleep] == [SMART], (
         "only the smart rung's host holds a launch spec; the fast rung's host "
@@ -297,7 +297,7 @@ def test_asleep_rungs_are_the_resident_rungs_with_a_launch_spec(
 
 def test_a_rung_without_a_launch_spec_is_not_asleep(tmp_path: Path, key: None) -> None:
     config, pool = mapped(ladder_text(None, with_smart_spec=False))
-    assert fleet_manager.asleep_rungs(config, pool) == ()
+    assert wake_judge.asleep_rungs(config, pool) == ()
 
 
 def test_smart_rung_is_the_dearest_asleep_resident_rung(
@@ -305,13 +305,13 @@ def test_smart_rung_is_the_dearest_asleep_resident_rung(
 ) -> None:
     specs = write_smart_spec(tmp_path)
     config, pool = mapped(ladder_text(str(specs), with_smart_spec=True))
-    smart = fleet_manager.smart_rung(config, pool)
+    smart = wake_judge.smart_rung(config, pool)
     assert smart is not None and smart.name == SMART
 
 
 def test_fast_rung_is_the_cheapest_resident_rung(key: None) -> None:
     config, pool = mapped(ladder_text(None, with_smart_spec=False))
-    fast = fleet_manager.fast_rung(config, pool)
+    fast = wake_judge.fast_rung(config, pool)
     assert fast is not None and fast.name == FAST
 
 
@@ -325,7 +325,7 @@ def test_the_hook_names_the_smart_rung_when_the_task_is_hard(
     config, pool = mapped(ladder_text(str(specs), with_smart_spec=True))
     monkeypatch.setattr(decision_module, "_post_json", yes_judge())
 
-    named = fleet_manager.wake_before_api(config, pool, contract(), judge_with=FAST)
+    named = wake_judge.wake_before_api(config, pool, contract(), judge_with=FAST)
 
     assert named == SMART
 
@@ -337,7 +337,7 @@ def test_the_hook_names_nothing_when_the_task_is_not_hard(
     config, pool = mapped(ladder_text(str(specs), with_smart_spec=True))
     monkeypatch.setattr(decision_module, "_post_json", no_judge())
 
-    named = fleet_manager.wake_before_api(config, pool, contract(), judge_with=FAST)
+    named = wake_judge.wake_before_api(config, pool, contract(), judge_with=FAST)
 
     assert named is None
 
@@ -348,7 +348,7 @@ def test_the_hook_names_nothing_when_no_rung_is_asleep(
     config, pool = mapped(ladder_text(None, with_smart_spec=False))
     monkeypatch.setattr(decision_module, "_post_json", yes_judge())
 
-    named = fleet_manager.wake_before_api(config, pool, contract(), judge_with=FAST)
+    named = wake_judge.wake_before_api(config, pool, contract(), judge_with=FAST)
 
     assert named is None
 
@@ -360,7 +360,7 @@ def test_hook_for_is_none_without_a_distinct_smarter_rung(key: None) -> None:
             f"- {SMART}\n- {API_RUNG}\n", f"- {API_RUNG}\n"
         )
     )
-    assert fleet_manager.hook_for(config, pool) is None
+    assert wake_judge.hook_for(config, pool) is None
 
 
 def test_hook_for_is_none_when_sleep_wake_is_off(tmp_path: Path, key: None) -> None:
@@ -370,7 +370,7 @@ def test_hook_for_is_none_when_sleep_wake_is_off(tmp_path: Path, key: None) -> N
         "  enable_sleep_wake: true\n", "  enable_sleep_wake: false\n"
     )
     config, pool = mapped(text)
-    assert fleet_manager.hook_for(config, pool) is None
+    assert wake_judge.hook_for(config, pool) is None
 
 
 # --- the hook never sleeps a card -------------------------------------------
@@ -383,7 +383,7 @@ def test_the_hook_has_no_sleep_path() -> None:
     absence being guarded is the absence of a path: a ``sleep`` call added to
     the hook later must fail this test even if nothing exercises it.
     """
-    source = inspect.getsource(fleet_manager)
+    source = inspect.getsource(wake_judge)
     assert "sleep(" not in source, "the hook must never call the sleep path"
     assert '"down"' not in source, "the hook must never reach for the door's down"
     assert "'down'" not in source, "the hook must never reach for the door's down"
@@ -417,7 +417,7 @@ def test_a_cooled_down_smart_rung_is_never_routed_to_and_jev_is_not_asked(
 
     monkeypatch.setattr(decision_module, "_post_json", asked)
 
-    named = fleet_manager.wake_before_api(
+    named = wake_judge.wake_before_api(
         config, pool, contract(), judge_with=FAST, cooldown=Cooling(SMART)
     )
 
@@ -430,7 +430,7 @@ def test_a_smart_rung_the_cooldown_does_not_name_is_routed_to_as_before(
     specs = write_smart_spec(tmp_path)
     config, pool = mapped(ladder_text(str(specs), with_smart_spec=True))
     monkeypatch.setattr(decision_module, "_post_json", yes_judge())
-    hook = fleet_manager.hook_for(config, pool, cooldown=Cooling(FAST))
+    hook = wake_judge.hook_for(config, pool, cooldown=Cooling(FAST))
     assert hook is not None
 
     assert hook(contract()) == SMART
@@ -444,7 +444,7 @@ def test_the_hook_built_with_a_cooldown_reads_it_at_each_task(
     config, pool = mapped(ladder_text(str(specs), with_smart_spec=True))
     monkeypatch.setattr(decision_module, "_post_json", yes_judge())
     cooling = Cooling()
-    hook = fleet_manager.hook_for(config, pool, cooldown=cooling)
+    hook = wake_judge.hook_for(config, pool, cooldown=cooling)
     assert hook is not None
 
     assert hook(contract()) == SMART
