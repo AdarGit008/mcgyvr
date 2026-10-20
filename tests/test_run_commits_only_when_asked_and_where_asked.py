@@ -1,7 +1,7 @@
 """``mcgyvr run`` commits only when asked, and onto the branch it was asked for.
 
-Two policy keys and three flags, owner's ruling after e2e run 2 (R4, where
-``delivery.mode: branch`` was promised and never read):
+Two policy keys and three flags (``delivery.mode: branch`` was once promised
+and never read):
 
 * ``delivery.commit`` — off by default, and written off by ``mcgyvr setup``.
   Off, an accepted change is left in the working tree, uncommitted. On, it is

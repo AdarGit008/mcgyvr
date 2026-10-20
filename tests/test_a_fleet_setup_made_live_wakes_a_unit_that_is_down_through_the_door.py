@@ -1,6 +1,6 @@
 """A fleet ``mcgyvr setup`` made live wakes a unit that is down, through the door.
 
-Owner, 2026-10-14: auto-wake is on. Setup writes ``serving.enable_sleep_wake:
+Auto-wake is on. Setup writes ``serving.enable_sleep_wake:
 true`` and a ``serving.compose_dir`` holding the launch specs it emitted -- the
 staged folder, which is kept -- so the live fleet it promotes yields a waker
 (:func:`mcgyvr.wake.for_config`), and a request refused by a unit that is down

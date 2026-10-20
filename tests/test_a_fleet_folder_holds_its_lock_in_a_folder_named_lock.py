@@ -1,6 +1,6 @@
 """A fleet folder holds its lock in a folder named ``lock``.
 
-Owner, 2026-10-14: the lock tree inside a fleet folder is a neutral ``lock/``,
+The lock tree inside a fleet folder is a neutral ``lock/``,
 not ``records/fleet``, with no migration. A live fleet folder, a stamp folder
 and the dev root all hold it there (:data:`mcgyvr.fleet.roots.LOCK_DIR`), and
 every reader looks there: the lock writer, promotion, admission, the alert

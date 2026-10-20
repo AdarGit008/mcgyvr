@@ -1,6 +1,6 @@
 """`mcgyvr contract` states the cap rule of the contract's task type.
 
-Owner decision (2026-10-14, e2e run 3 T1) decides the cap model by task type,
+The cap model is decided by task type,
 and the preview is where an author reads which rule their contract is under
 before anything is spent:
 

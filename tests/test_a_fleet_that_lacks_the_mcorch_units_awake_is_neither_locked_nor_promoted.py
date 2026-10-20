@@ -1,6 +1,6 @@
 """A fleet that lacks the mcorch units awake is neither locked nor promoted.
 
-Owner ruling: the check is per fleet. When a policy's orchestrator is
+The check is per fleet. When a policy's orchestrator is
 ``type: mcorch``, the fleet being locked or promoted must hold both the
 orchestrator's unit and the ``jev`` unit as slots, each ``awake``. An asleep
 slot does not count: an mcorch conversation cannot wait for a wake. A policy

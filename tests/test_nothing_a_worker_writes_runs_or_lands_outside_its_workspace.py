@@ -212,7 +212,7 @@ def test_a_target_inside_a_git_directory_is_refused_at_load(target: str) -> None
 # a command can create `sub/.git` anywhere else it can write. So a `.git` entry
 # below the root, directory or file, is never run over by host git: one the
 # change holds fails the attempt by name, one an acceptance command left behind
-# is removed by plain file removal before host git looks (e2e run 1, F4), and
+# is removed by plain file removal before host git looks, and
 # reset removes either.
 
 NESTED = "git init -q sub"

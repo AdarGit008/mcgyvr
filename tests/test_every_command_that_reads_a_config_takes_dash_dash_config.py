@@ -1,10 +1,10 @@
-"""Every command that reads the setup takes it as ``--config`` (e2e run 2, R9).
+"""Every command that reads the setup takes it as ``--config``.
 
 ``mcgyvr run --config ~/setup`` worked, while ``mcgyvr local_pool --config
 ~/setup`` and ``mcgyvr config --config ~/setup`` failed with ``unrecognized
 arguments: --config``: those two took the setup as a positional, ``catalog`` as
 ``--against``, and ``sandbox``, ``fleet alerts`` and the ``rig`` agent read it
-with no way to name it at all. The owner's decision: every command that reads
+with no way to name it at all. Now every command that reads
 the setup accepts ``--config`` with the meaning and precedence ``run`` gives it
 — the setup directory (or one merged file), winning over ``$MCGYVR_CONFIG``,
 the working directory and the live fleet.

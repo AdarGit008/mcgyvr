@@ -1,6 +1,6 @@
 """A fleet ``mcgyvr setup`` could not sample is locked only once the user says so.
 
-Owner, 2026-10-14: a fleet that cannot be sampled -- every unit hosted, the
+A fleet that cannot be sampled -- every unit hosted, the
 containers not started, a use case with no sample -- is locked self-approved
 on no evidence only after the user acknowledges it. Setup prints why it could
 not be sampled and what a lock on no evidence means, and asks "Lock it

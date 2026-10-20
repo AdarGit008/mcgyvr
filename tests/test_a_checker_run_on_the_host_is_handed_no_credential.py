@@ -46,7 +46,6 @@ HOST_CHECKERS = (
     "gate/adapters/python.py",
     "gate/typecheck.py",
     "repair.py",
-    "cleanup.py",
 )
 
 #: The ``subprocess`` functions that start a process.

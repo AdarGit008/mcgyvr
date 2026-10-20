@@ -30,8 +30,8 @@ from pathlib import Path
 
 import pytest
 
-from mcgyvr import cleanup, repair
 from mcgyvr import drive as drive_module
+from mcgyvr import repair
 from mcgyvr.contract import loads as load_contract
 from mcgyvr.deterministic import tool_steps
 from mcgyvr.drive import run_tool_step
@@ -422,7 +422,7 @@ def test_cleanup_formats_to_the_width_the_gate_checks(users_ruff: Path) -> None:
         "result = some_function_name(argument_one, argument_two, "
         "argument_three, argument_four_xyz_long)\n"
     )
-    tidied = cleanup._ruff_format(long_line, "a.py", users_ruff)
+    tidied = repair._ruff_format(long_line, "a.py", users_ruff)
     assert tidied == (
         "result = some_function_name(\n"
         "    argument_one, argument_two, argument_three, argument_four_xyz_long\n"

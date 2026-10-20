@@ -1,6 +1,6 @@
 """A live run warns when a ladder step's combination is pulled, and still dispatches.
 
-Owner ruling: warn, do not refuse. A live probe alert pulls its combination
+Warn, do not refuse. A live probe alert pulls its combination
 (:func:`mcgyvr.fleet.alerts.pulled`), and a pull can rest on a false reading,
 so a pulled step is not refused:
 

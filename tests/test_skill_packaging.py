@@ -289,7 +289,7 @@ def _run_install_with_path(
 def test_install_stdout_says_how_to_get_the_cli(tmp_path: Path) -> None:
     """The one line naming how to obtain the binary the skill drives.
 
-    Setup instructions stay out of SKILL.md (ruled), and a skill that is
+    Setup instructions stay out of SKILL.md, and a skill that is
     instructions for driving a CLI is useless on a machine with no CLI. This
     is the one line on stdout that closes that, and it is exactly one line.
     """
@@ -452,9 +452,9 @@ def _judging(bin_dir: Path, reported: str, *, accepts: bool) -> str:
 def test_install_warns_when_the_cli_on_path_rejects_the_skills_examples(
     tmp_path: Path, reported: str, fix: str
 ) -> None:
-    """The e2e run's F1: a skill cloned from `main` taught `task_type: code`
-    to a released CLI that refused it, and install.sh said nothing, because
-    the CLI was above the floor. The floor cannot catch a skill newer than
+    """A skill cloned from `main` can teach `task_type: code` to a released
+    CLI that refuses it, and install.sh says nothing when the CLI is above
+    the floor. The floor cannot catch a skill newer than
     every release; asking the CLI to validate the skill's own examples does."""
     home = tmp_path / "home"
     home.mkdir()

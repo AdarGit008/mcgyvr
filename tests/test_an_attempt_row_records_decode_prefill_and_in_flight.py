@@ -1,7 +1,7 @@
 """An attempt row records how fast the unit answered, and how busy the unit was.
 
-Owner ruling F2: live must write "the record of speed and memory (and
-anything else we need for tolerance check) to the journal", on every dispatch:
+Live writes the record of speed and memory (and anything a tolerance check
+needs) to the journal on every dispatch:
 decode tok/s, prefill tok/s and the requests in flight, so a live observation
 can be judged against a locked unit's ``warm_decode_tok_s`` and
 ``prefill_tok_s`` — and judged only when one request was in flight.

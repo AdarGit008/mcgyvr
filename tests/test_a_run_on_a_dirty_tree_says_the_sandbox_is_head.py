@@ -2,9 +2,9 @@
 
 The sandbox is a ``git archive`` of HEAD, on purpose: delivery diffs against a
 concrete source revision. So an uncommitted edit or an untracked file is not
-in it, and in e2e run 1 that hid the test the agent had just written; the run
-said nothing and the agent replaced a real check with filler (F11). The owner's
-decision: warn, do not refuse, do not change the base.
+in it, and that can hide the test the agent has just written; a run that
+says nothing lets the agent replace a real check with filler. So it
+warns, does not refuse, and does not change the base.
 
 * ``mcgyvr run`` on a dirty tree says so on stderr and puts the same line in
   the result file's ``notes``, because the skill tells a caller to read the

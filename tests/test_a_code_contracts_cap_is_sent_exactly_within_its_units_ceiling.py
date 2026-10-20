@@ -1,8 +1,8 @@
 """A `code` contract's cap is sent exactly, within the ceiling of the unit it reaches.
 
-E2e run 3 T1: ``setup --api`` writes ``output_tokens: 32768`` on every hosted
-unit, and the unit's number *replaced* a contract's stated cap — a contract
-capped at 16 was sent 32768. Owner decision (2026-10-14): the contract's cap is
+``setup --api`` writes ``output_tokens: 32768`` on every hosted unit, and the
+unit's number used to *replace* a contract's stated cap — a contract
+capped at 16 was sent 32768. Now the contract's cap is
 what the work is worth and is never replaced; the unit says how much room it
 has, and that is a ceiling, not a number to send.
 

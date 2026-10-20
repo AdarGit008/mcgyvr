@@ -96,7 +96,7 @@ def test_missing_dependency_is_an_environment_issue_never_a_finding(
 def test_a_demonstration_that_could_not_run_is_labelled_a_demonstration(
     git_repo: Path,
 ) -> None:
-    """The note names the command's role, not always ``acceptance`` (R6)."""
+    """The note names the command's role, not always ``acceptance``."""
     with TempDirSandbox(git_repo) as sandbox:
         report = Acceptance(
             sandbox, (), demonstrations=(("this-binary-does-not-exist-42",),)
@@ -198,7 +198,7 @@ def test_precondition_flags_a_missing_dependency_as_environment(
 
 
 def test_precondition_puts_back_what_a_command_rewrote(git_repo: Path) -> None:
-    """Not refused (e2e run 1, F4): there is no change yet for it to rewrite."""
+    """Not refused: there is no change yet for it to rewrite."""
     with TempDirSandbox(git_repo) as sandbox:
         issue = Acceptance(sandbox, (("sh", "-c", "echo x >> app.py"),)).precondition()
         assert (sandbox.workspace / "app.py").read_text() == "VALUE = 1\n"
@@ -259,7 +259,7 @@ def test_a_demonstration_that_cannot_run_is_an_environment_fault(
 def test_a_command_that_was_not_found_says_commands_run_without_a_shell(
     git_repo: Path,
 ) -> None:
-    """F12: a ``VAR=x`` prefix is executed as the program, exit 127.
+    """A ``VAR=x`` prefix is executed as the program, exit 127.
 
     The loader refuses that spelling; a caller that hands the gate argv
     directly still gets the reason beside "missing dependency", on every

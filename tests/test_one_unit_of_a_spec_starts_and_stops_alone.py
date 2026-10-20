@@ -1,6 +1,6 @@
 """One unit of a compose file starts and stops alone, through the door.
 
-Plan 2026-10-07, §6.2 (approved): the stronger rung on a full rig is a
+The stronger rung on a full rig is a
 SWAP, and for llama.cpp a "sleep" is a stop of the unit's container and a
 "wake" is a start. So the door's ``serve up --unit C`` and ``serve down
 --unit C`` act on that container of the compose file alone: ``up`` starts it

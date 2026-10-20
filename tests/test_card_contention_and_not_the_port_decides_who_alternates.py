@@ -1,10 +1,9 @@
 """Two units alternate when their card figures will not sum, whatever ports they hold.
 
-**The owner's decision, 2026-09-09: go to port-per-model, and let the port stop
-carrying contention information.** Under port-per-model no port ever collides,
-so a port test finds nothing and every host reads as co-residents. That is not a
-loss — it proves the port was never the fact. What remains is the only thing
-that was ever true:
+**Port-per-model, and the port carries no contention information.** Under
+port-per-model no port ever collides, so a port test finds nothing and every
+host reads as co-residents. That is not a loss — it proves the port was never
+the fact. What remains is the only thing that was ever true:
 
     Two units are alternatives when their card figures will not sum onto the
     card they share.
@@ -16,7 +15,7 @@ that was ever true:
 2. Two units on two ports that **do** sum onto the card are co-residents, one
    launch spec, and nothing on disk moves — the compatibility rule ``d8c5cf0a``
    established.
-3. A card holding both shapes at once — box2's real trio — is cut into the
+3. A card holding both shapes at once — the fixture's trio — is cut into the
    feasible combinations rather than into ports: the pair that fits together in
    one spec, the unit that fits alone in another, every unit reachable, and the
    file names deterministic.
@@ -26,7 +25,7 @@ that was ever true:
 **What it deliberately does not pin.** Which of several maximal co-resident
 subsets a fleet-shape controller should *choose* at runtime. ``emit`` writes
 launch specs and stops (``mcgyvr.emit``'s own boundary); picking the resident
-set from queue pressure is ``mcgyvr-lab/records/plans/fleet-shape/``'s and no line of it
+set from queue pressure is a fleet-shape controller's and no line of it
 is implemented.
 """
 
@@ -94,7 +93,7 @@ def box2(*, vram_mib: int = 12288, ram_gb: float = 45.0) -> Scan:
 def port_per_model(geometry: dict[str, Path]) -> str:
     """box1's two candidates, each on a port of its own — and still alternating.
 
-    This is the layout the owner ruled for. Under the port discriminator it
+    This is the port-per-model layout. Under the port discriminator it
     reads as two co-residents on one 6 GiB card, which is 11.83 GiB asked of
     6.00 free: a fleet that runs perfectly well either way round, refused for a
     contention the port cannot see and the card can.
@@ -127,10 +126,10 @@ ladder:
 """
 
 
-#: box2 as the owner wants it: the vLLM pair, which co-reside, plus the 80B,
-#: which takes the whole card. Three ports, none of them colliding. Figures are
-#: the measured ones -- 3.49 and 7.12 GiB on 2026-09-05, and the 80B at the
-#: 11,409 MiB two level-2 sleepers leave (``vllm-sleep-2026-09-09``).
+#: The fixture's box2: the vLLM pair, which co-reside, plus the 80B, which
+#: takes the whole card. Three ports, none of them colliding. Figures are
+#: measured ones -- 3.49 and 7.12 GiB, and the 80B at the 11,409 MiB two
+#: level-2 sleepers leave.
 TRIO = f"""\
 units:
   local_3b:
@@ -198,7 +197,7 @@ PAIR = TRIO.replace(
 #: Two units that fit the card together and cannot both have the host's memory:
 #: 3.0 + 3.0 GiB onto 12.0 free, against 6.5 + 6.5 GiB of spilled experts and
 #: 2.0 GiB of :data:`REFUSAL_RAM_HEADROOM_GB` on 14.2 available. The card is not
-#: the only thing two co-residents share (owner's ruling, 2026-09-09).
+#: the only thing two co-residents share.
 SPILLING = """\
 units:
   local_careful:
@@ -272,7 +271,7 @@ def test_alternatives_on_two_ports_are_not_summed_against_the_card(
 
 
 def test_a_card_that_holds_both_shapes_is_cut_into_the_sets_that_fit_it() -> None:
-    """box2's real trio: the pair that fits together, and the one that does not.
+    """The fixture's trio: the pair that fits together, and the one that does not.
 
     3.49 + 7.12 = 10.61 GiB onto 11.63 free, so the vLLM pair is one launch spec
     and keeps the ``depends_on`` that sequences it. The 80B is 9.5 and fits

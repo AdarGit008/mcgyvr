@@ -522,7 +522,7 @@ def test_the_orchestrators_endpoint_agrees_with_its_reserved_capacity() -> None:
 
 
 def test_a_hybrid_or_chat_setup_reserves_no_orchestrator_slot() -> None:
-    """The ruling is one place: hybrid and chat provision nothing, so a bound
+    """The rule is in one place: hybrid and chat provision nothing, so a bound
     local orchestrator unit is an ordinary ladder rung with no reserved slot."""
     hybrid = ORCHESTRATOR.replace("deployment: local-only", "deployment: hybrid")
     chat = ORCHESTRATOR.replace(

@@ -2,9 +2,9 @@
 
 A hosted reasoning model bills hidden reasoning against the same `max_tokens`
 as the reply, and the journal recorded only input and output: an empty reply
-at the cap could not be told from a model that wrote nothing (the e2e run of
-2026-10-13). The count is read where OpenAI and the OpenAI-compatible reasoning
-providers report it, ``usage.completion_tokens_details.reasoning_tokens``,
+at the cap could not be told from a model that wrote nothing. The count is
+read where OpenAI and the OpenAI-compatible reasoning providers report it,
+``usage.completion_tokens_details.reasoning_tokens``,
 carried on the completion and written to the attempt row; absent when not
 reported, never zeroed or estimated — the rule every count in the journal
 keeps. The row also says how the cap it was sent under was reached.

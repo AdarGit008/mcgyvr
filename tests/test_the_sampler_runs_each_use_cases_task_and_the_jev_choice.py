@@ -1,6 +1,6 @@
 """The sampler runs the use case's sample task and an opted-in Jev's choice.
 
-Plan section 8.2, as :func:`mcgyvr.fleet.sample.judge` reads it: ``coding``
+As :func:`mcgyvr.fleet.sample.judge` reads it: ``coding``
 runs the bundled bug fix through ``mcgyvr run`` (green when the deterministic
 gate passes on any rung); ``agent`` the bundled grounded contract, its reply
 checked grounded (cited and stating every fact); ``chat`` one completion per awake

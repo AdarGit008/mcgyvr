@@ -1,7 +1,6 @@
 """A load runs at most thirty seconds, then gives its verdict.
 
-The thirty seconds are owner ruling NB5, and hold for every load, 8x4096
-included.
+The thirty seconds hold for every load, 8x4096 included.
 
 * **Each request asks to fill the whole window**: its prompt fills N - 64
   tokens and it generates the rest.
@@ -24,7 +23,7 @@ included.
 * **The row** keeps every field, plus ``limit_s``, ``pace_prompt_tok_s``,
   ``pace_source``, ``completed``, ``closed_unfinished`` and ``idle_after``.
 
-Owner ruling NBc: after the close, the load keeps reading the unit's own
+After the close, the load keeps reading the unit's own
 status page until it reads idle, with no time limit on that wait. It files
 ``idle_after_close``, whether the first reading right after the close was
 already idle (true when nothing was left to close), and ``idle_after_s``, the
@@ -33,7 +32,7 @@ stays the final reading. A status page that cannot be read at all is filed as
 ``idle_error`` and ends the wait.
 
 The card is sampled until idle: closing a request does not cancel llama.cpp's
-work on it (``records/measurements/lock-fleets/README.md``), so after the close
+work on it, so after the close
 the card is sampled beside every status reading, up to and including the first
 idle one. ``samples`` holds every sample, ``samples_before_close`` is how many
 came before the close, and ``sampled_until_idle`` says whether they run through
@@ -41,7 +40,7 @@ to an idle reading; an unreadable status page still ends the wait, short of
 idle. The verdict is the peak over every sample, and the peak of the samples
 before the close is filed beside it as ``peak_before_close_mib``.
 
-So nothing outside the load holds it either (R1, under NB5 and NBc): the door's
+So nothing outside the load holds it either: the door's
 ssh that runs a load's harness on the rig carries no timeout, while a probe's
 keeps ``PROBE_TIMEOUT_S`` and the rig reading keeps ``READ_TIMEOUT_S``.
 

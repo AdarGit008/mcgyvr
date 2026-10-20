@@ -136,7 +136,7 @@ def _codes(findings: Iterable[Finding]) -> list[str | None]:
 def test_a_setup_that_says_nothing_or_refuse_rejects_the_change(
     repo: Path, mode: str | None
 ) -> None:
-    """The owner's default: the change is rejected, for the mutation."""
+    """The default: the change is rejected, for the mutation."""
     result = _judged(repo, APPENDS, MUTATES, mode)
 
     assert not result.accepted, (

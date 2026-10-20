@@ -140,7 +140,7 @@ EVIDENCE: dict[str, Any] = {
             "prefill_tok_s": {FIRST: 11500.0},
             "attention_backend": {FIRST: "FLASH_ATTN"},
             "validated_at": "2026-09-13T21:44:00Z",
-            "envelope": "records/measurements/fleet-setup-2026-09-13/box2",
+            "envelope": "evidence/run-sample-a",
         },
         {
             "rig": "box1",
@@ -153,7 +153,7 @@ EVIDENCE: dict[str, Any] = {
             "card_peak_mib": {SECOND: 5458},
             "card_steady_mib": {SECOND: 5430},
             "validated_at": "2026-09-13T21:48:11Z",
-            "envelope": "records/measurements/fleet-setup-2026-09-13/box1",
+            "envelope": "evidence/run-sample-b",
         },
     ],
     "moves": [],

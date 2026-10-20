@@ -416,7 +416,7 @@ def test_a_model_task_type_without_stop_conditions_is_rejected() -> None:
 def test_a_prose_contract_needs_no_stop_condition_and_a_whole_file_one_still_does() -> (
     None
 ):
-    """Stop conditions are required only where a BLOCKED reply can be heard (F10).
+    """Stop conditions are required only where a BLOCKED reply can be heard.
 
     A whole_file reply is parsed, and a refusal in it is a named outcome that
     escalates; a prose reply is served as the answer, so a
@@ -453,7 +453,7 @@ def test_a_prose_contract_needs_no_stop_condition_and_a_whole_file_one_still_doe
         "contract does not state — report BLOCKED rather than guess"
     ) in message, message
 
-    # A chat contract that names no output_schema is a session (F7): its reply
+    # A chat contract that names no output_schema is a session: its reply
     # is prose, where no refusal is heard, so it needs no condition; and it
     # cannot ask for a whole_file reply at all.
     chat = loads("id: t\ntask_type: chat\ntask: Answer.\n")
@@ -578,7 +578,7 @@ def _with_commands(acceptance: list[str], demonstration: list[str]) -> str:
 def test_an_acceptance_command_with_an_env_prefix_or_shell_operator_is_refused_at_load(
     command: str, said: str
 ) -> None:
-    """Contract commands are split and executed with no shell (F12).
+    """Contract commands are split and executed with no shell.
 
     Shell syntax is refused when the contract loads, naming the list and the
     entry, rather than surfacing at run time as exit 127 "missing dependency"
@@ -634,9 +634,8 @@ def test_an_output_cap_larger_than_the_prompt_budget_is_accepted() -> None:
     """The cap counts hidden reasoning, which is never read back into a prompt.
 
     The loader used to refuse a cap above ``context.max_input_tokens``, so a
-    reasoning model's cap dragged the prompt budget up with it (the e2e run of
-    2026-10-13). The visible reply is bounded against the rung's window at
-    dispatch instead.
+    reasoning model's cap dragged the prompt budget up with it. The visible
+    reply is bounded against the rung's window at dispatch instead.
     """
     contract = loads(
         MINIMAL
@@ -777,7 +776,7 @@ scope:
 
 
 def test_no_task_type_requires_sources() -> None:
-    """`grounded`, the one check that needed a corpus, is retired (R11)."""
+    """`grounded`, the one check that needed a corpus, is retired."""
     assert loads(_out_contract('sources: ["doc/a.md"]')).sources == ("doc/a.md",)
     assert loads(_out_contract()).sources == ()
 

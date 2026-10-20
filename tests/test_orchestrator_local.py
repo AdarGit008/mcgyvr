@@ -1,6 +1,6 @@
 """The local orchestrator unit: when a local-only setup provisions one.
 
-The ruling under test: local-only for a non-chat use case provisions a local
+The rule under test: local-only for a non-chat use case provisions a local
 orchestrator whose width is the number of users, flagged (not refused) on a
 single-user setup. Chat is a raw endpoint and needs none; hybrid has an API
 orchestrator and provisions none either.

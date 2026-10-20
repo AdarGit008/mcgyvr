@@ -2,8 +2,7 @@
 
 box2, RTX 3060 12 GB, ``Ornith-1.0-35B_Q2_K-AllGPU`` single slot: the baseline
 loads at ``ncmoe=4`` and ``--spec-type draft-mtp`` at ``ncmoe=4`` is refused
-(``cudaMalloc failed``); the MTP floor is 8
-(``mcgyvr-lab/records/evidence/2026-08-28-mtp-ornith/README.md`` §1). The
+(``cudaMalloc failed``); the MTP floor is 8. The
 grafted head is ``blk.40``, which ``ggufscan`` keeps out of ``placeable_blocks`` because
 ``--n-cpu-moe`` never places it — its expert set weighs 816 MiB in the tensor
 table (``expert_bytes_by_block["40"]``), against 278 for each neighbour.
@@ -84,7 +83,7 @@ def test_the_floor_walks_past_exactly_the_blocks_the_head_displaces() -> None:
 
 
 def test_kats_probe_derives_the_floor_the_rig_measured_with_mtp() -> None:
-    """Plain 5, MTP 8 — the README's ``ncmoe=4 REFUSED`` / ``8`` row."""
+    """Plain 5, MTP 8 — the measured row ``ncmoe=4 REFUSED`` / ``8``."""
     geometry = GEOMETRY[KAT]
     constant = (2127 - 1) * MIB - vramfit.experts_on_card(geometry, 41)
     free = 11911 * MIB

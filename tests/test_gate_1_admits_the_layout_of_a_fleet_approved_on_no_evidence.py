@@ -1,6 +1,6 @@
 """Gate 1 admits a live ``serve up`` of the layout a fleet approved on no evidence.
 
-Owner, 2026-10-15: a lock ``mcgyvr setup`` approved on no evidence
+A lock ``mcgyvr setup`` approved on no evidence
 (:func:`mcgyvr.fleet.lock.write_unsampled`) writes no combination record, as
 nothing was validated, so gate 1 -- which admits a live ``serve up`` only for
 containers the lock's records name -- refused every unit of an acknowledged

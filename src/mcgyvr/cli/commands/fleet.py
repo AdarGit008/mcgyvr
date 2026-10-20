@@ -181,7 +181,7 @@ def add_parser(sub: argparse._SubParsersAction[argparse.ArgumentParser]) -> None
     fuse.add_argument(
         "name",
         metavar="FLEET@DATE",
-        help="the promoted folder to run live (a pre-ruling folder by its plain name)",
+        help="the promoted folder to run live (one with no lock date by plain name)",
     )
     fuse.set_defaults(func=_fleet_use)
     fprobe = fleet_sub.add_parser(

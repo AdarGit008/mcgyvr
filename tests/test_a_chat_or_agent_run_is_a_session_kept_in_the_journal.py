@@ -1,7 +1,7 @@
-"""A `chat` or `agent` run is a session, and its answer is kept (F7).
+"""A `chat` or `agent` run is a session, and its answer is kept.
 
-Owner decision (e2e run 1, F7): "chat and agent are sessions and should be
-logged as such - answers are not throwaway nowhere". So:
+Chat and agent are sessions and are logged as such: an answer is never thrown
+away. So:
 
 - a `chat` or `agent` contract names no `target` and no `scope`: nothing is
   written, so there is no file to name. One that still gives a target is told
@@ -162,7 +162,7 @@ def test_a_chat_or_agent_contract_needs_no_target_and_no_scope(document: str) ->
 
 @pytest.mark.parametrize("document", [CHAT, AGENT])
 def test_a_chat_or_agent_contract_needs_no_stop_condition(document: str) -> None:
-    """A session replies in prose, where no BLOCKED reply is heard (F10)."""
+    """A session replies in prose, where no BLOCKED reply is heard."""
     bare = "\n".join(
         line for line in document.splitlines() if not line.startswith("stop_")
     )

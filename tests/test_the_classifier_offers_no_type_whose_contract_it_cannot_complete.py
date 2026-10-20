@@ -77,8 +77,7 @@ def test_code_is_offered_alongside_the_other_types(tmp_path: Path) -> None:
     """`code` needs no forced commands, so it is offered with the rest.
 
     Chosen, it is handed on rather than proposed: a `code` contract states its
-    reply cap, which no choice can say, so the prose proposer writes it
-    (owner, 2026-10-14).
+    reply cap, which no choice can say, so the prose proposer writes it.
     """
     seen, classify = _answering({"kind": "code", "symbol": ""})
     evidence = _evidence(tmp_path, _types("chat", "code"))

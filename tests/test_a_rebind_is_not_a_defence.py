@@ -526,7 +526,7 @@ def test_a_contract_that_forbids_mutation_does_not_stand_the_rung_down(
 ) -> None:
     """ "do not mutate" is a prohibition, not an ask — the substring trap.
 
-    The pressure test's reach leftovers caught this: ``_INPLACE_WORDS`` was a
+    ``_INPLACE_WORDS`` was a
     substring match, so a contract saying "do not mutate the caller's list"
     stood the rung down for the whole file — the one contract that most needs
     the backstop. The negation cancels the ask.

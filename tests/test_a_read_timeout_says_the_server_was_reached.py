@@ -1,7 +1,7 @@
 """A read that times out says the server was reached, not that it could not be.
 
-In e2e run 2 a hosted unit took the request and was still writing its reply
-when the 120 s bound ran out, and the run reported "could not reach
+A hosted unit can take the request and still be writing its reply when the
+120 s bound runs out, and the run used to report "could not reach
 https://api.deepseek.com/... within 120s: The read operation timed out". The
 server had been reached; it had not finished. The two failures ask for
 different fixes — an address, a network or a key against a bound or a cap — so

@@ -1,6 +1,6 @@
 """mcorch gathers repository evidence the way a pi agent does: through the harness.
 
-Owner ruling: mcorch gets data the way pi does — the model emits a tool call,
+mcorch gets data the way pi does — the model emits a tool call,
 the harness runs it in the working directory, the output comes back as a tool
 result. Under `authoring: prose | classifier` the loop therefore emits a
 harness shell call running mcgyvr's own deterministic reader,
@@ -244,7 +244,7 @@ def test_classifier_proposes_through_jev_and_falls_back_to_prose_on_nothing() ->
     )
     turn = _respond(_after_read(_tools("Write", "Bash")), rung, jev, "classifier")
     # The classifier chooses `code`, whose contract states a reply cap no
-    # choice can say (owner, 2026-10-14): it proposes nothing, asks no symbol,
+    # choice can say: it proposes nothing, asks no symbol,
     # and the prose proposer writes the contract, cap included.
     assert [name for name, _ in jev.asked][:2] == ["kind", "target"]
     assert "symbol" not in [name for name, _ in jev.asked]

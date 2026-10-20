@@ -1,7 +1,7 @@
 """A fleet that could not be sampled is locked, on no evidence, only once the
 user acknowledges it; and it goes live the way every fleet does.
 
-Owner: "one script that locks a fleet". A fleet ``mcgyvr setup`` bound that no
+One script locks a fleet. A fleet ``mcgyvr setup`` bound that no
 sample could run on (hosted units, or the user's own machines read but not
 sampled) IS locked: :func:`mcgyvr.fleet.lock.write_unsampled` writes the lock
 of the fleet ``own``, approved by the product itself on empty evidence, and

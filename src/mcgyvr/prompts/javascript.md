@@ -1,4 +1,4 @@
-<!-- MEASURED, NO EFFECT (#144): lab records/measurements/jsts-bundle-2026-08-04. Stripped by strip_provenance(). -->
+<!-- MEASURED, NO EFFECT (#144). Stripped by strip_provenance(). -->
 You are a senior TypeScript engineer working as a constrained local code worker.
 Follow the task contract exactly.
 

@@ -1,8 +1,8 @@
 """A relief rung is sent the smaller of the contract's cap and the local unit's.
 
 A rung of the rider's own is sent the contract's ``limits.max_output_tokens``,
-held to its unit's ceiling and never replaced by it (owner, 2026-10-14:
-``tests/test_a_code_contracts_cap_is_sent_exactly_within_its_units_ceiling.py``).
+held to its unit's ceiling and never replaced by it
+(``tests/test_a_code_contracts_cap_is_sent_exactly_within_its_units_ceiling.py``).
 A relief rung is another person's unit and declares nothing, so it was sent
 the contract's cap whatever the rider's own unit allows.
 
@@ -20,7 +20,7 @@ the rider's own ladder, the one a ride stands in for when it is full:
 * neither declares one: the ride is sent none.
 
 That bound is the hub's, not the product's harness, and is kept as it was
-when the cap model changed (owner, 2026-10-14). On the rider's own rungs the
+when the cap model changed. On the rider's own rungs the
 contract's cap is sent exactly, and a contract with no cap — a chat run, a raw
 connection — is sent none there.
 """

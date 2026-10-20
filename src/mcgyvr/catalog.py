@@ -13,9 +13,10 @@ from __future__ import annotations
 import json
 from dataclasses import dataclass
 from functools import cache
-from importlib import resources
 from pathlib import Path
 from typing import TYPE_CHECKING, Any
+
+from mcgyvr.shipped import shipped_file
 
 if TYPE_CHECKING:  # pragma: no cover - typing only
     from mcgyvr.config import Config, Unit
@@ -271,12 +272,9 @@ def catalog_path() -> Path:
     """The catalog file: the copy packaged inside `mcgyvr/data` when it is
     there, otherwise `data/` in the source checkout this module sits in.
     Raises `CatalogError` when neither exists."""
-    packaged = resources.files("mcgyvr") / "data" / CATALOG_FILENAME
-    if packaged.is_file():
-        return Path(str(packaged))
-    checkout = Path(__file__).resolve().parents[2] / "data" / CATALOG_FILENAME
-    if checkout.is_file():
-        return checkout
+    found = shipped_file(CATALOG_FILENAME)
+    if found is not None:
+        return found
     raise CatalogError(f"task catalog not found (looked for {CATALOG_FILENAME})")
 
 

@@ -18,7 +18,7 @@
   stop.
 * Nothing clears on its own. A pull clears only when the combination's
   validation is re-committed; ``rejudge`` reports and pulls nothing (proposed,
-  not ruled: ``mcgyvr-lab/records/plans/fleet-identity.md`` §12).
+  not decided).
 
 Tolerances here are placeholders: the rule is pinned, not the values.
 """
@@ -99,8 +99,7 @@ def test_card_memory_alerts_only_above_its_approved_value_plus_tolerance(
     tmp_path: Path,
 ) -> None:
     """Steady and peak are two figures, each judged. A llama.cpp peak sampled
-    while loading reads a few MiB below steady
-    (``mcgyvr-lab/records/measurements/fleet-gaps-2026-09-09/README.md``), so the
+    while loading reads a few MiB below steady, so the
     peak is the highest reading across the load and the requests."""
     alerts = _alerts()
     for field, expected in (("card_steady_mib", 7000.0), ("card_peak_mib", 7026.0)):

@@ -1,6 +1,6 @@
 """A rename of a module's own function leaves another module's attribute alone.
 
-E2e run 2: renaming ``load`` to ``load_json`` in ``src/app/store.py`` turned the
+Renaming ``load`` to ``load_json`` in ``src/app/store.py`` used to turn the
 function's own body, ``return json.load(f)``, into ``json.load_json(f)``. The
 index records a call ``a.f()`` as a reference named ``f`` with no receiver, and
 the rename substituted the name over every line the index named. The rewrite is

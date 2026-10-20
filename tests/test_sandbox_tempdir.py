@@ -200,7 +200,7 @@ def test_a_url_carrying_a_password_is_dropped_whatever_the_variable_is_called(
     assert result.stdout.split() == ["p=none", "d=none"]
 
 
-# --- the host HOME is not the command's (owner ruling on EXE-06) -----------
+# --- the host HOME is not the command's ------------------------------------
 
 _TOOL_HOMES = ("CARGO_HOME", "RUSTUP_HOME", "UV_CACHE_DIR")
 

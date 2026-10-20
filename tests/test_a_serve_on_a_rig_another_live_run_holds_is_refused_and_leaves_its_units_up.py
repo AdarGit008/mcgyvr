@@ -1,6 +1,6 @@
 """A serve on a rig another live run holds is refused, and leaves its units up.
 
-Owner's ruling, 2026-10-15: "no one can take from no one". A ``serve up`` or a
+A ``serve up`` or a
 ``serve down`` that finds the rig's lease held by a run that is still live is
 refused at gate 2 (``src/mcgyvr/serving/gate-scripts/02-rig.py``), in one line
 naming the holder's run and host and saying to wait for it or end it. The
@@ -16,9 +16,9 @@ from pathlib import Path
 import pytest
 
 from tests import onedoor
+from tests._helpers import required
 from tests.doors import HELD_SERVE_LEASE, HELD_SERVE_RUN, UNITS, compose_file
 from tests.fleetlocks import BOX1_EVIDENCE, BOX1_FLEET
-from tests.red_port.conftest import required
 
 
 def _live_lock() -> None:

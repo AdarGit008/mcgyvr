@@ -30,6 +30,7 @@ from functools import cache
 from pathlib import Path, PurePosixPath
 from typing import ClassVar
 
+from mcgyvr.gitcmd import run_git
 from mcgyvr.redact import scrub
 
 _WORKSPACE_PREFIX = "mcgyvr-task-"
@@ -328,7 +329,7 @@ class Sandbox(ABC):
             "--allow-empty",
             "-m",
             "mcgyvr checkpoint",
-            env={**os.environ, **_GIT_IDENTITY},
+            env=_GIT_IDENTITY,
         )
         return _git(self.workspace, "rev-parse", "HEAD").decode("ascii").strip()
 
@@ -538,7 +539,7 @@ def _populate(
         "--allow-empty",
         "-m",
         "mcgyvr sandbox base",
-        env={**os.environ, **_GIT_IDENTITY},
+        env=_GIT_IDENTITY,
     )
     return _git(workspace, "rev-parse", "HEAD").decode("ascii").strip(), revision
 
@@ -699,18 +700,10 @@ def _git(
 ) -> bytes:
     """Run git in `root` with `args` and return its stdout.
 
-    The output is captured, `env` replaces the environment when given, and a
+    The output is captured, `env` is merged over the current environment, and a
     non-zero exit raises `SandboxError` carrying git's stderr.
     """
-    proc = subprocess.run(
-        ["git", "-C", str(root), *args],
-        capture_output=True,
-        env=dict(env) if env is not None else None,
-    )
-    if proc.returncode != 0:
-        detail = proc.stderr.decode("utf-8", "replace").strip()
-        raise SandboxError(f"git {args[0]} failed in {root}: {detail}")
-    return proc.stdout
+    return run_git(root, *args, error=SandboxError, env=env)
 
 
 # Judging a workspace: the tree object that stands for what it holds, the
@@ -725,7 +718,7 @@ def _judged_tree(workspace: Path) -> str:
     names that state without touching the workspace's own index or history.
     """
     with tempfile.TemporaryDirectory(prefix="mcgyvr-snap-") as tmp:
-        env = {**os.environ, "GIT_INDEX_FILE": str(Path(tmp) / "index")}
+        env = {"GIT_INDEX_FILE": str(Path(tmp) / "index")}
         _git(workspace, "add", "-A", env=env)
         return _git(workspace, "write-tree", env=env).decode("ascii").strip()
 
@@ -829,17 +822,15 @@ def _checkout_from(workspace: Path, tree: str, paths: Sequence[str]) -> None:
     """Write `paths` from tree `tree` back into `workspace` through a throwaway
     index, content and mode included; a failure raises `SandboxError`."""
     with tempfile.TemporaryDirectory(prefix="mcgyvr-snap-") as tmp:
-        env = {**os.environ, "GIT_INDEX_FILE": str(Path(tmp) / "index")}
+        env = {"GIT_INDEX_FILE": str(Path(tmp) / "index")}
         _git(workspace, "read-tree", tree, env=env)
-        proc = subprocess.run(
-            ["git", "-C", str(workspace), "checkout-index", "-f", "-z", "--stdin"],
-            input=b"".join(p.encode("utf-8", "surrogateescape") + b"\0" for p in paths),
-            capture_output=True,
+        run_git(
+            workspace,
+            *("checkout-index", "-f", "-z", "--stdin"),
+            error=SandboxError,
             env=env,
+            input=b"".join(p.encode("utf-8", "surrogateescape") + b"\0" for p in paths),
         )
-    if proc.returncode != 0:
-        detail = proc.stderr.decode("utf-8", "replace").strip()
-        raise SandboxError(f"git checkout-index failed in {workspace}: {detail}")
 
 
 def _nul_split(raw: bytes) -> list[str]:

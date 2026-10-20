@@ -3,10 +3,9 @@
 A test runner writes as it runs: ``__pycache__``, ``.pytest_cache``, a uv cache
 with its own ``.git``. In a repository with no ``.gitignore`` for them, the
 preflight compared the tree before and after and refused the contract with
-``acceptance-mutates-tree`` — naming no path (e2e run 1, F4; F13 was the same
-mechanism). The owner's ruling: the preflight cleans up what the baseline run
-left behind, so the model always starts on a clean copy, and does not refuse
-for it. It says what it removed.
+``acceptance-mutates-tree`` — naming no path. Now the preflight cleans up what
+the baseline run left behind, so the model always starts on a clean copy, and
+does not refuse for it. It says what it removed.
 
 The gate-time run follows the same principle. The change is judged on what the
 model wrote, and a runner's leftovers are removed after each command rather
@@ -113,7 +112,7 @@ def test_a_baseline_that_writes_caches_passes_preflight_on_a_clean_copy(
 def test_the_note_labels_the_command_by_the_list_it_came_from(
     repo: Path, listed_as: str
 ) -> None:
-    """A demonstration is not labelled ``acceptance:`` (e2e run 2, R6)."""
+    """A demonstration is not labelled ``acceptance:``."""
     exit_code = 0 if listed_as == "acceptance" else 1
     command = ("sh", "-c", f"{CACHES}; exit {exit_code}")
     with TempDirSandbox(repo) as sandbox:
@@ -152,7 +151,7 @@ def test_a_baseline_that_rewrites_a_tracked_file_is_reverted_not_refused(
 def test_a_baseline_that_leaves_a_nested_repository_is_cleaned(
     repo: Path, tmp_path: Path
 ) -> None:
-    """F13's shape: uv's cache came with a ``.git`` of its own. It is removed
+    """A uv cache that comes with a ``.git`` of its own. It is removed
     before host git looks at the tree, so its config never runs on the host."""
     marker = tmp_path / "fsmonitor-ran"
     plant = (

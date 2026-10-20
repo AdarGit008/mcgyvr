@@ -336,7 +336,7 @@ case $cmd in
     rm -f "$STUBS/asleep-$port" ;;
   *"/wake_up"*|*"/collective_rpc"*)
     [ -e "$STUBS/sleep-route" ] || exit 22 ;;
-  # No sleep route, as a unit without one answers (owner ruling, FLT-02): 404.
+  # No sleep route, as a unit without one answers: 404.
   *"is_sleeping"*)
     port=$(printf '%s' "$cmd" | sed -n 's/.*localhost:\\([0-9]*\\).*/\\1/p')
     if [ ! -e "$STUBS/sleep-route" ]; then

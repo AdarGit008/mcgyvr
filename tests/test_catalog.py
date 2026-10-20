@@ -97,9 +97,9 @@ def test_the_config_use_case_choices_match_the_catalog(shipped: Catalog) -> None
 
 
 def test_every_entry_states_its_required_evidence(shipped: Catalog) -> None:
-    # chat and agent are the ungated types (owner, e2e run 2 R11: "agent and
-    # chat have no gates"): neither carries evidence or the gate. Every other
-    # type states evidence, and coding types carry the gate kind as their floor.
+    # chat and agent are the ungated types: neither carries evidence or the
+    # gate. Every other type states evidence, and coding types carry the gate
+    # kind as their floor.
     for kind in shipped.task_types:
         if kind.use_case.name in ("chat", "agent"):
             assert kind.required_evidence == (), f"{kind.name} should be ungated"

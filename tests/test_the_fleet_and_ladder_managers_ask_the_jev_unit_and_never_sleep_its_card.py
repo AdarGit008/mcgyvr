@@ -1,6 +1,6 @@
 """The fleet and ladder managers ask the Jev unit, and never sleep its card.
 
-The fleet manager's wake-routing judgment and the ladder manager's choices
+The wake judge's wake-routing judgment and the ladder manager's choices
 are typed decisions. With `jev.unit` bound they are asked of that unit; with
 none, of the fast rung each was handed, as before. The ladder manager never
 puts to sleep the card its decisions run on, so `mcgyvr manage` hands it the
@@ -18,7 +18,7 @@ from typing import Any
 import pytest
 
 import mcgyvr.decision as decision
-from mcgyvr import fleet_manager, ladder_manager
+from mcgyvr import ladder_manager, wake_judge
 from mcgyvr.cli.commands.ladder import _manage_held
 from mcgyvr.config import Config, parse
 from mcgyvr.local_pool import source_map
@@ -66,12 +66,12 @@ def _wire(monkeypatch: pytest.MonkeyPatch) -> list[tuple[str, str]]:
 
 
 @pytest.mark.parametrize(("jev", "expected"), BOUND)
-def test_the_fleet_managers_judgment_asks_the_jev_unit_when_one_is_bound(
+def test_the_wake_judges_judgment_asks_the_jev_unit_when_one_is_bound(
     monkeypatch: pytest.MonkeyPatch, jev: str, expected: tuple[str, str]
 ) -> None:
     sent = _wire(monkeypatch)
     pool = source_map(parse(UNITS + jev))
-    difficulty = fleet_manager.judge(pool, "fast", {"task": "x"}, timeout_s=5.0)
+    difficulty = wake_judge.judge(pool, "fast", {"task": "x"}, timeout_s=5.0)
     assert difficulty.wake is True
     assert sent == [expected]
 

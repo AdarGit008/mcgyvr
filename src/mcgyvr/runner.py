@@ -1004,20 +1004,25 @@ def _status(endpoint: Endpoint) -> _Status | None:
 
 
 def unit_in_flight(
-    source: str, base_url: str, engine: str | None, max_parallel: int = 1
+    source: str,
+    base_url: str,
+    engine: str | None,
+    max_parallel: int = 1,
+    credential_env: str | None = None,
 ) -> int | None:
     """How many requests an address is carrying, from what a probe knows about it.
 
     The endpoint is assembled here so the same poll a dispatch uses can be made
     against a unit that is not being dispatched at, which is what a capacity gauge
-    needs.
+    needs. `credential_env` is the unit's own: a unit that needs a key is not
+    polled, as `_status` never polls one.
     """
     endpoint = Endpoint(
         source=source,
         base_url=base_url,
         protocol=Protocol.OPENAI,
         max_parallel=max_parallel,
-        credential_env=None,
+        credential_env=credential_env,
         engine=engine,
     )
     status = _status(endpoint)

@@ -1,6 +1,6 @@
 """Setup writes the context window each local backend serves on its unit.
 
-Owner decision (2026-10-14, e2e run 3 T1): every unit carries a ceiling from
+Every unit carries a ceiling from
 setup, which a `code` contract's cap is held to. A hosted unit is written with
 ``output_tokens``; a local one with ``window``, the context length its backend
 serves, read off the running process rather than assumed:

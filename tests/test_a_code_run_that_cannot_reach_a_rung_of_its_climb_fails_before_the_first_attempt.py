@@ -1,6 +1,6 @@
 """A `code` run whose cap no rung of its climb can hold fails before anything is spent.
 
-Owner decision (2026-10-14, e2e run 3 T1): the contract's cap is held to the
+The contract's cap is held to the
 ceiling of every unit it reaches, and a cap above a ceiling fails loud. Checked
 only when a rung is reached, a run whose dearer rung cannot hold the cap would
 spend every attempt on the cheaper rungs first and then fail on the escalation

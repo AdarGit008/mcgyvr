@@ -1,6 +1,6 @@
 """The gate's Jev rung shows the whole change and judges only the added lines.
 
-Owner ruling after the pilot: with added lines alone the rung scored AUROC
+With added lines alone the rung scored AUROC
 0.44-0.65 across 1.5B-14B, while the reviewer's verdict — shown the original
 file and the change (:func:`mcgyvr.verify.verdict_state`) — scored 0.73-0.75.
 So the state a question is asked over now carries ``original`` (the file at

@@ -6,7 +6,7 @@ no locked fleet could reach a compose file — and ``serve up`` takes nothing
 else.
 
 A locked unit was measured, approved and hashed. What emit owes it is that
-launch, not a new one sized from a scan (owner ruling):
+launch, not a new one sized from a scan:
 
 * ``launch.argv`` and ``launch.env`` are the command and the environment,
   verbatim and in order: the argv and env its ``unit_id`` was hashed over.

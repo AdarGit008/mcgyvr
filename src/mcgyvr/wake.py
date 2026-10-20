@@ -27,10 +27,8 @@ from __future__ import annotations
 import json
 import math
 import os
-import stat
 import subprocess
 import sys
-import tempfile
 import threading
 import time
 from collections.abc import Callable, Mapping, Sequence
@@ -55,6 +53,7 @@ if TYPE_CHECKING:  # pragma: no cover - typing only
 # file never spells the door's module again, and so the exit code the fallback
 # in `put_down` depends on is the one the gate scripts themselves return.
 from mcgyvr.serving.gatelib import DOOR_MODULE, NO_SLEEP_ROUTE
+from mcgyvr.userdir import owned_outright, user_tempdir
 
 #: The answer of whatever is being sent through `Waker.dispatching`: a draw or a
 #: read, sent again after a wake, and always of the type it would have been
@@ -159,26 +158,11 @@ def _clock_dir() -> Path:
     read or write each other's record, and every process of one user agrees on
     where the record is.
     """
-    return Path(tempfile.gettempdir()) / f"mcgyvr-wake-{os.getuid()}"
+    return user_tempdir("wake")
 
 
-def _ours(where: Path) -> bool:
-    """True when `where` is a directory this user owns outright.
-
-    `lstat`, so a symlink does not pass for the directory it points at. It has
-    to be a directory, owned by this uid, and not writable by group or other: a
-    path another local user could have got to first is not read from, and
-    nothing is written into it.
-    """
-    try:
-        found = os.lstat(where)
-    except OSError:
-        return False
-    if not stat.S_ISDIR(found.st_mode):
-        return False
-    if found.st_uid != os.getuid():
-        return False
-    return not found.st_mode & (stat.S_IWGRP | stat.S_IWOTH)
+#: The check every read and write of the clock directory goes through.
+_ours = owned_outright
 
 
 def _history(card: Card) -> Path:

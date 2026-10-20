@@ -1,4 +1,4 @@
-"""B6, round two — the bytes that reach the repository are bytes a gate read.
+"""B6 — the bytes that reach the repository are bytes a gate read.
 
 The first fix for B6 added a digest and a check that the digest still answers
 for the content it travels with. The check could not fire: the only constructor

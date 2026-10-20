@@ -166,7 +166,7 @@ def test_a_fatal_eslint_is_a_fault_not_an_empty_result(
 ) -> None:
     """A fatal eslint run says nothing at all — and nothing is not clean (#261).
 
-    Measured against eslint 9 on 2026-08-16: no config, an unloadable config
+    Measured against eslint 9: no config, an unloadable config
     and an internal error all exit **2 with an empty stdout**. That is why the
     stdout here is empty and why the exit code is what this asserts on — the
     version of this test that fed it a non-JSON *string* was testing a shape

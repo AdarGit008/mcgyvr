@@ -1,6 +1,6 @@
 """The config is the one named, or the live fleet; never the working directory.
 
-Owner, 2026-10-14: the config lookup drops the current-folder tier.
+The config lookup drops the current-folder tier.
 :func:`mcgyvr.config.config_path` resolves ``$MCGYVR_CONFIG`` (or a command's
 ``--config``), else the live fleet folder the config folder's ``live.json``
 names. A ``fleet.yaml`` in the working directory no longer counts: a command

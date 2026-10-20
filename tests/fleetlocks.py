@@ -12,8 +12,8 @@ from typing import Any
 import pytest
 import yaml
 
+from tests._helpers import required
 from tests.doors import UNITS
-from tests.red_port.conftest import required
 
 RIG2 = "rig-" + "2" * 64
 
@@ -83,7 +83,7 @@ EVIDENCE: dict[str, Any] = {
             "prefill_tok_s": {"box2_7b": 1450.0},
             "attention_backend": {"box2_7b": "FLASH_ATTN", "box2_3b": "FLASH_ATTN"},
             "validated_at": "2026-09-11T10:00:00Z",
-            "envelope": "records/evidence/2026-09-11-fleet-box2/flt-05",
+            "envelope": "evidence/fleet-sample-a",
         },
         {
             "rig": "box2",
@@ -96,7 +96,7 @@ EVIDENCE: dict[str, Any] = {
             "prefill_tok_s": {"box2_7b": 1420.0, "box2_3b": 3100.0},
             "attention_backend": {"box2_7b": "FLASH_ATTN", "box2_3b": "FLASH_ATTN"},
             "validated_at": "2026-09-11T10:30:00Z",
-            "envelope": "records/evidence/2026-09-11-fleet-box2/flt-02",
+            "envelope": "evidence/fleet-sample-b",
         },
     ],
     "moves": [
@@ -203,7 +203,7 @@ BOX1_EVIDENCE: dict[str, Any] = {
             "card_peak_mib": {"a": 2000, "b": 2000},
             "prefill_tok_s": {"a": 1450.0, "b": 1450.0},
             "validated_at": "2026-09-11T10:00:00Z",
-            "envelope": "records/evidence/2026-09-11-fleet-box1/flt-01",
+            "envelope": "evidence/fleet-sample-c",
         }
     ],
     "moves": [],

@@ -1,6 +1,6 @@
 """A red sample stamps nothing, and says why.
 
-Owner, Round 4 (2026-10-07), FLEET FLOW TWEAK: sample green = fleet STAMPED;
+Sample green = fleet STAMPED;
 sample red = no stamp, report why. A sleeper whose swap through the ladder
 manager did not run samples red, named with the way it did not go
 (``test_a_sample_wakes_a_sleeper_through_the_ladder_manager_and_locks_its_swap.py``

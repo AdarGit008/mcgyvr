@@ -1,6 +1,6 @@
 """A locked unit split across rigs is emitted as its head and its rpc workers.
 
-Owner ruling R7 (#731 item 6): with several machines, a chat or agent unit is
+With several machines (#731 item 6), a chat or agent unit is
 one pipeline-parallel unit spanning them, a llama.cpp head plus rpc-server
 workers on the other rigs. Promises:
 

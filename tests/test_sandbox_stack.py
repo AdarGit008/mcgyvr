@@ -77,7 +77,7 @@ def test_an_unlocked_pyproject_installs_its_dev_dependency_group(
     """`pip install .` skips PEP 735 groups, and ruff and pytest are in `dev`.
 
     Without them the image has no linter for the gate and no runner for the
-    baseline, and a command exits 127 (e2e run 1, F3). pip learned `--group`
+    baseline, and a command exits 127. pip learned `--group`
     in 25.1, so the install upgrades pip to it first. Still pip, still unpinned.
     """
     write(

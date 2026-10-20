@@ -41,7 +41,20 @@ INIT_DEFAULT_HELP = (
 )
 
 
+#: Where a checkout keeps SETUP.md, relative to its root.
 SETUP_DOC = "skills/mcgyvr/SETUP.md"
+
+
+def setup_doc() -> str:
+    """Where SETUP.md is: the copy an installed mcgyvr carries, else a checkout's.
+
+    The packaged copy is looked for first, as every shipped data file is, so a
+    wheel install names a file that exists; a checkout names `SETUP_DOC`.
+    """
+    from mcgyvr.shipped import packaged
+
+    inside = packaged("SETUP.md")
+    return str(inside) if inside.is_file() else SETUP_DOC
 
 
 def _mib(size_bytes: int) -> str:

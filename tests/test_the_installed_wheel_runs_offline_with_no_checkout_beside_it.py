@@ -437,6 +437,29 @@ def test_the_installed_hub_client_reads_its_seccomp_profile_from_the_package(
     assert allows.startswith("SCMP_ACT_ERRNO "), _ran(done)
 
 
+def test_an_unconfigured_install_names_the_setup_document_it_carries(
+    installed: Installed, tmp_path: Path
+) -> None:
+    """`mcgyvr run` with no setup names SETUP.md; the install carries the
+    checkout's file byte for byte and names that copy, a path that exists."""
+    carried = installed.site / "mcgyvr" / "data" / "SETUP.md"
+    assert (
+        carried.read_bytes() == (REPO / "skills" / "mcgyvr" / "SETUP.md").read_bytes()
+    )
+
+    home, work, repo = _a_place(tmp_path)
+    done = _run(
+        work,
+        installed.env(home),
+        *(installed.mcgyvr, "run", "impl.yaml", "--repo", repo, "--orchestrator", "t"),
+        *("--sandbox", "tempdir"),
+    )
+    assert done.returncode != 0, _ran(done)
+    named = [w for w in done.stderr.split() if w.endswith("SETUP.md")]
+    assert named and all(Path(w).is_file() for w in named), _ran(done)
+    assert Path(named[0]).resolve() == carried.resolve(), _ran(done)
+
+
 def test_a_fresh_init_runs_a_contract_without_evidence_from_the_dev_repo(
     installed: Installed, tmp_path: Path, listener: _Listener
 ) -> None:

@@ -5,8 +5,7 @@ combinations of reply cap and rung width an operator is allowed to declare.
 
 The three are not independent. A reply of ``limits.max_output_tokens`` tokens,
 generated at whatever per-stream rate a rung gives at the width it is serving,
-takes a time that either fits the timeout or does not
-(``records/measurements/serving-concurrency-2026-09-06/``): a reply that fits
+takes a time that either fits the timeout or does not: a reply that fits
 the timeout at width one can outlast it at width eight. Under a constant the
 second is unreachable — not refused, and not reported as a width that is too
 wide for this cap, but failed one request at a time as a transport error that

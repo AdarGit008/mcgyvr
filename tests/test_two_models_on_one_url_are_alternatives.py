@@ -10,8 +10,7 @@ units that can never be up at the same time.
 Two rungs naming **one source** are two models for one process: one URL, one
 port, one card. They are alternatives, and a ladder can be made of them — box1
 alternating DeepSeek-Coder-V2-Lite with Qwen3.6-35B, box2 its vLLM pair with
-the 80B. That is "sleep funds a wake" in
-`mcgyvr-lab/records/plans/sleep-wake.md` §17. Summing both against the card
+the 80B. That is "sleep funds a wake". Summing both against the card
 would refuse a pair that never contends, and one file with both services on
 one port is a file whose second service can never bind — the outcome the port
 being part of `UnitKey` exists to prevent.
@@ -115,7 +114,7 @@ def _with_free_vram(scan: Scan, free_mib: int) -> Scan:
 
 
 def alternatives(geometry: dict[str, Path]) -> str:
-    """box1's two candidates behind one URL: the owner's swap layout."""
+    """The fixture box1's two candidates behind one URL: a swap layout."""
     return f"""
 units:
   local_lite:
@@ -330,7 +329,7 @@ def test_each_alternative_is_its_own_launch_spec(
 def test_a_host_whose_units_come_up_together_keeps_its_one_file(
     tmp_path: Path,
 ) -> None:
-    """box2 as it stands: one file per host, both services in it, the
+    """The fixture box2: one file per host, both services in it, the
     `depends_on` that sequences them intact. A ladder that has no alternatives
     keeps its one file."""
     units = units_for(parse(CO_RESIDENT), {"box2": box2()}, specs=(), ctx_per_slot=None)

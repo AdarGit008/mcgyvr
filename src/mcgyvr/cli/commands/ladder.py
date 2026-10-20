@@ -197,7 +197,7 @@ def _manage_held(args: argparse.Namespace, config: Config) -> int:
     the rung Jev answers on, the ladder as `View` sees it, the card switches,
     the pressure reading and the cooling tracker. `--once` takes one tick.
     """
-    from mcgyvr import fleet_manager, ladder_manager
+    from mcgyvr import ladder_manager, wake_judge
     from mcgyvr import wake as wakelib
     from mcgyvr.capacity import Capacity, CapacityError
     from mcgyvr.config import DEFAULT_REQUEST_TIMEOUT_S
@@ -205,7 +205,7 @@ def _manage_held(args: argparse.Namespace, config: Config) -> int:
     from mcgyvr.pressure import Board, Gauge, HostCooling, Pressure, RungCooling
 
     pool = source_map(config)
-    fast = fleet_manager.fast_rung(config, pool)
+    fast = wake_judge.fast_rung(config, pool)
     if fast is None:
         print("error: no local rung for Jev to run on", file=sys.stderr)
         return Exit.ERROR

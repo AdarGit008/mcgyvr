@@ -3,8 +3,8 @@
 ``place`` — the default, no ``--commit`` — wrote the accepted bytes after asking
 git whether the target was safe to overwrite, and nothing else. ``deliver``
 refuses a change identical to its base, a target outside the contract's scope
-and bytes the commit-time gate rejects. Live run ``doc-structured-validators``
-(2026-09-14T18:55:25Z) was reported ``accepted`` / "change left in
+and bytes the commit-time gate rejects. A live run was once reported
+``accepted`` / "change left in
 src/mcgyvr/gate/structured.py" while the reply was byte-identical to the file:
 nothing had changed, and only the commit path would have said so.
 

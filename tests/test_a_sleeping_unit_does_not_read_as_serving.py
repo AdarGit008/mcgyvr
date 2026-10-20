@@ -1,9 +1,6 @@
 """A sleeping unit answers ``/v1/models`` with 200, and must still not read as up.
 
-**The measurement.**
-``mcgyvr-lab/records/measurements/vllm-sleep-2026-09-09/README.md``, section
-"A sleeping unit passes a health check and then hangs", put three probes to a
-vLLM unit slept at level 2:
+**The measurement.** Three probes put to a vLLM unit slept at level 2 gave:
 
 ===========================  ==========================
 ``GET /v1/models``           **200**
@@ -16,7 +13,7 @@ contract dispatched to it does not fail, it hangs until
 ``units.<unit>.request_timeout_s``. ``servelib`` therefore asks
 ``/is_sleeping`` as well: a door that cannot tell a slept rig from a live one
 cannot report whether a wake — a ``serve up`` through the door
-(``mcgyvr-lab/records/plans/sleep-wake.md`` §5) — worked.
+— worked.
 
 **Why the second probe cannot simply be required.** ``/is_sleeping`` is a vLLM
 development route, registered only when the server runs with
@@ -28,7 +25,7 @@ means "this unit has no sleep route", and a unit with no sleep route is
 awake** — which is true, because an engine with no sleep endpoint has no way to
 be asleep.
 
-**Any other failure to read is not an answer** (owner ruling on FLT-02): a
+**Any other failure to read is not an answer**: a
 connection that fails, a 5xx, a body that does not parse, a body of the wrong
 shape. That is ``sleeping == "unread"``, and a unit whose sleep could not be read
 does not read as serving. The split is pinned below in every direction: a 404
@@ -179,9 +176,8 @@ def test_the_row_says_the_unit_was_asleep_rather_than_that_it_never_answered(
 ) -> None:
     """Two different failures must not print as one.
 
-    ``serve-up.json`` is the envelope an operator reads afterwards, and D3's
-    first accepted consequence is that every wake leaves one
-    (``mcgyvr-lab/records/plans/sleep-wake.md`` §5). A unit that never came up
+    ``serve-up.json`` is the envelope an operator reads afterwards, and every
+    wake leaves one. A unit that never came up
     wants a container log read; a unit that is asleep wants a wake (level 2:
     ``wake_up?tags=weights``, ``collective_rpc reload_weights``,
     ``wake_up?tags=kv_cache``). A row that spelled both as
@@ -248,7 +244,7 @@ def test_a_llamacpp_unit_that_has_no_such_endpoint_at_all_reads_as_serving(
 def test_a_sleep_answer_that_cannot_be_read_does_not_read_as_serving(
     monkeypatch: pytest.MonkeyPatch, brief: None
 ) -> None:
-    """Owner ruling on FLT-02: only a 404 means "no sleep route".
+    """Only a 404 means "no sleep route".
 
     A catch-all route, a proxy's error page, a 5xx, a connection that fails, a
     body of the wrong shape: none of these say the unit is awake either. The
@@ -295,8 +291,7 @@ def test_a_unit_woken_while_the_door_is_polling_reads_as_serving(
 ) -> None:
     """Asleep is "not yet", not "no": the poll keeps its budget and waits it out.
 
-    A vLLM unit wakes well inside one poll interval
-    (``mcgyvr-lab/records/measurements/vllm-sleep-2026-09-09/README.md``), so a
+    A vLLM unit wakes well inside one poll interval, so a
     probe that gave up the first time it saw
     ``is_sleeping: true`` would fail a wake that was about to succeed. The unit
     is asleep for two polls here and awake on the third.

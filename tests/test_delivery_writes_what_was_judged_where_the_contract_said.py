@@ -190,7 +190,7 @@ def test_the_acceptance_ceiling_is_the_run_configs_not_the_default_one(
 def test_a_default_config_that_does_not_load_is_not_read_as_no_ceiling(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
-    """Owner ruling: a broken config is an error here too.
+    """A broken config is an error here too.
 
     A ceiling read off a config nobody could parse is not "no ceiling
     declared" — it is a config the operator wrote and this run did not use, and

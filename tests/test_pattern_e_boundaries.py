@@ -1,13 +1,12 @@
 """Pattern E — the eight declared boundaries, held by something that fails.
 
-The 2026-08-29 pressure test's pattern E is not "a boundary was crossed". It is
+Pattern E is not "a boundary was crossed". It is
 "a boundary was *declared*, and nothing in the suite would notice it being
 crossed". Every case below therefore does the crossing for real and asserts on
 what came out the other side, rather than asserting that some guard function
 returns True.
 
-Each test is written so that reverting its fix makes it fail. That rule is the
-one the second round of B1-B9 fixes carried and the first round lacked: a guard
+Each test is written so that reverting its fix makes it fail, because a guard
 whose test passes with the guard disabled is holding nothing, which is the
 pattern this file exists to close.
 """
@@ -294,12 +293,11 @@ def test_telemetry_does_not_write_a_credential_into_its_own_sink(
     assert "api.example.invalid" in str(record["error_detail"])  # still diagnostic
 
 
-# --- E4 · §9's no-global-mutable-state --------------------------------------
+# --- E4 · no global mutable state -------------------------------------------
 
 
 def test_no_module_holds_shipped_data_in_an_assignable_global() -> None:
-    """§9: "must not bake in single-orchestrator assumptions — no global
-    mutable state".
+    """No single-orchestrator assumptions: no global mutable state.
 
     Read as a source property rather than as a behaviour, because the hazard is
     a name existing at all: a module variable holding the catalog or the
@@ -308,8 +306,8 @@ def test_no_module_holds_shipped_data_in_an_assignable_global() -> None:
     Contract digest identity is derived from the catalog, so that substitution
     silently re-keys the evidence ``tools/instruments.py`` pins.
 
-    Scoped to ``global`` *statements*, which is what the pressure test counted
-    and what distinguishes a rebindable module variable from a memo.
+    Scoped to ``global`` *statements*, which is what is counted and what
+    distinguishes a rebindable module variable from a memo.
     """
     import ast
 

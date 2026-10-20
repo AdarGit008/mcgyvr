@@ -1,6 +1,6 @@
 """Pattern C — the driver, exercised against real programs and a real sandbox.
 
-The 2026-08-29 pressure test's pattern C is that the port's call graph "is five
+Pattern C is that the port's call graph "is five
 disconnected fragments, none rooted anywhere reachable", and that closing it
 needs two things: a ``ToolStep`` executor and a dispatch binding. Both are in
 :mod:`mcgyvr.drive` and both are driven here for real — ruff actually runs, the
@@ -225,8 +225,8 @@ def test_a_missing_program_is_an_environment_issue_never_a_failure(
 def test_the_floors_own_output_passes_the_gate(repo: Path) -> None:
     """A tool's change is gated like any other, not trusted for being a tool's.
 
-    This is the join the pressure test found missing everywhere: the floor
-    produced a tree and nothing carried it to the gate.
+    This is the join that was missing everywhere: the floor produced a tree
+    and nothing carried it to the gate.
     """
     contract = load_contract(FORMAT_CONTRACT)
     (step,) = tool_steps(contract)
@@ -707,7 +707,7 @@ def test_gate_prose_workspace_accepts_a_chat_reply_with_no_gate(
 def test_gate_prose_workspace_runs_no_check_on_an_agent_reply(tmp_path: Path) -> None:
     """An agent reply, like a chat reply, is accepted with no gate at all.
 
-    Owner, e2e run 2 R11: "agent and chat have no gates". A reply that cites
+    Agent and chat have no gates. A reply that cites
     nothing — the reply ``grounded`` once rejected — is accepted.
     """
     from types import SimpleNamespace
@@ -860,7 +860,7 @@ def test_the_run_command_leaves_the_output_file_and_commits_nothing_without_comm
 ) -> None:
     """A verdict is free; a commit to someone's repository is not.
 
-    The default (owner's ruling, 2026-09-03) is the output file and nothing
+    The default is the output file and nothing
     else: the accepted content lands in the working tree as the target, and
     the repository is otherwise untouched — no commit, no branch, no receipt.
     Committing is the flag rather than the other way round.
@@ -929,12 +929,12 @@ def test_a_model_contract_with_no_ladder_is_told_where_the_ladder_should_be(
 def test_an_attempt_is_recorded_under_the_orchestrator_that_made_it(
     repo: Path, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
-    """§9: "records carry an orchestrator id", by something that carries one.
+    """Records carry an orchestrator id, put there by something that carries one.
 
     ``telemetry.observe`` has required the field since it was written and had no
     production caller, so nothing ever put an id in it. The driver does, from a
     value the caller constructs — never from the process, which is the
-    single-orchestrator assumption §9 exists to prevent.
+    single-orchestrator assumption the field exists to prevent.
     """
     from mcgyvr.config import parse as parse_config
     from mcgyvr.drive import Recording, worker_attempt
@@ -973,7 +973,7 @@ def test_two_orchestrators_share_one_stream_and_stay_distinguishable(
 ) -> None:
     """The property the field is for, which one recorded row cannot show.
 
-    §9's constraint exists so the v2 queue stays reachable: two orchestrators
+    The constraint exists so the v2 queue stays reachable: two orchestrators
     behind one stream. A field that is always the same value would satisfy every
     single-row assertion and none of this.
     """

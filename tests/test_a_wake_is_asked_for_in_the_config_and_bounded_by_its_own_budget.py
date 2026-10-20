@@ -1,21 +1,21 @@
 """The two keys sleep/wake is asked for by, and where a wake's limit comes from.
 
-Three decisions are pinned, and all three are the owner's rather than this
-file's:
+Three decisions are pinned, and all three are made elsewhere, not in this
+file:
 
-* **The switch is a config key and not a flag**
-  (``mcgyvr-lab/records/plans/sleep-wake.md`` §7.1). ``mcgyvr run --config``
+* **The switch is a config key and not a flag**.
+  ``mcgyvr run --config``
   already says which rung runs is "this file's ... never a flag", and sleep/wake
   is the stronger case for the same rule: the config is what a run is
   reproducible from, so a flag would let two runs share one setup where one of
   them started and stopped containers on a shared rig. A ``store_true`` flag can
   also never lose to a key — the ``--sandbox`` comment is the worked example —
   so the flag would have to be a tri-state, which is a worse spelling of the key.
-* **The default is off** (sleep-wake.md §14). The feature is a trade and not an
+* **The default is off.** The feature is a trade and not an
   improvement: turning it on lets ``mcgyvr run`` stop containers on a rig other
   people share. An operator who wants it asks in the one place that is recorded.
-* **A wake's limit is the lock's, not a budget's**
-  (``mcgyvr-lab/records/plans/fleet-identity.md`` §5). ``request_timeout_s``
+* **A wake's limit is the lock's, not a budget's**.
+  ``request_timeout_s``
   bounds one reply and is priced from tokens per second; ``task_timeout_s``
   bounds a wait for a free slot on a server that is already running. Neither
   bounds a wait for a server *to exist*: that is the unit's validated wake plus
@@ -25,9 +25,9 @@ file's:
 
 from __future__ import annotations
 
-#: One card, two vLLM sources. Every worked example in the sleep-wake design is
+#: One card, two vLLM sources. Every worked example of sleep/wake is
 #: this card because it is the multi-unit one, which is the harder case; the
-#: engine on a card decides nothing (N10).
+#: engine on a card decides nothing.
 CARD = """\
 units:
   local_qwen2.5-coder-3b:
@@ -75,7 +75,7 @@ def test_a_config_that_asks_for_sleep_and_wake_is_not_refused_as_an_unknown_key(
     The block is ``serving.`` and not ``ladder.`` because ``ladder.fanout``
     decides where work goes among rungs *that exist*, and this decides whether
     rungs come into existence — two authorities, and only one of them touches a
-    rig (§7.1).
+    rig.
     """
     from mcgyvr.config import parse
 

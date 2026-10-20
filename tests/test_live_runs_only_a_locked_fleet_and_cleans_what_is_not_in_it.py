@@ -31,6 +31,7 @@ from typing import Any
 
 import pytest
 
+from tests._helpers import required
 from tests.doors import RUNG_7B, compose_dir, door_log, ladder
 from tests.fleetlocks import (
     FLEET,
@@ -40,7 +41,6 @@ from tests.fleetlocks import (
     locked,
     observed,
 )
-from tests.red_port.conftest import required
 
 STRAY = "unt-" + "9" * 64
 MOVED = "rig-" + "8" * 64
@@ -116,7 +116,7 @@ def test_units_of_ours_the_fleet_does_not_name_are_cleaned_and_it_is_restored(
 def test_a_unit_whose_sleep_could_not_be_read_refuses_that_rig_and_names_it(
     tmp_path: Path,
 ) -> None:
-    """Owner ruling on FLT-02: an unreadable ``/is_sleeping`` is refused.
+    """An unreadable ``/is_sleeping`` is refused.
 
     A 404 (no sleep route) reads as awake and is admitted; any other failure to
     read is ``unread``, which is neither state a layout can lock, and is not

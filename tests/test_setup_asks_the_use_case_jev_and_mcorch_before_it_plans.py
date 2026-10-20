@@ -1,6 +1,6 @@
 """``mcgyvr setup`` asks the use case, Jev and mcorch before it plans.
 
-Owner, 2026-10-15: the interactive setup planned ``coding`` only. It now asks,
+The interactive setup planned ``coding`` only. It now asks,
 after the rigs and before the plan: the use case (coding, chat or agent; Enter
 is coding), whether to dedicate a unit to Jev, the unit every
 typed decision asks (Enter is no), and, for coding with Jev on, whether to run

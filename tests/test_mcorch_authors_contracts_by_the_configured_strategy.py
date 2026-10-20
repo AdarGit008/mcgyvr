@@ -145,7 +145,7 @@ def test_internal_and_harness_calls_in_one_reply_run_the_internal_ones_first() -
 def test_prose_and_classifier_propose_from_evidence_the_harness_gathers(
     strategy: str,
 ) -> None:
-    """Owner ruling: evidence rides the harness, so both strategies are served.
+    """Evidence rides the harness, so both strategies are served.
 
     Bound with the rung that converses (the one that answers a prose proposer's
     prompt), each is an `Evidenced` strategy; without a rung there is nothing to

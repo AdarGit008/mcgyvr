@@ -1,6 +1,6 @@
 """A use case is offered only the models tagged for it.
 
-Owner, 2026-10-19: candidates come from the Hugging Face Hub only, and the use
+Candidates come from the Hugging Face Hub only, and the use
 case is told from the Hub's own metadata — tags, pipeline, model naming and
 the chat template: coding is the code/coder models, chat the instruct/chat
 models, agent the chat models whose template calls tools.

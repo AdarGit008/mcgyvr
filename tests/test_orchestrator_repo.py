@@ -10,13 +10,14 @@ directory was expected, and an input that is neither a path nor a URL. The
 clone path is exercised without a network by cloning a local repository through
 a ``file://`` URL.
 
-One more boundary sits here since 2026-09-05: an ssh remote is refused before
+One more boundary sits here: an ssh remote is refused before
 git runs, because ``git clone`` over ssh spawns ``ssh`` from PATH and nothing
 in mcgyvr opens ssh except the rig door (``mcgyvr.serving.gatelib.ssh``).
 """
 
 from __future__ import annotations
 
+import os
 import subprocess
 from collections.abc import Sequence
 from pathlib import Path
@@ -31,6 +32,7 @@ from mcgyvr.orchestrator.repo import (
     _looks_remote,
     _ssh_form,
     attach,
+    head_only_note,
 )
 
 
@@ -134,6 +136,24 @@ def test_dirty_working_tree_is_reported(tmp_path: Path) -> None:
         assert attached.is_dirty is True
         assert "seed.txt" in attached.dirty
         assert "untracked.py" in attached.dirty
+
+
+def test_a_path_that_is_not_utf8_is_reported_rather_than_crashing(
+    tmp_path: Path,
+) -> None:
+    """git names a path by its bytes. A name that is not valid UTF-8 once made
+    the status read raise UnicodeDecodeError, which no caller catches; it is
+    kept as surrogate escapes instead, so it round-trips to the same bytes."""
+    repo = init_repo(tmp_path / "repo")
+    commit_seed(repo)
+    name = b"caf\xe9.txt"
+    (repo / os.fsdecode(name)).write_bytes(b"x\n")
+
+    with attach(str(repo)) as attached:
+        assert attached.is_dirty is True
+        assert [p.encode("utf-8", "surrogateescape") for p in attached.dirty] == [name]
+    note = head_only_note(repo)
+    assert note is not None and "1 uncommitted or untracked path(s)" in note
 
 
 def test_a_staged_rename_is_a_single_dirty_path(tmp_path: Path) -> None:

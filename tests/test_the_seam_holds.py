@@ -84,8 +84,6 @@ from tests.wheels import (
     _mcgyvr_imports,
 )
 
-RED_PORT = TESTS / "red_port"
-
 #: ``mcgyvr.runner``'s own words: "the first code below the seam
 #: ``mcgyvr.local_pool`` draws". This is it, and everything else that resolves a
 #: rung to something a machine actually runs: an endpoint to dispatch against
@@ -96,7 +94,8 @@ RED_PORT = TESTS / "red_port"
 #: (scan, capability, propose, initialize), what is known about a model
 #: before it is downloaded (knowledge.*), a serving unit to write out and
 #: launch (emit, serving.*), whether a card that is down is asleep and how it
-#: is woken (wake), how load is counted across processes and read for the
+#: is woken (wake), the per-user temporary directories those keep their
+#: files in (userdir), how load is counted across processes and read for the
 #: ladder manager (pressure), how a served model id is read against the name a
 #: config declares (weights), how a unit's stream is assembled into the whole
 #: answer it would have written (whole), and a machine published as a rig of a
@@ -189,6 +188,7 @@ BELOW_THE_SEAM: tuple[str, ...] = (
     "mcgyvr.serving.sharding",
     "mcgyvr.serving.shardlaunch",
     "mcgyvr.serving.vramfit",
+    "mcgyvr.userdir",
     "mcgyvr.wake",
     "mcgyvr.weights",
     "mcgyvr.whole",
@@ -198,14 +198,13 @@ BELOW_THE_SEAM: tuple[str, ...] = (
 #: not resolved one to anything that runs. The contract and the exploration
 #: that produces one (contract, orchestrator.*, docgen), the climb through the
 #: ladder (route, escalate, drive, consensus, deterministic, rename, repair,
-#: verify, deliver, cleanup), what a worker is sent
+#: verify, deliver), what a worker is sent
 #: and what may be read back (worker.*), what judges the change (gate.*,
 #: scope, and the semantic gate's resolver engine under gate._engine, which is
 #: staged into the sandbox and whose import statements name only itself and the
 #: standard library),
 #: and what the run leaves behind for the caller (result, session, telemetry).
 ABOVE_THE_SEAM: tuple[str, ...] = (
-    "mcgyvr.cleanup",
     "mcgyvr.consensus",
     "mcgyvr.contract",
     "mcgyvr.delegate",
@@ -220,7 +219,6 @@ ABOVE_THE_SEAM: tuple[str, ...] = (
     "mcgyvr.drive.prompt",
     "mcgyvr.drive.record",
     "mcgyvr.escalate",
-    "mcgyvr.fleet_manager",
     "mcgyvr.gate",
     "mcgyvr.gate._engine.ghostcall",
     "mcgyvr.gate._engine.ghostcall.checker",
@@ -272,6 +270,7 @@ ABOVE_THE_SEAM: tuple[str, ...] = (
     "mcgyvr.session",
     "mcgyvr.telemetry",
     "mcgyvr.verify",
+    "mcgyvr.wake_judge",
     "mcgyvr.worker",
     "mcgyvr.worker.bundle",
     "mcgyvr.worker.prompt",
@@ -284,8 +283,11 @@ ABOVE_THE_SEAM: tuple[str, ...] = (
 #: one half of it: the package itself, the setup's schema and the two files it reads
 #: (``config.py``), the vocabulary of what may be asked for (``catalog.py``), how a
 #: file is replaced whole (``atomic.py``), the exit codes a caller branches on
-#: (``exits.py``), where a line ends (``lines.py``), what is safe to quote to an
-#: operator (``redact.py``), and the strict YAML loader both schemas share
+#: (``exits.py``), how git is run against a repository (``gitcmd.py``), where a
+#: line ends (``lines.py``), what is safe to quote to an
+#: operator (``redact.py``), the schema walk both schemas share (``schema.py``),
+#: where a shipped data file is read from
+#: (``shipped.py``), and the strict YAML loader both schemas share
 #: (``strict_yaml.py``), each as its module docstring's first line says. Being on this
 #: list is not an exemption: a shared module is held to *both* rules below, because a
 #: shared module that reached into either half would pull that half into everything
@@ -296,8 +298,11 @@ SHARED_ACROSS_THE_SEAM: tuple[str, ...] = (
     "mcgyvr.catalog",
     "mcgyvr.config",
     "mcgyvr.exits",
+    "mcgyvr.gitcmd",
     "mcgyvr.lines",
     "mcgyvr.redact",
+    "mcgyvr.schema",
+    "mcgyvr.shipped",
     "mcgyvr.strict_yaml",
 )
 
@@ -654,10 +659,10 @@ def test_the_drive_seam_is_read_only_inside_function_bodies() -> None:
 # whose only callers are its own tests exercises the function, not a decision
 # anything downstream makes.
 #
-# Both red_port files stay on disk, because the two assertions below can only
-# mean something while they do: test_dod_capability_integrity.py keeps F7 and
-# F9, and test_d12_size_aware_context.py keeps its statement that overflow is
-# deferred and never cut, asserted against explore() and two explicit budgets.
+# Both behaviour files stay on disk, because the two assertions below can only
+# mean something while they do: test_capability_integrity.py keeps F7 and F9,
+# and test_size_aware_context.py keeps its statement that overflow is deferred
+# and never cut, asserted against explore() and two explicit budgets.
 
 
 def test_the_orphaned_context_budget_helpers_are_deleted_with_their_tests() -> None:
@@ -675,10 +680,10 @@ def test_the_orphaned_context_budget_helpers_are_deleted_with_their_tests() -> N
     )
 
 
-def test_the_size_aware_context_red_port_test_no_longer_calls_explore_for() -> None:
-    """``test_d12_size_aware_context.py`` does not name ``explore_for``, which
+def test_the_size_aware_context_test_no_longer_calls_explore_for() -> None:
+    """``test_size_aware_context.py`` does not name ``explore_for``, which
     would be an import of a name that is not there."""
-    path = RED_PORT / "test_d12_size_aware_context.py"
+    path = TESTS / "test_size_aware_context.py"
     assert path.exists(), f"{path} must still exist to make this assertion meaningful"
     text = path.read_text(encoding="utf-8")
     assert "explore_for" not in text, (
@@ -686,12 +691,10 @@ def test_the_size_aware_context_red_port_test_no_longer_calls_explore_for() -> N
     )
 
 
-def test_the_capability_integrity_red_port_test_no_longer_calls_budget_for_model() -> (
-    None
-):
-    """``test_dod_capability_integrity.py`` does not name ``budget_for_model``,
+def test_the_capability_integrity_test_no_longer_calls_budget_for_model() -> None:
+    """``test_capability_integrity.py`` does not name ``budget_for_model``,
     a helper that is deleted."""
-    path = RED_PORT / "test_dod_capability_integrity.py"
+    path = TESTS / "test_capability_integrity.py"
     assert path.exists(), f"{path} must still exist to make this assertion meaningful"
     text = path.read_text(encoding="utf-8")
     assert "budget_for_model" not in text, (

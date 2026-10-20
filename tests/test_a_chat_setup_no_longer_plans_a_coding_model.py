@@ -4,7 +4,7 @@
 and the catalog held coder models only, so a chat or agent setup got a coder.
 Now setup hands the use case it asked to the plan.
 
-Owner rulings (2026-10-19): chat and agent are one unit with the biggest model
+Chat and agent are one unit with the biggest model
 that fits, with the most context that fits, at least 8k per user; coding keeps
 the shape ``recommend.plan`` gave it.
 

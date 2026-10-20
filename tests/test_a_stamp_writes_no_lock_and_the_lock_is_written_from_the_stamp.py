@@ -1,7 +1,7 @@
 """A stamp writes no lock; the fleet lock is written from the stamp.
 
-Owner: "one script that locks a fleet, one script that stamps a fleet without
-locking". A green sample's stamp is a folder of its own under the data folder,
+One script locks a fleet, and one stamps a fleet without locking it. A green
+sample's stamp is a folder of its own under the data folder,
 ``<data folder>/stamps/<fleet>/<run_id>/``, holding the staged setup and the
 dev-run evidence, and nothing else: no lock, no promoted folder, no
 ``live.json``. :func:`mcgyvr.fleet.lock.write_from_stamp` (``mcgyvr setup`` calls it on

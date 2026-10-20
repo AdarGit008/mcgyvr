@@ -4,8 +4,8 @@ Two fleet gates read a locked unit's ``launch.argv``: the tolerance class
 (:func:`mcgyvr.fleet.tolerance.tolerance_class`) and the locked renderer
 (``emit._locked_service``, which copies the argv into the compose ``command``
 verbatim). ``--spec-type draft-mtp`` and ``--spec-draft-n-max 2`` must pass
-both untouched. The class reads the draft flag first — owner ruling,
-2026-09-16: a unit drafting with the GGUF's own head is ``mtp``, whether or
+both untouched. The class reads the draft flag first — a unit drafting
+with the GGUF's own head is ``mtp``, whether or
 not experts are on the CPU beside it — and the expert flags after it; the
 draft width is never read as an expert count; and the rendered command is the
 argv, in order, with nothing dropped, added or reordered.

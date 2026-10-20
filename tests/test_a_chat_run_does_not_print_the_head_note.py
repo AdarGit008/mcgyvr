@@ -2,9 +2,9 @@
 
 A run on a dirty tree says the sandbox is built from HEAD and names the
 uncommitted paths it leaves out, so a contract whose commands need them is not
-judged on a tree the user cannot see (e2e run 1, F11). A ``chat`` contract
+judged on a tree the user cannot see. A ``chat`` contract
 with no target, no sources and no command reads nothing off the tree: the note
-told it to commit files it never looks at (e2e run 3, T4). So such a run says
+told it to commit files it never looks at. So such a run says
 nothing about it, on stderr or in the result file's ``notes``.
 
 The note stays wherever the tree is read: an ``agent`` run reads its sources

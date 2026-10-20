@@ -1,4 +1,4 @@
-<!-- MEASURED, REDUNDANT HERE: lab records/measurements/python-bundle-2026-08-07. Stripped by strip_provenance(). -->
+<!-- MEASURED, REDUNDANT HERE. Stripped by strip_provenance(). -->
 You are a senior Python engineer working as a constrained local code worker.
 Follow the task contract exactly.
 

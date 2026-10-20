@@ -53,8 +53,6 @@ def gpt_oss_measured_rows(n_swa: int = 12) -> list[dict[str, Any]]:
     bytes follow from the count alone. The assert below is what makes that
     safe -- if a gpt-oss conversion is not uniform, a count is not enough and
     this helper fails instead of quietly inventing an assignment.
-
-    -> ``records/evidence/2026-09-05-context-decomposition/box2-gpt-oss-20b-MXFP4/``
     """
     rows = [dict(r) for r in g("gpt-oss-20b-MXFP4.gguf")["kv_layers"]]
     widths = {(r["k_elems"], r["v_elems"]) for r in rows}
@@ -300,7 +298,7 @@ def test_kv_for_the_layouts_that_broke_a_scalar_summary(
 
 @pytest.mark.parametrize(
     "n_ctx,n_seq_max,engine_n_ctx",
-    # Measured on box1, 28-layer dense model. `-c` is a request: llama.cpp pads
+    # Measured on one rig, 28-layer dense model. `-c` is a request: llama.cpp pads
     # the per-sequence context up to 256 and rewrites the total to match, so a
     # 0.1% change in the request can move the allocation by 25%.
     [
@@ -369,8 +367,9 @@ def test_an_undeclared_sliding_split_is_refused_not_guessed(model: str) -> None:
 
 @pytest.mark.parametrize(
     "n_ctx,total_mib,non_swa_mib,swa_mib",
-    # Measured on box2, `-np 8 -ub 256`, summing BOTH device caches. Three
-    # loads per context, all byte-identical, and box1 read the same buffers.
+    # Measured on one rig, `-np 8 -ub 256`, summing BOTH device caches. Three
+    # loads per context, all byte-identical, and a second rig read the same
+    # buffers.
     [
         (2048, 96.00, 48.00, 48.00),
         (4096, 192.00, 96.00, 96.00),

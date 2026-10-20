@@ -104,6 +104,7 @@ _KIND_LABELS: dict[str, str] = {
     "bool": "boolean",
     "env_name": "env var name",
     "str_list": "list of text",
+    "glob_list": "list of globs",
     "mapping": "free-form block",
     "int_map": "map of numbers",
     "block": "block",
@@ -119,7 +120,7 @@ def _escape(text: str) -> str:
 
 def _type_label(field: Field) -> str:
     if field.kind == "enum":
-        return "one of " + ", ".join(f"`{c}`" for c in field.choices)
+        return "one of " + ", ".join(f"`{c}`" for c in field.valid_choices())
     label = _KIND_LABELS[field.kind]
     # A numeric field's declared bounds are part of its type as a reader sees it:
     # "number (min 1)" says more than "number". A field with neither bound keeps the
@@ -268,24 +269,12 @@ def render_reference() -> str:
 #: after it.
 _LEVERS: tuple[str, ...] = ("units", "ladder", "max_escalations")
 
-#: Paragraphs appended after a top-level block's section in SETUP.md, keyed by
-#: that block's name: what a reader needs that the schema doc of a single key
-#: has no room for. A block with no entry here ends at its own tables;
-#: `_SETUP_NOTES` is only consulted for top-level fields with keys.
-_SETUP_NOTES: dict[str, tuple[str, ...]] = {
-    "jev": (
-        "The measured model for this unit: lab record "
-        "`records/evidence/2026-10-04-jev-mcorch`.",
-    ),
-}
-
 
 def render_setup() -> str:
     """Render SETUP.md: how a machine comes to have a config, and what it says.
 
     The prose is fixed; the value types, the top-level key table and one section
-    per block are rendered from `SCHEMA`, with inner keys named by full path, and
-    the `_SETUP_NOTES` paragraphs are appended after the block they belong to.
+    per block are rendered from `SCHEMA`, with inner keys named by full path.
     """
     by_name = {field.name: field for field in SCHEMA}
     lines = [
@@ -450,24 +439,9 @@ def render_setup() -> str:
     for field in SCHEMA:
         if field.block:
             lines += _section(field, field.name, 2, dotted=True)
-            for note in _SETUP_NOTES.get(field.name, ()):
-                lines += [note, ""]
 
     return "\n".join(lines).rstrip("\n") + "\n"
 
-
-# Contract-side counterpart of `_KIND_LABELS`: the type names the skill prints.
-
-_CONTRACT_KIND_LABELS: dict[str, str] = {
-    "int": "number",
-    "float": "decimal number",
-    "str": "text",
-    "bool": "boolean",
-    "str_list": "list of text",
-    "glob_list": "list of globs",
-    "block": "block",
-    "block_list": "list of blocks",
-}
 
 # The example contracts examples.md prints, keyed by name: one `code` contract a
 # model has to satisfy, and one per deterministic operation, each named after the
@@ -546,23 +520,6 @@ def examples() -> dict[str, str]:
 EXAMPLES: dict[str, str] = examples()
 
 
-def _contract_type_label(field: contract_schema.Field) -> str:
-    if field.kind == "enum":
-        choices = field.choices or (field.choices_from() if field.choices_from else ())
-        return "one of " + ", ".join(f"`{c}`" for c in choices)
-    label = _CONTRACT_KIND_LABELS[field.kind]
-    # As in the config documents, declared bounds are part of the reader-facing
-    # type; a field with neither bound keeps the bare label.
-    bounds = []
-    if field.min_value is not None:
-        bounds.append(f"min {field.min_value}")
-    if field.max_value is not None:
-        bounds.append(f"max {field.max_value}")
-    if bounds:
-        return f"{label} ({', '.join(bounds)})"
-    return label
-
-
 def _contract_default_label(field: contract_schema.Field) -> str:
     if field.required:
         return "—"
@@ -598,7 +555,7 @@ def _contract_table(fields: Sequence[contract_schema.Field], prefix: str) -> lis
         if field.required and field.session_optional:
             required = f"**yes**, not for {_session_types()}"
         lines.append(
-            f"| `{name}` | {_contract_type_label(field)} | {required} | "
+            f"| `{name}` | {_type_label(field)} | {required} | "
             f"{_contract_default_label(field)} | {_contract_describe(field)} |"
         )
     lines.append("")

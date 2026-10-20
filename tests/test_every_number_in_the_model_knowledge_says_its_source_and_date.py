@@ -1,7 +1,7 @@
 """Every number in the model knowledge says its source and its date.
 
-Owner, 2026-10-07: "Every number records its source and date. Offline falls
-back to the shipped catalog."
+Every number records its source and date. Offline falls back to the shipped
+catalog.
 
 Promises:
 

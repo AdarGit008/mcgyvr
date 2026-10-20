@@ -1,6 +1,6 @@
 """Every documented way a unit asks for mtp puts it in the ``mtp`` class.
 
-Owner decision: a llama.cpp unit asks to draft with the GGUF's own head in
+A llama.cpp unit asks to draft with the GGUF's own head in
 any of three ways, and each is judged as ``mtp``, whether or not experts are
 on the CPU beside it:
 

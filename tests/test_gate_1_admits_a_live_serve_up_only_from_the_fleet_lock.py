@@ -18,9 +18,9 @@ import importlib
 from pathlib import Path
 
 from tests import onedoor
+from tests._helpers import required
 from tests.doors import UNITS, compose_file
 from tests.fleetlocks import BOX1_EVIDENCE, BOX1_FLEET
-from tests.red_port.conftest import required
 
 
 def _brought_up(root: Path, compose: Path) -> bool:

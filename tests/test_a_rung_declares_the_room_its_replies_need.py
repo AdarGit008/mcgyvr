@@ -1,9 +1,9 @@
 """A unit may declare the room its replies are given, and it is a ceiling.
 
 A unit may declare ``output_tokens``. It used to be the number sent in place of
-the contract's ``limits.max_output_tokens`` (``mcgyvr.gate.preflight``), and in
-e2e run 3 a contract capped at 16 was sent the 32768 ``setup --api`` writes on
-a hosted unit. Owner decision (2026-10-14): the contract's cap is what the
+the contract's ``limits.max_output_tokens`` (``mcgyvr.gate.preflight``), so a
+contract capped at 16 was sent the 32768 ``setup --api`` writes on a hosted
+unit. Now the contract's cap is what the
 work is worth and is sent exactly; a unit's ``output_tokens`` bounds it, beside
 the room its window leaves for the prompt, and a cap above that ceiling is a
 named refusal

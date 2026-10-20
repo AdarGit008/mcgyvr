@@ -77,7 +77,7 @@ LOAD_OUTPUT_TOKENS = 64
 #: Seconds between two samples of the rig's card: during the load, and after the
 #: close while the unit is waited on for idle.
 LOAD_SAMPLE_S = 0.5
-#: The most a load runs (owner ruling NB5): at thirty seconds every unfinished
+#: The most a load runs: at thirty seconds every unfinished
 #: request's connection is closed, and the wait for an idle status page takes
 #: over with no limit of its own.
 LOAD_LIMIT_S = 30

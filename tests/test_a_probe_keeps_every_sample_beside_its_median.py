@@ -1,8 +1,7 @@
 """A probe keeps every sample it took beside the median it is judged by.
 
-Owner ruling N7: keep the raw samples. The box1 CPU-experts prefill
-tolerance is re-derived by the M1 rule, which needs every single sample, not
-only the median.
+Keep the raw samples: a prefill tolerance is re-derived from every single
+sample, not only the median.
 
 * :func:`mcgyvr.fleet.harness.measure_vllm` and
   :func:`mcgyvr.fleet.harness.measure_llamacpp`, asked ``with_samples=True``,

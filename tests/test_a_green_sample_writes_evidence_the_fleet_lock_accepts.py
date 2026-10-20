@@ -1,14 +1,14 @@
 """A green sample writes evidence the fleet lock accepts.
 
-Owner, Round 4 (2026-10-07): the owner's confirm is approval to run the
-SAMPLE -- start the servers and run the sample check task. A green sample is
-the fleet STAMPED. Plan section 8.2: the sample's results are written as the
+The user's confirm is approval to run the SAMPLE -- start the servers and run
+the sample check task. A green sample is the fleet STAMPED. The sample's
+results are written as the
 dev-run evidence JSON the lock is written from; the stamp holds it, and the
 chain every live fleet takes runs from there -- ``lock.write_from_stamp`` ->
 ``promote.promote`` -> ``fleet use``
 (``test_a_stamp_writes_no_lock_and_the_lock_is_written_from_the_stamp.py``).
 
-* **The evidence is read from the door's own read rows** (P7a, Round 8):
+* **The evidence is read from the door's own read rows**:
   ``read --fleet F --probe U --load WxN`` of the staged setup files the
   snapshot (the rig id, the card's reserve as the combination's overhead),
   each unit's card and restarts, the probe's warm decode and prefill, and the

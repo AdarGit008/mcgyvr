@@ -1,7 +1,7 @@
 """A draw the gate rejects on what a tool can fix is repaired and judged again
-on the same rung, with nothing asked of the config (owner ruling: "applying the
-formatter after a rung is done is on purpose — to improve on all tasks that
-were not achievable strictly by the deterministic tiers").
+on the same rung, with nothing asked of the config: the formatter runs after a
+rung on purpose, to improve on every task the deterministic tiers alone could
+not achieve.
 
 A rejection on a reflowed line, whitespace on a blank line or an unsorted import
 block would otherwise pay a climb. A config that says nothing repairs

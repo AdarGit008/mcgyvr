@@ -13,10 +13,11 @@ import json
 import math
 from collections.abc import Mapping
 from dataclasses import dataclass
-from importlib import resources
 from pathlib import Path
 from types import MappingProxyType
 from typing import Any
+
+from mcgyvr.shipped import shipped_file
 
 TABLE_FILENAME = "capability-table.json"
 
@@ -286,13 +287,9 @@ def table_path() -> Path:
     A built wheel carries the file inside the package; a source tree, where
     that copy is absent, is read from the repository's `data/` directory.
     """
-    packaged = resources.files("mcgyvr") / "data" / TABLE_FILENAME
-    if packaged.is_file():
-        return Path(str(packaged))
-    # No packaged copy: an unbuilt checkout keeps the table at the repo root.
-    checkout = Path(__file__).resolve().parents[2] / "data" / TABLE_FILENAME
-    if checkout.is_file():
-        return checkout
+    found = shipped_file(TABLE_FILENAME)
+    if found is not None:
+        return found
     raise CapabilityTableError(
         f"capability table not found (looked for {TABLE_FILENAME})"
     )

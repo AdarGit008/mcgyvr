@@ -6,8 +6,9 @@ times their size. A key of a mapping is a position like any other: when the
 strict loader refuses a key that is not a plain name, it spells only the start
 of it, so the refusal stays about the size of the file and comes as quickly as
 any other. The loader is tried directly, with a key built from nested lists
-and from nested mappings, at the top of the file and inside a mapping, and
-once through the reader of the user's numbers file.
+and from nested mappings, at the top of the file and inside a mapping, once
+through the reader of the user's numbers file, and once through the reader of
+a setup's ``fleet.yaml``.
 """
 
 from __future__ import annotations
@@ -16,6 +17,7 @@ import pytest
 import yaml
 
 from mcgyvr import derived
+from mcgyvr.fleet.files import FleetFileError, load_fleet
 from mcgyvr.strict_yaml import strict_loader
 from tests import numbers_fixture as nf
 
@@ -89,4 +91,16 @@ def test_the_numbers_reader_refuses_a_key_in_about_the_size_of_the_file(
     with pytest.raises(derived.DerivedNumbersError) as was:
         derived.class_tolerances()
     assert str(path) in str(was.value)
+    assert len(str(was.value)) < len(text) + ROOM
+
+
+@pytest.mark.parametrize("shape", ["list", "mapping"])
+def test_the_fleet_reader_refuses_a_key_in_about_the_size_of_the_file(
+    shape: str,
+) -> None:
+    """The setup files' reader once quoted the whole key, so a refusal grew with
+    the value the aliases stand for, not with the file."""
+    text = _text(shape, "nested")
+    with pytest.raises(FleetFileError) as was:
+        load_fleet(text)
     assert len(str(was.value)) < len(text) + ROOM

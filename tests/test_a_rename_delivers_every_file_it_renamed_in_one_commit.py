@@ -1,7 +1,7 @@
 """``mcgyvr run`` on a ``rename_symbol`` delivers every file the rename changed.
 
-e2e run 2, R3: the rename covered both files in the sandbox ("5 occurrence(s)
-in 2 file(s)") and the gate accepted the whole change, then delivery wrote back
+A rename can cover both files in the sandbox ("5 occurrence(s) in 2 file(s)")
+and the gate accept the whole change, and delivery used to write back
 ``contract.target`` alone. The user's ``use.py`` kept
 ``from pkg.web import fetch_page`` against a ``web.py`` that no longer defined
 it — an ``ImportError`` — under a result that said ``accepted``,
@@ -162,7 +162,7 @@ def test_renaming_load_leaves_json_load_alone_and_the_tree_imports(
     monkeypatch: pytest.MonkeyPatch,
     capsys: pytest.CaptureFixture[str],
 ) -> None:
-    """e2e run 2, R3b: ``load`` -> ``load_json`` made ``json.load_json(f)``."""
+    """``load`` -> ``load_json`` once made ``json.load_json(f)``."""
     lj.scripted(monkeypatch)
     repo = lj.make_repo(tmp_path / "repo")
     (repo / "src/app").mkdir(parents=True)

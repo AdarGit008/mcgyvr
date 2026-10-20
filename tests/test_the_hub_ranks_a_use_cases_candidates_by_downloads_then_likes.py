@@ -1,6 +1,6 @@
 """The Hub ranks a use case's candidates by downloads, then likes.
 
-Owner, 2026-10-19: weights may come from any Hub repository, ranked by
+Weights may come from any Hub repository, ranked by
 downloads (the Hub's 30-day figure); no leaderboard and no outside score.
 
 Promises, read off the Hub search answers recorded on 2026-10-20

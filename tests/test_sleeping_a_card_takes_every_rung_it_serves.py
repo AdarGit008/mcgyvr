@@ -1,16 +1,15 @@
 """Sleep evicts the whole card, and it drains it before it does.
 
-**The owner's first ruling, and the one this file is named after: on sleep,
-mcgyvr evicts the ENTIRE GPU.** Not one model, not a share of VRAM. The design
-(``mcgyvr-lab/records/plans/sleep-wake.md``, whose sections the § and D/N
-labels below name) finds that this is not a behaviour to build but one the tree
+**The rule this file is named after: on sleep, mcgyvr evicts the ENTIRE
+GPU.** Not one model, not a share of VRAM. The design
+finds that this is not a behaviour to build but one the tree
 has — the card is the compose file, ``emit.emit_all`` writes one compose file
 per set of units that come up together, and the door's ``down`` step tears
 down every service in the file it is handed. On the live ladder that means
 box2's one RTX 3060 sits behind two sources, ``:8001`` (3B) and ``:8002`` (7B),
 and putting that card to sleep takes both rungs down together. There is no
 per-model sleep and therefore no wake that displaces a neighbour: whole-card
-eviction does not solve partial eviction, it deletes the case (D8). Gate 2
+eviction does not solve partial eviction, it deletes the case. Gate 2
 enforces the same thing from the rig's side, refusing ``serve up`` on a rig that
 is not idle, so there is no such thing as topping a card up.
 
@@ -26,12 +25,12 @@ mcgyvr process on the host, so taking them all *is* the drain. The census that
 decides whether to sleep is a reading; the drain is a hold; between the two a
 dispatch can start, which is why both exist.
 
-What this file does not pin: ``SLEEP_IDLE_S`` (N3), ``MIN_UPTIME_S`` (N4) and
-``COOLDOWN_S`` (N5) are the dampers §7.6 proposes and §16 leaves open, and the
-whole question of an idle-timer daemon is N6 — the design builds none, and a
+What this file does not pin: ``SLEEP_IDLE_S``, ``MIN_UPTIME_S`` and
+``COOLDOWN_S`` are dampers the design proposes and leaves open, and the
+whole question of an idle-timer daemon is open too — the design builds none, and a
 card that goes idle after everything stops is slept by the last run that used it
-or not at all. So the sleeps driven here are the hand-typed ones §15 gives an
-operator, which are unaffected by the dampers and, per §15, unaffected by
+or not at all. So the sleeps driven here are the hand-typed ones an
+operator has, which are unaffected by the dampers and also unaffected by
 ``enable_sleep_wake`` too: that switch governs the automatic decisions.
 """
 
@@ -53,7 +52,7 @@ def home(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> Path:
     """A HOME and a capacity rendezvous directory nobody else writes to.
 
     The rendezvous matters more here than anywhere: the drain is a hold on the
-    very slot files a second process would take, and D7 puts the two clocks
+    very slot files a second process would take, and the two clocks sit
     (``<host>.wake``, ``<host>.used``) beside them.
     """
     (tmp_path / "home").mkdir(exist_ok=True)
@@ -66,14 +65,14 @@ def home(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> Path:
 
 
 def sleep_argv(config: Path) -> list[str]:
-    """What an operator types to hand the card back (§15)."""
+    """What an operator types to hand the card back."""
     return ["serve", "sleep", "--host", HOST, "--config", str(config)]
 
 
 def test_two_rungs_behind_one_url_pair_are_one_card_and_one_launch_spec(
     tmp_path: Path, home: Path
 ) -> None:
-    """The card is derived, never declared (D1).
+    """The card is derived, never declared.
 
     No ``devices:`` block, no ``device:`` field on a source, no card in ``Tier``
     or ``Source``: a card named above the execution seam would be a fact about a
@@ -156,7 +155,7 @@ def test_sleeping_the_card_takes_both_rungs_down_in_one_door_run(
 def test_an_operators_own_sleep_is_not_gated_by_the_automatic_switch(
     tmp_path: Path, home: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
-    """``enable_sleep_wake`` governs the decisions, not the commands (§15).
+    """``enable_sleep_wake`` governs the decisions, not the commands.
 
     ``mcgyvr serve sleep|wake`` is a thin front over the door's two steps for
     the operator who wants to say it by hand. The switch exists so that mcgyvr
