@@ -83,14 +83,10 @@ def test_a_symbol_whose_name_starts_with_a_stopword_still_resolves(
         tmp_path,
         {
             "src/a.js": (
-                "export function fromRawHeaders(headers = []) {\n"
-                "  return headers;\n"
-                "}\n"
+                "export function fromRawHeaders(headers = []) {\n  return headers;\n}\n"
             ),
             "src/b.js": (
-                "export function rawHeaders(headers = []) {\n"
-                "  return headers;\n"
-                "}\n"
+                "export function rawHeaders(headers = []) {\n  return headers;\n}\n"
             ),
             "src/c.js": (
                 "export const isRedirect = (code) => code >= 300 && code < 400;\n"
