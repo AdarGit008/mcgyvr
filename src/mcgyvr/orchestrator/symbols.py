@@ -10,6 +10,7 @@ from __future__ import annotations
 
 import ast
 import copy
+import warnings
 from collections.abc import Iterator
 from dataclasses import dataclass
 from enum import StrEnum
@@ -87,7 +88,14 @@ def extract(path: str, source: bytes) -> list[Symbol]:
 
 def _python_symbols(path: str, source: bytes) -> list[Symbol]:
     try:
-        tree = ast.parse(source.decode("utf-8", "surrogateescape"), filename=path)
+        # Legacy syntax (invalid escapes, old octal/decimal literals) makes the
+        # parser emit a SyntaxWarning. Suppress it so a build never leaks
+        # warnings to stderr, and so a caller running under ``-W error`` cannot
+        # turn the warning into an exception that would discard the whole
+        # file's symbols.
+        with warnings.catch_warnings():
+            warnings.simplefilter("ignore", SyntaxWarning)
+            tree = ast.parse(source.decode("utf-8", "surrogateescape"), filename=path)
     except (SyntaxError, ValueError):
         # Undecodable bytes already became lone surrogates above, so this is a
         # real syntax error (or a ValueError such as embedded null bytes): the
