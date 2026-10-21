@@ -18,8 +18,10 @@ makes that choice, and the rename resolver uses it too.
   after its module. The module string is the detail, the statement the signature.
 - REFERENCE: a call's callee identifier, or the property of a member call.
 
-A file with syntax errors yields what parsed around them (see
-:mod:`mcgyvr.orchestrator.languages.engine`).
+A file with syntax errors yields what parsed around them; a JavaScript file whose
+parse leaves ERROR nodes is re-parsed once with the matching TypeScript grammar
+(``.js``/``.mjs``/``.cjs`` as TS, ``.jsx`` as TSX) so Flow-typed generics still
+yield their declarations (see :mod:`mcgyvr.orchestrator.languages.engine`).
 """
 
 from __future__ import annotations
@@ -64,6 +66,19 @@ def grammar_for(path: str) -> Language:
     if path.endswith(_TS_SUFFIXES):
         return _TS
     return _JS
+
+
+def fallback_for(path: str) -> Language | None:
+    """The grammar to retry when ``grammar_for``'s parse leaves ERROR nodes.
+
+    ``.js``/``.mjs``/``.cjs`` retry as TypeScript (whose grammar parses Flow
+    generics); ``.jsx`` retries as TSX. The TS/TSX grammars need no fallback.
+    """
+    if path.endswith(".jsx"):
+        return _TSX
+    if path.endswith(_JS_SUFFIXES):
+        return _TS
+    return None
 
 
 _DEFINITION_TYPES = {
@@ -380,6 +395,7 @@ def _reference(path: str, node: Node) -> list[Symbol]:
 
 LANGUAGE = TreeSitterLanguage(
     grammar=grammar_for,
+    fallback=fallback_for,
     handlers={
         **dict.fromkeys(_DEFINITION_TYPES, _definition),
         "variable_declarator": _declarator_definition,

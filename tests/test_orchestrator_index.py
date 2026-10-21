@@ -289,6 +289,26 @@ def test_js_named_and_default_exports() -> None:
     assert {"foo", "default", "a", "b"} <= exports
 
 
+def test_js_flow_generic_export_is_a_definition_and_export() -> None:
+    # React ships Flow-typed generic functions in .js files under a @noflow
+    # header; tree-sitter-javascript cannot parse the <...> type parameters,
+    # but the TypeScript grammar can, so the name must still be both a
+    # DEFINITION and an EXPORT.
+    source = (
+        "export function forwardRef<Props, ElementType: React$ElementType>(\n"
+        "  render: (props: Props) => React$Node,\n"
+        ") {\n"
+        "  return render\n"
+        "}\n"
+    )
+    got = _kinds("m.js", source)
+    assert ("forwardRef", "definition", "function") in got
+    exports = {
+        s.name for s in extract("m.js", source.encode()) if s.kind is SymbolKind.EXPORT
+    }
+    assert "forwardRef" in exports
+
+
 def test_js_commonjs_exports_assignments_are_exports() -> None:
     # CommonJS names its public surface with `exports.name = ...` and
     # `module.exports.name = ...`; both must be extracted as EXPORT symbols so

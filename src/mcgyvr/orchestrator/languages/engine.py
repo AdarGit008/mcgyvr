@@ -38,10 +38,20 @@ class TreeSitterLanguage:
     grammar: Callable[[str], Language]
     handlers: Mapping[str, Handler]
     skip: Callable[[Node], bool] | None = None
+    fallback: Callable[[str], Language | None] | None = None
 
     def extract(self, path: str, source: bytes) -> list[Symbol]:
-        """Parse ``source`` and return every symbol the handlers emit, in walk order."""
+        """Parse ``source`` and return every symbol the handlers emit, in walk order.
+
+        When the primary grammar leaves ``ERROR``/missing nodes and a fallback
+        grammar is configured, the source is re-parsed with that grammar, so a
+        ``.js`` file carrying Flow generics still yields its declarations.
+        """
         root = Parser(self.grammar(path)).parse(source).root_node
+        if root.has_error and self.fallback is not None:
+            fallback = self.fallback(path)
+            if fallback is not None:
+                root = Parser(fallback).parse(source).root_node
         symbols: list[Symbol] = []
         for node in walk(root, self.skip):
             handler = self.handlers.get(node.type)
