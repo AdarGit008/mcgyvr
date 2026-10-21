@@ -454,3 +454,38 @@ def test_a_prose_query_naming_an_absent_subject_is_empty(tmp_path: Path) -> None
     )
     assert result.verdict is Verdict.EMPTY
     assert result.best is None
+
+
+@pytest.mark.xfail(
+    reason=(
+        "known limitation: a stopword subject lets descriptive words resolve "
+        "confidently to the file that merely has those members"
+    ),
+    strict=True,
+)
+def test_a_prose_query_whose_subject_is_a_stopword_is_not_confidently_wrong(
+    tmp_path: Path,
+) -> None:
+    index = build(
+        tmp_path,
+        {
+            "packages/common/decorators/modules/module.decorator.ts": (
+                "export function Module(options) {\n    return null;\n}\n"
+            ),
+            "packages/core/injector/module.ts": (
+                "export class Module {\n"
+                "    get imports() {\n        return [];\n    }\n"
+                "    get exports() {\n        return [];\n    }\n"
+                "    get providers() {\n        return [];\n    }\n"
+                "    get controllers() {\n        return [];\n    }\n"
+                "}\n"
+            ),
+        },
+    )
+    result = resolve(
+        index,
+        "Which decorator declares a class as a Nest module, describing its "
+        "imports, controllers, providers, and exports?",
+    )
+    assert result.best is not None
+    assert result.best.path == "packages/common/decorators/modules/module.decorator.ts"
