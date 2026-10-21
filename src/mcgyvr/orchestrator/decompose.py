@@ -224,8 +224,9 @@ def decompose(
 
     An empty answer is a refusal to decompose, reported against the request
     with the servable types named. Otherwise every proposal goes through
-    `_emit`, and a refusal against one does not stop the others; the proposer's
-    order is kept in `contracts` and `documents`.
+    `_emit`, and a refusal against one does not stop the others; the emitted
+    contracts come back in dependency order, with the proposer's order as the
+    stable tiebreak.
 
     `budget` is passed to exploration when stated. `max_input_tokens` is the
     ceiling on a contract's worker view, above which the target is refused as
@@ -272,19 +273,13 @@ def decompose(
             exploration=exploration,
         )
 
-    fan_out = _fan_out(proposals)
-    if isinstance(fan_out, Refusal):
-        return Decomposition(
-            refusals=(fan_out,),
-            resolution=resolution,
-            exploration=exploration,
-        )
+    ordered, fan_out_refusals = _fan_out(proposals)
 
     contracts: list[Contract] = []
     documents: list[str] = []
-    refusals: list[Refusal] = []
+    refusals: list[Refusal] = list(fan_out_refusals)
     seen: dict[str, str] = {}
-    for proposal, depends_on_ids in fan_out:
+    for proposal, depends_on_ids in ordered:
         emitted = _emit(
             proposal,
             index,
@@ -624,51 +619,62 @@ def _signature_for(index: Index, ref: DepRef) -> str | None:
 def _identify(proposal: Proposal) -> str:
     """The contract id: the task type, and a digest of what makes this unit of work.
 
-    The digest covers the type, target, task, interface and the two flags, the
-    operation, sources and the fan-out indexes, plus each dependency's path and
-    symbol — so two proposals share an id exactly when they direct the same
-    change at the same target with the same plan edges, which is what lets
-    `_emit` detect one unit of work stated twice. `depends_on` digests the raw
-    indexes, never the resolved ids, so an id needs no other id to be computed.
+    The digest covers the type, target, task, interface and the two flags,
+    plus each dependency's path and symbol — and, only when stated, the
+    operation, sources and the fan-out indexes — so two proposals share an id
+    exactly when they direct the same change at the same target with the same
+    plan edges, which is what lets `_emit` detect one unit of work stated
+    twice. The fan-out fields are appended only when non-empty, so a proposal
+    that uses none of them keeps the exact id it had before fan-out.
+    `depends_on` digests the raw indexes, never the resolved ids, so an id
+    needs no other id to be computed.
     """
-    material = json.dumps(
-        [
-            proposal.task_type,
-            proposal.target,
-            proposal.task,
-            proposal.interface,
-            proposal.no_semantic_change,
-            proposal.type_check,
-            proposal.operation,
-            proposal.sources,
-            sorted(proposal.depends_on),
-        ]
-        + [[d.path, d.symbol] for d in proposal.deps],
-        sort_keys=True,
-    )
+    material: list[object] = [
+        proposal.task_type,
+        proposal.target,
+        proposal.task,
+        proposal.interface,
+        proposal.no_semantic_change,
+        proposal.type_check,
+    ]
+    material.extend([d.path, d.symbol] for d in proposal.deps)
+    if proposal.operation:
+        material.append(proposal.operation)
+    if proposal.sources:
+        material.append(proposal.sources)
+    if proposal.depends_on:
+        material.append(sorted(proposal.depends_on))
     digest = hashlib.blake2b(
-        material.encode("utf-8", "surrogateescape"), digest_size=_ID_DIGEST_BYTES
+        json.dumps(material, sort_keys=True).encode("utf-8", "surrogateescape"),
+        digest_size=_ID_DIGEST_BYTES,
     ).hexdigest()
     return f"{proposal.task_type}-{digest}"
 
 
 def _fan_out(
     proposals: tuple[Proposal, ...],
-) -> tuple[tuple[Proposal, tuple[str, ...]], ...] | Refusal:
+) -> tuple[tuple[tuple[Proposal, tuple[str, ...]], ...], tuple[Refusal, ...]]:
     """Resolve `depends_on` indexes into ids, and order proposals topologically.
 
-    Two passes: first every proposal's id is computed, then each proposal's
-    `depends_on` indexes are validated against the array — each must be a
-    0-based index of a *different* proposal — and resolved to that proposal's
-    id. The returned proposals are in dependency order, ties broken by the
-    proposer's original order, so a plan with no edges comes back unchanged.
+    Every proposal's id is computed once, then each proposal's `depends_on`
+    indexes are validated against the array — each must be a 0-based index of a
+    *different* proposal. A proposal that names a bad index is refused, and so
+    is every proposal that waits on it, directly or transitively: a dependency
+    on a refused proposal can never be satisfied. Any cycle left after that is
+    refused the same way. What remains comes back in dependency order, ties
+    broken by the proposer's original order, each proposal paired with the ids
+    of the proposals it waits on, so a plan with no edges comes back unchanged.
     """
     ids = [_identify(proposal) for proposal in proposals]
     count = len(proposals)
 
+    # One pass validates every dependency and records the usable edges.
     predecessors: list[tuple[int, ...]] = []
+    refusals_by_index: dict[int, Refusal] = {}
+    refused: set[int] = set()
     for index, proposal in enumerate(proposals):
         stated: list[int] = []
+        bad = False
         for dependency in proposal.depends_on:
             if (
                 isinstance(dependency, bool)
@@ -676,28 +682,58 @@ def _fan_out(
                 or not 0 <= dependency < count
                 or dependency == index
             ):
-                return Refusal(
-                    "",
+                refusals_by_index[index] = Refusal(
+                    proposal.target or proposal.task_type or "request",
                     f"proposal {index} depends on {dependency!r}, which is not a "
                     f"0-based index of another one of the {count} proposals — "
                     "state the index of a proposal that must land first",
                     field="depends_on",
                     what_to_change="reference a proposal index in range",
                 )
+                refused.add(index)
+                bad = True
+                break
             if dependency not in stated:
                 stated.append(dependency)
-        predecessors.append(tuple(sorted(stated)))
+        predecessors.append(tuple(sorted(stated)) if not bad else ())
 
-    # Kahn's algorithm, always taking the smallest original index among the
-    # proposals whose dependencies are already placed: that keeps the original
-    # emission order as the stable tiebreak.
-    remaining = [set(before) for before in predecessors]
-    successors: list[list[int]] = [[] for _ in range(count)]
-    for index, before in enumerate(predecessors):
+    # Transitive closure over the refused proposals: whatever waits on a
+    # refused proposal is itself refused, and so on, because its dependency can
+    # never be satisfied.
+    changed = True
+    while changed:
+        changed = False
+        for index in range(count):
+            if index in refused:
+                continue
+            if any(dependency in refused for dependency in predecessors[index]):
+                refusals_by_index[index] = Refusal(
+                    proposals[index].target or proposals[index].task_type or "request",
+                    f"proposal {index} depends on a proposal that was refused, so "
+                    "its dependency cannot be satisfied",
+                    field="depends_on",
+                    what_to_change=(
+                        "drop the dependency on the refused proposal, or fix that "
+                        "proposal first"
+                    ),
+                )
+                refused.add(index)
+                changed = True
+
+    # Kahn's algorithm over the proposals that are left, always taking the
+    # smallest original index among those whose dependencies are already
+    # placed: that keeps the proposer's order as the stable tiebreak.
+    remaining = {
+        index: set(predecessors[index])
+        for index in range(count)
+        if index not in refused
+    }
+    successors: dict[int, list[int]] = {index: [] for index in remaining}
+    for index, before in remaining.items():
         for dependency in before:
             successors[dependency].append(index)
 
-    ready = [i for i in range(count) if not remaining[i]]
+    ready = [index for index in remaining if not remaining[index]]
     order: list[int] = []
     while ready:
         index = min(ready)
@@ -708,19 +744,26 @@ def _fan_out(
             if not remaining[successor]:
                 ready.append(successor)
 
-    if len(order) != count:  # pragma: no cover - a cycle has no topo order
-        return Refusal(
-            "",
-            "the proposals' depends_on references form a cycle, so no plan "
-            "order exists — drop one edge so each contract can follow the one "
-            "it waits on",
-            field="depends_on",
-            what_to_change="break the cycle in depends_on",
-        )
+    # Whatever Kahn could not place is on a cycle, or waits on a cycle, so none
+    # of it can be satisfied; each such proposal is refused.
+    for index in remaining:
+        if index not in order:
+            refusals_by_index[index] = Refusal(
+                proposals[index].target or proposals[index].task_type or "request",
+                "the proposals' depends_on references form a cycle, so no plan "
+                "order exists — drop one edge so each contract can follow the one "
+                "it waits on",
+                field="depends_on",
+                what_to_change="break the cycle in depends_on",
+            )
 
-    return tuple(
-        (proposals[index], tuple(ids[j] for j in predecessors[index]))
-        for index in order
+    refusals = tuple(refusals_by_index[index] for index in sorted(refusals_by_index))
+    return (
+        tuple(
+            (proposals[index], tuple(ids[j] for j in predecessors[index]))
+            for index in order
+        ),
+        refusals,
     )
 
 
@@ -763,7 +806,7 @@ def _document(
     if proposal.sources:
         document["sources"] = list(proposal.sources)
     if depends_on_ids:
-        document["depends_on"] = list(sorted(depends_on_ids))
+        document["depends_on"] = list(depends_on_ids)
     if proposal.stop_conditions:
         document["stop_conditions"] = list(proposal.stop_conditions)
     if proposal.acceptance:

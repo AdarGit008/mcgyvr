@@ -25,6 +25,7 @@ from mcgyvr.orchestrator.decompose import (
     DepRef,
     Proposal,
     RecordedProposer,
+    _fan_out,
     _identify,
     decompose,
 )
@@ -368,17 +369,85 @@ def test_a_proposal_depending_on_itself_is_refused(repo: Index) -> None:
     assert refusal.field == "depends_on"
 
 
-def test_a_single_proposal_without_depends_on_is_unchanged(repo: Index) -> None:
-    """No edges means the proposer's order and document are byte-for-byte kept."""
+def test_a_bad_index_refuses_that_proposal_and_its_dependents(repo: Index) -> None:
+    """One bad `depends_on` refuses the proposal that states it and whatever
+    waits on it; the independent proposals still become contracts."""
+    first = a_fix()
+    bad = a_fix(
+        task="change pagination",
+        target="pagination.py",
+        deps=(),
+        depends_on=(5,),
+    )
+    dependent = a_fix(
+        task="another change waiting on the refused one",
+        target="pagination.py",
+        deps=(),
+        depends_on=(1,),
+    )
+
+    result = decompose(
+        repo, "fan out", propose=RecordedProposer((first, bad, dependent))
+    )
+
+    assert [c.target for c in result.contracts] == ["listing.py"]
+    assert len(result.refusals) == 2
+    assert [r.field for r in result.refusals] == ["depends_on", "depends_on"]
+    assert result.refusals[0].what_to_change == "reference a proposal index in range"
+    assert result.refusals[1].what_to_change == (
+        "drop the dependency on the refused proposal, or fix that proposal first"
+    )
+
+
+def test_a_cycle_in_depends_on_is_refused(repo: Index) -> None:
+    first = a_fix(
+        task="change listing",
+        depends_on=(1,),
+    )
+    second = a_fix(
+        task="change pagination",
+        target="pagination.py",
+        deps=(),
+        depends_on=(0,),
+    )
+
+    result = decompose(repo, "fan out", propose=RecordedProposer((first, second)))
+
+    assert result.contracts == ()
+    assert [r.field for r in result.refusals] == ["depends_on", "depends_on"]
+    assert all("cycle" in r.reason for r in result.refusals)
+
+
+def test_a_non_integer_depends_on_index_is_refused() -> None:
+    """bool and str indexes are refused, not coerced or silently dropped."""
+    for bad in ((True,), ("x",)):
+        proposal = Proposal(
+            task_type="code",
+            task="tidy listing()",
+            target="listing.py",
+            depends_on=bad,  # type: ignore[arg-type]
+        )
+        ordered, refusals = _fan_out((proposal,))
+
+        assert ordered == ()
+        (refusal,) = refusals
+        assert refusal.field == "depends_on"
+        assert refusal.what_to_change == "reference a proposal index in range"
+
+
+def test_a_plain_proposal_keeps_its_pre_fan_out_contract_id(repo: Index) -> None:
+    """A proposal using none of the fan-out fields keeps the pre-#766 id.
+
+    `operation`, `sources` and `depends_on` are digested only when non-empty, so
+    a proposal that states none of them is byte-for-byte the same unit of work
+    it was before fan-out, and its id must not churn.
+    """
     proposal = a_fix()
 
-    result = decompose(repo, "fix", propose=RecordedProposer((proposal,)))
+    assert _identify(proposal) == "code-fe2b5a7521"
 
-    assert result.refusals == ()
-    (built,) = result.contracts
-    (document,) = result.documents
-    assert built.id == _identify(proposal)
-    assert document == contract_module.dumps(built)
+    (built,) = decompose(repo, "fix", propose=RecordedProposer((proposal,))).contracts
+    assert built.id == "code-fe2b5a7521"
 
 
 # --- refusing what no configured ladder can serve ---------------------------
