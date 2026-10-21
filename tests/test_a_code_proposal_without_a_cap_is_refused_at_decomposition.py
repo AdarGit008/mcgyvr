@@ -89,3 +89,14 @@ def test_the_prose_proposer_is_told_a_code_proposal_states_its_cap() -> None:
     said = _reply_format()
     line = said[said.index('"max_output_tokens"') :].split("\n- ", 1)[0]
     assert "required for task_type code" in line, line
+
+
+def test_the_prose_proposer_is_told_to_omit_deps_it_cannot_ground() -> None:
+    # The model is shown only the resolution and read regions, not the index's
+    # symbol table, so it must not guess a dependency name it has not seen. The
+    # prompt says to name only symbols shown there and to omit the field rather
+    # than invent one, which is what turned `proxyaddr` / `STRICT` into refusals.
+    said = _reply_format()
+    line = said[said.index('"deps"') :].split("\n- ", 1)[0]
+    assert "RESOLUTION or READ REGIONS" in line, line
+    assert "omit" in line.lower(), line

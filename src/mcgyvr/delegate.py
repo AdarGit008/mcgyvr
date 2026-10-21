@@ -171,8 +171,10 @@ def _reply_format() -> str:
         '- "interface" (string, optional): the exact interface the result must '
         "expose.\n"
         '- "deps" (array of objects, optional): dependencies the target may '
-        'call, each {"path", "symbol", "note"} where path and symbol are the '
-        "names the index holds and note says how the target uses it.\n"
+        'call, each {"path", "symbol", "note"} where path and symbol name a '
+        "symbol shown in RESOLUTION or READ REGIONS and note says how the "
+        "target uses it. Propose a dependency only when its symbol is named "
+        "there; otherwise omit the field rather than guessing a name.\n"
         '- "allow" (array of strings, optional): paths the change may touch; '
         "omit to allow the target alone.\n"
         '- "forbid" (array of strings, optional): paths the change must not '
