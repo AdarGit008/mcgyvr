@@ -457,7 +457,7 @@ class ClassifierProposer:
         state = _state(evidence, targets, vocabulary)
 
         task_type_set = task_type_candidates(evidence)
-        task_type = self._decide(evidence, state, task_type_set, decline_on_low=True)
+        task_type = self._decide(state, task_type_set)
         if task_type is None:
             return ()
         kind = kind_for(str(task_type), vocabulary)
@@ -468,24 +468,26 @@ class ClassifierProposer:
             return ()
 
         target_set = target_candidates(evidence)
-        target = self._decide(evidence, state, target_set, decline_on_low=True)
+        target = self._decide(state, target_set)
         if target is None:
             return ()
         target = str(target)
 
         symbol_set = symbol_candidates(evidence, target)
-        symbol = self._decide(
-            evidence, state, symbol_set, decline_on_low=False, target=target
-        )
+        symbol = self._decide(state, symbol_set, target=target)
+        symbol_provenance = Provenance.MODEL
         if symbol is None:
             rank0 = symbol_set.rank0
             symbol = rank0.value if rank0 is not None else _NO_SYMBOL
+            symbol_provenance = Provenance.DETERMINISTIC
         symbol_name = _symbol_of(symbol)
 
         plan = enumerate_candidates(evidence)
         plan = choose(plan, "task_type", kind.name)
         plan = choose(plan, "target", target)
-        plan = choose(plan, "symbol", symbol_name or _NO_SYMBOL)
+        plan = choose(
+            plan, "symbol", symbol_name or _NO_SYMBOL, provenance=symbol_provenance
+        )
         plan = choose(
             plan,
             "task",
@@ -500,17 +502,17 @@ class ClassifierProposer:
         )
 
         interface_set = interface_candidates(evidence, target, symbol_name)
-        interface = self._decide(evidence, state, interface_set, decline_on_low=False)
+        interface = self._decide(state, interface_set)
         if interface is not None:
             plan = choose(plan, "interface", interface)
 
         deps_set = deps_candidates(evidence, target)
-        deps = self._decide(evidence, state, deps_set, decline_on_low=False)
+        deps = self._decide(state, deps_set)
         if deps is not None:
             plan = choose(plan, "deps", deps)
 
         allow_set, _ = scope_candidates(evidence, target)
-        allow = self._decide(evidence, state, allow_set, decline_on_low=False)
+        allow = self._decide(state, allow_set)
         if allow is not None:
             plan = choose(plan, "allow", allow)
 
@@ -518,22 +520,20 @@ class ClassifierProposer:
 
     def _decide(
         self,
-        evidence: Evidence,
         state: Any,
         set: CandidateSet,
         *,
-        decline_on_low: bool,
         target: str | None = None,
     ) -> Any | None:
         """Ask jev one field's Choice and read the pick back.
 
         Returns the chosen candidate's value, or None when the answer is
-        unusable (missing, unreadable, or below the confidence floor) and
-        `decline_on_low` says to decline rather than degrade to rank-0. Exactly
-        one `DecisionRecord` is written to `sink` per call, with the decision's
-        candidate order, pick, rank-0, abstain flag, confidence, parse-fail
-        flag, latency, model and seed. Transport errors propagate unchanged;
-        only `DecisionError` is caught and recorded as a parse failure.
+        unusable (missing, unreadable, below the confidence floor, or a choice
+        id not among the field's candidates). Exactly one `DecisionRecord` is
+        written to `sink` per call, with the decision's candidate order, pick,
+        rank-0, abstain flag, confidence, parse-fail flag, latency, model and
+        seed. Transport errors propagate unchanged; only `DecisionError` is
+        caught and recorded as a parse failure.
         """
         question = render_choice(
             set,
@@ -553,7 +553,7 @@ class ClassifierProposer:
                 parse_fail=True,
                 latency_ms=latency_ms,
             )
-            return self._fallback(set) if not decline_on_low else None
+            return None
         latency_ms = round((time.monotonic() - t0) * 1000)
 
         answer = _choice(decision, set.field)
@@ -566,7 +566,7 @@ class ClassifierProposer:
                 parse_fail=False,
                 latency_ms=latency_ms,
             )
-            return self._fallback(set) if not decline_on_low else None
+            return None
         if answer.confidence < self.confidence:
             self._record(
                 set,
@@ -576,9 +576,20 @@ class ClassifierProposer:
                 parse_fail=False,
                 latency_ms=latency_ms,
             )
-            return self._fallback(set) if not decline_on_low else None
+            return None
 
-        value = value_by_id(set, answer.choice)
+        try:
+            value = value_by_id(set, answer.choice)
+        except KeyError:
+            self._record(
+                set,
+                pick=None,
+                abstain=True,
+                confidence=answer.confidence,
+                parse_fail=True,
+                latency_ms=latency_ms,
+            )
+            return None
         sentinel = abstain_value(set.field)
         self._record(
             set,
@@ -589,12 +600,6 @@ class ClassifierProposer:
             latency_ms=latency_ms,
         )
         return value
-
-    @staticmethod
-    def _fallback(set: CandidateSet) -> Any:
-        """The deterministic rank-0 value an unusable answer degrades to."""
-        rank0 = set.rank0
-        return rank0.value if rank0 is not None else None
 
     def _record(
         self,

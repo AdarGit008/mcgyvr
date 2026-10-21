@@ -341,6 +341,36 @@ def test_low_confidence_optional_field_leaves_rank0_but_load_bearing_declines(
     (proposal,) = ClassifierProposer(classify=classify_low_allow)(evidence)
     assert proposal.allow == ()
 
+    kind = catalog().require("agent")
+    target_set = target_candidates(evidence)
+    target = target_set.rank0.value if target_set.rank0 is not None else ""
+    symbol_set = symbol_candidates(evidence, target)
+    symbol = symbol_set.rank0.value if symbol_set.rank0 is not None else _NO_SYMBOL
+    symbol_name = _symbol_of(symbol)
+
+    plan = enumerate_candidates(evidence)
+    plan = choose(plan, "task_type", kind.name)
+    plan = choose(plan, "target", target)
+    plan = choose(plan, "symbol", symbol_name or _NO_SYMBOL)
+    plan = choose(
+        plan,
+        "task",
+        directive(kind, target, symbol_name),
+        provenance=Provenance.DETERMINISTIC,
+    )
+    plan = choose(
+        plan,
+        "stop_conditions",
+        stop_condition(kind, target, symbol_name),
+        provenance=Provenance.DETERMINISTIC,
+    )
+    plan = choose(plan, "interface", "")
+    plan = choose(plan, "deps", ())
+
+    assert proposal == collapse(plan)
+    assert plan["allow"].rank0 is not None
+    assert plan["allow"].rank0.provenance is Provenance.DETERMINISTIC
+
     def classify_low_type(state: Any, questions: Mapping[str, Question]) -> Decision:
         ((field, question),) = questions.items()
         assert isinstance(question, Choice)
@@ -371,6 +401,80 @@ def test_parse_fail_records_and_degrades(repo: Index, tmp_path: Path) -> None:
     assert interface_record.parse_fail is True
     assert interface_record.abstain is True
     assert interface_record.pick is None
+
+
+def test_symbol_parse_fail_falls_back_to_deterministic_rank0(repo: Index) -> None:
+    """A parse-fail on `symbol` degrades to rank-0 with DETERMINISTIC provenance."""
+    evidence = evidence_for(repo, "document listing", (AGENT,))
+
+    def classify(state: Any, questions: Mapping[str, Question]) -> Decision:
+        ((field, question),) = questions.items()
+        assert isinstance(question, Choice)
+        if field == "symbol":
+            raise DecisionError("no label in the reply")
+        return decision_of({field: answer(next(iter(question.options)), 0.9)})
+
+    (proposal,) = ClassifierProposer(classify=classify)(evidence)
+
+    kind = catalog().require("agent")
+    target_set = target_candidates(evidence)
+    target = target_set.rank0.value if target_set.rank0 is not None else ""
+    symbol_set = symbol_candidates(evidence, target)
+    symbol = symbol_set.rank0.value if symbol_set.rank0 is not None else _NO_SYMBOL
+    symbol_name = _symbol_of(symbol)
+
+    plan = enumerate_candidates(evidence)
+    plan = choose(plan, "task_type", kind.name)
+    plan = choose(plan, "target", target)
+    plan = choose(
+        plan,
+        "symbol",
+        symbol_name or _NO_SYMBOL,
+        provenance=Provenance.DETERMINISTIC,
+    )
+    plan = choose(
+        plan,
+        "task",
+        directive(kind, target, symbol_name),
+        provenance=Provenance.DETERMINISTIC,
+    )
+    plan = choose(
+        plan,
+        "stop_conditions",
+        stop_condition(kind, target, symbol_name),
+        provenance=Provenance.DETERMINISTIC,
+    )
+    plan = choose(plan, "interface", "")
+    plan = choose(plan, "deps", ())
+
+    assert proposal == collapse(plan)
+    assert plan["symbol"].rank0 is not None
+    assert plan["symbol"].rank0.provenance is Provenance.DETERMINISTIC
+
+
+def test_value_by_id_keyerror_degrades_and_records_parse_fail(
+    repo: Index, tmp_path: Path
+) -> None:
+    """A choice id not among the options degrades and records a parse failure."""
+    evidence = evidence_for(repo, "document listing", (AGENT,))
+    sink = ShadowSink(tmp_path / "decisions.jsonl")
+
+    def classify(state: Any, questions: Mapping[str, Question]) -> Decision:
+        ((field, question),) = questions.items()
+        assert isinstance(question, Choice)
+        if field == "deps":
+            return decision_of({field: answer("bogus", 0.9)})
+        return decision_of({field: answer(next(iter(question.options)), 0.9)})
+
+    (proposal,) = ClassifierProposer(classify=classify, sink=sink, model="m")(evidence)
+    assert proposal.deps == ()
+
+    deps_record = next(
+        r for r in read(tmp_path / "decisions.jsonl") if r.field == "deps"
+    )
+    assert deps_record.parse_fail is True
+    assert deps_record.abstain is True
+    assert deps_record.pick is None
 
 
 def _symbol_of(name: Any) -> str | None:

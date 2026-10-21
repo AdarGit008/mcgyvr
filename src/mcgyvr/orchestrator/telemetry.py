@@ -54,9 +54,14 @@ class DecisionRecord:
 
     ``candidates`` are the candidate ids in the order they were shown, so a
     record can say which *position* jev chose, not only which id. ``pick`` is
-    the id jev chose, or ``None`` when it abstained or its reply could not be
-    read. ``rank1`` is the enumerator's rank-0 id — the candidate the
-    enumerator itself would have chosen — against which ``pick`` is compared.
+    the id jev chose, or ``None`` when its reply was unusable or absent.
+    ``abstain`` covers two distinct phenomena that share the flag: (a) jev
+    explicitly chose the "none" option (``pick`` is the option's id,
+    ``abstain=True``), and (b) the reply was unusable or absent (``pick=None``,
+    ``abstain=True``). A consumer should read ``pick is None`` / ``parse_fail``
+    to separate them. ``rank1`` is the enumerator's rank-0 id — the candidate
+    the enumerator itself would have chosen — against which ``pick`` is
+    compared.
     """
 
     field: str
