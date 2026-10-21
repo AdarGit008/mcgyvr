@@ -100,3 +100,26 @@ def test_the_prose_proposer_is_told_to_omit_deps_it_cannot_ground() -> None:
     line = said[said.index('"deps"') :].split("\n- ", 1)[0]
     assert "RESOLUTION or READ REGIONS" in line, line
     assert "omit" in line.lower(), line
+
+
+def test_the_prose_proposer_is_told_a_dependency_is_an_existing_symbol() -> None:
+    # An "extract a helper `compileTrust`" request names the symbol the change
+    # creates, and the target will call it — which the deps field's "may call"
+    # framing reads as a dependency. The prompt must say a dependency is an
+    # existing symbol and the to-be-created symbol is never a dependency, or the
+    # proposer names it and decompose refuses it for having no signature yet.
+    said = _reply_format()
+    line = said[said.index('"deps"') :].split("\n- ", 1)[0]
+    assert "existing symbol" in line, line
+    assert "never name the symbol the REQUEST asks you to create" in line, line
+
+
+def test_the_prose_proposer_is_told_commands_run_without_a_shell() -> None:
+    # The contract schema refuses `|`, `&&`, `||`, `;`, `<`, `>` and a leading
+    # `VAR=` because commands run shell-less, but the proposer is never told, so
+    # it invents a `| grep` pipeline for its demonstration. The prompt must list
+    # the forbidden operators, or the model keeps producing them.
+    said = _reply_format()
+    acceptance = said[said.index('"acceptance"') :].split("\n- ", 1)[0]
+    assert "no shell" in acceptance, acceptance
+    assert "`|`" in acceptance and "`&&`" in acceptance and "`VAR=`" in acceptance
