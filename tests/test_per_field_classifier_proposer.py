@@ -52,7 +52,7 @@ from mcgyvr.orchestrator.candidates import (
     target_candidates,
     task_type_candidates,
 )
-from mcgyvr.orchestrator.decompose import Evidence
+from mcgyvr.orchestrator.decompose import Evidence, Refusal
 from mcgyvr.orchestrator.index import Index, build_index
 from mcgyvr.orchestrator.read import explore
 from mcgyvr.orchestrator.resolve import resolve
@@ -480,3 +480,48 @@ def test_value_by_id_keyerror_degrades_and_records_parse_fail(
 def _symbol_of(name: Any) -> str | None:
     """The symbol name, or None for the no-symbol option (test mirror)."""
     return None if name == _NO_SYMBOL else str(name)
+
+
+def test_propose_refuses_a_below_floor_task_type_but_call_declines(
+    repo: Index,
+) -> None:
+    """`propose` names the refusal; `__call__` still returns () for fallback."""
+    evidence = evidence_for(repo, "document listing", (AGENT,))
+
+    def classify(state: Any, questions: Mapping[str, Question]) -> Decision:
+        ((field, question),) = questions.items()
+        assert isinstance(question, Choice)
+        confidence = MIN_CONFIDENCE - 0.1 if field == "task_type" else 0.9
+        return decision_of({field: answer(next(iter(question.options)), confidence)})
+
+    proposer = ClassifierProposer(classify=classify)
+    refusal = proposer.propose(evidence)
+    assert isinstance(refusal, Refusal)
+    assert refusal.field == "task_type"
+    assert (
+        refusal.what_to_change == "answer with a candidate above the confidence floor"
+    )
+    assert proposer(evidence) == ()
+
+
+def test_propose_drops_rejected_candidates_from_the_choice(repo: Index) -> None:
+    """`rejected` filters a candidate out of the Choice the model is shown."""
+    evidence = evidence_for(repo, "listing pagination", (AGENT,))
+    seen: list[Mapping[str, Question]] = []
+
+    def classify(state: Any, questions: Mapping[str, Question]) -> Decision:
+        seen.append(questions)
+        ((field, question),) = questions.items()
+        assert isinstance(question, Choice)
+        return decision_of({field: answer(next(iter(question.options)), 0.9)})
+
+    result = ClassifierProposer(classify=classify).propose(
+        evidence, rejected={"target": ["listing.py"]}
+    )
+    assert not isinstance(result, Refusal)
+    assert result.target == "pagination.py"
+
+    target_question = next(q["target"] for q in seen if "target" in q)
+    assert isinstance(target_question, Choice)
+    assert "target:0" not in target_question.options  # listing.py was dropped
+    assert "target:1" in target_question.options  # pagination.py keeps its id

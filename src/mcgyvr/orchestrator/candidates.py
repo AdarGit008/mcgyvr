@@ -17,7 +17,7 @@ the classifier chooses.
 
 from __future__ import annotations
 
-from collections.abc import Mapping, Sequence
+from collections.abc import Collection, Mapping, Sequence
 from dataclasses import dataclass
 from enum import StrEnum
 from typing import Any
@@ -75,6 +75,28 @@ def _set(field: str, values: tuple[Any, ...]) -> CandidateSet:
         candidates=tuple(
             FieldCandidate(id=f"{field}:{index}", value=value, rank=index)
             for index, value in enumerate(values)
+        ),
+    )
+
+
+def without(set: CandidateSet, values: Collection[Any]) -> CandidateSet:
+    """The same candidate set minus any candidate whose value is in `values`.
+
+    Order, ids and provenance are preserved; only the ranks are re-normalized
+    to ``0..n-1``. Used by the retry loop to drop a rejected candidate.
+    """
+    dropped = frozenset(values)
+    kept = [candidate for candidate in set.candidates if candidate.value not in dropped]
+    return CandidateSet(
+        field=set.field,
+        candidates=tuple(
+            FieldCandidate(
+                id=candidate.id,
+                value=candidate.value,
+                rank=index,
+                provenance=candidate.provenance,
+            )
+            for index, candidate in enumerate(kept)
         ),
     )
 

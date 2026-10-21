@@ -234,23 +234,8 @@ def decompose(
     keyed by adapter name, so a `type_check` acceptance can be derived without
     probing the disk again.
     """
-    resolution = resolve(index, prompt)
-    exploration = (
-        explore(index, resolution)
-        if budget is None
-        else explore(index, resolution, budget=budget)
-    )
-    vocabulary = _vocabulary(config)
+    evidence = _evidence(index, prompt, config=config, budget=budget, adapters=adapters)
     owners = tuple(adapters) if adapters is not None else _default_adapters()
-    observation = locate_baseline(index.root)
-    evidence = Evidence(
-        prompt=prompt,
-        index=index,
-        resolution=resolution,
-        exploration=exploration,
-        vocabulary=vocabulary,
-        baseline=observation,
-    )
 
     proposals = tuple(propose(evidence))
     if not proposals:
@@ -261,7 +246,7 @@ def decompose(
                     "nothing could be proposed from this prompt and repository — "
                     "narrow the request to work of one of the catalog's types, or "
                     f"name a target that exists here. Servable types: "
-                    f"{', '.join(t.name for t in vocabulary) or 'none'}",
+                    f"{', '.join(t.name for t in evidence.vocabulary) or 'none'}",
                     field="request",
                     what_to_change=(
                         "name a target the index holds, or narrow the request "
@@ -269,8 +254,8 @@ def decompose(
                     ),
                 ),
             ),
-            resolution=resolution,
-            exploration=exploration,
+            resolution=evidence.resolution,
+            exploration=evidence.exploration,
         )
 
     ordered, fan_out_refusals = _fan_out(proposals)
@@ -280,16 +265,14 @@ def decompose(
     refusals: list[Refusal] = list(fan_out_refusals)
     seen: dict[str, str] = {}
     for proposal, depends_on_ids in ordered:
-        emitted = _emit(
+        emitted = emit_one(
+            evidence,
             proposal,
-            index,
-            vocabulary,
-            seen,
-            owners,
-            max_input_tokens,
-            located,
-            observation,
-            depends_on_ids,
+            seen=seen,
+            adapters=owners,
+            ceiling=max_input_tokens,
+            located=located,
+            depends_on_ids=depends_on_ids,
         )
         if isinstance(emitted, Refusal):
             refusals.append(emitted)
@@ -303,8 +286,64 @@ def decompose(
         contracts=tuple(contracts),
         refusals=tuple(refusals),
         documents=tuple(documents),
+        resolution=evidence.resolution,
+        exploration=evidence.exploration,
+    )
+
+
+def _evidence(
+    index: Index,
+    prompt: str,
+    *,
+    config: Config | None = None,
+    budget: int | None = None,
+    adapters: Sequence[LanguageAdapter] | None = None,
+) -> Evidence:
+    """The deterministic pass a proposer is handed: resolve, read, catalog, baseline.
+
+    `adapters` is accepted for the shared call shape with `decompose`/`iterate`;
+    the evidence itself needs none — the baseline is located from the index's
+    root and the vocabulary from the catalog.
+    """
+    resolution = resolve(index, prompt)
+    exploration = (
+        explore(index, resolution)
+        if budget is None
+        else explore(index, resolution, budget=budget)
+    )
+    vocabulary = _vocabulary(config)
+    baseline = locate_baseline(index.root)
+    return Evidence(
+        prompt=prompt,
+        index=index,
         resolution=resolution,
         exploration=exploration,
+        vocabulary=vocabulary,
+        baseline=baseline,
+    )
+
+
+def emit_one(
+    evidence: Evidence,
+    proposal: Proposal,
+    *,
+    seen: dict[str, str],
+    adapters: Sequence[LanguageAdapter],
+    ceiling: int,
+    located: Mapping[str, Sequence[str]] | None = None,
+    depends_on_ids: tuple[str, ...] = (),
+) -> tuple[Contract, str] | Refusal:
+    """Emit one proposal against `evidence`; the seam the retry loop reuses."""
+    return _emit(
+        proposal,
+        evidence.index,
+        evidence.vocabulary,
+        seen,
+        adapters,
+        ceiling,
+        located,
+        evidence.baseline,
+        depends_on_ids,
     )
 
 
