@@ -106,6 +106,14 @@ class Proposal:
     type_check: bool = False
     """Whether the project's own type checker must pass — the `code` flag that
     derives `type_check`."""
+    operation: str = ""
+    """A deterministic operation a tool performs instead of a model."""
+    sources: tuple[str, ...] = ()
+    """Other repo files the worker is given whole, beside the target."""
+    depends_on: tuple[int, ...] = ()
+    """0-based indexes into the proposer's own proposal array that must land
+    first. Indexes are digested by `_identify`; the resolved contract ids are
+    supplied separately to `_document`."""
 
 
 @dataclass(frozen=True)
@@ -216,8 +224,9 @@ def decompose(
 
     An empty answer is a refusal to decompose, reported against the request
     with the servable types named. Otherwise every proposal goes through
-    `_emit`, and a refusal against one does not stop the others; the proposer's
-    order is kept in `contracts` and `documents`.
+    `_emit`, and a refusal against one does not stop the others; the emitted
+    contracts come back in dependency order, with the proposer's order as the
+    stable tiebreak.
 
     `budget` is passed to exploration when stated. `max_input_tokens` is the
     ceiling on a contract's worker view, above which the target is refused as
@@ -264,11 +273,13 @@ def decompose(
             exploration=exploration,
         )
 
+    ordered, fan_out_refusals = _fan_out(proposals)
+
     contracts: list[Contract] = []
     documents: list[str] = []
-    refusals: list[Refusal] = []
+    refusals: list[Refusal] = list(fan_out_refusals)
     seen: dict[str, str] = {}
-    for proposal in proposals:
+    for proposal, depends_on_ids in ordered:
         emitted = _emit(
             proposal,
             index,
@@ -278,6 +289,7 @@ def decompose(
             max_input_tokens,
             located,
             observation,
+            depends_on_ids,
         )
         if isinstance(emitted, Refusal):
             refusals.append(emitted)
@@ -322,6 +334,7 @@ def _emit(
     ceiling: int,
     located: Mapping[str, Sequence[str]] | None = None,
     baseline: BaselineObservation | None = None,
+    depends_on_ids: tuple[str, ...] = (),
 ) -> tuple[Contract, str] | Refusal:
     """Emit one proposal as a validated contract, or refuse it.
 
@@ -399,6 +412,7 @@ def _emit(
         dependencies,
         contract_id=_identify(proposal),
         target_content=_content_of(index, proposal.target),
+        depends_on_ids=depends_on_ids,
     )
     if document["id"] in seen:
         return Refusal(
@@ -442,7 +456,7 @@ def _emit(
             field="max_output_tokens",
             what_to_change=("state limits.max_output_tokens (whole number >= 1)"),
         )
-    resized = _resize(built, document, ceiling)
+    resized = _resize(built, document, ceiling, depends_on_ids=depends_on_ids)
     if isinstance(resized, Refusal):
         # `_resize` returns `Refusal("", reason)` with no proposal context;
         # `_emit` re-wraps it and attaches the field.
@@ -605,27 +619,152 @@ def _signature_for(index: Index, ref: DepRef) -> str | None:
 def _identify(proposal: Proposal) -> str:
     """The contract id: the task type, and a digest of what makes this unit of work.
 
-    The digest covers the type, target, task, interface and the two flags, plus
-    each dependency's path and symbol — so two proposals share an id exactly
-    when they direct the same change at the same target, which is what lets
-    `_emit` detect one unit of work stated twice.
+    The digest covers the type, target, task, interface and the two flags,
+    plus each dependency's path and symbol — and, only when stated, the
+    operation, sources and the fan-out indexes — so two proposals share an id
+    exactly when they direct the same change at the same target with the same
+    plan edges, which is what lets `_emit` detect one unit of work stated
+    twice. The fan-out fields are appended only when non-empty, so a proposal
+    that uses none of them keeps the exact id it had before fan-out.
+    `depends_on` digests the raw indexes, never the resolved ids, so an id
+    needs no other id to be computed.
     """
-    material = json.dumps(
-        [
-            proposal.task_type,
-            proposal.target,
-            proposal.task,
-            proposal.interface,
-            proposal.no_semantic_change,
-            proposal.type_check,
-        ]
-        + [[d.path, d.symbol] for d in proposal.deps],
-        sort_keys=True,
-    )
+    material: list[object] = [
+        proposal.task_type,
+        proposal.target,
+        proposal.task,
+        proposal.interface,
+        proposal.no_semantic_change,
+        proposal.type_check,
+    ]
+    material.extend([d.path, d.symbol] for d in proposal.deps)
+    if proposal.operation:
+        material.append(proposal.operation)
+    if proposal.sources:
+        material.append(proposal.sources)
+    if proposal.depends_on:
+        material.append(sorted(proposal.depends_on))
     digest = hashlib.blake2b(
-        material.encode("utf-8", "surrogateescape"), digest_size=_ID_DIGEST_BYTES
+        json.dumps(material, sort_keys=True).encode("utf-8", "surrogateescape"),
+        digest_size=_ID_DIGEST_BYTES,
     ).hexdigest()
     return f"{proposal.task_type}-{digest}"
+
+
+def _fan_out(
+    proposals: tuple[Proposal, ...],
+) -> tuple[tuple[tuple[Proposal, tuple[str, ...]], ...], tuple[Refusal, ...]]:
+    """Resolve `depends_on` indexes into ids, and order proposals topologically.
+
+    Every proposal's id is computed once, then each proposal's `depends_on`
+    indexes are validated against the array — each must be a 0-based index of a
+    *different* proposal. A proposal that names a bad index is refused, and so
+    is every proposal that waits on it, directly or transitively: a dependency
+    on a refused proposal can never be satisfied. Any cycle left after that is
+    refused the same way. What remains comes back in dependency order, ties
+    broken by the proposer's original order, each proposal paired with the ids
+    of the proposals it waits on, so a plan with no edges comes back unchanged.
+    """
+    ids = [_identify(proposal) for proposal in proposals]
+    count = len(proposals)
+
+    # One pass validates every dependency and records the usable edges.
+    predecessors: list[tuple[int, ...]] = []
+    refusals_by_index: dict[int, Refusal] = {}
+    refused: set[int] = set()
+    for index, proposal in enumerate(proposals):
+        stated: list[int] = []
+        bad = False
+        for dependency in proposal.depends_on:
+            if (
+                isinstance(dependency, bool)
+                or not isinstance(dependency, int)
+                or not 0 <= dependency < count
+                or dependency == index
+            ):
+                refusals_by_index[index] = Refusal(
+                    proposal.target or proposal.task_type or "request",
+                    f"proposal {index} depends on {dependency!r}, which is not a "
+                    f"0-based index of another one of the {count} proposals — "
+                    "state the index of a proposal that must land first",
+                    field="depends_on",
+                    what_to_change="reference a proposal index in range",
+                )
+                refused.add(index)
+                bad = True
+                break
+            if dependency not in stated:
+                stated.append(dependency)
+        predecessors.append(tuple(sorted(stated)) if not bad else ())
+
+    # Transitive closure over the refused proposals: whatever waits on a
+    # refused proposal is itself refused, and so on, because its dependency can
+    # never be satisfied.
+    changed = True
+    while changed:
+        changed = False
+        for index in range(count):
+            if index in refused:
+                continue
+            if any(dependency in refused for dependency in predecessors[index]):
+                refusals_by_index[index] = Refusal(
+                    proposals[index].target or proposals[index].task_type or "request",
+                    f"proposal {index} depends on a proposal that was refused, so "
+                    "its dependency cannot be satisfied",
+                    field="depends_on",
+                    what_to_change=(
+                        "drop the dependency on the refused proposal, or fix that "
+                        "proposal first"
+                    ),
+                )
+                refused.add(index)
+                changed = True
+
+    # Kahn's algorithm over the proposals that are left, always taking the
+    # smallest original index among those whose dependencies are already
+    # placed: that keeps the proposer's order as the stable tiebreak.
+    remaining = {
+        index: set(predecessors[index])
+        for index in range(count)
+        if index not in refused
+    }
+    successors: dict[int, list[int]] = {index: [] for index in remaining}
+    for index, before in remaining.items():
+        for dependency in before:
+            successors[dependency].append(index)
+
+    ready = [index for index in remaining if not remaining[index]]
+    order: list[int] = []
+    while ready:
+        index = min(ready)
+        ready.remove(index)
+        order.append(index)
+        for successor in successors[index]:
+            remaining[successor].discard(index)
+            if not remaining[successor]:
+                ready.append(successor)
+
+    # Whatever Kahn could not place is on a cycle, or waits on a cycle, so none
+    # of it can be satisfied; each such proposal is refused.
+    for index in remaining:
+        if index not in order:
+            refusals_by_index[index] = Refusal(
+                proposals[index].target or proposals[index].task_type or "request",
+                "the proposals' depends_on references form a cycle, so no plan "
+                "order exists — drop one edge so each contract can follow the one "
+                "it waits on",
+                field="depends_on",
+                what_to_change="break the cycle in depends_on",
+            )
+
+    refusals = tuple(refusals_by_index[index] for index in sorted(refusals_by_index))
+    return (
+        tuple(
+            (proposals[index], tuple(ids[j] for j in predecessors[index]))
+            for index in order
+        ),
+        refusals,
+    )
 
 
 def _document(
@@ -635,15 +774,17 @@ def _document(
     contract_id: str,
     target_content: str = "",
     max_input_tokens: int | None = None,
+    depends_on_ids: tuple[str, ...] = (),
 ) -> dict[str, Any]:
     """Assemble the contract document from the proposal.
 
     `scope.allow` defaults to the target itself, and every other optional field
     is written only when the proposal states something for it, so the emitted
-    document stays what was asked for rather than a full schema. The two
+    document stays what was asked for rather than a full schema. The
     exceptions are supplied by the caller: `target_content`, written when
-    non-empty, and `max_input_tokens`, written as `context` when a resize has
-    measured the worker view.
+    non-empty, `max_input_tokens`, written as `context` when a resize has
+    measured the worker view, and `depends_on_ids`, the already-resolved
+    contract ids behind the proposal's raw `depends_on` indexes.
     """
     document: dict[str, Any] = {
         "id": contract_id,
@@ -656,10 +797,16 @@ def _document(
         document["target_content"] = target_content
     if proposal.forbid:
         document["scope"]["forbid"] = list(proposal.forbid)
+    if proposal.operation:
+        document["operation"] = proposal.operation
     if proposal.interface:
         document["interface"] = proposal.interface
     if dependencies:
         document["deps"] = dependencies
+    if proposal.sources:
+        document["sources"] = list(proposal.sources)
+    if depends_on_ids:
+        document["depends_on"] = list(depends_on_ids)
     if proposal.stop_conditions:
         document["stop_conditions"] = list(proposal.stop_conditions)
     if proposal.acceptance:
@@ -697,7 +844,11 @@ def _load(document: dict[str, Any]) -> Contract | Refusal:
 
 
 def _resize(
-    built: Contract, document: dict[str, Any], ceiling: int
+    built: Contract,
+    document: dict[str, Any],
+    ceiling: int,
+    *,
+    depends_on_ids: tuple[str, ...] = (),
 ) -> tuple[Contract, str] | Refusal:
     """Fit the contract's worker view inside the ceiling, or refuse it as too large.
 
@@ -724,6 +875,7 @@ def _resize(
         contract_id=built.id,
         target_content=built.target_content,
         max_input_tokens=needed,
+        depends_on_ids=depends_on_ids,
     )
     reloaded = _load(resized)
     if isinstance(reloaded, Refusal):  # pragma: no cover - the first load passed
@@ -757,7 +909,8 @@ def _proposal_of(built: Contract) -> Proposal:
 
     Dependencies are not carried: `_resize` hands `_document` the contract's own
     deps itself, and every field rebuilt here is one the contract stores
-    verbatim.
+    verbatim. `depends_on` is left empty: a single loaded contract has no
+    siblings, and the resolved ids are passed to `_document` separately.
     """
     return Proposal(
         task_type=built.task_type,
@@ -772,6 +925,8 @@ def _proposal_of(built: Contract) -> Proposal:
         demonstration=built.demonstration,
         no_semantic_change=built.no_semantic_change,
         type_check=built.type_check,
+        operation=built.operation,
+        sources=built.sources,
     )
 
 

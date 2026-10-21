@@ -399,6 +399,9 @@ def collapse(plan: CandidatePlan) -> Proposal:
         stop_conditions=value("stop_conditions", ()),
         acceptance=value("acceptance", ()),
         demonstration=value("demonstration", ()),
+        operation=value("operation", ""),
+        sources=value("sources", ()),
+        depends_on=value("depends_on", ()),
     )
 
 
