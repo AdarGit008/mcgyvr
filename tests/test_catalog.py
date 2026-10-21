@@ -339,19 +339,13 @@ def test_the_catalog_file_is_the_only_definition() -> None:
         assert "TASK_TYPES = (" not in text, f"{path} redeclares the vocabulary"
 
 
-# --- names that used to be task types -------------------------------------
+# --- names the catalog does not declare ------------------------------------
 
 
-def test_a_retired_type_names_its_replacement() -> None:
+def test_a_name_that_used_to_be_a_task_type_is_unknown() -> None:
     with pytest.raises(ContractSchemaError) as exc:
         task_type("bug_fix")
-    assert "'bug_fix' is now 'code'" in str(exc.value)
-
-
-def test_a_retired_operation_type_names_the_operation_spelling() -> None:
-    with pytest.raises(ContractSchemaError) as exc:
-        task_type("format")
-    assert "'format' is now 'code' with operation: format" in str(exc.value)
+    assert "'bug_fix' is not valid here" in str(exc.value)
 
 
 def test_an_unknown_type_lists_the_vocabulary(shipped: Catalog) -> None:
@@ -536,14 +530,6 @@ def test_cli_shows_one_type_in_full(capsys: pytest.CaptureFixture[str]) -> None:
     assert "derived" in out
     assert "guarantee:" in out
     assert "warrant:" in out
-
-
-def test_cli_names_the_replacement_for_a_retired_type(
-    capsys: pytest.CaptureFixture[str],
-) -> None:
-    assert main(["catalog", "function_implementation"]) == 1
-    err = capsys.readouterr().err
-    assert "'function_implementation' is now 'code'" in err
 
 
 def test_cli_shows_an_operation_as_one_of_code(

@@ -4,9 +4,9 @@ Three files, three vocabularies. `load_fleet` reads what runs where — the
 units, the rigs and the fleets; `load_policy` reads how work moves over those
 units — the ladder and the policy settings; `load_relief` reads the units a hub
 lends, which `mcgyvr rig rungs sync` writes and nothing else does. Each file
-refuses a key that belongs to another, an unknown key, and a word that was
-retired, naming in the message what to write instead, because a file that does
-not say what it means must not be read under rules it never agreed to.
+refuses a key that belongs to another and an unknown key, naming in the message
+what to write instead, because a file that does not say what it means must not
+be read under rules it never agreed to.
 """
 
 from __future__ import annotations
@@ -20,7 +20,7 @@ from mcgyvr.strict_yaml import strict_loader
 
 class FleetFileError(Exception):
     """A setup file this module will not read: invalid YAML, a key that is not
-    text or is duplicated, an unknown, retired or misplaced key, or a value of
+    text or is duplicated, an unknown or misplaced key, or a value of
     the wrong shape where a block, a list or a name was expected."""
 
 
@@ -99,18 +99,6 @@ _FLEET_BLOCK_KEYS = frozenset({"layout", "next"})
 #: `relief` and never join `units` or the ladder.
 _RELIEF_FILE_KEYS = frozenset({"relief"})
 
-#: Words a file may no longer use, each mapped to what replaced it, so a refusal
-#: can name the term to write instead of only saying the key is unknown.
-_RETIRED_WORDS = {
-    "sources": "name what serves under `units` — a unit is the one term",
-    "source": "a unit is the one term",
-    "rung": "a unit is the one term",
-    "rungs": "a ladder names `unit names`, not rungs or tiers",
-    "tier": "a unit is the one term",
-    "tiers": "a ladder names `unit names`, not rungs or tiers",
-}
-
-
 #: The loader every setup file is read with: a key repeated anywhere in the
 #: file, or one that is a list or a mapping, is refused instead of
 #: last-one-wins, quoted through a bounded repr.
@@ -152,13 +140,6 @@ def _document(raw: object, name: str) -> dict[str, Any]:
     return dict(raw)
 
 
-def _refuse_retired(key: str, where: str) -> None:
-    hint = _RETIRED_WORDS.get(key)
-    if hint is None:
-        return
-    raise FleetFileError(f"{where}: `{key}` is retired — {hint}.")
-
-
 def _refuse_policy_setting(key: str, where: str) -> None:
     raise FleetFileError(
         f"{where}: `{key}` is a policy setting — it belongs in policy.yaml, "
@@ -181,7 +162,6 @@ def _refuse_unit_fact(key: str) -> None:
 
 
 def _unknown_key(key: str, where: str, known: frozenset[str]) -> None:
-    _refuse_retired(key, where)
     raise FleetFileError(
         f"{where}: unknown key {key!r}. An ignored key is a file that does "
         f"not do what it says. Valid keys here: {', '.join(sorted(known))}"
@@ -242,7 +222,6 @@ def _ladder(raw: object, where: str) -> list[str]:
         return names
     if isinstance(raw, dict):
         for key in raw:
-            _refuse_retired(key, where)
             raise FleetFileError(
                 f"{where}: unknown key {key!r}. The ladder is an ordered list "
                 f"of unit names."
@@ -260,9 +239,8 @@ def load_fleet(text: str) -> dict[str, Any]:
 
     Each unit block is held to `_UNIT_KEYS` and each fleet entry to
     `_FLEET_BLOCK_KEYS`; `rigs` is checked only as a block. A policy setting, a
-    `relief` block, an unknown key (including a retired word, which is named
-    with what replaced it) or a value that is not a block of text keys raises
-    `FleetFileError`.
+    `relief` block, an unknown key or a value that is not a block of text keys
+    raises `FleetFileError`.
     """
     given = _document(_yaml(text), "fleet.yaml")
     data: dict[str, Any] = {}
@@ -287,8 +265,8 @@ def load_policy(text: str) -> dict[str, Any]:
 
     `ladder` is normalised to a list of stripped unit names, cheap first; a
     ladder written as an empty block is refused. Every other top-level key must
-    be in `_POLICY_KEYS`. A fact about a unit, a `relief` block, an unknown key
-    or a retired word raises `FleetFileError` naming the file it belongs in.
+    be in `_POLICY_KEYS`. A fact about a unit, a `relief` block or an unknown
+    key raises `FleetFileError` naming the file it belongs in.
     """
     given = _document(_yaml(text), "policy.yaml")
     data: dict[str, Any] = {}

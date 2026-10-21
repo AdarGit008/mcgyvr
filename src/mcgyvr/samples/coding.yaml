@@ -17,7 +17,6 @@ contract:
   demonstration: ["python3 accept.py"]
   limits:
     max_output_tokens: 1024
-  risk: low
   scope:
     allow: ["calc.py"]
 files:

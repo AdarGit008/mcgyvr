@@ -80,7 +80,6 @@ acceptance:
   - pytest -q
 demonstration:
   - pytest -q tests/test_fetch.py::test_retries_on_timeout
-risk: high
 verification:
   policy: model
 limits:
@@ -136,7 +135,6 @@ def test_round_trip_preserves_every_field() -> None:
     )
     assert contract.no_semantic_change is False
     assert contract.type_check is False
-    assert contract.risk == "high"
     assert contract.verification.policy == "model"
     assert contract.limits.max_output_tokens == 2048
     assert contract.limits.attempts == 3
@@ -158,7 +156,6 @@ def test_defaults_are_applied() -> None:
     assert contract.demonstration == ()
     assert contract.no_semantic_change is False
     assert contract.type_check is False
-    assert contract.risk == "medium"
     assert contract.verification.policy == "gate_only"
     assert contract.limits.max_output_tokens is None
     assert contract.limits.attempts == 2
@@ -287,7 +284,6 @@ def test_a_pattern_target_without_content_is_still_fine() -> None:
             MINIMAL + "\ncontext:\n  max_input_tokens: half\n",
             "context.max_input_tokens:",
         ),
-        (MINIMAL + "\nrisk: catastrophic\n", "risk:"),
         (MINIMAL + "\noutput_schema: freeform\n", "output_schema:"),
         (MINIMAL + "\nverification:\n  policy: vibes\n", "verification.policy:"),
         (MINIMAL + "\nlimits:\n  attempts: 0\n", "limits.attempts:"),
@@ -346,7 +342,7 @@ def test_unknown_nested_key_names_its_block() -> None:
 
 def test_duplicate_key_is_rejected() -> None:
     with pytest.raises(ContractSchemaError, match="duplicate key"):
-        loads(MINIMAL + "\nrisk: low\nrisk: high\n")
+        loads(MINIMAL + "\noutput_schema: whole_file\noutput_schema: whole_file\n")
 
 
 def test_empty_contract_is_rejected_with_what_it_needs() -> None:
@@ -649,7 +645,6 @@ def test_an_output_cap_larger_than_the_prompt_budget_is_accepted() -> None:
 # --- the worker / orchestrator split (#94) ---------------------------------
 
 ORCHESTRATOR_ONLY = (
-    "risk",
     "verification",
     "acceptance",
     "demonstration",
@@ -695,7 +690,6 @@ def test_no_orchestrator_value_leaks_into_the_serialized_worker_view() -> None:
     rendered = json.dumps(loads(FULL).worker_view())
     assert "pytest -q" not in rendered  # acceptance command
     assert "test_retries_on_timeout" not in rendered  # demonstration command
-    assert "high" not in rendered  # risk
     assert "generated" not in rendered  # a forbid pattern
     assert "2048" not in rendered  # the output cap
 

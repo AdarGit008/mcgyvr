@@ -9,9 +9,7 @@
   ordered list of unit names, then fanout, attempts, escalations, the task
   timeout, the window fraction, breadth and cleanup. Deterministic-first and
   cheap-first are code (``mcgyvr.route``'s module docstring), not settings.
-* "source", "rung" and "tier" are gone: a unit is the one term. A file that
-  still uses them is refused naming what replaced them, and a key in the wrong
-  file is refused naming the file it belongs in.
+* A key in the wrong file is refused naming the file it belongs in.
 """
 
 from __future__ import annotations
@@ -78,14 +76,6 @@ def test_a_policy_setting_in_the_fleet_file_is_refused_naming_policy_yaml() -> N
     files = _files()
     with pytest.raises(files.FleetFileError, match=r"policy\.yaml"):
         files.load_fleet(FLEET + "fanout: idle\n")
-
-
-def test_the_retired_words_are_refused_naming_what_replaced_them() -> None:
-    files = _files()
-    with pytest.raises(files.FleetFileError, match="units"):
-        files.load_fleet("sources:\n  s: {base_url: 'http://box2:8001'}\n")
-    with pytest.raises(files.FleetFileError, match="unit names"):
-        files.load_policy("ladder:\n  tiers:\n    - {name: r, source: s, model: m}\n")
 
 
 def test_the_loader_and_the_schema_enumerate_the_same_keys() -> None:

@@ -41,7 +41,6 @@ deps:
 stop_conditions:
   - The retry policy is not stated anywhere in the repo.
 acceptance: ["pytest -q"]
-risk: high
 scope:
   allow: ["src/**/*.py"]
 """
@@ -176,12 +175,11 @@ def test_an_unknown_use_case_gets_no_bundle() -> None:
 
 
 def test_orchestrator_only_fields_never_reach_the_prompt() -> None:
-    """Held structurally: risk, acceptance, verification and limits are
+    """Held structurally: acceptance, verification and limits are
     how the orchestrator judges the work, and a worker that could read them
     could argue with them."""
     built = build_prompt(contract(PY_CONTRACT))
     whole = built.system + built.user
-    assert "high" not in whole  # risk
     assert "pytest -q" not in whole  # acceptance
     assert "gate_only" not in whole  # verification policy
 
