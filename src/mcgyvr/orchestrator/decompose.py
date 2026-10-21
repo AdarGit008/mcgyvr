@@ -149,14 +149,15 @@ class Refusal:
     The subject is what the refusal is about — a target, a task type, or the
     request as a whole — so a reader sees which proposal failed without
     counting them; `str` is the one-line form. `field` and `what_to_change`
-    are the machine-actionable half: the proposal field to change (empty when
-    the request as a whole is at fault) and the directive a retry loop can act
-    on.
+    are the machine-actionable half: `field` names a `Proposal` field to
+    change, with the sentinel `"request"` for the request as a whole and `""`
+    for a catch-all that cannot be attributed to one field; `what_to_change`
+    is the directive a retry loop can act on.
     """
 
     subject: str
     reason: str
-    field: str = ""  # the Proposal field to change; "" = whole request
+    field: str = ""  # Proposal field; "request" = whole request; "" = catch-all
     what_to_change: str = ""  # machine-actionable directive for the retry loop
 
     def __str__(self) -> str:
