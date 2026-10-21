@@ -53,6 +53,10 @@ _ID_DIGEST_BYTES = 5
 # `context.max_input_tokens` is a separate, per-contract number.
 _DEFAULT_MAX_INPUT_TOKENS = 32768
 
+#: Prefix `_load` puts on a schema-error refusal. `_emit` strips it to recover
+#: the schema's own error text (which names the bad key) for `what_to_change`.
+_SCHEMA_ERROR_PREFIX = "the emitted contract does not validate — "
+
 
 @dataclass(frozen=True)
 class DepRef:
@@ -144,11 +148,16 @@ class Refusal:
 
     The subject is what the refusal is about — a target, a task type, or the
     request as a whole — so a reader sees which proposal failed without
-    counting them; `str` is the one-line form.
+    counting them; `str` is the one-line form. `field` and `what_to_change`
+    are the machine-actionable half: the proposal field to change (empty when
+    the request as a whole is at fault) and the directive a retry loop can act
+    on.
     """
 
     subject: str
     reason: str
+    field: str = ""  # the Proposal field to change; "" = whole request
+    what_to_change: str = ""  # machine-actionable directive for the retry loop
 
     def __str__(self) -> str:
         return f"{self.subject}: {self.reason}"
@@ -243,6 +252,11 @@ def decompose(
                     "narrow the request to work of one of the catalog's types, or "
                     f"name a target that exists here. Servable types: "
                     f"{', '.join(t.name for t in vocabulary) or 'none'}",
+                    field="request",
+                    what_to_change=(
+                        "name a target the index holds, or narrow the request "
+                        "to a servable type"
+                    ),
                 ),
             ),
             resolution=resolution,
@@ -327,6 +341,8 @@ def _emit(
         return Refusal(
             proposal.target or proposal.task_type,
             _unservable_reason(proposal.task_type, servable),
+            field="task_type",
+            what_to_change="pick a servable type",
         )
 
     if not _indexed(index, proposal.target):
@@ -334,6 +350,11 @@ def _emit(
             proposal.target,
             "no such file in the index — a contract's target must be a path the "
             "repository holds; check the path, or index a repository that has it",
+            field="target",
+            what_to_change=(
+                "name a path the index holds (check spelling, or index the repo "
+                "that has it)"
+            ),
         )
 
     kind = next(t for t in vocabulary if t.name == proposal.task_type)
@@ -356,6 +377,10 @@ def _emit(
                 f"{ref.path!r}, so the dependency would have to be described "
                 "rather than stated — omit it and let the worker "
                 "report BLOCKED, or name a symbol the parser defines there",
+                field="deps",
+                what_to_change=(
+                    "omit that symbol from deps, or name a symbol the parser defines"
+                ),
             )
         stated = signatures.setdefault(ref.path, [])
         if signature not in stated:
@@ -379,11 +404,28 @@ def _emit(
             proposal.target,
             f"duplicates contract {document['id']} on {seen[document['id']]} — the "
             "same type, target and directive is the same unit of work twice",
+            field="task",
+            what_to_change=(
+                "make the directive distinct (same type+target+task is one unit twice)"
+            ),
         )
 
     built = _load(document)
     if isinstance(built, Refusal):
-        return Refusal(proposal.target, built.reason)
+        # `_load` returns `Refusal("", reason)` with no proposal context; the
+        # schema error text is recovered from its reason so a retry loop can
+        # act on the bad key. `field` stays empty: this is a catch-all.
+        schema = (
+            built.reason[len(_SCHEMA_ERROR_PREFIX) :]
+            if built.reason.startswith(_SCHEMA_ERROR_PREFIX)
+            else ""
+        )
+        return Refusal(
+            proposal.target,
+            built.reason,
+            field="",
+            what_to_change=schema,
+        )
     if built.needs_output_cap and built.limits.max_output_tokens is None:
         # The document validates without the cap, but `mcgyvr run` refuses a
         # judged, model-written contract that states none — the reply must say
@@ -396,10 +438,21 @@ def _emit(
             "tokens — and this proposal states no max_output_tokens, so "
             "`mcgyvr run` would refuse it before any model is called. State "
             "max_output_tokens on the proposal",
+            field="max_output_tokens",
+            what_to_change=("state limits.max_output_tokens (whole number >= 1)"),
         )
     resized = _resize(built, document, ceiling)
     if isinstance(resized, Refusal):
-        return Refusal(proposal.target, resized.reason)
+        # `_resize` returns `Refusal("", reason)` with no proposal context;
+        # `_emit` re-wraps it and attaches the field.
+        return Refusal(
+            proposal.target,
+            resized.reason,
+            field="target",
+            what_to_change=(
+                "narrow the target to a smaller file/region, or raise the ceiling"
+            ),
+        )
     return resized
 
 
@@ -452,6 +505,10 @@ def _acceptance_for(
             f"needs a type checker. Retarget a file in a "
             f"language this build carries ({languages}), or declare the command "
             f"in the proposal's acceptance",
+            field="target",
+            what_to_change=(
+                "retarget a file in a carried language, or state the acceptance command"
+            ),
         )
 
     command = (
@@ -467,6 +524,10 @@ def _acceptance_for(
             "checker, and mcgyvr runs the one the repository configured rather "
             "than choosing one. Configure a checker in the "
             "repository, or declare the command in the proposal's acceptance",
+            field="type_check",
+            what_to_change=(
+                "configure a checker in the repo, or drop type_check / state acceptance"
+            ),
         )
     return (shlex.join(command),)
 
@@ -624,13 +685,14 @@ def _reply_cap(proposal: Proposal) -> int | None:
 def _load(document: dict[str, Any]) -> Contract | Refusal:
     """Load an assembled document as a contract, or refuse it with the schema error.
 
-    Its refusals carry no subject: `_emit` reports them against the proposal's
-    target, which is the subject a caller reads.
+    Its refusals carry no proposal context: subject and `field` are empty, and
+    `_emit` re-wraps them against the proposal's target and attaches the field
+    (and recovers the schema error text for `what_to_change`).
     """
     try:
         return contract_module.loads(json.dumps(document))
     except ContractError as exc:
-        return Refusal("", f"the emitted contract does not validate — {exc}")
+        return Refusal("", f"{_SCHEMA_ERROR_PREFIX}{exc}")
 
 
 def _resize(
@@ -647,6 +709,8 @@ def _resize(
     """
     needed = estimate_tokens(json.dumps(built.worker_view(), sort_keys=True))
     if needed > ceiling:
+        # No proposal context here: `_emit` re-wraps this refusal and attaches
+        # the field and directive.
         return Refusal("", _too_large_reason(built, needed, ceiling))
     if needed <= built.max_input_tokens:
         return built, contract_module.dumps(built)

@@ -440,6 +440,12 @@ class ClassifierProposer:
     the floor, or names a type needing an output cap declines the whole
     proposal; an optional field degrades to its rank-0 candidate instead. Each
     decision is appended to `sink`, when one is wired.
+
+    For the W6 retry loop, a decline maps to a `Refusal` field/directive as
+    follows: no targets or no vocabulary → `target`/`task_type`; `task_type`
+    below the confidence floor → `task_type`; `kind.needs_output_cap` mismatch
+    → `task_type`. (Behavior is unchanged here; this is the mapping the
+    classifier's empty answer will be annotated with.)
     """
 
     classify: Callable[[Any, Mapping[str, Question]], Decision]
