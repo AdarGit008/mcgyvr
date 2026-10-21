@@ -102,6 +102,30 @@ def test_an_exact_symbol_name_resolves(tmp_path: Path) -> None:
     assert result.best.path == "src/repo.py"
 
 
+def test_a_digit_bearing_symbol_name_resolves_from_prose(tmp_path: Path) -> None:
+    # `b64decode` shreds to `b` + `64` + `decode`, and the `b` and `64` parts
+    # are dropped as noise, leaving only the generic `decode` — while `strict`
+    # matches a `STRICT` export in another file. The digit-bearing prefix must
+    # survive so prose naming `b64decode` lands on the file that defines it.
+    index = build(
+        tmp_path,
+        {
+            "Lib/base64.py": "def b64decode(s):\n    return s\n",
+            "Lib/enum.py": (
+                "__all__ = ['STRICT', 'CONFORM']\n"
+                "from enum import auto\n"
+                "class FlagBoundary:\n"
+                "    STRICT = auto()\n"
+                "    CONFORM = auto()\n"
+            ),
+        },
+    )
+    result = resolve(index, "add a strict mode to b64decode that raises")
+    assert result.verdict is Verdict.RESOLVED
+    assert result.best is not None
+    assert result.best.path == "Lib/base64.py"
+
+
 def test_a_bare_symbol_name_prefers_the_defining_file_over_a_reexport(
     tmp_path: Path,
 ) -> None:
@@ -392,6 +416,16 @@ def test_tokenizer_splits_camel_and_snake_and_folds_plurals() -> None:
     assert _tokenize("fetchHelper") == ["fetch", "helper"]
     assert _tokenize("scan_secrets") == ["scan", "secret"]
     assert _tokenize("HTTPClient") == ["http", "client"]
+
+
+def test_tokenizer_keeps_a_digit_bearing_name_whole() -> None:
+    # `b64decode` splits to `b`, `64` and `decode`, and `b` (single letter) and
+    # `64` (bare number) are dropped as noise, leaving only the generic
+    # `decode`. The whole digit-bearing run must survive as its own token so the
+    # distinctive prefix is not lost.
+    assert "b64decode" in _tokenize("b64decode")
+    assert "a2b" in _tokenize("a2b_base64")
+    assert "base64" in _tokenize("a2b_base64")
 
 
 def test_plural_fold_is_conservative() -> None:

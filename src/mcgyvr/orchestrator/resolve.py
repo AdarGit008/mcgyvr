@@ -587,11 +587,28 @@ def _verdict(candidates: tuple[Candidate, ...]) -> Verdict:
 # A camelCase/snake_case splitter: a capital run followed by a normal word, a
 # normal word, a bare capital run, or a number, each taken as its own token.
 _TOKEN = re.compile(r"[A-Z]+(?=[A-Z][a-z])|[A-Z]?[a-z]+|[A-Z]+|\d+")
+# A maximal run of letters and digits, for a name whose parts the splitter
+# shreds: ``b64decode`` splits to ``b``, ``64`` and ``decode``, and ``b`` and
+# ``64`` are then dropped as noise, losing the very prefix that distinguishes
+# the name. The whole run is kept beside the split parts so the name survives.
+_WORD = re.compile(r"[A-Za-z0-9]+")
 
 
 def _tokenize(text: str) -> list[str]:
-    """Split text into lowercase, plural-folded tokens."""
-    return [_fold(match.group(0).lower()) for match in _TOKEN.finditer(text)]
+    """Split text into lowercase, plural-folded tokens.
+
+    A run that mixes letters and digits is also kept whole, so ``b64decode``
+    still carries a ``b64decode`` token rather than only the split ``b``,
+    ``64`` and ``decode`` parts, two of which never survive as evidence.
+    """
+    tokens = [_fold(match.group(0).lower()) for match in _TOKEN.finditer(text)]
+    for match in _WORD.finditer(text):
+        word = match.group(0)
+        if any(ch.isalpha() for ch in word) and any(ch.isdigit() for ch in word):
+            folded = _fold(word.lower())
+            if folded not in tokens:
+                tokens.append(folded)
+    return tokens
 
 
 def _fold(token: str) -> str:
