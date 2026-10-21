@@ -239,19 +239,16 @@ def test_classifier_proposes_through_jev_and_falls_back_to_prose_on_nothing() ->
         ]
     )
     rung = ScriptedRung(text(proposals), text("ok"))
-    jev = ScriptedJev(
-        kind="code", target="pkg/listing.py", symbol="paginate", ready_to_run=True
-    )
+    jev = ScriptedJev(task_type="task_type:0", ready_to_run=True)
     turn = _respond(_after_read(_tools("Write", "Bash")), rung, jev, "classifier")
     # The classifier chooses `code`, whose contract states a reply cap no
-    # choice can say: it proposes nothing, asks no symbol,
+    # choice can say: it proposes nothing, asks no symbol or target,
     # and the prose proposer writes the contract, cap included.
-    assert [name for name, _ in jev.asked][:2] == ["kind", "target"]
-    assert "symbol" not in [name for name, _ in jev.asked]
+    assert [name for name, _ in jev.asked] == ["task_type", "ready_to_run"]
     assert turn.trace.contracts == 1
     assert len(rung.calls) == 2  # the prose proposer, then the conversation
 
-    # Nothing from the classifier (it is not sure of the kind) → prose is asked.
+    # Nothing from the classifier (it is not sure of the type) → prose is asked.
     proposals = json.dumps(
         [
             {
@@ -264,16 +261,14 @@ def test_classifier_proposes_through_jev_and_falls_back_to_prose_on_nothing() ->
         ]
     )
     rung = ScriptedRung(text(proposals), text("ok"))
-    scripted = ScriptedJev(
-        kind="code", target="pkg/listing.py", symbol="", ready_to_run=True
-    )
+    scripted = ScriptedJev(task_type="task_type:0", ready_to_run=True)
 
     def unsure(state: object, questions: Mapping[str, Question]) -> Decision:
         decision = scripted(state, questions)
         answers = {
             name: (
                 replace(answer, confidence=0.0)
-                if name == "kind" and isinstance(answer, ChoiceAnswer)
+                if name == "task_type" and isinstance(answer, ChoiceAnswer)
                 else answer
             )
             for name, answer in decision.answers.items()

@@ -79,12 +79,13 @@ def test_code_is_offered_alongside_the_other_types(tmp_path: Path) -> None:
     Chosen, it is handed on rather than proposed: a `code` contract states its
     reply cap, which no choice can say, so the prose proposer writes it.
     """
-    seen, classify = _answering({"kind": "code", "symbol": ""})
+    seen, classify = _answering({"task_type": "task_type:1"})
     evidence = _evidence(tmp_path, _types("chat", "code"))
     proposals = ClassifierProposer(classify=classify)(evidence)
-    kind = seen[0]["kind"]
+    kind = seen[0]["task_type"]
     assert isinstance(kind, Choice)
-    assert list(kind.options) == ["chat", "code"]
+    assert list(kind.options) == ["task_type:0", "task_type:1"]
+    assert kind.options["task_type:1"] == load_catalog().require("code").doc
     assert proposals == ()
 
 
@@ -101,7 +102,7 @@ def test_the_state_names_only_what_is_offered(tmp_path: Path) -> None:
 
     def classify(state: Any, questions: Mapping[str, Question]) -> Decision:
         captured.append(state)
-        _, inner = _answering({"kind": "code", "symbol": ""})
+        _, inner = _answering({"task_type": "task_type:0"})
         return inner(state, questions)
 
     evidence = _evidence(tmp_path, _types("code"))

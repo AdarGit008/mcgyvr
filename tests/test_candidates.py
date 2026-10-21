@@ -17,10 +17,11 @@ from typing import Any
 import pytest
 
 from mcgyvr.catalog import TaskType, catalog
-from mcgyvr.decision import Answer, ChoiceAnswer, Decision, Question
+from mcgyvr.decision import Answer, Choice, ChoiceAnswer, Decision, Question
 from mcgyvr.delegate import ClassifierProposer
 from mcgyvr.orchestrator.baseline import BaselineObservation
 from mcgyvr.orchestrator.candidates import (
+    CandidateSet,
     Provenance,
     acceptance_candidates,
     candidate_targets,
@@ -31,12 +32,15 @@ from mcgyvr.orchestrator.candidates import (
     deps_candidates,
     directive,
     enumerate_candidates,
+    interface_candidates,
     kind_for,
     scope_candidates,
     sources_candidates,
     stop_condition,
     symbol_candidates,
     symbols_of,
+    target_candidates,
+    task_type_candidates,
 )
 from mcgyvr.orchestrator.decompose import DepRef, Evidence, Proposal
 from mcgyvr.orchestrator.index import Index, build_index
@@ -143,6 +147,51 @@ def _synthetic_evidence(
         exploration=exploration,
         vocabulary=(AGENT,),
     )
+
+
+def _id_of(set: CandidateSet, value: Any) -> str:
+    """The candidate id whose value is `value`, in the shown order."""
+    for candidate in set.candidates:
+        if candidate.value == value:
+            return candidate.id
+    raise AssertionError(f"{value!r} is not a candidate of {set.field}")
+
+
+def _choosing(
+    evidence: Evidence,
+    *,
+    task_type: str,
+    target: str,
+    symbol: str,
+    interface: str = "",
+    deps: Any = (),
+    allow: Any = (),
+) -> Any:
+    """A classify fake answering each field's single question with a chosen value."""
+    symbol_name = None if symbol == "" else symbol
+    sets: dict[str, CandidateSet] = {
+        "task_type": task_type_candidates(evidence),
+        "target": target_candidates(evidence),
+        "symbol": symbol_candidates(evidence, target),
+        "interface": interface_candidates(evidence, target, symbol_name),
+        "deps": deps_candidates(evidence, target),
+        "allow": scope_candidates(evidence, target)[0],
+    }
+    values: dict[str, Any] = {
+        "task_type": task_type,
+        "target": target,
+        "symbol": symbol,
+        "interface": interface,
+        "deps": deps,
+        "allow": allow,
+    }
+
+    def classify(state: Any, questions: Mapping[str, Question]) -> Decision:
+        ((field, question),) = questions.items()
+        assert isinstance(question, Choice)
+        return decision_of({field: answer(_id_of(sets[field], values[field]), 0.9)})
+
+    return classify
 
 
 # --- the deterministic plan and its collapse -------------------------------
@@ -301,19 +350,13 @@ def test_scope_candidates_dedup_when_the_target_is_the_only_path(
 
 def test_classifier_proposer_output_is_bit_identical(repo: Index) -> None:
     """The refactored proposer emits exactly the proposal it hand-built before."""
-
-    def classify(state: Any, questions: Mapping[str, Question]) -> Decision:
-        if "symbol" in questions:
-            return decision_of({"symbol": answer("listing", 0.9)})
-        return decision_of(
-            {
-                "kind": answer("agent", 0.9),
-                "target": answer("listing.py", 0.9),
-            }
+    evidence = evidence_for(repo, "document listing", (AGENT,))
+    propose = ClassifierProposer(
+        classify=_choosing(
+            evidence, task_type="agent", target="listing.py", symbol="listing"
         )
-
-    propose = ClassifierProposer(classify=classify)
-    (proposal,) = propose(evidence_for(repo, "document listing", (AGENT,)))
+    )
+    (proposal,) = propose(evidence)
 
     expected = Proposal(
         task_type="agent",
@@ -332,7 +375,7 @@ def test_classifier_proposer_output_is_bit_identical(repo: Index) -> None:
 
     kind = kind_for("agent", completable((AGENT,)))
     assert kind is not None
-    plan = enumerate_candidates(evidence_for(repo, "document listing", (AGENT,)))
+    plan = enumerate_candidates(evidence)
     plan = choose(plan, "task_type", "agent")
     plan = choose(plan, "target", "listing.py")
     plan = choose(plan, "symbol", "listing")
@@ -355,19 +398,20 @@ def test_classifier_proposer_reflects_the_models_override_picks(
     repo: Index,
 ) -> None:
     """An override away from rank-0 emits the model's target and symbol."""
-
-    def classify(state: Any, questions: Mapping[str, Question]) -> Decision:
-        if "symbol" in questions:
-            return decision_of({"symbol": answer("paginate", 0.9)})
-        return decision_of(
-            {
-                "kind": answer("agent", 0.9),
-                "target": answer("pagination.py", 0.9),
-            }
+    evidence = _synthetic_evidence(
+        repo,
+        candidates=(("listing.py",), ("pagination.py",)),
+        reads=(),
+    )
+    propose = ClassifierProposer(
+        classify=_choosing(
+            evidence,
+            task_type="agent",
+            target="pagination.py",
+            symbol="paginate",
         )
-
-    propose = ClassifierProposer(classify=classify)
-    (proposal,) = propose(evidence_for(repo, "document listing", (AGENT,)))
+    )
+    (proposal,) = propose(evidence)
 
     kind = kind_for("agent", completable((AGENT,)))
     assert kind is not None
@@ -381,19 +425,11 @@ def test_classifier_proposer_reflects_the_models_override_picks(
 
 def test_classifier_proposer_no_symbol_pins_the_whole_file(repo: Index) -> None:
     """A whole-file pick names only the target in task and stop conditions."""
-
-    def classify(state: Any, questions: Mapping[str, Question]) -> Decision:
-        if "symbol" in questions:
-            return decision_of({"symbol": answer("", 0.9)})
-        return decision_of(
-            {
-                "kind": answer("agent", 0.9),
-                "target": answer("listing.py", 0.9),
-            }
-        )
-
-    propose = ClassifierProposer(classify=classify)
-    (proposal,) = propose(evidence_for(repo, "document listing", (AGENT,)))
+    evidence = evidence_for(repo, "document listing", (AGENT,))
+    propose = ClassifierProposer(
+        classify=_choosing(evidence, task_type="agent", target="listing.py", symbol="")
+    )
+    (proposal,) = propose(evidence)
 
     kind = kind_for("agent", completable((AGENT,)))
     assert kind is not None
