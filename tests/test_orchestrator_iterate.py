@@ -19,7 +19,8 @@ import pytest
 from mcgyvr.catalog import catalog
 from mcgyvr.decision import Choice, ChoiceAnswer, Decision, Question
 from mcgyvr.delegate import MIN_CONFIDENCE, ClassifierProposer
-from mcgyvr.orchestrator.decompose import Evidence, Proposal, Refusal
+from mcgyvr.orchestrator.decompose import DepRef, Evidence, Proposal, Refusal
+from mcgyvr.orchestrator.fields import FIELD_ORDER
 from mcgyvr.orchestrator.index import Index, build_index
 from mcgyvr.orchestrator.iterate import MAX_REFUSAL_RETRIES, iterate
 
@@ -198,6 +199,46 @@ def test_a_decline_on_task_type_is_reasked_with_the_constraint(repo: Index) -> N
 def test_max_attempts_default_is_the_retry_budget() -> None:
     """The shipped budget is three total attempts (two retries)."""
     assert MAX_REFUSAL_RETRIES == 3
+
+
+def test_retry_drops_the_rejected_dependency(repo: Index) -> None:
+    """A refused `deps` field re-asks with the single `DepRef` dropped, not the tuple.
+
+    `Proposal.deps` is a tuple while `deps` candidates are single `DepRef`s;
+    the loop must convert back to the plan representation when recording the
+    rejected value, or the next question would carry the whole tuple.
+    """
+    dep = DepRef("nowhere.py", "nope")
+    classifier = ScriptedClassifier(
+        Proposal(task_type="agent", task="x", target="listing.py", deps=(dep,)),
+        agent_proposal("listing.py"),
+    )
+    approve = approve_always()
+
+    result = iterate(repo, "x", classify=classifier, approve=approve)
+
+    assert result.refusals == ()
+    assert len(classifier.calls) == 2
+    second = classifier.calls[1]
+    assert dep in second["rejected"]["deps"]
+    assert second["constraints"]["deps"]
+
+
+def test_a_non_askable_field_is_terminal(repo: Index) -> None:
+    """A refusal naming a non-`FIELD_ORDER` field is returned without re-asking."""
+    classifier = ScriptedClassifier(
+        Proposal(task_type="code", task="x", target="listing.py"),
+        agent_proposal("listing.py"),  # never reached
+    )
+    result = iterate(repo, "x", classify=classifier, approve=lambda r, a: True)
+
+    assert result.contracts == ()
+    assert len(classifier.calls) == 1
+    (refusal,) = result.refusals
+    # A `code` proposal without the fields the schema requires refuses with a
+    # catch-all `field=""`, and a cap-less `code` with `max_output_tokens`;
+    # either way the field is not re-askable, so the loop stops immediately.
+    assert refusal.field not in FIELD_ORDER
 
 
 # --- the loop through the real ClassifierProposer ---------------------------

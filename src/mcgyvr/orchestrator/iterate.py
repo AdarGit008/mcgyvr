@@ -51,12 +51,14 @@ class Classifier(Protocol):
     ) -> Proposal | Refusal: ...
 
 
-def _chosen_value(proposal: Proposal, field: str) -> Any:
-    """The candidate value the proposal chose for `field`.
+def _plan_value(proposal: Proposal, field: str) -> Any:
+    """The plan-representation value `proposal` chose for `field`.
 
     `deps` candidates are a single `DepRef` or `()` while `Proposal.deps` is a
     tuple, so the chosen value is the tuple's single element (or `()` when the
-    proposal carries no dependency).
+    proposal carries no dependency). Every other field matches its plan value
+    directly. (`symbol` has no `Proposal` slot and is never looked up here; it
+    is an intermediate decision, not a re-askable value.)
     """
     value = getattr(proposal, field)
     if field == "deps":
@@ -75,6 +77,7 @@ def iterate(
     adapters: Sequence[LanguageAdapter] | None = None,
     located: Mapping[str, Sequence[str]] | None = None,
     max_attempts: int = MAX_REFUSAL_RETRIES,
+    max_input_tokens: int = _DEFAULT_MAX_INPUT_TOKENS,
 ) -> Decomposition:
     """Turn one prompt into one contract through a classifier, retrying refusals.
 
@@ -91,7 +94,7 @@ def iterate(
     """
     evidence = _evidence(index, prompt, config=config, budget=budget, adapters=adapters)
     owners = tuple(adapters) if adapters is not None else _default_adapters()
-    ceiling = _DEFAULT_MAX_INPUT_TOKENS
+    ceiling = max_input_tokens
     seen: dict[str, str] = {}
     refusals: list[Refusal] = []
     decided: dict[str, Any] = {}
@@ -148,13 +151,14 @@ def iterate(
         constraints[refusal.field] = refusal.what_to_change
         if isinstance(proposal, Proposal):
             rejected[refusal.field] = rejected.get(refusal.field, frozenset()) | {
-                _chosen_value(proposal, refusal.field)
+                _plan_value(proposal, refusal.field)
             }
             # `symbol` is an intermediate decision with no `Proposal` slot, so
-            # upstream fields are only those the proposal actually records.
+            # upstream fields are only those the proposal records, carried in
+            # plan representation (a single `DepRef`, not the proposal's tuple).
             upstream = FIELD_ORDER[: FIELD_ORDER.index(refusal.field)]
             decided = {
-                field: getattr(proposal, field)
+                field: _plan_value(proposal, field)
                 for field in upstream
                 if hasattr(proposal, field)
             }

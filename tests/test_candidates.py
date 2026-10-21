@@ -228,6 +228,21 @@ def test_collapse_of_enumerated_plan_yields_the_deterministic_proposal(
     assert proposal.depends_on == ()
 
 
+def test_collapse_wraps_a_chosen_dependency_in_a_tuple(repo: Index) -> None:
+    """A chosen `DepRef` folds to a one-element `deps` tuple, never a bare ref.
+
+    `deps` candidates are one dependency each, so collapsing a chosen `DepRef`
+    must yield a tuple for `Proposal.deps`, or `_emit`'s iteration over
+    ``proposal.deps`` would crash on a real dependency.
+    """
+    evidence = evidence_for(repo, "document listing", (AGENT,))
+    plan = enumerate_candidates(evidence)
+    dep = DepRef("pagination.py", "paginate")
+    plan = choose(plan, "deps", dep)
+
+    assert collapse(plan).deps == (dep,)
+
+
 def test_choose_promotes_operation_and_sources_into_collapse(repo: Index) -> None:
     """The fan-out fields fold through `choose` like every other field."""
     evidence = evidence_for(repo, "document listing", (AGENT,))

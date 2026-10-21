@@ -410,12 +410,21 @@ def collapse(plan: CandidatePlan) -> Proposal:
         s = plan.get(field)
         return default if s is None or s.rank0 is None else s.rank0.value
 
+    def deps(v: Any) -> tuple[DepRef, ...]:
+        """The `deps` plan value (a single `DepRef` or `()`) as a tuple.
+
+        A `deps` candidate is one dependency, so `collapse` folds a chosen
+        `DepRef` into a one-element tuple to satisfy `Proposal.deps`'s
+        `tuple[DepRef, ...]` type.
+        """
+        return () if v == () else (v,)
+
     return Proposal(
         task_type=value("task_type", ""),
         task=value("task", ""),
         target=value("target", ""),
         interface=value("interface", ""),
-        deps=value("deps", ()),
+        deps=deps(value("deps", ())),
         allow=value("allow", ()),
         forbid=value("forbid", ()),
         stop_conditions=value("stop_conditions", ()),
