@@ -191,6 +191,46 @@ def test_proposals_from_reply_carries_deps_and_optional_fields() -> None:
     assert not hasattr(proposal, "risk")
 
 
+def test_proposals_from_reply_reads_operation_sources_and_depends_on() -> None:
+    reply = json.dumps(
+        [
+            {
+                "task_type": "code",
+                "max_output_tokens": 1024,
+                "task": "page the items before returning",
+                "target": "listing.py",
+                "operation": "format",
+                "sources": ["pagination.py"],
+                "depends_on": [0],
+                "stop_conditions": ["the pager's contract is ambiguous"],
+            }
+        ]
+    )
+
+    (proposal,) = proposals_from_reply(reply)
+    assert proposal.operation == "format"
+    assert proposal.sources == ("pagination.py",)
+    assert proposal.depends_on == (0,)
+
+
+def test_proposals_from_reply_refuses_a_bad_depends_on_entry() -> None:
+    reply = json.dumps(
+        [
+            {
+                "task_type": "code",
+                "max_output_tokens": 1024,
+                "task": "page the items before returning",
+                "target": "listing.py",
+                "depends_on": ["zero"],
+                "stop_conditions": ["the pager's contract is ambiguous"],
+            }
+        ]
+    )
+
+    with pytest.raises(UnreadableProposalError):
+        proposals_from_reply(reply)
+
+
 def test_proposals_from_reply_refuses_prose() -> None:
     with pytest.raises(UnreadableProposalError):
         proposals_from_reply("sure, here is a proposal: listing.py")

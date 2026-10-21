@@ -205,6 +205,14 @@ def _reply_format() -> str:
         "there; otherwise omit the field rather than guessing a name. A "
         "dependency is an existing symbol: never name the symbol the REQUEST "
         "asks you to create — it is the target's output, not a dependency.\n"
+        '- "operation" (string, optional): a deterministic operation a tool '
+        "performs instead of a model, for task_type code.\n"
+        '- "sources" (array of strings, optional): other repo files to give '
+        "the worker whole, beside the target.\n"
+        '- "depends_on" (array of whole numbers, optional): 0-based indexes '
+        "into this same array of proposals — the contracts that must complete "
+        "before this one may run. Index 0 is the first proposal in the reply. "
+        "Omit when this proposal waits on nothing.\n"
         '- "allow" (array of strings, optional): paths the change may touch; '
         "omit to allow the target alone.\n"
         '- "forbid" (array of strings, optional): paths the change must not '
@@ -308,6 +316,9 @@ def _proposal_of(item: object) -> Proposal:
         demonstration=_strings(item, "demonstration"),
         no_semantic_change=_optional_bool(item, "no_semantic_change"),
         type_check=_optional_bool(item, "type_check"),
+        operation=_optional_str(item, "operation"),
+        sources=_strings(item, "sources"),
+        depends_on=_depends_on(item),
     )
 
 
@@ -361,6 +372,25 @@ def _strings(item: dict[str, object], key: str) -> tuple[str, ...]:
     if not isinstance(value, list) or not all(isinstance(v, str) for v in value):
         raise UnreadableProposalError(f"{key!r} must be an array of strings")
     return tuple(value)
+
+
+def _depends_on(item: dict[str, object]) -> tuple[int, ...]:
+    """Read `depends_on`: absent means (), else an array of whole-number indexes."""
+    value = item.get("depends_on")
+    if value is None:
+        return ()
+    if not isinstance(value, list):
+        raise UnreadableProposalError(
+            "depends_on must be an array of whole-number proposal indexes"
+        )
+    indexes: list[int] = []
+    for entry in value:
+        if isinstance(entry, bool) or not isinstance(entry, int) or entry < 0:
+            raise UnreadableProposalError(
+                f"depends_on: {entry!r} is not a whole-number proposal index"
+            )
+        indexes.append(entry)
+    return tuple(indexes)
 
 
 def _deps(item: dict[str, object]) -> tuple[DepRef, ...]:

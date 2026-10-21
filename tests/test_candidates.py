@@ -221,6 +221,23 @@ def test_collapse_of_enumerated_plan_yields_the_deterministic_proposal(
     assert proposal.interface == ""
     assert proposal.acceptance == ()
     assert proposal.demonstration == ()
+    assert proposal.operation == ""
+    assert proposal.sources == ()
+    assert proposal.depends_on == ()
+
+
+def test_choose_promotes_operation_and_sources_into_collapse(repo: Index) -> None:
+    """The fan-out fields fold through `choose` like every other field."""
+    evidence = evidence_for(repo, "document listing", (AGENT,))
+    plan = enumerate_candidates(evidence)
+    plan = choose(plan, "sources", ("a.py",))
+    plan = choose(plan, "operation", "rename_symbol")
+
+    proposal = collapse(plan)
+
+    assert proposal.operation == "rename_symbol"
+    assert proposal.sources == ("a.py",)
+    assert proposal.depends_on == ()
 
 
 def test_enumerate_candidates_ranks_targets_candidates_then_reads(
