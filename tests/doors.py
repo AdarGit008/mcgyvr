@@ -315,7 +315,7 @@ def split_ladder(compose_dir: Path, *, across: str) -> str:
     """The shared host's larger unit split over two cards, the second on ``across``.
 
     No worker ``bind`` is stated: which machines a unit spans is all the
-    manager reads, and an address is emit's to check.
+    switches read, and an address is emit's to check.
     """
     return ladder_text(compose_dir).replace(
         "    model: large-coder\n",

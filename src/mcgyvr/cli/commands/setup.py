@@ -127,7 +127,6 @@ def _setup_is_interactive(args: argparse.Namespace) -> bool:
         or args.jev is not None
         or args.mcorch is not None
         or args.window is not None
-        or args.session_sandbox is not None
         or args.accept_unsampled
     )
 
@@ -997,7 +996,6 @@ def _setup(args: argparse.Namespace) -> int:
             jev=args.jev,
             mcorch=args.mcorch,
             window=args.window,
-            session_sandbox=args.session_sandbox,
             compose_dir=path,
         )
     except InitError as exc:
@@ -1356,18 +1354,6 @@ def add_parser(sub: argparse._SubParsersAction[argparse.ArgumentParser]) -> None
         help=(
             "with --mcorch: the tokens the agent's unit serves in one request, "
             "read back off the running process"
-        ),
-    )
-    setup.add_argument(
-        "--session-sandbox",
-        default=None,
-        choices=("tempdir", "docker"),
-        metavar="MODE",
-        help=(
-            "the sandbox a chat or agent run gets when it runs no command, "
-            "written as `sandbox.sessions`: tempdir (the default: no container "
-            "is built or started, and Docker is not needed) or docker (opt in "
-            "to a task container, as code gets)"
         ),
     )
     setup.add_argument(

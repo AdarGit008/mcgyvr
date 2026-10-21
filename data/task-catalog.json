@@ -1,6 +1,6 @@
 {
   "schema_version": 2,
-  "_purpose": "The vocabulary of what mcgyvr can be asked to do. Each entry states what accepting it promises (`guarantee`), which family of the ladder it may start on (`starts_on`), which use case it belongs to (`use_case`), and what evidence a contract of that type must carry (`required_evidence`). `task_types` is the whole vocabulary: `code`, `chat` and `agent`. `deterministic_operations` are not task types: each names the task type a contract asks for it under (`task_type: code` with `operation: <name>`), and the product runs it with a tool, never a model. This file is the only definition: adding a task type is an edit here, not a code change.",
+  "_purpose": "The vocabulary of what mcgyvr can be asked to do. Each entry states what accepting it promises (`guarantee`), which family of the ladder it may start on (`starts_on`), which use case it belongs to (`use_case`), and what evidence a contract of that type must carry (`required_evidence`). `task_types` is the whole vocabulary: `code`. `deterministic_operations` are not task types: each names the task type a contract asks for it under (`task_type: code` with `operation: <name>`), and the product runs it with a tool, never a model. This file is the only definition: adding a task type is an edit here, not a code change.",
 
   "families": [
     {
@@ -30,14 +30,14 @@
     },
     {
       "name": "agent",
-      "doc": "Personal-assistant tasks over the repository files a contract names as its `sources`, answered in plain prose and ungated like chat; the backend is llama.cpp / vLLM with tool-calling, a serving-layer capability rather than a gate rung."
+      "doc": "Personal-assistant tasks over a bound fleet, ungated like chat; the backend is llama.cpp / vLLM with tool-calling, a serving-layer capability rather than a gate rung."
     }
   ],
 
   "evidence_kinds": [
     {
       "name": "gate",
-      "doc": "The deterministic acceptance gate. The floor under every `code` contract; chat and agent are ungated.",
+      "doc": "The deterministic acceptance gate. The floor under every `code` contract.",
       "needs_commands": false
     },
     {
@@ -130,26 +130,6 @@
       "evidence_derived": true,
       "warrant": "One type for every coding task. Kinds of coding work that differed only in which evidence the contract had to carry are one type whose evidence is derived from the contract's fields, so the model states relevance and the orthogonal flags rather than choosing among near-duplicates. Work a tool does outright is the same type with an `operation`, because what differs is who does the work, not what kind of work it is.",
       "doc": "Make a scoped edit to one named target. The gate judges the change, and the contract's own fields decide which checks back the judgement; with `operation:` a tool makes the change instead of a model."
-    },
-    {
-      "name": "chat",
-      "use_case": "chat",
-      "session": true,
-      "starts_on": "local",
-      "guarantee": "The reply is the answer. Nothing judges it — chat is a raw prompt-to-response endpoint, and whether the answer is right is the harness's question, not the gate's.",
-      "required_evidence": [],
-      "warrant": "There is no bar to clear — chat is a raw endpoint, so nothing is spent judging and the reply is served straight back.",
-      "doc": "Answer a prompt directly, ungated. The raw endpoint of the chat use case."
-    },
-    {
-      "name": "agent",
-      "use_case": "agent",
-      "session": true,
-      "starts_on": "local",
-      "guarantee": "The reply is the answer, worked from the contract's `sources`, which the worker is given numbered and whole. Nothing judges it — like chat, agent is ungated, and whether the answer is right is the harness's question, not the gate's.",
-      "required_evidence": [],
-      "warrant": "There is no bar to clear (owner, e2e run 2 R11: agent and chat have no gates) — the reply is served straight back, and what makes it worth having is the sources the worker is given, not a check after it answers.",
-      "doc": "Answer a prompt in plain prose from the repository files the contract names as its sources, ungated."
     }
   ]
 }

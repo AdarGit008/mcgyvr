@@ -45,8 +45,7 @@ live, probes the live one against its lock, and lists pulled combinations.
 - **The `/mcgyvr` skill.** An agent writes a contract, checks it with
   `mcgyvr contract CONTRACT.yaml`, runs it with
   `mcgyvr run CONTRACT.yaml --repo DIR` on the live fleet, and replans on what
-  the run reports. `mcgyvr sessions` reads the chat and agent sessions the
-  journal keeps.
+  the run reports.
 - **An endpoint.** With `orchestrator.type: mcorch` in the setup (offered for
   the `coding` use case with a Jev unit), `mcgyvr mcorch serve` serves the
   Anthropic Messages API, so a harness pointed at it with `ANTHROPIC_BASE_URL`
@@ -72,7 +71,7 @@ cheapest-first until a rung passes the gate or a ceiling stops it.
   keys are refused, and credentials are recorded as environment-variable
   names, never values.
 - **Task catalog** (`data/task-catalog.json`) — the vocabulary of what mcgyvr
-  can be asked to do: task types (`code`, `chat`, `agent`), the families work
+  can be asked to do: the task type (`code`), the families work
   may start on (`deterministic`, `local`, `api`), and the evidence each type
   must carry.
 - **Fleet** (`src/mcgyvr/fleet/`) — reads `fleet.yaml` (units, rigs, fleets)

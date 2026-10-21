@@ -6,8 +6,8 @@ a unit whose role is `sleeps-until-needed`, asleep, with the room the setup
 sized for it, the default request timeout when it names none, and the unit id
 its lock pins it by. :func:`run` then reads every rig through the door, probes
 each awake unit with its `width x window` load, swaps each sleeper in through
-the ladder manager's switches, probes it the same way and swaps it back
-(:func:`swap`), sizes each unit's output ceiling from its measured warm decode
+the card switches, probes it the same way and swaps it back (:func:`swap`),
+sizes each unit's output ceiling from its measured warm decode
 (:func:`_reply_ceilings`), runs the policy's use case task and any opted-in
 Jev's choice (:func:`task`), and reads every rig once more. The
 :class:`~mcgyvr.fleet.sample.Sample` it answers with carries the read ids, the
@@ -16,9 +16,9 @@ swaps' moves, the outcomes and the door reads that failed, which
 
 The use case decides the task. `coding` runs the bundled bug fix through
 `mcgyvr run` and passes when the deterministic gate accepts it on any rung.
-`agent` runs the bundled grounded contract and passes when its reply cites its
-source and states every fact. `chat` asks every awake
-unit for one word and reads back the window and slots it serves. A sample
+`agent` puts the bundled grounded question straight to one awake unit and
+passes when its reply cites its source and states every fact. `chat` asks every
+awake unit for one word and reads back the window and slots it serves. A sample
 reaches a machine only through the door subprocess or a dispatched request.
 """
 
@@ -358,6 +358,37 @@ def complete(setup: Path, unit: str) -> str:
     return str(answer.text)
 
 
+def ground(setup: Path, unit: str) -> str:
+    """Put the bundled agent question to one unit of the staged setup, raw.
+
+    The sample's files are rendered as numbered sources, the way a worker is
+    shown them, under its task, and the request is dispatched at the unit
+    through the setup's source map with no output cap: the agent use case is
+    the served model used directly. The reply text is returned as it was sent.
+    """
+    from mcgyvr.config import load
+    from mcgyvr.local_pool import source_map
+    from mcgyvr.runner import Request, dispatch
+    from mcgyvr.worker.prompt import _render_sources
+
+    sample = _bundled(AGENT)
+    sources = _render_sources(
+        [
+            {"path": path, "content": content}
+            for path, content in (sample.get("files") or {}).items()
+        ]
+    )
+    answer = dispatch(
+        source_map(load(setup)),
+        unit,
+        Request(
+            prompt=f"{sample['task']}\nSOURCES:\n{sources}\n",
+            max_output_tokens=None,
+        ),
+    )
+    return str(answer.text)
+
+
 def served(unit: Mapping[str, Any]) -> dict[str, int]:
     """The window and slots a unit reports serving, as its own engine reports them.
 
@@ -436,11 +467,10 @@ def task(
     """Run the policy's use case task and the Jev choice, one outcome per check.
 
     `coding` runs the bundled bug fix through the contract runner and passes when
-    the gate accepts it, naming the rung it was accepted on. `agent` runs the
-    bundled grounded contract; a reply the runner did not accept fails the
-    grounded check with the runner's reason, and an accepted one is checked for
-    its citations and facts, both coming from the bundled sample. `chat` asks each awake
-    unit but the Jev unit for one word, passing with the window and slots the
+    the gate accepts it, naming the rung it was accepted on. `agent` asks the
+    first awake unit but the Jev unit the bundled grounded question, and checks
+    its reply for the citations and facts the bundled sample names. `chat` asks
+    each awake unit but the Jev unit for one word, passing with the window and slots the
     unit reports and failing when it answers nothing. A policy that opts a unit in
     to Jev gets one typed choice from it, checked last. Every check is guarded, so
     a raise is one failed outcome rather than a lost sample.
@@ -469,28 +499,24 @@ def task(
         outcomes.append(_guarded(TASK_GATE, None, gate))
     elif use_case == AGENT:
         sample = _bundled(use_case)
-        done: dict[str, Any] = {}
-        try:
-            done = _contract_run(setup, use_case, where / use_case, run_contract)
-        except Exception as exc:
-            done = {"outcome": "error", "detail": f"{type(exc).__name__}: {exc}"}
-        answer = str(done.get("answer") or "")
-        rung = done.get("rung")
-        if done.get("outcome") != "accepted":
-            why = f"{done.get('outcome')}: {done.get('detail', '')}"
-            outcomes.append(Outcome(check=TASK_GROUNDED, unit=rung, why=why))
-        else:
+        asked = next((name for name in awake if name != jev), None)
+
+        def answer() -> Outcome:
+            if asked is None:
+                return Outcome(check=TASK_GROUNDED, unit=None, why="no awake unit")
             not_grounded = grounded(
-                answer, str(sample.get("citation") or "[1]"), sample.get("facts") or ()
+                ground(setup, asked),
+                str(sample.get("citation") or "[1]"),
+                sample.get("facts") or (),
             )
-            outcomes.append(
-                Outcome(
-                    check=TASK_GROUNDED,
-                    unit=rung,
-                    passed=not_grounded is None,
-                    why=not_grounded or "",
-                )
+            return Outcome(
+                check=TASK_GROUNDED,
+                unit=asked,
+                passed=not_grounded is None,
+                why=not_grounded or "",
             )
+
+        outcomes.append(_guarded(TASK_GROUNDED, asked, answer))
     elif use_case == CHAT:
         for name in awake:
             if name == jev:
@@ -539,7 +565,7 @@ class _Call:
 
 
 class _Timed:
-    """The ladder manager's switches, each sleep and wake timed on `clock`.
+    """The card switches, each sleep and wake timed on `clock`.
 
     The calls are kept in the order they ran until :meth:`move` turns them into
     one way of a swap and starts the next way afresh.
@@ -606,16 +632,15 @@ def swap(
     *,
     clock: Callable[[], float] = time.monotonic,
 ) -> list[Move]:
-    """Swap one sleeper in through the ladder manager's switches, probe it, and
-    swap it back; one :class:`~mcgyvr.fleet.sample.Move` per way it went.
+    """Swap one sleeper in through the card switches, probe it, and swap it
+    back; one :class:`~mcgyvr.fleet.sample.Move` per way it went.
 
-    In is the manager's own wake: the units the switches name as the sleeper's
+    In is a wake making room: the units the switches name as the sleeper's
     `room_for` are put down and the sleeper is woken into their memory
     (:func:`mcgyvr.ladder_manager.wake_making_room`), the room woken back when
     either fails. Only a sleeper that went in is probed, and then put down with
     its room woken back (:func:`mcgyvr.ladder_manager.give_back`); a sleeper that
-    would not go down keeps its room, as the manager leaves it too. Each switch
-    call is timed on `clock`.
+    would not go down keeps its room. Each switch call is timed on `clock`.
     """
     from mcgyvr.ladder_manager import give_back, wake_making_room
 
@@ -634,13 +659,13 @@ def swap(
 
 
 def switches_for(setup: Path, rigs: Sequence[str]) -> Switches:
-    """The ladder manager's switches over the staged setup's cards.
+    """The card switches over the staged setup's cards.
 
-    Built as `mcgyvr manage` builds them, from the setup's config and its
-    capacity, with each rig's card memory read from the rig file its read
-    saved. A config that cannot be loaded, or that does not let mcgyvr sleep
-    and wake a unit itself (`serving.enable_sleep_wake` and
-    `serving.compose_dir`), is a :class:`SamplerError` saying so.
+    Built from the setup's config and its capacity, with each rig's card
+    memory read from the rig file its read saved. A config that cannot be
+    loaded, or that does not let mcgyvr sleep and wake a unit itself
+    (`serving.enable_sleep_wake` and `serving.compose_dir`), is a
+    :class:`SamplerError` saying so.
     """
     from mcgyvr import wake
     from mcgyvr.capacity import Capacity, CapacityError
@@ -652,13 +677,13 @@ def switches_for(setup: Path, rigs: Sequence[str]) -> Switches:
         capacity = Capacity.of(config)
     except (ConfigError, CapacityError, OSError) as exc:
         raise SamplerError(
-            f"the ladder manager's switches cannot be built for {setup}: {exc}"
+            f"the card switches cannot be built for {setup}: {exc}"
         ) from exc
     if wake.for_config(config) is None:
         raise SamplerError(
             f"{setup} does not let mcgyvr sleep and wake a unit itself "
             "(serving.enable_sleep_wake with serving.compose_dir), so the "
-            "ladder manager cannot wake it"
+            "card switches cannot wake it"
         )
     card_mib: dict[str, dict[int, int]] = {}
     for rig in rigs:
@@ -684,7 +709,7 @@ def run(
     Each rig in the `own` layout is read, and each of its awake slots is read
     again with that unit probed and its `width x window` load placed, so the
     journal holds both the rig and what sits in it. Each sleeper is then swapped
-    in through `switches` (by default the ladder manager's own over the setup's
+    in through `switches` (by default the card switches over the setup's
     cards, :func:`switches_for`), read the same way while it is in, and swapped
     back (:func:`swap`); switches that cannot be built are a move in that did
     not pass. Those reads size the units' output ceilings, the task and the Jev

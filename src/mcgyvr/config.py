@@ -118,22 +118,6 @@ SANDBOX_FIELDS: tuple[Field, ...] = (
         choices=NETWORKS,
     ),
     Field(
-        "sessions",
-        "enum",
-        "The sandbox a `chat` or `agent` run gets when its contract declares "
-        "no `acceptance` or `demonstration` command. Such a session runs no "
-        "command: its reply is only staged in a throwaway checkout of HEAD, "
-        "which nothing checks. `tempdir` stages it on this host, so a session "
-        "never builds, pulls or starts a container and needs no Docker. "
-        "`docker` gives it a task container as `mode: docker` gives `code`, "
-        "with `allow_fallback` and `network` applying. A session that "
-        "declares a command is sandboxed by `mode`, like any task, and "
-        "`--sandbox` on `mcgyvr run` overrides both for one run. "
-        "`mcgyvr setup --session-sandbox` writes it.",
-        default="tempdir",
-        choices=("tempdir", "docker"),
-    ),
-    Field(
         "image",
         "str",
         "Base image for task containers. Unset means detect the repository's "
@@ -199,6 +183,16 @@ _RETIRED_KEYS: dict[str, str] = {
         "have checked out, and `delivery.branch: NAME` to commit onto another "
         "branch instead."
     ),
+    "manager": (
+        "is retired: the ladder manager and `mcgyvr manage` are gone, so nothing "
+        "reads it. Remove the block; `mcgyvr serve sleep|wake` still sleeps and "
+        "wakes a card by hand."
+    ),
+    "sandbox.sessions": (
+        "is retired: `chat` and `agent` are no longer contracts `mcgyvr run` "
+        "takes, so no run reads it. Remove it; `sandbox.mode` sandboxes every "
+        "run."
+    ),
 }
 
 #: The use cases an install may serve, in the order setup offers them.
@@ -216,10 +210,8 @@ JOURNAL_FIELDS: tuple[Field, ...] = (
         "str",
         "Where every run journals what it asked, what came back and how it "
         "landed: one `<orchestrator>.jsonl` per writer, the prompts and replies "
-        "content-addressed under `blobs/`, each run's result file under "
-        "`results/`, and each `chat` or `agent` session (its question and "
-        "answer) under `sessions/`. Deterministic runs are here too, with a "
-        "row naming the "
+        "content-addressed under `blobs/`, and each run's result file under "
+        "`results/`. Deterministic runs are here too, with a row naming the "
         "program instead of a model. This is mcgyvr's own record, it never "
         "lands in the repository a run works on, and nothing on the command "
         "line moves it: it is the one place every run is, which is what makes "
@@ -397,11 +389,8 @@ SERVING_FIELDS: tuple[Field, ...] = (
         "made under is what a run is reproducible from, and a flag would let "
         "two runs share one config where only one of them started and stopped "
         "containers on a shared rig, putting the rig side effect outside the "
-        "only record that explains the run. It also lets `mcgyvr manage`, the "
-        "ladder manager, put an idle unit to sleep and wake it again on its "
-        "own, but only while that command is running: with it on and no "
-        "manager running, nothing sleeps a card except a person. A sleep, "
-        "the manager's or a person's `mcgyvr serve sleep`, rests a vLLM card "
+        "only record that explains the run. Nothing sleeps a card on its own: "
+        "a sleep is a person's `mcgyvr serve sleep`, and it rests a vLLM card "
         "at level 2, which keeps its process and drops its weights and KV "
         "cache, and stops the containers of any other card, of a vLLM card "
         "with no sleep route, or of one holding a unit split across machines, "
@@ -617,9 +606,9 @@ UNIT_FIELDS: tuple[Field, ...] = (
         "is a swap partner that starts asleep (`sleeps-until-needed`). A "
         "sleeper shares its card's one launch spec with the always-on units "
         "under a compose profile, so a whole `serve up` leaves it down and the "
-        "awake set still fits the card. The ladder manager starts it when the "
-        "dearest awake rung is full, stopping the units whose room it needs "
-        "first, and starts those again when it sleeps. llama.cpp units only: "
+        "awake set still fits the card. A fleet sample swaps it in, stopping "
+        "the units whose room it needs first, and starts those again when it "
+        "sleeps. llama.cpp units only: "
         "a vLLM unit swaps at level 2 with its process kept.",
         default=ROLE_ALWAYS_ON,
         choices=ROLES,
@@ -876,87 +865,13 @@ VERIFIER_UNIT_FIELDS: tuple[Field, ...] = (
     *(field for field in ROLE_UNIT_FIELDS if field.name != "unit"),
 )
 
-MANAGER_FIELDS: tuple[Field, ...] = (
-    Field(
-        "interval_s",
-        "int",
-        "How often the ladder manager asks its small model for a decision, in "
-        "seconds. The default of 30 is an estimate, not a measurement: nothing "
-        "here has timed how fast a queue builds or drains on your units. Lower "
-        "it to react sooner, at the price of more questions asked of a model "
-        "that is itself running on the ladder's hardware; raise it to ask "
-        "less. The manager runs only under `mcgyvr manage`, and only when "
-        "`serving.enable_sleep_wake` is on and the ladder has units that can "
-        "sleep and wake. Everything it sees that falls outside what this "
-        "block lets it change, it prints as a recommendation and does not "
-        "do.",
-        default=30,
-        min_value=1,
-    ),
-    Field(
-        "confirm",
-        "int",
-        "How many consecutive identical answers the manager must get before it "
-        "acts on one, so a single odd answer from a small model moves nothing. "
-        "The default of 3 is an estimate, not a measurement: it lets one stray "
-        "answer fail to act alone, and it has not been tuned "
-        "against any real queue. With the default interval it means about "
-        "a minute and a half of the same answer before anything happens. Set "
-        "1 to act on every answer.",
-        default=3,
-        min_value=1,
-    ),
-    Field(
-        "dwell_s",
-        "int",
-        "The least time between two switches, in seconds, so the manager "
-        "cannot sleep a unit and wake it again in a loop. A unit that changed "
-        "state without the manager -- a task woke it, or a person ran `mcgyvr "
-        "serve` -- counts as a switch too, and a unit is put to sleep only "
-        "once it has been idle for this long. A vLLM unit sleeps at level 2 "
-        "and keeps its process; any other unit's containers are stopped. "
-        "Either way a wake loads the model from disk again, so every switch "
-        "costs a full load. "
-        "The default of 600 is an estimate, not a measurement. Set it above the "
-        "time your sleeping units take to wake -- `mcgyvr serve wake` prints "
-        "that time -- or the manager can be asking for a unit back before the "
-        "last wake has finished. 0 allows a switch on every decision.",
-        default=600,
-        min_value=0,
-    ),
-    Field(
-        "fanouts",
-        "str_list",
-        "The fan-out modes the manager may choose between, each one of "
-        "`none`, `idle` or `full` as `fanout` spells them, each listed once. "
-        "The manager changes `fanout` only among these, and fewer than two "
-        "means there is nothing to choose between, so it is never asked. "
-        "Empty by default: a manager that was not told which modes it may use "
-        "leaves `fanout` as the file says.",
-        default=(),
-        choices=FANOUT_CHOICES,
-    ),
-    Field(
-        "leads",
-        "str_list",
-        "The local units the manager may move to the front of the local "
-        "family, each listed once. Each must be on the `ladder` and must need "
-        "no credential: a unit that is not on the ladder is not one work "
-        "climbs, and a unit with an `api_key_env` is hosted, not local. Empty "
-        "by default, which means the manager is never asked which unit "
-        "should lead and the ladder's own order stands.",
-        default=(),
-    ),
-)
-
 SCHEMA: tuple[Field, ...] = (
     Field(
         "use_case",
         "enum",
         "Which of the three use cases this install serves: `coding` (scoped "
         "edits judged by the deterministic gate), `chat` (a raw un-gated "
-        "endpoint) or `agent` (an un-gated session over the files a contract "
-        "names as its sources).",
+        "endpoint) or `agent` (a raw un-gated endpoint with tool-calling).",
         choices=USE_CASES,
         default="coding",
     ),
@@ -1109,7 +1024,7 @@ SCHEMA: tuple[Field, ...] = (
         "Which one unit answers every typed decision: a question answered "
         "with a single-token label rather than prose. Those are the gate's "
         "Jev rung, the reviewer's verdict, the fleet's choice of whether to "
-        "wake a smarter rung, the ladder manager's choices and the typed "
+        "wake a smarter rung and the typed "
         "proposer. Left unbound, each of those keeps asking the unit it asks "
         "today: the verifier, the reviewing rung, the fast rung or the "
         "orchestrator.",
@@ -1147,20 +1062,6 @@ SCHEMA: tuple[Field, ...] = (
         "HuggingFace cache is a fact about that unit and lives on it, not "
         "here: only the policy of starting and stopping a card is a setting.",
         block=SERVING_FIELDS,
-    ),
-    Field(
-        "manager",
-        "block",
-        "What the ladder manager may do on its own. It runs only under "
-        "`mcgyvr manage`, and only when `serving.enable_sleep_wake` is on and "
-        "the ladder has units that can sleep and wake. Within this block it "
-        "sleeps and wakes those units, changes `fanout` and changes which "
-        "local unit leads; everything else it notices it prints as a "
-        "recommendation and leaves alone. A vLLM unit sleeps at level 2, "
-        "keeping its process and dropping its weights and KV cache; any other "
-        "unit's containers are stopped. A wake loads the model from disk "
-        "again.",
-        block=MANAGER_FIELDS,
     ),
     Field(
         "journal",
@@ -2089,7 +1990,6 @@ def _cross_validate_fleet(data: Mapping[str, Any]) -> None:
             "or point the breadth at a unit whose requests state a temperature."
         )
 
-    _cross_validate_manager(data, units)
     _cross_validate_relief(data, units)
     _cross_validate_shares(data, units)
 
@@ -2199,52 +2099,6 @@ def _cross_validate_relief(data: Mapping[str, Any], units: Mapping[str, Any]) ->
                 f"is one machine; sync again, or rename the unit."
             )
         _refuse_userinfo(name, str(block["address"]), "relief")
-
-
-def _cross_validate_manager(data: Mapping[str, Any], units: Mapping[str, Any]) -> None:
-    """Check `manager.fanouts` and `manager.leads`.
-
-    A mode must be one of `FANOUT_CHOICES` and listed once; a lead must be on
-    the ladder and must need no credential, because a unit with `api_key_env`
-    is hosted rather than local and cannot lead the local family. Each lead
-    is listed once too.
-    """
-    manager = data["manager"]
-
-    seen_modes: set[str] = set()
-    for index, mode in enumerate(manager["fanouts"]):
-        if mode not in FANOUT_CHOICES:
-            raise ConfigSchemaError(
-                f"manager.fanouts.{index}: {mode!r} is not a fan-out mode. "
-                f"Valid: {', '.join(FANOUT_CHOICES)}"
-            )
-        if mode in seen_modes:
-            raise ConfigSchemaError(
-                f"manager.fanouts.{index}: {mode!r} is listed more than once. "
-                f"A mode is one choice for the manager."
-            )
-        seen_modes.add(mode)
-
-    on_ladder = tuple(data["ladder"])
-    seen_leads: set[str] = set()
-    for index, name in enumerate(manager["leads"]):
-        if name in seen_leads:
-            raise ConfigSchemaError(
-                f"manager.leads.{index}: {name!r} is listed more than once. "
-                f"A unit is one choice for the manager."
-            )
-        seen_leads.add(name)
-        if name not in on_ladder:
-            raise ConfigSchemaError(
-                f"manager.leads.{index}: {name!r} is not on the ladder. "
-                f"On the ladder: {', '.join(on_ladder)}"
-            )
-        if units[name]["api_key_env"] is not None:
-            raise ConfigSchemaError(
-                f"manager.leads.{index}: {name!r} needs a credential, so it is "
-                f"not a local unit and cannot lead the local family. Name a "
-                f"unit without `api_key_env`."
-            )
 
 
 def _absent_remedy(path: Path | None) -> str:

@@ -7,10 +7,8 @@ and the secret scan first, then the structured-data check, the language
 adapters, the type check, the semantic rung and the contract's acceptance
 commands, each skipped once an earlier one has recorded a finding, with the
 contract's prose passed to the rungs that read it.
-``gate_prose_workspace`` is the narrow form a prose reply gets, where
-no rung applies.
 
-The rest of the module is what the attempt loop composes around those two: a
+The rest of the module is what the attempt loop composes around it: a
 reply written into a fresh sandbox (``gate_in_sandbox``), a format-only
 rejection tidied and gated again (``_cleaned``), a rejected tree repaired by
 the deterministic tools and gated again (``_repair_and_regate``), the
@@ -286,17 +284,6 @@ def acceptance_for(
         timeout=_drive.task_ceiling(config),
         demonstrations=contract.demonstration_commands,
     )
-
-
-def gate_prose_workspace(contract: Contract, sandbox: Sandbox) -> GateResult:
-    """Gate a prose reply: no rung applies, so the result is empty.
-
-    A prose reply changes no source, so no rung of the gate reads it, and an
-    empty result is an acceptance: a ``GateResult`` is accepted when it holds no
-    findings and no inconclusive rung. That is how a chat or agent reply runs
-    no check at all.
-    """
-    return GateResult()
 
 
 def gate_workspace(

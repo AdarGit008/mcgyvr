@@ -23,8 +23,8 @@ import pytest
 from mcgyvr.config import parse as parse_config
 from mcgyvr.contract import loads as load_contract
 from mcgyvr.local_pool import source_map
-from tests.rungs import PROSE_CONTRACT, caps_sent
 from tests.rungs import ROOM_CONTRACT as CONTRACT
+from tests.rungs import UNCAPPED_CONTRACT, caps_sent
 
 #: Two rungs on one rig that serves a 4096-token window. The dear rung declares
 #: the room its replies need; the cheap one declares nothing, which is how the
@@ -120,29 +120,29 @@ def test_a_rung_room_that_fits_is_not_refused() -> None:
     )
 
 
-# --- a raw-text reply is uncapped ----------------------------------------
+# --- an unstated cap is uncapped -----------------------------------------
 
 
-def test_reply_cap_is_none_for_an_uncapped_prose_reply() -> None:
-    """A prose reply has no cap, so the rung's own ``output_tokens`` is not
-    consulted — the reply is uncapped wherever it runs."""
+def test_reply_cap_is_none_for_an_uncapped_reply() -> None:
+    """A reply with no cap does not consult the rung's own ``output_tokens``:
+    it is uncapped wherever it runs."""
     from mcgyvr.gate.preflight import reply_cap
 
     pool = source_map(parse_config(cfg(LADDER)))
-    contract = load_contract(PROSE_CONTRACT)
+    contract = load_contract(UNCAPPED_CONTRACT)
     assert contract.limits.max_output_tokens is None
 
     assert reply_cap(contract, pool.bind("local_qwen3.6-35b-a3b")) is None
 
 
-def test_a_small_window_does_not_refuse_an_uncapped_prose_reply() -> None:
-    """A prose reply reserves nothing, so a window too small for any cap is
-    still not a refusal: there is no cap for the window to hold."""
+def test_a_small_window_does_not_refuse_an_uncapped_reply() -> None:
+    """An uncapped reply reserves nothing, so a window too small for any cap
+    is still not a refusal: there is no cap for the window to hold."""
     from mcgyvr.gate.preflight import check_contract_against_rung
 
     small = cfg(LADDER).replace("window: 4096", "window: 64")
     pool = source_map(parse_config(small))
-    contract = load_contract(PROSE_CONTRACT)
+    contract = load_contract(UNCAPPED_CONTRACT)
 
     assert (
         check_contract_against_rung(

@@ -519,24 +519,14 @@ def render_policy(
     return "\n".join(lines).rstrip("\n") + "\n"
 
 
-#: The extra comment `render_policy` puts on `sandbox.sessions` when no daemon answered.
-NO_DAEMON_SESSIONS_NOTE = (
-    "No Docker daemon answered when init ran, so a chat or agent run is "
-    "refused until one does, unless `allow_fallback` is on. `sessions: "
-    "tempdir` stages a session on this host and needs no Docker."
-)
-
-
 def _policy_notes(detection: Detection, data: Mapping[str, Any]) -> dict[str, str]:
     """Extra comment text per dotted field, for what the schema cannot say on its
-    own: when no Docker daemon answered, `sandbox.mode` and `sandbox.sessions`
-    get the note saying what that leaves you with."""
+    own: when no Docker daemon answered, `sandbox.mode` gets the note saying
+    what that leaves you with."""
     sandbox = data.get("sandbox") or {}
     notes: dict[str, str] = {}
     if not detection.docker and sandbox.get("mode") == "tempdir":
         notes["sandbox.mode"] = NO_DAEMON_MODE_NOTE
-    if not detection.docker and sandbox.get("sessions") == "docker":
-        notes["sandbox.sessions"] = NO_DAEMON_SESSIONS_NOTE
     return notes
 
 
@@ -656,10 +646,10 @@ def build(
             "mode": "docker" if detection.docker else "tempdir",
             # `mode` follows the machine — `docker` when the daemon answered,
             # `tempdir` when it did not, and `_policy_notes` then says what that
-            # mode means. `sessions`, `network` and `allow_fallback` keep their
+            # mode means. `network` and `allow_fallback` keep their
             # defaults, no image is named and no setup command runs, so the image
             # is whatever the detected stack needs.
-            **_defaults(SANDBOX_FIELDS, "allow_fallback", "network", "sessions"),
+            **_defaults(SANDBOX_FIELDS, "allow_fallback", "network"),
             "image": None,
             "setup": [],
         },
@@ -977,7 +967,6 @@ def initialize(
     jev: str | None = None,
     mcorch: str | None = None,
     window: int | None = None,
-    session_sandbox: str | None = None,
     compose_dir: Path | None = None,
 ) -> InitResult:
     """Write fleet.yaml and policy.yaml into `path`, or report what would change.
@@ -1063,8 +1052,6 @@ def initialize(
 
     # Applied after composition, so `--jev` and `--mcorch` win over the composed data.
     data = _opt_ins(data, jev=jev, mcorch=mcorch, window=window)
-    if session_sandbox is not None:
-        data["sandbox"] = {**dict(data["sandbox"]), "sessions": session_sandbox}
     if compose_dir is not None:
         data["serving"] = {
             **dict(data.get("serving") or {}),

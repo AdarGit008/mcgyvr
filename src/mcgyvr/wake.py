@@ -18,8 +18,8 @@ no record.
 
 Every action is one door run per card — `python -m mcgyvr.serving.run serve
 <direction> ...` — and the exit code it answers with is the answer. `Waker`
-turns a refused connection into one wake per card; `CardSwitches` is what the
-ladder manager sleeps, wakes and makes room with.
+turns a refused connection into one wake per card; `CardSwitches` is what a
+fleet sample sleeps, wakes and makes room with.
 """
 
 from __future__ import annotations
@@ -34,15 +34,12 @@ import time
 from collections.abc import Callable, Mapping, Sequence
 from dataclasses import dataclass
 from pathlib import Path
-from typing import TYPE_CHECKING, TypeVar
+from typing import TypeVar
 
 from mcgyvr.capacity import Capacity, SlotUnavailableError
 from mcgyvr.config import ROLE_SLEEPER, Config
 from mcgyvr.runner import RefusedConnectionError
 from mcgyvr.serving import DEFAULT_ENGINE, Card, cards, host_of, port_of
-
-if TYPE_CHECKING:  # pragma: no cover - typing only
-    from mcgyvr.scan import Scan
 
 # The door: one process per card, run as `python -m mcgyvr.serving.run serve
 # <up|down|sleep|wake> --host H --compose <spec> [--suffix S] [--unit C ...]`.
@@ -397,19 +394,6 @@ def _per_unit(config: Config, card: Card) -> bool:
     )
 
 
-def card_rooms(scans: Mapping[str, Scan]) -> dict[str, dict[int, int]]:
-    """Each host's card memory by card index, in MiB, from recorded scans.
-
-    A host whose scan holds no GPUs is left out, so a host missing from the
-    mapping means no scan of it rather than a host with no cards.
-    """
-    return {
-        host: {gpu.index: gpu.vram.total_mib for gpu in scan.gpus}
-        for host, scan in scans.items()
-        if scan.gpus
-    }
-
-
 def compose_for(card: Card) -> Path | None:
     """The one launch spec this card is served from, or None.
 
@@ -448,8 +432,7 @@ def holds_resident(config: Config, card: Card) -> str | None:
 def wakeable_rungs(config: Config) -> tuple[str, ...]:
     """The rungs that can be slept and woken: one launch spec, no resident unit.
 
-    This is the ladder's set of switches. `left_alone` narrows it further, to the
-    rungs whose units are not split over several machines.
+    This is the ladder's set of switches.
     """
     return tuple(
         name
@@ -487,24 +470,6 @@ def _split_elsewhere(config: Config, card: Card) -> str | None:
         if elsewhere:
             return f"{source} is split onto {', '.join(elsewhere)}"
     return None
-
-
-def left_alone(config: Config) -> dict[str, str]:
-    """The wakeable rungs whose units are split across machines, with the why.
-
-    A sleep or a wake acts on one host, and vLLM's level 2 is not measured for a
-    unit spread over several, so these rungs are left out of what the manager may
-    sleep and wake, and the sentence says which rigs are involved.
-    """
-    wakeable = set(wakeable_rungs(config))
-    found: dict[str, str] = {}
-    for name, card in cards(config).items():
-        if name not in wakeable:
-            continue
-        split = _split_elsewhere(config, card)
-        if split is not None:
-            found[name] = f"{split}, and a sleep or wake acts on {card.host} alone"
-    return found
 
 
 def _why_not_one(card: Card) -> str:
@@ -838,9 +803,9 @@ def drain_timeout(config: Config, card: Card) -> float | None:
 
 
 class CardSwitches:
-    """The sleep and wake switches of a card, as the ladder manager asks them.
+    """The sleep and wake switches of a card, as a fleet sample asks them.
 
-    Every answer is a yes or a sentence rather than an exception, so the manager
+    Every answer is a yes or a sentence rather than an exception, so the caller
     can leave a card alone and say why: `wake` and `sleep` answer whether the door
     worked, `room_for` says which units must be slept to make room for a wake,
     `why_no_room` says what stops room being reckoned, and `card_of` says which

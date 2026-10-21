@@ -12,7 +12,6 @@ acceptance rests on in words.
 from __future__ import annotations
 
 from collections.abc import Callable, Mapping
-from contextlib import AbstractContextManager, nullcontext
 from dataclasses import dataclass, field, replace
 from enum import StrEnum
 from typing import TYPE_CHECKING, assert_never
@@ -801,7 +800,6 @@ def escalate(
     capacity: Capacity | None = None,
     floor: Family | None = None,
     wake_hook: Callable[[Contract], str | None] | None = None,
-    presence: Callable[[str], AbstractContextManager[object]] | None = None,
 ) -> Delivered | Halted:
     """Climb the ascent until a change is accepted or a ceiling stops it.
 
@@ -817,10 +815,9 @@ def escalate(
     claimed: the plans are walked in rank order, a family with no rung is
     passed over, and the first accepted judgement returns `Delivered`.
     `wake_hook` is asked before the api family is paid for, and a rung it
-    names is tried first. `presence` marks a rung as climbed on for the
-    duration of an attempt above the entry rung. Capacity claims are given
-    back on every path, and an exception from the seam ends the task as
-    `Outcome.ERROR` rather than as a failed attempt.
+    names is tried first. Capacity claims are given back on every path, and
+    an exception from the seam ends the task as `Outcome.ERROR` rather than
+    as a failed attempt.
     """
     route = ascent(config, pool, contract, floor=floor, capacity=capacity)
     entry = _idle_entry(route)
@@ -867,20 +864,8 @@ def escalate(
 
     def observed(this: Try) -> Result:
         nonlocal attempts_spent, accepted_judgement
-        # A rung is marked as climbed only once the climb has spent on
-        # another rung: the entry is not climbed, and takes no marker.
-        climbed = (
-            presence is not None
-            and bool(spent_rungs)
-            and this.rung.name != spent_rungs[0]
-        )
         try:
-            with (
-                presence(this.rung.name)
-                if presence is not None and climbed
-                else nullcontext()
-            ):
-                judgement = attempt(this)
+            judgement = attempt(this)
         except Exception as exc:
             # Any exception from the seam ends the task as an error rather
             # than being read as a failed attempt: the raise is tagged with

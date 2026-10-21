@@ -260,12 +260,6 @@ def _catalog(args: argparse.Namespace) -> int:
         print(f"  guarantee:  {kind.guarantee}\n")
         print(f"  warrant:    {kind.warrant}\n")
         print(f"  judged:     {how_judged(kind)}\n")
-        if kind.session:
-            print(
-                "  session:    no target and no scope; the reply is returned in "
-                "the result file's `answer` and kept in the session log "
-                "(`mcgyvr sessions`), never written to the tree.\n"
-            )
         print("  evidence required:")
         for evidence in kind.required_evidence:
             mark = "$" if evidence.needs_commands else "-"
@@ -326,22 +320,10 @@ def _contract(args: argparse.Namespace) -> int:
     print(f"{args.path}: valid\n")
     operation = f", operation {contract.operation}" if contract.operation else ""
     print(f"  {contract.id}  [{contract.task_type}{operation}] — {tier}")
-    if contract.is_session:
-        # A session contract has no target and no scope, so anything it states
-        # in them is inert: say so rather than print a target that is not used.
-        print(
-            "  session: the reply is returned in the result file's `answer` and "
-            "kept in the session log (<journal.dir>/sessions/); nothing is "
-            "written to the repository"
-        )
-        if contract.target or contract.scope.allow:
-            given = contract.target or ", ".join(contract.scope.allow)
-            print(f"  note:    {given} is not written: target and scope are not used")
-    else:
-        print(f"  target:  {contract.target}")
-        print(f"  allow:   {', '.join(contract.scope.allow)}")
-        if contract.scope.forbid:
-            print(f"  forbid:  {', '.join(contract.scope.forbid)}")
+    print(f"  target:  {contract.target}")
+    print(f"  allow:   {', '.join(contract.scope.allow)}")
+    if contract.scope.forbid:
+        print(f"  forbid:  {', '.join(contract.scope.forbid)}")
     if contract.deps:
         print(f"  deps:    {', '.join(d.path for d in contract.deps)}")
     if contract.stop_conditions:
@@ -358,17 +340,11 @@ def _contract(args: argparse.Namespace) -> int:
             f"  risk:    {contract.risk} — verified by "
             f"{contract.verification.policy.replace('_', ' ')}"
         )
-    # Limits by kind: a session is a raw connection — no output cap and no
-    # prompt checks — while a model-written change states an output budget (or
-    # says that `mcgyvr run` will refuse it), the prompt-token cap, and an
-    # attempt count. A deterministic operation calls no model, so no limits
-    # are printed for it at all.
-    if contract.is_session:
-        print(
-            f"  limits:  raw connection: no output cap, no prompt checks, "
-            f"{contract.limits.attempts} attempt(s)"
-        )
-    elif not contract.is_deterministic:
+    # Limits by kind: a model-written change states an output budget (or says
+    # that `mcgyvr run` will refuse it), the prompt-token cap, and an attempt
+    # count. A deterministic operation calls no model, so no limits are printed
+    # for it at all.
+    if not contract.is_deterministic:
         if contract.limits.max_output_tokens is not None:
             output_budget = f"<={contract.limits.max_output_tokens} output tokens"
         elif contract.needs_output_cap:

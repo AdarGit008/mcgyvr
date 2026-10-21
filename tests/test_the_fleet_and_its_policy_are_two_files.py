@@ -103,9 +103,12 @@ def test_the_loader_and_the_schema_enumerate_the_same_keys() -> None:
     # the lock, not part of the setup schema this module presents. Everything
     # else in the loader is a schema field and vice versa.
     assert {f.name for f in config.UNIT_FIELDS} == files._UNIT_KEYS - {"unit_id"}
+    # A retired top-level key stays in the loader's list so the config can
+    # refuse it by name, saying what replaced it.
+    retired = {key for key in config._RETIRED_KEYS if "." not in key}
     assert {
         f.name for f in config.SCHEMA if f.name not in ("units", "relief")
-    } == files._POLICY_KEYS
+    } == files._POLICY_KEYS - retired
     assert {"units", "rigs", "fleets"} == files._FLEET_KEYS
     # The relief block is the third file's, written by a sync: in neither list.
     assert {"relief"} == files._RELIEF_FILE_KEYS

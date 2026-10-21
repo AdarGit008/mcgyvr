@@ -1,6 +1,6 @@
 """A full top rung swaps the RAM rung in, and the fast ones back when it sleeps.
 
-The stronger rung on a full rig is a SWAP, made by the ladder manager's
+The stronger rung on a full rig is a SWAP, made by the card switches'
 existing sleep/wake and nothing new. For llama.cpp a "sleep" is a stop of the
 unit's container (``serve down --unit``) and a "wake" is a start
 (``serve up --unit``). A unit says it is a swap partner with
@@ -13,15 +13,14 @@ that cannot share the card with them:
 * ``emit`` writes the three into **one** launch spec, the sleeper under a
   compose profile, so a whole ``serve up`` starts only the fast rungs and the
   card's awake set still fits it;
-* when the dearest awake rung is full, the manager stops the fast rungs
-  (``room_for``, smallest first) and starts the RAM rung; when the RAM rung has
-  idled, it stops it and starts the fast rungs again (``give_back``);
+* a swap stops the fast rungs (``room_for``, smallest first) and starts the
+  RAM rung (``wake_making_room``); putting the RAM rung down stops it and
+  starts the fast rungs again (``give_back``);
 * a task that climbs to the sleeping RAM rung does not start it beside the
-  fast ones: making room is the manager's.
+  fast ones: making room is the swap's.
 
-The floor rung sits on a second invented machine, because the manager never
-sleeps the last awake rung below a unit. Every machine and number here is
-invented; the door is recorded, never run.
+The floor rung sits on a second invented machine. Every machine and number
+here is invented; the door is recorded, never run.
 """
 
 from __future__ import annotations
@@ -33,11 +32,9 @@ from typing import Any
 import pytest
 import yaml
 
-from mcgyvr import decision, ladder_manager
 from mcgyvr.config import Config, ConfigError, parse
 from mcgyvr.emit import emit_all
-from mcgyvr.ladder_manager import Bounds, Manager, View
-from mcgyvr.pressure import Reading
+from mcgyvr.ladder_manager import give_back, wake_making_room
 from mcgyvr.scan import Scan
 from mcgyvr.serving import UnitError, hold_together, launch_specs, units_for
 from tests import livejournal as lj
@@ -274,79 +271,24 @@ def test_waking_the_ram_rung_needs_both_fast_rungs_room(
 # --- the swap ------------------------------------------------------------------
 
 
-class Readings:
-    """The queue, held by the test: the fast top rung is full, the RAM rung down."""
-
-    def __init__(self) -> None:
-        self.now = {
-            FLOOR: Reading(FLOOR, True, 2, 1, 0, 2, full=True),
-            FAST_S: Reading(FAST_S, True, 2, 1, 0, 2, full=True),
-            FAST_M: Reading(FAST_M, True, 2, 2, 1, 2, full=True),
-            RAM: Reading(RAM, False, None, 0, 0, 2),
-        }
-
-    def read(self, rung: str) -> Reading:
-        return self.now[rung]
-
-    def swapped(self) -> None:
-        """The RAM rung serving and idle, the fast ones stopped, no queue."""
-        self.now = {
-            FLOOR: Reading(FLOOR, True, 0, 0, 0, 2),
-            FAST_S: Reading(FAST_S, False, None, 0, 0, 2),
-            FAST_M: Reading(FAST_M, False, None, 0, 0, 2),
-            RAM: Reading(RAM, True, 0, 0, 0, 2),
-        }
-
-
-def jev(pick: str) -> Any:
-    def decide(state: Any, questions: Any) -> decision.Decision:
-        question = questions[ladder_manager.ASK_LADDER]
-        assert pick in question.options, question.options
-        return decision.Decision(
-            answers={
-                ladder_manager.ASK_LADDER: decision.ChoiceAnswer(
-                    choice=pick, probabilities={pick: 1.0}, confidence=1.0
-                )
-            }
-        )
-
-    return decide
-
-
-def test_a_full_top_rung_swaps_the_ram_rung_in_and_the_fast_ones_back(
+def test_a_swap_stops_the_fast_rungs_starts_the_ram_rung_and_gives_them_back(
     tmp_path: Path, home: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
     config, specs = emitted(tmp_path)
     named = containers(specs)
     doors = door(monkeypatch)
-    readings = Readings()
-    view = View.of(config, jev=FLOOR)
-    assert {FAST_S, FAST_M, RAM} <= view.sleepable, view.sleepable
-    picks = iter([f"wake:{RAM}", f"sleep:{RAM}"])
+    card = switches(config)
 
-    def decide(state: Any, questions: Any) -> decision.Decision:
-        made: decision.Decision = jev(next(picks))(state, questions)
-        return made
-
-    run = Manager(
-        view,
-        Bounds(interval_s=10.0, confirm=1, dwell_s=0.0, fanouts=(), leads=()),
-        pressure=readings,
-        switches=switches(config),
-        decide=decide,
-        clock=lambda: 100.0,
-        say=lambda line: None,
-    )
-
-    run.tick()
+    _, slept = wake_making_room(card, RAM, card.room_for(RAM))
+    assert slept == (FAST_S, FAST_M)
     assert doors == [
         f"down {named[8081]}",
         f"down {named[8082]}",
         f"up {named[8083]}",
     ], "the fast rungs stop and the RAM rung starts, each container alone"
 
-    readings.swapped()
-    run.tick()
+    assert card.sleep(RAM)
+    give_back(card, slept)
     assert doors[3:] == [
         f"down {named[8083]}",
         f"up {named[8081]}",
@@ -370,7 +312,7 @@ def test_a_climb_to_the_sleeping_ram_rung_does_not_start_it_beside_the_fast_ones
 
     with pytest.raises(RefusedConnectionError):
         waker.dispatching(RAM, refused)
-    assert doors == [], "a sleeper is started only by the manager, after room is made"
+    assert doors == [], "a sleeper is started only by a swap, after room is made"
 
 
 def test_a_refused_fast_rung_is_started_alone(

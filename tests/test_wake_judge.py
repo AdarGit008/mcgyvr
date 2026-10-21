@@ -12,8 +12,8 @@ Two rules are pinned below, beside the pure helpers:
 * **Wake-before-API routing.** A hard task, with an asleep smarter resident rung
   on the ladder, is routed to that rung before the api family is entered.
 * **The hook never sleeps.** It routes, and the dispatch it routes to wakes;
-  putting a unit back to sleep is the ladder manager's
-  (:mod:`mcgyvr.ladder_manager`), not this per-task hook's. The hook has no
+  putting a unit back to sleep is a person's (``mcgyvr serve sleep``), not
+  this per-task hook's. The hook has no
   sleep path, and driving the climb with the hook wired reaches the door's
   ``down`` never — ``mcgyvr.wake.sleep`` is monkeypatched to fail the test if
   it is so much as called.

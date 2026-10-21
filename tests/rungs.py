@@ -169,13 +169,12 @@ limits:
 """
 
 
-#: The same contract as an uncapped raw-text reply: no declared cap, and a
-#: context ceiling small enough to sit inside the tiny window the preflight
-#: check uses to prove a prose reply is not refused for its (absent) reserve.
-PROSE_CONTRACT = (
+#: The same contract with no declared cap, and a context ceiling small enough
+#: to sit inside the tiny window the preflight check uses to prove an uncapped
+#: reply is not refused for its (absent) reserve.
+UNCAPPED_CONTRACT = (
     ROOM_CONTRACT.replace("limits:\n  max_output_tokens: 1024\n", "")
     + "context:\n  max_input_tokens: 64\n"
-    + "output_schema: prose\n"
 )
 
 

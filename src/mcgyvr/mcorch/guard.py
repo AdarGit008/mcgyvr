@@ -99,9 +99,6 @@ def _open(block: Mapping[str, Any], opened: dict[str, str]) -> None:
         authored = contract.loads(text)
     except contract.ContractError:
         return
-    if authored.is_session:
-        # A session writes nothing, so a target it gave anyway guards no file.
-        return
     opened[authored.target] = authored.id
 
 

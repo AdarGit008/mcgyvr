@@ -67,8 +67,6 @@ class Field:
     #: Retired enum values, mapped to the spelling that replaced them, so an old
     #: contract is answered with what to write instead of a bare "not valid".
     retired: Mapping[str, str] | None = None
-    #: True for a contract key a chat or agent session may leave out.
-    session_optional: bool = False
 
     def valid_choices(self) -> tuple[str, ...]:
         """The values it accepts, from `choices_from` when given, else `choices`."""

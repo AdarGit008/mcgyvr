@@ -4,8 +4,8 @@ The Jev unit is an opt-in at setup, dedicated VRAM that answers
 every typed decision at once; a decision that had to wait out a wake, or a
 card that could be slept from under it, would make every typed question a
 gamble. So the unit — and any card that holds it — is excluded from every
-sleep and wake path unconditionally: what the ladder manager may sleep or
-wake, the manager's switches, the door's own verbs, and the waker a dispatch
+sleep and wake path unconditionally: what may be slept or woken, the card
+switches, the door's own verbs, and the waker a dispatch
 goes through. A typed decision never wakes anything first. Without a
 ``jev.unit`` nothing here changes.
 """
@@ -22,7 +22,6 @@ from mcgyvr import wake as wakelib
 from mcgyvr.config import Config, parse
 from mcgyvr.decision import Decision
 from mcgyvr.drive import _through
-from mcgyvr.ladder_manager import sleepable_rungs
 from mcgyvr.runner import RefusedConnectionError
 from mcgyvr.verify import Reviewer
 
@@ -74,7 +73,6 @@ def test_without_a_jev_unit_every_card_with_one_spec_is_wakeable(
 ) -> None:
     config = _config(compose_dir, jev=None)
     assert wakelib.wakeable_rungs(config) == ("small", "big")
-    assert sleepable_rungs(config) == ("small", "big")
 
 
 def test_the_card_holding_the_jev_unit_is_neither_wakeable_nor_sleepable(
@@ -85,7 +83,6 @@ def test_the_card_holding_the_jev_unit_is_neither_wakeable_nor_sleepable(
     # with it, whole, and the other rig's card is untouched.
     assert wakelib.resident_units(config) == frozenset({"judge"})
     assert wakelib.wakeable_rungs(config) == ("big",)
-    assert sleepable_rungs(config) == ("big",)
 
 
 def test_the_door_refuses_to_sleep_or_wake_a_card_holding_the_jev_unit(
@@ -101,7 +98,7 @@ def test_the_door_refuses_to_sleep_or_wake_a_card_holding_the_jev_unit(
     assert ran == []
 
 
-def test_the_managers_switches_decline_the_jev_card_without_touching_the_door(
+def test_the_card_switches_decline_the_jev_card_without_touching_the_door(
     compose_dir: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
     from mcgyvr.capacity import Capacity

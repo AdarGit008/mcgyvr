@@ -416,8 +416,7 @@ def check_cap_stated(contract: Contract) -> PreflightIssue | None:
 
     A model-written change that something then judges has to say what its reply
     is worth, and a contract that says nothing gets no model called for it at
-    all. Deterministic work and session replies are neither, and pass: one is
-    produced by a tool and the other is a raw connection with no limits to state.
+    all. Deterministic work is not, and passes: a tool produces it.
     """
     if not contract.needs_output_cap or contract.limits.max_output_tokens is not None:
         return None

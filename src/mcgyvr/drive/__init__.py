@@ -56,16 +56,14 @@ from mcgyvr.drive.gate import (
     acceptance_for,
     gate_adapters,
     gate_in_sandbox,
-    gate_prose_workspace,
     gate_workspace,
     task_ceiling,
 )
-from mcgyvr.drive.attempt import SESSION_REPLY, _in_order, worker_attempt
+from mcgyvr.drive.attempt import _in_order, worker_attempt
 # isort: on
 # The exported surface, underscored helpers included: the tests reach them here.
 
 __all__ = [
-    "SESSION_REPLY",
     "ContractTooLargeForRungError",
     "DriveError",
     "OutputCapTooLargeError",
@@ -86,7 +84,6 @@ __all__ = [
     "dispatch_prompt",
     "gate_adapters",
     "gate_in_sandbox",
-    "gate_prose_workspace",
     "gate_workspace",
     "judge",
     "refuse_unsendable",

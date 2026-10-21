@@ -52,17 +52,15 @@ def refuse_unsendable(
 ) -> None:
     """Raise the refusal for a contract that cannot be sent to `rung`, else return.
 
-    Session contracts are exempt and return at once. Otherwise the contract must
-    state a `limits.max_output_tokens` (`OutputCapUnstatedError`), the assembled
-    prompt must fit its own ceiling (`PromptTooLargeError`), and the contract must
-    fit the rung as `check_contract_against_rung` judges it, where the issue's
-    reason picks the class: `output-cap` is `OutputCapTooLargeError`,
+    The contract must state a `limits.max_output_tokens`
+    (`OutputCapUnstatedError`), the assembled prompt must fit its own ceiling
+    (`PromptTooLargeError`), and the contract must fit the rung as
+    `check_contract_against_rung` judges it, where the issue's reason picks the
+    class: `output-cap` is `OutputCapTooLargeError`,
     `unit-ceiling-unknown` is `UnitCeilingUnknownError`, and any other reason is
     `ContractTooLargeForRungError`. The message names the contract, the rung, the
     window served, and the issue.
     """
-    if contract.is_session:
-        return
     unstated = check_cap_stated(contract)
     if unstated is not None:
         raise OutputCapUnstatedError(f"{unstated}")
