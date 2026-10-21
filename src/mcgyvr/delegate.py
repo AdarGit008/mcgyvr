@@ -16,7 +16,7 @@ from __future__ import annotations
 
 import json
 import time
-from collections.abc import Callable, Mapping, Sequence
+from collections.abc import Callable, Collection, Mapping, Sequence
 from dataclasses import dataclass
 from typing import TYPE_CHECKING, Any
 
@@ -48,8 +48,9 @@ from mcgyvr.orchestrator.candidates import (
     symbol_candidates,
     target_candidates,
     task_type_candidates,
+    without,
 )
-from mcgyvr.orchestrator.decompose import DepRef, Evidence, Proposal, Proposer
+from mcgyvr.orchestrator.decompose import DepRef, Evidence, Proposal, Proposer, Refusal
 from mcgyvr.orchestrator.fields import (
     abstain_line,
     abstain_value,
@@ -471,12 +472,12 @@ class ClassifierProposer:
     proposal; an optional field degrades to its rank-0 candidate instead. Each
     decision is appended to `sink`, when one is wired.
 
-    For the W6 retry loop, a decline maps to a `Refusal` field/directive as
+    For the W6 retry loop, a decline returns a `Refusal` field/directive as
     follows: no targets or no vocabulary → `target`/`task_type`; `task_type`
     below the confidence floor → `task_type`; `target` below the confidence
-    floor → `target`; `kind.needs_output_cap` mismatch → `task_type`. (Behavior
-    is unchanged here; this is the mapping the classifier's empty answer will
-    be annotated with.)
+    floor → `target`; `kind.needs_output_cap` mismatch → `task_type`.
+    `__call__` still returns `()` for any decline so the prose proposer stands
+    in exactly as it did before.
     """
 
     classify: Callable[[Any, Mapping[str, Question]], Decision]
@@ -485,38 +486,110 @@ class ClassifierProposer:
     model: str = ""
     seed: str = ""
 
-    def __call__(self, evidence: Evidence) -> Sequence[Proposal]:
+    def propose(
+        self,
+        evidence: Evidence,
+        *,
+        decided: Mapping[str, Any] | None = None,
+        constraints: Mapping[str, str] | None = None,
+        rejected: Mapping[str, Collection[Any]] | None = None,
+    ) -> Proposal | Refusal:
+        """Ask the six fields once and fold them into one proposal, or refuse.
+
+        `decided` carries fields already chosen on a prior attempt (skipped
+        without a jev call), `constraints` supplies a per-field directive
+        rendered in the CONSTRAINTS section, and `rejected` lists per-field
+        candidate values to drop from the question.
+        """
+        decided = decided or {}
+        constraints = constraints or {}
+        rejected = rejected or {}
+
         targets = candidate_targets(evidence)
         vocabulary = completable(evidence.vocabulary)
-        if not targets or not vocabulary:
-            return ()
+        if not targets:
+            return Refusal(
+                "request",
+                "the request names no target the index holds, so there is no "
+                "file to propose work on",
+                field="target",
+                what_to_change="name a target the index holds",
+            )
+        if not vocabulary:
+            return Refusal(
+                "request",
+                "no servable task type is available to propose — bind a rung, "
+                "or ask for work of a type this ladder can serve",
+                field="task_type",
+                what_to_change="pick a servable type",
+            )
 
         state = _state(evidence, targets, vocabulary)
 
-        task_type_set = task_type_candidates(evidence)
-        task_type = self._decide(state, task_type_set)
+        if "task_type" in decided:
+            task_type = decided["task_type"]
+        else:
+            task_type = self._decide(
+                state,
+                task_type_candidates(evidence),
+                constraints=constraints.get("task_type", ""),
+                rejected=rejected.get("task_type"),
+            )
         if task_type is None:
-            return ()
+            return Refusal(
+                "request",
+                "the task_type answer was unusable or fell below the confidence floor",
+                field="task_type",
+                what_to_change="answer with a candidate above the confidence floor",
+            )
         kind = kind_for(str(task_type), vocabulary)
         if kind is None or kind.needs_output_cap:
             # A type needing an output cap gets no proposal here: the cap says
             # what a reply is worth in tokens, and this proposer has no way to
             # judge that, so it declines instead of guessing.
-            return ()
+            return Refusal(
+                "request",
+                "the chosen task type needs an output cap the classifier cannot "
+                "state, so the request is handed to the prose proposer",
+                field="task_type",
+                what_to_change="choose a type that states no reply cap",
+            )
 
-        target_set = target_candidates(evidence)
-        target = self._decide(state, target_set)
-        if target is None:
-            return ()
-        target = str(target)
+        if "target" in decided:
+            target = str(decided["target"])
+        else:
+            chosen_target = self._decide(
+                state,
+                target_candidates(evidence),
+                constraints=constraints.get("target", ""),
+                rejected=rejected.get("target"),
+            )
+            if chosen_target is None:
+                return Refusal(
+                    "request",
+                    "the target answer was unusable or fell below the confidence floor",
+                    field="target",
+                    what_to_change="answer with a candidate above the confidence floor",
+                )
+            target = str(chosen_target)
 
-        symbol_set = symbol_candidates(evidence, target)
-        symbol = self._decide(state, symbol_set, target=target)
-        symbol_provenance = Provenance.MODEL
-        if symbol is None:
-            rank0 = symbol_set.rank0
-            symbol = rank0.value if rank0 is not None else _NO_SYMBOL
-            symbol_provenance = Provenance.DETERMINISTIC
+        if "symbol" in decided:
+            symbol = decided["symbol"]
+            symbol_provenance = Provenance.MODEL
+        else:
+            symbol_set = symbol_candidates(evidence, target)
+            symbol = self._decide(
+                state,
+                symbol_set,
+                target=target,
+                constraints=constraints.get("symbol", ""),
+                rejected=rejected.get("symbol"),
+            )
+            symbol_provenance = Provenance.MODEL
+            if symbol is None:
+                rank0 = symbol_set.rank0
+                symbol = rank0.value if rank0 is not None else _NO_SYMBOL
+                symbol_provenance = Provenance.DETERMINISTIC
         symbol_name = _symbol_of(symbol)
 
         plan = enumerate_candidates(evidence)
@@ -538,22 +611,48 @@ class ClassifierProposer:
             provenance=Provenance.DETERMINISTIC,
         )
 
-        interface_set = interface_candidates(evidence, target, symbol_name)
-        interface = self._decide(state, interface_set)
+        if "interface" in decided:
+            interface = decided["interface"]
+        else:
+            interface = self._decide(
+                state,
+                interface_candidates(evidence, target, symbol_name),
+                constraints=constraints.get("interface", ""),
+                rejected=rejected.get("interface"),
+            )
         if interface is not None:
             plan = choose(plan, "interface", interface)
 
-        deps_set = deps_candidates(evidence, target)
-        deps = self._decide(state, deps_set)
+        if "deps" in decided:
+            deps = decided["deps"]
+        else:
+            deps = self._decide(
+                state,
+                deps_candidates(evidence, target),
+                constraints=constraints.get("deps", ""),
+                rejected=rejected.get("deps"),
+            )
         if deps is not None:
             plan = choose(plan, "deps", deps)
 
-        allow_set, _ = scope_candidates(evidence, target)
-        allow = self._decide(state, allow_set)
+        if "allow" in decided:
+            allow = decided["allow"]
+        else:
+            allow = self._decide(
+                state,
+                scope_candidates(evidence, target)[0],
+                constraints=constraints.get("allow", ""),
+                rejected=rejected.get("allow"),
+            )
         if allow is not None:
             plan = choose(plan, "allow", allow)
 
-        return (collapse(plan),)
+        return collapse(plan)
+
+    def __call__(self, evidence: Evidence) -> Sequence[Proposal]:
+        """The `Proposer` seam: a decline is `()`, so the prose proposer stands in."""
+        result = self.propose(evidence)
+        return () if isinstance(result, Refusal) else (result,)
 
     def _decide(
         self,
@@ -561,21 +660,28 @@ class ClassifierProposer:
         set: CandidateSet,
         *,
         target: str | None = None,
+        constraints: str = "",
+        rejected: Collection[Any] | None = None,
     ) -> Any | None:
         """Ask jev one field's Choice and read the pick back.
 
         Returns the chosen candidate's value, or None when the answer is
         unusable (missing, unreadable, below the confidence floor, or a choice
-        id not among the field's candidates). Exactly one `DecisionRecord` is
-        written to `sink` per call, with the decision's candidate order, pick,
-        rank-0, abstain flag, confidence, parse-fail flag, latency, model and
-        seed. Transport errors propagate unchanged; only `DecisionError` is
-        caught and recorded as a parse failure.
+        id not among the field's candidates). `rejected` candidates are dropped
+        from the question first; `constraints` is rendered in its instructions.
+        Exactly one `DecisionRecord` is written to `sink` per call, with the
+        decision's candidate order, pick, rank-0, abstain flag, confidence,
+        parse-fail flag, latency, model and seed. Transport errors propagate
+        unchanged; only `DecisionError` is caught and recorded as a parse
+        failure.
         """
+        if rejected:
+            set = without(set, rejected)
         question = render_choice(
             set,
             criterion=criterion(set.field, target=target),
             abstain_line=abstain_line(set.field),
+            constraints=constraints,
         )
         t0 = time.monotonic()
         try:

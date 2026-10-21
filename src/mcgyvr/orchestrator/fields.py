@@ -137,32 +137,44 @@ def _allow_text(value: Any) -> str:
     return str(value)
 
 
-def instructions(field: str, criterion: str, abstain_line: str = "") -> str:
+def instructions(
+    field: str, criterion: str, abstain_line: str = "", constraints: str = ""
+) -> str:
     """The instruction block for one field's question.
 
-    The empty CONSTRAINTS section is where a later workstream fills the retry
-    loop's constraints; W3 leaves it empty.
+    The CONSTRAINTS section is empty unless the caller names a directive (the
+    W6 retry loop fills it with a refusal's ``what_to_change``); a non-empty
+    directive replaces the blank line that follows the heading.
     """
     lines = [
         f"FIELD {field}: {criterion}",
         "",
         "CONSTRAINTS (ignore this section if empty):",
-        "",
-        "Pick the candidate that best satisfies the criterion above.",
     ]
+    if constraints:
+        lines.append(constraints)
+    else:
+        lines.append("")
+    lines.append("Pick the candidate that best satisfies the criterion above.")
     if abstain_line:
         lines.append(abstain_line)
     return "\n".join(lines)
 
 
-def render_choice(set: CandidateSet, *, criterion: str, abstain_line: str) -> Choice:
+def render_choice(
+    set: CandidateSet,
+    *,
+    criterion: str,
+    abstain_line: str,
+    constraints: str = "",
+) -> Choice:
     """Render one candidate set as the single `Choice` jev answers for it.
 
     Option keys are the candidate ids, so a readback maps the answered key back
     to a candidate value with :func:`value_by_id`.
     """
     return Choice(
-        instructions=instructions(set.field, criterion, abstain_line),
+        instructions=instructions(set.field, criterion, abstain_line, constraints),
         options={
             candidate.id: option_text(set.field, candidate)
             for candidate in set.candidates

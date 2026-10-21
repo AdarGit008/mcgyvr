@@ -22,6 +22,7 @@ from mcgyvr.delegate import ClassifierProposer
 from mcgyvr.orchestrator.baseline import BaselineObservation
 from mcgyvr.orchestrator.candidates import (
     CandidateSet,
+    FieldCandidate,
     Provenance,
     acceptance_candidates,
     candidate_targets,
@@ -41,6 +42,7 @@ from mcgyvr.orchestrator.candidates import (
     symbols_of,
     target_candidates,
     task_type_candidates,
+    without,
 )
 from mcgyvr.orchestrator.decompose import DepRef, Evidence, Proposal
 from mcgyvr.orchestrator.index import Index, build_index
@@ -226,6 +228,21 @@ def test_collapse_of_enumerated_plan_yields_the_deterministic_proposal(
     assert proposal.depends_on == ()
 
 
+def test_collapse_wraps_a_chosen_dependency_in_a_tuple(repo: Index) -> None:
+    """A chosen `DepRef` folds to a one-element `deps` tuple, never a bare ref.
+
+    `deps` candidates are one dependency each, so collapsing a chosen `DepRef`
+    must yield a tuple for `Proposal.deps`, or `_emit`'s iteration over
+    ``proposal.deps`` would crash on a real dependency.
+    """
+    evidence = evidence_for(repo, "document listing", (AGENT,))
+    plan = enumerate_candidates(evidence)
+    dep = DepRef("pagination.py", "paginate")
+    plan = choose(plan, "deps", dep)
+
+    assert collapse(plan).deps == (dep,)
+
+
 def test_choose_promotes_operation_and_sources_into_collapse(repo: Index) -> None:
     """The fan-out fields fold through `choose` like every other field."""
     evidence = evidence_for(repo, "document listing", (AGENT,))
@@ -360,6 +377,40 @@ def test_scope_candidates_dedup_when_the_target_is_the_only_path(
     evidence = evidence_for(repo, "document listing", (AGENT,))
     allow, _ = scope_candidates(evidence, "listing.py")
     assert [c.value for c in allow.candidates] == [(), ("listing.py",)]
+
+
+def test_without_drops_a_value_and_renormalizes_ranks() -> None:
+    """`without` removes the rejected value and re-ranks 0..n-1 in place."""
+    target_set = CandidateSet(
+        field="target",
+        candidates=(
+            FieldCandidate(id="target:0", value="listing.py", rank=0),
+            FieldCandidate(id="target:1", value="pagination.py", rank=1),
+            FieldCandidate(id="target:2", value="other.py", rank=2),
+        ),
+    )
+
+    pruned = without(target_set, {"pagination.py"})
+
+    assert [c.value for c in pruned.candidates] == ["listing.py", "other.py"]
+    assert [c.rank for c in pruned.candidates] == [0, 1]
+    # Ids and provenance are preserved; only the ranks move up.
+    assert [c.id for c in pruned.candidates] == ["target:0", "target:2"]
+    assert [c.provenance for c in pruned.candidates] == [
+        Provenance.DETERMINISTIC,
+        Provenance.DETERMINISTIC,
+    ]
+
+
+def test_without_keeps_the_set_unchanged_for_unknown_values() -> None:
+    """Dropping a value that is not present leaves every candidate in place."""
+    target_set = CandidateSet(
+        field="target",
+        candidates=(FieldCandidate(id="target:0", value="listing.py", rank=0),),
+    )
+    pruned = without(target_set, {"not-a-target.py"})
+
+    assert pruned.candidates == target_set.candidates
 
 
 # --- the regression that pins the classifier path --------------------------

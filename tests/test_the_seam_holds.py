@@ -259,6 +259,7 @@ ABOVE_THE_SEAM: tuple[str, ...] = (
     "mcgyvr.orchestrator.decompose",
     "mcgyvr.orchestrator.fields",
     "mcgyvr.orchestrator.index",
+    "mcgyvr.orchestrator.iterate",
     "mcgyvr.orchestrator.languages",
     "mcgyvr.orchestrator.languages.engine",
     "mcgyvr.orchestrator.languages.go",
