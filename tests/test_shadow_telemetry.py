@@ -176,3 +176,53 @@ def test_aggregations_over_no_records_are_empty() -> None:
     assert parse_fail_rate([]) == 0.0
     assert per_letter_distribution([]) == {}
     assert confidence_by_field([]) == {}
+
+
+def test_read_skips_damaged_lines_and_keeps_good_records(tmp_path: Path) -> None:
+    sink_path = tmp_path / "decisions.jsonl"
+    good = [
+        _rec(field="price", pick="b", rank1="a", confidence=0.7),
+        _rec(field="scope", pick=None, rank1="x", abstain=True),
+    ]
+    # A blank line, a line of undecodable bytes, valid JSON that is not an
+    # object, and an object missing the fields a record needs: each must be
+    # skipped while the surrounding good records survive, oldest first.
+    raw = (
+        json.dumps(good[0].to_dict()).encode("utf-8")
+        + b"\n"
+        + b"\n"
+        + b"\xff\xfe\xfd\n"
+        + b"[1, 2]\n"
+        + json.dumps({"field": "price"}).encode("utf-8")
+        + b"\n"
+        + json.dumps(good[1].to_dict()).encode("utf-8")
+        + b"\n"
+    )
+    sink_path.write_bytes(raw)
+
+    assert read(sink_path) == good
+
+
+def test_per_letter_distribution_excludes_picks_beyond_the_alphabet(
+    tmp_path: Path,
+) -> None:
+    del tmp_path
+    candidates = tuple(f"c{i}" for i in range(63))
+    records = [
+        _rec(candidates=candidates, pick=candidates[62]),  # beyond 62-label alphabet
+        _rec(candidates=("a", "b"), pick="a"),  # A, still counted
+    ]
+    assert per_letter_distribution(records) == {"A": 1}
+
+
+def test_recall_at_k_nonpositive_k_is_zero_over_nonempty_records(
+    tmp_path: Path,
+) -> None:
+    del tmp_path
+    records = [
+        _rec(candidates=("a", "b", "c"), rank1="a"),
+        _rec(candidates=("a", "b", "c"), rank1="a"),
+    ]
+    assert recall_at_k(records, 0) == 0.0
+    assert recall_at_k(records, -1) == 0.0
+    assert recall_at_k(records, -3) == 0.0

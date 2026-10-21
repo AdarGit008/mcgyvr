@@ -182,6 +182,8 @@ def recall_at_k(records: Iterable[DecisionRecord], k: int) -> float:
     among its candidates is a miss, as is any record when ``k <= 0``. With no
     records the recall is ``0.0``.
     """
+    if k <= 0:
+        return 0.0
     total = 0
     hits = 0
     for record in records:
