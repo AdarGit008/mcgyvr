@@ -19,7 +19,6 @@ from dataclasses import dataclass
 from typing import TYPE_CHECKING, Any
 
 from mcgyvr.catalog import TaskType
-from mcgyvr.contract import generic_stop_condition
 from mcgyvr.decision import (
     Choice,
     ChoiceAnswer,
@@ -28,8 +27,21 @@ from mcgyvr.decision import (
     classify_for,
     jev_bound,
 )
+from mcgyvr.orchestrator.candidates import (
+    _NO_SYMBOL,
+    Provenance,
+    candidate_targets,
+    choose,
+    collapse,
+    completable,
+    directive,
+    enumerate_candidates,
+    kind_for,
+    stop_condition,
+    symbol_options,
+    symbols_of,
+)
 from mcgyvr.orchestrator.decompose import DepRef, Evidence, Proposal, Proposer
-from mcgyvr.orchestrator.symbols import Symbol, SymbolKind
 from mcgyvr.runner import Request, dispatch_role
 from mcgyvr.worker.reply import FENCE_OPEN as _FENCE_OPEN
 
@@ -398,14 +410,6 @@ def proposer_for(
 #: proposed, and the caller can fall back to the prose proposer.
 MIN_CONFIDENCE = 0.5
 
-#: The option that picks no symbol, because the whole file is the work.
-_NO_SYMBOL = ""
-
-#: One typed question carries at most 62 options: the single-token labels read
-#: back are A-Z, a-z and 0-9. Targets are truncated to this, and the symbol
-#: question keeps one slot back for the "no specific symbol" option.
-_MAX_CHOICE_OPTIONS = 62
-
 
 @dataclass(frozen=True)
 class ClassifierProposer:
@@ -423,7 +427,7 @@ class ClassifierProposer:
     confidence: float = MIN_CONFIDENCE
 
     def __call__(self, evidence: Evidence) -> Sequence[Proposal]:
-        targets = _candidate_targets(evidence)
+        targets = candidate_targets(evidence)
         vocabulary = completable(evidence.vocabulary)
         if not targets or not vocabulary:
             return ()
@@ -451,7 +455,7 @@ class ClassifierProposer:
             or target_answer.confidence < self.confidence
         ):
             return ()
-        kind = _kind_for(kind_answer.choice, vocabulary)
+        kind = kind_for(kind_answer.choice, vocabulary)
         if kind is None:  # The name is not a type this config can serve.
             return ()
         if kind.needs_output_cap:
@@ -461,13 +465,13 @@ class ClassifierProposer:
             return ()
         target = target_answer.choice
 
-        symbols = _symbols_of(evidence, target)
+        symbols = symbols_of(evidence, target)
         symbol_decision = self.classify(
             state,
             {
                 "symbol": Choice(
                     instructions=f"Which symbol in {target} does the task work on?",
-                    options=_symbol_options(symbols),
+                    options=symbol_options(symbols),
                 )
             },
         )
@@ -476,14 +480,23 @@ class ClassifierProposer:
             return ()
         symbol = None if symbol_answer.choice == _NO_SYMBOL else symbol_answer.choice
 
-        return (
-            Proposal(
-                task_type=kind.name,
-                task=_directive(kind, target, symbol),
-                target=target,
-                stop_conditions=_stop_condition(kind, target, symbol),
-            ),
+        plan = enumerate_candidates(evidence)
+        plan = choose(plan, "task_type", kind.name)
+        plan = choose(plan, "target", target)
+        plan = choose(plan, "symbol", symbol or _NO_SYMBOL)
+        plan = choose(
+            plan,
+            "task",
+            directive(kind, target, symbol),
+            provenance=Provenance.DETERMINISTIC,
         )
+        plan = choose(
+            plan,
+            "stop_conditions",
+            stop_condition(kind, target, symbol),
+            provenance=Provenance.DETERMINISTIC,
+        )
+        return (collapse(plan),)
 
 
 def classifier_proposer_for(
@@ -523,76 +536,6 @@ def _choice(decision: Decision, name: str) -> ChoiceAnswer | None:
     return answer if isinstance(answer, ChoiceAnswer) else None
 
 
-def _candidate_targets(evidence: Evidence) -> tuple[str, ...]:
-    """Paths the evidence points at: candidates first, then reads, deduplicated.
-
-    Truncated to `_MAX_CHOICE_OPTIONS`, since each becomes one option of a
-    single typed question.
-    """
-    paths: list[str] = []
-    seen: set[str] = set()
-    for candidate in evidence.resolution.candidates:
-        if candidate.path not in seen:
-            seen.add(candidate.path)
-            paths.append(candidate.path)
-    for read in evidence.exploration.reads:
-        if read.path not in seen:
-            seen.add(read.path)
-            paths.append(read.path)
-    return tuple(paths[:_MAX_CHOICE_OPTIONS])
-
-
-def _symbols_of(evidence: Evidence, target: str) -> tuple[Symbol, ...]:
-    """The symbols the index holds as definitions in `target`, in index order."""
-    return tuple(
-        symbol
-        for symbol in evidence.index.symbols.all()
-        if symbol.path == target and symbol.kind is SymbolKind.DEFINITION
-    )
-
-
-def _symbol_options(symbols: Sequence[Symbol]) -> dict[str, str]:
-    """Render up to 61 symbols as question options, plus one for "no symbol".
-
-    A symbol's detail is its option text, falling back to "symbol", and a name
-    appears once. `_NO_SYMBOL` is added last and means the whole file is the
-    work, so the question never exceeds `_MAX_CHOICE_OPTIONS` options.
-    """
-    options: dict[str, str] = {}
-    for symbol in symbols[: _MAX_CHOICE_OPTIONS - 1]:
-        if symbol.name not in options:
-            options[symbol.name] = symbol.detail or "symbol"
-    options[_NO_SYMBOL] = "no specific symbol — the whole file is the work"
-    return options
-
-
-def _kind_for(name: str, vocabulary: Sequence[TaskType]) -> TaskType | None:
-    """Find the servable type named `name`, or None when this config cannot serve it."""
-    return next((task for task in vocabulary if task.name == name), None)
-
-
-def _directive(kind: TaskType, target: str, symbol: str | None) -> str:
-    """The task line: the type's doc up to its first full stop, then the subject."""
-    return f"{kind.doc.split('.', 1)[0]}: {_subject(target, symbol)}."
-
-
-def _stop_condition(kind: TaskType, target: str, symbol: str | None) -> tuple[str, ...]:
-    """Stop conditions: none for a deterministic type, else the generic one.
-
-    A deterministic type starts on a gate and needs no stop condition; any other
-    gets `generic_stop_condition`, which tells the worker to report BLOCKED
-    rather than decide something the contract does not state.
-    """
-    if kind.deterministic:
-        return ()
-    return (generic_stop_condition(kind.name, _subject(target, symbol)),)
-
-
-def _subject(target: str, symbol: str | None) -> str:
-    """Name the work's subject: the file alone, or the symbol within it."""
-    return target if symbol is None else f"{symbol} in {target}"
-
-
 def _state(
     evidence: Evidence, targets: tuple[str, ...], vocabulary: Sequence[TaskType]
 ) -> dict[str, Any]:
@@ -602,19 +545,6 @@ def _state(
         "candidates": list(targets),
         "task_types": [task.name for task in vocabulary],
     }
-
-
-def completable(vocabulary: Sequence[TaskType]) -> tuple[TaskType, ...]:
-    """The servable types a classifier can propose: those needing no commands.
-
-    A type whose evidence requires acceptance or demonstration commands is left
-    out, because a typed answer cannot supply the commands themselves.
-    """
-    return tuple(
-        task
-        for task in vocabulary
-        if not task.needs_acceptance_commands and not task.needs_demonstration_commands
-    )
 
 
 def proposer_by_authoring(
