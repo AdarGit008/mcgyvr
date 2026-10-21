@@ -335,7 +335,7 @@ def _contract(args: argparse.Namespace) -> int:
     if reply:
         print(f"  judged:  {how_judged(contract.kind)}")
     else:
-        print(f"  judged:  by {contract.verification.policy.replace('_', ' ')}")
+        print(f"  verified by {contract.verification.policy.replace('_', ' ')}")
     # Limits by kind: a model-written change states an output budget (or says
     # that `mcgyvr run` will refuse it), the prompt-token cap, and an attempt
     # count. A deterministic operation calls no model, so no limits are printed

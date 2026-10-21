@@ -145,6 +145,12 @@ def test_json_is_accepted_as_well_as_yaml() -> None:
     assert parse(dumps(loads(MINIMAL))) == loads(MINIMAL)
 
 
+def test_risk_is_not_a_contract_field() -> None:
+    """`risk` was dropped from the contract schema and its emitted form."""
+    assert "risk" not in {field.name for field in SCHEMA}
+    assert "risk" not in loads(FULL).as_dict()
+
+
 def test_defaults_are_applied() -> None:
     contract = loads(MINIMAL)
     assert contract.version == SCHEMA_VERSION

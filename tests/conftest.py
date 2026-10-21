@@ -273,3 +273,17 @@ def contract() -> Any:
     from mcgyvr.contract import loads
 
     return loads(CONTRACT)
+
+
+@pytest.fixture
+def ungated_catalog(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, request: pytest.FixtureRequest
+) -> Any:
+    """The catalog with the ungated example kind invented into it.
+
+    For a test of the classifier's choice mechanics, which look a kind up by
+    name: the shipped catalog has only `code` (tests/ungated.py).
+    """
+    from tests.ungated import invent_ungated
+
+    return invent_ungated(tmp_path, monkeypatch, request)

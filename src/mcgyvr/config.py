@@ -1933,8 +1933,8 @@ def _absent_remedy(path: Path | None) -> str:
             "name a file that already exists."
         )
     return (
-        f"Run `mcgyvr setup` to set up and make a fleet live, or set "
-        f"{CONFIG_PATH_ENV} to point at an existing setup."
+        f"Run `mcgyvr setup` to set up and make a fleet live, or point it at "
+        f"an existing setup with `--config PATH` or `${CONFIG_PATH_ENV}`."
     )
 
 

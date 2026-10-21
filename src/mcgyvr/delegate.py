@@ -2,10 +2,11 @@
 
 Two proposers live here. ``proposer_for`` renders the evidence as a prose
 prompt, dispatches it to the ``orchestrator`` role and parses the JSON reply
-into proposals. ``classifier_proposer_for`` asks the same role a short series
-of typed multiple-choice questions — task type, target, then symbol — and
-turns the answers into one proposal, declining when a confidence falls short.
-``proposer_by_authoring`` picks between them for the configured strategy.
+into proposals. ``classifier_proposer_for`` asks the jev role one typed Choice
+per field — ``task_type``, ``target``, ``symbol``, ``interface``, ``deps``,
+``allow`` — in dependency order, and turns the answers into one proposal,
+declining when a load-bearing answer falls short. ``proposer_by_authoring``
+picks between them for the configured strategy.
 
 ``NO_ORCHESTRATOR_ROLE`` is what a caller prints when no orchestrator unit is
 bound, so no prompt can be turned into contracts.
@@ -14,22 +15,50 @@ bound, so no prompt can be turned into contracts.
 from __future__ import annotations
 
 import json
-from collections.abc import Callable, Mapping, Sequence
+import time
+from collections.abc import Callable, Collection, Mapping, Sequence
 from dataclasses import dataclass
 from typing import TYPE_CHECKING, Any
 
 from mcgyvr.catalog import TaskType
-from mcgyvr.contract import generic_stop_condition
 from mcgyvr.decision import (
-    Choice,
+    JEV_ROLE,
     ChoiceAnswer,
     Decision,
+    DecisionError,
     Question,
     classify_for,
     jev_bound,
 )
-from mcgyvr.orchestrator.decompose import DepRef, Evidence, Proposal, Proposer
-from mcgyvr.orchestrator.symbols import Symbol, SymbolKind
+from mcgyvr.orchestrator.candidates import (
+    _NO_SYMBOL,
+    CandidateSet,
+    Provenance,
+    candidate_targets,
+    choose,
+    collapse,
+    completable,
+    deps_candidates,
+    directive,
+    enumerate_candidates,
+    interface_candidates,
+    kind_for,
+    scope_candidates,
+    stop_condition,
+    symbol_candidates,
+    target_candidates,
+    task_type_candidates,
+    without,
+)
+from mcgyvr.orchestrator.decompose import DepRef, Evidence, Proposal, Proposer, Refusal
+from mcgyvr.orchestrator.fields import (
+    abstain_line,
+    abstain_value,
+    criterion,
+    render_choice,
+    value_by_id,
+)
+from mcgyvr.orchestrator.telemetry import DecisionRecord, ShadowSink
 from mcgyvr.runner import Request, dispatch_role
 from mcgyvr.worker.reply import FENCE_OPEN as _FENCE_OPEN
 
@@ -177,6 +206,14 @@ def _reply_format() -> str:
         "there; otherwise omit the field rather than guessing a name. A "
         "dependency is an existing symbol: never name the symbol the REQUEST "
         "asks you to create — it is the target's output, not a dependency.\n"
+        '- "operation" (string, optional): a deterministic operation a tool '
+        "performs instead of a model, for task_type code.\n"
+        '- "sources" (array of strings, optional): other repo files to give '
+        "the worker whole, beside the target.\n"
+        '- "depends_on" (array of whole numbers, optional): 0-based indexes '
+        "into this same array of proposals — the contracts that must complete "
+        "before this one may run. Index 0 is the first proposal in the reply. "
+        "Omit when this proposal waits on nothing.\n"
         '- "allow" (array of strings, optional): paths the change may touch; '
         "omit to allow the target alone.\n"
         '- "forbid" (array of strings, optional): paths the change must not '
@@ -280,6 +317,9 @@ def _proposal_of(item: object) -> Proposal:
         demonstration=_strings(item, "demonstration"),
         no_semantic_change=_optional_bool(item, "no_semantic_change"),
         type_check=_optional_bool(item, "type_check"),
+        operation=_optional_str(item, "operation"),
+        sources=_strings(item, "sources"),
+        depends_on=_depends_on(item),
     )
 
 
@@ -333,6 +373,25 @@ def _strings(item: dict[str, object], key: str) -> tuple[str, ...]:
     if not isinstance(value, list) or not all(isinstance(v, str) for v in value):
         raise UnreadableProposalError(f"{key!r} must be an array of strings")
     return tuple(value)
+
+
+def _depends_on(item: dict[str, object]) -> tuple[int, ...]:
+    """Read `depends_on`: absent means (), else an array of whole-number indexes."""
+    value = item.get("depends_on")
+    if value is None:
+        return ()
+    if not isinstance(value, list):
+        raise UnreadableProposalError(
+            "depends_on must be an array of whole-number proposal indexes"
+        )
+    indexes: list[int] = []
+    for entry in value:
+        if isinstance(entry, bool) or not isinstance(entry, int) or entry < 0:
+            raise UnreadableProposalError(
+                f"depends_on: {entry!r} is not a whole-number proposal index"
+            )
+        indexes.append(entry)
+    return tuple(indexes)
 
 
 def _deps(item: dict[str, object]) -> tuple[DepRef, ...]:
@@ -398,92 +457,338 @@ def proposer_for(
 #: proposed, and the caller can fall back to the prose proposer.
 MIN_CONFIDENCE = 0.5
 
-#: The option that picks no symbol, because the whole file is the work.
-_NO_SYMBOL = ""
-
-#: One typed question carries at most 62 options: the single-token labels read
-#: back are A-Z, a-z and 0-9. Targets are truncated to this, and the symbol
-#: question keeps one slot back for the "no specific symbol" option.
-_MAX_CHOICE_OPTIONS = 62
-
 
 @dataclass(frozen=True)
 class ClassifierProposer:
-    """A proposer that asks typed multiple-choice questions rather than prose.
+    """A proposer that asks one typed Choice per field, in dependency order.
 
     `classify` is the seam — it answers named questions about a state — and
-    `confidence` is the floor each answer must clear. A call asks the task type
-    and the target, then a symbol inside the target, and returns one proposal
-    built from those answers, or nothing when any of them is unusable, falls
-    short of the floor, or names a type needing an output cap this proposer
-    cannot supply.
+    `confidence` is the floor each answer must clear. One call asks the six
+    jev-decided fields (`task_type`, `target`, `symbol`, `interface`, `deps`,
+    `allow`) in that order, re-enumerating each downstream set against the
+    values already chosen, and folds the picks into one proposal. A
+    load-bearing answer (`task_type`/`target`) that is unusable, falls short of
+    the floor, or names a type needing an output cap declines the whole
+    proposal; an optional field degrades to its rank-0 candidate instead. Each
+    decision is appended to `sink`, when one is wired.
+
+    For the W6 retry loop, a decline returns a `Refusal` field/directive as
+    follows: no targets or no vocabulary → `target`/`task_type`; `task_type`
+    below the confidence floor → `task_type`; `target` below the confidence
+    floor → `target`; `kind.needs_output_cap` mismatch → `task_type`.
+    `__call__` still returns `()` for any decline so the prose proposer stands
+    in exactly as it did before.
     """
 
     classify: Callable[[Any, Mapping[str, Question]], Decision]
     confidence: float = MIN_CONFIDENCE
+    sink: ShadowSink | None = None
+    model: str = ""
+    seed: str = ""
 
-    def __call__(self, evidence: Evidence) -> Sequence[Proposal]:
-        targets = _candidate_targets(evidence)
+    def propose(
+        self,
+        evidence: Evidence,
+        *,
+        decided: Mapping[str, Any] | None = None,
+        constraints: Mapping[str, str] | None = None,
+        rejected: Mapping[str, Collection[Any]] | None = None,
+    ) -> Proposal | Refusal:
+        """Ask the six fields once and fold them into one proposal, or refuse.
+
+        `decided` carries fields already chosen on a prior attempt (skipped
+        without a jev call), `constraints` supplies a per-field directive
+        rendered in the CONSTRAINTS section, and `rejected` lists per-field
+        candidate values to drop from the question.
+        """
+        decided = decided or {}
+        constraints = constraints or {}
+        rejected = rejected or {}
+
+        targets = candidate_targets(evidence)
         vocabulary = completable(evidence.vocabulary)
-        if not targets or not vocabulary:
-            return ()
+        if not targets:
+            return Refusal(
+                "request",
+                "the request names no target the index holds, so there is no "
+                "file to propose work on",
+                field="target",
+                what_to_change="name a target the index holds",
+            )
+        if not vocabulary:
+            return Refusal(
+                "request",
+                "no servable task type is available to propose — bind a rung, "
+                "or ask for work of a type this ladder can serve",
+                field="task_type",
+                what_to_change="pick a servable type",
+            )
 
         state = _state(evidence, targets, vocabulary)
-        decision = self.classify(
-            state,
-            {
-                "kind": Choice(
-                    instructions="Which task type does this request call for?",
-                    options={task.name: task.doc for task in vocabulary},
-                ),
-                "target": Choice(
-                    instructions="Which file should the change land in?",
-                    options={path: path for path in targets},
-                ),
-            },
-        )
-        kind_answer = _choice(decision, "kind")
-        target_answer = _choice(decision, "target")
-        if kind_answer is None or target_answer is None:
-            return ()
-        if (
-            kind_answer.confidence < self.confidence
-            or target_answer.confidence < self.confidence
-        ):
-            return ()
-        kind = _kind_for(kind_answer.choice, vocabulary)
-        if kind is None:  # The name is not a type this config can serve.
-            return ()
-        if kind.needs_output_cap:
+
+        if "task_type" in decided:
+            task_type = decided["task_type"]
+        else:
+            task_type = self._decide(
+                state,
+                task_type_candidates(evidence),
+                constraints=constraints.get("task_type", ""),
+                rejected=rejected.get("task_type"),
+            )
+        if task_type is None:
+            return Refusal(
+                "request",
+                "the task_type answer was unusable or fell below the confidence floor",
+                field="task_type",
+                what_to_change="answer with a candidate above the confidence floor",
+            )
+        kind = kind_for(str(task_type), vocabulary)
+        if kind is None or kind.needs_output_cap:
             # A type needing an output cap gets no proposal here: the cap says
             # what a reply is worth in tokens, and this proposer has no way to
             # judge that, so it declines instead of guessing.
-            return ()
-        target = target_answer.choice
+            return Refusal(
+                "request",
+                "the chosen task type needs an output cap the classifier cannot "
+                "state, so the request is handed to the prose proposer",
+                field="task_type",
+                what_to_change="choose a type that states no reply cap",
+            )
 
-        symbols = _symbols_of(evidence, target)
-        symbol_decision = self.classify(
-            state,
-            {
-                "symbol": Choice(
-                    instructions=f"Which symbol in {target} does the task work on?",
-                    options=_symbol_options(symbols),
+        if "target" in decided:
+            target = str(decided["target"])
+        else:
+            chosen_target = self._decide(
+                state,
+                target_candidates(evidence),
+                constraints=constraints.get("target", ""),
+                rejected=rejected.get("target"),
+            )
+            if chosen_target is None:
+                return Refusal(
+                    "request",
+                    "the target answer was unusable or fell below the confidence floor",
+                    field="target",
+                    what_to_change="answer with a candidate above the confidence floor",
                 )
-            },
-        )
-        symbol_answer = _choice(symbol_decision, "symbol")
-        if symbol_answer is None or symbol_answer.confidence < self.confidence:
-            return ()
-        symbol = None if symbol_answer.choice == _NO_SYMBOL else symbol_answer.choice
+            target = str(chosen_target)
 
-        return (
-            Proposal(
-                task_type=kind.name,
-                task=_directive(kind, target, symbol),
+        if "symbol" in decided:
+            symbol = decided["symbol"]
+            symbol_provenance = Provenance.MODEL
+        else:
+            symbol_set = symbol_candidates(evidence, target)
+            symbol = self._decide(
+                state,
+                symbol_set,
                 target=target,
-                stop_conditions=_stop_condition(kind, target, symbol),
-            ),
+                constraints=constraints.get("symbol", ""),
+                rejected=rejected.get("symbol"),
+            )
+            symbol_provenance = Provenance.MODEL
+            if symbol is None:
+                rank0 = symbol_set.rank0
+                symbol = rank0.value if rank0 is not None else _NO_SYMBOL
+                symbol_provenance = Provenance.DETERMINISTIC
+        symbol_name = _symbol_of(symbol)
+
+        plan = enumerate_candidates(evidence)
+        plan = choose(plan, "task_type", kind.name)
+        plan = choose(plan, "target", target)
+        plan = choose(
+            plan, "symbol", symbol_name or _NO_SYMBOL, provenance=symbol_provenance
         )
+        plan = choose(
+            plan,
+            "task",
+            directive(kind, target, symbol_name),
+            provenance=Provenance.DETERMINISTIC,
+        )
+        plan = choose(
+            plan,
+            "stop_conditions",
+            stop_condition(kind, target, symbol_name),
+            provenance=Provenance.DETERMINISTIC,
+        )
+
+        if "interface" in decided:
+            interface = decided["interface"]
+        else:
+            interface = self._decide(
+                state,
+                interface_candidates(evidence, target, symbol_name),
+                constraints=constraints.get("interface", ""),
+                rejected=rejected.get("interface"),
+            )
+        if interface is not None:
+            plan = choose(plan, "interface", interface)
+
+        if "deps" in decided:
+            deps = decided["deps"]
+        else:
+            deps = self._decide(
+                state,
+                deps_candidates(evidence, target),
+                constraints=constraints.get("deps", ""),
+                rejected=rejected.get("deps"),
+            )
+        if deps is not None:
+            plan = choose(plan, "deps", deps)
+
+        if "allow" in decided:
+            allow = decided["allow"]
+        else:
+            allow = self._decide(
+                state,
+                scope_candidates(evidence, target)[0],
+                constraints=constraints.get("allow", ""),
+                rejected=rejected.get("allow"),
+            )
+        if allow is not None:
+            plan = choose(plan, "allow", allow)
+
+        return collapse(plan)
+
+    def __call__(self, evidence: Evidence) -> Sequence[Proposal]:
+        """The `Proposer` seam: a decline is `()`, so the prose proposer stands in."""
+        result = self.propose(evidence)
+        return () if isinstance(result, Refusal) else (result,)
+
+    def _decide(
+        self,
+        state: Any,
+        set: CandidateSet,
+        *,
+        target: str | None = None,
+        constraints: str = "",
+        rejected: Collection[Any] | None = None,
+    ) -> Any | None:
+        """Ask jev one field's Choice and read the pick back.
+
+        Returns the chosen candidate's value, or None when the answer is
+        unusable (missing, unreadable, below the confidence floor, or a choice
+        id not among the field's candidates). `rejected` candidates are dropped
+        from the question first; `constraints` is rendered in its instructions.
+        Exactly one `DecisionRecord` is written to `sink` per call, with the
+        decision's candidate order, pick, rank-0, abstain flag, confidence,
+        parse-fail flag, latency, model and seed. Transport errors propagate
+        unchanged; only `DecisionError` is caught and recorded as a parse
+        failure.
+        """
+        if rejected:
+            set = without(set, rejected)
+        question = render_choice(
+            set,
+            criterion=criterion(set.field, target=target),
+            abstain_line=abstain_line(set.field),
+            constraints=constraints,
+        )
+        t0 = time.monotonic()
+        try:
+            decision = self.classify(state, {set.field: question})
+        except DecisionError:
+            latency_ms = round((time.monotonic() - t0) * 1000)
+            self._record(
+                set,
+                pick=None,
+                abstain=True,
+                confidence=0.0,
+                parse_fail=True,
+                latency_ms=latency_ms,
+            )
+            return None
+        latency_ms = round((time.monotonic() - t0) * 1000)
+
+        answer = _choice(decision, set.field)
+        if answer is None:
+            self._record(
+                set,
+                pick=None,
+                abstain=True,
+                confidence=0.0,
+                parse_fail=False,
+                latency_ms=latency_ms,
+            )
+            return None
+        if answer.confidence < self.confidence:
+            self._record(
+                set,
+                pick=None,
+                abstain=True,
+                confidence=answer.confidence,
+                parse_fail=False,
+                latency_ms=latency_ms,
+            )
+            return None
+
+        try:
+            value = value_by_id(set, answer.choice)
+        except KeyError:
+            self._record(
+                set,
+                pick=None,
+                abstain=True,
+                confidence=answer.confidence,
+                parse_fail=True,
+                latency_ms=latency_ms,
+            )
+            return None
+        sentinel = abstain_value(set.field)
+        self._record(
+            set,
+            pick=answer.choice,
+            abstain=sentinel is not None and value == sentinel,
+            confidence=answer.confidence,
+            parse_fail=False,
+            latency_ms=latency_ms,
+        )
+        return value
+
+    def _record(
+        self,
+        set: CandidateSet,
+        *,
+        pick: str | None,
+        abstain: bool,
+        confidence: float,
+        parse_fail: bool,
+        latency_ms: int,
+    ) -> None:
+        """Append one `DecisionRecord` to `sink`, or do nothing when unwired."""
+        if self.sink is None:
+            return
+        rank0 = set.rank0
+        self.sink.append(
+            DecisionRecord(
+                field=set.field,
+                candidates=tuple(c.id for c in set.candidates),
+                pick=pick,
+                rank1=rank0.id if rank0 is not None else "",
+                abstain=abstain,
+                confidence=confidence,
+                parse_fail=parse_fail,
+                latency_ms=latency_ms,
+                model=self.model,
+                seed=self.seed,
+            )
+        )
+
+
+def deterministic_proposer() -> Proposer:
+    """The no-jev degrade: rank-0 collapse per field, with no model asked.
+
+    This is a fallback so the shadow loop and later calibration can run, not a
+    tuned default: it picks the first completable type, first target, first
+    symbol (a real definition, not the whole file) and the empty defaults for
+    every optional field. No decision is made, so nothing is recorded.
+    """
+
+    def propose(evidence: Evidence) -> Sequence[Proposal]:
+        if not candidate_targets(evidence) or not completable(evidence.vocabulary):
+            return ()
+        return (collapse(enumerate_candidates(evidence)),)
+
+    return propose
 
 
 def classifier_proposer_for(
@@ -491,16 +796,19 @@ def classifier_proposer_for(
     *,
     capacity: Capacity | None = None,
     confidence: float = MIN_CONFIDENCE,
+    sink: ShadowSink | None = None,
 ) -> Proposer | None:
-    """Build the typed proposer, or None when neither Jev nor a role is bound.
+    """Build the classifier proposer on the jev role, or its no-jev degrade.
 
-    The questions go through `classify_for`, which reads them with the `jev`
-    role when that one is bound and with the `orchestrator` role — the role
-    named here — otherwise. `capacity` gates each question, `confidence` is the
-    floor the returned proposer holds its answers to.
+    With a unit bound to the jev role the questions go through `classify_for`
+    (which prefers jev over the `orchestrator` role named here), and each
+    decision is recorded in `sink` with the jev role's model. Without jev there
+    is nothing to decide, so the returned proposer collapses rank-0 per field
+    deterministically and asks nothing — the gate/reviewer/wake/ladder decisions
+    keep asking their pre-jev roles, unchanged.
     """
-    if not jev_bound(source_map) and source_map.role_model(ORCHESTRATOR_ROLE) is None:
-        return None
+    if not jev_bound(source_map):
+        return deterministic_proposer()
 
     def classify(state: Any, questions: Mapping[str, Question]) -> Decision:
         return classify_for(
@@ -511,86 +819,26 @@ def classifier_proposer_for(
             capacity=capacity,
         )
 
-    return ClassifierProposer(classify=classify, confidence=confidence)
+    return ClassifierProposer(
+        classify=classify,
+        confidence=confidence,
+        sink=sink,
+        model=source_map.role_model(JEV_ROLE) or "",
+    )
 
 
 # Reading one decision into one proposal.
+
+
+def _symbol_of(name: Any) -> str | None:
+    """The chosen symbol name, or None when the no-symbol option was picked."""
+    return None if name == _NO_SYMBOL else str(name)
 
 
 def _choice(decision: Decision, name: str) -> ChoiceAnswer | None:
     """Read the typed answer filed under `name`, or None if absent or not a choice."""
     answer = decision.answers.get(name)
     return answer if isinstance(answer, ChoiceAnswer) else None
-
-
-def _candidate_targets(evidence: Evidence) -> tuple[str, ...]:
-    """Paths the evidence points at: candidates first, then reads, deduplicated.
-
-    Truncated to `_MAX_CHOICE_OPTIONS`, since each becomes one option of a
-    single typed question.
-    """
-    paths: list[str] = []
-    seen: set[str] = set()
-    for candidate in evidence.resolution.candidates:
-        if candidate.path not in seen:
-            seen.add(candidate.path)
-            paths.append(candidate.path)
-    for read in evidence.exploration.reads:
-        if read.path not in seen:
-            seen.add(read.path)
-            paths.append(read.path)
-    return tuple(paths[:_MAX_CHOICE_OPTIONS])
-
-
-def _symbols_of(evidence: Evidence, target: str) -> tuple[Symbol, ...]:
-    """The symbols the index holds as definitions in `target`, in index order."""
-    return tuple(
-        symbol
-        for symbol in evidence.index.symbols.all()
-        if symbol.path == target and symbol.kind is SymbolKind.DEFINITION
-    )
-
-
-def _symbol_options(symbols: Sequence[Symbol]) -> dict[str, str]:
-    """Render up to 61 symbols as question options, plus one for "no symbol".
-
-    A symbol's detail is its option text, falling back to "symbol", and a name
-    appears once. `_NO_SYMBOL` is added last and means the whole file is the
-    work, so the question never exceeds `_MAX_CHOICE_OPTIONS` options.
-    """
-    options: dict[str, str] = {}
-    for symbol in symbols[: _MAX_CHOICE_OPTIONS - 1]:
-        if symbol.name not in options:
-            options[symbol.name] = symbol.detail or "symbol"
-    options[_NO_SYMBOL] = "no specific symbol — the whole file is the work"
-    return options
-
-
-def _kind_for(name: str, vocabulary: Sequence[TaskType]) -> TaskType | None:
-    """Find the servable type named `name`, or None when this config cannot serve it."""
-    return next((task for task in vocabulary if task.name == name), None)
-
-
-def _directive(kind: TaskType, target: str, symbol: str | None) -> str:
-    """The task line: the type's doc up to its first full stop, then the subject."""
-    return f"{kind.doc.split('.', 1)[0]}: {_subject(target, symbol)}."
-
-
-def _stop_condition(kind: TaskType, target: str, symbol: str | None) -> tuple[str, ...]:
-    """Stop conditions: none for a deterministic type, else the generic one.
-
-    A deterministic type starts on a gate and needs no stop condition; any other
-    gets `generic_stop_condition`, which tells the worker to report BLOCKED
-    rather than decide something the contract does not state.
-    """
-    if kind.deterministic:
-        return ()
-    return (generic_stop_condition(kind.name, _subject(target, symbol)),)
-
-
-def _subject(target: str, symbol: str | None) -> str:
-    """Name the work's subject: the file alone, or the symbol within it."""
-    return target if symbol is None else f"{symbol} in {target}"
 
 
 def _state(
@@ -602,19 +850,6 @@ def _state(
         "candidates": list(targets),
         "task_types": [task.name for task in vocabulary],
     }
-
-
-def completable(vocabulary: Sequence[TaskType]) -> tuple[TaskType, ...]:
-    """The servable types a classifier can propose: those needing no commands.
-
-    A type whose evidence requires acceptance or demonstration commands is left
-    out, because a typed answer cannot supply the commands themselves.
-    """
-    return tuple(
-        task
-        for task in vocabulary
-        if not task.needs_acceptance_commands and not task.needs_demonstration_commands
-    )
 
 
 def proposer_by_authoring(

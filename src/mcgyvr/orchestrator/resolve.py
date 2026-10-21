@@ -81,6 +81,14 @@ _W_PATH_EXACT = 100.0
 _W_SYMBOL_EXACT = 60.0
 _W_STEM_EXACT = 45.0
 
+# Reward for a compound symbol the query names across its words rather than as
+# one squashed token: ``SuggestModel`` is named by a query that says ``suggest``
+# and ``model`` in separate words. Weaker than naming the symbol outright
+# (``_W_SYMBOL_EXACT``), but a single token on its own would under-weight the
+# match when one word is generic (``model``), so the whole-name reading earns a
+# fixed lift that does not depend on that word's rarity.
+_W_SYMBOL_SPLIT = 15.0
+
 # Base strengths for a single token found inside a longer name, ranking where it
 # was found: inside a symbol name counts for most, inside a filename stem for
 # less, in a directory name for least. Each is scaled by how much of the name
@@ -138,6 +146,15 @@ _TOKEN_KINDS = frozenset({SymbolKind.DEFINITION, SymbolKind.EXPORT})
 # How far ahead of the runner-up the leader must be to count as the answer. A
 # shortlist whose top two are closer than this factor is reported ambiguous
 # rather than resolved, so a near-tie is never presented as a decision.
+#
+# This factor is deliberately conservative. A prose request that describes a
+# symbol rather than naming it can leave the correct leader below 1.5x the
+# runner-up (``compute the Levenshtein edit distance`` leads ``diff.ts`` at
+# ~1.015x); but lowering the factor is a net loss on a large corpus, because
+# most borderline near-ties lead with the *wrong* file, and the rare
+# specific-token ties cannot be separated from genuine multi-file ambiguity by
+# any fixed ratio. Prose-vs-symbol borderline ties are therefore a known
+# limitation, not a bug to fix by threshold tuning.
 _DOMINANCE = 1.5
 
 # A content token that reaches at most this many files is specific enough to be
@@ -236,6 +253,7 @@ def resolve(index: Index, query: str, *, limit: int = 10) -> Resolution:
     _score_whole_query(query, corpus, scores, evidence)
     named = set(scores)  # files the whole query named literally, if any
     _score_tokens(tokens, corpus, scores, evidence)
+    _score_symbols_named_across_query(tokens, corpus, scores, evidence)
 
     # A token-only shortlist is still checked for an absolute signal: a compound
     # name the index does not hold means the query named nothing, so the
@@ -431,6 +449,66 @@ def _score_tokens(
             scores[path] += _W_COVERAGE * fraction
 
 
+def _score_symbols_named_across_query(
+    tokens: list[str],
+    corpus: _Corpus,
+    scores: dict[str, float],
+    evidence: dict[str, list[tuple[float, str]]],
+) -> None:
+    """Lift a family of compound symbols the query names across its words.
+
+    A symbol whose name splits into two or more tokens that all appear in the
+    query -- ``SuggestModel`` for a query saying ``suggest`` and ``model`` --
+    has been named by the query, just not as one squashed token. ``_score_tokens``
+    scores each of those words by its own rarity, which under-weights the match
+    when one word is generic (``model`` across hundreds of files): the file then
+    falls behind its siblings whose distinguishing word happens to be rarer.
+
+    The lift is applied only when the query enumerates a *family* -- at least
+    two distinct symbols that are fully named and share a token (``suggest`` in
+    ``SuggestController``, ``SuggestModel``, ``SuggestWidget``). A lone compound
+    a query mentions once (``got.paginate`` in a parenthetical) is already paid
+    by its own tokens and must not be lifted, or it would crowd out the files
+    that actually answer the surrounding question. A single-token name is a
+    whole name and needs no lift here.
+
+    The lift is awarded once per path, for the strongest symbol it names.
+    """
+    token_set = set(tokens)
+    if not token_set:
+        return
+    named: dict[tuple[str, str], tuple[float, str, frozenset[str]]] = {}
+    for token in token_set:
+        for path, symbol in corpus.symbol_token.get(token, {}).items():
+            parts = tuple(
+                part for part in _tokenize(symbol.name) if not _is_noise_token(part)
+            )
+            if len(parts) < 2 or any(part not in token_set for part in parts):
+                continue
+            key = (path, symbol.name)
+            amount = _W_SYMBOL_SPLIT + _kind_bonus(symbol)
+            why = f"query names {symbol.name} across its words"
+            previous = named.get(key)
+            if previous is None or amount > previous[0]:
+                named[key] = (amount, why, frozenset(parts))
+
+    # A token shared by at least two fully-named symbols marks the family; only
+    # its members are lifted.
+    members: dict[str, int] = defaultdict(int)
+    for _, _, symbol_parts in named.values():
+        for part in symbol_parts:
+            members[part] += 1
+    best: dict[str, tuple[float, str]] = {}
+    for (path, _), (amount, why, symbol_parts) in named.items():
+        if not any(members[part] >= 2 for part in symbol_parts):
+            continue
+        incumbent = best.get(path)
+        if incumbent is None or amount > incumbent[0]:
+            best[path] = (amount, why)
+    for path, (amount, why) in best.items():
+        _award(scores, evidence, path, amount, why)
+
+
 def _collect(token: str, corpus: _Corpus) -> list[tuple[str, float, str]]:
     """Everything one token matches, as (path, strength, evidence) per file.
 
@@ -585,9 +663,11 @@ def _top_evidence(reasons: list[tuple[float, str]], keep: int = 4) -> tuple[str,
 def _verdict(candidates: tuple[Candidate, ...]) -> Verdict:
     """Read the shortlist as one answer: resolved, ambiguous, or empty.
 
-    One candidate is resolved by definition. With more, the leader is the answer
-    only if the runner-up scored nothing or the leader is at least
-    ``_DOMINANCE`` times its score; anything closer is ambiguous.
+    One candidate is resolved by definition. A correct leader below the bar on
+    a prose-described symbol is reported ambiguous by design -- see the
+    ``_DOMINANCE`` limitation note. With more, the leader is the answer only if
+    the runner-up scored nothing or the leader is at least ``_DOMINANCE`` times
+    its score; anything closer is ambiguous.
     """
     if not candidates:
         return Verdict.EMPTY

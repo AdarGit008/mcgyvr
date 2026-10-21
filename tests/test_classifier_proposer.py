@@ -2,11 +2,12 @@
 
 The Jev-class counterpart to :func:`~mcgyvr.delegate.proposer_for`: where that
 proposer asks the orchestrator role for a free-text JSON reply and parses it
-back into proposals, :class:`~mcgyvr.delegate.ClassifierProposer` asks the role
-for a handful of *typed* decisions through :func:`~mcgyvr.decision.classify`
-and builds one proposal from the answers. The model decides relevance — which
-kind of work, which file, which symbol — and the repository decides fact, in
-``decompose`` as always.
+back into proposals, :class:`~mcgyvr.delegate.ClassifierProposer` asks the jev
+role one typed ``Choice`` per field — ``task_type``, ``target``, ``symbol``,
+``interface``, ``deps``, ``allow`` — in dependency order, and builds one
+proposal from the answers. The model decides relevance — which kind of work,
+which file, which symbol — and the repository decides fact, in ``decompose`` as
+always.
 
 The transport is stubbed throughout: the properties under test are the shape of
 the questions asked, the mapping from answers to a proposal, and the refusal on
@@ -18,13 +19,12 @@ from __future__ import annotations
 import subprocess
 import textwrap
 from collections.abc import Mapping
-from dataclasses import replace
 from pathlib import Path
 from typing import Any
 
 import pytest
 
-from mcgyvr.catalog import TaskType, catalog
+from mcgyvr.catalog import TaskType
 from mcgyvr.config import parse
 from mcgyvr.decision import Answer, Choice, ChoiceAnswer, Decision, Question
 from mcgyvr.delegate import (
@@ -33,11 +33,13 @@ from mcgyvr.delegate import (
     classifier_proposer_for,
 )
 from mcgyvr.local_pool import Protocol, source_map
+from mcgyvr.orchestrator.candidates import collapse, enumerate_candidates
 from mcgyvr.orchestrator.decompose import Evidence, Proposal
 from mcgyvr.orchestrator.index import Index, build_index
 from mcgyvr.orchestrator.read import explore
 from mcgyvr.orchestrator.resolve import resolve
 from mcgyvr.runner import Completion, StopReason
+from tests import ungated
 
 #: A keyless local ladder with no orchestrator block.
 LADDER = """\
@@ -129,21 +131,24 @@ def answer(choice: str, confidence: float) -> ChoiceAnswer:
     )
 
 
-#: The example kind the choice mechanics are shown with: a kind that judges no
-#: change, built here since the shipped catalog has none. Not ``code``: a
+def _rank0(seen: list[tuple[Any, Mapping[str, Question]]]) -> Any:
+    """A classify fake that answers each field's single question with its rank-0."""
+
+    def classify(state: Any, questions: Mapping[str, Question]) -> Decision:
+        seen.append((state, questions))
+        ((field, question),) = questions.items()
+        assert isinstance(question, Choice)
+        return decision_of({field: answer(next(iter(question.options)), 0.9)})
+
+    return classify
+
+
+#: The ungated example kind (tests/ungated.py). Not ``code``: a
 #: ``code`` contract states its reply cap, which no choice can say, so the
 #: classifier hands that work to the prose proposer
 #: (test_the_classifier_leaves_capped_work_to_the_prose_proposer.py).
-AGENT = replace(
-    catalog().require("code"),
-    name="agent",
-    required_evidence=(),
-    evidence_derived=False,
-    doc=(
-        "Answer a prompt in plain prose from the repository files the contract "
-        "names as its sources, ungated."
-    ),
-)
+AGENT = ungated.ungated()
+pytestmark = pytest.mark.usefixtures("ungated_catalog")
 
 
 # --- the typed-decision path ----------------------------------------------
@@ -152,22 +157,9 @@ AGENT = replace(
 def test_a_classifier_proposer_asks_choices_and_builds_a_proposal(
     repo: Index,
 ) -> None:
-    """The three questions are asked as Choices and the answers become a
-    proposal naming the type, target and symbol the model chose."""
+    """One Choice per field, keyed by candidate id, folds into one proposal."""
     seen: list[tuple[Any, Mapping[str, Question]]] = []
-
-    def classify(state: Any, questions: Mapping[str, Question]) -> Decision:
-        seen.append((state, questions))
-        if "symbol" in questions:
-            return decision_of({"symbol": answer("listing", 0.9)})
-        return decision_of(
-            {
-                "kind": answer("agent", 0.9),
-                "target": answer("listing.py", 0.9),
-            }
-        )
-
-    propose = ClassifierProposer(classify=classify)
+    propose = ClassifierProposer(classify=_rank0(seen))
     proposals = propose(evidence_for(repo, "document listing", (AGENT,)))
 
     (proposal,) = proposals
@@ -185,21 +177,19 @@ def test_a_classifier_proposer_asks_choices_and_builds_a_proposal(
         ),
     )
 
-    assert len(seen) == 2
-    (_, first), (_, second) = seen
+    assert len(seen) == 6
+    task_type = seen[0][1]["task_type"]
+    assert isinstance(task_type, Choice)
+    assert task_type.options == {"task_type:0": AGENT.doc}
 
-    kind = first["kind"]
-    assert isinstance(kind, Choice)
-    assert kind.options == {"agent": AGENT.doc}
-
-    target = first["target"]
+    target = seen[1][1]["target"]
     assert isinstance(target, Choice)
-    assert "listing.py" in target.options
+    assert target.options == {"target:0": "listing.py"}
 
-    symbol = second["symbol"]
+    symbol = seen[2][1]["symbol"]
     assert isinstance(symbol, Choice)
-    assert symbol.options["listing"] != ""
-    assert "" in symbol.options, "a no-symbol option must be offered"
+    assert list(symbol.options) == ["symbol:0", "symbol:1"]
+    assert symbol.options["symbol:1"] != "", "a no-symbol option must be offered"
 
 
 def test_a_classifier_proposer_offers_the_catalog_vocabulary_and_candidates(
@@ -207,22 +197,11 @@ def test_a_classifier_proposer_offers_the_catalog_vocabulary_and_candidates(
 ) -> None:
     """The model is shown only the servable types and the ranked shortlist."""
     seen: list[tuple[Any, Mapping[str, Question]]] = []
-
-    def classify(state: Any, questions: Mapping[str, Question]) -> Decision:
-        seen.append((state, questions))
-        if "symbol" in questions:
-            return decision_of({"symbol": answer("", 0.9)})
-        return decision_of(
-            {
-                "kind": answer("agent", 0.9),
-                "target": answer("listing.py", 0.9),
-            }
-        )
-
-    propose = ClassifierProposer(classify=classify)
+    propose = ClassifierProposer(classify=_rank0(seen))
     proposals = propose(evidence_for(repo, "document the pagination helper", (AGENT,)))
 
     assert len(proposals) == 1
+    assert len(seen) == 6
     state, _ = seen[0]
     assert state["request"] == "document the pagination helper"
     assert state["task_types"] == ["agent"]
@@ -232,16 +211,14 @@ def test_a_classifier_proposer_offers_the_catalog_vocabulary_and_candidates(
 # --- the low-confidence refusal -------------------------------------------
 
 
-def test_a_classifier_proposer_refuses_when_the_kind_is_uncertain(
+def test_a_classifier_proposer_refuses_when_the_task_type_is_uncertain(
     repo: Index,
 ) -> None:
     def classify(state: Any, questions: Mapping[str, Question]) -> Decision:
-        return decision_of(
-            {
-                "kind": answer("agent", MIN_CONFIDENCE - 0.1),
-                "target": answer("listing.py", 0.9),
-            }
-        )
+        ((field, question),) = questions.items()
+        assert isinstance(question, Choice)
+        confidence = MIN_CONFIDENCE - 0.1 if field == "task_type" else 0.9
+        return decision_of({field: answer(next(iter(question.options)), confidence)})
 
     propose = ClassifierProposer(classify=classify)
     assert propose(evidence_for(repo, "document listing", (AGENT,))) == ()
@@ -251,32 +228,29 @@ def test_a_classifier_proposer_refuses_when_the_target_is_uncertain(
     repo: Index,
 ) -> None:
     def classify(state: Any, questions: Mapping[str, Question]) -> Decision:
-        return decision_of(
-            {
-                "kind": answer("agent", 0.9),
-                "target": answer("listing.py", MIN_CONFIDENCE - 0.1),
-            }
-        )
+        ((field, question),) = questions.items()
+        assert isinstance(question, Choice)
+        confidence = MIN_CONFIDENCE - 0.1 if field == "target" else 0.9
+        return decision_of({field: answer(next(iter(question.options)), confidence)})
 
     propose = ClassifierProposer(classify=classify)
     assert propose(evidence_for(repo, "document listing", (AGENT,))) == ()
 
 
-def test_a_classifier_proposer_refuses_when_the_symbol_is_uncertain(
+def test_a_classifier_proposer_degrades_when_the_symbol_is_uncertain(
     repo: Index,
 ) -> None:
+    """A low-confidence symbol leaves rank-0 — the first definition — not a refusal."""
+    evidence = evidence_for(repo, "document listing", (AGENT,))
+
     def classify(state: Any, questions: Mapping[str, Question]) -> Decision:
-        if "symbol" in questions:
-            return decision_of({"symbol": answer("listing", MIN_CONFIDENCE - 0.1)})
-        return decision_of(
-            {
-                "kind": answer("agent", 0.9),
-                "target": answer("listing.py", 0.9),
-            }
-        )
+        ((field, question),) = questions.items()
+        assert isinstance(question, Choice)
+        confidence = MIN_CONFIDENCE - 0.1 if field == "symbol" else 0.9
+        return decision_of({field: answer(next(iter(question.options)), confidence)})
 
     propose = ClassifierProposer(classify=classify)
-    assert propose(evidence_for(repo, "document listing", (AGENT,))) == ()
+    assert propose(evidence) == (collapse(enumerate_candidates(evidence)),)
 
 
 def test_a_classifier_proposer_refuses_when_nothing_matched(
@@ -305,45 +279,19 @@ def test_a_classifier_proposer_refuses_when_nothing_matched(
 # --- the factory, through the below-seam bridge ----------------------------
 
 
-def test_classifier_proposer_for_returns_none_without_an_orchestrator_role() -> None:
-    pool = source_map(parse(cfg(LADDER)))
-
-    assert classifier_proposer_for(pool) is None
-
-
-def test_classifier_proposer_for_dispatches_through_classify_role(
+def test_classifier_proposer_for_degrades_without_a_jev_unit(
     repo: Index, monkeypatch: pytest.MonkeyPatch
 ) -> None:
+    """Without jev the factory returns the rank-0 proposer and asks nothing."""
     import mcgyvr.decision as decision
 
     pool = source_map(parse(cfg(ORCHESTRATOR)))
-    sent: list[tuple[Any, Mapping[str, Question]]] = []
 
-    def fake_classify_role(
-        source_map: Any,
-        role: str,
-        state: Any,
-        questions: Mapping[str, Question],
-        *,
-        capacity: Any = None,
-        timeout_s: Any = None,
-    ) -> Decision:
-        assert role == "orchestrator"
-        sent.append((state, questions))
-        if "symbol" in questions:
-            return decision_of({"symbol": answer("listing", 0.9)})
-        return decision_of(
-            {
-                "kind": answer("agent", 0.9),
-                "target": answer("listing.py", 0.9),
-            }
-        )
+    def fail(*args: Any, **kwargs: Any) -> Any:
+        raise AssertionError("no typed question goes to the orchestrator without jev")
 
-    monkeypatch.setattr(decision, "classify_role", fake_classify_role)
-
+    monkeypatch.setattr(decision, "_post_json", fail)
     propose = classifier_proposer_for(pool)
     assert propose is not None
-    (proposal,) = propose(evidence_for(repo, "document listing", (AGENT,)))
-
-    assert proposal.target == "listing.py"
-    assert len(sent) == 2
+    evidence = evidence_for(repo, "document listing", (AGENT,))
+    assert propose(evidence) == (collapse(enumerate_candidates(evidence)),)

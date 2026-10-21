@@ -25,6 +25,8 @@ from mcgyvr.orchestrator.decompose import (
     DepRef,
     Proposal,
     RecordedProposer,
+    _fan_out,
+    _identify,
     decompose,
 )
 from mcgyvr.orchestrator.index import Index, build_index
@@ -240,6 +242,212 @@ def test_the_same_unit_of_work_twice_is_refused_as_a_duplicate(repo: Index) -> N
 
     assert len(result.contracts) == 1
     assert "duplicates contract" in result.refusals[0].reason
+
+
+# --- fan-out: one intent into ordered, self-contained sub-contracts --------
+
+
+def test_fan_out_resolves_depends_on_and_round_trips_the_new_fields(
+    repo: Index,
+) -> None:
+    """The 2nd proposal's `depends_on=(0,)` becomes the 1st contract's id."""
+    first = a_fix(
+        task="format listing with the project formatter",
+        operation="format",
+        sources=("pagination.py",),
+        deps=(),
+        acceptance=(),
+        demonstration=(),
+    )
+    second = a_fix(
+        task="fix the pager",
+        target="pagination.py",
+        deps=(),
+        depends_on=(0,),
+    )
+
+    result = decompose(repo, "fan out", propose=RecordedProposer((first, second)))
+
+    assert result.refusals == ()
+    assert [c.target for c in result.contracts] == ["listing.py", "pagination.py"]
+    assert result.contracts[1].depends_on == (result.contracts[0].id,)
+    assert result.contracts[0].operation == "format"
+    assert result.contracts[0].sources == ("pagination.py",)
+    for built, document in zip(result.contracts, result.documents, strict=True):
+        assert contract_module.loads(document) == built
+        assert contract_module.loads(contract_module.dumps(built)) == built
+
+
+def test_fan_out_orders_dependencies_before_their_dependents(repo: Index) -> None:
+    """Topo order wins over the proposer's order; ties keep the proposer's."""
+    base = a_fix(task="base listing change")
+    dependent = a_fix(
+        task="dependent pager change",
+        target="pagination.py",
+        deps=(),
+        depends_on=(1,),
+    )
+
+    result = decompose(repo, "fan out", propose=RecordedProposer((dependent, base)))
+
+    assert result.refusals == ()
+    assert [c.target for c in result.contracts] == ["listing.py", "pagination.py"]
+    assert result.contracts[1].depends_on == (result.contracts[0].id,)
+
+
+def test_identify_differs_when_the_fan_out_fields_differ(repo: Index) -> None:
+    """operation, sources and depends_on are part of a unit's identity."""
+    base = a_fix()
+
+    assert _identify(base) != _identify(a_fix(operation="format"))
+    assert _identify(base) != _identify(a_fix(sources=("pagination.py",)))
+    assert _identify(base) != _identify(a_fix(depends_on=(0,)))
+
+
+def test_resize_preserves_sources_and_depends_on(tmp_path: Path) -> None:
+    """A rebuild for a larger worker view keeps the plan's edges and sources."""
+    root = tmp_path / "wide"
+    root.mkdir()
+    git(root, "init", "-q", "-b", "main")
+    (root / "base.py").write_text("def base() -> int:\n    return 1\n")
+    body = "\n".join(
+        f"    value_{i} = {i} * 2  # a line of real content" for i in range(400)
+    )
+    (root / "wide.py").write_text(f"def wide() -> int:\n{body}\n    return value_0\n")
+    git(root, "add", "-A")
+    git(root, "commit", "-q", "-m", "seed")
+    index = build_index(root)
+
+    base = Proposal(
+        task_type="code",
+        task="add a base helper",
+        target="base.py",
+        stop_conditions=("the helper's contract is ambiguous",),
+        max_output_tokens=1024,
+    )
+    dependent = Proposal(
+        task_type="code",
+        task="format wide",
+        target="wide.py",
+        operation="format",
+        sources=("base.py",),
+        depends_on=(0,),
+        stop_conditions=("the format target is ambiguous",),
+    )
+
+    result = decompose(index, "fan out", propose=RecordedProposer((base, dependent)))
+
+    assert result.refusals == ()
+    assert len(result.contracts) == 2
+    (built,) = (c for c in result.contracts if c.target == "wide.py")
+    assert built.operation == "format"
+    assert built.sources == ("base.py",)
+    assert built.depends_on == (result.contracts[0].id,)
+    assert built.max_input_tokens > 4096
+    assert contract_module.loads(contract_module.dumps(built)) == built
+
+
+def test_a_depends_on_index_out_of_range_is_refused(repo: Index) -> None:
+    proposal = a_fix(depends_on=(1,))
+
+    result = decompose(repo, "fix", propose=RecordedProposer((proposal,)))
+
+    assert result.contracts == ()
+    (refusal,) = result.refusals
+    assert refusal.field == "depends_on"
+    assert "index" in refusal.reason
+    assert refusal.what_to_change == "reference a proposal index in range"
+
+
+def test_a_proposal_depending_on_itself_is_refused(repo: Index) -> None:
+    proposal = a_fix(depends_on=(0,))
+
+    result = decompose(repo, "fix", propose=RecordedProposer((proposal,)))
+
+    assert result.contracts == ()
+    (refusal,) = result.refusals
+    assert refusal.field == "depends_on"
+
+
+def test_a_bad_index_refuses_that_proposal_and_its_dependents(repo: Index) -> None:
+    """One bad `depends_on` refuses the proposal that states it and whatever
+    waits on it; the independent proposals still become contracts."""
+    first = a_fix()
+    bad = a_fix(
+        task="change pagination",
+        target="pagination.py",
+        deps=(),
+        depends_on=(5,),
+    )
+    dependent = a_fix(
+        task="another change waiting on the refused one",
+        target="pagination.py",
+        deps=(),
+        depends_on=(1,),
+    )
+
+    result = decompose(
+        repo, "fan out", propose=RecordedProposer((first, bad, dependent))
+    )
+
+    assert [c.target for c in result.contracts] == ["listing.py"]
+    assert len(result.refusals) == 2
+    assert [r.field for r in result.refusals] == ["depends_on", "depends_on"]
+    assert result.refusals[0].what_to_change == "reference a proposal index in range"
+    assert result.refusals[1].what_to_change == (
+        "drop the dependency on the refused proposal, or fix that proposal first"
+    )
+
+
+def test_a_cycle_in_depends_on_is_refused(repo: Index) -> None:
+    first = a_fix(
+        task="change listing",
+        depends_on=(1,),
+    )
+    second = a_fix(
+        task="change pagination",
+        target="pagination.py",
+        deps=(),
+        depends_on=(0,),
+    )
+
+    result = decompose(repo, "fan out", propose=RecordedProposer((first, second)))
+
+    assert result.contracts == ()
+    assert [r.field for r in result.refusals] == ["depends_on", "depends_on"]
+    assert all("cycle" in r.reason for r in result.refusals)
+
+
+def test_a_non_integer_depends_on_index_is_refused() -> None:
+    """bool and str indexes are refused, not coerced or silently dropped."""
+    for bad in ((True,), ("x",)):
+        proposal = Proposal(
+            task_type="code",
+            task="tidy listing()",
+            target="listing.py",
+            depends_on=bad,  # type: ignore[arg-type]
+        )
+        ordered, refusals = _fan_out((proposal,))
+
+        assert ordered == ()
+        (refusal,) = refusals
+        assert refusal.field == "depends_on"
+        assert refusal.what_to_change == "reference a proposal index in range"
+
+
+def test_a_plain_proposal_keeps_its_pre_fan_out_contract_id(repo: Index) -> None:
+    """A proposal using none of the fan-out fields keeps the pre-#766 id.
+
+    `operation`, `sources` and `depends_on` are digested only when non-empty, so
+    a proposal that states none of them is byte-for-byte the same unit of work
+    it was before fan-out, and its id must not churn.
+    """
+    proposal = a_fix()
+
+    assert _identify(proposal) == "code-fe2b5a7521"
+
+    (built,) = decompose(repo, "fix", propose=RecordedProposer((proposal,))).contracts
+    assert built.id == "code-fe2b5a7521"
 
 
 # --- refusing what no configured ladder can serve ---------------------------

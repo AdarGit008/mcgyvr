@@ -351,6 +351,37 @@ def test_a_rare_word_outweighs_a_common_one(tmp_path: Path) -> None:
     assert result.best.path == "obs/client.py"
 
 
+def test_a_prose_query_enumerating_a_family_keeps_the_generic_member(
+    tmp_path: Path,
+) -> None:
+    # ``suggest`` names a family of sibling symbols; ``model`` is a generic word
+    # while ``controller`` and ``widget`` are rare. Scored token by token, the
+    # generic member falls behind the files that merely match the query's other
+    # words and drops out of the shortlist. The whole-family reading lifts it
+    # back beside its siblings.
+    files = {
+        "src/suggest/suggestController.ts": "export class SuggestController {}\n",
+        "src/suggest/suggestModel.ts": "export class SuggestModel {}\n",
+        "src/suggest/suggestWidget.ts": "export class SuggestWidget {}\n",
+    }
+    for i in range(1, 13):
+        files[f"src/models/model{i}.ts"] = f"export class Model{i} {{}}\n"
+    for i in range(1, 5):
+        files[f"src/coords/coordinate{i}.ts"] = f"export class Coordinate{i} {{}}\n"
+        files[f"src/editors/editor{i}.ts"] = f"export class Editor{i} {{}}\n"
+        files[f"src/features/feature{i}.ts"] = f"export class Feature{i} {{}}\n"
+    index = build(tmp_path, files)
+    result = resolve(
+        index,
+        "Which suggest controller, model, and widget coordinate with the editor "
+        "and its feature?",
+    )
+    paths = {c.path for c in result.candidates}
+    assert "src/suggest/suggestController.ts" in paths
+    assert "src/suggest/suggestModel.ts" in paths
+    assert "src/suggest/suggestWidget.ts" in paths
+
+
 def test_a_test_file_does_not_outrank_the_source_it_shadows(tmp_path: Path) -> None:
     index = build(
         tmp_path,

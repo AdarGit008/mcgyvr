@@ -87,13 +87,19 @@ def test_a_jev_unit_alone_is_enough_for_a_typed_proposer(
     assert sent == [(JUDGE, "example-judge:1b")]
 
 
-def test_without_a_jev_unit_the_proposer_asks_the_orchestrator(
+def test_without_a_jev_unit_the_proposer_degrades_to_rank0(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     sent = _wire(monkeypatch)
-    _proposer(UNITS + ORCHESTRATOR).classify({"prompt": "x"}, QUESTION)
-    assert sent == [(ORCH, "example-planner:7b")]
+    proposer = classifier_proposer_for(source_map(parse(UNITS + ORCHESTRATOR)))
+    assert proposer is not None
+    assert not isinstance(proposer, ClassifierProposer)
+    assert not hasattr(proposer, "classify")
+    assert sent == []
 
 
-def test_with_neither_there_is_no_typed_proposer() -> None:
-    assert classifier_proposer_for(source_map(parse(UNITS))) is None
+def test_with_neither_jev_nor_orchestrator_the_proposer_still_degrades() -> None:
+    proposer = classifier_proposer_for(source_map(parse(UNITS)))
+    assert proposer is not None
+    assert not isinstance(proposer, ClassifierProposer)
+    assert not hasattr(proposer, "classify")
