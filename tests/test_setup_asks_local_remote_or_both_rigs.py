@@ -20,7 +20,7 @@ from mcgyvr import cli
 from mcgyvr.cli.commands.setup import _ask_setup_rigs, _SetupInteractiveError
 
 RIGS = "Which rig(s) should serve this setup? [local] "
-REMOTE = "Remote rig(s) (ssh host or user@host): "
+REMOTE = "Remote rig(s) (ssh host or alias): "
 
 
 def _ask(answers: list[str]) -> tuple[list[str], Any]:
