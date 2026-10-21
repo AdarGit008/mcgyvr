@@ -27,6 +27,8 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import TYPE_CHECKING, Any
 
+import yaml
+
 from mcgyvr.compose import Recommendation, endpoint_for_backend, recommend
 from mcgyvr.config import (
     API_OUTPUT_TOKENS,
@@ -394,11 +396,21 @@ def _render_leaf(spec: Field, value: Any, indent: int, note: str = "") -> list[s
         # noting on this machine, so a note adds to a field rather than replace
         # what it says.
         lines.extend(_comment(note, indent))
-    if value is None or value == []:
+    if value is None or value == [] or (spec.kind == "mapping" and not value):
         # An unset key is written as a commented-out line carrying the schema's
         # bind hint, so nothing pretends to be set and the hint sits beside it.
         hint = spec.bind_hint or "unset"
         lines.append(f"{pad}# {spec.name}:  # {hint}")
+        return lines
+    if spec.kind == "mapping":
+        # A free-form mapping (a unit's `launch`) is written whole as YAML, its
+        # keys sorted and nested one step under the key.
+        dumped = yaml.safe_dump(dict(value), sort_keys=True, width=200)
+        lines.append(f"{pad}{spec.name}:")
+        lines.extend(
+            f"{pad}  {line}" if line else ""
+            for line in dumped.rstrip("\n").splitlines()
+        )
         return lines
     if spec.kind == "str_list":
         lines.append(f"{pad}{spec.name}:")
