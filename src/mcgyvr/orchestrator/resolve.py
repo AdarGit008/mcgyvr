@@ -208,6 +208,16 @@ def resolve(index: Index, query: str, *, limit: int = 10) -> Resolution:
     first held to an absolute signal: a compound name the index does not hold
     means the query named nothing and the shortlist is emptied rather than
     answered from its parts.
+
+    Known limitation: the resolver is deterministic and does not identify a
+    prose query's semantic subject. A query that names an absent proper noun --
+    ``Celery`` in a Django repo, ``Svelte`` in a React repo, or
+    ``Elasticsearch`` in a Nest repo -- while its other words match present
+    symbols may therefore return a non-empty shortlist instead of
+    ``Verdict.EMPTY``. This is accepted rather than treated as a bug:
+    distinguishing an absent subject from an absent descriptive word needs
+    semantic subject identification, which the resolver deliberately does not
+    perform.
     """
     tokens = _content_tokens(query)
     corpus = _Corpus(index)
