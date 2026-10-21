@@ -102,8 +102,6 @@ class Proposal:
     type_check: bool = False
     """Whether the project's own type checker must pass — the `code` flag that
     derives `type_check`."""
-    risk: str = ""
-    """Empty means "let the schema's default stand" rather than a fourth level."""
 
 
 @dataclass(frozen=True)
@@ -610,8 +608,6 @@ def _document(
         document["no_semantic_change"] = True
     if proposal.type_check:
         document["type_check"] = True
-    if proposal.risk:
-        document["risk"] = proposal.risk
     if max_input_tokens is not None:
         document["context"] = {"max_input_tokens": max_input_tokens}
     cap = _reply_cap(proposal)
@@ -711,7 +707,6 @@ def _proposal_of(built: Contract) -> Proposal:
         demonstration=built.demonstration,
         no_semantic_change=built.no_semantic_change,
         type_check=built.type_check,
-        risk=built.risk,
     )
 
 

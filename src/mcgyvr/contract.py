@@ -499,14 +499,6 @@ SCHEMA: tuple[Field, ...] = (
         hint='e.g. ["write-fetch"]',
     ),
     Field(
-        "risk",
-        "enum",
-        "How much a wrong answer costs. Recorded on the contract and printed "
-        "by `mcgyvr contract`; routing and verification do not read it.",
-        default="medium",
-        choices=("low", "medium", "high"),
-    ),
-    Field(
         "verification",
         "block",
         "How the change is judged once the gate has passed.",
@@ -598,7 +590,6 @@ class Contract:
     acceptance: tuple[str, ...] = ()
     demonstration: tuple[str, ...] = ()
     depends_on: tuple[str, ...] = ()
-    risk: str = "medium"
     verification: Verification = Verification("gate_only")
     limits: Limits = Limits(None, 2)
     rename: Rename = Rename()
@@ -750,7 +741,6 @@ class Contract:
             "demonstration": list(self.demonstration),
             **flags,
             **stated,
-            "risk": self.risk,
             **renamed,
             "verification": {"policy": self.verification.policy},
             "limits": {
@@ -836,7 +826,6 @@ def _build(data: Mapping[str, Any]) -> Contract:
         acceptance=tuple(data["acceptance"]),
         demonstration=tuple(data["demonstration"]),
         depends_on=tuple(data["depends_on"]),
-        risk=data["risk"],
         verification=Verification(policy=data["verification"]["policy"]),
         limits=Limits(
             max_output_tokens=data["limits"]["max_output_tokens"],

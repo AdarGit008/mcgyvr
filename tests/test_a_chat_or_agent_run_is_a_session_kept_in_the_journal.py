@@ -426,5 +426,5 @@ def test_mcgyvr_contract_for_code_still_names_its_gate(
     assert _main(["contract", str(path)]) == 0
 
     out = capsys.readouterr().out
-    assert "risk:    medium — verified by gate only" in out, out
+    assert "verified by gate only" in out, out
     assert "acceptance: none declared — the gate's own checks decide" in out, out

@@ -199,8 +199,6 @@ def _reply_format() -> str:
         '- "type_check" (boolean, optional): true when the project\'s own type '
         "checker must pass; derives type_check evidence for task_type code, "
         "and the located checker command is filled in as acceptance.\n"
-        '- "risk" (string, optional): "low", "medium" or "high"; omit to take '
-        "the default.\n"
         '- "max_output_tokens" (whole number, required for task_type code): '
         "the reply cap, what the reply is worth in output tokens; a code "
         "proposal without one is refused.\n"
@@ -282,7 +280,6 @@ def _proposal_of(item: object) -> Proposal:
         demonstration=_strings(item, "demonstration"),
         no_semantic_change=_optional_bool(item, "no_semantic_change"),
         type_check=_optional_bool(item, "type_check"),
-        risk=_optional_str(item, "risk"),
     )
 
 
