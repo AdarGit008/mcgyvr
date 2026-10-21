@@ -3,12 +3,12 @@
 The live fleet's name comes from the live file and its folder is loaded. The
 units of the config being loaded are checked against that fleet's layout, so a
 unit that would dispatch to a machine the live fleet does not hold is refused.
-The fleet folder's policy is loaded and the layout is checked against its lock
-with no readings at all, so a layout that no longer matches its pin is refused
-before any rig is read. Each rig of the layout is then read through the door
-under one minted run id, the readings the read filed are collected, and
-``admit_live`` turns them into a ``Plan``, returned as an ``Admission`` with the
-door commands that would carry it out.
+The fleet folder's policy is read for the journal it names, and the layout is
+checked against its lock with no readings at all, so a layout that no longer
+matches its pin is refused before any rig is read. Each rig of the layout is
+then read through the door under one minted run id, the readings the read
+filed are collected, and ``admit_live`` turns them into a ``Plan``, returned as
+an ``Admission`` with the door commands that would carry it out.
 """
 
 from __future__ import annotations
@@ -96,7 +96,7 @@ def admit(
     readings it was given.
     """
     from mcgyvr.fleet import read
-    from mcgyvr.fleet.probe import ProbeError, folder_policy, journal_dir
+    from mcgyvr.fleet.probe import ProbeError, journal_dir
     from mcgyvr.fleet.roots import LiveFleetError, live_file, live_fleet
     from mcgyvr.serving.run import mint_read_id
 
@@ -122,15 +122,15 @@ def admit(
             "machine is not approved for live work yet (a machine is approved "
             "by a read of it)"
         )
-    # The fleet folder's policy is what the layout is checked against, so a
-    # policy that cannot be read refuses live instead of reading as empty.
+    # The fleet folder's policy names the journal the reads are filed under, so
+    # a policy that cannot be read refuses live instead of reading as empty.
     try:
-        policy = folder_policy(fleet.folder)
+        journal = journal_dir(fleet.folder)
     except ProbeError as exc:
         raise LiveRefusedError(str(exc)) from exc
-    # Admit with no readings at all: that checks the layout against its lock and
-    # policy before any rig is read, and the plan it returns is thrown away.
-    admit_live(fleet.folder, fleet.fleet, fleet.name, {}, policy=policy)
+    # Admit with no readings at all: that checks the layout against its lock
+    # before any rig is read, and the plan it returns is thrown away.
+    admit_live(fleet.folder, fleet.fleet, fleet.name, {})
 
     spawn = reader if reader is not None else read.spawn_read
     run_id = mint_read_id()
@@ -142,7 +142,7 @@ def admit(
                 f"{rig}: the door could not read it (exit {code}), and live is "
                 "admitted only by a read of its rigs"
             )
-    filed = read.observations(journal_dir(fleet.folder), run_id)
+    filed = read.observations(journal, run_id)
     observed: dict[str, Any] = {}
     for rig in rigs:
         row = filed.get(rig)
@@ -155,7 +155,7 @@ def admit(
             "units": row.get("units") or {},
             "foreign": row.get("foreign") or [],
         }
-    plan = admit_live(fleet.folder, fleet.fleet, fleet.name, observed, policy=policy)
+    plan = admit_live(fleet.folder, fleet.fleet, fleet.name, observed)
     return Admission(fleet.name, plan, door_commands(fleet.fleet, fleet.name, plan))
 
 

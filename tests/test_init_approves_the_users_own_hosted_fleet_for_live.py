@@ -22,8 +22,7 @@ approves what it bound itself, through the one path live reads:
   "hosted" unit whose address is a loopback, private, link-local or otherwise
   non-public address, or a name only a local network answers (``localhost``, a
   name with no dot, ``.local``...). Such a machine is approved only by a read of
-  it, which ``init`` does not take; ``init`` says so. Nor is an mcorch setup,
-  whose units a fleet with no rig cannot hold awake.
+  it, which ``init`` does not take; ``init`` says so.
 * **A live run is refused** when the config it loaded holds a unit on a rig the
   live fleet does not lay out there, whatever the fleet: re-running ``init``
   after a local server appeared, or adding one by hand, does not ride on an
@@ -238,21 +237,6 @@ def test_a_hosted_unit_at_a_machine_of_the_users_is_not_approved(
     assert not fleets_dir().exists()
     assert "No fleet was made live" in said and "api_small-model" in said, said
     assert "not approved" in said, said
-
-
-def test_an_mcorch_setup_is_not_approved_by_init(
-    monkeypatch: pytest.MonkeyPatch,
-    tmp_path: Path,
-    capsys: pytest.CaptureFixture[str],
-) -> None:
-    flags = ("--api", HOSTED, "--jev", HOSTED_UNIT, "--mcorch", HOSTED_UNIT)
-    setup = tmp_path / "setup"
-    assert _init(monkeypatch, setup, *flags, "--window", "8192", found=_found()) == 0
-    said = capsys.readouterr().out
-
-    assert not live_file().exists()
-    assert not fleets_dir().exists()
-    assert "No fleet was made live" in said and "mcorch" in said, said
 
 
 #: The rig id a substituted local read hands back, shaped as a rig id is.

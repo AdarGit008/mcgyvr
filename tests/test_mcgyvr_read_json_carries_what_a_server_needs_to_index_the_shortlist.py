@@ -1,11 +1,11 @@
 """`mcgyvr read --json` carries what a server needs to index the shortlist itself.
 
-mcorch holds no path to the user's repository; evidence rides the harness. The
-rung has the harness run `mcgyvr read "<request>" --json` in the working
-directory, and the tool result is this document: the request, the resolver's
-shortlist, the regions read, and — the part a server cannot get any other way
-— the whole text of every shortlisted and read file, so the server can build
-the same index the command built and run the deterministic decomposer over it.
+A server that holds no path to the user's repository has a harness run
+`mcgyvr read "<request>" --json` in the working directory, and the tool result
+is this document: the request, the resolver's shortlist, the regions read,
+and — the part a server cannot get any other way — the whole text of every
+shortlisted and read file, so the server can build the same index the command
+built and run the deterministic decomposer over it.
 stdout is the document and nothing else, so a reader parses it whole.
 """
 

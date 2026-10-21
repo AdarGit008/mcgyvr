@@ -79,7 +79,6 @@ def _run(args: argparse.Namespace) -> int:
         write,
         write_session,
     )
-    from mcgyvr.session import with_mcorch_transcript
     from mcgyvr.telemetry import run_tags
 
     session: Session = args.session
@@ -137,9 +136,6 @@ def _run(args: argparse.Namespace) -> int:
     # built inside this directory.
     configured = config.get("journal.dir") if config is not None else None
     journal_dir = Path(configured or JOURNAL_DIR_DEFAULT).expanduser()
-    # A session named mcorch-<id> is traced to the journal's own mcorch
-    # transcript when one exists; every other session is left as resolved.
-    session = with_mcorch_transcript(session, journal_dir)
     # `--record` asks for a second, complete copy of this run in a directory of
     # the caller's own: the same journal rows, blobs, results and session records
     # the journal gets. It is a mirror only when it resolves somewhere other than

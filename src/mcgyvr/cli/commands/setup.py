@@ -2,8 +2,8 @@
 
 Two ways in. With flags the command stages a config from named hosts, hosted API
 units and a priority, binds what already answers and starts nothing. Run with no
-flags on a terminal, it is the wizard: it asks for the rigs, the use case, Jev
-and mcorch, reads each rig, plans a placement per rig, fetches missed weights,
+flags on a terminal, it is the wizard: it asks for the rigs, the use case and
+Jev, reads each rig, plans a placement per rig, fetches missed weights,
 stages the config, emits launch specs, starts the containers, samples them and
 locks the fleet live on the user's yes. A fleet nothing could sample is locked
 only once the user acknowledges it on no evidence. Every failure a step raises is
@@ -110,7 +110,7 @@ def _setup_is_interactive(args: argparse.Namespace) -> bool:
     """Answer whether this run is the wizard: a terminal, and no flag that
     answers its questions.
 
-    Any flag that names a host, an API unit, a use case or a Jev/mcorch unit, or
+    Any flag that names a host, an API unit, a use case or a Jev unit, or
     that forces the write or accepts an unsampled lock, makes the run the flag
     path instead.
     """
@@ -125,8 +125,6 @@ def _setup_is_interactive(args: argparse.Namespace) -> bool:
         or args.use_case is not None
         or args.deployment is not None
         or args.jev is not None
-        or args.mcorch is not None
-        or args.window is not None
         or args.session_sandbox is not None
         or args.accept_unsampled
     )
@@ -285,16 +283,12 @@ def _ask_setup_use_case() -> str:
 JEV_QUESTION = "Dedicate a unit to Jev, which answers typed decisions? [y/n] "
 
 
-MCORCH_QUESTION = "Run mcorch, the local orchestrator, on a unit? [y/n] "
-
-
 def _setup_pick_unit(role: str, units: Sequence[str]) -> str:
     """Ask which setup unit holds `role`, answering the only one if just one."""
     if len(units) == 1:
         return units[0]
-    verb = "is" if role == "Jev" else "runs"
     return _setup_choose(
-        f"Which unit {verb} {role}: {', '.join(units)}? [{units[0]}] ",
+        f"Which unit is {role}: {', '.join(units)}? [{units[0]}] ",
         units,
         "a unit of this setup",
     )
@@ -711,8 +705,6 @@ def _setup_interactive(path: Path, run_id: str = "") -> int:
     ~/.local/bin on PATH. A step's error, or a refused init, config or
     capability table, is printed and answered with 1.
     """
-    from mcgyvr.fleet.sample import CODING_USE_CASE
-
     run_id = run_id or _setup_run_id()
     try:
         path.mkdir(parents=True, exist_ok=True)
@@ -727,11 +719,6 @@ def _setup_interactive(path: Path, run_id: str = "") -> int:
         _rule("Step 2 of 4 — what it serves")
         use_case = _ask_setup_use_case()
         wants_jev = _confirm(JEV_QUESTION)
-        # mcorch drives the conversational coding agent, so it is offered only
-        # where there is a coding use case and a Jev unit has been asked for.
-        wants_mcorch = (
-            use_case == CODING_USE_CASE and wants_jev and _confirm(MCORCH_QUESTION)
-        )
         _rule("Step 3 of 4 — read and plan")
         scans, readings = _setup_scan_rigs(rigs)
         plans = _setup_placements(rigs, scans, use_case)
@@ -743,16 +730,12 @@ def _setup_interactive(path: Path, run_id: str = "") -> int:
         detection = _setup_synthetic_detection(plans, window=ctx_per_slot)
         units = unit_names(detection) if wants_jev else ()
         jev = _setup_pick_unit("Jev", units) if wants_jev else None
-        mcorch = _setup_pick_unit("mcorch", units) if wants_mcorch else None
         staged = initialize(
             path,
             force=True,
             detection=detection,
             use_case=use_case,
             jev=jev,
-            mcorch=mcorch,
-            # The window mcorch's unit serves has to be one a placement serves.
-            window=ctx_per_slot if mcorch is not None else None,
             # The launch specs are emitted beside the config it stages.
             compose_dir=path,
         )
@@ -995,8 +978,6 @@ def _setup(args: argparse.Namespace) -> int:
             use_case=args.use_case or "coding",
             deployment=args.deployment,
             jev=args.jev,
-            mcorch=args.mcorch,
-            window=args.window,
             session_sandbox=args.session_sandbox,
             compose_dir=path,
         )
@@ -1335,27 +1316,6 @@ def add_parser(sub: argparse._SubParsersAction[argparse.ArgumentParser]) -> None
         help=(
             "dedicate VRAM to a Jev unit: the written unit every typed decision "
             "asks, never slept or woken (an opt-in; no model is picked for you)"
-        ),
-    )
-    setup.add_argument(
-        "--mcorch",
-        default=None,
-        metavar="UNIT",
-        help=(
-            "enable mcorch on a written unit: the conversational agent a harness "
-            "points at (`mcgyvr mcorch serve`); needs --jev and --window, and "
-            "writes orchestrator.type mcorch, authoring direct, deployment "
-            "local-only"
-        ),
-    )
-    setup.add_argument(
-        "--window",
-        default=None,
-        type=int,
-        metavar="TOKENS",
-        help=(
-            "with --mcorch: the tokens the agent's unit serves in one request, "
-            "read back off the running process"
         ),
     )
     setup.add_argument(

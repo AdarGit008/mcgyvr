@@ -358,26 +358,6 @@ def test_mcgyvr_sessions_lists_the_records_and_shows_one(
     assert "no-such-session" in capsys.readouterr().err
 
 
-def test_mcorch_guards_no_file_for_a_session_contract() -> None:
-    """A session writes nothing, so a target it gave anyway is no one's to guard."""
-    from mcgyvr.mcorch.guard import open_targets
-
-    written = {
-        "role": "assistant",
-        "content": [
-            {
-                "type": "tool_use",
-                "name": "Write",
-                "input": {
-                    "file_path": "sky.yaml",
-                    "content": CHAT + "target: notes/sky.md\n",
-                },
-            }
-        ],
-    }
-    assert open_targets([written]) == {}
-
-
 @pytest.mark.parametrize("name", ["chat", "agent"])
 def test_the_catalog_says_a_chat_or_agent_run_is_a_session(
     name: str, capsys: pytest.CaptureFixture[str]

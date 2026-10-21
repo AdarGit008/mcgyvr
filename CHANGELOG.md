@@ -81,6 +81,12 @@ archived outside this repository, under the same paths.
 
 ### Removed
 
+- **mcorch is gone.** `mcgyvr mcorch serve`, the `mcgyvr.mcorch` package and
+  its prompt, `setup --mcorch` and `--window`, the wizard's mcorch question,
+  and the lock, promote and live checks that held an mcorch policy's units
+  awake are removed. `orchestrator.type` takes only `proposer`;
+  `orchestrator.authoring` takes `prose` or `classifier` (`direct` was
+  mcorch's); `orchestrator.tools` is retired and refused by name.
 - `mcgyvr setup` no longer offers the `media-gen` use case: it has no sample,
   so setup could not sample it, and it is off until one is built. The
   use-case prompt is `d` coding (default), `c` chat, `a` agent; a

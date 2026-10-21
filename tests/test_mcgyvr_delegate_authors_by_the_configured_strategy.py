@@ -1,11 +1,10 @@
-"""`mcgyvr delegate` authors by `orchestrator.authoring` too, not only mcorch.
+"""`mcgyvr delegate` authors by `orchestrator.authoring`.
 
-The field names how a request becomes contracts, and the same measured choice
-should drive both doors. `classifier` has `mcgyvr delegate` ask the jev unit
-(or the orchestrator role, when none is bound) the typed choices first and
-fall back to the prose proposer when the classifier returns nothing; any other
-value — `prose`, `direct`, or unbound — is the prose proposer the command has
-always used, since `direct` is a strategy only a conversing rung can carry out.
+The field names how a request becomes contracts. `classifier` has
+`mcgyvr delegate` ask the jev unit (or the orchestrator role, when none is
+bound) the typed choices first and fall back to the prose proposer when the
+classifier returns nothing; any other value — `prose`, or unbound — is the
+prose proposer the command has always used.
 """
 
 from __future__ import annotations
@@ -87,7 +86,7 @@ def test_any_other_strategy_is_the_prose_proposer_as_before() -> None:
     def prose(evidence: Evidence) -> Sequence[Proposal]:
         return (_proposal("prose"),)
 
-    for strategy in ("prose", "direct", None):
+    for strategy in ("prose", None):
         propose = proposer_by_authoring(strategy, typed=typed, prose=prose)
         assert propose is prose
 

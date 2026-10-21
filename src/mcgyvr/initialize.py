@@ -37,7 +37,6 @@ from mcgyvr.config import (
     GATE_FIELDS,
     JOURNAL_FIELDS,
     LOCAL_ONLY,
-    MCORCH,
     ORCHESTRATOR_FIELDS,
     POLICY_FILENAME,
     SANDBOX_FIELDS,
@@ -106,9 +105,9 @@ _RESERVED = frozenset({"true", "false", "null", "yes", "no", "on", "off", "~"})
 
 
 class InitError(Exception):
-    """What init refuses: a flag naming a unit it does not write, `--mcorch`
-    without its helper or window, or a setup the loader would not accept. The
-    message says what is wrong and what to do instead."""
+    """What init refuses: a flag naming a unit it does not write, or a setup the
+    loader would not accept. The message says what is wrong and what to do
+    instead."""
 
 
 class ApiSpecError(Exception):
@@ -554,7 +553,7 @@ def _defaults(fields: Sequence[Field], *names: str) -> dict[str, Any]:
 def _deployment_default(use_case: str) -> str:
     """The deployment written when none was asked for: `hybrid`, printed without
     consulting the use case. `local-only` is written only when `--deployment`
-    names it or `--mcorch` requires it."""
+    names it."""
     return "hybrid"
 
 
@@ -620,9 +619,8 @@ def build(
         # Installation-wide numbers keep the schema's defaults, so the file says
         # what the loader would assume anyway instead of inventing a value.
         **_defaults(SCHEMA, "max_escalations", "task_timeout_s", "users"),
-        # The use case and deployment are what was asked for — `--use-case`, and
-        # `--deployment` or the `local-only` `--mcorch` requires — and they govern
-        # what the rest of the file may say.
+        # The use case and deployment are what was asked for — `--use-case` and
+        # `--deployment` — and they govern what the rest of the file may say.
         "use_case": use_case,
         "deployment": (
             deployment if deployment is not None else _deployment_default(use_case)
@@ -681,50 +679,28 @@ def build(
     }
 
 
-def _opt_ins(
-    data: dict[str, Any], *, jev: str | None, mcorch: str | None, window: int | None
-) -> dict[str, Any]:
-    """Apply `--jev` and `--mcorch` to the built data.
+def _opt_ins(data: dict[str, Any], *, jev: str | None) -> dict[str, Any]:
+    """Apply `--jev` to the built data.
 
-    Each flag must name a unit this init writes, or `InitError` lists the ones it
-    does. `--jev` binds the Jev block to that unit; `--mcorch` makes the
-    orchestrator mcorch, authoring directly on that unit, and writes the served
-    window onto it."""
-    units = dict(data["units"])
-    for flag, name in (("--jev", jev), ("--mcorch", mcorch)):
-        if name is not None and name not in units:
-            raise InitError(
-                f"{flag} {name!r} names no unit this init writes. The units are: "
-                f"{', '.join(sorted(units))}."
-            )
-    if jev is not None:
-        data["jev"] = {"unit": jev, "model": None}
-    if mcorch is not None:
-        data["orchestrator"] = {
-            **dict(data["orchestrator"]),
-            "type": MCORCH,
-            "unit": mcorch,
-            "authoring": "direct",
-        }
-        units[mcorch] = {**dict(units[mcorch]), "window": window}
-        data["units"] = units
+    The flag must name a unit this init writes, or `InitError` lists the ones it
+    does. `--jev` binds the Jev block to that unit."""
+    if jev is None:
+        return data
+    if jev not in data["units"]:
+        raise InitError(
+            f"--jev {jev!r} names no unit this init writes. The units are: "
+            f"{', '.join(sorted(data['units']))}."
+        )
+    data["jev"] = {"unit": jev, "model": None}
     return data
 
 
-def _opt_in_decisions(
-    *, jev: str | None, mcorch: str | None, window: int | None
-) -> tuple[str, ...]:
+def _opt_in_decisions(*, jev: str | None) -> tuple[str, ...]:
     said: tuple[str, ...] = ()
     if jev is not None:
         said += (
             f"Jev unit {jev!r} dedicated: every typed decision asks it, and it is "
             "never slept or woken.",
-        )
-    if mcorch is not None:
-        said += (
-            f"mcorch enabled on {mcorch!r} (window {window}): orchestrator.type "
-            f"mcorch, authoring direct, deployment {LOCAL_ONLY}; serve it with "
-            "`mcgyvr mcorch serve`.",
         )
     return said
 
@@ -975,8 +951,6 @@ def initialize(
     use_case: str = "coding",
     deployment: str | None = None,
     jev: str | None = None,
-    mcorch: str | None = None,
-    window: int | None = None,
     session_sandbox: str | None = None,
     compose_dir: Path | None = None,
 ) -> InitResult:
@@ -987,8 +961,8 @@ def initialize(
     turns that plus the `--api` units into the data both files render from. A
     `priority` with something to bind has the Jev layer pick among candidate
     compositions instead, and the note saying what it picked — or why it could
-    not — leads the decisions; `--jev` and `--mcorch` are applied afterwards, so
-    they win over the composed data.
+    not — leads the decisions; `--jev` is applied afterwards, so it wins over the
+    composed data.
 
     The rendered files are parsed back through `parse_config` before anything is
     written, so a setup the loader would reject raises `InitError` with the
@@ -1003,26 +977,6 @@ def initialize(
     )
     asked = _distinct_api_units(api_units)
     proposal = propose(sources=_sources_for(found))
-    # `--mcorch` needs a helper unit, the tokens that unit serves in one request,
-    # and a local-only deployment; each absence is refused, not quietly satisfied.
-    if mcorch is not None:
-        if jev is None:
-            raise InitError(
-                "--mcorch needs the Jev unit as its helper: pass --jev UNIT as well, "
-                "naming the unit every typed decision asks."
-            )
-        if window is None:
-            raise InitError(
-                "--mcorch needs the tokens the agent's unit serves in one request: "
-                "pass --window TOKENS, read back off the running process (what the "
-                "unit reports, not what you hoped for)."
-            )
-        if deployment is not None and deployment != LOCAL_ONLY:
-            raise InitError(
-                f"--mcorch serves a local unit as the agent and needs deployment "
-                f"{LOCAL_ONLY!r}; --deployment {deployment!r} contradicts it."
-            )
-        deployment = LOCAL_ONLY
     data: dict[str, Any] = dict(
         build(
             found,
@@ -1061,8 +1015,8 @@ def initialize(
         else:
             compose_limits = (_compose_unavailable_note(priority),)
 
-    # Applied after composition, so `--jev` and `--mcorch` win over the composed data.
-    data = _opt_ins(data, jev=jev, mcorch=mcorch, window=window)
+    # Applied after composition, so `--jev` wins over the composed data.
+    data = _opt_ins(data, jev=jev)
     if session_sandbox is not None:
         data["sandbox"] = {**dict(data["sandbox"]), "sessions": session_sandbox}
     if compose_dir is not None:
@@ -1079,7 +1033,7 @@ def initialize(
         _decisions(found, proposal, asked)
         + composition
         + (f"Use case {use_case!r} under deployment {chosen_deployment!r}.",)
-        + _opt_in_decisions(jev=jev, mcorch=mcorch, window=window)
+        + _opt_in_decisions(jev=jev)
     )
     # A local-only install with one seat provisions the resident orchestrator on
     # the card the ladder serves from. That is worth saying, so it is recorded as

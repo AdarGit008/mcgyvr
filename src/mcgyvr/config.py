@@ -199,6 +199,7 @@ _RETIRED_KEYS: dict[str, str] = {
         "have checked out, and `delivery.branch: NAME` to commit onto another "
         "branch instead."
     ),
+    "orchestrator.tools": "is retired with mcorch, the only reader of it. Remove it.",
 }
 
 #: The use cases an install may serve, in the order setup offers them.
@@ -784,66 +785,29 @@ ROLE_UNIT_FIELDS: tuple[Field, ...] = (
 )
 
 #: What the bound orchestrator unit is: a `proposer` that drafts contracts for
-#: `mcgyvr delegate`, or `mcorch`, which serves it as the agent itself.
-ORCHESTRATOR_TYPES: tuple[str, ...] = ("proposer", "mcorch")
-
-#: The `orchestrator.type` that serves the bound unit as the conversational agent.
-MCORCH = "mcorch"
+#: `mcgyvr delegate`, the only type there is.
+ORCHESTRATOR_TYPES: tuple[str, ...] = ("proposer",)
 
 ORCHESTRATOR_FIELDS: tuple[Field, ...] = (
     Field(
         "type",
         "enum",
-        "What the bound unit is. `proposer` is today's behaviour: the bound "
-        "unit drafts contracts for `mcgyvr delegate`. `mcorch` makes the bound "
-        "unit the conversational agent itself, served at an Anthropic Messages "
-        "address by `mcgyvr mcorch serve` for a harness (Claude Code, pi) to "
-        "point at, with the `jev` unit answering its typed decisions. `mcorch` "
-        "requires `deployment: local-only`, because it replaces the API-tier "
-        "orchestrator that `hybrid` describes; a bound `unit` whose `window` is "
-        "stated, because the window is the one fact the agent budgets a "
-        "conversation by; and `authoring`.",
+        "What the bound unit is. `proposer`, the only type: the bound unit "
+        "drafts contracts for `mcgyvr delegate`.",
         default="proposer",
         choices=ORCHESTRATOR_TYPES,
     ),
     Field(
         "authoring",
         "enum",
-        "How `type: mcorch` turns a request into contracts. `direct`: the rung "
-        "writes the contract itself. `prose`: the rung is asked for JSON "
-        "proposals the way `mcgyvr delegate` asks (`delegate.build_prompt`), "
-        "and the deterministic decomposer turns them into contracts. "
-        "`classifier`: the `jev` unit answers typed questions (task type, "
-        "target, symbol), and the strategy falls back to `prose` when its "
-        "confidence is low or it chooses `code`, whose reply cap only `prose` "
-        "states. No default is shipped, because which strategy a "
-        "local rung does best is being measured, and the file must say which.",
-        choices=("direct", "prose", "classifier"),
-        bind_hint="name one of `direct`, `prose`, `classifier`",
-    ),
-    Field(
-        "tools",
-        "str_list",
-        "The harness tools, by name, that `type: mcorch` keeps in the rung's "
-        "prompt. Every other tool the harness offers is dropped, and the drop "
-        "is logged in the mcorch transcript, so a local rung's prompt stays "
-        "short and unconfusing. Matching is exact on the tool's name. Empty "
-        "means keep every tool.",
-        default=(
-            "Read",
-            "Write",
-            "Edit",
-            "Bash",
-            "Glob",
-            "Grep",
-            "read",
-            "write",
-            "edit",
-            "bash",
-            "grep",
-            "find",
-            "ls",
-        ),
+        "How `mcgyvr delegate` gets its proposals. `prose`: the bound unit is "
+        "asked for JSON proposals (`delegate.build_prompt`), and the "
+        "deterministic decomposer turns them into contracts. `classifier`: the "
+        "`jev` unit, or the bound unit when no `jev` unit is bound, answers "
+        "typed questions (task type, target, symbol) first, and `prose` stands "
+        "in when it declines. Unset is `prose`.",
+        choices=("prose", "classifier"),
+        bind_hint="name one of `prose`, `classifier`",
     ),
     *ROLE_UNIT_FIELDS,
 )
@@ -2100,54 +2064,6 @@ def _cross_validate_fleet(data: Mapping[str, Any]) -> None:
                 f"{role}.unit: {bound!r} is not a declared unit. "
                 f"Declared: {', '.join(sorted(units))}"
             )
-
-    _cross_validate_mcorch(data, units)
-
-
-def _cross_validate_mcorch(data: Mapping[str, Any], units: Mapping[str, Any]) -> None:
-    """Check what `orchestrator.type: mcorch` needs, and nothing otherwise.
-
-    It needs a local-only deployment, a bound unit that states its `window`
-    (the fact a conversation is budgeted by), an `authoring` strategy, and a
-    bound `jev` unit to answer its typed decisions.
-    """
-    orchestrator = data["orchestrator"]
-    if orchestrator["type"] != MCORCH:
-        return
-    if data["deployment"] != LOCAL_ONLY:
-        raise ConfigSchemaError(
-            f"orchestrator.type: {MCORCH} needs `deployment: {LOCAL_ONLY}`, and "
-            f"deployment is {data['deployment']!r}. mcorch serves a local unit as "
-            "the agent, replacing the API-tier orchestrator `hybrid` describes. "
-            f"Set `deployment: {LOCAL_ONLY}`, or `orchestrator.type: proposer`."
-        )
-    bound = orchestrator["unit"]
-    if bound is None:
-        raise ConfigSchemaError(
-            f"orchestrator.unit: {MCORCH} serves the bound unit as the agent, and "
-            "no unit is bound. Name one of the units declared under `units`: "
-            f"{', '.join(sorted(units))}."
-        )
-    if units[bound]["window"] is None:
-        raise ConfigSchemaError(
-            f"units.{bound}.window: {MCORCH} budgets a conversation by its unit's "
-            f"window, and {bound!r} states none. State the tokens the unit serves "
-            "in one request, read back off the running process."
-        )
-    if orchestrator["authoring"] is None:
-        raise ConfigSchemaError(
-            f"orchestrator.authoring: {MCORCH} needs to be told how it turns a "
-            "request into contracts, and no default ships while which strategy a "
-            "local rung does best is measured. Name one of `direct`, `prose`, "
-            "`classifier`."
-        )
-    if data["jev"].get("unit") is None:
-        raise ConfigSchemaError(
-            f"jev.unit: {MCORCH} asks the jev unit every bounded question — is a "
-            "request chat or work, is a contract ready to run, what comes after a "
-            "result — and no jev unit is bound. Name one of the units declared "
-            f"under `units`: {', '.join(sorted(units))}."
-        )
 
 
 def _cross_validate_shares(data: Mapping[str, Any], units: Mapping[str, Any]) -> None:

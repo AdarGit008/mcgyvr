@@ -127,8 +127,6 @@ def _setup_namespace(**overrides: object) -> argparse.Namespace:
         "use_case": None,
         "deployment": None,
         "jev": None,
-        "mcorch": None,
-        "window": None,
         "session_sandbox": None,
         "accept_unsampled": False,
     }

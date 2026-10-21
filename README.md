@@ -47,10 +47,6 @@ live, probes the live one against its lock, and lists pulled combinations.
   `mcgyvr run CONTRACT.yaml --repo DIR` on the live fleet, and replans on what
   the run reports. `mcgyvr sessions` reads the chat and agent sessions the
   journal keeps.
-- **An endpoint.** With `orchestrator.type: mcorch` in the setup (offered for
-  the `coding` use case with a Jev unit), `mcgyvr mcorch serve` serves the
-  Anthropic Messages API, so a harness pointed at it with `ANTHROPIC_BASE_URL`
-  drives mcgyvr's local agent.
 
 Read-only introspection: `mcgyvr config`, `mcgyvr local_pool`,
 `mcgyvr catalog`, `mcgyvr sandbox` and `mcgyvr capabilities`.

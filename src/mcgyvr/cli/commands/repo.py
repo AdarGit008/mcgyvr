@@ -435,7 +435,7 @@ def add_parser(sub: argparse._SubParsersAction[argparse.ArgumentParser]) -> None
             "print one JSON document instead of the report: the request, the "
             "shortlist, the regions read, and the whole text of every shortlisted "
             "and read file — what a server with no path to this repository needs "
-            "to index it (mcorch gathers evidence this way, through the harness)"
+            "to index it"
         ),
     )
     rd.set_defaults(func=_read)

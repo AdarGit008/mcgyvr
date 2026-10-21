@@ -20,9 +20,8 @@ Run at a terminal with no flags, it asks which rigs serve — `local`,
 `remote` or `both` (Enter is `local`) — and, for `remote` or `both`,
 the ssh host(s) to read. It then asks the use case by letter (`[d]
 coding`, `[c] chat`, `[a] agent`; Enter or `d` is
-`coding`), whether to dedicate a unit to Jev (Enter is no), and, for
-`coding` with Jev on, whether to run mcorch on a unit (Enter is no):
-the questions `--use-case`, `--jev` and `--mcorch` answer. It plans a
+`coding`) and whether to dedicate a unit to Jev (Enter is no): the
+questions `--use-case` and `--jev` answer. It plans a
 model of that use case for each rig, says whether its candidates came
 from the Hugging Face Hub, the cache of an earlier Hub read or the
 shipped catalog, asks before each download, writes the staged setup
@@ -82,9 +81,6 @@ What the config is for comes in with these, all optional:
   ignored, and either way it warns.
 - `--jev UNIT` — dedicate VRAM to a Jev unit, the written unit every
   typed decision asks; it is never slept or woken.
-- `--mcorch UNIT` with `--window TOKENS` — serve that unit as the
-  conversational agent a harness points at (`mcgyvr mcorch serve`);
-  it needs `--jev`.
 - `--session-sandbox` — `tempdir` (the default) or `docker`: whether a
   `chat` or `agent` run that runs no command gets a task container
   (`sandbox.sessions`).
@@ -221,9 +217,8 @@ Which unit turns a prompt plus a repository into contracts, and what that unit i
 
 | Key | Type | Required | Default | Description |
 | --- | --- | --- | --- | --- |
-| `orchestrator.type` | one of `proposer`, `mcorch` | no | `proposer` | What the bound unit is. `proposer` is today's behaviour: the bound unit drafts contracts for `mcgyvr delegate`. `mcorch` makes the bound unit the conversational agent itself, served at an Anthropic Messages address by `mcgyvr mcorch serve` for a harness (Claude Code, pi) to point at, with the `jev` unit answering its typed decisions. `mcorch` requires `deployment: local-only`, because it replaces the API-tier orchestrator that `hybrid` describes; a bound `unit` whose `window` is stated, because the window is the one fact the agent budgets a conversation by; and `authoring`. |
-| `orchestrator.authoring` | one of `direct`, `prose`, `classifier` | no | unset | How `type: mcorch` turns a request into contracts. `direct`: the rung writes the contract itself. `prose`: the rung is asked for JSON proposals the way `mcgyvr delegate` asks (`delegate.build_prompt`), and the deterministic decomposer turns them into contracts. `classifier`: the `jev` unit answers typed questions (task type, target, symbol), and the strategy falls back to `prose` when its confidence is low or it chooses `code`, whose reply cap only `prose` states. No default is shipped, because which strategy a local rung does best is being measured, and the file must say which. To bind it: name one of `direct`, `prose`, `classifier`. |
-| `orchestrator.tools` | list of text | no | `['Read', 'Write', 'Edit', 'Bash', 'Glob', 'Grep', 'read', 'write', 'edit', 'bash', 'grep', 'find', 'ls']` | The harness tools, by name, that `type: mcorch` keeps in the rung's prompt. Every other tool the harness offers is dropped, and the drop is logged in the mcorch transcript, so a local rung's prompt stays short and unconfusing. Matching is exact on the tool's name. Empty means keep every tool. |
+| `orchestrator.type` | one of `proposer` | no | `proposer` | What the bound unit is. `proposer`, the only type: the bound unit drafts contracts for `mcgyvr delegate`. |
+| `orchestrator.authoring` | one of `prose`, `classifier` | no | unset | How `mcgyvr delegate` gets its proposals. `prose`: the bound unit is asked for JSON proposals (`delegate.build_prompt`), and the deterministic decomposer turns them into contracts. `classifier`: the `jev` unit, or the bound unit when no `jev` unit is bound, answers typed questions (task type, target, symbol) first, and `prose` stands in when it declines. Unset is `prose`. To bind it: name one of `prose`, `classifier`. |
 | `orchestrator.unit` | text | no | unset | Which unit serves this role. A unit is the one term. To bind it: name one of the units declared under `units`. |
 | `orchestrator.model` | text | no | unset | Model identifier as that unit names it; absent means the unit's own. To bind it: name a model the bound unit serves. |
 

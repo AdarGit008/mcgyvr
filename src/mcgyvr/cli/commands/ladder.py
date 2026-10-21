@@ -2,10 +2,9 @@
 
 `serve` puts one card to sleep or wakes it through the serving door; `manage`
 runs the ladder manager, which sleeps and wakes the ladder's units by the queue
-Jev answers on; `emit` writes one compose file per launch spec, or compares the
-files already on disk with what the config plans; and `mcorch serve` serves the
-orchestrator rung as an Anthropic Messages API address for a harness. Nothing
-here starts a process: emitting writes a file, and the door does the switching.
+Jev answers on; and `emit` writes one compose file per launch spec, or compares
+the files already on disk with what the config plans. Nothing here starts a
+process: emitting writes a file, and the door does the switching.
 """
 
 from __future__ import annotations
@@ -665,56 +664,6 @@ def _report_drift(
     return Exit.MISMATCH
 
 
-def _mcorch_serve(args: argparse.Namespace) -> int:
-    """Serve the orchestrator rung as an Anthropic Messages API address.
-
-    Refused unless `orchestrator.type` is mcorch, and for a fleet that is live
-    and not admitted as locked; a role the config leaves unbound is refused too.
-    Binds the facade, serves until interrupted, and closes the socket.
-    """
-    from mcgyvr.config import MCORCH
-    from mcgyvr.decision import UnboundRoleError
-    from mcgyvr.local_pool import SourceUnavailableError
-    from mcgyvr.mcorch import bind, serve
-    from mcgyvr.mcorch.authoring import AuthoringUnavailableError
-
-    try:
-        config = load_config(Path(args.config) if args.config else None)
-    except ConfigError as exc:
-        print(f"error: {exc}", file=sys.stderr)
-        return Exit.ERROR
-    if config.get("orchestrator.type") != MCORCH:
-        print(
-            f"refused: orchestrator.type is {config.get('orchestrator.type')!r}, "
-            f"and `mcgyvr mcorch serve` serves only `orchestrator.type: {MCORCH}`. "
-            "Set it, with `orchestrator.unit`, `orchestrator.authoring` and "
-            "`jev.unit`, or use the orchestrator the config has.",
-            file=sys.stderr,
-        )
-        return Exit.REFUSED
-    if _live(config) and _admitted_live(config) is not None:
-        return Exit.REFUSED
-    try:
-        bound = bind.bind(config, journal_dir=bind.journal_dir(config))
-    except (UnboundRoleError, SourceUnavailableError, AuthoringUnavailableError) as exc:
-        print(f"refused: {exc}", file=sys.stderr)
-        return Exit.REFUSED
-
-    address = args.bind if args.bind else serve.DEFAULT_BIND
-    port = args.port if args.port is not None else serve.FACADE_PORT
-    server = serve.make_server(bind.facade(bound), bind=address, port=port)
-    host, bound_port = str(server.server_address[0]), int(server.server_address[1])
-    print(f"mcorch serving http://{host}:{bound_port} as writer {bound.writer}")
-    print(f"transcript: {bound.transcript.path}")
-    try:
-        server.serve_forever()
-    except KeyboardInterrupt:
-        pass
-    finally:
-        server.server_close()
-    return Exit.OK
-
-
 def add_parser(sub: argparse._SubParsersAction[argparse.ArgumentParser]) -> None:
     """Register the `serve`, `manage` and `emit` subparsers and their flags."""
 
@@ -813,41 +762,3 @@ def add_parser(sub: argparse._SubParsersAction[argparse.ArgumentParser]) -> None
         ),
     )
     emi.set_defaults(func=_emit)
-
-
-def add_mcorch_parser(sub: argparse._SubParsersAction[argparse.ArgumentParser]) -> None:
-    """Register the `mcorch` parser and its `serve` subparser."""
-
-    mcorch = sub.add_parser(
-        "mcorch",
-        help="serve the orchestrator rung as the agent a harness talks to",
-    )
-    mcorch_sub = mcorch.add_subparsers(dest="mcorch_command", required=True)
-    mserve = mcorch_sub.add_parser(
-        "serve",
-        help=(
-            "serve an Anthropic Messages API address for a harness to point at "
-            "(ANTHROPIC_BASE_URL); needs `orchestrator.type: mcorch`"
-        ),
-    )
-    mserve.add_argument(
-        "--config",
-        default=None,
-        type=_named_path,
-        help=f"config to read (default: {CONFIG_DEFAULT_HELP})",
-    )
-    mserve.add_argument(
-        "--bind",
-        default=None,
-        help=(
-            "the address to listen on (default: the loopback; a LAN or tailnet "
-            "address lets another machine's harness reach it)"
-        ),
-    )
-    mserve.add_argument(
-        "--port",
-        default=None,
-        type=int,
-        help="the port to listen on (default: the facade's own)",
-    )
-    mserve.set_defaults(func=_mcorch_serve)
