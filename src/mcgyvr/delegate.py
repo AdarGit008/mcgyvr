@@ -174,7 +174,9 @@ def _reply_format() -> str:
         'call, each {"path", "symbol", "note"} where path and symbol name a '
         "symbol shown in RESOLUTION or READ REGIONS and note says how the "
         "target uses it. Propose a dependency only when its symbol is named "
-        "there; otherwise omit the field rather than guessing a name.\n"
+        "there; otherwise omit the field rather than guessing a name. A "
+        "dependency is an existing symbol: never name the symbol the REQUEST "
+        "asks you to create — it is the target's output, not a dependency.\n"
         '- "allow" (array of strings, optional): paths the change may touch; '
         "omit to allow the target alone.\n"
         '- "forbid" (array of strings, optional): paths the change must not '
@@ -184,10 +186,13 @@ def _reply_format() -> str:
         "type.\n"
         '- "acceptance" (array of command strings, optional): commands that must '
         "pass after the change. For task_type code a non-empty list derives "
-        "tests_pass evidence.\n"
+        "tests_pass evidence. Each entry runs with no shell: no `|`, `&&`, "
+        "`||`, `;`, `<`, `>` or a leading `VAR=` — name one program per "
+        "entry, or commit a script that does the pipeline.\n"
         '- "demonstration" (array of command strings, optional): a command that '
         "must fail before the change and pass after. For task_type code a "
-        "non-empty list derives failing_test_first evidence.\n"
+        "non-empty list derives failing_test_first evidence. Same no-shell "
+        "rule as acceptance.\n"
         '- "no_semantic_change" (boolean, optional): true when the change must '
         "leave the parsed structure untouched apart from the region touched; "
         "derives no_semantic_change evidence for task_type code.\n"
