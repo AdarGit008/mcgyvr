@@ -351,13 +351,9 @@ def _contract(args: argparse.Namespace) -> int:
     # change states the verification policy it is held to.
     reply = not contract.is_deterministic and not contract.kind.judges_a_change
     if reply:
-        print(f"  risk:    {contract.risk}")
         print(f"  judged:  {how_judged(contract.kind)}")
     else:
-        print(
-            f"  risk:    {contract.risk} — verified by "
-            f"{contract.verification.policy.replace('_', ' ')}"
-        )
+        print(f"  verified by {contract.verification.policy.replace('_', ' ')}")
     # Limits by kind: a session is a raw connection — no output cap and no
     # prompt checks — while a model-written change states an output budget (or
     # says that `mcgyvr run` will refuse it), the prompt-token cap, and an

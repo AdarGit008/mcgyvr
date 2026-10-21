@@ -173,7 +173,6 @@ def test_proposals_from_reply_carries_deps_and_optional_fields() -> None:
                 "stop_conditions": ["the pager's contract is ambiguous"],
                 "acceptance": ["pytest -q"],
                 "demonstration": ["pytest -q tests/test_listing.py::test_page_size"],
-                "risk": "low",
             }
         ]
     )
@@ -189,7 +188,7 @@ def test_proposals_from_reply_carries_deps_and_optional_fields() -> None:
     assert proposal.demonstration == (
         "pytest -q tests/test_listing.py::test_page_size",
     )
-    assert proposal.risk == "low"
+    assert not hasattr(proposal, "risk")
 
 
 def test_proposals_from_reply_refuses_prose() -> None:
