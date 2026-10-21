@@ -345,7 +345,7 @@ def test_the_catalog_file_is_the_only_definition() -> None:
 def test_a_name_that_used_to_be_a_task_type_is_unknown() -> None:
     with pytest.raises(ContractSchemaError) as exc:
         task_type("bug_fix")
-    assert "'bug_fix' is not valid here" in str(exc.value)
+    assert "'bug_fix' is not a known task type" in str(exc.value)
 
 
 def test_an_unknown_type_lists_the_vocabulary(shipped: Catalog) -> None:

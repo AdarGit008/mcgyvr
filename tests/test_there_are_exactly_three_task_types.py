@@ -158,25 +158,20 @@ def test_an_unknown_operation_is_refused_naming_the_valid_ones() -> None:
 
 
 @pytest.mark.parametrize(
-    ("old", "replacement"),
+    "old",
     [
-        ("format", "'format' is now 'code' with operation: format"),
-        ("import_sort", "'import_sort' is now 'code' with operation: import_sort"),
-        ("lint_fix", "'lint_fix' is now 'code' with operation: lint_fix"),
-        (
-            "rename_symbol",
-            "'rename_symbol' is now 'code' with operation: rename_symbol",
-        ),
-        ("function_implementation", "'function_implementation' is now 'code'"),
-        ("bug_fix", "'bug_fix' is now 'code'"),
-        ("docstring", "'docstring' is now 'code'"),
-        ("type_annotation", "'type_annotation' is now 'code'"),
-        ("test_scaffold", "'test_scaffold' is now 'code'"),
+        "format",
+        "import_sort",
+        "lint_fix",
+        "rename_symbol",
+        "function_implementation",
+        "bug_fix",
+        "docstring",
+        "type_annotation",
+        "test_scaffold",
     ],
 )
-def test_a_contract_naming_an_old_type_is_told_the_replacement(
-    old: str, replacement: str
-) -> None:
+def test_a_contract_naming_an_old_type_is_refused(old: str) -> None:
     with pytest.raises(ContractSchemaError) as exc:
         loads(
             f"""
@@ -191,7 +186,7 @@ scope:
         )
     said = str(exc.value)
     assert said.startswith("task_type:"), said
-    assert replacement in said, said
+    assert f"'{old}' is not valid here" in said, said
 
 
 def test_a_name_that_never_was_a_type_lists_the_three() -> None:
