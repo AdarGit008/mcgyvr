@@ -43,6 +43,7 @@ from mcgyvr.orchestrator.candidates import (
     enumerate_candidates,
     interface_candidates,
     kind_for,
+    reply_cap,
     scope_candidates,
     stop_condition,
     symbol_candidates,
@@ -468,16 +469,17 @@ class ClassifierProposer:
     `allow`) in that order, re-enumerating each downstream set against the
     values already chosen, and folds the picks into one proposal. A
     load-bearing answer (`task_type`/`target`) that is unusable, falls short of
-    the floor, or names a type needing an output cap declines the whole
-    proposal; an optional field degrades to its rank-0 candidate instead. Each
-    decision is appended to `sink`, when one is wired.
+    the floor, or names a type this ladder cannot serve declines the whole
+    proposal; an optional field degrades to its rank-0 candidate instead. A
+    type needing an output cap is not asked for one: `reply_cap` states it
+    deterministically from the chosen target's size. Each decision is appended
+    to `sink`, when one is wired.
 
     For the W6 retry loop, a decline returns a `Refusal` field/directive as
     follows: no targets or no vocabulary → `target`/`task_type`; `task_type`
-    below the confidence floor → `task_type`; `target` below the confidence
-    floor → `target`; `kind.needs_output_cap` mismatch → `task_type`.
-    `__call__` still returns `()` for any decline so the prose proposer stands
-    in exactly as it did before.
+    below the confidence floor or not servable → `task_type`; `target` below
+    the confidence floor → `target`. `__call__` still returns `()` for any
+    decline so the prose proposer stands in exactly as it did before.
     """
 
     classify: Callable[[Any, Mapping[str, Question]], Decision]
@@ -543,16 +545,13 @@ class ClassifierProposer:
                 what_to_change="answer with a candidate above the confidence floor",
             )
         kind = kind_for(str(task_type), vocabulary)
-        if kind is None or kind.needs_output_cap:
-            # A type needing an output cap gets no proposal here: the cap says
-            # what a reply is worth in tokens, and this proposer has no way to
-            # judge that, so it declines instead of guessing.
+        if kind is None:
             return Refusal(
                 "request",
-                "the chosen task type needs an output cap the classifier cannot "
-                "state, so the request is handed to the prose proposer",
+                f"the chosen task type {task_type!r} is not one this ladder can "
+                "serve, so the request is handed to the prose proposer",
                 field="task_type",
-                what_to_change="choose a type that states no reply cap",
+                what_to_change="pick a servable type",
             )
 
         if "target" in decided:
@@ -610,6 +609,13 @@ class ClassifierProposer:
             stop_condition(kind, target, symbol_name),
             provenance=Provenance.DETERMINISTIC,
         )
+        # No question can say what a reply is worth, so the cap is stated from
+        # the target's size rather than asked: deterministic, like the task.
+        cap = reply_cap(evidence, kind, target)
+        if cap is not None:
+            plan = choose(
+                plan, "max_output_tokens", cap, provenance=Provenance.DETERMINISTIC
+            )
 
         if "interface" in decided:
             interface = decided["interface"]

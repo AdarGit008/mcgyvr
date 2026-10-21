@@ -143,10 +143,10 @@ def _rank0(seen: list[tuple[Any, Mapping[str, Question]]]) -> Any:
     return classify
 
 
-#: The ungated example kind (tests/ungated.py). Not ``code``: a
-#: ``code`` contract states its reply cap, which no choice can say, so the
-#: classifier hands that work to the prose proposer
-#: (test_the_classifier_leaves_capped_work_to_the_prose_proposer.py).
+#: The ungated example kind (tests/ungated.py). Not ``code``: a ``code``
+#: proposal also carries a reply cap derived from its target
+#: (test_the_classifier_states_a_code_contracts_reply_cap.py), which these
+#: choice-mechanics tests leave out.
 AGENT = ungated.ungated()
 pytestmark = pytest.mark.usefixtures("ungated_catalog")
 

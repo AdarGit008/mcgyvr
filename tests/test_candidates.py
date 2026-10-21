@@ -50,10 +50,8 @@ from mcgyvr.orchestrator.read import Exploration, TargetedRead, explore
 from mcgyvr.orchestrator.resolve import Candidate, Resolution, Verdict, resolve
 from tests import ungated
 
-#: The example kind, as in test_classifier_proposer.py: not ``code``, because a
-#: ``code`` contract states its reply cap, which no choice can say.
-#: The ungated example kind (tests/ungated.py): not ``code``, whose contract
-#: states a reply cap no choice can say.
+#: The ungated example kind (tests/ungated.py), as in test_classifier_proposer.py:
+#: not ``code``, whose proposal also carries a derived reply cap.
 AGENT = ungated.ungated()
 pytestmark = pytest.mark.usefixtures("ungated_catalog")
 

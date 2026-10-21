@@ -80,8 +80,8 @@ def _answering(
 def test_code_is_offered_alongside_the_other_types(tmp_path: Path) -> None:
     """`code` needs no forced commands, so it is offered with the rest.
 
-    Chosen, it is handed on rather than proposed: a `code` contract states its
-    reply cap, which no choice can say, so the prose proposer writes it.
+    Chosen, it is proposed with the reply cap its contract must state, sized
+    from the target rather than asked.
     """
     seen, classify = _answering({"task_type": "task_type:1"})
     # A kind that judges no change, invented since the shipped catalog has
@@ -92,7 +92,9 @@ def test_code_is_offered_alongside_the_other_types(tmp_path: Path) -> None:
     assert isinstance(kind, Choice)
     assert list(kind.options) == ["task_type:0", "task_type:1"]
     assert kind.options["task_type:1"] == load_catalog().require("code").doc
-    assert proposals == ()
+    (proposal,) = proposals
+    assert proposal.task_type == "code"
+    assert proposal.max_output_tokens is not None
 
 
 def test_an_empty_vocabulary_is_a_refusal_not_a_contract(tmp_path: Path) -> None:

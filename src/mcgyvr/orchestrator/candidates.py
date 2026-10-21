@@ -17,6 +17,7 @@ the classifier chooses.
 
 from __future__ import annotations
 
+import math
 from collections.abc import Collection, Mapping, Sequence
 from dataclasses import dataclass
 from enum import StrEnum
@@ -24,7 +25,14 @@ from typing import Any
 
 from mcgyvr.catalog import TaskType, catalog
 from mcgyvr.contract import generic_stop_condition
-from mcgyvr.orchestrator.decompose import DepRef, Evidence, Proposal
+from mcgyvr.orchestrator.decompose import (
+    _DEFAULT_MAX_INPUT_TOKENS,
+    DepRef,
+    Evidence,
+    Proposal,
+    _content_of,
+)
+from mcgyvr.orchestrator.read import estimate_tokens
 from mcgyvr.orchestrator.symbols import Symbol, SymbolKind
 
 #: One typed question carries at most 62 options: the single-token labels read
@@ -34,6 +42,18 @@ _MAX_CHOICE_OPTIONS = 62
 
 #: The option that picks no symbol, because the whole file is the work.
 _NO_SYMBOL = ""
+
+#: A reply cap is the target's estimated size times this: the file comes back, grown.
+REPLY_CAP_MARGIN = 2.0
+
+#: The smallest reply cap stated, so a tiny target still has room for its fence.
+REPLY_CAP_FLOOR = 1024
+
+#: The estimated size, in tokens, of a target with no content yet (a new file).
+NEW_TARGET_TOKENS = 1024
+
+#: The largest reply cap stated: decompose's default worker-view ceiling.
+REPLY_CAP_CEILING = _DEFAULT_MAX_INPUT_TOKENS
 
 
 class Provenance(StrEnum):
@@ -167,6 +187,26 @@ def stop_condition(kind: TaskType, target: str, symbol: str | None) -> tuple[str
     if kind.deterministic:
         return ()
     return (generic_stop_condition(kind.name, subject(target, symbol)),)
+
+
+def reply_cap(evidence: Evidence, kind: TaskType, target: str) -> int | None:
+    """The reply cap a `kind` contract on `target` states, or None when it needs none.
+
+    The only reply protocol is `whole_file`, so the reply carries the whole
+    target back with the change in it, whichever symbol the task names: the cap
+    is sized on the target's content as the contract carries it, counted by the
+    model-free `estimate_tokens`, times `REPLY_CAP_MARGIN`. A target with no
+    content yet counts as `NEW_TARGET_TOKENS`. The result is held between
+    `REPLY_CAP_FLOOR` and `REPLY_CAP_CEILING` — the worker-view ceiling, since
+    the unit the contract runs on is not known until a rung is picked, and
+    preflight still holds the cap to that unit's own ceiling at `run`.
+    """
+    if not kind.needs_output_cap:
+        return None
+    content = _content_of(evidence.index, target)
+    size = estimate_tokens(content) if content else NEW_TARGET_TOKENS
+    cap = math.ceil(size * REPLY_CAP_MARGIN)
+    return min(max(cap, REPLY_CAP_FLOOR), REPLY_CAP_CEILING)
 
 
 def subject(target: str, symbol: str | None) -> str:
@@ -433,6 +473,7 @@ def collapse(plan: CandidatePlan) -> Proposal:
         operation=value("operation", ""),
         sources=value("sources", ()),
         depends_on=value("depends_on", ()),
+        max_output_tokens=value("max_output_tokens", None),
     )
 
 
