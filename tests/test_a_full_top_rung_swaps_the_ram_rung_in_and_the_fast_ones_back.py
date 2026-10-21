@@ -16,8 +16,10 @@ that cannot share the card with them:
 * a swap stops the fast rungs (``room_for``, smallest first) and starts the
   RAM rung (``wake_making_room``); putting the RAM rung down stops it and
   starts the fast rungs again (``give_back``);
-* a task that climbs to the sleeping RAM rung does not start it beside the
-  fast ones: making room is the swap's.
+* a task that climbs to the sleeping RAM rung never starts it beside the
+  fast ones: its refused draw swaps the RAM rung in, the fast rungs stopped
+  first, and is sent again; a waker with no capacity to drain through starts
+  nothing.
 
 The floor rung sits on a second invented machine. Every machine and number
 here is invented; the door is recorded, never run.
@@ -313,6 +315,38 @@ def test_a_climb_to_the_sleeping_ram_rung_does_not_start_it_beside_the_fast_ones
     with pytest.raises(RefusedConnectionError):
         waker.dispatching(RAM, refused)
     assert doors == [], "a sleeper is started only by a swap, after room is made"
+
+
+def test_a_climb_to_the_sleeping_ram_rung_swaps_it_in_and_sends_again(
+    tmp_path: Path, home: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    import mcgyvr.wake as wake
+    from mcgyvr.capacity import Capacity
+    from mcgyvr.pressure import Gauge
+    from mcgyvr.runner import RefusedConnectionError
+
+    config, specs = emitted(tmp_path)
+    named = containers(specs)
+    doors = door(monkeypatch)
+    monkeypatch.setattr(wake, "saved_card_mib", lambda rigs: {SWAP_HOST: {0: CARD_MIB}})
+    waker = wake.for_config(config)
+    assert waker is not None
+    sent: list[int] = []
+
+    def send() -> str:
+        sent.append(1)
+        if len(sent) == 1:
+            raise RefusedConnectionError("connection refused")
+        return "answered"
+
+    capacity = Capacity.of(config, gauge=Gauge())
+    assert waker.dispatching(RAM, send, capacity=capacity) == "answered"
+    assert doors == [
+        f"down {named[8081]}",
+        f"down {named[8082]}",
+        f"up {named[8083]}",
+    ], "the fast rungs stop first, then the RAM rung starts alone"
+    assert len(sent) == 2, "the refused draw is sent again once the swap is done"
 
 
 def test_a_refused_fast_rung_is_started_alone(

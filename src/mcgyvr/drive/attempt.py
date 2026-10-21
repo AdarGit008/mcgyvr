@@ -329,7 +329,7 @@ def worker_attempt(
                 # the send is simply made.
                 if waker is None:
                     return wire()
-                return waker.dispatching(this.rung.name, wire)
+                return waker.dispatching(this.rung.name, wire, capacity=capacity)
 
             def once() -> Completion:
                 if cooldown is None:

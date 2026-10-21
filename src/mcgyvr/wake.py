@@ -18,8 +18,9 @@ no record.
 
 Every action is one door run per card — `python -m mcgyvr.serving.run serve
 <direction> ...` — and the exit code it answers with is the answer. `Waker`
-turns a refused connection into one wake per card; `CardSwitches` is what a
-fleet sample sleeps, wakes and makes room with.
+turns a refused connection into one wake per card, and swaps a sleeper in with
+room made for it; `CardSwitches` is what that swap and a fleet sample sleep,
+wake and make room with.
 """
 
 from __future__ import annotations
@@ -571,13 +572,20 @@ class Waker:
         self._lock = threading.Lock()
         self._card_locks: dict[str, threading.Lock] = {}
 
-    def dispatching(self, rung: str, send: Callable[[], Answer]) -> Answer:
+    def dispatching(
+        self,
+        rung: str,
+        send: Callable[[], Answer],
+        *,
+        capacity: Capacity | None = None,
+    ) -> Answer:
         """Send one draw to a rung, waking its card when the send is refused.
 
         A card the record says is resting is woken before the draw is sent; any
         other card is sent to first, and only an instant refusal wakes it, since
-        a read timeout on a card that is up is not an outage. A draw is sent once
-        more after a wake that worked, and re-raised when the wake did not.
+        a read timeout on a card that is up is not an outage. A refused sleeper
+        is swapped in through `capacity` (`_swap_in`). A draw is sent once more
+        after a wake that worked, and re-raised when the wake did not.
         """
         card = self._cards.get(rung)
         if rung in resident_units(self._config) or (
@@ -587,10 +595,15 @@ class Waker:
             # a refusal here is not something a wake would fix.
             return send()
         if _sleeper(self._config, rung):
-            # A unit that starts asleep is not woken on a refusal: it is in the
-            # state its role asks for, so the draw goes as it is and its own
-            # refusal is the answer.
-            return send()
+            # A unit that starts asleep is never started beside the units whose
+            # room it needs: a refusal swaps it in, those units put down first,
+            # and with no swap the refusal is the answer.
+            try:
+                return send()
+            except RefusedConnectionError as refused:
+                if not self._swap_in(rung, capacity):
+                    raise refused
+                return send()
         if card is not None and any(
             resting(card.host, port) for port in _ports(self._config, (rung,))
         ):
@@ -611,6 +624,42 @@ class Waker:
             if not self.wake_for(rung, refused_at=time.monotonic()):
                 raise refused
             return send()
+
+    def _swap_in(self, rung: str, capacity: Capacity | None) -> bool:
+        """Put down the units whose room a sleeper needs, then start it.
+
+        The units `CardSwitches.room_for` names are drained through `capacity`
+        and put down, then the sleeper is started by the same door run `mcgyvr
+        serve wake` makes, which answers once the unit serves; a step that fails
+        wakes the room back (`mcgyvr.ladder_manager.wake_making_room`). False
+        with no capacity to drain through, when the room cannot be reckoned (a
+        sleeper is never started beside its room), and when the swap failed. The
+        answer is kept per sleeper, so one run swaps once.
+        """
+        from mcgyvr.ladder_manager import wake_making_room
+
+        card = self._cards.get(rung)
+        if card is None or capacity is None:
+            return False
+        with self._lock:
+            card_lock = self._card_locks.setdefault(card.host, threading.Lock())
+        with card_lock:
+            key = f"swap:{card.host}:{rung}"
+            if key in self._woken:
+                return self._woken[key][0]
+            switches = CardSwitches(
+                self._config, capacity, card_mib=saved_card_mib((card.host,))
+            )
+            why = switches.why_no_room(rung)
+            if why is not None:
+                print(f"note: {rung} is not swapped in: {why}", file=sys.stderr)
+                self._woken[key] = (False, time.monotonic())
+                return False
+            lines, slept = wake_making_room(switches, rung, switches.room_for(rung))
+            for line in lines:
+                print(f"note: {line}", file=sys.stderr)
+            self._woken[key] = (slept is not None, time.monotonic())
+            return slept is not None
 
     def wake_for(self, rung: str, *, refused_at: float | None = None) -> bool:
         """Wake the card serving this rung, one wake per card at a time.
@@ -681,6 +730,22 @@ class Waker:
         ok = _run_door(self._config, card, direction, compose, only=only).ok
         self._woken[key] = (ok, time.monotonic())
         return ok
+
+
+def saved_card_mib(rigs: Sequence[str]) -> dict[str, dict[int, int]]:
+    """Each rig's card memory in MiB by card index, from the rig file its read
+    saved; a rig with no readable rig file is left out."""
+    from mcgyvr.serving import rigfile
+
+    card_mib: dict[str, dict[int, int]] = {}
+    for rig in rigs:
+        try:
+            saved = rigfile.read(rig)
+        except rigfile.RigFileError:
+            saved = None
+        if saved is not None:
+            card_mib[rig] = {card.index: card.total_mib for card in saved.cards}
+    return card_mib
 
 
 def for_config(config: Config) -> Waker | None:

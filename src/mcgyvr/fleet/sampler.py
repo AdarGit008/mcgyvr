@@ -670,7 +670,6 @@ def switches_for(setup: Path, rigs: Sequence[str]) -> Switches:
     from mcgyvr import wake
     from mcgyvr.capacity import Capacity, CapacityError
     from mcgyvr.config import ConfigError, load
-    from mcgyvr.serving import rigfile
 
     try:
         config = load(setup)
@@ -685,15 +684,7 @@ def switches_for(setup: Path, rigs: Sequence[str]) -> Switches:
             "(serving.enable_sleep_wake with serving.compose_dir), so the "
             "card switches cannot wake it"
         )
-    card_mib: dict[str, dict[int, int]] = {}
-    for rig in rigs:
-        try:
-            saved = rigfile.read(rig)
-        except rigfile.RigFileError:
-            saved = None
-        if saved is not None:
-            card_mib[rig] = {card.index: card.total_mib for card in saved.cards}
-    return wake.CardSwitches(config, capacity, card_mib=card_mib)
+    return wake.CardSwitches(config, capacity, card_mib=wake.saved_card_mib(rigs))
 
 
 def run(

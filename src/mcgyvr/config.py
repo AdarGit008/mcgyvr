@@ -606,9 +606,10 @@ UNIT_FIELDS: tuple[Field, ...] = (
         "is a swap partner that starts asleep (`sleeps-until-needed`). A "
         "sleeper shares its card's one launch spec with the always-on units "
         "under a compose profile, so a whole `serve up` leaves it down and the "
-        "awake set still fits the card. A fleet sample swaps it in, stopping "
-        "the units whose room it needs first, and starts those again when it "
-        "sleeps. llama.cpp units only: "
+        "awake set still fits the card. A run whose climb reaches it, or a "
+        "fleet sample, swaps it in, stopping the units whose room it needs "
+        "first; a sample starts those again when it sleeps. llama.cpp units "
+        "only: "
         "a vLLM unit swaps at level 2 with its process kept.",
         default=ROLE_ALWAYS_ON,
         choices=ROLES,

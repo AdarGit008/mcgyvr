@@ -566,13 +566,19 @@ def _climb(
 
     # How many dispatches each source can take, from the width each unit
     # declares, with the count of servers already busy on each source to judge
-    # how full it is. This is what holds the climb to what the fleet can serve,
-    # and a declaration that admits nothing is a CapacityError, refused before a
-    # single dispatch.
-    from mcgyvr.pressure import server_counts
+    # how full it is. Where mcgyvr may sleep and wake units, a gauge counts the
+    # dispatches waiting on each one host-wide, which is what a swap asks before
+    # it puts a unit down to make room for a sleeper. This is what holds the
+    # climb to what the fleet can serve, and a declaration that admits nothing
+    # is a CapacityError, refused before a single dispatch.
+    from mcgyvr.pressure import Gauge, server_counts
 
     try:
-        capacity = Capacity.of(config, busy=server_counts(pool))
+        capacity = Capacity.of(
+            config,
+            gauge=Gauge() if config.get("serving.enable_sleep_wake") else None,
+            busy=server_counts(pool),
+        )
     except CapacityError as exc:
         return _error(report, str(exc))
 
