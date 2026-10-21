@@ -187,21 +187,6 @@ DELIVERY_FIELDS: tuple[Field, ...] = (
     ),
 )
 
-#: Keys a config may still carry from an earlier build, mapped from the dotted
-#: key to the rest of the refusal it earns. A retired key is refused rather than
-#: read as unknown, so the message can name what replaced it, and `_block` looks
-#: each key up here before it reports an unknown one.
-_RETIRED_KEYS: dict[str, str] = {
-    "delivery.mode": (
-        "is retired: no shipped command read it, and `run --commit` committed "
-        "onto the checked-out branch whatever it said. Remove it; set "
-        "`delivery.commit: true` to commit accepted work onto the branch you "
-        "have checked out, and `delivery.branch: NAME` to commit onto another "
-        "branch instead."
-    ),
-    "orchestrator.tools": "is retired with mcorch, the only reader of it. Remove it.",
-}
-
 #: The use cases an install may serve, in the order setup offers them.
 USE_CASES: tuple[str, ...] = ("coding", "chat", "agent")
 
@@ -232,9 +217,9 @@ JOURNAL_FIELDS: tuple[Field, ...] = (
     ),
 )
 
-# Seconds `budget.request_timeout_s` defaults to, and the figure a local unit's
-# unset `request_timeout_s` is quoted as. A hosted unit waits for its reply
-# however long it takes, so this bound only ever binds a unit on your own rig.
+# The figure a local unit's unset `request_timeout_s` is quoted as. A hosted unit
+# waits for its reply however long it takes, so this bound only ever binds a unit
+# on your own rig.
 DEFAULT_REQUEST_TIMEOUT_S = 120.0
 
 # How long `serving.servelib.wait_for` watches a unit come up: at most
@@ -243,74 +228,6 @@ DEFAULT_REQUEST_TIMEOUT_S = 120.0
 HEALTH_POLLS = 120
 HEALTH_INTERVAL_S = 3.0
 
-
-BUDGET_FIELDS: tuple[Field, ...] = (
-    Field(
-        "max_escalations",
-        "int",
-        "How many rungs a task may climb before it is handed back unfinished. "
-        "A cheap rung that fails and escalates costs more than starting "
-        "higher, so this is a real ceiling, not a retry count.",
-        default=1,
-        min_value=0,
-    ),
-    Field(
-        "max_attempts",
-        "int",
-        "Hard ceiling on how many attempts one task may spend in total, "
-        "across every rung and every family it climbs. Unset means the "
-        "ladder's own budget bounds it — the sum of each reachable rung's "
-        "`attempts`, each capped at the contract's `limits.attempts`, which "
-        "`mcgyvr local_pool` prints for a contract that states no limit — so "
-        "leaving it unset is not unbounded. Set it when you have raised a "
-        "rung's `attempts` or `max_escalations` and want one number that still "
-        "holds. A decline "
-        "costs nothing against it: a rung that stepped aside spent no attempt.",
-        min_value=1,
-        bind_hint=(
-            "set a whole number of attempts, or leave it unset to be bounded "
-            "by the ladder's own budget (`mcgyvr local_pool` prints that number)"
-        ),
-    ),
-    Field(
-        "request_timeout_s",
-        "float",
-        "How long one dispatched request may take before the transport gives "
-        "up, in seconds. A reply of `limits.max_output_tokens` tokens takes "
-        "the time its rung's per-stream rate says it takes, and that rate "
-        "falls as the rung serves more streams at once, so this bound, the "
-        "cap and the rung's width are three numbers that decide each other. "
-        "Raise it for a slow rung serving a large cap; lower it to fail "
-        "faster.",
-        default=DEFAULT_REQUEST_TIMEOUT_S,
-        min_value=0.0,
-    ),
-    Field(
-        "task_timeout_s",
-        "int",
-        "Wall-clock ceiling for one task, including acceptance commands.",
-        default=900,
-        min_value=1,
-    ),
-    Field(
-        "max_window_fraction",
-        "float",
-        "The largest share of a rung's context window one contract may claim "
-        "-- its prompt and its own declared reply together, over the whole "
-        "window. Distinct from whether the two *fit*, which the fit check "
-        "already asks: a contract that fits with nothing to spare leaves the "
-        "rung nothing to absorb a long estimate with. A ceiling: a contract's "
-        "own `limits.max_window_fraction` may be stricter, never wider. Unset "
-        "enforces no share, which is not the same as 1.0: a run that declared "
-        "none is recorded as having declared none.",
-        min_value=0.0,
-        max_value=1.0,
-        bind_hint=(
-            "a share between 0 and 1 -- e.g. 0.75 to keep a quarter of every "
-            "rung's window clear -- or leave it unset to enforce no share"
-        ),
-    ),
-)
 
 BREADTH_FIELDS: tuple[Field, ...] = (
     Field(
@@ -1696,14 +1613,6 @@ def _value(raw: object, spec: Field, path: str) -> Any:
     raise ConfigSchemaError(f"{path}: unsupported field kind {spec.kind!r}")
 
 
-def _check_key(key: str, path: str) -> None:
-    """Refuse a credential key, and a retired key with what replaced it."""
-    _reject_credential_key(key, path)
-    retired = _RETIRED_KEYS.get(_join(path, str(key)))
-    if retired is not None:
-        raise ConfigSchemaError(f"`{_join(path, str(key))}` {retired}")
-
-
 #: The config's half of the schema walk.
 _DIALECT = Dialect(
     noun="config",
@@ -1712,7 +1621,7 @@ _DIALECT = Dialect(
     value=_value,
     missing=_missing,
     default_for=_default_for,
-    check_key=_check_key,
+    check_key=_reject_credential_key,
 )
 
 

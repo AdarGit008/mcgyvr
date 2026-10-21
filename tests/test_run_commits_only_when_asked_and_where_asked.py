@@ -1,7 +1,6 @@
 """``mcgyvr run`` commits only when asked, and onto the branch it was asked for.
 
-Two policy keys and three flags (``delivery.mode: branch`` was once promised
-and never read):
+Two policy keys and three flags:
 
 * ``delivery.commit`` — off by default, and written off by ``mcgyvr setup``.
   Off, an accepted change is left in the working tree, uncommitted. On, it is
@@ -11,9 +10,8 @@ and never read):
 * ``--commit`` / ``--no-commit`` override ``delivery.commit`` for one run, and
   ``--branch NAME`` overrides ``delivery.branch`` and implies ``--commit``.
 
-The retired ``delivery.mode`` key is refused where it is written, naming the
-keys that replaced it. What a named branch does when it exists, is absent or is
-checked out is delivery's, and pinned in
+What a named branch does when it exists, is absent or is checked out is
+delivery's, and pinned in
 ``tests/test_a_commit_lands_on_the_branch_it_was_sent_to.py``.
 """
 
@@ -25,7 +23,7 @@ from typing import Any
 
 import pytest
 
-from mcgyvr.config import ConfigSchemaError, parse
+from mcgyvr.config import parse
 from tests import livejournal as lj
 
 LADDER = """\
@@ -284,18 +282,3 @@ def test_a_blank_branch_flag_is_refused_rather_than_read_as_none(
 
     assert code == 2
     assert "--branch" in capsys.readouterr().err
-
-
-# --- the retired key ----------------------------------------------------------
-
-
-@pytest.mark.parametrize("value", ["branch", "none"])
-def test_the_retired_mode_key_is_refused_naming_the_keys_that_replaced_it(
-    value: str,
-) -> None:
-    with pytest.raises(ConfigSchemaError) as raised:
-        parse(f"{LADDER}delivery:\n  mode: {value}\n")
-
-    message = str(raised.value)
-    assert "delivery.mode" in message, message
-    assert "delivery.commit" in message and "delivery.branch" in message, message

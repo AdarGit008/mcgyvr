@@ -26,7 +26,6 @@ FIELDS = {
     "breadth": "BREADTH_FIELDS",
     "delivery": "DELIVERY_FIELDS",
     "journal": "JOURNAL_FIELDS",
-    "budgets": "BUDGET_FIELDS",
 }
 
 

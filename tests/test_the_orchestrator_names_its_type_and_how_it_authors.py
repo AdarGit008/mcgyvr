@@ -3,8 +3,8 @@
 ``orchestrator.type`` is ``proposer``, the only type: the bound unit drafts
 contracts for ``mcgyvr delegate``. ``mcgyvr setup`` writes it from the schema's
 own default, so a file that names it loads. ``orchestrator.authoring`` is
-``prose`` or ``classifier``, or unset. ``orchestrator.tools`` is retired and
-refused by name. ``SETUP.md`` documents both live keys.
+``prose`` or ``classifier``, or unset. ``orchestrator.tools`` went with mcorch
+and is refused as an unknown key. ``SETUP.md`` documents both live keys.
 """
 
 from __future__ import annotations
@@ -63,9 +63,9 @@ def test_a_type_or_an_authoring_outside_its_choices_is_refused() -> None:
     assert "orchestrator.authoring" in message and "classifier" in message
 
 
-def test_the_retired_tools_key_is_refused_by_name() -> None:
+def test_the_tools_key_is_refused_as_unknown() -> None:
     message = refused("unit: agent\n  tools: [Read]")
-    assert "orchestrator.tools" in message and "retired" in message, message
+    assert "orchestrator.tools" in message, message
 
 
 def test_init_writes_the_proposer_type_from_the_schemas_own_default() -> None:

@@ -24,22 +24,6 @@ if TYPE_CHECKING:  # pragma: no cover - typing only
 CATALOG_FILENAME = "task-catalog.json"
 SCHEMA_VERSION = 2
 
-#: Task types the catalog no longer declares, mapped to what to ask for instead.
-#: `Catalog.require` reads this so a contract naming one is answered with the
-#: replacement it should use rather than a bare "unknown task type" — the values
-#: are the surviving spellings, keyed by the retired names.
-RETIRED_TASK_TYPES: dict[str, str] = {
-    "format": "'code' with operation: format",
-    "import_sort": "'code' with operation: import_sort",
-    "lint_fix": "'code' with operation: lint_fix",
-    "rename_symbol": "'code' with operation: rename_symbol",
-    "docstring": "'code' with no_semantic_change: true",
-    "type_annotation": "'code' with type_check: true",
-    "function_implementation": "'code'",
-    "test_scaffold": "'code'",
-    "bug_fix": "'code' with a demonstration",
-}
-
 
 class CatalogError(Exception):
     """A catalog that cannot be found, read, parsed or validated, or a lookup of
@@ -188,13 +172,10 @@ class Catalog:
         return next((t for t in self.task_types if t.name == name), None)
 
     def require(self, name: str) -> TaskType:
-        """The task type called `name`; raises `CatalogError` naming the
-        replacement when the name was retired, and listing the valid names
-        when it was never declared."""
+        """The task type called `name`; raises `CatalogError` listing the valid
+        names when it is not declared."""
         found = self.get(name)
         if found is None:
-            if name in RETIRED_TASK_TYPES:
-                raise CatalogError(f"{name!r} is now {RETIRED_TASK_TYPES[name]}.")
             raise CatalogError(
                 f"{name!r} is not a known task type. Valid: {', '.join(self.names)}"
             )

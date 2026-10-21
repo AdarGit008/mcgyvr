@@ -18,7 +18,7 @@ from typing import Any
 
 import yaml
 
-from mcgyvr.catalog import RETIRED_TASK_TYPES, CatalogError, catalog
+from mcgyvr.catalog import CatalogError, catalog
 from mcgyvr.catalog import Evidence as CatalogEvidence
 from mcgyvr.catalog import TaskType as CatalogTaskType
 from mcgyvr.schema import Dialect, join_path, walk_block
@@ -328,7 +328,6 @@ SCHEMA: tuple[Field, ...] = (
         "judged.",
         required=True,
         choices_from=task_type_names,
-        retired=RETIRED_TASK_TYPES,
         worker_facing=True,
     ),
     Field(
@@ -499,14 +498,6 @@ SCHEMA: tuple[Field, ...] = (
         hint='e.g. ["write-fetch"]',
     ),
     Field(
-        "risk",
-        "enum",
-        "How much a wrong answer costs. Recorded on the contract and printed "
-        "by `mcgyvr contract`; routing and verification do not read it.",
-        default="medium",
-        choices=("low", "medium", "high"),
-    ),
-    Field(
         "verification",
         "block",
         "How the change is judged once the gate has passed.",
@@ -598,7 +589,6 @@ class Contract:
     acceptance: tuple[str, ...] = ()
     demonstration: tuple[str, ...] = ()
     depends_on: tuple[str, ...] = ()
-    risk: str = "medium"
     verification: Verification = Verification("gate_only")
     limits: Limits = Limits(None, 2)
     rename: Rename = Rename()
@@ -750,7 +740,6 @@ class Contract:
             "demonstration": list(self.demonstration),
             **flags,
             **stated,
-            "risk": self.risk,
             **renamed,
             "verification": {"policy": self.verification.policy},
             "limits": {
@@ -836,7 +825,6 @@ def _build(data: Mapping[str, Any]) -> Contract:
         acceptance=tuple(data["acceptance"]),
         demonstration=tuple(data["demonstration"]),
         depends_on=tuple(data["depends_on"]),
-        risk=data["risk"],
         verification=Verification(policy=data["verification"]["policy"]),
         limits=Limits(
             max_output_tokens=data["limits"]["max_output_tokens"],
@@ -876,11 +864,6 @@ def _value(raw: object, spec: Field, path: str) -> Any:
     if spec.kind == "enum":
         text = _str(raw, path)
         valid = spec.valid_choices()
-        if text not in valid and spec.retired and text in spec.retired:
-            raise ContractSchemaError(
-                f"{path}: {text!r} is now {spec.retired[text]}. "
-                f"Valid: {', '.join(valid)}"
-            )
         if text not in valid:
             raise ContractSchemaError(
                 f"{path}: {text!r} is not valid here. Valid: {', '.join(valid)}"
