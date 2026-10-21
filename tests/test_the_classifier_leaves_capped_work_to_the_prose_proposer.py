@@ -52,11 +52,25 @@ def repo(tmp_path: Path) -> Index:
 def _chooses_code(asked: list[Mapping[str, Question]]) -> Any:
     def classify(state: Any, questions: Mapping[str, Question]) -> Decision:
         asked.append(questions)
-        if "symbol" in questions:
-            return Decision(answers={"symbol": _sure("listing")})
-        return Decision(answers={"kind": _sure("code"), "target": _sure("listing.py")})
+        ((field, question),) = questions.items()
+        assert isinstance(question, Choice)
+        if field == "task_type":
+            return Decision(
+                answers={
+                    field: _sure(_option_for(question, catalog().require("code").doc))
+                }
+            )
+        return Decision(answers={field: _sure(next(iter(question.options)))})
 
     return classify
+
+
+def _option_for(question: Choice, text: str) -> str:
+    """The candidate id whose option line is `text`."""
+    for key, rendered in question.options.items():
+        if rendered == text:
+            return key
+    raise AssertionError(f"{text!r} is not offered")
 
 
 def _sure(choice: str) -> ChoiceAnswer:
@@ -83,9 +97,9 @@ def test_the_classifier_offers_code_and_returns_nothing_when_it_is_chosen(
 
     assert propose(evidence) == ()
     (questions,) = asked
-    kind = questions["kind"]
+    kind = questions["task_type"]
     assert isinstance(kind, Choice)
-    assert "code" in kind.options
+    assert catalog().require("code").doc in kind.options.values()
 
 
 def test_a_classifier_request_for_code_reaches_the_prose_proposer(

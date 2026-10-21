@@ -2,10 +2,11 @@
 
 Two proposers live here. ``proposer_for`` renders the evidence as a prose
 prompt, dispatches it to the ``orchestrator`` role and parses the JSON reply
-into proposals. ``classifier_proposer_for`` asks the same role a short series
-of typed multiple-choice questions — task type, target, then symbol — and
-turns the answers into one proposal, declining when a confidence falls short.
-``proposer_by_authoring`` picks between them for the configured strategy.
+into proposals. ``classifier_proposer_for`` asks the jev role one typed Choice
+per field — ``task_type``, ``target``, ``symbol``, ``interface``, ``deps``,
+``allow`` — in dependency order, and turns the answers into one proposal,
+declining when a load-bearing answer falls short. ``proposer_by_authoring``
+picks between them for the configured strategy.
 
 ``NO_ORCHESTRATOR_ROLE`` is what a caller prints when no orchestrator unit is
 bound, so no prompt can be turned into contracts.
@@ -14,34 +15,49 @@ bound, so no prompt can be turned into contracts.
 from __future__ import annotations
 
 import json
+import time
 from collections.abc import Callable, Mapping, Sequence
 from dataclasses import dataclass
 from typing import TYPE_CHECKING, Any
 
 from mcgyvr.catalog import TaskType
 from mcgyvr.decision import (
-    Choice,
+    JEV_ROLE,
     ChoiceAnswer,
     Decision,
+    DecisionError,
     Question,
     classify_for,
     jev_bound,
 )
 from mcgyvr.orchestrator.candidates import (
     _NO_SYMBOL,
+    CandidateSet,
     Provenance,
     candidate_targets,
     choose,
     collapse,
     completable,
+    deps_candidates,
     directive,
     enumerate_candidates,
+    interface_candidates,
     kind_for,
+    scope_candidates,
     stop_condition,
-    symbol_options,
-    symbols_of,
+    symbol_candidates,
+    target_candidates,
+    task_type_candidates,
 )
 from mcgyvr.orchestrator.decompose import DepRef, Evidence, Proposal, Proposer
+from mcgyvr.orchestrator.fields import (
+    abstain_line,
+    abstain_value,
+    criterion,
+    render_choice,
+    value_by_id,
+)
+from mcgyvr.orchestrator.telemetry import DecisionRecord, ShadowSink
 from mcgyvr.runner import Request, dispatch_role
 from mcgyvr.worker.reply import FENCE_OPEN as _FENCE_OPEN
 
@@ -413,18 +429,24 @@ MIN_CONFIDENCE = 0.5
 
 @dataclass(frozen=True)
 class ClassifierProposer:
-    """A proposer that asks typed multiple-choice questions rather than prose.
+    """A proposer that asks one typed Choice per field, in dependency order.
 
     `classify` is the seam — it answers named questions about a state — and
-    `confidence` is the floor each answer must clear. A call asks the task type
-    and the target, then a symbol inside the target, and returns one proposal
-    built from those answers, or nothing when any of them is unusable, falls
-    short of the floor, or names a type needing an output cap this proposer
-    cannot supply.
+    `confidence` is the floor each answer must clear. One call asks the six
+    jev-decided fields (`task_type`, `target`, `symbol`, `interface`, `deps`,
+    `allow`) in that order, re-enumerating each downstream set against the
+    values already chosen, and folds the picks into one proposal. A
+    load-bearing answer (`task_type`/`target`) that is unusable, falls short of
+    the floor, or names a type needing an output cap declines the whole
+    proposal; an optional field degrades to its rank-0 candidate instead. Each
+    decision is appended to `sink`, when one is wired.
     """
 
     classify: Callable[[Any, Mapping[str, Question]], Decision]
     confidence: float = MIN_CONFIDENCE
+    sink: ShadowSink | None = None
+    model: str = ""
+    seed: str = ""
 
     def __call__(self, evidence: Evidence) -> Sequence[Proposal]:
         targets = candidate_targets(evidence)
@@ -433,70 +455,197 @@ class ClassifierProposer:
             return ()
 
         state = _state(evidence, targets, vocabulary)
-        decision = self.classify(
-            state,
-            {
-                "kind": Choice(
-                    instructions="Which task type does this request call for?",
-                    options={task.name: task.doc for task in vocabulary},
-                ),
-                "target": Choice(
-                    instructions="Which file should the change land in?",
-                    options={path: path for path in targets},
-                ),
-            },
-        )
-        kind_answer = _choice(decision, "kind")
-        target_answer = _choice(decision, "target")
-        if kind_answer is None or target_answer is None:
+
+        task_type_set = task_type_candidates(evidence)
+        task_type = self._decide(state, task_type_set)
+        if task_type is None:
             return ()
-        if (
-            kind_answer.confidence < self.confidence
-            or target_answer.confidence < self.confidence
-        ):
-            return ()
-        kind = kind_for(kind_answer.choice, vocabulary)
-        if kind is None:  # The name is not a type this config can serve.
-            return ()
-        if kind.needs_output_cap:
+        kind = kind_for(str(task_type), vocabulary)
+        if kind is None or kind.needs_output_cap:
             # A type needing an output cap gets no proposal here: the cap says
             # what a reply is worth in tokens, and this proposer has no way to
             # judge that, so it declines instead of guessing.
             return ()
-        target = target_answer.choice
 
-        symbols = symbols_of(evidence, target)
-        symbol_decision = self.classify(
-            state,
-            {
-                "symbol": Choice(
-                    instructions=f"Which symbol in {target} does the task work on?",
-                    options=symbol_options(symbols),
-                )
-            },
-        )
-        symbol_answer = _choice(symbol_decision, "symbol")
-        if symbol_answer is None or symbol_answer.confidence < self.confidence:
+        target_set = target_candidates(evidence)
+        target = self._decide(state, target_set)
+        if target is None:
             return ()
-        symbol = None if symbol_answer.choice == _NO_SYMBOL else symbol_answer.choice
+        target = str(target)
+
+        symbol_set = symbol_candidates(evidence, target)
+        symbol = self._decide(state, symbol_set, target=target)
+        symbol_provenance = Provenance.MODEL
+        if symbol is None:
+            rank0 = symbol_set.rank0
+            symbol = rank0.value if rank0 is not None else _NO_SYMBOL
+            symbol_provenance = Provenance.DETERMINISTIC
+        symbol_name = _symbol_of(symbol)
 
         plan = enumerate_candidates(evidence)
         plan = choose(plan, "task_type", kind.name)
         plan = choose(plan, "target", target)
-        plan = choose(plan, "symbol", symbol or _NO_SYMBOL)
+        plan = choose(
+            plan, "symbol", symbol_name or _NO_SYMBOL, provenance=symbol_provenance
+        )
         plan = choose(
             plan,
             "task",
-            directive(kind, target, symbol),
+            directive(kind, target, symbol_name),
             provenance=Provenance.DETERMINISTIC,
         )
         plan = choose(
             plan,
             "stop_conditions",
-            stop_condition(kind, target, symbol),
+            stop_condition(kind, target, symbol_name),
             provenance=Provenance.DETERMINISTIC,
         )
+
+        interface_set = interface_candidates(evidence, target, symbol_name)
+        interface = self._decide(state, interface_set)
+        if interface is not None:
+            plan = choose(plan, "interface", interface)
+
+        deps_set = deps_candidates(evidence, target)
+        deps = self._decide(state, deps_set)
+        if deps is not None:
+            plan = choose(plan, "deps", deps)
+
+        allow_set, _ = scope_candidates(evidence, target)
+        allow = self._decide(state, allow_set)
+        if allow is not None:
+            plan = choose(plan, "allow", allow)
+
         return (collapse(plan),)
+
+    def _decide(
+        self,
+        state: Any,
+        set: CandidateSet,
+        *,
+        target: str | None = None,
+    ) -> Any | None:
+        """Ask jev one field's Choice and read the pick back.
+
+        Returns the chosen candidate's value, or None when the answer is
+        unusable (missing, unreadable, below the confidence floor, or a choice
+        id not among the field's candidates). Exactly one `DecisionRecord` is
+        written to `sink` per call, with the decision's candidate order, pick,
+        rank-0, abstain flag, confidence, parse-fail flag, latency, model and
+        seed. Transport errors propagate unchanged; only `DecisionError` is
+        caught and recorded as a parse failure.
+        """
+        question = render_choice(
+            set,
+            criterion=criterion(set.field, target=target),
+            abstain_line=abstain_line(set.field),
+        )
+        t0 = time.monotonic()
+        try:
+            decision = self.classify(state, {set.field: question})
+        except DecisionError:
+            latency_ms = round((time.monotonic() - t0) * 1000)
+            self._record(
+                set,
+                pick=None,
+                abstain=True,
+                confidence=0.0,
+                parse_fail=True,
+                latency_ms=latency_ms,
+            )
+            return None
+        latency_ms = round((time.monotonic() - t0) * 1000)
+
+        answer = _choice(decision, set.field)
+        if answer is None:
+            self._record(
+                set,
+                pick=None,
+                abstain=True,
+                confidence=0.0,
+                parse_fail=False,
+                latency_ms=latency_ms,
+            )
+            return None
+        if answer.confidence < self.confidence:
+            self._record(
+                set,
+                pick=None,
+                abstain=True,
+                confidence=answer.confidence,
+                parse_fail=False,
+                latency_ms=latency_ms,
+            )
+            return None
+
+        try:
+            value = value_by_id(set, answer.choice)
+        except KeyError:
+            self._record(
+                set,
+                pick=None,
+                abstain=True,
+                confidence=answer.confidence,
+                parse_fail=True,
+                latency_ms=latency_ms,
+            )
+            return None
+        sentinel = abstain_value(set.field)
+        self._record(
+            set,
+            pick=answer.choice,
+            abstain=sentinel is not None and value == sentinel,
+            confidence=answer.confidence,
+            parse_fail=False,
+            latency_ms=latency_ms,
+        )
+        return value
+
+    def _record(
+        self,
+        set: CandidateSet,
+        *,
+        pick: str | None,
+        abstain: bool,
+        confidence: float,
+        parse_fail: bool,
+        latency_ms: int,
+    ) -> None:
+        """Append one `DecisionRecord` to `sink`, or do nothing when unwired."""
+        if self.sink is None:
+            return
+        rank0 = set.rank0
+        self.sink.append(
+            DecisionRecord(
+                field=set.field,
+                candidates=tuple(c.id for c in set.candidates),
+                pick=pick,
+                rank1=rank0.id if rank0 is not None else "",
+                abstain=abstain,
+                confidence=confidence,
+                parse_fail=parse_fail,
+                latency_ms=latency_ms,
+                model=self.model,
+                seed=self.seed,
+            )
+        )
+
+
+def deterministic_proposer() -> Proposer:
+    """The no-jev degrade: rank-0 collapse per field, with no model asked.
+
+    This is a fallback so the shadow loop and later calibration can run, not a
+    tuned default: it picks the first completable type, first target, first
+    symbol (a real definition, not the whole file) and the empty defaults for
+    every optional field. No decision is made, so nothing is recorded.
+    """
+
+    def propose(evidence: Evidence) -> Sequence[Proposal]:
+        if not candidate_targets(evidence) or not completable(evidence.vocabulary):
+            return ()
+        return (collapse(enumerate_candidates(evidence)),)
+
+    return propose
 
 
 def classifier_proposer_for(
@@ -504,16 +653,19 @@ def classifier_proposer_for(
     *,
     capacity: Capacity | None = None,
     confidence: float = MIN_CONFIDENCE,
+    sink: ShadowSink | None = None,
 ) -> Proposer | None:
-    """Build the typed proposer, or None when neither Jev nor a role is bound.
+    """Build the classifier proposer on the jev role, or its no-jev degrade.
 
-    The questions go through `classify_for`, which reads them with the `jev`
-    role when that one is bound and with the `orchestrator` role — the role
-    named here — otherwise. `capacity` gates each question, `confidence` is the
-    floor the returned proposer holds its answers to.
+    With a unit bound to the jev role the questions go through `classify_for`
+    (which prefers jev over the `orchestrator` role named here), and each
+    decision is recorded in `sink` with the jev role's model. Without jev there
+    is nothing to decide, so the returned proposer collapses rank-0 per field
+    deterministically and asks nothing — the gate/reviewer/wake/ladder decisions
+    keep asking their pre-jev roles, unchanged.
     """
-    if not jev_bound(source_map) and source_map.role_model(ORCHESTRATOR_ROLE) is None:
-        return None
+    if not jev_bound(source_map):
+        return deterministic_proposer()
 
     def classify(state: Any, questions: Mapping[str, Question]) -> Decision:
         return classify_for(
@@ -524,10 +676,20 @@ def classifier_proposer_for(
             capacity=capacity,
         )
 
-    return ClassifierProposer(classify=classify, confidence=confidence)
+    return ClassifierProposer(
+        classify=classify,
+        confidence=confidence,
+        sink=sink,
+        model=source_map.role_model(JEV_ROLE) or "",
+    )
 
 
 # Reading one decision into one proposal.
+
+
+def _symbol_of(name: Any) -> str | None:
+    """The chosen symbol name, or None when the no-symbol option was picked."""
+    return None if name == _NO_SYMBOL else str(name)
 
 
 def _choice(decision: Decision, name: str) -> ChoiceAnswer | None:

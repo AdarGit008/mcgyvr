@@ -160,12 +160,13 @@ def test_the_ladder_managers_decisions_ask_the_fast_rung(
 
 
 @NO_JEV
-def test_the_typed_proposer_asks_the_orchestrator(
+def test_the_typed_proposer_degrades_to_rank0_without_a_jev_unit(
     monkeypatch: pytest.MonkeyPatch, jev: str
 ) -> None:
     sent = _wire(monkeypatch)
     _, pool = _loaded(UNITS + jev)
     proposer = classifier_proposer_for(pool)
-    assert isinstance(proposer, ClassifierProposer)
-    proposer.classify({"prompt": "x"}, {"kind": Choice("which?", {"a": "a"})})
-    assert sent == [ORCH]
+    assert proposer is not None
+    assert not isinstance(proposer, ClassifierProposer)
+    assert not hasattr(proposer, "classify"), "no model is asked without jev"
+    assert sent == []
