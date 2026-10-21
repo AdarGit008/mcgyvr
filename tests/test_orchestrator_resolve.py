@@ -432,3 +432,25 @@ def test_plural_fold_is_conservative() -> None:
     assert _fold("secrets") == "secret"
     assert _fold("class") == "class"  # an 'ss' ending is left exact
     assert _fold("is") == "is"  # too short to fold
+
+
+@pytest.mark.xfail(
+    reason=(
+        "known limitation: resolve does not identify a prose query's semantic subject"
+    ),
+    strict=True,
+)
+def test_a_prose_query_naming_an_absent_subject_is_empty(tmp_path: Path) -> None:
+    tasks_source = "class Task:\n    pass\nDEFAULT_TASK_QUEUE_NAME = 'default'\n"
+    index = build(
+        tmp_path,
+        {
+            "django/tasks.py": tasks_source,
+            "django/queue.py": "QUEUE = 'default'\n",
+        },
+    )
+    result = resolve(
+        index, "Which module integrates Django with the Celery task queue?"
+    )
+    assert result.verdict is Verdict.EMPTY
+    assert result.best is None
