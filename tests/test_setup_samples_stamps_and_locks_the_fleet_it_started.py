@@ -6,7 +6,7 @@ is laid out as the user's own fleet and sampled through the door
 (``read --fleet own`` of the rig, ``--probe U --load WxN`` of every awake
 unit, and a last read), with the use case's sample task between them; the
 sample is judged and stamped (:func:`mcgyvr.fleet.stamp.stamp`); behind "Lock
-the fleet and name it live? [y/N]" the stamp is locked
+the fleet and name it live? [y/n]" the stamp is locked
 (:func:`mcgyvr.fleet.lock.write_from_stamp`), promoted and named live. A red
 sample is never locked, and its reasons are printed.
 

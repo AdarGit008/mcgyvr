@@ -32,7 +32,7 @@ of every rig, a
 probe and a load of every unit, the use case's sample task (for
 `coding`, a one-function bug fix the deterministic gate must pass) and
 a Jev unit's one typed choice. A green sample is stamped, and on
-`Lock the fleet and name it live? [y/N]` it is locked, promoted and
+`Lock the fleet and name it live? [y/n]` it is locked, promoted and
 named live. A red sample is never locked; its reasons are printed.
 
 When the interactive setup finishes, it offers to append
@@ -44,7 +44,7 @@ that already carries a `.local/bin` PATH line is left alone.
 A fleet that could not be sampled — its containers not started, or
 every unit hosted — is locked
 approved on no evidence only once you say so: setup says why and what
-that means, and asks `Lock it approved on no evidence? [y/N]`. With
+that means, and asks `Lock it approved on no evidence? [y/n]`. With
 flags, setup binds the servers already answering and starts none, so
 nothing is sampled; `--accept-unsampled` is that acknowledgment, and
 without it nothing is locked. Backends on another machine come in with

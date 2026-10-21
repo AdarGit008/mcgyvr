@@ -141,7 +141,8 @@ def _scan(args: argparse.Namespace) -> int:
         print(f"  CPU      {measured.cpu.cores} cores, {measured.cpu.threads} threads")
     if measured.bandwidth is not None:
         print(
-            f"  Memory   {measured.bandwidth.measured_gbps:.1f} GB/s "
+            f"  Memory bandwidth (CPU↔RAM) "
+            f"{measured.bandwidth.measured_gbps:.1f} GB/s "
             f"({measured.bandwidth.how})"
         )
     if measured.disk is not None:
