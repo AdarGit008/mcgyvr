@@ -270,6 +270,7 @@ ABOVE_THE_SEAM: tuple[str, ...] = (
     "mcgyvr.orchestrator.repo",
     "mcgyvr.orchestrator.resolve",
     "mcgyvr.orchestrator.symbols",
+    "mcgyvr.orchestrator.telemetry",
     "mcgyvr.rename",
     "mcgyvr.repair",
     "mcgyvr.result",
