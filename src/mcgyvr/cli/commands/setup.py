@@ -157,6 +157,9 @@ def _ask_setup_rigs() -> tuple[str, ...]:
     The local rig is named `localhost`; both puts it ahead of the remote rigs the
     next question names.
     """
+    _note("local  — this machine only")
+    _note("remote — GPU rigs you reach over ssh")
+    _note("both   — this machine plus the remote rigs")
     said = _setup_choose(
         "Which rig(s) should serve this setup? [local] ",
         _RIG_CHOICES,
@@ -171,10 +174,16 @@ def _ask_setup_rigs() -> tuple[str, ...]:
 
 
 def _ask_remote_rigs() -> tuple[str, ...]:
-    """Ask for remote rigs until one is named, or fail after `_SETUP_TRIES`
-    empty answers."""
+    """Ask for remote rigs until one is named, or fail after ``_SETUP_TRIES``
+    empty answers.
+
+    A rig is named the way ssh names it — a host, or an alias from
+    ``~/.ssh/config`` — never ``user@host``: the ssh user belongs in
+    ``~/.ssh/config``.
+    """
+    _note("name each rig the way ssh names it — a host or an alias from ~/.ssh/config")
     for _ in range(_SETUP_TRIES):
-        hosts = _parse_setup_rigs(_ask("Remote rig(s) (ssh host or user@host): "))
+        hosts = _parse_setup_rigs(_ask("Remote rig(s) (ssh host or alias): "))
         if hosts:
             return hosts
     raise _SetupInteractiveError("no remote rig was named")
@@ -215,6 +224,27 @@ def _setup_choose(question: str, choices: Sequence[str], what: str) -> str:
 def _spoken_or(names: Sequence[str]) -> str:
     """Render names the way a prompt says them: `a`, `a or b`, or `a, b or c`."""
     return names[0] if len(names) == 1 else f"{', '.join(names[:-1])} or {names[-1]}"
+
+
+_RULE_WIDTH = 72
+
+
+def _rule(title: str) -> None:
+    """A titled section divider on stdout: a blank line, then ``title`` centred
+    on a rule of :data:`_RULE_WIDTH` box-drawing dashes.
+
+    Purely presentational: it changes how the wizard reads in scrollback,
+    never what setup decides or writes.
+    """
+    print()
+    body = f" {title} "
+    left = (_RULE_WIDTH - len(body)) // 2
+    print("─" * left + body + "─" * (_RULE_WIDTH - len(body) - left))
+
+
+def _note(text: str) -> None:
+    """One indented note line on stdout, under a prompt it explains."""
+    print(f"  {text}")
 
 
 def _setup_use_cases() -> tuple[str, ...]:
@@ -686,8 +716,15 @@ def _setup_interactive(path: Path, run_id: str = "") -> int:
     run_id = run_id or _setup_run_id()
     try:
         path.mkdir(parents=True, exist_ok=True)
+        print("mcgyvr setup")
+        print(
+            "Read each rig, plan a model per rig, then start and sample a "
+            "fleet and lock it live on your yes."
+        )
+        _rule("Step 1 of 4 — where it runs")
         rigs = _ask_setup_rigs()
         print(f"Serving on: {', '.join(rigs)}")
+        _rule("Step 2 of 4 — what it serves")
         use_case = _ask_setup_use_case()
         wants_jev = _confirm(JEV_QUESTION)
         # mcorch drives the conversational coding agent, so it is offered only
@@ -695,6 +732,7 @@ def _setup_interactive(path: Path, run_id: str = "") -> int:
         wants_mcorch = (
             use_case == CODING_USE_CASE and wants_jev and _confirm(MCORCH_QUESTION)
         )
+        _rule("Step 3 of 4 — read and plan")
         scans, readings = _setup_scan_rigs(rigs)
         plans = _setup_placements(rigs, scans, use_case)
         ctx_per_slot = _setup_context_window(plans)
@@ -724,6 +762,7 @@ def _setup_interactive(path: Path, run_id: str = "") -> int:
         rooms = _setup_rooms(path, ctx_per_slot)
         _setup_emit(path, ctx_per_slot)
 
+        _rule("Step 4 of 4 — start and lock")
         if _confirm(f"Start the serving containers on {', '.join(rigs)}? [y/N] "):
             _setup_start(rigs, scans, path)
             approved, unapproved = _setup_sample(path, run_id, readings, rooms)
