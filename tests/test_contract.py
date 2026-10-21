@@ -162,18 +162,9 @@ def test_defaults_are_applied() -> None:
     assert contract.scope.forbid == ()
 
 
-def test_a_prose_output_schema_is_accepted() -> None:
-    contract = loads(MINIMAL + "\noutput_schema: prose\n")
-    assert contract.output_schema == "prose"
-
-
 def test_no_reply_cap_is_derived_for_a_contract_that_states_none() -> None:
-    """Whatever the reply's shape, an unstated cap loads as ``None``."""
-    prose = loads(MINIMAL + "\noutput_schema: prose\n")
-    whole = loads(MINIMAL)
-
-    assert prose.limits.max_output_tokens is None
-    assert whole.limits.max_output_tokens is None
+    """An unstated cap loads as ``None``."""
+    assert loads(MINIMAL).limits.max_output_tokens is None
 
 
 # --- acceptance: a glob target on a model-tier type is rejected -------------
@@ -409,32 +400,13 @@ def test_a_model_task_type_without_stop_conditions_is_rejected() -> None:
     assert "will guess" in message
 
 
-def test_a_prose_contract_needs_no_stop_condition_and_a_whole_file_one_still_does() -> (
+def test_a_whole_file_contract_without_a_stop_condition_is_handed_the_generic_one() -> (
     None
 ):
-    """Stop conditions are required only where a BLOCKED reply can be heard.
-
-    A whole_file reply is parsed, and a refusal in it is a named outcome that
-    escalates; a prose reply is served as the answer, so a
-    condition there is filler nothing reads. The prompt says nothing about
-    stopping when none is given, and the refusal for a whole_file contract
+    """A whole_file reply is parsed, and a refusal in it is a named outcome that
+    escalates, so the refusal for a whole_file contract with no stop condition
     hands the author the generic condition to start from.
     """
-    from mcgyvr.worker.prompt import render_user_message
-
-    for task_type, schema, extra in (
-        ("chat", "prose", ""),
-        ("agent", "prose", 'sources: ["src/report.txt"]\n'),
-    ):
-        contract = loads(
-            f"id: t\ntask_type: {task_type}\ntask: Do it.\ntarget: out.txt\n"
-            f"output_schema: {schema}\n{extra}"
-            'scope:\n  allow: ["out.txt"]\n'
-        )
-        assert contract.stop_conditions == (), task_type
-        prompt = render_user_message(contract.worker_view())
-        assert "STOP AND REPORT BLOCKED" not in prompt, task_type
-
     without = MINIMAL.replace(
         "stop_conditions:\n  - The retry policy is not stated anywhere in the repo.\n",
         "",
@@ -448,14 +420,6 @@ def test_a_prose_contract_needs_no_stop_condition_and_a_whole_file_one_still_doe
         "code on src/pkg/fetch.py would require deciding something the "
         "contract does not state — report BLOCKED rather than guess"
     ) in message, message
-
-    # A chat contract that names no output_schema is a session: its reply
-    # is prose, where no refusal is heard, so it needs no condition; and it
-    # cannot ask for a whole_file reply at all.
-    chat = loads("id: t\ntask_type: chat\ntask: Answer.\n")
-    assert (chat.output_schema, chat.stop_conditions) == ("prose", ())
-    with pytest.raises(ContractSchemaError, match=r"^output_schema:"):
-        loads("id: t\ntask_type: chat\ntask: Answer.\noutput_schema: whole_file\n")
 
 
 def test_a_deterministic_task_type_needs_no_stop_conditions() -> None:

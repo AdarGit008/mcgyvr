@@ -7,9 +7,7 @@ answer or which refuse to serve; this module adds the ones the probe calls
 live but whose dispatches keep failing. ``threshold`` failures in a row arm a
 ``cooldown_s`` sentence, during which the source is reported unavailable with
 a reason naming the streak and the seconds left. A success ends the streak but
-does not shorten an armed sentence. When a ``shared`` record is supplied, an
-armed sentence is also written there so other processes on the host hold the
-source out, and a hold written by another process is reported the same way.
+does not shorten an armed sentence.
 """
 
 from __future__ import annotations
@@ -18,7 +16,6 @@ import threading
 import time
 from collections.abc import Callable, Mapping, Sequence
 from dataclasses import dataclass
-from typing import Protocol
 
 from mcgyvr.availability import (
     PROBE_TIMEOUT_S,
@@ -40,20 +37,6 @@ CONSECUTIVE_FAILURES = 3
 COOLDOWN_S = 60.0
 
 
-class SharedHold(Protocol):
-    """Where a cooldown is published for the other processes on the host.
-
-    ``hold`` records that ``source`` is out for ``seconds``; ``held`` returns
-    the seconds still left on such a record, or ``None`` when the source is not
-    held. :class:`Cooldown` asks nothing else of it, and treats a ``None`` from
-    ``held`` as "no hold".
-    """
-
-    def hold(self, source: str, seconds: float) -> None: ...
-
-    def held(self, source: str) -> float | None: ...
-
-
 @dataclass
 class _Record:
     """One source's failure streak, and when an armed sentence runs out.
@@ -71,10 +54,10 @@ class Cooldown:
     """Which sources should not be dispatched to, and why.
 
     :meth:`unavailable` answers for a batch of endpoints: a source is named
-    when the probe calls it dead, when it has failed ``threshold`` dispatches
-    in a row and the ``cooldown_s`` sentence has not run out, or when a
-    ``shared`` record holds it out. Reasons are prose meant for the report;
-    sources that are fine are absent from the result.
+    when the probe calls it dead, or when it has failed ``threshold``
+    dispatches in a row and the ``cooldown_s`` sentence has not run out.
+    Reasons are prose meant for the report; sources that are fine are absent
+    from the result.
 
     In-process state is one :class:`_Record` per source name, mutated under an
     instance lock. Expired sentences are dropped by whichever lookup notices
@@ -88,7 +71,6 @@ class Cooldown:
         cooldown_s: float = COOLDOWN_S,
         threshold: int = CONSECUTIVE_FAILURES,
         timeout_s: float = PROBE_TIMEOUT_S,
-        shared: SharedHold | None = None,
     ) -> None:
         if cooldown_s <= 0:
             raise ValueError(f"cooldown_s must be positive, got {cooldown_s}")
@@ -102,12 +84,10 @@ class Cooldown:
         self._cooldown_s = cooldown_s
         self._threshold = threshold
         self._records: dict[str, _Record] = {}
-        self._shared = shared
         # Serialises the read-modify-write of ``_records`` in
         # ``record_failure`` and ``record_success``, so two threads counting
         # failures on one source cannot lose an increment. ``unavailable``
-        # reads and expires the same dict without taking it, and the shared
-        # record is written after the lock is released.
+        # reads and expires the same dict without taking it.
         self._lock = threading.Lock()
 
     @property
@@ -123,22 +103,15 @@ class Cooldown:
         """Count one failed dispatch against ``source``.
 
         The failure streak grows by one. Reaching ``threshold`` arms the
-        sentence: ``until`` is stamped ``cooldown_s`` from now, and if a
-        ``shared`` record was given, the same sentence is written there for the
-        other processes on the host. A failure recorded inside an armed
-        sentence restamps it, so a source that keeps failing while cooling
-        stays out.
+        sentence: ``until`` is stamped ``cooldown_s`` from now. A failure
+        recorded inside an armed sentence restamps it, so a source that keeps
+        failing while cooling stays out.
         """
         with self._lock:
             record = self._records.setdefault(source, _Record())
             record.failures += 1
-            sentenced = record.failures >= self._threshold
-            if sentenced:
+            if record.failures >= self._threshold:
                 record.until = self._clock() + self._cooldown_s
-        # Taken outside the lock: the shared hold writes a file, and threads
-        # recording failures on other sources have no reason to wait on that.
-        if sentenced and self._shared is not None:
-            self._shared.hold(source, self._cooldown_s)
 
     def record_success(self, source: str) -> None:
         """Count one successful dispatch against ``source``.
@@ -159,9 +132,8 @@ class Cooldown:
         """The endpoints that must not be dispatched to, each with a reason.
 
         Starts from the sources the probe calls dead, then adds those cooling
-        down here or held out through the ``shared`` record, keeping the first
-        reason found for a source. Sources missing from the result are the ones
-        still worth a dispatch.
+        down, keeping the first reason found for a source. Sources missing from
+        the result are the ones still worth a dispatch.
         """
         down = dict(self._liveness.unavailable(endpoints))
         now = self._clock()
@@ -169,28 +141,9 @@ class Cooldown:
             if endpoint.source in down:
                 continue
             cooling = self._cooling(endpoint.source, now)
-            if cooling is None:
-                cooling = self._held(endpoint.source)
             if cooling is not None:
                 down[endpoint.source] = cooling
         return down
-
-    def _held(self, source: str) -> str | None:
-        """The shared record's reason for holding ``source`` out, if any.
-
-        ``None`` when no ``shared`` record was given or it holds nothing for
-        this source.
-        """
-        if self._shared is None:
-            return None
-        left = self._shared.held(source)
-        if left is None:
-            return None
-        return (
-            f"source {source!r} failed for another process on this host, which "
-            f"held it out for everyone; another {left:.0f}s before it is offered "
-            f"again"
-        )
 
     def _cooling(self, source: str, now: float) -> str | None:
         """The local cooldown reason for ``source`` at ``now``, if in force.

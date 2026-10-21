@@ -127,7 +127,6 @@ def _setup_namespace(**overrides: object) -> argparse.Namespace:
         "use_case": None,
         "deployment": None,
         "jev": None,
-        "session_sandbox": None,
         "accept_unsampled": False,
     }
     defaults.update(overrides)
@@ -142,7 +141,6 @@ def test_setup_is_interactive_only_on_a_tty_without_flags(
     assert not _setup_is_interactive(_setup_namespace(api=["model=m"]))
     assert not _setup_is_interactive(_setup_namespace(force=True))
     assert not _setup_is_interactive(_setup_namespace(use_case="chat"))
-    assert not _setup_is_interactive(_setup_namespace(session_sandbox="docker"))
 
     monkeypatch.setattr(cli.commands.setup, "_stdin_isatty", lambda: False)
     assert not _setup_is_interactive(_setup_namespace())

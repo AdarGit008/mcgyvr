@@ -1,11 +1,11 @@
 """The sampler runs the use case's sample task and an opted-in Jev's choice.
 
-As :func:`mcgyvr.fleet.sample.judge` reads it: ``coding``
-runs the bundled bug fix through ``mcgyvr run`` (green when the deterministic
-gate passes on any rung); ``agent`` the bundled grounded contract, its reply
-checked grounded (cited and stating every fact); ``chat`` one completion per awake
-unit, with the window and slots it serves read back; and an opted-in Jev unit
-gives one typed choice. Every reach of a unit is a seam of
+As :func:`mcgyvr.fleet.sample.judge` reads it: ``coding`` runs the bundled bug
+fix through ``mcgyvr run`` (green when the deterministic gate passes on any
+rung); ``agent`` asks one awake unit the bundled grounded question directly, its
+reply checked grounded (cited and stating every fact); ``chat`` one completion
+per awake unit, with the window and slots it serves read back; and an opted-in
+Jev unit gives one typed choice. Every reach of a unit is a seam of
 :mod:`mcgyvr.fleet.sampler` the test replaces; nothing reaches a machine.
 """
 
@@ -36,14 +36,13 @@ def _setup(tmp_path: Path, use_case: str, *, jev: str | None = None) -> Path:
     return fx.staged(tmp_path, policy=policy)
 
 
-def test_the_bundled_samples_are_valid_contracts(tmp_path: Path) -> None:
+def test_the_bundled_coding_sample_is_a_valid_contract(tmp_path: Path) -> None:
     from mcgyvr.contract import load as load_contract
 
-    for use_case in sampler.SAMPLES:
-        bundled = sampler._bundled(use_case)
-        where = tmp_path / f"{use_case}.yaml"
-        where.write_text(yaml.safe_dump(bundled["contract"]), encoding="utf-8")
-        assert load_contract(where).id == f"mcgyvr-sample-{use_case}"
+    bundled = sampler._bundled("coding")
+    where = tmp_path / "coding.yaml"
+    where.write_text(yaml.safe_dump(bundled["contract"]), encoding="utf-8")
+    assert load_contract(where).id == "mcgyvr-sample-coding"
 
 
 def test_the_coding_sample_runs_the_bug_fix_on_the_staged_setup(
@@ -66,55 +65,51 @@ def test_the_coding_sample_runs_the_bug_fix_on_the_staged_setup(
     assert (repo / ".git").is_dir()
 
 
-def test_the_agent_sample_is_green_on_its_grounded_check_alone(tmp_path: Path) -> None:
+def test_the_agent_sample_is_green_on_its_grounded_check_alone(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
     """The reference reply passes the one check the agent sample runs.
 
     The grounded check (citations and facts) is the agent sample's whole task:
     the sampler answers with that one outcome and the judge finds no reason in
     it, so a setup whose unit gives the reference reply samples green.
     """
-    import json
-
     setup = _setup(tmp_path, "agent")
     reference = sampler._bundled("agent")["reference"]["answer"]
+    asked: list[str] = []
 
-    def run_contract(argv: list[str]) -> int:
-        where = Path(argv[argv.index("--result") + 1])
-        where.write_text(
-            json.dumps({"outcome": "accepted", "rung": fx.UNIT, "answer": reference}),
-            encoding="utf-8",
-        )
-        return 0
+    def ground(where: Path, unit: str) -> str:
+        asked.append(unit)
+        return str(reference)
 
-    outcomes = sampler.task(setup, [fx.UNIT], tmp_path / "sample", run_contract)
+    monkeypatch.setattr(sampler, "ground", ground)
+
+    outcomes = sampler.task(setup, [fx.UNIT], tmp_path / "sample", sd.accepted)
+
+    assert asked == [fx.UNIT]
 
     (grounded,) = outcomes
     assert (grounded.check, grounded.passed) == (TASK_GROUNDED, True)
     assert _task_reasons("agent", fx.fleet_doc(), [fx.UNIT], None, outcomes) == []
 
 
-def test_an_agent_reply_the_runner_did_not_accept_fails_the_grounded_check(
-    tmp_path: Path,
+def test_an_agent_unit_that_could_not_be_asked_fails_the_grounded_check(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
-    import json
-
     setup = _setup(tmp_path, "agent")
 
-    def run_contract(argv: list[str]) -> int:
-        where = Path(argv[argv.index("--result") + 1])
-        where.write_text(
-            json.dumps({"outcome": "error", "rung": fx.UNIT, "detail": "boom"}),
-            encoding="utf-8",
-        )
-        return 1
+    def ground(where: Path, unit: str) -> str:
+        raise RuntimeError("boom")
 
-    outcomes = sampler.task(setup, [fx.UNIT], tmp_path / "sample", run_contract)
+    monkeypatch.setattr(sampler, "ground", ground)
+
+    outcomes = sampler.task(setup, [fx.UNIT], tmp_path / "sample", sd.accepted)
 
     (grounded,) = outcomes
     assert (grounded.check, grounded.passed) == (TASK_GROUNDED, False)
-    assert grounded.why == "error: boom"
+    assert grounded.why == "RuntimeError: boom"
     reasons = _task_reasons("agent", fx.fleet_doc(), [fx.UNIT], None, outcomes)
-    assert reasons == [f"{TASK_GROUNDED}: {fx.UNIT}: error: boom"]
+    assert reasons == [f"{TASK_GROUNDED}: {fx.UNIT}: RuntimeError: boom"]
 
 
 def test_a_reply_that_does_not_cite_or_state_the_source_is_not_grounded() -> None:

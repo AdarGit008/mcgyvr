@@ -7,7 +7,6 @@ before anything is spent:
 * model-written `code` that states a cap: ``<=N output tokens``;
 * model-written `code` that states none: valid, and ``mcgyvr run`` refuses it
   until ``limits.max_output_tokens`` is stated;
-* `chat` and `agent`: a raw connection — no output cap, no prompt checks;
 * a deterministic operation calls no model: no output cap and no attempts.
   It used to print ``<=256 output tokens ... 2 attempt(s)``, a cap and a retry
   budget for a model that is never called.
@@ -42,10 +41,6 @@ scope:
   allow: ["src/pkg/**"]
 """
 
-CHAT = "id: sky\ntask_type: chat\ntask: Why is the sky blue?\n"
-
-AGENT = 'id: brief\ntask_type: agent\ntask: Summarise.\nsources: ["src/r.txt"]\n'
-
 
 def limits(tmp_path: Path, text: str, capsys: pytest.CaptureFixture[str]) -> str:
     """The preview's `limits:` line, or "" when it prints none."""
@@ -68,15 +63,6 @@ def test_code_without_a_cap_says_run_refuses_it(
 ) -> None:
     said = limits(tmp_path, CODE, capsys)
     assert "`mcgyvr run` refuses it until `limits.max_output_tokens` is stated" in said
-
-
-@pytest.mark.parametrize("text", [CHAT, AGENT], ids=["chat", "agent"])
-def test_a_session_is_a_raw_connection(
-    text: str, tmp_path: Path, capsys: pytest.CaptureFixture[str]
-) -> None:
-    said = limits(tmp_path, text, capsys)
-    assert "raw connection: no output cap, no prompt checks" in said, said
-    assert "output tokens" not in said and "prompt tokens" not in said, said
 
 
 def test_a_deterministic_operation_shows_no_cap_and_no_attempts(

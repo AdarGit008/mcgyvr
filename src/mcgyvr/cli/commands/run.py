@@ -1,4 +1,4 @@
-"""The `run` and `sessions` subcommands, and everything a run does.
+"""The `run` subcommand, and everything a run does.
 
 `run` loads a contract, refuses a repository that is not a git checkout, settles
 the session, the config, the journal directory and the delivery policy, and then
@@ -7,14 +7,12 @@ binds and is judged by the gate (`_floor`), while any other contract climbs the
 ladder of units until a rung is accepted or a ceiling stops it (`_climb`). Either
 way the run becomes a `RunResult` written into the journal's results directory,
 copied into the `--record` and `--result` mirrors the caller asked for, and the
-run's own exit code is returned. `sessions` reads the session records the journal
-keeps: a listing of them, or one record in full.
+run's own exit code is returned.
 """
 
 from __future__ import annotations
 
 import argparse
-import json
 import sys
 import textwrap
 from collections.abc import Callable, Sequence
@@ -49,7 +47,6 @@ if TYPE_CHECKING:  # pragma: no cover - typing only
 from mcgyvr.cli.common import CONFIG_DEFAULT_HELP, _add_repo, _named_path, setup_doc
 from mcgyvr.cli.fleet_live import _admitted_live, _live
 from mcgyvr.cli.sandbox import (
-    _reads_the_tree,
     _sandbox_policy,
     _say_what_the_sandbox_leaves_out,
 )
@@ -58,13 +55,12 @@ from mcgyvr.cli.sandbox import (
 def _run(args: argparse.Namespace) -> int:
     """Run one contract and write its result.
 
-    The contract is loaded and the repository checked first, then the session and
-    the config are settled, the journal directory is made, and the result's
+    The contract is loaded and the repository checked first, then the session
+    and the config are settled, the journal directory is made, and the result's
     skeleton is filled in before any work starts. A deterministic contract goes
-    to `_floor` and every other one to `_climb`. Afterwards the mirror copies are
-    reported, a session contract's own record is logged, and the result is
-    written to `--result` (or the journal's copy) and copied into every mirror.
-    The exit code returned is the run's.
+    to `_floor` and every other one to `_climb`. Afterwards the mirror copies
+    are reported, and the result is written to `--result` (or the journal's
+    copy) and copied into every mirror. The exit code returned is the run's.
     """
     from mcgyvr.config import JOURNAL_DIR_DEFAULT
     from mcgyvr.contract import ContractError
@@ -74,10 +70,7 @@ def _run(args: argparse.Namespace) -> int:
         RunResult,
         result_path,
         run_stamp,
-        session_path,
-        session_record,
         write,
-        write_session,
     )
     from mcgyvr.telemetry import run_tags
 
@@ -96,7 +89,7 @@ def _run(args: argparse.Namespace) -> int:
     # The sandbox holds the committed tree, so uncommitted and untracked files
     # the contract's commands need are not in it. Say so once here, where the
     # note is printed and kept for the result, rather than inside each gate.
-    notes = _say_what_the_sandbox_leaves_out(repo) if _reads_the_tree(contract) else []
+    notes = _say_what_the_sandbox_leaves_out(repo)
 
     # The floor needs no units, so a deterministic contract can run with no
     # config at all; a contract that climbs cannot. `path` is kept only so a
@@ -137,17 +130,16 @@ def _run(args: argparse.Namespace) -> int:
     configured = config.get("journal.dir") if config is not None else None
     journal_dir = Path(configured or JOURNAL_DIR_DEFAULT).expanduser()
     # `--record` asks for a second, complete copy of this run in a directory of
-    # the caller's own: the same journal rows, blobs, results and session records
-    # the journal gets. It is a mirror only when it resolves somewhere other than
-    # the journal directory itself, since naming the journal would be a copy onto
+    # the caller's own: the same journal rows, blobs and results the journal
+    # gets. It is a mirror only when it resolves somewhere other than the
+    # journal directory itself, since naming the journal would be a copy onto
     # itself, and that case is dropped instead of written twice. `mirrors` is
     # that decision, threaded through everything that writes: `Recording` copies
     # each journal row and blob to every mirror as it appends it, the result is
-    # copied once it is written, and a session record is copied per mirror as
-    # well. mcgyvr's own copy under `journal.dir` is never moved or replaced by
-    # any of it. A mirror that cannot be written is reported where it failed and
-    # never stops the run, and the failures are carried out on
-    # `Recording.copy_errors` for the result file.
+    # copied once it is written. mcgyvr's own copy under `journal.dir` is never
+    # moved or replaced by any of it. A mirror that cannot be written is
+    # reported where it failed and never stops the run, and the failures are
+    # carried out on `Recording.copy_errors` for the result file.
     asked = Path(args.record).expanduser() if args.record is not None else None
     mirrors = (
         (asked,)
@@ -157,7 +149,7 @@ def _run(args: argparse.Namespace) -> int:
 
     # One stamp for the whole run: UTC to the microsecond, so two runs of the
     # same contract never share a result file name. It names this run's result
-    # and session record below, and it is the `run` field carried on the journal
+    # below, and it is the `run` field carried on the journal
     # rows, which is how the rows of one run are told from those of the next.
     stamp = run_stamp()
     # `keep` is the journal's own copy, under results/, written for every run.
@@ -191,9 +183,7 @@ def _run(args: argparse.Namespace) -> int:
     report = RunResult(
         contract=contract.id,
         task_type=contract.task_type,
-        # A session contract answers a question and writes no file, so it has no
-        # target to name.
-        target="" if contract.is_session else contract.target,
+        target=contract.target,
         orchestrator=session.orchestrator,
         run=stamp,
         session_file=str(session.session_file) if session.session_file else None,
@@ -234,9 +224,8 @@ def _run(args: argparse.Namespace) -> int:
     print(f"journal: {recording.path}", file=sys.stderr)
 
     # Settle the sandbox mode before either path opens one: `--sandbox` when it
-    # was given, else `sandbox.sessions`/`sandbox.mode` from the config, else that
-    # key's built-in default.
-    args.sandbox = _sandbox_mode(args.sandbox, contract, config)
+    # was given, else `sandbox.mode` from the config, else its built-in default.
+    args.sandbox = _sandbox_mode(args.sandbox, config)
     # The language adapters the gate judges a change with, taken from the
     # config's `gate` settings. Settled once and put on the args so that delivery
     # re-judges the change with the adapters the gate used, without a second read
@@ -265,44 +254,6 @@ def _run(args: argparse.Namespace) -> int:
             f"complete and the run was not stopped for it.",
             file=sys.stderr,
         )
-
-    # A session contract, a question put to a model and no file written, also
-    # gets a session record under sessions/: the question, the answer, the
-    # contract's path and hash, and where its result and journal are. The answer
-    # is already in the result file, so a record that cannot be written is
-    # reported and does not change the exit code; the path of the record is kept
-    # on the result, and each mirror gets its own copy.
-    if contract.is_session:
-        logged = session_path(journal_dir, contract.id, stamp)
-        try:
-            write_session(
-                logged,
-                session_record(
-                    report,
-                    contract_path=Path(args.contract).absolute(),
-                    question=contract.task,
-                    result=keep,
-                    journal=recording.path,
-                ),
-            )
-        except OSError as exc:
-            print(
-                f"error: this session could not be logged at {logged}: {exc}. "
-                f"Its answer is in the result file.",
-                file=sys.stderr,
-            )
-        else:
-            report.session_record = str(logged)
-            print(f"session: {logged}", file=sys.stderr)
-            for mirror in mirrors:
-                try:
-                    _copy(logged, session_path(mirror, contract.id, stamp))
-                except OSError as exc:
-                    print(
-                        f"error: this session could not be copied into {mirror}: "
-                        f"{exc}. It is at {logged}.",
-                        file=sys.stderr,
-                    )
 
     # The result file, last, so it carries everything the run learned. It goes to
     # `where` and, when the caller named a different path, to the journal's own
@@ -353,80 +304,6 @@ def _copy(source: Path, target: Path) -> None:
     """Write `source`'s bytes to `target`, making its parent directories first."""
     target.parent.mkdir(parents=True, exist_ok=True)
     atomic.write(target, source.read_bytes())
-
-
-def _sessions(args: argparse.Namespace) -> int:
-    """List the session records the journal keeps, or print one in full.
-
-    The journal is `--journal` when given, else the config's `journal.dir`; a bare
-    install with no setup falls back to the default. Without an id, the newest
-    `--limit` records are listed with their type, outcome and a clipped question;
-    with one, that record is printed whole, down to the contract's path and hash
-    and the answer, or the detail when there is no answer.
-    """
-    from mcgyvr.config import JOURNAL_DIR_DEFAULT
-    from mcgyvr.result import SESSIONS_DIR, sessions
-
-    if args.journal is not None:
-        journal_dir = Path(args.journal).expanduser()
-    else:
-        chosen = Path(args.config) if args.config else None
-        try:
-            configured = load_config(chosen).get("journal.dir")
-        except ConfigError as exc:
-            # No setup anywhere means the default journal, which is where a bare
-            # install keeps its sessions; any other config error is reported.
-            bare = isinstance(exc, ConfigMissingError) and (
-                chosen is None and named_config_path() is None
-            )
-            if not bare:
-                print(f"error: {exc}", file=sys.stderr)
-                return 1
-            configured = None
-        journal_dir = Path(configured or JOURNAL_DIR_DEFAULT).expanduser()
-
-    found = sessions(journal_dir)
-    if args.id is None:
-        if not found:
-            print(f"no sessions in {journal_dir / SESSIONS_DIR}")
-            return 0
-        for path in found[: args.limit]:
-            record = json.loads(path.read_text(encoding="utf-8"))
-            asked = " ".join(str(record.get("question", "")).split())
-            print(
-                f"{path.stem}  [{record.get('task_type')}] "
-                f"{record.get('outcome')}  {_clip(asked, 60)}"
-            )
-        return 0
-
-    path = journal_dir / SESSIONS_DIR / f"{args.id}.json"
-    # The id is a file name under sessions/, so a value that is not a bare name
-    # cannot be one, and an id with no record is refused rather than invented.
-    if Path(args.id).name != args.id or not path.is_file():
-        print(
-            f"error: no session {args.id!r} in {journal_dir / SESSIONS_DIR}; "
-            f"`mcgyvr sessions` lists them.",
-            file=sys.stderr,
-        )
-        return 1
-    record = json.loads(path.read_text(encoding="utf-8"))
-    contract = record.get("contract") or {}
-    print(f"{record.get('session')}  [{record.get('task_type')}]")
-    print(f"  outcome:   {record.get('outcome')} ({record.get('assurance')})")
-    print(f"  unit:      {record.get('unit')}")
-    print(f"  started:   {record.get('started')}")
-    print(f"  finished:  {record.get('finished')}")
-    print(f"  contract:  {contract.get('path')} (sha256 {contract.get('sha256')})")
-    print(f"  result:    {record.get('result')}")
-    print(f"  record:    {path}")
-    print(f"\nasked:\n{record.get('question')}")
-    answer = record.get("answer") or f"(none: {record.get('detail')})"
-    print(f"\nanswer:\n{answer}")
-    return 0
-
-
-def _clip(text: str, width: int) -> str:
-    return text if len(text) <= width else text[: width - 1] + "…"
 
 
 class FloorStoppedError(Exception):
@@ -598,39 +475,12 @@ def _floor(
         return _error(report, str(exc))
 
 
-def _runs_no_command(contract: Contract) -> bool:
-    """True for a session that names no acceptance or demonstration command.
-
-    Such a session only needs somewhere to stage its reply; it never needs a
-    container, because nothing is executed in it.
-    """
-    return contract.is_session and not (
-        contract.acceptance_commands or contract.demonstration_commands
-    )
-
-
-def _sandbox_mode(typed: str | None, contract: Contract, config: Config | None) -> str:
-    """The sandbox mode to open: what the caller typed, else the config's answer.
-
-    The key depends on the contract: a session that runs no command follows
-    `sandbox.sessions` and falls back to `tempdir`, everything else follows
-    `sandbox.mode` and falls back to `docker`.
-    """
+def _sandbox_mode(typed: str | None, config: Config | None) -> str:
+    """The sandbox mode to open: what the caller typed, else `sandbox.mode`,
+    else `docker`."""
     if typed:
         return typed
-    key, unset = (
-        ("sandbox.sessions", "tempdir")
-        if _runs_no_command(contract)
-        else ("sandbox.mode", "docker")
-    )
-    return str((config.get(key) if config is not None else None) or unset)
-
-
-SESSION_SANDBOX_NOTE = (
-    "This session runs no command, so its reply is staged in a throwaway "
-    "checkout on this host and no container is built or started "
-    "(`sandbox.sessions: tempdir`; `docker` gives sessions a container)."
-)
+    return str((config.get("sandbox.mode") if config is not None else None) or "docker")
 
 
 def _ran(step: ToolStep) -> str:
@@ -666,8 +516,8 @@ def _climb(
 ) -> int:
     """Climb the ladder for a contract the deterministic floor cannot run.
 
-    The setup is admitted when it is live, the ladder manager settles which ladder
-    this task gets, and the pool, capacity, cooldown and route are built from it.
+    The setup is admitted when it is live, and the pool, capacity, cooldown and
+    route are built from its config.
     A route with nothing runnable, or a verifier that is enabled and cannot run,
     is an error before any dispatch. The contract's own commands are baselined
     against the untouched workspace, then `worker_attempt` drives `escalate` up
@@ -682,7 +532,6 @@ def _climb(
     from mcgyvr.local_pool import SourceUnavailableError, source_map
     from mcgyvr.route import RouteError
     from mcgyvr.sandbox.base import SandboxError, open_sandbox
-    from mcgyvr.sandbox.tempdir import TempDirSandbox
     from mcgyvr.verify import reviewers_for
     from mcgyvr.wake_judge import hook_for as wake_hook_for
 
@@ -697,23 +546,11 @@ def _climb(
             report.detail = refused
             return Exit.REFUSED
 
-    # The ladder manager may choose this task's ladder and fanout instead of the
-    # declared ones, from the board the last run published. Its choice brings the
-    # gauge it measures with, the presence it takes on rungs it climbs to, and the
-    # host-wide cooling hold; its note says what it changed.
-    from mcgyvr import ladder_manager
-    from mcgyvr.pressure import Board
-
-    managed = ladder_manager.for_task(config, read_board=Board().read)
-    config = managed.config
-    if managed.note is not None:
-        print(f"note: {managed.note}")
-
     # The pool: every ladder unit and relief rung that can actually run, with its
     # model, its endpoint and the role bindings, plus the rungs skipped and why.
-    # It is built once, from the config the ladder manager settled on, and handed
-    # to everything below, the route, the capacity, the reviewers, the driver and
-    # the climb itself, so they all agree on which sources exist.
+    # It is built once and handed to everything below, the route, the capacity,
+    # the reviewers, the driver and the climb itself, so they all agree on which
+    # sources exist.
     pool = source_map(config)
 
     # Relief rungs that duplicate a unit this install already serves are said
@@ -724,23 +561,27 @@ def _climb(
         report.notes.append(note)
 
     # How many dispatches each source can take, from the width each unit
-    # declares, with the ladder manager's gauge to measure what is waiting on it
-    # and the count of servers already busy on each source to judge how full it
-    # is. This is what holds the climb to what the fleet can serve, and a
-    # declaration that admits nothing is a CapacityError, refused before a single
-    # dispatch.
-    from mcgyvr.pressure import server_counts
+    # declares, with the count of servers already busy on each source to judge
+    # how full it is. Where mcgyvr may sleep and wake units, a gauge counts the
+    # dispatches waiting on each one host-wide, which is what a swap asks before
+    # it puts a unit down to make room for a sleeper. This is what holds the
+    # climb to what the fleet can serve, and a declaration that admits nothing
+    # is a CapacityError, refused before a single dispatch.
+    from mcgyvr.pressure import Gauge, server_counts
 
     try:
-        capacity = Capacity.of(config, gauge=managed.gauge, busy=server_counts(pool))
+        capacity = Capacity.of(
+            config,
+            gauge=Gauge() if config.get("serving.enable_sleep_wake") else None,
+            busy=server_counts(pool),
+        )
     except CapacityError as exc:
         return _error(report, str(exc))
 
     # Liveness is not probed over the network from here: every endpoint this
     # probe is handed is reported live. The sources actually dropped are the ones
-    # that failed during this run and are cooling down, and the ones another
-    # process on this host has held out, so no dispatch pays a probe round trip to
-    # learn what the dispatch itself will show.
+    # that failed during this run and are cooling down, so no dispatch pays a
+    # probe round trip to learn what the dispatch itself will show.
     def _always_live(endpoint: object, timeout_s: float) -> AvailabilityVerdict:
         return AvailabilityVerdict(
             source=endpoint.source,  # type: ignore[attr-defined]
@@ -750,7 +591,7 @@ def _climb(
             elapsed_s=0.0,
         )
 
-    cooldown = Cooldown(probe=_always_live, shared=managed.held)
+    cooldown = Cooldown(probe=_always_live)
     try:
         route = ascent(config, pool, contract, capacity=capacity)
     except RouteError as exc:
@@ -785,23 +626,17 @@ def _climb(
         )
 
     try:
-        # A session that runs no command needs somewhere to stage its reply, not
-        # a container: in `tempdir` mode it gets a throwaway checkout on this
-        # host, with the note that says so. Everything else opens the real sandbox
-        # with the config's image, setup commands and network policy.
-        sandbox = (
-            TempDirSandbox(repo, notes=(SESSION_SANDBOX_NOTE,))
-            if _runs_no_command(contract) and args.sandbox == "tempdir"
-            else open_sandbox(
-                repo,
-                mode=args.sandbox,
-                image=config.get("sandbox.image"),
-                setup=config.get("sandbox.setup") or (),
-                # Every unit's address, so a container that can reach out is told
-                # where the models this host serves are listening.
-                endpoints=tuple(unit.address for unit in config.units.values()),
-                **_sandbox_policy(config),
-            )
+        # The sandbox, with the config's image, setup commands and network
+        # policy.
+        sandbox = open_sandbox(
+            repo,
+            mode=args.sandbox,
+            image=config.get("sandbox.image"),
+            setup=config.get("sandbox.setup") or (),
+            # Every unit's address, so a container that can reach out is told
+            # where the models this host serves are listening.
+            endpoints=tuple(unit.address for unit in config.units.values()),
+            **_sandbox_policy(config),
         )
     except SandboxError as exc:
         return _error(report, str(exc))
@@ -851,7 +686,6 @@ def _climb(
                 # asleep, and `escalate` calls this before giving up on it. It cools
                 # sources through the same hold this run uses.
                 wake_hook=wake_hook_for(config, pool, cooldown=cooldown),
-                presence=managed.presence,
             )
             return _report_climb(
                 args, contract, sandbox, repo, outcome, recording, report
@@ -920,8 +754,8 @@ def _report_climb(
     Each attempt in the history is printed and given a correction row per draw,
     then copied into the result's attempts. A halt sets the result's outcome and
     detail and exits 1. A delivery says which rung it landed on, what it cost in
-    attempts and escalations, and what the assurance is, then answers a prose
-    contract or commits a change; a judgement that bound no content is an
+    attempts and escalations, and what the assurance is, then commits a change;
+    a judgement that bound no content is an
     error, because there would be nothing to deliver.
     """
     from mcgyvr.escalate import Assurance, Delivered
@@ -1014,7 +848,7 @@ def _report_climb(
     bound = outcome.judgement.accepted
     if bound is None:
         # Accepted with nothing bound: the judgement approved no content, so there
-        # is nothing an answer or a delivery could carry. Say the checks passed and
+        # is nothing a delivery could carry. Say the checks passed and
         # then report the error here, because a success line for a run with no
         # product would name an outcome the caller cannot use.
         verdict.say()
@@ -1023,14 +857,6 @@ def _report_climb(
             f"{contract.id} was accepted on {outcome.rung} without bound "
             f"content, so there is nothing a delivery could re-judge.",
         )
-    if contract.output_schema == "prose":
-        # A prose contract's product is its answer: there is no file to
-        # place or commit, so the content goes on the result and is printed, and
-        # the run is finished.
-        report.answer = bound.content
-        verdict.say()
-        print(f"\n{contract.id}: answer —\n{bound.content}")
-        return 0
     landed = outcome.history[-1]
     return _commit(
         args,
@@ -1454,7 +1280,7 @@ def _name_the_writer(run: argparse.ArgumentParser, args: argparse.Namespace) -> 
 def add_parser(
     sub: argparse._SubParsersAction[argparse.ArgumentParser],
 ) -> argparse.ArgumentParser:
-    """Register `run` and `sessions`, and return the `run` parser.
+    """Register `run`, and return its parser.
 
     The `run` parser is returned because the caller finishes the argument checks
     that need more than one flag, after parsing.
@@ -1481,9 +1307,9 @@ def add_parser(
     run.add_argument(
         "--sandbox",
         # Typed or not, so `_sandbox_mode` can fill an untyped one from
-        # `sandbox.mode` or `sandbox.sessions` instead of from a default that would
-        # read as a choice. The two choices are the backends there are: a
-        # container, or a checkout on this host.
+        # `sandbox.mode` instead of from a default that would read as a choice.
+        # The two choices are the backends there are: a container, or a checkout
+        # on this host.
         default=None,
         choices=("docker", "tempdir"),
         help=(
@@ -1523,9 +1349,8 @@ def add_parser(
         metavar="DIR",
         help=(
             "also journal this run under DIR, as a complete second copy for "
-            "your own reading: DIR/<ID>.jsonl, DIR/blobs/, DIR/results/ and "
-            "DIR/sessions/, read "
-            "back from DIR directly. This does not move mcgyvr's "
+            "your own reading: DIR/<ID>.jsonl, DIR/blobs/ and DIR/results/, "
+            "read back from DIR directly. This does not move mcgyvr's "
             "own record, which is always written under the config's "
             "`journal.dir` so that every run there has ever been can be counted "
             "in one place; a copy that cannot be written is reported and does "
@@ -1557,39 +1382,5 @@ def add_parser(
         ),
     )
     run.set_defaults(func=_run)
-
-    ses = sub.add_parser(
-        "sessions",
-        help="list the chat and agent sessions the journal keeps, or show one",
-    )
-    ses.add_argument(
-        "id",
-        nargs="?",
-        default=None,
-        help="show this session whole: question, answer, unit, outcome "
-        "(default: list them, newest first)",
-    )
-    ses.add_argument(
-        "--config",
-        default=None,
-        type=_named_path,
-        metavar="PATH",
-        help=f"whose `journal.dir` to read (default: {CONFIG_DEFAULT_HELP})",
-    )
-    ses.add_argument(
-        "--journal",
-        default=None,
-        type=_named_path,
-        metavar="DIR",
-        help="read the sessions of this journal instead, e.g. a --record copy",
-    )
-    ses.add_argument(
-        "--limit",
-        type=int,
-        default=20,
-        metavar="N",
-        help="list at most N sessions (default: 20)",
-    )
-    ses.set_defaults(func=_sessions)
 
     return run

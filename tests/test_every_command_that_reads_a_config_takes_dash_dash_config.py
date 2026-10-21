@@ -104,7 +104,7 @@ def test_the_exempt_list_names_only_real_commands_that_take_no_config() -> None:
 def test_the_walk_sees_the_commands_that_already_took_it() -> None:
     commands = _leaves(build_parser())
 
-    for name in ("run", "sessions", "delegate", "emit"):
+    for name in ("run", "delegate", "emit"):
         assert _takes_config(commands[name]), name
 
 

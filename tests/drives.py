@@ -265,7 +265,7 @@ class _Waker:
     def __init__(self) -> None:
         self.woken: list[str] = []
 
-    def dispatching(self, rung: str, send: Any) -> Any:
+    def dispatching(self, rung: str, send: Any, *, capacity: Any = None) -> Any:
         self.woken.append(rung)
         return send()
 

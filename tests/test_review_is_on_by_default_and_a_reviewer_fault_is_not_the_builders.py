@@ -677,7 +677,7 @@ def test_a_picked_reviewer_on_a_sleeping_card_is_woken(
     awake: set[str] = set()
 
     class Waker:
-        def dispatching(self, rung, send):  # type: ignore[no-untyped-def]
+        def dispatching(self, rung, send, *, capacity=None):  # type: ignore[no-untyped-def]
             try:
                 return send()
             except RefusedConnectionError:

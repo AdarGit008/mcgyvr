@@ -64,8 +64,6 @@ class Field:
     hint: str = ""
     #: Where an `enum`'s values come from when they are not fixed in `choices`.
     choices_from: Callable[[], tuple[str, ...]] | None = None
-    #: True for a contract key a chat or agent session may leave out.
-    session_optional: bool = False
 
     def valid_choices(self) -> tuple[str, ...]:
         """The values it accepts, from `choices_from` when given, else `choices`."""

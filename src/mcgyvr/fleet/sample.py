@@ -5,7 +5,7 @@ files the reads saved, holds every rig of the fleet's layout to a card reserve
 and every awake unit to its probe, holds each sleeper (a unit laid out asleep
 whose role is ``sleeps-until-needed``) to its probe and to its swap having
 passed both ways (:class:`Move`), then reads the use case's task outcomes
-(``coding``'s gate, ``chat``'s completion, ``agent``'s grounded contract) and,
+(``coding``'s gate, ``chat``'s completion, ``agent``'s grounded question) and,
 when the policy names one, the Jev unit's typed choice. Any reason at all makes
 the sample red; with none, and with a rig file and a read for every rig, the
 verdict carries the ``rigs``/``combinations``/``moves`` evidence a stamp
@@ -77,7 +77,7 @@ class Move:
     """One way of one sleeper's swap on its rig, as `mcgyvr.fleet.sampler` made it.
 
     `unit` is the sleeper and `way` one of `WAYS`. `room` names the units the
-    ladder manager put down to give the sleeper its room: the move in puts them
+    card switches put down to give the sleeper its room: the move in puts them
     down and the move back wakes them again. `passed` is whether every switch
     call of the move worked, `downtime_s` the wall time from its first switch
     call to the end of its last, `wake_s` the seconds each unit it woke took to
@@ -370,7 +370,7 @@ def _task_reasons(
         ]
     if use_case == AGENT:
         return _failed(
-            TASK_GROUNDED, _ran(outcomes, TASK_GROUNDED), "the grounded contract"
+            TASK_GROUNDED, _ran(outcomes, TASK_GROUNDED), "the grounded question"
         )
     return [f"use case: {use_case!r} has no sample"]
 
@@ -397,8 +397,8 @@ def _rig_block(
 
 def sleeper(unit: Mapping[str, Any], state: str) -> bool:
     """Whether a slot holds a sleeper: a unit laid out asleep whose role is
-    ``sleeps-until-needed``, which the sample swaps in through the ladder
-    manager."""
+    ``sleeps-until-needed``, which the sample swaps in through the card
+    switches."""
     return state == ASLEEP and unit.get("role") == ROLE_SLEEPER
 
 

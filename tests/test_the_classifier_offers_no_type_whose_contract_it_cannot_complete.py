@@ -12,6 +12,7 @@ offers.
 from __future__ import annotations
 
 from collections.abc import Callable, Mapping
+from dataclasses import replace
 from pathlib import Path
 from typing import Any
 
@@ -80,7 +81,15 @@ def test_code_is_offered_alongside_the_other_types(tmp_path: Path) -> None:
     reply cap, which no choice can say, so the prose proposer writes it.
     """
     seen, classify = _answering({"kind": "code", "symbol": ""})
-    evidence = _evidence(tmp_path, _types("chat", "code"))
+    # A kind that judges no change, built here since the shipped catalog has
+    # none.
+    reply = replace(
+        load_catalog().require("code"),
+        name="chat",
+        required_evidence=(),
+        evidence_derived=False,
+    )
+    evidence = _evidence(tmp_path, (reply, *_types("code")))
     proposals = ClassifierProposer(classify=classify)(evidence)
     kind = seen[0]["kind"]
     assert isinstance(kind, Choice)

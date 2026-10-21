@@ -1,19 +1,12 @@
-# The agent use case's sample task: one contract grounded in one source, run
-# by `mcgyvr run` on the staged setup (mcgyvr.fleet.sampler). Green when the
-# reply is grounded -- every sentence cites the source and the reply states
-# each fact in `facts`. `files` is the repository as it starts, and
-# `reference` is one reply the grounded check accepts.
+# The agent use case's sample task: one question grounded in one source, put
+# straight to an awake unit of the staged setup (mcgyvr.fleet.sampler). Green
+# when the reply is grounded -- every sentence cites the source and the reply
+# states each fact in `facts`. `files` are the sources the question is asked
+# over, and `reference` is one reply the grounded check accepts.
 use_case: agent
-contract:
-  id: mcgyvr-sample-agent
-  task_type: agent
-  task: |
-    Read harbour-notes. In two short sentences, say what colour the sky was
-    and on which day. End each sentence with the citation [1].
-  stop_conditions:
-    - harbour-notes does not say what colour the sky was.
-  output_schema: prose
-  sources: ["harbour-notes"]
+task: |
+  Read harbour-notes. In two short sentences, say what colour the sky was
+  and on which day. End each sentence with the citation [1].
 citation: "[1]"
 facts: ["green", "tuesday"]
 files:

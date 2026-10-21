@@ -96,13 +96,6 @@ class TaskType:
     #: chooses evidence itself. Declared per entry in the JSON and False when
     #: the entry leaves the key out.
     evidence_derived: bool = False
-    #: True for a task type asked for a reply, not a change to the tree. It
-    #: has no target and no scope, so nothing is written: the answer is
-    #: returned in the result file's `answer` and kept in the session log, and no
-    #: acceptance bar is met. Being a session type also exempts it from the
-    #: output cap a judged, model-written change must state, and `mcgyvr inspect`
-    #: prints it as a session type.
-    session: bool = False
 
     @property
     def deterministic(self) -> bool:
@@ -142,9 +135,9 @@ class TaskType:
     @property
     def needs_output_cap(self) -> bool:
         """True when a model writes a change that something then judges —
-        not a tool's work and not a session reply — so the contract must
-        state `limits.max_output_tokens`."""
-        return not self.deterministic and not self.session and self.judges_a_change
+        not a tool's work — so the contract must state
+        `limits.max_output_tokens`."""
+        return not self.deterministic and self.judges_a_change
 
 
 @dataclass(frozen=True)
@@ -325,7 +318,6 @@ def _load_entries(
                 warrant=str(entry.get("warrant", "")),
                 doc=str(entry.get("doc", "")),
                 evidence_derived=bool(entry.get("evidence_derived", False)),
-                session=bool(entry.get("session", False)),
                 task_type=str(entry.get("task_type", "")),
             )
         )

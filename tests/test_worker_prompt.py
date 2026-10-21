@@ -101,7 +101,7 @@ def test_the_js_bundle_states_its_null_result_in_the_file_but_not_in_the_prompt(
 # --- the ceiling is enforced, not documented -------------------------------
 
 
-@pytest.mark.parametrize("key", ["python", "js/ts", "agent"])
+@pytest.mark.parametrize("key", ["python", "js/ts"])
 def test_shipped_bundles_are_within_the_measured_ceiling(key: str) -> None:
     assert load_bundle(key).size_bytes <= MAX_BUNDLE_BYTES
 
@@ -153,18 +153,6 @@ def test_a_custom_adapter_set_is_honoured() -> None:
 
     adapters: list[LanguageAdapter] = [JavaScriptAdapter()]
     assert bundle_for("coding", "src/pkg/fetch.py", adapters) is None
-
-
-def test_agent_carries_one_bundle_unmeasured() -> None:
-    agent = bundle_for("agent")
-    assert agent is not None and agent.key == "agent"
-    assert agent.standing is BundleStanding.UNMEASURED
-    assert agent.measured is False
-
-
-def test_chat_gets_no_bundle() -> None:
-    """Chat is a raw un-gated endpoint; a system prompt would bias a pass-through."""
-    assert bundle_for("chat") is None
 
 
 def test_an_unknown_use_case_gets_no_bundle() -> None:
@@ -323,12 +311,6 @@ def test_the_reply_instruction_names_the_target_and_the_shape() -> None:
     built = build_prompt(contract(PY_CONTRACT))
     assert "one fenced code block" in built.user
     assert "src/pkg/fetch.py" in built.user.split("OUTPUT:")[1]
-
-
-def test_a_prose_contract_gets_the_prose_instruction() -> None:
-    built = build_prompt(contract(PY_CONTRACT + "output_schema: prose\n"))
-    assert "plain prose" in built.user
-    assert "fenced code block" not in built.user.split("OUTPUT:")[1]
 
 
 # --- the system prompt is the bundle ---------------------------------------

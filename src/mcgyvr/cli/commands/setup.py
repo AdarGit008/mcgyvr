@@ -125,7 +125,6 @@ def _setup_is_interactive(args: argparse.Namespace) -> bool:
         or args.use_case is not None
         or args.deployment is not None
         or args.jev is not None
-        or args.session_sandbox is not None
         or args.accept_unsampled
     )
 
@@ -978,7 +977,6 @@ def _setup(args: argparse.Namespace) -> int:
             use_case=args.use_case or "coding",
             deployment=args.deployment,
             jev=args.jev,
-            session_sandbox=args.session_sandbox,
             compose_dir=path,
         )
     except InitError as exc:
@@ -1316,18 +1314,6 @@ def add_parser(sub: argparse._SubParsersAction[argparse.ArgumentParser]) -> None
         help=(
             "dedicate VRAM to a Jev unit: the written unit every typed decision "
             "asks, never slept or woken (an opt-in; no model is picked for you)"
-        ),
-    )
-    setup.add_argument(
-        "--session-sandbox",
-        default=None,
-        choices=("tempdir", "docker"),
-        metavar="MODE",
-        help=(
-            "the sandbox a chat or agent run gets when it runs no command, "
-            "written as `sandbox.sessions`: tempdir (the default: no container "
-            "is built or started, and Docker is not needed) or docker (opt in "
-            "to a task container, as code gets)"
         ),
     )
     setup.add_argument(

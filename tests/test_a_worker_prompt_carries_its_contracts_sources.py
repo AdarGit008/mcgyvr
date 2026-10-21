@@ -1,10 +1,7 @@
-"""An `agent` worker is given its contract's `sources`, numbered, with their content.
+"""A worker is given its contract's `sources`, numbered, with their content.
 
-The prompt used to ask the model to cite `[n]` sources it was never given —
-`sources` never reached the worker — so both rungs answered that no sources
-were provided. Now the sources are rendered into the agent
-worker prompt, numbered, with their content, read under the rules every other
-read of the tree for a worker follows:
+The sources are rendered into the worker prompt, numbered, with their content,
+read under the rules every other read of the tree for a worker follows:
 
 - from the run's sandbox workspace, the tree the run started from — HEAD's
   tracked files for a git repository — as the target's own content is;
@@ -12,9 +9,7 @@ read of the tree for a worker follows:
   ``.git`` is refused rather than followed;
 - never a file the sandbox's non-git copy leaves behind for holding a secret
   (``.env``, keys, credential folders), nor a binary or oversized file;
-- whole — never silently truncated. An agent run is a raw connection to a
-  model, so no prompt ceiling bounds them
-  (``tests/test_a_chat_or_agent_run_is_a_raw_connection_with_no_limits.py``).
+- whole — never silently truncated.
 
 A source that cannot be read refuses the attempt before anything is sent.
 """
@@ -31,10 +26,16 @@ import pytest
 from mcgyvr.contract import ContractSchemaError, loads
 from mcgyvr.worker.prompt import build_prompt, render_user_message
 
-AGENT = """\
+CODE = """\
 id: brief
-task_type: agent
-task: Explain how the store saves a record.
+task_type: code
+task: Document how the store saves a record.
+target: src/app/store.py
+scope:
+  allow: ["src/app/store.py"]
+stop_conditions: ["The store does not save a record."]
+limits:
+  max_output_tokens: 512
 sources: ["src/app/store.py", "tests/test_store.py"]
 """
 
@@ -75,7 +76,7 @@ def repo(tmp_path: Path) -> Path:
 
 
 def test_each_source_is_numbered_from_one_with_its_content_fenced() -> None:
-    contract = replace(loads(AGENT), source_content=(STORE, TESTS))
+    contract = replace(loads(CODE), source_content=(STORE, TESTS))
 
     user = build_prompt(contract).user
 
@@ -87,22 +88,16 @@ def test_each_source_is_numbered_from_one_with_its_content_fenced() -> None:
     assert second < user.index("OUTPUT:")
 
 
-def test_the_agent_bundle_points_at_the_numbered_sources() -> None:
-    system = build_prompt(replace(loads(AGENT), source_content=(STORE, TESTS))).system
-    assert "SOURCES" in system, system
-    assert "[n]" in system, system
-
-
 def test_a_fence_inside_a_source_does_not_close_its_block() -> None:
     fenced = "Example:\n```python\nx = 1\n```\n"
-    contract = replace(loads(AGENT), sources=("docs/a.md",), source_content=(fenced,))
+    contract = replace(loads(CODE), sources=("docs/a.md",), source_content=(fenced,))
     user = render_user_message(contract.worker_view())
     assert "[1] docs/a.md\n````\n" + fenced + "````" in user, user
 
 
 def test_the_worker_view_names_the_sources_before_they_are_read() -> None:
     """`mcgyvr contract --worker-view` shows the paths; content is read at dispatch."""
-    view = loads(AGENT).worker_view()
+    view = loads(CODE).worker_view()
     assert view["sources"] == [
         {"path": "src/app/store.py", "content": None},
         {"path": "tests/test_store.py", "content": None},
@@ -113,13 +108,15 @@ def test_the_worker_view_names_the_sources_before_they_are_read() -> None:
 
 
 def test_a_contract_without_sources_has_no_sources_section() -> None:
-    chat = loads("id: sky\ntask_type: chat\ntask: Why is the sky blue?\n")
-    assert "SOURCES" not in build_prompt(chat).user
+    bare = loads(
+        CODE.replace('sources: ["src/app/store.py", "tests/test_store.py"]\n', "")
+    )
+    assert "SOURCES" not in build_prompt(bare).user
 
 
 def test_sources_are_never_cut() -> None:
     big = "word " * 4000
-    contract = replace(loads(AGENT), source_content=(big, TESTS))
+    contract = replace(loads(CODE), source_content=(big, TESTS))
     prompt = build_prompt(contract)
     assert big in prompt.user
 
@@ -138,7 +135,7 @@ def test_a_source_that_names_no_file_in_the_tree_is_refused_at_load(
     entry: str, said: str
 ) -> None:
     with pytest.raises(ContractSchemaError) as exc:
-        loads(AGENT.replace('"tests/test_store.py"', f'"{entry}"'))
+        loads(CODE.replace('"tests/test_store.py"', f'"{entry}"'))
     message = str(exc.value)
     assert message.startswith("sources.1:"), message
     assert said in message, message
@@ -146,7 +143,7 @@ def test_a_source_that_names_no_file_in_the_tree_is_refused_at_load(
 
 def test_a_source_named_twice_is_refused_at_load() -> None:
     with pytest.raises(ContractSchemaError, match=r"sources\.1:.*twice"):
-        loads(AGENT.replace("tests/test_store.py", "src/app/store.py"))
+        loads(CODE.replace("tests/test_store.py", "src/app/store.py"))
 
 
 # --- the read, in the attempt ------------------------------------------------
@@ -175,9 +172,8 @@ def test_the_attempt_reads_each_source_from_the_tree_the_run_started_from(
     # Uncommitted: the sandbox holds HEAD's tracked files, as for the target.
     (repo / "src" / "app" / "store.py").write_text("edited\n", encoding="utf-8")
 
-    judgement, sent = _attempt(repo, AGENT, monkeypatch, "It writes JSON [1].")
+    _, sent = _attempt(repo, CODE, monkeypatch, "```python\n" + STORE + "```")
 
-    assert judgement.accepted is not None
     assert len(sent) == 1
     assert "[1] src/app/store.py\n```\n" + STORE + "```" in sent[0], sent[0]
     assert "[2] tests/test_store.py\n```\n" + TESTS + "```" in sent[0], sent[0]
@@ -214,7 +210,7 @@ def test_a_source_that_cannot_be_read_refuses_the_attempt_before_anything_is_sen
         make(repo / name)
         _git(repo, "add", "-A", "-f")
         _git(repo, "commit", "-q", "-m", "more")
-    document = AGENT.replace("tests/test_store.py", name)
+    document = CODE.replace("tests/test_store.py", name)
 
     with pytest.raises(DispatchRaisedError) as exc:
         _attempt(repo, document, monkeypatch)

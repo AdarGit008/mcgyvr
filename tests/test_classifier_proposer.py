@@ -18,6 +18,7 @@ from __future__ import annotations
 import subprocess
 import textwrap
 from collections.abc import Mapping
+from dataclasses import replace
 from pathlib import Path
 from typing import Any
 
@@ -128,11 +129,21 @@ def answer(choice: str, confidence: float) -> ChoiceAnswer:
     )
 
 
-#: The example kind the choice mechanics are shown with. Not ``code``: a
+#: The example kind the choice mechanics are shown with: a kind that judges no
+#: change, built here since the shipped catalog has none. Not ``code``: a
 #: ``code`` contract states its reply cap, which no choice can say, so the
 #: classifier hands that work to the prose proposer
 #: (test_the_classifier_leaves_capped_work_to_the_prose_proposer.py).
-AGENT = catalog().require("agent")
+AGENT = replace(
+    catalog().require("code"),
+    name="agent",
+    required_evidence=(),
+    evidence_derived=False,
+    doc=(
+        "Answer a prompt in plain prose from the repository files the contract "
+        "names as its sources, ungated."
+    ),
+)
 
 
 # --- the typed-decision path ----------------------------------------------

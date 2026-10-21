@@ -1,14 +1,14 @@
-"""There are exactly three task types, and a deterministic operation is ``code``.
+"""There is exactly one task type, and a deterministic operation is ``code``.
 
-The vocabulary a contract names in ``task_type`` is ``code``, ``chat`` and
-``agent``. The deterministic operations (``format``,
+The vocabulary a contract names in ``task_type`` is ``code``. The deterministic
+operations (``format``,
 ``import_sort``, ``lint_fix``, ``rename_symbol``) are not task types: a
 contract asks for one as ``task_type: code`` with ``operation: <name>``, and
 it still runs on the deterministic floor with no model, judged by the same
 evidence it was judged by as a type of its own.
 
-A name that used to be a task type is refused, and the refusal names the
-spelling that replaced it — the one place an old name survives.
+A name that used to be a task type is refused like any other unknown name:
+nothing keeps a list of retired spellings.
 """
 
 from __future__ import annotations
@@ -21,7 +21,7 @@ from mcgyvr.catalog import catalog, catalog_path
 from mcgyvr.contract import ContractSchemaError, dumps, loads, parse
 from mcgyvr.deterministic import tool_for
 
-THREE = ("code", "chat", "agent")
+ONE = ("code",)
 
 
 def _code(operation: str, target: str = "src/pkg/messy.py", extra: str = "") -> str:
@@ -37,8 +37,8 @@ scope:
 """
 
 
-def test_the_catalog_declares_exactly_the_three_task_types() -> None:
-    assert tuple(t.name for t in catalog().task_types) == THREE
+def test_the_catalog_declares_exactly_the_one_task_type() -> None:
+    assert tuple(t.name for t in catalog().task_types) == ONE
 
 
 def test_the_catalog_keeps_no_list_of_removed_names() -> None:
@@ -129,26 +129,6 @@ def test_an_operation_may_take_a_pattern_target() -> None:
     assert contract.target == "src/pkg/*.py"
 
 
-def test_an_operation_on_another_task_type_is_refused() -> None:
-    with pytest.raises(ContractSchemaError) as exc:
-        loads(
-            """
-id: c
-task_type: chat
-operation: format
-task: Answer.
-target: answer.txt
-stop_conditions: ["The question is not stated."]
-output_schema: prose
-scope:
-  allow: ["answer.txt"]
-"""
-        )
-    said = str(exc.value)
-    assert said.startswith("operation:"), said
-    assert "'code'" in said, said
-
-
 def test_an_unknown_operation_is_refused_naming_the_valid_ones() -> None:
     with pytest.raises(ContractSchemaError) as exc:
         loads(_code("tidy"))
@@ -169,6 +149,8 @@ def test_an_unknown_operation_is_refused_naming_the_valid_ones() -> None:
         "docstring",
         "type_annotation",
         "test_scaffold",
+        "chat",
+        "agent",
     ],
 )
 def test_a_contract_naming_an_old_type_is_refused(old: str) -> None:
@@ -189,7 +171,7 @@ scope:
     assert f"'{old}' is not valid here" in said, said
 
 
-def test_a_name_that_never_was_a_type_lists_the_three() -> None:
+def test_a_name_that_never_was_a_type_lists_the_one() -> None:
     with pytest.raises(ContractSchemaError) as exc:
         loads(
             """
@@ -203,4 +185,4 @@ scope:
 """
         )
     said = str(exc.value)
-    assert "code, chat, agent" in said, said
+    assert said.endswith("Valid: code"), said

@@ -12,7 +12,7 @@ that starts it, and that card's memory from the host's recorded scan, which
 ``emit`` sizes against. On a host with several cards only the units on the
 waking unit's card are its neighbours. Where a figure is missing, or the card
 a unit is on cannot be told, there is no answer, no room is made, and the
-manager says why. Every number and shape here is invented.
+switches say why. Every number and shape here is invented.
 
 On such a card a sleep and a wake act on one unit (``serve sleep|wake --unit``),
 the card's other units are left as they are, and the record of who is resting
@@ -26,25 +26,19 @@ from typing import Any
 
 import pytest
 
-from mcgyvr import ladder_manager
 from mcgyvr.config import Config, parse
-from mcgyvr.ladder_manager import Bounds, Manager, View
-from mcgyvr.pressure import Reading
-from mcgyvr.scan import Scan
-from tests import livejournal as lj
+from mcgyvr.ladder_manager import wake_making_room
 from tests.doors import (  # noqa: F401 - fixtures
     FAST,
     FAST_HOST,
     LARGE,
     LARGE_CONTAINER,
-    OTHER_HOST,
     SHARED_HOST,
     SMALL,
     SMALL_CONTAINER,
     a_clean_home,
     ladder_text,
     reservation,
-    split_ladder,
     write_spec,
 )
 
@@ -72,7 +66,7 @@ def switches(
     *,
     sizes: dict[int, int] | None = None,
 ) -> Any:
-    """The manager's switches, with the shared host's card sizes by card index.
+    """The card switches, with the shared host's card sizes by card index.
 
     ``card_mib`` is a one-card host's one card; ``sizes`` states every card.
     """
@@ -145,46 +139,6 @@ def test_a_shared_vllm_card_switches_one_unit_at_a_time(
 
     assert switches(config).card_of(LARGE) == (LARGE,)
     assert switches(config).card_of(SMALL) == (SMALL,)
-
-
-def scan_of(host: str, *vram_mib: int) -> Scan:
-    """A recorded scan of ``host`` holding one card per size, indexed in order."""
-    from dataclasses import replace
-
-    from mcgyvr.scan import Vram
-
-    base = Scan.of(
-        host=host,
-        vram_mib=vram_mib[0],
-        ram_gb=32.0,
-        disk_free_gb=500.0,
-        cores=8,
-        threads=16,
-        bandwidth_gbps=20.0,
-    )
-    first = base.gpus[0]
-    return replace(
-        base,
-        gpus=tuple(
-            replace(
-                first,
-                index=index,
-                vram=Vram(total_mib=mib, used_mib=0, free_mib=mib),
-            )
-            for index, mib in enumerate(vram_mib)
-        ),
-    )
-
-
-def test_card_sizes_are_read_per_card_from_every_scan() -> None:
-    from mcgyvr.wake import card_rooms
-
-    assert card_rooms(
-        {
-            SHARED_HOST: scan_of(SHARED_HOST, 12000),
-            FAST_HOST: scan_of(FAST_HOST, 8000, 16000),
-        }
-    ) == {SHARED_HOST: {0: 12000}, FAST_HOST: {0: 8000, 1: 16000}}
 
 
 # --- several cards on one host ---------------------------------------------------
@@ -260,34 +214,6 @@ def test_where_the_card_cannot_be_told_no_room_is_made_and_why_is_said(
     assert why is not None and said in why, why
 
 
-def test_manage_says_where_it_will_make_no_room(
-    tmp_path: Path,
-    home: Path,
-    monkeypatch: pytest.MonkeyPatch,
-    capsys: pytest.CaptureFixture[str],
-) -> None:
-    import mcgyvr.pressure as pressure
-    import mcgyvr.wake as wake
-
-    class Answers:
-        live = False
-
-    monkeypatch.setattr(wake, "spawn_door", lambda *a, **k: 0)
-    monkeypatch.setattr(pressure, "probe_endpoint", lambda *args: Answers())
-    monkeypatch.setattr(pressure, "unit_in_flight", lambda *args, **kwargs: 0)
-    path = tmp_path / "c.yaml"
-    path.write_text(
-        ladder_text(write_spec(tmp_path)) + f"journal:\n  dir: {tmp_path / 'j'}\n",
-        encoding="utf-8",
-    )
-
-    lj.main(["manage", "--config", str(path), "--once"])
-    out = capsys.readouterr().out
-
-    assert f"no room is made for {LARGE}" in out, out
-    assert "no recorded scan" in out, out
-
-
 # --- one unit at a time -------------------------------------------------------------
 
 
@@ -316,82 +242,33 @@ def test_a_resting_unit_is_woken_alone_and_its_neighbour_is_not(
 def test_resting_is_kept_per_unit_and_read_per_unit(
     tmp_path: Path, home: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
-    import mcgyvr.pressure as pressure
-    from mcgyvr.capacity import Capacity
-    from mcgyvr.local_pool import source_map
+    from mcgyvr.serving import host_of, port_of
+    from mcgyvr.wake import resting
 
     config = parse(ladder_text(write_spec(tmp_path)))
     door(monkeypatch)
 
-    class Answers:
-        live = True
-
-    monkeypatch.setattr(pressure, "probe_endpoint", lambda *args: Answers())
-    monkeypatch.setattr(pressure, "unit_in_flight", lambda *args, **kwargs: 0)
-    gauge = pressure.Gauge()
-    reader = pressure.Pressure(
-        source_map(config), Capacity.of(config, gauge=gauge), gauge
-    )
+    def rests(unit: str) -> bool:
+        address = config.units[unit].address
+        return resting(host_of(address), port_of(address))
 
     assert switches(config).sleep(SMALL) is True
-    assert reader.read(SMALL).awake is False
-    assert reader.read(LARGE).awake is True, "the neighbour was not slept"
+    assert rests(SMALL) is True
+    assert rests(LARGE) is False, "the neighbour was not slept"
 
 
-# --- the manager makes the room ---------------------------------------------------
-
-
-class Readings:
-    """The queue, held by the test; the card's units move with the door."""
-
-    def __init__(self) -> None:
-        self.now = {
-            FAST: Reading(FAST, True, 2, 2, 0, 2, full=True),
-            SMALL: Reading(SMALL, True, 2, 1, 1, 2, full=True),
-            LARGE: Reading(LARGE, False, None, 0, 0, 2),
-        }
-
-    def read(self, rung: str) -> Reading:
-        return self.now[rung]
+# --- the room is made first --------------------------------------------------------
 
 
 def test_waking_the_larger_unit_sleeps_the_smaller_one_first(
     tmp_path: Path, home: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
-    from mcgyvr import decision
-
     config = parse(ladder_text(write_spec(tmp_path)))
     doors = door(monkeypatch)
     card = switches(config)
     assert card.sleep(LARGE) is True  # the larger unit rests, as it would
 
-    def decide(state: Any, questions: Any) -> decision.Decision:
-        question = questions[ladder_manager.ASK_LADDER]
-        pick = f"wake:{LARGE}"
-        assert pick in question.options, question.options
-        return decision.Decision(
-            answers={
-                ladder_manager.ASK_LADDER: decision.ChoiceAnswer(
-                    choice=pick, probabilities={pick: 1.0}, confidence=1.0
-                )
-            }
-        )
-
-    run = Manager(
-        View(
-            resident=(FAST, SMALL, LARGE),
-            sleepable=frozenset({SMALL, LARGE}),
-            jev=FAST,
-            fanout="none",
-            ladder=(FAST, SMALL, LARGE),
-        ),
-        Bounds(interval_s=10.0, confirm=1, dwell_s=0.0, fanouts=(), leads=()),
-        pressure=Readings(),
-        switches=card,
-        decide=decide,
-        say=lambda line: None,
-    )
-    run.tick()
+    wake_making_room(card, LARGE, card.room_for(LARGE))
 
     assert doors == [
         f"sleep {LARGE_CONTAINER}",
@@ -400,90 +277,4 @@ def test_waking_the_larger_unit_sleeps_the_smaller_one_first(
     ]
 
 
-def test_manage_reads_the_card_sizes_from_the_scans(
-    tmp_path: Path,
-    home: Path,
-    monkeypatch: pytest.MonkeyPatch,
-    capsys: pytest.CaptureFixture[str],
-) -> None:
-    import mcgyvr.pressure as pressure
-    import mcgyvr.wake as wake
-
-    built: list[dict[str, Any]] = []
-    real = wake.CardSwitches
-
-    def recording(*args: Any, **kwargs: Any) -> Any:
-        built.append(kwargs)
-        return real(*args, **kwargs)
-
-    class Answers:
-        live = False
-
-    monkeypatch.setattr(wake, "CardSwitches", recording)
-    monkeypatch.setattr(wake, "spawn_door", lambda *a, **k: 0)
-    monkeypatch.setattr(pressure, "probe_endpoint", lambda *args: Answers())
-    monkeypatch.setattr(pressure, "unit_in_flight", lambda *args, **kwargs: 0)
-    path = tmp_path / "c.yaml"
-    path.write_text(
-        ladder_text(write_spec(tmp_path)) + f"journal:\n  dir: {tmp_path / 'j'}\n",
-        encoding="utf-8",
-    )
-
-    lj.main(["manage", "--config", str(path), "--once"])
-    capsys.readouterr()
-
-    assert len(built) == 1
-    assert "card_mib" in built[0], "the card sizes were not handed to the switches"
-
-
 # --- a unit split across machines ------------------------------------------------
-
-
-def test_a_card_holding_a_unit_split_across_machines_is_left_to_a_person(
-    tmp_path: Path, home: Path
-) -> None:
-    """The door acts on one machine; a split unit's other half is on another.
-
-    Putting the head down and leaving the far half up, or waking one without
-    the other, is half a unit. So the manager neither sleeps nor wakes any
-    unit of a card that holds one, and says so; a person can still act.
-    """
-    from mcgyvr.wake import left_alone
-
-    config = parse(split_ladder(write_spec(tmp_path), across=OTHER_HOST))
-
-    assert ladder_manager.sleepable_rungs(config) == ()
-    why = left_alone(config)
-    assert set(why) == {SMALL, LARGE}, why
-    assert OTHER_HOST in why[LARGE], why
-
-
-def test_a_unit_split_over_one_machines_cards_still_sleeps_whole(
-    tmp_path: Path, home: Path
-) -> None:
-    from mcgyvr.wake import left_alone
-
-    config = parse(split_ladder(write_spec(tmp_path), across=SHARED_HOST))
-
-    assert ladder_manager.sleepable_rungs(config) == (SMALL, LARGE)
-    assert left_alone(config) == {}
-
-
-def test_manage_says_which_units_it_leaves_alone(
-    tmp_path: Path,
-    home: Path,
-    monkeypatch: pytest.MonkeyPatch,
-    capsys: pytest.CaptureFixture[str],
-) -> None:
-    path = tmp_path / "c.yaml"
-    path.write_text(
-        split_ladder(write_spec(tmp_path), across=OTHER_HOST)
-        + f"journal:\n  dir: {tmp_path / 'j'}\n",
-        encoding="utf-8",
-    )
-
-    assert lj.main(["manage", "--config", str(path), "--once"]) == 0
-    out = capsys.readouterr().out
-
-    assert "nothing to manage" in out, out
-    assert OTHER_HOST in out, out

@@ -1,10 +1,9 @@
-"""The `ladder` commands: sleep and wake a card, manage the ladder, emit it.
+"""The `ladder` commands: sleep and wake a card, emit the ladder.
 
-`serve` puts one card to sleep or wakes it through the serving door; `manage`
-runs the ladder manager, which sleeps and wakes the ladder's units by the queue
-Jev answers on; and `emit` writes one compose file per launch spec, or compares
-the files already on disk with what the config plans. Nothing here starts a
-process: emitting writes a file, and the door does the switching.
+`serve` puts one card to sleep or wakes it through the serving door; `emit`
+writes one compose file per launch spec, or compares the files already on disk
+with what the config plans. Nothing here starts a process: emitting writes a
+file, and the door does the switching.
 """
 
 from __future__ import annotations
@@ -126,132 +125,6 @@ def _serve(args: argparse.Namespace) -> int:
         f"{made.host} {args.direction}: {how}, {made.seconds:.1f}s "
         f"({made.compose_file})"
     )
-    return Exit.OK
-
-
-def _manage(args: argparse.Namespace) -> int:
-    """Run the ladder manager: tick on the config's interval, switching cards.
-
-    Nothing to manage is `Exit.OK`, and so is a loop stopped by an interrupt.
-    `Exit.REFUSED` covers a live fleet that is not admitted as locked, and a
-    manager lock this run could not hold.
-    """
-    try:
-        config = load_config(Path(args.config) if args.config else None)
-    except ConfigError as exc:
-        print(f"error: {exc}", file=sys.stderr)
-        return Exit.ERROR
-
-    from mcgyvr import ladder_manager
-    from mcgyvr.pressure import exclusive
-
-    why = ladder_manager.applicable(config)
-    if why is not None:
-        print(f"nothing to manage: {why}")
-        return Exit.OK
-
-    if _live(config) and _admitted_live(config) is not None:
-        return Exit.REFUSED
-
-    # One manager per host: the lock answers True when it is held, False when
-    # another `mcgyvr manage` holds it, and anything else when no lock could be
-    # taken — both of those refuse, with a different sentence each.
-    with exclusive(ladder_manager.MANAGER_LOCK) as held:
-        if held is not True:
-            print(
-                "error: another `mcgyvr manage` is running on this host"
-                if held is False
-                else "error: no lock could be taken under the rendezvous "
-                "directory, so mcgyvr cannot tell whether another `mcgyvr "
-                "manage` is running on this host",
-                file=sys.stderr,
-            )
-            return Exit.REFUSED
-        return _manage_held(args, config)
-
-
-def _card_mib(config: Config) -> dict[str, dict[int, int]]:
-    """Card memory in MiB, by host and card index, for the ladder's cards.
-
-    The figures come from the recorded scans; an empty mapping means no scan of
-    those hosts could be read, which is not the same as hosts with no cards.
-    """
-    from mcgyvr import wake as wakelib
-    from mcgyvr.serving import cards
-
-    hosts = {card.host for card in cards(config).values()}
-    try:
-        scans = _resolve_hosts(_scans(), hosts)
-    except OSError:
-        return {}
-    return wakelib.card_rooms({host: scans[host] for host in hosts if host in scans})
-
-
-def _manage_held(args: argparse.Namespace, config: Config) -> int:
-    """Manage the ladder with the host's manager lock held: build, say, run.
-
-    The manager is built from the config: capacity measured through a gauge,
-    the rung Jev answers on, the ladder as `View` sees it, the card switches,
-    the pressure reading and the cooling tracker. `--once` takes one tick.
-    """
-    from mcgyvr import ladder_manager, wake_judge
-    from mcgyvr import wake as wakelib
-    from mcgyvr.capacity import Capacity, CapacityError
-    from mcgyvr.config import DEFAULT_REQUEST_TIMEOUT_S
-    from mcgyvr.local_pool import source_map
-    from mcgyvr.pressure import Board, Gauge, HostCooling, Pressure, RungCooling
-
-    pool = source_map(config)
-    fast = wake_judge.fast_rung(config, pool)
-    if fast is None:
-        print("error: no local rung for Jev to run on", file=sys.stderr)
-        return Exit.ERROR
-    gauge = Gauge()
-    try:
-        capacity = Capacity.of(config, gauge=gauge)
-    except CapacityError as exc:
-        print(f"error: {exc}", file=sys.stderr)
-        return Exit.ERROR
-
-    stated = config.units[fast.name].request_timeout_s
-    bounds = ladder_manager.Bounds.of(config)
-    board = Board()
-    # The rung Jev answers on, whose card is never slept: `jev.unit` when the
-    # config names one, else the fast rung, since Jev has to run on a local one.
-    jev = config.get("jev.unit") or fast.name
-    view = ladder_manager.View.of(config, jev=jev)
-    switches = wakelib.CardSwitches(config, capacity, card_mib=_card_mib(config))
-    manager = ladder_manager.Manager(
-        view,
-        bounds,
-        pressure=Pressure(pool, capacity, gauge),
-        switches=switches,
-        decide=ladder_manager.decide_on(
-            pool,
-            fast.name,
-            timeout_s=DEFAULT_REQUEST_TIMEOUT_S if stated is None else stated,
-        ),
-        cooling=RungCooling(pool, hold_s=bounds.dwell_s, shared=HostCooling()),
-        say=print,
-        publish=board.publish,
-    )
-    print(
-        f"managing {', '.join(view.resident)}; can sleep and wake: "
-        f"{', '.join(ladder_manager.sleepable_rungs(config))}; Jev runs on "
-        f"{jev}; every {bounds.interval_s:g}s"
-    )
-    for rung, alone in wakelib.left_alone(config).items():
-        print(f"note: {rung} is left alone: {alone}")
-    for rung in ladder_manager.sleepable_rungs(config):
-        why = switches.why_no_room(rung)
-        if why is not None:
-            print(f"note: no room is made for {rung}: {why}")
-    try:
-        ladder_manager.run(
-            manager, interval_s=bounds.interval_s, ticks=1 if args.once else None
-        )
-    except KeyboardInterrupt:
-        print("stopped")
     return Exit.OK
 
 
@@ -490,7 +363,7 @@ def _emit(args: argparse.Namespace) -> int:
         return Exit.ERROR
 
     # The launch just rendered is stamped back into `fleet.yaml`, so `serve`
-    # and the manager read the launch a unit actually runs rather than deriving
+    # reads the launch a unit actually runs rather than deriving
     # it again, and a block that states its own launch keeps what it states.
     # A fleet that cannot be read or written is an error, and the files already
     # written are left as they are.
@@ -619,7 +492,7 @@ def _report_drift(
 
 
 def add_parser(sub: argparse._SubParsersAction[argparse.ArgumentParser]) -> None:
-    """Register the `serve`, `manage` and `emit` subparsers and their flags."""
+    """Register the `serve` and `emit` subparsers and their flags."""
 
     srv = sub.add_parser(
         "serve",
@@ -648,27 +521,6 @@ def add_parser(sub: argparse._SubParsersAction[argparse.ArgumentParser]) -> None
         help=f"config to read (default: {CONFIG_DEFAULT_HELP})",
     )
     srv.set_defaults(func=_serve)
-
-    man = sub.add_parser(
-        "manage",
-        help=(
-            "let Jev sleep and wake the ladder's units by the queue on it "
-            "(runs until interrupted)"
-        ),
-    )
-    man.add_argument(
-        "--config",
-        default=None,
-        type=_named_path,
-        metavar="PATH",
-        help=f"config to read (default: {CONFIG_DEFAULT_HELP})",
-    )
-    man.add_argument(
-        "--once",
-        action="store_true",
-        help="read the queue and decide once, then stop",
-    )
-    man.set_defaults(func=_manage)
 
     emi = sub.add_parser(
         "emit",

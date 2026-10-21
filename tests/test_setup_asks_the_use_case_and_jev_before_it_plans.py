@@ -110,33 +110,25 @@ def test_chat_is_planned_staged_and_sampled_by_one_completion_of_each_unit(
     assert _policy(_live())["use_case"] == "chat"
 
 
-def test_agent_is_planned_staged_and_sampled_by_the_grounded_contract(
+def test_agent_is_planned_staged_and_sampled_by_the_grounded_question(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     sd.interactive(
         monkeypatch, sd.FakeRig(), {START: True, LOCK: True}, typed={USE_CASE: "a"}
     )
-    ran: list[str] = []
+    asked: list[str] = []
     reference = sampler._bundled("agent")["reference"]["answer"]
 
-    def run_contract(argv: list[str]) -> int:
-        contract = Path(argv[argv.index("run") + 1])
-        ran.append(yaml.safe_load(contract.read_text(encoding="utf-8"))["id"])
-        where = Path(argv[argv.index("--result") + 1])
-        where.write_text(
-            json.dumps(
-                {"outcome": "accepted", "rung": "llama-server", "answer": reference}
-            ),
-            encoding="utf-8",
-        )
-        return 0
+    def ground(setup: Path, unit: str) -> str:
+        asked.append(unit)
+        return str(reference)
 
-    monkeypatch.setattr(cli.commands.setup, "_setup_run_contract", run_contract)
+    monkeypatch.setattr(sampler, "ground", ground)
 
     assert cli.main(["setup"]) == 0
 
     assert _policy(_staged())["use_case"] == "agent"
-    assert ran == ["mcgyvr-sample-agent"]
+    assert len(asked) == 1, "the agent sample asked one unit its question"
     # The grounded check (citations and facts) is the agent sample's only
     # task check, so the reference reply samples green and the fleet is locked.
     assert _policy(_live())["use_case"] == "agent"
