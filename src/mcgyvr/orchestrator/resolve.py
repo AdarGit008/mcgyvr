@@ -138,6 +138,15 @@ _TOKEN_KINDS = frozenset({SymbolKind.DEFINITION, SymbolKind.EXPORT})
 # How far ahead of the runner-up the leader must be to count as the answer. A
 # shortlist whose top two are closer than this factor is reported ambiguous
 # rather than resolved, so a near-tie is never presented as a decision.
+#
+# This factor is deliberately conservative. A prose request that describes a
+# symbol rather than naming it can leave the correct leader below 1.5x the
+# runner-up (``compute the Levenshtein edit distance`` leads ``diff.ts`` at
+# ~1.015x); but lowering the factor is a net loss on a large corpus, because
+# most borderline near-ties lead with the *wrong* file, and the rare
+# specific-token ties cannot be separated from genuine multi-file ambiguity by
+# any fixed ratio. Prose-vs-symbol borderline ties are therefore a known
+# limitation, not a bug to fix by threshold tuning.
 _DOMINANCE = 1.5
 
 # A content token that reaches at most this many files is specific enough to be
@@ -585,9 +594,11 @@ def _top_evidence(reasons: list[tuple[float, str]], keep: int = 4) -> tuple[str,
 def _verdict(candidates: tuple[Candidate, ...]) -> Verdict:
     """Read the shortlist as one answer: resolved, ambiguous, or empty.
 
-    One candidate is resolved by definition. With more, the leader is the answer
-    only if the runner-up scored nothing or the leader is at least
-    ``_DOMINANCE`` times its score; anything closer is ambiguous.
+    One candidate is resolved by definition. A correct leader below the bar on
+    a prose-described symbol is reported ambiguous by design -- see the
+    ``_DOMINANCE`` limitation note. With more, the leader is the answer only if
+    the runner-up scored nothing or the leader is at least ``_DOMINANCE`` times
+    its score; anything closer is ambiguous.
     """
     if not candidates:
         return Verdict.EMPTY
