@@ -218,6 +218,14 @@ def resolve(index: Index, query: str, *, limit: int = 10) -> Resolution:
     distinguishing an absent subject from an absent descriptive word needs
     semantic subject identification, which the resolver deliberately does not
     perform.
+
+    The same gap lets a prose query whose true subject is a common code word
+    resolve confidently to the wrong file. When the subject is dropped as a
+    stopword -- ``module`` in a Nest query -- the remaining descriptive words
+    (``imports``, ``controllers``, ``providers``, ``exports``) land on the file
+    whose class merely *has* members with those names, and that file can clear
+    the dominance bar as ``Verdict.RESOLVED`` even though it only holds the
+    described members rather than being the described subject.
     """
     tokens = _content_tokens(query)
     corpus = _Corpus(index)
