@@ -499,7 +499,7 @@ def _setup_downloads(
         if hit is not None:
             answer = prompt(
                 f"{rig}: {model_id} {quant} ({hit.size_bytes} bytes) is already "
-                f"on disk. Reuse it instead of downloading? [Y/n] "
+                f"on disk. Reuse it instead of downloading? [y/n] "
             )
             if str(answer).strip().lower() not in {"n", "no"}:
                 print(f"{rig}: reusing {model_id} {quant} already on disk")
@@ -507,7 +507,7 @@ def _setup_downloads(
             chosen = True
         else:
             answer = prompt(
-                f"Download {model_id}{' ' + quant if quant else ''} for {rig}? [y/N] "
+                f"Download {model_id}{' ' + quant if quant else ''} for {rig}? [y/n] "
             )
             chosen = str(answer).strip().lower() in {"y", "yes"}
         if not chosen:
@@ -573,7 +573,7 @@ def _setup_synthetic_detection(
     once there is more than one. A placement with no model fails the step,
     because a local checkpoint is not bootstrapped here.
     """
-    from mcgyvr.detect import Backend, Detection
+    from mcgyvr.detect import Backend, Detection, detect_docker
     from mcgyvr.serving import DEFAULT_PORT
 
     backends: list[Backend] = []
@@ -601,8 +601,11 @@ def _setup_synthetic_detection(
                 window=window,
             )
         )
+    docker, _ = detect_docker()
     return Detection(
-        backends=tuple(backends), provenance={"backends": "interactive setup"}
+        backends=tuple(backends),
+        provenance={"backends": "interactive setup"},
+        docker=docker,
     )
 
 
@@ -763,7 +766,7 @@ def _setup_interactive(path: Path, run_id: str = "") -> int:
         _setup_emit(path, ctx_per_slot)
 
         _rule("Step 4 of 4 — start and lock")
-        if _confirm(f"Start the serving containers on {', '.join(rigs)}? [y/N] "):
+        if _confirm(f"Start the serving containers on {', '.join(rigs)}? [y/n] "):
             _setup_start(rigs, scans, path)
             approved, unapproved = _setup_sample(path, run_id, readings, rooms)
         else:
@@ -819,7 +822,7 @@ NO_EVIDENCE_MEANS = (
 )
 
 
-ACCEPT_UNSAMPLED = "Lock it approved on no evidence? [y/N] "
+ACCEPT_UNSAMPLED = "Lock it approved on no evidence? [y/n] "
 
 
 def _setup_unsampled(
@@ -926,7 +929,7 @@ def _setup_sample(
             + "; ".join(stamped.why),
         )
     folder = stamped.folder
-    if not _confirm("Lock the fleet and name it live? [y/N] "):
+    if not _confirm("Lock the fleet and name it live? [y/n] "):
         return (), (
             f"The fleet was stamped and not locked: the stamp is kept at "
             f"{folder}, and a later `mcgyvr setup` samples and locks again.",
