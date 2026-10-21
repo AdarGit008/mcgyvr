@@ -403,6 +403,21 @@ def _stamp_launch(
                 for key, value in _sizing_keys(spec).items():
                     launch.setdefault(key, value)
                 merged["launch"] = launch
+            # Pin the unit to the card(s) it occupies, so a rig of several
+            # cards can be locked: the lock reads ``launch.shards`` and refuses
+            # a unit that names none (fleet/lock.py). The rig name comes from
+            # the block's ``rig`` (what init wrote: ``localhost`` for a local
+            # machine, the host for a remote one), never ``unit.host`` --
+            # spans() matches the first shard's rig to the unit's own ``rig``,
+            # and a local machine's hostname is not ``localhost``.
+            rig = block.get("rig")
+            if isinstance(rig, str) and rig:
+                launch = dict(merged.get("launch") or {})
+                launch.setdefault(
+                    "shards",
+                    [{"rig": rig, "gpu": gpu} for gpu in unit.cards],
+                )
+                merged["launch"] = launch
             if merged != block:
                 blocks[name] = merged
                 changed = True

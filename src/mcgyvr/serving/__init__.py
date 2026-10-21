@@ -863,9 +863,12 @@ def units_for(
             # The orchestrator's own width is the user count this
             # deployment provisions for, when its unit states none.
             widths[key] = max(widths.get(key, 0), users)
-        if SHARDS_KEY in unit.launch:
-            # The launch block of a unit that splits its process, kept per
-            # process; a second unit stating a different one is an error.
+        shards = unit.launch.get(SHARDS_KEY)
+        # A single shard pins the unit to one card (which the lock reads), not
+        # a split across cards; only two or more shards split the model. The
+        # launch block of a split is kept per process, and a second unit
+        # stating a different one is an error.
+        if isinstance(shards, list) and len(shards) > 1:
             stated = dict(unit.launch)
             first = splits.setdefault(key, stated)
             if first != stated:
