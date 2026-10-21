@@ -15,8 +15,6 @@ from collections.abc import Iterable, Mapping, Sequence
 from pathlib import Path
 from typing import TYPE_CHECKING, Any
 
-import yaml
-
 from mcgyvr import atomic
 from mcgyvr.capability import (
     CapabilityTableError,
@@ -308,50 +306,6 @@ def _sizing_keys(spec: ModelSpec) -> dict[str, Any]:
     return keys
 
 
-def _render_launch_block(launch: Mapping[str, Any]) -> str:
-    """One unit's `launch` mapping as YAML, indented to sit in a unit block.
-
-    `yaml.safe_dump` sorts the keys; `launch:` is written at four spaces and
-    its lines at six, so the block lands inside a unit at indent two.
-    """
-    dumped = yaml.safe_dump(dict(launch), sort_keys=True, width=200)
-    lines = ["    launch:"]
-    lines.extend(
-        f"      {line}" if line else "" for line in dumped.rstrip("\n").splitlines()
-    )
-    return "\n".join(lines)
-
-
-def _render_stamped_fleet(fleet: Mapping[str, Any]) -> str:
-    """Render `fleet.yaml` with each unit's launch written into its own block.
-
-    `render_fleet` writes the schema's units and cannot render a `launch`
-    mapping, so the launches are lifted out before it runs and put back where
-    the schema's commented `launch` leaf sits, under the unit they belong to.
-    """
-    launches: dict[str, Mapping[str, Any]] = {}
-    render_units: dict[str, Any] = {}
-    for name, block in (fleet.get("units") or {}).items():
-        block = dict(block)
-        launch = block.pop("launch", None)
-        if isinstance(launch, Mapping) and launch:
-            launches[name] = launch
-        render_units[name] = block
-    text = render_fleet({**fleet, "units": render_units})
-
-    current: str | None = None
-    out: list[str] = []
-    for line in text.splitlines():
-        if line.startswith("  ") and not line.startswith("    ") and line.endswith(":"):
-            name = line[2:-1].strip()
-            current = name if name in launches else None
-        elif current is not None and line.startswith("    # launch:  # "):
-            out.append(_render_launch_block(launches[current]))
-            continue
-        out.append(line)
-    return "\n".join(out) + "\n"
-
-
 def _atomic_write(path: Path, text: str) -> None:
     """Write `text` to `path` through `atomic.write`, staging a file beside it."""
     atomic.write(path, text)
@@ -409,7 +363,7 @@ def _stamp_launch(
         return None
     fleet["units"] = blocks
     try:
-        _atomic_write(fleet_path, _render_stamped_fleet(fleet))
+        _atomic_write(fleet_path, render_fleet(fleet))
     except OSError as exc:
         raise EmitError(f"{fleet_path}: cannot be written — {exc}") from exc
     return fleet_path
