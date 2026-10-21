@@ -32,6 +32,7 @@ from mcgyvr.orchestrator.candidates import (
     directive,
     enumerate_candidates,
     kind_for,
+    scope_candidates,
     sources_candidates,
     stop_condition,
     symbol_candidates,
@@ -286,6 +287,15 @@ def test_choose_promotes_a_value_to_rank_zero_and_tags_model(repo: Index) -> Non
     )
 
 
+def test_scope_candidates_dedup_when_the_target_is_the_only_path(
+    repo: Index,
+) -> None:
+    """`allow` has no duplicate when the evidence points at only the target."""
+    evidence = evidence_for(repo, "document listing", (AGENT,))
+    allow, _ = scope_candidates(evidence, "listing.py")
+    assert [c.value for c in allow.candidates] == [(), ("listing.py",)]
+
+
 # --- the regression that pins the classifier path --------------------------
 
 
@@ -339,3 +349,57 @@ def test_classifier_proposer_output_is_bit_identical(repo: Index) -> None:
         provenance=Provenance.DETERMINISTIC,
     )
     assert collapse(plan) == expected
+
+
+def test_classifier_proposer_reflects_the_models_override_picks(
+    repo: Index,
+) -> None:
+    """An override away from rank-0 emits the model's target and symbol."""
+
+    def classify(state: Any, questions: Mapping[str, Question]) -> Decision:
+        if "symbol" in questions:
+            return decision_of({"symbol": answer("paginate", 0.9)})
+        return decision_of(
+            {
+                "kind": answer("agent", 0.9),
+                "target": answer("pagination.py", 0.9),
+            }
+        )
+
+    propose = ClassifierProposer(classify=classify)
+    (proposal,) = propose(evidence_for(repo, "document listing", (AGENT,)))
+
+    kind = kind_for("agent", completable((AGENT,)))
+    assert kind is not None
+    assert proposal == Proposal(
+        task_type="agent",
+        task=directive(kind, "pagination.py", "paginate"),
+        target="pagination.py",
+        stop_conditions=stop_condition(kind, "pagination.py", "paginate"),
+    )
+
+
+def test_classifier_proposer_no_symbol_pins_the_whole_file(repo: Index) -> None:
+    """A whole-file pick names only the target in task and stop conditions."""
+
+    def classify(state: Any, questions: Mapping[str, Question]) -> Decision:
+        if "symbol" in questions:
+            return decision_of({"symbol": answer("", 0.9)})
+        return decision_of(
+            {
+                "kind": answer("agent", 0.9),
+                "target": answer("listing.py", 0.9),
+            }
+        )
+
+    propose = ClassifierProposer(classify=classify)
+    (proposal,) = propose(evidence_for(repo, "document listing", (AGENT,)))
+
+    kind = kind_for("agent", completable((AGENT,)))
+    assert kind is not None
+    assert proposal == Proposal(
+        task_type="agent",
+        task=directive(kind, "listing.py", None),
+        target="listing.py",
+        stop_conditions=stop_condition(kind, "listing.py", None),
+    )

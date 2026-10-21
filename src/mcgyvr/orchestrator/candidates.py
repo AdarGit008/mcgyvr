@@ -47,7 +47,7 @@ class Provenance(StrEnum):
 class FieldCandidate:
     """One value a contract field may take, ranked, with a provenance tag."""
 
-    id: str  # stable within its CandidateSet (dedup key)
+    id: str  # stable within its CandidateSet (value is the dedup key)
     value: Any  # str | tuple[str, ...] | tuple[DepRef, ...]
     rank: int  # 0-based; lower wins; rank-0 collapses
     provenance: Provenance = Provenance.DETERMINISTIC
@@ -331,7 +331,7 @@ def scope_candidates(
     if target:
         allow_values.append((target,))
     paths = candidate_targets(evidence)
-    if paths:
+    if paths and paths != (target,):
         allow_values.append(paths)
     return _set("allow", tuple(allow_values)), _set("forbid", ((),))
 
@@ -414,6 +414,11 @@ def choose(
     The previous candidates stay below it at rank 1+, in their original order,
     except any whose value equals the promoted one (it is now rank 0, so the
     duplicate is dropped).
+
+    NOTE: promoting a model's target/symbol rewrites only those fields; the
+    `interface`/`deps`/`sources` sets still reflect the deterministic rank-0
+    target/symbol. Harmless now because their rank-0 is the empty default, but
+    a trap when this layer is later wired into authoring.
     """
     current = plan.get(field)
     chosen = FieldCandidate(
