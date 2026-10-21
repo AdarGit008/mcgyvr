@@ -206,6 +206,9 @@ def test_dev_emit_stamps_fleet_yaml_with_the_compose_launch_and_is_idempotent(
     assert block["launch"]["argv"]
     assert block["launch"]["env"]
     assert block["launch"]["volumes"]
+    # A single-card unit is pinned to its rig and card so a rig of several
+    # cards can be locked: the lock reads launch.shards.
+    assert block["launch"]["shards"] == [{"rig": "localhost", "gpu": 0}]
 
     # The stamp and the compose file the same call wrote must agree byte for
     # byte on every fact a locked unit states.

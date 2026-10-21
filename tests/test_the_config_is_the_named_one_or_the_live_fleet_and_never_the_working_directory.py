@@ -77,7 +77,12 @@ def test_a_command_run_beside_a_setup_finds_no_config(
     work: Path, capsys: pytest.CaptureFixture[str]
 ) -> None:
     assert cli.main(["config"]) != 0
-    assert "no setup is named" in capsys.readouterr().err
+    err = capsys.readouterr().err
+    assert "no setup is named" in err
+    # The remedy names both ways to point at an existing setup: the flag and
+    # the environment variable.
+    assert "--config" in err
+    assert "$MCGYVR_CONFIG" in err
 
 
 def test_no_help_line_names_the_working_directory_as_a_config() -> None:

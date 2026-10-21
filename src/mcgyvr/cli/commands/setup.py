@@ -247,6 +247,41 @@ def _note(text: str) -> None:
     print(f"  {text}")
 
 
+#: The prefix every "the fleet could not be made live" limit starts with.
+_NOT_LIVE = "No fleet was made live"
+
+
+def _refusal(lines: Sequence[str]) -> None:
+    """A lock refusal boxed on stdout, unmissable in the wizard's scrollback.
+
+    Purely presentational: it changes how a refusal reads in scrollback, never
+    what setup decides or writes.
+    """
+    print()
+    inner = max((len(line) for line in lines), default=0)
+    bar = "─" * (inner + 4)
+    print(f"┌{bar}┐")
+    for line in lines:
+        print(f"│ {line.ljust(inner)} │")
+    print(f"└{bar}┘")
+    print()
+
+
+def _report_limits(limits: Sequence[str]) -> bool:
+    """Print the setup limits: the fleet-not-live refusals boxed and loud,
+    everything else under the usual "What is NOT configured" heading. Returns
+    whether a refusal was among them, so the caller can skip the PATH offer."""
+    refusals = tuple(line for line in limits if line.startswith(_NOT_LIVE))
+    rest = tuple(line for line in limits if not line.startswith(_NOT_LIVE))
+    if rest:
+        print("What is NOT configured, and what that costs:")
+        for limit in rest:
+            print(f"  - {limit}")
+    if refusals:
+        _refusal(refusals)
+    return bool(refusals)
+
+
 def _setup_use_cases() -> tuple[str, ...]:
     """Answer the use-case names on offer, coding first because it is the default.
 
@@ -781,11 +816,9 @@ def _setup_interactive(path: Path, run_id: str = "") -> int:
                 print(f"  - {decision}")
             print()
         limits = staged.limits + unapproved
-        if limits:
-            print("What is NOT configured, and what that costs:")
-            for limit in limits:
-                print(f"  - {limit}")
-        _offer_path_append()
+        not_live = _report_limits(limits)
+        if not not_live:
+            _offer_path_append()
         return 0
     except _SetupInteractiveError as exc:
         print(f"error: {exc}", file=sys.stderr)
@@ -1049,10 +1082,7 @@ def _setup(args: argparse.Namespace) -> int:
         print()
 
     limits = result.limits + unapproved
-    if limits:
-        print("What is NOT configured, and what that costs:")
-        for limit in limits:
-            print(f"  - {limit}")
+    _report_limits(limits)
     return 0
 
 
