@@ -117,14 +117,15 @@ def _setup_is_interactive(args: argparse.Namespace) -> bool:
     """Answer whether this run is the wizard: a terminal, and no flag that
     answers its questions.
 
-    Any flag that names a host, an API unit, a use case or a Jev unit, or
-    that forces the write or accepts an unsampled lock, makes the run the flag
-    path instead.
+    Any flag that names a host, a rig's address, an API unit, a use case or a
+    Jev unit, or that forces the write or accepts an unsampled lock, makes the
+    run the flag path instead.
     """
     if not _stdin_isatty():
         return False
     return not (
         bool(args.host)
+        or bool(args.rig_address)
         or bool(args.api)
         or args.force
         or args.priority is not None
@@ -191,6 +192,101 @@ def _ask_remote_rigs() -> tuple[str, ...]:
         if hosts:
             return hosts
     raise _SetupInteractiveError("no remote rig was named")
+
+
+def _parse_rig_addresses(specs: Sequence[str]) -> dict[str, list[str]]:
+    """Each `RIG=ADDRESS` spec's addresses by rig, in the order given.
+
+    A spec without `=`, or with nothing on either side of it, is a `ValueError`
+    naming it; whether the address is one is for the rig file to say.
+    """
+    stated: dict[str, list[str]] = {}
+    for spec in specs:
+        rig, sep, address = spec.partition("=")
+        if not sep or not rig.strip() or not address.strip():
+            raise ValueError(
+                f"--rig-address {spec!r} is not RIG=ADDRESS, e.g. gpu-box=10.0.0.7"
+            )
+        stated.setdefault(rig.strip(), []).append(address.strip())
+    return stated
+
+
+def _setup_rig_addresses(specs: Sequence[str]) -> int | None:
+    """Record each `--rig-address` in its rig's file, or answer 1 on a refusal.
+
+    Every spec is parsed before any file is written, so a malformed one leaves
+    every rig file as it was. None when there was nothing to state, or all of it
+    was recorded.
+    """
+    from mcgyvr.serving import rigfile
+
+    try:
+        stated = _parse_rig_addresses(specs)
+    except ValueError as exc:
+        print(f"error: {exc}", file=sys.stderr)
+        return 1
+    for rig, addresses in stated.items():
+        try:
+            where = rigfile.state_addresses(rig, addresses)
+        except rigfile.RigFileError as exc:
+            print(f"error: {exc}", file=sys.stderr)
+            return 1
+        print(
+            f"Recorded {', '.join(addresses)} as where {rig}'s units are "
+            f"reached ({where})"
+        )
+    return None
+
+
+def _ask_rig_addresses(rigs: Sequence[str]) -> None:
+    """Ask for the address of each rig whose rig file records none, and record it.
+
+    A rig's scan records the addresses it answers at; one that recorded none (no
+    ssh, no `ip`) is asked for the address its units are reached at, offering
+    what its name resolves to here. An empty answer with nothing offered leaves
+    it unrecorded, and an answer that is not an address is asked again, up to
+    `_SETUP_TRIES` times, after which the step fails naming it. This machine is
+    not asked about: a name for it finds its rig by the machine's id.
+    """
+    from mcgyvr.detect import is_local_host
+    from mcgyvr.serving import rigfile
+
+    for rig in dict.fromkeys(rigs):
+        if is_local_host(rig):
+            continue
+        saved = rigfile.read(rig)
+        if saved is None or saved.reached_at:
+            continue
+        offered = next(
+            (one for one in rigfile.addresses_of(rig) if _takes_address(one)), ""
+        )
+        _note(f"{rig}'s scan recorded no address its units are reached at")
+        shown = f" [{offered}]" if offered else " (empty to skip)"
+        said = ""
+        for _ in range(_SETUP_TRIES):
+            said = _ask(f"Address of {rig}{shown}: ") or offered
+            if not said:
+                break
+            try:
+                rigfile.state_addresses(rig, (said,))
+            except rigfile.RigFileError as exc:
+                print(f"{exc}.")
+                continue
+            print(f"Recorded {said} for {rig}")
+            break
+        else:
+            raise _SetupInteractiveError(f"{said!r} is not an address for {rig}")
+
+
+def _takes_address(said: str) -> bool:
+    """Whether a rig file would take ``said`` as an address its units are reached at."""
+    from mcgyvr.serving import rigfile
+
+    try:
+        rigfile.stated_address(said)
+    except ValueError:
+        return False
+    return True
 
 
 def _confirm(question: str, prompt: Callable[[str], str] = input) -> bool:
@@ -762,6 +858,7 @@ def _setup_interactive(path: Path, run_id: str = "") -> int:
         wants_jev = _confirm(JEV_QUESTION)
         _rule("Step 3 of 4 — read and plan")
         scans, readings = _setup_scan_rigs(rigs)
+        _ask_rig_addresses(rigs)
         plans = _setup_placements(rigs, scans, use_case)
         ctx_per_slot = _setup_context_window(plans)
         downloads = _setup_downloads(plans, scans)
@@ -1045,6 +1142,9 @@ def _setup(args: argparse.Namespace) -> int:
     mended = _setup_retired(path, args.force)
     if mended is not None:
         return mended
+    stated = _setup_rig_addresses(args.rig_address)
+    if stated is not None:
+        return stated
     if _setup_is_interactive(args):
         return _setup_interactive(path, run_id)
     refused = _use_case_refused(args.use_case)
@@ -1316,6 +1416,17 @@ def add_parser(sub: argparse._SubParsersAction[argparse.ArgumentParser]) -> None
         help=(
             "bind backends on this machine too, by name or address "
             "(repeatable; default: localhost only)"
+        ),
+    )
+    setup.add_argument(
+        "--rig-address",
+        action="append",
+        default=[],
+        metavar="RIG=ADDRESS",
+        help=(
+            "state the IPv4 address a rig's units are reached at, recorded in "
+            "its rig file beside the scan (repeatable; for a rig whose scan "
+            "recorded no address, so a unit addressed by it still finds the rig)"
         ),
     )
     setup.add_argument(

@@ -958,9 +958,11 @@ def saved_card_mib(hosts: Sequence[str]) -> dict[str, dict[int, int]]:
     for it; a host no readable rig file answers for is left out.
 
     A host is found as `rigfile.resolve_hosts` finds one: by rig name, by the
-    hostname the scan recorded or its full form, and a name for this machine by
-    the machine's id. A unit addressed as `gpu-box.lan` or `127.0.0.1` still
-    finds the rig file saved under its rig name.
+    hostname the scan recorded or its full form, by an address the scan
+    recorded or a person stated, by a name resolving to one of those, and a
+    name for this machine by the machine's id. A unit addressed as
+    `gpu-box.lan`, `10.0.0.7` or `127.0.0.1` still finds the rig file saved
+    under its rig name.
     """
     from mcgyvr.serving import rigfile
 
@@ -1226,10 +1228,13 @@ class CardSwitches:
         if not sizes:
             return (), (
                 f"no rig file answers for {card.host}: it is not a rig's name, "
-                "the hostname a rig's scan recorded, or a name for this machine, "
-                f"so {card.host}'s card memory is unknown. Address the unit by "
-                f"its rig's name, or record the rig under {card.host} with "
-                f"`{rigfile.MAKE.format(rig=card.host)}`"
+                "the hostname or an address a rig's scan recorded, an address "
+                "stated for a rig, a name resolving to one of those, or a name "
+                f"for this machine, so {card.host}'s card memory is unknown. "
+                f"Address the unit by its rig's name, scan its rig again with "
+                f"`{rigfile.MAKE.format(rig='<rig>')}` to record the addresses "
+                f"it answers at, or state this one for it with "
+                f"`{rigfile.STATE.format(rig='<rig>', address=card.host)}`"
             )
         rooms: dict[str, int] = {}
         for name in card.rungs:

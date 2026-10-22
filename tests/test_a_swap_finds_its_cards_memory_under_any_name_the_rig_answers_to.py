@@ -108,4 +108,5 @@ def test_a_swap_no_rig_answers_for_names_the_host_it_could_not_match(
     why = card.why_no_room(RAM)
     assert why is not None
     assert f"no rig file answers for {SWAP_HOST}" in why
-    assert f"mcgyvr scan --rig {SWAP_HOST}" in why
+    assert "mcgyvr scan --rig <rig>" in why
+    assert f"mcgyvr setup --rig-address <rig>={SWAP_HOST}" in why

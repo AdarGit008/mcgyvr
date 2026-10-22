@@ -11,6 +11,14 @@ archived outside this repository, under the same paths.
 
 ### Added
 
+- A rig is found under any address it answers at. A unit addressed by its
+  rig's LAN address (`10.0.0.7` for the rig filed as `gpu-box`), or by a name
+  that resolves to one, finds the rig's file, so a swap reckons room on it.
+  The scan already records the address its ssh session arrived at and those on
+  the rig's interfaces, now from `hostname -I` where `ip` is missing; a rig whose
+  scan recorded none is asked for one by the `mcgyvr setup` wizard, or states
+  it with `mcgyvr setup --rig-address RIG=ADDRESS`, kept in the rig file under
+  `addresses` and carried across later scans.
 - `mcgyvr emit` on a locked fleet emits a llama.cpp unit split across rigs:
   its stated head on the head's rig, and on each other rig an rpc-server
   worker per card, the same services the unlocked emit writes for that unit.
