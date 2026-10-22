@@ -8,18 +8,20 @@ cache leave the card, its process stays) and `wake` brings slept units back. A
 card that is down is gone, while one that is sleeping is resting with its
 process still running: which of the two it is decides `up` from `wake`.
 
-A sleeping card keeps no record of its own that can be asked, so two small
+A sleeping card keeps no record of its own that can be asked, so three small
 records are kept in a per-user directory under the temp dir: how long the last
-`up` on a card took, which is what the next wake is measured against, and one
-mark per port saying that unit is resting rather than stopped, which is what
-decides `wake` from `up`. Both are read and written only in a directory this
-user owns and nobody else may write, and a record that cannot be read is simply
-no record.
+`up` on a card took, which is what the next wake is measured against; one mark
+per port saying that unit is resting rather than stopped, which is what decides
+`wake` from `up`; and the swap standing on a card, which says which units were
+put down for which sleeper (`standing_swap`, `known_down`). All are read and
+written only in a directory this user owns and nobody else may write, and a
+record that cannot be read is simply no record.
 
 Every action is one door run per card — `python -m mcgyvr.serving.run serve
 <direction> ...` — and the exit code it answers with is the answer. `Waker`
-turns a refused connection into one wake per card, and swaps a sleeper in with
-room made for it; `CardSwitches` is what that swap and a fleet sample sleep,
+turns a refused connection into one wake per card, swaps a sleeper in with room
+made for it, and gives that room back when a later draw asks for it and the
+sleeper is idle; `CardSwitches` is what that swap and a fleet sample sleep,
 wake and make room with.
 """
 
@@ -61,6 +63,14 @@ Answer = TypeVar("Answer")
 
 class WakeError(Exception):
     """A card cannot be slept or woken, and the message says what is missing."""
+
+
+class SwappedOutError(RefusedConnectionError):
+    """A rung a standing swap put down, asked for while its sleeper is still needed.
+
+    A refusal like any other to the climb, which moves on: the rung is not
+    started beside the sleeper, since the card has no room for both.
+    """
 
 
 def spawn_door(argv: Sequence[str], **kwargs: object) -> int:
@@ -277,6 +287,92 @@ def _note_rest(made: Wake) -> None:
                 _rest_mark(made.host, port).unlink(missing_ok=True)
     except OSError:
         return
+
+
+@dataclass(frozen=True)
+class Swap:
+    """A sleeper swapped onto a card, and the units put down to make its room.
+
+    Kept as one record per card in the clock directory, so a later run knows
+    which units are down for which sleeper and gives them back once it sleeps.
+    """
+
+    sleeper: str
+    displaced: tuple[str, ...]
+
+
+def _swap_mark(host: str) -> Path:
+    return _clock_dir() / f"{_safe(host)}.swap.json"
+
+
+def standing_swap(host: str) -> Swap | None:
+    """The swap standing on this card, or None.
+
+    None when there is no record, when it is not ours, and when it does not
+    read as a sleeper's name and a list of names: a record that cannot be read
+    is no record, like every other record here.
+    """
+    where = _clock_dir()
+    if not _ours(where):
+        return None
+    try:
+        said = json.loads(_swap_mark(host).read_text(encoding="utf-8"))
+    except (OSError, ValueError):
+        return None
+    if not isinstance(said, dict):
+        return None
+    sleeper, displaced = said.get("sleeper"), said.get("displaced")
+    if not isinstance(sleeper, str) or not isinstance(displaced, list):
+        return None
+    if not all(isinstance(name, str) for name in displaced):
+        return None
+    return Swap(sleeper=sleeper, displaced=tuple(displaced))
+
+
+def _note_swap(host: str, swap: Swap | None) -> None:
+    """Write the swap standing on this card, or clear it with None.
+
+    Failure is dropped: the cost of a missing record is a displaced unit that a
+    later run starts with a plain `up`, which is what a run did before records.
+    """
+    try:
+        where = _clock_dir()
+        where.mkdir(parents=True, mode=0o700, exist_ok=True)
+        if not _ours(where):
+            return
+        mark = _swap_mark(host)
+        if swap is None:
+            mark.unlink(missing_ok=True)
+            return
+        scratch = mark.with_name(f"{mark.name}.{os.getpid()}.tmp")
+        scratch.write_text(
+            json.dumps({"sleeper": swap.sleeper, "displaced": list(swap.displaced)}),
+            encoding="utf-8",
+        )
+        scratch.replace(mark)
+    except OSError:
+        return
+
+
+def known_down(config: Config, rung: str) -> str | None:
+    """Why this rung is known not to be serving, or None where nothing says so.
+
+    Three records say it: a standing swap put the rung down to make room for a
+    sleeper, the rung is a sleeper no swap has brought in, or its card was slept
+    with its process kept. A rung no card serves, or one with no record against
+    it, answers None: it is taken to be up, and a refusal says otherwise.
+    """
+    card = cards(config).get(rung)
+    if card is None:
+        return None
+    swap = standing_swap(card.host)
+    if swap is not None and rung in swap.displaced:
+        return f"{rung} was put down to make room for {swap.sleeper}"
+    if _sleeper(config, rung) and (swap is None or swap.sleeper != rung):
+        return f"{rung} sleeps until needed and no swap has brought it in"
+    if any(resting(card.host, port) for port in _ports(config, (rung,))):
+        return f"{rung}'s card {card.host} was put to sleep"
+    return None
 
 
 def _wake_direction(card: Card, ports: Sequence[int] = ()) -> str:
@@ -563,6 +659,9 @@ class Waker:
         #: wake does not answer for its neighbour. Written under that card's own
         #: lock, taken below.
         self._woken: dict[str, tuple[bool, float]] = {}
+        #: Why the last wake or swap of each rung did not happen, for the line
+        #: that says it failed.
+        self._why: dict[str, str] = {}
         #: `_lock` guards `_card_locks` and nothing else, and is held only long
         #: enough to take out one card's lock; the door run itself happens under
         #: that card's lock. A second draw refused by the same card therefore
@@ -571,6 +670,14 @@ class Waker:
         #: on each other.
         self._lock = threading.Lock()
         self._card_locks: dict[str, threading.Lock] = {}
+
+    def _card_lock(self, card: Card) -> threading.Lock:
+        with self._lock:
+            return self._card_locks.setdefault(card.host, threading.Lock())
+
+    def why_failed(self, rung: str) -> str | None:
+        """Why the last wake or swap of this rung did not happen, or None."""
+        return self._why.get(rung)
 
     def dispatching(
         self,
@@ -584,8 +691,10 @@ class Waker:
         A card the record says is resting is woken before the draw is sent; any
         other card is sent to first, and only an instant refusal wakes it, since
         a read timeout on a card that is up is not an outage. A refused sleeper
-        is swapped in through `capacity` (`_swap_in`). A draw is sent once more
-        after a wake that worked, and re-raised when the wake did not.
+        is swapped in through `capacity` (`_swap_in`). A rung a standing swap put
+        down is given back first (`_give_back`), or refused with
+        `SwappedOutError` while its sleeper is still needed. A draw is sent once
+        more after a wake that worked, and re-raised when the wake did not.
         """
         card = self._cards.get(rung)
         if rung in resident_units(self._config) or (
@@ -594,6 +703,10 @@ class Waker:
             # The card holding the jev unit is resident: it is never slept, so
             # a refusal here is not something a wake would fix.
             return send()
+        if card is not None:
+            swap = standing_swap(card.host)
+            if swap is not None and rung in swap.displaced:
+                self._back_or_refuse(card, rung, capacity)
         if _sleeper(self._config, rung):
             # A unit that starts asleep is never started beside the units whose
             # room it needs: a refusal swaps it in, those units put down first,
@@ -625,39 +738,154 @@ class Waker:
                 raise refused
             return send()
 
+    def _back_or_refuse(self, card: Card, rung: str, capacity: Capacity | None) -> None:
+        """Give back the swap that put `rung` down, or refuse the draw.
+
+        The record is read again under the card's lock, so a draw that waited on
+        another's give-back finds the card already given back. Raises
+        `SwappedOutError` with the reason when the sleeper is still needed.
+        """
+        with self._card_lock(card):
+            swap = standing_swap(card.host)
+            if swap is None or rung not in swap.displaced:
+                return
+            why = self._give_back(card, swap, capacity)
+            if why is None:
+                return
+        raise SwappedOutError(
+            f"{rung} was put down to make room for {swap.sleeper}, and stays "
+            f"down while {swap.sleeper} is up: {why}"
+        )
+
+    def _give_back(
+        self, card: Card, swap: Swap, capacity: Capacity | None
+    ) -> str | None:
+        """Put the sleeper down and start the units it displaced, or say why not.
+
+        Only a sleeper that is idle goes down, and only while the rung below it
+        is not full: a smaller unit is woken back only when the top rungs have
+        nothing to do. Idle is read without waiting — a slot held on the sleeper
+        or anything queued for it is a sleeper still in use. None when the swap
+        was given back; the units are then started by the door, and the record
+        is cleared before they are, so a start that fails is woken like any other
+        refused rung.
+        """
+        from mcgyvr.ladder_manager import give_back
+
+        held = self._may_act(card)
+        if held is not None:
+            return held
+        sleeper = swap.sleeper
+        if capacity is None:
+            return f"no capacity was handed in to read {sleeper}'s queue through"
+        below = self._below(swap)
+        if below is not None:
+            fullness = capacity.fullness(below)
+            if fullness.full:
+                return f"{below}, the rung below it, is full ({fullness.why})"
+        try:
+            with capacity.drain((sleeper,), timeout=0):
+                queued = capacity.queued((sleeper,))
+                if queued != 0:
+                    return (
+                        f"{sleeper}'s queue could not be read"
+                        if queued is None
+                        else f"{sleeper} has {queued} queued"
+                    )
+                made = put_down(self._config, card, (sleeper,))
+        except SlotUnavailableError:
+            return f"{sleeper} is still serving a dispatch"
+        except WakeError as exc:
+            return str(exc)
+        if not made.ok:
+            return (
+                f"putting {sleeper} down failed: the door's `{made.direction}` "
+                f"on {card.host} exited {made.code}"
+            )
+        _note_swap(card.host, None)
+        print(f"note: {sleeper} is idle and put down", file=sys.stderr)
+        switches = CardSwitches(self._config, capacity)
+        for line in give_back(switches, swap.displaced):
+            print(f"note: {line}", file=sys.stderr)
+        return None
+
+    def _below(self, swap: Swap) -> str | None:
+        """The nearest rung below the sleeper that is up: the one whose fullness
+        says whether work still needs the sleeper. None when there is none."""
+        names = self._config.ladder.names
+        if swap.sleeper not in names:
+            return None
+        for name in reversed(names[: names.index(swap.sleeper)]):
+            if name not in swap.displaced and known_down(self._config, name) is None:
+                return name
+        return None
+
+    def _may_act(self, card: Card) -> str | None:
+        """Why this card is not mcgyvr's to switch now, or None when it is.
+
+        A live fleet's lock says which hosts mcgyvr may act on: when this config
+        is run against a fleet, only a host the fleet holds locked is switched,
+        since an unlocked one is another's to run or is being admitted. No fleet
+        directory, or a host that is not locked, means no switch; a fleet
+        directory that cannot be read is said out loud and also means none.
+        """
+        from mcgyvr.fleet.roots import LiveFleetError, live_fleet_dir, runs_live
+
+        if not runs_live(self._config.path):
+            return None
+        from mcgyvr.fleet.admit import host_is_locked
+
+        try:
+            root = live_fleet_dir()
+        except LiveFleetError as exc:
+            print(f"warning: {exc}", file=sys.stderr)
+            return str(exc)
+        if root is None or not host_is_locked(root, card.host):
+            return f"the live fleet does not hold {card.host} locked"
+        return None
+
     def _swap_in(self, rung: str, capacity: Capacity | None) -> bool:
         """Put down the units whose room a sleeper needs, then start it.
 
         The units `CardSwitches.room_for` names are drained through `capacity`
         and put down, then the sleeper is started by the same door run `mcgyvr
         serve wake` makes, which answers once the unit serves; a step that fails
-        wakes the room back (`mcgyvr.ladder_manager.wake_making_room`). False
-        with no capacity to drain through, when the room cannot be reckoned (a
-        sleeper is never started beside its room), and when the swap failed. The
-        answer is kept per sleeper, so one run swaps once.
+        wakes the room back (`mcgyvr.ladder_manager.wake_making_room`). A swap
+        that worked is recorded (`standing_swap`), so a later run gives the room
+        back. False with no capacity to drain through, on a host the live fleet
+        does not hold, while another sleeper is swapped onto the card, when the
+        room cannot be reckoned (a sleeper is never started beside its room),
+        and when the swap failed. The answer is kept per sleeper, so one run
+        swaps once.
         """
         from mcgyvr.ladder_manager import wake_making_room
 
         card = self._cards.get(rung)
         if card is None or capacity is None:
             return False
-        with self._lock:
-            card_lock = self._card_locks.setdefault(card.host, threading.Lock())
-        with card_lock:
+        with self._card_lock(card):
             key = f"swap:{card.host}:{rung}"
             if key in self._woken:
                 return self._woken[key][0]
             switches = CardSwitches(
                 self._config, capacity, card_mib=saved_card_mib((card.host,))
             )
-            why = switches.why_no_room(rung)
+            standing = standing_swap(card.host)
+            why = self._may_act(card)
+            if why is None and standing is not None and standing.sleeper != rung:
+                why = f"{standing.sleeper} is swapped onto {card.host}"
+            if why is None:
+                why = switches.why_no_room(rung)
             if why is not None:
                 print(f"note: {rung} is not swapped in: {why}", file=sys.stderr)
+                self._why[rung] = why
                 self._woken[key] = (False, time.monotonic())
                 return False
             lines, slept = wake_making_room(switches, rung, switches.room_for(rung))
             for line in lines:
                 print(f"note: {line}", file=sys.stderr)
+            if slept is not None:
+                _note_swap(card.host, Swap(sleeper=rung, displaced=slept))
             self._woken[key] = (slept is not None, time.monotonic())
             return slept is not None
 
@@ -667,13 +895,13 @@ class Waker:
         True when the card is up by the end, and False for a rung no card serves.
         `refused_at` is when the draw was refused: it is what tells a second
         refusal from the same outage apart from one that came after the wake.
+        `why_failed` says why a False came back.
         """
         card = self._cards.get(rung)
         if card is None:
+            self._why[rung] = f"no card of this ladder serves {rung}"
             return False
-        with self._lock:
-            card_lock = self._card_locks.setdefault(card.host, threading.Lock())
-        with card_lock:
+        with self._card_lock(card):
             return self._wake_for(card, refused_at, rung)
 
     def _wake_for(self, card: Card, refused_at: float | None, rung: str) -> bool:
@@ -685,25 +913,13 @@ class Waker:
         if key in self._woken:
             ok, ended = self._woken[key]
             return ok and refused_at is not None and refused_at < ended
-        # A live fleet's lock says which hosts mcgyvr may act on: when this
-        # config is run against a fleet, only a host the fleet holds locked is
-        # woken, since an unlocked one is another's to run or is being admitted.
-        # No fleet directory, or a host that is not locked, means no wake; a
-        # fleet directory that cannot be read is said out loud and also means no
-        # wake. Neither is a reason to wake a card without the lock, so both
-        # answer False and the draw keeps its refusal.
-        from mcgyvr.fleet.roots import LiveFleetError, live_fleet_dir, runs_live
-
-        if runs_live(self._config.path):
-            from mcgyvr.fleet.admit import host_is_locked
-
-            try:
-                root = live_fleet_dir()
-            except LiveFleetError as exc:
-                print(f"warning: {exc}", file=sys.stderr)
-                return False
-            if root is None or not host_is_locked(root, card.host):
-                return False
+        # Neither an unlocked host nor an unreadable fleet directory is a reason
+        # to wake a card without the lock, so both answer False and the draw
+        # keeps its refusal.
+        held = self._may_act(card)
+        if held is not None:
+            self._why[rung] = held
+            return False
         compose = compose_for(card)
         if compose is None:
             # No single launch spec is this card's, so there is nothing to aim a
@@ -712,6 +928,7 @@ class Waker:
             # not retried against the same gap, but only a card the config holds
             # specs for is worth a warning — a card with none was never emitted
             # for, and `_why_not_one` says what to set and run to fix that.
+            self._why[rung] = _why_not_one(card)
             if card.specs:
                 self._woken[key] = (False, time.monotonic())
                 print(f"warning: {_why_not_one(card)}", file=sys.stderr)
@@ -727,9 +944,13 @@ class Waker:
             )
         else:
             direction, only = _wake_direction(card), ()
-        ok = _run_door(self._config, card, direction, compose, only=only).ok
-        self._woken[key] = (ok, time.monotonic())
-        return ok
+        made = _run_door(self._config, card, direction, compose, only=only)
+        if not made.ok:
+            self._why[rung] = (
+                f"the door's `{direction}` on {card.host} exited {made.code}"
+            )
+        self._woken[key] = (made.ok, time.monotonic())
+        return made.ok
 
 
 def saved_card_mib(rigs: Sequence[str]) -> dict[str, dict[int, int]]:
@@ -867,14 +1088,22 @@ def drain_timeout(config: Config, card: Card) -> float | None:
     return max(timeouts) if timeouts else None
 
 
+#: Why a card switch is refused where mcgyvr may not sleep or wake a unit.
+_SWITCH_OFF = (
+    "mcgyvr may not sleep or wake a unit here: `serving.enable_sleep_wake` is "
+    "off or `serving.compose_dir` is unset"
+)
+
+
 class CardSwitches:
     """The sleep and wake switches of a card, as a fleet sample asks them.
 
     Every answer is a yes or a sentence rather than an exception, so the caller
     can leave a card alone and say why: `wake` and `sleep` answer whether the door
     worked, `room_for` says which units must be slept to make room for a wake,
-    `why_no_room` says what stops room being reckoned, and `card_of` says which
-    rungs one sleep or wake acts on.
+    `why_no_room` says what stops room being reckoned, `why_failed` says why a
+    sleep or wake answered no, and `card_of` says which rungs one sleep or wake
+    acts on.
     """
 
     def __init__(
@@ -888,6 +1117,16 @@ class CardSwitches:
         self._capacity = capacity
         self._cards = cards(config)
         self._card_mib = {host: dict(sizes) for host, sizes in (card_mib or {}).items()}
+        #: Why the last sleep or wake of each rung answered False.
+        self._why: dict[str, str] = {}
+
+    def why_failed(self, rung: str) -> str | None:
+        """Why the last sleep or wake of this rung answered False, or None."""
+        return self._why.get(rung)
+
+    def _no(self, rung: str, why: str) -> bool:
+        self._why[rung] = why
+        return False
 
     def _allowed(self) -> bool:
         return bool(
@@ -909,9 +1148,13 @@ class CardSwitches:
         otherwise whatever the door answered.
         """
         if self._resident(rung):
-            return False
+            return self._no(rung, f"{rung} is on the card of the resident jev unit")
         waker = for_config(self._config)
-        return waker is not None and waker.wake_for(rung)
+        if waker is None:
+            return self._no(rung, _SWITCH_OFF)
+        if waker.wake_for(rung):
+            return True
+        return self._no(rung, waker.why_failed(rung) or "the wake did not work")
 
     def sleep(self, rung: str) -> bool:
         """Sleep or stop this rung's card, answering False where it was not done.
@@ -921,11 +1164,15 @@ class CardSwitches:
         still queued once the capacity locks are held, nothing is put down. A
         lock that cannot be taken and a `WakeError` both answer False.
         """
-        if not self._allowed() or self._resident(rung):
-            return False
+        if not self._allowed():
+            return self._no(rung, _SWITCH_OFF)
+        if self._resident(rung):
+            return self._no(rung, f"{rung} is on the card of the resident jev unit")
         card = self._cards.get(rung)
-        if card is None or compose_for(card) is None:
-            return False
+        if card is None:
+            return self._no(rung, f"no card of this ladder serves {rung}")
+        if compose_for(card) is None:
+            return self._no(rung, _why_not_one(card))
         alone = _per_unit(self._config, card)
         # One unit drains alone on a card whose units switch one at a time.
         sources = (rung,) if alone else card.sources
@@ -936,11 +1183,19 @@ class CardSwitches:
                 # The card is drained: anything still queued on these sources
                 # arrived after the capacity locks and would be killed by the
                 # sleep, so the card stays up and the answer is no.
-                if self._capacity.queued(sources) != 0:
-                    return False
-                return self._put_down(card, (rung,) if alone else ())
-        except (SlotUnavailableError, WakeError):
-            return False
+                queued = self._capacity.queued(sources)
+                if queued != 0:
+                    return self._no(
+                        rung,
+                        "its queue could not be read"
+                        if queued is None
+                        else f"{queued} still queued on it",
+                    )
+                if self._put_down(card, (rung,) if alone else ()):
+                    return True
+                return self._no(rung, f"the door did not put {card.host} down")
+        except (SlotUnavailableError, WakeError) as exc:
+            return self._no(rung, str(exc))
 
     def _put_down(self, card: Card, only: tuple[str, ...]) -> bool:
         """Put the card down and answer the door's verdict, not the `Wake`."""

@@ -588,6 +588,9 @@ class _Timed:
     def sleep(self, rung: str) -> bool:
         return self._timed("sleep", rung, self._switches.sleep)
 
+    def why_failed(self, rung: str) -> str | None:
+        return self._switches.why_failed(rung)
+
     def room_for(self, rung: str) -> tuple[str, ...]:
         return tuple(self._switches.room_for(rung))
 

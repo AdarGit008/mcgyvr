@@ -118,6 +118,9 @@ class Switches:
     def sleep(self, rung: str) -> bool:
         return self._switch("sleep", rung)
 
+    def why_failed(self, rung: str) -> str | None:
+        return None
+
     def room_for(self, rung: str) -> tuple[str, ...]:
         return self.room.get(rung, ())
 

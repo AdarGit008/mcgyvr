@@ -2,9 +2,10 @@
 
 :func:`wake_making_room` sleeps the units whose memory a rung needs and wakes the
 rung into it, waking them back when the wake fails; :func:`give_back` wakes such
-units back once the rung sleeps again. A fleet's sample swaps a sleeper in and
-back with them (:mod:`mcgyvr.fleet.sampler`), over the switches
-:class:`mcgyvr.wake.CardSwitches` gives.
+units back once the rung sleeps again. A run's waker (:class:`mcgyvr.wake.Waker`)
+and a fleet's sample (:mod:`mcgyvr.fleet.sampler`) swap a sleeper in and back
+with them, over the switches :class:`mcgyvr.wake.CardSwitches` gives; a switch
+that fails says why.
 """
 
 from __future__ import annotations
@@ -16,7 +17,8 @@ from typing import Protocol
 class Switches(Protocol):
     """The power to sleep and wake rungs, and the card each rung sits on.
 
-    ``sleep`` and ``wake`` answer whether the switch happened. ``room_for`` names
+    ``sleep`` and ``wake`` answer whether the switch happened, and
+    ``why_failed`` why the last of them on ``rung`` did not. ``room_for`` names
     the units that must sleep to give ``rung`` its card's memory, and ``card_of``
     names the units sharing ``rung``'s card, ``rung`` among them.
     """
@@ -25,13 +27,19 @@ class Switches(Protocol):
 
     def sleep(self, rung: str) -> bool: ...
 
+    def why_failed(self, rung: str) -> str | None: ...
+
     def room_for(self, rung: str) -> tuple[str, ...]: ...
 
     def card_of(self, rung: str) -> tuple[str, ...]: ...
 
 
-def _ok(ok: bool) -> str:
-    return "done" if ok else "failed"
+def _ok(switches: Switches, rung: str, ok: bool) -> str:
+    """``done``, or ``failed`` with the reason the switches give for it."""
+    if ok:
+        return "done"
+    why = switches.why_failed(rung)
+    return "failed" if why is None else f"failed: {why}"
 
 
 class Record(Protocol):
@@ -62,14 +70,14 @@ def wake_making_room(
     slept: list[str] = []
     for unit in room:
         ok = switches.sleep(unit)
-        lines.append(f"sleep {unit} to make room for {rung}: {_ok(ok)}")
+        lines.append(f"sleep {unit} to make room for {rung}: {_ok(switches, unit, ok)}")
         record(unit, ok, awake=False)
         if not ok:
             lines.extend(give_back(switches, slept, record))
             return lines, None
         slept.append(unit)
     ok = switches.wake(rung)
-    lines.append(f"wake {rung}: {_ok(ok)}")
+    lines.append(f"wake {rung}: {_ok(switches, rung, ok)}")
     record(rung, ok, awake=True)
     if not ok:
         lines.extend(give_back(switches, slept, record))
@@ -84,6 +92,6 @@ def give_back(
     lines: list[str] = []
     for unit in units:
         ok = switches.wake(unit)
-        lines.append(f"wake {unit} back: {_ok(ok)}")
+        lines.append(f"wake {unit} back: {_ok(switches, unit, ok)}")
         record(unit, ok, awake=True)
     return lines
