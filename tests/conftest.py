@@ -184,6 +184,22 @@ def _no_test_resolves_a_machine(monkeypatch: pytest.MonkeyPatch) -> None:
 
 
 @pytest.fixture(autouse=True)
+def _no_rig_name_resolves(monkeypatch: pytest.MonkeyPatch) -> None:
+    """A host no rig file names resolves to no address.
+
+    ``rigfile.resolve_hosts`` asks the resolver for a name that matches no rig
+    name or recorded hostname, on a thread of its own, and fixtures name hosts
+    that match nothing. :func:`_no_test_resolves_a_machine` would refuse that ask
+    on the thread, where nothing sees the refusal, so the seam the lookup goes
+    through answers nothing instead. A test of name resolution stands its own
+    answers there; its ``monkeypatch`` applies later than this one and wins.
+    """
+    from mcgyvr.serving import rigfile
+
+    monkeypatch.setattr(rigfile, "_resolve", lambda name: ())
+
+
+@pytest.fixture(autouse=True)
 def _offline_probes(monkeypatch: pytest.MonkeyPatch) -> None:
     """No test reaches a serving endpoint unless it says so.
 
