@@ -50,6 +50,7 @@ from mcgyvr.orchestrator.candidates import (
     stop_condition,
     symbol_candidates,
     target_candidates,
+    task_candidates,
     task_type_candidates,
 )
 from mcgyvr.orchestrator.decompose import Evidence, Refusal
@@ -76,8 +77,8 @@ ladder:
 AGENT = ungated.ungated()
 pytestmark = pytest.mark.usefixtures("ungated_catalog")
 
-#: The fields W3 asks, in the order the proposer follows.
-FIELD_ORDER = ("task_type", "target", "symbol", "interface", "deps", "allow")
+#: The fields the proposer asks, in the order it follows.
+FIELD_ORDER = ("task_type", "target", "symbol", "task", "interface", "deps", "allow")
 
 
 def git(repo: Path, *args: str) -> None:
@@ -144,6 +145,7 @@ def _choosing(
     task_type: str,
     target: str,
     symbol: str,
+    task: str,
     interface: str,
     deps: Any,
     allow: Any,
@@ -151,10 +153,12 @@ def _choosing(
 ) -> Callable[[Any, Mapping[str, Question]], Decision]:
     """A classify fake answering each field's single question with a chosen value."""
     symbol_name = None if symbol == _NO_SYMBOL else symbol
+    kind = next(k for k in evidence.vocabulary if k.name == task_type)
     sets: dict[str, CandidateSet] = {
         "task_type": task_type_candidates(evidence),
         "target": target_candidates(evidence),
         "symbol": symbol_candidates(evidence, target),
+        "task": task_candidates(kind, target, symbol_name, evidence.prompt),
         "interface": interface_candidates(evidence, target, symbol_name),
         "deps": deps_candidates(evidence, target),
         "allow": scope_candidates(evidence, target)[0],
@@ -163,6 +167,7 @@ def _choosing(
         "task_type": task_type,
         "target": target,
         "symbol": symbol,
+        "task": task,
         "interface": interface,
         "deps": deps,
         "allow": allow,
@@ -205,6 +210,9 @@ def test_asks_one_choice_per_field_in_dependency_order(repo: Index) -> None:
         "task_type": task_type_candidates(evidence),
         "target": target_set,
         "symbol": symbol_set,
+        "task": task_candidates(
+            AGENT, target, _symbol_of(symbol_name), evidence.prompt
+        ),
         "interface": interface_candidates(evidence, target, _symbol_of(symbol_name)),
         "deps": deps_candidates(evidence, target),
         "allow": scope_candidates(evidence, target)[0],
@@ -220,7 +228,7 @@ def test_asks_one_choice_per_field_in_dependency_order(repo: Index) -> None:
 
 
 def test_per_field_picks_reach_the_collapsed_proposal(repo: Index) -> None:
-    """Picks away from rank-0 — symbol abstain and a named allow — fold in."""
+    """Picks away from rank-0 (no symbol, the directive, a named allow) fold in."""
     evidence = evidence_for(repo, "document listing", (AGENT,))
     target = "listing.py"
     propose = ClassifierProposer(
@@ -229,6 +237,7 @@ def test_per_field_picks_reach_the_collapsed_proposal(repo: Index) -> None:
             task_type="agent",
             target=target,
             symbol=_NO_SYMBOL,
+            task=directive(AGENT, target, None),
             interface="",
             deps=(),
             allow=(target,),
@@ -241,12 +250,7 @@ def test_per_field_picks_reach_the_collapsed_proposal(repo: Index) -> None:
     plan = choose(plan, "task_type", "agent")
     plan = choose(plan, "target", target)
     plan = choose(plan, "symbol", _NO_SYMBOL)
-    plan = choose(
-        plan,
-        "task",
-        directive(kind, target, None),
-        provenance=Provenance.DETERMINISTIC,
-    )
+    plan = choose(plan, "task", directive(kind, target, None))
     plan = choose(
         plan,
         "stop_conditions",
@@ -354,12 +358,7 @@ def test_low_confidence_optional_field_leaves_rank0_but_load_bearing_declines(
     plan = choose(plan, "task_type", kind.name)
     plan = choose(plan, "target", target)
     plan = choose(plan, "symbol", symbol_name or _NO_SYMBOL)
-    plan = choose(
-        plan,
-        "task",
-        directive(kind, target, symbol_name),
-        provenance=Provenance.DETERMINISTIC,
-    )
+    plan = choose(plan, "task", evidence.prompt)
     plan = choose(
         plan,
         "stop_conditions",
@@ -434,12 +433,7 @@ def test_symbol_parse_fail_falls_back_to_deterministic_rank0(repo: Index) -> Non
         symbol_name or _NO_SYMBOL,
         provenance=Provenance.DETERMINISTIC,
     )
-    plan = choose(
-        plan,
-        "task",
-        directive(kind, target, symbol_name),
-        provenance=Provenance.DETERMINISTIC,
-    )
+    plan = choose(plan, "task", evidence.prompt)
     plan = choose(
         plan,
         "stop_conditions",

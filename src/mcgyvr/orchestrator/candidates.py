@@ -255,16 +255,20 @@ def symbol_candidates(evidence: Evidence, target: str) -> CandidateSet:
 
 
 def task_candidates(
-    kind: TaskType | None, target: str, symbol: str | None
+    kind: TaskType | None, target: str, symbol: str | None, request: str = ""
 ) -> CandidateSet:
-    """The one deterministic directive line; richer candidates are deferred.
+    """The request as it was asked, then the deterministic directive line.
 
-    The template authors the text from a subject the model picked, so this is
-    deterministic authorship rather than a model decision.
+    Rank 0 is `request` verbatim, so a rank-0 collapse carries the user's own
+    words into the contract; rank 1 is `directive`, the type's doc line and the
+    subject. Whichever one a classifier picks goes into the contract unchanged.
+    A request that is empty, or already the directive, leaves the directive alone.
     """
     if kind is None:
         return _set("task", ("",))
-    return _set("task", (directive(kind, target, symbol),))
+    line = directive(kind, target, symbol)
+    asked = request.strip()
+    return _set("task", (asked, line) if asked and asked != line else (line,))
 
 
 def stop_condition_candidates(
@@ -430,7 +434,7 @@ def enumerate_candidates(evidence: Evidence) -> CandidatePlan:
         "task_type": task_type_candidates(evidence),
         "target": target_set,
         "symbol": symbol_set,
-        "task": task_candidates(kind, target, symbol),
+        "task": task_candidates(kind, target, symbol, evidence.prompt),
         "stop_conditions": stop_condition_candidates(kind, target, symbol),
         "interface": interface_candidates(evidence, target, symbol),
         "deps": deps_candidates(evidence, target),

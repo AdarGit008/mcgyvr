@@ -140,7 +140,8 @@ def test_a_whole_file_code_proposal_states_a_cap_sized_on_the_target(
     proposal = _propose(index, symbol=NO_SYMBOL)
 
     assert proposal.task_type == "code"
-    assert proposal.task.endswith(": listing.py.")
+    # The task's rank 0 is the request as it was asked.
+    assert proposal.task == "document listing"
     assert proposal.max_output_tokens == _whole_file_cap(index)
     # Sized on the file, not clamped: the padding clears the floor.
     assert REPLY_CAP_FLOOR < proposal.max_output_tokens < REPLY_CAP_CEILING
@@ -153,7 +154,7 @@ def test_a_symbol_code_proposal_is_sized_on_the_whole_file_it_returns(
     index = _repo(tmp_path, padding_lines=200)
     proposal = _propose(index)
 
-    assert proposal.task.endswith(": listing in listing.py.")
+    assert proposal.task == "document listing"
     assert proposal.max_output_tokens == _whole_file_cap(index)
 
 
