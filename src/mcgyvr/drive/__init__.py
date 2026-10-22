@@ -52,7 +52,6 @@ from mcgyvr.drive.prompt import (
     refuse_unsendable_climb,
 )
 from mcgyvr.drive.gate import (
-    _through,
     acceptance_for,
     gate_adapters,
     gate_in_sandbox,
@@ -76,7 +75,6 @@ __all__ = [
     "_as_sent",
     "_base_content",
     "_in_order",
-    "_through",
     "acceptance_for",
     "best_of",
     "build_prompt",

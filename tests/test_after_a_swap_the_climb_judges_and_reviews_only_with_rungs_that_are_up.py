@@ -1,10 +1,14 @@
-"""After a swap, the wake judgment is asked only of a rung that is up.
+"""After a swap, the climb judges and reviews only with rungs that are up.
 
 A climb that reaches the RAM sleeper swaps it in and puts the fast rungs down.
-The wake judgment, asked before the api family is paid for, must then not be
-asked of one of those: it is asked of the first credential-free rung a record
-does not have down, and with none it is skipped and said. A judge that does
-not answer is a `WakeJudgeError`, never a raw refusal out of `escalate`.
+Two things the climb still asks of a local rung must then not be asked of one
+of those: the wake judgment before the api family is paid for, and the review
+of an accepted draw. The judgment is asked of the first credential-free rung a
+record does not have down, and with none it is skipped and said; a judge that
+does not answer is a `WakeJudgeError`, never a raw refusal out of `escalate`.
+A review never wakes or starts a unit: sleeping and waking is the climb's
+pressure valve, so a reviewer that is down is passed over for the next rung
+that is up, by the rules that pick a reviewer at all.
 
 The card is the swap test's one card (``test_a_full_top_rung_swaps_...``);
 every dispatch, judgment and door run is faked, and the door keeps which units
@@ -205,3 +209,66 @@ def test_a_judge_that_does_not_answer_is_a_wake_judge_error(
 
     with pytest.raises(WakeJudgeError, match=f"{FAST_S!r}, which did not answer"):
         judge(source_map(config), FAST_S, {})
+
+
+def _reviews(monkeypatch: pytest.MonkeyPatch, rig: Rig) -> None:
+    """Every review is asked of a rung: a unit that is down refuses it."""
+    from mcgyvr import verify
+    from mcgyvr.runner import RefusedConnectionError
+
+    def review(source_map: Any, rung: str, request: Any, **_: Any) -> Any:
+        rig.events.append(f"review {rung}")
+        if rung in PORT and rung not in rig.up:
+            raise RefusedConnectionError(f"{rung} is down")
+        return rig.completion(rung, "looks fine", request)
+
+    def classify(source_map: Any, state: Any, questions: Any, **kwargs: Any) -> Any:
+        rung = kwargs.get("rung") or FAST_S
+        rig.events.append(f"review {rung}")
+        if rung in PORT and rung not in rig.up:
+            raise RefusedConnectionError(f"{rung} is down")
+        raise RuntimeError("no typed answer here")
+
+    monkeypatch.setattr(verify, "dispatch", review)
+    monkeypatch.setattr(verify, "dispatch_role", review)
+    monkeypatch.setattr(verify, "classify_for", classify)
+
+
+def _reviewers(config: Config, pool: Any, capacity: Any) -> Any:
+    from mcgyvr.verify import reviewers_for
+
+    return reviewers_for(config, pool, capacity=capacity)
+
+
+def test_a_reviewer_the_swap_put_down_is_never_started_beside_the_sleeper(
+    tmp_path: Path, home: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    text = ladder_text(tmp_path / "specs") + f"verifier:\n  unit: {FAST_S}\n"
+    config, rig = _rig(tmp_path, monkeypatch, text, {RAM})
+    _reviews(monkeypatch, rig)
+
+    _climb(tmp_path, config, reviewers=_reviewers)
+
+    swapped = rig.events.index(f"door up {RAM}")
+    after = rig.events[swapped + 1 :]
+    assert not [e for e in after if e.startswith("door")], after
+    assert f"review {FAST_S}" not in after, "a reviewer that is down was asked"
+    assert rig.peak <= CARD_MIB, "a unit was started beside the sleeper"
+
+
+def test_a_sleeping_reviewer_is_passed_over_and_never_woken(
+    tmp_path: Path, home: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    from mcgyvr.local_pool import source_map
+    from mcgyvr.verify import reviewer_rung
+
+    config, rig = _rig(tmp_path, monkeypatch, ladder_text(tmp_path / "specs"), {FAST_M})
+    _reviews(monkeypatch, rig)
+
+    assert reviewer_rung(config, source_map(config), FAST_M) is None, (
+        f"{RAM} sleeps until needed, so it is not the reviewer"
+    )
+    _climb(tmp_path, config, reviewers=_reviewers)
+
+    assert not [e for e in rig.events if e.startswith("door")], rig.events
+    assert f"review {RAM}" not in rig.events

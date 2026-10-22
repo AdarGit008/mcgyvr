@@ -24,12 +24,10 @@ from typing import TYPE_CHECKING
 import mcgyvr.drive as _drive
 from mcgyvr.capacity import Outcome, SlotUnavailableError
 from mcgyvr.consensus import NoUsableDrawError, Unusable
-from mcgyvr.decision import jev_bound
 from mcgyvr.drive.gate import (
     _cleaned,
     _jev_for,
     _repair_and_regate,
-    _through,
     _typed_checks,
 )
 from mcgyvr.drive.prompt import (
@@ -180,25 +178,6 @@ def worker_attempt(
 
     def _attempt(this: Try, made: _Dispatches, draws: int) -> Judgement:
         family = family_of(config, this.rung.name)
-        # The reviewer this rung would be judged by, if any: a contract whose
-        # kind does not judge a change is never reviewed, and neither is a run
-        # with no selector. The selector's answer is kept whole
-        # because a `NoReviewer` is a reason to report and not a failure.
-        # `_through` routes a reviewer's seams through the waker when its unit is
-        # one this run can wake, and `jev_bound` says the typed questions are
-        # served by their own bound role, which must not be woken on the
-        # reviewer's behalf.
-        chosen: Reviewer | NoReviewer | None = (
-            reviewers(this.rung.name)
-            if reviewers is not None and contract.kind.judges_a_change
-            else None
-        )
-        reviewing = (
-            _through(waker, chosen, jev_resident=jev_bound(pool))
-            if isinstance(chosen, Reviewer)
-            else None
-        )
-        jev = _jev_for(this.rung.model, reviewing)
         if cooldown is not None:
             # A source the run holds out is not dispatched to at all: the probe's
             # dead sources and a source whose failure streak armed a cooldown
@@ -465,6 +444,20 @@ def worker_attempt(
             )
         else:
             gate, bound = picked.gate, picked.winner
+            # The reviewer this rung is judged by, if any: a contract whose kind
+            # does not judge a change is never reviewed, and neither is a run
+            # with no selector. The selector's answer is kept whole because a
+            # `NoReviewer` is a reason to report and not a failure. It is asked
+            # once the draws are in, since a draw can swap a sleeper in and put
+            # the reviewer down: a reviewer is never woken, the selector picks it
+            # from the rungs that are up, and its calls go straight to it.
+            chosen: Reviewer | NoReviewer | None = (
+                reviewers(this.rung.name)
+                if reviewers is not None and contract.kind.judges_a_change
+                else None
+            )
+            reviewing = chosen if isinstance(chosen, Reviewer) else None
+            jev = _jev_for(this.rung.model, reviewing)
             if tidying:
                 gate, bound = _cleaned(
                     contract, sandbox, gate, bound, adapters=adapters, config=config

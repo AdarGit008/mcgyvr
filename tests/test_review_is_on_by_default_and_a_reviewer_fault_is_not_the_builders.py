@@ -667,45 +667,36 @@ def test_a_typed_refusal_tells_the_retry_what_the_reviewer_found(
     assert prose == [], "a refusal was paid for twice"
 
 
-def test_a_picked_reviewer_on_a_sleeping_card_is_woken(
+def test_a_picked_reviewer_on_a_sleeping_card_is_not_woken(
     repo: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
+    """Sleeping and waking is the climb's pressure valve, never a review's: the
+    reviewer's calls do not go through the waker, so a reviewer whose card does
+    not answer leaves the acceptance unverified and nothing is woken."""
     import mcgyvr.decision as decision
     import mcgyvr.drive as drive
     from mcgyvr.runner import RefusedConnectionError
 
-    awake: set[str] = set()
+    through: list[str] = []
 
     class Waker:
         def dispatching(self, rung, send, *, capacity=None):  # type: ignore[no-untyped-def]
-            try:
-                return send()
-            except RefusedConnectionError:
-                awake.add(rung)
-                return send()
+            through.append(rung)
+            return send()
 
     monkeypatch.setattr(drive, "wake_for_config", lambda config: Waker())
 
-    def sleepy(source_map, rung, state, questions, **kwargs):  # type: ignore[no-untyped-def]
-        if rung not in awake:
-            raise RefusedConnectionError(f"nothing listens for {rung!r}")
-        answers: dict[str, Any] = {}
-        for name, question in questions.items():
-            answers[name] = (
-                BoolAnswer(True, 0.9, 0.8)
-                if isinstance(question, Noul)
-                else ScoreAnswer(level=0.0, probabilities={"low": 1.0}, confidence=0.8)
-            )
-        return Decision(answers=answers)
+    def asleep(source_map, rung, state, questions, **kwargs):  # type: ignore[no-untyped-def]
+        raise RefusedConnectionError(f"nothing listens for {rung!r}")
 
-    monkeypatch.setattr(decision, "classify_rung", sleepy)
+    monkeypatch.setattr(decision, "classify_rung", asleep)
     _worker_replies(monkeypatch, ACCEPTED)
     _prose_reviews(monkeypatch)
 
     judgement = _attempt_with(repo, TWO_RUNGS, CONTRACT)
 
-    assert awake == {"big"}, "the reviewer's card was never woken"
-    assert judgement.assurance is Assurance.VERIFIED, judgement.detail
+    assert "big" not in through, "the reviewer's card went through the waker"
+    assert judgement.assurance is not Assurance.VERIFIED, judgement.detail
 
 
 # --- an automatic reviewer is a local one ------------------------------------

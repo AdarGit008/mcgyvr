@@ -6,7 +6,7 @@ card that could be slept from under it, would make every typed question a
 gamble. So the unit — and any card that holds it — is excluded from every
 sleep and wake path unconditionally: what may be slept or woken, the card
 switches, the door's own verbs, and the waker a dispatch
-goes through. A typed decision never wakes anything first. Without a
+goes through. Without a
 ``jev.unit`` nothing here changes.
 """
 
@@ -20,10 +20,7 @@ import pytest
 
 from mcgyvr import wake as wakelib
 from mcgyvr.config import Config, parse
-from mcgyvr.decision import Decision
-from mcgyvr.drive import _through
 from mcgyvr.runner import RefusedConnectionError
-from mcgyvr.verify import Reviewer
 
 HOST = "box.invalid"
 OTHER = "box.test"
@@ -149,28 +146,3 @@ def test_a_dispatch_to_the_jev_card_is_never_a_wake(
 
     assert waker.dispatching("big", flaky) == "ok"
     assert woke == ["big"]
-
-
-def test_a_typed_decision_goes_around_the_waker_when_a_jev_unit_is_bound(
-    compose_dir: Path,
-) -> None:
-    config = _config(compose_dir, jev="judge")
-    waker = wakelib.Waker(config)
-    seen: list[str] = []
-
-    def decide(state: Any) -> Decision:
-        seen.append("decided")
-        return Decision(answers={})
-
-    def ask(prompt: str) -> str:
-        seen.append("asked")
-        return "fine"
-
-    reviewer = Reviewer(
-        model="big-30b", ask=ask, decide=decide, jev=None, where="big", unit="big"
-    )
-    routed = _through(waker, reviewer, jev_resident=True)
-    assert routed.decide is decide  # untouched: Jev is resident, nothing to wake
-    assert routed.ask is not ask  # the prose ask still goes through the waker
-    unbound = _through(waker, reviewer, jev_resident=False)
-    assert unbound.decide is not decide  # as before, without a jev unit
