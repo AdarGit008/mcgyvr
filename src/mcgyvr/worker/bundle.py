@@ -3,9 +3,9 @@
 A bundle is a prompt file under `mcgyvr/prompts/` loaded whole, minus a leading
 provenance comment, and shipped with the standing its own sweep found. For the
 `coding` use case the contract's target picks the language bundle through the
-gate adapter that owns it; the other use cases carry one bundle each. `chat` and
-any unregistered or unowned target get `None`, because another language's
-standards are worse than no system prompt at all.
+gate adapter that owns it. Any other use case, and any unregistered or unowned
+target, gets `None`, because another language's standards are worse than no
+system prompt at all.
 
 Nothing here runs a sweep — it only carries what a sweep said. `BundleStanding`
 keeps never-swept, swept-and-flat and swept-and-redundant-with-this-harness
@@ -20,7 +20,6 @@ from dataclasses import dataclass
 from enum import StrEnum
 from importlib import resources
 
-from mcgyvr.config import CHAT
 from mcgyvr.gate.adapter import LanguageAdapter
 from mcgyvr.gate.adapters import JavaScriptAdapter, PythonAdapter
 
@@ -59,22 +58,12 @@ _LANGUAGE_BUNDLES: dict[str, tuple[str, BundleStanding]] = {
     "js/ts": ("javascript.md", BundleStanding.MEASURED_NO_EFFECT),
 }
 
-#: Use-case bundles, keyed by the contract's use case. The file has not been
-#: swept, so it ships `UNMEASURED`; `chat` has no entry because it is a raw
-#: pass-through and a system prompt would bias it.
-_USE_CASE_BUNDLES: dict[str, tuple[str, BundleStanding]] = {
-    "agent": ("agent.md", BundleStanding.UNMEASURED),
-}
+#: The registry `load_bundle` reads; it names the whole sorted set when a key is
+#: missing.
+_BUNDLES: dict[str, tuple[str, BundleStanding]] = dict(_LANGUAGE_BUNDLES)
 
-#: Both key kinds in one registry. The namespaces do not collide today, and
-#: `load_bundle` names the whole sorted set when a key is missing.
-_BUNDLES: dict[str, tuple[str, BundleStanding]] = {
-    **_LANGUAGE_BUNDLES,
-    **_USE_CASE_BUNDLES,
-}
-
-#: The use case whose bundle is chosen by the target's language; every other use
-#: case carries a single bundle.
+#: The use case whose bundle is chosen by the target's language; no other use
+#: case carries a bundle.
 CODING = "coding"
 
 _DEFAULT_ADAPTERS: tuple[LanguageAdapter, ...] = (PythonAdapter(), JavaScriptAdapter())
@@ -110,8 +99,8 @@ class Bundle:
     against, and what its own sweep found."""
 
     key: str
-    """The registry key this bundle was loaded under — a language for the
-    coding use case, a use-case name for the others."""
+    """The registry key this bundle was loaded under: a language of the coding
+    use case."""
 
     text: str
     size_bytes: int
@@ -189,16 +178,10 @@ def bundle_for(
 ) -> Bundle | None:
     """The bundle for a contract's use case, or `None` when it should get none.
 
-    `chat` is refused: it is a raw, un-gated endpoint where a system prompt
-    would bias the reply. A use-case bundle is returned as-is; for `coding`, the
-    adapter that owns `target` names the language, and no owning adapter — or
-    one whose name has no registered bundle — yields `None`. `adapters` defaults
-    to the Python and JavaScript adapters and exists so a caller can restrict
-    the languages in play."""
-    if use_case == CHAT:
-        return None
-    if use_case in _USE_CASE_BUNDLES:
-        return load_bundle(use_case)
+    Only `coding` carries one: the adapter that owns `target` names the
+    language, and no owning adapter — or one whose name has no registered
+    bundle — yields `None`. `adapters` defaults to the Python and JavaScript
+    adapters and exists so a caller can restrict the languages in play."""
     if use_case == CODING:
         for adapter in adapters if adapters is not None else _DEFAULT_ADAPTERS:
             if adapter.owns(target) and adapter.name in _LANGUAGE_BUNDLES:

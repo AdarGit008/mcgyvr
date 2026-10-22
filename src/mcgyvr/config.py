@@ -118,22 +118,6 @@ SANDBOX_FIELDS: tuple[Field, ...] = (
         choices=NETWORKS,
     ),
     Field(
-        "sessions",
-        "enum",
-        "The sandbox a `chat` or `agent` run gets when its contract declares "
-        "no `acceptance` or `demonstration` command. Such a session runs no "
-        "command: its reply is only staged in a throwaway checkout of HEAD, "
-        "which nothing checks. `tempdir` stages it on this host, so a session "
-        "never builds, pulls or starts a container and needs no Docker. "
-        "`docker` gives it a task container as `mode: docker` gives `code`, "
-        "with `allow_fallback` and `network` applying. A session that "
-        "declares a command is sandboxed by `mode`, like any task, and "
-        "`--sandbox` on `mcgyvr run` overrides both for one run. "
-        "`mcgyvr setup --session-sandbox` writes it.",
-        default="tempdir",
-        choices=("tempdir", "docker"),
-    ),
-    Field(
         "image",
         "str",
         "Base image for task containers. Unset means detect the repository's "
@@ -187,20 +171,6 @@ DELIVERY_FIELDS: tuple[Field, ...] = (
     ),
 )
 
-#: Keys a config may still carry from an earlier build, mapped from the dotted
-#: key to the rest of the refusal it earns. A retired key is refused rather than
-#: read as unknown, so the message can name what replaced it, and `_block` looks
-#: each key up here before it reports an unknown one.
-_RETIRED_KEYS: dict[str, str] = {
-    "delivery.mode": (
-        "is retired: no shipped command read it, and `run --commit` committed "
-        "onto the checked-out branch whatever it said. Remove it; set "
-        "`delivery.commit: true` to commit accepted work onto the branch you "
-        "have checked out, and `delivery.branch: NAME` to commit onto another "
-        "branch instead."
-    ),
-}
-
 #: The use cases an install may serve, in the order setup offers them.
 USE_CASES: tuple[str, ...] = ("coding", "chat", "agent")
 
@@ -216,10 +186,8 @@ JOURNAL_FIELDS: tuple[Field, ...] = (
         "str",
         "Where every run journals what it asked, what came back and how it "
         "landed: one `<orchestrator>.jsonl` per writer, the prompts and replies "
-        "content-addressed under `blobs/`, each run's result file under "
-        "`results/`, and each `chat` or `agent` session (its question and "
-        "answer) under `sessions/`. Deterministic runs are here too, with a "
-        "row naming the "
+        "content-addressed under `blobs/`, and each run's result file under "
+        "`results/`. Deterministic runs are here too, with a row naming the "
         "program instead of a model. This is mcgyvr's own record, it never "
         "lands in the repository a run works on, and nothing on the command "
         "line moves it: it is the one place every run is, which is what makes "
@@ -231,9 +199,9 @@ JOURNAL_FIELDS: tuple[Field, ...] = (
     ),
 )
 
-# Seconds `budget.request_timeout_s` defaults to, and the figure a local unit's
-# unset `request_timeout_s` is quoted as. A hosted unit waits for its reply
-# however long it takes, so this bound only ever binds a unit on your own rig.
+# The figure a local unit's unset `request_timeout_s` is quoted as. A hosted unit
+# waits for its reply however long it takes, so this bound only ever binds a unit
+# on your own rig.
 DEFAULT_REQUEST_TIMEOUT_S = 120.0
 
 # How long `serving.servelib.wait_for` watches a unit come up: at most
@@ -242,74 +210,6 @@ DEFAULT_REQUEST_TIMEOUT_S = 120.0
 HEALTH_POLLS = 120
 HEALTH_INTERVAL_S = 3.0
 
-
-BUDGET_FIELDS: tuple[Field, ...] = (
-    Field(
-        "max_escalations",
-        "int",
-        "How many rungs a task may climb before it is handed back unfinished. "
-        "A cheap rung that fails and escalates costs more than starting "
-        "higher, so this is a real ceiling, not a retry count.",
-        default=1,
-        min_value=0,
-    ),
-    Field(
-        "max_attempts",
-        "int",
-        "Hard ceiling on how many attempts one task may spend in total, "
-        "across every rung and every family it climbs. Unset means the "
-        "ladder's own budget bounds it — the sum of each reachable rung's "
-        "`attempts`, each capped at the contract's `limits.attempts`, which "
-        "`mcgyvr local_pool` prints for a contract that states no limit — so "
-        "leaving it unset is not unbounded. Set it when you have raised a "
-        "rung's `attempts` or `max_escalations` and want one number that still "
-        "holds. A decline "
-        "costs nothing against it: a rung that stepped aside spent no attempt.",
-        min_value=1,
-        bind_hint=(
-            "set a whole number of attempts, or leave it unset to be bounded "
-            "by the ladder's own budget (`mcgyvr local_pool` prints that number)"
-        ),
-    ),
-    Field(
-        "request_timeout_s",
-        "float",
-        "How long one dispatched request may take before the transport gives "
-        "up, in seconds. A reply of `limits.max_output_tokens` tokens takes "
-        "the time its rung's per-stream rate says it takes, and that rate "
-        "falls as the rung serves more streams at once, so this bound, the "
-        "cap and the rung's width are three numbers that decide each other. "
-        "Raise it for a slow rung serving a large cap; lower it to fail "
-        "faster.",
-        default=DEFAULT_REQUEST_TIMEOUT_S,
-        min_value=0.0,
-    ),
-    Field(
-        "task_timeout_s",
-        "int",
-        "Wall-clock ceiling for one task, including acceptance commands.",
-        default=900,
-        min_value=1,
-    ),
-    Field(
-        "max_window_fraction",
-        "float",
-        "The largest share of a rung's context window one contract may claim "
-        "-- its prompt and its own declared reply together, over the whole "
-        "window. Distinct from whether the two *fit*, which the fit check "
-        "already asks: a contract that fits with nothing to spare leaves the "
-        "rung nothing to absorb a long estimate with. A ceiling: a contract's "
-        "own `limits.max_window_fraction` may be stricter, never wider. Unset "
-        "enforces no share, which is not the same as 1.0: a run that declared "
-        "none is recorded as having declared none.",
-        min_value=0.0,
-        max_value=1.0,
-        bind_hint=(
-            "a share between 0 and 1 -- e.g. 0.75 to keep a quarter of every "
-            "rung's window clear -- or leave it unset to enforce no share"
-        ),
-    ),
-)
 
 BREADTH_FIELDS: tuple[Field, ...] = (
     Field(
@@ -397,11 +297,9 @@ SERVING_FIELDS: tuple[Field, ...] = (
         "made under is what a run is reproducible from, and a flag would let "
         "two runs share one config where only one of them started and stopped "
         "containers on a shared rig, putting the rig side effect outside the "
-        "only record that explains the run. It also lets `mcgyvr manage`, the "
-        "ladder manager, put an idle unit to sleep and wake it again on its "
-        "own, but only while that command is running: with it on and no "
-        "manager running, nothing sleeps a card except a person. A sleep, "
-        "the manager's or a person's `mcgyvr serve sleep`, rests a vLLM card "
+        "only record that explains the run. A card sleeps when a person runs "
+        "`mcgyvr serve sleep`, or when a run swaps a sleeper in to make room "
+        "and puts it back once it is idle; a sleep rests a vLLM card "
         "at level 2, which keeps its process and drops its weights and KV "
         "cache, and stops the containers of any other card, of a vLLM card "
         "with no sleep route, or of one holding a unit split across machines, "
@@ -457,8 +355,9 @@ ROLES = (ROLE_ALWAYS_ON, ROLE_SLEEPER)
 #: budget, so the number is sized for a long deliberation rather than a short
 #: answer. It is a value written into a file, not a default this module applies:
 #: a unit that states its own `output_tokens` keeps it, and a contract's own cap
-#: is sent exactly, with a cap above the ceiling refused by name. The doc of a
-#: unit's `output_tokens` quotes it.
+#: is sent exactly, with a cap above the ceiling narrowed to it (refused by name
+#: where the ceiling is below half the cap). The doc of a unit's
+#: `output_tokens` quotes it.
 API_OUTPUT_TOKENS = 32768
 
 UNIT_FIELDS: tuple[Field, ...] = (
@@ -536,8 +435,9 @@ UNIT_FIELDS: tuple[Field, ...] = (
         "Room a reply on this unit is given, hidden reasoning included: a "
         "ceiling a `code` contract's `limits.max_output_tokens` is held to, "
         "beside the room `window` leaves for the prompt (the smaller of the "
-        "two where both are set). It never replaces the contract's cap, "
-        "which is sent exactly; a cap above the ceiling is refused by name. "
+        "two where both are set). It never raises the contract's cap, which "
+        "is sent exactly; a cap above the ceiling is narrowed to it, and "
+        "refused by name where the ceiling is below half the cap. "
         "A hosted reasoning model needs tens of thousands; `setup --api` "
         f"writes {API_OUTPUT_TOKENS}.",
         min_value=1,
@@ -617,9 +517,10 @@ UNIT_FIELDS: tuple[Field, ...] = (
         "is a swap partner that starts asleep (`sleeps-until-needed`). A "
         "sleeper shares its card's one launch spec with the always-on units "
         "under a compose profile, so a whole `serve up` leaves it down and the "
-        "awake set still fits the card. The ladder manager starts it when the "
-        "dearest awake rung is full, stopping the units whose room it needs "
-        "first, and starts those again when it sleeps. llama.cpp units only: "
+        "awake set still fits the card. A run whose climb reaches it, or a "
+        "fleet sample, swaps it in, stopping the units whose room it needs "
+        "first; a sample starts those again when it sleeps. llama.cpp units "
+        "only: "
         "a vLLM unit swaps at level 2 with its process kept.",
         default=ROLE_ALWAYS_ON,
         choices=ROLES,
@@ -784,66 +685,33 @@ ROLE_UNIT_FIELDS: tuple[Field, ...] = (
 )
 
 #: What the bound orchestrator unit is: a `proposer` that drafts contracts for
-#: `mcgyvr delegate`, or `mcorch`, which serves it as the agent itself.
-ORCHESTRATOR_TYPES: tuple[str, ...] = ("proposer", "mcorch")
-
-#: The `orchestrator.type` that serves the bound unit as the conversational agent.
-MCORCH = "mcorch"
+#: `mcgyvr delegate`, the only type there is.
+ORCHESTRATOR_TYPES: tuple[str, ...] = ("proposer",)
 
 ORCHESTRATOR_FIELDS: tuple[Field, ...] = (
     Field(
         "type",
         "enum",
-        "What the bound unit is. `proposer` is today's behaviour: the bound "
-        "unit drafts contracts for `mcgyvr delegate`. `mcorch` makes the bound "
-        "unit the conversational agent itself, served at an Anthropic Messages "
-        "address by `mcgyvr mcorch serve` for a harness (Claude Code, pi) to "
-        "point at, with the `jev` unit answering its typed decisions. `mcorch` "
-        "requires `deployment: local-only`, because it replaces the API-tier "
-        "orchestrator that `hybrid` describes; a bound `unit` whose `window` is "
-        "stated, because the window is the one fact the agent budgets a "
-        "conversation by; and `authoring`.",
+        "What the bound unit is. `proposer`, the only type: the bound unit "
+        "drafts contracts for `mcgyvr delegate`.",
         default="proposer",
         choices=ORCHESTRATOR_TYPES,
     ),
     Field(
         "authoring",
         "enum",
-        "How `type: mcorch` turns a request into contracts. `direct`: the rung "
-        "writes the contract itself. `prose`: the rung is asked for JSON "
-        "proposals the way `mcgyvr delegate` asks (`delegate.build_prompt`), "
-        "and the deterministic decomposer turns them into contracts. "
-        "`classifier`: the `jev` unit answers typed questions (task type, "
-        "target, symbol), and the strategy falls back to `prose` when its "
-        "confidence is low or it chooses `code`, whose reply cap only `prose` "
-        "states. No default is shipped, because which strategy a "
-        "local rung does best is being measured, and the file must say which.",
-        choices=("direct", "prose", "classifier"),
-        bind_hint="name one of `direct`, `prose`, `classifier`",
-    ),
-    Field(
-        "tools",
-        "str_list",
-        "The harness tools, by name, that `type: mcorch` keeps in the rung's "
-        "prompt. Every other tool the harness offers is dropped, and the drop "
-        "is logged in the mcorch transcript, so a local rung's prompt stays "
-        "short and unconfusing. Matching is exact on the tool's name. Empty "
-        "means keep every tool.",
-        default=(
-            "Read",
-            "Write",
-            "Edit",
-            "Bash",
-            "Glob",
-            "Grep",
-            "read",
-            "write",
-            "edit",
-            "bash",
-            "grep",
-            "find",
-            "ls",
-        ),
+        "How `mcgyvr delegate` gets its proposals. `prose`: the bound unit is "
+        "asked for JSON proposals (`delegate.build_prompt`), and the "
+        "deterministic decomposer turns them into contracts. `classifier`: the "
+        "`jev` unit answers typed questions (task type, target, symbol, task, "
+        "interface, dependency, scope) first, and `prose` stands in when it "
+        "declines. With no `jev` unit bound no model is asked: each field takes "
+        "its first candidate — the first servable type and target, the "
+        "target's first symbol, and the request as the task — and `prose` "
+        "stands in only when there is no target or servable type to pick. "
+        "Unset is `prose`.",
+        choices=("prose", "classifier"),
+        bind_hint="name one of `prose`, `classifier`",
     ),
     *ROLE_UNIT_FIELDS,
 )
@@ -876,87 +744,13 @@ VERIFIER_UNIT_FIELDS: tuple[Field, ...] = (
     *(field for field in ROLE_UNIT_FIELDS if field.name != "unit"),
 )
 
-MANAGER_FIELDS: tuple[Field, ...] = (
-    Field(
-        "interval_s",
-        "int",
-        "How often the ladder manager asks its small model for a decision, in "
-        "seconds. The default of 30 is an estimate, not a measurement: nothing "
-        "here has timed how fast a queue builds or drains on your units. Lower "
-        "it to react sooner, at the price of more questions asked of a model "
-        "that is itself running on the ladder's hardware; raise it to ask "
-        "less. The manager runs only under `mcgyvr manage`, and only when "
-        "`serving.enable_sleep_wake` is on and the ladder has units that can "
-        "sleep and wake. Everything it sees that falls outside what this "
-        "block lets it change, it prints as a recommendation and does not "
-        "do.",
-        default=30,
-        min_value=1,
-    ),
-    Field(
-        "confirm",
-        "int",
-        "How many consecutive identical answers the manager must get before it "
-        "acts on one, so a single odd answer from a small model moves nothing. "
-        "The default of 3 is an estimate, not a measurement: it lets one stray "
-        "answer fail to act alone, and it has not been tuned "
-        "against any real queue. With the default interval it means about "
-        "a minute and a half of the same answer before anything happens. Set "
-        "1 to act on every answer.",
-        default=3,
-        min_value=1,
-    ),
-    Field(
-        "dwell_s",
-        "int",
-        "The least time between two switches, in seconds, so the manager "
-        "cannot sleep a unit and wake it again in a loop. A unit that changed "
-        "state without the manager -- a task woke it, or a person ran `mcgyvr "
-        "serve` -- counts as a switch too, and a unit is put to sleep only "
-        "once it has been idle for this long. A vLLM unit sleeps at level 2 "
-        "and keeps its process; any other unit's containers are stopped. "
-        "Either way a wake loads the model from disk again, so every switch "
-        "costs a full load. "
-        "The default of 600 is an estimate, not a measurement. Set it above the "
-        "time your sleeping units take to wake -- `mcgyvr serve wake` prints "
-        "that time -- or the manager can be asking for a unit back before the "
-        "last wake has finished. 0 allows a switch on every decision.",
-        default=600,
-        min_value=0,
-    ),
-    Field(
-        "fanouts",
-        "str_list",
-        "The fan-out modes the manager may choose between, each one of "
-        "`none`, `idle` or `full` as `fanout` spells them, each listed once. "
-        "The manager changes `fanout` only among these, and fewer than two "
-        "means there is nothing to choose between, so it is never asked. "
-        "Empty by default: a manager that was not told which modes it may use "
-        "leaves `fanout` as the file says.",
-        default=(),
-        choices=FANOUT_CHOICES,
-    ),
-    Field(
-        "leads",
-        "str_list",
-        "The local units the manager may move to the front of the local "
-        "family, each listed once. Each must be on the `ladder` and must need "
-        "no credential: a unit that is not on the ladder is not one work "
-        "climbs, and a unit with an `api_key_env` is hosted, not local. Empty "
-        "by default, which means the manager is never asked which unit "
-        "should lead and the ladder's own order stands.",
-        default=(),
-    ),
-)
-
 SCHEMA: tuple[Field, ...] = (
     Field(
         "use_case",
         "enum",
         "Which of the three use cases this install serves: `coding` (scoped "
         "edits judged by the deterministic gate), `chat` (a raw un-gated "
-        "endpoint) or `agent` (an un-gated session over the files a contract "
-        "names as its sources).",
+        "endpoint) or `agent` (a raw un-gated endpoint with tool-calling).",
         choices=USE_CASES,
         default="coding",
     ),
@@ -1109,7 +903,7 @@ SCHEMA: tuple[Field, ...] = (
         "Which one unit answers every typed decision: a question answered "
         "with a single-token label rather than prose. Those are the gate's "
         "Jev rung, the reviewer's verdict, the fleet's choice of whether to "
-        "wake a smarter rung, the ladder manager's choices and the typed "
+        "wake a smarter rung and the typed "
         "proposer. Left unbound, each of those keeps asking the unit it asks "
         "today: the verifier, the reviewing rung, the fast rung or the "
         "orchestrator.",
@@ -1147,20 +941,6 @@ SCHEMA: tuple[Field, ...] = (
         "HuggingFace cache is a fact about that unit and lives on it, not "
         "here: only the policy of starting and stopping a card is a setting.",
         block=SERVING_FIELDS,
-    ),
-    Field(
-        "manager",
-        "block",
-        "What the ladder manager may do on its own. It runs only under "
-        "`mcgyvr manage`, and only when `serving.enable_sleep_wake` is on and "
-        "the ladder has units that can sleep and wake. Within this block it "
-        "sleeps and wakes those units, changes `fanout` and changes which "
-        "local unit leads; everything else it notices it prints as a "
-        "recommendation and leaves alone. A vLLM unit sleeps at level 2, "
-        "keeping its process and dropping its weights and KV cache; any other "
-        "unit's containers are stopped. A wake loads the model from disk "
-        "again.",
-        block=MANAGER_FIELDS,
     ),
     Field(
         "journal",
@@ -1732,14 +1512,6 @@ def _value(raw: object, spec: Field, path: str) -> Any:
     raise ConfigSchemaError(f"{path}: unsupported field kind {spec.kind!r}")
 
 
-def _check_key(key: str, path: str) -> None:
-    """Refuse a credential key, and a retired key with what replaced it."""
-    _reject_credential_key(key, path)
-    retired = _RETIRED_KEYS.get(_join(path, str(key)))
-    if retired is not None:
-        raise ConfigSchemaError(f"`{_join(path, str(key))}` {retired}")
-
-
 #: The config's half of the schema walk.
 _DIALECT = Dialect(
     noun="config",
@@ -1748,7 +1520,7 @@ _DIALECT = Dialect(
     value=_value,
     missing=_missing,
     default_for=_default_for,
-    check_key=_check_key,
+    check_key=_reject_credential_key,
 )
 
 
@@ -2089,7 +1861,6 @@ def _cross_validate_fleet(data: Mapping[str, Any]) -> None:
             "or point the breadth at a unit whose requests state a temperature."
         )
 
-    _cross_validate_manager(data, units)
     _cross_validate_relief(data, units)
     _cross_validate_shares(data, units)
 
@@ -2100,54 +1871,6 @@ def _cross_validate_fleet(data: Mapping[str, Any]) -> None:
                 f"{role}.unit: {bound!r} is not a declared unit. "
                 f"Declared: {', '.join(sorted(units))}"
             )
-
-    _cross_validate_mcorch(data, units)
-
-
-def _cross_validate_mcorch(data: Mapping[str, Any], units: Mapping[str, Any]) -> None:
-    """Check what `orchestrator.type: mcorch` needs, and nothing otherwise.
-
-    It needs a local-only deployment, a bound unit that states its `window`
-    (the fact a conversation is budgeted by), an `authoring` strategy, and a
-    bound `jev` unit to answer its typed decisions.
-    """
-    orchestrator = data["orchestrator"]
-    if orchestrator["type"] != MCORCH:
-        return
-    if data["deployment"] != LOCAL_ONLY:
-        raise ConfigSchemaError(
-            f"orchestrator.type: {MCORCH} needs `deployment: {LOCAL_ONLY}`, and "
-            f"deployment is {data['deployment']!r}. mcorch serves a local unit as "
-            "the agent, replacing the API-tier orchestrator `hybrid` describes. "
-            f"Set `deployment: {LOCAL_ONLY}`, or `orchestrator.type: proposer`."
-        )
-    bound = orchestrator["unit"]
-    if bound is None:
-        raise ConfigSchemaError(
-            f"orchestrator.unit: {MCORCH} serves the bound unit as the agent, and "
-            "no unit is bound. Name one of the units declared under `units`: "
-            f"{', '.join(sorted(units))}."
-        )
-    if units[bound]["window"] is None:
-        raise ConfigSchemaError(
-            f"units.{bound}.window: {MCORCH} budgets a conversation by its unit's "
-            f"window, and {bound!r} states none. State the tokens the unit serves "
-            "in one request, read back off the running process."
-        )
-    if orchestrator["authoring"] is None:
-        raise ConfigSchemaError(
-            f"orchestrator.authoring: {MCORCH} needs to be told how it turns a "
-            "request into contracts, and no default ships while which strategy a "
-            "local rung does best is measured. Name one of `direct`, `prose`, "
-            "`classifier`."
-        )
-    if data["jev"].get("unit") is None:
-        raise ConfigSchemaError(
-            f"jev.unit: {MCORCH} asks the jev unit every bounded question — is a "
-            "request chat or work, is a contract ready to run, what comes after a "
-            "result — and no jev unit is bound. Name one of the units declared "
-            f"under `units`: {', '.join(sorted(units))}."
-        )
 
 
 def _cross_validate_shares(data: Mapping[str, Any], units: Mapping[str, Any]) -> None:
@@ -2199,52 +1922,6 @@ def _cross_validate_relief(data: Mapping[str, Any], units: Mapping[str, Any]) ->
                 f"is one machine; sync again, or rename the unit."
             )
         _refuse_userinfo(name, str(block["address"]), "relief")
-
-
-def _cross_validate_manager(data: Mapping[str, Any], units: Mapping[str, Any]) -> None:
-    """Check `manager.fanouts` and `manager.leads`.
-
-    A mode must be one of `FANOUT_CHOICES` and listed once; a lead must be on
-    the ladder and must need no credential, because a unit with `api_key_env`
-    is hosted rather than local and cannot lead the local family. Each lead
-    is listed once too.
-    """
-    manager = data["manager"]
-
-    seen_modes: set[str] = set()
-    for index, mode in enumerate(manager["fanouts"]):
-        if mode not in FANOUT_CHOICES:
-            raise ConfigSchemaError(
-                f"manager.fanouts.{index}: {mode!r} is not a fan-out mode. "
-                f"Valid: {', '.join(FANOUT_CHOICES)}"
-            )
-        if mode in seen_modes:
-            raise ConfigSchemaError(
-                f"manager.fanouts.{index}: {mode!r} is listed more than once. "
-                f"A mode is one choice for the manager."
-            )
-        seen_modes.add(mode)
-
-    on_ladder = tuple(data["ladder"])
-    seen_leads: set[str] = set()
-    for index, name in enumerate(manager["leads"]):
-        if name in seen_leads:
-            raise ConfigSchemaError(
-                f"manager.leads.{index}: {name!r} is listed more than once. "
-                f"A unit is one choice for the manager."
-            )
-        seen_leads.add(name)
-        if name not in on_ladder:
-            raise ConfigSchemaError(
-                f"manager.leads.{index}: {name!r} is not on the ladder. "
-                f"On the ladder: {', '.join(on_ladder)}"
-            )
-        if units[name]["api_key_env"] is not None:
-            raise ConfigSchemaError(
-                f"manager.leads.{index}: {name!r} needs a credential, so it is "
-                f"not a local unit and cannot lead the local family. Name a "
-                f"unit without `api_key_env`."
-            )
 
 
 def _absent_remedy(path: Path | None) -> str:

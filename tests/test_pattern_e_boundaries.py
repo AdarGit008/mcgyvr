@@ -133,7 +133,7 @@ def test_the_reviewer_is_not_shown_the_acceptance_command_either(
     """The same boundary at the second seam that crosses it.
 
     ``verify._contract_block`` documents that a reviewer "cannot be shown
-    ``risk``, ``verification`` or ``acceptance``" because a reviewer that could
+    ``verification`` or ``acceptance``" because a reviewer that could
     read them "could argue with them instead of judging the code". The gate
     summary rendered beside it handed over the acceptance command anyway, in the
     finding's path. One rendering rule, so both seams move together.

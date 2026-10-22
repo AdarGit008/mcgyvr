@@ -301,9 +301,8 @@ def render_setup() -> str:
         "`remote` or `both` (Enter is `local`) — and, for `remote` or `both`,",
         "the ssh host(s) to read. It then asks the use case by letter (`[d]",
         "coding`, `[c] chat`, `[a] agent`; Enter or `d` is",
-        "`coding`), whether to dedicate a unit to Jev (Enter is no), and, for",
-        "`coding` with Jev on, whether to run mcorch on a unit (Enter is no):",
-        "the questions `--use-case`, `--jev` and `--mcorch` answer. It plans a",
+        "`coding`) and whether to dedicate a unit to Jev (Enter is no): the",
+        "questions `--use-case` and `--jev` answer. It plans a",
         "model of that use case for each rig, says whether its candidates came",
         "from the Hugging Face Hub, the cache of an earlier Hub read or the",
         "shipped catalog, asks before each download, writes the staged setup",
@@ -363,12 +362,6 @@ def render_setup() -> str:
         "  ignored, and either way it warns.",
         "- `--jev UNIT` — dedicate VRAM to a Jev unit, the written unit every",
         "  typed decision asks; it is never slept or woken.",
-        "- `--mcorch UNIT` with `--window TOKENS` — serve that unit as the",
-        "  conversational agent a harness points at (`mcgyvr mcorch serve`);",
-        "  it needs `--jev`.",
-        "- `--session-sandbox` — `tempdir` (the default) or `docker`: whether a",
-        "  `chat` or `agent` run that runs no command gets a task container",
-        "  (`sandbox.sessions`).",
         "",
         "`mcgyvr setup --help` has each one's full text.",
         "",
@@ -551,24 +544,12 @@ def _contract_table(fields: Sequence[contract_schema.Field], prefix: str) -> lis
     for field in fields:
         name = f"{prefix}{field.name}"
         required = "**yes**" if field.required else "no"
-        if field.required and field.session_optional:
-            required = f"**yes**, not for {_session_types()}"
         lines.append(
             f"| `{name}` | {_type_label(field)} | {required} | "
             f"{_contract_default_label(field)} | {_contract_describe(field)} |"
         )
     lines.append("")
     return lines
-
-
-def _session_types() -> str:
-    """Name the task types that run as a session, joined by `/`.
-
-    A session has no target and no scope, so a key the schema marks
-    session-optional is required for every other task type, and the contract
-    tables say which types that leaves out.
-    """
-    return "/".join(f"`{t.name}`" for t in contract_schema.task_types() if t.session)
 
 
 def _contract_section(field: contract_schema.Field, path: str) -> list[str]:
@@ -614,11 +595,6 @@ def render_skill() -> str:
         "deterministically, and leaves an accepted `code` change in the working",
         "tree. It never commits unless told to, and it never writes anything else",
         "into the repository.",
-        "",
-        f"A {_session_types()} run is a *session*: no `target`, no `scope`; the",
-        "reply is the result file's `answer`, kept in mcgyvr's session log.",
-        "One that declares no command gets no container unless the config's",
-        "`sandbox.sessions` is `docker`.",
         "",
         "## Step 1 — author a contract",
         "",
@@ -730,16 +706,13 @@ def render_skill() -> str:
         "- `assurance` — what an `accepted` result rests on, and `detail` says it",
         "  in a sentence: `deterministic` (a tool's change, on the gate),",
         "  `verified` (a reviewer agreed), `unverified` (no reviewer could be",
-        "  asked; `detail` says why) or `unchecked` (a `chat` or `agent` reply:",
+        "  asked; `detail` says why) or `unchecked` (a reply no check judges:",
         "  no checks, no review). A reply is never reviewed.",
         "- `findings` — the deterministic gate's findings for a contract that",
         "  dispatched nothing.",
         "- `delivery` — where the work went: left uncommitted in the tree (the",
         "  default), the commit, or why it was refused (as `detail`).",
         "  `committed`, `commit`, `branch`, `handoff` are the commit as fields.",
-        "- `answer` — a `chat` or `agent` reply; never written to the tree.",
-        "- `session_record` — a session's record (question, answer, unit, times,",
-        "  outcome) under `<journal>/sessions/`; `mcgyvr sessions [ID]` reads it.",
         "- `target`, `contract`, `task_type`, `orchestrator`, `run`, `session_file`,",
         "  `journal`, `exit_code`.",
         "- `copy_errors` — a `--record DIR` copy that could not be written, and",
@@ -777,8 +750,7 @@ def render_skill() -> str:
         "`skills/mcgyvr/SETUP.md`.",
         "",
         "When `outcome` is `accepted`, the change is in `target` (a rename's: in",
-        "each file `delivery` names), uncommitted (a session changes nothing: its",
-        "reply is `answer`).",
+        "each file `delivery` names), uncommitted.",
         "Review it there and commit it yourself. To have mcgyvr commit instead, run",
         "with `--commit` or `--branch NAME` on a tree where those files are",
         "clean: mcgyvr refuses to overwrite an edited or uncommitted file, so",

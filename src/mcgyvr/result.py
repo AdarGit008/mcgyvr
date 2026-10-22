@@ -1,20 +1,14 @@
-"""What a run came to, as data, and the record a session leaves behind.
+"""What a run came to, as data.
 
 ``RunResult`` is one ``mcgyvr run`` written out: the outcome and the sentence
-behind it, every attempt that was spent, the commit as fields, a chat or agent
-reply, and the paths to the run's own result file, journal and session record.
-``SessionRecord`` is the narrower answer a session contract keeps, so its
-question and reply outlive the result file.
-
-Both land under the journal — ``results/`` and ``sessions/`` — through
-:func:`write` and :func:`write_session`, which go through
-:mod:`mcgyvr.atomic`, so a reader sees the previous file or the new one and
-never a half-written one.
+behind it, every attempt that was spent, the commit as fields, and the paths to
+the run's own result file and journal. It lands under the journal's
+``results/`` through :func:`write`, which goes through :mod:`mcgyvr.atomic`, so
+a reader sees the previous file or the new one and never a half-written one.
 """
 
 from __future__ import annotations
 
-import hashlib
 import json
 import time
 from dataclasses import asdict, dataclass, field
@@ -25,7 +19,6 @@ from typing import Any
 from mcgyvr import atomic
 
 RESULTS_DIR = "results"
-SESSIONS_DIR = "sessions"
 
 
 @dataclass
@@ -99,13 +92,7 @@ class RunResult:
     commit: str = ""
     branch: str = ""
     handoff: str = ""
-    #: `answer` is a `chat` or `agent` reply — the prose the run
-    #: produced and never wrote to the tree; empty for one that changed files.
-    answer: str = ""
-    #: `session_record` is where a session's record landed under `sessions/`, so
-    #: the question and answer can be read back without the result file;
     #: `exit_code` is what the process returned for this run.
-    session_record: str | None = None
     exit_code: int | None = None
     #: `copy_errors` is a `--record DIR` copy that could not be written, keyed by
     #: the mirror directory it was meant for and holding the reason it was not.
@@ -121,136 +108,13 @@ class RunResult:
     #: behind before cleanup took it away. `started` and `finished` are epoch
     #: stamps — `started` when the run began, `finished` when this file was
     #: written — kept as numbers so a caller can measure a run without parsing
-    #: the ISO times beside them in a session record.
+    #: a time.
     notes: list[str] = field(default_factory=list)
     started: float = field(default_factory=time.time)
     finished: float | None = None
 
     def as_json(self) -> dict[str, Any]:
         return asdict(self)
-
-
-@dataclass
-class SessionContract:
-    """The contract a session was asked under, kept with the question.
-
-    ``path`` and ``sha256`` are what the bytes were when the session ran, and
-    ``text`` is those bytes decoded as UTF-8 with undecodable ones replaced —
-    so a record still says what was asked after the contract file is edited or
-    gone.
-    """
-
-    id: str
-    path: str
-    sha256: str
-    text: str
-
-
-@dataclass
-class SessionRecord:
-    """A session as it is filed under ``sessions/``, for ``mcgyvr sessions``.
-
-    A ``chat`` or ``agent`` contract writes nothing to the tree, so this record
-    is all that is left of it: the question, the answer, which unit answered,
-    the times at both ends, and where the run's own result and journal are.
-    """
-
-    #: `session` is `<contract id>-<run stamp>`, the name it is filed under.
-    session: str
-    task_type: str
-    contract: SessionContract
-    #: `question` is the contract's task verbatim, kept with the contract's bytes
-    #: above so the record still reads as a question after the file changes.
-    question: str
-    #: `answer` is the reply a session contract produced; where there is none it
-    #: is empty and `detail` says why.
-    answer: str
-    #: `unit` is the rung that answered; the outcome, assurance and detail are its.
-    unit: str | None
-    outcome: str
-    assurance: str | None
-    detail: str
-    attempt_id: str | None
-    #: `orchestrator` is who typed the session, and `session_file` its transcript.
-    orchestrator: str
-    session_file: str | None
-    #: `result` and `journal` are the run's result file and its journal, as paths.
-    result: str
-    journal: str
-    #: `started` and `finished` are ISO 8601 UTC stamps ending in `Z`.
-    started: str
-    finished: str
-
-    def as_json(self) -> dict[str, Any]:
-        return asdict(self)
-
-
-def session_record(
-    report: RunResult,
-    *,
-    contract_path: Path,
-    question: str,
-    result: Path,
-    journal: Path,
-) -> SessionRecord:
-    """Build the record a finished run leaves under ``sessions/``.
-
-    The contract is read back from ``contract_path`` rather than taken from the
-    run, so the record carries the bytes the run was judged against and a
-    sha256 a later reader can check them with. ``unit`` is the rung the answer
-    came from and ``attempt_id`` the last attempt's — the one that landed. The
-    clock starts at the run's own ``started`` and ends here, at the write.
-    """
-    data = contract_path.read_bytes()
-    landed = report.attempts[-1] if report.attempts else None
-    return SessionRecord(
-        session=f"{report.contract}-{report.run}",
-        task_type=report.task_type,
-        contract=SessionContract(
-            id=report.contract,
-            path=str(contract_path),
-            sha256=hashlib.sha256(data).hexdigest(),
-            text=data.decode("utf-8", "replace"),
-        ),
-        question=question,
-        answer=report.answer,
-        unit=report.rung,
-        outcome=report.outcome,
-        assurance=report.assurance,
-        detail=report.detail,
-        attempt_id=landed.attempt_id if landed is not None else None,
-        orchestrator=report.orchestrator,
-        session_file=report.session_file,
-        result=str(result),
-        journal=str(journal),
-        started=_iso(report.started),
-        finished=_iso(time.time()),
-    )
-
-
-def _iso(stamp: float) -> str:
-    return datetime.fromtimestamp(stamp, UTC).isoformat().replace("+00:00", "Z")
-
-
-def session_path(journal_dir: Path, contract_id: str, stamp: str) -> Path:
-    """Where a session's record goes: ``<journal>/sessions/<id>-<stamp>.json``."""
-    return journal_dir / SESSIONS_DIR / f"{contract_id}-{stamp}.json"
-
-
-def write_session(path: Path, record: SessionRecord) -> Path:
-    """Write a session record as JSON and return the path it went to."""
-    return _write_json(path, record.as_json())
-
-
-def sessions(journal_dir: Path) -> list[Path]:
-    """Every session record in the journal, newest first.
-
-    Ordered by the run stamp each file name ends in, not by mtime, so the order
-    is the order the runs were made in. A journal with no ``sessions/`` yet
-    lists nothing.
-    """
-    found = (journal_dir / SESSIONS_DIR).glob("*.json")
-    return sorted(found, key=lambda p: p.stem.rsplit("-", 1)[-1], reverse=True)
 
 
 def run_stamp(now: datetime | None = None) -> str:

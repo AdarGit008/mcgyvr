@@ -24,7 +24,7 @@ from typing import Any
 
 import pytest
 
-from mcgyvr.catalog import TaskType, catalog
+from mcgyvr.catalog import TaskType
 from mcgyvr.config import parse
 from mcgyvr.decision import Answer, Choice, ChoiceAnswer, Decision, Question
 from mcgyvr.delegate import (
@@ -39,6 +39,7 @@ from mcgyvr.orchestrator.index import Index, build_index
 from mcgyvr.orchestrator.read import explore
 from mcgyvr.orchestrator.resolve import resolve
 from mcgyvr.runner import Completion, StopReason
+from tests import ungated
 
 #: A keyless local ladder with no orchestrator block.
 LADDER = """\
@@ -142,11 +143,12 @@ def _rank0(seen: list[tuple[Any, Mapping[str, Question]]]) -> Any:
     return classify
 
 
-#: The example kind the choice mechanics are shown with. Not ``code``: a
-#: ``code`` contract states its reply cap, which no choice can say, so the
-#: classifier hands that work to the prose proposer
-#: (test_the_classifier_leaves_capped_work_to_the_prose_proposer.py).
-AGENT = catalog().require("agent")
+#: The ungated example kind (tests/ungated.py). Not ``code``: a ``code``
+#: proposal also carries a reply cap derived from its target
+#: (test_the_classifier_states_a_code_contracts_reply_cap.py), which these
+#: choice-mechanics tests leave out.
+AGENT = ungated.ungated()
+pytestmark = pytest.mark.usefixtures("ungated_catalog")
 
 
 # --- the typed-decision path ----------------------------------------------
@@ -163,10 +165,7 @@ def test_a_classifier_proposer_asks_choices_and_builds_a_proposal(
     (proposal,) = proposals
     assert proposal == Proposal(
         task_type="agent",
-        task=(
-            "Answer a prompt in plain prose from the repository files the "
-            "contract names as its sources, ungated: listing in listing.py."
-        ),
+        task="document listing",
         target="listing.py",
         stop_conditions=(
             "agent on listing in listing.py would require deciding "
@@ -175,7 +174,7 @@ def test_a_classifier_proposer_asks_choices_and_builds_a_proposal(
         ),
     )
 
-    assert len(seen) == 6
+    assert len(seen) == 7
     task_type = seen[0][1]["task_type"]
     assert isinstance(task_type, Choice)
     assert task_type.options == {"task_type:0": AGENT.doc}
@@ -189,6 +188,16 @@ def test_a_classifier_proposer_asks_choices_and_builds_a_proposal(
     assert list(symbol.options) == ["symbol:0", "symbol:1"]
     assert symbol.options["symbol:1"] != "", "a no-symbol option must be offered"
 
+    task = seen[3][1]["task"]
+    assert isinstance(task, Choice)
+    assert task.options == {
+        "task:0": "document listing",
+        "task:1": (
+            "Answer a prompt in plain prose from the repository files the "
+            "contract names as its sources, ungated: listing in listing.py."
+        ),
+    }
+
 
 def test_a_classifier_proposer_offers_the_catalog_vocabulary_and_candidates(
     repo: Index,
@@ -199,7 +208,7 @@ def test_a_classifier_proposer_offers_the_catalog_vocabulary_and_candidates(
     proposals = propose(evidence_for(repo, "document the pagination helper", (AGENT,)))
 
     assert len(proposals) == 1
-    assert len(seen) == 6
+    assert len(seen) == 7
     state, _ = seen[0]
     assert state["request"] == "document the pagination helper"
     assert state["task_types"] == ["agent"]

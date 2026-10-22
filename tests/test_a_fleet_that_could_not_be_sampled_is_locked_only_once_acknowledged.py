@@ -14,8 +14,8 @@ chain is every live fleet's: :func:`mcgyvr.fleet.promote.promote` then
   are, and a lock with no combination record is dated by its approval.
 * Refused, with no lock written: no acknowledgment; a unit on a rig that was
   not read; a read rig with no unit on it; a hosted unit at a machine of the
-  user's; an mcorch policy whose units the layout does not hold awake; a setup
-  that already lays out rigs or fleets; a setup that cannot be read.
+  user's; a setup that already lays out rigs or fleets; a setup that cannot be
+  read.
 * A second approval on one day is its own folder, ``own@<day>-2``.
 
 The machines are invented; nothing is read.
@@ -58,20 +58,16 @@ def _on_rig(rig: str = RIG) -> dict[str, Any]:
     }
 
 
-def _setup(
-    tmp_path: Path,
-    units: dict[str, Any],
-    *,
-    policy: dict[str, Any] | None = None,
-    **more: Any,
-) -> Path:
+def _setup(tmp_path: Path, units: dict[str, Any], **more: Any) -> Path:
     setup = tmp_path / "setup"
     setup.mkdir(exist_ok=True)
     fleet = {"units": units, **more}
     (setup / "fleet.yaml").write_text(yaml.safe_dump(fleet), encoding="utf-8")
-    if policy is None:
-        policy = {"use_case": "coding", "ladder": list(units)}
-    policy.setdefault("journal", {"dir": str(tmp_path / "journal")})
+    policy = {
+        "use_case": "coding",
+        "ladder": list(units),
+        "journal": {"dir": str(tmp_path / "journal")},
+    }
     (setup / "policy.yaml").write_text(yaml.safe_dump(policy), encoding="utf-8")
     return setup
 
@@ -156,39 +152,25 @@ def test_a_second_approval_of_a_day_is_its_own_folder(tmp_path: Path) -> None:
     )
 
 
-def _mcorch(units: list[str]) -> dict[str, Any]:
-    return {
-        "use_case": "coding",
-        "deployment": "local-only",
-        "ladder": units,
-        "orchestrator": {"type": "mcorch", "unit": units[0], "authoring": "direct"},
-        "jev": {"unit": units[0]},
-    }
-
-
 REFUSED = {
-    "unacknowledged": ({HOSTED: _hosted()}, {}, None, "acknowledg"),
-    "unread rig": ({LOCAL: _on_rig()}, {}, None, "not approved"),
+    "unacknowledged": ({HOSTED: _hosted()}, {}, "acknowledg"),
+    "unread rig": ({LOCAL: _on_rig()}, {}, "not approved"),
     "other unread rig": (
         {LOCAL: _on_rig(), "other": _on_rig("other.invalid")},
         {RIG: RIG_ID},
-        None,
         "other.invalid",
     ),
-    "empty rig": ({HOSTED: _hosted()}, {RIG: RIG_ID}, None, "no unit on"),
+    "empty rig": ({HOSTED: _hosted()}, {RIG: RIG_ID}, "no unit on"),
     "users machine": (
         {HOSTED: _hosted("http://127.0.0.1:8080/v1")},
         {},
-        None,
         "machine of yours",
     ),
     "users machine beside a rig": (
         {LOCAL: _on_rig(), HOSTED: _hosted("http://127.0.0.1:8080/v1")},
         {RIG: RIG_ID},
-        None,
         "machine of yours",
     ),
-    "mcorch hosted": ({HOSTED: _hosted()}, {}, _mcorch([HOSTED]), "mcorch"),
 }
 
 
@@ -198,27 +180,13 @@ def test_a_fleet_it_cannot_vouch_for_is_refused_and_nothing_is_locked(
 ) -> None:
     from mcgyvr.fleet.lock import LockRefusedError, write_unsampled
 
-    units, rigs, policy, word = REFUSED[case]
-    setup = _setup(tmp_path, units, policy=policy)
+    units, rigs, word = REFUSED[case]
+    setup = _setup(tmp_path, units)
     dev = tmp_path / "dev"
 
     with pytest.raises(LockRefusedError, match=word):
         write_unsampled(dev, setup, rigs=rigs, acknowledged=case != "unacknowledged")
     assert not (dev / LOCK_DIR).exists()
-
-
-def test_an_mcorch_policy_on_a_read_rig_is_locked(tmp_path: Path) -> None:
-    from mcgyvr.fleet.lock import write_unsampled
-
-    setup = _setup(
-        tmp_path, {LOCAL: {**_on_rig(), "window": 8192}}, policy=_mcorch([LOCAL])
-    )
-
-    tree = write_unsampled(
-        tmp_path / "dev", setup, rigs={RIG: RIG_ID}, acknowledged=True
-    )
-
-    assert (tree / "own.json").is_file()
 
 
 @pytest.mark.parametrize("laid_out", ["rigs", "fleets"])

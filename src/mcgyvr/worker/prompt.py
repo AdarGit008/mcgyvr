@@ -24,7 +24,7 @@ from mcgyvr.gate.adapter import LanguageAdapter
 from mcgyvr.gate.preflight import PreflightIssue, TokenCount, check_prompt_fits
 from mcgyvr.orchestrator.read import estimate_tokens
 from mcgyvr.worker.bundle import Bundle, bundle_for
-from mcgyvr.worker.reply import PROSE, WHOLE_FILE
+from mcgyvr.worker.reply import WHOLE_FILE
 
 # The output rule stated to the worker, one per schema this module can ask for and
 # the reply parser can read back. A schema missing from this table is refused by
@@ -37,10 +37,6 @@ _REPLY_INSTRUCTIONS: dict[str, str] = {
         "Reply with the complete new content of {target}, as one fenced code "
         "block and nothing else. Not a diff, not an excerpt, not the changed "
         "lines — the whole file as it should exist after your change."
-    ),
-    PROSE: (
-        "Reply with the answer as plain prose and nothing else. No fence, no "
-        "code block, no preamble."
     ),
 }
 
@@ -166,15 +162,11 @@ def render_user_message(view: dict[str, Any], retry: RetryNotes | None = None) -
     with one newline.
     """
     sections: list[str] = [f"TASK ({view['task_type']}): {view['task']}"]
-    # A prose answer has no file to change, so the target and its current content
-    # are left out of it; the content itself only appears when the contract holds
-    # it, otherwise the worker is pointed at the target alone.
-    if view["output_schema"] != PROSE:
-        sections.append(f"TARGET: {view['target']}")
-        if view["target_content"]:
-            sections.append(
-                _render_target_content(view["target"], view["target_content"])
-            )
+    # The target's current content only appears when the contract holds it,
+    # otherwise the worker is pointed at the target alone.
+    sections.append(f"TARGET: {view['target']}")
+    if view["target_content"]:
+        sections.append(_render_target_content(view["target"], view["target_content"]))
     if view["interface"]:
         sections.append(
             f"INTERFACE (the result must expose exactly this):\n{view['interface']}"
@@ -227,8 +219,8 @@ def build_prompt(
     if contract.output_schema not in _REPLY_INSTRUCTIONS:
         raise UnsupportedSchemaError(
             f"output_schema {contract.output_schema!r} has no reply instruction "
-            f"and no parser; only {WHOLE_FILE!r} and {PROSE!r} are "
-            f"implemented. Refused before dispatch rather than after it."
+            f"and no parser; only {WHOLE_FILE!r} is implemented. Refused before "
+            f"dispatch rather than after it."
         )
     bundle = bundle_for(contract.kind.use_case.name, contract.target, adapters)
     system = bundle.text if bundle is not None else ""
@@ -236,18 +228,12 @@ def build_prompt(
     tokens = estimate(_measured(system, user))
     # The ceiling is the one the contract declared for itself, so a prompt that
     # cannot fit is a contract-level failure found here rather than at dispatch.
-    # Session contracts are exempt: their prompts are not bounded by
-    # `context.max_input_tokens`, and leaving `fit_issue` None says no check ran.
     # `check_prompt_fits` adds the estimator's reserve when `counted_by` says the
     # count is an estimate, and compares against an exact count when it is not.
-    issue = (
-        None
-        if contract.is_session
-        else check_prompt_fits(
-            tokens,
-            contract.max_input_tokens,
-            counted_by=counted_by,
-        )
+    issue = check_prompt_fits(
+        tokens,
+        contract.max_input_tokens,
+        counted_by=counted_by,
     )
     return WorkerPrompt(
         system=system,

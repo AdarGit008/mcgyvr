@@ -13,17 +13,12 @@ host it covers.
 from __future__ import annotations
 
 import json
-from collections.abc import Iterator, Mapping
+from collections.abc import Iterator
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
 
-from mcgyvr.fleet.layout import (
-    FleetError,
-    combination_id,
-    layout_sha256,
-    mcorch_units,
-)
+from mcgyvr.fleet.layout import combination_id, layout_sha256
 from mcgyvr.fleet.roots import LOCK_DIR
 
 
@@ -81,18 +76,15 @@ def admit_live(
     fleet: dict[str, Any],
     fleet_name: str | None,
     observed: dict[str, Any],
-    *,
-    policy: Mapping[str, Any] | None = None,
 ) -> Plan:
     """Decide whether a live run of ``fleet_name`` is admitted, and what it must fix.
 
     Refuses when no fleet is named, when the name is not a fleet of this setup,
-    when the fleet has no lock in ``root``, when the layout no longer hashes to
-    the ``layout_sha256`` its lock pinned, and — given a ``policy`` — when
-    mcorch needs a unit awake that the layout does not hold awake. Then, for
-    each rig of the layout, it refuses an observed rig id that is not the
-    locked one, a rig a process that is not ours holds, and a unit whose sleep
-    state was read as ``unread``, since whether it would serve is then unknown.
+    when the fleet has no lock in ``root``, and when the layout no longer hashes
+    to the ``layout_sha256`` its lock pinned. Then, for each rig of the layout,
+    it refuses an observed rig id that is not the locked one, a rig a process
+    that is not ours holds, and a unit whose sleep state was read as
+    ``unread``, since whether it would serve is then unknown.
 
     ``observed`` is the door's reading keyed by rig name, each with ``rig_id``,
     a ``units`` map of unit id to state, and ``foreign`` process names. The
@@ -117,11 +109,6 @@ def admit_live(
         raise LiveRefusedError(
             f"{fleet_name}: the layout no longer matches its pin — re-lock"
         )
-    if policy is not None:
-        try:
-            mcorch_units(policy, layout, name=fleet_name)
-        except FleetError as exc:
-            raise LiveRefusedError(str(exc)) from exc
 
     rig_ids = {name: block["rig_id"] for name, block in fleet.get("rigs", {}).items()}
     unit_ids = _unit_ids(fleet)

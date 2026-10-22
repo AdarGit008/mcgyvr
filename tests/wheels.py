@@ -283,11 +283,10 @@ print(json.dumps({"file": mcgyvr.__file__, "row": row}))
 # seam — init writes the config that defines the ladder, compose ranks its
 # candidates.
 #
-# `pressure.py` reads one rung's load for the ladder manager. It binds the rung
-# to an endpoint to ask the two questions that need one — does it answer
-# (`availability`'s own probe) and what does the unit say it has in flight (the
-# runner's own status read) — and hands back a `Reading` of numbers and a flag.
-# Nothing travels upward: no endpoint, and no credential, leaves it.
+# `pressure.py` reads what a unit says it has in flight, for the capacity. It
+# binds the source to an endpoint to ask that one question (the runner's own
+# status read) and hands back a number. Nothing travels upward: no endpoint, and
+# no credential, leaves it.
 #
 # `recommend.py` is the same argument for the read-only placement planner:
 # it assembles a keyless decision endpoint and hands it to

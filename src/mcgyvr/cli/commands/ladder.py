@@ -1,11 +1,9 @@
-"""The `ladder` commands: sleep and wake a card, manage the ladder, emit it.
+"""The `ladder` commands: sleep and wake a card, emit the ladder.
 
-`serve` puts one card to sleep or wakes it through the serving door; `manage`
-runs the ladder manager, which sleeps and wakes the ladder's units by the queue
-Jev answers on; `emit` writes one compose file per launch spec, or compares the
-files already on disk with what the config plans; and `mcorch serve` serves the
-orchestrator rung as an Anthropic Messages API address for a harness. Nothing
-here starts a process: emitting writes a file, and the door does the switching.
+`serve` puts one card to sleep or wakes it through the serving door; `emit`
+writes one compose file per launch spec, or compares the files already on disk
+with what the config plans. Nothing here starts a process: emitting writes a
+file, and the door does the switching.
 """
 
 from __future__ import annotations
@@ -15,8 +13,6 @@ import sys
 from collections.abc import Iterable, Mapping, Sequence
 from pathlib import Path
 from typing import TYPE_CHECKING, Any
-
-import yaml
 
 from mcgyvr import atomic
 from mcgyvr.capability import (
@@ -63,7 +59,8 @@ if TYPE_CHECKING:  # pragma: no cover - typing only
 
 from mcgyvr.cli.common import CONFIG_DEFAULT_HELP, _named_path
 from mcgyvr.cli.fleet_live import _admitted_live, _live
-from mcgyvr.cli.sizing import _hosts_wanted, _model_specs, _resolve_hosts, _scans
+from mcgyvr.cli.sizing import _hosts_wanted, _model_specs
+from mcgyvr.serving.rigfile import recorded_scans, resolve_hosts
 
 
 def _serve(args: argparse.Namespace) -> int:
@@ -132,132 +129,6 @@ def _serve(args: argparse.Namespace) -> int:
     return Exit.OK
 
 
-def _manage(args: argparse.Namespace) -> int:
-    """Run the ladder manager: tick on the config's interval, switching cards.
-
-    Nothing to manage is `Exit.OK`, and so is a loop stopped by an interrupt.
-    `Exit.REFUSED` covers a live fleet that is not admitted as locked, and a
-    manager lock this run could not hold.
-    """
-    try:
-        config = load_config(Path(args.config) if args.config else None)
-    except ConfigError as exc:
-        print(f"error: {exc}", file=sys.stderr)
-        return Exit.ERROR
-
-    from mcgyvr import ladder_manager
-    from mcgyvr.pressure import exclusive
-
-    why = ladder_manager.applicable(config)
-    if why is not None:
-        print(f"nothing to manage: {why}")
-        return Exit.OK
-
-    if _live(config) and _admitted_live(config) is not None:
-        return Exit.REFUSED
-
-    # One manager per host: the lock answers True when it is held, False when
-    # another `mcgyvr manage` holds it, and anything else when no lock could be
-    # taken — both of those refuse, with a different sentence each.
-    with exclusive(ladder_manager.MANAGER_LOCK) as held:
-        if held is not True:
-            print(
-                "error: another `mcgyvr manage` is running on this host"
-                if held is False
-                else "error: no lock could be taken under the rendezvous "
-                "directory, so mcgyvr cannot tell whether another `mcgyvr "
-                "manage` is running on this host",
-                file=sys.stderr,
-            )
-            return Exit.REFUSED
-        return _manage_held(args, config)
-
-
-def _card_mib(config: Config) -> dict[str, dict[int, int]]:
-    """Card memory in MiB, by host and card index, for the ladder's cards.
-
-    The figures come from the recorded scans; an empty mapping means no scan of
-    those hosts could be read, which is not the same as hosts with no cards.
-    """
-    from mcgyvr import wake as wakelib
-    from mcgyvr.serving import cards
-
-    hosts = {card.host for card in cards(config).values()}
-    try:
-        scans = _resolve_hosts(_scans(), hosts)
-    except OSError:
-        return {}
-    return wakelib.card_rooms({host: scans[host] for host in hosts if host in scans})
-
-
-def _manage_held(args: argparse.Namespace, config: Config) -> int:
-    """Manage the ladder with the host's manager lock held: build, say, run.
-
-    The manager is built from the config: capacity measured through a gauge,
-    the rung Jev answers on, the ladder as `View` sees it, the card switches,
-    the pressure reading and the cooling tracker. `--once` takes one tick.
-    """
-    from mcgyvr import ladder_manager, wake_judge
-    from mcgyvr import wake as wakelib
-    from mcgyvr.capacity import Capacity, CapacityError
-    from mcgyvr.config import DEFAULT_REQUEST_TIMEOUT_S
-    from mcgyvr.local_pool import source_map
-    from mcgyvr.pressure import Board, Gauge, HostCooling, Pressure, RungCooling
-
-    pool = source_map(config)
-    fast = wake_judge.fast_rung(config, pool)
-    if fast is None:
-        print("error: no local rung for Jev to run on", file=sys.stderr)
-        return Exit.ERROR
-    gauge = Gauge()
-    try:
-        capacity = Capacity.of(config, gauge=gauge)
-    except CapacityError as exc:
-        print(f"error: {exc}", file=sys.stderr)
-        return Exit.ERROR
-
-    stated = config.units[fast.name].request_timeout_s
-    bounds = ladder_manager.Bounds.of(config)
-    board = Board()
-    # The rung Jev answers on, whose card is never slept: `jev.unit` when the
-    # config names one, else the fast rung, since Jev has to run on a local one.
-    jev = config.get("jev.unit") or fast.name
-    view = ladder_manager.View.of(config, jev=jev)
-    switches = wakelib.CardSwitches(config, capacity, card_mib=_card_mib(config))
-    manager = ladder_manager.Manager(
-        view,
-        bounds,
-        pressure=Pressure(pool, capacity, gauge),
-        switches=switches,
-        decide=ladder_manager.decide_on(
-            pool,
-            fast.name,
-            timeout_s=DEFAULT_REQUEST_TIMEOUT_S if stated is None else stated,
-        ),
-        cooling=RungCooling(pool, hold_s=bounds.dwell_s, shared=HostCooling()),
-        say=print,
-        publish=board.publish,
-    )
-    print(
-        f"managing {', '.join(view.resident)}; can sleep and wake: "
-        f"{', '.join(ladder_manager.sleepable_rungs(config))}; Jev runs on "
-        f"{jev}; every {bounds.interval_s:g}s"
-    )
-    for rung, alone in wakelib.left_alone(config).items():
-        print(f"note: {rung} is left alone: {alone}")
-    for rung in ladder_manager.sleepable_rungs(config):
-        why = switches.why_no_room(rung)
-        if why is not None:
-            print(f"note: no room is made for {rung}: {why}")
-    try:
-        ladder_manager.run(
-            manager, interval_s=bounds.interval_s, ticks=1 if args.once else None
-        )
-    except KeyboardInterrupt:
-        print("stopped")
-    return Exit.OK
-
-
 def _merge_resolved(
     block: Mapping[str, Any], resolved: Mapping[str, Any]
 ) -> dict[str, Any]:
@@ -307,50 +178,6 @@ def _sizing_keys(spec: ModelSpec) -> dict[str, Any]:
         if value:
             keys[key] = value
     return keys
-
-
-def _render_launch_block(launch: Mapping[str, Any]) -> str:
-    """One unit's `launch` mapping as YAML, indented to sit in a unit block.
-
-    `yaml.safe_dump` sorts the keys; `launch:` is written at four spaces and
-    its lines at six, so the block lands inside a unit at indent two.
-    """
-    dumped = yaml.safe_dump(dict(launch), sort_keys=True, width=200)
-    lines = ["    launch:"]
-    lines.extend(
-        f"      {line}" if line else "" for line in dumped.rstrip("\n").splitlines()
-    )
-    return "\n".join(lines)
-
-
-def _render_stamped_fleet(fleet: Mapping[str, Any]) -> str:
-    """Render `fleet.yaml` with each unit's launch written into its own block.
-
-    `render_fleet` writes the schema's units and cannot render a `launch`
-    mapping, so the launches are lifted out before it runs and put back where
-    the schema's commented `launch` leaf sits, under the unit they belong to.
-    """
-    launches: dict[str, Mapping[str, Any]] = {}
-    render_units: dict[str, Any] = {}
-    for name, block in (fleet.get("units") or {}).items():
-        block = dict(block)
-        launch = block.pop("launch", None)
-        if isinstance(launch, Mapping) and launch:
-            launches[name] = launch
-        render_units[name] = block
-    text = render_fleet({**fleet, "units": render_units})
-
-    current: str | None = None
-    out: list[str] = []
-    for line in text.splitlines():
-        if line.startswith("  ") and not line.startswith("    ") and line.endswith(":"):
-            name = line[2:-1].strip()
-            current = name if name in launches else None
-        elif current is not None and line.startswith("    # launch:  # "):
-            out.append(_render_launch_block(launches[current]))
-            continue
-        out.append(line)
-    return "\n".join(out) + "\n"
 
 
 def _atomic_write(path: Path, text: str) -> None:
@@ -425,7 +252,7 @@ def _stamp_launch(
         return None
     fleet["units"] = blocks
     try:
-        _atomic_write(fleet_path, _render_stamped_fleet(fleet))
+        _atomic_write(fleet_path, render_fleet(fleet))
     except OSError as exc:
         raise EmitError(f"{fleet_path}: cannot be written — {exc}") from exc
     return fleet_path
@@ -456,7 +283,7 @@ def _emit(args: argparse.Namespace) -> int:
     if fleet is not None:
         return _emit_locked(fleet, args, config.path)
 
-    scans = _scans()
+    scans = recorded_scans()
     try:
         hosts = _hosts_wanted(config)
     except UnitError as exc:
@@ -466,7 +293,7 @@ def _emit(args: argparse.Namespace) -> int:
     # its host in `address`: what the ladder names is resolved onto the scans
     # here — a local name onto this machine's — before a host is looked for by
     # name below.
-    scans = _resolve_hosts(scans, hosts.values())
+    scans = resolve_hosts(scans, hosts.values())
 
     # An unscanned host is a refusal, not a warning: a unit is sized from
     # measured free VRAM, RAM and disk, and a launch spec for a machine nobody
@@ -552,7 +379,7 @@ def _emit(args: argparse.Namespace) -> int:
         return Exit.ERROR
 
     # The launch just rendered is stamped back into `fleet.yaml`, so `serve`
-    # and the manager read the launch a unit actually runs rather than deriving
+    # reads the launch a unit actually runs rather than deriving
     # it again, and a block that states its own launch keeps what it states.
     # A fleet that cannot be read or written is an error, and the files already
     # written are left as they are.
@@ -680,58 +507,8 @@ def _report_drift(
     return Exit.MISMATCH
 
 
-def _mcorch_serve(args: argparse.Namespace) -> int:
-    """Serve the orchestrator rung as an Anthropic Messages API address.
-
-    Refused unless `orchestrator.type` is mcorch, and for a fleet that is live
-    and not admitted as locked; a role the config leaves unbound is refused too.
-    Binds the facade, serves until interrupted, and closes the socket.
-    """
-    from mcgyvr.config import MCORCH
-    from mcgyvr.decision import UnboundRoleError
-    from mcgyvr.local_pool import SourceUnavailableError
-    from mcgyvr.mcorch import bind, serve
-    from mcgyvr.mcorch.authoring import AuthoringUnavailableError
-
-    try:
-        config = load_config(Path(args.config) if args.config else None)
-    except ConfigError as exc:
-        print(f"error: {exc}", file=sys.stderr)
-        return Exit.ERROR
-    if config.get("orchestrator.type") != MCORCH:
-        print(
-            f"refused: orchestrator.type is {config.get('orchestrator.type')!r}, "
-            f"and `mcgyvr mcorch serve` serves only `orchestrator.type: {MCORCH}`. "
-            "Set it, with `orchestrator.unit`, `orchestrator.authoring` and "
-            "`jev.unit`, or use the orchestrator the config has.",
-            file=sys.stderr,
-        )
-        return Exit.REFUSED
-    if _live(config) and _admitted_live(config) is not None:
-        return Exit.REFUSED
-    try:
-        bound = bind.bind(config, journal_dir=bind.journal_dir(config))
-    except (UnboundRoleError, SourceUnavailableError, AuthoringUnavailableError) as exc:
-        print(f"refused: {exc}", file=sys.stderr)
-        return Exit.REFUSED
-
-    address = args.bind if args.bind else serve.DEFAULT_BIND
-    port = args.port if args.port is not None else serve.FACADE_PORT
-    server = serve.make_server(bind.facade(bound), bind=address, port=port)
-    host, bound_port = str(server.server_address[0]), int(server.server_address[1])
-    print(f"mcorch serving http://{host}:{bound_port} as writer {bound.writer}")
-    print(f"transcript: {bound.transcript.path}")
-    try:
-        server.serve_forever()
-    except KeyboardInterrupt:
-        pass
-    finally:
-        server.server_close()
-    return Exit.OK
-
-
 def add_parser(sub: argparse._SubParsersAction[argparse.ArgumentParser]) -> None:
-    """Register the `serve`, `manage` and `emit` subparsers and their flags."""
+    """Register the `serve` and `emit` subparsers and their flags."""
 
     srv = sub.add_parser(
         "serve",
@@ -760,27 +537,6 @@ def add_parser(sub: argparse._SubParsersAction[argparse.ArgumentParser]) -> None
         help=f"config to read (default: {CONFIG_DEFAULT_HELP})",
     )
     srv.set_defaults(func=_serve)
-
-    man = sub.add_parser(
-        "manage",
-        help=(
-            "let Jev sleep and wake the ladder's units by the queue on it "
-            "(runs until interrupted)"
-        ),
-    )
-    man.add_argument(
-        "--config",
-        default=None,
-        type=_named_path,
-        metavar="PATH",
-        help=f"config to read (default: {CONFIG_DEFAULT_HELP})",
-    )
-    man.add_argument(
-        "--once",
-        action="store_true",
-        help="read the queue and decide once, then stop",
-    )
-    man.set_defaults(func=_manage)
 
     emi = sub.add_parser(
         "emit",
@@ -828,41 +584,3 @@ def add_parser(sub: argparse._SubParsersAction[argparse.ArgumentParser]) -> None
         ),
     )
     emi.set_defaults(func=_emit)
-
-
-def add_mcorch_parser(sub: argparse._SubParsersAction[argparse.ArgumentParser]) -> None:
-    """Register the `mcorch` parser and its `serve` subparser."""
-
-    mcorch = sub.add_parser(
-        "mcorch",
-        help="serve the orchestrator rung as the agent a harness talks to",
-    )
-    mcorch_sub = mcorch.add_subparsers(dest="mcorch_command", required=True)
-    mserve = mcorch_sub.add_parser(
-        "serve",
-        help=(
-            "serve an Anthropic Messages API address for a harness to point at "
-            "(ANTHROPIC_BASE_URL); needs `orchestrator.type: mcorch`"
-        ),
-    )
-    mserve.add_argument(
-        "--config",
-        default=None,
-        type=_named_path,
-        help=f"config to read (default: {CONFIG_DEFAULT_HELP})",
-    )
-    mserve.add_argument(
-        "--bind",
-        default=None,
-        help=(
-            "the address to listen on (default: the loopback; a LAN or tailnet "
-            "address lets another machine's harness reach it)"
-        ),
-    )
-    mserve.add_argument(
-        "--port",
-        default=None,
-        type=int,
-        help="the port to listen on (default: the facade's own)",
-    )
-    mserve.set_defaults(func=_mcorch_serve)

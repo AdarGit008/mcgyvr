@@ -13,6 +13,12 @@ measured memory bandwidth, disk, models on disk, docker, notes, the private IPv4
 a worker may listen on, and the recorded snapshot tokens. A section the scan did
 not determine is None here, never a zero.
 
+A rig file also keeps the addresses a person stated its units are reached at
+(``mcgyvr setup --rig-address``), apart from the reading, since nobody read
+them off the machine. :func:`resolve_hosts` finds a rig under any of its names:
+its rig name, the hostname its scan recorded, an address its scan recorded or a
+person stated, or a name that resolves to one of those addresses here.
+
 Two comparisons hold a rig to its file. :func:`moved` lists what differs from
 what the file recorded, which is printed and not acted on; :func:`misfits` names
 the cards the fleet uses that are gone or smaller, which stops a run.
@@ -26,14 +32,17 @@ from __future__ import annotations
 import ipaddress
 import json
 import re
+import socket
+import threading
 from collections.abc import Iterable, Mapping
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
 from datetime import UTC, datetime
 from functools import cached_property
 from pathlib import Path
 from typing import Any
 
 from mcgyvr import atomic
+from mcgyvr import scan as scan_module
 from mcgyvr.fleet.roots import FolderError, rigs_dir
 from mcgyvr.scan import BRIDGE_PREFIXES, ModelOnDisk, Network, Scan
 
@@ -74,6 +83,12 @@ BANDWIDTH_TOLERANCE = 0.15
 #: only when the reading names no interface it sits on; a named interface
 #: decides by its name, so a LAN numbered inside this network is kept.
 DOCKER_BRIDGE = ipaddress.IPv4Network("172.17.0.0/16")
+#: The flag that states the address a rig's units are reached at, for a rig
+#: whose scan recorded none; a refusal names it with the rig filled in.
+STATE = "mcgyvr setup --rig-address {rig}={address}"
+#: Seconds a name is given to resolve to addresses here before it is taken to
+#: resolve to none, so a resolver that hangs never holds a run.
+RESOLVE_S = 2.0
 
 
 class RigFileError(Exception):
@@ -111,13 +126,17 @@ class Rig:
     its machine without parsing json. A section the scan did not determine is
     None, never a default.
 
+    ``addresses`` are the IPv4 addresses a person stated the rig's units are
+    reached at, kept apart from the reading because no scan read them.
+
     :meth:`to_json` and :func:`from_json` are the file's own shape: a mapping of
-    ``rig``, ``read_at`` and ``reading``.
+    ``rig``, ``read_at`` and ``reading``, and ``addresses`` once one is stated.
     """
 
     rig: str
     read_at: str
     reading: Mapping[str, Any]
+    addresses: tuple[str, ...] = ()
 
     @cached_property
     def scan(self) -> Scan:
@@ -232,8 +251,19 @@ class Rig:
         """
         return private_ipv4(self.scan.network)[1]
 
+    @property
+    def reached_at(self) -> tuple[str, ...]:
+        """Every address this rig answers at: those stated, then those scanned."""
+        return tuple(dict.fromkeys((*self.addresses, *scanned_addresses(self.scan))))
+
     def to_json(self) -> str:
-        payload = {"rig": self.rig, "read_at": self.read_at, "reading": self.reading}
+        payload: dict[str, Any] = {
+            "rig": self.rig,
+            "read_at": self.read_at,
+            "reading": self.reading,
+        }
+        if self.addresses:
+            payload["addresses"] = list(self.addresses)
         return json.dumps(payload, indent=2) + "\n"
 
 
@@ -241,9 +271,11 @@ def from_json(text: str) -> Rig:
     """One rig file's text as a :class:`Rig`, or :class:`RigFileError`.
 
     The document must be json holding ``rig``, ``read_at`` and ``reading``, and
-    the reading must parse into a :class:`mcgyvr.scan.Scan`. Anything else — text
-    that is not json, a mapping without one of those keys, a reading whose fields
-    are of the wrong type — is refused with the name of the failure.
+    the reading must parse into a :class:`mcgyvr.scan.Scan`. ``addresses`` is
+    optional, and each one it holds must be an address :func:`stated_address`
+    takes. Anything else — text that is not json, a mapping without one of those
+    keys, a reading whose fields are of the wrong type — is refused with the
+    name of the failure.
     """
     try:
         raw = json.loads(text)
@@ -251,6 +283,9 @@ def from_json(text: str) -> Rig:
             rig=str(raw["rig"]),
             read_at=str(raw["read_at"]),
             reading=dict(raw["reading"]),
+            addresses=tuple(
+                stated_address(str(one)) for one in raw.get("addresses") or ()
+            ),
         )
         rig.scan  # noqa: B018 -- a reading Scan does not take is no rig file
         return rig
@@ -292,6 +327,51 @@ def _bridged(address: str, interfaces: Iterable[str]) -> bool:
     if names:
         return all(name.startswith(BRIDGE_PREFIXES) for name in names)
     return ipaddress.IPv4Address(address) in DOCKER_BRIDGE
+
+
+def stated_address(said: str) -> str:
+    """The IPv4 address ``said`` names, as a rig's units may be reached at.
+
+    ``ValueError`` for text that is not an IPv4 address, and for one no other
+    machine reaches a rig at: loopback, link-local, or every interface.
+    """
+    try:
+        address = ipaddress.IPv4Address(said.strip())
+    except ValueError:
+        raise ValueError(f"{said!r} is not an IPv4 address") from None
+    if address.is_loopback or address.is_link_local or address.is_unspecified:
+        raise ValueError(
+            f"{said!r} is a loopback, link-local or every-interface address, "
+            "which no other machine reaches a rig at"
+        )
+    return str(address)
+
+
+def scanned_addresses(scan: Scan) -> tuple[str, ...]:
+    """The IPv4 addresses a scan found its machine at, other machines may use.
+
+    The address it was reached at over ssh, then the addresses on its
+    interfaces, with loopback, link-local and docker or virtual bridge
+    addresses (:func:`_bridged`) left out: every machine running docker holds
+    the same bridge address, so it names none of them.
+    """
+    network = scan.network
+    if network is None:
+        return ()
+    held: dict[str, list[str]] = {}
+    for one in network.ipv4:
+        held.setdefault(one.address, []).append(one.interface)
+    found: list[str] = []
+    for said in (network.reached_at, *held):
+        if said is None:
+            continue
+        try:
+            address = stated_address(said)
+        except ValueError:
+            continue
+        if not _bridged(address, held.get(address, [])):
+            found.append(address)
+    return tuple(dict.fromkeys(found))
 
 
 def private_ipv4(network: Network | None) -> tuple[str | None, str]:
@@ -434,13 +514,16 @@ def save(rig: str, reading: Mapping[str, Any]) -> Saved:
     was not determined: that reading says nothing about the cards, and writing it
     would make the next healthy scan report every recorded card as new. The
     reading is still returned in ``now`` for comparison, with ``kept`` saying the
-    file was left as it was.
+    file was left as it was. The addresses a person stated are carried over: a
+    scan does not read them, so a new reading says nothing against them.
     """
     now = from_reading(rig, reading)
     try:
         before = read(rig)
     except RigFileError:
         before = None
+    if before is not None and before.addresses:
+        now = replace(now, addresses=before.addresses)
     target = path(rig)
     known = before is not None and before.scan.gpus_determined
     if known and not now.scan.gpus_determined:
@@ -466,6 +549,27 @@ def read(rig: str) -> Rig | None:
         return from_json(text)
     except RigFileError as exc:
         raise RigFileError(f"{where}: {exc}") from None
+
+
+def state_addresses(rig: str, addresses: Iterable[str]) -> Path:
+    """Record ``addresses`` as where ``rig``'s units are reached at, and the path.
+
+    They replace any addresses stated before, and each must be one
+    :func:`stated_address` takes. A rig with no file is :class:`RigFileError`
+    naming the scan that writes one: an address is kept beside a reading, so
+    there must be a reading to keep it beside.
+    """
+    try:
+        stated = tuple(dict.fromkeys(stated_address(one) for one in addresses))
+    except ValueError as exc:
+        raise RigFileError(f"{rig}: {exc}") from None
+    saved = read(rig)
+    if saved is None:
+        raise RigFileError(
+            f"there is no rig file for {rig} ({path(rig)}) to state its address "
+            f"in: write it with `{MAKE.format(rig=rig)}` first"
+        )
+    return write(replace(saved, addresses=stated))
 
 
 @dataclass(frozen=True)
@@ -647,3 +751,167 @@ def door_check(
             "planned again for it"
         )
     return now
+
+
+def recorded_scans() -> dict[str, Scan]:
+    """Every scan the fleet's rig files record, keyed by rig name, by hostname,
+    and by each address a person stated for the rig.
+
+    A rigs folder that cannot be resolved gives no scans, and a rig file that
+    cannot be read or parsed is skipped. Every key of one rig points at the
+    same scan, so a lookup by any of its names finds it.
+    """
+    try:
+        folder = rigs_dir()
+    except FolderError:
+        return {}
+    found: dict[str, Scan] = {}
+    for path in sorted(folder.glob("*.json")):
+        try:
+            recorded = from_json(path.read_text(encoding="utf-8"))
+        except (OSError, RigFileError):
+            continue
+        found.setdefault(recorded.rig, recorded.scan)
+        if recorded.hostname:
+            found.setdefault(recorded.hostname, recorded.scan)
+        for address in recorded.addresses:
+            found.setdefault(address, recorded.scan)
+    return found
+
+
+_LOCAL_NAMES = frozenset({"localhost", "localhost.localdomain", "ip6-localhost"})
+
+
+def _names_this_machine(name: str) -> bool:
+    """Whether a hostname names this machine: a localhost alias, or a local IP address.
+
+    Anything else, including a name that is not an IP address at all, is another
+    host's name as far as this check can tell.
+    """
+    lowered = name.strip().lower().rstrip(".")
+    if lowered in _LOCAL_NAMES:
+        return True
+    try:
+        address = ipaddress.ip_address(lowered)
+    except ValueError:
+        return False
+    return address.is_loopback or address.is_unspecified
+
+
+def _same_host(recorded: str, wanted: str) -> bool:
+    """Whether two hostnames name one host, either being the other's full form.
+
+    The comparison ignores case and a trailing dot; an empty name on either side
+    matches nothing.
+    """
+    left = recorded.strip().lower().rstrip(".")
+    right = wanted.strip().lower().rstrip(".")
+    if not left or not right:
+        return False
+    return left == right or left.startswith(f"{right}.") or right.startswith(f"{left}.")
+
+
+def resolve_hosts(scans: dict[str, Scan], wanted: Iterable[str]) -> dict[str, Scan]:
+    """The scans, plus an entry for each wanted host that no key already names.
+
+    A name for this machine is resolved by the id of the machine it runs on; an
+    IPv4 address by the addresses the scans recorded; any other name by the
+    hostnames the rig files recorded, and failing that by the addresses it
+    resolves to here (:func:`addresses_of`). A name that finds no scan, or more
+    than one machine, is left out of the result.
+    """
+    resolved = dict(scans)
+    local: str | None = None
+    for name in wanted:
+        if name in resolved:
+            continue
+        if _names_this_machine(name):
+            if local is None:
+                local = scan_module.local_machine_id()
+            match = _local_scan(scans, local)
+        elif _is_ipv4(name):
+            match = _addressed_scan(scans, (name,))
+        else:
+            match = _named_scan(scans, name)
+            if match is None:
+                match = _addressed_scan(scans, addresses_of(name))
+        if match is not None:
+            resolved[name] = match
+    return resolved
+
+
+def addresses_of(name: str) -> tuple[str, ...]:
+    """The IPv4 addresses ``name`` resolves to here, or none.
+
+    The resolver is given :data:`RESOLVE_S` seconds on a thread of its own; a
+    name it cannot resolve, or does not resolve in time, has no addresses, so a
+    resolver that is down or hangs leaves a host unmatched rather than failing.
+    """
+    found: list[tuple[str, ...]] = []
+
+    def look() -> None:
+        found.append(_resolve(name))
+
+    worker = threading.Thread(target=look, name=f"resolve {name}", daemon=True)
+    worker.start()
+    worker.join(RESOLVE_S)
+    return found[0] if found else ()
+
+
+def _resolve(name: str) -> tuple[str, ...]:
+    """The IPv4 addresses the resolver answers for ``name``, none when it cannot."""
+    try:
+        answers = socket.getaddrinfo(name, None, socket.AF_INET, socket.SOCK_STREAM)
+    except (OSError, UnicodeError):
+        return ()
+    return tuple(dict.fromkeys(str(answer[4][0]) for answer in answers))
+
+
+def _is_ipv4(name: str) -> bool:
+    try:
+        ipaddress.IPv4Address(name)
+    except ValueError:
+        return False
+    return True
+
+
+def _addressed_scan(scans: dict[str, Scan], addresses: Iterable[str]) -> Scan | None:
+    """The scan of the one machine found at any of ``addresses``, else none.
+
+    An address is found as a key a person stated (:func:`recorded_scans`) or
+    among the addresses a scan recorded (:func:`scanned_addresses`). Matches
+    are counted by machine id, so addresses landing on two machines are
+    refused rather than guessed at.
+    """
+    wanted = set(addresses)
+    if not wanted:
+        return None
+    matched = [scans[address] for address in wanted if address in scans]
+    matched += [
+        recorded
+        for recorded in scans.values()
+        if wanted.intersection(scanned_addresses(recorded))
+    ]
+    if len({recorded.machine.id for recorded in matched}) != 1:
+        return None
+    return matched[0]
+
+
+def _local_scan(scans: dict[str, Scan], os_machine_id: str) -> Scan | None:
+    """The first scan taken on the machine with this id, else none."""
+    for recorded in scans.values():
+        if recorded.machine.id == os_machine_id:
+            return recorded
+    return None
+
+
+def _named_scan(scans: dict[str, Scan], name: str) -> Scan | None:
+    """The scan recorded under a hostname naming `name`, or none when ambiguous.
+
+    Several keys can point at one scan, so the matches are counted by machine id:
+    a name matching more than one machine is refused rather than guessed at.
+    """
+    matched = [recorded for host, recorded in scans.items() if _same_host(host, name)]
+    if len({recorded.machine.id for recorded in matched}) != 1:
+        return None
+    return matched[0]

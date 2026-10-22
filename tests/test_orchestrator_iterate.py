@@ -16,15 +16,16 @@ from typing import Any
 
 import pytest
 
-from mcgyvr.catalog import catalog
 from mcgyvr.decision import Choice, ChoiceAnswer, Decision, Question
 from mcgyvr.delegate import MIN_CONFIDENCE, ClassifierProposer
 from mcgyvr.orchestrator.decompose import DepRef, Evidence, Proposal, Refusal
 from mcgyvr.orchestrator.fields import FIELD_ORDER
 from mcgyvr.orchestrator.index import Index, build_index
 from mcgyvr.orchestrator.iterate import MAX_REFUSAL_RETRIES, iterate
+from tests import ungated
 
-AGENT = catalog().require("agent")
+#: Contracts are emitted as the ungated `agent` kind (tests/ungated.py).
+pytestmark = pytest.mark.usefixtures("ungated_catalog")
 
 
 def git(repo: Path, *args: str) -> None:
@@ -48,12 +49,18 @@ def repo(tmp_path: Path) -> Index:
     return build_index(root)
 
 
+#: A model-written whole-file contract names a condition that sends it to
+#: BLOCKED, so each scripted proposal carries one.
+STOP = "the request is ambiguous"
+
+
 def agent_proposal(target: str) -> Proposal:
     """A servable proposal against `target`, for the scripted classifier."""
     return Proposal(
         task_type="agent",
         task=f"document {target}",
         target=target,
+        stop_conditions=(STOP,),
     )
 
 
@@ -210,7 +217,13 @@ def test_retry_drops_the_rejected_dependency(repo: Index) -> None:
     """
     dep = DepRef("nowhere.py", "nope")
     classifier = ScriptedClassifier(
-        Proposal(task_type="agent", task="x", target="listing.py", deps=(dep,)),
+        Proposal(
+            task_type="agent",
+            task="x",
+            target="listing.py",
+            deps=(dep,),
+            stop_conditions=(STOP,),
+        ),
         agent_proposal("listing.py"),
     )
     approve = approve_always()
@@ -248,7 +261,7 @@ def test_iterate_retries_a_below_floor_task_type_through_the_real_proposer(
     repo: Index,
 ) -> None:
     """Attempt 1 declines on `task_type`; attempt 2 answers above the floor."""
-    agent_doc = AGENT.doc
+    agent_doc = ungated.DOC
     task_type_attempts: list[Choice] = []
 
     def classify(state: Any, questions: Mapping[str, Question]) -> Decision:

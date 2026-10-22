@@ -193,7 +193,7 @@ def test_a_contract_cap_too_large_for_the_window_names_the_contracts_number(
     sent = _sent(monkeypatch)
     pool = source_map(parse_config(LADDER))
     contract = load_contract(
-        CONTRACT.replace("max_output_tokens: 256", "max_output_tokens: 2048")
+        CONTRACT.replace("max_output_tokens: 256", "max_output_tokens: 4096")
         + "context:\n  max_input_tokens: 2048\n"
     )
 

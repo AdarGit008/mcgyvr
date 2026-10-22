@@ -39,14 +39,15 @@ from mcgyvr.orchestrator.candidates import (
     collapse,
     completable,
     deps_candidates,
-    directive,
     enumerate_candidates,
     interface_candidates,
     kind_for,
+    reply_cap,
     scope_candidates,
     stop_condition,
     symbol_candidates,
     target_candidates,
+    task_candidates,
     task_type_candidates,
     without,
 )
@@ -463,21 +464,24 @@ class ClassifierProposer:
     """A proposer that asks one typed Choice per field, in dependency order.
 
     `classify` is the seam — it answers named questions about a state — and
-    `confidence` is the floor each answer must clear. One call asks the six
-    jev-decided fields (`task_type`, `target`, `symbol`, `interface`, `deps`,
-    `allow`) in that order, re-enumerating each downstream set against the
-    values already chosen, and folds the picks into one proposal. A
+    `confidence` is the floor each answer must clear. One call asks the seven
+    jev-decided fields (`task_type`, `target`, `symbol`, `task`, `interface`,
+    `deps`, `allow`) in that order, re-enumerating each downstream set against
+    the values already chosen, and folds the picks into one proposal. `task`
+    chooses between the request as asked and the deterministic directive line,
+    and the pick goes into the contract unchanged. A
     load-bearing answer (`task_type`/`target`) that is unusable, falls short of
-    the floor, or names a type needing an output cap declines the whole
-    proposal; an optional field degrades to its rank-0 candidate instead. Each
-    decision is appended to `sink`, when one is wired.
+    the floor, or names a type this ladder cannot serve declines the whole
+    proposal; an optional field degrades to its rank-0 candidate instead. A
+    type needing an output cap is not asked for one: `reply_cap` states it
+    deterministically from the chosen target's size. Each decision is appended
+    to `sink`, when one is wired.
 
     For the W6 retry loop, a decline returns a `Refusal` field/directive as
     follows: no targets or no vocabulary → `target`/`task_type`; `task_type`
-    below the confidence floor → `task_type`; `target` below the confidence
-    floor → `target`; `kind.needs_output_cap` mismatch → `task_type`.
-    `__call__` still returns `()` for any decline so the prose proposer stands
-    in exactly as it did before.
+    below the confidence floor or not servable → `task_type`; `target` below
+    the confidence floor → `target`. `__call__` still returns `()` for any
+    decline so the prose proposer stands in exactly as it did before.
     """
 
     classify: Callable[[Any, Mapping[str, Question]], Decision]
@@ -494,7 +498,7 @@ class ClassifierProposer:
         constraints: Mapping[str, str] | None = None,
         rejected: Mapping[str, Collection[Any]] | None = None,
     ) -> Proposal | Refusal:
-        """Ask the six fields once and fold them into one proposal, or refuse.
+        """Ask the seven fields once and fold them into one proposal, or refuse.
 
         `decided` carries fields already chosen on a prior attempt (skipped
         without a jev call), `constraints` supplies a per-field directive
@@ -543,16 +547,13 @@ class ClassifierProposer:
                 what_to_change="answer with a candidate above the confidence floor",
             )
         kind = kind_for(str(task_type), vocabulary)
-        if kind is None or kind.needs_output_cap:
-            # A type needing an output cap gets no proposal here: the cap says
-            # what a reply is worth in tokens, and this proposer has no way to
-            # judge that, so it declines instead of guessing.
+        if kind is None:
             return Refusal(
                 "request",
-                "the chosen task type needs an output cap the classifier cannot "
-                "state, so the request is handed to the prose proposer",
+                f"the chosen task type {task_type!r} is not one this ladder can "
+                "serve, so the request is handed to the prose proposer",
                 field="task_type",
-                what_to_change="choose a type that states no reply cap",
+                what_to_change="pick a servable type",
             )
 
         if "target" in decided:
@@ -598,16 +599,36 @@ class ClassifierProposer:
         plan = choose(
             plan, "symbol", symbol_name or _NO_SYMBOL, provenance=symbol_provenance
         )
-        plan = choose(
-            plan,
-            "task",
-            directive(kind, target, symbol_name),
-            provenance=Provenance.DETERMINISTIC,
-        )
+        if "task" in decided:
+            task = decided["task"]
+            task_provenance = Provenance.MODEL
+        else:
+            task_set = task_candidates(kind, target, symbol_name, evidence.prompt)
+            task = self._decide(
+                state,
+                task_set,
+                constraints=constraints.get("task", ""),
+                rejected=rejected.get("task"),
+            )
+            task_provenance = Provenance.MODEL
+            if task is None:
+                rank0 = task_set.rank0
+                task = rank0.value if rank0 is not None else ""
+                task_provenance = Provenance.DETERMINISTIC
+        plan = choose(plan, "task", task, provenance=task_provenance)
         plan = choose(
             plan,
             "stop_conditions",
             stop_condition(kind, target, symbol_name),
+            provenance=Provenance.DETERMINISTIC,
+        )
+        # No question can say what a reply is worth, so the cap is stated from
+        # the chosen target's size rather than asked. It is chosen even when
+        # None, so a type that states no cap never keeps the rank-0 type's.
+        plan = choose(
+            plan,
+            "max_output_tokens",
+            reply_cap(evidence, kind, target),
             provenance=Provenance.DETERMINISTIC,
         )
 
@@ -777,10 +798,12 @@ class ClassifierProposer:
 def deterministic_proposer() -> Proposer:
     """The no-jev degrade: rank-0 collapse per field, with no model asked.
 
-    This is a fallback so the shadow loop and later calibration can run, not a
-    tuned default: it picks the first completable type, first target, first
-    symbol (a real definition, not the whole file) and the empty defaults for
-    every optional field. No decision is made, so nothing is recorded.
+    This is the fallback when no jev unit is opted in, not a tuned default: it
+    picks the first completable type, first target, first symbol (a real
+    definition, not the whole file), the request as the task, the reply cap
+    that type and target need, and the empty defaults for every optional
+    field. No decision is made, so nothing is recorded. With no target or no
+    completable type it proposes nothing, and prose stands in.
     """
 
     def propose(evidence: Evidence) -> Sequence[Proposal]:
@@ -804,7 +827,7 @@ def classifier_proposer_for(
     (which prefers jev over the `orchestrator` role named here), and each
     decision is recorded in `sink` with the jev role's model. Without jev there
     is nothing to decide, so the returned proposer collapses rank-0 per field
-    deterministically and asks nothing — the gate/reviewer/wake/ladder decisions
+    deterministically and asks nothing — the gate, reviewer and wake decisions
     keep asking their pre-jev roles, unchanged.
     """
     if not jev_bound(source_map):

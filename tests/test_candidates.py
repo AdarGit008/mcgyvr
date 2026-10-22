@@ -41,6 +41,7 @@ from mcgyvr.orchestrator.candidates import (
     symbol_candidates,
     symbols_of,
     target_candidates,
+    task_candidates,
     task_type_candidates,
     without,
 )
@@ -48,10 +49,12 @@ from mcgyvr.orchestrator.decompose import DepRef, Evidence, Proposal
 from mcgyvr.orchestrator.index import Index, build_index
 from mcgyvr.orchestrator.read import Exploration, TargetedRead, explore
 from mcgyvr.orchestrator.resolve import Candidate, Resolution, Verdict, resolve
+from tests import ungated
 
-#: The example kind, as in test_classifier_proposer.py: not ``code``, because a
-#: ``code`` contract states its reply cap, which no choice can say.
-AGENT = catalog().require("agent")
+#: The ungated example kind (tests/ungated.py), as in test_classifier_proposer.py:
+#: not ``code``, whose proposal also carries a derived reply cap.
+AGENT = ungated.ungated()
+pytestmark = pytest.mark.usefixtures("ungated_catalog")
 
 
 def git(repo: Path, *args: str) -> None:
@@ -165,16 +168,22 @@ def _choosing(
     task_type: str,
     target: str,
     symbol: str,
+    task: str | None = None,
     interface: str = "",
     deps: Any = (),
     allow: Any = (),
 ) -> Any:
-    """A classify fake answering each field's single question with a chosen value."""
+    """A classify fake answering each field's single question with a chosen value.
+
+    `task` unstated picks the request as asked, the task's rank 0.
+    """
     symbol_name = None if symbol == "" else symbol
+    kind = next(k for k in evidence.vocabulary if k.name == task_type)
     sets: dict[str, CandidateSet] = {
         "task_type": task_type_candidates(evidence),
         "target": target_candidates(evidence),
         "symbol": symbol_candidates(evidence, target),
+        "task": task_candidates(kind, target, symbol_name, evidence.prompt),
         "interface": interface_candidates(evidence, target, symbol_name),
         "deps": deps_candidates(evidence, target),
         "allow": scope_candidates(evidence, target)[0],
@@ -183,6 +192,7 @@ def _choosing(
         "task_type": task_type,
         "target": target,
         "symbol": symbol,
+        "task": evidence.prompt if task is None else task,
         "interface": interface,
         "deps": deps,
         "allow": allow,
@@ -202,7 +212,10 @@ def _choosing(
 def test_collapse_of_enumerated_plan_yields_the_deterministic_proposal(
     repo: Index,
 ) -> None:
-    """Rank-0 of every field folds into the deterministic proposal."""
+    """Rank-0 of every field folds into the deterministic proposal.
+
+    The task's rank 0 is the request as it was asked, not the directive line.
+    """
     evidence = evidence_for(repo, "document listing", (AGENT,))
     proposal = collapse(enumerate_candidates(evidence))
 
@@ -213,7 +226,7 @@ def test_collapse_of_enumerated_plan_yields_the_deterministic_proposal(
 
     assert proposal == Proposal(
         task_type=kind.name,
-        task=directive(kind, target, symbol),
+        task="document listing",
         target=target,
         stop_conditions=stop_condition(kind, target, symbol),
     )
@@ -421,7 +434,11 @@ def test_classifier_proposer_output_is_bit_identical(repo: Index) -> None:
     evidence = evidence_for(repo, "document listing", (AGENT,))
     propose = ClassifierProposer(
         classify=_choosing(
-            evidence, task_type="agent", target="listing.py", symbol="listing"
+            evidence,
+            task_type="agent",
+            target="listing.py",
+            symbol="listing",
+            task=directive(AGENT, "listing.py", "listing"),
         )
     )
     (proposal,) = propose(evidence)
@@ -477,6 +494,7 @@ def test_classifier_proposer_reflects_the_models_override_picks(
             task_type="agent",
             target="pagination.py",
             symbol="paginate",
+            task=directive(AGENT, "pagination.py", "paginate"),
         )
     )
     (proposal,) = propose(evidence)
@@ -495,7 +513,13 @@ def test_classifier_proposer_no_symbol_pins_the_whole_file(repo: Index) -> None:
     """A whole-file pick names only the target in task and stop conditions."""
     evidence = evidence_for(repo, "document listing", (AGENT,))
     propose = ClassifierProposer(
-        classify=_choosing(evidence, task_type="agent", target="listing.py", symbol="")
+        classify=_choosing(
+            evidence,
+            task_type="agent",
+            target="listing.py",
+            symbol="",
+            task=directive(AGENT, "listing.py", None),
+        )
     )
     (proposal,) = propose(evidence)
 

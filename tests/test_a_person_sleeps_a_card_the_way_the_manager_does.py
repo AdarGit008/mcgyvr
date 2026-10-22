@@ -1,9 +1,9 @@
-"""A person's ``mcgyvr serve sleep`` puts a card down the way the manager does.
+"""A person's ``mcgyvr serve sleep`` puts a card down the way the switches do.
 
 Two ways to put a card to sleep: vLLM's level 2, where the process stays, the
 weights and KV cache leave the card and a wake reads them back without a
 container start; and a stop, where the containers go and a wake starts them
-again. The ladder manager uses level 2 wherever every unit of the card is vLLM
+again. The card switches use level 2 wherever every unit of the card is vLLM
 and the unit answers on its sleep route, and stops the card otherwise. A
 person typing ``mcgyvr serve sleep`` gets the same: one path for both, after
 the same drain. The card is marked resting, so a dispatch wakes it before it
@@ -11,7 +11,7 @@ sends, and ``serve wake`` reads the mark to take the route back.
 
 A card holding a unit split onto another machine is the exception: level 2 is
 not measured for such a unit, and an unmeasured nap is one it cannot take. So
-it is stopped, as before the manager existed, the run says why in one line,
+it is stopped, the run says why in one line,
 and a wake starts it again. A unit split over one machine's cards naps.
 
 Every host, model and number here is invented.

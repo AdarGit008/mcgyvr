@@ -11,11 +11,13 @@ to ask. A rung the run is already holding out is never routed to.
 
 from __future__ import annotations
 
+import sys
 from dataclasses import dataclass
 from typing import TYPE_CHECKING, Any, Protocol
 
 from mcgyvr import decision
 from mcgyvr.local_pool import Rung
+from mcgyvr.runner import RunnerError
 
 if TYPE_CHECKING:  # pragma: no cover - typing only
     from collections.abc import Callable, Mapping, Sequence
@@ -44,7 +46,8 @@ class Cooling(Protocol):
 
 
 class WakeJudgeError(Exception):
-    """A judgment could not be asked: the rung to ask it of is not on the pool."""
+    """A judgment could not be asked: the rung to ask it of is not on the pool,
+    or it did not answer."""
 
 
 @dataclass(frozen=True)
@@ -72,14 +75,20 @@ def judge(
     The one question is asked through `decision.classify_for` and read back as a
     bool answer, so the judgment is one request at the rung given, within
     `timeout_s`. `state` is copied into the request rather than read in place.
-    Raises `WakeJudgeError` when the pool names no such rung.
+    Raises `WakeJudgeError` when the pool names no such rung, and when the rung
+    was not reached or broke off before it answered.
     """
     if pool.get(rung) is None:
         raise WakeJudgeError(f"no rung named {rung!r} to judge with")
     question = {"wake_smarter": decision.Noul(INSTRUCTIONS)}
-    answers = decision.classify_for(
-        pool, dict(state), question, rung=rung, timeout_s=timeout_s
-    ).answers
+    try:
+        answers = decision.classify_for(
+            pool, dict(state), question, rung=rung, timeout_s=timeout_s
+        ).answers
+    except RunnerError as exc:
+        raise WakeJudgeError(
+            f"the wake judgment was asked of {rung!r}, which did not answer: {exc}"
+        ) from exc
     answer = answers["wake_smarter"]
     assert isinstance(answer, decision.BoolAnswer)  # Noul asked, so bool is the answer
     return Difficulty(
@@ -138,6 +147,28 @@ def fast_rung(config: Config, pool: SourceMap) -> Rung | None:
     return None
 
 
+def awake_judge(config: Config, pool: SourceMap, smart: str) -> Rung | None:
+    """The rung a judgment is asked of now: the first credential-free rung,
+    other than `smart`, that no record says is down.
+
+    A swap puts the fast rungs down to make the smart rung's room, so the rung
+    `fast_rung` names may not be serving when the hook is called. None when no
+    such rung is up.
+    """
+    from mcgyvr.wake import known_down
+
+    for rung in pool.rungs:
+        unit = config.units.get(rung.name)
+        if (
+            unit is not None
+            and not unit.requires_credential
+            and rung.name != smart
+            and known_down(config, rung.name) is None
+        ):
+            return rung
+    return None
+
+
 def wake_before_api(
     config: Config,
     pool: SourceMap,
@@ -176,8 +207,10 @@ def hook_for(
     that can be woken, when no rung is free of a credential to ask the judgment
     of, or when the fast and smart rungs are the same one: in each case there is
     nothing to offer that trying again would not. The hook answers with a rung
-    name or None, judging every contract with the fast rung, within `timeout_s`
-    and against the run's own `cooldown`.
+    name or None, judging every contract with the first fast rung that is up
+    when it is called (`awake_judge`), within `timeout_s` and against the run's
+    own `cooldown`; with none up it says so and answers None. A judge that does
+    not answer raises `WakeJudgeError`.
     """
     if not config.get("serving.enable_sleep_wake"):
         return None
@@ -187,11 +220,19 @@ def hook_for(
         return None
 
     def hook(contract: Contract) -> str | None:
+        judge_with = awake_judge(config, pool, smart.name)
+        if judge_with is None:
+            print(
+                f"note: no local rung is up to judge whether {smart.name} is "
+                f"worth waking, so it is not woken",
+                file=sys.stderr,
+            )
+            return None
         return wake_before_api(
             config,
             pool,
             contract,
-            judge_with=fast.name,
+            judge_with=judge_with.name,
             timeout_s=timeout_s,
             cooldown=cooldown,
         )

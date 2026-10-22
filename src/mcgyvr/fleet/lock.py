@@ -35,12 +35,7 @@ from mcgyvr.config import FLEET_FILENAME, POLICY_FILENAME, ConfigError, parse
 from mcgyvr.fleet import ids
 from mcgyvr.fleet.admit import layout_ids
 from mcgyvr.fleet.files import FleetFileError, load_fleet, load_policy
-from mcgyvr.fleet.layout import (
-    FleetError,
-    combination_id,
-    layout_sha256,
-    mcorch_units,
-)
+from mcgyvr.fleet.layout import combination_id, layout_sha256
 
 # Re-exported: the folder a fleet's lock files sit in, which the modules that
 # promote and admit a fleet import from here.
@@ -525,11 +520,11 @@ def write(
     a dev run, every rig move a listed switch makes and every way of every
     sleeper's swap ran and recorded its downtime and wake times, each rig's
     dev read names the rig id the fleet pins, no outside unit answers at a rig
-    unit's address, the policy ladder names only units the fleet has, every
-    fleet serves the policy's mcorch units, and every spanning unit holds a
-    room slot in one state on each rig it spans. Then writes each fleet's
-    `lock/<fleet>.json` and one `lock/rigs/<rig_id>/<combination>.json` per
-    combination, a combination two fleets lay out being written once.
+    unit's address, the policy ladder names only units the fleet has, and every
+    spanning unit holds a room slot in one state on each rig it spans. Then
+    writes each fleet's `lock/<fleet>.json` and one
+    `lock/rigs/<rig_id>/<combination>.json` per combination, a combination two
+    fleets lay out being written once.
     """
     units = fleet.get("units", {})
     fleets = fleet.get("fleets", {})
@@ -540,13 +535,6 @@ def write(
                 raise LockRefusedError(
                     f"policy ladder names {name!r}, a unit this fleet does not have"
                 )
-        # A fleet that serves an mcorch policy with no orchestrator or jev unit
-        # awake is not locked: no run could start on it.
-        try:
-            for fleet_name, block in fleets.items():
-                mcorch_units(policy, block.get("layout", {}), name=fleet_name)
-        except FleetError as exc:
-            raise LockRefusedError(str(exc)) from exc
 
     # Every unit's shards must make one whole span, and a unit that spans rigs
     # must hold a room slot in the same state on each of them.
@@ -823,8 +811,8 @@ def write_unsampled(
 
     Refuses unless the caller passes `acknowledged`, the setup lays out no
     rigs or fleets of its own, every unit on a rig sits on a read rig, each
-    read rig holds a unit, no hosted unit points at a machine of the user's,
-    and the layout serves the policy's mcorch units. Lays each read rig's
+    read rig holds a unit, and no hosted unit points at a machine of the
+    user's. Lays each read rig's
     units out awake, pins their unit ids and their containers, and stages the
     fleet, the policy and `lock/own.json` under `dev_root`; returns the
     `lock/` folder.
@@ -882,12 +870,6 @@ def write_unsampled(
             f"{', '.join(local)}: a hosted unit there is a machine of yours, and "
             "a machine is not approved for live work until it is read"
         )
-    try:
-        mcorch_units(policy, layout, name=OWN_FLEET)
-    except FleetError as exc:
-        raise LockRefusedError(
-            f"{exc}; a fleet that cannot serve its mcorch policy is not approved"
-        ) from exc
 
     own = copy.deepcopy(fleet)
     if rigs:

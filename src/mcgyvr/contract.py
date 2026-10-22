@@ -12,13 +12,13 @@ import json
 import re
 import shlex
 from collections.abc import Mapping, Sequence
-from dataclasses import dataclass, replace
+from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
 
 import yaml
 
-from mcgyvr.catalog import RETIRED_TASK_TYPES, CatalogError, catalog
+from mcgyvr.catalog import CatalogError, catalog
 from mcgyvr.catalog import Evidence as CatalogEvidence
 from mcgyvr.catalog import TaskType as CatalogTaskType
 from mcgyvr.schema import Dialect, join_path, walk_block
@@ -118,8 +118,8 @@ def kind_of(task_type_name: str, operation: str = "") -> CatalogTaskType:
 # first because every judged contract produces it. `failing_test_first` follows
 # when a demonstration command is given, `tests_pass` when an acceptance command
 # is, and `no_semantic_change` and `type_check` when their flags are on. Kinds
-# that are not `evidence_derived` — sessions, which write nothing — know their
-# evidence from the catalog and are returned exactly as it lists them. The order matters
+# that are not `evidence_derived` know their evidence from the catalog and are
+# returned exactly as it lists them. The order matters
 # downstream: the gate records evidence in it, and a result whose names differ
 # from `Contract.evidence_names` is a mismatch rather than something to take at
 # face value. Nothing here reads a contract, only these flags, so the same
@@ -205,7 +205,6 @@ SCOPE_FIELDS: tuple[Field, ...] = (
         "permits nothing (`mcgyvr.scope` fails closed), so a contract that "
         "declares none is rejected rather than silently unable to act.",
         required=True,
-        session_optional=True,
         hint='e.g. ["src/**/*.py"]',
     ),
     Field(
@@ -264,11 +263,12 @@ LIMITS_FIELDS: tuple[Field, ...] = (
         "is worth, counting any reasoning a model does before it writes. "
         "Model-written `code` must state it: without it the contract is "
         "valid, and `mcgyvr run` refuses it before any model is called. Sent "
-        "exactly; refused by name if above the ceiling of a unit the run may "
-        "reach (its `window` less the prompt, or its `output_tokens`). A "
-        "reply cut off at the cap is a named failure, never applied to a "
-        "file. `chat` and `agent` are a raw connection: stating it there is "
-        "refused. A deterministic operation has no cap.",
+        "exactly at or under the ceiling of the unit it reaches (its `window` "
+        "less the prompt, or its `output_tokens`); above it, narrowed to the "
+        "ceiling, and refused by name where the ceiling is below half the cap "
+        "— the whole target a reply returns. A reply cut off at the cap is a "
+        "named failure, never applied to a file. A deterministic operation "
+        "has no cap.",
         default=None,
         min_value=1,
     ),
@@ -328,7 +328,6 @@ SCHEMA: tuple[Field, ...] = (
         "judged.",
         required=True,
         choices_from=task_type_names,
-        retired=RETIRED_TASK_TYPES,
         worker_facing=True,
     ),
     Field(
@@ -355,10 +354,8 @@ SCHEMA: tuple[Field, ...] = (
         "Where the result goes. Exactly one literal repo-relative path for "
         "any contract a model executes — a model worker's output has one "
         "destination, and a pattern would leave it guessing. A glob is legal "
-        "only for a contract with a deterministic `operation`. A session "
-        "(`chat`, `agent`) writes nothing and names none.",
+        "only for a contract with a deterministic `operation`.",
         required=True,
-        session_optional=True,
         worker_facing=True,
         hint="e.g. src/pkg/fetch.py",
     ),
@@ -398,8 +395,7 @@ SCHEMA: tuple[Field, ...] = (
         "instead of guessing — scope creep, an unknown API, an ambiguous "
         "directive. Required when a model writes a `whole_file` reply, the "
         "one whose refusal is caught and escalated: guessing is the documented "
-        "small-model failure mode these exist to prevent. A `prose` reply is "
-        "served whatever it says, so none is required there. Start from "
+        "small-model failure mode these exist to prevent. Start from "
         f"`{generic_stop_condition('<task_type>', '<target>')}`.",
         default=(),
         worker_facing=True,
@@ -409,11 +405,10 @@ SCHEMA: tuple[Field, ...] = (
         "enum",
         "The shape the worker must reply in, declared so a runner can hand "
         "the model format instructions rather than hoping for a convention. "
-        "`whole_file` is the single-file output protocol; `prose` is the "
-        "raw-text answer for chat and agent (their default). `unified_diff` "
+        "`whole_file` is the single-file output protocol. `unified_diff` "
         "validates here and is refused before dispatch.",
         default="whole_file",
-        choices=("whole_file", "prose", "unified_diff"),
+        choices=("whole_file", "unified_diff"),
         worker_facing=True,
     ),
     Field(
@@ -439,7 +434,6 @@ SCHEMA: tuple[Field, ...] = (
         "actually changed.",
         block=SCOPE_FIELDS,
         required=True,
-        session_optional=True,
     ),
     Field(
         "acceptance",
@@ -634,11 +628,6 @@ class Contract:
         return self.kind.deterministic
 
     @property
-    def is_session(self) -> bool:
-        """Whether this is a session: the reply is the answer, nothing is written."""
-        return self.kind.session
-
-    @property
     def needs_output_cap(self) -> bool:
         """Whether `limits.max_output_tokens` must be stated for this work."""
         return self.kind.needs_output_cap
@@ -788,12 +777,7 @@ def parse(text: str, path: Path | None = None) -> Contract:
             f"This build reads version {SCHEMA_VERSION}."
         )
 
-    session = _is_session(raw)
-    data = _block(raw, _for_sessions(SCHEMA) if session else SCHEMA, "")
-    if session and "output_schema" not in raw:
-        # A session's reply is the answer itself, so prose is the shape it is
-        # given when the author says nothing; anything file-shaped is refused below.
-        data["output_schema"] = "prose"
+    data = _block(raw, SCHEMA, "")
     _cross_validate(data)
     return _build(data)
 
@@ -865,11 +849,6 @@ def _value(raw: object, spec: Field, path: str) -> Any:
     if spec.kind == "enum":
         text = _str(raw, path)
         valid = spec.valid_choices()
-        if text not in valid and spec.retired and text in spec.retired:
-            raise ContractSchemaError(
-                f"{path}: {text!r} is now {spec.retired[text]}. "
-                f"Valid: {', '.join(valid)}"
-            )
         if text not in valid:
             raise ContractSchemaError(
                 f"{path}: {text!r} is not valid here. Valid: {', '.join(valid)}"
@@ -970,28 +949,6 @@ def _mapping(raw: object, path: str) -> Mapping[str, Any]:
         if not isinstance(key, str):
             raise ContractSchemaError(f"{path or 'contract'}: key {key!r} is not text.")
     return raw
-
-
-def _is_session(raw: object) -> bool:
-    """Whether the document names a session type, which decides the schema walked."""
-    if not isinstance(raw, Mapping):
-        return False
-    name = raw.get("task_type")
-    if not isinstance(name, str):
-        return False
-    return name in task_type_names() and task_type(name).session
-
-
-def _for_sessions(fields: tuple[Field, ...]) -> tuple[Field, ...]:
-    """The schema with `session_optional` fields made optional, nested blocks too."""
-    return tuple(
-        replace(
-            spec,
-            required=spec.required and not spec.session_optional,
-            block=_for_sessions(spec.block),
-        )
-        for spec in fields
-    )
 
 
 def _missing(spec: Field, path: str) -> ContractSchemaError:
@@ -1103,32 +1060,7 @@ def _cross_validate(data: Mapping[str, Any]) -> None:
     allow = data["scope"]["allow"]
     forbid = data["scope"]["forbid"]
 
-    if kind.session:
-        # A session's reply is the answer, returned in the result file and kept in
-        # the session log, never written to a target — so a file-shaped
-        # `output_schema` names a protocol the run cannot honour.
-        if data["output_schema"] != "prose":
-            raise ContractSchemaError(
-                f"output_schema: {data['output_schema']!r} is a file-shaped "
-                f"reply, but a {kind.name!r} run is a session: its reply is the "
-                f"answer, returned in the result file and kept in the session "
-                f"log, never written. Drop output_schema; 'prose' is the "
-                f"default."
-            )
-        # A session is a raw connection to a model: mcgyvr sends no output cap and
-        # makes no prompt or window check, so a stated cap would be a promise the
-        # run does not keep. Refused rather than ignored, because an ignored key is
-        # a contract that does not do what it says.
-        stated = data["limits"]["max_output_tokens"]
-        if stated is not None:
-            raise ContractSchemaError(
-                f"limits.max_output_tokens: {stated} is stated, but a "
-                f"{kind.name!r} run is a raw connection to a model and mcgyvr "
-                f"sets no limits on it: no output cap is sent, and no prompt or "
-                f"window check is made. Drop limits.max_output_tokens."
-            )
-    else:
-        _check_destination(data, kind, target, allow, forbid)
+    _check_destination(data, kind, target, allow, forbid)
 
     # `whole_file` is the reply shape whose refusal escalates: a model that meets
     # something the contract never stated either stops or guesses, and a guess is

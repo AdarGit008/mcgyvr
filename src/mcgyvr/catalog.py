@@ -24,22 +24,6 @@ if TYPE_CHECKING:  # pragma: no cover - typing only
 CATALOG_FILENAME = "task-catalog.json"
 SCHEMA_VERSION = 2
 
-#: Task types the catalog no longer declares, mapped to what to ask for instead.
-#: `Catalog.require` reads this so a contract naming one is answered with the
-#: replacement it should use rather than a bare "unknown task type" — the values
-#: are the surviving spellings, keyed by the retired names.
-RETIRED_TASK_TYPES: dict[str, str] = {
-    "format": "'code' with operation: format",
-    "import_sort": "'code' with operation: import_sort",
-    "lint_fix": "'code' with operation: lint_fix",
-    "rename_symbol": "'code' with operation: rename_symbol",
-    "docstring": "'code' with no_semantic_change: true",
-    "type_annotation": "'code' with type_check: true",
-    "function_implementation": "'code'",
-    "test_scaffold": "'code'",
-    "bug_fix": "'code' with a demonstration",
-}
-
 
 class CatalogError(Exception):
     """A catalog that cannot be found, read, parsed or validated, or a lookup of
@@ -112,13 +96,6 @@ class TaskType:
     #: chooses evidence itself. Declared per entry in the JSON and False when
     #: the entry leaves the key out.
     evidence_derived: bool = False
-    #: True for a task type asked for a reply, not a change to the tree. It
-    #: has no target and no scope, so nothing is written: the answer is
-    #: returned in the result file's `answer` and kept in the session log, and no
-    #: acceptance bar is met. Being a session type also exempts it from the
-    #: output cap a judged, model-written change must state, and `mcgyvr inspect`
-    #: prints it as a session type.
-    session: bool = False
 
     @property
     def deterministic(self) -> bool:
@@ -158,9 +135,9 @@ class TaskType:
     @property
     def needs_output_cap(self) -> bool:
         """True when a model writes a change that something then judges —
-        not a tool's work and not a session reply — so the contract must
-        state `limits.max_output_tokens`."""
-        return not self.deterministic and not self.session and self.judges_a_change
+        not a tool's work — so the contract must state
+        `limits.max_output_tokens`."""
+        return not self.deterministic and self.judges_a_change
 
 
 @dataclass(frozen=True)
@@ -188,13 +165,10 @@ class Catalog:
         return next((t for t in self.task_types if t.name == name), None)
 
     def require(self, name: str) -> TaskType:
-        """The task type called `name`; raises `CatalogError` naming the
-        replacement when the name was retired, and listing the valid names
-        when it was never declared."""
+        """The task type called `name`; raises `CatalogError` listing the valid
+        names when it is not declared."""
         found = self.get(name)
         if found is None:
-            if name in RETIRED_TASK_TYPES:
-                raise CatalogError(f"{name!r} is now {RETIRED_TASK_TYPES[name]}.")
             raise CatalogError(
                 f"{name!r} is not a known task type. Valid: {', '.join(self.names)}"
             )
@@ -344,7 +318,6 @@ def _load_entries(
                 warrant=str(entry.get("warrant", "")),
                 doc=str(entry.get("doc", "")),
                 evidence_derived=bool(entry.get("evidence_derived", False)),
-                session=bool(entry.get("session", False)),
                 task_type=str(entry.get("task_type", "")),
             )
         )

@@ -52,17 +52,15 @@ def refuse_unsendable(
 ) -> None:
     """Raise the refusal for a contract that cannot be sent to `rung`, else return.
 
-    Session contracts are exempt and return at once. Otherwise the contract must
-    state a `limits.max_output_tokens` (`OutputCapUnstatedError`), the assembled
-    prompt must fit its own ceiling (`PromptTooLargeError`), and the contract must
-    fit the rung as `check_contract_against_rung` judges it, where the issue's
-    reason picks the class: `output-cap` is `OutputCapTooLargeError`,
+    The contract must state a `limits.max_output_tokens`
+    (`OutputCapUnstatedError`), the assembled prompt must fit its own ceiling
+    (`PromptTooLargeError`), and the contract must fit the rung as
+    `check_contract_against_rung` judges it, where the issue's reason picks the
+    class: `output-cap` is `OutputCapTooLargeError`,
     `unit-ceiling-unknown` is `UnitCeilingUnknownError`, and any other reason is
     `ContractTooLargeForRungError`. The message names the contract, the rung, the
     window served, and the issue.
     """
-    if contract.is_session:
-        return
     unstated = check_cap_stated(contract)
     if unstated is not None:
         raise OutputCapUnstatedError(f"{unstated}")
@@ -156,10 +154,10 @@ def dispatch_prompt(
     refuse_unsendable(rung, endpoint, prompt, contract, window_fraction=window_fraction)
     # Every refusal happens here, before the runner is touched: a contract the
     # rung cannot take costs nothing.
-    # Session contracts skip those checks entirely and reach the wire unchecked.
     cap = sized_reply_cap(contract, endpoint, prompt=prompt.measured)
     # The cap is the contract's declared tokens bounded by what the rung can
-    # serve, and it is sent as a hard limit on the reply.
+    # serve and narrowed to the room this prompt leaves, and it is sent as a
+    # hard limit on the reply.
     # Its basis travels with it so the journal can say where the number came from.
     fields: dict[str, Any] = {
         "prompt": prompt.user,

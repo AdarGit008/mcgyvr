@@ -3,7 +3,7 @@
 A `code` proposal with `type_check: true` needs the checker the repository declared, and
 :func:`~mcgyvr.orchestrator.decompose._acceptance_for` finds it by asking the
 owning adapter to read the repository's configuration. A server that holds an
-index assembled from a document (mcorch) has no repository under
+index assembled from a document has no repository under
 ``index.root`` — the root is a label there — so ``decompose`` takes the
 located commands as an argument, adapter name → argv, and when given uses
 them in place of any read of the disk: a located command becomes the

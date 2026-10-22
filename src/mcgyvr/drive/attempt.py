@@ -24,12 +24,10 @@ from typing import TYPE_CHECKING
 import mcgyvr.drive as _drive
 from mcgyvr.capacity import Outcome, SlotUnavailableError
 from mcgyvr.consensus import NoUsableDrawError, Unusable
-from mcgyvr.decision import jev_bound
 from mcgyvr.drive.gate import (
     _cleaned,
     _jev_for,
     _repair_and_regate,
-    _through,
     _typed_checks,
 )
 from mcgyvr.drive.prompt import (
@@ -51,7 +49,6 @@ from mcgyvr.runner import Completion, RunnerError
 from mcgyvr.telemetry import observe
 from mcgyvr.verify import VERIFIER_ROLE, NoReviewer, Reviewer, verify
 from mcgyvr.worker.reply import (
-    PROSE,
     ReplyError,
     empty_at_cap,
     parse_reply,
@@ -93,11 +90,6 @@ class _Dispatches:
             self.rows += 1
 
 
-#: The target a session contract's reply is written to: a chat or an agent run
-#: aims at no file of its own, so its reply is parsed into this fixed name.
-SESSION_REPLY = ".mcgyvr-session-reply.txt"
-
-
 def worker_attempt(
     config: Config,
     pool: SourceMap,
@@ -119,8 +111,6 @@ def worker_attempt(
     attempt — the climb calls it again for the same rung — so it also keeps the
     per-rung notes a later attempt is told about.
     """
-    if contract.is_session:
-        contract = replace(contract, target=SESSION_REPLY)
     notes: dict[str, RetryNotes | None] = {}
     # Each rung's note from its last attempt, handed to `build_prompt` as `retry`
     # so the worker is told what the gate or the reviewer found. The assignment
@@ -188,34 +178,14 @@ def worker_attempt(
 
     def _attempt(this: Try, made: _Dispatches, draws: int) -> Judgement:
         family = family_of(config, this.rung.name)
-        prose = contract.output_schema == PROSE
-        # The reviewer this rung would be judged by, if any: a contract whose
-        # kind does not judge a change — chat and agent — is never reviewed, and
-        # neither is a run with no selector. The selector's answer is kept whole
-        # because a `NoReviewer` is a reason to report and not a failure.
-        # `_through` routes a reviewer's seams through the waker when its unit is
-        # one this run can wake, and `jev_bound` says the typed questions are
-        # served by their own bound role, which must not be woken on the
-        # reviewer's behalf.
-        chosen: Reviewer | NoReviewer | None = (
-            reviewers(this.rung.name)
-            if reviewers is not None and contract.kind.judges_a_change
-            else None
-        )
-        reviewing = (
-            _through(waker, chosen, jev_resident=jev_bound(pool))
-            if isinstance(chosen, Reviewer)
-            else None
-        )
-        jev = _jev_for(this.rung.model, reviewing)
         if cooldown is not None:
             # A source the run holds out is not dispatched to at all: the probe's
-            # dead sources, a source whose failure streak armed a cooldown and one
-            # another process on this host held out all answer through
-            # `unavailable`. Declining keeps the rung in the ladder for a later
-            # climb and costs nothing, where a dispatch would spend the attempt on
-            # a connection the run already knows will not answer. The check is per
-            # source, so every rung on a cooling source goes with it.
+            # dead sources and a source whose failure streak armed a cooldown
+            # both answer through `unavailable`. Declining keeps the rung in the
+            # ladder for a later climb and costs nothing, where a dispatch would
+            # spend the attempt on a connection the run already knows will not
+            # answer. The check is per source, so every rung on a cooling source
+            # goes with it.
             endpoint = pool.bind(this.rung.name)
             cooling = cooldown.unavailable([endpoint])
             if endpoint.source in cooling:
@@ -234,12 +204,6 @@ def worker_attempt(
                 )
 
         def judge_draw(space: Sandbox) -> GateResult:
-            if prose:
-                # A prose contract is not judged by a code gate:
-                # `gate_prose_workspace` runs no rung over the workspace the
-                # reply was written into, and no adapter and no project check
-                # reads it.
-                return _drive.gate_prose_workspace(contract, space)
             # A code contract is gated over the tree as the reply left it: the
             # project's own checks, the adapters' static ones and the acceptance
             # commands, whose findings are the verdict's. A rejection the
@@ -344,7 +308,7 @@ def worker_attempt(
                 # the send is simply made.
                 if waker is None:
                     return wire()
-                return waker.dispatching(this.rung.name, wire)
+                return waker.dispatching(this.rung.name, wire, capacity=capacity)
 
             def once() -> Completion:
                 if cooldown is None:
@@ -480,7 +444,21 @@ def worker_attempt(
             )
         else:
             gate, bound = picked.gate, picked.winner
-            if tidying and not prose:
+            # The reviewer this rung is judged by, if any: a contract whose kind
+            # does not judge a change is never reviewed, and neither is a run
+            # with no selector. The selector's answer is kept whole because a
+            # `NoReviewer` is a reason to report and not a failure. It is asked
+            # once the draws are in, since a draw can swap a sleeper in and put
+            # the reviewer down: a reviewer is never woken, the selector picks it
+            # from the rungs that are up, and its calls go straight to it.
+            chosen: Reviewer | NoReviewer | None = (
+                reviewers(this.rung.name)
+                if reviewers is not None and contract.kind.judges_a_change
+                else None
+            )
+            reviewing = chosen if isinstance(chosen, Reviewer) else None
+            jev = _jev_for(this.rung.model, reviewing)
+            if tidying:
                 gate, bound = _cleaned(
                     contract, sandbox, gate, bound, adapters=adapters, config=config
                 )
@@ -495,16 +473,16 @@ def worker_attempt(
                 family,
                 gate,
                 # The verifier the verdict may rest on, or `None` when no review
-                # is owed: a prose contract is not reviewed, and neither is one
-                # whose selector answered a `NoReviewer`. `verify` is given the
-                # gate the change was accepted by, the change as it will be
-                # delivered, the models on both sides, the reviewer's `ask` and
-                # `decide` seams and the base content, so it can say what changed.
-                # A reviewer that cannot answer leaves the gate's acceptance
-                # standing and the verdict `unverified`; it never fails the work.
+                # is owed: none is when the selector answered a `NoReviewer`.
+                # `verify` is given the gate the change was accepted by, the
+                # change as it will be delivered, the models on both sides, the
+                # reviewer's `ask` and `decide` seams and the base content, so it
+                # can say what changed. A reviewer that cannot answer leaves the
+                # gate's acceptance standing and the verdict `unverified`; it
+                # never fails the work.
                 verifier=(
                     None
-                    if prose or reviewing is None
+                    if reviewing is None
                     else partial(
                         verify,
                         contract,

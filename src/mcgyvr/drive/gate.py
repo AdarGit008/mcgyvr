@@ -7,16 +7,15 @@ and the secret scan first, then the structured-data check, the language
 adapters, the type check, the semantic rung and the contract's acceptance
 commands, each skipped once an earlier one has recorded a finding, with the
 contract's prose passed to the rungs that read it.
-``gate_prose_workspace`` is the narrow form a prose reply gets, where
-no rung applies.
 
-The rest of the module is what the attempt loop composes around those two: a
+The rest of the module is what the attempt loop composes around it: a
 reply written into a fresh sandbox (``gate_in_sandbox``), a format-only
 rejection tidied and gated again (``_cleaned``), a rejected tree repaired by
 the deterministic tools and gated again (``_repair_and_regate``), the
-reviewer's JEV check asked of the winning draw alone (``_typed_checks``), and
-the reviewer's calls sent through the waker so a card that was slept is woken
-for them (``_through``). ``task_ceiling``, ``acceptance_for`` and
+reviewer's JEV check asked of the winning draw alone (``_typed_checks``).
+A reviewer is never woken: a card is slept and woken for the climb's pressure
+alone, and the reviewer is chosen from the rungs that are up
+(:func:`mcgyvr.verify.reviewers_for`). ``task_ceiling``, ``acceptance_for`` and
 ``gate_adapters`` are the seams that turn a contract and a config into the
 inputs those rungs take.
 """
@@ -41,15 +40,12 @@ from mcgyvr.scope import inside
 from mcgyvr.verify import Reviewer, independent
 
 if TYPE_CHECKING:  # pragma: no cover - typing only
-    from collections.abc import Callable, Sequence
-    from typing import Any
+    from collections.abc import Sequence
 
     from mcgyvr.config import Config
     from mcgyvr.contract import Contract
-    from mcgyvr.decision import Decision
     from mcgyvr.gate.adapter import LanguageAdapter
     from mcgyvr.sandbox.base import Sandbox
-    from mcgyvr.wake import Waker
 
 
 def _jev_for(builder: str, reviewing: Reviewer | None) -> JevCheck | None:
@@ -64,41 +60,6 @@ def _jev_for(builder: str, reviewing: Reviewer | None) -> JevCheck | None:
     if reviewing is None or not independent(builder, reviewing.model):
         return None
     return reviewing.jev
-
-
-def _through(
-    waker: Waker | None, reviewer: Reviewer, *, jev_resident: bool = False
-) -> Reviewer:
-    """A reviewer whose calls are sent through the waker for its own unit.
-
-    A reviewer with no unit — one reached by a command rather than by a rung the
-    waker holds a card for — comes back as it is, and so does every reviewer
-    when no waker was handed in. Otherwise ``ask`` and ``decide`` are wrapped in
-    :meth:`~mcgyvr.wake.Waker.dispatching`, so a card that was put to sleep is
-    woken before the call is sent, and a refusal is retried once the wake has
-    run. ``jev_resident`` says the JEV unit is bound and so never slept: its
-    ``decide`` is left unwrapped, since a wake around a resident unit would spend
-    a round trip on a call that cannot be refused.
-    """
-    if waker is None or reviewer.unit is None:
-        return reviewer
-    unit = reviewer.unit
-    ask, decide, jev = reviewer.ask, reviewer.decide, reviewer.jev
-
-    def woken_ask(prompt: str) -> str:
-        return waker.dispatching(unit, lambda: ask(prompt))
-
-    def woken(seam: Callable[[Any], Decision]) -> Callable[[Any], Decision]:
-        if jev_resident:
-            return seam
-        return lambda state: waker.dispatching(unit, lambda: seam(state))
-
-    return replace(
-        reviewer,
-        ask=woken_ask,
-        decide=woken(decide) if decide is not None else None,
-        jev=replace(jev, decide=woken(jev.decide)) if jev is not None else None,
-    )
 
 
 def _typed_checks(
@@ -286,17 +247,6 @@ def acceptance_for(
         timeout=_drive.task_ceiling(config),
         demonstrations=contract.demonstration_commands,
     )
-
-
-def gate_prose_workspace(contract: Contract, sandbox: Sandbox) -> GateResult:
-    """Gate a prose reply: no rung applies, so the result is empty.
-
-    A prose reply changes no source, so no rung of the gate reads it, and an
-    empty result is an acceptance: a ``GateResult`` is accepted when it holds no
-    findings and no inconclusive rung. That is how a chat or agent reply runs
-    no check at all.
-    """
-    return GateResult()
 
 
 def gate_workspace(

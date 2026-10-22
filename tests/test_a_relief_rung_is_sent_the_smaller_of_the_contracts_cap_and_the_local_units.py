@@ -13,7 +13,7 @@ the rider's own ladder, the one a ride stands in for when it is full:
 * contract 8192, local unit 2048: the ride is sent 2048;
 * contract 1024, local unit 2048: the ride is sent 1024;
 * a local unit that declares none: the contract's, as on that unit itself;
-* a contract with no cap (a raw-text reply), local unit 2048: the ride is
+* a contract with no cap, local unit 2048: the ride is
   sent 2048. The local unit's limit applies to the ride whatever the
   contract says, so another person's unit is not asked for a reply with no
   bound;
@@ -21,8 +21,8 @@ the rider's own ladder, the one a ride stands in for when it is full:
 
 That bound is the hub's, not the product's harness, and is kept as it was
 when the cap model changed. On the rider's own rungs the
-contract's cap is sent exactly, and a contract with no cap — a chat run, a raw
-connection — is sent none there.
+contract's cap is sent exactly, and a contract with no cap is sent none
+there.
 """
 
 from __future__ import annotations
@@ -34,7 +34,7 @@ from mcgyvr.contract import Contract
 from mcgyvr.contract import loads as load_contract
 from mcgyvr.gate.preflight import reply_cap
 from mcgyvr.local_pool import SourceMap, source_map
-from tests.rungs import PROSE_CONTRACT, RIDE, RUNG_ID, caps_sent
+from tests.rungs import RIDE, RUNG_ID, UNCAPPED_CONTRACT, caps_sent
 from tests.rungs import ROOM_CONTRACT as CONTRACT
 
 LOCAL = "local_fast"
@@ -75,7 +75,7 @@ def pool(local: int | None, *, second: int | None = None) -> SourceMap:
 
 def contract(cap: int | None) -> Contract:
     if cap is None:
-        return load_contract(PROSE_CONTRACT)
+        return load_contract(UNCAPPED_CONTRACT)
     # A reply may not be declared larger than what the contract may read.
     return load_contract(
         CONTRACT.replace("max_output_tokens: 1024", f"max_output_tokens: {cap}")
@@ -134,22 +134,3 @@ def test_the_smaller_number_is_what_reaches_the_wire(
     dispatch_prompt(pool(2048), LOCAL, build_prompt(small), small)
 
     assert seen == [(RIDE, 2048), (LOCAL, 1024)]
-
-
-def test_the_local_units_limit_reaches_the_wire_for_a_contract_with_no_cap(
-    monkeypatch: pytest.MonkeyPatch,
-) -> None:
-    from mcgyvr.drive import dispatch_prompt
-    from mcgyvr.worker.prompt import build_prompt
-
-    seen = caps_sent(monkeypatch)
-    # A chat run: a raw connection that states no cap and is sent none on the
-    # rider's own rungs, while a ride still carries the local unit's limit.
-    work = load_contract("id: sky\ntask_type: chat\ntask: Why is the sky blue?\n")
-    assert work.limits.max_output_tokens is None
-
-    dispatch_prompt(pool(2048), RIDE, build_prompt(work), work)
-    dispatch_prompt(pool(2048), LOCAL, build_prompt(work), work)
-    dispatch_prompt(pool(None), RIDE, build_prompt(work), work)
-
-    assert seen == [(RIDE, 2048), (LOCAL, None), (RIDE, None)]

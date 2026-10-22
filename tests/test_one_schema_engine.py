@@ -49,7 +49,7 @@ CONTRACT_KINDS = frozenset(
     }
 )
 #: Attributes only a contract field sets, and only a config field sets.
-CONTRACT_ONLY = ("worker_facing", "hint", "choices_from", "retired", "session_optional")
+CONTRACT_ONLY = ("worker_facing", "hint", "choices_from")
 CONFIG_ONLY = ("bind_hint",)
 
 

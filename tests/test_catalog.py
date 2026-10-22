@@ -97,33 +97,12 @@ def test_the_config_use_case_choices_match_the_catalog(shipped: Catalog) -> None
 
 
 def test_every_entry_states_its_required_evidence(shipped: Catalog) -> None:
-    # chat and agent are the ungated types: neither carries evidence or the
-    # gate. Every other type states evidence, and coding types carry the gate
-    # kind as their floor.
+    # Every type states evidence, and coding types carry the gate kind as their
+    # floor.
     for kind in shipped.task_types:
-        if kind.use_case.name in ("chat", "agent"):
-            assert kind.required_evidence == (), f"{kind.name} should be ungated"
-            assert "gate" not in kind.evidence_names, (
-                f"{kind.name} must not carry the gate"
-            )
-            continue
         assert kind.required_evidence, f"{kind.name} requires no evidence"
         assert kind.use_case.name == "coding", kind.name
         assert "gate" in kind.evidence_names, f"{kind.name} does not carry the gate"
-
-
-def test_the_chat_type_is_ungated(shipped: Catalog) -> None:
-    chat = shipped.require("chat")
-    assert chat.use_case.name == "chat"
-    assert chat.starts_on.name == "local"
-    assert chat.evidence_names == ()
-
-
-def test_the_agent_type_is_ungated(shipped: Catalog) -> None:
-    agent = shipped.require("agent")
-    assert agent.use_case.name == "agent"
-    assert agent.starts_on.name == "local"
-    assert agent.evidence_names == ()
 
 
 # --- deterministic operations are not task types ---------------------------
@@ -131,7 +110,7 @@ def test_the_agent_type_is_ungated(shipped: Catalog) -> None:
 
 def test_the_operations_are_not_task_types(shipped: Catalog) -> None:
     """The deterministic tools leave the model vocabulary but stay runnable."""
-    assert {t.name for t in shipped.task_types} == {"code", "chat", "agent"}
+    assert {t.name for t in shipped.task_types} == {"code"}
     assert {o.name for o in shipped.operations} == {
         "format",
         "import_sort",
@@ -339,19 +318,13 @@ def test_the_catalog_file_is_the_only_definition() -> None:
         assert "TASK_TYPES = (" not in text, f"{path} redeclares the vocabulary"
 
 
-# --- names that used to be task types -------------------------------------
+# --- names the catalog does not declare ------------------------------------
 
 
-def test_a_retired_type_names_its_replacement() -> None:
+def test_a_name_that_used_to_be_a_task_type_is_unknown() -> None:
     with pytest.raises(ContractSchemaError) as exc:
         task_type("bug_fix")
-    assert "'bug_fix' is now 'code'" in str(exc.value)
-
-
-def test_a_retired_operation_type_names_the_operation_spelling() -> None:
-    with pytest.raises(ContractSchemaError) as exc:
-        task_type("format")
-    assert "'format' is now 'code' with operation: format" in str(exc.value)
+    assert "'bug_fix' is not a known task type" in str(exc.value)
 
 
 def test_an_unknown_type_lists_the_vocabulary(shipped: Catalog) -> None:
@@ -421,10 +394,9 @@ def test_a_missing_use_case_is_rejected(tmp_path: Path) -> None:
 
 
 def test_a_missing_required_evidence_key_is_rejected(tmp_path: Path) -> None:
-    """required_evidence may be empty (chat) but the key must still be present."""
+    """required_evidence may be empty but the key must still be present."""
     raw = json.loads(catalog_path().read_text(encoding="utf-8"))
-    chat = next(t for t in raw["task_types"] if t["name"] == "chat")
-    chat.pop("required_evidence")
+    raw["task_types"][0].pop("required_evidence")
     path = tmp_path / "c.json"
     path.write_text(json.dumps(raw), encoding="utf-8")
     with pytest.raises(CatalogError, match="required_evidence"):
@@ -432,7 +404,7 @@ def test_a_missing_required_evidence_key_is_rejected(tmp_path: Path) -> None:
 
 
 def test_a_null_required_evidence_is_rejected(tmp_path: Path) -> None:
-    """A null list is not the empty list chat declares; it is refused by name."""
+    """A null list is not an empty list; it is refused by name."""
     raw = json.loads(catalog_path().read_text(encoding="utf-8"))
     raw["task_types"][0]["required_evidence"] = None
     path = tmp_path / "c.json"
@@ -536,14 +508,6 @@ def test_cli_shows_one_type_in_full(capsys: pytest.CaptureFixture[str]) -> None:
     assert "derived" in out
     assert "guarantee:" in out
     assert "warrant:" in out
-
-
-def test_cli_names_the_replacement_for_a_retired_type(
-    capsys: pytest.CaptureFixture[str],
-) -> None:
-    assert main(["catalog", "function_implementation"]) == 1
-    err = capsys.readouterr().err
-    assert "'function_implementation' is now 'code'" in err
 
 
 def test_cli_shows_an_operation_as_one_of_code(

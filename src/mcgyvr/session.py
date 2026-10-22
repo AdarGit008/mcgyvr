@@ -8,9 +8,7 @@ transcript's path in `PI_SESSION_FILE`. Either way the tool's own session id is
 looked up on disk — under `CLAUDE_CONFIG_DIR` or `~/.claude` for Claude Code,
 under `~/.pi/agent/sessions` for Pi — and a run whose transcript cannot be found
 is refused with `SessionError` rather than filed under a transcript that does
-not exist or under a default. An mcorch server's transcript is not on disk when
-the name is settled, so `with_mcorch_transcript` attaches it later, once the
-journal directory is known.
+not exist or under a default.
 """
 
 from __future__ import annotations
@@ -21,8 +19,6 @@ from collections.abc import Mapping
 from dataclasses import dataclass
 from pathlib import Path
 
-from mcgyvr.config import MCORCH
-
 CLAUDE_SESSION_VAR = "CLAUDE_CODE_SESSION_ID"
 CLAUDE_CONFIG_VAR = "CLAUDE_CONFIG_DIR"
 PI_SESSION_VAR = "PI_SESSION_FILE"
@@ -30,12 +26,9 @@ PI_SESSION_VAR = "PI_SESSION_FILE"
 CLAUDE = "claude"
 PI = "pi"
 #: An orchestrator is named `<tool>-<id>`, and the id is the journal's file name:
-#: `claude-<session id>`, `pi-<session id>`, or `mcorch-<stamp>`. The first two
-#: are traced back to the tool's own transcript on disk; an mcorch writer's
-#: transcript lives under the journal directory and is attached by
-#: `with_mcorch_transcript` once that directory is known. Claude Code exports its
-#: session id and config root; a Pi transcript path has to be exported by
-#: something, and nothing shipped here does.
+#: `claude-<session id>` or `pi-<session id>`, each traced back to the tool's own
+#: transcript on disk. Claude Code exports its session id and config root; a Pi
+#: transcript path has to be exported by something, and nothing shipped here does.
 
 #: Every id this module accepts, and every file name it composes one into: a set
 #: with no `.`/`..` and no path separator, so an id can never reach outside the
@@ -53,8 +46,8 @@ class Session:
 
     `orchestrator` is the name a journal row and a result carry. `session_file`
     is that name's transcript as an absolute path, or None for a name this host
-    cannot trace yet: an mcorch writer whose transcript does not exist, and any
-    id passed to `--orchestrator` that does not carry a known tool's prefix.
+    cannot trace: an id passed to `--orchestrator` that does not carry a known
+    tool's prefix.
     """
 
     orchestrator: str
@@ -190,23 +183,3 @@ def _pi_id(path: Path) -> str:
     stem = path.stem
     _, sep, uuid = stem.rpartition("_")
     return uuid if sep else stem
-
-
-def with_mcorch_transcript(named: Session, journal_dir: Path) -> Session:
-    """Attach an mcorch writer's transcript under `journal_dir`, when it is there.
-
-    An mcorch server is named `mcorch-<stamp>` and writes one JSON row per
-    request to `journal_dir/mcorch/<name>.jsonl`, but its id is minted before the
-    run knows the journal directory, so the file is looked up here instead. A
-    session that already has a transcript, or that is not an mcorch writer, is
-    returned unchanged; so is an mcorch writer whose transcript does not exist
-    yet, since a writer that has not written is still a name, not a refusal.
-    """
-    if named.session_file is not None or not named.orchestrator.startswith(
-        f"{MCORCH}-"
-    ):
-        return named
-    path = journal_dir / MCORCH / f"{named.orchestrator}.jsonl"
-    if not path.is_file():
-        return named
-    return Session(named.orchestrator, path.resolve())

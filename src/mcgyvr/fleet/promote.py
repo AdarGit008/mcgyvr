@@ -39,7 +39,7 @@ from mcgyvr import atomic
 from mcgyvr.config import FLEET_FILENAME, POLICY_FILENAME, ConfigError, parse
 from mcgyvr.fleet.admit import layout_ids
 from mcgyvr.fleet.files import FleetFileError, load_fleet, load_policy
-from mcgyvr.fleet.layout import FleetError, layout_sha256, mcorch_units
+from mcgyvr.fleet.layout import layout_sha256
 
 # Re-exported: the folder a fleet's lock files sit in, which the modules and
 # tests that read or write a lock import from here.
@@ -215,7 +215,7 @@ def promote(dev_root: Path, setup: Path, name: str) -> Path:
     `fleets/<name>@<date>` and carries the fleet and policy trimmed to the units
     the layout keeps and the rigs it lays out, the lock, and every combination
     record the layout pins. Refuses a name that already carries a date, a fleet
-    that splits a unit or cannot serve its mcorch policy, a layout that no longer
+    that splits a unit, a layout that no longer
     matches its lock, a fleet with no dev lock, and a date whose folder another
     sampled fleet already takes.
     """
@@ -237,12 +237,6 @@ def promote(dev_root: Path, setup: Path, name: str) -> Path:
     except SpanError as exc:
         raise PromoteRefusedError(
             f"{exc}; a fleet that splits a unit is not promoted"
-        ) from exc
-    try:
-        mcorch_units(dev_policy, fleets[name].get("layout") or {}, name=name)
-    except FleetError as exc:
-        raise PromoteRefusedError(
-            f"{exc}; a fleet that cannot serve its mcorch policy is not promoted"
         ) from exc
 
     lock_path = dev_root / LOCK_DIR / f"{name}.json"

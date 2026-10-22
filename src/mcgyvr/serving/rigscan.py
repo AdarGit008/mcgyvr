@@ -104,6 +104,10 @@ DOCKER_VERSION_FORMAT = "{{.Server.Version}}"
 SSH_CONNECTION_ENV = "SSH_CONNECTION"
 #: Arguments that make `ip` list the IPv4 addresses, one interface per line.
 IP_ADDR_ARGS = ("-4", "-o", "addr", "show")
+#: The fallback where `ip` is absent or fails: `hostname -I` prints every address
+#: on the host's interfaces, loopback and link-local left out, without their
+#: interface names.
+HOSTNAME_ADDR_ARGS = ("hostname", "-I")
 
 #: Note text for a card list that could not be read: the first is used when the
 #: NVIDIA tool never answered, so nothing at all is known about the cards; the
@@ -1266,13 +1270,25 @@ def _parse_ip_addr(output: str) -> list[dict[str, str]]:
     return found
 
 
+def _parse_hostname_addresses(output: str) -> list[dict[str, str]]:
+    """The IPv4 addresses in `hostname -I` output, each with no interface name, since
+    `hostname` prints none. A word that is not an IPv4 address (an IPv6 one) is
+    skipped."""
+    found: list[dict[str, str]] = []
+    for word in output.split():
+        if re.fullmatch(r"\d{1,3}(\.\d{1,3}){3}", word):
+            found.append({"interface": "", "address": word})
+    return found
+
+
 def _network(bound: float) -> tuple[dict[str, Any], list[dict[str, str]], list[str]]:
     """The address this machine was reached at and the IPv4 addresses on its
     interfaces.
 
     Only an ssh session carries the address it was reached at, in SSH_CONNECTION,
-    and only a four-field setting is believed. Each of the two is noted when it could
-    not be read, and the note says which.
+    and only a four-field setting is believed. The addresses come from `ip`, or,
+    where `ip` is absent or fails, from `hostname -I` without interface names. Each
+    of the two is noted when it could not be read, and the note says which.
     """
     said = os.environ.get(SSH_CONNECTION_ENV, "").split()
     reached = said[2] if len(said) == 4 else None
@@ -1288,15 +1304,26 @@ def _network(bound: float) -> tuple[dict[str, Any], list[dict[str, str]], list[s
         facts.append(
             {"field": "network.reached_at", "how": "local address in SSH_CONNECTION"}
         )
-    if text is None:
-        notes.append(
-            "Network: `ip " + " ".join(IP_ADDR_ARGS) + "` is absent or failed, "
-            "so the addresses on its interfaces are not read."
-        )
-    else:
+    if text is not None:
         facts.append({"field": "network.ipv4", "how": "ip " + " ".join(IP_ADDR_ARGS)})
-    ipv4 = _parse_ip_addr(text) if text is not None else []
-    return {"reached_at": reached, "ipv4": ipv4}, facts, notes
+        return {"reached_at": reached, "ipv4": _parse_ip_addr(text)}, facts, notes
+    fallback, _ = _run(HOSTNAME_ADDR_ARGS, bound=bound)
+    if fallback is None:
+        notes.append(
+            "Network: `ip "
+            + " ".join(IP_ADDR_ARGS)
+            + "` and `"
+            + " ".join(HOSTNAME_ADDR_ARGS)
+            + "` are absent or failed, so the "
+            "addresses on its interfaces are not read."
+        )
+        return {"reached_at": reached, "ipv4": []}, facts, notes
+    facts.append({"field": "network.ipv4", "how": " ".join(HOSTNAME_ADDR_ARGS)})
+    return (
+        {"reached_at": reached, "ipv4": _parse_hostname_addresses(fallback)},
+        facts,
+        notes,
+    )
 
 
 # The snapshot is a map of key to one token per fact. Every key goes through put(),

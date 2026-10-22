@@ -52,20 +52,17 @@ from mcgyvr.drive.prompt import (
     refuse_unsendable_climb,
 )
 from mcgyvr.drive.gate import (
-    _through,
     acceptance_for,
     gate_adapters,
     gate_in_sandbox,
-    gate_prose_workspace,
     gate_workspace,
     task_ceiling,
 )
-from mcgyvr.drive.attempt import SESSION_REPLY, _in_order, worker_attempt
+from mcgyvr.drive.attempt import _in_order, worker_attempt
 # isort: on
 # The exported surface, underscored helpers included: the tests reach them here.
 
 __all__ = [
-    "SESSION_REPLY",
     "ContractTooLargeForRungError",
     "DriveError",
     "OutputCapTooLargeError",
@@ -78,7 +75,6 @@ __all__ = [
     "_as_sent",
     "_base_content",
     "_in_order",
-    "_through",
     "acceptance_for",
     "best_of",
     "build_prompt",
@@ -86,7 +82,6 @@ __all__ = [
     "dispatch_prompt",
     "gate_adapters",
     "gate_in_sandbox",
-    "gate_prose_workspace",
     "gate_workspace",
     "judge",
     "refuse_unsendable",

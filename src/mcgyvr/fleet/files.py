@@ -4,13 +4,16 @@ Three files, three vocabularies. `load_fleet` reads what runs where — the
 units, the rigs and the fleets; `load_policy` reads how work moves over those
 units — the ladder and the policy settings; `load_relief` reads the units a hub
 lends, which `mcgyvr rig rungs sync` writes and nothing else does. Each file
-refuses a key that belongs to another, an unknown key, and a word that was
-retired, naming in the message what to write instead, because a file that does
-not say what it means must not be read under rules it never agreed to.
+refuses a key that belongs to another and an unknown key, naming in the message
+what to write instead, because a file that does not say what it means must not
+be read under rules it never agreed to.
 """
 
 from __future__ import annotations
 
+import re
+from collections.abc import Mapping
+from dataclasses import dataclass
 from typing import Any
 
 import yaml
@@ -20,7 +23,7 @@ from mcgyvr.strict_yaml import strict_loader
 
 class FleetFileError(Exception):
     """A setup file this module will not read: invalid YAML, a key that is not
-    text or is duplicated, an unknown, retired or misplaced key, or a value of
+    text or is duplicated, an unknown or misplaced key, or a value of
     the wrong shape where a block, a list or a name was expected."""
 
 
@@ -56,7 +59,7 @@ _UNIT_KEYS = frozenset(
 #: The keys `policy.yaml` may carry: `ladder` plus how work moves and how much
 #: it may do — fanout, attempts, draws, escalations, timeouts, the window
 #: fraction, breadth, cleanup, users — the units a job goes to (orchestrator,
-#: verifier, jev, manager), what the gate refuses, and how a run is sandboxed,
+#: verifier, jev), what the gate refuses, and how a run is sandboxed,
 #: delivered, served and journaled.
 _POLICY_KEYS = frozenset(
     {
@@ -81,10 +84,30 @@ _POLICY_KEYS = frozenset(
         "sandbox",
         "delivery",
         "serving",
-        "manager",
         "journal",
     }
 )
+
+#: Policy keys an earlier build read and this one does not, dotted from the
+#: top of `policy.yaml`, each with what became of it. Every `policy.yaml` that
+#: `mcgyvr setup` wrote before the ladder manager and chat/agent sessions were
+#: removed carries the first two. They are refused rather than read — an
+#: ignored key is a file that does not do what it says — but all at once, so a
+#: setup from before is mended in one pass, and `mcgyvr setup` on its folder
+#: names the lines to delete (`retired_policy_lines`).
+RETIRED_POLICY_KEYS: dict[str, str] = {
+    "manager": (
+        "the ladder manager and `mcgyvr manage` were removed; a run wakes a "
+        "sleeping unit itself when `serving.enable_sleep_wake` is on"
+    ),
+    "sandbox.sessions": (
+        "chat and agent sessions were removed, and with them the sandbox a "
+        "session was staged in"
+    ),
+    "orchestrator.tools": (
+        "it named the harness tools `type: mcorch` kept, and mcorch was removed"
+    ),
+}
 
 #: The top-level keys `fleet.yaml` may carry; a policy setting, a `relief` block
 #: or anything else at that level is refused rather than carried along unseen.
@@ -98,18 +121,6 @@ _FLEET_BLOCK_KEYS = frozenset({"layout", "next"})
 #: written whole by `mcgyvr rig rungs sync`, so they are read as units marked
 #: `relief` and never join `units` or the ladder.
 _RELIEF_FILE_KEYS = frozenset({"relief"})
-
-#: Words a file may no longer use, each mapped to what replaced it, so a refusal
-#: can name the term to write instead of only saying the key is unknown.
-_RETIRED_WORDS = {
-    "sources": "name what serves under `units` — a unit is the one term",
-    "source": "a unit is the one term",
-    "rung": "a unit is the one term",
-    "rungs": "a ladder names `unit names`, not rungs or tiers",
-    "tier": "a unit is the one term",
-    "tiers": "a ladder names `unit names`, not rungs or tiers",
-}
-
 
 #: The loader every setup file is read with: a key repeated anywhere in the
 #: file, or one that is a list or a mapping, is refused instead of
@@ -152,13 +163,6 @@ def _document(raw: object, name: str) -> dict[str, Any]:
     return dict(raw)
 
 
-def _refuse_retired(key: str, where: str) -> None:
-    hint = _RETIRED_WORDS.get(key)
-    if hint is None:
-        return
-    raise FleetFileError(f"{where}: `{key}` is retired — {hint}.")
-
-
 def _refuse_policy_setting(key: str, where: str) -> None:
     raise FleetFileError(
         f"{where}: `{key}` is a policy setting — it belongs in policy.yaml, "
@@ -181,11 +185,151 @@ def _refuse_unit_fact(key: str) -> None:
 
 
 def _unknown_key(key: str, where: str, known: frozenset[str]) -> None:
-    _refuse_retired(key, where)
     raise FleetFileError(
         f"{where}: unknown key {key!r}. An ignored key is a file that does "
         f"not do what it says. Valid keys here: {', '.join(sorted(known))}"
     )
+
+
+def retired_policy_keys(policy: Mapping[str, Any]) -> tuple[str, ...]:
+    """The keys of `RETIRED_POLICY_KEYS` that `policy` carries, in its order."""
+    found: list[str] = []
+    for dotted in RETIRED_POLICY_KEYS:
+        head, _, rest = dotted.partition(".")
+        if head not in policy:
+            continue
+        block = policy[head]
+        if not rest or (isinstance(block, Mapping) and rest in block):
+            found.append(dotted)
+    return tuple(found)
+
+
+def _refuse_retired(policy: Mapping[str, Any]) -> None:
+    found = retired_policy_keys(policy)
+    if not found:
+        return
+    named = "\n".join(f"  - `{key}`: {RETIRED_POLICY_KEYS[key]}" for key in found)
+    raise FleetFileError(
+        f"policy.yaml: carries {len(found)} key(s) this version of mcgyvr no "
+        f"longer reads. An ignored key is a file that does not do what it "
+        f"says, so delete each one, with its block and the comment above "
+        f"it:\n{named}\n`mcgyvr setup` on this setup's folder names the exact "
+        f"lines, and deletes them when you say yes."
+    )
+
+
+@dataclass(frozen=True)
+class RetiredLines:
+    """Where one retired key sits in a policy file, comment and block included.
+
+    `first` and `last` are 1-based line numbers, both inclusive; `text` is
+    those lines as written.
+    """
+
+    key: str
+    first: int
+    last: int
+    text: tuple[str, ...]
+
+
+def _indent(line: str) -> int:
+    return len(line) - len(line.lstrip(" "))
+
+
+def _key_line(lines: list[str], key: str, indent: int, start: int, end: int) -> int:
+    """The index of `key:` at exactly `indent` within `lines[start:end]`, or -1."""
+    pattern = re.compile(rf"^ {{{indent}}}{re.escape(key)}:(\s|$)")
+    for index in range(start, end):
+        if pattern.match(lines[index]):
+            return index
+    return -1
+
+
+def _block_end(lines: list[str], index: int) -> int:
+    """One past the last line of the key at `index`: its value and its block.
+
+    The block is every following line indented deeper than the key, blank lines
+    between them included; trailing blank lines are not part of it.
+    """
+    depth = _indent(lines[index])
+    end = index + 1
+    for after in range(index + 1, len(lines)):
+        if not lines[after].strip():
+            continue
+        if _indent(lines[after]) <= depth:
+            break
+        end = after + 1
+    return end
+
+
+def retired_policy_lines(text: str) -> tuple[RetiredLines, ...]:
+    """The lines of `text` each retired key it carries is written on.
+
+    A key's lines are its doc comment — the comment lines directly above it at
+    its own indent — the key itself, and its block. A key written where no line
+    shows it (inside a flow mapping, say) is not listed: the refusal still names
+    it.
+    """
+    lines = text.splitlines()
+    spans: list[RetiredLines] = []
+    for dotted in RETIRED_POLICY_KEYS:
+        parts = dotted.split(".")
+        index, end = -1, len(lines)
+        start, indent = 0, 0
+        for depth, part in enumerate(parts):
+            index = _key_line(lines, part, indent, start, end)
+            if index < 0:
+                break
+            if depth + 1 < len(parts):
+                start, end = index + 1, _block_end(lines, index)
+                nested = next(
+                    (
+                        _indent(line)
+                        for line in lines[start:end]
+                        if line.strip() and not line.lstrip().startswith("#")
+                    ),
+                    None,
+                )
+                if nested is None:
+                    index = -1
+                    break
+                indent = nested
+        if index < 0:
+            continue
+        first = index
+        depth = _indent(lines[index])
+        while (
+            first > 0
+            and lines[first - 1].strip().startswith("#")
+            and _indent(lines[first - 1]) == depth
+        ):
+            first -= 1
+        last = _block_end(lines, index)
+        spans.append(RetiredLines(dotted, first + 1, last, tuple(lines[first:last])))
+    return tuple(spans)
+
+
+def without_retired_lines(text: str) -> str:
+    """`text` with every retired key's lines deleted, and no gap left behind.
+
+    A blank line that only separated a deleted block from the next is deleted
+    with it, so a file read as blocks a blank line apart still reads that way.
+    """
+    lines = text.splitlines(keepends=True)
+    drop: set[int] = set()
+    for span in retired_policy_lines(text):
+        first, last = span.first - 1, span.last
+        if first > 0 and not lines[first - 1].strip():
+            while last < len(lines) and not lines[last].strip():
+                last += 1
+            # Keep as many blank lines after the deleted lines' neighbour as
+            # stood before them, so the spacing either side is unchanged.
+            before = 0
+            while first - before - 1 >= 0 and not lines[first - before - 1].strip():
+                before += 1
+            last = min(last, span.last + max(before, 0))
+        drop.update(range(first, last))
+    return "".join(line for index, line in enumerate(lines) if index not in drop)
 
 
 def _unit_block(raw: object, where: str) -> dict[str, Any]:
@@ -242,7 +386,6 @@ def _ladder(raw: object, where: str) -> list[str]:
         return names
     if isinstance(raw, dict):
         for key in raw:
-            _refuse_retired(key, where)
             raise FleetFileError(
                 f"{where}: unknown key {key!r}. The ladder is an ordered list "
                 f"of unit names."
@@ -260,9 +403,8 @@ def load_fleet(text: str) -> dict[str, Any]:
 
     Each unit block is held to `_UNIT_KEYS` and each fleet entry to
     `_FLEET_BLOCK_KEYS`; `rigs` is checked only as a block. A policy setting, a
-    `relief` block, an unknown key (including a retired word, which is named
-    with what replaced it) or a value that is not a block of text keys raises
-    `FleetFileError`.
+    `relief` block, an unknown key or a value that is not a block of text keys
+    raises `FleetFileError`.
     """
     given = _document(_yaml(text), "fleet.yaml")
     data: dict[str, Any] = {}
@@ -287,10 +429,12 @@ def load_policy(text: str) -> dict[str, Any]:
 
     `ladder` is normalised to a list of stripped unit names, cheap first; a
     ladder written as an empty block is refused. Every other top-level key must
-    be in `_POLICY_KEYS`. A fact about a unit, a `relief` block, an unknown key
-    or a retired word raises `FleetFileError` naming the file it belongs in.
+    be in `_POLICY_KEYS`. The retired keys it carries are refused first, all in
+    one error. A fact about a unit, a `relief` block or an unknown key raises
+    `FleetFileError` naming the file it belongs in.
     """
     given = _document(_yaml(text), "policy.yaml")
+    _refuse_retired(given)
     data: dict[str, Any] = {}
     for key, value in given.items():
         if key in _UNIT_KEYS:

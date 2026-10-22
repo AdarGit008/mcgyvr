@@ -725,19 +725,27 @@ def _climb(config: Config, source_map: SourceMap) -> list[tuple[str, Rung]]:
 def reviewer_rung(config: Config, source_map: SourceMap, builder: str) -> str | None:
     """The rung that reviews work built on `builder`, or None if there is none.
 
-    The first rung above `builder` on the climb that is in the local family and
-    serves a model other than the builder's. A hosted family is passed over
-    whatever its model: a hosted reviewer is asked only when `verifier.unit`
-    names it. None when `builder` is not on the climb, or when nothing above it
-    qualifies — the dearest local rung has nothing dearer than itself.
+    The first rung above `builder` on the climb that is in the local family,
+    serves a model other than the builder's and is up. A hosted family is passed
+    over whatever its model: a hosted reviewer is asked only when
+    `verifier.unit` names it. A rung a record says is down — slept, or put down
+    for a sleeper — is passed over too, since a review never wakes a unit. None
+    when `builder` is not on the climb, or when nothing above it qualifies — the
+    dearest local rung has nothing dearer than itself.
     """
+    from mcgyvr.wake import known_down
+
     climb = _climb(config, source_map)
     names = [rung.name for _, rung in climb]
     if builder not in names:
         return None
     built_with = climb[names.index(builder)][1].model
     for family, rung in climb[names.index(builder) + 1 :]:
-        if family == LOCAL_FAMILY and independent(built_with, rung.model):
+        if (
+            family == LOCAL_FAMILY
+            and independent(built_with, rung.model)
+            and known_down(config, rung.name) is None
+        ):
             return rung.name
     return None
 
@@ -750,11 +758,13 @@ def stand_in_rung(
     The anchor is `unit`'s place on the climb, or `builder`'s when the unit is
     not on the ladder. Candidates are the rungs below the anchor, nearest first,
     then the rungs above it, in that order. A candidate is passed over when it is
-    the builder's own rung or serves the builder's model, whatever its name. A
-    local candidate always qualifies; a hosted one only when `unit` is itself
-    hosted, and only from below the anchor — a stand-in never costs more than the
-    review the operator chose.
+    the builder's own rung or serves the builder's model, whatever its name, and
+    when a record says it is down. A local candidate always qualifies; a hosted
+    one only when `unit` is itself hosted, and only from below the anchor — a
+    stand-in never costs more than the review the operator chose.
     """
+    from mcgyvr.wake import known_down
+
     built = source_map.get(builder)
     if built is None:
         return None
@@ -771,6 +781,8 @@ def stand_in_rung(
     ]
     for family, rung, cheaper in nearest:
         if rung.name == builder or not independent(built.model, rung.model):
+            continue
+        if known_down(config, rung.name) is not None:
             continue
         if family == LOCAL_FAMILY or (paid and cheaper):
             return rung.name
@@ -789,16 +801,20 @@ def reviewers_for(
     With `verifier.enabled: false` every builder gets the same `NoReviewer`.
     With `verifier.unit` set, that unit is the reviewer, asked through the role
     seams, unless it serves the model that built the change — then
-    `_standing_in` looks for a rung that may review instead. With no unit set,
-    `_on_rung` picks the next dearer local rung serving another model. The
-    answer for each builder is computed once and reused.
+    `_standing_in` looks for a rung that may review instead, as it does when a
+    record says the unit is down. With no unit set, `_on_rung` picks the next
+    dearer local rung serving another model. Which rung reviews is asked again
+    for every builder, since a swap can put a unit down mid-run; the reviewer
+    built for each builder and rung is reused.
     """
+    from mcgyvr.wake import known_down
+
     if not config.get("verifier.enabled", True):
         off = NoReviewer("review is switched off by `verifier.enabled: false`")
         return lambda builder: off
 
     unit = config.get("verifier.unit")
-    picked: dict[str, Reviewer | NoReviewer] = {}
+    picked: dict[tuple[str, str | None], Reviewer | NoReviewer] = {}
     if unit is not None:
         model = source_map.role_model(VERIFIER_ROLE)
         ask = reviewer_for(source_map, capacity=capacity)
@@ -824,10 +840,12 @@ def reviewers_for(
 
         def named_or_stand_in(builder: str) -> Reviewer | NoReviewer:
             built = source_map.get(builder)
-            if built is None or not _same_model(built.model, model):
+            down = known_down(config, str(unit))
+            if down is None and (built is None or not _same_model(built.model, model)):
                 return named
-            if builder not in picked:
-                picked[builder] = _standing_in(
+            key = (builder, stand_in_rung(config, source_map, builder, str(unit)))
+            if key not in picked:
+                picked[key] = _standing_in(
                     config,
                     source_map,
                     builder,
@@ -835,17 +853,19 @@ def reviewers_for(
                     model,
                     capacity=capacity,
                     timeout_s=timeout_s,
+                    down=down,
                 )
-            return picked[builder]
+            return picked[key]
 
         return named_or_stand_in
 
     def pick(builder: str) -> Reviewer | NoReviewer:
-        if builder not in picked:
-            picked[builder] = _on_rung(
+        key = (builder, reviewer_rung(config, source_map, builder))
+        if key not in picked:
+            picked[key] = _on_rung(
                 config, source_map, builder, capacity=capacity, timeout_s=timeout_s
             )
-        return picked[builder]
+        return picked[key]
 
     return pick
 
@@ -869,25 +889,39 @@ def _standing_in(
     *,
     capacity: Capacity | None,
     timeout_s: float | None,
+    down: str | None = None,
 ) -> Reviewer | NoReviewer:
-    """The reviewer for work the configured verifier unit's model wrote.
+    """The reviewer for work the configured verifier unit cannot review.
 
-    Asks `stand_in_rung` for a rung that may review instead and, when one comes
-    back with a source, builds it through `_askable` with the reason for standing
-    in. With no such rung the answer is a `NoReviewer` that says the unit serves
-    the model that wrote the change and names what a fallback would have to be.
+    Either its model wrote the change, or `down` says why a record has the unit
+    down — a review never wakes a unit. Asks `stand_in_rung` for a rung that may
+    review instead and, when one comes back with a source, builds it through
+    `_askable` with the reason for standing in. With no such rung the answer is
+    a `NoReviewer` that gives the reason and names what a fallback would have to
+    be.
     """
-    wrote = (
-        f"`verifier.unit` {unit!r} serves {model!r}, the model that wrote this change"
-    )
+    if down is not None:
+        why = (
+            f"`verifier.unit` {unit!r} is down ({down}), and a review never "
+            f"wakes a unit"
+        )
+        instead = f"a fallback for `verifier.unit` {unit!r}, which is down"
+    else:
+        why = (
+            f"`verifier.unit` {unit!r} serves {model!r}, the model that wrote this "
+            f"change, and a model does not review its own output"
+        )
+        instead = (
+            f"a fallback for `verifier.unit` {unit!r}, whose model {model!r} "
+            f"wrote this change"
+        )
     rung = stand_in_rung(config, source_map, builder, unit)
     offered = source_map.get(rung) if rung is not None else None
     if rung is None or offered is None:
         return NoReviewer(
-            f"{wrote}, and a model does not review its own output; no other unit "
-            f"was available to review it instead — a fallback is a usable rung "
-            f"whose model is not the builder's, local, or hosted and below a "
-            f"hosted `verifier.unit` on the ladder"
+            f"{why}; no other unit was available to review it instead — a "
+            f"fallback is a usable rung whose model is not the builder's, local, "
+            f"or hosted and below a hosted `verifier.unit` on the ladder"
         )
     return _askable(
         source_map,
@@ -895,10 +929,7 @@ def _standing_in(
         offered.model,
         capacity=capacity,
         timeout_s=timeout_s,
-        instead=(
-            f"a fallback for `verifier.unit` {unit!r}, whose model {model!r} "
-            f"wrote this change"
-        ),
+        instead=instead,
     )
 
 

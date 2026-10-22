@@ -323,6 +323,9 @@ def interactive(
         cli.commands.setup, "_ask_setup_rigs", lambda prompt=None: (RIG,)
     )
     monkeypatch.setattr(cli.commands.setup, "_setup_scan_rigs", scan_rigs)
+    # The fake rig's reading records no address, which a real ssh scan always
+    # does, so the wizard is not asked for one here.
+    monkeypatch.setattr(cli.commands.setup, "_ask_rig_addresses", lambda rigs: None)
     monkeypatch.setattr(
         cli.commands.setup, "_setup_placements", lambda rigs, scans, use_case: plan
     )

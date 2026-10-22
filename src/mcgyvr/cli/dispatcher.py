@@ -83,7 +83,6 @@ def _build() -> tuple[argparse.ArgumentParser, argparse.ArgumentParser]:
     repo.add_parser(sub)
     fleet.add_parser(sub)
     rig_verbs.add_parser(sub, add_config=_common.add_config)
-    ladder.add_mcorch_parser(sub)
     run_sub = run_cmd.add_parser(sub)
     delegate.add_parser(sub)
 

@@ -2,8 +2,8 @@
 
 Two ways in. With flags the command stages a config from named hosts, hosted API
 units and a priority, binds what already answers and starts nothing. Run with no
-flags on a terminal, it is the wizard: it asks for the rigs, the use case, Jev
-and mcorch, reads each rig, plans a placement per rig, fetches missed weights,
+flags on a terminal, it is the wizard: it asks for the rigs, the use case and
+Jev, reads each rig, plans a placement per rig, fetches missed weights,
 stages the config, emits launch specs, starts the containers, samples them and
 locks the fleet live on the user's yes. A fleet nothing could sample is locked
 only once the user acknowledges it on no evidence. Every failure a step raises is
@@ -29,12 +29,18 @@ from mcgyvr.config import (
     API_OUTPUT_TOKENS,
     CONFIG_PATH_ENV,
     FLEET_FILENAME,
+    POLICY_FILENAME,
     USE_CASES,
     ConfigError,
     named_config_path,
 )
 from mcgyvr.config import load as load_config
-from mcgyvr.fleet.files import FleetFileError, load_fleet
+from mcgyvr.fleet.files import (
+    FleetFileError,
+    load_fleet,
+    retired_policy_lines,
+    without_retired_lines,
+)
 from mcgyvr.fleet.roots import (
     FolderError,
 )
@@ -57,7 +63,8 @@ if TYPE_CHECKING:  # pragma: no cover - typing only
     from mcgyvr.knowledge.record import ModelRecord
 
 from mcgyvr.cli.common import INIT_DEFAULT_HELP, _named_path, _OneSetup
-from mcgyvr.cli.sizing import _hosts_wanted, _model_specs, _resolve_hosts, _scans
+from mcgyvr.cli.sizing import _hosts_wanted, _model_specs
+from mcgyvr.serving.rigfile import recorded_scans, resolve_hosts
 
 
 def _setup_priority(args: argparse.Namespace) -> str | None:
@@ -110,14 +117,15 @@ def _setup_is_interactive(args: argparse.Namespace) -> bool:
     """Answer whether this run is the wizard: a terminal, and no flag that
     answers its questions.
 
-    Any flag that names a host, an API unit, a use case or a Jev/mcorch unit, or
-    that forces the write or accepts an unsampled lock, makes the run the flag
-    path instead.
+    Any flag that names a host, a rig's address, an API unit, a use case or a
+    Jev unit, or that forces the write or accepts an unsampled lock, makes the
+    run the flag path instead.
     """
     if not _stdin_isatty():
         return False
     return not (
         bool(args.host)
+        or bool(args.rig_address)
         or bool(args.api)
         or args.force
         or args.priority is not None
@@ -125,9 +133,6 @@ def _setup_is_interactive(args: argparse.Namespace) -> bool:
         or args.use_case is not None
         or args.deployment is not None
         or args.jev is not None
-        or args.mcorch is not None
-        or args.window is not None
-        or args.session_sandbox is not None
         or args.accept_unsampled
     )
 
@@ -187,6 +192,101 @@ def _ask_remote_rigs() -> tuple[str, ...]:
         if hosts:
             return hosts
     raise _SetupInteractiveError("no remote rig was named")
+
+
+def _parse_rig_addresses(specs: Sequence[str]) -> dict[str, list[str]]:
+    """Each `RIG=ADDRESS` spec's addresses by rig, in the order given.
+
+    A spec without `=`, or with nothing on either side of it, is a `ValueError`
+    naming it; whether the address is one is for the rig file to say.
+    """
+    stated: dict[str, list[str]] = {}
+    for spec in specs:
+        rig, sep, address = spec.partition("=")
+        if not sep or not rig.strip() or not address.strip():
+            raise ValueError(
+                f"--rig-address {spec!r} is not RIG=ADDRESS, e.g. gpu-box=10.0.0.7"
+            )
+        stated.setdefault(rig.strip(), []).append(address.strip())
+    return stated
+
+
+def _setup_rig_addresses(specs: Sequence[str]) -> int | None:
+    """Record each `--rig-address` in its rig's file, or answer 1 on a refusal.
+
+    Every spec is parsed before any file is written, so a malformed one leaves
+    every rig file as it was. None when there was nothing to state, or all of it
+    was recorded.
+    """
+    from mcgyvr.serving import rigfile
+
+    try:
+        stated = _parse_rig_addresses(specs)
+    except ValueError as exc:
+        print(f"error: {exc}", file=sys.stderr)
+        return 1
+    for rig, addresses in stated.items():
+        try:
+            where = rigfile.state_addresses(rig, addresses)
+        except rigfile.RigFileError as exc:
+            print(f"error: {exc}", file=sys.stderr)
+            return 1
+        print(
+            f"Recorded {', '.join(addresses)} as where {rig}'s units are "
+            f"reached ({where})"
+        )
+    return None
+
+
+def _ask_rig_addresses(rigs: Sequence[str]) -> None:
+    """Ask for the address of each rig whose rig file records none, and record it.
+
+    A rig's scan records the addresses it answers at; one that recorded none (no
+    ssh, no `ip`) is asked for the address its units are reached at, offering
+    what its name resolves to here. An empty answer with nothing offered leaves
+    it unrecorded, and an answer that is not an address is asked again, up to
+    `_SETUP_TRIES` times, after which the step fails naming it. This machine is
+    not asked about: a name for it finds its rig by the machine's id.
+    """
+    from mcgyvr.detect import is_local_host
+    from mcgyvr.serving import rigfile
+
+    for rig in dict.fromkeys(rigs):
+        if is_local_host(rig):
+            continue
+        saved = rigfile.read(rig)
+        if saved is None or saved.reached_at:
+            continue
+        offered = next(
+            (one for one in rigfile.addresses_of(rig) if _takes_address(one)), ""
+        )
+        _note(f"{rig}'s scan recorded no address its units are reached at")
+        shown = f" [{offered}]" if offered else " (empty to skip)"
+        said = ""
+        for _ in range(_SETUP_TRIES):
+            said = _ask(f"Address of {rig}{shown}: ") or offered
+            if not said:
+                break
+            try:
+                rigfile.state_addresses(rig, (said,))
+            except rigfile.RigFileError as exc:
+                print(f"{exc}.")
+                continue
+            print(f"Recorded {said} for {rig}")
+            break
+        else:
+            raise _SetupInteractiveError(f"{said!r} is not an address for {rig}")
+
+
+def _takes_address(said: str) -> bool:
+    """Whether a rig file would take ``said`` as an address its units are reached at."""
+    from mcgyvr.serving import rigfile
+
+    try:
+        rigfile.stated_address(said)
+    except ValueError:
+        return False
+    return True
 
 
 def _confirm(question: str, prompt: Callable[[str], str] = input) -> bool:
@@ -320,16 +420,12 @@ def _ask_setup_use_case() -> str:
 JEV_QUESTION = "Dedicate a unit to Jev, which answers typed decisions? [y/n] "
 
 
-MCORCH_QUESTION = "Run mcorch, the local orchestrator, on a unit? [y/n] "
-
-
 def _setup_pick_unit(role: str, units: Sequence[str]) -> str:
     """Ask which setup unit holds `role`, answering the only one if just one."""
     if len(units) == 1:
         return units[0]
-    verb = "is" if role == "Jev" else "runs"
     return _setup_choose(
-        f"Which unit {verb} {role}: {', '.join(units)}? [{units[0]}] ",
+        f"Which unit is {role}: {', '.join(units)}? [{units[0]}] ",
         units,
         "a unit of this setup",
     )
@@ -746,8 +842,6 @@ def _setup_interactive(path: Path, run_id: str = "") -> int:
     ~/.local/bin on PATH. A step's error, or a refused init, config or
     capability table, is printed and answered with 1.
     """
-    from mcgyvr.fleet.sample import CODING_USE_CASE
-
     run_id = run_id or _setup_run_id()
     try:
         path.mkdir(parents=True, exist_ok=True)
@@ -762,13 +856,9 @@ def _setup_interactive(path: Path, run_id: str = "") -> int:
         _rule("Step 2 of 4 — what it serves")
         use_case = _ask_setup_use_case()
         wants_jev = _confirm(JEV_QUESTION)
-        # mcorch drives the conversational coding agent, so it is offered only
-        # where there is a coding use case and a Jev unit has been asked for.
-        wants_mcorch = (
-            use_case == CODING_USE_CASE and wants_jev and _confirm(MCORCH_QUESTION)
-        )
         _rule("Step 3 of 4 — read and plan")
         scans, readings = _setup_scan_rigs(rigs)
+        _ask_rig_addresses(rigs)
         plans = _setup_placements(rigs, scans, use_case)
         ctx_per_slot = _setup_context_window(plans)
         downloads = _setup_downloads(plans, scans)
@@ -778,16 +868,12 @@ def _setup_interactive(path: Path, run_id: str = "") -> int:
         detection = _setup_synthetic_detection(plans, window=ctx_per_slot)
         units = unit_names(detection) if wants_jev else ()
         jev = _setup_pick_unit("Jev", units) if wants_jev else None
-        mcorch = _setup_pick_unit("mcorch", units) if wants_mcorch else None
         staged = initialize(
             path,
             force=True,
             detection=detection,
             use_case=use_case,
             jev=jev,
-            mcorch=mcorch,
-            # The window mcorch's unit serves has to be one a placement serves.
-            window=ctx_per_slot if mcorch is not None else None,
             # The launch specs are emitted beside the config it stages.
             compose_dir=path,
         )
@@ -896,7 +982,7 @@ def _setup_rooms(path: Path, ctx_per_slot: int) -> dict[str, int]:
 
     try:
         config = load_config(path)
-        scans = _resolve_hosts(_scans(), _hosts_wanted(config).values())
+        scans = resolve_hosts(recorded_scans(), _hosts_wanted(config).values())
         units = units_for(
             config, scans, specs=_model_specs(), ctx_per_slot=ctx_per_slot
         )
@@ -996,6 +1082,56 @@ def _setup_path(args: argparse.Namespace, run_id: str) -> Path:
     return named.absolute() if named is not None else staging_dir(run_id)
 
 
+def _setup_retired(path: Path, force: bool) -> int | None:
+    """Delete or name the retired keys a setup from before carries, or None.
+
+    A `policy.yaml` that `mcgyvr setup` wrote before the ladder manager and
+    chat/agent sessions were removed carries keys the loader now refuses
+    (`fleet.files.RETIRED_POLICY_KEYS`), so the setup no longer loads. At a
+    terminal their lines are shown and deleted on a yes; without one they are
+    printed with their line numbers for a person to delete, and the run fails.
+    None means there is nothing to mend here: no setup, none of those keys, or
+    `--force`, which rewrites the whole setup anyway.
+    """
+    if force:
+        return None
+    policy = path / POLICY_FILENAME if path.is_dir() else path
+    try:
+        text = policy.read_text(encoding="utf-8")
+    except (OSError, UnicodeDecodeError):
+        # No setup here, or none this can read: the steps after say which.
+        return None
+    spans = retired_policy_lines(text)
+    if not spans:
+        return None
+    shown = "\n".join(
+        f"  lines {span.first}-{span.last} (`{span.key}`):\n"
+        + "\n".join(
+            f"    {span.first + offset:>4} | {line}"
+            for offset, line in enumerate(span.text)
+        )
+        for span in spans
+    )
+    said = f"{policy} carries keys this version of mcgyvr no longer reads:\n{shown}"
+    if not _stdin_isatty():
+        print(
+            f"error: {said}\nDelete these lines, or run `mcgyvr setup` at a "
+            f"terminal to have them deleted.",
+            file=sys.stderr,
+        )
+        return 1
+    print(said)
+    if not _confirm(f"Delete these lines from {policy}? [y/N] "):
+        print(
+            f"Left {policy} as it is: the setup does not load until they are deleted.",
+            file=sys.stderr,
+        )
+        return 1
+    policy.write_text(without_retired_lines(text), encoding="utf-8")
+    print(f"Deleted them from {policy}.")
+    return 0
+
+
 def _setup(args: argparse.Namespace) -> int:
     run_id = _setup_run_id()
     try:
@@ -1003,6 +1139,12 @@ def _setup(args: argparse.Namespace) -> int:
     except FolderError as exc:
         print(f"error: {exc}", file=sys.stderr)
         return 1
+    mended = _setup_retired(path, args.force)
+    if mended is not None:
+        return mended
+    stated = _setup_rig_addresses(args.rig_address)
+    if stated is not None:
+        return stated
     if _setup_is_interactive(args):
         return _setup_interactive(path, run_id)
     refused = _use_case_refused(args.use_case)
@@ -1028,9 +1170,6 @@ def _setup(args: argparse.Namespace) -> int:
             use_case=args.use_case or "coding",
             deployment=args.deployment,
             jev=args.jev,
-            mcorch=args.mcorch,
-            window=args.window,
-            session_sandbox=args.session_sandbox,
             compose_dir=path,
         )
     except InitError as exc:
@@ -1280,6 +1419,17 @@ def add_parser(sub: argparse._SubParsersAction[argparse.ArgumentParser]) -> None
         ),
     )
     setup.add_argument(
+        "--rig-address",
+        action="append",
+        default=[],
+        metavar="RIG=ADDRESS",
+        help=(
+            "state the IPv4 address a rig's units are reached at, recorded in "
+            "its rig file beside the scan (repeatable; for a rig whose scan "
+            "recorded no address, so a unit addressed by it still finds the rig)"
+        ),
+    )
+    setup.add_argument(
         "--api",
         action="append",
         default=[],
@@ -1365,39 +1515,6 @@ def add_parser(sub: argparse._SubParsersAction[argparse.ArgumentParser]) -> None
         help=(
             "dedicate VRAM to a Jev unit: the written unit every typed decision "
             "asks, never slept or woken (an opt-in; no model is picked for you)"
-        ),
-    )
-    setup.add_argument(
-        "--mcorch",
-        default=None,
-        metavar="UNIT",
-        help=(
-            "enable mcorch on a written unit: the conversational agent a harness "
-            "points at (`mcgyvr mcorch serve`); needs --jev and --window, and "
-            "writes orchestrator.type mcorch, authoring direct, deployment "
-            "local-only"
-        ),
-    )
-    setup.add_argument(
-        "--window",
-        default=None,
-        type=int,
-        metavar="TOKENS",
-        help=(
-            "with --mcorch: the tokens the agent's unit serves in one request, "
-            "read back off the running process"
-        ),
-    )
-    setup.add_argument(
-        "--session-sandbox",
-        default=None,
-        choices=("tempdir", "docker"),
-        metavar="MODE",
-        help=(
-            "the sandbox a chat or agent run gets when it runs no command, "
-            "written as `sandbox.sessions`: tempdir (the default: no container "
-            "is built or started, and Docker is not needed) or docker (opt in "
-            "to a task container, as code gets)"
         ),
     )
     setup.add_argument(

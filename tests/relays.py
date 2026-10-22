@@ -14,7 +14,6 @@ from pathlib import Path
 from typing import Any
 
 from mcgyvr.local_pool import Endpoint, Protocol
-from mcgyvr.mcorch.loop import Trace
 from tests import rig_pool_fakes as fakes
 
 IDLE = {"id": 1, "n_ctx": 4096, "speculative": False, "is_processing": False}
@@ -555,19 +554,6 @@ def _runner_serve(unit: Unit) -> ThreadingHTTPServer:
     server.daemon_threads = True
     threading.Thread(target=server.serve_forever, daemon=True).start()
     return server
-
-
-TRACE = Trace(
-    kind="main",
-    intent="work",
-    jev=(),
-    dropped_tools=(),
-    dropped_system_bytes=0,
-    dropped_blocks=(),
-    rounds=1,
-    internal_calls=(),
-    next=None,
-)
 
 
 RIDE_PROMPT = "the rider's secret words"

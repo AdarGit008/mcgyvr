@@ -29,8 +29,6 @@ scope:
 
 DECLARED = WITH_COMMANDS + "limits:\n  max_output_tokens: 2048\n"
 
-PROSE = WITH_COMMANDS + "output_schema: prose\n"
-
 
 def test_an_unstated_cap_is_null_loaded_and_emitted() -> None:
     """Nothing is derived: the loaded object and the identity both say none."""
@@ -52,12 +50,3 @@ def test_the_round_trip_still_holds_for_both_shapes() -> None:
     """``parse(dumps(c)) == c``, stated or not."""
     assert parse(dumps(loads(WITH_COMMANDS))) == loads(WITH_COMMANDS)
     assert parse(dumps(loads(DECLARED))) == loads(DECLARED)
-
-
-def test_a_prose_reply_is_uncapped_and_still_round_trips() -> None:
-    """A prose reply carries ``null`` in the emitted form and ``None`` loaded."""
-    contract = loads(PROSE)
-
-    assert contract.limits.max_output_tokens is None
-    assert '"max_output_tokens": null' in dumps(contract)
-    assert parse(dumps(contract)) == contract
