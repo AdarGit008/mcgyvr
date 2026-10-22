@@ -185,7 +185,7 @@ def test_the_card_of_a_one_card_host_needs_no_reservation_in_the_spec(
         (["0"], ["0", "1"], {0: 12000, 1: 12000}, "more than one card"),
         (["0"], ["GPU-not-an-index"], {0: 12000, 1: 12000}, "which card"),
         (["0"], ["2"], {0: 12000, 1: 12000}, "no recorded scan"),
-        (["0"], ["0"], {}, "no recorded scan"),
+        (["0"], ["0"], {}, "no rig file answers for"),
     ],
     ids=[
         "no-reservation",

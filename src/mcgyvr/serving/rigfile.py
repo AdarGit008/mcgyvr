@@ -34,6 +34,7 @@ from pathlib import Path
 from typing import Any
 
 from mcgyvr import atomic
+from mcgyvr import scan as scan_module
 from mcgyvr.fleet.roots import FolderError, rigs_dir
 from mcgyvr.scan import BRIDGE_PREFIXES, ModelOnDisk, Network, Scan
 
@@ -647,3 +648,101 @@ def door_check(
             "planned again for it"
         )
     return now
+
+
+def recorded_scans() -> dict[str, Scan]:
+    """Every scan the fleet's rig files record, keyed by rig name and by hostname.
+
+    A rigs folder that cannot be resolved gives no scans, and a rig file that
+    cannot be read or parsed is skipped. Both keys of one rig point at the same
+    scan, so a lookup by either name finds it.
+    """
+    try:
+        folder = rigs_dir()
+    except FolderError:
+        return {}
+    found: dict[str, Scan] = {}
+    for path in sorted(folder.glob("*.json")):
+        try:
+            recorded = from_json(path.read_text(encoding="utf-8"))
+        except (OSError, RigFileError):
+            continue
+        found.setdefault(recorded.rig, recorded.scan)
+        if recorded.hostname:
+            found.setdefault(recorded.hostname, recorded.scan)
+    return found
+
+
+_LOCAL_NAMES = frozenset({"localhost", "localhost.localdomain", "ip6-localhost"})
+
+
+def _names_this_machine(name: str) -> bool:
+    """Whether a hostname names this machine: a localhost alias, or a local IP address.
+
+    Anything else, including a name that is not an IP address at all, is another
+    host's name as far as this check can tell.
+    """
+    lowered = name.strip().lower().rstrip(".")
+    if lowered in _LOCAL_NAMES:
+        return True
+    try:
+        address = ipaddress.ip_address(lowered)
+    except ValueError:
+        return False
+    return address.is_loopback or address.is_unspecified
+
+
+def _same_host(recorded: str, wanted: str) -> bool:
+    """Whether two hostnames name one host, either being the other's full form.
+
+    The comparison ignores case and a trailing dot; an empty name on either side
+    matches nothing.
+    """
+    left = recorded.strip().lower().rstrip(".")
+    right = wanted.strip().lower().rstrip(".")
+    if not left or not right:
+        return False
+    return left == right or left.startswith(f"{right}.") or right.startswith(f"{left}.")
+
+
+def resolve_hosts(scans: dict[str, Scan], wanted: Iterable[str]) -> dict[str, Scan]:
+    """The scans, plus an entry for each wanted host that no key already names.
+
+    A name for this machine is resolved by the id of the machine it runs on, any
+    other name by the hostnames the rig files recorded. A name that finds no
+    scan, or more than one machine, is left out of the result.
+    """
+    resolved = dict(scans)
+    local: str | None = None
+    for name in wanted:
+        if name in resolved:
+            continue
+        if _names_this_machine(name):
+            if local is None:
+                local = scan_module.local_machine_id()
+            match = _local_scan(scans, local)
+        else:
+            match = _named_scan(scans, name)
+        if match is not None:
+            resolved[name] = match
+    return resolved
+
+
+def _local_scan(scans: dict[str, Scan], os_machine_id: str) -> Scan | None:
+    """The first scan taken on the machine with this id, else none."""
+    for recorded in scans.values():
+        if recorded.machine.id == os_machine_id:
+            return recorded
+    return None
+
+
+def _named_scan(scans: dict[str, Scan], name: str) -> Scan | None:
+    """The scan recorded under a hostname naming `name`, or none when ambiguous.
+
+    Several keys can point at one scan, so the matches are counted by machine id:
+    a name matching more than one machine is refused rather than guessed at.
+    """
+    matched = [recorded for host, recorded in scans.items() if _same_host(host, name)]
+    if len({recorded.machine.id for recorded in matched}) != 1:
+        return None
+    return matched[0]

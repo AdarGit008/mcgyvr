@@ -57,7 +57,8 @@ if TYPE_CHECKING:  # pragma: no cover - typing only
     from mcgyvr.knowledge.record import ModelRecord
 
 from mcgyvr.cli.common import INIT_DEFAULT_HELP, _named_path, _OneSetup
-from mcgyvr.cli.sizing import _hosts_wanted, _model_specs, _resolve_hosts, _scans
+from mcgyvr.cli.sizing import _hosts_wanted, _model_specs
+from mcgyvr.serving.rigfile import recorded_scans, resolve_hosts
 
 
 def _setup_priority(args: argparse.Namespace) -> str | None:
@@ -878,7 +879,7 @@ def _setup_rooms(path: Path, ctx_per_slot: int) -> dict[str, int]:
 
     try:
         config = load_config(path)
-        scans = _resolve_hosts(_scans(), _hosts_wanted(config).values())
+        scans = resolve_hosts(recorded_scans(), _hosts_wanted(config).values())
         units = units_for(
             config, scans, specs=_model_specs(), ctx_per_slot=ctx_per_slot
         )

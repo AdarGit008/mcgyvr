@@ -953,20 +953,23 @@ class Waker:
         return made.ok
 
 
-def saved_card_mib(rigs: Sequence[str]) -> dict[str, dict[int, int]]:
-    """Each rig's card memory in MiB by card index, from the rig file its read
-    saved; a rig with no readable rig file is left out."""
+def saved_card_mib(hosts: Sequence[str]) -> dict[str, dict[int, int]]:
+    """Each host's card memory in MiB by card index, from the rig file recorded
+    for it; a host no readable rig file answers for is left out.
+
+    A host is found as `rigfile.resolve_hosts` finds one: by rig name, by the
+    hostname the scan recorded or its full form, and a name for this machine by
+    the machine's id. A unit addressed as `gpu-box.lan` or `127.0.0.1` still
+    finds the rig file saved under its rig name.
+    """
     from mcgyvr.serving import rigfile
 
-    card_mib: dict[str, dict[int, int]] = {}
-    for rig in rigs:
-        try:
-            saved = rigfile.read(rig)
-        except rigfile.RigFileError:
-            saved = None
-        if saved is not None:
-            card_mib[rig] = {card.index: card.total_mib for card in saved.cards}
-    return card_mib
+    scans = rigfile.resolve_hosts(rigfile.recorded_scans(), hosts)
+    return {
+        host: {gpu.index: gpu.vram.total_mib for gpu in scans[host].gpus}
+        for host in hosts
+        if host in scans
+    }
 
 
 def for_config(config: Config) -> Waker | None:
@@ -1214,14 +1217,19 @@ class CardSwitches:
         return self._room(rung)[1]
 
     def _room(self, rung: str) -> tuple[tuple[str, ...], str | None]:
+        from mcgyvr.serving import rigfile
+
         card = self._cards.get(rung)
         if card is None or not _per_unit(self._config, card):
             return (), None
         sizes = self._card_mib.get(card.host, {})
         if not sizes:
             return (), (
-                f"no recorded scan gives {card.host}'s card memory "
-                f"(`mcgyvr scan` records one)"
+                f"no rig file answers for {card.host}: it is not a rig's name, "
+                "the hostname a rig's scan recorded, or a name for this machine, "
+                f"so {card.host}'s card memory is unknown. Address the unit by "
+                f"its rig's name, or record the rig under {card.host} with "
+                f"`{rigfile.MAKE.format(rig=card.host)}`"
             )
         rooms: dict[str, int] = {}
         for name in card.rungs:

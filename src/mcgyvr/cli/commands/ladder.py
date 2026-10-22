@@ -59,7 +59,8 @@ if TYPE_CHECKING:  # pragma: no cover - typing only
 
 from mcgyvr.cli.common import CONFIG_DEFAULT_HELP, _named_path
 from mcgyvr.cli.fleet_live import _admitted_live, _live
-from mcgyvr.cli.sizing import _hosts_wanted, _model_specs, _resolve_hosts, _scans
+from mcgyvr.cli.sizing import _hosts_wanted, _model_specs
+from mcgyvr.serving.rigfile import recorded_scans, resolve_hosts
 
 
 def _serve(args: argparse.Namespace) -> int:
@@ -282,7 +283,7 @@ def _emit(args: argparse.Namespace) -> int:
     if fleet is not None:
         return _emit_locked(fleet, args, config.path)
 
-    scans = _scans()
+    scans = recorded_scans()
     try:
         hosts = _hosts_wanted(config)
     except UnitError as exc:
@@ -292,7 +293,7 @@ def _emit(args: argparse.Namespace) -> int:
     # its host in `address`: what the ladder names is resolved onto the scans
     # here — a local name onto this machine's — before a host is looked for by
     # name below.
-    scans = _resolve_hosts(scans, hosts.values())
+    scans = resolve_hosts(scans, hosts.values())
 
     # An unscanned host is a refusal, not a warning: a unit is sized from
     # measured free VRAM, RAM and disk, and a launch spec for a machine nobody
