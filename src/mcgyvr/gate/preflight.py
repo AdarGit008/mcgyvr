@@ -368,6 +368,22 @@ def unit_ceiling(rung: ServingWindow, prompt: str) -> UnitCeiling:
     )
 
 
+def least_reply(cap: int) -> int:
+    """The least of a stated cap the reply cannot do without.
+
+    A model-written contract's cap is the size of the target it returns times
+    the margin `orchestrator.candidates.reply_cap` sizes it with, so the cap
+    divided by that margin is the whole target coming back. A cap is narrowed to
+    a unit's ceiling down to this and no further: below it the reply would be
+    cut off inside the file it must return.
+    """
+    # Imported at use, as `estimate_tokens` is, so this module's import list
+    # carries no orchestrator dependency.
+    from mcgyvr.orchestrator.candidates import REPLY_CAP_MARGIN
+
+    return math.ceil(cap / REPLY_CAP_MARGIN)
+
+
 def reply_cap(contract: Contract, rung: ServingWindow) -> int | None:
     """The reply cap for `contract` on `rung`, or `None` when nothing caps it.
 
@@ -390,9 +406,11 @@ def sized_reply_cap(
     ceiling is what the rung can serve, never a cap the contract asked for. A
     contract that states nothing is uncapped, unless the rung serves a ceiling,
     in which case that ceiling stands in for the cap the contract never stated.
-    With `prompt` given for a contract that must state a cap, the basis also
-    names the room its unit leaves for the reply, which is what the cap was
-    measured against.
+    With `prompt` given for a contract that must state a cap, the cap is also
+    narrowed to the room its unit leaves for the reply once that prompt is
+    paid for, and the basis names that room. `check_cap_within_ceiling` has
+    already refused a room smaller than `least_reply` of the cap, so a
+    narrowed cap still holds the target the reply returns.
     """
     declared = contract.limits.max_output_tokens
     ceiling = rung.output_ceiling
@@ -402,13 +420,20 @@ def sized_reply_cap(
             return ReplyCap(None, "uncapped: the contract states no cap")
         return ReplyCap(ceiling, f"uncapped contract, sent {riding}")
     basis = "the contract's limits.max_output_tokens"
+    cap = declared
     if prompt is not None and contract.needs_output_cap:
         room = unit_ceiling(rung, prompt).tokens
-        if room is not None:
+        if room is not None and room < declared:
+            cap = max(room, 0)
+            basis += (
+                f" of {declared}, narrowed to unit {rung.source!r}'s ceiling "
+                f"of {room} for this prompt"
+            )
+        elif room is not None:
             basis += f", within unit {rung.source!r}'s ceiling of {room}"
-    if ceiling is not None and ceiling < declared:
+    if ceiling is not None and ceiling < cap:
         return ReplyCap(ceiling, f"{basis}; bounded by {riding}")
-    return ReplyCap(declared, basis)
+    return ReplyCap(cap, basis)
 
 
 def check_cap_stated(contract: Contract) -> PreflightIssue | None:
@@ -435,7 +460,10 @@ def check_cap_within_ceiling(
     """The issue for a stated reply cap the unit has no room to give.
 
     The unit's ceiling is the smaller of what its window leaves after `prompt` is
-    paid for and the reply room it states; a cap at or under that passes. A unit
+    paid for and the reply room it states. A cap at or under that passes, and so
+    does a cap above it whose `least_reply` still fits: it is narrowed to the
+    ceiling when it is sent. Only a ceiling below the least the reply needs —
+    the target it returns — is refused. A unit
     that states neither is `unit-ceiling-unknown` rather than a pass, since a cap
     with nothing above it is truncation at a boundary nobody chose, and the
     refusal names the config keys that would supply the number. A unit with no
@@ -460,14 +488,15 @@ def check_cap_within_ceiling(
             f"length its backend serves, read off the running process) or "
             f"`units.{unit}.output_tokens`",
         )
-    if cap <= ceiling.tokens:
+    least = least_reply(cap)
+    if least <= ceiling.tokens:
         return None
     return PreflightIssue(
         "output-cap",
-        f"contract {contract.id!r} states limits.max_output_tokens: {cap}, but "
-        f"unit {unit!r} has a ceiling of {ceiling.tokens} for this prompt "
-        f"({ceiling.terms}). Lower the contract's limits.max_output_tokens to "
-        f"{max(ceiling.tokens, 0)} or less, decompose the work so its prompt is "
+        f"contract {contract.id!r} states limits.max_output_tokens: {cap}, and "
+        f"its reply needs at least {least} of that to return its target whole, "
+        f"but unit {unit!r} has a ceiling of {ceiling.tokens} for this prompt "
+        f"({ceiling.terms}). Decompose the work so its target and prompt are "
         f"smaller, or run it on a unit that serves more",
     )
 
@@ -483,8 +512,9 @@ def check_contract_against_rung(
 
     The questions are asked in the order of what costs most to learn late. The
     window must be able to hold the input the contract declares it may read.
-    Then, for a contract whose work is model-written and judged, the stated cap
-    must be inside what the unit has room for — except where the prompt already
+    Then, for a contract whose work is model-written and judged, the unit must
+    have room for the least of the stated cap the reply needs, and the cap is
+    narrowed to that room where it is above it — except where the prompt already
     fills the window, in which case there is no room a cap could exceed and the
     prompt's own fit names that failure instead. For any other contract the reply
     cap is sized from the contract and the rung, and a cap that fills the whole
@@ -506,11 +536,16 @@ def check_contract_against_rung(
         )
     if harnessed:
         cap = contract.limits.max_output_tokens
-        room = unit_ceiling(rung, prompt).room
+        unit = unit_ceiling(rung, prompt)
+        room = unit.room
         if room is None or room > 0:
             over = check_cap_within_ceiling(contract, rung, prompt)
             if over is not None:
                 return over
+            # The fit is judged against the cap as it will be sent: narrowed
+            # to the unit's ceiling where the stated one is above it.
+            if cap is not None and unit.tokens is not None:
+                cap = min(cap, unit.tokens)
     else:
         cap = reply_cap(contract, rung)
         if window is not None and cap is not None and cap >= window:

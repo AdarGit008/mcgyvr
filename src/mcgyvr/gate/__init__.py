@@ -13,8 +13,8 @@ Re-exports the gate's building blocks so callers can import them from
 - findings: :class:`Finding`.
 - jev: :class:`JevCheck` and :class:`JevReport`.
 - preflight: the prompt/reply budget helpers (``reply_cap``,
-  ``sized_reply_cap``, ``unit_ceiling``, ``ESTIMATE_RESERVE``, and their
-  types), plus the ``check_*`` preflight validators.
+  ``sized_reply_cap``, ``least_reply``, ``unit_ceiling``, ``ESTIMATE_RESERVE``,
+  and their types), plus the ``check_*`` preflight validators.
 - runner: :class:`Gate`, :class:`GateResult`, and :class:`InconclusiveRung`.
 - semantic: :class:`SemanticCheck` and :class:`SemanticReport`.
 
@@ -52,6 +52,7 @@ from mcgyvr.gate.preflight import (
     check_contract_fits,
     check_prompt_fits,
     check_window_fraction,
+    least_reply,
     reply_cap,
     sized_reply_cap,
     unit_ceiling,
@@ -92,6 +93,7 @@ __all__ = [
     "check_contract_fits",
     "check_prompt_fits",
     "check_window_fraction",
+    "least_reply",
     "reply_cap",
     "sized_reply_cap",
     "unit_ceiling",

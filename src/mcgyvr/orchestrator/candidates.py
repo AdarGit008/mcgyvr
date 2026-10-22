@@ -55,7 +55,8 @@ REPLY_CAP_FLOOR = 1024
 #: The estimated size, in tokens, of a target with no content yet (a new file).
 NEW_TARGET_TOKENS = 1024
 
-#: The largest reply cap stated: decompose's default worker-view ceiling.
+#: The largest reply cap stated by default: decompose's default worker-view
+#: ceiling. A decomposition held to another ceiling holds the cap to that one.
 REPLY_CAP_CEILING = _DEFAULT_MAX_INPUT_TOKENS
 
 
@@ -200,16 +201,17 @@ def reply_cap(evidence: Evidence, kind: TaskType, target: str) -> int | None:
     is sized on the target's content as the contract carries it, counted by the
     model-free `estimate_tokens`, times `REPLY_CAP_MARGIN`. A target with no
     content yet counts as `NEW_TARGET_TOKENS`. The result is held between
-    `REPLY_CAP_FLOOR` and `REPLY_CAP_CEILING` — the worker-view ceiling, since
-    the unit the contract runs on is not known until a rung is picked, and
-    preflight still holds the cap to that unit's own ceiling at `run`.
+    `REPLY_CAP_FLOOR` and the evidence's worker-view ceiling (`decompose`'s
+    `max_input_tokens`, `REPLY_CAP_CEILING` by default), since the unit the
+    contract runs on is not known until a rung is picked; preflight narrows the
+    cap to that unit's own room at `run`, down to the target it returns.
     """
     if not kind.needs_output_cap:
         return None
     content = _content_of(evidence.index, target)
     size = estimate_tokens(content) if content else NEW_TARGET_TOKENS
     cap = math.ceil(size * REPLY_CAP_MARGIN)
-    return min(max(cap, REPLY_CAP_FLOOR), REPLY_CAP_CEILING)
+    return min(max(cap, REPLY_CAP_FLOOR), evidence.ceiling)
 
 
 def subject(target: str, symbol: str | None) -> str:

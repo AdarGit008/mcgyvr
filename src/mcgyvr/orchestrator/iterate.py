@@ -92,9 +92,16 @@ def iterate(
     retry. `approve` is required: no default, so nothing retries unless a real
     approver is wired in.
     """
-    evidence = _evidence(index, prompt, config=config, budget=budget, adapters=adapters)
-    owners = tuple(adapters) if adapters is not None else _default_adapters()
     ceiling = max_input_tokens
+    evidence = _evidence(
+        index,
+        prompt,
+        config=config,
+        budget=budget,
+        adapters=adapters,
+        ceiling=ceiling,
+    )
+    owners = tuple(adapters) if adapters is not None else _default_adapters()
     seen: dict[str, str] = {}
     refusals: list[Refusal] = []
     decided: dict[str, Any] = {}

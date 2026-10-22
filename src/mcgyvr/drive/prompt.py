@@ -157,7 +157,8 @@ def dispatch_prompt(
     # Session contracts skip those checks entirely and reach the wire unchecked.
     cap = sized_reply_cap(contract, endpoint, prompt=prompt.measured)
     # The cap is the contract's declared tokens bounded by what the rung can
-    # serve, and it is sent as a hard limit on the reply.
+    # serve and narrowed to the room this prompt leaves, and it is sent as a
+    # hard limit on the reply.
     # Its basis travels with it so the journal can say where the number came from.
     fields: dict[str, Any] = {
         "prompt": prompt.user,
