@@ -533,6 +533,7 @@ def _climb(
     from mcgyvr.route import RouteError
     from mcgyvr.sandbox.base import SandboxError, open_sandbox
     from mcgyvr.verify import reviewers_for
+    from mcgyvr.wake_judge import WakeJudgeError
     from mcgyvr.wake_judge import hook_for as wake_hook_for
 
     # A live setup drives real rigs: containers are built, units are woken and
@@ -690,7 +691,7 @@ def _climb(
             return _report_climb(
                 args, contract, sandbox, repo, outcome, recording, report
             )
-    except (DriveError, SandboxError, CapacityError) as exc:
+    except (DriveError, SandboxError, CapacityError, WakeJudgeError) as exc:
         return _error(report, str(exc))
 
 
