@@ -58,6 +58,28 @@ archived outside this repository, under the same paths.
 
 ### Changed
 
+- **Wake-on-demand runs inside the run.** With `serving.enable_sleep_wake` on,
+  a climb that reaches a sleeping rung puts the units sharing its card down,
+  wakes it, and records the swap. The sleeper goes back down, and the units it
+  displaced come back up, only when it is idle and the nearest awake rung below
+  it is not full; until then a draw on a displaced unit is refused and the
+  climb moves past it, so nothing starts beside the sleeper. A swap honours the
+  live fleet's host lock, finds its card's memory under any name the rig
+  answers to, and a failed wake prints its reason. A review never wakes a unit:
+  a reviewer that is down is passed over, by the existing stand-in rules.
+- **The typed proposer writes `code` contracts.** `authoring: classifier` asks
+  which line is the task, the request verbatim first, and states the reply cap
+  from the target's size (twice its tokens, at least 1024, at most the
+  decomposer's `max_input_tokens`). Without a `jev` unit the classifier path
+  asks no model, takes rank 0 per field, and states the same cap.
+- A stated reply cap larger than the room a unit's window leaves the prompt is
+  narrowed to that room instead of refused; it is refused only when the room is
+  smaller than the target the cap was sized from.
+- The interface question offers the chosen symbol's signature, or at most 8
+  when no symbol is chosen, instead of every signature in the target.
+- `mcgyvr emit` writes the fleet through `render_fleet`; nothing writes or reads
+  `# launch:` comment lines any more.
+
 - `mcgyvr setup` plans the use case it asked instead of coding for every
   use case, and says whether the candidates came from the Hub, the cache or
   the shipped catalog (#731 item 2).
@@ -81,6 +103,17 @@ archived outside this repository, under the same paths.
 
 ### Removed
 
+- **Sessions, the manager loop and the retired-name shims are gone.** `chat`
+  and `agent` are no longer contract task types: `code` is the one shipped
+  type, and chat and agent stay as plain use of an endpoint. Removed with
+  them: session records and `sessions/` in the journal, `mcgyvr sessions`,
+  `--session-sandbox` and `sandbox.sessions`, the `prose` output schema,
+  `mcgyvr manage` with its tick, board and `manager:` block, and
+  `ladder_manager.decide_on`. The retired-name shims go too: old task-type
+  names, `risk`, `BUDGET_FIELDS` and the renamed-key table. A policy written by
+  an earlier `mcgyvr setup` is refused once, naming every retired key it holds
+  (`manager`, `sandbox.sessions`, `orchestrator.tools`) with the lines to
+  delete; `mcgyvr setup <dir>` on that folder offers to delete them.
 - **mcorch is gone.** `mcgyvr mcorch serve`, the `mcgyvr.mcorch` package and
   its prompt, `setup --mcorch` and `--window`, the wizard's mcorch question,
   and the lock, promote and live checks that held an mcorch policy's units
@@ -93,8 +126,8 @@ archived outside this repository, under the same paths.
   `--use-case media-gen`, or a config naming `use_case: media-gen`, is refused
   in one line naming `coding`, `chat` and `agent`. The `media` task type is
   removed in this release too (#731); see the next bullet.
-- **The `media` task type and the `media-gen` use case are gone.** There are
-  three task types: `code`, `chat` and `agent`. Removed with them: the
+- **The `media` task type and the `media-gen` use case are gone.** `code`,
+  `chat` and `agent` were left (`chat` and `agent` go below). Removed with them: the
   `media_valid` and `asr_wer` evidence kinds and the gate's format readers and
   whisper call behind them, the contract keys `media_kind`, `transcript` and
   `wer_threshold`, the `media_artifact` output schema, and the `media-gen`
@@ -124,8 +157,7 @@ archived outside this repository, under the same paths.
   and the reply states each fact), and the gate's output-check rung that only
   media and safety used (`mcgyvr.gate.output`, `Gate.run(output=...)`,
   `mcgyvr.drive.output_checks_for`). With nothing left to check a reply, the
-  `checked` assurance is gone too: a `chat` or `agent` reply is always
-  `unchecked`.
+  `checked` assurance is gone too.
 - `mcgyvr.cleanup` is gone: its `tidy` lives in `mcgyvr.repair` beside
   `repair` (and `mcgyvr.drive` still re-exports it under the same name).
 - `mcgyvr.fleet_manager` is now `mcgyvr.wake_judge`, and its

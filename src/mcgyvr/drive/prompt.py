@@ -154,7 +154,6 @@ def dispatch_prompt(
     refuse_unsendable(rung, endpoint, prompt, contract, window_fraction=window_fraction)
     # Every refusal happens here, before the runner is touched: a contract the
     # rung cannot take costs nothing.
-    # Session contracts skip those checks entirely and reach the wire unchecked.
     cap = sized_reply_cap(contract, endpoint, prompt=prompt.measured)
     # The cap is the contract's declared tokens bounded by what the rung can
     # serve and narrowed to the room this prompt leaves, and it is sent as a
