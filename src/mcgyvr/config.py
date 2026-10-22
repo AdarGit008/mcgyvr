@@ -700,9 +700,13 @@ ORCHESTRATOR_FIELDS: tuple[Field, ...] = (
         "How `mcgyvr delegate` gets its proposals. `prose`: the bound unit is "
         "asked for JSON proposals (`delegate.build_prompt`), and the "
         "deterministic decomposer turns them into contracts. `classifier`: the "
-        "`jev` unit, or the bound unit when no `jev` unit is bound, answers "
-        "typed questions (task type, target, symbol) first, and `prose` stands "
-        "in when it declines. Unset is `prose`.",
+        "`jev` unit answers typed questions (task type, target, symbol, task, "
+        "interface, dependency, scope) first, and `prose` stands in when it "
+        "declines. With no `jev` unit bound no model is asked: each field takes "
+        "its first candidate — the first servable type and target, the "
+        "target's first symbol, and the request as the task — and `prose` "
+        "stands in only when there is no target or servable type to pick. "
+        "Unset is `prose`.",
         choices=("prose", "classifier"),
         bind_hint="name one of `prose`, `classifier`",
     ),

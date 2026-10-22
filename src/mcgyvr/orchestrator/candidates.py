@@ -9,10 +9,10 @@ builds a plan, promotes its jev answers to rank 0 with :func:`choose`, and
 collapses it, so the emitted proposal is byte-identical to the one it
 hand-built before this layer existed.
 
-:func:`enumerate_candidates` and :func:`collapse` are built and unit-tested
-here but are NOT wired into ``decompose``/``authoring`` yet: the pure
-deterministic collapse picks the first target/type/symbol, which is not what
-the classifier chooses.
+:func:`enumerate_candidates` and :func:`collapse` are also the no-jev
+proposer, ``delegate.deterministic_proposer``: with no model to ask, the
+collapse picks the first type, target and symbol, the request as the task, and
+the reply cap of that type and target.
 """
 
 from __future__ import annotations
@@ -422,8 +422,9 @@ def enumerate_candidates(evidence: Evidence) -> CandidatePlan:
     """Enumerate the deterministic candidates for every contract field.
 
     The rank-0 target and kind pick the rank-0 symbol, which in turn derives
-    the rank-0 task and stop conditions. The pure deterministic collapse of
-    this plan is test-only in W2: it is not what the classifier emits.
+    the rank-0 task and stop conditions, and the rank-0 kind and target the
+    reply cap. Its collapse is what `delegate.deterministic_proposer` emits
+    when no jev unit is bound; the classifier re-chooses each field it asks.
     """
     kinds = completable(evidence.vocabulary)
     kind = kinds[0] if kinds else None  # rank-0 task type
@@ -437,6 +438,7 @@ def enumerate_candidates(evidence: Evidence) -> CandidatePlan:
     symbol = None if symbol_name == _NO_SYMBOL else symbol_name
 
     allow, forbid = scope_candidates(evidence, target)
+    cap = reply_cap(evidence, kind, target) if kind is not None else None
     return {
         "task_type": task_type_candidates(evidence),
         "target": target_set,
@@ -451,6 +453,7 @@ def enumerate_candidates(evidence: Evidence) -> CandidatePlan:
         "allow": allow,
         "forbid": forbid,
         "operation": operation_candidates(),
+        "max_output_tokens": _set("max_output_tokens", (cap,)),
     }
 
 

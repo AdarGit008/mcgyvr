@@ -623,12 +623,14 @@ class ClassifierProposer:
             provenance=Provenance.DETERMINISTIC,
         )
         # No question can say what a reply is worth, so the cap is stated from
-        # the target's size rather than asked: deterministic, like the task.
-        cap = reply_cap(evidence, kind, target)
-        if cap is not None:
-            plan = choose(
-                plan, "max_output_tokens", cap, provenance=Provenance.DETERMINISTIC
-            )
+        # the chosen target's size rather than asked. It is chosen even when
+        # None, so a type that states no cap never keeps the rank-0 type's.
+        plan = choose(
+            plan,
+            "max_output_tokens",
+            reply_cap(evidence, kind, target),
+            provenance=Provenance.DETERMINISTIC,
+        )
 
         if "interface" in decided:
             interface = decided["interface"]
@@ -796,10 +798,12 @@ class ClassifierProposer:
 def deterministic_proposer() -> Proposer:
     """The no-jev degrade: rank-0 collapse per field, with no model asked.
 
-    This is a fallback so the shadow loop and later calibration can run, not a
-    tuned default: it picks the first completable type, first target, first
-    symbol (a real definition, not the whole file) and the empty defaults for
-    every optional field. No decision is made, so nothing is recorded.
+    This is the fallback when no jev unit is opted in, not a tuned default: it
+    picks the first completable type, first target, first symbol (a real
+    definition, not the whole file), the request as the task, the reply cap
+    that type and target need, and the empty defaults for every optional
+    field. No decision is made, so nothing is recorded. With no target or no
+    completable type it proposes nothing, and prose stands in.
     """
 
     def propose(evidence: Evidence) -> Sequence[Proposal]:
@@ -823,7 +827,7 @@ def classifier_proposer_for(
     (which prefers jev over the `orchestrator` role named here), and each
     decision is recorded in `sink` with the jev role's model. Without jev there
     is nothing to decide, so the returned proposer collapses rank-0 per field
-    deterministically and asks nothing — the gate/reviewer/wake/ladder decisions
+    deterministically and asks nothing — the gate, reviewer and wake decisions
     keep asking their pre-jev roles, unchanged.
     """
     if not jev_bound(source_map):
