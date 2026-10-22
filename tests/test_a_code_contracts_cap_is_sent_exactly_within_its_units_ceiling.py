@@ -17,9 +17,11 @@ the unit's served window:
 * neither known: the dispatch fails loud, naming ``units.<unit>.window`` and
   ``units.<unit>.output_tokens``.
 
-A contract cap above the ceiling fails loud, naming the cap, the unit, ``C``,
-``P``, the ceiling and the fix. At or below it, the contract's cap is sent
-exactly.
+At or below the ceiling, the contract's cap is sent exactly. Above it, the
+cap is narrowed to the ceiling, since a reply that fits the room left is worth
+sending — but only down to half the cap, the target the whole-file reply
+returns (``preflight.least_reply``). A ceiling below that fails loud, naming the
+cap, the unit, ``C``, ``P``, the ceiling and the fix.
 """
 
 from __future__ import annotations
@@ -136,17 +138,39 @@ def test_a_cap_within_the_ceiling_is_sent_exactly(
     assert sent(BOTH, "local_coder", cap, monkeypatch) == [("local_coder", cap)]
 
 
-def test_a_cap_above_the_ceiling_fails_loud_and_is_not_sent(
+def test_a_cap_above_the_ceiling_is_narrowed_to_it(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    from mcgyvr.worker.prompt import build_prompt
+
+    prompt = build_prompt(contract(4000)).measured
+    ceiling = 4096 - charged(prompt)
+    assert 2000 <= ceiling < 4000, "half the cap fits, the whole does not"
+    assert sent(WINDOWED, "local_coder", 4000, monkeypatch) == [
+        ("local_coder", ceiling)
+    ]
+
+
+def test_a_cap_above_a_units_output_tokens_is_narrowed_to_them(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    assert sent(HOSTED, "api_coder", 40000, monkeypatch) == [("api_coder", 32768)]
+
+
+def test_a_ceiling_below_half_the_cap_fails_loud_and_is_not_sent(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     from mcgyvr.drive import OutputCapTooLargeError
     from mcgyvr.worker.prompt import build_prompt
 
+    captured = caps_sent(monkeypatch)
     with pytest.raises(OutputCapTooLargeError) as refused:
-        sent(WINDOWED, "local_coder", 4000, monkeypatch)
-    prompt = build_prompt(contract(4000)).measured
+        sent(WINDOWED, "local_coder", 8000, monkeypatch)
+    assert captured == []
+    prompt = build_prompt(contract(8000)).measured
     said = str(refused.value)
     for named in (
+        "8000",
         "4000",
         "'local_coder'",
         "4096",
@@ -157,17 +181,17 @@ def test_a_cap_above_the_ceiling_fails_loud_and_is_not_sent(
         assert named in said, (named, said)
 
 
-def test_a_cap_above_a_units_output_tokens_fails_loud(
+def test_a_cap_whose_half_is_above_a_units_output_tokens_fails_loud(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     from mcgyvr.drive import OutputCapTooLargeError
 
     captured = caps_sent(monkeypatch)
     with pytest.raises(OutputCapTooLargeError) as refused:
-        sent(HOSTED, "api_coder", 40000, monkeypatch)
+        sent(HOSTED, "api_coder", 70000, monkeypatch)
     assert captured == []
     said = str(refused.value)
-    assert "40000" in said and "32768" in said and "'api_coder'" in said, said
+    assert "70000" in said and "32768" in said and "'api_coder'" in said, said
 
 
 def test_a_unit_with_no_ceiling_fails_loud_naming_both_keys(

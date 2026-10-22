@@ -263,10 +263,12 @@ LIMITS_FIELDS: tuple[Field, ...] = (
         "is worth, counting any reasoning a model does before it writes. "
         "Model-written `code` must state it: without it the contract is "
         "valid, and `mcgyvr run` refuses it before any model is called. Sent "
-        "exactly; refused by name if above the ceiling of a unit the run may "
-        "reach (its `window` less the prompt, or its `output_tokens`). A "
-        "reply cut off at the cap is a named failure, never applied to a "
-        "file. A deterministic operation has no cap.",
+        "exactly at or under the ceiling of the unit it reaches (its `window` "
+        "less the prompt, or its `output_tokens`); above it, narrowed to the "
+        "ceiling, and refused by name where the ceiling is below half the cap "
+        "— the whole target a reply returns. A reply cut off at the cap is a "
+        "named failure, never applied to a file. A deterministic operation "
+        "has no cap.",
         default=None,
         min_value=1,
     ),

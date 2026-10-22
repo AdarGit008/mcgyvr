@@ -9,10 +9,10 @@ builds a plan, promotes its jev answers to rank 0 with :func:`choose`, and
 collapses it, so the emitted proposal is byte-identical to the one it
 hand-built before this layer existed.
 
-:func:`enumerate_candidates` and :func:`collapse` are built and unit-tested
-here but are NOT wired into ``decompose``/``authoring`` yet: the pure
-deterministic collapse picks the first target/type/symbol, which is not what
-the classifier chooses.
+:func:`enumerate_candidates` and :func:`collapse` are also the no-jev
+proposer, ``delegate.deterministic_proposer``: with no model to ask, the
+collapse picks the first type, target and symbol, the request as the task, and
+the reply cap of that type and target.
 """
 
 from __future__ import annotations
@@ -40,6 +40,9 @@ from mcgyvr.orchestrator.symbols import Symbol, SymbolKind
 #: question keeps one slot back for the "no specific symbol" option.
 _MAX_CHOICE_OPTIONS = 62
 
+#: The most signatures the interface question offers when no symbol was chosen.
+_MAX_INTERFACE_SIGNATURES = 8
+
 #: The option that picks no symbol, because the whole file is the work.
 _NO_SYMBOL = ""
 
@@ -52,7 +55,8 @@ REPLY_CAP_FLOOR = 1024
 #: The estimated size, in tokens, of a target with no content yet (a new file).
 NEW_TARGET_TOKENS = 1024
 
-#: The largest reply cap stated: decompose's default worker-view ceiling.
+#: The largest reply cap stated by default: decompose's default worker-view
+#: ceiling. A decomposition held to another ceiling holds the cap to that one.
 REPLY_CAP_CEILING = _DEFAULT_MAX_INPUT_TOKENS
 
 
@@ -197,16 +201,17 @@ def reply_cap(evidence: Evidence, kind: TaskType, target: str) -> int | None:
     is sized on the target's content as the contract carries it, counted by the
     model-free `estimate_tokens`, times `REPLY_CAP_MARGIN`. A target with no
     content yet counts as `NEW_TARGET_TOKENS`. The result is held between
-    `REPLY_CAP_FLOOR` and `REPLY_CAP_CEILING` — the worker-view ceiling, since
-    the unit the contract runs on is not known until a rung is picked, and
-    preflight still holds the cap to that unit's own ceiling at `run`.
+    `REPLY_CAP_FLOOR` and the evidence's worker-view ceiling (`decompose`'s
+    `max_input_tokens`, `REPLY_CAP_CEILING` by default), since the unit the
+    contract runs on is not known until a rung is picked; preflight narrows the
+    cap to that unit's own room at `run`, down to the target it returns.
     """
     if not kind.needs_output_cap:
         return None
     content = _content_of(evidence.index, target)
     size = estimate_tokens(content) if content else NEW_TARGET_TOKENS
     cap = math.ceil(size * REPLY_CAP_MARGIN)
-    return min(max(cap, REPLY_CAP_FLOOR), REPLY_CAP_CEILING)
+    return min(max(cap, REPLY_CAP_FLOOR), evidence.ceiling)
 
 
 def subject(target: str, symbol: str | None) -> str:
@@ -255,16 +260,20 @@ def symbol_candidates(evidence: Evidence, target: str) -> CandidateSet:
 
 
 def task_candidates(
-    kind: TaskType | None, target: str, symbol: str | None
+    kind: TaskType | None, target: str, symbol: str | None, request: str = ""
 ) -> CandidateSet:
-    """The one deterministic directive line; richer candidates are deferred.
+    """The request as it was asked, then the deterministic directive line.
 
-    The template authors the text from a subject the model picked, so this is
-    deterministic authorship rather than a model decision.
+    Rank 0 is `request` verbatim, so a rank-0 collapse carries the user's own
+    words into the contract; rank 1 is `directive`, the type's doc line and the
+    subject. Whichever one a classifier picks goes into the contract unchanged.
+    A request that is empty, or already the directive, leaves the directive alone.
     """
     if kind is None:
         return _set("task", ("",))
-    return _set("task", (directive(kind, target, symbol),))
+    line = directive(kind, target, symbol)
+    asked = request.strip()
+    return _set("task", (asked, line) if asked and asked != line else (line,))
 
 
 def stop_condition_candidates(
@@ -279,11 +288,15 @@ def stop_condition_candidates(
 def interface_candidates(
     evidence: Evidence, target: str, symbol: str | None
 ) -> CandidateSet:
-    """The chosen symbol's signature, then the other signatures in `target`.
+    """None, then the chosen symbol's signature or a few of the target's.
 
-    Rank 0 is "" (the classifier states none). The rest are raw
-    `Symbol.signature` values for DEFINITION/EXPORT symbols in the target, in
-    index order, with the chosen symbol first and duplicates dropped.
+    Rank 0 is "" (the classifier states none). With a symbol chosen, the only
+    other option is that symbol's own signature: the work keeps one interface,
+    and every other signature in the file only lengthened the question until a
+    file of 62 definitions overflowed it. With no symbol chosen, up to
+    `_MAX_INTERFACE_SIGNATURES` raw `Symbol.signature` values for
+    DEFINITION/EXPORT symbols in the target follow, in index order, duplicates
+    dropped.
     """
     signatures: list[str] = []
     seen: set[str] = {""}
@@ -292,14 +305,14 @@ def interface_candidates(
         for s in evidence.index.symbols.all()
         if s.path == target and s.kind in (SymbolKind.DEFINITION, SymbolKind.EXPORT)
     )
-    chosen: Symbol | None = None
     if symbol is not None:
         chosen = next((s for s in symbols if s.name == symbol), None)
         if chosen is not None:
             _add_signature(chosen, signatures, seen)
+        return _set("interface", ("", *signatures))
     for s in symbols:
-        if chosen is not None and s is chosen:
-            continue
+        if len(signatures) == _MAX_INTERFACE_SIGNATURES:
+            break
         _add_signature(s, signatures, seen)
     return _set("interface", ("", *signatures))
 
@@ -411,8 +424,9 @@ def enumerate_candidates(evidence: Evidence) -> CandidatePlan:
     """Enumerate the deterministic candidates for every contract field.
 
     The rank-0 target and kind pick the rank-0 symbol, which in turn derives
-    the rank-0 task and stop conditions. The pure deterministic collapse of
-    this plan is test-only in W2: it is not what the classifier emits.
+    the rank-0 task and stop conditions, and the rank-0 kind and target the
+    reply cap. Its collapse is what `delegate.deterministic_proposer` emits
+    when no jev unit is bound; the classifier re-chooses each field it asks.
     """
     kinds = completable(evidence.vocabulary)
     kind = kinds[0] if kinds else None  # rank-0 task type
@@ -426,11 +440,12 @@ def enumerate_candidates(evidence: Evidence) -> CandidatePlan:
     symbol = None if symbol_name == _NO_SYMBOL else symbol_name
 
     allow, forbid = scope_candidates(evidence, target)
+    cap = reply_cap(evidence, kind, target) if kind is not None else None
     return {
         "task_type": task_type_candidates(evidence),
         "target": target_set,
         "symbol": symbol_set,
-        "task": task_candidates(kind, target, symbol),
+        "task": task_candidates(kind, target, symbol, evidence.prompt),
         "stop_conditions": stop_condition_candidates(kind, target, symbol),
         "interface": interface_candidates(evidence, target, symbol),
         "deps": deps_candidates(evidence, target),
@@ -440,6 +455,7 @@ def enumerate_candidates(evidence: Evidence) -> CandidatePlan:
         "allow": allow,
         "forbid": forbid,
         "operation": operation_candidates(),
+        "max_output_tokens": _set("max_output_tokens", (cap,)),
     }
 
 

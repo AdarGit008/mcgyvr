@@ -63,9 +63,9 @@ def test_a_type_or_an_authoring_outside_its_choices_is_refused() -> None:
     assert "orchestrator.authoring" in message and "classifier" in message
 
 
-def test_the_tools_key_is_refused_as_unknown() -> None:
+def test_the_tools_key_is_refused_as_retired() -> None:
     message = refused("unit: agent\n  tools: [Read]")
-    assert "orchestrator: unknown key 'tools'" in message, message
+    assert "`orchestrator.tools`" in message and "mcorch" in message, message
 
 
 def test_init_writes_the_proposer_type_from_the_schemas_own_default() -> None:

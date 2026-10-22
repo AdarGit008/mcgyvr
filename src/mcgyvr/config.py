@@ -354,8 +354,9 @@ ROLES = (ROLE_ALWAYS_ON, ROLE_SLEEPER)
 #: budget, so the number is sized for a long deliberation rather than a short
 #: answer. It is a value written into a file, not a default this module applies:
 #: a unit that states its own `output_tokens` keeps it, and a contract's own cap
-#: is sent exactly, with a cap above the ceiling refused by name. The doc of a
-#: unit's `output_tokens` quotes it.
+#: is sent exactly, with a cap above the ceiling narrowed to it (refused by name
+#: where the ceiling is below half the cap). The doc of a unit's
+#: `output_tokens` quotes it.
 API_OUTPUT_TOKENS = 32768
 
 UNIT_FIELDS: tuple[Field, ...] = (
@@ -433,8 +434,9 @@ UNIT_FIELDS: tuple[Field, ...] = (
         "Room a reply on this unit is given, hidden reasoning included: a "
         "ceiling a `code` contract's `limits.max_output_tokens` is held to, "
         "beside the room `window` leaves for the prompt (the smaller of the "
-        "two where both are set). It never replaces the contract's cap, "
-        "which is sent exactly; a cap above the ceiling is refused by name. "
+        "two where both are set). It never raises the contract's cap, which "
+        "is sent exactly; a cap above the ceiling is narrowed to it, and "
+        "refused by name where the ceiling is below half the cap. "
         "A hosted reasoning model needs tens of thousands; `setup --api` "
         f"writes {API_OUTPUT_TOKENS}.",
         min_value=1,
@@ -700,9 +702,13 @@ ORCHESTRATOR_FIELDS: tuple[Field, ...] = (
         "How `mcgyvr delegate` gets its proposals. `prose`: the bound unit is "
         "asked for JSON proposals (`delegate.build_prompt`), and the "
         "deterministic decomposer turns them into contracts. `classifier`: the "
-        "`jev` unit, or the bound unit when no `jev` unit is bound, answers "
-        "typed questions (task type, target, symbol) first, and `prose` stands "
-        "in when it declines. Unset is `prose`.",
+        "`jev` unit answers typed questions (task type, target, symbol, task, "
+        "interface, dependency, scope) first, and `prose` stands in when it "
+        "declines. With no `jev` unit bound no model is asked: each field takes "
+        "its first candidate — the first servable type and target, the "
+        "target's first symbol, and the request as the task — and `prose` "
+        "stands in only when there is no target or servable type to pick. "
+        "Unset is `prose`.",
         choices=("prose", "classifier"),
         bind_hint="name one of `prose`, `classifier`",
     ),

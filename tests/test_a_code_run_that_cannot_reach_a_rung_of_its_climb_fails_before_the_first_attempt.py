@@ -1,7 +1,8 @@
 """A `code` run whose cap no rung of its climb can hold fails before anything is spent.
 
 The contract's cap is held to the
-ceiling of every unit it reaches, and a cap above a ceiling fails loud. Checked
+ceiling of every unit it reaches: narrowed to it, and failing loud where the
+ceiling is below what the reply needs to return its target. Checked
 only when a rung is reached, a run whose dearer rung cannot hold the cap would
 spend every attempt on the cheaper rungs first and then fail on the escalation
 — paying for work it could never finish. So before the first attempt, with
@@ -26,7 +27,8 @@ from mcgyvr.contract import loads as load_contract
 from mcgyvr.local_pool import source_map
 
 #: A cheap unit with a wide window, and a dearer hosted one whose replies are
-#: given 128 tokens: room enough on the first rung, none on the second.
+#: given `room` tokens: room enough on the first rung, and on the second none
+#: once `room` is below the 128 of the contract's 256 the reply needs.
 LADDER = """\
 units:
   local_cheap:
@@ -120,7 +122,7 @@ def test_a_rung_up_the_climb_that_cannot_hold_the_cap_ends_the_run_unspent(
     # its attempts on it before the climb reached the rung it cannot use.
     sent = _sent(monkeypatch, "```python\nOTHER = 1\n```")
 
-    outcome = _run(repo, room=128)
+    outcome = _run(repo, room=100)
 
     assert isinstance(outcome, Halted), outcome
     assert outcome.outcome is Outcome.ERROR

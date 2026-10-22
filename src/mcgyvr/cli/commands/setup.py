@@ -29,12 +29,18 @@ from mcgyvr.config import (
     API_OUTPUT_TOKENS,
     CONFIG_PATH_ENV,
     FLEET_FILENAME,
+    POLICY_FILENAME,
     USE_CASES,
     ConfigError,
     named_config_path,
 )
 from mcgyvr.config import load as load_config
-from mcgyvr.fleet.files import FleetFileError, load_fleet
+from mcgyvr.fleet.files import (
+    FleetFileError,
+    load_fleet,
+    retired_policy_lines,
+    without_retired_lines,
+)
 from mcgyvr.fleet.roots import (
     FolderError,
 )
@@ -979,6 +985,56 @@ def _setup_path(args: argparse.Namespace, run_id: str) -> Path:
     return named.absolute() if named is not None else staging_dir(run_id)
 
 
+def _setup_retired(path: Path, force: bool) -> int | None:
+    """Delete or name the retired keys a setup from before carries, or None.
+
+    A `policy.yaml` that `mcgyvr setup` wrote before the ladder manager and
+    chat/agent sessions were removed carries keys the loader now refuses
+    (`fleet.files.RETIRED_POLICY_KEYS`), so the setup no longer loads. At a
+    terminal their lines are shown and deleted on a yes; without one they are
+    printed with their line numbers for a person to delete, and the run fails.
+    None means there is nothing to mend here: no setup, none of those keys, or
+    `--force`, which rewrites the whole setup anyway.
+    """
+    if force:
+        return None
+    policy = path / POLICY_FILENAME if path.is_dir() else path
+    try:
+        text = policy.read_text(encoding="utf-8")
+    except (OSError, UnicodeDecodeError):
+        # No setup here, or none this can read: the steps after say which.
+        return None
+    spans = retired_policy_lines(text)
+    if not spans:
+        return None
+    shown = "\n".join(
+        f"  lines {span.first}-{span.last} (`{span.key}`):\n"
+        + "\n".join(
+            f"    {span.first + offset:>4} | {line}"
+            for offset, line in enumerate(span.text)
+        )
+        for span in spans
+    )
+    said = f"{policy} carries keys this version of mcgyvr no longer reads:\n{shown}"
+    if not _stdin_isatty():
+        print(
+            f"error: {said}\nDelete these lines, or run `mcgyvr setup` at a "
+            f"terminal to have them deleted.",
+            file=sys.stderr,
+        )
+        return 1
+    print(said)
+    if not _confirm(f"Delete these lines from {policy}? [y/N] "):
+        print(
+            f"Left {policy} as it is: the setup does not load until they are deleted.",
+            file=sys.stderr,
+        )
+        return 1
+    policy.write_text(without_retired_lines(text), encoding="utf-8")
+    print(f"Deleted them from {policy}.")
+    return 0
+
+
 def _setup(args: argparse.Namespace) -> int:
     run_id = _setup_run_id()
     try:
@@ -986,6 +1042,9 @@ def _setup(args: argparse.Namespace) -> int:
     except FolderError as exc:
         print(f"error: {exc}", file=sys.stderr)
         return 1
+    mended = _setup_retired(path, args.force)
+    if mended is not None:
+        return mended
     if _setup_is_interactive(args):
         return _setup_interactive(path, run_id)
     refused = _use_case_refused(args.use_case)

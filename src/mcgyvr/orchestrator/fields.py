@@ -7,9 +7,10 @@ real candidate (the empty/default sentinel) that renders its human sentence
 here; no field reserves a letter, and the letter a candidate shows under is the
 positional one :mod:`mcgyvr.decision` assigns.
 
-Only six fields are decided in W3 — `task_type, target, symbol, interface,
-deps, allow`. `sources` and `operation` are deferred because a `Proposal` has no
-slot for them today, and `task`/`stop_conditions`/`forbid`/`acceptance`/
+Seven fields are decided — `task_type, target, symbol, task, interface, deps,
+allow`. `task` chooses between the request as asked and the deterministic
+directive line. `sources` and `operation` are deferred because a `Proposal` has
+no slot for them today, and `stop_conditions`/`forbid`/`acceptance`/
 `demonstration` are deterministic single-candidate folds, not decisions.
 
 Observability note: `mcgyvr.decision.classify` asks for at most 20 label logits
@@ -36,6 +37,7 @@ FIELD_ORDER: tuple[str, ...] = (
     "task_type",
     "target",
     "symbol",
+    "task",
     "interface",
     "deps",
     "allow",
@@ -47,6 +49,7 @@ _CRITERIA: dict[str, str] = {
     "task_type": "Which task type does this request call for?",
     "target": "Which file should the change land in?",
     "symbol": "Which symbol in {target} does the task work on?",
+    "task": "Which line states the work the worker must do?",
     "interface": "Which interface signature must the change satisfy?",
     "deps": (
         "Which dependency (a symbol declared in a different file) must the "
@@ -101,10 +104,10 @@ def option_text(field: str, candidate: FieldCandidate) -> str:
     """The option line for one candidate of `field`, for the model to read.
 
     The abstain candidate renders the human sentence in `_ABSTAIN_TEXT`; a real
-    candidate renders its value — a task-type doc, a path, a signature, a
-    dependency ``path::symbol``, or an allow scope. A symbol renders its name
-    (its richer detail line is deferred with the E4 field context), and a task
-    type's doc is looked up from the catalog.
+    candidate renders its value — a task-type doc, a path, a task line, a
+    signature, a dependency ``path::symbol``, or an allow scope. A symbol
+    renders its name (its richer detail line is deferred with the E4 field
+    context), and a task type's doc is looked up from the catalog.
     """
     value = candidate.value
     if field == "task_type":
@@ -113,6 +116,8 @@ def option_text(field: str, candidate: FieldCandidate) -> str:
         return str(value)
     if field == "symbol":
         return _ABSTAIN_TEXT["symbol"] if value == _NO_SYMBOL else str(value)
+    if field == "task":
+        return str(value)
     if field == "interface":
         return _ABSTAIN_TEXT["interface"] if value == "" else str(value)
     if field == "deps":

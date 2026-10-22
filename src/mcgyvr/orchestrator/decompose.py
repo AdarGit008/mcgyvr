@@ -140,6 +140,11 @@ class Evidence:
     ``demonstration`` and ``acceptance`` from the run instead of a
     model-invented command. ``None`` means the repository declared no runner
     (or the observation could not be read), and the model's own fields stand."""
+    ceiling: int = _DEFAULT_MAX_INPUT_TOKENS
+    """The ceiling on a contract's worker view this decomposition holds to.
+
+    `decompose`'s and `iterate`'s `max_input_tokens`, so a reply cap sized from
+    the evidence is held to the same ceiling the target itself was."""
 
 
 Proposer = Callable[[Evidence], Sequence[Proposal]]
@@ -234,7 +239,14 @@ def decompose(
     keyed by adapter name, so a `type_check` acceptance can be derived without
     probing the disk again.
     """
-    evidence = _evidence(index, prompt, config=config, budget=budget, adapters=adapters)
+    evidence = _evidence(
+        index,
+        prompt,
+        config=config,
+        budget=budget,
+        adapters=adapters,
+        ceiling=max_input_tokens,
+    )
     owners = tuple(adapters) if adapters is not None else _default_adapters()
 
     proposals = tuple(propose(evidence))
@@ -298,12 +310,14 @@ def _evidence(
     config: Config | None = None,
     budget: int | None = None,
     adapters: Sequence[LanguageAdapter] | None = None,
+    ceiling: int = _DEFAULT_MAX_INPUT_TOKENS,
 ) -> Evidence:
     """The deterministic pass a proposer is handed: resolve, read, catalog, baseline.
 
     `adapters` is accepted for the shared call shape with `decompose`/`iterate`;
     the evidence itself needs none — the baseline is located from the index's
-    root and the vocabulary from the catalog.
+    root and the vocabulary from the catalog. `ceiling` is the worker-view
+    ceiling the caller holds the contracts to, carried on the evidence.
     """
     resolution = resolve(index, prompt)
     exploration = (
@@ -320,6 +334,7 @@ def _evidence(
         exploration=exploration,
         vocabulary=vocabulary,
         baseline=baseline,
+        ceiling=ceiling,
     )
 
 
