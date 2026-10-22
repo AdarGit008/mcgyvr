@@ -40,6 +40,9 @@ from mcgyvr.orchestrator.symbols import Symbol, SymbolKind
 #: question keeps one slot back for the "no specific symbol" option.
 _MAX_CHOICE_OPTIONS = 62
 
+#: The most signatures the interface question offers when no symbol was chosen.
+_MAX_INTERFACE_SIGNATURES = 8
+
 #: The option that picks no symbol, because the whole file is the work.
 _NO_SYMBOL = ""
 
@@ -283,11 +286,15 @@ def stop_condition_candidates(
 def interface_candidates(
     evidence: Evidence, target: str, symbol: str | None
 ) -> CandidateSet:
-    """The chosen symbol's signature, then the other signatures in `target`.
+    """None, then the chosen symbol's signature or a few of the target's.
 
-    Rank 0 is "" (the classifier states none). The rest are raw
-    `Symbol.signature` values for DEFINITION/EXPORT symbols in the target, in
-    index order, with the chosen symbol first and duplicates dropped.
+    Rank 0 is "" (the classifier states none). With a symbol chosen, the only
+    other option is that symbol's own signature: the work keeps one interface,
+    and every other signature in the file only lengthened the question until a
+    file of 62 definitions overflowed it. With no symbol chosen, up to
+    `_MAX_INTERFACE_SIGNATURES` raw `Symbol.signature` values for
+    DEFINITION/EXPORT symbols in the target follow, in index order, duplicates
+    dropped.
     """
     signatures: list[str] = []
     seen: set[str] = {""}
@@ -296,14 +303,14 @@ def interface_candidates(
         for s in evidence.index.symbols.all()
         if s.path == target and s.kind in (SymbolKind.DEFINITION, SymbolKind.EXPORT)
     )
-    chosen: Symbol | None = None
     if symbol is not None:
         chosen = next((s for s in symbols if s.name == symbol), None)
         if chosen is not None:
             _add_signature(chosen, signatures, seen)
+        return _set("interface", ("", *signatures))
     for s in symbols:
-        if chosen is not None and s is chosen:
-            continue
+        if len(signatures) == _MAX_INTERFACE_SIGNATURES:
+            break
         _add_signature(s, signatures, seen)
     return _set("interface", ("", *signatures))
 
