@@ -1,8 +1,10 @@
 """An ungated task type for tests of the classifier's choice mechanics.
 
-The shipped catalog has only `code`, whose contract states a reply cap no
-choice can say, so the classifier hands that work to the prose proposer. The
-choice mechanics are shown with a kind that judges no change instead: built
+The shipped catalog has only `code`, whose proposal also carries a reply cap
+the classifier states from the chosen target's size
+(test_the_classifier_states_a_code_contracts_reply_cap.py). The choice
+mechanics are shown with a kind that judges no change and states no cap
+instead, so a test of them compares only the fields that were chosen: built
 here as a `TaskType` for a vocabulary handed in directly, or invented into a
 copy of the catalog when a contract must load against it.
 """
