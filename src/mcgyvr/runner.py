@@ -28,7 +28,7 @@ import urllib.parse
 import urllib.request
 from abc import ABC, abstractmethod
 from collections.abc import Iterator, Mapping
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
 from enum import StrEnum
 from typing import Any, ClassVar
 
@@ -877,6 +877,10 @@ def dispatch_role(
     binding = source_map.role(role)
     if binding is None:
         return None
+    if request.timeout_s is None:
+        # The unit's own bound, as a rung dispatched to it is given; unstated,
+        # a local unit would be cut off at the default however slow it serves.
+        request = replace(request, timeout_s=binding.endpoint.request_timeout_s)
     if capacity is None:
         return runner_for(binding.endpoint).generate(binding.model, request)
     with capacity.hold(binding.endpoint):
