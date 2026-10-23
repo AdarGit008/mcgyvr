@@ -744,6 +744,25 @@ def test_dispatch_role_runs_a_role_and_returns_none_when_there_is_not_one(
     assert dispatch_role(ladder, "orchestrator", ASK) is None
 
 
+def test_a_role_on_a_local_unit_is_given_the_time_its_unit_states(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """A role is dispatched to a unit, and the unit's `request_timeout_s` is the
+    bound a rung dispatched to it is given; a role must not be cut off at the
+    default instead. A request that states its own timeout still keeps it."""
+    monkeypatch.delenv("MCGYVR_TEST_KEY", raising=False)
+    slow = LADDER.replace(
+        "    rig: fast\n", "    rig: fast\n    request_timeout_s: 900\n"
+    )
+    ladder = build_source_map(parse(cfg(slow)))
+
+    sent = stub_post(monkeypatch, openai_answer())
+    dispatch_role(ladder, "verifier", ASK)
+    dispatch_role(ladder, "verifier", dataclasses.replace(ASK, timeout_s=30.0))
+
+    assert [call["timeout"] for call in sent.calls] == [900, 30.0]
+
+
 # --- the capacity bound is held across the request, not around it (#23) -----
 
 
