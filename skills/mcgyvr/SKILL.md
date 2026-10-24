@@ -49,6 +49,7 @@ each one.
 | `depends_on` | list of text | no | `[]` | Ids of the contracts that must complete before this one may run. Stated on the contract, so a plan can be ordered — and the parts of it that cannot run at all found — before a token is spent, the way `route.plan()` already is. A proposer's emission order is the order a model thought of things, not a dependency order, so ordering that is not written down here is ordering that does not exist. Not worker-facing: a worker is handed one task and never the plan around it, and a dependency that has landed is already in the tree it reads. e.g. ["write-fetch"]. (orchestrator-facing) |
 | `verification` | block | no | — | How the change is judged once the gate has passed. (orchestrator-facing) |
 | `limits` | block | no | — | Hard ceilings on what one execution of this contract may spend. (orchestrator-facing) |
+| `start_rung` | text | no | empty | The ladder rung this contract's climb starts on, decided ahead of time — what `mcgyvr.triage.triage_ahead` asks the `jev` unit, stored with the contract so every later run starts there without asking again. The rungs below it are skipped, not spent, and escalation goes on upward from it; it wins over the config's `triage`. A rung the ladder does not list, or one this contract's climb does not offer, is refused before anything is dispatched. Not worker-facing. e.g. local_qwen-14b. (orchestrator-facing) |
 | `rename` | block | no | — | Which symbol becomes which, for `operation: rename_symbol`. The one operation mcgyvr executes in-process rather than by running a program, and the only one whose input is not fully determined by `target`: a rename fans across every file that references the symbol, so the pair has to be said. Meaningless on any other contract and ignored there. (orchestrator-facing) |
 
 #### `deps`
@@ -208,6 +209,11 @@ what the run came to. The file's keys:
 - `notes` — the uncommitted and untracked paths the sandbox of HEAD
   left out, what the baseline left behind (now cleaned up), and what
   a rename renamed.
+- `triage` — only under `triage: jev` or a contract's `start_rung`: the
+  `rung` the climb started on and its `source` (`jev`, asked for this
+  run, or `contract`); for `jev`, every rung's `probabilities`, its
+  `confidence` and the `model` asked, or a `fallback` saying why the
+  climb started on its first rung.
 
 Every run is journaled under the config's `journal.dir` and nothing on
 the command line moves it — that one directory is where every run can

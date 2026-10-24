@@ -82,6 +82,10 @@ POSITION_CHOICES: tuple[str, ...] = ("above_ceiling", "below_floor", "within")
 #: slot free, and `idle` may also ride a relief rung once your own rungs are full.
 FANOUT_CHOICES: tuple[str, ...] = ("none", "idle", "full")
 
+#: Who picks the rung a contract's climb starts on. `none` starts on the first
+#: rung; `jev` asks the unit bound to the `jev` role (see `mcgyvr.triage`).
+TRIAGE_CHOICES: tuple[str, ...] = ("none", "jev")
+
 SANDBOX_FIELDS: tuple[Field, ...] = (
     Field(
         "mode",
@@ -791,6 +795,23 @@ SCHEMA: tuple[Field, ...] = (
         choices=FANOUT_CHOICES,
     ),
     Field(
+        "triage",
+        "enum",
+        "Who picks the rung a contract's climb starts on. `none` starts on the "
+        "first rung and climbs. `jev` first asks the unit bound to `jev` one "
+        "typed question: the contract and the ladder, each unit with its "
+        "model, window and reply room, and which is the smallest unit that can "
+        "do the job. The climb starts there; the rungs below it are skipped, "
+        "not spent, and escalation goes on upward as before. `fanout` may then "
+        "still start the climb on a higher rung with a free slot, never a "
+        "lower one. With no jev unit bound, or one that cannot be asked or "
+        "read, the climb starts on the first rung and the run result's "
+        "`triage` says why. A contract that states a `start_rung`, decided "
+        "ahead of time, starts there under either value and jev is not asked.",
+        default="none",
+        choices=TRIAGE_CHOICES,
+    ),
+    Field(
         "attempts",
         "int_map",
         "How many times each unit may be tried before escalation moves on.",
@@ -903,10 +924,11 @@ SCHEMA: tuple[Field, ...] = (
         "Which one unit answers every typed decision: a question answered "
         "with a single-token label rather than prose. Those are the gate's "
         "Jev rung, the reviewer's verdict, the fleet's choice of whether to "
-        "wake a smarter rung and the typed "
-        "proposer. Left unbound, each of those keeps asking the unit it asks "
+        "wake a smarter rung, the typed "
+        "proposer and, under `triage: jev`, the rung a climb starts on. Left "
+        "unbound, each of those keeps asking the unit it asks "
         "today: the verifier, the reviewing rung, the fast rung or the "
-        "orchestrator.",
+        "orchestrator, and triage asks nobody.",
         block=ROLE_UNIT_FIELDS,
     ),
     Field("sandbox", "block", "Where a task's commands run.", block=SANDBOX_FIELDS),

@@ -532,6 +532,7 @@ def _climb(
     from mcgyvr.local_pool import SourceUnavailableError, source_map
     from mcgyvr.route import RouteError
     from mcgyvr.sandbox.base import SandboxError, open_sandbox
+    from mcgyvr.triage import stated
     from mcgyvr.verify import reviewers_for
     from mcgyvr.wake_judge import WakeJudgeError
     from mcgyvr.wake_judge import hook_for as wake_hook_for
@@ -595,6 +596,11 @@ def _climb(
     cooldown = Cooldown(probe=_always_live)
     try:
         route = ascent(config, pool, contract, capacity=capacity)
+        if contract.start_rung:
+            # A start decided ahead of time is checked against this ladder
+            # before the sandbox opens: one it does not offer is refused here,
+            # not found out after the baseline ran.
+            stated(config, pool, contract, route.rungs)
     except RouteError as exc:
         return _error(report, str(exc))
     if not route:
@@ -764,6 +770,22 @@ def _report_climb(
     from mcgyvr.route import Verdict
     from mcgyvr.telemetry import correct
 
+    triaged = outcome.triage
+    if triaged is not None:
+        # Where the climb started and who decided it, kept for a later reading
+        # of the run: jev's pick with every rung's probability, why it fell
+        # back, or the start the contract stated.
+        report.triage = triaged.as_json()
+        if triaged.rung is None:
+            said = triaged.fallback
+        elif triaged.source == "contract":
+            said = f"the contract starts the climb on {triaged.rung}"
+        else:
+            said = (
+                f"jev started the climb on {triaged.rung} "
+                f"(confidence {triaged.confidence or 0.0:.2f})"
+            )
+        print(f"  triage: {said}")
     for step in outcome.history:
         word = RAISED if step.raised else step.verdict.value
         print(f"  {step.rung} #{step.attempt}: {word} — {step.detail}")
