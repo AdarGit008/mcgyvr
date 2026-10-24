@@ -502,6 +502,19 @@ SCHEMA: tuple[Field, ...] = (
         block=LIMITS_FIELDS,
     ),
     Field(
+        "start_rung",
+        "str",
+        "The ladder rung this contract's climb starts on, decided ahead of "
+        "time — what `mcgyvr.triage.triage_ahead` asks the `jev` unit, stored "
+        "with the contract so every later run starts there without asking "
+        "again. The rungs below it are skipped, not spent, and escalation goes "
+        "on upward from it; it wins over the config's `triage`. A rung the "
+        "ladder does not list, or one this contract's climb does not offer, is "
+        "refused before anything is dispatched. Not worker-facing.",
+        default="",
+        hint="e.g. local_qwen-14b",
+    ),
+    Field(
         "rename",
         "block",
         "Which symbol becomes which, for `operation: rename_symbol`. The one "
@@ -590,6 +603,9 @@ class Contract:
     rename: Rename = Rename()
     no_semantic_change: bool = False
     type_check: bool = False
+    #: The rung the climb starts on, decided ahead of time; empty when the
+    #: contract states none and the climb starts as the config says.
+    start_rung: str = ""
     #: The text of each entry in `sources`, in that order, filled in when the
     #: contract is dispatched against a workspace rather than parsed from a
     #: document. It is empty, or of another length, when the sources were never
@@ -735,6 +751,7 @@ class Contract:
             **flags,
             **stated,
             **renamed,
+            **({"start_rung": self.start_rung} if self.start_rung else {}),
             "verification": {"policy": self.verification.policy},
             "limits": {
                 "max_output_tokens": self.limits.max_output_tokens,
@@ -823,6 +840,7 @@ def _build(data: Mapping[str, Any]) -> Contract:
         rename=Rename(old=data["rename"]["from"], new=data["rename"]["to"]),
         no_semantic_change=data["no_semantic_change"],
         type_check=data["type_check"],
+        start_rung=data["start_rung"],
     )
 
 
