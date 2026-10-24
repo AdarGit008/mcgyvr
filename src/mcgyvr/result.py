@@ -112,9 +112,19 @@ class RunResult:
     notes: list[str] = field(default_factory=list)
     started: float = field(default_factory=time.time)
     finished: float | None = None
+    #: `triage` is where the climb started and who decided it, under
+    #: `triage: jev` or a contract's `start_rung`: the `rung`, its `source`
+    #: (`jev` or `contract`), and for jev every rung's `probabilities`, its
+    #: `confidence` and the `model` asked, or a `fallback` saying why the climb
+    #: started on its first rung instead. `None` when nothing decided a start,
+    #: and then the key is left out of the file.
+    triage: dict[str, Any] | None = None
 
     def as_json(self) -> dict[str, Any]:
-        return asdict(self)
+        data = asdict(self)
+        if self.triage is None:
+            del data["triage"]
+        return data
 
 
 def run_stamp(now: datetime | None = None) -> str:

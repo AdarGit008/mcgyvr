@@ -9,3 +9,4 @@ ladder:
   - gpu
 
 fanout: idle                    # none | idle | full — how a batch spreads
+triage: none                    # none | jev — who picks the rung a climb starts on
