@@ -81,6 +81,15 @@ archived outside this repository, under the same paths.
   neighbour. The same holds for a locked fleet's layout on a host. The
   `mcgyvr setup` wizard starts every rig's units at once instead of one rig
   after another, and names every rig whose start failed (#772).
+- **llama.cpp starts with fitting off.** `mcgyvr emit` launches every
+  llama.cpp server with `--fit off`, and a pooled head is started with it
+  too: each already states its `-c` and `-ngl`, so fitting only dry-ran the
+  load and read free memory that a unit starting beside it was still taking.
+  Off, a load that does not fit exits 1. Units on one card therefore start
+  together by default. A unit turns fitting back on with `--fit on` in its
+  `launch.serve_args`, and then keeps the card's start chain; an rpc-server
+  worker and a vLLM unit take no `--fit`. A locked fleet keeps the argv it
+  states (#774).
 - **Wake-on-demand runs inside the run.** With `serving.enable_sleep_wake` on,
   a climb that reaches a sleeping rung puts the units sharing its card down,
   wakes it, and records the swap. The sleeper goes back down, and the units it

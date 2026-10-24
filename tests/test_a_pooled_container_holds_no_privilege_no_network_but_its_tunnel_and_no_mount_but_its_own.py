@@ -211,6 +211,8 @@ def test_the_head_runs_with_its_cards_its_models_read_only_and_its_tunnel() -> N
         "1",
         "-c",
         "12288",
+        "--fit",
+        "off",
         "-fa",
         "on",
         "-ctk",

@@ -54,6 +54,11 @@ CACHE_MOUNT = "/rpc-cache"
 MODELS_MOUNT = "/models"
 #: KV cache type for llama-server: -ctk and -ctv both get this value.
 KV_CACHE_TYPE = "q8_0"
+#: llama-server's --fit for the head: off, as `mcgyvr.emit.FIT_DEFAULT` is for
+#: an emitted unit. The head states -c and -ngl itself, so fitting would only
+#: dry-run the load and read free memory once; off, a load that does not fit is
+#: a clean exit. The rig side does not import the emit stack, hence the copy.
+HEAD_FIT = "off"
 #: Touched by Pool.renew_lease; the entrypoint exits once its mtime lags by lease_s.
 LEASE_FILE = "/run/mcgyvr/lease"
 #: Where the detached STUN keep-alive writes its pid, so the next TUNNEL_SCRIPT can
@@ -656,7 +661,8 @@ def head_argv(spec: HeadSpec, owner: Owner) -> list[str]:
     It joins the session's tunnel network namespace, gets the local cards (no
     --gpus at all when the model runs on rpc devices only), mounts the models
     folder read-only, and starts llama-server under GUARD_SCRIPT with the alias,
-    slots, context, KV cache type and device split the spec asks for.
+    slots, context, KV cache type and device split the spec asks for, and with
+    fitting off (`HEAD_FIT`), since it states its context and layers itself.
     """
     argv = [
         "run",
@@ -693,6 +699,8 @@ def head_argv(spec: HeadSpec, owner: Owner) -> list[str]:
         str(spec.slots),
         "-c",
         str(spec.slots * spec.ctx),
+        "--fit",
+        HEAD_FIT,
         "-fa",
         "on",
         "-ctk",
