@@ -133,8 +133,8 @@ def iterate(
                 )
             refusal = emitted
 
-        # A field the classifier never decides (max_output_tokens, type_check,
-        # request, a catch-all, ...) cannot be re-asked: this is terminal.
+        # A field the classifier never decides (type_check, request, a
+        # catch-all, ...) cannot be re-asked: this is terminal.
         if refusal.field not in FIELD_ORDER:
             refusals.append(refusal)
             return Decomposition(

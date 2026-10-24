@@ -135,8 +135,8 @@ class TaskType:
     @property
     def needs_output_cap(self) -> bool:
         """True when a model writes a change that something then judges —
-        not a tool's work — so the contract must state
-        `limits.max_output_tokens`."""
+        not a tool's work — so its reply is sent the unit's maximum and the
+        unit it runs on must state one (`window` or `output_tokens`)."""
         return not self.deterministic and self.judges_a_change
 
 

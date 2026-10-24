@@ -12,9 +12,9 @@ Re-exports the gate's building blocks so callers can import them from
   :class:`ChangeSetError`.
 - findings: :class:`Finding`.
 - jev: :class:`JevCheck` and :class:`JevReport`.
-- preflight: the prompt/reply budget helpers (``reply_cap``,
-  ``sized_reply_cap``, ``least_reply``, ``unit_ceiling``, ``ESTIMATE_RESERVE``,
-  and their types), plus the ``check_*`` preflight validators.
+- preflight: the prompt/reply budget helpers (``unit_max``, ``unit_ceiling``,
+  ``ESTIMATE_RESERVE``, ``LEAST_ROOM``, and their types), plus the ``check_*``
+  preflight validators.
 - runner: :class:`Gate`, :class:`GateResult`, and :class:`InconclusiveRung`.
 - semantic: :class:`SemanticCheck` and :class:`SemanticReport`.
 
@@ -40,28 +40,27 @@ from mcgyvr.gate.findings import Finding
 from mcgyvr.gate.jev import JevCheck, JevReport
 from mcgyvr.gate.preflight import (
     ESTIMATE_RESERVE,
+    LEAST_ROOM,
     PreflightIssue,
     ReplyCap,
     ServingWindow,
     TokenCount,
     UnitCeiling,
-    check_cap_stated,
-    check_cap_within_ceiling,
     check_clean_tree,
     check_contract_against_rung,
     check_contract_fits,
     check_prompt_fits,
+    check_unit_ceiling_stated,
     check_window_fraction,
-    least_reply,
-    reply_cap,
-    sized_reply_cap,
     unit_ceiling,
+    unit_max,
 )
 from mcgyvr.gate.runner import Gate, GateResult, InconclusiveRung
 from mcgyvr.gate.semantic import SemanticCheck, SemanticReport
 
 __all__ = [
     "ESTIMATE_RESERVE",
+    "LEAST_ROOM",
     "Acceptance",
     "AcceptanceReport",
     "ChangeSet",
@@ -86,15 +85,12 @@ __all__ = [
     "ToolFailedError",
     "ToolUnavailableError",
     "UnitCeiling",
-    "check_cap_stated",
-    "check_cap_within_ceiling",
     "check_clean_tree",
     "check_contract_against_rung",
     "check_contract_fits",
     "check_prompt_fits",
+    "check_unit_ceiling_stated",
     "check_window_fraction",
-    "least_reply",
-    "reply_cap",
-    "sized_reply_cap",
     "unit_ceiling",
+    "unit_max",
 ]

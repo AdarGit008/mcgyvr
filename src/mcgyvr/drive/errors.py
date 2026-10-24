@@ -29,25 +29,10 @@ class PromptTooLargeError(DriveError):
     """
 
 
-class OutputCapUnstatedError(DriveError):
-    """A model-written contract states no `limits.max_output_tokens`, so there
-    is no cap to send and no model is called for it; the message is the stated
-    preflight issue.
-    """
-
-
-class OutputCapTooLargeError(DriveError):
-    """The contract's output cap is more than the rung can honour — above the
-    unit's ceiling for this prompt, or at least as large as the rung's window,
-    leaving no room for the prompt. Raised for preflight issues whose reason is
-    `output-cap`.
-    """
-
-
 class UnitCeilingUnknownError(DriveError):
     """The unit serving the rung states neither the window it serves nor the
-    room its replies are given, so the contract's cap has no ceiling to be held
-    to. Raised for preflight issues whose reason is `unit-ceiling-unknown`.
+    room its replies are given, so there is no maximum to send a model-written
+    reply. Raised for preflight issues whose reason is `unit-ceiling-unknown`.
     """
 
 

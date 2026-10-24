@@ -495,8 +495,6 @@ interface: "def chunk(items: list[T], size: int) -> list[list[T]]"
 stop_conditions:
   - Whether a size larger than the list is an error or one group is not stated.
 demonstration: ["pytest -q tests/test_chunk.py"]
-limits:
-  max_output_tokens: 4096
 scope:
   allow: ["src/pkg/chunk.py"]
 """,
@@ -638,8 +636,8 @@ def render_skill() -> str:
         "```",
         "",
         "Prints what the contract resolves to, or names the key that is wrong. Fix",
-        "the contract; never guess a field. A `code` contract states",
-        "`limits.max_output_tokens`, within its unit's ceiling, or `run` refuses it.",
+        "the contract; never guess a field. A `code` contract states no reply",
+        "cap: every request is sent the most its unit can give.",
         "",
         "## Step 3 — run it, then read the result file",
         "",

@@ -1,16 +1,11 @@
-"""A model-written `code` contract states its output cap, or it is never sent.
+"""A model-written `code` contract needs no output cap: it runs at its unit's maximum.
 
-`code` is the work mcgyvr's harness
-runs, and a reply in a harness is bounded by a number somebody wrote. Every
-unit carries one from setup, and every `code` contract states one:
-``limits.max_output_tokens``, what the work is worth.
-
-A contract that states none is not invented a number. It still loads, so
-``mcgyvr contract`` calls it valid and says what it is missing, but
-``mcgyvr run`` refuses it before any model is called: the dispatch fails loud,
-naming the field, and no rung of the ladder is sent anything or climbed to.
-The automatic sizing that used to fill the gap (a floor for the task type,
-twice the target, and a reasoning allowance) is gone with it.
+`code` used to have to state ``limits.max_output_tokens``, what the work was
+worth: ``mcgyvr contract`` called a contract without one valid and
+``mcgyvr run`` refused it before any model was called. The cap is not the
+work's to state any more. Every request is sent the most its unit can give,
+clamped to the room the window leaves the prompt, so a contract with no cap
+runs, and one that states a cap is read and runs at the same number.
 """
 
 from __future__ import annotations
@@ -103,7 +98,17 @@ def test_it_loads_with_no_cap_invented_for_it() -> None:
     assert contract.limits.max_output_tokens is None
 
 
-def test_mcgyvr_contract_calls_it_valid_and_says_run_refuses_it(
+def _room(contract: Any) -> int:
+    from mcgyvr.gate.preflight import unit_ceiling
+    from mcgyvr.worker.prompt import build_prompt
+
+    pool = source_map(parse_config(LADDER))
+    room = unit_ceiling(pool.bind("local_cheap"), build_prompt(contract).measured)
+    assert room.tokens is not None
+    return room.tokens
+
+
+def test_mcgyvr_contract_calls_it_valid_and_says_what_its_reply_is_sent(
     tmp_path: Path, capsys: pytest.CaptureFixture[str]
 ) -> None:
     path = lj.make_contract(tmp_path / "uncapped.yaml", UNCAPPED)
@@ -111,30 +116,26 @@ def test_mcgyvr_contract_calls_it_valid_and_says_run_refuses_it(
     assert lj.main(["contract", str(path)]) == 0
     out = capsys.readouterr().out
     assert "valid" in out, out
-    assert "`mcgyvr run` refuses it" in out, out
-    assert "limits.max_output_tokens" in out, out
+    assert "reply at its unit's maximum" in out, out
+    assert "refuses" not in out, out
 
 
-def test_the_dispatch_refuses_it_by_name_before_the_runner(
+def test_the_dispatch_sends_it_the_room_its_unit_leaves(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    from mcgyvr.drive import OutputCapUnstatedError, dispatch_prompt
+    from mcgyvr.drive import dispatch_prompt
     from mcgyvr.worker.prompt import build_prompt
 
     sent = _sent(monkeypatch)
     pool = source_map(parse_config(LADDER))
     contract = load_contract(UNCAPPED)
 
-    with pytest.raises(OutputCapUnstatedError) as refused:
-        dispatch_prompt(pool, "local_cheap", build_prompt(contract), contract)
+    dispatch_prompt(pool, "local_cheap", build_prompt(contract), contract)
 
-    assert sent == []
-    said = str(refused.value)
-    assert "'uncapped'" in said, said
-    assert "limits.max_output_tokens" in said, said
+    assert sent == [("local_cheap", _room(contract))]
 
 
-def test_a_stated_cap_is_sent_as_stated(monkeypatch: pytest.MonkeyPatch) -> None:
+def test_a_stated_cap_is_not_what_is_sent(monkeypatch: pytest.MonkeyPatch) -> None:
     from mcgyvr.drive import dispatch_prompt
     from mcgyvr.worker.prompt import build_prompt
 
@@ -144,14 +145,15 @@ def test_a_stated_cap_is_sent_as_stated(monkeypatch: pytest.MonkeyPatch) -> None
 
     dispatch_prompt(pool, "local_cheap", build_prompt(contract), contract)
 
-    assert sent == [("local_cheap", 512)]
+    assert sent == [("local_cheap", _room(contract))]
+    assert _room(contract) > 512
 
 
-def test_a_run_fails_before_any_model_is_called_and_does_not_climb(
+def test_a_run_reaches_a_model_at_its_units_maximum(
     repo: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
     from mcgyvr.drive import worker_attempt
-    from mcgyvr.escalate import Halted, Outcome, escalate
+    from mcgyvr.escalate import Outcome, escalate
     from mcgyvr.sandbox.tempdir import TempDirSandbox
 
     sent = _sent(monkeypatch)
@@ -164,11 +166,9 @@ def test_a_run_fails_before_any_model_is_called_and_does_not_climb(
             config, pool, contract, worker_attempt(config, pool, contract, sandbox)
         )
 
-    assert isinstance(outcome, Halted), outcome
-    assert outcome.outcome is Outcome.ERROR
-    assert sent == [], "no model is called for a contract that states no cap"
-    (only,) = outcome.history
-    assert only.raised
-    assert "OutputCapUnstatedError" in only.detail, only.detail
-    assert "limits.max_output_tokens" in only.detail, only.detail
-    assert (outcome.attempts_spent, outcome.escalations) == (0, 0)
+    assert outcome.outcome is not Outcome.ERROR, outcome
+    # The run's prompt carries the target's content too, so its room is the
+    # window less that larger prompt: still the unit's, never a contract's.
+    ((rung, cap), *_) = sent
+    assert rung == "local_cheap"
+    assert cap is not None and 512 < cap <= _room(contract)

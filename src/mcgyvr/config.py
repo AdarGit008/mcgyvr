@@ -349,15 +349,12 @@ ROLE_SLEEPER = "sleeps-until-needed"
 ROLES = (ROLE_ALWAYS_ON, ROLE_SLEEPER)
 
 #: The reply room, in tokens, that `mcgyvr setup --api` writes into a hosted
-#: unit's `output_tokens`: the ceiling a `code` contract's
-#: `limits.max_output_tokens` is held to on that unit, hidden reasoning
-#: included. A hosted reasoning model spends its reasoning inside the same
-#: budget, so the number is sized for a long deliberation rather than a short
-#: answer. It is a value written into a file, not a default this module applies:
-#: a unit that states its own `output_tokens` keeps it, and a contract's own cap
-#: is sent exactly, with a cap above the ceiling narrowed to it (refused by name
-#: where the ceiling is below half the cap). The doc of a unit's
-#: `output_tokens` quotes it.
+#: unit's `output_tokens`: the reply cap every request to that unit is sent,
+#: hidden reasoning included. A hosted reasoning model spends its reasoning
+#: inside the same budget, so the number is sized for a long deliberation rather
+#: than a short answer. It is a value written into a file, not a default this
+#: module applies: a unit that states its own `output_tokens` keeps it. The doc
+#: of a unit's `output_tokens` quotes it.
 API_OUTPUT_TOKENS = 32768
 
 UNIT_FIELDS: tuple[Field, ...] = (
@@ -423,25 +420,22 @@ UNIT_FIELDS: tuple[Field, ...] = (
         "Tokens this unit serves in one request. Read it back off the "
         "running process, not hoped for: `setup` reads it off a local "
         "backend and writes it, and lists a unit it could not read as not "
-        "configured. Less the prompt, it is the ceiling a `code` contract's "
-        "`limits.max_output_tokens` is held to on this unit; a unit with "
-        "neither `window` nor `output_tokens` refuses code dispatch.",
+        "configured. Less the prompt, it is the room every reply on this unit "
+        "is clamped to; a unit with neither `window` nor `output_tokens` "
+        "refuses code dispatch.",
         min_value=1,
         bind_hint="e.g. 4096 -- what the unit reports, not what you hoped for",
     ),
     Field(
         "output_tokens",
         "int",
-        "Room a reply on this unit is given, hidden reasoning included: a "
-        "ceiling a `code` contract's `limits.max_output_tokens` is held to, "
-        "beside the room `window` leaves for the prompt (the smaller of the "
-        "two where both are set). It never raises the contract's cap, which "
-        "is sent exactly; a cap above the ceiling is narrowed to it, and "
-        "refused by name where the ceiling is below half the cap. "
-        "A hosted reasoning model needs tens of thousands; `setup --api` "
-        f"writes {API_OUTPUT_TOKENS}.",
+        "Room a reply on this unit is given, hidden reasoning included: the "
+        "reply cap every request to it is sent — a rung's attempt, a "
+        "decomposition, a review — clamped to the room `window` leaves the "
+        "prompt where both are set. A hosted reasoning model needs tens of "
+        f"thousands; `setup --api` writes {API_OUTPUT_TOKENS}.",
         min_value=1,
-        bind_hint="e.g. 2048 -- the reply length this unit needs",
+        bind_hint="e.g. 2048 -- the longest reply this unit gives",
     ),
     Field(
         "request_timeout_s",
@@ -861,10 +855,11 @@ SCHEMA: tuple[Field, ...] = (
     Field(
         "max_window_fraction",
         "float",
-        "The largest share of a unit's context window one contract may claim "
-        "-- its prompt and its declared reply together -- checked before the "
-        "contract is sent, so a contract claiming more fails unsent on the "
-        "unit it was sent to. It is a ceiling no contract can raise: a "
+        "The largest share of a unit's context window one contract's prompt "
+        "may claim, checked before the contract is sent, so the reply -- sent "
+        "the unit's maximum within the room the prompt leaves -- keeps at "
+        "least the rest; a contract claiming more fails unsent on the unit it "
+        "was sent to. It is a ceiling no contract can raise: a "
         "contract's own `limits.max_window_fraction` may hold it to less, "
         "never to more, and the stricter of the two applies. Unset enforces "
         "no run-wide share.",

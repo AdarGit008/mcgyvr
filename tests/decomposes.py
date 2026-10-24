@@ -34,7 +34,6 @@ def an_annotation(**overrides: object) -> Proposal:
         "stop_conditions": ("the intended element type is ambiguous",),
         "no_semantic_change": True,
         "type_check": True,
-        "max_output_tokens": 1024,
     }
     return Proposal(**{**base, **overrides})  # type: ignore[arg-type]
 

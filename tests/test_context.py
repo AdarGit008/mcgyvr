@@ -68,7 +68,6 @@ def listing(items):
 
 PROPOSAL = Proposal(
     task_type="code",
-    max_output_tokens=1024,
     task="Document listing() and say how it pages its items.",
     target="listing.py",
     deps=(DepRef(path="pagination.py", symbol="paginate", note="page with this"),),

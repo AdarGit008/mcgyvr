@@ -4,9 +4,8 @@ The cap model is decided by task type,
 and the preview is where an author reads which rule their contract is under
 before anything is spent:
 
-* model-written `code` that states a cap: ``<=N output tokens``;
-* model-written `code` that states none: valid, and ``mcgyvr run`` refuses it
-  until ``limits.max_output_tokens`` is stated;
+* model-written `code`: its reply is sent the unit's maximum, and a stated
+  ``limits.max_output_tokens`` is named as not sent;
 * a deterministic operation calls no model: no output cap and no attempts.
   It used to print ``<=256 output tokens ... 2 attempt(s)``, a cap and a retry
   budget for a model that is never called.
@@ -51,18 +50,21 @@ def limits(tmp_path: Path, text: str, capsys: pytest.CaptureFixture[str]) -> str
     return next((line.strip() for line in out.splitlines() if "limits:" in line), "")
 
 
-def test_code_with_a_cap_states_it(
+def test_code_with_a_cap_says_the_cap_is_not_sent(
     tmp_path: Path, capsys: pytest.CaptureFixture[str]
 ) -> None:
     said = limits(tmp_path, CODE + "limits:\n  max_output_tokens: 512\n", capsys)
-    assert said.startswith("limits:  <=512 output tokens"), said
+    assert said.startswith(
+        "limits:  reply at its unit's maximum (limits.max_output_tokens: 512 "
+        "is not sent)"
+    ), said
 
 
-def test_code_without_a_cap_says_run_refuses_it(
+def test_code_without_a_cap_is_sent_its_units_maximum(
     tmp_path: Path, capsys: pytest.CaptureFixture[str]
 ) -> None:
     said = limits(tmp_path, CODE, capsys)
-    assert "`mcgyvr run` refuses it until `limits.max_output_tokens` is stated" in said
+    assert said.startswith("limits:  reply at its unit's maximum,"), said
 
 
 def test_a_deterministic_operation_shows_no_cap_and_no_attempts(

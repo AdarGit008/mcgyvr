@@ -1,17 +1,14 @@
-"""A unit may declare the room its replies are given, and it is a ceiling.
+"""A unit may declare the room its replies are given, and it is what they are sent.
 
-A unit may declare ``output_tokens``. It used to be the number sent in place of
-the contract's ``limits.max_output_tokens`` (``mcgyvr.gate.preflight``), so a
-contract capped at 16 was sent the 32768 ``setup --api`` writes on a hosted
-unit. Now the contract's cap is what the
-work is worth and is sent exactly; a unit's ``output_tokens`` bounds it, beside
-the room its window leaves for the prompt, and a cap above that ceiling is a
-named refusal
-(``tests/test_a_code_contracts_cap_is_sent_exactly_within_its_units_ceiling.py``).
+A unit may declare ``output_tokens``. Every request is sent its unit's maximum:
+that number, clamped to the room the unit's window leaves the prompt
+(``tests/test_every_generating_request_is_sent_its_units_maximum.py``). A
+contract's own ``limits.max_output_tokens`` is read and never sent.
 
-What is asserted below: a unit may declare the room its replies are given;
-the contract's number reaches the wire on a unit that declared room and on one
-that declared none; and a raw-text reply stays uncapped wherever it runs.
+What is asserted below: a unit may declare the room its replies are given; a
+rung that declared room is sent it, and one that declared none is sent what its
+window leaves; and a window too small for a large reply is not a refusal while
+the prompt leaves it room.
 """
 
 from __future__ import annotations
@@ -61,7 +58,7 @@ def test_a_rung_may_declare_the_room_its_replies_need() -> None:
     """The ladder is where a per-rung number can be written at all.
 
     Unset is ``None`` rather than a number, for the reason ``max_parallel`` is:
-    "this rung was measured needing 2048" and "nobody said, so the contract's
+    "this rung was measured needing 2048" and "nobody said, so the window's
     number stands" are different facts, and a rung defaulting to the contract's
     value would be indistinguishable from a rung that declared it.
     """
@@ -81,25 +78,27 @@ def test_a_rung_may_declare_the_room_its_replies_need() -> None:
 # --- the number that reaches the wire -------------------------------------
 
 
-@pytest.mark.parametrize("rung", ["local_qwen2.5-coder-3b", "local_qwen3.6-35b-a3b"])
-def test_the_contracts_cap_is_sent_whether_or_not_the_rung_declared_room(
-    rung: str, monkeypatch: pytest.MonkeyPatch
+def test_each_rung_is_sent_its_own_units_maximum(
+    monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    """The contract's number reaches the wire on both rungs, unreplaced.
-
-    The dear rung declares 2048 and the contract states 1024, which is within
-    it: 1024 is sent. The rung's number is room, not a reply size.
-    """
+    """The dear rung declares 2048 and is sent it, not the contract's 1024; the
+    cheap one declares nothing and is sent the room its window leaves."""
     from mcgyvr.drive import dispatch_prompt
+    from mcgyvr.gate.preflight import unit_ceiling
     from mcgyvr.worker.prompt import build_prompt
 
     sent = caps_sent(monkeypatch)
     pool = source_map(parse_config(cfg(LADDER)))
     contract = load_contract(CONTRACT)
+    prompt = build_prompt(contract)
+    cheap, dear = "local_qwen2.5-coder-3b", "local_qwen3.6-35b-a3b"
+    room = unit_ceiling(pool.bind(cheap), prompt.measured).tokens
+    assert room is not None and room > 2048
 
-    dispatch_prompt(pool, rung, build_prompt(contract), contract)
+    dispatch_prompt(pool, cheap, prompt, contract)
+    dispatch_prompt(pool, dear, prompt, contract)
 
-    assert sent == [(rung, 1024)]
+    assert sent == [(cheap, room), (dear, 2048)]
 
 
 # --- a contract cap that fits the rung's ceiling -------------------------
@@ -120,24 +119,22 @@ def test_a_rung_room_that_fits_is_not_refused() -> None:
     )
 
 
-# --- an unstated cap is uncapped -----------------------------------------
+# --- a contract that states no cap ---------------------------------------
 
 
-def test_reply_cap_is_none_for_an_uncapped_reply() -> None:
-    """A reply with no cap does not consult the rung's own ``output_tokens``:
-    it is uncapped wherever it runs."""
-    from mcgyvr.gate.preflight import reply_cap
+def test_a_contract_with_no_cap_is_sent_the_rungs_room() -> None:
+    from mcgyvr.gate.preflight import unit_max
 
     pool = source_map(parse_config(cfg(LADDER)))
     contract = load_contract(UNCAPPED_CONTRACT)
     assert contract.limits.max_output_tokens is None
 
-    assert reply_cap(contract, pool.bind("local_qwen3.6-35b-a3b")) is None
+    assert unit_max(pool.bind("local_qwen3.6-35b-a3b"), "x").tokens == 2048
 
 
-def test_a_small_window_does_not_refuse_an_uncapped_reply() -> None:
-    """An uncapped reply reserves nothing, so a window too small for any cap
-    is still not a refusal: there is no cap for the window to hold."""
+def test_a_small_window_does_not_refuse_a_contract_with_no_cap() -> None:
+    """A window too small for a long reply is still not a refusal while the
+    prompt leaves it room: the reply is sent what room there is."""
     from mcgyvr.gate.preflight import check_contract_against_rung
 
     small = cfg(LADDER).replace("window: 4096", "window: 64")

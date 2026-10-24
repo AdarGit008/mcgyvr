@@ -57,7 +57,6 @@ def a_fix(**overrides: object) -> Proposal:
         "stop_conditions": ("the pager's contract is ambiguous",),
         "acceptance": ("pytest -q",),
         "demonstration": ("pytest -q tests/test_listing.py::test_page_size",),
-        "max_output_tokens": 1024,
     }
     return Proposal(**{**base, **overrides})  # type: ignore[arg-type]
 
@@ -181,21 +180,6 @@ def test_a_schema_error_re_wrap_carries_the_bad_key(repo: Index) -> None:
     assert refusal.field == ""
     assert refusal.what_to_change
     assert "stop_conditions" in refusal.what_to_change
-
-
-def test_a_missing_output_cap_points_at_max_output_tokens(repo: Index) -> None:
-    refusal = one_refusal(
-        decompose(
-            repo,
-            "fix",
-            propose=RecordedProposer((a_fix(max_output_tokens=None),)),
-        )
-    )
-
-    assert refusal.field == "max_output_tokens"
-    assert refusal.what_to_change == (
-        "state limits.max_output_tokens (whole number >= 1)"
-    )
 
 
 def test_a_target_too_large_points_at_the_target(repo: Index) -> None:
