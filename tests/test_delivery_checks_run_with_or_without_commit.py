@@ -27,8 +27,8 @@ from mcgyvr.gate import GateResult
 from mcgyvr.scope import Scope
 from tests import livejournal as lj
 
-#: A model contract with no demonstration, so an unchanged reply reaches
-#: delivery rather than failing a "must fail before" command in the sandbox.
+#: A model contract with no demonstration, so an unchanged reply is failed for
+#: changing nothing rather than for a "must fail before" command in the sandbox.
 NO_DEMO_CONTRACT = """
 id: impl
 task_type: code
@@ -108,12 +108,13 @@ def test_place_still_leaves_a_checked_change_in_the_tree(tmp_path: Path) -> None
     assert lj.git(repo, "rev-parse", "HEAD").strip() == base, "nothing committed"
 
 
-def test_a_run_whose_reply_changes_nothing_is_delivery_refused_without_commit(
+def test_a_run_whose_reply_changes_nothing_is_refused_without_commit(
     tmp_path: Path,
     home: Path,
     monkeypatch: pytest.MonkeyPatch,
     capsys: pytest.CaptureFixture[str],
 ) -> None:
+    """The echo fails its attempt, so nothing reaches the tree to be left there."""
     repo = lj.make_repo(tmp_path / "repo")
     journal = tmp_path / "journal"
     config = lj.make_config(tmp_path / "mcgyvr.yaml", journal_dir=journal)
@@ -124,6 +125,6 @@ def test_a_run_whose_reply_changes_nothing_is_delivery_refused_without_commit(
 
     assert scripted, "the model was asked"
     result = json.loads(lj.result_path(capsys.readouterr().out).read_text())
-    assert result["outcome"] == "delivery_refused", result
+    assert result["outcome"] == "ladder_spent", result
     assert code == 1
     _as_found(repo)

@@ -9,7 +9,9 @@ commands, each skipped once an earlier one has recorded a finding, with the
 contract's prose passed to the rungs that read it.
 
 The rest of the module is what the attempt loop composes around it: a
-reply written into a fresh sandbox (``gate_in_sandbox``), a format-only
+draw that left its target unchanged refused before the gate runs
+(``unchanged_target``), a reply written into a fresh sandbox
+(``gate_in_sandbox``), a format-only
 rejection tidied and gated again (``_cleaned``), a rejected tree repaired by
 the deterministic tools and gated again (``_repair_and_regate``), the
 reviewer's JEV check asked of the winning draw alone (``_typed_checks``).
@@ -26,7 +28,7 @@ from dataclasses import replace
 from typing import TYPE_CHECKING
 
 import mcgyvr.drive as _drive
-from mcgyvr.deliver import Accepted
+from mcgyvr.deliver import Accepted, unchanged
 from mcgyvr.gate import Finding, Gate, GateResult
 from mcgyvr.gate.acceptance import Acceptance
 from mcgyvr.gate.adapter import SandboxRunner
@@ -182,6 +184,38 @@ def _repair_and_regate(
         regated,
         observations=(*regated.observations, *noted),
         environment_issues=(*regated.environment_issues, *outcome.environment_issues),
+    )
+
+
+#: The check a draw is refused on when it leaves its target as the base holds it.
+UNCHANGED = "unchanged"
+
+
+def unchanged_target(contract: Contract, sandbox: Sandbox) -> GateResult | None:
+    """The rejection for a draw that left the contract's target as it was, or ``None``.
+
+    A reply that returns its target unchanged has done no work, yet the rest of the
+    gate would pass it — the acceptance commands passed on that tree before the
+    attempt — and delivery would then refuse it as identical to the base, after the
+    climb had stopped on it. It is refused here instead, as a failed attempt like
+    any other, so the climb moves on and a retry is told what was wrong. The test is
+    delivery's own (:func:`mcgyvr.deliver.unchanged`), asked against the commit the
+    gate reads the workspace's change from.
+    """
+    if not unchanged(sandbox.workspace, "HEAD", (contract.target,)):
+        return None
+    return GateResult(
+        findings=(
+            Finding(
+                check=UNCHANGED,
+                path=contract.target,
+                code="identical-to-base",
+                message=(
+                    "the reply returned this file exactly as it already is; the "
+                    "task asks for a change to it, and an unchanged file is not one"
+                ),
+            ),
+        )
     )
 
 

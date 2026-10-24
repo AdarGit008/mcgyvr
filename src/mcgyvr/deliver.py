@@ -935,6 +935,24 @@ def _delivered_changes(
     return {rel: found.get(rel) for rel in rels}
 
 
+def unchanged(root: Path, base: str, rels: Sequence[str]) -> tuple[str, ...]:
+    """The paths of `rels` that hold what `base` holds, in the order given.
+
+    This is the reading :func:`_refusal` refuses a delivery on as identical to the
+    base: the change set against `base` does not mention the path, and git does not
+    ignore it. An attempt asks it of its own workspace, so a reply that hands its
+    target back as it was fails there rather than being accepted and refused here.
+    An ignored path is left out, since its absence from the change set says nothing
+    about its content.
+    """
+    changes = _delivered_changes(root, base, rels)
+    return tuple(
+        rel
+        for rel, change in changes.items()
+        if change is None and not _ignored(root, rel)
+    )
+
+
 def _judged(
     changes: Sequence[FileChange],
     root: Path,

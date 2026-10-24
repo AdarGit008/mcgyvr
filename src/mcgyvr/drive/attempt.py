@@ -29,6 +29,7 @@ from mcgyvr.drive.gate import (
     _jev_for,
     _repair_and_regate,
     _typed_checks,
+    unchanged_target,
 )
 from mcgyvr.drive.prompt import (
     _base_content,
@@ -204,6 +205,14 @@ def worker_attempt(
                 )
 
         def judge_draw(space: Sandbox) -> GateResult:
+            # A reply that hands its target back unchanged fails the draw before
+            # the gate runs: its checks would pass the base tree, and delivery
+            # would refuse it as identical to the base after the climb had
+            # stopped on it. It is not repaired either — the tools would turn the
+            # base itself into a change the reply never made.
+            same = unchanged_target(contract, space)
+            if same is not None:
+                return same
             # A code contract is gated over the tree as the reply left it: the
             # project's own checks, the adapters' static ones and the acceptance
             # commands, whose findings are the verdict's. A rejection the
