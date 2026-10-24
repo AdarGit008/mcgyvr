@@ -46,6 +46,11 @@ COPY_MIB_TIGHT = 64
 TIGHT_RAM_GB = 2.0
 
 WEIGHTS_DIR_ENV = "MCGYVR_WEIGHTS"
+#: The variable that moves mcgyvr's home on this machine, and the folder it names
+#: when nothing does: the same pair as `mcgyvr.fleet.roots.HOME_ENV` and
+#: `HOME_DIR`, spelled again because this file runs on a rig without the package.
+HOME_ENV = "MCGYVR_HOME"
+HOME_DIR = "~/.mcgyvr"
 #: Machine identity sources, in order: the first machine-id file holding a value,
 #: then the host name.
 MACHINE_ID_FILES = ("/etc/machine-id", "/var/lib/dbus/machine-id")
@@ -1131,6 +1136,20 @@ def default_weights_dir() -> str:
     return os.path.expanduser("~/.cache/mcgyvr/weights")
 
 
+def mcgyvr_home() -> str | None:
+    """mcgyvr's home on this machine: MCGYVR_HOME with ~ expanded, else ~/.mcgyvr.
+
+    None when MCGYVR_HOME names a relative folder, which would be a different
+    folder from each working directory; the scan then reports no home rather
+    than guess one.
+    """
+    named = os.environ.get(HOME_ENV)
+    if named:
+        expanded = os.path.expanduser(named)
+        return expanded if os.path.isabs(expanded) else None
+    return os.path.expanduser(HOME_DIR)
+
+
 def _disk_device(path: str) -> str | None:
     """The device the path is on, from /proc/self/mounts: the source of the longest
     mount point the resolved path falls under, with escaped spaces in the mount point
@@ -1634,9 +1653,9 @@ def scan(
     """The whole reading of this machine, in one document.
 
     The short reading is the base, and gpus, cpu, bandwidth, disk, models_on_disk,
-    docker, network and snapshot are added to it, with every fact, note and unread
-    field gathered from those sections. The weights directory is the one given, or
-    the default, and model_stores are searched alongside it.
+    docker, network, home and snapshot are added to it, with every fact, note and
+    unread field gathered from those sections. The weights directory is the one
+    given, or the default, and model_stores are searched alongside it.
     """
     read = _Short(root, bound)
     short = read.document
@@ -1672,6 +1691,12 @@ def scan(
         facts.append({"field": "bandwidth.measured_gbps", "how": bandwidth["how"]})
     if docker is None:
         notes.append(f"Docker: not read — {docker_why}.")
+    home = mcgyvr_home()
+    if home is None:
+        notes.append(
+            f"mcgyvr home: not read — ${HOME_ENV} names a relative folder, so no "
+            "store for compiled kernels is mounted into this rig's units."
+        )
     return {
         **short,
         "gpus": gpus,
@@ -1681,6 +1706,7 @@ def scan(
         "models_on_disk": models,
         "docker": docker,
         "network": network,
+        "home": home,
         "snapshot": snapshot.values,
         "unread": [*short["unread"], *snapshot.unread],
         "notes": [*notes, *gpu_notes, *cpu_notes, *network_notes],

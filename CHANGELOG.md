@@ -11,6 +11,14 @@ archived outside this repository, under the same paths.
 
 ### Added
 
+- **A rig keeps the kernels its cards' driver compiled.** The rig's scan
+  reads the rig's own mcgyvr home, and `mcgyvr emit` mounts
+  `$MCGYVR_HOME/cuda-cache` (default `~/.mcgyvr/cuda-cache`) into every
+  llama.cpp serve and rpc-server service at `/cuda-cache`, with
+  `CUDA_CACHE_PATH` naming it and `CUDA_CACHE_MAXSIZE` at NVIDIA's documented
+  4 GiB maximum, so a unit no longer compiles again the kernels an earlier
+  start compiled. A rig whose scan read no home, until it is scanned again,
+  and vLLM units are rendered as before (#772).
 - A rig is found under any address it answers at. A unit addressed by its
   rig's LAN address (`10.0.0.7` for the rig filed as `gpu-box`), or by a name
   that resolves to one, finds the rig's file, so a swap reckons room on it.
@@ -66,6 +74,13 @@ archived outside this repository, under the same paths.
 
 ### Changed
 
+- **Units start together.** Units on one card start at the same moment when
+  every one of them turns llama.cpp's fitting off (`--fit off` or
+  `LLAMA_ARG_FIT=off`), since each then takes only the memory its launch
+  states; otherwise, and for any vLLM unit, they keep waiting on a healthy
+  neighbour. The same holds for a locked fleet's layout on a host. The
+  `mcgyvr setup` wizard starts every rig's units at once instead of one rig
+  after another, and names every rig whose start failed (#772).
 - **Wake-on-demand runs inside the run.** With `serving.enable_sleep_wake` on,
   a climb that reaches a sleeping rung puts the units sharing its card down,
   wakes it, and records the swap. The sleeper goes back down, and the units it

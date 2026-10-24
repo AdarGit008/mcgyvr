@@ -46,6 +46,7 @@ DOCUMENT_KEYS = {
     "models_on_disk",
     "docker",
     "network",
+    "home",
     "snapshot",
     "notes",
     "facts",
