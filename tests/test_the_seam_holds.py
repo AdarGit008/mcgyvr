@@ -198,7 +198,7 @@ BELOW_THE_SEAM: tuple[str, ...] = (
 #: ``mcgyvr.local_pool``'s other half — a caller that sees a ladder of rungs and has
 #: not resolved one to anything that runs. The contract and the exploration
 #: that produces one (contract, orchestrator.*, docgen), the climb through the
-#: ladder (route, escalate, drive, consensus, deterministic, rename, repair,
+#: ladder (route, escalate, triage, drive, consensus, deterministic, rename, repair,
 #: verify, deliver), what a worker is sent
 #: and what may be read back (worker.*), what judges the change (gate.*,
 #: scope, and the semantic gate's resolver engine under gate._engine, which is
@@ -271,6 +271,7 @@ ABOVE_THE_SEAM: tuple[str, ...] = (
     "mcgyvr.scope",
     "mcgyvr.session",
     "mcgyvr.telemetry",
+    "mcgyvr.triage",
     "mcgyvr.verify",
     "mcgyvr.wake_judge",
     "mcgyvr.worker",

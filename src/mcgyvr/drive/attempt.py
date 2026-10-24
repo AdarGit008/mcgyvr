@@ -135,9 +135,9 @@ def worker_attempt(
     temperature = float(config.get("breadth.temperature", 0.0))
     tidying = bool(config.get("cleanup.enabled", True))
     # The run's `max_window_fraction`: the largest share of a rung's window one
-    # contract — prompt and declared reply together — may claim, checked before
-    # anything is sent. `None` means the run declared no share, which is not the
-    # same as 1.0, and `None` is what the preflight is given so only the
+    # contract's prompt may claim, the reply being given the rest, checked
+    # before anything is sent. `None` means the run declared no share, which is
+    # not the same as 1.0, and `None` is what the preflight is given so only the
     # contract's own `limits.max_window_fraction` then bounds it.
     declared_share = config.get("max_window_fraction")
     window_share = float(declared_share) if declared_share is not None else None

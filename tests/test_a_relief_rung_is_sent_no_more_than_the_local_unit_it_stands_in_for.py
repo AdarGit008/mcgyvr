@@ -1,28 +1,17 @@
-"""A relief rung is sent the smaller of the contract's cap and the local unit's.
+"""A relief rung is sent no more than the local unit it stands in for gives.
 
-A rung of the rider's own is sent the contract's ``limits.max_output_tokens``,
-held to its unit's ceiling and never replaced by it
-(``tests/test_a_code_contracts_cap_is_sent_exactly_within_its_units_ceiling.py``).
-A relief rung is another person's unit and declares nothing, so it was sent
-the contract's cap whatever the rider's own unit allows.
+Every request is sent its unit's maximum
+(``tests/test_every_generating_request_is_sent_its_units_maximum.py``). A relief
+rung is another person's unit and declares nothing, so its maximum is the
+reply room of the local unit it stands in for — the first usable rung of the
+rider's own ladder, the one a ride stands in for when it is full:
 
-The cap sent to a relief rung is the smaller of the contract's cap and the
-local unit's ``output_tokens``, the local unit being the first usable rung of
-the rider's own ladder, the one a ride stands in for when it is full:
-
-* contract 8192, local unit 2048: the ride is sent 2048;
-* contract 1024, local unit 2048: the ride is sent 1024;
-* a local unit that declares none: the contract's, as on that unit itself;
-* a contract with no cap, local unit 2048: the ride is
-  sent 2048. The local unit's limit applies to the ride whatever the
-  contract says, so another person's unit is not asked for a reply with no
-  bound;
-* neither declares one: the ride is sent none.
+* local unit 2048: the ride is sent 2048, whatever the contract states;
+* a local unit that declares none: the ride has no ceiling, and is sent none;
+* the rider's own rungs are sent their own unit's maximum.
 
 That bound is the hub's, not the product's harness, and is kept as it was
-when the cap model changed. On the rider's own rungs the
-contract's cap is sent exactly, and a contract with no cap is sent none
-there.
+when the cap model changed.
 """
 
 from __future__ import annotations
@@ -32,7 +21,7 @@ import pytest
 from mcgyvr.config import parse as parse_config
 from mcgyvr.contract import Contract
 from mcgyvr.contract import loads as load_contract
-from mcgyvr.gate.preflight import reply_cap
+from mcgyvr.gate.preflight import unit_max
 from mcgyvr.local_pool import SourceMap, source_map
 from tests.rungs import RIDE, RUNG_ID, UNCAPPED_CONTRACT, caps_sent
 from tests.rungs import ROOM_CONTRACT as CONTRACT
@@ -83,45 +72,41 @@ def contract(cap: int | None) -> Contract:
     )
 
 
+def cap(contract_: Contract, rung: str, pool_: SourceMap) -> int | None:
+    from mcgyvr.worker.prompt import build_prompt
+
+    return unit_max(pool_.bind(rung), build_prompt(contract_).measured).tokens
+
+
 @pytest.mark.parametrize(
     ("declared", "local", "sent"),
     [
-        (8192, 2048, 2048),  # the local unit's is the smaller
-        (1024, 2048, 1024),  # the contract's is the smaller
-        (2048, 2048, 2048),
-        (1024, None, 1024),  # the local unit declares none: the contract's
-        (None, 2048, 2048),  # no cap on the contract: the local unit's
-        (None, None, None),  # neither declares one: uncapped
+        (8192, 2048, 2048),  # the contract's cap is not sent
+        (1024, 2048, 2048),
+        (None, 2048, 2048),
+        (1024, None, None),  # the local unit declares none: nothing to send
+        (None, None, None),
     ],
 )
-def test_a_ride_is_capped_at_the_smaller_of_the_two(
+def test_a_ride_is_sent_the_local_units_room(
     declared: int | None, local: int | None, sent: int | None
 ) -> None:
-    assert reply_cap(contract(declared), pool(local).bind(RIDE)) == sent
+    assert cap(contract(declared), RIDE, pool(local)) == sent
 
 
 def test_the_local_unit_is_the_first_rung_of_the_riders_own_ladder() -> None:
     # The dearer rung needs more room for its replies; a ride stands in for
     # the rung work starts on, and is capped as that one is.
-    assert reply_cap(contract(8192), pool(2048, second=4096).bind(RIDE)) == 2048
-    assert reply_cap(contract(8192), pool(None, second=4096).bind(RIDE)) == 8192
+    assert cap(contract(8192), RIDE, pool(2048, second=4096)) == 2048
+    assert cap(contract(8192), RIDE, pool(None, second=4096)) is None
 
 
-def test_the_contracts_own_number_is_sent_on_the_local_rung() -> None:
-    assert reply_cap(contract(1024), pool(2048).bind(LOCAL)) == 1024
+def test_the_riders_own_rungs_are_sent_their_own_units_maximum() -> None:
+    assert cap(contract(1024), LOCAL, pool(2048)) == 2048
+    assert cap(contract(None), "local_dear", pool(2048, second=4096)) == 4096
 
 
-def test_a_contract_with_no_cap_is_still_uncapped_on_the_riders_own_rungs() -> None:
-    assert reply_cap(contract(None), pool(2048).bind(LOCAL)) is None
-    assert reply_cap(contract(None), pool(2048, second=4096).bind("local_dear")) is None
-
-
-def test_a_ride_for_a_contract_with_no_cap_takes_the_first_local_rungs() -> None:
-    assert reply_cap(contract(None), pool(2048, second=4096).bind(RIDE)) == 2048
-    assert reply_cap(contract(None), pool(None, second=4096).bind(RIDE)) is None
-
-
-def test_the_smaller_number_is_what_reaches_the_wire(
+def test_the_local_units_room_is_what_reaches_the_wire(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     from mcgyvr.drive import dispatch_prompt
@@ -133,4 +118,4 @@ def test_the_smaller_number_is_what_reaches_the_wire(
     dispatch_prompt(pool(2048), RIDE, build_prompt(large), large)
     dispatch_prompt(pool(2048), LOCAL, build_prompt(small), small)
 
-    assert seen == [(RIDE, 2048), (LOCAL, 1024)]
+    assert seen == [(RIDE, 2048), (LOCAL, 2048)]

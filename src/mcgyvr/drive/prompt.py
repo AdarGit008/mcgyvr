@@ -4,10 +4,11 @@
 a contract or its prompt does not fit a rung; :func:`refuse_unsendable_climb`
 applies the same check to every climbable rung of the climb before the first
 attempt, so a rung that cannot be sent to ends the run before anything is spent
-on the rungs below it. :func:`dispatch_prompt` sizes the reply cap and hands the
-request to the runner. `_base_content` reads the contract target's current
-content out of the sandbox, and `_as_sent` renders a prompt as the chat messages
-a runner is given, for recording the dispatch.
+on the rungs below it. :func:`dispatch_prompt` sets the reply cap at the unit's
+maximum within the room the prompt leaves, and hands the request to the runner.
+`_base_content` reads the contract target's current content out of the sandbox,
+and `_as_sent` renders a prompt as the chat messages a runner is given, for
+recording the dispatch.
 """
 
 from __future__ import annotations
@@ -18,17 +19,14 @@ import mcgyvr.drive as _drive
 from mcgyvr.drive.errors import (
     ContractTooLargeForRungError,
     DriveError,
-    OutputCapTooLargeError,
-    OutputCapUnstatedError,
     PromptTooLargeError,
     UnitCeilingUnknownError,
 )
 from mcgyvr.escalate import ascent
 from mcgyvr.gate.preflight import (
     ServingWindow,
-    check_cap_stated,
     check_contract_against_rung,
-    sized_reply_cap,
+    unit_max,
 )
 from mcgyvr.runner import Completion, Request
 from mcgyvr.scope import inside
@@ -52,18 +50,13 @@ def refuse_unsendable(
 ) -> None:
     """Raise the refusal for a contract that cannot be sent to `rung`, else return.
 
-    The contract must state a `limits.max_output_tokens`
-    (`OutputCapUnstatedError`), the assembled prompt must fit its own ceiling
-    (`PromptTooLargeError`), and the contract must fit the rung as
-    `check_contract_against_rung` judges it, where the issue's reason picks the
-    class: `output-cap` is `OutputCapTooLargeError`,
-    `unit-ceiling-unknown` is `UnitCeilingUnknownError`, and any other reason is
+    The assembled prompt must fit its own ceiling (`PromptTooLargeError`), and
+    the contract must fit the rung as `check_contract_against_rung` judges it,
+    where the issue's reason picks the class: `unit-ceiling-unknown` is
+    `UnitCeilingUnknownError`, and any other reason is
     `ContractTooLargeForRungError`. The message names the contract, the rung, the
     window served, and the issue.
     """
-    unstated = check_cap_stated(contract)
-    if unstated is not None:
-        raise OutputCapUnstatedError(f"{unstated}")
     if not prompt.fits:
         raise PromptTooLargeError(
             f"contract {contract.id!r}: the assembled prompt does not fit its "
@@ -75,7 +68,6 @@ def refuse_unsendable(
     if issue is None:
         return
     refusal: type[DriveError] = {
-        "output-cap": OutputCapTooLargeError,
         "unit-ceiling-unknown": UnitCeilingUnknownError,
     }.get(issue.reason, ContractTooLargeForRungError)
     served = (
@@ -99,7 +91,7 @@ def refuse_unsendable_climb(
 ) -> None:
     """Check every climbable rung of the climb before the first attempt.
 
-    Contracts that do not need an output cap return at once. For those that do,
+    Contracts no model writes return at once. For those a model writes,
     each plan `ascent` offers is walked and each of its climbable steps bound and
     put through :func:`refuse_unsendable`. The first refusal is re-raised as the
     same type with a note that it was found before the first attempt: a rung of
@@ -143,8 +135,9 @@ def dispatch_prompt(
 
     The rung is bound and put through :func:`refuse_unsendable` first, so nothing
     reaches the runner for a contract or prompt that cannot be sent. The reply cap
-    is then sized from the contract and the rung, with the prompt's measured
-    tokens as the room this request leaves, and the `Request` carries the prompt's
+    is then the unit's maximum within the room the prompt's measured tokens leave
+    (`unit_max`) — never a number the contract states — and the `Request`
+    carries the prompt's
     system and user text, that cap, the cap's basis, the response schema, and the
     timeout and temperature when they are not None — those two fields are omitted
     from the request rather than sent as nulls. `capacity`, when given, is passed
@@ -154,10 +147,9 @@ def dispatch_prompt(
     refuse_unsendable(rung, endpoint, prompt, contract, window_fraction=window_fraction)
     # Every refusal happens here, before the runner is touched: a contract the
     # rung cannot take costs nothing.
-    cap = sized_reply_cap(contract, endpoint, prompt=prompt.measured)
-    # The cap is the contract's declared tokens bounded by what the rung can
-    # serve and narrowed to the room this prompt leaves, and it is sent as a
-    # hard limit on the reply.
+    cap = unit_max(endpoint, prompt.measured)
+    # The cap is the most the unit can give, clamped to the room this prompt
+    # leaves its window, and it is sent as a hard limit on the reply.
     # Its basis travels with it so the journal can say where the number came from.
     fields: dict[str, Any] = {
         "prompt": prompt.user,

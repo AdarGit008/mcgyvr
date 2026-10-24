@@ -259,36 +259,33 @@ LIMITS_FIELDS: tuple[Field, ...] = (
     Field(
         "max_output_tokens",
         "int",
-        "What the worker's reply may spend, in output tokens: what the *work* "
-        "is worth, counting any reasoning a model does before it writes. "
-        "Model-written `code` must state it: without it the contract is "
-        "valid, and `mcgyvr run` refuses it before any model is called. Sent "
-        "exactly at or under the ceiling of the unit it reaches (its `window` "
-        "less the prompt, or its `output_tokens`); above it, narrowed to the "
-        "ceiling, and refused by name where the ceiling is below half the cap "
-        "— the whole target a reply returns. A reply cut off at the cap is a "
-        "named failure, never applied to a file. A deterministic operation "
-        "has no cap.",
+        "Not sent, and not needed: every model request is sent the most its "
+        "unit can give — the unit's `output_tokens`, clamped to the room its "
+        "`window` leaves once the prompt is paid for — so no contract caps a "
+        "reply below what its unit serves. Still read, so a contract that "
+        "states it loads; it caps nothing. A reply cut off at the unit's "
+        "maximum is a named failure, never applied to a file.",
         default=None,
         min_value=1,
     ),
     Field(
         "max_window_fraction",
         "float",
-        "The largest share of the context window this contract may claim: "
-        "its assembled prompt and `max_output_tokens` together, over the "
-        "whole window. A different question from whether the two fit, which "
-        "`context.max_input_tokens` already bounds — a contract that fits "
-        "with nothing to spare leaves nothing to hold anything beside it and "
-        "nothing to absorb an estimate that ran long. Declared here because "
-        "it is a statement about this unit of work, and checked before the "
-        "work is sent. The run's `max_window_fraction` caps it: the stricter "
-        "of the two applies. Unset is not 1.0: a contract that declared none "
-        "is recorded as having declared none.",
+        "The largest share of the context window this contract's assembled "
+        "prompt may claim, as charged, over the whole window. The reply is "
+        "sent the unit's maximum within the room the prompt leaves, so this "
+        "is what keeps that room from being crowded out: a prompt held to the "
+        "share leaves the reply at least the rest. A different question from "
+        "whether the prompt fits, which `context.max_input_tokens` already "
+        "bounds. Declared here because it is a statement about this unit of "
+        "work, and checked before the work is sent. The run's "
+        "`max_window_fraction` caps it: the stricter of the two applies. Unset "
+        "is not 1.0: a contract that declared none is recorded as having "
+        "declared none.",
         default=None,
         min_value=0.0,
         max_value=1.0,
-        hint="e.g. 0.75 to leave a quarter of the window clear",
+        hint="e.g. 0.75 to leave the reply at least a quarter of the window",
     ),
     Field(
         "attempts",
@@ -505,6 +502,19 @@ SCHEMA: tuple[Field, ...] = (
         block=LIMITS_FIELDS,
     ),
     Field(
+        "start_rung",
+        "str",
+        "The ladder rung this contract's climb starts on, decided ahead of "
+        "time — what `mcgyvr.triage.triage_ahead` asks the `jev` unit, stored "
+        "with the contract so every later run starts there without asking "
+        "again. The rungs below it are skipped, not spent, and escalation goes "
+        "on upward from it; it wins over the config's `triage`. A rung the "
+        "ladder does not list, or one this contract's climb does not offer, is "
+        "refused before anything is dispatched. Not worker-facing.",
+        default="",
+        hint="e.g. local_qwen-14b",
+    ),
+    Field(
         "rename",
         "block",
         "Which symbol becomes which, for `operation: rename_symbol`. The one "
@@ -552,14 +562,18 @@ class Verification:
 
 @dataclass(frozen=True)
 class Limits:
-    """What one execution may spend: the reply cap, retries, the window share."""
+    """What one execution may spend: retries and the prompt's window share.
+
+    `max_output_tokens` is read as the contract states it and never sent: every
+    request is sent its unit's maximum.
+    """
 
     max_output_tokens: int | None
     attempts: int
-    #: The contract's own share of the model's window: the assembled prompt plus
-    #: `max_output_tokens`, over the whole window. `None` records that the contract
-    #: declared none, which is not the same as 1.0 — the run's own cap still applies
-    #: on top, and the stricter of the two wins.
+    #: The contract's own share of the model's window: the assembled prompt as
+    #: charged, over the whole window, the reply being given the rest. `None`
+    #: records that the contract declared none, which is not the same as 1.0 —
+    #: the run's own cap still applies on top, and the stricter of the two wins.
     max_window_fraction: float | None = None
 
 
@@ -589,6 +603,9 @@ class Contract:
     rename: Rename = Rename()
     no_semantic_change: bool = False
     type_check: bool = False
+    #: The rung the climb starts on, decided ahead of time; empty when the
+    #: contract states none and the climb starts as the config says.
+    start_rung: str = ""
     #: The text of each entry in `sources`, in that order, filled in when the
     #: contract is dispatched against a workspace rather than parsed from a
     #: document. It is empty, or of another length, when the sources were never
@@ -629,7 +646,10 @@ class Contract:
 
     @property
     def needs_output_cap(self) -> bool:
-        """Whether `limits.max_output_tokens` must be stated for this work."""
+        """Whether a model writes this work and something judges it.
+
+        Such a reply is sent its unit's maximum, so the unit must state one.
+        """
         return self.kind.needs_output_cap
 
     @property
@@ -731,6 +751,7 @@ class Contract:
             **flags,
             **stated,
             **renamed,
+            **({"start_rung": self.start_rung} if self.start_rung else {}),
             "verification": {"policy": self.verification.policy},
             "limits": {
                 "max_output_tokens": self.limits.max_output_tokens,
@@ -819,6 +840,7 @@ def _build(data: Mapping[str, Any]) -> Contract:
         rename=Rename(old=data["rename"]["from"], new=data["rename"]["to"]),
         no_semantic_change=data["no_semantic_change"],
         type_check=data["type_check"],
+        start_rung=data["start_rung"],
     )
 
 

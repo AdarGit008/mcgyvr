@@ -82,6 +82,10 @@ POSITION_CHOICES: tuple[str, ...] = ("above_ceiling", "below_floor", "within")
 #: slot free, and `idle` may also ride a relief rung once your own rungs are full.
 FANOUT_CHOICES: tuple[str, ...] = ("none", "idle", "full")
 
+#: Who picks the rung a contract's climb starts on. `none` starts on the first
+#: rung; `jev` asks the unit bound to the `jev` role (see `mcgyvr.triage`).
+TRIAGE_CHOICES: tuple[str, ...] = ("none", "jev")
+
 SANDBOX_FIELDS: tuple[Field, ...] = (
     Field(
         "mode",
@@ -349,15 +353,12 @@ ROLE_SLEEPER = "sleeps-until-needed"
 ROLES = (ROLE_ALWAYS_ON, ROLE_SLEEPER)
 
 #: The reply room, in tokens, that `mcgyvr setup --api` writes into a hosted
-#: unit's `output_tokens`: the ceiling a `code` contract's
-#: `limits.max_output_tokens` is held to on that unit, hidden reasoning
-#: included. A hosted reasoning model spends its reasoning inside the same
-#: budget, so the number is sized for a long deliberation rather than a short
-#: answer. It is a value written into a file, not a default this module applies:
-#: a unit that states its own `output_tokens` keeps it, and a contract's own cap
-#: is sent exactly, with a cap above the ceiling narrowed to it (refused by name
-#: where the ceiling is below half the cap). The doc of a unit's
-#: `output_tokens` quotes it.
+#: unit's `output_tokens`: the reply cap every request to that unit is sent,
+#: hidden reasoning included. A hosted reasoning model spends its reasoning
+#: inside the same budget, so the number is sized for a long deliberation rather
+#: than a short answer. It is a value written into a file, not a default this
+#: module applies: a unit that states its own `output_tokens` keeps it. The doc
+#: of a unit's `output_tokens` quotes it.
 API_OUTPUT_TOKENS = 32768
 
 UNIT_FIELDS: tuple[Field, ...] = (
@@ -423,25 +424,22 @@ UNIT_FIELDS: tuple[Field, ...] = (
         "Tokens this unit serves in one request. Read it back off the "
         "running process, not hoped for: `setup` reads it off a local "
         "backend and writes it, and lists a unit it could not read as not "
-        "configured. Less the prompt, it is the ceiling a `code` contract's "
-        "`limits.max_output_tokens` is held to on this unit; a unit with "
-        "neither `window` nor `output_tokens` refuses code dispatch.",
+        "configured. Less the prompt, it is the room every reply on this unit "
+        "is clamped to; a unit with neither `window` nor `output_tokens` "
+        "refuses code dispatch.",
         min_value=1,
         bind_hint="e.g. 4096 -- what the unit reports, not what you hoped for",
     ),
     Field(
         "output_tokens",
         "int",
-        "Room a reply on this unit is given, hidden reasoning included: a "
-        "ceiling a `code` contract's `limits.max_output_tokens` is held to, "
-        "beside the room `window` leaves for the prompt (the smaller of the "
-        "two where both are set). It never raises the contract's cap, which "
-        "is sent exactly; a cap above the ceiling is narrowed to it, and "
-        "refused by name where the ceiling is below half the cap. "
-        "A hosted reasoning model needs tens of thousands; `setup --api` "
-        f"writes {API_OUTPUT_TOKENS}.",
+        "Room a reply on this unit is given, hidden reasoning included: the "
+        "reply cap every request to it is sent — a rung's attempt, a "
+        "decomposition, a review — clamped to the room `window` leaves the "
+        "prompt where both are set. A hosted reasoning model needs tens of "
+        f"thousands; `setup --api` writes {API_OUTPUT_TOKENS}.",
         min_value=1,
-        bind_hint="e.g. 2048 -- the reply length this unit needs",
+        bind_hint="e.g. 2048 -- the longest reply this unit gives",
     ),
     Field(
         "request_timeout_s",
@@ -791,6 +789,23 @@ SCHEMA: tuple[Field, ...] = (
         choices=FANOUT_CHOICES,
     ),
     Field(
+        "triage",
+        "enum",
+        "Who picks the rung a contract's climb starts on. `none` starts on the "
+        "first rung and climbs. `jev` first asks the unit bound to `jev` one "
+        "typed question: the contract and the ladder, each unit with its "
+        "model, window and reply room, and which is the smallest unit that can "
+        "do the job. The climb starts there; the rungs below it are skipped, "
+        "not spent, and escalation goes on upward as before. `fanout` may then "
+        "still start the climb on a higher rung with a free slot, never a "
+        "lower one. With no jev unit bound, or one that cannot be asked or "
+        "read, the climb starts on the first rung and the run result's "
+        "`triage` says why. A contract that states a `start_rung`, decided "
+        "ahead of time, starts there under either value and jev is not asked.",
+        default="none",
+        choices=TRIAGE_CHOICES,
+    ),
+    Field(
         "attempts",
         "int_map",
         "How many times each unit may be tried before escalation moves on.",
@@ -861,10 +876,11 @@ SCHEMA: tuple[Field, ...] = (
     Field(
         "max_window_fraction",
         "float",
-        "The largest share of a unit's context window one contract may claim "
-        "-- its prompt and its declared reply together -- checked before the "
-        "contract is sent, so a contract claiming more fails unsent on the "
-        "unit it was sent to. It is a ceiling no contract can raise: a "
+        "The largest share of a unit's context window one contract's prompt "
+        "may claim, checked before the contract is sent, so the reply -- sent "
+        "the unit's maximum within the room the prompt leaves -- keeps at "
+        "least the rest; a contract claiming more fails unsent on the unit it "
+        "was sent to. It is a ceiling no contract can raise: a "
         "contract's own `limits.max_window_fraction` may hold it to less, "
         "never to more, and the stricter of the two applies. Unset enforces "
         "no run-wide share.",
@@ -903,10 +919,11 @@ SCHEMA: tuple[Field, ...] = (
         "Which one unit answers every typed decision: a question answered "
         "with a single-token label rather than prose. Those are the gate's "
         "Jev rung, the reviewer's verdict, the fleet's choice of whether to "
-        "wake a smarter rung and the typed "
-        "proposer. Left unbound, each of those keeps asking the unit it asks "
+        "wake a smarter rung, the typed "
+        "proposer and, under `triage: jev`, the rung a climb starts on. Left "
+        "unbound, each of those keeps asking the unit it asks "
         "today: the verifier, the reviewing rung, the fast rung or the "
-        "orchestrator.",
+        "orchestrator, and triage asks nobody.",
         block=ROLE_UNIT_FIELDS,
     ),
     Field("sandbox", "block", "Where a task's commands run.", block=SANDBOX_FIELDS),

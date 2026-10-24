@@ -5,7 +5,9 @@ caller decides what a refusal costs and what class it is reported under. Nothing
 here spends or writes: `check_clean_tree` reads `git status` and leaves the tree
 alone, and the sizing checks count the prompt with the model-free estimator and
 compare that count against what the rung serves — the window, the reply ceiling,
-and the share of the window the contract and the run between them allow.
+and the share of the window the contract and the run between them allow. The
+reply cap every generating request is sent, the unit's maximum within the room
+its window leaves the prompt, is sized here too (`unit_max`).
 """
 
 from __future__ import annotations
@@ -72,9 +74,9 @@ class ServingWindow(Protocol):
 
     @property
     def output_ceiling(self) -> int | None:
-        """The reply ceiling a contract's cap is held to.
+        """On a lent rung, the reply room of the local rung it stands in for.
 
-        `None` when nothing caps the reply.
+        `None` on any other rung, and where that local rung states none.
         """
 
 
@@ -171,62 +173,60 @@ def _charged(prompt_tokens: int, counted_by: TokenCount) -> int:
     return prompt_tokens
 
 
+#: The least room, in tokens, a prompt must leave its window for the reply. The
+#: reply is sent the unit's maximum clamped to the room the prompt leaves
+#: (`unit_max`), so the only prompt that cannot be sent is one that leaves no
+#: room at all: a cap below one token is no cap.
+LEAST_ROOM = 1
+
+
 def check_contract_fits(
     contract: Contract,
     prompt: str,
     context_window: int,
     *,
     default_fraction: float | None = None,
-    cap: int | None = None,
 ) -> PreflightIssue | None:
-    """The issue for a contract and its prompt that outgrow a rung's window.
+    """The issue for a contract whose prompt leaves a rung's window no room to reply.
 
-    The prompt is counted with the model-free estimator, and the reply reserve is
-    the cap the call will actually travel with: the caller's `cap` where one has
-    already been narrowed to what the rung can serve, otherwise the contract's
-    own `limits.max_output_tokens`. Two questions are then asked in order — the
-    charged prompt plus that reserve must fit the window at all
-    (`check_prompt_fits`), and the same total must not claim more of the window
-    than `held_share` allows, between the contract's `limits.max_window_fraction`
-    and the run's `default_fraction`. `None` means the contract fits.
+    The prompt is counted with the model-free estimator and charged its
+    reserve. Nothing is reserved for the reply beyond `LEAST_ROOM`: the reply is
+    sent the unit's maximum clamped to the room this prompt leaves
+    (`unit_max`), so prompt and cap together never outgrow the window. Two
+    questions are then asked in order — the charged prompt must leave the
+    reply some room (`check_prompt_fits`), and it must not claim more of the
+    window than `held_share` allows, between the contract's
+    `limits.max_window_fraction` and the run's `default_fraction`: the share
+    bounds the prompt, and the reply is given the rest. `None` means the
+    contract fits.
     """
     # `estimate_tokens` is imported where it is used rather than at module
     # scope, so this module's import list carries no orchestrator dependency.
     # The count is model-free on purpose: pre-flight runs before any model is
     # called, so no question here may be answered by spending a request on it.
-    # The reserve is taken from the cap rather than derived again, so the fit is
-    # judged against the reply budget the request will be sent with. A contract
-    # that states no cap and is handed none reserves nothing, which is right: it
-    # also sends no cap.
     from mcgyvr.orchestrator.read import estimate_tokens
 
     estimated = estimate_tokens(prompt)
-    declared = contract.limits.max_output_tokens if cap is None else cap
-    reserve = declared if declared is not None else 0
-    does_not_fit = check_prompt_fits(
-        estimated,
-        context_window,
-        reserve,
-    )
+    does_not_fit = check_prompt_fits(estimated, context_window, LEAST_ROOM)
     if does_not_fit is not None:
-        # Returned ahead of the share check: a total too large for the window as
-        # a whole is the prompt's own failure, and reporting it as a share would
-        # blame the declared fraction for a prompt that is simply bigger than
-        # the rung, sending the reader off to raise the wrong number.
+        # Returned ahead of the share check: a prompt too large for the window
+        # as a whole is the prompt's own failure, and reporting it as a share
+        # would blame the declared fraction for a prompt that is simply bigger
+        # than the rung, sending the reader off to raise the wrong number.
         return does_not_fit
     share, declared_by = held_share(
         contract.limits.max_window_fraction, default_fraction
     )
     return check_window_fraction(
-        _charged(estimated, TokenCount.ESTIMATE) + reserve,
+        _charged(estimated, TokenCount.ESTIMATE),
         context_window,
         share,
         declared_by=declared_by,
     )
 
 
-#: Which declaration may hold a contract to a share of the rung's window. The
-#: contract's own `limits.max_window_fraction` and the run's
+#: Which declaration may hold a contract's prompt to a share of the rung's
+#: window. The contract's own `limits.max_window_fraction` and the run's
 #: `max_window_fraction` from config both apply, the stricter one wins, and a
 #: refusal names whichever declared it, so the number can be traced back to the
 #: document that set it and raised there.
@@ -256,19 +256,22 @@ def held_share(
 
 
 def check_window_fraction(
-    contract_tokens: int,
+    prompt_tokens: int,
     context_window: int,
     fraction: float | None,
     *,
     declared_by: str = RUN_SHARE,
 ) -> PreflightIssue | None:
-    """The issue for a contract claiming more than `fraction` of the window.
+    """The issue for a prompt claiming more than `fraction` of the window.
 
-    `contract_tokens` is the whole claim: the prompt as charged plus the reply
-    reserve. `fraction` is the share `declared_by` allows, and a `None` fraction
-    means no share is declared, so nothing is checked. A window of zero or less
-    is a routing error rather than an oversized contract, and is reported rather
-    than divided by.
+    `prompt_tokens` is the prompt as charged. The reply is not part of the
+    claim: it is sent the unit's maximum within the room the prompt leaves, so
+    a share is what keeps that room from being crowded out — a prompt held to
+    `fraction` leaves the reply at least the rest of the window. `fraction` is
+    the share `declared_by` allows, and a `None` fraction means no share is
+    declared, so nothing is checked. A window of zero or less is a routing
+    error rather than an oversized contract, and is reported rather than
+    divided by.
     """
     if fraction is None:
         return None
@@ -283,16 +286,16 @@ def check_window_fraction(
             f"share of it can be computed; a rung with no window is a routing "
             f"error rather than a contract that is too large",
         )
-    claimed = contract_tokens / context_window
+    claimed = prompt_tokens / context_window
     if claimed <= fraction:
         return None
     allow = "allow" if declared_by == BOTH_SHARES else "allows"
     return PreflightIssue(
         "window-share",
-        f"contract claims {claimed:.2f} of the rung's window "
-        f"({contract_tokens} tokens of {context_window}), but {declared_by} "
-        f"{allow} {fraction:.2f}. Either decompose into smaller contracts or "
-        f"raise {declared_by}",
+        f"contract's prompt claims {claimed:.2f} of the rung's window "
+        f"({prompt_tokens} tokens of {context_window}, as charged), but "
+        f"{declared_by} {allow} {fraction:.2f}, leaving the rest for the "
+        f"reply. Either decompose into smaller contracts or raise {declared_by}",
     )
 
 
@@ -300,10 +303,10 @@ def check_window_fraction(
 class ReplyCap:
     """The reply cap a request is sent with, and where the number came from.
 
-    `tokens` is `None` when nothing caps the reply, which is what a contract that
-    states no cap and a rung that serves no ceiling together mean. `basis` is the
-    sentence recorded beside the number, so an answer's cap can be read back
-    against the limit that produced it.
+    `tokens` is `None` when nothing caps the reply: the unit states no ceiling,
+    or the prompt leaves it no room. `basis` is the sentence recorded beside
+    the number, so an answer's cap can be read back against the limit that
+    produced it.
     """
 
     tokens: int | None
@@ -315,14 +318,17 @@ class UnitCeiling:
     """What one unit has room to give a reply, for a prompt already counted.
 
     `window` and `output_tokens` are as the unit states them, and either may be
-    unknown. `prompt` is that prompt's tokens as charged, so `room` is what the
-    window has left once it has been paid for.
+    unknown. `lent` is set only on a rung lent through a hub: the room of the local
+    rung it stands in for, which holds it as it would hold that rung. `prompt`
+    is that prompt's tokens as charged, so `room` is what the window has left
+    once it has been paid for.
     """
 
     unit: str
     window: int | None
     prompt: int
     output_tokens: int | None
+    lent: int | None = None
 
     @property
     def room(self) -> int | None:
@@ -331,8 +337,8 @@ class UnitCeiling:
 
     @property
     def tokens(self) -> int | None:
-        """The ceiling: the smaller of the room and the stated reply room, or `None`."""
-        known = [n for n in (self.room, self.output_tokens) if n is not None]
+        """The ceiling: the least of the room and the stated reply rooms, or `None`."""
+        known = [n for n in (self.room, self.output_tokens, self.lent) if n is not None]
         return min(known) if known else None
 
     @property
@@ -346,6 +352,8 @@ class UnitCeiling:
             )
         if self.output_tokens is not None:
             said.append(f"its `output_tokens` is {self.output_tokens}")
+        if self.lent is not None:
+            said.append(f"the local rung it stands in for gives {self.lent}")
         return "; ".join(said)
 
 
@@ -365,139 +373,69 @@ def unit_ceiling(rung: ServingWindow, prompt: str) -> UnitCeiling:
         window=rung.context_window,
         prompt=_charged(estimate_tokens(prompt), TokenCount.ESTIMATE),
         output_tokens=rung.output_tokens,
+        lent=rung.output_ceiling,
     )
 
 
-def least_reply(cap: int) -> int:
-    """The least of a stated cap the reply cannot do without.
+def unit_max(rung: ServingWindow, prompt: str) -> ReplyCap:
+    """The reply cap a generating request on `rung` is sent: the most the unit can give.
 
-    A model-written contract's cap is the size of the target it returns times
-    the margin `orchestrator.candidates.reply_cap` sizes it with, so the cap
-    divided by that margin is the whole target coming back. A cap is narrowed to
-    a unit's ceiling down to this and no further: below it the reply would be
-    cut off inside the file it must return.
+    The unit's stated reply ceiling — its `output_tokens`, and on a lent rung
+    the room of the local rung it stands in for — clamped to the room its
+    window leaves once `prompt` is paid for, as charged (`unit_ceiling`). It is
+    not a number a caller picks: a rung's attempt, a decomposition and a review
+    are each sent this, so prompt and reply together never outgrow the window.
+    `tokens` is `None` where the unit states neither a window nor a reply
+    ceiling, and where the prompt as charged leaves the window no room at all;
+    such a request carries no cap and the backend's own limit stops it. A
+    rung's attempt is refused before either can happen
+    (`check_contract_against_rung`).
     """
-    # Imported at use, as `estimate_tokens` is, so this module's import list
-    # carries no orchestrator dependency.
-    from mcgyvr.orchestrator.candidates import REPLY_CAP_MARGIN
-
-    return math.ceil(cap / REPLY_CAP_MARGIN)
-
-
-def reply_cap(contract: Contract, rung: ServingWindow) -> int | None:
-    """The reply cap for `contract` on `rung`, or `None` when nothing caps it.
-
-    The number without its basis, for callers that only need to know what the cap
-    is; :func:`sized_reply_cap` gives both.
-    """
-    return sized_reply_cap(contract, rung).tokens
-
-
-def sized_reply_cap(
-    contract: Contract,
-    rung: ServingWindow,
-    *,
-    prompt: str | None = None,
-) -> ReplyCap:
-    """The reply cap for `contract` on `rung`, with the sentence explaining it.
-
-    A contract that states `limits.max_output_tokens` is sent that number,
-    narrowed to the rung's `output_ceiling` where the ceiling is smaller: a
-    ceiling is what the rung can serve, never a cap the contract asked for. A
-    contract that states nothing is uncapped, unless the rung serves a ceiling,
-    in which case that ceiling stands in for the cap the contract never stated.
-    With `prompt` given for a contract that must state a cap, the cap is also
-    narrowed to the room its unit leaves for the reply once that prompt is
-    paid for, and the basis names that room. `check_cap_within_ceiling` has
-    already refused a room smaller than `least_reply` of the cap, so a
-    narrowed cap still holds the target the reply returns.
-    """
-    declared = contract.limits.max_output_tokens
-    ceiling = rung.output_ceiling
-    riding = f"the ceiling of the unit rung {rung.source!r} stands in for"
-    if declared is None:
-        if ceiling is None:
-            return ReplyCap(None, "uncapped: the contract states no cap")
-        return ReplyCap(ceiling, f"uncapped contract, sent {riding}")
-    basis = "the contract's limits.max_output_tokens"
-    cap = declared
-    if prompt is not None and contract.needs_output_cap:
-        room = unit_ceiling(rung, prompt).tokens
-        if room is not None and room < declared:
-            cap = max(room, 0)
-            basis += (
-                f" of {declared}, narrowed to unit {rung.source!r}'s ceiling "
-                f"of {room} for this prompt"
-            )
-        elif room is not None:
-            basis += f", within unit {rung.source!r}'s ceiling of {room}"
-    if ceiling is not None and ceiling < cap:
-        return ReplyCap(ceiling, f"{basis}; bounded by {riding}")
-    return ReplyCap(cap, basis)
-
-
-def check_cap_stated(contract: Contract) -> PreflightIssue | None:
-    """The issue for model-written work that states no `limits.max_output_tokens`.
-
-    A model-written change that something then judges has to say what its reply
-    is worth, and a contract that says nothing gets no model called for it at
-    all. Deterministic work is not, and passes: a tool produces it.
-    """
-    if not contract.needs_output_cap or contract.limits.max_output_tokens is not None:
-        return None
-    return PreflightIssue(
-        "output-cap-unstated",
-        f"contract {contract.id!r} is model-written {contract.task_type!r} work "
-        f"and states no limits.max_output_tokens, so no model is called for it. "
-        f"State limits.max_output_tokens: what the reply is worth, in output "
-        f"tokens, within the ceiling of the unit it runs on",
-    )
-
-
-def check_cap_within_ceiling(
-    contract: Contract, rung: ServingWindow, prompt: str
-) -> PreflightIssue | None:
-    """The issue for a stated reply cap the unit has no room to give.
-
-    The unit's ceiling is the smaller of what its window leaves after `prompt` is
-    paid for and the reply room it states. A cap at or under that passes, and so
-    does a cap above it whose `least_reply` still fits: it is narrowed to the
-    ceiling when it is sent. Only a ceiling below the least the reply needs —
-    the target it returns — is refused. A unit
-    that states neither is `unit-ceiling-unknown` rather than a pass, since a cap
-    with nothing above it is truncation at a boundary nobody chose, and the
-    refusal names the config keys that would supply the number. A unit with no
-    ceiling here but an `output_ceiling` set — another person's unit standing in
-    for a local one — is left to the reply-cap path rather than judged
-    against nothing.
-    """
-    cap = contract.limits.max_output_tokens
-    if cap is None:
-        return None
     ceiling = unit_ceiling(rung, prompt)
-    unit = ceiling.unit
-    if ceiling.tokens is None and rung.output_ceiling is not None:
-        return None
     if ceiling.tokens is None:
-        return PreflightIssue(
-            "unit-ceiling-unknown",
-            f"unit {unit!r} states neither the window it serves nor the room "
-            f"its replies are given, so contract {contract.id!r}'s "
-            f"limits.max_output_tokens: {cap} has no ceiling to be held to and "
-            f"no model is called. Set `units.{unit}.window` (the context "
-            f"length its backend serves, read off the running process) or "
-            f"`units.{unit}.output_tokens`",
+        return ReplyCap(
+            None,
+            f"uncapped: unit {ceiling.unit!r} states neither a window nor a "
+            f"reply ceiling",
         )
-    least = least_reply(cap)
-    if least <= ceiling.tokens:
+    if ceiling.tokens < LEAST_ROOM:
+        return ReplyCap(
+            None,
+            f"uncapped: this prompt leaves unit {ceiling.unit!r} no room for a "
+            f"reply ({ceiling.terms})",
+        )
+    return ReplyCap(
+        ceiling.tokens,
+        f"the most unit {ceiling.unit!r} can give: {ceiling.terms}",
+    )
+
+
+def check_unit_ceiling_stated(
+    contract: Contract, rung: ServingWindow
+) -> PreflightIssue | None:
+    """The issue for model-written work on a unit that states no reply ceiling.
+
+    Model-written work that something then judges is sent the unit's maximum
+    (`unit_max`), and a unit that states neither the window it serves nor the
+    room its replies are given has no maximum to send: the reply would stop at
+    a boundary nobody chose. It is `unit-ceiling-unknown`, naming the config
+    keys that would supply the number. A lent rung holding the ceiling of the
+    local rung it stands in for has one. Deterministic work calls no model and
+    passes.
+    """
+    if not contract.needs_output_cap:
         return None
+    stated = (rung.context_window, rung.output_tokens, rung.output_ceiling)
+    if any(n is not None for n in stated):
+        return None
+    unit = rung.source
     return PreflightIssue(
-        "output-cap",
-        f"contract {contract.id!r} states limits.max_output_tokens: {cap}, and "
-        f"its reply needs at least {least} of that to return its target whole, "
-        f"but unit {unit!r} has a ceiling of {ceiling.tokens} for this prompt "
-        f"({ceiling.terms}). Decompose the work so its target and prompt are "
-        f"smaller, or run it on a unit that serves more",
+        "unit-ceiling-unknown",
+        f"unit {unit!r} states neither the window it serves nor the room its "
+        f"replies are given, so there is no maximum to send contract "
+        f"{contract.id!r}'s reply and no model is called. Set "
+        f"`units.{unit}.window` (the context length its backend serves, read "
+        f"off the running process) or `units.{unit}.output_tokens`",
     )
 
 
@@ -513,18 +451,14 @@ def check_contract_against_rung(
     The questions are asked in the order of what costs most to learn late. The
     window must be able to hold the input the contract declares it may read.
     Then, for a contract whose work is model-written and judged, the unit must
-    have room for the least of the stated cap the reply needs, and the cap is
-    narrowed to that room where it is above it — except where the prompt already
-    fills the window, in which case there is no room a cap could exceed and the
-    prompt's own fit names that failure instead. For any other contract the reply
-    cap is sized from the contract and the rung, and a cap that fills the whole
-    window leaves nothing for a prompt. Whichever branch runs, the cap it settles
-    on is handed to `check_contract_fits` as the reply reserve, so the fit is
-    judged against the number the request will carry. A rung that states no
-    window skips the window checks but not the unit's ceiling.
+    state a reply ceiling for the reply to be sent at its maximum
+    (`check_unit_ceiling_stated`). Last, where the rung states a window, the
+    prompt must leave the reply room and keep to its share of the window
+    (`check_contract_fits`). The reply cap is never a question here: it is
+    the unit's maximum within the room the prompt leaves (`unit_max`), so it
+    fits whatever room there is.
     """
     window = rung.context_window
-    harnessed = contract.needs_output_cap
     if window is not None and contract.max_input_tokens > window:
         return PreflightIssue(
             "rung-window",
@@ -534,32 +468,11 @@ def check_contract_against_rung(
             f"serves more — a ceiling the rung cannot keep is truncation at a "
             f"boundary nobody chose",
         )
-    if harnessed:
-        cap = contract.limits.max_output_tokens
-        unit = unit_ceiling(rung, prompt)
-        room = unit.room
-        if room is None or room > 0:
-            over = check_cap_within_ceiling(contract, rung, prompt)
-            if over is not None:
-                return over
-            # The fit is judged against the cap as it will be sent: narrowed
-            # to the unit's ceiling where the stated one is above it.
-            if cap is not None and unit.tokens is not None:
-                cap = min(cap, unit.tokens)
-    else:
-        cap = reply_cap(contract, rung)
-        if window is not None and cap is not None and cap >= window:
-            return PreflightIssue(
-                "output-cap",
-                f"the contract declares a reply of {cap} tokens, but rung "
-                f"{rung.source!r} serves a window of {window}, leaving nothing "
-                f"for a prompt. Lower the contract's `limits.max_output_tokens`, "
-                f"or point the rung at a machine that serves more — a reply cap "
-                f"the window cannot hold is the truncation a per-rung cap "
-                f"exists to prevent",
-            )
+    unknown = check_unit_ceiling_stated(contract, rung)
+    if unknown is not None:
+        return unknown
     if window is None:
         return None
     return check_contract_fits(
-        contract, prompt, window, default_fraction=default_fraction, cap=cap
+        contract, prompt, window, default_fraction=default_fraction
     )

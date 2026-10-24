@@ -49,6 +49,7 @@ each one.
 | `depends_on` | list of text | no | `[]` | Ids of the contracts that must complete before this one may run. Stated on the contract, so a plan can be ordered — and the parts of it that cannot run at all found — before a token is spent, the way `route.plan()` already is. A proposer's emission order is the order a model thought of things, not a dependency order, so ordering that is not written down here is ordering that does not exist. Not worker-facing: a worker is handed one task and never the plan around it, and a dependency that has landed is already in the tree it reads. e.g. ["write-fetch"]. (orchestrator-facing) |
 | `verification` | block | no | — | How the change is judged once the gate has passed. (orchestrator-facing) |
 | `limits` | block | no | — | Hard ceilings on what one execution of this contract may spend. (orchestrator-facing) |
+| `start_rung` | text | no | empty | The ladder rung this contract's climb starts on, decided ahead of time — what `mcgyvr.triage.triage_ahead` asks the `jev` unit, stored with the contract so every later run starts there without asking again. The rungs below it are skipped, not spent, and escalation goes on upward from it; it wins over the config's `triage`. A rung the ladder does not list, or one this contract's climb does not offer, is refused before anything is dispatched. Not worker-facing. e.g. local_qwen-14b. (orchestrator-facing) |
 | `rename` | block | no | — | Which symbol becomes which, for `operation: rename_symbol`. The one operation mcgyvr executes in-process rather than by running a program, and the only one whose input is not fully determined by `target`: a rename fans across every file that references the symbol, so the pair has to be said. Meaningless on any other contract and ignored there. (orchestrator-facing) |
 
 #### `deps`
@@ -94,8 +95,8 @@ Hard ceilings on what one execution of this contract may spend.
 
 | Key | Type | Required | Default | Description |
 | --- | --- | --- | --- | --- |
-| `limits.max_output_tokens` | number (min 1) | no | unset | What the worker's reply may spend, in output tokens: what the *work* is worth, counting any reasoning a model does before it writes. Model-written `code` must state it: without it the contract is valid, and `mcgyvr run` refuses it before any model is called. Sent exactly at or under the ceiling of the unit it reaches (its `window` less the prompt, or its `output_tokens`); above it, narrowed to the ceiling, and refused by name where the ceiling is below half the cap — the whole target a reply returns. A reply cut off at the cap is a named failure, never applied to a file. A deterministic operation has no cap. (orchestrator-facing) |
-| `limits.max_window_fraction` | decimal number (min 0.0, max 1.0) | no | unset | The largest share of the context window this contract may claim: its assembled prompt and `max_output_tokens` together, over the whole window. A different question from whether the two fit, which `context.max_input_tokens` already bounds — a contract that fits with nothing to spare leaves nothing to hold anything beside it and nothing to absorb an estimate that ran long. Declared here because it is a statement about this unit of work, and checked before the work is sent. The run's `max_window_fraction` caps it: the stricter of the two applies. Unset is not 1.0: a contract that declared none is recorded as having declared none. e.g. 0.75 to leave a quarter of the window clear. (orchestrator-facing) |
+| `limits.max_output_tokens` | number (min 1) | no | unset | Not sent, and not needed: every model request is sent the most its unit can give — the unit's `output_tokens`, clamped to the room its `window` leaves once the prompt is paid for — so no contract caps a reply below what its unit serves. Still read, so a contract that states it loads; it caps nothing. A reply cut off at the unit's maximum is a named failure, never applied to a file. (orchestrator-facing) |
+| `limits.max_window_fraction` | decimal number (min 0.0, max 1.0) | no | unset | The largest share of the context window this contract's assembled prompt may claim, as charged, over the whole window. The reply is sent the unit's maximum within the room the prompt leaves, so this is what keeps that room from being crowded out: a prompt held to the share leaves the reply at least the rest. A different question from whether the prompt fits, which `context.max_input_tokens` already bounds. Declared here because it is a statement about this unit of work, and checked before the work is sent. The run's `max_window_fraction` caps it: the stricter of the two applies. Unset is not 1.0: a contract that declared none is recorded as having declared none. e.g. 0.75 to leave the reply at least a quarter of the window. (orchestrator-facing) |
 | `limits.attempts` | number (min 1) | no | `2` | How many times the work may be retried before escalating. Retrying forever is how a cheap task becomes an expensive one. (orchestrator-facing) |
 
 #### `rename`
@@ -125,8 +126,8 @@ mcgyvr contract CONTRACT.yaml
 ```
 
 Prints what the contract resolves to, or names the key that is wrong. Fix
-the contract; never guess a field. A `code` contract states
-`limits.max_output_tokens`, within its unit's ceiling, or `run` refuses it.
+the contract; never guess a field. A `code` contract states no reply
+cap: every request is sent the most its unit can give.
 
 ## Step 3 — run it, then read the result file
 
@@ -208,6 +209,11 @@ what the run came to. The file's keys:
 - `notes` — the uncommitted and untracked paths the sandbox of HEAD
   left out, what the baseline left behind (now cleaned up), and what
   a rename renamed.
+- `triage` — only under `triage: jev` or a contract's `start_rung`: the
+  `rung` the climb started on and its `source` (`jev`, asked for this
+  run, or `contract`); for `jev`, every rung's `probabilities`, its
+  `confidence` and the `model` asked, or a `fallback` saying why the
+  climb started on its first rung.
 
 Every run is journaled under the config's `journal.dir` and nothing on
 the command line moves it — that one directory is where every run can

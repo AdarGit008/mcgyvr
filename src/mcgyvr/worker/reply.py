@@ -226,9 +226,9 @@ def empty_at_cap(reply: Completion) -> ReplyError | None:
     return ReplyError(
         "empty-reply",
         f"the model used {spent_on} on hidden reasoning{reasoning} and returned "
-        f"no visible reply. Raise the contract's `limits.max_output_tokens` "
-        f"within the unit's ceiling — its `window` less the prompt, or its "
-        f"`output_tokens`",
+        f"no visible reply. The cap was the most the unit can give: raise the "
+        f"unit's `output_tokens`, or its `window`, which less the prompt bounds "
+        f"the reply, or run the work on a unit that serves more",
     )
 
 

@@ -194,12 +194,12 @@ ladder:
 """
 
 
-#: The run's share: a quarter of any rung's window.
-RUN_SHARE = "max_window_fraction: 0.25\n"
+#: The run's share: a tenth of any rung's window.
+RUN_SHARE = "max_window_fraction: 0.1\n"
 
 
-#: A reply of 1024 tokens alone is a quarter of the narrow window, so with any
-#: prompt beside it the contract claims more than a quarter — and still fits.
+#: Its prompt, as charged, is about a fifth of the narrow window: more than a
+#: tenth, and it still fits with room for the reply.
 SHARE_CONTRACT = """
 id: greedy
 task_type: code
@@ -207,8 +207,6 @@ task: Set VALUE to 1.
 target: src/pkg/value.py
 stop_conditions: ["The value is not stated."]
 acceptance: ["sh -c 'grep -q VALUE src/pkg/value.py'"]
-limits:
-  max_output_tokens: 1024
 scope:
   allow: ["src/**"]
 """
@@ -216,10 +214,7 @@ scope:
 
 def _sharing(share: float) -> str:
     """The same contract, declaring its own share of the window."""
-    return SHARE_CONTRACT.replace(
-        "max_output_tokens: 1024\n",
-        f"max_output_tokens: 1024\n  max_window_fraction: {share}\n",
-    )
+    return SHARE_CONTRACT + f"limits:\n  max_window_fraction: {share}\n"
 
 
 def a_git_repo(tmp_path: Path) -> Path:

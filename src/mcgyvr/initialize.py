@@ -793,7 +793,7 @@ def _limits(
             limits.append(
                 f"units.{rung.name}.window: the context length {rung.source} "
                 f"serves could not be read, so none is written. A `code` "
-                f"contract's cap is held to its unit's ceiling, so a code "
+                f"reply is sent its unit's maximum, so a code "
                 f"dispatch to {rung.name} refuses until "
                 f"`units.{rung.name}.window` or `units.{rung.name}.output_tokens` "
                 f"is set."

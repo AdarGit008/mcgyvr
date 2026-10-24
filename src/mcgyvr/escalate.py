@@ -35,6 +35,7 @@ from mcgyvr.route import (
     fanout_of,
     plan,
 )
+from mcgyvr.triage import Triage, triage_for
 
 if TYPE_CHECKING:  # pragma: no cover - typing only
     from mcgyvr.capacity import Capacity
@@ -639,6 +640,7 @@ def ascent(
     *,
     floor: Family | None = None,
     capacity: Capacity | None = None,
+    start: str | None = None,
 ) -> Ascent:
     """Build the ascent for a contract before any of it is spent.
 
@@ -646,18 +648,29 @@ def ascent(
     unless one is given — upward gets a plan, and the ceilings, fan-out
     mode and relief rungs are read from the config and the pool. Raises
     `RouteError` when the floor is not a family of the loaded catalog.
+
+    `start` is the rung triage chose. The ascent then begins on it: every
+    rung climbed before it is left out, so it is skipped and never spent,
+    and its family becomes the floor. Fan-out reads the ascent that is left,
+    so it may still enter on a free rung above `start` and never on one
+    below it. A `start` this ascent does not offer, such as one below a
+    floor fan-out already raised, leaves the ascent whole.
     """
     known = catalog()
-    start = floor if floor is not None else contract.kind.starts_on
-    if start not in known.families:
-        raise RouteError(f"{start.name!r} is not a family of the loaded catalog")
-    return Ascent(
-        floor=start,
-        plans=tuple(
+    lowest = floor if floor is not None else contract.kind.starts_on
+    if lowest not in known.families:
+        raise RouteError(f"{lowest.name!r} is not a family of the loaded catalog")
+    plans = _starting_at(
+        tuple(
             plan(config, pool, contract, family=family, capacity=capacity)
             for family in known.families
-            if family.rank >= start.rank
+            if family.rank >= lowest.rank
         ),
+        start,
+    )
+    return Ascent(
+        floor=plans[0].family if plans else lowest,
+        plans=plans,
         ceiling=Ceiling.of(config),
         fanout=fanout_of(config),
         capacity=capacity,
@@ -667,6 +680,21 @@ def ascent(
             for rung in pool.relief
         ),
     )
+
+
+def _starting_at(plans: tuple[Plan, ...], start: str | None) -> tuple[Plan, ...]:
+    """The plans from the one offering `start` upward, that plan cut to begin on it.
+
+    The plans are returned as they are when `start` is None or no plan
+    offers it.
+    """
+    if start is None:
+        return plans
+    for index, each in enumerate(plans):
+        if start in each.rungs:
+            steps = each.climbable[each.rungs.index(start) :]
+            return (replace(each, steps=steps), *plans[index + 1 :])
+    return plans
 
 
 def _widths(config: Config, capacity: Capacity | None) -> Mapping[str, int]:
@@ -707,6 +735,9 @@ class Delivered:
     history: tuple[Attempted, ...]
     attempts_spent: int
     escalations: int
+    #: `triage` is where the climb started and who decided it, under
+    #: `triage: jev` or a contract's `start_rung`; `None` when nothing did.
+    triage: Triage | None = None
 
     @property
     def ok(self) -> bool:
@@ -737,6 +768,9 @@ class Halted:
     attempts_spent: int
     escalations: int
     detail: str = ""
+    #: `triage` is where the climb started and who decided it, as on
+    #: `Delivered`; `None` when nothing did.
+    triage: Triage | None = None
 
     @property
     def ok(self) -> bool:
@@ -818,8 +852,20 @@ def escalate(
     names is tried first. Capacity claims are given back on every path, and
     an exception from the seam ends the task as `Outcome.ERROR` rather than
     as a failed attempt.
+
+    A contract's `start_rung`, or under `triage: jev` the jev role asked
+    first, says which rung the climb starts on; the ascent is rebuilt to
+    begin there, before fan-out reads it, and the decision is carried on the
+    outcome as `triage`. A `start_rung` the climb does not offer raises
+    `RouteError` before anything is spent.
     """
     route = ascent(config, pool, contract, floor=floor, capacity=capacity)
+    triaged = triage_for(config, pool, contract, route.rungs, capacity=capacity)
+    start = triaged.rung if triaged is not None else None
+    if start is not None:
+        route = ascent(
+            config, pool, contract, floor=floor, capacity=capacity, start=start
+        )
     entry = _idle_entry(route)
     # A relief rung claimed as the entry is ridden on its own, before the
     # ladder: it is not a step of the ascent, so it cannot be one of the
@@ -829,7 +875,7 @@ def escalate(
         riding, entry = entry, None
     claimed: str | None = None
     if entry is not None:
-        route, claimed = _entered(config, pool, contract, capacity, entry)
+        route, claimed = _entered(config, pool, contract, capacity, entry, start)
     ceiling = route.ceiling
     budget = route.budget
 
@@ -939,6 +985,7 @@ def escalate(
             attempts_spent=attempts_spent,
             escalations=max(0, len(spent_rungs) - 1),
             detail=history[-1].detail,
+            triage=triaged,
         )
 
     def finish_accepted(family: Family, rung: str) -> Delivered:
@@ -955,6 +1002,7 @@ def escalate(
             history=recorded(),
             attempts_spent=attempts_spent,
             escalations=max(0, len(spent_rungs) - 1),
+            triage=triaged,
         )
 
     try:
@@ -980,7 +1028,9 @@ def escalate(
             # will actually be climbed.
             entry = route.reserve_entry(relief=False)
             if entry is not None:
-                route, claimed = _entered(config, pool, contract, capacity, entry)
+                route, claimed = _entered(
+                    config, pool, contract, capacity, entry, start
+                )
                 ceiling, budget = route.ceiling, route.budget
         for index, each in enumerate(route.plans):
             if not each.climbable:
@@ -1056,6 +1106,7 @@ def escalate(
         detail=_halt_detail(
             outcome, route, attempts_spent, escalations, tuple(entered)
         ),
+        triage=triaged,
     )
 
 
@@ -1085,15 +1136,24 @@ def _entered(
     contract: Contract,
     capacity: Capacity | None,
     entry: Entry,
+    start: str | None = None,
 ) -> tuple[Ascent, str | None]:
     """Rebuild the ascent at the claimed family and hand the claim down to it.
 
     Returns the ascent to climb and the rung whose slot is already held, or
-    None when the rebuilt ascent no longer offers that rung.
+    None when the rebuilt ascent no longer offers that rung. `start` is the
+    rung triage chose, so a rebuild in its own family still begins on it.
     """
     claimed: str | None = None
     try:
-        route = ascent(config, pool, contract, floor=entry.family, capacity=capacity)
+        route = ascent(
+            config,
+            pool,
+            contract,
+            floor=entry.family,
+            capacity=capacity,
+            start=start,
+        )
         claimed = _handed_down(route, entry)
     finally:
         # A claim the rebuilt ascent cannot name is released here: nobody

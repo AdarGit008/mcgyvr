@@ -36,8 +36,6 @@ from mcgyvr.worker.prompt import build_prompt
 from mcgyvr.drive.errors import (
     ContractTooLargeForRungError,
     DriveError,
-    OutputCapTooLargeError,
-    OutputCapUnstatedError,
     PromptTooLargeError,
     UnitCeilingUnknownError,
     UnrunnableStepError,
@@ -65,8 +63,6 @@ from mcgyvr.drive.attempt import _in_order, worker_attempt
 __all__ = [
     "ContractTooLargeForRungError",
     "DriveError",
-    "OutputCapTooLargeError",
-    "OutputCapUnstatedError",
     "PromptTooLargeError",
     "Recording",
     "ToolOutcome",

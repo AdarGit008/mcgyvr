@@ -90,10 +90,6 @@ class Proposal:
     allow: tuple[str, ...] = ()
     forbid: tuple[str, ...] = ()
     stop_conditions: tuple[str, ...] = ()
-    #: What the reply to this unit of work is worth, in output tokens. A
-    #: model-written contract that is judged by evidence must state one, so
-    #: `_emit` refuses such a proposal while this is None.
-    max_output_tokens: int | None = None
     acceptance: tuple[str, ...] = ()
     demonstration: tuple[str, ...] = ()
     """Commands that must fail at baseline and pass after — `failing_test_first`
@@ -143,8 +139,7 @@ class Evidence:
     ceiling: int = _DEFAULT_MAX_INPUT_TOKENS
     """The ceiling on a contract's worker view this decomposition holds to.
 
-    `decompose`'s and `iterate`'s `max_input_tokens`, so a reply cap sized from
-    the evidence is held to the same ceiling the target itself was."""
+    `decompose`'s and `iterate`'s `max_input_tokens`."""
 
 
 Proposer = Callable[[Evidence], Sequence[Proposal]]
@@ -399,10 +394,10 @@ def _emit(
     index's signature for that symbol, with its notes deduplicated per path.
 
     The document is then built, identified and loaded as a contract. A
-    duplicate id, a schema error, a judged model-written contract with no
-    output cap, and a worker view beyond `ceiling` are refusals rather than
-    exceptions, each reported against the proposal's target. The returned text
-    is that contract dumped as the document a caller writes out.
+    duplicate id, a schema error and a worker view beyond `ceiling` are
+    refusals rather than exceptions, each reported against the proposal's
+    target. The returned text is that contract dumped as the document a caller
+    writes out.
     """
     servable = {t.name for t in vocabulary}
     if proposal.task_type not in servable:
@@ -494,21 +489,6 @@ def _emit(
             built.reason,
             field="",
             what_to_change=schema,
-        )
-    if built.needs_output_cap and built.limits.max_output_tokens is None:
-        # The document validates without the cap, but `mcgyvr run` refuses a
-        # judged, model-written contract that states none — the reply must say
-        # what it is worth — so emitting it would hand the caller a contract
-        # certain to be refused. Refuse here instead, naming the field.
-        return Refusal(
-            proposal.target,
-            f"a model-written {proposal.task_type!r} contract states "
-            "limits.max_output_tokens — what its reply is worth, in output "
-            "tokens — and this proposal states no max_output_tokens, so "
-            "`mcgyvr run` would refuse it before any model is called. State "
-            "max_output_tokens on the proposal",
-            field="max_output_tokens",
-            what_to_change=("state limits.max_output_tokens (whole number >= 1)"),
         )
     resized = _resize(built, document, ceiling, depends_on_ids=depends_on_ids)
     if isinstance(resized, Refusal):
@@ -873,15 +853,9 @@ def _document(
         document["type_check"] = True
     if max_input_tokens is not None:
         document["context"] = {"max_input_tokens": max_input_tokens}
-    cap = _reply_cap(proposal)
-    if cap is not None:
-        document["limits"] = {"max_output_tokens": cap}
+    # No reply cap is written: every request is sent its unit's maximum
+    # within the room the prompt leaves, which no contract can know.
     return document
-
-
-def _reply_cap(proposal: Proposal) -> int | None:
-    """The reply cap the proposal states, or None when it states none."""
-    return proposal.max_output_tokens
 
 
 def _load(document: dict[str, Any]) -> Contract | Refusal:
@@ -973,7 +947,6 @@ def _proposal_of(built: Contract) -> Proposal:
         interface=built.interface,
         allow=built.scope.allow,
         forbid=built.scope.forbid,
-        max_output_tokens=built.limits.max_output_tokens,
         stop_conditions=built.stop_conditions,
         acceptance=built.acceptance,
         demonstration=built.demonstration,

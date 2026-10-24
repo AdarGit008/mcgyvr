@@ -31,6 +31,7 @@ import pytest
 from mcgyvr.config import parse as parse_config
 from mcgyvr.contract import loads as load_contract
 from mcgyvr.local_pool import source_map
+from tests.rungs import caps_sent
 
 #: Two units on an invented rig: the cheap one serves a 2048-token window, the
 #: dear one 32768. The dear one is there so "not climbed" can be asserted.
@@ -130,21 +131,21 @@ def test_a_contract_whose_ceiling_exceeds_the_rungs_window_is_not_sent(
         assert named in said, f"the refusal must name {named!r}: {said}"
 
 
-def test_a_prompt_that_leaves_too_little_room_for_the_cap_is_not_sent(
+def test_a_prompt_that_fills_most_of_the_window_is_sent_the_room_it_leaves(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    """The case the contract's own ceiling cannot see: question 2.
+    """The prompt is the constant and the cap is what adjusts.
 
     The contract declares a ceiling the rung serves, and the prompt it is
-    assembled into fits that ceiling — but not beside the reply the contract
-    states. This is the request llama.cpp answered with a ``400``. The prompt
-    is the constant and the cap is what adjusts, so the
-    refusal names the unit's ceiling for this prompt and the cap above it.
+    assembled into fits that ceiling but not beside the reply the contract
+    states. That used to be refused; the reply is now sent the unit's maximum,
+    the room the window leaves this prompt, so prompt and cap fit together.
     """
-    from mcgyvr.drive import OutputCapTooLargeError, dispatch_prompt
+    from mcgyvr.drive import dispatch_prompt
+    from mcgyvr.gate.preflight import unit_ceiling
     from mcgyvr.worker.prompt import build_prompt
 
-    sent = _sent(monkeypatch)
+    seen = caps_sent(monkeypatch)
     pool = source_map(parse_config(LADDER))
     contract = load_contract(
         CONTRACT
@@ -153,14 +154,12 @@ def test_a_prompt_that_leaves_too_little_room_for_the_cap_is_not_sent(
     )
     prompt = build_prompt(contract)
     assert prompt.fits, "the prompt fits the contract's own ceiling"
+    room = unit_ceiling(pool.bind("local_narrow"), prompt.measured).tokens
+    assert room is not None and 0 < room < 256
 
-    with pytest.raises(OutputCapTooLargeError) as refused:
-        dispatch_prompt(pool, "local_narrow", prompt, contract)
+    dispatch_prompt(pool, "local_narrow", prompt, contract)
 
-    assert sent == []
-    said = str(refused.value)
-    assert "local_narrow" in said and "2048" in said and "256" in said, said
-    assert "output-cap" in said, said
+    assert seen == [("local_narrow", room)]
 
 
 def test_the_same_contract_is_sent_to_a_rung_that_serves_its_size(
@@ -178,32 +177,27 @@ def test_the_same_contract_is_sent_to_a_rung_that_serves_its_size(
     assert sent == ["local_wide"]
 
 
-def test_a_contract_cap_too_large_for_the_window_names_the_contracts_number(
+def test_a_contract_cap_larger_than_the_window_is_not_what_is_sent(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    """The reply-cap refusal says whose number it is.
-
-    The narrow rung declares no ``output_tokens``, so the cap is the
-    contract's. Telling the operator to lower the rung's ``output_tokens`` — a
-    key that is not set — sends them to the wrong file.
-    """
-    from mcgyvr.drive import OutputCapTooLargeError, dispatch_prompt
+    """A stated cap no window could hold is read and not sent: the room is."""
+    from mcgyvr.drive import dispatch_prompt
+    from mcgyvr.gate.preflight import unit_ceiling
     from mcgyvr.worker.prompt import build_prompt
 
-    sent = _sent(monkeypatch)
+    seen = caps_sent(monkeypatch)
     pool = source_map(parse_config(LADDER))
     contract = load_contract(
         CONTRACT.replace("max_output_tokens: 256", "max_output_tokens: 4096")
         + "context:\n  max_input_tokens: 2048\n"
     )
+    prompt = build_prompt(contract)
+    room = unit_ceiling(pool.bind("local_narrow"), prompt.measured).tokens
 
-    with pytest.raises(OutputCapTooLargeError) as refused:
-        dispatch_prompt(pool, "local_narrow", build_prompt(contract), contract)
+    dispatch_prompt(pool, "local_narrow", prompt, contract)
 
-    assert sent == []
-    said = str(refused.value)
-    assert "limits.max_output_tokens" in said, said
-    assert "units.local_narrow.output_tokens" not in said, said
+    assert seen == [("local_narrow", room)]
+    assert room is not None and room < 2048
 
 
 # --- through a whole run: it fails, on its rung, and is not climbed ---------

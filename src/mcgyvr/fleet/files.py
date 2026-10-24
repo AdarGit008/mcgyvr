@@ -57,7 +57,7 @@ _UNIT_KEYS = frozenset(
 )
 
 #: The keys `policy.yaml` may carry: `ladder` plus how work moves and how much
-#: it may do — fanout, attempts, draws, escalations, timeouts, the window
+#: it may do — fanout, triage, attempts, draws, escalations, timeouts, the window
 #: fraction, breadth, cleanup, users — the units a job goes to (orchestrator,
 #: verifier, jev), what the gate refuses, and how a run is sandboxed,
 #: delivered, served and journaled.
@@ -67,6 +67,7 @@ _POLICY_KEYS = frozenset(
         "deployment",
         "ladder",
         "fanout",
+        "triage",
         "attempts",
         "draws",
         "rider_slots",
