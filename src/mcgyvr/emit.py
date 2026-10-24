@@ -95,9 +95,15 @@ VLLM_DEV_ROUTES = "VLLM_SERVER_DEV_MODE"
 #: when it starts -- and the values llama.cpp reads as off. A unit that states
 #: it off takes the memory its own argv states and no more, so
 #: `_fixes_its_memory` lets it start beside the other units on its card.
+#: `argv` states `--fit FIT_DEFAULT` for every llama.cpp server whose own
+#: flags and env state no fitting of their own: the product already states
+#: `-c` and `-ngl`, so fitting would only cost a dry run at startup and read
+#: free memory a co-resident unit is still taking. A unit opts back in with
+#: `--fit on` among its own `serve_args`.
 FIT_FLAGS = ("--fit", "-fit")
 FIT_ENV = "LLAMA_ARG_FIT"
 FIT_OFF = frozenset({"off", "disabled", "false", "0"})
+FIT_DEFAULT = "off"
 
 #: Heads every compose document rendered with sleep mode on: the routes
 #: sleep needs are unauthenticated, so the file says so in its first lines.
@@ -135,9 +141,11 @@ def argv(unit: Unit, *, sleep_mode: bool = False) -> tuple[str, ...]:
     """The argv of the process that serves `unit`, in one canonical order.
 
     vLLM takes its model as a positional argument, so the model leads. The
-    unit's flags follow sorted by name, `--port` among them and `--alias`
-    added for a serve unit that carries none of `ALIAS_FLAGS`; the sleep
-    flag comes next, and the unit's `extra` parts are appended as written.
+    unit's flags follow sorted by name, `--port` among them, and for a
+    llama.cpp serve unit `--alias` added when it carries none of
+    `ALIAS_FLAGS` and `--fit FIT_DEFAULT` when it states no fitting of its
+    own (`_states_fit`); the sleep flag comes next, and the unit's `extra`
+    parts are appended as written. An rpc-server worker takes no `--fit`.
     A part containing whitespace is refused: the compose `command` and the
     shell command could not spell it the same way.
     """
@@ -148,6 +156,12 @@ def argv(unit: Unit, *, sleep_mode: bool = False) -> tuple[str, ...]:
         and not any(flag in ALIAS_FLAGS for flag in (*flags, *unit.extra))
     ):
         flags["--alias"] = unit.model
+    if (
+        unit.engine == "llama.cpp"
+        and unit.role == ROLE_SERVE
+        and not _states_fit((*flags, *unit.extra), unit.env)
+    ):
+        flags[FIT_FLAGS[0]] = FIT_DEFAULT
     # The order is fixed so `render_command` and the compose `command` carry
     # one argv: positional model, flags sorted by name, sleep flag, then the
     # unit's own `extra` tokens untouched. Sorting the flags is what lets one
@@ -423,6 +437,19 @@ def _healthcheck(port: int) -> dict[str, object]:
     }
 
 
+def _states_fit(parts: Iterable[str], env: Mapping[str, object]) -> bool:
+    """Whether a launch states llama.cpp's fitting itself, on or off.
+
+    A `FIT_FLAGS` flag among `parts`, as `flag value` or `flag=value`, or
+    `FIT_ENV` in `env` is the unit's own word, and `argv` adds no default
+    over it.
+    """
+    for part in parts:
+        if any(part == flag or part.startswith(f"{flag}=") for flag in FIT_FLAGS):
+            return True
+    return FIT_ENV in env
+
+
 def _fixes_its_memory(
     engine: object, argv: list[str], env: Mapping[str, object]
 ) -> bool:
@@ -432,9 +459,11 @@ def _fixes_its_memory(
     the room for all of them was reckoned before they were written, and none
     reads what is free to decide what it takes. That is a llama.cpp unit whose
     launch turns fitting off -- by a `FIT_FLAGS` flag, else by `FIT_ENV`, the
-    way llama.cpp reads them. A llama.cpp unit that leaves fitting on sizes
-    the arguments it leaves unset off what is free when it starts, and a vLLM
-    unit sizes its cache that way, so either waits its turn.
+    way llama.cpp reads them. `argv` states it off by default, so an emitted
+    llama.cpp unit fixes its memory unless its own flags turn fitting on; a
+    locked unit is read from the argv it states. A llama.cpp unit that leaves
+    fitting on sizes the arguments it leaves unset off what is free when it
+    starts, and a vLLM unit sizes its cache that way, so either waits its turn.
     """
     if engine != "llama.cpp":
         return False

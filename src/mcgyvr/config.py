@@ -530,7 +530,19 @@ UNIT_FIELDS: tuple[Field, ...] = (
 "
         "whole resolved launch with no hand-kept field list, so a flag \
 "
-        "this reader has never heard of cannot go unhashed. Two keys sizing \
+        "this reader has never heard of cannot go unhashed. `serve_args`, a \
+"
+        "list, is appended to the engine's argv as written. A llama.cpp \
+"
+        "server is launched with `--fit off` -- mcgyvr states its `-c` and \
+"
+        "`-ngl`, so llama.cpp's fitting to free memory only races the units \
+"
+        "starting beside it -- unless `serve_args` states `--fit` itself, \
+"
+        "e.g. `--fit on`; units on one card start together only when every \
+"
+        "one has fitting off. Two keys sizing \
 "
         "reads, llama.cpp only: `speculative` (`none` | `mtp`, default `none`) \
 "
