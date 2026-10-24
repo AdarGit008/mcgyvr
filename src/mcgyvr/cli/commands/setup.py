@@ -17,6 +17,7 @@ import json
 import os
 import sys
 from collections.abc import Callable, Mapping, Sequence
+from concurrent.futures import ThreadPoolExecutor
 from pathlib import Path
 from typing import TYPE_CHECKING, Any
 
@@ -778,16 +779,20 @@ def _setup_emit(path: Path, ctx_per_slot: int) -> None:
 
 
 def _setup_start(rigs: Sequence[str], scans: Mapping[str, Scan], path: Path) -> None:
-    """Start each rig's containers from the launch spec emitted for it.
+    """Start every rig's containers from the launch spec emitted for it, at once.
 
     A rig with one whole-host spec is started from that file; a rig with
     several per-model alternatives is refused, since the wizard cannot choose
-    between them. The door is told where the setup lives, and an up that exits
-    non-zero fails the step.
+    between them, and every rig is checked before any is started. The rigs'
+    doors then run at the same time, one each, so a rig's units load while
+    another's do rather than after them. The door is told where the setup
+    lives, and an up that exits non-zero on any rig fails the step, naming
+    each rig that failed.
     """
     from mcgyvr import wake as wakelib
     from mcgyvr.serving import spec_files, spec_name
 
+    starts: list[tuple[str, Path]] = []
     for rig in dict.fromkeys(rigs):
         scan = scans[rig]
         host = scan.machine.host
@@ -817,19 +822,37 @@ def _setup_start(rigs: Sequence[str], scans: Mapping[str, Scan], path: Path) -> 
                     "start one by hand"
                 )
             compose = files[0]
-        code = wakelib.spawn_door(
-            wakelib.door_argv(
-                direction="up", host=rig, compose=compose, suffix=_setup_suffix()
-            ),
-            env={
-                **os.environ,
-                # The door reads the setup to bring up from this variable, so
-                # it finds the same config this run staged and emitted.
-                CONFIG_PATH_ENV: str(path),
-            },
+        starts.append((rig, compose))
+    env = {
+        **os.environ,
+        # The door reads the setup to bring up from this variable, so it
+        # finds the same config this run staged and emitted.
+        CONFIG_PATH_ENV: str(path),
+    }
+    # One suffix names this start on every rig; each door's run id also
+    # carries its rig, so the runs stay apart.
+    suffix = _setup_suffix()
+
+    def up(start: tuple[str, Path]) -> int:
+        rig, compose = start
+        return wakelib.spawn_door(
+            wakelib.door_argv(direction="up", host=rig, compose=compose, suffix=suffix),
+            env=env,
         )
-        if code != 0:
-            raise _SetupInteractiveError(f"{rig}: serve up exited {code}")
+
+    if not starts:
+        return
+    # One worker per rig, as `availability` probes its sources: each door
+    # waits on its own rig, so the step lasts as long as the slowest rig.
+    with ThreadPoolExecutor(max_workers=len(starts)) as pool:
+        codes = list(pool.map(up, starts))
+    failed = [
+        f"{rig}: serve up exited {code}"
+        for (rig, _), code in zip(starts, codes, strict=True)
+        if code != 0
+    ]
+    if failed:
+        raise _SetupInteractiveError("; ".join(failed))
 
 
 def _setup_interactive(path: Path, run_id: str = "") -> int:
