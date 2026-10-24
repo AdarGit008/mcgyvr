@@ -47,6 +47,7 @@ from mcgyvr.serving import (
     Unit,
     UnitKey,
     Width,
+    kernelcache,
     launch_specs,
     port_of,
     rigfile,
@@ -432,9 +433,12 @@ def _service(unit: Unit, *, sleep_mode: bool = False) -> dict[str, object]:
         # which under host networking is the box's own; `_environment` merges
         # the unit's env over it and refuses a key that would change the value.
         # The weights are mounted read-only twice, here and at their own path,
-        # so a `-m` in the argv resolves against either spelling, and `deploy`
-        # reserves the card or cards `unit.cards` names.
-        "environment": _environment({"LLAMA_ARG_HOST": "0.0.0.0"}, unit),
+        # so a `-m` in the argv resolves against either spelling, beside the
+        # rig's kernel store when its scan read one (`_kernel_store`), and
+        # `deploy` reserves the card or cards `unit.cards` names.
+        "environment": _environment(
+            {"LLAMA_ARG_HOST": "0.0.0.0", **(store.env if store else {})}, unit
+        ),
         "restart": "unless-stopped",
         "volumes": sorted(
             {
@@ -449,9 +453,10 @@ def _service(unit: Unit, *, sleep_mode: bool = False) -> dict[str, object]:
 def _rpc_service(unit: Unit) -> dict[str, object]:
     """The compose service of a llama.cpp rpc-server worker.
 
-    The worker holds no model file, so nothing is mounted; `entrypoint` is
-    `RPC_COMMAND` and `command` is the unit's flags alone. `environment` is
-    written only when the unit states env, since the base here is empty.
+    The worker holds no model file, so only the rig's kernel store is mounted,
+    when its scan read one; `entrypoint` is `RPC_COMMAND` and `command` is the
+    unit's flags alone. `environment` and `volumes` are written only when there
+    is something in them, since the base here is empty.
     """
     service: dict[str, object] = {
         "image": _image(unit),
@@ -462,7 +467,9 @@ def _rpc_service(unit: Unit) -> dict[str, object]:
         "restart": "unless-stopped",
         "deploy": _reservation(*unit.cards),
     }
-    environment = _environment({}, unit)
+    store = _kernel_store(unit)
+    environment = _environment(dict(store.env) if store else {}, unit)
+    store = _kernel_store(unit)
     if environment:
         service["environment"] = environment
     return service
@@ -486,6 +493,7 @@ def _environment(base: dict[str, str], unit: Unit) -> dict[str, str]:
     return merged
 
 
+                *((store.volume,) if store else ()),
 def _vllm_service(unit: Unit, *, sleep_mode: bool = False) -> dict[str, object]:
     """The compose service of a vLLM unit: cache mount, host ipc, offline hub.
 
@@ -511,9 +519,23 @@ def _vllm_service(unit: Unit, *, sleep_mode: bool = False) -> dict[str, object]:
 
 def _command(unit: Unit) -> tuple[str, ...]:
     _check_role(unit)
+    if store:
+        service["volumes"] = [store.volume]
     if unit.role == ROLE_RPC:
         return RPC_COMMAND
     command = ENGINE_COMMANDS.get(unit.engine)
+def _kernel_store(unit: Unit) -> kernelcache.Mount | None:
+    """The mount that hands a llama.cpp unit the rig's kernel store, or None.
+
+    A unit whose scan read no mcgyvr home has no store to mount, and its
+    service is rendered as it was before there was one; a vLLM unit is never
+    handed it here.
+    """
+    if unit.engine != "llama.cpp" or unit.kernel_cache is None:
+        return None
+    return kernelcache.mount(unit.kernel_cache)
+
+
     if command is None:
         raise EmitError(
             f"{unit.key.slug}: no command line is known for engine {unit.engine!r}"

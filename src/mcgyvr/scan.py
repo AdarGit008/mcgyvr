@@ -242,6 +242,10 @@ class Scan:
     #: The address this machine was reached at, and the addresses its
     #: interfaces hold; None when the reading carried no network section.
     network: Network | None = None
+    #: mcgyvr's home as this machine resolved it (``$MCGYVR_HOME``, else
+    #: ``~/.mcgyvr``); None when the reading carried none, as a reading from an
+    #: older scanner does.
+    home: Path | None = None
 
     @property
     def gpus_determined(self) -> bool:
@@ -389,6 +393,7 @@ class Scan:
                     ],
                 }
             ),
+            "home": None if self.home is None else str(self.home),
             "notes": list(self.notes),
             "facts": [{"field": f.field, "how": f.how} for f in self.facts],
         }
@@ -504,6 +509,7 @@ class Scan:
                     ),
                 )
             ),
+            home=Path(str(raw["home"])) if raw.get("home") else None,
         )
 
 

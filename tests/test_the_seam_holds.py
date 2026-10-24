@@ -178,6 +178,7 @@ BELOW_THE_SEAM: tuple[str, ...] = (
     "mcgyvr.serving.fetchlist",
     "mcgyvr.serving.ggufscan",
     "mcgyvr.serving.interconnect",
+    "mcgyvr.serving.kernelcache",
     "mcgyvr.serving.linktime",
     "mcgyvr.serving.rigfile",
     "mcgyvr.serving.rigread",

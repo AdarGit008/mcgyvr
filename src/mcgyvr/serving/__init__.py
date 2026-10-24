@@ -377,6 +377,11 @@ class Unit:
     #: leaves it out of the set that has to fit the card together. Only a
     #: llama.cpp unit on one card can be told to.
     asleep: bool = False
+    #: The rig's store for the kernels its cards' driver compiles
+    #: (`kernelcache.folder` under the home the rig's scan resolved), which
+    #: emit.py mounts into a llama.cpp unit's container. None when the scan
+    #: read no home, and for vLLM, whose units are not handed the store.
+    kernel_cache: Path | None = None
 
     @property
     def cards(self) -> tuple[int, ...]:
@@ -743,7 +748,17 @@ def unit_for(
         port=port,
         rungs=(),
         extra=spec.serve_args,
+        kernel_cache=_kernel_cache(scan),
     )
+
+
+def _kernel_cache(scan: Scan | None) -> Path | None:
+    """The kernel store on the rig `scan` read, or None when it read no home."""
+    from mcgyvr.serving import kernelcache
+
+    if scan is None or scan.home is None:
+        return None
+    return kernelcache.folder(scan.home)
 
 
 def units_for(
@@ -1090,9 +1105,22 @@ def _sharded_units(
                 gpus=process.gpus,
                 role=process.role,
                 env=dict(process.env),
+                kernel_cache=(
+                    _kernel_cache(_scan_of(scans, process.host))
+                    if engine == "llama.cpp"
+                    else None
+                ),
             )
         )
     return tuple(units)
+
+
+def _scan_of(scans: Mapping[str, Scan], host: str) -> Scan | None:
+    """The scan filed under `host`, matched without regard to case."""
+    for name, scan in scans.items():
+        if name.lower() == host.lower():
+            return scan
+    return None
 
 
 def _how(width: int | None) -> str:
