@@ -1,12 +1,12 @@
 """A program that finds nothing to change has done its job; a model that does has not.
 
-A delivery check runs whether or not the work is committed, so a
-reply identical to its target — a model echoing the file it was asked to
-change — is refused either way. The same check would turn a ``format`` run over
-an already-formatted file into ``delivery_refused``, exit 1. That is a
-different fact: the contract asked for a formatted file and there is one. The
-floor's no-op ends as its own word, ``nothing_to_change``, exit 0, with or
-without ``--commit``; a model's no-op stays refused.
+A reply identical to its target — a model echoing the file it was asked to
+change — is a failed attempt: the climb goes on past it, and a ladder that only
+echoes ends ``ladder_spent``, exit 1, with or without ``--commit``. The same
+reading would turn a ``format`` run over an already-formatted file into a
+failure. That is a different fact: the contract asked for a formatted file and
+there is one. The floor's no-op ends as its own word, ``nothing_to_change``,
+exit 0, with or without ``--commit``; a model's no-op stays refused.
 
 A refusal also says why in the result file: the gate's findings behind a
 no-commit refusal reach ``findings``, as they do for a gate rejection.
@@ -36,8 +36,8 @@ scope:
   allow: ["src/**"]
 """
 
-#: A model contract with no demonstration, so an unchanged reply reaches
-#: delivery rather than failing a "must fail before" command in the sandbox.
+#: A model contract with no demonstration, so an unchanged reply is failed for
+#: changing nothing rather than for a "must fail before" command in the sandbox.
 NO_DEMO_CONTRACT = """
 id: impl
 task_type: code
@@ -113,7 +113,8 @@ def test_a_model_reply_that_changes_nothing_is_still_refused(
 
     assert scripted, "the model was asked"
     result = _result(capsys)
-    assert result["outcome"] == "delivery_refused", result
+    assert result["outcome"] == "ladder_spent", result
+    assert all(a["verdict"] == "failed" for a in result["attempts"]), result
     assert code == 1
     _untouched(repo, head)
 
