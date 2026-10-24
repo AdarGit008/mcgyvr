@@ -90,6 +90,15 @@ MOUNT = "/models"
 VLLM_SLEEP_FLAG = "--enable-sleep-mode"
 VLLM_DEV_ROUTES = "VLLM_SERVER_DEV_MODE"
 
+#: llama.cpp's spellings of its fitting switch -- the flags and the variable
+#: that turn off adjusting the arguments a unit leaves unset to the memory free
+#: when it starts -- and the values llama.cpp reads as off. A unit that states
+#: it off takes the memory its own argv states and no more, so
+#: `_fixes_its_memory` lets it start beside the other units on its card.
+FIT_FLAGS = ("--fit", "-fit")
+FIT_ENV = "LLAMA_ARG_FIT"
+FIT_OFF = frozenset({"off", "disabled", "false", "0"})
+
 #: Heads every compose document rendered with sleep mode on: the routes
 #: sleep needs are unauthenticated, so the file says so in its first lines.
 SLEEP_MODE_NOTICE = """\
@@ -314,8 +323,9 @@ def _document(units: tuple[Unit, ...], *, sleep_mode: bool = False) -> str:
 
     Every unit becomes one service under its `_service_name`; two units that
     would take one name are refused, since a file with a single service
-    starts only one of them. Units sharing a card are put in start order by
-    `_sequence_on_one_card`, and the dump sorts keys and widens lines so the
+    starts only one of them. Units sharing a card start together when each
+    fixes its own memory, and are otherwise put in start order by
+    `_sequence_on_one_card`; the dump sorts keys and widens lines so the
     same units always render the same bytes. Sleep mode prepends
     `SLEEP_MODE_NOTICE` when any unit here is vLLM.
     """
@@ -347,12 +357,15 @@ def _sequence_on_one_card(
 ) -> None:
     """Order co-resident serving units by making each wait for one ahead.
 
-    For each card, the units that serve on it are sorted largest fit first,
-    and every one after the first gets `depends_on` on the one before with
-    `condition: service_healthy`; that one gains a healthcheck on its port.
-    `services` is modified in place.
+    For each card, the units that serve on it start together when every one
+    of them fixes its own memory (`_fixes_its_memory`): none sizes itself off
+    what the others have not yet taken. Otherwise they are sorted largest fit
+    first, and every one after the first gets `depends_on` on the one before
+    with `condition: service_healthy`; that one gains a healthcheck on its
+    port. `services` is modified in place.
     """
     on_card: dict[int, list[tuple[float, str, int]]] = {}
+    fixed: dict[int, bool] = {}
     for unit in units:
         if unit.role != ROLE_SERVE:
             continue
@@ -360,12 +373,16 @@ def _sequence_on_one_card(
         # waits on; an rpc worker or a headless rank has no such endpoint.
         if unit.asleep:
             continue
+        holds = _fixes_its_memory(
+            unit.engine, list(argv(unit)), cast(Mapping[str, object], unit.env)
+        )
         for card in unit.cards:
             on_card.setdefault(card, []).append(
                 (unit.fit.vram_gb, _service_name(unit), unit.port)
             )
-    for sharing in on_card.values():
-        if len(sharing) < 2:
+            fixed[card] = fixed.get(card, True) and holds
+    for card, sharing in on_card.items():
+        if len(sharing) < 2 or fixed[card]:
             continue
         ordered = sorted(sharing, key=lambda triple: (-triple[0], triple[1]))
         for (_, waiter, _), (_, ahead, port) in zip(
@@ -406,6 +423,35 @@ def _healthcheck(port: int) -> dict[str, object]:
     }
 
 
+def _fixes_its_memory(
+    engine: object, argv: list[str], env: Mapping[str, object]
+) -> bool:
+    """Whether a unit takes only the memory its own launch states.
+
+    Such a unit can start at the same moment as the other units on its card:
+    the room for all of them was reckoned before they were written, and none
+    reads what is free to decide what it takes. That is a llama.cpp unit whose
+    launch turns fitting off -- by a `FIT_FLAGS` flag, else by `FIT_ENV`, the
+    way llama.cpp reads them. A llama.cpp unit that leaves fitting on sizes
+    the arguments it leaves unset off what is free when it starts, and a vLLM
+    unit sizes its cache that way, so either waits its turn.
+    """
+    if engine != "llama.cpp":
+        return False
+    stated = next(
+        (
+            value
+            for flag in FIT_FLAGS
+            if (value := _stated_flag(argv, flag)) is not None
+        ),
+        None,
+    )
+    if stated is None:
+        said = env.get(FIT_ENV)
+        stated = said if isinstance(said, str) else None
+    return stated is not None and stated.strip().lower() in FIT_OFF
+
+
 def _service(unit: Unit, *, sleep_mode: bool = False) -> dict[str, object]:
     """The compose service for one unit, picked by its engine and its role.
 
@@ -418,6 +464,7 @@ def _service(unit: Unit, *, sleep_mode: bool = False) -> dict[str, object]:
         return _vllm_service(unit, sleep_mode=sleep_mode)
     if unit.role == ROLE_RPC:
         return _rpc_service(unit)
+    store = _kernel_store(unit)
     return {
         "image": _image(unit),
         "container_name": f"mcgyvr-{safe_host(unit.host)}-{_service_name(unit)}",
@@ -444,6 +491,7 @@ def _service(unit: Unit, *, sleep_mode: bool = False) -> dict[str, object]:
             {
                 f"{unit.weights_dir}:{MOUNT}:ro",
                 f"{unit.weights_dir}:{unit.weights_dir}:ro",
+                *((store.volume,) if store else ()),
             }
         ),
         "deploy": _reservation(*unit.cards),
@@ -469,10 +517,23 @@ def _rpc_service(unit: Unit) -> dict[str, object]:
     }
     store = _kernel_store(unit)
     environment = _environment(dict(store.env) if store else {}, unit)
-    store = _kernel_store(unit)
     if environment:
         service["environment"] = environment
+    if store:
+        service["volumes"] = [store.volume]
     return service
+
+
+def _kernel_store(unit: Unit) -> kernelcache.Mount | None:
+    """The mount that hands a llama.cpp unit the rig's kernel store, or None.
+
+    A unit whose scan read no mcgyvr home has no store to mount, and its
+    service is rendered as it was before there was one; a vLLM unit is never
+    handed it here.
+    """
+    if unit.engine != "llama.cpp" or unit.kernel_cache is None:
+        return None
+    return kernelcache.mount(unit.kernel_cache)
 
 
 def _environment(base: dict[str, str], unit: Unit) -> dict[str, str]:
@@ -493,7 +554,6 @@ def _environment(base: dict[str, str], unit: Unit) -> dict[str, str]:
     return merged
 
 
-                *((store.volume,) if store else ()),
 def _vllm_service(unit: Unit, *, sleep_mode: bool = False) -> dict[str, object]:
     """The compose service of a vLLM unit: cache mount, host ipc, offline hub.
 
@@ -519,23 +579,9 @@ def _vllm_service(unit: Unit, *, sleep_mode: bool = False) -> dict[str, object]:
 
 def _command(unit: Unit) -> tuple[str, ...]:
     _check_role(unit)
-    if store:
-        service["volumes"] = [store.volume]
     if unit.role == ROLE_RPC:
         return RPC_COMMAND
     command = ENGINE_COMMANDS.get(unit.engine)
-def _kernel_store(unit: Unit) -> kernelcache.Mount | None:
-    """The mount that hands a llama.cpp unit the rig's kernel store, or None.
-
-    A unit whose scan read no mcgyvr home has no store to mount, and its
-    service is rendered as it was before there was one; a vLLM unit is never
-    handed it here.
-    """
-    if unit.engine != "llama.cpp" or unit.kernel_cache is None:
-        return None
-    return kernelcache.mount(unit.kernel_cache)
-
-
     if command is None:
         raise EmitError(
             f"{unit.key.slug}: no command line is known for engine {unit.engine!r}"
@@ -728,8 +774,10 @@ def _planned_locked(
     renders; a worker takes no part in the start order, since it answers no
     healthcheck. A unit with no card on the host it is laid out on is
     refused. Each fleet's layout on each host becomes one document named by
-    `spec_name(host, fleet_name)`, with services started in layout order --
-    each waiting on the healthcheck of the service before it. A stated
+    `spec_name(host, fleet_name)`, whose services start together when every
+    one of them fixes its own memory (`_fixes_its_memory`), and otherwise in
+    layout order -- each waiting on the healthcheck of the service before it.
+    A stated
     seccomp profile is planned as a file of its own, read from `setup` and
     written under its bare file name.
     """
@@ -750,6 +798,7 @@ def _planned_locked(
             # each one lends a card to, so no unit or worker takes another's.
             lent: dict[str, str] = {}
             ahead: tuple[str, int] | None = None
+            together = _start_together(units, slots, found, host)
             for slot in slots:
                 name = slot[0]
                 unit = units.get(name)
@@ -790,7 +839,7 @@ def _planned_locked(
                             f"profiles with one file name, and the compose file "
                             "names each by its file name alone — rename one"
                         )
-                if ahead is not None:
+                if ahead is not None and not together:
                     waited_on, port = ahead
                     service["depends_on"] = {
                         waited_on: {"condition": "service_healthy"}
@@ -814,6 +863,37 @@ def _planned_locked(
             raise EmitError(f"{file_name}: would write outside {root}")
         planned.append((path, source.read_text(encoding="utf-8")))
     return tuple(sorted(planned, key=lambda pair: pair[0].name))
+
+
+def _start_together(
+    units: Mapping[str, Any],
+    slots: Iterable[Any],
+    found: Mapping[str, Span],
+    host: str,
+) -> bool:
+    """Whether every unit a host's layout serves there fixes its own memory.
+
+    A unit split across rigs is served on its head's rig only; on another rig
+    it is workers, which take no part in the start order. A unit fleet.yaml
+    does not declare answers False here and is refused by name by the caller.
+    """
+    for slot in slots:
+        unit = units.get(slot[0])
+        span = found.get(slot[0])
+        if span is not None and len(span.rigs) > 1 and host != span.head:
+            continue
+        if not isinstance(unit, Mapping):
+            return False
+        launch = unit.get("launch") or {}
+        stated = launch.get("argv") if isinstance(launch, Mapping) else None
+        env = launch.get("env") if isinstance(launch, Mapping) else None
+        if not _fixes_its_memory(
+            unit.get("engine"),
+            [str(part) for part in stated] if isinstance(stated, list) else [],
+            env if isinstance(env, Mapping) else {},
+        ):
+            return False
+    return True
 
 
 def _locked_service(
