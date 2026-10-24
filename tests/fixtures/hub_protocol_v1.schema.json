@@ -947,6 +947,34 @@
           "default": null,
           "title": "N Embd"
         },
+        "n_experts": {
+          "anyOf": [
+            {
+              "maximum": 1048576,
+              "minimum": 1,
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "N Experts"
+        },
+        "n_experts_active": {
+          "anyOf": [
+            {
+              "maximum": 1048576,
+              "minimum": 1,
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "N Experts Active"
+        },
         "n_head": {
           "anyOf": [
             {

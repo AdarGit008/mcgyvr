@@ -185,6 +185,10 @@ class ModelInfo:
     n_embd: int | None = None
     n_head: int | None = None
     n_head_kv: int | None = None
+    # MoE routing geometry: total experts and the routed top-k active per
+    # token; both ``None`` for a dense model, both set for an MoE.
+    n_experts: int | None = None
+    n_experts_active: int | None = None
     kv_bytes_per_token: int | None = None
     #: The bytes the token embedding tensor and the output tensor take. A model
     #: whose output tensor is tied to its embedding has no output tensor of its
@@ -405,7 +409,7 @@ def _model_body(model: ModelInfo) -> dict[str, Any]:
     )
     _bounded(model.n_layers, 1, MAX_LAYERS, "models.n_layers")
     _bounded(model.n_ctx_train, 1, MAX_COUNT, "models.n_ctx_train")
-    for field in ("n_embd", "n_head", "n_head_kv"):
+    for field in ("n_embd", "n_head", "n_head_kv", "n_experts", "n_experts_active"):
         _bounded(getattr(model, field), 1, MAX_COUNT, f"models.{field}")
     _bounded(
         model.kv_bytes_per_token, 1, MAX_KV_BYTES_PER_TOKEN, "models.kv_bytes_per_token"
@@ -421,6 +425,8 @@ def _model_body(model: ModelInfo) -> dict[str, Any]:
         "n_embd",
         "n_head",
         "n_head_kv",
+        "n_experts",
+        "n_experts_active",
         "kv_bytes_per_token",
         "embd_bytes",
         "output_bytes",

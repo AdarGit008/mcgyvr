@@ -40,9 +40,10 @@ def write_gguf(
     embd: int = 64,
     heads: int = 8,
     tensors: tuple[bytes, ...] = (),
+    extra_kv: tuple[tuple[bytes, int, bytes], ...] = (),
 ) -> None:
     """A GGUF of the fields the reader reads, one small tensor, and
-    ``tensors`` (tensor-table entries)."""
+    ``tensors`` (tensor-table entries); ``extra_kv`` adds header pairs."""
     kv = [
         (b"general.architecture", 8, _text(ARCH)),
         (f"{ARCH}.block_count".encode(), 4, struct.pack("<I", layers)),
@@ -50,6 +51,7 @@ def write_gguf(
         (f"{ARCH}.embedding_length".encode(), 4, struct.pack("<I", embd)),
         (f"{ARCH}.attention.head_count".encode(), 4, struct.pack("<I", heads)),
         (f"{ARCH}.attention.head_count_kv".encode(), 4, struct.pack("<I", 2)),
+        *extra_kv,
     ]
     out = b"GGUF" + struct.pack("<IQQ", 3, 1 + len(tensors), len(kv))
     for key, kind, value in kv:
@@ -113,6 +115,7 @@ def test_a_models_header_is_read_and_a_header_that_does_not_read_says_nothing(
     # 4 layers x 2 KV heads x (64 / 8) wide, K and V, at 34 bytes per 32.
     assert model.kv_bytes_per_token == (4 * 2 * 8 * 2) * 34 // 32
     assert model.size_bytes == (models / "model-b.gguf").stat().st_size
+    assert (model.n_experts, model.n_experts_active) == (None, None)
     broken = held["broken.gguf"]
     assert broken.size_bytes == len(b"not a model at all")
     assert (broken.arch, broken.n_layers, broken.kv_bytes_per_token) == (
@@ -120,6 +123,19 @@ def test_a_models_header_is_read_and_a_header_that_does_not_read_says_nothing(
         None,
         None,
     )
+
+
+def test_a_moe_models_header_reports_its_expert_routing(tmp_path: Path) -> None:
+    from mcgyvr.rig import inventory
+
+    folder = tmp_path / "models"
+    extra = (
+        (f"{ARCH}.expert_count".encode(), 4, struct.pack("<I", 8)),
+        (f"{ARCH}.expert_used_count".encode(), 4, struct.pack("<I", 2)),
+    )
+    write_gguf(folder / "moe.gguf", extra_kv=extra)
+    (model,) = inventory.read(str(folder)).models
+    assert (model.n_experts, model.n_experts_active) == (8, 2)
 
 
 def test_the_hello_sizes_the_embedding_and_output_tensors(tmp_path: Path) -> None:
