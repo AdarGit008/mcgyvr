@@ -1,16 +1,12 @@
-"""A mid-size `code` target is sent with its cap narrowed to the unit's room.
+"""A mid-size `code` target is sent all the room its unit leaves the prompt.
 
-The typed proposer states a `code` contract's cap as twice its target, so the
-whole file comes back with room to grow. Held to a 32K-window unit, a target
-of about 9,900 tokens — well under the worker-view ceiling — got a cap of about
-19,800 that its prompt left no room for, and `mcgyvr run` refused it ("lower to
-18885") although the whole-file reply it needs, about 9,900, would fit. The cap
-is now narrowed to the room the unit leaves, and refused only where that room
-is below half of it: the target the reply returns.
-
-The cap's own ceiling follows the worker-view ceiling the decomposition holds
-to, too, so a caller that raises `max_input_tokens` gets a cap sized on its
-target rather than one smaller than the file it must return.
+Held to a 32K-window unit, a target of about 9,900 tokens — well under the
+worker-view ceiling — used to get a cap of twice its size from the decomposer,
+narrowed to the room the prompt left, and was refused on a 16K unit whose room
+was below half that cap. The decomposer states no cap now: the reply is sent
+the unit's maximum, the room its window leaves once the prompt is paid for, on
+a wide unit and a narrow one alike. A reply that outgrows a narrow unit's room
+is cut off there, a named failure, and the climb moves on.
 """
 
 from __future__ import annotations
@@ -26,12 +22,10 @@ from mcgyvr.catalog import catalog
 from mcgyvr.decision import Choice, ChoiceAnswer, Decision, Question
 from mcgyvr.delegate import ClassifierProposer
 from mcgyvr.gate.preflight import (
+    ESTIMATE_RESERVE,
     check_contract_against_rung,
-    least_reply,
-    sized_reply_cap,
-    unit_ceiling,
+    unit_max,
 )
-from mcgyvr.orchestrator.candidates import REPLY_CAP_CEILING, REPLY_CAP_MARGIN
 from mcgyvr.orchestrator.decompose import decompose
 from mcgyvr.orchestrator.index import Index, build_index
 from mcgyvr.orchestrator.read import estimate_tokens
@@ -88,54 +82,39 @@ def _code(state: Any, questions: Mapping[str, Question]) -> Decision:
     return Decision(answers={field: answer})
 
 
-def test_a_mid_size_target_is_narrowed_not_refused(tmp_path: Path) -> None:
+def _contract(index: Index):  # type: ignore[no-untyped-def]
+    result = decompose(
+        index, "document listing", propose=ClassifierProposer(classify=_code)
+    )
+    (contract,) = result.contracts
+    return contract
+
+
+def test_a_mid_size_target_is_sent_the_whole_room_its_unit_leaves(
+    tmp_path: Path,
+) -> None:
     index = _repo(tmp_path, padding_lines=500)
     size = _size(index)
     assert 9000 < size < 11000
-
-    result = decompose(
-        index, "document listing", propose=ClassifierProposer(classify=_code)
-    )
-    (contract,) = result.contracts
-    stated = contract.limits.max_output_tokens
-    assert stated == math.ceil(size * REPLY_CAP_MARGIN)
+    contract = _contract(index)
+    assert contract.limits.max_output_tokens is None
 
     prompt = build_prompt(contract).measured
-    room = unit_ceiling(Rung(), prompt).tokens
-    assert room is not None and least_reply(stated) <= room < stated
-
     assert check_contract_against_rung(contract, prompt, rung=Rung()) is None
-    cap = sized_reply_cap(contract, Rung(), prompt=prompt)
-    assert cap.tokens == room
+    cap = unit_max(Rung(), prompt)
+    assert cap.tokens == 32768 - math.ceil(
+        estimate_tokens(prompt) * (1 + ESTIMATE_RESERVE)
+    )
     assert cap.tokens >= size, "the whole target still comes back"
-    assert "narrowed" in cap.basis, cap.basis
+    assert "local_32k" in cap.basis, cap.basis
 
 
-def test_a_room_below_half_the_cap_is_still_refused(tmp_path: Path) -> None:
-    index = _repo(tmp_path, padding_lines=500)
-    result = decompose(
-        index, "document listing", propose=ClassifierProposer(classify=_code)
-    )
-    (contract,) = result.contracts
+def test_a_narrow_unit_is_sent_what_room_it_has_not_refused(tmp_path: Path) -> None:
+    contract = _contract(_repo(tmp_path, padding_lines=500))
     prompt = build_prompt(contract).measured
-
     narrow = Rung(source="local_16k", context_window=16384)
-    issue = check_contract_against_rung(contract, prompt, rung=narrow)
 
-    assert issue is not None and issue.reason == "output-cap", issue
-
-
-def test_the_cap_follows_a_raised_worker_view_ceiling(tmp_path: Path) -> None:
-    index = _repo(tmp_path, padding_lines=1000)
-    size = _size(index)
-    assert math.ceil(size * REPLY_CAP_MARGIN) > REPLY_CAP_CEILING
-
-    result = decompose(
-        index,
-        "document listing",
-        propose=ClassifierProposer(classify=_code),
-        max_input_tokens=4 * REPLY_CAP_CEILING,
-    )
-
-    (contract,) = result.contracts
-    assert contract.limits.max_output_tokens == math.ceil(size * REPLY_CAP_MARGIN)
+    assert check_contract_against_rung(contract, prompt, rung=narrow) is None
+    narrow_cap, wide_cap = unit_max(narrow, prompt), unit_max(Rung(), prompt)
+    assert narrow_cap.tokens is not None and wide_cap.tokens is not None
+    assert 0 < narrow_cap.tokens == wide_cap.tokens - (32768 - 16384)

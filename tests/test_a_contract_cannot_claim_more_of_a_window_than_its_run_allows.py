@@ -39,13 +39,13 @@ def test_a_contract_declaring_a_wider_share_than_its_run_is_refused_unsent(
 
     assert isinstance(outcome, Halted), outcome
     assert outcome.outcome is Outcome.ERROR
-    assert sent == [], "the contract's own 0.9 let it past the run's 0.25"
+    assert sent == [], "the contract's own 0.9 let it past the run's 0.1"
     assert waker.woken == []
     (only,) = outcome.history
     assert only.rung == "local_narrow"
     assert "window-share" in only.detail, only.detail
     assert "run's `max_window_fraction`" in only.detail, only.detail
-    assert "0.25" in only.detail, only.detail
+    assert "0.10" in only.detail, only.detail
     assert "limits.max_window_fraction" not in only.detail, (
         "the run's share was hit, and raising the contract's would change "
         f"nothing: {only.detail}"
@@ -55,7 +55,7 @@ def test_a_contract_declaring_a_wider_share_than_its_run_is_refused_unsent(
 def test_a_contract_holding_itself_to_less_than_its_run_is_held_to_its_own(
     repo: Path, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
-    """The run allows nine tenths and the contract a quarter: the quarter."""
+    """The run allows nine tenths and the contract a tenth: the tenth."""
     from mcgyvr.escalate import Halted
 
     outcome, sent, _, _ = _run(
@@ -63,7 +63,7 @@ def test_a_contract_holding_itself_to_less_than_its_run_is_held_to_its_own(
         tmp_path,
         monkeypatch,
         policy="max_window_fraction: 0.9\n",
-        contract_text=_sharing(0.25),
+        contract_text=_sharing(0.1),
     )
 
     assert isinstance(outcome, Halted) and sent == []

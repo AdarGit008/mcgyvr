@@ -94,7 +94,6 @@ def test_code_is_offered_alongside_the_other_types(tmp_path: Path) -> None:
     assert kind.options["task_type:1"] == load_catalog().require("code").doc
     (proposal,) = proposals
     assert proposal.task_type == "code"
-    assert proposal.max_output_tokens is not None
 
 
 def test_an_empty_vocabulary_is_a_refusal_not_a_contract(tmp_path: Path) -> None:

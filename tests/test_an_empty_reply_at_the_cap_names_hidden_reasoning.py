@@ -51,8 +51,9 @@ def test_an_empty_reply_at_the_cap_names_reasoning_the_tokens_and_the_cap() -> N
         "the model used all 1024 output tokens of its 1024-token cap on hidden "
         "reasoning (1024 reported as reasoning) and returned no visible reply"
     ) in said
-    assert "limits.max_output_tokens" in said
-    assert "output_tokens" in said
+    # The cap was the unit's maximum, so the keys that raise it are the unit's.
+    assert "limits.max_output_tokens" not in said
+    assert "`output_tokens`" in said and "`window`" in said
     assert "missing its tail" not in said
 
 

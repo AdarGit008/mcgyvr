@@ -3,7 +3,8 @@
 A runner speaks one protocol path (today the OpenAI-compatible
 `/v1/chat/completions`) on the endpoint a rung or role names. `dispatch` and
 `dispatch_role` pick the runner and, when a `Capacity` is given, hold the unit's
-slot for the whole request. `Runner.generate` builds the body, posts it, parses
+slot for the whole request. `Runner.generate` sends a request that states no
+cap at the unit's maximum (`at_unit_max`), builds the body, posts it, parses
 the reply, and refuses an answer that is not the one asked for: other weights,
 another host's model, or a shape the protocol does not allow. Every failure
 becomes a named subclass of `RunnerError`, so a caller can tell a rung that is
@@ -289,7 +290,10 @@ class Request:
 
     `prompt` is the user text of a single-shot ask; `turns` carries a
     conversation instead, and `prompt` is then sent only if it is non-empty or
-    there are no turns at all. `__post_init__` refuses a cap below 1, a
+    there are no turns at all. `max_output_tokens` is `None` for a request sent
+    the unit's maximum, which the runner fills in (`at_unit_max`); a number is
+    for a request that needs a small fixed reply of its own, such as a probe.
+    `__post_init__` refuses a cap below 1, a
     non-positive timeout, and a turn that is not a chat message, so a request
     that cannot be sent as stated never reaches an endpoint.
     """
@@ -310,7 +314,7 @@ class Request:
             raise ValueError(
                 f"max_output_tokens must be at least 1, got "
                 f"{self.max_output_tokens}. A cap below 1 is not a ceiling; "
-                f"use None for an uncapped raw-text dispatch."
+                f"use None to send the unit's maximum."
             )
         if self.timeout_s is not None and self.timeout_s <= 0:
             raise ValueError(f"timeout_s must be positive, got {self.timeout_s}")
@@ -464,11 +468,13 @@ class Runner(ABC):
     def generate(self, model: str, request: Request) -> Completion:
         """Dispatch the request at this endpoint and read the answer back.
 
-        The status page is polled before and after the request, so the derived
-        throughput and in-flight figures cover the window the reply came from.
-        Raises `QualityCaveatError` before anything is sent when the path cannot
-        carry a quality-sensitive request, and otherwise one of the `RunnerError`
-        subclasses for every answer that is not the one asked for.
+        A request that states no cap is sent the unit's maximum
+        (`at_unit_max`). The status page is polled before and after the
+        request, so the derived throughput and in-flight figures cover the
+        window the reply came from. Raises `QualityCaveatError` before anything
+        is sent when the path cannot carry a quality-sensitive request, and
+        otherwise one of the `RunnerError` subclasses for every answer that is
+        not the one asked for.
         """
         if request.quality_sensitive and not self.quality_safe:
             raise QualityCaveatError(
@@ -476,6 +482,7 @@ class Runner(ABC):
                 f"{self.protocol} path of source {self.endpoint.source!r}. "
                 f"{CAVEAT_NOTE}"
             )
+        request = at_unit_max(self.endpoint, request)
 
         url = _url_for(self.endpoint.base_url, self.path)
         before = _status(self.endpoint)
@@ -693,8 +700,9 @@ class OpenAIRunner(Runner):
             payload["temperature"] = request.temperature
         if request.max_output_tokens is not None:
             # The cap is sent as `max_tokens`, the chat completions ceiling on the
-            # reply. An uncapped request sends nothing and leaves the backend's own
-            # length limit to stop it.
+            # reply. A request still uncapped here is one whose unit states no
+            # ceiling (or whose prompt leaves it no room): it sends nothing and
+            # leaves the backend's own length limit to stop it.
             payload["max_tokens"] = request.max_output_tokens
         if request.response_schema is not None:
             # A pinned schema goes as a strict `json_schema` response format, which
@@ -809,6 +817,44 @@ class OpenAIRunner(Runner):
 _RUNNERS: dict[Protocol, type[Runner]] = {
     Protocol.OPENAI: OpenAIRunner,
 }
+
+
+def at_unit_max(endpoint: Endpoint, request: Request) -> Request:
+    """`request` with the unit's maximum as its cap, where it states none.
+
+    A request that states its own cap keeps it: a warm-up or a probe asks for
+    the small reply it needs. Any other request — a rung's attempt is sized
+    before it gets here, a decomposition or a review here — is sent the most
+    the unit can give: its stated reply ceiling clamped to the room its window
+    leaves once the request's text is paid for
+    (:func:`mcgyvr.gate.preflight.unit_max`), with that sentence as its
+    `cap_basis`. A unit that states no ceiling, or a prompt that leaves it no
+    room, leaves the request uncapped.
+    """
+    if request.max_output_tokens is not None:
+        return request
+    # Imported at use: the gate package reaches back into modules that import
+    # this one, and the sizing rule has one home there.
+    from mcgyvr.gate.preflight import unit_max
+
+    cap = unit_max(endpoint, _sent_text(request))
+    if cap.tokens is None:
+        return request
+    return replace(request, max_output_tokens=cap.tokens, cap_basis=cap.basis)
+
+
+def _sent_text(request: Request) -> str:
+    """Everything a request puts in the window ahead of the reply, as text.
+
+    The system prompt, each turn and each tool definition as the JSON they are
+    sent as, and the prompt, joined by newlines: the count the room is sized
+    from covers every part of the request, not the user text alone.
+    """
+    parts = [request.system]
+    parts += [json.dumps(dict(turn)) for turn in request.turns]
+    parts += [json.dumps(dict(tool)) for tool in request.tools]
+    parts.append(request.prompt)
+    return "\n".join(part for part in parts if part)
 
 
 def runner_for(endpoint: Endpoint) -> Runner:

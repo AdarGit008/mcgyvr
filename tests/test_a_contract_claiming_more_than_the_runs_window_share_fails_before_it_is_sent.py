@@ -81,7 +81,7 @@ def test_the_refusal_names_the_runs_config_as_the_limit_that_was_hit(
 
     (only,) = outcome.history
     assert "run's `max_window_fraction`" in only.detail, only.detail
-    assert "0.25" in only.detail, only.detail
+    assert "0.10" in only.detail, only.detail
     assert "limits.max_window_fraction" not in only.detail, (
         "the contract declared no share, so naming its own limit sends the "
         f"operator to a key that is not set: {only.detail}"
@@ -110,7 +110,7 @@ def test_a_refusal_on_the_contracts_own_share_names_the_contract(
         tmp_path,
         monkeypatch,
         policy="",
-        contract_text=_sharing(0.25),
+        contract_text=_sharing(0.1),
     )
 
     assert isinstance(outcome, Halted) and sent == []
@@ -134,7 +134,7 @@ def test_dispatch_prompt_refuses_on_the_runs_share_before_the_runner(
 
     with pytest.raises(ContractTooLargeForRungError) as refused:
         dispatch_prompt(
-            pool, "local_narrow", build_prompt(contract), contract, window_fraction=0.25
+            pool, "local_narrow", build_prompt(contract), contract, window_fraction=0.1
         )
 
     assert sent == []

@@ -42,7 +42,6 @@ from mcgyvr.orchestrator.candidates import (
     enumerate_candidates,
     interface_candidates,
     kind_for,
-    reply_cap,
     scope_candidates,
     stop_condition,
     symbol_candidates,
@@ -237,9 +236,6 @@ def _reply_format() -> str:
         '- "type_check" (boolean, optional): true when the project\'s own type '
         "checker must pass; derives type_check evidence for task_type code, "
         "and the located checker command is filled in as acceptance.\n"
-        '- "max_output_tokens" (whole number, required for task_type code): '
-        "the reply cap, what the reply is worth in output tokens; a code "
-        "proposal without one is refused.\n"
         "Omit optional fields rather than writing null. Return [] when nothing "
         "can be proposed."
     )
@@ -312,7 +308,6 @@ def _proposal_of(item: object) -> Proposal:
         deps=_deps(item),
         allow=_strings(item, "allow"),
         forbid=_strings(item, "forbid"),
-        max_output_tokens=_optional_cap(item),
         stop_conditions=_strings(item, "stop_conditions"),
         acceptance=_strings(item, "acceptance"),
         demonstration=_strings(item, "demonstration"),
@@ -329,21 +324,6 @@ def _required_str(item: dict[str, object], key: str) -> str:
     if not isinstance(value, str) or not value.strip():
         raise UnreadableProposalError(
             f"a proposal is missing a non-empty string {key!r}"
-        )
-    return value
-
-
-def _optional_cap(item: dict[str, object]) -> int | None:
-    """Read `max_output_tokens`: absent means no cap.
-
-    Anything present but not a whole number of at least 1 is refused.
-    """
-    value = item.get("max_output_tokens")
-    if value is None:
-        return None
-    if isinstance(value, bool) or not isinstance(value, int) or value < 1:
-        raise UnreadableProposalError(
-            f"max_output_tokens: {value!r} is not a whole number of at least 1"
         )
     return value
 
@@ -422,14 +402,14 @@ def proposer_for(
     source_map: SourceMap,
     *,
     capacity: Capacity | None = None,
-    max_output_tokens: int | None = None,
 ) -> Proposer | None:
     """Build the prose proposer on the `orchestrator` role, or None if unbound.
 
     The role has to name a model, else nothing can propose. The returned
     callable renders the evidence with `build_prompt`, dispatches it to the
-    role — through `capacity`, when one is given, and capped by
-    `max_output_tokens` — and parses the reply with `proposals_from_reply`.
+    role — through `capacity`, when one is given, and at the unit's maximum
+    reply within the room the prompt leaves (`runner.at_unit_max`) — and
+    parses the reply with `proposals_from_reply`.
     """
     if source_map.role_model(ORCHESTRATOR_ROLE) is None:
         return None
@@ -438,10 +418,8 @@ def proposer_for(
         completion = dispatch_role(
             source_map,
             ORCHESTRATOR_ROLE,
-            Request(
-                prompt=build_prompt(evidence),
-                max_output_tokens=max_output_tokens,
-            ),
+            # No cap is stated: the runner sends the unit's maximum.
+            Request(prompt=build_prompt(evidence), max_output_tokens=None),
             capacity=capacity,
         )
         if completion is None:  # The role lists a model but resolves to no unit.
@@ -472,10 +450,9 @@ class ClassifierProposer:
     and the pick goes into the contract unchanged. A
     load-bearing answer (`task_type`/`target`) that is unusable, falls short of
     the floor, or names a type this ladder cannot serve declines the whole
-    proposal; an optional field degrades to its rank-0 candidate instead. A
-    type needing an output cap is not asked for one: `reply_cap` states it
-    deterministically from the chosen target's size. Each decision is appended
-    to `sink`, when one is wired.
+    proposal; an optional field degrades to its rank-0 candidate instead. No
+    reply cap is asked for or stated: the work is sent its unit's maximum.
+    Each decision is appended to `sink`, when one is wired.
 
     For the W6 retry loop, a decline returns a `Refusal` field/directive as
     follows: no targets or no vocabulary → `target`/`task_type`; `task_type`
@@ -620,15 +597,6 @@ class ClassifierProposer:
             plan,
             "stop_conditions",
             stop_condition(kind, target, symbol_name),
-            provenance=Provenance.DETERMINISTIC,
-        )
-        # No question can say what a reply is worth, so the cap is stated from
-        # the chosen target's size rather than asked. It is chosen even when
-        # None, so a type that states no cap never keeps the rank-0 type's.
-        plan = choose(
-            plan,
-            "max_output_tokens",
-            reply_cap(evidence, kind, target),
             provenance=Provenance.DETERMINISTIC,
         )
 

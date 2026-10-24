@@ -93,25 +93,23 @@ class Endpoint:
     #: resolves it.
     context_window: int | None = None
     #: Tokens this endpoint serves in one request, as the unit states them,
-    #: prompt and reply together; `None` means the unit says nothing. The
-    #: prompt is budgeted from this number: what it may claim is this window
-    #: less the room reserved for the reply, and a `code` contract with
-    #: neither this nor `output_tokens` behind it is refused rather than
-    #: guessed at. It limits the whole request, where `output_tokens` limits
-    #: the reply alone.
+    #: prompt and reply together; `None` means the unit says nothing. Every
+    #: reply is clamped to what this window leaves once the prompt is paid
+    #: for, and a `code` contract with neither this nor `output_tokens`
+    #: behind it is refused rather than guessed at. It limits the whole
+    #: request, where `output_tokens` limits the reply alone.
     output_tokens: int | None = None
     #: Room a reply on this endpoint is given, hidden reasoning included, as
-    #: the unit states it. It is a ceiling a contract's
-    #: `limits.max_output_tokens` is held to, never a replacement for it: the
-    #: contract's cap is what is sent. `None` means the unit states no room,
-    #: and the ceiling is then whatever the window leaves.
+    #: the unit states it: the reply cap every request to it is sent, clamped
+    #: to the room the window leaves the prompt. `None` means the unit states
+    #: no room, and the cap is then whatever the window leaves.
     #: It is kept apart from `context_window` because one is room one reply is
     #: given and the other is room the whole request is served in, and where
     #: both are stated the smaller one holds.
     output_ceiling: int | None = None
     #: The reply room of the rung this one stands in for, set on relief
     #: rungs alone by `source_map`: a lent rung answers as one of yours
-    #: would, so a contract's cap is checked against this ceiling.
+    #: would, so its reply cap is held to this ceiling too.
     request_timeout_s: float | None = None
     #: Seconds one dispatched request to this endpoint may take before the
     #: transport gives up. `None` means nothing is stated here and the
@@ -416,8 +414,8 @@ def source_map(config: Config, probe: SourceProbe | None = None) -> SourceMap:
 
     # A lent rung answers as one of yours would, so it is held to a ceiling
     # of yours: `output_ceiling` is the reply room of the cheapest usable
-    # rung, and a contract's cap is checked against it as it would be
-    # against the rung the lent one stands in for.
+    # rung, and a reply on it is capped there as it would be on the rung the
+    # lent one stands in for.
     if usable and relief:
         local = endpoints[usable[0].name].output_tokens
         for rung in relief:

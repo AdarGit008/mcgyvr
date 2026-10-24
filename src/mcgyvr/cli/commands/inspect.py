@@ -336,24 +336,18 @@ def _contract(args: argparse.Namespace) -> int:
         print(f"  judged:  {how_judged(contract.kind)}")
     else:
         print(f"  verified by {contract.verification.policy.replace('_', ' ')}")
-    # Limits by kind: a model-written change states an output budget (or says
-    # that `mcgyvr run` will refuse it), the prompt-token cap, and an attempt
-    # count. A deterministic operation calls no model, so no limits are printed
-    # for it at all.
+    # Limits by kind: a model-written change says what its reply is sent, the
+    # prompt-token cap, and an attempt count. A deterministic operation calls
+    # no model, so no limits are printed for it at all.
     if not contract.is_deterministic:
+        output_budget = "reply at its unit's maximum"
         if contract.limits.max_output_tokens is not None:
-            output_budget = f"<={contract.limits.max_output_tokens} output tokens"
-        elif contract.needs_output_cap:
-            # `needs_output_cap` is true when a model writes the change and
-            # something then judges it, so the cap is mandatory at dispatch.
-            # The preview states that rule here rather than leaving the
-            # omission to be found when the run is refused.
-            output_budget = (
-                "no output cap stated — `mcgyvr run` refuses it until "
-                "`limits.max_output_tokens` is stated"
+            # A stated cap is read and never sent; the preview says so rather
+            # than letting the number pass for the one the reply is given.
+            output_budget += (
+                f" (limits.max_output_tokens: "
+                f"{contract.limits.max_output_tokens} is not sent)"
             )
-        else:
-            output_budget = "uncapped (raw text)"
         print(
             f"  limits:  {output_budget}, "
             f"<={contract.max_input_tokens} prompt tokens, "

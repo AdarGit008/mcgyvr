@@ -72,9 +72,6 @@ def a_fix(**overrides: object) -> Proposal:
         "stop_conditions": ("the pager's contract is ambiguous",),
         "acceptance": ("pytest -q",),
         "demonstration": ("pytest -q tests/test_listing.py::test_page_size",),
-        # Every model-written `code` contract states what its reply is worth;
-        # one that does not is refused before emission.
-        "max_output_tokens": 1024,
     }
     return Proposal(**{**base, **overrides})  # type: ignore[arg-type]
 
@@ -323,7 +320,6 @@ def test_resize_preserves_sources_and_depends_on(tmp_path: Path) -> None:
         task="add a base helper",
         target="base.py",
         stop_conditions=("the helper's contract is ambiguous",),
-        max_output_tokens=1024,
     )
     dependent = Proposal(
         task_type="code",
@@ -638,7 +634,6 @@ def test_content_is_filled_for_every_type_not_a_chosen_list(
         task="tidy listing()",
         target="listing.py",
         stop_conditions=("the function's behaviour is ambiguous",),
-        max_output_tokens=1024,
     )
 
     (built,) = decompose(

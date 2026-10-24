@@ -67,7 +67,6 @@ DOCSTRING_REPLY = json.dumps(
     [
         {
             "task_type": "code",
-            "max_output_tokens": 1024,
             "task": "document listing()",
             "target": "listing.py",
             "stop_conditions": ["the function's behaviour is ambiguous"],
@@ -138,7 +137,6 @@ def test_proposals_from_reply_reads_a_json_array() -> None:
     assert proposals == (
         Proposal(
             task_type="code",
-            max_output_tokens=1024,
             task="document listing()",
             target="listing.py",
             stop_conditions=("the function's behaviour is ambiguous",),
@@ -157,7 +155,6 @@ def test_proposals_from_reply_carries_deps_and_optional_fields() -> None:
         [
             {
                 "task_type": "code",
-                "max_output_tokens": 1024,
                 "task": "page the items before returning",
                 "target": "listing.py",
                 "interface": "listing(items, size=10) -> list",
@@ -196,7 +193,6 @@ def test_proposals_from_reply_reads_operation_sources_and_depends_on() -> None:
         [
             {
                 "task_type": "code",
-                "max_output_tokens": 1024,
                 "task": "page the items before returning",
                 "target": "listing.py",
                 "operation": "format",
@@ -218,7 +214,6 @@ def test_proposals_from_reply_refuses_a_bad_depends_on_entry() -> None:
         [
             {
                 "task_type": "code",
-                "max_output_tokens": 1024,
                 "task": "page the items before returning",
                 "target": "listing.py",
                 "depends_on": ["zero"],
@@ -257,7 +252,6 @@ def test_proposer_for_dispatches_to_the_role_and_parses_the_reply(
     assert proposals == (
         Proposal(
             task_type="code",
-            max_output_tokens=1024,
             task="document listing()",
             target="listing.py",
             stop_conditions=("the function's behaviour is ambiguous",),
@@ -268,11 +262,12 @@ def test_proposer_for_dispatches_to_the_role_and_parses_the_reply(
     assert "listing.py" in seen[0]
 
 
-def test_the_orchestrator_dispatch_is_uncapped_by_default(
+def test_the_orchestrator_dispatch_states_no_cap_of_its_own(
     repo: Index, monkeypatch: pytest.MonkeyPatch
 ) -> None:
-    """The default: prose and the orchestrator carry no output cap — a chatty
-    model is a prompting issue, not a cap issue. The default dispatch is None."""
+    """The decomposition picks no number: it leaves the cap to the runner, which
+    sends the unit's maximum (``tests/test_every_generating_request_is_sent_its_
+    units_maximum.py``)."""
     import mcgyvr.delegate as delegate
 
     pool = source_map(parse(cfg(ORCHESTRATOR)))

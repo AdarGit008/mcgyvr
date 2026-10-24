@@ -363,8 +363,9 @@ def ground(setup: Path, unit: str) -> str:
 
     The sample's files are rendered as numbered sources, the way a worker is
     shown them, under its task, and the request is dispatched at the unit
-    through the setup's source map with no output cap: the agent use case is
-    the served model used directly. The reply text is returned as it was sent.
+    through the setup's source map stating no output cap, so it is sent the
+    unit's maximum: the agent use case is the served model used directly. The
+    reply text is returned as it was sent.
     """
     from mcgyvr.config import load
     from mcgyvr.local_pool import source_map

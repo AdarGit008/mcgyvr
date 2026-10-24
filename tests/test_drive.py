@@ -307,19 +307,18 @@ ladder:
 """
 
 
-def test_the_contracts_output_cap_reaches_the_request(
+def test_the_units_maximum_reaches_the_request(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    """``limits.max_output_tokens`` is applied, for the first time.
+    """The request carries the unit's maximum, not the contract's number.
 
-    Documented as a hard ceiling on one execution and — until there was a
-    binding — read by nothing. Stated by the contract, because one that states
-    none is sized from its target instead (asserted in
-    ``tests/test_an_unpinned_reply_cap_is_sized_from_the_target.py``), and
-    asserted against the contract's own value rather than a literal.
+    The contract states 1536 and the unit serves a 32768-token window: the
+    request is sent the room that window leaves the prompt, asserted against
+    the preflight's own sizing rather than a literal.
     """
     import mcgyvr.drive as drive
     from mcgyvr.config import parse as parse_config
+    from mcgyvr.gate.preflight import unit_max
     from mcgyvr.local_pool import Protocol, source_map
     from mcgyvr.runner import Completion, Request, StopReason
     from mcgyvr.worker.prompt import build_prompt
@@ -360,7 +359,11 @@ limits:
     dispatch_prompt(pool, "local_qwen-7b", prompt, contract)
 
     (request,) = sent
-    assert request.max_output_tokens == contract.limits.max_output_tokens
+    assert (
+        request.max_output_tokens
+        == unit_max(pool.bind("local_qwen-7b"), prompt.measured).tokens
+    )
+    assert request.max_output_tokens != contract.limits.max_output_tokens
     assert request.prompt == prompt.user
     assert request.system == prompt.system  # the language bundle travels too
 

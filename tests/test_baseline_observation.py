@@ -170,7 +170,6 @@ def test_decompose_derives_demonstration_and_acceptance_from_the_run(
     index = build_index(_pytest_repo(tmp_path))
     proposal = Proposal(
         task_type="code",
-        max_output_tokens=1024,
         task="demo.value() should return the real value, not a placeholder.",
         target="demo.py",
         stop_conditions=("the intended value is ambiguous",),
@@ -192,7 +191,6 @@ def test_the_proposers_own_commands_flow_through_when_there_is_no_runner(
     index = build_index(_declining_repo(tmp_path))
     proposal = Proposal(
         task_type="code",
-        max_output_tokens=1024,
         task="fix the value",
         target="demo.py",
         stop_conditions=("the intent is ambiguous",),
@@ -214,7 +212,6 @@ def test_a_proposal_declaring_its_own_commands_is_never_overruled(
     index = build_index(_pytest_repo(tmp_path))
     proposal = Proposal(
         task_type="code",
-        max_output_tokens=1024,
         task="fix the value",
         target="demo.py",
         stop_conditions=("the intent is ambiguous",),
@@ -236,7 +233,6 @@ def test_the_observation_is_handed_to_the_proposer(tmp_path: Path) -> None:
         (
             Proposal(
                 task_type="code",
-                max_output_tokens=1024,
                 task="fix the value",
                 target="demo.py",
                 stop_conditions=("the intent is ambiguous",),

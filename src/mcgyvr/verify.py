@@ -615,11 +615,11 @@ def reviewer_for(
     source_map: SourceMap,
     *,
     capacity: Capacity | None = None,
-    max_output_tokens: int | None = None,
 ) -> Ask | None:
     """A prose-ask seam bound to the verifier role, or None if it is unbound.
 
-    The request carries only the prompt and `max_output_tokens`. A dispatch that
+    The request carries only the prompt, and its reply is sent the unit's
+    maximum within the room the prompt leaves (`runner.at_unit_max`). A dispatch that
     comes back empty raises `ReviewerUnavailableError`, and a truncated reply
     raises `ReviewTruncatedError` through `_review_text`.
     """
@@ -633,7 +633,7 @@ def reviewer_for(
         completion = dispatch_role(
             source_map,
             VERIFIER_ROLE,
-            Request(prompt=prompt, max_output_tokens=max_output_tokens),
+            Request(prompt=prompt, max_output_tokens=None),
             capacity=capacity,
         )
         if completion is None:  # unreachable once the role has a model
@@ -971,7 +971,8 @@ def _askable(
 ) -> Reviewer:
     """A `Reviewer` that dispatches everything to one rung.
 
-    The prose ask is a plain `dispatch` to `rung` with no output-token cap, and
+    The prose ask is a plain `dispatch` to `rung`, sent the unit's maximum
+    reply within the room the prompt leaves (`runner.at_unit_max`), and
     the typed seams are `classify_for` on the same rung — one for the verdict,
     one for `JEV_QUESTIONS`. Both typed seams go through one `_TypedMemory`, so a
     refusal recorded by either is remembered by both. `instead` is carried into

@@ -1,12 +1,10 @@
-"""D07 — the output cap is the one the contract states, and a prompt that cannot fit
-is refused unspent.
+"""D07 — a prompt that leaves its window no room for a reply is refused unspent.
 
-``limits.max_output_tokens`` has no default and is never derived: a
-model-written ``code`` contract states
-what its reply is worth, and one that states nothing is refused at dispatch
-(``tests/test_a_code_contract_states_its_cap_or_is_refused_at_dispatch.py``).
-The sizing this file used to pin, a cap derived from the contract's evidence,
-is gone with that rule.
+There is no output cap to size: every request is sent its unit's maximum,
+clamped to the room the window leaves the prompt
+(``tests/test_every_generating_request_is_sent_its_units_maximum.py``). What can
+still fail before dispatch is the prompt itself, once it leaves the window no
+room at all.
 
 *A contract that cannot fit is refused before dispatch* is asserted on a
 returned refusal rather than a raised one, and on a value produced from the
@@ -34,11 +32,11 @@ from mcgyvr.orchestrator.read import estimate_tokens
 from tests._helpers import required
 
 BEHAVIOR = (
-    "refuse a contract whose prompt plus its own output cap cannot fit the rung's "
-    "context window, before anything is dispatched"
+    "refuse a contract whose prompt leaves the rung's context window no room "
+    "for a reply, before anything is dispatched"
 )
 
-#: A model-written change that states its cap, as every one must.
+#: A model-written change; it states no cap, as none needs to.
 CONTRACT = """
 id: cap-probe
 task_type: code
@@ -47,8 +45,6 @@ target: src/pkg/fetch.py
 stop_conditions:
   - The intended behaviour is not stated anywhere in the repo.
 acceptance: ["python -c 'import sys; sys.exit(0)'"]
-limits:
-  max_output_tokens: 1024
 scope:
   allow: ["src/**/*.py"]
 """
@@ -78,27 +74,24 @@ def test_a_contract_that_cannot_fit_its_window_is_refused_at_zero_spend() -> Non
     """
     check = _budget_check()
     contract = loads(CONTRACT)
-    cap = contract.limits.max_output_tokens
-    assert cap == 1024
 
     prompt = "x" * (4 * 4000)
     estimated = estimate_tokens(prompt)
     charged = int(estimated * (1 + ESTIMATE_RESERVE))
-    window = estimated + cap + 16
-    assert charged + cap > window, "fixture no longer straddles the reserve"
+    window = estimated + 16
+    assert charged > window, "fixture no longer straddles the reserve"
 
     refused = check(contract=contract, prompt=prompt, context_window=window)
 
     assert refused is not None, (
-        f"a prompt of ~{estimated} estimated tokens plus a {cap}-token cap was allowed "
-        f"into a {window}-token window: the {ESTIMATE_RESERVE:.0%} estimator reserve "
-        f"was "
+        f"a prompt of ~{estimated} estimated tokens was allowed into a "
+        f"{window}-token window: the {ESTIMATE_RESERVE:.0%} estimator reserve was "
         f"not charged"
     )
     said = str(refused)
-    assert str(window) in said and str(cap) in said, (
-        f"the refusal must name the window it enforced and the output it reserved, "
-        f"said: {said!r}"
+    assert str(window) in said and str(charged) in said, (
+        f"the refusal must name the window it enforced and the prompt as "
+        f"charged, said: {said!r}"
     )
 
     fits = check(contract=contract, prompt=prompt, context_window=window * 4)
