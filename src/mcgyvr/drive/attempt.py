@@ -44,7 +44,7 @@ from mcgyvr.escalate import (
     Judgement,
     required_policy,
 )
-from mcgyvr.notes import FailureNotes, handed_on
+from mcgyvr.notes import FailureNotes, handed_on, primed
 from mcgyvr.route import Try, Verdict, draws_for, family_of
 from mcgyvr.runner import Completion, RunnerError
 from mcgyvr.telemetry import observe
@@ -102,6 +102,7 @@ def worker_attempt(
     recording: Recording | None = None,
     cooldown: Cooldown | None = None,
     reviewers: Reviewers | None = None,
+    seed: Sequence[FailureNotes] = (),
 ) -> Callable[[Try], Judgement]:
     """Build the driver that tries one rung: `Try` in, `Judgement` out.
 
@@ -110,15 +111,19 @@ def worker_attempt(
     sandbox the draws are written into and gated in, the language adapters, the
     journal, the cooldown and the reviewer selector. A driver outlives one
     attempt — the climb calls it again, on this rung and on the rungs above — so
-    it also keeps the climb's failure notes a later attempt is told about.
+    it also keeps the climb's failure notes a later attempt is told about,
+    starting from `seed`: records an earlier run of this contract left
+    (:func:`mcgyvr.notes.seeded`), which open the climb under `retry_notes:
+    climb` and nowhere else (:func:`mcgyvr.notes.primed`).
     """
-    climb: list[FailureNotes] = []
     # The climb's history of failure-notes records, oldest first: one per
     # failed attempt that left one, each naming the rung and attempt it is
-    # about. `retry_notes` decides which of them a try is handed — every one,
-    # this rung's previous attempt's, or none — and an attempt that left no
-    # record adds none, so nothing is ever presented as an attempt it is not.
+    # about, after the seed's records, each naming the earlier run it is from.
+    # `retry_notes` decides which of them a try is handed — every one, this
+    # rung's previous attempt's, or none — and an attempt that left no record
+    # adds none, so nothing is ever presented as an attempt it is not.
     handing = str(config.get("retry_notes", "climb"))
+    climb: list[FailureNotes] = primed(seed, handing)
     checked: list[str] = []
     if reviewers is None and reviewer is not None:
         # A bare `ask` seam stands in for the run's reviewer: it becomes one

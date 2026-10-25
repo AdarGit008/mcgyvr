@@ -131,6 +131,14 @@ class RunResult:
     #: `needs` it had of them and the `chain` a hold came down through. `None`
     #: on every other run, and then the key is left out of the file.
     blocked_by: dict[str, Any] | None = None
+    #: `seeded` is what this run was handed from an earlier run of the same
+    #: contract (`mcgyvr run --notes-from RESULT`): `from`, the result file read,
+    #: `records`, each failure-notes record read from it with the `run` it was
+    #: made in, oldest first, and `handed`, how many of them the climb was
+    #: started with — all of them under `retry_notes: climb`, none under `rung`,
+    #: `none` or on the deterministic floor. `None` on a run that was not
+    #: seeded, and then the key is left out of the file.
+    seeded: dict[str, Any] | None = None
 
     def as_json(self) -> dict[str, Any]:
         data = asdict(self)
@@ -138,6 +146,8 @@ class RunResult:
             del data["triage"]
         if self.blocked_by is None:
             del data["blocked_by"]
+        if self.seeded is None:
+            del data["seeded"]
         return data
 
 

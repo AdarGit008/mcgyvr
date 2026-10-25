@@ -66,6 +66,7 @@ def _run(args: argparse.Namespace) -> int:
     from mcgyvr.contract import ContractError
     from mcgyvr.contract import load as load_task_contract
     from mcgyvr.drive import Recording, gate_adapters
+    from mcgyvr.notes import CarriedNotes, NotesError, primed, seeded
     from mcgyvr.result import (
         RunResult,
         result_path,
@@ -81,6 +82,19 @@ def _run(args: argparse.Namespace) -> int:
     except ContractError as exc:
         print(f"error: {exc}", file=sys.stderr)
         return 1
+    # An earlier run's failure notes, read and checked before anything else is
+    # spent: a seed that is not a sound result of this contract stops the run
+    # here rather than send a climb told something it should not have been.
+    # `delegate --run` builds its own arguments and names no seed.
+    args.notes_from = getattr(args, "notes_from", None)
+    seed: tuple[CarriedNotes, ...] = ()
+    if args.notes_from is not None:
+        try:
+            seed = seeded(Path(args.notes_from), contract=contract.id)
+        except NotesError as exc:
+            print(f"error: --notes-from {args.notes_from}: {exc}", file=sys.stderr)
+            return 1
+    args.notes_seed = seed
 
     repo = Path(args.repo).resolve()
     if not (repo / ".git").exists():
@@ -190,6 +204,20 @@ def _run(args: argparse.Namespace) -> int:
         journal=str(journal_dir),
         notes=notes,
     )
+    if args.notes_from is not None:
+        # What the seed was and how much of it the climb opens with: all of it
+        # under `retry_notes: climb`, none under the other modes or on the
+        # floor, which has no climb to tell.
+        handing = (
+            str(config.get("retry_notes", "climb"))
+            if config is not None and not contract.is_deterministic
+            else "none"
+        )
+        report.seeded = {
+            "from": str(args.notes_from),
+            "handed": len(primed(seed, handing)),
+            "records": [record.carried_json() for record in seed],
+        }
 
     # The journal sink for this run: DIR/<orchestrator>.jsonl, plus every mirror.
     try:
@@ -678,6 +706,7 @@ def _climb(
                 recording=recording,
                 cooldown=cooldown,
                 reviewers=reviewers,
+                seed=args.notes_seed,
             )
             if _live(config):
                 driver = _warning_pulled_steps(driver)
@@ -1403,6 +1432,22 @@ def add_parser(
             "dir>/results/<contract>-<utc stamp>.json). The path is printed as "
             "`result: PATH`; the caller reads the file. mcgyvr keeps its own "
             "copy under the journal directory either way"
+        ),
+    )
+    run.add_argument(
+        "--notes-from",
+        default=None,
+        type=_named_path,
+        metavar="RESULT",
+        help=(
+            "start the climb with the failure notes of an earlier run of this "
+            "contract: RESULT is that run's result file. Its records are "
+            "checked (same contract, the notes schema, repo-relative paths) "
+            "and shown to the first attempt under a banner naming the earlier "
+            "run, within the usual bounds, under `retry_notes: climb`; the "
+            "result's `seeded` says what was read and handed. For a rerun "
+            "somewhere else — another ladder, another machine — not for "
+            "retrying the same contract on the same one"
         ),
     )
     run.set_defaults(func=_run)
