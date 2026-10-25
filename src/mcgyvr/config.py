@@ -86,6 +86,10 @@ FANOUT_CHOICES: tuple[str, ...] = ("none", "idle", "full")
 #: rung; `jev` asks the unit bound to the `jev` role (see `mcgyvr.triage`).
 TRIAGE_CHOICES: tuple[str, ...] = ("none", "jev")
 
+#: What a batch does with a contract whose provider did not land. `hold` keeps
+#: it back, unspent; `run` sends it anyway (see `mcgyvr.tree`).
+DEPENDENTS_CHOICES: tuple[str, ...] = ("hold", "run")
+
 SANDBOX_FIELDS: tuple[Field, ...] = (
     Field(
         "mode",
@@ -816,6 +820,21 @@ SCHEMA: tuple[Field, ...] = (
         "ahead of time, starts there under either value and jev is not asked.",
         default="none",
         choices=TRIAGE_CHOICES,
+    ),
+    Field(
+        "dependents",
+        "enum",
+        "What a batch of contracts (`mcgyvr delegate --run`) does with a "
+        "contract whose `depends_on` names one that did not land. `hold` keeps "
+        "it back, unspent: it is sent only once what it waits on is in the "
+        "tree its sandbox starts from, and one whose provider failed, or landed "
+        "without a symbol it needs, is never sent — its result says `blocked`, "
+        "who held it and what it needed, with no attempt spent. A contract "
+        "that uses from the failed provider's file only names that are already "
+        "there and that the provider was not to change still runs. `run` sends "
+        "every contract once what it waits on has come to anything, as before.",
+        default="hold",
+        choices=DEPENDENTS_CHOICES,
     ),
     Field(
         "attempts",

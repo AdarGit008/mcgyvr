@@ -11,6 +11,24 @@ archived outside this repository, under the same paths.
 
 ### Added
 
+- **A contract whose provider did not land is held, not climbed.**
+  `mcgyvr delegate --run` keeps the batch's contracts on a live dependency
+  tree (`mcgyvr.tree`, `mcgyvr.board`), one per repository, and runs the next
+  one the tree says is ready. A contract waits on what its `depends_on` names,
+  and on the sibling that creates a symbol one of its `deps` needs. When a
+  provider fails, or lands without a symbol a dependent needs, the dependent
+  is never sent: no rung, no triage call, no slot is spent, and once nothing
+  more can run it gets a result with the new outcome `blocked`, exit 3, and
+  `blocked_by` naming the reason, the providers and what each came to, and
+  the names it needed. What a contract needs of its provider is read from the
+  contracts and the committed tree, never asked of a model: the names it uses
+  that the provider is to create (its `interface`, a rename's new name) or to
+  change (a rename's old name, a name its task spells that its target
+  defines). One that uses from the failed provider's file only names already
+  there, which the provider was not to change, still runs. The tree is
+  written live to `trees/<tree>.json` under `journal.dir`. `dependents: run`
+  (policy, default `hold`) sends every contract as before.
+
 - **A rig keeps the kernels its cards' driver compiled.** The rig's scan
   reads the rig's own mcgyvr home, and `mcgyvr emit` mounts
   `$MCGYVR_HOME/cuda-cache` (default `~/.mcgyvr/cuda-cache`) into every

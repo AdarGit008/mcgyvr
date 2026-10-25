@@ -203,9 +203,10 @@ BELOW_THE_SEAM: tuple[str, ...] = (
 #: and what may be read back (worker.*), what judges the change (gate.*,
 #: scope, and the semantic gate's resolver engine under gate._engine, which is
 #: staged into the sandbox and whose import statements name only itself and the
-#: standard library),
+#: standard library), the order a batch of contracts runs in (tree, board),
 #: and what the run leaves behind for the caller (result, session, telemetry).
 ABOVE_THE_SEAM: tuple[str, ...] = (
+    "mcgyvr.board",
     "mcgyvr.consensus",
     "mcgyvr.contract",
     "mcgyvr.delegate",
@@ -258,6 +259,7 @@ ABOVE_THE_SEAM: tuple[str, ...] = (
     "mcgyvr.orchestrator.languages.model",
     "mcgyvr.orchestrator.languages.python",
     "mcgyvr.orchestrator.languages.rust",
+    "mcgyvr.orchestrator.provides",
     "mcgyvr.orchestrator.read",
     "mcgyvr.orchestrator.references",
     "mcgyvr.orchestrator.repo",
@@ -271,6 +273,7 @@ ABOVE_THE_SEAM: tuple[str, ...] = (
     "mcgyvr.scope",
     "mcgyvr.session",
     "mcgyvr.telemetry",
+    "mcgyvr.tree",
     "mcgyvr.triage",
     "mcgyvr.verify",
     "mcgyvr.wake_judge",

@@ -33,6 +33,7 @@ from mcgyvr.gate.adapter import LanguageAdapter
 from mcgyvr.gate.adapters import JavaScriptAdapter, PythonAdapter
 from mcgyvr.orchestrator.baseline import BaselineObservation, locate_baseline
 from mcgyvr.orchestrator.index import Index
+from mcgyvr.orchestrator.provides import DECLARING, RENAME
 from mcgyvr.orchestrator.read import Exploration, estimate_tokens, explore
 from mcgyvr.orchestrator.resolve import Resolution, resolve
 from mcgyvr.orchestrator.symbols import SymbolKind, extract
@@ -59,19 +60,11 @@ _DEFAULT_MAX_INPUT_TOKENS = 32768
 #: the schema's own error text (which names the bad key) for `what_to_change`.
 _SCHEMA_ERROR_PREFIX = "the emitted contract does not validate — "
 
-#: The keywords that declare the name after them, for an interface the parser
-#: cannot read as source — a bare header such as ``def f(x: int) -> str`` with
-#: no body. `_declared_in` asks the parser first and this only when it read
-#: nothing.
-_DECLARING = r"(?:def|class|function|fn|func|interface|type|struct|enum|trait)"
-
-#: A rename a contract's task states: ``rename old to new``, either name in
-#: backticks or quotes, and ``->``/``→``/``as`` for ``to``. `_renamed_in` reads
-#: it so a sibling may depend on the new name before the rename has landed.
-_RENAME = re.compile(
-    r"(?i:\brenam(?:e|es|ed|ing))\s+[`'\"]?([A-Za-z_$][\w$]*)[`'\"]?(?:\(\))?"
-    r"\s+(?:to|as|->|→)\s+[`'\"]?([A-Za-z_$][\w$]*)"
-)
+#: A declaring keyword and a stated rename, as `mcgyvr.orchestrator.provides`
+#: reads them for the dependency tree (`mcgyvr.tree`) too, so both read what a
+#: contract provides the same way.
+_DECLARING = DECLARING
+_RENAME = RENAME
 
 
 @dataclass(frozen=True)

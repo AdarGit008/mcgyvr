@@ -173,6 +173,10 @@ what the run came to. The file's keys:
   - `declined_throughout` — everything offered stepped aside without
     spending an attempt, so nothing claims a contract of this shape.
     A different contract cannot fix this either; that same file can.
+  - `blocked` — held by the dependency tree of a batch (`dependents:
+    hold`): a contract it waits on did not land, or landed without a
+    symbol it needs, so it was never sent and no attempt was spent;
+    exit 3. `blocked_by` says who and what. Rerun once that one lands.
   - `error` — an exception before any verdict was reached: the failure
     is in the machinery, not the work. `detail` names the cause.
 - `attempts[]` — every try: `rung`, `attempt`, `verdict` (`passed`,
@@ -214,6 +218,14 @@ what the run came to. The file's keys:
   run, or `contract`); for `jev`, every rung's `probabilities`, its
   `confidence` and the `model` asked, or a `fallback` saying why the
   climb started on its first rung.
+- `blocked_by` — only on a `blocked` result: the `reason`
+  (`provider_failed`, `provider_not_landed`, `provider_landed_without`,
+  `provider_blocked`, `cycle`, `unknown_dependency`, `unprovided`), the
+  `providers` it waited on with the `outcome` and `result` each came
+  to, the `needs` it had of them (`path`, `symbol`, and `creates`: to
+  be created rather than changed) and the `chain` a hold came down
+  through. The live tree of a batch is under `journal.dir` in
+  `trees/<tree>.json`.
 
 Every run is journaled under the config's `journal.dir` and nothing on
 the command line moves it — that one directory is where every run can
