@@ -23,6 +23,12 @@ this rung's previous attempt, or nothing. A record is never presented as an
 attempt other than its own; :mod:`mcgyvr.worker.prompt` renders it under a
 banner naming it, within the bounds that module states.
 
+A record can also travel between runs of one contract: :func:`seeded` reads an
+earlier run's result file into :class:`CarriedNotes`, each stamped with the run
+it was made in and refused when it is not a sound record of that contract, and
+:func:`primed` opens a climb with them under `retry_notes: climb`
+(`mcgyvr run --notes-from`).
+
 The fields are declared once, as :class:`mcgyvr.schema.Field` tuples
 (:data:`NOTE_FIELDS`, :data:`NOTES_FIELDS`): :meth:`FailureNotes.as_json` and
 :meth:`FailureNotes.from_json` walk them, and :func:`json_schema` renders the
@@ -34,11 +40,12 @@ rendered from the record (:meth:`FailureNote.for_model`,
 
 from __future__ import annotations
 
+import json
 from collections import Counter
 from collections.abc import Mapping, Sequence
-from dataclasses import dataclass, field
+from dataclasses import dataclass, field, replace
 from enum import StrEnum
-from pathlib import PurePosixPath
+from pathlib import Path, PurePosixPath, PureWindowsPath
 from typing import TYPE_CHECKING, Any
 
 from mcgyvr.config import RETRY_NOTES_CHOICES
@@ -614,3 +621,199 @@ def _object_schema(fields: tuple[Field, ...], items: str | None) -> dict[str, An
         "required": [spec.name for spec in fields if spec.required],
         "properties": properties,
     }
+
+
+# --- notes handed in from an earlier run --------------------------------------
+
+#: The most bytes a seed file may hold. A result file is a few kilobytes per
+#: attempt; one this size is not a result, and it is refused before it is read.
+MAX_SEED_BYTES = 1 << 20
+
+
+@dataclass(frozen=True)
+class CarriedNotes(FailureNotes):
+    """A record handed in from an earlier run of the same contract.
+
+    The record itself is the schema's, unchanged — :meth:`as_json` writes the
+    same `mcgyvr.failure_notes/1` document — and `run` travels beside it: the
+    stamp of the run it was made in, or empty when the source did not name one.
+    Its banner and its summary say so, so a seeded record is never presented
+    as an attempt of the run that reads it.
+    """
+
+    run: str = ""
+
+    @classmethod
+    def of(cls, record: FailureNotes, run: str) -> CarriedNotes:
+        """`record`, stamped as made in `run`."""
+        return cls(
+            rung=record.rung,
+            family=record.family,
+            attempt=record.attempt,
+            checks=record.checks,
+            notes=record.notes,
+            run=run,
+        )
+
+    @property
+    def origin(self) -> str:
+        """`AN EARLIER RUN`, with its stamp when the source named one."""
+        return f"AN EARLIER RUN ({self.run})" if self.run else "AN EARLIER RUN"
+
+    @property
+    def headline(self) -> str:
+        """The record's own banner, under the earlier run it belongs to."""
+        return f"IN {self.origin}, NOT THIS ONE: {super().headline}"
+
+    @property
+    def summary(self) -> str:
+        """The record's one line, naming the earlier run first."""
+        earlier = f"earlier run {self.run}" if self.run else "earlier run"
+        return f"{earlier}: {super().summary}"
+
+    def carried_json(self) -> dict[str, Any]:
+        """The record and its run, as a result file's `seeded.records` holds it."""
+        return {"run": self.run, "notes": self.as_json()}
+
+
+def seeded(
+    source: Mapping[str, Any] | Sequence[Any] | Path, *, contract: str
+) -> tuple[CarriedNotes, ...]:
+    """The failure notes an earlier run of `contract` leaves for a run of it now.
+
+    `source` is that run's result file (`mcgyvr.result.RunResult`), its parsed
+    JSON, or a bare list of `mcgyvr.failure_notes/1` records. From a result, the
+    records an earlier seed handed it come first (`seeded.records`, each with
+    its own run), then the records of its own failed attempts, stamped with its
+    `run`; a bare list names no run and no contract, so its caller vouches for
+    both. Only the latest records a prompt shows are kept
+    (:data:`mcgyvr.worker.prompt.MAX_RECORDS_SHOWN`).
+
+    What is read is untrusted, so every record is walked through
+    :meth:`FailureNotes.from_json` and each note's path must name a file in the
+    repository; messages and commands are scrubbed again. A file larger than
+    :data:`MAX_SEED_BYTES`, one that cannot be read or is not JSON, a result of
+    another contract and an unsound record are each a :class:`NotesError`.
+    """
+    from mcgyvr.worker.prompt import MAX_RECORDS_SHOWN
+
+    data = _seed_file(source) if isinstance(source, Path) else source
+    if isinstance(data, Mapping):
+        found = _of_result(data, contract)
+    elif isinstance(data, Sequence) and not isinstance(data, str | bytes):
+        found = [
+            (_sound(record, f"records[{index}]"), "")
+            for index, record in enumerate(data)
+        ]
+    else:
+        raise NotesError(
+            f"the seed is neither a result nor a list of records: {type(data).__name__}"
+        )
+    return tuple(
+        CarriedNotes.of(record, run) for record, run in found[-MAX_RECORDS_SHOWN:]
+    )
+
+
+def primed(seed: Sequence[FailureNotes], mode: str) -> list[FailureNotes]:
+    """The climb a driver starts with: `seed`, under `retry_notes: climb` only.
+
+    `climb` hands on every record of the climb, so a seed is the start of it.
+    `rung` hands on the attempt just before this one on this rung, which an
+    earlier run's record never is, and `none` hands on nothing — under either,
+    the climb starts empty.
+    """
+    if mode not in RETRY_NOTES_CHOICES:
+        raise ValueError(
+            f"retry_notes {mode!r} is not one of {', '.join(RETRY_NOTES_CHOICES)}"
+        )
+    return list(seed) if mode == "climb" else []
+
+
+def _seed_file(path: Path) -> object:
+    """The JSON in the seed file at `path`, refused by name when it is no use."""
+    try:
+        size = path.stat().st_size
+        if size > MAX_SEED_BYTES:
+            raise NotesError(
+                f"{path} is larger than {MAX_SEED_BYTES} bytes ({size}); a "
+                f"result file is not"
+            )
+        text = path.read_text(encoding="utf-8")
+    except (OSError, UnicodeDecodeError) as exc:
+        raise NotesError(f"{path} cannot be read: {exc}") from exc
+    try:
+        return json.loads(text)
+    except ValueError as exc:
+        raise NotesError(f"{path} is not JSON: {exc}") from exc
+
+
+def _of_result(
+    result: Mapping[str, Any], contract: str
+) -> list[tuple[FailureNotes, str]]:
+    """A result's records with their runs: its seed's, then its own attempts'."""
+    named = result.get("contract")
+    if named != contract:
+        raise NotesError(
+            f"the seed is the result of contract {named!r}, not {contract!r}: "
+            f"a run is handed only the notes of its own contract"
+        )
+    run = result.get("run")
+    if not isinstance(run, str):
+        raise NotesError(f"the seed's `run` is not a run stamp: {run!r}")
+    found: list[tuple[FailureNotes, str]] = []
+    carried = result.get("seeded") or {}
+    earlier = carried.get("records", []) if isinstance(carried, Mapping) else None
+    if not isinstance(earlier, list):
+        raise NotesError("the seed's `seeded.records` is not a list")
+    for index, entry in enumerate(earlier):
+        where = f"seeded.records[{index}]"
+        if not isinstance(entry, Mapping) or not isinstance(entry.get("run"), str):
+            raise NotesError(f"{where}: expected an object with a text `run`")
+        found.append((_sound(entry.get("notes"), f"{where}.notes"), entry["run"]))
+    attempts = result.get("attempts", [])
+    if not isinstance(attempts, list):
+        raise NotesError("the seed's `attempts` is not a list")
+    for index, attempt in enumerate(attempts):
+        if not isinstance(attempt, Mapping):
+            raise NotesError(f"attempts[{index}]: expected an object")
+        if attempt.get("notes") is not None:
+            found.append((_sound(attempt["notes"], f"attempts[{index}].notes"), run))
+    return found
+
+
+def _sound(raw: object, where: str) -> FailureNotes:
+    """One record read from a seed: its paths in the repo, walked, scrubbed.
+
+    A note's path is checked as written, before the record is built, so one
+    that is absolute or climbs out of the repository refuses the seed rather
+    than being quietly dropped from it.
+    """
+    listed = raw.get("notes") if isinstance(raw, Mapping) else None
+    for index, note in enumerate(listed if isinstance(listed, list) else ()):
+        path = note.get("path") if isinstance(note, Mapping) else None
+        if isinstance(path, str):
+            _in_repo(path, f"{where}.notes[{index}].path")
+    try:
+        record = FailureNotes.from_json(raw)
+    except NotesError as exc:
+        raise NotesError(f"{where}: {exc}") from exc
+    notes = tuple(
+        replace(
+            note,
+            message=scrub(note.message),
+            command=scrub(note.command) if note.command is not None else None,
+        )
+        for note in record.notes
+    )
+    return replace(record, notes=notes)
+
+
+def _in_repo(path: str, where: str) -> None:
+    """Refuse a note path that is not a file inside the repository."""
+    if not path:
+        raise NotesError(f"{where}: an empty path names no file")
+    posix = PurePosixPath(path.replace("\\", "/"))
+    if posix.is_absolute() or path.startswith("~") or PureWindowsPath(path).drive:
+        raise NotesError(f"{where}: {path!r} is absolute, not repo-relative")
+    if ".." in posix.parts:
+        raise NotesError(f"{where}: {path!r} reaches outside the repository")

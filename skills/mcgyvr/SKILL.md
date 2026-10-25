@@ -227,6 +227,10 @@ what the run came to. The file's keys:
   be created rather than changed) and the `chain` a hold came down
   through. The live tree of a batch is under `journal.dir` in
   `trees/<tree>.json`.
+- `seeded` — only on a run started with `--notes-from RESULT`: `from`,
+  the result read, `records`, the failure-notes records read from it,
+  each with the `run` it was made in, and `handed`, how many the climb
+  opened with (all under `retry_notes: climb`, else none).
 
 `attempts[].notes` is the failure-notes record of a failed try, `null` on
 a try that left none. It is built from what the gate, the reviewer or the
@@ -264,6 +268,9 @@ be counted. Deterministic runs are there too, as a row naming
 the program that did the work with `tier: deterministic` and no prompt
 or reply beside it. `--record DIR` adds a complete second copy for your
 own use; `--result PATH` says where you read the result file.
+`--notes-from RESULT` starts the climb with an earlier run's failure
+notes for the same contract, under a banner naming that run: for a
+rerun on another ladder or machine, never instead of replanning.
 
 Exit codes: 0 accepted or nothing to change, 1 not accepted or error,
 2 usage (including no session to file the run under), 3 a live fleet

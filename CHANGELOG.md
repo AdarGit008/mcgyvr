@@ -27,6 +27,18 @@ archived outside this repository, under the same paths.
   means (`--`, a JUnit option of its own), runs as written and keeps the tail
   of its output; one that took the flags but wrote no report is run again as
   written, and that run is judged. The schema's `kind`s are unchanged.
+- **A rerun can start with an earlier run's failure notes.** `mcgyvr run
+  --notes-from RESULT` reads an earlier run's result file for the same
+  contract (`mcgyvr.notes.seeded`) and opens the climb with its records under
+  `retry_notes: climb`, so the first attempt of a rerun on another ladder or
+  machine is shown what the earlier run was refused for, under a banner naming
+  that run (`IN AN EARLIER RUN (<stamp>), NOT THIS ONE: …`) and within the
+  same 20-note, 5-record bounds. The record schema is unchanged; the run
+  travels beside it. A result of another contract, a record of another schema
+  version or with an absolute or escaping path, a file over 1 MiB, unreadable
+  or not JSON stops the run before anything is spent; messages are scrubbed
+  again. The result's new `seeded` key says what was read (`from`, `records`
+  with their `run`) and how much the climb was handed (`handed`).
 - **A contract whose provider did not land is held, not climbed.**
   `mcgyvr delegate --run` keeps the batch's contracts on a live dependency
   tree (`mcgyvr.tree`, `mcgyvr.board`), one per repository, and runs the next
