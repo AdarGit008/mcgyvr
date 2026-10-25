@@ -206,7 +206,7 @@ def test_the_prose_proposer_is_told_a_dependency_is_an_existing_symbol() -> None
     said = _reply_format()
     line = said[said.index('"deps"') :].split("\n- ", 1)[0]
     assert "existing symbol" in line, line
-    assert "never name the symbol the REQUEST asks you to create" in line, line
+    assert "Never name the symbol this proposal's own target creates" in line, line
 
 
 def test_the_prose_proposer_is_told_commands_run_without_a_shell() -> None:
