@@ -6,8 +6,9 @@ with no setup named or found, is refused rather than failed — resolves it into
 repository, says once what a sandbox built from it leaves out, builds the index,
 and hands the evidence to `decompose`. The contracts that come back are reported,
 written as `DIR/<id>.json` or printed, and, with `--run`, run one at a time
-through the machinery `run` already has. `add_parser` registers the subcommand
-and its arguments.
+through the machinery `run` already has, in the order their dependency tree
+allows — a contract whose provider did not land is held, not run. `add_parser`
+registers the subcommand and its arguments.
 """
 
 from __future__ import annotations
@@ -16,7 +17,7 @@ import argparse
 import sys
 from collections.abc import Sequence
 from pathlib import Path
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Any
 
 from mcgyvr.config import (
     Config,
@@ -28,10 +29,14 @@ from mcgyvr.config import load as load_config
 from mcgyvr.exits import Exit
 
 if TYPE_CHECKING:  # pragma: no cover - typing only
+    from mcgyvr.board import GitSource
+    from mcgyvr.contract import Contract
     from mcgyvr.local_pool import SourceMap
     from mcgyvr.orchestrator.decompose import Decomposition, Proposer
+    from mcgyvr.session import Session
+    from mcgyvr.tree import Hold
 
-from mcgyvr.cli.commands.run import _run
+from mcgyvr.cli.commands.run import _copy, _run
 from mcgyvr.cli.common import CONFIG_DEFAULT_HELP, _add_repo, _named_path
 from mcgyvr.cli.sandbox import _say_what_the_sandbox_leaves_out
 
@@ -133,7 +138,7 @@ def _delegate(args: argparse.Namespace) -> int:
                 decomposition, Path(args.output) if args.output else None
             )
             if args.run:
-                return _run_delegated(args, repo.root, decomposition, written)
+                return _run_delegated(args, repo.root, decomposition, written, config)
             return 0
     except AttachError as exc:
         print(f"error: {exc}", file=sys.stderr)
@@ -234,15 +239,25 @@ def _run_delegated(
     repo: Path,
     dec: Decomposition,
     written: Sequence[Path],
+    config: Config,
 ) -> int:
-    """Run every emitted contract through `_run`, one at a time.
+    """Run the emitted contracts through `_run`, one at a time, as the tree allows.
 
     Nothing runs when no contract was emitted. Documents already written to
     `--output` are run in place; when they were printed instead, they are staged
     into a temporary directory first, so either way every run reads a contract
     file. The session is resolved from `--orchestrator`, and a failure to resolve
-    it removes the staging and returns 1. Every contract is run even when an
-    earlier one failed, and the last non-zero exit code is returned.
+    it removes the staging and returns 1.
+
+    The contracts go on a dependency tree (`mcgyvr.tree`) read against the
+    repository's committed tree, and the next one run is the first the tree
+    says is ready. Each run's result settles it there: it landed when it was
+    accepted with a commit HEAD now holds, the tree the next sandbox starts
+    from. Under `dependents: hold`, the default, a contract whose provider did
+    not land is held, and once nothing more is ready each held one gets a
+    result with outcome `blocked` and no attempt spent, and exit 3. Under
+    `dependents: run` every contract runs once what it waits on has come to
+    anything. The last non-zero exit code is returned.
     """
     if not dec.contracts:
         return 0
@@ -250,7 +265,10 @@ def _run_delegated(
     import shutil
     import tempfile
 
+    from mcgyvr.board import Board, GitSource, tree_id_for
+    from mcgyvr.config import JOURNAL_DIR_DEFAULT
     from mcgyvr.session import SessionError, resolve
+    from mcgyvr.tree import Tree
 
     paths = list(written)
     staging: Path | None = None
@@ -260,6 +278,7 @@ def _run_delegated(
             path = staging / f"{contract.id}.json"
             path.write_text(document + "\n", encoding="utf-8")
             paths.append(path)
+    path_of = {c.id: p for c, p in zip(dec.contracts, paths, strict=True)}
 
     try:
         session = resolve(args.orchestrator)
@@ -269,11 +288,25 @@ def _run_delegated(
             shutil.rmtree(staging, ignore_errors=True)
         return 1
 
+    journal = Path(config.get("journal.dir") or JOURNAL_DIR_DEFAULT).expanduser()
+    source = GitSource(repo)
+    tree = Tree.of(
+        dec.contracts,
+        source,
+        tree_id=tree_id_for(str(repo), source.commit, path_of),
+        hold=config.get("dependents", "hold") != "run",
+    )
+    board = Board(journal)
+    board.attach(tree)
+
     code = 0
     try:
-        for path in paths:
+        while ready := board.ready():
+            _, contract = ready[0]
+            board.start(tree.tree_id, contract.id)
+            before = _results_of(journal, contract.id)
             run = argparse.Namespace(
-                contract=str(path),
+                contract=str(path_of[contract.id]),
                 config=args.config,
                 repo=str(repo),
                 sandbox=args.sandbox,
@@ -287,10 +320,94 @@ def _run_delegated(
             result = _run(run)
             if result != 0:
                 code = result
+            source.refresh()
+            board.settle(
+                tree.tree_id,
+                contract.id,
+                **_settled(_results_of(journal, contract.id) - before, source),
+            )
+        for _, contract, hold in board.drain():
+            code = _write_held(args, contract, hold, session, journal)
     finally:
         if staging is not None:
             shutil.rmtree(staging, ignore_errors=True)
     return code
+
+
+def _results_of(journal: Path, contract_id: str) -> set[Path]:
+    """The result files the journal holds for `contract_id`."""
+    from mcgyvr.result import RESULTS_DIR
+
+    return set((journal / RESULTS_DIR).glob(f"{contract_id}-*.json"))
+
+
+def _settled(new: set[Path], source: GitSource) -> dict[str, Any]:
+    """What a run came to, for the tree, from the result file it wrote.
+
+    The newest of `new` is the run's own, named by its stamp. A run that wrote
+    none came to `error`. It landed when it was accepted with a commit the
+    source — HEAD, the tree the next sandbox starts from — holds.
+    """
+    import json
+
+    if not new:
+        return {"outcome": "error", "landed": False, "detail": "no result written"}
+    path = max(new, key=lambda p: p.name)
+    try:
+        doc = json.loads(path.read_text(encoding="utf-8"))
+    except (OSError, ValueError) as exc:
+        return {"outcome": "error", "landed": False, "detail": str(exc)}
+    outcome = str(doc.get("outcome") or "error")
+    commit = str(doc.get("commit") or "")
+    landed = (
+        outcome == "accepted" and bool(doc.get("committed")) and source.holds(commit)
+    )
+    detail = ""
+    if outcome == "accepted" and not landed:
+        detail = (
+            "committed onto a branch the next sandbox does not start from"
+            if commit
+            else "left uncommitted, and a sandbox holds only the committed tree; "
+            "pass --commit"
+        )
+    return {"outcome": outcome, "landed": landed, "detail": detail, "result": str(path)}
+
+
+def _write_held(
+    args: argparse.Namespace,
+    contract: Contract,
+    hold: Hold,
+    session: Session,
+    journal: Path,
+) -> int:
+    """Write the result of a contract the tree held, and say so; return its exit."""
+    from mcgyvr.board import held_result
+    from mcgyvr.result import result_path, run_stamp, write
+
+    stamp = run_stamp()
+    report = held_result(
+        contract,
+        hold,
+        orchestrator=session.orchestrator,
+        run=stamp,
+        journal=str(journal),
+        session_file=str(session.session_file) if session.session_file else None,
+    )
+    print(f"{contract.id}: {report.detail}", file=sys.stderr)
+    written = write(result_path(journal, contract.id, stamp), report)
+    if args.record is not None:
+        mirror = Path(args.record).expanduser()
+        if mirror.resolve() != journal.resolve():
+            try:
+                _copy(written, result_path(mirror, contract.id, stamp))
+            except OSError as exc:
+                print(
+                    f"error: this held contract's result could not be copied into "
+                    f"{mirror}: {exc}. It is at {written}.",
+                    file=sys.stderr,
+                )
+    print(f"result: {written}")
+    return int(report.exit_code or 0)
 
 
 def add_parser(sub: argparse._SubParsersAction[argparse.ArgumentParser]) -> None:
@@ -355,7 +472,10 @@ def add_parser(sub: argparse._SubParsersAction[argparse.ArgumentParser]) -> None
     delegate.add_argument(
         "--run",
         action="store_true",
-        help="execute each emitted contract through the existing run machinery",
+        help=(
+            "execute each emitted contract through the existing run machinery, "
+            "holding one whose provider did not land (see `dependents`)"
+        ),
     )
     delegate.add_argument(
         "--sandbox",

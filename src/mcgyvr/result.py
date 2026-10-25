@@ -71,8 +71,10 @@ class RunResult:
     #: `outcome` is one word for what the run came to — `accepted`, `rejected`,
     #: `nothing_to_change`, `delivery_refused`, one of the ceilings that stopped
     #: the climb (`ladder_spent`, `escalation_ceiling`, `attempt_ceiling`,
-    #: `nothing_to_run`, `declined_throughout`), or `error` when nothing was
-    #: judged at all — and `detail` says it in a sentence.
+    #: `nothing_to_run`, `declined_throughout`), `blocked` when the dependency
+    #: tree held the contract and nothing was dispatched (`mcgyvr.tree`), or
+    #: `error` when nothing was judged at all — and `detail` says it in a
+    #: sentence.
     detail: str = ""
     #: `delivery` is where the work went: the commit, the fact that the change
     #: was left in the tree uncommitted, or why the write to it was refused —
@@ -119,11 +121,18 @@ class RunResult:
     #: started on its first rung instead. `None` when nothing decided a start,
     #: and then the key is left out of the file.
     triage: dict[str, Any] | None = None
+    #: `blocked_by` is why the dependency tree held a `blocked` contract: the
+    #: `reason`, the `providers` it waited on with what each came to, the
+    #: `needs` it had of them and the `chain` a hold came down through. `None`
+    #: on every other run, and then the key is left out of the file.
+    blocked_by: dict[str, Any] | None = None
 
     def as_json(self) -> dict[str, Any]:
         data = asdict(self)
         if self.triage is None:
             del data["triage"]
+        if self.blocked_by is None:
+            del data["blocked_by"]
         return data
 
 
