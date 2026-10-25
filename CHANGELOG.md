@@ -203,6 +203,9 @@ archived outside this repository, under the same paths.
 
 ### Fixed
 
+- `mcgyvr delegate` names an orchestrator reply cut off at its cap as cut
+  off — its output tokens, the unit and the cap it was sent, and what to
+  raise — instead of reporting the half-written array as "not JSON".
 - `mcgyvr recommend` can choose any candidate on any host. A local
   checkpoint was named only by its speculative head
   (`llama.cpp:no speculative head`) and a catalog pick only by engine and
