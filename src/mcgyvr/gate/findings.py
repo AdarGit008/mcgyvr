@@ -26,12 +26,15 @@ class Finding:
 
     #: What a check reports as data beside its sentence, and nothing it only
     #: says in prose: the command it ran and that command's exit, where the
-    #: check ran one (acceptance, typecheck), and the name a finding is about
+    #: check ran one (acceptance, typecheck), the name a finding is about
     #: where the check names one as a field (the semantic rung's missing
-    #: attribute). ``None`` wherever the check did not report it.
+    #: attribute, or the missing name in a test report's exception), and the
+    #: failing test's node id where a test report names one
+    #: (:mod:`mcgyvr.gate.junit`). ``None`` wherever the check did not report it.
     command: str | None = None
     exit_code: int | None = None
     symbol: str | None = None
+    test_id: str | None = None
 
     def __str__(self) -> str:
         where = self.path if self.line is None else f"{self.path}:{self.line}"

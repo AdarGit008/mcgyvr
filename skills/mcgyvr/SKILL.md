@@ -251,12 +251,12 @@ Each entry of its `notes`:
 | `kind` | one of `finding`, `inconclusive`, `refusal`, `unreadable` | `finding`: the check rejected the change. `inconclusive`: the rung ran and could not decide. `refusal`: a reviewer refused a change the gate passed. `unreadable`: the reply could not be read, so nothing was gated. |
 | `message` | text | The check's own sentence. A path in the repository is repo-relative; any other absolute path, and the userinfo of any URL, is replaced by `<redacted>`. |
 | `path` | text or null | The repo-relative file the note is about; null when the check keyed it by something that is not a file, such as an acceptance command, or named a file outside the repository. |
-| `line` | number or null | The line in `path` the check placed it on. |
-| `code` | text or null | The check's own code for the kind of problem (`F401`, `E501`, mypy's `attr-defined`, `failed`, `timeout`, ...). |
+| `line` | number or null | The line in `path` the check placed it on; for a failing test, the line its definition starts on. |
+| `code` | text or null | The check's own code for the kind of problem (`F401`, `E501`, mypy's `attr-defined`, ...). The acceptance rung's: `failed` for a failing test, or a failing command that named no test; `error` for a test whose fixture raised around it; `collection-error` for a test module that could not be collected — each prefixed `demonstration-` for a demonstrating command — and `timeout` and `tree-altering` for the command itself. |
 | `command` | text or null | The command the check ran, when it ran one (acceptance, typecheck), shell-quoted, its paths treated as in `message`. |
 | `exit_code` | number or null | That command's exit, or the exit of the tool an inconclusive rung ran; null when it was killed at the time limit or never ran. |
-| `test_id` | text or null | The failing test's id when the check reports one as data; never read out of a command's output. |
-| `symbol` | text or null | The missing or undefined name, when the check reports it as data (the semantic rung's missing attribute). |
+| `test_id` | text or null | The failing test's id (pytest's node id, `path::Class::test[param]`) when the check reports one as data: read from the JUnit XML report the acceptance rung asks pytest for, never out of a command's output. |
+| `symbol` | text or null | The missing or undefined name, when the check reports it as data: the semantic rung's missing attribute, or the name in a test report's NameError, ImportError, ModuleNotFoundError or AttributeError, read only from the interpreter's fixed wording of that exception. |
 
 Every run is journaled under the config's `journal.dir` and nothing on
 the command line moves it — that one directory is where every run can

@@ -7,7 +7,9 @@ and what the jev rung saw beside it (:meth:`FailureNotes.of_refusal`), or a
 reply nothing could read (:meth:`FailureNotes.unreadable`). Each
 :class:`FailureNote` in it is one observation of one check. A field a check did
 not report as data stays ``None`` — a command, an exit, a test id or a symbol
-is never parsed out of a sentence or guessed. A record crosses machines, so it
+is never parsed out of a sentence or guessed; a test id and a symbol come from
+the test report the acceptance rung asks pytest for (:mod:`mcgyvr.gate.junit`).
+A record crosses machines, so it
 names nothing of the one it was made on: the gate gives a path under the
 workspace a check ran in repo-relative, and a note, however it is built,
 passes its message and command through :func:`mcgyvr.redact.scrub` and
@@ -112,12 +114,22 @@ NOTE_FIELDS: tuple[Field, ...] = (
         "it by something that is not a file, such as an acceptance command, or "
         "named a file outside the repository.",
     ),
-    Field("line", "int", "The line in `path` the check placed it on."),
+    Field(
+        "line",
+        "int",
+        "The line in `path` the check placed it on; for a failing test, the "
+        "line its definition starts on.",
+    ),
     Field(
         "code",
         "str",
         "The check's own code for the kind of problem (`F401`, `E501`, mypy's "
-        "`attr-defined`, `failed`, `timeout`, ...).",
+        "`attr-defined`, ...). The acceptance rung's: `failed` for a failing "
+        "test, or a failing command that named no test; `error` for a test "
+        "whose fixture raised around it; `collection-error` for a test module "
+        "that could not be collected — each prefixed `demonstration-` for a "
+        "demonstrating command — and `timeout` and `tree-altering` for the "
+        "command itself.",
     ),
     Field(
         "command",
@@ -134,14 +146,18 @@ NOTE_FIELDS: tuple[Field, ...] = (
     Field(
         "test_id",
         "str",
-        "The failing test's id when the check reports one as data; never read "
-        "out of a command's output.",
+        "The failing test's id (pytest's node id, `path::Class::test[param]`) "
+        "when the check reports one as data: read from the JUnit XML report "
+        "the acceptance rung asks pytest for, never out of a command's output.",
     ),
     Field(
         "symbol",
         "str",
-        "The missing or undefined name, when the check reports it as data "
-        "(the semantic rung's missing attribute).",
+        "The missing or undefined name, when the check reports it as data: "
+        "the semantic rung's missing attribute, or the name in a test "
+        "report's NameError, ImportError, ModuleNotFoundError or "
+        "AttributeError, read only from the interpreter's fixed wording of "
+        "that exception.",
     ),
 )
 
@@ -231,6 +247,7 @@ class FailureNote:
             code=finding.code,
             command=scrub(finding.command) if finding.command is not None else None,
             exit_code=finding.exit_code,
+            test_id=_safe(finding.test_id) if finding.test_id is not None else None,
             symbol=finding.symbol,
         )
 
