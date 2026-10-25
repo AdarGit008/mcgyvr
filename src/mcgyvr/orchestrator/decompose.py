@@ -5,9 +5,10 @@ against an index, reads what the prompt touches, and hands that evidence to a
 `Proposer` once. Each proposal that comes back is checked — the task type must
 be servable, the target must be a file the index holds, the acceptance a
 `type_check` implies must be locatable, every dependency must have a signature
-the index can state, the id must be unused, and the worker view must fit the
-ceiling — and is then either emitted as a validated contract document or
-refused with the reason it could not be.
+the index can state — or that a sibling contract it waits on states, for a
+symbol that sibling creates or renames — the id must be unused, and the worker
+view must fit the ceiling — and is then either emitted as a validated contract
+document or refused with the reason it could not be.
 
 Nothing here decides what the work is. It decides whether the work can be
 stated as something runnable, and says what stands in the way when it cannot:
@@ -19,8 +20,9 @@ from __future__ import annotations
 
 import hashlib
 import json
+import re
 import shlex
-from collections.abc import Callable, Mapping, Sequence
+from collections.abc import Callable, Collection, Mapping, Sequence
 from dataclasses import dataclass, field, replace
 from typing import TYPE_CHECKING, Any
 
@@ -33,7 +35,7 @@ from mcgyvr.orchestrator.baseline import BaselineObservation, locate_baseline
 from mcgyvr.orchestrator.index import Index
 from mcgyvr.orchestrator.read import Exploration, estimate_tokens, explore
 from mcgyvr.orchestrator.resolve import Resolution, resolve
-from mcgyvr.orchestrator.symbols import SymbolKind
+from mcgyvr.orchestrator.symbols import SymbolKind, extract
 
 if TYPE_CHECKING:  # pragma: no cover - typing only
     from pathlib import Path
@@ -57,14 +59,29 @@ _DEFAULT_MAX_INPUT_TOKENS = 32768
 #: the schema's own error text (which names the bad key) for `what_to_change`.
 _SCHEMA_ERROR_PREFIX = "the emitted contract does not validate — "
 
+#: The keywords that declare the name after them, for an interface the parser
+#: cannot read as source — a bare header such as ``def f(x: int) -> str`` with
+#: no body. `_declared_in` asks the parser first and this only when it read
+#: nothing.
+_DECLARING = r"(?:def|class|function|fn|func|interface|type|struct|enum|trait)"
+
+#: A rename a contract's task states: ``rename old to new``, either name in
+#: backticks or quotes, and ``->``/``→``/``as`` for ``to``. `_renamed_in` reads
+#: it so a sibling may depend on the new name before the rename has landed.
+_RENAME = re.compile(
+    r"(?i:\brenam(?:e|es|ed|ing))\s+[`'\"]?([A-Za-z_$][\w$]*)[`'\"]?(?:\(\))?"
+    r"\s+(?:to|as|->|→)\s+[`'\"]?([A-Za-z_$][\w$]*)"
+)
+
 
 @dataclass(frozen=True)
 class DepRef:
     """A dependency a proposal wants restated on its contract.
 
     Only the path and the symbol are stated here: `_emit` looks the signature
-    up in the index, so a dependency whose signature cannot be read is refused
-    rather than described in prose.
+    up in the index — or, for a symbol the index does not hold yet, in the
+    sibling contract that creates or renames it — so a dependency whose
+    signature cannot be read is refused rather than described in prose.
     """
 
     path: str
@@ -226,7 +243,9 @@ def decompose(
     with the servable types named. Otherwise every proposal goes through
     `_emit`, and a refusal against one does not stop the others; the emitted
     contracts come back in dependency order, with the proposer's order as the
-    stable tiebreak.
+    stable tiebreak. A proposal whose dependency names a symbol another
+    proposal creates or renames waits on that proposal, and its dependency is
+    stated from that contract once it has been emitted.
 
     `budget` is passed to exploration when stated. `max_input_tokens` is the
     ceiling on a contract's worker view, above which the target is refused as
@@ -265,12 +284,14 @@ def decompose(
             exploration=evidence.exploration,
         )
 
-    ordered, fan_out_refusals = _fan_out(proposals)
+    proposals, implied = _wait_on_providers(index, proposals)
+    ordered, fan_out_refusals = _fan_out(proposals, implied=implied)
 
     contracts: list[Contract] = []
     documents: list[str] = []
     refusals: list[Refusal] = list(fan_out_refusals)
     seen: dict[str, str] = {}
+    emitted_by_id: dict[str, Contract] = {}
     for proposal, depends_on_ids in ordered:
         emitted = emit_one(
             evidence,
@@ -280,12 +301,16 @@ def decompose(
             ceiling=max_input_tokens,
             located=located,
             depends_on_ids=depends_on_ids,
+            providers=tuple(
+                emitted_by_id[i] for i in depends_on_ids if i in emitted_by_id
+            ),
         )
         if isinstance(emitted, Refusal):
             refusals.append(emitted)
             continue
         built, document = emitted
         seen[built.id] = proposal.target
+        emitted_by_id[built.id] = built
         contracts.append(built)
         documents.append(document)
 
@@ -342,8 +367,14 @@ def emit_one(
     ceiling: int,
     located: Mapping[str, Sequence[str]] | None = None,
     depends_on_ids: tuple[str, ...] = (),
+    providers: Sequence[Contract] = (),
 ) -> tuple[Contract, str] | Refusal:
-    """Emit one proposal against `evidence`; the seam the retry loop reuses."""
+    """Emit one proposal against `evidence`; the seam the retry loop reuses.
+
+    `providers` are the already-emitted contracts this one waits on: a
+    dependency the index cannot sign is stated from the one that creates or
+    renames it.
+    """
     return _emit(
         proposal,
         evidence.index,
@@ -354,6 +385,7 @@ def emit_one(
         located,
         evidence.baseline,
         depends_on_ids,
+        providers,
     )
 
 
@@ -384,6 +416,7 @@ def _emit(
     located: Mapping[str, Sequence[str]] | None = None,
     baseline: BaselineObservation | None = None,
     depends_on_ids: tuple[str, ...] = (),
+    providers: Sequence[Contract] = (),
 ) -> tuple[Contract, str] | Refusal:
     """Emit one proposal as a validated contract, or refuse it.
 
@@ -391,7 +424,9 @@ def _emit(
     be a file the index holds, the acceptance a `type_check` implies must be
     locatable, and the demonstration and acceptance a baseline run yields fill
     in whatever the proposal left unstated. Each dependency is restated as the
-    index's signature for that symbol, with its notes deduplicated per path.
+    index's signature for that symbol — or, when the index holds none, as the
+    signature one of `providers` states for it — with its notes deduplicated
+    per path.
 
     The document is then built, identified and loaded as a contract. A
     duplicate id, a schema error and a worker view beyond `ceiling` are
@@ -427,19 +462,24 @@ def _emit(
     proposal = replace(proposal, acceptance=acceptance)
     proposal = _baseline_for(proposal, kind, baseline)
 
-    # Each dependency is restated as the signature the index holds for it, and
-    # its notes kept once per path: prose here would be the worker's to guess.
+    # Each dependency is restated as the signature the index holds for it, or
+    # the one a contract this waits on states for a symbol it creates, and its
+    # notes kept once per path: prose here would be the worker's to guess.
     signatures: dict[str, list[str]] = {}
     notes: dict[str, list[str]] = {}
     for ref in proposal.deps:
         signature = _signature_for(index, ref)
         if signature is None:
+            signature = _from_providers(index, providers, ref)
+        if signature is None:
             return Refusal(
                 proposal.target,
                 f"the index cannot state a signature for {ref.symbol!r} in "
-                f"{ref.path!r}, so the dependency would have to be described "
-                "rather than stated — omit it and let the worker "
-                "report BLOCKED, or name a symbol the parser defines there",
+                f"{ref.path!r}, and no contract in this set creates it there, so "
+                "the dependency would have to be described rather than stated — "
+                "omit it and let the worker report BLOCKED, name a symbol the "
+                "parser defines there, or have the proposal that creates it on "
+                "that path state its signature as its interface",
                 field="deps",
                 what_to_change=(
                     "omit that symbol from deps, or name a symbol the parser defines"
@@ -650,6 +690,116 @@ def _signature_for(index: Index, ref: DepRef) -> str | None:
     return None
 
 
+def _from_providers(
+    index: Index, providers: Sequence[Contract], ref: DepRef
+) -> str | None:
+    """The signature the first of `providers` to provide `ref` states, or None."""
+    for provider in providers:
+        signature = _provided(
+            index, provider.target, provider.interface, provider.task, ref
+        )
+        if signature is not None:
+            return signature
+    return None
+
+
+def _provided(
+    index: Index, target: str, interface: str, task: str, ref: DepRef
+) -> str | None:
+    """The signature a contract on `target` states for `ref.symbol`, or None.
+
+    Only a contract on `ref.path` can provide it. Its `interface` is asked
+    first (`_declared_in`), then a rename its `task` states (`_renamed_in`):
+    either is what the contract already says it produces, so the dependency is
+    stated from it rather than described.
+    """
+    if target != ref.path:
+        return None
+    declared = _declared_in(interface, ref)
+    if declared is not None:
+        return declared
+    return _renamed_in(index, task, ref)
+
+
+def _declared_in(interface: str, ref: DepRef) -> str | None:
+    """The signature `interface` declares for `ref.symbol`, or None.
+
+    The interface is read as source of `ref.path` by the same parser the index
+    uses, and a definition of the symbol gives its signature. A bare header the
+    parser reads nothing from — ``def f(x: int) -> str``, with no body — counts
+    when a declaring keyword names the symbol, and the interface is stated as
+    written. A name merely mentioned, as a parameter's type say, is not a
+    declaration.
+    """
+    if not interface.strip():
+        return None
+    parsed = extract(ref.path, interface.encode("utf-8", "surrogateescape"))
+    for symbol in parsed:
+        if symbol.name == ref.symbol and symbol.kind is SymbolKind.DEFINITION:
+            return symbol.signature or interface.strip()
+    if parsed:
+        return None
+    named = rf"(?<![\w$]){_DECLARING}\s+{re.escape(ref.symbol)}(?![\w$])"
+    return interface.strip() if re.search(named, interface) else None
+
+
+def _renamed_in(index: Index, task: str, ref: DepRef) -> str | None:
+    """The signature `ref.symbol` has once a rename `task` states has landed.
+
+    The task must rename an old name to `ref.symbol`, and the index must state
+    the old name's signature in `ref.path`; that signature, with its declared
+    name replaced, is what the renamed symbol will have.
+    """
+    for old, new in _RENAME.findall(task):
+        if new != ref.symbol:
+            continue
+        signature = _signature_for(index, DepRef(ref.path, old))
+        if signature is not None:
+            return re.sub(
+                rf"(?<![\w$]){re.escape(old)}(?![\w$])", new, signature, count=1
+            )
+    return None
+
+
+def _wait_on_providers(
+    index: Index, proposals: tuple[Proposal, ...]
+) -> tuple[tuple[Proposal, ...], frozenset[int]]:
+    """Make each proposal wait on the sibling that provides a dependency of it.
+
+    A dependency the index can sign needs nothing. One it cannot is looked for
+    among the other proposals (`_provided`), first in the proposer's order, and
+    that proposal's index is added to `depends_on` when not already there, so
+    `_fan_out` orders the provider first — and refuses a cycle when two
+    proposals each wait on the other's symbol. The second value holds the
+    indexes of the proposals given such an edge. A dependency nothing provides
+    is left as it is, for `_emit` to refuse.
+    """
+    linked: list[Proposal] = []
+    implied: set[int] = set()
+    for at, proposal in enumerate(proposals):
+        waits = list(proposal.depends_on)
+        for ref in proposal.deps:
+            if _signature_for(index, ref) is not None:
+                continue
+            provider = next(
+                (
+                    other_at
+                    for other_at, other in enumerate(proposals)
+                    if other_at != at
+                    and _provided(index, other.target, other.interface, other.task, ref)
+                    is not None
+                ),
+                None,
+            )
+            if provider is not None and provider not in waits:
+                waits.append(provider)
+                implied.add(at)
+        linked.append(
+            replace(proposal, depends_on=tuple(waits)) if at in implied else proposal
+        )
+    return tuple(linked), frozenset(implied)
+
+
 def _identify(proposal: Proposal) -> str:
     """The contract id: the task type, and a digest of what makes this unit of work.
 
@@ -687,6 +837,8 @@ def _identify(proposal: Proposal) -> str:
 
 def _fan_out(
     proposals: tuple[Proposal, ...],
+    *,
+    implied: Collection[int] = frozenset(),
 ) -> tuple[tuple[tuple[Proposal, tuple[str, ...]], ...], tuple[Refusal, ...]]:
     """Resolve `depends_on` indexes into ids, and order proposals topologically.
 
@@ -698,6 +850,8 @@ def _fan_out(
     refused the same way. What remains comes back in dependency order, ties
     broken by the proposer's original order, each proposal paired with the ids
     of the proposals it waits on, so a plan with no edges comes back unchanged.
+    `implied` names the proposals whose `depends_on` `_wait_on_providers`
+    extended; a cycle through one of them is refused against its `deps`.
     """
     ids = [_identify(proposal) for proposal in proposals]
     count = len(proposals)
@@ -781,7 +935,20 @@ def _fan_out(
     # Whatever Kahn could not place is on a cycle, or waits on a cycle, so none
     # of it can be satisfied; each such proposal is refused.
     for index in remaining:
-        if index not in order:
+        if index not in order and index in implied:
+            refusals_by_index[index] = Refusal(
+                proposals[index].target or proposals[index].task_type or "request",
+                "this proposal depends on a symbol another proposal creates, and "
+                "the proposals' depends_on references — stated, or implied by "
+                "such dependencies — form a cycle, so no plan order exists — drop "
+                "one dependency so each contract can follow the one it waits on",
+                field="deps",
+                what_to_change=(
+                    "break the cycle: drop the dependency on the other proposal's "
+                    "new symbol, or the edge back"
+                ),
+            )
+        elif index not in order:
             refusals_by_index[index] = Refusal(
                 proposals[index].target or proposals[index].task_type or "request",
                 "the proposals' depends_on references form a cycle, so no plan "

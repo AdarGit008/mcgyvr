@@ -198,14 +198,18 @@ def _reply_format() -> str:
         '- "target" (string, required): a path exactly as it appears in '
         "RESOLUTION or READ REGIONS.\n"
         '- "interface" (string, optional): the exact interface the result must '
-        "expose.\n"
+        "expose. When another proposal depends on a symbol this one creates "
+        "or renames, state that symbol's signature here.\n"
         '- "deps" (array of objects, optional): dependencies the target may '
         'call, each {"path", "symbol", "note"} where path and symbol name a '
         "symbol shown in RESOLUTION or READ REGIONS and note says how the "
         "target uses it. Propose a dependency only when its symbol is named "
         "there; otherwise omit the field rather than guessing a name. A "
-        "dependency is an existing symbol: never name the symbol the REQUEST "
-        "asks you to create — it is the target's output, not a dependency.\n"
+        "dependency is an existing symbol, or one another proposal in this "
+        "array creates or renames at that path — that proposal states its "
+        "signature as its interface, and this one waits on it. Never name the "
+        "symbol this proposal's own target creates — it is the target's "
+        "output, not a dependency.\n"
         '- "operation" (string, optional): a deterministic operation a tool '
         "performs instead of a model, for task_type code.\n"
         '- "sources" (array of strings, optional): other repo files to give '
