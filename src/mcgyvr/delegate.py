@@ -59,7 +59,7 @@ from mcgyvr.orchestrator.fields import (
     value_by_id,
 )
 from mcgyvr.orchestrator.telemetry import DecisionRecord, ShadowSink
-from mcgyvr.runner import Request, dispatch_role
+from mcgyvr.runner import Completion, Request, dispatch_role
 from mcgyvr.worker.reply import FENCE_OPEN as _FENCE_OPEN
 
 if TYPE_CHECKING:  # pragma: no cover - typing only
@@ -91,6 +91,15 @@ class OrchestratorUnavailableError(DelegationError):
 
 class UnreadableProposalError(DelegationError):
     """A reply that cannot be read as proposals: not JSON, or the wrong shape."""
+
+
+class OrchestratorReplyCutOffError(UnreadableProposalError):
+    """A reply the backend stopped at a length limit, so it is not read at all.
+
+    Raised from the stop reason, before the text is parsed: a proposal array cut
+    off mid-entry opens as valid JSON, and reporting it as "not JSON" would point
+    at the model's format rather than at the room the unit gave the reply.
+    """
 
 
 def build_prompt(evidence: Evidence) -> str:
@@ -413,7 +422,8 @@ def proposer_for(
     callable renders the evidence with `build_prompt`, dispatches it to the
     role — through `capacity`, when one is given, and at the unit's maximum
     reply within the room the prompt leaves (`runner.at_unit_max`) — and
-    parses the reply with `proposals_from_reply`.
+    parses the reply with `proposals_from_reply`. A reply stopped at a length
+    limit is not parsed: it raises `OrchestratorReplyCutOffError`.
     """
     if source_map.role_model(ORCHESTRATOR_ROLE) is None:
         return None
@@ -430,9 +440,49 @@ def proposer_for(
             raise OrchestratorUnavailableError(
                 f"the {ORCHESTRATOR_ROLE!r} role has no unit to dispatch to"
             )
+        cut_off = _cut_off(completion)
+        if cut_off is not None:
+            raise cut_off
         return proposals_from_reply(completion.text)
 
     return propose
+
+
+def _cut_off(completion: Completion) -> OrchestratorReplyCutOffError | None:
+    """The error for an orchestrator reply stopped at a length limit, else None.
+
+    It says the reply was cut off and after how many output tokens (and how
+    many of them were reasoning) where the backend reported them, names the
+    unit and the cap it was sent with the cap's basis, and says what to change:
+    more reply room for the unit, or less of it spent thinking.
+    """
+    if not completion.truncated:
+        return None
+    cap = completion.max_output_tokens
+    if completion.output_tokens is not None:
+        where = f"at its reply cap after {completion.output_tokens} output tokens"
+    elif cap is not None:
+        where = f"at its {cap}-token cap"
+    else:
+        where = "at the backend's own length limit"
+    reasoning = (
+        f", {completion.reasoning_tokens} of them reported as reasoning"
+        if completion.reasoning_tokens is not None
+        else ""
+    )
+    sent = (
+        f"was sent a cap of {cap} tokens"
+        if cap is not None
+        else "was sent no cap, so the backend stopped at its own limit"
+    )
+    basis = f" ({completion.cap_basis})" if completion.cap_basis else ""
+    return OrchestratorReplyCutOffError(
+        f"the orchestrator's reply was cut off {where}{reasoning}, so it is "
+        f"not read as proposals: unit {completion.source!r} {sent}{basis}. "
+        f"Give the orchestrator unit more reply room (raise its "
+        f"`output_tokens`, or its `window`, which less the prompt bounds the "
+        f"reply) or a smaller thinking budget"
+    )
 
 
 #: The confidence a typed answer must reach for its proposal to be trusted. A
