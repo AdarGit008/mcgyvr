@@ -90,7 +90,16 @@ class OrchestratorUnavailableError(DelegationError):
 
 
 class UnreadableProposalError(DelegationError):
-    """A reply that cannot be read as proposals: not JSON, or the wrong shape."""
+    """A reply that cannot be read as proposals: not JSON, or the wrong shape.
+
+    `reply` is the orchestrator's raw reply, whole, when the error came from
+    reading one (else None), so a caller can keep it for diagnosis: `mcgyvr
+    delegate` prints it, delimited, on stderr after the error.
+    """
+
+    def __init__(self, message: str, *, reply: str | None = None) -> None:
+        super().__init__(message)
+        self.reply = reply
 
 
 class OrchestratorReplyCutOffError(UnreadableProposalError):
@@ -257,31 +266,70 @@ def _reply_format() -> str:
 def proposals_from_reply(reply: str) -> tuple[Proposal, ...]:
     """Read an orchestrator reply as proposals, in the order it listed them.
 
-    The body is unwrapped from any code fence and parsed as JSON; a single
-    object is read as a one-item array. Raises `UnreadableProposalError` when
-    the body is not JSON, is not an array, or any entry fails validation.
+    The body is unwrapped from any code fence and read as one JSON value; a
+    single object is read as a one-item array. Prose before the value's first
+    `[` or `{` and text after the complete value are ignored, but nothing inside
+    it is repaired: a trailing comma, a comment or a bad escape is not JSON.
+    Raises `UnreadableProposalError`, carrying the raw reply as its `reply`,
+    when the body holds no JSON value, the value is not an array, or any entry
+    fails validation. The "not JSON" error names the decoder's message, the line
+    and column in the body, an excerpt either side of that point and the reply's
+    length.
+    """
+    try:
+        data = _json_value(reply)
+        if isinstance(data, dict):
+            data = [data]
+        if not isinstance(data, list):
+            raise UnreadableProposalError(
+                f"the orchestrator's reply is a {type(data).__name__}, not an "
+                f"array of proposals"
+            )
+        return tuple(_proposal_of(item) for item in data)
+    except UnreadableProposalError as exc:
+        if exc.reply is None:
+            exc.reply = reply
+        raise
+
+
+#: How many characters either side of the point the decoder stopped at the
+#: "not JSON" error quotes.
+_EXCERPT = 120
+
+
+def _json_value(reply: str) -> object:
+    """The one JSON value the reply's body holds, prose around it ignored.
+
+    The body (`_fenced_body`) is decoded from its first `[` or `{`, and anything
+    after the complete value is left unread. Only the first bracket is tried: a
+    later one could open an entry inside a malformed array, which would read as
+    fewer proposals than the reply holds. A body with no bracket at all is
+    decoded whole, so the error names its first character.
     """
     body = _fenced_body(reply)
+    starts = [at for at in (body.find("["), body.find("{")) if at >= 0]
+    start = min(starts) if starts else 0
     try:
-        data = json.loads(body)
-    except ValueError as exc:
-        raise UnreadableProposalError(
-            f"the orchestrator's reply is not JSON, so it cannot be read as "
-            f"proposals — it opens {body[:120]!r}"
-        ) from exc
+        if not starts:
+            return json.loads(body)
+        value, _end = json.JSONDecoder().raw_decode(body, start)
+        return value
+    except json.JSONDecodeError as exc:
+        raise UnreadableProposalError(_not_json(reply, body, exc)) from exc
 
-    if isinstance(data, dict):
-        data = [data]
-    if not isinstance(data, list):
-        raise UnreadableProposalError(
-            f"the orchestrator's reply is a {type(data).__name__}, not an "
-            f"array of proposals"
-        )
 
-    proposals: list[Proposal] = []
-    for item in data:
-        proposals.append(_proposal_of(item))
-    return tuple(proposals)
+def _not_json(reply: str, body: str, exc: json.JSONDecodeError) -> str:
+    """The "not JSON" message: the decoder's reason, where, and what is there."""
+    at = exc.pos
+    before = body[max(0, at - _EXCERPT) : at]
+    after = body[at : at + _EXCERPT]
+    return (
+        f"the orchestrator's reply is not JSON, so it cannot be read as "
+        f"proposals: {exc.msg} at line {exc.lineno} column {exc.colno} (char "
+        f"{at} of the {len(body)}-char body read; the reply is {len(reply)} "
+        f"chars). Around that point: {before!r} [HERE] {after!r}. It opens "
+        f"{body[:_EXCERPT]!r}"
+    )
 
 
 def _fenced_body(reply: str) -> str:
@@ -423,7 +471,8 @@ def proposer_for(
     role — through `capacity`, when one is given, and at the unit's maximum
     reply within the room the prompt leaves (`runner.at_unit_max`) — and
     parses the reply with `proposals_from_reply`. A reply stopped at a length
-    limit is not parsed: it raises `OrchestratorReplyCutOffError`.
+    limit is not parsed: it raises `OrchestratorReplyCutOffError`. Either way,
+    an unreadable reply's error carries the raw reply as its `reply`.
     """
     if source_map.role_model(ORCHESTRATOR_ROLE) is None:
         return None
@@ -481,7 +530,8 @@ def _cut_off(completion: Completion) -> OrchestratorReplyCutOffError | None:
         f"not read as proposals: unit {completion.source!r} {sent}{basis}. "
         f"Give the orchestrator unit more reply room (raise its "
         f"`output_tokens`, or its `window`, which less the prompt bounds the "
-        f"reply) or a smaller thinking budget"
+        f"reply) or a smaller thinking budget",
+        reply=completion.text,
     )
 
 
