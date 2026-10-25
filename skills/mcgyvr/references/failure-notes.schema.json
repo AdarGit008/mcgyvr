@@ -72,11 +72,11 @@
           ]
         },
         "message": {
-          "description": "The check's own sentence, with the userinfo of any URL in it redacted.",
+          "description": "The check's own sentence. A path in the repository is repo-relative; any other absolute path, and the userinfo of any URL, is replaced by `<redacted>`.",
           "type": "string"
         },
         "path": {
-          "description": "The repo-relative file the note is about; null when the check keyed it by something that is not a file, such as an acceptance command.",
+          "description": "The repo-relative file the note is about; null when the check keyed it by something that is not a file, such as an acceptance command, or named a file outside the repository.",
           "anyOf": [
             {
               "type": "string"
@@ -109,7 +109,7 @@
           ]
         },
         "command": {
-          "description": "The command the check ran, when it ran one (acceptance, typecheck), shell-quoted.",
+          "description": "The command the check ran, when it ran one (acceptance, typecheck), shell-quoted, its paths treated as in `message`.",
           "anyOf": [
             {
               "type": "string"

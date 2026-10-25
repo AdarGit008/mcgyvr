@@ -18,11 +18,12 @@ from __future__ import annotations
 
 import shlex
 from collections.abc import Sequence
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
 from enum import Enum, auto
 
 from mcgyvr.gate.findings import Finding
 from mcgyvr.gate.preflight import PreflightIssue
+from mcgyvr.redact import relativize
 from mcgyvr.sandbox.base import CommandResult, Restored, Sandbox
 
 # The check name stamped on the findings this rung raises.
@@ -130,7 +131,8 @@ class Acceptance:
         """Run every command against the worker's tree. A passing command adds
         nothing; one that could not run is an environment issue; anything else
         is a finding, and a rewritten change ends the run because the change is
-        already rejected."""
+        already rejected. A path under the workspace in a finding is given
+        repo-relative (``_in_the_repo``)."""
         findings: list[Finding] = []
         env_issues: list[str] = []
         notes: list[str] = []
@@ -147,10 +149,31 @@ class Acceptance:
                     _did_not_run_note(command, ran.result, _role(demonstrates))
                 )
                 continue
-            findings.append(_as_finding(command, ran, demonstrates))
+            findings.append(self._in_the_repo(_as_finding(command, ran, demonstrates)))
             if ran.outcome is _Outcome.ALTERED_TREE:
                 break
         return AcceptanceReport(tuple(findings), tuple(env_issues), tuple(notes))
+
+    def _in_the_repo(self, finding: Finding) -> Finding:
+        """``finding`` with every path under the workspace made repo-relative.
+
+        What a command prints names the workspace by the absolute path it ran
+        in — pytest's ``rootdir:``, a traceback's file — which is a throwaway
+        directory on this machine. Relative to the workspace it is the file in
+        the repository, which is what a reader on any machine can act on. Only
+        the workspace is known here; any other host path is left for the
+        reader of the finding to treat (:class:`mcgyvr.notes.FailureNote`
+        redacts it).
+        """
+        roots = self.sandbox.roots
+        return replace(
+            finding,
+            path=relativize(finding.path, roots),
+            message=relativize(finding.message, roots),
+            command=(
+                None if finding.command is None else relativize(finding.command, roots)
+            ),
+        )
 
     def _run_one(
         self,

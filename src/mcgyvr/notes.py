@@ -7,9 +7,12 @@ and what the jev rung saw beside it (:meth:`FailureNotes.of_refusal`), or a
 reply nothing could read (:meth:`FailureNotes.unreadable`). Each
 :class:`FailureNote` in it is one observation of one check. A field a check did
 not report as data stays ``None`` — a command, an exit, a test id or a symbol
-is never parsed out of a sentence or guessed — messages pass through
-:func:`mcgyvr.redact.scrub`, and a path is the repo-relative one the check
-reported or nothing.
+is never parsed out of a sentence or guessed. A record crosses machines, so it
+names nothing of the one it was made on: the gate gives a path under the
+workspace a check ran in repo-relative, and a note, however it is built,
+passes its message and command through :func:`mcgyvr.redact.scrub` and
+:func:`mcgyvr.redact.scrub_paths` — any other absolute path becomes
+``<redacted>`` — and keeps a path only when it is repo-relative.
 
 A record names the rung and the attempt it is about, so it can travel: a climb
 keeps the ordered history (:data:`ClimbNotes`), and :func:`handed_on` picks
@@ -37,7 +40,7 @@ from pathlib import PurePosixPath
 from typing import TYPE_CHECKING, Any
 
 from mcgyvr.config import RETRY_NOTES_CHOICES
-from mcgyvr.redact import scrub
+from mcgyvr.redact import scrub, scrub_paths
 from mcgyvr.schema import Dialect, Field, walk_block
 
 if TYPE_CHECKING:  # pragma: no cover - typing only
@@ -97,14 +100,17 @@ NOTE_FIELDS: tuple[Field, ...] = (
     Field(
         "message",
         "str",
-        "The check's own sentence, with the userinfo of any URL in it redacted.",
+        "The check's own sentence. A path in the repository is repo-relative; "
+        "any other absolute path, and the userinfo of any URL, is replaced by "
+        "`<redacted>`.",
         required=True,
     ),
     Field(
         "path",
         "str",
         "The repo-relative file the note is about; null when the check keyed "
-        "it by something that is not a file, such as an acceptance command.",
+        "it by something that is not a file, such as an acceptance command, or "
+        "named a file outside the repository.",
     ),
     Field("line", "int", "The line in `path` the check placed it on."),
     Field(
@@ -117,7 +123,7 @@ NOTE_FIELDS: tuple[Field, ...] = (
         "command",
         "str",
         "The command the check ran, when it ran one (acceptance, typecheck), "
-        "shell-quoted.",
+        "shell-quoted, its paths treated as in `message`.",
     ),
     Field(
         "exit_code",
@@ -191,6 +197,22 @@ class FailureNote:
     exit_code: int | None = None
     test_id: str | None = None
     symbol: str | None = None
+
+    def __post_init__(self) -> None:
+        """Hold the note to what may leave this machine, however it was built.
+
+        A builder, a test or :meth:`FailureNotes.from_json` all land here, so a
+        note never carries a URL's userinfo or a host path: the message and the
+        command keep their relative paths and lose every absolute one, and a
+        path that is not repo-relative is dropped. The gate has already made a
+        workspace path relative, so what is lost here is only what no reader on
+        another machine could use.
+        """
+        object.__setattr__(self, "message", _safe(self.message))
+        if self.command is not None:
+            object.__setattr__(self, "command", _safe(self.command))
+        if self.path is not None:
+            object.__setattr__(self, "path", _repo_relative(self.path))
 
     @classmethod
     def of_finding(cls, finding: Finding) -> FailureNote:
@@ -467,8 +489,17 @@ def _checks(notes: Sequence[FailureNote]) -> tuple[str, ...]:
 
 
 def _repo_relative(path: str) -> str | None:
-    """`path` when it is relative, else None: a record never names a host path."""
-    return None if PurePosixPath(path).is_absolute() else path
+    """`path` when it is a path in the repository, else None: a record never
+    names a host path, a home-relative one or one that climbs out of the repo."""
+    within = PurePosixPath(path)
+    if within.is_absolute() or path.startswith("~") or ".." in within.parts:
+        return None
+    return path
+
+
+def _safe(text: str) -> str:
+    """`text` without a URL's userinfo or an absolute path in it."""
+    return scrub_paths(scrub(text))
 
 
 def _dump(obj: object, fields: tuple[Field, ...]) -> dict[str, Any]:
