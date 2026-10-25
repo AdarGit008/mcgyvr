@@ -90,6 +90,11 @@ TRIAGE_CHOICES: tuple[str, ...] = ("none", "jev")
 #: it back, unspent; `run` sends it anyway (see `mcgyvr.tree`).
 DEPENDENTS_CHOICES: tuple[str, ...] = ("hold", "run")
 
+#: How many times a batch (`mcgyvr delegate --run`) hands a line of work whose
+#: ladder is spent back to the orchestrator to be re-planned (see
+#: `mcgyvr.replan`); 0 turns re-planning off.
+MAX_REPLANS_DEFAULT = 1
+
 #: Which failure-notes records a try is shown (see `mcgyvr.notes.handed_on`):
 #: `climb` every record of the climb, `rung` this rung's previous attempt's,
 #: `none` nothing.
@@ -896,6 +901,24 @@ SCHEMA: tuple[Field, ...] = (
         default=None,
         min_value=0,
         bind_hint="set a whole number of moves up the ladder, or leave it unset",
+    ),
+    Field(
+        "max_replans",
+        "int",
+        "How many times a batch of contracts (`mcgyvr delegate --run`) hands "
+        "a line of work whose ladder is spent back to the orchestrator to be "
+        "re-planned. A contract that tried every rung and came to "
+        "`ladder_spent` goes back with the failure notes its climb left, as "
+        "evidence; the contract or contracts the orchestrator proposes in its "
+        "place take its place in the batch, carry `replan` (the id they "
+        "replace and the round), and what waited on it waits on them. A "
+        "contract already at this round is not re-planned again, and one the "
+        "orchestrator proposes unchanged is not run again. 0 turns re-planning "
+        "off: a spent contract stops there, as a single `mcgyvr run` always "
+        "does.",
+        default=MAX_REPLANS_DEFAULT,
+        min_value=0,
+        bind_hint="set a whole number of re-plans, or 0 to stop at a spent ladder",
     ),
     Field(
         "retry_notes",

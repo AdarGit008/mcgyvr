@@ -42,6 +42,7 @@ if TYPE_CHECKING:  # pragma: no cover - typing only
     from pathlib import Path
 
     from mcgyvr.config import Config
+    from mcgyvr.replan import Spent
 
 # Bytes of digest kept in every contract id. Five bytes is ten hex characters:
 # short enough that an id is still a filename a caller can write, long enough
@@ -150,6 +151,12 @@ class Evidence:
     """The ceiling on a contract's worker view this decomposition holds to.
 
     `decompose`'s and `iterate`'s `max_input_tokens`."""
+    spent: Spent | None = None
+    """The contract this decomposition re-plans, with its failure notes.
+
+    Set when a batch hands back a contract whose ladder is spent
+    (`mcgyvr.replan`): the request is that contract's own work, and the prose
+    proposer shows the records as evidence. None for a first plan."""
 
 
 Proposer = Callable[[Evidence], Sequence[Proposal]]
@@ -223,6 +230,7 @@ def decompose(
     adapters: Sequence[LanguageAdapter] | None = None,
     max_input_tokens: int = _DEFAULT_MAX_INPUT_TOKENS,
     located: Mapping[str, Sequence[str]] | None = None,
+    spent: Spent | None = None,
 ) -> Decomposition:
     """Turn a prompt into contracts, or into refusals that say why not.
 
@@ -244,7 +252,8 @@ def decompose(
     ceiling on a contract's worker view, above which the target is refused as
     too large. `located` carries checker commands a caller has already found,
     keyed by adapter name, so a `type_check` acceptance can be derived without
-    probing the disk again.
+    probing the disk again. `spent` is the contract this call re-plans, with the
+    failure notes its climb left, carried on the evidence for the proposer.
     """
     evidence = _evidence(
         index,
@@ -253,6 +262,7 @@ def decompose(
         budget=budget,
         adapters=adapters,
         ceiling=max_input_tokens,
+        spent=spent,
     )
     owners = tuple(adapters) if adapters is not None else _default_adapters()
 
@@ -324,13 +334,15 @@ def _evidence(
     budget: int | None = None,
     adapters: Sequence[LanguageAdapter] | None = None,
     ceiling: int = _DEFAULT_MAX_INPUT_TOKENS,
+    spent: Spent | None = None,
 ) -> Evidence:
     """The deterministic pass a proposer is handed: resolve, read, catalog, baseline.
 
     `adapters` is accepted for the shared call shape with `decompose`/`iterate`;
     the evidence itself needs none — the baseline is located from the index's
     root and the vocabulary from the catalog. `ceiling` is the worker-view
-    ceiling the caller holds the contracts to, carried on the evidence.
+    ceiling the caller holds the contracts to, and `spent` the contract being
+    re-planned, both carried on the evidence.
     """
     resolution = resolve(index, prompt)
     exploration = (
@@ -348,6 +360,7 @@ def _evidence(
         vocabulary=vocabulary,
         baseline=baseline,
         ceiling=ceiling,
+        spent=spent,
     )
 
 

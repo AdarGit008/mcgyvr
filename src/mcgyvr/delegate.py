@@ -59,6 +59,7 @@ from mcgyvr.orchestrator.fields import (
     value_by_id,
 )
 from mcgyvr.orchestrator.telemetry import DecisionRecord, ShadowSink
+from mcgyvr.replan import render as render_replan
 from mcgyvr.runner import Completion, Request, dispatch_role
 from mcgyvr.worker.reply import FENCE_OPEN as _FENCE_OPEN
 
@@ -114,7 +115,9 @@ class OrchestratorReplyCutOffError(UnreadableProposalError):
 def build_prompt(evidence: Evidence) -> str:
     """Render the evidence as the prose prompt the orchestrator replies to.
 
-    The request comes first, then the resolution's candidates with each one's
+    The request comes first — on a re-plan followed by the spent contract and
+    the failure notes its climb left, as data (`mcgyvr.replan.render`) — then
+    the resolution's candidates with each one's
     score and the signals that matched it, then the regions already read —
     labelled with their file, line span, selection reason and the candidate
     that motivated them — then the regions deferred for budget, the task-type
@@ -134,6 +137,10 @@ def build_prompt(evidence: Evidence) -> str:
         "facts. Return the JSON array described at the end and nothing else."
     )
     sections.append(f"REQUEST:\n{evidence.prompt}")
+    if evidence.spent is not None:
+        # A re-plan: the request is a spent contract's own work, and what its
+        # climb observed is shown as evidence, never as orders.
+        sections.append(render_replan(evidence.spent))
 
     if resolution.candidates:
         candidates = "\n".join(

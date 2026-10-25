@@ -51,6 +51,7 @@ each one.
 | `limits` | block | no | — | Hard ceilings on what one execution of this contract may spend. (orchestrator-facing) |
 | `start_rung` | text | no | empty | The ladder rung this contract's climb starts on, decided ahead of time — what `mcgyvr.triage.triage_ahead` asks the `jev` unit, stored with the contract so every later run starts there without asking again. The rungs below it are skipped, not spent, and escalation goes on upward from it; it wins over the config's `triage`. A rung the ladder does not list, or one this contract's climb does not offer, is refused before anything is dispatched. Not worker-facing. e.g. local_qwen-14b. (orchestrator-facing) |
 | `rename` | block | no | — | Which symbol becomes which, for `operation: rename_symbol`. The one operation mcgyvr executes in-process rather than by running a program, and the only one whose input is not fully determined by `target`: a rename fans across every file that references the symbol, so the pair has to be said. Meaningless on any other contract and ignored there. (orchestrator-facing) |
+| `replan` | block | no | — | Where this contract came from when it was proposed in place of one whose ladder was spent: the id it replaces and the re-plan round. Written by the batch that re-planned it, never by hand. Not worker-facing. (orchestrator-facing) |
 
 #### `deps`
 
@@ -108,6 +109,15 @@ Which symbol becomes which, for `operation: rename_symbol`. The one operation mc
 | `rename.from` | text | no | empty | The symbol as it is written today. Stated rather than read out of `task`: mcgyvr renames every reference the index resolved across every file that holds one, and a name inferred from prose is a multi-file rewrite resting on a guess about English. A worker asked to guess would guess; a program must be told. e.g. fetch_page. (orchestrator-facing) |
 | `rename.to` | text | no | empty | What the symbol becomes. Must be a legal identifier — the rename rewrites text, and a `to` that is not a name would produce a tree that no longer parses while reporting success. e.g. fetch_document. (orchestrator-facing) |
 
+#### `replan`
+
+Where this contract came from when it was proposed in place of one whose ladder was spent: the id it replaces and the re-plan round. Written by the batch that re-planned it, never by hand. Not worker-facing.
+
+| Key | Type | Required | Default | Description |
+| --- | --- | --- | --- | --- |
+| `replan.replaces` | text | no | empty | The id of the contract this one was proposed in place of, when a batch handed that contract back to the orchestrator because its ladder was spent (`max_replans`). e.g. code-1f2e3d4c5b. (orchestrator-facing) |
+| `replan.round` | number (min 0) | no | `0` | Which re-plan this contract came from: 1 for one proposed in place of a contract nobody re-planned, one more than the contract it replaces otherwise. A batch re-plans a spent contract only while this is below `max_replans`, so the bound is read from the contract. (orchestrator-facing) |
+
 ### Deterministic operations
 
 Not task types: `task_type: code` with `operation:` `format`, `import_sort`, `lint_fix`, `rename_symbol` has a tool make the change, never a model.
@@ -158,8 +168,11 @@ what the run came to. The file's keys:
     was refused; `detail` says what was in the way. Clear it, rerun.
   - `nothing_to_change` — a tool found nothing to do; exit 0.
   - `ladder_spent` — everything this machine offers was tried and none
-    produced an acceptable change. Narrow the contract: raising a
-    number changes what it costs to fail, not whether it fails.
+    produced an acceptable change. Raising a number changes what it
+    costs to fail, not whether it fails. In a batch (`mcgyvr delegate
+    --run`) the contract goes back to the orchestrator with its failure
+    notes and what comes back runs in its place, up to `max_replans`
+    (default 1); `replanned` says what became of it. Alone, narrow it.
   - `escalation_ceiling` — stopped at a ceiling on how far the work may
     be moved up, with dearer tries never entered; that says it was not
     allowed to try, not that it cannot. Rerun where those moves are
@@ -231,6 +244,11 @@ what the run came to. The file's keys:
   the result read, `records`, the failure-notes records read from it,
   each with the `run` it was made in, and `handed`, how many the climb
   opened with (all under `retry_notes: climb`, else none).
+- `replanned` — only on a `ladder_spent` result in a batch with
+  `max_replans` above 0: the `round`, the `max_replans` it was held to,
+  the `contracts` proposed in its place (each carries `replan`: the id
+  it `replaces` and its `round`; none when it was not re-planned) and a
+  `detail` sentence, which `detail` repeats.
 
 `attempts[].notes` is the failure-notes record of a failed try, `null` on
 a try that left none. It is built from what the gate, the reviewer or the

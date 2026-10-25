@@ -1295,13 +1295,15 @@ class Disposition:
     detail: str
 
 
-def disposition(outcome: Outcome) -> Disposition:
+def disposition(outcome: Outcome, *, replans: int = 0) -> Disposition:
     """The disposition for one outcome: whether to reassign, and why.
 
     Accepted work has no question left to answer, a spent or empty ladder
     and a ladder that declined throughout would give the same answer
     elsewhere, and the two ceilings and an error settled nothing about the
-    work — those are the ones worth handing on.
+    work — those are the ones worth handing on. `replans` is `max_replans`:
+    above zero, a spent ladder's remedy is the re-plan a batch makes of it
+    (`mcgyvr.replan`), not a hand-narrowed contract.
     """
     match outcome:
         case Outcome.ACCEPTED:
@@ -1333,6 +1335,20 @@ def disposition(outcome: Outcome) -> Disposition:
                     "which bounds the bill and not the ladder's ability. The "
                     "same contract may be attempted again against a budget "
                     "that can pay for it."
+                ),
+            )
+        case Outcome.LADDER_SPENT if replans > 0:
+            return Disposition(
+                reassignable=False,
+                detail=(
+                    "ladder_spent: every rung this install offers was tried "
+                    "and none produced an acceptable change, so the same "
+                    "contract would give the same answer anywhere. It goes "
+                    "back to the orchestrator with its failure notes to be "
+                    f"re-planned — `max_replans` is {replans}, and "
+                    "`mcgyvr delegate --run` runs what comes back in its place "
+                    "— rather than to another ladder; binding a dearer rung "
+                    "remains the other remedy."
                 ),
             )
         case Outcome.LADDER_SPENT:

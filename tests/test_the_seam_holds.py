@@ -203,7 +203,8 @@ BELOW_THE_SEAM: tuple[str, ...] = (
 #: and what may be read back (worker.*), what judges the change (gate.*,
 #: scope, and the semantic gate's resolver engine under gate._engine, which is
 #: staged into the sandbox and whose import statements name only itself and the
-#: standard library), the order a batch of contracts runs in (tree, board),
+#: standard library), the order a batch of contracts runs in (tree, board) and
+#: what a spent contract is re-planned from (replan),
 #: and what the run leaves behind for the caller (result, session, telemetry).
 ABOVE_THE_SEAM: tuple[str, ...] = (
     "mcgyvr.board",
@@ -270,6 +271,7 @@ ABOVE_THE_SEAM: tuple[str, ...] = (
     "mcgyvr.orchestrator.telemetry",
     "mcgyvr.rename",
     "mcgyvr.repair",
+    "mcgyvr.replan",
     "mcgyvr.result",
     "mcgyvr.route",
     "mcgyvr.scope",

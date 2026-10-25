@@ -147,6 +147,14 @@ class Board:
         )
         self._persist(tree)
 
+    def replace(
+        self, tree_id: str, old_id: str, contract: Contract, *more: Contract
+    ) -> None:
+        """`contract`, and `more`, take `old_id`'s place on its tree."""
+        tree = self._trees[tree_id]
+        tree.replace(old_id, contract, *more)
+        self._persist(tree)
+
     def drain(self) -> tuple[tuple[Tree, Contract, Hold], ...]:
         """Seal every tree, and hand back each contract that is still held."""
         dead: list[tuple[Tree, Contract, Hold]] = []
