@@ -237,6 +237,11 @@ class DockerSandbox(Sandbox):
         """
         return self._seeded
 
+    @property
+    def roots(self) -> tuple[str, ...]:
+        """The host's spellings of the workspace, and the container's mount."""
+        return (*super().roots, str(CONTAINER_WORKSPACE))
+
     def host_path(self, reported: str) -> Path:
         """Map a path the container printed to where it lives on the host.
 

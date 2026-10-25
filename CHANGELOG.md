@@ -285,6 +285,15 @@ archived outside this repository, under the same paths.
 
 ### Security
 
+- A failure note names no path on the machine it was made on. The acceptance
+  rung gives a path under the workspace its command ran in — pytest's
+  `rootdir:`, a traceback's file, in either sandbox mode — repo-relative
+  (`Sandbox.roots`, `mcgyvr.redact.relativize`), and every `FailureNote`,
+  however it is built or read back, replaces any other absolute path in its
+  `message` and `command` (site-packages, `/tmp/...`, a home directory) with
+  `<redacted>` (`mcgyvr.redact.scrub_paths`) and drops a `path` that is not
+  repo-relative. A record carried to another user's rig no longer carries the
+  first user's paths.
 - A capacity's slot directory (`mcgyvr-capacity-<uid>` under the temporary
   directory) is used only when this user owns it outright: a directory, not a
   symlink, owned by this uid and not writable by group or other. A missing one

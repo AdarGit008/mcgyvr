@@ -271,6 +271,19 @@ class Sandbox(ABC):
             raise SandboxError("sandbox is not open — use it as a context manager")
         return self._workspace
 
+    @property
+    def roots(self) -> tuple[str, ...]:
+        """Every absolute spelling of the workspace a command run here may print.
+
+        The directory as it was made and, where a symlink sits on the way to it,
+        its resolved form, which is what `pwd -P` and a resolving tool print. A
+        backend that shows the workspace to its commands under another path
+        adds that one. A path under any of them is a path in the repository,
+        which is how the gate reports it repo-relative.
+        """
+        made = self.workspace
+        return tuple(dict.fromkeys((str(made), str(made.resolve()))))
+
     def __enter__(self) -> Sandbox:
         _install_reaper()
         self._workspace = Path(tempfile.mkdtemp(prefix=_WORKSPACE_PREFIX))
