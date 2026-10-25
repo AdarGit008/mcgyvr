@@ -12,6 +12,15 @@ behind is put back and noted, and a command that rewrites part of the worker's
 own change is a finding (``tree-altering``) rather than a pass over bytes the
 worker did not write. A command that never ran (exit 126/127) is an
 environment issue, never a rejected change.
+
+At the gate, a command that is pytest is also asked for its JUnit XML report
+(:mod:`mcgyvr.gate.junit`), and a failing run is reported one finding per
+failing test — its node id, file, line, exception and missing name as data —
+rather than as one finding quoting the tail of the output. The tail stays the
+finding for every other command, and for a pytest run whose report names no
+failing test. Findings read from a report come before the ones that quote raw
+output, and at most :data:`MAX_TESTS_NOTED` tests of one command are noted one
+by one, the rest counted.
 """
 
 from __future__ import annotations
@@ -20,11 +29,14 @@ import shlex
 from collections.abc import Sequence
 from dataclasses import dataclass, replace
 from enum import Enum, auto
+from pathlib import Path, PurePosixPath
 
+from mcgyvr.gate import junit
 from mcgyvr.gate.findings import Finding
+from mcgyvr.gate.junit import FailingTest
 from mcgyvr.gate.preflight import PreflightIssue
 from mcgyvr.redact import relativize
-from mcgyvr.sandbox.base import CommandResult, Restored, Sandbox
+from mcgyvr.sandbox.base import CommandResult, Restored, Sandbox, Snapshot
 
 # The check name stamped on the findings this rung raises.
 CHECK = "acceptance"
@@ -49,6 +61,17 @@ _NOT_FOUND = 127
 _MAX_EXCERPT_LINES = 40
 _MAX_EXCERPT_CHARS = 4000
 
+#: The most failing tests noted one by one across the commands of one run; the
+#: rest are counted, one more finding per command. It keeps a record's size
+#: from following the suite's, and is one less than a worker is shown in full
+#: (:data:`mcgyvr.worker.prompt.MAX_NOTES_SHOWN`), so the count is shown too.
+MAX_TESTS_NOTED = 19
+
+# Caps on the report text one failing test's finding quotes. There are up to
+# MAX_TESTS_NOTED of them, so each gets less than a whole command's excerpt.
+_MAX_TEST_EXCERPT_LINES = 15
+_MAX_TEST_EXCERPT_CHARS = 1500
+
 
 class _Outcome(Enum):
     """How one run of one acceptance command is judged."""
@@ -62,12 +85,14 @@ class _Outcome(Enum):
 
 @dataclass(frozen=True)
 class _Ran:
-    """One executed command: its outcome, the raw result, and the paths of the
-    change it rewrote when the outcome is ``ALTERED_TREE``."""
+    """One executed command: its outcome, the raw result, the paths of the
+    change it rewrote when the outcome is ``ALTERED_TREE``, and the failing
+    tests its report named when it was asked for one."""
 
     outcome: _Outcome
     result: CommandResult
     altered: tuple[str, ...] = ()
+    failing: tuple[FailingTest, ...] = ()
 
 
 @dataclass(frozen=True)
@@ -131,9 +156,18 @@ class Acceptance:
         """Run every command against the worker's tree. A passing command adds
         nothing; one that could not run is an environment issue; anything else
         is a finding, and a rewritten change ends the run because the change is
-        already rejected. A path under the workspace in a finding is given
-        repo-relative (``_in_the_repo``)."""
-        findings: list[Finding] = []
+        already rejected.
+
+        The findings are ordered by what a worker most needs to see within the
+        notes it is shown: a rewrite or a timeout, which reject the change
+        whatever the tests say, then the failing tests a report named, then the
+        count of those not named, then the tail of each other failing run. A
+        path under the workspace in a finding is given repo-relative
+        (``_in_the_repo``)."""
+        decisive: list[Finding] = []
+        tests: list[Finding] = []
+        counted: list[Finding] = []
+        raw: list[Finding] = []
         env_issues: list[str] = []
         notes: list[str] = []
         judged = [(c, True) for c in self.demonstrations]
@@ -149,10 +183,27 @@ class Acceptance:
                     _did_not_run_note(command, ran.result, _role(demonstrates))
                 )
                 continue
-            findings.append(self._in_the_repo(_as_finding(command, ran, demonstrates)))
+            if ran.outcome is _Outcome.FAILED and ran.failing:
+                listed, rest = _as_test_findings(
+                    command,
+                    ran,
+                    demonstrates,
+                    self.sandbox.workspace,
+                    room=MAX_TESTS_NOTED - len(tests),
+                )
+                tests.extend(listed)
+                counted.extend(rest)
+                continue
+            finding = _as_finding(command, ran, demonstrates)
+            (raw if ran.outcome is _Outcome.FAILED else decisive).append(finding)
             if ran.outcome is _Outcome.ALTERED_TREE:
                 break
-        return AcceptanceReport(tuple(findings), tuple(env_issues), tuple(notes))
+        ordered = (*decisive, *tests, *counted, *raw)
+        return AcceptanceReport(
+            tuple(self._in_the_repo(finding) for finding in ordered),
+            tuple(env_issues),
+            tuple(notes),
+        )
 
     def _in_the_repo(self, finding: Finding) -> Finding:
         """``finding`` with every path under the workspace made repo-relative.
@@ -189,17 +240,44 @@ class Acceptance:
         change makes the outcome ``ALTERED_TREE`` — on the unchanged tree there
         is no change for it to rewrite."""
         before = self.sandbox.snapshot()
-        result = self.sandbox.run(command, timeout=self.timeout)
+        result, failing = self._execute(command, before, reports=when == _AT_GATE)
         restored = self.sandbox.restore(before)
         if not restored:
-            return _Ran(_classify(result), result)
+            return _Ran(_classify(result), result, failing=failing)
         notes.append(_cleanup_note(command, restored, when, _role(demonstrates)))
         if when == _AT_GATE and restored.reverted:
             change = self.sandbox.changed_since_base(before)
             altered = tuple(path for path in restored.reverted if path in change)
             if altered:
                 return _Ran(_Outcome.ALTERED_TREE, result, altered)
-        return _Ran(_classify(result), result)
+        return _Ran(_classify(result), result, failing=failing)
+
+    def _execute(
+        self, command: Sequence[str], before: Snapshot, *, reports: bool
+    ) -> tuple[CommandResult, tuple[FailingTest, ...]]:
+        """Run `command` once, as written, or — when `reports` and it is pytest —
+        asking for its report, and return the result with the failing tests the
+        report names.
+
+        The report is read and removed before the caller restores the tree, so
+        it is never noted as something the command left behind. A run that
+        took the flags but wrote no report did not run as pytest does: what it
+        left is put back and the command runs again as written, and that run is
+        the result — so the flags never decide a verdict. A run killed at the
+        time limit is not repeated: it wrote no report because it was killed,
+        and running it again would only double the wait.
+        """
+        asking = junit.reporting(command) if reports else None
+        if asking is None or junit.present(workspace := self.sandbox.workspace):
+            return self.sandbox.run(command, timeout=self.timeout), ()
+        result = self.sandbox.run(asking, timeout=self.timeout)
+        failing = junit.collect(workspace)
+        if failing is not None:
+            return result, failing
+        if result.timed_out:
+            return result, ()
+        self.sandbox.restore(before)
+        return self.sandbox.run(command, timeout=self.timeout), ()
 
 
 #: The two moments a command is run, quoted in cleanup notes and compared to
@@ -315,6 +393,110 @@ def _as_finding(command: Sequence[str], ran: _Ran, demonstrates: bool) -> Findin
     )
 
 
+def _as_test_findings(
+    command: Sequence[str],
+    ran: _Ran,
+    demonstrates: bool,
+    workspace: Path,
+    *,
+    room: int,
+) -> tuple[list[Finding], list[Finding]]:
+    """One finding per failing test the report named, at most `room` of them,
+    and apart from them the one finding counting the rest, if any.
+
+    Each carries what the report gave as data: the test's node id, the file
+    and line — when the file is one in the workspace, else the command stands
+    in the file position as for any acceptance finding — the missing name, and
+    the command and its exit. Its sentence names the test, says what failing
+    means for the command's role, and quotes the exception and the tail of the
+    report's text for it.
+    """
+    label = _label(command)
+    exit_code = ran.result.exit_code
+    findings: list[Finding] = []
+    room = max(room, 0)
+    for test in ran.failing[:room]:
+        in_tree = test.path is not None and _in_workspace(test.path, workspace)
+        findings.append(
+            Finding(
+                check=CHECK,
+                path=test.path if in_tree and test.path is not None else label,
+                names_a_file=in_tree,
+                line=test.line if in_tree else None,
+                code=_test_code(test.outcome, demonstrates),
+                message=_test_message(test, demonstrates),
+                command=label,
+                exit_code=exit_code,
+                symbol=test.symbol,
+                test_id=test.test_id,
+            )
+        )
+    rest = len(ran.failing) - room
+    if rest <= 0:
+        return findings, []
+    return findings, [
+        Finding(
+            check=CHECK,
+            path=label,
+            names_a_file=False,
+            code=_test_code("failed", demonstrates),
+            message=(
+                # No command in the sentence: a worker is never shown which
+                # command it is to satisfy (``tests/test_pattern_e_boundaries``).
+                f"{rest} more failing tests are not noted one by one — fix the "
+                "ones noted first, and these may follow"
+            ),
+            command=label,
+            exit_code=exit_code,
+        )
+    ]
+
+
+def _test_code(outcome: str, demonstrates: bool) -> str:
+    """The report's outcome, prefixed for a demonstrating command as its
+    command-level code is (`demonstration-failed`)."""
+    return f"demonstration-{outcome}" if demonstrates else outcome
+
+
+#: How a sentence says what happened to one test, by the report's outcome.
+_HAPPENED = {
+    "failed": "fails",
+    "error": "errors in its setup or teardown",
+    "collection-error": "cannot be collected",
+}
+
+
+def _test_message(test: FailingTest, demonstrates: bool) -> str:
+    """The sentence for one failing test: what happened after the change, what
+    that means for the command's role, the exception, and the report's text."""
+    role = (
+        "this demonstrating command was to pass once the defect was fixed, so "
+        "the defect the contract names is not fixed"
+        if demonstrates
+        else "this acceptance command passed on the unchanged tree"
+    )
+    said = (
+        f"{test.name} {_HAPPENED.get(test.outcome, 'fails')} after the change; {role}"
+    )
+    if test.exception:
+        said += f": {test.exception}"
+    detail = test.detail.strip("\n")
+    if detail:
+        said += "\n" + _tail(
+            detail, lines=_MAX_TEST_EXCERPT_LINES, chars=_MAX_TEST_EXCERPT_CHARS
+        )
+    return said
+
+
+def _in_workspace(path: str, workspace: Path) -> bool:
+    """Whether a path a report gave is a file of the workspace, named relative
+    to its root without stepping out of it."""
+    pure = PurePosixPath(path)
+    if pure.is_absolute() or ".." in pure.parts:
+        return False
+    return workspace.joinpath(*pure.parts).is_file()
+
+
 def _not_run_detail(command: Sequence[str], result: CommandResult) -> str:
     """Why the command never ran: its stderr, or the bare exit code, plus the
     reminder that no shell is involved when the program token could not have
@@ -425,16 +607,18 @@ def _excerpt(result: CommandResult) -> str:
     return _tail(combined) if combined else "(command produced no output)"
 
 
-def _tail(text: str) -> str:
-    """Keep the last lines and characters of a text, marking the elision when
-    earlier output was dropped."""
+def _tail(
+    text: str, *, lines: int = _MAX_EXCERPT_LINES, chars: int = _MAX_EXCERPT_CHARS
+) -> str:
+    """Keep the last `lines` lines and `chars` characters of a text, marking the
+    elision when earlier output was dropped."""
     truncated = False
-    lines = text.split("\n")
-    if len(lines) > _MAX_EXCERPT_LINES:
-        lines = lines[-_MAX_EXCERPT_LINES:]
+    kept = text.split("\n")
+    if len(kept) > lines:
+        kept = kept[-lines:]
         truncated = True
-    tail = "\n".join(lines)
-    if len(tail) > _MAX_EXCERPT_CHARS:
-        tail = tail[-_MAX_EXCERPT_CHARS:]
+    tail = "\n".join(kept)
+    if len(tail) > chars:
+        tail = tail[-chars:]
         truncated = True
     return f"…(earlier output omitted)…\n{tail}" if truncated else tail

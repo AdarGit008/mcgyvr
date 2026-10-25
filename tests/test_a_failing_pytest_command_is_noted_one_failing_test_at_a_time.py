@@ -106,7 +106,12 @@ def test_each_failing_test_is_its_own_note_with_its_id_file_and_line(
     }
     # The line each definition starts on: a decorated one starts at its decorator.
     assert [n.line for n in notes] == [10, 14, 19]
-    assert {(n.command, n.exit_code) for n in notes} == {(shlex.join(command), 1)}
+    # The command as the contract wrote it (the interpreter's host path is
+    # redacted in a note), with none of the gate's report flags.
+    assert {n.exit_code for n in notes} == {1}
+    (said,) = {n.command for n in notes}
+    assert said is not None
+    assert said.endswith(shlex.join(command[1:]))
     attribute = notes[1]
     assert "AttributeError: module 'os' has no attribute 'not_there'" in (
         attribute.message

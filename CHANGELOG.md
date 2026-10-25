@@ -11,6 +11,22 @@ archived outside this repository, under the same paths.
 
 ### Added
 
+- **A failing pytest command is noted one failing test at a time.** When an
+  acceptance or demonstrating command is pytest, the gate asks it for its JUnit
+  XML report (`--junitxml` into the workspace, `junit_family=xunit1`; the
+  report is removed before the tree is restored) and files one finding — one
+  failure note — per failing test, with its `test_id` (the node id), `path`,
+  `line` (where the test's definition starts), the exception it raised, and
+  the command and its exit; `code` is `failed`, `error` or `collection-error`,
+  prefixed `demonstration-` for a demonstrating command. A NameError,
+  ImportError, ModuleNotFoundError or AttributeError gives `symbol`, read only
+  from the interpreter's fixed wording of that exception. A rewrite or a
+  timeout comes first, then the tests a report named — at most 19 across the
+  run, the rest counted, so the count is within the 20 notes a worker is
+  shown — then the raw tail of any other failing command. A command that is not pytest, or where a flag could change what it
+  means (`--`, a JUnit option of its own), runs as written and keeps the tail
+  of its output; one that took the flags but wrote no report is run again as
+  written, and that run is judged. The schema's `kind`s are unchanged.
 - **A contract whose provider did not land is held, not climbed.**
   `mcgyvr delegate --run` keeps the batch's contracts on a live dependency
   tree (`mcgyvr.tree`, `mcgyvr.board`), one per repository, and runs the next

@@ -81,6 +81,9 @@ def test_each_uncollectable_module_is_a_note_naming_what_is_missing(
         # A module is not a test, and a collection error has no line of its own.
         assert (note.code, note.test_id, note.line) == ("collection-error", None, None)
         assert note.exit_code == 2
+        # The report quotes the module by the workspace's absolute path; the
+        # note names it repo-relative, as every acceptance finding does.
+        assert "mcgyvr-task-" not in note.message
     assert "ModuleNotFoundError: No module named 'no_such_module_q'" in (
         by_path["tests/test_modules.py"].message
     )
