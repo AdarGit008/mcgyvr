@@ -54,11 +54,16 @@ def _delegate(args: argparse.Namespace) -> int:
     the config and `--budget`. The contracts are reported and written, or
     printed when `--output` is not given, and `--run` runs each of them. The
     exit code is 0 when that all worked and 1 when attaching, indexing,
-    proposing or running did not.
+    proposing or running did not. A reply that cannot be read as proposals is
+    printed whole, delimited, on stderr after its error.
     """
 
     from mcgyvr.config import ConfigError
-    from mcgyvr.delegate import NO_ORCHESTRATOR_ROLE, DelegationError
+    from mcgyvr.delegate import (
+        NO_ORCHESTRATOR_ROLE,
+        DelegationError,
+        UnreadableProposalError,
+    )
     from mcgyvr.local_pool import SourceUnavailableError, source_map
     from mcgyvr.orchestrator import (
         AttachError,
@@ -140,7 +145,22 @@ def _delegate(args: argparse.Namespace) -> int:
         # A delegation, runner or pool failure leaves nothing to run: report it
         # on stderr and exit 1, the same answer an attach or index failure gets.
         print(f"error: {exc}", file=sys.stderr)
+        if isinstance(exc, UnreadableProposalError) and exc.reply is not None:
+            _print_raw_reply(exc.reply)
         return 1
+
+
+def _print_raw_reply(reply: str) -> None:
+    """Print the orchestrator's unreadable reply, whole and delimited, on stderr.
+
+    Nothing else keeps it — no journal is open before the contracts exist — so
+    a caller capturing only the command's output still has the reply to read.
+    The lines between the two markers are the reply verbatim, plus a closing
+    newline when it lacks one.
+    """
+    print(f"--- the orchestrator's raw reply ({len(reply)} chars) ---", file=sys.stderr)
+    print(reply, end="" if reply.endswith("\n") else "\n", file=sys.stderr)
+    print("--- end of the orchestrator's raw reply ---", file=sys.stderr)
 
 
 def _proposer_for_delegate(config: Config, pool: SourceMap) -> Proposer | None:

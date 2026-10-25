@@ -203,6 +203,13 @@ archived outside this repository, under the same paths.
 
 ### Fixed
 
+- `mcgyvr delegate` says why an orchestrator reply is not JSON — the
+  decoder's message, the line and column, an excerpt either side of that
+  point and the reply's length — and prints the whole reply, delimited, on
+  stderr after the error, so a failed run can be diagnosed from its output.
+  A complete JSON array or object with prose only before or after it is now
+  read and the prose ignored; malformed JSON inside it (a trailing comma, a
+  comment) is not repaired and still fails, with that reason.
 - `mcgyvr delegate` names an orchestrator reply cut off at its cap as cut
   off — its output tokens, the unit and the cap it was sent, and what to
   raise — instead of reporting the half-written array as "not JSON".
