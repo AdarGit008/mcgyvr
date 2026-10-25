@@ -1,0 +1,158 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "mcgyvr failure notes",
+  "description": "mcgyvr.failure_notes/1: the record of one failed attempt, built from what the gate, the reviewer or the reply parser observed. Generated from src/mcgyvr/notes.py by `make docs`; do not edit.",
+  "$ref": "#/$defs/FailureNotes",
+  "$defs": {
+    "FailureNotes": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "schema",
+        "rung",
+        "family",
+        "attempt",
+        "checks",
+        "notes"
+      ],
+      "properties": {
+        "schema": {
+          "description": "The record's schema name and version.",
+          "const": "mcgyvr.failure_notes/1"
+        },
+        "rung": {
+          "description": "The rung the failed attempt ran on.",
+          "type": "string"
+        },
+        "family": {
+          "description": "That rung's family: `deterministic`, `local` or `api`.",
+          "type": "string"
+        },
+        "attempt": {
+          "description": "The attempt's number on that rung, from 1.",
+          "type": "integer",
+          "minimum": 1
+        },
+        "checks": {
+          "description": "The checks that failed, in the order they ran.",
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "notes": {
+          "description": "One entry per observation, in the order the checks reported them.",
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/FailureNote"
+          }
+        }
+      }
+    },
+    "FailureNote": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "check",
+        "kind",
+        "message"
+      ],
+      "properties": {
+        "check": {
+          "description": "The check that raised it, as the gate names it: `lint`, `format`, `syntax`, `structure`, `typecheck`, `semantic`, `acceptance`, `scope`, `secret`, `structured-data`, `jev`, `verifier`, `reply`, ...",
+          "type": "string"
+        },
+        "kind": {
+          "description": "`finding`: the check rejected the change. `inconclusive`: the rung ran and could not decide. `refusal`: a reviewer refused a change the gate passed. `unreadable`: the reply could not be read, so nothing was gated.",
+          "enum": [
+            "finding",
+            "inconclusive",
+            "refusal",
+            "unreadable"
+          ]
+        },
+        "message": {
+          "description": "The check's own sentence, with the userinfo of any URL in it redacted.",
+          "type": "string"
+        },
+        "path": {
+          "description": "The repo-relative file the note is about; null when the check keyed it by something that is not a file, such as an acceptance command.",
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "line": {
+          "description": "The line in `path` the check placed it on.",
+          "anyOf": [
+            {
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "code": {
+          "description": "The check's own code for the kind of problem (`F401`, `E501`, mypy's `attr-defined`, `failed`, `timeout`, ...).",
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "command": {
+          "description": "The command the check ran, when it ran one (acceptance, typecheck), shell-quoted.",
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "exit_code": {
+          "description": "That command's exit, or the exit of the tool an inconclusive rung ran; null when it was killed at the time limit or never ran.",
+          "anyOf": [
+            {
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "test_id": {
+          "description": "The failing test's id when the check reports one as data; never read out of a command's output.",
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "symbol": {
+          "description": "The missing or undefined name, when the check reports it as data (the semantic rung's missing attribute).",
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        }
+      }
+    }
+  }
+}

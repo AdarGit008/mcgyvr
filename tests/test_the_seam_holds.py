@@ -199,7 +199,7 @@ BELOW_THE_SEAM: tuple[str, ...] = (
 #: not resolved one to anything that runs. The contract and the exploration
 #: that produces one (contract, orchestrator.*, docgen), the climb through the
 #: ladder (route, escalate, triage, drive, consensus, deterministic, rename, repair,
-#: verify, deliver), what a worker is sent
+#: verify, deliver, and the failure notes a climb carries), what a worker is sent
 #: and what may be read back (worker.*), what judges the change (gate.*,
 #: scope, and the semantic gate's resolver engine under gate._engine, which is
 #: staged into the sandbox and whose import statements name only itself and the
@@ -242,6 +242,7 @@ ABOVE_THE_SEAM: tuple[str, ...] = (
     "mcgyvr.gate.structured",
     "mcgyvr.gate.typecheck",
     "mcgyvr.ladder_manager",
+    "mcgyvr.notes",
     "mcgyvr.orchestrator",
     "mcgyvr.orchestrator.baseline",
     "mcgyvr.orchestrator.cache",

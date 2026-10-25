@@ -204,8 +204,9 @@ def ladder_report(config: Config) -> dict[str, Any]:
     its model, its family name, its file size in bytes and its parameter count
     in billions where either is known. ``floor`` is the index of the first rung
     at or above the lowest family any task type starts on, and ``ceiling`` is as
-    many rungs above the floor as ``max_escalations`` allows, so a ladder
-    shorter than that reports a ceiling below its top rung.
+    many rungs above the floor as ``max_escalations`` allows — the top rung when
+    it is unset — so a stated ceiling shorter than the ladder reports one below
+    its top rung.
 
     Raises :class:`SyncError` when the ladder has no rungs, has more than
     ``MAX_LADDER_RUNGS``, or names a model outside ``_LADDER_MODEL``.
@@ -243,7 +244,7 @@ def ladder_report(config: Config) -> dict[str, Any]:
         for index, unit in enumerate(climbing)
         if known.family_of(unit).rank >= lowest
     )
-    reach = min(len(climbing) - floor, Ceiling.of(config).escalations + 1)
+    reach = Ceiling.of(config).rungs(len(climbing) - floor)
     return {"ladder": {"rungs": rungs, "floor": floor, "ceiling": floor + reach - 1}}
 
 

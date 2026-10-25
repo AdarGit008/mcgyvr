@@ -42,9 +42,9 @@ from mcgyvr.escalate import (
     NO_REVIEWER,
     DispatchRaisedError,
     Judgement,
-    RetryNotes,
     required_policy,
 )
+from mcgyvr.notes import FailureNotes, handed_on
 from mcgyvr.route import Try, Verdict, draws_for, family_of
 from mcgyvr.runner import Completion, RunnerError
 from mcgyvr.telemetry import observe
@@ -109,14 +109,16 @@ def worker_attempt(
     once is bound here: the ladder's config and source map, the contract, the
     sandbox the draws are written into and gated in, the language adapters, the
     journal, the cooldown and the reviewer selector. A driver outlives one
-    attempt — the climb calls it again for the same rung — so it also keeps the
-    per-rung notes a later attempt is told about.
+    attempt — the climb calls it again, on this rung and on the rungs above — so
+    it also keeps the climb's failure notes a later attempt is told about.
     """
-    notes: dict[str, RetryNotes | None] = {}
-    # Each rung's note from its last attempt, handed to `build_prompt` as `retry`
-    # so the worker is told what the gate or the reviewer found. The assignment
-    # is unconditional, so an attempt that produced no note clears the entry
-    # instead of passing a stale one on.
+    climb: list[FailureNotes] = []
+    # The climb's history of failure-notes records, oldest first: one per
+    # failed attempt that left one, each naming the rung and attempt it is
+    # about. `retry_notes` decides which of them a try is handed — every one,
+    # this rung's previous attempt's, or none — and an attempt that left no
+    # record adds none, so nothing is ever presented as an attempt it is not.
+    handing = str(config.get("retry_notes", "climb"))
     checked: list[str] = []
     if reviewers is None and reviewer is not None:
         # A bare `ask` seam stands in for the run's reviewer: it becomes one
@@ -251,7 +253,7 @@ def worker_attempt(
         prompt = _drive.build_prompt(
             sized,
             adapters=adapters,
-            retry=notes.get(this.rung.name),
+            retry=handed_on(climb, handing, rung=this.rung.name, attempt=this.attempt),
         )
         # The whole climb is preflighted once per driver: a rung further up the
         # ladder that cannot be sent to ends the run before the cheap rungs below
@@ -263,7 +265,8 @@ def worker_attempt(
                 config, pool, sized, prompt, window_fraction=window_share
             )
         # This rung is checked on every attempt, because the prompt is not the one
-        # the climb check measured: the retry notes grow it. The check refuses an
+        # the climb check measured: the failure notes handed on grow it, within
+        # the bounds `mcgyvr.worker.prompt` renders them under. The check refuses an
         # unstated output cap, a prompt that does not fit its own ceiling, a
         # contract whose declared reply is too large for the rung's window and a
         # contract claiming too much of that window — each raised as a
@@ -447,6 +450,14 @@ def worker_attempt(
                 verdict=Verdict.FAILED,
                 policy=required_policy(contract, family),
                 detail=str(exc),
+                # What the parser said about each draw is the record of this
+                # attempt: nothing was gated, and the next try is told why.
+                retry=FailureNotes.unreadable(
+                    str(exc),
+                    rung=this.rung.name,
+                    family=family.name,
+                    attempt=this.attempt,
+                ),
                 draw=0,
                 draws=draws,
                 rows=made.rows,
@@ -515,6 +526,9 @@ def worker_attempt(
                 # model that answered, and the stand-in when one was used. Empty
                 # when nothing was asked, so the detail names nobody.
                 reviewer=reviewing.label if reviewing is not None else "",
+                # The try being judged, which the record of a failure names.
+                rung=this.rung.name,
+                attempt=this.attempt,
             )
             # The verdict is re-stamped with what the attempt actually did.
             # `best_of` indexes its candidates, so `picked.dispatched` is the draw
@@ -535,7 +549,8 @@ def worker_attempt(
                 # when it carries a content.
                 judgement = replace(judgement, accepted=bound)
 
-        notes[this.rung.name] = judgement.retry
+        if judgement.retry is not None:
+            climb.append(judgement.retry)
         return judgement
 
     return attempt

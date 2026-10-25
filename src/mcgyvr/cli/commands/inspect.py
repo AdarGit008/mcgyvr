@@ -142,8 +142,9 @@ def _local_pool(args: argparse.Namespace) -> int:
     if not pool.rungs:
         print("  (none — every rung's source is unusable)")
     else:
-        # The ceiling bounds a task, not the ladder: `max_escalations` caps how
-        # many rungs a climb may take, and `max_attempts`, when the config
+        # The ceiling bounds a task, not the ladder: `max_escalations`, when the
+        # config states it, caps how many rungs a climb may take — unset, every
+        # rung may be — and `max_attempts`, when the config
         # states it, caps attempts over the whole task. The attempt cap printed
         # is therefore the smaller of that and the ladder's summed budget.
         ceiling = Ceiling.of(config)
@@ -154,9 +155,14 @@ def _local_pool(args: argparse.Namespace) -> int:
             else "the ladder's own budget, each rung capped at a contract's "
             f"default limits.attempts of {DEFAULT_ATTEMPTS}"
         )
+        moves = (
+            "no escalation ceiling (max_escalations unset)"
+            if ceiling.escalations is None
+            else f"at most {ceiling.escalations} escalation(s)"
+        )
         print(
-            f"\n  Ceiling: at most {ceiling.escalations} escalation(s) — "
-            f"{min(len(pool.rungs), ceiling.escalations + 1)} of these "
+            f"\n  Ceiling: {moves} — "
+            f"{ceiling.rungs(len(pool.rungs))} of these "
             f"{len(pool.rungs)} rung(s) — and at most {cap} attempt(s) "
             f"per task ({source})."
         )

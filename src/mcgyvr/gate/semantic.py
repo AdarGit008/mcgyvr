@@ -344,6 +344,9 @@ def _as_finding(path: str, flag: Mapping[str, Any]) -> Finding:
             f"`{chain}` does not resolve against the packages this repository "
             f"installs: {parent} has no attribute `{missing}`.{hint}"
         ),
+        # The engine names the missing attribute as a field of its flag, so it
+        # is carried as data; a flag that left it out names none.
+        symbol=str(flag["missing_attr"]) if flag.get("missing_attr") else None,
     )
 
 

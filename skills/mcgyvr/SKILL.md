@@ -181,7 +181,8 @@ what the run came to. The file's keys:
     is in the machinery, not the work. `detail` names the cause.
 - `attempts[]` — every try: `rung`, `attempt`, `verdict` (`passed`,
   `failed`, `declined`, `error`), `detail`, `findings` (the gate's lines
-  behind a failure), `attempt_id`, `draw`, `draws`, `rows`, `relief`,
+  behind a failure), `notes` (the record those lines are rendered from;
+  below), `attempt_id`, `draw`, `draws`, `rows`, `relief`,
   `model`, `address`. `draws` is the
   breadth the attempt asked for (`breadth.draws`), whatever the verdict;
   `rows` is how many of those draws left a journal row, which is `draws`
@@ -227,6 +228,36 @@ what the run came to. The file's keys:
   through. The live tree of a batch is under `journal.dir` in
   `trees/<tree>.json`.
 
+`attempts[].notes` is the failure-notes record of a failed try, `null` on
+a try that left none. It is built from what the gate, the reviewer or the
+reply parser observed — never from a model's account — so an optional
+field is `null` where the check reported nothing for it. Its JSON Schema
+is `references/failure-notes.schema.json`. The record:
+
+| Key | Type | Description |
+| --- | --- | --- |
+| `schema` | `mcgyvr.failure_notes/1` | The record's schema name and version. |
+| `rung` | text | The rung the failed attempt ran on. |
+| `family` | text | That rung's family: `deterministic`, `local` or `api`. |
+| `attempt` | number (min 1) | The attempt's number on that rung, from 1. |
+| `checks` | list of text | The checks that failed, in the order they ran. |
+| `notes` | list of blocks | One entry per observation, in the order the checks reported them. |
+
+Each entry of its `notes`:
+
+| Key | Type | Description |
+| --- | --- | --- |
+| `check` | text | The check that raised it, as the gate names it: `lint`, `format`, `syntax`, `structure`, `typecheck`, `semantic`, `acceptance`, `scope`, `secret`, `structured-data`, `jev`, `verifier`, `reply`, ... |
+| `kind` | one of `finding`, `inconclusive`, `refusal`, `unreadable` | `finding`: the check rejected the change. `inconclusive`: the rung ran and could not decide. `refusal`: a reviewer refused a change the gate passed. `unreadable`: the reply could not be read, so nothing was gated. |
+| `message` | text | The check's own sentence, with the userinfo of any URL in it redacted. |
+| `path` | text or null | The repo-relative file the note is about; null when the check keyed it by something that is not a file, such as an acceptance command. |
+| `line` | number or null | The line in `path` the check placed it on. |
+| `code` | text or null | The check's own code for the kind of problem (`F401`, `E501`, mypy's `attr-defined`, `failed`, `timeout`, ...). |
+| `command` | text or null | The command the check ran, when it ran one (acceptance, typecheck), shell-quoted. |
+| `exit_code` | number or null | That command's exit, or the exit of the tool an inconclusive rung ran; null when it was killed at the time limit or never ran. |
+| `test_id` | text or null | The failing test's id when the check reports one as data; never read out of a command's output. |
+| `symbol` | text or null | The missing or undefined name, when the check reports it as data (the semantic rung's missing attribute). |
+
 Every run is journaled under the config's `journal.dir` and nothing on
 the command line moves it — that one directory is where every run can
 be counted. Deterministic runs are there too, as a row naming
@@ -242,7 +273,10 @@ refused admission.
 
 A failed attempt already had its retries inside the run. When `outcome` is
 not `accepted`, read `attempts[].findings`: each line is one reason the gate
-refused. Write a *different* contract — narrower target, an acceptance
+refused. `attempts[].notes` is the same evidence as a record, one per failed
+attempt in climb order: the check, the file and line, the tool's code, and
+the command and its exit where the check ran one. Write a *different*
+contract — narrower target, an acceptance
 command that states the requirement, a stop condition for what was
 ambiguous — and go back to step 2. Running the same contract again spends
 more on the same answer.

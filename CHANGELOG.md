@@ -28,7 +28,16 @@ archived outside this repository, under the same paths.
   there, which the provider was not to change, still runs. The tree is
   written live to `trees/<tree>.json` under `journal.dir`. `dependents: run`
   (policy, default `hold`) sends every contract as before.
-
+- **Failure notes travel with the contract across rungs.** Every failed
+  attempt leaves a record (`mcgyvr.notes.FailureNotes`, schema
+  `mcgyvr.failure_notes/1`) built from what the gate, the reviewer or the reply
+  parser observed: per check its file, line and code, and the command and its
+  exit where the check ran one; nothing is parsed out of prose. The climb keeps
+  the history, so a rung above starts with what the rungs below it were refused
+  for, under a banner naming the rung and attempt (`retry_notes`: `climb`, the
+  default, `rung` or `none`; bounded to 20 notes and 5 records). The result
+  file carries the record as `attempts[].notes`, its JSON Schema is
+  `skills/mcgyvr/references/failure-notes.schema.json`.
 - **A rig keeps the kernels its cards' driver compiled.** The rig's scan
   reads the rig's own mcgyvr home, and `mcgyvr emit` mounts
   `$MCGYVR_HOME/cuda-cache` (default `~/.mcgyvr/cuda-cache`) into every
@@ -92,6 +101,10 @@ archived outside this repository, under the same paths.
 
 ### Changed
 
+- **A climb enters every rung of the ladder by default.** `max_escalations`
+  is unset by default and unset means no escalation ceiling, where it used to
+  default to 1 and stop a three-rung ladder with `escalation_ceiling` before
+  its top rung. A setup that states a number is capped by it as before.
 - **Units start together.** Units on one card start at the same moment when
   every one of them turns llama.cpp's fitting off (`--fit off` or
   `LLAMA_ARG_FIT=off`), since each then takes only the memory its launch

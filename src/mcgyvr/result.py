@@ -33,6 +33,11 @@ class AttemptResult:
     verdict: str
     detail: str = ""
     findings: list[str] = field(default_factory=list)
+    #: `notes` is the failure-notes record `findings` is rendered from, as the
+    #: JSON `mcgyvr.notes.FailureNotes.as_json` writes (`mcgyvr.failure_notes/1`):
+    #: each check's observation with its path, line, code, command and exit
+    #: where the check reported them. `None` on a try that left no record.
+    notes: dict[str, Any] | None = None
     attempt_id: str | None = None
     #: An attempt can spend several draws: independent dispatches of the same
     #: try, so breadth buys more than one answer to choose between. `draw` is

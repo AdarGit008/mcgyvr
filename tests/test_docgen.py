@@ -30,7 +30,8 @@ _OUTPUTS_ENV = "MCGYVR_DOCGEN_TEST_OUTPUTS"
 
 #: The redirect plugin, as source. docgen's default output paths are module
 #: constants joined to ``REPO_ROOT`` (``SKILL_PATH``, ``SETUP_PATH``,
-#: ``EXAMPLES_PATH``, read by ``docgen.main``'s argument defaults), and an
+#: ``EXAMPLES_PATH``, ``NOTES_SCHEMA_PATH``, read by ``docgen.main``'s argument
+#: defaults), and an
 #: absolute path put in their place moves every defaulted write into the outer
 #: test's ``tmp_path``. ``REPO_ROOT`` itself is left alone, so the inner run's
 #: own git calls and imports are exactly what they were. It is written out at
@@ -50,22 +51,23 @@ _root = Path(os.environ["{_OUTPUTS_ENV}"])
 docgen.SKILL_PATH = _root / "SKILL.md"
 docgen.SETUP_PATH = _root / "SETUP.md"
 docgen.EXAMPLES_PATH = _root / "examples.md"
+docgen.NOTES_SCHEMA_PATH = _root / "failure-notes.schema.json"
 '''
 
 
 def _outputs(tmp_path: Path, *, skill: Path | None = None) -> list[str]:
-    """All four output flags, every one of them inside ``tmp_path``.
+    """All five output flags, every one of them inside ``tmp_path``.
 
-    ``--skill-output``, ``--setup-output`` and ``--examples-output`` default
-    to the committed copies (``docgen.main``'s argument defaults), so a
-    write-mode run that overrides only some of them regenerates the rest of the
-    checkout in place. A test that did that would erase, from the working tree,
-    exactly the drift ``make docs-check`` exists to catch: set SETUP.md to
-    "STALE", run this file, and the file comes back regenerated, after which
-    nothing can tell it had drifted. Every ``docgen.main()`` call in this file
-    passes these, and
-    ``test_running_the_docgen_tests_does_not_rewrite_the_committed_documents``
-    holds them to it.
+    ``--skill-output``, ``--setup-output``, ``--examples-output`` and
+    ``--notes-schema-output`` default to the committed copies (``docgen.main``'s
+    argument defaults), so a write-mode run that overrides only some of them
+    regenerates the rest of the checkout in place. A test that did that would erase,
+    from the working tree, exactly the drift ``make docs-check`` exists to catch:
+    set SETUP.md to "STALE", run this file, and the file comes back regenerated,
+    after which nothing can tell it had drifted. Every ``docgen.main()`` call in
+    this file passes these, and
+    ``test_running_the_docgen_tests_does_not_rewrite_the_committed_documents`` holds
+    them to it.
     """
     return [
         "--output",
@@ -76,17 +78,22 @@ def _outputs(tmp_path: Path, *, skill: Path | None = None) -> list[str]:
         str(tmp_path / "SETUP.md"),
         "--examples-output",
         str(tmp_path / "examples.md"),
+        "--notes-schema-output",
+        str(tmp_path / "failure-notes.schema.json"),
     ]
 
 
 def _render_the_kept_documents(tmp_path: Path) -> None:
-    """The two documents `--check` compares that this file is not about.
+    """The documents `--check` compares that this file is not about.
 
     Written current, so a check-mode run in here reports drift in the skill
     and nothing else.
     """
     (tmp_path / "SETUP.md").write_text(docgen.render_setup(), encoding="utf-8")
     (tmp_path / "examples.md").write_text(docgen.render_examples(), encoding="utf-8")
+    (tmp_path / "failure-notes.schema.json").write_text(
+        docgen.render_notes_schema(), encoding="utf-8"
+    )
 
 
 def _walk(fields: tuple[Field, ...], prefix: str = "") -> list[tuple[str, Field]]:
@@ -251,7 +258,7 @@ def test_running_the_docgen_tests_does_not_rewrite_the_committed_documents(
     inner run while `addopts = "-q -n auto"` in `pyproject.toml` has the rest of
     the suite reading that file in other processes, and a test that reads it
     would pass only by scheduling luck.
-    Instead the three kept documents are copied into `tmp_path`, the sentinel
+    Instead the kept documents are copied into `tmp_path`, the sentinel
     goes into the copy, and the inner run is handed a `-p` plugin that points
     docgen's defaults at the copies. A defaulting write in this file lands on
     the copy and destroys the sentinel there, which is the same detection with
@@ -272,6 +279,9 @@ def test_running_the_docgen_tests_does_not_rewrite_the_committed_documents(
     (documents / "SKILL.md").write_bytes((skills / "SKILL.md").read_bytes())
     (documents / "examples.md").write_bytes(
         (skills / "references" / "examples.md").read_bytes()
+    )
+    (documents / "failure-notes.schema.json").write_bytes(
+        (skills / "references" / "failure-notes.schema.json").read_bytes()
     )
     sentinel = b"\n<!-- a docgen test rewrote the committed SETUP.md -->\n"
     planted = untouched + sentinel
@@ -319,7 +329,7 @@ def test_running_the_docgen_tests_does_not_rewrite_the_committed_documents(
     assert run.returncode == 0, run.stdout + run.stderr
     assert (documents / "SETUP.md").read_bytes() == planted, (
         "a docgen test wrote the document `--setup-output` defaults to: every "
-        "main() call that writes must point all four outputs at a tmp_path"
+        "main() call that writes must point every output at a tmp_path"
     )
     assert committed.read_bytes() == untouched, (
         "a docgen test wrote the committed skills/mcgyvr/SETUP.md, which the "

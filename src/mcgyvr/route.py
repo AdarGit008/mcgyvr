@@ -43,6 +43,7 @@ if TYPE_CHECKING:  # pragma: no cover - typing only
     from mcgyvr.contract import Contract
     from mcgyvr.deterministic import ToolStep
     from mcgyvr.local_pool import Rung, SourceMap
+    from mcgyvr.notes import FailureNotes
 
 
 class RouteError(Exception):
@@ -297,6 +298,10 @@ class Result:
     #: on anything no gate refused: a passed or a declined result has no gate's
     #: reasons behind it to carry.
     findings: tuple[str, ...] = ()
+    #: `notes` is the failure-notes record those lines are rendered from — what
+    #: was observed, naming the rung and attempt — and `None` on a try that
+    #: left none.
+    notes: FailureNotes | None = None
     #: `draws` is the breadth this attempt asked for — from `draws_for`, which is
     #: the rung's `draws` entry over `breadth.draws` — whatever the verdict turned
     #: out to be. `rows` is how many of those draws left a record, so it is
@@ -339,9 +344,9 @@ class Result:
 class Attempted:
     """One try as it is recorded: which rung, which attempt there, and what it came to.
 
-    ``detail``, ``findings``, ``draw``, ``draws`` and ``rows`` are copied out of
-    the ``Result`` the attempt function answered, so a record can be read
-    without the live result it came from. ``draw`` is ``int | None`` here where
+    ``detail``, ``findings``, ``notes``, ``draw``, ``draws`` and ``rows`` are
+    copied out of the ``Result`` the attempt function answered, so a record can
+    be read without the live result it came from. ``draw`` is ``int | None`` here where
     ``Result.draw`` is a bare ``int``, because a try that ended in an exception
     may be about no single draw at all. ``raised`` marks the row
     ``mcgyvr.escalate`` builds from such an exception: it reads ``FAILED`` with
@@ -354,6 +359,9 @@ class Attempted:
     verdict: Verdict
     detail: str = ""
     findings: tuple[str, ...] = ()
+    #: `notes` is the failure-notes record behind `findings`, copied out of the
+    #: `Result`, and `None` on a try that left none.
+    notes: FailureNotes | None = None
     #: `draw` is the draw this try is about — an index into `draws` — and is
     #: `int | None` here where `Result.draw` is a bare `int`, because a try that
     #: raised may be about no single draw: `escalate` records `None` there.
@@ -398,6 +406,7 @@ def attempted(rung: str, attempt: int, result: Result) -> Attempted:
         verdict=result.verdict,
         detail=result.detail,
         findings=result.findings,
+        notes=result.notes,
         draw=result.draw,
         draws=result.draws,
         rows=result.rows,

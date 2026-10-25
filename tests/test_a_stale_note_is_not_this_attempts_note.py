@@ -1,33 +1,35 @@
-"""One rung's retry note does not outlive the attempt that produced it.
+"""A failure note names the attempt it is about, and is never presented as another's.
 
-:func:`mcgyvr.drive.worker_attempt` keeps a per-rung note so a second attempt is
-told what the first got wrong, which is the reason ``build_prompt`` has a
-``retry`` parameter at all. It assigns ``notes[rung] = judgement.retry``
-unconditionally, so an attempt that produced no note clears the previous one
-instead of handing it on. Two attempts produce none: one whose reply did not
-parse — "the note vocabulary is the gate's findings, and nothing was gated" —
-and a ``reviewer_failed`` judgement, which carries ``retry=None`` because the
-gate passed and the verifier produced no verdict to quote.
+:func:`mcgyvr.drive.worker_attempt` keeps the climb's failure-notes records —
+one per failed attempt that left one, each naming its rung and attempt — and
+:func:`mcgyvr.notes.handed_on` picks what the next try is shown under
+``retry_notes``. An attempt that left no record adds none. Three kinds of
+attempt leave one: a gate rejection, a reviewer's refusal, and a reply that
+could not be read (the parser's own sentence, kind ``unreadable``). A passed
+attempt, a ``reviewer_failed`` one among them, leaves none.
 
-**Why a stale note is worse than sending nothing.** The retry prompt does not say "here
-is some old context". ``render_user_message`` renders it under PREVIOUS ATTEMPT
-WAS REJECTED, followed by "fix these and nothing else — every other check
-passed". Every clause of that is false about a stale note: the previous attempt
-was not rejected by those findings, they are not what to fix, and the claim that
-everything else passed is a claim about a gate run that never happened. A worker
-told to fix a line it already fixed is a worker being pushed away from a correct
-answer, and the third attempt is exactly where the budget is thinnest.
+**Why a misattributed note is worse than sending nothing.** The banner a record
+is rendered under says what happened to *that* attempt — "ATTEMPT 1 ON r WAS
+REJECTED BY THE GATE. Fix exactly these and change nothing else — every other
+check passed". Told about an attempt that was not the one it names, every
+clause is false: those findings are not what the gate said about it, and the
+claim that everything else passed is a claim about a gate run that never
+happened. So the banner names the rung and attempt, and nothing the worker
+reads says "your previous attempt" about a record that may be two attempts or
+a rung below it.
 
-**The sibling spells it the same way.** ``tools/missions/attempt.py`` is the
-standalone form of this loop and assigns unconditionally into a
-``dict[str, RetryNotes | None]``, so an attempt with nothing to say says nothing:
-a note is *this* attempt's account of *this* attempt, and an attempt that
-produced no account has none to hand on.
+**The rule, restated from the per-rung note it replaced.** Before records
+travelled, each rung kept one note and overwrote it on every attempt, so an
+attempt with nothing to say cleared it. The record is now never cleared and
+never overwritten: it is the history, and what keeps it honest is that it
+says which attempt it is about. ``retry_notes: rung`` keeps the old reading —
+only the attempt just before this one on this rung — and is asserted here too.
 
 Nothing here is stubbed but the model. The gate runs for real over a real
-sandbox, the notes are the ones :func:`~mcgyvr.escalate.judge` builds, and what
-is asserted is the text of the prompt that would have been sent — because what
-matters is not a dictionary entry, it is what a worker was told.
+sandbox, the records are the ones :func:`~mcgyvr.escalate.judge` and the
+driver build, and what is asserted is the text of the prompt that would have
+been sent — because what matters is not a list entry, it is what a worker was
+told.
 """
 
 from __future__ import annotations
@@ -51,10 +53,22 @@ _IDENTITY = {
     "GIT_COMMITTER_EMAIL": "t@t.invalid",
 }
 
-#: The banner `render_user_message` puts a retry note under. Asserting on it
-#: rather than on `notes` keeps this about what the worker reads: a dictionary
-#: entry nobody rendered would be a bookkeeping detail, and this is not one.
-BANNER = "PREVIOUS ATTEMPT WAS REJECTED"
+
+#: The banner of attempt ``n``'s gate rejection, as the worker reads it.
+#: Asserting on the rendered text rather than on the records keeps this about
+#: what the worker reads.
+def rejected_banner(n: int) -> str:
+    return f"ATTEMPT {n} ON local_qwen-7b WAS REJECTED BY THE GATE"
+
+
+#: The banner of attempt ``n``'s unreadable reply.
+def unreadable_banner(n: int) -> str:
+    return f"THE REPLY TO ATTEMPT {n} ON local_qwen-7b COULD NOT BE READ"
+
+
+#: The wording a record must never be rendered under: it would present any
+#: record as the attempt just before this one.
+PREVIOUS = "YOUR PREVIOUS ATTEMPT"
 
 LADDER = """\
 units:
@@ -171,20 +185,29 @@ def _attempts(repo: Path, count: int, **kwargs: object):  # type: ignore[no-unty
         ]
 
 
-def test_an_unreadable_reply_does_not_leave_the_last_notes_standing(
+def _attempts_under(mode: str, repo: Path, count: int, **kwargs: object):  # type: ignore[no-untyped-def]
+    """``_attempts`` with ``retry_notes`` set to ``mode``."""
+    config = parse_config(LADDER + f"retry_notes: {mode}\n")
+    pool = source_map(config)
+    contract = load_contract(CONTRACT)
+    rung = Rung(name="local_qwen-7b", model="m")
+    with TempDirSandbox(repo) as sandbox:
+        attempt = worker_attempt(config, pool, contract, sandbox, **kwargs)  # type: ignore[arg-type]
+        return [
+            attempt(Try(rung=rung, attempt=n, of=count)) for n in range(1, count + 1)
+        ]
+
+
+def test_an_unreadable_reply_is_its_own_record_and_not_attempt_ones(
     repo: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
-    """Attempt 3 must not be handed attempt 1's findings.
+    """Attempt 3 is told about attempt 2's unreadable reply, not handed attempt 1's
+    findings as if they were the latest word.
 
-    Attempt 1 is rejected by the gate and produces a note. Attempt 2's reply
-    cannot be read, so nothing is gated and there is nothing to say. Attempt 3
-    is therefore a first attempt as far as evidence goes, and telling it "the
-    previous attempt was rejected, fix these and nothing else" is three false
-    statements about a gate run that did not happen.
-
-    Attempt 2 carrying the note is asserted too, and it is the half that keeps
-    this honest: the note is not being deleted, it is being scoped to the
-    attempt that earned it.
+    Attempt 1 is rejected by the gate. Attempt 2's reply cannot be read, so
+    nothing is gated — and that is what its record says, under a banner naming
+    attempt 2. Attempt 1's record is still history, and attempt 3 sees it as an
+    earlier line, never under the banner that would claim it is the latest.
     """
     sent = _driven(monkeypatch, REJECTED, UNREADABLE, ACCEPTED)
 
@@ -193,40 +216,47 @@ def test_an_unreadable_reply_does_not_leave_the_last_notes_standing(
     assert first.verdict is Verdict.FAILED
     assert first.retry is not None, "the premise did not hold: the gate accepted"
     assert second.verdict is Verdict.FAILED
-    assert second.retry is None, (
-        "the premise did not hold: the unreadable reply produced a note, so this "
-        "asserts nothing about an attempt that produced none"
-    )
+    assert second.retry is not None and second.retry.attempt == 2
+    assert {note.kind.value for note in second.retry.notes} == {"unreadable"}
 
-    assert BANNER not in sent[0], "a first attempt carries no note"
-    assert BANNER in sent[1], (
-        "the note did not reach the attempt that follows the one that earned "
-        "it; scoping a note is not deleting it"
-    )
-    assert BANNER not in sent[2], (
-        f"attempt 3 was prompted with attempt 1's gate findings. The worker has "
-        f"already been asked to fix them once, and the note is rendered as "
-        f"{BANNER!r} — a claim about an attempt that was never gated.\n"
+    assert "WAS REJECTED" not in sent[0], "a first attempt carries no record"
+    assert rejected_banner(1) in sent[1]
+    assert unreadable_banner(2) in sent[2], sent[2]
+    assert rejected_banner(1) not in sent[2], (
+        f"attempt 3 was shown attempt 1's findings under the banner of the latest "
+        f"record, though attempt 2 came after it and was never gated.\n"
         f"prompt: {sent[2]}"
     )
+    assert "earlier: local_qwen-7b #1 — acceptance (1)" in sent[2]
+    assert all(PREVIOUS not in prompt for prompt in sent)
     assert third.verdict is Verdict.PASSED
 
 
-def test_a_verifier_with_no_verdict_does_not_leave_the_last_notes_standing(
+def test_under_rung_only_the_attempt_just_before_is_handed_on(
     repo: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
-    """The second producer of ``retry=None``.
+    """``retry_notes: rung`` is the per-rung note as it was: one record, the last."""
+    sent = _driven(monkeypatch, REJECTED, UNREADABLE, ACCEPTED)
 
-    ``judge`` returns ``reviewer_failed`` with no note when the gate *passed*
+    _attempts_under("rung", repo, 3)
+
+    assert rejected_banner(1) in sent[1]
+    assert unreadable_banner(2) in sent[2]
+    assert "earlier:" not in sent[2], "rung hands on one record, not the history"
+
+
+def test_a_verifier_with_no_verdict_leaves_no_record_to_misattribute(
+    repo: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """The producer of no record: a pass the reviewer could not judge.
+
+    ``judge`` returns ``reviewer_failed`` with no record when the gate *passed*
     and the verifier came back unusable: there is nothing of the gate's to
     repeat, and the reviewer's non-answer is not something to ask a worker to
-    fix. A store guarded by ``if judgement.retry is not None`` would wave this
-    one through with the previous note in place, whatever the unparsed-reply
-    branch did.
-
-    It is also the worse case of the two. The gate accepted attempt 2's change;
-    attempt 3 is then told that the previous attempt was rejected over findings
-    the gate has since stopped reporting.
+    fix. A climb ends on that pass, so no attempt 3 follows it; driven past it
+    here, attempt 3 must still never read attempt 1's findings as attempt 2's.
+    Under ``rung`` it reads nothing, as the per-rung note did; under ``climb``
+    it reads attempt 1's record under attempt 1's name.
     """
 
     def unusable(prompt: str) -> str:
@@ -240,8 +270,7 @@ def test_a_verifier_with_no_verdict_does_not_leave_the_last_notes_standing(
         return "The change looks broadly reasonable to me."
 
     sent = _driven(monkeypatch, REJECTED, ACCEPTED, ACCEPTED)
-
-    first, second, _third = _attempts(repo, 3, reviewer=unusable)
+    first, second, _third = _attempts_under("rung", repo, 3, reviewer=unusable)
 
     assert first.retry is not None, "the premise did not hold: the gate accepted"
     assert second.reviewer_failed, (
@@ -249,23 +278,31 @@ def test_a_verifier_with_no_verdict_does_not_leave_the_last_notes_standing(
         f"({second.detail})"
     )
     assert second.retry is None
-
-    assert BANNER in sent[1]
-    assert BANNER not in sent[2], (
-        f"attempt 3 was told the previous attempt was rejected, over findings "
-        f"from a gate run two attempts ago that the gate no longer reports.\n"
-        f"prompt: {sent[2]}"
+    assert rejected_banner(1) in sent[1]
+    assert "WAS REJECTED" not in sent[2], (
+        f"under `rung`, attempt 3 was told about attempt 1 although attempt 2 "
+        f"left no record of its own.\nprompt: {sent[2]}"
     )
 
+    climbed = _driven(monkeypatch, REJECTED, ACCEPTED, ACCEPTED)
+    _attempts_under("climb", repo, 3, reviewer=unusable)
 
-def test_a_note_still_replaces_the_one_before_it(
+    assert rejected_banner(1) in climbed[2]
+    assert "ATTEMPT 2" not in climbed[2], (
+        f"attempt 3 was told something about attempt 2, which left no record.\n"
+        f"prompt: {climbed[2]}"
+    )
+    assert all(PREVIOUS not in prompt for prompt in climbed)
+
+
+def test_a_record_still_follows_the_one_before_it(
     repo: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
-    """The control: consecutive rejections still each hand on their own note.
+    """The control: consecutive rejections each hand on their own record.
 
-    A fix that cleared the note on every attempt satisfies both tests above and
-    removes the feature. What must hold is narrower: the note handed to an
-    attempt is the previous attempt's, whatever that turns out to be.
+    A fix that handed on nothing would satisfy every test above and remove the
+    feature. What must hold is narrower: the latest record shown is the latest
+    attempt's, named as such, with the ones before it kept as history.
     """
     sent = _driven(monkeypatch, REJECTED, REJECTED, ACCEPTED)
 
@@ -273,25 +310,34 @@ def test_a_note_still_replaces_the_one_before_it(
 
     assert first.retry is not None
     assert second.retry is not None
-    assert BANNER not in sent[0]
-    assert BANNER in sent[1]
-    assert BANNER in sent[2], (
+    assert "WAS REJECTED" not in sent[0]
+    assert rejected_banner(1) in sent[1]
+    assert rejected_banner(2) in sent[2], (
         "a rejected attempt stopped telling the next one what failed, which is "
-        "the whole of what the note is for"
+        "the whole of what the record is for"
     )
+    assert "earlier: local_qwen-7b #1 — acceptance (1)" in sent[2]
     assert third.verdict is Verdict.PASSED
 
 
-def test_the_two_spellings_of_one_loop_agree() -> None:
-    """The sibling assigns unconditionally, and this is the claim that they match.
+def test_nothing_is_handed_on_under_none(
+    repo: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """``retry_notes: none`` sends every attempt the contract alone."""
+    sent = _driven(monkeypatch, REJECTED, REJECTED, ACCEPTED)
 
-    ``tools/missions/attempt.py`` is the standalone form of the same loop for a
-    caller that is not climbing, and its ``_retry`` is a
-    ``dict[str, RetryNotes | None]`` written on every attempt. Asserted by
-    reading the annotation rather than by driving the mission runner, because
-    what is being held is that the two agree about *how a note is scoped* — a
-    behavioural test of the sibling would be a test of the sibling, and it has
-    its own.
+    _attempts_under("none", repo, 3)
+
+    assert all("WAS REJECTED" not in prompt for prompt in sent)
+
+
+def test_the_driver_keeps_a_history_and_never_a_per_rung_slot() -> None:
+    """The climb is appended to, once, from the judgement's own record.
+
+    Asserted by reading the driver rather than by driving it, because what is
+    held is how a record is kept: a store into a per-rung slot can overwrite
+    one attempt's record with another's, and a record appended from anywhere
+    but the judgement it belongs to would be a record of nothing.
     """
     import ast
     import inspect
@@ -302,29 +348,18 @@ def test_the_two_spellings_of_one_loop_agree() -> None:
     stores = [
         node
         for node in ast.walk(tree)
-        if isinstance(node, ast.Subscript)
-        and isinstance(node.value, ast.Name)
-        and node.value.id == "notes"
-        and isinstance(node.ctx, ast.Store)
+        if isinstance(node, ast.Subscript) and isinstance(node.ctx, ast.Store)
     ]
-    assert len(stores) == 1, (
-        f"`notes` is written at {len(stores)} places. One assignment, on every "
-        f"path, is what makes a note this attempt's account of this attempt."
-    )
-    guarded = [
+    assert not stores, "the driver writes into a slot; records are a history"
+    appends = [
         node
         for node in ast.walk(tree)
-        if isinstance(node, ast.If)
-        and any(
-            isinstance(inner, ast.Subscript)
-            and isinstance(inner.value, ast.Name)
-            and inner.value.id == "notes"
-            and isinstance(inner.ctx, ast.Store)
-            for inner in ast.walk(node)
-        )
+        if isinstance(node, ast.Call)
+        and isinstance(node.func, ast.Attribute)
+        and isinstance(node.func.value, ast.Name)
+        and node.func.value.id == "climb"
+        and node.func.attr == "append"
     ]
-    assert not guarded, (
-        "the write to `notes` is inside an `if`. A conditional store cannot "
-        "clear a note, which is the failure: an attempt with nothing to say "
-        "leaves the last attempt's findings in place for the next one."
-    )
+    assert len(appends) == 1, f"the climb is appended to at {len(appends)} places"
+    (record,) = appends[0].args
+    assert ast.unparse(record) == "judgement.retry"

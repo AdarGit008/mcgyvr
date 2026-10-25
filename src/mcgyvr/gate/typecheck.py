@@ -14,6 +14,7 @@ from __future__ import annotations
 import ast
 import io
 import re
+import shlex
 import subprocess
 import tarfile
 from collections import Counter
@@ -169,8 +170,12 @@ class TypeCheck:
 
         tool = command[0]
         paths = [change.path for change in targets]
-        stdout = self._check(command, tool, self.repo, paths)
+        stdout, exit_code = self._check(command, tool, self.repo, paths)
         reported = _diagnostics(stdout, paths, self.repo, self.runner.host_path)
+        # What ran over the worker's tree, as data each finding carries: the
+        # command line — the declared checker and the repo-relative files — and
+        # the exit it reported with.
+        ran = shlex.join([*command, *paths])
 
         added = {change.path: change.added_lines for change in targets}
 
@@ -181,12 +186,15 @@ class TypeCheck:
         elsewhere = [d for d in reported if not worker_line(d)]
         if elsewhere:
             on_added.extend(self._new_since_base(elsewhere, changeset, command, tool))
-        return [_finding(d) for d in sorted(on_added, key=lambda d: (d.path, d.line))]
+        return [
+            _finding(d, command=ran, exit_code=exit_code)
+            for d in sorted(on_added, key=lambda d: (d.path, d.line))
+        ]
 
     def _check(
         self, command: Sequence[str], tool: str, repo: Path, paths: Sequence[str]
-    ) -> str:
-        """Run the checker over ``paths`` and return the stdout it produced.
+    ) -> tuple[str, int]:
+        """Run the checker over ``paths`` and return its stdout and exit code.
 
         A timeout is an environment fault, as is an exit code outside
         ``_REPORTING``. Exit 1 with no readable diagnostic in the output is treated
@@ -217,7 +225,7 @@ class TypeCheck:
                 proc.returncode,
                 "it reported errors in a form this rung cannot read",
             )
-        return stdout
+        return stdout, proc.returncode
 
     def _new_since_base(
         self,
@@ -240,7 +248,7 @@ class TypeCheck:
                 was.update(
                     d.key
                     for d in _diagnostics(
-                        self._check(command, tool, root, present),
+                        self._check(command, tool, root, present)[0],
                         present,
                         root,
                         self.runner.host_path,
@@ -279,13 +287,17 @@ class _Diagnostic:
         return (self.path, self.code, self.message)
 
 
-def _finding(diagnostic: _Diagnostic) -> Finding:
+def _finding(
+    diagnostic: _Diagnostic, *, command: str | None = None, exit_code: int | None = None
+) -> Finding:
     return Finding(
         check=CHECK,
         path=diagnostic.path,
         line=diagnostic.line,
         code=diagnostic.code,
         message=diagnostic.message,
+        command=command,
+        exit_code=exit_code,
     )
 
 
