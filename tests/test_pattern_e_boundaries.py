@@ -20,9 +20,9 @@ from pathlib import Path
 import pytest
 
 from mcgyvr.contract import loads as load_contract
-from mcgyvr.escalate import RetryNotes
 from mcgyvr.gate.acceptance import Acceptance
 from mcgyvr.gate.runner import GateResult
+from mcgyvr.notes import FailureNotes
 from mcgyvr.worker.prompt import build_prompt
 
 _IDENTITY = {
@@ -89,6 +89,15 @@ def _rejecting_gate(git_repo: Path) -> GateResult:
     return GateResult(findings=tuple(report.findings))
 
 
+def _notes(git_repo: Path) -> FailureNotes:
+    """The failure-notes record the rejecting gate leaves for one attempt."""
+    notes = FailureNotes.of_gate(
+        _rejecting_gate(git_repo), rung="r1", family="local", attempt=1
+    )
+    assert notes is not None
+    return notes
+
+
 def test_the_acceptance_command_never_reaches_the_worker_prompt(
     git_repo: Path,
 ) -> None:
@@ -97,14 +106,18 @@ def test_the_acceptance_command_never_reaches_the_worker_prompt(
     ``Contract.worker_view`` excludes ``acceptance`` and documents that the
     exclusion is enforced "by there being no other accessor". The retry note is
     the other accessor: an acceptance finding carries its command in
-    ``Finding.path``, and ``RetryNotes.of`` rendered findings with ``str()``,
-    which prints the path first.
+    ``Finding.path``, and the retry notes once rendered findings with ``str()``,
+    which prints the path first. The failure-notes record now carries the
+    command as data, for the orchestrator reading the result file; what the
+    worker reads is rendered from the record, and leaves it out.
     """
     contract = load_contract(CONTRACT)
-    notes = RetryNotes.of(_rejecting_gate(git_repo))
-    assert notes is not None
+    notes = _notes(git_repo)
+    assert any(note.command and CANARY in note.command for note in notes.notes), (
+        "the premise did not hold: the record does not carry the command"
+    )
 
-    prompt = build_prompt(contract, retry=notes)
+    prompt = build_prompt(contract, retry=(notes,))
 
     assert CANARY not in prompt.user
     assert CANARY not in prompt.system
@@ -121,8 +134,7 @@ def test_the_retry_note_still_says_the_acceptance_check_failed(
     fix that dropped acceptance findings from the note altogether would pass the
     test above and remove the most decisive retry signal there is.
     """
-    notes = RetryNotes.of(_rejecting_gate(git_repo))
-    assert notes is not None
+    notes = _notes(git_repo)
     assert "acceptance" in notes.checks
     assert "acceptance command failed" in notes.text
 

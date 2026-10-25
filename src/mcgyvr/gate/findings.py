@@ -24,6 +24,15 @@ class Finding:
     #: is honouring it when the path is dropped from the line.
     names_a_file: bool = True
 
+    #: What a check reports as data beside its sentence, and nothing it only
+    #: says in prose: the command it ran and that command's exit, where the
+    #: check ran one (acceptance, typecheck), and the name a finding is about
+    #: where the check names one as a field (the semantic rung's missing
+    #: attribute). ``None`` wherever the check did not report it.
+    command: str | None = None
+    exit_code: int | None = None
+    symbol: str | None = None
+
     def __str__(self) -> str:
         where = self.path if self.line is None else f"{self.path}:{self.line}"
         code = f" [{self.code}]" if self.code else ""

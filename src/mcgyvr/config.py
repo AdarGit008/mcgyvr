@@ -90,6 +90,11 @@ TRIAGE_CHOICES: tuple[str, ...] = ("none", "jev")
 #: it back, unspent; `run` sends it anyway (see `mcgyvr.tree`).
 DEPENDENTS_CHOICES: tuple[str, ...] = ("hold", "run")
 
+#: Which failure-notes records a try is shown (see `mcgyvr.notes.handed_on`):
+#: `climb` every record of the climb, `rung` this rung's previous attempt's,
+#: `none` nothing.
+RETRY_NOTES_CHOICES: tuple[str, ...] = ("climb", "rung", "none")
+
 SANDBOX_FIELDS: tuple[Field, ...] = (
     Field(
         "mode",
@@ -886,9 +891,24 @@ SCHEMA: tuple[Field, ...] = (
     Field(
         "max_escalations",
         "int",
-        "How many rungs a task may climb before it is handed back unfinished.",
-        default=1,
+        "How many rungs a task may climb before it is handed back unfinished. "
+        "Unset: every rung of the ladder may be entered.",
+        default=None,
         min_value=0,
+        bind_hint="set a whole number of moves up the ladder, or leave it unset",
+    ),
+    Field(
+        "retry_notes",
+        "enum",
+        "What a try is told about the attempts before it that failed. Each "
+        "failed attempt leaves a record of what the gate, the reviewer or the "
+        "reply parser observed, naming its rung and attempt. `climb`: every "
+        "record of the climb, so a rung above starts with what the rungs "
+        "below it were refused for — the latest in full, up to 20 notes, and "
+        "the 4 before it a line each. `rung`: only the record of the attempt "
+        "just before this one on the same rung. `none`: nothing.",
+        default="climb",
+        choices=RETRY_NOTES_CHOICES,
     ),
     Field(
         "max_attempts",

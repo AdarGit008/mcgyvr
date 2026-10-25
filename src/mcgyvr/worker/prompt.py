@@ -2,13 +2,23 @@
 
 :func:`render_user_message` turns a contract's worker view into the sections a
 worker reads — task, target, interface, dependency signatures, numbered sources,
-stop conditions, the output rule for the declared schema, and the notes from a
-rejected attempt — and leaves out every section the view has nothing to say in.
+stop conditions, the output rule for the declared schema, and the failure notes
+of the climb so far — and leaves out every section the view has nothing to say in.
 :func:`build_prompt` puts the use case's bundle in front as the system message,
 measures the pair with the caller's estimator, and records whether the result
 fits the contract's own `context.max_input_tokens` ceiling. A schema with no
 reply instruction here has no parser downstream either, so it is refused here,
 before dispatch, rather than after an attempt was paid for.
+
+The failure notes are rendered from the records the climb handed on
+(:func:`mcgyvr.notes.handed_on`), never the other way round, by
+:func:`render_notes`: the latest record in full under a banner naming the rung
+and attempt it is about, at most :data:`MAX_NOTES_SHOWN` of its notes with the
+rest counted, and the records before it one line each, at most
+:data:`MAX_RECORDS_SHOWN` records in all. The bounds keep a long climb from
+growing the prompt without limit; what it does grow is measured again on every
+attempt, against the rung it is sent to, by the per-attempt
+``refuse_unsendable`` check in :mod:`mcgyvr.drive.attempt`.
 """
 
 from __future__ import annotations
@@ -19,9 +29,9 @@ from dataclasses import dataclass
 from typing import Any
 
 from mcgyvr.contract import Contract
-from mcgyvr.escalate import RetryNotes
 from mcgyvr.gate.adapter import LanguageAdapter
 from mcgyvr.gate.preflight import PreflightIssue, TokenCount, check_prompt_fits
+from mcgyvr.notes import ClimbNotes
 from mcgyvr.orchestrator.read import estimate_tokens
 from mcgyvr.worker.bundle import Bundle, bundle_for
 from mcgyvr.worker.reply import WHOLE_FILE
@@ -152,14 +162,46 @@ def _render_deps(deps: Sequence[dict[str, Any]]) -> list[str]:
     return lines
 
 
-def render_user_message(view: dict[str, Any], retry: RetryNotes | None = None) -> str:
+#: The most notes of the latest record rendered in full; the rest are counted.
+MAX_NOTES_SHOWN = 20
+
+#: The most records of a climb rendered at all: the latest in full, the ones
+#: before it a line each. Older records are counted, not shown.
+MAX_RECORDS_SHOWN = 5
+
+
+def render_notes(climb: ClimbNotes) -> str | None:
+    """The failure-notes section for `climb`, or None when it holds no record.
+
+    The latest record comes first and whole, under its own banner, which names
+    the rung and attempt it is about — never "your previous attempt", because
+    the record may be a lower rung's, or an attempt before one that left no
+    record. Earlier records follow, oldest first, one compact line each.
+    """
+    if not climb:
+        return None
+    shown = climb[-MAX_RECORDS_SHOWN:]
+    latest = shown[-1]
+    lines = [latest.headline]
+    lines += [f"- {line}" for line in latest.lines[:MAX_NOTES_SHOWN]]
+    hidden = len(latest.lines) - MAX_NOTES_SHOWN
+    if hidden > 0:
+        lines.append(f"- +{hidden} more")
+    dropped = len(climb) - len(shown)
+    if dropped:
+        lines.append(f"earlier: {dropped} attempt(s) not shown")
+    lines += [f"earlier: {record.summary}" for record in shown[:-1]]
+    return "\n".join(lines)
+
+
+def render_user_message(view: dict[str, Any], retry: ClimbNotes = ()) -> str:
     """Render a contract's worker view as the user message a worker is sent.
 
     Sections are appended in a fixed order and each is omitted when the view has
     nothing for it: task, target, interface, dependency signatures, sources, stop
-    conditions, the reply rule for the output schema, and the rejection notes of a
-    retried attempt. Sections are separated by blank lines and the message ends
-    with one newline.
+    conditions, the reply rule for the output schema, and the failure notes the
+    climb handed this attempt (:func:`render_notes`). Sections are separated by
+    blank lines and the message ends with one newline.
     """
     sections: list[str] = [f"TASK ({view['task_type']}): {view['task']}"]
     # The target's current content only appears when the contract holds it,
@@ -190,11 +232,9 @@ def render_user_message(view: dict[str, Any], retry: RetryNotes | None = None) -
     instruction = _REPLY_INSTRUCTIONS.get(view["output_schema"])
     if instruction is not None:
         sections.append("OUTPUT: " + instruction.format(target=view["target"]))
-    if retry is not None:
-        sections.append(
-            f"YOUR PREVIOUS ATTEMPT WAS REJECTED. Fix exactly these and change "
-            f"nothing else — every other check passed:\n{retry.text}"
-        )
+    notes = render_notes(retry)
+    if notes is not None:
+        sections.append(notes)
     return "\n\n".join(sections) + "\n"
 
 
@@ -204,7 +244,7 @@ def build_prompt(
     adapters: Sequence[LanguageAdapter] | None = None,
     estimate: Callable[[str], int] = estimate_tokens,
     counted_by: TokenCount = TokenCount.ESTIMATE,
-    retry: RetryNotes | None = None,
+    retry: ClimbNotes = (),
 ) -> WorkerPrompt:
     """Assemble the prompt for one attempt at `contract` and measure it.
 
@@ -212,9 +252,10 @@ def build_prompt(
     unparseable schema costs nothing. The system message is the bundle for the
     contract's use case and language — chosen by `adapters`, or the language
     adapters by default — and empty when no bundle applies. The user message comes
-    from the contract's worker view, carrying `retry` notes when the attempt is a
-    retry. `estimate` counts the joined prompt and `counted_by` labels that count,
-    which decides whether a reserve is charged against it.
+    from the contract's worker view, carrying the failure-notes records in
+    `retry` that the climb handed this attempt. `estimate` counts the joined
+    prompt and `counted_by` labels that count, which decides whether a reserve
+    is charged against it.
     """
     if contract.output_schema not in _REPLY_INSTRUCTIONS:
         raise UnsupportedSchemaError(

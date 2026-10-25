@@ -226,12 +226,18 @@ def _as_finding(command: Sequence[str], ran: _Ran, demonstrates: bool) -> Findin
     failure."""
     label = _label(command)
     outcome, result = ran.outcome, ran.result
+    # The command and its exit as data beside the sentence, so a reader of the
+    # finding never has to parse them back out of it. A command killed at the
+    # time limit produced no exit of its own, so none is reported for it.
+    exit_code = None if result.timed_out else result.exit_code
     if outcome is _Outcome.ALTERED_TREE:
         rewrote = Restored(reverted=ran.altered).named()
         return Finding(
             check=CHECK,
             path=label,
             names_a_file=False,
+            command=label,
+            exit_code=exit_code,
             code="tree-altering",
             message=(
                 f"acceptance command rewrote {rewrote}, part of the change — its "
@@ -250,6 +256,8 @@ def _as_finding(command: Sequence[str], ran: _Ran, demonstrates: bool) -> Findin
             check=CHECK,
             path=label,
             names_a_file=False,
+            command=label,
+            exit_code=exit_code,
             code="timeout",
             message=(
                 f"acceptance command exceeded the task's time limit; {baseline}, "
@@ -261,6 +269,8 @@ def _as_finding(command: Sequence[str], ran: _Ran, demonstrates: bool) -> Findin
             check=CHECK,
             path=label,
             names_a_file=False,
+            command=label,
+            exit_code=exit_code,
             code="demonstration-failed",
             message=(
                 f"demonstrating command still fails after the change "
@@ -274,6 +284,8 @@ def _as_finding(command: Sequence[str], ran: _Ran, demonstrates: bool) -> Findin
         check=CHECK,
         path=label,
         names_a_file=False,
+        command=label,
+        exit_code=exit_code,
         code="failed",
         message=f"acceptance command failed (exit {result.exit_code})\n"
         + _excerpt(result),

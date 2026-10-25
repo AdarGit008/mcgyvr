@@ -158,8 +158,8 @@ def test_a_composition_changes_only_units_and_never_a_number() -> None:
     candidates = candidate_setups(found, proposal, api_units=(_api(),))
     assert {c.name for c in candidates} == {"own", "escalate", "hosted"}
     # Every candidate carries exactly the numbers build() writes: width 1 (the
-    # honest concurrency literal), the schema defaults max_escalations 1,
-    # task_timeout_s 900 and breadth.draws 1, and a hosted unit's
+    # honest concurrency literal), the schema defaults (max_escalations unset,
+    # task_timeout_s 900 and breadth.draws 1), and a hosted unit's
     # `output_tokens` (`API_OUTPUT_TOKENS`). The model's selection cannot
     # change any of them.
     from mcgyvr.config import API_OUTPUT_TOKENS

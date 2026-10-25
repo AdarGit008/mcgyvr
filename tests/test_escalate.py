@@ -73,7 +73,6 @@ from mcgyvr.escalate import (
     Judgement,
     Opinion,
     Outcome,
-    RetryNotes,
     Review,
     ascent,
     disposition,
@@ -83,6 +82,7 @@ from mcgyvr.escalate import (
 )
 from mcgyvr.gate import Finding, GateResult
 from mcgyvr.local_pool import SourceMap
+from mcgyvr.notes import FailureNotes
 from mcgyvr.route import RouteError, Try, Verdict
 from mcgyvr.worker.prompt import build_prompt
 from tests.drives import CONTRACT, KEYLESS, contract, halted, mapped
@@ -312,7 +312,7 @@ def test_an_ascent_reports_what_it_may_spend_before_anything_is_spent(
 
     assert route.ladder_budget == 3  # three rungs at the default one attempt
     assert route.budget == 3  # no independent ceiling is set
-    assert route.most_rungs == 2  # max_escalations defaults to 1
+    assert route.most_rungs == 3  # max_escalations unset: every rung
     assert len(route) == 2  # two families offer a rung
     assert bool(route) is True
 
@@ -379,8 +379,8 @@ def test_nothing_to_run_is_its_own_outcome_and_says_why_per_family() -> None:
 
 
 def test_the_escalation_ceiling_stops_the_climb_and_names_itself(key: None) -> None:
-    """Default `max_escalations` is 1, so the third rung is never funded."""
-    config, pool = mapped(MIXED)
+    """A stated `max_escalations: 1` leaves the third rung unfunded."""
+    config, pool = mapped(with_budgets(MIXED, max_escalations=1))
     attempts = Recorder(Verdict.FAILED, Verdict.FAILED)
 
     result = halted(escalate(config, pool, contract(), attempts))
@@ -744,7 +744,7 @@ def test_the_ordering_holds_for_a_contract_that_demanded_verification() -> None:
 
 
 def test_a_gate_failure_costs_no_verifier_spend_anywhere_in_a_climb(key: None) -> None:
-    config, pool = mapped(MIXED)
+    config, pool = mapped(with_budgets(MIXED, max_escalations=1))
 
     def attempt(this: Try) -> Judgement:
         return judge(contract(), LOCAL, rejected("lint"), verifier=Spy())
@@ -761,7 +761,7 @@ def test_a_gate_failure_costs_no_verifier_spend_anywhere_in_a_climb(key: None) -
 def test_a_retry_note_carries_the_failing_checks_and_not_the_passing_ones() -> None:
     gate = rejected("lint", "format")
 
-    notes = RetryNotes.of(gate)
+    notes = FailureNotes.of_gate(gate, rung="r1", family="local", attempt=1)
 
     assert notes is not None
     assert notes.checks == ("lint", "format")
@@ -786,7 +786,7 @@ def test_a_retry_note_excludes_observations_and_environment_issues() -> None:
         environment_issues=("python: ruff not installed — lint skipped",),
     )
 
-    notes = RetryNotes.of(gate)
+    notes = FailureNotes.of_gate(gate, rung="r1", family="local", attempt=1)
 
     assert notes is not None
     assert notes.checks == ("lint",)
@@ -796,20 +796,22 @@ def test_a_retry_note_excludes_observations_and_environment_issues() -> None:
 
 
 def test_a_clean_gate_produces_no_retry_note() -> None:
-    assert RetryNotes.of(clean()) is None
+    assert FailureNotes.of_gate(clean(), rung="r1", family="local", attempt=1) is None
     assert judge(contract(), LOCAL, clean()).retry is None
 
 
 def test_the_retry_prompt_names_what_failed_and_repeats_nothing_that_passed() -> None:
     """The rule reaching the prompt a worker is actually sent."""
-    notes = RetryNotes.of(rejected("lint", "format"))
+    notes = FailureNotes.of_gate(
+        rejected("lint", "format"), rung="r1", family="local", attempt=1
+    )
     assert notes is not None
 
     first = build_prompt(contract())
-    again = build_prompt(contract(), retry=notes)
+    again = build_prompt(contract(), retry=(notes,))
 
-    assert "PREVIOUS ATTEMPT" not in first.user
-    assert "PREVIOUS ATTEMPT" in again.user
+    assert "WAS REJECTED BY THE GATE" not in first.user
+    assert "ATTEMPT 1 ON r1 WAS REJECTED BY THE GATE" in again.user
     assert "lint" in again.user and "format" in again.user
     assert "scope" not in again.user and "secrets" not in again.user
     # The contract is unchanged, so a retry is the first prompt plus what failed.
@@ -823,7 +825,7 @@ def test_a_ceiling_reads_both_numbers_off_the_config(key: None) -> None:
     unset = Ceiling.of(parse(MIXED))
     set_both = Ceiling.of(parse(with_budgets(MIXED, max_escalations=4, max_attempts=7)))
 
-    assert unset == Ceiling(escalations=1, attempts=None)
+    assert unset == Ceiling(escalations=None, attempts=None)
     assert set_both == Ceiling(escalations=4, attempts=7)
 
 
@@ -1760,10 +1762,27 @@ def test_the_pool_command_prints_the_ceilings_that_bound_a_task(
     assert main(["local_pool"]) == 0
 
     out = capsys.readouterr().out
-    assert "1 escalation(s)" in out
-    assert "2 of these 3 rung(s)" in out
+    assert "no escalation ceiling (max_escalations unset)" in out
+    assert "3 of these 3 rung(s)" in out
     assert "2 attempt(s)" in out
     assert "max_attempts" in out
+
+
+def test_the_pool_command_prints_a_stated_escalation_ceiling(
+    tmp_path: Path,
+    key: None,
+    capsys: pytest.CaptureFixture[str],
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    path = tmp_path / "mcgyvr.yaml"
+    path.write_text(with_budgets(MIXED, max_escalations=1), encoding="utf-8")
+    monkeypatch.setenv(CONFIG_PATH_ENV, str(path))
+
+    assert main(["local_pool"]) == 0
+
+    out = capsys.readouterr().out
+    assert "at most 1 escalation(s)" in out
+    assert "2 of these 3 rung(s)" in out
 
 
 def test_the_pool_command_says_where_an_unset_ceiling_comes_from(

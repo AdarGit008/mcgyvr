@@ -823,6 +823,7 @@ def _report_climb(
                 verdict=word,
                 detail=step.detail,
                 findings=list(step.findings),
+                notes=step.notes.as_json() if step.notes is not None else None,
                 attempt_id=attempt_id,
                 draw=step.draw,
                 draws=step.draws,

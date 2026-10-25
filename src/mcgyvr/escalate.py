@@ -17,6 +17,7 @@ from enum import StrEnum
 from typing import TYPE_CHECKING, assert_never
 
 from mcgyvr.catalog import Family, TaskType, catalog
+from mcgyvr.notes import FailureNotes
 from mcgyvr.route import (
     Accepted,
     Attempted,
@@ -168,46 +169,15 @@ class Review:
 
 
 @dataclass(frozen=True)
-class RetryNotes:
-    """What a failed attempt hands the next try.
-
-    `checks` names the checks that failed and `lines` holds one
-    model-facing sentence per finding; `text` renders those as a bullet
-    list. Nothing that passed is repeated.
-    """
-
-    checks: tuple[str, ...]
-    lines: tuple[str, ...]
-
-    @classmethod
-    def of(cls, gate: GateResult) -> RetryNotes | None:
-        """The notes for a gate that rejected a change, or None if it did not.
-
-        Only `findings` count: observations and environment issues are what
-        the gate said without refusing, and a retry told to fix them would be
-        fixing something that was never held against it.
-        """
-        if not gate.findings:
-            return None
-        return cls(
-            checks=tuple(gate.by_check()),
-            lines=tuple(f.for_model() for f in gate.findings),
-        )
-
-    @property
-    def text(self) -> str:
-        return "\n".join(f"- {line}" for line in self.lines)
-
-
-@dataclass(frozen=True)
 class Judgement:
     """What one try came to at the attempt seam.
 
     `verdict` is what the climb acts on. `accepted` is the change bound for
     delivery when one landed, `assurance` is what accepting it rests on, and
     `policy` is the verification policy it was judged under, with `upgraded`
-    saying whether that was raised above the contract's own. `retry` carries
-    what a later try must fix, `reviewer_failed` says a reviewer was asked
+    saying whether that was raised above the contract's own. `retry` is the
+    failure-notes record of a failed try — what a later try must fix, naming
+    the rung and attempt it is about — `reviewer_failed` says a reviewer was asked
     and answered nothing usable, and the draw fields are the breadth
     bookkeeping a `Result` carries into the history.
     """
@@ -218,7 +188,7 @@ class Judgement:
     policy: str = GATE_ONLY
     upgraded: bool = False
     reviewer_failed: bool = False
-    retry: RetryNotes | None = None
+    retry: FailureNotes | None = None
     detail: str = ""
     #: `draw` is the dispatch this judgement is about, `draws` the breadth
     #: the attempt asked for, and `rows` how many draws left a record.
@@ -229,15 +199,16 @@ class Judgement:
     def as_result(self) -> Result:
         """This judgement as the `Result` the climb records and returns.
 
-        The retry lines become the result's findings, so the reason a try
-        failed travels in the history rather than only in the judgement that
-        held it.
+        The record travels in the history, and its lines become the result's
+        findings, so the reason a try failed is kept rather than only in the
+        judgement that held it.
         """
-        findings = self.retry.lines if self.retry is not None else ()
+        findings = self.retry.findings if self.retry is not None else ()
         return Result(
             verdict=self.verdict,
             detail=self.detail,
             findings=findings,
+            notes=self.retry,
             draw=self.draw,
             draws=self.draws,
             rows=self.rows,
@@ -273,11 +244,15 @@ def judge(
     verifier: Callable[[], Review] | None = None,
     absent: str = "",
     reviewer: str = "",
+    rung: str = "",
+    attempt: int = 0,
 ) -> Judgement:
     """Judge one attempt: the gate first, then a reviewer only where one is owed.
 
-    A gate that rejected the change fails the attempt and carries the failing
-    checks as retry notes; no verifier is asked about a change already refused.
+    A gate that rejected the change fails the attempt and carries what it
+    observed as a failure-notes record, placed at `rung` and `attempt` — the
+    try being judged, which the caller names; no verifier is asked about a
+    change already refused.
     A task type that does not judge a change answers with a reply, and a reply
     is accepted unchecked under the policy the contract declared.
     Under `gate_only` the gate is the whole bar. With no verifier seam the
@@ -294,7 +269,9 @@ def judge(
             verdict=Verdict.FAILED,
             policy=policy,
             upgraded=upgraded,
-            retry=RetryNotes.of(gate),
+            retry=FailureNotes.of_gate(
+                gate, rung=rung, family=family.name, attempt=attempt
+            ),
             detail=(
                 f"the gate rejected the change on "
                 f"{', '.join(gate.by_check()) or 'no named check'}; "
@@ -362,7 +339,9 @@ def judge(
             # the non-blocking jev rung saw. The gate passed, so no gate
             # findings are here, and without the jev lines a retry would
             # hear the verifier and nothing else.
-            retry=_refusal_notes(review, gate),
+            retry=FailureNotes.of_refusal(
+                review.detail, gate, rung=rung, family=family.name, attempt=attempt
+            ),
             # The detail is the reviewer's own sentence: nothing here
             # invents a reason for a refusal that was stated.
             detail=f"refused by {reviewer or 'the verifier'}: {review.detail}",
@@ -384,24 +363,6 @@ def judge(
     )
 
 
-def _refusal_notes(review: Review, gate: GateResult) -> RetryNotes:
-    """What a refused change hands the next try.
-
-    The reviewer's sentence comes first, then whatever the non-blocking jev
-    rung saw, as findings and observations. The `jev` check is named only
-    when that rung saw something, so a refusal with no detail claims no
-    more of it than it has.
-    """
-    reasons = () if gate.jev is None else (*gate.jev.findings, *gate.jev.observations)
-    return RetryNotes(
-        checks=("verifier", *(("jev",) if reasons else ())),
-        lines=(
-            f"verifier: {review.detail}",
-            *(finding.for_model() for finding in reasons),
-        ),
-    )
-
-
 # The ceilings a climb is spent under, and the rung it enters at.
 
 
@@ -410,20 +371,32 @@ class Ceiling:
     """The two numbers that bound a task.
 
     `escalations` is `max_escalations` and `attempts` is `max_attempts`,
-    held as `None` when the config leaves it unset — the ladder's own
-    budget then bounds the task, so no ceiling here is unbounded.
+    each held as `None` when the config leaves it unset. Unset, the ladder
+    bounds the task on its own: every rung of it may be entered, and its own
+    budget caps the attempts, so neither is unbounded in practice.
     """
 
-    escalations: int
+    escalations: int | None = None
     attempts: int | None = None
 
     @classmethod
     def of(cls, config: Config) -> Ceiling:
+        moves = config.get("max_escalations")
         raw = config.get("max_attempts")
         return cls(
-            escalations=int(config.get("max_escalations", 1)),
+            escalations=None if moves is None else int(moves),
             attempts=None if raw is None else int(raw),
         )
+
+    def rungs(self, offered: int) -> int:
+        """How many of `offered` rungs a climb may enter under this ceiling.
+
+        All of them when `max_escalations` is unset; otherwise the entry plus
+        one per escalation, or every rung offered if that is fewer.
+        """
+        if self.escalations is None:
+            return offered
+        return min(offered, self.escalations + 1)
 
 
 @dataclass(frozen=True)
@@ -523,10 +496,10 @@ class Ascent:
     def most_rungs(self) -> int:
         """How many rungs the ascent can enter under `max_escalations`.
 
-        The entry plus one move per escalation, or every rung the ladder has
-        if that is fewer.
+        Every rung when it is unset; else the entry plus one move per
+        escalation, or every rung the ladder has if that is fewer.
         """
-        return min(len(self.rungs), self.ceiling.escalations + 1)
+        return self.ceiling.rungs(len(self.rungs))
 
     @property
     def next_free_rung(self) -> str | None:
@@ -840,9 +813,10 @@ def escalate(
     `attempt` is the seam that makes one try and answers with a
     `Judgement`. A decline spends nothing and moves the climb on; any other
     verdict charges an attempt and records the rung that charged it. A rung
-    entered after another has charged is an escalation, and `max_escalations`
-    bounds how many of those the climb may make, while every attempt is
-    charged to `max_attempts` or the ladder's own budget.
+    entered after another has charged is an escalation, and `max_escalations`,
+    when the config states it, bounds how many of those the climb may make —
+    unset, every rung may be entered — while every attempt is charged to
+    `max_attempts` or the ladder's own budget.
 
     A relief rung claimed as the entry is ridden first, as a one-step plan
     of its own, and the climb is then rebuilt at the family whose rung was
@@ -903,7 +877,11 @@ def escalate(
         # attempt, so a rung that stepped aside stays out of `spent_rungs`,
         # and the ceiling counts rungs that charged rather than rungs tried.
         moving = step.rung.name not in spent_rungs and bool(spent_rungs)
-        if moving and len(spent_rungs) > ceiling.escalations:
+        if (
+            moving
+            and ceiling.escalations is not None
+            and len(spent_rungs) > ceiling.escalations
+        ):
             stopped_by = Outcome.ESCALATION_CEILING
             return False
         return True
@@ -1339,8 +1317,8 @@ def disposition(outcome: Outcome) -> Disposition:
             return Disposition(
                 reassignable=True,
                 detail=(
-                    "escalation_ceiling: the climb stopped at "
-                    "max_escalations with rungs of the ascent never "
+                    "escalation_ceiling: the climb stopped at the "
+                    "max_escalations the config states, with rungs of the ascent never "
                     "entered, so nothing here says the ladder cannot do the "
                     "work — only that it was not allowed to try. Raise the "
                     "ceiling, or hand the contract to someone who can pay for "

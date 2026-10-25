@@ -558,8 +558,8 @@ def test_a_rejected_attempt_tells_the_next_one_what_failed(
 
     assert first.verdict is Verdict.FAILED
     assert second.verdict is Verdict.PASSED
-    assert "PREVIOUS ATTEMPT WAS REJECTED" not in sent[0]
-    assert "PREVIOUS ATTEMPT WAS REJECTED" in sent[1]
+    assert "WAS REJECTED BY THE GATE" not in sent[0]
+    assert "ATTEMPT 1 ON local_qwen-7b WAS REJECTED BY THE GATE" in sent[1]
 
 
 def test_the_retry_note_does_not_carry_the_acceptance_command(

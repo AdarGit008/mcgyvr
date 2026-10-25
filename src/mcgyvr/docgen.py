@@ -3,15 +3,18 @@
 `render_reference` and `render_setup` project the config `SCHEMA` into the
 configuration reference and SETUP.md; `render_skill` and `render_examples`
 project the contract schema into the /mcgyvr skill (one instruction generated
-from that schema — setup is not part of it) and its examples file.
+from that schema — setup is not part of it) and its examples file, the skill
+carrying the failure-notes record's fields from `mcgyvr.notes`; and
+`render_notes_schema` writes that record's JSON Schema beside the examples.
 `main` renders the reference to a temporary file, checks it and deletes it, then
-writes the other three — or, with `--check`, reports the ones that are out of
+writes the other four — or, with `--check`, reports the ones that are out of
 date without touching them.
 """
 
 from __future__ import annotations
 
 import argparse
+import json
 import os
 import re
 import sys
@@ -22,6 +25,7 @@ from pathlib import Path
 from mcgyvr.catalog import catalog
 
 from . import contract as contract_schema
+from . import notes as failure_notes
 from .config import FLEET_FILENAME, POLICY_FILENAME, RELIEF_FILENAME, SCHEMA, Field
 
 # First line of every document generated from the config schema: the note that
@@ -37,6 +41,7 @@ REPO_ROOT = Path(__file__).resolve().parents[2]
 SKILL_PATH = Path("skills/mcgyvr/SKILL.md")
 SETUP_PATH = Path("skills/mcgyvr/SETUP.md")
 EXAMPLES_PATH = Path("skills/mcgyvr/references/examples.md")
+NOTES_SCHEMA_PATH = Path("skills/mcgyvr/references/failure-notes.schema.json")
 SKILL_MARKER = (
     "<!-- Code generated from src/mcgyvr/contract.py and src/mcgyvr/docgen.py by "
     "`make docs`. DO NOT EDIT. -->"
@@ -692,7 +697,8 @@ def render_skill() -> str:
         "    is in the machinery, not the work. `detail` names the cause.",
         "- `attempts[]` — every try: `rung`, `attempt`, `verdict` (`passed`,",
         "  `failed`, `declined`, `error`), `detail`, `findings` (the gate's lines",
-        "  behind a failure), `attempt_id`, `draw`, `draws`, `rows`, `relief`,",
+        "  behind a failure), `notes` (the record those lines are rendered from;",
+        "  below), `attempt_id`, `draw`, `draws`, `rows`, `relief`,",
         "  `model`, `address`. `draws` is the",
         "  breadth the attempt asked for (`breadth.draws`), whatever the verdict;",
         "  `rows` is how many of those draws left a journal row, which is `draws`",
@@ -738,6 +744,7 @@ def render_skill() -> str:
         "  through. The live tree of a batch is under `journal.dir` in",
         "  `trees/<tree>.json`.",
         "",
+        *_notes_section(),
         "Every run is journaled under the config's `journal.dir` and nothing on",
         "the command line moves it — that one directory is where every run can",
         "be counted. Deterministic runs are there too, as a row naming",
@@ -753,7 +760,10 @@ def render_skill() -> str:
         "",
         "A failed attempt already had its retries inside the run. When `outcome` is",
         "not `accepted`, read `attempts[].findings`: each line is one reason the gate",
-        "refused. Write a *different* contract — narrower target, an acceptance",
+        "refused. `attempts[].notes` is the same evidence as a record, one per failed",
+        "attempt in climb order: the check, the file and line, the tool's code, and",
+        "the command and its exit where the check ran one. Write a *different*",
+        "contract — narrower target, an acceptance",
         "command that states the requirement, a stop condition for what was",
         "ambiguous — and go back to step 2. Running the same contract again spends",
         "more on the same answer.",
@@ -773,6 +783,43 @@ def render_skill() -> str:
         "top of the last run.",
     ]
     return "\n".join(lines).rstrip("\n") + "\n"
+
+
+def _notes_table(fields: Sequence[Field]) -> list[str]:
+    """A failure-notes field table: key, type (`or null` when optional), meaning."""
+    lines = ["| Key | Type | Description |", "| --- | --- | --- |"]
+    for field in fields:
+        kind = (
+            f"`{field.choices[0]}`"
+            if field.kind == "enum" and len(field.choices) == 1
+            else _type_label(field)
+        )
+        if not field.required:
+            kind += " or null"
+        lines.append(f"| `{field.name}` | {kind} | {_escape(field.doc)} |")
+    lines.append("")
+    return lines
+
+
+def _notes_section() -> list[str]:
+    """The skill's account of `attempts[].notes`, its tables from `mcgyvr.notes`."""
+    return [
+        "`attempts[].notes` is the failure-notes record of a failed try, `null` on",
+        "a try that left none. It is built from what the gate, the reviewer or the",
+        "reply parser observed — never from a model's account — so an optional",
+        "field is `null` where the check reported nothing for it. Its JSON Schema",
+        f"is `references/{NOTES_SCHEMA_PATH.name}`. The record:",
+        "",
+        *_notes_table(failure_notes.NOTES_FIELDS),
+        "Each entry of its `notes`:",
+        "",
+        *_notes_table(failure_notes.NOTE_FIELDS),
+    ]
+
+
+def render_notes_schema() -> str:
+    """The failure-notes JSON Schema, as the file `make docs` writes."""
+    return json.dumps(failure_notes.json_schema(), indent=2, ensure_ascii=False) + "\n"
 
 
 def render_examples() -> str:
@@ -941,8 +988,8 @@ def main(argv: Sequence[str] | None = None) -> int:
         prog="python -m mcgyvr.docgen",
         description=(
             "Render the configuration reference from the config schema, check it "
-            "and delete it; write the /mcgyvr skill, its examples and SETUP.md, or "
-            "check the committed ones."
+            "and delete it; write the /mcgyvr skill, its examples, the "
+            "failure-notes schema and SETUP.md, or check the committed ones."
         ),
     )
     parser.add_argument(
@@ -973,6 +1020,14 @@ def main(argv: Sequence[str] | None = None) -> int:
         default=str(REPO_ROOT / EXAMPLES_PATH),
         help="where to write the examples file (default: the checkout's copy)",
     )
+    parser.add_argument(
+        "--notes-schema-output",
+        default=str(REPO_ROOT / NOTES_SCHEMA_PATH),
+        help=(
+            "where to write the failure-notes JSON Schema "
+            "(default: the checkout's copy)"
+        ),
+    )
     args = parser.parse_args(argv)
 
     reference = (
@@ -1002,6 +1057,12 @@ def main(argv: Sequence[str] | None = None) -> int:
         Path(args.examples_output),
         render_examples(),
         "src/mcgyvr/contract.py",
+        args.check,
+    )
+    stale += _write_or_check(
+        Path(args.notes_schema_output),
+        render_notes_schema(),
+        "src/mcgyvr/notes.py",
         args.check,
     )
     return 1 if problems or stale else 0

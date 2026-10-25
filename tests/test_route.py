@@ -1283,12 +1283,14 @@ def test_full_fanout_never_buys_an_api_rung_that_the_default_would_refuse(
     a spend mode must not be able to spend, so the two modes are asserted
     against each other rather than against a literal: the assertion is that
     turning the knob changed the *order* of the climb and nothing about its
-    cost.
+    cost. The ceiling is stated, one move, because the defect is in how a
+    stated ceiling is counted: unset, every rung may be entered under any mode.
     """
-    saturated, pool = mapped(with_fanout(MIXED, "full"))
+    ceiling = MIXED + "max_escalations: 1\n"
+    saturated, pool = mapped(with_fanout(ceiling, "full"))
     capacity = Capacity.of(saturated)
     spread = Judging(Verdict.FAILED, Verdict.FAILED, Verdict.FAILED)
-    default, default_pool = mapped(MIXED)
+    default, default_pool = mapped(ceiling)
     queued = Judging(Verdict.FAILED, Verdict.FAILED, Verdict.FAILED)
 
     with occupied(capacity, pool, "local_qwen-7b", "local_qwen-7b"):

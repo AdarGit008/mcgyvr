@@ -17,7 +17,8 @@ from typing import Any
 
 import pytest
 
-from mcgyvr.escalate import Judgement, Outcome, RetryNotes, escalate, required_policy
+from mcgyvr.escalate import Judgement, Outcome, escalate, required_policy
+from mcgyvr.notes import FailureNote, FailureNotes, NoteKind
 from mcgyvr.route import Try, Verdict, family_of
 from mcgyvr.telemetry import fold
 from tests import livejournal as lj
@@ -39,8 +40,18 @@ def test_the_history_keeps_the_judged_attempts_before_the_raise() -> None:
                 verdict=Verdict.FAILED,
                 policy=required_policy(task, family_of(config, this.rung.name)),
                 detail=f"rejected on attempt {this.attempt}",
-                retry=RetryNotes(
-                    checks=("acceptance",), lines=(f"finding {this.attempt}",)
+                retry=FailureNotes(
+                    rung=this.rung.name,
+                    family="local",
+                    attempt=this.attempt,
+                    checks=("acceptance",),
+                    notes=(
+                        FailureNote(
+                            check="acceptance",
+                            kind=NoteKind.FINDING,
+                            message=f"finding {this.attempt}",
+                        ),
+                    ),
                 ),
                 draw=0,
                 draws=2,
@@ -56,7 +67,9 @@ def test_the_history_keeps_the_judged_attempts_before_the_raise() -> None:
         (2, Verdict.FAILED, False),
         (3, Verdict.FAILED, True),
     ]
-    assert result.history[0].findings == ("finding 1",)
+    assert result.history[0].findings == ("acceptance: finding 1",)
+    assert result.history[0].notes is not None
+    assert result.history[0].notes.attempt == 1
     assert result.history[1].draws == 2
 
 
