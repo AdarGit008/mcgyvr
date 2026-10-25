@@ -39,6 +39,24 @@ archived outside this repository, under the same paths.
   or not JSON stops the run before anything is spent; messages are scrubbed
   again. The result's new `seeded` key says what was read (`from`, `records`
   with their `run`) and how much the climb was handed (`handed`).
+- **A contract whose ladder is spent is re-planned, not left to stop.** In
+  `mcgyvr delegate --run`, a contract that tried every rung and came to
+  `ladder_spent` goes back to the orchestrator (`mcgyvr.replan`): its own work
+  is decomposed again on the checkout as it now stands, and the prose
+  proposer is shown the spent contract and the failure-notes records its
+  result carries (`attempts[].notes`) as data, under the worker prompt's
+  bounds and never under the worker's "fix these" banner. The contract or
+  contracts that come back take its place on the dependency tree, and what
+  waited on it waits on the one on its target, or on all of them when none
+  is, so a dependent it held is freed. Each carries `replan` (the id it
+  `replaces` and its `round`), and `max_replans` (policy, default 1, 0 off)
+  bounds the rounds from that. The spent result keeps outcome `ladder_spent`
+  and gains `replanned` (`round`, `max_replans`, `contracts`, `detail`), and
+  its `detail` names the replacement, or says why there is none: past the
+  bound, a re-plan that failed, or one that proposed nothing new. A single
+  `mcgyvr run` still stops at `ladder_spent`, and notes on its result how a
+  batch would go on; the `ladder_spent` disposition names the re-plan when
+  `max_replans` is above 0.
 - **A contract whose provider did not land is held, not climbed.**
   `mcgyvr delegate --run` keeps the batch's contracts on a live dependency
   tree (`mcgyvr.tree`, `mcgyvr.board`), one per repository, and runs the next

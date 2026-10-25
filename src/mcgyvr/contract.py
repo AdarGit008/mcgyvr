@@ -252,6 +252,28 @@ RENAME_FIELDS: tuple[Field, ...] = (
     ),
 )
 
+REPLAN_FIELDS: tuple[Field, ...] = (
+    Field(
+        "replaces",
+        "str",
+        "The id of the contract this one was proposed in place of, when a "
+        "batch handed that contract back to the orchestrator because its "
+        "ladder was spent (`max_replans`).",
+        default="",
+        hint="e.g. code-1f2e3d4c5b",
+    ),
+    Field(
+        "round",
+        "int",
+        "Which re-plan this contract came from: 1 for one proposed in place of "
+        "a contract nobody re-planned, one more than the contract it replaces "
+        "otherwise. A batch re-plans a spent contract only while this is "
+        "below `max_replans`, so the bound is read from the contract.",
+        default=0,
+        min_value=0,
+    ),
+)
+
 #: The attempts a contract allows each rung when its `limits.attempts` is unset.
 DEFAULT_ATTEMPTS = 2
 
@@ -525,6 +547,15 @@ SCHEMA: tuple[Field, ...] = (
         "contract and ignored there.",
         block=RENAME_FIELDS,
     ),
+    Field(
+        "replan",
+        "block",
+        "Where this contract came from when it was proposed in place of one "
+        "whose ladder was spent: the id it replaces and the re-plan round. "
+        "Written by the batch that re-planned it, never by hand. Not "
+        "worker-facing.",
+        block=REPLAN_FIELDS,
+    ),
 )
 
 
@@ -551,6 +582,21 @@ class Rename:
     @property
     def stated(self) -> bool:
         return bool(self.old and self.new)
+
+
+@dataclass(frozen=True)
+class Lineage:
+    """Which spent contract this one was re-planned from, and in which round.
+
+    Empty (`replaces` "" and `round` 0) on a contract nobody re-planned.
+    """
+
+    replaces: str = ""
+    round: int = 0
+
+    @property
+    def stated(self) -> bool:
+        return bool(self.replaces)
 
 
 @dataclass(frozen=True)
@@ -606,6 +652,9 @@ class Contract:
     #: The rung the climb starts on, decided ahead of time; empty when the
     #: contract states none and the climb starts as the config says.
     start_rung: str = ""
+    #: The spent contract this one was re-planned from, and the round; empty on
+    #: a contract nobody re-planned.
+    replan: Lineage = Lineage()
     #: The text of each entry in `sources`, in that order, filled in when the
     #: contract is dispatched against a workspace rather than parsed from a
     #: document. It is empty, or of another length, when the sources were never
@@ -752,6 +801,16 @@ class Contract:
             **stated,
             **renamed,
             **({"start_rung": self.start_rung} if self.start_rung else {}),
+            **(
+                {
+                    "replan": {
+                        "replaces": self.replan.replaces,
+                        "round": self.replan.round,
+                    }
+                }
+                if self.replan.stated
+                else {}
+            ),
             "verification": {"policy": self.verification.policy},
             "limits": {
                 "max_output_tokens": self.limits.max_output_tokens,
@@ -841,6 +900,9 @@ def _build(data: Mapping[str, Any]) -> Contract:
         no_semantic_change=data["no_semantic_change"],
         type_check=data["type_check"],
         start_rung=data["start_rung"],
+        replan=Lineage(
+            replaces=data["replan"]["replaces"], round=data["replan"]["round"]
+        ),
     )
 
 
@@ -1173,6 +1235,8 @@ def _cross_validate(data: Mapping[str, Any]) -> None:
             )
         waiting.add(needed)
 
+    _check_lineage(data["replan"], identity)
+
     seen: set[str] = set()
     for index, dep in enumerate(data["deps"]):
         if dep["path"] in seen:
@@ -1191,6 +1255,38 @@ def _cross_validate(data: Mapping[str, Any]) -> None:
     # None of those can be settled here, and refusing a contract for something a
     # later stage can report with a better message would only move the error
     # somewhere less useful.
+
+
+def _check_lineage(lineage: Mapping[str, Any], identity: str) -> None:
+    """Refuse a `replan` lineage that could not name a contract it replaced.
+
+    Both halves or neither: a round with no id names nothing it replaced, and an
+    id at round 0 claims a re-plan that never counted. The id has to be one a
+    contract could carry, and not this contract's own.
+    """
+    replaces, rounds = lineage["replaces"], lineage["round"]
+    if not replaces and not rounds:
+        return
+    if not replaces:
+        raise ContractSchemaError(
+            f"replan.round: {rounds} names no contract it replaces. State "
+            f"replan.replaces beside it, or drop the replan block."
+        )
+    if rounds < 1:
+        raise ContractSchemaError(
+            f"replan.round: a contract that replaces {replaces!r} was proposed "
+            f"in some round, so it is at least 1."
+        )
+    if replaces == identity:
+        raise ContractSchemaError(
+            f"replan.replaces: {replaces!r} is this contract's own id; a "
+            f"re-planned contract replaces another one."
+        )
+    if not _ID.match(replaces):
+        raise ContractSchemaError(
+            f"replan.replaces: {replaces!r} is not a usable contract id, so no "
+            f"contract could have carried it."
+        )
 
 
 def _check_sources(sources: Sequence[str]) -> None:

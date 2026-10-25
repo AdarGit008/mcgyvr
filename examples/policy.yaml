@@ -11,3 +11,4 @@ ladder:
 fanout: idle                    # none | idle | full — how a batch spreads
 triage: none                    # none | jev — who picks the rung a climb starts on
 dependents: hold                # hold | run — a contract whose provider did not land
+max_replans: 1                  # re-plans of a contract whose ladder is spent; 0 off

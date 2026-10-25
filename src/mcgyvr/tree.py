@@ -27,9 +27,10 @@ committed tree, never asked of a model:
   nothing in the set creates (`unprovided`).
 
 A held contract is not dead: a provider retried (`retry`) or replaced
-(`replace`, a re-decomposed contract on the same target) frees it again. Only
-`seal` — the queue drained — turns what is still held into `dead`, the
-contracts that get a result with outcome `blocked` and no attempt spent.
+(`replace`, the contracts a re-plan proposed in its place, `mcgyvr.replan`)
+frees it again. Only `seal` — the queue drained — turns what is still held
+into `dead`, the contracts that get a result with outcome `blocked` and no
+attempt spent.
 With `hold=False` nothing is held: a dependent runs once each provider has
 come to anything at all, the order a plan without the tree ran in.
 """
@@ -340,26 +341,36 @@ class Tree:
         node.hold = None
         self._evaluate()
 
-    def replace(self, old_id: str, contract: Contract) -> None:
-        """`contract` stands for `old_id` from now on, say after a re-decomposition.
+    def replace(self, old_id: str, contract: Contract, *more: Contract) -> None:
+        """`contract`, and `more`, stand for `old_id` from now on: a re-decomposition.
 
-        The waits on `old_id` move to it when it has the same target; a wait
-        that does not move names an id the tree no longer holds.
+        They take its place in the tree's order, each waiting afresh. A wait on
+        `old_id` moves to the ones on its target — or, when none of them is on
+        it, to every one of them — so nothing that waited is sent before the
+        work that stands for its provider is done.
         """
         old = self._nodes[old_id]
-        if contract.id in self._nodes and contract.id != old_id:
-            raise ValueError(f"{contract.id} is already in this tree")
-        moved = contract.target == old.contract.target
+        fresh = (contract, *more)
+        ids = [c.id for c in fresh]
+        if len(set(ids)) != len(ids):
+            raise ValueError(f"a replacement for {old_id} is named twice: {ids}")
+        for each in ids:
+            if each in self._nodes and each != old_id:
+                raise ValueError(f"{each} is already in this tree")
+        on_target = tuple(c.id for c in fresh if c.target == old.contract.target)
+        heirs = on_target or tuple(ids)
         rebuilt: dict[str, _Node] = {}
         for cid, node in self._nodes.items():
             if cid == old_id:
-                rebuilt[contract.id] = _Node(contract)
+                rebuilt.update((c.id, _Node(c)) for c in fresh)
                 continue
-            if moved and old_id in node.contract.depends_on:
-                waits = tuple(
-                    contract.id if w == old_id else w for w in node.contract.depends_on
+            if old_id in node.contract.depends_on:
+                waits: list[str] = []
+                for w in node.contract.depends_on:
+                    waits.extend(heirs if w == old_id else (w,))
+                node.contract = _with_depends_on(
+                    node.contract, tuple(dict.fromkeys(waits))
                 )
-                node.contract = _with_depends_on(node.contract, waits)
             rebuilt[cid] = node
         self._nodes = rebuilt
         self._build()
@@ -402,6 +413,11 @@ class Tree:
                     "outcome": node.outcome or None,
                     "result": node.result,
                     "blocked_by": node.hold.as_json() if node.hold else None,
+                    **(
+                        {"replaces": node.contract.replan.replaces}
+                        if node.contract.replan.stated
+                        else {}
+                    ),
                 }
                 for cid, node in self._nodes.items()
             ],

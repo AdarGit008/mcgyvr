@@ -7,8 +7,10 @@ repository, says once what a sandbox built from it leaves out, builds the index,
 and hands the evidence to `decompose`. The contracts that come back are reported,
 written as `DIR/<id>.json` or printed, and, with `--run`, run one at a time
 through the machinery `run` already has, in the order their dependency tree
-allows — a contract whose provider did not land is held, not run. `add_parser`
-registers the subcommand and its arguments.
+allows — a contract whose provider did not land is held, not run, and one
+whose ladder is spent is handed back to the orchestrator to be re-planned
+(`mcgyvr.replan`, up to `max_replans`), what comes back taking its place.
+`add_parser` registers the subcommand and its arguments.
 """
 
 from __future__ import annotations
@@ -29,12 +31,13 @@ from mcgyvr.config import load as load_config
 from mcgyvr.exits import Exit
 
 if TYPE_CHECKING:  # pragma: no cover - typing only
-    from mcgyvr.board import GitSource
+    from mcgyvr.board import Board, GitSource
     from mcgyvr.contract import Contract
     from mcgyvr.local_pool import SourceMap
     from mcgyvr.orchestrator.decompose import Decomposition, Proposer
+    from mcgyvr.replan import Replanner, Spent
     from mcgyvr.session import Session
-    from mcgyvr.tree import Hold
+    from mcgyvr.tree import Hold, Tree
 
 from mcgyvr.cli.commands.run import _copy, _run
 from mcgyvr.cli.common import CONFIG_DEFAULT_HELP, _add_repo, _named_path
@@ -57,10 +60,11 @@ def _delegate(args: argparse.Namespace) -> int:
     the block exits. The sandbox note is printed, the index is built, and
     `decompose` turns the prompt into contracts from that index, the proposer,
     the config and `--budget`. The contracts are reported and written, or
-    printed when `--output` is not given, and `--run` runs each of them. The
-    exit code is 0 when that all worked and 1 when attaching, indexing,
-    proposing or running did not. A reply that cannot be read as proposals is
-    printed whole, delimited, on stderr after its error.
+    printed when `--output` is not given, and `--run` runs each of them,
+    re-planning a contract whose ladder is spent through the prose proposer on
+    the same checkout. The exit code is 0 when that all worked and 1 when
+    attaching, indexing, proposing or running did not. A reply that cannot be
+    read as proposals is printed whole, delimited, on stderr after its error.
     """
 
     from mcgyvr.config import ConfigError
@@ -138,7 +142,14 @@ def _delegate(args: argparse.Namespace) -> int:
                 decomposition, Path(args.output) if args.output else None
             )
             if args.run:
-                return _run_delegated(args, repo.root, decomposition, written, config)
+                return _run_delegated(
+                    args,
+                    repo.root,
+                    decomposition,
+                    written,
+                    config,
+                    replan=_replanner(args, repo.root, config, pool, propose),
+                )
             return 0
     except AttachError as exc:
         print(f"error: {exc}", file=sys.stderr)
@@ -192,6 +203,41 @@ def _proposer_for_delegate(config: Config, pool: SourceMap) -> Proposer | None:
     )
 
 
+def _replanner(
+    args: argparse.Namespace,
+    root: Path,
+    config: Config,
+    pool: SourceMap,
+    propose: Proposer,
+) -> Replanner:
+    """What re-plans a spent contract: the orchestrator, asked again on `root`.
+
+    The index is built again, since what landed before the spend is in the
+    tree now, and the spent contract's own work is decomposed with its failure
+    notes on the evidence. The prose proposer is asked, since it is the one
+    that is shown the notes; `propose` stands in when no prose one is bound.
+    """
+    from mcgyvr.delegate import proposer_for
+    from mcgyvr.orchestrator import build_index, decompose
+    from mcgyvr.replan import request_for
+
+    asked = proposer_for(pool) or propose
+
+    def replan(spent: Spent) -> Decomposition:
+        dec = decompose(
+            build_index(root),
+            request_for(spent.contract),
+            propose=asked,
+            config=config,
+            budget=args.budget,
+            spent=spent,
+        )
+        _report_decomposition(dec)
+        return dec
+
+    return replan
+
+
 def _report_decomposition(dec: Decomposition) -> None:
     """Report what one decomposition produced, on stderr.
 
@@ -240,6 +286,8 @@ def _run_delegated(
     dec: Decomposition,
     written: Sequence[Path],
     config: Config,
+    *,
+    replan: Replanner | None = None,
 ) -> int:
     """Run the emitted contracts through `_run`, one at a time, as the tree allows.
 
@@ -257,7 +305,15 @@ def _run_delegated(
     not land is held, and once nothing more is ready each held one gets a
     result with outcome `blocked` and no attempt spent, and exit 3. Under
     `dependents: run` every contract runs once what it waits on has come to
-    anything. The last non-zero exit code is returned.
+    anything.
+
+    A contract whose run came to `ladder_spent` is handed to `replan` with the
+    failure notes its result carries, while its `replan` round is below
+    `max_replans` (`mcgyvr.replan`). The contracts that come back, each
+    carrying the spent one's id and the round, are written beside the others
+    and take its place on the tree, which frees what it held; the spent result
+    says so under `replanned`. The last non-zero exit code is returned, not
+    counting a run whose contract was re-planned, since its work goes on.
     """
     if not dec.contracts:
         return 0
@@ -267,6 +323,7 @@ def _run_delegated(
 
     from mcgyvr.board import Board, GitSource, tree_id_for
     from mcgyvr.config import JOURNAL_DIR_DEFAULT
+    from mcgyvr.replan import SPENT
     from mcgyvr.session import SessionError, resolve
     from mcgyvr.tree import Tree
 
@@ -279,6 +336,8 @@ def _run_delegated(
             path.write_text(document + "\n", encoding="utf-8")
             paths.append(path)
     path_of = {c.id: p for c, p in zip(dec.contracts, paths, strict=True)}
+    # Where a re-planned contract is written: beside the batch's own.
+    folder = staging if staging is not None else paths[0].parent
 
     try:
         session = resolve(args.orchestrator)
@@ -299,7 +358,7 @@ def _run_delegated(
     board = Board(journal)
     board.attach(tree)
 
-    code = 0
+    codes: dict[str, int] = {}
     try:
         while ready := board.ready():
             _, contract = ready[0]
@@ -316,22 +375,223 @@ def _run_delegated(
                 result=None,
                 orchestrator=args.orchestrator,
                 session=session,
+                in_batch=True,
             )
-            result = _run(run)
-            if result != 0:
-                code = result
+            codes[contract.id] = _run(run)
             source.refresh()
-            board.settle(
-                tree.tree_id,
-                contract.id,
-                **_settled(_results_of(journal, contract.id) - before, source),
-            )
+            settled = _settled(_results_of(journal, contract.id) - before, source)
+            board.settle(tree.tree_id, contract.id, **settled)
+            if (
+                replan is not None
+                and settled["outcome"] == SPENT
+                and settled.get("result")
+                and _replanned(
+                    args,
+                    board,
+                    tree,
+                    contract,
+                    Path(settled["result"]),
+                    replan,
+                    config,
+                    folder,
+                    path_of,
+                )
+            ):
+                # The work goes on under what replaced it, so this run's exit
+                # is not the batch's.
+                del codes[contract.id]
         for _, contract, hold in board.drain():
-            code = _write_held(args, contract, hold, session, journal)
+            codes[contract.id] = _write_held(args, contract, hold, session, journal)
     finally:
         if staging is not None:
             shutil.rmtree(staging, ignore_errors=True)
-    return code
+    failed = [each for each in codes.values() if each != 0]
+    return failed[-1] if failed else 0
+
+
+def _replanned(
+    args: argparse.Namespace,
+    board: Board,
+    tree: Tree,
+    spent: Contract,
+    result: Path,
+    replan: Replanner,
+    config: Config,
+    folder: Path,
+    path_of: dict[str, Path],
+) -> bool:
+    """Re-plan a contract whose ladder is spent; whether anything took its place.
+
+    Nothing is asked when `max_replans` is 0, and the result is left as it is.
+    Past the bound, a re-plan that could not be had, and one that proposed
+    nothing the batch does not already hold are each said on the spent result's
+    `replanned`, and the tree keeps holding what waited on it. Otherwise the
+    new contracts carry the lineage, are written into `folder`, take the spent
+    one's place on the tree, and the result names them.
+    """
+    import json
+
+    from mcgyvr.contract import dumps
+    from mcgyvr.delegate import DelegationError
+    from mcgyvr.local_pool import SourceUnavailableError
+    from mcgyvr.orchestrator import IndexBuildError
+    from mcgyvr.replan import Spent, failures_of, max_replans, next_round, stamped
+    from mcgyvr.runner import RunnerError
+
+    bound = max_replans(config)
+    if bound <= 0:
+        return False
+    try:
+        doc = json.loads(result.read_text(encoding="utf-8"))
+    except (OSError, ValueError) as exc:
+        print(
+            f"error: {spent.id} is not re-planned: its result {result} could not "
+            f"be read ({exc})",
+            file=sys.stderr,
+        )
+        return False
+    round_ = next_round(spent, bound)
+    if round_ is None:
+        _say_replanned(
+            args,
+            result,
+            doc,
+            spent.replan.round,
+            bound,
+            (),
+            f"not re-planned: it is already re-plan round {spent.replan.round} "
+            f"of max_replans {bound}.",
+        )
+        return False
+    try:
+        dec = replan(Spent(contract=spent, failures=failures_of(doc)))
+    except (
+        DelegationError,
+        RunnerError,
+        SourceUnavailableError,
+        IndexBuildError,
+    ) as exc:
+        _say_replanned(
+            args, result, doc, round_, bound, (), f"the re-plan failed: {exc}."
+        )
+        return False
+    fresh = _runnable_replacements(
+        dec.contracts, spent.id, {c.id for c in tree.contracts()}
+    )
+    if not fresh:
+        refused = "; ".join(str(r) for r in dec.refusals)
+        _say_replanned(
+            args,
+            result,
+            doc,
+            round_,
+            bound,
+            (),
+            "the re-plan proposed nothing new"
+            + (f" (refused: {refused})" if refused else "")
+            + ", so what waited on it stays held.",
+        )
+        return False
+    replacing = stamped(fresh, spent, round_)
+    try:
+        for contract in replacing:
+            path = folder / f"{contract.id}.json"
+            path.write_text(dumps(contract) + "\n", encoding="utf-8")
+            path_of[contract.id] = path
+        board.replace(tree.tree_id, spent.id, *replacing)
+    except (OSError, ValueError) as exc:
+        _say_replanned(
+            args,
+            result,
+            doc,
+            round_,
+            bound,
+            (),
+            f"the re-plan could not be put in its place: {exc}.",
+        )
+        return False
+    ids = tuple(c.id for c in replacing)
+    _say_replanned(
+        args,
+        result,
+        doc,
+        round_,
+        bound,
+        ids,
+        f"re-planned (round {round_} of max_replans {bound}) as "
+        f"{', '.join(ids)}, which take its place in the batch.",
+    )
+    return True
+
+
+def _runnable_replacements(
+    proposed: Sequence[Contract], spent: str, tree: set[str]
+) -> list[Contract]:
+    """The proposed contracts that are new and could run, in their order.
+
+    One the batch already holds (the spent contract proposed again unchanged,
+    or a sibling already there) is not new. One that waits on an id neither
+    the tree nor the other replacements will hold — the spent contract, or a
+    replacement dropped here — could never start, so it is dropped too, until
+    what is left waits only on what will be there.
+    """
+    kept = [c for c in proposed if c.id not in tree and c.id != spent]
+    while True:
+        there = (tree - {spent}) | {c.id for c in kept}
+        runnable = [c for c in kept if all(w in there for w in c.depends_on)]
+        if len(runnable) == len(kept):
+            return kept
+        kept = runnable
+
+
+def _say_replanned(
+    args: argparse.Namespace,
+    result: Path,
+    doc: dict[str, Any],
+    round_: int,
+    bound: int,
+    contracts: Sequence[str],
+    said: str,
+) -> None:
+    """Put what became of a spent contract on its result, and say it.
+
+    The result under the journal is amended, and its `--record` copy when that
+    is there; a copy that cannot be amended is said and does not stop the batch.
+    """
+    from mcgyvr.result import RESULTS_DIR, amend
+
+    detail = str(doc.get("detail") or "")
+    changes = {
+        "detail": f"{detail} {said}".strip(),
+        "replanned": {
+            "round": round_,
+            "max_replans": bound,
+            "contracts": list(contracts),
+            "detail": said,
+        },
+    }
+    print(f"{doc.get('contract') or result.stem}: {said}", file=sys.stderr)
+    try:
+        amend(result, changes)
+    except (OSError, ValueError) as exc:
+        print(
+            f"error: the result {result} could not be amended with that: {exc}",
+            file=sys.stderr,
+        )
+        return
+    if args.record is None:
+        return
+    copy = Path(args.record).expanduser() / RESULTS_DIR / result.name
+    if copy.resolve() == result.resolve() or not copy.exists():
+        return
+    try:
+        amend(copy, changes)
+    except (OSError, ValueError) as exc:
+        print(
+            f"error: the copy of this result in {copy} could not be amended: "
+            f"{exc}. It is amended at {result}.",
+            file=sys.stderr,
+        )
 
 
 def _results_of(journal: Path, contract_id: str) -> set[Path]:

@@ -558,6 +558,7 @@ def _climb(
     from mcgyvr.drive import DriveError, acceptance_for, worker_attempt
     from mcgyvr.escalate import Outcome, ascent, escalate, redundant_relief
     from mcgyvr.local_pool import SourceUnavailableError, source_map
+    from mcgyvr.replan import max_replans
     from mcgyvr.route import RouteError
     from mcgyvr.sandbox.base import SandboxError, open_sandbox
     from mcgyvr.triage import stated
@@ -724,7 +725,16 @@ def _climb(
                 wake_hook=wake_hook_for(config, pool, cooldown=cooldown),
             )
             return _report_climb(
-                args, contract, sandbox, repo, outcome, recording, report
+                args,
+                contract,
+                sandbox,
+                repo,
+                outcome,
+                recording,
+                report,
+                # A batch re-plans the contract itself and says so on the
+                # result, so the hint is for a run on its own.
+                replans=0 if getattr(args, "in_batch", False) else max_replans(config),
             )
     except (DriveError, SandboxError, CapacityError, WakeJudgeError) as exc:
         return _error(report, str(exc))
@@ -784,17 +794,22 @@ def _report_climb(
     outcome: Delivered | Halted,
     recording: Recording | None,
     report: RunResult,
+    *,
+    replans: int = 0,
 ) -> int:
     """Print the climb, record it, and deliver whatever it accepted.
 
     Each attempt in the history is printed and given a correction row per draw,
     then copied into the result's attempts. A halt sets the result's outcome and
-    detail and exits 1. A delivery says which rung it landed on, what it cost in
-    attempts and escalations, and what the assurance is, then commits a change;
-    a judgement that bound no content is an
-    error, because there would be nothing to deliver.
+    detail and exits 1; a spent ladder notes, when `replans` (`max_replans`) is
+    above zero, that a batch re-plans such a contract and this run does not. A
+    delivery says which rung it landed on, what it cost in attempts and
+    escalations, and what the assurance is, then commits a change; a judgement
+    that bound no content is an error, because there would be nothing to
+    deliver.
     """
-    from mcgyvr.escalate import Assurance, Delivered
+    from mcgyvr.escalate import Assurance, Delivered, Outcome
+    from mcgyvr.replan import hint as replan_hint
     from mcgyvr.result import AttemptResult
     from mcgyvr.route import Verdict
     from mcgyvr.telemetry import correct
@@ -868,6 +883,10 @@ def _report_climb(
         report.detail = outcome.detail
         print(f"\n{contract.id}: {outcome.outcome.value}", file=sys.stderr)
         print(f"error: {outcome.detail}", file=sys.stderr)
+        if outcome.outcome is Outcome.LADDER_SPENT and replans > 0:
+            said = replan_hint(replans)
+            print(f"note: {said}", file=sys.stderr)
+            report.notes.append(said)
         return 1
 
     spent = (
