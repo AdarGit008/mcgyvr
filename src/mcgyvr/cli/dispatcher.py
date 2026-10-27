@@ -51,7 +51,7 @@ from mcgyvr.cli.commands import (
 from mcgyvr.cli.commands import (
     sandbox as sandbox_cmd,
 )
-from mcgyvr.cli.commands.delegate import _delegate
+from mcgyvr.cli.commands.delegate import _delegate, _refuse_before_delegating
 from mcgyvr.cli.commands.run import _name_the_writer, _one_delivery_answer, _run
 from mcgyvr.rig import verbs as rig_verbs
 
@@ -160,12 +160,10 @@ def main(argv: Sequence[str] | None = None) -> int:
         _name_the_writer(run, args)
         _one_delivery_answer(run, args)
     elif args.func is _delegate:
-        _one_delivery_answer(parser, args)
-        if args.run:
-            # The session is named before the orchestrator role is asked, as
-            # `run` names it before any work: a batch nobody can be traced to
-            # costs no model call and writes no contracts (exit 2).
-            _name_the_writer(delegating, args)
+        # Under --run the session is named here, before the orchestrator role
+        # is asked, as `run` names it before any work: a batch nobody can be
+        # traced to costs no model call and writes no contracts (exit 2).
+        _refuse_before_delegating(delegating, args)
     try:
         with hanging_up_on_interrupt():
             result: int = args.func(args)

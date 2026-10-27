@@ -1123,19 +1123,27 @@ def _one_delivery_answer(
     refused on the parser, so neither reaches a run that would have to guess which
     was meant.
     """
+    problem = _delivery_problem(args)
+    if problem is not None:
+        parser.error(problem)
+
+
+def _delivery_problem(args: argparse.Namespace) -> str | None:
+    """Why `--branch` cannot be honoured as given, or None when it can."""
     branch = getattr(args, "branch", None)
     if branch is None:
-        return
+        return None
     if not branch.strip():
-        parser.error(
+        return (
             "--branch was given an empty name. Name the branch to commit onto, "
             "or leave the flag off to commit onto the one you have checked out."
         )
     if getattr(args, "commit", None) is False:
-        parser.error(
+        return (
             f"--branch {branch} asks for a commit onto {branch}, and --no-commit "
             f"asks for none. Pass one of them."
         )
+    return None
 
 
 COMMITTED = "committed"

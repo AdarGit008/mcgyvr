@@ -30,6 +30,7 @@ from mcgyvr.decision import (
     classify_for,
     jev_bound,
 )
+from mcgyvr.delegate_log import DelegateKind, json_type
 from mcgyvr.orchestrator.candidates import (
     _NO_SYMBOL,
     CandidateSet,
@@ -83,11 +84,24 @@ NO_ORCHESTRATOR_ROLE = (
 
 
 class DelegationError(RuntimeError):
-    """Base for every way delegation can fail to produce proposals."""
+    """Base for every way delegation can fail to produce proposals.
+
+    `kind` is the `mcgyvr.delegate_log` kind the failure is logged as, and
+    `detail` the facts behind it as data; each subclass, or each raise site of
+    `UnreadableProposalError`, states both, so nothing reads them off the text.
+    """
+
+    kind: DelegateKind = DelegateKind.INTERNAL_ERROR
+
+    def __init__(self, message: str, *, detail: Mapping[str, Any] | None = None):
+        super().__init__(message)
+        self.detail: dict[str, Any] = dict(detail or {})
 
 
 class OrchestratorUnavailableError(DelegationError):
     """The role resolves to no unit, so its prompt cannot be dispatched."""
+
+    kind = DelegateKind.ORCHESTRATOR_UNAVAILABLE
 
 
 class UnreadableProposalError(DelegationError):
@@ -95,11 +109,20 @@ class UnreadableProposalError(DelegationError):
 
     `reply` is the orchestrator's raw reply, whole, when the error came from
     reading one (else None), so a caller can keep it for diagnosis: `mcgyvr
-    delegate` prints it, delimited, on stderr after the error.
+    delegate` prints it, delimited, on stderr after the error. `kind` says which
+    way it could not be read (a `reply_*` or `proposal_*` kind).
     """
 
-    def __init__(self, message: str, *, reply: str | None = None) -> None:
-        super().__init__(message)
+    def __init__(
+        self,
+        message: str,
+        *,
+        kind: DelegateKind,
+        reply: str | None = None,
+        detail: Mapping[str, Any] | None = None,
+    ) -> None:
+        super().__init__(message, detail=detail)
+        self.kind = kind
         self.reply = reply
 
 
@@ -110,6 +133,17 @@ class OrchestratorReplyCutOffError(UnreadableProposalError):
     off mid-entry opens as valid JSON, and reporting it as "not JSON" would point
     at the model's format rather than at the room the unit gave the reply.
     """
+
+    def __init__(
+        self,
+        message: str,
+        *,
+        reply: str | None = None,
+        detail: Mapping[str, Any] | None = None,
+    ) -> None:
+        super().__init__(
+            message, kind=DelegateKind.REPLY_CUT_OFF, reply=reply, detail=detail
+        )
 
 
 def build_prompt(evidence: Evidence) -> str:
@@ -290,9 +324,18 @@ def proposals_from_reply(reply: str) -> tuple[Proposal, ...]:
         if not isinstance(data, list):
             raise UnreadableProposalError(
                 f"the orchestrator's reply is a {type(data).__name__}, not an "
-                f"array of proposals"
+                f"array of proposals",
+                kind=DelegateKind.REPLY_NOT_ARRAY,
+                detail={"found": json_type(data)},
             )
-        return tuple(_proposal_of(item) for item in data)
+        proposals: list[Proposal] = []
+        for index, item in enumerate(data):
+            try:
+                proposals.append(_proposal_of(item))
+            except UnreadableProposalError as exc:
+                exc.detail.setdefault("index", index)
+                raise
+        return tuple(proposals)
     except UnreadableProposalError as exc:
         if exc.reply is None:
             exc.reply = reply
@@ -322,7 +365,17 @@ def _json_value(reply: str) -> object:
         value, _end = json.JSONDecoder().raw_decode(body, start)
         return value
     except json.JSONDecodeError as exc:
-        raise UnreadableProposalError(_not_json(reply, body, exc)) from exc
+        raise UnreadableProposalError(
+            _not_json(reply, body, exc),
+            kind=DelegateKind.REPLY_NOT_JSON,
+            detail={
+                "decoder": exc.msg,
+                "line": exc.lineno,
+                "column": exc.colno,
+                "pos": exc.pos,
+                "body_chars": len(body),
+            },
+        ) from exc
 
 
 def _not_json(reply: str, body: str, exc: json.JSONDecodeError) -> str:
@@ -366,7 +419,9 @@ def _proposal_of(item: object) -> Proposal:
     """Build one `Proposal` from one reply entry, validating each field."""
     if not isinstance(item, dict):
         raise UnreadableProposalError(
-            f"a proposal entry is a {type(item).__name__}, not an object"
+            f"a proposal entry is a {type(item).__name__}, not an object",
+            kind=DelegateKind.PROPOSAL_NOT_OBJECT,
+            detail={"found": json_type(item)},
         )
     return Proposal(
         task_type=_required_str(item, "task_type"),
@@ -387,11 +442,20 @@ def _proposal_of(item: object) -> Proposal:
     )
 
 
+def _invalid(message: str, key: str) -> UnreadableProposalError:
+    """The error for a proposal field `key` of the wrong type or shape."""
+    return UnreadableProposalError(
+        message, kind=DelegateKind.PROPOSAL_FIELD_INVALID, detail={"field": key}
+    )
+
+
 def _required_str(item: dict[str, object], key: str) -> str:
     value = item.get(key)
     if not isinstance(value, str) or not value.strip():
         raise UnreadableProposalError(
-            f"a proposal is missing a non-empty string {key!r}"
+            f"a proposal is missing a non-empty string {key!r}",
+            kind=DelegateKind.PROPOSAL_FIELD_MISSING,
+            detail={"field": key, "found": json_type(value)},
         )
     return value
 
@@ -401,7 +465,7 @@ def _optional_str(item: dict[str, object], key: str) -> str:
     if value is None:
         return ""
     if not isinstance(value, str):
-        raise UnreadableProposalError(f"{key!r} must be a string, when present")
+        raise _invalid(f"{key!r} must be a string, when present", key)
     return value
 
 
@@ -411,7 +475,7 @@ def _optional_bool(item: dict[str, object], key: str) -> bool:
     if value is None:
         return False
     if not isinstance(value, bool):
-        raise UnreadableProposalError(f"{key!r} must be a boolean, when present")
+        raise _invalid(f"{key!r} must be a boolean, when present", key)
     return value
 
 
@@ -420,7 +484,7 @@ def _strings(item: dict[str, object], key: str) -> tuple[str, ...]:
     if value is None:
         return ()
     if not isinstance(value, list) or not all(isinstance(v, str) for v in value):
-        raise UnreadableProposalError(f"{key!r} must be an array of strings")
+        raise _invalid(f"{key!r} must be an array of strings", key)
     return tuple(value)
 
 
@@ -430,14 +494,16 @@ def _depends_on(item: dict[str, object]) -> tuple[int, ...]:
     if value is None:
         return ()
     if not isinstance(value, list):
-        raise UnreadableProposalError(
-            "depends_on must be an array of whole-number proposal indexes"
+        raise _invalid(
+            "depends_on must be an array of whole-number proposal indexes",
+            "depends_on",
         )
     indexes: list[int] = []
     for entry in value:
         if isinstance(entry, bool) or not isinstance(entry, int) or entry < 0:
-            raise UnreadableProposalError(
-                f"depends_on: {entry!r} is not a whole-number proposal index"
+            raise _invalid(
+                f"depends_on: {entry!r} is not a whole-number proposal index",
+                "depends_on",
             )
         indexes.append(entry)
     return tuple(indexes)
@@ -448,20 +514,20 @@ def _deps(item: dict[str, object]) -> tuple[DepRef, ...]:
     if value is None:
         return ()
     if not isinstance(value, list):
-        raise UnreadableProposalError("deps must be an array of objects")
+        raise _invalid("deps must be an array of objects", "deps")
     deps: list[DepRef] = []
     for entry in value:
         if not isinstance(entry, dict):
-            raise UnreadableProposalError("each dep must be an object")
+            raise _invalid("each dep must be an object", "deps")
         path = entry.get("path")
         symbol = entry.get("symbol")
         note = entry.get("note", "")
         if not isinstance(path, str) or not path.strip():
-            raise UnreadableProposalError("each dep needs a non-empty string 'path'")
+            raise _invalid("each dep needs a non-empty string 'path'", "deps")
         if not isinstance(symbol, str) or not symbol.strip():
-            raise UnreadableProposalError("each dep needs a non-empty string 'symbol'")
+            raise _invalid("each dep needs a non-empty string 'symbol'", "deps")
         if not isinstance(note, str):
-            raise UnreadableProposalError("a dep's 'note' must be a string")
+            raise _invalid("a dep's 'note' must be a string", "deps")
         deps.append(DepRef(path=path, symbol=symbol, note=note))
     return tuple(deps)
 
@@ -539,6 +605,13 @@ def _cut_off(completion: Completion) -> OrchestratorReplyCutOffError | None:
         f"`output_tokens`, or its `window`, which less the prompt bounds the "
         f"reply) or a smaller thinking budget",
         reply=completion.text,
+        detail={
+            "unit": completion.source,
+            "output_tokens": completion.output_tokens,
+            "reasoning_tokens": completion.reasoning_tokens,
+            "max_output_tokens": cap,
+            "cap_basis": completion.cap_basis or None,
+        },
     )
 
 
