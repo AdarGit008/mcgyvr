@@ -20,18 +20,21 @@ One YAML file. Every key below is the contract schema in
 `src/mcgyvr/contract.py`, rendered by `make docs`; unknown keys are refused,
 and every rejection names the key and what a valid value looks like.
 Pick the `task_type` first. For `code`, evidence is derived from the contract's own fields, never chosen; `operation:` has a tool make the change instead. `mcgyvr catalog <type>` prints the type's guarantee.
-`mcgyvr delegate PROMPT [--repo DIR]` has the config's `orchestrator` draft
-validated contracts from a request instead and prints them; `--run` runs
-each one.
+`mcgyvr delegate PROMPT [--repo PATH]` has the config's `orchestrator`
+draft validated contracts from a request instead (`--repo` is a checkout
+or a URL to clone, default `.`). It prints them, or writes each to
+`DIR/<id>.json` with `--output DIR`. `--run` runs them in dependency
+order, holds one whose provider did not land (`blocked`, below) and
+re-plans one whose ladder is spent (`ladder_spent`, below).
 
 ### Keys
 
 | Key | Type | Required | Default | Description |
 | --- | --- | --- | --- | --- |
-| `version` | number (min 1) | no | `1` | Schema version this contract is written against. A contract declaring a version this build does not read is rejected rather than interpreted under the wrong rules. (orchestrator-facing) |
+| `version` | number (min 1) | no | `1` | Schema version this contract is written against. A contract declaring a version this build does not read is rejected rather than interpreted under the wrong rules. |
 | `id` | text | **yes** | — | Identity: how this contract is referred to in records, telemetry and branch names. Letters, digits, dot, dash and underscore, up to 64 characters. e.g. fetch-helper-retry. (worker-facing) |
 | `task_type` | one of `code` | **yes** | — | What kind of work this is, from the declared vocabulary. The type decides what evidence the contract must carry and how its result is judged. (worker-facing) |
-| `operation` | one of `format`, `import_sort`, `lint_fix`, `rename_symbol` | no | empty | A deterministic operation a tool performs instead of a model, for `task_type: code`; its own guarantee and evidence apply, and the target may be a glob. (orchestrator-facing) |
+| `operation` | one of `format`, `import_sort`, `lint_fix`, `rename_symbol` | no | empty | A deterministic operation a tool performs instead of a model, for `task_type: code`; its own guarantee and evidence apply, and the target may be a glob. |
 | `task` | text | **yes** | — | What to do, in words, addressed to the worker. Self-contained: a worker sees this and the rest of the worker-facing fields, never the conversation that produced them. (worker-facing) |
 | `target` | text | **yes** | — | Where the result goes. Exactly one literal repo-relative path for any contract a model executes — a model worker's output has one destination, and a pattern would leave it guessing. A glob is legal only for a contract with a deterministic `operation`. e.g. src/pkg/fetch.py. (worker-facing) |
 | `target_content` | text | no | empty | The current content of `target`, verbatim, when the file already exists. A contract that carries it is self-contained: `parse(dumps(c))` round-trips the bytes a worker is sent. Empty means the target does not exist yet, or the contract did not carry it: the worker is then given the file as the sandbox workspace holds it at dispatch, and a deterministic tool reads the file itself. (worker-facing) |
@@ -41,17 +44,17 @@ each one.
 | `output_schema` | one of `whole_file`, `unified_diff` | no | `whole_file` | The shape the worker must reply in, declared so a runner can hand the model format instructions rather than hoping for a convention. `whole_file` is the single-file output protocol. `unified_diff` validates here and is refused before dispatch. (worker-facing) |
 | `sources` | list of text | no | `[]` | Repo files given whole to the worker as `[1]`, `[2]`, …; a missing, binary or secret one is refused. (worker-facing) |
 | `context` | block | no | — | Budgets governing what may be assembled into the worker's prompt. (worker-facing) |
-| `scope` | block | **yes** | — | The writable surface the gate enforces. Not worker-facing: the worker is told its one target, and scope is how the gate judges what actually changed. (orchestrator-facing) |
-| `acceptance` | list of text | no | `[]` | Commands, one per entry, split like a shell would split them (quotes respected) and executed directly with no shell: no `VAR=x` prefix, `&&`, pipes or redirects (`mcgyvr contract` refuses them; write `env VAR=x cmd`, or commit a script). Each must pass for the change to be accepted — the strongest signal the gate has — and also on the *unchanged* tree (the preflight refuses a suite that is already red), which is why a command meant to demonstrate a defect goes in `demonstration`. Arbitrary code from a contract: they run inside the per-task sandbox — a container in `docker` mode, a throwaway workspace on your own machine in `tempdir` mode. (orchestrator-facing) |
-| `demonstration` | list of text | no | `[]` | Commands that demonstrate the defect: each must FAIL on the unchanged tree and pass after the change — the `failing_test_first` evidence, as a slot of its own because its baseline expectation is the opposite of `acceptance`'s. Written, run and sandboxed exactly like `acceptance`; what it leaves behind is cleaned up. (orchestrator-facing) |
-| `no_semantic_change` | boolean | no | `false` | Whether the change must leave the parsed structure untouched apart from the region the task is allowed to touch. A flag rather than a task type: for `task_type: code` it derives the `no_semantic_change` evidence, and for every other type it is ignored. Defaults to false. (orchestrator-facing) |
-| `type_check` | boolean | no | `false` | Whether the project's own type checker must pass on the changed target. A flag rather than a task type: for `task_type: code` it derives the `type_check` evidence, and for every other type it is ignored. Defaults to false. (orchestrator-facing) |
-| `depends_on` | list of text | no | `[]` | Ids of the contracts that must complete before this one may run. Stated on the contract, so a plan can be ordered — and the parts of it that cannot run at all found — before a token is spent, the way `route.plan()` already is. A proposer's emission order is the order a model thought of things, not a dependency order, so ordering that is not written down here is ordering that does not exist. Not worker-facing: a worker is handed one task and never the plan around it, and a dependency that has landed is already in the tree it reads. e.g. ["write-fetch"]. (orchestrator-facing) |
-| `verification` | block | no | — | How the change is judged once the gate has passed. (orchestrator-facing) |
-| `limits` | block | no | — | Hard ceilings on what one execution of this contract may spend. (orchestrator-facing) |
-| `start_rung` | text | no | empty | The ladder rung this contract's climb starts on, decided ahead of time — what `mcgyvr.triage.triage_ahead` asks the `jev` unit, stored with the contract so every later run starts there without asking again. The rungs below it are skipped, not spent, and escalation goes on upward from it; it wins over the config's `triage`. A rung the ladder does not list, or one this contract's climb does not offer, is refused before anything is dispatched. Not worker-facing. e.g. local_qwen-14b. (orchestrator-facing) |
-| `rename` | block | no | — | Which symbol becomes which, for `operation: rename_symbol`. The one operation mcgyvr executes in-process rather than by running a program, and the only one whose input is not fully determined by `target`: a rename fans across every file that references the symbol, so the pair has to be said. Meaningless on any other contract and ignored there. (orchestrator-facing) |
-| `replan` | block | no | — | Where this contract came from when it was proposed in place of one whose ladder was spent: the id it replaces and the re-plan round. Written by the batch that re-planned it, never by hand. Not worker-facing. (orchestrator-facing) |
+| `scope` | block | **yes** | — | The writable surface the gate enforces. Not worker-facing: the worker is told its one target, and scope is how the gate judges what actually changed. |
+| `acceptance` | list of text | no | `[]` | Commands, one per entry, split like a shell would split them (quotes respected) and executed directly with no shell: no `VAR=x` prefix, `&&`, pipes or redirects (`mcgyvr contract` refuses them; write `env VAR=x cmd`, or commit a script). Each must pass for the change to be accepted — the strongest signal the gate has — and also on the *unchanged* tree (the preflight refuses a suite that is already red), which is why a command meant to demonstrate a defect goes in `demonstration`. Arbitrary code from a contract: they run inside the per-task sandbox — a container in `docker` mode, a throwaway workspace on your own machine in `tempdir` mode. |
+| `demonstration` | list of text | no | `[]` | Commands that demonstrate the defect: each must FAIL on the unchanged tree and pass after the change — the `failing_test_first` evidence, as a slot of its own because its baseline expectation is the opposite of `acceptance`'s. Written, run and sandboxed exactly like `acceptance`; what it leaves behind is cleaned up. |
+| `no_semantic_change` | boolean | no | `false` | Whether the change must leave the parsed structure untouched apart from the region the task is allowed to touch. A flag rather than a task type: for `task_type: code` it derives the `no_semantic_change` evidence, and for every other type it is ignored. Defaults to false. |
+| `type_check` | boolean | no | `false` | Whether the project's own type checker must pass on the changed target. A flag rather than a task type: for `task_type: code` it derives the `type_check` evidence, and for every other type it is ignored. Defaults to false. |
+| `depends_on` | list of text | no | `[]` | Ids of the contracts that must complete before this one may run. Stated on the contract, so a plan can be ordered — and the parts of it that cannot run at all found — before a token is spent, the way `route.plan()` already is. A proposer's emission order is the order a model thought of things, not a dependency order, so ordering that is not written down here is ordering that does not exist. Not worker-facing: a worker is handed one task and never the plan around it, and a dependency that has landed is already in the tree it reads. e.g. ["write-fetch"]. |
+| `verification` | block | no | — | How the change is judged once the gate has passed. |
+| `limits` | block | no | — | Hard ceilings on what one execution of this contract may spend. |
+| `start_rung` | text | no | empty | The ladder rung this contract's climb starts on, decided ahead of time — what `mcgyvr.triage.triage_ahead` asks the `jev` unit, stored with the contract so every later run starts there without asking again. The rungs below it are skipped, not spent, and escalation goes on upward from it; it wins over the config's `triage`. A rung the ladder does not list, or one this contract's climb does not offer, is refused before anything is dispatched. Not worker-facing. e.g. local_qwen-14b. |
+| `rename` | block | no | — | Which symbol becomes which, for `operation: rename_symbol`. The one operation mcgyvr executes in-process rather than by running a program, and the only one whose input is not fully determined by `target`: a rename fans across every file that references the symbol, so the pair has to be said. Meaningless on any other contract and ignored there. |
+| `replan` | block | no | — | Where this contract came from when it was proposed in place of one whose ladder was spent: the id it replaces and the re-plan round. Written by the batch that re-planned it, never by hand. Not worker-facing. |
 
 #### `deps`
 
@@ -79,8 +82,8 @@ The writable surface the gate enforces. Not worker-facing: the worker is told it
 
 | Key | Type | Required | Default | Description |
 | --- | --- | --- | --- | --- |
-| `scope.allow` | list of globs | **yes** | — | Glob patterns the worker's change may touch. An empty allow list permits nothing (`mcgyvr.scope` fails closed), so a contract that declares none is rejected rather than silently unable to act. e.g. ["src/**/*.py"]. (orchestrator-facing) |
-| `scope.forbid` | list of globs | no | `[]` | Glob patterns that override `allow`. Forbid wins ties, which is the safe direction for an autonomous gate. (orchestrator-facing) |
+| `scope.allow` | list of globs | **yes** | — | Glob patterns the worker's change may touch. An empty allow list permits nothing (`mcgyvr.scope` fails closed), so a contract that declares none is rejected rather than silently unable to act. e.g. ["src/**/*.py"]. |
+| `scope.forbid` | list of globs | no | `[]` | Glob patterns that override `allow`. Forbid wins ties, which is the safe direction for an autonomous gate. |
 
 #### `verification`
 
@@ -88,7 +91,7 @@ How the change is judged once the gate has passed.
 
 | Key | Type | Required | Default | Description |
 | --- | --- | --- | --- | --- |
-| `verification.policy` | one of `gate_only`, `model` | no | `gate_only` | How the change is judged. `gate_only` is honoured only for work a deterministic tool does; work a model does is raised to `model`, which asks a fresh-context reviewer to agree. An install with no reviewer labels such an acceptance unverified. (orchestrator-facing) |
+| `verification.policy` | one of `gate_only`, `model` | no | `gate_only` | How the change is judged. `gate_only` is honoured only for work a deterministic tool does; work a model does is raised to `model`, which asks a fresh-context reviewer to agree. An install with no reviewer labels such an acceptance unverified. |
 
 #### `limits`
 
@@ -96,9 +99,9 @@ Hard ceilings on what one execution of this contract may spend.
 
 | Key | Type | Required | Default | Description |
 | --- | --- | --- | --- | --- |
-| `limits.max_output_tokens` | number (min 1) | no | unset | Not sent, and not needed: every model request is sent the most its unit can give — the unit's `output_tokens`, clamped to the room its `window` leaves once the prompt is paid for — so no contract caps a reply below what its unit serves. Still read, so a contract that states it loads; it caps nothing. A reply cut off at the unit's maximum is a named failure, never applied to a file. (orchestrator-facing) |
-| `limits.max_window_fraction` | decimal number (min 0.0, max 1.0) | no | unset | The largest share of the context window this contract's assembled prompt may claim, as charged, over the whole window. The reply is sent the unit's maximum within the room the prompt leaves, so this is what keeps that room from being crowded out: a prompt held to the share leaves the reply at least the rest. A different question from whether the prompt fits, which `context.max_input_tokens` already bounds. Declared here because it is a statement about this unit of work, and checked before the work is sent. The run's `max_window_fraction` caps it: the stricter of the two applies. Unset is not 1.0: a contract that declared none is recorded as having declared none. e.g. 0.75 to leave the reply at least a quarter of the window. (orchestrator-facing) |
-| `limits.attempts` | number (min 1) | no | `2` | How many times the work may be retried before escalating. Retrying forever is how a cheap task becomes an expensive one. (orchestrator-facing) |
+| `limits.max_output_tokens` | number (min 1) | no | unset | Not sent, and not needed: every model request is sent the most its unit can give — the unit's `output_tokens`, clamped to the room its `window` leaves once the prompt is paid for — so no contract caps a reply below what its unit serves. Still read, so a contract that states it loads; it caps nothing. A reply cut off at the unit's maximum is a named failure, never applied to a file. |
+| `limits.max_window_fraction` | decimal number (min 0.0, max 1.0) | no | unset | The largest share of the context window this contract's assembled prompt may claim, as charged, over the whole window. The reply is sent the unit's maximum within the room the prompt leaves, so this is what keeps that room from being crowded out: a prompt held to the share leaves the reply at least the rest. A different question from whether the prompt fits, which `context.max_input_tokens` already bounds. Declared here because it is a statement about this unit of work, and checked before the work is sent. The run's `max_window_fraction` caps it: the stricter of the two applies. Unset is not 1.0: a contract that declared none is recorded as having declared none. e.g. 0.75 to leave the reply at least a quarter of the window. |
+| `limits.attempts` | number (min 1) | no | `2` | How many times the work may be retried before escalating. Retrying forever is how a cheap task becomes an expensive one. |
 
 #### `rename`
 
@@ -106,8 +109,8 @@ Which symbol becomes which, for `operation: rename_symbol`. The one operation mc
 
 | Key | Type | Required | Default | Description |
 | --- | --- | --- | --- | --- |
-| `rename.from` | text | no | empty | The symbol as it is written today. Stated rather than read out of `task`: mcgyvr renames every reference the index resolved across every file that holds one, and a name inferred from prose is a multi-file rewrite resting on a guess about English. A worker asked to guess would guess; a program must be told. e.g. fetch_page. (orchestrator-facing) |
-| `rename.to` | text | no | empty | What the symbol becomes. Must be a legal identifier — the rename rewrites text, and a `to` that is not a name would produce a tree that no longer parses while reporting success. e.g. fetch_document. (orchestrator-facing) |
+| `rename.from` | text | no | empty | The symbol as it is written today. Stated rather than read out of `task`: mcgyvr renames every reference the index resolved across every file that holds one, and a name inferred from prose is a multi-file rewrite resting on a guess about English. A worker asked to guess would guess; a program must be told. e.g. fetch_page. |
+| `rename.to` | text | no | empty | What the symbol becomes. Must be a legal identifier — the rename rewrites text, and a `to` that is not a name would produce a tree that no longer parses while reporting success. e.g. fetch_document. |
 
 #### `replan`
 
@@ -115,8 +118,8 @@ Where this contract came from when it was proposed in place of one whose ladder 
 
 | Key | Type | Required | Default | Description |
 | --- | --- | --- | --- | --- |
-| `replan.replaces` | text | no | empty | The id of the contract this one was proposed in place of, when a batch handed that contract back to the orchestrator because its ladder was spent (`max_replans`). e.g. code-1f2e3d4c5b. (orchestrator-facing) |
-| `replan.round` | number (min 0) | no | `0` | Which re-plan this contract came from: 1 for one proposed in place of a contract nobody re-planned, one more than the contract it replaces otherwise. A batch re-plans a spent contract only while this is below `max_replans`, so the bound is read from the contract. (orchestrator-facing) |
+| `replan.replaces` | text | no | empty | The id of the contract this one was proposed in place of, when a batch handed that contract back to the orchestrator because its ladder was spent (`max_replans`). e.g. code-1f2e3d4c5b. |
+| `replan.round` | number (min 0) | no | `0` | Which re-plan this contract came from: 1 for one proposed in place of a contract nobody re-planned, one more than the contract it replaces otherwise. A batch re-plans a spent contract only while this is below `max_replans`, so the bound is read from the contract. |
 
 ### Deterministic operations
 
@@ -126,8 +129,7 @@ Not task types: `task_type: code` with `operation:` `format`, `import_sort`, `li
 
 `skills/mcgyvr/references/examples.md` carries one `code` contract and one per operation,
 each loaded through the contract validator by the test suite, so copying
-one is copying a shape that is known to validate. One file away, and it
-costs nothing until it is opened.
+one is copying a shape that is known to validate.
 
 ## Step 2 — validate before spending anything
 
@@ -142,8 +144,10 @@ cap: every request is sent the most its unit can give.
 ## Step 3 — run it, then read the result file
 
 ```
-mcgyvr run CONTRACT.yaml --repo DIR [--config PATH] [--sandbox tempdir] [--[no-]commit] [--branch NAME]
+mcgyvr run CONTRACT.yaml [--repo PATH] [--config PATH] [--sandbox tempdir] [--[no-]commit] [--branch NAME]
 ```
+
+`--repo` defaults to `.`; `mcgyvr run --help` lists every flag.
 
 The run works on the repository as committed at HEAD: uncommitted edits
 and untracked files, including a test you just wrote, are not in the
@@ -155,8 +159,9 @@ The last stdout line is `result: <path>`:
 everything above it is scrollback, and everything the run came to is in
 that file, under mcgyvr's own journal directory — never in the repository.
 Read the file, not the scrollback. No `result:` line with exit 1 or 2 means
-the run never started (the contract did not load, the repo is not git, or
-no session could be named) or the result file could not be written; either
+the run never started (for example: the contract did not load, the repo is
+not git, the journal cannot be written, or no session could be named) or
+the result file could not be written; either
 way the reason is on stderr, and in the second case that line also says
 what the run came to. The file's keys:
 
@@ -213,8 +218,9 @@ what the run came to. The file's keys:
   `verified` (a reviewer agreed), `unverified` (no reviewer could be
   asked; `detail` says why) or `unchecked` (a reply no check judges:
   no checks, no review). A reply is never reviewed.
-- `findings` — the deterministic gate's findings for a contract that
-  dispatched nothing.
+- `findings` — why a change was refused, one line per reason: the
+  deterministic gate's findings for a contract that dispatched nothing,
+  or what refused the write on a `delivery_refused`.
 - `delivery` — where the work went: left uncommitted in the tree (the
   default), the commit, or why it was refused (as `detail`).
   `committed`, `commit`, `branch`, `handoff` are the commit as fields.
@@ -224,9 +230,12 @@ what the run came to. The file's keys:
   why. Empty on almost every run. mcgyvr's own record under `journal`
   is complete whatever this says; a copy is not a sink and its failure
   does not stop a run.
-- `notes` — the uncommitted and untracked paths the sandbox of HEAD
-  left out, what the baseline left behind (now cleaned up), and what
-  a rename renamed.
+- `notes` — what the run said in passing (not failure notes): the
+  uncommitted and untracked paths the sandbox of HEAD left out, what a
+  tool printed as it worked (what a rename renamed), what the baseline
+  left behind (now cleaned up), a relief rung that duplicates a unit
+  this install serves, and on a lone `ladder_spent` run where a batch
+  would re-plan it.
 - `triage` — only under `triage: jev` or a contract's `start_rung`: the
   `rung` the climb started on and its `source` (`jev`, asked for this
   run, or `contract`); for `jev`, every rung's `probabilities`, its
@@ -246,9 +255,10 @@ what the run came to. The file's keys:
   opened with (all under `retry_notes: climb`, else none).
 - `replanned` — only on a `ladder_spent` result in a batch with
   `max_replans` above 0: the `round`, the `max_replans` it was held to,
-  the `contracts` proposed in its place (each carries `replan`: the id
-  it `replaces` and its `round`; none when it was not re-planned) and a
-  `detail` sentence, which `detail` repeats.
+  the ids of the `contracts` proposed in its place (empty when it was
+  not re-planned; each of those contract files carries `replan`: the id
+  it `replaces` and its `round`) and a `detail` sentence, which `detail`
+  repeats.
 
 `attempts[].notes` is the failure-notes record of a failed try, `null` on
 a try that left none. It is built from what the gate, the reviewer or the
@@ -292,7 +302,9 @@ rerun on another ladder or machine, never instead of replanning.
 
 Exit codes: 0 accepted or nothing to change, 1 not accepted or error,
 2 usage (including no session to file the run under), 3 a live fleet
-refused admission.
+refused admission. `mcgyvr delegate` exits 3 too when no orchestrator
+role is configured, and under `--run` when a contract was held
+`blocked`.
 
 ## Step 4 — replan from the findings, never retry the same contract
 
