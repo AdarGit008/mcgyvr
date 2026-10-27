@@ -396,9 +396,7 @@ def test_the_triage_decision_is_carried_on_the_outcome(
 
 
 def test_a_result_file_without_triage_has_no_triage_key() -> None:
-    report = RunResult(
-        contract="c", task_type="code", target="t", orchestrator="o", run="r"
-    )
+    report = RunResult(contract="c", task_type="code", target="t", session="o", run="r")
 
     assert "triage" not in report.as_json()
 

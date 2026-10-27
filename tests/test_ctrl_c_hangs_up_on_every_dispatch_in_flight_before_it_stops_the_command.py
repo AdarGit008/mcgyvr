@@ -83,12 +83,14 @@ def test_every_command_runs_under_it(
         signal.raise_signal(signal.SIGINT)
         return 0  # pragma: no cover - the interrupt is raised first
 
-    def build() -> tuple[argparse.ArgumentParser, argparse.ArgumentParser]:
+    def build() -> tuple[
+        argparse.ArgumentParser, argparse.ArgumentParser, argparse.ArgumentParser
+    ]:
         parser = argparse.ArgumentParser()
         sub = parser.add_subparsers(dest="command", required=True)
         hang = sub.add_parser("hang")
         hang.set_defaults(func=command)
-        return parser, hang
+        return parser, hang, hang
 
     monkeypatch.setattr(cli.dispatcher, "_build", build)
     with pytest.raises(KeyboardInterrupt):

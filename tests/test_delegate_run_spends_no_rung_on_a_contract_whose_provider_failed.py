@@ -24,6 +24,7 @@ from mcgyvr.contract import Contract
 from mcgyvr.orchestrator.decompose import Decomposition
 from mcgyvr.result import RunResult, result_path, run_stamp, write
 from mcgyvr.scope import Scope
+from mcgyvr.session import Session
 from tests.decomposes import git
 
 CODEC = "def rec_to_map(record):\n    return sorted(record.items())\n"
@@ -77,7 +78,7 @@ def stand_in(
         ran.append(cid)
         outcome, commits = came_to[cid]
         report = RunResult(
-            contract=cid, task_type="code", target="", orchestrator="o", outcome=outcome
+            contract=cid, task_type="code", target="", session="o", outcome=outcome
         )
         if commits:
             codec = repo / "pkg" / "codec.py"
@@ -121,7 +122,8 @@ def run_batch(
         commit=True,
         branch=None,
         record=str(record) if record else None,
-        orchestrator="test-orchestrator",
+        session_id="test-session",
+        session=Session("test-session"),
     )
     config = cast(
         Config, Policy({"journal.dir": str(journal), "dependents": dependents})
@@ -158,7 +160,7 @@ def test_the_caller_of_a_failed_rename_is_held_and_never_sent(
     assert held["outcome"] == "blocked"
     assert held["attempts"] == []
     assert held["exit_code"] == 3
-    assert held["orchestrator"] == "test-orchestrator"
+    assert held["session"] == "test-session"
     blocked_by = held["blocked_by"]
     assert blocked_by["reason"] == "provider_failed"
     assert [(p["contract"], p["outcome"]) for p in blocked_by["providers"]] == [
@@ -173,7 +175,7 @@ def test_the_caller_of_a_failed_rename_is_held_and_never_sent(
     assert rows["code-caller"]["state"] == "dead"
     assert rows["code-rename"]["state"] == "failed"
     out = capsys.readouterr()
-    assert "result: " in out.out
+    assert "result: " not in out.out, out.out
     assert "held: waits on code-rename" in out.err
 
 

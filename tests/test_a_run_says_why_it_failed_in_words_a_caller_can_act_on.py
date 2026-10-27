@@ -56,7 +56,7 @@ def test_a_rejected_climb_prints_its_findings_and_writes_them_to_the_result(
     assert result["target"] == "src/pkg/messy.py"
     assert result["outcome"] == "ladder_spent"
     assert result["committed"] is False
-    assert result["orchestrator"] == "claude-s1"
+    assert result["session"] == "claude-s1"
     assert result["session_file"].endswith("s1.jsonl")
     assert result["journal"] == str(journal)
     (attempt,) = result["attempts"]

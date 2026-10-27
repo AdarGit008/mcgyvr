@@ -1,6 +1,6 @@
 """A flag given a blank path is refused, not read as "the caller named none".
 
-``--orchestrator ''`` is refused at parse time, because an id that names nobody
+``--session ''`` is refused at parse time, because an id that names nobody
 is a usage error before a file is opened. A blank path is the same hole one
 flag over: an empty string is falsy, so ``Path(args.result) if args.result else
 ...`` reads it as *absent* and resolves the default the caller never chose. A
@@ -118,7 +118,7 @@ def test_a_blank_orchestrator_is_still_refused_by_its_own_message(
     config = lj.make_config(tmp_path / "mcgyvr.yaml", journal_dir=tmp_path / "journal")
     contract = lj.make_contract(tmp_path / "impl.yaml")
 
-    code = lj.main(lj.run_args(contract, repo, config, "--orchestrator", ""))
+    code = lj.main(lj.run_args(contract, repo, config, "--session", ""))
 
     assert code == 2, code
     err = capsys.readouterr().err

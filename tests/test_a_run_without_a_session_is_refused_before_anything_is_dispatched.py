@@ -1,13 +1,13 @@
 """A run without a session is refused before anything is dispatched.
 
 Every row of the live journal names the orchestrator that produced it, and a
-name that is only whatever ``--orchestrator`` said traces a row to a string and
+name that is only whatever ``--session`` said traces a row to a string and
 no further. So a run fails loud when nobody can be
 named, and that the name is a *session* — the Claude Code or Pi transcript that
 typed the command — so a row can be followed back to the full conversation that
 produced it.
 
-Three ways to be named, in the order a process meets them: ``--orchestrator ID``
+Three ways to be named, in the order a process meets them: ``--session ID``
 on the command line; ``CLAUDE_CODE_SESSION_ID``, which Claude Code exports to
 every child process; ``PI_SESSION_FILE``, the path of a Pi transcript, when
 the environment carries it. None of the three, and the run is refused through the
@@ -53,7 +53,7 @@ def test_no_flag_and_no_session_is_refused_naming_all_three_ways(
 
     assert code == 2, code
     err = capsys.readouterr().err
-    for name in ("--orchestrator", "CLAUDE_CODE_SESSION_ID", "PI_SESSION_FILE"):
+    for name in ("--session", "CLAUDE_CODE_SESSION_ID", "PI_SESSION_FILE"):
         assert name in err, err
     assert sent == [], "a refused run still dispatched"
     assert not journal.exists(), sorted(p.name for p in journal.iterdir())
@@ -79,7 +79,7 @@ def test_two_sessions_in_the_environment_is_refused_not_guessed(
 
     assert code == 2, code
     err = capsys.readouterr().err
-    assert "--orchestrator" in err, err
+    assert "--session" in err, err
     assert sent == []
     assert not journal.exists()
 
@@ -97,9 +97,7 @@ def test_a_named_session_whose_transcript_does_not_exist_is_refused(
     config = lj.make_config(tmp_path / "mcgyvr.yaml", journal_dir=journal)
     contract = lj.make_contract(tmp_path / "impl.yaml")
 
-    code = lj.main(
-        lj.run_args(contract, repo, config, "--orchestrator", "claude-nowhere")
-    )
+    code = lj.main(lj.run_args(contract, repo, config, "--session", "claude-nowhere"))
 
     assert code == 2, code
     err = capsys.readouterr().err

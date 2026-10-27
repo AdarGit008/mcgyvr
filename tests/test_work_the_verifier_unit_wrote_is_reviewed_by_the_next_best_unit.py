@@ -424,7 +424,7 @@ def test_the_result_and_the_journal_name_the_stand_in_after_a_climb(
             str(result),
             "--record",
             str(journal),
-            "--orchestrator",
+            "--session",
             "agent-a",
         )
     )

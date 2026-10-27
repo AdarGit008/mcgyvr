@@ -112,7 +112,7 @@ def _run(tmp_path: Path, monkeypatch: pytest.MonkeyPatch, mode: str | None) -> i
                 "tempdir",
                 "--config",
                 str(setup),
-                "--orchestrator",
+                "--session",
                 "t",
                 "--result",
                 str(tmp_path / "result.json"),

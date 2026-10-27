@@ -65,7 +65,7 @@ def halted(outcome: Outcome) -> Halted:
 
 def report_of(outcome: Outcome, replans: int) -> RunResult:
     report = RunResult(
-        contract=CONTRACT.id, task_type="code", target=CONTRACT.target, orchestrator="o"
+        contract=CONTRACT.id, task_type="code", target=CONTRACT.target, session="o"
     )
     code = _report_climb(
         argparse.Namespace(),
