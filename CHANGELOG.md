@@ -147,6 +147,22 @@ archived outside this repository, under the same paths.
 
 ### Changed
 
+- **The session a run is filed under is named with `--session ID`.** On
+  `mcgyvr run` and `mcgyvr delegate`, `--session` replaces `--orchestrator`,
+  which named the session and not the orchestrator role; `--orchestrator` is
+  kept for one release as a deprecated alias that still works and says so on
+  stderr. The result file carries the name as `session`, and still writes it
+  under `orchestrator` too, the same value, for the same release.
+- **`delegate --run` names its session before the orchestrator is asked.**
+  The session is resolved through the same check `mcgyvr run` makes, before
+  the config is read: nobody to file the batch under is exit 2 (was 1, after
+  the role had been asked and the contracts written), with no model call and
+  nothing written to `--output`. A blank `--session`, or one holding `/`, is
+  refused there too.
+- **`delegate --run` prints no `result:` lines.** Each contract's result is
+  read in process by the batch; the paths are in the Board's state file,
+  `<journal>/trees/<tree>.json`. `mcgyvr run` still ends on its `result:`
+  line.
 - **A climb enters every rung of the ladder by default.** `max_escalations`
   is unset by default and unset means no escalation ceiling, where it used to
   default to 1 and stop a three-rung ladder with `escalation_ceiling` before

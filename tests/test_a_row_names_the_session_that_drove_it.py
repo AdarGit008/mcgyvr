@@ -10,7 +10,7 @@ root); Pi keeps ``~/.pi/agent/sessions/<cwd-slug>/<stamp>_<id>.jsonl``, and
 ``claude-<id>`` or ``pi-<id>``: a dash, not a colon, because the id is the
 journal's file name and the prefix of every ``attempt_id``.
 
-An explicit ``--orchestrator`` still wins, verbatim, and an id that does not
+An explicit ``--session`` still wins, verbatim, and an id that does not
 claim a transcript carries no ``session_file`` — absent, not null, under the
 rule that keeps an unreported token count out of the row.
 
@@ -103,7 +103,7 @@ def test_an_explicit_orchestrator_wins_verbatim_and_claims_no_transcript(
     lj.claude_transcript(home, "c1")
     monkeypatch.setenv("CLAUDE_CODE_SESSION_ID", "c1")
 
-    journal = _run(tmp_path, monkeypatch, "--orchestrator", "agent-a")
+    journal = _run(tmp_path, monkeypatch, "--session", "agent-a")
 
     (row,) = fold(path=journal / "agent-a.jsonl")
     assert row["orchestrator"] == "agent-a"
@@ -115,7 +115,7 @@ def test_an_explicit_claude_id_is_resolved_to_its_transcript(
 ) -> None:
     transcript = lj.claude_transcript(home, "c2")
 
-    journal = _run(tmp_path, monkeypatch, "--orchestrator", "claude-c2")
+    journal = _run(tmp_path, monkeypatch, "--session", "claude-c2")
 
     (row,) = fold(path=journal / "claude-c2.jsonl")
     assert row["session_file"] == str(transcript)

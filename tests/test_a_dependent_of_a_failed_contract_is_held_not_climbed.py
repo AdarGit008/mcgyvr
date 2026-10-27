@@ -342,7 +342,7 @@ def test_a_drained_board_hands_back_its_held_contracts_as_blocked_results(
     assert [(t.tree_id, c.id) for t, c, _ in dead] == [("t", "caller")]
     assert tree.state("caller") is State.DEAD
     _, contract, hold = dead[0]
-    result = held_result(contract, hold, orchestrator="o", run="s")
+    result = held_result(contract, hold, session="o", run="s")
     assert result.outcome == BLOCKED
     assert result.attempts == []
     assert result.exit_code == 3
@@ -361,6 +361,6 @@ def test_a_tree_id_is_a_digest_not_a_path() -> None:
 def test_a_result_that_was_not_held_carries_no_blocked_by() -> None:
     from mcgyvr.result import RunResult
 
-    result = RunResult(contract="c", task_type="code", target="t", orchestrator="o")
+    result = RunResult(contract="c", task_type="code", target="t", session="o")
 
     assert "blocked_by" not in result.as_json()

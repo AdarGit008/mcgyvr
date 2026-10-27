@@ -33,6 +33,7 @@ from mcgyvr.notes import FailureNote, FailureNotes, NoteKind
 from mcgyvr.orchestrator.decompose import Decomposition
 from mcgyvr.result import AttemptResult, RunResult, result_path, run_stamp, write
 from mcgyvr.scope import Scope
+from mcgyvr.session import Session
 from tests.decomposes import git
 
 CODEC = "def rec_to_map(record):\n    return sorted(record.items())\n"
@@ -143,7 +144,7 @@ def stand_in(
             contract=contract.id,
             task_type="code",
             target=contract.target,
-            orchestrator="o",
+            session="o",
             outcome=outcome,
             detail=f"{contract.id} came to {outcome}",
         )
@@ -203,7 +204,8 @@ def run_batch(
         commit=True,
         branch=None,
         record=None,
-        orchestrator="test-orchestrator",
+        session_id="test-session",
+        session=Session("test-session"),
     )
     policy = Policy({"journal.dir": str(journal), "dependents": "hold"})
     if max_replans is not None:

@@ -70,9 +70,9 @@ if TYPE_CHECKING:  # pragma: no cover - typing only
 FLEET = OWN_FLEET
 #: The bundled sample each use case's task is taken from, in the package's folder.
 SAMPLES = {CODING_USE_CASE: "coding.yaml", AGENT: "agent.yaml"}
-#: Who the sample's own `mcgyvr run` is journaled as, so its rows are told apart
-#: from the rows of whatever orchestrator is running setup.
-ORCHESTRATOR = "mcgyvr-setup"
+#: The session the sample's own `mcgyvr run` is journaled as, so its rows are
+#: told apart from the rows of whatever session is running setup.
+SESSION = "mcgyvr-setup"
 #: The one-word ask a chat sample puts to each awake unit, and its reply cap.
 CHAT_PROMPT = "Reply with the single word: ready."
 CHAT_TOKENS = 16
@@ -306,8 +306,8 @@ def _contract_run(
             str(repo),
             "--config",
             str(setup),
-            "--orchestrator",
-            ORCHESTRATOR,
+            "--session",
+            SESSION,
             "--result",
             str(result),
         ]

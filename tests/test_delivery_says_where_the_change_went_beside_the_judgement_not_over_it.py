@@ -45,7 +45,7 @@ def _run(
             contract,
             repo,
             config,
-            "--orchestrator",
+            "--session",
             "t",
             "--result",
             str(result),

@@ -108,7 +108,7 @@ def _floor(
             "tempdir",
             "--config",
             str(setup),
-            "--orchestrator",
+            "--session",
             "t",
             "--result",
             str(result),

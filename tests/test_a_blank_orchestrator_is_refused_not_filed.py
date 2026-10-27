@@ -1,6 +1,6 @@
-"""A blank ``--orchestrator`` is refused, not filed under an empty name.
+"""A blank ``--session`` is refused, not filed under an empty name.
 
-``--orchestrator ''`` is the flag saying nothing, and nothing is the one answer
+``--session ''`` is the flag saying nothing, and nothing is the one answer
 :mod:`mcgyvr.session` does not accept: "a run nobody can be traced to is
 refused, not filed under a default". It was accepted anyway. ``resolve('')``
 built ``Session('')`` because an empty string starts with neither ``claude-``
@@ -68,10 +68,10 @@ def test_a_blank_orchestrator_is_refused_on_the_ladder_path(
     config = lj.make_config(tmp_path / "mcgyvr.yaml", journal_dir=journal)
     contract = lj.make_contract(tmp_path / "impl.yaml")
 
-    code = lj.main(lj.run_args(contract, repo, config, "--orchestrator", ""))
+    code = lj.main(lj.run_args(contract, repo, config, "--session", ""))
 
     assert code == 2, code
-    assert "--orchestrator" in capsys.readouterr().err
+    assert "--session" in capsys.readouterr().err
     assert sent == [], "a refused run still dispatched"
     assert not journal.exists()
 
@@ -92,11 +92,11 @@ def test_a_blank_orchestrator_is_refused_on_the_deterministic_floor_too(
     config = lj.make_config(tmp_path / "mcgyvr.yaml", journal_dir=journal)
     contract = lj.make_contract(tmp_path / "tidy.yaml", FORMAT)
 
-    code = lj.main(lj.run_args(contract, repo, config, "--orchestrator", ""))
+    code = lj.main(lj.run_args(contract, repo, config, "--session", ""))
 
     out = capsys.readouterr()
     assert code == 2, f"stdout: {out.out}\nstderr: {out.err}"
-    assert "--orchestrator" in out.err
+    assert "--session" in out.err
     assert "result: " not in out.out, out.out
     assert not journal.exists(), sorted(str(p) for p in journal.rglob("*"))
     assert lj.git(repo, "status", "--porcelain") == "", "a refused run touched the repo"
@@ -115,10 +115,10 @@ def test_a_whitespace_only_orchestrator_is_the_same_refusal(
     config = lj.make_config(tmp_path / "mcgyvr.yaml", journal_dir=journal)
     contract = lj.make_contract(tmp_path / "impl.yaml")
 
-    code = lj.main(lj.run_args(contract, repo, config, "--orchestrator", "   "))
+    code = lj.main(lj.run_args(contract, repo, config, "--session", "   "))
 
     assert code == 2, code
-    assert "--orchestrator" in capsys.readouterr().err
+    assert "--session" in capsys.readouterr().err
     assert sent == []
     assert not journal.exists()
 
@@ -138,10 +138,10 @@ def test_the_refusal_lands_before_the_contract_is_read(
     config = lj.make_config(tmp_path / "mcgyvr.yaml", journal_dir=tmp_path / "journal")
 
     code = lj.main(
-        lj.run_args(tmp_path / "nowhere.yaml", repo, config, "--orchestrator", "")
+        lj.run_args(tmp_path / "nowhere.yaml", repo, config, "--session", "")
     )
 
     assert code == 2, code
     err = capsys.readouterr().err
-    assert "--orchestrator" in err
+    assert "--session" in err
     assert "nowhere.yaml" not in err, err

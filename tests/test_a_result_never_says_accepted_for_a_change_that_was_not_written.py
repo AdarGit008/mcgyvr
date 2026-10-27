@@ -32,7 +32,7 @@ def _report(contract: Any) -> RunResult:
         contract=contract.id,
         task_type=contract.task_type,
         target=contract.target,
-        orchestrator="t",
+        session="t",
     )
 
 
@@ -101,7 +101,7 @@ def test_a_climb_accepted_without_bound_content_is_an_error_not_accepted(
 def test_error_keeps_a_refusal_word_the_caller_chose() -> None:
     from mcgyvr.cli.commands.run import DELIVERY_REFUSED, _error
 
-    report = RunResult(contract="c", task_type="code", target="t", orchestrator="o")
+    report = RunResult(contract="c", task_type="code", target="t", session="o")
     assert _error(report, "no", outcome=DELIVERY_REFUSED) == 1
     assert report.outcome == DELIVERY_REFUSED
     assert _error(report, "no") == 1

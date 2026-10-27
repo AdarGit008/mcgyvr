@@ -1,8 +1,9 @@
-"""Settle which orchestrator typed this command, and where its transcript is.
+"""Settle which session typed this command, and where its transcript is.
 
-A journal row names the orchestrator that produced it, and a name is only worth
-writing if a reader can follow it to a transcript. `resolve` takes the
-`--orchestrator` value when there is one, and otherwise reads the session the
+A session is who typed the command: the Claude Code or Pi conversation it was
+run from. A journal row names the session that produced it, and a name is only
+worth writing if a reader can follow it to a transcript. `resolve` takes the
+`--session` value when there is one, and otherwise reads the session the
 command was typed from: Claude Code's `CLAUDE_CODE_SESSION_ID`, or a Pi
 transcript's path in `PI_SESSION_FILE`. Either way the tool's own session id is
 looked up on disk — under `CLAUDE_CONFIG_DIR` or `~/.claude` for Claude Code,
@@ -25,7 +26,7 @@ PI_SESSION_VAR = "PI_SESSION_FILE"
 
 CLAUDE = "claude"
 PI = "pi"
-#: An orchestrator is named `<tool>-<id>`, and the id is the journal's file name:
+#: A session is named `<tool>-<id>`, and the id is the journal's file name:
 #: `claude-<session id>` or `pi-<session id>`, each traced back to the tool's own
 #: transcript on disk. Claude Code exports its session id and config root; a Pi
 #: transcript path has to be exported by something, and nothing shipped here does.
@@ -42,22 +43,22 @@ class SessionError(Exception):
 
 @dataclass(frozen=True)
 class Session:
-    """The orchestrator named for a run, and the transcript to file it under.
+    """The session named for a run, and the transcript to file it under.
 
-    `orchestrator` is the name a journal row and a result carry. `session_file`
-    is that name's transcript as an absolute path, or None for a name this host
-    cannot trace: an id passed to `--orchestrator` that does not carry a known
-    tool's prefix.
+    `name` is the name a journal row and a result carry. `session_file` is that
+    name's transcript as an absolute path, or None for a name this host cannot
+    trace: an id passed to `--session` that does not carry a known tool's
+    prefix.
     """
 
-    orchestrator: str
+    name: str
     session_file: Path | None = None
 
 
 def resolve(explicit: str | None, env: Mapping[str, str] | None = None) -> Session:
     """Settle the session named by `explicit`, or else by the environment.
 
-    An `explicit` value — a `--orchestrator` id — wins outright. Without one the
+    An `explicit` value — a `--session` id — wins outright. Without one the
     environment decides: `CLAUDE_CODE_SESSION_ID` names a Claude Code session and
     `PI_SESSION_FILE` points at a Pi transcript, and both at once is refused
     because nothing says which one typed this command. No session at all is
@@ -74,7 +75,7 @@ def resolve(explicit: str | None, env: Mapping[str, str] | None = None) -> Sessi
         raise SessionError(
             f"two sessions are in the environment ({CLAUDE_SESSION_VAR} and "
             f"{PI_SESSION_VAR}) and nothing says which one typed this command; "
-            f"pass --orchestrator ID to say."
+            f"pass --session ID to say."
         )
     if claude_id:
         return Session(
@@ -96,7 +97,7 @@ def resolve(explicit: str | None, env: Mapping[str, str] | None = None) -> Sessi
             )
         return Session(f"{PI}-{pi_id}", path.resolve())
     raise SessionError(
-        f"nobody is named to write the journal: pass --orchestrator ID, or run "
+        f"nobody is named to write the journal: pass --session ID, or run "
         f"from a session that exports one ({CLAUDE_SESSION_VAR} from Claude "
         f"Code; {PI_SESSION_VAR} is honoured when something sets it to a Pi "
         f"transcript's path, and nothing shipped here does). A run "
@@ -104,17 +105,17 @@ def resolve(explicit: str | None, env: Mapping[str, str] | None = None) -> Sessi
     )
 
 
-def _explicit(orchestrator: str, environment: Mapping[str, str]) -> Session:
+def _explicit(name: str, environment: Mapping[str, str]) -> Session:
     try:
-        if orchestrator.startswith(f"{CLAUDE}-"):
-            claude_id = orchestrator.removeprefix(f"{CLAUDE}-")
-            return Session(orchestrator, _claude_transcript(claude_id, environment))
-        if orchestrator.startswith(f"{PI}-"):
-            pi_id = orchestrator.removeprefix(f"{PI}-")
-            return Session(orchestrator, _pi_transcript(pi_id, environment))
+        if name.startswith(f"{CLAUDE}-"):
+            claude_id = name.removeprefix(f"{CLAUDE}-")
+            return Session(name, _claude_transcript(claude_id, environment))
+        if name.startswith(f"{PI}-"):
+            pi_id = name.removeprefix(f"{PI}-")
+            return Session(name, _pi_transcript(pi_id, environment))
     except SessionError as exc:
-        raise SessionError(f"--orchestrator {orchestrator!r}: {exc}") from exc
-    return Session(orchestrator)
+        raise SessionError(f"--session {name!r}: {exc}") from exc
+    return Session(name)
 
 
 def _claude_root(environment: Mapping[str, str]) -> Path:

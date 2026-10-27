@@ -451,7 +451,7 @@ def test_an_unconfigured_install_names_the_setup_document_it_carries(
     done = _run(
         work,
         installed.env(home),
-        *(installed.mcgyvr, "run", "impl.yaml", "--repo", repo, "--orchestrator", "t"),
+        *(installed.mcgyvr, "run", "impl.yaml", "--repo", repo, "--session", "t"),
         *("--sandbox", "tempdir"),
     )
     assert done.returncode != 0, _ran(done)
@@ -488,7 +488,7 @@ def test_a_fresh_init_runs_a_contract_without_evidence_from_the_dev_repo(
         "impl.yaml",
         "--repo",
         repo,
-        "--orchestrator",
+        "--session",
         "t",
         "--sandbox",
         "tempdir",

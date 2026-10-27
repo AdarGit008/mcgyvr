@@ -22,7 +22,7 @@ from tests import livejournal as lj
 def test_write_leaves_no_part_file_when_the_replace_fails(tmp_path: Path) -> None:
     taken = tmp_path / "results" / "impl-1.json"
     taken.mkdir(parents=True)
-    report = RunResult(contract="impl", task_type="t", target="x", orchestrator="o")
+    report = RunResult(contract="impl", task_type="t", target="x", session="o")
 
     with pytest.raises(OSError):
         write(taken, report)

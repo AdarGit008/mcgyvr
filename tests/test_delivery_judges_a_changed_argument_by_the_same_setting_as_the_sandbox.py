@@ -94,7 +94,7 @@ def _report(contract: Contract) -> RunResult:
         contract=contract.id,
         task_type=contract.task_type,
         target=contract.target,
-        orchestrator="t",
+        session="t",
     )
 
 
