@@ -111,6 +111,7 @@ def run_batch(
     *,
     dependents: str = "hold",
     record: Path | None = None,
+    book: Any = None,
 ) -> tuple[int, list[str], Path]:
     journal = tmp_path / "journal"
     ran: list[str] = []
@@ -128,7 +129,7 @@ def run_batch(
     config = cast(
         Config, Policy({"journal.dir": str(journal), "dependents": dependents})
     )
-    code = command._run_delegated(args, repo, dec, [], config)
+    code = command._run_delegated(args, repo, dec, [], config, book=book)
     return code, ran, journal
 
 
@@ -220,3 +221,33 @@ def test_under_dependents_run_the_caller_is_sent_anyway(
 
     assert ran == ["code-rename", "code-caller"]
     assert [r["outcome"] for r in results(journal, "code-caller")] == ["rejected"]
+
+
+def test_a_batch_that_held_a_contract_is_logged_as_batch_held(
+    repo: Path, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """The `--log` record names what was held and the Board's state file.
+
+    It points at the tree's state file, never at the per-contract result files:
+    those stay with the Board and the re-planner that read them.
+    """
+    from mcgyvr.delegate_log import DelegateKind, read
+
+    log = tmp_path / "delegate-log.json"
+    book = command._Logbook(str(log))
+    code, _, journal = run_batch(
+        repo,
+        tmp_path,
+        monkeypatch,
+        {"code-rename": ("ladder_spent", False)},
+        book=book,
+    )
+    book.write(code)
+
+    record = read(log)
+    assert record.kind is DelegateKind.BATCH_HELD
+    assert record.exit_code == code == 3
+    assert record.detail["held"] == ["code-caller"]
+    (state,) = (journal / "trees").glob("tree-*.json")
+    assert record.detail["tree_state"] == str(state)
+    assert "results" not in json.dumps(record.detail)
