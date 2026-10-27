@@ -10,7 +10,9 @@ through the machinery `run` already has, in the order their dependency tree
 allows — a contract whose provider did not land is held, not run, and one
 whose ladder is spent is handed back to the orchestrator to be re-planned
 (`mcgyvr.replan`, up to `max_replans`), what comes back taking its place.
-`add_parser` registers the subcommand and its arguments.
+With `--log PATH` how the command ended is written there as one
+`mcgyvr.delegate_log` record, on every exit. `add_parser` registers the
+subcommand and its arguments.
 """
 
 from __future__ import annotations
@@ -28,6 +30,8 @@ from mcgyvr.config import (
     named_config_path,
 )
 from mcgyvr.config import load as load_config
+from mcgyvr.delegate_log import DelegateKind, LoggedContract, LoggedRefusal, logged
+from mcgyvr.delegate_log import write as write_log
 from mcgyvr.exits import Exit
 
 if TYPE_CHECKING:  # pragma: no cover - typing only
@@ -44,8 +48,138 @@ from mcgyvr.cli.common import CONFIG_DEFAULT_HELP, _add_repo, _named_path, add_s
 from mcgyvr.cli.sandbox import _say_what_the_sandbox_leaves_out
 
 
+class _Logbook:
+    """What `--log PATH` will say: kept as the command goes, written at its end.
+
+    Each exit path names its kind and sentence (`ended`), a decomposition its
+    contracts and refusals (`decomposed`), a batch what it held (`held`); `write`
+    puts the record at the path once, whatever the exit. With no `--log` it
+    keeps the same facts and writes nothing.
+    """
+
+    def __init__(self, path: str | None) -> None:
+        self.path = Path(path) if path else None
+        self.kind = DelegateKind.INTERNAL_ERROR
+        self.message = ""
+        self.detail: dict[str, Any] = {}
+        self.raw_reply_present = False
+        self.contracts: tuple[LoggedContract, ...] = ()
+        self.refusals: tuple[LoggedRefusal, ...] = ()
+
+    def ended(self, kind: DelegateKind, message: str, **detail: Any) -> None:
+        self.kind = kind
+        self.message = message
+        self.detail = dict(detail)
+
+    def decomposed(self, dec: Decomposition, written: Sequence[Path]) -> None:
+        """What the decomposition came to; `written` is `--output`'s paths."""
+        # `--output` wrote one path per contract; printed ones have none.
+        paths: list[str | None] = (
+            [str(p) for p in written] if written else [None] * len(dec.contracts)
+        )
+        self.contracts = tuple(
+            LoggedContract(c.id, c.task_type, c.target, path)
+            for c, path in zip(dec.contracts, paths, strict=True)
+        )
+        self.refusals = tuple(
+            LoggedRefusal(r.subject, r.reason, r.field, r.what_to_change)
+            for r in dec.refusals
+        )
+        if not dec.contracts:
+            self.ended(DelegateKind.NONE_EMITTED, "No contracts were emitted.")
+        elif dec.refusals:
+            self.ended(
+                DelegateKind.EMITTED_WITH_REFUSALS,
+                f"{len(dec.contracts)} contract(s) proposed, "
+                f"{len(dec.refusals)} refused.",
+            )
+        else:
+            self.ended(
+                DelegateKind.EMITTED, f"{len(dec.contracts)} contract(s) proposed."
+            )
+
+    def held(self, ids: Sequence[str], tree_state: Path | None) -> None:
+        """A batch held `ids`; the Board's state file says the rest."""
+        self.ended(
+            DelegateKind.BATCH_HELD,
+            f"{len(ids)} contract(s) held and never sent: {', '.join(ids)}.",
+            held=list(ids),
+            tree_state=str(tree_state) if tree_state is not None else None,
+        )
+
+    def write(self, exit_code: int) -> None:
+        """Write the record, if asked for; a failure is said, never raised."""
+        if self.path is None:
+            return
+        record = logged(
+            self.kind,
+            self.message,
+            int(exit_code),
+            contracts=self.contracts,
+            refusals=self.refusals,
+            raw_reply_present=self.raw_reply_present,
+            detail=self.detail,
+        )
+        try:
+            write_log(self.path, record)
+        except OSError as exc:
+            print(
+                f"error: the delegate log could not be written to {self.path}: "
+                f"{exc}. The command came to {self.kind} (exit {exit_code}).",
+                file=sys.stderr,
+            )
+
+
+def _refuse_before_delegating(
+    parser: argparse.ArgumentParser, args: argparse.Namespace
+) -> None:
+    """Refuse, through `parser` (exit 2), what the parsed arguments cannot do.
+
+    A `--branch` that cannot be honoured is `usage_invalid`; under `--run`, a
+    session that cannot be named (`_unusable_writer`, the check `run` makes) is
+    `session_unresolved`, and on success it is resolved into `args.session`.
+    Either refusal is logged to `--log` before the parser exits.
+    """
+    from mcgyvr.cli.commands.run import _delivery_problem, _unusable_writer
+
+    kind = DelegateKind.USAGE_INVALID
+    problem = _delivery_problem(args)
+    if problem is None and args.run:
+        kind = DelegateKind.SESSION_UNRESOLVED
+        problem = _unusable_writer(args)
+    if problem is None:
+        return
+    book = _Logbook(args.log)
+    book.ended(kind, problem)
+    book.write(Exit.USAGE)
+    parser.error(problem)
+
+
 def _delegate(args: argparse.Namespace) -> int:
     """Turn one prompt into contracts, and run them when asked to.
+
+    The work is `_delegate_logged`'s; this keeps the `--log` record and writes
+    it once the command has ended, whichever way. An exception nothing there
+    names is logged as `internal_error` and raised on, so the traceback and
+    exit 1 are what they were.
+    """
+    book = _Logbook(args.log)
+    try:
+        code = _delegate_logged(args, book)
+    except Exception as exc:
+        book.ended(
+            DelegateKind.INTERNAL_ERROR,
+            f"{type(exc).__name__}: {exc}",
+            error_class=type(exc).__name__,
+        )
+        book.write(Exit.ERROR)
+        raise
+    book.write(code)
+    return code
+
+
+def _delegate_logged(args: argparse.Namespace, book: _Logbook) -> int:
+    """Turn one prompt into contracts, run them when asked to, and log the end.
 
     The config is loaded before anything else: `--config` when it is given,
     otherwise whatever the environment names and discovery finds. A missing
@@ -62,13 +196,15 @@ def _delegate(args: argparse.Namespace) -> int:
     the config and `--budget`. The contracts are reported and written, or
     printed when `--output` is not given, and `--run` runs each of them,
     re-planning a contract whose ladder is spent through the prose proposer on
-    the same checkout. The exit code is 0 when that all worked; 3
-    (`Exit.REFUSED`) when there is no orchestrator role to ask; 1 when the
-    config, attaching, indexing or proposing failed; and otherwise under
-    `--run` the batch's, the last non-zero exit of its runs (3 for a contract
-    held `blocked`). A `--run` with no session to file it under never gets
-    here: the dispatcher refuses it first, exit 2. A reply that cannot be read
-    as proposals is printed whole, delimited, on stderr after its error.
+    the same checkout. The exit code is 0 when contracts were emitted; 3
+    (`Exit.REFUSED`) when there is no orchestrator role to ask or no contract
+    came of the request; 1 when the config, attaching, indexing or proposing
+    failed; and under `--run` the batch's, the last non-zero exit of its runs
+    (3 for a contract held `blocked`). A `--run` with no session to file it
+    under never gets here: `_refuse_before_delegating` refuses it first, exit
+    2. A reply that cannot be read as proposals is printed whole, delimited, on
+    stderr after its error. Every return names its `mcgyvr.delegate_log` kind
+    in `book` first.
     """
 
     from mcgyvr.config import ConfigError
@@ -97,6 +233,7 @@ def _delegate(args: argparse.Namespace) -> int:
         config_error = exc
     except ConfigError as exc:
         print(f"error: {exc}", file=sys.stderr)
+        book.ended(DelegateKind.CONFIG_INVALID, str(exc), path=_str_or_none(named))
         return 1
 
     # `chosen` is the path `--config` names and `named` is that, or the setup
@@ -106,24 +243,41 @@ def _delegate(args: argparse.Namespace) -> int:
     bare_install = isinstance(config_error, ConfigMissingError) and named is None
     if config is None and not bare_install:
         print(f"error: {config_error}", file=sys.stderr)
+        book.ended(
+            DelegateKind.CONFIG_MISSING, str(config_error), path=_str_or_none(named)
+        )
         return 1
     if config is None:
         print(NO_ORCHESTRATOR_ROLE, file=sys.stderr)
+        book.ended(
+            DelegateKind.CONFIG_NO_ORCHESTRATOR, NO_ORCHESTRATOR_ROLE, bare_install=True
+        )
         return Exit.REFUSED
 
     pool = source_map(config)
     try:
         propose = _proposer_for_delegate(config, pool)
     except SourceUnavailableError as exc:
-        print(
-            f"error: the orchestrator role is declared but cannot run: {exc}. "
+        said = (
+            f"the orchestrator role is declared but cannot run: {exc}. "
             f"Bind `orchestrator.unit` to a usable unit, or author contracts "
-            f"yourself and run them with `mcgyvr run`.",
-            file=sys.stderr,
+            f"yourself and run them with `mcgyvr run`."
+        )
+        print(f"error: {said}", file=sys.stderr)
+        book.ended(
+            DelegateKind.ORCHESTRATOR_UNRUNNABLE,
+            said,
+            error_class=type(exc).__name__,
         )
         return 1
     if propose is None:
         print(NO_ORCHESTRATOR_ROLE, file=sys.stderr)
+        book.ended(
+            DelegateKind.CONFIG_NO_ORCHESTRATOR,
+            NO_ORCHESTRATOR_ROLE,
+            bare_install=False,
+            path=_str_or_none(getattr(config, "path", None)),
+        )
         return Exit.REFUSED
 
     into = Path(args.into) if args.into else None
@@ -145,6 +299,10 @@ def _delegate(args: argparse.Namespace) -> int:
             written = _write_delegated(
                 decomposition, Path(args.output) if args.output else None
             )
+            book.decomposed(decomposition, written)
+            if decomposition.empty:
+                # The request was read and nothing came of it: refused, not done.
+                return Exit.REFUSED
             if args.run:
                 return _run_delegated(
                     args,
@@ -153,21 +311,44 @@ def _delegate(args: argparse.Namespace) -> int:
                     written,
                     config,
                     replan=_replanner(args, repo.root, config, pool, propose),
+                    book=book,
                 )
             return 0
     except AttachError as exc:
         print(f"error: {exc}", file=sys.stderr)
+        book.ended(DelegateKind.REPO_ATTACH_FAILED, str(exc), repo=str(args.repo))
         return 1
     except IndexBuildError as exc:
         print(f"error: {exc}", file=sys.stderr)
+        book.ended(DelegateKind.REPO_INDEX_FAILED, str(exc), repo=str(args.repo))
         return 1
     except (DelegationError, RunnerError, SourceUnavailableError) as exc:
         # A delegation, runner or pool failure leaves nothing to run: report it
         # on stderr and exit 1, the same answer an attach or index failure gets.
         print(f"error: {exc}", file=sys.stderr)
+        if isinstance(exc, DelegationError):
+            book.ended(exc.kind, str(exc), **exc.detail)
+        elif isinstance(exc, RunnerError):
+            book.ended(
+                DelegateKind.ORCHESTRATOR_DISPATCH_FAILED,
+                str(exc),
+                error_class=type(exc).__name__,
+            )
+        else:
+            book.ended(
+                DelegateKind.SOURCE_UNAVAILABLE,
+                str(exc),
+                error_class=type(exc).__name__,
+            )
         if isinstance(exc, UnreadableProposalError) and exc.reply is not None:
             _print_raw_reply(exc.reply)
+            book.raw_reply_present = True
+            book.detail["raw_reply_chars"] = len(exc.reply)
         return 1
+
+
+def _str_or_none(value: object) -> str | None:
+    return None if value is None else str(value)
 
 
 def _print_raw_reply(reply: str) -> None:
@@ -292,6 +473,7 @@ def _run_delegated(
     config: Config,
     *,
     replan: Replanner | None = None,
+    book: _Logbook | None = None,
 ) -> int:
     """Run the emitted contracts through `_run`, one at a time, as the tree allows.
 
@@ -318,6 +500,8 @@ def _run_delegated(
     and take its place on the tree, which frees what it held; the spent result
     says so under `replanned`. The last non-zero exit code is returned, not
     counting a run whose contract was re-planned, since its work goes on.
+    When anything was held, `book` is told which and where the tree's state
+    file is (`batch_held`).
     """
     if not dec.contracts:
         return 0
@@ -396,8 +580,12 @@ def _run_delegated(
                 # The work goes on under what replaced it, so this run's exit
                 # is not the batch's.
                 del codes[contract.id]
+        held: list[str] = []
         for _, contract, hold in board.drain():
             codes[contract.id] = _write_held(args, contract, hold, session, journal)
+            held.append(contract.id)
+        if held and book is not None:
+            book.held(held, board.state_file(tree.tree_id))
     finally:
         if staging is not None:
             shutil.rmtree(staging, ignore_errors=True)
@@ -665,6 +853,22 @@ def _write_held(
     return int(report.exit_code or 0)
 
 
+#: The `delegate --help` epilog: the exit codes and the `--log` kinds behind them.
+DELEGATE_EPILOG = """\
+exit codes (the --log record's `kind` in brackets):
+  0  contracts emitted [emitted, emitted_with_refusals]; under --run, the
+     batch's: the last non-zero exit of its runs
+  1  a failure: the config [config_invalid, config_missing], the orchestrator
+     role or its reply [orchestrator_*, source_unavailable, reply_*,
+     proposal_*], the repository [repo_*], or a crash [internal_error]
+  2  usage: a --branch that cannot be honoured [usage_invalid], or --run with
+     no session to file the runs under [session_unresolved]
+  3  refused: no orchestrator role [config_no_orchestrator], no contract came
+     of the request [none_emitted], or --run held a contract [batch_held]
+New kinds may be added under mcgyvr.delegate_log/1; a reader tolerates one it
+does not know."""
+
+
 def add_parser(
     sub: argparse._SubParsersAction[argparse.ArgumentParser],
 ) -> argparse.ArgumentParser:
@@ -673,9 +877,11 @@ def add_parser(
     The prompt is required; the repository defaults to `.`. `--config` names
     the setup that binds the orchestrator role doing the proposing, `--into`
     keeps a clone, `--budget` caps the deterministic read, and `--output` writes
-    the contracts to a directory instead of printing them. The flags `--run`,
-    `--sandbox`, `--commit`, `--branch`, `--record` and `--session` are handed
-    to each run; `--orchestrator` is `--session`'s deprecated alias. The
+    the contracts to a directory instead of printing them; `--log` writes how
+    the command ended as a `mcgyvr.delegate_log` record, and the epilog lists
+    the exit codes with the record's kinds. The flags `--run`, `--sandbox`,
+    `--commit`, `--branch`, `--record` and `--session` are handed to each run;
+    `--orchestrator` is `--session`'s deprecated alias. The
     subcommand's `func` is `_delegate`, and the subparser is returned so a
     session that cannot be named is refused through its own `error`.
     """
@@ -683,6 +889,8 @@ def add_parser(
     delegate = sub.add_parser(
         "delegate",
         help="turn a prompt plus a repository into validated contracts",
+        epilog=DELEGATE_EPILOG,
+        formatter_class=argparse.RawDescriptionHelpFormatter,
     )
     delegate.add_argument(
         "prompt",
@@ -763,6 +971,19 @@ def add_parser(
         type=_named_path,
         metavar="DIR",
         help="also journal each --run under DIR, as a complete second copy",
+    )
+    delegate.add_argument(
+        "--log",
+        default=None,
+        type=_named_path,
+        metavar="PATH",
+        help=(
+            "write how this command ended to PATH as one JSON record "
+            "(mcgyvr.delegate_log/1, schema in mcgyvr.delegate_log), on every "
+            "exit once the arguments are read, a crash included: its `kind`, "
+            "the exit code, the contracts and refusals, and the facts behind a "
+            "failure. For a script that called delegate; stderr is unchanged"
+        ),
     )
     add_session(
         delegate,

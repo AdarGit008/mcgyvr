@@ -205,12 +205,14 @@ BELOW_THE_SEAM: tuple[str, ...] = (
 #: staged into the sandbox and whose import statements name only itself and the
 #: standard library), the order a batch of contracts runs in (tree, board) and
 #: what a spent contract is re-planned from (replan),
-#: and what the run leaves behind for the caller (result, session, telemetry).
+#: and what the run leaves behind for the caller (result, session, telemetry,
+#: and delegate's own record of how it ended, delegate_log).
 ABOVE_THE_SEAM: tuple[str, ...] = (
     "mcgyvr.board",
     "mcgyvr.consensus",
     "mcgyvr.contract",
     "mcgyvr.delegate",
+    "mcgyvr.delegate_log",
     "mcgyvr.deliver",
     "mcgyvr.deterministic",
     "mcgyvr.docgen",

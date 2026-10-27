@@ -11,6 +11,19 @@ archived outside this repository, under the same paths.
 
 ### Added
 
+- **`mcgyvr delegate --log PATH` writes how the command ended, as data.** One
+  `mcgyvr.delegate_log/1` record, written atomically on every exit once the
+  arguments are read, a crash included: its `kind` (one per exit path —
+  `config_*`, `orchestrator_*`, `source_unavailable`, `repo_*`, `reply_*`,
+  `proposal_*`, `session_unresolved`, `usage_invalid`, `emitted`,
+  `emitted_with_refusals`, `none_emitted`, `batch_held`, `internal_error`),
+  the exit code, the contracts and refusals, and the facts behind a failure
+  (the cut-off reply's token counts, the decoder's position, the proposal
+  entry and field). `batch_held` names the Board's state file, not the
+  per-contract results. Defined once in `mcgyvr.delegate_log` with its JSON
+  Schema (`json_schema()`, with `x-exit-codes`) and a reader (`read`) that
+  tolerates kinds added later under `/1`. For a script that called
+  `delegate`; it is not part of the /mcgyvr skill, and stderr is unchanged.
 - **A failing pytest command is noted one failing test at a time.** When an
   acceptance or demonstrating command is pytest, the gate asks it for its JUnit
   XML report (`--junitxml` into the workspace, `junit_family=xunit1`; the
@@ -147,6 +160,9 @@ archived outside this repository, under the same paths.
 
 ### Changed
 
+- **`mcgyvr delegate` exits 3 when no contract came of the request.** The
+  request was read and declined, which is `REFUSED`, with or without `--run`
+  (was 0).
 - **The session a run is filed under is named with `--session ID`.** On
   `mcgyvr run` and `mcgyvr delegate`, `--session` replaces `--orchestrator`,
   which named the session and not the orchestrator role; `--orchestrator` is
