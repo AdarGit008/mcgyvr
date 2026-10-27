@@ -271,6 +271,7 @@
     "out_of_scope": 403,
     "pool_busy": 503,
     "rate_limit_exceeded": 429,
+    "request_too_large": 413,
     "session_failed": 502,
     "signed_out": 403,
     "timeout": 504,

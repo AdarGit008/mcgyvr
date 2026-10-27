@@ -109,8 +109,8 @@ PROTOCOL = Pinned(
 RIDER = Pinned(
     hub_name="rider.schema.json",
     fixture=FIXTURES / "hub_rider_v1.schema.json",
-    hub_sha256="a87cfed1a4f1ce2274d0af8eb21bc5b787521d7f231f5ad63efea361e73f0b33",
-    pinned_sha256="6d86dae4e9a1eb112b5f0995553d36f00b3e5d7a6b0f797a24032325ae0c6ad9",
+    hub_sha256="6db1e22bb42995f79f46e38f8493f57c769faef34a373187c0a08cfa0cc2d1f5",
+    pinned_sha256="98596841f575b3cd8ee22ceb802b9f207ba5488666b6a72ba64a3b7fe8e4b3d8",
     env="MCGYVR_HUB_RIDER_SCHEMA",
 )
 #: Every hub schema pinned here.
