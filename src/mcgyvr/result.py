@@ -20,6 +20,10 @@ from mcgyvr import atomic
 
 RESULTS_DIR = "results"
 
+#: The key `session` was written under before it was renamed: still written,
+#: with the same value, for one release (see `RunResult.session`).
+DEPRECATED_SESSION_KEY = "orchestrator"
+
 
 @dataclass
 class AttemptResult:
@@ -66,7 +70,11 @@ class RunResult:
     contract: str
     task_type: str
     target: str
-    orchestrator: str
+    #: `session` is the session the run was filed under (`mcgyvr.session`), the
+    #: name of its journal; `session_file` is that session's transcript. The file
+    #: also carries the same name under `orchestrator`, its key before the rename,
+    #: read by nothing here and kept for one release so an older reader finds it.
+    session: str
     #: `run` is this run's stamp, the id its journal rows and result file share;
     #: `journal` is the directory it was recorded under.
     run: str = ""
@@ -148,6 +156,7 @@ class RunResult:
 
     def as_json(self) -> dict[str, Any]:
         data = asdict(self)
+        data[DEPRECATED_SESSION_KEY] = self.session
         if self.triage is None:
             del data["triage"]
         if self.blocked_by is None:

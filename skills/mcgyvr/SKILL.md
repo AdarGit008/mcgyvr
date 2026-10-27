@@ -154,7 +154,7 @@ and untracked files, including a test you just wrote, are not in the
 sandbox.
 
 The run refuses unless it can say who typed it: Claude Code and Pi sessions
-are detected from the environment, otherwise pass `--orchestrator ID`.
+are detected from the environment, otherwise pass `--session ID`.
 The last stdout line is `result: <path>`:
 everything above it is scrollback, and everything the run came to is in
 that file, under mcgyvr's own journal directory — never in the repository.
@@ -224,8 +224,9 @@ what the run came to. The file's keys:
 - `delivery` — where the work went: left uncommitted in the tree (the
   default), the commit, or why it was refused (as `detail`).
   `committed`, `commit`, `branch`, `handoff` are the commit as fields.
-- `target`, `contract`, `task_type`, `orchestrator`, `run`, `session_file`,
-  `journal`, `exit_code`.
+- `target`, `contract`, `task_type`, `session` (the session the run is
+  filed under; also written as `orchestrator`, its old key, for one
+  release), `run`, `session_file`, `journal`, `exit_code`.
 - `copy_errors` — a `--record DIR` copy that could not be written, and
   why. Empty on almost every run. mcgyvr's own record under `journal`
   is complete whatever this says; a copy is not a sink and its failure

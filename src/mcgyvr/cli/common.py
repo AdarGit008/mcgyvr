@@ -1,16 +1,18 @@
 """The option and argument pieces the `mcgyvr` verbs spell the same way.
 
 Two things are named on most command lines: the setup to read, with `--config`,
-and the repository to work on, with `--repo`. The helpers here attach those
-options to a subparser and carry the types and actions behind them, including
-the refusals the shapes leave room for: a blank path, a repository written as a
-positional, and two different setups named on one command line. The constants
-carry the default each option's help text states.
+and the repository to work on, with `--repo`; a command that runs work also
+names the session it is filed under, with `--session`. The helpers here attach
+those options to a subparser and carry the types and actions behind them,
+including the refusals the shapes leave room for: a blank path, a repository
+written as a positional, and two different setups named on one command line.
+The constants carry the default each option's help text states.
 """
 
 from __future__ import annotations
 
 import argparse
+import sys
 from collections.abc import Sequence
 from pathlib import Path
 from typing import TYPE_CHECKING, Any
@@ -119,6 +121,52 @@ def _add_repo(parser: argparse.ArgumentParser, what: str) -> None:
         default=argparse.SUPPRESS,
         action=_RepoByPosition,
         help=argparse.SUPPRESS,
+    )
+
+
+class _DeprecatedSessionFlag(argparse.Action):
+    """`--orchestrator ID`: the old spelling of `--session ID`, for one release.
+
+    It sets what `--session` sets and says on stderr that it is deprecated, so
+    a script that still passes it runs as before and is told what to pass.
+    """
+
+    def __call__(
+        self,
+        parser: argparse.ArgumentParser,
+        namespace: argparse.Namespace,
+        values: str | Sequence[Any] | None,
+        option_string: str | None = None,
+    ) -> None:
+        print(
+            f"warning: {option_string} is deprecated and goes in the next "
+            f"release; pass --session {values} instead.",
+            file=sys.stderr,
+        )
+        setattr(namespace, self.dest, values)
+
+
+def add_session(parser: argparse.ArgumentParser, what: str) -> None:
+    """Attach `--session ID` to `parser`, with `what` as its help sentence.
+
+    Both spellings land in `session_id`: `--session`, and `--orchestrator`,
+    its deprecated alias for one release, which warns on stderr when used. The
+    resolved `Session` is put in `session` by whoever resolves it.
+    """
+    parser.add_argument(
+        "--session",
+        dest="session_id",
+        default=None,
+        metavar="ID",
+        help=what,
+    )
+    parser.add_argument(
+        "--orchestrator",
+        dest="session_id",
+        default=None,
+        metavar="ID",
+        action=_DeprecatedSessionFlag,
+        help="deprecated alias of --session, removed in the next release",
     )
 
 

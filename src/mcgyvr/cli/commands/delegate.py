@@ -40,7 +40,7 @@ if TYPE_CHECKING:  # pragma: no cover - typing only
     from mcgyvr.tree import Hold, Tree
 
 from mcgyvr.cli.commands.run import _copy, _run
-from mcgyvr.cli.common import CONFIG_DEFAULT_HELP, _add_repo, _named_path
+from mcgyvr.cli.common import CONFIG_DEFAULT_HELP, _add_repo, _named_path, add_session
 from mcgyvr.cli.sandbox import _say_what_the_sandbox_leaves_out
 
 
@@ -64,10 +64,11 @@ def _delegate(args: argparse.Namespace) -> int:
     re-planning a contract whose ladder is spent through the prose proposer on
     the same checkout. The exit code is 0 when that all worked; 3
     (`Exit.REFUSED`) when there is no orchestrator role to ask; 1 when the
-    config, attaching, indexing or proposing failed, or `--run` could name no
-    session; and otherwise under `--run` the batch's, the last non-zero exit of
-    its runs (3 for a contract held `blocked`). A reply that cannot be read as
-    proposals is printed whole, delimited, on stderr after its error.
+    config, attaching, indexing or proposing failed; and otherwise under
+    `--run` the batch's, the last non-zero exit of its runs (3 for a contract
+    held `blocked`). A `--run` with no session to file it under never gets
+    here: the dispatcher refuses it first, exit 2. A reply that cannot be read
+    as proposals is printed whole, delimited, on stderr after its error.
     """
 
     from mcgyvr.config import ConfigError
@@ -297,8 +298,8 @@ def _run_delegated(
     Nothing runs when no contract was emitted. Documents already written to
     `--output` are run in place; when they were printed instead, they are staged
     into a temporary directory first, so either way every run reads a contract
-    file. The session is resolved from `--orchestrator`, and a failure to resolve
-    it removes the staging and returns 1.
+    file. The session the runs are filed under is `args.session`, resolved from
+    `--session` before the orchestrator role was asked (`_name_the_writer`).
 
     The contracts go on a dependency tree (`mcgyvr.tree`) read against the
     repository's committed tree, and the next one run is the first the tree
@@ -327,7 +328,6 @@ def _run_delegated(
     from mcgyvr.board import Board, GitSource, tree_id_for
     from mcgyvr.config import JOURNAL_DIR_DEFAULT
     from mcgyvr.replan import SPENT
-    from mcgyvr.session import SessionError, resolve
     from mcgyvr.tree import Tree
 
     paths = list(written)
@@ -342,14 +342,7 @@ def _run_delegated(
     # Where a re-planned contract is written: beside the batch's own.
     folder = staging if staging is not None else paths[0].parent
 
-    try:
-        session = resolve(args.orchestrator)
-    except SessionError as exc:
-        print(f"error: {exc}", file=sys.stderr)
-        if staging is not None:
-            shutil.rmtree(staging, ignore_errors=True)
-        return 1
-
+    session: Session = args.session
     journal = Path(config.get("journal.dir") or JOURNAL_DIR_DEFAULT).expanduser()
     source = GitSource(repo)
     tree = Tree.of(
@@ -376,7 +369,7 @@ def _run_delegated(
                 branch=args.branch,
                 record=args.record,
                 result=None,
-                orchestrator=args.orchestrator,
+                session_id=args.session_id,
                 session=session,
                 in_batch=True,
             )
@@ -651,7 +644,7 @@ def _write_held(
     report = held_result(
         contract,
         hold,
-        orchestrator=session.orchestrator,
+        session=session.name,
         run=stamp,
         journal=str(journal),
         session_file=str(session.session_file) if session.session_file else None,
@@ -669,19 +662,22 @@ def _write_held(
                     f"{mirror}: {exc}. It is at {written}.",
                     file=sys.stderr,
                 )
-    print(f"result: {written}")
     return int(report.exit_code or 0)
 
 
-def add_parser(sub: argparse._SubParsersAction[argparse.ArgumentParser]) -> None:
+def add_parser(
+    sub: argparse._SubParsersAction[argparse.ArgumentParser],
+) -> argparse.ArgumentParser:
     """Register the `delegate` subcommand and its arguments.
 
-    The prompt and the repository are required. `--config` names the setup that
-    binds the orchestrator role doing the proposing, `--into` keeps a clone,
-    `--budget` caps the deterministic read, and `--output` writes the contracts
-    to a directory instead of printing them. The flags `--run`, `--sandbox`,
-    `--commit`, `--branch`, `--record` and `--orchestrator` are handed to each
-    run. The subcommand's `func` is `_delegate`.
+    The prompt is required; the repository defaults to `.`. `--config` names
+    the setup that binds the orchestrator role doing the proposing, `--into`
+    keeps a clone, `--budget` caps the deterministic read, and `--output` writes
+    the contracts to a directory instead of printing them. The flags `--run`,
+    `--sandbox`, `--commit`, `--branch`, `--record` and `--session` are handed
+    to each run; `--orchestrator` is `--session`'s deprecated alias. The
+    subcommand's `func` is `_delegate`, and the subparser is returned so a
+    session that cannot be named is refused through its own `error`.
     """
 
     delegate = sub.add_parser(
@@ -768,10 +764,11 @@ def add_parser(sub: argparse._SubParsersAction[argparse.ArgumentParser]) -> None
         metavar="DIR",
         help="also journal each --run under DIR, as a complete second copy",
     )
-    delegate.add_argument(
-        "--orchestrator",
-        default=None,
-        metavar="ID",
-        help="who writes the journal for --run (default: the session)",
+    add_session(
+        delegate,
+        "the session --run files its runs under, resolved before the "
+        "orchestrator role is asked (default: the session that typed this "
+        "command, and a refusal, exit 2, when there is none)",
     )
     delegate.set_defaults(func=_delegate)
+    return delegate

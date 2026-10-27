@@ -44,7 +44,13 @@ if TYPE_CHECKING:  # pragma: no cover - typing only
     from mcgyvr.sandbox.base import Sandbox
     from mcgyvr.session import Session
 
-from mcgyvr.cli.common import CONFIG_DEFAULT_HELP, _add_repo, _named_path, setup_doc
+from mcgyvr.cli.common import (
+    CONFIG_DEFAULT_HELP,
+    _add_repo,
+    _named_path,
+    add_session,
+    setup_doc,
+)
 from mcgyvr.cli.fleet_live import _admitted_live, _live
 from mcgyvr.cli.sandbox import (
     _sandbox_policy,
@@ -198,7 +204,7 @@ def _run(args: argparse.Namespace) -> int:
         contract=contract.id,
         task_type=contract.task_type,
         target=contract.target,
-        orchestrator=session.orchestrator,
+        session=session.name,
         run=stamp,
         session_file=str(session.session_file) if session.session_file else None,
         journal=str(journal_dir),
@@ -219,11 +225,11 @@ def _run(args: argparse.Namespace) -> int:
             "records": [record.carried_json() for record in seed],
         }
 
-    # The journal sink for this run: DIR/<orchestrator>.jsonl, plus every mirror.
+    # The journal sink for this run: DIR/<session>.jsonl, plus every mirror.
     try:
         recording = Recording(
-            path=journal_dir / f"{session.orchestrator}.jsonl",
-            orchestrator=session.orchestrator,
+            path=journal_dir / f"{session.name}.jsonl",
+            orchestrator=session.name,
             run=stamp,
             session_file=session.session_file,
             mirrors=mirrors,
@@ -324,7 +330,10 @@ def _run(args: argparse.Namespace) -> int:
                 f"{exc}. It is at {written}.",
                 file=sys.stderr,
             )
-    print(f"result: {written}")
+    # The pointer is for whoever typed `mcgyvr run`. In a batch the result is
+    # read in process (the Board, the re-planner), so nothing is printed.
+    if not getattr(args, "in_batch", False):
+        print(f"result: {written}")
     return code
 
 
@@ -1322,31 +1331,45 @@ def _say_reported(bound: Accepted) -> None:
         )
 
 
-def _name_the_writer(run: argparse.ArgumentParser, args: argparse.Namespace) -> None:
-    """Refuse an unusable `--orchestrator` and resolve the session it names.
+def _name_the_writer(parser: argparse.ArgumentParser, args: argparse.Namespace) -> None:
+    """Refuse an unusable `--session` and resolve the session it names.
 
     The id is the journal's file name, so a blank one or one holding a slash is
-    refused on the parser; otherwise the session is resolved here, before any
-    work, so a run nobody can be traced to never starts.
+    refused on `parser`; otherwise the session is resolved into `args.session`
+    here, before any work, so a run nobody can be traced to never starts. `run`
+    and `delegate --run` both come through here, so both refuse the same way:
+    exit 2, through the subparser's own `error`.
+    """
+    problem = _unusable_writer(args)
+    if problem is not None:
+        parser.error(problem)
+
+
+def _unusable_writer(args: argparse.Namespace) -> str | None:
+    """Why `args.session_id` cannot name a writer, or None once it is resolved.
+
+    On success the resolved `Session` is put in `args.session`.
     """
     from mcgyvr.session import SessionError, resolve
 
-    if args.orchestrator is not None and not args.orchestrator.strip():
-        run.error(
-            "--orchestrator was given an empty id: a row that cannot say which "
-            "orchestrator produced it is the hole the field exists to close. "
+    named = args.session_id
+    if named is not None and not named.strip():
+        return (
+            "--session was given an empty id: a row that cannot say which "
+            "session produced it is the hole the field exists to close. "
             "Pass an ID, or leave the flag off to be named by the session "
             "that typed this command."
         )
-    if args.orchestrator is not None and "/" in args.orchestrator:
-        run.error(
-            f"--orchestrator {args.orchestrator!r} cannot contain '/': the id "
-            f"is the journal's file name, DIR/<ID>.jsonl"
+    if named is not None and "/" in named:
+        return (
+            f"--session {named!r} cannot contain '/': the id is the journal's "
+            f"file name, DIR/<ID>.jsonl"
         )
     try:
-        args.session = resolve(args.orchestrator)
+        args.session = resolve(named)
     except SessionError as exc:
-        run.error(str(exc))
+        return str(exc)
+    return None
 
 
 def add_parser(
@@ -1429,17 +1452,13 @@ def add_parser(
             "not stop the run"
         ),
     )
-    run.add_argument(
-        "--orchestrator",
-        default=None,
-        metavar="ID",
-        help=(
-            "who is writing the journal. Names the sink, <ID>.jsonl, and is "
-            "carried on every row, so two orchestrators sharing a directory "
-            "stay distinguishable. Default: the session that typed this "
-            "command — claude-<id> from CLAUDE_CODE_SESSION_ID, pi-<id> from "
-            "PI_SESSION_FILE — and a refusal when there is none"
-        ),
+    add_session(
+        run,
+        "the session this run is filed under. Names the journal, <ID>.jsonl, "
+        "and is carried on every row and on the result, so two sessions "
+        "sharing a directory stay distinguishable. Default: the session that "
+        "typed this command — claude-<id> from CLAUDE_CODE_SESSION_ID, "
+        "pi-<id> from PI_SESSION_FILE — and a refusal when there is none",
     )
     run.add_argument(
         "--result",

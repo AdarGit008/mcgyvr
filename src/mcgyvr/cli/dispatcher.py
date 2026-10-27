@@ -56,12 +56,14 @@ from mcgyvr.cli.commands.run import _name_the_writer, _one_delivery_answer, _run
 from mcgyvr.rig import verbs as rig_verbs
 
 
-def _build() -> tuple[argparse.ArgumentParser, argparse.ArgumentParser]:
-    """Build the whole command tree and return it with the `run` subparser.
+def _build() -> tuple[
+    argparse.ArgumentParser, argparse.ArgumentParser, argparse.ArgumentParser
+]:
+    """Build the whole command tree and return it with two of its subparsers.
 
-    Every command module adds its own subparser and verbs; `run` is the one
-    subparser returned, since the checks `main` makes after parsing need it to
-    report an error the way `run` does.
+    Every command module adds its own subparser and verbs; `run` and `delegate`
+    are the subparsers returned, since the checks `main` makes after parsing
+    need them to report an error the way each command does.
     """
     parser = argparse.ArgumentParser(
         prog="mcgyvr",
@@ -84,9 +86,9 @@ def _build() -> tuple[argparse.ArgumentParser, argparse.ArgumentParser]:
     fleet.add_parser(sub)
     rig_verbs.add_parser(sub, add_config=_common.add_config)
     run_sub = run_cmd.add_parser(sub)
-    delegate.add_parser(sub)
+    delegate_sub = delegate.add_parser(sub)
 
-    return parser, run_sub
+    return parser, run_sub, delegate_sub
 
 
 def build_parser() -> argparse.ArgumentParser:
@@ -152,13 +154,18 @@ def hanging_up_on_interrupt() -> Iterator[None]:
 
 
 def main(argv: Sequence[str] | None = None) -> int:
-    parser, run = _build()
+    parser, run, delegating = _build()
     args = parser.parse_args(argv)
     if args.func is _run:
         _name_the_writer(run, args)
         _one_delivery_answer(run, args)
     elif args.func is _delegate:
         _one_delivery_answer(parser, args)
+        if args.run:
+            # The session is named before the orchestrator role is asked, as
+            # `run` names it before any work: a batch nobody can be traced to
+            # costs no model call and writes no contracts (exit 2).
+            _name_the_writer(delegating, args)
     try:
         with hanging_up_on_interrupt():
             result: int = args.func(args)
