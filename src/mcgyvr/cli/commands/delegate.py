@@ -62,9 +62,12 @@ def _delegate(args: argparse.Namespace) -> int:
     the config and `--budget`. The contracts are reported and written, or
     printed when `--output` is not given, and `--run` runs each of them,
     re-planning a contract whose ladder is spent through the prose proposer on
-    the same checkout. The exit code is 0 when that all worked and 1 when
-    attaching, indexing, proposing or running did not. A reply that cannot be
-    read as proposals is printed whole, delimited, on stderr after its error.
+    the same checkout. The exit code is 0 when that all worked; 3
+    (`Exit.REFUSED`) when there is no orchestrator role to ask; 1 when the
+    config, attaching, indexing or proposing failed, or `--run` could name no
+    session; and otherwise under `--run` the batch's, the last non-zero exit of
+    its runs (3 for a contract held `blocked`). A reply that cannot be read as
+    proposals is printed whole, delimited, on stderr after its error.
     """
 
     from mcgyvr.config import ConfigError

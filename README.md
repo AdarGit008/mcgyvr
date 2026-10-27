@@ -87,8 +87,9 @@ The documented way in is `make`:
 - `make lint` — `ruff check .` and `ruff format --check .`.
 - `make typecheck` — `mypy`, in strict mode.
 - `make docs` — render and check the config reference (then delete it), and
-  regenerate `skills/mcgyvr/SKILL.md`, `SETUP.md` and `references/examples.md`
-  from the schemas in `src/mcgyvr/config.py` and `src/mcgyvr/contract.py`.
+  regenerate `skills/mcgyvr/SKILL.md`, `SETUP.md`, `references/examples.md` and
+  `references/failure-notes.schema.json` from the schemas in
+  `src/mcgyvr/config.py`, `src/mcgyvr/contract.py` and `src/mcgyvr/notes.py`.
 - `make check` — everything CI runs: lint, typecheck, docs check, and test.
 
 The CLI is `mcgyvr` (`mcgyvr.cli:main`, defined under `src/mcgyvr/cli/`).

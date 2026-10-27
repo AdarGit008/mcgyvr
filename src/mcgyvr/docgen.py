@@ -535,8 +535,7 @@ def _contract_describe(field: contract_schema.Field) -> str:
     text = field.doc
     if field.hint:
         text = f"{text} {field.hint.rstrip('.')}."
-    audience = "worker" if field.worker_facing else "orchestrator"
-    return _escape(f"{text} ({audience}-facing)")
+    return _escape(f"{text} (worker-facing)" if field.worker_facing else text)
 
 
 def _contract_table(fields: Sequence[contract_schema.Field], prefix: str) -> list[str]:
@@ -607,9 +606,12 @@ def render_skill() -> str:
         "Pick the `task_type` first. For `code`, evidence is derived from the "
         "contract's own fields, never chosen; `operation:` has a tool make the "
         "change instead. `mcgyvr catalog <type>` prints the type's guarantee.",
-        "`mcgyvr delegate PROMPT [--repo DIR]` has the config's `orchestrator` draft",
-        "validated contracts from a request instead and prints them; `--run` runs",
-        "each one.",
+        "`mcgyvr delegate PROMPT [--repo PATH]` has the config's `orchestrator`",
+        "draft validated contracts from a request instead (`--repo` is a checkout",
+        "or a URL to clone, default `.`). It prints them, or writes each to",
+        "`DIR/<id>.json` with `--output DIR`. `--run` runs them in dependency",
+        "order, holds one whose provider did not land (`blocked`, below) and",
+        "re-plans one whose ladder is spent (`ladder_spent`, below).",
         "",
         "### Keys",
         "",
@@ -629,8 +631,7 @@ def render_skill() -> str:
         "",
         f"`{EXAMPLES_PATH}` carries one `code` contract and one per operation,",
         "each loaded through the contract validator by the test suite, so copying",
-        "one is copying a shape that is known to validate. One file away, and it",
-        "costs nothing until it is opened.",
+        "one is copying a shape that is known to validate.",
         "",
     ]
     lines += [
@@ -647,9 +648,11 @@ def render_skill() -> str:
         "## Step 3 — run it, then read the result file",
         "",
         "```",
-        "mcgyvr run CONTRACT.yaml --repo DIR [--config PATH] "
+        "mcgyvr run CONTRACT.yaml [--repo PATH] [--config PATH] "
         "[--sandbox tempdir] [--[no-]commit] [--branch NAME]",
         "```",
+        "",
+        "`--repo` defaults to `.`; `mcgyvr run --help` lists every flag.",
         "",
         "The run works on the repository as committed at HEAD: uncommitted edits",
         "and untracked files, including a test you just wrote, are not in the",
@@ -661,8 +664,9 @@ def render_skill() -> str:
         "everything above it is scrollback, and everything the run came to is in",
         "that file, under mcgyvr's own journal directory — never in the repository.",
         "Read the file, not the scrollback. No `result:` line with exit 1 or 2 means",
-        "the run never started (the contract did not load, the repo is not git, or",
-        "no session could be named) or the result file could not be written; either",
+        "the run never started (for example: the contract did not load, the repo is",
+        "not git, the journal cannot be written, or no session could be named) or",
+        "the result file could not be written; either",
         "way the reason is on stderr, and in the second case that line also says",
         "what the run came to. The file's keys:",
         "",
@@ -719,8 +723,9 @@ def render_skill() -> str:
         "  `verified` (a reviewer agreed), `unverified` (no reviewer could be",
         "  asked; `detail` says why) or `unchecked` (a reply no check judges:",
         "  no checks, no review). A reply is never reviewed.",
-        "- `findings` — the deterministic gate's findings for a contract that",
-        "  dispatched nothing.",
+        "- `findings` — why a change was refused, one line per reason: the",
+        "  deterministic gate's findings for a contract that dispatched nothing,",
+        "  or what refused the write on a `delivery_refused`.",
         "- `delivery` — where the work went: left uncommitted in the tree (the",
         "  default), the commit, or why it was refused (as `detail`).",
         "  `committed`, `commit`, `branch`, `handoff` are the commit as fields.",
@@ -730,9 +735,12 @@ def render_skill() -> str:
         "  why. Empty on almost every run. mcgyvr's own record under `journal`",
         "  is complete whatever this says; a copy is not a sink and its failure",
         "  does not stop a run.",
-        "- `notes` — the uncommitted and untracked paths the sandbox of HEAD",
-        "  left out, what the baseline left behind (now cleaned up), and what",
-        "  a rename renamed.",
+        "- `notes` — what the run said in passing (not failure notes): the",
+        "  uncommitted and untracked paths the sandbox of HEAD left out, what a",
+        "  tool printed as it worked (what a rename renamed), what the baseline",
+        "  left behind (now cleaned up), a relief rung that duplicates a unit",
+        "  this install serves, and on a lone `ladder_spent` run where a batch",
+        "  would re-plan it.",
         "- `triage` — only under `triage: jev` or a contract's `start_rung`: the",
         "  `rung` the climb started on and its `source` (`jev`, asked for this",
         "  run, or `contract`); for `jev`, every rung's `probabilities`, its",
@@ -752,9 +760,10 @@ def render_skill() -> str:
         "  opened with (all under `retry_notes: climb`, else none).",
         "- `replanned` — only on a `ladder_spent` result in a batch with",
         "  `max_replans` above 0: the `round`, the `max_replans` it was held to,",
-        "  the `contracts` proposed in its place (each carries `replan`: the id",
-        "  it `replaces` and its `round`; none when it was not re-planned) and a",
-        "  `detail` sentence, which `detail` repeats.",
+        "  the ids of the `contracts` proposed in its place (empty when it was",
+        "  not re-planned; each of those contract files carries `replan`: the id",
+        "  it `replaces` and its `round`) and a `detail` sentence, which `detail`",
+        "  repeats.",
         "",
         *_notes_section(),
         "Every run is journaled under the config's `journal.dir` and nothing on",
@@ -769,7 +778,9 @@ def render_skill() -> str:
         "",
         "Exit codes: 0 accepted or nothing to change, 1 not accepted or error,",
         "2 usage (including no session to file the run under), 3 a live fleet",
-        "refused admission.",
+        "refused admission. `mcgyvr delegate` exits 3 too when no orchestrator",
+        "role is configured, and under `--run` when a contract was held",
+        "`blocked`.",
         "",
         "## Step 4 — replan from the findings, never retry the same contract",
         "",
