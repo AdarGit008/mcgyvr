@@ -2,8 +2,9 @@
 
 A run that finds the
 rig's lease held by a run that is still live — whichever door wrote it, the
-product's or the lab's — is refused before it touches the rig, naming the
-holder; it does not take the lease, and nothing of the holder's is torn down.
+product's or another writer of the same lease file — is refused before it
+touches the rig, naming the holder; it does not take the lease, and nothing of
+the holder's is torn down.
 A lease whose holder is gone is stale and is reclaimed, so a run that crashed
 does not lock a rig forever. A fleet's rigs are shared — mutual exclusion,
 not partitioning.
@@ -212,12 +213,11 @@ def test_the_lease_is_released_on_an_interrupt(
 
 # --- a live holder is never displaced -------------------------------------------
 
-#: The door's own command lines, as a lease's pid would show them: the
-#: product's (``python -m mcgyvr.serving.run``) and the lab's
-#: (``tools/door/door.py``), which writes the same lease file in the same
-#: format, with its run id from the start.
+#: The command lines a lease's pid would show: the product's door
+#: (``python -m mcgyvr.serving.run``) and any other process that writes the
+#: same lease file in the same format, with its run id from the start.
 PRODUCT_DOOR = ("-m", "mcgyvr.serving.run", "serve", "up", "--host", "box1")
-LAB_DOOR = ("tools/door/door.py", "--host", "box1", "--campaign", "c", "--step", "s")
+OTHER_DOOR = ("other-door.py", "--host", "box1")
 
 
 def _refused_untouched(
@@ -263,12 +263,14 @@ def test_a_lease_whose_run_has_minted_no_id_yet_refuses_this_run(
     _refused_untouched(root, tmp_path, line, names=("serve-up", "elsewhere"))
 
 
-@pytest.mark.parametrize("door_argv", [PRODUCT_DOOR, LAB_DOOR], ids=["product", "lab"])
+@pytest.mark.parametrize(
+    "door_argv", [PRODUCT_DOOR, OTHER_DOOR], ids=["product", "other"]
+)
 def test_a_live_door_on_this_machine_holds_its_lease_whichever_door_it_is(
     root: Path, tmp_path: Path, door_argv: tuple[str, ...]
 ) -> None:
     """A door on THIS machine is still running and holds the rig. Whether it
-    is the product's door or the lab's, its pid is alive and is the very
+    is the product's door or another writer, its pid is alive and is the very
     process that took the lease: live, so this run is refused."""
     with _a_live_door(*door_argv) as holder:
         line = _foreign(
