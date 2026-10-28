@@ -206,14 +206,17 @@ archived outside this repository, under the same paths.
   (`API_ERROR_STATUS`) and the pairs read off it (`RUNG_BUSY`,
   `MODEL_UNPLACED`, `MODEL_NOT_FOUND`), the request fields a request through
   the hub may carry, the scope header and its values, the use-case names
-  (`USE_CASES`), the use-case header and which use cases each pool serves
+  (`USE_CASES`) and the model category each is recommended
+  (`USE_CASE_CATEGORY`), the use-case header, which use cases each pool serves
   (`POOL_USE_CASES`: the general pool serves `code`, `chat` and `agent`; a
-  crew's pool and a ride all four; a shared ladder `mcgyvr-code` alone), and the hub's two JSON Schemas, shipped in the package
-  (`hubwire_schemas/`, the hub's files byte for byte). `rig.rungs`,
-  `rig.sessionwire`, `rig.protocol`, `runner` and `config` import them; the
-  hub is to import them too, and does the refusing. Moved: `rig.rungs.BUSY`
-  is `RUNG_BUSY`, `MAX_LADDER_RUNGS` is `LADDER_MAX_RUNGS`, `_LADDER_MODEL`,
-  `_MODEL` and `_ID` are `LADDER_MODEL`, `MODEL_NAME` and `OFFER_ID`;
+  crew's pool and a ride all four; a shared ladder `mcgyvr-code` alone), and
+  the hub's two JSON Schemas, shipped in the package (`hubwire_schemas/`, the
+  hub's files byte for byte). `rig.rungs`, `rig.sessionwire`, `rig.protocol`,
+  `runner` and `config` import them. The hub is to import them and refuse a
+  use case its pool does not serve; the product does not send the scope or
+  use-case header yet. Moved: `rig.rungs.BUSY` is `RUNG_BUSY`,
+  `MAX_LADDER_RUNGS` is `LADDER_MAX_RUNGS`, `_LADDER_MODEL`, `_MODEL` and
+  `_ID` are `LADDER_MODEL`, `MODEL_NAME` and `OFFER_ID`;
   `runner.UNKNOWN_MODEL` is `MODEL_NOT_FOUND` and `runner.MODEL_UNPLACED` is
   `MODEL_UNPLACED`. The test fixtures `hub_*_v1.schema.json`, their sha256
   pins and the re-pin tool (`python -m tests.rig_schema`) are gone: a hub

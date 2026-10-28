@@ -22,7 +22,8 @@ from these names rather than writing them again:
   (:data:`FORWARDED_FIELDS`, :data:`CHAT_TEMPLATE_KEYS`);
 * the header naming who may serve a request (:data:`SCOPE_HEADER`,
   :data:`SCOPE_VALUES`);
-* the use cases (:data:`USE_CASES`), the header a request names its own in
+* the use cases (:data:`USE_CASES`) with the model category each is
+  recommended (:data:`USE_CASE_CATEGORY`), the header a request names its own in
   (:data:`USE_CASE_HEADER`), and which use cases each pool serves
   (:data:`POOL_USE_CASES`, :func:`pool_serves`): the hub refuses the rest;
 * the hub's published JSON Schemas (:data:`SCHEMAS`), shipped inside this
@@ -195,8 +196,9 @@ FORWARDED_FIELDS: frozenset[str] = frozenset(
         "chat_template_kwargs",
     }
 )
-#: The keys of ``chat_template_kwargs`` the product sends: thinking turned off,
-#: so a one-token answer is the answer.
+#: The keys of ``chat_template_kwargs`` the product sends, thinking turned off
+#: so a one-token answer is the answer, and the only ones the hub passes to a
+#: rig.
 CHAT_TEMPLATE_KEYS: frozenset[str] = frozenset({"enable_thinking"})
 
 #: The request header naming whose rigs may serve one request; without it the
@@ -213,6 +215,11 @@ CODE = "code"
 CHAT = "chat"
 AGENT = "agent"
 USE_CASES: tuple[str, ...] = (MCGYVR_CODE, CODE, CHAT, AGENT)
+#: The kind of model each use case is recommended: ``mcgyvr-code`` climbs a
+#: ladder of coding models and ``code`` serves one raw, so both are ``code``.
+USE_CASE_CATEGORY: Mapping[str, str] = MappingProxyType(
+    {MCGYVR_CODE: CODE, CODE: CODE, CHAT: CHAT, AGENT: AGENT}
+)
 #: The request header naming the caller's use case, beside
 #: :data:`SCOPE_HEADER`, so the hub can refuse one its pool does not serve.
 USE_CASE_HEADER = "x-mcgyvr-use-case"
@@ -226,7 +233,9 @@ POOL_SHARED_LADDER = "shared_ladder"
 POOLS: tuple[str, ...] = (POOL_GENERAL, POOL_CREW, POOL_HITCHHIKE, POOL_SHARED_LADDER)
 #: The use cases each pool serves. The general pool serves models raw only; a
 #: crew's pool and a ride serve every use case; a shared ladder is there for
-#: ``mcgyvr-code`` alone.
+#: ``mcgyvr-code`` alone. The hub's sharing modes map onto these: ``pool`` is
+#: :data:`POOL_GENERAL`, ``crew`` and ``hitchhike`` are themselves. A member's
+#: own rigs are not a pool here.
 POOL_USE_CASES: Mapping[str, tuple[str, ...]] = MappingProxyType(
     {
         POOL_GENERAL: (CODE, CHAT, AGENT),

@@ -342,15 +342,22 @@ def test_the_scope_header_is_one_header_and_its_values_are_three() -> None:
 # --- which pool serves which use case -------------------------------------------
 
 
-@pytest.mark.xfail(
-    strict=True,
-    reason="config still names `coding` until the four use cases land (F18); "
-    "then config imports USE_CASES from mcgyvr.hubwire and this passes",
-)
 def test_the_setups_use_cases_are_the_wires() -> None:
     from mcgyvr import config
 
+    if "coding" in config.USE_CASES:
+        pytest.xfail(
+            "config names `coding` until the four use cases land; then "
+            "config imports USE_CASES from mcgyvr.hubwire"
+        )
     assert config.USE_CASES is hubwire.USE_CASES
+
+
+def test_each_use_case_is_recommended_a_category_a_raw_use_case_names() -> None:
+    assert tuple(hubwire.USE_CASE_CATEGORY) == hubwire.USE_CASES
+    assert hubwire.USE_CASE_CATEGORY[hubwire.MCGYVR_CODE] == hubwire.CODE
+    raw = hubwire.POOL_USE_CASES[hubwire.POOL_GENERAL]
+    assert set(hubwire.USE_CASE_CATEGORY.values()) == set(raw)
 
 
 def test_every_pool_serves_only_use_cases_and_each_is_served_somewhere() -> None:
@@ -389,6 +396,7 @@ _DEFINED_ONCE = (
     hubwire.LADDER_MODEL.pattern,
     *(f"{quote}{hubwire.RUNG_PREFIX}" for quote in "\"'"),
     hubwire.SCOPE_HEADER,
+    hubwire.USE_CASE_HEADER,
     *(
         f"{quote}{word}{quote}"
         for quote in "\"'"
