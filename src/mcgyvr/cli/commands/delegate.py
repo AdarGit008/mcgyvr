@@ -43,7 +43,7 @@ if TYPE_CHECKING:  # pragma: no cover - typing only
     from mcgyvr.orchestrator.decompose import Decomposition, Proposer
     from mcgyvr.replan import Replanner, Spent
     from mcgyvr.session import Session
-    from mcgyvr.tree import Hold, Tree
+    from mcgyvr.tree import Hold
 
 from mcgyvr.cli.commands.run import _copy, _run
 from mcgyvr.cli.common import CONFIG_DEFAULT_HELP, _add_repo, _named_path, add_session
@@ -494,9 +494,17 @@ def _run_delegated(
     file. The session the runs are filed under is `args.session`, resolved from
     `--session` before the orchestrator role was asked (`_name_the_writer`).
 
-    The contracts go on a dependency tree (`mcgyvr.tree`) read against the
-    repository's committed tree, and what runs next is what the tree says is
-    ready, first ready first. Each run's result settles it there as soon as
+    The contracts go on the repository's live dependency tree (`mcgyvr.tree`,
+    `Board.live`) read against its committed tree: a fresh one, or the one
+    another batch on the repository still has contracts in flight on, which
+    they join, their edges read against every contract there. What runs next
+    is what the tree says is ready of this batch's own, first ready first. A
+    contract another batch already has in flight is left to it and waited on,
+    never run twice. When nothing of this batch's is ready but one of its
+    contracts waits on another batch's work in flight, the batch waits for
+    that batch's next write rather than seal it. A contract left in flight by
+    a batch that is gone is freed from its result (`_came_to`), or as
+    `abandoned`. Each run's result settles it there as soon as
     the run ends: it landed when it was accepted with a commit HEAD now holds,
     the tree the next sandbox starts from. Under `dependents: hold`, the
     default, a contract whose provider did not land is held, and once nothing
@@ -512,7 +520,8 @@ def _run_delegated(
     it would one at a time; the delivery lock (`mcgyvr.deliver`) is the net
     under that. Beside others, a run's output is held and written whole when
     it ends (`mcgyvr.cli.streams`). The tree, the board and the source are
-    read and changed on this thread only.
+    read and changed on this thread only, under the repository's delivery
+    lock, which serialises them with every other batch on it.
 
     A contract whose run came to `ladder_spent` is handed to `replan` with the
     failure notes its result carries, while its `replan` round is below
@@ -533,12 +542,11 @@ def _run_delegated(
     import tempfile
     from contextlib import nullcontext
 
-    from mcgyvr.board import Board, GitSource, tree_id_for
+    from mcgyvr.board import Board, GitSource
     from mcgyvr.capacity import run_eager
     from mcgyvr.cli import streams
     from mcgyvr.config import JOURNAL_DIR_DEFAULT
     from mcgyvr.replan import SPENT
-    from mcgyvr.tree import Tree
 
     paths = list(written)
     staging: Path | None = None
@@ -555,14 +563,11 @@ def _run_delegated(
     session: Session = args.session
     journal = Path(config.get("journal.dir") or JOURNAL_DIR_DEFAULT).expanduser()
     source = GitSource(repo)
-    tree = Tree.of(
-        dec.contracts,
-        source,
-        tree_id=tree_id_for(str(repo), source.commit, path_of),
-        hold=config.get("dependents", "hold") != "run",
-    )
-    board = Board(journal)
-    board.attach(tree)
+
+    def came_to(contract_id: str, started: str) -> dict[str, Any] | None:
+        return _came_to(journal, contract_id, started, source)
+
+    board = Board.live(journal, repo, found=came_to)
     width = _batch_width(getattr(args, "jobs", 1), config)
 
     codes: dict[str, int] = {}
@@ -580,7 +585,7 @@ def _run_delegated(
         return taken
 
     def start(contract: Contract) -> Callable[[], int]:
-        board.start(tree.tree_id, contract.id)
+        board.start(tree_id, contract.id)
         before[contract.id] = _results_of(journal, contract.id)
         running[contract.id] = contract
         run = argparse.Namespace(
@@ -601,18 +606,19 @@ def _run_delegated(
         run.beside_others = True
         return lambda: _held(run)
 
-    def landed(contract: Contract, code: int) -> dict[str, Any]:
+    def came(contract: Contract, code: int) -> dict[str, Any]:
         del running[contract.id]
         codes[contract.id] = code
         source.refresh()
-        settled = _settled(
+        return _settled(
             _results_of(journal, contract.id) - before.pop(contract.id), source
         )
-        board.settle(tree.tree_id, contract.id, **settled)
-        return settled
 
     def settle(contract: Contract, code: int) -> None:
-        settled = landed(contract, code)
+        settled = came(contract, code)
+        # A spent contract is re-planned before it is settled, so the tree
+        # every batch reads never shows it failed while what replaces it is
+        # still being asked for.
         if (
             replan is not None
             and settled["outcome"] == SPENT
@@ -620,7 +626,7 @@ def _run_delegated(
             and _replanned(
                 args,
                 board,
-                tree,
+                tree_id,
                 contract,
                 Path(settled["result"]),
                 replan,
@@ -632,29 +638,48 @@ def _run_delegated(
             # The work goes on under what replaced it, so this run's exit
             # is not the batch's.
             del codes[contract.id]
+            return
+        board.settle(tree_id, contract.id, **settled)
 
     def abandon(contract: Contract, code: int) -> None:
         # The batch is stopping: what ended beside the failure is put on the
         # tree as it came, and nothing is re-planned.
-        landed(contract, code)
+        board.settle(tree_id, contract.id, **came(contract, code))
 
     try:
-        with streams.routed() if width > 1 else nullcontext():
-            run_eager(
-                ready,
-                start,
-                settle,
-                workers=width,
-                abandon=abandon,
-                stopping=_say_stopping,
+        tree_id = board.join(
+            dec.contracts, source, hold=config.get("dependents", "hold") != "run"
+        )
+        for each in board.left:
+            print(
+                f"note: {each} is in flight in another batch on this repository; "
+                f"this batch waits on it rather than run it twice.",
+                file=sys.stderr,
             )
+        with streams.routed() if width > 1 else nullcontext():
+            while True:
+                run_eager(
+                    ready,
+                    start,
+                    settle,
+                    workers=width,
+                    abandon=abandon,
+                    stopping=_say_stopping,
+                )
+                seen = board.generation()
+                if board.ready():
+                    continue
+                if not board.waiting():
+                    break
+                board.wait(seen)
         held: list[str] = []
         for _, contract, hold in board.drain():
             codes[contract.id] = _write_held(args, contract, hold, session, journal)
             held.append(contract.id)
         if held and book is not None:
-            book.held(held, board.state_file(tree.tree_id))
+            book.held(held, board.state_file(tree_id))
     finally:
+        board.leave()
         if staging is not None:
             shutil.rmtree(staging, ignore_errors=True)
     failed = [each for each in codes.values() if each != 0]
@@ -746,7 +771,7 @@ def _jobs(text: str) -> int:
 def _replanned(
     args: argparse.Namespace,
     board: Board,
-    tree: Tree,
+    tree_id: str,
     spent: Contract,
     result: Path,
     replan: Replanner,
@@ -810,7 +835,7 @@ def _replanned(
         )
         return False
     fresh = _runnable_replacements(
-        dec.contracts, spent.id, {c.id for c in tree.contracts()}
+        dec.contracts, spent.id, {c.id for c in board.tree(tree_id).contracts()}
     )
     if not fresh:
         refused = "; ".join(str(r) for r in dec.refusals)
@@ -832,7 +857,7 @@ def _replanned(
             path = folder / f"{contract.id}.json"
             path.write_text(dumps(contract) + "\n", encoding="utf-8")
             path_of[contract.id] = path
-        board.replace(tree.tree_id, spent.id, *replacing)
+        board.replace(tree_id, spent.id, *replacing)
     except (OSError, ValueError) as exc:
         _say_replanned(
             args,
@@ -946,6 +971,24 @@ def _results_of(journal: Path, contract_id: str) -> set[Path]:
 
 #: What follows `<id>-` in a result file's name: a run stamp (`run_stamp`).
 _STAMPED = re.compile(r"\d{8}T\d{6}\.\d{6}Z\.json")
+
+
+def _came_to(
+    journal: Path, contract_id: str, started: str, source: GitSource
+) -> dict[str, Any] | None:
+    """What a contract left in flight by a batch that is gone came to: read
+    from a result its run wrote at or after `started`, as `_settled` reads
+    one; None when it wrote none."""
+    stamp = len(contract_id) + 1
+    new = {
+        path
+        for path in _results_of(journal, contract_id)
+        if path.name[stamp:] >= started
+    }
+    if not new:
+        return None
+    source.refresh()
+    return _settled(new, source)
 
 
 def _settled(new: set[Path], source: GitSource) -> dict[str, Any]:

@@ -251,7 +251,8 @@ what the run came to. The file's keys:
   `providers` it waited on with the `outcome` and `result` each came
   to, the `needs` it had of them (`path`, `symbol`, and `creates`: to
   be created rather than changed) and the `chain` a hold came down
-  through. The live tree of a batch is under `journal.dir` in
+  through. A repository's live tree, which every batch on it joins
+  while it has contracts in flight, is under `journal.dir` in
   `trees/<tree>.json`.
 - `seeded` — only on a run started with `--notes-from RESULT`: `from`,
   the result read, `records`, the failure-notes records read from it,

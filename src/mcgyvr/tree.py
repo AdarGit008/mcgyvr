@@ -33,11 +33,16 @@ into `dead`, the contracts that get a result with outcome `blocked` and no
 attempt spent.
 With `hold=False` nothing is held: a dependent runs once each provider has
 come to anything at all, the order a plan without the tree ran in.
+
+Several batches can share one tree (`mcgyvr.board`): each contract names the
+`batch` that runs it, a later batch `join`s with its own contracts, `seal`
+can be told whose contracts it seals, and a contract whose batch is gone is
+`abandon`ed. `restore` reads a tree back from its state file.
 """
 
 from __future__ import annotations
 
-from collections.abc import Iterable, Sequence
+from collections.abc import Collection, Iterable, Mapping, Sequence
 from dataclasses import dataclass, field, replace
 from enum import StrEnum
 from typing import Any, Protocol
@@ -51,6 +56,10 @@ BLOCKED = "blocked"
 
 #: The outcome a provider's climb reports when its change was accepted.
 ACCEPTED = "accepted"
+
+#: The outcome of a contract whose batch ended without settling it, and left
+#: no result to settle it from.
+ABANDONED = "abandoned"
 
 
 class State(StrEnum):
@@ -68,6 +77,9 @@ class State(StrEnum):
 #: The states a contract does not leave unless the queue says so: started,
 #: settled or sealed.
 _SETTLED = frozenset({State.RUNNING, State.LANDED, State.FAILED, State.DEAD})
+
+#: The states a contract has come to an end in.
+_ENDED = _SETTLED - {State.RUNNING}
 
 
 class Reason(StrEnum):
@@ -104,6 +116,10 @@ class Need:
     def as_json(self) -> dict[str, Any]:
         return {"path": self.path, "symbol": self.symbol, "creates": self.creates}
 
+    @classmethod
+    def from_json(cls, doc: Mapping[str, Any]) -> Need:
+        return cls(str(doc["path"]), str(doc["symbol"]), bool(doc["creates"]))
+
 
 @dataclass(frozen=True)
 class Edge:
@@ -133,6 +149,15 @@ class Provider:
             "outcome": self.outcome,
             "result": self.result,
         }
+
+    @classmethod
+    def from_json(cls, doc: Mapping[str, Any]) -> Provider:
+        return cls(
+            contract=str(doc["contract"]),
+            target=str(doc["target"]),
+            outcome=str(doc.get("outcome") or ""),
+            result=doc.get("result"),
+        )
 
 
 @dataclass(frozen=True)
@@ -213,6 +238,16 @@ class Hold:
             "chain": list(self.chain),
         }
 
+    @classmethod
+    def from_json(cls, doc: Mapping[str, Any]) -> Hold:
+        """The hold `as_json` wrote."""
+        return cls(
+            Reason(doc["reason"]),
+            tuple(Provider.from_json(p) for p in doc.get("providers") or ()),
+            tuple(Need.from_json(n) for n in doc.get("needs") or ()),
+            tuple(str(c) for c in doc.get("chain") or ()),
+        )
+
 
 @dataclass
 class _Node:
@@ -227,6 +262,10 @@ class _Node:
     edges: tuple[Edge, ...] = ()
     #: `deps` symbols nothing defines and nothing in the set creates.
     unprovided: tuple[Need, ...] = ()
+    #: The batch that runs it, on a tree several batches share; else empty.
+    batch: str = ""
+    #: When it was started (a run stamp), while it runs and after.
+    started: str = ""
 
 
 @dataclass
@@ -255,13 +294,57 @@ class Tree:
         tree_id: str,
         hold: bool = True,
         sealed: bool = True,
+        batch: str = "",
     ) -> Tree:
-        """A tree of `contracts` read against `source`; each starts waiting."""
+        """A tree of `contracts` read against `source`; each starts waiting.
+
+        `batch` names the batch that runs them, on a tree batches share.
+        """
         tree = cls(tree_id=tree_id, source=source, hold=hold, sealed=sealed)
         for contract in contracts:
             if contract.id in tree._nodes:
                 raise ValueError(f"{contract.id} is in this tree twice")
-            tree._nodes[contract.id] = _Node(contract)
+            tree._nodes[contract.id] = _Node(contract, batch=batch)
+        tree._build()
+        tree._evaluate()
+        return tree
+
+    @classmethod
+    def restore(
+        cls,
+        doc: Mapping[str, Any],
+        contracts: Mapping[str, Contract],
+        source: Source,
+    ) -> Tree:
+        """The tree `as_json` wrote as `doc`, each contract in `contracts`.
+
+        What each contract came to is read back; whether one not yet started
+        or settled is ready, waiting or held is read again, against `source`.
+        """
+        tree = cls(
+            tree_id=str(doc["tree"]),
+            source=source,
+            hold=bool(doc.get("hold", True)),
+            sealed=bool(doc.get("sealed", True)),
+        )
+        for row in doc["contracts"]:
+            cid = str(row["contract"])
+            state = State(row["state"])
+            blocked_by = row.get("blocked_by")
+            tree._nodes[cid] = _Node(
+                contracts[cid],
+                state=state,
+                outcome=str(row.get("outcome") or ""),
+                detail=str(row.get("detail") or ""),
+                result=row.get("result"),
+                hold=(
+                    Hold.from_json(blocked_by)
+                    if state is State.DEAD and blocked_by
+                    else None
+                ),
+                batch=str(row.get("batch") or ""),
+                started=str(row.get("started") or ""),
+            )
         tree._build()
         tree._evaluate()
         return tree
@@ -282,6 +365,18 @@ class Tree:
 
     def contracts(self) -> tuple[Contract, ...]:
         return tuple(n.contract for n in self._nodes.values())
+
+    def batch(self, contract_id: str) -> str:
+        """The batch that runs the contract, or empty when no batch is named."""
+        return self._nodes[contract_id].batch
+
+    def started(self, contract_id: str) -> str:
+        """When the contract was started (a run stamp), or empty."""
+        return self._nodes[contract_id].started
+
+    def finished(self) -> bool:
+        """Whether every contract has come to an end: landed, failed or dead."""
+        return all(n.state in _ENDED for n in self._nodes.values())
 
     def edges(self, contract_id: str) -> tuple[Edge, ...]:
         return self._nodes[contract_id].edges
@@ -305,13 +400,14 @@ class Tree:
 
     # -- what the queue tells it --------------------------------------------
 
-    def start(self, contract_id: str) -> None:
-        """The contract was dispatched."""
+    def start(self, contract_id: str, *, started: str = "") -> None:
+        """The contract was dispatched, at `started` when that is given."""
         node = self._nodes[contract_id]
         self._evaluate()
         if node.state is not State.READY:
             raise ValueError(f"{contract_id} is {node.state.value}, not ready")
         node.state = State.RUNNING
+        node.started = started
 
     def settle(
         self,
@@ -336,10 +432,41 @@ class Tree:
         """The contract will run again: it waits once more, and frees its dependents."""
         node = self._nodes[contract_id]
         node.state = State.WAITING
-        node.outcome = node.detail = ""
+        node.outcome = node.detail = node.started = ""
         node.result = None
         node.hold = None
         self._evaluate()
+
+    def abandon(self, contract_id: str, detail: str) -> None:
+        """The contract's batch is gone and left nothing to settle it from:
+        it failed, as `abandoned`, and holds what waits on it."""
+        node = self._nodes[contract_id]
+        node.state = State.FAILED
+        node.outcome = ABANDONED
+        node.detail = detail
+        node.hold = None
+        self._evaluate()
+
+    def join(self, contracts: Iterable[Contract], *, batch: str) -> tuple[str, ...]:
+        """A later batch's `contracts` join the tree, each waiting afresh.
+
+        Edges are read again over every contract the tree holds, so one may
+        wait on a contract of another batch, in flight or landed. A contract
+        whose id the tree already holds is the same unit of work: when it has
+        come to an end it is the later batch's to run again, as a retry; while
+        another batch still has it in flight it is left to that batch, and its
+        id comes back.
+        """
+        left: list[str] = []
+        for contract in contracts:
+            there = self._nodes.get(contract.id)
+            if there is not None and there.state not in _ENDED:
+                left.append(contract.id)
+                continue
+            self._nodes[contract.id] = _Node(contract, batch=batch)
+        self._build()
+        self._evaluate()
+        return tuple(left)
 
     def replace(self, old_id: str, contract: Contract, *more: Contract) -> None:
         """`contract`, and `more`, stand for `old_id` from now on: a re-decomposition.
@@ -362,7 +489,7 @@ class Tree:
         rebuilt: dict[str, _Node] = {}
         for cid, node in self._nodes.items():
             if cid == old_id:
-                rebuilt.update((c.id, _Node(c)) for c in fresh)
+                rebuilt.update((c.id, _Node(c, batch=old.batch)) for c in fresh)
                 continue
             if old_id in node.contract.depends_on:
                 waits: list[str] = []
@@ -376,16 +503,21 @@ class Tree:
         self._build()
         self._evaluate()
 
-    def seal(self) -> tuple[tuple[Contract, Hold], ...]:
+    def seal(
+        self, only: Collection[str] | None = None
+    ) -> tuple[tuple[Contract, Hold], ...]:
         """The queue is drained: whatever is still held is dead, and comes back.
 
         A contract still waiting here waits on nothing that will run, so it is
-        held first, then dead.
+        held first, then dead. With `only`, just those contracts are sealed:
+        one batch's, on a tree other batches still run.
         """
         self.sealed = True
         self._evaluate()
         dead: list[tuple[Contract, Hold]] = []
-        for node in self._nodes.values():
+        for cid, node in self._nodes.items():
+            if only is not None and cid not in only:
+                continue
             if node.state is State.WAITING:
                 node.state = State.BLOCKED
                 node.hold = node.hold or Hold(
@@ -411,6 +543,7 @@ class Tree:
                     "state": node.state.value,
                     "waits_on": [e.provider for e in node.edges],
                     "outcome": node.outcome or None,
+                    "detail": node.detail or None,
                     "result": node.result,
                     "blocked_by": node.hold.as_json() if node.hold else None,
                     **(
@@ -418,6 +551,8 @@ class Tree:
                         if node.contract.replan.stated
                         else {}
                     ),
+                    **({"batch": node.batch} if node.batch else {}),
+                    **({"started": node.started} if node.started else {}),
                 }
                 for cid, node in self._nodes.items()
             ],
