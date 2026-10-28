@@ -21,7 +21,7 @@ HELPS = (
     ("config",),
     ("local_pool",),
     ("emit",),
-    ("run",),
+    ("direct",),
     ("fleet",),
     ("fleet", "alerts"),
 )

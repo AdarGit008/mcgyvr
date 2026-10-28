@@ -171,6 +171,24 @@ archived outside this repository, under the same paths.
 
 ### Changed
 
+- **`mcgyvr "<prompt>"` and `mcgyvr direct FILE... | DIR` replace `run` and `delegate`.**
+  The bare verb plans a prompt into contracts and runs them, as `delegate
+  --run` did; it needs a session (`--session`, else exit 2 before any
+  proposer is asked), and `--output DIR` plans without running. `direct` takes
+  contracts someone wrote and vets each as a proposal is vetted (the target is
+  a committed file, the ladder serves the task type, the worker's view is
+  under the ceiling): a refusal prints `refused: <file>: <reason>` and
+  `change: <what_to_change>` on stderr and is logged, the rest of the set
+  runs, and when nothing passes the exit is 3; a contract that does not load,
+  one id twice and a `depends_on` cycle are refusals too. What passes goes into one tree and runs through the
+  batch path, with no re-plan. Both take one flag set; a flag with no meaning
+  on one side (`--budget` on `direct`, which has no prompt) is refused, exit
+  2. `mcgyvr run` and `mcgyvr delegate` are removed with no alias: `run
+  CONTRACT` is `direct CONTRACT`, `delegate PROMPT --run` is `PROMPT`, and
+  `delegate PROMPT` is `PROMPT --output DIR`. `--orchestrator` is removed
+  too; `--session` is the name. `direct` prints no `result:` line (read it
+  with `--result PATH`, or from the journal), and a setup named by `--config`
+  or `$MCGYVR_CONFIG` that is missing or invalid is exit 1 before anything runs.
 - **`mcgyvr delegate` exits 3 when no contract came of the request.** The
   request was read and declined, which is `REFUSED`, with or without `--run`
   (was 0).

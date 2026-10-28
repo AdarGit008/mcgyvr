@@ -52,8 +52,8 @@ scope:
 """
 
 
-def _result(capsys: pytest.CaptureFixture[str]) -> dict[str, Any]:
-    return dict(json.loads(lj.result_path(capsys.readouterr().out).read_text()))
+def _result(contract: Path) -> dict[str, Any]:
+    return dict(json.loads(lj.result_of(contract).read_text()))
 
 
 def _untouched(repo: Path, head: str) -> None:
@@ -82,7 +82,7 @@ def test_a_floor_run_on_a_clean_target_is_nothing_to_change(
 
     code = lj.main(lj.run_args(contract, repo, config, *extra))
 
-    result = _result(capsys)
+    result = _result(contract)
     assert result["outcome"] == "nothing_to_change", result
     assert code == 0
     assert NOTHING_TO_CHANGE == "nothing_to_change"
@@ -112,7 +112,7 @@ def test_a_model_reply_that_changes_nothing_is_still_refused(
     code = lj.main(lj.run_args(contract, repo, config, *extra))
 
     assert scripted, "the model was asked"
-    result = _result(capsys)
+    result = _result(contract)
     assert result["outcome"] == "ladder_spent", result
     assert all(a["verdict"] == "failed" for a in result["attempts"]), result
     assert code == 1
@@ -165,7 +165,7 @@ def test_a_no_commit_refusal_puts_its_findings_in_the_result_file(
 
     code = lj.main(lj.run_args(contract, repo, config))
 
-    result = _result(capsys)
+    result = _result(contract)
     assert result["outcome"] == "delivery_refused", result
     assert code == 1
     assert result["findings"] == [str(finding)]

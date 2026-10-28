@@ -1,16 +1,17 @@
 """Hold what one thread writes to stdout and stderr, and write it out whole.
 
-Under `delegate --run --jobs N` several runs share one process and its two
-streams, and a run's narrative is many `print` calls: unheld, the lines of two
-runs would interleave, and a line of one could be cut by the other's. Inside
-`routed()`, `sys.stdout` and `sys.stderr` are routers: a thread inside
-`held()` keeps what it writes, in the order it wrote it across both streams,
-and writes it all in one go, under one lock, when its block ends; every other
-thread's writes go through a whole line at a time under the same lock, so no
-held block lands inside one of its lines. What is held is a context variable,
-so a thread the held one starts with its context (`capacity.run_batch` hands
-each job its submitter's) is held into the same block. Outside `routed()` nothing is
-replaced and `held()` holds nothing, so a single run writes as it always has.
+Under `mcgyvr PROMPT --jobs N` or `mcgyvr direct --jobs N` several runs share
+one process and its two streams, and a run's narrative is many `print` calls:
+unheld, the lines of two runs would interleave, and a line of one could be cut
+by the other's. Inside `routed()`, `sys.stdout` and `sys.stderr` are routers: a
+thread inside `held()` keeps what it writes, in the order it wrote it across
+both streams, and writes it all in one go, under one lock, when its block ends;
+every other thread's writes go through a whole line at a time under the same
+lock, so no held block lands inside one of its lines. What is held is a context
+variable, so a thread the held one starts with its context
+(`capacity.run_batch` hands each job its submitter's) is held into the same
+block. Outside `routed()` nothing is replaced and `held()` holds nothing, so a
+single run writes as it always has.
 """
 
 from __future__ import annotations

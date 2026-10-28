@@ -3,7 +3,7 @@
 :data:`mcgyvr.notes.NOTE_FIELDS` and :data:`~mcgyvr.notes.NOTES_FIELDS` are the
 schema: the dataclasses hold exactly those fields in that order, the JSON a
 record writes is walked from them, and :func:`~mcgyvr.notes.json_schema` —
-committed as ``skills/mcgyvr/references/failure-notes.schema.json`` by `make
+committed as ``skills/mcgyvr-direct/references/failure-notes.schema.json`` by `make
 docs` — is rendered from them and validates the records the gate builds.
 """
 
@@ -92,7 +92,7 @@ def test_the_committed_schema_is_what_the_fields_render() -> None:
 
 
 def test_the_skill_documents_every_field() -> None:
-    skill = docgen.render_skill()
+    skill = docgen.render_direct_skill()
     for spec in (*NOTES_FIELDS, *NOTE_FIELDS):
-        assert f"| `{spec.name}` |" in skill, spec.name
+        assert f"**`{spec.name}`**" in skill, spec.name
     assert "references/failure-notes.schema.json" in skill

@@ -64,7 +64,6 @@ def test_a_rung_whose_only_slot_is_taken_is_declined_within_the_task_ceiling(
     tmp_path: Path,
     home: Path,
     monkeypatch: pytest.MonkeyPatch,
-    capsys: pytest.CaptureFixture[str],
 ) -> None:
     from mcgyvr.capacity import Capacity
     from mcgyvr.config import load
@@ -110,8 +109,7 @@ def test_a_rung_whose_only_slot_is_taken_is_declined_within_the_task_ceiling(
         "the product, so a saturated ladder hangs with no output"
     )
     assert code == 1
-    out = capsys.readouterr().out
-    result = json.loads(lj.result_path(out).read_text())
+    result = json.loads(lj.result_of(contract).read_text())
     assert result["outcome"] == "declined_throughout", result["outcome"]
     # The reason lives on the attempt, which is where a caller reads why one
     # rung did what it did; the summary above it speaks for the whole ladder.

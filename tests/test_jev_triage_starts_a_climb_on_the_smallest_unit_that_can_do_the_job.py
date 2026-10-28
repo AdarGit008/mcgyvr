@@ -440,7 +440,7 @@ def _run(
     config: str,
     contract_text: str = MODEL_CONTRACT,
 ) -> tuple[int, list[str], Path]:
-    """`mcgyvr run` one contract on a real repository with the model scripted.
+    """`mcgyvr direct` one contract on a real repository with the model scripted.
 
     Returns the exit code, the rungs dispatched to, and the result file's path.
     """
@@ -467,7 +467,7 @@ def _run(
     lj.patch_dispatch(monkeypatch, fake_dispatch)
     code = main(
         [
-            "run",
+            "direct",
             str(contract_path),
             "--repo",
             str(repo),
@@ -475,6 +475,8 @@ def _run(
             str(config_path),
             "--sandbox",
             "tempdir",
+            "--session",
+            "s1",
             "--result",
             str(result_path),
         ]

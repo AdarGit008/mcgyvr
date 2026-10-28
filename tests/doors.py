@@ -144,7 +144,7 @@ def config_file(
     these tests pin the wake mechanism, which a setup that is not the live
     fleet may exercise freely.
 
-    Loaded here rather than left for ``mcgyvr run`` to load, so that a config
+    Loaded here rather than left for ``mcgyvr direct`` to load, so that a config
     the schema does not know says so at the line that wrote it.
     """
     from mcgyvr.config import load

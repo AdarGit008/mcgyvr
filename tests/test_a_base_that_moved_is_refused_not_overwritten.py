@@ -106,6 +106,6 @@ def test_a_run_whose_base_moved_is_delivery_refused_and_leaves_the_users_commit(
     assert scripted, "the model was asked"
     assert (repo / "src/pkg/messy.py").read_text() == "x = 2\n"
     assert lj.git(repo, "status", "--porcelain") == ""
-    result = json.loads(lj.result_path(capsys.readouterr().out).read_text())
+    result = json.loads(lj.result_of(contract).read_text())
     assert result["outcome"] == "delivery_refused", result
     assert moved[0][:12] in result["detail"] or "moved" in result["detail"], result

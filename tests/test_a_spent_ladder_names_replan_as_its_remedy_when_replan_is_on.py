@@ -4,7 +4,7 @@
 remedies it named were to bind a dearer rung or narrow the contract by hand.
 With `max_replans` above zero the contract goes back to the orchestrator with
 its failure notes instead, so its disposition says so, and a single `mcgyvr
-run` that comes to `ladder_spent` notes on its result how the work goes on.
+direct` that comes to `ladder_spent` notes on its result how the work goes on.
 With `max_replans: 0` both say what they said before.
 """
 
@@ -88,7 +88,8 @@ def test_a_single_run_that_spent_its_ladder_notes_the_replan(
 
     assert report.outcome == "ladder_spent"
     (note,) = [n for n in report.notes if "replan" in n]
-    assert "mcgyvr delegate --run" in note
+    assert "`mcgyvr PROMPT`" in note
+    assert "`mcgyvr direct` stops here" in note
     assert note in capsys.readouterr().err
 
 

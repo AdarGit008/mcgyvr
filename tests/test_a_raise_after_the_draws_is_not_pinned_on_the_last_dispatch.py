@@ -69,7 +69,7 @@ def test_a_judge_that_dies_is_not_charged_to_the_last_draw(
     )
     assert _orphans(journal) == []
 
-    result = json.loads(lj.result_path(capsys.readouterr().out).read_text())
+    result = json.loads(lj.result_of(contract).read_text())
     landed = result["attempts"][-1]
     assert landed["verdict"] == "error"
     assert (landed["draws"], landed["rows"]) == (2, 2), (
@@ -134,7 +134,7 @@ def test_a_raise_past_the_last_dispatch_is_on_no_dispatch(
     assert [r.get("detail") for r in (first, second)] == [said, said], (first, second)
     assert _orphans(journal) == []
 
-    result = json.loads(lj.result_path(capsys.readouterr().out).read_text())
+    result = json.loads(lj.result_of(contract).read_text())
     landed = result["attempts"][-1]
     assert landed["verdict"] == "error"
     assert (landed["draw"], landed["draws"], landed["rows"]) == (None, 2, 2)

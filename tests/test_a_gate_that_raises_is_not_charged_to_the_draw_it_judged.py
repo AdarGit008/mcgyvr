@@ -33,7 +33,6 @@ def test_the_gate_dying_on_draw_zero_is_not_draw_zeros_error(
     tmp_path: Path,
     home: Path,
     monkeypatch: pytest.MonkeyPatch,
-    capsys: pytest.CaptureFixture[str],
 ) -> None:
     """Draw 0 answered and the gate then died: the dispatch is not the culprit."""
     import mcgyvr.drive as drive
@@ -65,7 +64,7 @@ def test_the_gate_dying_on_draw_zero_is_not_draw_zeros_error(
     }, rows
     assert _orphans(journal) == []
 
-    result = json.loads(lj.result_path(capsys.readouterr().out).read_text())
+    result = json.loads(lj.result_of(contract).read_text())
     landed = result["attempts"][-1]
     assert landed["verdict"] == "error"
     assert landed["draw"] is None, (

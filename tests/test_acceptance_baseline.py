@@ -6,7 +6,7 @@ preflight refuses a suite that is already red)". ``demonstration`` commands are
 "the `failing_test_first` evidence": each "must FAIL on the unchanged tree and
 pass after the change".
 
-``Acceptance.precondition`` is the method that establishes both, and ``mcgyvr run``
+``Acceptance.precondition`` is the method that establishes both, and ``mcgyvr direct``
 calls it before the first dispatch. Without that baseline a fix whose
 demonstration was already passing — a wrong ``-k`` filter, a test that was never
 red — would be judged by running it after the change, seeing green, and reporting
@@ -14,7 +14,7 @@ the bug fixed; and a contract whose acceptance suite was already broken would ch
 the model for the tree's fault.
 
 **Asserted through the run, not by calling the method.** A checker that nothing
-calls proves nothing. So the assertion is that ``mcgyvr run`` refuses,
+calls proves nothing. So the assertion is that ``mcgyvr direct`` refuses,
 and that it refuses **before dispatching** — the count of prompts sent is zero,
 which is the "before a rung is spent" half of the requirement stated as an
 observation rather than as a hope.
@@ -125,7 +125,7 @@ def _run(
 
     err = io.StringIO()
     argv = [
-        "run",
+        "direct",
         str(contract),
         "--repo",
         str(repo),

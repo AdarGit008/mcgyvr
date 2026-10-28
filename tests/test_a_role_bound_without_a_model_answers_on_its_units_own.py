@@ -3,7 +3,7 @@
 `skills/mcgyvr/SETUP.md` says of every role block's `model`: "absent means the
 unit's own". The pool honoured that for the verifier and dropped every other
 role silently — an `orchestrator: {unit: x}` resolved to no binding at all, so
-`mcgyvr delegate` reported the role unconfigured while the file plainly bound
+`mcgyvr PROMPT` reported the role unconfigured while the file plainly bound
 it. One rule for every role, in one place: a bound unit with no model named is
 the unit's model.
 """

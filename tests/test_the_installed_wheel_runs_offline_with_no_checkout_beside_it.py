@@ -440,7 +440,7 @@ def test_the_installed_hub_client_reads_its_seccomp_profile_from_the_package(
 def test_an_unconfigured_install_names_the_setup_document_it_carries(
     installed: Installed, tmp_path: Path
 ) -> None:
-    """`mcgyvr run` with no setup names SETUP.md; the install carries the
+    """`mcgyvr direct` with no setup names SETUP.md; the install carries the
     checkout's file byte for byte and names that copy, a path that exists."""
     carried = installed.site / "mcgyvr" / "data" / "SETUP.md"
     assert (
@@ -451,7 +451,7 @@ def test_an_unconfigured_install_names_the_setup_document_it_carries(
     done = _run(
         work,
         installed.env(home),
-        *(installed.mcgyvr, "run", "impl.yaml", "--repo", repo, "--session", "t"),
+        *(installed.mcgyvr, "direct", "impl.yaml", "--repo", repo, "--session", "t"),
         *("--sandbox", "tempdir"),
     )
     assert done.returncode != 0, _ran(done)
@@ -477,6 +477,7 @@ def test_a_fresh_init_runs_a_contract_without_evidence_from_the_dev_repo(
     )
     assert init.returncode == 0 and "Approved your own fleet" in init.stdout, _ran(init)
 
+    written = work / "impl.result.json"
     done = _run(
         work,
         env,
@@ -484,7 +485,7 @@ def test_a_fresh_init_runs_a_contract_without_evidence_from_the_dev_repo(
         "-I",
         "-c",
         _RESOLVING_HOSTED_HERE,
-        "run",
+        "direct",
         "impl.yaml",
         "--repo",
         repo,
@@ -492,14 +493,11 @@ def test_a_fresh_init_runs_a_contract_without_evidence_from_the_dev_repo(
         "t",
         "--sandbox",
         "tempdir",
+        "--result",
+        written,
     )
-    results = [
-        line.removeprefix("result: ")
-        for line in done.stdout.splitlines()
-        if line.startswith("result: ")
-    ]
-    assert len(results) == 1, _ran(done)
-    result = json.loads(Path(results[0]).read_text(encoding="utf-8"))
+    assert written.is_file(), _ran(done)
+    result = json.loads(written.read_text(encoding="utf-8"))
     rungs = [attempt.get("rung") for attempt in result.get("attempts") or []]
     assert rungs and rungs[0] == HOSTED_NAME, (
         f"the run made no attempt at {HOSTED_NAME}: {result.get('detail')}\n"

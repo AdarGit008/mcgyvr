@@ -106,7 +106,7 @@ def test_the_sandbox_mode_comes_from_the_file_when_no_flag_is_typed() -> None:
         "one, so the config can supply it",
         lambda: __import__("mcgyvr.cli", fromlist=["build_parser"]).build_parser,
     )()
-    args = parser.parse_args(["run", "c.yaml", "--repo", "."])
+    args = parser.parse_args(["direct", "c.yaml", "--repo", "."])
     assert args.sandbox is None, (
         f"--sandbox defaults to {args.sandbox!r}, so a config that says "
         "tempdir is never reached on a machine with Docker"
@@ -124,5 +124,5 @@ def test_a_typed_flag_still_wins_over_the_file() -> None:
         "one, so the config can supply it",
         lambda: __import__("mcgyvr.cli", fromlist=["build_parser"]).build_parser,
     )()
-    args = parser.parse_args(["run", "c.yaml", "--repo", ".", "--sandbox", "docker"])
+    args = parser.parse_args(["direct", "c.yaml", "--repo", ".", "--sandbox", "docker"])
     assert args.sandbox == "docker"

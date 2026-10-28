@@ -1,11 +1,11 @@
 """Every command that reads the setup takes it as ``--config``.
 
-``mcgyvr run --config ~/setup`` worked, while ``mcgyvr local_pool --config
+``mcgyvr direct --config ~/setup`` worked, while ``mcgyvr local_pool --config
 ~/setup`` and ``mcgyvr config --config ~/setup`` failed with ``unrecognized
 arguments: --config``: those two took the setup as a positional, ``catalog`` as
 ``--against``, and ``sandbox``, ``fleet alerts`` and the ``rig`` agent read it
 with no way to name it at all. Now every command that reads
-the setup accepts ``--config`` with the meaning and precedence ``run`` gives it
+the setup accepts ``--config`` with the meaning and precedence ``direct`` gives it
 — the setup directory (or one merged file), winning over ``$MCGYVR_CONFIG``,
 the working directory and the live fleet.
 
@@ -104,7 +104,7 @@ def test_the_exempt_list_names_only_real_commands_that_take_no_config() -> None:
 def test_the_walk_sees_the_commands_that_already_took_it() -> None:
     commands = _leaves(build_parser())
 
-    for name in ("run", "delegate", "emit"):
+    for name in ("direct", "emit"):
         assert _takes_config(commands[name]), name
 
 

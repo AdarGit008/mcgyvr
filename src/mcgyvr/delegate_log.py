@@ -1,17 +1,17 @@
-"""What `mcgyvr delegate --log PATH` came to, as one record a script can read.
+"""What `mcgyvr PROMPT --log PATH` came to, as one record a script can read.
 
-`mcgyvr delegate` says how it ended in English on stderr, and its exit code
-folds a dozen different failures into 1. A caller that has to act on *which*
+`mcgyvr PROMPT` and `mcgyvr direct` say how they ended in English on stderr, and the
+exit code folds a dozen different failures into 1. A caller that has to act on *which*
 one happened — a harness, a script, a shell loop — passes `--log PATH` and
 reads a `DelegateLog` there instead of parsing prose. The record is written on
 every way the command ends once its arguments are read, success, refusal and a
 crash alike, through :mod:`mcgyvr.atomic`, so a reader sees the whole file or
 none. It is opt-in, so stderr and stdout are unchanged by it.
 
-Its reader is the process that ran `delegate`. It is not part of the /mcgyvr
-skill and is not rendered under `skills/`: the session agent neither defines
-nor reads it. `json_schema` is its one schema, and a reader imports this module
-(`read`, `DelegateKind`) rather than copying either.
+Its reader is the process that ran `mcgyvr PROMPT` or `mcgyvr direct`. It is
+not part of the /mcgyvr skill and is not rendered under `skills/`: the session
+agent neither defines nor reads it. `json_schema` is its one schema, and a
+reader imports this module (`read`, `DelegateKind`) rather than copying either.
 
 The schema id is `mcgyvr.delegate_log/1`. Every way the command can end is one
 `kind`; the prefix is the group. Within `/1` new kinds may be added, so a
@@ -90,7 +90,7 @@ SCHEMA_ID = "mcgyvr.delegate_log/1"
 
 
 class DelegateKind(StrEnum):
-    """Every way `mcgyvr delegate` is known to end, one value per exit path."""
+    """Every way `mcgyvr PROMPT` is known to end, one value per exit path."""
 
     CONFIG_INVALID = "config_invalid"
     CONFIG_MISSING = "config_missing"
@@ -184,7 +184,7 @@ class LoggedRefusal:
 
 @dataclass(frozen=True)
 class DelegateLog:
-    """One `mcgyvr delegate` run's ending, the shape the `--log` file holds."""
+    """One `mcgyvr PROMPT` run's ending, the shape the `--log` file holds."""
 
     #: What it came to: a `DelegateKind`, or the plain string of a kind this
     #: build does not know, read from a newer writer's file.
@@ -312,9 +312,9 @@ def json_schema() -> dict[str, Any]:
     return {
         "$schema": "https://json-schema.org/draft/2020-12/schema",
         "$id": "https://mcgyvr/delegate-log/v1.schema.json",
-        "title": "mcgyvr delegate log",
+        "title": "mcgyvr batch log",
         "description": (
-            f"{SCHEMA_ID}: what one `mcgyvr delegate --log PATH` came to. Defined "
+            f"{SCHEMA_ID}: what one `mcgyvr PROMPT --log PATH` came to. Defined "
             f"in src/mcgyvr/delegate_log.py, the one copy; import it, do not "
             f"copy it. New kinds may be added under /1: a reader tolerates a "
             f"kind it does not know."

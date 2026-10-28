@@ -27,13 +27,13 @@ A record can also travel between runs of one contract: :func:`seeded` reads an
 earlier run's result file into :class:`CarriedNotes`, each stamped with the run
 it was made in and refused when it is not a sound record of that contract, and
 :func:`primed` opens a climb with them under `retry_notes: climb`
-(`mcgyvr run --notes-from`).
+(`mcgyvr direct --notes-from`).
 
 The fields are declared once, as :class:`mcgyvr.schema.Field` tuples
 (:data:`NOTE_FIELDS`, :data:`NOTES_FIELDS`): :meth:`FailureNotes.as_json` and
 :meth:`FailureNotes.from_json` walk them, and :func:`json_schema` renders the
 JSON Schema that `make docs` writes to
-``skills/mcgyvr/references/failure-notes.schema.json``. Model-facing text is
+``skills/mcgyvr-direct/references/failure-notes.schema.json``. Model-facing text is
 rendered from the record (:meth:`FailureNote.for_model`,
 :attr:`FailureNotes.lines`), never the other way round.
 """

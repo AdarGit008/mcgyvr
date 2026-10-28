@@ -112,7 +112,6 @@ def test_a_run_whose_reply_changes_nothing_is_refused_without_commit(
     tmp_path: Path,
     home: Path,
     monkeypatch: pytest.MonkeyPatch,
-    capsys: pytest.CaptureFixture[str],
 ) -> None:
     """The echo fails its attempt, so nothing reaches the tree to be left there."""
     repo = lj.make_repo(tmp_path / "repo")
@@ -124,7 +123,7 @@ def test_a_run_whose_reply_changes_nothing_is_refused_without_commit(
     code = lj.main(lj.run_args(contract, repo, config))
 
     assert scripted, "the model was asked"
-    result = json.loads(lj.result_path(capsys.readouterr().out).read_text())
+    result = json.loads(lj.result_of(contract).read_text())
     assert result["outcome"] == "ladder_spent", result
     assert code == 1
     _as_found(repo)

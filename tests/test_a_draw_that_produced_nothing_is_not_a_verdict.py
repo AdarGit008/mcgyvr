@@ -24,7 +24,7 @@ file is the third answer: the sampler may return :class:`~mcgyvr.consensus.Unusa
 that draw is recorded rather than gated, and only a run in which *every* draw
 refused is a failed attempt — which is the single-draw behaviour unchanged.
 
-The last test drives it through ``mcgyvr run`` with ``breadth.draws: 3``,
+The last test drives it through ``mcgyvr direct`` with ``breadth.draws: 3``,
 because the loss this fixes is not visible in a unit: it takes a configured
 install, three dispatches and one truncated reply for a delivered change to
 turn into a spent attempt.
@@ -275,7 +275,7 @@ def test_one_unreadable_reply_does_not_cost_a_breadth_attempt_its_winner(
 
     code = main(
         [
-            "run",
+            "direct",
             str(contract),
             "--repo",
             str(repo),

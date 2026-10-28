@@ -1,14 +1,16 @@
 """Render the documents that are generated from mcgyvr's schemas.
 
 `render_reference` and `render_setup` project the config `SCHEMA` into the
-configuration reference and SETUP.md; `render_skill` and `render_examples`
-project the contract schema into the /mcgyvr skill (one instruction generated
-from that schema — setup is not part of it) and its examples file, the skill
-carrying the failure-notes record's fields from `mcgyvr.notes`; and
-`render_notes_schema` writes that record's JSON Schema beside the examples.
-`main` renders the reference to a temporary file, checks it and deletes it, then
-writes the other four — or, with `--check`, reports the ones that are out of
-date without touching them.
+configuration reference and SETUP.md. Two skills are rendered, and setup is not
+part of either: `render_skill` is /mcgyvr, a prompt handed to `mcgyvr "<prompt>"`
+and nothing about writing a contract; `render_direct_skill` is /mcgyvr-direct,
+contracts someone wrote handed to `mcgyvr direct`, one instruction generated from
+the contract schema, carrying the failure-notes record's fields from
+`mcgyvr.notes`. Both take their flags and exit codes from the CLI's own parser.
+`render_examples` and `render_notes_schema` write /mcgyvr-direct's
+`references/`. `main` renders the reference to a temporary file, checks it and
+deletes it, then writes the other five — or, with `--check`, reports the ones
+that are out of date without touching them.
 """
 
 from __future__ import annotations
@@ -19,6 +21,7 @@ import os
 import re
 import sys
 import tempfile
+import textwrap
 from collections.abc import Sequence
 from pathlib import Path
 
@@ -39,13 +42,22 @@ MARKER = (
 # and checks them unless an output flag names somewhere else.
 REPO_ROOT = Path(__file__).resolve().parents[2]
 SKILL_PATH = Path("skills/mcgyvr/SKILL.md")
+DIRECT_SKILL_PATH = Path("skills/mcgyvr-direct/SKILL.md")
 SETUP_PATH = Path("skills/mcgyvr/SETUP.md")
-EXAMPLES_PATH = Path("skills/mcgyvr/references/examples.md")
-NOTES_SCHEMA_PATH = Path("skills/mcgyvr/references/failure-notes.schema.json")
+EXAMPLES_PATH = Path("skills/mcgyvr-direct/references/examples.md")
+NOTES_SCHEMA_PATH = Path("skills/mcgyvr-direct/references/failure-notes.schema.json")
 SKILL_MARKER = (
     "<!-- Code generated from src/mcgyvr/contract.py and src/mcgyvr/docgen.py by "
     "`make docs`. DO NOT EDIT. -->"
 )
+PROMPT_SKILL_MARKER = (
+    "<!-- Code generated from src/mcgyvr/flagset.py and src/mcgyvr/docgen.py by "
+    "`make docs`. DO NOT EDIT. -->"
+)
+
+#: The longest line a generated skill holds: its prose, records and lists are
+#: wrapped to it (the front matter's one-line description is the exception).
+WIDTH = 105
 
 # The "Value types" table of both generated documents: for each type name a
 # reader sees in a Type column, the rule the loader enforces on it, phrased for
@@ -77,8 +89,8 @@ _TYPES: tuple[tuple[str, str], ...] = (
     (
         "env var name",
         "The **name** of an environment variable (e.g. `ANTHROPIC_API_KEY`), "
-        "never the value. Credentials are never written into this file; the "
-        "orchestrator resolves the name at point of use and a task sandbox "
+        "never the value. Credentials are never written into this file; "
+        "mcgyvr resolves the name at point of use and a task sandbox "
         "never sees the result.",
     ),
     ("list of text", "A YAML list of non-empty strings."),
@@ -357,7 +369,7 @@ def render_setup() -> str:
         "",
         "- `--use-case` — `coding` (the deterministic gate, the default), `chat`",
         "  or `agent`.",
-        "- `--deployment` — `hybrid` (an API-tier orchestrator drives mcgyvr) or",
+        "- `--deployment` — `hybrid` (an API-tier session agent drives mcgyvr) or",
         "  `local-only` (mcgyvr is the backend); the default is `local-only` for",
         "  `chat` and `hybrid` otherwise.",
         "- `--priority` — compose the ladder for `throughput`, `quality` or",
@@ -535,109 +547,392 @@ def _contract_describe(field: contract_schema.Field) -> str:
     text = field.doc
     if field.hint:
         text = f"{text} {field.hint.rstrip('.')}."
-    return _escape(f"{text} (worker-facing)" if field.worker_facing else text)
+    return f"{text} (worker-facing)" if field.worker_facing else text
 
 
-def _contract_table(fields: Sequence[contract_schema.Field], prefix: str) -> list[str]:
-    lines = [
-        "| Key | Type | Required | Default | Description |",
-        "| --- | --- | --- | --- | --- |",
-    ]
+def _wrap(text: str, first: str = "", rest: str = "  ") -> list[str]:
+    """`text` as Markdown lines of at most `WIDTH` characters.
+
+    `first` opens the first line and `rest` every other one, so a list item's
+    continuation lines stay inside the item. A word is never broken.
+    """
+    return textwrap.wrap(
+        text,
+        width=WIDTH,
+        initial_indent=first,
+        subsequent_indent=rest,
+        break_long_words=False,
+        break_on_hyphens=False,
+    )
+
+
+def _contract_records(
+    fields: Sequence[contract_schema.Field], prefix: str
+) -> list[str]:
+    """One record per contract key: a bold key line, then its type and its doc.
+
+    A record list rather than a table, so no line runs past `WIDTH`.
+    """
+    lines: list[str] = []
     for field in fields:
-        name = f"{prefix}{field.name}"
-        required = "**yes**" if field.required else "no"
-        lines.append(
-            f"| `{name}` | {_type_label(field)} | {required} | "
-            f"{_contract_default_label(field)} | {_contract_describe(field)} |"
-        )
-    lines.append("")
+        default = _contract_default_label(field)
+        if field.required:
+            kind = f"{_type_label(field)}; required"
+        elif default == "—":
+            kind = f"{_type_label(field)}; optional"
+        else:
+            kind = f"{_type_label(field)}; optional, default {default}"
+        lines += [f"**`{prefix}{field.name}`**", *_wrap(f"- type: {kind}")]
+        lines += [*_wrap(f"- description: {_contract_describe(field)}"), ""]
     return lines
 
 
 def _contract_section(field: contract_schema.Field, path: str) -> list[str]:
-    lines = [f"#### `{path}`", "", _escape(field.doc), ""]
+    lines = [f"#### `{path}`", "", *_wrap(field.doc, rest=""), ""]
     if field.kind == "block_list":
         lines += ["An ordered list. Each entry takes these keys:", ""]
-    lines += _contract_table(field.block, f"{path}.")
+    lines += _contract_records(field.block, f"{path}.")
     for inner in field.block:
         if inner.block:
             lines += _contract_section(inner, f"{path}.{inner.name}")
     return lines
 
 
-def render_skill() -> str:
-    """Render SKILL.md: the /mcgyvr skill's front matter, prose and four steps.
+def _flags(names: Sequence[str]) -> list[str]:
+    """A list item per flag in `names`, its help the words the CLI's own is built
+    from (`mcgyvr.flagset`), so the skill and the CLI cannot say two things."""
+    from mcgyvr.flagset import HELP
 
-    The front matter, the walkthrough prose and the result-file key list are
-    fixed; the contract key tables and their nested sections are rendered from
-    the contract `SCHEMA`, and the deterministic operation names from
-    `contract_schema.operations()`.
+    lines: list[str] = []
+    for name in names:
+        metavar, help_text = HELP[name]
+        if name == "--commit":
+            shown = "`--commit`, `--no-commit`"
+        else:
+            shown = f"`{name} {metavar}`" if metavar else f"`{name}`"
+        lines += _wrap(f"- {shown} — {help_text.replace('%%', '%').rstrip('.')}.")
+    return lines
+
+
+def _ended() -> list[str]:
+    """How a batch ended, by its exit code; both verbs exit the same way.
+
+    The `--log` record and its kinds are for a script that called mcgyvr, not
+    for a session agent, so the skills say the codes in words (#792).
+    """
+    return [
+        "- 0 — the contracts were planned (and, unless `--output`, every one that ran",
+        "  ended well).",
+        "- 1 — a failure: the config, the proposer or its reply, the repository, a",
+        "  run that did not land its change, or a crash; stderr says which.",
+        "- 2 — usage: a flag that cannot be honoured or has no meaning on this side, a",
+        "  contract path that is not there, or no session to file the runs under.",
+        "- 3 — refused: no proposer is configured, no contract came of the prompt or",
+        "  passed vetting, or a contract was held and never sent (`blocked`).",
+        "",
+        "`--help` prints the same table.",
+        "",
+    ]
+
+
+#: Said by both skills, once: what a sandbox is built from, and who a run is
+#: filed under.
+_HEAD_AND_SESSION: tuple[str, ...] = (
+    "Every run works on the repository as committed at HEAD: uncommitted edits",
+    "and untracked files, including a test you just wrote, are not in the",
+    "sandbox. A batch refuses unless it can say who typed it: Claude Code and Pi",
+    "sessions are detected from the environment, otherwise pass `--session ID`.",
+)
+
+#: The flags the /mcgyvr skill names: the ones a prompt's batch is steered by.
+_PROMPT_FLAGS: tuple[str, ...] = (
+    "--jobs",
+    "--commit",
+    "--branch",
+    "--session",
+    "--record",
+    "--output",
+)
+
+#: The flags the /mcgyvr-direct skill names: the prompt's, and the two that
+#: only a set someone wrote can use.
+_DIRECT_FLAGS: tuple[str, ...] = (*_PROMPT_FLAGS, "--result", "--notes-from")
+
+
+def render_skill() -> str:
+    """Render the /mcgyvr skill: a prompt, planned into contracts and run.
+
+    Thin on purpose: it says how to hand the user's words to `mcgyvr "<prompt>"`,
+    what happens to them, how to read how the batch ended and where its results
+    are, and that work it refused or could not finish goes to /mcgyvr-direct.
+    How a contract is written is /mcgyvr-direct's (`render_direct_skill`). The
+    flags' help is the words the CLI's own is built from (`mcgyvr.flagset`), so
+    this file cannot describe a flag differently from the CLI.
     """
     lines = [
         "---",
         "name: mcgyvr",
-        'description: "Offload one scoped coding task to mcgyvr, a CLI that runs '
-        "it on deterministic tools, local models or API models and keeps only "
-        "what its deterministic gate accepts. Use it when a change has one "
-        "target and a way to judge it (a scoped code edit whose evidence is "
-        "derived from the contract, or a deterministic operation: format, "
-        "import sort, lint fix, rename): "
-        "author a task contract, validate it, run it, read the result file, "
-        "replan from the findings. It never loads itself; invoke it with "
-        '/mcgyvr. The schema below is the only contract vocabulary."',
+        'description: "Offload a coding request to mcgyvr, a CLI that plans a prompt '
+        "into task contracts and runs them on deterministic tools, local models or "
+        "API models, keeping only what its deterministic gate accepts. Pass the "
+        "user's words as the prompt: mcgyvr surveys the repository, a proposer "
+        "proposes contracts, every proposal is vetted, and the contracts that pass "
+        "run in dependency order. It never loads itself; invoke it with /mcgyvr "
+        "<prompt>. Contracts you write yourself, or ones it refused or could not "
+        'finish, go to /mcgyvr-direct."',
+        "disable-model-invocation: true",
+        "---",
+        "",
+        PROMPT_SKILL_MARKER,
+        "",
+        "# /mcgyvr",
+        "",
+        "Offload a coding request to mcgyvr in the user's own words. mcgyvr plans it",
+        "into contracts (one target, one task, one way to judge it each), runs them,",
+        "gates every answer deterministically, and leaves accepted `code` changes in",
+        "the working tree. It never commits unless told to, and it never writes",
+        "anything else into the repository.",
+        "",
+        "## Run it",
+        "",
+        "```",
+        'mcgyvr "<prompt>" [--repo PATH] [flags]',
+        "```",
+        "",
+        "The prompt is everything the user wrote after `/mcgyvr`, passed as one",
+        "argument; one whose first word is a command name goes after `--`",
+        '(`mcgyvr -- "<prompt>"`). The contracts planned are printed on stdout, and',
+        "what happens to them on stderr.",
+        "",
+        *_HEAD_AND_SESSION,
+        "",
+        "## What it does",
+        "",
+        "```",
+        "prompt -survey-> evidence -propose-> proposals -vet-> contracts | refusals",
+        "       -schedule-> tree -run-> settle -(spent)-> replan",
+        "```",
+        "",
+        "Planning is survey, propose and vet. mcgyvr reads the repository for the",
+        "evidence the prompt points at, and the proposer bound in the config proposes",
+        "contracts from it. Every proposal is vetted: its target is a file the index",
+        "holds, each dependency's signature is in the index or in a contract that",
+        "creates it, what the worker is shown fits its ceiling, and its id is unused.",
+        "One that fails is a refusal, printed as `refused:` with a `change:` line",
+        "saying what to change.",
+        "",
+        "Dispatch is schedule, run, settle and replan. The contracts that passed go on",
+        "one dependency tree and run in the order it allows, each settled as it ends.",
+        "One whose provider did not land is held, never sent (`blocked`). One whose",
+        "ladder is spent goes back to the proposer with its failure notes, and what",
+        "comes back runs in its place, up to `max_replans` times.",
+        "",
+        "## Flags that matter",
+        "",
+        *_flags(_PROMPT_FLAGS),
+        "",
+        "`mcgyvr direct -h` lists every flag; both verbs take the same set.",
+        "",
+        "## How it ended",
+        "",
+        *_ended(),
+        "## Where the results are",
+        "",
+        "Nothing on stdout points at a result. Each contract that ran has a result",
+        "file under the config's `journal.dir`, as `results/<id>-<stamp>.json`;",
+        "`--record DIR` puts a complete copy of each under `DIR/results/`. Read",
+        "`outcome` first: the /mcgyvr-direct skill lists every key of the file. An",
+        "`accepted` change is in its target, uncommitted unless `--commit` or",
+        "`--branch NAME` was given: review it there and commit it yourself.",
+        "",
+        "## Refused or spent: hand it to /mcgyvr-direct",
+        "",
+        "A refusal, a contract held `blocked` behind one, and a contract whose ladder",
+        "is spent past `max_replans` are work this batch will not finish. Finish it",
+        "with /mcgyvr-direct: write the contracts yourself, or plan again with",
+        "`--output DIR`, which writes each contract that passed vetting to",
+        "`DIR/<id>.json` and runs none, fix those files from the refusals and the",
+        "findings, and run them with `/mcgyvr-direct DIR`.",
+    ]
+    return "\n".join(lines).rstrip("\n") + "\n"
+
+
+#: What the result file's `outcome` says, and what it leaves to do next.
+_OUTCOMES: tuple[str, ...] = (
+    "- `outcome` — one word, and what it leaves to do next:",
+    "  - `accepted` — the work landed; nothing to replan.",
+    "  - `rejected` — the deterministic gate refused the change; the",
+    "    findings name the check a different contract has to answer.",
+    "  - `delivery_refused` — judged acceptable, but the write to the tree",
+    "    was refused; `detail` says what was in the way. Clear it, rerun.",
+    "  - `nothing_to_change` — a tool found nothing to do; exit 0.",
+    "  - `ladder_spent` — everything this machine offers was tried and none",
+    "    produced an acceptable change. Raising a number changes what it",
+    "    costs to fail, not whether it fails. In a batch planned from a",
+    '    prompt (`mcgyvr "<prompt>"`) the contract goes back to the proposer',
+    "    with its failure notes and what comes back runs in its place, up to",
+    "    `max_replans` (default 1); `replanned` says what became of it. Under",
+    "    `mcgyvr direct` no proposer is asked and nothing re-plans it: you",
+    "    do, from the findings (Step 5).",
+    "  - `escalation_ceiling` — stopped at a ceiling on how far the work may",
+    "    be moved up, with dearer tries never entered; that says it was not",
+    "    allowed to try, not that it cannot. Rerun where those moves are",
+    "    paid for.",
+    "  - `attempt_ceiling` — stopped at what one task may spend, which",
+    "    bounds the bill and not the ability. Rerun against a budget that",
+    "    can pay for it.",
+    "  - `nothing_to_run` — nothing on this machine offered to do this work",
+    "    at all, so the machine stopped it and not the work. A different",
+    "    contract cannot fix it: `skills/mcgyvr/SETUP.md` can.",
+    "  - `declined_throughout` — everything offered stepped aside without",
+    "    spending an attempt, so nothing claims a contract of this shape.",
+    "    A different contract cannot fix this either; that same file can.",
+    "  - `blocked` — held by the dependency tree (`dependents: hold`): a",
+    "    contract it waits on did not land, or landed without a symbol it",
+    "    needs, so it was never sent and no attempt was spent; exit 3.",
+    "    `blocked_by` says who and what. Rerun once that one lands.",
+    "  - `error` — an exception before any verdict was reached: the failure",
+    "    is in the machinery, not the work. `detail` names the cause.",
+)
+
+#: Every other key of the result file.
+_RESULT_KEYS: tuple[str, ...] = (
+    "- `attempts[]` — every try: `rung`, `attempt`, `verdict` (`passed`,",
+    "  `failed`, `declined`, `error`), `detail`, `findings` (the gate's lines",
+    "  behind a failure), `notes` (the record those lines are rendered from;",
+    "  below), `attempt_id`, `draw`, `draws`, `rows`, `relief`,",
+    "  `model`, `address`. `draws` is the",
+    "  breadth the attempt asked for (`breadth.draws`), whatever the verdict;",
+    "  `rows` is how many of those draws left a journal row, which is `draws`",
+    "  unless the attempt raised part-way and `0` for a try that declined or",
+    "  raised before dispatching. `draw` is the draw the entry is about, and is",
+    "  `null` — with `attempt_id` `null` beside it — on an `error` no single",
+    "  dispatch caused: `rows: 0` means it raised before dispatching at all,",
+    "  and anything more means it raised past draw `rows - 1`. `relief` is",
+    "  `true` for a rung lent through a hub — recorded like any try, but",
+    "  charged against the budget only when it passes — and `model`/`address`",
+    "  name the unit that served it, so a relief try shows which borrowed",
+    "  machine answered.",
+    "- `assurance` — what an `accepted` result rests on, and `detail` says it",
+    "  in a sentence: `deterministic` (a tool's change, on the gate),",
+    "  `verified` (a reviewer agreed), `unverified` (no reviewer could be",
+    "  asked; `detail` says why) or `unchecked` (a reply no check judges:",
+    "  no checks, no review). A reply is never reviewed.",
+    "- `findings` — why a change was refused, one line per reason: the",
+    "  deterministic gate's findings for a contract that dispatched nothing,",
+    "  or what refused the write on a `delivery_refused`.",
+    "- `delivery` — where the work went: left uncommitted in the tree (the",
+    "  default), the commit, or why it was refused (as `detail`).",
+    "  `committed`, `commit`, `branch`, `handoff` are the commit as fields.",
+    "- `target`, `contract`, `task_type`, `session` (the session the run is",
+    "  filed under; also written as `orchestrator`, its old key, for one",
+    "  release), `run`, `session_file`, `journal`, `exit_code`.",
+    "- `copy_errors` — a `--record DIR` copy that could not be written, and",
+    "  why. Empty on almost every run. mcgyvr's own record under `journal`",
+    "  is complete whatever this says; a copy is not a sink and its failure",
+    "  does not stop a run.",
+    "- `notes` — what the run said in passing (not failure notes): the",
+    "  uncommitted and untracked paths the sandbox of HEAD left out, what a",
+    "  tool printed as it worked (what a rename renamed), what the baseline",
+    "  left behind (now cleaned up), and a relief rung that duplicates a unit",
+    "  this install serves.",
+    "- `triage` — only under `triage: jev` or a contract's `start_rung`: the",
+    "  `rung` the climb started on and its `source` (`jev`, asked for this",
+    "  run, or `contract`); for `jev`, every rung's `probabilities`, its",
+    "  `confidence` and the `model` asked, or a `fallback` saying why the",
+    "  climb started on its first rung.",
+    "- `blocked_by` — only on a `blocked` result: the `reason`",
+    "  (`provider_failed`, `provider_not_landed`, `provider_landed_without`,",
+    "  `provider_blocked`, `cycle`, `unknown_dependency`, `unprovided`), the",
+    "  `providers` it waited on with the `outcome` and `result` each came",
+    "  to, the `needs` it had of them (`path`, `symbol`, and `creates`: to",
+    "  be created rather than changed) and the `chain` a hold came down",
+    "  through. A repository's live tree, which every batch on it joins",
+    "  while it has contracts in flight, is under `journal.dir` in",
+    "  `trees/<tree>.json`.",
+    "- `seeded` — only on a run started with `--notes-from RESULT`: `from`,",
+    "  the result read, `records`, the failure-notes records read from it,",
+    "  each with the `run` it was made in, and `handed`, how many the climb",
+    "  opened with (all under `retry_notes: climb`, else none).",
+    "- `replanned` — only on a `ladder_spent` result in a batch planned from a",
+    "  prompt with `max_replans` above 0: the `round`, the `max_replans` it was",
+    "  held to, the ids of the `contracts` proposed in its place (empty when it",
+    "  was not re-planned; each of those contract files carries `replan`: the",
+    "  id it `replaces` and its `round`) and a `detail` sentence, which",
+    "  `detail` repeats.",
+)
+
+
+def render_direct_skill() -> str:
+    """Render the /mcgyvr-direct skill: contracts you wrote, vetted and run.
+
+    The front matter and the walkthrough prose are fixed; the contract key
+    records and their nested sections are rendered from the contract `SCHEMA`,
+    the deterministic operation names from `contract_schema.operations()`, the
+    failure-notes records from `mcgyvr.notes`, and the flags' help from
+    `mcgyvr.flagset`, the words the CLI's own is built from.
+    """
+    lines = [
+        "---",
+        "name: mcgyvr-direct",
+        'description: "Run task contracts you wrote with mcgyvr, a CLI that runs each '
+        "on deterministic tools, local models or API models and keeps only what its "
+        "deterministic gate accepts. Pass contract files or a directory of them: "
+        "mcgyvr vets each one as it vets a proposal, prints every refusal with what "
+        "to change, and runs the rest in dependency order. Use it when a change has "
+        "one target and a way to judge it, or for work /mcgyvr refused or could not "
+        "finish: write the contracts, validate them, run them, read the result "
+        "files, replan from the findings. It never loads itself; invoke it with "
+        "/mcgyvr-direct <files|dir>. The schema below is the only contract "
+        'vocabulary."',
         "disable-model-invocation: true",
         "---",
         "",
         SKILL_MARKER,
         "",
-        "# /mcgyvr",
+        "# /mcgyvr-direct",
         "",
-        "Offload one scoped piece of coding work to mcgyvr. You author a *contract*",
-        "(one target, one task, one way to judge it), mcgyvr gates every answer",
-        "deterministically, and leaves an accepted `code` change in the working",
-        "tree. It never commits unless told to, and it never writes anything else",
-        "into the repository.",
+        "Run contracts you wrote. A *contract* is one target, one task and one way to",
+        "judge it; mcgyvr vets each one exactly as it vets a proposal from a prompt,",
+        "runs the ones that pass in the order their dependency tree allows, gates",
+        "every answer deterministically, and leaves an accepted `code` change in the",
+        "working tree. It never commits unless told to, and it never writes anything",
+        "else into the repository. No proposer is asked: refusals and spent work come",
+        "back to you.",
         "",
-        "## Step 1 — author a contract",
+        "## Step 1 — write the contracts",
         "",
-        "One YAML file. Every key below is the contract schema in",
+        "One YAML or JSON file per contract. Every key below is the contract schema in",
         "`src/mcgyvr/contract.py`, rendered by `make docs`; unknown keys are refused,",
-        "and every rejection names the key and what a valid value looks like.",
-        "Pick the `task_type` first. For `code`, evidence is derived from the "
-        "contract's own fields, never chosen; `operation:` has a tool make the "
-        "change instead. `mcgyvr catalog <type>` prints the type's guarantee.",
-        "`mcgyvr delegate PROMPT [--repo PATH]` has the config's `orchestrator`",
-        "draft validated contracts from a request instead (`--repo` is a checkout",
-        "or a URL to clone, default `.`). It prints them, or writes each to",
-        "`DIR/<id>.json` with `--output DIR`. `--run` runs them in dependency",
-        "order, holds one whose provider did not land (`blocked`, below) and",
-        "re-plans one whose ladder is spent (`ladder_spent`, below).",
-        "`--jobs N` runs up to N ready ones at once, each settled as it ends and",
-        "the next started as soon as it is ready; the default is 1, and `auto`",
-        "is the fleet's total slots, the cap on any N.",
+        "and every rejection names the key and what a valid value looks like. Pick",
+        "the `task_type` first. For `code`, evidence is derived from the contract's",
+        "own fields, never chosen; `operation:` has a tool make the change instead.",
+        "`mcgyvr catalog <type>` prints the type's guarantee. A contract that needs",
+        "another's work names its id in `depends_on`.",
         "",
         "### Keys",
         "",
     ]
-    lines += _contract_table(contract_schema.SCHEMA, "")
+    lines += _contract_records(contract_schema.SCHEMA, "")
     for field in contract_schema.SCHEMA:
         if field.block:
             lines += _contract_section(field, field.name)
     lines += [
         "### Deterministic operations",
         "",
-        "Not task types: `task_type: code` with `operation:` "
-        + ", ".join(f"`{op.name}`" for op in contract_schema.operations())
-        + " has a tool make the change, never a model.",
+        *_wrap(
+            "Not task types: `task_type: code` with `operation:` "
+            + ", ".join(f"`{op.name}`" for op in contract_schema.operations())
+            + " has a tool make the change, never a model.",
+            rest="",
+        ),
         "",
         "### Minimal examples",
         "",
-        f"`{EXAMPLES_PATH}` carries one `code` contract and one per operation,",
-        "each loaded through the contract validator by the test suite, so copying",
-        "one is copying a shape that is known to validate.",
+        f"`references/{EXAMPLES_PATH.name}` carries one `code` contract and one per",
+        "operation, each loaded through the contract validator by the test suite, so",
+        "copying one is copying a shape that is known to validate.",
         "",
-    ]
-    lines += [
         "## Step 2 — validate before spending anything",
         "",
         "```",
@@ -648,127 +943,52 @@ def render_skill() -> str:
         "the contract; never guess a field. A `code` contract states no reply",
         "cap: every request is sent the most its unit can give.",
         "",
-        "## Step 3 — run it, then read the result file",
+        "## Step 3 — vet and run the set",
         "",
         "```",
-        "mcgyvr run CONTRACT.yaml [--repo PATH] [--config PATH] "
-        "[--sandbox tempdir] [--[no-]commit] [--branch NAME]",
+        "mcgyvr direct FILE... | DIR [--repo PATH] [flags]",
         "```",
         "",
-        "`--repo` defaults to `.`; `mcgyvr run --help` lists every flag.",
+        "A directory is read for its `*.json`, `*.yaml` and `*.yml` files. Each",
+        "contract is vetted as a proposal is: its target is a file the index holds,",
+        "each dependency's signature is in the index or in a contract of the set that",
+        "creates it, what the worker is shown fits its ceiling, and no other contract",
+        "states the same work; a file that does not load, two files giving one id,",
+        "and a contract waiting on a refused one are refused too. Every refusal is",
+        "printed on stderr as",
         "",
-        "The run works on the repository as committed at HEAD: uncommitted edits",
-        "and untracked files, including a test you just wrote, are not in the",
-        "sandbox.",
+        "```",
+        "  refused: <file>: <reason>",
+        "    change: <what_to_change>",
+        "```",
         "",
-        "The run refuses unless it can say who typed it: Claude Code and Pi sessions",
-        "are detected from the environment, otherwise pass `--session ID`.",
-        "The last stdout line is `result: <path>`:",
-        "everything above it is scrollback, and everything the run came to is in",
-        "that file, under mcgyvr's own journal directory — never in the repository.",
-        "Read the file, not the scrollback. No `result:` line with exit 1 or 2 means",
-        "the run never started (for example: the contract did not load, the repo is",
-        "not git, the journal cannot be written, or no session could be named) or",
-        "the result file could not be written; either",
-        "way the reason is on stderr, and in the second case that line also says",
-        "what the run came to. The file's keys:",
+        "The rest of the set runs. Change each refused file as its directive says",
+        "and run those files again, with what waits on them; not the whole set,",
+        "whose accepted changes are already in the tree. When no contract passes,",
+        "nothing runs and the exit is 3. `--output DIR` vets only: what passed is",
+        "written to `DIR/<id>.json` and nothing runs.",
         "",
-        "- `outcome` — one word, and what it leaves to do next:",
-        "  - `accepted` — the work landed; nothing to replan.",
-        "  - `rejected` — the deterministic gate refused the change; the",
-        "    findings name the check a different contract has to answer.",
-        "  - `delivery_refused` — judged acceptable, but the write to the tree",
-        "    was refused; `detail` says what was in the way. Clear it, rerun.",
-        "  - `nothing_to_change` — a tool found nothing to do; exit 0.",
-        "  - `ladder_spent` — everything this machine offers was tried and none",
-        "    produced an acceptable change. Raising a number changes what it",
-        "    costs to fail, not whether it fails. In a batch (`mcgyvr delegate",
-        "    --run`) the contract goes back to the orchestrator with its failure",
-        "    notes and what comes back runs in its place, up to `max_replans`",
-        "    (default 1); `replanned` says what became of it. Alone, narrow it.",
-        "  - `escalation_ceiling` — stopped at a ceiling on how far the work may",
-        "    be moved up, with dearer tries never entered; that says it was not",
-        "    allowed to try, not that it cannot. Rerun where those moves are",
-        "    paid for.",
-        "  - `attempt_ceiling` — stopped at what one task may spend, which",
-        "    bounds the bill and not the ability. Rerun against a budget that",
-        "    can pay for it.",
-        "  - `nothing_to_run` — nothing on this machine offered to do this work",
-        "    at all, so the machine stopped it and not the work. A different",
-        "    contract cannot fix it: `skills/mcgyvr/SETUP.md` can.",
-        "  - `declined_throughout` — everything offered stepped aside without",
-        "    spending an attempt, so nothing claims a contract of this shape.",
-        "    A different contract cannot fix this either; that same file can.",
-        "  - `blocked` — held by the dependency tree of a batch (`dependents:",
-        "    hold`): a contract it waits on did not land, or landed without a",
-        "    symbol it needs, so it was never sent and no attempt was spent;",
-        "    exit 3. `blocked_by` says who and what. Rerun once that one lands.",
-        "  - `error` — an exception before any verdict was reached: the failure",
-        "    is in the machinery, not the work. `detail` names the cause.",
-        "- `attempts[]` — every try: `rung`, `attempt`, `verdict` (`passed`,",
-        "  `failed`, `declined`, `error`), `detail`, `findings` (the gate's lines",
-        "  behind a failure), `notes` (the record those lines are rendered from;",
-        "  below), `attempt_id`, `draw`, `draws`, `rows`, `relief`,",
-        "  `model`, `address`. `draws` is the",
-        "  breadth the attempt asked for (`breadth.draws`), whatever the verdict;",
-        "  `rows` is how many of those draws left a journal row, which is `draws`",
-        "  unless the attempt raised part-way and `0` for a try that declined or",
-        "  raised before dispatching. `draw` is the draw the entry is about, and is",
-        "  `null` — with `attempt_id` `null` beside it — on an `error` no single",
-        "  dispatch caused: `rows: 0` means it raised before dispatching at all,",
-        "  and anything more means it raised past draw `rows - 1`. `relief` is",
-        "  `true` for a rung lent through a hub — recorded like any try, but",
-        "  charged against the budget only when it passes — and `model`/`address`",
-        "  name the unit that served it, so a relief try shows which borrowed",
-        "  machine answered.",
-        "- `assurance` — what an `accepted` result rests on, and `detail` says it",
-        "  in a sentence: `deterministic` (a tool's change, on the gate),",
-        "  `verified` (a reviewer agreed), `unverified` (no reviewer could be",
-        "  asked; `detail` says why) or `unchecked` (a reply no check judges:",
-        "  no checks, no review). A reply is never reviewed.",
-        "- `findings` — why a change was refused, one line per reason: the",
-        "  deterministic gate's findings for a contract that dispatched nothing,",
-        "  or what refused the write on a `delivery_refused`.",
-        "- `delivery` — where the work went: left uncommitted in the tree (the",
-        "  default), the commit, or why it was refused (as `detail`).",
-        "  `committed`, `commit`, `branch`, `handoff` are the commit as fields.",
-        "- `target`, `contract`, `task_type`, `session` (the session the run is",
-        "  filed under; also written as `orchestrator`, its old key, for one",
-        "  release), `run`, `session_file`, `journal`, `exit_code`.",
-        "- `copy_errors` — a `--record DIR` copy that could not be written, and",
-        "  why. Empty on almost every run. mcgyvr's own record under `journal`",
-        "  is complete whatever this says; a copy is not a sink and its failure",
-        "  does not stop a run.",
-        "- `notes` — what the run said in passing (not failure notes): the",
-        "  uncommitted and untracked paths the sandbox of HEAD left out, what a",
-        "  tool printed as it worked (what a rename renamed), what the baseline",
-        "  left behind (now cleaned up), a relief rung that duplicates a unit",
-        "  this install serves, and on a lone `ladder_spent` run where a batch",
-        "  would re-plan it.",
-        "- `triage` — only under `triage: jev` or a contract's `start_rung`: the",
-        "  `rung` the climb started on and its `source` (`jev`, asked for this",
-        "  run, or `contract`); for `jev`, every rung's `probabilities`, its",
-        "  `confidence` and the `model` asked, or a `fallback` saying why the",
-        "  climb started on its first rung.",
-        "- `blocked_by` — only on a `blocked` result: the `reason`",
-        "  (`provider_failed`, `provider_not_landed`, `provider_landed_without`,",
-        "  `provider_blocked`, `cycle`, `unknown_dependency`, `unprovided`), the",
-        "  `providers` it waited on with the `outcome` and `result` each came",
-        "  to, the `needs` it had of them (`path`, `symbol`, and `creates`: to",
-        "  be created rather than changed) and the `chain` a hold came down",
-        "  through. A repository's live tree, which every batch on it joins",
-        "  while it has contracts in flight, is under `journal.dir` in",
-        "  `trees/<tree>.json`.",
-        "- `seeded` — only on a run started with `--notes-from RESULT`: `from`,",
-        "  the result read, `records`, the failure-notes records read from it,",
-        "  each with the `run` it was made in, and `handed`, how many the climb",
-        "  opened with (all under `retry_notes: climb`, else none).",
-        "- `replanned` — only on a `ladder_spent` result in a batch with",
-        "  `max_replans` above 0: the `round`, the `max_replans` it was held to,",
-        "  the ids of the `contracts` proposed in its place (empty when it was",
-        "  not re-planned; each of those contract files carries `replan`: the id",
-        "  it `replaces` and its `round`) and a `detail` sentence, which `detail`",
-        "  repeats.",
+        *_HEAD_AND_SESSION,
+        "",
+        "### Flags that matter",
+        "",
+        *_flags(_DIRECT_FLAGS),
+        "",
+        "`mcgyvr direct -h` lists every flag. `--budget` is refused here: there is",
+        "no prompt to read.",
+        "",
+        "### How it ended",
+        "",
+        *_ended(),
+        "## Step 4 — read the result files",
+        "",
+        "Nothing on stdout points at a result. For a set of one contract, name where",
+        "you read it with `--result PATH`; for more, pass `--record DIR` and read",
+        "`DIR/results/<id>-<stamp>.json`. Either way mcgyvr keeps its own copy under",
+        "the config's `journal.dir`, in `results/`. The file's keys:",
+        "",
+        *_OUTCOMES,
+        *_RESULT_KEYS,
         "",
         *_notes_section(),
         "Every run is journaled under the config's `journal.dir` and nothing on",
@@ -776,28 +996,22 @@ def render_skill() -> str:
         "be counted. Deterministic runs are there too, as a row naming",
         "the program that did the work with `tier: deterministic` and no prompt",
         "or reply beside it. `--record DIR` adds a complete second copy for your",
-        "own use; `--result PATH` says where you read the result file.",
-        "`--notes-from RESULT` starts the climb with an earlier run's failure",
-        "notes for the same contract, under a banner naming that run: for a",
-        "rerun on another ladder or machine, never instead of replanning.",
+        "own use. `--notes-from RESULT` starts a contract's climb with an earlier",
+        "run's failure notes, under a banner naming that run: for a rerun on another",
+        "ladder or machine, never instead of replanning.",
         "",
-        "Exit codes: 0 accepted or nothing to change, 1 not accepted or error,",
-        "2 usage (including no session to file the run under), 3 a live fleet",
-        "refused admission. `mcgyvr delegate` exits 3 too when no orchestrator",
-        "role is configured, when no contract came of the request, and under",
-        "`--run` when a contract was held `blocked`.",
+        "## Step 5 — replan from the findings, never retry the same contract",
         "",
-        "## Step 4 — replan from the findings, never retry the same contract",
-        "",
-        "A failed attempt already had its retries inside the run. When `outcome` is",
-        "not `accepted`, read `attempts[].findings`: each line is one reason the gate",
-        "refused. `attempts[].notes` is the same evidence as a record, one per failed",
+        "A failed attempt already had its retries inside the run, and under",
+        "`mcgyvr direct` a spent ladder is not handed to a proposer: the next",
+        "contract is yours to write. When `outcome` is not `accepted`, read",
+        "`attempts[].findings`: each line is one reason the gate refused.",
+        "`attempts[].notes` is the same evidence as a record, one per failed",
         "attempt in climb order: the check, the file and line, the tool's code, and",
         "the command and its exit where the check ran one. Write a *different*",
-        "contract — narrower target, an acceptance",
-        "command that states the requirement, a stop condition for what was",
-        "ambiguous — and go back to step 2. Running the same contract again spends",
-        "more on the same answer.",
+        "contract — narrower target, an acceptance command that states the",
+        "requirement, a stop condition for what was ambiguous — and go back to",
+        "Step 2. Running the same contract again spends more on the same answer.",
         "",
         "`nothing_to_run` and `declined_throughout` are the exception: neither is",
         "fixable by writing a different contract, because both say this machine",
@@ -806,19 +1020,18 @@ def render_skill() -> str:
         "`skills/mcgyvr/SETUP.md`.",
         "",
         "When `outcome` is `accepted`, the change is in `target` (a rename's: in",
-        "each file `delivery` names), uncommitted.",
-        "Review it there and commit it yourself. To have mcgyvr commit instead, run",
-        "with `--commit` or `--branch NAME` on a tree where those files are",
-        "clean: mcgyvr refuses to overwrite an edited or uncommitted file, so",
-        "restore it first (`git checkout -- <target>`) rather than rerunning on",
-        "top of the last run.",
+        "each file `delivery` names), uncommitted. Review it there and commit it",
+        "yourself. To have mcgyvr commit instead, run with `--commit` or",
+        "`--branch NAME` on a tree where those files are clean: mcgyvr refuses to",
+        "overwrite an edited or uncommitted file, so restore it first",
+        "(`git checkout -- <target>`) rather than rerunning on top of the last run.",
     ]
     return "\n".join(lines).rstrip("\n") + "\n"
 
 
-def _notes_table(fields: Sequence[Field]) -> list[str]:
-    """A failure-notes field table: key, type (`or null` when optional), meaning."""
-    lines = ["| Key | Type | Description |", "| --- | --- | --- |"]
+def _notes_records(fields: Sequence[Field]) -> list[str]:
+    """A failure-notes field record: key, type (`or null` when optional), meaning."""
+    lines: list[str] = []
     for field in fields:
         kind = (
             f"`{field.choices[0]}`"
@@ -827,13 +1040,13 @@ def _notes_table(fields: Sequence[Field]) -> list[str]:
         )
         if not field.required:
             kind += " or null"
-        lines.append(f"| `{field.name}` | {kind} | {_escape(field.doc)} |")
-    lines.append("")
+        lines += [f"**`{field.name}`**", *_wrap(f"- type: {kind}")]
+        lines += [*_wrap(f"- description: {field.doc}"), ""]
     return lines
 
 
 def _notes_section() -> list[str]:
-    """The skill's account of `attempts[].notes`, its tables from `mcgyvr.notes`."""
+    """The skill's account of `attempts[].notes`, its records from `mcgyvr.notes`."""
     return [
         "`attempts[].notes` is the failure-notes record of a failed try, `null` on",
         "a try that left none. It is built from what the gate, the reviewer or the",
@@ -841,10 +1054,10 @@ def _notes_section() -> list[str]:
         "field is `null` where the check reported nothing for it. Its JSON Schema",
         f"is `references/{NOTES_SCHEMA_PATH.name}`. The record:",
         "",
-        *_notes_table(failure_notes.NOTES_FIELDS),
+        *_notes_records(failure_notes.NOTES_FIELDS),
         "Each entry of its `notes`:",
         "",
-        *_notes_table(failure_notes.NOTE_FIELDS),
+        *_notes_records(failure_notes.NOTE_FIELDS),
     ]
 
 
@@ -874,7 +1087,7 @@ def render_examples() -> str:
         "",
         "Each loads through the contract validator; they are checked by the test",
         "suite, so copying one is copying a shape that is known to validate. The",
-        "keys are documented in `SKILL.md`.",
+        "keys are documented in the /mcgyvr-direct skill, `SKILL.md`.",
         "",
         "## A change a model makes",
         "",
@@ -1019,8 +1232,9 @@ def main(argv: Sequence[str] | None = None) -> int:
         prog="python -m mcgyvr.docgen",
         description=(
             "Render the configuration reference from the config schema, check it "
-            "and delete it; write the /mcgyvr skill, its examples, the "
-            "failure-notes schema and SETUP.md, or check the committed ones."
+            "and delete it; write the /mcgyvr and /mcgyvr-direct skills, the "
+            "examples, the failure-notes schema and SETUP.md, or check the "
+            "committed ones."
         ),
     )
     parser.add_argument(
@@ -1040,6 +1254,11 @@ def main(argv: Sequence[str] | None = None) -> int:
         "--skill-output",
         default=str(REPO_ROOT / SKILL_PATH),
         help="where to write the /mcgyvr skill (default: the checkout's copy)",
+    )
+    parser.add_argument(
+        "--direct-skill-output",
+        default=str(REPO_ROOT / DIRECT_SKILL_PATH),
+        help="where to write the /mcgyvr-direct skill (default: the checkout's copy)",
     )
     parser.add_argument(
         "--setup-output",
@@ -1079,7 +1298,16 @@ def main(argv: Sequence[str] | None = None) -> int:
         print(f"config reference: rendered to {reference}, checked, deleted")
 
     stale = _write_or_check(
-        Path(args.skill_output), render_skill(), "src/mcgyvr/contract.py", args.check
+        Path(args.skill_output),
+        render_skill(),
+        "src/mcgyvr/flagset.py",
+        args.check,
+    )
+    stale += _write_or_check(
+        Path(args.direct_skill_output),
+        render_direct_skill(),
+        "src/mcgyvr/contract.py",
+        args.check,
     )
     stale += _write_or_check(
         Path(args.setup_output), render_setup(), "src/mcgyvr/config.py", args.check

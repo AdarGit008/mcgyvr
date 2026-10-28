@@ -1,6 +1,6 @@
 """A run on the floor leaves a change the setup asked the gate to report.
 
-End to end through ``mcgyvr run``: a deterministic contract whose program
+End to end through ``mcgyvr direct``: a deterministic contract whose program
 (``ruff format``) rewrites a line that changes an object its caller passed in.
 The rewritten line is an added line, so the gate judges it.
 
@@ -104,7 +104,7 @@ def _run(tmp_path: Path, monkeypatch: pytest.MonkeyPatch, mode: str | None) -> i
     try:
         return main(
             [
-                "run",
+                "direct",
                 str(contract),
                 "--repo",
                 str(repo),

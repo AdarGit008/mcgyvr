@@ -1,7 +1,7 @@
-"""`mcgyvr delegate --log PATH` names every way the command ends, as data.
+"""`mcgyvr PROMPT --log PATH` names every way the command ends, as data.
 
-`delegate` says how it ended in English on stderr, and its exit code folds a
-dozen failures into 1, so a script that called it could only tell them apart
+`mcgyvr PROMPT` says how it ended in English on stderr, and its exit code folds
+a dozen failures into 1, so a script that called it could only tell them apart
 by matching prose — which broke the first time the prose was reworded. With
 `--log PATH` it writes one `mcgyvr.delegate_log/1` record there on every exit
 once its arguments are read: the `kind` (one per exit path), the exit code
@@ -142,9 +142,17 @@ def _config(tmp_path: Path, text: str = CONFIG) -> Path:
 def _delegate(
     tmp_path: Path, root: Path, *extra: str, config: Path | None = None
 ) -> tuple[int, DelegateLog]:
-    """Run `delegate` with `--log`, check the record, return the exit and it."""
+    """Run `mcgyvr PROMPT` with `--log`, check the record, return the exit and it.
+
+    It plans (`--output DIR`, which needs no session and runs nothing) unless
+    the test names `--output` itself, or `--run` to ask for the default run.
+    """
     log = tmp_path / "out" / "delegate-log.json"
-    argv = ["delegate", "Fix listing.", "--repo", str(root), "--log", str(log)]
+    argv = ["Fix listing.", "--repo", str(root), "--log", str(log)]
+    if "--run" in extra:
+        extra = tuple(a for a in extra if a != "--run")
+    elif "--output" not in extra:
+        argv += ["--output", str(tmp_path / "plan")]
     if config is not None:
         argv += ["--config", str(config)]
     code = lj.main([*argv, *extra])
@@ -345,7 +353,7 @@ def test_an_entry_with_a_field_of_the_wrong_shape_is_proposal_field_invalid(
 # --- the arguments, before anything is asked ------------------------------------
 
 
-def test_run_with_no_session_is_session_unresolved_and_asks_nobody(
+def test_the_bare_verb_with_no_session_is_session_unresolved_and_asks_nobody(
     tmp_path: Path, root: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
     _reply(monkeypatch, AssertionError("the orchestrator was asked"))
@@ -384,13 +392,15 @@ def test_contracts_and_no_refusals_is_emitted(
     assert record.refusals == ()
 
 
-def test_contracts_printed_to_stdout_have_no_path(
+def test_a_planned_contract_is_logged_with_the_path_it_was_written_to(
     tmp_path: Path, root: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
     _reply(monkeypatch, json.dumps([PROPOSAL]))
     _code, record = _delegate(tmp_path, root, config=_config(tmp_path))
     _ended(record, DelegateKind.EMITTED)
-    assert [c.path for c in record.contracts] == [None]
+    (contract,) = record.contracts
+    assert contract.path == str(tmp_path / "plan" / f"{contract.id}.json")
+    assert Path(contract.path).is_file()
 
 
 def test_contracts_beside_refusals_is_emitted_with_refusals(
@@ -420,7 +430,7 @@ def test_none_emitted_exits_3_without_a_log_too(
     tmp_path: Path, root: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
     _reply(monkeypatch, "[]")
-    argv = ["delegate", "Fix listing.", "--repo", str(root)]
+    argv = ["Fix listing.", "--repo", str(root), "--output", str(tmp_path / "plan")]
     code = lj.main([*argv, "--config", str(_config(tmp_path))])
     assert code == 3
 
@@ -439,7 +449,6 @@ def test_a_crash_is_internal_error_and_still_raises(
     with pytest.raises(OSError):
         lj.main(
             [
-                "delegate",
                 "Fix listing.",
                 "--repo",
                 str(root),
@@ -467,7 +476,7 @@ def test_a_log_that_cannot_be_written_is_said_and_changes_no_exit(
     _reply(monkeypatch, "[]")
     blocker = tmp_path / "blocker"
     blocker.write_text("")
-    argv = ["delegate", "Fix listing.", "--repo", str(root)]
+    argv = ["Fix listing.", "--repo", str(root), "--output", str(tmp_path / "plan")]
     argv += ["--config", str(_config(tmp_path)), "--log", str(blocker / "log.json")]
 
     code = lj.main(argv)

@@ -84,7 +84,7 @@ def test_the_journal_corrects_the_accepted_dispatch_and_not_the_unreadable_one(
     assert unreadable["outcome"] == "failed", unreadable
     assert "draw 1" in unreadable["detail"], unreadable["detail"]
 
-    result = json.loads(lj.result_path(capsys.readouterr().out).read_text())
+    result = json.loads(lj.result_of(contract).read_text())
     (attempt,) = result["attempts"]
     assert attempt["draw"] == 1
     assert attempt["draws"] == 2

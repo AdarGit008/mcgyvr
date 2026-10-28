@@ -1,35 +1,50 @@
 #!/usr/bin/env bash
 # shellcheck shell=bash
-# skills/mcgyvr/install.sh — put the /mcgyvr skill where a harness will find it.
+# skills/mcgyvr/install.sh — put the /mcgyvr and /mcgyvr-direct skills where a
+# harness will find them.
 #
-# Two harnesses are in scope: the Claude CLI (`~/.claude/skills/`) and pi
-# (`~/.pi/agent/skills/`). Both read the Agent Skills layout, so both get the
-# same SKILL.md, byte for byte, from this directory — and, beside it, the same
-# `references/` directory. SKILL.md points at `references/examples.md` the way
-# the Agent Skills layout expects, skill-relative, so a harness that got only
-# SKILL.md would carry a pointer to a file that is not there: whoever installed
-# the skill rather than cloning the repository could not reach the examples at
-# all. Both are generated (`make docs`); this script never edits either, it
-# only copies them.
+# Two skills, each a directory of `skills/`, this one's parent: `mcgyvr` (a prompt,
+# planned into contracts and run) and `mcgyvr-direct` (contracts someone wrote,
+# vetted and run). Two harnesses are in scope: the Claude CLI
+# (`~/.claude/skills/`) and pi (`~/.pi/agent/skills/`). Both read the Agent
+# Skills layout, so each gets every skill's SKILL.md, byte for byte, in a
+# directory named after the skill — and, beside a SKILL.md that has one, the
+# same `references/` directory. /mcgyvr-direct's SKILL.md points at
+# `references/examples.md` the way the Agent Skills layout expects,
+# skill-relative, so a harness that got only SKILL.md would carry a pointer to a
+# file that is not there: whoever installed the skill rather than cloning the
+# repository could not reach the examples at all. All of them are generated
+# (`make docs`); this script never edits one, it only copies them.
 #
 # SETUP.md is not copied anywhere. It is what a machine's owner reads to stand
-# the ladder up, and the skill is what an agent reads to author a contract —
-# beside each other in this directory, and only one of them is installed. This
-# script's stdout is a list of paths, SETUP.md's among them, plus the one line
-# naming how to obtain the CLI, plus the one line saying the skill does not
-# load itself, and never a file's contents: stdout is the only part of running
-# this that can reach a context. The version check warns on stderr, which is
-# not part of that promise and not a place a context reads.
+# the ladder up, and the skills are what an agent reads to hand work over — it
+# sits beside this script, and is not installed. This script's stdout is a
+# list of paths, SETUP.md's among them, plus the one line naming how to obtain
+# the CLI, plus the one line saying the skills do not load themselves, and never
+# a file's contents: stdout is the only part of running this that can reach a
+# context. The version check warns on stderr, which is not part of that promise
+# and not a place a context reads.
 #
 # Installing twice changes nothing. Uninstalling twice is not an error.
 set -euo pipefail
 
 HERE="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)"
-SKILL_MD="${HERE}/SKILL.md"
 
-# The reference files that travel with the skill, as the Agent Skills layout
-# places them: `<skill dir>/references/`.
-REFERENCES_DIR="${HERE}/references"
+# The directory every skill is a directory of: this script's own skill's parent.
+SKILLS_ROOT="$(cd -- "${HERE}/.." && pwd)"
+
+#: The skills this script installs, each the name of its source directory
+#: under SKILLS_ROOT, of the directory it lands in, and of its frontmatter
+#: `name`. A skill's reference files travel with it, as the Agent Skills layout
+#: places them: `<skill dir>/references/`.
+SKILLS=(
+  "mcgyvr"
+  "mcgyvr-direct"
+)
+
+# The example contracts the CLI on PATH is asked to accept (probe_examples):
+# the ones /mcgyvr-direct, the skill that teaches writing a contract, carries.
+EXAMPLES_MD="${SKILLS_ROOT}/mcgyvr-direct/references/examples.md"
 
 # Named relative to the repository, as the skill directory is: the reader is
 # the person who has this checkout, and an absolute path resolved here would
@@ -70,16 +85,13 @@ REPO_URL="https://github.com/AdarGit008/mcgyvr"
 # same revision as the skill.
 CHECKOUT="$(cd -- "${HERE}/../.." && pwd)"
 
-# Relative to $HOME, which is read from the environment so a test (or a user
-# with a non-standard home) can point the install somewhere else.
-TARGETS=(
-  ".claude/skills/mcgyvr"
-  ".pi/agent/skills/mcgyvr"
+# Where each harness reads skills from, relative to $HOME, which is read from
+# the environment so a test (or a user with a non-standard home) can point the
+# install somewhere else. A skill lands in `<harness dir>/<skill name>`.
+HARNESS_DIRS=(
+  ".claude/skills"
+  ".pi/agent/skills"
 )
-
-#: The directory name every target ends in, which the frontmatter `name` must
-#: match. Checked against each target before the source is verified against it.
-SKILL_NAME="mcgyvr"
 
 # Beside each installed copy, the digest of every file this script wrote
 # there, one `digest  path` line each. It is what tells a copy somebody edited
@@ -97,9 +109,9 @@ usage() {
   cat <<'USAGE'
 usage: install.sh [--force] [--uninstall] [--help]
 
-  (no args)    install the /mcgyvr skill for the Claude CLI and for pi
+  (no args)    install /mcgyvr and /mcgyvr-direct for the Claude CLI and for pi
   --force      overwrite an installed copy that was edited by hand
-  --uninstall  remove it from both
+  --uninstall  remove them from both
 USAGE
 }
 
@@ -178,13 +190,14 @@ verify_skill() {
   fi
 }
 
-# Every file the install writes, as paths relative to this directory. SKILL.md
-# and the reference files beside it; never SETUP.md.
+# Every file the install writes for one skill, as paths relative to that
+# skill's directory. SKILL.md and the reference files beside it; never SETUP.md.
 payload_files() {
+  local references="$1/references"
   printf 'SKILL.md\n'
-  [[ -d "${REFERENCES_DIR}" ]] || return 0
+  [[ -d "${references}" ]] || return 0
   local file
-  for file in "${REFERENCES_DIR}"/*; do
+  for file in "${references}"/*; do
     [[ -f "${file}" ]] || continue
     printf 'references/%s\n' "$(basename -- "${file}")"
   done
@@ -218,8 +231,9 @@ check_installed() {
 }
 
 # A file this script installed earlier that the skill no longer carries — a
-# reference that was renamed or dropped — does not stay behind pretending to
-# be part of the installed skill.
+# reference that was renamed, dropped or moved to another skill — does not stay
+# behind pretending to be part of the installed skill, and neither does the
+# directory it leaves empty.
 prune_removed() {
   local dest="$1"
   shift
@@ -238,11 +252,14 @@ prune_removed() {
     if [[ "${found}" -eq 0 && -f "${dest}/${rel}" ]]; then
       rm -f -- "${dest}/${rel}"
       echo "removed: ${dest}/${rel}"
+      if [[ "$(dirname -- "${rel}")" != "." ]]; then
+        rmdir -- "$(dirname -- "${dest}/${rel}")" 2>/dev/null || true
+      fi
     fi
   done <"${record}"
 }
 
-# Whether the CLI on PATH accepts every contract the skill ships in
+# Whether the CLI on PATH accepts every contract /mcgyvr-direct ships in
 # `references/examples.md`, asked of the CLI itself: each fenced `yaml` block
 # is written to a file and handed to `mcgyvr contract`. The examples are the
 # schema's own shapes at this revision (docgen renders them and the suite
@@ -256,7 +273,7 @@ prune_removed() {
 # the README installs the CLI first but nothing stops the skill from being
 # installed before the CLI it will be paired with.
 probe_examples() {
-  local found="$1" examples="${REFERENCES_DIR}/examples.md"
+  local found="$1" examples="${EXAMPLES_MD}"
   [[ -f "${examples}" ]] || return 0
   local scratch
   scratch="$(mktemp -d 2>/dev/null)" || return 0
@@ -294,11 +311,11 @@ probe_examples() {
     fix+=": uv tool install --force ${CHECKOUT}"
   fi
   if [[ "${found}" =~ ^[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
-    fix="Re-install the skill from the CLI's release (git clone --depth 1 --branch v${found} ${REPO_URL}, then its skills/mcgyvr/install.sh), or ${fix}"
+    fix="Re-install the skills from the CLI's release (git clone --depth 1 --branch v${found} ${REPO_URL}, then its skills/mcgyvr/install.sh), or ${fix}"
   else
     fix="${fix^}"
   fi
-  echo "install.sh: mcgyvr ${found} rejects ${rejected} of the ${count} example contracts this skill ships (${first:-no reason given}): the skill and the CLI are from different revisions, so the skill teaches contracts this CLI refuses. ${fix}." >&2
+  echo "install.sh: mcgyvr ${found} rejects ${rejected} of the ${count} example contracts /mcgyvr-direct ships (${first:-no reason given}): the skills and the CLI are from different revisions, so the skill teaches contracts this CLI refuses. ${fix}." >&2
   return 1
 }
 
@@ -318,7 +335,7 @@ probe_examples() {
 # is the pre-release case MIN_VERSION's comment rules out.
 check_version() {
   if ! command -v mcgyvr >/dev/null 2>&1; then
-    echo "install.sh: no mcgyvr on PATH: the skill is installed, but there is nothing on this machine for it to drive. Get it with: ${CLI_INSTALL}" >&2
+    echo "install.sh: no mcgyvr on PATH: the skills are installed, but there is nothing on this machine for them to drive. Get it with: ${CLI_INSTALL}" >&2
     return 0
   fi
 
@@ -357,42 +374,51 @@ check_version() {
   fi
 }
 
+# Every target of every skill, as `<skill name> <dir under $HOME>` lines.
+targets() {
+  local name harness
+  for name in "${SKILLS[@]}"; do
+    for harness in "${HARNESS_DIRS[@]}"; do
+      printf '%s %s\n' "${name}" "${harness}/${name}"
+    done
+  done
+}
+
 install_skill() {
   local force="$1"
-  if [[ ! -f "${SKILL_MD}" ]]; then
-    echo "install.sh: no SKILL.md next to this script (${SKILL_MD})" >&2
-    exit 1
-  fi
+  local name target dest rel src digest record from
 
-  local target dest rel src digest record
-  # Verifying the source once is only sound if every target expects the same
-  # frontmatter name.
-  for target in "${TARGETS[@]}"; do
-    if [[ "$(basename -- "${target}")" != "${SKILL_NAME}" ]]; then
-      echo "install.sh: ${target}: every target must be a directory named '${SKILL_NAME}'" >&2
+  # Every source is verified before anything is copied, so one that fails
+  # leaves every target, of every skill, as it was. A skill lands in a
+  # directory named after it, and its frontmatter `name` must be that name.
+  for name in "${SKILLS[@]}"; do
+    from="${SKILLS_ROOT}/${name}"
+    if [[ ! -f "${from}/SKILL.md" ]]; then
+      echo "install.sh: no SKILL.md for the ${name} skill (${from}/SKILL.md)" >&2
       exit 1
     fi
+    verify_skill "${from}/SKILL.md" "${name}"
   done
-  verify_skill "${SKILL_MD}" "${SKILL_NAME}"
-
-  local -a payload=()
-  while IFS= read -r rel; do
-    [[ -n "${rel}" ]] && payload+=("${rel}")
-  done < <(payload_files)
 
   if [[ "${force}" -eq 0 ]]; then
-    for target in "${TARGETS[@]}"; do
+    while read -r name target; do
       check_installed "${HOME}/${target}"
-    done
+    done < <(targets)
   fi
 
-  for target in "${TARGETS[@]}"; do
+  while read -r name target; do
+    from="${SKILLS_ROOT}/${name}"
+    local -a payload=()
+    while IFS= read -r rel; do
+      [[ -n "${rel}" ]] && payload+=("${rel}")
+    done < <(payload_files "${from}")
+
     dest="${HOME}/${target}"
     mkdir -p -- "${dest}"
     prune_removed "${dest}" "${payload[@]}"
     record=""
     for rel in "${payload[@]}"; do
-      src="${HERE}/${rel}"
+      src="${from}/${rel}"
       mkdir -p -- "$(dirname -- "${dest}/${rel}")"
       cp -- "${src}" "${dest}/${rel}"
       digest="$(digest_of "${dest}/${rel}")"
@@ -404,23 +430,23 @@ install_skill() {
       echo "installed: ${dest}/${rel}"
     done
     printf '%s' "${record}" >"${dest}/${RECORD}"
-  done
+  done < <(targets)
   echo "setup: ${SETUP_DOC}"
-  # The skill is instructions for driving a CLI, and this is how the CLI is
+  # The skills are instructions for driving a CLI, and this is how the CLI is
   # obtained. One line, named the same way the paths above are, and no more:
   # what to do with it once it is installed is SETUP.md's, one line up.
   echo "cli: ${CLI_INSTALL}"
   # One instruction to the operator who ran this, and the only thing that says
-  # the skill does not load itself. Not a file's contents.
-  echo "Invoke it with /mcgyvr; it does not load itself."
+  # the skills do not load themselves. Not a file's contents.
+  echo "Invoke them with /mcgyvr <prompt> or /mcgyvr-direct <files|dir>; neither loads itself."
   # Last, and on stderr: the install above has already succeeded, and this
   # only says whether there is anything here to drive it with.
   check_version
 }
 
 uninstall_skill() {
-  local target dest removed=0
-  for target in "${TARGETS[@]}"; do
+  local name target dest removed=0
+  while read -r name target; do
     dest="${HOME}/${target}"
     if [[ -e "${dest}" ]]; then
       # The whole skill directory: SKILL.md, the reference files beside it,
@@ -431,7 +457,7 @@ uninstall_skill() {
     else
       echo "not installed: ${dest}"
     fi
-  done
+  done < <(targets)
   if [[ "${removed}" -eq 0 ]]; then
     echo "Nothing to remove."
   fi

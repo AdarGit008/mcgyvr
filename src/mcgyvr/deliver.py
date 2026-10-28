@@ -563,7 +563,7 @@ def between_deliveries(root: Path) -> Iterator[None]:
 
     A delivery writes its files, re-runs the gate and then commits or puts the
     bytes back, all under :func:`_exclusive`; a reader of the working tree that
-    runs beside deliveries in another thread (``delegate --run --jobs``) takes
+    runs beside deliveries in another thread (``mcgyvr PROMPT --jobs``) takes
     the same lock to read the tree between two of them. Where the lock cannot
     be opened no delivery can take it either, so the block runs without it.
     """

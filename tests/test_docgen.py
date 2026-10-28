@@ -29,8 +29,9 @@ _REDIRECT_MODULE = "docgen_output_redirect"
 _OUTPUTS_ENV = "MCGYVR_DOCGEN_TEST_OUTPUTS"
 
 #: The redirect plugin, as source. docgen's default output paths are module
-#: constants joined to ``REPO_ROOT`` (``SKILL_PATH``, ``SETUP_PATH``,
-#: ``EXAMPLES_PATH``, ``NOTES_SCHEMA_PATH``, read by ``docgen.main``'s argument
+#: constants joined to ``REPO_ROOT`` (``SKILL_PATH``, ``DIRECT_SKILL_PATH``,
+#: ``SETUP_PATH``, ``EXAMPLES_PATH``, ``NOTES_SCHEMA_PATH``, read by
+#: ``docgen.main``'s argument
 #: defaults), and an
 #: absolute path put in their place moves every defaulted write into the outer
 #: test's ``tmp_path``. ``REPO_ROOT`` itself is left alone, so the inner run's
@@ -49,6 +50,7 @@ from mcgyvr import docgen
 
 _root = Path(os.environ["{_OUTPUTS_ENV}"])
 docgen.SKILL_PATH = _root / "SKILL.md"
+docgen.DIRECT_SKILL_PATH = _root / "direct-SKILL.md"
 docgen.SETUP_PATH = _root / "SETUP.md"
 docgen.EXAMPLES_PATH = _root / "examples.md"
 docgen.NOTES_SCHEMA_PATH = _root / "failure-notes.schema.json"
@@ -56,10 +58,11 @@ docgen.NOTES_SCHEMA_PATH = _root / "failure-notes.schema.json"
 
 
 def _outputs(tmp_path: Path, *, skill: Path | None = None) -> list[str]:
-    """All five output flags, every one of them inside ``tmp_path``.
+    """All six output flags, every one of them inside ``tmp_path``.
 
-    ``--skill-output``, ``--setup-output``, ``--examples-output`` and
-    ``--notes-schema-output`` default to the committed copies (``docgen.main``'s
+    ``--skill-output``, ``--direct-skill-output``, ``--setup-output``,
+    ``--examples-output`` and ``--notes-schema-output`` default to the
+    committed copies (``docgen.main``'s
     argument defaults), so a write-mode run that overrides only some of them
     regenerates the rest of the checkout in place. A test that did that would erase,
     from the working tree, exactly the drift ``make docs-check`` exists to catch:
@@ -74,6 +77,8 @@ def _outputs(tmp_path: Path, *, skill: Path | None = None) -> list[str]:
         str(tmp_path / "config-reference.md"),
         "--skill-output",
         str(skill if skill is not None else tmp_path / "SKILL.md"),
+        "--direct-skill-output",
+        str(tmp_path / "direct-SKILL.md"),
         "--setup-output",
         str(tmp_path / "SETUP.md"),
         "--examples-output",
@@ -89,6 +94,9 @@ def _render_the_kept_documents(tmp_path: Path) -> None:
     Written current, so a check-mode run in here reports drift in the skill
     and nothing else.
     """
+    (tmp_path / "direct-SKILL.md").write_text(
+        docgen.render_direct_skill(), encoding="utf-8"
+    )
     (tmp_path / "SETUP.md").write_text(docgen.render_setup(), encoding="utf-8")
     (tmp_path / "examples.md").write_text(docgen.render_examples(), encoding="utf-8")
     (tmp_path / "failure-notes.schema.json").write_text(
@@ -181,6 +189,7 @@ def test_the_reference_is_rendered_checked_and_deleted_on_every_run(
     reference = tmp_path / "config-reference.md"
     skill = tmp_path / "SKILL.md"
     skill.write_text(docgen.render_skill(), encoding="utf-8")
+    _render_the_kept_documents(tmp_path)
     common = _outputs(tmp_path, skill=skill)
 
     assert docgen.main(common) == 0
@@ -242,12 +251,14 @@ def test_running_the_docgen_tests_does_not_rewrite_the_committed_documents(
 ) -> None:
     """A sentinel planted where the inner run's defaults point survives it.
 
-    `--skill-output`, `--setup-output` and `--examples-output` default to the
-    checkout's own copies (`docgen.main`'s argument defaults), so a write-mode
-    `docgen.main()` call that overrides only some of them regenerates the
-    others in place. That is not a stray write: it silently repairs, in the
-    working tree, the very drift `make docs-check` exists to fail on, so
-    a run of the suite would leave a stale committed document looking current.
+    `--skill-output`, `--direct-skill-output`, `--setup-output` and
+    `--examples-output` default to the checkout's own copies (`docgen.main`'s
+    argument defaults), so a write-mode `docgen.main()` call that overrides only
+    some of them regenerates the others in place. That is not a stray write: it
+    silently repairs, in the working tree, the very drift `make docs-check`
+    exists to fail on, so a run of the suite would leave a stale committed
+    document looking current.
+
 
     A digest taken before and after would not see it — the rewrite produces
     the bytes the file is supposed to have. A sentinel does: it is the one
@@ -270,6 +281,7 @@ def test_running_the_docgen_tests_does_not_rewrite_the_committed_documents(
     that run, or it would drive itself.
     """
     skills = docgen.REPO_ROOT / "skills" / "mcgyvr"
+    direct = docgen.REPO_ROOT / "skills" / "mcgyvr-direct"
     committed = skills / "SETUP.md"
     assert committed.exists(), "skills/mcgyvr/SETUP.md must exist"
     untouched = committed.read_bytes()
@@ -277,11 +289,12 @@ def test_running_the_docgen_tests_does_not_rewrite_the_committed_documents(
     documents = tmp_path / "documents"
     documents.mkdir()
     (documents / "SKILL.md").write_bytes((skills / "SKILL.md").read_bytes())
+    (documents / "direct-SKILL.md").write_bytes((direct / "SKILL.md").read_bytes())
     (documents / "examples.md").write_bytes(
-        (skills / "references" / "examples.md").read_bytes()
+        (direct / "references" / "examples.md").read_bytes()
     )
     (documents / "failure-notes.schema.json").write_bytes(
-        (skills / "references" / "failure-notes.schema.json").read_bytes()
+        (direct / "references" / "failure-notes.schema.json").read_bytes()
     )
     sentinel = b"\n<!-- a docgen test rewrote the committed SETUP.md -->\n"
     planted = untouched + sentinel

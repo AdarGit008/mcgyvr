@@ -5,7 +5,7 @@ the machinery, ``nothing_to_run`` says the machine offered nothing for this
 work, which no rewrite of the contract can fix — the remedy is setup. `_climb`
 finds an empty ascent before `escalate` is ever called, so it is the CLI that
 has to say ``nothing_to_run``; `escalate`'s own ``NOTHING_TO_RUN`` is never
-reached from `mcgyvr run`.
+reached from `mcgyvr direct`.
 
 The machine here has one hosted unit and not the credential it names, so the
 pool skips it: no family from the contract's floor upward offers a rung.
@@ -61,7 +61,7 @@ def test_a_contract_no_rung_can_run_ends_nothing_to_run(
     code = lj.main(lj.run_args(contract, repo, config))
 
     out = capsys.readouterr().out
-    result = json.loads(lj.result_path(out).read_text(encoding="utf-8"))
+    result = json.loads(lj.result_of(contract).read_text(encoding="utf-8"))
     assert code == 1, out
     assert result["outcome"] == "nothing_to_run", result
     assert result["attempts"] == [], result

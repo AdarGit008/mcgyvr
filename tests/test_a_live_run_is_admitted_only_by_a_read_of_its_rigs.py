@@ -4,7 +4,7 @@
 ``observed`` is the door's ``read`` of each rig (``python -m mcgyvr.serving.run
 read``), never a guess.
 
-* **Live ``mcgyvr run`` and ``delegate --run``** are admitted before anything
+* **A live ``mcgyvr direct`` and ``mcgyvr PROMPT``** are admitted before anything
   is opened or dispatched, and refused when no fleet is named, when the layout
   was edited after locking (the refusal says to re-lock), when a rig is not the
   rig it was locked on (naming the rig and the id it read), or when a process
@@ -79,7 +79,7 @@ def door(monkeypatch: pytest.MonkeyPatch, events: list[tuple[str, str]]) -> Fake
     return fake
 
 
-# --- mcgyvr run -------------------------------------------------------------------
+# --- mcgyvr direct --------------------------------------------------------------
 
 
 def test_a_live_run_on_rigs_that_read_as_locked_is_admitted_then_dispatched(

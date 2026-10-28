@@ -99,7 +99,7 @@ def test_the_second_draws_unstorable_prompt_is_a_row_not_a_hole(
         "row nobody wrote"
     )
 
-    result = json.loads(lj.result_path(capsys.readouterr().out).read_text())
+    result = json.loads(lj.result_of(contract).read_text())
     landed = result["attempts"][-1]
     assert (landed["draw"], landed["draws"], landed["rows"]) == (1, 2, 2)
     assert landed["attempt_id"] == second["attempt_id"], (

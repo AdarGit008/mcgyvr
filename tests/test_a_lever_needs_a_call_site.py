@@ -13,6 +13,7 @@ map, so nothing above it knows a socket exists.
 
 from __future__ import annotations
 
+import argparse
 import os
 import subprocess
 from pathlib import Path
@@ -111,7 +112,7 @@ def contract(tmp_path: Path) -> Path:
 def _config(tmp_path: Path, text: str = LADDER) -> Path:
     """The config a lever is exercised under, outside the config folder.
 
-    These levers are about the climb, not about live: a ``mcgyvr run`` under
+    These levers are about the climb, not about live: a ``mcgyvr direct`` under
     the live fleet is admitted only by a read of its fleet's rigs
     (``tests/test_a_live_run_is_admitted_only_by_a_read_of_its_rigs.py``), and
     one with no fleet named is refused before anything else happens. A setup
@@ -165,19 +166,19 @@ def _fenced(content: str) -> str:
 
 
 # --------------------------------------------------------------------------
-# 1 · `worker_attempt` is reachable from `mcgyvr run`
+# 1 · `worker_attempt` is reachable from `mcgyvr direct`
 # --------------------------------------------------------------------------
 
 
 def test_the_run_command_climbs_the_ladder_for_a_model_contract(
     repo: Path, contract: Path, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
-    """``mcgyvr run`` climbs the ladder for a model contract.
+    """``mcgyvr direct`` climbs the ladder for a model contract.
 
     The assertion is on the repository rather than on the output, for the reason
     the deterministic half of this command is already asserted that way: a commit
     that exists is the only evidence the task ran. What it proves is that
-    ``mcgyvr run`` reaches :func:`mcgyvr.drive.worker_attempt` and drives it —
+    ``mcgyvr direct`` reaches :func:`mcgyvr.drive.worker_attempt` and drives it —
     a prompt was assembled, a rung was dispatched to, the reply was parsed and
     gated in a sandbox, and the accepted bytes were delivered.
     """
@@ -188,7 +189,7 @@ def test_the_run_command_climbs_the_ladder_for_a_model_contract(
 
     code = main(
         [
-            "run",
+            "direct",
             str(contract),
             "--repo",
             str(repo),
@@ -220,7 +221,7 @@ def test_the_ladder_is_found_the_way_every_other_command_finds_it(
 
     ``mcgyvr config`` and ``mcgyvr local_pool`` already resolve a path from
     ``$MCGYVR_CONFIG``, then the working directory, then the user config dir. A
-    ``run`` that could only be pointed at a ladder by flag would be a second
+    ``direct`` that could only be pointed at a ladder by flag would be a second
     answer to a question the project has already settled once, and an install
     that has exported the variable would have to repeat itself.
 
@@ -233,7 +234,7 @@ def test_the_ladder_is_found_the_way_every_other_command_finds_it(
     monkeypatch.setenv(CONFIG_PATH_ENV, str(_config(tmp_path)))
     _answers(monkeypatch, _fenced("RETRY = 3\n\n\ndef fetch(url):\n    return url\n"))
 
-    code = main(["run", str(contract), "--repo", str(repo), "--sandbox", "tempdir"])
+    code = main(["direct", str(contract), "--repo", str(repo), "--sandbox", "tempdir"])
 
     assert code == 0
     # No `--commit`, so the accepted file is left in the working tree and the
@@ -278,7 +279,7 @@ def test_an_install_with_no_rung_is_told_what_to_bind(
 
     code = main(
         [
-            "run",
+            "direct",
             str(contract),
             "--repo",
             str(repo),
@@ -329,7 +330,7 @@ def test_a_backend_that_does_not_answer_is_reported_against_its_rung(
 
     code = main(
         [
-            "run",
+            "direct",
             str(contract),
             "--repo",
             str(repo),
@@ -422,7 +423,7 @@ def test_breadth_is_asked_for_in_the_config_and_the_gate_picks_the_winner(
 
     code = main(
         [
-            "run",
+            "direct",
             str(contract),
             "--repo",
             str(repo),
@@ -463,7 +464,7 @@ def test_breadth_is_draws_within_one_attempt_and_not_more_attempts(
 
     main(
         [
-            "run",
+            "direct",
             str(contract),
             "--repo",
             str(repo),
@@ -499,7 +500,7 @@ def test_an_install_that_asked_for_nothing_draws_once(
 
     code = main(
         [
-            "run",
+            "direct",
             str(contract),
             "--repo",
             str(repo),
@@ -594,7 +595,7 @@ def test_a_format_only_rejection_is_cleaned_rather_than_sent_back_to_a_model(
 
     code = main(
         [
-            "run",
+            "direct",
             str(contract),
             "--repo",
             str(repo),
@@ -631,7 +632,7 @@ def test_the_bytes_that_were_delivered_are_the_bytes_that_were_re_gated(
 
     main(
         [
-            "run",
+            "direct",
             str(contract),
             "--repo",
             str(repo),
@@ -672,7 +673,7 @@ def test_enabling_the_cleanup_does_not_rescue_a_wrong_answer(
 
     code = main(
         [
-            "run",
+            "direct",
             str(contract),
             "--repo",
             str(repo),
@@ -712,7 +713,7 @@ def test_an_install_that_turned_the_cleanup_off_is_not_tidied(
 
     code = main(
         [
-            "run",
+            "direct",
             str(contract),
             "--repo",
             str(repo),
@@ -730,11 +731,11 @@ def test_an_install_that_turned_the_cleanup_off_is_not_tidied(
 
 
 # --------------------------------------------------------------------------
-# 4 · `reviewer_for` is reachable from `mcgyvr run`
+# 4 · `reviewer_for` is reachable from `mcgyvr direct`
 # --------------------------------------------------------------------------
 #
 # The fourth lever of the same shape as the three above, found by wiring them:
-# `worker_attempt` took a `verifier` and `mcgyvr run` passed `None`, so every
+# `worker_attempt` took a `verifier` and `mcgyvr direct` passed `None`, so every
 # ladder acceptance was labelled `unverified` even on an install with
 # `verifier.enabled: true` and a bound role — and `verify.reviewer_for`, which
 # exists to be that argument, had no caller at all.
@@ -847,7 +848,7 @@ def test_a_bound_verifier_is_asked_and_the_acceptance_is_labelled_verified(
 
     code = main(
         [
-            "run",
+            "direct",
             str(contract),
             "--repo",
             str(repo),
@@ -908,7 +909,7 @@ def test_a_reviewer_that_refuses_costs_the_attempt_and_tells_the_next_one_why(
 
     code = main(
         [
-            "run",
+            "direct",
             str(contract),
             "--repo",
             str(repo),
@@ -952,7 +953,7 @@ def test_an_install_that_did_not_enable_verification_asks_no_reviewer(
 
     code = main(
         [
-            "run",
+            "direct",
             str(contract),
             "--repo",
             str(repo),
@@ -991,7 +992,7 @@ def test_verification_asked_for_and_unusable_is_refused_before_the_sandbox(
 
     code = main(
         [
-            "run",
+            "direct",
             str(contract),
             "--repo",
             str(repo),
@@ -1040,29 +1041,61 @@ def test_a_change_that_creates_a_file_says_so_rather_than_saying_nothing(
     takes the second branch, and a reviewer judging a new module is told the
     original "was not supplied" as though something had been withheld.
     """
-    from mcgyvr.cli import main
+    from mcgyvr.cli.commands.run import _run
+    from mcgyvr.session import Session
 
     config = _config(tmp_path, VERIFYING)
     contract = tmp_path / "backoff.yaml"
     contract.write_text(NEW_FILE_CONTRACT, encoding="utf-8")
     _answers(monkeypatch, _fenced("def backoff(attempt):\n    return 2**attempt\n"))
     reviewed = _reviews(monkeypatch, "APPROVE the module is new and self-contained.")
-
-    code = main(
-        [
-            "run",
-            str(contract),
-            "--repo",
-            str(repo),
-            "--config",
-            str(config),
-            "--sandbox",
-            "tempdir",
-        ]
+    # `_run` directly: `mcgyvr direct` vets a target against the repository's
+    # index first and refuses a file that is not there yet (the test below).
+    args = argparse.Namespace(
+        contract=str(contract),
+        repo=str(repo),
+        config=str(config),
+        sandbox="tempdir",
+        commit=None,
+        branch=None,
+        record=None,
+        result=None,
+        session=Session("claude-s1"),
+        session_id=None,
     )
+
+    code = _run(args)
 
     assert code == 0
     assert "ORIGINAL FILE: none — the change creates a new file." in reviewed[0], (
         f"a created file was reported as an original nobody supplied.\n"
         f"prompt: {reviewed[0]}"
     )
+
+
+def test_direct_refuses_a_contract_whose_target_the_repository_does_not_hold(
+    repo: Path,
+    tmp_path: Path,
+    capsys: pytest.CaptureFixture[str],
+) -> None:
+    """Vetting stops a contract that would create its target before a rung is asked."""
+    from mcgyvr.cli import main
+
+    contract = tmp_path / "backoff.yaml"
+    contract.write_text(NEW_FILE_CONTRACT, encoding="utf-8")
+
+    code = main(
+        [
+            "direct",
+            str(contract),
+            "--repo",
+            str(repo),
+            "--config",
+            str(_config(tmp_path, VERIFYING)),
+            "--sandbox",
+            "tempdir",
+        ]
+    )
+
+    assert code == 3
+    assert "no such file in the index" in capsys.readouterr().err

@@ -88,7 +88,7 @@ def test_a_run_whose_replies_come_back_empty_says_so(
     monkeypatch: pytest.MonkeyPatch,
     capsys: pytest.CaptureFixture[str],
 ) -> None:
-    """Through ``mcgyvr run``: the attempt's detail is the new refusal."""
+    """Through ``mcgyvr direct``: the attempt's detail is the new refusal."""
 
     def reasons_until_the_cap(
         source_map: Any, rung: str, request: Any, **_: Any
@@ -106,8 +106,7 @@ def test_a_run_whose_replies_come_back_empty_says_so(
     contract = lj.make_contract(tmp_path / "impl.yaml")
 
     assert lj.main(lj.run_args(contract, repo, config)) == 1
-    out = capsys.readouterr().out
-    result = json.loads(lj.result_path(out).read_text())
+    result = json.loads(lj.result_of(contract).read_text())
     details = [attempt["detail"] for attempt in result["attempts"]]
     assert details, result
     for detail in details:

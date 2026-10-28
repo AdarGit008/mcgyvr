@@ -12,7 +12,7 @@ defaults ``draw=0, draws=1`` — the shape of an attempt that drew once —
   anyway is returned by :func:`~mcgyvr.telemetry.fold` as an orphan and dropped
   by the live view: a correction that exists nowhere a reader looks.
 
-Both are driven through ``mcgyvr run`` with ``drive.dispatch`` scripted,
+Both are driven through ``mcgyvr direct`` with ``drive.dispatch`` scripted,
 because what is asserted is the row a real run finally leaves behind.
 """
 
@@ -110,7 +110,7 @@ def test_the_error_lands_on_the_draw_whose_dispatch_raised(
     ), first
     assert _orphans(journal) == []
 
-    result = json.loads(lj.result_path(capsys.readouterr().out).read_text())
+    result = json.loads(lj.result_of(contract).read_text())
     assert result["outcome"] == "error"
     landed = result["attempts"][-1]
     assert landed["verdict"] == "error"
@@ -141,7 +141,7 @@ def test_a_raise_before_the_first_dispatch_corrects_nothing(
     assert _rows(journal) == [], "no dispatch was made, so no row was written"
     assert _orphans(journal) == [], "a correction was appended for a row nobody wrote"
 
-    result = json.loads(lj.result_path(capsys.readouterr().out).read_text())
+    result = json.loads(lj.result_of(contract).read_text())
     assert result["outcome"] == "error"
     landed = result["attempts"][-1]
     assert landed["verdict"] == "error"

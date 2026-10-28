@@ -114,7 +114,7 @@ def test_every_row_of_an_all_refused_attempt_is_corrected(
         f"{uncorrected}"
     )
 
-    result = json.loads(lj.result_path(capsys.readouterr().out).read_text())
+    result = json.loads(lj.result_of(contract).read_text())
     (attempt,) = result["attempts"]
     assert attempt["draws"] == DRAWS
     assert attempt["attempt_id"] in rows, attempt["attempt_id"]

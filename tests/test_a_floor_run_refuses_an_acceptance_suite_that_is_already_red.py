@@ -48,7 +48,7 @@ def test_a_floor_run_refuses_an_acceptance_suite_that_is_already_red(
     code = lj.main(lj.run_args(contract, repo, config))
 
     out = capsys.readouterr().out
-    result = json.loads(lj.result_path(out).read_text(encoding="utf-8"))
+    result = json.loads(lj.result_of(contract).read_text(encoding="utf-8"))
     assert code == 1, out
     assert result["outcome"] == "error", result
     assert "ruff format" not in out, "the tool ran before the baseline was checked"

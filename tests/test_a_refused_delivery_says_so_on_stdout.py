@@ -100,7 +100,7 @@ def _floor(
     result = tmp_path / "result.json"
     code = main(
         [
-            "run",
+            "direct",
             str(contract),
             "--repo",
             str(repo),
@@ -194,7 +194,7 @@ def test_a_refused_climb_prints_not_written_on_stdout(
     code = lj.main(lj.run_args(contract, repo, config))
 
     captured = capsys.readouterr()
-    result = json.loads(lj.result_path(captured.out).read_text())
+    result = json.loads(lj.result_of(contract).read_text())
     assert code == 1
     assert result["outcome"] == "delivery_refused", result
     assert "impl: accepted on" not in captured.out, captured.out
