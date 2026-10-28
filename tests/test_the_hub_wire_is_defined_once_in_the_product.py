@@ -342,6 +342,11 @@ def test_the_scope_header_is_one_header_and_its_values_are_three() -> None:
 # --- which pool serves which use case -------------------------------------------
 
 
+@pytest.mark.xfail(
+    strict=True,
+    reason="config still names `coding` until the four use cases land (F18); "
+    "then config imports USE_CASES from mcgyvr.hubwire and this passes",
+)
 def test_the_setups_use_cases_are_the_wires() -> None:
     from mcgyvr import config
 

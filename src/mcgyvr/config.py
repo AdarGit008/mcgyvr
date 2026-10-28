@@ -30,6 +30,7 @@ from mcgyvr.fleet.files import (
 )
 from mcgyvr.fleet.ids import _canonical_dump
 from mcgyvr.fleet.roots import LiveFleetError, live_fleet_dir
+from mcgyvr.hubwire import RUNG_POSITIONS, rider_cap_fits
 from mcgyvr.sandbox.base import NETWORKS
 from mcgyvr.schema import Dialect, join_path, walk_block
 from mcgyvr.schema import Field as Field
@@ -74,8 +75,8 @@ class UnboundValueError(ConfigError):
 
 
 #: Where a relief rung's host model sits against the models on your own rigs, as
-#: the hub judges it: shown, never a place on the ladder.
-POSITION_CHOICES: tuple[str, ...] = ("above_ceiling", "below_floor", "within")
+#: the hub judges it: shown, never a place on the ladder. The wire's values.
+POSITION_CHOICES: tuple[str, ...] = RUNG_POSITIONS
 
 #: How a batch of work is placed across units. `none` takes the first rung in
 #: ladder order whatever its load; `idle` and `full` take the first rung with a
@@ -2055,7 +2056,7 @@ def _cross_validate_shares(data: Mapping[str, Any], units: Mapping[str, Any]) ->
                 f"you run, or remove the entry."
             )
         width = block["width"]
-        if width is None or shared >= width:
+        if shared > 0 and not rider_cap_fits(shared, 1 if width is None else width):
             stated = "unset, so 1" if width is None else str(width)
             raise ConfigSchemaError(
                 f"{where}: {shared} is not below the unit's `width` ({stated}). "
