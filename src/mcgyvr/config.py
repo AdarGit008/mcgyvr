@@ -893,9 +893,11 @@ SCHEMA: tuple[Field, ...] = (
     Field(
         "fanout",
         "enum",
-        "Whether a batch of contracts spreads across units or queues on one.",
-        default="none",
+        "Whether a batch of contracts spreads across units or queues on one. "
+        "Unset is `idle` under `use_case: mcgyvr-code` and `none` under a raw "
+        "use case; a stated value wins.",
         choices=FANOUT_CHOICES,
+        bind_hint="name one of `none`, `idle`, `full`, or leave it to the use case",
     ),
     Field(
         "triage",
@@ -910,9 +912,11 @@ SCHEMA: tuple[Field, ...] = (
         "lower one. With no jev unit bound, or one that cannot be asked or "
         "read, the climb starts on the first rung and the run result's "
         "`triage` says why. A contract that states a `start_rung`, decided "
-        "ahead of time, starts there under either value and jev is not asked.",
-        default="none",
+        "ahead of time, starts there under either value and jev is not asked. "
+        "Unset is `jev` under `use_case: mcgyvr-code` while a Jev unit is bound "
+        "and `jev.enabled` is on, and `none` otherwise; a stated value wins.",
         choices=TRIAGE_CHOICES,
+        bind_hint="name `none` or `jev`, or leave it to the use case and Jev",
     ),
     Field(
         "dependents",
@@ -1543,7 +1547,8 @@ SWITCHES: tuple[Switch, ...] = (
         "triage",
         ("triage",),
         "`none`",
-        "Jev picks the rung a climb starts on",
+        "Jev picks the rung a climb starts on (on while Jev is on)",
+        stage="triage",
     ),
     Switch(
         "retry notes",
@@ -1562,7 +1567,8 @@ SWITCHES: tuple[Switch, ...] = (
         "fan-out",
         ("fanout",),
         "`none`",
-        "a batch spreads across units with free slots",
+        "a batch spreads across units with free slots (`idle`)",
+        stage="fanout",
     ),
     Switch(
         "gate",
@@ -1660,6 +1666,8 @@ def stages(config: Config) -> dict[str, bool]:
         > 0,
         "inferred_edges": config.get("infer_dependencies") is not False,
         "same_file": config.get("same_file", "wait") == "wait",
+        "fanout": config.ladder.fanout != "none",
+        "triage": config.get("triage") == "jev",
     }
     return {name: on[name] for name in STAGE_NAMES}
 
@@ -2231,6 +2239,7 @@ def _build(
         )
         for name, block in data["relief"].items()
     }
+    data = _use_case_defaults(data)
     ladder = Ladder(names=tuple(data["ladder"]), fanout=data["fanout"])
     return Config(
         path=path,
@@ -2240,6 +2249,23 @@ def _build(
         declared=declared,
         relief=lent,
     )
+
+
+def _use_case_defaults(data: dict[str, Any]) -> dict[str, Any]:
+    """`data` with an unset `fanout` and `triage` decided by the use case.
+
+    Under `mcgyvr-code` fan-out is `idle` and triage is `jev` while a Jev unit
+    is bound and on; under a raw use case both are `none`. A stated value is
+    kept, and `declared` never holds a value decided here.
+    """
+    gated = (data.get("use_case") or MCGYVR_CODE) == MCGYVR_CODE
+    jev = data.get("jev") or {}
+    jev_on = bool(jev.get("unit")) and jev.get("enabled") is not False
+    if data.get("fanout") is None:
+        data = {**data, "fanout": "idle" if gated else "none"}
+    if data.get("triage") is None:
+        data = {**data, "triage": "jev" if gated and jev_on else "none"}
+    return data
 
 
 def _cross_validate_fleet(data: Mapping[str, Any]) -> None:

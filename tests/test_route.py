@@ -898,7 +898,8 @@ def test_a_plan_carries_the_configured_fanout_mode() -> None:
     default, default_pool = mapped(KEYLESS)
     spread, spread_pool = mapped(with_fanout(KEYLESS, "full"))
 
-    assert plan(default, default_pool, contract()).fanout is Fanout.NONE
+    # Unset under mcgyvr-code, the default use case, is `idle` (#807).
+    assert plan(default, default_pool, contract()).fanout is Fanout.IDLE
     assert plan(spread, spread_pool, contract()).fanout is Fanout.FULL
 
 

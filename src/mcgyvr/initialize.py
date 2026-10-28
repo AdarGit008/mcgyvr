@@ -636,7 +636,10 @@ def build(
         # climb in is set in policy.yaml.
         "ladder": [rung.name for rung in proposal.rungs]
         + [api.name for api in ordered_api_units],
-        "fanout": "none",
+        # Fan-out and triage are left to the use case (`mcgyvr-code`: `idle`, and
+        # `jev` while a Jev unit is on), written unset so the file shows them.
+        "fanout": None,
+        "triage": None,
         # The switches of the stages a batch is ordered by keep the schema's
         # defaults, written out so the one file shows every switch.
         **_defaults(SCHEMA, "infer_dependencies", "same_file"),

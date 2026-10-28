@@ -11,6 +11,12 @@ archived outside this repository, under the same paths.
 
 ### Changed
 
+- **Under `mcgyvr-code` an unset `fanout` is `idle` and an unset `triage` is
+  `jev` while a Jev unit is bound and on (`none` when Jev is off).** A raw use
+  case keeps both `none`, and a stated value wins. `idle` takes the first rung
+  with a slot free, so a busy local ladder can send work to a priced api rung
+  or ride a relief rung; a ladder that must not spend says `fanout: none`.
+  `mcgyvr setup` writes both keys unset so the use case decides them.
 - **Use cases are `mcgyvr-code`, `code`, `chat` and `agent`; `coding` is gone,
   with no alias.** `mcgyvr-code` is what `coding` was, every stage between the
   model and you on by default, each under a policy switch (SETUP.md, *Use cases

@@ -8,8 +8,9 @@ throughput rig feeding an intelligence rig — must not, since the second rig is
 sized to drain the first's failure tail and fanning volume onto it eats exactly
 the capacity that drain needs.
 
-* ``none`` — the default: the cheapest rung at or above the contract's floor,
-  queued behind whoever is already there.
+* ``none`` — no fan-out: the cheapest rung at or above the contract's floor,
+  queued behind whoever is already there. (Unset is ``idle`` under
+  ``mcgyvr-code``.)
 * ``idle`` — the cheapest rung at or above the floor **that has a free slot**.
 * ``full`` — spread across the eligible rungs regardless of load.
 
@@ -371,22 +372,23 @@ class _ReportingProbe:
 # --------------------------------------------------------------------------
 
 
-def test_the_default_keeps_a_batch_on_one_rig_and_never_funds_the_api_family(
+def test_none_keeps_a_batch_on_one_rig_and_never_funds_the_api_family(
     key: None,
 ) -> None:
-    """The default is no fan-out, and this is the test that keeps it that way.
+    """`fanout: none` keeps a batch on one rig, and this is the test that holds it.
 
     Green, and the only green test in this file. It guards two things the other
-    three are all pressure on. The first is the default itself: fan-out is a
-    knob because the Rig A → Rig B ladder must not fan out, and a default that
-    drifted would silently spend Rig B's drain rate on Rig A's volume. The
+    three are all pressure on. The first is the mode itself: fan-out is a
+    knob because the Rig A → Rig B ladder must not fan out, and a mode that
+    drifted would silently spend Rig B's drain rate on Rig A's volume. Under
+    `mcgyvr-code` unset is `idle` (#807), so such a ladder states `none`. The
     second is that queueing is not failing — six contracts through two slots
     means four of them wait, and :mod:`mcgyvr.escalate` climbs on ``FAILED``, so
     a wait that produced a failing verdict would fund the api family out of a
     queue that is free. Every contract lands on box1, none on vendor, and
     nothing fails.
     """
-    config, pool = mapped()
+    config, pool = mapped(peers("none"))
     capacity = Capacity.of(config)
     observer = Observer()
     rendezvous = Rendezvous(2)

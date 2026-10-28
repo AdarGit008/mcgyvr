@@ -178,7 +178,9 @@ def test_without_triage_jev_is_never_asked_and_the_climb_starts_on_the_first_run
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     never_asked(monkeypatch)
-    config, pool = mapped(LADDER + JEV)
+    # Under mcgyvr-code an unset triage is `jev` while Jev is on (#807), so
+    # "without triage" is stated.
+    config, pool = mapped(LADDER + JEV + "triage: none\n")
     attempts = Recorder(Verdict.FAILED, Verdict.FAILED, Verdict.FAILED)
 
     result = escalate(config, pool, contract(), attempts)

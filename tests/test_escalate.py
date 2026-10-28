@@ -1037,17 +1037,17 @@ def test_idle_never_names_a_rung_below_the_floor_however_free_it_is(
     assert "local_qwen-7b" not in route.rungs
 
 
-def test_the_default_fanout_asks_nothing_about_load_and_climbs_as_it_did(
+def test_fanout_none_asks_nothing_about_load_and_climbs_as_it_did(
     key: None, locks: None
 ) -> None:
-    """``none`` is the default and it is unaffected, capacity in hand or not.
+    """``none`` is unaffected, capacity in hand or not.
 
     Both local rigs are full and the answer is still no answer: under ``none``
     the question is not the operator's to have asked, and answering it would
     offer a spend decision they declined. The ascent itself is the ascent it is
     without a capacity — same families, same rungs, same budget.
     """
-    config, pool = mapped(narrow())
+    config, pool = mapped(narrow("none"))
     capacity = Capacity.of(config)
     without = ascent(config, pool, contract())
 
@@ -1307,16 +1307,17 @@ def test_idle_still_runs_on_the_cheapest_rung_when_the_ladder_is_idle(
     assert spent["api_big"] == 0, "the priced rung was never dispatched to"
 
 
-def test_the_default_queues_locally_and_never_reaches_the_api_family(
+def test_fanout_none_queues_locally_and_never_reaches_the_api_family(
     key: None, locks: None
 ) -> None:
-    """``none`` is the default and a full local ladder is still where work goes.
+    """Under ``none`` a full local ladder is still where work goes.
 
     The same load that sends ``idle`` to ``api_big`` sends ``none`` to the
     cheapest local rung, to wait — because under ``none`` a full rung is queued
     on, and :meth:`~mcgyvr.capacity.Capacity.hold` blocks rather than raising.
     This is the rule that keeps a queue from funding the priced family, and it
-    is the reason the mode is opt-in rather than the behaviour.
+    is why a ladder that must not spend states ``none``: under ``mcgyvr-code``
+    an unset ``fanout`` is ``idle`` (#807).
 
     The attempt function here records the routing rather than taking a slot: a
     dispatch on this rung would rightly wait for the slot the test itself is
@@ -1324,7 +1325,7 @@ def test_the_default_queues_locally_and_never_reaches_the_api_family(
     real dispatch queues rather than fails is
     ``tests/test_capacity_fanout.py``'s to hold, and it does.
     """
-    config, pool = mapped(narrow())
+    config, pool = mapped(narrow("none"))
     capacity = Capacity.of(config)
     attempts = Recorder(Verdict.PASSED)
 
