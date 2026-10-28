@@ -159,14 +159,6 @@ class Evidence:
     proposer shows the records as evidence. None for a first plan."""
 
 
-Proposer = Callable[[Evidence], Sequence[Proposal]]
-"""The judgment step. No default binding: a caller supplies one.
-
-Given the deterministic evidence, return the units of work to emit — or nothing,
-which is a refusal to decompose and is reported as one.
-"""
-
-
 @dataclass(frozen=True)
 class Refusal:
     """A piece of work that was not emitted, and why.
@@ -187,6 +179,17 @@ class Refusal:
 
     def __str__(self) -> str:
         return f"{self.subject}: {self.reason}"
+
+
+Proposer = Callable[[Evidence], Sequence[Proposal | Refusal]]
+"""The judgment step. No default binding: a caller supplies one.
+
+Given the deterministic evidence, return the units of work to emit — or nothing,
+which is a refusal to decompose and is reported as one. A proposer may also
+return a refusal of its own, for work it will not propose as asked (a split
+past its bounds, `mcgyvr.refine`): it is reported beside the contracts, after
+every proposal, so `depends_on` indexes count proposals only.
+"""
 
 
 @dataclass(frozen=True)
@@ -241,7 +244,8 @@ def decompose(
     repository's own test runner. All of it goes to `propose` in one call.
 
     An empty answer is a refusal to decompose, reported against the request
-    with the servable types named. Otherwise every proposal goes through
+    with the servable types named. A refusal the proposer returns is reported
+    first, as it was given. Otherwise every proposal goes through
     `_emit`, and a refusal against one does not stop the others; the emitted
     contracts come back in dependency order, with the proposer's order as the
     stable tiebreak. A proposal whose dependency names a symbol another
@@ -266,7 +270,15 @@ def decompose(
     )
     owners = tuple(adapters) if adapters is not None else _default_adapters()
 
-    proposals = tuple(propose(evidence))
+    answered = tuple(propose(evidence))
+    refused = tuple(a for a in answered if isinstance(a, Refusal))
+    proposals = tuple(a for a in answered if not isinstance(a, Refusal))
+    if not proposals and refused:
+        return Decomposition(
+            refusals=refused,
+            resolution=evidence.resolution,
+            exploration=evidence.exploration,
+        )
     if not proposals:
         return Decomposition(
             refusals=(
@@ -292,7 +304,7 @@ def decompose(
 
     contracts: list[Contract] = []
     documents: list[str] = []
-    refusals: list[Refusal] = list(fan_out_refusals)
+    refusals: list[Refusal] = [*refused, *fan_out_refusals]
     seen: dict[str, str] = {}
     emitted_by_id: dict[str, Contract] = {}
     for proposal, depends_on_ids in ordered:

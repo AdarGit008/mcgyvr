@@ -5,8 +5,10 @@ prompt, dispatches it to the ``orchestrator`` role and parses the JSON reply
 into proposals. ``classifier_proposer_for`` asks the jev role one typed Choice
 per field — ``task_type``, ``target``, ``symbol``, ``interface``, ``deps``,
 ``allow`` — in dependency order, and turns the answers into one proposal,
-declining when a load-bearing answer falls short. ``proposer_by_authoring``
-picks between them for the configured strategy.
+declining when a load-bearing answer falls short. ``refining_proposer_for``
+puts the classifier behind ``mcgyvr.refine``, which splits its proposal until
+each is on one file and jev says it cannot be split further.
+``proposer_by_authoring`` picks between them for the configured strategy.
 
 ``NO_ORCHESTRATOR_ROLE`` is what a caller prints when no orchestrator unit is
 bound, so no prompt can be turned into contracts.
@@ -21,8 +23,10 @@ from dataclasses import dataclass
 from typing import TYPE_CHECKING, Any
 
 from mcgyvr.catalog import TaskType
+from mcgyvr.config import MAX_REFINE_DEPTH_DEFAULT, MAX_REFINE_FANOUT_DEFAULT
 from mcgyvr.decision import (
     JEV_ROLE,
+    BoolAnswer,
     ChoiceAnswer,
     Decision,
     DecisionError,
@@ -60,6 +64,7 @@ from mcgyvr.orchestrator.fields import (
     value_by_id,
 )
 from mcgyvr.orchestrator.telemetry import DecisionRecord, ShadowSink
+from mcgyvr.refine import RefiningProposer
 from mcgyvr.replan import render as render_replan
 from mcgyvr.runner import Completion, Request, dispatch_role
 from mcgyvr.worker.reply import FENCE_OPEN as _FENCE_OPEN
@@ -856,6 +861,17 @@ class ClassifierProposer:
             abstain_line=abstain_line(set.field),
             constraints=constraints,
         )
+        return self.ask(state, set, question)
+
+    def ask(self, state: Any, set: CandidateSet, question: Question) -> Any | None:
+        """Put `question` to jev under `set.field` and read the pick back from `set`.
+
+        A Choice is read by the option key answered, a Noul by the candidate
+        whose value is the bool answered. Returns that candidate's value, or
+        None when the answer is unusable (missing, unreadable, below the
+        confidence floor, or naming no candidate of `set`). Exactly one
+        `DecisionRecord` is written to `sink` per call, as `_decide` describes.
+        """
         t0 = time.monotonic()
         try:
             decision = self.classify(state, {set.field: question})
@@ -872,8 +888,8 @@ class ClassifierProposer:
             return None
         latency_ms = round((time.monotonic() - t0) * 1000)
 
-        answer = _choice(decision, set.field)
-        if answer is None:
+        answer = decision.answers.get(set.field)
+        if not isinstance(answer, ChoiceAnswer | BoolAnswer):
             self._record(
                 set,
                 pick=None,
@@ -894,8 +910,11 @@ class ClassifierProposer:
             )
             return None
 
+        key = (
+            answer.choice if isinstance(answer, ChoiceAnswer) else _key_of(set, answer)
+        )
         try:
-            value = value_by_id(set, answer.choice)
+            value = value_by_id(set, key)
         except KeyError:
             self._record(
                 set,
@@ -909,7 +928,7 @@ class ClassifierProposer:
         sentinel = abstain_value(set.field)
         self._record(
             set,
-            pick=answer.choice,
+            pick=key,
             abstain=sentinel is not None and value == sentinel,
             confidence=answer.confidence,
             parse_fail=False,
@@ -1002,6 +1021,31 @@ def classifier_proposer_for(
     )
 
 
+def refining_proposer_for(
+    source_map: SourceMap,
+    *,
+    capacity: Capacity | None = None,
+    confidence: float = MIN_CONFIDENCE,
+    sink: ShadowSink | None = None,
+    max_depth: int = MAX_REFINE_DEPTH_DEFAULT,
+    max_fanout: int = MAX_REFINE_FANOUT_DEFAULT,
+) -> Proposer | None:
+    """Classifier authoring: the classifier, refined until no proposal splits further.
+
+    With a unit bound to the jev role, the classifier `classifier_proposer_for`
+    builds is put behind `RefiningProposer` with the two bounds, so every
+    proposal is split until it is on one file and jev answers that it cannot be
+    split further (`mcgyvr.refine`). Without jev there is no one to say whether
+    a proposal splits, so the rank-0 collapse comes back as it was.
+    """
+    typed = classifier_proposer_for(
+        source_map, capacity=capacity, confidence=confidence, sink=sink
+    )
+    if not isinstance(typed, ClassifierProposer):
+        return typed
+    return RefiningProposer(typed, max_depth=max_depth, max_fanout=max_fanout)
+
+
 # Reading one decision into one proposal.
 
 
@@ -1010,10 +1054,9 @@ def _symbol_of(name: Any) -> str | None:
     return None if name == _NO_SYMBOL else str(name)
 
 
-def _choice(decision: Decision, name: str) -> ChoiceAnswer | None:
-    """Read the typed answer filed under `name`, or None if absent or not a choice."""
-    answer = decision.answers.get(name)
-    return answer if isinstance(answer, ChoiceAnswer) else None
+def _key_of(set: CandidateSet, answer: BoolAnswer) -> str:
+    """The id of the candidate whose value is the bool answered, or "" when none is."""
+    return next((c.id for c in set.candidates if c.value is answer.value), "")
 
 
 def _state(
@@ -1042,7 +1085,7 @@ def proposer_by_authoring(
     if prose is None:
         return None
 
-    def propose(evidence: Evidence) -> Sequence[Proposal]:
+    def propose(evidence: Evidence) -> Sequence[Proposal | Refusal]:
         proposals = typed(evidence)
         return proposals if proposals else prose(evidence)
 
