@@ -7,6 +7,9 @@ counts every mcgyvr process on the machine and not only the one that holds it.
 :class:`Capacity` is what answers the questions a scheduler asks — what is in
 flight on a bound, whether it is full, what a wait has cost — and
 :meth:`Capacity.hold` is the block an ordinary dispatch runs inside.
+:func:`run_batch` runs a fixed list of jobs on threads to its end;
+:func:`run_eager` keeps a bounded number in flight and starts each as soon as
+it is ready.
 """
 
 from __future__ import annotations
@@ -20,7 +23,7 @@ import stat
 import threading
 import time
 from collections.abc import Callable, Iterable, Iterator, Mapping, Sequence
-from concurrent.futures import ThreadPoolExecutor
+from concurrent.futures import FIRST_COMPLETED, Future, ThreadPoolExecutor, wait
 from contextlib import ExitStack, contextmanager, suppress
 from dataclasses import dataclass
 from pathlib import Path
@@ -1153,3 +1156,87 @@ def run_batch[T](
                 # caller can read it as one malformed contract among good ones.
                 raise error
     return tuple(outcomes)
+
+
+def run_eager[K, T](
+    ready: Callable[[], Sequence[K]],
+    start: Callable[[K], Callable[[], T]],
+    settle: Callable[[K, T], None],
+    *,
+    workers: int,
+    abandon: Callable[[K, T], None] | None = None,
+) -> None:
+    """Keep up to `workers` jobs in flight, each started as soon as it is ready.
+
+    The sibling of :func:`run_batch` for work whose next job depends on what
+    came of the last: a batch is a fixed list run to its end, while here
+    `ready` is asked again after every `settle`, never once per wave, so a job
+    that ends early frees its worker while a slow one still runs. `start(key)`
+    is handed one key `ready` answered, must take it out of what `ready`
+    answers until it is settled, and gives back the job to run; `settle` is
+    handed the key and what the job returned. `ready`, `start`, `settle` and
+    `abandon` are called on the calling thread only, so what they keep needs
+    no lock; only the jobs run on workers. No capacity is handed in: the model
+    dispatches inside a job take their slots host-wide themselves
+    (:meth:`Capacity.hold`), so `workers` bounds the jobs and the slot files
+    still bound the dispatches.
+
+    With one worker there is no pool: each job runs on the calling thread,
+    first ready first, as a plain loop would, and what it raises is raised
+    from here as the loop would raise it. With more, a job that raises, a
+    callback that raises or an interrupt that arrives while waiting stops the
+    dispatch: nothing new is started, the jobs in flight are waited for, since
+    a thread cannot be stopped from outside, each that returned is handed to
+    `abandon`, and the first error is raised.
+    """
+    if workers < 1:
+        raise CapacityError(f"workers={workers} would run nothing; ask for at least 1")
+    if workers == 1:
+        while waiting := ready():
+            key = waiting[0]
+            settle(key, start(key)())
+        return
+
+    pool = ThreadPoolExecutor(max_workers=workers)
+    flight: dict[Future[T], K] = {}
+    try:
+        while True:
+            # A settle always frees a worker, so `ready` is asked after each.
+            for key in ready()[: workers - len(flight)]:
+                flight[pool.submit(start(key))] = key
+            if not flight:
+                break
+            done, _ = wait(flight, return_when=FIRST_COMPLETED)
+            # The earliest started of what ended, then `ready` again.
+            future = next(f for f in flight if f in done)
+            settle(flight.pop(future), future.result())
+    except BaseException as exc:
+        try:
+            _abandon(flight, abandon, exc)
+        finally:
+            pool.shutdown(wait=False, cancel_futures=True)
+        raise
+    pool.shutdown(wait=True)
+
+
+def _abandon[K, T](
+    flight: dict[Future[T], K],
+    abandon: Callable[[K, T], None] | None,
+    cause: BaseException,
+) -> None:
+    """Wait for every job still in flight, and hand each that returned to `abandon`.
+
+    A job that raised, or an `abandon` that does, is noted on `cause`, the
+    error being raised, rather than raised over it.
+    """
+    for future, key in flight.items():
+        error = future.exception()
+        if error is not None:
+            cause.add_note(f"a job in flight also failed: {error!r}")
+            continue
+        if abandon is None:
+            continue
+        try:
+            abandon(key, future.result())
+        except Exception as failed:
+            cause.add_note(f"abandoning a job in flight failed: {failed!r}")

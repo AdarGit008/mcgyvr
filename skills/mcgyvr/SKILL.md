@@ -26,6 +26,9 @@ or a URL to clone, default `.`). It prints them, or writes each to
 `DIR/<id>.json` with `--output DIR`. `--run` runs them in dependency
 order, holds one whose provider did not land (`blocked`, below) and
 re-plans one whose ladder is spent (`ladder_spent`, below).
+`--jobs N` runs up to N ready ones at once, each settled as it ends and
+the next started as soon as it is ready; the default is 1, and `auto`
+is the fleet's total slots, the cap on any N.
 
 ### Keys
 

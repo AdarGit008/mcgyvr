@@ -55,6 +55,26 @@ class Scope:
         """Return the paths that `permits` rejects, in the order they were given."""
         return tuple(p for p in paths if not self.permits(p))
 
+    def meets(self, other: Scope) -> bool:
+        """Whether some path may be written under both scopes, as far as can be told.
+
+        A literal allow entry of either is asked of both. Two globs are taken to
+        meet, since whether two globs share a path is not worked out here, and
+        a wrong "they meet" costs no more than two contracts run one after the
+        other rather than at once.
+        """
+        for one, two in ((self, other), (other, self)):
+            for entry in one.allow:
+                if (
+                    not _GLOB.search(entry)
+                    and one.permits(entry)
+                    and two.permits(entry)
+                ):
+                    return True
+        return any(_GLOB.search(e) for e in self.allow) and any(
+            _GLOB.search(e) for e in other.allow
+        )
+
 
 def _normalize(path: str) -> str:
     """Fold backslashes to slashes and strip leading slashes and `./` prefixes."""
@@ -62,6 +82,11 @@ def _normalize(path: str) -> str:
     while p.startswith("./"):
         p = p[2:]
     return p
+
+
+#: What makes an allow entry a glob rather than one path: `*` is the only
+#: character `_glob_to_regex` does not match literally.
+_GLOB = re.compile(r"\*")
 
 
 @lru_cache(maxsize=512)

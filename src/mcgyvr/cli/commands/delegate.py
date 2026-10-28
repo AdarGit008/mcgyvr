@@ -5,11 +5,12 @@ with no setup named or found, is refused rather than failed — resolves it into
 `SourceMap`, and picks a proposer from `orchestrator.authoring`. It attaches the
 repository, says once what a sandbox built from it leaves out, builds the index,
 and hands the evidence to `decompose`. The contracts that come back are reported,
-written as `DIR/<id>.json` or printed, and, with `--run`, run one at a time
-through the machinery `run` already has, in the order their dependency tree
-allows — a contract whose provider did not land is held, not run, and one
-whose ladder is spent is handed back to the orchestrator to be re-planned
-(`mcgyvr.replan`, up to `max_replans`), what comes back taking its place.
+written as `DIR/<id>.json` or printed, and, with `--run`, run through the
+machinery `run` already has, in the order their dependency tree allows, up to
+`--jobs` of them at once — a contract whose provider did not land is held, not
+run, and one whose ladder is spent is handed back to the orchestrator to be
+re-planned (`mcgyvr.replan`, up to `max_replans`), what comes back taking its
+place.
 With `--log PATH` how the command ended is written there as one
 `mcgyvr.delegate_log` record, on every exit. `add_parser` registers the
 subcommand and its arguments.
@@ -19,7 +20,7 @@ from __future__ import annotations
 
 import argparse
 import sys
-from collections.abc import Sequence
+from collections.abc import Callable, Sequence
 from pathlib import Path
 from typing import TYPE_CHECKING, Any
 
@@ -398,19 +399,28 @@ def _replanner(
     """What re-plans a spent contract: the orchestrator, asked again on `root`.
 
     The index is built again, since what landed before the spend is in the
-    tree now, and the spent contract's own work is decomposed with its failure
-    notes on the evidence. The prose proposer is asked, since it is the one
+    tree now — under `--jobs`, between two deliveries of the runs beside it —
+    and the spent contract's own work is decomposed with its failure notes on
+    the evidence. The prose proposer is asked, since it is the one
     that is shown the notes; `propose` stands in when no prose one is bound.
     """
+    from contextlib import nullcontext
+
     from mcgyvr.delegate import proposer_for
+    from mcgyvr.deliver import between_deliveries
     from mcgyvr.orchestrator import build_index, decompose
     from mcgyvr.replan import request_for
 
     asked = proposer_for(pool) or propose
+    # With other runs delivering beside it (`--jobs`), the tree is read
+    # between two deliveries, never in the middle of one.
+    beside = getattr(args, "jobs", 1) != 1
 
     def replan(spent: Spent) -> Decomposition:
+        with between_deliveries(root) if beside else nullcontext():
+            index = build_index(root)
         dec = decompose(
-            build_index(root),
+            index,
             request_for(spent.contract),
             propose=asked,
             config=config,
@@ -475,7 +485,7 @@ def _run_delegated(
     replan: Replanner | None = None,
     book: _Logbook | None = None,
 ) -> int:
-    """Run the emitted contracts through `_run`, one at a time, as the tree allows.
+    """Run the emitted contracts through `_run`, `--jobs` at once, as the tree allows.
 
     Nothing runs when no contract was emitted. Documents already written to
     `--output` are run in place; when they were printed instead, they are staged
@@ -484,32 +494,47 @@ def _run_delegated(
     `--session` before the orchestrator role was asked (`_name_the_writer`).
 
     The contracts go on a dependency tree (`mcgyvr.tree`) read against the
-    repository's committed tree, and the next one run is the first the tree
-    says is ready. Each run's result settles it there: it landed when it was
-    accepted with a commit HEAD now holds, the tree the next sandbox starts
-    from. Under `dependents: hold`, the default, a contract whose provider did
-    not land is held, and once nothing more is ready each held one gets a
-    result with outcome `blocked` and no attempt spent, and exit 3. Under
-    `dependents: run` every contract runs once what it waits on has come to
-    anything.
+    repository's committed tree, and what runs next is what the tree says is
+    ready, first ready first. Each run's result settles it there as soon as
+    the run ends: it landed when it was accepted with a commit HEAD now holds,
+    the tree the next sandbox starts from. Under `dependents: hold`, the
+    default, a contract whose provider did not land is held, and once nothing
+    more is ready each held one gets a result with outcome `blocked` and no
+    attempt spent, and exit 3. Under `dependents: run` every contract runs once
+    what it waits on has come to anything.
+
+    `--jobs` is how many run at once (`_width`): 1, the default, runs each on
+    this thread in turn; more run on threads (`capacity.run_eager`), the tree
+    asked again after every settle, so a dependent starts as soon as what it
+    waits on has settled. Two whose scopes can write one file never run at
+    once (`Scope.meets`), so the second starts from what the first landed, as
+    it would one at a time; the delivery lock (`mcgyvr.deliver`) is the net
+    under that. Beside others, a run's output is held and written whole when
+    it ends (`mcgyvr.cli.streams`). The tree, the board and the source are
+    read and changed on this thread only.
 
     A contract whose run came to `ladder_spent` is handed to `replan` with the
     failure notes its result carries, while its `replan` round is below
     `max_replans` (`mcgyvr.replan`). The contracts that come back, each
     carrying the spent one's id and the round, are written beside the others
     and take its place on the tree, which frees what it held; the spent result
-    says so under `replanned`. The last non-zero exit code is returned, not
-    counting a run whose contract was re-planned, since its work goes on.
-    When anything was held, `book` is told which and where the tree's state
-    file is (`batch_held`).
+    says so under `replanned`. The last non-zero exit code, in the order the
+    runs ended, is returned, not counting a run whose contract was re-planned,
+    since its work goes on. When anything was held, `book` is told which and
+    where the tree's state file is (`batch_held`). A run that raises stops the
+    batch: nothing more is started, the runs beside it are waited for and
+    settled, and the error is raised.
     """
     if not dec.contracts:
         return 0
 
     import shutil
     import tempfile
+    from contextlib import nullcontext
 
     from mcgyvr.board import Board, GitSource, tree_id_for
+    from mcgyvr.capacity import run_eager
+    from mcgyvr.cli import streams
     from mcgyvr.config import JOURNAL_DIR_DEFAULT
     from mcgyvr.replan import SPENT
     from mcgyvr.tree import Tree
@@ -537,49 +562,84 @@ def _run_delegated(
     )
     board = Board(journal)
     board.attach(tree)
+    width = _batch_width(getattr(args, "jobs", 1), config)
 
     codes: dict[str, int] = {}
-    try:
-        while ready := board.ready():
-            _, contract = ready[0]
-            board.start(tree.tree_id, contract.id)
-            before = _results_of(journal, contract.id)
-            run = argparse.Namespace(
-                contract=str(path_of[contract.id]),
-                config=args.config,
-                repo=str(repo),
-                sandbox=args.sandbox,
-                commit=args.commit,
-                branch=args.branch,
-                record=args.record,
-                result=None,
-                session_id=args.session_id,
-                session=session,
-                in_batch=True,
+    running: dict[str, Contract] = {}
+    before: dict[str, set[Path]] = {}
+
+    def ready() -> list[Contract]:
+        # What the tree says is ready, less one that could write a file a
+        # running one, or one taken before it here, could write too.
+        taken: list[Contract] = []
+        for _, contract in board.ready():
+            beside = (*running.values(), *taken)
+            if not any(contract.scope.meets(other.scope) for other in beside):
+                taken.append(contract)
+        return taken
+
+    def start(contract: Contract) -> Callable[[], int]:
+        board.start(tree.tree_id, contract.id)
+        before[contract.id] = _results_of(journal, contract.id)
+        running[contract.id] = contract
+        run = argparse.Namespace(
+            contract=str(path_of[contract.id]),
+            config=args.config,
+            repo=str(repo),
+            sandbox=args.sandbox,
+            commit=args.commit,
+            branch=args.branch,
+            record=args.record,
+            result=None,
+            session_id=args.session_id,
+            session=session,
+            in_batch=True,
+        )
+        if width == 1:
+            return lambda: _run(run)
+        run.beside_others = True
+        return lambda: _held(run)
+
+    def landed(contract: Contract, code: int) -> dict[str, Any]:
+        del running[contract.id]
+        codes[contract.id] = code
+        source.refresh()
+        settled = _settled(
+            _results_of(journal, contract.id) - before.pop(contract.id), source
+        )
+        board.settle(tree.tree_id, contract.id, **settled)
+        return settled
+
+    def settle(contract: Contract, code: int) -> None:
+        settled = landed(contract, code)
+        if (
+            replan is not None
+            and settled["outcome"] == SPENT
+            and settled.get("result")
+            and _replanned(
+                args,
+                board,
+                tree,
+                contract,
+                Path(settled["result"]),
+                replan,
+                config,
+                folder,
+                path_of,
             )
-            codes[contract.id] = _run(run)
-            source.refresh()
-            settled = _settled(_results_of(journal, contract.id) - before, source)
-            board.settle(tree.tree_id, contract.id, **settled)
-            if (
-                replan is not None
-                and settled["outcome"] == SPENT
-                and settled.get("result")
-                and _replanned(
-                    args,
-                    board,
-                    tree,
-                    contract,
-                    Path(settled["result"]),
-                    replan,
-                    config,
-                    folder,
-                    path_of,
-                )
-            ):
-                # The work goes on under what replaced it, so this run's exit
-                # is not the batch's.
-                del codes[contract.id]
+        ):
+            # The work goes on under what replaced it, so this run's exit
+            # is not the batch's.
+            del codes[contract.id]
+
+    def abandon(contract: Contract, code: int) -> None:
+        # The batch is stopping: what ended beside the failure is put on the
+        # tree as it came, and nothing is re-planned.
+        landed(contract, code)
+
+    try:
+        with streams.routed() if width > 1 else nullcontext():
+            run_eager(ready, start, settle, workers=width, abandon=abandon)
         held: list[str] = []
         for _, contract, hold in board.drain():
             codes[contract.id] = _write_held(args, contract, hold, session, journal)
@@ -591,6 +651,78 @@ def _run_delegated(
             shutil.rmtree(staging, ignore_errors=True)
     failed = [each for each in codes.values() if each != 0]
     return failed[-1] if failed else 0
+
+
+def _held(run: argparse.Namespace) -> int:
+    """`_run` on a worker, its output held and written whole when it ends."""
+    from mcgyvr.cli import streams
+
+    with streams.held():
+        return _run(run)
+
+
+def _batch_width(asked: int, config: Config) -> int:
+    """How many contracts the batch runs at once: `--jobs`, capped at the fleet.
+
+    1 is answered without reading the fleet, so `--jobs 1` is the loop it
+    always was. Otherwise the fleet's total slots are read (`_fleet_width`),
+    and a cap is said.
+    """
+    if asked == 1:
+        return 1
+    fleet = _fleet_width(config)
+    width = _width(asked, fleet)
+    if asked > width:
+        print(
+            f"note: --jobs {asked} is capped at the fleet's {fleet} slots."
+            if fleet >= 1
+            else f"note: the fleet declares no slots, so --jobs {asked} runs "
+            f"one contract at a time.",
+            file=sys.stderr,
+        )
+    return width
+
+
+def _width(asked: int, fleet: int) -> int:
+    """`asked` contracts at once (0 is all the fleet's slots), never more than
+    the fleet's `fleet` slots and never fewer than one."""
+    cap = max(fleet, 1)
+    return cap if asked == 0 else min(asked, cap)
+
+
+def _fleet_width(config: Config) -> int:
+    """The fleet's total slots: the most dispatches its units take at once.
+
+    `Capacity.total`, from the widths the config declares. A fleet whose
+    width cannot be read is said, and counts as one slot.
+    """
+    from mcgyvr.capacity import Capacity, CapacityError
+
+    try:
+        return Capacity.of(config).total
+    except CapacityError as exc:
+        print(
+            f"note: the fleet's width could not be read ({exc}); --jobs runs "
+            f"one contract at a time.",
+            file=sys.stderr,
+        )
+        return 1
+
+
+def _jobs(text: str) -> int:
+    """`--jobs`: a count of contracts, or `auto` (0), all the fleet's slots."""
+    if text.strip().lower() == "auto":
+        return 0
+    try:
+        jobs = int(text)
+    except ValueError:
+        jobs = -1
+    if jobs < 0:
+        raise argparse.ArgumentTypeError(
+            f"{text!r} is not a count: give a whole number, 0 or `auto` for "
+            f"the fleet's total slots"
+        )
+    return jobs
 
 
 def _replanned(
@@ -857,7 +989,7 @@ def _write_held(
 DELEGATE_EPILOG = """\
 exit codes (the --log record's `kind` in brackets):
   0  contracts emitted [emitted, emitted_with_refusals]; under --run, the
-     batch's: the last non-zero exit of its runs
+     batch's: the last non-zero exit of its runs, in the order they ended
   1  a failure: the config [config_invalid, config_missing], the orchestrator
      role or its reply [orchestrator_*, source_unavailable, reply_*,
      proposal_*], the repository [repo_*], or a crash [internal_error]
@@ -879,7 +1011,8 @@ def add_parser(
     keeps a clone, `--budget` caps the deterministic read, and `--output` writes
     the contracts to a directory instead of printing them; `--log` writes how
     the command ended as a `mcgyvr.delegate_log` record, and the epilog lists
-    the exit codes with the record's kinds. The flags `--run`, `--sandbox`,
+    the exit codes with the record's kinds. `--jobs` is how many contracts
+    `--run` runs at once. The flags `--run`, `--sandbox`,
     `--commit`, `--branch`, `--record` and `--session` are handed to each run;
     `--orchestrator` is `--session`'s deprecated alias. The
     subcommand's `func` is `_delegate`, and the subparser is returned so a
@@ -942,6 +1075,20 @@ def add_parser(
         help=(
             "execute each emitted contract through the existing run machinery, "
             "holding one whose provider did not land (see `dependents`)"
+        ),
+    )
+    delegate.add_argument(
+        "--jobs",
+        default=1,
+        type=_jobs,
+        metavar="N",
+        help=(
+            "with --run, run up to N ready contracts at once, each settled as "
+            "it ends and the next started as soon as it is ready (default: 1, "
+            "one at a time). N is capped at the fleet's total slots, the most "
+            "dispatches its units take at once; `auto` or 0 is that cap. Two "
+            "contracts whose scopes can write one file never run at once, and "
+            "a run's output is written whole when it ends"
         ),
     )
     delegate.add_argument(
