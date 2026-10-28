@@ -262,13 +262,19 @@ ladder: [local]
 """
 
 
-def _posted(monkeypatch: pytest.MonkeyPatch, module: Any) -> list[dict[str, Any]]:
+def _posted(
+    monkeypatch: pytest.MonkeyPatch,
+    module: Any,
+    sent: list[dict[str, str]] | None = None,
+) -> list[dict[str, Any]]:
     posted: list[dict[str, Any]] = []
 
     def post(
         url: str, payload: dict[str, Any], headers: dict[str, str], timeout: float
     ) -> dict[str, Any]:
         posted.append(payload)
+        if sent is not None:
+            sent.append(headers)
         return {
             "choices": [
                 {
@@ -333,6 +339,32 @@ def test_every_field_jev_sends_is_one_the_hub_forwards(
     assert set(payload["chat_template_kwargs"]) <= hubwire.CHAT_TEMPLATE_KEYS
 
 
+@pytest.mark.parametrize("use_case", [None, "code", "mcgyvr-code"])
+def test_the_runner_and_jev_name_the_setups_use_case(
+    monkeypatch: pytest.MonkeyPatch, use_case: str | None
+) -> None:
+    """Every chat request names the setup's use case, so a hub can refuse one
+    its pool does not serve; unset, the setup's use case is ``mcgyvr-code``."""
+    from mcgyvr import decision, runner
+    from mcgyvr.config import parse
+    from mcgyvr.decision import Noul
+    from mcgyvr.local_pool import source_map
+
+    setup = _SETUP if use_case is None else f"{_SETUP}use_case: {use_case}\n"
+    pool = source_map(parse(setup))
+    sent: list[dict[str, str]] = []
+    _posted(monkeypatch, runner, sent)
+    _posted(monkeypatch, decision, sent)
+    ask = runner.Request(prompt="hello", max_output_tokens=16)
+    with contextlib.suppress(runner.RunnerError):
+        runner.runner_for(pool.bind("local")).generate("coder-7b", ask)
+    decision.classify(pool.bind("local"), "coder-7b", {"x": 1}, {"q": Noul("Q?")})
+
+    named = use_case or hubwire.MCGYVR_CODE
+    assert [h[hubwire.USE_CASE_HEADER] for h in sent] == [named, named]
+    assert all(hubwire.SCOPE_HEADER not in h for h in sent)  # bound per unit later
+
+
 def test_the_scope_header_is_one_header_and_its_values_are_three() -> None:
     assert hubwire.SCOPE_HEADER.lower() == hubwire.SCOPE_HEADER
     assert hubwire.SCOPE_HEADER.startswith("x-mcgyvr-")
@@ -345,12 +377,17 @@ def test_the_scope_header_is_one_header_and_its_values_are_three() -> None:
 def test_the_setups_use_cases_are_the_wires() -> None:
     from mcgyvr import config
 
-    if "coding" in config.USE_CASES:
-        pytest.xfail(
-            "config names `coding` until the four use cases land; then "
-            "config imports USE_CASES from mcgyvr.hubwire"
-        )
     assert config.USE_CASES is hubwire.USE_CASES
+    names = (config.MCGYVR_CODE, config.CODE, config.CHAT, config.AGENT)
+    assert names == hubwire.USE_CASES
+
+
+def test_recommend_places_each_use_case_by_the_wires_category() -> None:
+    from mcgyvr import recommend
+    from mcgyvr.knowledge import hub
+
+    assert recommend.PROFILE_OF_USE_CASE is hubwire.USE_CASE_CATEGORY
+    assert set(hubwire.USE_CASE_CATEGORY.values()) == set(hub.USE_CASES)
 
 
 def test_each_use_case_is_recommended_a_category_a_raw_use_case_names() -> None:

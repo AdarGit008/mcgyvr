@@ -241,9 +241,10 @@ archived outside this repository, under the same paths.
   crew's pool and a ride all four; a shared ladder `mcgyvr-code` alone), and
   the hub's two JSON Schemas, shipped in the package (`hubwire_schemas/`, the
   hub's files byte for byte). `rig.rungs`, `rig.sessionwire`, `rig.protocol`,
-  `runner` and `config` import them. The hub is to import them and refuse a
-  use case its pool does not serve; the product does not send the scope or
-  use-case header yet. Moved: `rig.rungs.BUSY` is `RUNG_BUSY`,
+  `runner`, `config` and `recommend` import them. Every chat request the
+  runner and Jev send names the setup's `use_case` in `x-mcgyvr-use-case`;
+  the hub is to import these names and refuse a use case its pool does not
+  serve. The scope header is not sent yet. Moved: `rig.rungs.BUSY` is `RUNG_BUSY`,
   `MAX_LADDER_RUNGS` is `LADDER_MAX_RUNGS`, `_LADDER_MODEL`, `_MODEL` and
   `_ID` are `LADDER_MODEL`, `MODEL_NAME` and `OFFER_ID`;
   `runner.UNKNOWN_MODEL` is `MODEL_NOT_FOUND` and `runner.MODEL_UNPLACED` is

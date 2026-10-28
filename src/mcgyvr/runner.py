@@ -43,7 +43,7 @@ from mcgyvr.fleet.harness import (
     prometheus_totals,
     slots_in_flight,
 )
-from mcgyvr.hubwire import MODEL_NOT_FOUND, MODEL_UNPLACED
+from mcgyvr.hubwire import MODEL_NOT_FOUND, MODEL_UNPLACED, USE_CASE_HEADER
 from mcgyvr.local_pool import Endpoint, Protocol, SourceMap, UnknownRungError
 from mcgyvr.redact import safe_url
 from mcgyvr.weights import is_model
@@ -645,14 +645,8 @@ class Runner(ABC):
         return tuple(notes)
 
     def _headers(self) -> dict[str, str]:
-        """The headers to send: JSON, plus a bearer token when the endpoint's
-        credential resolves to a key. An endpoint naming no credential env sends
-        none."""
-        headers = {"Content-Type": "application/json"}
-        key = self.endpoint.credential()
-        if key:
-            headers["Authorization"] = f"Bearer {key}"
-        return headers
+        """The headers to send (`request_headers`)."""
+        return request_headers(self.endpoint)
 
     @abstractmethod
     def _payload(self, model: str, request: Request) -> dict[str, Any]:
@@ -850,6 +844,21 @@ def _sent_text(request: Request) -> str:
     parts += [json.dumps(dict(tool)) for tool in request.tools]
     parts.append(request.prompt)
     return "\n".join(part for part in parts if part)
+
+
+def request_headers(endpoint: Endpoint) -> dict[str, str]:
+    """The headers a chat request to `endpoint` is sent with: JSON, a bearer
+    token when the endpoint's credential resolves to a key (an endpoint naming
+    no credential env sends none), and the setup's use case under
+    `hubwire.USE_CASE_HEADER` when the endpoint carries one, so a hub can
+    refuse a use case its pool does not serve."""
+    headers = {"Content-Type": "application/json"}
+    key = endpoint.credential()
+    if key:
+        headers["Authorization"] = f"Bearer {key}"
+    if endpoint.use_case is not None:
+        headers[USE_CASE_HEADER] = endpoint.use_case
+    return headers
 
 
 def runner_for(endpoint: Endpoint) -> Runner:
