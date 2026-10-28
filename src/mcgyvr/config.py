@@ -895,7 +895,9 @@ SCHEMA: tuple[Field, ...] = (
         "enum",
         "Whether a batch of contracts spreads across units or queues on one. "
         "Unset is `idle` under `use_case: mcgyvr-code` and `none` under a raw "
-        "use case; a stated value wins.",
+        "use case; a stated value wins. `idle` can send work to a priced api "
+        "rung, or to a relief rung whose host reads your prompts, when your "
+        "local rungs are full; a ladder that must not spend states `none`.",
         choices=FANOUT_CHOICES,
         bind_hint="name one of `none`, `idle`, `full`, or leave it to the use case",
     ),
@@ -914,7 +916,8 @@ SCHEMA: tuple[Field, ...] = (
         "`triage` says why. A contract that states a `start_rung`, decided "
         "ahead of time, starts there under either value and jev is not asked. "
         "Unset is `jev` under `use_case: mcgyvr-code` while a Jev unit is bound "
-        "and `jev.enabled` is on, and `none` otherwise; a stated value wins.",
+        "and `jev.enabled` is on, and `none` otherwise; a stated value wins. "
+        "Each contract then waits for one Jev answer before its climb starts.",
         choices=TRIAGE_CHOICES,
         bind_hint="name `none` or `jev`, or leave it to the use case and Jev",
     ),
@@ -1303,6 +1306,8 @@ class Ladder:
     placed under."""
 
     names: tuple[str, ...]
+    # Only a hand-built ladder (a placeholder with no setup) takes this; a
+    # loaded one carries the use case's decision (`_use_case_defaults`).
     fanout: str = "none"
 
     def get(self, name: str) -> str | None:
@@ -1567,7 +1572,7 @@ SWITCHES: tuple[Switch, ...] = (
         "fan-out",
         ("fanout",),
         "`none`",
-        "a batch spreads across units with free slots (`idle`)",
+        "a batch takes rungs with free slots (`idle`), api and relief ones too",
         stage="fanout",
     ),
     Switch(
@@ -1667,7 +1672,7 @@ def stages(config: Config) -> dict[str, bool]:
         "inferred_edges": config.get("infer_dependencies") is not False,
         "same_file": config.get("same_file", "wait") == "wait",
         "fanout": config.ladder.fanout != "none",
-        "triage": config.get("triage") == "jev",
+        "triage": config.get("triage") == "jev" and config.jev_on,
     }
     return {name: on[name] for name in STAGE_NAMES}
 

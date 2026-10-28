@@ -256,7 +256,7 @@ def test_dotted_reads_reach_into_lists() -> None:
     assert config.units[config.ladder.names[1]].model == "qwen2.5-coder:14b"
 
 
-# --- fan-out is a knob, and its default is no fan-out ---------------------
+# --- fan-out is a knob, and its default follows the use case --------------
 
 
 def test_fanout_left_unset_is_the_use_cases() -> None:
