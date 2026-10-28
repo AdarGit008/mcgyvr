@@ -1,9 +1,11 @@
-"""mcgyvr is packaged as a skill for Claude CLI and pi, at ``skills/mcgyvr/``.
+"""mcgyvr is packaged as two skills for Claude CLI and pi, under ``skills/``.
 
-The contract is the Agent Skills standard both harnesses implement: a
-``SKILL.md`` with valid frontmatter, an install script that places it into
-``~/.claude/skills`` and ``~/.pi/agent/skills``, a safe first-install default,
-and an onboarding path wired to the existing ``mcgyvr`` CLI.
+``skills/mcgyvr/`` is /mcgyvr, a prompt handed to the bare verb, and
+``skills/mcgyvr-direct/`` is /mcgyvr-direct, contracts handed to ``mcgyvr
+direct``. The contract is the Agent Skills standard both harnesses implement:
+each ``SKILL.md`` with valid frontmatter, one install script that places both
+into ``~/.claude/skills`` and ``~/.pi/agent/skills``, a safe first-install
+default, and an onboarding path wired to the existing ``mcgyvr`` CLI.
 """
 
 from __future__ import annotations
@@ -22,11 +24,22 @@ from tests._paths import REPO
 SKILL_DIR = REPO / "skills" / "mcgyvr"
 SKILL_MD = SKILL_DIR / "SKILL.md"
 INSTALL_SH = SKILL_DIR / "install.sh"
+DIRECT_DIR = REPO / "skills" / "mcgyvr-direct"
+
+#: Both skills, by name; each is its directory's name.
+NAMES = ("mcgyvr", "mcgyvr-direct")
 
 # The two supported harnesses, relative to a user's HOME. Hermes and Codex are
 # out of scope this session; nothing about them is asserted.
 CLAUDE_SKILL = Path(".claude") / "skills" / "mcgyvr" / "SKILL.md"
 PI_SKILL = Path(".pi") / "agent" / "skills" / "mcgyvr" / "SKILL.md"
+HARNESSES = (Path(".claude") / "skills", Path(".pi") / "agent" / "skills")
+#: Every installed SKILL.md, relative to HOME, beside the source it copies.
+INSTALLED = tuple(
+    (harness / name / "SKILL.md", REPO / "skills" / name / "SKILL.md")
+    for name in NAMES
+    for harness in HARNESSES
+)
 
 
 def _frontmatter(path: Path) -> dict[str, object]:
@@ -60,48 +73,47 @@ def _run_install(home: Path, *args: str) -> subprocess.CompletedProcess[str]:
 # --- the skill artifact ---------------------------------------------------
 
 
-def test_skill_markdown_exists() -> None:
-    assert SKILL_MD.exists(), "skills/mcgyvr/SKILL.md must exist"
+@pytest.mark.parametrize("name", NAMES)
+def test_skill_markdown_exists(name: str) -> None:
+    assert (REPO / "skills" / name / "SKILL.md").exists(), f"skills/{name}/SKILL.md"
 
 
-def test_skill_directory_matches_the_name() -> None:
+@pytest.mark.parametrize("name", NAMES)
+def test_frontmatter_names_the_skill_after_its_directory(name: str) -> None:
     # Claude CLI requires the skill name to match its parent directory; the
     # shared SKILL.md must satisfy the stricter of the two harnesses.
-    assert SKILL_DIR.is_dir(), "skills/mcgyvr/ must exist"
-    assert SKILL_DIR.name == "mcgyvr"
-
-
-def test_frontmatter_names_the_skill() -> None:
-    assert SKILL_MD.exists(), "skills/mcgyvr/SKILL.md must exist"
-    frontmatter = _frontmatter(SKILL_MD)
-    assert frontmatter.get("name") == "mcgyvr"
-    name = str(frontmatter["name"])
+    skill = REPO / "skills" / name / "SKILL.md"
+    frontmatter = _frontmatter(skill)
+    assert frontmatter.get("name") == skill.parent.name == name
     assert 1 <= len(name) <= 64
     assert name == name.lower()
 
 
-def test_description_is_present_and_bounded() -> None:
-    assert SKILL_MD.exists(), "skills/mcgyvr/SKILL.md must exist"
-    description = _frontmatter(SKILL_MD).get("description")
+@pytest.mark.parametrize("name", NAMES)
+def test_description_is_present_and_bounded(name: str) -> None:
+    description = _frontmatter(REPO / "skills" / name / "SKILL.md").get("description")
     assert isinstance(description, str) and description.strip()
     assert len(description) <= 1024
 
 
-def test_first_install_does_not_auto_invoke() -> None:
+@pytest.mark.parametrize("name", NAMES)
+def test_first_install_does_not_auto_invoke(name: str) -> None:
     # The safe default: an agent that silently offloads work on day one is a bad
-    # first impression. The skill must be explicitly invocable, not auto-loaded.
-    assert SKILL_MD.exists(), "skills/mcgyvr/SKILL.md must exist"
-    assert _frontmatter(SKILL_MD).get("disable-model-invocation") is True
+    # first impression. Each skill must be explicitly invocable, not auto-loaded.
+    skill = REPO / "skills" / name / "SKILL.md"
+    assert _frontmatter(skill).get("disable-model-invocation") is True
 
 
-def test_skill_positions_the_agent_as_orchestrator() -> None:
-    # The doctrine: the agent stays the orchestrator; mcgyvr owns everything
-    # below the task contract. Asserted as the two words that define the split.
-    assert SKILL_MD.exists(), "skills/mcgyvr/SKILL.md must exist"
+def test_the_prompt_skill_offloads_and_hands_unfinished_work_to_direct() -> None:
+    # The split: /mcgyvr offloads a request in the user's words, and what it
+    # refused or could not finish is the session agent's, through /mcgyvr-direct.
     described = str(_frontmatter(SKILL_MD).get("description", ""))
-    text = (_body(SKILL_MD) + " " + described).lower()
-    assert "orchestrat" in text
-    assert "offload" in text
+    text = _body(SKILL_MD) + " " + described
+    assert "offload" in text.lower()
+    assert "/mcgyvr-direct" in text
+    direct = _body(DIRECT_DIR / "SKILL.md")
+    assert "what_to_change" in direct
+    assert "mcgyvr direct" in direct
 
 
 # --- install into both harnesses ------------------------------------------
@@ -112,18 +124,18 @@ def test_install_script_is_present_and_executable() -> None:
     assert INSTALL_SH.stat().st_mode & 0o111, "install.sh must be executable"
 
 
-def test_install_places_the_skill_in_both_harnesses(tmp_path: Path) -> None:
-    assert SKILL_MD.exists(), "skills/mcgyvr/SKILL.md must exist"
+def test_install_places_both_skills_in_both_harnesses(tmp_path: Path) -> None:
     home = tmp_path / "home"
     home.mkdir()
 
     result = _run_install(home)
 
     assert result.returncode == 0, result.stderr
-    for target in (CLAUDE_SKILL, PI_SKILL):
+    for target, source in INSTALLED:
         landed = home / target
         assert landed.exists(), f"expected {target} under HOME"
-        assert landed.read_bytes() == SKILL_MD.read_bytes()
+        assert landed.read_bytes() == source.read_bytes()
+        assert str(landed) in result.stdout, result.stdout
 
 
 def test_install_is_idempotent(tmp_path: Path) -> None:
@@ -131,11 +143,15 @@ def test_install_is_idempotent(tmp_path: Path) -> None:
     home.mkdir()
     assert _run_install(home).returncode == 0
 
-    before = {p: (home / p).read_bytes() for p in (CLAUDE_SKILL, PI_SKILL)}
+    before = sorted(
+        (p.relative_to(home), p.read_bytes()) for p in home.rglob("*") if p.is_file()
+    )
     again = _run_install(home)
 
     assert again.returncode == 0, again.stderr
-    after = {p: (home / p).read_bytes() for p in (CLAUDE_SKILL, PI_SKILL)}
+    after = sorted(
+        (p.relative_to(home), p.read_bytes()) for p in home.rglob("*") if p.is_file()
+    )
     assert before == after
 
 
@@ -158,8 +174,8 @@ def test_uninstall_removes_both_and_is_idempotent(tmp_path: Path) -> None:
 
     first = _run_install(home, "--uninstall")
     assert first.returncode == 0, first.stderr
-    for target in (CLAUDE_SKILL, PI_SKILL):
-        assert not (home / target).exists()
+    for target, _ in INSTALLED:
+        assert not (home / target).parent.exists(), target
 
     second = _run_install(home, "--uninstall")
     assert second.returncode == 0, "uninstalling twice must not be an error"
@@ -168,17 +184,18 @@ def test_uninstall_removes_both_and_is_idempotent(tmp_path: Path) -> None:
 # --- the onboarding path the skill documents and relies on ----------------
 
 
-def test_skill_body_no_longer_documents_first_run_onboarding() -> None:
-    # An agent authoring a contract does not read `mcgyvr setup` or
-    # `mcgyvr local_pool` here — that onboarding path is SETUP.md, beside the skill
-    # it is not part of.
-    assert SKILL_MD.exists(), "skills/mcgyvr/SKILL.md must exist"
-    body = _body(SKILL_MD)
+@pytest.mark.parametrize("name", NAMES)
+def test_skill_body_no_longer_documents_first_run_onboarding(name: str) -> None:
+    # An agent handing work over does not read `mcgyvr setup` or
+    # `mcgyvr local_pool` here — that onboarding path is SETUP.md, beside the
+    # skills it is not part of.
+    body = _body(REPO / "skills" / name / "SKILL.md")
     assert "mcgyvr setup" not in body
     assert "mcgyvr local_pool" not in body
 
 
-def test_skill_body_no_longer_documents_the_levers() -> None:
+@pytest.mark.parametrize("name", NAMES)
+def test_skill_body_no_longer_documents_the_levers(name: str) -> None:
     """Sources, ladder and budgets are config levers a machine's owner reads
     about in SETUP.md; the skill an agent reads to author a contract does not
     name them as levers.
@@ -189,8 +206,7 @@ def test_skill_body_no_longer_documents_the_levers() -> None:
     `"ladder" not in body` is unsatisfiable rather than strict: the outcome
     literal `ladder_spent` must be present in the body.
     """
-    assert SKILL_MD.exists(), "skills/mcgyvr/SKILL.md must exist"
-    body = _body(SKILL_MD)
+    body = _body(REPO / "skills" / name / "SKILL.md")
     for lever in ("ladder", "sources", "budgets"):
         assert not re.search(rf"^- `{lever}` ", body, re.MULTILINE), lever
 
@@ -407,11 +423,11 @@ def test_a_new_enough_mcgyvr_is_not_warned_about(tmp_path: Path, reported: str) 
 
 # --- the skill and the CLI are from the same revision ----------------------
 
-EXAMPLES_MD = SKILL_DIR / "references" / "examples.md"
+EXAMPLES_MD = DIRECT_DIR / "references" / "examples.md"
 
 
 def _example_count() -> int:
-    """How many fenced ``yaml`` contracts the skill ships beside SKILL.md."""
+    """How many fenced ``yaml`` contracts /mcgyvr-direct ships beside its SKILL.md."""
     text = EXAMPLES_MD.read_text(encoding="utf-8")
     return len(re.findall(r"^```yaml$", text, re.MULTILINE))
 

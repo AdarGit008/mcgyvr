@@ -1,19 +1,19 @@
-"""The `delegate` subcommand: turn a prompt and a repository into contracts.
+"""The bare verb, `mcgyvr PROMPT`: plan a prompt into contracts and run them.
 
 `_delegate` loads the config the orchestrator role is bound in — a bare install,
 with no setup named or found, is refused rather than failed — resolves it into a
 `SourceMap`, and picks a proposer from `orchestrator.authoring`. It attaches the
 repository, says once what a sandbox built from it leaves out, builds the index,
 and hands the evidence to `decompose`. The contracts that come back are reported,
-written as `DIR/<id>.json` or printed, and, with `--run`, run through the
-machinery `run` already has, in the order their dependency tree allows, up to
-`--jobs` of them at once — a contract whose provider did not land is held, not
-run, and one whose ladder is spent is handed back to the orchestrator to be
-re-planned (`mcgyvr.replan`, up to `max_replans`), what comes back taking its
-place.
+written as `DIR/<id>.json` with `--output` (and nothing more), or printed and
+run (`_run_delegated`) through the machinery each run has, in the order their
+dependency tree allows, up to `--jobs` of them at once — a contract whose
+provider did not land is held, not run, and one whose ladder is spent is handed
+back to the orchestrator to be re-planned (`mcgyvr.replan`, up to
+`max_replans`), what comes back taking its place.
 With `--log PATH` how the command ended is written there as one
-`mcgyvr.delegate_log` record, on every exit. `add_parser` registers the
-subcommand and its arguments.
+`mcgyvr.delegate_log` record, on every exit. `add_flags` is the flag set this
+verb and `mcgyvr direct` share, and `prompt_parser` the verb's own parser.
 """
 
 from __future__ import annotations
@@ -221,14 +221,14 @@ def _delegate_logged(args: argparse.Namespace, book: _Logbook) -> int:
     a clone kept in `--into`, or a clone in a temporary directory removed when
     the block exits. The sandbox note is printed, the index is built, and
     `decompose` turns the prompt into contracts from that index, the proposer,
-    the config and `--budget`. The contracts are reported and written, or
-    printed when `--output` is not given, and `--run` runs each of them,
-    re-planning a contract whose ladder is spent through the prose proposer on
-    the same checkout. The exit code is 0 when contracts were emitted; 3
+    the config and `--budget`. The contracts are reported, then written to
+    `--output` and left there, or printed and each of them run, re-planning a
+    contract whose ladder is spent through the prose proposer on the same
+    checkout. The exit code is 0 when contracts were emitted; 3
     (`Exit.REFUSED`) when there is no orchestrator role to ask or no contract
     came of the request; 1 when the config, attaching, indexing or proposing
-    failed; and under `--run` the batch's, the last non-zero exit of its runs
-    (3 for a contract held `blocked`). A `--run` with no session to file it
+    failed; and when they run, the batch's, the last non-zero exit of its runs
+    (3 for a contract held `blocked`). A batch with no session to file it
     under never gets here: `_refuse_before_delegating` refuses it first, exit
     2. A reply that cannot be read as proposals is printed whole, delimited, on
     stderr after its error. Every return names its `mcgyvr.delegate_log` kind
@@ -533,7 +533,7 @@ def _run_delegated(
     `--output` are run in place; when they were printed instead, they are staged
     into a temporary directory first, so either way every run reads a contract
     file. The session the runs are filed under is `args.session`, resolved from
-    `--session` before the orchestrator role was asked (`_name_the_writer`).
+    `--session` before the orchestrator role was asked (`_unusable_writer`).
 
     The contracts go on the repository's live dependency tree (`mcgyvr.tree`,
     `Board.live`) read against its committed tree: a fresh one, or the one
@@ -1161,10 +1161,17 @@ def add_flags(parser: argparse.ArgumentParser) -> None:
     """Attach the one flag set `mcgyvr PROMPT` and `mcgyvr direct` share.
 
     The two verbs differ only in who wrote the contracts, so every flag is on
-    both, with one help text. A flag with no meaning on one side says so, and
-    is refused there (`_refuse_before_delegating`, `_refuse_before_direct`)
+    both, with one help text, its words in `mcgyvr.flagset` (which the
+    generated skills quote too). A flag with no meaning on one side says so,
+    and is refused there (`_refuse_before_delegating`, `_refuse_before_direct`)
     rather than dropped or read as nothing.
     """
+    from mcgyvr.flagset import HELP
+
+    def said(flag: str) -> dict[str, Any]:
+        metavar, help_text = HELP[flag]
+        return {"help": help_text, **({"metavar": metavar} if metavar else {})}
+
     _add_repo(
         parser,
         "the repository to work against: a local git checkout, or a URL to "
@@ -1180,128 +1187,30 @@ def add_flags(parser: argparse.ArgumentParser) -> None:
             f"prompt, the proposer that plans it (default: {CONFIG_DEFAULT_HELP})"
         ),
     )
+    parser.add_argument("--into", default=None, **said("--into"))
+    parser.add_argument("--budget", type=int, default=None, **said("--budget"))
+    parser.add_argument("--output", default=None, **said("--output"))
+    parser.add_argument("--jobs", default=1, type=_jobs, **said("--jobs"))
     parser.add_argument(
-        "--into",
-        default=None,
-        metavar="DIR",
-        help="clone a URL repo into DIR and keep it, instead of a temp dir",
-    )
-    parser.add_argument(
-        "--budget",
-        type=int,
-        default=None,
-        metavar="TOKENS",
-        help=(
-            "cap the deterministic read of the prompt at TOKENS estimated "
-            "tokens before the proposer is asked (default: the decompose "
-            "default). No meaning under `direct`, which reads no prompt: "
-            "refused there"
-        ),
-    )
-    parser.add_argument(
-        "--output",
-        default=None,
-        metavar="DIR",
-        help=(
-            "stop once the contracts are planned: write each one that passed "
-            "vetting to DIR/<id>.json and run none of them, so `mcgyvr direct "
-            "DIR` can run them later. Without it a prompt's contracts are "
-            "printed on stdout and run from a temporary directory, and "
-            "`direct` runs its files where they are"
-        ),
-    )
-    parser.add_argument(
-        "--jobs",
-        default=1,
-        type=_jobs,
-        metavar="N",
-        help=(
-            "run up to N ready contracts at once, each settled as it ends and "
-            "the next started as soon as it is ready (default: 1, one at a "
-            "time). N is capped at the fleet's total slots, the most "
-            "dispatches its units take at once; `auto` or 0 is that cap. Two "
-            "contracts whose scopes can write one file never run at once, and "
-            "a run's output is written whole when it ends. Runs beside each "
-            "other share the fleet's slots, so one may wait for a rung, or "
-            "pass a busy one by, as two runs typed in two terminals would"
-        ),
-    )
-    parser.add_argument(
-        "--sandbox",
-        default=None,
-        choices=("docker", "tempdir"),
-        help="sandbox mode of each run; default is `sandbox.mode`, then `docker`",
+        "--sandbox", default=None, choices=("docker", "tempdir"), **said("--sandbox")
     )
     parser.add_argument(
         "--commit",
         action=argparse.BooleanOptionalAction,
         default=None,
-        help=(
-            "commit each accepted change, or not (--no-commit), whatever "
-            "`delivery.commit` says"
-        ),
+        **said("--commit"),
     )
-    parser.add_argument(
-        "--branch",
-        default=None,
-        metavar="NAME",
-        help="commit each accepted change onto branch NAME; implies --commit",
-    )
-    parser.add_argument(
-        "--record",
-        default=None,
-        type=_named_path,
-        metavar="DIR",
-        help="also journal each run under DIR, as a complete second copy",
-    )
-    parser.add_argument(
-        "--log",
-        default=None,
-        type=_named_path,
-        metavar="PATH",
-        help=(
-            "write how this command ended to PATH as one JSON record "
-            "(mcgyvr.delegate_log/1, schema in mcgyvr.delegate_log), on every "
-            "exit once the arguments are read, a crash included: its `kind`, "
-            "the exit code, the contracts and refusals, and the facts behind a "
-            "failure. For a script that called mcgyvr; stderr is unchanged"
-        ),
-    )
-    add_session(
-        parser,
-        "the session the runs are filed under, resolved before any work "
-        "(default: the session that typed this command, and a refusal, exit "
-        "2, when there is none); not needed with --output, which runs nothing",
-    )
-    parser.add_argument(
-        "--result",
-        default=None,
-        type=_named_path,
-        metavar="PATH",
-        help=(
-            "where *you* read the result file, when the set is one contract "
-            "(`direct` with one file); mcgyvr keeps its own copy under the "
-            "journal directory either way. Refused for more than one contract, "
-            "and for a prompt, whose contracts are not known before it is planned"
-        ),
-    )
+    parser.add_argument("--branch", default=None, **said("--branch"))
+    parser.add_argument("--record", default=None, type=_named_path, **said("--record"))
+    parser.add_argument("--log", default=None, type=_named_path, **said("--log"))
+    add_session(parser, HELP["--session"][1])
+    parser.add_argument("--result", default=None, type=_named_path, **said("--result"))
     parser.add_argument(
         "--notes-from",
         default=None,
         action="append",
         type=_named_path,
-        metavar="RESULT",
-        help=(
-            "start a contract's climb with the failure notes of an earlier run "
-            "of it: RESULT is that run's result file, and seeds the contract "
-            "in the set whose id it names; give it once per contract. Its "
-            "records are checked (same contract, the notes schema, "
-            "repo-relative paths) and shown to the first attempt under a banner "
-            "naming the earlier run, under `retry_notes: climb`; the result's "
-            "`seeded` says what was read and handed. For a rerun on another "
-            "ladder or machine. Refused for a prompt, whose contracts are "
-            "proposed new and whose re-plans carry their own notes"
-        ),
+        **said("--notes-from"),
     )
 
 

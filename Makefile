@@ -3,7 +3,7 @@
 #   make test      run the test suite
 #   make lint      ruff check + format check
 #   make typecheck mypy (strict)
-#   make docs      regenerate the generated docs (config reference, /mcgyvr skill)
+#   make docs      regenerate the generated docs (config reference, /mcgyvr and /mcgyvr-direct skills)
 #   make check     everything CI runs
 # uv provides the interpreter and a reproducible, locked dependency set.
 .PHONY: setup test lint typecheck docs docs-check check
@@ -25,7 +25,7 @@ lint: setup  ## lint and format check
 typecheck: setup  ## strict type checking
 	uv run --no-sync mypy
 
-docs: setup  ## render+check+delete the config reference; regenerate the /mcgyvr skill
+docs: setup  ## render+check+delete the config reference; regenerate the /mcgyvr and /mcgyvr-direct skills
 	uv run --no-sync python -m mcgyvr.docgen
 
 docs-check: setup  ## fail if the reference does not render or the committed skill drifted

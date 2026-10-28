@@ -71,7 +71,7 @@ What the config is for comes in with these, all optional:
 
 - `--use-case` — `coding` (the deterministic gate, the default), `chat`
   or `agent`.
-- `--deployment` — `hybrid` (an API-tier orchestrator drives mcgyvr) or
+- `--deployment` — `hybrid` (an API-tier session agent drives mcgyvr) or
   `local-only` (mcgyvr is the backend); the default is `local-only` for
   `chat` and `hybrid` otherwise.
 - `--priority` — compose the ladder for `throughput`, `quality` or
@@ -144,7 +144,7 @@ can run the work; `mcgyvr capabilities` shows the shipped capability table.
 | boolean | `true` or `false`, unquoted. |
 | decimal number | A number that may carry a fraction. |
 | one of ... | Text drawn from a fixed set. Anything else is rejected, with the valid values named. |
-| env var name | The **name** of an environment variable (e.g. `ANTHROPIC_API_KEY`), never the value. Credentials are never written into this file; the orchestrator resolves the name at point of use and a task sandbox never sees the result. |
+| env var name | The **name** of an environment variable (e.g. `ANTHROPIC_API_KEY`), never the value. Credentials are never written into this file; the mcgyvr resolves the name at point of use and a task sandbox never sees the result. |
 | list of text | A YAML list of non-empty strings. |
 | block | A nested mapping with a fixed set of keys, documented in its own section. |
 | block map | A mapping whose keys you choose; every entry takes the same fixed set of keys. |

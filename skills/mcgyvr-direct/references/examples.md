@@ -4,7 +4,7 @@
 
 Each loads through the contract validator; they are checked by the test
 suite, so copying one is copying a shape that is known to validate. The
-keys are documented in `SKILL.md`.
+keys are documented in the /mcgyvr-direct skill, `SKILL.md`.
 
 ## A change a model makes
 

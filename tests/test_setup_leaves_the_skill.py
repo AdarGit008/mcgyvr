@@ -1,11 +1,12 @@
-"""Setup lives in SETUP.md, not in the skill.
+"""Setup lives in SETUP.md, not in the skills.
 
-One package, one seam, two documents. `SKILL.md` is what an agent reads to
-author a contract; `SETUP.md` is what a machine's owner reads to stand the
-ladder up. Nothing an agent loads to author a contract may name a setup verb, a
-config lever, or the ladder. `SETUP.md` is rendered from `config.SCHEMA`, lives
-beside the skill it is not part of (`skills/mcgyvr/SETUP.md`), and `install.sh`
-never copies it into either harness.
+One package, one seam, two kinds of document. The two skills, /mcgyvr and
+/mcgyvr-direct, are what an agent reads to hand work over; `SETUP.md` is what a
+machine's owner reads to stand the ladder up. Nothing an agent loads to hand
+work over may name a setup verb, a config lever, or the ladder. `SETUP.md` is
+rendered from `config.SCHEMA`, lives beside the skills it is not part of
+(`skills/mcgyvr/SETUP.md`), and `install.sh` never copies it into either
+harness.
 """
 
 from __future__ import annotations
@@ -16,6 +17,8 @@ import re
 import subprocess
 from pathlib import Path
 
+import pytest
+
 from mcgyvr import docgen
 from tests._paths import REPO
 
@@ -24,8 +27,15 @@ SKILL_MD = SKILL_DIR / "SKILL.md"
 SETUP_MD = SKILL_DIR / "SETUP.md"
 INSTALL_SH = SKILL_DIR / "install.sh"
 
-CLAUDE_DIR = Path(".claude") / "skills" / "mcgyvr"
-PI_DIR = Path(".pi") / "agent" / "skills" / "mcgyvr"
+#: Both skills' SKILL.md files: what an agent loads.
+SKILL_MDS = (SKILL_MD, REPO / "skills" / "mcgyvr-direct" / "SKILL.md")
+
+#: Every directory install.sh writes a skill into, relative to HOME.
+INSTALLED_DIRS = tuple(
+    harness / name
+    for name in ("mcgyvr", "mcgyvr-direct")
+    for harness in (Path(".claude") / "skills", Path(".pi") / "agent" / "skills")
+)
 
 #: The `mcgyvr` setup verbs; nothing an agent loads may name one.
 SETUP_VERBS: tuple[str, ...] = (
@@ -83,18 +93,20 @@ def _run_install(home: Path, *args: str) -> subprocess.CompletedProcess[str]:
 # --- SKILL.md carries no setup ---------------------------------------------
 
 
-def test_skill_body_names_no_setup_verb() -> None:
-    """SKILL.md sends an agent to author a contract; it names no setup verb."""
-    assert SKILL_MD.exists(), "skills/mcgyvr/SKILL.md must exist"
-    hits = _verb_hits(_body(SKILL_MD))
-    assert hits == [], f"SKILL.md still names setup verb(s): {hits}"
+@pytest.mark.parametrize("skill", SKILL_MDS, ids=lambda p: p.parent.name)
+def test_skill_body_names_no_setup_verb(skill: Path) -> None:
+    """A skill sends an agent to hand work over; it names no setup verb."""
+    assert skill.exists(), f"{skill} must exist"
+    hits = _verb_hits(_body(skill))
+    assert hits == [], f"{skill} still names setup verb(s): {hits}"
 
 
-def test_skill_body_names_no_lever_as_a_config_lever() -> None:
-    """SKILL.md never introduces sources, ladder or budgets as config levers."""
-    assert SKILL_MD.exists(), "skills/mcgyvr/SKILL.md must exist"
-    hits = _lever_bullet_hits(_body(SKILL_MD))
-    assert hits == [], f"SKILL.md still names lever(s) as config levers: {hits}"
+@pytest.mark.parametrize("skill", SKILL_MDS, ids=lambda p: p.parent.name)
+def test_skill_body_names_no_lever_as_a_config_lever(skill: Path) -> None:
+    """A skill never introduces sources, ladder or budgets as config levers."""
+    assert skill.exists(), f"{skill} must exist"
+    hits = _lever_bullet_hits(_body(skill))
+    assert hits == [], f"{skill} still names lever(s) as config levers: {hits}"
 
 
 # --- SETUP.md carries the setup ---------------------------------------------
@@ -137,8 +149,9 @@ def test_install_sh_does_not_copy_setup_md_into_either_harness(
     home.mkdir()
     result = _run_install(home)
     assert result.returncode == 0, result.stderr
-    for target in (CLAUDE_DIR, PI_DIR):
+    for target in INSTALLED_DIRS:
         installed = home / target
+        assert installed.is_dir(), f"install.sh did not install {target}"
         assert not (installed / "SETUP.md").exists(), (
             f"install.sh copied SETUP.md into {installed}; SETUP.md lives "
             "beside the skill it is not part of and must not be installed"
@@ -152,7 +165,7 @@ def test_installed_files_name_no_setup_verb_or_lever(tmp_path: Path) -> None:
     home.mkdir()
     result = _run_install(home)
     assert result.returncode == 0, result.stderr
-    for target in (CLAUDE_DIR, PI_DIR):
+    for target in INSTALLED_DIRS:
         installed_dir = home / target
         for installed_file in installed_dir.rglob("*"):
             if not installed_file.is_file():
@@ -167,12 +180,13 @@ def test_installed_files_name_no_setup_verb_or_lever(tmp_path: Path) -> None:
 # --- the two documents do not restate each other ----------------------------
 
 
-def test_no_sentence_appears_in_both_documents() -> None:
-    """SKILL.md and SETUP.md do not restate each other: no sentence appears in
+@pytest.mark.parametrize("skill", SKILL_MDS, ids=lambda p: p.parent.name)
+def test_no_sentence_appears_in_both_documents(skill: Path) -> None:
+    """A skill and SETUP.md do not restate each other: no sentence appears in
     both."""
-    assert SKILL_MD.exists(), "skills/mcgyvr/SKILL.md must exist"
+    assert skill.exists(), f"{skill} must exist"
     assert SETUP_MD.exists(), "skills/mcgyvr/SETUP.md must exist"
-    skill_sentences = _sentences(_body(SKILL_MD))
+    skill_sentences = _sentences(_body(skill))
     setup_sentences = _sentences(SETUP_MD.read_text(encoding="utf-8"))
     shared = skill_sentences & setup_sentences
     assert shared == set(), f"sentence(s) duplicated across both documents: {shared}"
@@ -182,11 +196,11 @@ def test_no_sentence_appears_in_both_documents() -> None:
 
 
 def test_docgen_module_docstring_says_setup_is_not_part_of_the_skill() -> None:
-    """Setup is not part of the skill mcgyvr generates from contract.SCHEMA."""
-    doc = docgen.__doc__ or ""
+    """Setup is not part of either skill mcgyvr generates."""
+    doc = " ".join((docgen.__doc__ or "").split())
     assert "setup is not part of" in doc.lower(), (
-        "docgen.py's module docstring must say the skill is one instruction "
-        "generated from contract.SCHEMA, and setup is not part of it"
+        "docgen.py's module docstring must say setup is not part of the skills "
+        "it generates"
     )
 
 

@@ -1,7 +1,7 @@
 """SETUP.md is rendered from config.SCHEMA and checked for drift, not deleted.
 
-One package, one seam, two documents. `SKILL.md` is what an agent reads to
-author a contract; `SETUP.md` is what a machine's owner reads to stand the
+One package, one seam, two kinds of document. The skills are what an agent
+reads to hand work over; `SETUP.md` is what a machine's owner reads to stand the
 ladder up. `docgen.render_setup()` renders `skills/mcgyvr/SETUP.md` from
 `config.SCHEMA` to a committed path — unlike `render_reference()` and
 `check_reference()`, which render to a temp file, check it, and delete it,
@@ -137,9 +137,12 @@ def test_make_docs_check_covers_a_stale_setup_document(
     assert "--setup-output" not in recipe, recipe
 
     untouched = SETUP_PATH.read_bytes()
-    # The other two kept documents are pointed at current renderings in
+    # The other kept documents are pointed at current renderings in
     # tmp_path, so the only thing this run can refuse is SETUP.md.
     (tmp_path / "SKILL.md").write_text(docgen.render_skill(), encoding="utf-8")
+    (tmp_path / "direct-SKILL.md").write_text(
+        docgen.render_direct_skill(), encoding="utf-8"
+    )
     (tmp_path / "examples.md").write_text(docgen.render_examples(), encoding="utf-8")
     monkeypatch.setattr(docgen, "render_setup", lambda: "stale\n")
 
@@ -150,6 +153,8 @@ def test_make_docs_check_covers_a_stale_setup_document(
             str(tmp_path / "config-reference.md"),
             "--skill-output",
             str(tmp_path / "SKILL.md"),
+            "--direct-skill-output",
+            str(tmp_path / "direct-SKILL.md"),
             "--examples-output",
             str(tmp_path / "examples.md"),
         ]
