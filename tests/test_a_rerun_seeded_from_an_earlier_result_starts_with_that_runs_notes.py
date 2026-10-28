@@ -130,7 +130,7 @@ def test_an_unseeded_result_says_nothing_of_a_seed(
         ("{not json", "cannot be read"),
         (
             json.dumps({"contract": "other", "run": "R", "attempts": []}),
-            "no contract in this set has that id",
+            "no contract in this set that passed vetting has that id",
         ),
     ],
 )

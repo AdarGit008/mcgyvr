@@ -70,7 +70,8 @@ _EPILOG = """\
 the bare verb:
   mcgyvr PROMPT [flags]   plan PROMPT into contracts and run them; the flags are
                           `direct`'s (`mcgyvr direct -h`). A prompt whose first
-                          word is a command is written after `--`."""
+                          word is a command is written after `--`, the flags
+                          before it: `mcgyvr [flags] -- PROMPT`."""
 
 
 def _build() -> tuple[
@@ -194,6 +195,8 @@ def _not_a_prompt(argv: Sequence[str], commands: frozenset[str]) -> str | None:
     A removed verb is named with what took its place, and one word close to a
     command is taken for a typo of it, so neither is sent to a proposer.
     """
+    if "--orchestrator" in argv:
+        return "--orchestrator is gone: name the session with --session ID."
     first = argv[0]
     if first in _REMOVED:
         return f"`mcgyvr {first}` is gone: {_REMOVED[first]}."
@@ -216,6 +219,11 @@ def main(argv: Sequence[str] | None = None) -> int:
         if problem is not None:
             parser.error(problem)
         args = prompt.parse_args(words)
+        # The prompt may follow flags: it is the first word that is no flag's.
+        if "--" not in words:
+            problem = _not_a_prompt([args.prompt], _commands(parser))
+            if problem is not None:
+                parser.error(problem)
         # Unless --output asks for the contracts alone, the session is named
         # here, before the proposer is asked: a batch nobody can be traced to
         # costs no model call and writes no contracts (exit 2).

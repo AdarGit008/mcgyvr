@@ -178,8 +178,9 @@ archived outside this repository, under the same paths.
   contracts someone wrote and vets each as a proposal is vetted (the target is
   a committed file, the ladder serves the task type, the worker's view is
   under the ceiling): a refusal prints `refused: <file>: <reason>` and
-  `change: <what_to_change>` on stderr and exits 3, and a contract that does
-  not load is one too. What passes goes into one tree and runs through the
+  `change: <what_to_change>` on stderr and is logged, the rest of the set
+  runs, and when nothing passes the exit is 3; a contract that does not load,
+  one id twice and a `depends_on` cycle are refusals too. What passes goes into one tree and runs through the
   batch path, with no re-plan. Both take one flag set; a flag with no meaning
   on one side (`--budget` on `direct`, which has no prompt) is refused, exit
   2. `mcgyvr run` and `mcgyvr delegate` are removed with no alias: `run

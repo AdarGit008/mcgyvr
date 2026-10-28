@@ -48,8 +48,10 @@ def contract_paths(named: list[str]) -> list[Path] | str:
     """The contract files `named` gives, in order, or why it gives none.
 
     A file is taken as it is named; a directory for its `*.json`, `*.yaml`
-    and `*.yml` files, sorted by name. A path that is not there, a directory
-    with no contract file in it, and one file named twice are each a reason.
+    and `*.yml` files, sorted by name, less those whose name starts with `.`
+    or `_` (a provenance note beside the contracts, say). A path that is not
+    there, a directory with no contract file in it, and one file named twice
+    are each a reason.
     """
     found: list[Path] = []
     for name in named:
@@ -58,7 +60,9 @@ def contract_paths(named: list[str]) -> list[Path] | str:
             inside = sorted(
                 p
                 for p in path.iterdir()
-                if p.is_file() and p.suffix in CONTRACT_SUFFIXES
+                if p.is_file()
+                and p.suffix in CONTRACT_SUFFIXES
+                and not p.name.startswith((".", "_"))
             )
             if not inside:
                 return (
@@ -99,6 +103,14 @@ def _refuse_before_direct(
         args.paths = paths
         problem = _delivery_problem(args) or _meaningless(
             args, "`direct`", "--budget", why="it reads no prompt"
+        )
+    if problem is None and args.output is not None:
+        problem = _meaningless(
+            args,
+            "`direct --output`",
+            "--result",
+            "--notes-from",
+            why="it runs nothing",
         )
     if problem is None and args.result is not None and len(args.paths) != 1:
         problem = (
@@ -231,7 +243,7 @@ def _seeds(given: list[str], ids: set[str]) -> dict[str, str] | str:
         if named not in ids:
             return (
                 f"--notes-from {result} is a result of {named!r}, and no contract "
-                f"in this set has that id."
+                f"in this set that passed vetting has that id."
             )
         if named in seeds:
             return f"--notes-from names two results of {named!r}: give one."

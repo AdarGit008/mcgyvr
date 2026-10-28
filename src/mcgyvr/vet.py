@@ -11,8 +11,12 @@ stated twice. Those checks are `emit_one`'s own, called here, not restated.
 
 What `emit_one` cannot see is the set as files: a file that does not load as
 a contract, two files that give one id, a dependency whose signature declares
-no name, a pattern target (vetted as the first indexed file it names) and a
-contract that waits on one refused here. Each is a `Refusal`
+no name, a pattern target (vetted as the first indexed file it names),
+`depends_on` ids that form a cycle (refused by `decompose`'s own ordering), a
+view over the contract's own `context.max_input_tokens` (`emit_one` would
+raise it on its copy; the author's file runs as written), and a contract that
+waits on one refused here. An id the set does not hold is left to the tree,
+where it may name a contract of another batch on the repository. Each is a `Refusal`
 too, with the same `what_to_change` directive, so the author is told what to
 change and resubmit. A contract that passes runs as it was written:
 `emit_one`'s document is its verdict, never a rewrite of the author's file.
@@ -20,6 +24,7 @@ change and resubmit. A contract that passes runs as it was written:
 
 from __future__ import annotations
 
+import json
 from collections.abc import Sequence
 from dataclasses import dataclass, replace
 from pathlib import Path
@@ -33,12 +38,13 @@ from mcgyvr.orchestrator.decompose import (
     Evidence,
     Refusal,
     _default_adapters,
+    _fan_out,
     _proposal_of,
     _vocabulary,
     emit_one,
 )
 from mcgyvr.orchestrator.provides import declared_names
-from mcgyvr.orchestrator.read import explore
+from mcgyvr.orchestrator.read import estimate_tokens, explore
 from mcgyvr.orchestrator.resolve import resolve
 from mcgyvr.scope import Scope
 
@@ -103,19 +109,27 @@ def vet(paths: Sequence[Path], index: Index, *, config: Config | None = None) ->
         vocabulary=_vocabulary(config),
     )
     adapters = _default_adapters()
-    seen: dict[str, str] = {}
-    for path, contract in loaded:
-        siblings = tuple(c for p, c in loaded if p != path)
-        verdict = _vetted(evidence, contract, seen, adapters, siblings)
-        if verdict is not None:
-            refused[path] = replace(verdict, subject=str(path))
-
-    # One that waits on a refused contract can never start: it is refused too,
-    # as `decompose` refuses a proposal that depends on a refused one.
+    refused.update(_cycles(loaded))
     by_id = {c.id: p for p, c in loaded}
+    # A dependency is stated from a sibling only while that sibling passes, as
+    # `decompose` states one only from a contract it emitted: so the set is
+    # vetted again, against what is left, until nothing more is refused.
     changed = True
     while changed:
         changed = False
+        seen: dict[str, str] = {}
+        for path, contract in loaded:
+            if path in refused:
+                continue
+            siblings = tuple(c for p, c in loaded if p != path and p not in refused)
+            verdict = _vetted(evidence, contract, seen, adapters, siblings)
+            if verdict is not None:
+                refused[path] = replace(verdict, subject=str(path))
+                changed = True
+        # One that waits on a refused contract can never start: it is refused
+        # too, as `decompose` refuses a proposal that depends on a refused one.
+        # An id the set does not hold is left to the tree: it may be a contract
+        # of another batch on the repository's live tree.
         for path, contract in loaded:
             if path in refused:
                 continue
@@ -142,6 +156,31 @@ def vet(paths: Sequence[Path], index: Index, *, config: Config | None = None) ->
         ),
         paths=tuple(p for p, _ in passed),
     )
+
+
+def _cycles(loaded: Sequence[tuple[Path, Contract]]) -> dict[Path, Refusal]:
+    """The contracts of the set whose `depends_on` ids form a cycle, refused.
+
+    `decompose`'s own ordering (`_fan_out`) is asked, over the set's contracts
+    as proposals whose `depends_on` indexes stand for the ids the set holds;
+    whatever it cannot order is on a cycle, or waits on one, and is refused
+    with its reason and directive.
+    """
+    at = {contract.id: i for i, (_, contract) in enumerate(loaded)}
+    proposals = tuple(
+        replace(
+            _proposal_of(contract),
+            depends_on=tuple(at[d] for d in contract.depends_on if d in at),
+        )
+        for _, contract in loaded
+    )
+    ordered, refusals = _fan_out(proposals)
+    placed = {id(proposal) for proposal, _ in ordered}
+    left = [i for i, proposal in enumerate(proposals) if id(proposal) not in placed]
+    return {
+        loaded[i][0]: replace(refusal, subject=str(loaded[i][0]))
+        for i, refusal in zip(left, refusals, strict=True)
+    }
 
 
 def _vetted(
@@ -206,5 +245,21 @@ def _vetted(
     if isinstance(emitted, Refusal):
         return emitted
     built, _ = emitted
+    # The ceiling `emit_one` holds a proposal to is the batch's, and it raises
+    # a fitting contract's own `context.max_input_tokens` to the view; a
+    # written contract runs as written, so its own number must hold the view.
+    needed = estimate_tokens(json.dumps(built.worker_view(), sort_keys=True))
+    if needed > contract.max_input_tokens:
+        return Refusal(
+            contract.target,
+            f"the worker view is {needed} estimated tokens and the contract's "
+            f"context.max_input_tokens is {contract.max_input_tokens}, so its "
+            "prompt would be refused as too large",
+            field="context",
+            what_to_change=(
+                f"raise context.max_input_tokens to at least {needed}, or narrow "
+                "the target"
+            ),
+        )
     seen[built.id] = contract.target
     return None

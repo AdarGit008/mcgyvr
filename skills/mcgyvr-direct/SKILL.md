@@ -330,9 +330,11 @@ printed on stderr as
     change: <what_to_change>
 ```
 
-Change that file as the directive says and run the whole set again. When
-no contract passes, nothing runs and the exit is 3. `--output DIR` vets
-only: what passed is written to `DIR/<id>.json` and nothing runs.
+The rest of the set runs. Change each refused file as its directive says
+and run those files again, with what waits on them; not the whole set,
+whose accepted changes are already in the tree. When no contract passes,
+nothing runs and the exit is 3. `--output DIR` vets only: what passed is
+written to `DIR/<id>.json` and nothing runs.
 
 Every run works on the repository as committed at HEAD: uncommitted edits
 and untracked files, including a test you just wrote, are not in the

@@ -89,7 +89,8 @@ def _run(args: argparse.Namespace) -> int:
     # An earlier run's failure notes, read and checked before anything else is
     # spent: a seed that is not a sound result of this contract stops the run
     # here rather than send a climb told something it should not have been.
-    # `mcgyvr PROMPT` and `mcgyvr direct` build their own arguments and names no seed.
+    # `mcgyvr direct --notes-from` hands each contract the seed its result names;
+    # `mcgyvr PROMPT` names none.
     args.notes_from = getattr(args, "notes_from", None)
     seed: tuple[CarriedNotes, ...] = ()
     if args.notes_from is not None:

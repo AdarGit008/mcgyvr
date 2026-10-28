@@ -6,8 +6,10 @@ the namespace `delegate --run` parsed to, and is handed to the same handler,
 so the journal's results, the tree and the `--log` record it writes are the
 ones that handler writes when called with `delegate --run`'s arguments —
 checked here byte for byte, on two copies of one repository, with the
-proposer's reply and each contract's run stood in for. `--output DIR` stops
-once the contracts are planned: they are written and none runs.
+proposer's reply and each contract's run stood in for. The old command's
+code is gone, so its parity is pinned where it can be: its namespace, and the
+handler both are given. `--output DIR` stops once the contracts are planned:
+they are written and none runs.
 """
 
 from __future__ import annotations
@@ -124,6 +126,8 @@ def runs_land(monkeypatch: pytest.MonkeyPatch, ran: list[str]) -> None:
         contract = json.loads(Path(args.contract).read_text())
         repo = Path(args.repo)
         ran.append(contract["id"])
+        # A prompt's runs are handed no result path and no seed.
+        assert (args.result, args.notes_from) == (None, None)
         (repo / contract["target"]).write_text(
             "def listing(items):\n    return sorted(items)\n"
         )
@@ -181,7 +185,13 @@ def written(journal: Path) -> dict[str, Any]:
     for path in sorted((journal / "trees").glob("*.json")):
         tree = json.loads(path.read_text())
         found["tree"] = [
-            {k: v for k, v in row.items() if k not in {"result", "commit"}}
+            {
+                # The contract each row runs from is compared as text: its
+                # path is under each journal.
+                k: Path(v).read_text() if k == "document" else v
+                for k, v in row.items()
+                if k not in VARIES | {"result", "batch"}
+            }
             for row in tree["contracts"]
         ]
     return found
@@ -245,10 +255,9 @@ def test_the_bare_verb_writes_the_journal_and_log_delegate_run_wrote(
     assert written(journal)[ran[0]]["outcome"] == "accepted"
     before, after = read(log), read(new_log)
     assert after.kind is before.kind is DelegateKind.EMITTED
-    assert after.exit_code == before.exit_code
-    assert after.message == before.message
-    assert [c.id for c in after.contracts] == [c.id for c in before.contracts]
-    assert after.refusals == before.refusals
+    # The whole record is the same, less nothing: printed contracts have no
+    # path, and every other field is the handler's own.
+    assert after == before
 
 
 def test_output_writes_the_contracts_and_runs_none_with_no_session(

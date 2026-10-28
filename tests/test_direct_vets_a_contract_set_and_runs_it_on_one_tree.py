@@ -257,3 +257,69 @@ def test_a_seed_for_no_contract_in_the_set_is_refused_before_any_run(
     assert code == 2
     assert log.kind is DelegateKind.USAGE_INVALID
     assert "someone-else" in log.message
+
+
+def test_a_dependency_only_a_refused_sibling_creates_is_refused_too(
+    tmp_path: Path, repo: Path
+) -> None:
+    """A symbol is stated from a sibling only while that sibling passes."""
+    folder = tmp_path / "contracts"
+    maker = contract(folder, "make-foo", "src/pkg/a.py")
+    # Refused: its own view cannot fit the number it states.
+    maker.write_text(
+        maker.read_text()
+        + 'interface: "def foo() -> int"\ncontext:\n  max_input_tokens: 16\n'
+    )
+    user = contract(folder, "use-foo", "src/pkg/b.py")
+    user.write_text(
+        user.read_text()
+        + "deps:\n- path: src/pkg/a.py\n  signature: 'def foo() -> int'\n"
+    )
+
+    code, log = direct(tmp_path, repo, folder)
+
+    assert code == 3
+    by_file = {Path(r.subject).name: r for r in log.refusals}
+    assert by_file["make-foo.yaml"].field == "context"
+    assert "at least" in by_file["make-foo.yaml"].what_to_change
+    assert by_file["use-foo.yaml"].field == "deps"
+
+
+def test_a_cycle_in_depends_on_is_refused_not_held(tmp_path: Path, repo: Path) -> None:
+    folder = tmp_path / "contracts"
+    contract(folder, "tidy-a", "src/pkg/a.py", depends_on=("tidy-b",))
+    contract(folder, "tidy-b", "src/pkg/b.py", depends_on=("tidy-a",))
+    contract(folder, "tidy-c", "src/pkg/c.py")
+
+    code, log = direct(tmp_path, repo, folder)
+
+    assert code == 0
+    assert committed(repo) == ["tidy-c: Reformat the module."]
+    assert {Path(r.subject).name: r.field for r in log.refusals} == {
+        "tidy-a.yaml": "depends_on",
+        "tidy-b.yaml": "depends_on",
+    }
+
+
+def test_a_directory_skips_files_named_with_a_leading_dot_or_underscore(
+    tmp_path: Path, repo: Path
+) -> None:
+    folder = tmp_path / "contracts"
+    contract(folder, "tidy-a", "src/pkg/a.py")
+    (folder / "_provenance.json").write_text('{"made_by": "someone"}')
+
+    code, log = direct(tmp_path, repo, folder)
+
+    assert code == 0
+    assert log.kind is DelegateKind.EMITTED
+    assert log.refusals == ()
+
+
+def test_result_and_notes_from_are_refused_with_output(
+    tmp_path: Path, repo: Path, capsys: pytest.CaptureFixture[str]
+) -> None:
+    one = contract(tmp_path / "contracts", "tidy-a", "src/pkg/a.py")
+    argv = ["direct", str(one), "--repo", str(repo), "--output", str(tmp_path / "o")]
+
+    assert lj.main([*argv, "--result", str(tmp_path / "r.json")]) == 2
+    assert "--result has no meaning for `direct --output`" in capsys.readouterr().err
