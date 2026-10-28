@@ -653,10 +653,20 @@ def test_an_inferred_edge_that_would_close_a_cycle_is_left_out(
     assert second.depends_on == (first.id,)
 
 
-def test_with_prose_or_unset_authoring_delegate_builds_no_typed_proposer(
+def test_with_prose_authoring_delegate_builds_no_typed_proposer(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     with_jev = "jev:\n  unit: judge\n"
-    for authoring in ("  authoring: prose\n", ""):
-        text = UNITS.replace("  authoring: classifier\n", authoring) + with_jev
-        assert _typed_for(monkeypatch, text) is None
+    text = UNITS.replace("  authoring: classifier\n", "  authoring: prose\n")
+    assert _typed_for(monkeypatch, text + with_jev) is None
+
+
+def test_unset_authoring_is_the_classifier_under_mcgyvr_code_with_jev_on(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """`mcgyvr-code` turns its opt-ins on: with a Jev unit bound and on, unset
+    authoring is the classifier; with Jev switched off it is prose."""
+    unset = UNITS.replace("  authoring: classifier\n", "")
+    assert _typed_for(monkeypatch, unset + "jev:\n  unit: judge\n") is not None
+    off = unset + "jev:\n  unit: judge\n  enabled: false\n"
+    assert _typed_for(monkeypatch, off) is None
