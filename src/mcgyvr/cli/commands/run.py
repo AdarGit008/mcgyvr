@@ -13,6 +13,7 @@ run's own exit code is returned.
 from __future__ import annotations
 
 import argparse
+import contextlib
 import sys
 import textwrap
 from collections.abc import Callable, Sequence
@@ -71,6 +72,7 @@ def _run(args: argparse.Namespace) -> int:
     from mcgyvr.config import JOURNAL_DIR_DEFAULT
     from mcgyvr.contract import ContractError
     from mcgyvr.contract import load as load_task_contract
+    from mcgyvr.deliver import between_deliveries
     from mcgyvr.drive import Recording, gate_adapters
     from mcgyvr.notes import CarriedNotes, NotesError, primed, seeded
     from mcgyvr.result import (
@@ -109,7 +111,14 @@ def _run(args: argparse.Namespace) -> int:
     # The sandbox holds the committed tree, so uncommitted and untracked files
     # the contract's commands need are not in it. Say so once here, where the
     # note is printed and kept for the result, rather than inside each gate.
-    notes = _say_what_the_sandbox_leaves_out(repo)
+    # Beside other runs of one batch (`delegate --run --jobs`), the working
+    # tree is read between two of their deliveries, never in the middle of one.
+    with (
+        between_deliveries(repo)
+        if getattr(args, "beside_others", False)
+        else contextlib.nullcontext()
+    ):
+        notes = _say_what_the_sandbox_leaves_out(repo)
 
     # The floor needs no units, so a deterministic contract can run with no
     # config at all; a contract that climbs cannot. `path` is kept only so a

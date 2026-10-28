@@ -11,6 +11,17 @@ archived outside this repository, under the same paths.
 
 ### Added
 
+- **`mcgyvr delegate --run --jobs N` runs up to N ready contracts at once.**
+  Each is settled on the tree as its run ends, and the tree is asked again
+  after every settle, so a dependent starts as soon as what it waits on has
+  settled (`capacity.run_eager`, beside `run_batch`). The default, 1, is the
+  loop it was, on the calling thread; `auto` or 0 is the fleet's total slots
+  (`Capacity.total`), the cap on any N. Two contracts whose scopes may write
+  one file never run at once (`Scope.meets`), so the second starts from what
+  the first landed; deliveries still go through the per-git-dir lock. A run's
+  stdout and stderr are held and written whole when it ends. A run that raises
+  stops the batch once the runs beside it have ended, and `--log` records
+  `internal_error` as before; no new `mcgyvr.delegate_log` kind.
 - **`mcgyvr delegate --log PATH` writes how the command ended, as data.** One
   `mcgyvr.delegate_log/1` record, written atomically on every exit once the
   arguments are read, a crash included: its `kind` (one per exit path —

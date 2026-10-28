@@ -549,15 +549,42 @@ def _exclusive(root: Path) -> Iterator[None]:
     the working tree and the commit that changes it happen under one lock. The lock
     is released when the descriptor is closed, including on an exception.
     """
-    try:
-        fd = os.open(_git_dir(root) / _LOCK_NAME, os.O_RDWR | os.O_CREAT, 0o600)
-    except OSError as exc:
-        raise DeliveryError(f"cannot take the delivery lock in {root}: {exc}") from exc
+    fd = _lock_descriptor(root)
     try:
         fcntl.flock(fd, fcntl.LOCK_EX)
         yield
     finally:
         os.close(fd)  # closing the descriptor releases the lock
+
+
+@contextlib.contextmanager
+def between_deliveries(root: Path) -> Iterator[None]:
+    """Hold the delivery lock for the block, so no delivery is half done in the tree.
+
+    A delivery writes its files, re-runs the gate and then commits or puts the
+    bytes back, all under :func:`_exclusive`; a reader of the working tree that
+    runs beside deliveries in another thread (``delegate --run --jobs``) takes
+    the same lock to read the tree between two of them. Where the lock cannot
+    be opened no delivery can take it either, so the block runs without it.
+    """
+    try:
+        fd = _lock_descriptor(root)
+    except DeliveryError:
+        yield
+        return
+    try:
+        fcntl.flock(fd, fcntl.LOCK_EX)
+        yield
+    finally:
+        os.close(fd)  # closing the descriptor releases the lock
+
+
+def _lock_descriptor(root: Path) -> int:
+    """The delivery lock file, opened (and made when missing) inside the git dir."""
+    try:
+        return os.open(_git_dir(root) / _LOCK_NAME, os.O_RDWR | os.O_CREAT, 0o600)
+    except OSError as exc:
+        raise DeliveryError(f"cannot take the delivery lock in {root}: {exc}") from exc
 
 
 def _git_dir(root: Path) -> Path:
