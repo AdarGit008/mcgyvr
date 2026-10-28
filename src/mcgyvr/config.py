@@ -95,6 +95,12 @@ DEPENDENTS_CHOICES: tuple[str, ...] = ("hold", "run")
 #: `mcgyvr.replan`); 0 turns re-planning off.
 MAX_REPLANS_DEFAULT = 1
 
+#: How many times classifier authoring may split a proposal below the request,
+#: and into how many parts at once (see `mcgyvr.refine`). Past either, the
+#: proposal is refused with what to change rather than emitted unsplit.
+MAX_REFINE_DEPTH_DEFAULT = 3
+MAX_REFINE_FANOUT_DEFAULT = 8
+
 #: Which failure-notes records a try is shown (see `mcgyvr.notes.handed_on`):
 #: `climb` every record of the climb, `rung` this rung's previous attempt's,
 #: `none` nothing.
@@ -728,7 +734,14 @@ ORCHESTRATOR_FIELDS: tuple[Field, ...] = (
         "asked for JSON proposals (`delegate.build_prompt`), and the "
         "deterministic decomposer turns them into contracts. `classifier`: the "
         "`jev` unit answers typed questions (task type, target, symbol, task, "
-        "interface, dependency, scope) first, and `prose` stands in when it "
+        "interface, dependency, scope) first, and each proposal is split again "
+        "until it is on one file and jev answers that it cannot be split "
+        "further: a scope over several files becomes one proposal per file, and "
+        "a proposal jev says holds several changes is split by the sentences of "
+        "its task, the target's definitions it names, or the failing tests it "
+        "demonstrates, as jev picks — two or more contracts on one file, which "
+        "the dependency tree orders. A split past `max_refine_depth` or "
+        "`max_refine_fanout` is refused. `prose` stands in when jev "
         "declines. With no `jev` unit bound no model is asked: each field takes "
         "its first candidate — the first servable type and target, the "
         "target's first symbol, and the request as the task — and `prose` "
@@ -919,6 +932,28 @@ SCHEMA: tuple[Field, ...] = (
         default=MAX_REPLANS_DEFAULT,
         min_value=0,
         bind_hint="set a whole number of re-plans, or 0 to stop at a spent ladder",
+    ),
+    Field(
+        "max_refine_depth",
+        "int",
+        "How many times classifier authoring (`orchestrator.authoring: "
+        "classifier`, with a `jev` unit bound) may split a proposal below the "
+        "request. A proposal jev still answers can be split, this many splits "
+        "down, is refused with this key to raise rather than emitted unsplit.",
+        default=MAX_REFINE_DEPTH_DEFAULT,
+        min_value=1,
+        bind_hint="set a whole number of splits, 1 or more",
+    ),
+    Field(
+        "max_refine_fanout",
+        "int",
+        "How many parts classifier authoring may split one proposal into at "
+        "once: the files of a scope over several, or the parts of the split "
+        "jev picks. A split into more is refused with this key to raise rather "
+        "than emitted unsplit.",
+        default=MAX_REFINE_FANOUT_DEFAULT,
+        min_value=2,
+        bind_hint="set a whole number of parts, 2 or more",
     ),
     Field(
         "retry_notes",
