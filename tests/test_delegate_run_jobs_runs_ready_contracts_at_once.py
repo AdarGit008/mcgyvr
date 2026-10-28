@@ -24,7 +24,7 @@ import re
 import subprocess
 import threading
 from collections.abc import Callable
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
 from pathlib import Path
 from typing import Any, cast
 
@@ -272,16 +272,54 @@ def test_two_siblings_run_at_once_and_both_land(
     assert "def code_b()" in (repo / "pkg" / "b.py").read_text()
 
 
+def split_on_one_file(repo: Path) -> tuple[Contract, Contract]:
+    """Two contracts classifier authoring split one proposal on `pkg/a.py` into.
+
+    Jev (scripted) says the request splits, and the survey's one partition is
+    its two sentences; neither creates a name the other uses, so no edge
+    orders them and only their scopes keep them apart.
+    """
+    from mcgyvr.orchestrator import build_index, decompose
+    from mcgyvr.orchestrator.read import explore
+    from mcgyvr.orchestrator.resolve import resolve
+    from tests.refines import ScriptedJev, refining, tasks
+
+    prompt = "Add a function named one. Add a function named two."
+    index = build_index(repo)
+    # The request names no file outright; resolution is pointed at the one.
+    at = resolve(index, "pkg/a.py")
+    refine = refining(ScriptedJev(split=tasks(prompt)))
+    split = decompose(
+        index,
+        prompt,
+        propose=lambda evidence: refine(
+            replace(evidence, resolution=at, exploration=explore(index, at))
+        ),
+    )
+    assert split.refusals == ()
+    first, second = split.contracts
+    assert first.target == second.target == "pkg/a.py"
+    assert first.depends_on == second.depends_on == ()
+    return first, second
+
+
+@pytest.mark.parametrize("authored", ["by hand", "by a classifier split"])
 def test_two_siblings_on_one_file_are_never_run_at_once_and_both_land(
-    repo: Path, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+    repo: Path, tmp_path: Path, monkeypatch: pytest.MonkeyPatch, authored: str
 ) -> None:
     """At N=1 the second starts from the commit the first landed; so at N>1.
 
     `code-b` on another file runs beside them, so the width is there to use.
+    The two on one file are written by hand, or are the parts classifier
+    authoring split one proposal into: two contracts on one file either way.
     """
+    if authored == "by hand":
+        a1, a2 = code("code-a1", "pkg/a.py"), code("code-a2", "pkg/a.py")
+    else:
+        a1, a2 = split_on_one_file(repo)
     b_started = threading.Event()
     plans = {
-        "code-a1": Plan(before=waits_for(b_started)),
+        a1.id: Plan(before=waits_for(b_started)),
         "code-b": Plan(before=b_started.set),
     }
 
@@ -289,22 +327,19 @@ def test_two_siblings_on_one_file_are_never_run_at_once_and_both_land(
         repo,
         tmp_path,
         monkeypatch,
-        (
-            code("code-a1", "pkg/a.py"),
-            code("code-a2", "pkg/a.py"),
-            code("code-b", "pkg/b.py"),
-        ),
+        (a1, a2, code("code-b", "pkg/b.py")),
         plans,
     )
 
     assert exit_code == 0
-    assert runs.log.index("end code-a1") < runs.log.index("start code-a2")
-    (first,) = results(journal, "code-a1")
-    assert runs.bases["code-a2"] != runs.bases["code-a1"]
-    git(repo, "merge-base", "--is-ancestor", first["commit"], runs.bases["code-a2"])
+    assert runs.log.index(f"end {a1.id}") < runs.log.index(f"start {a2.id}")
+    (first,) = results(journal, a1.id)
+    assert runs.bases[a2.id] != runs.bases[a1.id]
+    git(repo, "merge-base", "--is-ancestor", first["commit"], runs.bases[a2.id])
     assert {r["state"] for r in states(journal).values()} == {"landed"}
     text = (repo / "pkg" / "a.py").read_text()
-    assert "def code_a1()" in text and "def code_a2()" in text
+    for each in (a1, a2):
+        assert f"def {each.id.replace('-', '_')}()" in text
 
 
 def test_two_deliveries_into_one_repository_from_two_threads_never_lose_one(
