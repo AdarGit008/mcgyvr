@@ -943,7 +943,7 @@ SCHEMA: tuple[Field, ...] = (
     Field(
         "max_reproposals",
         "int",
-        "How many times `mcgyvr delegate` hands a proposal the decomposer "
+        "How many times `mcgyvr PROMPT` hands a proposal the decomposer "
         "refused back to the proposer, with the refused field and what to "
         "change, before it reports the refusal. What comes back is checked as "
         "a first answer is: what it emits takes the refusal's place, and what "

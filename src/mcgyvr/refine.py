@@ -42,7 +42,7 @@ cannot give, a Yes the survey has no partition for, or none of the partitions
 picked — nothing is guessed: the whole request comes back empty, and the prose
 proposer stands in for it as before. Every question goes through the
 classifier's `ask`, which records the decision in the classifier's shadow sink,
-when one is wired, with the model that answered; `mcgyvr delegate --log PATH`
+when one is wired, with the model that answered; `mcgyvr PROMPT --log PATH`
 wires `PATH.decisions.jsonl`.
 """
 

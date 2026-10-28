@@ -7,7 +7,7 @@ hands each such refusal back to the proposer, one per call, on the evidence's
 again through `iterate`'s re-ask. What comes back is vetted as a first answer
 is; what is still refused is reported, never handed back past the bound. A
 refusal of the request, or a catch-all, is never handed back, and 0 rounds is
-what `decompose` was before. `mcgyvr delegate --log` counts what happened, and
+what `decompose` was before. `mcgyvr PROMPT --log` counts what happened, and
 records the classifier's typed decisions beside the record.
 """
 
@@ -60,7 +60,7 @@ def index(tmp_path: Path) -> Index:
 
 @pytest.fixture
 def checkout(index: Index) -> Path:
-    """The repository `index` was built from, for `mcgyvr delegate --repo`."""
+    """The repository `index` was built from, for `mcgyvr PROMPT --repo`."""
     return index.root
 
 
@@ -281,7 +281,7 @@ def test_max_reproposals_defaults_to_one_and_refuses_a_negative() -> None:
         parse(CONFIG + "max_reproposals: -1\n")
 
 
-# -- mcgyvr delegate --log ----------------------------------------------------------
+# -- mcgyvr PROMPT --log ------------------------------------------------------------
 
 
 def test_the_log_counts_what_was_refused_reproposed_and_recovered(
@@ -299,12 +299,13 @@ def test_the_log_counts_what_was_refused_reproposed_and_recovered(
     log = tmp_path / "out" / "delegate-log.json"
     code_ = lj.main(
         [
-            "delegate",
             "Fix listing.",
             "--repo",
             str(checkout),
             "--log",
             str(log),
+            "--output",  # plan only: no session needed, nothing run
+            str(tmp_path / "plan"),
             "--config",
             str(_config(tmp_path)),
         ]
@@ -358,12 +359,13 @@ def test_under_log_the_classifiers_decisions_are_recorded_beside_the_record(
     log = tmp_path / "out" / "delegate-log.json"
     lj.main(
         [
-            "delegate",
             "Fix listing.",
             "--repo",
             str(checkout),
             "--log",
             str(log),
+            "--output",  # plan only: no session needed, nothing run
+            str(tmp_path / "plan"),
             "--config",
             str(_config(tmp_path, JEV_CONFIG)),
         ]
