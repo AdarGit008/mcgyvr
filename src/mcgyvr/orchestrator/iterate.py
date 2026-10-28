@@ -6,11 +6,17 @@ re-ask, the loop records the refusal's ``what_to_change`` as a constraint,
 drops the rejected candidate value, carries the already-decided upstream fields
 forward, and asks again — each retry gated by an injected ``approve`` callable.
 The loop is inert unless an approver is wired in: ``approve`` has no default.
+
+The re-ask itself is ``reask``, one step: the loop takes it once per retry,
+and ``reproposals`` takes it once per refused proposal a decomposition hands
+back to the classifier (F16, ``Evidence.refused``), so there is one re-ask,
+not two.
 """
 
 from __future__ import annotations
 
 from collections.abc import Callable, Collection, Mapping, Sequence
+from dataclasses import replace
 from typing import TYPE_CHECKING, Any, Protocol
 
 from mcgyvr.gate.adapter import LanguageAdapter
@@ -64,6 +70,78 @@ def _plan_value(proposal: Proposal, field: str) -> Any:
     if field == "deps":
         return value[0] if value else ()
     return value
+
+
+def reaskable(refusal: Refusal) -> bool:
+    """Whether the classifier decides `refusal.field`, so it can be asked again."""
+    return refusal.field in FIELD_ORDER
+
+
+def reask(
+    classify: Classifier,
+    evidence: Evidence,
+    refused: Proposal | Refusal,
+    refusal: Refusal,
+    *,
+    decided: dict[str, Any],
+    constraints: dict[str, str],
+    rejected: dict[str, frozenset[Any]],
+) -> Proposal | Refusal:
+    """Ask the classifier again for the field `refusal` names, once.
+
+    The refusal's ``what_to_change`` becomes that field's constraint. When
+    `refused` is the proposal that was refused, its value for the field is
+    dropped from the next question and the fields upstream of it are carried
+    as decided; a refusal from the classifier itself keeps what was decided.
+    `decided`, `constraints` and `rejected` are updated in place, so a caller
+    that re-asks again carries them on.
+    """
+    constraints[refusal.field] = refusal.what_to_change
+    if isinstance(refused, Proposal):
+        rejected[refusal.field] = rejected.get(refusal.field, frozenset()) | {
+            _plan_value(refused, refusal.field)
+        }
+        # `symbol` is an intermediate decision with no `Proposal` slot, so
+        # upstream fields are only those the proposal records, carried in
+        # plan representation (a single `DepRef`, not the proposal's tuple).
+        upstream = FIELD_ORDER[: FIELD_ORDER.index(refusal.field)]
+        decided.clear()
+        decided.update(
+            {
+                field: _plan_value(refused, field)
+                for field in upstream
+                if hasattr(refused, field)
+            }
+        )
+    return classify.propose(
+        evidence, decided=decided, constraints=constraints, rejected=rejected
+    )
+
+
+def reproposals(classify: Classifier, evidence: Evidence) -> tuple[Proposal, ...]:
+    """What the classifier proposes in place of each of `evidence.refused`.
+
+    Each refused proposal whose refusal names a field the classifier decides is
+    re-asked once (`reask`), against the same evidence with that proposal's own
+    task as the request and nothing marked refused; one the classifier refuses
+    again, or whose field it does not decide, has no replacement here.
+    """
+    replacements: list[Proposal] = []
+    for item in evidence.refused:
+        if not reaskable(item.refusal):
+            continue
+        asked = reask(
+            classify,
+            replace(evidence, prompt=item.proposal.task, refused=()),
+            item.proposal,
+            item.refusal,
+            decided={},
+            constraints={},
+            rejected={},
+        )
+        if isinstance(asked, Proposal):
+            replacements.append(asked)
+    return tuple(replacements)
 
 
 def iterate(
@@ -135,7 +213,7 @@ def iterate(
 
         # A field the classifier never decides (type_check, request, a
         # catch-all, ...) cannot be re-asked: this is terminal.
-        if refusal.field not in FIELD_ORDER:
+        if not reaskable(refusal):
             refusals.append(refusal)
             return Decomposition(
                 contracts=(),
@@ -155,21 +233,13 @@ def iterate(
                 exploration=evidence.exploration,
             )
 
-        constraints[refusal.field] = refusal.what_to_change
-        if isinstance(proposal, Proposal):
-            rejected[refusal.field] = rejected.get(refusal.field, frozenset()) | {
-                _plan_value(proposal, refusal.field)
-            }
-            # `symbol` is an intermediate decision with no `Proposal` slot, so
-            # upstream fields are only those the proposal records, carried in
-            # plan representation (a single `DepRef`, not the proposal's tuple).
-            upstream = FIELD_ORDER[: FIELD_ORDER.index(refusal.field)]
-            decided = {
-                field: _plan_value(proposal, field)
-                for field in upstream
-                if hasattr(proposal, field)
-            }
-        proposal = classify.propose(
-            evidence, decided=decided, constraints=constraints, rejected=rejected
+        proposal = reask(
+            classify,
+            evidence,
+            proposal,
+            refusal,
+            decided=decided,
+            constraints=constraints,
+            rejected=rejected,
         )
         attempt += 1

@@ -92,6 +92,7 @@ def test_a_config_that_names_no_use_case_is_mcgyvr_code() -> None:
         ("cleanup:\n  enabled: false\n", "repair"),
         ("verifier:\n  enabled: false\n", "reviewer"),
         ("max_replans: 0\n", "replan"),
+        ("max_reproposals: 0\n", "repropose"),
         ("retry_notes: none\n", "retry_notes"),
         ("max_escalations: 0\n", "ladder"),
         ("infer_dependencies: false\n", "inferred_edges"),

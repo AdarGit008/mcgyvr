@@ -97,13 +97,13 @@ def refining(
     jev: ScriptedJev,
     *,
     sink: ShadowSink | None = None,
-    max_depth: int = 3,
+    max_splits: int = 3,
     max_fanout: int = 8,
 ) -> RefiningProposer:
     """The refining proposer over a classifier that asks `jev`."""
     return RefiningProposer(
         ClassifierProposer(classify=jev, sink=sink, model=MODEL),
-        max_depth=max_depth,
+        max_splits=max_splits,
         max_fanout=max_fanout,
     )
 

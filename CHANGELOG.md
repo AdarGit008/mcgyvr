@@ -40,6 +40,33 @@ archived outside this repository, under the same paths.
   no Jev unit were bound), `infer_dependencies` (off: a batch is ordered by
   `depends_on` alone) and `same_file: wait|parallel`.
 
+- **A proposal the decomposer refuses goes back to the proposer once (#802).**
+  After vetting, each refusal that names a proposal field is handed back with
+  the refused proposal and its `what_to_change`: prose is shown them as data
+  (`mcgyvr.repropose.render`, in the shape of a re-plan), the classifier asks
+  the refused field again through `iterate.reask`, the one re-ask the W6 loop
+  takes too. What comes back is vetted again; what is still refused is
+  reported. A refusal of the request, or a catch-all, is reported at once.
+  `max_reproposals` (default 1, beside `max_replans`) bounds the rounds; 0 is
+  what `decompose` was. The `mcgyvr.delegate_log/1` record's `detail` counts
+  `refused`, `reproposed`, `recovered` and `still_refused` (additive, no new
+  kind), and under `--log PATH` the classifier's typed decisions — every field,
+  `split` and `partition` answer, with its model — are recorded beside it, in
+  `PATH.decisions.jsonl`, named by `detail.decisions`.
+- **Classifier authoring splits each proposal until one file and jev says no
+  (#799).** With `orchestrator.authoring: classifier` and a jev unit bound,
+  `mcgyvr.refine.RefiningProposer` breaks the classifier's proposal down again
+  and again: a scope over several files becomes one proposal per file, and a
+  one-file proposal is asked the typed `split` question, then which split
+  (`partition`) — by its sentences, by the target's definitions it names, or by
+  the failing tests that name the target — or none. Two or more contracts on
+  one file are ordered by the tree where one creates a name another spells,
+  and kept apart by `Scope.meets` otherwise. A proposal stops once its file
+  has been split `max_splits_per_file` rounds (3, F24), emitted as it stands;
+  this replaces #799's `max_refine_depth`, which is gone. A split into more
+  parts than `max_refine_fanout` (8) is a refusal with what to change, which
+  `decompose` now reports beside the contracts. When jev declines, prose
+  stands in for the whole request, as before.
 - **`mcgyvr delegate --run --jobs N` runs up to N ready contracts at once.**
   Each is settled on the tree as its run ends, and the tree is asked again
   after every settle, so a dependent starts as soon as what it waits on has

@@ -277,6 +277,7 @@ ABOVE_THE_SEAM: tuple[str, ...] = (
     "mcgyvr.rename",
     "mcgyvr.repair",
     "mcgyvr.replan",
+    "mcgyvr.repropose",
     "mcgyvr.result",
     "mcgyvr.route",
     "mcgyvr.scope",

@@ -19,6 +19,7 @@ verb and `mcgyvr direct` share, and `prompt_parser` the verb's own parser.
 from __future__ import annotations
 
 import argparse
+import contextlib
 import re
 import sys
 from collections.abc import Callable, Sequence
@@ -51,6 +52,11 @@ from mcgyvr.cli.commands.run import _copy, _run
 from mcgyvr.cli.common import CONFIG_DEFAULT_HELP, _add_repo, _named_path, add_session
 from mcgyvr.cli.sandbox import _say_what_the_sandbox_leaves_out
 
+#: The `detail` keys a decomposition's re-proposing is counted under.
+_COUNTS = frozenset(
+    {"refused", "reproposed", "recovered", "still_refused", "reproposal_failed"}
+)
+
 
 class _Logbook:
     """What `--log PATH` will say: kept as the command goes, written at its end.
@@ -63,6 +69,18 @@ class _Logbook:
 
     def __init__(self, path: str | None) -> None:
         self.path = Path(path) if path else None
+        #: Where the classifier's typed decisions are recorded under `--log`:
+        #: beside the record, `<PATH>.decisions.jsonl`.
+        self.decisions = (
+            self.path.with_name(f"{self.path.name}.decisions.jsonl")
+            if self.path is not None
+            else None
+        )
+        if self.decisions is not None:
+            # This run's decisions only: an earlier run's are not appended to.
+            # A path that cannot be cleared is said when the record is written.
+            with contextlib.suppress(OSError):
+                self.decisions.unlink(missing_ok=True)
         self.kind = DelegateKind.INTERNAL_ERROR
         self.message = ""
         self.detail: dict[str, Any] = {}
@@ -95,32 +113,54 @@ class _Logbook:
             LoggedRefusal(r.subject, r.reason, r.field, r.what_to_change)
             for r in dec.refusals
         )
+        counts: dict[str, Any] = {}
+        if dec.reproposal is not None:
+            counts = {
+                "refused": dec.reproposal.refused,
+                "reproposed": dec.reproposal.reproposed,
+                "recovered": dec.reproposal.recovered,
+                "still_refused": dec.reproposal.still_refused,
+            }
+            if dec.reproposal.failed:
+                counts["reproposal_failed"] = dec.reproposal.failed
         if not dec.contracts:
-            self.ended(DelegateKind.NONE_EMITTED, "No contracts were emitted.")
+            self.ended(
+                DelegateKind.NONE_EMITTED, "No contracts were emitted.", **counts
+            )
         elif dec.refusals:
             self.ended(
                 DelegateKind.EMITTED_WITH_REFUSALS,
                 f"{len(dec.contracts)} contract(s) {said}, "
                 f"{len(dec.refusals)} refused.",
+                **counts,
             )
         else:
             self.ended(
-                DelegateKind.EMITTED, f"{len(dec.contracts)} contract(s) {said}."
+                DelegateKind.EMITTED,
+                f"{len(dec.contracts)} contract(s) {said}.",
+                **counts,
             )
 
     def held(self, ids: Sequence[str], tree_state: Path | None) -> None:
-        """A batch held `ids`; the Board's state file says the rest."""
+        """A batch held `ids`; the Board's state file says the rest.
+
+        What the decomposition counted (`decomposed`) is kept beside it.
+        """
+        kept = {k: v for k, v in self.detail.items() if k in _COUNTS}
         self.ended(
             DelegateKind.BATCH_HELD,
             f"{len(ids)} contract(s) held and never sent: {', '.join(ids)}.",
             held=list(ids),
             tree_state=str(tree_state) if tree_state is not None else None,
+            **kept,
         )
 
     def write(self, exit_code: int) -> None:
         """Write the record, if asked for; a failure is said, never raised."""
         if self.path is None:
             return
+        if self.decisions is not None and self.decisions.exists():
+            self.detail["decisions"] = str(self.decisions)
         record = logged(
             self.kind,
             self.message,
@@ -251,6 +291,7 @@ def _delegate_logged(args: argparse.Namespace, book: _Logbook) -> int:
         build_index,
         decompose,
     )
+    from mcgyvr.repropose import max_reproposals
     from mcgyvr.runner import RunnerError
 
     chosen = Path(args.config) if args.config else None
@@ -293,7 +334,7 @@ def _delegate_logged(args: argparse.Namespace, book: _Logbook) -> int:
 
     pool = source_map(config)
     try:
-        propose = _proposer_for_delegate(config, pool)
+        propose = _proposer_for_delegate(config, pool, decisions=book.decisions)
     except SourceUnavailableError as exc:
         said = (
             f"the orchestrator role is declared but cannot run: {exc}. "
@@ -331,6 +372,7 @@ def _delegate_logged(args: argparse.Namespace, book: _Logbook) -> int:
                 propose=propose,
                 config=config,
                 budget=args.budget,
+                max_reproposals=max_reproposals(config),
             )
             _report_decomposition(decomposition)
             written = _write_delegated(
@@ -401,16 +443,20 @@ def _print_raw_reply(reply: str) -> None:
     print("--- end of the orchestrator's raw reply ---", file=sys.stderr)
 
 
-def _proposer_for_delegate(config: Config, pool: SourceMap) -> Proposer | None:
+def _proposer_for_delegate(
+    config: Config, pool: SourceMap, *, decisions: Path | None = None
+) -> Proposer | None:
     """The proposer `orchestrator.authoring` asks for, or None if none can run.
 
     The prose proposer on the `orchestrator` role is always built. The typed
     classifier is built only when the strategy is "classifier" — refined until
     each proposal is on one file and jev says it cannot be split further, within
-    `max_refine_depth` and `max_refine_fanout` — and `proposer_by_authoring`
+    `max_splits_per_file` and `max_refine_fanout` — and `proposer_by_authoring`
     then puts it in front of the prose one, which stands in when the classifier
     declines. A strategy that is not a string is passed as None, which selects
-    prose. None comes back when nothing can propose.
+    prose. None comes back when nothing can propose. With `decisions` (`--log`
+    names it) the classifier's shadow sink is that file, so every typed
+    decision it asks is recorded there with its model.
     """
     from mcgyvr import refine
     from mcgyvr.delegate import (
@@ -418,12 +464,14 @@ def _proposer_for_delegate(config: Config, pool: SourceMap) -> Proposer | None:
         proposer_for,
         refining_proposer_for,
     )
+    from mcgyvr.orchestrator.telemetry import ShadowSink
 
     strategy = config.authoring
     typed = (
         refining_proposer_for(
             pool,
-            max_depth=refine.max_depth(config),
+            sink=ShadowSink(decisions) if decisions is not None else None,
+            max_splits=refine.max_splits(config),
             max_fanout=refine.max_fanout(config),
         )
         if strategy == "classifier"
@@ -457,6 +505,7 @@ def _replanner(
     from mcgyvr.deliver import between_deliveries
     from mcgyvr.orchestrator import build_index, decompose
     from mcgyvr.replan import request_for
+    from mcgyvr.repropose import max_reproposals
 
     asked = proposer_for(pool) or propose
     # With other runs delivering beside it (`--jobs`), the tree is read
@@ -473,6 +522,7 @@ def _replanner(
             config=config,
             budget=args.budget,
             spent=spent,
+            max_reproposals=max_reproposals(config),
         )
         _report_decomposition(dec)
         return dec
