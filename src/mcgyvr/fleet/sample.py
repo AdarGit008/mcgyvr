@@ -5,11 +5,12 @@ files the reads saved, holds every rig of the fleet's layout to a card reserve
 and every awake unit to its probe, holds each sleeper (a unit laid out asleep
 whose role is ``sleeps-until-needed``) to its probe and to its swap having
 passed both ways (:class:`Move`), then reads the use case's task outcomes
-(``coding``'s gate, ``chat``'s completion, ``agent``'s grounded question) and,
-when the policy names one, the Jev unit's typed choice. Any reason at all makes
-the sample red; with none, and with a rig file and a read for every rig, the
-verdict carries the ``rigs``/``combinations``/``moves`` evidence a stamp
-writes and the lock is written from.
+(``mcgyvr-code``'s gate, ``chat``'s and ``code``'s completion, ``agent``'s
+grounded question) and, when the policy names one, the Jev unit's typed
+choice. Any reason at all makes the sample red; with none, and with a rig
+file and a read for every rig, the verdict carries the
+``rigs``/``combinations``/``moves`` evidence a stamp writes and the lock is
+written from.
 """
 
 from __future__ import annotations

@@ -25,6 +25,8 @@ archived outside this repository, under the same paths.
   auto` and proposals are authored by the classifier when a Jev unit is bound
   and on. The model catalog's `coding` kind is `code` (`recommend --profile
   code`), and the task catalog's task types belong to `mcgyvr-code`.
+  Upgrading: a setup written before this says `use_case: coding` and no longer
+  loads; `mcgyvr use mcgyvr-code` rewrites that one line and nothing else.
 
 ### Added
 

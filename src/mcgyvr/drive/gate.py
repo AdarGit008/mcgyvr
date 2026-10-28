@@ -371,6 +371,18 @@ def ungated(contract: Contract, changeset: ChangeSet) -> GateResult:
     return replace(bounds, observations=(*bounds.observations, said))
 
 
+def ungated_notes(config: Config | None) -> tuple[str, ...]:
+    """The note a run under `gate.enabled: false` carries on stderr and in its
+    result file, so nobody reads an accepted change as a judged one."""
+    if config is None or config.get("gate.enabled") is not False:
+        return ()
+    return (
+        "ungated: gate.enabled is false, so no language check and no acceptance "
+        "command judges this run's change; only the scope, secret and "
+        "structured-data checks still refuse",
+    )
+
+
 def gate_adapters(config: Config | None) -> tuple[LanguageAdapter, ...]:
     """The language adapters the gate runs, with the setup's mutation mode.
 

@@ -219,7 +219,8 @@ RAW_USE_CASES: tuple[str, ...] = (CODE, CHAT, AGENT)
 RETIRED_USE_CASES: dict[str, str] = {
     "coding": (
         "`coding` is no longer a use case: the gated coding it named is "
-        "`mcgyvr-code`, and a coding model served raw is `code`"
+        "`mcgyvr-code`, and a coding model served raw is `code`; `mcgyvr use "
+        "mcgyvr-code` rewrites the line"
     ),
 }
 
@@ -1458,7 +1459,7 @@ class Switch:
     `off` the value that takes mcgyvr out of that point, `doc` one line saying
     what the point does, `stage` the name `stages` answers it under (None for a
     tunable that is not an on/off stage), and `knob` its number among the four
-    knobs F9 names, `KNOBS`.
+    knobs `mcgyvr-code` exposes, `KNOBS`.
     """
 
     point: str

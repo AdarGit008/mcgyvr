@@ -482,7 +482,7 @@ class Capacity:
             config.units.get(orchestrator_name) if orchestrator_name else None
         )
         # The role is recognised only where mcgyvr provisions the unit itself,
-        # since a hybrid or chat setup reaches its orchestrator elsewhere, and
+        # since a hybrid or raw-use-case setup has none of its own here, and
         # only where the unit needs no credential, since one that does is not a
         # process this config starts. Otherwise the unit is an ordinary rung with
         # no slot kept back.

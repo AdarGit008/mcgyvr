@@ -12,7 +12,7 @@
 # Which of the three use cases this install serves: `coding` (scoped edits
 # judged by the deterministic gate), `chat` (a raw un-gated endpoint) or `agent`
 # (an un-gated session over the files a contract names as its sources).
-use_case: mcgyvr-code
+use_case: coding
 
 # How mcgyvr is run. `hybrid` drives it from an API-tier orchestrator in the
 # user's session; scoped work is offloaded to the local cheap-to-dear ladder,

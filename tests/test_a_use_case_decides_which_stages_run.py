@@ -137,7 +137,7 @@ def test_every_switch_names_keys_the_schema_holds_and_says_what_it_does() -> Non
         assert field_at(key) is not None, key
     for switch in SWITCHES:
         assert switch.doc and "\n" not in switch.doc
-    # The four knobs F9 names are each one switch row.
+    # The four knobs mcgyvr-code exposes are each one switch row.
     assert sorted(s.knob for s in SWITCHES if s.knob is not None) == [1, 2, 3, 4]
     assert {f.name for f in SCHEMA} >= {"infer_dependencies", "same_file"}
 
@@ -312,6 +312,55 @@ def test_the_gate_off_accepts_a_changed_draw_unjudged_and_says_so(
     assert [f.check for f in accepted.observations] == ["ungated"]
 
 
+def test_a_run_under_the_gate_off_says_ungated_in_its_result(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
+) -> None:
+    import json
+
+    from mcgyvr.cli import main
+
+    monkeypatch.setenv("HOME", str(tmp_path))
+    setup = tmp_path / "setup"
+    setup.mkdir()
+    (setup / "fleet.yaml").write_text(
+        "units:\n  fast:\n    address: http://127.0.0.1:9\n    model: m\n",
+        encoding="utf-8",
+    )
+    (setup / "policy.yaml").write_text(
+        f"ladder: [fast]\ngate:\n  enabled: false\n"
+        f"journal:\n  dir: {tmp_path / 'journal'}\n",
+        encoding="utf-8",
+    )
+    contract = tmp_path / "c.yaml"
+    contract.write_text(drives.SHARE_CONTRACT, encoding="utf-8")
+    result = tmp_path / "result.json"
+    monkeypatch.setattr(
+        "mcgyvr.drive.dispatch",
+        lambda *a, **k: drives._completion("```python\nVALUE = 1\n```"),
+    )
+
+    main(
+        [
+            "run",
+            str(contract),
+            "--repo",
+            str(drives.a_git_repo(tmp_path)),
+            "--config",
+            str(setup),
+            "--sandbox",
+            "tempdir",
+            "--session",
+            "t",
+            "--result",
+            str(result),
+        ]
+    )
+
+    notes = json.loads(result.read_text(encoding="utf-8"))["notes"]
+    assert any(note.startswith("ungated:") for note in notes)
+    assert "note: ungated:" in capsys.readouterr().err
+
+
 def test_the_gate_off_still_refuses_a_path_outside_the_scope(
     tmp_path: Path,
 ) -> None:
@@ -347,6 +396,38 @@ def test_inferred_edges_order_a_dependent_after_the_sibling_that_creates_its_nam
     tree = Tree.of([RENAME, _caller()], source(), tree_id="t")
 
     assert [e.provider for e in tree.edges("caller")] == ["rename"]
+
+
+def test_a_batch_builds_its_tree_with_the_policys_inference(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    from tests import test_delegate_run_jobs_runs_ready_contracts_at_once as q5
+
+    built: list[bool] = []
+    real = Tree.of
+
+    def of(*args: Any, **kwargs: Any) -> Tree:
+        built.append(kwargs["infer"])
+        return real(*args, **kwargs)
+
+    monkeypatch.setattr(Tree, "of", of)
+    monkeypatch.setattr(command, "_fleet_width", lambda _config: 8)
+    repo = tmp_path / "repo"
+    (repo / "pkg").mkdir(parents=True)
+    git(repo, "init", "-q", "-b", "main")
+    (repo / "pkg" / "a.py").write_text("def a():\n    return 0\n")
+    git(repo, "add", "-A")
+    git(repo, "commit", "-q", "-m", "seed")
+    for stated, inferred in ((False, False), (None, True)):
+        policy = q5.Policy(
+            {"journal.dir": str(tmp_path / f"journal-{stated}"), "dependents": "hold"}
+        )
+        if stated is not None:
+            policy["infer_dependencies"] = stated
+        q5.batch(
+            repo, tmp_path, monkeypatch, (q5.code("code-a", "pkg/a.py"),), config=policy
+        )
+        assert built[-1] is inferred
 
 
 def test_inference_off_orders_only_by_depends_on() -> None:

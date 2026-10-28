@@ -14,6 +14,7 @@ with nothing written.
 from __future__ import annotations
 
 import argparse
+import os
 import re
 import sys
 from pathlib import Path
@@ -24,20 +25,23 @@ from mcgyvr.config import (
     FLEET_FILENAME,
     MCGYVR_CODE,
     POLICY_FILENAME,
+    RELIEF_FILENAME,
     RETIRED_USE_CASES,
     USE_CASES,
+    Config,
     ConfigError,
     config_path,
-    load,
+    parse,
     stages,
 )
 from mcgyvr.exits import Exit
 
-#: The top-level `use_case:` line: its key, its value (bare or quoted) and
-#: whatever follows the value on the line, a comment included.
+#: The top-level `use_case:` line: its key (after a byte-order mark on the first
+#: line), its value (bare, quoted or empty) and whatever follows the value on the
+#: line, a comment and a CR included.
 _LINE = re.compile(
-    r"^(?P<key>use_case:[ \t]*)"
-    r"(?P<value>\"[^\"\n]*\"|'[^'\n]*'|[^\s#]+)"
+    r"^(?P<key>\ufeff?use_case:[ \t]*)"
+    r"(?P<value>\"[^\"\n]*\"|'[^'\n]*'|[^\s#]*)"
     r"(?P<rest>[^\n]*)$",
     re.MULTILINE,
 )
@@ -82,7 +86,8 @@ def _use(args: argparse.Namespace) -> int:
         return Exit.ERROR
     target = setup if setup.is_file() else setup / POLICY_FILENAME
     try:
-        text = target.read_text(encoding="utf-8") if target.exists() else ""
+        # Bytes, not text: the line endings come back exactly as they were.
+        text = target.read_bytes().decode("utf-8") if target.exists() else ""
     except (OSError, UnicodeDecodeError) as exc:
         print(f"error: cannot read {target}: {exc}", file=sys.stderr)
         return Exit.ERROR
@@ -95,26 +100,38 @@ def _use(args: argparse.Namespace) -> int:
     if found is not None:
         rewritten = (
             text[: found.start()]
-            + f"{found.group('key')}{name}{found.group('rest')}"
+            + f"{_spaced(found.group('key'))}{name}{found.group('rest')}"
             + text[found.end() :]
         )
     else:
-        tail = "" if not text or text.endswith("\n") else "\n"
-        rewritten = f"{text}{tail}use_case: {name}\n"
+        newline = "\r\n" if "\r\n" in text else "\n"
+        tail = "" if not text or text.endswith("\n") else newline
+        rewritten = f"{text}{tail}use_case: {name}{newline}"
+    # The setup is read as it would be with the line switched, before anything
+    # is written: a setup that would not load is left exactly as it was.
     try:
-        atomic.write(target, rewritten)
+        config = _switched(setup, target, rewritten)
+    except (OSError, UnicodeDecodeError) as exc:
+        print(f"error: cannot read {setup}: {exc}", file=sys.stderr)
+        return Exit.ERROR
+    except ConfigError as exc:
+        print(
+            f"error: {setup} would not load with use_case: {name}, so nothing was "
+            f"written: {exc}",
+            file=sys.stderr,
+        )
+        return Exit.ERROR
+    try:
+        mode = target.stat().st_mode & 0o7777 if target.exists() else None
+        atomic.write(target, rewritten.encode("utf-8"))
+        if mode is not None:
+            os.chmod(target, mode)
     except OSError as exc:
         print(f"error: cannot write {target}: {exc}", file=sys.stderr)
         return Exit.ERROR
 
-    print(f"use case: {before or MCGYVR_CODE + ' (unset)'} -> {name} in {target}")
-    try:
-        config = load(setup)
-    except ConfigError as exc:
-        print(
-            f"error: the setup does not load after the switch: {exc}", file=sys.stderr
-        )
-        return Exit.ERROR
+    shown = before if before else f"{MCGYVR_CODE} (unset)"
+    print(f"use case: {shown} -> {name} in {target}")
     ran = stages(config)
     if config.is_raw:
         print(
@@ -125,8 +142,26 @@ def _use(args: argparse.Namespace) -> int:
         print("stages on: " + (", ".join(s for s, on in ran.items() if on) or "none"))
         off = [s for s, on in ran.items() if not on]
         if off:
-            print("stages off by the policy: " + ", ".join(off))
+            print("stages off (switched off or unbound): " + ", ".join(off))
     return Exit.OK
+
+
+def _spaced(key: str) -> str:
+    """`key` with the space YAML needs before a value, when it has none."""
+    return key if key.endswith((" ", "\t")) else f"{key} "
+
+
+def _switched(setup: Path, target: Path, rewritten: str) -> Config:
+    """The setup at `setup` as it loads with `target` holding `rewritten`."""
+    if setup.is_file():
+        return parse(rewritten, path=setup.resolve().parent)
+    relief = setup / RELIEF_FILENAME
+    return parse(
+        (setup / FLEET_FILENAME).read_text(encoding="utf-8"),
+        rewritten,
+        path=setup,
+        relief_text=relief.read_text(encoding="utf-8") if relief.exists() else "",
+    )
 
 
 def _refusal(name: str) -> str | None:

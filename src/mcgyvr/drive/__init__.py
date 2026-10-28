@@ -52,6 +52,7 @@ from mcgyvr.drive.prompt import (
 from mcgyvr.drive.gate import (
     acceptance_for,
     gate_adapters,
+    ungated_notes,
     gate_in_sandbox,
     gate_workspace,
     task_ceiling,
@@ -86,6 +87,7 @@ __all__ = [
     "run_tool_step",
     "task_ceiling",
     "tidy",
+    "ungated_notes",
     "wake_for_config",
     "worker_attempt",
 ]

@@ -767,13 +767,15 @@ def _held(run: argparse.Namespace) -> int:
         return _run(run)
 
 
-def _batch_width(asked: int, config: Config) -> int:
+def _batch_width(asked: int | None, config: Config) -> int:
     """How many contracts the batch runs at once: `--jobs`, capped at the fleet.
 
     1 is answered without reading the fleet, so `--jobs 1` is the loop it
     always was. Otherwise the fleet's total slots are read (`_fleet_width`),
     and a cap is said.
     """
+    if asked is None:
+        asked = default_jobs(config)
     if asked == 1:
         return 1
     fleet = _fleet_width(config)

@@ -137,3 +137,42 @@ def test_an_indented_use_case_key_is_not_the_top_level_one(tmp_path: Path) -> No
     assert (setup / "policy.yaml").read_text(encoding="utf-8") == (
         policy + "use_case: code\n"
     )
+
+
+def test_a_setup_that_would_not_load_is_left_exactly_as_it_was(
+    tmp_path: Path, capsys: pytest.CaptureFixture[str]
+) -> None:
+    broken = POLICY.replace("- smart\n", "- nowhere\n")
+    setup = _setup(tmp_path, broken)
+
+    assert _use("code", setup) == Exit.ERROR
+
+    assert (setup / "policy.yaml").read_text(encoding="utf-8") == broken
+    assert "nothing was written" in capsys.readouterr().err
+
+
+@pytest.mark.parametrize("value", ["", '"chat"', "'chat'"])
+def test_an_empty_or_quoted_value_is_rewritten_in_place(
+    tmp_path: Path, value: str
+) -> None:
+    setup = _setup(
+        tmp_path, f"use_case: {value}\nladder: [fast]\n".replace(": \n", ":\n")
+    )
+
+    assert _use("agent", setup) == Exit.OK
+
+    assert (setup / "policy.yaml").read_text(encoding="utf-8") == (
+        "use_case: agent\nladder: [fast]\n"
+    )
+
+
+def test_line_endings_a_byte_order_mark_and_the_mode_are_kept(tmp_path: Path) -> None:
+    setup = _setup(tmp_path)
+    policy = setup / "policy.yaml"
+    policy.write_bytes("\ufeffuse_case: chat\r\nladder: [fast]\r\n".encode())
+    policy.chmod(0o600)
+
+    assert _use("code", setup) == Exit.OK
+
+    assert policy.read_bytes() == "\ufeffuse_case: code\r\nladder: [fast]\r\n".encode()
+    assert policy.stat().st_mode & 0o777 == 0o600

@@ -32,6 +32,7 @@ from mcgyvr.config import (
     FLEET_FILENAME,
     MCGYVR_CODE,
     POLICY_FILENAME,
+    RAW_USE_CASES,
     RETIRED_USE_CASES,
     USE_CASES,
     ConfigError,
@@ -1198,6 +1199,14 @@ def _setup(args: argparse.Namespace) -> int:
     refused = _use_case_refused(args.use_case)
     if refused is not None:
         print(f"error: --use-case `{args.use_case}` {refused}", file=sys.stderr)
+        return 1
+    if args.jev is not None and args.use_case in RAW_USE_CASES:
+        print(
+            f"error: --jev dedicates a unit to the typed decisions inside "
+            f"mcgyvr-code's stages; use case `{args.use_case}` serves its model raw "
+            f"and asks none.",
+            file=sys.stderr,
+        )
         return 1
     # The flag path binds what already answers: it parses each --api spec before
     # anything is written, so a malformed spec is reported first, and it hands

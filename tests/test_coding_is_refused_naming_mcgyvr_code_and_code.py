@@ -68,3 +68,13 @@ def test_use_refuses_coding_and_leaves_the_policy_as_it_was(
     assert code == Exit.USAGE
     _names_both(capsys.readouterr().err)
     assert policy.read_text(encoding="utf-8") == "use_case: chat\nladder: [fast]\n"
+
+
+def test_setup_refuses_a_jev_unit_for_a_raw_use_case(
+    capsys: pytest.CaptureFixture[str],
+) -> None:
+    from mcgyvr.cli import main
+
+    assert main(["setup", "--use-case", "code", "--jev", "fast"]) == 1
+
+    assert "serves its model raw" in capsys.readouterr().err

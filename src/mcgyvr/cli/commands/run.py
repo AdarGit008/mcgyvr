@@ -74,7 +74,7 @@ def _run(args: argparse.Namespace) -> int:
     from mcgyvr.contract import ContractError
     from mcgyvr.contract import load as load_task_contract
     from mcgyvr.deliver import between_deliveries
-    from mcgyvr.drive import Recording, gate_adapters
+    from mcgyvr.drive import Recording, gate_adapters, ungated_notes
     from mcgyvr.notes import CarriedNotes, NotesError, primed, seeded
     from mcgyvr.result import (
         RunResult,
@@ -279,6 +279,9 @@ def _run(args: argparse.Namespace) -> int:
     # re-judges the change with the adapters the gate used, without a second read
     # of the config.
     args.gate_adapters = gate_adapters(config)
+    for note in ungated_notes(config):
+        print(f"note: {note}", file=sys.stderr)
+        report.notes.append(note)
     # `--commit`/`--no-commit`/`--branch` settled against `delivery.commit` and
     # `delivery.branch`, so delivery sees one answer, not a flag and a policy.
     _settle_delivery(args, config)

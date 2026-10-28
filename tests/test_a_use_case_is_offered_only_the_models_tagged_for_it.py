@@ -108,6 +108,19 @@ def test_a_cached_record_that_names_no_use_case_keeps_the_shipped_ones() -> None
     assert known.record.use_cases == shipped.use_cases
 
 
+def test_a_cached_record_that_names_a_kind_since_renamed_keeps_the_shipped_ones() -> (
+    None
+):
+    """A cache read before `coding` became `code` still offers its coder."""
+    shipped = next(one for one in ks.shipped() if "code" in one.use_cases)
+    ks.write(dataclasses.replace(shipped, use_cases=("coding",)))
+
+    (known,) = [k for k in ks.offline().known if k.record.key == shipped.key]
+
+    assert known.origin == ks.CACHE
+    assert known.record.use_cases == shipped.use_cases
+
+
 @pytest.mark.parametrize(
     ("name", "code"),
     [
