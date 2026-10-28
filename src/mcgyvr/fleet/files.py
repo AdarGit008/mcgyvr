@@ -77,7 +77,7 @@ _POLICY_KEYS = frozenset(
         "max_attempts",
         "max_replans",
         "max_reproposals",
-        "max_refine_depth",
+        "max_splits_per_file",
         "max_refine_fanout",
         "retry_notes",
         "task_timeout_s",

@@ -23,7 +23,7 @@ from dataclasses import dataclass
 from typing import TYPE_CHECKING, Any
 
 from mcgyvr.catalog import TaskType
-from mcgyvr.config import MAX_REFINE_DEPTH_DEFAULT, MAX_REFINE_FANOUT_DEFAULT
+from mcgyvr.config import MAX_REFINE_FANOUT_DEFAULT, MAX_SPLITS_PER_FILE_DEFAULT
 from mcgyvr.decision import (
     JEV_ROLE,
     BoolAnswer,
@@ -1044,7 +1044,7 @@ def refining_proposer_for(
     capacity: Capacity | None = None,
     confidence: float = MIN_CONFIDENCE,
     sink: ShadowSink | None = None,
-    max_depth: int = MAX_REFINE_DEPTH_DEFAULT,
+    max_splits: int = MAX_SPLITS_PER_FILE_DEFAULT,
     max_fanout: int = MAX_REFINE_FANOUT_DEFAULT,
 ) -> Proposer | None:
     """Classifier authoring: the classifier, refined until no proposal splits further.
@@ -1060,7 +1060,7 @@ def refining_proposer_for(
     )
     if not isinstance(typed, ClassifierProposer):
         return typed
-    return RefiningProposer(typed, max_depth=max_depth, max_fanout=max_fanout)
+    return RefiningProposer(typed, max_splits=max_splits, max_fanout=max_fanout)
 
 
 # Reading one decision into one proposal.

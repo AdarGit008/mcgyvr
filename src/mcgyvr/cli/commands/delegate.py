@@ -19,6 +19,7 @@ verb and `mcgyvr direct` share, and `prompt_parser` the verb's own parser.
 from __future__ import annotations
 
 import argparse
+import contextlib
 import re
 import sys
 from collections.abc import Callable, Sequence
@@ -75,7 +76,9 @@ class _Logbook:
         )
         if self.decisions is not None:
             # This run's decisions only: an earlier run's are not appended to.
-            self.decisions.unlink(missing_ok=True)
+            # A path that cannot be cleared is said when the record is written.
+            with contextlib.suppress(OSError):
+                self.decisions.unlink(missing_ok=True)
         self.kind = DelegateKind.INTERNAL_ERROR
         self.message = ""
         self.detail: dict[str, Any] = {}
@@ -439,7 +442,7 @@ def _proposer_for_delegate(
     The prose proposer on the `orchestrator` role is always built. The typed
     classifier is built only when the strategy is "classifier" — refined until
     each proposal is on one file and jev says it cannot be split further, within
-    `max_refine_depth` and `max_refine_fanout` — and `proposer_by_authoring`
+    `max_splits_per_file` and `max_refine_fanout` — and `proposer_by_authoring`
     then puts it in front of the prose one, which stands in when the classifier
     declines. A strategy that is not a string is passed as None, which selects
     prose. None comes back when nothing can propose. With `decisions` (`--log`
@@ -459,7 +462,7 @@ def _proposer_for_delegate(
         refining_proposer_for(
             pool,
             sink=ShadowSink(decisions) if decisions is not None else None,
-            max_depth=refine.max_depth(config),
+            max_splits=refine.max_splits(config),
             max_fanout=refine.max_fanout(config),
         )
         if strategy == "classifier"

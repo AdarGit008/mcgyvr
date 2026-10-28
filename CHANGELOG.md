@@ -32,10 +32,12 @@ archived outside this repository, under the same paths.
   (`partition`) — by its sentences, by the target's definitions it names, or by
   the failing tests that name the target — or none. Two or more contracts on
   one file are ordered by the tree where one creates a name another spells,
-  and kept apart by `Scope.meets` otherwise. `max_refine_depth` (3) and
-  `max_refine_fanout` (8) bound it; past either is a refusal with what to
-  change, which `decompose` now reports beside the contracts. When jev
-  declines, prose stands in for the whole request, as before.
+  and kept apart by `Scope.meets` otherwise. A proposal stops once its file
+  has been split `max_splits_per_file` rounds (3, F24), emitted as it stands;
+  this replaces #799's `max_refine_depth`, which is gone. A split into more
+  parts than `max_refine_fanout` (8) is a refusal with what to change, which
+  `decompose` now reports beside the contracts. When jev declines, prose
+  stands in for the whole request, as before.
 - **`mcgyvr delegate --run --jobs N` runs up to N ready contracts at once.**
   Each is settled on the tree as its run ends, and the tree is asked again
   after every settle, so a dependent starts as soon as what it waits on has

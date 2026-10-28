@@ -99,10 +99,11 @@ MAX_REPLANS_DEFAULT = 1
 #: proposer with what to change (see `mcgyvr.repropose`); 0 turns it off.
 MAX_REPROPOSALS_DEFAULT = 1
 
-#: How many times classifier authoring may split a proposal below the request,
-#: and into how many parts at once (see `mcgyvr.refine`). Past either, the
-#: proposal is refused with what to change rather than emitted unsplit.
-MAX_REFINE_DEPTH_DEFAULT = 3
+#: How many split rounds classifier authoring may take on any one file, and
+#: into how many parts one split may go (see `mcgyvr.refine`). The first is a
+#: stop: what three rounds made is emitted. A split into more parts than the
+#: second is refused with what to change rather than emitted unsplit.
+MAX_SPLITS_PER_FILE_DEFAULT = 3
 MAX_REFINE_FANOUT_DEFAULT = 8
 
 #: Which failure-notes records a try is shown (see `mcgyvr.notes.handed_on`):
@@ -745,8 +746,9 @@ ORCHESTRATOR_FIELDS: tuple[Field, ...] = (
         "a proposal jev says holds several changes is split by the sentences of "
         "its task, the target's definitions it names, or the failing tests it "
         "demonstrates, as jev picks — two or more contracts on one file, which "
-        "the dependency tree orders. A split past `max_refine_depth` or "
-        "`max_refine_fanout` is refused. `prose` stands in when jev "
+        "the dependency tree orders. A proposal is not split again once "
+        "`max_splits_per_file` rounds have split its file; a split into more "
+        "parts than `max_refine_fanout` is refused. `prose` stands in when jev "
         "declines. With no `jev` unit bound no model is asked: each field takes "
         "its first candidate — the first servable type and target, the "
         "target's first symbol, and the request as the task — and `prose` "
@@ -955,15 +957,18 @@ SCHEMA: tuple[Field, ...] = (
         bind_hint="set a whole number of rounds, or 0 to report refusals at once",
     ),
     Field(
-        "max_refine_depth",
+        "max_splits_per_file",
         "int",
-        "How many times classifier authoring (`orchestrator.authoring: "
-        "classifier`, with a `jev` unit bound) may split a proposal below the "
-        "request. A proposal jev still answers can be split, this many splits "
-        "down, is refused with this key to raise rather than emitted unsplit.",
-        default=MAX_REFINE_DEPTH_DEFAULT,
+        "How many split rounds classifier authoring (`orchestrator.authoring: "
+        "classifier`, with a `jev` unit bound) takes on any one file. A "
+        "proposal stops being split when it is on one file and either jev "
+        "answers that it cannot be split further or its file has been split "
+        "this many rounds; it is then emitted as it stands, not refused. "
+        "Splitting a scope over several files into one proposal per file is "
+        "not a round on any of them.",
+        default=MAX_SPLITS_PER_FILE_DEFAULT,
         min_value=1,
-        bind_hint="set a whole number of splits, 1 or more",
+        bind_hint="set a whole number of split rounds, 1 or more",
     ),
     Field(
         "max_refine_fanout",

@@ -33,16 +33,17 @@ one file with no such edge are kept apart by their scopes (`Scope.meets`). An
 edge that would close a cycle is not inferred: the two are kept apart by their
 scopes alone, rather than refused for a cycle nobody stated.
 
-Every split is bounded: one past `max_depth` splits below the request, or into
-more than `max_fanout` parts, is a `Refusal` saying which bound to raise, never
-a silent stop, and is returned after every proposal so `depends_on` indexes
-count proposals only. Where jev declines — an answer it cannot give, a Yes the
-survey has no partition for, or none of the partitions picked — nothing is
-guessed: the whole request comes back empty, and the prose proposer stands in
-for it as before. Every question goes through the classifier's `ask`, which
-records the decision in the classifier's shadow sink, when one is wired, with
-the model that answered; `mcgyvr delegate` wires none, as for the field
-decisions.
+Every split is bounded. A proposal whose file has been split `max_splits` rounds
+(F24: 3) is not asked again: it stops as it stands, the same stop as a No from
+jev. A split into more than `max_fanout` parts is a `Refusal` saying which
+bound to raise, never a silent stop, and is returned after every proposal so
+`depends_on` indexes count proposals only. Where jev declines — an answer it
+cannot give, a Yes the survey has no partition for, or none of the partitions
+picked — nothing is guessed: the whole request comes back empty, and the prose
+proposer stands in for it as before. Every question goes through the
+classifier's `ask`, which records the decision in the classifier's shadow sink,
+when one is wired, with the model that answered; `mcgyvr delegate --log PATH`
+wires `PATH.decisions.jsonl`.
 """
 
 from __future__ import annotations
@@ -53,7 +54,7 @@ from dataclasses import dataclass, replace
 from pathlib import PurePosixPath
 from typing import TYPE_CHECKING, Any, Protocol
 
-from mcgyvr.config import MAX_REFINE_DEPTH_DEFAULT, MAX_REFINE_FANOUT_DEFAULT
+from mcgyvr.config import MAX_REFINE_FANOUT_DEFAULT, MAX_SPLITS_PER_FILE_DEFAULT
 from mcgyvr.decision import Choice, Noul, Question
 from mcgyvr.orchestrator.candidates import (
     CandidateSet,
@@ -248,11 +249,15 @@ def survey(
 
 @dataclass(frozen=True)
 class _Node:
-    """A proposal being refined: its words, how many splits down, whether held."""
+    """A proposal being refined: its words, its file's rounds, whether held.
+
+    `splits` is how many split rounds its file has been through on the way to
+    it; the split of a scope into one proposal per file is not one.
+    """
 
     proposal: Proposal
     words: str
-    depth: int
+    splits: int
     scoped: bool = False
 
 
@@ -260,14 +265,15 @@ class _Node:
 class RefiningProposer:
     """The classifier, refined until one file per proposal and jev says no further.
 
-    `classifier` proposes and asks (`delegate.ClassifierProposer`); `max_depth`
-    bounds how many splits below the request a proposal may be, `max_fanout`
-    how many parts one split may have. As a `Proposer` it returns the leaves,
-    then the refusals the bounds made, or nothing when jev declined.
+    `classifier` proposes and asks (`delegate.ClassifierProposer`);
+    `max_splits` is how many split rounds one file may go through, after which
+    a proposal stops as it stands, and `max_fanout` how many parts one split
+    may have. As a `Proposer` it returns the leaves, then the refusals the
+    fan-out bound made, or nothing when jev declined.
     """
 
     classifier: Asker
-    max_depth: int = MAX_REFINE_DEPTH_DEFAULT
+    max_splits: int = MAX_SPLITS_PER_FILE_DEFAULT
     max_fanout: int = MAX_REFINE_FANOUT_DEFAULT
 
     def __call__(self, evidence: Evidence) -> Sequence[Proposal | Refusal]:
@@ -340,7 +346,7 @@ class RefiningProposer:
             )
             if isinstance(child, Refusal):
                 return None
-            nodes.append(_Node(child, child.task, 1))
+            nodes.append(_Node(child, child.task, 0))
         return nodes
 
     def _walk(
@@ -350,7 +356,13 @@ class RefiningProposer:
         leaves: list[Proposal],
         refusals: list[Refusal],
     ) -> bool:
-        """Refine `node` into `leaves` and `refusals`; False when jev declined."""
+        """Refine `node` into `leaves` and `refusals`; False when jev declined.
+
+        A node whose file has had `max_splits` rounds is a leaf, unasked.
+        """
+        if node.splits >= self.max_splits:
+            leaves.append(node.proposal)
+            return True
         partitions = survey(evidence, node.proposal, node.words, scoped=node.scoped)
         split = self.classifier.ask(
             _state(evidence, node),
@@ -364,9 +376,6 @@ class RefiningProposer:
             return True
         if not partitions:
             return False
-        if node.depth >= self.max_depth:
-            refusals.append(_too_deep(node, self.max_depth))
-            return True
         chosen = self._partition(evidence, node, partitions)
         if chosen is None:
             return False
@@ -423,7 +432,7 @@ class RefiningProposer:
         parent = node.proposal
         if part.demonstration:
             child = replace(parent, task=part.task, demonstration=part.demonstration)
-            return _Node(child, part.words, node.depth + 1, scoped=True)
+            return _Node(child, part.words, node.splits + 1, scoped=True)
         decided: dict[str, Any] = {
             "task_type": parent.task_type,
             "target": parent.target,
@@ -437,13 +446,13 @@ class RefiningProposer:
         )
         if isinstance(asked, Refusal):
             return None
-        return _Node(asked, part.words, node.depth + 1, scoped=part.symbol is not None)
+        return _Node(asked, part.words, node.splits + 1, scoped=part.symbol is not None)
 
 
-def max_depth(config: Config) -> int:
-    """`max_refine_depth` as the config states it, or its default when unset."""
-    stated = config.get("max_refine_depth", MAX_REFINE_DEPTH_DEFAULT)
-    return MAX_REFINE_DEPTH_DEFAULT if stated is None else int(stated)
+def max_splits(config: Config) -> int:
+    """`max_splits_per_file` as the config states it, or its default when unset."""
+    stated = config.get("max_splits_per_file", MAX_SPLITS_PER_FILE_DEFAULT)
+    return MAX_SPLITS_PER_FILE_DEFAULT if stated is None else int(stated)
 
 
 def max_fanout(config: Config) -> int:
@@ -614,21 +623,6 @@ def _reaches(waits: Sequence[Sequence[int]], start: int, goal: int) -> bool:
             seen.add(at)
             stack.extend(waits[at])
     return False
-
-
-def _too_deep(node: _Node, bound: int) -> Refusal:
-    """The refusal for a proposal jev would split past `max_refine_depth`."""
-    return Refusal(
-        node.proposal.target,
-        f"jev answered that this proposal can be split further, and it is "
-        f"already {node.depth} split(s) below the request, the most "
-        f"`max_refine_depth` allows ({bound}), so it is not emitted unsplit",
-        field="task",
-        what_to_change=(
-            f"raise `max_refine_depth` above {bound}, or narrow the request to "
-            "fewer behaviour changes"
-        ),
-    )
 
 
 def _too_wide(node: _Node, partition: Partition, bound: int) -> Refusal:
