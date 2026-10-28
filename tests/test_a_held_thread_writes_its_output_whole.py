@@ -10,6 +10,8 @@ from __future__ import annotations
 
 import sys
 import threading
+from collections.abc import Callable
+from pathlib import Path
 
 import pytest
 
@@ -68,3 +70,36 @@ def test_routed_puts_the_streams_back() -> None:
         assert sys.stdout is not out
         assert sys.stdout.encoding == out.encoding
     assert (sys.stdout, sys.stderr) == (out, err)
+
+
+def test_what_a_held_run_s_own_batch_writes_is_held_with_it(
+    tmp_path: Path, capsys: pytest.CaptureFixture[str]
+) -> None:
+    """A run's draws go to `run_batch` threads; they write into its block."""
+    from mcgyvr.capacity import Capacity, run_batch
+
+    capacity = Capacity({"unit": 2}, lock_dir=tmp_path / "slots")
+
+    def draw(name: str) -> Callable[[Capacity], None]:
+        def job(_: Capacity) -> None:
+            print(f"note: {name}")
+
+        return job
+
+    def worker() -> None:
+        with streams.held():
+            print("run starts")
+            run_batch([draw("one"), draw("two")], capacity, workers=2)
+            print("run ends")
+
+    with streams.routed():
+        sys.stdout.write("outside ")
+        other = threading.Thread(target=worker)
+        other.start()
+        other.join()
+        sys.stdout.write("whole\n")
+
+    lines = capsys.readouterr().out.splitlines()
+    assert lines[0] == "run starts"
+    assert sorted(lines[1:3]) == ["note: one", "note: two"]
+    assert lines[3:] == ["run ends", "outside whole"]

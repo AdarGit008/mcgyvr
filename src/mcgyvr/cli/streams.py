@@ -7,7 +7,9 @@ runs would interleave, and a line of one could be cut by the other's. Inside
 `held()` keeps what it writes, in the order it wrote it across both streams,
 and writes it all in one go, under one lock, when its block ends; every other
 thread's writes go through a whole line at a time under the same lock, so no
-held block lands inside one of its lines. Outside `routed()` nothing is
+held block lands inside one of its lines. What is held is a context variable,
+so a thread the held one starts with its context (`capacity.run_batch` hands
+each job its submitter's) is held into the same block. Outside `routed()` nothing is
 replaced and `held()` holds nothing, so a single run writes as it always has.
 """
 
@@ -17,16 +19,20 @@ import sys
 import threading
 from collections.abc import Iterator
 from contextlib import contextmanager
+from contextvars import ContextVar
 from typing import Any, TextIO, cast
+
+#: The (stream, text) chunks the current context is holding, or None.
+_HOLDING: ContextVar[list[tuple[TextIO, str]] | None] = ContextVar(
+    "mcgyvr_streams_holding", default=None
+)
 
 
 class _Routed:
-    """What `routed()` shares between its two routers: one lock, who is held."""
+    """What `routed()` shares between its two routers: one lock."""
 
     def __init__(self) -> None:
         self.lock = threading.Lock()
-        #: Per thread, the (stream, text) chunks a held thread wrote, or None.
-        self.held = threading.local()
 
 
 class _Router:
@@ -39,9 +45,7 @@ class _Router:
         self._pending: dict[int, str] = {}
 
     def write(self, text: str) -> int:
-        chunks: list[tuple[TextIO, str]] | None = getattr(
-            self.routed.held, "chunks", None
-        )
+        chunks = _HOLDING.get()
         if chunks is not None:
             chunks.append((self.real, text))
             return len(text)
@@ -56,7 +60,7 @@ class _Router:
         return len(text)
 
     def flush(self) -> None:
-        if getattr(self.routed.held, "chunks", None) is not None:
+        if _HOLDING.get() is not None:
             return
         with self.routed.lock:
             pending = self._pending.pop(threading.get_ident(), "")
@@ -105,11 +109,11 @@ def held() -> Iterator[None]:
         return
     shared = router.routed
     chunks: list[tuple[TextIO, str]] = []
-    shared.held.chunks = chunks
+    token = _HOLDING.set(chunks)
     try:
         yield
     finally:
-        shared.held.chunks = None
+        _HOLDING.reset(token)
         with shared.lock:
             for stream, text in chunks:
                 stream.write(text)

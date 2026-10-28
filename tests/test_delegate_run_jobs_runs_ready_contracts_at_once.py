@@ -10,8 +10,10 @@ Which run ends when is driven by events and barriers, never by sleeping.
 What is held at N>1 is what holds at N=1: a contract lands when HEAD holds its
 commit, a dependent never starts before what it waits on has settled (#779),
 one whose provider failed is held `blocked` (#779), a spent one is re-planned
-(#782), and the `--log` record says how the batch ended (#792). `--jobs 1` is
-today's loop, on the calling thread, byte for byte.
+(#782), and the `--log` record says how the batch ended (#792). With no
+`--jobs` or `--jobs 1` there is no pool: every run is on the calling thread,
+and the two write the same output, results and log. One batch at the end runs
+through the real `_run`, with contracts that need no model.
 """
 
 from __future__ import annotations
@@ -585,13 +587,14 @@ def test_jobs_parses_auto_as_zero_and_refuses_a_negative() -> None:
         command._jobs("many")
 
 
-def test_jobs_one_is_todays_loop_on_the_calling_thread_byte_for_byte(
+def test_jobs_one_runs_each_contract_on_the_calling_thread_as_no_jobs_does(
     repo: Path,
     tmp_path: Path,
     monkeypatch: pytest.MonkeyPatch,
     capsys: pytest.CaptureFixture[str],
 ) -> None:
-    """No `--jobs` and `--jobs 1` write the same results, log and output."""
+    """No `--jobs` and `--jobs 1` write the same results, log and output, and
+    run every contract on the calling thread, with no pool."""
     contracts = (
         code("code-p", "pkg/a.py"),
         code("code-d", "pkg/c.py", depends_on=("code-p",)),
@@ -709,3 +712,123 @@ def test_a_worker_that_raises_is_logged_internal_error_once_the_others_end(
     rows = states(journal)
     assert rows["code-b"]["state"] == "landed"
     assert rows["code-a"]["state"] == "running"
+
+
+def test_an_interrupt_with_a_run_in_flight_starts_nothing_more_and_settles_it(
+    repo: Path,
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+    capsys: pytest.CaptureFixture[str],
+) -> None:
+    """Ctrl-C lands while `code-a` is settled and `code-b` still runs: the
+    batch says it waits, `code-c` is never started, `code-b` ends and is put on
+    the tree, and the interrupt is raised."""
+    from mcgyvr.board import Board
+
+    settle = Board.settle
+    b_may_end = threading.Event()
+
+    def interrupted(self: Board, tree_id: str, contract_id: str, **kw: Any) -> None:
+        settle(self, tree_id, contract_id, **kw)
+        if contract_id == "code-a":
+            b_may_end.set()
+            raise KeyboardInterrupt
+
+    monkeypatch.setattr(Board, "settle", interrupted)
+    plans = {"code-b": Plan(before=waits_for(b_may_end))}
+    journal = tmp_path / "journal"
+
+    with pytest.raises(KeyboardInterrupt):
+        batch(
+            repo,
+            tmp_path,
+            monkeypatch,
+            tuple(code(f"code-{n}", f"pkg/{n}.py") for n in "abc"),
+            plans,
+        )
+
+    rows = states(journal)
+    assert rows["code-a"]["state"] == "landed"
+    assert rows["code-b"]["state"] == "landed"
+    assert rows["code-c"]["state"] == "ready"
+    assert results(journal, "code-c") == []
+    err = capsys.readouterr().err
+    assert "waits for the 1 contract(s) in flight to end" in err
+
+
+def test_a_result_of_a_contract_whose_id_starts_with_another_s_is_not_its(
+    tmp_path: Path,
+) -> None:
+    journal = tmp_path / "journal"
+    mine = result_path(journal, "code-a", run_stamp())
+    theirs = result_path(journal, "code-a-b", run_stamp())
+    for path in (mine, theirs):
+        write(path, RunResult(contract="c", task_type="code", target="", session="s"))
+
+    assert command._results_of(journal, "code-a") == {mine}
+    assert command._results_of(journal, "code-a-b") == {theirs}
+
+
+FORMAT = """
+id: {cid}
+task_type: code
+operation: format
+task: Reformat the module.
+target: {target}
+scope:
+  allow: ["{target}"]
+"""
+
+
+def test_real_runs_at_once_each_land_and_print_no_result_line(
+    tmp_path: Path,
+    home: Path,
+    monkeypatch: pytest.MonkeyPatch,
+    capsys: pytest.CaptureFixture[str],
+) -> None:
+    """Four `operation: format` contracts, one file each, through the real
+    `_run` at `--jobs 3`: every one lands, the tree is clean, the journal has
+    one row file, and stdout has no `result:` line."""
+    from mcgyvr.config import load
+    from mcgyvr.contract import loads
+    from tests import livejournal as lj
+
+    lj.scripted(monkeypatch)
+    root = tmp_path / "work"
+    (root / "src" / "pkg").mkdir(parents=True)
+    names = "abcd"
+    for n in names:
+        (root / "src" / "pkg" / f"{n}.py").write_text("x   =  { 'k' :1 }\ny=[1,\n2]\n")
+    (root / ".gitignore").write_text("__pycache__/\n")
+    lj.git(root, "init", "-q")
+    lj.git(root, "add", "-A")
+    lj.git(root, "commit", "-q", "-m", "base")
+    journal = tmp_path / "journal"
+    config = lj.make_config(tmp_path / "mcgyvr", journal_dir=journal)
+    contracts = tuple(
+        loads(FORMAT.format(cid=f"tidy-{n}", target=f"src/pkg/{n}.py")) for n in names
+    )
+    dec = Decomposition(
+        contracts=contracts, documents=tuple(dumps(c) for c in contracts)
+    )
+    args = argparse.Namespace(
+        config=str(config),
+        sandbox="tempdir",
+        commit=True,
+        branch=None,
+        record=None,
+        session_id=None,
+        session=Session("claude-s1"),
+        jobs=3,
+    )
+    monkeypatch.setattr(command, "_fleet_width", lambda _config: 8)
+
+    exit_code = command._run_delegated(args, root, dec, [], load(config))
+
+    out = capsys.readouterr()
+    assert exit_code == 0, out.err
+    assert not [ln for ln in out.out.splitlines() if ln.startswith("result: ")]
+    rows = states(journal)
+    assert {r["state"] for r in rows.values()} == {"landed"}, rows
+    assert lj.git(root, "status", "--porcelain").strip() == ""
+    assert [p.name for p in journal.glob("*.jsonl")] == ["claude-s1.jsonl"]

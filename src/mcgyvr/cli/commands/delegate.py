@@ -19,6 +19,7 @@ subcommand and its arguments.
 from __future__ import annotations
 
 import argparse
+import re
 import sys
 from collections.abc import Callable, Sequence
 from pathlib import Path
@@ -639,7 +640,14 @@ def _run_delegated(
 
     try:
         with streams.routed() if width > 1 else nullcontext():
-            run_eager(ready, start, settle, workers=width, abandon=abandon)
+            run_eager(
+                ready,
+                start,
+                settle,
+                workers=width,
+                abandon=abandon,
+                stopping=_say_stopping,
+            )
         held: list[str] = []
         for _, contract, hold in board.drain():
             codes[contract.id] = _write_held(args, contract, hold, session, journal)
@@ -651,6 +659,16 @@ def _run_delegated(
             shutil.rmtree(staging, ignore_errors=True)
     failed = [each for each in codes.values() if each != 0]
     return failed[-1] if failed else 0
+
+
+def _say_stopping(in_flight: int) -> None:
+    """Say that the batch stopped and waits for the runs it cannot stop."""
+    if in_flight:
+        print(
+            f"note: the batch stopped; nothing more is started, and it waits for "
+            f"the {in_flight} contract(s) in flight to end.",
+            file=sys.stderr,
+        )
 
 
 def _held(run: argparse.Namespace) -> int:
@@ -911,10 +929,23 @@ def _say_replanned(
 
 
 def _results_of(journal: Path, contract_id: str) -> set[Path]:
-    """The result files the journal holds for `contract_id`."""
+    """The result files the journal holds for `contract_id`.
+
+    `<id>-<stamp>.json` with a run stamp after the id, so the result of a
+    contract whose id merely starts with `<id>-`, run beside this one, is not
+    taken for this one's.
+    """
     from mcgyvr.result import RESULTS_DIR
 
-    return set((journal / RESULTS_DIR).glob(f"{contract_id}-*.json"))
+    return {
+        path
+        for path in (journal / RESULTS_DIR).glob(f"{contract_id}-*.json")
+        if _STAMPED.fullmatch(path.name[len(contract_id) + 1 :])
+    }
+
+
+#: What follows `<id>-` in a result file's name: a run stamp (`run_stamp`).
+_STAMPED = re.compile(r"\d{8}T\d{6}\.\d{6}Z\.json")
 
 
 def _settled(new: set[Path], source: GitSource) -> dict[str, Any]:
@@ -1088,7 +1119,9 @@ def add_parser(
             "one at a time). N is capped at the fleet's total slots, the most "
             "dispatches its units take at once; `auto` or 0 is that cap. Two "
             "contracts whose scopes can write one file never run at once, and "
-            "a run's output is written whole when it ends"
+            "a run's output is written whole when it ends. Runs beside each "
+            "other share the fleet's slots, so one may wait for a rung, or "
+            "pass a busy one by, as two runs typed in two terminals would"
         ),
     )
     delegate.add_argument(

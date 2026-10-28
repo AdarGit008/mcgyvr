@@ -14,6 +14,7 @@ it is ready.
 
 from __future__ import annotations
 
+import contextvars
 import fcntl
 import hashlib
 import inspect
@@ -1142,7 +1143,12 @@ def run_batch[T](
             return job(capacity)
 
     with ThreadPoolExecutor(max_workers=limit) as pool:
-        futures = [pool.submit(adopted, job) for job in jobs]
+        # Each job runs in a copy of the submitter's context, so what the
+        # submitter set there (`mcgyvr.cli.streams` holding a run's output)
+        # holds for its jobs too.
+        futures = [
+            pool.submit(contextvars.copy_context().run, adopted, job) for job in jobs
+        ]
         outcomes: list[Outcome[T]] = []
         for index, future in enumerate(futures):
             error = future.exception()
@@ -1165,6 +1171,7 @@ def run_eager[K, T](
     *,
     workers: int,
     abandon: Callable[[K, T], None] | None = None,
+    stopping: Callable[[int], None] | None = None,
 ) -> None:
     """Keep up to `workers` jobs in flight, each started as soon as it is ready.
 
@@ -1185,9 +1192,11 @@ def run_eager[K, T](
     first ready first, as a plain loop would, and what it raises is raised
     from here as the loop would raise it. With more, a job that raises, a
     callback that raises or an interrupt that arrives while waiting stops the
-    dispatch: nothing new is started, the jobs in flight are waited for, since
-    a thread cannot be stopped from outside, each that returned is handed to
-    `abandon`, and the first error is raised.
+    dispatch: nothing new is started, `stopping` is told how many jobs are in
+    flight, they are waited for, since a thread cannot be stopped from
+    outside, each that returned is handed to `abandon`, and the first error
+    is raised. An interrupt while waiting for them leaves them running and is
+    raised; the interpreter waits for them at exit.
     """
     if workers < 1:
         raise CapacityError(f"workers={workers} would run nothing; ask for at least 1")
@@ -1212,6 +1221,8 @@ def run_eager[K, T](
             settle(flight.pop(future), future.result())
     except BaseException as exc:
         try:
+            if stopping is not None:
+                stopping(len(flight))
             _abandon(flight, abandon, exc)
         finally:
             pool.shutdown(wait=False, cancel_futures=True)
