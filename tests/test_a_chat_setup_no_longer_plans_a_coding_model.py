@@ -77,7 +77,7 @@ def test_chat_and_agent_plan_the_biggest_model_of_their_own_that_fits(
 
     biggest = max(fitting, key=lambda one: one.size_bytes.value)
     assert placement["model_id"] == biggest.model_id
-    coders = {one.model_id for one in ks.shipped() if "coding" in one.use_cases}
+    coders = {one.model_id for one in ks.shipped() if "code" in one.use_cases}
     assert placement["model_id"] not in coders
 
 
@@ -105,10 +105,12 @@ def test_the_context_is_the_most_that_fits_and_at_least_8k(vram_mib: int) -> Non
         (24576, "Qwen/Qwen2.5-Coder-14B-Instruct"),
     ],
 )
+@pytest.mark.parametrize("use_case", ["mcgyvr-code", "code"])
 def test_a_coding_setup_plans_the_coder_it_planned_before(
-    vram_mib: int, coder: str
+    vram_mib: int, coder: str, use_case: str
 ) -> None:
-    placement = _placement("coding", vram_mib)
+    """`mcgyvr-code` climbs coders and `code` serves one raw: both plan the coder."""
+    placement = _placement(use_case, vram_mib)
 
     assert placement["model_id"] == coder
     record = next(r for r in ks.shipped() if r.model_id == coder)

@@ -1,11 +1,13 @@
 """``mcgyvr setup`` asks the use case and Jev before it plans.
 
-The interactive setup planned ``coding`` only. It now asks,
-after the rigs and before the plan: the use case (coding, chat or agent; Enter
-is coding) and whether to dedicate a unit to Jev, the unit every
-typed decision asks (Enter is no) -- the interactive form of ``--use-case``
-and ``--jev``. The answer is planned, staged and sampled: the sampler runs
-that use case's task and the Jev choice.
+The interactive setup planned one use case only. It now asks,
+after the rigs and before the plan: the use case (mcgyvr-code, code, chat or
+agent; there is no Enter default, because choosing mcgyvr-code is the act of
+opting in) and, for mcgyvr-code only, whether to dedicate a unit to Jev, the
+unit every typed decision asks (Enter is no) -- the interactive form of
+``--use-case`` and ``--jev``. The raw use cases have no Jev in their path.
+The answer is planned, staged and sampled: the sampler runs that use case's
+task and the Jev choice.
 
 The rig is :class:`tests.setup_door.FakeRig` behind the door; the prompts are
 answered through the setup's own prompt seams; nothing reaches a machine.
@@ -32,7 +34,7 @@ from mcgyvr.fleet import sampler
 from mcgyvr.fleet.roots import data_home, fleets_dir, live_file
 from tests import setup_door as sd
 
-USE_CASE = "Use case — [d] coding (default), [c] chat, [a] agent: "
+USE_CASE = "Use case — [m] mcgyvr-code, [k] code, [c] chat, [a] agent: "
 JEV = "Dedicate a unit to Jev, which answers typed decisions? [y/n] "
 START = "Start the serving containers"
 LOCK = "Lock the fleet and name it live?"
@@ -68,10 +70,12 @@ def _planned_after(monkeypatch: pytest.MonkeyPatch, asked: list[str]) -> list[in
     return at
 
 
-def test_enter_on_every_question_plans_coding_with_no_jev(
+def test_mcgyvr_code_and_enter_on_jev_plans_mcgyvr_code_with_no_jev(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    asked = sd.interactive(monkeypatch, sd.FakeRig(), {START: True, LOCK: True})
+    asked = sd.interactive(
+        monkeypatch, sd.FakeRig(), {START: True, LOCK: True}, typed={USE_CASE: "m"}
+    )
     at = _planned_after(monkeypatch, asked)
 
     assert cli.main(["setup"]) == 0
@@ -80,7 +84,7 @@ def test_enter_on_every_question_plans_coding_with_no_jev(
     assert at == [2], "both are asked before the plan"
     assert [q.split("?")[0] for q in asked[2:]] == [f"{START} on {sd.RIG}", LOCK[:-1]]
     policy = _policy(_staged())
-    assert policy["use_case"] == "coding"
+    assert policy["use_case"] == "mcgyvr-code"
     assert "jev" not in policy or not (policy["jev"] or {}).get("unit")
     assert live_file().exists()
 
@@ -104,7 +108,7 @@ def test_chat_is_planned_staged_and_sampled_by_one_completion_of_each_unit(
 
     assert cli.main(["setup"]) == 0
 
-    assert asked[:2] == [USE_CASE, JEV]
+    assert asked[0] == USE_CASE and JEV not in asked, "chat is raw: no Jev"
     assert _policy(_staged())["use_case"] == "chat"
     assert len(completed) == 1, "the chat sample asked the unit one completion"
     assert _policy(_live())["use_case"] == "chat"
@@ -138,7 +142,10 @@ def test_a_jev_opt_in_binds_the_unit_and_the_sample_asks_its_choice(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     asked = sd.interactive(
-        monkeypatch, sd.FakeRig(), {START: True, LOCK: True, JEV: True}
+        monkeypatch,
+        sd.FakeRig(),
+        {START: True, LOCK: True, JEV: True},
+        typed={USE_CASE: "m"},
     )
     chose: list[Path] = []
 
@@ -171,7 +178,7 @@ def test_a_use_case_that_is_not_one_is_asked_again_then_refused(
 
     assert asked == [USE_CASE] * 3
     err = capsys.readouterr().err
-    assert "poetry" in err and "d, c or a" in err
+    assert "poetry" in err and "m, k, c or a" in err
     assert not (data_home() / "setup").exists() or not any(
         (data_home() / "setup").rglob("policy.yaml")
     )
@@ -179,7 +186,14 @@ def test_a_use_case_that_is_not_one_is_asked_again_then_refused(
 
 @pytest.mark.parametrize(
     ("letter", "name"),
-    [("", "coding"), ("d", "coding"), ("c", "chat"), ("a", "agent")],
+    [
+        ("m", "mcgyvr-code"),
+        ("k", "code"),
+        ("c", "chat"),
+        ("a", "agent"),
+        ("mcgyvr-code", "mcgyvr-code"),
+        ("code", "code"),
+    ],
 )
 def test_each_letter_names_its_use_case(
     monkeypatch: pytest.MonkeyPatch, letter: str, name: str
@@ -200,26 +214,42 @@ def test_a_letter_that_names_no_use_case_is_refused(
     monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
 ) -> None:
     asked = sd.interactive(
-        monkeypatch, sd.FakeRig(), {START: True}, typed={USE_CASE: "m"}
+        monkeypatch, sd.FakeRig(), {START: True}, typed={USE_CASE: "d"}
     )
 
     assert cli.main(["setup"]) == 1
 
     assert asked == [USE_CASE] * 3
-    assert "d, c or a" in capsys.readouterr().err
+    assert "m, k, c or a" in capsys.readouterr().err
 
 
-def test_setup_offers_three_use_cases_and_coding_is_the_default() -> None:
-    assert _setup_use_cases() == ("coding", "chat", "agent")
+def test_enter_is_no_use_case_it_is_asked_again_then_refused(
+    monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
+) -> None:
+    asked = sd.interactive(
+        monkeypatch, sd.FakeRig(), {START: True}, typed={USE_CASE: ""}
+    )
+
+    assert cli.main(["setup"]) == 1
+
+    assert asked == [USE_CASE] * 3
+    assert "pick one" in capsys.readouterr().out
 
 
-def test_a_use_case_setup_never_offered_is_refused_naming_the_three(
+def test_setup_offers_four_use_cases_mcgyvr_code_first() -> None:
+    assert _setup_use_cases() == ("mcgyvr-code", "code", "chat", "agent")
+
+
+def test_a_use_case_setup_never_offered_is_refused_naming_the_four(
     capsys: pytest.CaptureFixture[str],
 ) -> None:
     assert cli.main(["setup", "--use-case", "poetry"]) == 1
 
     (line,) = capsys.readouterr().err.splitlines()
-    assert "`poetry` is not a use case" in line and "coding, chat or agent" in line
+    assert (
+        "`poetry` is not a use case" in line
+        and "mcgyvr-code, code, chat or agent" in line
+    )
     assert not (data_home() / "setup").exists(), "nothing is staged"
 
 

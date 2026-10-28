@@ -156,13 +156,17 @@ def offline() -> Knowledge:
     could not be read or repeat a key already present are reported in
     ``skipped``. A cached record that names no use case keeps the shipped
     record's, since a cache written before records carried use cases says nothing
-    about them."""
+    about them; so does one naming a kind this build does not know, such as
+    the `coding` a cache wrote before that kind was called `code`."""
+    # Read here, not at import: the Hub module reads this one.
+    from mcgyvr.knowledge.hub import USE_CASES as KINDS
+
     cached, skipped = _cached()
     known: list[Known] = []
     for one in shipped():
         if one.key in cached:
             hit = cached.pop(one.key)
-            if not hit.use_cases:
+            if not hit.use_cases or not set(hit.use_cases) <= set(KINDS):
                 hit = replace(hit, use_cases=one.use_cases)
             known.append(Known(record=hit, origin=CACHE))
         else:

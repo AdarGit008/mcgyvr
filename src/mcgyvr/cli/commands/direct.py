@@ -34,7 +34,9 @@ from mcgyvr.config import (
     ConfigError,
     ConfigMissingError,
     Ladder,
+    default_jobs,
     named_config_path,
+    requires_mcgyvr_code,
 )
 from mcgyvr.config import load as load_config
 from mcgyvr.delegate_log import DelegateKind
@@ -182,6 +184,13 @@ def _direct_logged(args: argparse.Namespace, book: _Logbook) -> int:
         print(f"error: {exc}", file=sys.stderr)
         book.ended(DelegateKind.CONFIG_INVALID, str(exc), path=_str_or_none(named))
         return 1
+    raw = requires_mcgyvr_code(config) if config is not None else None
+    if raw is not None and config is not None:
+        print(f"error: {raw}", file=sys.stderr)
+        book.ended(DelegateKind.USE_CASE_RAW, raw, use_case=config.use_case)
+        return Exit.REFUSED
+    if getattr(args, "jobs", 1) is None:
+        args.jobs = default_jobs(config) if config is not None else 1
 
     into = Path(args.into) if args.into else None
     try:

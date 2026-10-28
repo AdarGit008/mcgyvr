@@ -110,7 +110,7 @@ BOARDS: tuple[Board, ...] = (
     ),
     Board(
         id="swe-bench-verified-bash-only",
-        ranks="coding",
+        ranks="code",
         metric="resolved",
         better="higher",
         url=(
@@ -121,7 +121,7 @@ BOARDS: tuple[Board, ...] = (
     ),
     Board(
         id="evalplus",
-        ranks="coding",
+        ranks="code",
         metric="humaneval+ pass@1",
         better="higher",
         url="https://evalplus.github.io/results.json",

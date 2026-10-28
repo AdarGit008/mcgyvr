@@ -1,11 +1,12 @@
 #!/usr/bin/env bash
 # shellcheck shell=bash
-# skills/mcgyvr/install.sh — put the /mcgyvr and /mcgyvr-direct skills where a
-# harness will find them.
+# skills/mcgyvr/install.sh — put the /mcgyvr, /mcgyvr-direct and /mcgyvr-use
+# skills where a harness will find them.
 #
-# Two skills, each a directory of `skills/`, this one's parent: `mcgyvr` (a prompt,
-# planned into contracts and run) and `mcgyvr-direct` (contracts someone wrote,
-# vetted and run). Two harnesses are in scope: the Claude CLI
+# Three skills, each a directory of `skills/`, this one's parent: `mcgyvr` (a
+# prompt, planned into contracts and run), `mcgyvr-direct` (contracts someone
+# wrote, vetted and run) and `mcgyvr-use` (switch the use case). Two harnesses
+# are in scope: the Claude CLI
 # (`~/.claude/skills/`) and pi (`~/.pi/agent/skills/`). Both read the Agent
 # Skills layout, so each gets every skill's SKILL.md, byte for byte, in a
 # directory named after the skill — and, beside a SKILL.md that has one, the
@@ -40,6 +41,7 @@ SKILLS_ROOT="$(cd -- "${HERE}/.." && pwd)"
 SKILLS=(
   "mcgyvr"
   "mcgyvr-direct"
+  "mcgyvr-use"
 )
 
 # The example contracts the CLI on PATH is asked to accept (probe_examples):
@@ -109,7 +111,7 @@ usage() {
   cat <<'USAGE'
 usage: install.sh [--force] [--uninstall] [--help]
 
-  (no args)    install /mcgyvr and /mcgyvr-direct for the Claude CLI and for pi
+  (no args)    install /mcgyvr, /mcgyvr-direct and /mcgyvr-use for Claude CLI and pi
   --force      overwrite an installed copy that was edited by hand
   --uninstall  remove them from both
 USAGE

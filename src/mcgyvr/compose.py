@@ -19,6 +19,7 @@ from collections.abc import Mapping, Sequence
 from dataclasses import dataclass
 from typing import TYPE_CHECKING, Any
 
+from mcgyvr.config import MCGYVR_CODE
 from mcgyvr.decision import Choice, ChoiceAnswer, Decision, classify
 from mcgyvr.detect import Backend, Detection
 from mcgyvr.local_pool import Endpoint, Protocol
@@ -86,7 +87,7 @@ def candidate_setups(
     proposal: Proposal,
     *,
     api_units: Sequence[ApiUnit] = (),
-    use_case: str = "coding",
+    use_case: str = MCGYVR_CODE,
     deployment: str | None = None,
 ) -> tuple[SetupCandidate, ...]:
     """Every setup these facts allow, in a fixed order.
@@ -178,7 +179,7 @@ def recommend(
     *,
     api_units: Sequence[ApiUnit] = (),
     timeout_s: float | None = None,
-    use_case: str = "coding",
+    use_case: str = MCGYVR_CODE,
     deployment: str | None = None,
 ) -> Recommendation:
     """Compose the setup for one priority: assemble the candidates, then ask

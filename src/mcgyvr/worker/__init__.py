@@ -2,7 +2,7 @@
 
 Three concerns, each in its own module:
 
-- `bundle` — the standing prompt bundle for a use case (or, for coding, for the
+- `bundle` — the standing prompt bundle for a use case (or, for mcgyvr-code, for the
   language that owns the target), loaded from the packaged prompt files with its
   sweep standing intact, and refused when it is over the measured byte ceiling.
 - `prompt` — `build_prompt` turns a contract into the system and user text for

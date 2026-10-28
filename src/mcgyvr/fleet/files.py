@@ -70,6 +70,8 @@ _POLICY_KEYS = frozenset(
         "fanout",
         "triage",
         "dependents",
+        "infer_dependencies",
+        "same_file",
         "attempts",
         "draws",
         "rider_slots",

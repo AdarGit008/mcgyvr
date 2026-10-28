@@ -137,14 +137,14 @@ def test_an_unregistered_language_raises_rather_than_substituting() -> None:
 
 
 def test_bundle_is_selected_by_the_adapter_that_owns_the_target() -> None:
-    assert bundle_for("coding", "src/pkg/fetch.py").key == "python"  # type: ignore[union-attr]
-    assert bundle_for("coding", "src/pkg/fetch.ts").key == "js/ts"  # type: ignore[union-attr]
+    assert bundle_for("mcgyvr-code", "src/pkg/fetch.py").key == "python"  # type: ignore[union-attr]
+    assert bundle_for("mcgyvr-code", "src/pkg/fetch.ts").key == "js/ts"  # type: ignore[union-attr]
 
 
 def test_a_coding_target_no_adapter_owns_gets_no_bundle() -> None:
     """None is a real answer: another language's standards are worse than none."""
-    assert bundle_for("coding", "README.md") is None
-    assert bundle_for("coding", "main.go") is None
+    assert bundle_for("mcgyvr-code", "README.md") is None
+    assert bundle_for("mcgyvr-code", "main.go") is None
 
 
 def test_a_custom_adapter_set_is_honoured() -> None:
@@ -152,7 +152,7 @@ def test_a_custom_adapter_set_is_honoured() -> None:
     from mcgyvr.gate.adapters import JavaScriptAdapter
 
     adapters: list[LanguageAdapter] = [JavaScriptAdapter()]
-    assert bundle_for("coding", "src/pkg/fetch.py", adapters) is None
+    assert bundle_for("mcgyvr-code", "src/pkg/fetch.py", adapters) is None
 
 
 def test_an_unknown_use_case_gets_no_bundle() -> None:

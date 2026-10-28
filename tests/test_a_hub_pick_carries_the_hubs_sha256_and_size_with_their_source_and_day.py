@@ -48,10 +48,10 @@ def test_each_record_carries_the_sha256_and_size_the_hub_lists(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     hr.install(monkeypatch)
-    searched = hub.search_url(hub.CODING)
+    searched = hub.search_url(hub.CODE)
     listed = _listed(searched)
 
-    answer = hub.candidates(hub.CODING, max_bytes=hr.ROOMIEST, today=hr.DAY)
+    answer = hub.candidates(hub.CODE, max_bytes=hr.ROOMIEST, today=hr.DAY)
 
     assert answer.records
     for one in answer.records:
@@ -115,7 +115,7 @@ def test_the_header_is_read_over_range_filed_and_not_read_again(
     transport = hr.install(monkeypatch)
     shipped = {one.key for one in geometry.shipped()}
 
-    answer = hub.candidates(hub.CODING, max_bytes=hr.ROOMIEST, today=hr.DAY)
+    answer = hub.candidates(hub.CODE, max_bytes=hr.ROOMIEST, today=hr.DAY)
 
     keys = [
         (one.weights.repo, one.weights.revision, one.weights.file)
@@ -134,7 +134,7 @@ def test_the_header_is_read_over_range_filed_and_not_read_again(
         assert rows[key].row["n_ctx_train"] == hr.CONTEXT
 
     transport.asked.clear()
-    again = hub.candidates(hub.CODING, max_bytes=hr.ROOMIEST, today=hr.DAY)
+    again = hub.candidates(hub.CODE, max_bytes=hr.ROOMIEST, today=hr.DAY)
 
     assert again.records == answer.records
     assert not [one for one in transport.asked if "/resolve/" in one.url]

@@ -75,7 +75,7 @@ def _staged(tmp_path: Path, *, sleeper: bool = True) -> Path:
     (setup / "policy.yaml").write_text(
         yaml.safe_dump(
             {
-                "use_case": "coding",
+                "use_case": "mcgyvr-code",
                 "ladder": list(units),
                 "journal": {"dir": str(tmp_path / "journal")},
             },

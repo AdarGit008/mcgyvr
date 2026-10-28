@@ -61,7 +61,7 @@ def _unsampled_live(tmp_path: Path) -> Path:
     (setup / "fleet.yaml").write_text(
         yaml.safe_dump({"units": units}), encoding="utf-8"
     )
-    policy = {"use_case": "coding", "ladder": ["local"]}
+    policy = {"use_case": "mcgyvr-code", "ladder": ["local"]}
     policy["journal"] = {"dir": str(tmp_path / "journal")}  # type: ignore[assignment]
     (setup / "policy.yaml").write_text(yaml.safe_dump(policy), encoding="utf-8")
     dev = tmp_path / "dev"

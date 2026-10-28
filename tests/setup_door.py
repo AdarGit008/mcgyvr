@@ -285,7 +285,8 @@ def interactive(
     """Substitute every step of the interactive setup that reads a machine,
     open the door onto ``rig``, and answer each confirm by the first key of
     ``answers`` its question holds, and each typed question by the first key
-    of ``typed`` it holds (Enter, the empty answer, when none does). The
+    of ``typed`` it holds (Enter, the empty answer, when none does; `m`,
+    mcgyvr-code, for the use case, which has no Enter default). The
     questions asked, in order."""
     from mcgyvr import cli, wake
     from mcgyvr.scan import Scan
@@ -304,8 +305,12 @@ def interactive(
 
     def ask(question: str, prompt: Any = None) -> str:
         asked.append(question)
+        # The use case has no Enter default; a test that types none picks
+        # mcgyvr-code, the gated one these setups were written for.
+        unanswered = "m" if question.startswith("Use case") else ""
         return next(
-            (said for key, said in (typed or {}).items() if key in question), ""
+            (said for key, said in (typed or {}).items() if key in question),
+            unanswered,
         )
 
     plan = {

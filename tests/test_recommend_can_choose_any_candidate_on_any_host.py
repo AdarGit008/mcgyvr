@@ -115,15 +115,13 @@ def _every_pick(
     *model_stores: str,
 ) -> tuple[tuple[str, ...], dict[str, tuple[Any, ...]]]:
     """Name each option in turn; return the options and where each landed."""
-    code, plan = run_and_parse(capsys, "coding", "single", *model_stores, hosts=hosts)
+    code, plan = run_and_parse(capsys, "code", "single", *model_stores, hosts=hosts)
     assert code == 0, plan
     options = picks.options[-1]
     placed = {options[0]: _where(plan["placement"])}
     for index in range(1, len(options)):
         picks.pick = index
-        code, plan = run_and_parse(
-            capsys, "coding", "single", *model_stores, hosts=hosts
-        )
+        code, plan = run_and_parse(capsys, "code", "single", *model_stores, hosts=hosts)
         assert code == 0, plan
         assert plan["decision"] == "model"
         assert picks.options[-1] == options
@@ -218,7 +216,7 @@ def test_a_store_named_twice_offers_each_checkpoint_once(
     _ssh(monkeypatch, HOST)
 
     code, plan = run_and_parse(
-        capsys, "coding", "single", STORE_DIR, STORE_DIR + "/", hosts=(HOST,)
+        capsys, "code", "single", STORE_DIR, STORE_DIR + "/", hosts=(HOST,)
     )
 
     assert code == 0, plan
@@ -234,7 +232,7 @@ def test_a_deterministic_placement_also_names_its_host(
     _probe(monkeypatch, live=False)
     _ssh(monkeypatch, *HOSTS)
 
-    code, plan = run_and_parse(capsys, "coding", "single", STORE_DIR, hosts=HOSTS)
+    code, plan = run_and_parse(capsys, "code", "single", STORE_DIR, hosts=HOSTS)
 
     assert code == 0, plan
     assert plan["decision"] == "deterministic"

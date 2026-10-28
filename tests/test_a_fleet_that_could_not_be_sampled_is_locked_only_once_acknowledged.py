@@ -64,7 +64,7 @@ def _setup(tmp_path: Path, units: dict[str, Any], **more: Any) -> Path:
     fleet = {"units": units, **more}
     (setup / "fleet.yaml").write_text(yaml.safe_dump(fleet), encoding="utf-8")
     policy = {
-        "use_case": "coding",
+        "use_case": "mcgyvr-code",
         "ladder": list(units),
         "journal": {"dir": str(tmp_path / "journal")},
     }

@@ -26,6 +26,8 @@ config_missing           1    the setup named (`--config`, the environment) is
                               not there
 config_no_orchestrator   3    no orchestrator role: a bare install, or a config
                               that binds none
+use_case_raw             3    the config's use case serves its model raw
+                              (`code`, `chat`, `agent`): nothing is proposed
 orchestrator_unrunnable  1    the role is declared but its unit cannot run
 orchestrator_unavailable 1    the role resolves to no unit to dispatch to
 orchestrator_dispatch_   1    the role's unit was asked and the dispatch failed
@@ -62,7 +64,8 @@ does not copy them.
 
 `detail` holds kind-specific facts the product already has as data, every key
 optional: `path` for `config_*`, and `bare_install` for
-`config_no_orchestrator`; `error_class` for `orchestrator_unrunnable`,
+`config_no_orchestrator`; `use_case` for `use_case_raw`; `error_class` for
+`orchestrator_unrunnable`,
 `orchestrator_dispatch_failed`, `source_unavailable` and `internal_error`;
 `repo` for `repo_*`; `unit`, `output_tokens`, `reasoning_tokens`,
 `max_output_tokens` and `cap_basis` for `reply_cut_off`; `decoder`, `line`,
@@ -103,6 +106,7 @@ class DelegateKind(StrEnum):
     CONFIG_INVALID = "config_invalid"
     CONFIG_MISSING = "config_missing"
     CONFIG_NO_ORCHESTRATOR = "config_no_orchestrator"
+    USE_CASE_RAW = "use_case_raw"
     ORCHESTRATOR_UNRUNNABLE = "orchestrator_unrunnable"
     ORCHESTRATOR_UNAVAILABLE = "orchestrator_unavailable"
     ORCHESTRATOR_DISPATCH_FAILED = "orchestrator_dispatch_failed"
@@ -130,6 +134,7 @@ KIND_EXIT: Mapping[DelegateKind, Exit] = {
     DelegateKind.CONFIG_INVALID: Exit.ERROR,
     DelegateKind.CONFIG_MISSING: Exit.ERROR,
     DelegateKind.CONFIG_NO_ORCHESTRATOR: Exit.REFUSED,
+    DelegateKind.USE_CASE_RAW: Exit.REFUSED,
     DelegateKind.ORCHESTRATOR_UNRUNNABLE: Exit.ERROR,
     DelegateKind.ORCHESTRATOR_UNAVAILABLE: Exit.ERROR,
     DelegateKind.ORCHESTRATOR_DISPATCH_FAILED: Exit.ERROR,

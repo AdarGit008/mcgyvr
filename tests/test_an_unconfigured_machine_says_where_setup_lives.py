@@ -119,6 +119,9 @@ def _install_copy(
         else _skill_md(name="mcgyvr-direct"),
         encoding="utf-8",
     )
+    use = skills / "mcgyvr-use"
+    use.mkdir()
+    (use / "SKILL.md").write_text(_skill_md(name="mcgyvr-use"), encoding="utf-8")
     return src
 
 

@@ -60,7 +60,7 @@ def test_every_shipped_record_names_use_cases_the_task_catalog_has() -> None:
         assert one.use_cases, f"{one.model_id} names no use case"
         assert set(one.use_cases) <= names & set(hub.USE_CASES)
     coders = {r.model_id: r.use_cases for r in ks.shipped() if r.model_id in CODERS}
-    assert coders == dict.fromkeys(CODERS, ("coding",))
+    assert coders == dict.fromkeys(CODERS, ("code",))
 
 
 @pytest.mark.parametrize("use_case", hub.USE_CASES)
@@ -71,7 +71,7 @@ def test_without_the_hub_a_use_case_gets_only_its_own_records(use_case: str) -> 
     assert all(use_case in one.use_cases for one in answer.records)
     tagged = [one for one in ks.shipped() if use_case in one.use_cases]
     assert list(answer.records) == tagged
-    if use_case == hub.CODING:
+    if use_case == hub.CODE:
         assert {one.model_id for one in answer.records} == CODERS
     else:
         assert not {one.model_id for one in answer.records} & CODERS
@@ -80,7 +80,7 @@ def test_without_the_hub_a_use_case_gets_only_its_own_records(use_case: str) -> 
 def test_the_hubs_rows_are_classified_by_name_template_and_pipeline() -> None:
     rows = _rows()
 
-    assert _uses(rows["unsloth/Qwen3-Coder-30B-A3B-Instruct-GGUF"]) == ("coding",)
+    assert _uses(rows["unsloth/Qwen3-Coder-30B-A3B-Instruct-GGUF"]) == ("code",)
     assert "tools" in (rows["unsloth/Qwen3.5-4B-GGUF"].chat_template or "")
     assert _uses(rows["unsloth/Qwen3.5-4B-GGUF"]) == ("chat", "agent")
     hy = rows["tencent/Hy-MT2-7B-GGUF"]
@@ -101,6 +101,19 @@ def test_a_tool_tag_makes_a_chat_model_an_agent_without_tools_in_its_template() 
 def test_a_cached_record_that_names_no_use_case_keeps_the_shipped_ones() -> None:
     shipped = ks.shipped()[0]
     ks.write(dataclasses.replace(shipped, use_cases=()))
+
+    (known,) = [k for k in ks.offline().known if k.record.key == shipped.key]
+
+    assert known.origin == ks.CACHE
+    assert known.record.use_cases == shipped.use_cases
+
+
+def test_a_cached_record_that_names_a_kind_since_renamed_keeps_the_shipped_ones() -> (
+    None
+):
+    """A cache read before `coding` became `code` still offers its coder."""
+    shipped = next(one for one in ks.shipped() if "code" in one.use_cases)
+    ks.write(dataclasses.replace(shipped, use_cases=("coding",)))
 
     (known,) = [k for k in ks.offline().known if k.record.key == shipped.key]
 

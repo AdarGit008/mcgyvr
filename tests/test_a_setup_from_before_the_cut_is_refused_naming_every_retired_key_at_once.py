@@ -75,6 +75,11 @@ def test_the_lines_named_are_the_keys_their_blocks_and_their_comments(
 def test_with_the_retired_lines_deleted_the_setup_loads(setup: Path) -> None:
     policy = setup / "policy.yaml"
     policy.write_text(without_retired_lines(policy.read_text()))
+    # A setup from before the cut also says `use_case: coding`, which is refused
+    # naming the one command that mends it.
+    with pytest.raises(ConfigSchemaError, match="mcgyvr use mcgyvr-code"):
+        load(setup)
+    assert cli.main(["use", "mcgyvr-code", "--config", str(setup)]) == 0
 
     config = load(setup)
 
@@ -114,6 +119,7 @@ def test_setup_at_a_terminal_deletes_the_lines_on_a_yes(
 
     (question,) = asked
     assert "policy.yaml" in question
+    assert cli.main(["use", "mcgyvr-code", "--config", str(setup)]) == 0
     load(setup)
 
 

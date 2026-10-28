@@ -90,7 +90,7 @@ MISSING_STORE_DIR = "/models/missing"
 SIZE_BYTES = 9_876_543_210
 
 ENGINES = ("llama.cpp", "vllm")
-PROFILES = ("coding", "chat", "agent", "other")
+PROFILES = ("code", "chat", "agent", "other")
 
 #: An invented HuggingFace catalog, the same shape ``load_catalog`` returns
 #: from ``data/model-catalog.json``. The test injects it through the seam.
@@ -525,7 +525,7 @@ def test_recommend_accepts_a_numeric_user_count(
     ssh()
     classify()
     probe()
-    code, plan = run_and_parse(capsys, "coding", "3", STORE_DIR)
+    code, plan = run_and_parse(capsys, "code", "3", STORE_DIR)
     assert code == 0
     assert plan["users"] == 3
 
@@ -553,7 +553,7 @@ def test_recommend_re_reads_the_rig_and_uses_measured_not_stored_numbers(
     (rigs / f"{HOST}.json").write_text(records.rig_file(stale, HOST), encoding="utf-8")
     monkeypatch.setenv(records.RIGS_ENV, str(rigs))
 
-    code, plan = run_and_parse(capsys, "coding", "single", STORE_DIR)
+    code, plan = run_and_parse(capsys, "code", "single", STORE_DIR)
     assert code == 0
     assert any(_is_scan_read(command) for _host, command in recorder.commands)
 
@@ -577,7 +577,7 @@ def test_recommend_prefers_the_local_store_over_the_catalog(
     probe()
     catalog()
 
-    code, plan = run_and_parse(capsys, "coding", "single", STORE_DIR)
+    code, plan = run_and_parse(capsys, "code", "single", STORE_DIR)
     assert code == 0
     rendered = _text(plan)
     assert plan["source"] == "local-store"
@@ -603,7 +603,7 @@ def test_recommend_placement_carries_the_measured_local_context_length(
     classify()
     probe(live=False)
 
-    code, plan = run_and_parse(capsys, "coding", "single", STORE_DIR)
+    code, plan = run_and_parse(capsys, "code", "single", STORE_DIR)
     assert code == 0
     assert plan["source"] == "local-store"
     assert plan["placement"]["context_length"] == 65536
@@ -622,7 +622,7 @@ def test_recommend_placement_carries_the_shipped_catalog_context_length(
     probe(live=False)
     catalog()
 
-    code, plan = run_and_parse(capsys, "coding", "single")
+    code, plan = run_and_parse(capsys, "code", "single")
     assert code == 0
     assert plan["source"] == "hf-catalog"
     assert plan["placement"]["context_length"] == 4096
@@ -646,7 +646,7 @@ def test_recommend_falls_back_to_the_catalog_when_no_store_is_given(
     probe(live=False)
     catalog()
 
-    code, plan = run_and_parse(capsys, "coding", "single")
+    code, plan = run_and_parse(capsys, "code", "single")
     assert code == 0
     assert plan["source"] == "hf-catalog"
     assert plan["decision"] == "deterministic"
@@ -670,7 +670,7 @@ def test_recommend_falls_back_to_the_catalog_when_nothing_local_fits(
     probe(live=False)
     catalog()
 
-    code, plan = run_and_parse(capsys, "coding", "single", STORE_DIR)
+    code, plan = run_and_parse(capsys, "code", "single", STORE_DIR)
     assert code == 0
     header_reads = [
         command for _host, command in recorder.commands if _is_header_read(command)
@@ -694,7 +694,7 @@ def test_coding_places_and_the_other_profiles_are_scaffolded(
     decisions = classify()
     probe()
 
-    code, plan = run_and_parse(capsys, "coding", "single", STORE_DIR)
+    code, plan = run_and_parse(capsys, "code", "single", STORE_DIR)
     assert code == 0
     rendered = _text(plan)
     assert CHECKPOINT in rendered
@@ -722,7 +722,7 @@ def test_recommend_reads_each_checkpoint_header_it_is_asked_about(
     classify()
     probe(live=False)
 
-    code, _ = run_and_parse(capsys, "coding", "single", STORE_DIR)
+    code, _ = run_and_parse(capsys, "code", "single", STORE_DIR)
     assert code == 0
     header_paths = [
         _header_path(command)
@@ -752,7 +752,7 @@ def test_recommend_reads_the_header_on_the_rig_over_the_read_only_ssh_seam(
     probe(live=False)
     monkeypatch.setattr(ggufscan_module, "scan", _refuses_in_process_header_read)
 
-    code, plan = run_and_parse(capsys, "coding", "single", STORE_DIR)
+    code, plan = run_and_parse(capsys, "code", "single", STORE_DIR)
     assert code == 0
     header_reads = [
         command for _host, command in recorder.commands if _is_header_read(command)
@@ -777,7 +777,7 @@ def test_recommend_with_no_backend_falls_back_deterministically(
     decisions = classify()
     probe(live=False)
 
-    code, plan = run_and_parse(capsys, "coding", "single", STORE_DIR)
+    code, plan = run_and_parse(capsys, "code", "single", STORE_DIR)
     assert code == 0
     assert plan["decision"] == "deterministic"
     assert decisions.calls == []
@@ -801,7 +801,7 @@ def test_recommend_deterministic_fallback_picks_the_largest_checkpoint_that_fits
     classify()
     probe(live=False)
 
-    code, plan = run_and_parse(capsys, "coding", "single", STORE_DIR)
+    code, plan = run_and_parse(capsys, "code", "single", STORE_DIR)
     assert code == 0
     assert plan["decision"] == "deterministic"
     assert plan["placement"]["checkpoint"] == CHECKPOINT
@@ -826,7 +826,7 @@ def test_recommend_deterministic_catalog_fallback_picks_the_largest_that_fits(
     probe(live=False)
     catalog()
 
-    code, plan = run_and_parse(capsys, "coding", "single")
+    code, plan = run_and_parse(capsys, "code", "single")
     assert code == 0
     assert plan["decision"] == "deterministic"
     assert plan["placement"]["model_id"] == "invented-org/invented-dense"
@@ -844,7 +844,7 @@ def test_recommend_with_a_reachable_backend_records_model_and_endpoint(
     decisions = classify()
     probe(live=True)
 
-    code, plan = run_and_parse(capsys, "coding", "single", STORE_DIR)
+    code, plan = run_and_parse(capsys, "code", "single", STORE_DIR)
     assert code == 0
     assert plan["decision"] == "model"
     assert plan["decision_endpoint"] == "http://127.0.0.1:8080"
@@ -864,7 +864,7 @@ def test_recommend_ships_the_scan_and_does_not_require_mcgyvr(
     classify()
     probe()
 
-    code, plan = run_and_parse(capsys, "coding", "single", STORE_DIR)
+    code, plan = run_and_parse(capsys, "code", "single", STORE_DIR)
     assert code == 0
     scan_commands = [
         command for _host, command in recorder.commands if _is_scan_read(command)
@@ -923,7 +923,7 @@ def test_recommend_plan_distinguishes_the_three_scan_failure_modes(
 
     code, plan = run_and_parse(
         capsys,
-        "coding",
+        "code",
         "single",
         hosts=("ok-rig", "down-rig", "python-only-rig", "bad-scan-rig"),
     )
@@ -956,8 +956,8 @@ def test_users_budget_the_placement_and_change_the_flags(
     probe(live=False)
     catalog()
 
-    single_code, single_plan = run_and_parse(capsys, "coding", "single", STORE_DIR)
-    four_code, four_plan = run_and_parse(capsys, "coding", "4", STORE_DIR)
+    single_code, single_plan = run_and_parse(capsys, "code", "single", STORE_DIR)
+    four_code, four_plan = run_and_parse(capsys, "code", "4", STORE_DIR)
 
     assert single_code == 0
     assert four_code == 0
@@ -987,7 +987,7 @@ def test_recommend_treats_a_missing_store_dir_as_empty_not_a_failure(
     classify()
     probe(live=False)
 
-    code, plan = run_and_parse(capsys, "coding", "single", MISSING_STORE_DIR, STORE_DIR)
+    code, plan = run_and_parse(capsys, "code", "single", MISSING_STORE_DIR, STORE_DIR)
     assert code == 0
     assert plan["source"] == "local-store"
     assert plan["placement"]["checkpoint"] == CHECKPOINT
@@ -1016,7 +1016,7 @@ def test_recommend_catalog_budgets_kv_on_top_of_size(
         recommend_module, "load_catalog", lambda *a, **k: KV_HEAVY_CATALOG
     )
 
-    code, plan = run_and_parse(capsys, "coding", "single")
+    code, plan = run_and_parse(capsys, "code", "single")
     assert code == 0
     assert plan["source"] == "hf-catalog"
     assert plan["placement"]["model_id"] == "invented-org/small"
@@ -1046,7 +1046,7 @@ def test_recommend_rejects_an_moe_whose_expert_spill_exceeds_host_ram(
     probe(live=False)
     catalog()
 
-    code, plan = run_and_parse(capsys, "coding", "single", STORE_DIR)
+    code, plan = run_and_parse(capsys, "code", "single", STORE_DIR)
     assert code == 0
     assert plan["source"] == "hf-catalog"
     assert plan["placement"]["model_id"] == "invented-org/invented-dense"

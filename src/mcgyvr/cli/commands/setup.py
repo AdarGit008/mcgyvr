@@ -30,7 +30,10 @@ from mcgyvr.config import (
     API_OUTPUT_TOKENS,
     CONFIG_PATH_ENV,
     FLEET_FILENAME,
+    MCGYVR_CODE,
     POLICY_FILENAME,
+    RAW_USE_CASES,
+    RETIRED_USE_CASES,
     USE_CASES,
     ConfigError,
     named_config_path,
@@ -303,19 +306,33 @@ def _ask(question: str, prompt: Callable[[str], str] = input) -> str:
 _SETUP_TRIES = 3
 
 
-def _setup_choose(question: str, choices: Sequence[str], what: str) -> str:
+def _setup_choose(
+    question: str,
+    choices: Sequence[str],
+    what: str,
+    *,
+    default: bool = True,
+    names: Sequence[str] = (),
+) -> str:
     """Ask for one of `choices`, taking the first as the default on an empty answer.
 
-    An answer outside the choices is reported and asked for again, up to
-    `_SETUP_TRIES` times, after which the step fails naming what it offers.
+    With `default` off an empty answer is no answer: it is reported and asked
+    again like any other. A word of `names` is taken as the choice at its
+    position. An answer outside the choices is reported and asked for again, up
+    to `_SETUP_TRIES` times, after which the step fails naming what it offers.
     """
     said = ""
     for _ in range(_SETUP_TRIES):
         said = _ask(question)
-        if not said:
+        if not said and default:
             return choices[0]
         if said in choices:
             return said
+        if said in names:
+            return choices[list(names).index(said)]
+        if not said:
+            print(f"There is no default here: pick one of {', '.join(choices)}.")
+            continue
         print(f"{said!r} is not {what}: pick {_spoken_or(choices)}.")
     raise _SetupInteractiveError(
         f"{said!r} is not {what}; setup offers {_spoken_or(choices)}"
@@ -384,37 +401,44 @@ def _report_limits(limits: Sequence[str]) -> bool:
 
 
 def _setup_use_cases() -> tuple[str, ...]:
-    """Answer the use-case names on offer, coding first because it is the default.
+    """Answer the use-case names on offer, in the config's order: mcgyvr-code,
+    then the raw ones.
 
     Only the catalog's use cases a config accepts are offered. The catalog is
     read here rather than imported at module load, so the setup command does not
     pull it in for runs that never ask.
     """
     from mcgyvr.catalog import catalog
-    from mcgyvr.fleet.sample import CODING_USE_CASE
 
-    names = tuple(u.name for u in catalog().use_cases if u.name in USE_CASES)
-    return (CODING_USE_CASE, *(n for n in names if n != CODING_USE_CASE))
+    declared = {u.name for u in catalog().use_cases}
+    return tuple(name for name in USE_CASES if name in declared)
 
 
-_USE_CASE_LETTERS = ("d", "c", "a")
+#: The letter each offered use case is picked by, in `USE_CASES` order.
+_USE_CASE_LETTERS = ("m", "k", "c", "a")
 
 
 def _ask_setup_use_case() -> str:
-    """Ask for a use case by single letter and answer the name that letter stands for.
+    """Ask for a use case by single letter (or its name) and answer the name.
 
-    The letters run over the offered names in order, the first marked as the
-    default, so the default is an empty answer.
+    There is no default: an empty answer is asked again, because choosing
+    `mcgyvr-code` -- mcgyvr between the model and you -- is the act of opting
+    in, and the raw use cases are the other choice, not a fallback.
     """
     names = _setup_use_cases()
     letters = _USE_CASE_LETTERS[: len(names)]
     by_letter = dict(zip(letters, names, strict=False))
     options = ", ".join(
-        f"[{letter}] {name}" + (" (default)" if index == 0 else "")
-        for index, (letter, name) in enumerate(zip(letters, names, strict=False))
+        f"[{letter}] {name}" for letter, name in zip(letters, names, strict=False)
     )
     return by_letter[
-        _setup_choose(f"Use case — {options}: ", letters, "a use-case letter")
+        _setup_choose(
+            f"Use case — {options}: ",
+            letters,
+            "a use-case letter",
+            default=False,
+            names=names,
+        )
     ]
 
 
@@ -544,12 +568,12 @@ def _setup_placements(
     nothing, or one that carries no placement to serve, fails the step naming
     the rig.
     """
-    if use_case not in recommend_module.PLACEMENT_PROFILES:
+    profile = recommend_module.PROFILE_OF_USE_CASE.get(use_case)
+    if profile not in recommend_module.PLACEMENT_PROFILES:
         raise _SetupInteractiveError(
-            f"recommend places {', '.join(recommend_module.PLACEMENT_PROFILES)}, "
+            f"recommend places {', '.join(recommend_module.PROFILE_OF_USE_CASE)}, "
             f"not {use_case!r}"
         )
-    profile = use_case
     plans: dict[str, Mapping[str, Any]] = {}
     for rig in dict.fromkeys(rigs):
         try:
@@ -878,7 +902,9 @@ def _setup_interactive(path: Path, run_id: str = "") -> int:
         print(f"Serving on: {', '.join(rigs)}")
         _rule("Step 2 of 4 — what it serves")
         use_case = _ask_setup_use_case()
-        wants_jev = _confirm(JEV_QUESTION)
+        # Jev answers typed decisions inside mcgyvr's stages; a raw use case has
+        # none in its path, so it is not asked.
+        wants_jev = use_case == MCGYVR_CODE and _confirm(JEV_QUESTION)
         _rule("Step 3 of 4 — read and plan")
         scans, readings = _setup_scan_rigs(rigs)
         _ask_rig_addresses(rigs)
@@ -1174,6 +1200,14 @@ def _setup(args: argparse.Namespace) -> int:
     if refused is not None:
         print(f"error: --use-case `{args.use_case}` {refused}", file=sys.stderr)
         return 1
+    if args.jev is not None and args.use_case in RAW_USE_CASES:
+        print(
+            f"error: --jev dedicates a unit to the typed decisions inside "
+            f"mcgyvr-code's stages; use case `{args.use_case}` serves its model raw "
+            f"and asks none.",
+            file=sys.stderr,
+        )
+        return 1
     # The flag path binds what already answers: it parses each --api spec before
     # anything is written, so a malformed spec is reported first, and it hands
     # the hosts, the mapped priority and the named use case to initialize.
@@ -1190,7 +1224,7 @@ def _setup(args: argparse.Namespace) -> int:
             hosts=tuple(args.host or ()),
             api_units=api_units,
             priority=priority,
-            use_case=args.use_case or "coding",
+            use_case=args.use_case or MCGYVR_CODE,
             deployment=args.deployment,
             jev=args.jev,
             compose_dir=path,
@@ -1257,6 +1291,9 @@ def _use_case_refused(name: str | None) -> str | None:
     offered = _setup_use_cases()
     if name is None or name in offered:
         return None
+    retired = RETIRED_USE_CASES.get(name)
+    if retired is not None:
+        return f"is refused: {retired}."
     return f"is not a use case; setup offers {_spoken_or(offered)}."
 
 
@@ -1515,9 +1552,10 @@ def add_parser(sub: argparse._SubParsersAction[argparse.ArgumentParser]) -> None
         default=None,
         metavar="USE_CASE",
         help=(
-            "which use case this install serves: coding (the deterministic "
-            "gate), chat (raw endpoint) or agent (un-gated, from its sources); "
-            "default: coding"
+            "which use case this install serves: mcgyvr-code (mcgyvr between "
+            "the model and you: the gate, repair, reviewer, ladder and the "
+            "rest, each switchable), or code, chat or agent (the model served "
+            "raw); default: mcgyvr-code"
         ),
     )
     setup.add_argument(
@@ -1528,7 +1566,7 @@ def add_parser(sub: argparse._SubParsersAction[argparse.ArgumentParser]) -> None
         help=(
             "how mcgyvr is run: hybrid (an API-tier orchestrator drives it) or "
             "local-only (mcgyvr is the backend and provisions a local "
-            "orchestrator for a non-chat use case); default: hybrid"
+            "orchestrator for mcgyvr-code); default: hybrid"
         ),
     )
     setup.add_argument(
