@@ -4,8 +4,9 @@ The hub's JSON Schema is the one definition of the wire. The agent's own
 limits (version, frame size, frame rate, close codes, card count and bounds,
 the id and tag shapes) are the schema's, every frame the agent writes is valid
 against it, every hub frame it allows is read, and a hub frame it refuses is
-refused by the agent too, without reading on. The pinned copy is the one its
-digest names, and, with a hub checkout named, is that hub's file.
+refused by the agent too, without reading on. The product ships the schema
+(:mod:`mcgyvr.hubwire`), and, with a hub checkout named, it is that hub's file
+byte for byte.
 """
 
 from __future__ import annotations
@@ -29,32 +30,24 @@ def _defs(schema: dict[str, Any], name: str) -> dict[str, Any]:
     return node
 
 
-_PINS = pytest.mark.parametrize(
-    "pinned", rig_schema.PINS, ids=[p.hub_name for p in rig_schema.PINS]
+_SCHEMAS = pytest.mark.parametrize(
+    "published", rig_schema.SCHEMAS, ids=[p.hub_name for p in rig_schema.SCHEMAS]
 )
 
 
-@_PINS
-def test_the_pinned_copy_is_the_one_its_digest_names(
-    pinned: rig_schema.Pinned,
+@_SCHEMAS
+def test_the_shipped_schema_is_a_named_hubs_file(
+    published: rig_schema.Published,
 ) -> None:
-    data = pinned.fixture.read_bytes()
-    assert rig_schema.sha256(data) == pinned.pinned_sha256
-
-
-@_PINS
-def test_the_pinned_copy_is_a_named_hubs_file_pinned(
-    pinned: rig_schema.Pinned,
-) -> None:
-    named = rig_schema.hub_file(pinned)
+    named = rig_schema.hub_file(published)
     if named is None:
-        pytest.skip(f"neither ${pinned.env} nor ${rig_schema.HUB_REPO_ENV} names a hub")
-    hub_file = named.read_bytes()
-    assert rig_schema.sha256(hub_file) == pinned.hub_sha256, (
-        f"the hub's {pinned.hub_name} moved: re-pin with "
-        "`python -m tests.rig_schema` and bring the agent's limits to it"
+        pytest.skip(
+            f"neither ${published.env} nor ${rig_schema.HUB_REPO_ENV} names a hub"
+        )
+    assert named.read_bytes() == published.shipped(), (
+        f"the hub's {published.hub_name} is not the one the product ships: the "
+        "product defines the wire (mcgyvr.hubwire), and the hub renders it"
     )
-    assert rig_schema.pin(hub_file) == pinned.fixture.read_bytes()
 
 
 def test_a_hub_is_named_by_its_files_own_variable_else_by_its_checkout(
@@ -71,72 +64,6 @@ def test_a_hub_is_named_by_its_files_own_variable_else_by_its_checkout(
     )
 
 
-def test_a_re_pin_rewrites_every_copy_and_its_digests(
-    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
-) -> None:
-    # The re-pinned copy is what ``load`` must read here. A hub that runs this
-    # test while naming a candidate schema directory would send ``load`` there
-    # instead, and the test would fail on the candidate, not the copy it just
-    # re-pinned.
-    monkeypatch.delenv(rig_schema.UNDER_TEST_ENV, raising=False)
-
-    import shutil
-
-    work = tmp_path / "tests"
-    (work / "fixtures").mkdir(parents=True)
-    for pinned in rig_schema.PINS:
-        shutil.copy(pinned.fixture, work / "fixtures" / pinned.fixture.name)
-    here = work / "rig_schema.py"
-    shutil.copy(rig_schema.__file__, here)
-    hub = tmp_path / "hub" / "schemas"
-    hub.mkdir(parents=True)
-    for pinned in rig_schema.PINS:
-        moved = json.loads(pinned.fixture.read_bytes())
-        moved["$id"] = "https://hub.invalid/" + pinned.hub_name
-        moved["x-moved"] = True
-        (hub / pinned.hub_name).write_text(json.dumps(moved), encoding="utf-8")
-    import importlib.util
-    import sys
-
-    # The rewritten file is as long as before, maybe in the same second: a
-    # cached compile of it would be taken for it.
-    monkeypatch.setattr(sys, "dont_write_bytecode", True)
-    spec = importlib.util.spec_from_file_location("moved_rig_schema", here)
-    assert spec is not None and spec.loader is not None
-    moved_module = importlib.util.module_from_spec(spec)
-    monkeypatch.setitem(sys.modules, spec.name, moved_module)
-    spec.loader.exec_module(moved_module)
-
-    assert moved_module.main([str(tmp_path / "hub")]) == 0
-
-    spec.loader.exec_module(moved_module)
-    for pinned in moved_module.PINS:
-        hub_bytes = (hub / pinned.hub_name).read_bytes()
-        assert pinned.hub_sha256 == rig_schema.sha256(hub_bytes)
-        assert pinned.fixture.read_bytes() == rig_schema.pin(hub_bytes)
-        assert moved_module.load(pinned)["x-moved"] is True
-
-
-def test_a_re_pin_runs_when_the_hub_names_a_candidate_directory(
-    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
-) -> None:
-    """The re-pin test clears the candidate directory before it re-imports
-    ``rig_schema``. A candidate without ``x-moved`` would fail the re-pin's
-    final assertion if ``load`` read it, so naming one proves the fix."""
-    scratch = tmp_path / "candidate"
-    scratch.mkdir()
-    for pinned in rig_schema.PINS:
-        candidate = json.loads(pinned.fixture.read_bytes())
-        candidate["x-candidate"] = True
-        (scratch / pinned.hub_name).write_text(
-            json.dumps(candidate, indent=2, sort_keys=True) + "\n",
-            encoding="utf-8",
-        )
-    monkeypatch.setenv(rig_schema.UNDER_TEST_ENV, str(scratch))
-
-    test_a_re_pin_rewrites_every_copy_and_its_digests(tmp_path, monkeypatch)
-
-
 def test_every_feature_the_agent_speaks_is_one_the_hub_publishes(
     schema: dict[str, Any],
 ) -> None:
@@ -147,38 +74,6 @@ def test_every_feature_the_agent_speaks_is_one_the_hub_publishes(
 
     assert len(set(session.FEATURES)) == len(session.FEATURES)
     assert set(session.FEATURES) <= set(schema["x-features"])
-
-
-def test_a_re_pin_that_cannot_read_every_file_writes_nothing(
-    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
-) -> None:
-    import shutil
-
-    work = tmp_path / "tests"
-    (work / "fixtures").mkdir(parents=True)
-    for pinned in rig_schema.PINS:
-        shutil.copy(pinned.fixture, work / "fixtures" / pinned.fixture.name)
-    here = work / "rig_schema.py"
-    shutil.copy(rig_schema.__file__, here)
-    hub = tmp_path / "hub" / "schemas"
-    hub.mkdir(parents=True)
-    moved = json.loads(rig_schema.PROTOCOL.fixture.read_bytes())
-    moved["x-moved"] = True
-    (hub / rig_schema.PROTOCOL.hub_name).write_text(json.dumps(moved))
-    before = {path: path.read_bytes() for path in [here, *work.glob("fixtures/*")]}
-    import importlib.util
-    import sys
-
-    spec = importlib.util.spec_from_file_location("half_rig_schema", here)
-    assert spec is not None and spec.loader is not None
-    module = importlib.util.module_from_spec(spec)
-    monkeypatch.setitem(sys.modules, spec.name, module)
-    spec.loader.exec_module(module)
-
-    with pytest.raises(OSError):
-        module.main([str(tmp_path / "hub")])
-
-    assert {path: path.read_bytes() for path in before} == before
 
 
 def test_the_agents_limits_are_the_schemas(schema: dict[str, Any]) -> None:

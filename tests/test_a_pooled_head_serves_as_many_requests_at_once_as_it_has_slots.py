@@ -1,7 +1,7 @@
 """A pooled head serves as many requests at once as the hub gives it slots.
 
 ``head_start`` may carry ``slots``: how many requests the session's head
-serves at once, a whole number of 1 to :data:`~mcgyvr.rig.sessionwire.MAX_SLOTS`,
+serves at once, a whole number of 1 to :data:`~mcgyvr.hubwire.MAX_SLOTS`,
 1 when it is left out. ``ctx`` stays the context of *one* slot, so the head
 is launched with ``-np <slots>`` and ``-c <slots * ctx>``, and each slot
 gets its own share of the cache: never ``-kvu`` (a cache shared by every
@@ -30,6 +30,7 @@ from typing import Any
 
 import pytest
 
+from mcgyvr.hubwire import MAX_SLOTS
 from tests import rig_pool_fakes as fakes
 from tests import rig_schema
 from tests.rig_pool_fakes import Pool, make_pool, prepared
@@ -119,11 +120,10 @@ def test_slots_is_one_when_the_hub_leaves_it_out(pool: Pool) -> None:
     assert pool.sessions.head_slots("s1") == 1
 
 
-@pytest.mark.parametrize("slots", [1, 2, 16])
+@pytest.mark.parametrize("slots", [1, 2, MAX_SLOTS])
 def test_slots_of_one_to_the_most_are_read(slots: int) -> None:
     from mcgyvr.rig import protocol, sessionwire
 
-    assert sessionwire.MAX_SLOTS == 16
     envelope = protocol.decode(
         fakes.frame(
             "head_start",

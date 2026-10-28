@@ -49,27 +49,15 @@ def test_the_agents_hitchhike_bounds_are_the_schemas(schema: dict[str, Any]) -> 
     from mcgyvr.rig import protocol as p
     from mcgyvr.rig import sessionwire as w
 
-    assert schema["x-max-units"] == w.MAX_UNITS
-    assert schema["x-unit-advert-interval-s"] == w.UNIT_ADVERT_INTERVAL_S
-    assert schema["x-unit-advert-stale-s"] == w.UNIT_ADVERT_STALE_S
+    # The unit-advert limits, the model name and the ride cap are the wire's
+    # (mcgyvr.hubwire), held to the schema in
+    # tests/test_the_hub_wire_is_defined_once_in_the_product.py.
     assert w.SessionCode.UNKNOWN_UNIT == "unknown_unit"
     assert w.SessionCode.UNKNOWN_UNIT in schema["x-error-codes"]
 
-    advert = _props(schema, "UnitAdvertBody")
-    assert advert["units"]["maxItems"] == w.MAX_UNITS
     unit = _props(schema, "AdvertisedUnit")
     assert unit["unit_id"]["pattern"] == f"^{p.MESSAGE_ID.pattern}$"
-    assert unit["model"]["pattern"] == f"^{p.MODEL_NAME.pattern}$"
-    assert (unit["slots"]["minimum"], unit["slots"]["maximum"]) == (1, w.MAX_SLOTS)
     assert (unit["ctx"]["minimum"], unit["ctx"]["maximum"]) == (w.MIN_CTX, w.MAX_CTX)
-    assert (unit["free_slots"]["minimum"], unit["free_slots"]["maximum"]) == (
-        0,
-        w.MAX_SLOTS,
-    )
-    assert (unit["rider_cap"]["minimum"], unit["rider_cap"]["maximum"]) == (
-        1,
-        w.MAX_SLOTS - 1,
-    )
 
     ride = _props(schema, "UnitRelayRequestBody")
     head = _props(schema, "RelayRequestBody")
