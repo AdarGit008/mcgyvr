@@ -23,7 +23,7 @@ import json
 import re
 import shlex
 from collections.abc import Callable, Collection, Mapping, Sequence
-from dataclasses import dataclass, field, replace
+from dataclasses import dataclass, field, fields, replace
 from typing import TYPE_CHECKING, Any
 
 from mcgyvr import contract as contract_module
@@ -157,6 +157,13 @@ class Evidence:
     Set when a batch hands back a contract whose ladder is spent
     (`mcgyvr.replan`): the request is that contract's own work, and the prose
     proposer shows the records as evidence. None for a first plan."""
+    refused: tuple[Refused, ...] = ()
+    """The proposals vetting refused, handed back to be proposed again (F16).
+
+    Set when `decompose` re-proposes: each is a proposal with the refusal that
+    says what to change, and the proposer answers with work in its place —
+    prose shows them as data (`mcgyvr.repropose.render`), the classifier
+    re-asks the refused field (`iterate.reproposals`). Empty for a first plan."""
 
 
 @dataclass(frozen=True)
@@ -179,6 +186,36 @@ class Refusal:
 
     def __str__(self) -> str:
         return f"{self.subject}: {self.reason}"
+
+
+@dataclass(frozen=True)
+class Refused:
+    """A proposal vetting refused, and the refusal that says what to change."""
+
+    proposal: Proposal
+    refusal: Refusal
+
+
+#: The refusal fields a proposer can act on: the fields of a proposal. A
+#: refusal of the request as a whole (`request`) or a catch-all (`""`) is not
+#: handed back.
+REPROPOSABLE: frozenset[str] = frozenset(f.name for f in fields(Proposal))
+
+
+@dataclass(frozen=True)
+class Reproposal:
+    """What re-proposing came to in one decomposition, as counts.
+
+    `refused` is how many proposals vetting refused first, `reproposed` how
+    many refusals were handed back over every round, `recovered` the contracts
+    that came of what the proposer answered, `still_refused` the vetting
+    refusals reported in the end.
+    """
+
+    refused: int = 0
+    reproposed: int = 0
+    recovered: int = 0
+    still_refused: int = 0
 
 
 Proposer = Callable[[Evidence], Sequence[Proposal | Refusal]]
@@ -210,6 +247,8 @@ class Decomposition:
 
     resolution: Resolution | None = None
     exploration: Exploration | None = None
+    reproposal: Reproposal | None = None
+    """What re-proposing refusals came to; None when it was off."""
 
     @property
     def empty(self) -> bool:
@@ -234,6 +273,7 @@ def decompose(
     max_input_tokens: int = _DEFAULT_MAX_INPUT_TOKENS,
     located: Mapping[str, Sequence[str]] | None = None,
     spent: Spent | None = None,
+    max_reproposals: int = 0,
 ) -> Decomposition:
     """Turn a prompt into contracts, or into refusals that say why not.
 
@@ -258,6 +298,10 @@ def decompose(
     keyed by adapter name, so a `type_check` acceptance can be derived without
     probing the disk again. `spent` is the contract this call re-plans, with the
     failure notes its climb left, carried on the evidence for the proposer.
+
+    `max_reproposals` above 0 hands what vetting refused back to `propose`
+    (`_repropose`), at most that many rounds; 0, the default, does not, and the
+    decomposition is what it was before re-proposing existed.
     """
     evidence = _evidence(
         index,
@@ -299,42 +343,111 @@ def decompose(
             exploration=evidence.exploration,
         )
 
-    proposals, implied = _wait_on_providers(index, proposals)
-    ordered, fan_out_refusals = _fan_out(proposals, implied=implied)
-
-    contracts: list[Contract] = []
-    documents: list[str] = []
-    refusals: list[Refusal] = [*refused, *fan_out_refusals]
-    seen: dict[str, str] = {}
-    emitted_by_id: dict[str, Contract] = {}
-    for proposal, depends_on_ids in ordered:
-        emitted = emit_one(
-            evidence,
-            proposal,
-            seen=seen,
-            adapters=owners,
-            ceiling=max_input_tokens,
-            located=located,
-            depends_on_ids=depends_on_ids,
-            providers=tuple(
-                emitted_by_id[i] for i in depends_on_ids if i in emitted_by_id
-            ),
-        )
-        if isinstance(emitted, Refusal):
-            refusals.append(emitted)
-            continue
-        built, document = emitted
-        seen[built.id] = proposal.target
-        emitted_by_id[built.id] = built
-        contracts.append(built)
-        documents.append(document)
+    vetting = _Vetting(evidence, owners, max_input_tokens, located)
+    vetted = vetting.vet(proposals)
+    reproposal: Reproposal | None = None
+    if max_reproposals > 0:
+        vetted, reproposal = _repropose(propose, vetting, vetted, max_reproposals)
 
     return Decomposition(
-        contracts=tuple(contracts),
-        refusals=tuple(refusals),
-        documents=tuple(documents),
+        contracts=tuple(vetting.contracts),
+        refusals=(*refused, *(r.refusal for r in vetted)),
+        documents=tuple(vetting.documents),
         resolution=evidence.resolution,
         exploration=evidence.exploration,
+        reproposal=reproposal,
+    )
+
+
+@dataclass
+class _Vetting:
+    """One decomposition's vetting: what it emitted so far, and the ids it holds.
+
+    `vet` checks a proposer's answer — wait on providers, fan out, `emit_one`
+    each — appending what it emits to `contracts` and `documents` and
+    returning what it refused, each with its proposal, in the order the
+    refusals arose: the fan-out's first, then emission's.
+    """
+
+    evidence: Evidence
+    owners: Sequence[LanguageAdapter]
+    ceiling: int
+    located: Mapping[str, Sequence[str]] | None
+    contracts: list[Contract] = field(default_factory=list)
+    documents: list[str] = field(default_factory=list)
+    seen: dict[str, str] = field(default_factory=dict)
+    emitted: dict[str, Contract] = field(default_factory=dict)
+
+    def vet(self, proposals: tuple[Proposal, ...]) -> list[Refused]:
+        linked, implied = _wait_on_providers(self.evidence.index, proposals)
+        ordered, fan_out_refused = _fanned_out(linked, implied=implied)
+        refused = [Refused(linked[at], r) for at, r in fan_out_refused]
+        for proposal, depends_on_ids in ordered:
+            emitted = emit_one(
+                self.evidence,
+                proposal,
+                seen=self.seen,
+                adapters=self.owners,
+                ceiling=self.ceiling,
+                located=self.located,
+                depends_on_ids=depends_on_ids,
+                providers=tuple(
+                    self.emitted[i] for i in depends_on_ids if i in self.emitted
+                ),
+            )
+            if isinstance(emitted, Refusal):
+                refused.append(Refused(proposal, emitted))
+                continue
+            built, document = emitted
+            self.seen[built.id] = proposal.target
+            self.emitted[built.id] = built
+            self.contracts.append(built)
+            self.documents.append(document)
+        return refused
+
+
+def _repropose(
+    propose: Proposer, vetting: _Vetting, refused: list[Refused], rounds: int
+) -> tuple[list[Refused], Reproposal]:
+    """Hand each refusal a proposer can act on back to it, at most `rounds` times.
+
+    One refused proposal goes back per call, on the evidence's `refused`, so
+    what comes back stands in for that one. Its proposals are vetted as a
+    first answer is; one whose id is a contract already emitted is the same
+    work and is dropped. What it emits recovers the refusal, and what it
+    refuses is reported in the refusal's place and is the next round's to hand
+    back; an answer with nothing new leaves the refusal as it was. Refusals of
+    the request or catch-alls (`REPROPOSABLE`) never go back.
+    """
+    reported = list(refused)
+    sending = [r for r in refused if r.refusal.field in REPROPOSABLE]
+    handed = recovered = 0
+    for _ in range(rounds):
+        if not sending:
+            break
+        following: list[Refused] = []
+        for item in sending:
+            handed += 1
+            answer = propose(replace(vetting.evidence, refused=(item,)))
+            fresh = tuple(
+                a
+                for a in answer
+                if isinstance(a, Proposal) and _identify(a) not in vetting.seen
+            )
+            if not fresh:
+                continue
+            before = len(vetting.contracts)
+            again = vetting.vet(fresh)
+            recovered += len(vetting.contracts) - before
+            at = next(i for i, r in enumerate(reported) if r is item)
+            reported[at : at + 1] = again
+            following.extend(r for r in again if r.refusal.field in REPROPOSABLE)
+        sending = following
+    return reported, Reproposal(
+        refused=len(refused),
+        reproposed=handed,
+        recovered=recovered,
+        still_refused=len(reported),
     )
 
 
@@ -858,6 +971,18 @@ def _fan_out(
     *,
     implied: Collection[int] = frozenset(),
 ) -> tuple[tuple[tuple[Proposal, tuple[str, ...]], ...], tuple[Refusal, ...]]:
+    """`_fanned_out`, with each refusal alone rather than beside its index."""
+    ordered, refused = _fanned_out(proposals, implied=implied)
+    return ordered, tuple(refusal for _, refusal in refused)
+
+
+def _fanned_out(
+    proposals: tuple[Proposal, ...],
+    *,
+    implied: Collection[int] = frozenset(),
+) -> tuple[
+    tuple[tuple[Proposal, tuple[str, ...]], ...], tuple[tuple[int, Refusal], ...]
+]:
     """Resolve `depends_on` indexes into ids, and order proposals topologically.
 
     Every proposal's id is computed once, then each proposal's `depends_on`
@@ -976,13 +1101,12 @@ def _fan_out(
                 what_to_change="break the cycle in depends_on",
             )
 
-    refusals = tuple(refusals_by_index[index] for index in sorted(refusals_by_index))
     return (
         tuple(
             (proposals[index], tuple(ids[j] for j in predecessors[index]))
             for index in order
         ),
-        refusals,
+        tuple((index, refusals_by_index[index]) for index in sorted(refusals_by_index)),
     )
 
 

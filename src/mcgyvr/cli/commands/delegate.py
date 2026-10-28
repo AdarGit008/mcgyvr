@@ -61,6 +61,13 @@ class _Logbook:
 
     def __init__(self, path: str | None) -> None:
         self.path = Path(path) if path else None
+        #: Where the classifier's typed decisions are recorded under `--log`:
+        #: beside the record, `<PATH>.decisions.jsonl`.
+        self.decisions = (
+            self.path.with_name(f"{self.path.name}.decisions.jsonl")
+            if self.path is not None
+            else None
+        )
         self.kind = DelegateKind.INTERNAL_ERROR
         self.message = ""
         self.detail: dict[str, Any] = {}
@@ -93,17 +100,32 @@ class _Logbook:
             LoggedRefusal(r.subject, r.reason, r.field, r.what_to_change)
             for r in dec.refusals
         )
+        counts = (
+            {
+                "refused": dec.reproposal.refused,
+                "reproposed": dec.reproposal.reproposed,
+                "recovered": dec.reproposal.recovered,
+                "still_refused": dec.reproposal.still_refused,
+            }
+            if dec.reproposal is not None
+            else {}
+        )
         if not dec.contracts:
-            self.ended(DelegateKind.NONE_EMITTED, "No contracts were emitted.")
+            self.ended(
+                DelegateKind.NONE_EMITTED, "No contracts were emitted.", **counts
+            )
         elif dec.refusals:
             self.ended(
                 DelegateKind.EMITTED_WITH_REFUSALS,
                 f"{len(dec.contracts)} contract(s) {said}, "
                 f"{len(dec.refusals)} refused.",
+                **counts,
             )
         else:
             self.ended(
-                DelegateKind.EMITTED, f"{len(dec.contracts)} contract(s) {said}."
+                DelegateKind.EMITTED,
+                f"{len(dec.contracts)} contract(s) {said}.",
+                **counts,
             )
 
     def held(self, ids: Sequence[str], tree_state: Path | None) -> None:
@@ -119,6 +141,8 @@ class _Logbook:
         """Write the record, if asked for; a failure is said, never raised."""
         if self.path is None:
             return
+        if self.decisions is not None and self.decisions.exists():
+            self.detail["decisions"] = str(self.decisions)
         record = logged(
             self.kind,
             self.message,
@@ -249,6 +273,7 @@ def _delegate_logged(args: argparse.Namespace, book: _Logbook) -> int:
         build_index,
         decompose,
     )
+    from mcgyvr.repropose import max_reproposals
     from mcgyvr.runner import RunnerError
 
     chosen = Path(args.config) if args.config else None
@@ -284,7 +309,7 @@ def _delegate_logged(args: argparse.Namespace, book: _Logbook) -> int:
 
     pool = source_map(config)
     try:
-        propose = _proposer_for_delegate(config, pool)
+        propose = _proposer_for_delegate(config, pool, decisions=book.decisions)
     except SourceUnavailableError as exc:
         said = (
             f"the orchestrator role is declared but cannot run: {exc}. "
@@ -322,6 +347,7 @@ def _delegate_logged(args: argparse.Namespace, book: _Logbook) -> int:
                 propose=propose,
                 config=config,
                 budget=args.budget,
+                max_reproposals=max_reproposals(config),
             )
             _report_decomposition(decomposition)
             written = _write_delegated(
@@ -392,7 +418,9 @@ def _print_raw_reply(reply: str) -> None:
     print("--- end of the orchestrator's raw reply ---", file=sys.stderr)
 
 
-def _proposer_for_delegate(config: Config, pool: SourceMap) -> Proposer | None:
+def _proposer_for_delegate(
+    config: Config, pool: SourceMap, *, decisions: Path | None = None
+) -> Proposer | None:
     """The proposer `orchestrator.authoring` asks for, or None if none can run.
 
     The prose proposer on the `orchestrator` role is always built. The typed
@@ -401,7 +429,9 @@ def _proposer_for_delegate(config: Config, pool: SourceMap) -> Proposer | None:
     `max_refine_depth` and `max_refine_fanout` — and `proposer_by_authoring`
     then puts it in front of the prose one, which stands in when the classifier
     declines. A strategy that is not a string is passed as None, which selects
-    prose. None comes back when nothing can propose.
+    prose. None comes back when nothing can propose. With `decisions` (`--log`
+    names it) the classifier's shadow sink is that file, so every typed
+    decision it asks is recorded there with its model.
     """
     from mcgyvr import refine
     from mcgyvr.delegate import (
@@ -409,11 +439,13 @@ def _proposer_for_delegate(config: Config, pool: SourceMap) -> Proposer | None:
         proposer_for,
         refining_proposer_for,
     )
+    from mcgyvr.orchestrator.telemetry import ShadowSink
 
     strategy = config.get("orchestrator.authoring")
     typed = (
         refining_proposer_for(
             pool,
+            sink=ShadowSink(decisions) if decisions is not None else None,
             max_depth=refine.max_depth(config),
             max_fanout=refine.max_fanout(config),
         )
@@ -448,6 +480,7 @@ def _replanner(
     from mcgyvr.deliver import between_deliveries
     from mcgyvr.orchestrator import build_index, decompose
     from mcgyvr.replan import request_for
+    from mcgyvr.repropose import max_reproposals
 
     asked = proposer_for(pool) or propose
     # With other runs delivering beside it (`--jobs`), the tree is read
@@ -464,6 +497,7 @@ def _replanner(
             config=config,
             budget=args.budget,
             spent=spent,
+            max_reproposals=max_reproposals(config),
         )
         _report_decomposition(dec)
         return dec

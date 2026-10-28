@@ -95,6 +95,10 @@ DEPENDENTS_CHOICES: tuple[str, ...] = ("hold", "run")
 #: `mcgyvr.replan`); 0 turns re-planning off.
 MAX_REPLANS_DEFAULT = 1
 
+#: How many rounds a proposal the decomposer refused is handed back to the
+#: proposer with what to change (see `mcgyvr.repropose`); 0 turns it off.
+MAX_REPROPOSALS_DEFAULT = 1
+
 #: How many times classifier authoring may split a proposal below the request,
 #: and into how many parts at once (see `mcgyvr.refine`). Past either, the
 #: proposal is refused with what to change rather than emitted unsplit.
@@ -933,6 +937,22 @@ SCHEMA: tuple[Field, ...] = (
         default=MAX_REPLANS_DEFAULT,
         min_value=0,
         bind_hint="set a whole number of re-plans, or 0 to stop at a spent ladder",
+    ),
+    Field(
+        "max_reproposals",
+        "int",
+        "How many times `mcgyvr delegate` hands a proposal the decomposer "
+        "refused back to the proposer, with the refused field and what to "
+        "change, before it reports the refusal. What comes back is checked as "
+        "a first answer is: what it emits takes the refusal's place, and what "
+        "is refused again is reported, or handed back again while rounds "
+        "remain. A refusal of the request as a whole, or one that names no "
+        "field, is reported at once. The prose proposer is shown the refused "
+        "proposal and its refusal as data; the classifier asks the refused "
+        "field again. 0 turns re-proposing off.",
+        default=MAX_REPROPOSALS_DEFAULT,
+        min_value=0,
+        bind_hint="set a whole number of rounds, or 0 to report refusals at once",
     ),
     Field(
         "max_refine_depth",

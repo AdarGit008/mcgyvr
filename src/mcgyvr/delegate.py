@@ -63,9 +63,11 @@ from mcgyvr.orchestrator.fields import (
     render_choice,
     value_by_id,
 )
+from mcgyvr.orchestrator.iterate import reproposals
 from mcgyvr.orchestrator.telemetry import DecisionRecord, ShadowSink
 from mcgyvr.refine import RefiningProposer
 from mcgyvr.replan import render as render_replan
+from mcgyvr.repropose import render as render_repropose
 from mcgyvr.runner import Completion, Request, dispatch_role
 from mcgyvr.worker.reply import FENCE_OPEN as _FENCE_OPEN
 
@@ -155,7 +157,9 @@ def build_prompt(evidence: Evidence) -> str:
     """Render the evidence as the prose prompt the orchestrator replies to.
 
     The request comes first — on a re-plan followed by the spent contract and
-    the failure notes its climb left, as data (`mcgyvr.replan.render`) — then
+    the failure notes its climb left, as data (`mcgyvr.replan.render`), and on
+    a re-proposal by the refused proposals and their refusals, as data
+    (`mcgyvr.repropose.render`) — then
     the resolution's candidates with each one's
     score and the signals that matched it, then the regions already read —
     labelled with their file, line span, selection reason and the candidate
@@ -180,6 +184,9 @@ def build_prompt(evidence: Evidence) -> str:
         # A re-plan: the request is a spent contract's own work, and what its
         # climb observed is shown as evidence, never as orders.
         sections.append(render_replan(evidence.spent))
+    if evidence.refused:
+        # Re-proposing: what vetting refused, and what to change, as data.
+        sections.append(render_repropose(evidence.refused))
 
     if resolution.candidates:
         candidates = "\n".join(
@@ -828,7 +835,13 @@ class ClassifierProposer:
         return collapse(plan)
 
     def __call__(self, evidence: Evidence) -> Sequence[Proposal]:
-        """The `Proposer` seam: a decline is `()`, so the prose proposer stands in."""
+        """The `Proposer` seam: a decline is `()`, so the prose proposer stands in.
+
+        Evidence carrying refused proposals is a re-proposal: each refused
+        field is asked again (`iterate.reproposals`).
+        """
+        if evidence.refused:
+            return reproposals(self, evidence)
         result = self.propose(evidence)
         return () if isinstance(result, Refusal) else (result,)
 
@@ -974,10 +987,14 @@ def deterministic_proposer() -> Proposer:
     definition, not the whole file), the request as the task, the reply cap
     that type and target need, and the empty defaults for every optional
     field. No decision is made, so nothing is recorded. With no target or no
-    completable type it proposes nothing, and prose stands in.
+    completable type it proposes nothing, and prose stands in; nor does it
+    on a re-proposal, where nothing it decided can be decided otherwise.
     """
 
     def propose(evidence: Evidence) -> Sequence[Proposal]:
+        if evidence.refused:
+            # Nothing was decided, so nothing can be decided otherwise.
+            return ()
         if not candidate_targets(evidence) or not completable(evidence.vocabulary):
             return ()
         return (collapse(enumerate_candidates(evidence)),)

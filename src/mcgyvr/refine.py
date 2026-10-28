@@ -62,7 +62,7 @@ from mcgyvr.orchestrator.candidates import (
     symbols_of,
 )
 from mcgyvr.orchestrator.decompose import Evidence, Proposal, Refusal
-from mcgyvr.orchestrator.iterate import Classifier
+from mcgyvr.orchestrator.iterate import Classifier, reproposals
 from mcgyvr.orchestrator.provides import declared_names, identifiers, renames
 
 if TYPE_CHECKING:  # pragma: no cover - typing only
@@ -271,7 +271,13 @@ class RefiningProposer:
     max_fanout: int = MAX_REFINE_FANOUT_DEFAULT
 
     def __call__(self, evidence: Evidence) -> Sequence[Proposal | Refusal]:
-        """The `Proposer` seam: a decline is `()`, so the prose proposer stands in."""
+        """The `Proposer` seam: a decline is `()`, so the prose proposer stands in.
+
+        Evidence carrying refused proposals is a re-proposal: the classifier
+        asks each refused field again (`iterate.reproposals`), unrefined.
+        """
+        if evidence.refused:
+            return reproposals(self.classifier, evidence)
         refined = self.refine(evidence)
         return () if refined is None else refined
 

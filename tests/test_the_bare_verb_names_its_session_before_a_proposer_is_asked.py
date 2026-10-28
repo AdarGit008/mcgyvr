@@ -27,7 +27,7 @@ def asked(monkeypatch: pytest.MonkeyPatch) -> list[Any]:
     """Every time the proposer role would have been built to be asked."""
     calls: list[Any] = []
 
-    def spy(config: Any, pool: Any) -> None:
+    def spy(config: Any, pool: Any, **kwargs: Any) -> None:
         calls.append(config)
 
     monkeypatch.setattr(command, "_proposer_for_delegate", spy)
