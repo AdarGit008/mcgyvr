@@ -8,33 +8,41 @@ it cannot be split further.
 * A proposal whose `allow` scope names more files than its target is split into
   one proposal per file, without asking: each file's proposal is asked of the
   classifier again with that file as its target and only scope, shown the
-  sentences of the request that are about that file.
+  sentences of the request about that file — those that name it or one of its
+  definitions, and those that name no file at all. A file no sentence is about
+  is not guessed at: the request is declined.
 * A proposal on one file is put to jev as one typed yes/no question, `split`:
   can it be split into smaller changes to that file that can each land on their
-  own? No makes it a leaf. Yes splits it by a partition `survey` built, asked as
-  one typed Choice, `partition`, when there is more than one to choose from; the
-  parts are proposed and each is asked again.
+  own? No makes it a leaf. Yes is followed by one typed Choice, `partition`,
+  among the partitions `survey` built and a last option saying none of them
+  fits; the parts of the one jev picks are proposed and each is asked again.
 
 `survey` reads its partitions from the proposal's own words and the repository,
 never inventing one: the sentences of the words, the definitions of the target
-the words name, and the failing tests the baseline run attaches to the proposal
-as its demonstrations. A part's task is its own sentence, or the words with one
-sentence saying which definition or which failing test is the part's own.
+the words name, and those of the failing tests the baseline run attaches to the
+proposal as its demonstrations that name its target. A part's task is its own
+sentence, or the words with one sentence saying which definition or which
+failing test is the part's own. Words with a fragment in them — a heading, a
+bare list number, a single word — are not split by sentence at all.
 
 The leaves come back in the order they were reached. A leaf that spells a name
 another leaf creates — one its interface declares and the repository does not
 define yet, or the new name of a rename its task states — waits on it through
 `depends_on`, so the dependency tree (`mcgyvr.tree`) orders them; two leaves on
-one file with no such edge are kept apart by their scopes (`Scope.meets`).
+one file with no such edge are kept apart by their scopes (`Scope.meets`). An
+edge that would close a cycle is not inferred: the two are kept apart by their
+scopes alone, rather than refused for a cycle nobody stated.
 
 Every split is bounded: one past `max_depth` splits below the request, or into
 more than `max_fanout` parts, is a `Refusal` saying which bound to raise, never
 a silent stop, and is returned after every proposal so `depends_on` indexes
-count proposals only. Where jev declines — an answer it cannot give, or a Yes
-the survey has no partition for — nothing is guessed: the whole request comes
-back empty, and the prose proposer stands in for it as before. Every question
-goes through the classifier's `ask`, which records the decision in its shadow
-sink with the model that answered.
+count proposals only. Where jev declines — an answer it cannot give, a Yes the
+survey has no partition for, or none of the partitions picked — nothing is
+guessed: the whole request comes back empty, and the prose proposer stands in
+for it as before. Every question goes through the classifier's `ask`, which
+records the decision in the classifier's shadow sink, when one is wired, with
+the model that answered; `mcgyvr delegate` wires none, as for the field
+decisions.
 """
 
 from __future__ import annotations
@@ -93,9 +101,25 @@ _SPLIT_SET = CandidateSet(
 _ONLY_SYMBOL = "This contract's part of that work is `{symbol}` only."
 _ONLY_TEST = "This contract's part of that work is making `{test}` pass."
 
-#: Where one sentence ends: a full stop, question or exclamation mark followed by
-#: space, or a line break.
-_SENTENCE_END = re.compile(r"(?<=[.!?])\s+|\s*\n\s*")
+#: Where one sentence ends inside a line: a full stop, question or exclamation
+#: mark, then space, then what starts a sentence. Lines end sentences too.
+_SENTENCE_END = re.compile(r"(?<=[.!?])\s+(?=[A-Z`'\"(])")
+
+#: A list marker at the start of a line: a bullet, or a number or letter with a
+#: full stop or bracket after it.
+_ENUMERATOR = re.compile(r"^\s*(?:[-*\u2022]|\(?(?:\d+|[A-Za-z])[.)])\s+")
+
+#: Abbreviations a sentence does not end at.
+_ABBREVIATIONS = ("e.g.", "i.e.", "etc.", "vs.", "cf.")
+
+#: The fewest words a sentence of its own needs (a verb and its object); fewer
+#: is a fragment.
+_MIN_WORDS = 2
+
+#: The option of the `partition` question that picks none of the splits.
+_NONE_FITS = (
+    "none of these: a part would not be one behaviour change that can land on its own"
+)
 
 #: A path as a request spells one, with whatever punctuation follows it.
 _PATH_WORD = re.compile(r"[\w./-]+")
@@ -155,10 +179,11 @@ def survey(
     `words` are the request's words the proposal covers. With failing tests
     attached as its demonstrations — the baseline's red tests, which an
     evidence-derived proposal is emitted with, or one it states — the only
-    split offered is one contract per failing test, and only when two or more
-    are attached and none was stated: any other split would hand every part
-    every test, and no part could pass the others'. Otherwise: one contract per
-    sentence of `words`, when there are two or more; and one per definition of
+    split offered is one contract per failing test that names the target (its
+    module or one of its definitions), and only when two or more do and none
+    was stated: any other split would hand every part every test, and no part
+    could pass the others'. Otherwise: one contract per sentence of `words`,
+    when there are two or more and none is a fragment; and one per definition of
     the target that `words` name, when there are two or more, `words` state no
     rename (which name would be whose is then not read), and the proposal is
     not already a part held to one definition (`scoped`).
@@ -168,7 +193,15 @@ def survey(
         if proposal.demonstration or len(demonstrations) < 2:
             return ()
         assert evidence.baseline is not None  # demonstrations came from it
-        tests = evidence.baseline.red
+        tested = tuple(
+            (test, demonstration)
+            for test, demonstration in zip(
+                evidence.baseline.red, demonstrations, strict=True
+            )
+            if _tests_target(evidence, proposal.target, test)
+        )
+        if len(tested) < 2:
+            return ()
         return (
             Partition(
                 "test",
@@ -179,7 +212,7 @@ def survey(
                         task=f"{proposal.task} {_ONLY_TEST.format(test=test)}",
                         demonstration=(demonstration,),
                     )
-                    for test, demonstration in zip(tests, demonstrations, strict=True)
+                    for test, demonstration in tested
                 ),
             ),
         )
@@ -187,7 +220,7 @@ def survey(
         return ()
     found: list[Partition] = []
     sentences = _sentences(words)
-    if len(sentences) >= 2:
+    if len(sentences) >= 2 and not any(_fragment(s) for s in sentences):
         found.append(
             Partition(
                 "sentence",
@@ -281,7 +314,9 @@ class RefiningProposer:
         sentences = _sentences(root.task)
         nodes: list[_Node] = []
         for path in files:
-            words = _about(sentences, path, files) or root.task
+            words = _about(evidence, sentences, path, files)
+            if not words:
+                return None
             child = self.classifier.propose(
                 replace(evidence, prompt=words),
                 decided={"task_type": root.task_type, "target": path, "allow": (path,)},
@@ -315,11 +350,7 @@ class RefiningProposer:
         if node.depth >= self.max_depth:
             refusals.append(_too_deep(node, self.max_depth))
             return True
-        chosen = (
-            partitions[0]
-            if len(partitions) == 1
-            else self._partition(evidence, node, partitions)
-        )
+        chosen = self._partition(evidence, node, partitions)
         if chosen is None:
             return False
         if len(chosen.parts) > self.max_fanout:
@@ -336,17 +367,30 @@ class RefiningProposer:
     def _partition(
         self, evidence: Evidence, node: _Node, partitions: tuple[Partition, ...]
     ) -> Partition | None:
-        """Ask jev which of `partitions` splits `node`, or None when it declines."""
+        """Ask jev which of `partitions` splits `node`, or None when it declines.
+
+        It is asked even with one partition, since a Yes to `split` says the
+        proposal splits, not that it splits this way; the last option picks
+        none of them, and is a decline.
+        """
         candidates = CandidateSet(
             field=PARTITION,
-            candidates=tuple(
-                FieldCandidate(id=f"{PARTITION}:{p.kind}", value=p, rank=rank)
-                for rank, p in enumerate(partitions)
+            candidates=(
+                *(
+                    FieldCandidate(id=f"{PARTITION}:{p.kind}", value=p, rank=rank)
+                    for rank, p in enumerate(partitions)
+                ),
+                FieldCandidate(
+                    id=f"{PARTITION}:none", value=None, rank=len(partitions)
+                ),
             ),
         )
         question = Choice(
             instructions=_PARTITION_INSTRUCTIONS.format(target=node.proposal.target),
-            options={c.id: c.value.text for c in candidates.candidates},
+            options={
+                c.id: _NONE_FITS if c.value is None else c.value.text
+                for c in candidates.candidates
+            },
         )
         chosen = self.classifier.ask(_state(evidence, node), candidates, question)
         return chosen if isinstance(chosen, Partition) else None
@@ -409,9 +453,39 @@ def _demonstrations(evidence: Evidence, proposal: Proposal) -> tuple[str, ...]:
 
 
 def _sentences(text: str) -> tuple[str, ...]:
-    """The sentences of `text`, in order, each once."""
-    parts = (s.strip() for s in _SENTENCE_END.split(text.strip()))
-    return tuple(dict.fromkeys(s for s in parts if s))
+    """The sentences of `text`, in order, each once, list markers taken off.
+
+    A line ends a sentence; inside a line one ends at `.`, `?` or `!` before
+    what starts the next, never at an abbreviation such as `e.g.`.
+    """
+    found: list[str] = []
+    for line in text.strip().splitlines():
+        line = _ENUMERATOR.sub("", line).strip()
+        joined: list[str] = []
+        for piece in _SENTENCE_END.split(line):
+            piece = piece.strip()
+            if joined and joined[-1].lower().endswith(_ABBREVIATIONS):
+                joined[-1] = f"{joined[-1]} {piece}"
+            elif piece:
+                joined.append(piece)
+        found.extend(joined)
+    return tuple(dict.fromkeys(found))
+
+
+def _fragment(sentence: str) -> bool:
+    """Whether `sentence` cannot stand as a part: a heading, or a single word."""
+    return sentence.endswith(":") or len(sentence.split()) < _MIN_WORDS
+
+
+def _tests_target(evidence: Evidence, target: str, test: str) -> bool:
+    """Whether the test id `test` names `target`'s module or one of its definitions."""
+    names = {PurePosixPath(target).stem} | {
+        s.name for s in symbols_of(evidence, target)
+    }
+    return any(
+        re.search(rf"(?<![A-Za-z0-9]){re.escape(name)}(?![A-Za-z0-9])", test)
+        for name in names
+    )
 
 
 def _named(evidence: Evidence, target: str, words: str) -> tuple[str, ...]:
@@ -435,14 +509,25 @@ def _spells(text: str, path: str) -> bool:
     return path in words or PurePosixPath(path).name in words
 
 
-def _about(sentences: Sequence[str], path: str, files: Sequence[str]) -> str:
-    """The sentences about `path`: those that name it, or name none of `files`."""
-    others = [f for f in files if f != path]
-    return " ".join(
-        s
-        for s in sentences
-        if _spells(s, path) or not any(_spells(s, other) for other in others)
-    )
+def _about(
+    evidence: Evidence, sentences: Sequence[str], path: str, files: Sequence[str]
+) -> str:
+    """The sentences about `path`, or "" when none names it or what it defines.
+
+    A sentence is about a file when it names the file or one of its
+    definitions; one that names no file of `files` and none of their
+    definitions is about every file. A file only such sentences are about is
+    not one the request says anything of, so it gets none.
+    """
+
+    def names(sentence: str, file: str) -> bool:
+        return _spells(sentence, file) or bool(_named(evidence, file, sentence))
+
+    own = [s for s in sentences if names(s, path)]
+    if not own:
+        return ""
+    shared = [s for s in sentences if not any(names(s, f) for f in files)]
+    return " ".join(s for s in sentences if s in own or s in shared)
 
 
 def _state(evidence: Evidence, node: _Node) -> Mapping[str, Any]:
@@ -463,7 +548,8 @@ def _linked(evidence: Evidence, leaves: Sequence[Proposal]) -> tuple[Proposal, .
     A leaf creates the names its interface declares that its target does not
     define yet, and the new name of a rename its task states; it spells the
     names in its task and interface and the symbols it depends on in its own
-    file. A name a leaf creates itself is not waited for.
+    file. A name a leaf creates itself is not waited for, and an edge that
+    would close a cycle is left out.
     """
     defined: dict[str, frozenset[str]] = {}
     for leaf in leaves:
@@ -481,22 +567,36 @@ def _linked(evidence: Evidence, leaves: Sequence[Proposal]) -> tuple[Proposal, .
         | {dep.symbol for dep in leaf.deps if dep.path == leaf.target}
         for leaf in leaves
     ]
-    linked: list[Proposal] = []
-    for at, leaf in enumerate(leaves):
-        waits = list(leaf.depends_on)
+    waits = [list(leaf.depends_on) for leaf in leaves]
+    for at in range(len(leaves)):
         for other in range(len(leaves)):
             if (
                 other != at
-                and other not in waits
+                and other not in waits[at]
                 and (creates[other] & spells[at]) - creates[at]
+                and not _reaches(waits, other, at)
             ):
-                waits.append(other)
-        linked.append(
-            leaf
-            if tuple(waits) == leaf.depends_on
-            else replace(leaf, depends_on=tuple(waits))
-        )
-    return tuple(linked)
+                waits[at].append(other)
+    return tuple(
+        leaf
+        if tuple(waited) == leaf.depends_on
+        else replace(leaf, depends_on=tuple(waited))
+        for leaf, waited in zip(leaves, waits, strict=True)
+    )
+
+
+def _reaches(waits: Sequence[Sequence[int]], start: int, goal: int) -> bool:
+    """Whether `start` waits on `goal`, directly or through what it waits on."""
+    seen: set[int] = set()
+    stack = [start]
+    while stack:
+        at = stack.pop()
+        if at == goal:
+            return True
+        if at not in seen:
+            seen.add(at)
+            stack.extend(waits[at])
+    return False
 
 
 def _too_deep(node: _Node, bound: int) -> Refusal:

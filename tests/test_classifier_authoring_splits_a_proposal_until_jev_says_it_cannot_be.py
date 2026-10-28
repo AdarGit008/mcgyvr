@@ -133,9 +133,19 @@ def test_a_proposal_jev_splits_is_one_contract_per_sentence_in_tree_order(
     assert call.task == "Call page from listing."
     assert rename.target == call.target == "listing.py"
     assert call.depends_on == (rename.id,)
-    # One split, one partition the survey could build: no partition question.
-    # Both parts are proposed, then each is asked whether it splits again.
-    assert jev.names() == [*FIELD_ORDER, "split", *CHILD_FIELDS * 2, "split", "split"]
+    # A Yes is followed by which split, even with one to pick; both parts are
+    # proposed, then each is asked whether it splits again.
+    assert jev.names() == [
+        *FIELD_ORDER,
+        "split",
+        "partition",
+        *CHILD_FIELDS * 2,
+        "split",
+        "split",
+    ]
+    (partition,) = (a for a in jev.asked if a.name == "partition")
+    assert isinstance(partition.question, Choice)
+    assert list(partition.question.options) == ["partition:sentence", "partition:none"]
 
     tree = Tree.of(result.contracts, GitSource(index.root), tree_id="split")
     assert tree.ready() == (rename,)
@@ -173,12 +183,17 @@ def test_parts_with_no_edge_are_both_ready_and_kept_apart_by_their_scopes(
             "Make paginate reject a negative size."
         ),
         "partition:symbol": "one contract per symbol: listing, paginate",
+        "partition:none": (
+            "none of these: a part would not be one behaviour change that can "
+            "land on its own"
+        ),
     }
     records = {r.field: r for r in read(tmp_path / "decisions.jsonl")}
     assert records["partition"].pick == "partition:sentence"
     assert records["partition"].candidates == (
         "partition:sentence",
         "partition:symbol",
+        "partition:none",
     )
     assert records["partition"].model == MODEL
 
@@ -203,6 +218,7 @@ def test_a_proposal_split_by_symbol_is_one_contract_per_definition_it_names(
     assert jev.names() == [
         *FIELD_ORDER,
         "split",
+        "partition",
         *["interface", "deps"] * 2,
         "split",
         "split",
@@ -222,7 +238,7 @@ def test_failing_tests_split_one_contract_per_test_it_demonstrates(
 
     refined = refining(jev)(evidence)
 
-    assert jev.names() == [*FIELD_ORDER, "split", "split", "split"]
+    assert jev.names() == [*FIELD_ORDER, "split", "partition", "split", "split"]
     owners = (PythonAdapter(), JavaScriptAdapter())
     built = []
     for each in refined:
@@ -400,10 +416,30 @@ def prose_answer(evidence: Evidence) -> Sequence[Proposal]:
                 confidences={"partition": 0.1},
             ),
         ),
+        # Jev picks none of the partitions the survey offers.
+        (
+            "Document listing. Make paginate reject a negative size.",
+            ScriptedJev(
+                split=tasks("Document listing. Make paginate reject a negative size."),
+                picks={"partition": "none of these"},
+            ),
+        ),
         # The target answer falls below the floor: the classifier declines.
         ("document listing", ScriptedJev(confidences={"target": 0.1})),
+        # A file of the scope no sentence names, by path or by a definition.
+        (
+            "Document listing and the report.",
+            ScriptedJev(picks={"allow": "every evidence path"}),
+        ),
     ],
-    ids=["split-unsure", "split-with-no-partition", "partition-unsure", "target"],
+    ids=[
+        "split-unsure",
+        "split-with-no-partition",
+        "partition-unsure",
+        "partition-none-fits",
+        "target",
+        "a-file-nothing-is-about",
+    ],
 )
 def test_when_jev_declines_prose_stands_in_for_the_whole_request(
     index: Index, prompt: str, jev: ScriptedJev
@@ -426,9 +462,12 @@ def test_the_prose_path_never_asks_jev_and_emits_what_prose_proposed(
     index: Index,
 ) -> None:
     jev = ScriptedJev()
-    assert proposer_by_authoring("prose", typed=refining(jev), prose=prose_answer) is (
-        prose_answer
-    )
+    propose = proposer_by_authoring("prose", typed=refining(jev), prose=prose_answer)
+    assert propose is prose_answer
+
+    result = decompose(index, "document listing", propose=propose)
+
+    assert [c.task for c in result.contracts] == ["from prose"]
     assert jev.asked == []
 
 
@@ -516,3 +555,108 @@ def test_the_bounds_have_defaults_and_refuse_what_cannot_bound() -> None:
         parse(UNITS + "max_refine_depth: 0\n")
     with pytest.raises(ConfigSchemaError):
         parse(UNITS + "max_refine_fanout: 1\n")
+
+
+# -- what the review found ------------------------------------------------------
+
+
+@pytest.mark.parametrize(
+    "words",
+    [
+        # A heading and bare list numbers are fragments, not parts.
+        "In listing.py:\n1. Add type hints to paginate.\n2. Document listing.",
+        # A sentence that ends in a word or two of courtesy.
+        "Add type hints to paginate. Document listing. Thanks!",
+    ],
+)
+def test_words_with_a_fragment_are_not_split_by_sentence(
+    index: Index, words: str
+) -> None:
+    evidence = evidence_for(index, words)
+    kinds = [p.kind for p in survey(evidence, proposal(words), words)]
+    assert "sentence" not in kinds
+
+
+def test_sentences_end_at_a_capital_never_at_an_abbreviation(index: Index) -> None:
+    words = "Make paginate accept e.g. a size of zero. Document listing."
+    evidence = evidence_for(index, words)
+    (sentence, *_) = survey(evidence, proposal(words), words)
+    assert [p.task for p in sentence.parts] == [
+        "Make paginate accept e.g. a size of zero.",
+        "Document listing.",
+    ]
+    listed = "- Add type hints to paginate.\n- Document the listing function."
+    (by_line, *_) = survey(evidence_for(index, listed), proposal(listed), listed)
+    assert [p.task for p in by_line.parts] == [
+        "Add type hints to paginate.",
+        "Document the listing function.",
+    ]
+
+
+def test_only_failing_tests_that_name_the_target_split_it(index: Index) -> None:
+    prompt = "Add type hints to listing and paginate."
+    elsewhere = BaselineObservation(
+        runner=("pytest",),
+        red=("tests/test_report.py::test_a", "tests/test_report.py::test_b"),
+        green=("tests/test_report.py::test_ok",),
+    )
+    evidence = evidence_for(index, prompt, baseline=elsewhere)
+    assert survey(evidence, proposal(prompt), prompt) == ()
+    # A test that names one of the target's definitions counts as its own.
+    mixed = replace(
+        elsewhere,
+        red=(
+            "tests/test_report.py::test_a",
+            "tests/test_pages.py::test_paginate_negative",
+            "tests/test_listing.py::test_doc",
+        ),
+    )
+    (by_test,) = survey(
+        evidence_for(index, prompt, baseline=mixed), proposal(prompt), prompt
+    )
+    assert [p.subject for p in by_test.parts] == [
+        "tests/test_pages.py::test_paginate_negative",
+        "tests/test_listing.py::test_doc",
+    ]
+
+
+def test_each_file_is_given_the_sentences_that_name_its_definitions(
+    index: Index,
+) -> None:
+    prompt = "Document render. Make paginate reject a negative size."
+    jev = ScriptedJev(picks={"allow": "every evidence path"})
+
+    result = decompose(index, prompt, propose=refining(jev))
+
+    by_target = {c.target: c.task for c in result.contracts}
+    assert by_target == {
+        "report.py": "Document render.",
+        "listing.py": "Make paginate reject a negative size.",
+    }
+
+
+def test_an_inferred_edge_that_would_close_a_cycle_is_left_out(
+    index: Index,
+) -> None:
+    """Each part spells the name the other's rename creates: one edge, not two."""
+    prompt = (
+        "Rename paginate to page and keep items working. "
+        "Rename listing to items and keep page working."
+    )
+    jev = ScriptedJev(split=tasks(prompt))
+
+    result = decompose(index, prompt, propose=refining(jev))
+
+    assert result.refusals == ()
+    first, second = result.contracts
+    assert first.depends_on == ()
+    assert second.depends_on == (first.id,)
+
+
+def test_with_prose_or_unset_authoring_delegate_builds_no_typed_proposer(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    with_jev = "jev:\n  unit: judge\n"
+    for authoring in ("  authoring: prose\n", ""):
+        text = UNITS.replace("  authoring: classifier\n", authoring) + with_jev
+        assert _typed_for(monkeypatch, text) is None
