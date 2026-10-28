@@ -11,7 +11,8 @@ stated twice. Those checks are `emit_one`'s own, called here, not restated.
 
 What `emit_one` cannot see is the set as files: a file that does not load as
 a contract, two files that give one id, a dependency whose signature declares
-no name, and a contract that waits on one refused here. Each is a `Refusal`
+no name, a pattern target (vetted as the first indexed file it names) and a
+contract that waits on one refused here. Each is a `Refusal`
 too, with the same `what_to_change` directive, so the author is told what to
 change and resubmit. A contract that passes runs as it was written:
 `emit_one`'s document is its verdict, never a rewrite of the author's file.
@@ -24,7 +25,7 @@ from dataclasses import dataclass, replace
 from pathlib import Path
 from typing import TYPE_CHECKING
 
-from mcgyvr.contract import Contract, ContractError, dumps
+from mcgyvr.contract import Contract, ContractError, dumps, is_pattern
 from mcgyvr.contract import load as load_contract
 from mcgyvr.orchestrator.decompose import (
     Decomposition,
@@ -39,6 +40,7 @@ from mcgyvr.orchestrator.decompose import (
 from mcgyvr.orchestrator.provides import declared_names
 from mcgyvr.orchestrator.read import explore
 from mcgyvr.orchestrator.resolve import resolve
+from mcgyvr.scope import Scope
 
 if TYPE_CHECKING:  # pragma: no cover - typing only
     from mcgyvr.config import Config
@@ -174,6 +176,24 @@ def _vetted(
             )
         deps.extend(DepRef(dep.path, name, dep.note) for name in names)
     proposal = replace(_proposal_of(contract), deps=tuple(deps))
+    if is_pattern(contract.target):
+        # A pattern names files, which only a deterministic operation may
+        # target; it is vetted as the first file the index holds that it
+        # names, and refused when it names none.
+        named = sorted(
+            f.path
+            for f in evidence.index.files
+            if Scope.of([contract.target]).permits(f.path)
+        )
+        if not named:
+            return Refusal(
+                contract.target,
+                "the pattern names no file the index holds, so the operation "
+                "would have nothing to run on",
+                field="target",
+                what_to_change="name a pattern matching a file the repository holds",
+            )
+        proposal = replace(proposal, target=named[0])
     emitted = emit_one(
         evidence,
         proposal,

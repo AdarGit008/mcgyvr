@@ -225,7 +225,7 @@ def test_mcgyvr_run_says_what_the_preflight_cleaned_and_goes_on(
     notes = [line for line in out.splitlines() if line.startswith("note: ")]
     assert any("x.pyc" in n and ".pytest_cache/" in n for n in notes), out
     # And the result file carries it, since that is the file a caller reads.
-    filed = json.loads(lj.result_path(out).read_text())["notes"]
+    filed = json.loads(lj.result_of(contract).read_text())["notes"]
     assert any("x.pyc" in n and ".pytest_cache/" in n for n in filed), filed
 
 

@@ -1,4 +1,4 @@
-"""A fixer's ordinary exit is 1, and ``mcgyvr run`` does not read it as fatal.
+"""A fixer's ordinary exit is 1, and ``mcgyvr direct`` does not read it as fatal.
 
 :mod:`mcgyvr.deterministic` binds ``("python", "lint_fix")`` to ``ruff check
 --fix``, and the catalog's guarantee for that type says what the binding is for:
@@ -214,7 +214,7 @@ def test_a_lint_fix_that_left_a_diagnostic_is_gated_not_errored(
     line and adds none, so the diagnostic that remains is not on a worker-added
     line and the gate has nothing to attribute to the change. That is not a
     contrivance to make the test pass; it is why an error here is expensive. The
-    contract is satisfiable and the tool satisfies it, so a ``run`` that returned
+    contract is satisfiable and the tool satisfies it, so a ``direct`` that returned
     1 would dump diagnostics the type it was given explicitly does not fix.
 
     Both halves are asserted. The exit code says the command did not fail, and
@@ -227,11 +227,11 @@ def test_a_lint_fix_that_left_a_diagnostic_is_gated_not_errored(
     repo = make_repo(tmp_path / "repo", RESIDUE)
     contract = written(tmp_path, LINT_FIX)
 
-    code = main(["run", contract, "--repo", str(repo), "--sandbox", "tempdir"])
+    code = main(["direct", contract, "--repo", str(repo), "--sandbox", "tempdir"])
 
     out = capsys.readouterr()
     assert "tidy-lint: gate" in out.out, (
-        f"the gate was never reached; `run` stopped at the tool step.\n"
+        f"the gate was never reached; `direct` stopped at the tool step.\n"
         f"stdout: {out.out}\nstderr: {out.err}"
     )
     assert code == 0, (
@@ -258,7 +258,7 @@ def test_the_residue_is_reported_rather_than_swallowed(
     repo = make_repo(tmp_path / "repo", RESIDUE)
     contract = written(tmp_path, LINT_FIX)
 
-    main(["run", contract, "--repo", str(repo), "--sandbox", "tempdir"])
+    main(["direct", contract, "--repo", str(repo), "--sandbox", "tempdir"])
 
     out = capsys.readouterr().out
     assert "E741" in out, (
@@ -289,7 +289,7 @@ def test_a_tool_that_ran_and_failed_is_still_fatal(
     repo = make_repo(tmp_path / "repo", RESIDUE, config=BROKEN_CONFIG)
     contract = written(tmp_path, LINT_FIX)
 
-    code = main(["run", contract, "--repo", str(repo), "--sandbox", "tempdir"])
+    code = main(["direct", contract, "--repo", str(repo), "--sandbox", "tempdir"])
 
     out = capsys.readouterr()
     assert code == 1, f"a ruff that could not load its config was not fatal: {out.out}"
@@ -319,7 +319,7 @@ def test_a_formatters_guarantee_admits_no_residue(
     repo = make_repo(tmp_path / "repo", "def f(:\n    pass\n")
     contract = written(tmp_path, FORMAT)
 
-    code = main(["run", contract, "--repo", str(repo), "--sandbox", "tempdir"])
+    code = main(["direct", contract, "--repo", str(repo), "--sandbox", "tempdir"])
 
     out = capsys.readouterr()
     assert code == 1, f"a formatter that produced nothing was not fatal: {out.out}"

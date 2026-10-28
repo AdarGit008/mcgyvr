@@ -152,7 +152,9 @@ def test_a_run_reads_the_setting_from_its_setup(
         'target: src/pkg/messy.py\nscope:\n  allow: ["src/**"]\n',
     )
 
-    code = lj.main(["run", str(contract), "--repo", str(repo), "--config", str(config)])
+    code = lj.main(
+        ["direct", str(contract), "--repo", str(repo), "--config", str(config)]
+    )
     out = capsys.readouterr()
 
     assert code != 0

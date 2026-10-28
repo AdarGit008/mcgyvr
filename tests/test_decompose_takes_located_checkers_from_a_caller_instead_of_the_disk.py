@@ -9,7 +9,7 @@ located commands as an argument, adapter name → argv, and when given uses
 them in place of any read of the disk: a located command becomes the
 acceptance exactly as given, a missing one is the same refusal the disk gives
 ("declares no type checker"), and nothing is ever guessed. Without the
-argument nothing changes: `mcgyvr delegate` keeps reading the repository.
+argument nothing changes: `mcgyvr PROMPT` keeps reading the repository.
 """
 
 from __future__ import annotations

@@ -110,12 +110,12 @@ def run_once(
     name: str,
     capsys: pytest.CaptureFixture[str],
 ) -> tuple[int, dict[str, Any]]:
-    """One ``mcgyvr run`` against ``config``, and the result file it announced."""
+    """One ``mcgyvr direct`` against ``config``, and the result file it wrote."""
     repo = lj.make_repo(tmp_path / f"repo-{name}")
     contract = lj.make_contract(tmp_path / f"impl-{name}.yaml")
     code = lj.main(lj.run_args(contract, repo, config))
-    announced = lj.result_path(capsys.readouterr().out)
-    return code, json.loads(announced.read_text(encoding="utf-8"))
+    capsys.readouterr()
+    return code, json.loads(lj.result_of(contract).read_text(encoding="utf-8"))
 
 
 # --- the switch gates it ------------------------------------------------------

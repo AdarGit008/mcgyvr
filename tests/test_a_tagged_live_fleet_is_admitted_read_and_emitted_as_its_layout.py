@@ -12,7 +12,7 @@ live read of ``b-small@2026-09-13``:
 * emits ``compose.<rig>.b-small.yml``, the same file names a plain ``b-small``
   emits, with each container named as the unit states — the door's
   ``door_commands`` name those same files;
-* runs: ``mcgyvr run`` under the tagged live fleet is admitted by a read of its
+* runs: ``mcgyvr direct`` under the tagged live fleet is admitted by a read of its
   rigs and dispatched, exactly as under a plain name.
 """
 

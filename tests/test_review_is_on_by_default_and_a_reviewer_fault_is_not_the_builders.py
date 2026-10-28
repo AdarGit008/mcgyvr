@@ -243,7 +243,7 @@ def _typed(
 
 
 def _attempt_on(repo: Path, text: str, rung: str, model: str) -> Any:
-    """One attempt on ``rung`` the way ``mcgyvr run`` builds it."""
+    """One attempt on ``rung`` the way ``mcgyvr direct`` builds it."""
     from mcgyvr.drive import worker_attempt
     from mcgyvr.sandbox.tempdir import TempDirSandbox
     from mcgyvr.verify import reviewers_for
@@ -515,7 +515,7 @@ def test_an_unverified_acceptance_is_said_on_stderr_and_in_the_result(
 
     code = main(
         [
-            "run",
+            "direct",
             str(contract),
             "--repo",
             str(repo),

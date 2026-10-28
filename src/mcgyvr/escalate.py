@@ -1346,7 +1346,7 @@ def disposition(outcome: Outcome, *, replans: int = 0) -> Disposition:
                     "contract would give the same answer anywhere. It goes "
                     "back to the orchestrator with its failure notes to be "
                     f"re-planned — `max_replans` is {replans}, and "
-                    "`mcgyvr delegate --run` runs what comes back in its place "
+                    "`mcgyvr PROMPT` runs what comes back in its place "
                     "— rather than to another ladder; binding a dearer rung "
                     "remains the other remedy."
                 ),

@@ -2,7 +2,7 @@
 
 The command runs where the repository is, so it is the one place the
 adapters' lookup — the same one :func:`decompose._acceptance_for` performs
-for `mcgyvr delegate` — can read the repository's configuration. The document
+for `mcgyvr "<prompt>"` — can read the repository's configuration. The document
 carries the result under ``located``: adapter name → the command's argv,
 exactly as located, for every adapter that located one; an adapter that found
 none is absent, never filled in. A server assembling an index from the

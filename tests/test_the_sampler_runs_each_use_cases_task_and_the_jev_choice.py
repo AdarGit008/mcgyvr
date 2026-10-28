@@ -1,7 +1,7 @@
 """The sampler runs the use case's sample task and an opted-in Jev's choice.
 
 As :func:`mcgyvr.fleet.sample.judge` reads it: ``coding`` runs the bundled bug
-fix through ``mcgyvr run`` (green when the deterministic gate passes on any
+fix through ``mcgyvr direct`` (green when the deterministic gate passes on any
 rung); ``agent`` asks one awake unit the bundled grounded question directly, its
 reply checked grounded (cited and stating every fact); ``chat`` one completion
 per awake unit, with the window and slots it serves read back; and an opted-in
@@ -59,7 +59,7 @@ def test_the_coding_sample_runs_the_bug_fix_on_the_staged_setup(
 
     assert outcome.check == TASK_GATE and outcome.passed
     (argv,) = ran
-    assert argv[0] == "run" and argv[argv.index("--config") + 1] == str(setup)
+    assert argv[0] == "direct" and argv[argv.index("--config") + 1] == str(setup)
     repo = Path(argv[argv.index("--repo") + 1])
     assert (repo / "calc.py").read_text(encoding="utf-8").strip().endswith("a - b")
     assert (repo / ".git").is_dir()

@@ -4,11 +4,14 @@
 ``delegate`` and ``attach`` took the repository by position. An operator who
 had learned ``run --repo`` typed ``sandbox --repo`` and was refused, and an
 agent guessing the same did the same. One spelling now: the
-flag, defaulting to the current directory, refusing a blank as ``run`` does.
+flag, defaulting to the current directory, refusing a blank as ``direct``
+does. The bare verb (``mcgyvr "<prompt>"``, which replaced ``delegate``) takes
+it the same way.
 
 A repository typed by position, the old form, is refused at parse time, exit
 2, by a message that names the flag to use instead of argparse's bare
-"unrecognized arguments".
+"unrecognized arguments". ``direct`` is the exception: its positionals are the
+contract files, so a second one is a file, not a repository.
 """
 
 from __future__ import annotations
@@ -16,17 +19,20 @@ from __future__ import annotations
 import pytest
 
 from mcgyvr.cli import build_parser
+from mcgyvr.cli.commands.delegate import prompt_parser
 
 #: Each verb, with the positional arguments it still takes before the repo.
 VERBS: tuple[tuple[str, ...], ...] = (
-    ("run", "contract.yaml"),
+    ("direct", "contract.yaml"),
     ("sandbox",),
     ("index",),
     ("resolve", "the fetch helper"),
     ("read", "the fetch helper"),
-    ("delegate", "document the helper"),
     ("attach",),
 )
+
+#: The verbs whose positionals are not files: a stray one can only be a repo.
+POSITIONAL = tuple(verb for verb in VERBS if verb[0] != "direct")
 
 
 def _ids(verbs: tuple[tuple[str, ...], ...]) -> list[str]:
@@ -47,7 +53,7 @@ def test_each_verb_defaults_the_repo_to_the_current_directory(
 
 
 @pytest.mark.parametrize("verb", VERBS, ids=_ids(VERBS))
-def test_each_verb_refuses_a_blank_repo_as_run_does(
+def test_each_verb_refuses_a_blank_repo_as_direct_does(
     verb: tuple[str, ...], capsys: pytest.CaptureFixture[str]
 ) -> None:
     with pytest.raises(SystemExit) as exit_:
@@ -56,7 +62,7 @@ def test_each_verb_refuses_a_blank_repo_as_run_does(
     assert "--repo" in capsys.readouterr().err
 
 
-@pytest.mark.parametrize("verb", VERBS, ids=_ids(VERBS))
+@pytest.mark.parametrize("verb", POSITIONAL, ids=_ids(POSITIONAL))
 def test_each_verb_refuses_a_repo_typed_by_position_and_names_the_flag(
     verb: tuple[str, ...], capsys: pytest.CaptureFixture[str]
 ) -> None:
@@ -77,3 +83,31 @@ def test_the_hidden_catch_for_the_old_form_is_not_in_the_usage(
     out = capsys.readouterr().out
     assert "--repo PATH" in out
     assert "REPO" not in out.replace("--repo", "")
+
+
+def test_the_bare_verb_takes_the_repo_as_a_flag_defaulting_to_the_current_dir() -> None:
+    parser = prompt_parser()
+    assert parser.parse_args(["do it", "--repo", "/some/checkout"]).repo == (
+        "/some/checkout"
+    )
+    assert parser.parse_args(["do it"]).repo == "."
+
+
+def test_the_bare_verb_refuses_a_blank_repo(
+    capsys: pytest.CaptureFixture[str],
+) -> None:
+    with pytest.raises(SystemExit) as exit_:
+        prompt_parser().parse_args(["do it", "--repo", ""])
+    assert exit_.value.code == 2
+    assert "--repo" in capsys.readouterr().err
+
+
+def test_the_bare_verb_refuses_a_repo_typed_by_position_and_names_the_flag(
+    capsys: pytest.CaptureFixture[str],
+) -> None:
+    with pytest.raises(SystemExit) as exit_:
+        prompt_parser().parse_args(["do it", "/some/checkout"])
+    err = capsys.readouterr().err
+    assert exit_.value.code == 2
+    assert "mcgyvr: error:" in err
+    assert "--repo /some/checkout" in err

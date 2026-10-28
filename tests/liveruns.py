@@ -275,7 +275,7 @@ def climb(
     label: str,
     config: Path | None = None,
 ) -> tuple[int, str]:
-    """One ``mcgyvr run`` in a fresh repository: its exit and its stderr."""
+    """One ``mcgyvr direct`` in a fresh repository: its exit and its stderr."""
     import mcgyvr.drive as drive
     from mcgyvr.cli import main
 
@@ -299,7 +299,7 @@ def climb(
     monkeypatch.setattr(drive, "dispatch", fake_dispatch)
     monkeypatch.chdir(tmp_path)
     capsys.readouterr()
-    argv = ["run", str(contract), "--repo", str(repo), "--sandbox", "tempdir"]
+    argv = ["direct", str(contract), "--repo", str(repo), "--sandbox", "tempdir"]
     if config is not None:
         argv += ["--config", str(config)]
     code = main(argv)

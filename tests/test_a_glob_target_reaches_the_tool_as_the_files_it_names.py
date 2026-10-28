@@ -7,7 +7,8 @@ shell between: a program that expands its own arguments (prettier, eslint)
 coped, and ruff — which does not — exited "No such file or directory" on every
 `format`, `import_sort` and `lint_fix` over Python. mcgyvr now expands the
 pattern itself, over the files the sandbox holds and by the same glob rules as
-`scope`, so every program is handed literal paths.
+`scope`, so every program is handed literal paths. `mcgyvr direct` vets the
+pattern as the files the index holds that it names, so it reaches the step.
 """
 
 from __future__ import annotations
@@ -43,7 +44,6 @@ TIDY = {
 def test_a_glob_target_reaches_the_tool_as_the_files_it_names(
     tmp_path: Path,
     monkeypatch: pytest.MonkeyPatch,
-    capsys: pytest.CaptureFixture[str],
 ) -> None:
     home = tmp_path / "home"
     home.mkdir()
@@ -60,9 +60,29 @@ def test_a_glob_target_reaches_the_tool_as_the_files_it_names(
 
     code = lj.main(lj.run_args(contract, repo, config))
 
-    out = capsys.readouterr().out
-    result = json.loads(lj.result_path(out).read_text(encoding="utf-8"))
+    result = json.loads(lj.result_of(contract).read_text(encoding="utf-8"))
     assert result["outcome"] == "accepted", result
-    assert code == 0, out
+    assert code == 0, result
     for rel, text in TIDY.items():
         assert (repo / rel).read_text(encoding="utf-8") == text, rel
+
+
+def test_a_glob_that_names_no_indexed_file_is_refused_before_it_runs(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+    capsys: pytest.CaptureFixture[str],
+) -> None:
+    home = tmp_path / "home"
+    home.mkdir()
+    lj.clean_env(monkeypatch, home)
+    repo = lj.make_repo(tmp_path / "repo")
+    config = lj.make_config(tmp_path / "setup", journal_dir=tmp_path / "journal")
+    contract = lj.make_contract(
+        tmp_path / "tidy.yaml", GLOB_FORMAT.replace("src/pkg/*.py", "src/lib/*.py")
+    )
+
+    code = lj.main(lj.run_args(contract, repo, config, "--session", "s1"))
+
+    assert code == 3
+    assert "the pattern names no file the index holds" in capsys.readouterr().err
+    assert not lj.result_of(contract).exists()

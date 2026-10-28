@@ -87,7 +87,7 @@ def test_the_two_draws_before_the_raise_still_learn_how_they_landed(
     )
     assert _orphans(journal) == []
 
-    result = json.loads(lj.result_path(capsys.readouterr().out).read_text())
+    result = json.loads(lj.result_of(contract).read_text())
     landed = result["attempts"][-1]
     assert landed["verdict"] == "error"
     assert (landed["draw"], landed["draws"]) == (DRAWS - 1, DRAWS)

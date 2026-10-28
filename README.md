@@ -2,13 +2,16 @@
 
 Offload scoped coding work from your agent to a configurable worker ladder.
 
-mcgyvr runs one scoped coding task at a time. You author a *contract* — one
-target, one task, one way to judge it — and mcgyvr executes it on a
-deterministic tool or up a ladder of local and API models, keeps only what its
-deterministic gate accepts, and leaves an accepted `code` change in your
-working tree. It never commits unless told to, and it never writes anything
-else into the repository. The contract vocabulary and the run workflow are
-documented in `skills/mcgyvr/SKILL.md`; how a setup is written is in
+mcgyvr runs scoped coding work as *contracts* — one target, one task, one way
+to judge it. `mcgyvr "<prompt>"` has the proposer your setup binds plan a prompt
+into contracts; `mcgyvr direct FILE... | DIR` takes contracts you or your session
+model wrote. Either way each contract is vetted, run on a deterministic tool or up
+a ladder of local and API models, in the order its dependency tree allows, and
+only what the deterministic gate accepts is kept, as a change in your working
+tree. It never commits unless told to, and it never writes anything else into
+the repository. `skills/mcgyvr/SKILL.md` (`/mcgyvr <prompt>`) and
+`skills/mcgyvr-direct/SKILL.md` (`/mcgyvr-direct <files|dir>`, with the contract
+vocabulary) say how a session drives each; how a setup is written is in
 `skills/mcgyvr/SETUP.md`.
 
 ## Install
@@ -18,9 +21,9 @@ uv tool install mcgyvr                                   # the CLI
 git clone https://github.com/AdarGit008/mcgyvr && mcgyvr/skills/mcgyvr/install.sh
 ```
 
-`install.sh` copies the `/mcgyvr` skill into `~/.claude/skills/mcgyvr` and
-`~/.pi/agent/skills/mcgyvr`, and warns when the `mcgyvr` on `PATH` is older
-than the skill can drive.
+`install.sh` copies the `/mcgyvr` and `/mcgyvr-direct` skills into
+`~/.claude/skills/<name>` and `~/.pi/agent/skills/<name>`, and warns when the
+`mcgyvr` on `PATH` is older than the skills can drive.
 
 ## First run: `mcgyvr setup`
 
@@ -44,8 +47,9 @@ live, probes the live one against its lock, and lists pulled combinations.
 
 - **The `/mcgyvr` skill.** An agent writes a contract, checks it with
   `mcgyvr contract CONTRACT.yaml`, runs it with
-  `mcgyvr run CONTRACT.yaml --repo DIR` on the live fleet, and replans on what
-  the run reports.
+  `mcgyvr direct CONTRACT.yaml --repo DIR` on the live fleet, and replans on what
+  the run reports. A request in words goes to `mcgyvr "<prompt>" --session ID`,
+  which plans the contracts and runs them.
 
 Read-only introspection: `mcgyvr config`, `mcgyvr local_pool`,
 `mcgyvr catalog`, `mcgyvr sandbox` and `mcgyvr capabilities`.
@@ -87,8 +91,9 @@ The documented way in is `make`:
 - `make lint` — `ruff check .` and `ruff format --check .`.
 - `make typecheck` — `mypy`, in strict mode.
 - `make docs` — render and check the config reference (then delete it), and
-  regenerate `skills/mcgyvr/SKILL.md`, `SETUP.md`, `references/examples.md` and
-  `references/failure-notes.schema.json` from the schemas in
+  regenerate `skills/mcgyvr/SKILL.md` and `SETUP.md`,
+  `skills/mcgyvr-direct/SKILL.md`, `references/examples.md` and
+  `references/failure-notes.schema.json` from the CLI's flags and the schemas in
   `src/mcgyvr/config.py`, `src/mcgyvr/contract.py` and `src/mcgyvr/notes.py`.
 - `make check` — everything CI runs: lint, typecheck, docs check, and test.
 

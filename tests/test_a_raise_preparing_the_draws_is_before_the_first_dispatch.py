@@ -27,7 +27,6 @@ def test_a_prompt_that_cannot_be_read_back_stops_the_attempt_before_any_draw(
     tmp_path: Path,
     home: Path,
     monkeypatch: pytest.MonkeyPatch,
-    capsys: pytest.CaptureFixture[str],
 ) -> None:
     """The prompt is rendered once for both draws, and neither was dispatched."""
     import mcgyvr.drive as drive
@@ -55,7 +54,7 @@ def test_a_prompt_that_cannot_be_read_back_stops_the_attempt_before_any_draw(
     assert _rows(journal) == [], "no dispatch was made, so no row was written"
     assert _orphans(journal) == [], "and nothing was corrected for a row nobody wrote"
 
-    result = json.loads(lj.result_path(capsys.readouterr().out).read_text())
+    result = json.loads(lj.result_of(contract).read_text())
     landed = result["attempts"][-1]
     assert landed["verdict"] == "error"
     assert landed["attempt_id"] is None, "there is no dispatch for the result to name"

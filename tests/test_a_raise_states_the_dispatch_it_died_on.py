@@ -11,7 +11,7 @@ the row I died in* (or ``None``, for a raise no row of the attempt owns).
 ``escalate`` copies it onto the history entry and invents nothing; a bare
 exception, from a driver that says nothing, is a raise that dispatched nothing.
 
-This is pinned here rather than only through ``mcgyvr run`` because the entry
+This is pinned here rather than only through ``mcgyvr direct`` because the entry
 is ``escalate``'s alone: the caller that corrects the journal reads these two
 fields and has nothing else to read them from.
 """

@@ -1,6 +1,6 @@
 """What the live-journal tests share: a repo, a ladder, a contract, a script.
 
-Every test of ``mcgyvr run``'s journal drives ``mcgyvr.cli.main`` — the real
+Every test of ``mcgyvr direct``'s journal drives ``mcgyvr.cli.main`` — the real
 entry point — with ``drive.dispatch`` scripted so no endpoint is reached and
 everything between the flag and the row (config, route, sandbox, prompt, parse,
 gate) is real. The helpers here are the ones
@@ -8,7 +8,7 @@ gate) is real. The helpers here are the ones
 wrote for itself, lifted so that the tests of *who* ran, *where* the journal
 went and *how* the work landed do not carry four private copies each.
 
-The environment is the seam. ``mcgyvr run`` reads ``CLAUDE_CODE_SESSION_ID``
+The environment is the seam. ``mcgyvr direct`` reads ``CLAUDE_CODE_SESSION_ID``
 and ``PI_SESSION_FILE`` to name the session that typed it, and this test
 process runs inside one of those sessions, so :func:`clean_env` empties both
 and points ``HOME`` at a directory nobody else writes to — a test that forgot
@@ -98,7 +98,7 @@ def make_config(path: Path, *, journal_dir: Path | None = None) -> Path:
     """Write the two files a setup is under ``path`` (a directory), return it.
 
     Outside the config folder: these runs are about the climb and its
-    journal, and a ``mcgyvr run`` under the live fleet is admitted only by a
+    journal, and a ``mcgyvr direct`` under the live fleet is admitted only by a
     read of its fleet's rigs — one with no fleet named is refused before it
     starts (``tests/test_a_live_run_is_admitted_only_by_a_read_of_its_rigs.py``).
     """
@@ -234,8 +234,13 @@ def main(argv: Sequence[str]) -> int:
 
 
 def run_args(contract: Path, repo: Path, config: Path, *extra: str) -> list[str]:
+    """``mcgyvr direct`` on the one contract at ``contract``, in a tempdir sandbox.
+
+    Its result is also written to :func:`result_of` the contract: ``direct``
+    prints no ``result:`` line, so that is where a test reads it.
+    """
     return [
-        "run",
+        "direct",
         str(contract),
         "--repo",
         str(repo),
@@ -243,8 +248,15 @@ def run_args(contract: Path, repo: Path, config: Path, *extra: str) -> list[str]
         "tempdir",
         "--config",
         str(config),
+        "--result",
+        str(result_of(contract)),
         *extra,
     ]
+
+
+def result_of(contract: Path) -> Path:
+    """Where :func:`run_args` has the run of ``contract`` write its result."""
+    return contract.with_name(f"{contract.stem}.result.json")
 
 
 def rows(journal_dir: Path) -> list[dict[str, Any]]:
@@ -274,13 +286,6 @@ def results(journal_dir: Path) -> list[Path]:
     """The result files a journal directory holds."""
     where = journal_dir / "results"
     return sorted(where.glob("*.json")) if where.is_dir() else []
-
-
-def result_path(stdout: str) -> Path:
-    """The result file a run announced, from its ``result: <path>`` line."""
-    lines = [line for line in stdout.splitlines() if line.startswith("result: ")]
-    assert len(lines) == 1, stdout
-    return Path(lines[0].removeprefix("result: ").strip())
 
 
 def append_policy(config: Path, text: str) -> Path:

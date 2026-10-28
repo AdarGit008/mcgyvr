@@ -5,7 +5,7 @@ attempt the gate accepted and the operator committed. A journal that cannot say
 whether a rung's answer was any good is a journal that can be counted and never
 learned from, which is the whole reason the text is kept beside the row.
 
-``mcgyvr run`` corrects (:func:`mcgyvr.telemetry.correct`). After the climb,
+``mcgyvr direct`` corrects (:func:`mcgyvr.telemetry.correct`). After the climb,
 every attempt row gets the verdict the ladder gave it — ``passed``, ``failed`` —
 with the gate's finding lines as the detail of a failure, so the journal answers
 *why* without the gate being run again. Then the accepted attempt gets a second
@@ -144,7 +144,7 @@ def test_an_attempt_that_raised_is_corrected_as_an_error_and_listed(
     assert row["ok"] is False
     assert row["outcome"] == "error", row
     assert "connection refused" in row["detail"]
-    result = json.loads(lj.result_path(capsys.readouterr().out).read_text())
+    result = json.loads(lj.result_of(contract).read_text())
     assert result["outcome"] == "error"
     (attempt,) = result["attempts"]
     assert attempt["verdict"] == "error"

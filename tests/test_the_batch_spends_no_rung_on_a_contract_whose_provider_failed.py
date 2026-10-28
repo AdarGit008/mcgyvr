@@ -1,4 +1,4 @@
-"""`delegate --run` spends no rung on a contract whose provider failed.
+"""A batch spends no rung on a contract whose provider failed.
 
 A batch of two: one contract renames a function in `pkg/codec.py`, the other
 moves its caller in `pkg/export.py` to the new name and waits on the first.

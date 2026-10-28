@@ -2,7 +2,7 @@
 
 `retry_notes: climb` carries a climb's failure notes from rung to rung inside
 one run, and nothing carried them out of it: a second run of the same contract
-— on another ladder, another machine — started blind. `mcgyvr run
+— on another ladder, another machine — started blind. `mcgyvr direct
 --notes-from RESULT` reads the earlier run's result file and primes the climb
 with its records, so the first attempt of the new run is shown what the old
 one was refused for, under a banner naming the earlier run. The new result
@@ -15,6 +15,7 @@ the prompt and the gate.
 from __future__ import annotations
 
 import json
+import shutil
 from pathlib import Path
 
 import pytest
@@ -45,7 +46,9 @@ def _earlier(
     """A first run whose every attempt is rejected; its result file."""
     lj.scripted(monkeypatch, *([lj.BAD_REPLY] * 8))
     lj.main(lj.run_args(setup["contract"], setup["repo"], setup["config"]))
-    path = lj.result_path(capsys.readouterr().out)
+    # The rerun writes to the same place; keep this one where it stays.
+    path = setup["tmp"] / "earlier.result.json"
+    shutil.copy(lj.result_of(setup["contract"]), path)
     result = json.loads(path.read_text(encoding="utf-8"))
     assert result["outcome"] != "accepted"
     assert any(a["notes"] for a in result["attempts"])
@@ -73,7 +76,7 @@ def test_the_first_attempt_of_a_seeded_rerun_is_shown_the_earlier_runs_notes(
 
     assert code == 0
     assert f"{STAMP_LINE}{run}), NOT THIS ONE: ATTEMPT" in sent[0]
-    result = json.loads(lj.result_path(capsys.readouterr().out).read_text())
+    result = json.loads(lj.result_of(setup["contract"]).read_text())
     seeded = result["seeded"]
     assert seeded["from"] == str(earlier)
     assert seeded["handed"] == len(seeded["records"]) > 0
@@ -103,7 +106,7 @@ def test_a_rerun_under_retry_notes_none_reads_the_seed_and_hands_none_of_it(
     )
 
     assert STAMP_LINE not in sent[0]
-    result = json.loads(lj.result_path(capsys.readouterr().out).read_text())
+    result = json.loads(lj.result_of(setup["contract"]).read_text())
     assert result["seeded"]["handed"] == 0
     assert result["seeded"]["records"]
 
@@ -116,7 +119,7 @@ def test_an_unseeded_result_says_nothing_of_a_seed(
     lj.scripted(monkeypatch, lj.GOOD_REPLY)
     lj.main(lj.run_args(setup["contract"], setup["repo"], setup["config"]))
 
-    result = json.loads(lj.result_path(capsys.readouterr().out).read_text())
+    result = json.loads(lj.result_of(setup["contract"]).read_text())
     assert "seeded" not in result
 
 
@@ -124,8 +127,11 @@ def test_an_unseeded_result_says_nothing_of_a_seed(
     ("content", "said"),
     [
         (None, "cannot be read"),
-        ("{not json", "not JSON"),
-        (json.dumps({"contract": "other", "run": "R", "attempts": []}), "'other'"),
+        ("{not json", "cannot be read"),
+        (
+            json.dumps({"contract": "other", "run": "R", "attempts": []}),
+            "no contract in this set has that id",
+        ),
     ],
 )
 def test_a_seed_that_cannot_be_used_stops_the_run_before_it_spends_anything(
@@ -150,8 +156,8 @@ def test_a_seed_that_cannot_be_used_stops_the_run_before_it_spends_anything(
         )
     )
 
-    assert code == 1
+    assert code == 2
     assert sent == []
     err = capsys.readouterr().err
-    assert f"error: --notes-from {seed}:" in err
+    assert f"error: --notes-from {seed}" in err
     assert said in err

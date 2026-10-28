@@ -152,9 +152,15 @@ ladder:
     )
 
 
-def test_an_unknown_command_exits_two(capsys: pytest.CaptureFixture[str]) -> None:
+@pytest.mark.parametrize(
+    "argv", [["--nonesuch"], ["run", "impl.yaml"], ["delegate", "Fix it.", "--run"]]
+)
+def test_an_unknown_flag_or_a_removed_verb_exits_two(
+    argv: list[str], capsys: pytest.CaptureFixture[str]
+) -> None:
+    """A lone word is a prompt now; `run` and `delegate` are gone, not aliased."""
     with pytest.raises(SystemExit) as raised:
-        main(["nonesuch"])
+        main(argv)
     assert raised.value.code == Exit.USAGE
 
 

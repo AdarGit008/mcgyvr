@@ -38,7 +38,6 @@ def test_the_second_draws_unwritable_blob_still_names_the_second_draw(
     tmp_path: Path,
     home: Path,
     monkeypatch: pytest.MonkeyPatch,
-    capsys: pytest.CaptureFixture[str],
 ) -> None:
     """The blob store dies on draw 1's reply: the raise is still draw 1's."""
     import mcgyvr.telemetry as telemetry
@@ -80,7 +79,7 @@ def test_the_second_draws_unwritable_blob_still_names_the_second_draw(
     assert second.get("outcome") == "error", "the raise is corrected onto its own row"
     assert _orphans(journal) == []
 
-    result = json.loads(lj.result_path(capsys.readouterr().out).read_text())
+    result = json.loads(lj.result_of(contract).read_text())
     landed = result["attempts"][-1]
     assert landed["verdict"] == "error"
     assert (landed["draw"], landed["draws"]) == (1, 2)

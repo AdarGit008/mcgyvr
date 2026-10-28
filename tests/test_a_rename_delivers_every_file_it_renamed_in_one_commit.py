@@ -1,4 +1,4 @@
-"""``mcgyvr run`` on a ``rename_symbol`` delivers every file the rename changed.
+"""``mcgyvr direct`` on a ``rename_symbol`` delivers every file the rename changed.
 
 A rename can cover both files in the sandbox ("5 occurrence(s) in 2 file(s)")
 and the gate accept the whole change, and delivery used to write back
@@ -34,8 +34,10 @@ RENAMED = {
 }
 
 
-def _result(stdout: str) -> dict[str, Any]:
-    return dict(json.loads(lj.result_path(stdout).read_text()))
+def _result(tmp_path: Path) -> dict[str, Any]:
+    """The result ``direct`` wrote for the rename contract ``_run`` filed."""
+    contract = tmp_path / "rename.yaml"
+    return dict(json.loads(lj.result_of(contract).read_text()))
 
 
 def _tree(repo: Path) -> dict[str, str]:
@@ -62,7 +64,7 @@ def test_without_commit_every_renamed_file_is_left_in_the_tree(
     head = lj.git(repo, "rev-parse", "HEAD").strip()
 
     out = capsys.readouterr().out
-    result = _result(out)
+    result = _result(tmp_path)
     assert code == 0, out
     assert result["outcome"] == "accepted"
     assert _tree(repo) == RENAMED, "a renamed file was not delivered"
@@ -84,7 +86,7 @@ def test_commit_lands_every_renamed_file_in_one_commit(
     repo, _, code = _run(tmp_path, monkeypatch, "--commit")
 
     out = capsys.readouterr().out
-    result = _result(out)
+    result = _result(tmp_path)
     assert code == 0, out
     assert result["committed"] is True
     shipped = lj.git(repo, "show", "--name-only", "--format=", "HEAD").split()
@@ -112,7 +114,7 @@ def test_a_reference_outside_the_allowed_scope_refuses_and_writes_nothing(
     head = lj.git(repo, "rev-parse", "HEAD").strip()
 
     out = capsys.readouterr().out
-    result = _result(out)
+    result = _result(tmp_path)
     assert code == 1, out
     assert result["committed"] is False
     assert any("src/pkg/use.py" in finding for finding in result["findings"]), result
@@ -138,7 +140,7 @@ def test_an_uncommitted_edit_to_a_renamed_file_that_is_not_the_target_refuses(
     head = lj.git(repo, "rev-parse", "HEAD").strip()
 
     out = capsys.readouterr().out
-    result = _result(out)
+    result = _result(tmp_path)
     assert code == 1, out
     assert result["outcome"] == "delivery_refused"
     assert "src/pkg/use.py" in result["detail"]

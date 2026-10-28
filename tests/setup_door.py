@@ -236,7 +236,7 @@ def gate_1(
 
 
 def accepted(argv: list[str], *, outcome: str = "accepted") -> int:
-    """``mcgyvr run`` answered with a result file: ``outcome`` on the first rung."""
+    """``mcgyvr direct`` answered with a result file: ``outcome`` on the first rung."""
     where = Path(argv[argv.index("--result") + 1])
     where.parent.mkdir(parents=True, exist_ok=True)
     where.write_text(

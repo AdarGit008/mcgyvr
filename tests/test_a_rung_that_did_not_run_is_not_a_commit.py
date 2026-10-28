@@ -18,7 +18,7 @@ for format, and no findings. Delivery refuses on the inconclusive rungs as it
 does on findings, and the returned :class:`~mcgyvr.deliver.Delivery` carries
 them.
 
-**Which path makes it the whole bar.** ``mcgyvr run --commit`` on the ladder
+**Which path makes it the whole bar.** ``mcgyvr direct --commit`` on the ladder
 carries an :class:`~mcgyvr.deliver.Accepted`, but a caller that hands delivery a
 bare ``str`` rather than a binding reaches this seam with no sandbox verdict
 behind it at all. There, delivery's gate run is the only gate the bytes ever

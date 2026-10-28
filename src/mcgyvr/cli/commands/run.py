@@ -1,6 +1,6 @@
-"""The `run` subcommand, and everything a run does.
+"""Everything one run of a contract does, behind `mcgyvr PROMPT` and `mcgyvr direct`.
 
-`run` loads a contract, refuses a repository that is not a git checkout, settles
+`_run` loads a contract, refuses a repository that is not a git checkout, settles
 the session, the config, the journal directory and the delivery policy, and then
 takes one of two paths: a deterministic contract runs the program its task type
 binds and is judged by the gate (`_floor`), while any other contract climbs the
@@ -89,7 +89,7 @@ def _run(args: argparse.Namespace) -> int:
     # An earlier run's failure notes, read and checked before anything else is
     # spent: a seed that is not a sound result of this contract stops the run
     # here rather than send a climb told something it should not have been.
-    # `delegate --run` builds its own arguments and names no seed.
+    # `mcgyvr PROMPT` and `mcgyvr direct` build their own arguments and names no seed.
     args.notes_from = getattr(args, "notes_from", None)
     seed: tuple[CarriedNotes, ...] = ()
     if args.notes_from is not None:
@@ -107,7 +107,7 @@ def _run(args: argparse.Namespace) -> int:
     # The sandbox holds the committed tree, so uncommitted and untracked files
     # the contract's commands need are not in it. Say so once here, where the
     # note is printed and kept for the result, rather than inside each gate.
-    # Beside other runs of one batch (`delegate --run --jobs`), the working
+    # Beside other runs of one batch (`mcgyvr PROMPT --jobs`), the working
     # tree is read between two of their deliveries, never in the middle of one.
     with (
         between_deliveries(repo)
@@ -335,7 +335,7 @@ def _run(args: argparse.Namespace) -> int:
                 f"{exc}. It is at {written}.",
                 file=sys.stderr,
             )
-    # The pointer is for whoever typed `mcgyvr run`. In a batch the result is
+    # The pointer is for a run on its own. In a batch (both verbs) the result is
     # read in process (the Board, the re-planner), so nothing is printed.
     if not getattr(args, "in_batch", False):
         print(f"result: {written}")

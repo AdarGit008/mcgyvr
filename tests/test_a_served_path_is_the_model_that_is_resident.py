@@ -14,7 +14,7 @@ minus the weights suffix, is the declared model** is that model, and a path
 that names some other model is not. vLLM's served id is the ``--model``
 argument, which is the repository id the config names.
 
-**2. ``mcgyvr run`` never asks.**
+**2. ``mcgyvr direct`` never asks.**
 ``mcgyvr.cli.commands.run._climb`` builds its pool with no probe ("Structural
 resolution, no
 probe"), and only ``mcgyvr local_pool --probe`` passes one. The run-path section
@@ -176,7 +176,7 @@ def test_a_run_resolves_its_ladder_without_reaching_a_single_endpoint(
     def probe(endpoint: Endpoint, timeout_s: float) -> AvailabilityVerdict:
         asked.append(endpoint.source)
         raise AssertionError(
-            f"`mcgyvr run` probed {endpoint.source!r} at {endpoint.base_url!r} "
+            f"`mcgyvr direct` probed {endpoint.source!r} at {endpoint.base_url!r} "
             "before dispatching. A run that opens a socket to resolve its "
             "ladder sends every test that names a rig by hostname at the rig"
         )

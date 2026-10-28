@@ -7,7 +7,7 @@ built ``Session('')`` because an empty string starts with neither ``claude-``
 nor ``pi-``, and from there the two paths diverged into two different wrong
 answers. On the deterministic floor nothing ever constructs a
 :class:`~mcgyvr.drive.Recording`, so nobody looked at the name: the run
-succeeded, exit 0, and left a result file whose ``orchestrator`` is ``""`` —
+succeeded, exit 0, and left a result file whose ``session`` is ``""`` —
 a row filed under nobody. On the ladder path ``Recording.__post_init__``
 caught it, but only after the config and the contract had been read, and it
 came out as exit 1 — an error, where the skill documents exit 2 for a run with
@@ -15,10 +15,11 @@ no session to file itself under.
 
 Both are the same defect: an id that names nobody is a *usage* error, and it is
 one before a file is opened. So it is refused where the missing session already
-is — in :func:`~mcgyvr.cli.commands.run._name_the_writer`, through the subparser's own
-``error``, exit 2 — on both paths, and the environment's session does not stand
-in for it. A caller who typed the flag asked to name the writer; a blank value
-is that caller getting the id wrong, not that caller declining to pass one.
+is — in :func:`~mcgyvr.cli.commands.direct._refuse_before_direct`, through
+the subparser's own ``error``, exit 2 — on both paths, and the environment's
+session does not stand in for it. A caller who typed the flag asked to name
+the writer; a blank value is that caller getting the id wrong, not that
+caller declining to pass one.
 """
 
 from __future__ import annotations
@@ -55,7 +56,7 @@ def home(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> Path:
     return tmp_path / "home"
 
 
-def test_a_blank_orchestrator_is_refused_on_the_ladder_path(
+def test_a_blank_session_is_refused_on_the_ladder_path(
     tmp_path: Path,
     home: Path,
     monkeypatch: pytest.MonkeyPatch,
@@ -76,7 +77,7 @@ def test_a_blank_orchestrator_is_refused_on_the_ladder_path(
     assert not journal.exists()
 
 
-def test_a_blank_orchestrator_is_refused_on_the_deterministic_floor_too(
+def test_a_blank_session_is_refused_on_the_deterministic_floor_too(
     tmp_path: Path,
     home: Path,
     capsys: pytest.CaptureFixture[str],
@@ -84,7 +85,7 @@ def test_a_blank_orchestrator_is_refused_on_the_deterministic_floor_too(
     """The floor journals nothing, so nothing there would have caught the name.
 
     The result file is where an empty id surfaced: a deterministic run wrote
-    one saying ``"orchestrator": ""`` and exited 0. So the assertion is that no
+    one saying ``"session": ""`` and exited 0. So the assertion is that no
     result was written at all — the run never started.
     """
     repo = lj.make_repo(tmp_path / "repo")
@@ -102,7 +103,7 @@ def test_a_blank_orchestrator_is_refused_on_the_deterministic_floor_too(
     assert lj.git(repo, "status", "--porcelain") == "", "a refused run touched the repo"
 
 
-def test_a_whitespace_only_orchestrator_is_the_same_refusal(
+def test_a_whitespace_only_session_is_the_same_refusal(
     tmp_path: Path,
     home: Path,
     monkeypatch: pytest.MonkeyPatch,
@@ -128,20 +129,20 @@ def test_the_refusal_lands_before_the_contract_is_read(
     home: Path,
     capsys: pytest.CaptureFixture[str],
 ) -> None:
-    """Parse time, not run time: a contract that does not exist is never reached.
+    """Parse time, not run time: a contract that does not load is never reached.
 
-    A contract that cannot be loaded is exit 1. If the blank id were caught
-    anywhere inside ``_run`` this would come back as that instead, which is the
-    ladder path's old answer with a different message.
+    A contract that cannot be loaded is a vetting refusal, exit 3. If the blank
+    id were caught anywhere after the vetting this would come back as that
+    instead, with the contract named, which is the old answer with a different
+    message.
     """
     repo = lj.make_repo(tmp_path / "repo")
     config = lj.make_config(tmp_path / "mcgyvr.yaml", journal_dir=tmp_path / "journal")
+    broken = lj.make_contract(tmp_path / "broken.yaml", "id: [unclosed\n")
 
-    code = lj.main(
-        lj.run_args(tmp_path / "nowhere.yaml", repo, config, "--session", "")
-    )
+    code = lj.main(lj.run_args(broken, repo, config, "--session", ""))
 
     assert code == 2, code
     err = capsys.readouterr().err
     assert "--session" in err
-    assert "nowhere.yaml" not in err, err
+    assert "broken.yaml" not in err, err

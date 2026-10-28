@@ -3,7 +3,7 @@
 The record is what the calling agent replans from, so the copy in the result
 file has to be the record and not a rendering of it: :meth:`FailureNotes.as_json`
 writes it, :meth:`FailureNotes.from_json` reads it back equal, and a real
-``mcgyvr run`` writes it under ``attempts[].notes`` beside the `findings` lines
+``mcgyvr direct`` writes it under ``attempts[].notes`` beside the `findings` lines
 rendered from it.
 """
 
@@ -87,7 +87,7 @@ def test_a_run_writes_the_record_into_the_result_file(
 
     assert lj.main(lj.run_args(contract, repo, config)) == 1
 
-    result = json.loads(lj.result_path(capsys.readouterr().out).read_text())
+    result = json.loads(lj.result_of(contract).read_text())
     (attempt,) = result["attempts"]
     record = FailureNotes.from_json(attempt["notes"])
     assert (record.rung, record.family, record.attempt) == ("local_qwen-7b", "local", 1)

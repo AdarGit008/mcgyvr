@@ -2,8 +2,8 @@
 
 A climb that tried every rung and produced no acceptable change ends
 ``ladder_spent`` (:class:`mcgyvr.escalate.Outcome`). The same contract would
-come to the same answer anywhere, so a batch (``mcgyvr delegate --run``) hands
-it back to the orchestrator to be re-planned instead of stopping there, up to
+come to the same answer anywhere, so a batch (``mcgyvr PROMPT``) hands
+it back to the proposer to be re-planned instead of stopping there, up to
 ``max_replans`` times for one line of work.
 
 What goes back is :class:`Spent`: the contract, and the failure-notes records
@@ -189,15 +189,15 @@ def stamped(
 def hint(bound: int) -> str:
     """What a single run that spent its ladder says about re-planning.
 
-    A single `mcgyvr run` has no orchestrator to hand the contract back to and no
-    batch to swap a replacement into, so it stops at `ladder_spent` and says
-    where the work goes on.
+    A contract someone wrote and ran with `mcgyvr direct` has no proposer to hand
+    it back to, so it stops at `ladder_spent` and says where the work goes on.
+    (A batch that `mcgyvr PROMPT` planned re-plans; `direct` never does.)
     """
     return (
         f"replan: every rung was tried on this contract. A batch re-plans a "
-        f"contract like this (max_replans: {bound}): `mcgyvr delegate "
-        f"--run` hands it back to the orchestrator with the failure notes in "
-        f"this result and runs what comes back in its place. This single run "
-        f"stops here; send the request through `mcgyvr delegate --run`, or "
+        f"contract like this (max_replans: {bound}): `mcgyvr "
+        f"PROMPT` hands it back to the proposer with the failure notes in "
+        f"this result and runs what comes back in its place. `mcgyvr direct` "
+        f"stops here; send the request through `mcgyvr PROMPT`, or "
         f"narrow the contract."
     )

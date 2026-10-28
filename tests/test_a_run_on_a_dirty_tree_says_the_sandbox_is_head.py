@@ -6,11 +6,11 @@ in it, and that can hide the test the agent has just written; a run that
 says nothing lets the agent replace a real check with filler. So it
 warns, does not refuse, and does not change the base.
 
-* ``mcgyvr run`` on a dirty tree says so on stderr and puts the same line in
+* ``mcgyvr direct`` on a dirty tree says so on stderr and puts the same line in
   the result file's ``notes``, because the skill tells a caller to read the
   file and not the scrollback. A clean tree says nothing.
 * ``mcgyvr sandbox``, which shows what a run here would get, says the same.
-* ``mcgyvr delegate`` says the same before it drafts: its baseline is read from
+* ``mcgyvr PROMPT`` says the same before it drafts: its baseline is read from
   the working tree, while each contract it drafts runs on HEAD.
 """
 
@@ -122,7 +122,7 @@ def _run(tmp_path: Path, monkeypatch: pytest.MonkeyPatch, repo: Path) -> int:
     contract.write_text(FORMAT, encoding="utf-8")
     return main(
         [
-            "run",
+            "direct",
             str(contract),
             "--repo",
             str(repo),
@@ -184,7 +184,7 @@ def test_the_sandbox_inspection_says_the_same(
     assert _expected(repo) in capsys.readouterr().err.splitlines()
 
 
-def test_delegate_says_the_same_before_it_drafts(
+def test_the_bare_verb_says_the_same_before_it_drafts(
     tmp_path: Path,
     monkeypatch: pytest.MonkeyPatch,
     capsys: pytest.CaptureFixture[str],
@@ -206,7 +206,17 @@ def test_delegate_says_the_same_before_it_drafts(
 
     monkeypatch.setattr(delegate, "dispatch_role", fake_dispatch_role)
 
-    main(["delegate", "tidy rows", "--repo", str(repo), "--config", str(config)])
+    main(
+        [
+            "tidy rows",
+            "--repo",
+            str(repo),
+            "--config",
+            str(config),
+            "--output",
+            str(tmp_path / "plan"),
+        ]
+    )
     assert _expected(repo) in capsys.readouterr().err.splitlines()
 
 
