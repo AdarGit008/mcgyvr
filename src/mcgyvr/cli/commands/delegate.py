@@ -49,6 +49,11 @@ from mcgyvr.cli.commands.run import _copy, _run
 from mcgyvr.cli.common import CONFIG_DEFAULT_HELP, _add_repo, _named_path, add_session
 from mcgyvr.cli.sandbox import _say_what_the_sandbox_leaves_out
 
+#: The `detail` keys a decomposition's re-proposing is counted under.
+_COUNTS = frozenset(
+    {"refused", "reproposed", "recovered", "still_refused", "reproposal_failed"}
+)
+
 
 class _Logbook:
     """What `--log PATH` will say: kept as the command goes, written at its end.
@@ -68,6 +73,9 @@ class _Logbook:
             if self.path is not None
             else None
         )
+        if self.decisions is not None:
+            # This run's decisions only: an earlier run's are not appended to.
+            self.decisions.unlink(missing_ok=True)
         self.kind = DelegateKind.INTERNAL_ERROR
         self.message = ""
         self.detail: dict[str, Any] = {}
@@ -100,16 +108,16 @@ class _Logbook:
             LoggedRefusal(r.subject, r.reason, r.field, r.what_to_change)
             for r in dec.refusals
         )
-        counts = (
-            {
+        counts: dict[str, Any] = {}
+        if dec.reproposal is not None:
+            counts = {
                 "refused": dec.reproposal.refused,
                 "reproposed": dec.reproposal.reproposed,
                 "recovered": dec.reproposal.recovered,
                 "still_refused": dec.reproposal.still_refused,
             }
-            if dec.reproposal is not None
-            else {}
-        )
+            if dec.reproposal.failed:
+                counts["reproposal_failed"] = dec.reproposal.failed
         if not dec.contracts:
             self.ended(
                 DelegateKind.NONE_EMITTED, "No contracts were emitted.", **counts
@@ -129,12 +137,17 @@ class _Logbook:
             )
 
     def held(self, ids: Sequence[str], tree_state: Path | None) -> None:
-        """A batch held `ids`; the Board's state file says the rest."""
+        """A batch held `ids`; the Board's state file says the rest.
+
+        What the decomposition counted (`decomposed`) is kept beside it.
+        """
+        kept = {k: v for k, v in self.detail.items() if k in _COUNTS}
         self.ended(
             DelegateKind.BATCH_HELD,
             f"{len(ids)} contract(s) held and never sent: {', '.join(ids)}.",
             held=list(ids),
             tree_state=str(tree_state) if tree_state is not None else None,
+            **kept,
         )
 
     def write(self, exit_code: int) -> None:

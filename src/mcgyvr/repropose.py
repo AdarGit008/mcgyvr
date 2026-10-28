@@ -20,7 +20,7 @@ from collections.abc import Sequence
 from typing import TYPE_CHECKING
 
 from mcgyvr.config import MAX_REPROPOSALS_DEFAULT
-from mcgyvr.replan import _flat as flat
+from mcgyvr.replan import flat
 
 if TYPE_CHECKING:  # pragma: no cover - typing only
     from mcgyvr.config import Config

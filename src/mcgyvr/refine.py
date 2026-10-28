@@ -274,10 +274,13 @@ class RefiningProposer:
         """The `Proposer` seam: a decline is `()`, so the prose proposer stands in.
 
         Evidence carrying refused proposals is a re-proposal: the classifier
-        asks each refused field again (`iterate.reproposals`), unrefined.
+        asks each refused field again (`iterate.reproposals`), and what it
+        answers is refined as a first proposal is.
         """
         if evidence.refused:
-            return reproposals(self.classifier, evidence)
+            roots = reproposals(self.classifier, evidence)
+            again = self._from_roots(replace(evidence, refused=()), roots)
+            return () if again is None else again
         refined = self.refine(evidence)
         return () if refined is None else refined
 
@@ -286,16 +289,24 @@ class RefiningProposer:
         root = self.classifier.propose(evidence)
         if isinstance(root, Refusal):
             return None
-        nodes = self._by_file(evidence, root)
-        if nodes is None:
-            return None
-        if isinstance(nodes, Refusal):
-            return (nodes,)
+        return self._from_roots(evidence, (root,))
+
+    def _from_roots(
+        self, evidence: Evidence, roots: Sequence[Proposal]
+    ) -> tuple[Proposal | Refusal, ...] | None:
+        """Every root refined, its leaves linked, or None when jev declined."""
         leaves: list[Proposal] = []
         refusals: list[Refusal] = []
-        for node in nodes:
-            if not self._walk(evidence, node, leaves, refusals):
+        for root in roots:
+            nodes = self._by_file(evidence, root)
+            if nodes is None:
                 return None
+            if isinstance(nodes, Refusal):
+                refusals.append(nodes)
+                continue
+            for node in nodes:
+                if not self._walk(evidence, node, leaves, refusals):
+                    return None
         return (*_linked(evidence, leaves), *refusals)
 
     def _by_file(

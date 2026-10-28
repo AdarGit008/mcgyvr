@@ -207,15 +207,19 @@ class Reproposal:
     """What re-proposing came to in one decomposition, as counts.
 
     `refused` is how many proposals vetting refused first, `reproposed` how
-    many refusals were handed back over every round, `recovered` the contracts
-    that came of what the proposer answered, `still_refused` the vetting
-    refusals reported in the end.
+    many refusals were handed back over every round (a refusal handed back in
+    two rounds counts twice), `recovered` how many contracts came of what the
+    proposer answered — contracts, not refusals, since one refusal may come
+    back as several proposals or several as one — and `still_refused` the
+    vetting refusals reported in the end. `failed` names the error a proposer
+    raised instead of answering, which ended the rounds; empty when none did.
     """
 
     refused: int = 0
     reproposed: int = 0
     recovered: int = 0
     still_refused: int = 0
+    failed: str = ""
 
 
 Proposer = Callable[[Evidence], Sequence[Proposal | Refusal]]
@@ -317,11 +321,14 @@ def decompose(
     answered = tuple(propose(evidence))
     refused = tuple(a for a in answered if isinstance(a, Refusal))
     proposals = tuple(a for a in answered if not isinstance(a, Refusal))
+    # Re-proposing is on, and nothing reached vetting: all counts are zero.
+    nothing = Reproposal() if max_reproposals > 0 else None
     if not proposals and refused:
         return Decomposition(
             refusals=refused,
             resolution=evidence.resolution,
             exploration=evidence.exploration,
+            reproposal=nothing,
         )
     if not proposals:
         return Decomposition(
@@ -341,6 +348,7 @@ def decompose(
             ),
             resolution=evidence.resolution,
             exploration=evidence.exploration,
+            reproposal=nothing,
         )
 
     vetting = _Vetting(evidence, owners, max_input_tokens, located)
@@ -378,11 +386,15 @@ class _Vetting:
     seen: dict[str, str] = field(default_factory=dict)
     emitted: dict[str, Contract] = field(default_factory=dict)
 
-    def vet(self, proposals: tuple[Proposal, ...]) -> list[Refused]:
+    def vet(
+        self, proposals: tuple[Proposal, ...], *, passing_over_seen: bool = False
+    ) -> list[Refused]:
         linked, implied = _wait_on_providers(self.evidence.index, proposals)
         ordered, fan_out_refused = _fanned_out(linked, implied=implied)
         refused = [Refused(linked[at], r) for at, r in fan_out_refused]
         for proposal, depends_on_ids in ordered:
+            if passing_over_seen and _identify(proposal) in self.seen:
+                continue
             emitted = emit_one(
                 self.evidence,
                 proposal,
@@ -405,49 +417,74 @@ class _Vetting:
             self.documents.append(document)
         return refused
 
+    def rewire(self, gone: set[str], instead: tuple[str, ...]) -> None:
+        """Have every contract that waits on one of `gone` wait on `instead`."""
+        for at, contract in enumerate(self.contracts):
+            if not gone.intersection(contract.depends_on):
+                continue
+            waits = [i for i in contract.depends_on if i not in gone]
+            waits += [i for i in instead if i not in waits and i != contract.id]
+            rewired = replace(contract, depends_on=tuple(waits))
+            self.contracts[at] = rewired
+            self.documents[at] = contract_module.dumps(rewired)
+
 
 def _repropose(
     propose: Proposer, vetting: _Vetting, refused: list[Refused], rounds: int
 ) -> tuple[list[Refused], Reproposal]:
-    """Hand each refusal a proposer can act on back to it, at most `rounds` times.
+    """Hand what vetting refused back to the proposer, once a round, `rounds` at most.
 
-    One refused proposal goes back per call, on the evidence's `refused`, so
-    what comes back stands in for that one. Its proposals are vetted as a
-    first answer is; one whose id is a contract already emitted is the same
-    work and is dropped. What it emits recovers the refusal, and what it
-    refuses is reported in the refusal's place and is the next round's to hand
-    back; an answer with nothing new leaves the refusal as it was. Refusals of
-    the request or catch-alls (`REPROPOSABLE`) never go back.
+    Each round is one call: every refusal a proposer can act on
+    (`REPROPOSABLE`; never the request's, never a catch-all) goes back together
+    on the evidence's `refused`. The answer is vetted as a first answer is,
+    except that a proposal whose id is a contract already emitted is the same
+    work and is passed over rather than refused. When the answer emits
+    anything, its contracts take the place of the refusals handed back — a
+    contract that waited on one of them waits on each of them instead — and
+    what it refuses is reported in their place and is the next round's to hand
+    back. An answer that brings nothing new leaves the refusals as they were
+    and ends the rounds; so does a proposer that fails to answer, whose error
+    is named in `failed`, and the contracts already emitted stand.
     """
+    # Imported here: `mcgyvr.delegate` imports this module.
+    from mcgyvr.delegate import DelegationError
+    from mcgyvr.local_pool import SourceUnavailableError
+    from mcgyvr.runner import RunnerError
+
     reported = list(refused)
     sending = [r for r in refused if r.refusal.field in REPROPOSABLE]
     handed = recovered = 0
+    failed = ""
     for _ in range(rounds):
         if not sending:
             break
-        following: list[Refused] = []
-        for item in sending:
-            handed += 1
-            answer = propose(replace(vetting.evidence, refused=(item,)))
-            fresh = tuple(
-                a
-                for a in answer
-                if isinstance(a, Proposal) and _identify(a) not in vetting.seen
-            )
-            if not fresh:
-                continue
-            before = len(vetting.contracts)
-            again = vetting.vet(fresh)
-            recovered += len(vetting.contracts) - before
-            at = next(i for i, r in enumerate(reported) if r is item)
-            reported[at : at + 1] = again
-            following.extend(r for r in again if r.refusal.field in REPROPOSABLE)
-        sending = following
+        handed += len(sending)
+        try:
+            answer = propose(replace(vetting.evidence, refused=tuple(sending)))
+        except (DelegationError, RunnerError, SourceUnavailableError) as exc:
+            failed = type(exc).__name__
+            break
+        fresh = tuple(a for a in answer if isinstance(a, Proposal))
+        before = len(vetting.contracts)
+        again = vetting.vet(fresh, passing_over_seen=True) if fresh else []
+        emitted = vetting.contracts[before:]
+        if not emitted and not again:
+            break
+        recovered += len(emitted)
+        if emitted:
+            # The ids the refused proposals would have had; one that is a
+            # contract after all (a duplicate) is not gone.
+            gone = {_identify(r.proposal) for r in sending} - set(vetting.seen)
+            vetting.rewire(gone, tuple(c.id for c in emitted))
+        reported = [r for r in reported if not any(r is s for s in sending)]
+        reported.extend(again)
+        sending = [r for r in again if r.refusal.field in REPROPOSABLE]
     return reported, Reproposal(
         refused=len(refused),
         reproposed=handed,
         recovered=recovered,
         still_refused=len(reported),
+        failed=failed,
     )
 
 

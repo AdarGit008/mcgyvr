@@ -376,3 +376,134 @@ def test_under_log_the_classifiers_decisions_are_recorded_beside_the_record(
     assert [d.field for d in decisions][:2] == ["task_type", "target"]
     assert "split" in [d.field for d in decisions]
     assert {d.model for d in decisions} == {"judge-model"}
+
+
+# -- what the review found ---------------------------------------------------------
+
+
+class Raising(Prose):
+    """A prose proposer whose re-proposal fails with `error`."""
+
+    def __init__(self, first: Sequence[Proposal], error: BaseException) -> None:
+        super().__init__(first)
+        self.error = error
+
+    def __call__(self, evidence: Evidence) -> Sequence[Proposal]:
+        if evidence.refused:
+            self.seen.append(evidence)
+            raise self.error
+        return super().__call__(evidence)
+
+
+def test_a_proposer_that_fails_to_re_propose_keeps_what_was_emitted(
+    index: Index,
+) -> None:
+    from mcgyvr.delegate import UnreadableProposalError
+    from mcgyvr.delegate_log import DelegateKind
+
+    error = UnreadableProposalError("not JSON", kind=DelegateKind.REPLY_NOT_JSON)
+    prose = Raising([code("listing.py"), code("nosuch.py")], error)
+
+    result = decompose(index, "document listing", propose=prose, max_reproposals=1)
+
+    assert [c.target for c in result.contracts] == ["listing.py"]
+    assert [r.subject for r in result.refusals] == ["nosuch.py"]
+    assert result.reproposal == Reproposal(
+        refused=1,
+        reproposed=1,
+        recovered=0,
+        still_refused=1,
+        failed="UnreadableProposalError",
+    )
+
+
+def test_one_call_a_round_hands_every_refusal_back_together(index: Index) -> None:
+    bad = [code(f"nosuch{n}.py") for n in range(4)]
+    prose = Prose(bad, then=[code(f"other{n}.py") for n in range(4)])
+
+    result = decompose(index, "document listing", propose=prose, max_reproposals=3)
+
+    assert len(prose.seen) == 1 + 3
+    assert [len(e.refused) for e in prose.seen] == [0, 4, 4, 4]
+    assert result.reproposal == Reproposal(
+        refused=4, reproposed=12, recovered=0, still_refused=4
+    )
+
+
+def test_an_answer_repeating_the_whole_plan_keeps_its_own_depends_on(
+    index: Index,
+) -> None:
+    """What was emitted is passed over, not dropped before indexes resolve."""
+    kept = code("listing.py")
+    report = code("report.py", task="Document render.")
+    waits = code("report.py", task="Document summary.", depends_on=(1,))
+    prose = Prose([kept, code("nosuch.py")], then=[kept, report, waits])
+
+    result = decompose(index, "document listing", propose=prose, max_reproposals=1)
+
+    assert result.refusals == ()
+    by_task = {c.task: c for c in result.contracts}
+    assert by_task["Document summary."].depends_on == (by_task["Document render."].id,)
+    assert result.reproposal == Reproposal(
+        refused=1, reproposed=1, recovered=2, still_refused=0
+    )
+
+
+def test_what_waited_on_a_refused_proposal_waits_on_what_replaced_it(
+    index: Index,
+) -> None:
+    waiting = code("listing.py", depends_on=(0,))
+    prose = Prose([code("nosuch.py"), waiting], then=[code("report.py")])
+
+    result = decompose(index, "document listing", propose=prose, max_reproposals=1)
+
+    assert result.refusals == ()
+    by_target = {c.target: c for c in result.contracts}
+    assert by_target["listing.py"].depends_on == (by_target["report.py"].id,)
+    (document,) = (d for d in result.documents if '"listing.py"' in d)
+    assert by_target["report.py"].id in document
+
+
+def test_with_nothing_to_vet_the_counts_are_zero_not_missing(index: Index) -> None:
+    result = decompose(index, "document listing", propose=Prose([]), max_reproposals=1)
+    assert result.reproposal == Reproposal()
+
+
+def test_a_held_batch_keeps_the_counts_and_a_new_log_drops_old_decisions(
+    tmp_path: Path, index: Index
+) -> None:
+    from mcgyvr.cli.commands.delegate import _Logbook
+    from mcgyvr.orchestrator.decompose import Decomposition
+
+    log = tmp_path / "log.json"
+    stale = tmp_path / "log.json.decisions.jsonl"
+    stale.write_text('{"field": "old"}\n')
+    book = _Logbook(str(log))
+    assert not stale.exists()
+
+    counts = Reproposal(refused=2, reproposed=2, recovered=1, still_refused=1)
+    book.decomposed(Decomposition(reproposal=counts), [])
+    book.held(["code-x"], None)
+    book.write(3)
+
+    record = read(log)
+    assert record.detail["held"] == ["code-x"]
+    assert (record.detail["refused"], record.detail["recovered"]) == (2, 1)
+    assert "decisions" not in record.detail
+
+
+def test_what_the_classifier_re_proposes_is_refined_as_a_first_proposal_is(
+    wide: Index,
+) -> None:
+    """The re-asked proposal is asked whether it splits, as every proposal is."""
+    jev = ScriptedJev()
+
+    decompose(
+        wide,
+        "Document listing and the report.",
+        propose=refining(jev),
+        max_input_tokens=2000,
+        max_reproposals=1,
+    )
+
+    assert jev.names().count("split") == 2
