@@ -202,8 +202,38 @@ DELIVERY_FIELDS: tuple[Field, ...] = (
     ),
 )
 
+#: The use case that opts in to mcgyvr between a model and you: contracts are
+#: proposed, vetted, run up the ladder, gated, repaired, reviewed and re-planned,
+#: each stage under its own switch (`SWITCHES`), every one on by default.
+MCGYVR_CODE = "mcgyvr-code"
+#: A coding model mcgyvr recommends, served raw: nothing of mcgyvr's is in the path.
+CODE = "code"
+#: The use case served by a raw, un-gated text endpoint rather than scoped edits.
+CHAT = "chat"
+#: A raw, un-gated endpoint with tool-calling.
+AGENT = "agent"
+
 #: The use cases an install may serve, in the order setup offers them.
-USE_CASES: tuple[str, ...] = ("coding", "chat", "agent")
+USE_CASES: tuple[str, ...] = (MCGYVR_CODE, CODE, CHAT, AGENT)
+
+#: The use cases that serve their model raw: no stage of `SWITCHES` runs, and the
+#: contract verbs refuse (`requires_mcgyvr_code`).
+RAW_USE_CASES: tuple[str, ...] = (CODE, CHAT, AGENT)
+
+#: Use-case names an earlier build read and this one refuses, each with what
+#: replaced it. There is no alias: a config, `setup --use-case` or `mcgyvr use`
+#: that names one is refused with this sentence.
+RETIRED_USE_CASES: dict[str, str] = {
+    "coding": (
+        "`coding` is no longer a use case: the gated coding it named is "
+        "`mcgyvr-code`, and a coding model served raw is `code`; `mcgyvr use "
+        "mcgyvr-code` rewrites the line"
+    ),
+}
+
+#: What a batch does with two ready contracts whose scopes can write one file:
+#: `wait` runs one after the other, `parallel` runs them at once.
+SAME_FILE_CHOICES: tuple[str, ...] = ("wait", "parallel")
 
 #: Where the journal is kept when `journal.dir` says nothing else: one directory
 #: under the user's state directory, outside any repository a run works on.
@@ -293,6 +323,19 @@ CLEANUP_FIELDS: tuple[Field, ...] = (
 )
 
 GATE_FIELDS: tuple[Field, ...] = (
+    Field(
+        "enabled",
+        "bool",
+        "Whether the gate judges a change. Off, no language rung (syntax, lint, "
+        "format, types, the semantic rung, `param_mutation`) and no acceptance "
+        "command runs: a draw that changed its target is accepted as the worker "
+        "left it, the run says `ungated` beside the change, delivery does not "
+        "judge it again, and no repair runs, since a repair answers a rejection. "
+        "The scope and secret checks and the parse of a structured file still "
+        "refuse, because they guard the repository rather than judge the "
+        "answer. The reviewer (`verifier.enabled`) is a switch of its own.",
+        default=True,
+    ),
     Field(
         "param_mutation",
         "enum",
@@ -754,9 +797,24 @@ ORCHESTRATOR_FIELDS: tuple[Field, ...] = (
         "its first candidate — the first servable type and target, the "
         "target's first symbol, and the request as the task — and `prose` "
         "stands in only when there is no target or servable type to pick. "
-        "Unset is `prose`.",
+        "Unset is `classifier` under `use_case: mcgyvr-code` when a `jev` unit "
+        "is bound and on, and `prose` otherwise.",
         choices=("prose", "classifier"),
         bind_hint="name one of `prose`, `classifier`",
+    ),
+    *ROLE_UNIT_FIELDS,
+)
+
+JEV_FIELDS: tuple[Field, ...] = (
+    Field(
+        "enabled",
+        "bool",
+        "Whether the bound Jev unit is asked. Off, every typed decision is asked "
+        "as if no unit were bound -- the verifier, the reviewing rung, the fast "
+        "rung or the orchestrator answers, triage asks nobody, and authoring "
+        "defaults to `prose` -- while the binding stays written, so turning it "
+        "back on is one line.",
+        default=True,
     ),
     *ROLE_UNIT_FIELDS,
 )
@@ -793,11 +851,16 @@ SCHEMA: tuple[Field, ...] = (
     Field(
         "use_case",
         "enum",
-        "Which of the three use cases this install serves: `coding` (scoped "
-        "edits judged by the deterministic gate), `chat` (a raw un-gated "
-        "endpoint) or `agent` (a raw un-gated endpoint with tool-calling).",
+        "Which of the four use cases this install serves. `mcgyvr-code` opts in "
+        "to mcgyvr between the model and you: contracts proposed, vetted, run up "
+        "the ladder, gated, repaired, reviewed and re-planned, each stage under "
+        "its own switch, every one on by default. `code` (a coding model), "
+        "`chat` (a text endpoint) and `agent` (an endpoint with tool-calling) "
+        "serve the model raw: no stage runs, and `mcgyvr PROMPT` and `mcgyvr "
+        "direct` refuse. `mcgyvr use NAME` switches it. Unset is "
+        "`mcgyvr-code`; `coding` is refused, naming what replaced it.",
         choices=USE_CASES,
-        default="coding",
+        default=MCGYVR_CODE,
     ),
     Field(
         "deployment",
@@ -805,9 +868,9 @@ SCHEMA: tuple[Field, ...] = (
         "How mcgyvr is run. `hybrid` drives it from an API-tier "
         "orchestrator in the user's session; scoped work is offloaded to the "
         "local cheap-to-dear ladder, whose dearest rung is an API model so a "
-        "task always completes. `local-only` makes mcgyvr the backend: a "
-        "non-chat use case provisions a local orchestrator unit, and chat is "
-        "just the ladder serving text.",
+        "task always completes. `local-only` makes mcgyvr the backend: "
+        "`mcgyvr-code` provisions a local orchestrator unit, and a raw use case "
+        "(`code`, `chat`, `agent`) is just the ladder serving its model.",
         choices=("hybrid", "local-only"),
         default="hybrid",
     ),
@@ -866,6 +929,28 @@ SCHEMA: tuple[Field, ...] = (
         "every contract once what it waits on has come to anything, as before.",
         default="hold",
         choices=DEPENDENTS_CHOICES,
+    ),
+    Field(
+        "infer_dependencies",
+        "bool",
+        "Whether a batch of contracts also waits on what it can infer. On, a "
+        "contract that uses a name the committed tree does not define yet waits "
+        "on the sibling whose target creates it, though its `depends_on` does "
+        "not say so, and one whose name nothing defines or creates is held. Off, "
+        "a batch is ordered by `depends_on` alone. Contracts `mcgyvr PROMPT` "
+        "proposes state such waits in `depends_on` themselves.",
+        default=True,
+    ),
+    Field(
+        "same_file",
+        "enum",
+        "What a batch run with `--jobs` does with two ready contracts whose "
+        "scopes can write one file. `wait` runs the second once the first has "
+        "settled, from the tree the first left. `parallel` runs them at once, "
+        "from one base: their deliveries still take turns, and one that no "
+        "longer applies is refused and named, never lost.",
+        default="wait",
+        choices=SAME_FILE_CHOICES,
     ),
     Field(
         "attempts",
@@ -1030,7 +1115,7 @@ SCHEMA: tuple[Field, ...] = (
         "Users this install serves at once, and therefore the slot count the "
         "local orchestrator unit is served at: one session per user. A "
         "written `width` on the orchestrator's unit wins. `1` is a "
-        "single-user install, which for a local-only non-chat use case is "
+        "single-user install, which for a local-only `mcgyvr-code` install is "
         "flagged, not refused — the resident orchestrator consumes the card "
         "the ladder would otherwise use.",
         default=1,
@@ -1059,8 +1144,9 @@ SCHEMA: tuple[Field, ...] = (
         "proposer and, under `triage: jev`, the rung a climb starts on. Left "
         "unbound, each of those keeps asking the unit it asks "
         "today: the verifier, the reviewing rung, the fast rung or the "
-        "orchestrator, and triage asks nobody.",
-        block=ROLE_UNIT_FIELDS,
+        "orchestrator, and triage asks nobody. `enabled: false` keeps the "
+        "binding and asks as if it were unbound.",
+        block=JEV_FIELDS,
     ),
     Field("sandbox", "block", "Where a task's commands run.", block=SANDBOX_FIELDS),
     Field(
@@ -1220,11 +1306,8 @@ class Ladder:
         return name if name in self.names else None
 
 
-#: The use case served by a raw, un-gated text endpoint rather than scoped edits.
-CHAT = "chat"
-
-#: The deployment in which mcgyvr is the backend: a non-chat use case provisions
-#: a local orchestrator unit, and chat is the ladder serving text.
+#: The deployment in which mcgyvr is the backend: `mcgyvr-code` provisions a
+#: local orchestrator unit, and a raw use case is the ladder serving its model.
 LOCAL_ONLY = "local-only"
 
 
@@ -1249,15 +1332,16 @@ def local_orchestrator(
     """Whether this install provisions a local orchestrator unit.
 
     A hybrid deployment provisions none, because an API-tier orchestrator
-    drives it, and neither does `chat`, which is just the ladder serving
-    text. Any other local-only use case provisions one, served at `users`
-    slots with one session per user, and a single user is flagged rather than
+    drives it, and neither does a raw use case (`code`, `chat`, `agent`),
+    which has no proposer in its path: it is the ladder serving the model.
+    `mcgyvr-code` under local-only provisions one, served at `users` slots
+    with one session per user, and a single user is flagged rather than
     refused. Raises `ValueError` when `users` is below 1 on that path; the
     other paths do not look at it.
     """
     if not local_only:
         return LocalOrchestrator(provision=False)
-    if use_case == CHAT:
+    if use_case != MCGYVR_CODE:
         return LocalOrchestrator(provision=False)
     if users < 1:
         raise ValueError(
@@ -1293,8 +1377,27 @@ class Config:
 
     @property
     def use_case(self) -> str:
-        """`use_case` from the config, `coding` when it is not set."""
-        return str(self.get("use_case", "coding"))
+        """`use_case` from the config, `mcgyvr-code` when it is not set."""
+        return str(self.get("use_case") or MCGYVR_CODE)
+
+    @property
+    def is_raw(self) -> bool:
+        """True when the use case serves its model raw: no stage runs."""
+        return self.use_case in RAW_USE_CASES
+
+    @property
+    def jev_on(self) -> bool:
+        """True when a Jev unit is bound and `jev.enabled` leaves it on."""
+        return bool(self.get("jev.unit")) and self.get("jev.enabled") is not False
+
+    @property
+    def authoring(self) -> str:
+        """How proposals are authored: `orchestrator.authoring` when stated;
+        otherwise `classifier` under `mcgyvr-code` with Jev on, else `prose`."""
+        stated = self.get("orchestrator.authoring")
+        if stated is not None:
+            return str(stated)
+        return "classifier" if self.use_case == MCGYVR_CODE and self.jev_on else "prose"
 
     @property
     def deployment(self) -> str:
@@ -1373,6 +1476,215 @@ class Config:
 
     def _in_file(self) -> str:
         return f" in {self.path}" if self.path is not None else ""
+
+
+@dataclass(frozen=True)
+class Switch:
+    """One point where mcgyvr changes what a model is sent or what comes back.
+
+    `keys` are the policy keys (or, starting `--`, the flag) that switch it,
+    `off` the value that takes mcgyvr out of that point, `doc` one line saying
+    what the point does, `stage` the name `stages` answers it under (None for a
+    tunable that is not an on/off stage), and `knob` its number among the four
+    knobs `mcgyvr-code` exposes, `KNOBS`.
+    """
+
+    point: str
+    keys: tuple[str, ...]
+    off: str
+    doc: str
+    stage: str | None = None
+    knob: int | None = None
+
+
+#: The four knobs `mcgyvr-code` exposes, by number, in plain words.
+KNOBS: dict[int, str] = {
+    1: "ladder vs single model",
+    2: "Jev unit on/off",
+    3: "repair on/off",
+    4: "attempts per rung and escalation",
+}
+
+#: Every point where mcgyvr sits between a model and you, with its switch. All
+#: live in the policy; under a raw use case none of them runs. Operational
+#: machinery (model loading, slots, sandbox, locks, waking a card) has none, nor
+#: has vetting, which is what makes a proposal a runnable contract.
+SWITCHES: tuple[Switch, ...] = (
+    Switch(
+        "authoring",
+        ("orchestrator.authoring",),
+        "`prose`",
+        "how a request becomes proposals: typed Jev questions or one prose reply",
+        stage="classifier",
+    ),
+    Switch(
+        "Jev decisions",
+        ("jev.enabled",),
+        "`false`",
+        "the one small unit that answers every typed decision",
+        stage="jev",
+        knob=2,
+    ),
+    Switch(
+        "ladder",
+        ("ladder", "max_escalations"),
+        "one unit, or `0`",
+        "climb cheapest first, or stay on one model",
+        stage="ladder",
+        knob=1,
+    ),
+    Switch(
+        "attempts",
+        ("attempts", "max_attempts", "max_escalations"),
+        "per unit, ceilings",
+        "tries per rung, in total, and moves up the ladder",
+        knob=4,
+    ),
+    Switch(
+        "triage",
+        ("triage",),
+        "`none`",
+        "Jev picks the rung a climb starts on",
+    ),
+    Switch(
+        "retry notes",
+        ("retry_notes",),
+        "`none`",
+        "what a retry is told about the attempts that failed before it",
+        stage="retry_notes",
+    ),
+    Switch(
+        "draws",
+        ("breadth.draws", "draws"),
+        "`1`",
+        "candidates one attempt asks for, the gate ranking them",
+    ),
+    Switch(
+        "fan-out",
+        ("fanout",),
+        "`none`",
+        "a batch spreads across units with free slots",
+    ),
+    Switch(
+        "gate",
+        ("gate.enabled", "gate.param_mutation"),
+        "`false`",
+        "the deterministic checks and acceptance commands that judge a change",
+        stage="gate",
+    ),
+    Switch(
+        "repair",
+        ("cleanup.enabled",),
+        "`false`",
+        "the gate's own tools fix what they can in a rejected change",
+        stage="repair",
+        knob=3,
+    ),
+    Switch(
+        "reviewer",
+        ("verifier.enabled",),
+        "`false`",
+        "a second model, and Jev's typed checks, read the accepted diff",
+        stage="reviewer",
+    ),
+    Switch(
+        "replan",
+        ("max_replans",),
+        "`0`",
+        "a contract whose ladder is spent goes back to be re-planned",
+        stage="replan",
+    ),
+    Switch(
+        "re-propose",
+        ("max_reproposals",),
+        "`0`",
+        "a refused proposal goes back to the proposer with what to change",
+        stage="repropose",
+    ),
+    Switch(
+        "inferred edges",
+        ("infer_dependencies",),
+        "`false`",
+        "a contract waits on the sibling that creates a name it uses",
+        stage="inferred_edges",
+    ),
+    Switch(
+        "same-file exclusion",
+        ("same_file",),
+        "`parallel`",
+        "two contracts that can write one file never run at once",
+        stage="same_file",
+    ),
+    Switch(
+        "held dependents",
+        ("dependents",),
+        "`run`",
+        "a contract whose provider did not land is held, not sent",
+    ),
+    Switch(
+        "delivery",
+        ("delivery.commit", "delivery.branch"),
+        "`false`",
+        "an accepted change is committed, not left in the working tree",
+    ),
+    Switch(
+        "parallel dispatch",
+        ("--jobs",),
+        "`1`",
+        "a batch runs ready contracts at once (`auto` under mcgyvr-code)",
+    ),
+)
+
+#: The on/off stages `stages` answers, in the order `SWITCHES` names them.
+STAGE_NAMES: tuple[str, ...] = tuple(s.stage for s in SWITCHES if s.stage is not None)
+
+
+def stages(config: Config) -> dict[str, bool]:
+    """Which stages stand between a model and you under this config.
+
+    A raw use case runs none. `mcgyvr-code` runs each one its switch leaves on;
+    repair answers the gate's rejections, so it runs only with the gate.
+    """
+    if config.is_raw:
+        return dict.fromkeys(STAGE_NAMES, False)
+    gate = config.get("gate.enabled") is not False
+    on = {
+        "classifier": config.authoring == "classifier",
+        "jev": config.jev_on,
+        "ladder": len(config.ladder.names) > 1 and config.get("max_escalations") != 0,
+        "retry_notes": config.get("retry_notes", "climb") != "none",
+        "gate": gate,
+        "repair": gate and config.get("cleanup.enabled") is not False,
+        "reviewer": config.get("verifier.enabled") is not False,
+        "replan": int(config.get("max_replans", MAX_REPLANS_DEFAULT) or 0) > 0,
+        "repropose": int(config.get("max_reproposals", MAX_REPROPOSALS_DEFAULT) or 0)
+        > 0,
+        "inferred_edges": config.get("infer_dependencies") is not False,
+        "same_file": config.get("same_file", "wait") == "wait",
+    }
+    return {name: on[name] for name in STAGE_NAMES}
+
+
+def requires_mcgyvr_code(config: Config) -> str | None:
+    """Why a contract verb refuses this config, or None when it may run.
+
+    The guard every verb that runs mcgyvr's pipeline calls once its config is
+    loaded, before any model, gate or proposer is touched: a raw use case serves
+    its model as is, so there is nothing for the verb to do.
+    """
+    if not config.is_raw:
+        return None
+    return (
+        f"use case `{config.use_case}` serves its model raw: no proposer, gate, "
+        f"repair, reviewer or ladder is in its path, so contracts are not run "
+        f"here. `mcgyvr use mcgyvr-code` opts in to them."
+    )
+
+
+def default_jobs(config: Config) -> int:
+    """How many contracts a batch runs at once when `--jobs` is not given:
+    the fleet's slots (0, `auto`) under `mcgyvr-code`, one otherwise."""
+    return 0 if config.use_case == MCGYVR_CODE else 1
 
 
 def _declared(data: Any, raw: Any, fields: tuple[Field, ...]) -> dict[str, Any]:
@@ -1867,6 +2179,9 @@ def _build(
             )
             for name, block in merged["units"].items()
         }
+    retired = RETIRED_USE_CASES.get(str(merged.get("use_case")))
+    if retired is not None:
+        raise ConfigSchemaError(f"use_case: {retired}")
     data = _block(merged, SCHEMA, "")
     _cross_validate_fleet(data)
     data = _resolved_paths(data, path)

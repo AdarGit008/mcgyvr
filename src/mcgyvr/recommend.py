@@ -1,9 +1,9 @@
 """Turn a usage profile and a set of rigs into a plan naming one placement.
 
 `plan` measures each named host (or takes scans handed in already measured) and
-places the profiles that are use cases (`PLACEMENT_PROFILES`: coding, chat,
-agent); every other profile returns the bare rig measurements with no
-placement.
+places the profiles that are kinds of model (`PLACEMENT_PROFILES`: code, chat,
+agent; `PROFILE_OF_USE_CASE` maps each use case onto one); every other profile
+returns the bare rig measurements with no placement.
 
 The candidates come from `load_catalog`, which asks `mcgyvr.knowledge.hub` for
 the use case's models: the Hugging Face Hub read now, else the cache of an
@@ -12,7 +12,7 @@ candidate is named by its rig, its engine, its weights (and quant) and its
 speculative head, so no two share a name, and the placement names the host it
 is for.
 
-- `coding` first discovers GGUF checkpoints in the model stores it is given and
+- `code` first discovers GGUF checkpoints in the model stores it is given and
   sizes their weights plus per-user cache against each rig's free VRAM and host
   RAM with `vramfit`, and takes the catalog when no local checkpoint fits. The
   surviving candidates are offered by those names to the decision model on the
@@ -33,7 +33,7 @@ from typing import Any
 
 from mcgyvr import availability, decision
 from mcgyvr import scan as scan_module
-from mcgyvr.config import DEFAULT_REQUEST_TIMEOUT_S
+from mcgyvr.config import AGENT, CHAT, CODE, DEFAULT_REQUEST_TIMEOUT_S, MCGYVR_CODE
 from mcgyvr.decision import Choice, ChoiceAnswer
 from mcgyvr.knowledge import hub
 from mcgyvr.knowledge import store as knowledge_store
@@ -62,7 +62,15 @@ PROFILES = (*hub.USE_CASES, "other")
 #: The profiles that are use cases, each placed from the Hub's candidates for it.
 PLACEMENT_PROFILES = hub.USE_CASES
 #: The one placed as a ladder's rung, with local stores and the decision model.
-PLACEMENT_PROFILE = hub.CODING
+PLACEMENT_PROFILE = hub.CODE
+#: The kind of model each use case is recommended: `mcgyvr-code` climbs a ladder
+#: of coding models and `code` serves one raw, so both are placed as `code`.
+PROFILE_OF_USE_CASE: dict[str, str] = {
+    MCGYVR_CODE: hub.CODE,
+    CODE: hub.CODE,
+    CHAT: hub.CHAT,
+    AGENT: hub.AGENT,
+}
 #: The least context a chat or agent unit serves each user.
 MIN_CONTEXT_PER_USER = 8192
 
@@ -632,7 +640,7 @@ def plan(
     name instead of failing the plan. Each measured rig is reported in `rigs`, and
     a host named twice is handled once.
 
-    Only the `PLACEMENT_PROFILES` go further. For `coding`, each .gguf in
+    Only the `PLACEMENT_PROFILES` go further. For `code`, each .gguf in
     `model_stores` is read and kept as a candidate when it fits some rig, and
     when none does, or no store was given, the use case's catalog
     (`load_catalog`) supplies candidates from every rig's scan; they are decided

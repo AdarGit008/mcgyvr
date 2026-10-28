@@ -1,6 +1,6 @@
 {
   "schema_version": 2,
-  "_purpose": "The downloadable models `mcgyvr recommend` falls back to when no local model store fits and the Hugging Face Hub cannot be asked, after the user's cache ($MCGYVR_HOME/knowledge) of an earlier Hub read (mcgyvr.knowledge.hub). Each entry is one model at one quantisation: `use_cases` names the use cases it is a candidate for (coding, chat, agent), `weights` names the file a pick downloads (repository, revision, file, and the sha256 the Hub states for it), and every number is an object that says its `value`, its `kind` (fact, estimate or reading; never a reading here, which would be a number taken on someone's machine), its `source` (`<source>:<where>`, the sources named in mcgyvr.knowledge.record.SOURCES) and the day it was read (`read_at`). `size_bytes` is the file's size as the Hub API lists it; `context_length` is the model's declared context (config.json max_position_embeddings, or the GGUF header's context length where its source says so), the context a catalog pick is priced at; `kv_bytes_per_token` is the KV cache one token takes over every caching layer at an f16 cache, summed from the GGUF header's per-layer heads and key/value widths; `recurrent_bytes_per_slot` is the recurrent/SSM state one slot keeps, 0 where the header has no recurrent block; `downloads` (the Hub's 30-day count) and `likes`, where present, are what the Hub search that listed the weights repository said of it. `scores` are board figures, each with its board. This file is data: adding a model is an edit here, not a code change.",
+  "_purpose": "The downloadable models `mcgyvr recommend` falls back to when no local model store fits and the Hugging Face Hub cannot be asked, after the user's cache ($MCGYVR_HOME/knowledge) of an earlier Hub read (mcgyvr.knowledge.hub). Each entry is one model at one quantisation: `use_cases` names the kinds of model it is a candidate for (code, chat, agent; `mcgyvr-code` and `code` both draw on `code`), `weights` names the file a pick downloads (repository, revision, file, and the sha256 the Hub states for it), and every number is an object that says its `value`, its `kind` (fact, estimate or reading; never a reading here, which would be a number taken on someone's machine), its `source` (`<source>:<where>`, the sources named in mcgyvr.knowledge.record.SOURCES) and the day it was read (`read_at`). `size_bytes` is the file's size as the Hub API lists it; `context_length` is the model's declared context (config.json max_position_embeddings, or the GGUF header's context length where its source says so), the context a catalog pick is priced at; `kv_bytes_per_token` is the KV cache one token takes over every caching layer at an f16 cache, summed from the GGUF header's per-layer heads and key/value widths; `recurrent_bytes_per_slot` is the recurrent/SSM state one slot keeps, 0 where the header has no recurrent block; `downloads` (the Hub's 30-day count) and `likes`, where present, are what the Hub search that listed the weights repository said of it. `scores` are board figures, each with its board. This file is data: adding a model is an edit here, not a code change.",
   "models": [
     {
       "model_id": "Qwen/Qwen2.5-Coder-7B-Instruct",
@@ -10,7 +10,7 @@
         "vllm"
       ],
       "use_cases": [
-        "coding"
+        "code"
       ],
       "weights": {
         "repo": "Qwen/Qwen2.5-Coder-7B-Instruct-GGUF",
@@ -52,7 +52,7 @@
         "vllm"
       ],
       "use_cases": [
-        "coding"
+        "code"
       ],
       "weights": {
         "repo": "Qwen/Qwen2.5-Coder-14B-Instruct-GGUF",
@@ -93,7 +93,7 @@
         "llama.cpp"
       ],
       "use_cases": [
-        "coding"
+        "code"
       ],
       "weights": {
         "repo": "bartowski/DeepSeek-Coder-V2-Lite-Instruct-GGUF",

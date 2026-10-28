@@ -14,11 +14,12 @@ Jev's choice (:func:`task`), and reads every rig once more. The
 swaps' moves, the outcomes and the door reads that failed, which
 :func:`mcgyvr.fleet.stamp.stamp` judges.
 
-The use case decides the task. `coding` runs the bundled bug fix through
+The use case decides the task. `mcgyvr-code` runs the bundled bug fix through
 `mcgyvr direct` and passes when the deterministic gate accepts it on any rung.
 `agent` puts the bundled grounded question straight to one awake unit and
-passes when its reply cites its source and states every fact. `chat` asks every
-awake unit for one word and reads back the window and slots it serves. A sample
+passes when its reply cites its source and states every fact. `chat` and `code`
+(served raw, so no gate judges them) ask every awake unit for one word and read
+back the window and slots it serves. A sample
 reaches a machine only through the door subprocess or a dispatched request.
 """
 
@@ -39,8 +40,10 @@ import yaml
 
 from mcgyvr.config import (
     CHAT,
+    CODE,
     CONFIG_PATH_ENV,
     DEFAULT_REQUEST_TIMEOUT_S,
+    MCGYVR_CODE,
     ROLE_SLEEPER,
 )
 from mcgyvr.fleet import ids
@@ -49,7 +52,6 @@ from mcgyvr.fleet.layout import ASLEEP, AWAKE
 from mcgyvr.fleet.lock import OWN_FLEET
 from mcgyvr.fleet.sample import (
     AGENT,
-    CODING_USE_CASE,
     DEFAULT_USE_CASE,
     TASK_CHOICE,
     TASK_COMPLETION,
@@ -69,7 +71,7 @@ if TYPE_CHECKING:  # pragma: no cover - typing only
 #: The one fleet a staged setup holds, laid out, sampled and journaled under.
 FLEET = OWN_FLEET
 #: The bundled sample each use case's task is taken from, in the package's folder.
-SAMPLES = {CODING_USE_CASE: "coding.yaml", AGENT: "agent.yaml"}
+SAMPLES = {MCGYVR_CODE: "mcgyvr-code.yaml", AGENT: "agent.yaml"}
 #: The session the sample's own `mcgyvr direct` is journaled as, so its rows are
 #: told apart from the rows of whatever session is running setup.
 SESSION = "mcgyvr-setup"
@@ -467,14 +469,15 @@ def task(
 ) -> list[Outcome]:
     """Run the policy's use case task and the Jev choice, one outcome per check.
 
-    `coding` runs the bundled bug fix through the contract runner and passes when
+    `mcgyvr-code` runs the bundled bug fix through the contract runner and passes when
     the gate accepts it, naming the rung it was accepted on. `agent` asks the
     first awake unit but the Jev unit the bundled grounded question, and checks
-    its reply for the citations and facts the bundled sample names. `chat` asks
-    each awake unit but the Jev unit for one word, passing with the window and slots the
-    unit reports and failing when it answers nothing. A policy that opts a unit in
-    to Jev gets one typed choice from it, checked last. Every check is guarded, so
-    a raise is one failed outcome rather than a lost sample.
+    its reply for the citations and facts the bundled sample names. `chat` and
+    `code` ask each awake unit but the Jev unit for one word, passing with the
+    window and slots the unit reports and failing when it answers nothing. A
+    policy that opts a unit in to Jev gets one typed choice from it, checked
+    last. Every check is guarded, so a raise is one failed outcome rather than a
+    lost sample.
     """
     fleet, policy = _read(setup)
     use_case = str(policy.get("use_case") or DEFAULT_USE_CASE)
@@ -483,7 +486,7 @@ def task(
     units = fleet.get("units") or {}
     outcomes: list[Outcome] = []
 
-    if use_case == CODING_USE_CASE:
+    if use_case == MCGYVR_CODE:
 
         def gate() -> Outcome:
             done = _contract_run(setup, use_case, where / use_case, run_contract)
@@ -518,7 +521,7 @@ def task(
             )
 
         outcomes.append(_guarded(TASK_GROUNDED, asked, answer))
-    elif use_case == CHAT:
+    elif use_case in (CHAT, CODE):
         for name in awake:
             if name == jev:
                 continue

@@ -822,7 +822,7 @@ def units_for(
     )
     if verifier_name and _local(verifier_name) and verifier_name not in served:
         role_extra.append(verifier_name)
-    jev_name = config.get("jev.unit")
+    jev_name = config.get("jev.unit") if config.jev_on else None
     if (
         jev_name
         and _local(jev_name)

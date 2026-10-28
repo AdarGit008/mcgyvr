@@ -111,7 +111,12 @@ def test_the_interactive_setup_writes_once_from_the_plan_and_emits_once(
     monkeypatch.setattr(
         cli.commands.setup, "_confirm", lambda question, prompt=None: False
     )
-    monkeypatch.setattr(cli.commands.setup, "_ask", lambda question, prompt=None: "")
+    # Enter on every typed question, but the use case, which has no default.
+    monkeypatch.setattr(
+        cli.commands.setup,
+        "_ask",
+        lambda question, prompt=None: "m" if question.startswith("Use case") else "",
+    )
 
     assert cli.main(["setup"]) == 0
 

@@ -84,7 +84,12 @@ def test_every_entry_states_its_use_case(shipped: Catalog) -> None:
 
 
 def test_the_use_case_vocabulary_is_the_approved_three(shipped: Catalog) -> None:
-    assert {u.name for u in shipped.use_cases} == {"coding", "chat", "agent"}
+    assert {u.name for u in shipped.use_cases} == {
+        "mcgyvr-code",
+        "code",
+        "chat",
+        "agent",
+    }
 
 
 def test_the_config_use_case_choices_match_the_catalog(shipped: Catalog) -> None:
@@ -101,7 +106,7 @@ def test_every_entry_states_its_required_evidence(shipped: Catalog) -> None:
     # floor.
     for kind in shipped.task_types:
         assert kind.required_evidence, f"{kind.name} requires no evidence"
-        assert kind.use_case.name == "coding", kind.name
+        assert kind.use_case.name == "mcgyvr-code", kind.name
         assert "gate" in kind.evidence_names, f"{kind.name} does not carry the gate"
 
 
@@ -244,7 +249,7 @@ def test_a_new_task_type_needs_no_code_change(
         {
             "name": "sql_migration",
             "starts_on": "api",
-            "use_case": "coding",
+            "use_case": "mcgyvr-code",
             "guarantee": "A migration is written and the schema check passes.",
             "required_evidence": ["gate", "tests_pass"],
             "warrant": "invented by a test",
@@ -385,7 +390,7 @@ def test_an_undeclared_use_case_is_rejected(tmp_path: Path) -> None:
 def test_a_missing_use_case_is_rejected(tmp_path: Path) -> None:
     """A type that names no use case is incomplete, not defaulted."""
     raw = json.loads(catalog_path().read_text(encoding="utf-8"))
-    raw["task_types"][0]["use_case"] = "coding"
+    raw["task_types"][0]["use_case"] = "mcgyvr-code"
     raw["task_types"][0].pop("use_case")
     path = tmp_path / "c.json"
     path.write_text(json.dumps(raw), encoding="utf-8")

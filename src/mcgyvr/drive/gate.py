@@ -320,6 +320,8 @@ def gate_workspace(
                 ),
             )
         )
+    if config is not None and config.get("gate.enabled") is False:
+        return ungated(contract, ChangeSet.detect(sandbox.workspace))
     acceptance = acceptance_for(contract, sandbox, config=config)
     # The acceptance rung runs the contract's own commands inside this sandbox,
     # so a command reads the change and not the host, and it is held to the
@@ -341,6 +343,46 @@ def gate_workspace(
     )
 
 
+#: The check an ungated change's observation is filed under.
+UNGATED = "ungated"
+
+
+def ungated(contract: Contract, changeset: ChangeSet) -> GateResult:
+    """The verdict on a change the gate is switched off for (`gate.enabled: false`).
+
+    No language rung and no acceptance command runs. A gate with no adapters
+    still refuses a path outside the contract's scope, a secret in an added line
+    and a structured file that does not parse, because those guard the repository
+    rather than judge the answer; what passes them is accepted, with one
+    observation saying the gate did not judge it, so the run says so beside the
+    change and a reader never takes it for a judged one.
+    """
+    bounds = Gate(()).run(changeset, contract.scope)
+    if not bounds.accepted:
+        return bounds
+    said = Finding(
+        check=UNGATED,
+        path=contract.target,
+        message=(
+            "ungated: gate.enabled is false, so no language check and no "
+            "acceptance command judged this change"
+        ),
+    )
+    return replace(bounds, observations=(*bounds.observations, said))
+
+
+def ungated_notes(config: Config | None) -> tuple[str, ...]:
+    """The note a run under `gate.enabled: false` carries on stderr and in its
+    result file, so nobody reads an accepted change as a judged one."""
+    if config is None or config.get("gate.enabled") is not False:
+        return ()
+    return (
+        "ungated: gate.enabled is false, so no language check and no acceptance "
+        "command judges this run's change; only the scope, secret and "
+        "structured-data checks still refuse",
+    )
+
+
 def gate_adapters(config: Config | None) -> tuple[LanguageAdapter, ...]:
     """The language adapters the gate runs, with the setup's mutation mode.
 
@@ -350,6 +392,10 @@ def gate_adapters(config: Config | None) -> tuple[LanguageAdapter, ...]:
     not look for it and ``REPORT`` reports it as style. The JavaScript adapter
     takes no setting, and a caller with no config gets the defaults.
     """
+    if config is not None and config.get("gate.enabled") is False:
+        # Switched off, delivery judges with no language adapter either: what is
+        # left of its re-gate is the scope, secret and structured-data checks.
+        return ()
     mode = (
         config.get("gate.param_mutation", ParamMutation.REFUSE)
         if config is not None

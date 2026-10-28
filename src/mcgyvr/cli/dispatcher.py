@@ -51,6 +51,7 @@ from mcgyvr.cli.commands import (
 from mcgyvr.cli.commands import (
     sandbox as sandbox_cmd,
 )
+from mcgyvr.cli.commands import use as use_cmd
 from mcgyvr.cli.commands.delegate import _refuse_before_delegating
 from mcgyvr.cli.commands.direct import _direct, _refuse_before_direct
 from mcgyvr.rig import verbs as rig_verbs
@@ -107,6 +108,7 @@ def _build() -> tuple[
     fleet.add_parser(sub)
     rig_verbs.add_parser(sub, add_config=_common.add_config)
     direct_sub = direct.add_parser(sub)
+    use_cmd.add_parser(sub)
 
     return parser, delegate.prompt_parser(), direct_sub
 

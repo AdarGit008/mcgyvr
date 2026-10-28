@@ -21,8 +21,12 @@
 
   "use_cases": [
     {
-      "name": "coding",
-      "doc": "Scoped edits to a repository, judged by a deterministic gate over code."
+      "name": "mcgyvr-code",
+      "doc": "Scoped edits to a repository, proposed, run up the ladder and judged by a deterministic gate over code; every stage under its own switch."
+    },
+    {
+      "name": "code",
+      "doc": "A coding model served raw over a bound fleet; no gate, an endpoint for a harness."
     },
     {
       "name": "chat",
@@ -81,7 +85,7 @@
     {
       "name": "format",
       "task_type": "code",
-      "use_case": "coding",
+      "use_case": "mcgyvr-code",
       "starts_on": "deterministic",
       "guarantee": "The target is byte-identical to what the project's own formatter produces. No semantic change, and nothing is decided that the formatter's configuration did not already decide.",
       "required_evidence": ["gate", "tool_idempotent", "no_semantic_change"],
@@ -91,7 +95,7 @@
     {
       "name": "import_sort",
       "task_type": "code",
-      "use_case": "coding",
+      "use_case": "mcgyvr-code",
       "starts_on": "deterministic",
       "guarantee": "Imports are ordered as the project's own tool orders them, with no other change to the file.",
       "required_evidence": ["gate", "tool_idempotent", "no_semantic_change"],
@@ -101,7 +105,7 @@
     {
       "name": "lint_fix",
       "task_type": "code",
-      "use_case": "coding",
+      "use_case": "mcgyvr-code",
       "starts_on": "deterministic",
       "guarantee": "Every autofix the project's linter applies is applied, and nothing else is. A diagnostic the linter will not fix itself is explicitly out of scope for this operation rather than handed to a model under the same name.",
       "required_evidence": ["gate", "tool_idempotent"],
@@ -111,7 +115,7 @@
     {
       "name": "rename_symbol",
       "task_type": "code",
-      "use_case": "coding",
+      "use_case": "mcgyvr-code",
       "starts_on": "deterministic",
       "guarantee": "Every reference the index resolved is renamed, across every file that holds one. References the index could not resolve are reported, not silently left behind. References are resolved in Python and JS/TS only: a symbol defined only in another language the index reads (Go, Rust, Java) is refused, and nothing is written.",
       "required_evidence": ["gate", "references_resolved", "no_semantic_change"],
@@ -123,7 +127,7 @@
   "task_types": [
     {
       "name": "code",
-      "use_case": "coding",
+      "use_case": "mcgyvr-code",
       "starts_on": "local",
       "guarantee": "A scoped change to one target, judged by the deterministic gate. Which checks back the judgement is derived from the contract itself: a `demonstration` adds `failing_test_first`, an `acceptance` adds `tests_pass`, `no_semantic_change: true` adds `no_semantic_change`, and `type_check: true` adds `type_check`; the gate is always the floor. With `operation:` set, the named deterministic operation does the work with a tool, and its own guarantee and evidence apply instead.",
       "required_evidence": ["gate"],

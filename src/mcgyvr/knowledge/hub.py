@@ -1,6 +1,6 @@
 """Model candidates for a use case, read from the Hugging Face Hub and nothing else.
 
-`candidates` answers the records a use case (`USE_CASES`: coding, chat, agent)
+`candidates` answers the records a use case (`USE_CASES`: code, chat, agent)
 may be served by, and says which of three places answered: the Hub, asked now
 (`LIVE`); the cache an earlier Hub read left under ``$MCGYVR_HOME/knowledge``
 (`store.CACHE`); or the catalog the package ships (`store.SHIPPED`). The Hub is
@@ -13,16 +13,16 @@ How the Hub's answer is found and ranked. These rules are the product's:
 
 1. **List.** One search of the Hub's model API per use case: GGUF
    repositories (``filter=gguf``) sorted by the Hub's ``downloads``, which is
-   its 30-day count, one page of `LIST_LIMIT`. Coding searches the ids that
+   its 30-day count, one page of `LIST_LIMIT`. Code searches the ids that
    hold ``code``; chat and agent search every GGUF repository.
 2. **Classify,** from the Hub's own metadata, never from a leaderboard:
    - *chat-capable*: the pipeline is text-generation or image-text-to-text, or
      the Hub states none, and the repository states a chat template (or the Hub
      tags it ``conversational``);
-   - *coding*: chat-capable, and the repository or its base model names code
+   - *code*: chat-capable, and the repository or its base model names code
      (`names_code`: a word that begins with ``code`` or ends in ``coder``) or
      the Hub tags it ``code``;
-   - *chat*: chat-capable and not coding;
+   - *chat*: chat-capable and not code;
    - *agent*: chat, and its chat template handles ``tools``, or the Hub tags it
      for tool or function calling. A chat model whose template the Hub does not
      show anywhere is chat only.
@@ -85,8 +85,8 @@ from mcgyvr.knowledge.record import (
 from mcgyvr.serving import fetchlist, ggufscan, vramfit
 
 #: The use cases the Hub is asked about, by the task catalog's names.
-USE_CASES: tuple[str, ...] = ("coding", "chat", "agent")
-CODING, CHAT, AGENT = USE_CASES
+USE_CASES: tuple[str, ...] = ("code", "chat", "agent")
+CODE, CHAT, AGENT = USE_CASES
 #: The answer's origin when the Hub was asked now; the other two are the store's.
 LIVE = "live"
 
@@ -202,7 +202,7 @@ def search_url(use_case: str, hub: str = fetchlist.HUB) -> str:
         ("direction", "-1"),
         ("limit", str(LIST_LIMIT)),
     ]
-    if use_case == CODING:
+    if use_case == CODE:
         query.append(("search", "code"))
     query += [
         ("expand[]", what)
@@ -260,7 +260,7 @@ def use_cases_of(
     if not chat_capable:
         return ()
     if names_code(repo) or names_code(model_id) or "code" in tags:
-        return (CODING,)
+        return (CODE,)
     tools = "tools" in (chat_template or "") or bool(tags & TOOL_TAGS)
     return (CHAT, AGENT) if tools else (CHAT,)
 

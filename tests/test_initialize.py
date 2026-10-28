@@ -93,7 +93,7 @@ def test_init_writes_the_use_case_and_its_deployment_default(tmp_path: Path) -> 
     """The install's two choices are stated in the file, not left to the schema."""
     initialize(tmp_path / "setup", detection=KEYLESS_RIG)
     config = load_config(tmp_path / "setup")
-    assert config.use_case == "coding"
+    assert config.use_case == "mcgyvr-code"
     assert config.deployment == "hybrid"
     assert config.provisions_local_orchestrator is False
 
@@ -116,7 +116,8 @@ def test_chat_defaults_to_hybrid_and_an_explicit_deployment_wins(
     agent = load_config(tmp_path / "agent")
     assert agent.use_case == "agent"
     assert agent.deployment == "local-only"
-    assert agent.provisions_local_orchestrator is True
+    # A raw use case has no proposer in its path, local-only or not.
+    assert agent.provisions_local_orchestrator is False
 
 
 def test_a_machine_with_no_backend_refuses_rather_than_writing(tmp_path: Path) -> None:
@@ -351,7 +352,7 @@ def test_the_file_carries_comments_from_the_schema(tmp_path: Path) -> None:
     text = (path / "fleet.yaml").read_text(encoding="utf-8") + (
         path / "policy.yaml"
     ).read_text(encoding="utf-8")
-    assert "# Which of the three use cases this install serves" in text
+    assert "# Which of the four use cases this install serves" in text
     assert "# Where this unit answers, including scheme and port." in text
     prose = " ".join(
         line.lstrip().removeprefix("#").strip()

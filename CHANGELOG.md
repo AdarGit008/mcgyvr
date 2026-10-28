@@ -9,7 +9,36 @@ archived outside this repository, under the same paths.
 
 ## [Unreleased]
 
+### Changed
+
+- **Use cases are `mcgyvr-code`, `code`, `chat` and `agent`; `coding` is gone,
+  with no alias.** `mcgyvr-code` is what `coding` was, every stage between the
+  model and you on by default, each under a policy switch (SETUP.md, *Use cases
+  and switches*); it is also what a policy that names no use case means.
+  `code`, `chat` and `agent` serve the model raw: `mcgyvr PROMPT` and `mcgyvr
+  direct` refuse under them (exit 3, `use_case_raw` in the delegate log)
+  before any model, gate or proposer is touched, and only `mcgyvr-code`
+  provisions a local proposer. A config, `setup --use-case` or `mcgyvr use`
+  naming `coding` is refused, naming both. The interactive setup asks for one
+  of the four with no Enter default, and asks the Jev question only for
+  `mcgyvr-code`. Under `mcgyvr-code`, a batch defaults to `--jobs auto` and
+  proposals are authored by the classifier when a Jev unit is bound
+  and on. The model catalog's `coding` kind is `code` (`recommend --profile
+  code`), and the task catalog's task types belong to `mcgyvr-code`.
+  Upgrading: a setup written before this says `use_case: coding` and no longer
+  loads; `mcgyvr use mcgyvr-code` rewrites that one line and nothing else.
+
 ### Added
+
+- **`mcgyvr use NAME` switches the use case, and `/mcgyvr-use` is its skill.**
+  It rewrites the policy's `use_case:` line and nothing else, and says what
+  that turns on or off.
+- **A switch for each stage that had none.** `gate.enabled` (off: no language
+  rung or acceptance command runs; scope, secrets and structured-data parse
+  still refuse; the change is labelled `ungated`, delivery skips its re-gate
+  and no repair runs), `jev.enabled` (off: every typed decision is asked as if
+  no Jev unit were bound), `infer_dependencies` (off: a batch is ordered by
+  `depends_on` alone) and `same_file: wait|parallel`.
 
 - **A proposal the decomposer refuses goes back to the proposer once (#802).**
   After vetting, each refusal that names a proposal field is handed back with

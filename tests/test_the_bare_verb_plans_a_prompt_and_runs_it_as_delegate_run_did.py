@@ -206,9 +206,13 @@ def test_the_bare_verb_parses_to_what_delegate_run_parsed_to(tmp_path: Path) -> 
 
     old = vars(old_delegate_run(repo, config, log, "s1"))
     new = vars(args)
+    # `--jobs` unset is left for the config to decide (`auto` under mcgyvr-code,
+    # #796); everything else parses as `delegate --run` did.
+    assert new["jobs"] is None and old.pop("jobs") == 1
     assert {k: new[k] for k in old} == old
     # The two flags `direct` gave the set are the only ones it adds, both unset.
     assert {k: v for k, v in new.items() if k not in old} == {
+        "jobs": None,
         "result": None,
         "notes_from": None,
     }

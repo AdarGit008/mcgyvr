@@ -140,7 +140,10 @@ def worker_attempt(
     # not name the key at all falls back to 0.0 here, which makes every draw
     # greedy.
     temperature = float(config.get("breadth.temperature", 0.0))
-    tidying = bool(config.get("cleanup.enabled", True))
+    # Repair answers the gate's rejections, so a gate switched off repairs nothing.
+    tidying = bool(config.get("cleanup.enabled", True)) and bool(
+        config.get("gate.enabled", True)
+    )
     # The run's `max_window_fraction`: the largest share of a rung's window one
     # contract's prompt may claim, the reply being given the rest, checked
     # before anything is sent. `None` means the run declared no share, which is

@@ -106,7 +106,7 @@ def fleet_doc(*, asleep: bool = False) -> dict[str, Any]:
     }
 
 
-def policy_doc(tmp_path: Path, use_case: str = "coding") -> dict[str, Any]:
+def policy_doc(tmp_path: Path, use_case: str = "mcgyvr-code") -> dict[str, Any]:
     return {
         "use_case": use_case,
         "ladder": [UNIT],

@@ -29,7 +29,16 @@ from mcgyvr.catalog import catalog
 
 from . import contract as contract_schema
 from . import notes as failure_notes
-from .config import FLEET_FILENAME, POLICY_FILENAME, RELIEF_FILENAME, SCHEMA, Field
+from .config import (
+    FLEET_FILENAME,
+    KNOBS,
+    POLICY_FILENAME,
+    RELIEF_FILENAME,
+    SCHEMA,
+    SWITCHES,
+    USE_CASES,
+    Field,
+)
 
 # First line of every document generated from the config schema: the note that
 # it is generated, which source it comes from, and the command that redraws it.
@@ -316,9 +325,10 @@ def render_setup() -> str:
         "",
         "Run at a terminal with no flags, it asks which rigs serve — `local`,",
         "`remote` or `both` (Enter is `local`) — and, for `remote` or `both`,",
-        "the ssh host(s) to read. It then asks the use case by letter (`[d]",
-        "coding`, `[c] chat`, `[a] agent`; Enter or `d` is",
-        "`coding`) and whether to dedicate a unit to Jev (Enter is no): the",
+        "the ssh host(s) to read. It then asks the use case by letter or name",
+        "(`[m] mcgyvr-code`, `[k] code`, `[c] chat`, `[a] agent`; there is no",
+        "Enter default) and, for `mcgyvr-code` only, whether to dedicate a unit",
+        "to Jev (Enter is no): the",
         "questions `--use-case` and `--jev` answer. It plans a",
         "model of that use case for each rig, says whether its candidates came",
         "from the Hugging Face Hub, the cache of an earlier Hub read or the",
@@ -327,7 +337,8 @@ def render_setup() -> str:
         "serving containers through the door. It then samples the fleet: a read",
         "of every rig, a",
         "probe and a load of every unit, the use case's sample task (for",
-        "`coding`, a one-function bug fix the deterministic gate must pass) and",
+        "`mcgyvr-code`, a one-function bug fix the deterministic gate must pass;",
+        "for `code` and `chat`, one word from each unit) and",
         "a Jev unit's one typed choice. A green sample is stamped, and on",
         "`Lock the fleet and name it live? [y/N]` it is locked, promoted and",
         "named live. A red sample is never locked; its reasons are printed.",
@@ -367,8 +378,8 @@ def render_setup() -> str:
         "",
         "What the config is for comes in with these, all optional:",
         "",
-        "- `--use-case` — `coding` (the deterministic gate, the default), `chat`",
-        "  or `agent`.",
+        "- `--use-case` — `mcgyvr-code` (the default), `code`, `chat` or `agent`;",
+        "  see *Use cases and switches* below.",
         "- `--deployment` — `hybrid` (an API-tier session agent drives mcgyvr) or",
         "  `local-only` (mcgyvr is the backend); the default is `local-only` for",
         "  `chat` and `hybrid` otherwise.",
@@ -388,7 +399,7 @@ def render_setup() -> str:
         "rig file (`localhost.json` in the rig-file folder, `$MCGYVR_RIGS`, by",
         "default `~/.mcgyvr/rigs`), says what moved since the last record, and",
         "exits 4 when a card, total RAM, the cores or the bandwidth moved.",
-        "`mcgyvr recommend --profile coding --users N --host RIG` re-reads each",
+        "`mcgyvr recommend --profile code --users N --host RIG` re-reads each",
         "rig over ssh and prints one JSON plan: which checkpoint and engine serve",
         "that profile, from `--model-store DIR` when a checkpoint there fits,",
         "otherwise from the use case's candidates on the Hugging Face Hub",
@@ -436,6 +447,7 @@ def render_setup() -> str:
         "`mcgyvr config` prints the resolved config; `mcgyvr detect` shows what",
         "can run the work; `mcgyvr capabilities` shows the shipped capability table.",
         "",
+        *_use_cases_section(),
         "## Value types",
         "",
         "| Type | Accepted |",
@@ -451,6 +463,109 @@ def render_setup() -> str:
             lines += _section(field, field.name, 2, dotted=True)
 
     return "\n".join(lines).rstrip("\n") + "\n"
+
+
+#: The width the switch records are wrapped at, inside the house limit of 105.
+_SWITCH_WIDTH = 100
+
+
+def _use_cases_section() -> list[str]:
+    """SETUP.md's *Use cases and switches*: the four use cases, then one record
+    per point of `SWITCHES` -- its keys, what off means and what it does -- then
+    the four knobs by their plain names."""
+    lines = [
+        "## Use cases and switches",
+        "",
+        "`use_case` in the policy says what this install serves, and",
+        "`mcgyvr use NAME` switches it (`/mcgyvr-use` is the same for a session):",
+        "",
+        "- `mcgyvr-code` — mcgyvr between the model and you: contracts proposed,",
+        "  vetted, run up the ladder, gated, repaired, reviewed and re-planned,",
+        "  each point under its own switch below, every one on by default. A",
+        "  policy that names no use case is `mcgyvr-code`. A batch runs",
+        "  `--jobs auto` (the fleet's slots), and proposals are authored by the",
+        "  classifier when a Jev unit is bound and on.",
+        "- `code` — a coding model mcgyvr recommends, served raw.",
+        "- `chat` — a text model served raw.",
+        "- `agent` — a model with tool-calling served raw.",
+        "",
+        "Under `code`, `chat` and `agent` nothing below runs: `mcgyvr PROMPT` and",
+        "`mcgyvr direct` refuse (exit 3) and name `mcgyvr use mcgyvr-code`.",
+        "`coding`, the old name, is refused naming the two that replaced it.",
+        "",
+        "Every switch but `--jobs` lives in the policy file. Off is the value",
+        "that takes mcgyvr out of that point:",
+        "",
+    ]
+    for s in SWITCHES:
+        keys = ", ".join(f"`{key}`" for key in s.keys)
+        lines += textwrap.wrap(
+            f"- **{s.point}** ({keys}; off {s.off}): {s.doc}.",
+            width=_SWITCH_WIDTH,
+            subsequent_indent="  ",
+            break_on_hyphens=False,
+        )
+    lines += [
+        "",
+        "The four knobs, by their plain names:",
+        "",
+    ]
+    for number, name in KNOBS.items():
+        (knob,) = (s for s in SWITCHES if s.knob == number)
+        keys = ", ".join(f"`{key}`" for key in knob.keys)
+        lines.append(f"{number}. {name} — {keys}.")
+    lines += [
+        "",
+        "A single model is a `ladder` of one unit, or `max_escalations: 0`, which",
+        "keeps a climb on the rung it starts on. Vetting has no switch: it is what",
+        "makes a proposal a runnable contract. Model loading, slots, the sandbox,",
+        "locks and waking a card are machinery, not switches.",
+        "",
+    ]
+    return lines
+
+
+#: Where the /mcgyvr-use skill is written, beside the /mcgyvr one.
+USE_SKILL_PATH = Path("skills/mcgyvr-use/SKILL.md")
+
+
+def render_use_skill() -> str:
+    """Render the /mcgyvr-use skill: switch the use case from a session."""
+    names = ", ".join(f"`{name}`" for name in USE_CASES)
+    lines = [
+        "---",
+        "name: mcgyvr-use",
+        'description: "Switch mcgyvr between mcgyvr-code (every stage on) and a raw '
+        'model: code, chat or agent."',
+        "disable-model-invocation: true",
+        "---",
+        "",
+        SKILL_MARKER,
+        "",
+        "# /mcgyvr-use",
+        "",
+        f"Switch the use case of the setup mcgyvr reads. NAME is one of {names}.",
+        "",
+        "```",
+        "mcgyvr use NAME [--config PATH]",
+        "```",
+        "",
+        "It rewrites the `use_case:` line of the setup's `policy.yaml` and",
+        "nothing else, then prints the use case before and after and the stages",
+        "that are now on or off. Show the user what it printed.",
+        "",
+        "- `mcgyvr-code` opts in: contracts are proposed, vetted, run up the",
+        "  ladder, gated, repaired, reviewed and re-planned, each under its own",
+        "  switch in the policy, every one on by default.",
+        "- `code`, `chat` and `agent` serve the model raw: no stage runs, and",
+        "  `mcgyvr PROMPT` and `mcgyvr direct` refuse until `mcgyvr use",
+        "  mcgyvr-code`.",
+        "",
+        "Each switch, and what off means, is listed under *Use cases and",
+        "switches* in `skills/mcgyvr/SETUP.md`. `coding` is not a use case: the",
+        "command refuses it and names `mcgyvr-code` and `code`.",
+    ]
+    return "\n".join(lines) + "\n"
 
 
 # The example contracts examples.md prints, keyed by name: one `code` contract a
@@ -1271,6 +1386,11 @@ def main(argv: Sequence[str] | None = None) -> int:
         help="where to write the examples file (default: the checkout's copy)",
     )
     parser.add_argument(
+        "--use-skill-output",
+        default=str(REPO_ROOT / USE_SKILL_PATH),
+        help="where to write the /mcgyvr-use skill (default: the checkout's copy)",
+    )
+    parser.add_argument(
         "--notes-schema-output",
         default=str(REPO_ROOT / NOTES_SCHEMA_PATH),
         help=(
@@ -1316,6 +1436,12 @@ def main(argv: Sequence[str] | None = None) -> int:
         Path(args.examples_output),
         render_examples(),
         "src/mcgyvr/contract.py",
+        args.check,
+    )
+    stale += _write_or_check(
+        Path(args.use_skill_output),
+        render_use_skill(),
+        "src/mcgyvr/config.py",
         args.check,
     )
     stale += _write_or_check(

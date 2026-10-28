@@ -351,7 +351,8 @@ def source_map(config: Config, probe: SourceProbe | None = None) -> SourceMap:
     for role in _ROLES:
         block = config.get(role) or {}
         bound, model = block.get("unit"), block.get("model")
-        if bound is None:
+        # A role switched off (`jev.enabled: false`) is read as one never bound.
+        if bound is None or (role == "jev" and block.get("enabled") is False):
             continue
         unit = config.units[bound]
         if model is None:

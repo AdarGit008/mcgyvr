@@ -509,7 +509,7 @@ def resident_units(config: Config) -> frozenset[str]:
     Empty when nothing is bound, which is the ordinary case — then no card is
     resident and every card of the ladder is a switch.
     """
-    bound = config.get("jev.unit")
+    bound = config.get("jev.unit") if config.jev_on else None
     return frozenset({str(bound)}) if bound else frozenset()
 
 

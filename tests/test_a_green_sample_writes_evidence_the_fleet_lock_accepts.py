@@ -143,7 +143,7 @@ def test_a_rig_of_several_cards_is_held_to_each_card(
 @pytest.mark.parametrize(
     ("use_case", "outcomes"),
     [
-        ("coding", (("gate", fx.UNIT, False), ("gate", "rig-a-other", True))),
+        ("mcgyvr-code", (("gate", fx.UNIT, False), ("gate", "rig-a-other", True))),
         ("chat", (("completion", fx.UNIT, True),)),
         ("agent", (("grounded", fx.UNIT, True),)),
     ],

@@ -39,7 +39,7 @@ def _setup(tmp_path: Path, use_case: str, *, jev: str | None = None) -> Path:
 def test_the_bundled_coding_sample_is_a_valid_contract(tmp_path: Path) -> None:
     from mcgyvr.contract import load as load_contract
 
-    bundled = sampler._bundled("coding")
+    bundled = sampler._bundled("mcgyvr-code")
     where = tmp_path / "coding.yaml"
     where.write_text(yaml.safe_dump(bundled["contract"]), encoding="utf-8")
     assert load_contract(where).id == "mcgyvr-sample-coding"
@@ -48,7 +48,7 @@ def test_the_bundled_coding_sample_is_a_valid_contract(tmp_path: Path) -> None:
 def test_the_coding_sample_runs_the_bug_fix_on_the_staged_setup(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
-    setup = _setup(tmp_path, "coding")
+    setup = _setup(tmp_path, "mcgyvr-code")
     ran: list[list[str]] = []
 
     def run_contract(argv: list[str]) -> int:
@@ -160,7 +160,7 @@ def test_a_chat_unit_serving_another_window_than_planned_is_red(
 def test_an_opted_in_jev_unit_gives_one_typed_choice(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
-    setup = _setup(tmp_path, "coding", jev=fx.UNIT)
+    setup = _setup(tmp_path, "mcgyvr-code", jev=fx.UNIT)
     monkeypatch.setattr(sampler, "choose", lambda where: ("ready", 0.93))
 
     outcomes: list[Any] = sampler.task(
@@ -174,7 +174,7 @@ def test_an_opted_in_jev_unit_gives_one_typed_choice(
 def test_a_jev_unit_that_cannot_answer_is_a_reason(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
-    setup = _setup(tmp_path, "coding", jev=fx.UNIT)
+    setup = _setup(tmp_path, "mcgyvr-code", jev=fx.UNIT)
 
     def refused(where: Path) -> tuple[str, float]:
         raise sampler.SamplerError("jev.unit binds no unit")

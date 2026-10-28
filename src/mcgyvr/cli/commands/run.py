@@ -27,6 +27,7 @@ from mcgyvr.config import (
     ConfigError,
     ConfigMissingError,
     named_config_path,
+    requires_mcgyvr_code,
 )
 from mcgyvr.config import config_path as resolve_config_path
 from mcgyvr.config import load as load_config
@@ -69,7 +70,7 @@ def _run(args: argparse.Namespace) -> int:
     from mcgyvr.contract import ContractError
     from mcgyvr.contract import load as load_task_contract
     from mcgyvr.deliver import between_deliveries
-    from mcgyvr.drive import Recording, gate_adapters
+    from mcgyvr.drive import Recording, gate_adapters, ungated_notes
     from mcgyvr.notes import CarriedNotes, NotesError, primed, seeded
     from mcgyvr.result import (
         RunResult,
@@ -148,6 +149,10 @@ def _run(args: argparse.Namespace) -> int:
         # something the caller never declared.
         print(f"error: {config_error} {setup_doc()} says how.", file=sys.stderr)
         return 1
+    raw = requires_mcgyvr_code(config) if config is not None else None
+    if raw is not None:
+        print(f"error: {raw}", file=sys.stderr)
+        return Exit.REFUSED
 
     # Where the journal lives: `journal.dir` from the config, or the default
     # under the state directory when there is no config or the key is unset. `~`
@@ -271,6 +276,9 @@ def _run(args: argparse.Namespace) -> int:
     # re-judges the change with the adapters the gate used, without a second read
     # of the config.
     args.gate_adapters = gate_adapters(config)
+    for note in ungated_notes(config):
+        print(f"note: {note}", file=sys.stderr)
+        report.notes.append(note)
     # `--commit`/`--no-commit`/`--branch` settled against `delivery.commit` and
     # `delivery.branch`, so delivery sees one answer, not a flag and a policy.
     _settle_delivery(args, config)

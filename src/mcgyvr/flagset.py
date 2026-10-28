@@ -38,10 +38,12 @@ HELP: dict[str, tuple[str | None, str]] = {
         "N",
         (
             "run up to N ready contracts at once, each settled as it ends and "
-            "the next started as soon as it is ready (default: 1, one at a "
-            "time). N is capped at the fleet's total slots, the most dispatches "
-            "its units take at once; `auto` or 0 is that cap. Two contracts "
-            "whose scopes can write one file never run at once, and a run's "
+            "the next started as soon as it is ready (default: `auto` under use "
+            "case mcgyvr-code, else 1, one at a time). N is capped at the "
+            "fleet's total slots, the most dispatches its units take at once; "
+            "`auto` or 0 is that cap. Two contracts whose scopes can write one "
+            "file never run at once unless the policy says `same_file: "
+            "parallel`, and a run's "
             "output is written whole when it ends. Runs beside each other share "
             "the fleet's slots, so one may wait for a rung, or pass a busy one "
             "by, as two runs typed in two terminals would"

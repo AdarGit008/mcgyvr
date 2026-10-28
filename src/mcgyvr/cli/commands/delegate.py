@@ -30,7 +30,9 @@ from mcgyvr.config import (
     Config,
     ConfigError,
     ConfigMissingError,
+    default_jobs,
     named_config_path,
+    requires_mcgyvr_code,
 )
 from mcgyvr.config import load as load_config
 from mcgyvr.delegate_log import DelegateKind, LoggedContract, LoggedRefusal, logged
@@ -322,6 +324,13 @@ def _delegate_logged(args: argparse.Namespace, book: _Logbook) -> int:
             DelegateKind.CONFIG_NO_ORCHESTRATOR, NO_ORCHESTRATOR_ROLE, bare_install=True
         )
         return Exit.REFUSED
+    raw = requires_mcgyvr_code(config)
+    if raw is not None:
+        print(f"error: {raw}", file=sys.stderr)
+        book.ended(DelegateKind.USE_CASE_RAW, raw, use_case=config.use_case)
+        return Exit.REFUSED
+    if getattr(args, "jobs", 1) is None:
+        args.jobs = default_jobs(config)
 
     pool = source_map(config)
     try:
@@ -457,7 +466,7 @@ def _proposer_for_delegate(
     )
     from mcgyvr.orchestrator.telemetry import ShadowSink
 
-    strategy = config.get("orchestrator.authoring")
+    strategy = config.authoring
     typed = (
         refining_proposer_for(
             pool,
@@ -678,7 +687,9 @@ def _run_delegated(
         taken: list[Contract] = []
         for _, contract in board.ready():
             beside = (*running.values(), *taken)
-            if not any(contract.scope.meets(other.scope) for other in beside):
+            if config.get("same_file") == "parallel" or not any(
+                contract.scope.meets(other.scope) for other in beside
+            ):
                 taken.append(contract)
         return taken
 
@@ -766,7 +777,10 @@ def _run_delegated(
 
     try:
         tree_id = board.join(
-            dec.contracts, source, hold=config.get("dependents", "hold") != "run"
+            dec.contracts,
+            source,
+            hold=config.get("dependents", "hold") != "run",
+            infer=config.get("infer_dependencies") is not False,
         )
         for each in board.left:
             print(
@@ -834,13 +848,15 @@ def _held(run: argparse.Namespace) -> int:
         return _run(run)
 
 
-def _batch_width(asked: int, config: Config) -> int:
+def _batch_width(asked: int | None, config: Config) -> int:
     """How many contracts the batch runs at once: `--jobs`, capped at the fleet.
 
     1 is answered without reading the fleet, so `--jobs 1` is the loop it
     always was. Otherwise the fleet's total slots are read (`_fleet_width`),
     and a cap is said.
     """
+    if asked is None:
+        asked = default_jobs(config)
     if asked == 1:
         return 1
     fleet = _fleet_width(config)
@@ -1200,9 +1216,9 @@ exit codes (the --log record's `kind` in brackets):
   2  usage [usage_invalid]: a --branch that cannot be honoured, a flag with no
      meaning on this side, a contract path that is not there; or a batch with
      no session to file its runs under [session_unresolved]
-  3  refused: no proposer [config_no_orchestrator], no contract came of the
-     prompt or passed vetting [none_emitted], or a contract was held and never
-     sent [batch_held]
+  3  refused: no proposer [config_no_orchestrator], a raw use case
+     [use_case_raw], no contract came of the prompt or passed vetting
+     [none_emitted], or a contract was held and never sent [batch_held]
 New kinds may be added under mcgyvr.delegate_log/1; a reader tolerates one it
 does not know."""
 
@@ -1240,7 +1256,7 @@ def add_flags(parser: argparse.ArgumentParser) -> None:
     parser.add_argument("--into", default=None, **said("--into"))
     parser.add_argument("--budget", type=int, default=None, **said("--budget"))
     parser.add_argument("--output", default=None, **said("--output"))
-    parser.add_argument("--jobs", default=1, type=_jobs, **said("--jobs"))
+    parser.add_argument("--jobs", default=None, type=_jobs, **said("--jobs"))
     parser.add_argument(
         "--sandbox", default=None, choices=("docker", "tempdir"), **said("--sandbox")
     )
