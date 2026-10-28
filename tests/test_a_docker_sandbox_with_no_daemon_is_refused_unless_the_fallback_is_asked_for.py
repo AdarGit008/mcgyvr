@@ -129,7 +129,7 @@ def test_the_fallback_setting_takes_true_or_false_only(tmp_path: Path) -> None:
 
 
 def _floor(contract: Path, repo: Path, *extra: str) -> list[str]:
-    return ["run", str(contract), "--repo", str(repo), *extra]
+    return ["direct", str(contract), "--repo", str(repo), *extra]
 
 
 @pytest.mark.usefixtures("no_daemon")

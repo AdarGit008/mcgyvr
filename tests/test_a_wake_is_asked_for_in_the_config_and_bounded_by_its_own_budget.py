@@ -4,7 +4,7 @@ Three decisions are pinned, and all three are made elsewhere, not in this
 file:
 
 * **The switch is a config key and not a flag**.
-  ``mcgyvr run --config``
+  ``mcgyvr direct --config``
   already says which rung runs is "this file's ... never a flag", and sleep/wake
   is the stronger case for the same rule: the config is what a run is
   reproducible from, so a flag would let two runs share one setup where one of
@@ -12,7 +12,7 @@ file:
   also never lose to a key — the ``--sandbox`` comment is the worked example —
   so the flag would have to be a tri-state, which is a worse spelling of the key.
 * **The default is off.** The feature is a trade and not an
-  improvement: turning it on lets ``mcgyvr run`` stop containers on a rig other
+  improvement: turning it on lets ``mcgyvr direct`` stop containers on a rig other
   people share. An operator who wants it asks in the one place that is recorded.
 * **A wake's limit is the lock's, not a budget's**.
   ``request_timeout_s``

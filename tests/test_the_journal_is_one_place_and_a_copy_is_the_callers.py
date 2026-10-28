@@ -89,14 +89,18 @@ def test_the_copy_carries_the_blobs_a_review_needs(
     assert lj.blobs(ours) == lj.blobs(theirs)
 
 
-def test_the_corpus_keeps_a_result_even_when_result_moves_the_printed_one(
+def test_the_corpus_keeps_a_result_even_when_result_moves_the_one_the_caller_reads(
     tmp_path: Path,
     home: Path,
     ours: Path,
     monkeypatch: pytest.MonkeyPatch,
     capsys: pytest.CaptureFixture[str],
 ) -> None:
-    """``--result`` says where the caller reads it, not where the record goes."""
+    """``--result`` says where the caller reads it, not where the record goes.
+
+    ``direct`` prints no ``result:`` line, so the path asked for is the only way
+    the caller finds it.
+    """
     lj.scripted(monkeypatch, lj.GOOD_REPLY)
     repo = lj.make_repo(tmp_path / "repo")
     config = lj.make_config(tmp_path / "mcgyvr.yaml", journal_dir=ours)
@@ -106,7 +110,7 @@ def test_the_corpus_keeps_a_result_even_when_result_moves_the_printed_one(
     code = lj.main(lj.run_args(contract, repo, config, "--result", str(asked)))
 
     assert code == 0, code
-    assert lj.result_path(capsys.readouterr().out) == asked
+    assert "result: " not in capsys.readouterr().out
     assert asked.is_file()
     kept = lj.results(ours)
     assert len(kept) == 1, kept
@@ -192,4 +196,7 @@ def test_our_own_sink_is_still_fatal(
     config = lj.make_config(tmp_path / "mcgyvr.yaml", journal_dir=ours)
     contract = lj.make_contract(tmp_path / "impl.yaml")
 
-    assert lj.main(lj.run_args(contract, repo, config)) != 0
+    # The batch's own state file is the first thing written under the corpus,
+    # and its OSError is raised out of ``main``: a crash, never a quiet run.
+    with pytest.raises(OSError):
+        lj.main(lj.run_args(contract, repo, config))

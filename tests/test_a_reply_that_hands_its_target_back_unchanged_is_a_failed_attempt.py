@@ -162,7 +162,7 @@ def test_the_run_reports_a_spent_ladder_and_leaves_the_repository_alone(
     monkeypatch: pytest.MonkeyPatch,
     capsys: pytest.CaptureFixture[str],
 ) -> None:
-    """Through `mcgyvr run --commit`: no delivery is attempted, nothing is committed."""
+    """Through `direct --commit`: no delivery is attempted, nothing is committed."""
     from mcgyvr.cli import main
 
     repo = a_git_repo(tmp_path)
@@ -180,7 +180,7 @@ def test_the_run_reports_a_spent_ladder_and_leaves_the_repository_alone(
 
     code = main(
         [
-            "run",
+            "direct",
             str(contract),
             "--repo",
             str(repo),

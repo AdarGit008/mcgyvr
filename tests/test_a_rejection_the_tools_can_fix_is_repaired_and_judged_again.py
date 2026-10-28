@@ -55,10 +55,7 @@ def test_an_unformatted_but_correct_reply_is_accepted_after_repair(
     out = capsys.readouterr()
     assert code == 0, (out.out, out.err)
     assert len(sent) == 1, "the repair must not cost a second dispatch"
-    result_line = next(
-        line for line in out.out.splitlines() if line.startswith("result:")
-    )
-    result = json.loads(Path(result_line.split(" ", 1)[1]).read_text(encoding="utf-8"))
+    result = json.loads(lj.result_of(contract).read_text(encoding="utf-8"))
     assert result["outcome"] == "accepted", result
     # The accepted file is the repaired tree: formatted, not the reply verbatim.
     assert (repo / "src" / "pkg" / "messy.py").read_text(

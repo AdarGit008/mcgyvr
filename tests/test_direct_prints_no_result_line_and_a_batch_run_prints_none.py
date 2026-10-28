@@ -1,12 +1,12 @@
-"""``mcgyvr run`` ends on a ``result:`` line; a run inside ``delegate --run`` does not.
+"""Neither ``mcgyvr direct`` nor a run inside a batch ends on a ``result:`` line.
 
-The ``result: PATH`` line is the pointer ``mcgyvr run`` gives whoever typed it:
-the result file is what to read, not the scrollback. Inside ``delegate --run``
-each contract's result is read in process, by the Board that settles the tree
-and the re-planner, and the paths are in the Board's state file under
+A contract run alone is read through ``--result PATH``: the caller names the
+file, so there is no pointer to print. Inside a batch (``direct`` of a set, the
+bare verb) each contract's result is read in process, by the Board that settles
+the tree and the re-planner, and the paths are in the Board's state file under
 ``<journal>/trees/``. Printing them on stdout handed the batch caller one
-pointer per contract into results it does not own, so a run in a batch prints
-none; the result file is written all the same.
+pointer per contract into results it does not own, so a run prints none; the
+result file is written all the same.
 """
 
 from __future__ import annotations
@@ -35,7 +35,7 @@ scope:
 """
 
 
-def test_run_prints_its_result_line(
+def test_direct_prints_no_result_line_and_writes_the_file_it_was_asked_for(
     tmp_path: Path,
     home: Path,
     monkeypatch: pytest.MonkeyPatch,
@@ -50,10 +50,11 @@ def test_run_prints_its_result_line(
 
     out = capsys.readouterr().out
     assert code == 0
-    assert lj.result_path(out).is_file()  # exactly one `result:` line
+    assert not [line for line in out.splitlines() if line.startswith("result: ")], out
+    assert lj.result_of(contract).is_file()
 
 
-def test_a_run_inside_delegate_run_prints_none(
+def test_a_run_inside_a_batch_prints_none(
     tmp_path: Path,
     home: Path,
     monkeypatch: pytest.MonkeyPatch,

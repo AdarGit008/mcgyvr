@@ -1,20 +1,22 @@
 """The command line itself: the parser tree, the way in, and Ctrl-C.
 
 `_build` assembles the `mcgyvr` parser -- `--version` and one subparser per
-command module, each of which registers its own verbs -- and hands back both the
-top-level parser and the `run` subparser, because `main` finishes the argument
-checks that need more than one flag there. `main` parses argv, makes those checks
-for `run` and `delegate`, and calls the handler argparse selected, with the
-process hanging up on every dispatch in flight if the keyboard interrupts it. A
-`FolderError` raised out of a handler is reported on stderr and becomes exit
-status 1; otherwise the handler's own exit code is returned. `build_parser`
-exposes the tree alone, without running anything.
+command module, each of which registers its own verbs -- and hands it back with
+the parser of the bare verb, `mcgyvr PROMPT`, and the `direct` subparser,
+because `main` finishes the argument checks that need more than one flag there.
+`main` sends argv to the bare verb when its first word is not a command, makes
+those checks, and calls the handler argparse selected, with the process hanging
+up on every dispatch in flight if the keyboard interrupts it. A `FolderError`
+raised out of a handler is reported on stderr and becomes exit status 1;
+otherwise the handler's own exit code is returned. `build_parser` exposes the
+tree alone, without running anything.
 """
 
 from __future__ import annotations
 
 import argparse
 import contextlib
+import difflib
 import signal
 import sys
 import threading
@@ -38,6 +40,7 @@ if TYPE_CHECKING:  # pragma: no cover - typing only
 from mcgyvr.cli import common as _common
 from mcgyvr.cli.commands import (
     delegate,
+    direct,
     fleet,
     inspect,
     ladder,
@@ -46,29 +49,47 @@ from mcgyvr.cli.commands import (
     setup,
 )
 from mcgyvr.cli.commands import (
-    run as run_cmd,
-)
-from mcgyvr.cli.commands import (
     sandbox as sandbox_cmd,
 )
 from mcgyvr.cli.commands import use as use_cmd
-from mcgyvr.cli.commands.delegate import _delegate, _refuse_before_delegating
-from mcgyvr.cli.commands.run import _name_the_writer, _one_delivery_answer, _run
+from mcgyvr.cli.commands.delegate import _refuse_before_delegating
+from mcgyvr.cli.commands.direct import _direct, _refuse_before_direct
 from mcgyvr.rig import verbs as rig_verbs
+
+#: The top-level options that are not a prompt's first word.
+_TOP_LEVEL_OPTIONS = frozenset({"-h", "--help", "--version"})
+
+#: The verbs that are gone, and what took their place.
+_REMOVED = {
+    "run": "`mcgyvr direct FILE...` runs contracts you wrote",
+    "delegate": "`mcgyvr PROMPT` plans a prompt and runs it, and with "
+    "`--output DIR` writes the contracts alone",
+}
+
+#: The top-level epilog: the bare verb, which is not a subcommand.
+_EPILOG = """\
+the bare verb:
+  mcgyvr PROMPT [flags]   plan PROMPT into contracts and run them; the flags are
+                          `direct`'s (`mcgyvr direct -h`). A prompt whose first
+                          word is a command is written after `--`, the flags
+                          before it: `mcgyvr [flags] -- PROMPT`."""
 
 
 def _build() -> tuple[
     argparse.ArgumentParser, argparse.ArgumentParser, argparse.ArgumentParser
 ]:
-    """Build the whole command tree and return it with two of its subparsers.
+    """Build the command tree, the bare verb's parser, and the `direct` subparser.
 
-    Every command module adds its own subparser and verbs; `run` and `delegate`
-    are the subparsers returned, since the checks `main` makes after parsing
-    need them to report an error the way each command does.
+    Every command module adds its own subparser and verbs. The bare verb,
+    `mcgyvr PROMPT`, is a parser of its own, since a prompt is no command's
+    name; it and `direct` are returned, since the checks `main` makes after
+    parsing need them to report an error the way each verb does.
     """
     parser = argparse.ArgumentParser(
         prog="mcgyvr",
         description=("Offload scoped coding work to a configurable worker ladder."),
+        epilog=_EPILOG,
+        formatter_class=argparse.RawDescriptionHelpFormatter,
     )
     parser.add_argument(
         "--version",
@@ -86,11 +107,10 @@ def _build() -> tuple[
     repo.add_parser(sub)
     fleet.add_parser(sub)
     rig_verbs.add_parser(sub, add_config=_common.add_config)
-    run_sub = run_cmd.add_parser(sub)
-    delegate_sub = delegate.add_parser(sub)
+    direct_sub = direct.add_parser(sub)
     use_cmd.add_parser(sub)
 
-    return parser, run_sub, delegate_sub
+    return parser, delegate.prompt_parser(), direct_sub
 
 
 def build_parser() -> argparse.ArgumentParser:
@@ -155,17 +175,65 @@ def hanging_up_on_interrupt() -> Iterator[None]:
         signal.signal(signal.SIGINT, signal.default_int_handler)
 
 
+def _commands(parser: argparse.ArgumentParser) -> frozenset[str]:
+    """The names of the subcommands `parser` holds."""
+    return frozenset(
+        name
+        for action in parser._subparsers._group_actions  # type: ignore[union-attr]
+        if isinstance(action, argparse._SubParsersAction)
+        for name in action.choices
+    )
+
+
+def _is_prompt(argv: Sequence[str], commands: frozenset[str]) -> bool:
+    """Whether `argv` is the bare verb: a first word that is no command or
+    top-level option. A prompt that is a command's name follows `--`."""
+    return bool(argv) and argv[0] not in commands | _TOP_LEVEL_OPTIONS
+
+
+def _not_a_prompt(argv: Sequence[str], commands: frozenset[str]) -> str | None:
+    """Why `argv`'s first word is refused as a prompt, or None.
+
+    A removed verb is named with what took its place, and one word close to a
+    command is taken for a typo of it, so neither is sent to a proposer.
+    """
+    if "--orchestrator" in argv:
+        return "--orchestrator is gone: name the session with --session ID."
+    first = argv[0]
+    if first in _REMOVED:
+        return f"`mcgyvr {first}` is gone: {_REMOVED[first]}."
+    if first.startswith("-") or len(first.split()) != 1:
+        return None
+    close = difflib.get_close_matches(first, sorted(commands), n=1, cutoff=0.8)
+    if close:
+        return (
+            f"{first!r} is not a command: did you mean `mcgyvr {close[0]}`? "
+            f"To plan it as a prompt, write `mcgyvr -- {first}`."
+        )
+    return None
+
+
 def main(argv: Sequence[str] | None = None) -> int:
-    parser, run, delegating = _build()
-    args = parser.parse_args(argv)
-    if args.func is _run:
-        _name_the_writer(run, args)
-        _one_delivery_answer(run, args)
-    elif args.func is _delegate:
-        # Under --run the session is named here, before the orchestrator role
-        # is asked, as `run` names it before any work: a batch nobody can be
-        # traced to costs no model call and writes no contracts (exit 2).
-        _refuse_before_delegating(delegating, args)
+    parser, prompt, directing = _build()
+    words = list(sys.argv[1:] if argv is None else argv)
+    if _is_prompt(words, _commands(parser)):
+        problem = _not_a_prompt(words, _commands(parser))
+        if problem is not None:
+            parser.error(problem)
+        args = prompt.parse_args(words)
+        # The prompt may follow flags: it is the first word that is no flag's.
+        if "--" not in words:
+            problem = _not_a_prompt([args.prompt], _commands(parser))
+            if problem is not None:
+                parser.error(problem)
+        # Unless --output asks for the contracts alone, the session is named
+        # here, before the proposer is asked: a batch nobody can be traced to
+        # costs no model call and writes no contracts (exit 2).
+        _refuse_before_delegating(prompt, args)
+    else:
+        args = parser.parse_args(words)
+        if args.func is _direct:
+            _refuse_before_direct(directing, args)
     try:
         with hanging_up_on_interrupt():
             result: int = args.func(args)

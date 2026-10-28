@@ -1,7 +1,7 @@
 """The interface question offers the chosen symbol's signature, not the file's.
 
 The interface question used to offer every signature in the target after the
-chosen one, and a typed question holds at most 62 options, so `mcgyvr delegate`
+chosen one, and a typed question holds at most 62 options, so `mcgyvr "<prompt>"`
 on a target with 62 or more definitions crashed with ``ValueError: a Choice
 holds 1 to 62 options, got 63``. The work keeps one interface: with a symbol
 chosen the question offers "none" and that symbol's signature, and with no
@@ -63,7 +63,7 @@ def _choosing(asked: dict[str, Choice], *, whole_file: bool = False) -> Any:
         ((field, question),) = questions.items()
         assert isinstance(question, Choice)
         # The labels a real classify reads the reply with: past 62 options
-        # there are none, and this raises the ValueError `delegate` crashed on.
+        # there are none, and this raises the ValueError the bare verb crashed on.
         labels_for(question)
         asked[field] = question
         wanted = {

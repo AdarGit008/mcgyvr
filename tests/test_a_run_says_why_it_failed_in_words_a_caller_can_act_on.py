@@ -1,6 +1,6 @@
 """A run says why it failed, in words a caller can act on — and in a file.
 
-The agent that types ``mcgyvr run`` has to decide what to do next: accept
+The agent that types ``mcgyvr direct`` has to decide what to do next: accept
 the change, commit it, or write a different contract. Told only ``the gate
 rejected the change on acceptance; no verifier was asked``, while the finding
 lines (``RetryNotes``) go only into the model's retry prompt, a caller cannot
@@ -10,14 +10,15 @@ again.
 Two channels, one content. On stdout, each failed attempt is followed by its
 findings, one ``✗`` line each — the glyph the deterministic path uses.
 And every run writes one result file, ``<journal.dir>/results/<contract>-<utc
-stamp>.json`` (``--result PATH`` overrides), and prints ``result: <path>`` so
-the caller reads the file rather than the scrollback. A file, not a JSON dump
-on stdout, because an agent's context is the scarce thing, and
+stamp>.json`` (``--result PATH`` overrides), and the caller reads
+the file rather than the scrollback (``direct`` prints no ``result:`` line:
+it takes ``--result PATH``, or finds the file under the journal). A file, not
+a JSON dump on stdout, because an agent's context is the scarce thing, and
 a result it can ``grep`` costs nothing until it is opened.
 
 The result names the contract, its type and target, the outcome word, the rung
 that answered, every attempt with its verdict and findings, whether and where
-it was committed, the orchestrator and session that drove it, and where the
+it was committed, the session that drove it, and where the
 journal rows are. Nothing lands in the user's repository.
 """
 
@@ -48,8 +49,7 @@ def test_a_rejected_climb_prints_its_findings_and_writes_them_to_the_result(
 
     assert code == 1
     out = capsys.readouterr().out
-    path = lj.result_path(out)
-    assert path.is_relative_to(journal / "results"), path
+    (path,) = lj.results(journal)
     result = json.loads(path.read_text())
     assert result["contract"] == "impl"
     assert result["task_type"] == "code"
@@ -65,6 +65,7 @@ def test_a_rejected_climb_prints_its_findings_and_writes_them_to_the_result(
     assert attempt["attempt_id"] == f"claude-s1:{result['run']}:impl:local_qwen-7b:1"
     assert re.fullmatch(r"\d{8}T\d{6}\.\d{6}Z", result["run"]), result["run"]
     assert path.name == f"impl-{result['run']}.json"
+    assert json.loads(lj.result_of(contract).read_text()) == result
     assert attempt["findings"], attempt
     for finding in attempt["findings"]:
         assert f"✗ {finding}" in out, (finding, out)
@@ -87,7 +88,7 @@ def test_an_accepted_climb_writes_the_landing_to_the_result(
     code = lj.main(lj.run_args(contract, repo, config, "--commit"))
 
     assert code == 0
-    result = json.loads(lj.result_path(capsys.readouterr().out).read_text())
+    result = json.loads(lj.result_of(contract).read_text())
     head = lj.git(repo, "rev-parse", "HEAD").strip()
     assert result["outcome"] == "accepted"
     assert result["rung"] == "local_qwen-7b"
@@ -114,7 +115,6 @@ def test_result_path_overrides_where_the_file_goes(
     code = lj.main(lj.run_args(contract, repo, config, "--result", str(wanted)))
 
     assert code == 0
-    assert lj.result_path(capsys.readouterr().out) == wanted
     assert json.loads(wanted.read_text())["outcome"] == "accepted"
 
 
@@ -137,7 +137,7 @@ def test_a_refused_delivery_is_not_reported_as_accepted(
     code = lj.main(lj.run_args(contract, repo, config, "--commit"))
 
     assert code == 1
-    result = json.loads(lj.result_path(capsys.readouterr().out).read_text())
+    result = json.loads(lj.result_of(contract).read_text())
     assert result["outcome"] == "delivery_refused", result
     assert result["committed"] is False
     assert result["detail"], result

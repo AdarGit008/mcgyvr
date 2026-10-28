@@ -1,6 +1,6 @@
 """What a run came to, as data.
 
-``RunResult`` is one ``mcgyvr run`` written out: the outcome and the sentence
+``RunResult`` is one run of a contract written out: the outcome and the sentence
 behind it, every attempt that was spent, the commit as fields, and the paths to
 the run's own result file and journal. It lands under the journal's
 ``results/`` through :func:`write`, which goes through :mod:`mcgyvr.atomic`, so
@@ -140,7 +140,7 @@ class RunResult:
     #: on every other run, and then the key is left out of the file.
     blocked_by: dict[str, Any] | None = None
     #: `seeded` is what this run was handed from an earlier run of the same
-    #: contract (`mcgyvr run --notes-from RESULT`): `from`, the result file read,
+    #: contract (`mcgyvr direct --notes-from RESULT`): `from`, the result file read,
     #: `records`, each failure-notes record read from it with the `run` it was
     #: made in, oldest first, and `handed`, how many of them the climb was
     #: started with — all of them under `retry_notes: climb`, none under `rung`,

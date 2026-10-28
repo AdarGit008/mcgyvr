@@ -84,7 +84,7 @@ NO_ORCHESTRATOR_ROLE = (
     "the orchestrator role is not configured, so a prompt cannot be turned "
     "into contracts here. Bind `orchestrator.unit` and `orchestrator.model` "
     "in the config, or author a contract yourself and run it with "
-    "`mcgyvr run`."
+    "`mcgyvr direct`."
 )
 
 

@@ -62,8 +62,8 @@ def test_delegate_jobs_is_unset_until_the_config_decides_it() -> None:
     from mcgyvr.cli import build_parser
 
     parser = build_parser()
-    asked = parser.parse_args(["delegate", "x"])
-    stated = parser.parse_args(["delegate", "x", "--run", "--jobs", "1"])
+    asked = parser.parse_args(["direct", "x.yaml"])
+    stated = parser.parse_args(["direct", "x.yaml", "--jobs", "1"])
 
     assert isinstance(asked, argparse.Namespace)
     assert asked.jobs is None

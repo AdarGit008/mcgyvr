@@ -163,7 +163,7 @@ def test_the_acceptance_ceiling_is_the_run_configs_not_the_default_one(
 
     code = lj.main(
         [
-            "run",
+            "direct",
             str(contract),
             "--repo",
             str(repo),

@@ -90,8 +90,8 @@ TRIAGE_CHOICES: tuple[str, ...] = ("none", "jev")
 #: it back, unspent; `run` sends it anyway (see `mcgyvr.tree`).
 DEPENDENTS_CHOICES: tuple[str, ...] = ("hold", "run")
 
-#: How many times a batch (`mcgyvr delegate --run`) hands a line of work whose
-#: ladder is spent back to the orchestrator to be re-planned (see
+#: How many times a batch (`mcgyvr PROMPT`) hands a line of work whose
+#: ladder is spent back to the proposer to be re-planned (see
 #: `mcgyvr.replan`); 0 turns re-planning off.
 MAX_REPLANS_DEFAULT = 1
 
@@ -169,10 +169,11 @@ DELIVERY_FIELDS: tuple[Field, ...] = (
     Field(
         "commit",
         "bool",
-        "Whether `mcgyvr run` commits an accepted change. Off, the change is "
+        "Whether a run commits an accepted change. Off, the change is "
         "left in your working tree, uncommitted, for you to review and commit. "
         "On, it is committed onto the branch you have checked out, or onto "
-        "`branch` when that is set. `run --commit` and `run --no-commit` "
+        "`branch` when that is set. `--commit` and `--no-commit` (on "
+        "`mcgyvr PROMPT` and `mcgyvr direct`) "
         "decide for one run instead. Nothing here pushes or opens a pull "
         "request: the last step off this machine is yours.",
         default=False,
@@ -188,7 +189,7 @@ DELIVERY_FIELDS: tuple[Field, ...] = (
         "the one the change was judged against. Either way the branch you "
         "have checked out, your index and your working tree are left exactly "
         "as they were, and the run prints the `git push` to run. A branch "
-        "checked out in another worktree is refused. `run --branch NAME` "
+        "checked out in another worktree is refused. `--branch NAME` "
         "names one for one run and implies `--commit`.",
         bind_hint="name a branch, or leave unset to commit onto the branch you "
         "have checked out",
@@ -245,7 +246,7 @@ JOURNAL_FIELDS: tuple[Field, ...] = (
         "program instead of a model. This is mcgyvr's own record, it never "
         "lands in the repository a run works on, and nothing on the command "
         "line moves it: it is the one place every run is, which is what makes "
-        "it worth asking questions of. `mcgyvr run --record DIR` adds a second "
+        "it worth asking questions of. `--record DIR` on either verb adds a second "
         "copy for your own use. Read either copy back from DIR directly: one "
         "JSONL per writer, prompts and replies under `blobs/`, results under "
         "`results/`.",
@@ -342,7 +343,7 @@ GATE_FIELDS: tuple[Field, ...] = (
         "change. `refuse` rejects the change. `report` does not reject it: the "
         "finding is listed among the gate's observations, which an enabled "
         "verifier is shown and the gate's retry note does not carry, and "
-        "`mcgyvr run` prints it once, before delivering the accepted change, "
+        "a run prints it once, before delivering the accepted change, "
         "as reported by this setting. `skip` does not look. Delivery judges the "
         "change again by the same setting. A contract whose `task` or "
         "`interface` asks for in-place work stands the check down under every "
@@ -358,9 +359,9 @@ SERVING_FIELDS: tuple[Field, ...] = (
         "bool",
         "Whether mcgyvr may take a card down and bring it back on its own. Off "
         "by default, because the feature is a trade and not an improvement: "
-        "turning it on lets `mcgyvr run` stop containers on a rig other people "
-        "share. It is a key here and not a `--flag` for the reason `mcgyvr run "
-        "--config` already gives about which rung runs — the config a run is "
+        "turning it on lets a run stop containers on a rig other people "
+        "share. It is a key here and not a `--flag` for the reason `--config` "
+        "already gives about which rung runs — the config a run is "
         "made under is what a run is reproducible from, and a flag would let "
         "two runs share one config where only one of them started and stopped "
         "containers on a shared rig, putting the rig side effect outside the "
@@ -758,7 +759,7 @@ ROLE_UNIT_FIELDS: tuple[Field, ...] = (
 )
 
 #: What the bound orchestrator unit is: a `proposer` that drafts contracts for
-#: `mcgyvr delegate`, the only type there is.
+#: `mcgyvr PROMPT`, the only type there is.
 ORCHESTRATOR_TYPES: tuple[str, ...] = ("proposer",)
 
 ORCHESTRATOR_FIELDS: tuple[Field, ...] = (
@@ -766,14 +767,14 @@ ORCHESTRATOR_FIELDS: tuple[Field, ...] = (
         "type",
         "enum",
         "What the bound unit is. `proposer`, the only type: the bound unit "
-        "drafts contracts for `mcgyvr delegate`.",
+        "drafts contracts for `mcgyvr PROMPT`.",
         default="proposer",
         choices=ORCHESTRATOR_TYPES,
     ),
     Field(
         "authoring",
         "enum",
-        "How `mcgyvr delegate` gets its proposals. `prose`: the bound unit is "
+        "How `mcgyvr PROMPT` gets its proposals. `prose`: the bound unit is "
         "asked for JSON proposals (`delegate.build_prompt`), and the "
         "deterministic decomposer turns them into contracts. `classifier`: the "
         "`jev` unit answers typed questions (task type, target, symbol, task, "
@@ -848,8 +849,8 @@ SCHEMA: tuple[Field, ...] = (
         "the ladder, gated, repaired, reviewed and re-planned, each stage under "
         "its own switch, every one on by default. `code` (a coding model), "
         "`chat` (a text endpoint) and `agent` (an endpoint with tool-calling) "
-        "serve the model raw: no stage runs, and `mcgyvr run` and `mcgyvr "
-        "delegate` refuse. `mcgyvr use NAME` switches it. Unset is "
+        "serve the model raw: no stage runs, and `mcgyvr PROMPT` and `mcgyvr "
+        "direct` refuse. `mcgyvr use NAME` switches it. Unset is "
         "`mcgyvr-code`; `coding` is refused, naming what replaced it.",
         choices=USE_CASES,
         default=MCGYVR_CODE,
@@ -910,7 +911,7 @@ SCHEMA: tuple[Field, ...] = (
     Field(
         "dependents",
         "enum",
-        "What a batch of contracts (`mcgyvr delegate --run`) does with a "
+        "What a batch of contracts (`mcgyvr PROMPT` or `mcgyvr direct`) does with a "
         "contract whose `depends_on` names one that did not land. `hold` keeps "
         "it back, unspent: it is sent only once what it waits on is in the "
         "tree its sandbox starts from, and one whose provider failed, or landed "
@@ -929,7 +930,7 @@ SCHEMA: tuple[Field, ...] = (
         "contract that uses a name the committed tree does not define yet waits "
         "on the sibling whose target creates it, though its `depends_on` does "
         "not say so, and one whose name nothing defines or creates is held. Off, "
-        "a batch is ordered by `depends_on` alone. Contracts `mcgyvr delegate` "
+        "a batch is ordered by `depends_on` alone. Contracts `mcgyvr PROMPT` "
         "proposes state such waits in `depends_on` themselves.",
         default=True,
     ),
@@ -1003,17 +1004,17 @@ SCHEMA: tuple[Field, ...] = (
     Field(
         "max_replans",
         "int",
-        "How many times a batch of contracts (`mcgyvr delegate --run`) hands "
-        "a line of work whose ladder is spent back to the orchestrator to be "
+        "How many times a batch of contracts (`mcgyvr PROMPT`) hands "
+        "a line of work whose ladder is spent back to the proposer to be "
         "re-planned. A contract that tried every rung and came to "
         "`ladder_spent` goes back with the failure notes its climb left, as "
-        "evidence; the contract or contracts the orchestrator proposes in its "
+        "evidence; the contract or contracts the proposer proposes in its "
         "place take its place in the batch, carry `replan` (the id they "
         "replace and the round), and what waited on it waits on them. A "
         "contract already at this round is not re-planned again, and one the "
-        "orchestrator proposes unchanged is not run again. 0 turns re-planning "
-        "off: a spent contract stops there, as a single `mcgyvr run` always "
-        "does.",
+        "proposer proposes unchanged is not run again. 0 turns re-planning "
+        "off: a spent contract stops there, as under `mcgyvr direct`, which "
+        "never re-plans.",
         default=MAX_REPLANS_DEFAULT,
         min_value=0,
         bind_hint="set a whole number of re-plans, or 0 to stop at a spent ladder",

@@ -117,7 +117,7 @@ def _run(
     monkeypatch: pytest.MonkeyPatch,
     capsys: pytest.CaptureFixture[str],
 ) -> tuple[int, str, list[str]]:
-    """``mcgyvr run`` from ``setup``: its exit, its stderr and the units dispatched."""
+    """``mcgyvr direct`` from ``setup``: its exit, stderr and the units dispatched."""
     import mcgyvr.drive as drive
 
     repo = tmp_path / "repo"
@@ -143,7 +143,7 @@ def _run(
     monkeypatch.setattr(drive, "dispatch", dispatch)
     monkeypatch.setenv("MCGYVR_CONFIG", str(setup))
     capsys.readouterr()
-    argv = ["run", str(contract), "--repo", str(repo), "--sandbox", "tempdir"]
+    argv = ["direct", str(contract), "--repo", str(repo), "--sandbox", "tempdir"]
     return cli.main(argv), capsys.readouterr().err, dispatched
 
 

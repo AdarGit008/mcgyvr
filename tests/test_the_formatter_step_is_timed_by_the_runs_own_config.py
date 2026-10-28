@@ -66,7 +66,7 @@ def test_the_formatter_is_given_the_run_configs_ceiling_not_the_default_ones(
 
     lj.main(
         [
-            "run",
+            "direct",
             str(contract),
             "--repo",
             str(repo),

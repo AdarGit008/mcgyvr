@@ -115,7 +115,7 @@ def test_every_row_before_the_raise_is_corrected_and_listed(
     assert answers == [], "all three dispatches were made"
     rows = sorted(fold(path=journal / "claude-s1.jsonl"), key=lambda r: r["attempt_id"])
     assert [r["outcome"] for r in rows] == ["failed", "failed", "error"], rows
-    result = json.loads(lj.result_path(capsys.readouterr().out).read_text())
+    result = json.loads(lj.result_of(contract).read_text())
     assert result["outcome"] == "error"
     assert [a["verdict"] for a in result["attempts"]] == ["failed", "failed", "error"]
     assert result["attempts"][0]["findings"], result["attempts"][0]

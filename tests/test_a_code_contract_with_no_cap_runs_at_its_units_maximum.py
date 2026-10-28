@@ -2,7 +2,7 @@
 
 `code` used to have to state ``limits.max_output_tokens``, what the work was
 worth: ``mcgyvr contract`` called a contract without one valid and
-``mcgyvr run`` refused it before any model was called. The cap is not the
+``mcgyvr direct`` refused it before any model was called. The cap is not the
 work's to state any more. Every request is sent the most its unit can give,
 clamped to the room the window leaves the prompt, so a contract with no cap
 runs, and one that states a cap is read and runs at the same number.

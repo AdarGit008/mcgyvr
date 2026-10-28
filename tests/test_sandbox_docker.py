@@ -250,7 +250,7 @@ def test_an_exec_under_a_daemon_override_raises_before_spawning(
 def test_the_container_mode_under_a_daemon_override_refuses_to_open(
     git_repo: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
-    """The product path: ``open_sandbox`` as ``mcgyvr run --sandbox docker``
+    """The product path: ``open_sandbox`` as ``mcgyvr direct --sandbox docker``
     takes it, with the default runner. Refused before the daemon is even
     probed, with the one message; the CLI reports a SandboxError as
     ``error:`` and exits non-zero."""

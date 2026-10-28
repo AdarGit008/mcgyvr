@@ -655,7 +655,7 @@ def test_the_attempt_function_plugs_into_escalate(
 # --- the production caller ---------------------------------------------------
 
 
-def test_the_run_command_drives_a_contract_to_a_commit(
+def test_the_direct_command_drives_a_contract_to_a_commit(
     repo: Path, tmp_path: Path, capsys: pytest.CaptureFixture[str]
 ) -> None:
     """The root of the call graph, exercised as a user reaches it.
@@ -671,7 +671,17 @@ def test_the_run_command_drives_a_contract_to_a_commit(
     contract.write_text(FORMAT_CONTRACT, encoding="utf-8")
 
     code = main(
-        ["run", str(contract), "--repo", str(repo), "--sandbox", "tempdir", "--commit"]
+        [
+            "direct",
+            str(contract),
+            "--repo",
+            str(repo),
+            "--sandbox",
+            "tempdir",
+            "--session",
+            "s1",
+            "--commit",
+        ]
     )
 
     assert code == 0
@@ -687,7 +697,7 @@ def test_the_run_command_drives_a_contract_to_a_commit(
     assert log.stdout.strip().startswith("tidy:")
 
 
-def test_the_run_command_leaves_the_output_file_and_commits_nothing_without_commit(
+def test_the_direct_command_leaves_the_output_file_and_commits_nothing_without_commit(
     repo: Path, tmp_path: Path
 ) -> None:
     """A verdict is free; a commit to someone's repository is not.
@@ -709,7 +719,18 @@ def test_the_run_command_leaves_the_output_file_and_commits_nothing_without_comm
         check=True,
     ).stdout
 
-    code = main(["run", str(contract), "--repo", str(repo), "--sandbox", "tempdir"])
+    code = main(
+        [
+            "direct",
+            str(contract),
+            "--repo",
+            str(repo),
+            "--sandbox",
+            "tempdir",
+            "--session",
+            "s1",
+        ]
+    )
 
     assert code == 0
     assert (repo / "src/pkg/messy.py").read_bytes() != before
@@ -734,7 +755,7 @@ def test_a_model_contract_with_no_ladder_is_told_where_the_ladder_should_be(
     This replaces the assertion that a model contract is refused outright. That
     refusal said "which flags select a rung is not yet decided"; the answer is
     that no flag does — the ladder in the config decides, and the only thing
-    ``run`` was missing is somewhere to read it from. What is left to check is
+    ``direct`` was missing is somewhere to read it from. What is left to check is
     the failure that remains: a config that is not there.
 
     ``MCGYVR_CONFIG`` is set to a path in ``tmp_path`` rather than left to
@@ -749,7 +770,18 @@ def test_a_model_contract_with_no_ladder_is_told_where_the_ladder_should_be(
     absent = tmp_path / "nowhere" / "mcgyvr.yaml"
     monkeypatch.setenv(CONFIG_PATH_ENV, str(absent))
 
-    code = main(["run", str(contract), "--repo", str(repo), "--sandbox", "tempdir"])
+    code = main(
+        [
+            "direct",
+            str(contract),
+            "--repo",
+            str(repo),
+            "--sandbox",
+            "tempdir",
+            "--session",
+            "s1",
+        ]
+    )
 
     assert code == 1
     assert str(absent) in capsys.readouterr().err
@@ -853,7 +885,7 @@ def test_a_recording_with_no_orchestrator_is_refused(tmp_path: Path) -> None:
 
 
 def _cooldown() -> Cooldown:
-    """A cooldown whose liveness half is a stub, as ``mcgyvr run`` builds one.
+    """A cooldown whose liveness half is a stub, as ``mcgyvr direct`` builds one.
 
     The driver discovers liveness by dispatching, so the probe half must not
     touch the network; it only ever answers "live". Removal can then only come

@@ -7,8 +7,8 @@ operations of ``code`` (``format``, ``import_sort``, ``lint_fix``,
 ``rename_symbol``), each with a guarantee in
 ``data/task-catalog.json``, each rendered into the shipped skill with a minimal
 example a reader is told is "a shape that is known to validate" — rendered
-into ``skills/mcgyvr/references/examples.md``, which the shipped skill points
-at.
+into ``skills/mcgyvr-direct/references/examples.md``, which the shipped
+/mcgyvr-direct skill points at.
 
 The path an agent is most likely to take from the documentation is: copy the
 example, validate it, run it. ``rename_symbol`` is the sole member of
@@ -73,7 +73,7 @@ def _runnable(operation: str, repo: Path) -> bool:
 
 
 def test_no_task_type_validates_and_then_cannot_run(repo: Path) -> None:
-    """The gap between `mcgyvr contract` saying yes and `mcgyvr run` erroring."""
+    """The gap between `mcgyvr contract` saying yes and `mcgyvr direct` erroring."""
     stranded = [name for name in _types() if not _runnable(name, repo)]
     assert not stranded, (
         f"{', '.join(stranded)} validate as contracts and no executor exists; "
@@ -93,7 +93,7 @@ def test_the_shipped_skill_offers_no_example_that_cannot_run(repo: Path) -> None
     ``operation: {name}`` line, so a grep of it would match nothing for every name
     and pass while checking nothing.
     """
-    examples = REPO / "skills" / "mcgyvr" / "references" / "examples.md"
+    examples = REPO / "skills" / "mcgyvr-direct" / "references" / "examples.md"
     assert examples.is_file(), f"{examples} is the shipped examples file"
     text = examples.read_text(encoding="utf-8")
     assert text.count("```yaml") >= 1, f"{examples} carries no examples to check"

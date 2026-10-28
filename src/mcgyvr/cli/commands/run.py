@@ -1,6 +1,6 @@
-"""The `run` subcommand, and everything a run does.
+"""Everything one run of a contract does, behind `mcgyvr PROMPT` and `mcgyvr direct`.
 
-`run` loads a contract, refuses a repository that is not a git checkout, settles
+`_run` loads a contract, refuses a repository that is not a git checkout, settles
 the session, the config, the journal directory and the delivery policy, and then
 takes one of two paths: a deterministic contract runs the program its task type
 binds and is judged by the gate (`_floor`), while any other contract climbs the
@@ -47,10 +47,6 @@ if TYPE_CHECKING:  # pragma: no cover - typing only
     from mcgyvr.session import Session
 
 from mcgyvr.cli.common import (
-    CONFIG_DEFAULT_HELP,
-    _add_repo,
-    _named_path,
-    add_session,
     setup_doc,
 )
 from mcgyvr.cli.fleet_live import _admitted_live, _live
@@ -94,7 +90,8 @@ def _run(args: argparse.Namespace) -> int:
     # An earlier run's failure notes, read and checked before anything else is
     # spent: a seed that is not a sound result of this contract stops the run
     # here rather than send a climb told something it should not have been.
-    # `delegate --run` builds its own arguments and names no seed.
+    # `mcgyvr direct --notes-from` hands each contract the seed its result names;
+    # `mcgyvr PROMPT` names none.
     args.notes_from = getattr(args, "notes_from", None)
     seed: tuple[CarriedNotes, ...] = ()
     if args.notes_from is not None:
@@ -112,7 +109,7 @@ def _run(args: argparse.Namespace) -> int:
     # The sandbox holds the committed tree, so uncommitted and untracked files
     # the contract's commands need are not in it. Say so once here, where the
     # note is printed and kept for the result, rather than inside each gate.
-    # Beside other runs of one batch (`delegate --run --jobs`), the working
+    # Beside other runs of one batch (`mcgyvr PROMPT --jobs`), the working
     # tree is read between two of their deliveries, never in the middle of one.
     with (
         between_deliveries(repo)
@@ -347,7 +344,7 @@ def _run(args: argparse.Namespace) -> int:
                 f"{exc}. It is at {written}.",
                 file=sys.stderr,
             )
-    # The pointer is for whoever typed `mcgyvr run`. In a batch the result is
+    # The pointer is for a run on its own. In a batch (both verbs) the result is
     # read in process (the Board, the re-planner), so nothing is printed.
     if not getattr(args, "in_batch", False):
         print(f"result: {written}")
@@ -1131,20 +1128,6 @@ def _settle_delivery(args: argparse.Namespace, config: Config | None) -> None:
     args.branch = typed or policy_branch
 
 
-def _one_delivery_answer(
-    parser: argparse.ArgumentParser, args: argparse.Namespace
-) -> None:
-    """Reject the two combinations argparse cannot see as contradictory.
-
-    An empty `--branch` name and `--branch` together with `--no-commit` are both
-    refused on the parser, so neither reaches a run that would have to guess which
-    was meant.
-    """
-    problem = _delivery_problem(args)
-    if problem is not None:
-        parser.error(problem)
-
-
 def _delivery_problem(args: argparse.Namespace) -> str | None:
     """Why `--branch` cannot be honoured as given, or None when it can."""
     branch = getattr(args, "branch", None)
@@ -1356,20 +1339,6 @@ def _say_reported(bound: Accepted) -> None:
         )
 
 
-def _name_the_writer(parser: argparse.ArgumentParser, args: argparse.Namespace) -> None:
-    """Refuse an unusable `--session` and resolve the session it names.
-
-    The id is the journal's file name, so a blank one or one holding a slash is
-    refused on `parser`; otherwise the session is resolved into `args.session`
-    here, before any work, so a run nobody can be traced to never starts. `run`
-    and `delegate --run` both come through here, so both refuse the same way:
-    exit 2, through the subparser's own `error`.
-    """
-    problem = _unusable_writer(args)
-    if problem is not None:
-        parser.error(problem)
-
-
 def _unusable_writer(args: argparse.Namespace) -> str | None:
     """Why `args.session_id` cannot name a writer, or None once it is resolved.
 
@@ -1395,124 +1364,3 @@ def _unusable_writer(args: argparse.Namespace) -> str | None:
     except SessionError as exc:
         return str(exc)
     return None
-
-
-def add_parser(
-    sub: argparse._SubParsersAction[argparse.ArgumentParser],
-) -> argparse.ArgumentParser:
-    """Register `run`, and return its parser.
-
-    The `run` parser is returned because the caller finishes the argument checks
-    that need more than one flag, after parsing.
-    """
-
-    run = sub.add_parser(
-        "run",
-        help="execute a contract — on the deterministic floor or up the ladder",
-    )
-    run.add_argument("contract", help="contract file to execute (YAML or JSON)")
-    run.add_argument(
-        "--config",
-        default=None,
-        type=_named_path,
-        metavar="PATH",
-        help=(
-            "ladder to climb when the contract is not deterministic. Which rung "
-            "runs is this file's — the ladder order, each unit's `attempts` and "
-            "the `max_escalations` and `max_attempts` ceilings — never a flag "
-            f"(default: {CONFIG_DEFAULT_HELP})"
-        ),
-    )
-    _add_repo(run, "the git repository the work is done against")
-    run.add_argument(
-        "--sandbox",
-        # Typed or not, so `_sandbox_mode` can fill an untyped one from
-        # `sandbox.mode` instead of from a default that would read as a choice.
-        # The two choices are the backends there are: a container, or a checkout
-        # on this host.
-        default=None,
-        choices=("docker", "tempdir"),
-        help=(
-            "sandbox mode; defaults to `sandbox.mode` in the config, then to "
-            "`docker`, which is refused when no daemon answers unless "
-            "`sandbox.allow_fallback` is on"
-        ),
-    )
-    run.add_argument(
-        "--commit",
-        # Typed or not, so `_settle_delivery` can tell `--no-commit` from an
-        # unstated answer and let `delivery.commit` speak for the latter.
-        action=argparse.BooleanOptionalAction,
-        default=None,
-        help=(
-            "commit the change when the gate accepts it, or not (--no-commit), "
-            "whatever `delivery.commit` says. Not committed — the default — the "
-            "accepted change is left in the working tree and the repository is "
-            "otherwise untouched: no commit, no branch. Committed, it goes onto "
-            "the branch you have checked out, or onto `delivery.branch`"
-        ),
-    )
-    run.add_argument(
-        "--branch",
-        default=None,
-        metavar="NAME",
-        help=(
-            "commit onto branch NAME instead of the one you have checked out, "
-            "which is left exactly as it was; implies --commit and overrides "
-            "`delivery.branch`. Created from HEAD when absent"
-        ),
-    )
-    run.add_argument(
-        "--record",
-        default=None,
-        type=_named_path,
-        metavar="DIR",
-        help=(
-            "also journal this run under DIR, as a complete second copy for "
-            "your own reading: DIR/<ID>.jsonl, DIR/blobs/ and DIR/results/, "
-            "read back from DIR directly. This does not move mcgyvr's "
-            "own record, which is always written under the config's "
-            "`journal.dir` so that every run there has ever been can be counted "
-            "in one place; a copy that cannot be written is reported and does "
-            "not stop the run"
-        ),
-    )
-    add_session(
-        run,
-        "the session this run is filed under. Names the journal, <ID>.jsonl, "
-        "and is carried on every row and on the result, so two sessions "
-        "sharing a directory stay distinguishable. Default: the session that "
-        "typed this command — claude-<id> from CLAUDE_CODE_SESSION_ID, "
-        "pi-<id> from PI_SESSION_FILE — and a refusal when there is none",
-    )
-    run.add_argument(
-        "--result",
-        default=None,
-        type=_named_path,
-        metavar="PATH",
-        help=(
-            "where *you* read this run's result file (default: <journal "
-            "dir>/results/<contract>-<utc stamp>.json). The path is printed as "
-            "`result: PATH`; the caller reads the file. mcgyvr keeps its own "
-            "copy under the journal directory either way"
-        ),
-    )
-    run.add_argument(
-        "--notes-from",
-        default=None,
-        type=_named_path,
-        metavar="RESULT",
-        help=(
-            "start the climb with the failure notes of an earlier run of this "
-            "contract: RESULT is that run's result file. Its records are "
-            "checked (same contract, the notes schema, repo-relative paths) "
-            "and shown to the first attempt under a banner naming the earlier "
-            "run, within the usual bounds, under `retry_notes: climb`; the "
-            "result's `seeded` says what was read and handed. For a rerun "
-            "somewhere else — another ladder, another machine — not for "
-            "retrying the same contract on the same one"
-        ),
-    )
-    run.set_defaults(func=_run)
-
-    return run

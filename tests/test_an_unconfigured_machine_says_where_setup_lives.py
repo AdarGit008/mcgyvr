@@ -1,20 +1,21 @@
 """A machine nobody has set up still fails toward SETUP.md, not into silence.
 
-`SKILL.md` carries no setup step, so these are the routes an agent has back
+Neither skill carries a setup step, so these are the routes an agent has back
 to setup.
 
 Step 2 (`mcgyvr contract CONTRACT.yaml`) and Step 3
-(`mcgyvr run CONTRACT.yaml ...`) are the two commands the skill points an agent
-at, in order, on every machine including one nobody has run `mcgyvr setup` on.
-They are not the same command. Step 3 needs a ladder: `_run` refuses a
-model-executed contract when no config loads and names where `SETUP.md` lives
-beside the loader's own message (`mcgyvr.cli.common.SETUP_DOC`). Step 2 needs nothing:
-`_contract` does not consult a config, and must not start — a contract names no
-model, rung, tier or host, so validating one is exactly the work an
-orchestrator does knowing nothing about the ladder. Step 2 validates with no
-config and never mentions setup.
+(`mcgyvr direct CONTRACT.yaml ...`) are the two commands /mcgyvr-direct points
+an agent at, in order, on every machine including one nobody has run
+`mcgyvr setup` on. They are not the same command. Step 3 needs a ladder for a
+contract a model executes: each run of the set refuses one when no config loads
+and names where `SETUP.md` lives beside the loader's own message
+(`mcgyvr.cli.common.SETUP_DOC`). Step 2 needs nothing: `_contract` does not
+consult a config, and must not start — a contract names no model, rung, tier
+or host, so validating one is exactly the work its author does knowing nothing
+about the ladder. Step 2 validates with no config and never mentions setup.
 
-The rest is `install.sh`. A `SKILL.md` that does not parse as frontmatter,
+The rest is `install.sh`, which installs both skills. A `SKILL.md` that does not
+parse as frontmatter,
 whose `name` is not the directory it lands in, or whose `description` is out
 of bounds, is refused — and refused on the source, before the first `cp`: a
 file that failed after it was installed would sit there with no record beside
@@ -36,6 +37,7 @@ an agent's context.
 
 from __future__ import annotations
 
+import hashlib
 import os
 import subprocess
 from pathlib import Path
@@ -48,6 +50,7 @@ from tests._paths import REPO, TESTS
 SKILL_DIR = REPO / "skills" / "mcgyvr"
 SKILL_MD = SKILL_DIR / "SKILL.md"
 INSTALL_SH = SKILL_DIR / "install.sh"
+DIRECT_DIR = REPO / "skills" / "mcgyvr-direct"
 
 # `skills/mcgyvr/SKILL.md` as it stood when it carried Step 0 — the file a
 # machine that installed the skill before `install.sh` kept a record holds.
@@ -66,10 +69,13 @@ PI_SKILL = Path(".pi") / "agent" / "skills" / "mcgyvr" / "SKILL.md"
 
 # The Agent Skills layout both harnesses read: the reference files sit in a
 # `references/` directory beside SKILL.md, and SKILL.md points at them
-# skill-relative. The examples live there.
+# skill-relative. The examples live there, in /mcgyvr-direct, the skill that
+# teaches writing a contract.
 EXAMPLES = Path("references") / "examples.md"
-CLAUDE_EXAMPLES = CLAUDE_SKILL.parent / EXAMPLES
-PI_EXAMPLES = PI_SKILL.parent / EXAMPLES
+CLAUDE_DIRECT = Path(".claude") / "skills" / "mcgyvr-direct"
+PI_DIRECT = Path(".pi") / "agent" / "skills" / "mcgyvr-direct"
+CLAUDE_EXAMPLES = CLAUDE_DIRECT / EXAMPLES
+PI_EXAMPLES = PI_DIRECT / EXAMPLES
 
 
 # --- shared idiom, copied from tests/test_skill_packaging.py ---------------
@@ -87,18 +93,35 @@ def _run_install(home: Path, *args: str) -> subprocess.CompletedProcess[str]:
     )
 
 
-def _install_copy(tmp_path: Path, skill_md_text: str) -> Path:
-    """A private copy of install.sh beside a SKILL.md this test controls.
+def _install_copy(
+    tmp_path: Path, skill_md_text: str, direct_md_text: str | None = None
+) -> Path:
+    """A private copy of install.sh beside SKILL.md files this test controls.
 
-    install.sh locates SKILL.md next to its own ``BASH_SOURCE``, so copying
-    both into one throwaway directory drives it against content the repo's
-    own SKILL.md must never carry (a broken frontmatter, a mismatched name,
-    an over-long description).
+    install.sh finds each skill as a directory beside its own one
+    (``skills/<name>/``, from its ``BASH_SOURCE``), so laying the same tree out
+    in a throwaway directory drives it against content the repo's own skills
+    must never carry (a broken frontmatter, a mismatched name, an over-long
+    description). `skill_md_text` is /mcgyvr's SKILL.md and `direct_md_text`
+    /mcgyvr-direct's, a valid stand-in unless given. The returned directory is
+    /mcgyvr's, which holds the script.
     """
-    src = tmp_path / "skill_src"
-    src.mkdir()
+    skills = tmp_path / "skill_src" / "skills"
+    src = skills / "mcgyvr"
+    src.mkdir(parents=True)
     (src / "install.sh").write_bytes(INSTALL_SH.read_bytes())
     (src / "SKILL.md").write_text(skill_md_text, encoding="utf-8")
+    direct = skills / "mcgyvr-direct"
+    direct.mkdir()
+    (direct / "SKILL.md").write_text(
+        direct_md_text
+        if direct_md_text is not None
+        else _skill_md(name="mcgyvr-direct"),
+        encoding="utf-8",
+    )
+    use = skills / "mcgyvr-use"
+    use.mkdir()
+    (use / "SKILL.md").write_text(_skill_md(name="mcgyvr-use"), encoding="utf-8")
     return src
 
 
@@ -155,24 +178,26 @@ def unconfigured_home_with_session(
     return unconfigured_home
 
 
-def test_mcgyvr_run_with_no_config_names_the_setup_document(
+def test_mcgyvr_direct_with_no_config_names_the_setup_document(
     tmp_path: Path,
     unconfigured_home_with_session: Path,
     capsys: pytest.CaptureFixture[str],
 ) -> None:
     """Step 3, on a bare machine, points back to where setup actually lives.
 
-    `_run` refuses a model-executed contract when
+    `mcgyvr direct` vets the contract with no config and runs it; the run
+    refuses a model-executed contract when
     `config is None and not contract.is_deterministic`, and names
     `skills/mcgyvr/SETUP.md` beside the loader's own message
-    (`mcgyvr.cli.common.SETUP_DOC`). `SKILL.md` carries no setup step, so this is
-    the error
-    an agent following Step 3 is left with.
+    (`mcgyvr.cli.common.SETUP_DOC`). Neither skill carries a setup step, so
+    this is the error an agent following Step 3 is left with.
     """
     repo = lj.make_repo(tmp_path / "repo")
     contract = lj.make_contract(tmp_path / "impl.yaml")
 
-    code = lj.main(["run", str(contract), "--repo", str(repo), "--sandbox", "tempdir"])
+    code = lj.main(
+        ["direct", str(contract), "--repo", str(repo), "--sandbox", "tempdir"]
+    )
 
     err = capsys.readouterr().err
     assert code != 0, err
@@ -192,7 +217,7 @@ def test_mcgyvr_contract_validates_with_no_config_and_never_mentions_setup(
     config would make the ladder a precondition of writing a contract about
     it.
 
-    So the seam is Step 3, not Step 2: `mcgyvr run` needs a ladder and names
+    So the seam is Step 3, not Step 2: `mcgyvr direct` needs a ladder and names
     `SETUP.md` when there is none, and `mcgyvr contract` exits 0 here without
     ever having asked. It does not mention setup, because it needed none.
     """
@@ -248,6 +273,22 @@ def test_install_refuses_a_copied_skill_whose_description_is_out_of_bounds(
     assert "description" in (result.stdout + result.stderr).lower()
 
 
+def test_install_refuses_a_direct_skill_whose_name_does_not_match_its_directory(
+    tmp_path: Path,
+) -> None:
+    """The name check is per skill: /mcgyvr-direct's is held to its own name."""
+    home = tmp_path / "home"
+    home.mkdir()
+    src = _install_copy(tmp_path, _skill_md(), _skill_md(name="mcgyvr"))
+
+    result = _run_install_from(src, home)
+
+    assert result.returncode != 0, result.stdout + result.stderr
+    assert "mcgyvr-direct" in result.stderr, result.stderr
+    landed = sorted(str(p.relative_to(home)) for p in home.rglob("*") if p.is_file())
+    assert landed == [], landed
+
+
 def test_a_refused_skill_is_not_installed_anywhere(tmp_path: Path) -> None:
     """The point of checking the source rather than the copy.
 
@@ -278,16 +319,16 @@ def test_install_places_the_reference_examples_beside_the_installed_skill(
 ) -> None:
     """The installed tree is the Agent Skills layout, references included.
 
-    The examples live in `skills/mcgyvr/references/examples.md`, and `SKILL.md`
-    keeps one pointer line to them. A script that copies only `SKILL.md` leaves
-    that pointer aimed at a file that is not there: an agent whose machine
-    INSTALLED the skill, rather than cloning this repository, cannot reach a
-    single example. So `references/` is installed too, and byte for byte — the
-    examples load through the contract validator, and a copy that is not the
-    checked one is not the shape that was checked.
+    The examples live in `skills/mcgyvr-direct/references/examples.md`, and that
+    skill's `SKILL.md` keeps one pointer line to them. A script that copies only
+    `SKILL.md` leaves that pointer aimed at a file that is not there: an agent
+    whose machine INSTALLED the skill, rather than cloning this repository,
+    cannot reach a single example. So `references/` is installed too, and byte
+    for byte — the examples load through the contract validator, and a copy that
+    is not the checked one is not the shape that was checked.
     """
-    repo_examples = SKILL_DIR / EXAMPLES
-    assert repo_examples.exists(), "skills/mcgyvr/references/examples.md must exist"
+    repo_examples = DIRECT_DIR / EXAMPLES
+    assert repo_examples.exists(), f"{repo_examples} must exist"
     home = tmp_path / "home"
     home.mkdir()
 
@@ -313,6 +354,36 @@ def test_uninstall_removes_the_installed_reference_files_too(tmp_path: Path) -> 
     for target in (CLAUDE_EXAMPLES, PI_EXAMPLES):
         assert not (home / target).exists(), target
         assert not (home / target).parent.exists(), f"{target}: references/ stayed"
+
+
+def test_references_a_skill_no_longer_carries_are_pruned_on_upgrade(
+    tmp_path: Path,
+) -> None:
+    """The references moved from /mcgyvr to /mcgyvr-direct; an upgrade follows.
+
+    A machine that installed /mcgyvr while it carried `references/` has them
+    named in its record. The next install removes them from /mcgyvr, with the
+    directory they leave empty, and installs them under /mcgyvr-direct.
+    """
+    home = tmp_path / "home"
+    home.mkdir()
+    old = home / CLAUDE_SKILL.parent
+    (old / "references").mkdir(parents=True)
+    moved = (DIRECT_DIR / EXAMPLES).read_bytes()
+    (old / EXAMPLES).write_bytes(moved)
+    (old / "SKILL.md").write_bytes(SKILL_MD.read_bytes())
+    record = "".join(
+        f"{hashlib.sha256((old / rel).read_bytes()).hexdigest()}  {rel}\n"
+        for rel in ("SKILL.md", str(EXAMPLES))
+    )
+    (old / ".mcgyvr-installed").write_text(record, encoding="utf-8")
+
+    result = _run_install(home)
+
+    assert result.returncode == 0, result.stdout + result.stderr
+    assert f"removed: {old / EXAMPLES}" in result.stdout, result.stdout
+    assert not (old / "references").exists()
+    assert (home / CLAUDE_EXAMPLES).read_bytes() == moved
 
 
 def test_an_edited_reference_file_is_refused_the_way_an_edited_skill_is(
@@ -461,7 +532,7 @@ def test_a_machine_carrying_the_old_skill_with_no_record_upgrades_unforced(
     assert result.returncode == 0, result.stdout + result.stderr
     assert "--force" not in result.stdout + result.stderr
     assert installed.read_bytes() == SKILL_MD.read_bytes()
-    assert (home / CLAUDE_EXAMPLES).read_bytes() == (SKILL_DIR / EXAMPLES).read_bytes()
+    assert (home / CLAUDE_EXAMPLES).read_bytes() == (DIRECT_DIR / EXAMPLES).read_bytes()
     assert record.exists(), "the upgrade must leave the record it was missing"
 
 
@@ -475,9 +546,9 @@ def test_install_stdout_names_setup_md_and_never_dumps_file_contents(
 
     What is kept out of a context is a file's contents — the
     frontmatter, and the body — so that, and not "every line is a path", is
-    what this asserts. `Invoke it with /mcgyvr; it does not load itself.` is
-    one instruction to the operator who ran the script, and the only thing
-    that says the skill does not load itself; it is not a file's contents and
+    what this asserts. The `Invoke them with /mcgyvr ... neither loads itself.`
+    line is one instruction to the operator who ran the script, and the only
+    thing that says the skills do not load themselves; it is not a file's contents and
     it stays.
 
     The contents half is proved against a `SKILL.md` this test writes, whose
@@ -498,6 +569,11 @@ def test_install_stdout_names_setup_md_and_never_dumps_file_contents(
     src = _install_copy(
         tmp_path,
         _skill_md(description="DESCRIPTION-MARKER", body="BODY-MARKER"),
+        _skill_md(
+            name="mcgyvr-direct",
+            description="DIRECT-DESCRIPTION-MARKER",
+            body="DIRECT-BODY-MARKER",
+        ),
     )
 
     marked = _run_install_from(src, marked_home)
@@ -506,5 +582,6 @@ def test_install_stdout_names_setup_md_and_never_dumps_file_contents(
     assert SETUP_PATH_FRAGMENT in marked.stdout, marked.stdout
     assert "DESCRIPTION-MARKER" not in marked.stdout, marked.stdout
     assert "BODY-MARKER" not in marked.stdout, marked.stdout
+    assert "DIRECT-DESCRIPTION-MARKER" not in marked.stdout, marked.stdout
     assert "---" not in marked.stdout, marked.stdout
     assert (src / "SKILL.md").read_text(encoding="utf-8") not in marked.stdout

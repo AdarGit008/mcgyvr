@@ -1,7 +1,7 @@
 """A read without a lock never pulls a live unit.
 
 A live alert pulls its combination (:func:`mcgyvr.fleet.alerts.pulled`), and
-``mcgyvr run`` warns before a pulled step (``live_pulled_units``) and ``mcgyvr
+``mcgyvr direct`` warns before a pulled step (``live_pulled_units``) and ``mcgyvr
 fleet alerts`` lists it. ``read --fleet F`` reads a fleet of a setup that holds
 no lock, and files its rows ``locked=false``. A setup may share the live
 fleet's journal, its unit ids and its rig ids, so its combinations are the live

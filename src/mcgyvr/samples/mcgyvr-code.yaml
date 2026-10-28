@@ -1,5 +1,5 @@
 # The mcgyvr-code use case's sample task: a one-function bug fix in a throwaway
-# repository, run by `mcgyvr run` on the staged setup
+# repository, run by `mcgyvr direct` on the staged setup
 # (mcgyvr.fleet.sampler). Green when the deterministic gate passes on any
 # rung. `files` is the repository as it starts, and `reference` is one fix
 # the demonstration accepts.

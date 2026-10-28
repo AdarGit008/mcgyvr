@@ -1,4 +1,4 @@
-"""`delegate --run` re-plans a contract whose ladder is spent, and frees what it held.
+"""A batch re-plans a contract whose ladder is spent, and frees what it held.
 
 A batch of two: one contract renames a function in `pkg/codec.py`, the other
 moves its caller in `pkg/export.py` to the new name and waits on the first.

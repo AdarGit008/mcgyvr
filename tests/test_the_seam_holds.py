@@ -206,7 +206,8 @@ BELOW_THE_SEAM: tuple[str, ...] = (
 #: standard library), the order a batch of contracts runs in (tree, board) and
 #: what a spent contract is re-planned from (replan),
 #: and what the run leaves behind for the caller (result, session, telemetry,
-#: and delegate's own record of how it ended, delegate_log).
+#: and delegate's own record of how it ended, delegate_log), and the words of
+#: the flags the command line and the skills share (flagset).
 ABOVE_THE_SEAM: tuple[str, ...] = (
     "mcgyvr.board",
     "mcgyvr.consensus",
@@ -224,6 +225,7 @@ ABOVE_THE_SEAM: tuple[str, ...] = (
     "mcgyvr.drive.prompt",
     "mcgyvr.drive.record",
     "mcgyvr.escalate",
+    "mcgyvr.flagset",
     "mcgyvr.gate",
     "mcgyvr.gate._engine.ghostcall",
     "mcgyvr.gate._engine.ghostcall.checker",
@@ -283,6 +285,7 @@ ABOVE_THE_SEAM: tuple[str, ...] = (
     "mcgyvr.tree",
     "mcgyvr.triage",
     "mcgyvr.verify",
+    "mcgyvr.vet",
     "mcgyvr.wake_judge",
     "mcgyvr.worker",
     "mcgyvr.worker.bundle",

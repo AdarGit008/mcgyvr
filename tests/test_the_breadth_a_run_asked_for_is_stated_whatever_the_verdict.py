@@ -67,7 +67,6 @@ def test_a_run_that_raised_before_dispatching_still_says_it_asked_for_two(
     tmp_path: Path,
     home: Path,
     monkeypatch: pytest.MonkeyPatch,
-    capsys: pytest.CaptureFixture[str],
 ) -> None:
     """Nothing was dispatched, and the breadth it would have spent is still stated."""
     import mcgyvr.drive as drive
@@ -85,7 +84,7 @@ def test_a_run_that_raised_before_dispatching_still_says_it_asked_for_two(
     assert lj.main(lj.run_args(contract, repo, config)) == 1
     assert _rows(journal) == [] and _orphans(journal) == []
 
-    result = json.loads(lj.result_path(capsys.readouterr().out).read_text())
+    result = json.loads(lj.result_of(contract).read_text())
     landed = result["attempts"][-1]
     assert (landed["draw"], landed["draws"], landed["rows"]) == (None, 2, 0)
 
@@ -125,7 +124,6 @@ def test_a_judged_attempt_says_the_same_number_twice(
     tmp_path: Path,
     home: Path,
     monkeypatch: pytest.MonkeyPatch,
-    capsys: pytest.CaptureFixture[str],
 ) -> None:
     """Every draw of a judged attempt left a row, so the two numbers agree."""
     lj.scripted(monkeypatch, lj.BAD_REPLY, lj.BAD_REPLY)
@@ -137,7 +135,7 @@ def test_a_judged_attempt_says_the_same_number_twice(
 
     assert lj.main(lj.run_args(contract, repo, config)) == 1
 
-    result = json.loads(lj.result_path(capsys.readouterr().out).read_text())
+    result = json.loads(lj.result_of(contract).read_text())
     landed = result["attempts"][-1]
     assert landed["verdict"] == "failed"
     assert (landed["draws"], landed["rows"]) == (2, 2)

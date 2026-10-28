@@ -1,4 +1,4 @@
-"""`delegate --run --jobs N` runs N ready contracts at once, settling each as it ends.
+"""`mcgyvr PROMPT --jobs N` runs N ready contracts at once, settling each as it ends.
 
 The batches below run against a real repository. The run of each contract is
 stood in for, but its change is delivered through the real `deliver`, from

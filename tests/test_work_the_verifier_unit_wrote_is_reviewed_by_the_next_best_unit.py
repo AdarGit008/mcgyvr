@@ -269,7 +269,7 @@ def _chosen(text: str, builder: str) -> Reviewer | NoReviewer:
 
 
 def _attempt_on(repo: Path, text: str, rung: str) -> Any:
-    """One attempt on ``rung`` the way ``mcgyvr run`` builds it."""
+    """One attempt on ``rung`` the way ``mcgyvr direct`` builds it."""
     from mcgyvr.drive import worker_attempt
     from mcgyvr.sandbox.tempdir import TempDirSandbox
 

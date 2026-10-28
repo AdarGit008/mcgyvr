@@ -1,6 +1,6 @@
 """An installed mcgyvr names the SETUP.md it carries; a checkout names its own.
 
-`mcgyvr run` with no setup to load says where SETUP.md is. A wheel has no
+`mcgyvr direct` with no setup to load says where SETUP.md is. A wheel has no
 ``skills/`` folder beside it, so the build copies the checkout's SETUP.md into
 the package (read here from ``pyproject.toml``; no wheel is built) and
 ``setup_doc`` names that copy when it is there, and the checkout's path

@@ -1,7 +1,7 @@
-"""`mcgyvr delegate` authors by `orchestrator.authoring`.
+"""`mcgyvr PROMPT` authors by `orchestrator.authoring`.
 
 The field names how a request becomes contracts. `classifier` has
-`mcgyvr delegate` ask the jev unit (or the orchestrator role, when none is
+`mcgyvr PROMPT` ask the jev unit (or the orchestrator role, when none is
 bound) the typed choices first and fall back to the prose proposer when the
 classifier returns nothing; any other value — `prose`, or unbound — is the
 prose proposer the command has always used.
@@ -100,7 +100,7 @@ def test_with_no_prose_proposer_there_is_none_to_fall_back_to() -> None:
 
 
 def test_the_command_reads_the_field_from_the_config(monkeypatch: Any) -> None:
-    """The wiring: `_delegate` passes the config's `orchestrator.authoring`."""
+    """The wiring: the bare verb passes the config's `orchestrator.authoring`."""
     import pytest
 
     from mcgyvr import delegate

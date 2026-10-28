@@ -39,7 +39,7 @@ def test_the_run_names_the_operation_and_reports_every_renamed_file(
     assert any(line.strip().startswith("src/pkg/use.py") for line in lines), out
     assert any(line.strip().startswith("src/pkg/web.py") for line in lines), out
 
-    result = json.loads(lj.result_path(out).read_text())
+    result = json.loads(lj.result_of(tmp_path / "rename.yaml").read_text())
     (note,) = [n for n in result["notes"] if "rename_symbol" in n]
     assert "src/pkg/use.py" in note and "src/pkg/web.py" in note
 

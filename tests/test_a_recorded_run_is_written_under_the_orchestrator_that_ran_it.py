@@ -2,7 +2,7 @@
 
 ``drive.Recording`` requires an orchestrator id: "a row that cannot say which
 orchestrator produced it is the hole the field exists to close", in the words
-of ``mcgyvr run``'s own refusal. The command has two flags for it: ``--record
+of ``mcgyvr direct``'s own refusal. The command has two flags for it: ``--record
 DIR`` names the journal directory and ``--session ID`` names the writer,
 and the sink is ``DIR/<ID>.jsonl`` so a directory with two files in it is two
 orchestrators without anyone opening one. Neither is required — the config
@@ -163,7 +163,7 @@ def test_record_with_an_orchestrator_writes_that_orchestrators_journal(
 
     code = _main(
         [
-            "run",
+            "direct",
             str(contract),
             "--repo",
             str(repo),
@@ -209,7 +209,7 @@ def test_record_without_an_orchestrator_or_a_session_is_refused_before_dispatch(
 
     code = _main(
         [
-            "run",
+            "direct",
             str(contract),
             "--repo",
             str(repo),

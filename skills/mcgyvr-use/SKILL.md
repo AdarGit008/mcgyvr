@@ -22,7 +22,7 @@ that are now on or off. Show the user what it printed.
   ladder, gated, repaired, reviewed and re-planned, each under its own
   switch in the policy, every one on by default.
 - `code`, `chat` and `agent` serve the model raw: no stage runs, and
-  `mcgyvr run` and `mcgyvr delegate` refuse until `mcgyvr use
+  `mcgyvr PROMPT` and `mcgyvr direct` refuse until `mcgyvr use
   mcgyvr-code`.
 
 Each switch, and what off means, is listed under *Use cases and

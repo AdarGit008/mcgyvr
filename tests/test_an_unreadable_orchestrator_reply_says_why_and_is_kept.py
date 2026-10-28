@@ -4,7 +4,7 @@ A reply that finished on its own but does not parse used to be reported only by
 its first 120 characters, with no decoder message and no position, and the reply
 itself was dropped, so a failed run could not be diagnosed. The error now names
 the decoder's message, the line and column, an excerpt either side of the point
-it failed and the reply's length, and `mcgyvr delegate` prints the whole reply,
+it failed and the reply's length, and `mcgyvr "<prompt>"` prints the whole reply,
 delimited, on stderr after the error.
 
 A complete JSON value with prose only before or after it is read, and the prose
@@ -194,7 +194,15 @@ def test_the_cli_prints_the_raw_reply_on_an_unreadable_reply(
     _patch(monkeypatch, _answer(reply))
 
     code = main(
-        ["delegate", "document listing", "--repo", str(root), "--config", str(config)]
+        [
+            "document listing",
+            "--repo",
+            str(root),
+            "--config",
+            str(config),
+            "--output",
+            str(tmp_path / "contracts"),
+        ]
     )
 
     assert code == 1

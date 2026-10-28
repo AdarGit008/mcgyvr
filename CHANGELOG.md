@@ -15,14 +15,14 @@ archived outside this repository, under the same paths.
   with no alias.** `mcgyvr-code` is what `coding` was, every stage between the
   model and you on by default, each under a policy switch (SETUP.md, *Use cases
   and switches*); it is also what a policy that names no use case means.
-  `code`, `chat` and `agent` serve the model raw: `mcgyvr run` and `mcgyvr
-  delegate` refuse under them (exit 3, `use_case_raw` in the delegate log)
+  `code`, `chat` and `agent` serve the model raw: `mcgyvr PROMPT` and `mcgyvr
+  direct` refuse under them (exit 3, `use_case_raw` in the delegate log)
   before any model, gate or proposer is touched, and only `mcgyvr-code`
   provisions a local proposer. A config, `setup --use-case` or `mcgyvr use`
   naming `coding` is refused, naming both. The interactive setup asks for one
   of the four with no Enter default, and asks the Jev question only for
-  `mcgyvr-code`. Under `mcgyvr-code`, `delegate --run` defaults to `--jobs
-  auto` and proposals are authored by the classifier when a Jev unit is bound
+  `mcgyvr-code`. Under `mcgyvr-code`, a batch defaults to `--jobs auto` and
+  proposals are authored by the classifier when a Jev unit is bound
   and on. The model catalog's `coding` kind is `code` (`recommend --profile
   code`), and the task catalog's task types belong to `mcgyvr-code`.
   Upgrading: a setup written before this says `use_case: coding` and no longer
@@ -200,6 +200,24 @@ archived outside this repository, under the same paths.
 
 ### Changed
 
+- **`mcgyvr "<prompt>"` and `mcgyvr direct FILE... | DIR` replace `run` and `delegate`.**
+  The bare verb plans a prompt into contracts and runs them, as `delegate
+  --run` did; it needs a session (`--session`, else exit 2 before any
+  proposer is asked), and `--output DIR` plans without running. `direct` takes
+  contracts someone wrote and vets each as a proposal is vetted (the target is
+  a committed file, the ladder serves the task type, the worker's view is
+  under the ceiling): a refusal prints `refused: <file>: <reason>` and
+  `change: <what_to_change>` on stderr and is logged, the rest of the set
+  runs, and when nothing passes the exit is 3; a contract that does not load,
+  one id twice and a `depends_on` cycle are refusals too. What passes goes into one tree and runs through the
+  batch path, with no re-plan. Both take one flag set; a flag with no meaning
+  on one side (`--budget` on `direct`, which has no prompt) is refused, exit
+  2. `mcgyvr run` and `mcgyvr delegate` are removed with no alias: `run
+  CONTRACT` is `direct CONTRACT`, `delegate PROMPT --run` is `PROMPT`, and
+  `delegate PROMPT` is `PROMPT --output DIR`. `--orchestrator` is removed
+  too; `--session` is the name. `direct` prints no `result:` line (read it
+  with `--result PATH`, or from the journal), and a setup named by `--config`
+  or `$MCGYVR_CONFIG` that is missing or invalid is exit 1 before anything runs.
 - **`mcgyvr delegate` exits 3 when no contract came of the request.** The
   request was read and declined, which is `REFUSED`, with or without `--run`
   (was 0).

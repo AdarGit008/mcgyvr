@@ -58,7 +58,7 @@ def add_parser(
             "Rewrite the use_case line of the setup's policy and say what it "
             "turns on or off. mcgyvr-code opts in to every stage between the "
             "model and you, each under its own switch; code, chat and agent "
-            "serve the model raw, and run and delegate refuse under them."
+            "serve the model raw, and PROMPT and direct refuse under them."
         ),
     )
     use.add_argument("name", metavar="NAME", help=" | ".join(USE_CASES))
@@ -135,8 +135,8 @@ def _use(args: argparse.Namespace) -> int:
     ran = stages(config)
     if config.is_raw:
         print(
-            f"{name} serves its model raw: no stage runs, and `mcgyvr run` and "
-            f"`mcgyvr delegate` refuse."
+            f"{name} serves its model raw: no stage runs, and `mcgyvr PROMPT` and "
+            f"`mcgyvr direct` refuse."
         )
     else:
         print("stages on: " + (", ".join(s for s, on in ran.items() if on) or "none"))

@@ -30,7 +30,7 @@ def _own_home_and_session(
 ) -> None:
     """Every test runs in a HOME of its own, as the session ``claude-pytest``.
 
-    ``mcgyvr run`` journals under ``~/.local/state`` by default and files every
+    ``mcgyvr direct`` journals under ``~/.local/state`` by default and files every
     row under the session that typed it (:mod:`mcgyvr.session`); this test
     process itself runs inside a developer's session, with a real HOME. Left
     alone, a test that drives ``run`` would write into the developer's state

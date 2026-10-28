@@ -1,4 +1,4 @@
-"""``mcgyvr run`` commits only when asked, and onto the branch it was asked for.
+"""``mcgyvr direct`` commits only when asked, and onto the branch it was asked for.
 
 Two policy keys and three flags:
 
@@ -51,8 +51,8 @@ def _rev(repo: Path, name: str) -> str:
     return lj.git(repo, "rev-parse", name).strip()
 
 
-def _result(capsys: pytest.CaptureFixture[str]) -> dict[str, Any]:
-    return dict(json.loads(lj.result_path(capsys.readouterr().out).read_text()))
+def _result(contract: Path) -> dict[str, Any]:
+    return dict(json.loads(lj.result_of(contract).read_text()))
 
 
 def _run(
@@ -73,7 +73,7 @@ def _run(
 
     code = lj.main(lj.run_args(contract, repo, config, *flags))
 
-    return code, repo, head, _result(capsys)
+    return code, repo, head, _result(contract)
 
 
 def _left_uncommitted(repo: Path, head: str, result: dict[str, Any]) -> None:

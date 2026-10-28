@@ -15,7 +15,7 @@ swaps' moves, the outcomes and the door reads that failed, which
 :func:`mcgyvr.fleet.stamp.stamp` judges.
 
 The use case decides the task. `mcgyvr-code` runs the bundled bug fix through
-`mcgyvr run` and passes when the deterministic gate accepts it on any rung.
+`mcgyvr direct` and passes when the deterministic gate accepts it on any rung.
 `agent` puts the bundled grounded question straight to one awake unit and
 passes when its reply cites its source and states every fact. `chat` and `code`
 (served raw, so no gate judges them) ask every awake unit for one word and read
@@ -72,7 +72,7 @@ if TYPE_CHECKING:  # pragma: no cover - typing only
 FLEET = OWN_FLEET
 #: The bundled sample each use case's task is taken from, in the package's folder.
 SAMPLES = {MCGYVR_CODE: "mcgyvr-code.yaml", AGENT: "agent.yaml"}
-#: The session the sample's own `mcgyvr run` is journaled as, so its rows are
+#: The session the sample's own `mcgyvr direct` is journaled as, so its rows are
 #: told apart from the rows of whatever session is running setup.
 SESSION = "mcgyvr-setup"
 #: The one-word ask a chat sample puts to each awake unit, and its reply cap.
@@ -278,7 +278,7 @@ def _repository(where: Path, files: Mapping[str, str]) -> Path:
     return repo
 
 
-#: One `mcgyvr run`, reached by the argv to run and answered with its exit code.
+#: One `mcgyvr direct`, reached by the argv to run and answered with its exit code.
 RunContract = Callable[[list[str]], int]
 
 
@@ -288,7 +288,7 @@ def _contract_run(
     """Run the use case's bundled contract on the staged setup and read its result.
 
     The bundled contract is dumped to `contract.yaml` and its files committed into
-    a repository under `where`, and the contract runner is handed the `run` argv
+    a repository under `where`, and the contract runner is handed the `direct` argv
     naming the contract, that repository, the staged setup, this sample's
     orchestrator id and where the result goes. Whatever the runner wrote there is
     returned as a dict; a result that is missing, unreadable or not an object
@@ -302,7 +302,7 @@ def _contract_run(
     result = where / "result.json"
     run_contract(
         [
-            "run",
+            "direct",
             str(contract),
             "--repo",
             str(repo),

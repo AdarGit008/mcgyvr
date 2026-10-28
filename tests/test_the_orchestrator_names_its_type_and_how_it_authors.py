@@ -1,7 +1,7 @@
 """The orchestrator names its type and how it authors.
 
 ``orchestrator.type`` is ``proposer``, the only type: the bound unit drafts
-contracts for ``mcgyvr delegate``. ``mcgyvr setup`` writes it from the schema's
+contracts for ``mcgyvr "<prompt>"``. ``mcgyvr setup`` writes it from the schema's
 own default, so a file that names it loads. ``orchestrator.authoring`` is
 ``prose`` or ``classifier``, or unset. ``orchestrator.tools`` went with mcorch
 and is refused as an unknown key. ``SETUP.md`` documents both live keys.

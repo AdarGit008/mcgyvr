@@ -6,7 +6,7 @@ decode tok/s, prefill tok/s and the requests in flight, so a live observation
 can be judged against a locked unit's ``warm_decode_tok_s`` and
 ``prefill_tok_s`` — and judged only when one request was in flight.
 
-"In flight" is the unit's fact, not this process's. Separate ``mcgyvr run``
+"In flight" is the unit's fact, not this process's. Separate ``mcgyvr direct``
 processes dispatch to one unit at once, and a count kept per process would call
 every one of them solo. So the count is read
 off the unit itself, immediately before and immediately after the dispatch,
@@ -294,7 +294,7 @@ def test_a_vllm_unit_counts_running_and_waiting_and_this_request(
 def test_another_process_on_the_unit_is_counted_where_this_process_counts_one(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    """Three ``mcgyvr run`` processes on one unit: this one holds one slot."""
+    """Three ``mcgyvr direct`` processes on one unit: this one holds one slot."""
     config = parse(LADDER)
     ladder, capacity = build_source_map(config), Capacity.of(config)
     stub_post(monkeypatch, answer(timings=LLAMA_TIMINGS))

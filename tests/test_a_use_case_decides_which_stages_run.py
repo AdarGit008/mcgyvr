@@ -1,7 +1,8 @@
 """A use case decides which of mcgyvr's stages stand between a model and you.
 
 `chat`, `agent` and `code` serve the model raw: no stage runs, and the contract
-verbs refuse before any model, gate or proposer is touched, naming
+verbs (`mcgyvr PROMPT`, `mcgyvr direct`) refuse before any model, gate or
+proposer is touched, naming
 `mcgyvr use mcgyvr-code`. `mcgyvr-code` runs every stage its switches leave on,
 and every switch is on by default. Each switch that turns a stage off is read
 where the stage runs: the gate (`gate.enabled`), repair (`cleanup.enabled`), the
@@ -195,7 +196,7 @@ def _setup(tmp_path: Path, use_case: str) -> Path:
 
 
 @pytest.mark.parametrize("use_case", RAW_USE_CASES)
-def test_run_refuses_a_raw_use_case_before_any_stage(
+def test_direct_refuses_a_raw_use_case_before_any_stage(
     use_case: str,
     tmp_path: Path,
     monkeypatch: pytest.MonkeyPatch,
@@ -211,7 +212,7 @@ def test_run_refuses_a_raw_use_case_before_any_stage(
 
     code = main(
         [
-            "run",
+            "direct",
             str(contract),
             "--repo",
             str(repo),
@@ -230,7 +231,7 @@ def test_run_refuses_a_raw_use_case_before_any_stage(
 
 
 @pytest.mark.parametrize("use_case", RAW_USE_CASES)
-def test_delegate_refuses_a_raw_use_case_before_the_proposer(
+def test_a_prompt_is_refused_under_a_raw_use_case_before_the_proposer(
     use_case: str,
     tmp_path: Path,
     monkeypatch: pytest.MonkeyPatch,
@@ -244,12 +245,13 @@ def test_delegate_refuses_a_raw_use_case_before_the_proposer(
 
     code = main(
         [
-            "delegate",
             "set VALUE to 1",
             "--repo",
             str(repo),
             "--config",
             str(_setup(tmp_path, use_case)),
+            "--output",
+            str(tmp_path / "contracts"),
         ]
     )
 
@@ -341,7 +343,7 @@ def test_a_run_under_the_gate_off_says_ungated_in_its_result(
 
     main(
         [
-            "run",
+            "direct",
             str(contract),
             "--repo",
             str(drives.a_git_repo(tmp_path)),
