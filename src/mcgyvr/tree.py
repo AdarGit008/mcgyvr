@@ -366,6 +366,9 @@ class Tree:
     def contracts(self) -> tuple[Contract, ...]:
         return tuple(n.contract for n in self._nodes.values())
 
+    def contract(self, contract_id: str) -> Contract:
+        return self._nodes[contract_id].contract
+
     def batch(self, contract_id: str) -> str:
         """The batch that runs the contract, or empty when no batch is named."""
         return self._nodes[contract_id].batch

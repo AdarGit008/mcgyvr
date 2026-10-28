@@ -36,6 +36,7 @@ from mcgyvr.contract import Contract, Dependency, dumps
 from mcgyvr.orchestrator.decompose import Decomposition
 from mcgyvr.scope import Scope
 from mcgyvr.session import Session
+from mcgyvr.tree import State
 from tests.decomposes import git
 from tests.test_delegate_run_jobs_runs_ready_contracts_at_once import (
     WAIT,
@@ -567,9 +568,14 @@ def test_two_batches_started_at_once_serialize_and_lose_nothing(
 
     monkeypatch.setattr(Board, "join", together)
 
+    # The first run of each waits for the other's, so both batches have
+    # joined before either settles anything.
+    running = threading.Barrier(2, timeout=WAIT)
+
     def batch_of(pair: str) -> Callable[[], int]:
         contracts = tuple(code(f"code-{n}", f"pkg/{n}.py") for n in pair)
-        return lambda: run_batch(repo, journal, runs, contracts)
+        plans = {f"code-{pair[0]}": Plan(before=running.wait)}
+        return lambda: run_batch(repo, journal, runs, contracts, plans)
 
     batches = [Batch(batch_of(pair)) for pair in ("ab", "cd")]
     for each in batches:
@@ -582,3 +588,90 @@ def test_two_batches_started_at_once_serialize_and_lose_nothing(
     }
     assert len({r["batch"] for r in rows(path).values()}) == 2
     assert state(path)["retired"] is True
+
+
+def test_a_contract_already_in_flight_elsewhere_that_fails_fails_this_batch_too(
+    repo: Path, journal: Path, runs: Runs, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """Batch 2's only contract is batch 1's `code-p`: it waits for it, and
+    exits as batch 1's run of it came to, never 0 for work that failed."""
+    joined = joined_event(monkeypatch, 2)
+    p_started = threading.Event()
+    p_may_end = threading.Event()
+    first = Batch(
+        lambda: run_batch(
+            repo,
+            journal,
+            runs,
+            (code("code-p", "pkg/a.py"),),
+            {
+                "code-p": Plan(
+                    outcome="ladder_spent",
+                    before=starts_then_waits(p_started, p_may_end),
+                )
+            },
+        )
+    )
+    first.start()
+    assert p_started.wait(WAIT)
+    second = Batch(
+        lambda: run_batch(repo, journal, runs, (code("code-p", "pkg/a.py"),))
+    )
+    second.start()
+    assert joined.wait(WAIT)
+    p_may_end.set()
+
+    assert first.ended() == 1
+    assert second.ended() == 1
+    assert runs.log.count("start code-p") == 1
+
+
+def test_a_contract_another_batch_changed_after_ready_is_not_started(
+    repo: Path, journal: Path
+) -> None:
+    """Between `ready` and `start` another batch retakes the provider of a
+    contract that was ready: the start asks the tree again and declines."""
+    from mcgyvr.board import Board, GitSource
+
+    first = Board.live(journal, repo)
+    tree_id = first.join(
+        [
+            code("code-p", "pkg/a.py"),
+            code("code-d", "pkg/c.py", depends_on=("code-p",)),
+        ],
+        GitSource(repo),
+    )
+    assert first.start(tree_id, "code-p")
+    first.settle(tree_id, "code-p", outcome="accepted", landed=True)
+    assert [c.id for _, c in first.ready()] == ["code-d"]
+
+    later = Board.live(journal, repo)
+    assert later.join([code("code-p", "pkg/a.py")], GitSource(repo)) == tree_id
+
+    assert first.start(tree_id, "code-d") is False
+    assert first.state(tree_id, "code-d") is State.WAITING
+    first.leave()
+    later.leave()
+
+
+def test_two_batches_never_run_contracts_on_one_file_at_once(
+    repo: Path, journal: Path
+) -> None:
+    """A contract handed out by `ready` is not started once another batch has
+    started one on a file both could write."""
+    from mcgyvr.board import Board, GitSource
+
+    first = Board.live(journal, repo)
+    tree_id = first.join([code("code-a", "pkg/c.py")], GitSource(repo))
+    assert [c.id for _, c in first.ready()] == ["code-a"]
+
+    later = Board.live(journal, repo)
+    later.join([code("code-b", "pkg/c.py")], GitSource(repo))
+    assert [c.id for _, c in later.ready()] == ["code-b"]
+    assert later.start(tree_id, "code-b")
+
+    assert first.start(tree_id, "code-a") is False
+    assert first.ready() == ()
+    assert first.waiting()
+    first.leave()
+    later.leave()

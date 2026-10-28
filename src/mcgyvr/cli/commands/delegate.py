@@ -500,9 +500,10 @@ def _run_delegated(
     they join, their edges read against every contract there. What runs next
     is what the tree says is ready of this batch's own, first ready first. A
     contract another batch already has in flight is left to it and waited on,
-    never run twice. When nothing of this batch's is ready but one of its
-    contracts waits on another batch's work in flight, the batch waits for
-    that batch's next write rather than seal it. A contract left in flight by
+    never run twice, and counts in the exit as it ended there. When nothing
+    of this batch's is ready but one of its contracts waits on another
+    batch's work in flight, the batch waits for that batch's next write
+    rather than seal it. A contract left in flight by
     a batch that is gone is freed from its result (`_came_to`), or as
     `abandoned`. Each run's result settles it there as soon as
     the run ends: it landed when it was accepted with a commit HEAD now holds,
@@ -547,6 +548,7 @@ def _run_delegated(
     from mcgyvr.cli import streams
     from mcgyvr.config import JOURNAL_DIR_DEFAULT
     from mcgyvr.replan import SPENT
+    from mcgyvr.tree import State
 
     paths = list(written)
     staging: Path | None = None
@@ -573,6 +575,11 @@ def _run_delegated(
     codes: dict[str, int] = {}
     running: dict[str, Contract] = {}
     before: dict[str, set[Path]] = {}
+    # Handed out by `ready` but no longer ready when `start` asked the tree
+    # again (another batch changed it between): never run, never settled.
+    skipped: set[str] = set()
+    # Runs started and not yet returned, on whatever thread.
+    flying: set[str] = set()
 
     def ready() -> list[Contract]:
         # What the tree says is ready, less one that could write a file a
@@ -585,7 +592,9 @@ def _run_delegated(
         return taken
 
     def start(contract: Contract) -> Callable[[], int]:
-        board.start(tree_id, contract.id)
+        if not board.start(tree_id, contract.id):
+            skipped.add(contract.id)
+            return lambda: 0
         before[contract.id] = _results_of(journal, contract.id)
         running[contract.id] = contract
         run = argparse.Namespace(
@@ -601,10 +610,21 @@ def _run_delegated(
             session=session,
             in_batch=True,
         )
-        if width == 1:
-            return lambda: _run(run)
-        run.beside_others = True
-        return lambda: _held(run)
+        if width > 1:
+            run.beside_others = True
+        job = _run if width == 1 else _held
+
+        # In flight from now on: a job cancelled before it ran stays counted,
+        # so the lease is kept for the process's life rather than dropped early.
+        flying.add(contract.id)
+
+        def tracked() -> int:
+            try:
+                return job(run)
+            finally:
+                flying.discard(contract.id)
+
+        return tracked
 
     def came(contract: Contract, code: int) -> dict[str, Any]:
         del running[contract.id]
@@ -615,6 +635,9 @@ def _run_delegated(
         )
 
     def settle(contract: Contract, code: int) -> None:
+        if contract.id in skipped:
+            skipped.discard(contract.id)
+            return
         settled = came(contract, code)
         # A spent contract is re-planned before it is settled, so the tree
         # every batch reads never shows it failed while what replaces it is
@@ -644,6 +667,9 @@ def _run_delegated(
     def abandon(contract: Contract, code: int) -> None:
         # The batch is stopping: what ended beside the failure is put on the
         # tree as it came, and nothing is re-planned.
+        if contract.id in skipped:
+            skipped.discard(contract.id)
+            return
         board.settle(tree_id, contract.id, **came(contract, code))
 
     try:
@@ -678,8 +704,20 @@ def _run_delegated(
             held.append(contract.id)
         if held and book is not None:
             book.held(held, board.state_file(tree_id))
+        for each in board.left:
+            # Left to another batch and waited for: what it came to there is
+            # this batch's too.
+            ended = board.state(tree_id, each)
+            if ended is State.FAILED:
+                codes[each] = int(Exit.ERROR)
+            elif ended is State.DEAD:
+                codes[each] = int(Exit.REFUSED)
     finally:
-        board.leave()
+        # A run still going on a worker (a second interrupt left it) keeps the
+        # lease, so nothing frees what it may yet deliver; the kernel drops
+        # the lease when the process ends.
+        if not flying:
+            board.leave()
         if staging is not None:
             shutil.rmtree(staging, ignore_errors=True)
     failed = [each for each in codes.values() if each != 0]

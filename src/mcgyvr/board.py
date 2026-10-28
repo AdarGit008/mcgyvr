@@ -254,11 +254,13 @@ class Board:
                 live.version = self._version_of(tree.tree_id)
                 live.documents = {}
                 live.left = ()
+                joined = False
             else:
                 live.left = tree.join(wanted, batch=live.batch)
+                joined = True
             live.tree_id = tree.tree_id
             self._trees = {tree.tree_id: tree}
-            self._persist(tree)
+            self._persist(tree, fresh=not joined)
             return tree.tree_id
 
     def ready(self) -> tuple[tuple[Tree, Contract], ...]:
@@ -279,11 +281,24 @@ class Board:
                     taken.append(queue.pop(0))
         return tuple(taken)
 
-    def start(self, tree_id: str, contract_id: str) -> None:
+    def start(self, tree_id: str, contract_id: str) -> bool:
+        """The contract was dispatched; whether it was.
+
+        On a live board the tree is asked again under the lock first: another
+        batch may have changed it since `ready` answered (retaken a provider,
+        started a contract on a file this one could write too), and a
+        contract no longer handed out is not started, and False comes back.
+        """
         with self._shared():
             tree = self._trees[tree_id]
+            if self._live is not None and (
+                tree.state(contract_id) is not State.READY
+                or not self._runs(tree, tree.contract(contract_id))
+            ):
+                return False
             tree.start(contract_id, started=run_stamp() if self._live else "")
             self._persist(tree)
+            return True
 
     def settle(
         self,
@@ -373,7 +388,7 @@ class Board:
             return None
         return self.journal / TREES_DIR / f"{tree_id}.json"
 
-    def _persist(self, tree: Tree) -> None:
+    def _persist(self, tree: Tree, *, fresh: bool = False) -> None:
         path = self.state_file(tree.tree_id)
         if path is None:
             return
@@ -388,7 +403,7 @@ class Board:
             )
         atomic.write(path, json.dumps(doc, indent=2, sort_keys=True) + "\n")
         if live is not None:
-            self._name_live(tree, retired=doc["retired"])
+            self._name_live(tree, retired=doc["retired"], fresh=fresh)
             _WRITES.wrote()
 
     # -- a live board ----------------------------------------------------------
@@ -567,8 +582,13 @@ class Board:
         ).hexdigest()
         return self.journal / TREES_DIR / LIVE_DIR / key
 
-    def _name_live(self, tree: Tree, *, retired: bool) -> None:
-        """Name `tree` the repository's live tree, or, once retired, no more."""
+    def _name_live(self, tree: Tree, *, retired: bool, fresh: bool) -> None:
+        """Name `tree` the repository's live tree, or, once retired, no more.
+
+        Only a `fresh` tree takes the name from another; a tree that lost it
+        (its state could not be read back by a later batch) never takes it
+        back, so the name does not go back and forth between two trees.
+        """
         pointer = self._pointer()
         try:
             named = pointer.read_text(encoding="utf-8").strip()
@@ -578,7 +598,7 @@ class Board:
             if named == tree.tree_id:
                 pointer.unlink()
             return
-        if named != tree.tree_id:
+        if named != tree.tree_id and (fresh or not named):
             pointer.parent.mkdir(parents=True, exist_ok=True)
             atomic.write(pointer, tree.tree_id + "\n")
 
@@ -617,11 +637,23 @@ class Board:
             for other in tree.contracts()
         )
 
+    def state(self, tree_id: str, contract_id: str) -> State | None:
+        """Where a contract stands on the tree, or None once it is not there
+        (re-planned away)."""
+        with self._shared():
+            tree = self._trees[tree_id]
+            try:
+                return tree.state(contract_id)
+            except KeyError:
+                return None
+
     def _waits(self, tree: Tree) -> bool:
         mine = self.batch
         there = frozenset(c.id for c in tree.contracts())
         seen: set[str] = set()
         todo = [cid for cid in self._own(tree) if tree.state(cid) in _OPEN]
+        # What a join left to another batch is this batch's to wait for too.
+        todo += [c for c in self.left if c in there and tree.state(c) in _OPEN]
         while todo:
             cid = todo.pop()
             if cid in seen:
