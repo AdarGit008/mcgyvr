@@ -237,8 +237,9 @@ archived outside this repository, under the same paths.
   the hub may carry, the scope header and its values, the use-case names
   (`USE_CASES`) and the model category each is recommended
   (`USE_CASE_CATEGORY`), the use-case header, which use cases each pool serves
-  (`POOL_USE_CASES`: the general pool serves `code`, `chat` and `agent`; a
-  crew's pool and a ride all four; a shared ladder `mcgyvr-code` alone), and
+  (`POOL_USE_CASES`: a member's own rigs, lent to nobody, serve all four; the
+  general pool `code`, `chat` and `agent`; a crew's pool and a ride all four;
+  a shared ladder `mcgyvr-code` alone), and
   the hub's two JSON Schemas, shipped in the package (`hubwire_schemas/`, the
   hub's files byte for byte). `rig.rungs`, `rig.sessionwire`, `rig.protocol`,
   `runner`, `config` and `recommend` import them. Every chat request the

@@ -406,6 +406,7 @@ def test_every_pool_serves_only_use_cases_and_each_is_served_somewhere() -> None
 @pytest.mark.parametrize(
     ("pool", "served"),
     [
+        (hubwire.POOL_SOLO, {"mcgyvr-code", "code", "chat", "agent"}),
         (hubwire.POOL_GENERAL, {"code", "chat", "agent"}),
         (hubwire.POOL_CREW, {"mcgyvr-code", "code", "chat", "agent"}),
         (hubwire.POOL_HITCHHIKE, {"mcgyvr-code", "code", "chat", "agent"}),

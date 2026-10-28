@@ -224,20 +224,28 @@ USE_CASE_CATEGORY: Mapping[str, str] = MappingProxyType(
 #: :data:`SCOPE_HEADER`, so the hub can refuse one its pool does not serve.
 USE_CASE_HEADER = "x-mcgyvr-use-case"
 
-#: Where the hub serves a request from: the general pool, a crew's pool, a
-#: hitchhike ride, or a ladder a host shares.
+#: Where the hub serves a request from: a member's own rigs, lent to nobody,
+#: the general pool, a crew's pool, a hitchhike ride, or a ladder a host shares.
+POOL_SOLO = "solo"
 POOL_GENERAL = "general"
 POOL_CREW = "crew"
 POOL_HITCHHIKE = "hitchhike"
 POOL_SHARED_LADDER = "shared_ladder"
-POOLS: tuple[str, ...] = (POOL_GENERAL, POOL_CREW, POOL_HITCHHIKE, POOL_SHARED_LADDER)
-#: The use cases each pool serves. The general pool serves models raw only; a
-#: crew's pool and a ride serve every use case; a shared ladder is there for
-#: ``mcgyvr-code`` alone. The hub's sharing modes map onto these: ``pool`` is
-#: :data:`POOL_GENERAL`, ``crew`` and ``hitchhike`` are themselves. A member's
-#: own rigs are not a pool here.
+POOLS: tuple[str, ...] = (
+    POOL_SOLO,
+    POOL_GENERAL,
+    POOL_CREW,
+    POOL_HITCHHIKE,
+    POOL_SHARED_LADDER,
+)
+#: The use cases each pool serves. A member's own rigs serve every use case;
+#: the general pool serves models raw only; a crew's pool and a ride serve
+#: every use case; a shared ladder is there for ``mcgyvr-code`` alone. The
+#: hub's sharing modes map onto these: ``solo`` is :data:`POOL_SOLO`, ``pool``
+#: is :data:`POOL_GENERAL`, ``crew`` and ``hitchhike`` are themselves.
 POOL_USE_CASES: Mapping[str, tuple[str, ...]] = MappingProxyType(
     {
+        POOL_SOLO: USE_CASES,
         POOL_GENERAL: (CODE, CHAT, AGENT),
         POOL_CREW: USE_CASES,
         POOL_HITCHHIKE: USE_CASES,
