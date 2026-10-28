@@ -58,7 +58,7 @@ def test_classifier_asks_the_typed_proposer_first_and_falls_back_to_prose() -> N
 
     propose = proposer_by_authoring("classifier", typed=typed, prose=prose)
     assert propose is not None
-    assert [p.task for p in propose(_evidence())] == ["from prose"]
+    assert list(propose(_evidence())) == [_proposal("from prose")]
     assert asked == ["typed", "prose"]
 
 
@@ -75,7 +75,7 @@ def test_a_typed_answer_is_taken_without_asking_prose() -> None:
 
     propose = proposer_by_authoring("classifier", typed=typed, prose=prose)
     assert propose is not None
-    assert [p.task for p in propose(_evidence())] == ["from typed"]
+    assert list(propose(_evidence())) == [_proposal("from typed")]
     assert asked == ["typed"]
 
 

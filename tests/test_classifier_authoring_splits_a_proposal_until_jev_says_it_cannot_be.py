@@ -30,7 +30,7 @@ from mcgyvr.board import GitSource
 from mcgyvr.catalog import catalog
 from mcgyvr.config import ConfigSchemaError, parse
 from mcgyvr.decision import Choice, Noul
-from mcgyvr.delegate import proposer_by_authoring
+from mcgyvr.delegate import ClassifierProposer, proposer_by_authoring
 from mcgyvr.gate.adapters import JavaScriptAdapter, PythonAdapter
 from mcgyvr.local_pool import source_map
 from mcgyvr.orchestrator.baseline import BaselineObservation
@@ -77,7 +77,13 @@ def evidence_for(
 
 
 def proposal(task: str, **fields: Any) -> Proposal:
-    return Proposal(task_type="code", task=task, target="listing.py", **fields)
+    return Proposal(
+        task_type="code",
+        task=task,
+        target="listing.py",
+        stop_conditions=("the request is ambiguous",),
+        **fields,
+    )
 
 
 def no_prose(evidence: Evidence) -> Sequence[Proposal]:
@@ -292,9 +298,7 @@ def test_a_split_that_would_repeat_a_demonstration_is_not_offered(
     evidence = evidence_for(index, prompt, baseline=one_red)
     assert survey(evidence, proposal(prompt), prompt) == ()
     # A part that already demonstrates one test is not split again.
-    two_red = evidence_for(
-        index, prompt, baseline=replace(one_red, red=RED)
-    )
+    two_red = evidence_for(index, prompt, baseline=replace(one_red, red=RED))
     stated = proposal(prompt, demonstration=(f"pytest {RED[0]}",))
     assert survey(two_red, stated, prompt) == ()
     (by_test,) = survey(two_red, proposal(prompt), prompt)
@@ -331,7 +335,9 @@ def test_a_split_below_max_refine_depth_is_refused_with_what_to_change(
 def test_a_split_into_more_parts_than_max_refine_fanout_is_refused(
     index: Index,
 ) -> None:
-    prompt = "Document listing. Document paginate. Make paginate reject a negative size."
+    prompt = (
+        "Document listing. Document paginate. Make paginate reject a negative size."
+    )
     jev = ScriptedJev(split=tasks(prompt), picks={"partition": "sentence"})
     propose = proposer_by_authoring(
         "classifier", typed=refining(jev, max_fanout=2), prose=no_prose
@@ -491,6 +497,7 @@ def test_delegate_refines_with_the_configured_bounds_when_jev_is_bound(
     typed = _typed_for(monkeypatch, text)
     assert isinstance(typed, RefiningProposer)
     assert (typed.max_depth, typed.max_fanout) == (2, 4)
+    assert isinstance(typed.classifier, ClassifierProposer)
     assert typed.classifier.model == "example-judge:1b"
 
 

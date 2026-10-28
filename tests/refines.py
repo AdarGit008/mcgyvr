@@ -46,7 +46,7 @@ def never(state: Mapping[str, Any]) -> bool:
 
 
 def tasks(*split: str) -> Callable[[Mapping[str, Any]], bool]:
-    """The split rule that answers Yes exactly for a proposal whose task is one of `split`."""
+    """The split rule that answers Yes for a proposal whose task is one of `split`."""
     return lambda state: state["task"] in split
 
 

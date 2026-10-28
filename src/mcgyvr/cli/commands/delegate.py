@@ -370,19 +370,30 @@ def _proposer_for_delegate(config: Config, pool: SourceMap) -> Proposer | None:
     """The proposer `orchestrator.authoring` asks for, or None if none can run.
 
     The prose proposer on the `orchestrator` role is always built. The typed
-    classifier is built only when the strategy is "classifier", and
-    `proposer_by_authoring` then puts it in front of the prose one, which stands
-    in when the classifier declines. A strategy that is not a string is passed
-    as None, which selects prose. None comes back when nothing can propose.
+    classifier is built only when the strategy is "classifier" — refined until
+    each proposal is on one file and jev says it cannot be split further, within
+    `max_refine_depth` and `max_refine_fanout` — and `proposer_by_authoring`
+    then puts it in front of the prose one, which stands in when the classifier
+    declines. A strategy that is not a string is passed as None, which selects
+    prose. None comes back when nothing can propose.
     """
+    from mcgyvr import refine
     from mcgyvr.delegate import (
-        classifier_proposer_for,
         proposer_by_authoring,
         proposer_for,
+        refining_proposer_for,
     )
 
     strategy = config.get("orchestrator.authoring")
-    typed = classifier_proposer_for(pool) if strategy == "classifier" else None
+    typed = (
+        refining_proposer_for(
+            pool,
+            max_depth=refine.max_depth(config),
+            max_fanout=refine.max_fanout(config),
+        )
+        if strategy == "classifier"
+        else None
+    )
     return proposer_by_authoring(
         None if not isinstance(strategy, str) else strategy,
         typed=typed,
