@@ -341,8 +341,8 @@ def test_the_removed_media_gen_use_case_is_refused() -> None:
     with pytest.raises(ConfigSchemaError) as exc:
         parse(LOCAL_ONLY + "use_case: media-gen\n")
     assert (
-        "use_case: 'media-gen' is not a valid value. Valid: coding, chat, agent"
-        in str(exc.value)
+        "use_case: 'media-gen' is not a valid value. Valid: mcgyvr-code, code, chat, "
+        "agent" in str(exc.value)
     )
 
 

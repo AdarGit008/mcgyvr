@@ -60,7 +60,7 @@ def test_every_shipped_record_names_use_cases_the_task_catalog_has() -> None:
         assert one.use_cases, f"{one.model_id} names no use case"
         assert set(one.use_cases) <= names & set(hub.USE_CASES)
     coders = {r.model_id: r.use_cases for r in ks.shipped() if r.model_id in CODERS}
-    assert coders == dict.fromkeys(CODERS, ("coding",))
+    assert coders == dict.fromkeys(CODERS, ("code",))
 
 
 @pytest.mark.parametrize("use_case", hub.USE_CASES)
@@ -71,7 +71,7 @@ def test_without_the_hub_a_use_case_gets_only_its_own_records(use_case: str) -> 
     assert all(use_case in one.use_cases for one in answer.records)
     tagged = [one for one in ks.shipped() if use_case in one.use_cases]
     assert list(answer.records) == tagged
-    if use_case == hub.CODING:
+    if use_case == hub.CODE:
         assert {one.model_id for one in answer.records} == CODERS
     else:
         assert not {one.model_id for one in answer.records} & CODERS
@@ -80,7 +80,7 @@ def test_without_the_hub_a_use_case_gets_only_its_own_records(use_case: str) -> 
 def test_the_hubs_rows_are_classified_by_name_template_and_pipeline() -> None:
     rows = _rows()
 
-    assert _uses(rows["unsloth/Qwen3-Coder-30B-A3B-Instruct-GGUF"]) == ("coding",)
+    assert _uses(rows["unsloth/Qwen3-Coder-30B-A3B-Instruct-GGUF"]) == ("code",)
     assert "tools" in (rows["unsloth/Qwen3.5-4B-GGUF"].chat_template or "")
     assert _uses(rows["unsloth/Qwen3.5-4B-GGUF"]) == ("chat", "agent")
     hy = rows["tencent/Hy-MT2-7B-GGUF"]

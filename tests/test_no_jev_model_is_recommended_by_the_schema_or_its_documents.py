@@ -19,7 +19,8 @@ def test_the_jev_keys_name_no_model_and_default_to_none() -> None:
     assert MODEL not in jev.doc
     for inner in jev.block:
         assert MODEL not in inner.doc
-        assert inner.default is None
+        # `enabled` is the on/off switch, not a model, and is on by default.
+        assert inner.default is (True if inner.name == "enabled" else None)
 
 
 def test_no_rendered_document_names_a_jev_model() -> None:

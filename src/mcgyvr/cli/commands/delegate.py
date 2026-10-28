@@ -29,7 +29,9 @@ from mcgyvr.config import (
     Config,
     ConfigError,
     ConfigMissingError,
+    default_jobs,
     named_config_path,
+    requires_mcgyvr_code,
 )
 from mcgyvr.config import load as load_config
 from mcgyvr.delegate_log import DelegateKind, LoggedContract, LoggedRefusal, logged
@@ -255,6 +257,13 @@ def _delegate_logged(args: argparse.Namespace, book: _Logbook) -> int:
             DelegateKind.CONFIG_NO_ORCHESTRATOR, NO_ORCHESTRATOR_ROLE, bare_install=True
         )
         return Exit.REFUSED
+    raw = requires_mcgyvr_code(config)
+    if raw is not None:
+        print(f"error: {raw}", file=sys.stderr)
+        book.ended(DelegateKind.USE_CASE_RAW, raw, use_case=config.use_case)
+        return Exit.REFUSED
+    if getattr(args, "jobs", 1) is None:
+        args.jobs = default_jobs(config)
 
     pool = source_map(config)
     try:
@@ -384,7 +393,7 @@ def _proposer_for_delegate(config: Config, pool: SourceMap) -> Proposer | None:
         refining_proposer_for,
     )
 
-    strategy = config.get("orchestrator.authoring")
+    strategy = config.authoring
     typed = (
         refining_proposer_for(
             pool,
@@ -598,7 +607,9 @@ def _run_delegated(
         taken: list[Contract] = []
         for _, contract in board.ready():
             beside = (*running.values(), *taken)
-            if not any(contract.scope.meets(other.scope) for other in beside):
+            if config.get("same_file") == "parallel" or not any(
+                contract.scope.meets(other.scope) for other in beside
+            ):
                 taken.append(contract)
         return taken
 
@@ -685,7 +696,10 @@ def _run_delegated(
 
     try:
         tree_id = board.join(
-            dec.contracts, source, hold=config.get("dependents", "hold") != "run"
+            dec.contracts,
+            source,
+            hold=config.get("dependents", "hold") != "run",
+            infer=config.get("infer_dependencies") is not False,
         )
         for each in board.left:
             print(
@@ -1118,8 +1132,9 @@ exit codes (the --log record's `kind` in brackets):
      proposal_*], the repository [repo_*], or a crash [internal_error]
   2  usage: a --branch that cannot be honoured [usage_invalid], or --run with
      no session to file the runs under [session_unresolved]
-  3  refused: no orchestrator role [config_no_orchestrator], no contract came
-     of the request [none_emitted], or --run held a contract [batch_held]
+  3  refused: no orchestrator role [config_no_orchestrator], a raw use case
+     [use_case_raw], no contract came of the request [none_emitted], or --run
+     held a contract [batch_held]
 New kinds may be added under mcgyvr.delegate_log/1; a reader tolerates one it
 does not know."""
 
@@ -1202,15 +1217,17 @@ def add_parser(
     )
     delegate.add_argument(
         "--jobs",
-        default=1,
+        default=None,
         type=_jobs,
         metavar="N",
         help=(
             "with --run, run up to N ready contracts at once, each settled as "
-            "it ends and the next started as soon as it is ready (default: 1, "
-            "one at a time). N is capped at the fleet's total slots, the most "
-            "dispatches its units take at once; `auto` or 0 is that cap. Two "
-            "contracts whose scopes can write one file never run at once, and "
+            "it ends and the next started as soon as it is ready (default: "
+            "`auto` under use case mcgyvr-code, else 1, one at a time). N is "
+            "capped at the fleet's total slots, the most dispatches its units "
+            "take at once; `auto` or 0 is that cap. Two contracts whose scopes "
+            "can write one file never run at once unless the policy says "
+            "`same_file: parallel`, and "
             "a run's output is written whole when it ends. Runs beside each "
             "other share the fleet's slots, so one may wait for a rung, or "
             "pass a busy one by, as two runs typed in two terminals would"

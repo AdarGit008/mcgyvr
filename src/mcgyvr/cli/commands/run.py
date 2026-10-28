@@ -27,6 +27,7 @@ from mcgyvr.config import (
     ConfigError,
     ConfigMissingError,
     named_config_path,
+    requires_mcgyvr_code,
 )
 from mcgyvr.config import config_path as resolve_config_path
 from mcgyvr.config import load as load_config
@@ -151,6 +152,10 @@ def _run(args: argparse.Namespace) -> int:
         # something the caller never declared.
         print(f"error: {config_error} {setup_doc()} says how.", file=sys.stderr)
         return 1
+    raw = requires_mcgyvr_code(config) if config is not None else None
+    if raw is not None:
+        print(f"error: {raw}", file=sys.stderr)
+        return Exit.REFUSED
 
     # Where the journal lives: `journal.dir` from the config, or the default
     # under the state directory when there is no config or the key is unset. `~`

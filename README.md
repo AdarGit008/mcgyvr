@@ -26,7 +26,7 @@ than the skill can drive.
 
 `mcgyvr setup` reads this machine's hardware (and any rig named with `--host`,
 over ssh), recommends the units, ladder and fleet that fit it for the use case
-you choose (`coding`, `chat` or `agent`), and writes `fleet.yaml` and
+you choose (`mcgyvr-code`, `code`, `chat` or `agent`), and writes `fleet.yaml` and
 `policy.yaml` into a folder of the run's own under `$MCGYVR_DATA/setup/<run>`
 (default `~/.local/state/mcgyvr/setup/<run>`), never the working directory.
 Asked, it starts the units and samples them; a fleet whose sample passes is
@@ -37,7 +37,10 @@ explicit yes, and one whose sample failed is never locked.
 Without the questions: `--host` binds backends on another machine, `--api
 model=<id>,address=<url>,api_key_env=<VAR>` binds a hosted unit (the key stays
 in your environment), `--use-case` and `--priority` choose what the ladder is
-composed for. `mcgyvr fleet use|probe|alerts` names another promoted fleet
+composed for. `mcgyvr-code` puts mcgyvr between the model and you, every stage
+(gate, repair, reviewer, ladder, re-plan and the rest) under its own switch in
+`policy.yaml`; `code`, `chat` and `agent` serve the model raw. `mcgyvr use NAME`
+switches it later. `mcgyvr fleet use|probe|alerts` names another promoted fleet
 live, probes the live one against its lock, and lists pulled combinations.
 
 ## Using it

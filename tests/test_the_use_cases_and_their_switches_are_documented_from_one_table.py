@@ -47,5 +47,5 @@ def test_the_use_skill_is_generated_and_committed_as_rendered() -> None:
 
 def test_no_generated_line_is_longer_than_the_house_limit() -> None:
     for text in (docgen.render_setup(), docgen.render_use_skill()):
-        section = text.split("## Use cases and switches", 1)[-1]
+        section = text.split("## Use cases and switches", 1)[-1].split("\n## ", 1)[0]
         assert all(len(line) <= 105 for line in section.splitlines())

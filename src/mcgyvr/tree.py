@@ -281,6 +281,8 @@ class Tree:
     source: Source
     hold: bool = True
     sealed: bool = True
+    #: False orders the set by `depends_on` alone (`infer_dependencies`).
+    infer: bool = True
     _nodes: dict[str, _Node] = field(default_factory=dict)
     _order: tuple[str, ...] = ()
     _cycle: frozenset[str] = frozenset()
@@ -295,12 +297,15 @@ class Tree:
         hold: bool = True,
         sealed: bool = True,
         batch: str = "",
+        infer: bool = True,
     ) -> Tree:
         """A tree of `contracts` read against `source`; each starts waiting.
 
         `batch` names the batch that runs them, on a tree batches share.
         """
-        tree = cls(tree_id=tree_id, source=source, hold=hold, sealed=sealed)
+        tree = cls(
+            tree_id=tree_id, source=source, hold=hold, sealed=sealed, infer=infer
+        )
         for contract in contracts:
             if contract.id in tree._nodes:
                 raise ValueError(f"{contract.id} is in this tree twice")
@@ -326,6 +331,7 @@ class Tree:
             source=source,
             hold=bool(doc.get("hold", True)),
             sealed=bool(doc.get("sealed", True)),
+            infer=bool(doc.get("infer", True)),
         )
         for row in doc["contracts"]:
             cid = str(row["contract"])
@@ -539,6 +545,7 @@ class Tree:
             "tree": self.tree_id,
             "hold": self.hold,
             "sealed": self.sealed,
+            "infer": self.infer,
             "contracts": [
                 {
                     "contract": cid,
@@ -570,7 +577,7 @@ class Tree:
         for cid, node in self._nodes.items():
             waits = list(dict.fromkeys(node.contract.depends_on))
             unprovided: list[Need] = []
-            for dep in node.contract.deps:
+            for dep in node.contract.deps if self.infer else ():
                 for symbol in declared_names(dep.path, dep.signature):
                     if definitions.defines(dep.path, symbol) is not False:
                         continue

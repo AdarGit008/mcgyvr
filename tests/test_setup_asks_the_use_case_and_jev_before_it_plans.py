@@ -5,8 +5,9 @@ after the rigs and before the plan: the use case (mcgyvr-code, code, chat or
 agent; there is no Enter default, because choosing mcgyvr-code is the act of
 opting in) and, for mcgyvr-code only, whether to dedicate a unit to Jev, the
 unit every typed decision asks (Enter is no) -- the interactive form of
-``--use-case`` and ``--jev``. The raw use cases have no Jev in their path. The answer is planned, staged and sampled: the sampler runs
-that use case's task and the Jev choice.
+``--use-case`` and ``--jev``. The raw use cases have no Jev in their path.
+The answer is planned, staged and sampled: the sampler runs that use case's
+task and the Jev choice.
 
 The rig is :class:`tests.setup_door.FakeRig` behind the door; the prompts are
 answered through the setup's own prompt seams; nothing reaches a machine.
@@ -177,7 +178,7 @@ def test_a_use_case_that_is_not_one_is_asked_again_then_refused(
 
     assert asked == [USE_CASE] * 3
     err = capsys.readouterr().err
-    assert "poetry" in err and "m, k, c, a" in err
+    assert "poetry" in err and "m, k, c or a" in err
     assert not (data_home() / "setup").exists() or not any(
         (data_home() / "setup").rglob("policy.yaml")
     )
@@ -219,13 +220,15 @@ def test_a_letter_that_names_no_use_case_is_refused(
     assert cli.main(["setup"]) == 1
 
     assert asked == [USE_CASE] * 3
-    assert "m, k, c, a" in capsys.readouterr().err
+    assert "m, k, c or a" in capsys.readouterr().err
 
 
 def test_enter_is_no_use_case_it_is_asked_again_then_refused(
     monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
 ) -> None:
-    asked = sd.interactive(monkeypatch, sd.FakeRig(), {START: True})
+    asked = sd.interactive(
+        monkeypatch, sd.FakeRig(), {START: True}, typed={USE_CASE: ""}
+    )
 
     assert cli.main(["setup"]) == 1
 
@@ -243,7 +246,10 @@ def test_a_use_case_setup_never_offered_is_refused_naming_the_four(
     assert cli.main(["setup", "--use-case", "poetry"]) == 1
 
     (line,) = capsys.readouterr().err.splitlines()
-    assert "`poetry` is not a use case" in line and "mcgyvr-code, code, chat or agent" in line
+    assert (
+        "`poetry` is not a use case" in line
+        and "mcgyvr-code, code, chat or agent" in line
+    )
     assert not (data_home() / "setup").exists(), "nothing is staged"
 
 

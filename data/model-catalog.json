@@ -10,7 +10,7 @@
         "vllm"
       ],
       "use_cases": [
-        "coding"
+        "code"
       ],
       "weights": {
         "repo": "Qwen/Qwen2.5-Coder-7B-Instruct-GGUF",
@@ -52,7 +52,7 @@
         "vllm"
       ],
       "use_cases": [
-        "coding"
+        "code"
       ],
       "weights": {
         "repo": "Qwen/Qwen2.5-Coder-14B-Instruct-GGUF",
@@ -93,7 +93,7 @@
         "llama.cpp"
       ],
       "use_cases": [
-        "coding"
+        "code"
       ],
       "weights": {
         "repo": "bartowski/DeepSeek-Coder-V2-Lite-Instruct-GGUF",

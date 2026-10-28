@@ -51,6 +51,7 @@ from mcgyvr.cli.commands import (
 from mcgyvr.cli.commands import (
     sandbox as sandbox_cmd,
 )
+from mcgyvr.cli.commands import use as use_cmd
 from mcgyvr.cli.commands.delegate import _delegate, _refuse_before_delegating
 from mcgyvr.cli.commands.run import _name_the_writer, _one_delivery_answer, _run
 from mcgyvr.rig import verbs as rig_verbs
@@ -87,6 +88,7 @@ def _build() -> tuple[
     rig_verbs.add_parser(sub, add_config=_common.add_config)
     run_sub = run_cmd.add_parser(sub)
     delegate_sub = delegate.add_parser(sub)
+    use_cmd.add_parser(sub)
 
     return parser, run_sub, delegate_sub
 

@@ -82,12 +82,12 @@ def test_a_search_that_answers_nothing_usable_is_a_hub_that_did_not_answer(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     transport = hr.install(monkeypatch)
-    transport.bodies[hub.search_url(hub.CODING)] = b"{not json"
+    transport.bodies[hub.search_url(hub.CODE)] = b"{not json"
 
-    answer = hub.candidates(hub.CODING, max_bytes=hr.ROOMIEST)
+    answer = hub.candidates(hub.CODE, max_bytes=hr.ROOMIEST)
 
     assert answer.origin == ks.SHIPPED
-    assert list(answer.records) == _shipped(hub.CODING)
+    assert list(answer.records) == _shipped(hub.CODE)
 
 
 @pytest.mark.parametrize(

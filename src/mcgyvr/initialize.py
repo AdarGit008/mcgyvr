@@ -37,8 +37,10 @@ from mcgyvr.config import (
     DELIVERY_FIELDS,
     FLEET_FILENAME,
     GATE_FIELDS,
+    JEV_FIELDS,
     JOURNAL_FIELDS,
     LOCAL_ONLY,
+    MCGYVR_CODE,
     ORCHESTRATOR_FIELDS,
     POLICY_FILENAME,
     SANDBOX_FIELDS,
@@ -572,7 +574,7 @@ def build(
     proposal: Proposal,
     *,
     api_units: Sequence[ApiUnit] = (),
-    use_case: str = "coding",
+    use_case: str = MCGYVR_CODE,
     deployment: str | None = None,
 ) -> dict[str, Any]:
     """Turn a detection and a proposal into the data both files render from.
@@ -635,6 +637,9 @@ def build(
         "ladder": [rung.name for rung in proposal.rungs]
         + [api.name for api in ordered_api_units],
         "fanout": "none",
+        # The switches of the stages a batch is ordered by keep the schema's
+        # defaults, written out so the one file shows every switch.
+        **_defaults(SCHEMA, "infer_dependencies", "same_file"),
         # No orchestrator unit is bound: `orchestrator.type` keeps the schema's
         # default, and a unit is named only when a person names one.
         "orchestrator": {
@@ -651,7 +656,7 @@ def build(
         },
         # The Jev block stays empty unless `--jev` names the unit every typed
         # decision should ask.
-        "jev": {"unit": None, "model": None},
+        "jev": {**_defaults(JEV_FIELDS, "enabled"), "unit": None, "model": None},
         "sandbox": {
             "mode": "docker" if detection.docker else "tempdir",
             # `mode` follows the machine — `docker` when the daemon answered,
@@ -672,9 +677,9 @@ def build(
         # of these, so it invents none of them — a person sets them by hand.
         "breadth": _defaults(BREADTH_FIELDS, "draws"),
         "cleanup": _defaults(CLEANUP_FIELDS, "enabled"),
-        # The gate keeps the schema's `param_mutation`, `refuse` included, so init
-        # states no gate policy nobody stated.
-        "gate": _defaults(GATE_FIELDS, "param_mutation"),
+        # The gate keeps the schema's `enabled` and `param_mutation`, `refuse`
+        # included, so init states no gate policy nobody stated.
+        "gate": _defaults(GATE_FIELDS, "enabled", "param_mutation"),
         # The journal is written where the schema's default `dir` puts it, under
         # this user's state directory rather than inside any repository.
         "journal": _defaults(JOURNAL_FIELDS, "dir"),
@@ -693,7 +698,7 @@ def _opt_ins(data: dict[str, Any], *, jev: str | None) -> dict[str, Any]:
             f"--jev {jev!r} names no unit this init writes. The units are: "
             f"{', '.join(sorted(data['units']))}."
         )
-    data["jev"] = {"unit": jev, "model": None}
+    data["jev"] = {**data.get("jev", {}), "unit": jev, "model": None}
     return data
 
 
@@ -950,7 +955,7 @@ def initialize(
     priority: str | None = None,
     decision_endpoint: Endpoint | None = None,
     decision_model: str | None = None,
-    use_case: str = "coding",
+    use_case: str = MCGYVR_CODE,
     deployment: str | None = None,
     jev: str | None = None,
     compose_dir: Path | None = None,

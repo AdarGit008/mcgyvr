@@ -120,7 +120,7 @@ def test_code_is_the_only_local_coding_type() -> None:
     local_coding = [
         t.name
         for t in book.task_types
-        if t.starts_on.name == "local" and t.use_case.name == "coding"
+        if t.starts_on.name == "local" and t.use_case.name == "mcgyvr-code"
     ]
     assert local_coding == ["code"]
 

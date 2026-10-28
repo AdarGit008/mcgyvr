@@ -2,7 +2,7 @@
 
 A bundle is a prompt file under `mcgyvr/prompts/` loaded whole, minus a leading
 provenance comment, and shipped with the standing its own sweep found. For the
-`coding` use case the contract's target picks the language bundle through the
+`mcgyvr-code` use case the contract's target picks the language bundle through the
 gate adapter that owns it. Any other use case, and any unregistered or unowned
 target, gets `None`, because another language's standards are worse than no
 system prompt at all.
@@ -64,7 +64,7 @@ _BUNDLES: dict[str, tuple[str, BundleStanding]] = dict(_LANGUAGE_BUNDLES)
 
 #: The use case whose bundle is chosen by the target's language; no other use
 #: case carries a bundle.
-CODING = "coding"
+MCGYVR_CODE = "mcgyvr-code"
 
 _DEFAULT_ADAPTERS: tuple[LanguageAdapter, ...] = (PythonAdapter(), JavaScriptAdapter())
 
@@ -178,11 +178,11 @@ def bundle_for(
 ) -> Bundle | None:
     """The bundle for a contract's use case, or `None` when it should get none.
 
-    Only `coding` carries one: the adapter that owns `target` names the
+    Only `mcgyvr-code` carries one: the adapter that owns `target` names the
     language, and no owning adapter — or one whose name has no registered
     bundle — yields `None`. `adapters` defaults to the Python and JavaScript
     adapters and exists so a caller can restrict the languages in play."""
-    if use_case == CODING:
+    if use_case == MCGYVR_CODE:
         for adapter in adapters if adapters is not None else _DEFAULT_ADAPTERS:
             if adapter.owns(target) and adapter.name in _LANGUAGE_BUNDLES:
                 return load_bundle(adapter.name)

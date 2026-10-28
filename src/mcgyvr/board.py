@@ -225,15 +225,20 @@ class Board:
         self._persist(tree)
 
     def join(
-        self, contracts: Iterable[Contract], source: Source, *, hold: bool = True
+        self,
+        contracts: Iterable[Contract],
+        source: Source,
+        *,
+        hold: bool = True,
+        infer: bool = True,
     ) -> str:
         """Put this batch's `contracts` on the repository's live tree; its id.
 
         The batch's lease is taken first. The live tree, when there is one, is
         read back, what a gone batch left in flight is freed, and the
         contracts join it (`Tree.join`); when none lives, or freeing ended its
-        last contract, a fresh tree is made of them and named live. `hold` is
-        the fresh tree's; a joined tree keeps its own.
+        last contract, a fresh tree is made of them and named live. `hold` and
+        `infer` are the fresh tree's; a joined tree keeps its own.
         """
         live = self._need_live()
         wanted = tuple(contracts)
@@ -250,6 +255,7 @@ class Board:
                     ),
                     hold=hold,
                     batch=live.batch,
+                    infer=infer,
                 )
                 live.version = self._version_of(tree.tree_id)
                 live.documents = {}

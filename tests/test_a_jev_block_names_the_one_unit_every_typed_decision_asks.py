@@ -20,7 +20,7 @@ from pathlib import Path
 import pytest
 
 from mcgyvr import detect
-from mcgyvr.config import ROLE_UNIT_FIELDS, SCHEMA, ConfigSchemaError, parse
+from mcgyvr.config import JEV_FIELDS, ROLE_UNIT_FIELDS, SCHEMA, ConfigSchemaError, parse
 from mcgyvr.config import load as load_config
 from mcgyvr.detect import Detection
 from mcgyvr.fleet.files import _POLICY_KEYS
@@ -49,7 +49,10 @@ def test_the_schema_holds_a_jev_role_block_right_after_the_verifier() -> None:
     assert names[names.index("verifier") + 1] == "jev"
     spec = next(spec for spec in SCHEMA if spec.name == "jev")
     assert spec.kind == "block"
-    assert spec.block == ROLE_UNIT_FIELDS
+    # A role block, with the one switch that turns the role off in front of it.
+    assert spec.block == JEV_FIELDS
+    assert spec.block[1:] == ROLE_UNIT_FIELDS
+    assert spec.block[0].name == "enabled" and spec.block[0].default is True
     # The doc is the user's: it says which decisions the unit answers, and
     # what an unbound block leaves alone.
     assert "single-token" in spec.doc
@@ -74,6 +77,11 @@ def test_a_bound_jev_model_is_the_one_named() -> None:
     assert source_map(parse(body)).role_model("jev") == "example-judge:1b-q8"
 
 
+def test_a_jev_unit_switched_off_resolves_to_no_model() -> None:
+    body = LADDER + "jev:\n  unit: judge\n  enabled: false\n"
+    assert source_map(parse(body)).role_model("jev") is None
+
+
 def test_a_jev_unit_nobody_declared_is_refused_naming_the_key() -> None:
     body = LADDER + "jev:\n  unit: nowhere\n"
     with pytest.raises(ConfigSchemaError, match=r"jev\.unit"):
@@ -90,7 +98,7 @@ def _keyless_rig() -> Detection:
 def test_init_writes_the_jev_block_unbound(tmp_path: Path) -> None:
     rig = _keyless_rig()
     data = build(rig, propose(sources=_sources_for(rig)))
-    assert data["jev"] == {"unit": None, "model": None}
+    assert data["jev"] == {"enabled": True, "unit": None, "model": None}
 
     result = initialize(tmp_path / "setup", detection=rig)
     assert result.written

@@ -20,17 +20,16 @@ from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any, TypeGuard
 
-from mcgyvr.config import CHAT, ROLE_SLEEPER
+from mcgyvr.config import CHAT, CODE, MCGYVR_CODE, ROLE_SLEEPER
 from mcgyvr.fleet.files import FleetFileError, load_fleet, load_policy
 from mcgyvr.fleet.layout import ASLEEP, AWAKE
 from mcgyvr.fleet.read import RIG_ROWS
 
 #: The use cases a sample can judge: a policy's `use_case` names one of them,
 #: and each is held to its own task in `_task_reasons`.
-CODING_USE_CASE = "coding"
 AGENT = "agent"
-#: A policy that names no use case is judged as a coding fleet.
-DEFAULT_USE_CASE = CODING_USE_CASE
+#: A policy that names no use case is judged as a `mcgyvr-code` fleet.
+DEFAULT_USE_CASE = MCGYVR_CODE
 #: The checks `mcgyvr.fleet.sampler` runs, as `Outcome.check` names them.
 TASK_GATE = "gate"
 TASK_COMPLETION = "completion"
@@ -357,9 +356,9 @@ def _task_reasons(
     outcomes: Sequence[Outcome],
 ) -> list[str]:
     units = fleet.get("units") or {}
-    if use_case == CODING_USE_CASE:
+    if use_case == MCGYVR_CODE:
         return _failed(TASK_GATE, _ran(outcomes, TASK_GATE), "the coding task")
-    if use_case == CHAT:
+    if use_case in (CHAT, CODE):
         return [
             reason
             for name in awake

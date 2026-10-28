@@ -18,9 +18,10 @@ why, then what is *not* configured and what that costs.
 
 Run at a terminal with no flags, it asks which rigs serve — `local`,
 `remote` or `both` (Enter is `local`) — and, for `remote` or `both`,
-the ssh host(s) to read. It then asks the use case by letter (`[d]
-coding`, `[c] chat`, `[a] agent`; Enter or `d` is
-`coding`) and whether to dedicate a unit to Jev (Enter is no): the
+the ssh host(s) to read. It then asks the use case by letter or name
+(`[m] mcgyvr-code`, `[k] code`, `[c] chat`, `[a] agent`; there is no
+Enter default) and, for `mcgyvr-code` only, whether to dedicate a unit
+to Jev (Enter is no): the
 questions `--use-case` and `--jev` answer. It plans a
 model of that use case for each rig, says whether its candidates came
 from the Hugging Face Hub, the cache of an earlier Hub read or the
@@ -29,7 +30,8 @@ once and emits its launch specs once, and asks before it starts the
 serving containers through the door. It then samples the fleet: a read
 of every rig, a
 probe and a load of every unit, the use case's sample task (for
-`coding`, a one-function bug fix the deterministic gate must pass) and
+`mcgyvr-code`, a one-function bug fix the deterministic gate must pass;
+for `code` and `chat`, one word from each unit) and
 a Jev unit's one typed choice. A green sample is stamped, and on
 `Lock the fleet and name it live? [y/N]` it is locked, promoted and
 named live. A red sample is never locked; its reasons are printed.
@@ -69,8 +71,8 @@ a config that dispatches nowhere is not a head start.
 
 What the config is for comes in with these, all optional:
 
-- `--use-case` — `coding` (the deterministic gate, the default), `chat`
-  or `agent`.
+- `--use-case` — `mcgyvr-code` (the default), `code`, `chat` or `agent`;
+  see *Use cases and switches* below.
 - `--deployment` — `hybrid` (an API-tier orchestrator drives mcgyvr) or
   `local-only` (mcgyvr is the backend); the default is `local-only` for
   `chat` and `hybrid` otherwise.
@@ -90,7 +92,7 @@ cores, timed memory bandwidth, free disk), records it as this machine's
 rig file (`localhost.json` in the rig-file folder, `$MCGYVR_RIGS`, by
 default `~/.mcgyvr/rigs`), says what moved since the last record, and
 exits 4 when a card, total RAM, the cores or the bandwidth moved.
-`mcgyvr recommend --profile coding --users N --host RIG` re-reads each
+`mcgyvr recommend --profile code --users N --host RIG` re-reads each
 rig over ssh and prints one JSON plan: which checkpoint and engine serve
 that profile, from `--model-store DIR` when a checkpoint there fits,
 otherwise from the use case's candidates on the Hugging Face Hub
@@ -134,6 +136,72 @@ you read all three:
 `mcgyvr config` prints the resolved config; `mcgyvr detect` shows what
 can run the work; `mcgyvr capabilities` shows the shipped capability table.
 
+## Use cases and switches
+
+`use_case` in the policy says what this install serves, and
+`mcgyvr use NAME` switches it (`/mcgyvr-use` is the same for a session):
+
+- `mcgyvr-code` — mcgyvr between the model and you: contracts proposed,
+  vetted, run up the ladder, gated, repaired, reviewed and re-planned,
+  each point under its own switch below, every one on by default. A
+  policy that names no use case is `mcgyvr-code`. `delegate --run` runs
+  `--jobs auto` (the fleet's slots), and proposals are authored by the
+  classifier when a Jev unit is bound and on.
+- `code` — a coding model mcgyvr recommends, served raw.
+- `chat` — a text model served raw.
+- `agent` — a model with tool-calling served raw.
+
+Under `code`, `chat` and `agent` nothing below runs: `mcgyvr run` and
+`mcgyvr delegate` refuse (exit 3) and name `mcgyvr use mcgyvr-code`.
+`coding`, the old name, is refused naming the two that replaced it.
+
+Every switch but `--jobs` lives in the policy file. Off is the value
+that takes mcgyvr out of that point:
+
+- **authoring** (`orchestrator.authoring`; off `prose`): how a request becomes proposals: typed Jev
+  questions or one prose reply.
+- **Jev decisions** (`jev.enabled`; off `false`): the one small unit that answers every typed
+  decision.
+- **ladder** (`ladder`, `max_escalations`; off one unit, or `0`): climb cheapest first, or stay on
+  one model.
+- **attempts** (`attempts`, `max_attempts`, `max_escalations`; off per unit, ceilings): tries per
+  rung, in total, and moves up the ladder.
+- **triage** (`triage`; off `none`): Jev picks the rung a climb starts on.
+- **retry notes** (`retry_notes`; off `none`): what a retry is told about the attempts that failed
+  before it.
+- **draws** (`breadth.draws`, `draws`; off `1`): candidates one attempt asks for, the gate ranking
+  them.
+- **fan-out** (`fanout`; off `none`): a batch spreads across units with free slots.
+- **gate** (`gate.enabled`, `gate.param_mutation`; off `false`): the deterministic checks and
+  acceptance commands that judge a change.
+- **repair** (`cleanup.enabled`; off `false`): the gate's own tools fix what they can in a rejected
+  change.
+- **reviewer** (`verifier.enabled`; off `false`): a second model, and Jev's typed checks, read the
+  accepted diff.
+- **replan** (`max_replans`; off `0`): a contract whose ladder is spent goes back to be re-planned.
+- **inferred edges** (`infer_dependencies`; off `false`): a contract waits on the sibling that
+  creates a name it uses.
+- **same-file exclusion** (`same_file`; off `parallel`): two contracts that can write one file never
+  run at once.
+- **held dependents** (`dependents`; off `run`): a contract whose provider did not land is held, not
+  sent.
+- **delivery** (`delivery.commit`, `delivery.branch`; off `false`): an accepted change is committed,
+  not left in the working tree.
+- **parallel dispatch** (`--jobs`; off `1`): a batch runs ready contracts at once (`auto` under
+  mcgyvr-code).
+
+The four knobs, by their plain names:
+
+1. ladder vs single model — `ladder`, `max_escalations`.
+2. Jev unit on/off — `jev.enabled`.
+3. repair on/off — `cleanup.enabled`.
+4. attempts per rung and escalation — `attempts`, `max_attempts`, `max_escalations`.
+
+A single model is a `ladder` of one unit, or `max_escalations: 0`, which
+keeps a climb on the rung it starts on. Vetting has no switch: it is what
+makes a proposal a runnable contract. Model loading, slots, the sandbox,
+locks and waking a card are machinery, not switches.
+
 ## Value types
 
 | Type | Accepted |
@@ -155,13 +223,15 @@ can run the work; `mcgyvr capabilities` shows the shipped capability table.
 
 | Key | Type | Required | Default | Description |
 | --- | --- | --- | --- | --- |
-| `use_case` | one of `coding`, `chat`, `agent` | no | `coding` | Which of the three use cases this install serves: `coding` (scoped edits judged by the deterministic gate), `chat` (a raw un-gated endpoint) or `agent` (a raw un-gated endpoint with tool-calling). |
-| `deployment` | one of `hybrid`, `local-only` | no | `hybrid` | How mcgyvr is run. `hybrid` drives it from an API-tier orchestrator in the user's session; scoped work is offloaded to the local cheap-to-dear ladder, whose dearest rung is an API model so a task always completes. `local-only` makes mcgyvr the backend: a non-chat use case provisions a local orchestrator unit, and chat is just the ladder serving text. |
+| `use_case` | one of `mcgyvr-code`, `code`, `chat`, `agent` | no | `mcgyvr-code` | Which of the four use cases this install serves. `mcgyvr-code` opts in to mcgyvr between the model and you: contracts proposed, vetted, run up the ladder, gated, repaired, reviewed and re-planned, each stage under its own switch, every one on by default. `code` (a coding model), `chat` (a text endpoint) and `agent` (an endpoint with tool-calling) serve the model raw: no stage runs, and `mcgyvr run` and `mcgyvr delegate` refuse. `mcgyvr use NAME` switches it. Unset is `mcgyvr-code`; `coding` is refused, naming what replaced it. |
+| `deployment` | one of `hybrid`, `local-only` | no | `hybrid` | How mcgyvr is run. `hybrid` drives it from an API-tier orchestrator in the user's session; scoped work is offloaded to the local cheap-to-dear ladder, whose dearest rung is an API model so a task always completes. `local-only` makes mcgyvr the backend: `mcgyvr-code` provisions a local orchestrator unit, and a raw use case (`code`, `chat`, `agent`) is just the ladder serving its model. |
 | `units` | block map | **yes** | — | What runs where, keyed by a name you choose. A unit carries every fact about what it is and can physically do: its address, engine, model, width, window, reply size and timeout. |
 | `ladder` | list of text | **yes** | — | The ordered list of unit names work climbs, cheapest first. |
 | `fanout` | one of `none`, `idle`, `full` | no | `none` | Whether a batch of contracts spreads across units or queues on one. |
 | `triage` | one of `none`, `jev` | no | `none` | Who picks the rung a contract's climb starts on. `none` starts on the first rung and climbs. `jev` first asks the unit bound to `jev` one typed question: the contract and the ladder, each unit with its model, window and reply room, and which is the smallest unit that can do the job. The climb starts there; the rungs below it are skipped, not spent, and escalation goes on upward as before. `fanout` may then still start the climb on a higher rung with a free slot, never a lower one. With no jev unit bound, or one that cannot be asked or read, the climb starts on the first rung and the run result's `triage` says why. A contract that states a `start_rung`, decided ahead of time, starts there under either value and jev is not asked. |
 | `dependents` | one of `hold`, `run` | no | `hold` | What a batch of contracts (`mcgyvr delegate --run`) does with a contract whose `depends_on` names one that did not land. `hold` keeps it back, unspent: it is sent only once what it waits on is in the tree its sandbox starts from, and one whose provider failed, or landed without a symbol it needs, is never sent — its result says `blocked`, who held it and what it needed, with no attempt spent. A contract that uses from the failed provider's file only names that are already there and that the provider was not to change still runs. `run` sends every contract once what it waits on has come to anything, as before. |
+| `infer_dependencies` | boolean | no | `true` | Whether a batch of contracts also waits on what it can infer. On, a contract that uses a name the committed tree does not define yet waits on the sibling whose target creates it, though its `depends_on` does not say so, and one whose name nothing defines or creates is held. Off, a batch is ordered by `depends_on` alone. Contracts `mcgyvr delegate` proposes state such waits in `depends_on` themselves. |
+| `same_file` | one of `wait`, `parallel` | no | `wait` | What a batch run with `--jobs` does with two ready contracts whose scopes can write one file. `wait` runs the second once the first has settled, from the tree the first left. `parallel` runs them at once, from one base: their deliveries still take turns, and one that no longer applies is refused and named, never lost. |
 | `attempts` | map of numbers (min 1) | no | — | How many times each unit may be tried before escalation moves on. To bind it: e.g. `{<unit>: 2}`. |
 | `draws` | map of numbers (min 1) | no | — | How many candidates one attempt asks *this* unit for, overriding `breadth.draws` for the units named; a unit with no entry draws the breadth. Spelled the way `attempts` is because it is the same kind of per-unit routing decision, and it is policy rather than a unit fact, which is why it is not under `units`. `mcgyvr local_pool` prints the effective number where it exceeds one. To bind it: e.g. `{<unit>: 3}`. |
 | `rider_slots` | map of numbers (min 0) | no | — | How many of each named unit's slots riders may use at once (hitchhike): people the hub matches to you, whose requests for the unit's model the agent of `mcgyvr rig` passes to it and whose prompts you can read. A unit the map does not name shares none. It is policy, not a fact of the unit, so changing it never changes the setup's identity or its lock, and a running agent sends the hub the change within a second, with no reconnect. Below the unit's `width`, so you always keep a slot, and your own requests go first: a ride is taken only while the unit has a slot free, your requests and the rides in flight together fewer than its `width`, so riders use only slots you are not using, and a unit whose server does not report what it has in flight shares nothing. A ride that has started runs to its end; a request of yours that arrives meanwhile waits for a slot as any of yours does. A unit is shared only when it is on the `ladder`, needs no key (`api_key_env`), is not a relief rung, states its `window`, the context of each slot, and has a `width` of at most 16, the most the hub takes; one unit per model. To bind it: e.g. `{<unit>: 1}` -- at most one below the unit's `width`. |
@@ -173,10 +243,10 @@ can run the work; `mcgyvr capabilities` shows the shipped capability table.
 | `max_attempts` | number (min 1) | no | unset | Hard ceiling on how many attempts one task may spend in total. To bind it: set a whole number of attempts, or leave it unset. |
 | `task_timeout_s` | number (min 1) | no | `900` | Wall-clock ceiling for one task, including acceptance commands. |
 | `max_window_fraction` | decimal number (min 0.0, max 1.0) | no | unset | The largest share of a unit's context window one contract's prompt may claim, checked before the contract is sent, so the reply -- sent the unit's maximum within the room the prompt leaves -- keeps at least the rest; a contract claiming more fails unsent on the unit it was sent to. It is a ceiling no contract can raise: a contract's own `limits.max_window_fraction` may hold it to less, never to more, and the stricter of the two applies. Unset enforces no run-wide share. To bind it: a share between 0 and 1. |
-| `users` | number (min 1) | no | `1` | Users this install serves at once, and therefore the slot count the local orchestrator unit is served at: one session per user. A written `width` on the orchestrator's unit wins. `1` is a single-user install, which for a local-only non-chat use case is flagged, not refused — the resident orchestrator consumes the card the ladder would otherwise use. |
+| `users` | number (min 1) | no | `1` | Users this install serves at once, and therefore the slot count the local orchestrator unit is served at: one session per user. A written `width` on the orchestrator's unit wins. `1` is a single-user install, which for a local-only `mcgyvr-code` install is flagged, not refused — the resident orchestrator consumes the card the ladder would otherwise use. |
 | `orchestrator` | block | no | — | Which unit turns a prompt plus a repository into contracts, and what that unit is. |
 | `verifier` | block | no | — | Which unit reads an applied diff in fresh context. |
-| `jev` | block | no | — | Which one unit answers every typed decision: a question answered with a single-token label rather than prose. Those are the gate's Jev rung, the reviewer's verdict, the fleet's choice of whether to wake a smarter rung, the typed proposer and, under `triage: jev`, the rung a climb starts on. Left unbound, each of those keeps asking the unit it asks today: the verifier, the reviewing rung, the fast rung or the orchestrator, and triage asks nobody. |
+| `jev` | block | no | — | Which one unit answers every typed decision: a question answered with a single-token label rather than prose. Those are the gate's Jev rung, the reviewer's verdict, the fleet's choice of whether to wake a smarter rung, the typed proposer and, under `triage: jev`, the rung a climb starts on. Left unbound, each of those keeps asking the unit it asks today: the verifier, the reviewing rung, the fast rung or the orchestrator, and triage asks nobody. `enabled: false` keeps the binding and asks as if it were unbound. |
 | `sandbox` | block | no | — | Where a task's commands run. |
 | `delivery` | block | no | — | How accepted work gets back to you. |
 | `breadth` | block | no | — | How many answers one attempt asks for. |
@@ -220,7 +290,7 @@ Which unit turns a prompt plus a repository into contracts, and what that unit i
 | Key | Type | Required | Default | Description |
 | --- | --- | --- | --- | --- |
 | `orchestrator.type` | one of `proposer` | no | `proposer` | What the bound unit is. `proposer`, the only type: the bound unit drafts contracts for `mcgyvr delegate`. |
-| `orchestrator.authoring` | one of `prose`, `classifier` | no | unset | How `mcgyvr delegate` gets its proposals. `prose`: the bound unit is asked for JSON proposals (`delegate.build_prompt`), and the deterministic decomposer turns them into contracts. `classifier`: the `jev` unit answers typed questions (task type, target, symbol, task, interface, dependency, scope) first, and each proposal is split again until it is on one file and jev answers that it cannot be split further: a scope over several files becomes one proposal per file, and a proposal jev says holds several changes is split by the sentences of its task, the target's definitions it names, or the failing tests it demonstrates, as jev picks — two or more contracts on one file, which the dependency tree orders. A split past `max_refine_depth` or `max_refine_fanout` is refused. `prose` stands in when jev declines. With no `jev` unit bound no model is asked: each field takes its first candidate — the first servable type and target, the target's first symbol, and the request as the task — and `prose` stands in only when there is no target or servable type to pick. Unset is `prose`. To bind it: name one of `prose`, `classifier`. |
+| `orchestrator.authoring` | one of `prose`, `classifier` | no | unset | How `mcgyvr delegate` gets its proposals. `prose`: the bound unit is asked for JSON proposals (`delegate.build_prompt`), and the deterministic decomposer turns them into contracts. `classifier`: the `jev` unit answers typed questions (task type, target, symbol, task, interface, dependency, scope) first, and each proposal is split again until it is on one file and jev answers that it cannot be split further: a scope over several files becomes one proposal per file, and a proposal jev says holds several changes is split by the sentences of its task, the target's definitions it names, or the failing tests it demonstrates, as jev picks — two or more contracts on one file, which the dependency tree orders. A split past `max_refine_depth` or `max_refine_fanout` is refused. `prose` stands in when jev declines. With no `jev` unit bound no model is asked: each field takes its first candidate — the first servable type and target, the target's first symbol, and the request as the task — and `prose` stands in only when there is no target or servable type to pick. Unset is `classifier` under `use_case: mcgyvr-code` when a `jev` unit is bound and on, and `prose` otherwise. To bind it: name one of `prose`, `classifier`. |
 | `orchestrator.unit` | text | no | unset | Which unit serves this role. A unit is the one term. To bind it: name one of the units declared under `units`. |
 | `orchestrator.model` | text | no | unset | Model identifier as that unit names it; absent means the unit's own. To bind it: name a model the bound unit serves. |
 
@@ -236,10 +306,11 @@ Which unit reads an applied diff in fresh context.
 
 ## `jev`
 
-Which one unit answers every typed decision: a question answered with a single-token label rather than prose. Those are the gate's Jev rung, the reviewer's verdict, the fleet's choice of whether to wake a smarter rung, the typed proposer and, under `triage: jev`, the rung a climb starts on. Left unbound, each of those keeps asking the unit it asks today: the verifier, the reviewing rung, the fast rung or the orchestrator, and triage asks nobody.
+Which one unit answers every typed decision: a question answered with a single-token label rather than prose. Those are the gate's Jev rung, the reviewer's verdict, the fleet's choice of whether to wake a smarter rung, the typed proposer and, under `triage: jev`, the rung a climb starts on. Left unbound, each of those keeps asking the unit it asks today: the verifier, the reviewing rung, the fast rung or the orchestrator, and triage asks nobody. `enabled: false` keeps the binding and asks as if it were unbound.
 
 | Key | Type | Required | Default | Description |
 | --- | --- | --- | --- | --- |
+| `jev.enabled` | boolean | no | `true` | Whether the bound Jev unit is asked. Off, every typed decision is asked as if no unit were bound -- the verifier, the reviewing rung, the fast rung or the orchestrator answers, triage asks nobody, and authoring defaults to `prose` -- while the binding stays written, so turning it back on is one line. |
 | `jev.unit` | text | no | unset | Which unit serves this role. A unit is the one term. To bind it: name one of the units declared under `units`. |
 | `jev.model` | text | no | unset | Model identifier as that unit names it; absent means the unit's own. To bind it: name a model the bound unit serves. |
 
@@ -287,6 +358,7 @@ What the deterministic gate refuses, where a setup may choose otherwise.
 
 | Key | Type | Required | Default | Description |
 | --- | --- | --- | --- | --- |
+| `gate.enabled` | boolean | no | `true` | Whether the gate judges a change. Off, no language rung (syntax, lint, format, types, the semantic rung, `param_mutation`) and no acceptance command runs: a draw that changed its target is accepted as the worker left it, the run says `ungated` beside the change, delivery does not judge it again, and no repair runs, since a repair answers a rejection. The scope and secret checks and the parse of a structured file still refuse, because they guard the repository rather than judge the answer. The reviewer (`verifier.enabled`) is a switch of its own. |
 | `gate.param_mutation` | one of `refuse`, `report`, `skip` | no | `refuse` | A Python function that changes an object its caller passed in, on a line the change adds: it assigns or deletes into a parameter, an element of one or a loop variable over one (`rows[0] = x`, `item.count += 1`, `del table[key]`), or calls append, extend, insert, remove, pop, clear, sort, reverse, update, setdefault, add, discard or popitem on it. `self`, `cls`, `*args` and `**kwargs` are not checked, nor is a parameter rebound to a new object on every path before the change. `refuse` rejects the change. `report` does not reject it: the finding is listed among the gate's observations, which an enabled verifier is shown and the gate's retry note does not carry, and `mcgyvr run` prints it once, before delivering the accepted change, as reported by this setting. `skip` does not look. Delivery judges the change again by the same setting. A contract whose `task` or `interface` asks for in-place work stands the check down under every setting. |
 
 ## `serving`

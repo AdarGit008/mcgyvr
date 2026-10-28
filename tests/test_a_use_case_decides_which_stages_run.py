@@ -17,7 +17,7 @@ from typing import Any
 
 import pytest
 
-from mcgyvr.contract import Dependency
+from mcgyvr.cli.commands import delegate as command
 from mcgyvr.config import (
     RAW_USE_CASES,
     SCHEMA,
@@ -29,10 +29,13 @@ from mcgyvr.config import (
     requires_mcgyvr_code,
     stages,
 )
+from mcgyvr.contract import Dependency
+from mcgyvr.escalate import Delivered
 from mcgyvr.exits import Exit
 from mcgyvr.local_pool import source_map
 from mcgyvr.tree import Tree
 from tests import drives
+from tests.decomposes import git
 from tests.test_a_dependent_of_a_failed_contract_is_held_not_climbed import (
     RENAME,
     a_contract,
@@ -105,7 +108,10 @@ def test_each_switch_turns_its_own_stage_off_and_no_other(
 
 
 def test_jev_off_takes_the_jev_unit_and_classifier_authoring_out() -> None:
-    config = config_for("mcgyvr-code", "jev:\n  unit: fast\n  enabled: false\n")
+    config = parse(
+        FLEET.replace("jev:\n  unit: fast\n", "")
+        + "use_case: mcgyvr-code\njev:\n  unit: fast\n  enabled: false\n"
+    )
     ran = stages(config)
 
     assert ran["jev"] is False
@@ -285,7 +291,7 @@ def _judged(
 def test_the_gate_judges_a_draw_under_mcgyvr_code(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
-    outcome, rungs = _judged(tmp_path, monkeypatch, "use_case: mcgyvr-code\n")
+    _outcome, rungs = _judged(tmp_path, monkeypatch, "use_case: mcgyvr-code\n")
 
     assert "language" in rungs
 
@@ -300,7 +306,7 @@ def test_the_gate_off_accepts_a_changed_draw_unjudged_and_says_so(
     )
 
     assert rungs == []
-    assert isinstance(outcome, drives.Delivered)
+    assert isinstance(outcome, Delivered)
     accepted = outcome.judgement.accepted
     assert accepted is not None
     assert [f.check for f in accepted.observations] == ["ungated"]
@@ -357,10 +363,10 @@ def test_same_file_parallel_runs_two_contracts_on_one_file_at_once(
 
     repo = tmp_path / "repo"
     (repo / "pkg").mkdir(parents=True)
-    q5.git(repo, "init", "-q", "-b", "main")
+    git(repo, "init", "-q", "-b", "main")
     (repo / "pkg" / "a.py").write_text("def a():\n    return 0\n")
-    q5.git(repo, "add", "-A")
-    q5.git(repo, "commit", "-q", "-m", "seed")
+    git(repo, "add", "-A")
+    git(repo, "commit", "-q", "-m", "seed")
     both = threading.Barrier(2, timeout=q5.WAIT)
     plans = {"code-a1": q5.Plan(before=both.wait), "code-a2": q5.Plan(before=both.wait)}
     policy = q5.Policy(
@@ -370,7 +376,7 @@ def test_same_file_parallel_runs_two_contracts_on_one_file_at_once(
             "same_file": "parallel",
         }
     )
-    monkeypatch.setattr(q5.command, "_fleet_width", lambda _config: 8)
+    monkeypatch.setattr(command, "_fleet_width", lambda _config: 8)
 
     _code, runs, journal = q5.batch(
         repo,

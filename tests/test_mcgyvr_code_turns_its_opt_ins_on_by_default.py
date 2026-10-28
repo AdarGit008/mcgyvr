@@ -71,6 +71,8 @@ def test_delegate_jobs_is_unset_until_the_config_decides_it() -> None:
 
 
 def test_only_mcgyvr_code_provisions_a_local_proposer() -> None:
-    assert local_orchestrator(use_case="mcgyvr-code", local_only=True, users=2).provision
+    assert local_orchestrator(
+        use_case="mcgyvr-code", local_only=True, users=2
+    ).provision
     for raw in ("code", "chat", "agent"):
         assert not local_orchestrator(use_case=raw, local_only=True, users=2).provision

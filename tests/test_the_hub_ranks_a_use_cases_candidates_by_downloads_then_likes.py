@@ -91,10 +91,10 @@ def test_coding_is_answered_in_rank_order_by_the_code_models(
 ) -> None:
     hr.install(monkeypatch)
 
-    answer = hub.candidates(hub.CODING, max_bytes=hr.ROOMIEST, today=hr.DAY)
+    answer = hub.candidates(hub.CODE, max_bytes=hr.ROOMIEST, today=hr.DAY)
 
     assert [one.weights.repo for one in answer.records if one.weights] == CODING_ORDER
-    assert all(one.use_cases == ("coding",) for one in answer.records)
+    assert all(one.use_cases == ("code",) for one in answer.records)
 
 
 def test_a_base_model_is_offered_once_from_its_best_repository_that_qualifies(
