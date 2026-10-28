@@ -10,7 +10,8 @@ chosen by jev as one typed Choice, `partition`, when there is more than one. The
 parts on one file are ordered by the tree: one that spells a name another
 creates waits on it, the rest are kept apart by their scopes.
 
-A split past `max_refine_depth`, or into more parts than `max_refine_fanout`, is
+A proposal whose file has been split `max_splits_per_file` rounds (3) stops as
+it stands, as on a No (F24); a split into more parts than `max_refine_fanout` is
 a refusal with what to change, never a silent stop. When jev declines — an
 answer it cannot give, or a Yes with no partition the survey could build — the
 prose proposer stands in for the whole request, as it did before. Every answer
@@ -46,7 +47,14 @@ from mcgyvr.orchestrator.index import Index
 from mcgyvr.orchestrator.read import explore
 from mcgyvr.orchestrator.resolve import resolve
 from mcgyvr.orchestrator.telemetry import ShadowSink, read
-from mcgyvr.refine import RefiningProposer, max_depth, max_fanout, survey
+from mcgyvr.refine import (
+    Part,
+    Partition,
+    RefiningProposer,
+    max_fanout,
+    max_splits,
+    survey,
+)
 from mcgyvr.tree import State, Tree
 from tests.refines import MODEL, ScriptedJev, refining, repository, tasks
 
@@ -325,27 +333,74 @@ def test_a_split_that_would_repeat_a_demonstration_is_not_offered(
     ]
 
 
-# -- bounds: a refusal with what to change, never a silent stop ---------------
+# -- bounds: a stop after three rounds on a file, a refusal past the fan-out --
 
 
-def test_a_split_below_max_refine_depth_is_refused_with_what_to_change(
-    index: Index,
-) -> None:
+def test_a_file_split_max_splits_rounds_stops_as_it_stands(index: Index) -> None:
+    """Not refused: the part jev would split again is emitted as it is."""
     prompt = "Document listing. Add type hints to listing and paginate."
     jev = ScriptedJev(
         split=tasks(prompt, "Add type hints to listing and paginate."),
         picks={"partition": "sentence"},
     )
 
-    result = decompose(index, prompt, propose=refining(jev, max_depth=1))
+    result = decompose(index, prompt, propose=refining(jev, max_splits=1))
 
-    (contract,) = result.contracts
-    assert contract.task == "Document listing."
-    (refusal,) = result.refusals
-    assert refusal.subject == "listing.py"
-    assert refusal.field == "task"
-    assert "max_refine_depth" in refusal.what_to_change
-    assert "max_refine_depth" in refusal.reason
+    assert result.refusals == ()
+    assert [c.task for c in result.contracts] == [
+        "Document listing.",
+        "Add type hints to listing and paginate.",
+    ]
+    assert jev.names().count("split") == 1
+
+
+def halves(
+    evidence: Evidence, proposal: Proposal, words: str, *, scoped: bool = False
+) -> tuple[Partition, ...]:
+    """A survey that can always split the words in two, however far down."""
+    return (
+        Partition(
+            "sentence",
+            tuple(
+                Part(
+                    subject=f"{words} {half}",
+                    words=f"{words} {half}",
+                    task=f"{words} {half}",
+                )
+                for half in ("Left.", "Right.")
+            ),
+        ),
+    )
+
+
+@pytest.mark.parametrize(
+    ("splits", "leaves", "asked"),
+    [
+        # Jev always says it splits: three rounds on the file, then a stop.
+        (lambda state: True, 8, 1 + 2 + 4),
+        # Jev says no after the first round: the stop comes before three.
+        (tasks("Document listing."), 2, 1 + 2),
+    ],
+    ids=["three-then-stop", "jev-no-before-three"],
+)
+def test_a_file_is_split_at_most_three_rounds(
+    index: Index,
+    monkeypatch: pytest.MonkeyPatch,
+    splits: Any,
+    leaves: int,
+    asked: int,
+) -> None:
+    import mcgyvr.refine as refine
+
+    monkeypatch.setattr(refine, "survey", halves)
+    jev = ScriptedJev(split=splits)
+
+    result = decompose(index, "Document listing.", propose=refining(jev))
+
+    assert result.refusals == ()
+    assert len(result.contracts) == leaves
+    assert {c.target for c in result.contracts} == {"listing.py"}
+    assert jev.names().count("split") == asked
 
 
 def test_a_split_into_more_parts_than_max_refine_fanout_is_refused(
@@ -532,10 +587,10 @@ def _typed_for(monkeypatch: pytest.MonkeyPatch, text: str) -> Any:
 def test_delegate_refines_with_the_configured_bounds_when_jev_is_bound(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    text = UNITS + "jev:\n  unit: judge\nmax_refine_depth: 2\nmax_refine_fanout: 4\n"
+    text = UNITS + "jev:\n  unit: judge\nmax_splits_per_file: 2\nmax_refine_fanout: 4\n"
     typed = _typed_for(monkeypatch, text)
     assert isinstance(typed, RefiningProposer)
-    assert (typed.max_depth, typed.max_fanout) == (2, 4)
+    assert (typed.max_splits, typed.max_fanout) == (2, 4)
     assert isinstance(typed.classifier, ClassifierProposer)
     assert typed.classifier.model == "example-judge:1b"
 
@@ -550,9 +605,11 @@ def test_without_jev_delegate_keeps_the_rank0_collapse_unrefined(
 
 def test_the_bounds_have_defaults_and_refuse_what_cannot_bound() -> None:
     config = parse(UNITS)
-    assert (max_depth(config), max_fanout(config)) == (3, 8)
+    assert (max_splits(config), max_fanout(config)) == (3, 8)
     with pytest.raises(ConfigSchemaError):
-        parse(UNITS + "max_refine_depth: 0\n")
+        parse(UNITS + "max_splits_per_file: 0\n")
+    with pytest.raises(ConfigSchemaError):
+        parse(UNITS + "max_refine_depth: 3\n")  # retired for max_splits_per_file
     with pytest.raises(ConfigSchemaError):
         parse(UNITS + "max_refine_fanout: 1\n")
 

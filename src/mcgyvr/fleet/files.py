@@ -58,7 +58,7 @@ _UNIT_KEYS = frozenset(
 
 #: The keys `policy.yaml` may carry: `ladder` plus how work moves and how much
 #: it may do — fanout, triage, dependents, attempts, draws, escalations,
-#: re-plans, refine bounds, retry notes, timeouts, the window fraction,
+#: re-plans, re-proposals, refine bounds, retry notes, timeouts, the window fraction,
 #: breadth, cleanup, users — the units a job goes to (orchestrator, verifier,
 #: jev), what the gate refuses, and how a run is sandboxed, delivered, served
 #: and journaled.
@@ -76,7 +76,8 @@ _POLICY_KEYS = frozenset(
         "max_escalations",
         "max_attempts",
         "max_replans",
-        "max_refine_depth",
+        "max_reproposals",
+        "max_splits_per_file",
         "max_refine_fanout",
         "retry_notes",
         "task_timeout_s",

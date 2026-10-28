@@ -95,10 +95,15 @@ DEPENDENTS_CHOICES: tuple[str, ...] = ("hold", "run")
 #: `mcgyvr.replan`); 0 turns re-planning off.
 MAX_REPLANS_DEFAULT = 1
 
-#: How many times classifier authoring may split a proposal below the request,
-#: and into how many parts at once (see `mcgyvr.refine`). Past either, the
-#: proposal is refused with what to change rather than emitted unsplit.
-MAX_REFINE_DEPTH_DEFAULT = 3
+#: How many rounds a proposal the decomposer refused is handed back to the
+#: proposer with what to change (see `mcgyvr.repropose`); 0 turns it off.
+MAX_REPROPOSALS_DEFAULT = 1
+
+#: How many split rounds classifier authoring may take on any one file, and
+#: into how many parts one split may go (see `mcgyvr.refine`). The first is a
+#: stop: what three rounds made is emitted. A split into more parts than the
+#: second is refused with what to change rather than emitted unsplit.
+MAX_SPLITS_PER_FILE_DEFAULT = 3
 MAX_REFINE_FANOUT_DEFAULT = 8
 
 #: Which failure-notes records a try is shown (see `mcgyvr.notes.handed_on`):
@@ -741,8 +746,9 @@ ORCHESTRATOR_FIELDS: tuple[Field, ...] = (
         "a proposal jev says holds several changes is split by the sentences of "
         "its task, the target's definitions it names, or the failing tests it "
         "demonstrates, as jev picks — two or more contracts on one file, which "
-        "the dependency tree orders. A split past `max_refine_depth` or "
-        "`max_refine_fanout` is refused. `prose` stands in when jev "
+        "the dependency tree orders. A proposal is not split again once "
+        "`max_splits_per_file` rounds have split its file; a split into more "
+        "parts than `max_refine_fanout` is refused. `prose` stands in when jev "
         "declines. With no `jev` unit bound no model is asked: each field takes "
         "its first candidate — the first servable type and target, the "
         "target's first symbol, and the request as the task — and `prose` "
@@ -935,15 +941,34 @@ SCHEMA: tuple[Field, ...] = (
         bind_hint="set a whole number of re-plans, or 0 to stop at a spent ladder",
     ),
     Field(
-        "max_refine_depth",
+        "max_reproposals",
         "int",
-        "How many times classifier authoring (`orchestrator.authoring: "
-        "classifier`, with a `jev` unit bound) may split a proposal below the "
-        "request. A proposal jev still answers can be split, this many splits "
-        "down, is refused with this key to raise rather than emitted unsplit.",
-        default=MAX_REFINE_DEPTH_DEFAULT,
+        "How many times `mcgyvr PROMPT` hands a proposal the decomposer "
+        "refused back to the proposer, with the refused field and what to "
+        "change, before it reports the refusal. What comes back is checked as "
+        "a first answer is: what it emits takes the refusal's place, and what "
+        "is refused again is reported, or handed back again while rounds "
+        "remain. A refusal of the request as a whole, or one that names no "
+        "field, is reported at once. The prose proposer is shown the refused "
+        "proposal and its refusal as data; the classifier asks the refused "
+        "field again. 0 turns re-proposing off.",
+        default=MAX_REPROPOSALS_DEFAULT,
+        min_value=0,
+        bind_hint="set a whole number of rounds, or 0 to report refusals at once",
+    ),
+    Field(
+        "max_splits_per_file",
+        "int",
+        "How many split rounds classifier authoring (`orchestrator.authoring: "
+        "classifier`, with a `jev` unit bound) takes on any one file. A "
+        "proposal stops being split when it is on one file and either jev "
+        "answers that it cannot be split further or its file has been split "
+        "this many rounds; it is then emitted as it stands, not refused. "
+        "Splitting a scope over several files into one proposal per file is "
+        "not a round on any of them.",
+        default=MAX_SPLITS_PER_FILE_DEFAULT,
         min_value=1,
-        bind_hint="set a whole number of splits, 1 or more",
+        bind_hint="set a whole number of split rounds, 1 or more",
     ),
     Field(
         "max_refine_fanout",

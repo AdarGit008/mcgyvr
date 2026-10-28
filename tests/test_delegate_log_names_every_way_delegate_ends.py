@@ -216,7 +216,7 @@ def test_a_config_binding_no_role_is_config_no_orchestrator_too(
 def test_a_role_declared_but_not_runnable_is_orchestrator_unrunnable(
     tmp_path: Path, root: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
-    def unrunnable(config: Any, pool: Any) -> None:
+    def unrunnable(config: Any, pool: Any, **kwargs: Any) -> None:
         raise SourceUnavailableError("unit 'planner' was skipped: no key")
 
     monkeypatch.setattr(command, "_proposer_for_delegate", unrunnable)

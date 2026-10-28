@@ -70,7 +70,15 @@ optional: `path` for `config_*`, and `bare_install` for
 name) for `reply_not_array`; `index`, `field` and `found` for `proposal_*`;
 `raw_reply_chars` for every `reply_*` and `proposal_*`; `held` (contract ids)
 and `tree_state` (the Board's state file, `<journal>/trees/<tree>.json`) for
-`batch_held`.
+`batch_held`. With re-proposing on (`max_reproposals` above 0), `emitted`,
+`emitted_with_refusals`, `none_emitted` and `batch_held` also carry what the
+first planning's re-proposing came to: `refused` (proposals vetting refused
+first), `reproposed` (refusals handed back, every round), `recovered`
+(contracts that came of the answers), `still_refused` (vetting refusals
+reported in the end), and `reproposal_failed` (the error class a proposer
+raised instead of answering, when one did). Under `--log PATH`, `decisions` is
+`PATH.decisions.jsonl`, the classifier's typed decisions of this run, when it
+asked any.
 """
 
 from __future__ import annotations

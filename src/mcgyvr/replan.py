@@ -151,7 +151,7 @@ def _records(climb: Sequence[FailureNotes]) -> list[str]:
     return lines
 
 
-def _flat(value: str) -> str:
+def flat(value: str) -> str:
     """`value` on one line, whitespace runs collapsed, cut at `MAX_LINE_CHARS`.
 
     A message is what a check or a reviewer printed, and may hold newlines: on
@@ -161,6 +161,10 @@ def _flat(value: str) -> str:
     if len(flat) <= MAX_LINE_CHARS:
         return flat
     return f"{flat[:MAX_LINE_CHARS]}… (+{len(flat) - MAX_LINE_CHARS} chars)"
+
+
+#: The name the notes section is rendered with here.
+_flat = flat
 
 
 def max_replans(config: Config) -> int:
