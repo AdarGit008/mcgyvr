@@ -12,6 +12,7 @@ from typing import Any
 
 import pytest
 
+from mcgyvr.hubwire import SCOPE_HEADER
 from tests._paths import TESTS
 
 HANDLE = "bob"
@@ -109,6 +110,20 @@ def serving(hub: Hub) -> Iterator[Hub]:
                     "body": self.rfile.read(length),
                 }
             )
+            self._answer()
+
+        def do_GET(self) -> None:
+            hub.asked.append(
+                {
+                    "path": self.path,
+                    "method": "GET",
+                    "authorization": self.headers.get("Authorization"),
+                    "scope": self.headers.get(SCOPE_HEADER),
+                }
+            )
+            self._answer()
+
+        def _answer(self) -> None:
             self.send_response(hub.status)
             self.send_header("Content-Type", "application/json")
             self.send_header("Content-Length", str(len(hub.body)))
