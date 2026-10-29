@@ -193,3 +193,36 @@ def test_a_containers_unit_id_is_what_it_was_and_a_native_one_differs() -> None:
 def test_an_unknown_launcher_is_refused_by_the_config() -> None:
     with pytest.raises(Exception, match="launcher"):
         parse(config_text("    launcher: podman\n"))
+
+
+def _locked(**changes: object) -> dict[str, object]:
+    block: dict[str, object] = {
+        "unit_id": "unt-1",
+        "address": "http://localhost:8080",
+        "engine": "llama.cpp",
+        "launcher": "native",
+        "container": "mcgyvr-localhost-m-8080",
+        "launch": {
+            "argv": ["--model", "/w/m.gguf", "--port", "8080", "--host", "127.0.0.1"],
+            "env": {},
+        },
+    }
+    block.update(changes)
+    return block
+
+
+def test_a_locked_native_unit_renders_the_block_an_unlocked_one_does() -> None:
+    service = emit._locked_service("m", _locked(), (0,))
+    assert service[LAUNCHER_KEY] == "native"
+    assert service[PROGRAM_KEY] == llamacpp.SERVER
+    assert service["container_name"] == "mcgyvr-localhost-m-8080"
+    assert service[CARDS_KEY] == [0]
+    assert "image" not in service and "deploy" not in service
+
+
+def test_a_locked_native_unit_elsewhere_or_on_another_address_is_refused() -> None:
+    with pytest.raises(emit.EmitError, match="box1 is another"):
+        emit._locked_service("m", _locked(address="http://box1:8080"), (0,))
+    wide = {"argv": ["--port", "8080", "--host", "0.0.0.0"], "env": {}}
+    with pytest.raises(emit.EmitError, match=r"127\.0\.0\.1 alone"):
+        emit._locked_service("m", _locked(launch=wide), (0,))
