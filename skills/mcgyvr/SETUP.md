@@ -130,7 +130,7 @@ Three keys across the two files are the levers, and `mcgyvr local_pool` is how
 you read all three:
 
 - `units` — What runs where, keyed by a name you choose. A unit carries every fact about what it is and can physically do: its address, engine, model, width, window, reply size and timeout.
-- `ladder` — The ordered list of unit names work climbs, cheapest first.
+- `ladder` — The ordered list of unit names work climbs, cheapest first. A step may name a relief rung, a unit a hub lent you: it is then a step and no longer ridden as relief.
 - `max_escalations` — How many rungs a task may climb before it is handed back unfinished. Unset: every rung of the ladder may be entered.
 
 `mcgyvr config` prints the resolved config; `mcgyvr detect` shows what
@@ -143,7 +143,8 @@ can run the work; `mcgyvr capabilities` shows the shipped capability table.
 
 - `mcgyvr-code` — mcgyvr between the model and you: contracts proposed,
   vetted, run up the ladder, gated, repaired, reviewed and re-planned,
-  each point under its own switch below, every one on by default. A
+  each point under its own switch below, every one on by default but
+  delivery (`delivery.commit` stays off). A
   policy that names no use case is `mcgyvr-code`. A batch runs
   `--jobs auto` (the fleet's slots), and proposals are authored by the
   classifier when a Jev unit is bound and on.
@@ -166,12 +167,13 @@ that takes mcgyvr out of that point:
   one model.
 - **attempts** (`attempts`, `max_attempts`, `max_escalations`; off per unit, ceilings): tries per
   rung, in total, and moves up the ladder.
-- **triage** (`triage`; off `none`): Jev picks the rung a climb starts on.
+- **triage** (`triage`; off `none`): Jev picks the rung a climb starts on (on while Jev is on).
 - **retry notes** (`retry_notes`; off `none`): what a retry is told about the attempts that failed
   before it.
 - **draws** (`breadth.draws`, `draws`; off `1`): candidates one attempt asks for, the gate ranking
   them.
-- **fan-out** (`fanout`; off `none`): a batch spreads across units with free slots.
+- **fan-out** (`fanout`; off `none`): a batch takes own rungs with free slots (`idle`), relief ones
+  too, never a priced api rung.
 - **gate** (`gate.enabled`, `gate.param_mutation`; off `false`): the deterministic checks and
   acceptance commands that judge a change.
 - **repair** (`cleanup.enabled`; off `false`): the gate's own tools fix what they can in a rejected
@@ -228,9 +230,9 @@ locks and waking a card are machinery, not switches.
 | `use_case` | one of `mcgyvr-code`, `code`, `chat`, `agent` | no | `mcgyvr-code` | Which of the four use cases this install serves. `mcgyvr-code` opts in to mcgyvr between the model and you: contracts proposed, vetted, run up the ladder, gated, repaired, reviewed and re-planned, each stage under its own switch, every one on by default. `code` (a coding model), `chat` (a text endpoint) and `agent` (an endpoint with tool-calling) serve the model raw: no stage runs, and `mcgyvr PROMPT` and `mcgyvr direct` refuse. `mcgyvr use NAME` switches it. Unset is `mcgyvr-code`; `coding` is refused, naming what replaced it. |
 | `deployment` | one of `hybrid`, `local-only` | no | `hybrid` | How mcgyvr is run. `hybrid` drives it from an API-tier orchestrator in the user's session; scoped work is offloaded to the local cheap-to-dear ladder, whose dearest rung is an API model so a task always completes. `local-only` makes mcgyvr the backend: `mcgyvr-code` provisions a local orchestrator unit, and a raw use case (`code`, `chat`, `agent`) is just the ladder serving its model. |
 | `units` | block map | **yes** | — | What runs where, keyed by a name you choose. A unit carries every fact about what it is and can physically do: its address, engine, model, width, window, reply size and timeout. |
-| `ladder` | list of text | **yes** | — | The ordered list of unit names work climbs, cheapest first. |
-| `fanout` | one of `none`, `idle`, `full` | no | `none` | Whether a batch of contracts spreads across units or queues on one. |
-| `triage` | one of `none`, `jev` | no | `none` | Who picks the rung a contract's climb starts on. `none` starts on the first rung and climbs. `jev` first asks the unit bound to `jev` one typed question: the contract and the ladder, each unit with its model, window and reply room, and which is the smallest unit that can do the job. The climb starts there; the rungs below it are skipped, not spent, and escalation goes on upward as before. `fanout` may then still start the climb on a higher rung with a free slot, never a lower one. With no jev unit bound, or one that cannot be asked or read, the climb starts on the first rung and the run result's `triage` says why. A contract that states a `start_rung`, decided ahead of time, starts there under either value and jev is not asked. |
+| `ladder` | list of text | **yes** | — | The ordered list of unit names work climbs, cheapest first. A step may name a relief rung, a unit a hub lent you: it is then a step and no longer ridden as relief. |
+| `fanout` | one of `none`, `idle`, `full` | no | unset | Whether a batch of contracts spreads across units or queues on one. Unset is `idle` under `use_case: mcgyvr-code` and `none` under a raw use case; a stated value wins. Fan-out spreads work over your own rungs and, under `idle`, a relief rung whose host reads your prompts when your own rungs are full. It never sends a contract to a priced api rung: only escalation climbs there, in ladder order. To bind it: name one of `none`, `idle`, `full`, or leave it to the use case. |
+| `triage` | one of `none`, `jev` | no | unset | Who picks the rung a contract's climb starts on. `none` starts on the first rung and climbs. `jev` first asks the unit bound to `jev` one typed question: the contract and the ladder, each unit with its model, window and reply room, and which is the smallest unit that can do the job. The climb starts there; the rungs below it are skipped, not spent, and escalation goes on upward as before. `fanout` may then still start the climb on a higher rung with a free slot, never a lower one and never a priced api rung. With no jev unit bound, or one that cannot be asked or read, the climb starts on the first rung and the run result's `triage` says why. A contract that states a `start_rung`, decided ahead of time, starts there under either value and jev is not asked. Unset is `jev` under `use_case: mcgyvr-code` while a Jev unit is bound and `jev.enabled` is on, and `none` otherwise; a stated value wins. Each contract then waits for one Jev answer before its climb starts. To bind it: name `none` or `jev`, or leave it to the use case and Jev. |
 | `dependents` | one of `hold`, `run` | no | `hold` | What a batch of contracts (`mcgyvr PROMPT` or `mcgyvr direct`) does with a contract whose `depends_on` names one that did not land. `hold` keeps it back, unspent: it is sent only once what it waits on is in the tree its sandbox starts from, and one whose provider failed, or landed without a symbol it needs, is never sent — its result says `blocked`, who held it and what it needed, with no attempt spent. A contract that uses from the failed provider's file only names that are already there and that the provider was not to change still runs. `run` sends every contract once what it waits on has come to anything, as before. |
 | `infer_dependencies` | boolean | no | `true` | Whether a batch of contracts also waits on what it can infer. On, a contract that uses a name the committed tree does not define yet waits on the sibling whose target creates it, though its `depends_on` does not say so, and one whose name nothing defines or creates is held. Off, a batch is ordered by `depends_on` alone. Contracts `mcgyvr PROMPT` proposes state such waits in `depends_on` themselves. |
 | `same_file` | one of `wait`, `parallel` | no | `wait` | What a batch run with `--jobs` does with two ready contracts whose scopes can write one file. `wait` runs the second once the first has settled, from the tree the first left. `parallel` runs them at once, from one base: their deliveries still take turns, and one that no longer applies is refused and named, never lost. |
@@ -257,7 +259,7 @@ locks and waking a card are machinery, not switches.
 | `gate` | block | no | — | What the deterministic gate refuses, where a setup may choose otherwise. |
 | `serving` | block | no | — | What mcgyvr may do to the machines that serve the units. A unit's HuggingFace cache is a fact about that unit and lives on it, not here: only the policy of starting and stopping a card is a setting. |
 | `journal` | block | no | — | Where mcgyvr keeps its own record of what it dispatched. To say what a run belongs to — an experiment, a build — set `MCGYVR_RUN_TAGS` to a JSON object of text, number or true/false values, e.g. `{"round": "r7"}`, at most 4096 bytes: every row the run writes carries it under `run_tags`. Set to anything else, the run is refused before it starts. |
-| `relief` | block map | no | — | Units other people lend you through a hub (hitchhike), keyed by name. Written whole to `relief.yaml` by `mcgyvr rig rungs sync`, and by nothing else. A relief rung is never a step of the ladder: under `fanout: idle` it takes work only when your own rung is full, ahead of a priced api rung, and no escalation climbs to it. Its host can read your prompts. |
+| `relief` | block map | no | — | Units other people lend you through a hub (hitchhike), keyed by name. Written whole to `relief.yaml` by `mcgyvr rig rungs sync`, and by nothing else. A relief rung the ladder does not name is never a step of it: under `fanout: idle` it takes work only when your own rung is full, and no escalation climbs to it. A ladder step or a role may name one. When it is full too, the contract waits on your own ladder; fan-out never sends it to a priced api rung. Its host can read your prompts. |
 
 ## `units`
 
@@ -272,6 +274,7 @@ Each entry takes these keys:
 | `units.engine` | one of `llama.cpp`, `vllm` | no | unset | Which server program runs behind this address. Absent means llama.cpp. To bind it: e.g. vllm -- leave it out for llama.cpp. |
 | `units.image` | text | no | unset | Container image this unit runs, as a tag or digest. To bind it: e.g. vllm/vllm-openai@sha256:<hex>. |
 | `units.api_key_env` | env var name | no | unset | NAME of the environment variable holding this unit's key. To bind it: set it to the variable's NAME (e.g. ANTHROPIC_API_KEY), never the key itself. |
+| `units.scope` | one of `own`, `crew`, `anyone` | no | `own` | Whose rigs may serve this unit's requests, named on each one in the `x-mcgyvr-scope` header: `own` (your own rigs), `crew` (your crews' too) or `anyone`. A hub serves the request from that scope's pool; a server of your own ignores it. A ladder step or a role may bind the unit only where its pool serves the setup's use case, so under `mcgyvr-code` a unit served from the hub's general pool, which serves models raw, is refused when the setup is read. Unset is `own`. |
 | `units.rig` | text | no | unset | The rig this unit runs on, by the name fleet.yaml uses. Units that share a rig and an address are served by one process. To bind it: e.g. box.example. |
 | `units.width` | number (min 1) | no | unset | How many requests this unit may run at once. Concurrency is a property of the process, so it is a unit fact. To bind it: e.g. 8 -- the slot count the backend was started with. |
 | `units.window` | number (min 1) | no | unset | Tokens this unit serves in one request. Read it back off the running process, not hoped for: `setup` reads it off a local backend and writes it, and lists a unit it could not read as not configured. Less the prompt, it is the room every reply on this unit is clamped to; a unit with neither `window` nor `output_tokens` refuses code dispatch. To bind it: e.g. 4096 -- what the unit reports, not what you hoped for. |
@@ -294,7 +297,7 @@ Which unit turns a prompt plus a repository into contracts, and what that unit i
 | --- | --- | --- | --- | --- |
 | `orchestrator.type` | one of `proposer` | no | `proposer` | What the bound unit is. `proposer`, the only type: the bound unit drafts contracts for `mcgyvr PROMPT`. |
 | `orchestrator.authoring` | one of `prose`, `classifier` | no | unset | How `mcgyvr PROMPT` gets its proposals. `prose`: the bound unit is asked for JSON proposals (`delegate.build_prompt`), and the deterministic decomposer turns them into contracts. `classifier`: the `jev` unit answers typed questions (task type, target, symbol, task, interface, dependency, scope) first, and each proposal is split again until it is on one file and jev answers that it cannot be split further: a scope over several files becomes one proposal per file, and a proposal jev says holds several changes is split by the sentences of its task, the target's definitions it names, or the failing tests it demonstrates, as jev picks — two or more contracts on one file, which the dependency tree orders. A proposal is not split again once `max_splits_per_file` rounds have split its file; a split into more parts than `max_refine_fanout` is refused. `prose` stands in when jev declines. With no `jev` unit bound no model is asked: each field takes its first candidate — the first servable type and target, the target's first symbol, and the request as the task — and `prose` stands in only when there is no target or servable type to pick. Unset is `classifier` under `use_case: mcgyvr-code` when a `jev` unit is bound and on, and `prose` otherwise. To bind it: name one of `prose`, `classifier`. |
-| `orchestrator.unit` | text | no | unset | Which unit serves this role. A unit is the one term. To bind it: name one of the units declared under `units`. |
+| `orchestrator.unit` | text | no | unset | Which unit serves this role: a unit of `units`, or a relief rung (a unit a hub lent you). A unit is the one term. To bind it: name one of the units declared under `units`, or a relief rung. |
 | `orchestrator.model` | text | no | unset | Model identifier as that unit names it; absent means the unit's own. To bind it: name a model the bound unit serves. |
 
 ## `verifier`
@@ -314,7 +317,7 @@ Which one unit answers every typed decision: a question answered with a single-t
 | Key | Type | Required | Default | Description |
 | --- | --- | --- | --- | --- |
 | `jev.enabled` | boolean | no | `true` | Whether the bound Jev unit is asked. Off, every typed decision is asked as if no unit were bound -- the verifier, the reviewing rung, the fast rung or the orchestrator answers, triage asks nobody, and authoring defaults to `prose` -- while the binding stays written, so turning it back on is one line. |
-| `jev.unit` | text | no | unset | Which unit serves this role. A unit is the one term. To bind it: name one of the units declared under `units`. |
+| `jev.unit` | text | no | unset | Which unit serves this role: a unit of `units`, or a relief rung (a unit a hub lent you). A unit is the one term. To bind it: name one of the units declared under `units`, or a relief rung. |
 | `jev.model` | text | no | unset | Model identifier as that unit names it; absent means the unit's own. To bind it: name a model the bound unit serves. |
 
 ## `sandbox`
@@ -383,7 +386,7 @@ Where mcgyvr keeps its own record of what it dispatched. To say what a run belon
 
 ## `relief`
 
-Units other people lend you through a hub (hitchhike), keyed by name. Written whole to `relief.yaml` by `mcgyvr rig rungs sync`, and by nothing else. A relief rung is never a step of the ladder: under `fanout: idle` it takes work only when your own rung is full, ahead of a priced api rung, and no escalation climbs to it. Its host can read your prompts.
+Units other people lend you through a hub (hitchhike), keyed by name. Written whole to `relief.yaml` by `mcgyvr rig rungs sync`, and by nothing else. A relief rung the ladder does not name is never a step of it: under `fanout: idle` it takes work only when your own rung is full, and no escalation climbs to it. A ladder step or a role may name one. When it is full too, the contract waits on your own ladder; fan-out never sends it to a priced api rung. Its host can read your prompts.
 
 Each entry takes these keys:
 
@@ -397,6 +400,7 @@ Each entry takes these keys:
 | `relief.hosted_by` | text | no | unset | The handle of the person whose unit this is. They can read your prompts and the answers. To bind it: leave it to `mcgyvr rig rungs sync`, which writes the hub's word. |
 | `relief.served_model` | text | no | unset | What the host's unit runs, for display. Never sent. To bind it: leave it to `mcgyvr rig rungs sync`, which writes the hub's word. |
 | `relief.busy_answers` | list of blocks | no | — | The answers, each an HTTP status and an error code, that say this rung cannot take a request now: one of them is a full rung, passed over at no cost, and any other answer is read as on any rung. Unset, the rung names no busy answers; a sync writes them. To bind it: leave it to `mcgyvr rig rungs sync`, which writes them. |
+| `relief.scope` | one of `own`, `crew`, `anyone` | no | `anyone` | Whose rigs may serve this rung's requests, named on each one in the `x-mcgyvr-scope` header. A sync writes `anyone`: the hub matched the rung to you under your own serve scope and hands a ride only to rungs you are matched to, so its match stays the only filter. A ride is served from the hub's hitchhike pool whatever its scope, which still bounds whose host may serve it: `own` or `crew` refuses a ride on a host outside it. Unset is `anyone`. To bind it: leave it to `mcgyvr rig rungs sync`, which writes it. |
 
 ### `relief.busy_answers`
 

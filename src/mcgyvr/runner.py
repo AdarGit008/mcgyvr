@@ -43,7 +43,12 @@ from mcgyvr.fleet.harness import (
     prometheus_totals,
     slots_in_flight,
 )
-from mcgyvr.hubwire import MODEL_NOT_FOUND, MODEL_UNPLACED, USE_CASE_HEADER
+from mcgyvr.hubwire import (
+    MODEL_NOT_FOUND,
+    MODEL_UNPLACED,
+    SCOPE_HEADER,
+    USE_CASE_HEADER,
+)
 from mcgyvr.local_pool import Endpoint, Protocol, SourceMap, UnknownRungError
 from mcgyvr.redact import safe_url
 from mcgyvr.weights import is_model
@@ -849,15 +854,19 @@ def _sent_text(request: Request) -> str:
 def request_headers(endpoint: Endpoint) -> dict[str, str]:
     """The headers a chat request to `endpoint` is sent with: JSON, a bearer
     token when the endpoint's credential resolves to a key (an endpoint naming
-    no credential env sends none), and the setup's use case under
+    no credential env sends none), the setup's use case under
     `hubwire.USE_CASE_HEADER` when the endpoint carries one, so a hub can
-    refuse a use case its pool does not serve."""
+    refuse a use case its pool does not serve, and the unit's scope under
+    `hubwire.SCOPE_HEADER` when it carries one, so a hub serves the request
+    from that scope's pool."""
     headers = {"Content-Type": "application/json"}
     key = endpoint.credential()
     if key:
         headers["Authorization"] = f"Bearer {key}"
     if endpoint.use_case is not None:
         headers[USE_CASE_HEADER] = endpoint.use_case
+    if endpoint.scope is not None:
+        headers[SCOPE_HEADER] = endpoint.scope
     return headers
 
 

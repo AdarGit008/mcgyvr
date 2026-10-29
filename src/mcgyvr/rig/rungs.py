@@ -1,8 +1,9 @@
 """Ask the hub for the relief rungs this setup may ride, and keep them written.
 
 A relief rung is a unit other people lend you through the hub (hitchhike): it
-is never a step of the ladder, so all this module does is report the ladder's
-shape to the hub and record the rungs it answers with.
+is a step of the ladder only where you name it there, so all this module does
+is report the shape of your own ladder to the hub and record the rungs it
+answers with.
 
 * :func:`ladder_report` is what is reported: each model rung's model, family,
   file size and parameter count where known, plus the floor and ceiling the hub
@@ -41,6 +42,7 @@ from mcgyvr.config import (
     FLEET_FILENAME,
     POLICY_FILENAME,
     RELIEF_FILENAME,
+    RELIEF_SCOPE,
     Config,
     ConfigError,
     Unit,
@@ -184,7 +186,8 @@ class _NoRedirect(urllib.request.HTTPRedirectHandler):
 def ladder_report(config: Config) -> dict[str, Any]:
     """The ladder this setup runs, in the shape the hub places rungs by.
 
-    The units the ladder names are sorted by family rank and each reported with
+    The units of your own the ladder names (a relief rung a step names is the
+    hub's, not yours) are sorted by family rank and each reported with
     its model, its family name, its file size in bytes and its parameter count
     in billions where either is known. ``floor`` is the index of the first rung
     at or above the lowest family any task type starts on, and ``ceiling`` is as
@@ -200,12 +203,17 @@ def ladder_report(config: Config) -> dict[str, Any]:
     from mcgyvr.escalate import Ceiling
 
     known = catalog()
-    units = [config.units[name] for name in config.ladder.names]
+    units = [
+        config.units[name]
+        for name in config.ladder.names
+        if not config.units[name].relief
+    ]
     climbing = sorted(units, key=lambda unit: known.family_of(unit).rank)
     if not 1 <= len(climbing) <= LADDER_MAX_RUNGS:
         raise SyncError(
-            f"the ladder cannot be reported: it has {len(climbing)} rungs, and "
-            f"the hub takes 1 to {LADDER_MAX_RUNGS}"
+            f"the ladder cannot be reported: it has {len(climbing)} rungs of "
+            f"your own (a relief rung a step names is the hub's and not "
+            f"reported), and the hub takes 1 to {LADDER_MAX_RUNGS}"
         )
     rungs = []
     for unit in climbing:
@@ -430,8 +438,9 @@ def render(rides: Rides, key_env: str) -> str:
     """The ``relief.yaml`` text for one answer.
 
     Every rung becomes a block under ``relief``, keyed by its name and carrying
-    its address, model, key variable name, width, position, host, served model
-    and the answers that say it is full (:data:`mcgyvr.hubwire.RUNG_BUSY`). A
+    its address, model, key variable name, width, position, host, served model,
+    the answers that say it is full (:data:`mcgyvr.hubwire.RUNG_BUSY`) and the
+    scope its requests name (:data:`mcgyvr.config.RELIEF_SCOPE`). A
     header says a sync rewrites the file whole and that each host can read the
     prompts sent to their rung.
     """
@@ -447,6 +456,7 @@ def render(rides: Rides, key_env: str) -> str:
             "busy_answers": [
                 {"status": status, "code": code} for status, code in RUNG_BUSY
             ],
+            "scope": RELIEF_SCOPE,
         }
         for each in rides.rungs
     }
@@ -470,10 +480,14 @@ def _read_text(path: Path) -> str:
 def sync(folder: Path, hub: str, key: str, key_env: str) -> tuple[Rides, Path]:
     """Sync once: report the setup's ladder, then write the answer beside it.
 
-    The folder must hold a ``fleet.yaml``. The answer is loaded with that setup
-    as its ``relief_text`` before anything is written, so an answer the setup
-    would refuse raises :class:`HubAnswerError` and leaves ``relief.yaml`` as
-    it was. Returns the answer read and the file it was written to.
+    The folder must hold a ``fleet.yaml``. The ladder reported is read with the
+    relief rungs already kept, since a step may name one, or without them when
+    they do not load. A relief rung a step or a role binds that the hub no
+    longer lists raises :class:`SyncError` naming it, and nothing is written.
+    The answer is loaded with that setup as its ``relief_text`` before anything
+    is written, so an answer the setup would refuse raises
+    :class:`HubAnswerError` and leaves ``relief.yaml`` as it was.
+    Returns the answer read and the file it was written to.
     """
     fleet = folder / FLEET_FILENAME
     if not fleet.is_file():
@@ -481,21 +495,37 @@ def sync(folder: Path, hub: str, key: str, key_env: str) -> tuple[Rides, Path]:
             f"no {FLEET_FILENAME} in {folder}: a sync keeps relief rungs beside a "
             "setup, and there is none here"
         )
+    fleet_text = _read_text(fleet)
+    policy_text = _read_text(folder / POLICY_FILENAME)
     try:
         own = parse(
-            _read_text(fleet), _read_text(folder / POLICY_FILENAME), path=folder
+            fleet_text,
+            policy_text,
+            path=folder,
+            relief_text=_read_text(folder / RELIEF_FILENAME),
         )
-    except ConfigError as exc:
-        raise SyncError(f"the setup in {folder} does not load: {exc}") from exc
+    except ConfigError as kept:
+        try:
+            own = parse(fleet_text, policy_text, path=folder)
+        except ConfigError as exc:
+            raise SyncError(
+                f"the setup in {folder} does not load: {kept}; "
+                f"read without {RELIEF_FILENAME}: {exc}"
+            ) from exc
     rides = fetch(hub, key, ladder_report(own))
+    listed = {each.name for each in rides.rungs}
+    dropped = sorted(
+        name for name, unit in own.units.items() if unit.relief and name not in listed
+    )
+    if dropped:
+        raise SyncError(
+            f"the hub no longer lends {', '.join(dropped)}, which a ladder step or "
+            f"a role binds: unbind it and sync again; {RELIEF_FILENAME} is left as "
+            "it was"
+        )
     text = render(rides, key_env)
     try:
-        parse(
-            _read_text(fleet),
-            _read_text(folder / POLICY_FILENAME),
-            path=folder,
-            relief_text=text,
-        )
+        parse(fleet_text, policy_text, path=folder, relief_text=text)
     except ConfigError as exc:
         raise HubAnswerError(
             f"the hub's answer is refused: the setup would not load with it ({exc})"

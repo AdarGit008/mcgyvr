@@ -256,14 +256,15 @@ def test_dotted_reads_reach_into_lists() -> None:
     assert config.units[config.ladder.names[1]].model == "qwen2.5-coder:14b"
 
 
-# --- fan-out is a knob, and its default is no fan-out ---------------------
+# --- fan-out is a knob, and its default follows the use case --------------
 
 
-def test_fanout_defaults_to_none_when_the_key_is_absent() -> None:
-    """Absent means no fan-out: a batch queues on the cheapest rung."""
+def test_fanout_left_unset_is_the_use_cases() -> None:
+    """Absent, `mcgyvr-code` fans out to idle rungs; a raw use case does not."""
     config = parse(LOCAL_ONLY)
-    assert config.ladder.fanout == "none"
-    assert config.get("fanout") == "none"
+    assert config.ladder.fanout == "idle"
+    assert config.get("fanout") == "idle"
+    assert parse(LOCAL_ONLY + "use_case: chat\n").ladder.fanout == "none"
 
 
 @pytest.mark.parametrize("mode", ["none", "idle", "full"])
