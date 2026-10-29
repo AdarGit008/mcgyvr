@@ -443,7 +443,7 @@ class Ascent:
     `plans` is one per catalog family from `floor` upward, so the climb is
     monotonic by shape. `ceiling` and `capacity` bound it, `fanout` and
     `widths` are what the entry decision reads, and `relief` holds the lent
-    rungs, which are never a step of the ladder.
+    rungs the ladder does not name, which are never a step of it.
     """
 
     floor: Family
@@ -1259,15 +1259,23 @@ def _halt_detail(
 def redundant_relief(config: Config) -> tuple[str, ...]:
     """Sentences naming relief rungs that duplicate a unit you already serve.
 
-    A relief rung whose address is one of your own units, or whose
+    A relief rung whose address and model are one of your own units', or whose
     `served_model` is a model your own ladder already serves, re-sends to
     what you already have: riding it cannot help, so a run says so instead
-    of letting the user discover it from the journal.
+    of letting the user discover it from the journal. A unit of yours at the
+    hub's address asks the hub for another model, so the address alone is not
+    the same unit.
     """
     notes: list[str] = []
     for name, unit in config.relief.items():
         for own, other in config.units.items():
-            if unit.address and unit.address == other.address:
+            if other.relief:  # a relief rung a role binds is not one of yours
+                continue
+            if (
+                unit.address
+                and unit.address == other.address
+                and unit.model == other.model
+            ):
                 notes.append(
                     f"relief rung {name!r} is the same unit as your own "
                     f"{own!r} ({unit.address}) — riding it re-sends to the "

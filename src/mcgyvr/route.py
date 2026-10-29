@@ -466,7 +466,8 @@ class Exhausted:
 # Which family a rung is in. A family is a fact about the unit a rung names —
 # whether it needs a credential — and not a field anywhere in the ladder, so the
 # question is answered by resolving the name and asking the catalog. Relief is
-# resolved first because a relief rung is never a step of the ladder.
+# resolved first because a relief rung the ladder does not name is never a step
+# of it; one the ladder names is a unit of the dispatch and resolves either way.
 
 
 def family_of(config: Config, rung: str) -> Family:

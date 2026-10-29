@@ -27,6 +27,7 @@ import pytest
 import yaml
 
 from mcgyvr import hubwire
+from mcgyvr.capacity import SlotUnavailableError
 from mcgyvr.config import ConfigSchemaError, parse
 from tests.rigsyncs import FIRST, rung
 
@@ -138,7 +139,7 @@ def test_every_request_names_its_units_scope_beside_the_use_case(
     ask = runner.Request(prompt="hello", max_output_tokens=16)
 
     for name in ("local", "crew_coder", RIDE):
-        with contextlib.suppress(runner.RunnerError):
+        with contextlib.suppress(runner.RunnerError, SlotUnavailableError):
             runner.runner_for(pool.bind(name)).generate("m", ask)
         decision.classify(pool.bind(name), "m", {"x": 1}, {"q": Noul("Q?")})
 

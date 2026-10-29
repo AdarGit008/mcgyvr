@@ -30,6 +30,17 @@ archived outside this repository, under the same paths.
 
 ### Added
 
+- **A unit says whose it is, and a role or a ladder step may bind a hub unit
+  (#811).** Every unit has a `scope` (`own`, `crew` or `anyone`; a unit of your
+  fleet is `own` unless it says otherwise, and `mcgyvr rig rungs sync` writes
+  `anyone` on each relief rung), and every chat request names it in
+  `x-mcgyvr-scope` beside the use case. A ladder step or `orchestrator`,
+  `verifier` or `jev` may name a relief rung; one the ladder names is a step
+  and no longer ridden as relief. The pool a unit is served from is the
+  wire's (`hubwire.SCOPE_POOLS`, `hubwire.serving_pool`), and a step or role
+  bound to a unit whose pool does not serve the use case is refused when the
+  setup is read: under `mcgyvr-code`, a unit of scope `anyone` that is not a
+  ride. `code`, `chat` and `agent` run on any scope.
 - **`mcgyvr use NAME` switches the use case, and `/mcgyvr-use` is its skill.**
   It rewrites the policy's `use_case:` line and nothing else, and says what
   that turns on or off.

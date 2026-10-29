@@ -23,6 +23,7 @@ from typing import Any
 import pytest
 
 from mcgyvr import hubwire
+from mcgyvr.capacity import SlotUnavailableError
 from mcgyvr.config import ConfigSchemaError, parse
 from tests.rigsyncs import FIRST
 
@@ -109,7 +110,7 @@ def test_a_ladder_step_naming_a_relief_rung_is_a_step_and_no_longer_ridden(
 
     sent = _sent(monkeypatch)
     ask = runner.Request(prompt="hello", max_output_tokens=16)
-    with contextlib.suppress(runner.RunnerError):
+    with contextlib.suppress(runner.RunnerError, SlotUnavailableError):
         runner.dispatch(pool, RIDE, ask)
     ((url, headers),) = sent
     assert url.startswith(HUB)
@@ -132,7 +133,7 @@ def test_a_role_naming_a_relief_rung_resolves_to_it(
     assert binding.model == f"hitchhike@{FIRST}"
     sent = _sent(monkeypatch)
     ask = runner.Request(prompt="hello", max_output_tokens=16)
-    with contextlib.suppress(runner.RunnerError):
+    with contextlib.suppress(runner.RunnerError, SlotUnavailableError):
         runner.dispatch_role(pool, role, ask)
     ((url, headers),) = sent
     assert url.startswith(HUB)
@@ -144,6 +145,14 @@ def test_a_relief_rung_a_role_binds_is_still_ridden_as_relief() -> None:
 
     assert RIDE in config.relief
     assert config.units[RIDE] is config.relief[RIDE]
+
+
+def test_a_relief_rung_a_role_binds_is_not_said_to_duplicate_itself() -> None:
+    from mcgyvr.escalate import redundant_relief
+
+    config = parse(_setup("verifier", RIDE) + "fanout: idle\n", relief_text=RELIEF)
+
+    assert redundant_relief(config) == ()
 
 
 def test_a_name_neither_a_unit_nor_a_relief_rung_is_refused_naming_both() -> None:
