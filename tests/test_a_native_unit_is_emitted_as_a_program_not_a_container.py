@@ -116,7 +116,7 @@ def test_a_native_unit_on_another_rig_is_refused() -> None:
     text = config_text("    launcher: native\n").replace("localhost", "box1")
     scans = {"box1": replace_host(SCANS["localhost"], "box1")}
     (unit,) = units_for(parse(text), scans, specs=(), ctx_per_slot=4096)
-    with pytest.raises(emit.EmitError, match="box1 is another"):
+    with pytest.raises(emit.EmitError, match="rig file of box1 records neither"):
         emit.render_compose(unit)
 
 
@@ -221,7 +221,7 @@ def test_a_locked_native_unit_renders_the_block_an_unlocked_one_does() -> None:
 
 
 def test_a_locked_native_unit_elsewhere_or_on_another_address_is_refused() -> None:
-    with pytest.raises(emit.EmitError, match="box1 is another"):
+    with pytest.raises(emit.EmitError, match="rig file of box1 records neither"):
         emit._locked_service("m", _locked(address="http://box1:8080"), (0,))
     wide = {"argv": ["--port", "8080", "--host", "0.0.0.0"], "env": {}}
     with pytest.raises(emit.EmitError, match=r"127\.0\.0\.1 alone"):

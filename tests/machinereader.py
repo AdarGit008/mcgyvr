@@ -1,7 +1,8 @@
 """Runs the product's one machine reader over an invented machine.
 
 The reader, ``src/mcgyvr/serving/rigscan.py``, is run as the door ships it:
-``python3 -I -B -`` with the source on stdin, asked for its short reading
+``python3 -I -B -`` with the assembled program (``mcgyvr.serving.shipped``) on
+stdin, asked for its short reading
 (``--cards``). Here its PATH holds only stub card tools and traps for six
 commands that raise rights or read what only raised rights may
 (:data:`ELEVATION`). Every file it reads (sysfs, the machine-id files, the
@@ -62,6 +63,15 @@ from tests.machine_shapes import (
 )
 
 READER = REPO / "src" / "mcgyvr" / "serving" / "rigscan.py"
+
+
+def shipped_reader() -> bytes:
+    """The reader as the door ships it: assembled with the modules it imports and
+    packed (``mcgyvr.serving.shipped``), so a run here imports nothing installed."""
+    from mcgyvr.serving import shipped
+
+    return shipped.packed(shipped.reader())
+
 
 #: The environment variables the reader takes, for tests only.
 ROOT_VARIABLE = "MCGYVR_TEST_MACHINE_ROOT"
@@ -444,8 +454,8 @@ def run(
     After ``give_up_after`` seconds the reader and everything it started are
     killed, and what it printed so far is returned. ``command`` runs another
     command than ``python3 -I -B - --cards`` (for example one that traces it),
-    with the source still on its standard input; ``source`` hands it other
-    bytes than the reader's file (the packed program the door ships).
+    with the program still on its standard input; ``source`` hands it other
+    bytes than the program the door ships.
     """
     stubs = where / "stubs"
     programs = where / "programs"
@@ -467,7 +477,7 @@ def run(
     gave_up = False
     try:
         out, err = process.communicate(
-            READER.read_bytes() if source is None else source, timeout=give_up_after
+            shipped_reader() if source is None else source, timeout=give_up_after
         )
     except subprocess.TimeoutExpired:
         gave_up = True

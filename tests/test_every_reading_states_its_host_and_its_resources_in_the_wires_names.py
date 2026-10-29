@@ -21,47 +21,20 @@ from mcgyvr import hubwire
 from tests.machine_shapes import Card, HostShape, host_reading, host_shape, host_shapes
 from tests.machinereader import Staged, run
 
-# until align/hubwire merges: the contract's names as the plan fixes them, read
-# from the wire once it carries them.
-RESOURCE_KINDS = getattr(hubwire, "RESOURCE_KINDS", ("gpu", "unified", "ram", "cpu"))
-RESOURCE_BACKENDS = getattr(
-    hubwire, "RESOURCE_BACKENDS", ("cuda", "metal", "vulkan", "rocm", "cpu")
-)
-FIGURE_KINDS = getattr(hubwire, "FIGURE_KINDS", ("estimate", "reading"))
-HOST_OS = getattr(hubwire, "HOST_OS", ("linux", "darwin", "windows"))
-HOST_ARCH = getattr(hubwire, "HOST_ARCH", ("x86_64", "arm64"))
-
-RESOURCE = getattr(hubwire, "Resource", None)
-RESOURCE_FIELDS = (
-    {field.name for field in dataclasses.fields(RESOURCE)}
-    if RESOURCE is not None
-    else {
-        "kind",
-        "index",
-        "name",
-        "total_mb",
-        "free_mb",
-        "cores",
-        "bandwidth_gbps",
-        "bandwidth_figure",
-        "figure",
-        "backend",
-    }
-)
+RESOURCE_FIELDS = {field.name for field in dataclasses.fields(hubwire.Resource)}
 
 
 def _takes(resource: dict[str, Any]) -> None:
-    """The wire takes the resource: its own record validates it, once it has one."""
-    if RESOURCE is not None:
-        RESOURCE(**resource).validate()
+    """The wire takes the resource: its own record validates it."""
+    hubwire.Resource(**resource).validate()
 
 
 def test_the_reader_names_the_wires_systems() -> None:
     from mcgyvr.serving import rigscan
 
-    assert tuple(rigscan.SYSTEMS) == tuple(HOST_OS)
+    assert rigscan.HOST_OS is hubwire.HOST_OS
     assert set(rigscan.ARCHES.values()) | set(rigscan.WINDOWS_ARCHES.values()) <= set(
-        HOST_ARCH
+        hubwire.HOST_ARCH
     )
 
 
@@ -71,13 +44,13 @@ def test_every_resource_has_the_contracts_fields_and_values(
 ) -> None:
     document = host_reading(machine)
     assert document["host"]["os"] == machine.system
-    assert document["host"]["os"] in HOST_OS
+    assert document["host"]["os"] in hubwire.HOST_OS
     for resource in document["resources"]:
         assert set(resource) == RESOURCE_FIELDS
         _takes(resource)
-        assert resource["kind"] in RESOURCE_KINDS
-        assert resource["backend"] in RESOURCE_BACKENDS
-        assert resource["figure"] in FIGURE_KINDS
+        assert resource["kind"] in hubwire.RESOURCE_KINDS
+        assert resource["backend"] in hubwire.RESOURCE_BACKENDS
+        assert resource["figure"] in hubwire.FIGURE_KINDS
         assert isinstance(resource["total_mb"], int) and resource["total_mb"] >= 0
         assert resource["bandwidth_gbps"] is None
         assert resource["bandwidth_figure"] is None
