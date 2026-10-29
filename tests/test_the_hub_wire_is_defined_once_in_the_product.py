@@ -362,13 +362,39 @@ def test_the_runner_and_jev_name_the_setups_use_case(
 
     named = use_case or hubwire.MCGYVR_CODE
     assert [h[hubwire.USE_CASE_HEADER] for h in sent] == [named, named]
-    assert all(hubwire.SCOPE_HEADER not in h for h in sent)  # bound per unit later
+    assert [h[hubwire.SCOPE_HEADER] for h in sent] == [hubwire.SCOPE_OWN] * 2
 
 
 def test_the_scope_header_is_one_header_and_its_values_are_three() -> None:
     assert hubwire.SCOPE_HEADER.lower() == hubwire.SCOPE_HEADER
     assert hubwire.SCOPE_HEADER.startswith("x-mcgyvr-")
     assert len(set(hubwire.SCOPE_VALUES)) == len(hubwire.SCOPE_VALUES) == 3
+    assert hubwire.SCOPE_VALUES == (
+        hubwire.SCOPE_OWN,
+        hubwire.SCOPE_CREW,
+        hubwire.SCOPE_ANYONE,
+    )
+
+
+def test_each_scope_is_served_from_one_pool() -> None:
+    assert tuple(hubwire.SCOPE_POOLS) == hubwire.SCOPE_VALUES
+    assert dict(hubwire.SCOPE_POOLS) == {
+        "own": hubwire.POOL_SOLO,
+        "crew": hubwire.POOL_CREW,
+        "anyone": hubwire.POOL_GENERAL,
+    }
+
+
+@pytest.mark.parametrize("scope", ["own", "crew", "anyone"])
+def test_a_rides_model_is_served_from_the_hitchhike_pool_whatever_its_scope(
+    scope: str,
+) -> None:
+    ride = hubwire.rung_model(FIRST)
+
+    assert hubwire.serving_pool(scope, ride) == hubwire.POOL_HITCHHIKE
+    assert hubwire.serving_pool(scope, "coder-7b") == hubwire.SCOPE_POOLS[scope]
+    with pytest.raises(KeyError):
+        hubwire.serving_pool("everyone", "coder-7b")
 
 
 # --- which pool serves which use case -------------------------------------------
