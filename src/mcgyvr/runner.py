@@ -43,7 +43,13 @@ from mcgyvr.fleet.harness import (
     prometheus_totals,
     slots_in_flight,
 )
-from mcgyvr.hubwire import MODEL_NOT_FOUND, MODEL_UNPLACED, USE_CASE_HEADER
+from mcgyvr.hubwire import (
+    MODEL_NOT_FOUND,
+    MODEL_UNPLACED,
+    POOL_BUSY,
+    SCOPE_HEADER,
+    USE_CASE_HEADER,
+)
 from mcgyvr.local_pool import Endpoint, Protocol, SourceMap, UnknownRungError
 from mcgyvr.redact import safe_url
 from mcgyvr.weights import is_model
@@ -191,6 +197,11 @@ class BackendError(RunnerError):
 class ReliefUnavailableError(SlotUnavailableError):
     """A lent rung cannot take the request now, so it is passed over as full: it
     answered busy, or from another model than the one it was matched to."""
+
+
+class PoolBusyError(SlotUnavailableError):
+    """The hub has no slot in the pool serving the unit now: a crew busy with
+    its own work, so the unit is passed over as full rather than failed."""
 
 
 class ModelUnplacedError(SlotUnavailableError):
@@ -494,6 +505,13 @@ class Runner(ABC):
                 raise ReliefUnavailableError(
                     f"relief rung {self.endpoint.source!r} cannot take the "
                     f"request now: {exc}"
+                ) from exc
+            # The pool the hub serves the unit from is full: width unavailable,
+            # not a broken unit.
+            if (exc.status, exc.code) == POOL_BUSY:
+                raise PoolBusyError(
+                    f"unit {self.endpoint.source!r} is served from a pool with "
+                    f"no slot free now: {exc}"
                 ) from exc
             # The hub behind the rung cannot place its model right now: width
             # unavailable, not a broken rung.
@@ -849,15 +867,19 @@ def _sent_text(request: Request) -> str:
 def request_headers(endpoint: Endpoint) -> dict[str, str]:
     """The headers a chat request to `endpoint` is sent with: JSON, a bearer
     token when the endpoint's credential resolves to a key (an endpoint naming
-    no credential env sends none), and the setup's use case under
+    no credential env sends none), the setup's use case under
     `hubwire.USE_CASE_HEADER` when the endpoint carries one, so a hub can
-    refuse a use case its pool does not serve."""
+    refuse a use case its pool does not serve, and the unit's scope under
+    `hubwire.SCOPE_HEADER` when it carries one, so a hub serves the request
+    from that scope's pool."""
     headers = {"Content-Type": "application/json"}
     key = endpoint.credential()
     if key:
         headers["Authorization"] = f"Bearer {key}"
     if endpoint.use_case is not None:
         headers[USE_CASE_HEADER] = endpoint.use_case
+    if endpoint.scope is not None:
+        headers[SCOPE_HEADER] = endpoint.scope
     return headers
 
 

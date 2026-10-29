@@ -8,13 +8,14 @@ rungs below it are skipped, never spent, and escalation goes on upward from it.
 
 Triage and fan-out compose in that order: triage cuts the ladder to begin on
 the rung it picked, and fan-out then reads what is left, so `idle` and `full`
-may still start the climb on a free rung above the pick and never below it.
+may still start the climb on a free rung above the pick, never below it and
+never on a priced api rung.
 
 Triage never fails a contract. With no jev unit bound, with one that cannot be
 reached, or with a reply that cannot be read, the answer is a `Triage` that
 names no rung and says why, and the climb starts where it would have without
-triage. With `triage: none`, the default, nothing is asked and nothing is
-recorded.
+triage. With `triage: none` (unset is `jev` only under `mcgyvr-code` while a
+Jev unit is on), nothing is asked and nothing is recorded.
 
 Triage can also be decided ahead of time. `triage_ahead` asks jev about a set
 of contracts once, outside any run, and returns one record per contract; a

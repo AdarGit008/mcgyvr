@@ -123,7 +123,8 @@ class Endpoint:
     #: speak the engine's own API rather than the one path they share.
     relief: bool = False
     #: Whether this endpoint is a rung lent through a hub rather than one
-    #: of your own. A relief rung is never a step of the ladder.
+    #: of your own. A relief rung is a step of the ladder only where the
+    #: ladder names it.
     served_model: str | None = None
     #: What the host says its unit runs, for people to read; it is not what
     #: is asked for. On a relief rung it is what a reply's own model is
@@ -138,6 +139,10 @@ class Endpoint:
     #: The setup's use case, which every chat request names in the
     #: `mcgyvr.hubwire.USE_CASE_HEADER` header so a hub can refuse one its pool
     #: does not serve; `None` sends no header.
+    scope: str | None = None
+    #: Whose rigs may serve this endpoint's requests, the unit's `scope`, which
+    #: every chat request names in the `mcgyvr.hubwire.SCOPE_HEADER` header so a
+    #: hub serves it from that scope's pool; `None` sends no header.
 
     @property
     def requires_credential(self) -> bool:
@@ -525,7 +530,8 @@ def _endpoint(
 
     `width` replaces the slot count taken from the unit's own `width`, for a
     caller that knows how many requests the unit has to take at once.
-    `use_case` is the setup's, which every request to it names.
+    `use_case` is the setup's and the scope the unit's, which every request to
+    it names.
     """
     return Endpoint(
         source=unit.name,
@@ -544,6 +550,7 @@ def _endpoint(
         ),
         sampling=unit.sampling,
         use_case=use_case,
+        scope=unit.scope,
     )
 
 
