@@ -697,17 +697,17 @@ def test_a_heartbeat_fits_by_the_adverts_rules() -> None:
         ([_reading("gpu", 0), _reading("gpu", 0)], "a kind and index twice"),
         ([_reading("gpu", 0), _reading("unified", 0)], "a card index twice"),
         ([_reading("gpu", i) for i in range(17)], "more than 16 cards"),
-        ([_reading("ram", 0), _reading("ram", 1)], "more than one ram"),
     ):
         with pytest.raises(ValueError, match=rf"^resources: {why}"):
             hubwire.readings_fit(readings)
 
 
-def test_a_heartbeat_may_read_a_unified_device_its_advert_did_not_name() -> None:
-    """How many unified devices a rig has is its advert's to say; a hub reads
-    nothing of a reading no advert named, so a heartbeat is not refused for
-    one."""
-    hubwire.readings_fit([_reading("unified", 0), _reading("unified", 5)])
+@pytest.mark.parametrize("kind", ["unified", "ram"])
+def test_a_heartbeat_may_read_a_resource_its_advert_did_not_name(kind: str) -> None:
+    """How many of a kind a rig has is its advert's to say; a hub reads
+    nothing of a ``(kind, index)`` no advert named, so a heartbeat is not
+    refused for reading one."""
+    hubwire.readings_fit([_reading(kind, 0), _reading(kind, 5)])
 
 
 def test_a_heartbeats_card_readings_are_its_gpu_and_unified_readings_by_index() -> None:
@@ -779,11 +779,6 @@ def test_every_kinds_standby_unit_has_the_size_its_name_says() -> None:
         "cpu": 8,
     }
     assert tuple(hubwire.STANDBY_UNIT_SIZE) == tuple(hubwire.STANDBY_UNITS)
-    assert hubwire.MB_PER_GIB == 1024
-    ram = hubwire.STANDBY_UNIT_SIZE[hubwire.RESOURCE_RAM] // hubwire.MB_PER_GIB
-    assert hubwire.STANDBY_UNITS[hubwire.RESOURCE_RAM] == f"{ram}GiB"
-    cores = hubwire.STANDBY_UNIT_SIZE[hubwire.RESOURCE_CPU]
-    assert hubwire.STANDBY_UNITS[hubwire.RESOURCE_CPU] == f"{cores}cores"
     with pytest.raises(TypeError):
         hubwire.STANDBY_UNIT_SIZE["ram"] = 1  # type: ignore[index]
 

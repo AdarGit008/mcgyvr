@@ -32,7 +32,6 @@ def test_the_fitted_values_are_the_rules() -> None:
     assert set(hubwire.QUANT_CLASSES) == set(hubwire.DECODE_EFFICIENCY)
     assert set(hubwire.HIGH_BANDWIDTH_EFFICIENCY) == set(hubwire.DECODE_EFFICIENCY)
     assert (hubwire.BYTES_PER_DECIMAL_GB, hubwire.BYTES_PER_GIB) == (1e9, 1 << 30)
-    assert hubwire.MS_PER_S == 1000
     with pytest.raises(TypeError):
         hubwire.DECODE_EFFICIENCY["4bit"] = 1.0  # type: ignore[index]
 
@@ -78,14 +77,48 @@ def test_a_device_decodes_at_its_classs_share_capped_where_it_was_seen(
     assert hubwire.decode_efficiency(bandwidth, quant, vendor=vendor) == efficiency
 
 
-def test_the_vendor_is_the_fitted_one_unless_named() -> None:
-    assert hubwire.decode_efficiency(900.0, "Q4_0") == 0.40
+def test_the_vendor_is_always_named() -> None:
+    """No default: a hub that sees no vendor must say which it means."""
+    with pytest.raises(TypeError):
+        hubwire.decode_efficiency(900.0, "Q4_0")  # type: ignore[call-arg]
+    with pytest.raises(TypeError):
+        hubwire.decode_ms_per_gib(900.0, "Q4_0")  # type: ignore[call-arg]
+
+
+@pytest.mark.parametrize(
+    ("kind", "backend", "fitted"),
+    [
+        (hubwire.RESOURCE_UNIFIED, hubwire.BACKEND_METAL, True),
+        (hubwire.RESOURCE_UNIFIED, hubwire.BACKEND_VULKAN, False),
+        (hubwire.RESOURCE_GPU, hubwire.BACKEND_METAL, False),
+        (hubwire.RESOURCE_GPU, hubwire.BACKEND_CUDA, False),
+        (hubwire.RESOURCE_CPU, hubwire.BACKEND_CPU, False),
+        (hubwire.RESOURCE_RAM, hubwire.BACKEND_CPU, False),
+    ],
+)
+def test_a_device_is_of_the_fitted_vendor_only_as_a_unified_metal_device(
+    kind: str, backend: str, fitted: bool
+) -> None:
+    assert hubwire.fitted_on(kind, backend) is fitted
+
+
+def test_a_hub_caps_only_a_fitted_device_by_its_kind_and_backend() -> None:
+    """An invented 1000 GB/s unified Metal device takes the ceiling; an
+    invented 1000 GB/s CUDA card of the same bandwidth does not."""
+
+    def vendor(kind: str, backend: str) -> str:
+        return hubwire.FITTED_ON if hubwire.fitted_on(kind, backend) else backend
+
+    mac = vendor(hubwire.RESOURCE_UNIFIED, hubwire.BACKEND_METAL)
+    card = vendor(hubwire.RESOURCE_GPU, hubwire.BACKEND_CUDA)
+    assert hubwire.decode_efficiency(1000.0, "Q4_0", vendor=mac) == 0.40
+    assert hubwire.decode_efficiency(1000.0, "Q4_0", vendor=card) == 0.60
 
 
 def test_a_token_takes_a_gib_over_the_bandwidth_it_gets() -> None:
     """An invented 400 GB/s unified device at 4-bit: 0.60 of 400 GB/s reads a
     GiB in 4.47 ms; the bandwidth alone would read it in 2.68."""
-    ms = hubwire.decode_ms_per_gib(400.0, "Q4_K_M")
+    ms = hubwire.decode_ms_per_gib(400.0, "Q4_K_M", vendor=hubwire.FITTED_ON)
     assert ms is not None
     assert math.isclose(ms, 1000 * (1 << 30) / (0.60 * 400.0 * 1e9))
     assert round(ms, 2) == 4.47
@@ -109,7 +142,7 @@ def test_the_milliseconds_are_the_efficiencys_for_every_device(
     ms = hubwire.decode_ms_per_gib(bandwidth, quant, vendor=vendor)
     gb_per_gib = hubwire.BYTES_PER_GIB / hubwire.BYTES_PER_DECIMAL_GB
     assert ms is not None
-    assert math.isclose(ms, hubwire.MS_PER_S * gb_per_gib / (efficiency * bandwidth))
+    assert math.isclose(ms, 1000 * gb_per_gib / (efficiency * bandwidth))
 
 
 @pytest.mark.parametrize(
@@ -119,4 +152,4 @@ def test_the_milliseconds_are_the_efficiencys_for_every_device(
 def test_no_milliseconds_without_a_fitted_quantisation_or_a_bandwidth(
     bandwidth: float, quant: str
 ) -> None:
-    assert hubwire.decode_ms_per_gib(bandwidth, quant) is None
+    assert hubwire.decode_ms_per_gib(bandwidth, quant, vendor=hubwire.FITTED_ON) is None
