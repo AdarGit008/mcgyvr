@@ -403,6 +403,42 @@ def test_a_session_command_the_schema_refuses_is_refused(
         assert refused.value.code == "bad_message"
 
 
+def test_the_devices_a_head_start_names_are_the_wires_kinds(
+    schema: dict[str, Any],
+) -> None:
+    from mcgyvr import hubwire
+
+    assert hubwire.HEAD_DEVICE_KINDS == (
+        hubwire.HEAD_DEVICE_LOCAL,
+        hubwire.HEAD_DEVICE_RPC,
+        hubwire.HEAD_DEVICE_CPU,
+    )
+    assert hubwire.HEAD_DEVICE_KINDS == ("local", "rpc", "cpu")
+    devices = _props(schema, "HeadStartBody")["devices"]["items"]
+    assert set(devices["discriminator"]["mapping"]) == set(hubwire.HEAD_DEVICE_KINDS)
+    assert _props(schema, "CpuDevice")["kind"]["const"] == hubwire.HEAD_DEVICE_CPU
+
+
+def test_a_cpu_head_the_wire_names_is_refused_by_an_agent_that_starts_none(
+    schema: dict[str, Any],
+) -> None:
+    """The hub may name the head rig's own cores and memory as a device; this
+    agent starts no cpu head yet, so it refuses one rather than start a card."""
+    from mcgyvr import hubwire
+    from mcgyvr.rig import protocol as p
+
+    body = {
+        **_commands()[3]["body"],
+        "devices": [{"kind": hubwire.HEAD_DEVICE_CPU}],
+        "tensor_split": [1],
+    }
+    frame = {"type": "head_start", "body": body}
+    rig_schema.validate({"v": 1, "id": "c1", **frame}, schema, "#/$defs/HubMessage")
+    with pytest.raises(p.ProtocolError) as refused:
+        _read(frame)
+    assert refused.value.code == "bad_message"
+
+
 @pytest.mark.parametrize(
     "change",
     [
