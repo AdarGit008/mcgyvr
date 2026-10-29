@@ -61,12 +61,14 @@ def main() -> int:
         )
     # The payload travels on stdin: it carries the fetcher and the token,
     # which must not be readable in the host's process list (fetchlist.shipment).
-    system = (
-        gatelib.WINDOWS
-        if gatelib.shipping_os(host) == gatelib.WINDOWS
-        else gatelib.rig_system(host)
+    sent = fetchlist.shipment(
+        gatelib.shipping_os(host),
+        gatelib.rig_system(host),
+        wants,
+        hub,
+        token_env,
+        token,
     )
-    sent = fetchlist.shipment(system, wants, hub, token_env, token)
     try:
         # No timeout: the run ends when the files have been transferred,
         # however long that takes. A Linux rig's ssh is called as it always
