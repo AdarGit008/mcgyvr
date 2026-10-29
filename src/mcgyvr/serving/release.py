@@ -60,7 +60,9 @@ XATTR = "/usr/bin/xattr"
 QUARANTINE = "com.apple.quarantine"
 #: How long removing the attribute may take.
 XATTR_S = 60.0
-#: Bytes hashed per read.
+#: The variable a GitHub token is read from, when one is set.
+TOKEN_ENV = "GITHUB_TOKEN"
+#: Bytes copied per read.
 CHUNK = 1 << 20
 
 
@@ -233,8 +235,10 @@ def _fetch(release: Release, asset: Asset, downloads: Path) -> Path:
             "url": release.url(asset.name),
         },
         str(downloads),
-        "GITHUB_TOKEN",
-        None,
+        TOKEN_ENV,
+        # Release archives are public; a token, when set, only lifts GitHub's
+        # rate limit, and fetch_one never replays it to a redirect's host.
+        os.environ.get(TOKEN_ENV) or None,
     )
     if row.get("state") not in fetcher.GOOD:
         raise ReleaseError(
