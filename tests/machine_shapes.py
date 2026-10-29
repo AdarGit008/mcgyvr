@@ -1071,11 +1071,26 @@ def _host_root(machine: HostShape) -> Iterator[str]:
         yield root
 
 
+#: Where an invented Windows machine keeps nvidia-smi.exe, by its full path; the
+#: shipped reader's own search of these folders is run by tests.machinereader.
+_CARD_TOOL_PATHS: Mapping[str, str] = types.MappingProxyType(
+    {
+        "path": "C:\\Tools\\nvidia-smi.exe",
+        "system32": "C:\\Windows\\System32\\nvidia-smi.exe",
+        "nvsmi": "C:\\Program Files\\NVIDIA Corporation\\NVSMI\\nvidia-smi.exe",
+    }
+)
+
+
 @contextmanager
 def _host_tools(machine: HostShape) -> Iterator[None]:
     from mcgyvr.serving import rigscan
 
-    with mock.patch.object(rigscan, "_run", _host_run(machine)):
+    found = _CARD_TOOL_PATHS.get(machine.card_tool) if machine.tool_cards else None
+    with (
+        mock.patch.object(rigscan, "_run", _host_run(machine)),
+        mock.patch.object(rigscan, "_windows_nvidia_smi", lambda: found),
+    ):
         yield
 
 

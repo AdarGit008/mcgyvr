@@ -18,7 +18,7 @@ from typing import Any
 import pytest
 
 from mcgyvr import hubwire
-from tests.machine_shapes import HostShape, host_reading, host_shapes
+from tests.machine_shapes import Card, HostShape, host_reading, host_shape, host_shapes
 from tests.machinereader import Staged, run
 
 # until align/hubwire merges: the contract's names as the plan fixes them, read
@@ -124,3 +124,24 @@ def test_a_system_the_reader_has_no_branch_for_is_named_and_not_used(
     unread = {u["field"]: u["why"] for u in document["unread"]}
     assert "MCGYVR_TEST_MACHINE_OS" in unread["system"]
     assert document["host"]["os"] == "linux"
+
+
+def test_a_card_read_as_no_memory_keeps_its_number_and_is_no_resource() -> None:
+    """The wire takes no card resource of 0 MiB: such a card stays in the card
+    list, numbered, and the cards after it keep the report's numbers."""
+    from mcgyvr.rig import hardware
+
+    empty = Card(index=0, name="Example Card Z", vendor="vendor-a", total_mib=0)
+    sized = Card(index=1, name="Example Card A", vendor="vendor-a", total_mib=8192)
+    machine = dataclasses.replace(host_shape("linux-one-card"), cards=(empty, sized))
+    document = host_reading(machine)
+    assert [c["total_mib"] for c in document["cards"]] == [0, 8192]
+    cards = [r for r in document["resources"] if r["kind"] == "gpu"]
+    assert [(r["index"], r["total_mb"]) for r in cards] == [(1, 8192)]
+    for resource in document["resources"]:
+        _takes(resource)
+    report = hardware.read(reader=lambda: document)
+    assert [c.vram_total_mb for c in report.cards] == [0, 8192]
+    assert [
+        (r["index"], r["name"]) for r in report.resources if r["kind"] == "gpu"
+    ] == [(1, report.cards[1].name)]

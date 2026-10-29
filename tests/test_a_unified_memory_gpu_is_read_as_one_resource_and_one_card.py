@@ -47,7 +47,7 @@ def test_the_gpu_is_one_unified_resource_and_one_card(machine: HostShape) -> Non
     assert resource["free_mb"] == card["free_mib"]
     assert card["free_mib"] == min(machine.unified_mib, machine.available_mib)
     assert resource["figure"] == card["figure"] == "estimate"
-    assert card["shared_with_ram"] is True
+    assert "shared_with_ram" not in card and "shared_with_ram" not in resource
     assert resource["backend"] == card["backend"] == "metal"
     assert card["kind"] == "unified"
     assert card["name"] == f"{machine.chip} GPU"
@@ -111,18 +111,12 @@ def test_detection_and_the_scan_carry_the_unified_gpu(machine: HostShape) -> Non
     found = host_detection(machine)
     (gpu,) = found.gpus
     assert gpu.unified and gpu.vram_gb == round(machine.unified_mib / 1024, 1)
-    assert found.unified_gb == gpu.vram_gb
     assert found.host is not None and found.host.os == "darwin"
     assert found.provenance["ram_gb"].startswith("sysctl hw.memsize")
 
     measured = host_scan(machine)
     (card,) = measured.gpus
-    assert (card.kind, card.backend, card.shared_with_ram, card.figure) == (
-        "unified",
-        "metal",
-        True,
-        "estimate",
-    )
+    assert (card.kind, card.backend, card.figure) == ("unified", "metal", "estimate")
     assert card.vram.total_mib == machine.unified_mib
     assert measured.gpus_determined
     assert measured.memory is not None and measured.memory.available_gb is not None

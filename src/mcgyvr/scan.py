@@ -213,11 +213,10 @@ class Gpu:
 
     ``kind`` is ``gpu`` for a card with its own memory and ``unified`` for a GPU
     that shares the machine's memory (a Mac's), whose ``vram`` is the share the
-    GPU may take, an estimate; ``shared_with_ram`` says the same of the memory.
-    ``backend`` is the llama.cpp build it runs under (``cuda``, ``metal``,
-    ``vulkan``, ``rocm``), and ``figure`` says whether ``vram`` is the card's
-    own ``reading`` or an ``estimate``. A reading from before these fields
-    reads as a CUDA card's reading.
+    GPU may take. ``backend`` is the llama.cpp build it runs under (``cuda``,
+    ``metal``, ``vulkan``, ``rocm``), and ``figure`` says whether ``vram`` is
+    the card's own ``reading`` or an ``estimate``. A reading from before these
+    fields reads as a CUDA card's reading.
     """
 
     index: int
@@ -225,7 +224,6 @@ class Gpu:
     vram: Vram
     kind: str = "gpu"
     backend: str = "cuda"
-    shared_with_ram: bool = False
     figure: str = "reading"
 
 
@@ -398,7 +396,6 @@ class Scan:
                     },
                     "kind": gpu.kind,
                     "backend": gpu.backend,
-                    "shared_with_ram": gpu.shared_with_ram,
                     "figure": gpu.figure,
                 }
                 for gpu in self.gpus
@@ -511,11 +508,10 @@ class Scan:
                         # reading that omits it has nothing to report.
                         reserved_mib=int(gpu["vram"].get("reserved_mib", 0)),
                     ),
-                    # kind, backend and shared_with_ram arrived with the Mac and
+                    # kind, backend and figure arrived with the Mac and
                     # Windows readers: a reading that omits them is of a CUDA card.
                     kind=str(gpu.get("kind") or "gpu"),
                     backend=str(gpu.get("backend") or "cuda"),
-                    shared_with_ram=gpu.get("shared_with_ram") is True,
                     figure=str(gpu.get("figure") or "reading"),
                 )
                 for gpu in raw.get("gpus") or ()

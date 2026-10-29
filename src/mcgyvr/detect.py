@@ -214,9 +214,6 @@ class Detection:
     swept: tuple[ProbeTarget, ...] = ()
     #: The system the reading was taken on; None when the reading had none.
     host: Host | None = None
-    #: The memory a unified-memory GPU may take, in GB (its Gpu's figure says
-    #: whether that is an estimate); None on a machine without one.
-    unified_gb: float | None = None
 
     def backend(self, name: str) -> Backend | None:
         return next((b for b in self.backends if b.name == name), None)
@@ -567,5 +564,4 @@ def detect(
         notes=tuple(notes),
         swept=tuple(targets),
         host=Host.from_reading(reading.get("host")),
-        unified_gb=next((gpu.vram_gb for gpu in gpus if gpu.unified), None),
     )

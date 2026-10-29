@@ -14,7 +14,9 @@ from __future__ import annotations
 
 import base64
 import json
+import os
 from pathlib import Path
+from typing import Any
 
 import pytest
 
@@ -116,7 +118,7 @@ def test_the_cpu_and_host_are_read_from_cim(machine: HostShape) -> None:
     }
     found = host_detection(machine)
     assert found.host is not None and found.host.os == "windows"
-    assert found.unified_gb is None
+    assert not any(gpu.unified for gpu in found.gpus)
 
 
 def test_the_one_powershell_call_is_cim_and_never_wmic() -> None:
@@ -139,3 +141,42 @@ def test_the_one_powershell_call_is_cim_and_never_wmic() -> None:
     ):
         assert f"Get-CimInstance {name}" in script
     assert "AdapterRAM" not in script
+
+
+def test_a_card_tool_left_in_the_working_folder_is_never_run(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """Windows' which() looks in the working folder first, so the reader never
+    calls nvidia-smi by bare name: with the tool in no folder named in full, it
+    asks no card tool at all, and the adapter stays unsized."""
+    from mcgyvr.serving import rigscan
+    from tests import machine_shapes
+
+    here = tmp_path / "working"
+    here.mkdir()
+    for planted in ("nvidia-smi.exe", "nvidia-smi.bat", "nvidia-smi"):
+        (here / planted).write_text("planted", encoding="utf-8")
+    monkeypatch.chdir(here)
+    monkeypatch.setenv("PATH", os.pathsep.join(["", ".", "bin"]))
+    for variable in ("SYSTEMROOT", "PROGRAMW6432", "PROGRAMFILES"):
+        monkeypatch.setenv(variable, str(tmp_path / "empty"))
+    assert rigscan._windows_nvidia_smi() is None
+
+    asked: list[tuple[str, ...]] = []
+    serve = machine_shapes._host_run
+
+    def recording(machine: HostShape) -> Any:
+        run_tool = serve(machine)
+
+        def run(argv: Any, *, bound: float = 0.0) -> Any:
+            asked.append(tuple(argv))
+            return run_tool(argv, bound=bound)
+
+        return run
+
+    monkeypatch.setattr(machine_shapes, "_host_run", recording)
+    machine = host_shape("windows-other-gpu")
+    document = host_reading(machine)
+    host_scan(machine)
+    assert asked and not [argv for argv in asked if "nvidia-smi" in argv[0]]
+    assert document["unsized"] == ["card.amd.0"]

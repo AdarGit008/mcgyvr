@@ -917,7 +917,9 @@ class _Platform:
 
     def run(self, argv: Sequence[str]) -> tuple[str | None, str | None]:
         key = tuple(argv)
-        said = self._said if not self.keep or key[0] not in _STATIC else _KEPT
+        # The GPU's wired cap is a setting a user changes at run time: asked anew.
+        kept = key[0] in _STATIC and SYSCTL_WIRED_LIMIT not in key
+        said = _KEPT if self.keep and kept else self._said
         if key not in said:
             called = key
             if self.system == "windows" and key[0] in ("reg", "powershell"):
@@ -1259,7 +1261,6 @@ def _apple_gpu(
             **card,
             "kind": "unified",
             "backend": "metal",
-            "shared_with_ram": True,
             "figure": "estimate",
             "how": how,
             "gpu_cores": _gpu_cores(reading, platform_, key),
@@ -1268,10 +1269,11 @@ def _apple_gpu(
     reading.sources.append(SYSCTL)
 
 
-def _windows_nvidia_smi() -> str:
+def _windows_nvidia_smi() -> str | None:
     """nvidia-smi.exe by its full path: in a PATH folder named in full, else the
-    first NVIDIA_SMI_DIRS folder holding it, else by name (which reads as not
-    installed). The working folder is never looked in."""
+    first NVIDIA_SMI_DIRS folder holding it, else None, and nothing is run. It is
+    never called by bare name: Windows' which() would look in the working folder
+    first, where anyone may leave an nvidia-smi.bat."""
     folders = [
         d for d in os.environ.get("PATH", "").split(os.pathsep) if os.path.isabs(d)
     ]
@@ -1281,7 +1283,7 @@ def _windows_nvidia_smi() -> str:
     for folder in folders:
         if os.path.isfile(os.path.join(folder, NVIDIA_SMI_EXE)):
             return os.path.join(folder, NVIDIA_SMI_EXE)
-    return FIRST_TOOL
+    return None
 
 
 def _windows_adapters(
@@ -1469,13 +1471,18 @@ def _resources(
 ) -> list[dict[str, Any]]:
     """The machine's resources in the hub's contract: each sized card (`gpu` or
     `unified`, numbered per kind in the reading's order, as a hardware report
-    numbers its cards), host RAM, and the CPU's logical cores. A unified device
-    shares host RAM by its kind alone. Bandwidth is not read here, so it and its
-    figure are None."""
+    numbers its cards), host RAM, and the CPU's logical cores. A card that read as
+    0 MiB keeps its number but is no resource, as the wire takes none that small.
+    A unified device shares host RAM by its kind alone. Bandwidth is not read
+    here, so it and its figure are None."""
     found: list[dict[str, Any]] = []
+    numbered: dict[str, int] = {}
 
     def add(kind: str, name: str, **fields: Any) -> None:
-        index = sum(1 for r in found if r["kind"] == kind)
+        index = numbered.get(kind, 0)
+        numbered[kind] = index + 1
+        if kind in ("gpu", "unified") and not fields["total_mb"]:
+            return
         found.append(
             {
                 "kind": kind,
@@ -1528,13 +1535,14 @@ class _Short:
         memory, self.memory_facts, memory_notes, memory_mib = _memory(
             root, bound, platform_
         )
-        self.first_tool = FIRST_TOOL
+        self.first_tool: str | None = FIRST_TOOL
         self.rows: list[dict[str, Any]] = []
         if self.system == "darwin":
             _apple_gpu(reading, platform_, memory_mib, self.notes)
         elif self.system == "windows":
             self.first_tool = _windows_nvidia_smi()
-            self.rows = _first_tool(reading, bound, self.first_tool)
+            if self.first_tool is not None:
+                self.rows = _first_tool(reading, bound, self.first_tool)
             _windows_adapters(reading, platform_, self.notes)
         else:
             self.rows = _first_tool(reading, bound)
@@ -1663,7 +1671,6 @@ def _gpus(
                 },
                 "kind": card.get("kind", "gpu"),
                 "backend": card.get("backend", "cuda"),
-                "shared_with_ram": card.get("shared_with_ram") is True,
                 "figure": card.get("figure", "reading"),
             }
         )
@@ -2109,7 +2116,7 @@ def _snapshot_cards(
     snapshot: _Snapshot,
     cards: list[dict[str, Any]],
     bound: float,
-    tool: str = FIRST_TOOL,
+    tool: str | None = FIRST_TOOL,
 ) -> None:
     """Fill the GPU keys of the snapshot from the first NVIDIA card.
 
@@ -2122,6 +2129,10 @@ def _snapshot_cards(
     nvidia = sorted(
         (c for c in cards if c["vendor"] == "nvidia"), key=lambda c: c["index"]
     )
+    if tool is None:
+        for key in SNAPSHOT_CARD_KEYS:
+            snapshot.put(key, None, "the GPU state is unread: no nvidia-smi.exe")
+        return
     text, why = _run(
         (tool, f"--query-gpu={SNAPSHOT_QUERY}", "--format=csv,noheader,nounits"),
         bound=bound,
@@ -2207,7 +2218,7 @@ def _snapshot(
     cards: list[dict[str, Any]],
     docker: str | None,
     docker_why: str | None,
-    tool: str = FIRST_TOOL,
+    tool: str | None = FIRST_TOOL,
     system: str = "linux",
 ) -> _Snapshot:
     snapshot = _Snapshot()
