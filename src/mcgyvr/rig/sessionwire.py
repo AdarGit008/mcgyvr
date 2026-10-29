@@ -549,8 +549,14 @@ def read_head_start(envelope: protocol.Envelope) -> HeadStart:
     devices: list[LocalDevice | RpcDevice] = []
     for item in body.items("devices", 1, MAX_DEVICES):
         device = body.nested("devices", item)
-        kind = device.one_of("kind", ("local", "rpc"))
-        if kind == "local":
+        kind = device.one_of("kind", hubwire.HEAD_DEVICE_KINDS)
+        if kind == hubwire.HEAD_DEVICE_CPU:
+            raise ProtocolError(
+                SessionCode.NOT_CAPABLE,
+                "devices: this agent starts no cpu head yet",
+                envelope.id,
+            )
+        if kind == hubwire.HEAD_DEVICE_LOCAL:
             devices.append(
                 LocalDevice(
                     card_index=device.number("card_index", 0, protocol.MAX_CARD_INDEX)

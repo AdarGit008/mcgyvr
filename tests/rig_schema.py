@@ -208,6 +208,13 @@ def _check(instance: Any, node: dict[str, Any], root: dict[str, Any], at: str) -
         elif key == "maxItems":
             if isinstance(instance, list) and len(instance) > value:
                 fail(f"more than {value} items")
+        elif key == "uniqueItems":
+            if value is True and isinstance(instance, list):
+                seen = [json.dumps(item, sort_keys=True) for item in instance]
+                if len(set(seen)) != len(seen):
+                    fail("an item twice")
+            elif value is not True:
+                fail("uniqueItems other than true is not read here")
         elif key == "minItems":
             if isinstance(instance, list) and len(instance) < value:
                 fail(f"fewer than {value} items")
