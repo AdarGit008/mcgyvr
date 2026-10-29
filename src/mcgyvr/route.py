@@ -22,8 +22,9 @@ family, a family that declined throughout, a plan with no rung, and a climb
 whose budget the caller withheld are four different facts about an install, and
 are told apart here rather than by reading a sentence.
 
-Fan-out chooses where inside a family a climb starts and nothing else: ``idle``
-and ``full`` take the first rung that has a free slot rather than the first rung,
+Fan-out chooses where inside a family a climb starts and nothing else: outside
+the api family, ``idle`` and ``full`` take the first rung that has a free slot
+rather than the first rung,
 a ``claimed`` rung is taken first because the caller already holds its slot, and
 no mode reorders a plan or spends fewer attempts than ``none`` would.
 """
@@ -94,6 +95,8 @@ class Fanout(StrEnum):
     one family they are the same rule, and what separates them is reach, which
     is :mod:`mcgyvr.escalate`'s. Neither reorders a plan: a climb that starts
     higher still walks the rungs it passed over, so the spend is unchanged.
+    Neither reaches a priced api rung: an api plan is climbed under
+    ``NONE``, and only escalation enters the api family.
     """
 
     NONE = "none"
@@ -245,7 +248,8 @@ class Plan(Planned):
     fan-out only chooses where a climb starts. ``reason`` is the sentence a plan
     with no steps carries for why it has none, and ``fanout`` is the mode the
     config declared, recorded here so that :func:`climb` need not read the
-    config back. ``bool`` and ``len`` both count steps, so a plan is falsy
+    config back; an api plan with rungs records ``NONE``, since fan-out never
+    chooses a priced rung. ``bool`` and ``len`` both count steps, so a plan is falsy
     exactly when it has nothing to run, and not when it has nothing to climb.
     """
 
@@ -581,7 +585,16 @@ def plan(
         )
         for rung in rungs
     )
-    return Plan(family=chosen, steps=steps, fanout=mode)
+    # Fan-out has no say inside the api family: a climb that reaches it
+    # takes its priced rungs in ladder order, never a dearer free one first.
+    return Plan(
+        family=chosen, steps=steps, fanout=Fanout.NONE if priced(chosen) else mode
+    )
+
+
+def priced(family: Family) -> bool:
+    """Whether `family` is the api one, whose rungs need a credential and cost."""
+    return family.name == "api"
 
 
 def fanout_of(config: Config) -> Fanout:

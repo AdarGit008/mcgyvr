@@ -898,7 +898,8 @@ def test_a_plan_carries_the_configured_fanout_mode() -> None:
     default, default_pool = mapped(KEYLESS)
     spread, spread_pool = mapped(with_fanout(KEYLESS, "full"))
 
-    assert plan(default, default_pool, contract()).fanout is Fanout.NONE
+    # Unset under mcgyvr-code, the default use case, is `idle` (#807).
+    assert plan(default, default_pool, contract()).fanout is Fanout.IDLE
     assert plan(spread, spread_pool, contract()).fanout is Fanout.FULL
 
 
@@ -1271,16 +1272,16 @@ def test_full_fanout_never_buys_an_api_rung_that_the_default_would_refuse(
 
     ``full`` is a throughput knob. It picks which rung of one family goes
     first, and there is no arrangement of load under which that may end in a
-    priced dispatch — only ``idle`` may reach an api rung, and only by deciding
-    to, one module up.
+    priced dispatch — no fan-out mode reaches an api rung; only escalation
+    does, and only a failure pays for it.
 
     It could, and the route was arithmetic rather than routing.
     :func:`mcgyvr.escalate.escalate` charges an escalation per rung that has
     actually been *spent*, so a climb that dropped the rungs below its start
     ran out of local ladder while still holding a move it had not paid for —
     and that leftover move bought ``api_big``. The same ladder under ``none``
-    spends both local rungs and is refused at the ceiling. A knob nobody set to
-    a spend mode must not be able to spend, so the two modes are asserted
+    spends both local rungs and is refused at the ceiling. A knob that only
+    orders a climb must not be able to spend, so the two modes are asserted
     against each other rather than against a literal: the assertion is that
     turning the knob changed the *order* of the climb and nothing about its
     cost. The ceiling is stated, one move, because the defect is in how a

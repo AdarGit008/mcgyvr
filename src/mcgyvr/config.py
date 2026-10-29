@@ -939,9 +939,14 @@ SCHEMA: tuple[Field, ...] = (
     Field(
         "fanout",
         "enum",
-        "Whether a batch of contracts spreads across units or queues on one.",
-        default="none",
+        "Whether a batch of contracts spreads across units or queues on one. "
+        "Unset is `idle` under `use_case: mcgyvr-code` and `none` under a raw "
+        "use case; a stated value wins. Fan-out spreads work over your own "
+        "rungs and, under `idle`, a relief rung whose host reads your prompts "
+        "when your own rungs are full. It never sends a contract to a priced "
+        "api rung: only escalation climbs there, in ladder order.",
         choices=FANOUT_CHOICES,
+        bind_hint="name one of `none`, `idle`, `full`, or leave it to the use case",
     ),
     Field(
         "triage",
@@ -953,12 +958,16 @@ SCHEMA: tuple[Field, ...] = (
         "do the job. The climb starts there; the rungs below it are skipped, "
         "not spent, and escalation goes on upward as before. `fanout` may then "
         "still start the climb on a higher rung with a free slot, never a "
-        "lower one. With no jev unit bound, or one that cannot be asked or "
+        "lower one and never a priced api rung. With no jev unit bound, or one "
+        "that cannot be asked or "
         "read, the climb starts on the first rung and the run result's "
         "`triage` says why. A contract that states a `start_rung`, decided "
-        "ahead of time, starts there under either value and jev is not asked.",
-        default="none",
+        "ahead of time, starts there under either value and jev is not asked. "
+        "Unset is `jev` under `use_case: mcgyvr-code` while a Jev unit is bound "
+        "and `jev.enabled` is on, and `none` otherwise; a stated value wins. "
+        "Each contract then waits for one Jev answer before its climb starts.",
         choices=TRIAGE_CHOICES,
+        bind_hint="name `none` or `jev`, or leave it to the use case and Jev",
     ),
     Field(
         "dependents",
@@ -1243,8 +1252,10 @@ SCHEMA: tuple[Field, ...] = (
         "Written whole to `relief.yaml` by `mcgyvr rig rungs sync`, and by "
         "nothing else. A relief rung the ladder does not name is never a step "
         "of it: under `fanout: idle` it takes work only when your own rung is "
-        "full, ahead of a priced api rung, and no escalation climbs to it. A "
-        "ladder step or a role may name one. Its host can read your prompts.",
+        "full, and no escalation climbs to it. A ladder step or a role may name "
+        "one. When it is full too, the contract waits on your own ladder; "
+        "fan-out never sends it to a priced api rung. Its host can read your "
+        "prompts.",
         block=RELIEF_FIELDS,
     ),
 )
@@ -1350,6 +1361,8 @@ class Ladder:
     placed under."""
 
     names: tuple[str, ...]
+    # Only a hand-built ladder (a placeholder with no setup) takes this; a
+    # loaded one carries the use case's decision (`_use_case_defaults`).
     fanout: str = "none"
 
     def get(self, name: str) -> str | None:
@@ -1594,7 +1607,8 @@ SWITCHES: tuple[Switch, ...] = (
         "triage",
         ("triage",),
         "`none`",
-        "Jev picks the rung a climb starts on",
+        "Jev picks the rung a climb starts on (on while Jev is on)",
+        stage="triage",
     ),
     Switch(
         "retry notes",
@@ -1613,7 +1627,9 @@ SWITCHES: tuple[Switch, ...] = (
         "fan-out",
         ("fanout",),
         "`none`",
-        "a batch spreads across units with free slots",
+        "a batch takes own rungs with free slots (`idle`), relief ones too, "
+        "never a priced api rung",
+        stage="fanout",
     ),
     Switch(
         "gate",
@@ -1711,6 +1727,8 @@ def stages(config: Config) -> dict[str, bool]:
         > 0,
         "inferred_edges": config.get("infer_dependencies") is not False,
         "same_file": config.get("same_file", "wait") == "wait",
+        "fanout": config.ladder.fanout != "none",
+        "triage": config.get("triage") == "jev" and config.jev_on,
     }
     return {name: on[name] for name in STAGE_NAMES}
 
@@ -2284,6 +2302,7 @@ def _build(
         )
         for name, block in data["relief"].items()
     }
+    data = _use_case_defaults(data)
     # A relief rung a ladder step or a role names is a unit of the dispatch,
     # and one the ladder names is a step, no longer ridden as relief.
     bound = {*data["ladder"], *(data[role].get("unit") for role in _ROLE_BLOCKS)}
@@ -2298,6 +2317,23 @@ def _build(
         declared=declared,
         relief=ridden,
     )
+
+
+def _use_case_defaults(data: dict[str, Any]) -> dict[str, Any]:
+    """`data` with an unset `fanout` and `triage` decided by the use case.
+
+    Under `mcgyvr-code` fan-out is `idle` and triage is `jev` while a Jev unit
+    is bound and on; under a raw use case both are `none`. A stated value is
+    kept, and `declared` never holds a value decided here.
+    """
+    gated = (data.get("use_case") or MCGYVR_CODE) == MCGYVR_CODE
+    jev = data.get("jev") or {}
+    jev_on = bool(jev.get("unit")) and jev.get("enabled") is not False
+    if data.get("fanout") is None:
+        data = {**data, "fanout": "idle" if gated else "none"}
+    if data.get("triage") is None:
+        data = {**data, "triage": "jev" if gated and jev_on else "none"}
+    return data
 
 
 def _cross_validate_fleet(data: Mapping[str, Any]) -> None:
