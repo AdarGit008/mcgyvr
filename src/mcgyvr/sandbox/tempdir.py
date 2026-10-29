@@ -13,13 +13,13 @@ from __future__ import annotations
 
 import contextlib
 import os
-import signal
 import subprocess
 import tempfile
 from collections.abc import Mapping, Sequence
 from pathlib import Path
 from typing import IO, ClassVar
 
+from mcgyvr import hostos
 from mcgyvr.sandbox.base import (
     TIMEOUT_EXIT,
     CommandResult,
@@ -125,7 +125,7 @@ class TempDirSandbox(Sandbox):
                     stdin=subprocess.DEVNULL,
                     stdout=out,
                     stderr=err,
-                    start_new_session=True,
+                    **hostos.popen_group_kwargs(),
                 )
             except OSError as unrunnable:
                 # The program could not be spawned at all — not found, or found
@@ -169,7 +169,7 @@ def _kill_session(proc: subprocess.Popen[bytes]) -> None:
     is left behind.
     """
     with contextlib.suppress(ProcessLookupError, PermissionError):
-        os.killpg(proc.pid, signal.SIGKILL)
+        hostos.kill_group(proc)
     proc.wait()
 
 

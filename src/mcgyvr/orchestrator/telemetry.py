@@ -26,7 +26,6 @@ vocabulary.
 
 from __future__ import annotations
 
-import fcntl
 import json
 import os
 from collections.abc import Iterable, Mapping
@@ -35,6 +34,8 @@ from dataclasses import field as dataclass_field
 from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any
+
+from mcgyvr import hostos
 
 #: Labels a lettered candidate list may use, by position: upper-case letters,
 #: then lower-case, then digits. This is the same 62-label alphabet
@@ -284,12 +285,12 @@ def _append_line(path: Path, record: DecisionRecord) -> None:
     line = (json.dumps(record.to_dict()) + "\n").encode("utf-8")
     fd = os.open(path, os.O_RDWR | os.O_CREAT | os.O_APPEND, 0o666)
     try:
-        fcntl.flock(fd, fcntl.LOCK_EX)
+        hostos.lock(fd)
         try:
             _terminate_stump(fd)
             _write_all(fd, line)
         finally:
-            fcntl.flock(fd, fcntl.LOCK_UN)
+            hostos.unlock(fd)
     finally:
         os.close(fd)
 

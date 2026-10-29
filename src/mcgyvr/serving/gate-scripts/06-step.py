@@ -26,6 +26,7 @@ import sys
 import time
 import types
 
+from mcgyvr import hostos
 from mcgyvr.serving.gatelib import door_required, need, root
 
 #: How long a signalled step is given to run its own INT/TERM trap and exit
@@ -47,7 +48,7 @@ def _run(argv: list[str]) -> int:
     running: once a signal is forwarded and GRACE_S has passed, the group is
     SIGKILLed so the wait ends even if the step's trap never does.
     """
-    step = subprocess.Popen(argv, cwd=root(), start_new_session=True)
+    step = subprocess.Popen(argv, cwd=root(), **hostos.popen_group_kwargs())
     signalled: list[float] = []
 
     def forward(signum: int, _frame: types.FrameType | None) -> None:
@@ -55,7 +56,7 @@ def _run(argv: list[str]) -> int:
             return
         signalled.append(time.monotonic() + GRACE_S)
         with contextlib.suppress(ProcessLookupError):
-            os.killpg(step.pid, signum)
+            hostos.signal_group(step, signum)
 
     for sig in FORWARDED:
         signal.signal(sig, forward)
@@ -66,12 +67,12 @@ def _run(argv: list[str]) -> int:
         except subprocess.TimeoutExpired:
             if signalled and time.monotonic() > signalled[0]:
                 with contextlib.suppress(ProcessLookupError):
-                    os.killpg(step.pid, signal.SIGKILL)
+                    hostos.kill_group(step)
     if signalled:
         # The step exited under a signal; kill its group too, so nothing it
         # started is still running when gate 7 re-reads the rig.
         with contextlib.suppress(ProcessLookupError):
-            os.killpg(step.pid, signal.SIGKILL)
+            hostos.kill_group(step)
     return status
 
 

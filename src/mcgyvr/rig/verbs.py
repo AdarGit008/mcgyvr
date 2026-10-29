@@ -23,6 +23,7 @@ from pathlib import Path
 from types import FrameType
 from typing import TYPE_CHECKING
 
+from mcgyvr import hostos
 from mcgyvr.exits import Exit
 
 if TYPE_CHECKING:
@@ -218,7 +219,9 @@ def run_agent(kept: Credentials, config: Path | None = None) -> int:
             held[folder] = inventory.read(folder)
         return held[folder]
 
-    uid, gid = os.getuid(), os.getgid()
+    # Windows has no uid: it is taken as root's, so the pooled owner is nobody
+    # and no rpc cache is kept, as for an agent run by root.
+    uid, gid = hostos.posix_ids() or (0, 0)
     owner = pooled.Owner(
         uid=uid or NOBODY, gid=gid if uid else NOBODY, agent_pid=os.getpid()
     )
@@ -336,9 +339,7 @@ def run_agent(kept: Credentials, config: Path | None = None) -> int:
         )
     for note in share.notes:
         print(f"note: {note}", file=sys.stderr)
-    previous = {
-        sig: signal.signal(sig, stop) for sig in (signal.SIGTERM, signal.SIGHUP)
-    }
+    previous = {sig: signal.signal(sig, stop) for sig in hostos.stop_signals()}
     units.run_ticker()
     try:
         ended = running.run()

@@ -21,7 +21,6 @@ carrying credentials is what a model endpoint tends to look like."""
 
 from __future__ import annotations
 
-import fcntl
 import hashlib
 import json
 import math
@@ -30,7 +29,7 @@ import time
 from pathlib import Path
 from typing import TYPE_CHECKING, Any
 
-from mcgyvr import atomic
+from mcgyvr import atomic, hostos
 from mcgyvr.redact import scrub
 from mcgyvr.runner import Completion
 
@@ -659,12 +658,12 @@ def _append_line(path: Path, line: bytes) -> None:
     path.parent.mkdir(parents=True, exist_ok=True)
     fd = os.open(path, os.O_RDWR | os.O_CREAT | os.O_APPEND, 0o666)
     try:
-        fcntl.flock(fd, fcntl.LOCK_EX)
+        hostos.lock(fd)
         try:
             _terminate_stump(fd)
             _write_all(fd, line)
         finally:
-            fcntl.flock(fd, fcntl.LOCK_UN)
+            hostos.unlock(fd)
     finally:
         os.close(fd)
 

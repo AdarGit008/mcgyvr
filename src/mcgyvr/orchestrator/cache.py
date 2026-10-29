@@ -23,14 +23,13 @@ from __future__ import annotations
 
 import hashlib
 import json
-import os
 import re
 import time
 from dataclasses import dataclass, replace
 from pathlib import Path
 from typing import Any
 
-from mcgyvr import atomic
+from mcgyvr import atomic, hostos
 from mcgyvr.orchestrator.index import (
     DEFAULT_MAX_FILE_BYTES,
     FileIndex,
@@ -137,11 +136,10 @@ class _Entry:
 
 
 def cache_dir() -> Path:
-    """The directory holding every cache file: $XDG_CACHE_HOME/mcgyvr/index,
-    or ~/.cache/mcgyvr/index when that variable is unset or empty."""
-    xdg = os.environ.get("XDG_CACHE_HOME")
-    base = Path(xdg).expanduser() if xdg else Path.home() / ".cache"
-    return base / "mcgyvr" / "index"
+    """The directory holding every cache file: ``index`` in mcgyvr's cache folder,
+    ``$XDG_CACHE_HOME/mcgyvr/index``, else ``~/.cache/mcgyvr/index`` on Linux and
+    the system's own cache folder elsewhere (:func:`mcgyvr.hostos.user_dirs`)."""
+    return hostos.user_dirs().cache / "index"
 
 
 def cache_path(root: Path, *, directory: Path | None = None) -> Path:

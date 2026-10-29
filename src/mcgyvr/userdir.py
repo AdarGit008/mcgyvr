@@ -13,14 +13,19 @@ import stat
 import tempfile
 from pathlib import Path
 
+from mcgyvr import hostos
+
 
 def user_tempdir(purpose: str) -> Path:
     """``<tmp>/mcgyvr-<purpose>-<uid>``: one directory per purpose and per user.
 
+    ``<uid>`` is :func:`mcgyvr.hostos.current_user_id`: the uid on POSIX, the
+    login name on Windows.
+
     The temporary directory is looked up on every call, so a test that points
     ``tempfile.tempdir`` somewhere else moves every such directory with it.
     """
-    return Path(tempfile.gettempdir()) / f"mcgyvr-{purpose}-{os.getuid()}"
+    return Path(tempfile.gettempdir()) / f"mcgyvr-{purpose}-{hostos.current_user_id()}"
 
 
 def owned_outright(where: Path) -> bool:
@@ -37,9 +42,9 @@ def owned_outright(where: Path) -> bool:
         return False
     if not stat.S_ISDIR(found.st_mode):
         return False
-    if found.st_uid != os.getuid():
+    if not hostos.owned_by_current_user(found):
         return False
-    return not found.st_mode & (stat.S_IWGRP | stat.S_IWOTH)
+    return not hostos.others_mode_bits(found, stat.S_IWGRP | stat.S_IWOTH)
 
 
 def private_dir(where: Path, *, make: bool) -> Path | None:

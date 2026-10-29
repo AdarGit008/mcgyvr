@@ -21,6 +21,7 @@ from concurrent.futures import ThreadPoolExecutor
 from pathlib import Path
 from typing import TYPE_CHECKING, Any
 
+from mcgyvr import hostos
 from mcgyvr import recommend as recommend_module
 from mcgyvr import scan as scan_module
 from mcgyvr.capability import (
@@ -463,21 +464,12 @@ def _shell_rc(shell: str | None, home: Path | None = None) -> Path | None:
     """Answer the rc file a shell reads at startup, or None for no or unknown shell.
 
     bash, zsh, sh/dash and fish each have their file under `home`, which
-    defaults to the user's home directory.
+    defaults to the user's home directory (:func:`mcgyvr.hostos.shell_rc_file`,
+    which names zsh's on macOS when no shell is named). A PowerShell profile is
+    None here: it takes a PATH line of its own, not the export this offers.
     """
-    if not shell:
-        return None
-    base = os.path.basename(shell)
-    home = home if home is not None else Path.home()
-    if base == "bash":
-        return home / ".bashrc"
-    if base == "zsh":
-        return home / ".zshrc"
-    if base in ("sh", "dash"):
-        return home / ".profile"
-    if base == "fish":
-        return home / ".config" / "fish" / "config.fish"
-    return None
+    rc = hostos.shell_rc_file(shell, home)
+    return None if rc is None or rc.suffix == ".ps1" else rc
 
 
 def _has_local_bin_path(text: str) -> bool:

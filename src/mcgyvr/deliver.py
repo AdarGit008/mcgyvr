@@ -26,7 +26,6 @@ files (:attr:`Accepted.companions`) lands all of them or none.
 from __future__ import annotations
 
 import contextlib
-import fcntl
 import hashlib
 import os
 import subprocess
@@ -36,6 +35,7 @@ from collections.abc import Iterator, Mapping, Sequence
 from dataclasses import dataclass, field
 from pathlib import Path
 
+from mcgyvr import hostos
 from mcgyvr.contract import Contract, is_pattern
 from mcgyvr.gate.adapter import LanguageAdapter
 from mcgyvr.gate.adapters import JavaScriptAdapter, PythonAdapter
@@ -551,7 +551,7 @@ def _exclusive(root: Path) -> Iterator[None]:
     """
     fd = _lock_descriptor(root)
     try:
-        fcntl.flock(fd, fcntl.LOCK_EX)
+        hostos.lock(fd)
         yield
     finally:
         os.close(fd)  # closing the descriptor releases the lock
@@ -573,7 +573,7 @@ def between_deliveries(root: Path) -> Iterator[None]:
         yield
         return
     try:
-        fcntl.flock(fd, fcntl.LOCK_EX)
+        hostos.lock(fd)
         yield
     finally:
         os.close(fd)  # closing the descriptor releases the lock

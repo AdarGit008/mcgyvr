@@ -14,6 +14,8 @@ import stat
 import threading
 from pathlib import Path
 
+from mcgyvr import hostos
+
 #: Mode for a file whose contents belong to its owner alone: read and write, and
 #: nothing for group or other.
 _PRIVATE = stat.S_IRUSR | stat.S_IWUSR
@@ -54,12 +56,12 @@ def write(
         )
     body = data.encode("utf-8") if isinstance(data, str) else data
     staging.unlink(missing_ok=True)
-    flags = os.O_WRONLY | os.O_CREAT | os.O_EXCL | os.O_NOFOLLOW
-    fd = os.open(staging, flags, _PRIVATE if private else _ORDINARY)
+    flags = os.O_WRONLY | os.O_CREAT | os.O_EXCL
+    fd = hostos.open_nofollow(staging, flags, _PRIVATE if private else _ORDINARY)
     try:
         try:
             if private:
-                os.fchmod(fd, _PRIVATE)
+                hostos.chmod_private(fd)
             view = memoryview(body)
             while view:
                 view = view[os.write(fd, view) :]
