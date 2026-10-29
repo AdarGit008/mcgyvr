@@ -1526,6 +1526,7 @@ def _resources(
                 "cores": None,
                 "bandwidth_gbps": None,
                 "bandwidth_figure": None,
+                "ddr": None,
                 "figure": FIGURE_READING,
                 "backend": "cpu",
                 **fields,
