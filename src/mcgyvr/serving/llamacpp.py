@@ -445,7 +445,9 @@ def beyond_loopback(
             "a native rpc worker listens on the address the head reaches it at "
             f"and nothing wider: state it with {RPC_HOST_FLAG}, an IPv4 address "
             "of a private or overlay network (never every interface, loopback, "
-            "link-local, a documentation range or a global address)"
+            "link-local, a documentation range or a global address; a Mac's "
+            "Thunderbolt Bridge assigns itself a 169.254 address: give the "
+            "bridge a private address)"
         )
     # Windows reads a variable's name without case: `llama_arg_host` is it too.
     named = any(key.upper() == HOST_ENV for key in env)

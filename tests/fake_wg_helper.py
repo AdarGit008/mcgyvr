@@ -14,7 +14,8 @@ target to.
 The config file names ``record`` (a file each request and each forward event
 is appended to as a JSON line), ``routes`` (``"host:port"`` of a tunnel
 address to ``"127.0.0.1:port"`` here), ``version`` (the banner's), and
-``faults`` (``{verb: how}``, how one of ``refuse``, ``garbage``,
+``start_token`` (the start time ``spawn`` answers instead of the child's
+own), and ``faults`` (``{verb: how}``, how one of ``refuse``, ``garbage``,
 ``extra_key``, ``wrong_id``, ``die``, ``silent``) to break the grammar on cue.
 """
 
@@ -345,7 +346,7 @@ def answer(verb: str, req: dict[str, Any]) -> dict[str, Any]:
         STATE["children"][part] = proc
         with open(f"/proc/{proc.pid}/stat", encoding="ascii") as stat:
             start = stat.read().rsplit(")", 1)[1].split()[19]
-        return {"pid": proc.pid, "start": start}
+        return {"pid": proc.pid, "start": CONFIG.get("start_token", start)}
     if verb == "forward":
         listener = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
         listener.bind(("127.0.0.1", 0))

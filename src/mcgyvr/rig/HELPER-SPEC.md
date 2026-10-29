@@ -257,7 +257,7 @@ probe's small-ping shape and the teardown grace.
   helper dials it only after checking the listener belongs to the spawned worker's pid.
 - Done: `emit._locked_native` reads the locked block's `role`; a locked native rpc worker
   renders the rpc-server block bound to the IPv4 literal its `-H` states, which
-  `shardlaunch.worker_may_listen` must allow (not every interface, not loopback, not global), and a
+  `llamacpp.worker_may_listen` must allow (an address of a private or overlay network), and a
   locked native head keeps 127.0.0.1 (tests in
   `test_a_native_unit_is_emitted_as_a_program_not_a_container.py`). A pooled native worker's engine
   is NOT such a block: it listens on 127.0.0.1 behind `serve` (above), so if the worker work reuses

@@ -383,3 +383,20 @@ def test_an_agent_with_no_native_host_refuses_a_native_rigs_head_unstarted(
     finally:
         rig.pool.sessions.close()
         rig.echo.close()
+
+
+def test_the_heads_record_holds_the_start_time_the_helper_answered(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """The start time recorded is the one the spawn reply carries, never one
+    read later from a pid that may by then name another process."""
+    rig = make_native_pool(tmp_path, monkeypatch, config={"start_token": "4242"})
+    try:
+        _ready_with_worker(rig)
+        from mcgyvr.rig import pooled
+
+        record = rig.tmp / "records" / f"{pooled.container_name('s1', 'head')}.json"
+        assert json.loads(record.read_text())["start"] == "4242"
+    finally:
+        rig.pool.sessions.close()
+        rig.echo.close()
