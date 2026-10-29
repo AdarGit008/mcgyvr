@@ -33,18 +33,25 @@ from these names rather than writing them again:
   (:class:`Host`), and a heartbeat's reading of each
   (:class:`ResourceReading`): their kinds (:data:`RESOURCE_KINDS`, the card
   kinds :data:`CARD_KINDS`, :func:`shares_ram`), backends
-  (:data:`RESOURCE_BACKENDS`), what a number is (:data:`FIGURE_KINDS`), the
-  host a rig runs on (:data:`HOST_OS`, :data:`HOST_ARCH`), how many one advert
-  or heartbeat may name (:data:`MAX_RESOURCES`, :func:`resources_fit`,
-  :func:`readings_fit`), the legacy cards they make
-  (:func:`cards_from_resources`, :func:`card_readings_from`), the unit
-  standby is counted in per kind (:data:`STANDBY_UNITS`) and the least a
+  (:data:`RESOURCE_BACKENDS`, each named ``BACKEND_*``), what a number is
+  (:data:`FIGURE_KINDS`), the host a rig runs on (:data:`HOST_OS`,
+  :data:`HOST_ARCH`, each named ``HOST_*`` and ``ARCH_*``), how many one
+  advert or heartbeat may name (:data:`MAX_RESOURCES`, the kinds a rig names
+  once, :data:`ONE_PER_RIG`, :func:`resources_fit`, :func:`readings_fit`),
+  the legacy cards they make (:func:`cards_from_resources`,
+  :func:`card_readings_from`), the unit standby is counted in per kind
+  (:data:`STANDBY_UNITS`, its size :data:`STANDBY_UNIT_SIZE`) and the least a
   resource lends to count (:data:`LEND_FLOOR_MB`, :data:`LEND_FLOOR_CORES`,
   the oldest DDR generation host memory may be, :data:`RAM_DDR_MIN`, and
   :func:`counts_as_lent`);
+* what a member chooses to lend on a rig (:class:`Lending`, carried as
+  :data:`LENDING_FIELD`);
 * the llama.cpp RPC protocol version a rig speaks (:class:`RpcProto`, carried
   as :data:`RPC_PROTO_FIELD`) and which workers a head may take
-  (:func:`rpc_compatible`).
+  (:func:`rpc_compatible`);
+* the devices a head runs a model on (:data:`HEAD_DEVICE_KINDS`);
+* how fast a device decodes by its memory bandwidth
+  (:func:`decode_ms_per_gib`, with :data:`DECODE_EFFICIENCY`).
 
 A pattern is held unanchored and matched whole (``fullmatch``); a JSON Schema
 or a pydantic type writes it as ``^<pattern>$``. Nothing here is a validator
@@ -147,6 +154,7 @@ API_ERROR_STATUS: Mapping[str, int] = MappingProxyType(
         "insufficient_vram": 503,
         "busy": 503,
         "no_path": 503,
+        "rpc_incompatible": 503,
         "too_slow": 503,
         "timeout": 504,
     }
@@ -353,18 +361,40 @@ RESOURCE_KINDS: tuple[str, ...] = (
 CARD_KINDS: tuple[str, ...] = (RESOURCE_GPU, RESOURCE_UNIFIED)
 #: The backend a resource computes with. Host memory and cores compute with
 #: ``cpu`` alone, and a card never does.
-RESOURCE_BACKENDS: tuple[str, ...] = ("cuda", "metal", "vulkan", "rocm", "cpu")
+BACKEND_CUDA = "cuda"
+BACKEND_METAL = "metal"
+BACKEND_VULKAN = "vulkan"
+BACKEND_ROCM = "rocm"
+BACKEND_CPU = "cpu"
+RESOURCE_BACKENDS: tuple[str, ...] = (
+    BACKEND_CUDA,
+    BACKEND_METAL,
+    BACKEND_VULKAN,
+    BACKEND_ROCM,
+    BACKEND_CPU,
+)
 #: What a number is: an estimate, or the rig's own reading. Each number on the
 #: wire says which it is.
 FIGURE_ESTIMATE = "estimate"
 FIGURE_READING = "reading"
 FIGURE_KINDS: tuple[str, ...] = (FIGURE_ESTIMATE, FIGURE_READING)
 #: The operating system and the architecture a rig's host names in its hello.
-HOST_OS: tuple[str, ...] = ("linux", "darwin", "windows")
-HOST_ARCH: tuple[str, ...] = ("x86_64", "arm64")
+HOST_LINUX = "linux"
+HOST_DARWIN = "darwin"
+HOST_WINDOWS = "windows"
+HOST_OS: tuple[str, ...] = (HOST_LINUX, HOST_DARWIN, HOST_WINDOWS)
+ARCH_X86_64 = "x86_64"
+ARCH_ARM64 = "arm64"
+HOST_ARCH: tuple[str, ...] = (ARCH_X86_64, ARCH_ARM64)
 #: Most resources one advert may name; of them, at most :data:`MAX_CARDS`
-#: cards, one ``ram`` and one ``cpu``.
+#: cards, and each kind of :data:`ONE_PER_RIG` once.
 MAX_RESOURCES = 32
+#: The kinds a rig names at most once: one device whose memory is the host's
+#: (a host has one such memory to share), the host's memory and its cores.
+ONE_PER_RIG: tuple[str, ...] = (RESOURCE_UNIFIED, RESOURCE_RAM, RESOURCE_CPU)
+#: The kinds a heartbeat reads at most once: those of :data:`ONE_PER_RIG`
+#: that are not cards.
+_ONE_PER_HEARTBEAT = tuple(k for k in ONE_PER_RIG if k not in CARD_KINDS)
 #: Most cards one hello or heartbeat may report.
 MAX_CARDS = 16
 #: Highest index a resource may have: a card's highest index.
@@ -389,15 +419,28 @@ RESOURCE_NAME_MAX = 128
 FORMAT_CHARACTERS = re.compile("[\u061c\u200b-\u200f\u2028-\u202e\u2060-\u2064\ufeff]")
 #: Largest memory figure a resource may carry, in MiB, as a card's.
 RESOURCE_MAX_MB = 1 << 30
-#: The unit standby is counted in for each kind: a card is a card whether its
-#: memory is its own or the host's, so a unified device is a card and never
-#: also memory; host memory is counted per 16 GiB and cores per 8. Names only.
+#: MiB in a GiB.
+MB_PER_GIB = 1024
+#: How much of each kind one standby unit is, which a hub pays standby by:
+#: one card, whether its memory is its own or the host's, so a unified device
+#: is a card and never also memory; host memory per 16384 MiB (16 GiB) and
+#: cores per 8. Cards count in cards, ``ram`` in MiB and ``cpu`` in cores.
+STANDBY_UNIT_SIZE: Mapping[str, int] = MappingProxyType(
+    {
+        RESOURCE_GPU: 1,
+        RESOURCE_UNIFIED: 1,
+        RESOURCE_RAM: 16 * MB_PER_GIB,
+        RESOURCE_CPU: 8,
+    }
+)
+#: The unit standby is counted in for each kind, by name, made from its size
+#: (:data:`STANDBY_UNIT_SIZE`).
 STANDBY_UNITS: Mapping[str, str] = MappingProxyType(
     {
         RESOURCE_GPU: "card",
         RESOURCE_UNIFIED: "card",
-        RESOURCE_RAM: "16GiB",
-        RESOURCE_CPU: "8cores",
+        RESOURCE_RAM: f"{STANDBY_UNIT_SIZE[RESOURCE_RAM] // MB_PER_GIB}GiB",
+        RESOURCE_CPU: f"{STANDBY_UNIT_SIZE[RESOURCE_CPU]}cores",
     }
 )
 #: The least a resource must lend to count as lent: a hub counts a rig as
@@ -472,11 +515,11 @@ class Resource:
     ``figure`` says whether those two are an estimate or a reading. ``cores``
     is set for ``cpu`` alone. ``ddr`` is a ``ram`` resource's DDR generation
     (3, 4, 5, at most :data:`MAX_RAM_DDR`), None when the reader could not
-    tell, and is set for ``ram`` alone. ``bandwidth_gbps`` is the memory bandwidth, when
-    known, and ``bandwidth_figure`` says which it is, set with it alone. A
-    ``unified`` device's memory is the host's (:func:`shares_ram`). A hub
-    mirroring these rules refuses a non-finite bandwidth, as JSON's
-    ``Infinity`` parses to one.
+    tell, and is set for ``ram`` alone. ``bandwidth_gbps`` is the memory
+    bandwidth, when known, and ``bandwidth_figure`` says which it is, set
+    with it alone. A ``unified`` device's memory is the host's
+    (:func:`shares_ram`). A hub mirroring these rules refuses a non-finite
+    bandwidth, as JSON's ``Infinity`` parses to one.
 
     A ``cpu`` resource serves whole models only, never a pipeline stage: it
     runs a small model end to end and holds no layers of a split one.
@@ -553,7 +596,7 @@ class Resource:
         _one_of(self.backend, RESOURCE_BACKENDS, "backend")
         host = self.kind in (RESOURCE_RAM, RESOURCE_CPU)
         _need(
-            (self.backend == "cpu") is host,
+            (self.backend == BACKEND_CPU) is host,
             "backend",
             "not cpu for ram and cpu, or cpu for a card",
         )
@@ -581,7 +624,9 @@ class ResourceReading:
         )
 
 
-def _fit(items: Sequence[Resource] | Sequence[ResourceReading]) -> None:
+def _fit(
+    items: Sequence[Resource] | Sequence[ResourceReading], once: tuple[str, ...]
+) -> None:
     _need(len(items) <= MAX_RESOURCES, "resources", f"more than {MAX_RESOURCES}")
     for item in items:
         item.validate()
@@ -590,7 +635,7 @@ def _fit(items: Sequence[Resource] | Sequence[ResourceReading]) -> None:
     cards = [item.index for item in items if item.kind in CARD_KINDS]
     _need(len(cards) <= MAX_CARDS, "resources", f"more than {MAX_CARDS} cards")
     _need(len(set(cards)) == len(cards), "resources", "a card index twice")
-    for kind in (RESOURCE_RAM, RESOURCE_CPU):
+    for kind in once:
         _need(
             sum(item.kind == kind for item in items) <= 1,
             "resources",
@@ -602,8 +647,9 @@ def resources_fit(resources: Sequence[Resource]) -> None:
     """Raise ValueError unless one advert may name ``resources``: at most
     :data:`MAX_RESOURCES`, each valid (:meth:`Resource.validate`), each
     ``(kind, index)`` once, at most :data:`MAX_CARDS` cards, each card index
-    once across :data:`CARD_KINDS`, and at most one ``ram`` and one ``cpu``."""
-    _fit(resources)
+    once across :data:`CARD_KINDS`, and at most one of each kind in
+    :data:`ONE_PER_RIG`: one ``unified`` device, one ``ram``, one ``cpu``."""
+    _fit(resources, ONE_PER_RIG)
 
 
 def counts_as_lent(resource: Resource) -> bool:
@@ -631,10 +677,12 @@ def counts_as_lent(resource: Resource) -> bool:
 def readings_fit(readings: Sequence[ResourceReading]) -> None:
     """Raise ValueError unless one heartbeat may carry ``readings``, by the
     rules of :func:`resources_fit` (each card index once across
-    :data:`CARD_KINDS` among them). Whether each names an advertised resource,
-    and its ``free_mb`` that resource's ``total_mb`` at most, is the hub's to
-    hold against the advert it keeps."""
-    _fit(readings)
+    :data:`CARD_KINDS` among them), but for how many unified devices: a card's
+    reading is held by its index, and how many unified devices a rig has is
+    its advert's to say. Whether each names an advertised resource, and its
+    ``free_mb`` that resource's ``total_mb`` at most, is the hub's to hold
+    against the advert it keeps, which reads nothing of one it does not."""
+    _fit(readings, _ONE_PER_HEARTBEAT)
 
 
 @dataclass(frozen=True, kw_only=True)
@@ -692,6 +740,57 @@ def card_readings_from(readings: Sequence[ResourceReading]) -> list[dict[str, in
     ]
 
 
+# --- what a member chooses to lend ----------------------------------------------
+
+#: The ack field carrying what a member chooses to lend on a rig
+#: (:class:`Lending`), set on the hub, for the rig's agent to lend.
+LENDING_FIELD = "lending"
+
+
+def _lent_or_none(value: object, floor: int, most: int, field: str) -> None:
+    """Refuse ``value`` unless it is 0, lending none, or ``floor`` to ``most``."""
+    _need(
+        _is_int(value) and (value == 0 or value in range(floor, most + 1)),
+        field,
+        f"not 0 or {floor} to {most}",
+    )
+
+
+@dataclass(frozen=True, kw_only=True)
+class Lending:
+    """What a member chooses to lend on one rig: ``cards``, the card indexes
+    lent whole (None for every card the rig has, empty for none), ``ram_mb``
+    the host memory lent, in MiB, and ``cpu_cores`` the host cores lent.
+    Memory and cores are each 0, lending none, or at least their kind's
+    lending floor (:data:`LEND_FLOOR_MB`, :data:`LEND_FLOOR_CORES`): an
+    amount under it would count as nothing lent, so it is never asked for."""
+
+    cards: tuple[int, ...] | None
+    ram_mb: int
+    cpu_cores: int
+
+    def validate(self) -> None:
+        """Raise ValueError, naming the field at fault, unless this lending
+        keeps every rule a hub holds it to."""
+        cards = self.cards
+        if cards is not None:
+            _need(
+                type(cards) is tuple and len(cards) <= MAX_CARDS,
+                "cards",
+                f"not null or at most {MAX_CARDS} card indexes",
+            )
+            _need(
+                all(_is_int(i) and 0 <= i <= MAX_RESOURCE_INDEX for i in cards),
+                "cards",
+                f"an index not 0 to {MAX_RESOURCE_INDEX}",
+            )
+            _need(len(set(cards)) == len(cards), "cards", "an index twice")
+        _lent_or_none(
+            self.ram_mb, LEND_FLOOR_MB[RESOURCE_RAM], RESOURCE_MAX_MB, "ram_mb"
+        )
+        _lent_or_none(self.cpu_cores, LEND_FLOOR_CORES, MAX_RESOURCE_CORES, "cpu_cores")
+
+
 # --- the RPC protocol a split model's workers speak -------------------------------
 
 #: The advert and offer field naming the llama.cpp RPC protocol version a rig
@@ -736,3 +835,104 @@ def rpc_compatible(head: RpcProto, worker: RpcProto) -> bool:
     A major changes on a break; a newer head speaks an older minor.
     """
     return worker.major == head.major and worker.minor <= head.minor
+
+
+# --- the devices a head runs a model on -------------------------------------------
+
+#: The kinds of device a ``head_start`` names: a card lent on the head's own
+#: rig (``local``), a worker's card reached over the tunnel (``rpc``), and the
+#: head's own host memory and cores (``cpu``), which serve a whole model only,
+#: never a pipeline stage (see :class:`Resource`).
+HEAD_DEVICE_LOCAL = "local"
+HEAD_DEVICE_RPC = "rpc"
+HEAD_DEVICE_CPU = "cpu"
+HEAD_DEVICE_KINDS: tuple[str, ...] = (
+    HEAD_DEVICE_LOCAL,
+    HEAD_DEVICE_RPC,
+    HEAD_DEVICE_CPU,
+)
+
+
+# --- how fast a device decodes, by its memory bandwidth ----------------------------
+
+#: Bytes in the decimal GB a bandwidth in GB/s is stated in.
+BYTES_PER_DECIMAL_GB = 1e9
+#: Bytes in a GiB, the unit a model's weights are planned in.
+BYTES_PER_GIB = 1 << 30
+#: Milliseconds in a second.
+MS_PER_S = 1000
+
+#: Decode efficiency: measured text-generation speed over the speed the
+#: bandwidth alone would allow, ``tg x model_GB / bandwidth_GBps``. Fitted to
+#: llama.cpp's own Apple-silicon table, llama-bench tg128 of a dense 7B model at
+#: F16, Q8_0 and Q4_0 over M1..M4 (llama.cpp discussion 4167,
+#: https://github.com/ggml-org/llama.cpp/discussions/4167): medians 0.83 (F16),
+#: 0.79 (Q8_0) and 0.69 (Q4_0), falling as the quantisation shrinks (dequant
+#: cost) and as bandwidth rises (an 800 GB/s part is compute-bound on a 7B
+#: model). The values below sit under those medians, so an estimate errs slow:
+#: 0.75 for 16-bit and 8-bit weights, 0.60 for 4-bit to 6-bit ones (Q5/Q6 were
+#: not measured; they take the 4-bit figure, the lower of the two they sit
+#: between). From :data:`HIGH_BANDWIDTH_GBPS` up an Apple chip takes at most
+#: :data:`HIGH_BANDWIDTH_EFFICIENCY` for its class: the 800 GB/s Ultra runs gave
+#: 0.50..0.60 at Q8_0 (0.57..0.71 at F16), so 0.50, the lowest, and 0.36..0.45
+#: at Q4_0 (median 0.42), so 0.40, under five of the six runs. The fit is Apple
+#: silicon's under Metal; an NVIDIA card takes the same shares, unchecked under
+#: CUDA. A current llama.cpp build runs about 1.2x faster than the build those
+#: rows used; no allowance is made for it. A quantisation under 4 bits, or
+#: 32-bit weights, was not measured, and gets no efficiency.
+DECODE_EFFICIENCY: Mapping[str, float] = MappingProxyType({"8bit": 0.75, "4bit": 0.60})
+HIGH_BANDWIDTH_GBPS = 800.0
+HIGH_BANDWIDTH_EFFICIENCY: Mapping[str, float] = MappingProxyType(
+    {"8bit": 0.50, "4bit": 0.40}
+)
+#: The vendor whose chips the efficiencies were fitted on, and the only one the
+#: high-bandwidth ceiling was seen on.
+FITTED_ON = "apple"
+#: Quantisation names, by the efficiency class they decode at. Matched on the
+#: name's start, case-insensitively, after a ``UD-`` prefix: ``Q4_K_M`` is
+#: ``q4``, ``IQ4_XS`` is ``iq4``, ``UD-Q4_K_XL`` is ``q4``.
+QUANT_CLASSES: Mapping[str, tuple[str, ...]] = MappingProxyType(
+    {
+        "8bit": ("f16", "bf16", "q8"),
+        "4bit": ("q4", "iq4", "mxfp4", "q5", "q6"),
+    }
+)
+_QUANT_PREFIX = "ud-"
+
+
+def quant_class(quant: str) -> str | None:
+    """The efficiency class of a quantisation name, None when it has none."""
+    name = quant.strip().lower().removeprefix(_QUANT_PREFIX)
+    for klass, prefixes in QUANT_CLASSES.items():
+        if name.startswith(prefixes):
+            return klass
+    return None
+
+
+def decode_efficiency(
+    bandwidth_gbps: float, quant: str, *, vendor: str = FITTED_ON
+) -> float | None:
+    """The decode efficiency for this bandwidth, quantisation and vendor, None
+    when the quantisation has no class. The high-bandwidth ceiling holds for
+    the vendor the shares were fitted on alone."""
+    klass = quant_class(quant)
+    if klass is None:
+        return None
+    eff = DECODE_EFFICIENCY[klass]
+    if vendor == FITTED_ON and bandwidth_gbps >= HIGH_BANDWIDTH_GBPS:
+        eff = min(eff, HIGH_BANDWIDTH_EFFICIENCY[klass])
+    return eff
+
+
+def decode_ms_per_gib(
+    bandwidth_gbps: float, quant: str, *, vendor: str = FITTED_ON
+) -> float | None:
+    """Milliseconds a token takes per GiB of weights it reads, on a device of
+    ``bandwidth_gbps`` (decimal GB/s) at the share of it
+    :func:`decode_efficiency` states; None when the quantisation has no class
+    or the bandwidth is not over 0. Each token reads every weight once, so a
+    model of ``n`` GiB decodes a token in ``n`` times this."""
+    eff = decode_efficiency(bandwidth_gbps, quant, vendor=vendor)
+    if eff is None or not bandwidth_gbps > 0:
+        return None
+    return MS_PER_S * BYTES_PER_GIB / (eff * bandwidth_gbps * BYTES_PER_DECIMAL_GB)
