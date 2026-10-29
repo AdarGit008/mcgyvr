@@ -684,7 +684,11 @@ def _why_empty(config: Config, family: Family, pool: SourceMap) -> str:
     return (
         f"no configured rung is in the {family.name!r} family — bind one to a "
         f"source that "
-        + ("declares an api_key_env" if family.name == "api" else "needs no credential")
+        + (
+            "declares an api_key_env"
+            if family.name == "api"
+            else "needs no credential, or a crew unit"
+        )
         + "."
     )
 

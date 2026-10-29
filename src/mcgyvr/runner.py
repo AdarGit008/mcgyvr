@@ -46,6 +46,7 @@ from mcgyvr.fleet.harness import (
 from mcgyvr.hubwire import (
     MODEL_NOT_FOUND,
     MODEL_UNPLACED,
+    POOL_BUSY,
     SCOPE_HEADER,
     USE_CASE_HEADER,
 )
@@ -196,6 +197,11 @@ class BackendError(RunnerError):
 class ReliefUnavailableError(SlotUnavailableError):
     """A lent rung cannot take the request now, so it is passed over as full: it
     answered busy, or from another model than the one it was matched to."""
+
+
+class PoolBusyError(SlotUnavailableError):
+    """The hub has no slot in the pool serving the unit now: a crew busy with
+    its own work, so the unit is passed over as full rather than failed."""
 
 
 class ModelUnplacedError(SlotUnavailableError):
@@ -499,6 +505,13 @@ class Runner(ABC):
                 raise ReliefUnavailableError(
                     f"relief rung {self.endpoint.source!r} cannot take the "
                     f"request now: {exc}"
+                ) from exc
+            # The pool the hub serves the unit from is full: width unavailable,
+            # not a broken unit.
+            if (exc.status, exc.code) == POOL_BUSY:
+                raise PoolBusyError(
+                    f"unit {self.endpoint.source!r} is served from a pool with "
+                    f"no slot free now: {exc}"
                 ) from exc
             # The hub behind the rung cannot place its model right now: width
             # unavailable, not a broken rung.

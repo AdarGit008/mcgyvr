@@ -112,6 +112,11 @@ A setup is two files in one directory, and `mcgyvr setup` writes both
 A third file, `relief.yaml`, holds `relief`: the units other
 people lend you through a hub. `mcgyvr rig rungs sync` writes it whole
 and nothing else does, so it is neither locked nor edited by hand.
+A fourth, `crew.yaml`, holds `crew`: the units your crews lend
+you through a hub, each read as a unit of `units` under scope `crew`.
+`mcgyvr rig crew sync` writes it whole the same way. A ladder step or a
+role names a crew unit as it names any unit, and fan-out may use it:
+a crew lends free, so it is no api rung.
 
 Each file refuses a key that belongs in the other. `rigs`, `fleets` and
 each unit's `unit_id` are not in the tables below: the fleet lock
