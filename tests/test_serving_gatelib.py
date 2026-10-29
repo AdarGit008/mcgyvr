@@ -451,12 +451,13 @@ def _shipped_reader_blob() -> str:
 
 
 def _shipped_scan_blob() -> str:
-    """The base64 payload the read line ships, from the one reader."""
+    """The base64 payload the read line ships: the one reader, packed."""
     import base64
 
     from mcgyvr.serving import rigscan
 
-    return base64.b64encode(Path(rigscan.__file__).read_bytes()).decode("ascii")
+    source = Path(rigscan.__file__).read_bytes()
+    return base64.b64encode(gatelib.packed_reader(source)).decode("ascii")
 
 
 def test_read_only_command_admits_the_scan_and_discovery_shapes() -> None:
