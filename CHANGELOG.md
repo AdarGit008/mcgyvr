@@ -43,7 +43,10 @@ archived outside this repository, under the same paths.
   `readings_fit` are a heartbeat's. A `Host` names its `HOST_OS`, `HOST_ARCH`
   and version. `cards_from_resources` and `card_readings_from` make the legacy
   `cards[]` of a hello and a heartbeat from the `gpu` and `unified` ones, and
-  `STANDBY_UNITS` names the unit standby is counted in per kind (names only).
+  `STANDBY_UNITS` names the unit standby is counted in per kind (names only);
+  `LEND_FLOOR_MB`, `LEND_FLOOR_CORES` and `counts_as_lent` say the least a
+  resource lends to count as lent (a 1 MiB card or one core earns nothing);
+  `FIGURE_ESTIMATE` and `FIGURE_READING` name the two figure kinds.
   A `cpu` resource serves whole models only, never a pipeline stage. The rig
   agent's card rules (`rig.protocol.CARD_NAME`, `CARD_NAME_MAX`, `MAX_MB`,
   `MAX_CARD_INDEX`, `MAX_CARDS`) are now these names, imported. The shipped

@@ -116,6 +116,7 @@ def test_the_closed_sets_hold_the_values_the_hub_takes() -> None:
     assert hubwire.RESOURCE_KINDS == ("gpu", "unified", "ram", "cpu")
     assert hubwire.RESOURCE_BACKENDS == ("cuda", "metal", "vulkan", "rocm", "cpu")
     assert hubwire.FIGURE_KINDS == ("estimate", "reading")
+    assert (hubwire.FIGURE_ESTIMATE, hubwire.FIGURE_READING) == hubwire.FIGURE_KINDS
     assert hubwire.HOST_OS == ("linux", "darwin", "windows")
     assert hubwire.HOST_ARCH == ("x86_64", "arm64")
     kinds = (
@@ -656,6 +657,45 @@ def test_every_kind_has_one_standby_unit_and_only_names_it() -> None:
     assert tuple(hubwire.STANDBY_UNITS) == hubwire.RESOURCE_KINDS
     with pytest.raises(TypeError):
         hubwire.STANDBY_UNITS["ram"] = "1GiB"  # type: ignore[index]
+
+
+# --- the least a resource lends to count --------------------------------------------
+
+
+def test_the_lending_floor_is_named_per_kind() -> None:
+    assert dict(hubwire.LEND_FLOOR_MB) == {"gpu": 2048, "unified": 4096, "ram": 4096}
+    assert set(hubwire.LEND_FLOOR_MB) == set(hubwire.RESOURCE_KINDS) - {"cpu"}
+    assert hubwire.LEND_FLOOR_CORES == 2
+
+
+@pytest.mark.parametrize(
+    ("kind", "total_mb", "cores", "lent"),
+    [
+        ("gpu", 2048, None, True),
+        ("gpu", 2047, None, False),
+        ("gpu", 1, None, False),
+        ("unified", 4096, None, True),
+        ("unified", 4095, None, False),
+        ("ram", 4096, None, True),
+        ("ram", 1, None, False),
+        ("cpu", 0, 2, True),
+        ("cpu", 0, 1, False),
+        ("cpu", 0, None, False),
+    ],
+)
+def test_a_resource_counts_as_lent_only_at_its_kinds_floor(
+    kind: str, total_mb: int, cores: int | None, lent: bool
+) -> None:
+    resource = hubwire.Resource(
+        kind=kind,
+        index=0,
+        name="an invented device",
+        total_mb=total_mb,
+        cores=cores,
+        figure="reading",
+        backend="cpu" if kind == "cpu" else "cuda",
+    )
+    assert hubwire.counts_as_lent(resource) is lent
 
 
 # --- the RPC protocol a split model's workers speak -------------------------------
