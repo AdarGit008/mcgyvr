@@ -171,12 +171,12 @@ CIM_SCRIPT = (
 )
 #: The DDR generation of a module's raw SMBIOS memory type
 #: (Win32_PhysicalMemory.SMBIOSMemoryType, "The raw SMBIOS memory type",
-#: Windows 10 and later; 24 is DDR3 and 26 DDR4 in the same page's MemoryType
-#: list), SMBIOS type 17 codes 0x18, 0x1A, 0x22 as dmidecode names them
-#: ("DDR3", "DDR4", "DDR5" in dmi_memory_device_type,
-#: https://github.com/mirror/dmidecode/blob/master/dmidecode.c). A code not
-#: here is a generation unread.
-SMBIOS_DDR = {24: 3, 26: 4, 34: 5}
+#: Windows 10 and later), SMBIOS type 17 codes as dmidecode names them in
+#: dmi_memory_device_type (https://github.com/mirror/dmidecode/blob/master/dmidecode.c):
+#: 0x18 "DDR3", 0x1A "DDR4", 0x22 "DDR5", and a laptop's 0x1D "LPDDR3",
+#: 0x1E "LPDDR4", 0x23 "LPDDR5". Any other code (0, "Unknown", "Other") is a
+#: generation unread, never 0.
+SMBIOS_DDR = {0x18: 3, 0x1A: 4, 0x22: 5, 0x1D: 3, 0x1E: 4, 0x23: 5}
 CIM_ARGS = (
     "powershell",
     "-NoProfile",
@@ -1581,17 +1581,17 @@ def _cpuinfo_model(root: str) -> str | None:
 
 def _ddr(platform_: _Platform) -> int | None:
     """The DDR generation of the machine's RAM: on Windows the lowest of its
-    modules' (SMBIOS_DDR), None when any module's is unread or none is listed.
-    Linux reads SMBIOS only as root and macOS names none, so elsewhere None."""
+    modules' that is read (SMBIOS_DDR; a board holds one generation), None when
+    none is. Linux reads SMBIOS only as root and macOS names none, so elsewhere
+    None."""
     if platform_.system != "windows":
         return None
     data, _ = platform_.cim()
     found = [
         SMBIOS_DDR.get(_size(v) or 0) for v in _items((data or {}).get("memory_types"))
     ]
-    if not found or None in found:
-        return None
-    return min(n for n in found if n is not None)
+    read = [n for n in found if n is not None]
+    return min(read) if read else None
 
 
 def _resources(

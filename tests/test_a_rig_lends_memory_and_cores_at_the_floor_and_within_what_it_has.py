@@ -265,3 +265,33 @@ def test_ram_of_an_older_generation_is_never_advertised(
         share = fakes.sharing(tmp_path, cards=(), ram_mb=RAM_FLOOR)
         kinds = [r.kind for r in share.lendable(report).lent]
         assert (hubwire.RESOURCE_RAM in kinds) is lent
+
+
+@pytest.mark.parametrize(
+    ("types", "ddr"),
+    [
+        (["24", "24"], 3),  # DDR3
+        (["26"], 4),  # DDR4
+        (["34", "34"], 5),  # DDR5
+        (["29"], 3),  # LPDDR3, a laptop's
+        (["30"], 4),  # LPDDR4
+        (["35"], 5),  # LPDDR5
+        (["34", "26"], 4),  # mixed: the lowest generation
+        (["0", "26"], 4),  # an unknown module beside a read one
+        (["0"], None),  # unknown is unread, never 0
+        (["1"], None),  # "Other"
+        ([], None),
+    ],
+)
+def test_a_modules_smbios_type_names_its_generation_or_none(
+    types: list[str], ddr: int | None
+) -> None:
+    from mcgyvr.serving import rigscan
+
+    class Windows:
+        system = "windows"
+
+        def cim(self) -> tuple[dict[str, Any], str]:
+            return {"memory_types": types}, ""
+
+    assert rigscan._ddr(Windows()) == ddr  # type: ignore[arg-type]
