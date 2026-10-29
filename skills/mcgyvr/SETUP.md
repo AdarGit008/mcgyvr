@@ -173,7 +173,9 @@ powershell -NoProfile -ExecutionPolicy RemoteSigned -File mcgyvr\skills\mcgyvr\i
 
 `$XDG_STATE_HOME` and `$XDG_CACHE_HOME` still win when set (the weights follow `$MCGYVR_WEIGHTS` alone),
 and `journal.dir` defaults to `~/.local/state/mcgyvr/journal` everywhere. Windows checks no file owner or
-mode: a file is as private as its folder, and these folders are in your own profile.
+mode: a file is as private as its folder, and these folders are in your own profile. A folder named by
+`$MCGYVR_HOME`, `$MCGYVR_DATA` or an XDG variable keeps whatever ACL it has, so keep the rig token's
+folder (`$MCGYVR_HOME`) inside your profile.
 
 **Serving, with no Docker.** On a Mac or a Windows machine, `mcgyvr setup` writes `launcher: native` for
 a llama.cpp unit on the machine it runs on. Its first start fetches the llama.cpp build mcgyvr pins
@@ -230,9 +232,10 @@ EOF
 launchctl bootstrap gui/$(id -u) ~/Library/LaunchAgents/mcgyvr-rig.plist
 ```
 
-`launchctl bootout gui/$(id -u)/mcgyvr-rig` stops it until the next login or `bootstrap`; delete the
-plist to drop it. launchd starts it without your shell's variables, so a variable the agent reads
-(`$MCGYVR_HUB_API_KEY`) set in `~/.zshrc` is not seen there.
+`launchctl bootout gui/$(id -u)/mcgyvr-rig` stops it until the next login or `bootstrap` (after editing
+the plist, `bootout` first, then `bootstrap` again); delete the plist to drop it. launchd starts it
+without your shell's variables, so a variable the agent reads (`$MCGYVR_HUB_API_KEY`) set in `~/.zshrc`
+is not seen there.
 
 On Windows, `mcgyvr rig run` does not start yet (its pooled-session code imports a module Windows lacks,
 `fcntl`). When it does, a line in your Startup folder starts it at your login with no administrator (a
@@ -240,7 +243,7 @@ On Windows, `mcgyvr rig run` does not start yet (its pooled-session code imports
 PowerShell, and `Remove-Item` on the same path to drop it:
 
 ```powershell
-Set-Content -Path "$([Environment]::GetFolderPath('Startup'))\mcgyvr-rig.cmd" `
+Set-Content -LiteralPath "$([Environment]::GetFolderPath('Startup'))\mcgyvr-rig.cmd" `
   -Value '@start "" /min "%USERPROFILE%\.local\bin\mcgyvr.exe" rig run'
 ```
 
@@ -379,7 +382,7 @@ Each entry takes these keys:
 | `units.model` | text | **yes** | — | Model identifier as the unit names it. |
 | `units.engine` | one of `llama.cpp`, `vllm` | no | unset | Which server program runs behind this address. Absent means llama.cpp. To bind it: e.g. vllm -- leave it out for llama.cpp. |
 | `units.image` | text | no | unset | Container image this unit runs, as a tag or digest. To bind it: e.g. vllm/vllm-openai@sha256:<hex>. |
-| `units.launcher` | one of `docker`, `native` | no | unset | How this unit's server runs. `docker`: in a container, kept up by the docker daemon (Linux, NVIDIA). `native`: the llama.cpp release build mcgyvr pins, fetched into `bin/llama.cpp/<tag>/` under the mcgyvr home, checked against its pinned sha256, and kept up by mcgyvr's own supervisor, which restarts it with a growing pause and gives up after a few crashes: Metal on a Mac, CUDA where `nvidia-smi` reads a driver it runs, else Vulkan, else the CPU. A native unit listens on 127.0.0.1 alone, so no firewall asks: the hub reaches it through the rig agent's relay to that local address, and a pooled worker binds the tunnel address only, so a unit stating another `--host` is refused; its log is `logs/<container>.log` in the data folder. llama.cpp only. Absent means `docker`; `setup` writes `native` for a unit on a Mac or Windows machine it runs on. To bind it: e.g. native -- leave it out for a container. |
+| `units.launcher` | one of `docker`, `native` | no | unset | How this unit's server runs. `docker`: in a container, kept up by the docker daemon (Linux, NVIDIA). `native`: the llama.cpp release build mcgyvr pins, fetched into `bin/llama.cpp/<tag>/` under the mcgyvr home, checked against its pinned sha256, and kept up by mcgyvr's own supervisor, which restarts it with a growing pause and gives up after a few crashes: Metal on a Mac, CUDA where `nvidia-smi` reads a driver it runs, else Vulkan, else the CPU. A native unit listens on 127.0.0.1 alone, so no firewall is expected to ask: on macOS the hub reaches it through the rig agent's relay to that local address (Windows has no rig agent yet), and a pooled worker binds the tunnel address only, so a unit stating another `--host` is refused; its log is `logs/<container>.log` in the data folder. llama.cpp only. Absent means `docker`; `setup` writes `native` for a unit on a Mac or Windows machine it runs on. To bind it: e.g. native -- leave it out for a container. |
 | `units.api_key_env` | env var name | no | unset | NAME of the environment variable holding this unit's key. To bind it: set it to the variable's NAME (e.g. ANTHROPIC_API_KEY), never the key itself. |
 | `units.rig` | text | no | unset | The rig this unit runs on, by the name fleet.yaml uses. Units that share a rig and an address are served by one process. To bind it: e.g. box.example. |
 | `units.width` | number (min 1) | no | unset | How many requests this unit may run at once. Concurrency is a property of the process, so it is a unit fact. To bind it: e.g. 8 -- the slot count the backend was started with. |

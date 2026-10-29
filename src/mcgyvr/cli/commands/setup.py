@@ -602,7 +602,13 @@ def _shown(rc: Path, base: Path) -> str:
         inside = rc.relative_to(base)
     except ValueError:
         return str(rc)
-    return "~" + os.sep + str(inside) if os.sep != "/" else "~/" + str(inside)
+    return "~" + os.sep + str(inside)
+
+
+#: What the PATH offer names when it leaves a startup file alone.
+_UV_UPDATE_SHELL = (
+    f"`uv tool update-shell` puts ~{os.sep}.local{os.sep}bin on PATH instead."
+)
 
 
 def _offer_path_append(
@@ -639,8 +645,7 @@ def _offer_path_append(
             # at every start; uv's own command needs no policy change.
             print(
                 f"PowerShell's execution policy is {policy}, so it runs no "
-                "profile and none was changed; `uv tool update-shell` puts "
-                f"~{os.sep}.local{os.sep}bin on PATH instead."
+                f"profile and none was changed; {_UV_UPDATE_SHELL}"
             )
             return None
         rc = named or rc
@@ -648,6 +653,15 @@ def _offer_path_append(
         text = rc.read_text(encoding="utf-8")
     except OSError:
         text = ""
+    except UnicodeError:
+        # Not UTF-8 (Windows PowerShell writes UTF-16 with `>` and Out-File,
+        # the ANSI code page with Set-Content): a UTF-8 line appended there
+        # would corrupt it, so it is left as it is.
+        print(
+            f"{_shown(rc, base)} is not UTF-8, so it was not changed; "
+            + _UV_UPDATE_SHELL
+        )
+        return None
     if _has_local_bin_path(text):
         return None
     shown = _shown(rc, base)

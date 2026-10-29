@@ -392,7 +392,10 @@ def _macos_windows_section() -> list[str]:
             f"weights follow `${WEIGHTS_DIR_ENV}` alone), and `journal.dir` "
             f"defaults to `{JOURNAL_DIR_DEFAULT}` everywhere. Windows checks no "
             "file owner or mode: a file is as private as its folder, and these "
-            "folders are in your own profile."
+            "folders are in your own profile. A folder named by "
+            f"`${roots.HOME_ENV}`, `${roots.DATA_ENV}` or an XDG variable keeps "
+            "whatever ACL it has, so keep the rig token's folder "
+            f"(`${roots.HOME_ENV}`) inside your profile."
         ),
         *para(
             "**Serving, with no Docker.** On a Mac or a Windows machine, `mcgyvr "
@@ -474,7 +477,8 @@ def _macos_windows_section() -> list[str]:
         "",
         *para(
             f"`launchctl bootout gui/$(id -u)/{_LAUNCHD_LABEL}` stops it until "
-            "the next login or `bootstrap`; delete the plist to drop it. "
+            "the next login or `bootstrap` (after editing the plist, `bootout` "
+            "first, then `bootstrap` again); delete the plist to drop it. "
             "launchd starts it without your shell's variables, so a variable the "
             f"agent reads (`${HUB_KEY_ENV}`) set in `~/.zshrc` is not seen there."
         ),
@@ -487,7 +491,7 @@ def _macos_windows_section() -> list[str]:
             "and `Remove-Item` on the same path to drop it:"
         ),
         "```powershell",
-        f"Set-Content -Path {startup} `",
+        f"Set-Content -LiteralPath {startup} `",
         '  -Value \'@start "" /min "%USERPROFILE%\\.local\\bin\\mcgyvr.exe" rig run\'',
         "```",
         "",

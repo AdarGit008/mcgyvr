@@ -292,3 +292,26 @@ def test_a_real_powershell_names_its_policy_and_an_absolute_profile() -> None:
     policy, profile = setup_command._ask_powershell("pwsh")
     assert policy
     assert profile is None or (profile.is_absolute() and profile.suffix == ".ps1")
+
+
+@pytest.mark.parametrize("encoding", ["utf-16", "cp1252"])
+def test_a_profile_that_is_not_utf8_is_left_as_it_is(
+    encoding: str,
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+    capsys: pytest.CaptureFixture[str],
+) -> None:
+    # Windows PowerShell writes UTF-16 with `>` and Out-File and the ANSI code
+    # page with Set-Content; a UTF-8 line appended there would corrupt it.
+    as_system(monkeypatch, "windows")
+    rc = tmp_path / PWSH_PROFILE
+    rc.parent.mkdir(parents=True)
+    rc.write_bytes("Set-Alias ls Get-ChildItem # café\n".encode(encoding))
+    before = rc.read_bytes()
+    asked: list[str] = []
+
+    assert _offer_path_append(prompt=_yes(asked), shell="pwsh", home=tmp_path) is None
+
+    assert asked == []
+    assert rc.read_bytes() == before
+    assert "uv tool update-shell" in capsys.readouterr().out

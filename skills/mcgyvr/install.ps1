@@ -102,7 +102,7 @@ function Test-Skill([string]$File, [string]$ExpectedName) {
     if ($line.StartsWith("name:")) { $name = Get-Unquoted $line.Substring(5) }
     elseif ($line.StartsWith("description:")) { $description = Get-Unquoted $line.Substring(12) }
   }
-  if ($name -ne $ExpectedName) {
+  if ($name -cne $ExpectedName) {
     Stop-Install "install.ps1: ${File}: frontmatter name '$name' is not the directory it lands in ('$ExpectedName')"
   }
   if (-not $description) {
@@ -205,8 +205,10 @@ function Invoke-Mcgyvr([string[]]$Arguments, [switch]$Stderr) {
 function Test-Examples([string]$Found) {
   if (-not (Test-Path -LiteralPath $ExamplesMd -PathType Leaf)) { return $true }
   $scratch = Join-Path ([IO.Path]::GetTempPath()) ("mcgyvr-install-" + [Guid]::NewGuid().ToString("N"))
-  New-Item -ItemType Directory -Path $scratch | Out-Null
   try {
+    # A probe that cannot run (no temporary folder) warns of nothing, as
+    # install.sh's does when mktemp fails.
+    New-Item -ItemType Directory -Path $scratch | Out-Null
     $count = 0
     $inside = $false
     $current = $null
@@ -231,6 +233,8 @@ function Test-Examples([string]$Found) {
         if (-not $first -and $ran.Lines.Count -gt 0) { $first = $ran.Lines[0] }
       }
     }
+  } catch {
+    return $true
   } finally {
     Remove-Item -LiteralPath $scratch -Recurse -Force -ErrorAction SilentlyContinue
   }
