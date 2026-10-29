@@ -44,6 +44,8 @@ from these names rather than writing them again:
   resource lends to count (:data:`LEND_FLOOR_MB`, :data:`LEND_FLOOR_CORES`,
   the oldest DDR generation host memory may be, :data:`RAM_DDR_MIN`, and
   :func:`counts_as_lent`);
+* what a member chooses to lend on a rig (:class:`Lending`, carried as
+  :data:`LENDING_FIELD`);
 * the llama.cpp RPC protocol version a rig speaks (:class:`RpcProto`, carried
   as :data:`RPC_PROTO_FIELD`) and which workers a head may take
   (:func:`rpc_compatible`);
@@ -150,6 +152,7 @@ API_ERROR_STATUS: Mapping[str, int] = MappingProxyType(
         "insufficient_vram": 503,
         "busy": 503,
         "no_path": 503,
+        "rpc_incompatible": 503,
         "too_slow": 503,
         "timeout": 504,
     }
@@ -726,6 +729,57 @@ def card_readings_from(readings: Sequence[ResourceReading]) -> list[dict[str, in
         for r in sorted(readings, key=lambda r: r.index)
         if r.kind in CARD_KINDS
     ]
+
+
+# --- what a member chooses to lend ----------------------------------------------
+
+#: The ack field carrying what a member chooses to lend on a rig
+#: (:class:`Lending`), set on the hub, for the rig's agent to lend.
+LENDING_FIELD = "lending"
+
+
+def _lent_or_none(value: object, floor: int, most: int, field: str) -> None:
+    """Refuse ``value`` unless it is 0, lending none, or ``floor`` to ``most``."""
+    _need(
+        _is_int(value) and (value == 0 or value in range(floor, most + 1)),
+        field,
+        f"not 0 or {floor} to {most}",
+    )
+
+
+@dataclass(frozen=True, kw_only=True)
+class Lending:
+    """What a member chooses to lend on one rig: ``cards``, the card indexes
+    lent whole (None for every card the rig has, empty for none), ``ram_mb``
+    the host memory lent, in MiB, and ``cpu_cores`` the host cores lent.
+    Memory and cores are each 0, lending none, or at least their kind's
+    lending floor (:data:`LEND_FLOOR_MB`, :data:`LEND_FLOOR_CORES`): an
+    amount under it would count as nothing lent, so it is never asked for."""
+
+    cards: tuple[int, ...] | None
+    ram_mb: int
+    cpu_cores: int
+
+    def validate(self) -> None:
+        """Raise ValueError, naming the field at fault, unless this lending
+        keeps every rule a hub holds it to."""
+        cards = self.cards
+        if cards is not None:
+            _need(
+                type(cards) is tuple and len(cards) <= MAX_CARDS,
+                "cards",
+                f"not null or at most {MAX_CARDS} card indexes",
+            )
+            _need(
+                all(_is_int(i) and 0 <= i <= MAX_RESOURCE_INDEX for i in cards),
+                "cards",
+                f"an index not 0 to {MAX_RESOURCE_INDEX}",
+            )
+            _need(len(set(cards)) == len(cards), "cards", "an index twice")
+        _lent_or_none(
+            self.ram_mb, LEND_FLOOR_MB[RESOURCE_RAM], RESOURCE_MAX_MB, "ram_mb"
+        )
+        _lent_or_none(self.cpu_cores, LEND_FLOOR_CORES, MAX_RESOURCE_CORES, "cpu_cores")
 
 
 # --- the RPC protocol a split model's workers speak -------------------------------

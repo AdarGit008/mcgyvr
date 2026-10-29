@@ -132,6 +132,13 @@ def test_the_error_table_is_the_one_the_rider_schema_publishes(
     assert dict(hubwire.API_ERROR_STATUS) == rider["x-openai-errors"]
 
 
+def test_a_split_its_rigs_rpc_protocols_cannot_run_is_refused_as_no_path_is() -> None:
+    """Both wait on a rig changing (an agent upgrade, a path opening), so both
+    are a 503 the client may try again."""
+    assert hubwire.api_error("rpc_incompatible") == (503, "rpc_incompatible")
+    assert hubwire.API_ERROR_STATUS["no_path"] == 503
+
+
 def test_every_pair_the_product_reads_is_a_published_pair(
     rider: dict[str, Any],
 ) -> None:

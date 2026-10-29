@@ -62,7 +62,8 @@ archived outside this repository, under the same paths.
   may take: llama.cpp's own rule, the same major and no newer minor. Nothing
   sends resources yet. Ruff now refuses a raw bidirectional control character in
   source (`PLE2502`).
-- **The wire names each value it holds (#814).** Each backend, OS and arch has its
+- **The wire names each value it holds, and carries a member's lending and a
+  cpu head device (#814).** Each backend, OS and arch has its
   own name (`BACKEND_CUDA`..`BACKEND_CPU`, `HOST_LINUX`/`HOST_DARWIN`/
   `HOST_WINDOWS`, `ARCH_X86_64`/`ARCH_ARM64`), and `RESOURCE_BACKENDS`,
   `HOST_OS` and `HOST_ARCH` are built from them, in the same order. An advert
@@ -73,6 +74,12 @@ archived outside this repository, under the same paths.
   (`local`, `rpc`, `cpu`) names the devices a `head_start` may list; the rig
   agent reads `local` and `rpc` by these names and refuses a `cpu` device
   until it starts cpu heads.
+  `Lending` is what a member chooses to lend on a rig (card indexes, or none
+  for every card; host memory in MiB; cores; each 0 or at least its lending
+  floor), carried in the hello's ack as `LENDING_FIELD`. `rpc_incompatible`
+  (503) joins the `/v1` error table beside `no_path`. The shipped protocol
+  schema carries the ack's `lending`, `capabilities.rpc_proto` and a `cpu`
+  head device; the rider schema carries `rpc_incompatible`.
 - **`mcgyvr use NAME` switches the use case, and `/mcgyvr-use` is its skill.**
   It rewrites the policy's `use_case:` line and nothing else, and says what
   that turns on or off.

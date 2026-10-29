@@ -852,6 +852,23 @@ def test_the_rpc_protocol_field_is_one_name() -> None:
     assert [f.name for f in dataclasses.fields(hubwire.RpcProto)] == ["major", "minor"]
 
 
+def test_a_hellos_capabilities_carry_the_rpc_protocol_in_the_shipped_schema() -> None:
+    capabilities = _defs("Capabilities")["properties"]
+    assert _value(capabilities[hubwire.RPC_PROTO_FIELD]) == {"$ref": "#/$defs/RpcProto"}
+    proto = _defs("RpcProto")
+    assert proto["required"] == [f.name for f in dataclasses.fields(hubwire.RpcProto)]
+    for part in proto["properties"].values():
+        assert (part["minimum"], part["maximum"]) == (0, hubwire.RPC_PROTO_MAX)
+    protocol = rig_schema.load(rig_schema.PROTOCOL)
+    sent = {hubwire.RPC_PROTO_FIELD: {"major": 3, "minor": 0}}
+    rig_schema.validate(sent, protocol, "#/$defs/Capabilities")
+    for bad in ({"major": 256, "minor": 0}, {"major": 3}):
+        with pytest.raises(rig_schema.SchemaError):
+            rig_schema.validate(
+                {hubwire.RPC_PROTO_FIELD: bad}, protocol, "#/$defs/Capabilities"
+            )
+
+
 @pytest.mark.parametrize("proto", [(0, 0), (8, 0), (8, 12), (255, 255)])
 def test_an_rpc_protocol_of_whole_numbers_validates(proto: tuple[int, int]) -> None:
     hubwire.RpcProto(major=proto[0], minor=proto[1]).validate()
