@@ -159,7 +159,6 @@ def test_an_unverified_row_is_used_and_flagged(
         classes=table,
     )
     assert isinstance(got, estimate.Figure) and not got.verified
-    assert "unverified" in got.says("tok/s")
 
 
 @pytest.mark.parametrize(

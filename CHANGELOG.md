@@ -49,7 +49,7 @@ archived outside this repository, under the same paths.
   estimates decode as bandwidth over the bytes a token reads: 0.75 of it for
   16- and 8-bit weights and 0.60 for 4- to 6-bit, fitted under llama.cpp's
   Apple-silicon table (discussion 4167), with an Apple chip from 800 GB/s up
-  at most 0.50 and 0.45; an NVIDIA card's estimate says the shares were
+  at most 0.50 and 0.40; an NVIDIA card's estimate says the shares were
   fitted on Apple silicon. A mixture of experts reads its shared weights and
   the experts it uses. The plan of `mcgyvr recommend` states its placement's
   `decode_tok_s` as the live fleet's measured speed for that model at that

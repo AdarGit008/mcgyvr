@@ -1,5 +1,5 @@
 {
-  "_doc": "Memory bandwidth of device classes: Apple silicon chips and NVIDIA consumer cards. Each `bandwidth_gbps` is a fact about the class from the vendor's or a reference page (the row's `source` names its entry in `_sources`: the URL, and the words quoted or, for a table row, a `summary` of its cells), never a reading of your machine; for a device matched to the class it is shown as an estimate. `verified: false` marks a row whose source could not be read cleanly, which is still used and is flagged wherever it shows. mcgyvr uses a row only to estimate how fast a model decodes before a unit of it has been measured (`mcgyvr.estimate`); a measured decode speed replaces the estimate. A device that matches no row gets no estimate. Apple rows match the chip name (`Apple M2 Max`), then the GPU core count where a chip has two bandwidths, then the memory size where the row says `match_memory_gb`; NVIDIA rows match the card name without `NVIDIA` and `GeForce` (`RTX 3080`) and then the card's memory in GB (`vram_gb`). `memory_gb_kind` says how to read `memory_gb`: the sizes offered (`options`), the lowest and highest (`range`), or the largest (`up_to`).",
+  "_doc": "Memory bandwidth of device classes: Apple silicon chips and NVIDIA consumer cards. Each `bandwidth_gbps` is a fact about the class from the vendor's or a reference page (the row's `source` names its entry in `_sources`: the URL, and the words quoted or, for a table row, a `summary` of its cells), never a reading of your machine; for a device matched to the class it is shown as an estimate. `verified: false` marks a row whose source could not be read cleanly, which is still used and is flagged wherever it shows. mcgyvr uses a row only to estimate how fast a model decodes before a unit of it has been measured (`mcgyvr.estimate`); a measured decode speed replaces the estimate. A device that matches no row gets no estimate. Apple rows match the chip name (`Apple M2 Max`), then the GPU core count where a chip has two bandwidths, then the memory size where the row says `match_memory_gb`; NVIDIA rows match the card name without `NVIDIA` and `GeForce` (`RTX 3080`) and then the card's memory in GB (`vram_gb`).",
   "schema": 1,
   "classes": [
     {
@@ -11,11 +11,6 @@
         8
       ],
       "bandwidth_gbps": 68.3,
-      "memory_gb": [
-        8,
-        16
-      ],
-      "memory_gb_kind": "options",
       "verified": true,
       "source": "apple-m1"
     },
@@ -28,11 +23,6 @@
         16
       ],
       "bandwidth_gbps": 204.8,
-      "memory_gb": [
-        16,
-        32
-      ],
-      "memory_gb_kind": "options",
       "verified": true,
       "source": "apple-m1-pro"
     },
@@ -45,11 +35,6 @@
         32
       ],
       "bandwidth_gbps": 409.6,
-      "memory_gb": [
-        32,
-        64
-      ],
-      "memory_gb_kind": "options",
       "verified": true,
       "source": "apple-m1-max"
     },
@@ -62,11 +47,6 @@
         64
       ],
       "bandwidth_gbps": 819.2,
-      "memory_gb": [
-        64,
-        128
-      ],
-      "memory_gb_kind": "options",
       "verified": true,
       "source": "apple-m1-ultra"
     },
@@ -79,12 +59,6 @@
         10
       ],
       "bandwidth_gbps": 102.4,
-      "memory_gb": [
-        8,
-        16,
-        24
-      ],
-      "memory_gb_kind": "options",
       "verified": true,
       "source": "apple-m2"
     },
@@ -97,11 +71,6 @@
         19
       ],
       "bandwidth_gbps": 204.8,
-      "memory_gb": [
-        16,
-        32
-      ],
-      "memory_gb_kind": "options",
       "verified": true,
       "source": "apple-m2-pro"
     },
@@ -114,11 +83,6 @@
         38
       ],
       "bandwidth_gbps": 409.6,
-      "memory_gb": [
-        32,
-        96
-      ],
-      "memory_gb_kind": "range",
       "verified": true,
       "source": "apple-m2-max"
     },
@@ -131,11 +95,6 @@
         76
       ],
       "bandwidth_gbps": 819.2,
-      "memory_gb": [
-        64,
-        192
-      ],
-      "memory_gb_kind": "range",
       "verified": true,
       "source": "apple-m2-ultra"
     },
@@ -148,12 +107,6 @@
         10
       ],
       "bandwidth_gbps": 102.4,
-      "memory_gb": [
-        8,
-        16,
-        24
-      ],
-      "memory_gb_kind": "options",
       "verified": true,
       "source": "apple-m3"
     },
@@ -166,10 +119,6 @@
         18
       ],
       "bandwidth_gbps": 153.6,
-      "memory_gb": [
-        36
-      ],
-      "memory_gb_kind": "up_to",
       "verified": true,
       "source": "apple-m3-pro"
     },
@@ -181,10 +130,6 @@
         30
       ],
       "bandwidth_gbps": 307.2,
-      "memory_gb": [
-        96
-      ],
-      "memory_gb_kind": "up_to",
       "verified": true,
       "source": "apple-m3-max-30c"
     },
@@ -196,10 +141,6 @@
         40
       ],
       "bandwidth_gbps": 409.6,
-      "memory_gb": [
-        128
-      ],
-      "memory_gb_kind": "up_to",
       "verified": true,
       "source": "apple-m3-max-40c"
     },
@@ -211,10 +152,6 @@
         60
       ],
       "bandwidth_gbps": 819.3,
-      "memory_gb": [
-        256
-      ],
-      "memory_gb_kind": "up_to",
       "verified": true,
       "source": "apple-m3-ultra-60c"
     },
@@ -226,10 +163,6 @@
         80
       ],
       "bandwidth_gbps": 819.3,
-      "memory_gb": [
-        512
-      ],
-      "memory_gb_kind": "up_to",
       "verified": true,
       "source": "apple-m3-ultra-80c"
     },
@@ -242,12 +175,6 @@
         10
       ],
       "bandwidth_gbps": 120.0,
-      "memory_gb": [
-        16,
-        24,
-        32
-      ],
-      "memory_gb_kind": "options",
       "verified": true,
       "source": "apple-m4"
     },
@@ -260,10 +187,6 @@
         20
       ],
       "bandwidth_gbps": 273.0,
-      "memory_gb": [
-        64
-      ],
-      "memory_gb_kind": "up_to",
       "verified": true,
       "source": "apple-m4-pro"
     },
@@ -275,10 +198,6 @@
         32
       ],
       "bandwidth_gbps": 410.0,
-      "memory_gb": [
-        128
-      ],
-      "memory_gb_kind": "up_to",
       "verified": true,
       "source": "apple-m4-max-32c"
     },
@@ -290,10 +209,6 @@
         40
       ],
       "bandwidth_gbps": 546.0,
-      "memory_gb": [
-        128
-      ],
-      "memory_gb_kind": "up_to",
       "verified": true,
       "source": "apple-m4-max-40c"
     },
@@ -306,12 +221,6 @@
         10
       ],
       "bandwidth_gbps": 153.0,
-      "memory_gb": [
-        16,
-        24,
-        32
-      ],
-      "memory_gb_kind": "options",
       "verified": true,
       "source": "apple-m5"
     },
@@ -324,12 +233,6 @@
         20
       ],
       "bandwidth_gbps": 307.0,
-      "memory_gb": [
-        24,
-        48,
-        64
-      ],
-      "memory_gb_kind": "options",
       "verified": true,
       "source": "apple-m5-pro"
     },
@@ -341,10 +244,6 @@
         32
       ],
       "bandwidth_gbps": 460.0,
-      "memory_gb": [
-        36
-      ],
-      "memory_gb_kind": "options",
       "verified": true,
       "source": "apple-m5-max-32c",
       "match_memory_gb": [
@@ -359,12 +258,6 @@
         40
       ],
       "bandwidth_gbps": 614.0,
-      "memory_gb": [
-        48,
-        64,
-        128
-      ],
-      "memory_gb_kind": "options",
       "verified": true,
       "source": "apple-m5-max-40c",
       "match_memory_gb": [
@@ -382,12 +275,6 @@
         80
       ],
       "bandwidth_gbps": 1228.8,
-      "memory_gb": [
-        96,
-        256,
-        512
-      ],
-      "memory_gb_kind": "options",
       "verified": true,
       "source": "apple-m5-ultra"
     },
@@ -399,10 +286,6 @@
         12
       ],
       "bandwidth_gbps": 153.0,
-      "memory_gb": [
-        16
-      ],
-      "memory_gb_kind": "options",
       "verified": true,
       "source": "apple-m6-16gb",
       "match_memory_gb": [
@@ -418,11 +301,6 @@
         12
       ],
       "bandwidth_gbps": 170.0,
-      "memory_gb": [
-        24,
-        32
-      ],
-      "memory_gb_kind": "options",
       "verified": true,
       "source": "apple-m6-24gb",
       "match_memory_gb": [
