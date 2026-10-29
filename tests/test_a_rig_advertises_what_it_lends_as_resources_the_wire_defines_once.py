@@ -656,3 +656,57 @@ def test_every_kind_has_one_standby_unit_and_only_names_it() -> None:
     assert tuple(hubwire.STANDBY_UNITS) == hubwire.RESOURCE_KINDS
     with pytest.raises(TypeError):
         hubwire.STANDBY_UNITS["ram"] = "1GiB"  # type: ignore[index]
+
+
+# --- the RPC protocol a split model's workers speak -------------------------------
+
+
+def test_the_rpc_protocol_field_is_one_name() -> None:
+    assert hubwire.RPC_PROTO_FIELD == "rpc_proto"
+    assert [f.name for f in dataclasses.fields(hubwire.RpcProto)] == ["major", "minor"]
+
+
+@pytest.mark.parametrize("proto", [(0, 0), (8, 0), (8, 12)])
+def test_an_rpc_protocol_of_whole_numbers_validates(proto: tuple[int, int]) -> None:
+    hubwire.RpcProto(major=proto[0], minor=proto[1]).validate()
+
+
+@pytest.mark.parametrize(
+    ("major", "minor", "field"),
+    [
+        (-1, 0, "major"),
+        (True, 0, "major"),
+        (8.0, 0, "major"),
+        ("8", 0, "major"),
+        (8, -1, "minor"),
+        (8, None, "minor"),
+        (8, False, "minor"),
+    ],
+)
+def test_each_part_of_an_rpc_protocol_is_a_whole_number_of_0_or_more(
+    major: Any, minor: Any, field: str
+) -> None:
+    _refused(field, hubwire.RpcProto(major=major, minor=minor).validate)
+
+
+@pytest.mark.parametrize(
+    ("head", "worker", "compatible"),
+    [
+        ((8, 0), (8, 0), True),
+        ((8, 2), (8, 1), True),
+        ((8, 2), (8, 0), True),
+        ((8, 1), (8, 2), False),
+        ((8, 0), (7, 0), False),
+        ((7, 5), (8, 0), False),
+        ((9, 9), (8, 9), False),
+    ],
+)
+def test_a_head_takes_a_worker_of_its_major_and_no_newer_minor(
+    head: tuple[int, int], worker: tuple[int, int], compatible: bool
+) -> None:
+    """llama.cpp's head refuses a worker of another major or a newer minor."""
+
+    def proto(p: tuple[int, int]) -> hubwire.RpcProto:
+        return hubwire.RpcProto(major=p[0], minor=p[1])
+
+    assert hubwire.rpc_compatible(proto(head), proto(worker)) is compatible

@@ -49,7 +49,10 @@ archived outside this repository, under the same paths.
   `MAX_CARD_INDEX`, `MAX_CARDS`) are now these names, imported. The shipped
   `protocol.schema.json` is the hub's with `resources[]` and `host` on a hello
   and `resources[]` on a heartbeat, and the tests hold every value above to
-  it. Nothing sends resources yet. Ruff now refuses a raw bidirectional control character in
+  it. `RpcProto` names the llama.cpp RPC protocol a rig
+  speaks (`RPC_PROTO_FIELD`), and `rpc_compatible` says which workers a head
+  may take: llama.cpp's own rule, the same major and no newer minor. Nothing
+  sends resources yet. Ruff now refuses a raw bidirectional control character in
   source (`PLE2502`).
 - **`mcgyvr use NAME` switches the use case, and `/mcgyvr-use` is its skill.**
   It rewrites the policy's `use_case:` line and nothing else, and says what

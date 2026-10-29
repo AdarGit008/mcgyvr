@@ -38,7 +38,10 @@ from these names rather than writing them again:
   or heartbeat may name (:data:`MAX_RESOURCES`, :func:`resources_fit`,
   :func:`readings_fit`), the legacy cards they make
   (:func:`cards_from_resources`, :func:`card_readings_from`) and the unit
-  standby is counted in per kind (:data:`STANDBY_UNITS`).
+  standby is counted in per kind (:data:`STANDBY_UNITS`);
+* the llama.cpp RPC protocol version a rig speaks (:class:`RpcProto`, carried
+  as :data:`RPC_PROTO_FIELD`) and which workers a head may take
+  (:func:`rpc_compatible`).
 
 A pattern is held unanchored and matched whole (``fullmatch``); a JSON Schema
 or a pydantic type writes it as ``^<pattern>$``. Nothing here is a validator
@@ -632,3 +635,40 @@ def card_readings_from(readings: Sequence[ResourceReading]) -> list[dict[str, in
         for r in sorted(readings, key=lambda r: r.index)
         if r.kind in CARD_KINDS
     ]
+
+
+# --- the RPC protocol a split model's workers speak -------------------------------
+
+#: The advert and offer field naming the llama.cpp RPC protocol version a rig
+#: speaks (:class:`RpcProto`).
+RPC_PROTO_FIELD = "rpc_proto"
+
+
+@dataclass(frozen=True, kw_only=True)
+class RpcProto:
+    """The llama.cpp RPC protocol version a rig speaks: ``major`` and
+    ``minor``, each a whole number of 0 or more. Its patch is never compared,
+    so it is not carried."""
+
+    major: int
+    minor: int
+
+    def validate(self) -> None:
+        """Raise ValueError, naming the field at fault, unless both are whole
+        numbers of 0 or more."""
+        for field in ("major", "minor"):
+            value = getattr(self, field)
+            _need(_is_int(value) and value >= 0, field, "not a whole number >= 0")
+
+
+def rpc_compatible(head: RpcProto, worker: RpcProto) -> bool:
+    """Whether a head may take ``worker`` as an RPC worker: the same major, and
+    the worker's minor no newer than the head's.
+
+    This is llama.cpp's own handshake: the head (the RPC client) refuses a
+    server whose major differs or whose minor is greater than its own
+    (``negotiate_hello`` in ``ggml/src/ggml-rpc/ggml-rpc.cpp``,
+    https://github.com/ggml-org/llama.cpp/blob/7ecb57f7adbea2928aa468ad2aecf05b10725ad4/ggml/src/ggml-rpc/ggml-rpc.cpp).
+    A major changes on a break; a newer head speaks an older minor.
+    """
+    return worker.major == head.major and worker.minor <= head.minor
