@@ -228,7 +228,7 @@ def test_a_locked_native_unit_elsewhere_or_on_another_address_is_refused() -> No
         emit._locked_service("m", _locked(launch=wide), (0,))
 
 
-def test_a_locked_native_rpc_worker_is_the_rpc_server_on_the_address_it_states() -> None:
+def test_a_locked_native_rpc_worker_runs_rpc_server_on_the_address_it_states() -> None:
     worker = _locked(
         role="rpc",
         address="http://localhost:50052",
