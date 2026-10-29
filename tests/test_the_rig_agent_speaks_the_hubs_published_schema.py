@@ -372,7 +372,14 @@ def test_an_unknown_type_is_read_as_an_envelope_for_the_dispatcher() -> None:
 
 def test_the_validator_refuses_a_keyword_it_does_not_read() -> None:
     with pytest.raises(rig_schema.SchemaError):
-        rig_schema.validate({}, {"$defs": {"X": {"uniqueItems": True}}}, "#/$defs/X")
+        rig_schema.validate({}, {"$defs": {"X": {"multipleOf": 2}}}, "#/$defs/X")
+
+
+def test_the_validator_reads_unique_items() -> None:
+    schema = {"$defs": {"X": {"type": "array", "uniqueItems": True}}}
+    rig_schema.validate([1, 2], schema, "#/$defs/X")
+    with pytest.raises(rig_schema.SchemaError):
+        rig_schema.validate([3, 3], schema, "#/$defs/X")
 
 
 def test_the_validator_refuses_a_key_a_closed_object_does_not_name() -> None:

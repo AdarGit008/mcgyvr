@@ -68,22 +68,26 @@ archived outside this repository, under the same paths.
   `HOST_WINDOWS`, `ARCH_X86_64`/`ARCH_ARM64`), and `RESOURCE_BACKENDS`,
   `HOST_OS` and `HOST_ARCH` are built from them, in the same order. An advert
   names at most one `unified` device (`ONE_PER_RIG`: one unified device, one
-  `ram`, one `cpu`; `resources_fit` refuses a second). `STANDBY_UNIT_SIZE`
+  `ram`, one `cpu`; `resources_fit` refuses a second); `readings_fit` no
+  longer counts a kind, as a hub reads only what the advert named.
+  `STANDBY_UNIT_SIZE`
   sizes the standby unit a hub pays by (a card, 16384 MiB of host memory, 8
   cores) and `STANDBY_UNITS`' names are made from it. `HEAD_DEVICE_KINDS`
   (`local`, `rpc`, `cpu`) names the devices a `head_start` may list; the rig
-  agent reads `local` and `rpc` by these names and refuses a `cpu` device
+  agent reads them by these names and refuses a `cpu` device `not_capable`
   until it starts cpu heads.
-  `Lending` is what a member chooses to lend on a rig (card indexes, or none
-  for every card; host memory in MiB; cores; each 0 or at least its lending
-  floor), carried in the hello's ack as `LENDING_FIELD`. `rpc_incompatible`
+  `Lending` is what a member chooses to lend on a rig (card indexes, each
+  once, null for every card, empty for none; host memory in MiB; cores; each
+  0 or at least its lending floor), carried in the hello's ack as `LENDING_FIELD`. `rpc_incompatible`
   (503) joins the `/v1` error table beside `no_path`. The shipped protocol
   schema carries the ack's `lending`, `capabilities.rpc_proto` and a `cpu`
   head device; the rider schema carries `rpc_incompatible`.
   The decode rule a hub plans by is here, stdlib only: `DECODE_EFFICIENCY`,
   `HIGH_BANDWIDTH_GBPS`, `HIGH_BANDWIDTH_EFFICIENCY`, `FITTED_ON`,
   `QUANT_CLASSES`, `quant_class`, `decode_efficiency` and
-  `decode_ms_per_gib` (milliseconds a token takes per GiB of weights).
+  `decode_ms_per_gib` (milliseconds a token takes per GiB of weights), each
+  naming the vendor; `fitted_on(kind, backend)` tells a hub, which sees no
+  vendor, when a device is of the fitted one (a unified Metal device).
 - **`mcgyvr use NAME` switches the use case, and `/mcgyvr-use` is its skill.**
   It rewrites the policy's `use_case:` line and nothing else, and says what
   that turns on or off.

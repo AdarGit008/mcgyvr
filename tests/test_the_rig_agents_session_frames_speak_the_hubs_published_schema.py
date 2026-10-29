@@ -423,7 +423,8 @@ def test_a_cpu_head_the_wire_names_is_refused_by_an_agent_that_starts_none(
     schema: dict[str, Any],
 ) -> None:
     """The hub may name the head rig's own cores and memory as a device; this
-    agent starts no cpu head yet, so it refuses one rather than start a card."""
+    agent starts no cpu head yet, so it says it is not capable of one rather
+    than start a card."""
     from mcgyvr import hubwire
     from mcgyvr.rig import protocol as p
 
@@ -436,7 +437,8 @@ def test_a_cpu_head_the_wire_names_is_refused_by_an_agent_that_starts_none(
     rig_schema.validate({"v": 1, "id": "c1", **frame}, schema, "#/$defs/HubMessage")
     with pytest.raises(p.ProtocolError) as refused:
         _read(frame)
-    assert refused.value.code == "bad_message"
+    assert refused.value.code == "not_capable"
+    assert refused.value.re == "c1"
 
 
 @pytest.mark.parametrize(

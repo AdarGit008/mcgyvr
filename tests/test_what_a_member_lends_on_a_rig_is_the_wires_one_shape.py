@@ -156,6 +156,7 @@ def test_a_lendings_fields_and_bounds_are_the_shipped_schemas() -> None:
     assert node["required"] == [f.name for f in dataclasses.fields(hubwire.Lending)]
     cards = next(b for b in props["cards"]["anyOf"] if b.get("type") == "array")
     assert cards["maxItems"] == hubwire.MAX_CARDS
+    assert cards["uniqueItems"] is True
     assert (cards["items"]["minimum"], cards["items"]["maximum"]) == (
         0,
         hubwire.MAX_RESOURCE_INDEX,
@@ -193,6 +194,7 @@ def test_what_the_wire_validates_the_shipped_schema_takes(
         _lending(cpu_cores=1),
         _lending(cards=(hubwire.MAX_RESOURCE_INDEX + 1,)),
         _lending(cards=tuple(range(hubwire.MAX_CARDS + 1))),
+        _lending(cards=(3, 3)),
     ],
 )
 def test_what_the_wire_refuses_by_a_bound_the_shipped_schema_refuses(
