@@ -183,7 +183,7 @@ def test_a_unit_that_would_listen_beyond_the_loopback_is_refused_where_it_starts
     assert native.main(["up", native.units_text([unit])]) == 1
 
 
-@pytest.mark.parametrize("bind", ["100.64.0.7", "10.13.0.2", "192.168.7.4"])
+@pytest.mark.parametrize("bind", ["10.13.0.2", "172.20.5.9", "192.168.7.4"])
 def test_a_pooled_rpc_worker_on_its_tunnel_address_is_started(bind: str) -> None:
     from mcgyvr.serving import llamacpp, shardlaunch
 
