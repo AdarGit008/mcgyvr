@@ -57,6 +57,28 @@ archived outside this repository, under the same paths.
   unified GPU is not lent yet: a lent card is served by a CUDA worker in a
   container, and it joins lending with native launch. (#809)
 
+- **A plan says how fast its model decodes, and a unified GPU's memory is
+  counted once (#817).** `data/hardware-classes.json` states the memory
+  bandwidth of Apple silicon chips and NVIDIA consumer cards, each row with
+  its source page and quote and whether that source was read cleanly
+  (`verified`). `mcgyvr.estimate` matches a device to its class by name (an
+  NVIDIA card then by its memory, a chip by its GPU cores or the machine's
+  memory, the slower variant when those are unread; no class, no estimate)
+  and estimates decode as bandwidth over the bytes a token reads, at 0.75 of
+  it for 16- and 8-bit weights, 0.60 for 4- to 6-bit and at most 0.45 from
+  800 GB/s up, fitted under llama.cpp's Apple-silicon table (discussion 4167);
+  a mixture of experts reads its shared weights and the experts it uses. The
+  plan of `mcgyvr recommend` states its placement's `decode_tok_s` as the live
+  fleet's measured speed for that model at that host (`reading`), else that
+  `estimate`, else why there is none, and each card its class bandwidth.
+  `estimate.usable_unified_mb` is a Mac GPU's memory: the wired limit, else
+  three quarters of memory (estimates), or the working set llama.cpp logged
+  (a reading). Sizing on a unified GPU now weighs spilled experts, a mapped
+  blob and co-resident units against the host memory the GPU leaves, in a
+  unit's fit, a plan's fit and a claim; a card with its own memory is sized
+  exactly as before. CUDA-measured scratch readings are given only to a CUDA
+  card (`vramfit.MEASURED_SCRATCH_BACKEND`).
+
 - **What a rig lends is defined once, as resources, in `mcgyvr.hubwire`
   (#812).** A `Resource` (`gpu`, `unified`, `ram` or `cpu`; `RESOURCE_KINDS`)
   names its index, name, MiB lent and free with whether they are an estimate

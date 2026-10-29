@@ -84,6 +84,12 @@ MEASURED_SCRATCH_MIB = {
     "qwen3next": {512: 829.0},
 }
 
+#: The backend every `MEASURED_SCRATCH_MIB` reading was taken under: each gap
+#: carries a CUDA context and CUDA's compute buffers, so a card of another
+#: backend (a unified GPU under Metal, a card under Vulkan or ROCm) is never
+#: given one and gets `SCRATCH_AND_CONTEXT_MIB`, the unmeasured default.
+MEASURED_SCRATCH_BACKEND = "cuda"
+
 #: Cell granule llama.cpp pads the sliding-window cache to: the engine rounds
 #: its SWA cell count up to a multiple of 256, so a partial chunk costs a whole.
 SWA_PAD = 256
@@ -291,13 +297,21 @@ def predict(geometry: dict[str, Any], n_cpu_moe: int, constant: int) -> int:
     return constant + experts_on_card(geometry, n_cpu_moe)
 
 
-def allowance_mib(geometry: dict[str, Any], *, n_ubatch: int = 512) -> float:
-    """The scratch allowance in MiB for `geometry`'s arch at `n_ubatch`.
+def allowance_mib(
+    geometry: dict[str, Any],
+    *,
+    n_ubatch: int = 512,
+    backend: str = MEASURED_SCRATCH_BACKEND,
+) -> float:
+    """The scratch allowance in MiB for `geometry`'s arch at `n_ubatch` on `backend`.
 
     Returns the measured reading from `MEASURED_SCRATCH_MIB` when that architecture
-    has one for that ubatch, and `SCRATCH_AND_CONTEXT_MIB` when it has none -- for
-    the arch or for the batch. A miss falls back rather than interpolating, so the
-    answer is either a reading or a stated default."""
+    has one for that ubatch and the card runs the backend it was measured under
+    (`MEASURED_SCRATCH_BACKEND`), and `SCRATCH_AND_CONTEXT_MIB` otherwise -- for
+    the arch, the batch or the backend. A miss falls back rather than
+    interpolating, so the answer is either a reading or a stated default."""
+    if backend != MEASURED_SCRATCH_BACKEND:
+        return SCRATCH_AND_CONTEXT_MIB
     readings = MEASURED_SCRATCH_MIB.get(str(geometry.get("arch")))
     if readings is None:
         return SCRATCH_AND_CONTEXT_MIB

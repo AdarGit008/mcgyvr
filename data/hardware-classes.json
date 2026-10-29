@@ -1,0 +1,642 @@
+{
+  "_doc": "Memory bandwidth of device classes: Apple silicon chips and NVIDIA consumer cards. Each `bandwidth_gbps` is a fact from the vendor's or a reference page (the row's `source` names its entry in `_sources`, with the URL and the words quoted), never a reading of your machine; `verified: false` marks a row whose source could not be read cleanly, which is still used and is flagged wherever it shows. mcgyvr uses a row only to estimate how fast a model decodes before a unit of it has been measured (`mcgyvr.estimate`); a measured decode speed replaces the estimate. A device that matches no row gets no estimate. Apple rows match the chip name (`Apple M2 Max`), then the GPU core count where a chip has two bandwidths, then the memory size where the row says `match_memory_gb`; NVIDIA rows match the card name without `NVIDIA` and `GeForce` (`RTX 3080`) and then the card's memory in GB (`vram_gb`). `memory_gb_kind` says how to read `memory_gb`: the sizes offered (`options`), the lowest and highest (`range`), or the largest (`up_to`).",
+  "schema": 1,
+  "classes": [
+    {
+      "id": "apple-m1",
+      "vendor": "apple",
+      "name": "M1",
+      "gpu_cores": [
+        7,
+        8
+      ],
+      "bandwidth_gbps": 68.3,
+      "memory_gb": [
+        8,
+        16
+      ],
+      "memory_gb_kind": "options",
+      "verified": true,
+      "source": "apple-m1"
+    },
+    {
+      "id": "apple-m1-pro",
+      "vendor": "apple",
+      "name": "M1 Pro",
+      "gpu_cores": [
+        14,
+        16
+      ],
+      "bandwidth_gbps": 204.8,
+      "memory_gb": [
+        16,
+        32
+      ],
+      "memory_gb_kind": "options",
+      "verified": true,
+      "source": "apple-m1-pro"
+    },
+    {
+      "id": "apple-m1-max",
+      "vendor": "apple",
+      "name": "M1 Max",
+      "gpu_cores": [
+        24,
+        32
+      ],
+      "bandwidth_gbps": 409.6,
+      "memory_gb": [
+        32,
+        64
+      ],
+      "memory_gb_kind": "options",
+      "verified": true,
+      "source": "apple-m1-max"
+    },
+    {
+      "id": "apple-m1-ultra",
+      "vendor": "apple",
+      "name": "M1 Ultra",
+      "gpu_cores": [
+        48,
+        64
+      ],
+      "bandwidth_gbps": 819.2,
+      "memory_gb": [
+        64,
+        128
+      ],
+      "memory_gb_kind": "options",
+      "verified": true,
+      "source": "apple-m1-ultra"
+    },
+    {
+      "id": "apple-m2",
+      "vendor": "apple",
+      "name": "M2",
+      "gpu_cores": [
+        8,
+        10
+      ],
+      "bandwidth_gbps": 102.4,
+      "memory_gb": [
+        8,
+        16,
+        24
+      ],
+      "memory_gb_kind": "options",
+      "verified": true,
+      "source": "apple-m2"
+    },
+    {
+      "id": "apple-m2-pro",
+      "vendor": "apple",
+      "name": "M2 Pro",
+      "gpu_cores": [
+        16,
+        19
+      ],
+      "bandwidth_gbps": 204.8,
+      "memory_gb": [
+        16,
+        32
+      ],
+      "memory_gb_kind": "options",
+      "verified": true,
+      "source": "apple-m2-pro"
+    },
+    {
+      "id": "apple-m2-max",
+      "vendor": "apple",
+      "name": "M2 Max",
+      "gpu_cores": [
+        30,
+        38
+      ],
+      "bandwidth_gbps": 409.6,
+      "memory_gb": [
+        32,
+        96
+      ],
+      "memory_gb_kind": "range",
+      "verified": true,
+      "source": "apple-m2-max"
+    },
+    {
+      "id": "apple-m2-ultra",
+      "vendor": "apple",
+      "name": "M2 Ultra",
+      "gpu_cores": [
+        60,
+        76
+      ],
+      "bandwidth_gbps": 819.2,
+      "memory_gb": [
+        64,
+        192
+      ],
+      "memory_gb_kind": "range",
+      "verified": true,
+      "source": "apple-m2-ultra"
+    },
+    {
+      "id": "apple-m3",
+      "vendor": "apple",
+      "name": "M3",
+      "gpu_cores": [
+        8,
+        10
+      ],
+      "bandwidth_gbps": 102.4,
+      "memory_gb": [
+        8,
+        16,
+        24
+      ],
+      "memory_gb_kind": "options",
+      "verified": true,
+      "source": "apple-m3"
+    },
+    {
+      "id": "apple-m3-pro",
+      "vendor": "apple",
+      "name": "M3 Pro",
+      "gpu_cores": [
+        14,
+        18
+      ],
+      "bandwidth_gbps": 153.6,
+      "memory_gb": [
+        36
+      ],
+      "memory_gb_kind": "up_to",
+      "verified": true,
+      "source": "apple-m3-pro"
+    },
+    {
+      "id": "apple-m3-max-30c",
+      "vendor": "apple",
+      "name": "M3 Max",
+      "gpu_cores": [
+        30
+      ],
+      "bandwidth_gbps": 307.2,
+      "memory_gb": [
+        96
+      ],
+      "memory_gb_kind": "up_to",
+      "verified": true,
+      "source": "apple-m3-max-30c"
+    },
+    {
+      "id": "apple-m3-max-40c",
+      "vendor": "apple",
+      "name": "M3 Max",
+      "gpu_cores": [
+        40
+      ],
+      "bandwidth_gbps": 409.6,
+      "memory_gb": [
+        128
+      ],
+      "memory_gb_kind": "up_to",
+      "verified": true,
+      "source": "apple-m3-max-40c"
+    },
+    {
+      "id": "apple-m3-ultra",
+      "vendor": "apple",
+      "name": "M3 Ultra",
+      "gpu_cores": [
+        60,
+        80
+      ],
+      "bandwidth_gbps": 819.3,
+      "memory_gb": [
+        256,
+        512
+      ],
+      "memory_gb_kind": "up_to",
+      "verified": true,
+      "source": "apple-m3-ultra"
+    },
+    {
+      "id": "apple-m4",
+      "vendor": "apple",
+      "name": "M4",
+      "gpu_cores": [
+        8,
+        10
+      ],
+      "bandwidth_gbps": 120.0,
+      "memory_gb": [
+        16,
+        24,
+        32
+      ],
+      "memory_gb_kind": "options",
+      "verified": true,
+      "source": "apple-m4"
+    },
+    {
+      "id": "apple-m4-pro",
+      "vendor": "apple",
+      "name": "M4 Pro",
+      "gpu_cores": [
+        16,
+        20
+      ],
+      "bandwidth_gbps": 273.0,
+      "memory_gb": [
+        64
+      ],
+      "memory_gb_kind": "up_to",
+      "verified": true,
+      "source": "apple-m4-pro"
+    },
+    {
+      "id": "apple-m4-max-32c",
+      "vendor": "apple",
+      "name": "M4 Max",
+      "gpu_cores": [
+        32
+      ],
+      "bandwidth_gbps": 410.0,
+      "memory_gb": [
+        128
+      ],
+      "memory_gb_kind": "up_to",
+      "verified": true,
+      "source": "apple-m4-max-32c"
+    },
+    {
+      "id": "apple-m4-max-40c",
+      "vendor": "apple",
+      "name": "M4 Max",
+      "gpu_cores": [
+        40
+      ],
+      "bandwidth_gbps": 546.0,
+      "memory_gb": [
+        128
+      ],
+      "memory_gb_kind": "up_to",
+      "verified": true,
+      "source": "apple-m4-max-40c"
+    },
+    {
+      "id": "apple-m5",
+      "vendor": "apple",
+      "name": "M5",
+      "gpu_cores": [
+        8,
+        10
+      ],
+      "bandwidth_gbps": 153.0,
+      "memory_gb": [
+        16,
+        24,
+        32
+      ],
+      "memory_gb_kind": "options",
+      "verified": true,
+      "source": "apple-m5"
+    },
+    {
+      "id": "apple-m5-pro",
+      "vendor": "apple",
+      "name": "M5 Pro",
+      "gpu_cores": [
+        16,
+        20
+      ],
+      "bandwidth_gbps": 307.0,
+      "memory_gb": [
+        24,
+        48,
+        64
+      ],
+      "memory_gb_kind": "options",
+      "verified": true,
+      "source": "apple-m5-pro"
+    },
+    {
+      "id": "apple-m5-max-32c",
+      "vendor": "apple",
+      "name": "M5 Max",
+      "gpu_cores": [
+        32
+      ],
+      "bandwidth_gbps": 460.0,
+      "memory_gb": [
+        36
+      ],
+      "memory_gb_kind": "options",
+      "verified": true,
+      "source": "apple-m5-max-32c"
+    },
+    {
+      "id": "apple-m5-max-40c",
+      "vendor": "apple",
+      "name": "M5 Max",
+      "gpu_cores": [
+        40
+      ],
+      "bandwidth_gbps": 614.0,
+      "memory_gb": [
+        48,
+        64,
+        128
+      ],
+      "memory_gb_kind": "options",
+      "verified": true,
+      "source": "apple-m5-max-40c"
+    },
+    {
+      "id": "apple-m5-ultra",
+      "vendor": "apple",
+      "name": "M5 Ultra",
+      "gpu_cores": [
+        64,
+        80
+      ],
+      "bandwidth_gbps": 1228.8,
+      "memory_gb": [
+        96,
+        256,
+        512
+      ],
+      "memory_gb_kind": "options",
+      "verified": true,
+      "source": "apple-m5-ultra"
+    },
+    {
+      "id": "apple-m6-16gb",
+      "vendor": "apple",
+      "name": "M6",
+      "gpu_cores": [
+        12
+      ],
+      "bandwidth_gbps": 153.0,
+      "memory_gb": [
+        16
+      ],
+      "memory_gb_kind": "options",
+      "verified": true,
+      "source": "apple-m6-16gb",
+      "match_memory_gb": [
+        16
+      ],
+      "note": "Apple's spec page states a 12-core GPU; llama.cpp discussion 4167 lists the M6 run as 8 cores (unverified which)."
+    },
+    {
+      "id": "apple-m6-24gb",
+      "vendor": "apple",
+      "name": "M6",
+      "gpu_cores": [
+        12
+      ],
+      "bandwidth_gbps": 170.0,
+      "memory_gb": [
+        24,
+        32
+      ],
+      "memory_gb_kind": "options",
+      "verified": true,
+      "source": "apple-m6-24gb",
+      "match_memory_gb": [
+        24,
+        32
+      ],
+      "note": "Apple's spec page states a 12-core GPU; llama.cpp discussion 4167 lists the M6 run as 8 cores (unverified which)."
+    },
+    {
+      "id": "nvidia-rtx-3080-10gb",
+      "vendor": "nvidia",
+      "name": "RTX 3080",
+      "vram_gb": 10,
+      "bandwidth_gbps": 760.0,
+      "verified": true,
+      "source": "nvidia-rtx-3080-10gb"
+    },
+    {
+      "id": "nvidia-rtx-3080-12gb",
+      "vendor": "nvidia",
+      "name": "RTX 3080",
+      "vram_gb": 12,
+      "bandwidth_gbps": 912.0,
+      "verified": true,
+      "source": "nvidia-rtx-3080-12gb"
+    },
+    {
+      "id": "nvidia-rtx-3090",
+      "vendor": "nvidia",
+      "name": "RTX 3090",
+      "vram_gb": 24,
+      "bandwidth_gbps": 936.0,
+      "verified": true,
+      "source": "nvidia-rtx-3090"
+    },
+    {
+      "id": "nvidia-rtx-4060",
+      "vendor": "nvidia",
+      "name": "RTX 4060",
+      "vram_gb": 8,
+      "bandwidth_gbps": 272.0,
+      "verified": true,
+      "source": "nvidia-rtx-4060"
+    },
+    {
+      "id": "nvidia-rtx-4070",
+      "vendor": "nvidia",
+      "name": "RTX 4070",
+      "vram_gb": 12,
+      "bandwidth_gbps": 504.0,
+      "verified": true,
+      "source": "nvidia-rtx-4070"
+    },
+    {
+      "id": "nvidia-rtx-4080",
+      "vendor": "nvidia",
+      "name": "RTX 4080",
+      "vram_gb": 16,
+      "bandwidth_gbps": 716.8,
+      "verified": true,
+      "source": "nvidia-rtx-4080"
+    },
+    {
+      "id": "nvidia-rtx-4090",
+      "vendor": "nvidia",
+      "name": "RTX 4090",
+      "vram_gb": 24,
+      "bandwidth_gbps": 1008.0,
+      "verified": true,
+      "source": "nvidia-rtx-4090"
+    },
+    {
+      "id": "nvidia-rtx-5070",
+      "vendor": "nvidia",
+      "name": "RTX 5070",
+      "vram_gb": 12,
+      "bandwidth_gbps": 672.0,
+      "verified": false,
+      "source": "nvidia-rtx-5070"
+    },
+    {
+      "id": "nvidia-rtx-5080",
+      "vendor": "nvidia",
+      "name": "RTX 5080",
+      "vram_gb": 16,
+      "bandwidth_gbps": 960.0,
+      "verified": false,
+      "source": "nvidia-rtx-5080"
+    },
+    {
+      "id": "nvidia-rtx-5090",
+      "vendor": "nvidia",
+      "name": "RTX 5090",
+      "vram_gb": 32,
+      "bandwidth_gbps": 1792.0,
+      "verified": true,
+      "source": "nvidia-rtx-5090"
+    }
+  ],
+  "_sources": {
+    "apple-m1": {
+      "url": "https://en.wikipedia.org/wiki/Apple_M1",
+      "quote": "M1 family: \"68.3 GB/s\", \"8–16 GB\"; M1 Pro \"204.8 GB/s\", \"16–32 GB\"; M1 Max \"409.6 GB/s\", \"32–64 GB\"; M1 Ultra \"819.2 GB/s\", \"64–128 GB\""
+    },
+    "apple-m1-pro": {
+      "url": "https://en.wikipedia.org/wiki/Apple_M1",
+      "quote": "M1 family: \"68.3 GB/s\", \"8–16 GB\"; M1 Pro \"204.8 GB/s\", \"16–32 GB\"; M1 Max \"409.6 GB/s\", \"32–64 GB\"; M1 Ultra \"819.2 GB/s\", \"64–128 GB\""
+    },
+    "apple-m1-max": {
+      "url": "https://en.wikipedia.org/wiki/Apple_M1",
+      "quote": "M1 family: \"68.3 GB/s\", \"8–16 GB\"; M1 Pro \"204.8 GB/s\", \"16–32 GB\"; M1 Max \"409.6 GB/s\", \"32–64 GB\"; M1 Ultra \"819.2 GB/s\", \"64–128 GB\""
+    },
+    "apple-m1-ultra": {
+      "url": "https://en.wikipedia.org/wiki/Apple_M1",
+      "quote": "M1 family: \"68.3 GB/s\", \"8–16 GB\"; M1 Pro \"204.8 GB/s\", \"16–32 GB\"; M1 Max \"409.6 GB/s\", \"32–64 GB\"; M1 Ultra \"819.2 GB/s\", \"64–128 GB\""
+    },
+    "apple-m2": {
+      "url": "https://en.wikipedia.org/wiki/Apple_M2",
+      "quote": "M2 \"102.4 GB/s\", \"8/16/24\"; M2 Pro \"204.8 GB/s\", \"16–32\"; M2 Max \"409.6 GB/s\", \"32–96\"; M2 Ultra \"819.2 GB/s\", \"64–192\""
+    },
+    "apple-m2-pro": {
+      "url": "https://en.wikipedia.org/wiki/Apple_M2",
+      "quote": "M2 \"102.4 GB/s\", \"8/16/24\"; M2 Pro \"204.8 GB/s\", \"16–32\"; M2 Max \"409.6 GB/s\", \"32–96\"; M2 Ultra \"819.2 GB/s\", \"64–192\""
+    },
+    "apple-m2-max": {
+      "url": "https://en.wikipedia.org/wiki/Apple_M2",
+      "quote": "M2 \"102.4 GB/s\", \"8/16/24\"; M2 Pro \"204.8 GB/s\", \"16–32\"; M2 Max \"409.6 GB/s\", \"32–96\"; M2 Ultra \"819.2 GB/s\", \"64–192\""
+    },
+    "apple-m2-ultra": {
+      "url": "https://en.wikipedia.org/wiki/Apple_M2",
+      "quote": "M2 \"102.4 GB/s\", \"8/16/24\"; M2 Pro \"204.8 GB/s\", \"16–32\"; M2 Max \"409.6 GB/s\", \"32–96\"; M2 Ultra \"819.2 GB/s\", \"64–192\""
+    },
+    "apple-m3": {
+      "url": "https://en.wikipedia.org/wiki/Apple_M3",
+      "quote": "M3 \"102.4 GB/s\"; M3 Pro \"153.6 GB/s\", max 36; M3 Max \"307.2 GB/s (30-core), 409.6 GB/s (40-core)\"; M3 Ultra \"819.3 GB/s\" and \"256 GB\" (60-core) / \"512 GB\" (80-core)"
+    },
+    "apple-m3-pro": {
+      "url": "https://en.wikipedia.org/wiki/Apple_M3",
+      "quote": "M3 \"102.4 GB/s\"; M3 Pro \"153.6 GB/s\", max 36; M3 Max \"307.2 GB/s (30-core), 409.6 GB/s (40-core)\"; M3 Ultra \"819.3 GB/s\" and \"256 GB\" (60-core) / \"512 GB\" (80-core)"
+    },
+    "apple-m3-max-30c": {
+      "url": "https://en.wikipedia.org/wiki/Apple_M3",
+      "quote": "M3 \"102.4 GB/s\"; M3 Pro \"153.6 GB/s\", max 36; M3 Max \"307.2 GB/s (30-core), 409.6 GB/s (40-core)\"; M3 Ultra \"819.3 GB/s\" and \"256 GB\" (60-core) / \"512 GB\" (80-core)"
+    },
+    "apple-m3-max-40c": {
+      "url": "https://en.wikipedia.org/wiki/Apple_M3",
+      "quote": "M3 \"102.4 GB/s\"; M3 Pro \"153.6 GB/s\", max 36; M3 Max \"307.2 GB/s (30-core), 409.6 GB/s (40-core)\"; M3 Ultra \"819.3 GB/s\" and \"256 GB\" (60-core) / \"512 GB\" (80-core)"
+    },
+    "apple-m3-ultra": {
+      "url": "https://en.wikipedia.org/wiki/Apple_M3",
+      "quote": "M3 \"102.4 GB/s\"; M3 Pro \"153.6 GB/s\", max 36; M3 Max \"307.2 GB/s (30-core), 409.6 GB/s (40-core)\"; M3 Ultra \"819.3 GB/s\" and \"256 GB\" (60-core) / \"512 GB\" (80-core)"
+    },
+    "apple-m4": {
+      "url": "https://en.wikipedia.org/wiki/Apple_M4",
+      "quote": "M4 \"120GB/sec of memory bandwidth\"; M4 Pro \"theoretical maximum bandwidth of 273GB/sec\", \"up to 64GB unified memory (Mac Mini)\"; M4 Max \"546 GB/s for the full chip and 410 GB/s for the binned 32-core version\", \"up to 128GB unified memory\""
+    },
+    "apple-m4-pro": {
+      "url": "https://en.wikipedia.org/wiki/Apple_M4",
+      "quote": "M4 \"120GB/sec of memory bandwidth\"; M4 Pro \"theoretical maximum bandwidth of 273GB/sec\", \"up to 64GB unified memory (Mac Mini)\"; M4 Max \"546 GB/s for the full chip and 410 GB/s for the binned 32-core version\", \"up to 128GB unified memory\""
+    },
+    "apple-m4-max-32c": {
+      "url": "https://en.wikipedia.org/wiki/Apple_M4",
+      "quote": "M4 \"120GB/sec of memory bandwidth\"; M4 Pro \"theoretical maximum bandwidth of 273GB/sec\", \"up to 64GB unified memory (Mac Mini)\"; M4 Max \"546 GB/s for the full chip and 410 GB/s for the binned 32-core version\", \"up to 128GB unified memory\""
+    },
+    "apple-m4-max-40c": {
+      "url": "https://en.wikipedia.org/wiki/Apple_M4",
+      "quote": "M4 \"120GB/sec of memory bandwidth\"; M4 Pro \"theoretical maximum bandwidth of 273GB/sec\", \"up to 64GB unified memory (Mac Mini)\"; M4 Max \"546 GB/s for the full chip and 410 GB/s for the binned 32-core version\", \"up to 128GB unified memory\""
+    },
+    "apple-m5": {
+      "url": "https://www.apple.com/macbook-air/specs/",
+      "quote": "M5: \"8-core GPU\" or \"10-core GPU\", \"153GB/s memory bandwidth\", \"16GB unified memory,\" configurable to \"24GB or 32GB\""
+    },
+    "apple-m5-pro": {
+      "url": "https://www.apple.com/macbook-pro/specs/",
+      "quote": "M5 Pro \"16-core GPU\", \"307GB/s memory bandwidth\", configurable \"M5 Pro with 18-core CPU and 20-core GPU\"; M5 Pro 16c \"24GB or 48GB\", 20c \"24GB, 48GB, or 64GB\""
+    },
+    "apple-m5-max-32c": {
+      "url": "https://www.apple.com/mac-studio/specs/",
+      "quote": "\"M5 Max with 18-core CPU, 40-core GPU, and 16-core Neural Engine (614GB/s memory bandwidth)\", base M5 Max 32-core GPU \"460GB/s\"; memory 36GB base, \"48GB, 64GB, or 128GB (M5 Max with 18-core CPU and 40-core GPU)\""
+    },
+    "apple-m5-max-40c": {
+      "url": "https://www.apple.com/mac-studio/specs/",
+      "quote": "\"M5 Max with 18-core CPU, 40-core GPU, and 16-core Neural Engine (614GB/s memory bandwidth)\", base M5 Max 32-core GPU \"460GB/s\"; memory 36GB base, \"48GB, 64GB, or 128GB (M5 Max with 18-core CPU and 40-core GPU)\""
+    },
+    "apple-m5-ultra": {
+      "url": "https://en.wikipedia.org/wiki/Apple_M5",
+      "quote": "M5 Ultra \"introduced in August 2026 alongside an updated Mac Studio\", \"1,228.8\" GB/s; Apple Mac Studio specs: M5 Ultra \"1.2TB/s memory bandwidth\", 96GB base, \"256GB or 512GB (M5 Ultra with 36-core CPU and 80-core GPU)\""
+    },
+    "apple-m6-16gb": {
+      "url": "https://www.apple.com/macbook-pro/specs/",
+      "quote": "M6 \"12-core GPU\", \"Up to 170GB/s memory bandwidth\", \"16GB unified memory (153GB/s memory bandwidth)\", \"24GB or 32GB unified memory (170GB/s memory bandwidth)\""
+    },
+    "apple-m6-24gb": {
+      "url": "https://www.apple.com/macbook-pro/specs/",
+      "quote": "M6 \"12-core GPU\", \"Up to 170GB/s memory bandwidth\", \"16GB unified memory (153GB/s memory bandwidth)\", \"24GB or 32GB unified memory (170GB/s memory bandwidth)\""
+    },
+    "nvidia-rtx-3080-10gb": {
+      "url": "https://en.wikipedia.org/wiki/GeForce_RTX_30_series",
+      "quote": "GeForce RTX 3080, launched \"Sep 17, 2020\": memory size \"10\", bus width \"320\", bandwidth \"760\" GB/s (Wikipedia GeForce 30 series model table; 320-bit x 19 Gbps = 760)"
+    },
+    "nvidia-rtx-3080-12gb": {
+      "url": "https://en.wikipedia.org/wiki/GeForce_RTX_30_series",
+      "quote": "GeForce RTX 3080, launched \"Jan 11, 2022\": memory size \"12\", bus width \"384\", bandwidth \"912\" GB/s (Wikipedia GeForce 30 series model table; 384-bit x 19 Gbps = 912)"
+    },
+    "nvidia-rtx-3090": {
+      "url": "https://en.wikipedia.org/wiki/GeForce_RTX_30_series",
+      "quote": "RTX 3090: 24 GB GDDR6X, 384-bit, 936 GB/s (Wikipedia GeForce 30 series model table)"
+    },
+    "nvidia-rtx-4060": {
+      "url": "https://en.wikipedia.org/wiki/GeForce_RTX_40_series",
+      "quote": "RTX 4060: 8 GB GDDR6, 128-bit, 272 GB/s (Wikipedia GeForce 40 series model table)"
+    },
+    "nvidia-rtx-4070": {
+      "url": "https://en.wikipedia.org/wiki/GeForce_RTX_40_series",
+      "quote": "RTX 4070: 12 GB GDDR6X, 192-bit, 504 GB/s, the original GDDR6X SKU (Wikipedia GeForce 40 series model table)"
+    },
+    "nvidia-rtx-4080": {
+      "url": "https://en.wikipedia.org/wiki/GeForce_RTX_40_series",
+      "quote": "RTX 4080: 16 GB GDDR6X, 256-bit, 716.8 GB/s (Wikipedia GeForce 40 series model table)"
+    },
+    "nvidia-rtx-4090": {
+      "url": "https://www.techpowerup.com/gpuz/details/de6au",
+      "quote": "GPU-Z validation \"1008.4 GB/s\""
+    },
+    "nvidia-rtx-5070": {
+      "url": "https://en.wikipedia.org/wiki/GeForce_RTX_50_series",
+      "quote": "RTX 5070: 12 GB GDDR7, 192-bit, 672 GB/s; the table cells were \"inferred rather than read directly from labeled cells\""
+    },
+    "nvidia-rtx-5080": {
+      "url": "https://en.wikipedia.org/wiki/GeForce_RTX_50_series",
+      "quote": "RTX 5080: 16 GB GDDR7, 256-bit, 960 GB/s; the table cells were \"inferred rather than read directly from labeled cells\""
+    },
+    "nvidia-rtx-5090": {
+      "url": "https://www.techpowerup.com/review/gigabyte-geforce-rtx-5090-gaming-oc/",
+      "quote": "\"32 GB across a 512-bit wide GDDR7 memory bus ... 1,792 GB/s\""
+    }
+  }
+}

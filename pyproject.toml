@@ -84,6 +84,7 @@ packages = ["src/mcgyvr"]
 "data/numbers.json" = "mcgyvr/data/numbers.json"
 "data/model-catalog.json" = "mcgyvr/data/model-catalog.json"
 "data/model-geometry.json" = "mcgyvr/data/model-geometry.json"
+"data/hardware-classes.json" = "mcgyvr/data/hardware-classes.json"
 # SETUP.md says how a machine comes to have a setup; `mcgyvr run` names it when
 # none loads, so an installed mcgyvr carries its own copy (the file is generated
 # and drift-checked by `make docs-check`, so this copy has no second source).
