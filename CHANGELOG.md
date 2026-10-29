@@ -46,9 +46,10 @@ archived outside this repository, under the same paths.
   `STANDBY_UNITS` names the unit standby is counted in per kind (names only).
   A `cpu` resource serves whole models only, never a pipeline stage. The rig
   agent's card rules (`rig.protocol.CARD_NAME`, `CARD_NAME_MAX`, `MAX_MB`,
-  `MAX_CARD_INDEX`, `MAX_CARDS`) are now these names, imported. Nothing sends
-  resources yet, and the shipped schemas are unchanged until the hub
-  publishes them. Ruff now refuses a raw bidirectional control character in
+  `MAX_CARD_INDEX`, `MAX_CARDS`) are now these names, imported. The shipped
+  `protocol.schema.json` is the hub's with `resources[]` and `host` on a hello
+  and `resources[]` on a heartbeat, and the tests hold every value above to
+  it. Nothing sends resources yet. Ruff now refuses a raw bidirectional control character in
   source (`PLE2502`).
 - **`mcgyvr use NAME` switches the use case, and `/mcgyvr-use` is its skill.**
   It rewrites the policy's `use_case:` line and nothing else, and says what

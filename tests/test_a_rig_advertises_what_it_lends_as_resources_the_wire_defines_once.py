@@ -210,7 +210,7 @@ def test_the_card_rules_are_the_ones_the_shipped_schema_holds() -> None:
         1,
         hubwire.RESOURCE_NAME_MAX,
     )
-    assert card["index"]["exclusiveMaximum"] == hubwire.MAX_RESOURCE_INDEX + 1
+    assert card["index"]["maximum"] == hubwire.MAX_RESOURCE_INDEX
     for field in ("vram_total_mb", "vram_free_mb"):
         assert (card[field]["minimum"], card[field]["maximum"]) == (
             0,
@@ -218,6 +218,81 @@ def test_the_card_rules_are_the_ones_the_shipped_schema_holds() -> None:
         )
     cards = schema["$defs"]["HelloBody"]["properties"]["cards"]
     assert cards["maxItems"] == hubwire.MAX_CARDS
+
+
+def _defs(name: str) -> dict[str, Any]:
+    node: dict[str, Any] = rig_schema.load(rig_schema.PROTOCOL)["$defs"][name]
+    return node
+
+
+def _value(node: dict[str, Any]) -> dict[str, Any]:
+    if "anyOf" in node:
+        return next(b for b in node["anyOf"] if b.get("type") != "null")
+    return node
+
+
+def test_a_resources_fields_and_bounds_are_the_shipped_schemas() -> None:
+    resource = _defs("Resource")
+    props = resource["properties"]
+    fields = dataclasses.fields(hubwire.Resource)
+    assert set(props) == {f.name for f in fields}
+    assert set(resource["required"]) == {
+        f.name for f in fields if f.default is dataclasses.MISSING
+    }
+    assert tuple(props["kind"]["enum"]) == hubwire.RESOURCE_KINDS
+    assert tuple(props["backend"]["enum"]) == hubwire.RESOURCE_BACKENDS
+    assert tuple(props["figure"]["enum"]) == hubwire.FIGURE_KINDS
+    assert tuple(_value(props["bandwidth_figure"])["enum"]) == hubwire.FIGURE_KINDS
+    assert (props["index"]["minimum"], props["index"]["maximum"]) == (
+        0,
+        hubwire.MAX_RESOURCE_INDEX,
+    )
+    assert props["name"]["pattern"] == f"^(?:{hubwire.RESOURCE_NAME.pattern})$"
+    assert props["name"]["maxLength"] == hubwire.RESOURCE_NAME_MAX
+    assert props["total_mb"]["maximum"] == hubwire.RESOURCE_MAX_MB
+    assert _value(props["free_mb"])["maximum"] == hubwire.RESOURCE_MAX_MB
+    cores = _value(props["cores"])
+    assert (cores["minimum"], cores["maximum"]) == (1, hubwire.MAX_RESOURCE_CORES)
+    bandwidth = _value(props["bandwidth_gbps"])
+    assert (bandwidth["exclusiveMinimum"], bandwidth["maximum"]) == (
+        0,
+        hubwire.MAX_BANDWIDTH_GBPS,
+    )
+
+
+def test_a_readings_and_a_hosts_fields_are_the_shipped_schemas() -> None:
+    reading = _defs("ResourceReading")["properties"]
+    assert set(reading) == {f.name for f in dataclasses.fields(hubwire.ResourceReading)}
+    assert tuple(reading["kind"]["enum"]) == hubwire.RESOURCE_KINDS
+    assert reading["index"]["maximum"] == hubwire.MAX_RESOURCE_INDEX
+    assert reading["free_mb"]["maximum"] == hubwire.RESOURCE_MAX_MB
+    host = _defs("Host")["properties"]
+    assert set(host) == {f.name for f in dataclasses.fields(hubwire.Host)}
+    assert tuple(host["os"]["enum"]) == hubwire.HOST_OS
+    assert tuple(host["arch"]["enum"]) == hubwire.HOST_ARCH
+    assert host["version"]["maxLength"] == hubwire.HOST_VERSION_MAX
+    assert host["version"]["pattern"] == f"^(?:{hubwire.RESOURCE_NAME.pattern})$"
+
+
+def test_a_hello_and_a_heartbeat_carry_at_most_an_adverts_resources() -> None:
+    hello = _defs("HelloBody")["properties"]
+    beat = _defs("HeartbeatBody")["properties"]
+    assert hello["resources"]["maxItems"] == hubwire.MAX_RESOURCES
+    assert beat["resources"]["maxItems"] == hubwire.MAX_RESOURCES
+
+
+def test_what_the_wire_validates_the_shipped_schema_takes() -> None:
+    protocol = rig_schema.load(rig_schema.PROTOCOL)
+    for resource in (_gpu(), _unified(), _ram(), _cpu()):
+        resource.validate()
+        body = dataclasses.asdict(resource)
+        rig_schema.validate(body, protocol, "#/$defs/Resource")
+    rig_schema.validate(
+        dataclasses.asdict(_reading("unified", 1, free_mb=3)),
+        protocol,
+        "#/$defs/ResourceReading",
+    )
+    rig_schema.validate(dataclasses.asdict(_host()), protocol, "#/$defs/Host")
 
 
 # --- a resource -------------------------------------------------------------------
