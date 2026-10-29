@@ -177,7 +177,7 @@ def _agent_frames() -> list[str]:
             role="head",
             error_code="start_failed",
             progress_pct=100,
-            log_excerpt="x\x00y‮" + "z" * 10_000,
+            log_excerpt="x\x00y\u202e" + "z" * 10_000,
         ),
         w.relay_response("q1", status=200, content_type="text/event-stream"),
         w.relay_response(

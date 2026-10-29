@@ -128,7 +128,7 @@ def test_a_long_card_name_is_cut_to_what_the_protocol_carries(tmp_path: Path) ->
     hardware.hello_frame(report, "h1", agent_version="0.1.0")
 
 
-@pytest.mark.parametrize("name", ["Card‮ reversed", "Card\u0007 bell"])
+@pytest.mark.parametrize("name", ["Card\u202e reversed", "Card\u0007 bell"])
 def test_a_name_the_reader_does_not_read_is_refused_not_cleaned(
     tmp_path: Path, name: str
 ) -> None:

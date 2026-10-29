@@ -431,6 +431,7 @@ def test_the_use_case_header_sits_beside_the_scope_header() -> None:
 #: Text only the wire module may hold: each value it defines, as a literal.
 _DEFINED_ONCE = (
     hubwire.MODEL_NAME.pattern,
+    hubwire.RESOURCE_NAME.pattern,
     hubwire.LADDER_MODEL.pattern,
     *(f"{quote}{hubwire.RUNG_PREFIX}" for quote in "\"'"),
     hubwire.SCOPE_HEADER,
