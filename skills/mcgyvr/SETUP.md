@@ -30,8 +30,7 @@ shipped catalog, asks before each download, writes the staged setup
 once and emits its launch specs once, and asks before it starts the
 serving containers (on this Mac or Windows machine, native servers:
 *macOS and Windows* below) through the door. It then samples the
-fleet: a read
-of every rig, a
+fleet: a read of every rig, a
 probe and a load of every unit, the use case's sample task (for
 `mcgyvr-code`, a one-function bug fix the deterministic gate must pass;
 for `code` and `chat`, one word from each unit) and
@@ -44,12 +43,15 @@ where `uv tool install` puts `mcgyvr`, on PATH, once you say yes. A
 shell's rc file gets `export PATH="$HOME/.local/bin:$PATH"`
 (`~/.bashrc`, `~/.zshrc`, `~/.profile`, or
 `~/.config/fish/config.fish`, by `$SHELL`; `~/.zshrc` on macOS when
-`$SHELL` is unset). On Windows the PowerShell profile (`$PROFILE` of
-`pwsh` when it is installed, else of Windows PowerShell) gets
-`$env:Path = "$HOME\.local\bin;$env:Path"`; a profile runs only where
-PowerShell's execution policy lets scripts run, and
-`uv tool update-shell` is uv's own way to put the folder on PATH. A file that
-already carries a `.local/bin` (or `.local\bin`) PATH line is left alone.
+`$SHELL` is unset). On Windows the PowerShell profile gets
+`$env:Path = "$HOME\.local\bin;$env:Path"`:
+the profile PowerShell itself names (PowerShell 7's when it is
+installed, else Windows PowerShell's, each run by its full path).
+Where PowerShell's execution policy runs no profile (`Restricted`,
+a Windows client's when none is set, or `AllSigned`), setup writes
+none and names `uv tool update-shell`, uv's own way to put the folder
+on PATH. A file that already carries a `.local/bin` (or `.local\bin`)
+PATH line is left alone.
 
 A fleet that could not be sampled — its containers not started, or
 every unit hosted — is locked
@@ -152,11 +154,13 @@ mcgyvr runs on macOS and Windows as it does on Linux; this is what differs. `~` 
 
 **Install.** `uv tool install mcgyvr` puts the CLI in `~/.local/bin` on every system. On Windows the
 skills install with `skills/mcgyvr/install.ps1`, the twin of `install.sh`: the same skills, into the same
-folders under `~` (`.claude/skills`, `.pi/agent/skills`). `-ExecutionPolicy Bypass` lets that one run go
-ahead where PowerShell would refuse a script, and changes no setting:
+folders under `~` (`.claude/skills`, `.pi/agent/skills`). `-ExecutionPolicy RemoteSigned` lets that one
+run go ahead where PowerShell's policy refuses every script, and changes no setting; a script from `git
+clone` carries no downloaded-file mark, so it runs (one taken from a zip a browser downloaded needs
+`Unblock-File` first):
 
 ```
-powershell -ExecutionPolicy Bypass -File mcgyvr\skills\mcgyvr\install.ps1
+powershell -NoProfile -ExecutionPolicy RemoteSigned -File mcgyvr\skills\mcgyvr\install.ps1
 ```
 
 **Folders.** Each system's own, by default:
@@ -184,14 +188,17 @@ machine is reached without ssh: always on macOS and Windows, and on Linux when n
 `mcgyvr serve sleep` and `wake` refuse it.
 
 **Firewall and quarantine.** A native server listens on 127.0.0.1 alone (a unit stating another address
-is refused), so neither the macOS nor the Windows firewall asks about it: a unit the hub uses is reached
-through the rig agent, which relays to that address over its own outgoing connection. On macOS the fetch
-removes the `com.apple.quarantine` flag from the build after its sha256 check, so Gatekeeper does not
-stop it at first start.
+is refused) and takes no connection from the network, so neither the macOS nor the Windows firewall is
+expected to ask about it. On macOS a unit the hub uses is reached through the rig agent, which relays to
+that address over its own outgoing connection; on Windows a native unit serves this machine, since the
+rig agent does not run there yet (below). On macOS the fetch removes the `com.apple.quarantine` flag from
+the build after its sha256 check, so Gatekeeper does not stop it at first start.
 
-**Long paths (Windows).** Windows limits a path to 260 characters (`MAX_PATH`) until long paths are
-turned on, and a model file in the cache folder can pass that. Turning them on is one command, from a
-PowerShell run as administrator (Microsoft's, from *Maximum Path Length Limitation*):
+**Long paths (Windows).** Windows limits a path to 260 characters (`MAX_PATH`). The weights land under
+their own file names in the cache folder, well inside that; if a path of yours still passes it, point
+`$MCGYVR_WEIGHTS` at a short folder. Windows' `LongPathsEnabled` key lifts the limit only for programs
+that declare long paths (Python does; the llama.cpp build is not known to), and is set from a PowerShell
+run as administrator (Microsoft's command, from *Maximum Path Length Limitation*):
 
 ```
 New-ItemProperty -Path "HKLM:\SYSTEM\CurrentControlSet\Control\FileSystem" `
@@ -199,33 +206,36 @@ New-ItemProperty -Path "HKLM:\SYSTEM\CurrentControlSet\Control\FileSystem" `
 ```
 
 **Starting at login.** mcgyvr installs no service. A rig lending to a hub runs `mcgyvr rig run` in a
-terminal; to start it at login instead, run these yourself. On macOS, a launchd user agent that starts at
-login and again after an exit with an error:
+terminal; to start it at login instead, once `mcgyvr rig join` has kept its token (`mcgyvr rig status`
+says so), run these yourself. On macOS, a launchd user agent that starts at login and again after an exit
+with an error, at most once a minute. On macOS today the agent relays to this machine's units; it lends
+no unified GPU yet and offers peers no LAN address:
 
 ```sh
 mkdir -p ~/Library/LaunchAgents ~/Library/Logs
-cat > ~/Library/LaunchAgents/mcgyvr.rig.plist <<EOF
+cat > ~/Library/LaunchAgents/mcgyvr-rig.plist <<EOF
 <?xml version="1.0" encoding="UTF-8"?>
 <plist version="1.0"><dict>
-  <key>Label</key><string>mcgyvr.rig</string>
+  <key>Label</key><string>mcgyvr-rig</string>
   <key>ProgramArguments</key><array>
     <string>$HOME/.local/bin/mcgyvr</string>
     <string>rig</string><string>run</string>
   </array>
   <key>RunAtLoad</key><true/>
   <key>KeepAlive</key><dict><key>SuccessfulExit</key><false/></dict>
+  <key>ThrottleInterval</key><integer>60</integer>
   <key>StandardErrorPath</key><string>$HOME/Library/Logs/mcgyvr-rig.log</string>
 </dict></plist>
 EOF
-launchctl bootstrap gui/$(id -u) ~/Library/LaunchAgents/mcgyvr.rig.plist
+launchctl bootstrap gui/$(id -u) ~/Library/LaunchAgents/mcgyvr-rig.plist
 ```
 
-`launchctl bootout gui/$(id -u)/mcgyvr.rig` stops it and removes it until the next `bootstrap`; delete
-the plist to drop it. launchd starts it without your shell's variables, so a variable the agent reads
+`launchctl bootout gui/$(id -u)/mcgyvr-rig` stops it until the next login or `bootstrap`; delete the
+plist to drop it. launchd starts it without your shell's variables, so a variable the agent reads
 (`$MCGYVR_HUB_API_KEY`) set in `~/.zshrc` is not seen there.
 
-On Windows, `mcgyvr rig run` does not start yet (it reads the network interfaces and signals the Linux
-way). When it does, a line in your Startup folder starts it at your login with no administrator (a
+On Windows, `mcgyvr rig run` does not start yet (its pooled-session code imports a module Windows lacks,
+`fcntl`). When it does, a line in your Startup folder starts it at your login with no administrator (a
 `schtasks /sc onlogon` task runs at any user's logon and is created from an elevated prompt). From
 PowerShell, and `Remove-Item` on the same path to drop it:
 

@@ -53,8 +53,9 @@ def test_a_windows_shell_drops_its_exe_and_posix_keeps_the_name(
 
 
 def test_setup_offers_no_posix_path_line_to_a_powershell_profile(
-    tmp_path: Path,
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
+    as_system(monkeypatch, "windows")
     profile = tmp_path / "Documents" / "PowerShell" / "Microsoft.PowerShell_profile.ps1"
     assert _shell_rc("pwsh", tmp_path) == profile
     assert (

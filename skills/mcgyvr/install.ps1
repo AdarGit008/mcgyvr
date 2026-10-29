@@ -10,10 +10,14 @@
 # What install.sh's comments say of each step holds here too.
 #
 # Windows PowerShell 5.1 and PowerShell 7 both run it, and neither needs
-# administrator. Where the execution policy refuses scripts, run it for this
-# one session only:
+# administrator. Where the execution policy refuses every script, run it for
+# this one session only (a `git clone` carries no downloaded-file mark, so
+# RemoteSigned runs it and changes no setting):
 #
-#   powershell -ExecutionPolicy Bypass -File mcgyvr\skills\mcgyvr\install.ps1
+#   powershell -NoProfile -ExecutionPolicy RemoteSigned -File mcgyvr\skills\mcgyvr\install.ps1
+#
+# The file is ASCII only: Windows PowerShell 5.1 reads a script with no BOM in
+# the ANSI code page, so where install.sh prints an em dash this prints "-".
 #
 # The home is %USERPROFILE% on Windows and $HOME elsewhere, read from the
 # environment so a test can point the install somewhere else.
@@ -122,6 +126,17 @@ function Get-Payload([string]$From) {
   return ,$files
 }
 
+# Whether a record names a file inside the skill folder: relative, with no
+# `..` part. Anything else is not this script's, and is neither checked nor
+# removed.
+function Test-Inside([string]$Rel) {
+  if ([IO.Path]::IsPathRooted($Rel) -or $Rel.Contains(":")) { return $false }
+  foreach ($part in ($Rel -split "[\\/]")) {
+    if ($part -eq "..") { return $false }
+  }
+  return $true
+}
+
 function Read-Record([string]$Dest) {
   $path = Join-Path $Dest $Record
   $entries = @()
@@ -130,6 +145,7 @@ function Read-Record([string]$Dest) {
     if (-not $line.Trim()) { continue }
     $parts = $line -split "\s+", 2
     $rel = if ($parts.Count -gt 1 -and $parts[1]) { $parts[1] } else { "SKILL.md" }
+    if (-not (Test-Inside $rel)) { continue }
     $entries += , @($parts[0], $rel)
   }
   return ,$entries
@@ -159,16 +175,24 @@ function Remove-Dropped([string]$Dest, [string[]]$Keep) {
   }
 }
 
-# Runs `mcgyvr` and answers its exit code and its combined output, never
-# stopping the install: a native command writing to stderr is not an error.
-function Invoke-Mcgyvr([string[]]$Arguments) {
+# Runs `mcgyvr` and answers its exit code and the lines of ONE stream, as
+# install.sh reads it: stdout for `--version` (stderr dropped), stderr for
+# `contract` (stdout dropped). It never stops the install: a native command
+# writing to stderr is not an error here.
+function Invoke-Mcgyvr([string[]]$Arguments, [switch]$Stderr) {
   $saved = $ErrorActionPreference
   $ErrorActionPreference = "Continue"
   try {
-    $output = & mcgyvr @Arguments 2>&1 | ForEach-Object { "$_" }
+    if ($Stderr) {
+      $output = & mcgyvr @Arguments 2>&1 |
+        Where-Object { $_ -is [System.Management.Automation.ErrorRecord] } |
+        ForEach-Object { "$_" }
+    } else {
+      $output = & mcgyvr @Arguments 2>$null | ForEach-Object { "$_" }
+    }
     $code = $LASTEXITCODE
   } catch {
-    $output = @("$_")
+    $output = @()
     $code = 1
   } finally {
     $ErrorActionPreference = $saved
@@ -201,7 +225,7 @@ function Test-Examples([string]$Found) {
     $rejected = 0
     $first = ""
     for ($i = 1; $i -le $count; $i++) {
-      $ran = Invoke-Mcgyvr @("contract", (Join-Path $scratch "example-$i.yaml"))
+      $ran = Invoke-Mcgyvr @("contract", (Join-Path $scratch "example-$i.yaml")) -Stderr
       if ($ran.Code -ne 0) {
         $rejected++
         if (-not $first -and $ran.Lines.Count -gt 0) { $first = $ran.Lines[0] }
@@ -225,14 +249,22 @@ function Test-Examples([string]$Found) {
   return $false
 }
 
-# The numeric release parts of a version (`0.5.1.dev3+g1` -> 0, 5, 1), and
+# The numeric release parts of a version (`0.5.1.dev3` -> 0, 5, 1), and
 # whether anything followed them, for the comparison install.sh makes with
 # `sort -V`.
 function Get-VersionParts([string]$Version) {
   $numbers = @()
   $rest = $false
   foreach ($part in $Version.Split(".")) {
-    if ($part -match '^[0-9]+$' -and -not $rest) { $numbers += [int64]$part } else { $rest = $true }
+    if ($rest) { break }
+    # A part's leading digits count (`1rc1` is 1, then more), as `sort -V`
+    # reads them; anything after them ends the release numbers.
+    if ($part -match '^([0-9]+)(.*)$') {
+      $numbers += [int64]$Matches[1]
+      if ($Matches[2]) { $rest = $true }
+    } else {
+      $rest = $true
+    }
   }
   return @{ Numbers = $numbers; Rest = $rest }
 }
@@ -334,7 +366,15 @@ function Uninstall-Skills {
   foreach ($target in (Get-Targets)) {
     $dest = $target[1]
     if (Test-Path -LiteralPath $dest) {
-      Remove-Item -LiteralPath $dest -Recurse -Force
+      $item = Get-Item -LiteralPath $dest -Force
+      if ($item.Attributes -band [IO.FileAttributes]::ReparsePoint) {
+        # A linked skill folder: remove the link, never what it points at
+        # (Windows PowerShell's Remove-Item -Recurse would follow it), as
+        # install.sh's `rm -rf` removes the link alone.
+        [IO.Directory]::Delete($dest)
+      } else {
+        Remove-Item -LiteralPath $dest -Recurse -Force
+      }
       Write-Output "removed: $dest"
       $removed = $true
     } else {

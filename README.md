@@ -29,7 +29,7 @@ Windows (PowerShell):
 ```powershell
 uv tool install mcgyvr
 git clone https://github.com/AdarGit008/mcgyvr
-powershell -ExecutionPolicy Bypass -File mcgyvr\skills\mcgyvr\install.ps1
+powershell -NoProfile -ExecutionPolicy RemoteSigned -File mcgyvr\skills\mcgyvr\install.ps1
 ```
 
 `install.sh` (`install.ps1` on Windows) copies the `/mcgyvr`, `/mcgyvr-direct`

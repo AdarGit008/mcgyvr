@@ -12,6 +12,8 @@ renders the same bytes whichever system docgen runs on.
 
 from __future__ import annotations
 
+import contextlib
+import io
 import re
 from pathlib import Path
 
@@ -52,8 +54,8 @@ def test_each_systems_data_and_cache_folder_is_the_one_hostos_answers(
     monkeypatch.setattr(Path, "home", classmethod(lambda cls: home))
     as_system(monkeypatch, system)
     names = {"linux": "Linux", "darwin": "macOS", "windows": "Windows"}
-    data = dict(docgen.DATA_FOLDERS)[names[system]]
-    cache = dict(docgen.CACHE_FOLDERS)[names[system]]
+    data = dict(hostos.DATA_FOLDERS)[names[system]]
+    cache = dict(hostos.CACHE_FOLDERS)[names[system]]
 
     assert _expand(data, home, local) == hostos.user_data_dir()
     assert _expand(cache, home, local) == hostos.user_cache_dir()
@@ -61,7 +63,7 @@ def test_each_systems_data_and_cache_folder_is_the_one_hostos_answers(
 
 def test_the_setup_document_names_every_systems_data_folder() -> None:
     text = docgen.render_setup()
-    for _system, shown in docgen.DATA_FOLDERS + docgen.CACHE_FOLDERS:
+    for _system, shown in hostos.DATA_FOLDERS + hostos.CACHE_FOLDERS:
         assert f"`{shown}`" in text, shown
 
 
@@ -81,8 +83,8 @@ def test_a_native_unit_is_loopback_only_and_reached_through_the_relay() -> None:
     section = _section()
     assert "127.0.0.1" in section
     assert "relay" in section
-    # A native unit that states another host is refused (K13); nothing here
-    # tells anyone to give one.
+    # A native unit that states another host is refused; nothing here tells
+    # anyone to give one.
     assert "--host" not in section
     assert "0.0.0.0" not in section
 
@@ -102,6 +104,9 @@ def test_background_service_notes_are_commands_not_an_install() -> None:
     assert not re.search(r"launchctl (un)?load\b", section)
     assert "~/Library/LaunchAgents/" in section
     assert "mcgyvr rig run" in section
+    assert "mcgyvr rig join" in section
+    # A rig that refuses at once is not restarted in a tight loop.
+    assert "<key>ThrottleInterval</key>" in section
     assert "Startup" in section
 
 
@@ -116,7 +121,11 @@ def test_the_path_offer_names_the_powershell_line_setup_writes() -> None:
 def test_the_windows_skills_installer_is_named() -> None:
     section = _section()
     assert "skills/mcgyvr/install.ps1" in section
-    assert "-ExecutionPolicy Bypass" in section
+    assert docgen.INSTALL_PS1_COMMAND in section
+    # The run is let through a policy that refuses every script, never with
+    # the downloaded-file check turned off.
+    assert "-ExecutionPolicy RemoteSigned" in docgen.INSTALL_PS1_COMMAND
+    assert "Bypass" not in section
 
 
 @pytest.mark.parametrize("system", ["darwin", "windows"])
@@ -131,3 +140,35 @@ def test_the_setup_document_does_not_depend_on_the_host(
 def test_no_line_of_the_new_section_passes_the_house_width() -> None:
     for line in _section().splitlines():
         assert len(line) <= 105, line
+
+
+def test_the_door_help_names_each_systems_weights_folder_and_renders() -> None:
+    # argparse formats help with %, so %LOCALAPPDATA% must reach the reader
+    # whole rather than fail the --help it is in.
+    from mcgyvr.serving import run
+
+    out = io.StringIO()
+    with contextlib.redirect_stdout(out), pytest.raises(SystemExit) as done:
+        run._serve_parse(["--help"])
+    assert done.value.code == 0
+    text = " ".join(out.getvalue().split())
+    for _system, folder in hostos.CACHE_FOLDERS:
+        assert folder in text, folder
+
+
+def test_the_serving_names_docgen_states_are_the_modules_own() -> None:
+    # docgen may not import serving or rig (the seam), so it states these
+    # names itself; each is held here to the constant that defines it.
+    from mcgyvr.rig import rungs
+    from mcgyvr.serving import fetcher, gatelib, release
+
+    assert docgen.NATIVE_TAG == llamacpp.TAG
+    assert docgen.NATIVE_BACKENDS == llamacpp.BACKENDS
+    assert native.BIN.as_posix() == docgen.NATIVE_BIN
+    assert docgen.NATIVE_BACKEND_ENV == native.BACKEND_ENV
+    assert docgen.NVIDIA_SMI_EXE == native.NVIDIA_SMI_EXE
+    assert docgen.WEIGHTS_DIR_ENV == fetcher.WEIGHTS_DIR_ENV
+    assert docgen.LOCAL_TRANSPORT_ENV == gatelib.LOCAL_TRANSPORT_ENV
+    assert gatelib.SSHD[1] == docgen.SSHD_PORT
+    assert docgen.QUARANTINE == release.QUARANTINE
+    assert docgen.HUB_KEY_ENV == rungs.KEY_ENV

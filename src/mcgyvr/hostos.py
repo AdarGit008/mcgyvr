@@ -28,7 +28,7 @@ import subprocess
 import sys
 import tempfile
 import time
-from collections.abc import Iterator
+from collections.abc import Iterable, Iterator
 from pathlib import Path
 from typing import Any
 
@@ -93,6 +93,25 @@ def exe(name: str) -> str:
     if sys.platform == "win32" and not name.lower().endswith(".exe"):
         return f"{name}.exe"
     return name
+
+
+def program_in(name: str, folders: Iterable[str] = ()) -> str | None:
+    """`name` (a file name, ``.exe`` included on Windows) by its full path.
+
+    In a PATH folder named in full first, else in the first of `folders` that
+    holds it, else None; nothing is run. Never a bare-name lookup: Windows
+    looks in the working folder before PATH (and adds PATHEXT), where anyone
+    may leave a program of that name, and an empty or relative PATH entry is
+    the working folder on POSIX too.
+    """
+    named = [
+        d for d in os.environ.get("PATH", "").split(os.pathsep) if os.path.isabs(d)
+    ]
+    for folder in (*named, *folders):
+        candidate = os.path.join(folder, name)
+        if os.path.isfile(candidate):
+            return candidate
+    return None
 
 
 # --- locks -----------------------------------------------------------------
@@ -738,6 +757,24 @@ def user_cache_dir() -> Path:
     return Path.home() / ".cache" / APP
 
 
+#: Each system's default data folder as the docs show it: what
+#: :func:`user_data_dir` answers when no variable names one (a test holds the
+#: two together). Fixed text, so a document does not depend on the system it
+#: is rendered on.
+DATA_FOLDERS: tuple[tuple[str, str], ...] = (
+    ("Linux", "~/.local/state/mcgyvr"),
+    ("macOS", "~/Library/Application Support/mcgyvr"),
+    ("Windows", "%LOCALAPPDATA%\\mcgyvr"),
+)
+#: Each system's default cache folder (the model index, the weights), as
+#: :func:`user_cache_dir` answers it with no variable set.
+CACHE_FOLDERS: tuple[tuple[str, str], ...] = (
+    ("Linux", "~/.cache/mcgyvr"),
+    ("macOS", "~/Library/Caches/mcgyvr"),
+    ("Windows", "%LOCALAPPDATA%\\mcgyvr\\cache"),
+)
+
+
 def _local_app_data() -> Path:
     """``%LOCALAPPDATA%`` when absolute, else ``~\\AppData\\Local``."""
     local = os.environ.get("LOCALAPPDATA")
@@ -765,6 +802,8 @@ def user_temp_root() -> Path:
 PATH_EXPORT = 'export PATH="$HOME/.local/bin:$PATH"'
 #: The same in a PowerShell profile: on Windows uv's folder is
 #: ``%USERPROFILE%\.local\bin``, and PowerShell's ``$HOME`` is ``%USERPROFILE%``.
+#: Both put the folder first, so a tool there wins over a system program of the
+#: same name; PowerShell never runs a program from the working folder by name.
 PATH_POWERSHELL = '$env:Path = "$HOME\\.local\\bin;$env:Path"'
 
 
