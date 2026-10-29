@@ -107,7 +107,7 @@ extend-exclude = [
 ]
 
 [tool.ruff.lint]
-select = ["E", "F", "W", "I", "N", "UP", "B", "SIM", "RUF"]
+select = ["E", "F", "W", "I", "N", "UP", "B", "SIM", "RUF", "PLE2502"]
 
 # The formatter is declared explicitly (not left to defaults) so the repo's
 # formatting is pinned to a file rather than inherited from whichever ruff a

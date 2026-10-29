@@ -99,7 +99,7 @@ def test_the_agents_limits_are_the_schemas(schema: dict[str, Any]) -> None:
     )
 
     card = _defs(schema, "CardReport")["properties"]
-    assert card["index"]["exclusiveMaximum"] == p.MAX_CARD_INDEX + 1
+    assert card["index"]["maximum"] == p.MAX_CARD_INDEX
     assert card["index"]["minimum"] == 0
     assert card["name"]["pattern"] == f"^{p.CARD_NAME.pattern}$"
     assert card["name"]["maxLength"] == p.CARD_NAME_MAX
