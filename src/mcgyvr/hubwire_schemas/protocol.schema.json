@@ -3120,6 +3120,7 @@
       "type": "object"
     }
   },
+  "$id": "https://mcgyvr-hub/protocol/v1.schema.json",
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "anyOf": [
     {

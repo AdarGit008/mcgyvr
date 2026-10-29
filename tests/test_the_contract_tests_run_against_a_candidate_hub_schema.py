@@ -1,16 +1,15 @@
-"""The contract tests run against a candidate hub schema, and the tripwire holds.
+"""The contract tests run against a candidate hub schema, and the drift check holds.
 
-The hub's own CI validates the agent's code against a schema it is about to
-publish before that schema is pinned here: ``MCGYVR_HUB_SCHEMA_UNDER_TEST``
-names a directory holding ``protocol.schema.json`` and ``rider.schema.json``
-(the hub's ``schemas/`` folder). ``rig_schema.load`` then reads the candidate
-instead of the pinned copy and does not hold it to ``pinned_sha256``, so a
-candidate that moved a value the agent reads fails the contract assertion
-that reads it, not the digest tripwire.
+A hub's CI validates the agent's code against a schema it is about to
+publish: ``MCGYVR_HUB_SCHEMA_UNDER_TEST`` names a directory holding
+``protocol.schema.json`` and ``rider.schema.json`` (the hub's ``schemas/``
+folder). ``rig_schema.load`` then reads the candidate instead of the schema
+the product ships, so a candidate that moved a value the agent reads fails
+the contract assertion that reads it.
 
-The existing drift check is unchanged: ``MCGYVR_HUB_SCHEMA`` still names the
-published file the copy was pinned from, and a file that moved from it still
-fails the check.
+The drift check is apart from it: ``MCGYVR_HUB_SCHEMA`` names a hub's
+published file, and a file that is not the shipped one byte for byte fails
+the check.
 """
 
 from __future__ import annotations
@@ -26,7 +25,7 @@ CANDIDATE_GRACE = 30.0
 
 
 def _protocol_with(**changed: object) -> dict[str, object]:
-    protocol: dict[str, object] = json.loads(rig_schema.PROTOCOL.fixture.read_bytes())
+    protocol: dict[str, object] = json.loads(rig_schema.PROTOCOL.shipped())
     protocol.update(changed)
     return protocol
 
@@ -39,22 +38,22 @@ def _write(tmp_path: Path, name: str, schema: dict[str, object]) -> Path:
     return path
 
 
-def test_under_test_mode_reads_the_candidate_and_skips_the_digest(
+def test_under_test_mode_reads_the_candidate_and_not_the_shipped_schema(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
     from mcgyvr.rig import session
 
-    pinned = _protocol_with()
-    candidate = dict(pinned)
+    shipped = _protocol_with()
+    candidate = dict(shipped)
     candidate["x-reconnect-grace-s"] = CANDIDATE_GRACE
     _write(tmp_path, rig_schema.PROTOCOL.hub_name, candidate)
     monkeypatch.setenv(rig_schema.UNDER_TEST_ENV, str(tmp_path))
 
-    loaded = rig_schema.load()  # the pinned_sha256 tripwire must not fire
+    loaded = rig_schema.load()
 
-    # The candidate, not the pinned copy, is read: the copy's int and the
+    # The candidate, not the shipped schema, is read: the shipped int and the
     # candidate's float are value-equal, so the type tells them apart.
-    assert type(pinned["x-reconnect-grace-s"]) is int
+    assert type(shipped["x-reconnect-grace-s"]) is int
     assert type(loaded["x-reconnect-grace-s"]) is float
     assert loaded["x-reconnect-grace-s"] == CANDIDATE_GRACE
 
@@ -76,4 +75,4 @@ def test_the_drift_check_still_fails_a_named_hub_file_that_moved(
     assert named is not None
     assert named == moved
     with pytest.raises(AssertionError):
-        assert rig_schema.sha256(named.read_bytes()) == rig_schema.PROTOCOL.hub_sha256
+        assert named.read_bytes() == rig_schema.PROTOCOL.shipped()

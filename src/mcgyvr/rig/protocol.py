@@ -22,6 +22,8 @@ from collections.abc import Mapping, Sequence
 from dataclasses import dataclass
 from typing import Any
 
+from mcgyvr import hubwire
+
 #: The version this agent writes in ``v`` and the only one it reads: another
 #: number is refused as ``unsupported_version``.
 PROTOCOL_VERSION = 1
@@ -377,9 +379,10 @@ def _bounded(value: int | None, low: int, high: int, field: str) -> None:
     )
 
 
-#: The shapes of what an offer names: model names, digests, architectures,
-#: runtimes and endpoint hosts, at the patterns the hub's schema holds.
-MODEL_NAME = re.compile(r"[A-Za-z0-9][A-Za-z0-9._+=@-]{0,127}")
+#: The shapes of what an offer names: model names (the wire's,
+#: :mod:`mcgyvr.hubwire`), digests, architectures, runtimes and endpoint hosts,
+#: at the patterns the hub's schema holds.
+MODEL_NAME = hubwire.MODEL_NAME
 DIGEST = re.compile(r"sha256:[0-9a-f]{64}")
 SHORT_TAG = re.compile(r"[A-Za-z0-9][A-Za-z0-9._-]{0,31}")
 RUNTIME = re.compile(r"[A-Za-z0-9][A-Za-z0-9._:/@+-]{0,199}")

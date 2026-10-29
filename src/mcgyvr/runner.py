@@ -43,6 +43,7 @@ from mcgyvr.fleet.harness import (
     prometheus_totals,
     slots_in_flight,
 )
+from mcgyvr.hubwire import MODEL_NOT_FOUND, MODEL_UNPLACED, USE_CASE_HEADER
 from mcgyvr.local_pool import Endpoint, Protocol, SourceMap, UnknownRungError
 from mcgyvr.redact import safe_url
 from mcgyvr.weights import is_model
@@ -197,20 +198,9 @@ class ModelUnplacedError(SlotUnavailableError):
     the rung unavailable for now rather than misconfigured."""
 
 
-#: The answer that says the hub behind a rung cannot place the rung's model right
-#: now. It is read as width being unavailable, not as a broken rung.
-MODEL_UNPLACED: tuple[int, str] = (503, "model_unplaced")
-
-
 class UnknownModelError(SlotUnavailableError):
     """The rung's address does not know the model the rung asks for: the rung's
     `model` is wrong, and the rung is passed over with a note saying so."""
-
-
-#: The answer that says the address was asked for a model it does not know. It is
-#: a mistake in the rung's `model`, so the rung is passed over and a note is
-#: printed; asking again would put the same unknown name to the same address.
-UNKNOWN_MODEL: tuple[int, str] = (404, "model_not_found")
 
 
 class ProtocolError(RunnerError):
@@ -505,12 +495,17 @@ class Runner(ABC):
                     f"relief rung {self.endpoint.source!r} cannot take the "
                     f"request now: {exc}"
                 ) from exc
+            # The hub behind the rung cannot place its model right now: width
+            # unavailable, not a broken rung.
             if (exc.status, exc.code) == MODEL_UNPLACED:
                 raise ModelUnplacedError(
                     f"rung {self.endpoint.source!r} names a model its hub "
                     f"cannot place now: {exc}"
                 ) from exc
-            if (exc.status, exc.code) == UNKNOWN_MODEL:
+            # The address does not know the model: a mistake in the rung's
+            # `model`, so the rung is passed over with a note; asking again
+            # would put the same unknown name to the same address.
+            if (exc.status, exc.code) == MODEL_NOT_FOUND:
                 said = (
                     f"rung {self.endpoint.source!r} asked for model {model!r}, "
                     f"which its address does not know (HTTP 404 "
@@ -650,14 +645,8 @@ class Runner(ABC):
         return tuple(notes)
 
     def _headers(self) -> dict[str, str]:
-        """The headers to send: JSON, plus a bearer token when the endpoint's
-        credential resolves to a key. An endpoint naming no credential env sends
-        none."""
-        headers = {"Content-Type": "application/json"}
-        key = self.endpoint.credential()
-        if key:
-            headers["Authorization"] = f"Bearer {key}"
-        return headers
+        """The headers to send (`request_headers`)."""
+        return request_headers(self.endpoint)
 
     @abstractmethod
     def _payload(self, model: str, request: Request) -> dict[str, Any]:
@@ -855,6 +844,21 @@ def _sent_text(request: Request) -> str:
     parts += [json.dumps(dict(tool)) for tool in request.tools]
     parts.append(request.prompt)
     return "\n".join(part for part in parts if part)
+
+
+def request_headers(endpoint: Endpoint) -> dict[str, str]:
+    """The headers a chat request to `endpoint` is sent with: JSON, a bearer
+    token when the endpoint's credential resolves to a key (an endpoint naming
+    no credential env sends none), and the setup's use case under
+    `hubwire.USE_CASE_HEADER` when the endpoint carries one, so a hub can
+    refuse a use case its pool does not serve."""
+    headers = {"Content-Type": "application/json"}
+    key = endpoint.credential()
+    if key:
+        headers["Authorization"] = f"Bearer {key}"
+    if endpoint.use_case is not None:
+        headers[USE_CASE_HEADER] = endpoint.use_case
+    return headers
 
 
 def runner_for(endpoint: Endpoint) -> Runner:

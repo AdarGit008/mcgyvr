@@ -24,7 +24,13 @@ from typing import TYPE_CHECKING, Any
 
 from mcgyvr import whole
 from mcgyvr.local_pool import Endpoint, PoolError, SourceMap
-from mcgyvr.runner import SERVER_SAMPLED, _post_json, _url_for, request_timeout
+from mcgyvr.runner import (
+    SERVER_SAMPLED,
+    _post_json,
+    _url_for,
+    request_headers,
+    request_timeout,
+)
 
 if TYPE_CHECKING:  # pragma: no cover - typing only
     from mcgyvr.capacity import Capacity
@@ -315,9 +321,9 @@ def classify(
     alternatives at that position reported: one per label of the question, but
     never more than `_MAX_TOP_LOGPROBS`, and thinking disabled in the chat
     template so the one token is the answer rather than the start of a
-    reasoning trace. A credential from the endpoint, when it has one, is sent
-    as a bearer token. Unless the unit fixes its own sampling on the server
-    side, the temperature is set to 0.0.
+    reasoning trace. The headers are the runner's (`request_headers`): a
+    credential as a bearer token, and the setup's use case. Unless the unit
+    fixes its own sampling on the server side, the temperature is set to 0.0.
 
     A transport or endpoint failure surfaces as the error `_post_json` raises,
     and a reply carrying no readable alternative raises DecisionError. The
@@ -326,10 +332,7 @@ def classify(
     from the endpoint.
     """
     url = _url_for(endpoint.base_url, "/v1/chat/completions")
-    headers = {"Content-Type": "application/json"}
-    key = endpoint.credential()
-    if key:
-        headers["Authorization"] = f"Bearer {key}"
+    headers = request_headers(endpoint)
     answers: dict[str, Answer] = {}
     for name, question in questions.items():
         prompt = build_prompt(state, name, question)

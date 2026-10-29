@@ -9,11 +9,10 @@ OpenAI-compatible ``/v1`` as a code with its one HTTP status
 
 Held here: the path a sync asks is the one published; the ladder a sync
 ``POST``s is a request the hub takes, which is closed (a key the hub does not
-name is refused, so none is sent); the listing these tests serve as the
-hub's answer is one the hub may send; and every refusal read off a hub, by
-its status and code, is a pair the hub publishes, with that status: the busy
-answers a sync writes into ``relief.yaml`` (:data:`mcgyvr.rig.rungs.BUSY`),
-and those the runner still names itself.
+name is refused, so none is sent); and the listing these tests serve as the
+hub's answer is one the hub may send. The refusals read off a hub are the
+wire's (:mod:`mcgyvr.hubwire`), held to ``x-openai-errors`` in
+``tests/test_the_hub_wire_is_defined_once_in_the_product.py``.
 """
 
 from __future__ import annotations
@@ -103,31 +102,3 @@ def test_the_listing_these_tests_serve_is_an_answer_the_hub_may_send(
         rig_schema.validate(listing, rider, _ref(rider, method, "response"))
     read = rungs.read(json.loads(json.dumps(listing)), served.address)
     assert [each.id for each in read.rungs] == ([FIRST, SECOND] if ride else [])
-
-
-def test_every_busy_answer_a_sync_writes_is_a_published_pair(
-    rider: dict[str, Any],
-) -> None:
-    """The busy answers' home is the hub client: a sync writes them into
-    ``relief.yaml``, and the runner reads them from there."""
-    from mcgyvr.rig import rungs
-
-    published = rider["x-openai-errors"]
-    assert rungs.BUSY
-    assert [pair for pair in rungs.BUSY if published.get(pair[1]) != pair[0]] == []
-
-
-def test_every_hub_refusal_the_runner_reads_is_a_published_pair(
-    rider: dict[str, Any],
-) -> None:
-    """The answers the runner reads as refusals: the busy answers a sync
-    writes into ``relief.yaml``, and the two the runner still names itself."""
-    from mcgyvr import runner
-    from mcgyvr.rig import rungs
-
-    read = set(rungs.BUSY) | {
-        runner.MODEL_UNPLACED,
-        runner.UNKNOWN_MODEL,
-    }
-    published = rider["x-openai-errors"]
-    assert [pair for pair in sorted(read) if published.get(pair[1]) != pair[0]] == []

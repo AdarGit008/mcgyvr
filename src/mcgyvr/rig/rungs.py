@@ -23,7 +23,6 @@ from __future__ import annotations
 import json
 import math
 import os
-import re
 import sys
 import threading
 import time
@@ -41,13 +40,21 @@ from mcgyvr import atomic
 from mcgyvr.config import (
     FLEET_FILENAME,
     POLICY_FILENAME,
-    POSITION_CHOICES,
     RELIEF_FILENAME,
     Config,
     ConfigError,
     Unit,
     config_path,
     parse,
+)
+from mcgyvr.hubwire import (
+    LADDER_MAX_RUNGS,
+    LADDER_MODEL,
+    MODEL_NAME,
+    OFFER_ID,
+    RUNG_BUSY,
+    RUNG_POSITIONS,
+    rung_offer,
 )
 from mcgyvr.rig.verbs import AGENT_PATH, _RefusalError, hub_address
 
@@ -74,33 +81,10 @@ MAX_ADDRESS = 2048
 MAX_RUNG_WIDTH = 1024
 #: What a relief rung's name in relief.yaml starts with: the hub's rung id follows.
 NAME_PREFIX = "hitchhike-"
-#: Most rungs a reported ladder may have: the hub takes 1 to this many.
-MAX_LADDER_RUNGS = 64
-#: What a reported rung's model must match: 1 to 128 characters, and no spaces.
-_LADDER_MODEL = re.compile(r"[A-Za-z0-9][A-Za-z0-9._+=@/:-]{0,127}")
-#: The answers that say a relief rung cannot take a request now: an HTTP status
-#: and the error code its body carries. `render` writes them all into every
-#: rung's `busy_answers`, in the sorted order below: the hub has not yet
-#: matched this host to work (503 `hitchhike_not_served_yet`), the host's
-#: machine is away (503 `hitchhike_host_away`), and the hub names no host
-#: running the model asked for (404 `model_not_found`). A busy answer is a
-#: full rung, passed over at no cost; an answer not listed here is read as on
-#: any rung.
-BUSY: tuple[tuple[int, str], ...] = tuple(
-    sorted(
-        {
-            (503, "hitchhike_not_served_yet"),
-            (503, "hitchhike_host_away"),
-            (404, "model_not_found"),
-        }
-    )
-)
 #: Seconds before a failed sync is tried again, whatever the hub last asked for:
 #: a failure leaves no refresh interval behind to wait by.
 RETRY_S = 60.0
 
-_ID = re.compile(r"[0-9a-f]{32}")
-_MODEL = re.compile(r"[A-Za-z0-9][A-Za-z0-9._+=@-]{0,127}")
 _HTTP = {"http": "http", "https": "https", "ws": "http", "wss": "https"}
 
 
@@ -209,7 +193,8 @@ def ladder_report(config: Config) -> dict[str, Any]:
     its top rung.
 
     Raises :class:`SyncError` when the ladder has no rungs, has more than
-    ``MAX_LADDER_RUNGS``, or names a model outside ``_LADDER_MODEL``.
+    ``LADDER_MAX_RUNGS``, or names a model outside ``LADDER_MODEL``
+    (:mod:`mcgyvr.hubwire`).
     """
     from mcgyvr.catalog import catalog
     from mcgyvr.escalate import Ceiling
@@ -217,14 +202,14 @@ def ladder_report(config: Config) -> dict[str, Any]:
     known = catalog()
     units = [config.units[name] for name in config.ladder.names]
     climbing = sorted(units, key=lambda unit: known.family_of(unit).rank)
-    if not 1 <= len(climbing) <= MAX_LADDER_RUNGS:
+    if not 1 <= len(climbing) <= LADDER_MAX_RUNGS:
         raise SyncError(
             f"the ladder cannot be reported: it has {len(climbing)} rungs, and "
-            f"the hub takes 1 to {MAX_LADDER_RUNGS}"
+            f"the hub takes 1 to {LADDER_MAX_RUNGS}"
         )
     rungs = []
     for unit in climbing:
-        if not _LADDER_MODEL.fullmatch(unit.model):
+        if not LADDER_MODEL.fullmatch(unit.model):
             raise SyncError(
                 f"the ladder cannot be reported: unit {unit.name!r} serves "
                 f"{unit.model!r}, which is outside the hub's model pattern"
@@ -373,21 +358,21 @@ def _ride(raw: object, where: str, origin: tuple[str, str, int]) -> Ride:
     if not isinstance(raw, dict):
         raise _refused(where, "is not an object")
     rung_id = raw.get("id")
-    if not isinstance(rung_id, str) or not _ID.fullmatch(rung_id):
+    if not isinstance(rung_id, str) or not OFFER_ID.fullmatch(rung_id):
         raise _refused(f"{where}.id", "is not 32 lowercase hex digits")
     model = raw.get("model")
-    if not isinstance(model, str) or not _MODEL.fullmatch(model):
+    if not isinstance(model, str) or not MODEL_NAME.fullmatch(model):
         raise _refused(f"{where}.model", "is outside the model pattern")
-    if model != f"hitchhike@{rung_id}":
+    if rung_offer(model) != rung_id:
         raise _refused(f"{where}.model", "does not name this rung")
     if raw.get("relief") is not True:
         raise _refused(f"{where}.relief", "is not true")
     position = raw.get("position")
-    if position not in POSITION_CHOICES:
+    if position not in RUNG_POSITIONS:
         raise _refused(
-            f"{where}.position", f"is not one of {', '.join(POSITION_CHOICES)}"
+            f"{where}.position", f"is not one of {', '.join(RUNG_POSITIONS)}"
         )
-    assert isinstance(position, str)  # POSITION_CHOICES is text: the type narrows
+    assert isinstance(position, str)  # RUNG_POSITIONS is text: the type narrows
     return Ride(
         id=rung_id,
         hosted_by=_text(raw.get("host"), f"{where}.host", MAX_TEXT),
@@ -446,8 +431,9 @@ def render(rides: Rides, key_env: str) -> str:
 
     Every rung becomes a block under ``relief``, keyed by its name and carrying
     its address, model, key variable name, width, position, host, served model
-    and the ``BUSY`` answers. A header says a sync rewrites the file whole and
-    that each host can read the prompts sent to their rung.
+    and the answers that say it is full (:data:`mcgyvr.hubwire.RUNG_BUSY`). A
+    header says a sync rewrites the file whole and that each host can read the
+    prompts sent to their rung.
     """
     block = {
         each.name: {
@@ -458,7 +444,9 @@ def render(rides: Rides, key_env: str) -> str:
             "position": each.position,
             "hosted_by": each.hosted_by,
             "served_model": each.served_model,
-            "busy_answers": [{"status": status, "code": code} for status, code in BUSY],
+            "busy_answers": [
+                {"status": status, "code": code} for status, code in RUNG_BUSY
+            ],
         }
         for each in rides.rungs
     }
