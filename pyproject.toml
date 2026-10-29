@@ -109,6 +109,24 @@ extend-exclude = [
 [tool.ruff.lint]
 select = ["E", "F", "W", "I", "N", "UP", "B", "SIM", "RUF", "PLE2502"]
 
+# The modules shipped to a rig (mcgyvr.serving.shipped) run on the rig's own
+# python3, as old as 3.9 (macOS's): there datetime.UTC (3.11) and the `type`
+# statement (3.12) do not exist, so these two upgrades are not made in them.
+# tests/test_the_shipped_programs_run_on_the_oldest_python_a_rig_has.py runs
+# them on 3.9.
+[tool.ruff.lint.per-file-ignores]
+"src/mcgyvr/hostos.py" = ["UP017", "UP040"]
+"src/mcgyvr/userdir.py" = ["UP017", "UP040"]
+"src/mcgyvr/fleet/roots.py" = ["UP017", "UP040"]
+"src/mcgyvr/serving/rigscan.py" = ["UP017", "UP040"]
+"src/mcgyvr/serving/fetcher.py" = ["UP017", "UP040"]
+"src/mcgyvr/serving/leasefile.py" = ["UP017", "UP040"]
+"src/mcgyvr/serving/release.py" = ["UP017", "UP040"]
+"src/mcgyvr/serving/llamacpp.py" = ["UP017", "UP040"]
+"src/mcgyvr/serving/gatelib.py" = ["UP017", "UP040"]
+"src/mcgyvr/serving/localrig.py" = ["UP017", "UP040"]
+"src/mcgyvr/serving/native.py" = ["UP017", "UP040"]
+
 # The formatter is declared explicitly (not left to defaults) so the repo's
 # formatting is pinned to a file rather than inherited from whichever ruff a
 # machine has; `make lint` enforces it with `ruff format --check .`. These are

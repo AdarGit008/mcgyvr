@@ -34,6 +34,8 @@ GATE_SCRIPTS = SERVING / "gate-scripts"
 #: The document's parts, as the door and the product read them.
 DOCUMENT_KEYS = {
     "machine",
+    "host",
+    "resources",
     "cards",
     "card_sources",
     "unsized",
@@ -188,11 +190,14 @@ def test_the_short_reading_shipped_as_python_names_no_card_it_cannot_size(
     document = json.loads(ran.stdout)
     assert set(document) == {
         "machine",
+        "host",
         "cards",
         "card_sources",
         "unsized",
         "unread",
         "memory",
+        "cpu",
+        "resources",
     }
     assert document["card_sources"] == ["nvidia-smi"]
 

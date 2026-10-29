@@ -55,6 +55,7 @@ from mcgyvr.serving import (
     kernelcache,
     launch_specs,
     llamacpp,
+    nativerig,
     port_of,
     rigfile,
     safe_host,
@@ -63,12 +64,13 @@ from mcgyvr.serving import (
     spec_name,
 )
 from mcgyvr.serving.gatelib import LOCAL_RIGS
+from mcgyvr.serving.llamacpp import HOST_ENV as HOST_ENV
+from mcgyvr.serving.llamacpp import HOST_FLAG, LOOPBACK
 from mcgyvr.serving.sharding import Target
 from mcgyvr.serving.shardlaunch import (
     LaunchError,
     rpc_endpoints,
     rpc_workers,
-    worker_may_listen,
 )
 
 # The shell command that starts each engine's own server; `_command`
@@ -114,18 +116,6 @@ FIT_ENV = "LLAMA_ARG_FIT"
 FIT_OFF = frozenset({"off", "disabled", "false", "0"})
 FIT_DEFAULT = "off"
 
-#: Where a native llama.cpp server listens: the loopback alone, so no
-#: firewall asks and only this machine reaches it. The hub never reaches a
-#: unit directly (the rig agent relays its requests to the unit's local
-#: address over the websocket), and pooled rpc workers bind the tunnel
-#: address only; a unit stating another `--host` (or `LLAMA_ARG_HOST`) is
-#: refused.
-LOOPBACK = "127.0.0.1"
-#: The flag and the variable llama-server reads its listening address from.
-HOST_FLAG = "--host"
-#: rpc-server's short flag for the address it binds.
-RPC_HOST_FLAG = "-H"
-HOST_ENV = "LLAMA_ARG_HOST"
 
 #: Heads every compose document rendered with sleep mode on: the routes
 #: sleep needs are unauthenticated, so the file says so in its first lines.
@@ -590,46 +580,32 @@ def native_block(
     """The native launch spec of one process, from an emitted unit or a locked one.
 
     Only llama.cpp has a native build, and it runs on this machine
-    (`LOCAL_RIGS`): another engine or rig is refused. A server listens on
+    (`LOCAL_RIGS`) or on a rig whose rig file records macOS or Windows (the
+    door ships the launcher there): another engine or rig is refused. A
+    server listens on
     `LOOPBACK` alone: its `--host` must name it, or it is given it, and a
-    `LLAMA_ARG_HOST` or another `--host` is refused. An rpc worker (`rpc`)
-    binds the address its head reaches it on, which its `-H`/`--host` must
-    state as an IPv4 literal that a worker may listen on
-    (:func:`mcgyvr.serving.shardlaunch.worker_may_listen`: not every
-    interface, not loopback, not a global address).
+    `LLAMA_ARG_HOST` (in any letter case) or another `--host` is refused. An
+    rpc worker (`rpc`) binds the address its head reaches it on, which its
+    `-H`/`--host` must state as an IPv4 literal a worker may listen on. Both
+    rules are :func:`mcgyvr.serving.llamacpp.beyond_loopback`'s, the one place
+    they live.
     """
     if (engine or "llama.cpp") != "llama.cpp":
         raise EmitError(
             f"{slug}: launcher native runs the pinned llama.cpp build, "
             f"and {engine} has none; it runs in its container (launcher docker)"
         )
-    if host not in LOCAL_RIGS:
+    if host not in LOCAL_RIGS and not nativerig.remote(host):
         raise EmitError(
-            f"{slug}: launcher native runs the unit on the machine mcgyvr "
-            f"runs on, and {host} is another; a unit on another rig runs in "
-            "its container (launcher docker)"
+            f"{slug}: launcher native runs the unit on the machine mcgyvr runs "
+            f"on or on a macOS or Windows rig, and the rig file of {host} records "
+            f"neither (`mcgyvr scan --rig {host}` writes it); a unit on a Linux "
+            "rig runs in its container (launcher docker)"
         )
-    flags = (HOST_FLAG, RPC_HOST_FLAG) if rpc else (HOST_FLAG,)
-    hosts = [
-        command[n + 1] if part in flags and n + 1 < len(command) else part
-        for n, part in enumerate(command)
-        if part in flags or part.startswith(f"{HOST_FLAG}=")
-    ]
-    hosts = [h.removeprefix(f"{HOST_FLAG}=") for h in hosts]
-    if rpc:
-        if not hosts or not all(_worker_bind_ok(h) for h in hosts):
-            raise EmitError(
-                f"{slug}: a native rpc worker binds the one IPv4 address its head "
-                f"reaches it on, never every interface, loopback or a global "
-                f"address; state it with {RPC_HOST_FLAG}"
-            )
-    elif HOST_ENV in env or any(h != LOOPBACK for h in hosts):
-        raise EmitError(
-            f"{slug}: a native unit listens on {LOOPBACK} alone (the rig "
-            "agent relays to it, and pooled workers bind the tunnel address); "
-            f"drop the {HOST_FLAG} or {HOST_ENV} its launch states"
-        )
-    if not rpc and not hosts:
+    beyond = llamacpp.beyond_loopback(command, dict(env), rpc=rpc)
+    if beyond is not None:
+        raise EmitError(f"{slug}: {beyond}")
+    if not rpc and not llamacpp.stated_hosts(command):
         command = [*command, HOST_FLAG, LOOPBACK]
     service: dict[str, object] = {
         LAUNCHER_KEY: LAUNCHER_NATIVE,
@@ -641,16 +617,6 @@ def native_block(
     if env:
         service["environment"] = dict(env)
     return service
-
-
-def _worker_bind_ok(host: str) -> bool:
-    """Whether an rpc worker may bind `host`: a dotted IPv4 literal (rpc-server
-    reads `0`, `0x0` or `0.0` as every interface, so nothing else is taken)
-    that :func:`worker_may_listen` allows."""
-    try:
-        return worker_may_listen(ipaddress.IPv4Address(host))
-    except ValueError:
-        return False
 
 
 def _rpc_service(unit: Unit) -> dict[str, object]:

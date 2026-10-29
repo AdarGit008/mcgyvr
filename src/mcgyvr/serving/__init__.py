@@ -461,7 +461,8 @@ def _sized(
     place it on the freest card, pick a loading mode, and return the Fit."""
     free_bytes = _free_vram_bytes(scan)
     free_vram = free_bytes / _BYTES_PER_GIB
-    available_ram = scan.memory.available_gb if scan.memory else 0.0
+    # Memory read as a total alone promises nothing free, as no memory does.
+    available_ram = (scan.memory.available_gb if scan.memory else None) or 0.0
 
     if spec.speculative == SPECULATIVE_MTP and not _mtp_head_blocks(spec):
         return Fit(fits=False, headroom_gb=DEFAULT_HEADROOM_GB, why=_no_mtp_head(spec))
@@ -1426,10 +1427,10 @@ def hold_together(units: Iterable[Unit], scans: Mapping[str, Scan]) -> tuple[str
                     f"have measured"
                 )
         memory = scan.memory
-        if memory is None:
-            # A scan with no host memory reading cannot say whether these
-            # units fit in RAM together; the card check above still stands,
-            # and nothing is guessed here about a figure nobody read.
+        if memory is None or memory.available_gb is None:
+            # A scan with no reading of available host memory cannot say
+            # whether these units fit in RAM together; the card check above
+            # still stands, and nothing is guessed about a figure nobody read.
             continue
         hungriest = sorted(up, key=lambda unit: unit.key.slug)
         wanted = sum(unit.fit.ram_gb for unit in hungriest)

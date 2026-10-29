@@ -11,6 +11,17 @@ archived outside this repository, under the same paths.
 
 ### Changed
 
+- **The programs shipped to a rig are assembled from the modules they import,
+  and run on Python 3.9.** The reader, the fetcher, the lease and the native
+  launcher each go as one program built at ship time
+  (`mcgyvr.serving.shipped`): `hostos`, the wire's names from `hubwire` and the
+  module itself, so the reader and the fetcher keep no copies of `hostos`
+  (the weights folder, the process group, the nvidia-smi.exe lookup are
+  `hostos`'s) and the reader names the system, the resource kinds and the
+  figures the wire names. They run on the oldest Python a rig has, macOS's own
+  `python3` (3.9), and refuse an older one with a sentence. The reader's line
+  is about 52% of the one ssh argument Linux allows (it was 36%).
+
 - **The Linux llama.cpp image is pinned to the native build: `server-cuda-b11960`**
   (was the floating `server-cuda`), so a container and a native binary of one
   split are one build. A fleet already stamped keeps the `image` its units
@@ -40,6 +51,15 @@ archived outside this repository, under the same paths.
   is under `~/.local/state/mcgyvr` except `journal/`, and `~/.cache/mcgyvr`,
   to the new folders, or keep them with the XDG variables (the weights, which
   no XDG variable moves, with `$MCGYVR_WEIGHTS`).
+
+- **A Mac's rig id changes once, and the reader ships packed.** A Mac had no
+  machine-id file, so its id was hashed from its host name; it is now hashed
+  from its IOPlatformUUID, with its unified GPU named in it, so a fleet lock
+  that pinned a Mac's rig id names it again after one `mcgyvr scan`. The
+  reader the door ships over ssh goes as one zlib-packed program (the line is
+  about a third of its old length), since its source in base64 neared the
+  128 KiB Linux allows one argument; the line's shape is unchanged. (#809)
+
 - **Use cases are `mcgyvr-code`, `code`, `chat` and `agent`; `coding` is gone,
   with no alias.** `mcgyvr-code` is what `coding` was, every stage between the
   model and you on by default, each under a policy switch (SETUP.md, *Use cases
@@ -78,13 +98,37 @@ archived outside this repository, under the same paths.
   it names `--endpoints`. On Linux the launcher changes nothing: the session
   layer reaches its machine through one host, and the docker host asks the
   daemon exactly what it asked before. A locked native unit whose `role` is
-  `rpc` renders as `ggml-rpc-server` bound to the address its `-H` states
-  (never a wildcard), not as a server on the loopback.
+  `rpc` renders as `ggml-rpc-server` bound to the IPv4 address its `-H`
+  states, one a worker may listen on (`llamacpp.worker_may_listen`), not as
+  a server on the loopback.
 - **A rig names the llama.cpp RPC protocol it speaks.** A rig running the
   pinned build, natively or as the pinned image, sends
   `capabilities.rpc_proto` (`hubwire.RPC_PROTO_FIELD`; b11960 speaks 8.0) in
   its hello, so that once the hub reads it, it pairs a head only with workers
   `hubwire.rpc_compatible` allows; a rig on another image sends none.
+- **A Mac or Windows machine is a remote rig over ssh (#824).** A rig's first
+  contact is sent the POSIX reader line as every rig always was; a rig whose
+  shell cannot run it is asked the PowerShell question, and a Windows rig
+  (OpenSSH, with cmd.exe or PowerShell as its shell) is sent every program by
+  one constant `powershell -NoProfile -NonInteractive -EncodedCommand` line
+  that finds a Python 3.9 or newer (`py -3`, then `python`), writes the program
+  with WriteAllBytes under `%LOCALAPPDATA%\mcgyvr\tmp`, runs it with `-I -B`
+  and removes it; the program, its arguments and what it reads on its own
+  stdin (the fetcher's job, which holds a token, never on disk) travel on
+  stdin, so no path or argument is ever read as PowerShell. `mcgyvr scan --rig` files the reading, whose
+  `host.os` the door reads from then on, asking nothing. On a rig whose file
+  records macOS or Windows: the lease is the one Python lease this machine
+  runs itself (Linux rigs keep their bash scripts, unchanged); `serve up`,
+  `down` and `fetch` run the native launcher there, shipped like the reader,
+  each unit on 127.0.0.1 under a supervisor that runs a copy the launcher
+  leaves in `bin/shipped/` under the rig's mcgyvr home; what holds the rig
+  (gates 2 and 7, `read`) is the launcher's twin of rig-units.sh; the health
+  probe names `curl.exe` on Windows. `emit` and `setup` write `launcher:
+  native` for a llama.cpp unit on such a rig. `read --probe`/`--load` (the
+  lock's harness) and pooled sessions stay Linux's. A Linux rig is sent, byte
+  for byte, the commands it was sent before. Upgrading: a Mac rig scanned
+  before this release has a reading that names no system and is taken as
+  Linux; `mcgyvr scan --rig NAME` once makes it a Mac rig.
 - **A unit runs natively, with no container: `launcher: native` (#818).** The
   llama.cpp build mcgyvr pins (b11960, `mcgyvr.serving.llamacpp`; the Linux
   image is the same build, `server-cuda-b11960`) is fetched on first use into
@@ -117,6 +161,24 @@ archived outside this repository, under the same paths.
   whose digest waits in a 0600 file while the door lives, proves it. On
   Windows the door runs its `ssh`/`docker` shims by argv (with `.cmd`
   launchers beside them) and hands a gate its export pipe as a handle.
+- **The machine reader reads macOS and Windows.** On a Mac (Apple silicon) the
+  GPU that shares the memory is read as one `unified` card: its size is the
+  share the kernel lets it take (`iogpu.wired_limit_mb`, else three quarters
+  of the memory), always labelled an estimate, its free memory is what the
+  machine has available, and the rig id holds when that cap moves. Memory comes
+  from `sysctl` and `vm_stat`, so a Mac keeps its memory section; the machine
+  id is its IOPlatformUUID. On Windows one PowerShell CIM call reads memory,
+  CPU, system and display adapters (never `wmic`), nvidia-smi.exe is looked
+  for on PATH, in System32 and in the NVSMI folder, a card no tool sizes is
+  listed unsized under Vulkan, and the machine id is the registry's
+  MachineGuid. Every reading now carries `host` (`os`, `arch`, `version`),
+  `cpu` (`model`, `cores`, `threads`, `performance_cores`) and `resources` in
+  the hub's resource contract (a sized card, host RAM, the CPU); each card
+  names its `kind` and `backend`. `mcgyvr detect` and `mcgyvr scan` print the
+  system, a card's backend and the CPU model, and say when a size is an
+  estimate. A Linux machine reads as before and keeps its rig id. A Mac's
+  unified GPU is not lent yet: a lent card is served by a CUDA worker in a
+  container, and it joins lending with native launch. (#809)
 - **What a rig lends is defined once, as resources, in `mcgyvr.hubwire`
   (#812).** A `Resource` (`gpu`, `unified`, `ram` or `cpu`; `RESOURCE_KINDS`)
   names its index, name, MiB lent and free with whether they are an estimate

@@ -38,16 +38,13 @@ Sources (read 2026-10-29):
   Compatibility), https://docs.nvidia.com/cuda/cuda-toolkit-release-notes/index.html
 - "On MacOS, Metal is enabled by default."
   https://github.com/ggml-org/llama.cpp/blob/master/docs/build.md
-- The RPC protocol the build speaks: ``#define RPC_PROTO_MAJOR_VERSION 8``,
-  ``#define RPC_PROTO_MINOR_VERSION 0`` (patch 1, never compared),
-  https://github.com/ggml-org/llama.cpp/blob/b11960/ggml/include/ggml-rpc.h
 """
 
 from __future__ import annotations
 
+import ipaddress
 from dataclasses import dataclass
 
-from mcgyvr.hubwire import RpcProto
 from mcgyvr.serving.release import Asset, Release
 
 #: The pinned llama.cpp build.
@@ -56,12 +53,6 @@ TAG = "b11960"
 REPO = "ggml-org/llama.cpp"
 #: The Linux container image of the same build, CUDA flavour.
 IMAGE = f"ghcr.io/ggml-org/llama.cpp:server-cuda-{TAG}"
-#: The runtime a rig names in its offer when it runs this build natively.
-RUNTIME = f"{REPO}@{TAG}"
-#: The llama.cpp RPC protocol this build speaks, which a rig running it names
-#: in its hello (:data:`mcgyvr.hubwire.RPC_PROTO_FIELD`) so the hub pairs heads
-#: and workers by :func:`mcgyvr.hubwire.rpc_compatible`.
-RPC_PROTO = RpcProto(major=8, minor=0)
 #: The programs the native launch runs out of an archive: the server, and the
 #: worker a model split across machines starts on each of them.
 SERVER = "llama-server"
@@ -357,3 +348,79 @@ def build_for(
             + f"; this system has builds for: {', '.join(offered) or 'none'}"
         )
     return max(rows, key=lambda b: cuda_major(b) or 0)
+
+
+#: Where a native llama.cpp unit listens (K13), checked where it is written
+#: (emit) and where it is started (the native launcher, on this machine or on
+#: a rig the door ships it to): a server on the loopback alone, so no firewall
+#: asks and only its own machine reaches it (the hub never reaches a unit
+#: directly: the rig agent relays its requests to the unit's local address),
+#: and a server stating another `--host` or `LLAMA_ARG_HOST` is refused; a
+#: pooled rpc worker on the address the head reaches it at, its tunnel
+#: address, stated with `-H` and nothing wider (:func:`worker_may_listen`).
+LOOPBACK = "127.0.0.1"
+#: The flag and the variable llama-server reads its listening address from.
+HOST_FLAG = "--host"
+HOST_ENV = "LLAMA_ARG_HOST"
+#: The rpc worker's short spelling of `--host`: `if (arg == "-H" || arg ==
+#: "--host")`, default "127.0.0.1"
+#: (https://github.com/ggml-org/llama.cpp/blob/b11960/tools/rpc/rpc-server.cpp).
+RPC_HOST_FLAG = "-H"
+
+
+def stated_hosts(argv: list[str] | tuple[str, ...], *, rpc: bool = False) -> list[str]:
+    """Every listening address `argv` states (`--host H` or `--host=H`; for
+    the rpc worker, `-H H` too)."""
+    flags = (HOST_FLAG, RPC_HOST_FLAG) if rpc else (HOST_FLAG,)
+    hosts: list[str] = []
+    for n, part in enumerate(argv):
+        for flag in flags:
+            if part == flag:
+                hosts.append(argv[n + 1] if n + 1 < len(argv) else "")
+            elif part.startswith(f"{flag}="):
+                hosts.append(part[len(flag) + 1 :])
+    return hosts
+
+
+def worker_may_listen(address: ipaddress.IPv4Address) -> bool:
+    """Whether a worker on another machine may bind this address.
+
+    rpc-server has no authentication, so the address must be one the head
+    reaches that worker at and nothing wider: not every interface, not
+    loopback, and not an address the internet can reach.
+    """
+    return not (address.is_unspecified or address.is_loopback or address.is_global)
+
+
+def _worker_address(host: str) -> bool:
+    try:
+        return worker_may_listen(ipaddress.IPv4Address(host))
+    except ValueError:
+        return False  # rpc-server binds an IPv4 literal alone
+
+
+def beyond_loopback(
+    argv: list[str] | tuple[str, ...], env: dict[str, str], *, rpc: bool = False
+) -> str | None:
+    """Why a native unit's `argv` and `env` would listen where K13 does not let
+    it, or None when they keep to it: a server on the loopback alone; with
+    `rpc`, a worker on the tunnel address it states, each `-H`/`--host` an
+    IPv4 literal :func:`worker_may_listen` allows."""
+    stated = stated_hosts(argv, rpc=rpc)
+    if rpc:
+        if stated and all(_worker_address(h) for h in stated):
+            return None
+        return (
+            "a native rpc worker listens on the address the head reaches it at "
+            f"and nothing wider: state it with {RPC_HOST_FLAG}, an IPv4 address "
+            "that is not every interface, not loopback and not global"
+        )
+    # Windows reads a variable's name without case: `llama_arg_host` is it too.
+    named = any(key.upper() == HOST_ENV for key in env)
+    if named or any(h != LOOPBACK for h in stated):
+        return (
+            f"a native unit listens on {LOOPBACK} alone (the rig agent relays to "
+            "it, and pooled workers bind the tunnel address); drop the "
+            f"{HOST_FLAG} or {HOST_ENV} its launch states"
+        )
+    return None

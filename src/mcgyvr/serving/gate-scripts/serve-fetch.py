@@ -13,11 +13,13 @@ from `HF_ENDPOINT`, and prints every file with its pinned revision and size,
 plus the total — with no size cap, so a large list is a slow run rather than a
 refused one.
 
-The host is not assumed to have mcgyvr installed: the fetcher's own source and
-a JSON job describing each file are piped to `python3 -` on the host
-(`fetchlist.REMOTE_COMMAND`). The fetcher's last stdout line is read as the
-JSON report of what happened to each file; the rows are joined back to the
-wanted repo, revision and path by filename, echoed, and written with the run's
+The host is not assumed to have mcgyvr installed: the fetcher, assembled with
+the modules it imports, and a JSON job describing each file are piped to
+`python3 -` on a POSIX host (`fetchlist.REMOTE_COMMAND`); a Windows rig gets
+the program through PowerShell and the job on its stdin (`gatelib.ship`).
+The fetcher's last stdout line is read as the JSON report of what happened to
+each file; the rows are joined back to the wanted repo, revision and path by
+filename, echoed, and written with the run's
 settings to `<RUN_OUT_DIR>/serve-fetch.json`. The exit status is 0 only when
 the fetcher exited 0 and every file ended in one of `fetcher.GOOD`'s states.
 """
@@ -35,7 +37,7 @@ from mcgyvr.serving.gatelib import door_required, need, ssh
 
 def main() -> int:
     door_required("serve-fetch")
-    from mcgyvr.serving import fetcher, fetchlist
+    from mcgyvr.serving import fetcher, fetchlist, gatelib
 
     host = need("RUN_HOST")
     out = Path(need("RUN_OUT_DIR")) / "serve-fetch.json"
@@ -57,17 +59,24 @@ def main() -> int:
             f"serve-fetch:   {want.repo}@{want.revision[:12]} {want.file} "
             f"{want.bytes} bytes"
         )
+    # The payload travels on stdin: it carries the fetcher and the token,
+    # which must not be readable in the host's process list (fetchlist.shipment).
+    system = (
+        gatelib.WINDOWS
+        if gatelib.shipping_os(host) == gatelib.WINDOWS
+        else gatelib.rig_system(host)
+    )
+    sent = fetchlist.shipment(system, wants, hub, token_env, token)
     try:
-        done = ssh(
-            host,
-            fetchlist.REMOTE_COMMAND,
-            # REMOTE_COMMAND is `python3 -`, so the payload travels on stdin:
-            # it carries the fetcher's source and the token, which must not be
-            # readable in the host's process list. No timeout: the run ends
-            # when the files have been transferred, however long that takes.
-            timeout=None,
-            input=fetchlist.payload(wants, hub, token_env, token),
-        )
+        # No timeout: the run ends when the files have been transferred,
+        # however long that takes. A Linux rig's ssh is called as it always
+        # was; a macOS or Windows rig's keeps ssh's keepalive on.
+        if sent.keepalive:
+            done = ssh(
+                host, sent.command, timeout=None, input=sent.stdin, keepalive=True
+            )
+        else:
+            done = ssh(host, sent.command, timeout=None, input=sent.stdin)
     except subprocess.TimeoutExpired:  # pragma: no cover - no bound is set
         return 1
     if done.stderr:

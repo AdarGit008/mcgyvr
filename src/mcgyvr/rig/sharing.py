@@ -37,9 +37,12 @@ DEFAULT_CACHE_MAX_MB = 16384
 #: The binaries a head and a worker start inside the engine image.
 DEFAULT_HEAD_BINARY = "/app/llama-server"
 DEFAULT_WORKER_BINARY = "/app/ggml-rpc-server"
-#: Only a card read from this vendor is lent, and it is lent by the vendor's own
-#: index rather than by its place in the report.
-LENT_VENDOR = "nvidia"
+#: The cards a rig lends, by vendor and kind, each by the vendor's own index
+#: rather than by its place in the report. Only an NVIDIA card today: a lent
+#: card is served by a CUDA worker in a container, which a Mac's unified GPU
+#: cannot be (no Metal in a container); it joins this set with native launch,
+#: as do host RAM and CPU cores with their lending.
+LENT_KINDS = frozenset({("nvidia", "gpu")})
 #: The lowest port the settings may name: below it a port needs privilege to take.
 LOWEST_PORT = 1024
 #: The shape of a binary path inside the image: absolute, plain segments, no "..".
@@ -150,7 +153,8 @@ class Sharing:
             if card.index != card_index or number >= len(report.sources):
                 continue
             vendor, index = report.sources[number]
-            return index if vendor == LENT_VENDOR else None
+            kind = report.kinds[number] if number < len(report.kinds) else "gpu"
+            return index if (vendor, kind) in LENT_KINDS else None
         return None
 
     def lendable(self, report: hardware.Report) -> hardware.Report:

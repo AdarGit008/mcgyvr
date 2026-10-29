@@ -432,15 +432,16 @@ LAUNCHERS = (LAUNCHER_DOCKER, LAUNCHER_NATIVE)
 NATIVE_BY_DEFAULT = ("darwin", "windows")
 
 
-def default_launcher(*, local: bool, engine: str | None, system: str) -> str:
+def default_launcher(*, engine: str | None, system: str) -> str:
     """The launcher `setup` and `recommend` write for a unit.
 
-    `native` for a llama.cpp unit (no `engine`, or `llama.cpp`) on the machine
-    setup runs on (`local`) when that machine is macOS or Windows (`system`, as
-    `mcgyvr.hostos.os_name` names it); `docker` otherwise, which is what a unit
-    that states no launcher runs as.
+    `native` for a llama.cpp unit (no `engine`, or `llama.cpp`) on a macOS or
+    Windows machine (`system`: the machine setup runs on, as
+    `mcgyvr.hostos.os_name` names it, or the rig its rig file records,
+    `mcgyvr.serving.gatelib.rig_system`); `docker` otherwise, which is what a
+    unit that states no launcher runs as.
     """
-    if local and (engine or "llama.cpp") == "llama.cpp" and system in NATIVE_BY_DEFAULT:
+    if (engine or "llama.cpp") == "llama.cpp" and system in NATIVE_BY_DEFAULT:
         return LAUNCHER_NATIVE
     return LAUNCHER_DOCKER
 
@@ -500,9 +501,11 @@ UNIT_FIELDS: tuple[Field, ...] = (
         "that local address, and a pooled worker binds the tunnel address "
         "only, so a unit stating another `--host` is refused; its "
         "log is "
-        "`logs/<container>.log` in the data folder. llama.cpp only. Absent "
-        "means `docker`; `setup` writes `native` for a unit on a Mac or "
-        "Windows machine it runs on.",
+        "`logs/<container>.log` in the data folder. llama.cpp only. On a Mac "
+        "or Windows rig reached over ssh (its rig file, `mcgyvr scan --rig`, "
+        "says so) the door ships the launcher there and it runs the same way, "
+        "with no docker. Absent means `docker`; `setup` writes `native` for a "
+        "unit on a Mac or Windows machine, this one or such a rig.",
         choices=LAUNCHERS,
         bind_hint="e.g. native -- leave it out for a container",
     ),

@@ -24,9 +24,9 @@ HUB = "https://huggingface.co"
 #: The command `ssh` runs on the host: the payload arrives on stdin and
 #: "mcgyvr-fetch" is argv[0] of the `python3 -` process.
 REMOTE_COMMAND = "python3 - mcgyvr-fetch"
-#: The fetcher's own source, embedded in the payload so the host needs no
-#: installed mcgyvr.
-FETCHER = Path(__file__).resolve().parent / "fetcher.py"
+#: The same on a macOS rig, isolated (`-I`, no `-B` writes): a Mac rig is new,
+#: so it is sent the stricter line; a Linux rig's stays as it always was.
+REMOTE_COMMAND_ISOLATED = "python3 -I -B - mcgyvr-fetch"
 #: The variable a Hugging Face token is read from when --hf-token-env is not given.
 DEFAULT_TOKEN_ENV = "HF_TOKEN"
 #: The variable that replaces HUB, e.g. with a mirror.
@@ -272,21 +272,68 @@ def url(want: Want, hub: str) -> str:
     )
 
 
-def payload(wants: Iterable[Want], hub: str, token_env: str, token: str | None) -> str:
-    """The program text to pipe into `python3 -` on the host.
+def job(wants: Iterable[Want], hub: str, token_env: str, token: str | None) -> str:
+    """The fetcher's job as JSON text: every file with its name, size, hash and
+    resolved `url`, plus the token variable's name and the token itself, empty
+    when there is none."""
+    return json.dumps(
+        {
+            "files": [
+                {**want.as_json(), "name": want.name, "url": url(want, hub)}
+                for want in wants
+            ],
+            "token_env": token_env,
+            "token": token or "",
+        }
+    )
 
-    It is the fetcher's own source followed by a call to its `main` with the job
-    as a JSON literal: every file with its name, size, hash and resolved `url`,
-    plus the token variable's name and the token itself, empty when there is
-    none.
+
+@dataclass(frozen=True)
+class Shipment:
+    """How the fetcher reaches a rig: the command, its stdin, and whether the
+    door's ssh keeps its keepalive on for this unbounded call."""
+
+    command: str
+    stdin: str
+    keepalive: bool
+
+
+def shipment(
+    system: str, wants: Iterable[Want], hub: str, token_env: str, token: str | None
+) -> Shipment:
+    """The fetch for a rig of `system` (``windows`` only for a rig over ssh).
+
+    Linux: `REMOTE_COMMAND` with the payload on stdin, and ssh called as it
+    always was. macOS: the same, isolated (`REMOTE_COMMAND_ISOLATED`). Windows:
+    the fetcher through PowerShell (`gatelib.ship`) with the job, which holds
+    the token, on its own stdin, never on disk. Both keep ssh's keepalive on.
     """
-    job = {
-        "files": [
-            {**want.as_json(), "name": want.name, "url": url(want, hub)}
-            for want in wants
-        ],
-        "token_env": token_env,
-        "token": token or "",
-    }
-    source = FETCHER.read_text(encoding="utf-8")
-    return f"{source}\n\nraise SystemExit(main({json.dumps(job)!r}))\n"
+    from mcgyvr.serving import gatelib, shipped
+
+    wants = tuple(wants)
+    if system == gatelib.WINDOWS:
+        sent = gatelib.ship(
+            gatelib.WINDOWS,
+            shipped.packed(shipped.fetcher(None)),
+            ("mcgyvr-fetch",),
+            feed=job(wants, hub, token_env, token).encode("utf-8"),
+        )
+        return Shipment(sent.command, sent.stdin or "", keepalive=True)
+    darwin = system == gatelib.DARWIN
+    return Shipment(
+        REMOTE_COMMAND_ISOLATED if darwin else REMOTE_COMMAND,
+        payload(wants, hub, token_env, token),
+        keepalive=darwin,
+    )
+
+
+def payload(wants: Iterable[Want], hub: str, token_env: str, token: str | None) -> str:
+    """The program text to pipe into `python3 -` on a POSIX host.
+
+    It is the fetcher assembled with the modules it imports
+    (:func:`mcgyvr.serving.shipped.fetcher`), ending in a call to its `main`
+    with the job (:func:`job`) as a literal.
+    """
+    from mcgyvr.serving import shipped
+
+    return shipped.fetcher(job(wants, hub, token_env, token)).decode("utf-8")

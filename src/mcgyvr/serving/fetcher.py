@@ -27,9 +27,11 @@ import urllib.error
 import urllib.request
 from typing import Any
 
-#: Environment variable that, when set, names the weights directory instead of
-#: the default below.
-WEIGHTS_DIR_ENV = "MCGYVR_WEIGHTS"
+# This file is shipped to a rig as one program assembled with hostos
+# (mcgyvr.serving.shipped.fetcher).
+from mcgyvr import hostos
+from mcgyvr.hostos import WEIGHTS_DIR_ENV as WEIGHTS_DIR_ENV
+
 #: Appended to the final path to name the partially downloaded file; it is
 #: renamed onto the final path once the bytes are verified.
 PART = ".part"
@@ -51,24 +53,8 @@ GOOD = frozenset({PRESENT, FETCHED, RESUMED})
 
 
 def weights_dir() -> str:
-    """Return MCGYVR_WEIGHTS expanded if it is set, else the system's weights folder.
-
-    The same answer as ``rigscan.default_weights_dir`` (a clone: each file is
-    shipped to a rig alone): ~/.cache/mcgyvr/weights on Linux,
-    ~/Library/Caches/mcgyvr/weights on macOS, and
-    %LOCALAPPDATA%\\mcgyvr\\cache\\weights on Windows.
-    """
-    override = os.environ.get(WEIGHTS_DIR_ENV)
-    if override:
-        return os.path.expanduser(override)
-    if sys.platform == "darwin":
-        return os.path.expanduser("~/Library/Caches/mcgyvr/weights")
-    if sys.platform == "win32":
-        local = os.environ.get("LOCALAPPDATA")
-        if not (local and os.path.isabs(local)):
-            local = os.path.join(os.path.expanduser("~"), "AppData", "Local")
-        return os.path.join(local, "mcgyvr", "cache", "weights")
-    return os.path.expanduser("~/.cache/mcgyvr/weights")
+    """The weights folder (:func:`mcgyvr.hostos.weights_dir`)."""
+    return hostos.weights_dir()
 
 
 def _hash_into(path: str, hasher: Any) -> int:

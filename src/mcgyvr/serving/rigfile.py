@@ -147,6 +147,12 @@ class Rig:
         return self.scan.machine.host
 
     @property
+    def os(self) -> str | None:
+        """The system the reading states (``host.os``), or None for a reading
+        taken before readers stated one."""
+        return self.scan.host.os if self.scan.host is not None else None
+
+    @property
     def machine_id(self) -> str:
         return self.scan.machine.id
 

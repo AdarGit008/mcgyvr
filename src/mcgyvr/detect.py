@@ -22,6 +22,8 @@ from concurrent.futures import ThreadPoolExecutor
 from dataclasses import dataclass, field
 from typing import Any
 
+from mcgyvr.scan import Host
+
 # Seconds allowed for one HTTP probe of a candidate backend.
 # Seconds allowed for one helper command started by _run.
 PROBE_TIMEOUT_S = 1.0
@@ -41,6 +43,15 @@ def is_local_host(host: str) -> bool:
     """True when host is one of LOCAL_HOSTS, i.e. this machine; the match is
     an exact string comparison, no DNS lookup."""
     return host in LOCAL_HOSTS
+
+
+def host_system(host: str) -> str:
+    """The system `host` is (`mcgyvr.serving.gatelib.rig_system`: this
+    machine's for a name of this machine, else the one its rig file records,
+    Linux when it records none). No ssh is made."""
+    from mcgyvr.serving import gatelib
+
+    return gatelib.rig_system(host)
 
 
 @dataclass(frozen=True)
@@ -141,13 +152,17 @@ def _quoted(text: str) -> str:
 
 @dataclass(frozen=True)
 class Gpu:
-    """One NVIDIA card as rigscan read it: its name, its VRAM in GB rounded
-    to one decimal (None when the size could not be read), and the `how`
-    string naming the source."""
+    """One NVIDIA card, or a Mac's unified-memory GPU, as rigscan read it: its
+    name, its VRAM in GB rounded to one decimal (None when the size could not
+    be read), and the `how` string naming the source. A `unified` GPU's VRAM is
+    the share of the machine's memory it may take; `figure` says whether the
+    size is the card's own `reading` or an `estimate`."""
 
     name: str
     vram_gb: float | None
     how: str
+    unified: bool = False
+    figure: str = "reading"
 
     @property
     def size(self) -> str:
@@ -206,6 +221,8 @@ class Detection:
     # The targets the sweep actually asked, so a later reader can tell
     # "this machine had nothing" apart from "these hosts were never probed".
     swept: tuple[ProbeTarget, ...] = ()
+    #: The system the reading was taken on; None when the reading had none.
+    host: Host | None = None
 
     def backend(self, name: str) -> Backend | None:
         return next((b for b in self.backends if b.name == name), None)
@@ -378,7 +395,8 @@ def _reading() -> Mapping[str, Any]:
 def detect_gpus(
     reading: Mapping[str, Any] | None = None,
 ) -> tuple[tuple[Gpu, ...], tuple[str, ...]]:
-    """Turn a rigscan reading into Gpu entries, keeping only NVIDIA cards. A
+    """Turn a rigscan reading into Gpu entries, keeping NVIDIA cards and a Mac's
+    unified-memory GPU. A
     card with a readable name is kept even when its size is missing (vram_gb
     None); a row that could not be read as a card is dropped and noted.
     Returns (gpus, notes): the notes flag the list as incomplete rather than
@@ -393,6 +411,9 @@ def detect_gpus(
     gpus: list[Gpu] = []
     notes: list[str] = []
     for card in reading.get("cards") or ():
+        if card.get("kind") == "unified":
+            gpus.extend(_unified_gpu(card))
+            continue
         if card.get("vendor") != "nvidia":
             continue
         key = f"card.nvidia.{card.get('index')}"
@@ -439,6 +460,18 @@ def detect_gpus(
     return tuple(gpus), tuple(notes)
 
 
+def _unified_gpu(card: Mapping[str, Any]) -> tuple[Gpu, ...]:
+    """A Mac's unified-memory GPU as one Gpu, sized by the share of memory it may
+    take, or nothing when it has no name to list it by."""
+    name, total = card.get("name"), card.get("total_mib")
+    if not isinstance(name, str):
+        return ()
+    how = f"{card.get('how') or 'unified memory'}, read by mcgyvr.serving.rigscan"
+    size = round(total / MIB_PER_GB, 1) if isinstance(total, int) else None
+    figure = str(card.get("figure") or "reading")
+    return (Gpu(name=name, vram_gb=size, how=how, unified=True, figure=figure),)
+
+
 def detect_ram_gb(reading: Mapping[str, Any] | None = None) -> tuple[float | None, str]:
     """Total system RAM in GB from a rigscan reading, plus the `how` string
     naming the source; (None, reason) when the reading carried no total."""
@@ -447,8 +480,12 @@ def detect_ram_gb(reading: Mapping[str, Any] | None = None) -> tuple[float | Non
     total = memory.get("total_gb") if isinstance(memory, Mapping) else None
     if not isinstance(total, int | float):
         return None, "not determined — the reader read no memory total"
-    available = memory.get("available_gb") if isinstance(memory, Mapping) else None
-    source = "the kernel's MemTotal" if available is not None else "sysctl hw.memsize"
+    host = reading.get("host")
+    system = host.get("os") if isinstance(host, Mapping) else None
+    source = {
+        "darwin": "sysctl hw.memsize",
+        "windows": "Windows' CIM memory figures",
+    }.get(str(system), "the kernel's MemTotal")
     return float(total), f"{source}, read by mcgyvr.serving.rigscan"
 
 
@@ -535,4 +572,5 @@ def detect(
         provenance=provenance,
         notes=tuple(notes),
         swept=tuple(targets),
+        host=Host.from_reading(reading.get("host")),
     )
