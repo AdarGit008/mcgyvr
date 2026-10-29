@@ -6,7 +6,9 @@ a verdict against its answer, a dispatch that raised, or a rung that could not
 take the request (503, 404, an answer from another model) — spends none of the
 task's attempts and none of its escalations. The request goes back to the
 rider's own ladder, the entry is decided again as if the relief rung had been
-full, and the climb from there has its whole budget. The ride stays in the
+full, and the climb from there has its whole budget. With the rider's own rung
+still full, that climb starts on it, to queue: fan-out never sends the request
+on to a priced api rung. The ride stays in the
 history, so the record says it was tried and how it ended.
 
 Nothing here touches a network: the attempt is a script and every host is
@@ -67,45 +69,46 @@ def ride_then_own(
 
 
 def test_a_ride_the_gate_rejected_spends_no_escalation(tmp_path: Path) -> None:
-    """With no escalation to spend, the rider's own api rung still takes it."""
-    script = Script(**{RIDE: Verdict.FAILED, API: Verdict.PASSED})
+    """With no escalation to spend, the rider's own rung still takes it: had the
+    ride counted as a rung spent, moving to the own rung would be refused."""
+    script = Script(**{RIDE: Verdict.FAILED, FAST: Verdict.PASSED})
 
     done = ride_then_own(tmp_path, script, escalations=0)
 
-    assert script.tried == [RIDE, API]
-    assert done.rung == API
+    assert script.tried == [RIDE, FAST]
+    assert done.rung == FAST
     assert (done.attempts_spent, done.escalations) == (1, 0)
 
 
 def test_a_ride_the_gate_rejected_spends_no_attempt(tmp_path: Path) -> None:
-    script = Script(**{RIDE: Verdict.FAILED, API: Verdict.PASSED})
+    script = Script(**{RIDE: Verdict.FAILED, FAST: Verdict.PASSED})
 
     done = ride_then_own(tmp_path, script, setting="max_attempts: 1\n")
 
-    assert done.rung == API
+    assert done.rung == FAST
     assert done.attempts_spent == 1
 
 
 def test_a_ride_whose_dispatch_raised_goes_back_to_the_ladder(tmp_path: Path) -> None:
-    script = Raising(**{API: Verdict.PASSED})
+    script = Raising(**{FAST: Verdict.PASSED})
 
     done = ride_then_own(tmp_path, script, escalations=0)
 
-    assert script.tried == [RIDE, API]
-    assert (done.rung, done.attempts_spent, done.escalations) == (API, 1, 0)
+    assert script.tried == [RIDE, FAST]
+    assert (done.rung, done.attempts_spent, done.escalations) == (FAST, 1, 0)
     ride = done.history[0]
     assert ride.rung == RIDE and ride.raised
     assert "hung up" in ride.detail
 
 
 def test_the_failed_ride_stays_in_the_record(tmp_path: Path) -> None:
-    script = Script(**{RIDE: Verdict.FAILED, API: Verdict.PASSED})
+    script = Script(**{RIDE: Verdict.FAILED, FAST: Verdict.PASSED})
 
     done = ride_then_own(tmp_path, script)
 
     assert [(a.rung, a.verdict) for a in done.history] == [
         (RIDE, Verdict.FAILED),
-        (API, Verdict.PASSED),
+        (FAST, Verdict.PASSED),
     ]
 
 
@@ -113,9 +116,11 @@ def test_a_failed_ride_leaves_no_reservation_behind(tmp_path: Path) -> None:
     config, pool = mapped()
     cap = capacity_of(config, tmp_path)
     cap.reserve(FAST)
-    script = Raising(**{API: Verdict.PASSED})
+    script = Raising(**{FAST: Verdict.PASSED})
 
-    escalate(config, pool, contract(), script, capacity=cap)
+    done = escalate(config, pool, contract(), script, capacity=cap)
     cap.release(FAST)
+
+    assert isinstance(done, Delivered)
 
     assert [cap.load(name) for name in (FAST, API, RIDE)] == [0, 0, 0]
