@@ -643,22 +643,31 @@ def card_readings_from(readings: Sequence[ResourceReading]) -> list[dict[str, in
 #: speaks (:class:`RpcProto`).
 RPC_PROTO_FIELD = "rpc_proto"
 
+#: The largest value either part of an :class:`RpcProto` may hold: the hello
+#: reply carries each as one byte (``rpc_msg_hello_rsp`` holds ``uint8_t
+#: major, minor, patch`` in ``ggml/src/ggml-rpc/ggml-rpc.cpp``).
+RPC_PROTO_MAX = 255
+
 
 @dataclass(frozen=True, kw_only=True)
 class RpcProto:
     """The llama.cpp RPC protocol version a rig speaks: ``major`` and
-    ``minor``, each a whole number of 0 or more. Its patch is never compared,
-    so it is not carried."""
+    ``minor``, each a whole number from 0 to :data:`RPC_PROTO_MAX`. Its patch
+    is never compared, so it is not carried."""
 
     major: int
     minor: int
 
     def validate(self) -> None:
         """Raise ValueError, naming the field at fault, unless both are whole
-        numbers of 0 or more."""
+        numbers from 0 to :data:`RPC_PROTO_MAX`."""
         for field in ("major", "minor"):
             value = getattr(self, field)
-            _need(_is_int(value) and value >= 0, field, "not a whole number >= 0")
+            _need(
+                _is_int(value) and 0 <= value <= RPC_PROTO_MAX,
+                field,
+                f"not a whole number in 0..{RPC_PROTO_MAX}",
+            )
 
 
 def rpc_compatible(head: RpcProto, worker: RpcProto) -> bool:

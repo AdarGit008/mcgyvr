@@ -663,10 +663,11 @@ def test_every_kind_has_one_standby_unit_and_only_names_it() -> None:
 
 def test_the_rpc_protocol_field_is_one_name() -> None:
     assert hubwire.RPC_PROTO_FIELD == "rpc_proto"
+    assert hubwire.RPC_PROTO_MAX == 255
     assert [f.name for f in dataclasses.fields(hubwire.RpcProto)] == ["major", "minor"]
 
 
-@pytest.mark.parametrize("proto", [(0, 0), (8, 0), (8, 12)])
+@pytest.mark.parametrize("proto", [(0, 0), (8, 0), (8, 12), (255, 255)])
 def test_an_rpc_protocol_of_whole_numbers_validates(proto: tuple[int, int]) -> None:
     hubwire.RpcProto(major=proto[0], minor=proto[1]).validate()
 
@@ -678,12 +679,14 @@ def test_an_rpc_protocol_of_whole_numbers_validates(proto: tuple[int, int]) -> N
         (True, 0, "major"),
         (8.0, 0, "major"),
         ("8", 0, "major"),
+        (256, 0, "major"),
         (8, -1, "minor"),
         (8, None, "minor"),
         (8, False, "minor"),
+        (8, 10**9, "minor"),
     ],
 )
-def test_each_part_of_an_rpc_protocol_is_a_whole_number_of_0_or_more(
+def test_each_part_of_an_rpc_protocol_is_a_whole_number_of_0_to_255(
     major: Any, minor: Any, field: str
 ) -> None:
     _refused(field, hubwire.RpcProto(major=major, minor=minor).validate)
