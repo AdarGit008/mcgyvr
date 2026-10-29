@@ -116,8 +116,8 @@ FIT_DEFAULT = "off"
 #: firewall asks and only this machine reaches it. The hub never reaches a
 #: unit directly (the rig agent relays its requests to the unit's local
 #: address over the websocket), and pooled rpc workers bind the tunnel
-#: address only; a `--host` (or `LLAMA_ARG_HOST`) the unit states itself is
-#: the operator's own choice and is kept.
+#: address only; a unit stating another `--host` (or `LLAMA_ARG_HOST`) is
+#: refused.
 LOOPBACK = "127.0.0.1"
 #: The flag and the variable llama-server reads its listening address from.
 HOST_FLAG = "--host"
@@ -556,9 +556,9 @@ def _native_service(unit: Unit) -> dict[str, object]:
     No image, no volumes, no devices: the program (`PROGRAM_KEY`) is the
     pinned llama.cpp build's server or rpc worker, run with the same argv a
     container is given, and the cards it may use are listed under
-    `CARDS_KEY`. A server that states no listening address of its own is
-    given `--host 127.0.0.1`. Only llama.cpp has a native build: a vLLM unit
-    is refused.
+    `CARDS_KEY`. A server is given `--host 127.0.0.1`, and a unit stating
+    any other listening address is refused. Only llama.cpp has a native
+    build: a vLLM unit is refused.
     """
     if unit.engine != "llama.cpp":
         raise EmitError(
@@ -573,10 +573,17 @@ def _native_service(unit: Unit) -> dict[str, object]:
         )
     stated = (*unit.args, *unit.extra)
     if (
-        unit.role == ROLE_SERVE
-        and HOST_ENV not in unit.env
-        and not any(p == HOST_FLAG or p.startswith(f"{HOST_FLAG}=") for p in stated)
+        HOST_ENV in unit.env
+        or HOST_FLAG in unit.extra
+        or any(p.startswith(f"{HOST_FLAG}=") for p in stated)
+        or unit.args.get(HOST_FLAG, LOOPBACK) != LOOPBACK
     ):
+        raise EmitError(
+            f"{unit.key.slug}: a native unit listens on {LOOPBACK} alone (the rig "
+            "agent relays to it, and pooled workers bind the tunnel address); "
+            f"drop the {HOST_FLAG} or {HOST_ENV} its launch states"
+        )
+    if unit.role == ROLE_SERVE:
         unit = replace(unit, args={**unit.args, HOST_FLAG: LOOPBACK})
     service: dict[str, object] = {
         LAUNCHER_KEY: LAUNCHER_NATIVE,

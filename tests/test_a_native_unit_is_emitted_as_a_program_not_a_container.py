@@ -101,16 +101,15 @@ def test_a_native_unit_is_a_program_on_the_loopback() -> None:
         assert container_only not in service
 
 
-def test_a_native_unit_that_names_its_address_keeps_it() -> None:
+def test_a_native_unit_that_names_another_address_is_refused() -> None:
     unit = only_unit(
         config_text(
             "    launcher: native\n",
             serve_args="      serve_args: ['--host', '0.0.0.0']\n",
         )
     )
-    command = list(service_of(unit)["command"])  # type: ignore[call-overload]
-    assert command.count("--host") == 1
-    assert command[command.index("--host") + 1] == "0.0.0.0"
+    with pytest.raises(emit.EmitError, match=r"127\.0\.0\.1 alone"):
+        emit.render_compose(unit)
 
 
 def test_a_native_unit_on_another_rig_is_refused() -> None:

@@ -498,7 +498,7 @@ UNIT_FIELDS: tuple[Field, ...] = (
         "Vulkan, else the CPU. A native unit listens on 127.0.0.1 alone, so no "
         "firewall asks: the hub reaches it through the rig agent's relay to "
         "that local address, and a pooled worker binds the tunnel address "
-        "only (a `--host` in `serve_args` is the operator's own choice); its "
+        "only, so a unit stating another `--host` is refused; its "
         "log is "
         "`logs/<container>.log` in the data folder. llama.cpp only. Absent "
         "means `docker`; `setup` writes `native` for a unit on a Mac or "

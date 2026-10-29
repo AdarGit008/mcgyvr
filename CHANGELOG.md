@@ -71,7 +71,7 @@ archived outside this repository, under the same paths.
   silicon; CUDA where `nvidia-smi` reads a driver one of the pinned CUDA
   builds runs, else Vulkan where a Vulkan loader is installed, else the CPU
   (`$MCGYVR_NATIVE_BACKEND` names one instead). A native server listens on
-  127.0.0.1 unless its `serve_args` state `--host`, and runs only on the
+  127.0.0.1 alone (the rig agent relays to it), and runs only on the
   machine mcgyvr runs on (`--host localhost`). The door's
   `serve up`/`down` start and stop native units, gate 3 asks no daemon of
   them, and `mcgyvr serve status --host localhost` lists them; `serve
