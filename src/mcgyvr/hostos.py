@@ -379,22 +379,22 @@ def pid_alive(pid: int) -> bool:
     user's) counts as running, and only one the kernel reports gone is dead.
     Windows, where ``os.kill(pid, 0)`` would send a Ctrl-C event: the process
     is opened to read its exit code; a pid naming no process is dead, one that
-    cannot be opened (another user's) counts as running.
+    cannot be opened (another user's) counts as running, and so does one that
+    exited with code 259, which Windows cannot tell from still running.
     """
     if sys.platform == "win32":
-        import ctypes
+        import _winapi
 
-        kernel = ctypes.WinDLL("kernel32", use_last_error=True)
-        handle = kernel.OpenProcess(_QUERY_LIMITED_INFORMATION, False, pid)
-        if not handle:
-            return ctypes.get_last_error() != _ERROR_INVALID_PARAMETER
         try:
-            code = ctypes.c_ulong()
-            if not kernel.GetExitCodeProcess(handle, ctypes.byref(code)):
-                return True
-            return code.value == _STILL_ACTIVE
+            handle = _winapi.OpenProcess(_QUERY_LIMITED_INFORMATION, False, pid)
+        except OSError as exc:
+            return getattr(exc, "winerror", None) != _ERROR_INVALID_PARAMETER
+        try:
+            return _winapi.GetExitCodeProcess(handle) == _STILL_ACTIVE
+        except OSError:
+            return True
         finally:
-            kernel.CloseHandle(handle)
+            _winapi.CloseHandle(handle)
     try:
         os.kill(pid, 0)
     except ProcessLookupError:

@@ -129,52 +129,42 @@ def test_posix_counts_a_pid_it_may_not_signal_as_alive(
     assert hostos.pid_alive(4242)
 
 
-class _Kernel:
-    """kernel32 as Windows answers OpenProcess and GetExitCodeProcess."""
+class _Winapi:
+    """``_winapi`` as Windows answers OpenProcess and GetExitCodeProcess."""
 
-    def __init__(self, opened: bool, error: int, code: int) -> None:
-        self.opened, self.error, self.code = opened, error, code
+    def __init__(self, error: int | None, code: int) -> None:
+        self.error, self.code = error, code
         self.closed: list[object] = []
 
     def OpenProcess(self, access: int, inherit: bool, pid: int) -> object:  # noqa: N802
         assert (access, inherit, pid) == (0x1000, False, 4242)
-        if not self.opened:
-            return 0
+        if self.error is not None:
+            failed = OSError("OpenProcess failed")
+            failed.winerror = self.error  # type: ignore[attr-defined]
+            raise failed
         return "handle"
 
-    def GetExitCodeProcess(self, handle: object, code: Any) -> int:  # noqa: N802
-        code._obj.value = self.code
-        return 1
+    def GetExitCodeProcess(self, handle: object) -> int:  # noqa: N802
+        return self.code
 
-    def CloseHandle(self, handle: object) -> int:  # noqa: N802
+    def CloseHandle(self, handle: object) -> None:  # noqa: N802
         self.closed.append(handle)
-        return 1
 
 
 @pytest.mark.parametrize(
-    ("opened", "error", "code", "alive"),
-    [
-        (True, 0, 259, True),
-        (True, 0, 0, False),
-        (False, 87, 0, False),
-        (False, 5, 0, True),
-    ],
+    ("error", "code", "alive"),
+    [(None, 259, True), (None, 0, False), (87, 0, False), (5, 0, True)],
 )
 def test_windows_asks_the_process_for_its_exit_code_and_never_signals(
-    opened: bool,
-    error: int,
-    code: int,
-    alive: bool,
-    monkeypatch: pytest.MonkeyPatch,
+    error: int | None, code: int, alive: bool, monkeypatch: pytest.MonkeyPatch
 ) -> None:
     as_system(monkeypatch, "windows")
-    kernel = _Kernel(opened, error, code)
-    monkeypatch.setattr(ctypes, "WinDLL", lambda *_a, **_k: kernel, raising=False)
-    monkeypatch.setattr(ctypes, "get_last_error", lambda: error, raising=False)
+    winapi = _Winapi(error, code)
+    monkeypatch.setitem(sys.modules, "_winapi", winapi)
 
     def never(_pid: int, _sig: int) -> None:
         raise AssertionError("os.kill sends Ctrl-C on Windows")
 
     monkeypatch.setattr(os, "kill", never)
     assert hostos.pid_alive(4242) is alive
-    assert kernel.closed == (["handle"] if opened else [])
+    assert winapi.closed == (["handle"] if error is None else [])

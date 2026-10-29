@@ -87,7 +87,10 @@ def test_both_kill_a_group_the_same_way(
     monkeypatch.setenv("SYSTEMROOT", "C:\\Windows")
     done: list[Any] = []
     monkeypatch.setattr(
-        os, "killpg", lambda pid, sig: done.append(("killpg", pid, sig))
+        os,
+        "killpg",
+        lambda pid, sig: done.append(("killpg", pid, sig)),
+        raising=False,
     )
     monkeypatch.setattr(
         subprocess, "run", lambda argv, **kw: done.append(("run", argv, kw))

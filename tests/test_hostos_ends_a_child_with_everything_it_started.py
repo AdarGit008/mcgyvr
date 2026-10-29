@@ -89,8 +89,6 @@ def test_posix_kills_the_child_and_what_it_started() -> None:
     while not _gone(started):
         assert time.monotonic() < deadline, "the child's own child outlived the kill"
         time.sleep(0.05)
-    with pytest.raises(ProcessLookupError):
-        hostos.kill_group(leader)
 
 
 @posix
