@@ -112,9 +112,12 @@ FIT_ENV = "LLAMA_ARG_FIT"
 FIT_OFF = frozenset({"off", "disabled", "false", "0"})
 FIT_DEFAULT = "off"
 
-#: Where a native llama.cpp server listens unless its unit states `--host`
-#: (or `LLAMA_ARG_HOST`): the loopback alone, so no firewall asks, and only
-#: this machine reaches it.
+#: Where a native llama.cpp server listens: the loopback alone, so no
+#: firewall asks and only this machine reaches it. The hub never reaches a
+#: unit directly (the rig agent relays its requests to the unit's local
+#: address over the websocket), and pooled rpc workers bind the tunnel
+#: address only; a `--host` (or `LLAMA_ARG_HOST`) the unit states itself is
+#: the operator's own choice and is kept.
 LOOPBACK = "127.0.0.1"
 #: The flag and the variable llama-server reads its listening address from.
 HOST_FLAG = "--host"

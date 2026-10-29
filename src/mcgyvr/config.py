@@ -496,7 +496,10 @@ UNIT_FIELDS: tuple[Field, ...] = (
         "restarts it with a growing pause and gives up after a few crashes: "
         "Metal on a Mac, CUDA where `nvidia-smi` reads a driver it runs, else "
         "Vulkan, else the CPU. A native unit listens on 127.0.0.1 alone, so no "
-        "firewall asks, unless its `serve_args` state `--host`; its log is "
+        "firewall asks: the hub reaches it through the rig agent's relay to "
+        "that local address, and a pooled worker binds the tunnel address "
+        "only (a `--host` in `serve_args` is the operator's own choice); its "
+        "log is "
         "`logs/<container>.log` in the data folder. llama.cpp only. Absent "
         "means `docker`; `setup` writes `native` for a unit on a Mac or "
         "Windows machine it runs on.",
