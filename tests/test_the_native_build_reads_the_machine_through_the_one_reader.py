@@ -11,18 +11,19 @@ Metal working set is filed under.
 
 from __future__ import annotations
 
+import subprocess
 from typing import Any
 
 import pytest
 
-from mcgyvr import hubwire
+from mcgyvr import hostos, hubwire
 from mcgyvr.serving import llamacpp, native, rigscan
 from tests.machine_shapes import host_shape
 
 
 def test_the_build_tables_names_are_the_wires() -> None:
-    assert (llamacpp.LINUX, llamacpp.DARWIN, llamacpp.WINDOWS) == hubwire.HOST_OS
-    assert (llamacpp.LINUX, llamacpp.DARWIN, llamacpp.WINDOWS) == (
+    assert (hostos.LINUX, hostos.DARWIN, hostos.WINDOWS) == hubwire.HOST_OS
+    assert (hostos.LINUX, hostos.DARWIN, hostos.WINDOWS) == (
         "linux",
         "darwin",
         "windows",
@@ -70,7 +71,7 @@ def test_the_build_is_picked_for_the_readers_host(
 
     monkeypatch.setattr(llamacpp, "build_for", build_for)
     native.pick()
-    want = llamacpp.METAL if machine.system == llamacpp.DARWIN else llamacpp.CPU
+    want = llamacpp.METAL if machine.system == hostos.DARWIN else llamacpp.CPU
     assert asked == [(machine.system, llamacpp.ARM64, want)]
 
 
@@ -98,7 +99,7 @@ def test_the_driver_is_asked_of_the_readers_nvidia_smi(
         return Done()
 
     monkeypatch.setattr(rigscan, "nvidia_smi", lambda system=None: "/opt/tool/smi")
-    monkeypatch.setattr(native.subprocess, "run", run)
+    monkeypatch.setattr(subprocess, "run", run)
     assert native.nvidia_driver() == "580.95.05"
     assert ran[0][0] == "/opt/tool/smi"
     monkeypatch.setattr(rigscan, "nvidia_smi", lambda system=None: None)

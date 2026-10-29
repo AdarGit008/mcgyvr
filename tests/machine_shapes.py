@@ -955,7 +955,7 @@ def _cim(machine: HostShape) -> str:
             else []
         ),
         "memory_types": (
-            [str(_SMBIOS_TYPE.get(machine.ddr, 0))] * 2
+            [str(_SMBIOS_TYPE.get(machine.ddr or 0, 0))] * 2
             if machine.memory_modules
             else []
         ),

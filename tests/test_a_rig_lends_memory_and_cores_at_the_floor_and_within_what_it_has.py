@@ -257,7 +257,11 @@ def test_ram_of_an_older_generation_is_never_advertised(
     )
     for machine, lent in ((CURRENT, True), (OLDER, False)):
         reading = host_reading(machine)
-        report = hardware.read(reader=lambda reading=reading: reading)
+
+        def reader(reading: dict[str, Any] = reading) -> dict[str, Any]:
+            return reading
+
+        report = hardware.read(reader=reader)
         share = fakes.sharing(tmp_path, cards=(), ram_mb=RAM_FLOOR)
         kinds = [r.kind for r in share.lendable(report).lent]
         assert (hubwire.RESOURCE_RAM in kinds) is lent

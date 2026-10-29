@@ -70,16 +70,16 @@ def _classes(monkeypatch: pytest.MonkeyPatch) -> None:
 
 
 def _report(machine: HostShape) -> Any:
+    import platform
     from unittest import mock
 
     from mcgyvr.rig import hardware
-    from mcgyvr.serving import rigscan
 
     # A Linux reading takes the kernel release and the machine name from the
     # interpreter: here they are the invented machine's, not the suite host's.
     with (
-        mock.patch.object(rigscan.platform, "release", lambda: machine.version),
-        mock.patch.object(rigscan.platform, "machine", lambda: "x86_64"),
+        mock.patch.object(platform, "release", lambda: machine.version),
+        mock.patch.object(platform, "machine", lambda: "x86_64"),
     ):
         reading = host_reading(machine)
     return hardware.read(reader=lambda: reading)
