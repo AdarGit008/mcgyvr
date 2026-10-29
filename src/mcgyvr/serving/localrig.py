@@ -32,6 +32,7 @@ from __future__ import annotations
 
 import base64
 import binascii
+import http.client
 import shlex
 import shutil
 import subprocess
@@ -41,14 +42,15 @@ import urllib.parse
 import urllib.request
 from pathlib import Path
 
+from mcgyvr import hostos
+from mcgyvr.serving.gatelib import LOCAL_RIGS
+
 #: The statuses curl answers with: an HTTP error under ``-f``, no connection,
 #: a timeout; and the status of a command this transport does not run.
 CURL_HTTP_ERROR = 22
 CURL_NO_CONNECTION = 7
 CURL_TIMEOUT = 28
 REFUSED = 126
-#: The hosts a curl here may name: this machine.
-LOOPBACK_HOSTS = frozenset({"localhost", "127.0.0.1", "::1", "[::1]"})
 #: How long a curl with no ``-m`` waits.
 CURL_S = 60.0
 #: The only ``-w`` format the serve steps use.
@@ -83,7 +85,7 @@ def run(
         return _find(command, words)
     if words[:2] == ["bash", "-s"]:
         bash = shutil.which("bash")
-        if bash is None or sys.platform == "win32":
+        if bash is None or hostos.os_name() == "windows":
             return _refused(command, "this machine has no bash to read the script")
         return subprocess.run(
             [bash, *words[1:]],
@@ -150,6 +152,57 @@ def _find(command: str, words: list[str]) -> subprocess.CompletedProcess[str]:
     )
 
 
+class _NoRedirect(urllib.request.HTTPRedirectHandler):
+    """Hand a 3xx back as it is, as curl without ``-L`` does: never followed."""
+
+    def redirect_request(self, *_args: object, **_kw: object) -> None:
+        return None
+
+
+#: The opener every request to this machine's ports goes through: no proxy
+#: from the environment, and no redirect followed, so a request for a local
+#: port reaches that port and nothing else.
+_LOCAL = urllib.request.build_opener(urllib.request.ProxyHandler({}), _NoRedirect)
+#: What :func:`ask` answers for a request that got no answer, and for one that
+#: ran out of time.
+NO_ANSWER = 0
+CURL_TIMEOUT_CODE = -1
+
+
+def ask(
+    url: str,
+    *,
+    timeout: float,
+    data: bytes | None = None,
+    headers: dict[str, str] | None = None,
+    method: str = "GET",
+) -> tuple[int, bytes]:
+    """One request to this machine's `url`: its status and body.
+
+    No proxy and no redirect (:data:`_LOCAL`); a host that is not this
+    machine's is not asked. The status is :data:`NO_ANSWER` when nothing
+    answered and :data:`CURL_TIMEOUT_CODE` when the answer was too late.
+    """
+    if (urllib.parse.urlsplit(url).hostname or "") not in LOCAL_RIGS:
+        return NO_ANSWER, b""
+    request = urllib.request.Request(
+        url, data=data, headers=headers or {}, method=method
+    )
+    try:
+        with _LOCAL.open(request, timeout=timeout) as answer:
+            return int(answer.status), answer.read()
+    except urllib.error.HTTPError as error:
+        return int(error.code), error.read()
+    except TimeoutError:
+        return CURL_TIMEOUT_CODE, b""
+    except urllib.error.URLError as error:
+        if isinstance(error.reason, TimeoutError):
+            return CURL_TIMEOUT_CODE, b""
+        return NO_ANSWER, b""
+    except (OSError, http.client.HTTPException, ValueError):
+        return NO_ANSWER, b""
+
+
 def _curl(command: str, words: list[str]) -> subprocess.CompletedProcess[str]:
     """A curl the serve steps make of this machine's own port, made with urllib."""
     fail = False
@@ -192,22 +245,18 @@ def _curl(command: str, words: list[str]) -> subprocess.CompletedProcess[str]:
     if len(urls) != 1:
         return _refused(command, "it names no single address")
     target = urllib.parse.urlsplit(urls[0])
-    if target.scheme != "http" or (target.hostname or "") not in LOOPBACK_HOSTS:
+    if target.scheme != "http" or (target.hostname or "") not in LOCAL_RIGS:
         return _refused(command, "a local rig's curl reaches this machine's ports only")
-    request = urllib.request.Request(
+    code, body = ask(
         urls[0],
+        timeout=budget,
         data=data,
         headers=headers,
         method=method or ("POST" if data else "GET"),
     )
-    try:
-        with urllib.request.urlopen(request, timeout=budget) as answer:
-            code, body = answer.status, answer.read()
-    except urllib.error.HTTPError as error:
-        code, body = error.code, error.read()
-    except TimeoutError:
+    if code == CURL_TIMEOUT_CODE:
         return subprocess.CompletedProcess([command], CURL_TIMEOUT, "", "")
-    except (OSError, urllib.error.URLError, ValueError):
+    if code == NO_ANSWER:
         return subprocess.CompletedProcess([command], CURL_NO_CONNECTION, "", "")
     if fail and code >= 400:
         return subprocess.CompletedProcess([command], CURL_HTTP_ERROR, "", "")

@@ -29,7 +29,7 @@ from mcgyvr.config import HEALTH_INTERVAL_S as HEALTH_INTERVAL_S
 from mcgyvr.config import HEALTH_POLLS as HEALTH_POLLS
 from mcgyvr.config import LAUNCHER_DOCKER, LAUNCHER_NATIVE, LAUNCHERS
 from mcgyvr.serving import CARDS_KEY, LAUNCHER_KEY
-from mcgyvr.serving.gatelib import door_required, need, ssh, tool
+from mcgyvr.serving.gatelib import LOCAL_RIGS, door_required, need, ssh, tool
 
 #: The compose project every file is brought up under, passed as `-p`, so a
 #: container's project is this tool; fleet read calls such a container ours.
@@ -206,6 +206,7 @@ def up(
     if _is_native(compose_file):
         from mcgyvr.serving import native
 
+        _native_here()
         done = native.up(compose_file, (u.name for u in units))
         return _finished(done)
     if not units:
@@ -227,11 +228,22 @@ def down(
     if _is_native(compose_file):
         from mcgyvr.serving import native
 
+        _native_here()
         named = units or services(compose_file)
         return _finished(native.down(u.container for u in named))
     if not units:
         return compose(compose_file, "down", "--remove-orphans")
     return compose(compose_file, "rm", "--stop", "--force", *(u.name for u in units))
+
+
+def _native_here() -> None:
+    """Refuse a native step whose run names a rig other than this machine."""
+    host = os.environ.get("RUN_HOST", "")
+    if host not in LOCAL_RIGS:
+        raise ComposeError(
+            f"the launch spec runs natively, on this machine, and the run is for "
+            f"{host or 'no host'}"
+        )
 
 
 def _is_native(compose_file: Path) -> bool:

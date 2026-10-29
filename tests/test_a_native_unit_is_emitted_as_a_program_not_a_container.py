@@ -11,6 +11,7 @@ launchers is refused before anything runs.
 
 from __future__ import annotations
 
+from dataclasses import replace
 from pathlib import Path
 
 import pytest
@@ -33,8 +34,8 @@ from mcgyvr.serving import (
 
 MODEL = "Qwen3.6-35B-A3B-UD-IQ3_XXS"
 SCANS = {
-    "box1": Scan.of(
-        host="box1",
+    "localhost": Scan.of(
+        host="localhost",
         vram_mib=12288,
         ram_gb=48.0,
         disk_free_gb=900.0,
@@ -49,9 +50,9 @@ def config_text(launcher: str = "", *, engine: str = "", serve_args: str = "") -
     return f"""
 units:
   local_big:
-    address: "http://box1:8080"
+    address: "http://localhost:8080"
     model: "{MODEL}"
-    rig: box1
+    rig: this-machine
     width: 2
 {launcher}{engine}    launch:
       vram_gb: 3.0
@@ -61,6 +62,18 @@ units:
 {serve_args}ladder:
 - local_big
 """
+
+
+def replace_host(scan: Scan, host: str) -> Scan:
+    return Scan.of(
+        host=host,
+        vram_mib=12288,
+        ram_gb=48.0,
+        disk_free_gb=900.0,
+        cores=6,
+        threads=6,
+        bandwidth_gbps=40.3,
+    )
 
 
 def only_unit(text: str) -> Unit:
@@ -100,6 +113,23 @@ def test_a_native_unit_that_names_its_address_keeps_it() -> None:
     assert command[command.index("--host") + 1] == "0.0.0.0"
 
 
+def test_a_native_unit_on_another_rig_is_refused() -> None:
+    text = config_text("    launcher: native\n").replace("localhost", "box1")
+    scans = {"box1": replace_host(SCANS["localhost"], "box1")}
+    (unit,) = units_for(parse(text), scans, specs=(), ctx_per_slot=4096)
+    with pytest.raises(emit.EmitError, match="box1 is another"):
+        emit.render_compose(unit)
+
+
+def test_a_native_unit_keeps_a_path_with_a_space() -> None:
+    unit = only_unit(config_text("    launcher: native\n"))
+    unit = replace(unit, args={**unit.args, "--model": "/Users/Jane Doe/m.gguf"})
+    command = list(service_of(unit)["command"])  # type: ignore[call-overload]
+    assert "/Users/Jane Doe/m.gguf" in command
+    with pytest.raises(emit.EmitError, match="whitespace"):
+        emit.render_compose(replace(unit, launcher="docker"))
+
+
 def test_a_unit_that_states_nothing_is_a_container_on_the_pinned_image() -> None:
     unit = only_unit(config_text())
     assert unit.launcher == "docker"
@@ -119,9 +149,9 @@ def test_two_units_of_one_process_cannot_run_two_ways() -> None:
     text = config_text("    launcher: native\n").replace(
         "ladder:\n- local_big\n",
         f"""  same_process:
-    address: "http://box1:8080"
+    address: "http://localhost:8080"
     model: "{MODEL}"
-    rig: box1
+    rig: this-machine
 ladder:
 - local_big
 - same_process
@@ -134,8 +164,8 @@ ladder:
 def test_a_launch_spec_mixing_the_two_launchers_is_refused(tmp_path: Path) -> None:
     native = service_of(only_unit(config_text("    launcher: native\n")))
     docker = service_of(only_unit(config_text()))
-    docker["container_name"] = "mcgyvr-box1-other"
-    path = tmp_path / "compose.box1.yml"
+    docker["container_name"] = "mcgyvr-localhost-other"
+    path = tmp_path / "compose.localhost.yml"
     path.write_text(yaml.safe_dump({"services": {"a": native, "b": docker}}))
     units = servelib.services(path)
     assert {u.launcher for u in units} == {"native", "docker"}
@@ -144,7 +174,7 @@ def test_a_launch_spec_mixing_the_two_launchers_is_refused(tmp_path: Path) -> No
 
 
 def test_a_native_service_is_read_with_its_cards(tmp_path: Path) -> None:
-    path = tmp_path / "compose.box1.yml"
+    path = tmp_path / "compose.localhost.yml"
     path.write_text(
         emit.render_compose(only_unit(config_text("    launcher: native\n")))
     )
@@ -155,7 +185,7 @@ def test_a_native_service_is_read_with_its_cards(tmp_path: Path) -> None:
 
 
 def test_a_containers_unit_id_is_what_it_was_and_a_native_one_differs() -> None:
-    block = {"address": "http://box1:8080", "model": MODEL, "launch": {}}
+    block = {"address": "http://localhost:8080", "model": MODEL, "launch": {}}
     before = unit_id(block)
     assert unit_id({**block, "launcher": "docker"}) == before
     assert unit_id({**block, "launcher": "native"}) != before

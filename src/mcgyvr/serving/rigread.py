@@ -26,11 +26,11 @@ from typing import Any
 from mcgyvr import config as configlib
 from mcgyvr.config import LAUNCHER_NATIVE
 from mcgyvr.serving.gatelib import (
+    LOCAL_RIGS,
     Lease,
     held_by,
     lease_read,
     lease_take,
-    local_transport,
     need,
     new_lease,
     refuse,
@@ -145,7 +145,7 @@ def held(host: str) -> dict[str, str]:
     """
     from mcgyvr.fleet import read
 
-    if os.environ.get("RUN_LAUNCHER") == LAUNCHER_NATIVE and local_transport(host):
+    if os.environ.get("RUN_LAUNCHER") == LAUNCHER_NATIVE and host in LOCAL_RIGS:
         # A native rig is this machine, and its units are no daemon's
         # containers: the native launcher says what holds it, docker unasked.
         from mcgyvr.serving import native

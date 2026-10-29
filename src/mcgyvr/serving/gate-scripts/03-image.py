@@ -21,8 +21,9 @@ A native run (``RUN_LAUNCHER=native``) starts no container and resolves no
 tag, so there is no daemon to hold to the machine: the gate says so and
 passes. Docker Desktop names its daemon ``docker-desktop``, after the virtual
 machine it runs in rather than the host; that name is taken for the machine
-gate 2 read only when the door reaches the rig through its local transport,
-where the client cannot be talking to a daemon anywhere else.
+gate 2 read only when the door reaches the rig through its local transport
+and the client's current context is a socket or pipe on this machine
+(``unix://``, ``npipe://``), not a daemon elsewhere.
 """
 
 from __future__ import annotations
@@ -42,6 +43,14 @@ from mcgyvr.serving.gatelib import (
 
 #: The name Docker Desktop's daemon gives itself, on macOS and Windows alike.
 DOCKER_DESKTOP = "docker-desktop"
+#: The endpoints of a daemon on this machine: a unix socket, or a Windows
+#: named pipe. A context with any other endpoint names a daemon elsewhere.
+LOCAL_ENDPOINTS = ("unix://", "npipe://")
+
+
+def _endpoint() -> str:
+    """The endpoint of the docker context the client uses now."""
+    return _docker("context", "inspect", "--format", "{{.Endpoints.docker.Host}}")
 
 
 def _docker(*args: str) -> str:
@@ -90,7 +99,11 @@ def main() -> int:
         )
 
     name = _docker("info", "--format", "{{.Name}}")
-    desktop = name == DOCKER_DESKTOP and local_transport(need("RUN_HOST"))
+    desktop = (
+        name == DOCKER_DESKTOP
+        and local_transport(need("RUN_HOST"))
+        and _endpoint().startswith(LOCAL_ENDPOINTS)
+    )
     if name != hostname and not desktop:
         refuse(
             f"gate 3: the daemon `docker` reaches calls itself {name!r}, and the "

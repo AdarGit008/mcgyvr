@@ -174,6 +174,55 @@ def test_a_server_that_keeps_crashing_is_given_up_on_after_n_restarts(
     assert [row["state"] for row in native.status()] == ["gave_up"]
 
 
+def test_an_engine_told_never_to_restart_is_given_up_on_at_its_first_exit(
+    tmp_path: Path, stopped_after: None
+) -> None:
+    port = _port()
+    programs = _programs(tmp_path)
+    native.up(
+        _spec(tmp_path, port, {"FAKE_MODE": "crash"}),
+        folder=lambda b: programs,
+        build=lambda: METAL_BUILD,
+        restart={"max_restarts": 0},
+    )
+    assert _until(lambda: (native.read_record(UNIT) or {}).get("state") == "gave_up")
+    assert native.log_path(UNIT).read_text().count("starts at") == 1
+
+
+def test_the_door_vocabulary_stays_with_the_door(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, stopped_after: None
+) -> None:
+    monkeypatch.setenv("RUN_DOOR_PROOF", "a" * 64)
+    port = _port()
+    programs = _programs(tmp_path)
+    marker = tmp_path / "env"
+    native.up(
+        _spec(tmp_path, port, {"FAKE_ENV_NAMES": str(marker)}),
+        folder=lambda b: programs,
+        build=lambda: METAL_BUILD,
+    )
+    assert _until(marker.exists)
+    assert not [n for n in marker.read_text().split() if n.startswith("RUN_")]
+
+
+def test_a_server_left_by_a_killed_supervisor_is_ended_before_a_new_start(
+    tmp_path: Path, stopped_after: None
+) -> None:
+    port = _port()
+    programs = _programs(tmp_path)
+    spec = _spec(tmp_path, port)
+    native.up(spec, folder=lambda b: programs, build=lambda: METAL_BUILD)
+    first = native.read_record(UNIT) or {}
+    hostos.end_pid(first["supervisor"]["pid"], force=True)
+    assert _until(lambda: not native.supervised(UNIT))
+    assert native.matches(first["server"]) is not None, "the server went too"
+    again = native.up(spec, folder=lambda b: programs, build=lambda: METAL_BUILD)
+    assert again.returncode == 0, again.stderr
+    assert _until(lambda: native.matches(first["server"]) is None)
+    assert (native.read_record(UNIT) or {})["server"]["pid"] != first["server"]["pid"]
+    assert native.wait_answers(port, 20)
+
+
 def test_the_pauses_between_restarts_double_up_to_their_cap() -> None:
     spec = {**native.RESTART, "backoff_s": 1.0, "backoff_max_s": 30.0}
     pauses = [
@@ -194,7 +243,8 @@ def test_the_cards_reach_the_server_as_its_backend_reads_them() -> None:
         "CUDA_DEVICE_ORDER": "PCI_BUS_ID",
         "CUDA_VISIBLE_DEVICES": "1,0",
     }
-    assert native.device_env("vulkan", (0,)) == {"GGML_VK_VISIBLE_DEVICES": "0"}
+    # Vulkan numbers devices its own way: a card's index is not passed on.
+    assert native.device_env("vulkan", (0,)) == {}
     assert native.device_env("metal", (0,)) == {}
 
 

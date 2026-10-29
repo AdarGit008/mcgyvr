@@ -72,7 +72,7 @@ def tool(name: str) -> list[str]:
 
 #: The rig names that are this machine, and the variable that says how the
 #: door reaches it: `direct` (no ssh) or `ssh`.
-LOCAL_RIGS = frozenset({"localhost", "127.0.0.1", "::1"})
+LOCAL_RIGS = frozenset({"localhost", "127.0.0.1", "::1", "[::1]"})
 LOCAL_TRANSPORT_ENV = "MCGYVR_LOCAL_TRANSPORT"
 TRANSPORT_DIRECT = "direct"
 TRANSPORT_SSH = "ssh"
@@ -261,10 +261,13 @@ def under_door() -> bool:
     keeps the property the walk has: it exists only while a door process lives
     (its file names the door's pid and start time and is removed when the door
     ends), it is handed down only through the environment the door builds, so
-    only its descendants carry it, and it is a 256-bit secret that no file on
-    disk spells (the file holds only its sha256), so a process that was not
-    handed it cannot present it. Its file is the user's own (0600 in a 0700
-    folder, where modes say so), opened without following a link.
+    only its descendants carry it (the native supervisors a run starts are
+    handed an environment without it), and it is a 256-bit secret that no
+    file on disk spells (the file holds only its sha256): code that was not
+    handed it does not have it, though a process of the same user could read
+    it out of a door's environment, which is the operator caveat above. Its
+    file is the user's own (0600 in a 0700 folder, where modes say so), opened
+    without following a link.
     """
     if PROC_SELF.exists():
         return _door_ancestor()
@@ -285,6 +288,7 @@ def mint_proof() -> tuple[str, Path]:
     folder = _proof_dir()
     folder.mkdir(parents=True, exist_ok=True)
     hostos.chmod_private(folder, directory=True)
+    _sweep_proofs(folder)
     path = folder / digest[:32]
     fd = hostos.open_nofollow(path, os.O_WRONLY | os.O_CREAT | os.O_EXCL, 0o600)
     try:
@@ -297,6 +301,26 @@ def mint_proof() -> tuple[str, Path]:
     finally:
         os.close(fd)
     return secret, path
+
+
+def _sweep_proofs(folder: Path) -> None:
+    """Remove the proofs of doors that ended without removing their own."""
+    from mcgyvr import hostos
+
+    for old in folder.iterdir():
+        try:
+            body = json.loads(_read_nofollow(old))
+            pid = body["pid"]
+            alive = (
+                isinstance(pid, int)
+                and hostos.pid_alive(pid)
+                and hostos.process_start_time(pid) == body.get("start")
+            )
+        except (OSError, ValueError, KeyError, TypeError):
+            alive = False
+        if not alive:
+            with contextlib.suppress(OSError):
+                old.unlink()
 
 
 def drop_proof(path: Path | None) -> None:
@@ -341,6 +365,7 @@ def _proof_holds() -> bool:
             and isinstance(pid, int)
             and pid > 0
             and body.get("start") is not None
+            and hostos.pid_alive(pid)
             and hostos.process_start_time(pid) == body["start"]
         )
     except (ImportError, OSError, ValueError, KeyError, TypeError, AttributeError):
@@ -586,7 +611,7 @@ def ssh_read_only(
         return localrig.run(command, input=None, timeout=timeout)
     return subprocess.run(
         [
-            "ssh",
+            *tool("ssh"),
             "-o",
             "BatchMode=yes",
             "-o",
@@ -948,6 +973,15 @@ _LEASE_SCRIPTS = {
 }
 
 
+def _read_nofollow(path: Path) -> str:
+    """The text of `path`, refused (`OSError`) when it is a link."""
+    from mcgyvr import hostos
+
+    fd = hostos.open_nofollow(path, os.O_RDONLY)
+    with os.fdopen(fd, "r", encoding="utf-8") as handle:
+        return handle.read()
+
+
 def _lease_op(
     host: str, op: str, *, via: Transport | None = None, **fields: str
 ) -> subprocess.CompletedProcess[str]:
@@ -975,23 +1009,25 @@ def _local_lease(op: str, **fields: str) -> subprocess.CompletedProcess[str]:
     """
     from mcgyvr import hostos
 
-    folder = Path.home() / ".mcgyvr"
-    lease = folder / "lease"
+    folder = Path(LEASE_DIR).expanduser()
+    lease = Path(LEASE_FILE).expanduser()
 
     def answer(code: int, out: str = "") -> subprocess.CompletedProcess[str]:
         return subprocess.CompletedProcess(["lease", op], code, out, "")
 
     try:
         folder.mkdir(parents=True, exist_ok=True)
-    except OSError:
-        return answer(4)
-    fd = hostos.open_nofollow(folder / "lease.lock", os.O_RDWR | os.O_CREAT, 0o600)
+        fd = hostos.open_nofollow(folder / "lease.lock", os.O_RDWR | os.O_CREAT, 0o600)
+    except OSError as exc:
+        return subprocess.CompletedProcess(["lease", op], 4, "", f"{exc}\n")
     try:
         hostos.lock(fd)
         try:
-            now = lease.read_text(encoding="utf-8")
+            now = _read_nofollow(lease)
         except FileNotFoundError:
             now = ""
+        except OSError as exc:
+            return subprocess.CompletedProcess(["lease", op], 5, "", f"{exc}\n")
         held = f"lease_id={fields.get('held', '')} "
         if op == "read":
             return answer(0, now)
@@ -1016,7 +1052,10 @@ def _local_lease(op: str, **fields: str) -> subprocess.CompletedProcess[str]:
         elif held not in now:
             return answer(3)
         part = folder / f"lease.{os.getpid()}"
-        part.write_text(line, encoding="utf-8")
+        part.unlink(missing_ok=True)
+        out = hostos.open_nofollow(part, os.O_WRONLY | os.O_CREAT | os.O_EXCL, 0o644)
+        with os.fdopen(out, "w", encoding="utf-8") as handle:
+            handle.write(line)
         os.replace(part, lease)
         return answer(0)
     finally:

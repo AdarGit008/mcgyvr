@@ -53,6 +53,12 @@ def test_which_rigs_are_reached_without_ssh(
     assert gatelib.local_transport(host) is expected
 
 
+def test_this_machines_names_are_the_ones_detection_calls_local() -> None:
+    from mcgyvr.detect import LOCAL_HOSTS
+
+    assert set(gatelib.LOCAL_RIGS) == set(LOCAL_HOSTS)
+
+
 def test_the_shipped_reader_reads_the_same_machine_without_ssh(tmp_path: Path) -> None:
     shape = machine_shapes.shapes()[0]
     staged = machinereader.stage(shape)
@@ -159,6 +165,37 @@ def test_a_health_probe_is_answered_as_curl_answers(answering: int) -> None:
         timeout=10,
     )
     assert coded.returncode == 0 and coded.stdout.endswith("\n404")
+
+
+def test_a_redirect_is_not_followed_and_no_proxy_is_asked(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    class Redirect(http.server.BaseHTTPRequestHandler):
+        def do_GET(self) -> None:
+            self.send_response(302)
+            self.send_header("Location", "http://127.0.0.2:9/elsewhere")
+            self.send_header("Content-Length", "0")
+            self.end_headers()
+
+        def log_message(self, *a: object) -> None:
+            return
+
+    server = http.server.ThreadingHTTPServer(("127.0.0.1", 0), Redirect)
+    threading.Thread(target=server.serve_forever, daemon=True).start()
+    port = server.server_address[1]
+    monkeypatch.setenv("http_proxy", "http://127.0.0.1:9")
+    monkeypatch.setenv("HTTP_PROXY", "http://127.0.0.1:9")
+    try:
+        done = localrig.run(
+            f"curl -s -w '\\n%{{http_code}}' http://127.0.0.1:{port}/v1/models",
+            input=None,
+            timeout=10,
+        )
+    finally:
+        server.shutdown()
+        server.server_close()
+    assert done.returncode == 0, done
+    assert done.stdout.endswith("\n302")
 
 
 def test_nothing_listening_is_curls_no_connection() -> None:

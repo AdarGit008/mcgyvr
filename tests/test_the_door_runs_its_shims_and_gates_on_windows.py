@@ -12,6 +12,7 @@ Windows path is faked here.
 
 from __future__ import annotations
 
+import calendar
 import os
 import signal
 import subprocess
@@ -170,14 +171,21 @@ def test_a_process_start_time_names_one_process() -> None:
 def test_macos_reads_a_start_time_with_ps(monkeypatch: pytest.MonkeyPatch) -> None:
     asked: list[list[str]] = []
 
-    def fake_run(argv: list[str], **_kw: Any) -> subprocess.CompletedProcess[str]:
+    def fake_run(argv: list[str], **kw: Any) -> subprocess.CompletedProcess[str]:
         asked.append(argv)
+        assert kw["env"]["LC_ALL"] == "C" and kw["env"]["TZ"] == "UTC"
         return subprocess.CompletedProcess(argv, 0, "Thu Oct 29 08:00:01 2026\n", "")
 
     monkeypatch.setattr(subprocess, "run", fake_run)
     as_system(monkeypatch, "darwin")
-    assert hostos.process_start_time(77) == "Thu Oct 29 08:00:01 2026"
+    found = hostos.process_start_time(77)
+    assert found == str(calendar.timegm((2026, 10, 29, 8, 0, 1, 0, 0, 0)))
     assert asked == [["/bin/ps", "-o", "lstart=", "-p", "77"]]
+    # One plain token: a lease taken on macOS names its holder's start with it.
+    lease = gatelib.Lease("0" * 16, "me@mac", "m", 77, "now", "up", pid_start=found)
+    assert lease.line().endswith(
+        f"pid_start={found} started_at=now step=up run_id=none"
+    )
 
 
 def _no_exec(*_a: object) -> None:

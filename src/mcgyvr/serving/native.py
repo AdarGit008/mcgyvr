@@ -29,7 +29,9 @@ The supervisor:
   ``max_working_set_size / 1e6``
   (https://github.com/ggml-org/llama.cpp/blob/b11960/ggml/src/ggml-metal/ggml-metal-device.m#L1364),
   and files it as a reading (:func:`metal_working_set`);
-- on ``TERM`` (``BREAK`` on Windows) stops the server and exits.
+- on ``TERM`` stops the server and exits (POSIX). Windows sends a process
+  with no console no signal it can catch: :func:`down` ends the supervisor
+  with ``TerminateProcess`` there, and its Job Object ends the server.
 
 :func:`down` asks the supervisor to stop through its group and, when it does
 not within :data:`STOP_S`, ends it and its server by force, each only while
@@ -39,10 +41,15 @@ its pid still has the start time the record holds. :func:`running` and
 Which build runs (pin K5): :func:`mcgyvr.serving.llamacpp.backend_for`, from
 this machine's system, architecture and ``nvidia-smi``'s driver version;
 ``$MCGYVR_NATIVE_BACKEND`` (``metal``, ``cuda``, ``vulkan`` or ``cpu``) names
-one instead. Device order and visibility follow the unit's cards: CUDA reads
-``CUDA_VISIBLE_DEVICES`` with ``CUDA_DEVICE_ORDER=PCI_BUS_ID``, Vulkan reads
-``GGML_VK_VISIBLE_DEVICES``
-(https://github.com/ggml-org/llama.cpp/blob/b11960/ggml/src/ggml-vulkan/ggml-vulkan.cpp#L5306).
+one instead. Vulkan is picked only where the Vulkan loader is installed:
+"for Vulkan version 1.X on Windows the library filename is vulkan-1.dll",
+typically "in the windows\\system32" folder; on Linux the "versioned SONAME,
+currently libvulkan.so.1"
+(https://github.com/KhronosGroup/Vulkan-Loader/blob/main/docs/LoaderApplicationInterface.md).
+A CUDA server is given the unit's cards (``CUDA_VISIBLE_DEVICES`` with
+``CUDA_DEVICE_ORDER=PCI_BUS_ID``, the order the reader numbers them in). A
+Vulkan server is given every device: Vulkan numbers devices in its own order,
+an integrated GPU among them, so a card's index is not its Vulkan index.
 
 Native units run on the machine this code runs on: the door reaches a native
 rig through its local transport (:func:`mcgyvr.serving.gatelib.local_transport`).
@@ -61,7 +68,7 @@ import subprocess
 import sys
 import time
 import types
-from collections.abc import Callable, Iterable, Sequence
+from collections.abc import Callable, Iterable, Mapping, Sequence
 from dataclasses import dataclass
 from datetime import UTC, datetime
 from pathlib import Path
@@ -94,9 +101,16 @@ UNIT_NAME = re.compile(r"[A-Za-z0-9][A-Za-z0-9._-]{0,127}")
 START_S = 30.0
 STOP_S = 20.0
 POLL_S = 0.2
+#: How often, and how far apart, a record is renamed into place on Windows
+#: while a reader holds it.
+REPLACE_TRIES = 20
+REPLACE_PAUSE_S = 0.05
 #: How long a server asked to stop is given before it is killed.
 SERVER_GRACE_S = 10.0
-#: The restart policy a spec carries unless it states its own.
+#: How long one health probe waits for its answer.
+ASK_S = 5.0
+#: The restart policy a spec carries; :func:`start` and :func:`up` take
+#: overrides (``{"max_restarts": 0}`` for an engine that must not come back).
 RESTART = {
     "max_restarts": 5,
     "backoff_s": 1.0,
@@ -110,6 +124,9 @@ METAL_LINE = re.compile(
     rb"recommendedMaxWorkingSetSize\s*=\s*([0-9]+(?:\.[0-9]+)?)\s*MB"
 )
 METAL_SCAN_BYTES = 4 << 20
+#: How long into a start the Metal line is looked for: it is printed while
+#: the backend initialises, before the model loads.
+METAL_SCAN_S = 120.0
 #: The reading of it, beside the records.
 METAL_FILE = "metal.json"
 #: The states a record says a unit is in.
@@ -117,6 +134,7 @@ RUNNING = "running"
 BACKOFF = "backoff"
 GAVE_UP = "gave_up"
 STOPPED = "stopped"
+FAILED = "failed"
 #: How the machine's architecture is spelled by ``platform.machine()``.
 #: The reader (``host.arch`` in its reading) is the one reader of it; until
 #: that reading is on this branch's base, this is its local stand-in.
@@ -162,18 +180,21 @@ class Done:
 
 
 def state_dir() -> Path:
+    """The supervisors' folder: locks, specs, records and the Metal reading."""
     from mcgyvr.fleet.roots import data_home
 
     return data_home() / STATE
 
 
 def log_path(unit: str) -> Path:
+    """Where `unit`'s server output goes: ``logs/<unit>.log`` in the data folder."""
     from mcgyvr.fleet.roots import data_home
 
     return data_home() / LOGS / f"{_checked(unit)}.log"
 
 
 def bin_root() -> Path:
+    """Where the pinned tag's builds are unpacked, under the mcgyvr home."""
     from mcgyvr.fleet.roots import home
 
     return home() / BIN / llamacpp.TAG
@@ -186,7 +207,14 @@ def _checked(unit: str) -> str:
 
 
 def _private(path: Path) -> Path:
-    path.mkdir(parents=True, exist_ok=True)
+    """`path`, made if missing, as a folder of this user's alone, or NativeError."""
+    from mcgyvr.userdir import private_dir
+
+    if private_dir(path, make=True) is None:
+        raise NativeError(
+            f"{path} is not this user's own folder (a link, another user's, or "
+            "writable by others); nothing is started from it"
+        )
     hostos.chmod_private(path, directory=True)
     return path
 
@@ -283,10 +311,18 @@ def nvidia_smi() -> str | None:
     if found or hostos.os_name() != "windows":
         return found
     system = os.environ.get("SYSTEMROOT") or r"C:\Windows"
-    program = os.environ.get("PROGRAMFILES") or r"C:\Program Files"
+    # A 32-bit Python is shown the 32-bit Program Files; the 64-bit one,
+    # where the driver installs, is PROGRAMW6432 there.
+    programs = {
+        os.environ.get("PROGRAMW6432") or "",
+        os.environ.get("PROGRAMFILES") or r"C:\Program Files",
+    } - {""}
     for candidate in (
         Path(system) / "System32" / "nvidia-smi.exe",
-        Path(program) / "NVIDIA Corporation" / "NVSMI" / "nvidia-smi.exe",
+        *(
+            Path(folder) / "NVIDIA Corporation" / "NVSMI" / "nvidia-smi.exe"
+            for folder in sorted(programs)
+        ),
     ):
         if candidate.is_file():
             return str(candidate)
@@ -313,6 +349,22 @@ def nvidia_driver() -> str | None:
     return lines[0].strip() if lines and lines[0].strip() else None
 
 
+def vulkan_loader() -> bool:
+    """Whether this machine has a Vulkan loader for a Vulkan build to use."""
+    if hostos.os_name() == "windows":
+        system = os.environ.get("SYSTEMROOT") or r"C:\Windows"
+        return (Path(system) / "System32" / "vulkan-1.dll").is_file()
+    if hostos.os_name() == "linux":
+        import ctypes
+
+        try:
+            ctypes.CDLL("libvulkan.so.1")
+        except OSError:
+            return False
+        return True
+    return False
+
+
 def pick() -> llamacpp.Build:
     """The pinned build for this machine (K5), or for ``$MCGYVR_NATIVE_BACKEND``."""
     os_name, arch = hostos.os_name(), machine_arch()
@@ -323,7 +375,9 @@ def pick() -> llamacpp.Build:
             f"${BACKEND_ENV}={named!r} names no backend; it is one of "
             f"{', '.join(llamacpp.BACKENDS)}"
         )
-    backend = named or llamacpp.backend_for(os_name, arch, nvidia_driver=driver)
+    backend = named or llamacpp.backend_for(
+        os_name, arch, nvidia_driver=driver, vulkan=vulkan_loader()
+    )
     try:
         return llamacpp.build_for(os_name, arch, backend, nvidia_driver=driver)
     except llamacpp.NoBuildError as exc:
@@ -350,8 +404,6 @@ def device_env(backend: str, cards: Sequence[int]) -> dict[str, str]:
         return {}
     if backend == llamacpp.CUDA:
         return {"CUDA_DEVICE_ORDER": "PCI_BUS_ID", "CUDA_VISIBLE_DEVICES": listed}
-    if backend == llamacpp.VULKAN:
-        return {"GGML_VK_VISIBLE_DEVICES": listed}
     return {}
 
 
@@ -364,6 +416,7 @@ def up(
     *,
     folder: Callable[[llamacpp.Build], Path] = binaries,
     build: Callable[[], llamacpp.Build] = pick,
+    restart: Mapping[str, float] | None = None,
 ) -> Done:
     """Start the spec's native units (the named ones, else every awake one).
 
@@ -395,7 +448,7 @@ def up(
                 failed.append(f"{unit.container}: {ahead} never answered")
                 break
         else:
-            outcome = start(unit, picked, programs)
+            outcome = start(unit, picked, programs, restart=restart)
             (said if outcome is None else failed).append(
                 f"{unit.container}: started" if outcome is None else outcome
             )
@@ -427,7 +480,13 @@ def _in_order(
     return placed
 
 
-def start(unit: NativeUnit, build: llamacpp.Build, programs: Path) -> str | None:
+def start(
+    unit: NativeUnit,
+    build: llamacpp.Build,
+    programs: Path,
+    *,
+    restart: Mapping[str, float] | None = None,
+) -> str | None:
     """Start `unit`'s supervisor: None once its server runs, else why not."""
     spec_file = _paths(unit.container)[2]
     _private(state_dir())
@@ -443,6 +502,9 @@ def start(unit: NativeUnit, build: llamacpp.Build, programs: Path) -> str | None
         "tag": llamacpp.TAG,
         "log": str(log_path(unit.container)),
         **RESTART,
+        # A caller whose engine must not come back on its own (a pooled
+        # session's) passes `{"max_restarts": 0}`.
+        **(restart or {}),
     }
     if supervised(unit.container):
         try:
@@ -455,13 +517,25 @@ def start(unit: NativeUnit, build: llamacpp.Build, programs: Path) -> str | None
         # new one, as `docker compose up` recreates a changed container.
         if not stop(unit.container):
             return f"{unit.container}: its old server would not stop"
+    else:
+        # A server whose supervisor was killed outright (POSIX has no Job
+        # Object) may still hold the port: it is ended, by its record, first.
+        left = (read_record(unit.container) or {}).get("server")
+        orphan = matches(left)
+        if orphan is not None:
+            hostos.end_pid(orphan, force=True)
+            _wait(lambda: matches(left) is None, STOP_S)
     _write_json(spec_file, spec)
     argv = [sys.executable, "-m", __name__, "supervise", str(spec_file)]
     proc = _spawn(argv)
     deadline = time.monotonic() + START_S
     while time.monotonic() < deadline:
-        found = read_record(unit.container)
-        if found and found.get("state") == RUNNING and supervised(unit.container):
+        found = read_record(unit.container) or {}
+        if (
+            found.get("state") == RUNNING
+            and (found.get("supervisor") or {}).get("pid") == proc.pid
+            and supervised(unit.container)
+        ):
             return None
         if proc.poll() is not None:
             return (
@@ -475,6 +549,8 @@ def start(unit: NativeUnit, build: llamacpp.Build, programs: Path) -> str | None
 def _spawn(argv: list[str]) -> subprocess.Popen[bytes]:
     """Start a supervisor detached; out of the starter's job where it may leave it."""
     common: dict[str, Any] = {
+        "env": supervisor_env(os.environ),
+        "cwd": str(state_dir()),
         "stdin": subprocess.DEVNULL,
         "stdout": subprocess.DEVNULL,
         "stderr": subprocess.DEVNULL,
@@ -487,6 +563,31 @@ def _spawn(argv: list[str]) -> subprocess.Popen[bytes]:
         return subprocess.Popen(
             argv, **common, **hostos.popen_detached_kwargs(breakaway=False)
         )
+
+
+def supervisor_env(env: Mapping[str, str]) -> dict[str, str]:
+    """The environment a supervisor, and through it a server, starts with.
+
+    The door's own vocabulary (``RUN_*``, its proof among it, and
+    ``DOCKER_*``) stays with the door, which a supervisor outlives; the
+    door's shims leave PATH; and ``LLAMA_ARG_*``, llama-server's own settings,
+    come from the unit's spec alone, so a variable in the operator's shell
+    cannot widen where a unit listens.
+    """
+    from mcgyvr.serving.gatelib import SHIM_DIR
+
+    kept = {
+        key: value
+        for key, value in env.items()
+        if not key.startswith(("RUN_", "DOCKER_", "LLAMA_ARG_"))
+    }
+    if "PATH" in kept:
+        kept["PATH"] = os.pathsep.join(
+            entry
+            for entry in kept["PATH"].split(os.pathsep)
+            if entry and Path(entry) != SHIM_DIR
+        )
+    return kept
 
 
 def down(names: Iterable[str]) -> Done:
@@ -508,27 +609,36 @@ def down(names: Iterable[str]) -> Done:
 def stop(unit: str) -> bool:
     """Stop `unit`'s supervisor and server; True once neither is left."""
     found = read_record(unit) or {}
-    supervisor = _proc(found.get("supervisor"))
-    server = _proc(found.get("server"))
+    supervisor = matches(found.get("supervisor"))
+    server = matches(found.get("server"))
     if supervisor is not None and supervised(unit):
         # The supervisor heads the group its server runs in (POSIX), so the
         # group hears it; on Windows the supervisor is ended outright, and
         # its Job Object ends the server.
         hostos.end_pid(supervisor, group=True)
         if not _wait(lambda: not supervised(unit), STOP_S):
-            hostos.end_pid(supervisor, force=True, group=True)
+            # Asked again by its start time before the kill: the pid may be
+            # another process's by now.
+            if matches(found.get("supervisor")) is not None:
+                hostos.end_pid(supervisor, force=True, group=True)
             _wait(lambda: not supervised(unit), STOP_S)
-    if server is not None:
+    if server is not None and matches(found.get("server")) is not None:
         hostos.end_pid(server, force=True)
-        _wait(lambda: _proc(found.get("server")) is None, STOP_S)
-    gone = not supervised(unit) and _proc(found.get("server")) is None
+        _wait(lambda: matches(found.get("server")) is None, STOP_S)
+    gone = not supervised(unit) and matches(found.get("server")) is None
     if found and gone:
         _write_json(_paths(unit)[1], {**found, "state": STOPPED})
     return gone
 
 
-def _proc(entry: object) -> int | None:
-    """The pid in a record's entry while it still names that process, else None."""
+def matches(entry: object) -> int | None:
+    """The pid in a record's entry while it still names that process, else None.
+
+    A record entry is ``{pid, start, program}``. A pid is taken as the one the
+    record names only while it has the start time recorded, which a reused
+    pid cannot have; the program is recorded for a reader, not compared (no
+    hostos reader of a pid's program exists yet).
+    """
     if not isinstance(entry, dict):
         return None
     pid = entry.get("pid")
@@ -537,7 +647,9 @@ def _proc(entry: object) -> int | None:
     start = entry.get("start")
     if start is None or hostos.process_start_time(pid) != start:
         return None
-    return pid
+    # Windows answers a start time for an exited process while a handle to it
+    # is open somewhere; the process must also be running.
+    return pid if hostos.pid_alive(pid) else None
 
 
 def _wait(done: Callable[[], bool], budget: float) -> bool:
@@ -556,14 +668,10 @@ def wait_answers(port: int, budget: float = START_S * 20) -> bool:
 
 def answers(port: int, path: str = "/v1/models") -> bool:
     """Whether the server on the loopback `port` answers `path` with 200."""
-    import urllib.error
-    import urllib.request
+    from mcgyvr.serving import localrig
 
-    try:
-        with urllib.request.urlopen(f"http://127.0.0.1:{port}{path}", timeout=5) as r:
-            return bool(r.status == 200)
-    except (OSError, urllib.error.URLError, ValueError):
-        return False
+    status, _body = localrig.ask(f"http://127.0.0.1:{port}{path}", timeout=ASK_S)
+    return status == 200
 
 
 # --- reading ----------------------------------------------------------------
@@ -588,6 +696,7 @@ def supervised(unit: str) -> bool:
 
 
 def read_record(unit: str) -> dict[str, Any] | None:
+    """`unit`'s record as its supervisor last wrote it, or None."""
     try:
         found = json.loads(_paths(unit)[1].read_text(encoding="utf-8"))
     except (OSError, ValueError):
@@ -699,9 +808,20 @@ def _card_holders() -> str:
 
 
 def _write_json(path: Path, body: dict[str, Any]) -> None:
+    """Write `body` to `path` whole: a private temporary file renamed over it.
+
+    Windows refuses the rename while a reader holds `path` open, which a
+    record read at the same moment does; the rename is tried again then.
+    """
     part = path.with_name(f"{path.name}.{os.getpid()}.part")
     part.write_text(json.dumps(body, indent=2, sort_keys=True) + "\n", encoding="utf-8")
     hostos.chmod_private(part)
+    for _ in range(REPLACE_TRIES - 1):
+        try:
+            os.replace(part, path)
+            return
+        except PermissionError:
+            time.sleep(REPLACE_PAUSE_S)
     os.replace(part, path)
 
 
@@ -715,8 +835,9 @@ def _now() -> str:
 def supervise(spec_file: Path) -> int:
     """Keep the spec's server up until asked to stop; the supervisor's whole life.
 
-    Exit 0 once stopped, 1 after giving up, 3 when another supervisor already
-    holds the unit.
+    Exit 0 once stopped, 1 after giving up or when the server cannot be
+    started at all (said in the log and the record), 3 when another
+    supervisor already holds the unit.
     """
     spec = json.loads(spec_file.read_text(encoding="utf-8"))
     unit = _checked(str(spec["unit"]))
@@ -735,11 +856,6 @@ def supervise(spec_file: Path) -> int:
     for signum in (*hostos.stop_signals(), signal.SIGINT):
         signal.signal(signum, ask_stop)
 
-    me = {
-        "pid": os.getpid(),
-        "start": hostos.process_start_time(os.getpid()),
-        "program": sys.executable,
-    }
     base = {
         "unit": unit,
         "port": spec["port"],
@@ -747,68 +863,82 @@ def supervise(spec_file: Path) -> int:
         "build": spec.get("build"),
         "tag": spec.get("tag"),
         "log": spec["log"],
-        "supervisor": me,
+        "supervisor": {
+            "pid": os.getpid(),
+            "start": hostos.process_start_time(os.getpid()),
+            "program": sys.executable,
+        },
     }
-    env = {**os.environ, **{str(k): str(v) for k, v in spec["env"].items()}}
+    env = {
+        **supervisor_env(os.environ),
+        **{str(k): str(v) for k, v in spec["env"].items()},
+    }
+    program = Path(spec["program"])
     log_file = Path(spec["log"])
     restarts = 0
     with log_file.open("ab") as log:
+
+        def record(state: str, **more: object) -> None:
+            # A record that cannot be written is said in the log; the server
+            # it describes is not stopped for it.
+            try:
+                _write_json(record_file, {**base, "state": state, **more})
+            except OSError as exc:
+                log.write(f"--- mcgyvr: {unit}: record not written: {exc}\n".encode())
+                log.flush()
+
         while True:
             log.write(f"--- mcgyvr: {unit} starts at {_now()}\n".encode())
             log.flush()
             offset = log.tell()
             started = time.monotonic()
-            proc = subprocess.Popen(
-                [spec["program"], *spec["argv"]],
-                env=env,
-                stdin=subprocess.DEVNULL,
-                stdout=log,
-                stderr=subprocess.STDOUT,
-            )
+            try:
+                # Run from the build's own folder: ggml looks for its backend
+                # libraries beside the program and in the working directory.
+                proc = subprocess.Popen(
+                    [str(program), *spec["argv"]],
+                    env=env,
+                    cwd=str(program.parent),
+                    stdin=subprocess.DEVNULL,
+                    stdout=log,
+                    stderr=subprocess.STDOUT,
+                    **hostos.popen_no_window_kwargs(),
+                )
+            except OSError as exc:
+                log.write(f"--- mcgyvr: {unit} could not start: {exc}\n".encode())
+                record(FAILED, restarts=restarts, why=str(exc))
+                return 1
             job = hostos.kill_on_close_job(proc)
             server = {
                 "pid": proc.pid,
                 "start": hostos.process_start_time(proc.pid),
-                "program": spec["program"],
+                "program": str(program),
             }
-            _write_json(
-                record_file,
-                {
-                    **base,
-                    "state": RUNNING,
-                    "server": server,
-                    "restarts": restarts,
-                    "since": _now(),
-                    "job": job is not None,
-                },
+            record(
+                RUNNING,
+                server=server,
+                restarts=restarts,
+                since=_now(),
+                job=job is not None,
             )
-            scanned = False
+            # Only a Metal build prints the working set, early in its start.
+            scanned = spec.get("backend") != llamacpp.METAL
             while proc.poll() is None and not stopping:
                 if not scanned:
-                    scanned = _scan_metal(log_file, offset, unit, spec)
+                    scanned = _scan_metal(log_file, offset, unit, spec) or (
+                        time.monotonic() - started > METAL_SCAN_S
+                    )
                 time.sleep(POLL_S)
             if stopping:
                 _end_server(proc)
-                _write_json(
-                    record_file,
-                    {**base, "state": STOPPED, "server": server, "restarts": restarts},
-                )
+                record(STOPPED, server=server, restarts=restarts)
                 return 0
             if not scanned:
                 _scan_metal(log_file, offset, unit, spec)
             if time.monotonic() - started >= float(spec["reset_after_s"]):
                 restarts = 0
             if restarts >= int(spec["max_restarts"]):
-                _write_json(
-                    record_file,
-                    {
-                        **base,
-                        "state": GAVE_UP,
-                        "server": server,
-                        "restarts": restarts,
-                        "exit": proc.returncode,
-                    },
-                )
+                record(GAVE_UP, server=server, restarts=restarts, exit=proc.returncode)
                 log.write(
                     f"--- mcgyvr: {unit} exited {proc.returncode}; given up after "
                     f"{restarts} restarts\n".encode()
@@ -819,25 +949,14 @@ def supervise(spec_file: Path) -> int:
                 float(spec["backoff_s"]) * 2 ** (restarts - 1),
                 float(spec["backoff_max_s"]),
             )
-            _write_json(
-                record_file,
-                {
-                    **base,
-                    "state": BACKOFF,
-                    "server": server,
-                    "restarts": restarts,
-                    "exit": proc.returncode,
-                },
-            )
+            record(BACKOFF, server=server, restarts=restarts, exit=proc.returncode)
             log.write(
                 f"--- mcgyvr: {unit} exited {proc.returncode}; restart {restarts} "
                 f"in {pause:g}s\n".encode()
             )
             log.flush()
             if _wait(lambda: bool(stopping), pause):
-                _write_json(
-                    record_file, {**base, "state": STOPPED, "restarts": restarts}
-                )
+                record(STOPPED, restarts=restarts)
                 return 0
 
 

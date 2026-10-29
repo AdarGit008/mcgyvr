@@ -75,6 +75,14 @@ def test_a_proof_file_others_may_read_or_a_link_proves_nothing(
     assert gatelib.under_door() is False
 
 
+def test_a_proof_left_by_a_door_that_died_is_swept(no_proc: None) -> None:
+    _secret, old = gatelib.mint_proof()
+    old.write_text(json.dumps({"digest": "x", "pid": 2**22 + 1, "start": "0"}))
+    _secret, mine = gatelib.mint_proof()
+    assert mine.exists()
+    assert not old.exists()
+
+
 def test_the_proof_file_holds_only_the_digest_never_the_secret(no_proc: None) -> None:
     secret, path = gatelib.mint_proof()
     assert secret not in path.read_text()

@@ -82,6 +82,25 @@ def test_a_pinned_archive_is_unpacked_flat_and_its_program_runnable(
     )
 
 
+def test_an_archive_with_its_folders_own_entry_is_unpacked_flat(
+    tmp_path: Path,
+) -> None:
+    out = io.BytesIO()
+    with tarfile.open(fileobj=out, mode="w:gz") as tar:
+        folder = tarfile.TarInfo("llama-b0")
+        folder.type = tarfile.DIRTYPE
+        tar.addfile(folder)
+        server = tarfile.TarInfo("llama-b0/tool-server")
+        server.size = 2
+        tar.addfile(server, io.BytesIO(b"ok"))
+    path = tmp_path / "tool.tar.gz"
+    path.write_bytes(out.getvalue())
+    into = tmp_path / "into"
+    into.mkdir()
+    release.unpack(path, into)
+    assert (into / "tool-server").read_bytes() == b"ok"
+
+
 def test_a_program_changed_after_install_is_installed_again(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:

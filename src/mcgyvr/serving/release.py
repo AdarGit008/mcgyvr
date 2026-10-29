@@ -170,17 +170,20 @@ def install(
 
 def sha256_of(path: Path) -> str:
     """The sha256 of the file at `path`, as hex."""
-    digest = hashlib.sha256()
     with path.open("rb") as handle:
-        for chunk in iter(lambda: handle.read(CHUNK), b""):
-            digest.update(chunk)
-    return digest.hexdigest()
+        return hashlib.file_digest(handle, "sha256").hexdigest()
 
 
 def _current(
     folder: Path, release: Release, wanted: list[Asset], programs: tuple[str, ...]
 ) -> bool:
-    """Whether `folder` was made from exactly `wanted` and its programs are intact."""
+    """Whether `folder` was made from exactly `wanted` and its programs are intact.
+
+    The programs are hashed again, not the libraries beside them, and the
+    record sits in the folder it describes: this finds an install that broke
+    or was swapped, not one changed on purpose by this user, who owns the
+    folder and could change the record too.
+    """
     try:
         record = json.loads((folder / RECORD).read_text(encoding="utf-8"))
     except (OSError, ValueError):
@@ -205,10 +208,18 @@ def _current(
 
 
 def _private_dir(path: Path) -> None:
-    """Make `path` a folder of this user's alone (0700 where modes say so)."""
-    path.mkdir(parents=True, exist_ok=True)
-    if path.is_symlink() or not path.is_dir():
-        raise ReleaseError(f"{path} is not a folder of its own; nothing is installed")
+    """Make `path` a folder of this user's alone (0700 where modes say so).
+
+    :func:`mcgyvr.userdir.private_dir` refuses a link, another user's folder
+    and one others may write into; then the mode is narrowed.
+    """
+    from mcgyvr.userdir import private_dir
+
+    if private_dir(path, make=True) is None:
+        raise ReleaseError(
+            f"{path} is not a folder of this user's own (a link, another "
+            "user's, or writable by others); nothing is installed"
+        )
     hostos.chmod_private(path, directory=True)
 
 
@@ -273,7 +284,9 @@ def _unpack_tar(archive: Path, into: Path) -> None:
     try:
         with tarfile.open(archive) as tar:
             members = tar.getmembers()
-            top = _top(member.name for member in members)
+            # A folder's own entry has its trailing slash dropped by tarfile;
+            # it is given back, so the folder reads as one.
+            top = _top(m.name + "/" if m.isdir() else m.name for m in members)
             for member in members:
                 relative = _inside(member.name, top)
                 if relative is None:
@@ -345,6 +358,13 @@ def strip_quarantine(folder: Path) -> bool | None:
             f"release: {QUARANTINE} not removed from {folder}: {exc}", file=sys.stderr
         )
         return False
+    if done.returncode != 0:
+        print(
+            f"release: {QUARANTINE} not removed from {folder} (xattr exited "
+            f"{done.returncode}; files fetched here usually carry none): "
+            f"{done.stderr.strip()[:200]}",
+            file=sys.stderr,
+        )
     return done.returncode == 0
 
 

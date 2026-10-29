@@ -16,10 +16,17 @@ Sources (read 2026-10-29):
 
 - Release b11960, its asset names, sizes and sha256 digests: the GitHub API,
   https://api.github.com/repos/ggml-org/llama.cpp/releases/tags/b11960
-  (https://github.com/ggml-org/llama.cpp/releases/tag/b11960). Release
-  v0.8.0's ``nightly-tag.txt`` names b11960 as the build it is.
-- The container tag ``server-cuda-b11960`` answers on ghcr.io (manifest HEAD,
-  HTTP 200), ``ghcr.io/ggml-org/llama.cpp``.
+  (https://github.com/ggml-org/llama.cpp/releases/tag/b11960). The stable
+  release v0.8.0's ``nightly-tag.txt`` names b11960 as the build it is
+  (https://github.com/ggml-org/llama.cpp/releases/download/v0.8.0/nightly-tag.txt).
+- The container tag ``server-cuda-b11960`` answers a manifest request
+  (HTTP 200,
+  https://ghcr.io/v2/ggml-org/llama.cpp/manifests/server-cuda-b11960; listed at
+  https://github.com/ggml-org/llama.cpp/pkgs/container/llama.cpp). Its server
+  image holds ``llama-server`` alone (``COPY ... /app/full/llama-server /app/``,
+  https://github.com/ggml-org/llama.cpp/blob/b11960/.devops/cuda.Dockerfile):
+  a containerised rpc worker runs the operator's own image, whose program
+  ``emit.RPC_COMMAND`` names; the native archives name it ``ggml-rpc-server``.
 - The archives hold ``llama-server`` and ``ggml-rpc-server`` (read from the
   macOS arm64, Ubuntu x64 and Windows Vulkan x64 archives of b11960): the tar
   archives under one ``llama-b11960/`` folder, the Windows zips flat.
@@ -290,12 +297,15 @@ def driver_runs(build: Build, driver: str | None) -> bool:
     return branch >= CUDA_DRIVER_FLOOR.get(major, 10**9)
 
 
-def backend_for(os_name: str, arch: str, *, nvidia_driver: str | None) -> str:
+def backend_for(
+    os_name: str, arch: str, *, nvidia_driver: str | None, vulkan: bool = True
+) -> str:
     """The backend a native unit runs on here (pin K5).
 
     macOS on Apple silicon: Metal; an Intel Mac: the CPU. Windows and Linux:
     CUDA when `nvidia_driver` (``nvidia-smi``'s ``driver_version``) runs a
-    pinned CUDA build for this architecture, else Vulkan, else the CPU.
+    pinned CUDA build for this architecture, else Vulkan when the machine has
+    a Vulkan loader (`vulkan`), else the CPU.
     """
     if os_name == "darwin":
         return METAL if arch == "arm64" else CPU
@@ -305,7 +315,9 @@ def backend_for(os_name: str, arch: str, *, nvidia_driver: str | None) -> str:
         if (b.os, b.arch) == (os_name, arch)
     ):
         return CUDA
-    if any(b.backend == VULKAN for b in BUILDS if (b.os, b.arch) == (os_name, arch)):
+    if vulkan and any(
+        b.backend == VULKAN for b in BUILDS if (b.os, b.arch) == (os_name, arch)
+    ):
         return VULKAN
     return CPU
 

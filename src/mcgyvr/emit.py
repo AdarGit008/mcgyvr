@@ -61,6 +61,7 @@ from mcgyvr.serving import (
     spec_files,
     spec_name,
 )
+from mcgyvr.serving.gatelib import LOCAL_RIGS
 from mcgyvr.serving.sharding import Target
 from mcgyvr.serving.shardlaunch import (
     LaunchError,
@@ -161,7 +162,8 @@ def argv(unit: Unit, *, sleep_mode: bool = False) -> tuple[str, ...]:
     own (`_states_fit`); the sleep flag comes next, and the unit's `extra`
     parts are appended as written. An rpc-server worker takes no `--fit`.
     A part containing whitespace is refused: the compose `command` and the
-    shell command could not spell it the same way.
+    shell command could not spell it the same way. A native unit's is not:
+    its argv is never a shell line.
     """
     flags = {**unit.args, "--port": str(unit.port)}
     if (
@@ -189,7 +191,9 @@ def argv(unit: Unit, *, sleep_mode: bool = False) -> tuple[str, ...]:
         *sleeps,
         *unit.extra,
     )
-    for part in parts:
+    # A native unit's argv is handed to the program as a list, never joined
+    # into a line, so a path with a space (a Windows profile's) is kept.
+    for part in () if unit.launcher == LAUNCHER_NATIVE else parts:
         if part.split() != [part]:
             raise EmitError(
                 f"{unit.key.slug}: argument {part!r} contains whitespace, which the "
@@ -557,6 +561,12 @@ def _native_service(unit: Unit) -> dict[str, object]:
         raise EmitError(
             f"{unit.key.slug}: launcher native runs the pinned llama.cpp build, "
             f"and {unit.engine} has none; it runs in its container (launcher docker)"
+        )
+    if unit.host not in LOCAL_RIGS:
+        raise EmitError(
+            f"{unit.key.slug}: launcher native runs the unit on the machine mcgyvr "
+            f"runs on, and {unit.host} is another; a unit on another rig runs in "
+            "its container (launcher docker)"
         )
     stated = (*unit.args, *unit.extra)
     if (
@@ -987,6 +997,12 @@ def _locked_service(
     for vLLM or `launch.volumes` for llama.cpp, with `launch.seccomp` a
     file name when it states one at all.
     """
+    if unit.get("launcher") == LAUNCHER_NATIVE:
+        raise LockedLaunchError(
+            f"{name}: a locked unit is emitted as the container it was locked "
+            "as, and launcher native is not one; serve it from an unlocked "
+            "setup until locked native units are supported"
+        )
     launch = unit.get("launch") or {}
     argv = launch.get("argv")
     env = launch.get("env", {})

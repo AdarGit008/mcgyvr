@@ -42,7 +42,12 @@ from pathlib import Path
 from typing import Any, NoReturn
 
 from mcgyvr import hostos
-from mcgyvr.config import CONFIG_PATH_ENV, LAUNCHER_DOCKER, LAUNCHER_NATIVE
+from mcgyvr.config import (
+    CONFIG_PATH_ENV,
+    LAUNCHER_DOCKER,
+    LAUNCHER_NATIVE,
+    NATIVE_BY_DEFAULT,
+)
 from mcgyvr.fleet.roots import RIGS_SHOWN
 from mcgyvr.serving import gatelib
 from mcgyvr.serving.gatelib import DOOR_MODULE
@@ -410,7 +415,7 @@ def check_manifest() -> None:
     ] + [
         f"{name}{gatelib.WINDOWS_LAUNCHER}"
         for name in SHIMS
-        if sys.platform == "win32"
+        if hostos.os_name() == "windows"
         and not (BIN / f"{name}{gatelib.WINDOWS_LAUNCHER}").is_file()
     ]
     if shims_gone:
@@ -739,6 +744,14 @@ def serve(argv: list[str]) -> int:
         except servelib.ComposeError as escape:
             print(f"run.py: REFUSED — {escape}", file=sys.stderr)
             return 2
+        if launcher == LAUNCHER_NATIVE and opts.host not in gatelib.LOCAL_RIGS:
+            print(
+                f"run.py: REFUSED — the compose file's units run natively, which "
+                f"is on this machine, and --host {opts.host} names another; a "
+                "native unit is served with --host localhost",
+                file=sys.stderr,
+            )
+            return 2
         if launcher == LAUNCHER_NATIVE and opts.direction in ("sleep", "wake"):
             print(
                 f"run.py: REFUSED — serve {opts.direction}: the compose file's "
@@ -753,7 +766,7 @@ def serve(argv: list[str]) -> int:
         launcher = (
             LAUNCHER_NATIVE
             if gatelib.local_transport(opts.host)
-            and hostos.os_name() in ("darwin", "windows")
+            and hostos.os_name() in NATIVE_BY_DEFAULT
             else LAUNCHER_DOCKER
         )
     env = dict(os.environ)

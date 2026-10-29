@@ -15,6 +15,7 @@ the top), and a test can fake any of them. Standard library only.
 
 from __future__ import annotations
 
+import calendar
 import contextlib
 import errno
 import getpass
@@ -50,6 +51,8 @@ BOOT_ID = Path("/proc/sys/kernel/random/boot_id")
 DARWIN_BOOT_ID = ("/usr/sbin/sysctl", "-n", "kern.bootsessionuuid")
 #: macOS's ``ps``, which reads a process's start time without privilege.
 DARWIN_PS = "/bin/ps"
+#: ``%c`` in the C locale, which is how that ``ps`` prints a start time.
+DARWIN_LSTART = "%a %b %d %H:%M:%S %Y"
 #: How long that command is given to answer.
 BOOT_ID_S = 5.0
 #: The bit of a Windows reparse tag that marks a name surrogate: a symbolic
@@ -68,6 +71,7 @@ _QUERY_LIMITED_INFORMATION = 0x1000
 _PROCESS_TERMINATE = 0x0001
 _DETACHED_PROCESS = 0x0000_0008
 _CREATE_BREAKAWAY_FROM_JOB = 0x0100_0000
+_CREATE_NO_WINDOW = 0x0800_0000
 _JOB_OBJECT_LIMIT_KILL_ON_JOB_CLOSE = 0x0000_2000
 _JOB_EXTENDED_LIMIT_INFORMATION = 9
 #: What a Windows user name keeps when it names a folder; the rest becomes ``_``.
@@ -397,8 +401,10 @@ def process_start_time(pid: int) -> str | None:
     A pid can be reused by a new process once the first is gone; the pid with
     the start time it had names one process. Linux: field 22 of
     ``/proc/<pid>/stat`` (clock ticks since boot). macOS: ``ps -o lstart=``,
-    "the exact time the command started"
-    (https://keith.github.io/xcode-man-pages/ps.1.html). Windows: the creation
+    "the exact time the command started, using the '%c' format described in
+    strftime(3)" (https://keith.github.io/xcode-man-pages/ps.1.html), read in
+    the C locale and UTC so every reader spells it alike, as whole seconds
+    since the epoch (one plain token, as a lease line needs). Windows: the creation
     time ``GetProcessTimes`` gives, in 100 ns units
     (https://learn.microsoft.com/en-us/windows/win32/api/processthreadsapi/nf-processthreadsapi-getprocesstimes).
     None when it cannot be read: the process is gone, or not this user's to ask.
@@ -414,11 +420,15 @@ def process_start_time(pid: int) -> str | None:
                 text=True,
                 timeout=BOOT_ID_S,
                 check=False,
+                env={"LC_ALL": "C", "TZ": "UTC", "PATH": "/usr/bin:/bin"},
             )
         except (OSError, subprocess.SubprocessError):
             return None
         found = " ".join(done.stdout.split()) if done.returncode == 0 else ""
-        return found or None
+        try:
+            return str(calendar.timegm(time.strptime(found, DARWIN_LSTART)))
+        except ValueError:
+            return None
     try:
         record = Path(f"/proc/{pid}/stat").read_text(encoding="utf-8")
         start = record.rsplit(")", 1)[1].split()[19]
@@ -464,6 +474,20 @@ def popen_detached_kwargs(*, breakaway: bool = True) -> dict[str, Any]:
             flags |= _CREATE_BREAKAWAY_FROM_JOB
         return {"creationflags": flags}
     return {"start_new_session": True}
+
+
+def popen_no_window_kwargs() -> dict[str, Any]:
+    """What ``subprocess.Popen`` takes so a console program opens no window.
+
+    Windows gives a console program started by a process with no console of
+    its own (a detached supervisor) a new visible console, whose closing ends
+    it; ``CREATE_NO_WINDOW`` starts it with none
+    (https://docs.python.org/3/library/subprocess.html#subprocess.CREATE_NO_WINDOW).
+    Nothing elsewhere.
+    """
+    if sys.platform == "win32":
+        return {"creationflags": _CREATE_NO_WINDOW}
+    return {}
 
 
 def kill_on_close_job(proc: subprocess.Popen[Any]) -> int | None:

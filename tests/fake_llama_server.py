@@ -2,7 +2,8 @@
 
 Run as a program (the native launcher's tests write it out as
 ``llama-server``). It prints the line llama.cpp's Metal backend prints at
-start-up, then serves until it is ended. ``FAKE_MODE=crash`` exits 3 at once;
+start-up, then serves until it is ended. ``$FAKE_ENV_NAMES`` names a file the
+names of its environment variables are written to. ``FAKE_MODE=crash`` exits 3 at once;
 ``crash-once`` does so only while ``$FAKE_MARKER`` does not exist yet, and
 makes it.
 """
@@ -22,6 +23,10 @@ def main() -> int:
     port = int(args[args.index("--port") + 1])
     mode = os.environ.get("FAKE_MODE", "serve")
     marker = os.environ.get("FAKE_MARKER", "")
+    names = os.environ.get("FAKE_ENV_NAMES")
+    if names:
+        with open(names, "w", encoding="utf-8") as out:
+            out.write(" ".join(sorted(os.environ)))
     if mode == "crash" or (mode == "crash-once" and not os.path.exists(marker)):
         if marker:
             open(marker, "w").close()

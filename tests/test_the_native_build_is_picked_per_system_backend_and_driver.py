@@ -61,6 +61,14 @@ def test_each_system_gets_its_backend_and_archive(
     assert build.assets[0] == archive
 
 
+@pytest.mark.parametrize("system", ["windows", "linux"])
+def test_no_vulkan_loader_is_the_cpu(system: str) -> None:
+    assert (
+        llamacpp.backend_for(system, "x86_64", nvidia_driver=None, vulkan=False)
+        == "cpu"
+    )
+
+
 def test_a_cuda_build_comes_with_its_runtime_archive() -> None:
     build = llamacpp.build_for("windows", "x86_64", "cuda", nvidia_driver="591.44")
     assert build.assets == (
