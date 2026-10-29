@@ -15,6 +15,8 @@ from __future__ import annotations
 import argparse
 import json
 import os
+import shutil
+import subprocess
 import sys
 from collections.abc import Callable, Mapping, Sequence
 from concurrent.futures import ThreadPoolExecutor
@@ -32,6 +34,7 @@ from mcgyvr.config import (
     CONFIG_PATH_ENV,
     FLEET_FILENAME,
     MCGYVR_CODE,
+    NATIVE_BY_DEFAULT,
     POLICY_FILENAME,
     RAW_USE_CASES,
     RETIRED_USE_CASES,
@@ -457,24 +460,84 @@ def _setup_pick_unit(role: str, units: Sequence[str]) -> str:
     )
 
 
-_PATH_EXPORT = 'export PATH="$HOME/.local/bin:$PATH"'
+_PATH_EXPORT = hostos.PATH_EXPORT
+_PATH_POWERSHELL = hostos.PATH_POWERSHELL
+#: How long setup waits for PowerShell to name its profile.
+_PROFILE_ASK_S = 15.0
 
 
 def _shell_rc(shell: str | None, home: Path | None = None) -> Path | None:
-    """Answer the rc file a shell reads at startup, or None for no or unknown shell.
+    """Answer the file a shell reads at startup, or None for no or unknown shell.
 
-    bash, zsh, sh/dash and fish each have their file under `home`, which
-    defaults to the user's home directory (:func:`mcgyvr.hostos.shell_rc_file`,
-    which names zsh's on macOS when no shell is named). A PowerShell profile is
-    None here: it takes a PATH line of its own, not the export this offers.
+    bash, zsh, sh/dash and fish each have their rc file under `home`, which
+    defaults to the user's home directory, and PowerShell its profile
+    (:func:`mcgyvr.hostos.shell_rc_file`, which names zsh's on macOS when no
+    shell is named). A profile takes :data:`_PATH_POWERSHELL`, an rc file
+    :data:`_PATH_EXPORT` (:func:`mcgyvr.hostos.path_line`).
     """
-    rc = hostos.shell_rc_file(shell, home)
-    return None if rc is None or rc.suffix == ".ps1" else rc
+    return hostos.shell_rc_file(shell, home)
+
+
+def _login_shell() -> str | None:
+    """The shell whose startup file the PATH offer extends.
+
+    `$SHELL` when it is set, on every system. Unset on Windows, PowerShell:
+    PowerShell 7 (`pwsh`) when it is on PATH, else Windows PowerShell, which
+    every Windows has. Unset elsewhere, None, which hostos reads as zsh on
+    macOS and as no shell on Linux.
+    """
+    named = os.environ.get("SHELL")
+    if named:
+        return named
+    if hostos.os_name() == "windows":
+        return "pwsh" if shutil.which("pwsh") else "powershell"
+    return None
+
+
+def _ask_powershell_profile(shell: str) -> Path | None:
+    """The profile PowerShell `shell` reads at start-up, as it names it.
+
+    `$PROFILE` follows a Documents folder moved elsewhere (a synced folder,
+    say), which the default under the home does not. None when the shell
+    cannot be run, fails, is slow, or answers anything but one absolute path.
+    """
+    try:
+        done = subprocess.run(
+            [shell, "-NoLogo", "-NoProfile", "-NonInteractive", "-Command", "$PROFILE"],
+            capture_output=True,
+            text=True,
+            timeout=_PROFILE_ASK_S,
+            check=False,
+            **hostos.popen_no_window_kwargs(),
+        )
+    except (OSError, subprocess.SubprocessError):
+        return None
+    lines = (done.stdout or "").strip().splitlines()
+    if done.returncode != 0 or len(lines) != 1:
+        return None
+    named = Path(lines[0].strip())
+    return named if named.is_absolute() else None
 
 
 def _has_local_bin_path(text: str) -> bool:
-    """Answer whether any line of the text already names ~/.local/bin on PATH."""
-    return any(".local/bin" in line and "PATH" in line for line in text.splitlines())
+    """Answer whether any line of the text already names ~/.local/bin on PATH.
+
+    Either separator counts (`.local/bin`, PowerShell's `.local\\bin`), and so
+    does PowerShell's `$env:Path` spelling of PATH.
+    """
+    return any(
+        (".local/bin" in line or ".local\\bin" in line) and "path" in line.lower()
+        for line in text.splitlines()
+    )
+
+
+def _shown(rc: Path, base: Path) -> str:
+    """`rc` as the offer names it: under `~` when it is in the home."""
+    try:
+        inside = rc.relative_to(base)
+    except ValueError:
+        return str(rc)
+    return "~" + os.sep + str(inside) if os.sep != "/" else "~/" + str(inside)
 
 
 def _offer_path_append(
@@ -484,31 +547,42 @@ def _offer_path_append(
 ) -> Path | None:
     """Offer to put ~/.local/bin on the shell's PATH, answering the file or None.
 
-    The shell defaults to `$SHELL`. Nothing is asked when the shell is unknown
-    or the rc file already has that directory on PATH. A yes appends one export
-    line, creating the file's directory when it is missing; a file that cannot
-    be written is reported and answered as None.
+    The shell defaults to the login shell (:func:`_login_shell`). Nothing is
+    asked when the shell is unknown or its startup file already has that
+    directory on PATH. A yes appends one line, the export for an rc file and
+    PowerShell's for a profile, creating the file's directory when it is
+    missing; a file that cannot be written is reported and answered as None.
+    A PowerShell profile is the one PowerShell names when `home` is the
+    user's own (not given), else the default under `home`.
     """
     if shell is None:
-        shell = os.environ.get("SHELL")
+        shell = _login_shell()
     base = home if home is not None else Path.home()
     rc = _shell_rc(shell, base)
     if rc is None:
         return None
+    if rc.suffix == ".ps1" and home is None and shell:
+        rc = _ask_powershell_profile(shell) or rc
     try:
         text = rc.read_text(encoding="utf-8")
     except OSError:
         text = ""
     if _has_local_bin_path(text):
         return None
-    shown = "~/" + str(rc.relative_to(base))
-    question = f"Add ~/.local/bin to your shell PATH in {shown}? [y/n] "
+    shown = _shown(rc, base)
+    if rc.suffix == ".ps1":
+        question = (
+            f"Add ~{os.sep}.local{os.sep}bin to your PATH in your PowerShell "
+            f"profile {shown}? [y/n] "
+        )
+    else:
+        question = f"Add ~/.local/bin to your shell PATH in {shown}? [y/n] "
     if not _confirm(question, prompt):
         return None
     try:
         rc.parent.mkdir(parents=True, exist_ok=True)
         with rc.open("a", encoding="utf-8") as stream:
-            stream.write(_PATH_EXPORT + "\n")
+            stream.write(hostos.path_line(rc) + "\n")
     except OSError as exc:
         print(
             f"warning: could not add ~/.local/bin to {shown}: {exc}",
@@ -871,6 +945,64 @@ def _setup_start(rigs: Sequence[str], scans: Mapping[str, Scan], path: Path) -> 
         raise _SetupInteractiveError("; ".join(failed))
 
 
+def _native_rigs(rigs: Sequence[str]) -> tuple[str, ...]:
+    """The rigs among `rigs` whose units run natively: this machine, on macOS
+    or Windows (:func:`mcgyvr.config.default_launcher`). Remote rigs are
+    containers."""
+    from mcgyvr.detect import is_local_host
+
+    if hostos.os_name() not in NATIVE_BY_DEFAULT:
+        return ()
+    return tuple(rig for rig in dict.fromkeys(rigs) if is_local_host(rig))
+
+
+def _start_question(rigs: Sequence[str]) -> str:
+    """The start step's question, naming what it starts.
+
+    The serving containers, as on Linux; native llama.cpp servers when every
+    rig is this Mac or Windows machine; both, said apart, when remote rigs
+    serve beside it.
+    """
+    named = ", ".join(rigs)
+    here = _native_rigs(rigs)
+    if not here:
+        return f"Start the serving containers on {named}? [y/N] "
+    remote = [rig for rig in dict.fromkeys(rigs) if rig not in here]
+    if not remote:
+        return f"Start the native llama.cpp servers on {named}? [y/N] "
+    return (
+        f"Start the servers (native here, containers on {', '.join(remote)}) "
+        f"on {named}? [y/N] "
+    )
+
+
+def _native_notes(rigs: Sequence[str]) -> tuple[str, ...]:
+    """What starting this machine's native units does, said before the question.
+
+    Nothing when no rig of `rigs` runs natively. Otherwise: the first start
+    fetches the pinned llama.cpp build into the mcgyvr home and checks its
+    sha256 (and, on macOS, clears the quarantine flag the fetch would leave);
+    and a native server listens on 127.0.0.1 alone, the rig agent relaying to
+    it, so no firewall asks.
+    """
+    if not _native_rigs(rigs):
+        return ()
+    from mcgyvr.serving import llamacpp, native
+
+    cleared = (
+        ", and clears macOS's quarantine flag from it"
+        if hostos.os_name() == "darwin"
+        else ""
+    )
+    return (
+        "This machine's units run natively, with no container: the first start "
+        f"fetches the pinned llama.cpp {llamacpp.TAG} build into "
+        f"{native.bin_root()} and checks its sha256{cleared}.",
+        "A native server listens on 127.0.0.1 only, so no firewall asks; the "
+        "rig agent relays the hub's requests to it.",
+    )
+
+
 def _setup_interactive(path: Path, run_id: str = "") -> int:
     """Run the wizard end to end and answer the exit code.
 
@@ -925,12 +1057,15 @@ def _setup_interactive(path: Path, run_id: str = "") -> int:
         _setup_emit(path, ctx_per_slot)
 
         _rule("Step 4 of 4 — start and lock")
-        if _confirm(f"Start the serving containers on {', '.join(rigs)}? [y/N] "):
+        for note in _native_notes(rigs):
+            _note(note)
+        if _confirm(_start_question(rigs)):
             _setup_start(rigs, scans, path)
             approved, unapproved = _setup_sample(path, run_id, readings, rooms)
         else:
+            started = "Servers" if _native_rigs(rigs) else "Containers"
             print(
-                "Containers were not started. The staged setup and its launch "
+                f"{started} were not started. The staged setup and its launch "
                 f"specs are at {path}.\n"
             )
             approved, unapproved = _setup_unsampled(

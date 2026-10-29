@@ -16,14 +16,28 @@ vocabulary) say how a session drives each; how a setup is written is in
 
 ## Install
 
+Linux and macOS:
+
 ```sh
-uv tool install mcgyvr                                   # the CLI
-git clone https://github.com/AdarGit008/mcgyvr && mcgyvr/skills/mcgyvr/install.sh
+uv tool install mcgyvr
+git clone https://github.com/AdarGit008/mcgyvr
+mcgyvr/skills/mcgyvr/install.sh
 ```
 
-`install.sh` copies the `/mcgyvr` and `/mcgyvr-direct` skills into
-`~/.claude/skills/<name>` and `~/.pi/agent/skills/<name>`, and warns when the
-`mcgyvr` on `PATH` is older than the skills can drive.
+Windows (PowerShell):
+
+```powershell
+uv tool install mcgyvr
+git clone https://github.com/AdarGit008/mcgyvr
+powershell -ExecutionPolicy Bypass -File mcgyvr\skills\mcgyvr\install.ps1
+```
+
+`install.sh` (`install.ps1` on Windows) copies the `/mcgyvr`, `/mcgyvr-direct`
+and `/mcgyvr-use` skills into `~/.claude/skills/<name>` and
+`~/.pi/agent/skills/<name>`, and warns when the `mcgyvr` on `PATH` is older
+than the skills can drive. On a Mac or a Windows machine, setup runs llama.cpp
+natively, with no Docker; `skills/mcgyvr/SETUP.md`, *macOS and Windows*, says
+what else differs there.
 
 ## First run: `mcgyvr setup`
 
@@ -31,7 +45,8 @@ git clone https://github.com/AdarGit008/mcgyvr && mcgyvr/skills/mcgyvr/install.s
 over ssh), recommends the units, ladder and fleet that fit it for the use case
 you choose (`mcgyvr-code`, `code`, `chat` or `agent`), and writes `fleet.yaml` and
 `policy.yaml` into a folder of the run's own under `$MCGYVR_DATA/setup/<run>`
-(default `~/.local/state/mcgyvr/setup/<run>`), never the working directory.
+(default `~/.local/state/mcgyvr/setup/<run>` on Linux; SETUP.md names the
+macOS and Windows folders), never the working directory.
 Asked, it starts the units and samples them; a fleet whose sample passes is
 locked and promoted, and `~/.mcgyvr/live.json` names it as the live fleet. A
 fleet that could not be sampled is locked only on `--accept-unsampled` or an

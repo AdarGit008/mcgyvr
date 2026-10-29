@@ -760,6 +760,20 @@ def user_temp_root() -> Path:
     return Path(tempfile.gettempdir())
 
 
+#: The line that puts ``~/.local/bin`` (where ``uv tool install`` puts its
+#: tools) first on PATH, in a POSIX shell's rc file.
+PATH_EXPORT = 'export PATH="$HOME/.local/bin:$PATH"'
+#: The same in a PowerShell profile: on Windows uv's folder is
+#: ``%USERPROFILE%\.local\bin``, and PowerShell's ``$HOME`` is ``%USERPROFILE%``.
+PATH_POWERSHELL = '$env:Path = "$HOME\\.local\\bin;$env:Path"'
+
+
+def path_line(rc: Path) -> str:
+    """The PATH line `rc` takes: PowerShell's for a profile (``.ps1``), else
+    the POSIX export."""
+    return PATH_POWERSHELL if rc.suffix == ".ps1" else PATH_EXPORT
+
+
 def shell_rc_file(shell: str | None, home: Path | None = None) -> Path | None:
     """The startup file `shell` reads (a path or a name, as ``$SHELL`` gives it).
 

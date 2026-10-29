@@ -59,6 +59,29 @@ archived outside this repository, under the same paths.
 
 ### Added
 
+- **mcgyvr runs on macOS and Windows: the Mac/Windows layer (#821).** One
+  entry for the layer as a whole; each part keeps its own entry here. P1
+  (#815): `mcgyvr.hostos` answers what differs between the systems, the CLI
+  imports everywhere, and data and caches go to each system's own folders. P2
+  (#816): the machine reader reads macOS and Windows; a Mac's GPU is one
+  `unified` device whose memory is an estimate until a reading replaces it.
+  P3 (#819): a plan states its decode speed as a reading or as an estimate
+  from a sourced bandwidth table, and counts unified memory once. P4 (#820):
+  `launcher: native` runs the pinned llama.cpp build (b11960) with no
+  container, on 127.0.0.1 alone, the rig agent relaying to it. P9 (this
+  entry): `mcgyvr setup` says what it starts (native llama.cpp servers on this
+  Mac or Windows machine, containers elsewhere) and, before it starts them,
+  that the pinned build is fetched and checked and that no firewall asks. Its
+  PATH offer writes `$env:Path = "$HOME\.local\bin;$env:Path"` to the
+  PowerShell profile on Windows (the one PowerShell names; PowerShell 7's when
+  installed). `skills/mcgyvr/install.ps1` installs the skills on Windows, the twin of
+  `install.sh`; the README installs in three lines per system. SETUP.md's
+  *macOS and Windows* (from docgen) names each system's folders, the native
+  launcher and its backends, the firewall and quarantine, long paths, and the
+  commands that start `mcgyvr rig run` at login (a launchd agent; on Windows,
+  a Startup-folder line for when `rig run` runs there). A failed `mcgyvr serve`
+  names the door's log in the data folder this system uses.
+
 - **A unit runs natively, with no container: `launcher: native` (#818).** The
   llama.cpp build mcgyvr pins (b11960, `mcgyvr.serving.llamacpp`; the Linux
   image is the same build, `server-cuda-b11960`) is fetched on first use into

@@ -1,6 +1,7 @@
 name: platforms
-# macOS and Windows: the CLI imports, and the OS seam (mcgyvr.hostos) and the
-# machine reader's tests pass there, on the real system. The full suite runs on
+# macOS and Windows: the CLI imports, the OS seam (mcgyvr.hostos) and the
+# machine reader's tests pass there, on the real system, and the Windows skills
+# installer runs. The full suite runs on
 # Linux in .forgejo/workflows/ci.yml; this job is not a required check.
 on: [push, pull_request]
 permissions:
@@ -26,3 +27,7 @@ jobs:
         # bash on both runners, so the test glob expands on Windows too.
         shell: bash
         run: uv run --no-sync pytest tests/test_hostos*.py tests/test_detect.py -q
+      - name: the Windows skills installer
+        # pwsh is on both runners, so install.ps1 runs against a temporary home.
+        shell: bash
+        run: uv run --no-sync pytest tests/test_install_ps1_is_the_twin_of_install_sh.py -q

@@ -595,7 +595,9 @@ def _serve_parse(argv: list[str]) -> argparse.Namespace:
             'fetch only: the fetch list (JSON: {"files": [{repo, revision, file, '
             "sha256, bytes}]}), each file pinned to a commit and its sha256 as "
             "the model knowledge records it. The files land in the rig's weights "
-            "folder ($MCGYVR_WEIGHTS there, else ~/.cache/mcgyvr/weights) under "
+            "folder ($MCGYVR_WEIGHTS there, else ~/.cache/mcgyvr/weights on "
+            "Linux, ~/Library/Caches/mcgyvr/weights on macOS, "
+            "%LOCALAPPDATA%\\mcgyvr\\cache\\weights on Windows) under "
             "their base names; a download resumes from its .part, and one whose "
             "sha256 does not match is deleted. No size cap: the total is said "
             "before a byte moves. The Hub is $HF_ENDPOINT when set (https, or "
