@@ -26,17 +26,17 @@ from typing import Any
 from mcgyvr.hubwire import BYTES_PER_DECIMAL_GB as BYTES_PER_DECIMAL_GB
 from mcgyvr.hubwire import DECODE_EFFICIENCY as DECODE_EFFICIENCY
 from mcgyvr.hubwire import FIGURE_ESTIMATE as ESTIMATE
-from mcgyvr.hubwire import FIGURE_KINDS
+from mcgyvr.hubwire import FIGURE_KINDS, decode_efficiency
 from mcgyvr.hubwire import FIGURE_READING as READING
 from mcgyvr.hubwire import FITTED_ON as FITTED_ON
 from mcgyvr.hubwire import HIGH_BANDWIDTH_EFFICIENCY as HIGH_BANDWIDTH_EFFICIENCY
 from mcgyvr.hubwire import HIGH_BANDWIDTH_GBPS as HIGH_BANDWIDTH_GBPS
-from mcgyvr.hubwire import QUANT_CLASSES as QUANT_CLASSES
-from mcgyvr.hubwire import decode_efficiency as efficiency
-from mcgyvr.hubwire import quant_class as quant_class
 from mcgyvr.shipped import shipped_file
 
 CLASSES_FILENAME = "hardware-classes.json"
+
+#: The decode efficiency for a bandwidth, quantisation and vendor: the wire's.
+efficiency = decode_efficiency
 
 #: The version of the table's format this code reads.
 CLASSES_SCHEMA = 1

@@ -4,7 +4,7 @@ Before a unit of a model has been measured, its decode speed is estimated as
 the device's memory bandwidth over the weight bytes one token reads, at the
 share of the bandwidth the quantisation's class states, never more than the
 class's high-bandwidth share from the high-bandwidth line up on the vendor the
-shares were fitted on. The shares are the ones the published fit states. The
+shares were fitted on. The shares and the rule are the wire's. The
 estimate names itself and its basis; a quantisation the rule was not fitted to
 gets none, and a measured speed replaces the estimate. The devices and models
 are invented.
@@ -14,7 +14,7 @@ from __future__ import annotations
 
 import pytest
 
-from mcgyvr import estimate
+from mcgyvr import estimate, hubwire
 from mcgyvr.hubwire import FIGURE_KINDS
 
 GIB = 1 << 30
@@ -29,14 +29,11 @@ def by_rule(bandwidth: float, model_bytes: int, klass: str, vendor: str) -> floa
     return eff * bandwidth / (model_bytes / 1e9)
 
 
-def test_the_shares_are_the_published_fits() -> None:
-    """llama.cpp discussion 4167's Apple-silicon runs, as the module's comment
-    derives them: 0.75 and 0.60 under the 8-bit and 4-bit medians, and from
-    800 GB/s up 0.50 and 0.40."""
-    assert dict(estimate.DECODE_EFFICIENCY) == {"8bit": 0.75, "4bit": 0.60}
-    assert dict(estimate.HIGH_BANDWIDTH_EFFICIENCY) == {"8bit": 0.50, "4bit": 0.40}
-    assert estimate.HIGH_BANDWIDTH_GBPS == 800.0
-    assert estimate.FITTED_ON == "apple"
+def test_the_estimate_decodes_by_the_wires_rule() -> None:
+    """The shares and the rule are the wire's, which pins their values."""
+    assert estimate.efficiency is hubwire.decode_efficiency
+    assert estimate.DECODE_EFFICIENCY is hubwire.DECODE_EFFICIENCY
+    assert estimate.HIGH_BANDWIDTH_EFFICIENCY is hubwire.HIGH_BANDWIDTH_EFFICIENCY
 
 
 def test_a_4_bit_model_on_a_400_gbps_device_is_the_4_bit_share_over_its_size() -> None:
