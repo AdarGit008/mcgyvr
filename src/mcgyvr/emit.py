@@ -33,7 +33,7 @@ from typing import TYPE_CHECKING, Any, cast
 
 import yaml
 
-from mcgyvr.config import LAUNCHER_NATIVE
+from mcgyvr.config import LAUNCHER_NATIVE, NATIVE_BY_DEFAULT
 from mcgyvr.fleet.spans import Shard, Span, SpanError, check_spans, spans
 from mcgyvr.serving import (
     CARDS_KEY,
@@ -62,7 +62,7 @@ from mcgyvr.serving import (
     spec_files,
     spec_name,
 )
-from mcgyvr.serving.gatelib import LOCAL_RIGS
+from mcgyvr.serving.gatelib import LOCAL_RIGS, recorded_os
 from mcgyvr.serving.sharding import Target
 from mcgyvr.serving.shardlaunch import (
     LaunchError,
@@ -587,7 +587,9 @@ def _native_block(
     """The native launch spec of one process, from an emitted unit or a locked one.
 
     Only llama.cpp has a native build, and it runs on this machine
-    (`LOCAL_RIGS`): another engine or rig is refused. A server listens on
+    (`LOCAL_RIGS`) or on a rig whose rig file records macOS or Windows (the
+    door ships the launcher there): another engine or rig is refused. A
+    server listens on
     `LOOPBACK` alone: its `--host` must name it, or it is given it, and a
     `LLAMA_ARG_HOST` or another `--host` is refused.
     """
@@ -596,11 +598,12 @@ def _native_block(
             f"{slug}: launcher native runs the pinned llama.cpp build, "
             f"and {engine} has none; it runs in its container (launcher docker)"
         )
-    if host not in LOCAL_RIGS:
+    if host not in LOCAL_RIGS and recorded_os(host) not in NATIVE_BY_DEFAULT:
         raise EmitError(
-            f"{slug}: launcher native runs the unit on the machine mcgyvr "
-            f"runs on, and {host} is another; a unit on another rig runs in "
-            "its container (launcher docker)"
+            f"{slug}: launcher native runs the unit on the machine mcgyvr runs "
+            f"on or on a macOS or Windows rig, and the rig file of {host} records "
+            f"neither (`mcgyvr scan --rig {host}` writes it); a unit on a Linux "
+            "rig runs in its container (launcher docker)"
         )
     hosts = [
         command[n + 1] if part == HOST_FLAG and n + 1 < len(command) else part

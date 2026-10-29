@@ -28,7 +28,7 @@ import yaml
 from mcgyvr.config import HEALTH_INTERVAL_S as HEALTH_INTERVAL_S
 from mcgyvr.config import HEALTH_POLLS as HEALTH_POLLS
 from mcgyvr.config import LAUNCHER_DOCKER, LAUNCHER_NATIVE, LAUNCHERS
-from mcgyvr.serving import CARDS_KEY, LAUNCHER_KEY
+from mcgyvr.serving import CARDS_KEY, LAUNCHER_KEY, gatelib
 from mcgyvr.serving.gatelib import LOCAL_RIGS, door_required, need, ssh, tool
 
 #: The compose project every file is brought up under, passed as `-p`, so a
@@ -201,14 +201,18 @@ def up(
     under a profile without pulling in the partners it swaps with.
 
     A spec of native units is handed to `mcgyvr.serving.native` instead, which
-    answers in the same shape.
+    answers in the same shape: here for this machine, shipped over ssh for a
+    macOS or Windows rig (`mcgyvr.serving.nativerig`).
     """
     if _is_native(compose_file):
         from mcgyvr.serving import native
 
-        _native_here()
-        done = native.up(compose_file, (u.name for u in units))
-        return done
+        names = [u.name for u in units]
+        if _native_here():
+            return native.up(compose_file, names)
+        from mcgyvr.serving import nativerig
+
+        return nativerig.up(_run_host(), native.parse(compose_file), names)
     if not units:
         return compose(compose_file, "up", "-d", "--remove-orphans")
     return compose(compose_file, "up", "-d", "--no-deps", *(u.name for u in units))
@@ -228,22 +232,48 @@ def down(
     if _is_native(compose_file):
         from mcgyvr.serving import native
 
-        _native_here()
         named = units or services(compose_file)
-        return native.down(u.container for u in named)
+        if _native_here():
+            return native.down(u.container for u in named)
+        from mcgyvr.serving import nativerig
+
+        return nativerig.down(_run_host(), [u.container for u in named])
     if not units:
         return compose(compose_file, "down", "--remove-orphans")
     return compose(compose_file, "rm", "--stop", "--force", *(u.name for u in units))
 
 
-def _native_here() -> None:
-    """Refuse a native step whose run names a rig other than this machine."""
-    host = os.environ.get("RUN_HOST", "")
-    if host not in LOCAL_RIGS:
-        raise ComposeError(
-            f"the launch spec runs natively, on this machine, and the run is for "
-            f"{host or 'no host'}"
-        )
+def _run_host() -> str:
+    return os.environ.get("RUN_HOST", "")
+
+
+def _native_here() -> bool:
+    """Whether a native step's units run on this machine (True) or on the
+    macOS or Windows rig the run names (False); any other rig is refused."""
+    host = _run_host()
+    if host in LOCAL_RIGS:
+        return True
+    from mcgyvr.serving import nativerig
+
+    if host and nativerig.remote(host):
+        return False
+    raise ComposeError(
+        "the launch spec runs natively, on this machine or on a macOS or "
+        f"Windows rig, and the run is for {host or 'no host'}"
+    )
+
+
+def _native_run_remote() -> bool:
+    """Whether this run's units are native ones on a rig over ssh."""
+    return os.environ.get("RUN_LAUNCHER") == LAUNCHER_NATIVE and not _native_here()
+
+
+def _curl(host: str) -> str:
+    """The curl a probe over ssh names: ``curl.exe`` on a Windows rig, where
+    PowerShell reads ``curl`` as Invoke-WebRequest; ``curl`` elsewhere."""
+    if _native_run_remote() and gatelib.rig_system(host) == gatelib.WINDOWS:
+        return "curl.exe"
+    return "curl"
 
 
 def _is_native(compose_file: Path) -> bool:
@@ -258,9 +288,14 @@ def containers_up(launcher: str = LAUNCHER_DOCKER) -> list[str]:
     is never mistaken for a rig with nothing left running.
     """
     if launcher == LAUNCHER_NATIVE:
-        from mcgyvr.serving import native
+        from mcgyvr.serving import native, nativerig
 
-        return sorted(native.running().values())
+        if _native_here():
+            return sorted(native.running().values())
+        try:
+            return sorted(nativerig.running(_run_host()).values())
+        except nativerig.NativeRigError as exc:
+            raise ComposeError(str(exc)) from exc
     done = subprocess.run(
         [*tool("docker"), "ps", "--format", "{{.Names}}"],
         capture_output=True,
@@ -281,8 +316,10 @@ def restart_count(container: str) -> int:
     restart.
     """
     if container in _native_units():
-        from mcgyvr.serving import native
+        from mcgyvr.serving import native, nativerig
 
+        if not _native_here():
+            return nativerig.restarts(_run_host(), container)
         found = (native.read_record(container) or {}).get("restarts")
         return found if isinstance(found, int) else 0
     try:
@@ -324,7 +361,9 @@ def models_served(host: str, port: int) -> list[str] | None:
     each row's `id`, else `name`, else `model` is taken as its id.
     """
     try:
-        done = ssh(host, f"curl -sf http://localhost:{port}/v1/models", timeout=30)
+        done = ssh(
+            host, f"{_curl(host)} -sf http://localhost:{port}/v1/models", timeout=30
+        )
     except subprocess.TimeoutExpired:
         return None
     if done.returncode != 0:
@@ -470,7 +509,11 @@ def wait_for(host: str, service: Service) -> dict[str, object]:
     ids: list[str] | None = None
     for attempt in range(HEALTH_POLLS):
         ids = models_served(host, service.port)
-        asleep = sleeping(host, service.port) if ids is not None else None
+        # A native unit has no sleep route (llama.cpp), so it is not asked.
+        native_run = os.environ.get("RUN_LAUNCHER") == LAUNCHER_NATIVE
+        asleep = (
+            sleeping(host, service.port) if ids is not None and not native_run else None
+        )
         if ids is not None and not asleep:
             return {
                 "container": service.container,
@@ -504,10 +547,13 @@ def card(host: str) -> dict[str, object]:
     listed no NVIDIA card, or stated no used/free pair — so a record never
     carries a memory figure that was guessed.
     """
-    from mcgyvr.serving.gatelib import cards_read_command
-
+    sent = gatelib.scan_read(gatelib.shipping_os(host), cards=True)
     try:
-        done = ssh(host, cards_read_command(), timeout=60)
+        done = (
+            ssh(host, sent.command, timeout=60)
+            if sent.stdin is None
+            else ssh(host, sent.command, timeout=60, input=sent.stdin)
+        )
     except subprocess.TimeoutExpired:
         return {"error": "the reader did not answer in 60s"}
     if done.returncode != 0:

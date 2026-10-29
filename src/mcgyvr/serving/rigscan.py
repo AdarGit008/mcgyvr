@@ -15,6 +15,8 @@ docker, network and the token-only `snapshot` that a later visit is compared
 against, and `main` prints either; every tool call and file read is bounded.
 """
 
+from __future__ import annotations
+
 import base64
 import contextlib
 import hashlib
@@ -24,14 +26,35 @@ import platform
 import re
 import selectors
 import shutil
-import signal
 import subprocess
 import sys
 import time
 import unicodedata
 from collections.abc import Callable, Iterable, Iterator, Mapping, Sequence
-from datetime import UTC, datetime
-from typing import IO, Any
+from datetime import datetime, timezone
+from typing import IO, TYPE_CHECKING, Any
+
+# This file is shipped to a rig as one program assembled with the modules it
+# imports (mcgyvr.serving.shipped.reader): hostos whole, and the wire's names.
+from mcgyvr import hostos
+from mcgyvr.fleet.roots import HOME_DIR as HOME_DIR
+from mcgyvr.fleet.roots import HOME_ENV as HOME_ENV
+from mcgyvr.hubwire import (
+    FIGURE_ESTIMATE,
+    FIGURE_READING,
+    HOST_VERSION_MAX,
+    RESOURCE_CPU,
+    RESOURCE_GPU,
+    RESOURCE_NAME_MAX,
+    RESOURCE_RAM,
+    RESOURCE_UNIFIED,
+)
+from mcgyvr.hubwire import (
+    HOST_OS as HOST_OS,
+)
+
+if TYPE_CHECKING:  # typing.TypeAlias is 3.10's; a shipped reader runs on 3.9
+    from typing import TypeAlias
 
 KB_PER_GB = 1024.0 * 1024.0
 MIB_PER_GB = 1024.0
@@ -46,12 +69,6 @@ COPY_PASSES = 5
 COPY_MIB_TIGHT = 64
 TIGHT_RAM_GB = 2.0
 
-WEIGHTS_DIR_ENV = "MCGYVR_WEIGHTS"
-#: The variable that moves mcgyvr's home on this machine, and the folder it names
-#: when nothing does: the same pair as `mcgyvr.fleet.roots.HOME_ENV` and
-#: `HOME_DIR`, spelled again because this file runs on a rig without the package.
-HOME_ENV = "MCGYVR_HOME"
-HOME_DIR = "~/.mcgyvr"
 #: Machine identity sources, in order: the first machine-id file holding a value,
 #: then the host name.
 MACHINE_ID_FILES = ("/etc/machine-id", "/var/lib/dbus/machine-id")
@@ -61,8 +78,6 @@ DRM = "/sys/class/drm"
 #: What one tool call may take: seconds before it is killed, and bytes of output kept.
 BOUND_S = 20.0
 BYTES_MAX = 262144
-#: How long a Windows tree kill is given (``mcgyvr.hostos.TASKKILL_S``).
-TASKKILL_S = 10.0
 #: How often a Windows pipe is looked at while a tool's output is awaited.
 PIPE_POLL_S = 0.05
 #: What text read from a file or a tool may take: one line's length, and how many
@@ -76,18 +91,12 @@ DIGITS_MAX = 18
 
 ROOT_VARIABLE = "MCGYVR_TEST_MACHINE_ROOT"
 SECONDS_VARIABLE = "MCGYVR_TEST_TOOL_SECONDS"
-#: Reads the machine as another system (one of SYSTEMS), for tests.
+#: Reads the machine as another system (one of HOST_OS), for tests.
 SYSTEM_VARIABLE = "MCGYVR_TEST_MACHINE_OS"
 
-#: The systems read, as the wire's HOST_OS names them; spelled again because
-#: this file runs on a rig without the package. Machine names fold to the
-#: wire's arch names; Win32_Processor.Architecture is "x64 (9)", "ARM64 (12)"
+#: Machine names fold to the wire's arch names; Win32_Processor.Architecture is
+#: "x64 (9)", "ARM64 (12)"
 #: (https://learn.microsoft.com/en-us/windows/win32/cimwin32prov/win32-processor).
-SYSTEMS = ("linux", "darwin", "windows")
-#: Longest system version kept (the wire's HOST_VERSION_MAX) and longest
-#: resource name (its RESOURCE_NAME_MAX), spelled again for the same reason.
-VERSION_MAX = 64
-RESOURCE_NAME_MAX = 128
 ARCHES = {"x86_64": "x86_64", "amd64": "x86_64", "arm64": "arm64", "aarch64": "arm64"}
 WINDOWS_ARCHES = {9: "x86_64", 12: "arm64"}
 
@@ -134,16 +143,6 @@ REG_MACHINE_GUID = (
     "/v",
     "MachineGuid",
     "/reg:64",
-)
-#: nvidia-smi.exe: PATH, then System32, then NVSMI
-#: (https://github.com/influxdata/telegraf/blob/master/plugins/inputs/nvidia_smi/README.md).
-#: Windows names its variables without regard to case; a 32-bit Python sees
-#: PROGRAMFILES as "Program Files (x86)", so PROGRAMW6432 comes first.
-NVIDIA_SMI_EXE = "nvidia-smi.exe"
-NVIDIA_SMI_DIRS = (
-    ("SYSTEMROOT", "C:\\Windows", ("System32",)),
-    ("PROGRAMW6432", "", ("NVIDIA Corporation", "NVSMI")),
-    ("PROGRAMFILES", "C:\\Program Files", ("NVIDIA Corporation", "NVSMI")),
 )
 #: One CIM call, never wmic (https://learn.microsoft.com/en-us/windows/win32/wmisdk/wmic).
 #: Capacity is bytes
@@ -339,41 +338,6 @@ def is_machine_id(value: object) -> bool:
 # back as a reason a note can carry to the reader.
 
 
-def _group_kwargs() -> dict[str, Any]:
-    """What Popen takes to start a tool heading a group of its own.
-
-    A clone of ``mcgyvr.hostos.popen_group_kwargs`` (this file is shipped to a
-    rig alone, so it cannot import it): a new session on POSIX, a new console
-    process group on Windows.
-    """
-    if sys.platform == "win32":
-        return {"creationflags": subprocess.CREATE_NEW_PROCESS_GROUP}
-    return {"start_new_session": True}
-
-
-def _kill_group(process: subprocess.Popen[Any]) -> None:
-    """Kill a tool and all it started: a clone of ``mcgyvr.hostos.kill_group``.
-
-    POSIX: SIGKILL to its process group. Windows: ``taskkill /F /T`` by its
-    full path, then the tool itself.
-    """
-    if sys.platform == "win32":
-        system = os.environ.get("SYSTEMROOT") or r"C:\Windows"
-        taskkill = os.path.join(system, "System32", "taskkill.exe")
-        with contextlib.suppress(OSError, subprocess.SubprocessError):
-            subprocess.run(
-                [taskkill, "/F", "/T", "/PID", str(process.pid)],
-                stdin=subprocess.DEVNULL,
-                stdout=subprocess.DEVNULL,
-                stderr=subprocess.DEVNULL,
-                timeout=TASKKILL_S,
-                check=False,
-            )
-        process.kill()
-        return
-    os.killpg(process.pid, signal.SIGKILL)
-
-
 @contextlib.contextmanager
 def _reader(stream: IO[bytes]) -> Iterator[Callable[[float], bytes | None]]:
     """A read of at most 65536 bytes from `stream` that waits `left` seconds.
@@ -439,7 +403,7 @@ def _run(
             stdin=subprocess.DEVNULL,
             stdout=subprocess.PIPE,
             stderr=subprocess.DEVNULL,
-            **_group_kwargs(),
+            **hostos.popen_group_kwargs(),
         )
     except OSError as exc:
         return None, f"{label} could not start ({exc.strerror or exc})"
@@ -475,7 +439,7 @@ def _run(
             why = f"{label} did not answer within {bound:g} s"
     if why is not None or process.poll() is None:
         with contextlib.suppress(OSError):
-            _kill_group(process)
+            hostos.kill_group(process)
     process.stdout.close()
     process.wait()
     if why is not None:
@@ -947,7 +911,7 @@ def _host(root: str, reading: _Reading, system: str = "linux") -> str:
 
 
 def host_os() -> str:
-    """The system this runs on, as SYSTEMS names it."""
+    """The system this runs on, as HOST_OS names it."""
     return {"darwin": "darwin", "win32": "windows"}.get(sys.platform, "linux")
 
 
@@ -1156,8 +1120,10 @@ def _meminfo_field(text: str, key: str) -> int | None:
 
 #: A memory reading: the section, its facts, its notes, and (total, available)
 #: in MiB for the resources.
-_Mib = tuple[int | None, int | None]
-_MemoryRead = tuple[dict[str, Any] | None, list[dict[str, str]], list[str], _Mib]
+_Mib: TypeAlias = "tuple[int | None, int | None]"
+_MemoryRead: TypeAlias = (
+    "tuple[dict[str, Any] | None, list[dict[str, str]], list[str], _Mib]"
+)
 
 
 def _memory(root: str, bound: float, platform_: _Platform | None = None) -> _MemoryRead:
@@ -1340,9 +1306,9 @@ def _apple_gpu(
         0,
         {
             **card,
-            "kind": "unified",
+            "kind": RESOURCE_UNIFIED,
             "backend": "metal",
-            "figure": "estimate",
+            "figure": FIGURE_ESTIMATE,
             "how": how,
             "gpu_cores": _gpu_cores(reading, platform_, key),
         },
@@ -1351,20 +1317,9 @@ def _apple_gpu(
 
 
 def _windows_nvidia_smi() -> str | None:
-    """nvidia-smi.exe by its full path: in a PATH folder named in full, else the
-    first NVIDIA_SMI_DIRS folder holding it, else None, and nothing is run. It is
-    never called by bare name: Windows' which() would look in the working folder
-    first, where anyone may leave an nvidia-smi.bat."""
-    folders = [
-        d for d in os.environ.get("PATH", "").split(os.pathsep) if os.path.isabs(d)
-    ]
-    for variable, default, parts in NVIDIA_SMI_DIRS:
-        if os.environ.get(variable) or default:
-            folders.append(os.path.join(os.environ.get(variable) or default, *parts))
-    for folder in folders:
-        if os.path.isfile(os.path.join(folder, NVIDIA_SMI_EXE)):
-            return os.path.join(folder, NVIDIA_SMI_EXE)
-    return None
+    """nvidia-smi.exe by its full path, or None
+    (:func:`mcgyvr.hostos.windows_nvidia_smi`)."""
+    return hostos.windows_nvidia_smi()
 
 
 def _windows_adapters(
@@ -1422,7 +1377,7 @@ def _backend(vendor: str, system: str, covered: set[str]) -> str:
 def _host_section(platform_: _Platform, reading: _Reading) -> dict[str, Any]:
     """The system, its arch and its version (kernel release, macOS product
     version, Windows version). An arch the wire does not name, and a version that
-    is unread or past VERSION_MAX, are None and noted."""
+    is unread or past HOST_VERSION_MAX, are None and noted."""
     system = platform_.system
     arch = ARCHES.get(platform.machine().lower())
     if system == "darwin":
@@ -1438,14 +1393,14 @@ def _host_section(platform_: _Platform, reading: _Reading) -> dict[str, Any]:
         version = platform.release()
     if arch is None:
         reading.note("host.arch", f"{platform.machine()!r} is not an arch read")
-    usable = bool(version) and len(version) <= VERSION_MAX and is_text(version)
+    usable = bool(version) and len(version) <= HOST_VERSION_MAX and is_text(version)
     if not usable:
         reading.note("host.version", f"the {system} version is unread")
     return {"os": system, "arch": arch, "version": version if usable else None}
 
 
 #: A CPU reading: the section, its facts and its notes.
-_CpuRead = tuple[dict[str, Any] | None, list[dict[str, str]], list[str]]
+_CpuRead: TypeAlias = "tuple[dict[str, Any] | None, list[dict[str, str]], list[str]]"
 
 
 def _cpu_section(
@@ -1562,7 +1517,7 @@ def _resources(
     def add(kind: str, name: str, **fields: Any) -> None:
         index = numbered.get(kind, 0)
         numbered[kind] = index + 1
-        if kind in ("gpu", "unified") and not fields["total_mb"]:
+        if kind in (RESOURCE_GPU, RESOURCE_UNIFIED) and not fields["total_mb"]:
             return
         found.append(
             {
@@ -1574,7 +1529,7 @@ def _resources(
                 "cores": None,
                 "bandwidth_gbps": None,
                 "bandwidth_figure": None,
-                "figure": "reading",
+                "figure": FIGURE_READING,
                 "backend": "cpu",
                 **fields,
             }
@@ -1587,13 +1542,13 @@ def _resources(
                 card["name"] or f"{card['vendor']} card",
                 total_mb=card["total_mib"],
                 free_mb=card["free_mib"],
-                figure=str(card.get("figure", "reading")),
+                figure=str(card.get("figure", FIGURE_READING)),
                 backend=str(card["backend"]),
             )
     if memory_mib[0] is not None:
-        add("ram", "host RAM", total_mb=memory_mib[0], free_mb=memory_mib[1])
+        add(RESOURCE_RAM, "host RAM", total_mb=memory_mib[0], free_mb=memory_mib[1])
     if cpu is not None:
-        add("cpu", cpu.get("model") or "CPU", cores=cpu["threads"])
+        add(RESOURCE_CPU, cpu.get("model") or "CPU", cores=cpu["threads"])
     return found
 
 
@@ -1678,7 +1633,7 @@ def read_machine(
     """The short reading of this machine: its identity and host, its cards with the
     sources that answered and the fields that could not be read, its memory, CPU
     and resources. No disk, docker or snapshot work is done here. `system` is one
-    of SYSTEMS; by default the one this runs on (Linux under a test root).
+    of HOST_OS; by default the one this runs on (Linux under a test root).
     """
     return _Short(root, bound, system).document
 
@@ -1834,23 +1789,9 @@ def measure_bandwidth(root: str = "") -> dict[str, Any] | None:
 
 
 def default_weights_dir() -> str:
-    """Where weights live when the caller names no directory: MCGYVR_WEIGHTS with ~
-    expanded, or ``weights`` in the system's cache folder: ~/.cache/mcgyvr/weights
-    on Linux (whatever XDG_CACHE_HOME says, as always), ~/Library/Caches/mcgyvr/weights
-    on macOS, %LOCALAPPDATA%\\mcgyvr\\cache\\weights on Windows. A clone of
-    ``mcgyvr.hostos.user_cache_dir`` with no XDG variable, since this file is shipped
-    alone."""
-    override = os.environ.get(WEIGHTS_DIR_ENV)
-    if override:
-        return os.path.expanduser(override)
-    if sys.platform == "darwin":
-        return os.path.expanduser("~/Library/Caches/mcgyvr/weights")
-    if sys.platform == "win32":
-        local = os.environ.get("LOCALAPPDATA")
-        if not (local and os.path.isabs(local)):
-            local = os.path.join(os.path.expanduser("~"), "AppData", "Local")
-        return os.path.join(local, "mcgyvr", "cache", "weights")
-    return os.path.expanduser("~/.cache/mcgyvr/weights")
+    """Where weights live when the caller names no directory
+    (:func:`mcgyvr.hostos.weights_dir`)."""
+    return hostos.weights_dir()
 
 
 def mcgyvr_home() -> str | None:
@@ -2099,7 +2040,7 @@ def _uptime_since(root: str, bound: float) -> tuple[str | None, str]:
     for line in (text or "").splitlines():
         parts = line.split()
         if len(parts) == 2 and parts[0] == "btime" and _DIGITS.fullmatch(parts[1]):
-            when = datetime.fromtimestamp(int(parts[1]), UTC)
+            when = datetime.fromtimestamp(int(parts[1]), timezone.utc)
             return when.strftime("%Y-%m-%dT%H:%M:%SZ"), ""
     out, _ = _run(("uptime", "-s"), bound=bound)
     if out and out.strip():
@@ -2476,7 +2417,7 @@ def main(argv: Sequence[str] | None = None) -> int:
     MCGYVR_TEST_MACHINE_ROOT is prefixed to every path that is read, and
     MCGYVR_TEST_TOOL_SECONDS replaces the time bound when it holds 1 to 6 digits
     giving a whole number of seconds above zero; anything else in it is noted rather
-    than used; so is MCGYVR_TEST_MACHINE_OS when it names none of SYSTEMS. Any
+    than used; so is MCGYVR_TEST_MACHINE_OS when it names none of HOST_OS. Any
     argument other than --cards is a usage error, which returns 2.
     """
     args = list(sys.argv[1:] if argv is None else argv)
@@ -2497,11 +2438,11 @@ def main(argv: Sequence[str] | None = None) -> int:
             )
     # Honoured under a test root only, so a stray setting never renames a rig.
     system = os.environ.get(SYSTEM_VARIABLE) if root else None
-    if system is not None and system not in SYSTEMS:
+    if system is not None and system not in HOST_OS:
         named.append(
             {
                 "field": "system",
-                "why": f"{SYSTEM_VARIABLE} names none of {', '.join(SYSTEMS)}; the "
+                "why": f"{SYSTEM_VARIABLE} names none of {', '.join(HOST_OS)}; the "
                 "machine is read as the system it is",
             }
         )

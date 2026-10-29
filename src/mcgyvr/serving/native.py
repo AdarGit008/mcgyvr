@@ -70,22 +70,16 @@ import time
 import types
 from collections.abc import Callable, Iterable, Mapping, Sequence
 from dataclasses import dataclass
-from datetime import UTC, datetime
+from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
 
-import yaml
-
+# This module is also shipped to a macOS or Windows rig, assembled with the
+# modules it imports (mcgyvr.serving.shipped.native): what only the door needs
+# (the compose file's yaml, the config's and the launch spec's names) is
+# imported where it is used.
 from mcgyvr import hostos
-from mcgyvr.config import LAUNCHER_NATIVE
-from mcgyvr.serving import (
-    CARDS_KEY,
-    LAUNCHER_KEY,
-    PROGRAM_KEY,
-    SLEEPER_PROFILE,
-    llamacpp,
-    release,
-)
+from mcgyvr.serving import llamacpp, release
 
 #: The folders under the data folder: supervisors' locks, specs and records;
 #: the units' logs.
@@ -146,6 +140,12 @@ ARCH_NAMES = {
 }
 #: How long ``nvidia-smi`` and ``sysctl`` are given.
 PROBE_S = 10.0
+#: Where a shipped launcher leaves the copy its supervisors run, under the
+#: mcgyvr home: one file per program, named by its sha256.
+SHIPPED = Path("bin") / "shipped"
+#: What the door's `read` gets from a native rig in place of rig-units.sh's
+#: container rows: the unit, its id, no compose project.
+NO_PROJECT = "-"
 
 
 class NativeError(Exception):
@@ -225,6 +225,11 @@ def _paths(unit: str) -> tuple[Path, Path, Path]:
 
 def parse(compose_file: Path) -> tuple[NativeUnit, ...]:
     """The native services of a launch spec, in file order."""
+    import yaml
+
+    from mcgyvr.config import LAUNCHER_NATIVE
+    from mcgyvr.serving import CARDS_KEY, LAUNCHER_KEY, PROGRAM_KEY, SLEEPER_PROFILE
+
     try:
         doc = yaml.safe_load(compose_file.read_text(encoding="utf-8"))
     except (OSError, yaml.YAMLError) as exc:
@@ -294,44 +299,13 @@ def machine_arch() -> str:
 def nvidia_smi() -> str | None:
     """The ``nvidia-smi`` to ask, by its full path, or None.
 
-    POSIX: the one on PATH. Windows: :func:`_windows_nvidia_smi`, never a bare
-    name, since Windows' ``which`` looks in the working folder first and
+    POSIX: the one on PATH. Windows: :func:`mcgyvr.hostos.windows_nvidia_smi`,
+    never a bare name, since Windows' ``which`` looks in the working folder first and
     honours PATHEXT, where anyone may leave an ``nvidia-smi.bat``.
     """
     if hostos.os_name() == "windows":
-        return _windows_nvidia_smi()
+        return hostos.windows_nvidia_smi()
     return shutil.which("nvidia-smi")
-
-
-#: Where Windows keeps nvidia-smi.exe besides PATH: ``C:\\Windows\\System32``
-#: or ``C:\\Program Files\\NVIDIA Corporation\\NVSMI``
-#: (https://github.com/influxdata/telegraf/blob/master/plugins/inputs/nvidia_smi/README.md);
-#: PROGRAMW6432 is the 64-bit Program Files a 32-bit Python is not shown.
-#: The reader's rule (``rigscan._windows_nvidia_smi``, on #816), verbatim, so
-#: this copy is deleted when that lands.
-NVIDIA_SMI_EXE = "nvidia-smi.exe"
-NVIDIA_SMI_DIRS = (
-    ("SYSTEMROOT", "C:\\Windows", ("System32",)),
-    ("PROGRAMW6432", "", ("NVIDIA Corporation", "NVSMI")),
-    ("PROGRAMFILES", "C:\\Program Files", ("NVIDIA Corporation", "NVSMI")),
-)
-
-
-def _windows_nvidia_smi() -> str | None:
-    """nvidia-smi.exe by its full path: in a PATH folder named in full, else the
-    first NVIDIA_SMI_DIRS folder holding it, else None, and nothing is run. It is
-    never called by bare name: Windows' which() would look in the working folder
-    first, where anyone may leave an nvidia-smi.bat."""
-    folders = [
-        d for d in os.environ.get("PATH", "").split(os.pathsep) if os.path.isabs(d)
-    ]
-    for variable, default, parts in NVIDIA_SMI_DIRS:
-        if os.environ.get(variable) or default:
-            folders.append(os.path.join(os.environ.get(variable) or default, *parts))
-    for folder in folders:
-        if os.path.isfile(os.path.join(folder, NVIDIA_SMI_EXE)):
-            return os.path.join(folder, NVIDIA_SMI_EXE)
-    return None
 
 
 def nvidia_driver() -> str | None:
@@ -427,7 +401,26 @@ def up(
     picked and fetched once. Returns status 0 when every supervisor reported
     its server started, else 1 with what went wrong on stderr.
     """
-    units = parse(compose_file)
+    return up_units(
+        parse(compose_file), names, folder=folder, build=build, restart=restart
+    )
+
+
+def up_units(
+    units: Sequence[NativeUnit],
+    names: Iterable[str] = (),
+    *,
+    folder: Callable[[llamacpp.Build], Path] = binaries,
+    build: Callable[[], llamacpp.Build] = pick,
+    restart: Mapping[str, float] | None = None,
+    supervisor: Sequence[str] = (),
+) -> subprocess.CompletedProcess[str]:
+    """:func:`up` over units already read from a spec (a rig is sent them).
+
+    `supervisor` is how a supervisor is started: ``python -m`` this module
+    where mcgyvr is installed (empty); on a rig this module was shipped to,
+    the copy of the shipped program :func:`main` left there (:func:`_settle`).
+    """
     named = set(names)
     chosen = (
         [u for u in units if u.name in named]
@@ -456,7 +449,9 @@ def up(
                 failed.append(f"{unit.container}: {ahead} never answered")
                 break
         else:
-            outcome = start(unit, picked, programs, restart=restart)
+            outcome = start(
+                unit, picked, programs, restart=restart, supervisor=supervisor
+            )
             (said if outcome is None else failed).append(
                 f"{unit.container}: started" if outcome is None else outcome
             )
@@ -495,8 +490,10 @@ def start(
     programs: Path,
     *,
     restart: Mapping[str, float] | None = None,
+    supervisor: Sequence[str] = (),
 ) -> str | None:
-    """Start `unit`'s supervisor: None once its server runs, else why not."""
+    """Start `unit`'s supervisor (by `supervisor`, see :func:`up_units`): None
+    once its server runs, else why not."""
     spec_file = _paths(unit.container)[2]
     _private(state_dir())
     _private(log_path(unit.container).parent)
@@ -535,7 +532,11 @@ def start(
             hostos.end_pid(orphan, force=True)
             _wait(lambda: matches(left) is None, STOP_S)
     _write_json(spec_file, spec)
-    argv = [sys.executable, "-m", __name__, "supervise", str(spec_file)]
+    argv = [
+        *(supervisor or (sys.executable, "-m", __name__)),
+        "supervise",
+        str(spec_file),
+    ]
     proc = _spawn(argv)
     deadline = time.monotonic() + START_S
     while time.monotonic() < deadline:
@@ -783,6 +784,48 @@ def metal_reading(log: bytes) -> int | None:
     return round(float(match.group(1)) * 1e6)
 
 
+def unit_rows(asked: Sequence[str] = ()) -> str:
+    """What holds this machine, in rig-units.sh's rows (``mcgyvr.fleet.read``).
+
+    The native twin of that script, for a rig whose units are supervised here:
+    a ``container=NAME,native-PID,-,RESTARTS`` row per supervised unit, a
+    ``gpu_app=PID,MIB,UNIT_ID,PROCESS`` row per process nvidia-smi says holds a
+    card (``UNIT_ID`` the unit whose server it is, else ``none``), and for each
+    ``ENGINE:PORT[:NAME]`` asked a ``status=PORT,BASE64`` row of the unit's
+    ``/slots`` page when it answers on the loopback. A rig with no NVIDIA card
+    has no ``gpu_app`` row.
+    """
+    import base64
+
+    from mcgyvr.serving import localrig
+
+    rows = []
+    servers: dict[int, str] = {}
+    for ident, unit in sorted(running().items()):
+        restarts = (read_record(unit) or {}).get("restarts")
+        count = restarts if isinstance(restarts, int) else "unread"
+        rows.append(f"container={unit},{ident},{NO_PROJECT},{count}")
+        servers[int(ident.split("-", 1)[1])] = ident
+    holders = _card_holders()
+    if holders not in ("none", "unread"):
+        for holder in holders.split(";"):
+            pid, name, mib = holder.split(",")
+            rows.append(
+                f"gpu_app={pid},{mib[: -len('MiB')]},"
+                f"{servers.get(int(pid), 'none')},{name}"
+            )
+    for one in asked:
+        engine, _sep, rest = one.partition(":")
+        port = rest.partition(":")[0]
+        if not port.isdigit() or engine == "vllm":
+            continue
+        status, body = localrig.ask(f"http://127.0.0.1:{port}/slots", timeout=ASK_S)
+        if status == 200:
+            page = base64.b64encode(body).decode("ascii")
+            rows.append(f"status={port},{page}")
+    return "".join(f"{row}\n" for row in rows)
+
+
 def held() -> dict[str, str]:
     """What holds this machine, as gates 2 and 7 read a rig: units, card holders."""
     ids = ";".join(sorted(running()))
@@ -839,7 +882,8 @@ def _write_json(path: Path, body: dict[str, Any]) -> None:
 
 
 def _now() -> str:
-    return datetime.now(UTC).strftime("%Y-%m-%dT%H:%M:%SZ")
+    # timezone.utc, not 3.11's datetime.UTC: this runs on a rig's 3.9 too.
+    return datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
 
 
 # --- the supervisor -----------------------------------------------------------
@@ -1010,16 +1054,96 @@ def _scan_metal(log_file: Path, offset: int, unit: str, spec: dict[str, Any]) ->
     return True
 
 
+def units_text(units: Sequence[NativeUnit]) -> str:
+    """`units` as the one token a rig is sent them in: base64 of their JSON."""
+    import base64
+    import dataclasses
+
+    body = json.dumps([dataclasses.asdict(unit) for unit in units], sort_keys=True)
+    return base64.b64encode(body.encode("utf-8")).decode("ascii")
+
+
+def units_from_text(text: str) -> tuple[NativeUnit, ...]:
+    """The units :func:`units_text` sent, each name checked as a file name."""
+    import base64
+
+    found = []
+    for raw in json.loads(base64.b64decode(text, validate=True)):
+        found.append(
+            NativeUnit(
+                name=str(raw["name"]),
+                container=_checked(str(raw["container"])),
+                program=str(raw["program"]),
+                argv=tuple(str(part) for part in raw["argv"]),
+                env={str(k): str(v) for k, v in dict(raw["env"]).items()},
+                port=int(raw["port"]),
+                cards=tuple(int(card) for card in raw["cards"]),
+                depends_on=tuple(str(d) for d in raw["depends_on"]),
+                asleep=bool(raw["asleep"]),
+            )
+        )
+        if found[-1].program not in llamacpp.EXECUTABLES:
+            raise NativeError(f"{found[-1].name}: no program {found[-1].program!r}")
+    return tuple(found)
+
+
+def _settle(program: bytes) -> tuple[str, ...]:
+    """Leave the shipped `program` on this rig for its supervisors to run, and
+    say how a supervisor is started from it.
+
+    It goes to ``bin/shipped/native-<sha256>.py`` under the mcgyvr home, a
+    folder of this user's alone, written whole and renamed into place, and
+    is run with ``-I -B``: a supervisor outlives the ssh call that started it,
+    so it cannot run from that call's stdin.
+    """
+    import hashlib
+
+    from mcgyvr.fleet.roots import home
+
+    folder = _private(home() / SHIPPED)
+    target = folder / f"native-{hashlib.sha256(program).hexdigest()[:16]}.py"
+    if not target.is_file() or target.read_bytes() != program:
+        part = target.with_name(f"{target.name}.{os.getpid()}.part")
+        part.write_bytes(program)
+        hostos.chmod_private(part)
+        os.replace(part, target)
+    return (sys.executable, "-I", "-B", str(target))
+
+
+def _answer(done: subprocess.CompletedProcess[str]) -> int:
+    sys.stdout.write(done.stdout)
+    sys.stderr.write(done.stderr)
+    return done.returncode
+
+
 def main(argv: Sequence[str] | None = None) -> int:
-    """``supervise SPEC`` (the supervisor) or ``status`` (one JSON row per unit)."""
+    """The supervisor (``supervise SPEC``), ``status`` (one JSON row per unit),
+    and the verbs the door ships to a rig: ``up UNITS [NAME...]`` (UNITS from
+    :func:`units_text`), ``down NAME...`` and ``units [ENGINE:PORT:NAME...]``
+    (:func:`unit_rows`)."""
     args = list(sys.argv[1:] if argv is None else argv)
     if len(args) == 2 and args[0] == "supervise":
         return supervise(Path(args[1]))
     if args == ["status"]:
         print(json.dumps(status(), indent=2))
         return 0
+    if args[:1] == ["units"]:
+        sys.stdout.write(unit_rows(args[1:]))
+        return 0
+    if args[:1] == ["down"] and len(args) > 1:
+        return _answer(down(args[1:]))
+    if args[:1] == ["up"] and len(args) > 1:
+        own = globals().get("__shipped__")
+        try:
+            sent = units_from_text(args[1])
+            supervisor = _settle(own) if isinstance(own, bytes) else ()
+        except (NativeError, OSError, ValueError, KeyError, TypeError) as exc:
+            print(f"native: the units sent cannot be started: {exc}", file=sys.stderr)
+            return 1
+        return _answer(up_units(sent, args[2:], supervisor=supervisor))
     print(
-        "usage: python -m mcgyvr.serving.native supervise SPEC | status",
+        "usage: python -m mcgyvr.serving.native supervise SPEC | status | "
+        "up UNITS [NAME...] | down NAME... | units [ENGINE:PORT:NAME...]",
         file=sys.stderr,
     )
     return 2

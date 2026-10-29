@@ -744,11 +744,17 @@ def serve(argv: list[str]) -> int:
         except servelib.ComposeError as escape:
             print(f"run.py: REFUSED — {escape}", file=sys.stderr)
             return 2
-        if launcher == LAUNCHER_NATIVE and opts.host not in gatelib.LOCAL_RIGS:
+        if (
+            launcher == LAUNCHER_NATIVE
+            and opts.host not in gatelib.LOCAL_RIGS
+            and gatelib.recorded_os(opts.host) not in NATIVE_BY_DEFAULT
+        ):
             print(
                 f"run.py: REFUSED — the compose file's units run natively, which "
-                f"is on this machine, and --host {opts.host} names another; a "
-                "native unit is served with --host localhost",
+                f"is on this machine or on a macOS or Windows rig, and the rig "
+                f"file of --host {opts.host} records neither (`mcgyvr scan --rig "
+                f"{opts.host}` writes it); a unit on a Linux rig runs in its "
+                "container",
                 file=sys.stderr,
             )
             return 2
@@ -762,13 +768,16 @@ def serve(argv: list[str]) -> int:
             return 2
     else:
         # A fetch starts nothing; it is a native run where the rig is this
-        # macOS or Windows machine, reached without ssh, and needs no daemon.
-        launcher = (
-            LAUNCHER_NATIVE
-            if gatelib.local_transport(opts.host)
-            and hostos.os_name() in NATIVE_BY_DEFAULT
-            else LAUNCHER_DOCKER
+        # macOS or Windows machine, reached without ssh, or a macOS or Windows
+        # rig its rig file records, and needs no daemon.
+        here = (
+            gatelib.local_transport(opts.host) and hostos.os_name() in NATIVE_BY_DEFAULT
         )
+        there = (
+            opts.host not in gatelib.LOCAL_RIGS
+            and gatelib.recorded_os(opts.host) in NATIVE_BY_DEFAULT
+        )
+        launcher = LAUNCHER_NATIVE if here or there else LAUNCHER_DOCKER
     env = dict(os.environ)
     _door_env(env)
     try:

@@ -726,7 +726,7 @@ def user_cache_dir() -> Path:
     ``mcgyvr`` under ``$XDG_CACHE_HOME`` when that is set (``~`` expanded), on
     every system. Unset: Linux ``~/.cache/mcgyvr``, as before; macOS
     ``~/Library/Caches/mcgyvr``; Windows ``%LOCALAPPDATA%\\mcgyvr\\cache``.
-    The weights do not follow ``$XDG_CACHE_HOME`` (``rigscan``'s clone).
+    The weights do not follow ``$XDG_CACHE_HOME`` (:func:`weights_dir`).
     """
     cached = os.environ.get("XDG_CACHE_HOME")
     if cached:
@@ -736,6 +736,60 @@ def user_cache_dir() -> Path:
     if sys.platform == "darwin":
         return Path.home() / "Library" / "Caches" / APP
     return Path.home() / ".cache" / APP
+
+
+#: Where Windows keeps nvidia-smi.exe besides PATH: ``C:\\Windows\\System32``
+#: or ``C:\\Program Files\\NVIDIA Corporation\\NVSMI``
+#: (https://github.com/influxdata/telegraf/blob/master/plugins/inputs/nvidia_smi/README.md);
+#: Windows names its variables without regard to case; a 32-bit Python sees
+#: PROGRAMFILES as "Program Files (x86)", so PROGRAMW6432 comes first.
+NVIDIA_SMI_EXE = "nvidia-smi.exe"
+NVIDIA_SMI_DIRS = (
+    ("SYSTEMROOT", "C:\\Windows", ("System32",)),
+    ("PROGRAMW6432", "", ("NVIDIA Corporation", "NVSMI")),
+    ("PROGRAMFILES", "C:\\Program Files", ("NVIDIA Corporation", "NVSMI")),
+)
+
+
+def windows_nvidia_smi() -> str | None:
+    """nvidia-smi.exe by its full path: in a PATH folder named in full, else the
+    first NVIDIA_SMI_DIRS folder holding it, else None, and nothing is run. It is
+    never called by bare name: Windows' which() would look in the working folder
+    first, where anyone may leave an nvidia-smi.bat. The reader and the native
+    launcher both ask here."""
+    folders = [
+        d for d in os.environ.get("PATH", "").split(os.pathsep) if os.path.isabs(d)
+    ]
+    for variable, default, parts in NVIDIA_SMI_DIRS:
+        if os.environ.get(variable) or default:
+            folders.append(os.path.join(os.environ.get(variable) or default, *parts))
+    for folder in folders:
+        if os.path.isfile(os.path.join(folder, NVIDIA_SMI_EXE)):
+            return os.path.join(folder, NVIDIA_SMI_EXE)
+    return None
+
+
+#: The variable that names the weights folder instead of the cache's.
+WEIGHTS_DIR_ENV = "MCGYVR_WEIGHTS"
+
+
+def weights_dir() -> str:
+    """Where this machine keeps model weights, as a string path.
+
+    ``$MCGYVR_WEIGHTS`` with ``~`` expanded when set, else ``weights`` in the
+    system's cache folder: ``~/.cache/mcgyvr/weights`` on Linux (whatever
+    ``$XDG_CACHE_HOME`` says, as always), ``~/Library/Caches/mcgyvr/weights``
+    on macOS, ``%LOCALAPPDATA%\\mcgyvr\\cache\\weights`` on Windows. The reader
+    and the fetcher, both shipped to rigs, ask here.
+    """
+    override = os.environ.get(WEIGHTS_DIR_ENV)
+    if override:
+        return os.path.expanduser(override)
+    if sys.platform == "darwin":
+        return os.path.expanduser("~/Library/Caches/mcgyvr/weights")
+    if sys.platform == "win32":
+        return os.path.join(str(_local_app_data()), APP, "cache", "weights")
+    return os.path.expanduser("~/.cache/mcgyvr/weights")
 
 
 def _local_app_data() -> Path:
