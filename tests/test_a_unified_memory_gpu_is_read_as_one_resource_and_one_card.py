@@ -148,10 +148,11 @@ def test_the_rig_reports_the_unified_gpu_and_lends_it_only_with_native_launch(
     assert report.sources == (("apple", 0),)
     assert [r["kind"] for r in report.resources] == ["unified", "ram", "cpu"]
     assert report.host is not None and report.host.arch == "arm64"
-    # A lent card is served by a CUDA worker in a container, which a unified GPU
-    # cannot be; it is lent once units launch natively.
+    # A container's CUDA worker or head cannot be a unified GPU, so it is never
+    # lent to one; it is lent whole, as one device, where sessions run natively.
     assert sharing.Sharing(enabled=True).lends(0, report) is None
-    assert ("apple", "unified") not in sharing.LENT_KINDS
+    assert ("apple", "unified") not in sharing.CONTAINER_KINDS
+    assert ("apple", "unified") in sharing.LENT_KINDS
 
 
 def test_a_memory_total_without_available_memory_keeps_the_memory_section() -> None:

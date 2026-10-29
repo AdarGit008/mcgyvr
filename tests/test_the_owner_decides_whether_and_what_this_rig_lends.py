@@ -102,7 +102,11 @@ def test_a_hello_offers_only_while_the_rig_lends(tmp_path: Path) -> None:
 
     held = fakes.inventory(tmp_path)
     off = session.offer(
-        fakes.sharing(tmp_path, enabled=False), held, (fakes.LAN_ADDRESS,), ()
+        fakes.sharing(tmp_path, enabled=False),
+        held,
+        (fakes.LAN_ADDRESS,),
+        (),
+        fakes.report(),
     )
     # A rig that lends nothing offers no role, endpoint or model; it still
     # names the shared units' feature, so the hub takes its adverts whenever
@@ -115,7 +119,9 @@ def test_a_hello_offers_only_while_the_rig_lends(tmp_path: Path) -> None:
         sessions=(),
         features=(session.HITCHHIKE_FEATURE,),
     )
-    on = session.offer(fakes.sharing(tmp_path), held, (fakes.LAN_ADDRESS,), ("s1",))
+    on = session.offer(
+        fakes.sharing(tmp_path), held, (fakes.LAN_ADDRESS,), ("s1",), fakes.report()
+    )
     assert on == protocol.Offer(
         roles=("head", "worker"),
         runtime="engine:rpc",
@@ -125,7 +131,11 @@ def test_a_hello_offers_only_while_the_rig_lends(tmp_path: Path) -> None:
         features=session.FEATURES,
     )
     worker_only = session.offer(
-        fakes.sharing(tmp_path, roles=("worker",)), held, (fakes.LAN_ADDRESS,), ()
+        fakes.sharing(tmp_path, roles=("worker",)),
+        held,
+        (fakes.LAN_ADDRESS,),
+        (),
+        fakes.report(),
     )
     assert worker_only is not None and worker_only.models == ()
     frame = json.loads(

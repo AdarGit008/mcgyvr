@@ -1,4 +1,5 @@
-"""Ask the hub for the relief rungs this setup may ride, and keep them written.
+"""Ask the hub for the relief rungs this setup may ride, and keep them written;
+ask it for the member's balance with the same key.
 
 A relief rung is a unit other people lend you through the hub (hitchhike): it
 is never a step of the ladder, so all this module does is report the ladder's
@@ -16,6 +17,8 @@ shape to the hub and record the rungs it answers with.
 * :class:`Refresher` re-runs a sync off the rig agent's heartbeat, no more
   often than the hub's ``refresh_s``, and once every ``RETRY_S`` after a
   failure.
+* :func:`balance` asks ``CREDITS_PATH`` for the member's credits, through the
+  same :func:`ask` a sync posts with.
 """
 
 from __future__ import annotations
@@ -23,6 +26,7 @@ from __future__ import annotations
 import json
 import math
 import os
+import re
 import sys
 import threading
 import time
@@ -60,6 +64,11 @@ from mcgyvr.rig.verbs import AGENT_PATH, _RefusalError, hub_address
 
 #: The hub's rider API path, taken on the hub's own address and not on a rung's.
 RUNGS_PATH = "/api/v1/me/rungs"
+#: The member's balance and ledger on the hub, asked with the same key.
+CREDITS_PATH = "/api/v1/me/credits"
+#: A balance as the hub writes one: an exact decimal, at most this long.
+MAX_BALANCE = 40
+BALANCE = re.compile(rf"(?=.{{1,{MAX_BALANCE}}}$)-?[0-9]+(\.[0-9]+)?")
 #: The variable name a sync reads the rider's personal hub key from.
 KEY_ENV = "MCGYVR_HUB_API_KEY"
 #: What the address check names as the credential that would travel in clear.
@@ -156,18 +165,24 @@ def _origin(parts: urllib.parse.SplitResult) -> tuple[str, str, int]:
     return scheme, (parts.hostname or "").lower(), port
 
 
-def rungs_url(hub: str) -> str:
-    """The hub's rider API address, built from the hub's own address.
+def api_url(hub: str, api_path: str) -> str:
+    """An address of the hub's API with the personal key, built from the hub's
+    own address.
 
-    An ``AGENT_PATH`` suffix is dropped and ``RUNGS_PATH`` put in its place, so
-    the report goes to the host and port the key is meant for and not to a rung.
+    An ``AGENT_PATH`` suffix is dropped and ``api_path`` put in its place, so
+    the key goes to the host and port it is meant for and not to a rung.
     """
     parts = hub_address(hub, carrying=CARRYING)
     scheme, _, _ = _origin(parts)
     path = parts.path.rstrip("/")
     if path.endswith(AGENT_PATH):
         path = path[: -len(AGENT_PATH)]
-    return urllib.parse.urlunsplit((scheme, parts.netloc, path + RUNGS_PATH, "", ""))
+    return urllib.parse.urlunsplit((scheme, parts.netloc, path + api_path, "", ""))
+
+
+def rungs_url(hub: str) -> str:
+    """The hub's rider API address (``RUNGS_PATH``), built from its own."""
+    return api_url(hub, RUNGS_PATH)
 
 
 class _NoRedirect(urllib.request.HTTPRedirectHandler):
@@ -276,23 +291,35 @@ def fetch(
     *,
     timeout: float = FETCH_TIMEOUT_S,
 ) -> Rides:
-    """POST the report to the hub and read the answer whole.
+    """POST the report to the hub (:func:`ask`) and read the answer whole."""
+    return read(ask(hub, key, RUNGS_PATH, report, timeout=timeout), hub)
+
+
+def ask(
+    hub: str,
+    key: str,
+    api_path: str,
+    body: Mapping[str, Any] | None = None,
+    *,
+    timeout: float = FETCH_TIMEOUT_S,
+) -> Any:
+    """POST ``body`` to ``api_path`` on the hub's own address, or GET it when
+    there is no body, and return the answer's JSON, read whole.
 
     The key travels in an ``Authorization: Bearer`` header, never in the URL,
     and a redirect is not followed. :class:`HubAnswerError` covers a refusal
     status, an answer over ``MAX_ANSWER_BYTES`` and a body that is not JSON;
     :class:`SyncError` covers a hub that could not be reached at all.
     """
-    url = rungs_url(hub)
+    url = api_url(hub, api_path)
+    headers = {"Authorization": f"Bearer {key}", "Accept": "application/json"}
+    if body is not None:
+        headers["Content-Type"] = "application/json"
     request = urllib.request.Request(
         url,
-        data=json.dumps(report).encode("utf-8"),
-        headers={
-            "Authorization": f"Bearer {key}",
-            "Accept": "application/json",
-            "Content-Type": "application/json",
-        },
-        method="POST",
+        data=None if body is None else json.dumps(body).encode("utf-8"),
+        headers=headers,
+        method="GET" if body is None else "POST",
     )
     opener = urllib.request.build_opener(_NoRedirect)
     try:
@@ -309,10 +336,20 @@ def fetch(
             f"the hub's answer is refused: it is over {MAX_ANSWER_BYTES} bytes"
         )
     try:
-        document = json.loads(raw.decode("utf-8"))
+        return json.loads(raw.decode("utf-8"))
     except (UnicodeError, ValueError, RecursionError) as exc:
         raise HubAnswerError("the hub's answer is refused: it is not JSON") from exc
-    return read(document, hub)
+
+
+def balance(hub: str, key: str) -> str:
+    """The member's credits as the hub states them (``CREDITS_PATH``): an
+    exact decimal of at most ``MAX_BALANCE`` characters, or
+    :class:`HubAnswerError` for anything else."""
+    document = ask(hub, key, CREDITS_PATH)
+    said = document.get("balance") if isinstance(document, dict) else None
+    if not isinstance(said, str) or not BALANCE.fullmatch(said):
+        raise _refused("balance", "is not a decimal number of credits")
+    return said
 
 
 def _refused(where: str, why: str) -> HubAnswerError:

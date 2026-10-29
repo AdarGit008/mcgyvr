@@ -18,10 +18,10 @@ import signal
 import sys
 import time
 import urllib.parse
-from collections.abc import Callable
+from collections.abc import Callable, Mapping
 from pathlib import Path
 from types import FrameType
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Any
 
 from mcgyvr import hostos
 from mcgyvr.exits import Exit
@@ -253,7 +253,7 @@ def run_agent(kept: Credentials, config: Path | None = None) -> int:
         port=lambda: None if sessions.running() else lending().listen_port,
         hosts=lambda: session.endpoint_hosts(lending(), tunnel.read_interfaces),
         own=lambda: tuple(i.ip for _, i in tunnel.read_interfaces()),
-        lending=lambda: bool(lending().offered_roles()),
+        lending=lambda: bool(lending().session_roles(last_report())),
     )
     sessions.before_prepare(lambda: probes.release(lending().listen_port))
     dispatcher = commands.Dispatcher()
@@ -284,7 +284,7 @@ def run_agent(kept: Credentials, config: Path | None = None) -> int:
     def offer() -> protocol.Offer | None:
         share = lending()
         hosts = session.endpoint_hosts(share, tunnel.read_interfaces)
-        return session.offer(share, models(), hosts, sessions.running())
+        return session.offer(share, models(), hosts, sessions.running(), last_report())
 
     def online() -> None:
         sessions.online()
@@ -470,7 +470,63 @@ def _status(args: argparse.Namespace) -> int:
         )
     for note in report.notes:
         print(f"  note: {note}")
+    _say_lent(report)
+    _say_credits(kept.hub)
     return int(Exit.OK)
+
+
+def _say_lent(report: Any) -> None:
+    """Print what this rig advertises as lent on the machine `report` reads, or
+    why it lends nothing."""
+    from mcgyvr.hubwire import CARD_KINDS, RESOURCE_CPU
+    from mcgyvr.rig import sharing
+
+    try:
+        share = sharing.load()
+    except sharing.SharingError as exc:
+        print(f"lends:   nothing ({exc})")
+        return
+    lent = share.lendable(report).lent
+    if not lent:
+        if not share.enabled:
+            why = "lending is off"
+        elif not share.session_roles(report):
+            why = "no session role is offered on this machine"
+        else:
+            why = "nothing reaches the hub's lending floor"
+        print(f"lends:   nothing ({why})")
+        return
+    lines = []
+    for resource in lent:
+        if resource.kind in CARD_KINDS:
+            lines.append(
+                f"card {resource.index}: {resource.name}, {resource.total_mb} MiB "
+                f"({resource.kind}, {resource.backend})"
+            )
+        elif resource.kind == RESOURCE_CPU:
+            lines.append(f"cpu {resource.cores} cores")
+        else:
+            lines.append(f"{resource.kind} {resource.total_mb} MiB")
+    print(f"lends:   {lines[0]}")
+    for line in lines[1:]:
+        print(f"         {line}")
+
+
+def _say_credits(hub: str) -> None:
+    """Print the member's balance as the hub answers it, asked with the
+    personal hub key in ``$MCGYVR_HUB_API_KEY``; a note when it is not read."""
+    from mcgyvr.rig import agent, rungs
+
+    key = os.environ.get(rungs.KEY_ENV)
+    if not key:
+        print(f"credits: set ${rungs.KEY_ENV} to your personal hub key to see them")
+        return
+    try:
+        balance = rungs.balance(hub, key)
+    except (rungs.HubAnswerError, rungs.SyncError) as exc:
+        print(f"credits: not read: {agent.shown(str(exc))}")
+        return
+    print(f"credits: {balance}")
 
 
 def _leave(args: argparse.Namespace) -> int:
@@ -571,6 +627,35 @@ def _maybe_number(text: str) -> int | None:
     return None if text == "none" else int(text)
 
 
+def _settings(wanted: Any) -> dict[str, Any]:
+    from dataclasses import asdict
+
+    data = asdict(wanted)
+    data.pop("notes")
+    return {k: list(v) if isinstance(v, tuple) else v for k, v in data.items()}
+
+
+def _beyond_the_machine(wanted: Any, changes: Mapping[str, object]) -> list[str]:
+    """What of a lend the machine, read now, cannot give: memory and cores lent
+    and cards listed are held to it when one of them changes. A machine that
+    cannot be read refuses a lend of memory or cores (nothing to hold them to)."""
+    from mcgyvr.rig import hardware
+
+    asked = {"ram_mb", "cpu_cores", "cards"} & set(changes)
+    lends_any = wanted.ram_mb or wanted.cpu_cores or wanted.cards
+    if not asked or not lends_any:
+        return []
+    try:
+        report = hardware.read()
+    except hardware.HardwareError as exc:
+        if wanted.ram_mb or wanted.cpu_cores:
+            return [
+                f"what to lend is held to this machine, which could not be read: {exc}"
+            ]
+        return []
+    return list(wanted.refusals(report))
+
+
 def _share(args: argparse.Namespace) -> int:
     from dataclasses import replace
 
@@ -613,6 +698,10 @@ def _share(args: argparse.Namespace) -> int:
             changes["cache"] = args.cache
         if args.cache_max_mb is not None:
             changes["cache_max_mb"] = args.cache_max_mb
+        if args.ram_mb is not None:
+            changes["ram_mb"] = int(args.ram_mb)
+        if args.cpu_cores is not None:
+            changes["cpu_cores"] = int(args.cpu_cores)
     except ValueError:
         print("error: a number was asked for and something else given", file=sys.stderr)
         return int(Exit.USAGE)
@@ -624,6 +713,16 @@ def _share(args: argparse.Namespace) -> int:
         )
         return int(Exit.USAGE)
     if changes:
+        try:
+            sharing.read(_settings(wanted))  # the floor, before the machine is read
+        except sharing.SharingError as exc:
+            print(f"error: {exc}", file=sys.stderr)
+            return int(Exit.USAGE)
+        refused = _beyond_the_machine(wanted, changes)
+        if refused:
+            for line in refused:
+                print(f"error: {line}", file=sys.stderr)
+            return int(Exit.REFUSED)
         try:
             where = sharing.save(wanted)
         except sharing.SharingError as exc:
@@ -646,6 +745,8 @@ def _share(args: argparse.Namespace) -> int:
     print(f"tunnel:  udp {udp} on {endpoints} (one port per session at once)")
     cache = f"up to {wanted.cache_max_mb} MiB" if wanted.cache else "off"
     print(f"cache:   {cache}")
+    print(f"lent ram: {f'{wanted.ram_mb} MiB' if wanted.ram_mb else 'none'}")
+    print(f"lent cpu: {f'{wanted.cpu_cores} cores' if wanted.cpu_cores else 'none'}")
     for note in wanted.notes:
         print(f"note:    {note}")
     return int(Exit.OK)
@@ -738,4 +839,11 @@ def add_parser(
     cache.add_argument("--cache", dest="cache", action="store_const", const=True)
     cache.add_argument("--no-cache", dest="cache", action="store_const", const=False)
     share.add_argument("--cache-max-mb", type=int, help="the worker cache's size")
+    share.add_argument(
+        "--ram-mb",
+        help="host memory lent to whole models this rig heads, in MiB, or 0",
+    )
+    share.add_argument(
+        "--cpu-cores", help="cores lent to whole models this rig heads, or 0"
+    )
     share.set_defaults(func=_share, on=None, cache=None)

@@ -132,7 +132,7 @@ def test_the_hello_carries_the_lent_resources_and_the_cards_they_make(
     assert body["cards"] == hubwire.cards_from_resources(lent)
     assert [card["index"] for card in body["cards"]] == [1]
     assert body["host"]["os"] == "linux"
-    assert body["host"]["version"] == "6.1-example"
+    assert body["host"]["version"] == report.host.version
     assert body["ram_total_mb"] == report.ram_total_mb
 
 
@@ -241,7 +241,7 @@ def test_the_hello_builder_refuses_cards_the_resources_do_not_make() -> None:
             index=1, name="Example Card B", vram_total_mb=8192, vram_free_mb=8192
         ),
     )
-    with pytest.raises(ValueError, match="^cards: "):
+    with pytest.raises(ValueError, match=r"^cards: "):
         protocol.hello(
             "h",
             machine_id="m",

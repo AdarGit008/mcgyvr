@@ -68,6 +68,24 @@ archived outside this repository, under the same paths.
 
 ### Added
 
+- **A rig lends host memory and cores, and its hello says exactly what it lends
+  (#822).** `mcgyvr rig share --ram-mb N --cpu-cores N` lends memory and cores
+  to whole models the rig heads (0, the default, lends none); an amount under
+  the hub's lending floor (4096 MiB of RAM, 2 cores, `hubwire.LEND_FLOOR_MB`,
+  `LEND_FLOOR_CORES`) is refused naming the floor, memory past what is
+  available less 2048 MiB and cores past all but one are refused, and so is a
+  listed card under its kind's floor. The hello carries the lent resources
+  (`resources`, hubwire's contract) and the host; its `cards` are now the cards
+  those make (`hubwire.cards_from_resources`), not every card the machine has,
+  so a rig that lends nothing names no card, and the heartbeat re-reads the
+  lent resources. A card's memory bandwidth, which the reader does not read,
+  is its class's estimate from `data/hardware-classes.json`, labelled so. A rig
+  lending no card offers the head role alone and heads no pipeline (K4); a Mac
+  or Windows rig offers no session role, so lends nothing, until a session host
+  runs there. `mcgyvr rig status` names what is lent and, with your personal
+  hub key in `$MCGYVR_HUB_API_KEY`, your credits. The native build's arch and
+  `nvidia-smi` are now the machine reader's.
+
 - **A unit runs natively, with no container: `launcher: native` (#818).** The
   llama.cpp build mcgyvr pins (b11960, `mcgyvr.serving.llamacpp`; the Linux
   image is the same build, `server-cuda-b11960`) is fetched on first use into

@@ -19,7 +19,7 @@ import json
 import re
 import uuid
 from collections.abc import Mapping, Sequence
-from dataclasses import dataclass
+from dataclasses import asdict, dataclass
 from typing import Any
 
 from mcgyvr import hubwire
@@ -494,6 +494,8 @@ def hello(
     ram_free_mb: int | None,
     cards: Sequence[CardReport],
     offer: Offer | None = None,
+    resources: Sequence[hubwire.Resource] = (),
+    host: hubwire.Host | None = None,
 ) -> str:
     """A ``hello`` frame: what this machine is, and what it offers.
 
@@ -503,6 +505,11 @@ def hello(
     capabilities, endpoints, models and sessions the rig brings; left out, the
     frame says nothing about them. Free RAM is left out when it is None, and a
     card with more free VRAM than it has in total is refused.
+
+    ``resources`` are what the rig lends (:class:`mcgyvr.hubwire.Resource`),
+    left out when there are none; with them, ``cards`` must be exactly the
+    cards they make (:func:`mcgyvr.hubwire.cards_from_resources`), as the hub
+    refuses any other. ``host`` names the system the rig runs on.
     """
     _need(bool(MACHINE_ID.fullmatch(machine_id)), "machine_id: not a machine id")
     _need(bool(AGENT_VERSION.fullmatch(agent_version)), "agent_version: not a version")
@@ -539,18 +546,34 @@ def hello(
     }
     if ram_free_mb is not None:
         body["ram_free_mb"] = ram_free_mb
+    if resources:
+        made = hubwire.cards_from_resources(resources)  # it holds them to fit
+        _need(
+            body["cards"] == made,
+            "cards: not the cards the gpu and unified resources make",
+        )
+        body["resources"] = [asdict(resource) for resource in resources]
+    if host is not None:
+        host.validate()
+        body["host"] = asdict(host)
     if offer is not None:
         body.update(_offer_body(offer))
     return _frame("hello", message_id, body, None)
 
 
 def heartbeat(
-    message_id: str, *, ram_free_mb: int | None, cards: Sequence[CardReading]
+    message_id: str,
+    *,
+    ram_free_mb: int | None,
+    cards: Sequence[CardReading],
+    resources: Sequence[hubwire.ResourceReading] = (),
 ) -> str:
     """A ``heartbeat`` frame: how much memory and VRAM is free right now.
 
     Free RAM is left out when it is None, and each card carries only its index
-    and its free MiB.
+    and its free MiB. ``resources`` re-read the free MiB of what the hello
+    lent, left out when there are none; with them, ``cards`` must be exactly
+    the readings they make (:func:`mcgyvr.hubwire.card_readings_from`).
     """
     if ram_free_mb is not None:
         _megabytes(ram_free_mb, "ram_free_mb")
@@ -564,6 +587,13 @@ def heartbeat(
     }
     if ram_free_mb is not None:
         body["ram_free_mb"] = ram_free_mb
+    if resources:
+        made = hubwire.card_readings_from(resources)  # it holds them to fit
+        _need(
+            body["cards"] == made,
+            "cards: not the readings the gpu and unified resources make",
+        )
+        body["resources"] = [asdict(reading) for reading in resources]
     return _frame("heartbeat", message_id, body, None)
 
 
