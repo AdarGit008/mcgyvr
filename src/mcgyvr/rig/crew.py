@@ -35,11 +35,11 @@ from mcgyvr.hubwire import (
 from mcgyvr.rig.rungs import (
     CREW,
     MAX_RUNG_WIDTH,
-    _refused,
     ask,
     hub_url,
     keep,
     load_setup,
+    refused,
 )
 
 #: What a crew unit's name in crew.yaml starts with: the hub's model follows.
@@ -64,24 +64,24 @@ class Lent:
 
 def _width(raw: object, where: str) -> int:
     if not isinstance(raw, list) or len(raw) > MAX_RUNG_WIDTH:
-        raise _refused(where, f"is not a list of at most {MAX_RUNG_WIDTH} counts")
+        raise refused(where, f"is not a list of at most {MAX_RUNG_WIDTH} counts")
     for index, slots in enumerate(raw):
         if isinstance(slots, bool) or not isinstance(slots, int):
-            raise _refused(f"{where}[{index}]", "is not a whole number")
+            raise refused(f"{where}[{index}]", "is not a whole number")
         if not 1 <= slots <= MAX_SLOTS:
-            raise _refused(f"{where}[{index}]", f"is not between 1 and {MAX_SLOTS}")
+            raise refused(f"{where}[{index}]", f"is not between 1 and {MAX_SLOTS}")
     return max(1, min(sum(raw), MAX_RUNG_WIDTH))
 
 
 def _lent(raw: object, where: str) -> Lent:
     if not isinstance(raw, dict):
-        raise _refused(where, "is not an object")
+        raise refused(where, "is not an object")
     model = raw.get("id")
     if not isinstance(model, str) or not MODEL_NAME.fullmatch(model):
-        raise _refused(f"{where}.id", "is outside the model pattern")
+        raise refused(f"{where}.id", "is outside the model pattern")
     pool = serving_pool(SCOPE_CREW, model)
     if pool != POOL_CREW:
-        raise _refused(f"{where}.id", f"is served from the {pool} pool, not a crew's")
+        raise refused(f"{where}.id", f"is served from the {pool} pool, not a crew's")
     return Lent(
         model=model, width=_width(raw.get(MODEL_SLOTS), f"{where}.{MODEL_SLOTS}")
     )
@@ -97,17 +97,17 @@ def read(document: object) -> tuple[Lent, ...]:
     where it is, so no partial listing is ever returned.
     """
     if not isinstance(document, dict):
-        raise _refused("the answer", "is not a JSON object")
+        raise refused("the answer", "is not a JSON object")
     listed = document.get("data")
     if not isinstance(listed, list):
-        raise _refused("data", "is not a list")
+        raise refused("data", "is not a list")
     if len(listed) > MAX_MODELS:
-        raise _refused("data", f"lists more than {MAX_MODELS}")
+        raise refused("data", f"lists more than {MAX_MODELS}")
     lent = tuple(_lent(raw, f"data[{index}]") for index, raw in enumerate(listed))
     seen: set[str] = set()
     for index, each in enumerate(lent):
         if each.model in seen:
-            raise _refused(f"data[{index}].id", "is listed twice")
+            raise refused(f"data[{index}].id", "is listed twice")
         seen.add(each.model)
     return lent
 

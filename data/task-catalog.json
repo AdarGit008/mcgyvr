@@ -9,7 +9,7 @@
     },
     {
       "name": "local",
-      "doc": "Models served by a source needing no credential. The keyless install runs here with the deterministic gate as its whole acceptance bar."
+      "doc": "Models served by a source needing no credential, or lent free by your crews through a hub. The keyless install runs here with the deterministic gate as its whole acceptance bar."
     },
     {
       "name": "api",

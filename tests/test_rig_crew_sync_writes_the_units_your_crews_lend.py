@@ -337,11 +337,13 @@ def test_a_crew_unit_is_not_an_api_rung_so_fan_out_may_use_it(
     assert family_of(config, f"crew-{CODER}").name == "local"
 
 
-def test_a_unit_with_a_key_under_another_scope_is_still_an_api_rung() -> None:
+def test_a_unit_with_a_key_not_lent_by_a_crew_is_still_an_api_rung() -> None:
+    """Only a unit ``crew.yaml`` holds is taken as lent free: a hand-written
+    vendor unit stays an api rung whatever ``scope`` it states."""
     from mcgyvr.catalog import catalog
     from mcgyvr.config import Unit
 
-    for scope in (hubwire.SCOPE_OWN, hubwire.SCOPE_ANYONE):
+    for scope in hubwire.SCOPE_VALUES:
         unit = Unit(
             name="hosted",
             address="https://api.example.com/v1",
@@ -407,3 +409,45 @@ def test_rungs_sync_writes_its_relief_rungs_byte_for_byte_beside_crew_units(
     assert relief == _relief_as_written_before(hub.address)
     assert (setup / "crew.yaml").read_bytes() == crew_kept
     assert hub.asked[-1]["path"] == "/api/v1/me/rungs"
+
+
+def test_a_crew_unit_whose_pool_is_full_is_passed_over_not_failed(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """The hub answers ``503 pool_busy`` when the crew's units have no slot for
+    the request now: the unit is full, its slot given back, never an error the
+    cooldown would learn it failing by."""
+    from mcgyvr.capacity import Capacity, SlotUnavailableError
+    from mcgyvr.config import parse
+    from mcgyvr.local_pool import source_map
+    from mcgyvr.rig import crew as crew_sync
+    from mcgyvr.runner import Request, RunnerError, dispatch
+    from tests.rungs import answering, error
+
+    monkeypatch.setenv("MCGYVR_HUB_API_KEY", KEY)
+    name = f"crew-{CODER}"
+    seen: list[dict[str, Any]] = []
+    with answering(*error(*hubwire.POOL_BUSY), seen) as address:
+        lent = crew_sync.read(models((CODER, [2])))
+        config = parse(
+            "units:\n  local_fast:\n    address: http://fast-box.example:8000\n"
+            "    model: qwen2.5-coder-3b\n    width: 1\n",
+            f"ladder: [local_fast, {name}]\n",
+            crew_text=crew_sync.render(lent, address, "MCGYVR_HUB_API_KEY"),
+        )
+        capacity = Capacity.of(config, root=tmp_path / "slots")
+        try:
+            outcome: object = dispatch(
+                source_map(config),
+                name,
+                Request(prompt="hello", max_output_tokens=8),
+                capacity=capacity,
+            )
+        except Exception as exc:
+            outcome = exc
+
+    assert isinstance(outcome, SlotUnavailableError), outcome
+    assert not isinstance(outcome, RunnerError)
+    assert len(seen) == 1
+    assert seen[0]["body"]["model"] == CODER
+    assert capacity.load(name) == 0

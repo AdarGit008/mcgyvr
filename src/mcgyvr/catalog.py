@@ -208,10 +208,11 @@ class Catalog:
 
     def family_of(self, source: Unit) -> Family:
         """The family a unit is served from: `api` when it declares an
-        `api_key_env`, `local` when it does not. A unit a hub serves from the
-        crew pool (`hubwire.serving_pool`) names the key it is asked with and
-        still is `local`: a crew lends its units free, so it is no api rung."""
-        lent = serving_pool(source.scope, source.model) == POOL_CREW
+        `api_key_env`, `local` when it does not. A crew unit (one `crew.yaml`
+        holds) a hub serves from the crew pool (`hubwire.serving_pool`) names
+        the key it is asked with and still is `local`: a crew lends its units
+        free, so it is no api rung. A hand-written unit is never taken as one."""
+        lent = source.crew and serving_pool(source.scope, source.model) == POOL_CREW
         priced = source.requires_credential and not lent
         return self.family("api" if priced else "local")
 

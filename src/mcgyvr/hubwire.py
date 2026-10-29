@@ -148,6 +148,9 @@ def api_error(code: str) -> tuple[int, str]:
 MODEL_UNPLACED = api_error("model_unplaced")
 #: The address does not know the asked model.
 MODEL_NOT_FOUND = api_error("model_not_found")
+#: The pool the request is served from has no slot for it now: a full pool,
+#: not a broken unit.
+POOL_BUSY = api_error("pool_busy")
 #: The answers that say a relief rung cannot take a request now, sorted: the
 #: hub names no host running the model (404 ``model_not_found``), the host's
 #: machine is away (503 ``hitchhike_host_away``), the hub has not yet matched

@@ -377,23 +377,24 @@ def ask(
     return document
 
 
-def _refused(where: str, why: str) -> HubAnswerError:
+def refused(where: str, why: str) -> HubAnswerError:
+    """The refusal of a hub's answer, naming ``where`` in it and ``why``."""
     return HubAnswerError(f"the hub's answer is refused: {where} {why}")
 
 
 def _text(value: object, where: str, longest: int) -> str:
     if not isinstance(value, str) or not value or len(value) > longest:
-        raise _refused(where, f"is not text of 1 to {longest} characters")
+        raise refused(where, f"is not text of 1 to {longest} characters")
     if not value.isprintable():
-        raise _refused(where, "holds a character that is not printable")
+        raise refused(where, "holds a character that is not printable")
     return value
 
 
 def _count(value: object, where: str) -> int:
     if isinstance(value, bool) or not isinstance(value, int):
-        raise _refused(where, "is not a whole number")
+        raise refused(where, "is not a whole number")
     if not 1 <= value <= MAX_RUNG_WIDTH:
-        raise _refused(where, f"is not between 1 and {MAX_RUNG_WIDTH}")
+        raise refused(where, f"is not between 1 and {MAX_RUNG_WIDTH}")
     return value
 
 
@@ -402,38 +403,36 @@ def _address(value: object, where: str, origin: tuple[str, str, int]) -> str:
     try:
         parts = hub_address(address, carrying=CARRYING)
     except _RefusalError as exc:
-        raise _refused(where, str(exc)) from exc
+        raise refused(where, str(exc)) from exc
     except ValueError as exc:
-        raise _refused(where, f"is not a hub's address: {exc}") from exc
+        raise refused(where, f"is not a hub's address: {exc}") from exc
     if parts.scheme.lower() not in ("http", "https"):
-        raise _refused(where, "is not an http(s) address")
+        raise refused(where, "is not an http(s) address")
     if _origin(parts) != origin:
-        raise _refused(
+        raise refused(
             where, "is not the hub's own address, and the key would be sent there"
         )
     if not parts.path.rstrip("/").endswith("/v1"):
-        raise _refused(where, "does not end in /v1")
+        raise refused(where, "does not end in /v1")
     return address
 
 
 def _ride(raw: object, where: str, origin: tuple[str, str, int]) -> Ride:
     if not isinstance(raw, dict):
-        raise _refused(where, "is not an object")
+        raise refused(where, "is not an object")
     rung_id = raw.get("id")
     if not isinstance(rung_id, str) or not OFFER_ID.fullmatch(rung_id):
-        raise _refused(f"{where}.id", "is not 32 lowercase hex digits")
+        raise refused(f"{where}.id", "is not 32 lowercase hex digits")
     model = raw.get("model")
     if not isinstance(model, str) or not MODEL_NAME.fullmatch(model):
-        raise _refused(f"{where}.model", "is outside the model pattern")
+        raise refused(f"{where}.model", "is outside the model pattern")
     if rung_offer(model) != rung_id:
-        raise _refused(f"{where}.model", "does not name this rung")
+        raise refused(f"{where}.model", "does not name this rung")
     if raw.get("relief") is not True:
-        raise _refused(f"{where}.relief", "is not true")
+        raise refused(f"{where}.relief", "is not true")
     position = raw.get("position")
     if position not in RUNG_POSITIONS:
-        raise _refused(
-            f"{where}.position", f"is not one of {', '.join(RUNG_POSITIONS)}"
-        )
+        raise refused(f"{where}.position", f"is not one of {', '.join(RUNG_POSITIONS)}")
     assert isinstance(position, str)  # RUNG_POSITIONS is text: the type narrows
     return Ride(
         id=rung_id,
@@ -457,10 +456,10 @@ def read(document: object, hub: str) -> Rides:
     """
     origin = _origin(hub_address(hub, carrying=CARRYING))
     if not isinstance(document, dict):
-        raise _refused("the answer", "is not a JSON object")
+        raise refused("the answer", "is not a JSON object")
     ride = document.get("ride")
     if not isinstance(ride, bool):
-        raise _refused("ride", "is not true or false")
+        raise refused("ride", "is not true or false")
     privacy = _text(document.get("privacy"), "privacy", MAX_PRIVACY)
     refresh = document.get("refresh_s")
     if (
@@ -469,21 +468,21 @@ def read(document: object, hub: str) -> Rides:
         or not math.isfinite(refresh)
         or refresh <= 0
     ):
-        raise _refused("refresh_s", "is not a number above zero")
+        raise refused("refresh_s", "is not a number above zero")
     listed = document.get("rungs")
     if not isinstance(listed, list):
-        raise _refused("rungs", "is not a list")
+        raise refused("rungs", "is not a list")
     if len(listed) > MAX_RUNGS:
-        raise _refused("rungs", f"lists more than {MAX_RUNGS}")
+        raise refused("rungs", f"lists more than {MAX_RUNGS}")
     if listed and not ride:
-        raise _refused("rungs", "are listed for a rider who does not ride")
+        raise refused("rungs", "are listed for a rider who does not ride")
     rides = tuple(
         _ride(raw, f"rungs[{index}]", origin) for index, raw in enumerate(listed)
     )
     seen: set[str] = set()
     for index, each in enumerate(rides):
         if each.id in seen:
-            raise _refused(f"rungs[{index}].id", "is listed twice")
+            raise refused(f"rungs[{index}].id", "is listed twice")
         seen.add(each.id)
     return Rides(ride=ride, privacy=privacy, refresh_s=float(refresh), rungs=rides)
 

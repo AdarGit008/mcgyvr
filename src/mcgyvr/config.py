@@ -1353,6 +1353,9 @@ class Unit:
     #: every request names: `own` for a unit of your fleet that states none, and
     #: what `mcgyvr rig rungs sync` wrote for a relief rung.
     scope: str = SCOPE_OWN
+    #: True for a unit `crew.yaml` holds, one your crews lend through a hub.
+    #: Asked under scope crew, it is lent free and so is no api rung.
+    crew: bool = False
 
     @property
     def requires_credential(self) -> bool:
@@ -2272,7 +2275,8 @@ def _build(
             if name in fleet_units:
                 raise ConfigSchemaError(
                     f"crew.{name}: {name!r} is a unit of the fleet too. A name "
-                    f"is one machine; sync again, or rename the unit."
+                    f"is one machine, and a sync names a crew unit after its "
+                    f"model: rename the fleet unit."
                 )
         merged["units"] = {**fleet_units, **lent_to_crews}
     retired = RETIRED_USE_CASES.get(str(merged.get("use_case")))
@@ -2306,6 +2310,7 @@ def _build(
             launch=block["launch"],
             rider_slots=(data["rider_slots"] or {}).get(name, 0),
             scope=block["scope"],
+            crew=name in lent_to_crews,
         )
         for name, block in data["units"].items()
     }
