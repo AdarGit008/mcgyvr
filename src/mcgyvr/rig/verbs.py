@@ -137,6 +137,7 @@ def run_agent(kept: Credentials, config: Path | None = None) -> int:
     earlier handlers put back after it ends. The code is Exit.OK when the agent
     was asked to stop and Exit.ERROR otherwise.
     """
+    from mcgyvr import hubwire
     from mcgyvr.fleet import roots
     from mcgyvr.rig import (
         agent,
@@ -194,11 +195,28 @@ def run_agent(kept: Credentials, config: Path | None = None) -> int:
         except OSError as exc:
             print(f"note: the agent's state was not written: {exc}", file=sys.stderr)
 
+    # What the member chose on the hub for this rig to lend, from the hello's
+    # ack: it wins over the lending file's cards, memory and cores while this
+    # agent runs (the file is left as the owner wrote it).
+    chosen: list[hubwire.Lending] = []
+
     def lending() -> sharing.Sharing:
         try:
-            return sharing.load()
+            kept = sharing.load()
         except sharing.SharingError:
             return sharing.Sharing()  # unreadable settings lend nothing
+        return kept.under(chosen[0]) if chosen else kept
+
+    def on_lending(said: hubwire.Lending) -> None:
+        if chosen and chosen[0] == said:
+            return
+        chosen[:] = [said]
+        print(
+            "lending as chosen on the hub: cards "
+            f"{'all' if said.cards is None else list(said.cards)}, "
+            f"{said.ram_mb} MiB RAM, {said.cpu_cores} cores",
+            file=sys.stderr,
+        )
 
     read: list[hardware.Report] = []
 
@@ -321,6 +339,7 @@ def run_agent(kept: Credentials, config: Path | None = None) -> int:
         hurry=sessions.waiting,
         on_hub_error=sessions.hub_error,
         on_beat=beat,
+        on_lending=on_lending,
     )
     sessions.on_end(lambda ended: running.beat_soon())
 
@@ -514,6 +533,11 @@ def _say_lent(report: Any) -> None:
     print(f"lends:   {lines[0]}")
     for line in lines[1:]:
         print(f"         {line}")
+    if not any(resource.kind in CARD_KINDS for resource in lent):
+        print(
+            "         memory and cores alone are advertised but not yet placeable: "
+            "no hub starts a head on a CPU yet"
+        )
 
 
 def _say_credits(hub: str) -> None:
@@ -655,6 +679,7 @@ def _beyond_the_machine(wanted: Any, changes: Mapping[str, object]) -> list[str]
 def _share(args: argparse.Namespace) -> int:
     from dataclasses import replace
 
+    from mcgyvr.hubwire import LEND_FLOOR_CORES, LEND_FLOOR_MB, RESOURCE_RAM
     from mcgyvr.rig import sharing
 
     try:
@@ -710,11 +735,17 @@ def _share(args: argparse.Namespace) -> int:
         return int(Exit.USAGE)
     if changes:
         try:
-            sharing.read(
-                sharing.as_data(wanted)
-            )  # the floor, before the machine is read
+            sharing.read(sharing.as_data(wanted))
+            wanted.lending.validate()  # the wire's lending rules, floors included
         except sharing.SharingError as exc:
             print(f"error: {exc}", file=sys.stderr)
+            return int(Exit.USAGE)
+        except ValueError as exc:
+            print(
+                f"error: {exc} (0 lends none; the least the hub counts as lent is "
+                f"{LEND_FLOOR_MB[RESOURCE_RAM]} MiB of RAM, {LEND_FLOOR_CORES} cores)",
+                file=sys.stderr,
+            )
             return int(Exit.USAGE)
         refused = _beyond_the_machine(wanted, changes)
         if refused:

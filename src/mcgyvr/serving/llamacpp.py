@@ -45,7 +45,15 @@ from __future__ import annotations
 from dataclasses import dataclass
 
 from mcgyvr.hostos import DARWIN, LINUX, WINDOWS
-from mcgyvr.hubwire import HOST_ARCH, RESOURCE_BACKENDS
+from mcgyvr.hubwire import (
+    ARCH_ARM64,
+    ARCH_X86_64,
+    BACKEND_CPU,
+    BACKEND_CUDA,
+    BACKEND_METAL,
+    BACKEND_VULKAN,
+    HOST_ARCH,
+)
 from mcgyvr.serving.release import Asset, Release
 
 #: The pinned llama.cpp build.
@@ -63,9 +71,10 @@ EXECUTABLES = (SERVER, RPC_SERVER)
 #: The backends a native build runs on, the resource contract's own
 #: (``rocm`` aside: no build here is picked for it), and the systems and
 #: architectures it is built for, the wire's (:mod:`mcgyvr.hubwire`).
-CUDA, METAL, VULKAN, _ROCM, CPU = RESOURCE_BACKENDS
+CUDA, METAL, VULKAN, CPU = BACKEND_CUDA, BACKEND_METAL, BACKEND_VULKAN, BACKEND_CPU
 BACKENDS = (METAL, CUDA, VULKAN, CPU)
-X86_64, ARM64 = ARCHES = HOST_ARCH
+X86_64, ARM64 = ARCH_X86_64, ARCH_ARM64
+ARCHES = HOST_ARCH
 #: The lowest driver branch each CUDA major version runs on (NVIDIA's minor
 #: version compatibility table); below the lowest, a CUDA build is not picked.
 CUDA_DRIVER_FLOOR = {13: 580, 12: 525}

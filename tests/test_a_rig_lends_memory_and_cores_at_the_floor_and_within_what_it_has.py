@@ -3,14 +3,16 @@
 The lending settings name the host memory (``ram_mb``) and the cores
 (``cpu_cores``) a rig lends, 0 for none, and keep them across a save and a
 load. An amount under its kind's floor (:data:`mcgyvr.hubwire.LEND_FLOOR_MB`,
-:data:`mcgyvr.hubwire.LEND_FLOOR_CORES`) is refused with a message naming the
-floor, wherever it comes from. ``mcgyvr rig share`` also holds what it is told
-to lend to the machine as read now: memory to what is available less a
-headroom, cores to all but one, and a named card to its kind's floor; and
+:data:`mcgyvr.hubwire.LEND_FLOOR_CORES`) is refused by ``rig share`` (or ``rig
+lend``) through the wire's one rule (:meth:`mcgyvr.hubwire.Lending.validate`),
+naming the floor; a file kept under a floor raised since it was written still
+reads, and lends nothing of what does not count. ``rig share`` also holds what
+it is told to lend to the machine as read now: memory to what is available less
+a headroom, cores to all but one, and a named card to its kind's floor; and
 memory of a DDR generation the hub does not count (one Windows reads under
 :data:`mcgyvr.hubwire.RAM_DDR_MIN`) is refused naming the one it counts, while
-memory whose generation is unread (Linux, where SMBIOS needs root) lends by
-its size alone. It says back what the rig lends.
+memory whose generation is unread (Linux, where SMBIOS needs root) lends by its
+size alone. It says back what the rig lends.
 """
 
 from __future__ import annotations
@@ -83,17 +85,16 @@ def test_memory_and_cores_lent_are_kept_and_read_back(_home: Path) -> None:
 
 
 @pytest.mark.parametrize(
-    ("data", "field", "floor"),
+    ("data", "field"),
     [
-        ({"ram_mb": RAM_FLOOR - 1}, "ram_mb", f"{RAM_FLOOR} MiB"),
-        ({"cpu_cores": hubwire.LEND_FLOOR_CORES - 1}, "cpu_cores", "cores"),
-        ({"ram_mb": -1}, "ram_mb", None),
-        ({"ram_mb": "8G"}, "ram_mb", None),
-        ({"cpu_cores": hubwire.MAX_RESOURCE_CORES + 1}, "cpu_cores", None),
+        ({"ram_mb": -1}, "ram_mb"),
+        ({"ram_mb": "8G"}, "ram_mb"),
+        ({"ram_mb": True}, "ram_mb"),
+        ({"cpu_cores": hubwire.MAX_RESOURCE_CORES + 1}, "cpu_cores"),
     ],
 )
-def test_an_amount_the_hub_would_not_count_is_refused_by_its_field(
-    _home: Path, data: dict[str, Any], field: str, floor: str | None
+def test_an_amount_of_the_wrong_shape_is_refused_by_its_field(
+    _home: Path, data: dict[str, Any], field: str
 ) -> None:
     from mcgyvr.rig import sharing
 
@@ -102,8 +103,25 @@ def test_an_amount_the_hub_would_not_count_is_refused_by_its_field(
     with pytest.raises(sharing.SharingError) as refused:
         sharing.load()
     assert f": {field}:" in str(refused.value)
-    if floor is not None:
-        assert floor in str(refused.value) and "floor" in str(refused.value)
+
+
+def test_a_file_kept_under_a_floor_raised_since_still_reads_and_lends_nothing_of_it(
+    _home: Path, tmp_path: Path
+) -> None:
+    from mcgyvr.rig import sharing
+
+    under = {"ram_mb": RAM_FLOOR - 1, "cpu_cores": hubwire.LEND_FLOOR_CORES - 1}
+    _home.mkdir(parents=True)
+    (_home / sharing.SHARING_FILE).write_text(json.dumps(under))
+    kept = sharing.load()
+    assert (kept.ram_mb, kept.cpu_cores) == (
+        RAM_FLOOR - 1,
+        hubwire.LEND_FLOOR_CORES - 1,
+    )
+    with pytest.raises(ValueError, match=r"^ram_mb: "):
+        kept.lending.validate()  # the verb's rule: the wire's Lending
+    lending = fakes.sharing(tmp_path, cards=(), **under).lent(fakes.report())
+    assert lending == ()
 
 
 @pytest.mark.usefixtures("machine")
@@ -126,7 +144,7 @@ def test_share_lends_memory_and_cores_and_says_them_back(
 @pytest.mark.parametrize(
     ("arguments", "said"),
     [
-        (("--ram-mb", str(RAM_FLOOR - 1)), f"{RAM_FLOOR} MiB"),
+        (("--ram-mb", str(RAM_FLOOR - 1)), f"{RAM_FLOOR} MiB of RAM"),
         (("--cpu-cores", "1"), f"{hubwire.LEND_FLOOR_CORES} cores"),
         (("--ram-mb", str(RAM_FLOOR * 2 + RAM_FLOOR // 2)), "available"),
         (("--cpu-cores", "8"), "7"),

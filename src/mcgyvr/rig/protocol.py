@@ -14,6 +14,7 @@ fault rather than write a frame the hub would refuse, and a reader raises
 
 from __future__ import annotations
 
+import dataclasses
 import enum
 import json
 import re
@@ -147,6 +148,12 @@ class Ack:
     re: str
     rig_id: str | None
     heartbeat_interval_s: int | None
+    #: What the member chose on the hub for this rig to lend
+    #: (:data:`mcgyvr.hubwire.LENDING_FIELD`), when the hub says.
+    lending: hubwire.Lending | None = None
+    #: Why a lending the hub sent was not taken (not the wire's shape), so the
+    #: rig lends as its own settings say; None when there was none to refuse.
+    lending_unread: str | None = None
 
 
 @dataclass(frozen=True, kw_only=True)
@@ -284,11 +291,16 @@ def decode(raw: str | bytes) -> Envelope:
 
 
 def read_ack(envelope: Envelope) -> Ack:
-    """Read an ack's body: the rig id and the beat interval the hub set.
+    """Read an ack's body: the rig id, the beat interval the hub set, and
+    what the member chose for the rig to lend.
 
     The frame must answer a message, so ``re`` cannot be missing.
-    ``rig_id`` and ``heartbeat_interval_s`` may be left out, and an interval
-    must be a whole number of seconds within ``HEARTBEAT_INTERVAL_S``.
+    ``rig_id``, ``heartbeat_interval_s`` and the lending may be left out, and
+    an interval must be a whole number of seconds within
+    ``HEARTBEAT_INTERVAL_S``. A lending that does not keep
+    :meth:`mcgyvr.hubwire.Lending.validate`'s rules, or leaves a field out, is
+    not taken, and the ack says why (``lending_unread``): the rig then lends as
+    its own settings say.
     """
     if envelope.re is None:
         raise ProtocolError(
@@ -307,7 +319,44 @@ def read_ack(envelope: Envelope) -> Ack:
             f"body.heartbeat_interval_s: not a whole number of {low} to {high}",
             envelope.id,
         )
-    return Ack(re=envelope.re, rig_id=rig_id, heartbeat_interval_s=interval)
+    lending, unread = _lending(envelope.body.get(hubwire.LENDING_FIELD))
+    return Ack(
+        re=envelope.re,
+        rig_id=rig_id,
+        heartbeat_interval_s=interval,
+        lending=lending,
+        lending_unread=unread,
+    )
+
+
+def _lending(raw: object) -> tuple[hubwire.Lending | None, str | None]:
+    """An ack's :class:`mcgyvr.hubwire.Lending` held to its rules, or None
+    with why it is not taken. Every field must be there: ``cards`` null is
+    every card and an empty list none, while a missing ``cards`` is no
+    lending at all (never read as every card). None, None when the hub sent
+    none."""
+    if raw is None:
+        return None, None
+    where = f"{hubwire.LENDING_FIELD}"
+    names = {f.name for f in dataclasses.fields(hubwire.Lending)}
+    if not isinstance(raw, Mapping):
+        return None, f"{where}: not an object"
+    missing = sorted(names - set(raw))
+    if missing:
+        return None, f"{where}: no {', '.join(missing)}"
+    cards = raw["cards"]
+    if cards is not None and not isinstance(cards, list):
+        return None, f"{where}.cards: not null or a list"
+    lending = hubwire.Lending(
+        cards=None if cards is None else tuple(cards),
+        ram_mb=raw["ram_mb"],
+        cpu_cores=raw["cpu_cores"],
+    )
+    try:
+        lending.validate()
+    except (TypeError, ValueError) as exc:
+        return None, f"{where}.{exc}"
+    return lending, None
 
 
 def read_error(envelope: Envelope) -> Error:

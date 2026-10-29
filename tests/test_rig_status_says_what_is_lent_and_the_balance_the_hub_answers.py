@@ -1,7 +1,8 @@
 """``mcgyvr rig status`` says what the rig lends and the balance the hub answers.
 
 Beside the machine's reading, status names each resource the rig advertises as
-lent (a card whole, memory in MiB, cores) or says why it lends nothing. With
+lent (a card whole, memory in MiB, cores) or says why it lends nothing, and
+says when memory and cores alone are lent, which no hub places a head on yet. With
 the member's personal hub key in ``$MCGYVR_HUB_API_KEY`` it asks the hub's
 ``/api/v1/me/credits`` with that key in the ``Authorization`` header and prints
 the balance; a hub that refuses, redirects (the key never follows), or
@@ -178,3 +179,18 @@ def test_a_hub_that_redirects_is_not_followed_with_the_key(
         assert other.seen == [] and KEY not in out
     finally:
         other.server.shutdown()
+
+
+def test_status_says_a_lend_of_memory_and_cores_alone_is_not_yet_placeable(
+    hub: _Hub, capsys: pytest.CaptureFixture[str]
+) -> None:
+    from dataclasses import replace
+
+    from mcgyvr.rig import sharing
+
+    sharing.save(replace(sharing.load(), cards=()))
+    out = _status(capsys)
+    assert "lends:   ram" in out and f"ram {RAM} MiB" in out
+    assert "not yet placeable" in out
+    sharing.save(replace(sharing.load(), cards=None))
+    assert "not yet placeable" not in _status(capsys)

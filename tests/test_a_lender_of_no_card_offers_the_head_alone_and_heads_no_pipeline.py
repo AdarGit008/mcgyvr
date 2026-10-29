@@ -165,3 +165,37 @@ def test_a_head_runs_under_the_lend_as_advertised_never_past_the_machine(
     )
     capped = fakes.sharing(tmp_path, cards=(), ram_mb=10**6, max_ram_mb=RAM_FLOOR)
     assert capped.head_limits(report)[0] == RAM_FLOOR
+
+
+def test_a_head_start_plans_the_head_under_the_lend_as_advertised(
+    tmp_path: Path,
+) -> None:
+    from mcgyvr.rig import sharing
+
+    greedy = make_pool(tmp_path, cards=(0,), ram_mb=10**6, cpu_cores=999)
+    try:
+        prepared(greedy, role="head")
+        body = fakes.tunnel_up_body(address=f"{fakes.PEER}/24")
+        body["peers"][0]["allowed_ips"] = [f"{fakes.SELF}/32"]
+        greedy.up("t1", **body)
+        answer = greedy.ask(
+            "head_start",
+            "h1",
+            session_id="s1",
+            model={"name": fakes.MODEL},
+            ctx=4096,
+            devices=[{"kind": "local", "card_index": 0}],
+            tensor_split=[1],
+        )
+        assert answer is not None and answer["type"] == "ack", answer
+        greedy.settle()
+        from mcgyvr.rig import pooled
+
+        head = greedy.docker.containers[pooled.container_name("s1", "head")].argv
+        cores = fakes.REPORT_THREADS - sharing.CORES_KEPT
+        assert head[head.index("--cpus") + 1] == str(cores)
+        assert head[head.index("--threads") + 1] == str(cores)
+        memory = fakes.report().ram_total_mb - sharing.RAM_HEADROOM_MB
+        assert head[head.index("--memory") + 1] == f"{memory}m"
+    finally:
+        greedy.sessions.close()

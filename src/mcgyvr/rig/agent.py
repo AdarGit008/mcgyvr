@@ -27,6 +27,7 @@ from collections.abc import Callable
 from dataclasses import dataclass
 from typing import Protocol
 
+from mcgyvr import hubwire
 from mcgyvr.rig import commands, hardware, protocol, websocket
 from mcgyvr.rig.outbox import Outbox
 
@@ -190,9 +191,16 @@ class _Session:
         self.rig_id: str | None = None
         self.interval: int | None = None
         self.last_error: protocol.Error | None = None
+        #: What the member chose on the hub for this rig to lend, when said.
+        self.lending: hubwire.Lending | None = None
+        self.lending_unread: str | None = None
 
     def on_ack(self, ack: protocol.Ack) -> None:
         self.acked.add(ack.re)
+        if ack.lending is not None:
+            self.lending = ack.lending
+        if ack.lending_unread is not None:
+            self.lending_unread = ack.lending_unread
         if ack.rig_id is not None:
             self.rig_id = ack.rig_id
         if ack.heartbeat_interval_s is not None:
@@ -325,6 +333,7 @@ class Agent:
         on_hub_error: Callable[[protocol.Error], None] | None = None,
         on_beat: Callable[[], None] | None = None,
         aside: Callable[[Callable[[], None]], None] | None = None,
+        on_lending: Callable[[hubwire.Lending], None] | None = None,
     ) -> None:
         self._connect = connect
         self._read = read_hardware
@@ -350,6 +359,7 @@ class Agent:
         self._hurry = hurry or (lambda: False)
         self._on_hub_error = on_hub_error or (lambda error: None)
         self._on_beat = on_beat or (lambda: None)
+        self._on_lending = on_lending or (lambda lending: None)
         self._soon = threading.Event()
 
     def beat_soon(self) -> None:
@@ -545,6 +555,16 @@ class Agent:
                 done=lambda: hello_id in session.acked,
             )
         held_from.append(self._clock())
+        if session.lending_unread is not None:
+            self._say(
+                "note: the hub's lending choice is not taken "
+                f"({shown(session.lending_unread)}); lending as this rig's "
+                "settings say"
+            )
+        if session.lending is not None:
+            # The member's choice on the hub: the next reading lends it, and a
+            # heartbeat that finds the lend changed says hello again.
+            self._on_lending(session.lending)
         if self._outbox is not None:
             self._outbox.open(wake=channel.wake)
         self._on_online()

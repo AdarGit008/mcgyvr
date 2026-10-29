@@ -24,7 +24,6 @@ from mcgyvr import atomic, hostos, hubwire
 from mcgyvr.fleet import roots
 from mcgyvr.hubwire import (
     CARD_KINDS,
-    LEND_FLOOR_CORES,
     LEND_FLOOR_MB,
     RESOURCE_CPU,
     RESOURCE_GPU,
@@ -141,6 +140,24 @@ class Sharing:
         """The memory each container is given: the cap the settings name, or the
         default when they name none."""
         return self.max_ram_mb if self.max_ram_mb is not None else DEFAULT_CONTAINER_MB
+
+    @property
+    def lending(self) -> hubwire.Lending:
+        """What this rig lends, in the wire's one shape (:class:`hubwire.Lending`),
+        whose rules a lend asked for is held to."""
+        return hubwire.Lending(
+            cards=self.cards, ram_mb=self.ram_mb, cpu_cores=self.cpu_cores
+        )
+
+    def under(self, lending: hubwire.Lending) -> Sharing:
+        """These settings lending what `lending` says: the member's choice on
+        the hub, which wins over this file's cards, memory and cores."""
+        return replace(
+            self,
+            cards=lending.cards,
+            ram_mb=lending.ram_mb,
+            cpu_cores=lending.cpu_cores,
+        )
 
     def head_limits(self, report: hardware.Report) -> tuple[int, int | None]:
         """The memory (MiB) and cores a head's container runs under on the
@@ -296,12 +313,24 @@ class Sharing:
                     f"lend: {available} MiB available less {RAM_HEADROOM_MB} MiB "
                     f"kept for you leaves {most} MiB"
                 )
-        ddr = (by_kind.get(RESOURCE_RAM) or {}).get("ddr")
-        if self.ram_mb and isinstance(ddr, int) and ddr < hubwire.RAM_DDR_MIN:
-            said.append(
-                f"ram_mb: this machine's RAM is DDR{ddr}; the hub counts RAM as "
-                f"lent from DDR{hubwire.RAM_DDR_MIN} on, so none of it can be lent"
+        ram = by_kind.get(RESOURCE_RAM)
+        ddr = (ram or {}).get("ddr")
+        if self.ram_mb and ram is not None and isinstance(ddr, int):
+            asked = hubwire.Resource(
+                kind=RESOURCE_RAM,
+                index=0,
+                name=str(ram.get("name") or RESOURCE_RAM),
+                total_mb=self.ram_mb,
+                ddr=ddr,
+                figure=hubwire.FIGURE_READING,
+                backend=hubwire.BACKEND_CPU,
             )
+            if not hubwire.counts_as_lent(asked):
+                said.append(
+                    f"ram_mb: this machine's RAM is DDR{ddr}; the hub counts RAM "
+                    f"as lent from DDR{hubwire.RAM_DDR_MIN} on, so none of it can "
+                    "be lent"
+                )
         if self.cpu_cores:
             logical = (by_kind.get(RESOURCE_CPU) or {}).get("cores")
             if not isinstance(logical, int):
@@ -350,18 +379,6 @@ def _refuse(field_name: str, why: str) -> SharingError:
 def _whole(value: object, field_name: str, low: int, high: int) -> int:
     if type(value) is not int or not low <= value <= high:
         raise _refuse(field_name, f"not a whole number of {low} to {high}")
-    return value
-
-
-def _floored(value: int, field_name: str, floor: int, unit: str) -> int:
-    """`value`, unless it lends something under the hub's lending floor
-    (:data:`mcgyvr.hubwire.LEND_FLOOR_MB`, :data:`LEND_FLOOR_CORES`)."""
-    if 0 < value < floor:
-        raise _refuse(
-            field_name,
-            f"{value} is under the floor of {floor} {unit} the hub counts as "
-            f"lent; lend 0 or at least {floor}",
-        )
     return value
 
 
@@ -425,19 +442,14 @@ def read(data: object) -> Sharing:
         )
     if data.get("max_ram_mb") is not None:
         out["max_ram_mb"] = _whole(data["max_ram_mb"], "max_ram_mb", 1, protocol.MAX_MB)
+    # Memory and cores are read as kept, even under a lending floor raised
+    # since they were written: the verb holds a lend to the floor
+    # (hubwire.Lending), and lent() advertises nothing that does not count.
     if "ram_mb" in data:
-        out["ram_mb"] = _floored(
-            _whole(data["ram_mb"], "ram_mb", 0, protocol.MAX_MB),
-            "ram_mb",
-            LEND_FLOOR_MB[RESOURCE_RAM],
-            "MiB of RAM",
-        )
+        out["ram_mb"] = _whole(data["ram_mb"], "ram_mb", 0, protocol.MAX_MB)
     if "cpu_cores" in data:
-        out["cpu_cores"] = _floored(
-            _whole(data["cpu_cores"], "cpu_cores", 0, hubwire.MAX_RESOURCE_CORES),
-            "cpu_cores",
-            LEND_FLOOR_CORES,
-            "cores",
+        out["cpu_cores"] = _whole(
+            data["cpu_cores"], "cpu_cores", 0, hubwire.MAX_RESOURCE_CORES
         )
     if "cache_max_mb" in data:
         out["cache_max_mb"] = _whole(
