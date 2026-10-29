@@ -1,13 +1,12 @@
-"""hostos names the system, the architecture and a program file the same way everywhere.
+"""hostos names the system and a program file the same way everywhere.
 
 Linux, macOS and Windows answer ``linux``, ``darwin`` and ``windows`` (any
-other POSIX answers ``linux``), the many spellings of one architecture answer
-one name, and a program file takes ``.exe`` on Windows alone.
+other POSIX answers ``linux``), and a program file takes ``.exe`` on Windows
+alone. The machine's architecture is the reader's to name, not this module's.
 """
 
 from __future__ import annotations
 
-import platform
 import sys
 
 import pytest
@@ -27,24 +26,6 @@ def test_each_system_answers_its_own_name(
 def test_another_posix_system_answers_linux(monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.setattr(sys, "platform", "freebsd14")
     assert hostos.os_name() == "linux"
-
-
-@pytest.mark.parametrize(
-    ("machine", "named"),
-    [
-        ("x86_64", "x86_64"),
-        ("AMD64", "x86_64"),
-        ("arm64", "arm64"),
-        ("aarch64", "arm64"),
-        ("ARM64", "arm64"),
-        ("riscv64", "riscv64"),
-    ],
-)
-def test_one_architecture_answers_one_name_however_it_is_spelled(
-    machine: str, named: str, monkeypatch: pytest.MonkeyPatch
-) -> None:
-    monkeypatch.setattr(platform, "machine", lambda: machine)
-    assert hostos.arch() == named
 
 
 @pytest.mark.parametrize("system", ["linux", "darwin"])

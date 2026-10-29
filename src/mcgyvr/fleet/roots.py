@@ -3,7 +3,7 @@
 Promise: the config folder is ``$MCGYVR_HOME``, default ``~/.mcgyvr``, and the
 data folder is ``$MCGYVR_DATA``, default ``mcgyvr`` under ``$XDG_STATE_HOME``,
 default ``~/.local/state/mcgyvr`` (macOS and Windows: that system's own place,
-:func:`mcgyvr.hostos.user_dirs`); either moves alone. Under those two, this
+:func:`mcgyvr.hostos.user_data_dir`); either moves alone. Under those two, this
 module names the promoted fleets, the user's rig files, the pointer that names
 the live fleet, and the staging area a setup is sampled in before anything is
 locked, and it settles whether a run is held to the live lock
@@ -29,7 +29,7 @@ HOME_ENV = "MCGYVR_HOME"
 HOME_DIR = "~/.mcgyvr"
 #: The variable that moves the data folder, the folder's name, and the folder
 #: named on Linux when neither it nor ``$XDG_STATE_HOME`` is set (the default on
-#: every system is :func:`mcgyvr.hostos.user_dirs`).
+#: every system is :func:`mcgyvr.hostos.user_data_dir`).
 DATA_ENV = "MCGYVR_DATA"
 DATA_NAME = hostos.APP
 DATA_DIR = f"~/.local/state/{DATA_NAME}"
@@ -112,7 +112,7 @@ def data_home() -> Path:
     ``$MCGYVR_DATA`` names it; failing that, ``mcgyvr`` under
     ``$XDG_STATE_HOME`` when that variable is absolute; failing both,
     ``~/.local/state/mcgyvr`` on Linux and the system's own place elsewhere
-    (:func:`mcgyvr.hostos.user_dirs`).
+    (:func:`mcgyvr.hostos.user_data_dir`).
     """
     named = _named(DATA_ENV, _data_shown)
     return named if named is not None else hostos.user_data_dir()

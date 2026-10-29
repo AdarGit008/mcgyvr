@@ -1213,7 +1213,7 @@ def default_weights_dir() -> str:
     expanded, or ``weights`` in the system's cache folder: ~/.cache/mcgyvr/weights
     on Linux (whatever XDG_CACHE_HOME says, as always), ~/Library/Caches/mcgyvr/weights
     on macOS, %LOCALAPPDATA%\\mcgyvr\\cache\\weights on Windows. A clone of
-    ``mcgyvr.hostos.user_dirs`` with no XDG variable, since this file is shipped
+    ``mcgyvr.hostos.user_cache_dir`` with no XDG variable, since this file is shipped
     alone."""
     override = os.environ.get(WEIGHTS_DIR_ENV)
     if override:

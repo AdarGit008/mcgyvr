@@ -55,10 +55,10 @@ def test_each_system_keeps_data_and_caches_in_its_own_place(
 ) -> None:
     as_system(monkeypatch, system)
     data, cached = NATIVE[system]
-    found = hostos.user_dirs()
-    assert found == hostos.UserDirs(data=_place(data, home), cache=_place(cached, home))
-    assert roots.data_home() == found.data
-    assert cache.cache_dir() == found.cache / "index"
+    assert hostos.user_data_dir() == _place(data, home)
+    assert hostos.user_cache_dir() == _place(cached, home)
+    assert roots.data_home() == hostos.user_data_dir()
+    assert cache.cache_dir() == hostos.user_cache_dir() / "index"
     assert roots.home() == home / ".mcgyvr"
 
 
@@ -69,9 +69,8 @@ def test_the_xdg_variables_the_user_set_win_on_every_system(
     as_system(monkeypatch, system)
     monkeypatch.setenv("XDG_STATE_HOME", str(tmp_path / "state"))
     monkeypatch.setenv("XDG_CACHE_HOME", "~/my-cache")
-    found = hostos.user_dirs()
-    assert found.data == tmp_path / "state" / "mcgyvr"
-    assert found.cache == home / "my-cache" / "mcgyvr"
+    assert hostos.user_data_dir() == tmp_path / "state" / "mcgyvr"
+    assert hostos.user_cache_dir() == home / "my-cache" / "mcgyvr"
 
 
 def test_a_relative_xdg_state_home_is_passed_over(
@@ -79,7 +78,7 @@ def test_a_relative_xdg_state_home_is_passed_over(
 ) -> None:
     as_system(monkeypatch, "linux")
     monkeypatch.setenv("XDG_STATE_HOME", "relative/state")
-    assert hostos.user_dirs().data == home / ".local" / "state" / "mcgyvr"
+    assert hostos.user_data_dir() == home / ".local" / "state" / "mcgyvr"
 
 
 @pytest.mark.parametrize("local", [None, "relative\\Local"])
@@ -91,7 +90,7 @@ def test_windows_without_a_usable_localappdata_uses_the_profiles_own(
         monkeypatch.delenv("LOCALAPPDATA")
     else:
         monkeypatch.setenv("LOCALAPPDATA", local)
-    assert hostos.user_dirs().data == home / "AppData" / "Local" / "mcgyvr"
+    assert hostos.user_data_dir() == home / "AppData" / "Local" / "mcgyvr"
 
 
 @pytest.mark.skipif(sys.platform == "win32", reason="Linux's own folders")
@@ -121,7 +120,7 @@ def test_the_weights_sit_in_the_systems_cache_whatever_xdg_says(
     system: str, home: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
     as_system(monkeypatch, system)
-    native = hostos.user_dirs().cache / "weights"
+    native = hostos.user_cache_dir() / "weights"
     monkeypatch.setenv("XDG_CACHE_HOME", str(home / "elsewhere"))
     assert Path(rigscan.default_weights_dir()) == native
     assert Path(fetcher.weights_dir()) == native
@@ -152,4 +151,4 @@ def test_per_user_temporary_folders_sit_in_the_system_temp_or_the_profile(
         assert hostos.user_temp_root() == tmp_path / "shared-tmp"
     as_system(monkeypatch, "windows")
     monkeypatch.setenv("TEMP", "C:\\Temp")
-    assert hostos.user_temp_root() == tmp_path / "local" / "mcgyvr" / "cache" / "tmp"
+    assert hostos.user_temp_root() == tmp_path / "local" / "mcgyvr" / "tmp"

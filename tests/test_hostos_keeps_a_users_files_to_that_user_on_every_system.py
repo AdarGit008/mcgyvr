@@ -118,11 +118,9 @@ def test_windows_changes_no_mode(
 def test_the_open_flags_are_the_systems_own_or_none(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    assert hostos.open_flags_nofollow() == getattr(os, "O_NOFOLLOW", 0)
     assert hostos.open_flags_nonblock() == getattr(os, "O_NONBLOCK", 0)
     monkeypatch.delattr(os, "O_NOFOLLOW", raising=False)
     monkeypatch.delattr(os, "O_NONBLOCK", raising=False)
-    assert hostos.open_flags_nofollow() == 0
     assert hostos.open_flags_nonblock() == 0
 
 

@@ -86,21 +86,6 @@ def test_a_holder_that_dies_leaves_the_lock_free(tmp_path: Path) -> None:
         os.close(fd)
 
 
-@pytest.mark.skipif(sys.platform == "win32", reason="Windows has no shared lock")
-def test_shared_holders_share_and_keep_an_exclusive_one_out(tmp_path: Path) -> None:
-    path = tmp_path / "shared.lock"
-    one, two = (os.open(path, os.O_RDWR | os.O_CREAT, 0o600) for _ in range(2))
-    other = os.open(path, os.O_RDWR)
-    try:
-        hostos.lock(one, shared=True)
-        hostos.lock(two, shared=True, blocking=False)
-        with pytest.raises(BlockingIOError):
-            hostos.lock(other, blocking=False)
-    finally:
-        for fd in (one, two, other):
-            os.close(fd)
-
-
 @pytest.fixture
 def windows(monkeypatch: pytest.MonkeyPatch) -> FakeMsvcrt:
     as_system(monkeypatch, "windows")
@@ -146,13 +131,6 @@ def test_windows_waits_for_a_held_lock_until_it_is_had(
     windows.busy = 3
     hostos.lock(journal)
     assert len(windows.calls) == 4
-
-
-def test_windows_takes_a_shared_lock_as_an_exclusive_one(
-    windows: FakeMsvcrt, journal: int
-) -> None:
-    hostos.lock(journal, shared=True)
-    assert windows.calls == [(FakeMsvcrt.LK_NBLCK, hostos.WINDOWS_LOCK_AT, 1)]
 
 
 def test_windows_raises_any_other_failure_as_it_is(

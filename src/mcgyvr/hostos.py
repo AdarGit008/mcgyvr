@@ -19,7 +19,6 @@ import contextlib
 import errno
 import getpass
 import os
-import platform
 import re
 import signal
 import stat
@@ -28,7 +27,6 @@ import sys
 import tempfile
 import time
 from collections.abc import Iterator
-from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
 
@@ -63,16 +61,6 @@ _ERROR_INVALID_PARAMETER = 87
 _QUERY_LIMITED_INFORMATION = 0x1000
 #: What a Windows user name keeps when it names a folder; the rest becomes ``_``.
 _UNSAFE_NAME = re.compile(r"[^a-z0-9._-]")
-#: The architectures ``platform.machine()`` spells several ways, by one name.
-_ARCHES = {
-    "x86_64": "x86_64",
-    "amd64": "x86_64",
-    "x64": "x86_64",
-    "arm64": "arm64",
-    "aarch64": "arm64",
-    "armv8": "arm64",
-    "armv8l": "arm64",
-}
 
 
 def os_name() -> str:
@@ -82,16 +70,6 @@ def os_name() -> str:
     if sys.platform == "darwin":
         return "darwin"
     return "linux"
-
-
-def arch() -> str:
-    """``x86_64`` or ``arm64``, as this interpreter runs; else the raw name, lower.
-
-    It is the interpreter's architecture: an x86_64 Python under Rosetta or
-    under Windows' ARM emulation answers ``x86_64`` on an ARM machine.
-    """
-    machine = platform.machine().lower()
-    return _ARCHES.get(machine, machine)
 
 
 def exe(name: str) -> str:
@@ -104,15 +82,14 @@ def exe(name: str) -> str:
 # --- locks -----------------------------------------------------------------
 
 
-def lock(fd: int, *, shared: bool = False, blocking: bool = True) -> None:
+def lock(fd: int, *, blocking: bool = True) -> None:
     """Lock the open file `fd`, waiting for it unless `blocking` is False.
 
-    POSIX: ``flock``, exclusive unless `shared`; a lock another holder has
-    raises :class:`BlockingIOError` when not blocking. Closing the descriptor
+    POSIX: an exclusive ``flock``; a lock another holder has raises
+    :class:`BlockingIOError` when not blocking. Closing the descriptor
     releases it. Windows: ``msvcrt.locking`` of one byte at
-    :data:`WINDOWS_LOCK_AT`, always exclusive (there is no shared lock), with
-    the file position put back as it was; a held lock raises
-    :class:`BlockingIOError` the same way, and a blocking lock is retried
+    :data:`WINDOWS_LOCK_AT`, with the file position put back as it was; a held
+    lock raises :class:`BlockingIOError` the same way, and a blocking lock is retried
     until it is had. Windows releases it on close too, though not at once, so
     a holder that can should :func:`unlock` first.
     """
@@ -121,8 +98,7 @@ def lock(fd: int, *, shared: bool = False, blocking: bool = True) -> None:
         return
     import fcntl
 
-    how = fcntl.LOCK_SH if shared else fcntl.LOCK_EX
-    fcntl.flock(fd, how if blocking else how | fcntl.LOCK_NB)
+    fcntl.flock(fd, fcntl.LOCK_EX if blocking else fcntl.LOCK_EX | fcntl.LOCK_NB)
 
 
 def unlock(fd: int) -> None:
@@ -253,7 +229,7 @@ def chmod_private(
     os.chmod(target, 0o700 if directory else 0o600)
 
 
-def open_flags_nofollow() -> int:
+def _nofollow() -> int:
     """``O_NOFOLLOW`` where the system has it, else 0 (Windows)."""
     return getattr(os, "O_NOFOLLOW", 0)
 
@@ -284,7 +260,7 @@ def open_nofollow(path: str | os.PathLike[str], flags: int, mode: int = 0o777) -
     did through the link (``O_CREAT`` making its target) is not undone, so on
     Windows this relies on the folder being the user's own.
     """
-    nofollow = open_flags_nofollow()
+    nofollow = _nofollow()
     fd = os.open(path, flags | nofollow | open_flags_binary(), mode)
     if nofollow:
         return fd
@@ -453,23 +429,6 @@ def boot_id() -> str | None:
 # --- folders -----------------------------------------------------------------
 
 
-@dataclass(frozen=True)
-class UserDirs:
-    """The folders mcgyvr keeps its data and its caches in, by default.
-
-    The config folder is not here: it is ``~/.mcgyvr`` on every system
-    (:func:`mcgyvr.fleet.roots.home`).
-    """
-
-    data: Path
-    cache: Path
-
-
-def user_dirs() -> UserDirs:
-    """Both of :func:`user_data_dir` and :func:`user_cache_dir`."""
-    return UserDirs(data=user_data_dir(), cache=user_cache_dir())
-
-
 def user_data_dir() -> Path:
     """Where this user's mcgyvr data goes when ``$MCGYVR_DATA`` does not say.
 
@@ -520,11 +479,12 @@ def user_temp_root() -> Path:
 
     POSIX: the system's temporary folder, looked up on every call (shared by
     every user, so a folder made there is checked before it is used). Windows:
-    ``tmp`` in the user's own cache folder, never ``%TEMP%``, which the
-    environment can point at a folder other users may write (``C:\\Temp``).
+    ``%LOCALAPPDATA%\\mcgyvr\\tmp`` in the user's own profile, never ``%TEMP%``,
+    which the environment can point at a folder other users may write
+    (``C:\\Temp``), nor a cache folder an XDG variable may move.
     """
     if sys.platform == "win32":
-        return user_cache_dir() / "tmp"
+        return _local_app_data() / APP / "tmp"
     return Path(tempfile.gettempdir())
 
 
