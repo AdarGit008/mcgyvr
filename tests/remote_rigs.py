@@ -62,6 +62,8 @@ class FakeShell:
     )
     #: Every (command, stdin) the rig was sent, in order.
     sent: list[tuple[str, str | None]] = field(default_factory=list)
+    #: Whether each call asked ssh's keepalive (an unbounded call does).
+    kept_alive: list[bool] = field(default_factory=list)
 
     def __call__(
         self,
@@ -70,8 +72,10 @@ class FakeShell:
         timeout: float | None = None,
         *,
         input: str | None = None,
+        keepalive: bool = False,
     ) -> subprocess.CompletedProcess[str]:
         self.sent.append((command, input))
+        self.kept_alive.append(keepalive)
         given = self.answer(command, input)
         if given is not None:
             return given

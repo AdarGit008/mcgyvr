@@ -36,20 +36,37 @@ def remote(host: str) -> bool:
 
 
 def call(
-    host: str, args: Sequence[str], *, timeout: float | None = 600.0
+    host: str,
+    args: Sequence[str],
+    *,
+    timeout: float | None = 600.0,
+    feed: bytes | None = None,
 ) -> subprocess.CompletedProcess[str]:
-    """Run the shipped launcher's verb `args` on `host`, as the door's ssh."""
+    """Run the shipped launcher's verb `args` on `host`, as the door's ssh;
+    `feed` is what it reads on stdin (Windows only). An argument that cannot be
+    shipped is a refusal (status 2), said on stderr. A call with no time bound
+    keeps ssh's keepalive on."""
     from mcgyvr.serving import shipped
 
     # The launcher is too long for one argument of the door's own ssh command
     # line (Linux: 128 KiB), so a POSIX rig reads it on stdin too.
-    sent = gatelib.ship(
-        gatelib.rig_system(host),
-        shipped.packed(shipped.native()),
-        tuple(args),
-        on_stdin=True,
+    try:
+        sent = gatelib.ship(
+            gatelib.rig_system(host),
+            shipped.packed(shipped.native()),
+            tuple(args),
+            feed=feed,
+            on_stdin=True,
+        )
+    except ValueError as exc:
+        return subprocess.CompletedProcess(["native"], 2, "", f"native: {exc}\n")
+    return gatelib.ssh(
+        host,
+        sent.command,
+        timeout=timeout,
+        input=sent.stdin,
+        keepalive=timeout is None,
     )
-    return gatelib.ssh(host, sent.command, timeout=timeout, input=sent.stdin)
 
 
 def up(
@@ -60,7 +77,13 @@ def up(
     from mcgyvr.serving import native
 
     chosen = [unit for unit in units if isinstance(unit, native.NativeUnit)]
-    return call(host, ["up", native.units_text(chosen), *names], timeout=None)
+    text = native.units_text(chosen)
+    if gatelib.rig_system(host) == gatelib.WINDOWS:
+        # Past the command line Windows allows (32,767 characters) at some
+        # tens of units: they go on the launcher's stdin (`up -`).
+        feed = text.encode("ascii")
+        return call(host, ["up", "-", *names], timeout=None, feed=feed)
+    return call(host, ["up", text, *names], timeout=None)
 
 
 def down(host: str, names: Iterable[str]) -> subprocess.CompletedProcess[str]:

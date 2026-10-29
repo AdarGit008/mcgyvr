@@ -175,3 +175,34 @@ def test_a_unit_that_would_listen_beyond_the_loopback_is_refused_where_it_starts
     with pytest.raises(native.NativeError, match=r"127\.0\.0\.1 alone"):
         native.units_from_text(native.units_text([unit]))
     assert native.main(["up", native.units_text([unit])]) == 1
+
+
+def test_a_listening_address_named_in_any_case_is_refused_and_dropped() -> None:
+    from mcgyvr.serving import llamacpp
+
+    # Windows reads a variable's name without case.
+    assert llamacpp.beyond_loopback(("--port", "8080"), {"llama_arg_host": "0.0.0.0"})
+    unit = native.NativeUnit(
+        name="m",
+        container="mcgyvr-box1-m-8080",
+        program="llama-server",
+        argv=("--port", "8080"),
+        env={"Llama_Arg_Host": "0.0.0.0"},
+        port=8080,
+        cards=(),
+        depends_on=(),
+        asleep=False,
+    )
+    with pytest.raises(native.NativeError, match=r"127\.0\.0\.1 alone"):
+        native.units_from_text(native.units_text([unit]))
+    kept = native.supervisor_env(
+        {
+            "llama_arg_host": "0.0.0.0",
+            "run_lease": "x",
+            "Docker_Host": "tcp://x",
+            "PATH": os.pathsep.join(["/door/shims", "/usr/bin", ""]),
+            "RUN_BIN": "/door/shims",
+            "HOME": "/home/u",
+        }
+    )
+    assert kept == {"PATH": "/usr/bin", "HOME": "/home/u"}

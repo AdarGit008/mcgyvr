@@ -591,22 +591,22 @@ def supervisor_env(env: Mapping[str, str]) -> dict[str, str]:
 
     The door's own vocabulary (``RUN_*``, its proof among it, and
     ``DOCKER_*``) stays with the door, which a supervisor outlives; the
-    door's shims leave PATH; and ``LLAMA_ARG_*``, llama-server's own settings,
-    come from the unit's spec alone, so a variable in the operator's shell
-    cannot widen where a unit listens.
+    door's shims (the folder the door names in ``RUN_BIN``) leave PATH; and
+    ``LLAMA_ARG_*``, llama-server's own settings, come from the unit's spec
+    alone, so a variable in the operator's shell cannot widen where a unit
+    listens. Names are compared without case: Windows reads them so.
     """
-    from mcgyvr.serving.gatelib import SHIM_DIR
-
+    shims = env.get("RUN_BIN")
     kept = {
         key: value
         for key, value in env.items()
-        if not key.startswith(("RUN_", "DOCKER_", "LLAMA_ARG_"))
+        if not key.upper().startswith(("RUN_", "DOCKER_", "LLAMA_ARG_"))
     }
     if "PATH" in kept:
         kept["PATH"] = os.pathsep.join(
             entry
             for entry in kept["PATH"].split(os.pathsep)
-            if entry and Path(entry) != SHIM_DIR
+            if entry and not (shims and Path(entry) == Path(shims))
         )
     return kept
 
@@ -1148,8 +1148,8 @@ def _answer(done: subprocess.CompletedProcess[str]) -> int:
 def main(argv: Sequence[str] | None = None) -> int:
     """The supervisor (``supervise SPEC``), ``status`` (one JSON row per unit),
     and the verbs the door ships to a rig: ``up UNITS [NAME...]`` (UNITS from
-    :func:`units_text`), ``down NAME...`` and ``units [ENGINE:PORT:NAME...]``
-    (:func:`unit_rows`)."""
+    :func:`units_text`, or ``-`` for them on stdin), ``down NAME...`` and
+    ``units [ENGINE:PORT:NAME...]`` (:func:`unit_rows`)."""
     args = list(sys.argv[1:] if argv is None else argv)
     if len(args) == 2 and args[0] == "supervise":
         return supervise(Path(args[1]))
@@ -1164,7 +1164,7 @@ def main(argv: Sequence[str] | None = None) -> int:
     if args[:1] == ["up"] and len(args) > 1:
         own = globals().get("__shipped__")
         try:
-            sent = units_from_text(args[1])
+            sent = units_from_text(sys.stdin.read() if args[1] == "-" else args[1])
             supervisor = _settle(own) if isinstance(own, bytes) else ()
         except (NativeError, OSError, ValueError, KeyError, TypeError) as exc:
             print(f"native: the units sent cannot be started: {exc}", file=sys.stderr)

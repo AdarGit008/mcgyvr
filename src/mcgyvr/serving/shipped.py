@@ -28,6 +28,7 @@ from __future__ import annotations
 
 import ast
 import base64
+import sys
 import zlib
 from collections.abc import Iterable, Sequence
 from pathlib import Path
@@ -107,6 +108,8 @@ _PLAIN = (
     ast.operator,
     ast.unaryop,
 )
+#: The one call a shipped constant may make: a frozen set of plain values.
+_PLAIN_CALLS = frozenset({"frozenset"})
 
 
 def constants(name: str, wanted: Iterable[str]) -> str:
@@ -139,13 +142,22 @@ def constants(name: str, wanted: Iterable[str]) -> str:
             continue
         if one not in values:
             raise ShipError(f"{name} assigns no constant {one!r} at its top level")
+        called: set[int] = set()
         for part in ast.walk(values[one]):
+            if (
+                isinstance(part, ast.Call)
+                and isinstance(part.func, ast.Name)
+                and part.func.id in _PLAIN_CALLS
+                and not part.keywords
+            ):
+                called.add(id(part.func))
+                continue
             if not isinstance(part, _PLAIN):
                 raise ShipError(
                     f"{name}.{one} is not built from literals and constants "
                     f"alone ({type(part).__name__}); it is not shipped"
                 )
-            if isinstance(part, ast.Name):
+            if isinstance(part, ast.Name) and id(part) not in called:
                 todo.append(part.id)
         taken.add(one)
     lines = [f"# {name}: {', '.join(sorted(taken))}, as this checkout assigns them"]
@@ -160,25 +172,68 @@ def constants(name: str, wanted: Iterable[str]) -> str:
     return "\n".join(lines) + "\n"
 
 
-def names_imported(main: str, modules: Sequence[str]) -> dict[str, list[str]]:
-    """The names `main` imports at its top from ``mcgyvr`` modules that are not
-    among `modules`, by module: what it takes as constants
-    (:func:`constants`). An import of a module itself must name one of
-    `modules`, or it is a :class:`ShipError`.
+#: Imports in a shipped module of something the program does not carry, each
+#: inside a function no verb a rig is asked runs: the door's own use of that
+#: module. Any other is refused when the program is built (:func:`imports`).
+DOOR_ONLY = frozenset(
+    {
+        # The compose file is read on the door; a rig is sent the units.
+        ("mcgyvr.serving.native", "yaml"),
+        ("mcgyvr.serving.native", "mcgyvr.config"),
+        ("mcgyvr.serving.native", "mcgyvr.serving"),
+    }
+)
+
+
+def _imported(node: ast.Import | ast.ImportFrom) -> list[tuple[str, str | None]]:
+    """What one import statement names: (module, name taken from it or None)."""
+    if isinstance(node, ast.Import):
+        return [(alias.name, None) for alias in node.names]
+    return [(node.module or "", alias.name) for alias in node.names]
+
+
+def imports(main: str, modules: Sequence[str]) -> dict[str, list[str]]:
+    """The constants the program of `main` and `modules` imports from ``mcgyvr``
+    modules it does not carry, by module (:func:`constants`), after checking
+    every import of every module in it.
+
+    A top-level ``from mcgyvr.X import NAME`` of a module not carried takes
+    NAME as a constant. Any other import of something not carried, a module
+    of the standard library aside, is a :class:`ShipError` unless
+    :data:`DOOR_ONLY` names it: on the rig it would be a ModuleNotFoundError.
     """
+    carried = {*modules, main}
     wanted: dict[str, list[str]] = {}
-    for node in ast.parse(source(main)).body:
-        if not isinstance(node, ast.ImportFrom) or node.level or not node.module:
-            continue
-        module = node.module
-        if module != "mcgyvr" and not module.startswith("mcgyvr."):
-            continue
-        for alias in node.names:
-            if f"{module}.{alias.name}" in modules or module in modules:
-                continue  # a shipped module, or a name from one
-            if module == "mcgyvr":
-                raise ShipError(f"{main} imports mcgyvr.{alias.name}, not shipped")
-            wanted.setdefault(module, []).append(alias.name)
+    for module in (*modules, main):
+        tree = ast.parse(source(module))
+        top = {id(node) for node in tree.body}
+        for node in ast.walk(tree):
+            if not isinstance(node, (ast.Import, ast.ImportFrom)):
+                continue
+            if isinstance(node, ast.ImportFrom) and node.level:
+                raise ShipError(f"{module} imports relatively; it is not shipped")
+            for target, name in _imported(node):
+                root = target.split(".")[0]
+                if root != "mcgyvr":
+                    if root in sys.stdlib_module_names:
+                        continue
+                    if (module, root) in DOOR_ONLY:
+                        continue
+                    raise ShipError(f"{module} imports {target}, which is not shipped")
+                if target in carried or (name and f"{target}.{name}" in carried):
+                    continue
+                if (
+                    name
+                    and id(node) in top
+                    and isinstance(node, ast.ImportFrom)
+                    and target != "mcgyvr"
+                ):
+                    wanted.setdefault(target, []).append(name)
+                    continue
+                if (module, target) in DOOR_ONLY:
+                    continue
+                shown = f"{target}.{name}" if name else target
+                raise ShipError(f"{module} imports {shown}, which is not shipped")
     return wanted
 
 
@@ -192,14 +247,15 @@ def program(
 
     `modules` are whole ``mcgyvr`` modules, registered in the order given (a
     module is registered before one that imports it at its top). The names
-    `main` imports from any other ``mcgyvr`` module are registered as that
-    module holding only those constants (:func:`names_imported`,
-    :func:`constants`). `main` is the module run as ``__main__``, followed by
-    `tail` (a call into it, for a program whose job travels inside it).
+    its modules import at their top from any other ``mcgyvr`` module are
+    registered as that module holding only those constants (:func:`imports`,
+    :func:`constants`); any other import of something not carried is
+    refused. `main` is the module run as ``__main__``, followed by `tail` (a
+    call into it, for a program whose job travels inside it).
     """
     floor = ".".join(str(part) for part in FLOOR)
     out = [_BOOT.format(floor=FLOOR, need=floor)]
-    names = sorted(names_imported(main, modules).items())
+    names = sorted(imports(main, modules).items())
     for module, wanted in names:
         out.append(f"_mcgyvr_module({module!r}, {constants(module, wanted)!r})\n")
     for module in modules:
@@ -243,7 +299,6 @@ NATIVE_MODULES = (
     "mcgyvr.serving.fetcher",
     "mcgyvr.serving.release",
     "mcgyvr.serving.llamacpp",
-    "mcgyvr.serving.gatelib",
     "mcgyvr.serving.localrig",
 )
 

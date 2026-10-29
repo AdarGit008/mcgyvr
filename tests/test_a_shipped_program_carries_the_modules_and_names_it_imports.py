@@ -23,7 +23,7 @@ from mcgyvr.serving import gatelib, shipped
 
 
 def test_the_reader_takes_the_wire_names_rigscan_imports() -> None:
-    wanted = shipped.names_imported("mcgyvr.serving.rigscan", ("mcgyvr.hostos",))
+    wanted = shipped.imports("mcgyvr.serving.rigscan", ("mcgyvr.hostos",))
     assert {"HOST_OS", "HOST_VERSION_MAX", "RESOURCE_NAME_MAX"} <= set(
         wanted["mcgyvr.hubwire"]
     )
@@ -67,3 +67,30 @@ def test_one_checkout_builds_the_same_bytes() -> None:
 
 def test_the_door_tells_rigs_apart_by_the_wires_system_names() -> None:
     assert (gatelib.LINUX, gatelib.DARWIN, gatelib.WINDOWS) == hubwire.HOST_OS
+
+
+def test_an_import_of_something_not_carried_is_refused_unless_the_door_alone_runs_it(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    assert ("mcgyvr.serving.native", "yaml") in shipped.DOOR_ONLY
+    monkeypatch.setattr(shipped, "DOOR_ONLY", frozenset())
+    with pytest.raises(shipped.ShipError, match="imports yaml, which is not shipped"):
+        shipped.native()
+
+
+def test_the_native_launcher_carries_the_loopback_names_not_the_door() -> None:
+    assert "mcgyvr.serving.gatelib" not in shipped.NATIVE_MODULES
+    wanted = shipped.imports("mcgyvr.serving.native", shipped.NATIVE_MODULES)
+    assert wanted == {"mcgyvr.serving.gatelib": ["LOCAL_RIGS"]}
+    namespace: dict[str, object] = {}
+    exec(shipped.constants("mcgyvr.serving.gatelib", ["LOCAL_RIGS"]), namespace)
+    assert namespace["LOCAL_RIGS"] == gatelib.LOCAL_RIGS
+
+
+def test_an_argument_holding_a_nul_or_a_quote_is_refused_not_shipped() -> None:
+    with pytest.raises(ValueError, match="NUL"):
+        gatelib.ship(gatelib.WINDOWS, b"", ("a\0b",))
+    with pytest.raises(ValueError, match="NUL"):
+        gatelib.ship(gatelib.LINUX, b"", ("a\0b",))
+    with pytest.raises(ValueError, match="single quote"):
+        gatelib.ship(gatelib.DARWIN, b"", ("it's",))

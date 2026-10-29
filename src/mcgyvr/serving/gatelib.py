@@ -455,13 +455,16 @@ def ssh(
     timeout: float | None = 120.0,
     *,
     input: str | None = None,
+    keepalive: bool = False,
 ) -> subprocess.CompletedProcess[str]:
     """Run `command` on `host` over ssh, once the door has admitted the host.
 
     `BatchMode=yes` keeps the call from prompting for a password nobody is there
     to give, `ConnectTimeout=10` bounds the connect itself, and `timeout` bounds
-    the whole call. `input` is fed to the remote command's stdin, and the exit
-    status is left to the caller (`check=False`).
+    the whole call. `keepalive` (for a call with no time bound) has ssh end a
+    connection the rig stopped answering (`KEEPALIVE`), rather than hold the
+    door and the lease forever. `input` is fed to the remote command's stdin,
+    and the exit status is left to the caller (`check=False`).
     """
     _admit(f"ssh to {host}", host)
     if local_transport(host):
@@ -475,6 +478,7 @@ def ssh(
             "BatchMode=yes",
             "-o",
             "ConnectTimeout=10",
+            *(KEEPALIVE if keepalive else ()),
             host,
             command,
         ],
@@ -484,6 +488,11 @@ def ssh(
         timeout=timeout,
         check=False,
     )
+
+
+#: The ssh options that end a connection whose far side stopped answering: a
+#: probe every 30 s, given up after 4 unanswered (two minutes).
+KEEPALIVE = ("-o", "ServerAliveInterval=30", "-o", "ServerAliveCountMax=4")
 
 
 # What a rig's shell is, and how a program is shipped to it. Linux and macOS
@@ -618,15 +627,16 @@ def _scan_read_blob() -> str:
 
 
 def _single_quote(token: str) -> str:
-    """Wrap a path or directory in single quotes, refusing one holding a quote.
+    """Wrap a path, folder or argument in single quotes, refusing one holding a
+    quote.
 
     A token with an embedded single quote cannot be quoted safely for the shell
     line it is shipped in, so it is refused rather than escaped.
     """
     if "'" in token:
         raise ValueError(
-            "a read-only path or directory with an embedded single quote "
-            "cannot be proven safe; refuse rather than ship it"
+            f"{token[:80]!r} holds a single quote, which cannot be proven safe "
+            "on a rig's shell line; it is refused rather than shipped"
         )
     return f"'{token}'"
 
@@ -786,6 +796,10 @@ def ship(
     place on a POSIX line and is refused. Windows: :data:`WINDOWS_SHIP`, the
     program, its arguments and the feed on stdin (:data:`_WINDOWS_SHIP_SCRIPT`).
     """
+    for arg in args:
+        if "\0" in arg:
+            # Windows cuts a command line at it; POSIX refuses it.
+            raise ValueError(f"{arg[:80]!r} holds a NUL; it is refused, not shipped")
     if system == WINDOWS:
         line = subprocess.list2cmdline(list(args)).encode("utf-8")
         lines = (_b64(program), _b64(line), _b64(feed or b""))
@@ -1323,15 +1337,14 @@ def _lease_op(
     if system != LINUX:
         from mcgyvr.serving import shipped
 
-        sent = ship(
-            system,
-            shipped.packed(shipped.lease()),
-            (
-                op,
-                LEASE_DIR,
-                *(f"{key}={value}" for key, value in sorted(fields.items())),
-            ),
-        )
+        try:
+            sent = ship(
+                system,
+                shipped.packed(shipped.lease()),
+                (op, LEASE_DIR, *(f"{k}={v}" for k, v in sorted(fields.items()))),
+            )
+        except ValueError as exc:
+            refuse(f"lease: the lease cannot be sent to {host}: {exc}")
         return ssh(host, sent.command, input=sent.stdin)
     script = _LEASE_SCRIPTS[op].format(dir=LEASE_DIR, file=LEASE_FILE, **fields)
     return (via or _over_ssh)(host, LEASE_SHELL, script)

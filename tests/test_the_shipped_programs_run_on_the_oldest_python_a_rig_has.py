@@ -162,7 +162,7 @@ def test_the_native_build_is_hashed_and_unpacked_on_3_9(tmp_path: Path) -> None:
     )
     program = shipped.program(
         "mcgyvr.serving.release",
-        modules=("mcgyvr.hostos", "mcgyvr.serving.fetcher"),
+        modules=("mcgyvr.hostos", "mcgyvr.userdir", "mcgyvr.serving.fetcher"),
         tail=tail,
     )
     (tmp_path / "out").mkdir()
@@ -207,3 +207,89 @@ def test_a_python_without_the_tar_data_filter_unpacks_files_and_refuses_devices(
         tar.addfile(info)
     with pytest.raises(release.ReleaseError, match="not a file, a folder or a link"):
         release._unpack_tar(device, tmp_path / "out")
+
+
+@needs39
+@pytest.mark.skipif(sys.platform == "win32", reason="the stand-in server has a shebang")
+def test_up_starts_a_supervised_unit_on_3_9_and_down_stops_it(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    import hashlib
+    import socket
+
+    from mcgyvr import hostos
+    from mcgyvr.serving import llamacpp, native, release
+
+    assert PYTHON39 is not None
+    env = {
+        "HOME": str(tmp_path),
+        "MCGYVR_HOME": str(tmp_path / "home"),
+        "XDG_STATE_HOME": str(tmp_path / "state"),
+        native.BACKEND_ENV: llamacpp.CPU,
+        "PATH": str(tmp_path / "no-tools"),
+    }
+    for key, value in env.items():
+        monkeypatch.setenv(key, value)
+    # The pinned CPU build of this machine, already in place (as a first `up`
+    # leaves it), so nothing is fetched: a stand-in server, recorded as the
+    # release's own unpacking records it.
+    build = llamacpp.build_for(
+        hostos.os_name(), native.machine_arch(), llamacpp.CPU, nvidia_driver=None
+    )
+    folder = native.bin_root() / build.name
+    folder.mkdir(parents=True)
+    fake = Path(__file__).with_name("fake_llama_server.py").read_text("utf-8")
+    for program in llamacpp.EXECUTABLES:
+        (folder / program).write_text(f"#!{sys.executable}\n{fake}", "utf-8")
+        (folder / program).chmod(0o755)
+    record = {
+        "repo": llamacpp.RELEASE.repo,
+        "tag": llamacpp.RELEASE.tag,
+        "assets": {a: llamacpp.RELEASE.asset(a).sha256 for a in build.assets},
+        "executables": {
+            p: hashlib.sha256((folder / p).read_bytes()).hexdigest()
+            for p in llamacpp.EXECUTABLES
+        },
+    }
+    (folder / release.RECORD).write_text(json.dumps(record), "utf-8")
+    with socket.socket() as probe:
+        probe.bind(("127.0.0.1", 0))
+        port = int(probe.getsockname()[1])
+    unit = native.NativeUnit(
+        name="m",
+        container="mcgyvr-box1-m",
+        program=llamacpp.SERVER,
+        argv=("--model", "/w/x.gguf", "--port", str(port), "--host", "127.0.0.1"),
+        env={},
+        port=port,
+        cards=(),
+        depends_on=(),
+        asleep=False,
+    )
+    launcher = shipped.packed(shipped.native())
+
+    def verb(*args: str) -> subprocess.CompletedProcess[bytes]:
+        return subprocess.run(
+            [PYTHON39, "-I", "-B", "-", *args],
+            input=launcher,
+            capture_output=True,
+            env=env,
+            timeout=120,
+            check=False,
+        )
+
+    try:
+        up = verb("up", native.units_text([unit]))
+        assert up.returncode == 0, up.stderr
+        found = native.read_record(unit.container) or {}
+        assert found["state"] == native.RUNNING
+        # The supervisor is the copy the launcher left, on 3.9.
+        (copy,) = (tmp_path / "home" / native.SHIPPED).iterdir()
+        assert native.supervised(unit.container)
+        assert found["supervisor"]["program"] == PYTHON39
+        assert native.wait_answers(port, 30)
+        assert copy.name.startswith("native-")
+    finally:
+        down = verb("down", unit.container)
+    assert down.returncode == 0, down.stderr
+    assert not native.supervised(unit.container)

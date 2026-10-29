@@ -82,7 +82,12 @@ def main() -> int:
     try:
         # No timeout: the run ends when the files have been transferred,
         # however long that takes.
-        done = ssh(host, command, timeout=None, input=stdin)
+        # A macOS or Windows rig's call keeps ssh's keepalive on; a Linux
+        # rig's ssh is called as it always was.
+        if gatelib.rig_system(host) == gatelib.LINUX:
+            done = ssh(host, command, timeout=None, input=stdin)
+        else:
+            done = ssh(host, command, timeout=None, input=stdin, keepalive=True)
     except subprocess.TimeoutExpired:  # pragma: no cover - no bound is set
         return 1
     if done.stderr:

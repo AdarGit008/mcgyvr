@@ -386,7 +386,9 @@ def beyond_loopback(
     """Why a native server's (or, `rpc`, worker's) `argv` and `env` would
     listen beyond the loopback, or None when they keep it there."""
     stated = stated_hosts(argv, rpc=rpc)
-    if HOST_ENV in env or any(h != LOOPBACK for h in stated):
+    # Windows reads a variable's name without case: `llama_arg_host` is it too.
+    named = any(key.upper() == HOST_ENV for key in env)
+    if named or any(h != LOOPBACK for h in stated):
         return (
             f"a native unit listens on {LOOPBACK} alone (the rig agent relays to "
             "it, and pooled workers bind the tunnel address); drop the "

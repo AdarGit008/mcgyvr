@@ -84,8 +84,13 @@ def _verb(shell: FakeShell, system: str) -> list[str]:
     if system == "windows":
         assert command == gatelib.WINDOWS_SHIP
         sent, arguments, feed = stdin[:-1].split("\n")
-        assert base64.b64decode(sent) == program and not feed
-        return gatelib.windows_split(base64.b64decode(arguments).decode())
+        assert base64.b64decode(sent) == program
+        verb = gatelib.windows_split(base64.b64decode(arguments).decode())
+        if verb[:2] == ["up", "-"]:
+            # The units go on the launcher's stdin, past Windows' command line.
+            return ["up", base64.b64decode(feed).decode(), *verb[2:]]
+        assert not feed
+        return verb
     # The launcher is on stdin: it is too long for the door's own ssh argument.
     head = "base64 -d | python3 -I -B - "
     assert command.startswith(head)
@@ -133,6 +138,7 @@ def test_serve_up_ships_the_launcher_with_the_units_of_the_spec(
     assert done.returncode == 0
     verb = _verb(shell, system)
     assert verb[0] == "up" and len(verb) == 2
+    assert shell.kept_alive == [True]  # no time bound, so ssh's keepalive
     assert native.units_from_text(verb[1]) == native.parse(spec)
     (unit,) = native.units_from_text(verb[1])
     assert unit.argv[unit.argv.index("--host") + 1] == "127.0.0.1"
@@ -228,3 +234,16 @@ def test_a_linux_rig_is_refused_a_native_spec(
         servelib.up(spec)
     with pytest.raises(emit.EmitError, match="records neither"):
         _spec(tmp_path, "box2")
+
+
+def test_an_argument_that_cannot_be_shipped_is_a_refusal_not_a_traceback(
+    rig: tuple[str, str], monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+) -> None:
+    from mcgyvr.serving import nativerig
+
+    host, system = rig
+    shell = FakeShell(system, tmp_path / "rig")
+    monkeypatch.setattr(gatelib, "ssh", shell)
+    done = nativerig.down(host, ["bad\0name"])
+    assert done.returncode == 2 and "NUL" in done.stderr
+    assert shell.sent == []
