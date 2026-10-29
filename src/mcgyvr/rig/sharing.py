@@ -142,12 +142,18 @@ class Sharing:
         default when they name none."""
         return self.max_ram_mb if self.max_ram_mb is not None else DEFAULT_CONTAINER_MB
 
-    def head_mb(self) -> int:
-        """The memory a head's container is given: the RAM lent (`ram_mb`)
-        when any is, else :meth:`container_mb`; never past `max_ram_mb` when
-        one is named."""
-        wanted = self.ram_mb or self.container_mb()
-        return wanted if self.max_ram_mb is None else min(wanted, self.max_ram_mb)
+    def head_limits(self, report: hardware.Report) -> tuple[int, int | None]:
+        """The memory (MiB) and cores a head's container runs under on the
+        machine `report` reads: what this rig advertises as lent (:meth:`lent`,
+        so never past the machine less what is kept for the owner), else
+        :meth:`container_mb` and no core limit; the memory never past
+        `max_ram_mb` when one is named."""
+        lent = {resource.kind: resource for resource in self.lent(report)}
+        ram, cpu = lent.get(RESOURCE_RAM), lent.get(RESOURCE_CPU)
+        memory = ram.total_mb if ram is not None else self.container_mb()
+        if self.max_ram_mb is not None:
+            memory = min(memory, self.max_ram_mb)
+        return memory, cpu.cores if cpu is not None else None
 
     def lends(self, card_index: int, report: hardware.Report) -> int | None:
         """The vendor's index for the card lent as `card_index` to a session's

@@ -19,13 +19,17 @@ from typing import Any
 
 import pytest
 
+from mcgyvr.hubwire import LEND_FLOOR_MB, RESOURCE_RAM
 from tests import rig_pool_fakes as fakes
+from tests.machine_shapes import HostShape, host_reading
 from tests.rig_pool_fakes import Pool, make_pool, prepared
+
+RAM_FLOOR = LEND_FLOOR_MB[RESOURCE_RAM]
 
 
 @pytest.fixture
 def cardless(tmp_path: Path) -> Iterator[Pool]:
-    made = make_pool(tmp_path, cards=(), ram_mb=8192, cpu_cores=4)
+    made = make_pool(tmp_path, cards=(), ram_mb=RAM_FLOOR, cpu_cores=4)
     yield made
     made.sessions.close()
 
@@ -39,7 +43,7 @@ def test_a_lender_of_no_card_offers_the_head_alone(tmp_path: Path) -> None:
     from mcgyvr.rig import session
 
     report = fakes.report()
-    share = fakes.sharing(tmp_path, cards=(), ram_mb=8192, cpu_cores=4)
+    share = fakes.sharing(tmp_path, cards=(), ram_mb=RAM_FLOOR, cpu_cores=4)
     assert share.offered_roles() == ("head", "worker")
     assert share.session_roles(report) == ("head",)
     held = fakes.inventory(tmp_path)
@@ -124,7 +128,40 @@ def test_a_head_is_held_to_the_memory_and_cores_lent() -> None:
     image = held.index("engine:rpc")
     assert held[held.index("--cpus") + 1] == "3" and held.index("--cpus") < image
     assert held[held.index("--threads") + 1] == "3" and held.index("--threads") > image
-    # The head's container is given the memory lent, within the owner's cap.
-    assert sharing.Sharing(ram_mb=16384).head_mb() == 16384
-    assert sharing.Sharing(ram_mb=16384, max_ram_mb=12000).head_mb() == 12000
-    assert sharing.Sharing().head_mb() == sharing.DEFAULT_CONTAINER_MB
+    # With nothing lent beside a head, its container keeps the default cap.
+    assert sharing.Sharing().head_limits(fakes.report()) == (
+        sharing.DEFAULT_CONTAINER_MB,
+        None,
+    )
+
+
+def test_a_head_runs_under_the_lend_as_advertised_never_past_the_machine(
+    tmp_path: Path,
+) -> None:
+    from mcgyvr import hubwire
+    from mcgyvr.rig import hardware, sharing
+
+    machine = HostShape(
+        label="linux-lender",
+        system="linux",
+        machine_id="0123456789abcdef0123456789abcdf5",
+        memory_mib=RAM_FLOOR * 8,
+        available_mib=RAM_FLOOR * 6,
+        cpu_model="Example CPU L12",
+        cores=6,
+        threads=12,
+        version="6.1-example",
+    )
+    reading = host_reading(machine)
+    report = hardware.read(reader=lambda: reading)
+    greedy = fakes.sharing(tmp_path, cards=(), ram_mb=10**6, cpu_cores=999)
+    memory, cpus = greedy.head_limits(report)
+    assert memory == report.ram_total_mb - sharing.RAM_HEADROOM_MB
+    assert cpus == 12 - sharing.CORES_KEPT == 11
+    lent = {r.kind: r for r in greedy.lent(report)}
+    assert (memory, cpus) == (
+        lent[hubwire.RESOURCE_RAM].total_mb,
+        lent[hubwire.RESOURCE_CPU].cores,
+    )
+    capped = fakes.sharing(tmp_path, cards=(), ram_mb=10**6, max_ram_mb=RAM_FLOOR)
+    assert capped.head_limits(report)[0] == RAM_FLOOR

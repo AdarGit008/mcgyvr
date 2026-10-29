@@ -950,12 +950,13 @@ def _cim(machine: HostShape) -> str:
     ]
     body = {
         "memory": (
-            [str(half), str(machine.memory_mib * _MIB - half)]
-            if machine.memory_modules
-            else []
-        ),
-        "memory_types": (
-            [str(_SMBIOS_TYPE.get(machine.ddr or 0, 0))] * 2
+            [
+                {
+                    "capacity": str(size),
+                    "type": str(_SMBIOS_TYPE.get(machine.ddr or 0, 0)),
+                }
+                for size in (half, machine.memory_mib * _MIB - half)
+            ]
             if machine.memory_modules
             else []
         ),

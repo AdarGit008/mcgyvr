@@ -292,6 +292,6 @@ def test_a_modules_smbios_type_names_its_generation_or_none(
         system = "windows"
 
         def cim(self) -> tuple[dict[str, Any], str]:
-            return {"memory_types": types}, ""
+            return {"memory": [{"capacity": "1", "type": t} for t in types]}, ""
 
     assert rigscan._ddr(Windows()) == ddr  # type: ignore[arg-type]

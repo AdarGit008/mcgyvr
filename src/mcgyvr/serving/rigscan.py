@@ -156,10 +156,8 @@ NVIDIA_SMI_DIRS = (
 #: (https://learn.microsoft.com/en-us/powershell/module/microsoft.powershell.core/about/about_powershell_exe?view=powershell-5.1).
 CIM_SCRIPT = (
     "$ErrorActionPreference='SilentlyContinue';[pscustomobject]@{"
-    "memory=@(Get-CimInstance Win32_PhysicalMemory|"
-    "ForEach-Object{[string]$_.Capacity});"
-    "memory_types=@(Get-CimInstance Win32_PhysicalMemory|"
-    "ForEach-Object{[string]$_.SMBIOSMemoryType});"
+    "memory=@(Get-CimInstance Win32_PhysicalMemory|ForEach-Object{[pscustomobject]@{"
+    "capacity=[string]$_.Capacity;type=[string]$_.SMBIOSMemoryType}});"
     "processors=@(Get-CimInstance Win32_Processor|ForEach-Object{[pscustomobject]@{"
     "name=$_.Name;cores=$_.NumberOfCores;threads=$_.NumberOfLogicalProcessors;"
     "architecture=$_.Architecture}});"
@@ -1253,7 +1251,7 @@ def _other_memory(platform_: _Platform) -> _MemoryRead:
     else:
         data, why = platform_.cim()
         system = platform_.cim_first("system")
-        modules = [_size(v) for v in _items((data or {}).get("memory"))]
+        modules = [_size(_module_field(m, "capacity")) for m in _modules(data)]
         how = "Win32_PhysicalMemory Capacity, summed"
         total = (
             sum(m for m in modules if m) if modules and None not in modules else None
@@ -1579,6 +1577,15 @@ def _cpuinfo_model(root: str) -> str | None:
     return None
 
 
+def _modules(data: dict[str, Any] | None) -> list[Any]:
+    """The memory modules of a CIM answer, one {capacity, type} each."""
+    return _items((data or {}).get("memory"))
+
+
+def _module_field(module: Any, name: str) -> Any:
+    return module.get(name) if isinstance(module, dict) else None
+
+
 def _ddr(platform_: _Platform) -> int | None:
     """The DDR generation of the machine's RAM: on Windows the lowest of its
     modules' that is read (SMBIOS_DDR; a board holds one generation), None when
@@ -1588,7 +1595,7 @@ def _ddr(platform_: _Platform) -> int | None:
         return None
     data, _ = platform_.cim()
     found = [
-        SMBIOS_DDR.get(_size(v) or 0) for v in _items((data or {}).get("memory_types"))
+        SMBIOS_DDR.get(_size(_module_field(m, "type")) or 0) for m in _modules(data)
     ]
     read = [n for n in found if n is not None]
     return min(read) if read else None

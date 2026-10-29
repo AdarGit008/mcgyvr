@@ -89,7 +89,10 @@ archived outside this repository, under the same paths.
   offers no session role, so lends nothing, until a native session host runs
   there. `mcgyvr rig status` names what is lent and, with your personal hub
   key in `$MCGYVR_HUB_API_KEY`, your credits. The native build's arch and
-  `nvidia-smi` are now the machine reader's.
+  `nvidia-smi` are now the machine reader's. Deploy a hub that reads resources
+  first: a card whose free memory was not read goes out with `free_mb` unset,
+  which such a hub marks unread and an older hub, reading the cards alone,
+  takes as all free.
 
 - **A unit runs natively, with no container: `launcher: native` (#818).** The
   llama.cpp build mcgyvr pins (b11960, `mcgyvr.serving.llamacpp`; the Linux

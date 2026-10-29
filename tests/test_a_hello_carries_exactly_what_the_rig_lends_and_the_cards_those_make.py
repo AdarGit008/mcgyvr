@@ -31,6 +31,8 @@ from mcgyvr import estimate, hubwire
 from tests import rig_schema
 from tests.machine_shapes import Card, HostShape, host_reading, host_shape
 
+#: The least host memory a rig lends.
+RAM_FLOOR = hubwire.LEND_FLOOR_MB[hubwire.RESOURCE_RAM]
 #: An invented card the bandwidth table may name, and its invented class.
 SIZED = "Example Card Q"
 CLASS = estimate.HardwareClass(
@@ -126,7 +128,7 @@ def test_the_hello_carries_the_lent_resources_and_the_cards_they_make(
     machine = _linux(ZERO, SIZED_CARD)
     report = _report(machine)
     assert [card.vram_total_mb for card in report.cards] == [0, 12288]
-    share = _share(tmp_path, ram_mb=8192, cpu_cores=4)
+    share = _share(tmp_path, ram_mb=RAM_FLOOR, cpu_cores=4)
     body = _hello(share.lendable(report))
     lent = _wire(body["resources"])
     assert [(r.kind, r.index) for r in lent] == [
@@ -136,7 +138,7 @@ def test_the_hello_carries_the_lent_resources_and_the_cards_they_make(
     ]
     gpu, ram, cpu = lent
     assert (gpu.name, gpu.total_mb, gpu.backend) == (SIZED, 12288, "cuda")
-    assert (ram.total_mb, ram.free_mb) == (8192, 8192)
+    assert (ram.total_mb, ram.free_mb) == (RAM_FLOOR, RAM_FLOOR)
     assert (cpu.cores, cpu.total_mb) == (4, 0)
     assert all(hubwire.counts_as_lent(r) for r in lent)
     # cards[] is exactly what the lent resources make: the 0-MiB card is not
@@ -192,7 +194,7 @@ def test_only_what_reaches_its_floor_is_advertised(tmp_path: Path) -> None:
 
     small = Card(index=0, name="Example Card S", vendor="vendor-a", total_mib=1024)
     report = _report(_linux(small, SIZED_CARD))
-    share = _share(tmp_path, ram_mb=8192, cpu_cores=4)
+    share = _share(tmp_path, ram_mb=RAM_FLOOR, cpu_cores=4)
     lent = _wire(_hello(share.lendable(report))["resources"])
     assert [(r.kind, r.index) for r in lent if r.kind in hubwire.CARD_KINDS] == [
         (hubwire.RESOURCE_GPU, 1)
@@ -209,14 +211,14 @@ def test_only_what_reaches_its_floor_is_advertised(tmp_path: Path) -> None:
 
 def test_memory_and_cores_are_lent_only_beside_the_head_role(tmp_path: Path) -> None:
     report = _report(_linux(SIZED_CARD))
-    worker = _share(None, ram_mb=8192, cpu_cores=4)
+    worker = _share(None, ram_mb=RAM_FLOOR, cpu_cores=4)
     lent = _wire(_hello(worker.lendable(report))["resources"])
     assert [r.kind for r in lent] == [hubwire.RESOURCE_GPU]
 
 
 def test_a_lender_of_no_card_advertises_memory_and_cores(tmp_path: Path) -> None:
     report = _report(_linux(SIZED_CARD))
-    share = _share(tmp_path, cards=(), ram_mb=8192, cpu_cores=4)
+    share = _share(tmp_path, cards=(), ram_mb=RAM_FLOOR, cpu_cores=4)
     body = _hello(share.lendable(report))
     assert [r["kind"] for r in body["resources"]] == [
         hubwire.RESOURCE_RAM,
@@ -227,7 +229,7 @@ def test_a_lender_of_no_card_advertises_memory_and_cores(tmp_path: Path) -> None
 
 def test_a_heartbeat_reads_again_what_the_hello_named(tmp_path: Path) -> None:
     report = _report(_linux(ZERO, SIZED_CARD))
-    told = _share(tmp_path, ram_mb=8192, cpu_cores=4).lendable(report)
+    told = _share(tmp_path, ram_mb=RAM_FLOOR, cpu_cores=4).lendable(report)
     beat = _beat(told)
     readings = [hubwire.ResourceReading(**r) for r in beat["resources"]]
     assert [(r.kind, r.index) for r in readings] == [

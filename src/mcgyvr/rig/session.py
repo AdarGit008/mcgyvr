@@ -1185,6 +1185,8 @@ class Sessions:
             rpc.append((str(device.host), device.port))
         session.rpc = tuple(rpc)
         session.head_file = held.folder / relative
+        # The head runs under the lend as the hello advertised it.
+        memory_mb, cpus = share.head_limits(report)
         return pooled.HeadSpec(
             session_id=session.id,
             image=share.image,
@@ -1200,8 +1202,8 @@ class Sessions:
             tensor_split=asked.tensor_split,
             rpc=tuple(f"{host}:{port}" for host, port in rpc),
             bind=str(ipaddress.IPv4Interface(session.hello.address).ip),
-            memory_mb=share.head_mb(),
-            cpus=share.cpu_cores or None,
+            memory_mb=memory_mb,
+            cpus=cpus,
         )
 
     def _hub_lost(self) -> None:
