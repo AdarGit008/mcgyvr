@@ -192,6 +192,7 @@ archived outside this repository, under the same paths.
   estimate. A Linux machine reads as before and keeps its rig id. A Mac's
   unified GPU is not lent yet: a lent card is served by a CUDA worker in a
   container, and it joins lending with native launch. (#809)
+
 - **What a rig lends is defined once, as resources, in `mcgyvr.hubwire`
   (#812).** A `Resource` (`gpu`, `unified`, `ram` or `cpu`; `RESOURCE_KINDS`)
   names its index, name, MiB lent and free with whether they are an estimate
@@ -207,7 +208,12 @@ archived outside this repository, under the same paths.
   `cards[]` of a hello and a heartbeat from the `gpu` and `unified` ones, and
   `STANDBY_UNITS` names the unit standby is counted in per kind (names only);
   `LEND_FLOOR_MB`, `LEND_FLOOR_CORES` and `counts_as_lent` say the least a
-  resource lends to count as lent (a 1 MiB card or one core earns nothing);
+  resource lends to count as lent (a 1 MiB card or one core earns nothing):
+  2048 MiB for a `gpu`, 4096 for a `unified` device, 8192 of host `ram`, two
+  `cpu` cores. A `ram` resource may name its DDR generation (`Resource.ddr`,
+  1 to `MAX_RAM_DDR`, `ram` alone); one known to be older than `RAM_DDR_MIN`
+  (DDR4) never counts, and one whose generation the reader could not tell
+  counts by its size. The shipped protocol schema carries `ddr` on a resource;
   `FIGURE_ESTIMATE` and `FIGURE_READING` name the two figure kinds.
   A `cpu` resource serves whole models only, never a pipeline stage. The rig
   agent's card rules (`rig.protocol.CARD_NAME`, `CARD_NAME_MAX`, `MAX_MB`,
@@ -220,6 +226,32 @@ archived outside this repository, under the same paths.
   sends resources yet. Ruff now refuses a raw bidirectional control character in
   source (`PLE2502`).
 
+- **The wire names each value it holds, and carries a member's lending, a cpu
+  head device and the decode rule (#814).** Each backend, OS and arch has its
+  own name (`BACKEND_CUDA`..`BACKEND_CPU`, `HOST_LINUX`/`HOST_DARWIN`/
+  `HOST_WINDOWS`, `ARCH_X86_64`/`ARCH_ARM64`), and `RESOURCE_BACKENDS`,
+  `HOST_OS` and `HOST_ARCH` are built from them, in the same order. An advert
+  names at most one `unified` device (`ONE_PER_RIG`: one unified device, one
+  `ram`, one `cpu`; `resources_fit` refuses a second); `readings_fit` no
+  longer counts a kind, as a hub reads only what the advert named.
+  `STANDBY_UNIT_SIZE`
+  sizes the standby unit a hub pays by (a card, 16384 MiB of host memory, 8
+  cores) and `STANDBY_UNITS`' names are made from it. `HEAD_DEVICE_KINDS`
+  (`local`, `rpc`, `cpu`) names the devices a `head_start` may list; the rig
+  agent reads them by these names and refuses a `cpu` device `not_capable`
+  until it starts cpu heads.
+  `Lending` is what a member chooses to lend on a rig (card indexes, each
+  once, null for every card, empty for none; host memory in MiB; cores; each
+  0 or at least its lending floor), carried in the hello's ack as `LENDING_FIELD`. `rpc_incompatible`
+  (503) joins the `/v1` error table beside `no_path`. The shipped protocol
+  schema carries the ack's `lending`, `capabilities.rpc_proto` and a `cpu`
+  head device; the rider schema carries `rpc_incompatible`.
+  The decode rule a hub plans by is here, stdlib only: `DECODE_EFFICIENCY`,
+  `HIGH_BANDWIDTH_GBPS`, `HIGH_BANDWIDTH_EFFICIENCY`, `FITTED_ON`,
+  `QUANT_CLASSES`, `quant_class`, `decode_efficiency` and
+  `decode_ms_per_gib` (milliseconds a token takes per GiB of weights), each
+  naming the vendor; `fitted_on(kind, backend)` tells a hub, which sees no
+  vendor, when a device is of the fitted one (a unified Metal device).
 - **`mcgyvr rig crew sync` keeps the units your crews lend you in `crew.yaml`
   (#829):** scope `crew`, units a step or a role binds, never api rungs.
 - **A unit says whose it is, and a role or a ladder step may bind a hub unit

@@ -11,14 +11,17 @@ agent's card rules are the resource's, by import, and the shipped schema's;
 every rule :meth:`hubwire.Resource.validate`, :meth:`hubwire.Host.validate`
 and :meth:`hubwire.ResourceReading.validate` keep refuses its own break and
 names the field; an advert and a heartbeat fit by count, by ``(kind, index)``,
-by card and by host resource; the legacy cards come out of a unified-only, a
-gpu-only and a mixed advert, and the card readings out of a heartbeat's; and a
-standby unit is named for every kind.
+by card and by the kinds a rig names once (one unified device, its memory, its
+cores); the legacy cards come out of a unified-only, a gpu-only and a mixed
+advert, and the card readings out of a heartbeat's; each closed set is built
+from its values' own names; and a standby unit is named and sized for every
+kind.
 """
 
 from __future__ import annotations
 
 import dataclasses
+import json
 import math
 from typing import Any
 
@@ -129,6 +132,44 @@ def test_the_closed_sets_hold_the_values_the_hub_takes() -> None:
     assert hubwire.CARD_KINDS == (hubwire.RESOURCE_GPU, hubwire.RESOURCE_UNIFIED)
 
 
+@pytest.mark.parametrize(
+    ("values", "names"),
+    [
+        (
+            hubwire.RESOURCE_BACKENDS,
+            (
+                hubwire.BACKEND_CUDA,
+                hubwire.BACKEND_METAL,
+                hubwire.BACKEND_VULKAN,
+                hubwire.BACKEND_ROCM,
+                hubwire.BACKEND_CPU,
+            ),
+        ),
+        (
+            hubwire.HOST_OS,
+            (hubwire.HOST_LINUX, hubwire.HOST_DARWIN, hubwire.HOST_WINDOWS),
+        ),
+        (hubwire.HOST_ARCH, (hubwire.ARCH_X86_64, hubwire.ARCH_ARM64)),
+    ],
+)
+def test_each_closed_set_is_its_values_names_in_order(
+    values: tuple[str, ...], names: tuple[str, ...]
+) -> None:
+    """A reader imports a value by its name, never by its place in the set:
+    a reorder of the set cannot rename one."""
+    assert names == values
+    assert all(name is value for name, value in zip(names, values, strict=True))
+
+
+def test_each_value_name_holds_its_value() -> None:
+    assert (hubwire.BACKEND_CUDA, hubwire.BACKEND_METAL) == ("cuda", "metal")
+    assert (hubwire.BACKEND_VULKAN, hubwire.BACKEND_ROCM) == ("vulkan", "rocm")
+    assert hubwire.BACKEND_CPU == "cpu"
+    assert (hubwire.HOST_LINUX, hubwire.HOST_DARWIN) == ("linux", "darwin")
+    assert hubwire.HOST_WINDOWS == "windows"
+    assert (hubwire.ARCH_X86_64, hubwire.ARCH_ARM64) == ("x86_64", "arm64")
+
+
 def test_the_limits_are_the_ones_the_hub_takes() -> None:
     assert hubwire.MAX_RESOURCES == 32
     assert hubwire.MAX_CARDS == 16
@@ -166,6 +207,7 @@ def test_the_fields_are_the_contracts_in_its_order() -> None:
         "total_mb",
         "free_mb",
         "cores",
+        "ddr",
         "bandwidth_gbps",
         "bandwidth_figure",
         "figure",
@@ -254,6 +296,8 @@ def test_a_resources_fields_and_bounds_are_the_shipped_schemas() -> None:
     assert _value(props["free_mb"])["maximum"] == hubwire.RESOURCE_MAX_MB
     cores = _value(props["cores"])
     assert (cores["minimum"], cores["maximum"]) == (1, hubwire.MAX_RESOURCE_CORES)
+    ddr = _value(props["ddr"])
+    assert (ddr["minimum"], ddr["maximum"]) == (1, hubwire.MAX_RAM_DDR)
     bandwidth = _value(props["bandwidth_gbps"])
     assert (bandwidth["exclusiveMinimum"], bandwidth["maximum"]) == (
         0,
@@ -284,7 +328,7 @@ def test_a_hello_and_a_heartbeat_carry_at_most_an_adverts_resources() -> None:
 
 def test_what_the_wire_validates_the_shipped_schema_takes() -> None:
     protocol = rig_schema.load(rig_schema.PROTOCOL)
-    for resource in (_gpu(), _unified(), _ram(), _cpu()):
+    for resource in (_gpu(), _unified(), _ram(), _ram(ddr=4), _cpu()):
         resource.validate()
         body = dataclasses.asdict(resource)
         rig_schema.validate(body, protocol, "#/$defs/Resource")
@@ -294,6 +338,19 @@ def test_what_the_wire_validates_the_shipped_schema_takes() -> None:
         "#/$defs/ResourceReading",
     )
     rig_schema.validate(dataclasses.asdict(_host()), protocol, "#/$defs/Host")
+
+
+def test_a_ddr_generation_goes_through_the_shipped_schema_and_back() -> None:
+    protocol = rig_schema.load(rig_schema.PROTOCOL)
+    body = json.loads(json.dumps(dataclasses.asdict(_ram(ddr=5))))
+    rig_schema.validate(body, protocol, "#/$defs/Resource")
+    back = hubwire.Resource(**body)
+    back.validate()
+    assert back.ddr == 5
+    with pytest.raises(rig_schema.SchemaError):
+        rig_schema.validate(
+            {**body, "ddr": hubwire.MAX_RAM_DDR + 1}, protocol, "#/$defs/Resource"
+        )
 
 
 # --- a resource -------------------------------------------------------------------
@@ -360,6 +417,32 @@ def test_a_resources_free_mib_is_none_or_within_what_it_lends(free_mb: Any) -> N
 )
 def test_only_a_cpu_resource_lends_cores_1_to_1024(resource: hubwire.Resource) -> None:
     _refused("cores", resource.validate)
+
+
+@pytest.mark.parametrize(
+    "resource",
+    [
+        _gpu(ddr=4),
+        _unified(ddr=5),
+        _cpu(ddr=4),
+        _ram(ddr=0),
+        _ram(ddr=hubwire.MAX_RAM_DDR + 1),
+        _ram(ddr=4.0),
+        _ram(ddr=True),
+        _ram(ddr="4"),
+    ],
+)
+def test_only_host_memory_names_a_ddr_generation_1_to_its_most(
+    resource: hubwire.Resource,
+) -> None:
+    _refused("ddr", resource.validate)
+
+
+@pytest.mark.parametrize("ddr", [None, 1, 3, 4, 5, hubwire.MAX_RAM_DDR])
+def test_host_memory_of_any_or_an_unknown_ddr_generation_validates(
+    ddr: int | None,
+) -> None:
+    _ram(ddr=ddr).validate()
 
 
 def test_only_a_unified_device_shares_the_hosts_memory() -> None:
@@ -449,11 +532,12 @@ def _unfit(resources: list[hubwire.Resource], why: str) -> None:
 
 
 def test_an_advert_fits_up_to_its_most_resources() -> None:
-    """Its widest is every card a hello takes, the host's memory and its
-    cores; the count bound refuses an advert longer still before any other."""
+    """Its widest is every card a hello takes, one of them unified, the
+    host's memory and its cores; the count bound refuses an advert longer
+    still before any other."""
     cards = hubwire.MAX_CARDS
-    widest = [*(_gpu(i) for i in range(cards // 2)), _ram(), _cpu()]
-    widest += [_unified(i) for i in range(cards // 2, cards)]
+    widest = [*(_gpu(i) for i in range(cards - 1)), _ram(), _cpu()]
+    widest += [_unified(cards - 1)]
     hubwire.resources_fit(widest)
     hubwire.resources_fit([])
     _unfit([_gpu(i) for i in range(hubwire.MAX_RESOURCES + 1)], "more than 32")
@@ -479,6 +563,25 @@ def test_a_card_index_is_one_cards_whatever_its_kind() -> None:
 def test_an_advert_lends_the_hosts_memory_once_and_its_cores_once() -> None:
     _unfit([_ram(), _ram(index=1)], "more than one ram")
     _unfit([_cpu(), _cpu(index=1)], "more than one cpu")
+
+
+def test_the_kinds_a_rig_names_once_are_its_unified_device_memory_and_cores() -> None:
+    assert hubwire.ONE_PER_RIG == (
+        hubwire.RESOURCE_UNIFIED,
+        hubwire.RESOURCE_RAM,
+        hubwire.RESOURCE_CPU,
+    )
+    assert hubwire.RESOURCE_GPU not in hubwire.ONE_PER_RIG
+
+
+def test_an_advert_names_at_most_one_unified_device() -> None:
+    """A host has one memory to share, so a rig names one device whose
+    memory is the host's; discrete cards beside it are any number."""
+    hubwire.resources_fit([_unified(0), _gpu(1), _gpu(2), _ram(), _cpu()])
+    _unfit([_unified(0), _unified(1)], "more than one unified")
+    _unfit([_gpu(0), _unified(1), _unified(2, name="Another")], "more than one unified")
+    with pytest.raises(ValueError, match=r"^resources: more than one unified"):
+        hubwire.cards_from_resources([_unified(0), _unified(1)])
 
 
 def test_an_advert_fits_only_when_each_resource_validates() -> None:
@@ -594,10 +697,17 @@ def test_a_heartbeat_fits_by_the_adverts_rules() -> None:
         ([_reading("gpu", 0), _reading("gpu", 0)], "a kind and index twice"),
         ([_reading("gpu", 0), _reading("unified", 0)], "a card index twice"),
         ([_reading("gpu", i) for i in range(17)], "more than 16 cards"),
-        ([_reading("ram", 0), _reading("ram", 1)], "more than one ram"),
     ):
         with pytest.raises(ValueError, match=rf"^resources: {why}"):
             hubwire.readings_fit(readings)
+
+
+@pytest.mark.parametrize("kind", ["unified", "ram"])
+def test_a_heartbeat_may_read_a_resource_its_advert_did_not_name(kind: str) -> None:
+    """How many of a kind a rig has is its advert's to say; a hub reads
+    nothing of a ``(kind, index)`` no advert named, so a heartbeat is not
+    refused for reading one."""
+    hubwire.readings_fit([_reading(kind, 0), _reading(kind, 5)])
 
 
 def test_a_heartbeats_card_readings_are_its_gpu_and_unified_readings_by_index() -> None:
@@ -659,13 +769,28 @@ def test_every_kind_has_one_standby_unit_and_only_names_it() -> None:
         hubwire.STANDBY_UNITS["ram"] = "1GiB"  # type: ignore[index]
 
 
+def test_every_kinds_standby_unit_has_the_size_its_name_says() -> None:
+    """A hub pays standby per unit of these sizes: a card, 16384 MiB of host
+    memory, 8 cores; the names are made from them."""
+    assert dict(hubwire.STANDBY_UNIT_SIZE) == {
+        "gpu": 1,
+        "unified": 1,
+        "ram": 16384,
+        "cpu": 8,
+    }
+    assert tuple(hubwire.STANDBY_UNIT_SIZE) == tuple(hubwire.STANDBY_UNITS)
+    with pytest.raises(TypeError):
+        hubwire.STANDBY_UNIT_SIZE["ram"] = 1  # type: ignore[index]
+
+
 # --- the least a resource lends to count --------------------------------------------
 
 
 def test_the_lending_floor_is_named_per_kind() -> None:
-    assert dict(hubwire.LEND_FLOOR_MB) == {"gpu": 2048, "unified": 4096, "ram": 4096}
+    assert dict(hubwire.LEND_FLOOR_MB) == {"gpu": 2048, "unified": 4096, "ram": 8192}
     assert set(hubwire.LEND_FLOOR_MB) == set(hubwire.RESOURCE_KINDS) - {"cpu"}
     assert hubwire.LEND_FLOOR_CORES == 2
+    assert hubwire.RAM_DDR_MIN == 4
 
 
 @pytest.mark.parametrize(
@@ -676,7 +801,9 @@ def test_the_lending_floor_is_named_per_kind() -> None:
         ("gpu", 1, None, False),
         ("unified", 4096, None, True),
         ("unified", 4095, None, False),
-        ("ram", 4096, None, True),
+        ("ram", 8192, None, True),
+        ("ram", 8191, None, False),
+        ("ram", 4096, None, False),
         ("ram", 1, None, False),
         ("cpu", 0, 2, True),
         ("cpu", 0, 1, False),
@@ -698,6 +825,25 @@ def test_a_resource_counts_as_lent_only_at_its_kinds_floor(
     assert hubwire.counts_as_lent(resource) is lent
 
 
+@pytest.mark.parametrize(
+    ("total_mb", "ddr", "lent"),
+    [
+        (8192, None, True),
+        (16384, 3, False),
+        (8192, 4, True),
+        (8191, 5, False),
+        (hubwire.RESOURCE_MAX_MB, 1, False),
+        (8192, hubwire.MAX_RAM_DDR, True),
+    ],
+)
+def test_host_memory_counts_as_lent_only_when_ddr4_or_newer_or_unknown(
+    total_mb: int, ddr: int | None, lent: bool
+) -> None:
+    resource = _ram(total_mb=total_mb, free_mb=None, ddr=ddr)
+    resource.validate()
+    assert hubwire.counts_as_lent(resource) is lent
+
+
 # --- the RPC protocol a split model's workers speak -------------------------------
 
 
@@ -705,6 +851,23 @@ def test_the_rpc_protocol_field_is_one_name() -> None:
     assert hubwire.RPC_PROTO_FIELD == "rpc_proto"
     assert hubwire.RPC_PROTO_MAX == 255
     assert [f.name for f in dataclasses.fields(hubwire.RpcProto)] == ["major", "minor"]
+
+
+def test_a_hellos_capabilities_carry_the_rpc_protocol_in_the_shipped_schema() -> None:
+    capabilities = _defs("Capabilities")["properties"]
+    assert _value(capabilities[hubwire.RPC_PROTO_FIELD]) == {"$ref": "#/$defs/RpcProto"}
+    proto = _defs("RpcProto")
+    assert proto["required"] == [f.name for f in dataclasses.fields(hubwire.RpcProto)]
+    for part in proto["properties"].values():
+        assert (part["minimum"], part["maximum"]) == (0, hubwire.RPC_PROTO_MAX)
+    protocol = rig_schema.load(rig_schema.PROTOCOL)
+    sent = {hubwire.RPC_PROTO_FIELD: {"major": 3, "minor": 0}}
+    rig_schema.validate(sent, protocol, "#/$defs/Capabilities")
+    for bad in ({"major": 256, "minor": 0}, {"major": 3}):
+        with pytest.raises(rig_schema.SchemaError):
+            rig_schema.validate(
+                {hubwire.RPC_PROTO_FIELD: bad}, protocol, "#/$defs/Capabilities"
+            )
 
 
 @pytest.mark.parametrize("proto", [(0, 0), (8, 0), (8, 12), (255, 255)])
