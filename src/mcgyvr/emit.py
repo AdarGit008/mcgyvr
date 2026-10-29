@@ -51,6 +51,7 @@ from mcgyvr.serving import (
     Unit,
     UnitKey,
     Width,
+    host_of,
     kernelcache,
     launch_specs,
     llamacpp,
@@ -556,44 +557,74 @@ def _native_service(unit: Unit) -> dict[str, object]:
     No image, no volumes, no devices: the program (`PROGRAM_KEY`) is the
     pinned llama.cpp build's server or rpc worker, run with the same argv a
     container is given, and the cards it may use are listed under
-    `CARDS_KEY`. A server is given `--host 127.0.0.1`, and a unit stating
-    any other listening address is refused. Only llama.cpp has a native
-    build: a vLLM unit is refused.
+    `CARDS_KEY` (:func:`_native_block`).
     """
-    if unit.engine != "llama.cpp":
+    if unit.role == ROLE_SERVE and HOST_FLAG not in unit.args:
+        unit = replace(unit, args={**unit.args, HOST_FLAG: LOOPBACK})
+    return _native_block(
+        unit.key.slug,
+        engine=unit.engine,
+        host=unit.host,
+        rpc=unit.role == ROLE_RPC,
+        container=f"mcgyvr-{safe_host(unit.host)}-{_service_name(unit)}",
+        command=list(argv(unit)),
+        env=dict(unit.env),
+        cards=unit.cards,
+    )
+
+
+def _native_block(
+    slug: str,
+    *,
+    engine: str | None,
+    host: str,
+    rpc: bool,
+    container: str,
+    command: list[str],
+    env: Mapping[str, str],
+    cards: Iterable[int],
+) -> dict[str, object]:
+    """The native launch spec of one process, from an emitted unit or a locked one.
+
+    Only llama.cpp has a native build, and it runs on this machine
+    (`LOCAL_RIGS`): another engine or rig is refused. A server listens on
+    `LOOPBACK` alone: its `--host` must name it, or it is given it, and a
+    `LLAMA_ARG_HOST` or another `--host` is refused.
+    """
+    if (engine or "llama.cpp") != "llama.cpp":
         raise EmitError(
-            f"{unit.key.slug}: launcher native runs the pinned llama.cpp build, "
-            f"and {unit.engine} has none; it runs in its container (launcher docker)"
+            f"{slug}: launcher native runs the pinned llama.cpp build, "
+            f"and {engine} has none; it runs in its container (launcher docker)"
         )
-    if unit.host not in LOCAL_RIGS:
+    if host not in LOCAL_RIGS:
         raise EmitError(
-            f"{unit.key.slug}: launcher native runs the unit on the machine mcgyvr "
-            f"runs on, and {unit.host} is another; a unit on another rig runs in "
+            f"{slug}: launcher native runs the unit on the machine mcgyvr "
+            f"runs on, and {host} is another; a unit on another rig runs in "
             "its container (launcher docker)"
         )
-    stated = (*unit.args, *unit.extra)
-    if (
-        HOST_ENV in unit.env
-        or HOST_FLAG in unit.extra
-        or any(p.startswith(f"{HOST_FLAG}=") for p in stated)
-        or unit.args.get(HOST_FLAG, LOOPBACK) != LOOPBACK
-    ):
+    hosts = [
+        command[n + 1] if part == HOST_FLAG and n + 1 < len(command) else part
+        for n, part in enumerate(command)
+        if part == HOST_FLAG or part.startswith(f"{HOST_FLAG}=")
+    ]
+    hosts = [h.removeprefix(f"{HOST_FLAG}=") for h in hosts]
+    if HOST_ENV in env or any(h != LOOPBACK for h in hosts):
         raise EmitError(
-            f"{unit.key.slug}: a native unit listens on {LOOPBACK} alone (the rig "
+            f"{slug}: a native unit listens on {LOOPBACK} alone (the rig "
             "agent relays to it, and pooled workers bind the tunnel address); "
             f"drop the {HOST_FLAG} or {HOST_ENV} its launch states"
         )
-    if unit.role == ROLE_SERVE:
-        unit = replace(unit, args={**unit.args, HOST_FLAG: LOOPBACK})
+    if not rpc and not hosts:
+        command = [*command, HOST_FLAG, LOOPBACK]
     service: dict[str, object] = {
         LAUNCHER_KEY: LAUNCHER_NATIVE,
-        PROGRAM_KEY: llamacpp.RPC_SERVER if unit.role == ROLE_RPC else llamacpp.SERVER,
-        "container_name": f"mcgyvr-{safe_host(unit.host)}-{_service_name(unit)}",
-        "command": list(argv(unit)),
-        CARDS_KEY: list(unit.cards),
+        PROGRAM_KEY: llamacpp.RPC_SERVER if rpc else llamacpp.SERVER,
+        "container_name": container,
+        "command": command,
+        CARDS_KEY: list(cards),
     }
-    if unit.env:
-        service["environment"] = dict(unit.env)
+    if env:
+        service["environment"] = dict(env)
     return service
 
 
@@ -1008,11 +1039,7 @@ def _locked_service(
     file name when it states one at all.
     """
     if unit.get("launcher") == LAUNCHER_NATIVE:
-        raise LockedLaunchError(
-            f"{name}: a locked unit is emitted as the container it was locked "
-            "as, and launcher native is not one; serve it from an unlocked "
-            "setup until locked native units are supported"
-        )
+        return _locked_native(name, unit, cards)
     launch = unit.get("launch") or {}
     argv = launch.get("argv")
     env = launch.get("env", {})
@@ -1065,6 +1092,45 @@ def _locked_service(
     else:
         service["volumes"] = list(volumes or ())
     return service
+
+
+def _locked_native(
+    name: str, unit: Mapping[str, Any], cards: tuple[int, ...]
+) -> dict[str, object]:
+    """The native launch spec of a locked unit, from what its lock states.
+
+    The lock carries what the unlocked unit was emitted with: `unit_id`,
+    `container`, `launch.argv` and `launch.env`; the cards come from its
+    span. It is the same block an unlocked native unit renders
+    (:func:`_native_block`), so locking a native fleet does not change how
+    it runs.
+    """
+    launch = unit.get("launch") or {}
+    argv = launch.get("argv")
+    env = launch.get("env", {})
+    missing: list[str] = []
+    for key in ("unit_id", "container", "address"):
+        if not isinstance(unit.get(key), str) or not unit.get(key):
+            missing.append(key)
+    if not _strings(argv) or not argv:
+        missing.append("launch.argv (a list of strings)")
+    if not isinstance(env, Mapping) or not _strings(list(env.values())):
+        missing.append("launch.env (a mapping of strings)")
+    if missing:
+        raise LockedLaunchError(
+            f"{name}: a locked unit is rendered from what it states, and it does "
+            f"not state {', '.join(missing)}"
+        )
+    return _native_block(
+        name,
+        engine=unit.get("engine"),
+        host=host_of(str(unit["address"])),
+        rpc=False,
+        container=str(unit["container"]),
+        command=list(cast(list[str], argv)),
+        env={str(k): str(v) for k, v in env.items()},
+        cards=cards,
+    )
 
 
 #: The shared address space overlay networks hand out (RFC 6598). A worker

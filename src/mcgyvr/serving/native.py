@@ -167,15 +167,6 @@ class NativeUnit:
     asleep: bool
 
 
-@dataclass(frozen=True)
-class Done:
-    """How a native verb ended, shaped as a finished ``docker compose`` call is."""
-
-    returncode: int
-    stdout: str = ""
-    stderr: str = ""
-
-
 # --- where things are --------------------------------------------------------
 
 
@@ -301,31 +292,45 @@ def machine_arch() -> str:
 
 
 def nvidia_smi() -> str | None:
-    """The ``nvidia-smi`` to ask: on PATH, else (Windows) under System32 or NVSMI.
+    """The ``nvidia-smi`` to ask, by its full path, or None.
 
-    Windows places it in ``C:\\Windows\\System32`` or ``C:\\Program Files\\NVIDIA
-    Corporation\\NVSMI``
-    (https://github.com/influxdata/telegraf/blob/master/plugins/inputs/nvidia_smi/README.md).
+    POSIX: the one on PATH. Windows: :func:`_windows_nvidia_smi`, never a bare
+    name, since Windows' ``which`` looks in the working folder first and
+    honours PATHEXT, where anyone may leave an ``nvidia-smi.bat``.
     """
-    found = shutil.which(hostos.exe("nvidia-smi"))
-    if found or hostos.os_name() != "windows":
-        return found
-    system = os.environ.get("SYSTEMROOT") or r"C:\Windows"
-    # A 32-bit Python is shown the 32-bit Program Files; the 64-bit one,
-    # where the driver installs, is PROGRAMW6432 there.
-    programs = {
-        os.environ.get("PROGRAMW6432") or "",
-        os.environ.get("PROGRAMFILES") or r"C:\Program Files",
-    } - {""}
-    for candidate in (
-        Path(system) / "System32" / "nvidia-smi.exe",
-        *(
-            Path(folder) / "NVIDIA Corporation" / "NVSMI" / "nvidia-smi.exe"
-            for folder in sorted(programs)
-        ),
-    ):
-        if candidate.is_file():
-            return str(candidate)
+    if hostos.os_name() == "windows":
+        return _windows_nvidia_smi()
+    return shutil.which("nvidia-smi")
+
+
+#: Where Windows keeps nvidia-smi.exe besides PATH: ``C:\\Windows\\System32``
+#: or ``C:\\Program Files\\NVIDIA Corporation\\NVSMI``
+#: (https://github.com/influxdata/telegraf/blob/master/plugins/inputs/nvidia_smi/README.md);
+#: PROGRAMW6432 is the 64-bit Program Files a 32-bit Python is not shown.
+#: The reader's rule (``rigscan._windows_nvidia_smi``, on #816), verbatim, so
+#: this copy is deleted when that lands.
+NVIDIA_SMI_EXE = "nvidia-smi.exe"
+NVIDIA_SMI_DIRS = (
+    ("SYSTEMROOT", "C:\\Windows", ("System32",)),
+    ("PROGRAMW6432", "", ("NVIDIA Corporation", "NVSMI")),
+    ("PROGRAMFILES", "C:\\Program Files", ("NVIDIA Corporation", "NVSMI")),
+)
+
+
+def _windows_nvidia_smi() -> str | None:
+    """nvidia-smi.exe by its full path: in a PATH folder named in full, else the
+    first NVIDIA_SMI_DIRS folder holding it, else None, and nothing is run. It is
+    never called by bare name: Windows' which() would look in the working folder
+    first, where anyone may leave an nvidia-smi.bat."""
+    folders = [
+        d for d in os.environ.get("PATH", "").split(os.pathsep) if os.path.isabs(d)
+    ]
+    for variable, default, parts in NVIDIA_SMI_DIRS:
+        if os.environ.get(variable) or default:
+            folders.append(os.path.join(os.environ.get(variable) or default, *parts))
+    for folder in folders:
+        if os.path.isfile(os.path.join(folder, NVIDIA_SMI_EXE)):
+            return os.path.join(folder, NVIDIA_SMI_EXE)
     return None
 
 
@@ -355,13 +360,10 @@ def vulkan_loader() -> bool:
         system = os.environ.get("SYSTEMROOT") or r"C:\Windows"
         return (Path(system) / "System32" / "vulkan-1.dll").is_file()
     if hostos.os_name() == "linux":
-        import ctypes
+        # Looked up, not loaded: the door's own process loads no driver.
+        import ctypes.util
 
-        try:
-            ctypes.CDLL("libvulkan.so.1")
-        except OSError:
-            return False
-        return True
+        return ctypes.util.find_library("vulkan") is not None
     return False
 
 
@@ -417,7 +419,7 @@ def up(
     folder: Callable[[llamacpp.Build], Path] = binaries,
     build: Callable[[], llamacpp.Build] = pick,
     restart: Mapping[str, float] | None = None,
-) -> Done:
+) -> subprocess.CompletedProcess[str]:
     """Start the spec's native units (the named ones, else every awake one).
 
     A unit already supervised is left as it is. A unit that waits on another
@@ -433,18 +435,24 @@ def up(
         else [u for u in units if not u.asleep]
     )
     if not chosen:
-        return Done(0, "no native unit to start\n")
+        return subprocess.CompletedProcess(
+            ["native"], 0, "no native unit to start\n", ""
+        )
     try:
         picked = build()
         programs = folder(picked)
     except NativeError as exc:
-        return Done(1, "", f"{exc}\n")
+        return subprocess.CompletedProcess(["native"], 1, "", f"{exc}\n")
     by_name = {u.name: u for u in units}
     said: list[str] = []
     failed: list[str] = []
     for unit in _in_order(chosen, by_name):
         for ahead in unit.depends_on:
-            if ahead in by_name and not wait_answers(by_name[ahead].port):
+            # A unit started here a moment ago is still loading its weights,
+            # which takes minutes; one this call did not start either answers
+            # now or is not coming.
+            budget = START_S * 20 if by_name.get(ahead) in chosen else ASK_S
+            if ahead in by_name and not wait_answers(by_name[ahead].port, budget):
                 failed.append(f"{unit.container}: {ahead} never answered")
                 break
         else:
@@ -452,7 +460,8 @@ def up(
             (said if outcome is None else failed).append(
                 f"{unit.container}: started" if outcome is None else outcome
             )
-    return Done(
+    return subprocess.CompletedProcess(
+        ["native"],
         1 if failed else 0,
         "".join(f"{s}\n" for s in said),
         "".join(f"{f}\n" for f in failed),
@@ -590,8 +599,11 @@ def supervisor_env(env: Mapping[str, str]) -> dict[str, str]:
     return kept
 
 
-def down(names: Iterable[str]) -> Done:
-    """Stop the named native units; status 0 when none is left supervised."""
+def down(names: Iterable[str]) -> subprocess.CompletedProcess[str]:
+    """Stop the named native units; status 0 when none is left supervised.
+
+    Answered as the finished ``docker compose`` call the serve steps read.
+    """
     left: list[str] = []
     said: list[str] = []
     for unit in names:
@@ -599,7 +611,8 @@ def down(names: Iterable[str]) -> Done:
             said.append(f"{unit}: stopped")
         else:
             left.append(f"{unit}: still up")
-    return Done(
+    return subprocess.CompletedProcess(
+        ["native"],
         1 if left else 0,
         "".join(f"{s}\n" for s in said),
         "".join(f"{f}\n" for f in left),

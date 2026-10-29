@@ -10,7 +10,9 @@ programs the native launch runs.
 
 from __future__ import annotations
 
+import os
 import re
+from pathlib import Path
 
 import pytest
 
@@ -108,3 +110,28 @@ def test_the_container_image_is_the_same_build() -> None:
 
 def test_both_programs_are_the_ones_the_native_launch_runs() -> None:
     assert llamacpp.EXECUTABLES == ("llama-server", "ggml-rpc-server")
+
+
+def test_a_planted_nvidia_smi_in_the_working_folder_is_never_run_on_windows(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    from mcgyvr.serving import native
+    from tests.hostos_fakes import as_system
+
+    here = tmp_path / "cwd"
+    here.mkdir()
+    for planted in ("nvidia-smi.exe", "nvidia-smi.bat", "nvidia-smi"):
+        (here / planted).write_text("planted")
+    elsewhere = tmp_path / "nowhere"
+    monkeypatch.chdir(here)
+    monkeypatch.setenv("PATH", os.pathsep.join(["", ".", "relative/bin"]))
+    for variable in ("SYSTEMROOT", "PROGRAMW6432", "PROGRAMFILES"):
+        monkeypatch.setenv(variable, str(elsewhere))
+    as_system(monkeypatch, "windows")
+    assert native.nvidia_smi() is None
+
+    real = tmp_path / "Program Files" / "NVIDIA Corporation" / "NVSMI"
+    real.mkdir(parents=True)
+    (real / "nvidia-smi.exe").write_text("driver's")
+    monkeypatch.setenv("PROGRAMFILES", str(tmp_path / "Program Files"))
+    assert native.nvidia_smi() == os.path.join(str(real), "nvidia-smi.exe")
