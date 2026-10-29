@@ -11,6 +11,7 @@ the resources a hello advertises (:mod:`mcgyvr.hubwire`'s contract).
 
 from __future__ import annotations
 
+import dataclasses
 import ipaddress
 import json
 import os
@@ -57,11 +58,12 @@ LENT_KINDS = frozenset({("nvidia", RESOURCE_GPU), ("apple", RESOURCE_UNIFIED)})
 #: unified GPU cannot be (no Metal in a container).
 CONTAINER_KINDS = frozenset({("nvidia", RESOURCE_GPU)})
 #: The systems this rig's sessions run on: Linux, in pooled containers. A Mac
-#: or Windows rig offers no session role until a session host runs there (the
-#: native one, P6), so it advertises nothing as lent.
+#: or Windows rig offers no session role until a native session host runs
+#: there, so it advertises nothing as lent.
 SESSION_SYSTEMS = frozenset({hostos.LINUX})
 #: Memory a lend leaves the owner beyond what is available: the headroom a fit
-#: keeps on a card.
+#: keeps on a card, kept the same here on purpose (one figure for "what is
+#: left for the owner's own work"), so a change to one moves both.
 RAM_HEADROOM_MB = round(DEFAULT_HEADROOM_GB * 1024)
 #: Logical cores a lend leaves the owner.
 CORES_KEPT = 1
@@ -83,7 +85,7 @@ class SharingError(Exception):
 
 #: The fields of a resource in the hub's contract, as a hardware report keeps
 #: each resource.
-_RESOURCE_FIELDS = tuple(hubwire.Resource.__dataclass_fields__)
+_RESOURCE_FIELDS = tuple(f.name for f in dataclasses.fields(hubwire.Resource))
 
 
 @dataclass(frozen=True, kw_only=True)
@@ -140,6 +142,13 @@ class Sharing:
         default when they name none."""
         return self.max_ram_mb if self.max_ram_mb is not None else DEFAULT_CONTAINER_MB
 
+    def head_mb(self) -> int:
+        """The memory a head's container is given: the RAM lent (`ram_mb`)
+        when any is, else :meth:`container_mb`; never past `max_ram_mb` when
+        one is named."""
+        wanted = self.ram_mb or self.container_mb()
+        return wanted if self.max_ram_mb is None else min(wanted, self.max_ram_mb)
+
     def lends(self, card_index: int, report: hardware.Report) -> int | None:
         """The vendor's index for the card lent as `card_index` to a session's
         container, or `None` when this rig does not lend that card to one.
@@ -177,18 +186,34 @@ class Sharing:
         if system not in SESSION_SYSTEMS:
             return ()
         roles = self.offered_roles()
-        if not any(self.lends(card.index, report) is not None for card in report.cards):
+        if not self.lends_a_card(report):
             roles = tuple(role for role in roles if role != "worker")
         return roles
+
+    def lends_a_card(self, report: hardware.Report) -> bool:
+        """Whether this rig lends a session's container a card of the machine
+        `report` reads that reaches its kind's lending floor."""
+        for raw in report.resources:
+            kind, index = raw.get("kind"), raw.get("index")
+            if (
+                kind in CARD_KINDS
+                and isinstance(index, int)
+                and self.lends(index, report) is not None
+                and int(raw.get("total_mb") or 0) >= LEND_FLOOR_MB[str(kind)]
+            ):
+                return True
+        return False
 
     def lent(self, report: hardware.Report) -> tuple[hubwire.Resource, ...]:
         """What this rig lends of the machine `report` reads, as its hello
         advertises it: nothing unless it offers a session role
         (:meth:`session_roles`); then each lent card whole, and beside the head
         role `ram_mb` of host memory and `cpu_cores` cores, each held to what
-        the machine has. A resource under its kind's lending floor
-        (:func:`mcgyvr.hubwire.counts_as_lent`), or one the wire would refuse,
-        is left out."""
+        the machine has less what is kept for the owner (`RAM_HEADROOM_MB` of
+        its memory, `CORES_KEPT` cores): figures that do not move between
+        reads, so the advert stays what the hello said. A resource under its
+        kind's lending floor (:func:`mcgyvr.hubwire.counts_as_lent`), or one
+        the wire would refuse, is left out."""
         roles = self.session_roles(report)
         if not roles:
             return ()
@@ -204,12 +229,14 @@ class Sharing:
                 ):
                     continue
             elif kind == RESOURCE_RAM and head and self.ram_mb:
-                total = min(self.ram_mb, int(raw.get("total_mb") or 0))
+                most = max(0, int(raw.get("total_mb") or 0) - RAM_HEADROOM_MB)
+                total = min(self.ram_mb, most)
                 free = raw.get("free_mb")
                 fields["total_mb"] = total
                 fields["free_mb"] = None if free is None else min(int(free), total)
             elif kind == RESOURCE_CPU and head and self.cpu_cores:
-                fields["cores"] = min(self.cpu_cores, int(raw.get("cores") or 0))
+                most = max(0, int(raw.get("cores") or 0) - CORES_KEPT)
+                fields["cores"] = min(self.cpu_cores, most)
             else:
                 continue
             resource = hubwire.Resource(**fields)
@@ -242,7 +269,9 @@ class Sharing:
 
     def refusals(self, report: hardware.Report) -> list[str]:
         """Why this lend is more than the machine `report` reads can give, one
-        line each: memory past what is available less `RAM_HEADROOM_MB`, cores
+        line each: memory past what is available less `RAM_HEADROOM_MB`, or of
+        a DDR generation the hub does not count (under
+        :data:`mcgyvr.hubwire.RAM_DDR_MIN`, when read), cores
         past all but `CORES_KEPT` of the logical ones, and a listed card under
         its kind's lending floor. Empty when it fits."""
         said: list[str] = []
@@ -261,6 +290,12 @@ class Sharing:
                     f"lend: {available} MiB available less {RAM_HEADROOM_MB} MiB "
                     f"kept for you leaves {most} MiB"
                 )
+        ddr = (by_kind.get(RESOURCE_RAM) or {}).get("ddr")
+        if self.ram_mb and isinstance(ddr, int) and ddr < hubwire.RAM_DDR_MIN:
+            said.append(
+                f"ram_mb: this machine's RAM is DDR{ddr}; the hub counts RAM as "
+                f"lent from DDR{hubwire.RAM_DDR_MIN} on, so none of it can be lent"
+            )
         if self.cpu_cores:
             logical = (by_kind.get(RESOURCE_CPU) or {}).get("cores")
             if not isinstance(logical, int):
@@ -272,6 +307,16 @@ class Sharing:
                     f"cpu_cores: {self.cpu_cores} cores is more than this machine "
                     f"lends: {max(0, logical - CORES_KEPT)} of its {logical} "
                     f"(all but {CORES_KEPT}, kept for you)"
+                )
+        sized = {
+            r.get("index") for r in report.resources if r.get("kind") in CARD_KINDS
+        }
+        for card in report.cards:
+            listed = self.cards is not None and card.index in self.cards
+            if listed and card.index not in sized:
+                said.append(
+                    f"cards: card {card.index} has no memory this machine could "
+                    "read, so it cannot be lent"
                 )
         for raw in report.resources:
             kind, index = raw.get("kind"), raw.get("index")
@@ -437,6 +482,16 @@ def load() -> Sharing:
     return read(data)
 
 
+def as_data(sharing: Sharing) -> dict[str, Any]:
+    """The settings as the file keeps them: plain JSON values, no notes."""
+    data = asdict(sharing)
+    data.pop("notes")
+    for name in ("roles", "cards", "endpoints"):
+        if data[name] is not None:
+            data[name] = list(data[name])
+    return data
+
+
 def save(sharing: Sharing) -> Path:
     """Write the settings and return the file they were kept in.
 
@@ -444,11 +499,7 @@ def save(sharing: Sharing) -> Path:
     would refuse on the next read are refused now and never reach the disk. The
     file is written atomically into a folder only its owner may enter.
     """
-    data = asdict(sharing)
-    data.pop("notes")
-    for name in ("roles", "cards", "endpoints"):
-        if data[name] is not None:
-            data[name] = list(data[name])
+    data = as_data(sharing)
     read(data)  # refuse settings that would not parse back before writing them
     target = path()
     target.parent.mkdir(mode=0o700, parents=True, exist_ok=True)

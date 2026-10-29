@@ -152,6 +152,16 @@ class _LostError(Exception):
     """The channel is gone, but another attempt may get past what took it."""
 
 
+class _LendsChangedError(_LostError):
+    """What the rig lends changed since its hello: a new hello says it, at once."""
+
+
+def _lends(report: hardware.Report) -> frozenset[tuple[str, int, int, int | None]]:
+    """What a report lends, as a hub keeps it from the hello: each resource's
+    kind, index, size and cores (its free memory is what heartbeats re-read)."""
+    return frozenset((r.kind, r.index, r.total_mb, r.cores) for r in report.lent)
+
+
 class _RefusedError(Exception):
     """The hub refused this rig for good; the same token will not do again."""
 
@@ -368,6 +378,10 @@ class Agent:
                 held_from: list[float] = []
                 try:
                     self._session(held_from)
+                except _LendsChangedError as changed:
+                    self._status(connected=False)
+                    self._say(f"{changed}; saying hello again")
+                    continue
                 except _LostError as lost:
                     held = bool(held_from) and (
                         self._clock() - held_from[0] >= self._backoff.steady_s
@@ -542,6 +556,7 @@ class Agent:
         )
         for note in report.notes:
             self._say(f"note: {note}")
+        lends = _lends(report)
         readings = self._readings
         readings.hand(report)
         ahead = min(READ_AHEAD_S, interval)
@@ -582,6 +597,13 @@ class Agent:
                 raise _LostError(
                     f"the hub acked none of the last {MISSED_ACKS} heartbeats"
                 )
+            if (
+                not isinstance(outcome, hardware.HardwareError)
+                and _lends(outcome) != lends
+            ):
+                # A hub keeps what the hello lent and reads only those again:
+                # a change (lent, or taken back) needs a new hello to be heard.
+                raise _LendsChangedError("what this rig lends changed")
             beat_id = protocol.new_id()
             if isinstance(outcome, hardware.HardwareError):
                 self._say(f"note: this heartbeat carries no reading: {outcome}")

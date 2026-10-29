@@ -158,6 +158,8 @@ CIM_SCRIPT = (
     "$ErrorActionPreference='SilentlyContinue';[pscustomobject]@{"
     "memory=@(Get-CimInstance Win32_PhysicalMemory|"
     "ForEach-Object{[string]$_.Capacity});"
+    "memory_types=@(Get-CimInstance Win32_PhysicalMemory|"
+    "ForEach-Object{[string]$_.SMBIOSMemoryType});"
     "processors=@(Get-CimInstance Win32_Processor|ForEach-Object{[pscustomobject]@{"
     "name=$_.Name;cores=$_.NumberOfCores;threads=$_.NumberOfLogicalProcessors;"
     "architecture=$_.Architecture}});"
@@ -167,6 +169,14 @@ CIM_SCRIPT = (
     "video=@(Get-CimInstance Win32_VideoController|ForEach-Object{[pscustomobject]@{"
     "name=$_.Name;pnp=$_.PNPDeviceID}})}|ConvertTo-Json -Depth 4 -Compress"
 )
+#: The DDR generation of a module's raw SMBIOS memory type
+#: (Win32_PhysicalMemory.SMBIOSMemoryType, "The raw SMBIOS memory type",
+#: Windows 10 and later; 24 is DDR3 and 26 DDR4 in the same page's MemoryType
+#: list), SMBIOS type 17 codes 0x18, 0x1A, 0x22 as dmidecode names them
+#: ("DDR3", "DDR4", "DDR5" in dmi_memory_device_type,
+#: https://github.com/mirror/dmidecode/blob/master/dmidecode.c). A code not
+#: here is a generation unread.
+SMBIOS_DDR = {24: 3, 26: 4, 34: 5}
 CIM_ARGS = (
     "powershell",
     "-NoProfile",
@@ -1457,10 +1467,13 @@ def host(*, system: str | None = None, bound: float = BOUND_S) -> dict[str, Any]
 def nvidia_smi(*, system: str | None = None) -> str | None:
     """The nvidia-smi this reader runs, or None when there is none: on Windows
     by its full path alone (`_windows_nvidia_smi`, never the working folder),
-    elsewhere the one on PATH."""
+    elsewhere the one in an absolute PATH folder (a relative entry would be
+    the working folder)."""
     if _system_of("", system) == "windows":
         return _windows_nvidia_smi()
-    return shutil.which(FIRST_TOOL)
+    folders = os.environ.get("PATH", "").split(os.pathsep)
+    absolute = os.pathsep.join(d for d in folders if os.path.isabs(d))
+    return shutil.which(FIRST_TOOL, path=absolute) if absolute else None
 
 
 #: A CPU reading: the section, its facts and its notes.
@@ -1566,15 +1579,34 @@ def _cpuinfo_model(root: str) -> str | None:
     return None
 
 
+def _ddr(platform_: _Platform) -> int | None:
+    """The DDR generation of the machine's RAM: on Windows the lowest of its
+    modules' (SMBIOS_DDR), None when any module's is unread or none is listed.
+    Linux reads SMBIOS only as root and macOS names none, so elsewhere None."""
+    if platform_.system != "windows":
+        return None
+    data, _ = platform_.cim()
+    found = [
+        SMBIOS_DDR.get(_size(v) or 0) for v in _items((data or {}).get("memory_types"))
+    ]
+    if not found or None in found:
+        return None
+    return min(n for n in found if n is not None)
+
+
 def _resources(
-    cards: list[dict[str, Any]], memory_mib: _Mib, cpu: Mapping[str, Any] | None
+    cards: list[dict[str, Any]],
+    memory_mib: _Mib,
+    cpu: Mapping[str, Any] | None,
+    ddr: int | None = None,
 ) -> list[dict[str, Any]]:
     """The machine's resources in the hub's contract: each sized card (`gpu` or
     `unified`, numbered per kind in the reading's order, as a hardware report
     numbers its cards), host RAM, and the CPU's logical cores. A card that read as
     0 MiB keeps its number but is no resource, as the wire takes none that small.
-    A unified device shares host RAM by its kind alone. Bandwidth is not read
-    here, so it and its figure are None."""
+    A unified device shares host RAM by its kind alone. Host RAM carries its DDR
+    generation (`ddr`, :func:`_ddr`), None where unread and on every other kind.
+    Bandwidth is not read here, so it and its figure are None."""
     found: list[dict[str, Any]] = []
     numbered: dict[str, int] = {}
 
@@ -1593,6 +1625,7 @@ def _resources(
                 "cores": None,
                 "bandwidth_gbps": None,
                 "bandwidth_figure": None,
+                "ddr": None,
                 "figure": "reading",
                 "backend": "cpu",
                 **fields,
@@ -1610,7 +1643,7 @@ def _resources(
                 backend=str(card["backend"]),
             )
     if memory_mib[0] is not None:
-        add("ram", "host RAM", total_mb=memory_mib[0], free_mb=memory_mib[1])
+        add("ram", "host RAM", total_mb=memory_mib[0], free_mb=memory_mib[1], ddr=ddr)
     if cpu is not None:
         add("cpu", cpu.get("model") or "CPU", cores=cpu["threads"])
     return found
@@ -1651,6 +1684,7 @@ class _Short:
         self.first_answered = reading.first_answered
         self.notes += memory_notes
         self.cpu, self.cpu_facts, self.cpu_notes = _cpu(root, bound, platform_)
+        self.ddr = _ddr(platform_)
         host = _host_section(platform_, reading)
         cards = [reading.cards[where] for where in sorted(reading.cards)]
         # A field that no source filled and no source explained is still named, so
@@ -1686,7 +1720,7 @@ class _Short:
             "unsized": unsized,
             "memory": memory,
             "cpu": self.cpu,
-            "resources": _resources(cards, memory_mib, self.cpu),
+            "resources": _resources(cards, memory_mib, self.cpu, self.ddr),
             "unread": reading.unread,
         }
 

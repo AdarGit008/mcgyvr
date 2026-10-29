@@ -22,7 +22,19 @@ from tests.machine_shapes import host_shape
 
 def test_the_build_tables_names_are_the_wires() -> None:
     assert (llamacpp.LINUX, llamacpp.DARWIN, llamacpp.WINDOWS) == hubwire.HOST_OS
-    assert (llamacpp.X86_64, llamacpp.ARM64) == hubwire.HOST_ARCH
+    assert (llamacpp.LINUX, llamacpp.DARWIN, llamacpp.WINDOWS) == (
+        "linux",
+        "darwin",
+        "windows",
+    )
+    assert (
+        (llamacpp.X86_64, llamacpp.ARM64)
+        == hubwire.HOST_ARCH
+        == (
+            "x86_64",
+            "arm64",
+        )
+    )
     assert (llamacpp.CUDA, llamacpp.METAL, llamacpp.VULKAN, llamacpp.CPU) == (
         "cuda",
         "metal",

@@ -7,12 +7,15 @@ lend, nothing under its kind's lending floor, and nothing at all while it
 offers no session role. Its legacy ``cards[]`` are exactly
 :func:`mcgyvr.hubwire.cards_from_resources` of those, never every card the
 machine has, so a card read as 0 MiB, which is no resource, is never on the
-wire. The hello names the host it runs on (:class:`mcgyvr.hubwire.Host`). A
+wire. Beside what it lends, the hello names the host it runs on
+(:class:`mcgyvr.hubwire.Host`); a rig that lends nothing names none. A
 card's bandwidth the reader did not read is its class's estimate
 (:func:`mcgyvr.estimate.match`) and says so; a reading wins. A heartbeat
 re-reads what the hello named, card readings again made from them
 (:func:`mcgyvr.hubwire.card_readings_from`). Both frames, and the old shape a
-rig that lends nothing sends, hold to the hub's published schema.
+rig that lends nothing sends, hold to the hub's published schema. A change in
+what the rig lends is said in a new hello at once, since a hub re-reads only
+what the hello named.
 """
 
 from __future__ import annotations
@@ -67,9 +70,18 @@ def _classes(monkeypatch: pytest.MonkeyPatch) -> None:
 
 
 def _report(machine: HostShape) -> Any:
-    from mcgyvr.rig import hardware
+    from unittest import mock
 
-    reading = host_reading(machine)
+    from mcgyvr.rig import hardware
+    from mcgyvr.serving import rigscan
+
+    # A Linux reading takes the kernel release and the machine name from the
+    # interpreter: here they are the invented machine's, not the suite host's.
+    with (
+        mock.patch.object(rigscan.platform, "release", lambda: machine.version),
+        mock.patch.object(rigscan.platform, "machine", lambda: "x86_64"),
+    ):
+        reading = host_reading(machine)
     return hardware.read(reader=lambda: reading)
 
 
@@ -132,7 +144,7 @@ def test_the_hello_carries_the_lent_resources_and_the_cards_they_make(
     assert body["cards"] == hubwire.cards_from_resources(lent)
     assert [card["index"] for card in body["cards"]] == [1]
     assert body["host"]["os"] == "linux"
-    assert body["host"]["version"] == report.host.version
+    assert body["host"] == {"os": "linux", "arch": "x86_64", "version": "6.1-example"}
     assert body["ram_total_mb"] == report.ram_total_mb
 
 
@@ -168,12 +180,16 @@ def test_a_rig_that_lends_nothing_sends_no_resources_and_no_cards() -> None:
     for share in (_share(None, enabled=False), _share(None, image=None)):
         body = _hello(share.lendable(report))
         assert body["cards"] == [] and "resources" not in body
-        assert body["host"]["os"] == "linux"
+        # The host (its version is the machine's patch level) goes only beside
+        # what the rig lends.
+        assert "host" not in body
         beat = _beat(share.lendable(report))
         assert beat["cards"] == [] and "resources" not in beat
 
 
 def test_only_what_reaches_its_floor_is_advertised(tmp_path: Path) -> None:
+    from mcgyvr.rig import sharing
+
     small = Card(index=0, name="Example Card S", vendor="vendor-a", total_mib=1024)
     report = _report(_linux(small, SIZED_CARD))
     share = _share(tmp_path, ram_mb=8192, cpu_cores=4)
@@ -181,13 +197,14 @@ def test_only_what_reaches_its_floor_is_advertised(tmp_path: Path) -> None:
     assert [(r.kind, r.index) for r in lent if r.kind in hubwire.CARD_KINDS] == [
         (hubwire.RESOURCE_GPU, 1)
     ]
-    # Memory lent past what the machine has is held to what it has; cores
-    # past the logical count to that count.
+    # Memory lent past what the machine has is held to what it has less the
+    # owner's headroom; cores past the logical count to all but those kept.
     greedy = _share(tmp_path, ram_mb=10**6, cpu_cores=999)
     lent = _wire(_hello(greedy.lendable(report))["resources"])
     ram = next(r for r in lent if r.kind == hubwire.RESOURCE_RAM)
     cpu = next(r for r in lent if r.kind == hubwire.RESOURCE_CPU)
-    assert ram.total_mb == report.ram_total_mb and cpu.cores == 12
+    assert ram.total_mb == report.ram_total_mb - sharing.RAM_HEADROOM_MB
+    assert cpu.cores == 12 - sharing.CORES_KEPT
 
 
 def test_memory_and_cores_are_lent_only_beside_the_head_role(tmp_path: Path) -> None:
@@ -285,3 +302,29 @@ def test_a_mac_lends_its_unified_gpu_whole_once_its_sessions_run_here(
     assert unified.total_mb == machine.unified_mib
     assert body["cards"] == hubwire.cards_from_resources([unified])
     assert body["host"] == {"os": "darwin", "arch": "arm64", "version": "0.1-example"}
+
+
+def test_a_change_in_what_the_rig_lends_is_said_in_a_new_hello_at_once() -> None:
+    from tests.rigagents import Clock, Hub, Report, _agent
+
+    class Taken(Report):
+        """Lends its card for two reads, then the owner takes it back."""
+
+        def __call__(self) -> Any:
+            made = super().__call__()
+            return made if self.reads <= 2 else dataclasses.replace(made, lent=())
+
+    clock = Clock()
+    said: list[str] = []
+    first, second = Hub(interval=15, beats=5), Hub(interval=15, beats=1)
+    agent, channels = _agent([first, second], clock, report=Taken(), said=said)
+    agent.run()
+    sent = [[m["type"] for _, m in channel.sent] for channel in channels]
+    assert sent[0] == ["hello", "heartbeat"]
+    assert sent[1][0] == "hello"
+    hello = next(m for _, m in channels[1].sent if m["type"] == "hello")
+    assert hello["body"]["cards"] == [] and "resources" not in hello["body"]
+    assert any("what this rig lends changed" in line for line in said)
+    # No backoff before the second hello: the one wait said is the second
+    # hub's drop at its end.
+    assert sum("trying again" in line for line in said) == 1

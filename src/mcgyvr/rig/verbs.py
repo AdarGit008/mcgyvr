@@ -332,11 +332,14 @@ def run_agent(kept: Credentials, config: Path | None = None) -> int:
         file=sys.stderr,
     )
     share = lending()
-    if share.offered_roles():
-        print(
-            f"lending: {', '.join(share.offered_roles())} on {share.image}",
-            file=sys.stderr,
-        )
+    try:
+        roles = share.session_roles(last_report())
+    except hardware.HardwareError:
+        roles = ()
+    if roles:
+        print(f"lending: {', '.join(roles)} on {share.image}", file=sys.stderr)
+    elif share.offered_roles():
+        print("lending: no session role is offered on this machine", file=sys.stderr)
     for note in share.notes:
         print(f"note: {note}", file=sys.stderr)
     previous = {sig: signal.signal(sig, stop) for sig in hostos.stop_signals()}
@@ -458,6 +461,7 @@ def _status(args: argparse.Namespace) -> int:
         report = hardware.read()
     except hardware.HardwareError as exc:
         print(f"machine: not read: {exc}")
+        _say_credits(kept.hub)
         return int(Exit.OK)
     print(
         f"machine: {report.machine_id}; {len(report.cards)} cards; "
@@ -501,12 +505,12 @@ def _say_lent(report: Any) -> None:
         if resource.kind in CARD_KINDS:
             lines.append(
                 f"card {resource.index}: {resource.name}, {resource.total_mb} MiB "
-                f"({resource.kind}, {resource.backend})"
+                f"{resource.figure} ({resource.kind}, {resource.backend})"
             )
         elif resource.kind == RESOURCE_CPU:
             lines.append(f"cpu {resource.cores} cores")
         else:
-            lines.append(f"{resource.kind} {resource.total_mb} MiB")
+            lines.append(f"{resource.kind} {resource.total_mb} MiB {resource.figure}")
     print(f"lends:   {lines[0]}")
     for line in lines[1:]:
         print(f"         {line}")
@@ -523,7 +527,7 @@ def _say_credits(hub: str) -> None:
         return
     try:
         balance = rungs.balance(hub, key)
-    except (rungs.HubAnswerError, rungs.SyncError) as exc:
+    except (rungs.HubAnswerError, rungs.SyncError, _RefusalError, ValueError) as exc:
         print(f"credits: not read: {agent.shown(str(exc))}")
         return
     print(f"credits: {balance}")
@@ -627,14 +631,6 @@ def _maybe_number(text: str) -> int | None:
     return None if text == "none" else int(text)
 
 
-def _settings(wanted: Any) -> dict[str, Any]:
-    from dataclasses import asdict
-
-    data = asdict(wanted)
-    data.pop("notes")
-    return {k: list(v) if isinstance(v, tuple) else v for k, v in data.items()}
-
-
 def _beyond_the_machine(wanted: Any, changes: Mapping[str, object]) -> list[str]:
     """What of a lend the machine, read now, cannot give: memory and cores lent
     and cards listed are held to it when one of them changes. A machine that
@@ -714,7 +710,9 @@ def _share(args: argparse.Namespace) -> int:
         return int(Exit.USAGE)
     if changes:
         try:
-            sharing.read(_settings(wanted))  # the floor, before the machine is read
+            sharing.read(
+                sharing.as_data(wanted)
+            )  # the floor, before the machine is read
         except sharing.SharingError as exc:
             print(f"error: {exc}", file=sys.stderr)
             return int(Exit.USAGE)
@@ -815,7 +813,9 @@ def add_parser(
     add_config(sync, what="setup whose relief.yaml is written")
     sync.set_defaults(func=_rungs_sync)
     share = verbs.add_parser(
-        "share", help="what this rig lends to the hub's sessions; change it"
+        "share",
+        aliases=["lend"],
+        help="what this rig lends to the hub's sessions; change it",
     )
     switch = share.add_mutually_exclusive_group()
     switch.add_argument("--on", dest="on", action="store_const", const=True)

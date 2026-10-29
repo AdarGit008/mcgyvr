@@ -66,6 +66,8 @@ from mcgyvr.rig.verbs import AGENT_PATH, _RefusalError, hub_address
 RUNGS_PATH = "/api/v1/me/rungs"
 #: The member's balance and ledger on the hub, asked with the same key.
 CREDITS_PATH = "/api/v1/me/credits"
+#: Most bytes of the credits answer read: a balance and the latest entries.
+MAX_CREDITS_BYTES = 64 * 1024
 #: A balance as the hub writes one: an exact decimal, at most this long.
 MAX_BALANCE = 40
 BALANCE = re.compile(rf"(?=.{{1,{MAX_BALANCE}}}$)-?[0-9]+(\.[0-9]+)?")
@@ -302,13 +304,14 @@ def ask(
     body: Mapping[str, Any] | None = None,
     *,
     timeout: float = FETCH_TIMEOUT_S,
+    most: int = MAX_ANSWER_BYTES,
 ) -> Any:
     """POST ``body`` to ``api_path`` on the hub's own address, or GET it when
     there is no body, and return the answer's JSON, read whole.
 
     The key travels in an ``Authorization: Bearer`` header, never in the URL,
     and a redirect is not followed. :class:`HubAnswerError` covers a refusal
-    status, an answer over ``MAX_ANSWER_BYTES`` and a body that is not JSON;
+    status, an answer over ``most`` bytes and a body that is not JSON;
     :class:`SyncError` covers a hub that could not be reached at all.
     """
     url = api_url(hub, api_path)
@@ -324,17 +327,15 @@ def ask(
     opener = urllib.request.build_opener(_NoRedirect)
     try:
         with opener.open(request, timeout=timeout) as response:
-            raw: bytes = response.read(MAX_ANSWER_BYTES + 1)
+            raw: bytes = response.read(most + 1)
     except urllib.error.HTTPError as exc:
         raise HubAnswerError(
             f"the hub refused: {url} answered HTTP {exc.code}"
         ) from exc
     except (OSError, ValueError) as exc:
         raise SyncError(f"the hub at {hub} could not be reached: {exc}") from exc
-    if len(raw) > MAX_ANSWER_BYTES:
-        raise HubAnswerError(
-            f"the hub's answer is refused: it is over {MAX_ANSWER_BYTES} bytes"
-        )
+    if len(raw) > most:
+        raise HubAnswerError(f"the hub's answer is refused: it is over {most} bytes")
     try:
         return json.loads(raw.decode("utf-8"))
     except (UnicodeError, ValueError, RecursionError) as exc:
@@ -345,7 +346,7 @@ def balance(hub: str, key: str) -> str:
     """The member's credits as the hub states them (``CREDITS_PATH``): an
     exact decimal of at most ``MAX_BALANCE`` characters, or
     :class:`HubAnswerError` for anything else."""
-    document = ask(hub, key, CREDITS_PATH)
+    document = ask(hub, key, CREDITS_PATH, most=MAX_CREDITS_BYTES)
     said = document.get("balance") if isinstance(document, dict) else None
     if not isinstance(said, str) or not BALANCE.fullmatch(said):
         raise _refused("balance", "is not a decimal number of credits")

@@ -235,8 +235,8 @@ def hello_frame(
     It carries the machine id, the agent version, the RAM totals, what the rig
     lends (``report.lent``) with the cards those make
     (:func:`mcgyvr.hubwire.cards_from_resources`, never every card the machine
-    has: a rig that lends nothing names no card), the host, and ``offer`` when
-    the agent advertises what it can do.
+    has: a rig that lends nothing names no card), the host beside what it lends,
+    and ``offer`` when the agent advertises what it can do.
     """
     return protocol.hello(
         message_id,
@@ -250,7 +250,9 @@ def hello_frame(
         ),
         offer=offer,
         resources=report.lent,
-        host=_host(report.host),
+        # The host (its version is the machine's patch level) only beside
+        # what it lends, which is what the hub plans by.
+        host=_host(report.host) if report.lent else None,
     )
 
 

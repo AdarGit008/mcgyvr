@@ -725,7 +725,14 @@ class Sessions:
                     envelope.id, SessionCode.NOT_CAPABLE, "this agent is stopping"
                 )
             share = self.machine.sharing()
-            report = self.machine.report()
+            try:
+                report = self.machine.report()
+            except hardware.HardwareError:
+                return sessionwire.refusal(
+                    envelope.id,
+                    SessionCode.NOT_CAPABLE,
+                    "this machine could not be read",
+                )
             if asked.role not in share.session_roles(report):
                 return sessionwire.refusal(
                     envelope.id,
@@ -1145,10 +1152,7 @@ class Sessions:
                         "devices: a card this rig does not lend",
                     )
                 local.append(gpu)
-        whole = not any(
-            share.lends(card.index, report) is not None for card in report.cards
-        )
-        if whole and any(
+        if not share.lends_a_card(report) and any(
             isinstance(device, sessionwire.RpcDevice) for device in asked.devices
         ):
             # Memory and cores serve a whole model: a rig lending no card heads
@@ -1196,7 +1200,8 @@ class Sessions:
             tensor_split=asked.tensor_split,
             rpc=tuple(f"{host}:{port}" for host, port in rpc),
             bind=str(ipaddress.IPv4Interface(session.hello.address).ip),
-            memory_mb=share.container_mb(),
+            memory_mb=share.head_mb(),
+            cpus=share.cpu_cores or None,
         )
 
     def _hub_lost(self) -> None:

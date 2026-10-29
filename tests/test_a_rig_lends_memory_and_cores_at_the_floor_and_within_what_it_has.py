@@ -6,8 +6,11 @@ load. An amount under its kind's floor (:data:`mcgyvr.hubwire.LEND_FLOOR_MB`,
 :data:`mcgyvr.hubwire.LEND_FLOOR_CORES`) is refused with a message naming the
 floor, wherever it comes from. ``mcgyvr rig share`` also holds what it is told
 to lend to the machine as read now: memory to what is available less a
-headroom, cores to all but one, and a named card to its kind's floor; and it
-says back what the rig lends.
+headroom, cores to all but one, and a named card to its kind's floor; and
+memory of a DDR generation the hub does not count (one Windows reads under
+:data:`mcgyvr.hubwire.RAM_DDR_MIN`) is refused naming the one it counts, while
+memory whose generation is unread (Linux, where SMBIOS needs root) lends by
+its size alone. It says back what the rig lends.
 """
 
 from __future__ import annotations
@@ -37,8 +40,8 @@ MACHINE = HostShape(
     label="linux-lender",
     system="linux",
     machine_id="0123456789abcdef0123456789abcdf3",
-    memory_mib=32 * 1024,
-    available_mib=20000,
+    memory_mib=RAM_FLOOR * 4,
+    available_mib=RAM_FLOOR * 2 + RAM_FLOOR // 2,
     cpu_model="Example CPU L8",
     cores=4,
     threads=8,
@@ -125,7 +128,7 @@ def test_share_lends_memory_and_cores_and_says_them_back(
     [
         (("--ram-mb", str(RAM_FLOOR - 1)), f"{RAM_FLOOR} MiB"),
         (("--cpu-cores", "1"), f"{hubwire.LEND_FLOOR_CORES} cores"),
-        (("--ram-mb", "19000"), "available"),
+        (("--ram-mb", str(RAM_FLOOR * 2 + RAM_FLOOR // 2)), "available"),
         (("--cpu-cores", "8"), "7"),
         (("--cards", "0"), f"{GPU_FLOOR} MiB"),
     ],
@@ -161,3 +164,100 @@ def test_share_will_not_lend_memory_it_cannot_read(
     assert _share("--ram-mb", str(RAM_FLOOR)) != 0
     assert "could not be read" in capsys.readouterr().err
     assert sharing.load() == sharing.Sharing()
+
+
+# --- the RAM's generation ----------------------------------------------------------
+
+
+def _windows(label: str, ddr: int | None, memory_mib: int) -> HostShape:
+    return HostShape(
+        label=label,
+        system="windows",
+        machine_id="aaaa0000-bbbb-cccc-dddd-eeeeffff00d0",
+        memory_mib=memory_mib,
+        available_mib=memory_mib - RAM_FLOOR // 4,
+        cpu_model="Example CPU W8",
+        cores=4,
+        threads=8,
+        version="0.0.9-example",
+        card_tool="none",
+        ddr=ddr,
+    )
+
+
+#: Windows reads each module's DDR generation; Linux does not (SMBIOS needs root).
+CURRENT = _windows("windows-current-ram", hubwire.RAM_DDR_MIN, RAM_FLOOR * 2)
+OLDER = _windows("windows-older-ram", hubwire.RAM_DDR_MIN - 1, RAM_FLOOR * 4)
+
+
+def _reads(monkeypatch: pytest.MonkeyPatch, machine: HostShape) -> None:
+    from mcgyvr.rig import hardware
+
+    reading = host_reading(machine)
+    monkeypatch.setattr(hardware, "read_machine", lambda: reading)
+
+
+def test_the_reader_names_the_ram_generation_where_the_system_tells_it() -> None:
+    def ram(machine: HostShape) -> dict[str, Any]:
+        found = host_reading(machine)["resources"]
+        resource: dict[str, Any] = next(r for r in found if r["kind"] == "ram")
+        return resource
+
+    assert ram(CURRENT)["ddr"] == hubwire.RAM_DDR_MIN
+    assert ram(OLDER)["ddr"] == hubwire.RAM_DDR_MIN - 1
+    assert ram(MACHINE)["ddr"] is None  # Linux: unread, so counted by size alone
+    unknown = _windows("windows-unknown-ram", None, RAM_FLOOR * 2)
+    assert ram(unknown)["ddr"] is None
+    for resource in host_reading(CURRENT)["resources"]:
+        assert (resource["ddr"] is None) is (resource["kind"] != "ram")
+
+
+def test_ram_of_the_current_generation_lends(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    from mcgyvr.rig import sharing
+
+    _reads(monkeypatch, CURRENT)
+    assert _share("--ram-mb", str(RAM_FLOOR)) == 0
+    assert sharing.load().ram_mb == RAM_FLOOR
+
+
+def test_ram_of_an_older_generation_is_refused_naming_the_one_counted(
+    monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
+) -> None:
+    from mcgyvr.rig import sharing
+
+    _reads(monkeypatch, OLDER)
+    assert _share("--ram-mb", str(RAM_FLOOR)) != 0
+    err = capsys.readouterr().err
+    assert f"DDR{hubwire.RAM_DDR_MIN}" in err and f"DDR{hubwire.RAM_DDR_MIN - 1}" in err
+    assert sharing.load() == sharing.Sharing()
+
+
+@pytest.mark.usefixtures("machine")
+def test_ram_of_an_unread_generation_lends_by_its_size_alone(
+    capsys: pytest.CaptureFixture[str],
+) -> None:
+    from mcgyvr.rig import sharing
+
+    assert _share("--ram-mb", str(RAM_FLOOR)) == 0
+    assert sharing.load().ram_mb == RAM_FLOOR
+    assert _share("--ram-mb", str(RAM_FLOOR * 3 // 4)) != 0
+    assert f"{RAM_FLOOR} MiB" in capsys.readouterr().err
+    assert sharing.load().ram_mb == RAM_FLOOR
+
+
+def test_ram_of_an_older_generation_is_never_advertised(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    from mcgyvr.rig import hardware, sharing
+
+    monkeypatch.setattr(
+        sharing, "SESSION_SYSTEMS", sharing.SESSION_SYSTEMS | {"windows"}
+    )
+    for machine, lent in ((CURRENT, True), (OLDER, False)):
+        reading = host_reading(machine)
+        report = hardware.read(reader=lambda reading=reading: reading)
+        share = fakes.sharing(tmp_path, cards=(), ram_mb=RAM_FLOOR)
+        kinds = [r.kind for r in share.lendable(report).lent]
+        assert (hubwire.RESOURCE_RAM in kinds) is lent

@@ -867,6 +867,9 @@ class HostShape:
     card_tool: str = "path"
     other_adapters: tuple[str, ...] = ()
     memory_modules: bool = True
+    #: The DDR generation of its memory modules, as Windows reports each
+    #: module's SMBIOS type (None: a type the reader does not name).
+    ddr: int | None = None
 
     def __post_init__(self) -> None:
         where = f"host shape {self.label!r}"
@@ -882,6 +885,8 @@ class HostShape:
             raise ValueError(f"{where}: a Mac with a discrete card is not modelled")
         if self.card_tool not in CARD_TOOL_PLACES:
             raise ValueError(f"{where}: card tool place {self.card_tool!r}")
+        if self.ddr is not None and self.system != "windows":
+            raise ValueError(f"{where}: a DDR generation is read on Windows alone")
         if any(c.total_mib is None for c in self.cards if c.vendor == "vendor-a"):
             raise ValueError(f"{where}: a card of unreadable size is not modelled")
 
@@ -925,6 +930,11 @@ def _vm_stat(machine: HostShape) -> str:
     return "\n".join(lines) + "\n"
 
 
+#: The SMBIOS memory type Windows reports for a module of each DDR generation
+#: (type 17 codes, as dmidecode names them); 0 is "unknown".
+_SMBIOS_TYPE = {3: 0x18, 4: 0x1A, 5: 0x22}
+
+
 def _cim(machine: HostShape) -> str:
     half = machine.memory_mib * _MIB // 2
     adapters = [
@@ -941,6 +951,11 @@ def _cim(machine: HostShape) -> str:
     body = {
         "memory": (
             [str(half), str(machine.memory_mib * _MIB - half)]
+            if machine.memory_modules
+            else []
+        ),
+        "memory_types": (
+            [str(_SMBIOS_TYPE.get(machine.ddr, 0))] * 2
             if machine.memory_modules
             else []
         ),

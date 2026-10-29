@@ -7,7 +7,8 @@ is refused as not capable, and a ``head_start`` that hands it rpc devices,
 which would make it the head of a pipeline, is refused the same way and starts
 nothing. A system with no session host yet (macOS and Windows, until the
 native session host lands) offers no session role at all, and its offer
-names none.
+names none. A head this rig runs is held to what it lends: its container to
+the memory and cores lent, llama-server to that many threads.
 """
 
 from __future__ import annotations
@@ -92,3 +93,38 @@ def test_a_system_with_no_session_host_offers_no_role(
     offer = session.offer(share, fakes.inventory(tmp_path), (), (), report)
     assert offer.roles == () and offer.runtime is None
     assert share.lendable(report).lent == ()
+
+
+def test_a_head_is_held_to_the_memory_and_cores_lent() -> None:
+    import dataclasses
+    from pathlib import PurePosixPath
+
+    from mcgyvr.rig import pooled, sharing
+
+    spec = pooled.HeadSpec(
+        session_id="s",
+        image="engine:rpc",
+        binary="/app/llama-server",
+        gpus=(0,),
+        models_dir=Path(PurePosixPath("/srv/models")),
+        model="m.gguf",
+        name="m.gguf",
+        ctx=256,
+        n_gpu_layers=99,
+        devices=("CUDA0",),
+        tensor_split=(1,),
+        rpc=(),
+        bind="10.0.0.2",
+        memory_mb=8192,
+    )
+    owner = pooled.Owner(uid=1000, gid=1000, agent_pid=1)
+    plain = pooled.head_argv(spec, owner)
+    assert "--cpus" not in plain and "--threads" not in plain
+    held = pooled.head_argv(dataclasses.replace(spec, cpus=3), owner)
+    image = held.index("engine:rpc")
+    assert held[held.index("--cpus") + 1] == "3" and held.index("--cpus") < image
+    assert held[held.index("--threads") + 1] == "3" and held.index("--threads") > image
+    # The head's container is given the memory lent, within the owner's cap.
+    assert sharing.Sharing(ram_mb=16384).head_mb() == 16384
+    assert sharing.Sharing(ram_mb=16384, max_ram_mb=12000).head_mb() == 12000
+    assert sharing.Sharing().head_mb() == sharing.DEFAULT_CONTAINER_MB

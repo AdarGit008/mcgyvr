@@ -290,6 +290,26 @@ def report() -> Any:
         ),
         notes=(),
         sources=(("nvidia", 0), ("nvidia", 1), ("othervendor", 0)),
+        # The cards as resources, as the reader names them beside its cards.
+        resources=tuple(
+            {
+                "kind": "gpu",
+                "index": index,
+                "name": name,
+                "total_mb": total,
+                "free_mb": free,
+                "cores": None,
+                "bandwidth_gbps": None,
+                "bandwidth_figure": None,
+                "figure": "reading",
+                "backend": backend,
+            }
+            for index, name, total, free, backend in (
+                (0, "Card A", 8192, 8000, "cuda"),
+                (1, "Card A", 8192, 8000, "cuda"),
+                (2, "Card B", 4096, 4000, "vulkan"),
+            )
+        ),
     )
 
 

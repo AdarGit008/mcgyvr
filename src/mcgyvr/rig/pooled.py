@@ -465,7 +465,9 @@ class HeadSpec:
     """What the head container needs: the session and image, the llama-server
     binary, the local cards to expose, the host folder holding the models and the
     model file inside it, the settings llama-server is started with, and the rpc
-    devices on other rigs it should spread the model over.
+    devices on other rigs it should spread the model over. ``cpus``, the cores
+    the owner lends, holds the container to that many and llama-server to that
+    many threads.
     """
 
     session_id: str
@@ -483,6 +485,7 @@ class HeadSpec:
     bind: str  # address llama-server listens on (--host): this rig's tunnel address
     memory_mb: int
     slots: int = 1  # parallel slots (-np); the context and KV cache scale with it
+    cpus: int | None = None  # cores lent: the container's --cpus and the --threads
 
 
 @dataclass(frozen=True, kw_only=True)
@@ -676,8 +679,10 @@ def head_argv(spec: HeadSpec, owner: Owner) -> list[str]:
     if spec.gpus:
         listed = ",".join(str(gpu) for gpu in spec.gpus)
         argv += ["--gpus", f'"device={listed}"']
+    argv += _engine_lockdown(owner, spec.memory_mb, HEAD_PIDS)
+    if spec.cpus is not None:
+        argv += ["--cpus", str(spec.cpus)]
     argv += [
-        *_engine_lockdown(owner, spec.memory_mb, HEAD_PIDS),
         "--volume",
         f"{spec.models_dir}:{MODELS_MOUNT}:ro",
         "--entrypoint",
@@ -712,6 +717,8 @@ def head_argv(spec: HeadSpec, owner: Owner) -> list[str]:
         "--port",
         str(HEAD_API_PORT),
     ]
+    if spec.cpus is not None:
+        argv += ["--threads", str(spec.cpus)]
     if spec.rpc:
         argv += ["--rpc", ",".join(spec.rpc)]
     argv += [

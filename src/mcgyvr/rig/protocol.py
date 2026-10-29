@@ -550,7 +550,8 @@ def hello(
         made = hubwire.cards_from_resources(resources)  # it holds them to fit
         _need(
             body["cards"] == made,
-            "cards: not the cards the gpu and unified resources make",
+            f"cards: not the cards the {' and '.join(hubwire.CARD_KINDS)} "
+            "resources make",
         )
         body["resources"] = [asdict(resource) for resource in resources]
     if host is not None:
@@ -591,7 +592,8 @@ def heartbeat(
         made = hubwire.card_readings_from(resources)  # it holds them to fit
         _need(
             body["cards"] == made,
-            "cards: not the readings the gpu and unified resources make",
+            f"cards: not the readings the {' and '.join(hubwire.CARD_KINDS)} "
+            "resources make",
         )
         body["resources"] = [asdict(reading) for reading in resources]
     return _frame("heartbeat", message_id, body, None)

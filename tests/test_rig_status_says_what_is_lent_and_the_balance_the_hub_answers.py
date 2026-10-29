@@ -4,8 +4,9 @@ Beside the machine's reading, status names each resource the rig advertises as
 lent (a card whole, memory in MiB, cores) or says why it lends nothing. With
 the member's personal hub key in ``$MCGYVR_HUB_API_KEY`` it asks the hub's
 ``/api/v1/me/credits`` with that key in the ``Authorization`` header and prints
-the balance; a hub that refuses, or answers something that is not a balance,
-is a note, never a failed status; with no key it says where the key goes.
+the balance; a hub that refuses, redirects (the key never follows), or
+answers something that is not a balance, is a note, never a failed status;
+with no key it says where the key goes.
 """
 
 from __future__ import annotations
@@ -47,11 +48,18 @@ class _Hub:
         self.status = 200
         self.answer: Any = {"balance": "123.456789", "entries": []}
         self.seen: list[tuple[str, str | None]] = []
+        self.moved_to: str | None = None
         hub = self
 
         class Handler(http.server.BaseHTTPRequestHandler):
             def do_GET(self) -> None:
                 hub.seen.append((self.path, self.headers.get("Authorization")))
+                if hub.moved_to is not None:
+                    self.send_response(302)
+                    self.send_header("Location", hub.moved_to)
+                    self.send_header("Content-Length", "0")
+                    self.end_headers()
+                    return
                 raw = json.dumps(hub.answer).encode()
                 self.send_response(
                     hub.status if self.path.endswith("/credits") else 404
@@ -110,8 +118,8 @@ def test_status_names_each_lent_resource(
     hub: _Hub, capsys: pytest.CaptureFixture[str]
 ) -> None:
     out = _status(capsys)
-    assert "lends:   card 0: Example Card T, 16384 MiB" in out
-    assert f"ram {RAM} MiB" in out and "cpu 4 cores" in out
+    assert "lends:   card 0: Example Card T, 16384 MiB reading" in out
+    assert f"ram {RAM} MiB reading" in out and "cpu 4 cores" in out
     assert "$MCGYVR_HUB_API_KEY" in out
     assert hub.seen == []
 
@@ -156,3 +164,17 @@ def test_a_balance_the_hub_does_not_give_is_a_note(
     out = _status(capsys)
     assert "credits: not read" in out
     assert "lots" not in out
+
+
+def test_a_hub_that_redirects_is_not_followed_with_the_key(
+    hub: _Hub, capsys: pytest.CaptureFixture[str], monkeypatch: pytest.MonkeyPatch
+) -> None:
+    other = _Hub()
+    try:
+        monkeypatch.setenv("MCGYVR_HUB_API_KEY", KEY)
+        hub.moved_to = f"{other.url}/api/v1/me/credits"
+        out = _status(capsys)
+        assert "credits: not read" in out
+        assert other.seen == [] and KEY not in out
+    finally:
+        other.server.shutdown()
