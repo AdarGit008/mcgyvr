@@ -99,7 +99,7 @@ def test_the_agents_limits_are_the_schemas(schema: dict[str, Any]) -> None:
     )
 
     card = _defs(schema, "CardReport")["properties"]
-    assert card["index"]["exclusiveMaximum"] == p.MAX_CARD_INDEX + 1
+    assert card["index"]["maximum"] == p.MAX_CARD_INDEX
     assert card["index"]["minimum"] == 0
     assert card["name"]["pattern"] == f"^{p.CARD_NAME.pattern}$"
     assert card["name"]["maxLength"] == p.CARD_NAME_MAX
@@ -372,7 +372,14 @@ def test_an_unknown_type_is_read_as_an_envelope_for_the_dispatcher() -> None:
 
 def test_the_validator_refuses_a_keyword_it_does_not_read() -> None:
     with pytest.raises(rig_schema.SchemaError):
-        rig_schema.validate({}, {"$defs": {"X": {"uniqueItems": True}}}, "#/$defs/X")
+        rig_schema.validate({}, {"$defs": {"X": {"multipleOf": 2}}}, "#/$defs/X")
+
+
+def test_the_validator_reads_unique_items() -> None:
+    schema = {"$defs": {"X": {"type": "array", "uniqueItems": True}}}
+    rig_schema.validate([1, 2], schema, "#/$defs/X")
+    with pytest.raises(rig_schema.SchemaError):
+        rig_schema.validate([3, 3], schema, "#/$defs/X")
 
 
 def test_the_validator_refuses_a_key_a_closed_object_does_not_name() -> None:
