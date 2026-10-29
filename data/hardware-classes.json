@@ -1,5 +1,5 @@
 {
-  "_doc": "Memory bandwidth of device classes: Apple silicon chips and NVIDIA consumer cards. Each `bandwidth_gbps` is a fact from the vendor's or a reference page (the row's `source` names its entry in `_sources`, with the URL and the words quoted), never a reading of your machine; `verified: false` marks a row whose source could not be read cleanly, which is still used and is flagged wherever it shows. mcgyvr uses a row only to estimate how fast a model decodes before a unit of it has been measured (`mcgyvr.estimate`); a measured decode speed replaces the estimate. A device that matches no row gets no estimate. Apple rows match the chip name (`Apple M2 Max`), then the GPU core count where a chip has two bandwidths, then the memory size where the row says `match_memory_gb`; NVIDIA rows match the card name without `NVIDIA` and `GeForce` (`RTX 3080`) and then the card's memory in GB (`vram_gb`). `memory_gb_kind` says how to read `memory_gb`: the sizes offered (`options`), the lowest and highest (`range`), or the largest (`up_to`).",
+  "_doc": "Memory bandwidth of device classes: Apple silicon chips and NVIDIA consumer cards. Each `bandwidth_gbps` is a fact about the class from the vendor's or a reference page (the row's `source` names its entry in `_sources`: the URL, and the words quoted or, for a table row, a `summary` of its cells), never a reading of your machine; for a device matched to the class it is shown as an estimate. `verified: false` marks a row whose source could not be read cleanly, which is still used and is flagged wherever it shows. mcgyvr uses a row only to estimate how fast a model decodes before a unit of it has been measured (`mcgyvr.estimate`); a measured decode speed replaces the estimate. A device that matches no row gets no estimate. Apple rows match the chip name (`Apple M2 Max`), then the GPU core count where a chip has two bandwidths, then the memory size where the row says `match_memory_gb`; NVIDIA rows match the card name without `NVIDIA` and `GeForce` (`RTX 3080`) and then the card's memory in GB (`vram_gb`). `memory_gb_kind` says how to read `memory_gb`: the sizes offered (`options`), the lowest and highest (`range`), or the largest (`up_to`).",
   "schema": 1,
   "classes": [
     {
@@ -204,21 +204,34 @@
       "source": "apple-m3-max-40c"
     },
     {
-      "id": "apple-m3-ultra",
+      "id": "apple-m3-ultra-60c",
       "vendor": "apple",
       "name": "M3 Ultra",
       "gpu_cores": [
-        60,
+        60
+      ],
+      "bandwidth_gbps": 819.3,
+      "memory_gb": [
+        256
+      ],
+      "memory_gb_kind": "up_to",
+      "verified": true,
+      "source": "apple-m3-ultra-60c"
+    },
+    {
+      "id": "apple-m3-ultra-80c",
+      "vendor": "apple",
+      "name": "M3 Ultra",
+      "gpu_cores": [
         80
       ],
       "bandwidth_gbps": 819.3,
       "memory_gb": [
-        256,
         512
       ],
       "memory_gb_kind": "up_to",
       "verified": true,
-      "source": "apple-m3-ultra"
+      "source": "apple-m3-ultra-80c"
     },
     {
       "id": "apple-m4",
@@ -333,7 +346,10 @@
       ],
       "memory_gb_kind": "options",
       "verified": true,
-      "source": "apple-m5-max-32c"
+      "source": "apple-m5-max-32c",
+      "match_memory_gb": [
+        36
+      ]
     },
     {
       "id": "apple-m5-max-40c",
@@ -350,7 +366,12 @@
       ],
       "memory_gb_kind": "options",
       "verified": true,
-      "source": "apple-m5-max-40c"
+      "source": "apple-m5-max-40c",
+      "match_memory_gb": [
+        48,
+        64,
+        128
+      ]
     },
     {
       "id": "apple-m5-ultra",
@@ -416,8 +437,9 @@
       "name": "RTX 3080",
       "vram_gb": 10,
       "bandwidth_gbps": 760.0,
-      "verified": true,
-      "source": "nvidia-rtx-3080-10gb"
+      "verified": false,
+      "source": "nvidia-rtx-3080-10gb",
+      "note": "Not in the campaign research report; read from the table by a fetch that matched cells to columns by header order. 320-bit x 19 Gbps agrees."
     },
     {
       "id": "nvidia-rtx-3080-12gb",
@@ -425,8 +447,9 @@
       "name": "RTX 3080",
       "vram_gb": 12,
       "bandwidth_gbps": 912.0,
-      "verified": true,
-      "source": "nvidia-rtx-3080-12gb"
+      "verified": false,
+      "source": "nvidia-rtx-3080-12gb",
+      "note": "Not in the campaign research report; read from the table by a fetch that matched cells to columns by header order. 384-bit x 19 Gbps agrees."
     },
     {
       "id": "nvidia-rtx-3090",
@@ -550,7 +573,11 @@
       "url": "https://en.wikipedia.org/wiki/Apple_M3",
       "quote": "M3 \"102.4 GB/s\"; M3 Pro \"153.6 GB/s\", max 36; M3 Max \"307.2 GB/s (30-core), 409.6 GB/s (40-core)\"; M3 Ultra \"819.3 GB/s\" and \"256 GB\" (60-core) / \"512 GB\" (80-core)"
     },
-    "apple-m3-ultra": {
+    "apple-m3-ultra-60c": {
+      "url": "https://en.wikipedia.org/wiki/Apple_M3",
+      "quote": "M3 \"102.4 GB/s\"; M3 Pro \"153.6 GB/s\", max 36; M3 Max \"307.2 GB/s (30-core), 409.6 GB/s (40-core)\"; M3 Ultra \"819.3 GB/s\" and \"256 GB\" (60-core) / \"512 GB\" (80-core)"
+    },
+    "apple-m3-ultra-80c": {
       "url": "https://en.wikipedia.org/wiki/Apple_M3",
       "quote": "M3 \"102.4 GB/s\"; M3 Pro \"153.6 GB/s\", max 36; M3 Max \"307.2 GB/s (30-core), 409.6 GB/s (40-core)\"; M3 Ultra \"819.3 GB/s\" and \"256 GB\" (60-core) / \"512 GB\" (80-core)"
     },
@@ -588,7 +615,7 @@
     },
     "apple-m5-ultra": {
       "url": "https://en.wikipedia.org/wiki/Apple_M5",
-      "quote": "M5 Ultra \"introduced in August 2026 alongside an updated Mac Studio\", \"1,228.8\" GB/s; Apple Mac Studio specs: M5 Ultra \"1.2TB/s memory bandwidth\", 96GB base, \"256GB or 512GB (M5 Ultra with 36-core CPU and 80-core GPU)\""
+      "quote": "M5 Ultra \"introduced in August 2026 alongside an updated Mac Studio\", \"1,228.8\" GB/s"
     },
     "apple-m6-16gb": {
       "url": "https://www.apple.com/macbook-pro/specs/",
@@ -600,39 +627,39 @@
     },
     "nvidia-rtx-3080-10gb": {
       "url": "https://en.wikipedia.org/wiki/GeForce_RTX_30_series",
-      "quote": "GeForce RTX 3080, launched \"Sep 17, 2020\": memory size \"10\", bus width \"320\", bandwidth \"760\" GB/s (Wikipedia GeForce 30 series model table; 320-bit x 19 Gbps = 760)"
+      "quote": "GeForce RTX 3080, \"Sep 17, 2020\": memory size \"10\", bus width \"320\", bandwidth \"760\""
     },
     "nvidia-rtx-3080-12gb": {
       "url": "https://en.wikipedia.org/wiki/GeForce_RTX_30_series",
-      "quote": "GeForce RTX 3080, launched \"Jan 11, 2022\": memory size \"12\", bus width \"384\", bandwidth \"912\" GB/s (Wikipedia GeForce 30 series model table; 384-bit x 19 Gbps = 912)"
+      "quote": "GeForce RTX 3080, \"Jan 11, 2022\": memory size \"12\", bus width \"384\", bandwidth \"912\""
     },
     "nvidia-rtx-3090": {
       "url": "https://en.wikipedia.org/wiki/GeForce_RTX_30_series",
-      "quote": "RTX 3090: 24 GB GDDR6X, 384-bit, 936 GB/s (Wikipedia GeForce 30 series model table)"
+      "summary": "RTX 3090: 24 GB GDDR6X, 384-bit, 936 GB/s (Wikipedia GeForce 30 series model table)"
     },
     "nvidia-rtx-4060": {
       "url": "https://en.wikipedia.org/wiki/GeForce_RTX_40_series",
-      "quote": "RTX 4060: 8 GB GDDR6, 128-bit, 272 GB/s (Wikipedia GeForce 40 series model table)"
+      "summary": "RTX 4060: 8 GB GDDR6, 128-bit, 272 GB/s (Wikipedia GeForce 40 series model table)"
     },
     "nvidia-rtx-4070": {
       "url": "https://en.wikipedia.org/wiki/GeForce_RTX_40_series",
-      "quote": "RTX 4070: 12 GB GDDR6X, 192-bit, 504 GB/s, the original GDDR6X SKU (Wikipedia GeForce 40 series model table)"
+      "summary": "RTX 4070: 12 GB GDDR6X, 192-bit, 504 GB/s, the original GDDR6X SKU (Wikipedia GeForce 40 series model table)"
     },
     "nvidia-rtx-4080": {
       "url": "https://en.wikipedia.org/wiki/GeForce_RTX_40_series",
-      "quote": "RTX 4080: 16 GB GDDR6X, 256-bit, 716.8 GB/s (Wikipedia GeForce 40 series model table)"
+      "summary": "RTX 4080: 16 GB GDDR6X, 256-bit, 716.8 GB/s (Wikipedia GeForce 40 series model table)"
     },
     "nvidia-rtx-4090": {
-      "url": "https://www.techpowerup.com/gpuz/details/de6au",
-      "quote": "GPU-Z validation \"1008.4 GB/s\""
+      "url": "https://en.wikipedia.org/wiki/GeForce_RTX_40_series",
+      "summary": "RTX 4090: 24 GB GDDR6X, 384-bit, 1008 GB/s (Wikipedia GeForce 40 series model table); a techpowerup GPU-Z validation of one card shows \"1008.4 GB/s\" (https://www.techpowerup.com/gpuz/details/de6au)"
     },
     "nvidia-rtx-5070": {
       "url": "https://en.wikipedia.org/wiki/GeForce_RTX_50_series",
-      "quote": "RTX 5070: 12 GB GDDR7, 192-bit, 672 GB/s; the table cells were \"inferred rather than read directly from labeled cells\""
+      "summary": "RTX 5070: 12 GB GDDR7, 192-bit, 672 GB/s; the fetcher read the table cells as \"inferred rather than read directly from labeled cells\""
     },
     "nvidia-rtx-5080": {
       "url": "https://en.wikipedia.org/wiki/GeForce_RTX_50_series",
-      "quote": "RTX 5080: 16 GB GDDR7, 256-bit, 960 GB/s; the table cells were \"inferred rather than read directly from labeled cells\""
+      "summary": "RTX 5080: 16 GB GDDR7, 256-bit, 960 GB/s; the fetcher read the table cells as \"inferred rather than read directly from labeled cells\""
     },
     "nvidia-rtx-5090": {
       "url": "https://www.techpowerup.com/review/gigabyte-geforce-rtx-5090-gaming-oc/",

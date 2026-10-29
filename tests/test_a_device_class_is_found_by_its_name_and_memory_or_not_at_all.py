@@ -39,10 +39,10 @@ def _id(found: estimate.HardwareClass | estimate.NoEstimate) -> str:
 @pytest.mark.parametrize(
     ("name", "vram_mib", "expected"),
     [
-        (f"NVIDIA GeForce {hwclasses.CARD}", 12288, "card-70-12gb"),
-        (f"NVIDIA GeForce {hwclasses.CARD}", 12282, "card-70-12gb"),
-        (f"NVIDIA {hwclasses.CARD}", 8192, "card-70-8gb"),
-        (hwclasses.CARD, 8188, "card-70-8gb"),
+        (f"NVIDIA GeForce {hwclasses.CARD}", 10240, "card-70-10gb"),
+        (f"NVIDIA GeForce {hwclasses.CARD}", 10234, "card-70-10gb"),
+        (f"NVIDIA {hwclasses.CARD}", 6144, "card-70-6gb"),
+        (hwclasses.CARD, 6138, "card-70-6gb"),
     ],
 )
 def test_a_card_is_its_name_then_its_memory(
@@ -56,9 +56,9 @@ def test_a_card_is_its_name_then_its_memory(
     [
         (f"NVIDIA GeForce {hwclasses.CARD}", 16384),
         (f"NVIDIA GeForce {hwclasses.CARD}", None),
-        (f"NVIDIA GeForce {hwclasses.CARD} Ti", 12288),
-        (f"NVIDIA GeForce {hwclasses.CARD} Laptop GPU", 12288),
-        ("Example Card 9000", 12288),
+        (f"NVIDIA GeForce {hwclasses.CARD} Ti", 10240),
+        (f"NVIDIA GeForce {hwclasses.CARD} Laptop GPU", 10240),
+        ("Example Card 9000", 10240),
     ],
 )
 def test_a_card_of_no_class_or_of_an_unknown_variant_gets_none(
@@ -92,6 +92,16 @@ def test_a_chip_is_its_name_then_its_cores_or_memory_else_the_slower(
     assert _id(found) == expected
 
 
+def test_an_estimate_from_the_slower_of_two_variants_says_so(
+    table: tuple[estimate.HardwareClass, ...],
+) -> None:
+    got = estimate.device_decode(
+        f"{hwclasses.CHIP} GPU", model_bytes=4 * GIB, quant="Q4_0", classes=table
+    )
+    assert isinstance(got, estimate.Figure)
+    assert "chip-u1-8c" in got.basis and "slower of 2 variants" in got.basis
+
+
 def test_an_unknown_chip_gets_no_estimate_and_a_note(
     table: tuple[estimate.HardwareClass, ...],
 ) -> None:
@@ -121,7 +131,7 @@ def test_an_invented_unified_machine_decodes_at_its_class_bandwidth(
     assert got.value == pytest.approx(
         estimate.DECODE_EFFICIENCY["4bit"] * row.bandwidth_gbps / (model / 1e9)
     )
-    assert "chip-u1-10c" in got.basis
+    assert "chip-u1-10c" in got.basis and "variants" not in got.basis
 
 
 def test_the_machines_reading_replaces_the_class_estimate(
@@ -164,6 +174,10 @@ def test_an_unverified_row_is_used_and_flagged(
         {"classes": [{**hwclasses.ROWS[0], "source": "nowhere"}]},
         {"classes": [{**hwclasses.ROWS[4], "vram_gb": None}]},
         {"classes": [hwclasses.ROWS[0], hwclasses.ROWS[0]]},
+        {
+            "classes": [hwclasses.ROWS[0]],
+            "_sources": {hwclasses.ROWS[0]["id"]: {"url": "https://example.com/u1"}},
+        },
     ],
 )
 def test_a_table_of_another_shape_is_refused(
@@ -181,7 +195,8 @@ def test_the_shipped_table_sources_every_row_and_says_if_it_was_read_cleanly() -
     assert rows and {one.vendor for one in rows} == {"apple", "nvidia"}
     for row in raw["classes"]:
         source = raw["_sources"][row["source"]]
-        assert source["url"].startswith("https://") and source["quote"], row["id"]
+        said = source.get("quote") or source.get("summary")
+        assert source["url"].startswith("https://") and said, row["id"]
         assert isinstance(row["verified"], bool)
     assert set(raw["_sources"]) == {row["source"] for row in raw["classes"]}
 

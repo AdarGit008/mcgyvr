@@ -136,6 +136,9 @@ class Target:
     gpu: int
     free_bytes: int
     bind: str | None = None
+    #: The card's backend as its scan read it: a scratch reading taken under
+    #: one backend is never given to a card of another (`vramfit.allowance_mib`).
+    backend: str = vramfit.MEASURED_SCRATCH_BACKEND
 
 
 @dataclass(frozen=True)
@@ -296,7 +299,12 @@ def plan(
         allowance_bytes
         if allowance_bytes is not None
         else _allowance_bytes(
-            table, engine=engine, n_ubatch=n_ubatch, name=name, split=grid.split
+            table,
+            engine=engine,
+            n_ubatch=n_ubatch,
+            name=name,
+            split=grid.split,
+            backend=_one_backend(targets),
         )
     )
     sizing = _Sizing(
@@ -526,6 +534,15 @@ def _no_card_twice(targets: Sequence[Target], *, name: str) -> None:
         seen.add(card)
 
 
+def _one_backend(targets: Sequence[Target]) -> str:
+    """The backend a split's scratch is priced under: the measured one when every
+    card runs it, else the first card's that does not."""
+    other = [
+        t.backend for t in targets if t.backend != vramfit.MEASURED_SCRATCH_BACKEND
+    ]
+    return other[0] if other else vramfit.MEASURED_SCRATCH_BACKEND
+
+
 def _allowance_bytes(
     table: Mapping[str, Any],
     *,
@@ -533,11 +550,16 @@ def _allowance_bytes(
     n_ubatch: int,
     name: str,
     split: str | None = None,
+    backend: str = vramfit.MEASURED_SCRATCH_BACKEND,
 ) -> int:
     """Headroom to reserve on every card: vramfit's u-batch allowance for a
-    llama.cpp layer split, else the derived per-shard allowance."""
+    llama.cpp layer split (a reading only for cards of the backend it was taken
+    under), else the derived per-shard allowance."""
     if engine == LLAMACPP_ENGINE and split != SPLIT_TENSOR:
-        return int(vramfit.allowance_mib(dict(table), n_ubatch=n_ubatch) * _MIB)
+        return int(
+            vramfit.allowance_mib(dict(table), n_ubatch=n_ubatch, backend=backend)
+            * _MIB
+        )
     try:
         return int(derived.shard_allowance_gib(engine, sizing=name) * _GIB)
     except derived.DerivedNumbersError as exc:

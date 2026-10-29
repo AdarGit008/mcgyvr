@@ -87,7 +87,9 @@ MEASURED_SCRATCH_MIB = {
 #: The backend every `MEASURED_SCRATCH_MIB` reading was taken under: each gap
 #: carries a CUDA context and CUDA's compute buffers, so a card of another
 #: backend (a unified GPU under Metal, a card under Vulkan or ROCm) is never
-#: given one and gets `SCRATCH_AND_CONTEXT_MIB`, the unmeasured default.
+#: given one and gets `SCRATCH_AND_CONTEXT_MIB`, the unmeasured default, which
+#: stands in for what Metal allocates beside the tensors until a reading of a
+#: Metal load (llama.cpp's logged working set) replaces it.
 MEASURED_SCRATCH_BACKEND = "cuda"
 
 #: Cell granule llama.cpp pads the sliding-window cache to: the engine rounds

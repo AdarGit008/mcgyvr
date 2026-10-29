@@ -4,19 +4,22 @@ A unified GPU holds what it is given in the host's own memory, so what a unit
 takes on it is not also there for the experts it spills or the blob it maps;
 the same sizing on a card with memory of its own leaves the host's memory
 whole. A claim on a unified GPU leaves the host's memory as well. The scratch
-readings taken under one backend are never given to a card of another. The
+readings taken under one backend are never given to a card of another, in a
+split across cards. The
 machine is an invented unified-memory shape, and its twin with a discrete card
 is the same figures with the card's kind changed.
 """
 
 from __future__ import annotations
 
+import importlib
 from dataclasses import replace
 from typing import Any
 
 import pytest
 
 from mcgyvr import recommend
+from mcgyvr.hubwire import RESOURCE_BACKENDS
 from mcgyvr.scan import Scan
 from mcgyvr.serving import (
     ModelSpec,
@@ -27,11 +30,19 @@ from mcgyvr.serving import (
     unit_for,
     vramfit,
 )
+from mcgyvr.serving.sharding import SPLIT_LAYER, Grid
 from tests import machine_shapes
+
+#: The invented split model, its cards and its planner call, as the split
+#: sizing tests make them.
+split = importlib.import_module(
+    "tests.test_a_model_split_across_cards_is_sized_card_by_card_from_its_tensor_table"
+)
 
 WINDOW = 4096
 BLOCKS = 3
 GIB = 1 << 30
+MIB = 1 << 20
 
 
 def unified() -> Scan:
@@ -112,17 +123,26 @@ def test_a_claim_on_a_unified_gpu_leaves_the_host_too() -> None:
 
 
 @pytest.mark.parametrize("backend", ["metal", "vulkan", "rocm"])
-def test_a_scratch_reading_taken_under_cuda_is_not_another_backends(
+def test_a_split_prices_scratch_from_a_cuda_reading_only_on_cuda_cards(
     backend: str,
 ) -> None:
     arch, by_batch = next(iter(vramfit.MEASURED_SCRATCH_MIB.items()))
     batch, reading = next(iter(by_batch.items()))
-    shape = {"arch": arch}
-    assert vramfit.allowance_mib(shape, n_ubatch=batch) == reading
-    assert (
-        vramfit.allowance_mib(shape, n_ubatch=batch, backend=backend)
-        == vramfit.SCRATCH_AND_CONTEXT_MIB
-    )
+    model = {**split.table(), "arch": arch}
+    grid = Grid(tensor=1, pipeline=2, split=SPLIT_LAYER)
+
+    def charged(on: str) -> list[int]:
+        targets = [replace(card, backend=on) for card in split.cards(6, 6)]
+        made = split.sized(model, targets, grid, allowance_bytes=None, n_ubatch=batch)
+        return [shard.allowance_bytes for shard in made.shards]
+
+    assert charged(vramfit.MEASURED_SCRATCH_BACKEND) == [int(reading * MIB)] * 2
+    default = int(vramfit.SCRATCH_AND_CONTEXT_MIB * MIB)
+    assert charged(backend) == [default, default]
+
+
+def test_the_measured_backend_is_one_the_wire_names() -> None:
+    assert vramfit.MEASURED_SCRATCH_BACKEND in RESOURCE_BACKENDS
 
 
 def test_co_resident_units_on_a_unified_gpu_sum_card_and_host_memory() -> None:

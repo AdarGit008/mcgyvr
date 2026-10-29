@@ -38,6 +38,32 @@ archived outside this repository, under the same paths.
 
 ### Added
 
+- **A plan says how fast its model decodes, and a unified GPU's memory is
+  counted once (#817).** `data/hardware-classes.json` states the memory
+  bandwidth of Apple silicon chips and NVIDIA consumer cards, each row with
+  its source page and the words quoted (or, for a table row, a summary of its
+  cells) and whether that source was read cleanly (`verified`).
+  `mcgyvr.estimate` matches a device to its class by name (an NVIDIA card then
+  by its memory, a chip by its GPU cores or the machine's memory, the slower
+  variant, said so, when those are unread; no class, no estimate) and
+  estimates decode as bandwidth over the bytes a token reads: 0.75 of it for
+  16- and 8-bit weights and 0.60 for 4- to 6-bit, fitted under llama.cpp's
+  Apple-silicon table (discussion 4167), with an Apple chip from 800 GB/s up
+  at most 0.50 and 0.45; an NVIDIA card's estimate says the shares were
+  fitted on Apple silicon. A mixture of experts reads its shared weights and
+  the experts it uses. The plan of `mcgyvr recommend` states its placement's
+  `decode_tok_s` as the live fleet's measured speed for that model at that
+  host (a `reading`, `fleet.lock.decode_readings`), else that `estimate`,
+  else why there is none, and each card's class bandwidth (an estimate for
+  that card). `estimate.usable_unified_mb` states a Mac GPU's memory as the
+  reader sizes it: the wired limit, else three quarters of memory (estimates),
+  or the working set llama.cpp logged (a reading). Sizing on a unified GPU
+  now weighs spilled experts, a mapped blob and co-resident units against the
+  host memory the GPU leaves, in a unit's fit, a plan's fit and a claim; a
+  card with its own memory is sized exactly as before. A split prices a
+  CUDA-measured scratch reading only on CUDA cards
+  (`vramfit.MEASURED_SCRATCH_BACKEND`).
+
 - **The machine reader reads macOS and Windows.** On a Mac (Apple silicon) the
   GPU that shares the memory is read as one `unified` card: its size is the
   share the kernel lets it take (`iogpu.wired_limit_mb`, else three quarters
@@ -56,28 +82,6 @@ archived outside this repository, under the same paths.
   estimate. A Linux machine reads as before and keeps its rig id. A Mac's
   unified GPU is not lent yet: a lent card is served by a CUDA worker in a
   container, and it joins lending with native launch. (#809)
-
-- **A plan says how fast its model decodes, and a unified GPU's memory is
-  counted once (#817).** `data/hardware-classes.json` states the memory
-  bandwidth of Apple silicon chips and NVIDIA consumer cards, each row with
-  its source page and quote and whether that source was read cleanly
-  (`verified`). `mcgyvr.estimate` matches a device to its class by name (an
-  NVIDIA card then by its memory, a chip by its GPU cores or the machine's
-  memory, the slower variant when those are unread; no class, no estimate)
-  and estimates decode as bandwidth over the bytes a token reads, at 0.75 of
-  it for 16- and 8-bit weights, 0.60 for 4- to 6-bit and at most 0.45 from
-  800 GB/s up, fitted under llama.cpp's Apple-silicon table (discussion 4167);
-  a mixture of experts reads its shared weights and the experts it uses. The
-  plan of `mcgyvr recommend` states its placement's `decode_tok_s` as the live
-  fleet's measured speed for that model at that host (`reading`), else that
-  `estimate`, else why there is none, and each card its class bandwidth.
-  `estimate.usable_unified_mb` is a Mac GPU's memory: the wired limit, else
-  three quarters of memory (estimates), or the working set llama.cpp logged
-  (a reading). Sizing on a unified GPU now weighs spilled experts, a mapped
-  blob and co-resident units against the host memory the GPU leaves, in a
-  unit's fit, a plan's fit and a claim; a card with its own memory is sized
-  exactly as before. CUDA-measured scratch readings are given only to a CUDA
-  card (`vramfit.MEASURED_SCRATCH_BACKEND`).
 
 - **What a rig lends is defined once, as resources, in `mcgyvr.hubwire`
   (#812).** A `Resource` (`gpu`, `unified`, `ram` or `cpu`; `RESOURCE_KINDS`)

@@ -76,8 +76,9 @@ class CapabilityTable:
         A row is left out when it carries `not_for_fit`, or when its working
         footprint plus the headroom is more than the memory available. The
         headroom is an absolute figure, not a share of the card. For a unified
-        GPU `vram_gb` is the memory it may use (`estimate.usable_unified_mb`),
-        never the machine's whole memory.
+        GPU `vram_gb` is the memory it may use as the machine reader sized it
+        (`mcgyvr detect`, an estimate; `estimate.usable_unified_mb` states the
+        same rule), never the machine's whole memory.
         """
         return [
             m

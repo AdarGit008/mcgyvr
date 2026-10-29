@@ -32,8 +32,9 @@ CLASSES_SCHEMA = 1
 
 ESTIMATE, READING = FIGURE_KINDS
 
-#: Bytes in the decimal GB a bandwidth in GB/s is stated in.
-BYTES_PER_GB = 1e9
+#: Bytes in the decimal GB a bandwidth in GB/s is stated in (not the 1024**3
+#: of ``scan.BYTES_PER_GB``).
+BYTES_PER_DECIMAL_GB = 1e9
 
 #: The share of a Mac's memory its GPU may wire when the kernel's own limit is in
 #: force (``iogpu.wired_limit_mb`` is 0): llama.cpp treats Metal's
@@ -51,21 +52,30 @@ UNIFIED_SHARE = 0.75
 #: https://github.com/ggml-org/llama.cpp/discussions/4167): medians 0.83 (F16),
 #: 0.79 (Q8_0) and 0.69 (Q4_0), falling as the quantisation shrinks (dequant
 #: cost) and as bandwidth rises (an 800 GB/s part is compute-bound on a 7B
-#: model: 0.36..0.71). The values below sit under those medians, so an estimate
-#: errs slow: 0.75 for 16-bit and 8-bit weights, 0.60 for 4-bit to 6-bit ones
-#: (Q5/Q6 were not measured; they take the 4-bit figure, the lower of the two
-#: they sit between), and at most :data:`HIGH_BANDWIDTH_EFFICIENCY` from
-#: :data:`HIGH_BANDWIDTH_GBPS` up. A current llama.cpp build runs about 1.2x
-#: faster than the build those rows used; no allowance is made for it. A
-#: quantisation under 4 bits was not measured, and gets no estimate.
+#: model). The values below sit under those medians, so an estimate errs slow:
+#: 0.75 for 16-bit and 8-bit weights, 0.60 for 4-bit to 6-bit ones (Q5/Q6 were
+#: not measured; they take the 4-bit figure, the lower of the two they sit
+#: between). From :data:`HIGH_BANDWIDTH_GBPS` up an Apple chip takes at most
+#: :data:`HIGH_BANDWIDTH_EFFICIENCY` for its class: the 800 GB/s Ultra runs gave
+#: 0.50..0.60 at Q8_0 (0.57..0.71 at F16), so 0.50, the lowest, and 0.36..0.45
+#: at Q4_0, so 0.45, the research's suggested clamp (the highest of those runs,
+#: so a 4-bit estimate on an Ultra may err fast). The fit is Apple silicon's
+#: under Metal; an NVIDIA card takes the same shares, unchecked under CUDA, and
+#: its estimate says so. A current llama.cpp build runs about 1.2x faster than
+#: the build those rows used; no allowance is made for it. A quantisation under
+#: 4 bits, or 32-bit weights, was not measured, and gets no estimate.
 DECODE_EFFICIENCY: Mapping[str, float] = {"8bit": 0.75, "4bit": 0.60}
 HIGH_BANDWIDTH_GBPS = 800.0
-HIGH_BANDWIDTH_EFFICIENCY = 0.45
+HIGH_BANDWIDTH_EFFICIENCY: Mapping[str, float] = {"8bit": 0.50, "4bit": 0.45}
+#: The vendor whose chips the efficiencies were fitted on, and the only one the
+#: high-bandwidth ceiling was seen on.
+FITTED_ON = "apple"
 
 #: Quantisation names, by the efficiency class they decode at. Matched on the
-#: name's start, case-insensitively: ``Q4_K_M`` is ``q4``, ``IQ4_XS`` is ``iq4``.
+#: name's start, case-insensitively, after a ``UD-`` prefix: ``Q4_K_M`` is
+#: ``q4``, ``IQ4_XS`` is ``iq4``, ``UD-Q4_K_XL`` is ``q4``.
 QUANT_CLASSES: Mapping[str, tuple[str, ...]] = {
-    "8bit": ("f32", "f16", "bf16", "q8"),
+    "8bit": ("f16", "bf16", "q8"),
     "4bit": ("q4", "iq4", "mxfp4", "q5", "q6"),
 }
 
@@ -149,21 +159,25 @@ def usable_unified_mb(
 
 def quant_class(quant: str) -> str | None:
     """The efficiency class of a quantisation name, None when it has none."""
-    name = quant.strip().lower()
+    name = quant.strip().lower().removeprefix("ud-")
     for klass, prefixes in QUANT_CLASSES.items():
         if name.startswith(prefixes):
             return klass
     return None
 
 
-def efficiency(bandwidth_gbps: float, quant: str) -> float | None:
-    """The decode efficiency for this bandwidth and quantisation, None when unknown."""
+def efficiency(
+    bandwidth_gbps: float, quant: str, *, vendor: str = FITTED_ON
+) -> float | None:
+    """The decode efficiency for this bandwidth, quantisation and vendor, None when
+    the quantisation has no class. The high-bandwidth ceiling holds for the
+    vendor the shares were fitted on alone."""
     klass = quant_class(quant)
     if klass is None:
         return None
     eff = DECODE_EFFICIENCY[klass]
-    if bandwidth_gbps >= HIGH_BANDWIDTH_GBPS:
-        eff = min(eff, HIGH_BANDWIDTH_EFFICIENCY)
+    if vendor == FITTED_ON and bandwidth_gbps >= HIGH_BANDWIDTH_GBPS:
+        eff = min(eff, HIGH_BANDWIDTH_EFFICIENCY[klass])
     return eff
 
 
@@ -174,6 +188,7 @@ def decode_tps(
     *,
     verified: bool = True,
     device: str = "",
+    vendor: str = FITTED_ON,
 ) -> Figure | NoEstimate:
     """Estimated decode tokens per second of a dense model on one device.
 
@@ -184,26 +199,33 @@ def decode_tps(
     """
     if bandwidth_gbps <= 0 or model_bytes <= 0:
         return NoEstimate("no bandwidth or model size to estimate decode from")
-    eff = efficiency(bandwidth_gbps, quant)
+    eff = efficiency(bandwidth_gbps, quant, vendor=vendor)
     if eff is None:
         return NoEstimate(
             f"no decode estimate for quantisation {quant!r}: the rule was fitted "
-            "to 16-, 8- and 4-bit weights"
+            "to 16-, 8- and 4- to 6-bit weights"
         )
     on = f"{device}, " if device else ""
-    gb = model_bytes / BYTES_PER_GB
+    fitted = "" if vendor == FITTED_ON else ", shares fitted on Apple silicon"
+    gb = model_bytes / BYTES_PER_DECIMAL_GB
     return Figure(
         eff * bandwidth_gbps / gb,
         ESTIMATE,
-        f"{on}{bandwidth_gbps:g} GB/s x {eff:g} over {gb:.2f} GB read per token",
+        f"{on}{bandwidth_gbps:g} GB/s x {eff:g} over {gb:.2f} GB read per "
+        f"token{fitted}",
         verified=verified,
     )
 
 
-def prefer(reading: float | None, estimate: Figure | NoEstimate) -> Figure | NoEstimate:
-    """The machine's own reading when there is one, else the estimate."""
+def prefer(
+    reading: float | None,
+    estimate: Figure | NoEstimate,
+    *,
+    where: str = "this machine",
+) -> Figure | NoEstimate:
+    """The reading taken at ``where`` when there is one, else the estimate."""
     if reading is not None and reading > 0:
-        return Figure(float(reading), READING, "measured on this machine")
+        return Figure(float(reading), READING, f"measured at {where}")
     return estimate
 
 
@@ -260,11 +282,14 @@ def _row(raw: Any, sources: Mapping[str, Any], where: Path) -> HardwareClass:
             f"{where}: row {rid!r} verified is not true or false"
         )
     source = sources.get(str(raw.get("source")))
-    if not isinstance(source, dict) or not str(source.get("url", "")).startswith(
-        "https://"
+    if (
+        not isinstance(source, dict)
+        or not str(source.get("url", "")).startswith("https://")
+        or not (source.get("quote") or source.get("summary"))
     ):
         raise HardwareClassesError(
-            f"{where}: row {rid!r} has no https source in _sources"
+            f"{where}: row {rid!r} has no https source with a quote or a summary "
+            "in _sources"
         )
     if raw["vendor"] == "nvidia" and not isinstance(raw.get("vram_gb"), int):
         raise HardwareClassesError(f"{where}: NVIDIA row {rid!r} states no vram_gb")
@@ -307,7 +332,8 @@ def load_classes(path: Path | None = None) -> tuple[HardwareClass, ...]:
 
 
 @cache
-def _shipped() -> tuple[HardwareClass, ...]:
+def shipped_classes() -> tuple[HardwareClass, ...]:
+    """The shipped table, read once."""
     return load_classes()
 
 
@@ -324,15 +350,15 @@ def class_name(name: str) -> str:
     return _GPU_WORD.sub("", _VENDOR_WORDS.sub("", plain)).lower()
 
 
-def match(
+def variants(
     name: str,
     *,
     vram_mib: int | None = None,
     gpu_cores: int | None = None,
     memory_mib: int | None = None,
     classes: tuple[HardwareClass, ...] | None = None,
-) -> HardwareClass | NoEstimate:
-    """The class of a device: by its name, then by what tells its variants apart.
+) -> tuple[HardwareClass, ...] | NoEstimate:
+    """The classes a device may be, by its name and what tells its variants apart.
 
     The name is matched whole, without vendor words (:func:`class_name`), so
     ``RTX 4060 Ti`` never matches ``RTX 4060``, nor ``RTX 4090 Laptop GPU``
@@ -340,11 +366,10 @@ def match(
     the card's memory in whole GB, and a card whose memory is unread or
     matches none gets no class. Rows that state GPU cores are told apart by
     the cores, and rows that state ``match_memory_gb`` by the machine's
-    memory, when those are read; when more than one row is left, the one with
-    the lowest bandwidth answers, so an unread variant is never estimated
-    fast. A name no row has gets no class.
+    memory, when those are read; what is left may be more than one row. A
+    name no row has gets no class.
     """
-    table = classes if classes is not None else _shipped()
+    table = classes if classes is not None else shipped_classes()
     key = class_name(name)
     rows = [one for one in table if class_name(one.name) == key]
     if not rows:
@@ -366,7 +391,29 @@ def match(
     if memory_mib is not None and any(one.match_memory_gb for one in rows):
         gb = round(memory_mib / 1024)
         rows = [one for one in rows if gb in one.match_memory_gb] or rows
-    return min(rows, key=lambda one: one.bandwidth_gbps)
+    return tuple(rows)
+
+
+def match(
+    name: str,
+    *,
+    vram_mib: int | None = None,
+    gpu_cores: int | None = None,
+    memory_mib: int | None = None,
+    classes: tuple[HardwareClass, ...] | None = None,
+) -> HardwareClass | NoEstimate:
+    """The class of a device (:func:`variants`); of several, the one with the
+    lowest bandwidth, so an unread variant is never estimated fast."""
+    found = variants(
+        name,
+        vram_mib=vram_mib,
+        gpu_cores=gpu_cores,
+        memory_mib=memory_mib,
+        classes=classes,
+    )
+    if isinstance(found, NoEstimate):
+        return found
+    return min(found, key=lambda one: one.bandwidth_gbps)
 
 
 def token_bytes(size_bytes: int, geometry: Mapping[str, Any] | None = None) -> int:
@@ -398,13 +445,16 @@ def device_decode(
     gpu_cores: int | None = None,
     memory_mib: int | None = None,
     reading: float | None = None,
+    where: str = "this machine",
     classes: tuple[HardwareClass, ...] | None = None,
 ) -> Figure | NoEstimate:
-    """A model's decode speed on a named device: the machine's reading when there
-    is one, else the estimate from the device's class, else why there is none."""
+    """A model's decode speed on a named device: the reading taken at ``where``
+    when there is one, else the estimate from the device's class (the slower
+    variant, and said so, when the device could be more than one), else why
+    there is none."""
     if reading is not None and reading > 0:
-        return prefer(reading, NoEstimate(""))
-    found = match(
+        return prefer(reading, NoEstimate(""), where=where)
+    found = variants(
         name,
         vram_mib=vram_mib,
         gpu_cores=gpu_cores,
@@ -413,63 +463,19 @@ def device_decode(
     )
     if isinstance(found, NoEstimate):
         return found
+    slowest = min(found, key=lambda one: one.bandwidth_gbps)
+    device = f"class {slowest.id}"
+    if len(found) > 1:
+        device += f", the slower of {len(found)} variants its reading cannot tell apart"
     if not quant:
         return NoEstimate(
             f"{name}: the model's quantisation is unknown, so no estimate"
         )
     return decode_tps(
-        found.bandwidth_gbps,
+        slowest.bandwidth_gbps,
         model_bytes,
         quant,
-        verified=found.verified,
-        device=f"class {found.id}",
+        verified=slowest.verified,
+        device=device,
+        vendor=slowest.vendor,
     )
-
-
-def decode_readings(folder: Path | None = None) -> dict[tuple[str, str], float]:
-    """Measured warm decode speeds, by (host, model), from the live fleet's lock.
-
-    A unit's approved ``warm_decode_tok_s`` in any of the lock's rig records is a
-    reading for the model the fleet's ``fleet.yaml`` names for the unit, at the
-    host of the unit's address. Where one model at one host was measured more
-    than once, the slowest answers. No live fleet, or one that cannot be read,
-    gives no readings.
-    """
-    from urllib.parse import urlsplit
-
-    from mcgyvr.fleet.files import FleetFileError, load_fleet
-    from mcgyvr.fleet.roots import LOCK_DIR, LiveFleetError, live_fleet_dir
-
-    try:
-        where = folder if folder is not None else live_fleet_dir()
-    except LiveFleetError:
-        return {}
-    if where is None:
-        return {}
-    try:
-        fleet = load_fleet((where / "fleet.yaml").read_text(encoding="utf-8"))
-    except (OSError, FleetFileError):
-        return {}
-    units = fleet.get("units") or {}
-    found: dict[tuple[str, str], float] = {}
-    for record in sorted((where / LOCK_DIR / "rigs").glob("*/*.json")):
-        try:
-            approved = json.loads(record.read_text(encoding="utf-8"))["approved"]
-        except (OSError, ValueError, KeyError, TypeError):
-            continue
-        if not isinstance(approved, dict):
-            continue
-        for unit_name, entry in approved.items():
-            unit = units.get(unit_name)
-            warm = entry.get("warm_decode_tok_s") if isinstance(entry, dict) else None
-            if not isinstance(unit, dict) or isinstance(warm, bool):
-                continue
-            if not isinstance(warm, int | float) or warm <= 0:
-                continue
-            model = unit.get("model")
-            host = urlsplit(str(unit.get("address") or "")).hostname
-            if not isinstance(model, str) or not model or not host:
-                continue
-            key = (host, model)
-            found[key] = min(found.get(key, float(warm)), float(warm))
-    return found

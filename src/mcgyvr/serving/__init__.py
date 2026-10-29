@@ -1166,7 +1166,13 @@ def _shard_targets(name: str, declared: object, scans: Mapping[str, Scan]) -> li
                 f"{where}: {rig} has no card {gpu} in its scan (cards: {found})"
             )
         targets.append(
-            Target(host=rig, gpu=gpu, free_bytes=card.vram.free_mib << 20, bind=bind)
+            Target(
+                host=rig,
+                gpu=gpu,
+                free_bytes=card.vram.free_mib << 20,
+                bind=bind,
+                backend=card.backend,
+            )
         )
     return targets
 

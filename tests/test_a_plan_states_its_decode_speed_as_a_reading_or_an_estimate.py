@@ -17,6 +17,7 @@ import pytest
 import yaml
 
 from mcgyvr import estimate, recommend
+from mcgyvr.fleet import lock
 from mcgyvr.scan import Scan
 from tests import hwclasses, machine_shapes, sample_fleet
 
@@ -42,7 +43,7 @@ CATALOG: dict[str, Any] = {
 @pytest.fixture(autouse=True)
 def _invented(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
     table = hwclasses.table(tmp_path)
-    monkeypatch.setattr(estimate, "_shipped", lambda: table)
+    monkeypatch.setattr(estimate, "shipped_classes", lambda: table)
     monkeypatch.setattr(recommend, "load_catalog", lambda *a, **k: CATALOG)
 
 
@@ -108,8 +109,42 @@ def test_the_live_fleets_lock_gives_the_slowest_measured_decode_by_host_and_mode
             encoding="utf-8",
         )
     model = sample_fleet.unit()["model"]
-    assert estimate.decode_readings(folder) == {(sample_fleet.RIG, model): 30.0}
+    assert lock.decode_readings(folder) == {(sample_fleet.RIG, model): 30.0}
 
 
-def test_no_live_fleet_gives_no_readings(tmp_path: Path) -> None:
-    assert estimate.decode_readings(tmp_path / "nowhere") == {}
+def test_no_live_fleet_or_an_unreadable_one_gives_no_readings(tmp_path: Path) -> None:
+    assert lock.decode_readings(tmp_path / "nowhere") == {}
+    (tmp_path / "fleet.yaml").write_bytes(b"\xff\xfe not text")
+    assert lock.decode_readings(tmp_path) == {}
+
+
+@pytest.mark.parametrize(
+    ("host", "model"),
+    [
+        ("BOX-1.example", MODEL),
+        ("someone@box-1.example", "invented-dense"),
+        ("box-1.example", "invented-dense-q4_k_m"),
+    ],
+)
+def test_a_reading_is_found_by_the_host_and_model_however_the_fleet_spells_them(
+    host: str, model: str
+) -> None:
+    decode = placed(unified(), {(host, model): 17.5})["placement"]["decode_tok_s"]
+    assert (decode["value"], decode["figure"]) == (17.5, "reading")
+    assert HOST in decode["basis"]
+
+
+@pytest.mark.parametrize(
+    ("host", "model"),
+    [("box-2.example", MODEL), ("box-1.example", "invented-dense-q8_0")],
+)
+def test_a_reading_of_another_host_or_quantisation_is_not_this_ones(
+    host: str, model: str
+) -> None:
+    decode = placed(unified(), {(host, model): 17.5})["placement"]["decode_tok_s"]
+    assert decode["figure"] == "estimate"
+
+
+def test_every_loopback_name_is_one_host() -> None:
+    keys = {lock.host_key(name) for name in ("localhost", "127.0.0.1", "::1")}
+    assert keys == {"localhost"}

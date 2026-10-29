@@ -35,6 +35,7 @@ from mcgyvr import availability, decision, estimate
 from mcgyvr import scan as scan_module
 from mcgyvr.config import DEFAULT_REQUEST_TIMEOUT_S
 from mcgyvr.decision import Choice, ChoiceAnswer
+from mcgyvr.fleet import lock as fleet_lock
 from mcgyvr.hubwire import USE_CASE_CATEGORY, shares_ram
 from mcgyvr.knowledge import geometry as geometry_rows
 from mcgyvr.knowledge import hub
@@ -405,16 +406,46 @@ def _said(figure: estimate.Figure | estimate.NoEstimate) -> dict[str, Any]:
     }
 
 
+def _model_key(name: str) -> str:
+    """A model name as readings are matched by it: its last path part, lower
+    case, without ``.gguf``."""
+    return name.rsplit("/", 1)[-1].strip().lower().removesuffix(".gguf")
+
+
+def _reading(
+    candidate: Candidate, readings: Mapping[tuple[str, str], float]
+) -> float | None:
+    """The slowest decode the live fleet measured for this candidate's model at
+    its host: a unit's model names it by repo (``org/Model``), by repo and quant
+    (``Model-Q4_K_M``) or by file; hosts are matched as `fleet.lock.host_key`
+    keys them."""
+    names = set()
+    if candidate.model_id:
+        names.add(_model_key(candidate.model_id))
+        if candidate.quant:
+            names.add(f"{_model_key(candidate.model_id)}-{candidate.quant.lower()}")
+    if candidate.checkpoint:
+        names.add(_model_key(candidate.checkpoint))
+    host = fleet_lock.host_key(candidate.host)
+    found = [
+        value
+        for (at, model), value in readings.items()
+        if fleet_lock.host_key(at) == host and _model_key(model) in names
+    ]
+    return min(found) if found else None
+
+
 def _decode(
     candidate: Candidate, scan: Scan, readings: Mapping[tuple[str, str], float]
 ) -> estimate.Figure | estimate.NoEstimate:
     """The placement's decode speed: the reading the live fleet holds for this
     model at this host, else the estimate for the roomiest card's class."""
-    model = candidate.model_id or candidate.checkpoint or ""
-    reading = readings.get((candidate.host, model))
+    reading = _reading(candidate, readings)
     if not scan.gpus:
         if reading is not None:
-            return estimate.prefer(reading, estimate.NoEstimate(""))
+            return estimate.prefer(
+                reading, estimate.NoEstimate(""), where=candidate.host
+            )
         return estimate.NoEstimate(f"{candidate.host}: no card, so no estimate")
     gpu = _roomiest_gpu(scan)
     return estimate.device_decode(
@@ -424,6 +455,7 @@ def _decode(
         vram_mib=gpu.vram.total_mib,
         memory_mib=_memory_mib(scan),
         reading=reading,
+        where=candidate.host,
     )
 
 
@@ -475,7 +507,7 @@ def _local_candidates(
                 engine="llama.cpp",
                 checkpoint=checkpoint,
                 model_id=None,
-                quant=None,
+                quant=hub.quant_of(checkpoint),
                 size_bytes=size_bytes,
                 context_length=int(header["n_ctx_train"]),
                 flags=_llamacpp_flags(checkpoint=checkpoint, mtp=mtp, users=users),
@@ -739,7 +771,7 @@ def plan(
 
     The placement states its decode speed (`decode_tok_s`): the reading in
     `readings`, by (host, model), when there is one (the live fleet's lock,
-    `estimate.decode_readings`, when `readings` is None), else an estimate from
+    `fleet.lock.decode_readings`, when `readings` is None), else an estimate from
     the bandwidth of the roomiest card's class, else no value and why; each rig's
     cards state their class bandwidth the same way.
     """
@@ -874,7 +906,7 @@ def plan(
                 _decode(
                     selected,
                     scans[selected.host],
-                    estimate.decode_readings() if readings is None else readings,
+                    fleet_lock.decode_readings() if readings is None else readings,
                 )
             ),
         ),

@@ -4,16 +4,17 @@ Unified memory is now counted once, and the decode estimate is new; neither may
 move a sizing of a machine whose cards have memory of their own. For every
 invented machine that reports a card (the Linux shapes, and the hosts with a
 discrete card or none), a few invented models are sized as a unit would be and
-as a plan would be: a small dense model, one too big for any card, a
-mixture-of-experts model that fits only by spilling experts to host memory,
-and the same one stating its blob, so the loading mode is weighed. Each sizing's whole
-answer (whether it fits, what it takes on the card and in memory, how it is
-loaded, and the reason it gives) is pinned as the sizing made it before.
+as a plan would be: a small dense model, one too big for any card, and a
+mixture-of-experts model that fits only by spilling experts to host memory.
+Each sizing's answer (whether it fits, what it takes on the card and in memory,
+how it is loaded, and the reason it gives) is pinned as the sizing made it
+before.
 """
 
 from __future__ import annotations
 
 import hashlib
+import json
 from dataclasses import replace
 from typing import Any
 
@@ -27,6 +28,18 @@ from tests.sizings import WINDOW, machines, spilling
 
 #: The engine every sizing here is for.
 ENGINE = "llama.cpp"
+
+#: The parts of a unit's fit that are pinned: every field a sizing set before.
+FIT_FIELDS = (
+    "fits",
+    "headroom_gb",
+    "why",
+    "vram_gb",
+    "ram_gb",
+    "load_mode",
+    "card_free_gb",
+    "notes",
+)
 
 
 def _scans() -> dict[str, Scan]:
@@ -49,10 +62,7 @@ def _specs(scan: Scan) -> dict[str, ModelSpec]:
         "dense-too-big": replace(dense, name="example-huge", vram_gb=4096.0),
     }
     if scan.gpus and max(gpu.vram.free_mib for gpu in scan.gpus) > 0:
-        moe = spilling(scan)
-        specs["moe-spilling"] = moe
-        size = int((moe.geometry or {})["size_bytes"])
-        specs["moe-spilling-with-its-blob"] = replace(moe, disk_gb=size / (1 << 30))
+        specs["moe-spilling"] = spilling(scan)
     return specs
 
 
@@ -64,13 +74,16 @@ def _header(spec: ModelSpec) -> dict[str, Any]:
 
 
 def sizings(scan: Scan) -> dict[str, str]:
-    """Each sizing of ``scan``, as sixteen hex digits of sha256 over its answer."""
+    """Each sizing of ``scan``, as sixteen hex digits of sha256 over its answer:
+    the unit's fit, field by field, and the plan's yes or no."""
     out: dict[str, str] = {}
     for name, spec in _specs(scan).items():
-        answer: tuple[Any, ...] = (fit(scan, spec, engine=ENGINE, ctx_per_slot=WINDOW),)
+        sized = fit(scan, spec, engine=ENGINE, ctx_per_slot=WINDOW)
+        answer: dict[str, Any] = {field: getattr(sized, field) for field in FIT_FIELDS}
         if spec.geometry is not None:
-            answer += (recommend._fits(scan, _header(spec), 1),)
-        out[name] = hashlib.sha256(repr(answer).encode()).hexdigest()[:16]
+            answer["plan_fits"] = recommend._fits(scan, _header(spec), 1)
+        text = json.dumps(answer, sort_keys=True, default=str)
+        out[name] = hashlib.sha256(text.encode()).hexdigest()[:16]
     return out
 
 
@@ -78,108 +91,97 @@ def sizings(scan: Scan) -> dict[str, str]:
 #: unified memory was counted once.
 BEFORE: dict[str, dict[str, str]] = {
     "busy-beside-free": {
-        "dense-small": "1c83e7d34edfa17f",
-        "dense-too-big": "c2fef6a354139bb2",
-        "moe-spilling": "f4060f164f17c51e",
-        "moe-spilling-with-its-blob": "f4060f164f17c51e",
+        "dense-small": "61477553d501c2db",
+        "dense-too-big": "127d568ce8b0754c",
+        "moe-spilling": "71ab7928adf801be",
     },
     "busy-card": {
-        "dense-small": "671d019169ff500e",
-        "dense-too-big": "9adcfc02b24f92bf",
-        "moe-spilling": "2f51b123d4e16eb3",
-        "moe-spilling-with-its-blob": "2f51b123d4e16eb3",
+        "dense-small": "e9ae439e1995e077",
+        "dense-too-big": "032c16b37d791eb6",
+        "moe-spilling": "3d9569ace2b311d8",
     },
     "four-equal": {
-        "dense-small": "5632a5b53bc333ee",
-        "dense-too-big": "a009b1ccf01f346a",
-        "moe-spilling": "19293a47dbb77375",
-        "moe-spilling-with-its-blob": "19293a47dbb77375",
+        "dense-small": "b95ee9d1430c850c",
+        "dense-too-big": "0c3a82a19f34ab4c",
+        "moe-spilling": "0e5c37b19cc535d6",
     },
     "linux-one-card": {
-        "dense-small": "1c83e7d34edfa17f",
-        "dense-too-big": "c2fef6a354139bb2",
-        "moe-spilling": "7ac88dd5327601e8",
-        "moe-spilling-with-its-blob": "7ac88dd5327601e8",
+        "dense-small": "61477553d501c2db",
+        "dense-too-big": "127d568ce8b0754c",
+        "moe-spilling": "0da83a710e977315",
     },
     "mac-without-unified": {
-        "dense-small": "bcb851dae864d667",
-        "dense-too-big": "6f5b162684544b8d",
+        "dense-small": "6ac7fe9eb778d0d6",
+        "dense-too-big": "0f40e5f91a21fca2",
     },
     "mixed-vendors": {
-        "dense-small": "6e2446ae35a641a4",
-        "dense-too-big": "3c78d102283a3fc9",
-        "moe-spilling": "654cd2e11cbe286b",
-        "moe-spilling-with-its-blob": "654cd2e11cbe286b",
+        "dense-small": "f45a19b67f102650",
+        "dense-too-big": "199bc672c4fbaa2b",
+        "moe-spilling": "5a2542b79ee783be",
     },
     "one-card": {
-        "dense-small": "1c83e7d34edfa17f",
-        "dense-too-big": "c2fef6a354139bb2",
-        "moe-spilling": "f4060f164f17c51e",
-        "moe-spilling-with-its-blob": "f4060f164f17c51e",
+        "dense-small": "61477553d501c2db",
+        "dense-too-big": "127d568ce8b0754c",
+        "moe-spilling": "71ab7928adf801be",
     },
     "same-cards-here": {
-        "dense-small": "6e2446ae35a641a4",
-        "dense-too-big": "3c78d102283a3fc9",
-        "moe-spilling": "654cd2e11cbe286b",
-        "moe-spilling-with-its-blob": "654cd2e11cbe286b",
+        "dense-small": "f45a19b67f102650",
+        "dense-too-big": "199bc672c4fbaa2b",
+        "moe-spilling": "5a2542b79ee783be",
     },
     "same-cards-there": {
-        "dense-small": "6e2446ae35a641a4",
-        "dense-too-big": "3c78d102283a3fc9",
-        "moe-spilling": "654cd2e11cbe286b",
-        "moe-spilling-with-its-blob": "654cd2e11cbe286b",
+        "dense-small": "f45a19b67f102650",
+        "dense-too-big": "199bc672c4fbaa2b",
+        "moe-spilling": "5a2542b79ee783be",
     },
     "several-sizes": {
-        "dense-small": "d362fe374126cc17",
-        "dense-too-big": "252d64c98541336a",
-        "moe-spilling": "957aefeb5f5bdf67",
-        "moe-spilling-with-its-blob": "957aefeb5f5bdf67",
+        "dense-small": "21d98ea1d564f781",
+        "dense-too-big": "b333124cc680aa1b",
+        "moe-spilling": "79abfb6dc84580a7",
     },
     "two-sizes": {
-        "dense-small": "b92c3dd8bfbce28d",
-        "dense-too-big": "a83460e723ef805e",
-        "moe-spilling": "304aaa11123e19a5",
-        "moe-spilling-with-its-blob": "304aaa11123e19a5",
+        "dense-small": "ce4af6490f5b1ca1",
+        "dense-too-big": "60fee3eca1aeaa8d",
+        "moe-spilling": "78f52a9af6c30c5e",
     },
     "unreadable-size": {
-        "dense-small": "1c83e7d34edfa17f",
-        "dense-too-big": "c2fef6a354139bb2",
-        "moe-spilling": "f4060f164f17c51e",
-        "moe-spilling-with-its-blob": "f4060f164f17c51e",
+        "dense-small": "61477553d501c2db",
+        "dense-too-big": "127d568ce8b0754c",
+        "moe-spilling": "71ab7928adf801be",
     },
     "unreadable-size-first": {
-        "dense-small": "1c83e7d34edfa17f",
-        "dense-too-big": "c2fef6a354139bb2",
-        "moe-spilling": "f4060f164f17c51e",
-        "moe-spilling-with-its-blob": "f4060f164f17c51e",
+        "dense-small": "61477553d501c2db",
+        "dense-too-big": "127d568ce8b0754c",
+        "moe-spilling": "71ab7928adf801be",
     },
     "windows-card-tool-in-system": {
-        "dense-small": "5632a5b53bc333ee",
-        "dense-too-big": "a009b1ccf01f346a",
-        "moe-spilling": "03d378a6be9bd1a0",
-        "moe-spilling-with-its-blob": "03d378a6be9bd1a0",
+        "dense-small": "b95ee9d1430c850c",
+        "dense-too-big": "0c3a82a19f34ab4c",
+        "moe-spilling": "4dc0686ed3854784",
     },
     "windows-card-tool-in-vendor-folder": {
-        "dense-small": "8c2f371d5d88d418",
-        "dense-too-big": "0f9b9d6593454d84",
-        "moe-spilling": "004df9a799bcaeb5",
-        "moe-spilling-with-its-blob": "004df9a799bcaeb5",
+        "dense-small": "40dd99a1a0355f7c",
+        "dense-too-big": "b1ea77d5911d479f",
+        "moe-spilling": "c6c33b0e438234ba",
     },
     "windows-no-modules": {
-        "dense-small": "bcb851dae864d667",
-        "dense-too-big": "6f5b162684544b8d",
+        "dense-small": "6ac7fe9eb778d0d6",
+        "dense-too-big": "0f40e5f91a21fca2",
     },
     "windows-one-card": {
-        "dense-small": "1c83e7d34edfa17f",
-        "dense-too-big": "c2fef6a354139bb2",
-        "moe-spilling": "5c2be8938572e041",
-        "moe-spilling-with-its-blob": "5c2be8938572e041",
+        "dense-small": "61477553d501c2db",
+        "dense-too-big": "127d568ce8b0754c",
+        "moe-spilling": "a8a221b6b284929c",
     },
     "windows-other-gpu": {
-        "dense-small": "bcb851dae864d667",
-        "dense-too-big": "6f5b162684544b8d",
+        "dense-small": "6ac7fe9eb778d0d6",
+        "dense-too-big": "0f40e5f91a21fca2",
     },
 }
+
+
+def test_every_pinned_machine_is_one_of_the_shapes() -> None:
+    assert sorted(BEFORE) == sorted(_scans())
 
 
 @pytest.mark.parametrize("label", sorted(_scans()))
