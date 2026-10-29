@@ -26,6 +26,15 @@ from these names rather than writing them again:
   recommended (:data:`USE_CASE_CATEGORY`), the header a request names its own in
   (:data:`USE_CASE_HEADER`), and which use cases each pool serves
   (:data:`POOL_USE_CASES`, :func:`pool_serves`): the hub refuses the rest;
+* what a rig lends, as resources (:class:`Resource`) on a host
+  (:class:`Host`), and a heartbeat's reading of each
+  (:class:`ResourceReading`, :func:`readings_fit`): their kinds
+  (:data:`RESOURCE_KINDS`, the card kinds :data:`CARD_KINDS`), backends
+  (:data:`RESOURCE_BACKENDS`), what a figure is (:data:`FIGURE_KINDS`), the
+  host a rig runs on (:data:`HOST_OS`, :data:`HOST_ARCH`), how many one advert
+  may name (:data:`MAX_RESOURCES`, :func:`resources_fit`), the legacy cards
+  they make (:func:`cards_from_resources`) and the unit standby is counted in
+  per kind (:data:`STANDBY_UNITS`);
 * the hub's published JSON Schemas (:data:`SCHEMAS`), shipped inside this
   package and read with :func:`schema_bytes` and :func:`schema`.
 
@@ -41,8 +50,10 @@ core and the hub import this module without either.
 from __future__ import annotations
 
 import json
+import math
 import re
-from collections.abc import Mapping
+from collections.abc import Iterable, Mapping, Sequence
+from dataclasses import dataclass
 from importlib import resources
 from types import MappingProxyType
 from typing import Any
@@ -260,6 +271,256 @@ def pool_serves(pool: str, use_case: str) -> bool:
     Raises KeyError for a pool that is not one of them.
     """
     return use_case in POOL_USE_CASES[pool]
+
+
+#: What a rig lends, by kind: a discrete card, a device whose memory is the
+#: host's (an integrated or Apple GPU), host memory, and host cores.
+RESOURCE_GPU = "gpu"
+RESOURCE_UNIFIED = "unified"
+RESOURCE_RAM = "ram"
+RESOURCE_CPU = "cpu"
+RESOURCE_KINDS: tuple[str, ...] = (
+    RESOURCE_GPU,
+    RESOURCE_UNIFIED,
+    RESOURCE_RAM,
+    RESOURCE_CPU,
+)
+#: The kinds that are cards too: each is a legacy card at its index, so the two
+#: share the card indexes (:func:`cards_from_resources`).
+CARD_KINDS: tuple[str, ...] = (RESOURCE_GPU, RESOURCE_UNIFIED)
+#: The backend a resource computes with.
+RESOURCE_BACKENDS: tuple[str, ...] = ("cuda", "metal", "vulkan", "rocm", "cpu")
+#: What a resource's figures are: an estimate, or the rig's own reading. A
+#: number on the wire says which it is.
+FIGURE_KINDS: tuple[str, ...] = ("estimate", "reading")
+#: The operating system and the architecture a rig's host names in its hello.
+HOST_OS: tuple[str, ...] = ("linux", "darwin", "windows")
+HOST_ARCH: tuple[str, ...] = ("x86_64", "arm64")
+#: Most resources one advert may name.
+MAX_RESOURCES = 32
+#: Highest index a resource may have: a card's highest index.
+MAX_RESOURCE_INDEX = 63
+#: Most logical cores one ``cpu`` resource may lend.
+MAX_RESOURCE_CORES = 1024
+#: Longest host version a hello may name, in characters.
+HOST_VERSION_MAX = 64
+#: A resource's name is text a hub may show, as a card's is: no control
+#: characters, no C1 controls, no bidi embedding, override or isolate marks;
+#: at most :data:`RESOURCE_NAME_MAX` characters.
+RESOURCE_NAME = re.compile("[^\x00-\x1f\x7f-\x9f\u202a-\u202e\u2066-\u2069]+")
+RESOURCE_NAME_MAX = 128
+#: Largest memory figure a resource may carry, in MiB, as a card's.
+RESOURCE_MAX_MB = 1 << 30
+#: The unit standby is counted in for each kind: a card is a card whether its
+#: memory is its own or the host's, so a unified device is a card and never
+#: also memory; host memory is counted per 16 GiB and cores per 8. Names only:
+#: what a unit earns is the hub's setting.
+STANDBY_UNITS: Mapping[str, str] = MappingProxyType(
+    {
+        RESOURCE_GPU: "card",
+        RESOURCE_UNIFIED: "card",
+        RESOURCE_RAM: "16GiB",
+        RESOURCE_CPU: "8cores",
+    }
+)
+
+
+def _is_int(value: object) -> bool:
+    return type(value) is int
+
+
+@dataclass(frozen=True, kw_only=True)
+class Resource:
+    """One thing a rig lends, as its hello advertises it.
+
+    ``index`` counts per kind; a card kind's index is its card index.
+    ``total_mb`` is the MiB lent (0 for ``cpu``: memory lent beside cores is a
+    ``ram`` resource) and ``free_mb`` the MiB free, once read. ``cores`` is set
+    for ``cpu`` alone. ``shared_with_ram`` is true for ``unified`` alone: its
+    memory is the host's, counted once. ``figure`` says whether
+    ``bandwidth_gbps`` and ``total_mb`` are an estimate or a reading.
+
+    A ``cpu`` resource serves whole models only, never a pipeline stage: it
+    runs a small model end to end and holds no layers of a split one.
+    """
+
+    kind: str
+    index: int
+    name: str
+    total_mb: int
+    free_mb: int | None = None
+    cores: int | None = None
+    shared_with_ram: bool
+    bandwidth_gbps: float | None = None
+    figure: str
+    backend: str
+
+    def validate(self) -> None:
+        """Raise ValueError, naming the field at fault, unless this resource
+        keeps every rule a hub holds it to."""
+        _kind_and_index(self.kind, self.index)
+        _need(
+            isinstance(self.name, str)
+            and len(self.name) <= RESOURCE_NAME_MAX
+            and RESOURCE_NAME.fullmatch(self.name) is not None,
+            "name",
+            f"not 1 to {RESOURCE_NAME_MAX} printable characters",
+        )
+        _need(
+            _is_int(self.total_mb) and 0 <= self.total_mb <= RESOURCE_MAX_MB,
+            "total_mb",
+            f"not 0 to {RESOURCE_MAX_MB} MiB",
+        )
+        cpu = self.kind == RESOURCE_CPU
+        _need(not cpu or self.total_mb == 0, "total_mb", "not 0 for cpu")
+        _need(
+            self.free_mb is None
+            or (_is_int(self.free_mb) and 0 <= self.free_mb <= self.total_mb),
+            "free_mb",
+            "not null or 0 to total_mb",
+        )
+        if cpu:
+            _need(
+                _is_int(self.cores)
+                and self.cores is not None
+                and 1 <= self.cores <= MAX_RESOURCE_CORES,
+                "cores",
+                f"not 1 to {MAX_RESOURCE_CORES} for cpu",
+            )
+        else:
+            _need(self.cores is None, "cores", "set for a kind that is not cpu")
+        _need(
+            type(self.shared_with_ram) is bool
+            and self.shared_with_ram is (self.kind == RESOURCE_UNIFIED),
+            "shared_with_ram",
+            "not true for unified and false for every other kind",
+        )
+        bandwidth = self.bandwidth_gbps
+        _need(
+            bandwidth is None
+            or (
+                type(bandwidth) in (int, float)
+                and math.isfinite(bandwidth)
+                and bandwidth > 0
+            ),
+            "bandwidth_gbps",
+            "not null or a finite number > 0",
+        )
+        _need(self.figure in FIGURE_KINDS, "figure", f"not one of {FIGURE_KINDS}")
+        _need(
+            self.backend in RESOURCE_BACKENDS,
+            "backend",
+            f"not one of {RESOURCE_BACKENDS}",
+        )
+
+
+def _need(ok: bool, field: str, why: str) -> None:
+    if not ok:
+        raise ValueError(f"{field}: {why}")
+
+
+def _kind_and_index(kind: object, index: object) -> None:
+    _need(kind in RESOURCE_KINDS, "kind", f"not one of {RESOURCE_KINDS}")
+    _need(
+        _is_int(index) and 0 <= index <= MAX_RESOURCE_INDEX,  # type: ignore[operator]
+        "index",
+        f"not 0 to {MAX_RESOURCE_INDEX}",
+    )
+
+
+def _unique_keys(items: Sequence[Resource] | Sequence[ResourceReading]) -> None:
+    _need(len(items) <= MAX_RESOURCES, "resources", f"more than {MAX_RESOURCES}")
+    keys = [(item.kind, item.index) for item in items]
+    _need(len(set(keys)) == len(keys), "resources", "a kind and index twice")
+
+
+@dataclass(frozen=True, kw_only=True)
+class ResourceReading:
+    """What a heartbeat reads of one advertised resource: its ``kind`` and
+    ``index``, as the hello named it, and the MiB free now (``free_mb``)."""
+
+    kind: str
+    index: int
+    free_mb: int
+
+    def validate(self) -> None:
+        """Raise ValueError, naming the field at fault, unless this reading
+        keeps every rule a hub holds it to."""
+        _kind_and_index(self.kind, self.index)
+        _need(
+            _is_int(self.free_mb) and 0 <= self.free_mb <= RESOURCE_MAX_MB,
+            "free_mb",
+            f"not 0 to {RESOURCE_MAX_MB} MiB",
+        )
+
+
+def readings_fit(readings: Sequence[ResourceReading]) -> None:
+    """Raise ValueError unless one heartbeat may carry ``readings``: at most
+    :data:`MAX_RESOURCES`, each ``(kind, index)`` once."""
+    _unique_keys(readings)
+
+
+@dataclass(frozen=True, kw_only=True)
+class Host:
+    """The host a rig runs on, as its hello names it: ``os`` one of
+    :data:`HOST_OS`, ``arch`` one of :data:`HOST_ARCH`, and the system's
+    ``version``, 1 to :data:`HOST_VERSION_MAX` printable characters."""
+
+    os: str
+    arch: str
+    version: str
+
+    def validate(self) -> None:
+        """Raise ValueError, naming the field at fault, unless this host keeps
+        every rule a hub holds it to."""
+        _need(self.os in HOST_OS, "os", f"not one of {HOST_OS}")
+        _need(self.arch in HOST_ARCH, "arch", f"not one of {HOST_ARCH}")
+        _need(
+            isinstance(self.version, str)
+            and len(self.version) <= HOST_VERSION_MAX
+            and RESOURCE_NAME.fullmatch(self.version) is not None,
+            "version",
+            f"not 1 to {HOST_VERSION_MAX} printable characters",
+        )
+
+
+def resources_fit(resources: Sequence[Resource]) -> None:
+    """Raise ValueError unless one advert may name ``resources``: at most
+    :data:`MAX_RESOURCES`, each ``(kind, index)`` once, and each card index
+    once across :data:`CARD_KINDS`. Each resource's own rules are
+    :meth:`Resource.validate`'s."""
+    _unique_keys(resources)
+    cards = [r.index for r in resources if r.kind in CARD_KINDS]
+    _need(len(set(cards)) == len(cards), "resources", "a card index twice")
+
+
+def cards_from_resources(resources: Iterable[Resource]) -> list[dict[str, Any]]:
+    """The legacy ``cards[]`` a hello carries, made from ``resources``.
+
+    Each ``gpu`` and ``unified`` resource is one card at its index, by index,
+    with its name and memory. A ``free_mb`` not read yet is all free: the
+    next heartbeat's reading corrects it. Host memory and cores make no card.
+    The hello's own card count limit still applies.
+
+    Raises ValueError for a resource that breaks a rule
+    (:meth:`Resource.validate`) and for a card index named twice.
+    """
+    cards: dict[int, dict[str, Any]] = {}
+    for resource in resources:
+        resource.validate()
+        if resource.kind not in CARD_KINDS:
+            continue
+        if resource.index in cards:
+            raise ValueError(f"cards: card index {resource.index} twice")
+        cards[resource.index] = {
+            "index": resource.index,
+            "name": resource.name,
+            "vram_total_mb": resource.total_mb,
+            "vram_free_mb": (
+                resource.total_mb if resource.free_mb is None else resource.free_mb
+            ),
+        }
+    return [cards[index] for index in sorted(cards)]
 
 
 #: The agent channel's schema: every frame between the hub and a rig's agent.

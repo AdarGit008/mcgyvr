@@ -30,6 +30,19 @@ archived outside this repository, under the same paths.
 
 ### Added
 
+- **What a rig lends is defined once, as resources, in `mcgyvr.hubwire`.** A
+  `Resource` (`gpu`, `unified`, `ram` or `cpu`; `RESOURCE_KINDS`) names its
+  index, name, MiB lent and free, cores (`cpu` alone), whether its memory is
+  the host's (`unified` alone), memory bandwidth, whether its figures are an
+  estimate or a reading (`FIGURE_KINDS`) and its backend (`RESOURCE_BACKENDS`);
+  `validate()` refuses a break by the field at fault. `resources_fit` holds an
+  advert to `MAX_RESOURCES` with each kind and index once and each card index
+  once; `ResourceReading` and `readings_fit` are a heartbeat's. A `Host` names
+  its `HOST_OS`, `HOST_ARCH` and version. `cards_from_resources` makes the
+  legacy `cards[]` from the `gpu` and `unified` resources, and `STANDBY_UNITS`
+  names the unit standby is counted in per kind (names only; rates are the
+  hub's). A `cpu` resource serves whole models only, never a pipeline stage.
+  Nothing sends them yet: the rig agent and the hub take them up next.
 - **`mcgyvr use NAME` switches the use case, and `/mcgyvr-use` is its skill.**
   It rewrites the policy's `use_case:` line and nothing else, and says what
   that turns on or off.
