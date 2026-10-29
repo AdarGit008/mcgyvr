@@ -32,21 +32,24 @@ archived outside this repository, under the same paths.
 
 - **What a rig lends is defined once, as resources, in `mcgyvr.hubwire`
   (#812).** A `Resource` (`gpu`, `unified`, `ram` or `cpu`; `RESOURCE_KINDS`)
-  names its index, name, MiB lent and free, cores (`cpu` alone), whether its
-  memory is the host's (`unified` alone), memory bandwidth, whether its figures
-  are an estimate or a reading (`FIGURE_KINDS`) and its backend
-  (`RESOURCE_BACKENDS`: `cpu` for host memory and cores, never for a card);
-  `validate()` refuses a break by the field at fault. `resources_fit` holds an
-  advert to `MAX_RESOURCES`, each kind and index once, at most `MAX_CARDS`
-  cards with each card index once, and one `ram` and one `cpu`;
-  `ResourceReading` and `readings_fit` are a heartbeat's. A `Host` names its
-  `HOST_OS`, `HOST_ARCH` and version. `cards_from_resources` makes the legacy
-  `cards[]` from the `gpu` and `unified` resources, and `STANDBY_UNITS` names
-  the unit standby is counted in per kind (names only). A `cpu` resource serves
-  whole models only, never a pipeline stage. The rig agent's card rules
-  (`rig.protocol.CARD_NAME`, `CARD_NAME_MAX`, `MAX_MB`, `MAX_CARD_INDEX`,
-  `MAX_CARDS`) are now these names, imported. Nothing sends resources yet, and
-  the shipped schemas are unchanged until the hub publishes them.
+  names its index, name, MiB lent and free with whether they are an estimate
+  or a reading (`figure`, one of `FIGURE_KINDS`), cores (`cpu` alone), memory
+  bandwidth with its own `bandwidth_figure`, and its backend
+  (`RESOURCE_BACKENDS`: `cpu` for host memory and cores, never for a card); a
+  `unified` device's memory is the host's (`shares_ram`). `validate()`
+  refuses a break by the field at fault. `resources_fit` holds an advert to
+  `MAX_RESOURCES`, each kind and index once, at most `MAX_CARDS` cards with
+  each card index once, and one `ram` and one `cpu`; `ResourceReading` and
+  `readings_fit` are a heartbeat's. A `Host` names its `HOST_OS`, `HOST_ARCH`
+  and version. `cards_from_resources` and `card_readings_from` make the legacy
+  `cards[]` of a hello and a heartbeat from the `gpu` and `unified` ones, and
+  `STANDBY_UNITS` names the unit standby is counted in per kind (names only).
+  A `cpu` resource serves whole models only, never a pipeline stage. The rig
+  agent's card rules (`rig.protocol.CARD_NAME`, `CARD_NAME_MAX`, `MAX_MB`,
+  `MAX_CARD_INDEX`, `MAX_CARDS`) are now these names, imported. Nothing sends
+  resources yet, and the shipped schemas are unchanged until the hub
+  publishes them. Ruff now refuses a raw bidirectional control character in
+  source (`PLE2502`).
 - **`mcgyvr use NAME` switches the use case, and `/mcgyvr-use` is its skill.**
   It rewrites the policy's `use_case:` line and nothing else, and says what
   that turns on or off.

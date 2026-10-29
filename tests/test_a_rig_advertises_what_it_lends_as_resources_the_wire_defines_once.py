@@ -12,7 +12,8 @@ every rule :meth:`hubwire.Resource.validate`, :meth:`hubwire.Host.validate`
 and :meth:`hubwire.ResourceReading.validate` keep refuses its own break and
 names the field; an advert and a heartbeat fit by count, by ``(kind, index)``,
 by card and by host resource; the legacy cards come out of a unified-only, a
-gpu-only and a mixed advert; and a standby unit is named for every kind.
+gpu-only and a mixed advert, and the card readings out of a heartbeat's; and a
+standby unit is named for every kind.
 """
 
 from __future__ import annotations
@@ -35,8 +36,8 @@ def _gpu(index: int = 0, **changed: Any) -> hubwire.Resource:
         "total_mb": 20_000 + index,
         "free_mb": 19_000,
         "cores": None,
-        "shared_with_ram": False,
         "bandwidth_gbps": 512.0,
+        "bandwidth_figure": "estimate",
         "figure": "reading",
         "backend": "cuda",
     }
@@ -51,8 +52,8 @@ def _unified(index: int = 0, **changed: Any) -> hubwire.Resource:
         "total_mb": 40_000,
         "free_mb": None,
         "cores": None,
-        "shared_with_ram": True,
         "bandwidth_gbps": 300.0,
+        "bandwidth_figure": "estimate",
         "figure": "estimate",
         "backend": "metal",
     }
@@ -67,8 +68,8 @@ def _ram(**changed: Any) -> hubwire.Resource:
         "total_mb": 30_000,
         "free_mb": 20_000,
         "cores": None,
-        "shared_with_ram": False,
         "bandwidth_gbps": None,
+        "bandwidth_figure": None,
         "figure": "reading",
         "backend": "cpu",
     }
@@ -83,8 +84,8 @@ def _cpu(**changed: Any) -> hubwire.Resource:
         "total_mb": 0,
         "free_mb": None,
         "cores": 6,
-        "shared_with_ram": False,
         "bandwidth_gbps": 50.0,
+        "bandwidth_figure": "estimate",
         "figure": "estimate",
         "backend": "cpu",
     }
@@ -132,7 +133,8 @@ def test_the_limits_are_the_ones_the_hub_takes() -> None:
     assert hubwire.MAX_CARDS == 16
     assert hubwire.MAX_RESOURCE_INDEX == 63
     assert hubwire.MAX_RESOURCE_CORES == 1024
-    assert hubwire.MAX_BANDWIDTH_GBPS == 100_000
+    assert hubwire.MAX_BANDWIDTH_GBPS == 100_000.0
+    assert type(hubwire.MAX_BANDWIDTH_GBPS) is float
     assert hubwire.RESOURCE_NAME_MAX == 128
     assert hubwire.HOST_VERSION_MAX == 64
 
@@ -163,8 +165,8 @@ def test_the_fields_are_the_contracts_in_its_order() -> None:
         "total_mb",
         "free_mb",
         "cores",
-        "shared_with_ram",
         "bandwidth_gbps",
+        "bandwidth_figure",
         "figure",
         "backend",
     ]
@@ -238,7 +240,7 @@ def test_a_resource_index_is_a_whole_number_0_to_63(index: Any) -> None:
 
 @pytest.mark.parametrize(
     "name",
-    ["", "x" * 129, "card\nname", "card‮name", "card\x85name", "\ud800", 7, None],
+    ["", "x" * 129, "card\nname", "card\u202ename", "card\x85name", "\ud800", 7, None],
 )
 def test_a_resource_name_is_1_to_128_printable_characters(name: Any) -> None:
     _refused("name", _gpu(name=name).validate)
@@ -284,20 +286,9 @@ def test_only_a_cpu_resource_lends_cores_1_to_1024(resource: hubwire.Resource) -
     _refused("cores", resource.validate)
 
 
-@pytest.mark.parametrize(
-    "resource",
-    [
-        _unified(shared_with_ram=False),
-        _gpu(shared_with_ram=True),
-        _ram(shared_with_ram=True),
-        _cpu(shared_with_ram=True),
-        _unified(shared_with_ram=1),
-    ],
-)
-def test_only_a_unified_device_shares_the_hosts_memory(
-    resource: hubwire.Resource,
-) -> None:
-    _refused("shared_with_ram", resource.validate)
+def test_only_a_unified_device_shares_the_hosts_memory() -> None:
+    assert [k for k in hubwire.RESOURCE_KINDS if hubwire.shares_ram(k)] == ["unified"]
+    assert not hubwire.shares_ram("npu")
 
 
 @pytest.mark.parametrize(
@@ -309,8 +300,30 @@ def test_a_bandwidth_is_none_or_a_number_over_0_to_its_most(bandwidth: Any) -> N
 
 
 @pytest.mark.parametrize("figure", ["measured", "Reading", None])
-def test_a_figure_is_an_estimate_or_a_reading(figure: Any) -> None:
+def test_a_memory_figure_is_an_estimate_or_a_reading(figure: Any) -> None:
     _refused("figure", _gpu(figure=figure).validate)
+
+
+@pytest.mark.parametrize(
+    "resource",
+    [
+        _gpu(bandwidth_figure=None),
+        _gpu(bandwidth_figure="measured"),
+        _gpu(bandwidth_gbps=None, bandwidth_figure="estimate"),
+        _ram(bandwidth_figure="reading"),
+    ],
+)
+def test_a_bandwidth_says_what_it_is_and_only_a_bandwidth_does(
+    resource: hubwire.Resource,
+) -> None:
+    _refused("bandwidth_figure", resource.validate)
+
+
+def test_memory_and_bandwidth_each_say_what_they_are() -> None:
+    """A device's memory may be read while its bandwidth is an estimate, and
+    the other way round: each number names its own figure."""
+    _gpu(figure="reading", bandwidth_figure="estimate").validate()
+    _unified(figure="estimate", bandwidth_figure="reading").validate()
 
 
 @pytest.mark.parametrize(
@@ -336,9 +349,9 @@ def test_host_memory_and_cores_compute_on_cpu_and_a_card_never_does(
         _gpu(index=hubwire.MAX_RESOURCE_INDEX),
         _gpu(total_mb=1, free_mb=0),
         _gpu(name="x" * hubwire.RESOURCE_NAME_MAX),
-        _gpu(name="Карта ü 显卡"),
+        _gpu(name="\u041a\u0430\u0440\u0442\u0430 \xfc \u663e\u5361"),
         _gpu(total_mb=hubwire.RESOURCE_MAX_MB, free_mb=hubwire.RESOURCE_MAX_MB),
-        _gpu(free_mb=None, bandwidth_gbps=None),
+        _gpu(free_mb=None, bandwidth_gbps=None, bandwidth_figure=None),
         _gpu(bandwidth_gbps=448, backend="vulkan"),
         _gpu(bandwidth_gbps=hubwire.MAX_BANDWIDTH_GBPS, backend="rocm"),
         _unified(backend="vulkan"),
@@ -448,11 +461,30 @@ def test_the_legacy_cards_are_the_shape_the_published_schema_takes() -> None:
 
 def test_no_legacy_card_is_made_from_an_advert_that_does_not_fit() -> None:
     _refused(
-        "shared_with_ram",
-        lambda: hubwire.cards_from_resources([_unified(shared_with_ram=False)]),
+        "backend",
+        lambda: hubwire.cards_from_resources([_unified(backend="cpu")]),
     )
     with pytest.raises(ValueError, match=r"^resources: a card index twice"):
         hubwire.cards_from_resources([_gpu(0), _unified(0)])
+
+
+@pytest.mark.parametrize(
+    "char",
+    [
+        "\u061c",
+        "\u200b",
+        "\u200e",
+        "\u200f",
+        "\u2028",
+        "\u2029",
+        "\u2060",
+        "\u2064",
+        "\ufeff",
+    ],
+)
+def test_a_name_and_a_version_hold_no_invisible_format_character(char: str) -> None:
+    _refused("name", _gpu(name=f"Example{char}Card").validate)
+    _refused("version", _host(version=f"1.2{char}").validate)
 
 
 # --- a heartbeat's readings ---------------------------------------------------------
@@ -490,6 +522,23 @@ def test_a_heartbeat_fits_by_the_adverts_rules() -> None:
     ):
         with pytest.raises(ValueError, match=rf"^resources: {why}"):
             hubwire.readings_fit(readings)
+
+
+def test_a_heartbeats_card_readings_are_its_gpu_and_unified_readings_by_index() -> None:
+    readings = [
+        _reading("ram", 0, free_mb=5),
+        _reading("gpu", 2, free_mb=7),
+        _reading("unified", 0, free_mb=9),
+    ]
+    assert hubwire.card_readings_from(readings) == [
+        {"index": 0, "vram_free_mb": 9},
+        {"index": 2, "vram_free_mb": 7},
+    ]
+    protocol = rig_schema.load(rig_schema.PROTOCOL)
+    for card in hubwire.card_readings_from(readings):
+        rig_schema.validate(card, protocol, "#/$defs/CardReading")
+    with pytest.raises(ValueError, match=r"^resources: a card index twice"):
+        hubwire.card_readings_from([_reading("gpu", 0), _reading("unified", 0)])
 
 
 # --- the host -------------------------------------------------------------------
@@ -532,9 +581,3 @@ def test_every_kind_has_one_standby_unit_and_only_names_it() -> None:
     assert tuple(hubwire.STANDBY_UNITS) == hubwire.RESOURCE_KINDS
     with pytest.raises(TypeError):
         hubwire.STANDBY_UNITS["ram"] = "1GiB"  # type: ignore[index]
-
-
-def test_a_cpu_resource_is_a_whole_model_unit_and_the_wire_says_so() -> None:
-    doc = " ".join((hubwire.Resource.__doc__ or "").split())
-    assert "whole models only" in doc
-    assert "never a pipeline stage" in doc
