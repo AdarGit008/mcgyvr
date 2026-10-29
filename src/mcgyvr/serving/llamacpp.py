@@ -360,26 +360,33 @@ LOOPBACK = "127.0.0.1"
 #: The flag and the variable llama-server reads its listening address from.
 HOST_FLAG = "--host"
 HOST_ENV = "LLAMA_ARG_HOST"
+#: The rpc worker's short spelling of `--host`: `if (arg == "-H" || arg ==
+#: "--host")`, default "127.0.0.1"
+#: (https://github.com/ggml-org/llama.cpp/blob/b11960/tools/rpc/rpc-server.cpp).
+RPC_HOST_FLAG = "-H"
 
 
-def stated_hosts(argv: list[str] | tuple[str, ...]) -> list[str]:
-    """Every listening address `argv` states (`--host H` or `--host=H`)."""
-    hosts = [
-        argv[n + 1] if part == HOST_FLAG and n + 1 < len(argv) else part
-        for n, part in enumerate(argv)
-        if part == HOST_FLAG or part.startswith(f"{HOST_FLAG}=")
-    ]
-    return [
-        h[len(f"{HOST_FLAG}=") :] if h.startswith(f"{HOST_FLAG}=") else h for h in hosts
-    ]
+def stated_hosts(argv: list[str] | tuple[str, ...], *, rpc: bool = False) -> list[str]:
+    """Every listening address `argv` states (`--host H` or `--host=H`; for
+    the rpc worker, `-H H` too)."""
+    flags = (HOST_FLAG, RPC_HOST_FLAG) if rpc else (HOST_FLAG,)
+    hosts: list[str] = []
+    for n, part in enumerate(argv):
+        for flag in flags:
+            if part == flag:
+                hosts.append(argv[n + 1] if n + 1 < len(argv) else "")
+            elif part.startswith(f"{flag}="):
+                hosts.append(part[len(flag) + 1 :])
+    return hosts
 
 
 def beyond_loopback(
-    argv: list[str] | tuple[str, ...], env: dict[str, str]
+    argv: list[str] | tuple[str, ...], env: dict[str, str], *, rpc: bool = False
 ) -> str | None:
-    """Why a native server's `argv` and `env` would listen beyond the loopback,
-    or None when they keep it there."""
-    if HOST_ENV in env or any(h != LOOPBACK for h in stated_hosts(argv)):
+    """Why a native server's (or, `rpc`, worker's) `argv` and `env` would
+    listen beyond the loopback, or None when they keep it there."""
+    stated = stated_hosts(argv, rpc=rpc)
+    if HOST_ENV in env or any(h != LOOPBACK for h in stated):
         return (
             f"a native unit listens on {LOOPBACK} alone (the rig agent relays to "
             "it, and pooled workers bind the tunnel address); drop the "

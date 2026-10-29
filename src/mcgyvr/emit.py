@@ -598,7 +598,7 @@ def _native_block(
             f"neither (`mcgyvr scan --rig {host}` writes it); a unit on a Linux "
             "rig runs in its container (launcher docker)"
         )
-    beyond = llamacpp.beyond_loopback(command, dict(env))
+    beyond = llamacpp.beyond_loopback(command, dict(env), rpc=rpc)
     if beyond is not None:
         raise EmitError(f"{slug}: {beyond}")
     if not rpc and not llamacpp.stated_hosts(command):

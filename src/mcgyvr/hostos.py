@@ -738,6 +738,38 @@ def user_cache_dir() -> Path:
     return Path.home() / ".cache" / APP
 
 
+def which_absolute(name: str) -> str | None:
+    """The program `name` by its full path, from PATH's absolute folders only.
+
+    A relative PATH entry (``""``, ``"."``, ``bin``) names a different folder
+    from each working directory, where anyone may leave a program of that name,
+    so it is never searched; neither is the working folder, which Windows'
+    lookup (and ``shutil.which`` there) tries first. On Windows a name without
+    one of ``%PATHEXT%``'s extensions is tried with each. None when no absolute
+    folder holds an executable file of that name.
+    """
+    if os.path.isabs(name):
+        found = [name]
+    else:
+        folders = [
+            d for d in os.environ.get("PATH", "").split(os.pathsep) if os.path.isabs(d)
+        ]
+        suffixes = [""]
+        if sys.platform == "win32":
+            known = [
+                e
+                for e in os.environ.get("PATHEXT", ".COM;.EXE;.BAT;.CMD").split(";")
+                if e
+            ]
+            if not any(name.lower().endswith(e.lower()) for e in known):
+                suffixes = known
+        found = [os.path.join(d, name + e) for d in folders for e in suffixes]
+    for path in found:
+        if os.path.isfile(path) and os.access(path, os.X_OK):
+            return path
+    return None
+
+
 #: Where Windows keeps nvidia-smi.exe besides PATH: ``C:\\Windows\\System32``
 #: or ``C:\\Program Files\\NVIDIA Corporation\\NVSMI``
 #: (https://github.com/influxdata/telegraf/blob/master/plugins/inputs/nvidia_smi/README.md);

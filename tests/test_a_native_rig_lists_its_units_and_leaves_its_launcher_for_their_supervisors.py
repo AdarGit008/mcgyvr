@@ -150,20 +150,21 @@ def test_units_sent_to_a_rig_are_refused_unless_each_names_a_file_and_a_program(
 
 
 @pytest.mark.parametrize(
-    ("argv", "env"),
+    ("program", "argv", "env"),
     [
-        (("--port", "8080", "--host", "0.0.0.0"), {}),
-        (("--port", "8080", "--host=192.0.2.7"), {}),
-        (("--port", "8080"), {"LLAMA_ARG_HOST": "0.0.0.0"}),
+        ("llama-server", ("--port", "8080", "--host", "0.0.0.0"), {}),
+        ("llama-server", ("--port", "8080", "--host=192.0.2.7"), {}),
+        ("llama-server", ("--port", "8080"), {"LLAMA_ARG_HOST": "0.0.0.0"}),
+        ("ggml-rpc-server", ("-p", "50052", "-H", "0.0.0.0"), {}),
     ],
 )
 def test_a_unit_that_would_listen_beyond_the_loopback_is_refused_where_it_starts(
-    argv: tuple[str, ...], env: dict[str, str]
+    program: str, argv: tuple[str, ...], env: dict[str, str]
 ) -> None:
     unit = native.NativeUnit(
         name="m",
         container="mcgyvr-box1-m-8080",
-        program="llama-server",
+        program=program,
         argv=argv,
         env=env,
         port=8080,

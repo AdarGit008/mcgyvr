@@ -1102,7 +1102,9 @@ def _checked_unit(unit: NativeUnit) -> NativeUnit:
     build or would listen beyond the loopback (K13), whoever wrote its spec."""
     if unit.program not in llamacpp.EXECUTABLES:
         raise NativeError(f"{unit.name}: no program {unit.program!r}")
-    beyond = llamacpp.beyond_loopback(unit.argv, unit.env)
+    beyond = llamacpp.beyond_loopback(
+        unit.argv, unit.env, rpc=unit.program == llamacpp.RPC_SERVER
+    )
     if beyond is not None:
         raise NativeError(f"{unit.name}: {beyond}")
     return unit

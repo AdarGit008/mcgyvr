@@ -385,7 +385,8 @@ def _run(
 ) -> tuple[str | None, str | None]:
     """Run argv and return (text, None), or (None, why) when it gave no usable text.
 
-    The tool is looked up on PATH first, so a tool that is not installed gives
+    The tool is looked up in PATH's absolute folders only
+    (:func:`mcgyvr.hostos.which_absolute`), so a tool that is not installed gives
     (None, None): nothing was tried, and nothing failed. Stdout is read through a
     selector until the tool closes it, the bound runs out, or the output passes
     BYTES_MAX; stderr is discarded and the process is started heading a group of
@@ -393,7 +394,7 @@ def _run(
     is decoded as utf-8 with replacement, since a tool may print bytes that are
     not text.
     """
-    found = shutil.which(argv[0])
+    found = hostos.which_absolute(argv[0])
     if found is None:
         return None, None
     label = " ".join(argv[:2])
@@ -839,7 +840,7 @@ def _sysfs(reading: _Reading, root: str) -> None:
             total = reading.number(total_text, f"{key}.total", "sysfs", bytes_=True)
         elif why != "is not there":
             reading.note(f"{key}.total", f"sysfs: device/mem_info_vram_total {why}")
-        elif tool is not None and shutil.which(tool) is not None:
+        elif tool is not None and hostos.which_absolute(tool) is not None:
             reading.note(
                 f"{key}.total",
                 "sysfs publishes no memory size for this card "
