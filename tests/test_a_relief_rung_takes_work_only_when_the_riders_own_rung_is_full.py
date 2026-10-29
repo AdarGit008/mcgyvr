@@ -10,9 +10,11 @@ one place, the spill ``fanout: idle`` already makes when a rung is full
   of full (:meth:`~mcgyvr.capacity.Capacity.judge`: this process's load or the
   server's own count at width). A free rung of the rider's own is always taken
   first.
-* **Before a priced api rung.** When the rider's own family is full, a free
-  relief rung is the shortest wait the ladder has, and it is chosen ahead of
-  the next family up; a full one is passed over as any full rung is.
+* **In place of a priced api rung, never ahead of one.** When the rider's own
+  family is full, a free relief rung is the one place the work may spill: fan-out
+  never sends a contract to an api rung. A full relief rung, or one that is
+  not offered, is passed over as any full rung is, and the contract waits on its
+  own ladder; only escalation reaches the api family.
 * **Never as a step of the climb.** It is on no plan of the ascent, so no
   escalation reaches it and no budget counts it: the ladder, its ceilings and
   the families a task may climb are what they were without it. ``position``
@@ -106,17 +108,19 @@ def test_a_full_own_rung_spills_to_a_free_relief_rung_before_a_priced_one(
     assert next_free(tmp_path, full=(FAST,)) == RIDE
 
 
-def test_a_full_relief_rung_is_passed_over_for_the_next_family_up(
+def test_a_full_relief_rung_is_passed_over_and_no_api_rung_is_entered_instead(
     tmp_path: Path,
 ) -> None:
-    assert next_free(tmp_path, full=(FAST, RIDE)) == API
+    """With the relief rung full too, the contract waits on its own ladder."""
+    assert next_free(tmp_path, full=(FAST, RIDE)) is None
 
 
 def test_a_relief_rung_whose_server_count_is_at_width_is_full(
     tmp_path: Path,
 ) -> None:
     """The one definition of full: the server's own count fills it too."""
-    assert next_free(tmp_path, full=(FAST,), servers={RIDE: 1}) == API
+    assert next_free(tmp_path, full=(FAST,)) == RIDE
+    assert next_free(tmp_path, full=(FAST,), servers={RIDE: 1}) is None
 
 
 def test_of_two_free_relief_rungs_the_first_the_hub_listed_wins(
@@ -145,7 +149,7 @@ def test_a_relief_rung_whose_credential_is_unset_is_not_offered(
 ) -> None:
     monkeypatch.delenv("HUB_KEY")
 
-    assert next_free(tmp_path, full=(FAST,)) == API
+    assert next_free(tmp_path, full=(FAST,)) is None
 
 
 def test_the_relief_rung_stands_in_for_the_first_family_with_rungs(
@@ -234,17 +238,18 @@ def test_a_relief_rung_that_cannot_take_it_now_is_passed_over_as_if_full(
     tmp_path: Path,
 ) -> None:
     """It steps aside at no cost, and the entry is decided again without it:
-    the rider's own rung is still full, so the spill goes on to the api rung."""
+    the rider's own rung is still full, so the contract queues on it rather
+    than spilling to the api rung."""
     config, pool = mapped()
     cap = capacity_of(config, tmp_path)
     cap.reserve(FAST)
-    script = Script(**{RIDE: Verdict.DECLINED, API: Verdict.PASSED})
+    script = Script(**{RIDE: Verdict.DECLINED, FAST: Verdict.PASSED})
 
     done = escalate(config, pool, contract(), script, capacity=cap)
 
     assert isinstance(done, Delivered)
-    assert done.rung == API
-    assert script.tried == [RIDE, API]
+    assert done.rung == FAST
+    assert script.tried == [RIDE, FAST]
     assert (done.attempts_spent, done.escalations) == (1, 0)
     assert [a.verdict for a in done.history] == [Verdict.DECLINED, Verdict.PASSED]
 
@@ -258,15 +263,21 @@ def test_a_failed_relief_ride_is_ladder_spent_not_declined_throughout(
     config, pool = mapped()
     cap = capacity_of(config, tmp_path)
     cap.reserve(FAST)
-    script = Script(**{RIDE: Verdict.FAILED, API: Verdict.DECLINED})
+    script = Script(
+        **{RIDE: Verdict.FAILED, FAST: Verdict.DECLINED, API: Verdict.DECLINED}
+    )
 
     done = escalate(config, pool, contract(), script, capacity=cap)
 
     assert isinstance(done, Halted)
     assert done.outcome is Outcome.LADDER_SPENT
     assert done.attempts_spent == 0  # the ride was free; only the verdict counts
-    assert [a.verdict for a in done.history] == [Verdict.FAILED, Verdict.DECLINED]
-    assert script.tried == [RIDE, API]
+    assert [a.verdict for a in done.history] == [
+        Verdict.FAILED,
+        Verdict.DECLINED,
+        Verdict.DECLINED,
+    ]
+    assert script.tried == [RIDE, FAST, API]
 
 
 def test_a_ridden_relief_attempt_is_recorded_with_its_unit_details(
@@ -276,7 +287,9 @@ def test_a_ridden_relief_attempt_is_recorded_with_its_unit_details(
     config, pool = mapped()
     cap = capacity_of(config, tmp_path)
     cap.reserve(FAST)
-    script = Script(**{RIDE: Verdict.FAILED, API: Verdict.DECLINED})
+    script = Script(
+        **{RIDE: Verdict.FAILED, FAST: Verdict.DECLINED, API: Verdict.DECLINED}
+    )
 
     done = escalate(config, pool, contract(), script, capacity=cap)
 
@@ -321,10 +334,12 @@ def test_a_ride_that_could_not_go_leaves_no_reservation_behind(
     config, pool = mapped()
     cap = capacity_of(config, tmp_path)
     cap.reserve(FAST)
-    script = Script(**{RIDE: Verdict.DECLINED, API: Verdict.PASSED})
+    script = Script(**{RIDE: Verdict.DECLINED, FAST: Verdict.PASSED})
 
-    escalate(config, pool, contract(), script, capacity=cap)
+    done = escalate(config, pool, contract(), script, capacity=cap)
     cap.release(FAST)
+
+    assert isinstance(done, Delivered)
 
     assert {name: cap.load(name) for name in (FAST, API, RIDE)} == {
         FAST: 0,

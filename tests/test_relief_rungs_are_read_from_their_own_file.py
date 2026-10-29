@@ -12,9 +12,10 @@ They are kept out of the two files a person writes:
   capability, which a relief rung never joins.
 
 So ``relief.yaml`` is a third file, read beside the other two when it is there.
-Its rungs are loaded as units marked ``relief``, never as members of
-``units`` or of the ladder: routing reads them only where a full rung spills
-(``fanout: idle``), and nothing that walks the ladder or the fleet sees them.
+Its rungs are loaded as units marked ``relief``, not as members of ``units``
+or of the ladder: routing reads them only where a full rung spills
+(``fanout: idle``), and nothing that walks the ladder or the fleet sees them,
+unless a ladder step or a role names one, which makes it a unit of the dispatch.
 Every key is the schema's; an unknown one is refused, and the credential is
 the NAME of a variable, as everywhere else.
 """
@@ -180,11 +181,18 @@ def test_a_relief_address_carrying_credentials_is_refused(tmp_path: Path) -> Non
         load(setup(tmp_path, relief=carrying))
 
 
-def test_a_relief_rung_cannot_be_put_on_the_ladder(tmp_path: Path) -> None:
+def test_a_relief_rung_the_ladder_names_is_a_step_read_from_relief_yaml(
+    tmp_path: Path,
+) -> None:
+    """Named by the ladder, a relief rung is a step, still read from its own
+    file; what a bound rung does is
+    ``tests/test_a_role_or_a_ladder_step_binds_a_hub_unit_its_pool_serves.py``."""
     folder = setup(tmp_path)
     (folder / "policy.yaml").write_text(
         f"ladder: [local_fast, {NAME}]\nfanout: idle\n", encoding="utf-8"
     )
 
-    with pytest.raises(ConfigSchemaError, match="not a declared unit"):
-        load(folder)
+    config = load(folder)
+
+    assert config.ladder.names == ("local_fast", NAME)
+    assert config.units[NAME].relief is True

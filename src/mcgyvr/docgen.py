@@ -26,10 +26,12 @@ from collections.abc import Sequence
 from pathlib import Path
 
 from mcgyvr.catalog import catalog
+from mcgyvr.hubwire import SCOPE_CREW
 
 from . import contract as contract_schema
 from . import notes as failure_notes
 from .config import (
+    CREW_FILENAME,
     FLEET_FILENAME,
     KNOBS,
     POLICY_FILENAME,
@@ -420,6 +422,12 @@ def render_setup() -> str:
         f"A third file, `{RELIEF_FILENAME}`, holds `relief`: the units other",
         "people lend you through a hub. `mcgyvr rig rungs sync` writes it whole",
         "and nothing else does, so it is neither locked nor edited by hand.",
+        f"A fourth, `{CREW_FILENAME}`, holds `crew`: the units your crews lend",
+        f"you through a hub, each read as a unit of `units` under scope "
+        f"`{SCOPE_CREW}`.",
+        "`mcgyvr rig crew sync` writes it whole the same way. A ladder step or a",
+        "role names a crew unit as it names any unit, and fan-out may use it:",
+        "a crew lends free, so it is no api rung.",
         "",
         "Each file refuses a key that belongs in the other. `rigs`, `fleets` and",
         "each unit's `unit_id` are not in the tables below: the fleet lock",
@@ -481,7 +489,8 @@ def _use_cases_section() -> list[str]:
         "",
         "- `mcgyvr-code` — mcgyvr between the model and you: contracts proposed,",
         "  vetted, run up the ladder, gated, repaired, reviewed and re-planned,",
-        "  each point under its own switch below, every one on by default. A",
+        "  each point under its own switch below, every one on by default but",
+        "  delivery (`delivery.commit` stays off). A",
         "  policy that names no use case is `mcgyvr-code`. A batch runs",
         "  `--jobs auto` (the fleet's slots), and proposals are authored by the",
         "  classifier when a Jev unit is bound and on.",
