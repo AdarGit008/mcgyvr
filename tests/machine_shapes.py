@@ -29,6 +29,17 @@ empty file root, and ``_get_json`` for a server), so what they return is what
 the product's parsers make of this machine. If a parser changes, the answer
 here changes with it.
 
+Machines by system
+------------------
+:func:`host_shapes` are machines with their operating system (:class:`HostShape`):
+Macs whose GPU shares the memory, Windows machines, and a Linux box. Each says
+its memory and CPU in so many MiB and cores, typed in as invented figures, and
+its cards come from the same table of models as below. Their tools answer from
+one table (:func:`host_tools`) and their files lie under a populated test root
+(:func:`host_files`); :func:`host_reading`, :func:`host_scan` and
+:func:`host_detection` run the product's own reader over them in this process,
+and :func:`tests.machinereader.stage_host` sets them out for the shipped reader.
+
 How the card sizes are made
 ---------------------------
 No size in MiB is typed in. Each invented card model has a nominal size in GiB and a
@@ -53,8 +64,10 @@ import json
 import tempfile
 import types
 import urllib.parse
-from collections.abc import Mapping, Sequence
+from collections.abc import Iterator, Mapping, Sequence
+from contextlib import contextmanager
 from dataclasses import dataclass
+from pathlib import Path
 from typing import TYPE_CHECKING, Any
 from unittest import mock
 
@@ -63,13 +76,25 @@ if TYPE_CHECKING:
     from mcgyvr.scan import Scan
 
 __all__ = [
+    "CARD_TOOL_PLACES",
+    "PCI_VENDOR_IDS",
     "VENDORS",
     "Card",
     "Holder",
+    "HostShape",
     "Server",
     "Shape",
     "card_reader_text",
     "detection",
+    "device_id",
+    "host_detection",
+    "host_files",
+    "host_reading",
+    "host_scan",
+    "host_scan_document",
+    "host_shape",
+    "host_shapes",
+    "host_tools",
     "scan",
     "shape",
     "shapes",
@@ -774,3 +799,469 @@ def shape(label: str, /) -> Shape:
             return machine
     known = ", ".join(machine.label for machine in shapes())
     raise KeyError(f"no invented machine {label!r}; the known ones: {known}")
+
+
+# Machines by operating system. The shapes above are about cards and servers, and
+# are read as Linux machines; the shapes below add the system the machine runs, its
+# memory and CPU, and on a Mac the GPU that shares the memory, so the reader's
+# macOS and Windows branches run over invented machines too. Their tools answer
+# from one table (:func:`host_tools`), which both the in-process seam (the
+# reader's ``_run``) and the stub tools of :mod:`tests.machinereader` serve.
+
+#: The PCI vendor id each invented vendor's cards carry, as Windows prints it in
+#: a display adapter's device id and sysfs in a card's vendor file.
+PCI_VENDOR_IDS: Mapping[str, str] = types.MappingProxyType(
+    {"vendor-a": "10DE", "vendor-b": "1002"}
+)
+
+#: Where Windows keeps nvidia-smi.exe on an invented machine: on PATH, in the
+#: system folder, in the vendor's own folder, or nowhere.
+CARD_TOOL_PLACES = ("path", "system32", "nvsmi", "none")
+
+#: The page size an invented Mac's memory statistics count in.
+_PAGE_BYTES = 16384
+_MIB = 1024 * 1024
+
+
+def device_id(name: str, /) -> str:
+    """The invented PCI device id of a card model: four hex digits of its name."""
+    import hashlib
+
+    return hashlib.sha256(name.encode("utf-8")).hexdigest()[:4]
+
+
+@dataclass(frozen=True, kw_only=True)
+class HostShape:
+    """One invented machine with its operating system.
+
+    ``system`` is ``linux``, ``darwin`` or ``windows``. ``machine_id`` is the
+    invented value the machine's own id source gives (the machine-id file, the
+    IOPlatformUUID, the MachineGuid). ``memory_mib`` and ``available_mib`` are
+    its memory; ``cpu_model``, ``cores``, ``threads`` and, on a Mac,
+    ``performance_cores`` its CPU. ``cards`` are its discrete cards, read as
+    :class:`Shape` reads them. A Mac with ``chip`` set is Apple silicon: the
+    chip is the CPU brand its GPU is named after, ``wired_limit_mib`` the GPU
+    cap its kernel setting names (0 for the kernel's own) and ``gpu_cores`` its
+    GPU cores (None when the display data does not carry them). On Windows
+    ``card_tool`` says where nvidia-smi.exe is (:data:`CARD_TOOL_PLACES`) and
+    ``other_adapters`` names display adapters that are not PCI cards.
+    ``memory_modules`` False models a Windows machine (a virtual one) that lists
+    no memory modules. A shape that contradicts itself is refused by name.
+    """
+
+    label: str
+    system: str
+    machine_id: str
+    memory_mib: int
+    available_mib: int
+    cpu_model: str
+    cores: int
+    threads: int
+    version: str
+    host: str = "box-1.example"
+    cards: tuple[Card, ...] = ()
+    performance_cores: int | None = None
+    chip: str | None = None
+    wired_limit_mib: int = 0
+    gpu_cores: int | None = None
+    card_tool: str = "path"
+    other_adapters: tuple[str, ...] = ()
+    memory_modules: bool = True
+
+    def __post_init__(self) -> None:
+        where = f"host shape {self.label!r}"
+        if self.system not in ("linux", "darwin", "windows"):
+            raise ValueError(f"{where}: system {self.system!r} is not one read")
+        if not 0 <= self.available_mib <= self.memory_mib:
+            raise ValueError(f"{where}: available memory outside its total")
+        if not 0 < self.cores <= self.threads:
+            raise ValueError(f"{where}: {self.cores} cores and {self.threads} threads")
+        if self.chip is not None and (self.system != "darwin" or self.cards):
+            raise ValueError(f"{where}: a unified chip on a machine that is not a Mac")
+        if self.system == "darwin" and self.cards:
+            raise ValueError(f"{where}: a Mac with a discrete card is not modelled")
+        if self.card_tool not in CARD_TOOL_PLACES:
+            raise ValueError(f"{where}: card tool place {self.card_tool!r}")
+        if any(c.total_mib is None for c in self.cards if c.vendor == "vendor-a"):
+            raise ValueError(f"{where}: a card of unreadable size is not modelled")
+
+    @property
+    def unified_mib(self) -> int | None:
+        """What the GPU of a Mac with a chip may take: the kernel setting when
+        it names one, else three quarters of the memory; None without a chip."""
+        if self.chip is None:
+            return None
+        if self.wired_limit_mib:
+            return min(self.wired_limit_mib, self.memory_mib)
+        return int(self.memory_mib * 0.75)
+
+    @property
+    def tool_cards(self) -> tuple[Card, ...]:
+        """The cards nvidia-smi answers for: none when it is not installed."""
+        if self.system == "windows" and self.card_tool == "none":
+            return ()
+        return tuple(card for card in self.cards if card.card_reader_reads)
+
+
+def _vm_stat(machine: HostShape) -> str:
+    pages = machine.available_mib * _MIB // _PAGE_BYTES
+    free, speculative = pages // 2, pages // 8
+    inactive = pages - free - speculative
+    lines = [
+        f"Mach Virtual Memory Statistics: (page size of {_PAGE_BYTES} bytes)",
+        *(
+            f"{name:<30} {count:>16}."
+            for name, count in (
+                ("Pages free:", free),
+                ("Pages active:", 4096),
+                ("Pages inactive:", inactive),
+                ("Pages speculative:", speculative),
+                ("Pages throttled:", 0),
+                ("Pages wired down:", 2048),
+                ("Pages purgeable:", 512),
+            )
+        ),
+    ]
+    return "\n".join(lines) + "\n"
+
+
+def _cim(machine: HostShape) -> str:
+    half = machine.memory_mib * _MIB // 2
+    adapters = [
+        {
+            "name": card.name,
+            "pnp": f"PCI\\VEN_{PCI_VENDOR_IDS[card.vendor]}&DEV_"
+            f"{device_id(card.name).upper()}&SUBSYS_00000000&REV_01\\4&1&0&0008",
+        }
+        for card in machine.cards
+    ] + [
+        {"name": name, "pnp": f"ROOT\\DISPLAY\\{number:04d}"}
+        for number, name in enumerate(machine.other_adapters)
+    ]
+    body = {
+        "memory": (
+            [str(half), str(machine.memory_mib * _MIB - half)]
+            if machine.memory_modules
+            else []
+        ),
+        "processors": {
+            "name": machine.cpu_model,
+            "cores": machine.cores,
+            "threads": machine.threads,
+            "architecture": 9,
+        },
+        "system": {
+            "version": machine.version,
+            "free_kb": str(machine.available_mib * 1024),
+            "total_kb": str(machine.memory_mib * 1024 - 2048),
+        },
+        "video": adapters,
+    }
+    return json.dumps(body, separators=(",", ":"))
+
+
+def host_tools(machine: HostShape, /) -> dict[tuple[str, ...], tuple[str, int]]:
+    """Every question the reader may ask this machine's tools, by its argv, with
+    what the tool prints and its exit status. A tool whose name no key starts with
+    is not installed. nvidia-smi is keyed by name wherever it is kept: see
+    :attr:`HostShape.card_tool`."""
+    from mcgyvr.serving import rigscan
+
+    tools: dict[tuple[str, ...], tuple[str, int]] = {}
+    if machine.tool_cards:
+        query = rigscan.FIRST_QUERY
+        argv = ("nvidia-smi", f"--query-gpu={query}", "--format=csv,noheader,nounits")
+        tools[argv] = (card_reader_text(machine.tool_cards, query=query), 0)
+        # The snapshot's questions are not answered by the invented tool, as the
+        # card shapes above do not answer them either.
+        for asked in (rigscan.SNAPSHOT_QUERY, rigscan.SNAPSHOT_QUERY_OLD):
+            unasked = f"--query-gpu={asked}"
+            tools[("nvidia-smi", unasked, "--format=csv,noheader,nounits")] = ("", 2)
+    if machine.system == "linux":
+        tools[("lscpu",)] = (
+            f"CPU(s):              {machine.threads}\n"
+            f"Core(s) per socket:  {machine.cores}\n"
+            "Socket(s):           1\n"
+            f"Model name:          {machine.cpu_model}\n",
+            0,
+        )
+    elif machine.system == "darwin":
+
+        def sysctl(name: str, value: object | None) -> None:
+            argv = (rigscan.SYSCTL, "-n", name)
+            tools[argv] = ("", 1) if value is None else (f"{value}\n", 0)
+
+        sysctl(rigscan.SYSCTL_MEMSIZE, machine.memory_mib * _MIB)
+        sysctl(rigscan.SYSCTL_PHYSICAL, machine.cores)
+        sysctl(rigscan.SYSCTL_LOGICAL, machine.threads)
+        sysctl(rigscan.SYSCTL_PERFORMANCE, machine.performance_cores)
+        sysctl(rigscan.SYSCTL_BRAND, machine.chip or machine.cpu_model)
+        sysctl(rigscan.SYSCTL_ARM64, 1 if machine.chip else None)
+        sysctl(rigscan.SYSCTL_WIRED_LIMIT, machine.wired_limit_mib)
+        tools[(rigscan.VM_STAT,)] = (_vm_stat(machine), 0)
+        display: dict[str, Any] = {"sppci_model": machine.chip or "Example Display"}
+        if machine.gpu_cores is not None:
+            display["sppci_cores"] = str(machine.gpu_cores)
+        tools[rigscan.SYSTEM_PROFILER_ARGS] = (
+            json.dumps({"SPDisplaysDataType": [display]}),
+            0,
+        )
+        tools[rigscan.IOREG_ARGS] = (
+            "+-o Example  <class IOPlatformExpertDevice>\n  {\n"
+            f'    "IOPlatformUUID" = "{machine.machine_id}"\n  }}\n',
+            0,
+        )
+        tools[rigscan.SW_VERS_ARGS] = (f"{machine.version}\n", 0)
+    else:
+        tools[rigscan.REG_MACHINE_GUID] = (
+            "\r\nHKEY_LOCAL_MACHINE\\SOFTWARE\\Microsoft\\Cryptography\r\n"
+            f"    MachineGuid    REG_SZ    {machine.machine_id}\r\n\r\n",
+            0,
+        )
+        tools[rigscan.CIM_ARGS] = (_cim(machine), 0)
+    return tools
+
+
+def host_files(machine: HostShape, /) -> dict[str, str]:
+    """The files the reader finds under its test root on this machine: the host
+    name everywhere, and on Linux the machine-id file, meminfo and cpuinfo."""
+    files = {"/proc/sys/kernel/hostname": f"{machine.host}\n"}
+    if machine.system == "linux":
+        files["/etc/machine-id"] = f"{machine.machine_id}\n"
+        files["/proc/meminfo"] = (
+            f"MemTotal:       {machine.memory_mib * 1024} kB\n"
+            f"MemFree:        {machine.available_mib * 512} kB\n"
+            f"MemAvailable:   {machine.available_mib * 1024} kB\n"
+        )
+        files["/proc/cpuinfo"] = f"processor\t: 0\nmodel name\t: {machine.cpu_model}\n"
+    return files
+
+
+def _host_run(machine: HostShape) -> Any:
+    tools = host_tools(machine)
+    installed = {argv[0] for argv in tools}
+
+    def run(
+        command: Sequence[str], *, bound: float = 0.0
+    ) -> tuple[str | None, str | None]:
+        # A Windows tool is called by its full path (System32, or wherever
+        # nvidia-smi.exe is kept): it is the same tool, and the folders it is
+        # looked for in are read by the stub tools of tests.machinereader.
+        name = Path(command[0].replace("\\", "/")).name.removesuffix(".exe")
+        argv = (name, *command[1:])
+        if argv[0] not in installed:
+            return None, None
+        if argv not in tools:
+            raise ValueError(f"the invented {machine.label!r} is not asked {argv}")
+        text, status = tools[argv]
+        if status:
+            return None, f"{' '.join(argv[:2])} exited {status}"
+        return text, None
+
+    return run
+
+
+@contextmanager
+def _host_root(machine: HostShape) -> Iterator[str]:
+    with tempfile.TemporaryDirectory() as root:
+        for path, text in host_files(machine).items():
+            target = Path(root + path)
+            target.parent.mkdir(parents=True, exist_ok=True)
+            target.write_text(text, encoding="utf-8")
+        yield root
+
+
+@contextmanager
+def _host_tools(machine: HostShape) -> Iterator[None]:
+    from mcgyvr.serving import rigscan
+
+    with mock.patch.object(rigscan, "_run", _host_run(machine)):
+        yield
+
+
+def host_reading(machine: HostShape, /) -> dict[str, Any]:
+    """The reader's short reading of this machine, read in this process."""
+    from mcgyvr.serving import rigscan
+
+    with _host_root(machine) as root, _host_tools(machine):
+        return rigscan.read_machine(root=root, system=machine.system)
+
+
+def host_scan_document(machine: HostShape, /) -> dict[str, Any]:
+    """The reader's whole scan of this machine, read in this process, without the
+    bandwidth probe and with nothing of the disk the tests run on."""
+    from mcgyvr.serving import rigscan
+
+    with (
+        _host_root(machine) as root,
+        _host_tools(machine),
+        mock.patch.object(rigscan, "measure_bandwidth", lambda root="": None),
+        tempfile.TemporaryDirectory() as weights,
+    ):
+        return rigscan.scan(weights, root=root, system=machine.system)
+
+
+def host_detection(machine: HostShape, /) -> Detection:
+    """What :func:`mcgyvr.detect.detect` reports of this machine, swept for no
+    server; docker and the CPU count are not part of a host shape."""
+    from mcgyvr import detect
+
+    reading = host_reading(machine)
+    with (
+        mock.patch.object(detect, "_reading", lambda: reading),
+        mock.patch.object(detect, "_get_json", lambda url, timeout: None),
+        mock.patch.object(
+            detect, "detect_docker", lambda: (False, "an invented machine")
+        ),
+    ):
+        return detect.detect(())
+
+
+def host_scan(machine: HostShape, /) -> Scan:
+    """What :mod:`mcgyvr.scan` makes of this machine's whole scan."""
+    from mcgyvr import scan as product
+
+    return product.Scan.from_json(json.dumps(host_scan_document(machine)))
+
+
+@functools.cache
+def host_shapes() -> tuple[HostShape, ...]:
+    """Every invented machine with its system, in a stable order.
+
+    Covers: a unified-memory laptop with no discrete card; a unified-memory
+    desktop whose GPU cap is set and whose display data carries no core count; a
+    Mac that is not Apple silicon; a Windows desktop with one card its tool reads,
+    with that tool on PATH, in the system folder, and in the vendor's folder; a
+    Windows laptop whose only card no tool reads, beside a display that is not a
+    card; a Windows machine that lists no memory modules; and a Linux box with
+    one card, as the product read it before it read other systems.
+    """
+    windows_card = _card(0, "Example Card A")
+    return (
+        HostShape(
+            label="unified-laptop",
+            system="darwin",
+            machine_id="0000AAAA-1111-2222-3333-444455556666",
+            memory_mib=24 * 1024,
+            available_mib=9000,
+            cpu_model="Example Chip U1",
+            cores=8,
+            threads=8,
+            performance_cores=4,
+            chip="Example Chip U1",
+            gpu_cores=10,
+            version="0.1-example",
+        ),
+        HostShape(
+            label="unified-desktop-capped",
+            system="darwin",
+            machine_id="0000BBBB-1111-2222-3333-444455556666",
+            memory_mib=96 * 1024,
+            available_mib=90000,
+            cpu_model="Example Chip U3",
+            cores=24,
+            threads=24,
+            performance_cores=16,
+            chip="Example Chip U3",
+            wired_limit_mib=80000,
+            gpu_cores=None,
+            version="0.2-example",
+        ),
+        HostShape(
+            label="mac-without-unified",
+            system="darwin",
+            machine_id="0000CCCC-1111-2222-3333-444455556666",
+            memory_mib=16 * 1024,
+            available_mib=6000,
+            cpu_model="Example CPU X8",
+            cores=4,
+            threads=8,
+            version="0.3-example",
+        ),
+        HostShape(
+            label="windows-one-card",
+            system="windows",
+            machine_id="aaaa0000-bbbb-cccc-dddd-eeeeffff0001",
+            memory_mib=32 * 1024,
+            available_mib=20000,
+            cpu_model="Example CPU W12",
+            cores=6,
+            threads=12,
+            cards=(windows_card,),
+            version="0.0.1-example",
+        ),
+        HostShape(
+            label="windows-card-tool-in-system",
+            system="windows",
+            machine_id="aaaa0000-bbbb-cccc-dddd-eeeeffff0002",
+            memory_mib=64 * 1024,
+            available_mib=50000,
+            cpu_model="Example CPU W16",
+            cores=8,
+            threads=16,
+            cards=(_card(0, "Example Card C"),),
+            card_tool="system32",
+            version="0.0.2-example",
+        ),
+        HostShape(
+            label="windows-card-tool-in-vendor-folder",
+            system="windows",
+            machine_id="aaaa0000-bbbb-cccc-dddd-eeeeffff0003",
+            memory_mib=16 * 1024,
+            available_mib=7000,
+            cpu_model="Example CPU W8",
+            cores=4,
+            threads=8,
+            cards=(_card(0, "Example Card B"),),
+            card_tool="nvsmi",
+            version="0.0.3-example",
+        ),
+        HostShape(
+            label="windows-other-gpu",
+            system="windows",
+            machine_id="aaaa0000-bbbb-cccc-dddd-eeeeffff0004",
+            memory_mib=16 * 1024,
+            available_mib=8000,
+            cpu_model="Example CPU W8",
+            cores=4,
+            threads=8,
+            cards=(_card(0, "Example Card L"),),
+            card_tool="none",
+            other_adapters=("Example Remote Display",),
+            version="0.0.4-example",
+        ),
+        HostShape(
+            label="windows-no-modules",
+            system="windows",
+            machine_id="aaaa0000-bbbb-cccc-dddd-eeeeffff0005",
+            memory_mib=8 * 1024,
+            available_mib=3000,
+            cpu_model="Example CPU W4",
+            cores=2,
+            threads=4,
+            card_tool="none",
+            memory_modules=False,
+            version="0.0.5-example",
+        ),
+        HostShape(
+            label="linux-one-card",
+            system="linux",
+            machine_id="0123456789abcdef0123456789abcde1",
+            memory_mib=48 * 1024,
+            available_mib=30000,
+            cpu_model="Example CPU L16",
+            cores=8,
+            threads=16,
+            cards=(_card(0, "Example Card A"),),
+            version="",
+        ),
+    )
+
+
+def host_shape(label: str, /) -> HostShape:
+    """The invented machine with its system of this label."""
+    for machine in host_shapes():
+        if machine.label == label:
+            return machine
+    known = ", ".join(machine.label for machine in host_shapes())
+    raise KeyError(f"no invented host {label!r}; the known ones: {known}")
