@@ -98,6 +98,8 @@ archived outside this repository, under the same paths.
   `decode_ms_per_gib` (milliseconds a token takes per GiB of weights), each
   naming the vendor; `fitted_on(kind, backend)` tells a hub, which sees no
   vendor, when a device is of the fitted one (a unified Metal device).
+- **`mcgyvr rig crew sync` keeps the units your crews lend you in `crew.yaml`
+  (#829):** scope `crew`, units a step or a role binds, never api rungs.
 - **A unit says whose it is, and a role or a ladder step may bind a hub unit
   (#811).** Every unit has a `scope` (`own`, `crew` or `anyone`; a unit of your
   fleet is `own` unless it says otherwise, and `mcgyvr rig rungs sync` writes

@@ -1,9 +1,11 @@
-"""The one reader of a setup's `fleet.yaml`, `policy.yaml` and `relief.yaml`.
+"""The one reader of a setup's files: fleet, policy, relief and crew.
 
-Three files, three vocabularies. `load_fleet` reads what runs where — the
+Four files, four vocabularies. `load_fleet` reads what runs where — the
 units, the rigs and the fleets; `load_policy` reads how work moves over those
 units — the ladder and the policy settings; `load_relief` reads the units a hub
-lends, which `mcgyvr rig rungs sync` writes and nothing else does. Each file
+lends, which `mcgyvr rig rungs sync` writes and nothing else does; `load_crew`
+reads the units your crews lend through a hub, which `mcgyvr rig crew sync`
+writes and nothing else does. Each file
 refuses a key that belongs to another and an unknown key, naming in the message
 what to write instead, because a file that does not say what it means must not
 be read under rules it never agreed to.
@@ -132,6 +134,11 @@ _FLEET_BLOCK_KEYS = frozenset({"layout", "next"})
 #: written whole by `mcgyvr rig rungs sync`, so they are read as units marked
 #: `relief` and never join `units` or the ladder.
 _RELIEF_FILE_KEYS = frozenset({"relief"})
+
+#: The one key `crew.yaml` may carry, and the keys each of its units may: what
+#: `mcgyvr rig crew sync` writes. Its units join `units` as they are.
+_CREW_FILE_KEYS = frozenset({"crew"})
+_CREW_UNIT_KEYS = frozenset({"address", "model", "api_key_env", "width", "scope"})
 
 #: The loader every setup file is read with: a key repeated anywhere in the
 #: file, or one that is a list or a mapping, is refused instead of
@@ -478,4 +485,28 @@ def load_relief(text: str) -> dict[str, Any]:
             name: _document(block, f"relief.yaml: relief.{name}")
             for name, block in entries.items()
         }
+    return data
+
+
+def load_crew(text: str) -> dict[str, Any]:
+    """Parse `crew.yaml`: the units your crews lend, under the one key `crew`.
+
+    Each unit's block may carry only `_CREW_UNIT_KEYS` and is kept as given,
+    since its fields are the schema's `units` fields. Any other key raises
+    `FleetFileError`.
+    """
+    given = _document(_yaml(text), "crew.yaml")
+    data: dict[str, Any] = {}
+    for key, value in given.items():
+        if key not in _CREW_FILE_KEYS:
+            _unknown_key(key, "crew.yaml", _CREW_FILE_KEYS)
+        entries = _document(value, "crew.yaml: crew")
+        units: dict[str, Any] = {}
+        for name, block in entries.items():
+            where = f"crew.yaml: crew.{name}"
+            units[name] = _document(block, where)
+            for field in units[name]:
+                if field not in _CREW_UNIT_KEYS:
+                    _unknown_key(field, where, _CREW_UNIT_KEYS)
+        data[key] = units
     return data
