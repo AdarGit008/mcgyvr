@@ -149,33 +149,57 @@ def constants(name: str, wanted: Iterable[str]) -> str:
                 todo.append(part.id)
         taken.add(one)
     lines = [f"# {name}: {', '.join(sorted(taken))}, as this checkout assigns them"]
-    for one, node in assigned.items():
+    for one in assigned:
         if one in taken:
-            segment = ast.get_source_segment(text, node)
+            # The value alone: an annotation is not shipped, so none written
+            # for a newer Python reaches an older one.
+            segment = ast.get_source_segment(text, values[one])
             if segment is None:  # pragma: no cover - parsed from this text
                 raise ShipError(f"{name}.{one} has no source")
-            lines.append(segment)
+            lines.append(f"{one} = {segment}")
     return "\n".join(lines) + "\n"
+
+
+def names_imported(main: str, modules: Sequence[str]) -> dict[str, list[str]]:
+    """The names `main` imports at its top from ``mcgyvr`` modules that are not
+    among `modules`, by module: what it takes as constants
+    (:func:`constants`). An import of a module itself must name one of
+    `modules`, or it is a :class:`ShipError`.
+    """
+    wanted: dict[str, list[str]] = {}
+    for node in ast.parse(source(main)).body:
+        if not isinstance(node, ast.ImportFrom) or node.level or not node.module:
+            continue
+        module = node.module
+        if module != "mcgyvr" and not module.startswith("mcgyvr."):
+            continue
+        for alias in node.names:
+            if f"{module}.{alias.name}" in modules or module in modules:
+                continue  # a shipped module, or a name from one
+            if module == "mcgyvr":
+                raise ShipError(f"{main} imports mcgyvr.{alias.name}, not shipped")
+            wanted.setdefault(module, []).append(alias.name)
+    return wanted
 
 
 def program(
     main: str,
     *,
     modules: Sequence[str] = (),
-    names: Sequence[tuple[str, Sequence[str]]] = (),
     tail: str = "",
 ) -> bytes:
     """One program: the bootstrap, each module registered, then `main` run.
 
     `modules` are whole ``mcgyvr`` modules, registered in the order given (a
-    module is registered before one that imports it at its top). `names` are
-    ``(module, constants)`` pairs registered as that module holding only those
-    constants (:func:`constants`). `main` is the module run as ``__main__``,
-    followed by `tail` (a call into it, for a program whose job travels inside
-    it).
+    module is registered before one that imports it at its top). The names
+    `main` imports from any other ``mcgyvr`` module are registered as that
+    module holding only those constants (:func:`names_imported`,
+    :func:`constants`). `main` is the module run as ``__main__``, followed by
+    `tail` (a call into it, for a program whose job travels inside it).
     """
     floor = ".".join(str(part) for part in FLOOR)
     out = [_BOOT.format(floor=FLOOR, need=floor)]
+    names = sorted(names_imported(main, modules).items())
     for module, wanted in names:
         out.append(f"_mcgyvr_module({module!r}, {constants(module, wanted)!r})\n")
     for module in modules:
@@ -211,18 +235,6 @@ def b64(data: bytes) -> str:
 
 # --- the programs ----------------------------------------------------------------
 
-#: The wire names the reader states its reading in (``mcgyvr.hubwire``).
-READER_WIRE = (
-    "HOST_OS",
-    "HOST_VERSION_MAX",
-    "RESOURCE_NAME_MAX",
-    "RESOURCE_GPU",
-    "RESOURCE_UNIFIED",
-    "RESOURCE_RAM",
-    "RESOURCE_CPU",
-    "FIGURE_ESTIMATE",
-    "FIGURE_READING",
-)
 #: The modules the native launcher imports, each before any that needs it.
 NATIVE_MODULES = (
     "mcgyvr.hostos",
@@ -237,15 +249,9 @@ NATIVE_MODULES = (
 
 
 def reader() -> bytes:
-    """The machine reader (``rigscan``) with ``hostos`` and its wire names."""
-    return program(
-        "mcgyvr.serving.rigscan",
-        modules=("mcgyvr.hostos",),
-        names=(
-            ("mcgyvr.hubwire", READER_WIRE),
-            ("mcgyvr.fleet.roots", ("HOME_ENV", "HOME_DIR")),
-        ),
-    )
+    """The machine reader (``rigscan``) with ``hostos``, and the names it
+    imports from the wire (``hubwire``) and the folders (``fleet.roots``)."""
+    return program("mcgyvr.serving.rigscan", modules=("mcgyvr.hostos",))
 
 
 def fetcher(job: str | None) -> bytes:

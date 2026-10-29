@@ -140,3 +140,70 @@ def test_the_native_launcher_answers_its_verbs_on_3_9(tmp_path: Path) -> None:
             check=False,
         )
         assert done.returncode == 0, (args, done.stderr)
+
+
+@needs39
+def test_the_native_build_is_hashed_and_unpacked_on_3_9(tmp_path: Path) -> None:
+    import hashlib
+    import io
+    import tarfile
+
+    assert PYTHON39 is not None
+    archive = tmp_path / "build.tar.gz"
+    with tarfile.open(archive, "w:gz") as tar:
+        body = b"#!/bin/sh\n"
+        info = tarfile.TarInfo("llama-b1-bin/llama-server")
+        info.size, info.mode = len(body), 0o755
+        tar.addfile(info, io.BytesIO(body))
+    tail = (
+        "import sys\nfrom pathlib import Path\n"
+        f"print(sha256_of(Path({str(archive)!r})))\n"
+        f"_unpack_tar(Path({str(archive)!r}), Path({str(tmp_path / 'out')!r}))\n"
+    )
+    program = shipped.program(
+        "mcgyvr.serving.release",
+        modules=("mcgyvr.hostos", "mcgyvr.serving.fetcher"),
+        tail=tail,
+    )
+    (tmp_path / "out").mkdir()
+    done = subprocess.run(
+        [PYTHON39, "-I", "-B", "-"],
+        input=program,
+        capture_output=True,
+        env={"HOME": str(tmp_path)},
+        check=False,
+    )
+    assert done.returncode == 0, done.stderr
+    assert (
+        done.stdout.decode().strip() == hashlib.sha256(archive.read_bytes()).hexdigest()
+    )
+    assert (tmp_path / "out" / "llama-server").read_bytes() == b"#!/bin/sh\n"
+
+
+def test_a_python_without_the_tar_data_filter_unpacks_files_and_refuses_devices(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+) -> None:
+    import io
+    import tarfile
+
+    from mcgyvr.serving import release
+
+    monkeypatch.delattr(tarfile, "data_filter")  # macOS's own 3.9.6 has none
+    archive = tmp_path / "build.tar"
+    with tarfile.open(archive, "w") as tar:
+        body = b"#!/bin/sh\n"
+        info = tarfile.TarInfo("top/llama-server")
+        info.size, info.mode = len(body), 0o4755
+        tar.addfile(info, io.BytesIO(body))
+    (tmp_path / "out").mkdir()
+    release._unpack_tar(archive, tmp_path / "out")
+    unpacked = tmp_path / "out" / "llama-server"
+    assert unpacked.read_bytes() == b"#!/bin/sh\n"
+    assert not unpacked.stat().st_mode & 0o4000  # no set-user-id carried
+    device = tmp_path / "device.tar"
+    with tarfile.open(device, "w") as tar:
+        info = tarfile.TarInfo("top/disk")
+        info.type = tarfile.CHRTYPE
+        tar.addfile(info)
+    with pytest.raises(release.ReleaseError, match="not a file, a folder or a link"):
+        release._unpack_tar(device, tmp_path / "out")

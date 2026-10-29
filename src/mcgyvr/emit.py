@@ -33,7 +33,7 @@ from typing import TYPE_CHECKING, Any, cast
 
 import yaml
 
-from mcgyvr.config import LAUNCHER_NATIVE, NATIVE_BY_DEFAULT
+from mcgyvr.config import LAUNCHER_NATIVE
 from mcgyvr.fleet.spans import Shard, Span, SpanError, check_spans, spans
 from mcgyvr.serving import (
     CARDS_KEY,
@@ -55,6 +55,7 @@ from mcgyvr.serving import (
     kernelcache,
     launch_specs,
     llamacpp,
+    nativerig,
     port_of,
     rigfile,
     safe_host,
@@ -62,7 +63,9 @@ from mcgyvr.serving import (
     spec_files,
     spec_name,
 )
-from mcgyvr.serving.gatelib import LOCAL_RIGS, recorded_os
+from mcgyvr.serving.gatelib import LOCAL_RIGS
+from mcgyvr.serving.llamacpp import HOST_ENV as HOST_ENV
+from mcgyvr.serving.llamacpp import HOST_FLAG, LOOPBACK
 from mcgyvr.serving.sharding import Target
 from mcgyvr.serving.shardlaunch import (
     LaunchError,
@@ -113,16 +116,6 @@ FIT_ENV = "LLAMA_ARG_FIT"
 FIT_OFF = frozenset({"off", "disabled", "false", "0"})
 FIT_DEFAULT = "off"
 
-#: Where a native llama.cpp server listens: the loopback alone, so no
-#: firewall asks and only this machine reaches it. The hub never reaches a
-#: unit directly (the rig agent relays its requests to the unit's local
-#: address over the websocket), and pooled rpc workers bind the tunnel
-#: address only; a unit stating another `--host` (or `LLAMA_ARG_HOST`) is
-#: refused.
-LOOPBACK = "127.0.0.1"
-#: The flag and the variable llama-server reads its listening address from.
-HOST_FLAG = "--host"
-HOST_ENV = "LLAMA_ARG_HOST"
 
 #: Heads every compose document rendered with sleep mode on: the routes
 #: sleep needs are unauthenticated, so the file says so in its first lines.
@@ -598,26 +591,17 @@ def _native_block(
             f"{slug}: launcher native runs the pinned llama.cpp build, "
             f"and {engine} has none; it runs in its container (launcher docker)"
         )
-    if host not in LOCAL_RIGS and recorded_os(host) not in NATIVE_BY_DEFAULT:
+    if host not in LOCAL_RIGS and not nativerig.remote(host):
         raise EmitError(
             f"{slug}: launcher native runs the unit on the machine mcgyvr runs "
             f"on or on a macOS or Windows rig, and the rig file of {host} records "
             f"neither (`mcgyvr scan --rig {host}` writes it); a unit on a Linux "
             "rig runs in its container (launcher docker)"
         )
-    hosts = [
-        command[n + 1] if part == HOST_FLAG and n + 1 < len(command) else part
-        for n, part in enumerate(command)
-        if part == HOST_FLAG or part.startswith(f"{HOST_FLAG}=")
-    ]
-    hosts = [h.removeprefix(f"{HOST_FLAG}=") for h in hosts]
-    if HOST_ENV in env or any(h != LOOPBACK for h in hosts):
-        raise EmitError(
-            f"{slug}: a native unit listens on {LOOPBACK} alone (the rig "
-            "agent relays to it, and pooled workers bind the tunnel address); "
-            f"drop the {HOST_FLAG} or {HOST_ENV} its launch states"
-        )
-    if not rpc and not hosts:
+    beyond = llamacpp.beyond_loopback(command, dict(env))
+    if beyond is not None:
+        raise EmitError(f"{slug}: {beyond}")
+    if not rpc and not llamacpp.stated_hosts(command):
         command = [*command, HOST_FLAG, LOOPBACK]
     service: dict[str, object] = {
         LAUNCHER_KEY: LAUNCHER_NATIVE,

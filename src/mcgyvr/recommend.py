@@ -134,6 +134,11 @@ def discover_command(directory: str) -> str:
             "a model-store directory with an embedded single quote cannot be "
             "read read-only"
         )
+    if directory.startswith("-"):
+        raise RecommendError(
+            f"a model-store directory starting with '-' ({directory!r}) is read "
+            "by find as an expression, not a folder; name it with ./ or a path"
+        )
     return f"find '{directory}'{_DISCOVER_SUFFIX}"
 
 
@@ -232,7 +237,8 @@ def _discover(host: str, directory: str) -> tuple[str, ...]:
     """
     try:
         if scan_module.shipping_os(host) == gatelib.WINDOWS:
-            listing = scan_module._ssh(host, gatelib.windows_discover(directory))
+            sent = gatelib.windows_discover(directory)
+            listing = scan_module._ssh(host, sent.command, sent.stdin)
         else:
             listing = scan_module._ssh(host, discover_command(directory))
     except ScannerMissing:

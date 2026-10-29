@@ -82,12 +82,12 @@ def _windows_shells(command: str) -> list[list[str]]:
 def test_windows_shells_answer_the_probe() -> None:
     for argv in _windows_shells(gatelib.PROBE_WINDOWS):
         done = subprocess.run(argv, capture_output=True, text=True, check=False)
-        assert done.stdout.strip() == "windows", (argv[0], done.stderr)
+        assert done.stdout.strip() == gatelib.WINDOWS_PLATFORM, (argv[0], done.stderr)
 
 
 @windows
 def test_windows_shells_run_the_launcher_with_arguments_and_feed() -> None:
-    args = ("mcgyvr-fetch", "C:\\Users\\Jane Doe\\w x.gguf")
+    args = ("mcgyvr-fetch", "C:\\Users\\Jane Doe\\w x.gguf", "Bob\u2019s $(x)")
     sent = gatelib.ship(gatelib.WINDOWS, ECHO_ARGS, args, feed=b'{"job": 1}')
     for argv in _windows_shells(sent.command):
         done = subprocess.run(
@@ -103,7 +103,16 @@ def test_windows_runs_the_shipped_reader_over_an_invented_machine(
     tmp_path: Path,
 ) -> None:
     sent = gatelib.scan_read(gatelib.WINDOWS, cards=True)
-    env = {**os.environ, ROOT_VARIABLE: str(tmp_path)}
+    # PATH holds the Python found and PowerShell, and no card tool: the
+    # reader reads the empty invented machine, not this one.
+    system = os.environ.get("SYSTEMROOT", "C:\\Windows")
+    shells = [os.path.join(system, "System32", "WindowsPowerShell", "v1.0")]
+    python = os.path.dirname(sys.executable)
+    env = {
+        **{k: v for k, v in os.environ.items() if k.upper() != "PATH"},
+        "PATH": os.pathsep.join([python, *shells]),
+        ROOT_VARIABLE: str(tmp_path),
+    }
     done = subprocess.run(
         ["cmd.exe", "/d", "/c", sent.command],
         input=sent.stdin,

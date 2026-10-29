@@ -25,7 +25,7 @@ from typing import Any
 
 from mcgyvr import config as configlib
 from mcgyvr.config import LAUNCHER_NATIVE
-from mcgyvr.serving import gatelib
+from mcgyvr.serving import gatelib, nativerig
 from mcgyvr.serving.gatelib import (
     LOCAL_RIGS,
     Lease,
@@ -156,11 +156,9 @@ def held(host: str) -> dict[str, str]:
         from mcgyvr.serving import native
 
         return native.held()
-    if host not in LOCAL_RIGS and gatelib.rig_system(host) != gatelib.LINUX:
+    if nativerig.remote(host):
         # A macOS or Windows rig runs native units: the launcher shipped to it
         # lists them in rig-units.sh's rows.
-        from mcgyvr.serving import nativerig
-
         try:
             listed = nativerig.rows(host)
         except nativerig.NativeRigError as exc:

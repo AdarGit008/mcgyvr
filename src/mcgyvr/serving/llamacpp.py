@@ -347,3 +347,42 @@ def build_for(
             + f"; this system has builds for: {', '.join(offered) or 'none'}"
         )
     return max(rows, key=lambda b: cuda_major(b) or 0)
+
+
+#: Where a native llama.cpp server listens (K13): the loopback alone, so no
+#: firewall asks and only its own machine reaches it. The hub never reaches a
+#: unit directly (the rig agent relays its requests to the unit's local
+#: address over the websocket), and pooled rpc workers bind the tunnel
+#: address only; a unit stating another `--host` (or `LLAMA_ARG_HOST`) is
+#: refused, where it is written (emit) and where it is started (the native
+#: launcher, on this machine or on a rig the door ships it to).
+LOOPBACK = "127.0.0.1"
+#: The flag and the variable llama-server reads its listening address from.
+HOST_FLAG = "--host"
+HOST_ENV = "LLAMA_ARG_HOST"
+
+
+def stated_hosts(argv: list[str] | tuple[str, ...]) -> list[str]:
+    """Every listening address `argv` states (`--host H` or `--host=H`)."""
+    hosts = [
+        argv[n + 1] if part == HOST_FLAG and n + 1 < len(argv) else part
+        for n, part in enumerate(argv)
+        if part == HOST_FLAG or part.startswith(f"{HOST_FLAG}=")
+    ]
+    return [
+        h[len(f"{HOST_FLAG}=") :] if h.startswith(f"{HOST_FLAG}=") else h for h in hosts
+    ]
+
+
+def beyond_loopback(
+    argv: list[str] | tuple[str, ...], env: dict[str, str]
+) -> str | None:
+    """Why a native server's `argv` and `env` would listen beyond the loopback,
+    or None when they keep it there."""
+    if HOST_ENV in env or any(h != LOOPBACK for h in stated_hosts(argv)):
+        return (
+            f"a native unit listens on {LOOPBACK} alone (the rig agent relays to "
+            "it, and pooled workers bind the tunnel address); drop the "
+            f"{HOST_FLAG} or {HOST_ENV} its launch states"
+        )
+    return None

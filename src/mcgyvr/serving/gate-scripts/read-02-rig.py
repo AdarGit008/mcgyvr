@@ -30,7 +30,7 @@ import subprocess
 import sys
 from pathlib import Path
 
-from mcgyvr.serving import gatelib, rigfile
+from mcgyvr.serving import gatelib, nativerig, rigfile
 from mcgyvr.serving.gatelib import (
     door_required,
     need,
@@ -109,7 +109,9 @@ def main() -> int:
 
     saved = rigfile.required(host, "read")
     system = gatelib.rig_system(host)
-    if system != gatelib.LINUX and (probe or load):
+    native_rig = host in gatelib.LOCAL_RIGS and system != gatelib.LINUX
+    native_rig = native_rig or nativerig.remote(host)
+    if native_rig and (probe or load):
         refuse(
             f"read: {host} is a {system} rig, and the lock's harness (--probe, "
             "--load) runs on a Linux rig; read it without them"
@@ -131,7 +133,7 @@ def main() -> int:
     except ValueError:
         refuse(f"read: the reader on {host} printed no reading; nothing is filed")
 
-    if system != gatelib.LINUX:
+    if native_rig:
         # A macOS or Windows rig runs native units: the native launcher's twin
         # of rig-units.sh lists them (here, or shipped to the rig).
         done = _native_rows(host, args)

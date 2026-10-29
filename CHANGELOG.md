@@ -82,12 +82,13 @@ archived outside this repository, under the same paths.
 - **A Mac or Windows machine is a remote rig over ssh (#824).** A rig's first
   contact is sent the POSIX reader line as every rig always was; a rig whose
   shell cannot run it is asked the PowerShell question, and a Windows rig
-  (OpenSSH, with cmd.exe or PowerShell as its shell) is sent its programs as one
-  `powershell -NoProfile -EncodedCommand` line that finds a Python 3.9 or newer
-  (`py -3`, then `python`), writes the program with WriteAllBytes under
-  `%LOCALAPPDATA%\mcgyvr\tmp`, runs it with `-I -B` and removes it; what a
-  program reads on its stdin (the fetcher's job, which holds a token) travels
-  apart, never on disk. `mcgyvr scan --rig` files the reading, whose
+  (OpenSSH, with cmd.exe or PowerShell as its shell) is sent every program by
+  one constant `powershell -NoProfile -NonInteractive -EncodedCommand` line
+  that finds a Python 3.9 or newer (`py -3`, then `python`), writes the program
+  with WriteAllBytes under `%LOCALAPPDATA%\mcgyvr\tmp`, runs it with `-I -B`
+  and removes it; the program, its arguments and what it reads on its own
+  stdin (the fetcher's job, which holds a token, never on disk) travel on
+  stdin, so no path or argument is ever read as PowerShell. `mcgyvr scan --rig` files the reading, whose
   `host.os` the door reads from then on, asking nothing. On a rig whose file
   records macOS or Windows: the lease is the one Python lease this machine
   runs itself (Linux rigs keep their bash scripts, unchanged); `serve up`,

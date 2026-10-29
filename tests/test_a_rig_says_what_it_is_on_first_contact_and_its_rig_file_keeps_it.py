@@ -13,6 +13,7 @@ answers neither is a rig nobody could read.
 from __future__ import annotations
 
 import json
+import subprocess
 from pathlib import Path
 
 import pytest
@@ -36,20 +37,20 @@ def _reads_as(label: str, shell: FakeShell) -> FakeShell:
     posix = gatelib.scan_read_command()
     windows = gatelib.scan_read(gatelib.WINDOWS)
 
-    def answer(command: str, stdin: str | None) -> object:
+    def answer(
+        command: str, stdin: str | None
+    ) -> subprocess.CompletedProcess[str] | None:
         if command == posix and shell.system != "windows":
             return _done(document)
         if (command, stdin) == (windows.command, windows.stdin):
             return _done(document)
         return None
 
-    shell.answer = answer  # type: ignore[assignment]
+    shell.answer = answer
     return shell
 
 
-def _done(out: str, code: int = 0) -> object:
-    import subprocess
-
+def _done(out: str, code: int = 0) -> subprocess.CompletedProcess[str]:
     return subprocess.CompletedProcess(["ssh"], code, out, "")
 
 
@@ -113,7 +114,7 @@ def test_a_recorded_posix_rig_that_fails_is_not_asked_powershell(
 ) -> None:
     record_rig(monkeypatch, tmp_path, "box1", "linux-one-card")
     shell = FakeShell("linux", tmp_path / "rig")
-    shell.answer = lambda command, stdin: _done("", 1)  # type: ignore[assignment,return-value]
+    shell.answer = lambda command, stdin: _done("", 1)
     monkeypatch.setattr(gatelib, "ssh_read_only", _read_only(shell))
     with pytest.raises(scan_module.ScannerMissing):
         scan_module.read_over(scan_module.Reach.ssh("box1"))
@@ -124,7 +125,7 @@ def test_a_shell_that_answers_neither_question_is_a_rig_nobody_could_read(
     monkeypatch: pytest.MonkeyPatch, tmp_path: Path
 ) -> None:
     shell = FakeShell("linux", tmp_path / "rig")
-    shell.answer = lambda command, stdin: _done("", 127)  # type: ignore[assignment,return-value]
+    shell.answer = lambda command, stdin: _done("", 127)
     monkeypatch.setattr(gatelib, "ssh_read_only", _read_only(shell))
     with pytest.raises(scan_module.ScannerMissing):
         scan_module.read_over(scan_module.Reach.ssh("box1"))
@@ -154,14 +155,40 @@ def test_a_windows_rig_has_its_models_found_and_read_the_windows_way(
 
     record_rig(monkeypatch, tmp_path, "box1", "windows-one-card")
     shell = FakeShell("windows", tmp_path / "rig")
-    shell.answer = lambda command, stdin: _done(  # type: ignore[assignment,return-value]
-        "C:\\m\\a.gguf\n" if stdin is None else json.dumps([{"arch": "llama"}])
+    shell.answer = lambda command, stdin: _done(
+        "C:\\m\\a.gguf\n"
+        if command == gatelib.WINDOWS_DISCOVER
+        else json.dumps([{"arch": "llama"}])
     )
     monkeypatch.setattr(gatelib, "ssh_read_only", _read_only(shell))
     assert recommend._discover("box1", "C:\\m") == ("C:\\m\\a.gguf",)
     assert recommend._read_header("box1", "C:\\m\\a.gguf") == {"arch": "llama"}
     header = gatelib.header_read(gatelib.WINDOWS, "C:\\m\\a.gguf")
+    listing = gatelib.windows_discover("C:\\m")
     assert shell.sent == [
-        (gatelib.windows_discover("C:\\m"), None),
+        (listing.command, listing.stdin),
         (header.command, header.stdin),
     ]
+
+
+def test_ssh_failing_to_reach_a_rig_asks_no_powershell_question(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+) -> None:
+    shell = FakeShell("linux", tmp_path / "rig")
+    shell.answer = lambda command, stdin: _done("", scan_module.SSH_FAILED)
+    monkeypatch.setattr(gatelib, "ssh_read_only", _read_only(shell))
+    with pytest.raises(scan_module.ScannerMissing):
+        scan_module.read_over(scan_module.Reach.ssh("box1"))
+    assert [command for command, _ in shell.sent] == [gatelib.scan_read_command()]
+
+
+def test_a_linux_box_with_a_powershell_is_not_taken_for_windows(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+) -> None:
+    shell = FakeShell("linux", tmp_path / "rig")
+    shell.answer = lambda command, stdin: (
+        _done("Unix\n") if command == gatelib.PROBE_WINDOWS else _done("", 1)
+    )
+    monkeypatch.setattr(gatelib, "ssh_read_only", _read_only(shell))
+    with pytest.raises(scan_module.ScannerMissing):
+        scan_module.read_over(scan_module.Reach.ssh("box1"))

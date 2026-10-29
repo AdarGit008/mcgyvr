@@ -41,10 +41,13 @@ def call(
     """Run the shipped launcher's verb `args` on `host`, as the door's ssh."""
     from mcgyvr.serving import shipped
 
+    # The launcher is too long for one argument of the door's own ssh command
+    # line (Linux: 128 KiB), so a POSIX rig reads it on stdin too.
     sent = gatelib.ship(
         gatelib.rig_system(host),
         shipped.packed(shipped.native()),
         tuple(args),
+        on_stdin=True,
     )
     return gatelib.ssh(host, sent.command, timeout=timeout, input=sent.stdin)
 

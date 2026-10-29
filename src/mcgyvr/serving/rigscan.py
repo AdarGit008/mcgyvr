@@ -696,7 +696,8 @@ def _text_of(value: object) -> str:
     """A JSON member as the text a number field can be read from: a float through
     repr, so its decimal part survives, other numbers and strings as they are, and
     anything else as the empty string, which reads as no value."""
-    if isinstance(value, bool) or not isinstance(value, str | int | float):
+    # A tuple, not `str | int | float`: isinstance takes a union from 3.10.
+    if isinstance(value, bool) or not isinstance(value, (str, int, float)):
         return ""
     return repr(value) if isinstance(value, float) else str(value)
 
@@ -910,15 +911,10 @@ def _host(root: str, reading: _Reading, system: str = "linux") -> str:
     return got
 
 
-def host_os() -> str:
-    """The system this runs on, as HOST_OS names it."""
-    return {"darwin": "darwin", "win32": "windows"}.get(sys.platform, "linux")
-
-
 def _system_of(root: str, system: str | None) -> str:
     # A test root stands in for a Linux tree, so a root with no system named is
     # read as Linux, as before the other branches; else the machine's own.
-    return system or ("linux" if root else host_os())
+    return system or ("linux" if root else hostos.os_name())
 
 
 def _items(value: object) -> list[Any]:

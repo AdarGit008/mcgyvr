@@ -24,6 +24,9 @@ HUB = "https://huggingface.co"
 #: The command `ssh` runs on the host: the payload arrives on stdin and
 #: "mcgyvr-fetch" is argv[0] of the `python3 -` process.
 REMOTE_COMMAND = "python3 - mcgyvr-fetch"
+#: The same on a macOS rig, isolated (`-I`, no `-B` writes): a Mac rig is new,
+#: so it is sent the stricter line; a Linux rig's stays as it always was.
+REMOTE_COMMAND_ISOLATED = "python3 -I -B - mcgyvr-fetch"
 #: The variable a Hugging Face token is read from when --hf-token-env is not given.
 DEFAULT_TOKEN_ENV = "HF_TOKEN"
 #: The variable that replaces HUB, e.g. with a mirror.

@@ -264,6 +264,10 @@ def parse(compose_file: Path) -> tuple[NativeUnit, ...]:
                 asleep=SLEEPER_PROFILE in (block.get("profiles") or ()),
             )
         )
+        try:
+            _checked_unit(found[-1])
+        except NativeError as exc:
+            raise NativeError(f"{compose_file}: {exc}") from None
     return tuple(found)
 
 
@@ -569,7 +573,14 @@ def _spawn(argv: list[str]) -> subprocess.Popen[bytes]:
     try:
         return subprocess.Popen(argv, **common, **hostos.popen_detached_kwargs())
     except PermissionError:
-        # A job that forbids breaking away refuses the start (Windows).
+        # A job that forbids breaking away refuses the start (Windows); the
+        # supervisor then ends with that job (an ssh session's, say), so it
+        # is said.
+        print(
+            "native: this session's job keeps its processes, so the "
+            "supervisor ends when the session does",
+            file=sys.stderr,
+        )
         return subprocess.Popen(
             argv, **common, **hostos.popen_detached_kwargs(breakaway=False)
         )
@@ -1082,9 +1093,19 @@ def units_from_text(text: str) -> tuple[NativeUnit, ...]:
                 asleep=bool(raw["asleep"]),
             )
         )
-        if found[-1].program not in llamacpp.EXECUTABLES:
-            raise NativeError(f"{found[-1].name}: no program {found[-1].program!r}")
+        _checked_unit(found[-1])
     return tuple(found)
+
+
+def _checked_unit(unit: NativeUnit) -> NativeUnit:
+    """`unit`, refused (NativeError) when it names no program of the pinned
+    build or would listen beyond the loopback (K13), whoever wrote its spec."""
+    if unit.program not in llamacpp.EXECUTABLES:
+        raise NativeError(f"{unit.name}: no program {unit.program!r}")
+    beyond = llamacpp.beyond_loopback(unit.argv, unit.env)
+    if beyond is not None:
+        raise NativeError(f"{unit.name}: {beyond}")
+    return unit
 
 
 def _settle(program: bytes) -> tuple[str, ...]:
@@ -1102,6 +1123,12 @@ def _settle(program: bytes) -> tuple[str, ...]:
 
     folder = _private(home() / SHIPPED)
     target = folder / f"native-{hashlib.sha256(program).hexdigest()[:16]}.py"
+    for old in folder.glob("native-*.py"):
+        if old != target:
+            # An older checkout's copy; one a live supervisor runs is kept by
+            # Windows (in use) and outlived by POSIX (open), either way safe.
+            with contextlib.suppress(OSError):
+                old.unlink()
     if not target.is_file() or target.read_bytes() != program:
         part = target.with_name(f"{target.name}.{os.getpid()}.part")
         part.write_bytes(program)

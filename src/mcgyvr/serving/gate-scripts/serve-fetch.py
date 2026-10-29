@@ -73,7 +73,11 @@ def main() -> int:
         # REMOTE_COMMAND is `python3 -`, so the payload travels on stdin: it
         # carries the fetcher and the token, which must not be readable in the
         # host's process list.
-        command = fetchlist.REMOTE_COMMAND
+        command = (
+            fetchlist.REMOTE_COMMAND_ISOLATED
+            if gatelib.rig_system(host) == gatelib.DARWIN
+            else fetchlist.REMOTE_COMMAND
+        )
         stdin = fetchlist.payload(wants, hub, token_env, token)
     try:
         # No timeout: the run ends when the files have been transferred,

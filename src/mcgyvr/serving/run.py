@@ -49,7 +49,7 @@ from mcgyvr.config import (
     NATIVE_BY_DEFAULT,
 )
 from mcgyvr.fleet.roots import RIGS_SHOWN
-from mcgyvr.serving import gatelib
+from mcgyvr.serving import gatelib, nativerig
 from mcgyvr.serving.gatelib import DOOR_MODULE
 
 #: The gate scripts, resolved beside this file so a run does not depend
@@ -747,7 +747,7 @@ def serve(argv: list[str]) -> int:
         if (
             launcher == LAUNCHER_NATIVE
             and opts.host not in gatelib.LOCAL_RIGS
-            and gatelib.recorded_os(opts.host) not in NATIVE_BY_DEFAULT
+            and not nativerig.remote(opts.host)
         ):
             print(
                 f"run.py: REFUSED — the compose file's units run natively, which "
@@ -773,10 +773,7 @@ def serve(argv: list[str]) -> int:
         here = (
             gatelib.local_transport(opts.host) and hostos.os_name() in NATIVE_BY_DEFAULT
         )
-        there = (
-            opts.host not in gatelib.LOCAL_RIGS
-            and gatelib.recorded_os(opts.host) in NATIVE_BY_DEFAULT
-        )
+        there = nativerig.remote(opts.host)
         launcher = LAUNCHER_NATIVE if here or there else LAUNCHER_DOCKER
     env = dict(os.environ)
     _door_env(env)

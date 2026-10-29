@@ -46,13 +46,9 @@ def is_local_host(host: str) -> bool:
 
 
 def host_system(host: str) -> str:
-    """The system `host` is: this machine's (`mcgyvr.hostos.os_name`) for a name
-    of this machine, else the one its rig file records, Linux when it records
-    none (`mcgyvr.serving.gatelib.rig_system`). No ssh is made."""
-    if is_local_host(host):
-        from mcgyvr import hostos
-
-        return hostos.os_name()
+    """The system `host` is (`mcgyvr.serving.gatelib.rig_system`: this
+    machine's for a name of this machine, else the one its rig file records,
+    Linux when it records none). No ssh is made."""
     from mcgyvr.serving import gatelib
 
     return gatelib.rig_system(host)

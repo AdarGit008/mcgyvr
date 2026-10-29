@@ -25,6 +25,8 @@ from typing import Any
 # How long one ssh read may run before its host counts as unreachable.
 # Each host gets this to itself; the bound is not shared across a sweep.
 SSH_TIMEOUT_S = 60.0
+#: The status ssh itself exits with when it fails (no connection, no login).
+SSH_FAILED = 255
 
 BYTES_PER_GB = 1024.0**3
 
@@ -61,10 +63,12 @@ class ScannerMissing(Exception):  # noqa: N818
     which is where the reason is usually said.
     """
 
-    def __init__(self, host: str, said: str = "") -> None:
+    def __init__(self, host: str, said: str = "", code: int | None = None) -> None:
         shown = f" ({said.strip()[:300]})" if said.strip() else ""
         super().__init__(f"{host}: no scanner over ssh{shown}")
         self.host = host
+        #: The exit status, when known: 255 is ssh's own failure, not the rig's.
+        self.code = code
 
 
 class ScanFailed(Exception):  # noqa: N818
@@ -654,7 +658,7 @@ def _ssh(host: str, command: str, input: str | None = None) -> str:
     except (OSError, subprocess.SubprocessError):
         raise Unreachable(host) from None
     if done.returncode != 0:
-        raise ScannerMissing(host, done.stderr)
+        raise ScannerMissing(host, done.stderr, done.returncode)
     return done.stdout
 
 
@@ -737,7 +741,7 @@ def _answers_powershell(host: str) -> bool:
     from mcgyvr.serving import gatelib
 
     try:
-        return _ssh(host, gatelib.PROBE_WINDOWS).strip() == gatelib.WINDOWS
+        return _ssh(host, gatelib.PROBE_WINDOWS).strip() == gatelib.WINDOWS_PLATFORM
     except (Unreachable, ScannerMissing):
         return False
 
@@ -758,8 +762,13 @@ def _read_text(host: str) -> str:
         return _ssh(host, sent.command, sent.stdin)
     try:
         return _ssh(host, _remote_scan_command())
-    except ScannerMissing:
-        if gatelib.recorded_os(host) is not None or not _answers_powershell(host):
+    except ScannerMissing as failed:
+        # 255 is ssh failing to reach or log in, which no shell answered.
+        if (
+            failed.code == SSH_FAILED
+            or gatelib.recorded_os(host) is not None
+            or not _answers_powershell(host)
+        ):
             raise
     _WINDOWS_FOUND.add(host)
     sent = gatelib.scan_read(gatelib.WINDOWS)

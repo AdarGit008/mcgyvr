@@ -471,6 +471,16 @@ def test_read_only_command_admits_the_scan_and_discovery_shapes() -> None:
     assert not gatelib._read_only_command("mcgyvr scan --json")
 
 
+def test_a_discovery_folder_find_would_read_as_an_expression_is_refused() -> None:
+    from mcgyvr import recommend
+
+    assert not gatelib._read_only_command(
+        "find '-delete' -maxdepth 1 -name '*.gguf' -print"
+    )
+    with pytest.raises(recommend.RecommendError, match="starting with '-'"):
+        recommend.discover_command("-delete")
+
+
 def test_scan_read_command_is_the_sanctioned_shape() -> None:
     command = gatelib.scan_read_command()
     assert gatelib._read_only_command(command)

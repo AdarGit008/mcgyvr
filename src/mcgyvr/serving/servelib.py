@@ -263,21 +263,16 @@ def _native_here() -> bool:
     )
 
 
-def _native_run_remote() -> bool:
-    """Whether this run's units are native ones on a rig over ssh."""
-    return os.environ.get("RUN_LAUNCHER") == LAUNCHER_NATIVE and not _native_here()
+def _is_native(compose_file: Path) -> bool:
+    return launcher_of(services(compose_file)) == LAUNCHER_NATIVE
 
 
 def _curl(host: str) -> str:
     """The curl a probe over ssh names: ``curl.exe`` on a Windows rig, where
     PowerShell reads ``curl`` as Invoke-WebRequest; ``curl`` elsewhere."""
-    if _native_run_remote() and gatelib.rig_system(host) == gatelib.WINDOWS:
+    if host not in LOCAL_RIGS and gatelib.rig_system(host) == gatelib.WINDOWS:
         return "curl.exe"
     return "curl"
-
-
-def _is_native(compose_file: Path) -> bool:
-    return launcher_of(services(compose_file)) == LAUNCHER_NATIVE
 
 
 def containers_up(launcher: str = LAUNCHER_DOCKER) -> list[str]:

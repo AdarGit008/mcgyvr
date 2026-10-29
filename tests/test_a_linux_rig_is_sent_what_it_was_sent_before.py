@@ -7,8 +7,11 @@ lease``, ``rig-units.sh`` whole on ``bash -s``, the shipped reader on the
 ``echo <base64> | base64 -d | python3 -I -B -`` line (``--cards`` for the card
 read), the header read and the ``find`` discovery, the fetcher on ``python3 -
 mcgyvr-fetch``, and the health probe's ``curl``. No question is asked of it
-first, and nothing it is sent carries a stdin it did not carry. The reader's
-program inside the line is the reader as it now stands, assembled.
+first, and nothing it is sent carries a stdin it did not carry. The programs
+inside the lines (the reader, the fetcher) are the ones this checkout
+assembles (``mcgyvr.serving.shipped``), as a program's bytes always were the
+checkout's; they now refuse a Python older than 3.9 with a sentence, where the
+reader needed 3.11 before and the fetcher alone ran on older ones.
 """
 
 from __future__ import annotations
@@ -148,3 +151,29 @@ def test_the_health_probe_and_the_fetch_are_the_commands_they_were(
         ((host, "curl -sf http://localhost:8080/v1/models"), {"timeout": 30})
     ]
     assert fetchlist.REMOTE_COMMAND == "python3 - mcgyvr-fetch"
+
+
+def test_first_contact_and_the_model_reads_are_one_line_each(
+    monkeypatch: pytest.MonkeyPatch, host: str
+) -> None:
+    from mcgyvr import recommend
+    from mcgyvr import scan as scan_module
+
+    calls: list[tuple[tuple[Any, ...], dict[str, Any]]] = []
+
+    def ssh_read_only(*args: Any, **kwargs: Any) -> subprocess.CompletedProcess[str]:
+        calls.append((args, kwargs))
+        return subprocess.CompletedProcess(["ssh"], 0, "{}", "")
+
+    monkeypatch.setattr(gatelib, "ssh_read_only", ssh_read_only)
+    monkeypatch.setattr(scan_module, "_WINDOWS_FOUND", set())
+    scan_module.read_over(scan_module.Reach.ssh(host))
+    recommend._discover(host, "/m")
+    with pytest.raises(recommend.RecommendError):
+        recommend._read_header(host, "/m/x.gguf")  # the fake prints no header
+    timeout = {"timeout": scan_module.SSH_TIMEOUT_S}
+    assert calls == [
+        ((host, gatelib.scan_read_command()), timeout),
+        ((host, "find '/m' -maxdepth 1 -name '*.gguf' -print"), timeout),
+        ((host, gatelib.header_read_command("/m/x.gguf")), timeout),
+    ]

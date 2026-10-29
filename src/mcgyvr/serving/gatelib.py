@@ -495,10 +495,16 @@ def ssh(
 # the system (`host.os`), and its rig file keeps it for every later run
 # (`recorded_os`).
 
-#: The systems a rig is told apart into, as the reader's `host.os` names them.
+#: The systems a rig is told apart into: `mcgyvr.hubwire.HOST_OS`'s names, as
+#: the reader's `host.os` states them (this file is loaded by path where the
+#: package may be absent, so it spells them; a test holds them to the wire's).
 LINUX = "linux"
 DARWIN = "darwin"
 WINDOWS = "windows"
+#: How Windows PowerShell is asked to run a script: the same under cmd.exe and
+#: under PowerShell as OpenSSH's default shell, the script's UTF-16LE base64
+#: after it.
+POWERSHELL = "powershell -NoProfile -NonInteractive -EncodedCommand "
 
 
 def powershell(script: str) -> str:
@@ -509,23 +515,14 @@ def powershell(script: str) -> str:
     quote; `-NoProfile` keeps the user's profile out of it.
     """
     encoded = base64.b64encode(script.encode("utf-16-le")).decode("ascii")
-    return f"powershell -NoProfile -NonInteractive -EncodedCommand {encoded}"
-
-
-def _from_powershell(command: str) -> str | None:
-    """The script a `powershell()` command runs, or None for any other command."""
-    head = "powershell -NoProfile -NonInteractive -EncodedCommand "
-    if not command.startswith(head):
-        return None
-    try:
-        return base64.b64decode(command[len(head) :], validate=True).decode("utf-16-le")
-    except (ValueError, UnicodeDecodeError):
-        return None
+    return POWERSHELL + encoded
 
 
 #: The question a rig that could not run the POSIX reader is asked: a Windows
-#: shell (cmd.exe or PowerShell) runs it and prints `windows`.
-PROBE_WINDOWS = powershell("'windows'")
+#: shell (cmd.exe or PowerShell) runs it and prints the platform .NET names,
+#: `Win32NT` on Windows (a Linux box with a `powershell` prints `Unix`).
+PROBE_WINDOWS = powershell("[Environment]::OSVersion.Platform.ToString()")
+WINDOWS_PLATFORM = "Win32NT"
 
 
 def recorded_os(host: str) -> str | None:
@@ -544,11 +541,13 @@ def recorded_os(host: str) -> str | None:
         return None
     if saved is None:
         return None
+    from mcgyvr import hubwire
+
     try:
         system = saved.os
     except (ValueError, KeyError, TypeError, AttributeError):
         system = None
-    return system if system in (LINUX, DARWIN, WINDOWS) else LINUX
+    return system if system in hubwire.HOST_OS else LINUX
 
 
 def rig_system(host: str) -> str:
@@ -659,36 +658,44 @@ class Shipped:
     stdin: str | None = None
 
 
-#: The PowerShell a Windows rig runs a shipped program with. Its stdin is the
-#: program in base64 on the first line and, on an optional second, what the
-#: program reads on its own stdin (a job that must not land on disk). It finds
-#: a Python 3.9 or newer (`py -3`, then `python`; the Store's `python` alias
-#: that only opens the Store answers no version and is passed over), writes the
-#: program with WriteAllBytes under `%LOCALAPPDATA%\mcgyvr\tmp`, runs it with
-#: `-I -B` and the arguments the door quoted, hands it its stdin byte for byte,
-#: removes the file and exits with the program's status. `{arguments}` is a
-#: single-quoted literal (`'` doubled).
-_WINDOWS_LAUNCHER = """\
+#: The PowerShell a Windows rig runs every shipped program with: one constant
+#: script, so nothing the door sends is ever part of a script. Its stdin is
+#: three base64 lines: the program; the program's arguments as one Windows
+#: command line (UTF-8; `subprocess.list2cmdline`); what the program reads on
+#: its own stdin (a job that must not land on disk), each line possibly
+#: empty. It finds a Python 3.9 or newer (each `py -3`, then each `python`, on
+#: PATH; the Store's `python` alias answers no version and is passed over),
+#: writes the program with WriteAllBytes under `mcgyvr\tmp` in the user's
+#: local application data (`mcgyvr.hostos.user_temp_root`'s folder), runs it
+#: with `-I -B` and those arguments, hands it its stdin byte for byte, removes
+#: the file and exits with the program's status.
+_WINDOWS_SHIP_SCRIPT = """\
+$ProgressPreference = 'SilentlyContinue'
 $lines = [Console]::In.ReadToEnd().Split([char]10)
-$program = [Convert]::FromBase64String($lines[0].Trim())
-$feed = [byte[]]@()
-if ($lines.Count -gt 1 -and $lines[1].Trim()) {{
-  $feed = [Convert]::FromBase64String($lines[1].Trim())
-}}
+function Line($n) {
+  if ($lines.Count -gt $n -and $lines[$n].Trim()) {
+    return [Convert]::FromBase64String($lines[$n].Trim())
+  }
+  return [byte[]]@()
+}
+$program = Line 0
+$arguments = [Text.Encoding]::UTF8.GetString((Line 1))
+$feed = Line 2
 $python = $null
-foreach ($try in @(@('py', '-3'), @('python'))) {{
-  $found = Get-Command $try[0] -CommandType Application -ErrorAction SilentlyContinue |
-    Select-Object -First 1
-  if (-not $found) {{ continue }}
+foreach ($try in @(@('py', '-3'), @('python'))) {
   $lead = @($try | Select-Object -Skip 1)
-  & $found.Source @lead -I -B -c 'import sys; sys.exit(sys.version_info < (3, 9))' |
-    Out-Null
-  if ($LASTEXITCODE -eq 0) {{ $python = @($found.Source) + $lead; break }}
-}}
-if (-not $python) {{
+  foreach ($found in @(Get-Command $try[0] -CommandType Application -All `
+      -ErrorAction SilentlyContinue)) {
+    & $found.Source @lead -I -B -c 'import sys; sys.exit(sys.version_info < (3, 9))' `
+      2>$null | Out-Null
+    if ($LASTEXITCODE -eq 0) { $python = @($found.Source) + $lead; break }
+  }
+  if ($python) { break }
+}
+if (-not $python) {
   [Console]::Error.WriteLine('mcgyvr: no Python 3.9 or newer here (py -3, python)')
   exit 127
-}}
+}
 $local = [Environment]::GetFolderPath('LocalApplicationData')
 $folder = Join-Path $local 'mcgyvr\\tmp'
 [void][IO.Directory]::CreateDirectory($folder)
@@ -697,21 +704,23 @@ $file = Join-Path $folder ('shipped-' + [Guid]::NewGuid().ToString('N') + '.py')
 $start = New-Object Diagnostics.ProcessStartInfo
 $start.FileName = $python[0]
 $lead = (@($python | Select-Object -Skip 1) + @('-I', '-B')) -join ' '
-$start.Arguments = ($lead + ' "' + $file + '" ' + {arguments}).Trim()
+$start.Arguments = ($lead + ' "' + $file + '" ' + $arguments).Trim()
 $start.UseShellExecute = $false
 $start.RedirectStandardInput = $true
 $code = 1
-try {{
+try {
   $child = [Diagnostics.Process]::Start($start)
   $child.StandardInput.BaseStream.Write($feed, 0, $feed.Length)
   $child.StandardInput.Close()
   $child.WaitForExit()
   $code = $child.ExitCode
-}} finally {{
+} finally {
   Remove-Item -LiteralPath $file -Force -ErrorAction SilentlyContinue
-}}
+}
 exit $code
 """
+#: The one command every program shipped to a Windows rig is run by.
+WINDOWS_SHIP = powershell(_WINDOWS_SHIP_SCRIPT)
 
 
 def windows_split(line: str) -> list[str]:
@@ -756,12 +765,8 @@ def windows_split(line: str) -> list[str]:
     return args
 
 
-def _windows_launcher(args: tuple[str, ...]) -> str:
-    """The launcher script with `args` quoted as a Windows command line
-    (`subprocess.list2cmdline`, the C runtime's rules) inside a PowerShell
-    single-quoted literal."""
-    line = subprocess.list2cmdline(list(args)).replace("'", "''")
-    return _WINDOWS_LAUNCHER.format(arguments=f"'{line}'")
+def _b64(data: bytes) -> str:
+    return base64.b64encode(data).decode("ascii")
 
 
 def ship(
@@ -770,27 +775,30 @@ def ship(
     args: tuple[str, ...] = (),
     *,
     feed: bytes | None = None,
+    on_stdin: bool = False,
 ) -> Shipped:
     """How `program` runs on a rig of `system` with `args`.
 
     POSIX (Linux, macOS): `echo <base64> | base64 -d | python3 -I -B - ARGS`,
-    each argument a plain token or single-quoted; a `feed` has no place on that
-    line and is refused. Windows: :data:`_WINDOWS_LAUNCHER` under `powershell`,
-    with the program and the feed on stdin.
+    each argument a plain token or single-quoted; `on_stdin` sends the base64
+    on stdin instead (`base64 -d | python3 -I -B - ARGS`), for a program too
+    long for one argument of the door's own ssh command line. A `feed` has no
+    place on a POSIX line and is refused. Windows: :data:`WINDOWS_SHIP`, the
+    program, its arguments and the feed on stdin (:data:`_WINDOWS_SHIP_SCRIPT`).
     """
     if system == WINDOWS:
-        stdin = base64.b64encode(program).decode("ascii")
-        if feed is not None:
-            stdin += "\n" + base64.b64encode(feed).decode("ascii")
-        return Shipped(powershell(_windows_launcher(args)), stdin + "\n")
+        line = subprocess.list2cmdline(list(args)).encode("utf-8")
+        lines = (_b64(program), _b64(line), _b64(feed or b""))
+        return Shipped(WINDOWS_SHIP, "\n".join(lines) + "\n")
     if feed is not None:
         raise ValueError("a POSIX line carries its program on echo, and no feed")
     tail = "".join(
         f" {arg}" if _PLAIN_ARG.fullmatch(arg) else f" {_single_quote(arg)}"
         for arg in args
     )
-    encoded = base64.b64encode(program).decode("ascii")
-    return Shipped(f"echo {encoded}{_SCAN_READ_SUFFIX}{tail}")
+    if on_stdin:
+        return Shipped(f"{_SCAN_READ_SUFFIX[3:]}{tail}", _b64(program) + "\n")
+    return Shipped(f"echo {_b64(program)}{_SCAN_READ_SUFFIX}{tail}")
 
 
 def scan_read(system: str, *, cards: bool = False) -> Shipped:
@@ -808,72 +816,58 @@ def header_read(system: str, path: str) -> Shipped:
 
 
 #: The `*.gguf` files one level down a folder on a Windows rig, one full path a
-#: line; `{folder}` is a single-quoted literal.
-_WINDOWS_DISCOVER = (
-    "Get-ChildItem -LiteralPath {folder} -File -ErrorAction SilentlyContinue | "
-    "Where-Object {{ $_.Extension -eq '.gguf' }} | "
-    "ForEach-Object {{ $_.FullName }}"
+#: line: a constant script, the folder (UTF-8, base64) its one stdin line.
+WINDOWS_DISCOVER = powershell(
+    "$folder = [Text.Encoding]::UTF8.GetString("
+    "[Convert]::FromBase64String([Console]::In.ReadToEnd().Trim()))\n"
+    "Get-ChildItem -LiteralPath $folder -File -ErrorAction SilentlyContinue | "
+    "Where-Object { $_.Extension -eq '.gguf' } | "
+    "ForEach-Object { $_.FullName }\n"
 )
 
 
-def windows_discover(directory: str) -> str:
+def windows_discover(directory: str) -> Shipped:
     """The read-only listing of the `*.gguf` files directly in `directory` on a
     Windows rig."""
     if not directory:
         raise ValueError("no folder to list")
-    folder = "'" + directory.replace("'", "''") + "'"
-    return powershell(_WINDOWS_DISCOVER.format(folder=folder))
+    return Shipped(WINDOWS_DISCOVER, _b64(directory.encode("utf-8")) + "\n")
 
 
-def _windows_args_literal(script: str) -> str | None:
-    """The quoted-arguments literal of a launcher script, or None for another."""
-    head, _sep, rest = _WINDOWS_LAUNCHER.partition("{arguments}")
-    tail = rest.replace("{{", "{").replace("}}", "}")
-    head = head.replace("{{", "{").replace("}}", "}")
-    if not (script.startswith(head) and script.endswith(tail)):
+def _decoded(line: str) -> str | None:
+    """One base64 stdin line as UTF-8 text, or None when it is not one."""
+    try:
+        return base64.b64decode(line, validate=True).decode("utf-8")
+    except (ValueError, UnicodeDecodeError):
         return None
-    literal = script[len(head) : len(script) - len(tail)]
-    if len(literal) < 2 or literal[0] != "'" or literal[-1] != "'":
-        return None
-    inner = literal[1:-1]
-    if "'" in inner.replace("''", ""):
-        return None
-    return inner.replace("''", "'")
 
 
 def _read_only_windows(command: str, stdin: str | None) -> bool:
     """Whether a Windows command (and its stdin) is a sanctioned read: the
-    probe, the `*.gguf` listing, or the launcher running this checkout's
-    scanner (no argument) or header reader (one argument)."""
+    probe; the `*.gguf` listing of one folder; or the ship script running this
+    checkout's scanner (no argument) or header reader (one argument), with no
+    feed. Every script is a constant, compared whole; the data on stdin is
+    checked, and none of it is ever part of a script."""
     if command == PROBE_WINDOWS:
         return stdin is None
-    script = _from_powershell(command)
-    if script is None:
+    if stdin is None or not stdin.endswith("\n"):
         return False
-    head, _sep, rest = _WINDOWS_DISCOVER.partition("{folder}")
-    head = head.replace("{{", "{").replace("}}", "}")
-    tail = rest.replace("{{", "{").replace("}}", "}")
-    if script.startswith(head) and script.endswith(tail):
-        folder = script[len(head) : len(script) - len(tail)]
-        return (
-            stdin is None
-            and len(folder) > 2
-            and folder[0] == folder[-1] == "'"
-            and "'" not in folder[1:-1].replace("''", "")
-        )
-    arguments = _windows_args_literal(script)
-    if arguments is None or stdin is None:
+    lines = stdin[:-1].split("\n")
+    if command == WINDOWS_DISCOVER:
+        folder = _decoded(lines[0]) if len(lines) == 1 else None
+        return bool(folder)
+    if command != WINDOWS_SHIP or len(lines) != 3 or lines[2]:
         return False
-    lines = stdin.split("\n")
-    if len(lines) != 2 or lines[1] != "":
+    sent, arguments = lines[0], _decoded(lines[1])
+    if arguments is None:
         return False
-    sent = lines[0]
     if not arguments:
         # The `--cards` read goes under the door (`ssh`), as on POSIX.
-        return sent == base64.b64encode(_reader_program()).decode("ascii")
+        return sent == _b64(_reader_program())
     one = windows_split(arguments)
     return (
         len(one) == 1
+        and bool(one[0])
         and subprocess.list2cmdline(one) == arguments
         and sent == _header_read_blob()
     )
@@ -890,7 +884,7 @@ def _read_only_command(command: str, stdin: str | None = None) -> bool:
     checkout builds, so anything else — a hand-edited line included — is not
     traffic a read is allowed to make.
     """
-    if _from_powershell(command) is not None:
+    if command.startswith(POWERSHELL):
         return _read_only_windows(command, stdin)
     if stdin is not None:
         return False
@@ -908,6 +902,8 @@ def _read_only_command(command: str, stdin: str | None = None) -> bool:
             and directory[-1] == "'"
             and "'" not in directory[1:-1]
             and bool(directory[1:-1])
+            # `find` reads a leading `-` as an expression (`-delete`).
+            and not directory[1:-1].startswith("-")
         )
 
     if not command.startswith("echo ") or _HEADER_READ_MIDDLE not in command:

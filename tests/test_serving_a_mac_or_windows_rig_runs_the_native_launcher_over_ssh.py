@@ -22,7 +22,7 @@ import pytest
 import yaml
 
 from mcgyvr import emit
-from mcgyvr.config import parse
+from mcgyvr.config import NATIVE_BY_DEFAULT, parse
 from mcgyvr.fleet import read
 from mcgyvr.scan import Scan
 from mcgyvr.serving import (
@@ -80,24 +80,25 @@ def _verb(shell: FakeShell, system: str) -> list[str]:
     """The native launcher's verb and arguments in the one call `shell` got."""
     ((command, stdin),) = shell.sent
     program = shipped.packed(shipped.native())
+    assert stdin is not None
     if system == "windows":
-        assert command.startswith("powershell ")
-        assert stdin is not None
-        assert base64.b64decode(stdin.split("\n")[0]) == program
-        script = gatelib._from_powershell(command)
-        assert script is not None
-        arguments = gatelib._windows_args_literal(script)
-        assert arguments is not None
-        return gatelib.windows_split(arguments)
-    assert stdin is None
-    blob, _sep, tail = command[len("echo ") :].partition(
-        " | base64 -d | python3 -I -B - "
-    )
-    assert base64.b64decode(blob) == program
-    return tail.split(" ")
+        assert command == gatelib.WINDOWS_SHIP
+        sent, arguments, feed = stdin[:-1].split("\n")
+        assert base64.b64decode(sent) == program and not feed
+        return gatelib.windows_split(base64.b64decode(arguments).decode())
+    # The launcher is on stdin: it is too long for the door's own ssh argument.
+    head = "base64 -d | python3 -I -B - "
+    assert command.startswith(head)
+    assert base64.b64decode(stdin) == program
+    return command[len(head) :].split(" ")
 
 
-@pytest.fixture(params=[("unified-laptop", "darwin"), ("windows-one-card", "windows")])
+@pytest.fixture(
+    params=[
+        ("unified-laptop", NATIVE_BY_DEFAULT[0]),
+        ("windows-one-card", NATIVE_BY_DEFAULT[1]),
+    ]
+)
 def rig(
     request: pytest.FixtureRequest, monkeypatch: pytest.MonkeyPatch, tmp_path: Path
 ) -> tuple[str, str]:

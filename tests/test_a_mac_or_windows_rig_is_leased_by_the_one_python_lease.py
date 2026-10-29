@@ -14,6 +14,7 @@ from pathlib import Path
 
 import pytest
 
+from mcgyvr.config import NATIVE_BY_DEFAULT
 from mcgyvr.serving import gatelib
 from tests.remote_rigs import FakeShell, record_rig
 
@@ -24,7 +25,7 @@ def test_the_lease_is_taken_stamped_and_released_on_the_rig(
 ) -> None:
     record_rig(monkeypatch, tmp_path, "box1", label)
     system = gatelib.recorded_os("box1")
-    assert system in ("darwin", "windows")
+    assert system in NATIVE_BY_DEFAULT
     shell = FakeShell(str(system), tmp_path / "rig-home")
     monkeypatch.setattr(gatelib, "ssh", shell)
     mine = gatelib.new_lease("up", 4242)

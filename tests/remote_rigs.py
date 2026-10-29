@@ -118,6 +118,9 @@ class FakeShell:
         if command.startswith("echo ") and line in command:
             blob, _sep, tail = command[len("echo ") :].partition(line)
             return self._python(shlex.split(tail), base64.b64decode(blob))
+        if command.startswith(line[3:]):
+            tail = command[len(line[3:]) :]
+            return self._python(shlex.split(tail), base64.b64decode(stdin or ""))
         words = shlex.split(command)
         if words[:1] == ["python3"]:
             return self._python(words[1:], (stdin or "").encode("utf-8"))
@@ -144,22 +147,26 @@ class FakeShell:
     ) -> subprocess.CompletedProcess[str]:
         from mcgyvr.serving import gatelib
 
-        script = gatelib._from_powershell(command)
-        if script is None:
+        def answer(
+            code: int, out: str = "", err: str = ""
+        ) -> subprocess.CompletedProcess[str]:
+            return subprocess.CompletedProcess([command], code, out, err)
+
+        if not command.startswith(gatelib.POWERSHELL):
             word = command.split(" ", 1)[0]
-            return subprocess.CompletedProcess(
-                [command], 1, "", f"'{word}' {NOT_RECOGNIZED},\n"
-            )
+            return answer(1, err=f"'{word}' {NOT_RECOGNIZED},\n")
         if command == gatelib.PROBE_WINDOWS:
-            return subprocess.CompletedProcess([command], 0, "windows\n", "")
-        arguments = gatelib._windows_args_literal(script)
-        if arguments is None or stdin is None:
-            return subprocess.CompletedProcess(
-                [command], 1, "", "a script this shell does not run\n"
-            )
-        lines = stdin.split("\n")
+            return answer(0, gatelib.WINDOWS_PLATFORM + "\n")
+        lines = (stdin or "").split("\n")
+        if command == gatelib.WINDOWS_DISCOVER:
+            folder = Path(base64.b64decode(lines[0]).decode("utf-8"))
+            found = sorted(str(p) for p in folder.glob("*.gguf") if p.is_file())
+            return answer(0, "".join(f"{p}\n" for p in found))
+        if command != gatelib.WINDOWS_SHIP or len(lines) < 3:
+            return answer(1, err="a script this shell does not run\n")
         program = base64.b64decode(lines[0])
-        feed = base64.b64decode(lines[1]) if len(lines) > 1 and lines[1] else b""
+        arguments = base64.b64decode(lines[1]).decode("utf-8")
+        feed = base64.b64decode(lines[2])
         folder = self.home / "AppData" / "Local" / "mcgyvr" / "tmp"
         folder.mkdir(parents=True, exist_ok=True)
         written = folder / "shipped-test.py"

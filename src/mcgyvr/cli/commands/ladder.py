@@ -66,15 +66,18 @@ from mcgyvr.serving.rigfile import recorded_scans, resolve_hosts
 def _native_status(host: str) -> int:
     """Print one line per native unit this machine supervises, or has.
 
-    Native units run on the machine mcgyvr runs on, so only a name of this
-    machine (`gatelib.LOCAL_RIGS`) has any; another is refused.
+    Only a name of this machine (`gatelib.LOCAL_RIGS`) is read here; a macOS
+    or Windows rig's native units are read through the door
+    (`python -m mcgyvr.serving.run read --host RIG`), and any other host is
+    refused.
     """
     from mcgyvr.serving import gatelib, native
 
     if host not in gatelib.LOCAL_RIGS:
         print(
-            f"error: {host} is not this machine; native units run where "
-            "mcgyvr runs, and their status is read there",
+            f"error: {host} is not this machine; a rig's native units are "
+            "read through the door (`python -m mcgyvr.serving.run read --host "
+            f"{host}`)",
             file=sys.stderr,
         )
         return Exit.REFUSED
