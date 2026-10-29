@@ -1,6 +1,6 @@
 """The `mcgyvr rig` verbs: the agent that holds a channel to a hub, and the
-commands that join, run, inspect, leave, sync relief rungs and set what this
-machine lends.
+commands that join, run, inspect, leave, sync relief rungs and crew units and set
+what this machine lends.
 
 `run_agent` is the substance: it wires sessions, relays, probes and hitchhike
 units together behind one outbox and runs `agent.Agent` until a signal stops it
@@ -505,10 +505,12 @@ def _leave(args: argparse.Namespace) -> int:
     return int(Exit.OK)
 
 
-def _rungs_sync(args: argparse.Namespace) -> int:
+def _hub_sync(args: argparse.Namespace) -> tuple[str, str, str, Path] | int:
+    """The hub, the key, its variable's name and the setup folder a sync of
+    ``rungs`` or ``crew`` names, or the exit code it refuses with."""
     import re
 
-    from mcgyvr.config import ConfigError, config_path, load
+    from mcgyvr.config import ConfigError, config_path
     from mcgyvr.rig import credentials, rungs
 
     key_env: str = args.key_env
@@ -554,6 +556,17 @@ def _rungs_sync(args: argparse.Namespace) -> int:
     except ConfigError as exc:
         print(f"error: {exc}", file=sys.stderr)
         return int(Exit.ERROR)
+    return hub, key, key_env, folder
+
+
+def _rungs_sync(args: argparse.Namespace) -> int:
+    from mcgyvr.config import ConfigError, load
+    from mcgyvr.rig import rungs
+
+    named = _hub_sync(args)
+    if isinstance(named, int):
+        return named
+    hub, key, key_env, folder = named
     try:
         rides, where = rungs.sync(folder, hub, key, key_env)
     except rungs.HubAnswerError as exc:
@@ -580,6 +593,27 @@ def _rungs_sync(args: argparse.Namespace) -> int:
             f"note: relief rungs take work only under `fanout: idle`; this "
             f"ladder's is `{fanout}`"
         )
+    return int(Exit.OK)
+
+
+def _crew_sync(args: argparse.Namespace) -> int:
+    from mcgyvr.rig import crew, rungs
+
+    named = _hub_sync(args)
+    if isinstance(named, int):
+        return named
+    hub, key, key_env, folder = named
+    try:
+        lent, where = crew.sync(folder, hub, key, key_env)
+    except rungs.HubAnswerError as exc:
+        print(f"error: {exc}; the crew units kept are unchanged", file=sys.stderr)
+        return int(Exit.REFUSED)
+    except (rungs.SyncError, OSError) as exc:
+        print(f"error: {exc}", file=sys.stderr)
+        return int(Exit.ERROR)
+    print(f"kept {len(lent)} crew unit(s) in {where}")
+    for each in lent:
+        print(f"  {each.name}  x{each.width}  {each.model}")
     return int(Exit.OK)
 
 
@@ -676,13 +710,41 @@ def _share(args: argparse.Namespace) -> int:
     return int(Exit.OK)
 
 
+def _sync_parser(
+    verbs: argparse._SubParsersAction[argparse.ArgumentParser],
+    add_config: Callable[..., None],
+    *,
+    help: str,
+    written: str,
+    func: Callable[[argparse.Namespace], int],
+) -> None:
+    """Add a `sync` verb under `verbs`: the hub to ask, the key's variable and
+    the setup whose `written` file it rewrites."""
+    sync = verbs.add_parser("sync", help=help)
+    sync.add_argument(
+        "--hub",
+        metavar="HUB_URL",
+        help="the hub to ask (default: the one this machine joined)",
+    )
+    sync.add_argument(
+        "--key-env",
+        default="MCGYVR_HUB_API_KEY",
+        metavar="NAME",
+        help="the NAME of the variable holding your personal hub key "
+        "(default: MCGYVR_HUB_API_KEY)",
+    )
+    add_config(sync, what=f"setup whose {written} is written")
+    sync.set_defaults(func=func)
+
+
 def add_parser(
     sub: argparse._SubParsersAction[argparse.ArgumentParser],
     *,
     add_config: Callable[..., None],
 ) -> None:
     """Add the `rig` verb and the verbs under it: join, run, status, leave,
-    rungs sync and share, each with the defaults its parser starts from.
+    rungs sync, crew sync and share, each with the defaults its parser starts
+    from.
 
     `add_config` attaches the setup option to the verbs that read a setup.
     """
@@ -719,25 +781,26 @@ def add_parser(
         "rungs", help="the relief rungs the hub matched you to (hitchhike)"
     )
     rung_verbs = rungs.add_subparsers(dest="rungs_command", required=True)
-    sync = rung_verbs.add_parser(
-        "sync",
+    _sync_parser(
+        rung_verbs,
+        add_config,
         help="keep the hub's relief rungs in the setup's relief.yaml, replacing "
         "the ones kept",
+        written="relief.yaml",
+        func=_rungs_sync,
     )
-    sync.add_argument(
-        "--hub",
-        metavar="HUB_URL",
-        help="the hub to ask (default: the one this machine joined)",
+    crew = verbs.add_parser(
+        "crew", help="the units your crews lend you through the hub"
     )
-    sync.add_argument(
-        "--key-env",
-        default="MCGYVR_HUB_API_KEY",
-        metavar="NAME",
-        help="the NAME of the variable holding your personal hub key "
-        "(default: MCGYVR_HUB_API_KEY)",
+    crew_verbs = crew.add_subparsers(dest="crew_command", required=True)
+    _sync_parser(
+        crew_verbs,
+        add_config,
+        help="keep the units your crews lend you in the setup's crew.yaml, "
+        "replacing the ones kept",
+        written="crew.yaml",
+        func=_crew_sync,
     )
-    add_config(sync, what="setup whose relief.yaml is written")
-    sync.set_defaults(func=_rungs_sync)
     share = verbs.add_parser(
         "share", help="what this rig lends to the hub's sessions; change it"
     )

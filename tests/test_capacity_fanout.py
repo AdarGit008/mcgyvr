@@ -8,14 +8,17 @@ throughput rig feeding an intelligence rig — must not, since the second rig is
 sized to drain the first's failure tail and fanning volume onto it eats exactly
 the capacity that drain needs.
 
-* ``none`` — the default: the cheapest rung at or above the contract's floor,
-  queued behind whoever is already there.
-* ``idle`` — the cheapest rung at or above the floor **that has a free slot**.
+* ``none`` — no fan-out: the cheapest rung at or above the contract's floor,
+  queued behind whoever is already there. (Unset is ``idle`` under
+  ``mcgyvr-code``.)
+* ``idle`` — the cheapest rung at or above the floor **that has a free slot**,
+  short of the api family.
 * ``full`` — spread across the eligible rungs regardless of load.
 
-The floor is the only bound. ``idle`` may climb as far as the ascent goes, api
-included, so a saturated local ladder spills into priced capacity rather than
-waiting — a spend decision the knob makes deliberately, not an escalation.
+The floor bounds it from below and the api family from above. Fan-out never
+sends a contract to a priced api rung: a saturated local ladder waits on
+its own rungs, and only escalation, a move a failure pays for and the budget
+counts, reaches the api family.
 
 Two seams carry this, and they are different modules on purpose:
 
@@ -28,7 +31,7 @@ family it was asked about.
 **Across families** — ``idle``'s spill cannot live in ``route`` for that same
 reason. :func:`mcgyvr.escalate.ascent` is already the view "every family this
 contract may climb, from its floor upward", so it is where a load-aware choice
-that may reach api belongs.
+across families belongs, and where it is stopped short of the api family.
 
 **Where the width comes from.** The declared ``width`` is a guess until a backend
 reports one: ``Capacity.of(config, probe=...)`` takes a reported width that is
@@ -371,22 +374,23 @@ class _ReportingProbe:
 # --------------------------------------------------------------------------
 
 
-def test_the_default_keeps_a_batch_on_one_rig_and_never_funds_the_api_family(
+def test_none_keeps_a_batch_on_one_rig_and_never_funds_the_api_family(
     key: None,
 ) -> None:
-    """The default is no fan-out, and this is the test that keeps it that way.
+    """`fanout: none` keeps a batch on one rig, and this is the test that holds it.
 
     Green, and the only green test in this file. It guards two things the other
-    three are all pressure on. The first is the default itself: fan-out is a
-    knob because the Rig A → Rig B ladder must not fan out, and a default that
-    drifted would silently spend Rig B's drain rate on Rig A's volume. The
+    three are all pressure on. The first is the mode itself: fan-out is a
+    knob because the Rig A → Rig B ladder must not fan out, and a mode that
+    drifted would silently spend Rig B's drain rate on Rig A's volume. Under
+    `mcgyvr-code` unset is `idle` (#807), so such a ladder states `none`. The
     second is that queueing is not failing — six contracts through two slots
     means four of them wait, and :mod:`mcgyvr.escalate` climbs on ``FAILED``, so
     a wait that produced a failing verdict would fund the api family out of a
     queue that is free. Every contract lands on box1, none on vendor, and
     nothing fails.
     """
-    config, pool = mapped()
+    config, pool = mapped(peers("none"))
     capacity = Capacity.of(config)
     observer = Observer()
     rendezvous = Rendezvous(2)
@@ -452,21 +456,17 @@ def test_load_never_reorders_the_price_ladder_even_at_full_fanout() -> None:
     assert ordered.rungs == ("local_box1", "local_box2"), "price order, always"
 
 
-def test_idle_fanout_spills_to_a_free_api_rung_when_every_local_rung_is_full(
+def test_idle_fanout_names_no_api_rung_when_every_local_rung_is_full(
     key: None,
 ) -> None:
-    """Where ``idle`` stops being a throughput knob and becomes a spend one.
+    """Where ``idle`` stays a throughput knob and never becomes a spend one.
 
-    With both local rigs full, the cheapest rung at or above this contract's
-    floor that still has a free slot is ``api_big`` — so ``idle`` buys capacity
-    because the local rigs were busy, not because anything failed. That is the
-    knob doing what it was asked to do, and it is worth writing down precisely
-    because it looks identical, from the outside, to the escalation this file's
-    other tests exist to prevent. The difference is the record: nothing failed,
-    no verdict was reached, and the rung was chosen rather than climbed to.
-
-    The floor is the one bound. A rung *below* the contract's floor is never
-    eligible however idle it is — risk raises a floor and load may not lower it.
+    With both local rigs full, ``api_big`` is the only rung with a free slot,
+    and ``idle`` still does not name it: buying priced capacity because the
+    local rigs were busy would look, from the outside, identical to the
+    escalation this file's other tests exist to prevent, without a failure to
+    pay for it. The contract waits on its own ladder; the api rung is reached
+    only by climbing to it, and nothing is claimed on it here.
     """
     config, pool = mapped(peers("idle"))
     capacity = Capacity.of(config)
@@ -474,4 +474,6 @@ def test_idle_fanout_spills_to_a_free_api_rung_when_every_local_rung_is_full(
     with saturated(capacity, pool, "local_box1", "local_box2"):
         climbable = ascent(config, pool, contract(), capacity=capacity)
 
-        assert climbable.next_free_rung == "api_big"
+        assert climbable.next_free_rung is None
+        assert climbable.reserve_entry() is None
+        assert capacity.load("api_big") == 0, "nothing priced was claimed"
