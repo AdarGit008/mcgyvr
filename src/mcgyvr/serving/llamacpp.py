@@ -44,6 +44,8 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 
+from mcgyvr.hostos import DARWIN, LINUX, WINDOWS
+from mcgyvr.hubwire import HOST_ARCH, RESOURCE_BACKENDS
 from mcgyvr.serving.release import Asset, Release
 
 #: The pinned llama.cpp build.
@@ -58,13 +60,12 @@ SERVER = "llama-server"
 RPC_SERVER = "ggml-rpc-server"
 EXECUTABLES = (SERVER, RPC_SERVER)
 
-#: The backends a native build runs on, spelled as the resource contract
-#: spells a backend (``rocm`` aside: no build here is picked for it).
-METAL = "metal"
-CUDA = "cuda"
-VULKAN = "vulkan"
-CPU = "cpu"
+#: The backends a native build runs on, the resource contract's own
+#: (``rocm`` aside: no build here is picked for it), and the systems and
+#: architectures it is built for, the wire's (:mod:`mcgyvr.hubwire`).
+CUDA, METAL, VULKAN, _ROCM, CPU = RESOURCE_BACKENDS
 BACKENDS = (METAL, CUDA, VULKAN, CPU)
+X86_64, ARM64 = ARCHES = HOST_ARCH
 #: The lowest driver branch each CUDA major version runs on (NVIDIA's minor
 #: version compatibility table); below the lowest, a CUDA build is not picked.
 CUDA_DRIVER_FLOOR = {13: 580, 12: 525}
@@ -217,54 +218,54 @@ def _build(os_name: str, arch: str, backend: str, *assets: str) -> Build:
 #: has one row per CUDA major version; :func:`build_for` takes the newest the
 #: driver runs.
 BUILDS: tuple[Build, ...] = (
-    _build("darwin", "arm64", METAL, "llama-b11960-bin-macos-arm64.tar.gz"),
-    _build("darwin", "x86_64", CPU, "llama-b11960-bin-macos-x64.tar.gz"),
-    _build("linux", "x86_64", CPU, "llama-b11960-bin-ubuntu-x64.tar.gz"),
-    _build("linux", "arm64", CPU, "llama-b11960-bin-ubuntu-arm64.tar.gz"),
-    _build("linux", "x86_64", VULKAN, "llama-b11960-bin-ubuntu-vulkan-x64.tar.gz"),
-    _build("linux", "arm64", VULKAN, "llama-b11960-bin-ubuntu-vulkan-arm64.tar.gz"),
+    _build(DARWIN, ARM64, METAL, "llama-b11960-bin-macos-arm64.tar.gz"),
+    _build(DARWIN, X86_64, CPU, "llama-b11960-bin-macos-x64.tar.gz"),
+    _build(LINUX, X86_64, CPU, "llama-b11960-bin-ubuntu-x64.tar.gz"),
+    _build(LINUX, ARM64, CPU, "llama-b11960-bin-ubuntu-arm64.tar.gz"),
+    _build(LINUX, X86_64, VULKAN, "llama-b11960-bin-ubuntu-vulkan-x64.tar.gz"),
+    _build(LINUX, ARM64, VULKAN, "llama-b11960-bin-ubuntu-vulkan-arm64.tar.gz"),
     _build(
-        "linux",
-        "x86_64",
+        LINUX,
+        X86_64,
         CUDA,
         "llama-b11960-bin-ubuntu-cuda-13.4-x64.tar.gz",
         "cudart-llama-b11960-bin-ubuntu-cuda-13.4-x64.tar.gz",
     ),
     _build(
-        "linux",
-        "x86_64",
+        LINUX,
+        X86_64,
         CUDA,
         "llama-b11960-bin-ubuntu-cuda-12.8-x64.tar.gz",
         "cudart-llama-b11960-bin-ubuntu-cuda-12.8-x64.tar.gz",
     ),
     _build(
-        "linux",
-        "arm64",
+        LINUX,
+        ARM64,
         CUDA,
         "llama-b11960-bin-ubuntu-cuda-13.4-arm64.tar.gz",
         "cudart-llama-b11960-bin-ubuntu-cuda-13.4-arm64.tar.gz",
     ),
-    _build("windows", "x86_64", CPU, "llama-b11960-bin-win-cpu-x64.zip"),
-    _build("windows", "arm64", CPU, "llama-b11960-bin-win-cpu-arm64.zip"),
-    _build("windows", "x86_64", VULKAN, "llama-b11960-bin-win-vulkan-x64.zip"),
-    _build("windows", "arm64", VULKAN, "llama-b11960-bin-win-vulkan-arm64.zip"),
+    _build(WINDOWS, X86_64, CPU, "llama-b11960-bin-win-cpu-x64.zip"),
+    _build(WINDOWS, ARM64, CPU, "llama-b11960-bin-win-cpu-arm64.zip"),
+    _build(WINDOWS, X86_64, VULKAN, "llama-b11960-bin-win-vulkan-x64.zip"),
+    _build(WINDOWS, ARM64, VULKAN, "llama-b11960-bin-win-vulkan-arm64.zip"),
     _build(
-        "windows",
-        "x86_64",
+        WINDOWS,
+        X86_64,
         CUDA,
         "llama-b11960-bin-win-cuda-13.4-x64.zip",
         "cudart-llama-bin-win-cuda-13.4-x64.zip",
     ),
     _build(
-        "windows",
-        "x86_64",
+        WINDOWS,
+        X86_64,
         CUDA,
         "llama-b11960-bin-win-cuda-12.4-x64.zip",
         "cudart-llama-bin-win-cuda-12.4-x64.zip",
     ),
     _build(
-        "windows",
-        "arm64",
+        WINDOWS,
+        ARM64,
         CUDA,
         "llama-b11960-bin-win-cuda-13.4-arm64.zip",
         "cudart-llama-bin-win-cuda-13.4-arm64.zip",
@@ -307,8 +308,8 @@ def backend_for(
     pinned CUDA build for this architecture, else Vulkan when the machine has
     a Vulkan loader (`vulkan`), else the CPU.
     """
-    if os_name == "darwin":
-        return METAL if arch == "arm64" else CPU
+    if os_name == DARWIN:
+        return METAL if arch == ARM64 else CPU
     if nvidia_driver and any(
         b.backend == CUDA and driver_runs(b, nvidia_driver)
         for b in BUILDS

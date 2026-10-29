@@ -30,6 +30,7 @@ from mcgyvr.fleet.files import (
 )
 from mcgyvr.fleet.ids import _canonical_dump
 from mcgyvr.fleet.roots import LiveFleetError, live_fleet_dir
+from mcgyvr.hostos import DARWIN, WINDOWS
 
 # The use cases an install may serve, in the order setup offers them, are the
 # wire's: `mcgyvr-code` opts in to mcgyvr between a model and you (contracts
@@ -429,7 +430,7 @@ LAUNCHERS = (LAUNCHER_DOCKER, LAUNCHER_NATIVE)
 #: The systems whose machines run a unit natively by default: no NVIDIA
 #: container runtime serves a GPU to a container there (Metal on macOS; on
 #: Windows the pinned CUDA, Vulkan or CPU build).
-NATIVE_BY_DEFAULT = ("darwin", "windows")
+NATIVE_BY_DEFAULT = (DARWIN, WINDOWS)
 
 
 def default_launcher(*, local: bool, engine: str | None, system: str) -> str:

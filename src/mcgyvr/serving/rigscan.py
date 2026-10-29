@@ -1444,6 +1444,25 @@ def _host_section(platform_: _Platform, reading: _Reading) -> dict[str, Any]:
     return {"os": system, "arch": arch, "version": version if usable else None}
 
 
+def host(*, system: str | None = None, bound: float = BOUND_S) -> dict[str, Any]:
+    """This machine's host section alone, as a reading names it (`os`, `arch`,
+    `version`), for a caller that needs no more of the machine: the arch is the
+    machine's (`hw.optional.arm64` on a Mac under an x86_64 interpreter, the
+    processor's on Windows), not the interpreter's. `system` is one of SYSTEMS;
+    by default the one this runs on."""
+    platform_ = _Platform(_system_of("", system), bound, keep=True)
+    return _host_section(platform_, _Reading())
+
+
+def nvidia_smi(*, system: str | None = None) -> str | None:
+    """The nvidia-smi this reader runs, or None when there is none: on Windows
+    by its full path alone (`_windows_nvidia_smi`, never the working folder),
+    elsewhere the one on PATH."""
+    if _system_of("", system) == "windows":
+        return _windows_nvidia_smi()
+    return shutil.which(FIRST_TOOL)
+
+
 #: A CPU reading: the section, its facts and its notes.
 _CpuRead = tuple[dict[str, Any] | None, list[dict[str, str]], list[str]]
 

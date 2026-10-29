@@ -10,7 +10,9 @@ once, and on Linux every call below is the very call the caller made before.
 
 Everything is decided when called, from ``sys.platform``, never at import:
 the module imports on all three systems (nothing POSIX-only is imported at
-the top), and a test can fake any of them. Standard library only.
+the top), and a test can fake any of them. Standard library only, and the
+systems' names, which are the wire's (:data:`mcgyvr.hubwire.HOST_OS`, itself
+standard library only).
 """
 
 from __future__ import annotations
@@ -30,6 +32,11 @@ import time
 from collections.abc import Iterator
 from pathlib import Path
 from typing import Any
+
+from mcgyvr.hubwire import HOST_OS
+
+#: The systems :func:`os_name` answers, spelled as the wire spells a host's os.
+LINUX, DARWIN, WINDOWS = HOST_OS
 
 #: The name mcgyvr's own data and cache folders take under the system's.
 APP = "mcgyvr"
@@ -81,10 +88,10 @@ _UNSAFE_NAME = re.compile(r"[^a-z0-9._-]")
 def os_name() -> str:
     """``linux``, ``darwin`` or ``windows``; any other POSIX answers ``linux``."""
     if sys.platform == "win32":
-        return "windows"
+        return WINDOWS
     if sys.platform == "darwin":
-        return "darwin"
-    return "linux"
+        return DARWIN
+    return LINUX
 
 
 def exe(name: str) -> str:
