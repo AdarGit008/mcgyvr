@@ -208,7 +208,7 @@ def up(
 
         _native_here()
         done = native.up(compose_file, (u.name for u in units))
-        return _finished(done)
+        return done
     if not units:
         return compose(compose_file, "up", "-d", "--remove-orphans")
     return compose(compose_file, "up", "-d", "--no-deps", *(u.name for u in units))
@@ -230,7 +230,7 @@ def down(
 
         _native_here()
         named = units or services(compose_file)
-        return _finished(native.down(u.container for u in named))
+        return native.down(u.container for u in named)
     if not units:
         return compose(compose_file, "down", "--remove-orphans")
     return compose(compose_file, "rm", "--stop", "--force", *(u.name for u in units))
@@ -248,16 +248,6 @@ def _native_here() -> None:
 
 def _is_native(compose_file: Path) -> bool:
     return launcher_of(services(compose_file)) == LAUNCHER_NATIVE
-
-
-def _finished(done: object) -> subprocess.CompletedProcess[str]:
-    """A native verb's answer as the finished call the steps read."""
-    return subprocess.CompletedProcess(
-        args=["native"],
-        returncode=int(getattr(done, "returncode", 1)),
-        stdout=str(getattr(done, "stdout", "")),
-        stderr=str(getattr(done, "stderr", "")),
-    )
 
 
 def containers_up(launcher: str = LAUNCHER_DOCKER) -> list[str]:

@@ -159,15 +159,6 @@ class NativeUnit:
     asleep: bool
 
 
-@dataclass(frozen=True)
-class Done:
-    """How a native verb ended, shaped as a finished ``docker compose`` call is."""
-
-    returncode: int
-    stdout: str = ""
-    stderr: str = ""
-
-
 # --- where things are --------------------------------------------------------
 
 
@@ -296,13 +287,10 @@ def vulkan_loader() -> bool:
         system = os.environ.get("SYSTEMROOT") or r"C:\Windows"
         return (Path(system) / "System32" / "vulkan-1.dll").is_file()
     if hostos.os_name() == hostos.LINUX:
-        import ctypes
+        # Looked up, not loaded: the door's own process loads no driver.
+        import ctypes.util
 
-        try:
-            ctypes.CDLL("libvulkan.so.1")
-        except OSError:
-            return False
-        return True
+        return ctypes.util.find_library("vulkan") is not None
     return False
 
 
@@ -370,7 +358,7 @@ def up(
     folder: Callable[[llamacpp.Build], Path] = binaries,
     build: Callable[[], llamacpp.Build] = pick,
     restart: Mapping[str, float] | None = None,
-) -> Done:
+) -> subprocess.CompletedProcess[str]:
     """Start the spec's native units (the named ones, else every awake one).
 
     A unit already supervised is left as it is. A unit that waits on another
@@ -386,18 +374,24 @@ def up(
         else [u for u in units if not u.asleep]
     )
     if not chosen:
-        return Done(0, "no native unit to start\n")
+        return subprocess.CompletedProcess(
+            ["native"], 0, "no native unit to start\n", ""
+        )
     try:
         picked = build()
         programs = folder(picked)
     except NativeError as exc:
-        return Done(1, "", f"{exc}\n")
+        return subprocess.CompletedProcess(["native"], 1, "", f"{exc}\n")
     by_name = {u.name: u for u in units}
     said: list[str] = []
     failed: list[str] = []
     for unit in _in_order(chosen, by_name):
         for ahead in unit.depends_on:
-            if ahead in by_name and not wait_answers(by_name[ahead].port):
+            # A unit started here a moment ago is still loading its weights,
+            # which takes minutes; one this call did not start either answers
+            # now or is not coming.
+            budget = START_S * 20 if by_name.get(ahead) in chosen else ASK_S
+            if ahead in by_name and not wait_answers(by_name[ahead].port, budget):
                 failed.append(f"{unit.container}: {ahead} never answered")
                 break
         else:
@@ -405,7 +399,8 @@ def up(
             (said if outcome is None else failed).append(
                 f"{unit.container}: started" if outcome is None else outcome
             )
-    return Done(
+    return subprocess.CompletedProcess(
+        ["native"],
         1 if failed else 0,
         "".join(f"{s}\n" for s in said),
         "".join(f"{f}\n" for f in failed),
@@ -543,8 +538,11 @@ def supervisor_env(env: Mapping[str, str]) -> dict[str, str]:
     return kept
 
 
-def down(names: Iterable[str]) -> Done:
-    """Stop the named native units; status 0 when none is left supervised."""
+def down(names: Iterable[str]) -> subprocess.CompletedProcess[str]:
+    """Stop the named native units; status 0 when none is left supervised.
+
+    Answered as the finished ``docker compose`` call the serve steps read.
+    """
     left: list[str] = []
     said: list[str] = []
     for unit in names:
@@ -552,7 +550,8 @@ def down(names: Iterable[str]) -> Done:
             said.append(f"{unit}: stopped")
         else:
             left.append(f"{unit}: still up")
-    return Done(
+    return subprocess.CompletedProcess(
+        ["native"],
         1 if left else 0,
         "".join(f"{s}\n" for s in said),
         "".join(f"{f}\n" for f in left),

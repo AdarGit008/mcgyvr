@@ -20,6 +20,7 @@ from __future__ import annotations
 import calendar
 import contextlib
 import errno
+import functools
 import getpass
 import os
 import re
@@ -444,12 +445,30 @@ def process_start_time(pid: int) -> str | None:
     return start if start.isdigit() else None
 
 
+@functools.cache
+def _kernel32() -> Any:
+    """kernel32, with the calls that answer a HANDLE declared so once.
+
+    ctypes takes an undeclared result for a C ``int``, which would cut a
+    64-bit HANDLE short.
+    """
+    import ctypes
+    from ctypes import wintypes
+
+    kernel = ctypes.WinDLL("kernel32", use_last_error=True)  # type: ignore[attr-defined]
+    kernel.OpenProcess.restype = wintypes.HANDLE
+    kernel.OpenProcess.argtypes = (wintypes.DWORD, wintypes.BOOL, wintypes.DWORD)
+    kernel.CreateJobObjectW.restype = wintypes.HANDLE
+    kernel.CloseHandle.argtypes = (wintypes.HANDLE,)
+    return kernel
+
+
 def _windows_start_time(pid: int) -> str | None:
     """``GetProcessTimes``' creation time of `pid`, or None."""
     import ctypes
     from ctypes import wintypes
 
-    kernel = ctypes.WinDLL("kernel32", use_last_error=True)  # type: ignore[attr-defined]
+    kernel = _kernel32()
     handle = kernel.OpenProcess(_QUERY_LIMITED_INFORMATION, False, pid)
     if not handle:
         return None
@@ -559,8 +578,7 @@ def _windows_job(proc: subprocess.Popen[Any]) -> int | None:
             ("PeakJobMemoryUsed", ctypes.c_size_t),
         ]
 
-    kernel = ctypes.WinDLL("kernel32", use_last_error=True)  # type: ignore[attr-defined]
-    kernel.CreateJobObjectW.restype = wintypes.HANDLE
+    kernel = _kernel32()
     job = kernel.CreateJobObjectW(None, None)
     if not job:
         return None
@@ -594,9 +612,7 @@ def end_pid(pid: int, *, force: bool = False, group: bool = False) -> bool:
     or not this user's to end.
     """
     if sys.platform == "win32":
-        import ctypes
-
-        kernel = ctypes.WinDLL("kernel32", use_last_error=True)  # type: ignore[attr-defined]
+        kernel = _kernel32()
         handle = kernel.OpenProcess(_PROCESS_TERMINATE, False, pid)
         if not handle:
             return False
