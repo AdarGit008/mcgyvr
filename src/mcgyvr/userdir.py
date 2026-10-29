@@ -10,7 +10,6 @@ from __future__ import annotations
 
 import os
 import stat
-import tempfile
 from pathlib import Path
 
 from mcgyvr import hostos
@@ -22,10 +21,12 @@ def user_tempdir(purpose: str) -> Path:
     ``<uid>`` is :func:`mcgyvr.hostos.current_user_id`: the uid on POSIX, the
     login name on Windows.
 
-    The temporary directory is looked up on every call, so a test that points
-    ``tempfile.tempdir`` somewhere else moves every such directory with it.
+    ``<tmp>`` is :func:`mcgyvr.hostos.user_temp_root`: the temporary directory
+    on POSIX, looked up on every call, so a test that points
+    ``tempfile.tempdir`` somewhere else moves every such directory with it; on
+    Windows a folder in the user's own profile.
     """
-    return Path(tempfile.gettempdir()) / f"mcgyvr-{purpose}-{hostos.current_user_id()}"
+    return hostos.user_temp_root() / f"mcgyvr-{purpose}-{hostos.current_user_id()}"
 
 
 def owned_outright(where: Path) -> bool:
@@ -40,7 +41,7 @@ def owned_outright(where: Path) -> bool:
         found = os.lstat(where)
     except OSError:
         return False
-    if not stat.S_ISDIR(found.st_mode):
+    if hostos.is_link(found) or not stat.S_ISDIR(found.st_mode):
         return False
     if not hostos.owned_by_current_user(found):
         return False

@@ -115,14 +115,16 @@ def data_home() -> Path:
     (:func:`mcgyvr.hostos.user_dirs`).
     """
     named = _named(DATA_ENV, _data_shown)
-    return named if named is not None else hostos.user_dirs().data
+    return named if named is not None else hostos.user_data_dir()
 
 
 def _data_shown() -> str:
     """The data folder's default as a refusal names it: ``~/.local/state/mcgyvr``
-    when it is that folder, else the folder in full."""
-    data = hostos.user_dirs().data
-    return DATA_DIR if data == Path(DATA_DIR).expanduser() else str(data)
+    on Linux with no absolute ``$XDG_STATE_HOME``, else the folder in full."""
+    state = os.environ.get("XDG_STATE_HOME")
+    if hostos.os_name() == "linux" and not (state and Path(state).is_absolute()):
+        return DATA_DIR
+    return str(hostos.user_data_dir())
 
 
 def staging_dir(run_id: str) -> Path:

@@ -25,6 +25,7 @@ import signal
 import stat
 import subprocess
 import sys
+import tempfile
 import time
 from collections.abc import Iterator
 from dataclasses import dataclass
@@ -51,6 +52,15 @@ BOOT_ID = Path("/proc/sys/kernel/random/boot_id")
 DARWIN_BOOT_ID = ("/usr/sbin/sysctl", "-n", "kern.bootsessionuuid")
 #: How long that command is given to answer.
 BOOT_ID_S = 5.0
+#: The bit of a Windows reparse tag that marks a name surrogate: a symbolic
+#: link or a junction, which sends a path somewhere else (a cloud-file
+#: placeholder carries a tag without it, and is a plain file).
+_NAME_SURROGATE = 0x2000_0000
+#: Windows' answers for a process that is still running, and for a pid that
+#: names no process; and the access asked to read a process's exit code.
+_STILL_ACTIVE = 259
+_ERROR_INVALID_PARAMETER = 87
+_QUERY_LIMITED_INFORMATION = 0x1000
 #: What a Windows user name keeps when it names a folder; the rest becomes ``_``.
 _UNSAFE_NAME = re.compile(r"[^a-z0-9._-]")
 #: The architectures ``platform.machine()`` spells several ways, by one name.
@@ -165,10 +175,11 @@ def _at_lock_byte(fd: int) -> Iterator[None]:
 def current_user_id() -> str:
     """This user, as a folder name or a message may carry it.
 
-    POSIX: the uid, in decimal. Windows: the login name, lower case, with any
-    character a file name should not hold turned into ``_`` (``user`` when
-    no name can be read). Windows' temporary folder is already the user's
-    own, so the name only keeps two users' folders apart where they share one.
+    POSIX: the uid, in decimal. Windows: the login name from the environment,
+    lower case, with any character a file name should not hold turned into
+    ``_`` (``user`` when no name can be read). It is a label, not a proof: on
+    Windows the per-user folders sit under the user's own profile
+    (:func:`user_temp_root`), which is what keeps them apart.
     """
     if sys.platform == "win32":
         try:
@@ -189,9 +200,11 @@ def posix_ids() -> tuple[int, int] | None:
 def owned_by_current_user(found: os.stat_result) -> bool:
     """Whether the file `found` describes belongs to this user.
 
-    POSIX: its uid is ours. Windows: always, since ``st_uid`` is always 0
-    there; the files mcgyvr keeps sit in the user's profile or temporary
-    folder, which the profile's ACL keeps to that user.
+    POSIX: its uid is ours. Windows: not checked, and always True, since
+    ``st_uid`` is always 0 there; who may use the file is its folder's ACL's
+    to say. The folders mcgyvr makes by default are in the user's profile,
+    whose ACL keeps them to that user; a folder named by ``$MCGYVR_HOME``,
+    ``$MCGYVR_DATA`` or an XDG variable keeps whatever ACL it has.
     """
     if sys.platform == "win32":
         return True
@@ -201,12 +214,27 @@ def owned_by_current_user(found: os.stat_result) -> bool:
 def others_mode_bits(found: os.stat_result, mask: int = 0o077) -> int:
     """The bits of `mask` that `found`'s mode grants group or other.
 
-    POSIX: ``S_IMODE(st_mode) & mask``. Windows: 0, since a mode there says
-    only read-only or not; who else may read is the profile ACL's to say.
+    POSIX: ``S_IMODE(st_mode) & mask``. Windows: not checked, and always 0,
+    since a mode there says only read-only or not; who else may read is the
+    folder's ACL's to say (:func:`owned_by_current_user`).
     """
     if sys.platform == "win32":
         return 0
     return stat.S_IMODE(found.st_mode) & mask
+
+
+def is_link(found: os.stat_result) -> bool:
+    """Whether `found` (from ``lstat``) is a link a path is sent through.
+
+    POSIX: a symbolic link. Windows: a symbolic link or a junction (a reparse
+    point whose tag is a name surrogate), which ``S_ISLNK`` does not report and
+    any user can make without privilege.
+    """
+    if stat.S_ISLNK(found.st_mode):
+        return True
+    if sys.platform == "win32":
+        return bool(getattr(found, "st_reparse_tag", 0) & _NAME_SURROGATE)
+    return False
 
 
 def chmod_private(
@@ -215,8 +243,10 @@ def chmod_private(
     """Narrow `target` (a path, or an open descriptor) to its owner alone.
 
     POSIX: mode 0o700 for a directory, else 0o600; a descriptor is changed
-    through ``fchmod``. Windows: nothing; a mode cannot narrow who may read,
-    and the user's profile ACL already keeps its files to that user.
+    through ``fchmod``. Windows: nothing is changed, since a mode cannot
+    narrow who may read. A file there is as private as its folder's ACL makes
+    it: the user's alone in the profile folders mcgyvr makes by default, and
+    as inherited anywhere else.
     """
     if sys.platform == "win32":
         return
@@ -233,23 +263,35 @@ def open_flags_nonblock() -> int:
     return getattr(os, "O_NONBLOCK", 0)
 
 
+def open_flags_binary() -> int:
+    """``O_BINARY`` where the system has it (Windows), else 0.
+
+    Windows' ``os.open`` opens in text mode otherwise: a written ``\\n``
+    becomes ``\\r\\n`` and a read stops at Ctrl-Z.
+    """
+    return getattr(os, "O_BINARY", 0)
+
+
 def open_nofollow(path: str | os.PathLike[str], flags: int, mode: int = 0o777) -> int:
     """``os.open(path, flags, mode)`` that refuses to go through a link.
 
-    Where ``O_NOFOLLOW`` exists it is added and the kernel refuses a link.
-    Where it does not (Windows), the file is opened and then checked: if the
-    path is a link now, or no longer names the file that was opened, the
-    descriptor is closed and ``OSError(ELOOP)`` raised, as ``O_NOFOLLOW``
-    would have.
+    The file is opened in binary mode (:func:`open_flags_binary`). Where
+    ``O_NOFOLLOW`` exists it is added and the kernel refuses a link. Where it
+    does not (Windows), the link is detected after the open rather than
+    prevented: if the path is a link or junction (:func:`is_link`), or no
+    longer names the file that was opened, the descriptor is closed and
+    ``OSError(ELOOP)`` raised, as ``O_NOFOLLOW`` would have. What the open
+    did through the link (``O_CREAT`` making its target) is not undone, so on
+    Windows this relies on the folder being the user's own.
     """
     nofollow = open_flags_nofollow()
-    fd = os.open(path, flags | nofollow, mode)
+    fd = os.open(path, flags | nofollow | open_flags_binary(), mode)
     if nofollow:
         return fd
     try:
         seen = os.lstat(path)
         opened = os.fstat(fd)
-        if stat.S_ISLNK(seen.st_mode) or (seen.st_dev, seen.st_ino) != (
+        if is_link(seen) or (seen.st_dev, seen.st_ino) != (
             opened.st_dev,
             opened.st_ino,
         ):
@@ -285,7 +327,9 @@ def kill_group(proc: subprocess.Popen[Any]) -> None:
     POSIX: ``SIGKILL`` to its process group; a group already gone raises
     ``ProcessLookupError`` as ``killpg`` does. Windows: ``taskkill /F /T``
     (by its full path under ``%SYSTEMROOT%``) ends the tree, then the leader
-    is killed itself in case that could not run.
+    is killed itself in case that could not run. Windows follows the tree by
+    live parents only, so once the leader has exited, what it left running is
+    not reached; a Job Object would reach it, and is not used here.
     """
     if sys.platform == "win32":
         system = os.environ.get("SYSTEMROOT") or r"C:\Windows"
@@ -326,6 +370,38 @@ def stop_signals() -> tuple[signal.Signals, ...]:
     if sys.platform == "win32":
         return signal.SIGTERM, signal.SIGBREAK
     return signal.SIGTERM, signal.SIGHUP
+
+
+def pid_alive(pid: int) -> bool:
+    """Whether a process with this pid exists, asked without touching it.
+
+    POSIX: signal 0; a pid that cannot be signalled but is there (another
+    user's) counts as running, and only one the kernel reports gone is dead.
+    Windows, where ``os.kill(pid, 0)`` would send a Ctrl-C event: the process
+    is opened to read its exit code; a pid naming no process is dead, one that
+    cannot be opened (another user's) counts as running.
+    """
+    if sys.platform == "win32":
+        import ctypes
+
+        kernel = ctypes.WinDLL("kernel32", use_last_error=True)
+        handle = kernel.OpenProcess(_QUERY_LIMITED_INFORMATION, False, pid)
+        if not handle:
+            return ctypes.get_last_error() != _ERROR_INVALID_PARAMETER
+        try:
+            code = ctypes.c_ulong()
+            if not kernel.GetExitCodeProcess(handle, ctypes.byref(code)):
+                return True
+            return code.value == _STILL_ACTIVE
+        finally:
+            kernel.CloseHandle(handle)
+    try:
+        os.kill(pid, 0)
+    except ProcessLookupError:
+        return False
+    except OSError:
+        return True
+    return True
 
 
 def lower_priority() -> None:
@@ -379,51 +455,77 @@ def boot_id() -> str | None:
 
 @dataclass(frozen=True)
 class UserDirs:
-    """The user's home, and the folders mcgyvr keeps its data and its caches in.
+    """The folders mcgyvr keeps its data and its caches in, by default.
 
     The config folder is not here: it is ``~/.mcgyvr`` on every system
     (:func:`mcgyvr.fleet.roots.home`).
     """
 
-    home: Path
     data: Path
     cache: Path
 
 
 def user_dirs() -> UserDirs:
-    """Where this user's mcgyvr data and caches go when nothing else says.
+    """Both of :func:`user_data_dir` and :func:`user_cache_dir`."""
+    return UserDirs(data=user_data_dir(), cache=user_cache_dir())
 
-    ``$XDG_STATE_HOME`` (when absolute) places the data folder, and
-    ``$XDG_CACHE_HOME`` (when set, ``~`` expanded) the cache folder, on every
+
+def user_data_dir() -> Path:
+    """Where this user's mcgyvr data goes when ``$MCGYVR_DATA`` does not say.
+
+    ``mcgyvr`` under ``$XDG_STATE_HOME`` when that is absolute, on every
     system: a variable the user set wins. Unset, each system's own place:
-
-    - Linux: ``~/.local/state/mcgyvr`` and ``~/.cache/mcgyvr``, as before;
-    - macOS: ``~/Library/Application Support/mcgyvr`` and
-      ``~/Library/Caches/mcgyvr``;
-    - Windows: ``%LOCALAPPDATA%\\mcgyvr`` and ``%LOCALAPPDATA%\\mcgyvr\\cache``,
-      where an unset or relative ``%LOCALAPPDATA%`` is ``~\\AppData\\Local``.
+    Linux ``~/.local/state/mcgyvr``, as before; macOS
+    ``~/Library/Application Support/mcgyvr``; Windows
+    ``%LOCALAPPDATA%\\mcgyvr``. The home is looked up only when needed.
     """
-    home = Path.home()
-    if sys.platform == "win32":
-        local = os.environ.get("LOCALAPPDATA")
-        base = (
-            Path(local)
-            if local and Path(local).is_absolute()
-            else home / "AppData" / "Local"
-        )
-        data, cache = base / APP, base / APP / "cache"
-    elif sys.platform == "darwin":
-        library = home / "Library"
-        data, cache = library / "Application Support" / APP, library / "Caches" / APP
-    else:
-        data, cache = home / ".local" / "state" / APP, home / ".cache" / APP
     state = os.environ.get("XDG_STATE_HOME")
     if state and Path(state).is_absolute():
-        data = Path(state) / APP
+        return Path(state) / APP
+    if sys.platform == "win32":
+        return _local_app_data() / APP
+    if sys.platform == "darwin":
+        return Path.home() / "Library" / "Application Support" / APP
+    return Path.home() / ".local" / "state" / APP
+
+
+def user_cache_dir() -> Path:
+    """Where this user's mcgyvr caches go.
+
+    ``mcgyvr`` under ``$XDG_CACHE_HOME`` when that is set (``~`` expanded), on
+    every system. Unset: Linux ``~/.cache/mcgyvr``, as before; macOS
+    ``~/Library/Caches/mcgyvr``; Windows ``%LOCALAPPDATA%\\mcgyvr\\cache``.
+    The weights do not follow ``$XDG_CACHE_HOME`` (``rigscan``'s clone).
+    """
     cached = os.environ.get("XDG_CACHE_HOME")
     if cached:
-        cache = Path(cached).expanduser() / APP
-    return UserDirs(home=home, data=data, cache=cache)
+        return Path(cached).expanduser() / APP
+    if sys.platform == "win32":
+        return _local_app_data() / APP / "cache"
+    if sys.platform == "darwin":
+        return Path.home() / "Library" / "Caches" / APP
+    return Path.home() / ".cache" / APP
+
+
+def _local_app_data() -> Path:
+    """``%LOCALAPPDATA%`` when absolute, else ``~\\AppData\\Local``."""
+    local = os.environ.get("LOCALAPPDATA")
+    if local and os.path.isabs(local):
+        return Path(local)
+    return Path.home() / "AppData" / "Local"
+
+
+def user_temp_root() -> Path:
+    """The folder per-user temporary folders are made in.
+
+    POSIX: the system's temporary folder, looked up on every call (shared by
+    every user, so a folder made there is checked before it is used). Windows:
+    ``tmp`` in the user's own cache folder, never ``%TEMP%``, which the
+    environment can point at a folder other users may write (``C:\\Temp``).
+    """
+    if sys.platform == "win32":
+        return user_cache_dir() / "tmp"
+    return Path(tempfile.gettempdir())
 
 
 def shell_rc_file(shell: str | None, home: Path | None = None) -> Path | None:

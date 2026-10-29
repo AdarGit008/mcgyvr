@@ -174,13 +174,7 @@ def _running(pid: int) -> bool:
     A pid that cannot be signalled but is there (another user's) counts as
     running; only a pid the kernel reports as gone is dead.
     """
-    try:
-        os.kill(pid, 0)
-    except ProcessLookupError:
-        return False
-    except OSError:
-        return True
-    return True
+    return hostos.pid_alive(pid)
 
 
 def _held(marker: Path) -> bool:

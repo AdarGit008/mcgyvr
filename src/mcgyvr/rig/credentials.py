@@ -6,6 +6,11 @@ restart, so it is kept in a file of its own in the mcgyvr home folder, at mode
 not at all and `load` refuses a file that is a link, of another user, readable
 or writable by others, or not the shape `save` writes -- each refusal says what
 to do instead. What is shown of a token is its public id, never the secret.
+
+On Windows no mode or owner is set or checked (:mod:`mcgyvr.hostos`): the file
+is as private as its folder's ACL, which in the default ``~\\.mcgyvr`` under
+the user's profile is the user's alone; a ``$MCGYVR_HOME`` elsewhere keeps
+whatever ACL that folder has.
 """
 
 from __future__ import annotations

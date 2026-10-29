@@ -656,7 +656,8 @@ def _append_line(path: Path, line: bytes) -> None:
     interleaving them.
     """
     path.parent.mkdir(parents=True, exist_ok=True)
-    fd = os.open(path, os.O_RDWR | os.O_CREAT | os.O_APPEND, 0o666)
+    flags = os.O_RDWR | os.O_CREAT | os.O_APPEND | hostos.open_flags_binary()
+    fd = os.open(path, flags, 0o666)
     try:
         hostos.lock(fd)
         try:

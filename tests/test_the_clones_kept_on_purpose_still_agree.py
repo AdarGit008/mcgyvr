@@ -19,6 +19,7 @@ from __future__ import annotations
 
 import os
 import subprocess
+import sys
 from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any, cast
@@ -67,7 +68,18 @@ class _Child:
         self.done.append("kill")
 
 
-@pytest.mark.parametrize("system", sorted(PLATFORMS))
+@pytest.mark.parametrize(
+    "system",
+    [
+        pytest.param(
+            name,
+            marks=pytest.mark.skipif(
+                sys.platform == "win32" and name != "windows", reason="POSIX calls"
+            ),
+        )
+        for name in sorted(PLATFORMS)
+    ],
+)
 def test_both_kill_a_group_the_same_way(
     system: str, monkeypatch: pytest.MonkeyPatch
 ) -> None:
@@ -78,7 +90,7 @@ def test_both_kill_a_group_the_same_way(
         os, "killpg", lambda pid, sig: done.append(("killpg", pid, sig))
     )
     monkeypatch.setattr(
-        subprocess, "run", lambda argv, **_kw: done.append(("run", argv))
+        subprocess, "run", lambda argv, **kw: done.append(("run", argv, kw))
     )
     hostos.kill_group(cast(Any, _Child(done)))
     by_hostos = list(done)

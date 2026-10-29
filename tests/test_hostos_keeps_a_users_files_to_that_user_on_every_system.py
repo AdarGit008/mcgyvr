@@ -14,6 +14,7 @@ import os
 import stat
 import sys
 from pathlib import Path
+from typing import cast
 
 import pytest
 
@@ -196,3 +197,52 @@ def test_a_path_naming_another_file_once_open_is_refused(
     with pytest.raises(OSError) as raised:
         hostos.open_nofollow(plain, os.O_RDONLY)
     assert raised.value.errno == errno.ELOOP
+
+
+class _Seen:
+    """What ``lstat`` gives on Windows for a folder that may be a junction."""
+
+    def __init__(self, tag: int) -> None:
+        self.st_mode = stat.S_IFDIR | 0o777
+        self.st_uid = 0
+        self.st_reparse_tag = tag
+
+
+@pytest.mark.parametrize(
+    ("tag", "link"),
+    [(0, False), (0xA000_0003, True), (0xA000_000C, True), (0x9000_601A, False)],
+)
+def test_windows_counts_a_junction_as_a_link_and_a_cloud_file_as_none(
+    tag: int, link: bool, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    from mcgyvr import userdir
+
+    as_system(monkeypatch, "windows")
+    seen = cast(os.stat_result, _Seen(tag))
+    assert hostos.is_link(seen) is link
+    monkeypatch.setattr(os, "lstat", lambda _path: seen)
+    assert userdir.owned_outright(tmp_path) is not link
+
+
+def test_posix_counts_no_reparse_tag(monkeypatch: pytest.MonkeyPatch) -> None:
+    as_system(monkeypatch, "linux")
+    assert not hostos.is_link(cast(os.stat_result, _Seen(0xA000_0003)))
+
+
+def test_a_file_opened_where_there_is_o_binary_is_opened_binary(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    assert hostos.open_flags_binary() == getattr(os, "O_BINARY", 0)
+    monkeypatch.setattr(os, "O_BINARY", 0x8000, raising=False)
+    asked: list[int] = []
+    real_open = os.open
+
+    def recording(path: str | os.PathLike[str], flags: int, mode: int = 0o777) -> int:
+        asked.append(flags)
+        return real_open(path, flags & ~0x8000, mode)
+
+    monkeypatch.setattr(os, "open", recording)
+    plain = tmp_path / "plain"
+    plain.write_text("kept")
+    os.close(hostos.open_nofollow(plain, os.O_RDONLY))
+    assert asked and asked[0] & 0x8000

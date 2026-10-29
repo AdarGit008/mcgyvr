@@ -28,10 +28,10 @@ def as_system(monkeypatch: pytest.MonkeyPatch, system: str) -> None:
     monkeypatch.setattr(sys, "platform", PLATFORMS[system])
     if system == "windows":
         monkeypatch.setattr(
-            subprocess, "CREATE_NEW_PROCESS_GROUP", 0x200, raising=False
+            subprocess, "CREATE_NEW_PROCESS_GROUP", NEW_PROCESS_GROUP, raising=False
         )
-        monkeypatch.setattr(signal, "CTRL_BREAK_EVENT", 1, raising=False)
-        monkeypatch.setattr(signal, "SIGBREAK", 21, raising=False)
+        monkeypatch.setattr(signal, "CTRL_BREAK_EVENT", CTRL_BREAK_EVENT, raising=False)
+        monkeypatch.setattr(signal, "SIGBREAK", SIGBREAK, raising=False)
 
 
 class FakeMsvcrt:

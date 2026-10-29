@@ -11,6 +11,29 @@ archived outside this repository, under the same paths.
 
 ### Changed
 
+- **mcgyvr imports, and keeps its files, on macOS and Windows too
+  (`mcgyvr.hostos`, #810).** One module answers what differs between the three
+  systems: file locks (`flock`, or `msvcrt.locking` of one byte past the end
+  of the same lock files), the user, private modes, opening without following
+  a link (or a junction), child process groups and their kill, the stop
+  signals, whether a pid lives, the boot id, and the data, cache and
+  per-user temporary folders. The lock, uid, mode, link and process-group
+  calls go through it (`rigscan` and the fetcher, shipped to a rig alone,
+  keep tested clones), so `import mcgyvr.cli` no longer needs `fcntl`, and
+  Linux makes the very calls it made. On macOS the data folder defaults to
+  `~/Library/Application Support/mcgyvr` and the caches (the index, the
+  weights) to `~/Library/Caches/mcgyvr`; on Windows to `%LOCALAPPDATA%\mcgyvr`
+  and `%LOCALAPPDATA%\mcgyvr\cache`. `$XDG_STATE_HOME` and `$XDG_CACHE_HOME`
+  still win when set, the config folder stays `~/.mcgyvr` everywhere, and
+  `journal.dir` still defaults to `~/.local/state/mcgyvr/journal`. With no
+  `$SHELL`, setup offers the PATH line for `~/.zshrc` on macOS. Windows checks
+  no file owner or mode (`chmod 600` and the token store's refusals do not
+  apply there): a file is as private as its folder's ACL, the user's alone in
+  the profile folders mcgyvr makes by default. A `platforms` workflow runs the
+  import and these tests on macOS and Windows. Upgrading on macOS: move what
+  is under `~/.local/state/mcgyvr` except `journal/`, and `~/.cache/mcgyvr`,
+  to the new folders, or keep them with the XDG variables (the weights, which
+  no XDG variable moves, with `$MCGYVR_WEIGHTS`).
 - **Use cases are `mcgyvr-code`, `code`, `chat` and `agent`; `coding` is gone,
   with no alias.** `mcgyvr-code` is what `coding` was, every stage between the
   model and you on by default, each under a policy switch (SETUP.md, *Use cases
@@ -30,22 +53,6 @@ archived outside this repository, under the same paths.
 
 ### Added
 
-- **`mcgyvr` imports and keeps its files on macOS and Windows too
-  (`mcgyvr.hostos`).** One module answers what differs between the three
-  systems: file locks (`flock`, or `msvcrt.locking` on one byte past the end of
-  the same lock files), the user, private modes, opening without following a
-  link, child process groups and killing them, the stop signals, the boot id,
-  and the data and cache folders. Every lock, uid, mode, link and process-group
-  call goes through it, so `import mcgyvr.cli` no longer needs `fcntl`, and
-  Linux does exactly what it did. On macOS the data folder defaults to
-  `~/Library/Application Support/mcgyvr`, caches (the index and the weights) to
-  `~/Library/Caches/mcgyvr`; on Windows to `%LOCALAPPDATA%\mcgyvr` and
-  `%LOCALAPPDATA%\mcgyvr\cache`. `$XDG_STATE_HOME` and `$XDG_CACHE_HOME` still
-  win when set, and the config folder stays `~/.mcgyvr` everywhere. Upgrading
-  on macOS: move `~/.local/state/mcgyvr` and `~/.cache/mcgyvr` to the new
-  folders, or keep them where they are with the XDG variables (the weights,
-  which no XDG variable moves, with `$MCGYVR_WEIGHTS`). A `platforms` workflow
-  runs the import and these tests on macOS and Windows.
 - **`mcgyvr use NAME` switches the use case, and `/mcgyvr-use` is its skill.**
   It rewrites the policy's `use_case:` line and nothing else, and says what
   that turns on or off.

@@ -20,14 +20,12 @@ import hashlib
 import json
 import os
 import platform
-import queue
 import re
 import selectors
 import shutil
 import signal
 import subprocess
 import sys
-import threading
 import time
 import unicodedata
 from collections.abc import Callable, Iterable, Iterator, Mapping, Sequence
@@ -62,6 +60,10 @@ DRM = "/sys/class/drm"
 #: What one tool call may take: seconds before it is killed, and bytes of output kept.
 BOUND_S = 20.0
 BYTES_MAX = 262144
+#: How long a Windows tree kill is given (``mcgyvr.hostos.TASKKILL_S``).
+TASKKILL_S = 10.0
+#: How often a Windows pipe is looked at while a tool's output is awaited.
+PIPE_POLL_S = 0.05
 #: What text read from a file or a tool may take: one line's length, and how many
 #: lines a whole card list may run to.
 LINE_MAX = 4096
@@ -263,7 +265,7 @@ def _kill_group(process: subprocess.Popen[Any]) -> None:
                 stdin=subprocess.DEVNULL,
                 stdout=subprocess.DEVNULL,
                 stderr=subprocess.DEVNULL,
-                timeout=10.0,
+                timeout=TASKKILL_S,
                 check=False,
             )
         process.kill()
@@ -276,31 +278,31 @@ def _reader(stream: IO[bytes]) -> Iterator[Callable[[float], bytes | None]]:
     """A read of at most 65536 bytes from `stream` that waits `left` seconds.
 
     It answers None when nothing came in time and ``b""`` at the end. POSIX
-    waits on a selector over the pipe; Windows, whose selectors take sockets
-    only, has a thread read the pipe into a queue instead.
+    waits on a selector over the pipe. Windows, whose selectors take sockets
+    only, looks at the pipe every PIPE_POLL_S with ``PeekNamedPipe`` and reads
+    only what is there, so no read is ever left waiting on a pipe that a tool's
+    leftover child holds open; a pipe whose writers are gone is the end.
     """
     if sys.platform == "win32":
-        got: queue.Queue[bytes] = queue.Queue()
+        import _winapi
+        import msvcrt
 
-        def pump() -> None:
-            try:
-                while True:
-                    data = os.read(stream.fileno(), 65536)
-                    got.put(data)
-                    if not data:
-                        return
-            except (OSError, ValueError):
-                got.put(b"")
+        handle = msvcrt.get_osfhandle(stream.fileno())
 
-        threading.Thread(target=pump, daemon=True).start()
+        def peeked(left: float) -> bytes | None:
+            until = time.monotonic() + left
+            while True:
+                try:
+                    waiting = _winapi.PeekNamedPipe(handle, 0)[0]
+                except OSError:
+                    return b""
+                if waiting:
+                    return os.read(stream.fileno(), min(waiting, 65536))
+                if time.monotonic() >= until:
+                    return None
+                time.sleep(PIPE_POLL_S)
 
-        def taken(left: float) -> bytes | None:
-            try:
-                return got.get(timeout=left)
-            except queue.Empty:
-                return None
-
-        yield taken
+        yield peeked
         return
     with selectors.DefaultSelector() as watch:
         watch.register(stream, selectors.EVENT_READ)
