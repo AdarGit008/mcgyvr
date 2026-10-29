@@ -58,15 +58,15 @@ UNIFIED_SHARE = 0.75
 #: between). From :data:`HIGH_BANDWIDTH_GBPS` up an Apple chip takes at most
 #: :data:`HIGH_BANDWIDTH_EFFICIENCY` for its class: the 800 GB/s Ultra runs gave
 #: 0.50..0.60 at Q8_0 (0.57..0.71 at F16), so 0.50, the lowest, and 0.36..0.45
-#: at Q4_0, so 0.45, the research's suggested clamp (the highest of those runs,
-#: so a 4-bit estimate on an Ultra may err fast). The fit is Apple silicon's
+#: at Q4_0 (median 0.42), so 0.40, under five of the six runs. The fit is Apple
+#: silicon's
 #: under Metal; an NVIDIA card takes the same shares, unchecked under CUDA, and
 #: its estimate says so. A current llama.cpp build runs about 1.2x faster than
 #: the build those rows used; no allowance is made for it. A quantisation under
 #: 4 bits, or 32-bit weights, was not measured, and gets no estimate.
 DECODE_EFFICIENCY: Mapping[str, float] = {"8bit": 0.75, "4bit": 0.60}
 HIGH_BANDWIDTH_GBPS = 800.0
-HIGH_BANDWIDTH_EFFICIENCY: Mapping[str, float] = {"8bit": 0.50, "4bit": 0.45}
+HIGH_BANDWIDTH_EFFICIENCY: Mapping[str, float] = {"8bit": 0.50, "4bit": 0.40}
 #: The vendor whose chips the efficiencies were fitted on, and the only one the
 #: high-bandwidth ceiling was seen on.
 FITTED_ON = "apple"
@@ -98,11 +98,6 @@ class Figure:
     def __post_init__(self) -> None:
         if self.figure not in FIGURE_KINDS:
             raise ValueError(f"figure must be one of {FIGURE_KINDS}: {self.figure!r}")
-
-    def says(self, unit: str) -> str:
-        """``<value> <unit> (<figure>: <basis>)``, flagged when unverified."""
-        flag = "" if self.verified else ", from an unverified table row"
-        return f"{self.value:.1f} {unit} ({self.figure}: {self.basis}{flag})"
 
 
 @dataclass(frozen=True)
@@ -247,8 +242,6 @@ _ROW_KEYS = frozenset(
         "verified",
         "source",
         "gpu_cores",
-        "memory_gb",
-        "memory_gb_kind",
         "match_memory_gb",
         "vram_gb",
         "note",
@@ -452,8 +445,32 @@ def device_decode(
     when there is one, else the estimate from the device's class (the slower
     variant, and said so, when the device could be more than one), else why
     there is none."""
-    if reading is not None and reading > 0:
-        return prefer(reading, NoEstimate(""), where=where)
+    return prefer(
+        reading,
+        _class_decode(
+            name,
+            model_bytes=model_bytes,
+            quant=quant,
+            vram_mib=vram_mib,
+            gpu_cores=gpu_cores,
+            memory_mib=memory_mib,
+            classes=classes,
+        ),
+        where=where,
+    )
+
+
+def _class_decode(
+    name: str,
+    *,
+    model_bytes: int,
+    quant: str | None,
+    vram_mib: int | None,
+    gpu_cores: int | None,
+    memory_mib: int | None,
+    classes: tuple[HardwareClass, ...] | None,
+) -> Figure | NoEstimate:
+    """The estimate from the device's class, or why there is none."""
     found = variants(
         name,
         vram_mib=vram_mib,

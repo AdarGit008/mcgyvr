@@ -17,43 +17,23 @@ from typing import Any
 
 import pytest
 
-from mcgyvr import hubwire
+from mcgyvr.hubwire import (
+    FIGURE_KINDS,
+    HOST_ARCH,
+    HOST_OS,
+    RESOURCE_BACKENDS,
+    RESOURCE_KINDS,
+    Resource,
+)
 from tests.machine_shapes import Card, HostShape, host_reading, host_shape, host_shapes
 from tests.machinereader import Staged, run
 
-# until align/hubwire merges: the contract's names as the plan fixes them, read
-# from the wire once it carries them.
-RESOURCE_KINDS = getattr(hubwire, "RESOURCE_KINDS", ("gpu", "unified", "ram", "cpu"))
-RESOURCE_BACKENDS = getattr(
-    hubwire, "RESOURCE_BACKENDS", ("cuda", "metal", "vulkan", "rocm", "cpu")
-)
-FIGURE_KINDS = getattr(hubwire, "FIGURE_KINDS", ("estimate", "reading"))
-HOST_OS = getattr(hubwire, "HOST_OS", ("linux", "darwin", "windows"))
-HOST_ARCH = getattr(hubwire, "HOST_ARCH", ("x86_64", "arm64"))
-
-RESOURCE = getattr(hubwire, "Resource", None)
-RESOURCE_FIELDS = (
-    {field.name for field in dataclasses.fields(RESOURCE)}
-    if RESOURCE is not None
-    else {
-        "kind",
-        "index",
-        "name",
-        "total_mb",
-        "free_mb",
-        "cores",
-        "bandwidth_gbps",
-        "bandwidth_figure",
-        "figure",
-        "backend",
-    }
-)
+RESOURCE_FIELDS = {field.name for field in dataclasses.fields(Resource)}
 
 
 def _takes(resource: dict[str, Any]) -> None:
-    """The wire takes the resource: its own record validates it, once it has one."""
-    if RESOURCE is not None:
-        RESOURCE(**resource).validate()
+    """The wire takes the resource: its own record validates it."""
+    Resource(**resource).validate()
 
 
 def test_the_reader_names_the_wires_systems() -> None:

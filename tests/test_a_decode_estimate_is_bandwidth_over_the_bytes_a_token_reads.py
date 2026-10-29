@@ -32,9 +32,9 @@ def by_rule(bandwidth: float, model_bytes: int, klass: str, vendor: str) -> floa
 def test_the_shares_are_the_published_fits() -> None:
     """llama.cpp discussion 4167's Apple-silicon runs, as the module's comment
     derives them: 0.75 and 0.60 under the 8-bit and 4-bit medians, and from
-    800 GB/s up 0.50 and 0.45."""
+    800 GB/s up 0.50 and 0.40."""
     assert dict(estimate.DECODE_EFFICIENCY) == {"8bit": 0.75, "4bit": 0.60}
-    assert dict(estimate.HIGH_BANDWIDTH_EFFICIENCY) == {"8bit": 0.50, "4bit": 0.45}
+    assert dict(estimate.HIGH_BANDWIDTH_EFFICIENCY) == {"8bit": 0.50, "4bit": 0.40}
     assert estimate.HIGH_BANDWIDTH_GBPS == 800.0
     assert estimate.FITTED_ON == "apple"
 
@@ -115,14 +115,12 @@ def test_a_reading_replaces_the_estimate_and_names_where_it_was_taken() -> None:
     assert (measured.value, measured.figure) == (12.5, "reading")
     assert "box-1.example" in measured.basis
     assert estimate.prefer(None, guess) is guess
-    assert "reading" in measured.says("tok/s")
 
 
-def test_an_estimate_from_an_unverified_row_is_flagged_where_it_shows() -> None:
+def test_an_estimate_from_an_unverified_row_says_so() -> None:
     got = estimate.decode_tps(400.0, MODEL_BYTES, "Q4_0", verified=False)
     assert isinstance(got, estimate.Figure)
-    said = got.says("tok/s")
-    assert "estimate" in said and "unverified" in said
+    assert got.figure == "estimate" and not got.verified
 
 
 def test_a_figure_is_only_an_estimate_or_a_reading() -> None:
