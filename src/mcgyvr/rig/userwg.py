@@ -9,12 +9,18 @@ llama-server (:mod:`mcgyvr.serving.llamacpp`, fetched and verified by
 :mod:`mcgyvr.serving.native`) as the helper's child, so the engine ends with
 the helper and the helper with the agent.
 
-The head binds 127.0.0.1 alone (pin K13): the agent relays the hub's requests
-to its API port, and the head reaches each of the session's rpc devices only
-through a forward the helper opens on 127.0.0.1, which accepts a connection
-only from the head's own pid and dials only that device, through the tunnel.
-A native rig lends no worker yet: the helper serves no rpc server, so a worker
-is refused before anything starts.
+The head listens on the loopback alone (:data:`mcgyvr.emit.LOOPBACK`, the
+native units' rule, held by :func:`mcgyvr.emit.native_block`): the agent
+relays the hub's requests to its API port, and the head reaches each of the
+session's rpc devices only through a forward the helper opens on the loopback,
+which accepts a connection only from the head's own process and dials only
+that device, through the tunnel. A native rig lends no worker yet: the helper
+serves no rpc server, so a worker is refused before anything starts.
+
+Each process a session starts (the helper, and the head) is recorded by pid,
+start time and program in a private folder, so a head left behind by a helper
+that was killed outright, or by an agent that died, is ended by the next
+teardown or sweep — only while its pid still has the recorded start time.
 
 The session's own logic is the same as on Linux; only the parts differ. The
 tunnel's hello names the loopback as its address, since nothing of the session
@@ -24,6 +30,7 @@ listens anywhere else on this host.
 from __future__ import annotations
 
 import contextlib
+import json
 import os
 import threading
 from collections.abc import Callable, Mapping, Sequence
@@ -31,14 +38,14 @@ from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any
 
-from mcgyvr import hostos
+from mcgyvr import atomic, hostos
+from mcgyvr.emit import LOOPBACK
 from mcgyvr.rig import pooled, session, tunnel, udpwire, wghelper, wgpin
 from mcgyvr.rig import sharing as sharing_module
 from mcgyvr.serving import llamacpp, native
 from mcgyvr.serving.release import ReleaseError
+from mcgyvr.userdir import private_dir
 
-#: The only address a native session's engines listen on (pin K13).
-LOOPBACK = "127.0.0.1"
 #: What a native tunnel's hello names as its address and gateway.
 HELLO_ADDRESS = f"{LOOPBACK}/32"
 #: The device-name prefix llama.cpp gives each backend whose devices a native
@@ -46,8 +53,9 @@ HELLO_ADDRESS = f"{LOOPBACK}/32"
 #: the head's cards in PCI bus order, and Metal, one device. A Vulkan build
 #: numbers devices in its own order, so its cards are not named.
 DEVICE_PREFIX = {llamacpp.CUDA: "CUDA", llamacpp.METAL: "MTL"}
-#: The environment the helper keeps of the agent's: what a program needs to
-#: run and find its temporary folder, nothing of the agent's own settings.
+#: The environment the helper and the head keep of the agent's: what a program
+#: needs to run and find its temporary folder, nothing of the agent's own
+#: settings or secrets.
 HELPER_ENV = (
     "PATH",
     "HOME",
@@ -60,8 +68,14 @@ HELPER_ENV = (
     "LANG",
     "LC_ALL",
 )
+#: The prefixes of the variables the head keeps beyond :data:`HELPER_ENV`:
+#: the GPU runtimes' own settings.
+ENGINE_ENV_PREFIXES = ("GGML_", "CUDA_", "VK_", "MTL_", "METAL_")
 #: The bytes of a log read for its last lines.
 LOG_TAIL_BYTES = 1 << 16
+#: The folder, under the native units' state folder, a session's process
+#: records are kept in.
+RECORDS = "pooled"
 
 
 @dataclass(frozen=True)
@@ -81,8 +95,8 @@ def pinned_helper() -> list[str]:
 
 
 def pinned_engine() -> Engine:
-    """The pinned llama-server build for this machine (pin K5), fetched and
-    verified on first use."""
+    """The pinned llama-server build for this machine
+    (:func:`mcgyvr.serving.native.pick`), fetched and verified on first use."""
     try:
         build = native.pick()
         folder = native.binaries(build)
@@ -99,6 +113,23 @@ def helper_env(env: Mapping[str, str]) -> dict[str, str]:
     return kept
 
 
+def engine_env(env: Mapping[str, str]) -> dict[str, str]:
+    """The environment a head starts with, before its cards are named:
+    :data:`HELPER_ENV` and the GPU runtimes' variables of ``env``, nothing else
+    — a hub token, a cloud key or an operator's llama-server setting stays with
+    the agent (the head serves other members' requests)."""
+    return {
+        key: value
+        for key, value in env.items()
+        if key in HELPER_ENV or key.startswith(ENGINE_ENV_PREFIXES)
+    }
+
+
+def records_dir() -> Path:
+    """Where a native session's process records are kept: a private folder."""
+    return native.state_dir() / RECORDS
+
+
 def read_tail(path: Path, lines: int) -> str:
     """The last ``lines`` lines of a log, or nothing when it cannot be read."""
     try:
@@ -111,18 +142,18 @@ def read_tail(path: Path, lines: int) -> str:
     return "\n".join(said.splitlines()[-lines:])
 
 
-def _native_block(
+def head_block(
     name: str, argv: list[str], env: Mapping[str, str], cards: Sequence[int]
 ) -> dict[str, Any]:
     """The head's command and environment, held to a native unit's rules.
 
-    The block a native unit is emitted as (:func:`mcgyvr.emit._native_block`)
-    is the one place the bind rule lives (pin K13): a native llama-server
-    listens on 127.0.0.1 alone, and a ``--host`` or ``LLAMA_ARG_HOST`` naming
-    anything else is refused. A refusal fails the head's start.
+    The block a native unit is emitted as (:func:`mcgyvr.emit.native_block`)
+    is the one place the bind rule lives: a native llama-server listens on
+    :data:`mcgyvr.emit.LOOPBACK` alone, and a ``--host`` or ``LLAMA_ARG_HOST``
+    naming anything else is refused. A refusal fails the head's start.
     """
     from mcgyvr.emit import EmitError
-    from mcgyvr.emit import _native_block as block
+    from mcgyvr.emit import native_block as block
 
     try:
         return block(
@@ -163,11 +194,12 @@ class NativeHost:
     """The parts of a rig's native pooled sessions: a helper each, and its head.
 
     ``helper`` gives the helper's argv and ``engine`` the llama-server build,
-    both fetched and verified when a session prepares; ``env`` is the agent's
-    environment, of which the helper keeps :data:`HELPER_ENV` and the head what
-    a native unit keeps (:func:`mcgyvr.serving.native.supervisor_env`). Logs go
-    where a native unit's do (:func:`mcgyvr.serving.native.log_path`), named by
-    the part's container name.
+    both fetched and verified when the first session prepares (one fetch at a
+    time) and kept; ``env`` is the agent's environment, of which the helper
+    keeps :data:`HELPER_ENV` and the head :func:`engine_env`. Logs go where a
+    native unit's do (:func:`mcgyvr.serving.native.log_path`), named by the
+    part's container name, and each started process is recorded in
+    ``records`` (:func:`records_dir`).
     """
 
     def __init__(
@@ -178,6 +210,7 @@ class NativeHost:
         engine: Callable[[], Engine] = pinned_engine,
         env: Mapping[str, str] | None = None,
         log_path: Callable[[str], Path] = native.log_path,
+        records: Callable[[], Path] = records_dir,
         reply_s: float = wghelper.REPLY_S,
     ) -> None:
         self._agent_pid = agent_pid
@@ -185,8 +218,10 @@ class NativeHost:
         self._engine = engine
         self._env = dict(os.environ if env is None else env)
         self._log_path = log_path
+        self._records = records
         self._reply_s = reply_s
         self._lock = threading.Lock()
+        self._fetching = threading.Lock()
         self._runs: dict[str, _Run] = {}
         self._argv: list[str] | None = None
         self._found: Engine | None = None
@@ -215,13 +250,66 @@ class NativeHost:
             raise pooled.PoolError(f"{name}: no helper runs it")
         return found[0]
 
+    # The records of the processes a session started.
+
+    def _record_path(self, name: str) -> Path:
+        return self._records() / f"{name}.json"
+
+    def _record(self, name: str, session_id: str, pid: int, program: str) -> None:
+        folder = self._records()
+        if private_dir(folder, make=True) is None:
+            raise pooled.PoolError(
+                f"{folder} is not this user's own folder; no process is recorded"
+            )
+        hostos.chmod_private(folder, directory=True)
+        body = {
+            "name": name,
+            "session_id": session_id,
+            "agent_pid": self._agent_pid,
+            "pid": pid,
+            "start": hostos.process_start_time(pid),
+            "program": program,
+        }
+        atomic.write(folder / f"{name}.json", json.dumps(body, sort_keys=True) + "\n")
+
+    def _recorded(self) -> list[dict[str, Any]]:
+        try:
+            files = sorted(self._records().glob("*.json"))
+        except OSError:
+            return []
+        found = []
+        for path in files:
+            try:
+                body = json.loads(path.read_text(encoding="utf-8"))
+            except (OSError, ValueError):
+                continue
+            if isinstance(body, dict) and isinstance(body.get("name"), str):
+                found.append(body)
+        return found
+
+    def _end_recorded(self, name: str) -> None:
+        """End the process recorded under ``name`` while its pid still has the
+        recorded start time, its group with it, then forget the record."""
+        path = self._record_path(name)
+        try:
+            body = json.loads(path.read_text(encoding="utf-8"))
+        except (OSError, ValueError):
+            return
+        pid = native.matches(body)
+        if pid is not None:
+            hostos.end_pid(pid, force=True, group=True)
+        with contextlib.suppress(OSError):
+            path.unlink()
+
     # The tunnel.
 
     def tunnel_image(self) -> str:
-        argv = list(self._helper())
-        found = self._engine()
-        with self._lock:
-            self._argv, self._found = argv, found
+        with self._fetching:
+            if self._argv is None or self._found is None:
+                argv = list(self._helper())
+                found = self._engine()
+                with self._lock:
+                    self._argv, self._found = argv, found
         return f"{wgpin.PROGRAM}@{wgpin.TAG}"
 
     def start_tunnel(self, spec: pooled.TunnelSpec) -> None:
@@ -239,9 +327,11 @@ class NativeHost:
             ),
             api_port=spec.api_port,
         )
+        run.helper.start()
+        assert run.helper.pid is not None
+        self._record(run.tunnel, run.session_id, run.helper.pid, argv[0])
         with self._lock:
             self._runs[spec.session_id] = run
-        run.helper.start()
         run.key = run.helper.prepare(spec.listen_port, spec.publish, spec.lease_s)
 
     def tunnel_hello(self, name: str) -> pooled.TunnelHello | None:
@@ -314,6 +404,9 @@ class NativeHost:
     def head_runtime(self, share: sharing_module.Sharing) -> str | None:
         return llamacpp.RUNTIME
 
+    def head_bind(self, hello: pooled.TunnelHello) -> str:
+        return LOOPBACK
+
     def local_device(self, number: int) -> str | None:
         with self._lock:
             found = self._found
@@ -358,11 +451,11 @@ class NativeHost:
             rpc=local,
         )
         env = {
-            **native.supervisor_env(self._env),
+            **engine_env(self._env),
             **native.device_env(found.backend, spec.gpus),
         }
-        block = _native_block(run.head_name, argv, env, spec.gpus)
-        run.helper.spawn(
+        block = head_block(run.head_name, argv, env, spec.gpus)
+        pid = run.helper.spawn(
             "head",
             found.program,
             block["command"],
@@ -370,6 +463,7 @@ class NativeHost:
             found.program.parent,
             self._log_path(run.head_name),
         )
+        self._record(run.head_name, run.session_id, pid, str(found.program))
         run.head = True
 
     # What any part is asked.
@@ -401,41 +495,59 @@ class NativeHost:
         return None if state == "absent" else state
 
     def remove(self, names: Sequence[str]) -> None:
+        """End the named parts: a head through its helper, a tunnel by its
+        helper's teardown; then anything either left behind by its record (a
+        head outlives a helper that had to be killed outright), and a part
+        no live session holds (an earlier agent's) by its record alone."""
         for name in names:
             found = self._run_of(name)
             if found is None:
+                self._end_recorded(name)
                 continue
             run, part = found
             if part == "head":
                 with contextlib.suppress(pooled.PoolError):
                     run.helper.kill("head")
                 run.head = False
+                run.forwards.clear()
+                self._end_recorded(name)
                 continue
             with self._lock:
                 self._runs.pop(run.session_id, None)
             run.helper.teardown()
+            self._end_recorded(run.head_name)
+            self._end_recorded(name)
 
     def owned(self) -> list[pooled.Owned]:
+        """The parts this host runs, heads before their tunnels, and the parts
+        recorded by an agent that no longer runs them."""
         with self._lock:
             runs = list(self._runs.values())
+        live: set[str] = set()
         found = []
         for run in runs:
             alive = run.helper.alive()
-            found.append(
+            parts = ([run.head_name] if run.head else []) + [run.tunnel]
+            live.update((run.head_name, run.tunnel))
+            found += [
                 pooled.Owned(
-                    name=run.tunnel,
+                    name=name,
                     session_id=run.session_id,
                     agent_pid=self._agent_pid,
                     running=alive,
                 )
-            )
-            if run.head:
-                found.append(
-                    pooled.Owned(
-                        name=run.head_name,
-                        session_id=run.session_id,
-                        agent_pid=self._agent_pid,
-                        running=alive,
-                    )
+                for name in parts
+            ]
+        for body in self._recorded():
+            if body["name"] in live:
+                continue
+            agent = body.get("agent_pid")
+            found.append(
+                pooled.Owned(
+                    name=body["name"],
+                    session_id=str(body.get("session_id", "")),
+                    agent_pid=agent if type(agent) is int else None,
+                    running=native.matches(body) is not None,
                 )
+            )
         return found

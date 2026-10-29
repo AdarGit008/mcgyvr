@@ -19,7 +19,7 @@ import json
 import re
 import uuid
 from collections.abc import Mapping, Sequence
-from dataclasses import dataclass
+from dataclasses import asdict, dataclass
 from typing import Any
 
 from mcgyvr import hubwire
@@ -483,10 +483,7 @@ def _offer_body(offer: Offer) -> dict[str, Any]:
             offer.rpc_proto.validate()
         except ValueError as exc:
             raise ValueError(f"capabilities.{hubwire.RPC_PROTO_FIELD}: {exc}") from exc
-        capabilities[hubwire.RPC_PROTO_FIELD] = {
-            "major": offer.rpc_proto.major,
-            "minor": offer.rpc_proto.minor,
-        }
+        capabilities[hubwire.RPC_PROTO_FIELD] = asdict(offer.rpc_proto)
     return {
         "capabilities": capabilities,
         "endpoints": [

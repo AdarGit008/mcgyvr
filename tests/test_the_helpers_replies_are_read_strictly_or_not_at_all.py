@@ -171,3 +171,51 @@ def test_a_helper_that_cannot_start_is_gone_not_a_crash(tmp_path: Path) -> None:
     assert raised.value.code == "gone"
     with pytest.raises(wghelper.HelperError):
         helper.lease()
+
+
+@pytest.mark.parametrize(
+    "raw",
+    [
+        b'{"id": 3, "ok": false, "error": [1], "why": "x"}\n',
+        b"[" * 60000 + b"\n",
+        b'{"id": 3, "ok": true, "port": 50052, "port": 1}\n',
+        b'{"id": 3, "ok": true, "rtt_ms": 1' + b"0" * 400 + b', "full": true, '
+        b'"size": 1172}\n',
+    ],
+)
+def test_whatever_a_hostile_reply_provokes_is_not_believed(raw: bytes) -> None:
+    verb = "ping" if b"rtt_ms" in raw else "forward"
+    with pytest.raises(wghelper.HelperError) as raised:
+        wghelper.read_reply(raw, 3, verb)
+    assert raised.value.code == "protocol"
+
+
+@pytest.mark.parametrize(
+    "endpoint", ["1.2.3.4:²", "1.2.3.4:0443", "1.2.3.4:٤٤٣", "1.2.3.4:70000"]
+)
+def test_an_endpoint_port_is_ascii_digits_with_no_leading_zero(endpoint: str) -> None:
+    body = {
+        "id": 3,
+        "ok": True,
+        "now": 5,
+        "peers": [{"key": KEY, "handshake": 1, "endpoint": endpoint}],
+    }
+    with pytest.raises(wghelper.HelperError):
+        wghelper.read_reply(line(body), 3, "peers")
+
+
+def test_a_forward_below_the_unprivileged_ports_is_not_believed() -> None:
+    with pytest.raises(wghelper.HelperError):
+        wghelper.read_reply(line({"id": 3, "ok": True, "port": 80}), 3, "forward")
+
+
+@pytest.mark.parametrize(
+    "host", ["0.0.0.0", "127.0.0.1", "224.0.0.1", "255.255.255.255"]
+)
+def test_a_session_socket_binds_none_of_the_hosts_no_peer_reaches(
+    host: str, tmp_path: Path
+) -> None:
+    helper = wghelper.Helper(["/nonexistent"], log=tmp_path / "helper.log")
+    with pytest.raises(wghelper.HelperError) as raised:
+        helper.prepare(51820, [host], 60)
+    assert raised.value.code == "bad_request"

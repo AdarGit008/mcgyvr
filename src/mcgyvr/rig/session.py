@@ -87,6 +87,8 @@ TEARDOWN_ROUNDS = 3
 #: The feature that says this rig advertises the units it shares, with their slots,
 #: in ``unit_advert`` frames; a rig names it even when it lends no session.
 HITCHHIKE_FEATURE = "hitchhike_units"
+#: The feature that says this rig walks STUN candidates and its peers' relays.
+TRAVERSAL_FEATURE = "traversal"
 #: The feature that says this rig runs one session per card, never two on one card.
 #: A rig that names it may hold several sessions at once, one per card.
 MULTI_SESSION_FEATURE = "multi_session"
@@ -98,7 +100,7 @@ MULTI_SESSION_FEATURE = "multi_session"
 #: The hub publishes these names, so a name it does not publish refuses the hello.
 FEATURES = (
     "probe",
-    "traversal",
+    TRAVERSAL_FEATURE,
     "head_slots",
     HITCHHIKE_FEATURE,
     MULTI_SESSION_FEATURE,
@@ -107,7 +109,7 @@ FEATURES = (
 #: names: every feature but ``traversal``, until a reply to the helper's own
 #: UDP is known to pass the host firewall unasked; until then the hub pairs it
 #: with rigs on its own LAN alone.
-NATIVE_FEATURES = tuple(name for name in FEATURES if name != "traversal")
+NATIVE_FEATURES = tuple(name for name in FEATURES if name != TRAVERSAL_FEATURE)
 #: How many sessions a rig runs at once: one per tunnel port, each with its own.
 #: The live session count and the tunnel port count are the same number.
 MAX_LIVE_SESSIONS = sharing_module.TUNNEL_PORTS
@@ -212,6 +214,8 @@ class SessionHost(Protocol):
     ) -> tuple[dict[str, int], dict[str, int]]: ...
 
     def head_runtime(self, share: sharing_module.Sharing) -> str | None: ...
+
+    def head_bind(self, hello: pooled.TunnelHello) -> str: ...
 
     def local_device(self, number: int) -> str | None: ...
 
@@ -345,6 +349,9 @@ class DockerHost:
 
     def head_runtime(self, share: sharing_module.Sharing) -> str | None:
         return share.image
+
+    def head_bind(self, hello: pooled.TunnelHello) -> str:
+        return str(ipaddress.IPv4Interface(hello.address).ip)
 
     def local_device(self, number: int) -> str | None:
         return f"CUDA{number}"
@@ -917,18 +924,21 @@ class Sessions:
 
         A container is swept when it carries no agent pid, when it is this agent's
         own, or when the agent that made it is gone — the leftovers of an agent that
-        was killed. A native session's helper is not swept: it ends its parts and
-        itself when the agent that started it is gone (its stdin closes).
+        was killed. A native session's helper ends its parts and itself when the
+        agent that started it is gone (its stdin closes); what it could not end is
+        swept here by its record (:class:`mcgyvr.rig.userwg.NativeHost`).
         """
-        host = self._docker_host
-        left = [
-            o.name
-            for o in host.owned()
-            if o.agent_pid is None
-            or o.agent_pid == self.machine.owner.agent_pid
-            or not _alive(o.agent_pid)
-        ]
-        host.remove(left)
+        left: list[str] = []
+        for host in self._hosts():
+            gone = [
+                o.name
+                for o in host.owned()
+                if o.agent_pid is None
+                or o.agent_pid == self.machine.owner.agent_pid
+                or not _alive(o.agent_pid)
+            ]
+            host.remove(gone)
+            left += gone
         return left
 
     # The frames the hub sends: the three that start a session's parts, and two more.
@@ -953,12 +963,12 @@ class Sessions:
                 )
             share = self.machine.sharing()
             native = share.native_here()
-            if native and asked.role not in share.offered_roles():
+            if native and asked.role == "worker":
                 return sessionwire.refusal(
                     envelope.id,
                     SessionCode.NOT_CAPABLE,
-                    f"role: a rig lending with launcher native lends the head "
-                    f"role alone, not the {asked.role} role",
+                    "role: a rig lending with launcher native lends the head "
+                    "role alone, not the worker role",
                 )
             if native and self._native is None:
                 return sessionwire.refusal(
@@ -1073,8 +1083,7 @@ class Sessions:
                     )
                 session.reported_to.append(envelope.id)
                 return None
-            own = [interface for _, interface in self.machine.interfaces()]
-            own.append(ipaddress.IPv4Interface(session.hello.address))
+            own = self._own(session, session.hello)
             try:
                 plan = tunnel.plan(asked, listen_port=session.listen_port, own=own)
             except tunnel.RefusedError as refused:
@@ -1228,6 +1237,18 @@ class Sessions:
         return sessionwire.ack(envelope.id)
 
     # What is taken by whom, and the frames the sessions say.
+
+    def _own(
+        self, session: _Session, hello: pooled.TunnelHello
+    ) -> list[ipaddress.IPv4Interface]:
+        """This machine's own addresses, which a tunnel never aims at: every
+        interface, the tunnel's own address, and, for a native session (whose
+        system's interfaces are not read here), the hosts it is reached on."""
+        own = [interface for _, interface in self.machine.interfaces()]
+        own.append(ipaddress.IPv4Interface(hello.address))
+        if session.host is not self._docker_host:
+            own += [ipaddress.IPv4Interface(e.host) for e in session.endpoints]
+        return own
 
     def _hosts(self) -> list[SessionHost]:
         """The hosts this agent's sessions may run on: containers, and the native
@@ -1438,7 +1459,7 @@ class Sessions:
             devices=tuple(names),
             tensor_split=asked.tensor_split,
             rpc=tuple(f"{host}:{port}" for host, port in rpc),
-            bind=str(ipaddress.IPv4Interface(session.hello.address).ip),
+            bind=session.host.head_bind(session.hello),
             memory_mb=share.container_mb(),
         )
 
@@ -1753,8 +1774,7 @@ class Sessions:
         session without a traversal reading is still a session.
         """
         assert session.traversal is not None
-        own = [interface for _, interface in self.machine.interfaces()]
-        own.append(ipaddress.IPv4Interface(hello.address))
+        own = self._own(session, hello)
         servers: list[tuple[str, int]] = []
         for endpoint in session.traversal.stun[: sessionwire.MAX_STUN_ENDPOINTS]:
             host = sessionwire._ipv4(endpoint.host)

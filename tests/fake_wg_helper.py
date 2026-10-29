@@ -13,8 +13,8 @@ target to.
 
 The config file names ``record`` (a file each request and each forward event
 is appended to as a JSON line), ``routes`` (``"host:port"`` of a tunnel
-address to ``"127.0.0.1:port"`` here), ``version`` (the banner's, default the
-pin's), and ``faults`` (``{verb: how}``, how one of ``refuse``, ``garbage``,
+address to ``"127.0.0.1:port"`` here), ``version`` (the banner's), and
+``faults`` (``{verb: how}``, how one of ``refuse``, ``garbage``,
 ``extra_key``, ``wrong_id``, ``die``, ``silent``) to break the grammar on cue.
 """
 
@@ -30,7 +30,6 @@ import threading
 import time
 from typing import Any
 
-TAG = "v0.1.0"
 KEY = "C" * 42 + "w="
 
 STATE: dict[str, Any] = {
@@ -86,6 +85,34 @@ def _str(v: Any) -> bool:
     return isinstance(v, str)
 
 
+def _key(v: Any) -> bool:
+    from mcgyvr.rig.sessionwire import WIREGUARD_KEY
+
+    return isinstance(v, str) and bool(WIREGUARD_KEY.fullmatch(v))
+
+
+def _cidr(v: Any) -> bool:
+    import ipaddress
+
+    try:
+        return isinstance(v, str) and str(ipaddress.IPv4Interface(v)) == v
+    except ValueError:
+        return False
+
+
+def _token(v: Any) -> bool:
+    return (
+        isinstance(v, str) and len(v) == 32 and all(c in "0123456789abcdef" for c in v)
+    )
+
+
+def _to(v: Any) -> bool:
+    if not isinstance(v, str):
+        return False
+    host, _, port = v.rpartition(":")
+    return _ipv4(host) and port.isdigit() and 1024 <= int(port) <= 65535
+
+
 def _servers(v: Any) -> bool:
     return (
         isinstance(v, list)
@@ -105,6 +132,8 @@ def _up_peer(p: Any) -> bool:
     return (
         isinstance(p, dict)
         and set(p) == {"key", "host", "port", "keepalive", "allowed"}
+        and _key(p["key"])
+        and all(map(_cidr, p["allowed"]))
         and (p["host"] is None or _ipv4(p["host"]))
         and _int(p["port"], 0, 65535)
         and _int(p["keepalive"], 0, 65535)
@@ -117,6 +146,7 @@ def _aim_peer(p: Any) -> bool:
     return (
         isinstance(p, dict)
         and set(p) == {"key", "host", "port", "exact", "moved"}
+        and _key(p["key"])
         and (p["host"] is None or _ipv4(p["host"]))
         and type(p["exact"]) is bool
         and type(p["moved"]) is bool
@@ -126,23 +156,25 @@ def _aim_peer(p: Any) -> bool:
 FIELDS: dict[str, dict[str, Any]] = {
     "prepare": {
         "listen_port": lambda v: _int(v, 1024, 65535),
-        "hosts": lambda v: isinstance(v, list) and len(v) <= 8 and all(map(_ipv4, v)),
+        "hosts": lambda v: (
+            isinstance(v, list) and 1 <= len(v) <= 8 and all(map(_ipv4, v))
+        ),
         "lease_s": lambda v: _int(v, 1, 3600),
     },
     "stun": {
-        "token": _str,
+        "token": _token,
         "servers": _servers,
         "attempts": lambda v: _int(v, 1, 10),
         "wait_ms": lambda v: _int(v, 1, 10000),
     },
     "keep": {
-        "token": _str,
+        "token": _token,
         "servers": _servers,
         "every_s": lambda v: _int(v, 1, 300),
         "for_s": lambda v: _int(v, 1, 86400),
     },
     "up": {
-        "address": _str,
+        "address": _cidr,
         "mtu": lambda v: _int(v, 576, 1420),
         "peers": lambda v: (
             isinstance(v, list) and 1 <= len(v) <= 15 and all(map(_up_peer, v))
@@ -163,19 +195,22 @@ FIELDS: dict[str, dict[str, Any]] = {
     "spawn": {
         "part": lambda v: v == "head",
         "program": lambda v: _str(v) and os.path.isabs(v),
-        "argv": lambda v: isinstance(v, list) and all(map(_str, v)),
-        "env": lambda v: isinstance(v, dict) and all(map(_str, v.values())),
+        "argv": lambda v: isinstance(v, list) and len(v) <= 256 and all(map(_str, v)),
+        "env": lambda v: (
+            isinstance(v, dict) and len(v) <= 512 and all(map(_str, v.values()))
+        ),
         "cwd": lambda v: _str(v) and os.path.isabs(v),
         "log": lambda v: _str(v) and os.path.isabs(v),
     },
-    "forward": {"part": lambda v: v == "head", "to": _str},
+    "forward": {"part": lambda v: v == "head", "to": _to},
     "state": {"part": lambda v: v == "head"},
     "kill": {"part": lambda v: v == "head"},
     "lease": {},
     "teardown": {},
 }
-#: The verbs that come only after ``up``.
+#: The verbs that come only after ``up``, and those only before it.
 AFTER_UP = {"aim", "peers", "ping", "transfer", "forward"}
+BEFORE_UP = {"stun", "keep", "up"}
 
 
 def end_children() -> None:
@@ -362,7 +397,7 @@ def main() -> int:
             "id": 0,
             "ok": True,
             "helper": "mcgyvr-wg",
-            "version": CONFIG.get("version", TAG),
+            "version": CONFIG["version"],
             "proto": int(CONFIG.get("proto", 1)),
         }
     )
@@ -398,6 +433,10 @@ def main() -> int:
                 raise RefusedError("bad_state", f"{verb} before prepare")
             if verb in AFTER_UP and not STATE["up"]:
                 raise RefusedError("bad_state", f"{verb} before up")
+            if verb in BEFORE_UP and STATE["up"]:
+                raise RefusedError("bad_state", f"{verb} after up")
+            if verb == "prepare" and STATE["prepared"]:
+                raise RefusedError("bad_state", "prepare twice")
             result = answer(verb, given)
             reply = {"id": rid, "ok": True, **result}
             if fault == "extra_key":

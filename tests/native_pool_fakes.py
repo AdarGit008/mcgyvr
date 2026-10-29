@@ -25,7 +25,6 @@ from typing import Any
 
 import pytest
 
-from tests import hostos_fakes
 from tests import rig_pool_fakes as fakes
 
 HELPER = Path(__file__).with_name("fake_wg_helper.py")
@@ -105,22 +104,40 @@ def write_engine(folder: Path) -> Path:
     return program
 
 
+def as_native_system(monkeypatch: pytest.MonkeyPatch, system: str) -> None:
+    """Make the rig see itself as a `system` machine with a helper pinned for it.
+
+    Only the system's name is changed (``hostos.os_name``), which is what
+    decides whether a rig's sessions run natively; every process call stays
+    this machine's own, so the fake helper and the fake head really run, and
+    their pids, start times and groups are real. What a Mac or Windows does
+    with a detached start, a Job Object or a start time is ``hostos``'s own
+    tests'."""
+    from mcgyvr import hostos
+    from mcgyvr.rig import wgpin
+
+    monkeypatch.setattr(hostos, "os_name", lambda: system)
+    monkeypatch.setattr(wgpin, "pinned_here", lambda: True)
+
+
 def make_native_pool(
     tmp_path: Path,
     monkeypatch: pytest.MonkeyPatch,
     *,
     backend: str = "cuda",
-    system: str = "darwin",
+    system: str = "windows",
     config: dict[str, Any] | None = None,
     **sharing_changes: Any,
 ) -> NativePool:
-    """A session table whose sessions run natively through the fake helper."""
-    from mcgyvr.rig import commands, pooled, userwg
+    """A session table whose sessions run natively through the fake helper:
+    by default an invented Windows box with two NVIDIA cards and a CUDA build."""
+    from mcgyvr.rig import commands, pooled, userwg, wgpin
     from mcgyvr.rig import session as rs
 
-    hostos_fakes.as_system(monkeypatch, system)
+    as_native_system(monkeypatch, system)
     echo = Echo()
     settings = {
+        "version": wgpin.TAG,
         "record": str(tmp_path / "helper-record.jsonl"),
         "routes": {f"{RPC_DEVICE[0]}:{RPC_DEVICE[1]}": f"127.0.0.1:{echo.port}"},
         **(config or {}),
@@ -135,10 +152,12 @@ def make_native_pool(
         engine=lambda: userwg.Engine(program=program, backend=backend),
         env={
             "PATH": os.environ.get("PATH", ""),
-            "FAKE_HEAD_SAID": str(tmp_path / "head-said.json"),
             "LLAMA_ARG_HOST": "0.0.0.0",
+            "HF_TOKEN": "hf_not_for_the_head",
+            "GGML_SCHED_MAX_COPIES": "1",
         },
         log_path=lambda name: logs / f"{name}.log",
+        records=lambda: tmp_path / "records",
         reply_s=10.0,
     )
     box = fakes.Box()

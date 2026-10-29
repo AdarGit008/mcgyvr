@@ -173,3 +173,32 @@ def test_a_docker_rigs_session_asks_the_daemon_what_it_always_asked(
 ) -> None:
     golden = json.loads(GOLDEN.read_text(encoding="utf-8"))
     assert record(name, tmp_path) == golden[name]
+
+
+def test_a_stun_answer_from_a_server_not_asked_is_dropped(tmp_path: Path) -> None:
+    """The round trip a prepare reports is the least of the servers it asked;
+    a line naming another server is not believed."""
+    pool = make_pool(tmp_path)
+    pool.docker.stun_said = (
+        f"rtt 203.0.113.77 3478 10\nrtt {STUN} 3478 1500\nrtt {STUN} 3478 x\n"
+    )
+    try:
+        traversal = {
+            "token": TOKEN,
+            "stun": [{"host": STUN, "port": 3478, "kind": "stun"}],
+        }
+        assert (
+            pool.ask(
+                "session_prepare",
+                "p1",
+                session_id="s1",
+                role="worker",
+                traversal=traversal,
+            )
+            is None
+        )
+        pool.wait_for("session_prepared")
+        prepared = pool.box.of_type("session_prepared")[0]["body"]
+        assert prepared["stun_rtt_us"] == 1500
+    finally:
+        pool.sessions.close()

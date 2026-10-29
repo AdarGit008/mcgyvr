@@ -1,24 +1,25 @@
 """The one ``mcgyvr-wg`` build a native pooled session runs: pinned by tag and sha256.
 
 ``mcgyvr-wg`` is the userspace WireGuard helper of a Mac or Windows rig's
-pooled sessions (the pooled-sessions design, option (d)): wireguard-go with its
-netstack IP stack, no TUN device and no admin rights. It is built in a repository
-of its own and published as one archive per system and architecture; this
-module pins which (:data:`TAG`), where (:data:`REPO`), what each archive is
-called (:func:`asset_name`) and, for each, the length and sha256 it must have
+pooled sessions: wireguard-go with its netstack IP stack, no TUN device and
+no admin rights. It is built in a repository of its own and published as one
+archive per system and architecture; this module pins which
+(:data:`TAG`), where (:data:`REPO`), what each archive is called
+(:func:`asset_name`) and, for each, the length and sha256 it must have
 (:data:`RELEASE`), as :mod:`mcgyvr.serving.llamacpp` pins llama.cpp. The
 archives are fetched, verified and unpacked by :mod:`mcgyvr.serving.release`,
 nothing else, and nothing that is not pinned here is fetched.
 
-:data:`RELEASE` holds no archive until the helper's first release is
-published and its digests are read from the release's own API
-(``assets[].size`` and ``assets[].digest``) and checked by a download: until
-then :func:`install` refuses on every system, so a native head is refused
-before anything is fetched or started.
+:data:`RELEASE` holds no archive until the helper's first release: its
+digests are taken from the helper's own reproducible build and checked
+against the published archives before they are committed here. Until then
+:func:`pinned_for` is false on every system, so no rig offers a native
+session, and :func:`helper` refuses before anything is fetched.
 """
 
 from __future__ import annotations
 
+from functools import cache
 from pathlib import Path
 
 from mcgyvr import hostos
@@ -54,6 +55,29 @@ def asset_name(os_name: str, arch: str) -> str:
     return f"{PROGRAM}-{TAG}-{os_name}-{arch}.{ARCHIVE[os_name]}"
 
 
+def pinned_for(os_name: str, arch: str) -> bool:
+    """Whether a helper archive is pinned for this system and architecture,
+    read from the table alone: nothing is fetched."""
+    try:
+        name = asset_name(os_name, arch)
+    except ReleaseError:
+        return False
+    return any(asset.name == name for asset in RELEASE.assets)
+
+
+@cache
+def _arch() -> str:
+    from mcgyvr.serving.native import machine_arch
+
+    return machine_arch()
+
+
+def pinned_here() -> bool:
+    """Whether a helper archive is pinned for this machine; a rig offers a
+    native session only then (the architecture is read once)."""
+    return pinned_for(hostos.os_name(), _arch())
+
+
 def install_dir() -> Path:
     """Where the helper is unpacked: one folder per system and architecture,
     the same across pin bumps, so a firewall's rule for the program keeps
@@ -68,7 +92,7 @@ def helper(os_name: str, arch: str) -> Path:
     verified on first use; :class:`ReleaseError` when none is pinned for it or
     it cannot be fetched as pinned."""
     name = asset_name(os_name, arch)
-    if not any(asset.name == name for asset in RELEASE.assets):
+    if not pinned_for(os_name, arch):
         raise ReleaseError(
             f"no pinned {PROGRAM} {TAG} archive for {os_name} {arch}; a native "
             "pooled session needs it, and nothing unpinned is fetched"

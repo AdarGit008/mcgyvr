@@ -660,7 +660,11 @@ def _share(args: argparse.Namespace) -> int:
     print(f"ram:     {wanted.container_mb()} MiB per container")
     print(f"models:  {wanted.models_dir or 'none (no head)'}")
     endpoints = (
-        ", ".join(wanted.endpoints) if wanted.endpoints else "this machine's LAN"
+        ", ".join(wanted.endpoints)
+        if wanted.endpoints
+        else "none named: set --endpoints"
+        if wanted.native_here()
+        else "this machine's LAN"
     )
     ports = wanted.tunnel_ports()
     udp = f"{ports[0]}" if len(ports) == 1 else f"{ports[0]}-{ports[-1]}"
@@ -759,9 +763,11 @@ def add_parser(
     cache.add_argument("--cache", dest="cache", action="store_const", const=True)
     cache.add_argument("--no-cache", dest="cache", action="store_const", const=False)
     share.add_argument("--cache-max-mb", type=int, help="the worker cache's size")
+    from mcgyvr.config import LAUNCHERS
+
     share.add_argument(
         "--launcher",
-        choices=("docker", "native"),
+        choices=LAUNCHERS,
         help="docker: sessions run in containers; native (macOS, Windows): "
         "through the mcgyvr-wg helper on the pinned llama.cpp build, head only",
     )

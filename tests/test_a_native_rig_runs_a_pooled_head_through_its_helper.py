@@ -14,6 +14,9 @@ checked against the hub's published schema.
 
 from __future__ import annotations
 
+import json
+import os
+import signal
 import socket
 import time
 from collections.abc import Iterator
@@ -121,9 +124,12 @@ def test_a_native_head_listens_on_the_loopback_and_reaches_its_worker_by_forward
     assert [(f["part"], f["to"]) for f in forward] == [
         ("head", f"{native.RPC_DEVICE[0]}:{native.RPC_DEVICE[1]}")
     ]
-    # the head's cards, and nothing of the operator's listening address
+    # the head's cards and its runtime's settings, and nothing of the agent's
+    # own: no listening address of the operator's, no token
     assert "CUDA_VISIBLE_DEVICES" in said["env"]
+    assert "GGML_SCHED_MAX_COPIES" in said["env"]
     assert "LLAMA_ARG_HOST" not in said["env"]
+    assert "HF_TOKEN" not in said["env"]
     assert rig.pool.sessions.head_port("s1") == 18080
     verbs = rig.verbs()
     assert verbs[:2] == ["prepare", "up"]
@@ -160,6 +166,76 @@ def test_stopping_a_native_session_ends_its_head_and_its_helper(
     assert not helper.alive()
     assert rig.verbs()[-2:] == ["kill", "teardown"]
     assert rig.host.owned() == []
+
+
+def _alive(pid: int) -> bool:
+    try:
+        os.kill(pid, 0)
+    except ProcessLookupError:
+        return False
+    with open(f"/proc/{pid}/stat", encoding="ascii") as stat:
+        return stat.read().split(") ")[-1][0] != "Z"
+
+
+def _recorded_pid(rig: NativePool, part: str) -> int:
+    from mcgyvr.rig import pooled
+
+    record = rig.tmp / "records" / f"{pooled.container_name('s1', part)}.json"
+    pid: int = json.loads(record.read_text())["pid"]
+    return pid
+
+
+def test_a_head_outliving_a_helper_killed_outright_is_ended_by_its_record(
+    rig: NativePool,
+) -> None:
+    _ready_with_worker(rig)
+    head, helper = _recorded_pid(rig, "head"), _recorded_pid(rig, "tunnel")
+    assert _alive(head)
+    os.kill(helper, signal.SIGKILL)  # no teardown: the head is left behind
+    rig.pool.wait_for("session_status", "failed")
+    rig.pool.settle()
+    deadline = time.monotonic() + 5.0
+    while _alive(head):
+        assert time.monotonic() < deadline, "the head outlived its session"
+        time.sleep(0.01)
+    assert list((rig.tmp / "records").glob("*.json")) == []
+
+
+def test_a_sweep_ends_what_an_agent_that_died_left_recorded(
+    rig: NativePool,
+) -> None:
+    import subprocess
+    import sys
+
+    from mcgyvr import hostos
+
+    left = subprocess.Popen(
+        [sys.executable, "-c", "import time; time.sleep(60)"], start_new_session=True
+    )
+    gone = subprocess.Popen([sys.executable, "-c", "pass"])
+    gone.wait()  # an agent pid that is no more
+    folder = rig.tmp / "records"
+    folder.mkdir(mode=0o700, exist_ok=True)
+    (folder / "mcgyvr-pool-000000000000-head.json").write_text(
+        json.dumps(
+            {
+                "name": "mcgyvr-pool-000000000000-head",
+                "session_id": "old",
+                "agent_pid": gone.pid,
+                "pid": left.pid,
+                "start": hostos.process_start_time(left.pid),
+                "program": sys.executable,
+            }
+        )
+    )
+    try:
+        assert rig.pool.sessions.sweep() == ["mcgyvr-pool-000000000000-head"]
+        assert left.wait(timeout=5) != 0
+        assert list(folder.glob("*.json")) == []
+    finally:
+        if left.poll() is None:
+            left.kill()
+            left.wait()
 
 
 def test_a_native_head_alone_needs_no_tunnel_and_no_forward(rig: NativePool) -> None:

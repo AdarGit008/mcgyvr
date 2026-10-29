@@ -1,7 +1,8 @@
 """A stand-in for a pooled head's llama-server: it reaches its rpc devices, then waits.
 
 Written out as the engine program a native session test spawns. It writes its
-argv and the names of its environment to ``$FAKE_HEAD_SAID`` (a JSON file),
+argv and the names of its environment to ``head-said.json`` in the folder above
+its model's (a JSON file; the head is given no variable a test could name it by),
 connects to each ``host:port`` its ``--rpc`` names, sends ``ping`` and keeps
 what came back, writes that too, and then sleeps until it is ended, as a
 server would serve.
@@ -19,7 +20,12 @@ import time
 def main() -> int:
     args = sys.argv[1:]
     said: dict[str, object] = {"argv": args, "env": sorted(os.environ), "rpc": {}}
-    target = os.environ.get("FAKE_HEAD_SAID", "")
+    model = args[args.index("-m") + 1] if "-m" in args else ""
+    target = (
+        os.path.join(os.path.dirname(os.path.dirname(model)), "head-said.json")
+        if model
+        else ""
+    )
     if "--rpc" in args:
         for device in args[args.index("--rpc") + 1].split(","):
             host, _, port = device.rpartition(":")

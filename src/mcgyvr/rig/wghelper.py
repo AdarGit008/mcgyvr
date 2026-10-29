@@ -33,7 +33,9 @@ import json
 import math
 import os
 import queue
+import re
 import subprocess
+import sys
 import threading
 from collections.abc import Callable, Mapping, Sequence
 from dataclasses import dataclass
@@ -59,7 +61,7 @@ ERRORS = frozenset(
         "internal",
     }
 )
-#: The parts a session runs through the helper: a head (B2 adds workers).
+#: The parts a session runs through the helper: a head (workers come later).
 PARTS = ("head",)
 #: The states a part may be in.
 PART_STATES = ("running", "exited", "absent")
@@ -80,6 +82,8 @@ MAX_ENV = 512
 LOWEST_PORT = 1024
 #: The MTU range ``up`` takes.
 MTU_RANGE = (576, 1420)
+#: A port as a reply writes it: ASCII digits, no leading zero.
+PORT = re.compile(r"[1-9][0-9]{0,4}")
 #: The largest whole number either side writes (counters, epoch seconds, ids).
 MAX_COUNT = 2**63 - 1
 MAX_ID = 2**31 - 1
@@ -138,6 +142,20 @@ def _ipv4(value: object) -> bool:
         return False
 
 
+def _bindable(value: object) -> bool:
+    """An address a session's socket may bind: this host's own unicast
+    address, not the wildcard, the loopback, a multicast or the broadcast."""
+    if not _ipv4(value):
+        return False
+    found = ipaddress.IPv4Address(str(value))
+    return not (
+        found.is_unspecified
+        or found.is_loopback
+        or found.is_multicast
+        or found == ipaddress.IPv4Address("255.255.255.255")
+    )
+
+
 def _cidr(value: object) -> bool:
     if type(value) is not str or "/" not in value or len(value) > 18:
         return False
@@ -155,7 +173,12 @@ def _endpoint(value: object) -> bool:
     if type(value) is not str:
         return False
     host, colon, port = value.rpartition(":")
-    return bool(colon) and _ipv4(host) and port.isdigit() and _int(int(port), 1, 65535)
+    return (
+        bool(colon)
+        and _ipv4(host)
+        and PORT.fullmatch(port) is not None
+        and int(port) <= 65535
+    )
 
 
 def _text(value: object, most: int) -> bool:
@@ -193,7 +216,7 @@ def _record(value: object, fields: Mapping[str, Callable[[object], bool]]) -> bo
 
 def _milliseconds(value: object) -> bool:
     if type(value) is int:
-        value = float(value)
+        return 0 <= value <= 10**9
     return type(value) is float and math.isfinite(value) and 0.0 <= value <= 1e9
 
 
@@ -255,7 +278,7 @@ RESULTS: dict[str, dict[str, Callable[[object], bool]]] = {
         )
     },
     "spawn": {"pid": lambda v: _int(v, 1, MAX_ID)},
-    "forward": {"port": lambda v: _int(v, 1, 65535)},
+    "forward": {"port": lambda v: _int(v, LOWEST_PORT, 65535)},
     "state": {
         "state": lambda v: v in PART_STATES,
         "exit": lambda v: v is None or _int(v, -(2**31), 2**32 - 1),
@@ -270,13 +293,38 @@ def read_reply(line: bytes, expected_id: int, verb: str) -> dict[str, Any]:
     """The result fields of one reply line, or :class:`HelperError`.
 
     A refusal raises with the helper's own code; anything that is not exactly a
-    reply to request ``expected_id`` of ``verb`` raises with ``protocol``.
+    reply to request ``expected_id`` of ``verb`` raises with ``protocol`` —
+    whatever else reading it raised (a nesting too deep, a key given twice, a
+    number too large) included.
     """
+    try:
+        return _read_reply(line, expected_id, verb)
+    except HelperError:
+        raise
+    except Exception as exc:  # anything a hostile line provokes is not believed
+        raise HelperError(
+            "protocol", f"{verb}: the helper's reply does not read"
+        ) from exc
+
+
+def _loads(line: bytes) -> Any:
+    """One JSON value, with no NaN or Infinity and no key given twice."""
+    return json.loads(line, parse_constant=_no_constant, object_pairs_hook=_no_twice)
+
+
+def _no_twice(pairs: list[tuple[str, Any]]) -> dict[str, Any]:
+    found = dict(pairs)
+    if len(found) != len(pairs):
+        raise ValueError("a key given twice")
+    return found
+
+
+def _read_reply(line: bytes, expected_id: int, verb: str) -> dict[str, Any]:
     if len(line) > LINE_MAX or not line.endswith(b"\n"):
         raise HelperError("protocol", f"{verb}: the helper's reply is not one line")
     try:
-        reply = json.loads(line, parse_constant=_no_constant)
-    except (ValueError, UnicodeDecodeError) as exc:
+        reply = _loads(line)
+    except (ValueError, UnicodeDecodeError, RecursionError) as exc:
         raise HelperError(
             "protocol", f"{verb}: the helper's reply is not JSON"
         ) from exc
@@ -290,6 +338,7 @@ def read_reply(line: bytes, expected_id: int, verb: str) -> dict[str, Any]:
     if ok is False:
         if (
             set(reply) != {"id", "ok", "error", "why"}
+            or type(reply["error"]) is not str
             or reply["error"] not in ERRORS
             or not _text(reply["why"], WHY_MAX)
         ):
@@ -308,8 +357,8 @@ def read_banner(line: bytes) -> str:
     if len(line) > LINE_MAX or not line.endswith(b"\n"):
         raise HelperError("protocol", "the helper wrote no banner")
     try:
-        banner = json.loads(line, parse_constant=_no_constant)
-    except (ValueError, UnicodeDecodeError) as exc:
+        banner = _loads(line)
+    except (ValueError, UnicodeDecodeError, RecursionError) as exc:
         raise HelperError("protocol", "the helper's banner is not JSON") from exc
     if not _record(
         banner,
@@ -338,6 +387,27 @@ def _no_constant(name: str) -> Any:
 def _need(ok: bool, what: str) -> None:
     if not ok:
         raise HelperError("bad_request", f"not sent: {what}")
+
+
+def open_log(path: Path) -> IO[bytes]:
+    """``path`` opened to append, in a folder of this user's alone, never
+    through a link, readable by this user alone where modes say so."""
+    from mcgyvr.userdir import private_dir
+
+    if private_dir(path.parent, make=True) is None:
+        raise HelperError(
+            "gone", f"{path.parent} is not this user's own folder; no log is kept"
+        )
+    hostos.chmod_private(path.parent, directory=True)
+    try:
+        fd = hostos.open_nofollow(
+            path,
+            os.O_WRONLY | os.O_CREAT | os.O_APPEND | hostos.open_flags_binary(),
+            0o600,
+        )
+    except OSError as exc:
+        raise HelperError("gone", f"{path} could not be opened: {exc}") from exc
+    return os.fdopen(fd, "ab")
 
 
 class Helper:
@@ -375,8 +445,7 @@ class Helper:
     def start(self) -> None:
         """Start the helper and read its banner; :class:`HelperError` when it
         cannot be started or is not the pinned helper."""
-        self._log.parent.mkdir(parents=True, exist_ok=True)
-        with self._log.open("ab") as err:
+        with open_log(self._log) as err:
             common: dict[str, Any] = {
                 "stdin": subprocess.PIPE,
                 "stdout": subprocess.PIPE,
@@ -437,6 +506,13 @@ class Helper:
                 proc.kill()
             with contextlib.suppress(subprocess.TimeoutExpired):
                 proc.wait(timeout=EXIT_S)
+        job, self._job = self._job, None
+        if job is not None and sys.platform == "win32":
+            import _winapi
+
+            # The job's last handle: closing it ends whatever is left in it.
+            with contextlib.suppress(OSError):
+                _winapi.CloseHandle(job)
 
     def _line(self, budget: float, what: str) -> bytes:
         try:
@@ -454,6 +530,9 @@ class Helper:
             if proc is None or proc.poll() is not None or proc.stdin is None:
                 raise HelperError("gone", f"{verb}: the helper is not running")
             request_id = self._next
+            if request_id > MAX_ID:
+                self.end()
+                raise HelperError("protocol", f"{verb}: the request ids ran out")
             self._next += 1
             line = (
                 json.dumps(
@@ -474,13 +553,14 @@ class Helper:
                     self.end()
                 raise
             except OSError as exc:
+                self.end()
                 raise HelperError("gone", f"{verb}: the helper is gone: {exc}") from exc
 
     # The verbs, each value checked before it is sent.
 
     def prepare(self, listen_port: int, hosts: Sequence[str], lease_s: int) -> str:
         _need(_int(listen_port, LOWEST_PORT, 65535), "listen_port")
-        _need(len(hosts) <= MAX_HOSTS and all(_ipv4(h) for h in hosts), "hosts")
+        _need(0 < len(hosts) <= MAX_HOSTS and all(_bindable(h) for h in hosts), "hosts")
         _need(_int(lease_s, 1, 3600), "lease_s")
         found = self.call(
             "prepare", listen_port=listen_port, hosts=list(hosts), lease_s=lease_s
@@ -591,6 +671,9 @@ class Helper:
         _need(_ipv4(host), "host")
         _need(_int(size, 1, MTU_RANGE[1]) and _int(count, 1, 10), "size, count")
         found = self.call("ping", host=host, size=size, count=count)
+        if found["size"] != size:
+            self.end()
+            raise HelperError("protocol", "ping: the helper pinged another size")
         rtt = found["rtt_ms"]
         return pooled.PingSeen(
             rtt_ms=None if rtt is None else float(rtt),

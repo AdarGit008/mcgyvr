@@ -557,11 +557,11 @@ def _native_service(unit: Unit) -> dict[str, object]:
     No image, no volumes, no devices: the program (`PROGRAM_KEY`) is the
     pinned llama.cpp build's server or rpc worker, run with the same argv a
     container is given, and the cards it may use are listed under
-    `CARDS_KEY` (:func:`_native_block`).
+    `CARDS_KEY` (:func:`native_block`).
     """
     if unit.role == ROLE_SERVE and HOST_FLAG not in unit.args:
         unit = replace(unit, args={**unit.args, HOST_FLAG: LOOPBACK})
-    return _native_block(
+    return native_block(
         unit.key.slug,
         engine=unit.engine,
         host=unit.host,
@@ -573,7 +573,7 @@ def _native_service(unit: Unit) -> dict[str, object]:
     )
 
 
-def _native_block(
+def native_block(
     slug: str,
     *,
     engine: str | None,
@@ -1102,7 +1102,7 @@ def _locked_native(
     The lock carries what the unlocked unit was emitted with: `unit_id`,
     `container`, `launch.argv` and `launch.env`; the cards come from its
     span. It is the same block an unlocked native unit renders
-    (:func:`_native_block`), so locking a native fleet does not change how
+    (:func:`native_block`), so locking a native fleet does not change how
     it runs.
     """
     launch = unit.get("launch") or {}
@@ -1121,7 +1121,7 @@ def _locked_native(
             f"{name}: a locked unit is rendered from what it states, and it does "
             f"not state {', '.join(missing)}"
         )
-    return _native_block(
+    return native_block(
         name,
         engine=unit.get("engine"),
         host=host_of(str(unit["address"])),

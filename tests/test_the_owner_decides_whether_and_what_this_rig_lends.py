@@ -232,9 +232,9 @@ def test_a_mac_shares_natively_without_an_image_and_offers_the_head_alone(
 ) -> None:
     from mcgyvr import cli
     from mcgyvr.rig import sharing
-    from tests import hostos_fakes
+    from tests.native_pool_fakes import as_native_system
 
-    hostos_fakes.as_system(monkeypatch, "darwin")
+    as_native_system(monkeypatch, "darwin")
     models = tmp_path / "models"
     models.mkdir()
     code = cli.main(
@@ -248,6 +248,8 @@ def test_a_mac_shares_natively_without_an_image_and_offers_the_head_alone(
             "worker,head",
             "--models",
             str(models),
+            "--endpoints",
+            fakes.LAN_ADDRESS,
         ]
     )
     assert code == 0

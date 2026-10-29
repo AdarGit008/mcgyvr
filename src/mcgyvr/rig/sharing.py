@@ -98,10 +98,21 @@ class Sharing:
     def offered_roles(self) -> tuple[str, ...]:
         """The roles this rig really offers: none unless lending is on with an
         image, and the head only when a models folder is named. A native rig
-        (:meth:`native_here`) needs no image and offers the head alone: its
-        helper serves no rpc worker yet."""
+        (:meth:`native_here`) needs no image and offers the head alone (its
+        helper serves no rpc worker yet), and only once it names the hosts its
+        tunnel is reached on (its interfaces are not read) and a helper is
+        pinned for this machine (:func:`mcgyvr.rig.wgpin.pinned_here`)."""
         if self.enabled and self.native_here():
-            return ("head",) if "head" in self.roles and self.models_dir else ()
+            from mcgyvr.rig import wgpin
+
+            if not (
+                "head" in self.roles
+                and self.models_dir
+                and self.endpoints
+                and wgpin.pinned_here()
+            ):
+                return ()
+            return ("head",)
         if not self.enabled or self.image is None:
             return ()
         return tuple(
