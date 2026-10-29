@@ -32,15 +32,16 @@ MAX_MESSAGE_BYTES = 64 * 1024
 #: Frames per second one agent may send over its channel.
 #: The agent paces itself at half this, so it stays well inside the limit.
 MAX_FRAMES_PER_SECOND = 100
-#: Most cards one hello or one heartbeat may report.
-MAX_CARDS = 16
+#: Most cards one hello or one heartbeat may report (the wire's,
+#: :mod:`mcgyvr.hubwire`).
+MAX_CARDS = hubwire.MAX_CARDS
 #: Highest card index a report may name; indexes start at 0 and no card may be
 #: reported twice in one frame.
-MAX_CARD_INDEX = 63
+MAX_CARD_INDEX = hubwire.MAX_RESOURCE_INDEX
 #: Longest card name, in characters, a report may carry.
-CARD_NAME_MAX = 128
+CARD_NAME_MAX = hubwire.RESOURCE_NAME_MAX
 #: Upper bound on any RAM or VRAM figure in a frame, counted in MiB.
-MAX_MB = 1 << 30
+MAX_MB = hubwire.RESOURCE_MAX_MB
 #: Longest error text, in characters: a longer one is cut to this before it is
 #: sent, and a received one longer than this is refused.
 MAX_ERROR_TEXT = 500
@@ -68,8 +69,9 @@ MACHINE_ID = re.compile(r"[A-Za-z0-9][A-Za-z0-9._:-]{0,127}")
 AGENT_VERSION = re.compile(r"[A-Za-z0-9][A-Za-z0-9.+_-]{0,63}")
 #: A card name is text a hub may show, so it excludes control characters,
 #: C1 controls, the bidi embedding and override marks and the bidi isolates: a
-#: name from a driver cannot reorder or hide what a hub draws around it.
-CARD_NAME = re.compile("[^\x00-\x1f\x7f-\x9f\u202a-\u202e\u2066-\u2069]+")
+#: name from a driver cannot reorder or hide what a hub draws around it. It is
+#: a resource's name rule (:data:`mcgyvr.hubwire.RESOURCE_NAME`).
+CARD_NAME = hubwire.RESOURCE_NAME
 
 
 class CloseCode(enum.IntEnum):
