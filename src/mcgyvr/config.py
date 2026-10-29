@@ -30,6 +30,20 @@ from mcgyvr.fleet.files import (
 )
 from mcgyvr.fleet.ids import _canonical_dump
 from mcgyvr.fleet.roots import LiveFleetError, live_fleet_dir
+
+# The use cases an install may serve, in the order setup offers them, are the
+# wire's: `mcgyvr-code` opts in to mcgyvr between a model and you (contracts
+# proposed, vetted, run up the ladder, gated, repaired, reviewed and
+# re-planned, each stage under its own switch, `SWITCHES`, every one on by
+# default); `code` is a coding model mcgyvr recommends, served raw; `chat` a
+# raw, un-gated text endpoint; `agent` a raw, un-gated endpoint with
+# tool-calling.
+from mcgyvr.hubwire import AGENT as AGENT
+from mcgyvr.hubwire import CHAT as CHAT
+from mcgyvr.hubwire import CODE as CODE
+from mcgyvr.hubwire import MCGYVR_CODE as MCGYVR_CODE
+from mcgyvr.hubwire import RUNG_POSITIONS, rider_cap_fits
+from mcgyvr.hubwire import USE_CASES as USE_CASES
 from mcgyvr.sandbox.base import NETWORKS
 from mcgyvr.schema import Dialect, join_path, walk_block
 from mcgyvr.schema import Field as Field
@@ -74,8 +88,8 @@ class UnboundValueError(ConfigError):
 
 
 #: Where a relief rung's host model sits against the models on your own rigs, as
-#: the hub judges it: shown, never a place on the ladder.
-POSITION_CHOICES: tuple[str, ...] = ("above_ceiling", "below_floor", "within")
+#: the hub judges it: shown, never a place on the ladder. The wire's values.
+POSITION_CHOICES: tuple[str, ...] = RUNG_POSITIONS
 
 #: How a batch of work is placed across units. `none` takes the first rung in
 #: ladder order whatever its load; `idle` and `full` take the first rung with a
@@ -200,20 +214,6 @@ DELIVERY_FIELDS: tuple[Field, ...] = (
         "have checked out",
     ),
 )
-
-#: The use case that opts in to mcgyvr between a model and you: contracts are
-#: proposed, vetted, run up the ladder, gated, repaired, reviewed and re-planned,
-#: each stage under its own switch (`SWITCHES`), every one on by default.
-MCGYVR_CODE = "mcgyvr-code"
-#: A coding model mcgyvr recommends, served raw: nothing of mcgyvr's is in the path.
-CODE = "code"
-#: The use case served by a raw, un-gated text endpoint rather than scoped edits.
-CHAT = "chat"
-#: A raw, un-gated endpoint with tool-calling.
-AGENT = "agent"
-
-#: The use cases an install may serve, in the order setup offers them.
-USE_CASES: tuple[str, ...] = (MCGYVR_CODE, CODE, CHAT, AGENT)
 
 #: The use cases that serve their model raw: no stage of `SWITCHES` runs, and the
 #: contract verbs refuse (`requires_mcgyvr_code`).
@@ -2370,7 +2370,7 @@ def _cross_validate_shares(data: Mapping[str, Any], units: Mapping[str, Any]) ->
                 f"you run, or remove the entry."
             )
         width = block["width"]
-        if width is None or shared >= width:
+        if shared > 0 and not rider_cap_fits(shared, 1 if width is None else width):
             stated = "unset, so 1" if width is None else str(width)
             raise ConfigSchemaError(
                 f"{where}: {shared} is not below the unit's `width` ({stated}). "

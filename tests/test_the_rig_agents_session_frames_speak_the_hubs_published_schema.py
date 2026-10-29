@@ -44,11 +44,9 @@ def test_the_agents_session_limits_shapes_and_sets_are_the_schemas(
     from mcgyvr.rig import protocol as p
     from mcgyvr.rig import sessionwire as w
 
-    assert schema["x-relay-max-chunk-bytes"] == w.RELAY_MAX_CHUNK_BYTES
-    assert schema["x-relay-max-request-bytes"] == w.RELAY_MAX_REQUEST_BYTES
-    assert schema["x-relay-max-response-bytes"] == w.RELAY_MAX_RESPONSE_BYTES
-    assert schema["x-relay-max-window"] == w.RELAY_MAX_WINDOW
-    assert schema["x-relay-max-timeout-s"] == w.RELAY_MAX_TIMEOUT_S
+    # The relay limits and the model name are the wire's (mcgyvr.hubwire),
+    # held to the schema in
+    # tests/test_the_hub_wire_is_defined_once_in_the_product.py.
     assert schema["x-log-excerpt-max-chars"] == w.LOG_EXCERPT_MAX_CHARS
     assert set(schema["x-error-codes"]) == {c.value for c in p.ErrorCode} | {
         value for name, value in vars(w.SessionCode).items() if name.isupper()
@@ -65,7 +63,6 @@ def test_the_agents_session_limits_shapes_and_sets_are_the_schemas(
     assert hello["endpoints"]["maxItems"] == p.MAX_ENDPOINTS == w.MAX_ENDPOINTS
     assert hello["sessions"]["maxItems"] == p.MAX_SESSIONS_REPORTED
     model = _props(schema, "ModelInfo")
-    assert model["name"]["pattern"] == f"^{p.MODEL_NAME.pattern}$"
     assert model["size_bytes"]["maximum"] == p.MAX_MODEL_BYTES
     assert _branch(model["digest"])["pattern"] == f"^{p.DIGEST.pattern}$"
     assert _branch(model["arch"])["pattern"] == f"^{p.SHORT_TAG.pattern}$"
@@ -110,7 +107,6 @@ def test_the_agents_session_limits_shapes_and_sets_are_the_schemas(
     assert response["content_type"]["maxLength"] == w.MAX_CONTENT_TYPE
     data = _props(schema, "RelayDataBody")
     assert data["data_b64"]["maxLength"] == w.RELAY_MAX_CHUNK_B64
-    assert data["seq"]["maximum"] == w.RELAY_MAX_SEQ
     rtt = _props(schema, "RttSample")
     assert rtt["rtt_us"]["maximum"] == w.MAX_RTT_US
     assert _props(schema, "PeerRttBody")["samples"]["maxItems"] == w.MAX_RTT_SAMPLES

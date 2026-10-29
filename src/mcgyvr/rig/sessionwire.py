@@ -20,6 +20,18 @@ from collections.abc import Mapping, Sequence
 from dataclasses import dataclass
 from typing import Any, Literal
 
+from mcgyvr import hubwire
+from mcgyvr.hubwire import MAX_SLOTS as MAX_SLOTS
+from mcgyvr.hubwire import MAX_UNITS as MAX_UNITS
+from mcgyvr.hubwire import RELAY_MAX_CHUNK_BYTES as RELAY_MAX_CHUNK_BYTES
+from mcgyvr.hubwire import RELAY_MAX_REQUEST_BYTES as RELAY_MAX_REQUEST_BYTES
+from mcgyvr.hubwire import RELAY_MAX_RESPONSE_BYTES as RELAY_MAX_RESPONSE_BYTES
+from mcgyvr.hubwire import RELAY_MAX_SEQ as RELAY_MAX_SEQ
+from mcgyvr.hubwire import RELAY_MAX_TIMEOUT_S as RELAY_MAX_TIMEOUT_S
+from mcgyvr.hubwire import RELAY_MAX_TOKENS as RELAY_MAX_TOKENS
+from mcgyvr.hubwire import RELAY_MAX_WINDOW as RELAY_MAX_WINDOW
+from mcgyvr.hubwire import UNIT_ADVERT_INTERVAL_S as UNIT_ADVERT_INTERVAL_S
+from mcgyvr.hubwire import UNIT_ADVERT_STALE_S as UNIT_ADVERT_STALE_S
 from mcgyvr.rig import protocol
 from mcgyvr.rig.protocol import ErrorCode, ProtocolError
 
@@ -35,31 +47,19 @@ MAX_CTX = 1 << 20
 MIN_CTX = 256
 MAX_TENSOR_SHARE = 1 << 20
 MAX_GPU_LAYERS = 4096
-#: Slots are a unit's concurrency budget, one session per slot: MAX_SLOTS is
-#: the most a head may ask for and DEFAULT_SLOTS is what a start request
-#: gets when it leaves the field out.
-MAX_SLOTS = 16
+#: Slots are a unit's concurrency budget, one session per slot: MAX_SLOTS
+#: (the wire's, :mod:`mcgyvr.hubwire`) is the most a head may ask for and
+#: DEFAULT_SLOTS is what a start request gets when it leaves the field out.
 DEFAULT_SLOTS = 1
-#: Units advertise themselves so other rigs know what they may ride: an
-#: advert repeats every UNIT_ADVERT_INTERVAL_S and is stale after
-#: UNIT_ADVERT_STALE_S. Keepalives and the GPU layer default follow, next to
-#: the port, log excerpt and relay bounds the ends of a session share.
-MAX_UNITS = 16
-UNIT_ADVERT_INTERVAL_S = 60
-UNIT_ADVERT_STALE_S = 180
+#: Units advertise themselves so other rigs know what they may ride, at the
+#: wire's MAX_UNITS and UNIT_ADVERT_* (:mod:`mcgyvr.hubwire`), as are the
+#: relay's RELAY_MAX_* bounds. Keepalives and the GPU layer default follow,
+#: next to the port and log excerpt bounds the ends of a session share.
 MAX_KEEPALIVE_S = 600
 DEFAULT_KEEPALIVE_S = 25
 DEFAULT_GPU_LAYERS = 999
 MAX_PORT = 65535
 LOG_EXCERPT_MAX_CHARS = 4000
-RELAY_MAX_CHUNK_BYTES = 32 * 1024
-RELAY_MAX_REQUEST_BYTES = 1 << 20
-RELAY_MAX_RESPONSE_BYTES = 64 << 20
-RELAY_MAX_WINDOW = 64
-RELAY_MAX_TIMEOUT_S = 3600
-RELAY_MAX_SEQ = 1 << 31
-#: The most prompt or completion tokens a relayed call may report at its end.
-RELAY_MAX_TOKENS = 1 << 31
 MAX_CONTENT_TYPE = 128
 #: Longest base64 text that still decodes to one relay chunk, rounded up to
 #: whole four-character groups.
@@ -88,7 +88,7 @@ MAX_PCT = 100
 #: Shapes of the string fields these bodies carry; the ones the rest of the
 #: protocol already defines are reused as they are.
 SESSION_ID = protocol.MESSAGE_ID
-MODEL_NAME = protocol.MODEL_NAME
+MODEL_NAME = hubwire.MODEL_NAME
 DIGEST = protocol.DIGEST
 HOST = protocol.ENDPOINT_HOST
 WIREGUARD_KEY = re.compile(r"[A-Za-z0-9+/]{42}[AEIMQUYcgkosw048]=")
@@ -1036,7 +1036,8 @@ def unit_advert(units: Sequence[AdvertisedUnit]) -> str:
         _need(_whole(unit.ctx, MIN_CTX, MAX_CTX), "ctx: out of bounds")
         _need(_whole(unit.free_slots, 0, unit.slots), "free_slots: not 0 to slots")
         _need(
-            _whole(unit.rider_cap, 1, unit.slots - 1),
+            type(unit.rider_cap) is int
+            and hubwire.rider_cap_fits(unit.rider_cap, unit.slots),
             "rider_cap: not 1 to one below slots",
         )
         body.append(

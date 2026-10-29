@@ -134,6 +134,10 @@ class Endpoint:
     #: `ReliefUnavailableError`, which is what makes a full lent rung cost
     #: nothing to pass over; elsewhere an answer is read as any other.
     sampling: str = "request"
+    use_case: str | None = None
+    #: The setup's use case, which every chat request names in the
+    #: `mcgyvr.hubwire.USE_CASE_HEADER` header so a hub can refuse one its pool
+    #: does not serve; `None` sends no header.
 
     @property
     def requires_credential(self) -> bool:
@@ -334,7 +338,9 @@ def source_map(config: Config, probe: SourceProbe | None = None) -> SourceMap:
             skipped.append(Skipped(name=name, model=unit.model, reason=reason))
             continue
         usable.append(Rung(name=name, model=unit.model))
-        endpoints[name] = _endpoint(unit, width=_served(unit, name))
+        endpoints[name] = _endpoint(
+            unit, width=_served(unit, name), use_case=config.use_case
+        )
 
     relief: list[Rung] = []
     relief_skipped: list[Skipped] = []
@@ -344,7 +350,7 @@ def source_map(config: Config, probe: SourceProbe | None = None) -> SourceMap:
             relief_skipped.append(Skipped(name=name, model=unit.model, reason=reason))
             continue
         relief.append(Rung(name=name, model=unit.model))
-        endpoints[name] = _endpoint(unit)
+        endpoints[name] = _endpoint(unit, use_case=config.use_case)
 
     roles: dict[str, RoleBinding] = {}
     role_skips: dict[str, str] = {}
@@ -370,7 +376,9 @@ def source_map(config: Config, probe: SourceProbe | None = None) -> SourceMap:
         roles[role] = RoleBinding(
             role=role,
             model=model,
-            endpoint=_endpoint(unit, width=_served(unit, bound)),
+            endpoint=_endpoint(
+                unit, width=_served(unit, bound), use_case=config.use_case
+            ),
         )
 
     if probe is not None:
@@ -510,11 +518,14 @@ def _drop_wrong_model(
 # Turning a unit into an endpoint, and saying why a unit cannot be used.
 
 
-def _endpoint(unit: Unit, *, width: int | None = None) -> Endpoint:
+def _endpoint(
+    unit: Unit, *, width: int | None = None, use_case: str | None = None
+) -> Endpoint:
     """Build the endpoint for `unit`, with the limits it is dispatched within.
 
     `width` replaces the slot count taken from the unit's own `width`, for a
     caller that knows how many requests the unit has to take at once.
+    `use_case` is the setup's, which every request to it names.
     """
     return Endpoint(
         source=unit.name,
@@ -532,6 +543,7 @@ def _endpoint(unit: Unit, *, width: int | None = None) -> Endpoint:
             None if unit.busy_answers is None else frozenset(unit.busy_answers)
         ),
         sampling=unit.sampling,
+        use_case=use_case,
     )
 
 

@@ -1,12 +1,12 @@
 """A relief rung is full on the answers its ``relief.yaml`` entry names.
 
 Which of the hub's answers mean "this rung cannot take the request now" is the
-hub's vocabulary, and the hub client keeps it: ``mcgyvr rig rungs sync`` writes
-them into each rung it keeps, as ``busy_answers`` (an HTTP status and an error
-code each, :data:`mcgyvr.rig.rungs.BUSY`), and the runner reads them off the
-rung's endpoint. An answer the rung names is a full rung
-(:class:`~mcgyvr.capacity.SlotUnavailableError`); any other is the error it
-was, the hub's old ones included.
+hub's vocabulary, defined once in the product's wire module
+(:data:`mcgyvr.hubwire.RUNG_BUSY`): ``mcgyvr rig rungs sync`` writes them into
+each rung it keeps, as ``busy_answers`` (an HTTP status and an error code
+each), and the runner reads them off the rung's endpoint. An answer the rung
+names is a full rung (:class:`~mcgyvr.capacity.SlotUnavailableError`); any
+other is the error it was, the hub's old ones included.
 
 Every server here is a loopback one this test starts.
 """
@@ -22,6 +22,7 @@ import yaml
 
 from mcgyvr.capacity import Capacity, SlotUnavailableError
 from mcgyvr.config import ConfigSchemaError, parse
+from mcgyvr.hubwire import RUNG_BUSY
 from mcgyvr.local_pool import source_map
 from mcgyvr.runner import (
     BackendError,
@@ -88,9 +89,7 @@ def ask(
 
 
 def what_a_sync_writes() -> list[dict[str, Any]]:
-    from mcgyvr.rig import rungs
-
-    return [{"status": status, "code": code} for status, code in rungs.BUSY]
+    return [{"status": status, "code": code} for status, code in RUNG_BUSY]
 
 
 def full(outcome: object) -> bool:
@@ -117,7 +116,6 @@ def test_a_sync_writes_each_rungs_busy_answers_into_relief_yaml(
     setup: Path, hub: Hub
 ) -> None:
     from mcgyvr.config import load
-    from mcgyvr.rig import rungs
 
     hub.answer(hub.listing(FIRST, SECOND))
 
@@ -126,18 +124,7 @@ def test_a_sync_writes_each_rungs_busy_answers_into_relief_yaml(
     written = yaml.safe_load((setup / "relief.yaml").read_text(encoding="utf-8"))
     for name in (f"hitchhike-{FIRST}", f"hitchhike-{SECOND}"):
         assert written["relief"][name]["busy_answers"] == what_a_sync_writes()
-        assert load(setup).relief[name].busy_answers == rungs.BUSY
-
-
-def test_the_hub_client_names_the_three_answers_the_runner_was_full_on() -> None:
-    from mcgyvr.rig import rungs
-
-    assert set(rungs.BUSY) == {
-        (503, "hitchhike_not_served_yet"),
-        (503, "hitchhike_host_away"),
-        (404, "model_not_found"),
-    }
-    assert len(rungs.BUSY) == len(set(rungs.BUSY))
+        assert load(setup).relief[name].busy_answers == RUNG_BUSY
 
 
 # --- the runner reads them off the rung ----------------------------------------

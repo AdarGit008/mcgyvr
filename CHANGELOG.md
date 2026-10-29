@@ -227,6 +227,32 @@ archived outside this repository, under the same paths.
 
 ### Changed
 
+- **The wire the hub serves a rider is defined once, in `mcgyvr.hubwire`.** A
+  stdlib-only module, importable without `mcgyvr.cli` or `mcgyvr.rig`, holds
+  the rung positions, the model-name pattern and `hitchhike@<offer>`
+  (`rung_model`, `rung_offer`), the ladder and unit-advert limits with the
+  ride-cap rule (`rider_cap_fits`), the relay limits, the `/v1` error table
+  (`API_ERROR_STATUS`) and the pairs read off it (`RUNG_BUSY`,
+  `MODEL_UNPLACED`, `MODEL_NOT_FOUND`), the request fields a request through
+  the hub may carry, the scope header and its values, the use-case names
+  (`USE_CASES`) and the model category each is recommended
+  (`USE_CASE_CATEGORY`), the use-case header, which use cases each pool serves
+  (`POOL_USE_CASES`: a member's own rigs, lent to nobody, serve all four; the
+  general pool `code`, `chat` and `agent`; a crew's pool and a ride all four;
+  a shared ladder `mcgyvr-code` alone), and
+  the hub's two JSON Schemas, shipped in the package (`hubwire_schemas/`, the
+  hub's files byte for byte). `rig.rungs`, `rig.sessionwire`, `rig.protocol`,
+  `runner`, `config` and `recommend` import them. Every chat request the
+  runner and Jev send names the setup's `use_case` in `x-mcgyvr-use-case`;
+  the hub is to import these names and refuse a use case its pool does not
+  serve. The scope header is not sent yet. Moved: `rig.rungs.BUSY` is `RUNG_BUSY`,
+  `MAX_LADDER_RUNGS` is `LADDER_MAX_RUNGS`, `_LADDER_MODEL`, `_MODEL` and
+  `_ID` are `LADDER_MODEL`, `MODEL_NAME` and `OFFER_ID`;
+  `runner.UNKNOWN_MODEL` is `MODEL_NOT_FOUND` and `runner.MODEL_UNPLACED` is
+  `MODEL_UNPLACED`. The test fixtures `hub_*_v1.schema.json`, their sha256
+  pins and the re-pin tool (`python -m tests.rig_schema`) are gone: a hub
+  checkout named by `MCGYVR_HUB_REPO` is compared byte for byte, and
+  `MCGYVR_HUB_SCHEMA_UNDER_TEST` works as before.
 - **`mcgyvr "<prompt>"` and `mcgyvr direct FILE... | DIR` replace `run` and `delegate`.**
   The bare verb plans a prompt into contracts and runs them, as `delegate
   --run` did; it needs a session (`--session`, else exit 2 before any
@@ -396,6 +422,11 @@ archived outside this repository, under the same paths.
 - `mcgyvr.fleet.layout.actions` is gone; nothing but its tests called it.
 
 ### Fixed
+
+- A relief rung whose host's unit already serves as many rides as it may
+  (`503 pool_busy`) is passed over as full, as the other busy answers are,
+  instead of failing the dispatch: a sync writes `pool_busy` into each rung's
+  `busy_answers`.
 
 - `mcgyvr delegate` says why an orchestrator reply is not JSON — the
   decoder's message, the line and column, an excerpt either side of that

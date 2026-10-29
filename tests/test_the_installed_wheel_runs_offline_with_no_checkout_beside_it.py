@@ -437,6 +437,31 @@ def test_the_installed_hub_client_reads_its_seccomp_profile_from_the_package(
     assert allows.startswith("SCMP_ACT_ERRNO "), _ran(done)
 
 
+_WIRE_PROBE = """\
+from mcgyvr import hubwire
+for name in hubwire.SCHEMAS:
+    print(name, len(hubwire.schema_bytes(name)))
+"""
+
+
+def test_the_installed_hub_wire_reads_its_schemas_from_the_package(
+    installed: Installed, tmp_path: Path
+) -> None:
+    """The hub imports the wire from an installed product, so its schemas
+    travel inside the package and read without a checkout."""
+    from mcgyvr import hubwire
+
+    home, work, _ = _a_place(tmp_path)
+    done = _run(work, installed.env(home), installed.python, "-I", "-c", _WIRE_PROBE)
+    assert done.returncode == 0, _ran(done)
+    read = dict(line.split() for line in done.stdout.splitlines())
+    assert read == {
+        name: str(len(hubwire.schema_bytes(name))) for name in hubwire.SCHEMAS
+    }
+    shipped = installed.site / "mcgyvr" / "hubwire_schemas"
+    assert sorted(p.name for p in shipped.iterdir()) == sorted(hubwire.SCHEMAS)
+
+
 def test_an_unconfigured_install_names_the_setup_document_it_carries(
     installed: Installed, tmp_path: Path
 ) -> None:

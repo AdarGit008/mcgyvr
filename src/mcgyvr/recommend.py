@@ -33,8 +33,9 @@ from typing import Any
 
 from mcgyvr import availability, decision
 from mcgyvr import scan as scan_module
-from mcgyvr.config import AGENT, CHAT, CODE, DEFAULT_REQUEST_TIMEOUT_S, MCGYVR_CODE
+from mcgyvr.config import DEFAULT_REQUEST_TIMEOUT_S
 from mcgyvr.decision import Choice, ChoiceAnswer
+from mcgyvr.hubwire import USE_CASE_CATEGORY
 from mcgyvr.knowledge import hub
 from mcgyvr.knowledge import store as knowledge_store
 from mcgyvr.knowledge.record import KnowledgeError, ModelRecord
@@ -65,12 +66,7 @@ PLACEMENT_PROFILES = hub.USE_CASES
 PLACEMENT_PROFILE = hub.CODE
 #: The kind of model each use case is recommended: `mcgyvr-code` climbs a ladder
 #: of coding models and `code` serves one raw, so both are placed as `code`.
-PROFILE_OF_USE_CASE: dict[str, str] = {
-    MCGYVR_CODE: hub.CODE,
-    CODE: hub.CODE,
-    CHAT: hub.CHAT,
-    AGENT: hub.AGENT,
-}
+PROFILE_OF_USE_CASE: Mapping[str, str] = USE_CASE_CATEGORY
 #: The least context a chat or agent unit serves each user.
 MIN_CONTEXT_PER_USER = 8192
 
