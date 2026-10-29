@@ -40,7 +40,10 @@ archived outside this repository, under the same paths.
   wire's (`hubwire.SCOPE_POOLS`, `hubwire.serving_pool`), and a step or role
   bound to a unit whose pool does not serve the use case is refused when the
   setup is read: under `mcgyvr-code`, a unit of scope `anyone` that is not a
-  ride. `code`, `chat` and `agent` run on any scope.
+  ride. `code`, `chat` and `agent` run on any scope. Upgrading: a unit under
+  `units` that points at a hub and states no `scope` now sends `own`, where
+  before it sent nothing and the hub used your own serve scope (`anyone`
+  unless you changed it); state `scope: crew` or `scope: anyone` on it.
 - **`mcgyvr use NAME` switches the use case, and `/mcgyvr-use` is its skill.**
   It rewrites the policy's `use_case:` line and nothing else, and says what
   that turns on or off.

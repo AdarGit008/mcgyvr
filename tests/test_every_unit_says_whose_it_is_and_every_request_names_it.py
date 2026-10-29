@@ -215,3 +215,26 @@ def test_a_sync_whose_ladder_steps_on_a_relief_rung_reports_only_your_own_rungs(
     assert [r["model"] for r in report["ladder"]["rungs"]] == ["coder-7b"]
     kept = yaml.safe_load((tmp_path / "relief.yaml").read_text(encoding="utf-8"))
     assert kept["relief"][RIDE]["scope"] == hubwire.SCOPE_ANYONE
+
+
+def test_a_sync_that_drops_a_bound_relief_rung_names_it_and_writes_nothing(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    from mcgyvr.rig import rungs
+
+    (tmp_path / "fleet.yaml").write_text(FLEET, encoding="utf-8")
+    (tmp_path / "policy.yaml").write_text(
+        f"ladder: [local, {RIDE}]\nuse_case: code\n", encoding="utf-8"
+    )
+    (tmp_path / "relief.yaml").write_text(RELIEF, encoding="utf-8")
+
+    def fetch(hub: str, key: str, report: dict[str, Any]) -> Any:
+        return rungs.read(
+            {"ride": True, "privacy": "p", "refresh_s": 300, "rungs": []}, HUB
+        )
+
+    monkeypatch.setattr(rungs, "fetch", fetch)
+    with pytest.raises(rungs.SyncError, match=f"no longer lends {RIDE}.*unbind"):
+        rungs.sync(tmp_path, HUB, "mhu_" + "k" * 40, KEY_ENV)
+
+    assert (tmp_path / "relief.yaml").read_text(encoding="utf-8") == RELIEF

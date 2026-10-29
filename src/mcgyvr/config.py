@@ -781,7 +781,9 @@ RELIEF_FIELDS: tuple[Field, ...] = (
         f"`{SCOPE_HEADER}` header. A sync writes `{RELIEF_SCOPE}`: the hub "
         "matched the rung to you under your own serve scope and hands a ride "
         "only to rungs you are matched to, so its match stays the only filter. "
-        "A ride is served from the hub's hitchhike pool whatever its scope. "
+        "A ride is served from the hub's hitchhike pool whatever its scope, "
+        "which still bounds whose host may serve it: `own` or `crew` refuses a "
+        "ride on a host outside it. "
         f"Unset is `{RELIEF_SCOPE}`.",
         default=RELIEF_SCOPE,
         choices=SCOPE_VALUES,

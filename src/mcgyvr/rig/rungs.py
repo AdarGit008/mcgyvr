@@ -211,8 +211,9 @@ def ladder_report(config: Config) -> dict[str, Any]:
     climbing = sorted(units, key=lambda unit: known.family_of(unit).rank)
     if not 1 <= len(climbing) <= LADDER_MAX_RUNGS:
         raise SyncError(
-            f"the ladder cannot be reported: it has {len(climbing)} rungs, and "
-            f"the hub takes 1 to {LADDER_MAX_RUNGS}"
+            f"the ladder cannot be reported: it has {len(climbing)} rungs of "
+            f"your own (a relief rung a step names is the hub's and not "
+            f"reported), and the hub takes 1 to {LADDER_MAX_RUNGS}"
         )
     rungs = []
     for unit in climbing:
@@ -481,9 +482,11 @@ def sync(folder: Path, hub: str, key: str, key_env: str) -> tuple[Rides, Path]:
 
     The folder must hold a ``fleet.yaml``. The ladder reported is read with the
     relief rungs already kept, since a step may name one, or without them when
-    they do not load. The answer is loaded with that setup as its
-    ``relief_text`` before anything is written, so an answer the setup would
-    refuse raises :class:`HubAnswerError` and leaves ``relief.yaml`` as it was.
+    they do not load. A relief rung a step or a role binds that the hub no
+    longer lists raises :class:`SyncError` naming it, and nothing is written.
+    The answer is loaded with that setup as its ``relief_text`` before anything
+    is written, so an answer the setup would refuse raises
+    :class:`HubAnswerError` and leaves ``relief.yaml`` as it was.
     Returns the answer read and the file it was written to.
     """
     fleet = folder / FLEET_FILENAME
@@ -501,12 +504,25 @@ def sync(folder: Path, hub: str, key: str, key_env: str) -> tuple[Rides, Path]:
             path=folder,
             relief_text=_read_text(folder / RELIEF_FILENAME),
         )
-    except ConfigError:
+    except ConfigError as kept:
         try:
             own = parse(fleet_text, policy_text, path=folder)
         except ConfigError as exc:
-            raise SyncError(f"the setup in {folder} does not load: {exc}") from exc
+            raise SyncError(
+                f"the setup in {folder} does not load: {kept}; "
+                f"read without {RELIEF_FILENAME}: {exc}"
+            ) from exc
     rides = fetch(hub, key, ladder_report(own))
+    listed = {each.name for each in rides.rungs}
+    dropped = sorted(
+        name for name, unit in own.units.items() if unit.relief and name not in listed
+    )
+    if dropped:
+        raise SyncError(
+            f"the hub no longer lends {', '.join(dropped)}, which a ladder step or "
+            f"a role binds: unbind it and sync again; {RELIEF_FILENAME} is left as "
+            "it was"
+        )
     text = render(rides, key_env)
     try:
         parse(fleet_text, policy_text, path=folder, relief_text=text)

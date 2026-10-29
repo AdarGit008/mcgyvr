@@ -198,11 +198,13 @@ def test_a_raw_use_case_runs_on_any_scope(where: str, use_case: str) -> None:
     assert config.units["pool_coder"].scope == hubwire.SCOPE_ANYONE
 
 
+@pytest.mark.parametrize("scope", hubwire.SCOPE_VALUES)
 @pytest.mark.parametrize("where", sorted(BINDINGS))
-def test_a_ride_serves_mcgyvr_code_whatever_its_scope(where: str) -> None:
-    config = parse(_setup(where, RIDE), relief_text=RELIEF)
+def test_a_ride_serves_mcgyvr_code_whatever_its_scope(where: str, scope: str) -> None:
+    stated = RELIEF.replace("scope: anyone", f"scope: {scope}")
+    config = parse(_setup(where, RIDE), relief_text=stated)
 
-    assert config.units[RIDE].scope == hubwire.SCOPE_ANYONE
+    assert config.units[RIDE].scope == scope
 
 
 def test_mcgyvr_code_is_the_use_case_a_setup_naming_none_is_held_to() -> None:
