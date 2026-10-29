@@ -11,9 +11,11 @@ agent's card rules are the resource's, by import, and the shipped schema's;
 every rule :meth:`hubwire.Resource.validate`, :meth:`hubwire.Host.validate`
 and :meth:`hubwire.ResourceReading.validate` keep refuses its own break and
 names the field; an advert and a heartbeat fit by count, by ``(kind, index)``,
-by card and by host resource; the legacy cards come out of a unified-only, a
-gpu-only and a mixed advert, and the card readings out of a heartbeat's; and a
-standby unit is named for every kind.
+by card and by the kinds a rig names once (one unified device, its memory, its
+cores); the legacy cards come out of a unified-only, a gpu-only and a mixed
+advert, and the card readings out of a heartbeat's; each closed set is built
+from its values' own names; and a standby unit is named and sized for every
+kind.
 """
 
 from __future__ import annotations
@@ -128,6 +130,44 @@ def test_the_closed_sets_hold_the_values_the_hub_takes() -> None:
     )
     assert kinds == hubwire.RESOURCE_KINDS
     assert hubwire.CARD_KINDS == (hubwire.RESOURCE_GPU, hubwire.RESOURCE_UNIFIED)
+
+
+@pytest.mark.parametrize(
+    ("values", "names"),
+    [
+        (
+            hubwire.RESOURCE_BACKENDS,
+            (
+                hubwire.BACKEND_CUDA,
+                hubwire.BACKEND_METAL,
+                hubwire.BACKEND_VULKAN,
+                hubwire.BACKEND_ROCM,
+                hubwire.BACKEND_CPU,
+            ),
+        ),
+        (
+            hubwire.HOST_OS,
+            (hubwire.HOST_LINUX, hubwire.HOST_DARWIN, hubwire.HOST_WINDOWS),
+        ),
+        (hubwire.HOST_ARCH, (hubwire.ARCH_X86_64, hubwire.ARCH_ARM64)),
+    ],
+)
+def test_each_closed_set_is_its_values_names_in_order(
+    values: tuple[str, ...], names: tuple[str, ...]
+) -> None:
+    """A reader imports a value by its name, never by its place in the set:
+    a reorder of the set cannot rename one."""
+    assert names == values
+    assert all(name is value for name, value in zip(names, values, strict=True))
+
+
+def test_each_value_name_holds_its_value() -> None:
+    assert (hubwire.BACKEND_CUDA, hubwire.BACKEND_METAL) == ("cuda", "metal")
+    assert (hubwire.BACKEND_VULKAN, hubwire.BACKEND_ROCM) == ("vulkan", "rocm")
+    assert hubwire.BACKEND_CPU == "cpu"
+    assert (hubwire.HOST_LINUX, hubwire.HOST_DARWIN) == ("linux", "darwin")
+    assert hubwire.HOST_WINDOWS == "windows"
+    assert (hubwire.ARCH_X86_64, hubwire.ARCH_ARM64) == ("x86_64", "arm64")
 
 
 def test_the_limits_are_the_ones_the_hub_takes() -> None:
@@ -492,11 +532,12 @@ def _unfit(resources: list[hubwire.Resource], why: str) -> None:
 
 
 def test_an_advert_fits_up_to_its_most_resources() -> None:
-    """Its widest is every card a hello takes, the host's memory and its
-    cores; the count bound refuses an advert longer still before any other."""
+    """Its widest is every card a hello takes, one of them unified, the
+    host's memory and its cores; the count bound refuses an advert longer
+    still before any other."""
     cards = hubwire.MAX_CARDS
-    widest = [*(_gpu(i) for i in range(cards // 2)), _ram(), _cpu()]
-    widest += [_unified(i) for i in range(cards // 2, cards)]
+    widest = [*(_gpu(i) for i in range(cards - 1)), _ram(), _cpu()]
+    widest += [_unified(cards - 1)]
     hubwire.resources_fit(widest)
     hubwire.resources_fit([])
     _unfit([_gpu(i) for i in range(hubwire.MAX_RESOURCES + 1)], "more than 32")
@@ -522,6 +563,25 @@ def test_a_card_index_is_one_cards_whatever_its_kind() -> None:
 def test_an_advert_lends_the_hosts_memory_once_and_its_cores_once() -> None:
     _unfit([_ram(), _ram(index=1)], "more than one ram")
     _unfit([_cpu(), _cpu(index=1)], "more than one cpu")
+
+
+def test_the_kinds_a_rig_names_once_are_its_unified_device_memory_and_cores() -> None:
+    assert hubwire.ONE_PER_RIG == (
+        hubwire.RESOURCE_UNIFIED,
+        hubwire.RESOURCE_RAM,
+        hubwire.RESOURCE_CPU,
+    )
+    assert hubwire.RESOURCE_GPU not in hubwire.ONE_PER_RIG
+
+
+def test_an_advert_names_at_most_one_unified_device() -> None:
+    """A host has one memory to share, so a rig names one device whose
+    memory is the host's; discrete cards beside it are any number."""
+    hubwire.resources_fit([_unified(0), _gpu(1), _gpu(2), _ram(), _cpu()])
+    _unfit([_unified(0), _unified(1)], "more than one unified")
+    _unfit([_gpu(0), _unified(1), _unified(2, name="Another")], "more than one unified")
+    with pytest.raises(ValueError, match=r"^resources: more than one unified"):
+        hubwire.cards_from_resources([_unified(0), _unified(1)])
 
 
 def test_an_advert_fits_only_when_each_resource_validates() -> None:
@@ -638,6 +698,7 @@ def test_a_heartbeat_fits_by_the_adverts_rules() -> None:
         ([_reading("gpu", 0), _reading("unified", 0)], "a card index twice"),
         ([_reading("gpu", i) for i in range(17)], "more than 16 cards"),
         ([_reading("ram", 0), _reading("ram", 1)], "more than one ram"),
+        ([_reading("unified", 0), _reading("unified", 1)], "more than one unified"),
     ):
         with pytest.raises(ValueError, match=rf"^resources: {why}"):
             hubwire.readings_fit(readings)
@@ -700,6 +761,25 @@ def test_every_kind_has_one_standby_unit_and_only_names_it() -> None:
     assert tuple(hubwire.STANDBY_UNITS) == hubwire.RESOURCE_KINDS
     with pytest.raises(TypeError):
         hubwire.STANDBY_UNITS["ram"] = "1GiB"  # type: ignore[index]
+
+
+def test_every_kinds_standby_unit_has_the_size_its_name_says() -> None:
+    """A hub pays standby per unit of these sizes: a card, 16384 MiB of host
+    memory, 8 cores; the names are made from them."""
+    assert dict(hubwire.STANDBY_UNIT_SIZE) == {
+        "gpu": 1,
+        "unified": 1,
+        "ram": 16384,
+        "cpu": 8,
+    }
+    assert tuple(hubwire.STANDBY_UNIT_SIZE) == tuple(hubwire.STANDBY_UNITS)
+    assert hubwire.MB_PER_GIB == 1024
+    ram = hubwire.STANDBY_UNIT_SIZE[hubwire.RESOURCE_RAM] // hubwire.MB_PER_GIB
+    assert hubwire.STANDBY_UNITS[hubwire.RESOURCE_RAM] == f"{ram}GiB"
+    cores = hubwire.STANDBY_UNIT_SIZE[hubwire.RESOURCE_CPU]
+    assert hubwire.STANDBY_UNITS[hubwire.RESOURCE_CPU] == f"{cores}cores"
+    with pytest.raises(TypeError):
+        hubwire.STANDBY_UNIT_SIZE["ram"] = 1  # type: ignore[index]
 
 
 # --- the least a resource lends to count --------------------------------------------

@@ -62,6 +62,17 @@ archived outside this repository, under the same paths.
   may take: llama.cpp's own rule, the same major and no newer minor. Nothing
   sends resources yet. Ruff now refuses a raw bidirectional control character in
   source (`PLE2502`).
+- **The wire names each value it holds (#814).** Each backend, OS and arch has its
+  own name (`BACKEND_CUDA`..`BACKEND_CPU`, `HOST_LINUX`/`HOST_DARWIN`/
+  `HOST_WINDOWS`, `ARCH_X86_64`/`ARCH_ARM64`), and `RESOURCE_BACKENDS`,
+  `HOST_OS` and `HOST_ARCH` are built from them, in the same order. An advert
+  names at most one `unified` device (`ONE_PER_RIG`: one unified device, one
+  `ram`, one `cpu`; `resources_fit` refuses a second). `STANDBY_UNIT_SIZE`
+  sizes the standby unit a hub pays by (a card, 16384 MiB of host memory, 8
+  cores) and `STANDBY_UNITS`' names are made from it. `HEAD_DEVICE_KINDS`
+  (`local`, `rpc`, `cpu`) names the devices a `head_start` may list; the rig
+  agent reads `local` and `rpc` by these names and refuses a `cpu` device
+  until it starts cpu heads.
 - **`mcgyvr use NAME` switches the use case, and `/mcgyvr-use` is its skill.**
   It rewrites the policy's `use_case:` line and nothing else, and says what
   that turns on or off.
