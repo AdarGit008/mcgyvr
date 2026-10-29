@@ -38,6 +38,9 @@ Sources (read 2026-10-29):
   Compatibility), https://docs.nvidia.com/cuda/cuda-toolkit-release-notes/index.html
 - "On MacOS, Metal is enabled by default."
   https://github.com/ggml-org/llama.cpp/blob/master/docs/build.md
+- The RPC protocol the build speaks: ``#define RPC_PROTO_MAJOR_VERSION 8``,
+  ``#define RPC_PROTO_MINOR_VERSION 0`` (patch 1, never compared),
+  https://github.com/ggml-org/llama.cpp/blob/b11960/ggml/include/ggml-rpc.h
 """
 
 from __future__ import annotations
@@ -53,6 +56,15 @@ TAG = "b11960"
 REPO = "ggml-org/llama.cpp"
 #: The Linux container image of the same build, CUDA flavour.
 IMAGE = f"ghcr.io/ggml-org/llama.cpp:server-cuda-{TAG}"
+#: The runtime a rig names in its offer when it runs this build natively.
+RUNTIME = f"{REPO}@{TAG}"
+#: The llama.cpp RPC protocol this build speaks (major, minor), which a rig
+#: running it names in its hello as a :class:`mcgyvr.hubwire.RpcProto`
+#: (:data:`mcgyvr.rig.session.PINNED_RPC_PROTO`) so the hub pairs heads and
+#: workers by :func:`mcgyvr.hubwire.rpc_compatible`. Plain numbers here: this
+#: module is shipped to rigs, which carry no hubwire.
+RPC_PROTO_MAJOR = 8
+RPC_PROTO_MINOR = 0
 #: The programs the native launch runs out of an archive: the server, and the
 #: worker a model split across machines starts on each of them.
 SERVER = "llama-server"
@@ -382,14 +394,33 @@ def stated_hosts(argv: list[str] | tuple[str, ...], *, rpc: bool = False) -> lis
     return hosts
 
 
+#: The shared address space overlay networks hand out (RFC 6598: the /10
+#: that starts at 100.64, a tailnet's), written as a number. A worker recorded
+#: at one of these is reached only by a head on the same overlay.
+OVERLAY = ipaddress.IPv4Network((100 << 24 | 64 << 16, 10))
+#: The networks an rpc worker may bind an address in, and no other: the
+#: private ranges (RFC 1918: 10/8, 172.16/12, 192.168/16) and :data:`OVERLAY`.
+#: Python's `is_private` is not the rule: it also counts the documentation
+#: ranges, link-local and 240/4, and leaves the overlay range out.
+WORKER_NETWORKS = (
+    *(
+        ipaddress.IPv4Network(net)
+        for net in ("10.0.0.0/8", "172.16.0.0/12", "192.168.0.0/16")
+    ),
+    OVERLAY,
+)
+
+
 def worker_may_listen(address: ipaddress.IPv4Address) -> bool:
     """Whether a worker on another machine may bind this address.
 
     rpc-server has no authentication, so the address must be one the head
-    reaches that worker at and nothing wider: not every interface, not
-    loopback, and not an address the internet can reach.
+    reaches that worker at and nothing wider: an address of a private or an
+    overlay network (:data:`WORKER_NETWORKS`), never every interface,
+    loopback, link-local, a documentation range or an address the internet
+    can reach.
     """
-    return not (address.is_unspecified or address.is_loopback or address.is_global)
+    return any(address in net for net in WORKER_NETWORKS)
 
 
 def _worker_address(host: str) -> bool:
@@ -413,7 +444,8 @@ def beyond_loopback(
         return (
             "a native rpc worker listens on the address the head reaches it at "
             f"and nothing wider: state it with {RPC_HOST_FLAG}, an IPv4 address "
-            "that is not every interface, not loopback and not global"
+            "of a private or overlay network (never every interface, loopback, "
+            "link-local, a documentation range or a global address)"
         )
     # Windows reads a variable's name without case: `llama_arg_host` is it too.
     named = any(key.upper() == HOST_ENV for key in env)

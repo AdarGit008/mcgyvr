@@ -65,7 +65,7 @@ from mcgyvr.serving import (
 )
 from mcgyvr.serving.gatelib import LOCAL_RIGS
 from mcgyvr.serving.llamacpp import HOST_ENV as HOST_ENV
-from mcgyvr.serving.llamacpp import HOST_FLAG, LOOPBACK
+from mcgyvr.serving.llamacpp import HOST_FLAG, LOOPBACK, OVERLAY
 from mcgyvr.serving.sharding import Target
 from mcgyvr.serving.shardlaunch import (
     LaunchError,
@@ -1123,11 +1123,6 @@ def _locked_native(
         env={str(k): str(v) for k, v in env.items()},
         cards=cards,
     )
-
-
-#: The shared address space overlay networks hand out (RFC 6598). A worker
-#: recorded at one of these is reached only by a head on the same overlay.
-OVERLAY = ipaddress.IPv4Network("100.64.0.0/10")
 
 
 def _locked_workers(

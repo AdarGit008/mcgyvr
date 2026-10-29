@@ -67,8 +67,8 @@ def test_a_native_mac_or_windows_rig_offers_the_head_on_the_pinned_build(
 
 
 def test_the_rpc_protocol_named_is_the_pin_modules() -> None:
-    assert hubwire.RpcProto(major=8, minor=0) == llamacpp.RPC_PROTO
-    llamacpp.RPC_PROTO.validate()
+    assert hubwire.RpcProto(major=8, minor=0) == session.PINNED_RPC_PROTO
+    session.PINNED_RPC_PROTO.validate()
 
 
 @pytest.mark.parametrize(

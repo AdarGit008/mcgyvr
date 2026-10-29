@@ -100,7 +100,10 @@ archived outside this repository, under the same paths.
   daemon exactly what it asked before. A locked native unit whose `role` is
   `rpc` renders as `ggml-rpc-server` bound to the IPv4 address its `-H`
   states, one a worker may listen on (`llamacpp.worker_may_listen`), not as
-  a server on the loopback.
+  a server on the loopback. That rule is now an allow-list, for container
+  fleets too: an rpc worker binds an address of a private network (RFC 1918:
+  10/8, 172.16/12, 192.168/16) or an overlay's (RFC 6598: 100.64/10) and
+  nothing else, so a link-local or documentation-range bind is refused.
 - **A rig names the llama.cpp RPC protocol it speaks.** A rig running the
   pinned build, natively or as the pinned image, sends
   `capabilities.rpc_proto` (`hubwire.RPC_PROTO_FIELD`; b11960 speaks 8.0) in

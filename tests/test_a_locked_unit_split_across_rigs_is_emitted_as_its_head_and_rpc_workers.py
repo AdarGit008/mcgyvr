@@ -47,8 +47,8 @@ B = "box-b.example"
 IMAGE = "example/llama-rpc:1"
 #: Documentation addresses (RFC 5737): the worker's LAN address, and the
 #: head's.
-LAN_B = "192.0.2.20"
-LAN_A = "192.0.2.10"
+LAN_B = "10.20.0.20"
+LAN_A = "10.20.0.10"
 #: Overlay addresses (RFC 6598), as a tailnet hands them out.
 OVERLAY_B = "100.100.1.20"
 OVERLAY_A = "100.100.1.10"
@@ -163,7 +163,7 @@ def test_a_worker_rig_whose_file_records_no_address_is_refused_with_its_reason(
     tmp_path: Path,
 ) -> None:
     head, _ = unlocked(tmp_path, LAN_B)
-    record_rig(B, None, ("eth0", LAN_B), ("eth1", "198.51.100.30"))
+    record_rig(B, None, ("eth0", LAN_B), ("eth1", "10.30.0.30"))
     fleet = locked(head, [{"rig": A, "gpu": 0}, {"rig": B, "gpu": 0}])
 
     with pytest.raises(LockedLaunchError, match=rf"{B} .*several private IPv4"):
@@ -200,7 +200,7 @@ def test_an_overlay_address_is_emitted_when_the_head_shares_that_overlay(
 
 def test_a_head_whose_rpc_names_other_workers_is_refused(tmp_path: Path) -> None:
     head, _ = unlocked(tmp_path, LAN_B)
-    moved = "192.0.2.99"
+    moved = "10.20.0.99"
     fleet = locked(head, [{"rig": A, "gpu": 0}, {"rig": B, "gpu": 0, "bind": moved}])
 
     with pytest.raises(LockedLaunchError, match=rf"--rpc {LAN_B}:50052.*{moved}"):

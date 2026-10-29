@@ -343,7 +343,9 @@ def answer(verb: str, req: dict[str, Any]) -> dict[str, Any]:
                 start_new_session=True,
             )
         STATE["children"][part] = proc
-        return {"pid": proc.pid}
+        with open(f"/proc/{proc.pid}/stat", encoding="ascii") as stat:
+            start = stat.read().rsplit(")", 1)[1].split()[19]
+        return {"pid": proc.pid, "start": start}
     if verb == "forward":
         listener = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
         listener.bind(("127.0.0.1", 0))

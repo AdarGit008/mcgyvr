@@ -1,7 +1,7 @@
 """A native head listens on the loopback alone, with only its engine's settings.
 
 The head of a native pooled session is held to the native units' own rule
-(``emit.native_block``, ``emit.LOOPBACK``): it is given ``--host`` the
+(``emit.native_block``, ``llamacpp.LOOPBACK``): it is given ``--host`` the
 loopback, a ``--host`` or ``LLAMA_ARG_HOST`` naming anything else is refused,
 and a session that planned another bind address is refused before anything
 starts. Its environment is a short list (what a program needs to run, and the
@@ -19,9 +19,9 @@ from pathlib import Path
 
 import pytest
 
-from mcgyvr.emit import LOOPBACK
 from mcgyvr.rig import pooled, userwg, wghelper
 from mcgyvr.serving import llamacpp
+from mcgyvr.serving.llamacpp import LOOPBACK
 
 SRC = Path(__file__).resolve().parents[1] / "src" / "mcgyvr" / "rig"
 
@@ -129,3 +129,7 @@ def test_the_native_session_code_runs_no_tool_that_needs_admin_rights(
 ) -> None:
     source = (SRC / module).read_text(encoding="utf-8")
     assert not ADMIN_TOOLS.findall(source)
+
+
+def test_the_head_is_always_told_to_stay_on_its_forwarded_tcp() -> None:
+    assert userwg.HEAD_FIXED_ENV == {"GGML_RPC_NO_COMM": "1", "GGML_RPC_NO_RDMA": "1"}

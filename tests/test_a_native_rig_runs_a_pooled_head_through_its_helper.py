@@ -128,6 +128,9 @@ def test_a_native_head_listens_on_the_loopback_and_reaches_its_worker_by_forward
     # own: no listening address of the operator's, no token
     assert "CUDA_VISIBLE_DEVICES" in said["env"]
     assert "GGML_SCHED_MAX_COPIES" in said["env"]
+    # the RPC client never moves off the forwarded TCP: no comm_init listener
+    # on a worker, no RDMA upgrade
+    assert {"GGML_RPC_NO_COMM", "GGML_RPC_NO_RDMA"} <= set(said["env"])
     assert "LLAMA_ARG_HOST" not in said["env"]
     assert "HF_TOKEN" not in said["env"]
     assert rig.pool.sessions.head_port("s1") == 18080

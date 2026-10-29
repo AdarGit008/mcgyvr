@@ -43,6 +43,7 @@ from functools import cache
 from pathlib import Path
 from typing import Protocol
 
+from mcgyvr import hubwire
 from mcgyvr.rig import (
     commands,
     hardware,
@@ -104,6 +105,11 @@ FEATURES = (
     "head_slots",
     HITCHHIKE_FEATURE,
     MULTI_SESSION_FEATURE,
+)
+#: The llama.cpp RPC protocol of the pinned build, as the wire names it: what
+#: a rig running that build declares in its hello.
+PINNED_RPC_PROTO = hubwire.RpcProto(
+    major=llamacpp.RPC_PROTO_MAJOR, minor=llamacpp.RPC_PROTO_MINOR
 )
 #: What a native rig (a Mac or Windows rig lending with ``launcher: native``)
 #: names: every feature but ``traversal``, until a reply to the helper's own
@@ -2369,5 +2375,5 @@ def offer(
         models=held.models if "head" in roles else (),
         sessions=running,
         features=NATIVE_FEATURES if native else FEATURES,
-        rpc_proto=llamacpp.RPC_PROTO if pinned else None,
+        rpc_proto=PINNED_RPC_PROTO if pinned else None,
     )

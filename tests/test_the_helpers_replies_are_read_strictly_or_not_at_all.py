@@ -28,6 +28,11 @@ def line(body: dict[str, Any]) -> bytes:
     return (json.dumps(body) + "\n").encode()
 
 
+def test_a_spawn_reply_names_the_childs_pid_and_start_time() -> None:
+    body = {"id": 3, "ok": True, "pid": 77, "start": "123456"}
+    assert wghelper.read_reply(line(body), 3, "spawn") == {"pid": 77, "start": "123456"}
+
+
 def test_a_reply_with_exactly_its_fields_is_read() -> None:
     found = wghelper.read_reply(
         line({"id": 3, "ok": True, "public_key": KEY}), 3, "prepare"
@@ -44,7 +49,9 @@ def test_a_reply_with_exactly_its_fields_is_read() -> None:
         ({"id": 3, "ok": True, "public_key": "A" * 44}, "prepare"),  # not a key
         ({"id": 3, "ok": True, "port": True}, "forward"),  # a boolean for a number
         ({"id": 3, "ok": True, "port": 70000}, "forward"),
-        ({"id": 3, "ok": True, "pid": 0}, "spawn"),
+        ({"id": 3, "ok": True, "pid": 0, "start": "1"}, "spawn"),
+        ({"id": 3, "ok": True, "pid": 77}, "spawn"),  # no start time
+        ({"id": 3, "ok": True, "pid": 77, "start": "soon"}, "spawn"),
         ({"id": 3, "ok": "yes", "public_key": KEY}, "prepare"),
         ({"id": 3, "ok": True, "state": "zombie", "exit": None}, "state"),
         ({"id": 3, "ok": True, "rtt_ms": -1, "full": True, "size": 1172}, "ping"),

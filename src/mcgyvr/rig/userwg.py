@@ -9,7 +9,7 @@ llama-server (:mod:`mcgyvr.serving.llamacpp`, fetched and verified by
 :mod:`mcgyvr.serving.native`) as the helper's child, so the engine ends with
 the helper and the helper with the agent.
 
-The head listens on the loopback alone (:data:`mcgyvr.emit.LOOPBACK`, the
+The head listens on the loopback alone (:data:`mcgyvr.serving.llamacpp.LOOPBACK`, the
 native units' rule, held by :func:`mcgyvr.emit.native_block`): the agent
 relays the hub's requests to its API port, and the head reaches each of the
 session's rpc devices only through a forward the helper opens on the loopback,
@@ -39,10 +39,10 @@ from pathlib import Path
 from typing import Any
 
 from mcgyvr import atomic, hostos
-from mcgyvr.emit import LOOPBACK
 from mcgyvr.rig import pooled, session, tunnel, udpwire, wghelper, wgpin
 from mcgyvr.rig import sharing as sharing_module
 from mcgyvr.serving import llamacpp, native
+from mcgyvr.serving.llamacpp import LOOPBACK
 from mcgyvr.serving.release import ReleaseError
 from mcgyvr.userdir import private_dir
 
@@ -71,6 +71,17 @@ HELPER_ENV = (
 #: The prefixes of the variables the head keeps beyond :data:`HELPER_ENV`:
 #: the GPU runtimes' own settings.
 ENGINE_ENV_PREFIXES = ("GGML_", "CUDA_", "VK_", "MTL_", "METAL_")
+#: What the head is always given, whatever the agent's environment says: the
+#: RPC client's two ways off the forwarded TCP turned off. With two rpc
+#: devices the client's comm_init tells worker rank 0 to open a listener on
+#: every interface (``GGML_RPC_NO_COMM`` skips it: ``if (n_backends != 2 ||
+#: std::getenv("GGML_RPC_NO_COMM") != nullptr) return nullptr;``,
+#: https://github.com/ggml-org/llama.cpp/blob/b11960/ggml/src/ggml-rpc/ggml-rpc.cpp),
+#: and a build with RDMA would negotiate it with the worker
+#: (``GGML_RPC_NO_RDMA`` keeps the connection's caps empty: ``if
+#: (std::getenv("GGML_RPC_NO_RDMA")) { return; }``,
+#: https://github.com/ggml-org/llama.cpp/blob/b11960/ggml/src/ggml-rpc/transport.cpp).
+HEAD_FIXED_ENV = {"GGML_RPC_NO_COMM": "1", "GGML_RPC_NO_RDMA": "1"}
 #: The bytes of a log read for its last lines.
 LOG_TAIL_BYTES = 1 << 16
 #: The folder, under the native units' state folder, a session's process
@@ -148,8 +159,9 @@ def head_block(
     """The head's command and environment, held to a native unit's rules.
 
     The block a native unit is emitted as (:func:`mcgyvr.emit.native_block`)
-    is the one place the bind rule lives: a native llama-server listens on
-    :data:`mcgyvr.emit.LOOPBACK` alone, and a ``--host`` or ``LLAMA_ARG_HOST``
+    applies the one bind rule (:func:`mcgyvr.serving.llamacpp.beyond_loopback`):
+    a native llama-server listens on :data:`mcgyvr.serving.llamacpp.LOOPBACK`
+    alone, and a ``--host`` or ``LLAMA_ARG_HOST``
     naming anything else is refused. A refusal fails the head's start.
     """
     from mcgyvr.emit import EmitError
@@ -255,7 +267,16 @@ class NativeHost:
     def _record_path(self, name: str) -> Path:
         return self._records() / f"{name}.json"
 
-    def _record(self, name: str, session_id: str, pid: int, program: str) -> None:
+    def _record(
+        self,
+        name: str,
+        session_id: str,
+        pid: int,
+        program: str,
+        start: str | None = None,
+    ) -> None:
+        """Record a started process: its pid and start time (the one given, as
+        the helper read it, else read now from the pid) and its program."""
         folder = self._records()
         if private_dir(folder, make=True) is None:
             raise pooled.PoolError(
@@ -267,7 +288,7 @@ class NativeHost:
             "session_id": session_id,
             "agent_pid": self._agent_pid,
             "pid": pid,
-            "start": hostos.process_start_time(pid),
+            "start": start if start is not None else hostos.process_start_time(pid),
             "program": program,
         }
         atomic.write(folder / f"{name}.json", json.dumps(body, sort_keys=True) + "\n")
@@ -455,9 +476,10 @@ class NativeHost:
         env = {
             **engine_env(self._env),
             **native.device_env(found.backend, spec.gpus),
+            **HEAD_FIXED_ENV,
         }
         block = head_block(run.head_name, argv, env, spec.gpus)
-        pid = run.helper.spawn(
+        pid, start = run.helper.spawn(
             "head",
             found.program,
             block["command"],
@@ -465,7 +487,7 @@ class NativeHost:
             found.program.parent,
             self._log_path(run.head_name),
         )
-        self._record(run.head_name, run.session_id, pid, str(found.program))
+        self._record(run.head_name, run.session_id, pid, str(found.program), start)
         run.head = True
 
     # What any part is asked.

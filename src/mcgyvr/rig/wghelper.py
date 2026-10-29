@@ -83,6 +83,9 @@ MAX_ENV = 512
 LOWEST_PORT = 1024
 #: The MTU range ``up`` takes.
 MTU_RANGE = (576, 1420)
+#: A start time as a reply writes it: the token
+#: :func:`mcgyvr.hostos.process_start_time` reads on this system (ASCII digits).
+START = re.compile(r"[0-9]{1,20}")
 #: A port as a reply writes it: ASCII digits, no leading zero.
 PORT = re.compile(r"[1-9][0-9]{0,4}")
 #: The largest whole number either side writes (counters, epoch seconds, ids).
@@ -278,7 +281,10 @@ RESULTS: dict[str, dict[str, Callable[[object], bool]]] = {
             ),
         )
     },
-    "spawn": {"pid": lambda v: _int(v, 1, MAX_ID)},
+    "spawn": {
+        "pid": lambda v: _int(v, 1, MAX_ID),
+        "start": lambda v: _text(v, 64) and bool(START.fullmatch(str(v))),
+    },
     "forward": {"port": lambda v: _int(v, LOWEST_PORT, 65535)},
     "state": {
         "state": lambda v: v in PART_STATES,
@@ -696,7 +702,10 @@ class Helper:
         env: Mapping[str, str],
         cwd: Path,
         log: Path,
-    ) -> int:
+    ) -> tuple[int, str]:
+        """Start the part's child; its pid and its start time as the helper
+        read it when it answered (the token :func:`mcgyvr.hostos.process_start_time`
+        reads), so a pid reused after the child's death is never taken for it."""
         _need(_part(part), "part")
         _need(_path(str(program)) and _path(str(cwd)) and _path(str(log)), "paths")
         _need(
@@ -725,7 +734,7 @@ class Helper:
             cwd=str(cwd),
             log=str(log),
         )
-        return int(found["pid"])
+        return int(found["pid"]), str(found["start"])
 
     def forward(self, part: str, host: str, port: int) -> int:
         _need(_part(part), "part")
