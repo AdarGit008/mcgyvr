@@ -13,10 +13,13 @@ archived outside this repository, under the same paths.
 
 - **Under `mcgyvr-code` an unset `fanout` is `idle` and an unset `triage` is
   `jev` while a Jev unit is bound and on (`none` when Jev is off).** A raw use
-  case keeps both `none`, and a stated value wins. `idle` takes the first rung
-  with a slot free, so a busy local ladder can send work to a priced api rung
-  or ride a relief rung; a ladder that must not spend says `fanout: none`.
+  case keeps both `none`, and a stated value wins. `idle` takes the first own
+  rung with a slot free, or rides a relief rung when your own rungs are full.
   `mcgyvr setup` writes both keys unset so the use case decides them.
+- **Fan-out never sends a contract to a priced api rung.** Under `idle` or
+  `full`, a contract whose own rungs and relief rungs are all full waits on its
+  own ladder instead of entering at an api rung, and inside the api family the
+  rungs are taken in ladder order. Escalation still climbs to the api rungs.
 - **Use cases are `mcgyvr-code`, `code`, `chat` and `agent`; `coding` is gone,
   with no alias.** `mcgyvr-code` is what `coding` was, every stage between the
   model and you on by default, each under a policy switch (SETUP.md, *Use cases

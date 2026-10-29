@@ -545,8 +545,11 @@ class Ascent:
         decision needs both the width of a rung and what already holds it.
         The plans are walked in rank order and the first rung with a free
         slot is returned; when `reserve` is set and its family raises above
-        the floor, a slot is claimed for it. Relief rungs are offered once,
-        and only after the first family with climbable rungs has none free.
+        the floor, a slot is claimed for it. A free rung in the api family
+        above the floor ends the walk with None instead: fan-out never sends
+        a contract to a priced api rung, escalation does. Relief rungs are
+        offered once, and only after the first family with climbable rungs
+        has none free.
         A fullness that cannot be read — no machine, or no declared width —
         ends the walk with None rather than routing around an unknown.
         """
@@ -580,6 +583,11 @@ class Ascent:
                     if said is None or step.machine is None:
                         return None
                     if not said:
+                        if self._raises(each.family) and _priced(each.family):
+                            # Fan-out never enters at a priced api rung:
+                            # the contract waits on its own ladder, and only
+                            # escalation reaches the api family.
+                            return None
                         if reserve and self._raises(each.family):
                             step.machine.claim(capacity, step.rung.name)
                         return _Found(each.family, step.rung.name, step.machine)
@@ -1164,7 +1172,12 @@ def _next_is_api(plans: tuple[Plan, ...], index: int) -> bool:
     """Whether the family after `index` is the api one — the dearest to reach."""
     if index + 1 >= len(plans):
         return False
-    return plans[index + 1].family.name == "api"
+    return _priced(plans[index + 1].family)
+
+
+def _priced(family: Family) -> bool:
+    """Whether `family` is the api one, whose rungs need a credential and cost."""
+    return family.name == "api"
 
 
 def _single_rung_plan(

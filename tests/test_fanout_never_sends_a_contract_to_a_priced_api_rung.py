@@ -1,4 +1,4 @@
-"""Fan-out never sends a contract to a priced api rung (F28).
+"""Fan-out never sends a contract to a priced api rung.
 
 Fan-out, ``idle`` or ``full``, spreads work over your own rungs and the relief
 rungs lent to you, and nowhere else. When every own rung is full and no relief

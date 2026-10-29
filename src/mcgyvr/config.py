@@ -895,9 +895,10 @@ SCHEMA: tuple[Field, ...] = (
         "enum",
         "Whether a batch of contracts spreads across units or queues on one. "
         "Unset is `idle` under `use_case: mcgyvr-code` and `none` under a raw "
-        "use case; a stated value wins. `idle` can send work to a priced api "
-        "rung, or to a relief rung whose host reads your prompts, when your "
-        "local rungs are full; a ladder that must not spend states `none`.",
+        "use case; a stated value wins. Fan-out spreads work over your own "
+        "rungs and, under `idle`, a relief rung whose host reads your prompts "
+        "when your own rungs are full. It never sends a contract to a priced "
+        "api rung: only escalation climbs there, in ladder order.",
         choices=FANOUT_CHOICES,
         bind_hint="name one of `none`, `idle`, `full`, or leave it to the use case",
     ),
@@ -1203,9 +1204,9 @@ SCHEMA: tuple[Field, ...] = (
         "Units other people lend you through a hub (hitchhike), keyed by name. "
         "Written whole to `relief.yaml` by `mcgyvr rig rungs sync`, and by "
         "nothing else. A relief rung is never a step of the ladder: under "
-        "`fanout: idle` it takes work only when your own rung is full, ahead of "
-        "a priced api rung, and no escalation climbs to it. Its host can read "
-        "your prompts.",
+        "`fanout: idle` it takes work only when your own rung is full, and no "
+        "escalation climbs to it. Fan-out never sends work to a priced api rung "
+        "instead. Its host can read your prompts.",
         block=RELIEF_FIELDS,
     ),
 )
@@ -1572,7 +1573,8 @@ SWITCHES: tuple[Switch, ...] = (
         "fan-out",
         ("fanout",),
         "`none`",
-        "a batch takes rungs with free slots (`idle`), api and relief ones too",
+        "a batch takes own rungs with free slots (`idle`), relief ones too, "
+        "never a priced api rung",
         stage="fanout",
     ),
     Switch(

@@ -996,16 +996,16 @@ def test_idle_passes_over_a_saturated_rung_for_the_next_cheapest(
         assert route.budget == 3
 
 
-def test_idle_crosses_into_a_priced_family_when_every_cheaper_rung_is_full(
+def test_idle_never_crosses_into_the_priced_family_when_every_cheaper_rung_is_full(
     key: None, locks: None
 ) -> None:
-    """The spend decision the knob is opt-in for, and the record that justifies it.
+    """Fan-out never sends a contract to a priced api rung.
 
-    Both local rigs are full, so the cheapest rung at or above this contract's
-    floor with a free slot is a priced one. It was *chosen*: nothing was
-    dispatched to reach it, nothing failed, and the paid source has not been
-    touched — which is what separates this from the escalation it looks like
-    from outside.
+    Both local rigs are full, so the only rung at or above this contract's floor
+    with a free slot is a priced one, and ``idle`` does not name it: choosing it
+    would buy capacity because the cheap rigs were busy, which is the escalation
+    it looks like from outside without the failure that pays for one. Nothing is
+    named, nothing is claimed, and the paid source is not touched.
     """
     config, pool = mapped(narrow("idle"))
     capacity = Capacity.of(config)
@@ -1013,9 +1013,11 @@ def test_idle_crosses_into_a_priced_family_when_every_cheaper_rung_is_full(
     with holding(capacity, pool, "local_qwen-7b", "local_qwen-14b"):
         route = ascent(config, pool, contract(), capacity=capacity)
 
-        assert route.next_free_rung == "api_big"
+        assert route.next_free_rung is None
+        assert route.reserve_entry() is None
+        assert capacity.load("api_big") == 0, "deciding the entry claimed nothing"
         spent = {u.source: u.acquisitions for u in capacity.usage()}
-        assert spent["api_big"] == 0, "naming a rung buys nothing"
+        assert spent["api_big"] == 0, "and bought nothing"
 
 
 def test_idle_never_names_a_rung_below_the_floor_however_free_it_is(
@@ -1044,7 +1046,7 @@ def test_fanout_none_asks_nothing_about_load_and_climbs_as_it_did(
 
     Both local rigs are full and the answer is still no answer: under ``none``
     the question is not the operator's to have asked, and answering it would
-    offer a spend decision they declined. The ascent itself is the ascent it is
+    offer a choice they declined. The ascent itself is the ascent it is
     without a capacity — same families, same rungs, same budget.
     """
     config, pool = mapped(narrow("none"))
@@ -1173,35 +1175,36 @@ class Dispatching:
         return Judgement(verdict=Verdict.FAILED, detail="the gate rejected it")
 
 
-def test_idle_dispatches_on_the_api_rung_when_every_local_rung_is_full(
+def test_idle_queues_on_its_own_ladder_and_reaches_the_api_rung_only_by_escalating(
     key: None, locks: None
 ) -> None:
-    """The knob doing the thing its published `doc` promises, end to end.
+    """End to end, the work lands on its own ladder first, whatever ``idle`` sees.
 
     Every earlier test in this section asserts the rung ``idle`` *names*. This
-    one asserts the work lands there: both local rigs are held at their only
-    slot, and the attempt function takes a real slot on whatever rung it is
-    handed, with ``timeout=0`` so a dispatch aimed at a full rig raises rather
-    than queueing quietly.
+    one asserts where the work goes with both local rigs held at their only slot
+    and the api rung free: to the cheapest local rung, to queue, and on up the
+    ladder only as each rung fails. The api rung is reached, but as an
+    escalation the budget counts, after both local rungs spent; fan-out did not
+    choose it.
 
-    Nothing failed to get here. The history holds one entry, it is the api rung
-    and it passed — no local rung reached a verdict, because a rung with no free
-    slot was passed over rather than tried, and a queue is not a failure.
+    The attempt function records the routing rather than taking a slot, for the
+    reason :func:`test_fanout_none_queues_locally_and_never_reaches_the_api_family`
+    gives: the rungs it queues on are ones this test is holding.
     """
     config, pool = mapped(narrow("idle"))
     capacity = Capacity.of(config)
-    attempts = Dispatching(pool, Verdict.PASSED)
+    attempts = Recorder(Verdict.FAILED, Verdict.FAILED, Verdict.PASSED)
 
     with holding(capacity, pool, "local_qwen-7b", "local_qwen-14b"):
         result = delivered(
             escalate(config, pool, contract(), attempts, capacity=capacity)
         )
 
-    assert attempts.seen == ["api_big"], "the work went where the mode named"
+    assert attempts.rungs == ["local_qwen-7b", "local_qwen-14b", "api_big"]
     assert result.rung == "api_big"
-    assert result.entered == (API,), "the saturated family was never entered"
-    assert [a.verdict for a in result.history] == [Verdict.PASSED]
-    assert not any(a.verdict is Verdict.FAILED for a in result.history)
+    assert result.entered == (LOCAL, API), "the saturated family was climbed first"
+    assert result.escalations == 2, "reaching the api rung was counted"
+    assert capacity.load("api_big") == 0
 
 
 def test_a_raised_entry_gives_every_reservation_back_when_the_climb_is_done(
@@ -1213,21 +1216,34 @@ def test_a_raised_entry_gives_every_reservation_back_when_the_climb_is_done(
     rung it takes, so the counts either balance or they drift one way forever —
     a source that reads as busy for the life of the process, sending every later
     contract of the batch somewhere dearer for a slot that is free. Asserted
-    after the local rigs have been given back, so the only thing left to see is
+    after the held rig has been given back, so the only thing left to see is
     bookkeeping.
+
+    The entry is raised from a deterministic floor, which offers no rung for
+    this contract, into the local family: with ``local_qwen-7b`` held, the
+    first free rung there is ``local_qwen-14b``. That is the raise fan-out may
+    still make; it never makes one into the api family.
     """
     config, pool = mapped(narrow("idle"))
     capacity = Capacity.of(config)
     attempts = Dispatching(pool, Verdict.PASSED)
 
-    with holding(capacity, pool, "local_qwen-7b", "local_qwen-14b"):
+    with holding(capacity, pool, "local_qwen-7b"):
         result = delivered(
-            escalate(config, pool, contract(), attempts, capacity=capacity)
+            escalate(
+                config,
+                pool,
+                contract(),
+                attempts,
+                capacity=capacity,
+                floor=DETERMINISTIC,
+            )
         )
 
-    assert result.rung == "api_big", "the raised entry the leak would come from"
-    assert capacity.load("api_big") == 0, "the priced source is idle again"
-    assert capacity.load("local_qwen-7b") == capacity.load("local_qwen-14b") == 0
+    assert attempts.seen == ["local_qwen-14b"], "the raised entry the leak is from"
+    assert result.entered == (LOCAL,)
+    assert capacity.load("local_qwen-14b") == 0, "the entry rung is idle again"
+    assert capacity.load("local_qwen-7b") == capacity.load("api_big") == 0
 
 
 def test_a_raised_entry_is_not_charged_to_the_escalation_budget(
@@ -1236,7 +1252,8 @@ def test_a_raised_entry_is_not_charged_to_the_escalation_budget(
     """An escalation is what a *failure* buys, and nothing failed here.
 
     ``max_escalations: 0`` forbids every move, so this run has no budget at all
-    to climb with — and it still reaches ``api_big``, because entering high
+    to climb with — and it still reaches ``local_qwen-14b``, raised from a
+    deterministic floor past a held ``local_qwen-7b``, because entering high
     because everything cheaper was full is not a move. Charging it would make
     ``idle`` silently halve the ladder of every contract whose floor family was
     busy at the moment it started, which is a budget spent on a queue rather
@@ -1250,12 +1267,19 @@ def test_a_raised_entry_is_not_charged_to_the_escalation_budget(
     capacity = Capacity.of(config)
     attempts = Dispatching(pool, Verdict.PASSED)
 
-    with holding(capacity, pool, "local_qwen-7b", "local_qwen-14b"):
+    with holding(capacity, pool, "local_qwen-7b"):
         result = delivered(
-            escalate(config, pool, contract(), attempts, capacity=capacity)
+            escalate(
+                config,
+                pool,
+                contract(),
+                attempts,
+                capacity=capacity,
+                floor=DETERMINISTIC,
+            )
         )
 
-    assert result.rung == "api_big"
+    assert result.rung == "local_qwen-14b"
     assert result.escalations == 0, "arriving is not climbing"
     assert result.attempts_spent == 1
 
@@ -1312,12 +1336,12 @@ def test_fanout_none_queues_locally_and_never_reaches_the_api_family(
 ) -> None:
     """Under ``none`` a full local ladder is still where work goes.
 
-    The same load that sends ``idle`` to ``api_big`` sends ``none`` to the
-    cheapest local rung, to wait — because under ``none`` a full rung is queued
-    on, and :meth:`~mcgyvr.capacity.Capacity.hold` blocks rather than raising.
-    This is the rule that keeps a queue from funding the priced family, and it
-    is why a ladder that must not spend states ``none``: under ``mcgyvr-code``
-    an unset ``fanout`` is ``idle`` (#807).
+    Both local rigs are full and ``none`` sends the work to the cheapest local
+    rung, to wait — because under ``none`` a full rung is queued on, and
+    :meth:`~mcgyvr.capacity.Capacity.hold` blocks rather than raising. Under
+    ``none`` that is the whole rule; ``idle`` and ``full`` reach the same answer
+    on this load because fan-out never sends a contract to a priced api rung,
+    and they differ from ``none`` only in what they spread over below it.
 
     The attempt function here records the routing rather than taking a slot: a
     dispatch on this rung would rightly wait for the slot the test itself is
@@ -1353,10 +1377,10 @@ def test_a_printed_ascent_under_idle_still_names_no_machine(
     config, pool = mapped(narrow("idle"))
     capacity = Capacity.of(config)
 
-    with holding(capacity, pool, "local_qwen-7b", "local_qwen-14b"):
+    with holding(capacity, pool, "local_qwen-7b"):
         route = ascent(config, pool, contract(), capacity=capacity)
 
-        assert route.next_free_rung == "api_big"
+        assert route.next_free_rung == "local_qwen-14b"
         rendered = repr(route)
         elsewhere = (
             "localhost",
@@ -1378,18 +1402,6 @@ def test_a_printed_ascent_under_idle_still_names_no_machine(
 DECIDING_TIMEOUT_S = 5.0
 
 
-def scarce(mode: str = "idle") -> str:
-    """`narrow`'s ladder with a *single* api slot, which is the contended one.
-
-    ``vendor`` is the only source in `NARROW` declaring four, so the
-    substitution reaches it without a second literal to keep in step. One slot
-    is what makes the question sharp: with both local rigs full there is exactly
-    one free rung on the whole ladder, so "the cheapest rung with a free slot"
-    is an answer at most one member of a batch may act on.
-    """
-    return narrow(mode).replace("width: 4", "width: 1")
-
-
 @contextmanager
 def deciding_together(monkeypatch: pytest.MonkeyPatch, parties: int) -> Iterator[None]:
     """Hold every member of a batch at the instant its entry decision is made.
@@ -1404,8 +1416,9 @@ def deciding_together(monkeypatch: pytest.MonkeyPatch, parties: int) -> Iterator
 
     It is also the seam that tells the two implementations apart. One that only
     *reads* the loads lets every member through the decision with the same free
-    api slot in hand, and every one of them then buys it. One that reserves the
-    rung inside the section that priced it lets exactly one member see it free.
+    slot in hand, and every one of them then raises into it. One that reserves
+    the rung inside the section that priced it lets exactly one member see it
+    free.
     Both reach this gate, so neither hangs, and the difference shows up in the
     assertion instead of in a timeout.
 
@@ -1426,44 +1439,53 @@ def deciding_together(monkeypatch: pytest.MonkeyPatch, parties: int) -> Iterator
     yield
 
 
-def test_only_one_member_of_a_batch_raises_its_entry_into_one_free_api_slot(
+def test_only_one_member_of_a_batch_raises_its_entry_into_one_free_slot(
     key: None, locks: None, monkeypatch: pytest.MonkeyPatch
 ) -> None:
-    """The race: naming a rung commits nothing, so a batch can buy it four times.
+    """The race: naming a rung commits nothing, so a batch can take it four times.
 
-    Four contracts, both local rigs full, one free api slot. Under ``idle``
-    every one of them asks the same question at the same moment — the barrier
-    makes "at the same moment" a fact — and the honest answer for *one* of them
-    is ``api_big``. The other three could have waited out a local queue for
-    nothing; what they must not do is each raise their own entry into the priced
-    family on the strength of a slot only one of them can have. That is the
-    difference between a read and a decision, and the cost of getting it wrong
-    is money rather than throughput.
+    Four contracts from a deterministic floor, which offers none of them a rung,
+    so each entry is raised into the local family; ``local_qwen-7b`` is full and
+    ``local_qwen-14b`` has one free slot. Under ``idle`` every one of them asks
+    the same question at the same moment — the barrier makes "at the same
+    moment" a fact — and the honest answer for *one* of them is
+    ``local_qwen-14b``. What the other three must not do is each raise their own
+    entry into it on the strength of a slot only one of them can have, and
+    stack four contracts on a one-wide rig. Nor may they go on to the free api
+    rung: fan-out never sends a contract there, so they queue on the
+    family's head rung. That is the difference between a read and a decision.
 
     The attempt function records the routing rather than taking a slot, for the
-    reason ``test_the_default_queues_locally_and_never_reaches_the_api_family``
-    gives: the members that stay local are queueing on a rung this test itself
-    is holding, and a dispatch there would rightly wait for a slot the test
-    will not give back until the batch is done.
+    reason ``test_fanout_none_queues_locally_and_never_reaches_the_api_family``
+    gives: the members that queue are queueing on a rung this test itself is
+    holding, and a dispatch there would rightly wait for a slot the test will
+    not give back until the batch is done.
 
     The reservation the winner holds is what the losers read, so the assertion
     is also the one that says the reservation was live *while they were
     deciding* — the barrier holds the winner inside its own decision until every
     peer has made theirs.
     """
-    config, pool = mapped(scarce())
+    config, pool = mapped(narrow("idle"))
     capacity = Capacity.of(config)
     recorders = [Recorder(Verdict.PASSED) for _ in range(4)]
 
     def racing(attempts: Recorder) -> Callable[[Capacity], str]:
         def job(shared: Capacity) -> str:
-            result = escalate(config, pool, contract(), attempts, capacity=shared)
+            result = escalate(
+                config,
+                pool,
+                contract(),
+                attempts,
+                capacity=shared,
+                floor=DETERMINISTIC,
+            )
             return result.rung if isinstance(result, Delivered) else ""
 
         return job
 
     with (
-        holding(capacity, pool, "local_qwen-7b", "local_qwen-14b"),
+        holding(capacity, pool, "local_qwen-7b"),
         deciding_together(monkeypatch, len(recorders)),
     ):
         outcomes = run_batch(
@@ -1471,21 +1493,22 @@ def test_only_one_member_of_a_batch_raises_its_entry_into_one_free_api_slot(
         )
 
     assert all(o.ok for o in outcomes), [str(o.error) for o in outcomes if not o.ok]
-    bought = [o.value for o in outcomes if o.value == "api_big"]
-    assert len(bought) == 1, (
-        f"{len(bought)} of {len(recorders)} members bought the one free api slot; "
+    raised = [o.value for o in outcomes if o.value == "local_qwen-14b"]
+    assert len(raised) == 1, (
+        f"{len(raised)} of {len(recorders)} members raised into the one free slot; "
         f"the batch landed on {[o.value for o in outcomes]}"
     )
-    queued = [o.value for o in outcomes if o.value != "api_big"]
+    queued = [o.value for o in outcomes if o.value != "local_qwen-14b"]
     assert set(queued) == {"local_qwen-7b"}, "the rest waited out the local queue"
-    assert capacity.load("api_big") == 0, "the priced source is idle again"
+    assert capacity.load("local_qwen-14b") == 0, "the raised rung is idle again"
+    assert capacity.load("api_big") == 0, "and nothing priced was claimed"
 
 
-# Two priced rungs, so the climb after a raised entry is a walk rather than a
-# single rung. The first is the one slot `idle` can reach when both local rigs
-# are full; the second is what a *failure* there escalates to, which is the only
-# way to assert that a claimed first rung leaves the escalation arithmetic where
-# it was.
+# Two priced rungs above the local pair, so the climb after a raised entry is a
+# walk through every family it may reach. The entry is raised from a
+# deterministic floor into the local family; each rung after it, the api pair
+# included, is what a *failure* escalates to, which is the only way to assert
+# that a claimed first rung leaves the escalation arithmetic where it was.
 PRICED_PAIR = """
 units:
   local_qwen-7b:
@@ -1529,23 +1552,26 @@ def test_a_raised_entry_gives_its_reservation_back_when_the_climb_fails(
     """The failing path leaks as easily as the raising one, and costs the same.
 
     ``idle`` reserves the rung it enters on, so every way out of the climb has
-    to give it back. This is the ordinary unhappy one: the priced rung was
-    reached, it was tried, and it could not do the work. The reservation is the
-    climb's to release by then — it was handed down as ``claimed`` — and the
-    assertion is that it actually was, because a source that reads as busy for
-    the life of the process is not an error anyone sees, it is a queue nobody
-    sees.
+    to give it back. This is the ordinary unhappy one: the entry was raised from
+    a deterministic floor onto ``local_qwen-7b``, it was tried, and it could not
+    do the work, nor could anything above it. The reservation is the climb's to
+    release by then — it was handed down as ``claimed`` — and the assertion is
+    that it actually was, because a source that reads as busy for the life of
+    the process is not an error anyone sees, it is a queue nobody sees.
     """
     config, pool = mapped(narrow("idle"))
     capacity = Capacity.of(config)
-    attempts = Dispatching(pool, Verdict.FAILED)
+    attempts = Dispatching(pool, Verdict.FAILED, Verdict.FAILED, Verdict.FAILED)
 
-    with holding(capacity, pool, "local_qwen-7b", "local_qwen-14b"):
-        result = halted(escalate(config, pool, contract(), attempts, capacity=capacity))
+    result = halted(
+        escalate(
+            config, pool, contract(), attempts, capacity=capacity, floor=DETERMINISTIC
+        )
+    )
 
-    assert attempts.seen == ["api_big"], "the raised entry the leak would come from"
+    assert attempts.seen == ["local_qwen-7b", "local_qwen-14b", "api_big"]
     assert result.outcome is Outcome.LADDER_SPENT
-    assert capacity.load("api_big") == 0, "the priced source is idle again"
+    assert capacity.load("local_qwen-7b") == 0, "the entry rung is idle again"
 
 
 def test_a_raised_entry_gives_its_reservation_back_when_the_attempt_raises(
@@ -1559,20 +1585,34 @@ def test_a_raised_entry_gives_its_reservation_back_when_the_attempt_raises(
     :attr:`Outcome.ERROR` naming the rung rather than handing a caller a
     traceback. The reservation has to be given back on that path too, and the
     ``finally`` that releases every rung a climb takes is what gives it back;
-    this asserts the count rather than the shape of the code.
+    this asserts the count rather than the shape of the code. The entry is
+    raised from a deterministic floor past a held ``local_qwen-7b`` onto
+    ``local_qwen-14b``, and the attempt there raises.
     """
     config, pool = mapped(narrow("idle"))
     capacity = Capacity.of(config)
+    seen: list[str] = []
 
     def explode(this: Try) -> Judgement:
+        seen.append(this.rung.name)
         raise RuntimeError("the dispatch died mid-flight")
 
-    with holding(capacity, pool, "local_qwen-7b", "local_qwen-14b"):
-        result = halted(escalate(config, pool, contract(), explode, capacity=capacity))
+    with holding(capacity, pool, "local_qwen-7b"):
+        result = halted(
+            escalate(
+                config,
+                pool,
+                contract(),
+                explode,
+                capacity=capacity,
+                floor=DETERMINISTIC,
+            )
+        )
 
+    assert seen == ["local_qwen-14b"], "the raised entry the leak would come from"
     assert result.outcome is Outcome.ERROR
-    assert capacity.load("api_big") == 0, "an exception is not a reason to keep it"
-    assert capacity.load("local_qwen-7b") == capacity.load("local_qwen-14b") == 0
+    assert capacity.load("local_qwen-14b") == 0, "an exception is no reason to keep it"
+    assert capacity.load("local_qwen-7b") == capacity.load("api_big") == 0
 
 
 def test_an_entry_rung_the_rebuilt_ascent_does_not_offer_is_released_here(
@@ -1589,9 +1629,11 @@ def test_an_entry_rung_the_rebuilt_ascent_does_not_offer_is_released_here(
     belongs here, to the caller that took it, and this forces the case by
     renaming the rung the entry decision came back with.
 
-    The climb itself is unaffected — the entry family is still raised, the work
-    still lands on the priced rung — which is what makes this a leak test and
-    not a routing one.
+    The climb itself is unaffected — the entry family is still raised from a
+    deterministic floor into the local one, the work still lands on the rung
+    the reservation was taken for — which is what makes this a leak test and
+    not a routing one. With one slot on that rung, a reservation left behind
+    would also refuse the dispatch there.
     """
     from mcgyvr import escalate as module
 
@@ -1602,17 +1644,19 @@ def test_an_entry_rung_the_rebuilt_ascent_does_not_offer_is_released_here(
 
     def renamed(route: Ascent) -> object:
         entry = decided(route)
-        return None if entry is None else replace(entry, rung="api_ghost")
+        return None if entry is None else replace(entry, rung="local_ghost")
 
     monkeypatch.setattr(module, "_idle_entry", renamed)
 
-    with holding(capacity, pool, "local_qwen-7b", "local_qwen-14b"):
-        result = delivered(
-            escalate(config, pool, contract(), attempts, capacity=capacity)
+    result = delivered(
+        escalate(
+            config, pool, contract(), attempts, capacity=capacity, floor=DETERMINISTIC
         )
+    )
 
-    assert result.rung == "api_big", "the entry was still raised"
-    assert capacity.load("api_big") == 0, "and the reservation still came back"
+    assert result.rung == "local_qwen-7b", "the entry was still raised"
+    assert result.entered == (LOCAL,)
+    assert capacity.load("local_qwen-7b") == 0, "and the reservation came back"
 
 
 def test_a_reservation_taken_before_a_rebuild_that_raises_is_still_given_back(
@@ -1642,12 +1686,20 @@ def test_a_reservation_taken_before_a_rebuild_that_raises_is_still_given_back(
     monkeypatch.setattr(module, "ascent", flaky)
 
     with (
-        holding(capacity, pool, "local_qwen-7b", "local_qwen-14b"),
+        holding(capacity, pool, "local_qwen-7b"),
         pytest.raises(RouteError),
     ):
-        escalate(config, pool, contract(), Recorder(), capacity=capacity)
+        escalate(
+            config,
+            pool,
+            contract(),
+            Recorder(),
+            capacity=capacity,
+            floor=DETERMINISTIC,
+        )
 
-    assert capacity.load("api_big") == 0, "nothing was handed down, so nothing was kept"
+    assert calls == 2, "the rebuild after the raised entry is what raised"
+    assert capacity.load("local_qwen-14b") == 0, "nothing was handed down or kept"
 
 
 def test_an_entry_that_raises_nothing_reserves_nothing(key: None, locks: None) -> None:
@@ -1685,7 +1737,7 @@ def test_full_fanout_reserves_no_entry_rung_and_still_cannot_reach_a_priced_one(
     had started running under a mode that never asked for it.
 
     The attempt records the routing rather than taking a slot, for the reason
-    ``test_the_default_queues_locally_and_never_reaches_the_api_family`` gives:
+    ``test_fanout_none_queues_locally_and_never_reaches_the_api_family`` gives:
     the rung it queues on is one this test is holding.
     """
     config, pool = mapped(narrow("full"))
@@ -1711,23 +1763,27 @@ def test_a_claimed_entry_rung_leaves_the_escalation_arithmetic_where_it_was(
 ) -> None:
     """Entering with a reservation in hand costs what entering by hand costs.
 
-    Two runs of the same priced pair. One arrives there under ``idle`` because
-    both local rigs are full, with its first rung already reserved and handed
-    down; the other is simply asked to start at that family. Everything a caller
-    reads afterwards matches: the same rungs ran, the same attempts were spent,
-    the same number of escalations was charged. A claimed first rung is a start,
-    not a discount and not a shortened ladder — and the second rung being
-    reached at all is what shows there was budget here to get the arithmetic
-    wrong with.
+    Two runs of the same ladder. One arrives at the local family under ``idle``
+    from a deterministic floor that offers this contract no rung, with its first
+    rung already reserved and handed down; the other is simply asked to start at
+    that family. Everything a caller reads afterwards matches: the same rungs
+    ran, in ladder order up through both api rungs, the same attempts were
+    spent, the same number of escalations was charged. A claimed first rung is a
+    start, not a discount and not a shortened ladder — and the rungs after it
+    being reached at all is what shows there was budget here to get the
+    arithmetic wrong with.
     """
     config, pool = mapped(priced("idle"))
     capacity = Capacity.of(config)
-    handed = Dispatching(pool, Verdict.FAILED, Verdict.FAILED)
+    handed = Dispatching(pool, *[Verdict.FAILED] * 4)
     plain, plain_pool = mapped(priced())
-    plainly = Dispatching(plain_pool, Verdict.FAILED, Verdict.FAILED)
+    plainly = Dispatching(plain_pool, *[Verdict.FAILED] * 4)
 
-    with holding(capacity, pool, "local_qwen-7b", "local_qwen-14b"):
-        raised = halted(escalate(config, pool, contract(), handed, capacity=capacity))
+    raised = halted(
+        escalate(
+            config, pool, contract(), handed, capacity=capacity, floor=DETERMINISTIC
+        )
+    )
     by_hand = halted(
         escalate(
             plain,
@@ -1735,15 +1791,16 @@ def test_a_claimed_entry_rung_leaves_the_escalation_arithmetic_where_it_was(
             contract(),
             plainly,
             capacity=Capacity.of(plain),
-            floor=API,
+            floor=LOCAL,
         )
     )
 
-    assert handed.seen == plainly.seen == ["api_big", "api_bigger"]
+    ladder = ["local_qwen-7b", "local_qwen-14b", "api_big", "api_bigger"]
+    assert handed.seen == plainly.seen == ladder
     assert raised.outcome is by_hand.outcome
-    assert raised.attempts_spent == by_hand.attempts_spent == 2
-    assert raised.escalations == by_hand.escalations == 1
-    assert capacity.load("api_big") == 0
+    assert raised.attempts_spent == by_hand.attempts_spent == 4
+    assert raised.escalations == by_hand.escalations == 3
+    assert capacity.load("local_qwen-7b") == 0
 
 
 # --- the decision is readable without running anything ---------------------

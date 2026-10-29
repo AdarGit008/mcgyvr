@@ -9,7 +9,8 @@ and escalation goes on upward from there as it always has.
 * **The default asks nobody.** ``triage: none`` is the climb exactly as it was:
   jev is not asked even when one is bound, and nothing is recorded.
 * **Fan-out reads what triage left.** ``idle`` may still enter on a free rung
-  above the pick, and never on one below it, however free.
+  above the pick, and never on one below it, however free, nor on a priced api
+  rung: a full pick is queued on.
 * **Triage never fails a contract.** No jev unit, one that cannot be reached,
   or a reply that cannot be read: the climb starts on its first rung and the
   record says why.
@@ -300,19 +301,23 @@ def test_idle_fanout_on_a_free_ladder_starts_on_the_triaged_rung(
     assert attempts.rungs == ["local_qwen-14b"]
 
 
-def test_idle_fanout_moves_a_full_triaged_start_up_and_never_below_it(
+def test_idle_fanout_queues_on_a_full_triaged_start_and_never_goes_below_it(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    """The pick is full and the rung below it is free: the work goes up.
+    """The pick is full and the rung below it is free: the work waits on the pick.
 
     Without triage ``idle`` would take the free rung below; with it, that rung
-    is not on the climb at all, so the first free rung at or above the pick is
-    the priced one.
+    is not on the climb at all. The only free rung at or above the pick is the
+    priced one, and fan-out never sends a contract there, so the climb
+    queues on the pick itself.
+
+    The attempt records the routing rather than taking a slot: the rung it
+    queues on is one this test is holding.
     """
     picking(monkeypatch, "B")
     config, pool = mapped(TRIAGED + "fanout: idle\n")
     capacity = Capacity.of(config)
-    attempts = Dispatching(pool, Verdict.PASSED)
+    attempts = Recorder(Verdict.PASSED)
 
     with capacity.hold(pool.bind("local_qwen-14b"), rung="local_qwen-14b"):
         untriaged = ascent(config, pool, contract(), capacity=capacity)
@@ -321,8 +326,9 @@ def test_idle_fanout_moves_a_full_triaged_start_up_and_never_below_it(
         result = escalate(config, pool, contract(), attempts, capacity=capacity)
 
     assert isinstance(result, Delivered)
-    assert attempts.rungs == ["api_big"]
-    assert capacity.load("api_big") == 0, "the entry's claim was given back"
+    assert attempts.rungs == ["local_qwen-14b"]
+    assert result.escalations == 0
+    assert capacity.load("api_big") == 0, "nothing priced was claimed"
 
 
 # --- triage never fails a contract ---------------------------------------------
