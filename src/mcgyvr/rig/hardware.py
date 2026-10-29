@@ -17,6 +17,7 @@ from typing import Any
 
 from mcgyvr.fleet import ids
 from mcgyvr.rig import protocol
+from mcgyvr.scan import Host
 
 
 class HardwareError(Exception):
@@ -43,6 +44,17 @@ class Report:
     #: position: its vendor and the reading's own index, since the report
     #: renumbers its cards from 0.
     sources: tuple[tuple[str, int], ...] = ()
+    #: The kind of each reported card, position for position: ``gpu``, or
+    #: ``unified`` for a GPU that shares the machine's memory.
+    kinds: tuple[str, ...] = ()
+    #: The machine's resources in the hub's resource contract (kind, index,
+    #: name, total_mb, free_mb, cores, bandwidth_gbps, bandwidth_figure, figure,
+    #: backend), every one it has, lent or not: a card's only when the report
+    #: carries that card, each name held to what the protocol carries and each
+    #: size to its most.
+    resources: tuple[Mapping[str, Any], ...] = ()
+    #: The system the reading was taken on; None when the reading had none.
+    host: Host | None = None
 
 
 def read_machine() -> Mapping[str, Any]:
@@ -106,6 +118,7 @@ def read(*, reader: Callable[[], Mapping[str, Any]] | None = None) -> Report:
         sized = sized[: protocol.MAX_CARDS]
     cards: list[protocol.CardReport] = []
     sources: list[tuple[str, int]] = []
+    kinds: list[str] = []
     for number, card in enumerate(sized):
         key = f"card.{card['vendor']}.{card['index']}"
         total = min(card.get("total_mib") or 0, protocol.MAX_MB)
@@ -122,6 +135,7 @@ def read(*, reader: Callable[[], Mapping[str, Any]] | None = None) -> Report:
             )
         )
         sources.append((str(card["vendor"]), int(card["index"])))
+        kinds.append(str(card.get("kind") or "gpu"))
     memory = reading.get("memory")
     total_gb = memory.get("total_gb") if isinstance(memory, Mapping) else None
     if total_gb is None:
@@ -138,7 +152,37 @@ def read(*, reader: Callable[[], Mapping[str, Any]] | None = None) -> Report:
         cards=tuple(cards),
         notes=tuple(notes),
         sources=tuple(sources),
+        kinds=tuple(kinds),
+        resources=_resources(reading, kinds),
+        host=Host.from_reading(reading.get("host")),
     )
+
+
+def _resources(
+    reading: Mapping[str, Any], kinds: list[str]
+) -> tuple[Mapping[str, Any], ...]:
+    """The reading's resources as the report may carry them: a card's resource
+    only when its index is a card the report keeps, its name printable and held
+    to the protocol's, its sizes to MAX_MB."""
+    kept: list[Mapping[str, Any]] = []
+    for resource in reading.get("resources") or ():
+        if not isinstance(resource, Mapping) or not isinstance(
+            resource.get("kind"), str
+        ):
+            continue
+        kind, index = resource["kind"], resource.get("index")
+        if kind in ("gpu", "unified") and not (
+            isinstance(index, int) and 0 <= index < len(kinds) and kinds[index] == kind
+        ):
+            continue
+        sizes = {
+            key: max(0, min(resource[key], protocol.MAX_MB))
+            for key in ("total_mb", "free_mb")
+            if isinstance(resource.get(key), int)
+        }
+        name = _printable(str(resource.get("name") or ""), kind)
+        kept.append({**resource, **sizes, "name": name})
+    return tuple(kept)
 
 
 def hello_frame(

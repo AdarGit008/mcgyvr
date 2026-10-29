@@ -36,13 +36,19 @@ def _detect(args: argparse.Namespace) -> int:
     if found.gpus:
         print("GPU:")
         for gpu in found.gpus:
-            print(f"  {gpu.name} — {gpu.size}  ({gpu.how})")
+            unified = ", unified memory" if gpu.unified else ""
+            estimate = ", estimate" if gpu.figure == "estimate" else ""
+            print(f"  {gpu.name} — {gpu.size}{unified}{estimate}  ({gpu.how})")
         if found.has_remote_backend:
             print("  (this machine's card — the remote backends below have their own)")
     else:
         print("GPU: none detected")
 
     context = []
+    if found.host is not None:
+        version = f" {found.host.version}" if found.host.version else ""
+        arch = f" {found.host.arch}" if found.host.arch else ""
+        context.append(f"{found.host.os}{version}{arch}")
     if found.cpu_count is not None:
         context.append(f"{found.cpu_count} CPUs")
     if found.ram_gb is not None:
@@ -124,21 +130,34 @@ def _scan(args: argparse.Namespace) -> int:
 
     machine = measured.machine
     print(f"{machine.host} ({machine.id}), kernel {machine.kernel}")
+    if measured.host is not None:
+        version = f" {measured.host.version}" if measured.host.version else ""
+        arch = f", {measured.host.arch}" if measured.host.arch else ""
+        print(f"  System   {measured.host.os}{version}{arch}")
     if measured.gpus:
         for gpu in measured.gpus:
+            shared = ", unified memory" if gpu.kind == "unified" else ""
+            estimate = ", estimate" if gpu.figure == "estimate" else ""
             print(
                 f"  GPU {gpu.index}    {gpu.name} — "
-                f"{gpu.vram.free_mib} MiB free of {gpu.vram.total_mib} MiB"
+                f"{gpu.vram.free_mib} MiB free of {gpu.vram.total_mib} MiB "
+                f"({gpu.backend}{shared}{estimate})"
             )
     else:
         print("  GPU      none found")
     if measured.memory is not None:
+        available = measured.memory.available_gb
         print(
-            f"  RAM      {measured.memory.available_gb:.1f} GB available of "
-            f"{measured.memory.total_gb:.1f} GB"
+            "  RAM      "
+            + (f"{available:.1f} GB available of " if available is not None else "")
+            + f"{measured.memory.total_gb:.1f} GB"
         )
     if measured.cpu is not None:
-        print(f"  CPU      {measured.cpu.cores} cores, {measured.cpu.threads} threads")
+        cpu_model = f"{measured.cpu.model}, " if measured.cpu.model else ""
+        print(
+            f"  CPU      {cpu_model}{measured.cpu.cores} cores, "
+            f"{measured.cpu.threads} threads"
+        )
     if measured.bandwidth is not None:
         print(
             f"  Memory   {measured.bandwidth.measured_gbps:.1f} GB/s "

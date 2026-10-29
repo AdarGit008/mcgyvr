@@ -113,12 +113,13 @@ class Memory:
     """This machine's RAM, in GB of ``BYTES_PER_GB`` (1024**3) bytes.
 
     ``total_gb`` is the installed memory and ``available_gb`` what a new process
-    could still allocate; a reading that could give only a total is not a
-    Memory at all, since ``Scan.from_json`` drops the whole section.
+    could still allocate, None when the reading gave only a total (a Mac whose
+    vm_stat did not answer): the total still stands, and nothing is promised
+    free.
     """
 
     total_gb: float
-    available_gb: float
+    available_gb: float | None
 
 
 @dataclass(frozen=True)
@@ -132,6 +133,11 @@ class Cpu:
 
     cores: int
     threads: int
+    #: The CPU's name as the machine prints it, None when it was not read.
+    model: str | None = None
+    #: The performance cores of a CPU that has two kinds (macOS
+    #: hw.perflevel0.physicalcpu), None elsewhere.
+    performance_cores: int | None = None
 
 
 @dataclass(frozen=True)
@@ -203,9 +209,58 @@ class Network:
 
 @dataclass(frozen=True)
 class Gpu:
+    """One card the scan sized.
+
+    ``kind`` is ``gpu`` for a card with its own memory and ``unified`` for a GPU
+    that shares the machine's memory (a Mac's), whose ``vram`` is the share the
+    GPU may take, an estimate; ``shared_with_ram`` says the same of the memory.
+    ``backend`` is the llama.cpp build it runs under (``cuda``, ``metal``,
+    ``vulkan``, ``rocm``), and ``figure`` says whether ``vram`` is the card's
+    own ``reading`` or an ``estimate``. A reading from before these fields
+    reads as a CUDA card's reading.
+    """
+
     index: int
     name: str
     vram: Vram
+    kind: str = "gpu"
+    backend: str = "cuda"
+    shared_with_ram: bool = False
+    figure: str = "reading"
+
+
+@dataclass(frozen=True)
+class Host:
+    """The system a reading was taken on: ``os`` (linux, darwin, windows), ``arch``
+    (x86_64, arm64; None when the reader names none) and ``version`` (the kernel
+    release on Linux, the product version on macOS, the system version on
+    Windows; None when unread)."""
+
+    os: str
+    arch: str | None = None
+    version: str | None = None
+
+    @classmethod
+    def from_reading(cls, raw: Any) -> Host | None:
+        """The host section of a reading, or None when its system is not one the
+        reader reads. An arch outside the reader's names, and a version that is
+        not printable or longer than its limit, read as None."""
+        from mcgyvr.serving import rigscan
+
+        if not isinstance(raw, dict) or raw.get("os") not in rigscan.SYSTEMS:
+            return None
+        arch, version = raw.get("arch"), raw.get("version")
+        arches = {*rigscan.ARCHES.values(), *rigscan.WINDOWS_ARCHES.values()}
+        usable = (
+            isinstance(version, str)
+            and 0 < len(version) <= rigscan.VERSION_MAX
+            and version.isprintable()
+        )
+        return cls(
+            os=str(raw["os"]),
+            arch=arch if arch in arches else None,
+            version=version if usable else None,
+        )
 
 
 @dataclass(frozen=True)
@@ -246,6 +301,9 @@ class Scan:
     #: ``~/.mcgyvr``); None when the reading carried none, as a reading from an
     #: older scanner does.
     home: Path | None = None
+    #: The system the reading was taken on; None for a reading from an older
+    #: scanner.
+    host: Host | None = None
 
     @property
     def gpus_determined(self) -> bool:
@@ -338,6 +396,10 @@ class Scan:
                         "free_mib": gpu.vram.free_mib,
                         "reserved_mib": gpu.vram.reserved_mib,
                     },
+                    "kind": gpu.kind,
+                    "backend": gpu.backend,
+                    "shared_with_ram": gpu.shared_with_ram,
+                    "figure": gpu.figure,
                 }
                 for gpu in self.gpus
             ],
@@ -352,7 +414,12 @@ class Scan:
             "cpu": (
                 None
                 if self.cpu is None
-                else {"cores": self.cpu.cores, "threads": self.cpu.threads}
+                else {
+                    "cores": self.cpu.cores,
+                    "threads": self.cpu.threads,
+                    "model": self.cpu.model,
+                    "performance_cores": self.cpu.performance_cores,
+                }
             ),
             "bandwidth": (
                 None
@@ -394,6 +461,15 @@ class Scan:
                 }
             ),
             "home": None if self.home is None else str(self.home),
+            "host": (
+                None
+                if self.host is None
+                else {
+                    "os": self.host.os,
+                    "arch": self.host.arch,
+                    "version": self.host.version,
+                }
+            ),
             "notes": list(self.notes),
             "facts": [{"field": f.field, "how": f.how} for f in self.facts],
         }
@@ -405,8 +481,9 @@ class Scan:
 
         Sections that are absent or null come back as None or as empty tuples
         rather than as errors, which is how a reading from an older or a
-        partial scanner still parses, and a memory section with no available
-        memory is dropped whole. Whatever json and the field conversions raise
+        partial scanner still parses, and a memory section with no total is
+        dropped whole while one with no available memory keeps its total.
+        Whatever json and the field conversions raise
         is left to the caller, and ``scan_over`` turns that into ``ScanFailed``.
         """
         raw: Any = json.loads(text)
@@ -434,23 +511,42 @@ class Scan:
                         # reading that omits it has nothing to report.
                         reserved_mib=int(gpu["vram"].get("reserved_mib", 0)),
                     ),
+                    # kind, backend and shared_with_ram arrived with the Mac and
+                    # Windows readers: a reading that omits them is of a CUDA card.
+                    kind=str(gpu.get("kind") or "gpu"),
+                    backend=str(gpu.get("backend") or "cuda"),
+                    shared_with_ram=gpu.get("shared_with_ram") is True,
+                    figure=str(gpu.get("figure") or "reading"),
                 )
                 for gpu in raw.get("gpus") or ()
             ),
-            # A memory section with no available_gb says nothing a process
-            # could allocate, so it reads as not determined at all.
+            # A memory section with no total says nothing; one with a total and
+            # no available memory keeps the total and promises nothing free.
             memory=(
                 None
-                if memory is None or memory.get("available_gb") is None
+                if memory is None or memory.get("total_gb") is None
                 else Memory(
                     total_gb=float(memory["total_gb"]),
-                    available_gb=float(memory["available_gb"]),
+                    available_gb=(
+                        None
+                        if memory.get("available_gb") is None
+                        else float(memory["available_gb"])
+                    ),
                 )
             ),
             cpu=(
                 None
                 if cpu is None
-                else Cpu(cores=int(cpu["cores"]), threads=int(cpu["threads"]))
+                else Cpu(
+                    cores=int(cpu["cores"]),
+                    threads=int(cpu["threads"]),
+                    model=None if cpu.get("model") is None else str(cpu["model"]),
+                    performance_cores=(
+                        None
+                        if cpu.get("performance_cores") is None
+                        else int(cpu["performance_cores"])
+                    ),
+                )
             ),
             bandwidth=(
                 None
@@ -510,6 +606,7 @@ class Scan:
                 )
             ),
             home=Path(str(raw["home"])) if raw.get("home") else None,
+            host=Host.from_reading(raw.get("host")),
         )
 
 
