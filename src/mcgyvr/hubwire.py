@@ -37,8 +37,10 @@ from these names rather than writing them again:
   host a rig runs on (:data:`HOST_OS`, :data:`HOST_ARCH`), how many one advert
   or heartbeat may name (:data:`MAX_RESOURCES`, :func:`resources_fit`,
   :func:`readings_fit`), the legacy cards they make
-  (:func:`cards_from_resources`, :func:`card_readings_from`) and the unit
-  standby is counted in per kind (:data:`STANDBY_UNITS`);
+  (:func:`cards_from_resources`, :func:`card_readings_from`), the unit
+  standby is counted in per kind (:data:`STANDBY_UNITS`) and the least a
+  resource lends to count (:data:`LEND_FLOOR_MB`, :data:`LEND_FLOOR_CORES`,
+  :func:`counts_as_lent`);
 * the llama.cpp RPC protocol version a rig speaks (:class:`RpcProto`, carried
   as :data:`RPC_PROTO_FIELD`) and which workers a head may take
   (:func:`rpc_compatible`).
@@ -353,7 +355,9 @@ CARD_KINDS: tuple[str, ...] = (RESOURCE_GPU, RESOURCE_UNIFIED)
 RESOURCE_BACKENDS: tuple[str, ...] = ("cuda", "metal", "vulkan", "rocm", "cpu")
 #: What a number is: an estimate, or the rig's own reading. Each number on the
 #: wire says which it is.
-FIGURE_KINDS: tuple[str, ...] = ("estimate", "reading")
+FIGURE_ESTIMATE = "estimate"
+FIGURE_READING = "reading"
+FIGURE_KINDS: tuple[str, ...] = (FIGURE_ESTIMATE, FIGURE_READING)
 #: The operating system and the architecture a rig's host names in its hello.
 HOST_OS: tuple[str, ...] = ("linux", "darwin", "windows")
 HOST_ARCH: tuple[str, ...] = ("x86_64", "arm64")
@@ -393,6 +397,18 @@ STANDBY_UNITS: Mapping[str, str] = MappingProxyType(
         RESOURCE_CPU: "8cores",
     }
 )
+#: The least a resource must lend to count as lent: a hub counts a rig as
+#: giving (standby, a starter) only while one of its resources reaches its
+#: kind's floor, so a 1 MiB card or a single core earns nothing. Memory kinds
+#: in MiB (:data:`LEND_FLOOR_MB`), ``cpu`` in cores (:data:`LEND_FLOOR_CORES`).
+LEND_FLOOR_MB: Mapping[str, int] = MappingProxyType(
+    {
+        RESOURCE_GPU: 2048,
+        RESOURCE_UNIFIED: 4096,
+        RESOURCE_RAM: 4096,
+    }
+)
+LEND_FLOOR_CORES = 2
 
 
 def shares_ram(kind: str) -> bool:
@@ -571,6 +587,16 @@ def resources_fit(resources: Sequence[Resource]) -> None:
     ``(kind, index)`` once, at most :data:`MAX_CARDS` cards, each card index
     once across :data:`CARD_KINDS`, and at most one ``ram`` and one ``cpu``."""
     _fit(resources)
+
+
+def counts_as_lent(resource: Resource) -> bool:
+    """Whether ``resource`` reaches its kind's lending floor: ``cpu`` lends at
+    least :data:`LEND_FLOOR_CORES` cores, any other kind at least
+    :data:`LEND_FLOOR_MB` of its kind. A hub counts a rig as giving only while
+    one of its resources does; a product refuses to lend less."""
+    if resource.kind == RESOURCE_CPU:
+        return (resource.cores or 0) >= LEND_FLOOR_CORES
+    return resource.total_mb >= LEND_FLOOR_MB[resource.kind]
 
 
 def readings_fit(readings: Sequence[ResourceReading]) -> None:
