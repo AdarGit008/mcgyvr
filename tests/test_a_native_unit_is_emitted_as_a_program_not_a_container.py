@@ -226,3 +226,33 @@ def test_a_locked_native_unit_elsewhere_or_on_another_address_is_refused() -> No
     wide = {"argv": ["--port", "8080", "--host", "0.0.0.0"], "env": {}}
     with pytest.raises(emit.EmitError, match=r"127\.0\.0\.1 alone"):
         emit._locked_service("m", _locked(launch=wide), (0,))
+
+
+def test_a_locked_native_rpc_worker_renders_the_rpc_server_on_its_tunnel_address() -> (
+    None
+):
+    worker = _locked(
+        role="rpc",
+        address="http://localhost:50052",
+        container="mcgyvr-localhost-m-rpc",
+        launch={"argv": ["-H", "198.51.100.2", "-p", "50052"], "env": {}},
+    )
+    service = emit._locked_service("m", worker, (1,))
+    assert service[PROGRAM_KEY] == llamacpp.RPC_SERVER
+    command = service["command"]
+    assert isinstance(command, list)
+    assert command[command.index("-H") + 1] == "198.51.100.2"
+    assert "--host" not in command  # not a server on the loopback
+    head = emit._locked_service("m", _locked(), (0,))
+    assert head[PROGRAM_KEY] == llamacpp.SERVER
+    assert isinstance(head["command"], list)
+    assert head["command"][head["command"].index("--host") + 1] == "127.0.0.1"
+
+
+@pytest.mark.parametrize("bind", [[], ["-H", "0.0.0.0"], ["--host", "::"]])
+def test_a_locked_native_rpc_worker_binding_no_address_or_a_wildcard_is_refused(
+    bind: list[str],
+) -> None:
+    worker = _locked(role="rpc", launch={"argv": [*bind, "-p", "50052"], "env": {}})
+    with pytest.raises(emit.EmitError, match="never a wildcard"):
+        emit._locked_service("m", worker, (1,))

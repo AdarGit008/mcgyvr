@@ -77,7 +77,9 @@ archived outside this repository, under the same paths.
   LAN. A Mac or Windows machine reads no network interface yet, which is why
   it names `--endpoints`. On Linux the launcher changes nothing: the session
   layer reaches its machine through one host, and the docker host asks the
-  daemon exactly what it asked before.
+  daemon exactly what it asked before. A locked native unit whose `role` is
+  `rpc` renders as `ggml-rpc-server` bound to the address its `-H` states
+  (never a wildcard), not as a server on the loopback.
 - **A rig names the llama.cpp RPC protocol it speaks.** A rig running the
   pinned build, natively or as the pinned image, sends
   `capabilities.rpc_proto` (`hubwire.RPC_PROTO_FIELD`; b11960 speaks 8.0) in

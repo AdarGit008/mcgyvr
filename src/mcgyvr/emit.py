@@ -122,6 +122,10 @@ FIT_DEFAULT = "off"
 LOOPBACK = "127.0.0.1"
 #: The flag and the variable llama-server reads its listening address from.
 HOST_FLAG = "--host"
+#: rpc-server's short flag for the address it binds, and the addresses no
+#: native rpc worker may bind.
+RPC_HOST_FLAG = "-H"
+WILDCARDS = ("0.0.0.0", "::", "[::]")
 HOST_ENV = "LLAMA_ARG_HOST"
 
 #: Heads every compose document rendered with sleep mode on: the routes
@@ -589,7 +593,9 @@ def native_block(
     Only llama.cpp has a native build, and it runs on this machine
     (`LOCAL_RIGS`): another engine or rig is refused. A server listens on
     `LOOPBACK` alone: its `--host` must name it, or it is given it, and a
-    `LLAMA_ARG_HOST` or another `--host` is refused.
+    `LLAMA_ARG_HOST` or another `--host` is refused. An rpc worker (`rpc`)
+    binds the address its head reaches it on — a pooled worker its tunnel
+    address — which its `-H`/`--host` must state, and never a wildcard.
     """
     if (engine or "llama.cpp") != "llama.cpp":
         raise EmitError(
@@ -602,13 +608,21 @@ def native_block(
             f"runs on, and {host} is another; a unit on another rig runs in "
             "its container (launcher docker)"
         )
+    flags = (HOST_FLAG, RPC_HOST_FLAG) if rpc else (HOST_FLAG,)
     hosts = [
-        command[n + 1] if part == HOST_FLAG and n + 1 < len(command) else part
+        command[n + 1] if part in flags and n + 1 < len(command) else part
         for n, part in enumerate(command)
-        if part == HOST_FLAG or part.startswith(f"{HOST_FLAG}=")
+        if part in flags or part.startswith(f"{HOST_FLAG}=")
     ]
     hosts = [h.removeprefix(f"{HOST_FLAG}=") for h in hosts]
-    if HOST_ENV in env or any(h != LOOPBACK for h in hosts):
+    if rpc:
+        if not hosts or any(h in WILDCARDS for h in hosts):
+            raise EmitError(
+                f"{slug}: a native rpc worker binds the address its head reaches "
+                f"it on (a pooled worker its tunnel address), never a wildcard; "
+                f"state it with {RPC_HOST_FLAG}"
+            )
+    elif HOST_ENV in env or any(h != LOOPBACK for h in hosts):
         raise EmitError(
             f"{slug}: a native unit listens on {LOOPBACK} alone (the rig "
             "agent relays to it, and pooled workers bind the tunnel address); "
@@ -1100,7 +1114,8 @@ def _locked_native(
     """The native launch spec of a locked unit, from what its lock states.
 
     The lock carries what the unlocked unit was emitted with: `unit_id`,
-    `container`, `launch.argv` and `launch.env`; the cards come from its
+    `container`, `launch.argv` and `launch.env`, and the block's own `role`,
+    which makes an rpc worker's block an rpc-server's; the cards come from its
     span. It is the same block an unlocked native unit renders
     (:func:`native_block`), so locking a native fleet does not change how
     it runs.
@@ -1125,7 +1140,7 @@ def _locked_native(
         name,
         engine=unit.get("engine"),
         host=host_of(str(unit["address"])),
-        rpc=False,
+        rpc=unit.get("role") == ROLE_RPC,
         container=str(unit["container"]),
         command=list(cast(list[str], argv)),
         env={str(k): str(v) for k, v in env.items()},
