@@ -414,14 +414,16 @@ def test_a_load_read_for_no_rung_is_still_the_sources_own_queue(
         assert machine.load(capacity) == 1
 
 
-def test_idle_takes_a_free_narrow_rung_rather_than_buying_a_priced_one(
+def test_idle_takes_a_free_narrow_rung_rather_than_reading_it_as_full(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
     """``idle``'s two halves must be the same half: this rung's load, this rung's width.
 
     One rig, two server processes, one of them full. The free slot is on the
-    other local rung, and naming the api rung instead is a spend decision made
-    out of a mis-read number. Both halves were wrong together: the load came
+    other local rung, and reading that rung as full too would leave the contract
+    queued behind the busy one while a slot sat free, out of a mis-read number;
+    fan-out never names the api rung either way. Both halves were wrong
+    together: the load came
     from the source, which counts no rung's holds, and the width came from the
     source, which is not what bounds a rung that declared its own.
     """

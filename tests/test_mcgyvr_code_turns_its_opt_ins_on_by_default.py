@@ -76,3 +76,46 @@ def test_only_mcgyvr_code_provisions_a_local_proposer() -> None:
     ).provision
     for raw in ("code", "chat", "agent"):
         assert not local_orchestrator(use_case=raw, local_only=True, users=2).provision
+
+
+# --- fan-out and triage follow the use case (F26, #807) ----------------------
+
+JEV = "jev:\n  unit: fast\n"
+
+
+def test_mcgyvr_code_fans_out_to_idle_rungs_by_default() -> None:
+    assert parse(FLEET).ladder.fanout == "idle"
+    assert parse(FLEET).get("fanout") == "idle"
+
+
+@pytest.mark.parametrize("use_case", ["code", "chat", "agent"])
+def test_a_raw_use_case_keeps_no_fanout(use_case: str) -> None:
+    assert parse(FLEET + f"use_case: {use_case}\n").ladder.fanout == "none"
+
+
+def test_a_stated_fanout_wins() -> None:
+    assert parse(FLEET + "fanout: none\n").ladder.fanout == "none"
+    assert parse(FLEET + "fanout: full\n").ladder.fanout == "full"
+
+
+def test_mcgyvr_code_triages_with_jev_when_jev_is_on() -> None:
+    assert parse(FLEET + JEV).get("triage") == "jev"
+
+
+def test_with_jev_unbound_or_off_triage_is_none() -> None:
+    assert parse(FLEET).get("triage") == "none"
+    off = FLEET + "jev:\n  unit: fast\n  enabled: false\n"
+    assert parse(off).get("triage") == "none"
+
+
+def test_a_stated_triage_wins() -> None:
+    assert parse(FLEET + JEV + "triage: none\n").get("triage") == "none"
+
+
+def test_a_raw_use_case_triages_with_nobody() -> None:
+    assert parse(FLEET + JEV + "use_case: code\n").get("triage") == "none"
+
+
+def test_the_defaults_are_not_written_as_if_the_user_stated_them() -> None:
+    config = parse(FLEET + JEV)
+    assert "fanout" not in config.declared and "triage" not in config.declared
