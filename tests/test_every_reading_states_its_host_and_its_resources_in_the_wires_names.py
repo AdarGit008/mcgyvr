@@ -28,13 +28,9 @@ from mcgyvr.hubwire import (
 from tests.machine_shapes import Card, HostShape, host_reading, host_shape, host_shapes
 from tests.machinereader import Staged, run
 
-#: The wire's optional fields the reader does not read yet: a ``ram``
-#: resource's DDR generation, which the wire takes as unstated.
-UNREAD_BY_THE_READER = frozenset({"ddr"})
-#: The fields a reading's resource carries: the wire's record, less those.
-RESOURCE_FIELDS = {
-    field.name for field in dataclasses.fields(Resource)
-} - UNREAD_BY_THE_READER
+#: The fields a reading's resource carries: the wire's record, every one (a
+#: ``ram`` resource's DDR generation is read on Windows, None where unread).
+RESOURCE_FIELDS = {field.name for field in dataclasses.fields(Resource)}
 
 
 def _takes(resource: dict[str, Any]) -> None:
