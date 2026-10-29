@@ -59,6 +59,27 @@ archived outside this repository, under the same paths.
 
 ### Added
 
+- **A Mac or Windows rig lends a pooled head natively (#823).** `mcgyvr rig
+  share --launcher native` on macOS or Windows needs no engine image: the
+  rig's sessions run through `mcgyvr-wg`, a userspace WireGuard helper (no
+  TUN device, no admin rights), one per session, whose release mcgyvr pins
+  by tag and sha256 (`mcgyvr.rig.wgpin`) and fetches as it fetches llama.cpp.
+  The helper holds the session's key and UDP socket and starts the pinned
+  llama-server as its own child, bound to 127.0.0.1 alone; the head reaches
+  each worker only through a forward that accepts the head's own process
+  and dials only that worker, through the tunnel. Such a rig offers the head
+  role alone (a worker is refused `not_capable`), names the pinned build as
+  its runtime, and does not list `traversal` yet, so the hub pairs it with
+  rigs on its own LAN. The helper's first release is not pinned yet: until
+  it is, a native session is refused with `tunnel_failed` naming the missing
+  archive. On Linux the launcher changes nothing; the session layer now
+  reaches its machine through one host, and the docker host asks the daemon
+  exactly what it asked before.
+- **A rig names the llama.cpp RPC protocol it speaks.** A rig running the
+  pinned build, natively or as the pinned image, sends
+  `capabilities.rpc_proto` (`hubwire.RPC_PROTO_FIELD`; b11960 speaks 8.0) in
+  its hello, so the hub can pair a head only with workers
+  `hubwire.rpc_compatible` allows; a rig on another image sends none.
 - **A unit runs natively, with no container: `launcher: native` (#818).** The
   llama.cpp build mcgyvr pins (b11960, `mcgyvr.serving.llamacpp`; the Linux
   image is the same build, `server-cuda-b11960`) is fetched on first use into

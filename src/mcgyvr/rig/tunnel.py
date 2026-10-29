@@ -11,13 +11,13 @@ those settings.
 
 from __future__ import annotations
 
-import fcntl
 import ipaddress
 import socket
 import struct
 from collections.abc import Iterable, Sequence
 from dataclasses import dataclass
 
+from mcgyvr import hostos
 from mcgyvr.rig import sessionwire
 from mcgyvr.scan import BRIDGE_PREFIXES
 
@@ -164,8 +164,15 @@ def read_interfaces() -> tuple[tuple[str, ipaddress.IPv4Interface], ...]:
     the kernel with ioctl on one datagram socket and nothing spawned.
 
     An interface the kernel will not give an address for is left out, and an
-    empty result means the kernel could not be asked at all.
+    empty result means the kernel could not be asked at all. The ioctl numbers
+    are Linux's: macOS and Windows read none here (``fcntl`` is not even
+    imported there), so a native rig names the hosts its tunnel is reached on
+    in its lending settings (``endpoints``).
     """
+    if hostos.os_name() != "linux":
+        return ()
+    import fcntl
+
     found: list[tuple[str, ipaddress.IPv4Interface]] = []
     try:
         names = [name for _, name in socket.if_nameindex()]

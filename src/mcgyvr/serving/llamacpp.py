@@ -38,12 +38,16 @@ Sources (read 2026-10-29):
   Compatibility), https://docs.nvidia.com/cuda/cuda-toolkit-release-notes/index.html
 - "On MacOS, Metal is enabled by default."
   https://github.com/ggml-org/llama.cpp/blob/master/docs/build.md
+- The RPC protocol the build speaks: ``#define RPC_PROTO_MAJOR_VERSION 8``,
+  ``#define RPC_PROTO_MINOR_VERSION 0`` (patch 1, never compared),
+  https://github.com/ggml-org/llama.cpp/blob/b11960/ggml/include/ggml-rpc.h
 """
 
 from __future__ import annotations
 
 from dataclasses import dataclass
 
+from mcgyvr.hubwire import RpcProto
 from mcgyvr.serving.release import Asset, Release
 
 #: The pinned llama.cpp build.
@@ -52,6 +56,12 @@ TAG = "b11960"
 REPO = "ggml-org/llama.cpp"
 #: The Linux container image of the same build, CUDA flavour.
 IMAGE = f"ghcr.io/ggml-org/llama.cpp:server-cuda-{TAG}"
+#: The runtime a rig names in its offer when it runs this build natively.
+RUNTIME = f"{REPO}@{TAG}"
+#: The llama.cpp RPC protocol this build speaks, which a rig running it names
+#: in its hello (:data:`mcgyvr.hubwire.RPC_PROTO_FIELD`) so the hub pairs heads
+#: and workers by :func:`mcgyvr.hubwire.rpc_compatible`.
+RPC_PROTO = RpcProto(major=8, minor=0)
 #: The programs the native launch runs out of an archive: the server, and the
 #: worker a model split across machines starts on each of them.
 SERVER = "llama-server"

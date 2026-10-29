@@ -16,7 +16,8 @@ from dataclasses import asdict, dataclass, field, replace
 from pathlib import Path
 from typing import Any
 
-from mcgyvr import atomic
+from mcgyvr import atomic, hostos
+from mcgyvr.config import LAUNCHER_DOCKER, LAUNCHER_NATIVE, LAUNCHERS, NATIVE_BY_DEFAULT
 from mcgyvr.fleet import roots
 from mcgyvr.rig import hardware, protocol, sessionwire
 
@@ -63,8 +64,13 @@ class Sharing:
     offered, `image` which engine image the containers run, `cards` which cards
     are lent (`None` for every one of them) and `max_ram_mb` how much memory a
     container may use. A head serves models from `models_dir`, and `endpoints`
-    names the hosts a tunnel is reached on. `notes` carries what the reader said
-    about retired settings, and takes no part in comparison.
+    names the hosts a tunnel is reached on. `launcher` is ``docker`` (the
+    sessions run in containers) or ``native``: on macOS and Windows a native
+    rig runs its sessions on the host, through the ``mcgyvr-wg`` helper, with
+    the pinned llama.cpp build and no image, and lends the head role alone
+    (:meth:`native_here`); elsewhere ``native`` changes nothing. `notes` carries
+    what the reader said about retired settings, and takes no part in
+    comparison.
     """
 
     enabled: bool = False
@@ -79,11 +85,23 @@ class Sharing:
     cache_max_mb: int = DEFAULT_CACHE_MAX_MB
     head_binary: str = DEFAULT_HEAD_BINARY
     worker_binary: str = DEFAULT_WORKER_BINARY
+    launcher: str = LAUNCHER_DOCKER
     notes: tuple[str, ...] = field(default=(), compare=False)
+
+    def native_here(self) -> bool:
+        """Whether this rig's sessions run natively: ``launcher: native`` on a
+        system whose units run natively by default (macOS, Windows)."""
+        return (
+            self.launcher == LAUNCHER_NATIVE and hostos.os_name() in NATIVE_BY_DEFAULT
+        )
 
     def offered_roles(self) -> tuple[str, ...]:
         """The roles this rig really offers: none unless lending is on with an
-        image, and the head only when a models folder is named."""
+        image, and the head only when a models folder is named. A native rig
+        (:meth:`native_here`) needs no image and offers the head alone: its
+        helper serves no rpc worker yet."""
+        if self.enabled and self.native_here():
+            return ("head",) if "head" in self.roles and self.models_dir else ()
         if not self.enabled or self.image is None:
             return ()
         return tuple(
@@ -207,6 +225,10 @@ def read(data: object) -> Sharing:
             ):
                 raise _refuse(name, "not an absolute path inside the image")
             out[name] = value
+    if "launcher" in data:
+        if data["launcher"] not in LAUNCHERS:
+            raise _refuse("launcher", f"not one of {', '.join(LAUNCHERS)}")
+        out["launcher"] = data["launcher"]
     if data.get("cards") is not None:
         cards = data["cards"]
         if not isinstance(cards, list):
@@ -274,6 +296,8 @@ def save(sharing: Sharing) -> Path:
     """
     data = asdict(sharing)
     data.pop("notes")
+    if data["launcher"] == LAUNCHER_DOCKER:
+        data.pop("launcher")  # the default stays unwritten, as files had it
     for name in ("roles", "cards", "endpoints"):
         if data[name] is not None:
             data[name] = list(data[name])

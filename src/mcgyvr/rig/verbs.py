@@ -28,6 +28,7 @@ from mcgyvr.exits import Exit
 
 if TYPE_CHECKING:
     from mcgyvr.rig.credentials import Credentials
+    from mcgyvr.rig.session import SessionHost
 
 #: The path on a hub under which an agent is given its channel.
 AGENT_PATH = "/api/v1/agent"
@@ -117,6 +118,19 @@ def _agent_version() -> str:
     if protocol.AGENT_VERSION.fullmatch(__version__):
         return __version__
     return "0.0.0+unknown"
+
+
+def native_host(agent_pid: int) -> SessionHost | None:
+    """The host a native rig's sessions run on, on a system whose units run
+    natively by default (macOS, Windows), else ``None``: a Linux rig's
+    sessions run in containers whatever its launcher says."""
+    from mcgyvr.config import NATIVE_BY_DEFAULT
+
+    if hostos.os_name() not in NATIVE_BY_DEFAULT:
+        return None
+    from mcgyvr.rig import userwg
+
+    return userwg.NativeHost(agent_pid=agent_pid)
 
 
 def run_agent(kept: Credentials, config: Path | None = None) -> int:
@@ -241,6 +255,7 @@ def run_agent(kept: Credentials, config: Path | None = None) -> int:
             bind_relay=session.bind_relay,
         ),
         send=box.put,
+        native=native_host(os.getpid()),
     )
     # The parts of a rig: hitchhike units ride other rigs and offer this setup's
     # units to riders, relays carry what a session sends and receives, probes
@@ -334,7 +349,8 @@ def run_agent(kept: Credentials, config: Path | None = None) -> int:
     share = lending()
     if share.offered_roles():
         print(
-            f"lending: {', '.join(share.offered_roles())} on {share.image}",
+            f"lending: {', '.join(share.offered_roles())} on "
+            f"{session.offer(share, models(), (), ()).runtime}",
             file=sys.stderr,
         )
     for note in share.notes:
@@ -613,11 +629,13 @@ def _share(args: argparse.Namespace) -> int:
             changes["cache"] = args.cache
         if args.cache_max_mb is not None:
             changes["cache_max_mb"] = args.cache_max_mb
+        if args.launcher is not None:
+            changes["launcher"] = args.launcher
     except ValueError:
         print("error: a number was asked for and something else given", file=sys.stderr)
         return int(Exit.USAGE)
     wanted = replace(kept, **changes)  # type: ignore[arg-type]
-    if wanted.enabled and wanted.image is None:
+    if wanted.enabled and wanted.image is None and not wanted.native_here():
         print(
             "error: lending runs in an engine image; name it with --image",
             file=sys.stderr,
@@ -633,7 +651,10 @@ def _share(args: argparse.Namespace) -> int:
     roles = wanted.offered_roles()
     print(f"lending: {'on' if wanted.enabled else 'off'}")
     print(f"roles:   {', '.join(roles) if roles else 'none offered'}")
-    print(f"image:   {wanted.image or 'none'}")
+    if wanted.native_here():
+        print("image:   none (launcher native: the pinned llama.cpp build)")
+    else:
+        print(f"image:   {wanted.image or 'none'}")
     cards = "all" if wanted.cards is None else ", ".join(map(str, wanted.cards))
     print(f"cards:   {cards} (each lent whole)")
     print(f"ram:     {wanted.container_mb()} MiB per container")
@@ -738,4 +759,10 @@ def add_parser(
     cache.add_argument("--cache", dest="cache", action="store_const", const=True)
     cache.add_argument("--no-cache", dest="cache", action="store_const", const=False)
     share.add_argument("--cache-max-mb", type=int, help="the worker cache's size")
+    share.add_argument(
+        "--launcher",
+        choices=("docker", "native"),
+        help="docker: sessions run in containers; native (macOS, Windows): "
+        "through the mcgyvr-wg helper on the pinned llama.cpp build, head only",
+    )
     share.set_defaults(func=_share, on=None, cache=None)

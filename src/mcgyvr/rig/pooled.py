@@ -687,8 +687,31 @@ def head_argv(spec: HeadSpec, owner: Owner) -> list[str]:
         GUARD_SCRIPT,
         "mcgyvr-guard",
         spec.binary,
+        *head_server_args(
+            spec,
+            model=f"{MODELS_MOUNT}/{spec.model}",
+            port=HEAD_API_PORT,
+            rpc=spec.rpc,
+        ),
+    ]
+    return argv
+
+
+def head_server_args(
+    spec: HeadSpec, *, model: str, port: int, rpc: Sequence[str]
+) -> list[str]:
+    """The llama-server arguments of a session's head, wherever it runs.
+
+    The model file as the server sees it, the alias, layers, slots and context,
+    fitting off (`HEAD_FIT`), flash attention and the KV cache type, the address
+    it listens on (`spec.bind`) and `port`, the rpc devices it reaches (`rpc`,
+    host:port each, left out when there are none), and the device list and
+    split. A container head and a native one differ only in `model`, `port` and
+    `rpc`.
+    """
+    args = [
         "-m",
-        f"{MODELS_MOUNT}/{spec.model}",
+        model,
         "--alias",
         spec.name,
         "-ngl",
@@ -710,17 +733,17 @@ def head_argv(spec: HeadSpec, owner: Owner) -> list[str]:
         "--host",
         spec.bind,
         "--port",
-        str(HEAD_API_PORT),
+        str(port),
     ]
-    if spec.rpc:
-        argv += ["--rpc", ",".join(spec.rpc)]
-    argv += [
+    if rpc:
+        args += ["--rpc", ",".join(rpc)]
+    args += [
         "-dev",
         ",".join(spec.devices),
         "-ts",
         ",".join(str(share) for share in spec.tensor_split),
     ]
-    return argv
+    return args
 
 
 def read_tunnel_hello(logs: str) -> TunnelHello | None:
