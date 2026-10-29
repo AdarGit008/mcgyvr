@@ -40,6 +40,15 @@ archived outside this repository, under the same paths.
   is under `~/.local/state/mcgyvr` except `journal/`, and `~/.cache/mcgyvr`,
   to the new folders, or keep them with the XDG variables (the weights, which
   no XDG variable moves, with `$MCGYVR_WEIGHTS`).
+
+- **A Mac's rig id changes once, and the reader ships packed.** A Mac had no
+  machine-id file, so its id was hashed from its host name; it is now hashed
+  from its IOPlatformUUID, with its unified GPU named in it, so a fleet lock
+  that pinned a Mac's rig id names it again after one `mcgyvr scan`. The
+  reader the door ships over ssh goes as one zlib-packed program (the line is
+  about a third of its old length), since its source in base64 neared the
+  128 KiB Linux allows one argument; the line's shape is unchanged. (#809)
+
 - **Use cases are `mcgyvr-code`, `code`, `chat` and `agent`; `coding` is gone,
   with no alias.** `mcgyvr-code` is what `coding` was, every stage between the
   model and you on by default, each under a policy switch (SETUP.md, *Use cases
@@ -92,6 +101,78 @@ archived outside this repository, under the same paths.
   Windows the door runs its `ssh`/`docker` shims by argv (with `.cmd`
   launchers beside them) and hands a gate its export pipe as a handle.
 
+- **A plan says how fast its model decodes, and a unified GPU's memory is
+  counted once (#817).** `data/hardware-classes.json` states the memory
+  bandwidth of Apple silicon chips and NVIDIA consumer cards, each row with
+  its source page and the words quoted (or, for a table row, a summary of its
+  cells) and whether that source was read cleanly (`verified`).
+  `mcgyvr.estimate` matches a device to its class by name (an NVIDIA card then
+  by its memory, a chip by its GPU cores or the machine's memory, the slower
+  variant, said so, when those are unread; no class, no estimate) and
+  estimates decode as bandwidth over the bytes a token reads: 0.75 of it for
+  16- and 8-bit weights and 0.60 for 4- to 6-bit, fitted under llama.cpp's
+  Apple-silicon table (discussion 4167), with an Apple chip from 800 GB/s up
+  at most 0.50 and 0.45; an NVIDIA card's estimate says the shares were
+  fitted on Apple silicon. A mixture of experts reads its shared weights and
+  the experts it uses. The plan of `mcgyvr recommend` states its placement's
+  `decode_tok_s` as the live fleet's measured speed for that model at that
+  host (a `reading`, `fleet.lock.decode_readings`), else that `estimate`,
+  else why there is none, and each card's class bandwidth (an estimate for
+  that card). `estimate.usable_unified_mb` states a Mac GPU's memory as the
+  reader sizes it: the wired limit, else three quarters of memory (estimates),
+  or the working set llama.cpp logged (a reading). Sizing on a unified GPU
+  now weighs spilled experts, a mapped blob and co-resident units against the
+  host memory the GPU leaves, in a unit's fit, a plan's fit and a claim; a
+  card with its own memory is sized exactly as before. A split prices a
+  CUDA-measured scratch reading only on CUDA cards
+  (`vramfit.MEASURED_SCRATCH_BACKEND`).
+
+- **The machine reader reads macOS and Windows.** On a Mac (Apple silicon) the
+  GPU that shares the memory is read as one `unified` card: its size is the
+  share the kernel lets it take (`iogpu.wired_limit_mb`, else three quarters
+  of the memory), always labelled an estimate, its free memory is what the
+  machine has available, and the rig id holds when that cap moves. Memory comes
+  from `sysctl` and `vm_stat`, so a Mac keeps its memory section; the machine
+  id is its IOPlatformUUID. On Windows one PowerShell CIM call reads memory,
+  CPU, system and display adapters (never `wmic`), nvidia-smi.exe is looked
+  for on PATH, in System32 and in the NVSMI folder, a card no tool sizes is
+  listed unsized under Vulkan, and the machine id is the registry's
+  MachineGuid. Every reading now carries `host` (`os`, `arch`, `version`),
+  `cpu` (`model`, `cores`, `threads`, `performance_cores`) and `resources` in
+  the hub's resource contract (a sized card, host RAM, the CPU); each card
+  names its `kind` and `backend`. `mcgyvr detect` and `mcgyvr scan` print the
+  system, a card's backend and the CPU model, and say when a size is an
+  estimate. A Linux machine reads as before and keeps its rig id. A Mac's
+  unified GPU is not lent yet: a lent card is served by a CUDA worker in a
+  container, and it joins lending with native launch. (#809)
+
+- **What a rig lends is defined once, as resources, in `mcgyvr.hubwire`
+  (#812).** A `Resource` (`gpu`, `unified`, `ram` or `cpu`; `RESOURCE_KINDS`)
+  names its index, name, MiB lent and free with whether they are an estimate
+  or a reading (`figure`, one of `FIGURE_KINDS`), cores (`cpu` alone), memory
+  bandwidth with its own `bandwidth_figure`, and its backend
+  (`RESOURCE_BACKENDS`: `cpu` for host memory and cores, never for a card); a
+  `unified` device's memory is the host's (`shares_ram`). `validate()`
+  refuses a break by the field at fault. `resources_fit` holds an advert to
+  `MAX_RESOURCES`, each kind and index once, at most `MAX_CARDS` cards with
+  each card index once, and one `ram` and one `cpu`; `ResourceReading` and
+  `readings_fit` are a heartbeat's. A `Host` names its `HOST_OS`, `HOST_ARCH`
+  and version. `cards_from_resources` and `card_readings_from` make the legacy
+  `cards[]` of a hello and a heartbeat from the `gpu` and `unified` ones, and
+  `STANDBY_UNITS` names the unit standby is counted in per kind (names only);
+  `LEND_FLOOR_MB`, `LEND_FLOOR_CORES` and `counts_as_lent` say the least a
+  resource lends to count as lent (a 1 MiB card or one core earns nothing);
+  `FIGURE_ESTIMATE` and `FIGURE_READING` name the two figure kinds.
+  A `cpu` resource serves whole models only, never a pipeline stage. The rig
+  agent's card rules (`rig.protocol.CARD_NAME`, `CARD_NAME_MAX`, `MAX_MB`,
+  `MAX_CARD_INDEX`, `MAX_CARDS`) are now these names, imported. The shipped
+  `protocol.schema.json` is the hub's with `resources[]` and `host` on a hello
+  and `resources[]` on a heartbeat, and the tests hold every value above to
+  it. `RpcProto` names the llama.cpp RPC protocol a rig
+  speaks (`RPC_PROTO_FIELD`), and `rpc_compatible` says which workers a head
+  may take: llama.cpp's own rule, the same major and no newer minor. Nothing
+  sends resources yet. Ruff now refuses a raw bidirectional control character in
+  source (`PLE2502`).
 - **`mcgyvr use NAME` switches the use case, and `/mcgyvr-use` is its skill.**
   It rewrites the policy's `use_case:` line and nothing else, and says what
   that turns on or off.

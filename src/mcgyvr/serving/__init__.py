@@ -14,6 +14,7 @@ from urllib.parse import urlparse
 
 from mcgyvr import derived
 from mcgyvr.config import LAUNCHER_DOCKER, ROLE_SLEEPER, Config
+from mcgyvr.hubwire import shares_ram
 from mcgyvr.propose import DEFAULT_HEADROOM_GB
 from mcgyvr.scan import Gpu, Scan, default_weights_dir
 from mcgyvr.serving import vramfit
@@ -461,7 +462,8 @@ def _sized(
     place it on the freest card, pick a loading mode, and return the Fit."""
     free_bytes = _free_vram_bytes(scan)
     free_vram = free_bytes / _BYTES_PER_GIB
-    available_ram = scan.memory.available_gb if scan.memory else 0.0
+    # Memory read as a total alone promises nothing free, as no memory does.
+    available_ram = (scan.memory.available_gb if scan.memory else None) or 0.0
 
     if spec.speculative == SPECULATIVE_MTP and not _mtp_head_blocks(spec):
         return Fit(fits=False, headroom_gb=DEFAULT_HEADROOM_GB, why=_no_mtp_head(spec))
@@ -509,6 +511,10 @@ def _sized(
     # unit_for() writes --load-mode into the argv only when it is set, so a
     # unit sized as mapped launches exactly as llama.cpp would by default
     # and one sized as unmapped says so on its command line.
+    # A card that shares the host's memory (a unified GPU) takes what it holds
+    # from that same memory, so the host side is weighed against what the card
+    # leaves; a card with memory of its own leaves the host's figure whole.
+    available_ram, shared = _host_left_gb(scan, available_ram, placed.vram_gb)
     load_mode: str | None = None
     if placed.ram_gb and spec.disk_gb + MODE_RAM_HEADROOM_GB > available_ram:
         if placed.ram_gb + REFUSAL_RAM_HEADROOM_GB > available_ram:
@@ -521,8 +527,8 @@ def _sized(
                     f"{REFUSAL_RAM_HEADROOM_GB:.1f} GB held back, or "
                     f"{spec.disk_gb:.1f} GB to hold its blob mapped with "
                     f"{MODE_RAM_HEADROOM_GB:.1f} GB held back, against "
-                    f"{available_ram:.1f} GB available. No loading mode "
-                    f"fits this host"
+                    f"{available_ram:.1f} GB available{shared}. No loading "
+                    f"mode fits this host"
                 ),
             )
         load_mode = "none"
@@ -1189,7 +1195,13 @@ def _shard_targets(name: str, declared: object, scans: Mapping[str, Scan]) -> li
                 f"{where}: {rig} has no card {gpu} in its scan (cards: {found})"
             )
         targets.append(
-            Target(host=rig, gpu=gpu, free_bytes=card.vram.free_mib << 20, bind=bind)
+            Target(
+                host=rig,
+                gpu=gpu,
+                free_bytes=card.vram.free_mib << 20,
+                bind=bind,
+                backend=card.backend,
+            )
         )
     return targets
 
@@ -1426,13 +1438,20 @@ def hold_together(units: Iterable[Unit], scans: Mapping[str, Scan]) -> tuple[str
                     f"have measured"
                 )
         memory = scan.memory
-        if memory is None:
-            # A scan with no host memory reading cannot say whether these
-            # units fit in RAM together; the card check above still stands,
-            # and nothing is guessed here about a figure nobody read.
+        if memory is None or memory.available_gb is None:
+            # A scan with no reading of available host memory cannot say
+            # whether these units fit in RAM together; the card check above
+            # still stands, and nothing is guessed about a figure nobody read.
             continue
         hungriest = sorted(up, key=lambda unit: unit.key.slug)
         wanted = sum(unit.fit.ram_gb for unit in hungriest)
+        on_unified = ""
+        if wanted and scan.gpus and shares_ram(_roomiest_gpu(scan).kind):
+            # On a unified GPU what the units hold on the card is host memory
+            # as well, so it is summed with what they hold beside it.
+            held = sum(unit.fit.vram_gb for unit in hungriest)
+            wanted += held
+            on_unified = f" with {held:.2f} GB they hold on the unified GPU"
         # The margin host memory is judged with: the same refusal headroom
         # _sized() holds back, because spilled experts are really allocated
         # in host RAM and must stay clear of what the OS needs.
@@ -1446,7 +1465,8 @@ def hold_together(units: Iterable[Unit], scans: Mapping[str, Scan]) -> tuple[str
             )
             raise UnitError(
                 f"{spec.host}: {listed} fit host memory one at a time and not "
-                f"together — {wanted:.2f} GB summed with {margin:.1f} GB held "
+                f"together — {wanted:.2f} GB summed{on_unified} with "
+                f"{margin:.1f} GB held "
                 f"back, against "
                 f"{memory.available_gb:.2f} GB available. Serve one of them "
                 f"from another host, drop one, or narrow a window"
@@ -1763,6 +1783,24 @@ def _free_vram_bytes(scan: Scan) -> int:
     return max(gpu.vram.free_mib for gpu in scan.gpus) << 20
 
 
+def _host_left_gb(
+    scan: Scan, available_gb: float, on_card_gb: float
+) -> tuple[float, str]:
+    """The host memory left beside a unit, in GiB, and how it was reckoned.
+
+    A unit sits on the roomiest card. When that card shares the host's memory
+    (`hubwire.shares_ram`: a unified GPU), what the unit holds on it comes out
+    of the host's available memory, so that memory is counted once; otherwise
+    the available figure is returned as it is, with an empty note."""
+    if not scan.gpus or not shares_ram(_roomiest_gpu(scan).kind):
+        return available_gb, ""
+    left = max(0.0, available_gb - on_card_gb)
+    return left, (
+        f" (the {on_card_gb:.1f} GB on the unified GPU taken from the host's "
+        f"{available_gb:.1f} GB)"
+    )
+
+
 def _remaining_scan(scan: Scan, claim_gb: float) -> Scan:
     """The scan with another unit's claim subtracted from its roomiest card, so what is
     sized against it afterwards sees what is left."""
@@ -1783,7 +1821,13 @@ def _remaining_scan(scan: Scan, claim_gb: float) -> Scan:
             free_mib=gpu.vram.free_mib - taken,
         ),
     )
-    return replace(scan, gpus=tuple(gpus))
+    memory = scan.memory
+    if shares_ram(gpu.kind) and memory is not None and memory.available_gb is not None:
+        # A unified GPU's memory is the host's: the claim leaves the host too.
+        memory = replace(
+            memory, available_gb=max(0.0, memory.available_gb - taken / 1024)
+        )
+    return replace(scan, gpus=tuple(gpus), memory=memory)
 
 
 def _allowance_gb(spec: ModelSpec) -> float:
