@@ -175,20 +175,32 @@ def constants(name: str, wanted: Iterable[str]) -> str:
 #: Imports in a shipped module of something the program does not carry, each
 #: inside a function no verb a rig is asked runs: the door's own use of that
 #: module. Any other is refused when the program is built (:func:`imports`).
-#: Each is (importing module, what it imports by its full name: a package
-#: outside mcgyvr, or ``mcgyvr.module.NAME``), so one more import of the same
-#: module elsewhere in the file is checked again.
+#: Each is (importing module, the function the import sits in, what it
+#: imports by its full name: a package outside mcgyvr, or
+#: ``mcgyvr.module.NAME``), so the same import in any other function, or at the
+#: top, is checked again.
 DOOR_ONLY = frozenset(
     {
         # `native.parse` reads the compose file on the door; a rig is sent units.
-        ("mcgyvr.serving.native", "yaml"),
-        ("mcgyvr.serving.native", "mcgyvr.config.LAUNCHER_NATIVE"),
-        ("mcgyvr.serving.native", "mcgyvr.serving.CARDS_KEY"),
-        ("mcgyvr.serving.native", "mcgyvr.serving.LAUNCHER_KEY"),
-        ("mcgyvr.serving.native", "mcgyvr.serving.PROGRAM_KEY"),
-        ("mcgyvr.serving.native", "mcgyvr.serving.SLEEPER_PROFILE"),
+        ("mcgyvr.serving.native", "parse", "yaml"),
+        ("mcgyvr.serving.native", "parse", "mcgyvr.config.LAUNCHER_NATIVE"),
+        ("mcgyvr.serving.native", "parse", "mcgyvr.serving.CARDS_KEY"),
+        ("mcgyvr.serving.native", "parse", "mcgyvr.serving.LAUNCHER_KEY"),
+        ("mcgyvr.serving.native", "parse", "mcgyvr.serving.PROGRAM_KEY"),
+        ("mcgyvr.serving.native", "parse", "mcgyvr.serving.SLEEPER_PROFILE"),
     }
 )
+
+
+def _owners(tree: ast.Module) -> dict[int, str]:
+    """The innermost function each import of `tree` sits in, by node id."""
+    owner: dict[int, str] = {}
+    for node in ast.walk(tree):  # outer functions before the ones inside them
+        if isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef)):
+            for inner in ast.walk(node):
+                if isinstance(inner, (ast.Import, ast.ImportFrom)):
+                    owner[id(inner)] = node.name
+    return owner
 
 
 def _imported(node: ast.Import | ast.ImportFrom) -> list[tuple[str, str | None]]:
@@ -213,6 +225,7 @@ def imports(main: str, modules: Sequence[str]) -> dict[str, list[str]]:
     for module in (*modules, main):
         tree = ast.parse(source(module))
         top = {id(node) for node in tree.body}
+        owners = _owners(tree)
         for node in ast.walk(tree):
             if not isinstance(node, (ast.Import, ast.ImportFrom)):
                 continue
@@ -223,7 +236,7 @@ def imports(main: str, modules: Sequence[str]) -> dict[str, list[str]]:
                 if root != "mcgyvr":
                     if root in sys.stdlib_module_names:
                         continue
-                    if (module, root) in DOOR_ONLY:
+                    if (module, owners.get(id(node)), root) in DOOR_ONLY:
                         continue
                     raise ShipError(f"{module} imports {target}, which is not shipped")
                 if target in carried or (name and f"{target}.{name}" in carried):
@@ -237,7 +250,7 @@ def imports(main: str, modules: Sequence[str]) -> dict[str, list[str]]:
                     wanted.setdefault(target, []).append(name)
                     continue
                 shown = f"{target}.{name}" if name else target
-                if (module, shown) in DOOR_ONLY:
+                if (module, owners.get(id(node)), shown) in DOOR_ONLY:
                     continue
                 raise ShipError(f"{module} imports {shown}, which is not shipped")
     return wanted

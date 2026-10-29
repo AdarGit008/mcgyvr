@@ -72,7 +72,7 @@ def test_the_door_tells_rigs_apart_by_the_wires_system_names() -> None:
 def test_an_import_of_something_not_carried_is_refused_unless_the_door_alone_runs_it(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    assert ("mcgyvr.serving.native", "yaml") in shipped.DOOR_ONLY
+    assert ("mcgyvr.serving.native", "parse", "yaml") in shipped.DOOR_ONLY
     monkeypatch.setattr(shipped, "DOOR_ONLY", frozenset())
     with pytest.raises(shipped.ShipError, match="imports yaml, which is not shipped"):
         shipped.native()
@@ -99,10 +99,29 @@ def test_an_argument_holding_a_nul_or_a_quote_is_refused_not_shipped() -> None:
 def test_a_door_only_import_is_allowed_by_its_full_name_alone(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    entry = ("mcgyvr.serving.native", "mcgyvr.config.LAUNCHER_NATIVE")
+    entry = ("mcgyvr.serving.native", "parse", "mcgyvr.config.LAUNCHER_NATIVE")
     assert entry in shipped.DOOR_ONLY
     monkeypatch.setattr(shipped, "DOOR_ONLY", shipped.DOOR_ONLY - {entry})
     with pytest.raises(shipped.ShipError, match=r"mcgyvr\.config\.LAUNCHER_NATIVE"):
+        shipped.native()
+
+
+def test_a_door_only_import_in_another_function_is_refused(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    real = shipped.source
+
+    def source(name: str) -> str:
+        text = real(name)
+        if name == "mcgyvr.serving.native":
+            text += (
+                "\n\ndef _on_the_rig() -> None:\n"
+                "    from mcgyvr.serving import CARDS_KEY  # noqa: F401\n"
+            )
+        return text
+
+    monkeypatch.setattr(shipped, "source", source)
+    with pytest.raises(shipped.ShipError, match=r"mcgyvr\.serving\.CARDS_KEY"):
         shipped.native()
 
 
@@ -119,10 +138,30 @@ def test_a_fetch_keeps_ssh_alive_on_a_mac_or_windows_rig_and_linux_as_it_was(
 ) -> None:
     from mcgyvr.serving import fetchlist
 
-    sent = fetchlist.shipment(system, (), "https://hub.example", "HF_TOKEN", "s3cret")
+    sent = fetchlist.shipment(
+        system, system, (), "https://hub.example", "HF_TOKEN", "s3cret"
+    )
     assert (sent.command, sent.keepalive) == (command, keepalive)
     assert "s3cret" not in sent.command
     if system == "linux":
         assert sent.stdin == fetchlist.payload(
             (), "https://hub.example", "HF_TOKEN", "s3cret"
         )
+
+
+def test_a_fetch_onto_this_windows_machine_is_the_posix_line_it_runs_itself(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    from mcgyvr import hostos
+    from mcgyvr.serving import fetchlist
+
+    monkeypatch.setattr(hostos, "os_name", lambda: "windows")
+    sent = fetchlist.shipment(
+        gatelib.shipping_os("localhost"),
+        gatelib.rig_system("localhost"),
+        (),
+        "https://hub.example",
+        "HF_TOKEN",
+        None,
+    )
+    assert sent.command == fetchlist.REMOTE_COMMAND

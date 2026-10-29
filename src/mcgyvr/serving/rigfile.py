@@ -304,10 +304,10 @@ def _listenable(stated: object) -> ipaddress.IPv4Address | None:
 
     None for everything else: text that is not an address, an IPv6 address that
     is not the mapped form of an IPv4 one, and any address the door's own rule
-    (:func:`mcgyvr.serving.shardlaunch.worker_may_listen`) excludes — every
+    (:func:`mcgyvr.serving.llamacpp.worker_may_listen`) excludes — every
     interface, loopback, or one the internet can reach.
     """
-    from mcgyvr.serving.shardlaunch import worker_may_listen
+    from mcgyvr.serving.llamacpp import worker_may_listen
 
     if not isinstance(stated, str):
         return None

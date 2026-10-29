@@ -299,19 +299,28 @@ class Shipment:
 
 
 def shipment(
-    system: str, wants: Iterable[Want], hub: str, token_env: str, token: str | None
+    shipping: str,
+    system: str,
+    wants: Iterable[Want],
+    hub: str,
+    token_env: str,
+    token: str | None,
 ) -> Shipment:
-    """The fetch for a rig of `system` (``windows`` only for a rig over ssh).
+    """The fetch for a rig: `shipping` is how a program reaches it
+    (`gatelib.shipping_os`: ``windows`` only for a Windows rig over ssh; this
+    machine runs the POSIX line itself), `system` what it is
+    (`gatelib.rig_system`).
 
     Linux: `REMOTE_COMMAND` with the payload on stdin, and ssh called as it
-    always was. macOS: the same, isolated (`REMOTE_COMMAND_ISOLATED`). Windows:
-    the fetcher through PowerShell (`gatelib.ship`) with the job, which holds
-    the token, on its own stdin, never on disk. Both keep ssh's keepalive on.
+    always was. macOS: the same, isolated (`REMOTE_COMMAND_ISOLATED`). A
+    Windows rig over ssh: the fetcher through PowerShell (`gatelib.ship`) with
+    the job, which holds the token, on its own stdin, never on disk. Every
+    system but Linux keeps ssh's keepalive on.
     """
     from mcgyvr.serving import gatelib, shipped
 
     wants = tuple(wants)
-    if system == gatelib.WINDOWS:
+    if shipping == gatelib.WINDOWS:
         sent = gatelib.ship(
             gatelib.WINDOWS,
             shipped.packed(shipped.fetcher(None)),
@@ -319,11 +328,10 @@ def shipment(
             feed=job(wants, hub, token_env, token).encode("utf-8"),
         )
         return Shipment(sent.command, sent.stdin or "", keepalive=True)
-    darwin = system == gatelib.DARWIN
     return Shipment(
-        REMOTE_COMMAND_ISOLATED if darwin else REMOTE_COMMAND,
+        REMOTE_COMMAND_ISOLATED if system == gatelib.DARWIN else REMOTE_COMMAND,
         payload(wants, hub, token_env, token),
-        keepalive=darwin,
+        keepalive=system != gatelib.LINUX,
     )
 
 
