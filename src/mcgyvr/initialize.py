@@ -29,6 +29,7 @@ from typing import TYPE_CHECKING, Any
 
 import yaml
 
+from mcgyvr import hostos
 from mcgyvr.compose import Recommendation, endpoint_for_backend, recommend
 from mcgyvr.config import (
     API_OUTPUT_TOKENS,
@@ -39,6 +40,7 @@ from mcgyvr.config import (
     GATE_FIELDS,
     JEV_FIELDS,
     JOURNAL_FIELDS,
+    LAUNCHER_NATIVE,
     LOCAL_ONLY,
     MCGYVR_CODE,
     ORCHESTRATOR_FIELDS,
@@ -49,6 +51,7 @@ from mcgyvr.config import (
     Config,
     ConfigError,
     Field,
+    default_launcher,
     local_orchestrator,
 )
 from mcgyvr.config import load as load_config
@@ -603,6 +606,17 @@ def build(
             unit["window"] = backend.window
         if backend is not None and backend.kind == "vllm":
             unit["engine"] = "vllm"
+        if backend is not None and (
+            default_launcher(
+                local=is_local_host(backend.host),
+                engine=unit.get("engine"),
+                system=hostos.os_name(),
+            )
+            == LAUNCHER_NATIVE
+        ):
+            # A llama.cpp unit on this macOS or Windows machine runs as the
+            # pinned native build; a container there reaches no GPU.
+            unit["launcher"] = LAUNCHER_NATIVE
         unit["rig"] = _rig_name(backend, rung.source)
         units[rung.name] = unit
     for api in api_units:

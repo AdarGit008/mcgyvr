@@ -13,7 +13,7 @@ from typing import Any
 from urllib.parse import urlparse
 
 from mcgyvr import derived
-from mcgyvr.config import ROLE_SLEEPER, Config
+from mcgyvr.config import LAUNCHER_DOCKER, ROLE_SLEEPER, Config
 from mcgyvr.propose import DEFAULT_HEADROOM_GB
 from mcgyvr.scan import Gpu, Scan, default_weights_dir
 from mcgyvr.serving import vramfit
@@ -60,6 +60,14 @@ COMPOSE_SUFFIX = ".yml"
 #: leaves it down until something names the profile. This is how the
 #: `sleeps-until-needed` role reaches the rendered file.
 SLEEPER_PROFILE = "asleep"
+#: The service keys a launch spec carries for a native unit, beside the
+#: compose keys a native unit shares (`container_name`, `command`,
+#: `environment`, `profiles`, `depends_on`): which launcher runs it, the cards
+#: it is given, and the program in the pinned build it runs. The docker
+#: daemon never reads such a file; `servelib` hands it to `native` instead.
+LAUNCHER_KEY = "x-mcgyvr-launcher"
+CARDS_KEY = "x-mcgyvr-cards"
+PROGRAM_KEY = "x-mcgyvr-program"
 
 # Every character a host or model name may not carry into a file name:
 # each run of them collapses to one hyphen, so safe_host(), safe_model()
@@ -382,6 +390,9 @@ class Unit:
     #: emit.py mounts into a llama.cpp unit's container. None when the scan
     #: read no home, and for vLLM, whose units are not handed the store.
     kernel_cache: Path | None = None
+    #: How the process runs: in a container (`docker`), or as the pinned
+    #: llama.cpp binary mcgyvr supervises (`native`), as the unit states it.
+    launcher: str = LAUNCHER_DOCKER
 
     @property
     def cards(self) -> tuple[int, ...]:
@@ -784,6 +795,9 @@ def units_for(
     models: dict[UnitKey, ModelSpec] = {}
     widths: dict[UnitKey, int] = {}
     images: dict[UnitKey, str | None] = {}
+    #: How each process is run, by key: one process runs one way, so two
+    #: units behind one address that state different launchers are an error.
+    launchers: dict[UnitKey, str] = {}
     #: The context windows declared per process, by key: a window is
     #: stated per unit, so two units behind one address that state
     #: different ones are an error rather than a silent choice.
@@ -870,6 +884,12 @@ def units_for(
         hosts.setdefault(key, scan)
         models.setdefault(key, spec)
         images.setdefault(key, unit.image)
+        if launchers.setdefault(key, unit.launcher) != unit.launcher:
+            raise UnitError(
+                f"{name}: names the process {key.slug}, which another unit runs "
+                f"as {launchers[key]}; one process runs one way, not as "
+                f"{unit.launcher} too"
+            )
         if unit.width is not None:
             # Units naming one process may each state a width: the widest
             # wins, so the process is sized for the slots they all ask for.
@@ -913,8 +933,16 @@ def units_for(
                 ctx_per_slot=window,
             )
             return [
-                replace(head, rungs=tuple(rungs), image=images[key]),
-                *(replace(worker, image=images[key]) for worker in workers),
+                replace(
+                    head,
+                    rungs=tuple(rungs),
+                    image=images[key],
+                    launcher=launchers[key],
+                ),
+                *(
+                    replace(worker, image=images[key], launcher=launchers[key])
+                    for worker in workers
+                ),
             ]
         return [
             replace(
@@ -930,6 +958,7 @@ def units_for(
                     tuple(rungs),
                 ),
                 image=images[key],
+                launcher=launchers[key],
             )
         ]
 

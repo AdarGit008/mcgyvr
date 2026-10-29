@@ -31,10 +31,11 @@ from collections.abc import Mapping, Sequence
 from dataclasses import dataclass
 from typing import Any
 
-from mcgyvr import availability, decision
+from mcgyvr import availability, decision, hostos
 from mcgyvr import scan as scan_module
-from mcgyvr.config import DEFAULT_REQUEST_TIMEOUT_S
+from mcgyvr.config import DEFAULT_REQUEST_TIMEOUT_S, default_launcher
 from mcgyvr.decision import Choice, ChoiceAnswer
+from mcgyvr.detect import is_local_host
 from mcgyvr.hubwire import USE_CASE_CATEGORY
 from mcgyvr.knowledge import hub
 from mcgyvr.knowledge import store as knowledge_store
@@ -608,6 +609,13 @@ def _placement_document(candidate: Candidate, source: str) -> dict[str, Any]:
     return {
         "host": candidate.host,
         "engine": candidate.engine,
+        # How the unit setup writes for this placement runs (docker on Linux;
+        # native for llama.cpp on this macOS or Windows machine).
+        "launcher": default_launcher(
+            local=is_local_host(candidate.host),
+            engine=candidate.engine,
+            system=hostos.os_name(),
+        ),
         "checkpoint": candidate.checkpoint,
         "model_id": candidate.model_id,
         "quant": candidate.quant,

@@ -60,7 +60,7 @@ def main() -> int:
             file=sys.stderr,
         )
     try:
-        up = servelib.containers_up()
+        up = servelib.containers_up(servelib.launcher_of(ctx.units))
     except servelib.ComposeError as exc:
         print(f"serve-down: {exc}", file=sys.stderr)
         up = None

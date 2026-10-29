@@ -27,17 +27,21 @@ import ipaddress
 import re
 import shlex
 from collections.abc import Iterable, Mapping
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
 from pathlib import Path
 from typing import TYPE_CHECKING, Any, cast
 
 import yaml
 
+from mcgyvr.config import LAUNCHER_NATIVE
 from mcgyvr.fleet.spans import Shard, Span, SpanError, check_spans, spans
 from mcgyvr.serving import (
+    CARDS_KEY,
     COMPOSE_PREFIX,
     COMPOSE_SUFFIX,
     HF_CACHE_MOUNT,
+    LAUNCHER_KEY,
+    PROGRAM_KEY,
     ROLE_HEADLESS,
     ROLE_RPC,
     ROLE_SERVE,
@@ -49,6 +53,7 @@ from mcgyvr.serving import (
     Width,
     kernelcache,
     launch_specs,
+    llamacpp,
     port_of,
     rigfile,
     safe_host,
@@ -74,7 +79,8 @@ ALIAS_FLAGS = ("--alias", "-a")
 # makes it the service's entrypoint, so the image's own one does not run.
 RPC_COMMAND = ("rpc-server",)
 ENGINE_IMAGES = {
-    "llama.cpp": "ghcr.io/ggml-org/llama.cpp:server-cuda",
+    # The one llama.cpp build mcgyvr pins, the native binaries' too.
+    "llama.cpp": llamacpp.IMAGE,
     # vLLM is pinned to a release; a unit's own `image` overrides this.
     "vllm": "vllm/vllm-openai:v0.26.0",
 }
@@ -104,6 +110,14 @@ FIT_FLAGS = ("--fit", "-fit")
 FIT_ENV = "LLAMA_ARG_FIT"
 FIT_OFF = frozenset({"off", "disabled", "false", "0"})
 FIT_DEFAULT = "off"
+
+#: Where a native llama.cpp server listens unless its unit states `--host`
+#: (or `LLAMA_ARG_HOST`): the loopback alone, so no firewall asks, and only
+#: this machine reaches it.
+LOOPBACK = "127.0.0.1"
+#: The flag and the variable llama-server reads its listening address from.
+HOST_FLAG = "--host"
+HOST_ENV = "LLAMA_ARG_HOST"
 
 #: Heads every compose document rendered with sleep mode on: the routes
 #: sleep needs are unauthenticated, so the file says so in its first lines.
@@ -489,6 +503,8 @@ def _service(unit: Unit, *, sleep_mode: bool = False) -> dict[str, object]:
     worker by `_rpc_service`, and anything else as a llama.cpp server.
     """
     _check_role(unit)
+    if unit.launcher == LAUNCHER_NATIVE:
+        return _native_service(unit)
     if unit.engine == "vllm":
         return _vllm_service(unit, sleep_mode=sleep_mode)
     if unit.role == ROLE_RPC:
@@ -525,6 +541,40 @@ def _service(unit: Unit, *, sleep_mode: bool = False) -> dict[str, object]:
         ),
         "deploy": _reservation(*unit.cards),
     }
+
+
+def _native_service(unit: Unit) -> dict[str, object]:
+    """The launch spec of a unit the native launcher runs, in compose's shape.
+
+    No image, no volumes, no devices: the program (`PROGRAM_KEY`) is the
+    pinned llama.cpp build's server or rpc worker, run with the same argv a
+    container is given, and the cards it may use are listed under
+    `CARDS_KEY`. A server that states no listening address of its own is
+    given `--host 127.0.0.1`. Only llama.cpp has a native build: a vLLM unit
+    is refused.
+    """
+    if unit.engine != "llama.cpp":
+        raise EmitError(
+            f"{unit.key.slug}: launcher native runs the pinned llama.cpp build, "
+            f"and {unit.engine} has none; it runs in its container (launcher docker)"
+        )
+    stated = (*unit.args, *unit.extra)
+    if (
+        unit.role == ROLE_SERVE
+        and HOST_ENV not in unit.env
+        and not any(p == HOST_FLAG or p.startswith(f"{HOST_FLAG}=") for p in stated)
+    ):
+        unit = replace(unit, args={**unit.args, HOST_FLAG: LOOPBACK})
+    service: dict[str, object] = {
+        LAUNCHER_KEY: LAUNCHER_NATIVE,
+        PROGRAM_KEY: llamacpp.RPC_SERVER if unit.role == ROLE_RPC else llamacpp.SERVER,
+        "container_name": f"mcgyvr-{safe_host(unit.host)}-{_service_name(unit)}",
+        "command": list(argv(unit)),
+        CARDS_KEY: list(unit.cards),
+    }
+    if unit.env:
+        service["environment"] = dict(unit.env)
+    return service
 
 
 def _rpc_service(unit: Unit) -> dict[str, object]:
@@ -695,7 +745,7 @@ def resolved_launch(unit: Unit, *, sleep_mode: bool = False) -> dict[str, Any]:
     service = _service(unit, sleep_mode=sleep_mode)
     launch: dict[str, Any] = {
         "engine": unit.engine,
-        "image": service["image"],
+        "image": service.get("image"),
         "container": service["container_name"],
         "launch": {
             "argv": list(cast(list[str], service["command"])),

@@ -53,6 +53,37 @@ archived outside this repository, under the same paths.
 
 ### Added
 
+- **A unit runs natively, with no container: `launcher: native` (#818).** The
+  llama.cpp build mcgyvr pins (b11960, `mcgyvr.serving.llamacpp`; the Linux
+  image is the same build, `server-cuda-b11960`) is fetched on first use into
+  `bin/llama.cpp/<tag>/` under the mcgyvr home, checked against the size and
+  sha256 committed for each archive, unpacked so no member lands outside its
+  folder, cleared of macOS's quarantine flag, and kept up by mcgyvr's own
+  supervisor: one per unit, restarting a server that exits with a doubling
+  pause and giving up after five crashes running, its log in `logs/<unit>.log`
+  under the data folder. The build is Metal on Apple silicon; CUDA where
+  `nvidia-smi` reads a driver one of the pinned CUDA builds runs, else Vulkan,
+  else the CPU (`$MCGYVR_NATIVE_BACKEND` names one instead). A native server
+  listens on 127.0.0.1 unless its `serve_args` state `--host`. The door's
+  `serve up`/`down` start and stop native units, gate 3 asks no daemon of
+  them, and `mcgyvr serve status --host localhost` lists them; `serve
+  sleep`/`wake` refuse them (no sleep route: down, then up). The working set
+  Metal reports at start-up (`recommendedMaxWorkingSetSize`) is filed as a
+  reading. `setup` writes `launcher: native` for a llama.cpp unit on the Mac
+  or Windows machine it runs on; a unit stating no launcher is a container,
+  as before.
+- **The rig that is this machine is reached without ssh** where it runs no
+  sshd: always on macOS and Windows, on Linux when nothing listens on port 22
+  (`$MCGYVR_LOCAL_TRANSPORT=direct|ssh` decides instead). The door runs the
+  rig's steps here: the shipped readers and the fetcher on its own
+  interpreter, health probes with urllib, the lease in `~/.mcgyvr/lease` in
+  Python, and nothing else; `docker` talks to the local daemon, and Docker
+  Desktop's `docker-desktop` stands for this machine. Where `/proc` cannot
+  prove a gate descends from the door, a one-time secret the door hands down,
+  whose digest waits in a 0600 file while the door lives, proves it. On
+  Windows the door runs its `ssh`/`docker` shims by argv (with `.cmd`
+  launchers beside them) and hands a gate its export pipe as a handle.
+
 - **`mcgyvr use NAME` switches the use case, and `/mcgyvr-use` is its skill.**
   It rewrites the policy's `use_case:` line and nothing else, and says what
   that turns on or off.

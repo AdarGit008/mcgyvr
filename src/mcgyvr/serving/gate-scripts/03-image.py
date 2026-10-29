@@ -16,24 +16,42 @@ daemon, a reading without `hostname=`, and a daemon naming another machine all
 refuse the run, since a tag resolved through one daemon and a container started
 on another is the hole this gate closes. Nothing about images happens here; a
 passing gate prints the hostname and the server version.
+
+A native run (``RUN_LAUNCHER=native``) starts no container and resolves no
+tag, so there is no daemon to hold to the machine: the gate says so and
+passes. Docker Desktop names its daemon ``docker-desktop``, after the virtual
+machine it runs in rather than the host; that name is taken for the machine
+gate 2 read only when the door reaches the rig through its local transport,
+where the client cannot be talking to a daemon anywhere else.
 """
 
 from __future__ import annotations
 
+import os
 import shutil
 import subprocess
 
+from mcgyvr.config import LAUNCHER_NATIVE
 from mcgyvr.serving.gatelib import (
     door_required,
+    local_transport,
     need,
     refuse,
+    tool,
 )
+
+#: The name Docker Desktop's daemon gives itself, on macOS and Windows alike.
+DOCKER_DESKTOP = "docker-desktop"
 
 
 def _docker(*args: str) -> str:
     try:
         done = subprocess.run(
-            ["docker", *args], capture_output=True, text=True, timeout=60, check=False
+            [*tool("docker"), *args],
+            capture_output=True,
+            text=True,
+            timeout=60,
+            check=False,
         )
     except subprocess.TimeoutExpired:
         refuse(
@@ -52,6 +70,12 @@ def _docker(*args: str) -> str:
 
 def main() -> int:
     door_required("gate 3")
+    if os.environ.get("RUN_LAUNCHER") == LAUNCHER_NATIVE:
+        print(
+            f"gate 3: {need('RUN_HOST')} runs this launch spec natively; no "
+            "container is started and no tag resolved, so no daemon is asked"
+        )
+        return 0
     pre = dict(p.split("=", 1) for p in need("RUN_PRE_RIG").split(" ") if "=" in p)
     hostname = pre.get("hostname")
     if not hostname:
@@ -66,7 +90,8 @@ def main() -> int:
         )
 
     name = _docker("info", "--format", "{{.Name}}")
-    if name != hostname:
+    desktop = name == DOCKER_DESKTOP and local_transport(need("RUN_HOST"))
+    if name != hostname and not desktop:
         refuse(
             f"gate 3: the daemon `docker` reaches calls itself {name!r}, and the "
             f"machine gate 2 read is {hostname!r}. A tag resolved through one "
