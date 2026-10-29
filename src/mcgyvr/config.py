@@ -24,6 +24,7 @@ import yaml
 from mcgyvr.fleet.files import (
     FleetFileError,
     _typename,
+    load_crew,
     load_fleet,
     load_policy,
     load_relief,
@@ -42,20 +43,38 @@ from mcgyvr.hubwire import AGENT as AGENT
 from mcgyvr.hubwire import CHAT as CHAT
 from mcgyvr.hubwire import CODE as CODE
 from mcgyvr.hubwire import MCGYVR_CODE as MCGYVR_CODE
-from mcgyvr.hubwire import RUNG_POSITIONS, rider_cap_fits
+from mcgyvr.hubwire import (
+    RUNG_POSITIONS,
+    SCOPE_ANYONE,
+    SCOPE_HEADER,
+    SCOPE_OWN,
+    SCOPE_POOLS,
+    SCOPE_VALUES,
+    pool_serves,
+    rider_cap_fits,
+    serving_pool,
+)
 from mcgyvr.hubwire import USE_CASES as USE_CASES
 from mcgyvr.sandbox.base import NETWORKS
 from mcgyvr.schema import Dialect, join_path, walk_block
 from mcgyvr.schema import Field as Field
 from mcgyvr.strict_yaml import strict_loader
 
-#: The three files a setup directory holds. `load()` reads all of them: fleet.yaml
-#: is required and carries `units`; policy.yaml and relief.yaml are read as empty
-#: text when they are absent.
+#: The files a setup directory holds. `load()` reads all of them: fleet.yaml
+#: is required and carries `units`; policy.yaml, relief.yaml and crew.yaml are
+#: read as empty text when they are absent.
 FLEET_FILENAME = "fleet.yaml"
 POLICY_FILENAME = "policy.yaml"
 #: The rungs a hub lent you, written whole by `mcgyvr rig rungs sync`.
 RELIEF_FILENAME = "relief.yaml"
+#: The units your crews lend you through a hub, written whole by
+#: `mcgyvr rig crew sync` and read as units of the fleet.
+CREW_FILENAME = "crew.yaml"
+#: The scope `mcgyvr rig rungs sync` writes on each relief rung, and the one a
+#: relief rung naming none is read with: the hub matched the rung to you under
+#: your own serve scope and hands a ride only to rungs you are matched to, so the
+#: match stays the only filter, as it was before a request named a scope.
+RELIEF_SCOPE = SCOPE_ANYONE
 # Names a setup path directly, ahead of the live fleet directory.
 CONFIG_PATH_ENV = "MCGYVR_CONFIG"
 
@@ -519,6 +538,19 @@ UNIT_FIELDS: tuple[Field, ...] = (
         ),
     ),
     Field(
+        "scope",
+        "enum",
+        "Whose rigs may serve this unit's requests, named on each one in the "
+        f"`{SCOPE_HEADER}` header: `own` (your own rigs), `crew` (your crews' "
+        "too) or `anyone`. A hub serves the request from that scope's pool; a "
+        "server of your own ignores it. A ladder step or a role may bind the "
+        "unit only where its pool serves the setup's use case, so under "
+        "`mcgyvr-code` a unit served from the hub's general pool, which serves "
+        "models raw, is refused when the setup is read. Unset is `own`.",
+        default=SCOPE_OWN,
+        choices=SCOPE_VALUES,
+    ),
+    Field(
         "rig",
         "str",
         "The rig this unit runs on, by the name fleet.yaml uses. Units that \
@@ -794,14 +826,30 @@ RELIEF_FIELDS: tuple[Field, ...] = (
         block=BUSY_ANSWER_FIELDS,
         bind_hint="leave it to `mcgyvr rig rungs sync`, which writes them",
     ),
+    Field(
+        "scope",
+        "enum",
+        "Whose rigs may serve this rung's requests, named on each one in the "
+        f"`{SCOPE_HEADER}` header. A sync writes `{RELIEF_SCOPE}`: the hub "
+        "matched the rung to you under your own serve scope and hands a ride "
+        "only to rungs you are matched to, so its match stays the only filter. "
+        "A ride is served from the hub's hitchhike pool whatever its scope, "
+        "which still bounds whose host may serve it: `own` or `crew` refuses a "
+        "ride on a host outside it. "
+        f"Unset is `{RELIEF_SCOPE}`.",
+        default=RELIEF_SCOPE,
+        choices=SCOPE_VALUES,
+        bind_hint="leave it to `mcgyvr rig rungs sync`, which writes it",
+    ),
 )
 
 ROLE_UNIT_FIELDS: tuple[Field, ...] = (
     Field(
         "unit",
         "str",
-        "Which unit serves this role. A unit is the one term.",
-        bind_hint="name one of the units declared under `units`",
+        "Which unit serves this role: a unit of `units`, or a relief rung "
+        "(a unit a hub lent you). A unit is the one term.",
+        bind_hint="name one of the units declared under `units`, or a relief rung",
     ),
     Field(
         "model",
@@ -935,15 +983,22 @@ SCHEMA: tuple[Field, ...] = (
     Field(
         "ladder",
         "str_list",
-        "The ordered list of unit names work climbs, cheapest first.",
+        "The ordered list of unit names work climbs, cheapest first. A step "
+        "may name a relief rung, a unit a hub lent you: it is then a step and "
+        "no longer ridden as relief.",
         required=True,
     ),
     Field(
         "fanout",
         "enum",
-        "Whether a batch of contracts spreads across units or queues on one.",
-        default="none",
+        "Whether a batch of contracts spreads across units or queues on one. "
+        "Unset is `idle` under `use_case: mcgyvr-code` and `none` under a raw "
+        "use case; a stated value wins. Fan-out spreads work over your own "
+        "rungs and, under `idle`, a relief rung whose host reads your prompts "
+        "when your own rungs are full. It never sends a contract to a priced "
+        "api rung: only escalation climbs there, in ladder order.",
         choices=FANOUT_CHOICES,
+        bind_hint="name one of `none`, `idle`, `full`, or leave it to the use case",
     ),
     Field(
         "triage",
@@ -955,12 +1010,16 @@ SCHEMA: tuple[Field, ...] = (
         "do the job. The climb starts there; the rungs below it are skipped, "
         "not spent, and escalation goes on upward as before. `fanout` may then "
         "still start the climb on a higher rung with a free slot, never a "
-        "lower one. With no jev unit bound, or one that cannot be asked or "
+        "lower one and never a priced api rung. With no jev unit bound, or one "
+        "that cannot be asked or "
         "read, the climb starts on the first rung and the run result's "
         "`triage` says why. A contract that states a `start_rung`, decided "
-        "ahead of time, starts there under either value and jev is not asked.",
-        default="none",
+        "ahead of time, starts there under either value and jev is not asked. "
+        "Unset is `jev` under `use_case: mcgyvr-code` while a Jev unit is bound "
+        "and `jev.enabled` is on, and `none` otherwise; a stated value wins. "
+        "Each contract then waits for one Jev answer before its climb starts.",
         choices=TRIAGE_CHOICES,
+        bind_hint="name `none` or `jev`, or leave it to the use case and Jev",
     ),
     Field(
         "dependents",
@@ -1243,10 +1302,12 @@ SCHEMA: tuple[Field, ...] = (
         "block_map",
         "Units other people lend you through a hub (hitchhike), keyed by name. "
         "Written whole to `relief.yaml` by `mcgyvr rig rungs sync`, and by "
-        "nothing else. A relief rung is never a step of the ladder: under "
-        "`fanout: idle` it takes work only when your own rung is full, ahead of "
-        "a priced api rung, and no escalation climbs to it. Its host can read "
-        "your prompts.",
+        "nothing else. A relief rung the ladder does not name is never a step "
+        "of it: under `fanout: idle` it takes work only when your own rung is "
+        "full, and no escalation climbs to it. A ladder step or a role may name "
+        "one. When it is full too, the contract waits on your own ladder; "
+        "fan-out never sends it to a priced api rung. Its host can read your "
+        "prompts.",
         block=RELIEF_FIELDS,
     ),
 )
@@ -1326,9 +1387,10 @@ class Unit:
     #: you keep one. A unit the map does not name shares none, so this is 0.
     #: It is policy, not a fact of the unit, so it never changes its identity.
     rider_slots: int = 0
-    #: True for a rung lent to you through a hub: it is never a step of the
-    #: ladder, only ridden under `fanout: idle` when your own rung is full, and
-    #: only the facts a relief block states are filled in — `position`,
+    #: True for a rung lent to you through a hub: unless the ladder names it,
+    #: it is never a step of the ladder, only ridden under `fanout: idle` when
+    #: your own rung is full, and only the facts a relief block states are
+    #: filled in — `position`,
     #: `hosted_by`, `served_model`, `busy_answers` — not a rig of yours.
     relief: bool = False
     position: str | None = None
@@ -1337,6 +1399,13 @@ class Unit:
     #: The `(status, code)` answers that say the rung is full, as `busy_answers`
     #: states them; None when the rung names none.
     busy_answers: tuple[tuple[int, str], ...] | None = None
+    #: Whose rigs may serve this unit's requests (`hubwire.SCOPE_VALUES`), which
+    #: every request names: `own` for a unit of your fleet that states none, and
+    #: what `mcgyvr rig rungs sync` wrote for a relief rung.
+    scope: str = SCOPE_OWN
+    #: True for a unit `crew.yaml` holds, one your crews lend through a hub.
+    #: Asked under scope crew, it is lent free and so is no api rung.
+    crew: bool = False
 
     @property
     def requires_credential(self) -> bool:
@@ -1349,6 +1418,8 @@ class Ladder:
     placed under."""
 
     names: tuple[str, ...]
+    # Only a hand-built ladder (a placeholder with no setup) takes this; a
+    # loaded one carries the use case's decision (`_use_case_defaults`).
     fanout: str = "none"
 
     def get(self, name: str) -> str | None:
@@ -1415,6 +1486,14 @@ class Config:
     ladder: Ladder
     declared: Mapping[str, Any] = field(default_factory=dict)
     relief: Mapping[str, Unit] = field(default_factory=dict)
+    #: The units `crew.yaml` holds, each of them in `units` too.
+    crew: Mapping[str, Unit] = field(default_factory=dict)
+
+    @property
+    def bound(self) -> frozenset[str]:
+        """The units a ladder step or a role names."""
+        roles = ((self.data.get(role) or {}).get("unit") for role in _ROLE_BLOCKS)
+        return frozenset({*self.ladder.names, *(name for name in roles if name)})
 
     @property
     def is_local_only(self) -> bool:
@@ -1593,7 +1672,8 @@ SWITCHES: tuple[Switch, ...] = (
         "triage",
         ("triage",),
         "`none`",
-        "Jev picks the rung a climb starts on",
+        "Jev picks the rung a climb starts on (on while Jev is on)",
+        stage="triage",
     ),
     Switch(
         "retry notes",
@@ -1612,7 +1692,9 @@ SWITCHES: tuple[Switch, ...] = (
         "fan-out",
         ("fanout",),
         "`none`",
-        "a batch spreads across units with free slots",
+        "a batch takes own rungs with free slots (`idle`), relief ones too, "
+        "never a priced api rung",
+        stage="fanout",
     ),
     Switch(
         "gate",
@@ -1710,6 +1792,8 @@ def stages(config: Config) -> dict[str, bool]:
         > 0,
         "inferred_edges": config.get("infer_dependencies") is not False,
         "same_file": config.get("same_file", "wait") == "wait",
+        "fanout": config.ladder.fanout != "none",
+        "triage": config.get("triage") == "jev" and config.jev_on,
     }
     return {name: on[name] for name in STAGE_NAMES}
 
@@ -2145,15 +2229,17 @@ def parse(
     policy_text: str = "",
     path: Path | None = None,
     relief_text: str = "",
+    crew_text: str = "",
 ) -> Config:
     """Parse setup text into a `Config`.
 
-    `fleet_text` is the fleet document, `policy_text` the policy and
-    `relief_text` the relief rungs. With no policy text the fleet text is
-    split first, so one document holding every block is read as a whole
-    setup. `path` is where the setup was loaded from: it is quoted in errors
-    and a relative `launch.geometry_json` resolves beside it. A malformed
-    document is refused as a `ConfigSchemaError`.
+    `fleet_text` is the fleet document, `policy_text` the policy,
+    `relief_text` the relief rungs and `crew_text` the crew units. With no
+    policy text the fleet text is split first, so one document holding every
+    block is read as a whole setup. `path` is where the setup was loaded
+    from: it is quoted in errors and a relative `launch.geometry_json`
+    resolves beside it. A malformed document is refused as a
+    `ConfigSchemaError`.
     """
     if not policy_text:
         fleet_text, policy_text, split_relief = _split_setup(fleet_text)
@@ -2162,9 +2248,10 @@ def parse(
         fleet = load_fleet(fleet_text)
         policy = load_policy(policy_text) if policy_text.strip() else {}
         relief = load_relief(relief_text) if relief_text.strip() else {}
+        crew = load_crew(crew_text) if crew_text.strip() else {}
     except FleetFileError as exc:
         raise ConfigSchemaError(str(exc)) from exc
-    return _build(fleet, policy, path, relief)
+    return _build(fleet, policy, path, relief, crew)
 
 
 #: The top-level keys belonging to the fleet and relief documents rather than
@@ -2205,10 +2292,12 @@ def _build(
     policy: Mapping[str, Any],
     path: Path | None,
     relief: Mapping[str, Any] | None = None,
+    crew: Mapping[str, Any] | None = None,
 ) -> Config:
-    """Validate the three parsed documents into a `Config`.
+    """Validate the parsed documents into a `Config`.
 
-    Fleet, policy and relief are merged, `rigs`, `fleets` and each unit's
+    Fleet, policy and relief are merged, the crew units join `units` (a name
+    the fleet holds too is refused), `rigs`, `fleets` and each unit's
     `unit_id` are dropped, and the result is read against `SCHEMA` and then
     cross-checked. The units become `Unit`s (relief rungs too, flagged as
     such), the ladder becomes a `Ladder`, and `declared` keeps only the
@@ -2228,6 +2317,18 @@ def _build(
             )
             for name, block in merged["units"].items()
         }
+    lent_to_crews: Mapping[str, Any] = (crew or {}).get("crew") or {}
+    if lent_to_crews:
+        declared_units = merged.get("units")
+        fleet_units = declared_units if isinstance(declared_units, Mapping) else {}
+        for name in lent_to_crews:
+            if name in fleet_units:
+                raise ConfigSchemaError(
+                    f"crew.{name}: {name!r} is a unit of the fleet too. A name "
+                    f"is one machine, and a sync names a crew unit after its "
+                    f"model: rename the fleet unit."
+                )
+        merged["units"] = {**fleet_units, **lent_to_crews}
     retired = RETIRED_USE_CASES.get(str(merged.get("use_case")))
     if retired is not None:
         raise ConfigSchemaError(f"use_case: {retired}")
@@ -2259,6 +2360,8 @@ def _build(
             launcher=block.get("launcher") or LAUNCHER_DOCKER,
             launch=block["launch"],
             rider_slots=(data["rider_slots"] or {}).get(name, 0),
+            scope=block["scope"],
+            crew=name in lent_to_crews,
         )
         for name, block in data["units"].items()
     }
@@ -2279,9 +2382,16 @@ def _build(
                 (answer["status"], answer["code"]) for answer in block["busy_answers"]
             )
             or None,
+            scope=block["scope"],
         )
         for name, block in data["relief"].items()
     }
+    data = _use_case_defaults(data)
+    # A relief rung a ladder step or a role names is a unit of the dispatch,
+    # and one the ladder names is a step, no longer ridden as relief.
+    bound = {*data["ladder"], *(data[role].get("unit") for role in _ROLE_BLOCKS)}
+    units |= {name: unit for name, unit in lent.items() if name in bound}
+    ridden = {name: unit for name, unit in lent.items() if name not in data["ladder"]}
     ladder = Ladder(names=tuple(data["ladder"]), fanout=data["fanout"])
     return Config(
         path=path,
@@ -2289,18 +2399,38 @@ def _build(
         units=units,
         ladder=ladder,
         declared=declared,
-        relief=lent,
+        relief=ridden,
+        crew={name: units[name] for name in lent_to_crews},
     )
+
+
+def _use_case_defaults(data: dict[str, Any]) -> dict[str, Any]:
+    """`data` with an unset `fanout` and `triage` decided by the use case.
+
+    Under `mcgyvr-code` fan-out is `idle` and triage is `jev` while a Jev unit
+    is bound and on; under a raw use case both are `none`. A stated value is
+    kept, and `declared` never holds a value decided here.
+    """
+    gated = (data.get("use_case") or MCGYVR_CODE) == MCGYVR_CODE
+    jev = data.get("jev") or {}
+    jev_on = bool(jev.get("unit")) and jev.get("enabled") is not False
+    if data.get("fanout") is None:
+        data = {**data, "fanout": "idle" if gated else "none"}
+    if data.get("triage") is None:
+        data = {**data, "triage": "jev" if gated and jev_on else "none"}
+    return data
 
 
 def _cross_validate_fleet(data: Mapping[str, Any]) -> None:
     """Check the declared units, ladder and routing maps against each other.
 
-    Every ladder step, `attempts` and `draws` entry must name a declared
-    unit, no name may be used twice, no unit address may carry credentials,
-    the draws a unit would use must be able to differ, and every role must
-    bind a unit that exists. What each check refuses is a setup that could
-    not dispatch, or would dispatch somewhere the file does not say.
+    Every ladder step must name a declared unit or a relief rung, every
+    `attempts` and `draws` entry a declared unit, no name may be used twice,
+    no unit address may carry credentials, the draws a unit would use must be
+    able to differ, every role must bind a unit or relief rung that exists,
+    and each unit a step or a role binds must be served from a pool that
+    serves the use case. What each check refuses is a setup that could not
+    dispatch, or would dispatch somewhere the file does not say.
     """
     units: Mapping[str, Any] = data["units"]
     if not units:
@@ -2324,10 +2454,10 @@ def _cross_validate_fleet(data: Mapping[str, Any]) -> None:
                 f"one step of the ladder."
             )
         seen.add(name)
-        if name not in units:
+        if name not in units and name not in data["relief"]:
             raise ConfigSchemaError(
-                f"ladder.{index}: {name!r} is not a declared unit. "
-                f"Declared: {', '.join(sorted(units))}"
+                f"ladder.{index}: {name!r} is not a declared unit or a relief "
+                f"rung. {_bindable(data)}"
             )
 
     attempts = data.get("attempts") or {}
@@ -2382,13 +2512,57 @@ def _cross_validate_fleet(data: Mapping[str, Any]) -> None:
     _cross_validate_relief(data, units)
     _cross_validate_shares(data, units)
 
-    for role in ("orchestrator", "verifier", "jev"):
+    for role in _ROLE_BLOCKS:
         bound = data[role].get("unit")
-        if bound is not None and bound not in units:
+        if bound is not None and bound not in units and bound not in data["relief"]:
             raise ConfigSchemaError(
-                f"{role}.unit: {bound!r} is not a declared unit. "
-                f"Declared: {', '.join(sorted(units))}"
+                f"{role}.unit: {bound!r} is not a declared unit or a relief "
+                f"rung. {_bindable(data)}"
             )
+
+    _cross_validate_pools(data)
+
+
+#: The roles a unit is bound to by name, each a block with a `unit` key.
+_ROLE_BLOCKS = ("orchestrator", "verifier", "jev")
+
+
+def _bindable(data: Mapping[str, Any]) -> str:
+    """The sentence naming what a step or a role may bind."""
+    said = f"Declared: {', '.join(sorted(data['units']))}"
+    if data["relief"]:
+        said += f"; relief rungs: {', '.join(sorted(data['relief']))}"
+    return said
+
+
+def _cross_validate_pools(data: Mapping[str, Any]) -> None:
+    """Check that each unit a ladder step or a role binds is served from a pool
+    that serves the use case.
+
+    The pool is the wire's (`hubwire.serving_pool`, from the unit's scope and
+    model) and so is what it serves (`hubwire.pool_serves`). A role switched
+    off (`enabled: false`) is not asked, so it is not held to it.
+    """
+    use_case = data["use_case"]
+    bound = [(f"ladder.{index}", name) for index, name in enumerate(data["ladder"])]
+    for role in _ROLE_BLOCKS:
+        block = data[role]
+        if block.get("unit") is not None and block.get("enabled") is not False:
+            bound.append((f"{role}.unit", block["unit"]))
+    for where, name in bound:
+        unit = data["units"].get(name) or data["relief"][name]
+        scope = unit["scope"]
+        pool = serving_pool(scope, unit["model"])
+        if pool_serves(pool, use_case):
+            continue
+        serving = [s for s in SCOPE_VALUES if pool_serves(SCOPE_POOLS[s], use_case)]
+        raise ConfigSchemaError(
+            f"{where}: unit {name!r} is asked under scope {scope!r}, which a hub "
+            f"serves from the {pool} pool, and that pool does not serve use case "
+            f"{use_case!r}. Set the unit's `scope` to one whose pool does "
+            f"({', '.join(serving)}), bind another unit, or switch the use case "
+            f"with `mcgyvr use`."
+        )
 
 
 def _cross_validate_shares(data: Mapping[str, Any], units: Mapping[str, Any]) -> None:
@@ -2467,8 +2641,8 @@ def load(path: Path | None = None) -> Config:
     """Load the setup at `path`, or at `config_path()` when none is given.
 
     A path that names a file is read as one setup document; a directory is
-    read as its fleet.yaml, with policy.yaml and relief.yaml read when they
-    are there. Every read error and every schema error carries the path it
+    read as its fleet.yaml, with policy.yaml, relief.yaml and crew.yaml read
+    when they are there. Every read error and every schema error carries the path it
     came from.
     """
     chosen = path
@@ -2517,7 +2691,20 @@ def load(path: Path | None = None) -> Config:
         relief_text = ""
     except (OSError, UnicodeDecodeError) as exc:
         raise ConfigFileError(f"cannot read {relief_path}: {exc}") from exc
+    crew_path = where / CREW_FILENAME
     try:
-        return parse(fleet_text, policy_text, path=where, relief_text=relief_text)
+        crew_text = crew_path.read_text(encoding="utf-8")
+    except FileNotFoundError:
+        crew_text = ""
+    except (OSError, UnicodeDecodeError) as exc:
+        raise ConfigFileError(f"cannot read {crew_path}: {exc}") from exc
+    try:
+        return parse(
+            fleet_text,
+            policy_text,
+            path=where,
+            relief_text=relief_text,
+            crew_text=crew_text,
+        )
     except ConfigError as exc:
         raise ConfigSchemaError(f"{where}: {exc}") from exc
