@@ -147,6 +147,7 @@ BELOW_THE_SEAM: tuple[str, ...] = (
     "mcgyvr.rig.agent",
     "mcgyvr.rig.commands",
     "mcgyvr.rig.credentials",
+    "mcgyvr.rig.crew",
     "mcgyvr.rig.hardware",
     "mcgyvr.rig.hitchhike",
     "mcgyvr.rig.inventory",

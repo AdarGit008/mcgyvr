@@ -22,6 +22,7 @@ from pathlib import Path
 from mcgyvr import atomic
 from mcgyvr.cli.common import add_config
 from mcgyvr.config import (
+    CREW_FILENAME,
     FLEET_FILENAME,
     MCGYVR_CODE,
     POLICY_FILENAME,
@@ -156,11 +157,13 @@ def _switched(setup: Path, target: Path, rewritten: str) -> Config:
     if setup.is_file():
         return parse(rewritten, path=setup.resolve().parent)
     relief = setup / RELIEF_FILENAME
+    crew = setup / CREW_FILENAME
     return parse(
         (setup / FLEET_FILENAME).read_text(encoding="utf-8"),
         rewritten,
         path=setup,
         relief_text=relief.read_text(encoding="utf-8") if relief.exists() else "",
+        crew_text=crew.read_text(encoding="utf-8") if crew.exists() else "",
     )
 
 

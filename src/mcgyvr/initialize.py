@@ -583,8 +583,9 @@ def build(
     `width: 1` — plus the served window and the `vllm` engine where the backend
     gave them. Then one unit per `--api` spec, whose key is named by variable.
     The ladder is the rung names in proposal order followed by the hosted units;
-    `fanout` is `none`, review keeps the schema's `enabled`, the orchestrator,
-    verifier and Jev blocks stay unbound, and the sandbox mode follows whether a
+    `fanout` and `triage` are left unset for the use case to decide, review
+    keeps the schema's `enabled`, the orchestrator, verifier and Jev blocks
+    stay unbound, and the sandbox mode follows whether a
     Docker daemon answered. `deployment` falls back to `_deployment_default`."""
     backends = {backend.name: backend for backend in detection.backends}
     units: dict[str, Any] = {}
@@ -636,7 +637,10 @@ def build(
         # climb in is set in policy.yaml.
         "ladder": [rung.name for rung in proposal.rungs]
         + [api.name for api in ordered_api_units],
-        "fanout": "none",
+        # Fan-out and triage are left to the use case (`mcgyvr-code`: `idle`, and
+        # `jev` while a Jev unit is on), written unset so the file shows them.
+        "fanout": None,
+        "triage": None,
         # The switches of the stages a batch is ordered by keep the schema's
         # defaults, written out so the one file shows every switch.
         **_defaults(SCHEMA, "infer_dependencies", "same_file"),

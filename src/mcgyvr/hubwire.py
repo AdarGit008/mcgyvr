@@ -22,7 +22,10 @@ from these names rather than writing them again:
 * the chat request fields the hub forwards to a unit
   (:data:`FORWARDED_FIELDS`, :data:`CHAT_TEMPLATE_KEYS`);
 * the header naming who may serve a request (:data:`SCOPE_HEADER`,
-  :data:`SCOPE_VALUES`);
+  :data:`SCOPE_VALUES`), and the pool each scope is served from
+  (:data:`SCOPE_POOLS`, :func:`serving_pool`);
+* where the hub lists the models a scope may use (:data:`MODELS_PATH` under
+  :data:`API_ROOT`), each with its units' slots (:data:`MODEL_SLOTS`);
 * the use cases (:data:`USE_CASES`) with the model category each is
   recommended (:data:`USE_CASE_CATEGORY`), the header a request names its own in
   (:data:`USE_CASE_HEADER`), and which use cases each pool serves
@@ -174,6 +177,9 @@ def api_error(code: str) -> tuple[int, str]:
 MODEL_UNPLACED = api_error("model_unplaced")
 #: The address does not know the asked model.
 MODEL_NOT_FOUND = api_error("model_not_found")
+#: The pool the request is served from has no slot for it now: a full pool,
+#: not a broken unit.
+POOL_BUSY = api_error("pool_busy")
 #: The answers that say a relief rung cannot take a request now, sorted: the
 #: hub names no host running the model (404 ``model_not_found``), the host's
 #: machine is away (503 ``hitchhike_host_away``), the hub has not yet matched
@@ -235,7 +241,20 @@ CHAT_TEMPLATE_KEYS: frozenset[str] = frozenset({"enable_thinking"})
 SCOPE_HEADER = "x-mcgyvr-scope"
 #: The values :data:`SCOPE_HEADER` takes: the member's own rigs, their crews'
 #: too, or anyone's.
-SCOPE_VALUES: tuple[str, ...] = ("own", "crew", "anyone")
+SCOPE_OWN = "own"
+SCOPE_CREW = "crew"
+SCOPE_ANYONE = "anyone"
+SCOPE_VALUES: tuple[str, ...] = (SCOPE_OWN, SCOPE_CREW, SCOPE_ANYONE)
+
+#: The hub's OpenAI-compatible root on its own address: a unit the hub serves
+#: is asked there.
+API_ROOT = "/v1"
+#: Where the hub lists, under :data:`API_ROOT`, the models the request's scope
+#: (:data:`SCOPE_HEADER`) may use now.
+MODELS_PATH = f"{API_ROOT}/models"
+#: The field of each listed model holding the request slots of every ready
+#: unit of it, one whole number per unit.
+MODEL_SLOTS = "slots"
 
 #: The use cases a setup runs: ``mcgyvr-code`` is the gated coding loop with
 #: its opt-ins; ``code``, ``chat`` and ``agent`` serve a model raw.
@@ -289,6 +308,26 @@ def pool_serves(pool: str, use_case: str) -> bool:
     Raises KeyError for a pool that is not one of them.
     """
     return use_case in POOL_USE_CASES[pool]
+
+
+#: The pool a request under each scope is served from when its model names no
+#: ride: a member's own rigs are the solo pool, their crews' the crew pool, and
+#: anyone's the general pool.
+SCOPE_POOLS: Mapping[str, str] = MappingProxyType(
+    {SCOPE_OWN: POOL_SOLO, SCOPE_CREW: POOL_CREW, SCOPE_ANYONE: POOL_GENERAL}
+)
+
+
+def serving_pool(scope: str, model: str) -> str:
+    """The pool a request for ``model`` under ``scope`` is served from.
+
+    A relief rung's model (:data:`RUNG_PREFIX` and an offer) is a ride, served
+    from :data:`POOL_HITCHHIKE` whatever the scope; any other model is served
+    from the scope's pool (:data:`SCOPE_POOLS`). Raises KeyError for a scope
+    that is not one of :data:`SCOPE_VALUES`.
+    """
+    pool = SCOPE_POOLS[scope]
+    return POOL_HITCHHIKE if rung_offer(model) is not None else pool
 
 
 #: The agent channel's schema: every frame between the hub and a rig's agent.

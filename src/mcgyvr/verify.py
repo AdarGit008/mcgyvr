@@ -52,7 +52,8 @@ if TYPE_CHECKING:  # pragma: no cover - typing only
 #: binds the role gets one model behind all three.
 VERIFIER_ROLE = "verifier"
 
-#: The family name of rungs served on the operator's own machine. It is read in
+#: The family name of rungs served on the operator's own machines, or lent free
+#: by their crews. It is read in
 #: the two places that decide who may review: only a local rung is picked
 #: unprompted by `reviewer_rung`, and a stand-in is taken from anywhere in this
 #: family but from a hosted family only below a hosted `verifier.unit`.
