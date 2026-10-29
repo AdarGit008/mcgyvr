@@ -127,6 +127,7 @@ def make_native_pool(
     backend: str = "cuda",
     system: str = "windows",
     config: dict[str, Any] | None = None,
+    with_host: bool = True,
     **sharing_changes: Any,
 ) -> NativePool:
     """A session table whose sessions run natively through the fake helper:
@@ -185,7 +186,7 @@ def make_native_pool(
         machine=machine,
         send=box.put,
         timing=fakes.quick_timing(),
-        native=host,
+        native=host if with_host else None,
     )
     dispatcher = commands.Dispatcher()
     rs.register(dispatcher, sessions)

@@ -68,6 +68,7 @@ from mcgyvr.serving.shardlaunch import (
     LaunchError,
     rpc_endpoints,
     rpc_workers,
+    worker_may_listen,
 )
 
 # The shell command that starts each engine's own server; `_command`
@@ -122,10 +123,8 @@ FIT_DEFAULT = "off"
 LOOPBACK = "127.0.0.1"
 #: The flag and the variable llama-server reads its listening address from.
 HOST_FLAG = "--host"
-#: rpc-server's short flag for the address it binds, and the addresses no
-#: native rpc worker may bind.
+#: rpc-server's short flag for the address it binds.
 RPC_HOST_FLAG = "-H"
-WILDCARDS = ("0.0.0.0", "::", "[::]")
 HOST_ENV = "LLAMA_ARG_HOST"
 
 #: Heads every compose document rendered with sleep mode on: the routes
@@ -594,8 +593,10 @@ def native_block(
     (`LOCAL_RIGS`): another engine or rig is refused. A server listens on
     `LOOPBACK` alone: its `--host` must name it, or it is given it, and a
     `LLAMA_ARG_HOST` or another `--host` is refused. An rpc worker (`rpc`)
-    binds the address its head reaches it on — a pooled worker its tunnel
-    address — which its `-H`/`--host` must state, and never a wildcard.
+    binds the address its head reaches it on, which its `-H`/`--host` must
+    state as an IPv4 literal that a worker may listen on
+    (:func:`mcgyvr.serving.shardlaunch.worker_may_listen`: not every
+    interface, not loopback, not a global address).
     """
     if (engine or "llama.cpp") != "llama.cpp":
         raise EmitError(
@@ -616,11 +617,11 @@ def native_block(
     ]
     hosts = [h.removeprefix(f"{HOST_FLAG}=") for h in hosts]
     if rpc:
-        if not hosts or any(h in WILDCARDS for h in hosts):
+        if not hosts or not all(_worker_bind_ok(h) for h in hosts):
             raise EmitError(
-                f"{slug}: a native rpc worker binds the address its head reaches "
-                f"it on (a pooled worker its tunnel address), never a wildcard; "
-                f"state it with {RPC_HOST_FLAG}"
+                f"{slug}: a native rpc worker binds the one IPv4 address its head "
+                f"reaches it on, never every interface, loopback or a global "
+                f"address; state it with {RPC_HOST_FLAG}"
             )
     elif HOST_ENV in env or any(h != LOOPBACK for h in hosts):
         raise EmitError(
@@ -640,6 +641,16 @@ def native_block(
     if env:
         service["environment"] = dict(env)
     return service
+
+
+def _worker_bind_ok(host: str) -> bool:
+    """Whether an rpc worker may bind `host`: a dotted IPv4 literal (rpc-server
+    reads `0`, `0x0` or `0.0` as every interface, so nothing else is taken)
+    that :func:`worker_may_listen` allows."""
+    try:
+        return worker_may_listen(ipaddress.IPv4Address(host))
+    except ValueError:
+        return False
 
 
 def _rpc_service(unit: Unit) -> dict[str, object]:

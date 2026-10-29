@@ -249,10 +249,24 @@ def test_a_locked_native_rpc_worker_renders_the_rpc_server_on_its_tunnel_address
     assert head["command"][head["command"].index("--host") + 1] == "127.0.0.1"
 
 
-@pytest.mark.parametrize("bind", [[], ["-H", "0.0.0.0"], ["--host", "::"]])
-def test_a_locked_native_rpc_worker_binding_no_address_or_a_wildcard_is_refused(
+@pytest.mark.parametrize(
+    "bind",
+    [
+        [],
+        ["-H", "0.0.0.0"],
+        ["-H", "0"],
+        ["-H", "0x0"],
+        ["-H", "0.0"],
+        ["-H", "00"],
+        ["--host", "::"],
+        ["-H", "127.0.0.1"],
+        ["-H", "8.8.8.8"],
+        ["-H", "198.51.100.2", "--host", "0"],
+    ],
+)
+def test_a_locked_native_rpc_worker_binding_wide_or_nowhere_is_refused(
     bind: list[str],
 ) -> None:
     worker = _locked(role="rpc", launch={"argv": [*bind, "-p", "50052"], "env": {}})
-    with pytest.raises(emit.EmitError, match="never a wildcard"):
+    with pytest.raises(emit.EmitError, match="never every interface"):
         emit._locked_service("m", worker, (1,))

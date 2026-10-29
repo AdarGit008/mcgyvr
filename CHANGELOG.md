@@ -83,7 +83,7 @@ archived outside this repository, under the same paths.
 - **A rig names the llama.cpp RPC protocol it speaks.** A rig running the
   pinned build, natively or as the pinned image, sends
   `capabilities.rpc_proto` (`hubwire.RPC_PROTO_FIELD`; b11960 speaks 8.0) in
-  its hello, so the hub can pair a head only with workers
+  its hello, so that once the hub reads it, it pairs a head only with workers
   `hubwire.rpc_compatible` allows; a rig on another image sends none.
 - **A unit runs natively, with no container: `launcher: native` (#818).** The
   llama.cpp build mcgyvr pins (b11960, `mcgyvr.serving.llamacpp`; the Linux

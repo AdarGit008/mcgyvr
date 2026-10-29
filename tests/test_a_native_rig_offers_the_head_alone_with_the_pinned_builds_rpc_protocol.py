@@ -131,3 +131,17 @@ def test_the_agent_has_a_native_host_on_a_mac_or_windows_alone(
     as_native_system(monkeypatch, system)
     found = verbs.native_host(4242)
     assert isinstance(found, userwg.NativeHost) is native_host
+
+
+@pytest.mark.parametrize("system", ["darwin", "windows"])
+def test_the_shipped_pin_table_offers_no_native_session_yet(
+    system: str, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """Only the system's name is faked: the helper table is the shipped one,
+    which pins no archive yet. The release that adds rows changes this test."""
+    from mcgyvr import hostos
+
+    monkeypatch.setattr(hostos, "os_name", lambda: system)
+    share = fakes.sharing(tmp_path, launcher="native", image=None)
+    assert share.native_here()
+    assert share.offered_roles() == ()

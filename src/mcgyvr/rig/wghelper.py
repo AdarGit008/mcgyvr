@@ -8,10 +8,11 @@ detached (:func:`mcgyvr.hostos.popen_detached_kwargs`) and, on Windows, put in
 a Job Object that ends it with the agent (:func:`mcgyvr.hostos.kill_on_close_job`);
 it ends itself, and its children, when its stdin closes or its lease lapses.
 
-The grammar is the helper spec's (proto :data:`mcgyvr.rig.wgpin.PROTO`): one
-JSON object a line each way. The helper first writes a banner naming itself,
-its version and its proto, which must be the pinned ones. Each request names
-its ``id`` and ``verb`` and exactly the verb's fields; each reply carries the
+The grammar is ``HELPER-SPEC.md`` beside this module (proto
+:data:`mcgyvr.rig.wgpin.PROTO`): one JSON object a line each way. The helper
+first writes a banner naming itself, its version and its proto, which must
+be the pinned ones. Each request names its ``id`` and ``verb`` and exactly the
+verb's fields; each reply carries the
 same ``id`` and either ``"ok": true`` with exactly the verb's result fields, or
 ``"ok": false`` with an ``error`` from :data:`ERRORS` and a short ``why``. A
 reply that is anything else — another id, a key too many or too few, a value

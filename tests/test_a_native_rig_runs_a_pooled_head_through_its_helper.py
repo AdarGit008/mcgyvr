@@ -348,3 +348,35 @@ def test_the_requests_the_agent_sends_are_the_helpers_grammar(rig: NativePool) -
     assert [r for r in rig.requests() if r.get("event") == "refusal"] == []
     ids = [r["id"] for r in rig.requests() if "verb" in r]
     assert ids == list(range(1, len(ids) + 1))
+
+
+def test_a_native_rig_with_no_helper_pinned_for_it_refuses_a_head_unstarted(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    from mcgyvr.rig import wgpin
+
+    rig = make_native_pool(tmp_path, monkeypatch)
+    monkeypatch.setattr(wgpin, "pinned_here", lambda: False)
+    try:
+        refused = _prepare(rig, "head")
+        assert refused is not None and refused["body"]["code"] == "not_capable"
+        assert rig.requests() == []
+        assert rig.pool.docker.calls == []
+    finally:
+        rig.pool.sessions.close()
+        rig.echo.close()
+
+
+def test_an_agent_with_no_native_host_refuses_a_native_rigs_head_unstarted(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    rig = make_native_pool(tmp_path, monkeypatch, with_host=False)
+    try:
+        refused = _prepare(rig, "head")
+        assert refused is not None and refused["body"]["code"] == "not_capable"
+        assert "no native sessions" in refused["body"]["message"]
+        assert rig.requests() == []
+        assert rig.pool.docker.calls == []
+    finally:
+        rig.pool.sessions.close()
+        rig.echo.close()

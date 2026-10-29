@@ -290,6 +290,8 @@ class NativeHost:
     def _end_recorded(self, name: str) -> None:
         """End the process recorded under ``name`` while its pid still has the
         recorded start time, its group with it, then forget the record."""
+        if Path(name).name != name or not name:
+            return  # a part's name is one file name, never a path
         path = self._record_path(name)
         try:
             body = json.loads(path.read_text(encoding="utf-8"))
