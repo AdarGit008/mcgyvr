@@ -288,6 +288,45 @@ def job(wants: Iterable[Want], hub: str, token_env: str, token: str | None) -> s
     )
 
 
+@dataclass(frozen=True)
+class Shipment:
+    """How the fetcher reaches a rig: the command, its stdin, and whether the
+    door's ssh keeps its keepalive on for this unbounded call."""
+
+    command: str
+    stdin: str
+    keepalive: bool
+
+
+def shipment(
+    system: str, wants: Iterable[Want], hub: str, token_env: str, token: str | None
+) -> Shipment:
+    """The fetch for a rig of `system` (``windows`` only for a rig over ssh).
+
+    Linux: `REMOTE_COMMAND` with the payload on stdin, and ssh called as it
+    always was. macOS: the same, isolated (`REMOTE_COMMAND_ISOLATED`). Windows:
+    the fetcher through PowerShell (`gatelib.ship`) with the job, which holds
+    the token, on its own stdin, never on disk. Both keep ssh's keepalive on.
+    """
+    from mcgyvr.serving import gatelib, shipped
+
+    wants = tuple(wants)
+    if system == gatelib.WINDOWS:
+        sent = gatelib.ship(
+            gatelib.WINDOWS,
+            shipped.packed(shipped.fetcher(None)),
+            ("mcgyvr-fetch",),
+            feed=job(wants, hub, token_env, token).encode("utf-8"),
+        )
+        return Shipment(sent.command, sent.stdin or "", keepalive=True)
+    darwin = system == gatelib.DARWIN
+    return Shipment(
+        REMOTE_COMMAND_ISOLATED if darwin else REMOTE_COMMAND,
+        payload(wants, hub, token_env, token),
+        keepalive=darwin,
+    )
+
+
 def payload(wants: Iterable[Want], hub: str, token_env: str, token: str | None) -> str:
     """The program text to pipe into `python3 -` on a POSIX host.
 

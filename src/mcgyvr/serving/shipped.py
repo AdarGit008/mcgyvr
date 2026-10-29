@@ -175,12 +175,18 @@ def constants(name: str, wanted: Iterable[str]) -> str:
 #: Imports in a shipped module of something the program does not carry, each
 #: inside a function no verb a rig is asked runs: the door's own use of that
 #: module. Any other is refused when the program is built (:func:`imports`).
+#: Each is (importing module, what it imports by its full name: a package
+#: outside mcgyvr, or ``mcgyvr.module.NAME``), so one more import of the same
+#: module elsewhere in the file is checked again.
 DOOR_ONLY = frozenset(
     {
-        # The compose file is read on the door; a rig is sent the units.
+        # `native.parse` reads the compose file on the door; a rig is sent units.
         ("mcgyvr.serving.native", "yaml"),
-        ("mcgyvr.serving.native", "mcgyvr.config"),
-        ("mcgyvr.serving.native", "mcgyvr.serving"),
+        ("mcgyvr.serving.native", "mcgyvr.config.LAUNCHER_NATIVE"),
+        ("mcgyvr.serving.native", "mcgyvr.serving.CARDS_KEY"),
+        ("mcgyvr.serving.native", "mcgyvr.serving.LAUNCHER_KEY"),
+        ("mcgyvr.serving.native", "mcgyvr.serving.PROGRAM_KEY"),
+        ("mcgyvr.serving.native", "mcgyvr.serving.SLEEPER_PROFILE"),
     }
 )
 
@@ -230,9 +236,9 @@ def imports(main: str, modules: Sequence[str]) -> dict[str, list[str]]:
                 ):
                     wanted.setdefault(target, []).append(name)
                     continue
-                if (module, target) in DOOR_ONLY:
-                    continue
                 shown = f"{target}.{name}" if name else target
+                if (module, shown) in DOOR_ONLY:
+                    continue
                 raise ShipError(f"{module} imports {shown}, which is not shipped")
     return wanted
 

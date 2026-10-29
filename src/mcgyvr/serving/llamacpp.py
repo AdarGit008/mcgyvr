@@ -42,6 +42,7 @@ Sources (read 2026-10-29):
 
 from __future__ import annotations
 
+import ipaddress
 from dataclasses import dataclass
 
 from mcgyvr.serving.release import Asset, Release
@@ -349,13 +350,14 @@ def build_for(
     return max(rows, key=lambda b: cuda_major(b) or 0)
 
 
-#: Where a native llama.cpp server listens (K13): the loopback alone, so no
-#: firewall asks and only its own machine reaches it. The hub never reaches a
-#: unit directly (the rig agent relays its requests to the unit's local
-#: address over the websocket), and pooled rpc workers bind the tunnel
-#: address only; a unit stating another `--host` (or `LLAMA_ARG_HOST`) is
-#: refused, where it is written (emit) and where it is started (the native
-#: launcher, on this machine or on a rig the door ships it to).
+#: Where a native llama.cpp unit listens (K13), checked where it is written
+#: (emit) and where it is started (the native launcher, on this machine or on
+#: a rig the door ships it to): a server on the loopback alone, so no firewall
+#: asks and only its own machine reaches it (the hub never reaches a unit
+#: directly: the rig agent relays its requests to the unit's local address),
+#: and a server stating another `--host` or `LLAMA_ARG_HOST` is refused; a
+#: pooled rpc worker on the address the head reaches it at, its tunnel
+#: address, stated with `-H` and nothing wider (:func:`worker_may_listen`).
 LOOPBACK = "127.0.0.1"
 #: The flag and the variable llama-server reads its listening address from.
 HOST_FLAG = "--host"
@@ -380,12 +382,39 @@ def stated_hosts(argv: list[str] | tuple[str, ...], *, rpc: bool = False) -> lis
     return hosts
 
 
+def worker_may_listen(address: ipaddress.IPv4Address) -> bool:
+    """Whether a worker on another machine may bind this address.
+
+    rpc-server has no authentication, so the address must be one the head
+    reaches that worker at and nothing wider: not every interface, not
+    loopback, and not an address the internet can reach.
+    """
+    return not (address.is_unspecified or address.is_loopback or address.is_global)
+
+
+def _worker_address(host: str) -> bool:
+    try:
+        return worker_may_listen(ipaddress.IPv4Address(host))
+    except ValueError:
+        return False  # rpc-server binds an IPv4 literal alone
+
+
 def beyond_loopback(
     argv: list[str] | tuple[str, ...], env: dict[str, str], *, rpc: bool = False
 ) -> str | None:
-    """Why a native server's (or, `rpc`, worker's) `argv` and `env` would
-    listen beyond the loopback, or None when they keep it there."""
+    """Why a native unit's `argv` and `env` would listen where K13 does not let
+    it, or None when they keep to it: a server on the loopback alone; with
+    `rpc`, a worker on the tunnel address it states, each `-H`/`--host` an
+    IPv4 literal :func:`worker_may_listen` allows."""
     stated = stated_hosts(argv, rpc=rpc)
+    if rpc:
+        if stated and all(_worker_address(h) for h in stated):
+            return None
+        return (
+            "a native rpc worker listens on the address the head reaches it at "
+            f"and nothing wider: state it with {RPC_HOST_FLAG}, an IPv4 address "
+            "that is not every interface, not loopback and not global"
+        )
     # Windows reads a variable's name without case: `llama_arg_host` is it too.
     named = any(key.upper() == HOST_ENV for key in env)
     if named or any(h != LOOPBACK for h in stated):

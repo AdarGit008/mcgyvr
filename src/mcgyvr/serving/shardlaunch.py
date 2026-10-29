@@ -18,6 +18,7 @@ from dataclasses import dataclass, replace
 from pathlib import Path
 
 from mcgyvr.serving import ROLE_HEADLESS, ROLE_RPC, ROLE_SERVE
+from mcgyvr.serving.llamacpp import worker_may_listen as worker_may_listen
 from mcgyvr.serving.sharding import (
     LLAMACPP_ENGINE,
     VLLM_ENGINE,
@@ -129,16 +130,6 @@ def _same(host_a: str, host_b: str) -> bool:
 
 def _pinned() -> dict[str, str]:
     return {DEVICE_ORDER_ENV: DEVICE_ORDER_BUS}
-
-
-def worker_may_listen(address: ipaddress.IPv4Address) -> bool:
-    """Whether a worker on another machine may bind this address.
-
-    rpc-server has no authentication, so the address must be one the head
-    reaches that worker at and nothing wider: not every interface, not
-    loopback, and not an address the internet can reach.
-    """
-    return not (address.is_unspecified or address.is_loopback or address.is_global)
 
 
 def _bind(target: Target, *, model: str) -> str:

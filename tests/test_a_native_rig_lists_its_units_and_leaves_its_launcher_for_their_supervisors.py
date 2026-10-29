@@ -156,6 +156,12 @@ def test_units_sent_to_a_rig_are_refused_unless_each_names_a_file_and_a_program(
         ("llama-server", ("--port", "8080", "--host=192.0.2.7"), {}),
         ("llama-server", ("--port", "8080"), {"LLAMA_ARG_HOST": "0.0.0.0"}),
         ("ggml-rpc-server", ("-p", "50052", "-H", "0.0.0.0"), {}),
+        ("ggml-rpc-server", ("-p", "50052", "-H", "127.0.0.1"), {}),
+        ("ggml-rpc-server", ("-p", "50052", "-H", "0"), {}),
+        ("ggml-rpc-server", ("-p", "50052", "-H", "0x0"), {}),
+        ("ggml-rpc-server", ("-p", "50052", "--host", "1.1.1.1"), {}),
+        ("ggml-rpc-server", ("-p", "50052", "-H", "8.8.8.8"), {}),
+        ("ggml-rpc-server", ("-p", "50052"), {}),
     ],
 )
 def test_a_unit_that_would_listen_beyond_the_loopback_is_refused_where_it_starts(
@@ -172,9 +178,30 @@ def test_a_unit_that_would_listen_beyond_the_loopback_is_refused_where_it_starts
         depends_on=(),
         asleep=False,
     )
-    with pytest.raises(native.NativeError, match=r"127\.0\.0\.1 alone"):
+    with pytest.raises(native.NativeError, match=r"127\.0\.0\.1 alone|nothing wider"):
         native.units_from_text(native.units_text([unit]))
     assert native.main(["up", native.units_text([unit])]) == 1
+
+
+@pytest.mark.parametrize("bind", ["100.64.0.7", "10.13.0.2", "192.168.7.4"])
+def test_a_pooled_rpc_worker_on_its_tunnel_address_is_started(bind: str) -> None:
+    from mcgyvr.serving import llamacpp, shardlaunch
+
+    unit = native.NativeUnit(
+        name="w",
+        container="mcgyvr-box1-w-50052",
+        program="ggml-rpc-server",
+        argv=("-p", "50052", "-H", bind),
+        env={},
+        port=50052,
+        cards=(0,),
+        depends_on=(),
+        asleep=False,
+    )
+    assert native.units_from_text(native.units_text([unit])) == (unit,)
+    assert llamacpp.beyond_loopback(unit.argv, {}, rpc=True) is None
+    # One rule: the pooled launch's own check is this one.
+    assert shardlaunch.worker_may_listen is llamacpp.worker_may_listen
 
 
 def test_a_listening_address_named_in_any_case_is_refused_and_dropped() -> None:

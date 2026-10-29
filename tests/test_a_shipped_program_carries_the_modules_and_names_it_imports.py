@@ -94,3 +94,35 @@ def test_an_argument_holding_a_nul_or_a_quote_is_refused_not_shipped() -> None:
         gatelib.ship(gatelib.LINUX, b"", ("a\0b",))
     with pytest.raises(ValueError, match="single quote"):
         gatelib.ship(gatelib.DARWIN, b"", ("it's",))
+
+
+def test_a_door_only_import_is_allowed_by_its_full_name_alone(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    entry = ("mcgyvr.serving.native", "mcgyvr.config.LAUNCHER_NATIVE")
+    assert entry in shipped.DOOR_ONLY
+    monkeypatch.setattr(shipped, "DOOR_ONLY", shipped.DOOR_ONLY - {entry})
+    with pytest.raises(shipped.ShipError, match=r"mcgyvr\.config\.LAUNCHER_NATIVE"):
+        shipped.native()
+
+
+@pytest.mark.parametrize(
+    ("system", "command", "keepalive"),
+    [
+        ("linux", "python3 - mcgyvr-fetch", False),
+        ("darwin", "python3 -I -B - mcgyvr-fetch", True),
+        ("windows", gatelib.WINDOWS_SHIP, True),
+    ],
+)
+def test_a_fetch_keeps_ssh_alive_on_a_mac_or_windows_rig_and_linux_as_it_was(
+    system: str, command: str, keepalive: bool
+) -> None:
+    from mcgyvr.serving import fetchlist
+
+    sent = fetchlist.shipment(system, (), "https://hub.example", "HF_TOKEN", "s3cret")
+    assert (sent.command, sent.keepalive) == (command, keepalive)
+    assert "s3cret" not in sent.command
+    if system == "linux":
+        assert sent.stdin == fetchlist.payload(
+            (), "https://hub.example", "HF_TOKEN", "s3cret"
+        )

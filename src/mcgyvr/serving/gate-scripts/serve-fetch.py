@@ -37,7 +37,7 @@ from mcgyvr.serving.gatelib import door_required, need, ssh
 
 def main() -> int:
     door_required("serve-fetch")
-    from mcgyvr.serving import fetcher, fetchlist, gatelib, shipped
+    from mcgyvr.serving import fetcher, fetchlist, gatelib
 
     host = need("RUN_HOST")
     out = Path(need("RUN_OUT_DIR")) / "serve-fetch.json"
@@ -59,35 +59,24 @@ def main() -> int:
             f"serve-fetch:   {want.repo}@{want.revision[:12]} {want.file} "
             f"{want.bytes} bytes"
         )
-    if gatelib.shipping_os(host) == gatelib.WINDOWS:
-        # A Windows rig writes the program to a file and runs it, so the job,
-        # which carries the token, travels apart on the program's stdin.
-        sent = gatelib.ship(
-            gatelib.WINDOWS,
-            shipped.packed(shipped.fetcher(None)),
-            ("mcgyvr-fetch",),
-            feed=fetchlist.job(wants, hub, token_env, token).encode("utf-8"),
-        )
-        command, stdin = sent.command, sent.stdin
-    else:
-        # REMOTE_COMMAND is `python3 -`, so the payload travels on stdin: it
-        # carries the fetcher and the token, which must not be readable in the
-        # host's process list.
-        command = (
-            fetchlist.REMOTE_COMMAND_ISOLATED
-            if gatelib.rig_system(host) == gatelib.DARWIN
-            else fetchlist.REMOTE_COMMAND
-        )
-        stdin = fetchlist.payload(wants, hub, token_env, token)
+    # The payload travels on stdin: it carries the fetcher and the token,
+    # which must not be readable in the host's process list (fetchlist.shipment).
+    system = (
+        gatelib.WINDOWS
+        if gatelib.shipping_os(host) == gatelib.WINDOWS
+        else gatelib.rig_system(host)
+    )
+    sent = fetchlist.shipment(system, wants, hub, token_env, token)
     try:
         # No timeout: the run ends when the files have been transferred,
-        # however long that takes.
-        # A macOS or Windows rig's call keeps ssh's keepalive on; a Linux
-        # rig's ssh is called as it always was.
-        if gatelib.rig_system(host) == gatelib.LINUX:
-            done = ssh(host, command, timeout=None, input=stdin)
+        # however long that takes. A Linux rig's ssh is called as it always
+        # was; a macOS or Windows rig's keeps ssh's keepalive on.
+        if sent.keepalive:
+            done = ssh(
+                host, sent.command, timeout=None, input=sent.stdin, keepalive=True
+            )
         else:
-            done = ssh(host, command, timeout=None, input=stdin, keepalive=True)
+            done = ssh(host, sent.command, timeout=None, input=sent.stdin)
     except subprocess.TimeoutExpired:  # pragma: no cover - no bound is set
         return 1
     if done.stderr:
