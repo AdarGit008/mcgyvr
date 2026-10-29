@@ -23,6 +23,8 @@ from these names rather than writing them again:
 * the header naming who may serve a request (:data:`SCOPE_HEADER`,
   :data:`SCOPE_VALUES`), and the pool each scope is served from
   (:data:`SCOPE_POOLS`, :func:`serving_pool`);
+* where the hub lists the models a scope may use (:data:`MODELS_PATH` under
+  :data:`API_ROOT`), each with its units' slots (:data:`MODEL_SLOTS`);
 * the use cases (:data:`USE_CASES`) with the model category each is
   recommended (:data:`USE_CASE_CATEGORY`), the header a request names its own in
   (:data:`USE_CASE_HEADER`), and which use cases each pool serves
@@ -211,6 +213,16 @@ SCOPE_OWN = "own"
 SCOPE_CREW = "crew"
 SCOPE_ANYONE = "anyone"
 SCOPE_VALUES: tuple[str, ...] = (SCOPE_OWN, SCOPE_CREW, SCOPE_ANYONE)
+
+#: The hub's OpenAI-compatible root on its own address: a unit the hub serves
+#: is asked there.
+API_ROOT = "/v1"
+#: Where the hub lists, under :data:`API_ROOT`, the models the request's scope
+#: (:data:`SCOPE_HEADER`) may use now.
+MODELS_PATH = f"{API_ROOT}/models"
+#: The field of each listed model holding the request slots of every ready
+#: unit of it, one whole number per unit.
+MODEL_SLOTS = "slots"
 
 #: The use cases a setup runs: ``mcgyvr-code`` is the gated coding loop with
 #: its opt-ins; ``code``, ``chat`` and ``agent`` serve a model raw.

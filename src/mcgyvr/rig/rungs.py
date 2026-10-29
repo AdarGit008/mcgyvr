@@ -14,6 +14,9 @@ answers with.
 * :func:`render` turns the answer into the ``relief`` block of the setup's
   ``relief.yaml``, and :func:`sync` writes it, loading the setup with it first
   so an answer the setup would refuse is never written.
+* :func:`ask`, :func:`load_setup` and :func:`keep` are the one fetch and the
+  one writer of every file a sync keeps beside a setup (:data:`KEPT`):
+  ``relief.yaml`` here, ``crew.yaml`` for :mod:`mcgyvr.rig.crew`.
 * :class:`Refresher` re-runs a sync off the rig agent's heartbeat, no more
   often than the hub's ``refresh_s``, and once every ``RETRY_S`` after a
   failure.
@@ -30,7 +33,7 @@ import time
 import urllib.error
 import urllib.parse
 import urllib.request
-from collections.abc import Callable, Mapping
+from collections.abc import Callable, Collection, Mapping
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
@@ -39,6 +42,7 @@ import yaml
 
 from mcgyvr import atomic
 from mcgyvr.config import (
+    CREW_FILENAME,
     FLEET_FILENAME,
     POLICY_FILENAME,
     RELIEF_FILENAME,
@@ -109,6 +113,39 @@ class HubAnswerError(Exception):
 
 
 @dataclass(frozen=True)
+class Kept:
+    """A file a sync writes whole beside a setup.
+
+    ``filename`` is where it is kept, ``argument`` the :func:`mcgyvr.config.parse`
+    argument its text is read as, and ``holds`` what it holds, as a message
+    names it.
+    """
+
+    filename: str
+    argument: str
+    holds: str
+
+
+#: The relief rungs a hub lent you, kept by this module.
+RELIEF = Kept(RELIEF_FILENAME, "relief_text", "relief rungs")
+#: The units your crews lend you, kept by :mod:`mcgyvr.rig.crew`.
+CREW = Kept(CREW_FILENAME, "crew_text", "crew units")
+#: Every file a sync keeps, each read with the setup whichever one is written.
+KEPT: tuple[Kept, ...] = (RELIEF, CREW)
+
+
+@dataclass(frozen=True)
+class Setup:
+    """A setup as a sync reads it: its folder, the text of each of its files
+    by the :func:`mcgyvr.config.parse` argument it is read as, and what that
+    text loads as."""
+
+    folder: Path
+    texts: Mapping[str, str]
+    config: Config
+
+
+@dataclass(frozen=True)
 class Ride:
     """One relief rung as the hub describes it.
 
@@ -158,18 +195,23 @@ def _origin(parts: urllib.parse.SplitResult) -> tuple[str, str, int]:
     return scheme, (parts.hostname or "").lower(), port
 
 
-def rungs_url(hub: str) -> str:
-    """The hub's rider API address, built from the hub's own address.
+def hub_url(hub: str, path: str) -> str:
+    """The address of ``path`` on the hub, built from the hub's own address.
 
-    An ``AGENT_PATH`` suffix is dropped and ``RUNGS_PATH`` put in its place, so
-    the report goes to the host and port the key is meant for and not to a rung.
+    An ``AGENT_PATH`` suffix is dropped and ``path`` put in its place, so a
+    request goes to the host and port the key is meant for and not to a rung.
     """
     parts = hub_address(hub, carrying=CARRYING)
     scheme, _, _ = _origin(parts)
-    path = parts.path.rstrip("/")
-    if path.endswith(AGENT_PATH):
-        path = path[: -len(AGENT_PATH)]
-    return urllib.parse.urlunsplit((scheme, parts.netloc, path + RUNGS_PATH, "", ""))
+    base = parts.path.rstrip("/")
+    if base.endswith(AGENT_PATH):
+        base = base[: -len(AGENT_PATH)]
+    return urllib.parse.urlunsplit((scheme, parts.netloc, base + path, "", ""))
+
+
+def rungs_url(hub: str) -> str:
+    """The hub's rider API address: ``RUNGS_PATH`` on the hub (:func:`hub_url`)."""
+    return hub_url(hub, RUNGS_PATH)
 
 
 class _NoRedirect(urllib.request.HTTPRedirectHandler):
@@ -284,23 +326,35 @@ def fetch(
     *,
     timeout: float = FETCH_TIMEOUT_S,
 ) -> Rides:
-    """POST the report to the hub and read the answer whole.
+    """POST the report to the hub (:func:`ask`) and read the answer whole."""
+    return read(ask(rungs_url(hub), hub, key, body=report, timeout=timeout), hub)
 
-    The key travels in an ``Authorization: Bearer`` header, never in the URL,
-    and a redirect is not followed. :class:`HubAnswerError` covers a refusal
-    status, an answer over ``MAX_ANSWER_BYTES`` and a body that is not JSON;
-    :class:`SyncError` covers a hub that could not be reached at all.
+
+def ask(
+    url: str,
+    hub: str,
+    key: str,
+    *,
+    body: Mapping[str, Any] | None = None,
+    headers: Mapping[str, str] | None = None,
+    timeout: float = FETCH_TIMEOUT_S,
+) -> object:
+    """Ask the hub at ``url`` and return its answer, parsed as JSON.
+
+    ``body`` is POSTed as JSON; with none the request is a GET. ``headers`` go
+    beside the key, which travels in an ``Authorization: Bearer`` header, never
+    in the URL, and a redirect is not followed. :class:`HubAnswerError` covers
+    a refusal status, an answer over ``MAX_ANSWER_BYTES`` and a body that is not
+    JSON; :class:`SyncError` covers a hub that could not be reached at all.
     """
-    url = rungs_url(hub)
+    sent = {"Authorization": f"Bearer {key}", "Accept": "application/json"}
+    if body is not None:
+        sent["Content-Type"] = "application/json"
     request = urllib.request.Request(
         url,
-        data=json.dumps(report).encode("utf-8"),
-        headers={
-            "Authorization": f"Bearer {key}",
-            "Accept": "application/json",
-            "Content-Type": "application/json",
-        },
-        method="POST",
+        data=None if body is None else json.dumps(body).encode("utf-8"),
+        headers={**(headers or {}), **sent},
+        method="GET" if body is None else "POST",
     )
     opener = urllib.request.build_opener(_NoRedirect)
     try:
@@ -317,10 +371,10 @@ def fetch(
             f"the hub's answer is refused: it is over {MAX_ANSWER_BYTES} bytes"
         )
     try:
-        document = json.loads(raw.decode("utf-8"))
+        document: object = json.loads(raw.decode("utf-8"))
     except (UnicodeError, ValueError, RecursionError) as exc:
         raise HubAnswerError("the hub's answer is refused: it is not JSON") from exc
-    return read(document, hub)
+    return document
 
 
 def _refused(where: str, why: str) -> HubAnswerError:
@@ -477,61 +531,104 @@ def _read_text(path: Path) -> str:
         raise SyncError(f"cannot read {path}: {exc}") from exc
 
 
-def sync(folder: Path, hub: str, key: str, key_env: str) -> tuple[Rides, Path]:
-    """Sync once: report the setup's ladder, then write the answer beside it.
+def load_setup(folder: Path, kept: Kept) -> Setup:
+    """Read the setup in ``folder`` for a sync that rewrites ``kept``.
 
-    The folder must hold a ``fleet.yaml``. The ladder reported is read with the
-    relief rungs already kept, since a step may name one, or without them when
-    they do not load. A relief rung a step or a role binds that the hub no
-    longer lists raises :class:`SyncError` naming it, and nothing is written.
-    The answer is loaded with that setup as its ``relief_text`` before anything
-    is written, so an answer the setup would refuse raises
-    :class:`HubAnswerError` and leaves ``relief.yaml`` as it was.
-    Returns the answer read and the file it was written to.
+    The folder must hold a ``fleet.yaml``. The setup is loaded with every file
+    of :data:`KEPT` already there, since a step or a role may name what one
+    holds, or without ``kept``'s file when it does not load with it. Raises
+    :class:`SyncError` when neither loads.
     """
     fleet = folder / FLEET_FILENAME
     if not fleet.is_file():
         raise SyncError(
-            f"no {FLEET_FILENAME} in {folder}: a sync keeps relief rungs beside a "
+            f"no {FLEET_FILENAME} in {folder}: a sync keeps {kept.holds} beside a "
             "setup, and there is none here"
         )
-    fleet_text = _read_text(fleet)
-    policy_text = _read_text(folder / POLICY_FILENAME)
+    texts = {
+        "fleet_text": _read_text(fleet),
+        "policy_text": _read_text(folder / POLICY_FILENAME),
+        **{each.argument: _read_text(folder / each.filename) for each in KEPT},
+    }
     try:
-        own = parse(
-            fleet_text,
-            policy_text,
-            path=folder,
-            relief_text=_read_text(folder / RELIEF_FILENAME),
-        )
-    except ConfigError as kept:
+        config = _parse(folder, texts)
+    except ConfigError as held:
         try:
-            own = parse(fleet_text, policy_text, path=folder)
+            config = _parse(folder, {**texts, kept.argument: ""})
         except ConfigError as exc:
             raise SyncError(
-                f"the setup in {folder} does not load: {kept}; "
-                f"read without {RELIEF_FILENAME}: {exc}"
+                f"the setup in {folder} does not load: {held}; "
+                f"read without {kept.filename}: {exc}"
             ) from exc
-    rides = fetch(hub, key, ladder_report(own))
-    listed = {each.name for each in rides.rungs}
+    return Setup(folder=folder, texts=texts, config=config)
+
+
+def _parse(folder: Path, texts: Mapping[str, str]) -> Config:
+    """The setup ``texts`` (by :func:`mcgyvr.config.parse` argument) load as."""
+    return parse(
+        texts["fleet_text"],
+        texts["policy_text"],
+        path=folder,
+        relief_text=texts[RELIEF.argument],
+        crew_text=texts[CREW.argument],
+    )
+
+
+def keep(
+    setup: Setup,
+    kept: Kept,
+    text: str,
+    *,
+    held: Collection[str],
+    listed: Collection[str],
+) -> Path:
+    """Write ``text`` whole as ``kept``'s file beside ``setup``, and return it.
+
+    ``held`` are the names the file holds now and ``listed`` the ones the hub
+    answered with. One a ladder step or a role binds that the hub no longer
+    lists raises :class:`SyncError` naming it. The setup is loaded with
+    ``text`` before anything is written, so an answer the setup would refuse
+    raises :class:`HubAnswerError`. Either way the file is left as it was.
+    """
     dropped = sorted(
-        name for name, unit in own.units.items() if unit.relief and name not in listed
+        name for name in held if name in setup.config.bound and name not in listed
     )
     if dropped:
         raise SyncError(
             f"the hub no longer lends {', '.join(dropped)}, which a ladder step or "
-            f"a role binds: unbind it and sync again; {RELIEF_FILENAME} is left as "
+            f"a role binds: unbind it and sync again; {kept.filename} is left as "
             "it was"
         )
-    text = render(rides, key_env)
     try:
-        parse(fleet_text, policy_text, path=folder, relief_text=text)
+        _parse(setup.folder, {**setup.texts, kept.argument: text})
     except ConfigError as exc:
         raise HubAnswerError(
             f"the hub's answer is refused: the setup would not load with it ({exc})"
         ) from exc
-    target = folder / RELIEF_FILENAME
+    target = setup.folder / kept.filename
     atomic.write(target, text)
+    return target
+
+
+def sync(folder: Path, hub: str, key: str, key_env: str) -> tuple[Rides, Path]:
+    """Sync once: report the setup's ladder, then write the answer beside it.
+
+    The setup is read by :func:`load_setup`, its ladder reported, and the
+    answer written by :func:`keep` as ``relief.yaml``: a relief rung a step or
+    a role binds that the hub no longer lists, or an answer the setup would
+    refuse, leaves the file as it was. Returns the answer read and the file it
+    was written to.
+    """
+    setup = load_setup(folder, RELIEF)
+    own = setup.config
+    rides = fetch(hub, key, ladder_report(own))
+    target = keep(
+        setup,
+        RELIEF,
+        render(rides, key_env),
+        held=[name for name, unit in own.units.items() if unit.relief],
+        listed={each.name for each in rides.rungs},
+    )
     return rides, target
 
 

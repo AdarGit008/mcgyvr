@@ -1,4 +1,4 @@
-"""``mcgyvr rig crew sync`` keeps the units your crews lend you, and touches nothing else.
+"""``mcgyvr rig crew sync`` keeps the units your crews lend, and touches nothing else.
 
 The hub lists, at its OpenAI models address under ``x-mcgyvr-scope: crew``, the
 models your crews' rigs serve now, each with the slots of its ready units. The
@@ -307,7 +307,7 @@ def test_a_request_to_a_crew_unit_names_scope_crew(setup: Path, hub: Hub) -> Non
 
     config = _bound(setup, hub, f"ladder: [local_fast, crew-{CODER}]\n")
 
-    endpoint = source_map(config).endpoints[f"crew-{CODER}"]
+    endpoint = source_map(config).bind(f"crew-{CODER}")
     assert request_headers(endpoint)[hubwire.SCOPE_HEADER] == hubwire.SCOPE_CREW
 
 

@@ -24,6 +24,7 @@ import yaml
 from mcgyvr.fleet.files import (
     FleetFileError,
     _typename,
+    load_crew,
     load_fleet,
     load_policy,
     load_relief,
@@ -59,13 +60,16 @@ from mcgyvr.schema import Dialect, join_path, walk_block
 from mcgyvr.schema import Field as Field
 from mcgyvr.strict_yaml import strict_loader
 
-#: The three files a setup directory holds. `load()` reads all of them: fleet.yaml
-#: is required and carries `units`; policy.yaml and relief.yaml are read as empty
-#: text when they are absent.
+#: The files a setup directory holds. `load()` reads all of them: fleet.yaml
+#: is required and carries `units`; policy.yaml, relief.yaml and crew.yaml are
+#: read as empty text when they are absent.
 FLEET_FILENAME = "fleet.yaml"
 POLICY_FILENAME = "policy.yaml"
 #: The rungs a hub lent you, written whole by `mcgyvr rig rungs sync`.
 RELIEF_FILENAME = "relief.yaml"
+#: The units your crews lend you through a hub, written whole by
+#: `mcgyvr rig crew sync` and read as units of the fleet.
+CREW_FILENAME = "crew.yaml"
 #: The scope `mcgyvr rig rungs sync` writes on each relief rung, and the one a
 #: relief rung naming none is read with: the hub matched the rung to you under
 #: your own serve scope and hands a ride only to rungs you are matched to, so the
@@ -1429,6 +1433,14 @@ class Config:
     ladder: Ladder
     declared: Mapping[str, Any] = field(default_factory=dict)
     relief: Mapping[str, Unit] = field(default_factory=dict)
+    #: The units `crew.yaml` holds, each of them in `units` too.
+    crew: Mapping[str, Unit] = field(default_factory=dict)
+
+    @property
+    def bound(self) -> frozenset[str]:
+        """The units a ladder step or a role names."""
+        roles = ((self.data.get(role) or {}).get("unit") for role in _ROLE_BLOCKS)
+        return frozenset({*self.ladder.names, *(name for name in roles if name)})
 
     @property
     def is_local_only(self) -> bool:
@@ -2164,15 +2176,17 @@ def parse(
     policy_text: str = "",
     path: Path | None = None,
     relief_text: str = "",
+    crew_text: str = "",
 ) -> Config:
     """Parse setup text into a `Config`.
 
-    `fleet_text` is the fleet document, `policy_text` the policy and
-    `relief_text` the relief rungs. With no policy text the fleet text is
-    split first, so one document holding every block is read as a whole
-    setup. `path` is where the setup was loaded from: it is quoted in errors
-    and a relative `launch.geometry_json` resolves beside it. A malformed
-    document is refused as a `ConfigSchemaError`.
+    `fleet_text` is the fleet document, `policy_text` the policy,
+    `relief_text` the relief rungs and `crew_text` the crew units. With no
+    policy text the fleet text is split first, so one document holding every
+    block is read as a whole setup. `path` is where the setup was loaded
+    from: it is quoted in errors and a relative `launch.geometry_json`
+    resolves beside it. A malformed document is refused as a
+    `ConfigSchemaError`.
     """
     if not policy_text:
         fleet_text, policy_text, split_relief = _split_setup(fleet_text)
@@ -2181,9 +2195,10 @@ def parse(
         fleet = load_fleet(fleet_text)
         policy = load_policy(policy_text) if policy_text.strip() else {}
         relief = load_relief(relief_text) if relief_text.strip() else {}
+        crew = load_crew(crew_text) if crew_text.strip() else {}
     except FleetFileError as exc:
         raise ConfigSchemaError(str(exc)) from exc
-    return _build(fleet, policy, path, relief)
+    return _build(fleet, policy, path, relief, crew)
 
 
 #: The top-level keys belonging to the fleet and relief documents rather than
@@ -2224,10 +2239,12 @@ def _build(
     policy: Mapping[str, Any],
     path: Path | None,
     relief: Mapping[str, Any] | None = None,
+    crew: Mapping[str, Any] | None = None,
 ) -> Config:
-    """Validate the three parsed documents into a `Config`.
+    """Validate the parsed documents into a `Config`.
 
-    Fleet, policy and relief are merged, `rigs`, `fleets` and each unit's
+    Fleet, policy and relief are merged, the crew units join `units` (a name
+    the fleet holds too is refused), `rigs`, `fleets` and each unit's
     `unit_id` are dropped, and the result is read against `SCHEMA` and then
     cross-checked. The units become `Unit`s (relief rungs too, flagged as
     such), the ladder becomes a `Ladder`, and `declared` keeps only the
@@ -2247,6 +2264,17 @@ def _build(
             )
             for name, block in merged["units"].items()
         }
+    lent_to_crews: Mapping[str, Any] = (crew or {}).get("crew") or {}
+    if lent_to_crews:
+        declared_units = merged.get("units")
+        fleet_units = declared_units if isinstance(declared_units, Mapping) else {}
+        for name in lent_to_crews:
+            if name in fleet_units:
+                raise ConfigSchemaError(
+                    f"crew.{name}: {name!r} is a unit of the fleet too. A name "
+                    f"is one machine; sync again, or rename the unit."
+                )
+        merged["units"] = {**fleet_units, **lent_to_crews}
     retired = RETIRED_USE_CASES.get(str(merged.get("use_case")))
     if retired is not None:
         raise ConfigSchemaError(f"use_case: {retired}")
@@ -2316,6 +2344,7 @@ def _build(
         ladder=ladder,
         declared=declared,
         relief=ridden,
+        crew={name: units[name] for name in lent_to_crews},
     )
 
 
@@ -2556,8 +2585,8 @@ def load(path: Path | None = None) -> Config:
     """Load the setup at `path`, or at `config_path()` when none is given.
 
     A path that names a file is read as one setup document; a directory is
-    read as its fleet.yaml, with policy.yaml and relief.yaml read when they
-    are there. Every read error and every schema error carries the path it
+    read as its fleet.yaml, with policy.yaml, relief.yaml and crew.yaml read
+    when they are there. Every read error and every schema error carries the path it
     came from.
     """
     chosen = path
@@ -2606,7 +2635,20 @@ def load(path: Path | None = None) -> Config:
         relief_text = ""
     except (OSError, UnicodeDecodeError) as exc:
         raise ConfigFileError(f"cannot read {relief_path}: {exc}") from exc
+    crew_path = where / CREW_FILENAME
     try:
-        return parse(fleet_text, policy_text, path=where, relief_text=relief_text)
+        crew_text = crew_path.read_text(encoding="utf-8")
+    except FileNotFoundError:
+        crew_text = ""
+    except (OSError, UnicodeDecodeError) as exc:
+        raise ConfigFileError(f"cannot read {crew_path}: {exc}") from exc
+    try:
+        return parse(
+            fleet_text,
+            policy_text,
+            path=where,
+            relief_text=relief_text,
+            crew_text=crew_text,
+        )
     except ConfigError as exc:
         raise ConfigSchemaError(f"{where}: {exc}") from exc
