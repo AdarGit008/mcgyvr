@@ -136,3 +136,20 @@ def test_an_ack_with_a_lending_the_wire_refuses_keeps_the_rigs_own() -> None:
     assert handed == [None]  # no choice taken: the settings' own lend
     assert any("lending choice is not taken" in line for line in said)
     assert [m["type"] for _, m in channels[0].sent] == ["hello", "heartbeat"]
+
+
+def test_a_choice_cleared_on_the_hub_gives_the_files_lend_back(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    from mcgyvr.rig import sharing
+
+    monkeypatch.setenv("MCGYVR_HOME", str(tmp_path / "home"))
+    kept = fakes.sharing(tmp_path, cards=(0,), ram_mb=0, cpu_cores=0)
+    sharing.save(kept)
+    choice = sharing.HubChoice()
+    assert choice.settings() == kept
+    for said, lends in ((CHOSEN, CHOSEN), (None, kept.lending)):
+        assert choice.take(said)
+        assert choice.settings().lending == lends
+        assert not choice.take(said)  # the same ack again changes nothing
+    assert choice.settings() == kept

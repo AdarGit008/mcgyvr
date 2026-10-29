@@ -196,21 +196,14 @@ def run_agent(kept: Credentials, config: Path | None = None) -> int:
             print(f"note: the agent's state was not written: {exc}", file=sys.stderr)
 
     # What the member chose on the hub for this rig to lend, from the hello's
-    # ack: it wins over the lending file's cards, memory and cores while this
-    # agent runs (the file is left as the owner wrote it).
-    chosen: list[hubwire.Lending] = []
-
-    def lending() -> sharing.Sharing:
-        try:
-            kept = sharing.load()
-        except sharing.SharingError:
-            return sharing.Sharing()  # unreadable settings lend nothing
-        return kept.under(chosen[0]) if chosen else kept
+    # ack: it wins over the lending file's cards, memory and cores while the
+    # hub asks it (the file is left as the owner wrote it).
+    choice = sharing.HubChoice()
+    lending = choice.settings
 
     def on_lending(said: hubwire.Lending | None) -> None:
-        if (chosen[0] if chosen else None) == said:
+        if not choice.take(said):
             return
-        chosen[:] = [] if said is None else [said]
         if said is None:
             print("lending as this rig's settings say", file=sys.stderr)
             return

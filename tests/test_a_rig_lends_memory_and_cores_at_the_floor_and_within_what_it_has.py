@@ -313,3 +313,21 @@ def test_a_modules_smbios_type_names_its_generation_or_none(
             return {"memory": [{"capacity": "1", "type": t} for t in types]}, ""
 
     assert rigscan._ddr(Windows()) == ddr  # type: ignore[arg-type]
+
+
+def test_a_listed_card_whose_reading_the_wire_refuses_is_said_so(
+    tmp_path: Path,
+) -> None:
+    import dataclasses
+
+    report = fakes.report()
+    broken = tuple(
+        {**r, "name": ""} if r["kind"] == "gpu" and r["index"] == 0 else r
+        for r in report.resources
+    )
+    said = fakes.sharing(tmp_path, cards=(0,)).refusals(
+        dataclasses.replace(report, resources=broken)
+    )
+    assert said == [
+        "cards: card 0's reading is not the wire's shape, so it cannot be lent"
+    ]

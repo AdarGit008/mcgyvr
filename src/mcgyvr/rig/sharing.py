@@ -357,7 +357,12 @@ class Sharing:
             if kind not in CARD_KINDS or self.cards is None or index not in self.cards:
                 continue
             wired = _resource(raw)
-            if wired is None or not hubwire.counts_as_lent(wired):
+            if wired is None:
+                said.append(
+                    f"cards: card {index}'s reading is not the wire's shape, so "
+                    "it cannot be lent"
+                )
+            elif not hubwire.counts_as_lent(wired):
                 floor = LEND_FLOOR_MB[str(kind)]
                 total = int(raw.get("total_mb") or 0)
                 said.append(
@@ -377,6 +382,34 @@ def _resource(raw: Mapping[str, Any]) -> hubwire.Resource | None:
     except (TypeError, ValueError):
         return None
     return resource
+
+
+class HubChoice:
+    """The member's choice on the hub of what this rig lends, as the hello's
+    ack last said it (:class:`hubwire.Lending`), over the lending file.
+
+    The choice wins over the file's cards, memory and cores while the hub
+    asks it; an ack that asks nothing (None) gives the file's lend back. The
+    file is left as the owner wrote it.
+    """
+
+    def __init__(self) -> None:
+        self.said: hubwire.Lending | None = None
+
+    def take(self, said: hubwire.Lending | None) -> bool:
+        """Keep what an ack said; whether it changed the choice."""
+        changed = said != self.said
+        self.said = said
+        return changed
+
+    def settings(self) -> Sharing:
+        """The settings the rig lends under: the file's, under the choice when
+        the hub asks one; unreadable settings lend nothing."""
+        try:
+            kept = load()
+        except SharingError:
+            return Sharing()
+        return kept.under(self.said) if self.said is not None else kept
 
 
 def path() -> Path:
