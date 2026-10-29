@@ -22,15 +22,15 @@ from functools import cache
 from pathlib import Path
 from typing import Any
 
+from mcgyvr.hubwire import FIGURE_ESTIMATE as ESTIMATE
 from mcgyvr.hubwire import FIGURE_KINDS
+from mcgyvr.hubwire import FIGURE_READING as READING
 from mcgyvr.shipped import shipped_file
 
 CLASSES_FILENAME = "hardware-classes.json"
 
 #: The version of the table's format this code reads.
 CLASSES_SCHEMA = 1
-
-ESTIMATE, READING = FIGURE_KINDS
 
 #: Bytes in the decimal GB a bandwidth in GB/s is stated in (not the 1024**3
 #: of ``scan.BYTES_PER_GB``).

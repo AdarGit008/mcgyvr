@@ -36,7 +36,7 @@ from mcgyvr import scan as scan_module
 from mcgyvr.config import DEFAULT_REQUEST_TIMEOUT_S
 from mcgyvr.decision import Choice, ChoiceAnswer
 from mcgyvr.fleet import lock as fleet_lock
-from mcgyvr.hubwire import USE_CASE_CATEGORY, shares_ram
+from mcgyvr.hubwire import FIGURE_ESTIMATE, USE_CASE_CATEGORY, shares_ram
 from mcgyvr.knowledge import geometry as geometry_rows
 from mcgyvr.knowledge import hub
 from mcgyvr.knowledge import store as knowledge_store
@@ -387,7 +387,7 @@ def _bandwidth(scan: Scan, gpu: Gpu) -> estimate.Figure | estimate.NoEstimate:
         return found
     return estimate.Figure(
         found.bandwidth_gbps,
-        estimate.ESTIMATE,
+        FIGURE_ESTIMATE,
         f"class {found.id} ({found.url})",
         verified=found.verified,
     )
