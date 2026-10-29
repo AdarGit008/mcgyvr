@@ -310,6 +310,34 @@
       "note": "Apple's spec page states a 12-core GPU; llama.cpp discussion 4167 lists the M6 run as 8 cores (unverified which)."
     },
     {
+      "id": "nvidia-rtx-3060-12gb",
+      "vendor": "nvidia",
+      "name": "RTX 3060",
+      "vram_gb": 12,
+      "bandwidth_gbps": 360.0,
+      "verified": true,
+      "source": "nvidia-rtx-3060-12gb"
+    },
+    {
+      "id": "nvidia-rtx-3060-8gb",
+      "vendor": "nvidia",
+      "name": "RTX 3060",
+      "vram_gb": 8,
+      "bandwidth_gbps": 240.0,
+      "verified": true,
+      "source": "nvidia-rtx-3060-8gb"
+    },
+    {
+      "id": "nvidia-rtx-3060-ti",
+      "vendor": "nvidia",
+      "name": "RTX 3060 Ti",
+      "vram_gb": 8,
+      "bandwidth_gbps": 448.0,
+      "verified": false,
+      "source": "nvidia-rtx-3060-ti",
+      "note": "Read by a fetch that could not align every cell of the table's RTX 3060 Ti rows. The same table lists a GDDR6X RTX 3060 Ti at 608 GB/s with the same name and memory; this row states the lower figure, so an estimate for that card errs slow."
+    },
+    {
       "id": "nvidia-rtx-3080-10gb",
       "vendor": "nvidia",
       "name": "RTX 3080",
@@ -502,6 +530,18 @@
     "apple-m6-24gb": {
       "url": "https://www.apple.com/macbook-pro/specs/",
       "quote": "M6 \"12-core GPU\", \"Up to 170GB/s memory bandwidth\", \"16GB unified memory (153GB/s memory bandwidth)\", \"24GB or 32GB unified memory (170GB/s memory bandwidth)\""
+    },
+    "nvidia-rtx-3060-12gb": {
+      "url": "https://www.techpowerup.com/277167/nvidia-announces-the-geforce-rtx-3060-usd-330-12-gb-of-gddr6",
+      "quote": "\"15 Gbps effective GDDR6 on a 192-bit bus, which gives 360 GB/s\""
+    },
+    "nvidia-rtx-3060-8gb": {
+      "url": "https://wccftech.com/updated-nvidia-geforce-rtx-3060-8-gb-graphics-cards-cut-the-memory-bus-in-half-to-just-128-bit/",
+      "quote": "\"15 Gbps GDDR6 memory\"; \"just 240 GB/s of memory bandwidth across a 128-bit bus interface in the 8 GB\""
+    },
+    "nvidia-rtx-3060-ti": {
+      "url": "https://en.wikipedia.org/wiki/GeForce_RTX_30_series",
+      "summary": "GeForce RTX 3060 Ti (GA104-200), \"Dec 2, 2020\": memory size \"8\", bus width \"256\", bandwidth \"448\" (Wikipedia GeForce 30 series model table)"
     },
     "nvidia-rtx-3080-10gb": {
       "url": "https://en.wikipedia.org/wiki/GeForce_RTX_30_series",

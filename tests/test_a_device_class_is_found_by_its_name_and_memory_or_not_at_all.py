@@ -216,3 +216,17 @@ def test_the_build_carries_the_table_inside_the_package() -> None:
     assert [source for source, target in force.items() if target == inside] == [
         f"data/{estimate.CLASSES_FILENAME}"
     ]
+
+
+def test_every_shipped_card_row_is_found_by_its_vendor_name_and_memory() -> None:
+    rows = [one for one in estimate.shipped_classes() if one.vram_gb is not None]
+    sizes: dict[str, int] = {}
+    for one in rows:
+        sizes[one.name] = sizes.get(one.name, 0) + 1
+    assert any(count > 1 for count in sizes.values())
+    for one in rows:
+        assert one.vram_gb is not None
+        found = estimate.match(
+            f"NVIDIA GeForce {one.name}", vram_mib=one.vram_gb * 1024
+        )
+        assert _id(found) == one.id
