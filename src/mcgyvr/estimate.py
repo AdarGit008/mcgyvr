@@ -6,10 +6,11 @@ Every figure here says what it is (`Figure.figure`, one of
 names its basis, so the user can see what it was worked out from.
 
 The decode estimate is memory bandwidth over the bytes a token reads, times an
-efficiency (:data:`DECODE_EFFICIENCY`). Bandwidth comes from the device's class
-in the shipped table ``hardware-classes.json`` (Apple silicon chips and NVIDIA
-consumer cards, each row with its source); a device that matches no row gets no
-estimate, and :class:`NoEstimate` says why.
+efficiency (:data:`DECODE_EFFICIENCY`). The rule is the wire's
+(:mod:`mcgyvr.hubwire`), where the hub reads it too. Bandwidth comes from the
+device's class in the shipped table ``hardware-classes.json`` (Apple silicon
+chips and NVIDIA consumer cards, each row with its source); a device that
+matches no row gets no estimate, and :class:`NoEstimate` says why.
 """
 
 from __future__ import annotations
@@ -22,19 +23,23 @@ from functools import cache
 from pathlib import Path
 from typing import Any
 
+from mcgyvr.hubwire import BYTES_PER_DECIMAL_GB as BYTES_PER_DECIMAL_GB
+from mcgyvr.hubwire import DECODE_EFFICIENCY as DECODE_EFFICIENCY
 from mcgyvr.hubwire import FIGURE_ESTIMATE as ESTIMATE
 from mcgyvr.hubwire import FIGURE_KINDS
 from mcgyvr.hubwire import FIGURE_READING as READING
+from mcgyvr.hubwire import FITTED_ON as FITTED_ON
+from mcgyvr.hubwire import HIGH_BANDWIDTH_EFFICIENCY as HIGH_BANDWIDTH_EFFICIENCY
+from mcgyvr.hubwire import HIGH_BANDWIDTH_GBPS as HIGH_BANDWIDTH_GBPS
+from mcgyvr.hubwire import QUANT_CLASSES as QUANT_CLASSES
+from mcgyvr.hubwire import decode_efficiency as efficiency
+from mcgyvr.hubwire import quant_class as quant_class
 from mcgyvr.shipped import shipped_file
 
 CLASSES_FILENAME = "hardware-classes.json"
 
 #: The version of the table's format this code reads.
 CLASSES_SCHEMA = 1
-
-#: Bytes in the decimal GB a bandwidth in GB/s is stated in (not the 1024**3
-#: of ``scan.BYTES_PER_GB``).
-BYTES_PER_DECIMAL_GB = 1e9
 
 #: The share of a Mac's memory its GPU may wire when the kernel's own limit is in
 #: force (``iogpu.wired_limit_mb`` is 0): llama.cpp treats Metal's
@@ -44,40 +49,6 @@ BYTES_PER_DECIMAL_GB = 1e9
 #: rule has no Apple source, so this share is an estimate. The machine reader
 #: (``serving/rigscan.py`` ``UNIFIED_SHARE``, standalone) spells the same value.
 UNIFIED_SHARE = 0.75
-
-#: Decode efficiency: measured text-generation speed over the speed the
-#: bandwidth alone would allow, ``tg x model_GB / bandwidth_GBps``. Fitted to
-#: llama.cpp's own Apple-silicon table, llama-bench tg128 of a dense 7B model at
-#: F16, Q8_0 and Q4_0 over M1..M4 (llama.cpp discussion 4167,
-#: https://github.com/ggml-org/llama.cpp/discussions/4167): medians 0.83 (F16),
-#: 0.79 (Q8_0) and 0.69 (Q4_0), falling as the quantisation shrinks (dequant
-#: cost) and as bandwidth rises (an 800 GB/s part is compute-bound on a 7B
-#: model). The values below sit under those medians, so an estimate errs slow:
-#: 0.75 for 16-bit and 8-bit weights, 0.60 for 4-bit to 6-bit ones (Q5/Q6 were
-#: not measured; they take the 4-bit figure, the lower of the two they sit
-#: between). From :data:`HIGH_BANDWIDTH_GBPS` up an Apple chip takes at most
-#: :data:`HIGH_BANDWIDTH_EFFICIENCY` for its class: the 800 GB/s Ultra runs gave
-#: 0.50..0.60 at Q8_0 (0.57..0.71 at F16), so 0.50, the lowest, and 0.36..0.45
-#: at Q4_0 (median 0.42), so 0.40, under five of the six runs. The fit is Apple
-#: silicon's
-#: under Metal; an NVIDIA card takes the same shares, unchecked under CUDA, and
-#: its estimate says so. A current llama.cpp build runs about 1.2x faster than
-#: the build those rows used; no allowance is made for it. A quantisation under
-#: 4 bits, or 32-bit weights, was not measured, and gets no estimate.
-DECODE_EFFICIENCY: Mapping[str, float] = {"8bit": 0.75, "4bit": 0.60}
-HIGH_BANDWIDTH_GBPS = 800.0
-HIGH_BANDWIDTH_EFFICIENCY: Mapping[str, float] = {"8bit": 0.50, "4bit": 0.40}
-#: The vendor whose chips the efficiencies were fitted on, and the only one the
-#: high-bandwidth ceiling was seen on.
-FITTED_ON = "apple"
-
-#: Quantisation names, by the efficiency class they decode at. Matched on the
-#: name's start, case-insensitively, after a ``UD-`` prefix: ``Q4_K_M`` is
-#: ``q4``, ``IQ4_XS`` is ``iq4``, ``UD-Q4_K_XL`` is ``q4``.
-QUANT_CLASSES: Mapping[str, tuple[str, ...]] = {
-    "8bit": ("f16", "bf16", "q8"),
-    "4bit": ("q4", "iq4", "mxfp4", "q5", "q6"),
-}
 
 
 class HardwareClassesError(Exception):
@@ -150,30 +121,6 @@ def usable_unified_mb(
         ESTIMATE,
         f"{UNIFIED_SHARE:g} of memory, no wired limit set",
     )
-
-
-def quant_class(quant: str) -> str | None:
-    """The efficiency class of a quantisation name, None when it has none."""
-    name = quant.strip().lower().removeprefix("ud-")
-    for klass, prefixes in QUANT_CLASSES.items():
-        if name.startswith(prefixes):
-            return klass
-    return None
-
-
-def efficiency(
-    bandwidth_gbps: float, quant: str, *, vendor: str = FITTED_ON
-) -> float | None:
-    """The decode efficiency for this bandwidth, quantisation and vendor, None when
-    the quantisation has no class. The high-bandwidth ceiling holds for the
-    vendor the shares were fitted on alone."""
-    klass = quant_class(quant)
-    if klass is None:
-        return None
-    eff = DECODE_EFFICIENCY[klass]
-    if vendor == FITTED_ON and bandwidth_gbps >= HIGH_BANDWIDTH_GBPS:
-        eff = min(eff, HIGH_BANDWIDTH_EFFICIENCY[klass])
-    return eff
 
 
 def decode_tps(
