@@ -40,6 +40,17 @@ archived outside this repository, under the same paths.
   is under `~/.local/state/mcgyvr` except `journal/`, and `~/.cache/mcgyvr`,
   to the new folders, or keep them with the XDG variables (the weights, which
   no XDG variable moves, with `$MCGYVR_WEIGHTS`).
+
+- **Under `mcgyvr-code` an unset `fanout` is `idle` and an unset `triage` is
+  `jev` while a Jev unit is bound and on (`none` when Jev is off).** A raw use
+  case keeps both `none`, and a stated value wins. `idle` takes the first own
+  rung with a slot free, or rides a relief rung when your own rungs are full.
+  `mcgyvr setup` writes both keys unset so the use case decides them.
+- **Fan-out never sends a contract to a priced api rung.** Under `idle` or
+  `full`, a contract whose own rungs are all full waits on its own ladder
+  instead of entering at an api rung (`idle` first rides a free relief rung),
+  and inside the api family the rungs are taken in ladder order. Escalation
+  still climbs to the api rungs.
 - **Use cases are `mcgyvr-code`, `code`, `chat` and `agent`; `coding` is gone,
   with no alias.** `mcgyvr-code` is what `coding` was, every stage between the
   model and you on by default, each under a policy switch (SETUP.md, *Use cases
@@ -92,6 +103,22 @@ archived outside this repository, under the same paths.
   Windows the door runs its `ssh`/`docker` shims by argv (with `.cmd`
   launchers beside them) and hands a gate its export pipe as a handle.
 
+- **`mcgyvr rig crew sync` keeps the units your crews lend you in `crew.yaml`
+  (#829):** scope `crew`, units a step or a role binds, never api rungs.
+- **A unit says whose it is, and a role or a ladder step may bind a hub unit
+  (#811).** Every unit has a `scope` (`own`, `crew` or `anyone`; a unit of your
+  fleet is `own` unless it says otherwise, and `mcgyvr rig rungs sync` writes
+  `anyone` on each relief rung), and every chat request names it in
+  `x-mcgyvr-scope` beside the use case. A ladder step or `orchestrator`,
+  `verifier` or `jev` may name a relief rung; one the ladder names is a step
+  and no longer ridden as relief. The pool a unit is served from is the
+  wire's (`hubwire.SCOPE_POOLS`, `hubwire.serving_pool`), and a step or role
+  bound to a unit whose pool does not serve the use case is refused when the
+  setup is read: under `mcgyvr-code`, a unit of scope `anyone` that is not a
+  ride. `code`, `chat` and `agent` run on any scope. Upgrading: a unit under
+  `units` that points at a hub and states no `scope` now sends `own`, where
+  before it sent nothing and the hub used your own serve scope (`anyone`
+  unless you changed it); state `scope: crew` or `scope: anyone` on it.
 - **`mcgyvr use NAME` switches the use case, and `/mcgyvr-use` is its skill.**
   It rewrites the policy's `use_case:` line and nothing else, and says what
   that turns on or off.
