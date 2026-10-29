@@ -912,7 +912,8 @@ SCHEMA: tuple[Field, ...] = (
         "do the job. The climb starts there; the rungs below it are skipped, "
         "not spent, and escalation goes on upward as before. `fanout` may then "
         "still start the climb on a higher rung with a free slot, never a "
-        "lower one. With no jev unit bound, or one that cannot be asked or "
+        "lower one and never a priced api rung. With no jev unit bound, or one "
+        "that cannot be asked or "
         "read, the climb starts on the first rung and the run result's "
         "`triage` says why. A contract that states a `start_rung`, decided "
         "ahead of time, starts there under either value and jev is not asked. "
@@ -1205,8 +1206,9 @@ SCHEMA: tuple[Field, ...] = (
         "Written whole to `relief.yaml` by `mcgyvr rig rungs sync`, and by "
         "nothing else. A relief rung is never a step of the ladder: under "
         "`fanout: idle` it takes work only when your own rung is full, and no "
-        "escalation climbs to it. Fan-out never sends work to a priced api rung "
-        "instead. Its host can read your prompts.",
+        "escalation climbs to it. When it is full too, the contract waits on "
+        "your own ladder; fan-out never sends it to a priced api rung. Its host "
+        "can read your prompts.",
         block=RELIEF_FIELDS,
     ),
 )

@@ -7,6 +7,9 @@ at an api rung. Escalation up the ladder is not fan-out. A climb that spends its
 own rungs still reaches the api rungs, in the order the ladder lists them, so a
 busy cheap api rung is not passed over for a dearer free one either.
 
+The ``full`` cases are guards: ``full`` never decided an entry across families,
+so they pin that it still does not.
+
 Nothing here touches a network: the attempt is a script, the capacity is built
 over ``tmp_path``, and every host is invented.
 """

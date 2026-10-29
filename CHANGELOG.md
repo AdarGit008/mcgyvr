@@ -17,9 +17,10 @@ archived outside this repository, under the same paths.
   rung with a slot free, or rides a relief rung when your own rungs are full.
   `mcgyvr setup` writes both keys unset so the use case decides them.
 - **Fan-out never sends a contract to a priced api rung.** Under `idle` or
-  `full`, a contract whose own rungs and relief rungs are all full waits on its
-  own ladder instead of entering at an api rung, and inside the api family the
-  rungs are taken in ladder order. Escalation still climbs to the api rungs.
+  `full`, a contract whose own rungs are all full waits on its own ladder
+  instead of entering at an api rung (`idle` first rides a free relief rung),
+  and inside the api family the rungs are taken in ladder order. Escalation
+  still climbs to the api rungs.
 - **Use cases are `mcgyvr-code`, `code`, `chat` and `agent`; `coding` is gone,
   with no alias.** `mcgyvr-code` is what `coding` was, every stage between the
   model and you on by default, each under a policy switch (SETUP.md, *Use cases

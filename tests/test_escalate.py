@@ -69,6 +69,7 @@ from mcgyvr.escalate import (
     Assurance,
     Ceiling,
     Delivered,
+    Entry,
     Halted,
     Judgement,
     Opinion,
@@ -1035,7 +1036,7 @@ def test_idle_never_names_a_rung_below_the_floor_however_free_it_is(
 
     route = ascent(config, pool, contract(), floor=API, capacity=capacity)
 
-    assert route.next_free_rung == "api_big"
+    assert route.next_free_rung is None, "and fan-out names no api rung"
     assert "local_qwen-7b" not in route.rungs
 
 
@@ -1403,7 +1404,9 @@ DECIDING_TIMEOUT_S = 5.0
 
 
 @contextmanager
-def deciding_together(monkeypatch: pytest.MonkeyPatch, parties: int) -> Iterator[None]:
+def deciding_together(
+    monkeypatch: pytest.MonkeyPatch, parties: int
+) -> Iterator[list[object]]:
     """Hold every member of a batch at the instant its entry decision is made.
 
     A barrier rather than a sleep, so the overlap is a fact rather than a
@@ -1423,20 +1426,23 @@ def deciding_together(monkeypatch: pytest.MonkeyPatch, parties: int) -> Iterator
     assertion instead of in a timeout.
 
     The timeout is a broken barrier and so a failed job, which is the test
-    saying what happened rather than the suite stopping.
+    saying what happened rather than the suite stopping. What it yields is
+    every member's answer, so a test can count the entries actually claimed.
     """
     from mcgyvr import escalate as module
 
     barrier = threading.Barrier(parties)
     decided = module._idle_entry
+    answers: list[object] = []
 
     def together(route: Ascent) -> object:
         answer = decided(route)
+        answers.append(answer)
         barrier.wait(timeout=DECIDING_TIMEOUT_S)
         return answer
 
     monkeypatch.setattr(module, "_idle_entry", together)
-    yield
+    yield answers
 
 
 def test_only_one_member_of_a_batch_raises_its_entry_into_one_free_slot(
@@ -1486,20 +1492,23 @@ def test_only_one_member_of_a_batch_raises_its_entry_into_one_free_slot(
 
     with (
         holding(capacity, pool, "local_qwen-7b"),
-        deciding_together(monkeypatch, len(recorders)),
+        deciding_together(monkeypatch, len(recorders)) as answers,
     ):
         outcomes = run_batch(
             [racing(r) for r in recorders], capacity, workers=len(recorders)
         )
 
     assert all(o.ok for o in outcomes), [str(o.error) for o in outcomes if not o.ok]
-    raised = [o.value for o in outcomes if o.value == "local_qwen-14b"]
-    assert len(raised) == 1, (
-        f"{len(raised)} of {len(recorders)} members raised into the one free slot; "
-        f"the batch landed on {[o.value for o in outcomes]}"
+    entries = [a for a in answers if a is not None]
+    assert len(entries) == 1, (
+        f"{len(entries)} of {len(recorders)} members raised into the one free slot"
     )
-    queued = [o.value for o in outcomes if o.value != "local_qwen-14b"]
-    assert set(queued) == {"local_qwen-7b"}, "the rest waited out the local queue"
+    assert isinstance(entries[0], Entry)
+    assert entries[0].rung == "local_qwen-14b"
+    # Once the winner has passed and let its slot go, a later climb may still
+    # start on the freed rung: that is fan-out inside the family, not a raise.
+    landed = {o.value for o in outcomes}
+    assert landed <= {"local_qwen-7b", "local_qwen-14b"}, "no member left the family"
     assert capacity.load("local_qwen-14b") == 0, "the raised rung is idle again"
     assert capacity.load("api_big") == 0, "and nothing priced was claimed"
 
