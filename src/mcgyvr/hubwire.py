@@ -392,6 +392,9 @@ MAX_RESOURCES = 32
 #: The kinds a rig names at most once: one device whose memory is the host's
 #: (a host has one such memory to share), the host's memory and its cores.
 ONE_PER_RIG: tuple[str, ...] = (RESOURCE_UNIFIED, RESOURCE_RAM, RESOURCE_CPU)
+#: The kinds a heartbeat reads at most once: those of :data:`ONE_PER_RIG`
+#: that are not cards.
+_ONE_PER_HEARTBEAT = tuple(k for k in ONE_PER_RIG if k not in CARD_KINDS)
 #: Most cards one hello or heartbeat may report.
 MAX_CARDS = 16
 #: Highest index a resource may have: a card's highest index.
@@ -621,7 +624,9 @@ class ResourceReading:
         )
 
 
-def _fit(items: Sequence[Resource] | Sequence[ResourceReading]) -> None:
+def _fit(
+    items: Sequence[Resource] | Sequence[ResourceReading], once: tuple[str, ...]
+) -> None:
     _need(len(items) <= MAX_RESOURCES, "resources", f"more than {MAX_RESOURCES}")
     for item in items:
         item.validate()
@@ -630,7 +635,7 @@ def _fit(items: Sequence[Resource] | Sequence[ResourceReading]) -> None:
     cards = [item.index for item in items if item.kind in CARD_KINDS]
     _need(len(cards) <= MAX_CARDS, "resources", f"more than {MAX_CARDS} cards")
     _need(len(set(cards)) == len(cards), "resources", "a card index twice")
-    for kind in ONE_PER_RIG:
+    for kind in once:
         _need(
             sum(item.kind == kind for item in items) <= 1,
             "resources",
@@ -644,7 +649,7 @@ def resources_fit(resources: Sequence[Resource]) -> None:
     ``(kind, index)`` once, at most :data:`MAX_CARDS` cards, each card index
     once across :data:`CARD_KINDS`, and at most one of each kind in
     :data:`ONE_PER_RIG`: one ``unified`` device, one ``ram``, one ``cpu``."""
-    _fit(resources)
+    _fit(resources, ONE_PER_RIG)
 
 
 def counts_as_lent(resource: Resource) -> bool:
@@ -672,10 +677,12 @@ def counts_as_lent(resource: Resource) -> bool:
 def readings_fit(readings: Sequence[ResourceReading]) -> None:
     """Raise ValueError unless one heartbeat may carry ``readings``, by the
     rules of :func:`resources_fit` (each card index once across
-    :data:`CARD_KINDS` among them). Whether each names an advertised resource,
-    and its ``free_mb`` that resource's ``total_mb`` at most, is the hub's to
-    hold against the advert it keeps."""
-    _fit(readings)
+    :data:`CARD_KINDS` among them), but for how many unified devices: a card's
+    reading is held by its index, and how many unified devices a rig has is
+    its advert's to say. Whether each names an advertised resource, and its
+    ``free_mb`` that resource's ``total_mb`` at most, is the hub's to hold
+    against the advert it keeps, which reads nothing of one it does not."""
+    _fit(readings, _ONE_PER_HEARTBEAT)
 
 
 @dataclass(frozen=True, kw_only=True)

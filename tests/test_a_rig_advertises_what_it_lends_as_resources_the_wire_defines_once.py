@@ -698,10 +698,16 @@ def test_a_heartbeat_fits_by_the_adverts_rules() -> None:
         ([_reading("gpu", 0), _reading("unified", 0)], "a card index twice"),
         ([_reading("gpu", i) for i in range(17)], "more than 16 cards"),
         ([_reading("ram", 0), _reading("ram", 1)], "more than one ram"),
-        ([_reading("unified", 0), _reading("unified", 1)], "more than one unified"),
     ):
         with pytest.raises(ValueError, match=rf"^resources: {why}"):
             hubwire.readings_fit(readings)
+
+
+def test_a_heartbeat_may_read_a_unified_device_its_advert_did_not_name() -> None:
+    """How many unified devices a rig has is its advert's to say; a hub reads
+    nothing of a reading no advert named, so a heartbeat is not refused for
+    one."""
+    hubwire.readings_fit([_reading("unified", 0), _reading("unified", 5)])
 
 
 def test_a_heartbeats_card_readings_are_its_gpu_and_unified_readings_by_index() -> None:
