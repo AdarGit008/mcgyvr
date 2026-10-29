@@ -5,8 +5,9 @@ ack (:data:`mcgyvr.hubwire.LENDING_FIELD`, :class:`mcgyvr.hubwire.Lending`).
 The agent reads it whole and hands it on, or, when it is not the wire's shape
 (a field left out: no ``cards`` is never "every card"), keeps its own settings
 and says why; and the lending settings it runs under lend that: the member's
-cards, memory and cores win over the lending file's while the agent runs, and
-the rest of the file (on or off, roles, image) stays the owner's.
+cards, memory and cores win over the lending file's while the hub asks them,
+an ack that asks nothing gives the file's back, and the rest of the file (on or
+off, roles, image) stays the owner's.
 """
 
 from __future__ import annotations
@@ -85,7 +86,7 @@ def test_the_members_choice_wins_over_the_files_lend(tmp_path: Path) -> None:
     assert [r.index for r in chosen.lent(fakes.report()) if r.kind == "gpu"] == [1]
 
 
-def test_the_agent_hands_on_the_lending_its_hello_was_acked_with() -> None:
+def test_the_agent_hands_on_the_lending_each_hello_was_acked_with_or_none() -> None:
     class Choosing(Hub):
         def answer(self, message: dict[str, Any], channel: Any) -> list[Any]:
             out = super().answer(message, channel)
@@ -99,15 +100,17 @@ def test_the_agent_hands_on_the_lending_its_hello_was_acked_with() -> None:
             }
             return [json.dumps(ack), *out[1:]]
 
-    handed: list[hubwire.Lending] = []
+    handed: list[hubwire.Lending | None] = []
     agent, _ = _agent(
-        [Choosing(interval=15, beats=1)],
+        [Choosing(interval=15, beats=1), Hub(interval=15, beats=1)],
         Clock(),
         report=Report(),
         on_lending=handed.append,
     )
     agent.run()
-    assert handed == [CHOSEN]
+    # The second hub asks nothing: the member cleared the choice, so the rig
+    # lends what its settings say again.
+    assert handed == [CHOSEN, None]
 
 
 def test_an_ack_with_a_lending_the_wire_refuses_keeps_the_rigs_own() -> None:
@@ -120,7 +123,7 @@ def test_an_ack_with_a_lending_the_wire_refuses_keeps_the_rigs_own() -> None:
             ack["body"][hubwire.LENDING_FIELD] = {"ram_mb": 0, "cpu_cores": 2}
             return [json.dumps(ack), *out[1:]]
 
-    handed: list[hubwire.Lending] = []
+    handed: list[hubwire.Lending | None] = []
     said: list[str] = []
     agent, channels = _agent(
         [Malformed(interval=15, beats=1)],
@@ -130,6 +133,6 @@ def test_an_ack_with_a_lending_the_wire_refuses_keeps_the_rigs_own() -> None:
         on_lending=handed.append,
     )
     agent.run()
-    assert handed == []
+    assert handed == [None]  # no choice taken: the settings' own lend
     assert any("lending choice is not taken" in line for line in said)
     assert [m["type"] for _, m in channels[0].sent] == ["hello", "heartbeat"]

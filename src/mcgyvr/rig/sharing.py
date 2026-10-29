@@ -16,6 +16,7 @@ import ipaddress
 import json
 import os
 import re
+from collections.abc import Mapping
 from dataclasses import asdict, dataclass, field, replace
 from pathlib import Path
 from typing import Any
@@ -218,11 +219,13 @@ class Sharing:
         `report` reads that reaches its kind's lending floor."""
         for raw in report.resources:
             kind, index = raw.get("kind"), raw.get("index")
+            if kind not in CARD_KINDS or not isinstance(index, int):
+                continue
+            card = _resource(raw)
             if (
-                kind in CARD_KINDS
-                and isinstance(index, int)
-                and self.lends(index, report) is not None
-                and int(raw.get("total_mb") or 0) >= LEND_FLOOR_MB[str(kind)]
+                self.lends(index, report) is not None
+                and card is not None
+                and hubwire.counts_as_lent(card)
             ):
                 return True
         return False
@@ -262,12 +265,8 @@ class Sharing:
                 fields["cores"] = min(self.cpu_cores, most)
             else:
                 continue
-            resource = hubwire.Resource(**fields)
-            try:
-                resource.validate()
-            except (TypeError, ValueError):
-                continue
-            if hubwire.counts_as_lent(resource):
+            resource = _resource(fields)
+            if resource is not None and hubwire.counts_as_lent(resource):
                 found.append(resource)
         return tuple(found[: hubwire.MAX_RESOURCES])
 
@@ -357,14 +356,27 @@ class Sharing:
             kind, index = raw.get("kind"), raw.get("index")
             if kind not in CARD_KINDS or self.cards is None or index not in self.cards:
                 continue
-            floor = LEND_FLOOR_MB[str(kind)]
-            total = int(raw.get("total_mb") or 0)
-            if total < floor:
+            wired = _resource(raw)
+            if wired is None or not hubwire.counts_as_lent(wired):
+                floor = LEND_FLOOR_MB[str(kind)]
+                total = int(raw.get("total_mb") or 0)
                 said.append(
                     f"cards: card {index} has {total} MiB, under the {floor} MiB "
                     f"floor the hub counts a {kind} as lent at"
                 )
         return said
+
+
+def _resource(raw: Mapping[str, Any]) -> hubwire.Resource | None:
+    """A report's resource as the wire's record, or None when the wire would
+    refuse it."""
+    fields: dict[str, Any] = {name: raw.get(name) for name in _RESOURCE_FIELDS}
+    resource = hubwire.Resource(**fields)
+    try:
+        resource.validate()
+    except (TypeError, ValueError):
+        return None
+    return resource
 
 
 def path() -> Path:

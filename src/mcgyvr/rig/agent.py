@@ -333,7 +333,7 @@ class Agent:
         on_hub_error: Callable[[protocol.Error], None] | None = None,
         on_beat: Callable[[], None] | None = None,
         aside: Callable[[Callable[[], None]], None] | None = None,
-        on_lending: Callable[[hubwire.Lending], None] | None = None,
+        on_lending: Callable[[hubwire.Lending | None], None] | None = None,
     ) -> None:
         self._connect = connect
         self._read = read_hardware
@@ -561,10 +561,10 @@ class Agent:
                 f"({shown(session.lending_unread)}); lending as this rig's "
                 "settings say"
             )
-        if session.lending is not None:
-            # The member's choice on the hub: the next reading lends it, and a
-            # heartbeat that finds the lend changed says hello again.
-            self._on_lending(session.lending)
+        # The member's choice on the hub, or None when the hub asks nothing
+        # (or sent a lending not taken): the next reading lends it, and a
+        # heartbeat that finds the lend changed says hello again.
+        self._on_lending(session.lending)
         if self._outbox is not None:
             self._outbox.open(wake=channel.wake)
         self._on_online()

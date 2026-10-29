@@ -207,14 +207,24 @@ def run_agent(kept: Credentials, config: Path | None = None) -> int:
             return sharing.Sharing()  # unreadable settings lend nothing
         return kept.under(chosen[0]) if chosen else kept
 
-    def on_lending(said: hubwire.Lending) -> None:
-        if chosen and chosen[0] == said:
+    def on_lending(said: hubwire.Lending | None) -> None:
+        if (chosen[0] if chosen else None) == said:
             return
-        chosen[:] = [said]
+        chosen[:] = [] if said is None else [said]
+        if said is None:
+            print("lending as this rig's settings say", file=sys.stderr)
+            return
+        try:
+            held = {r.kind: r for r in lending().lent(last_report())}
+        except hardware.HardwareError:
+            held = {}
+        ram, cpu = held.get(hubwire.RESOURCE_RAM), held.get(hubwire.RESOURCE_CPU)
         print(
             "lending as chosen on the hub: cards "
             f"{'all' if said.cards is None else list(said.cards)}, "
-            f"{said.ram_mb} MiB RAM, {said.cpu_cores} cores",
+            f"{said.ram_mb} MiB RAM, {said.cpu_cores} cores; held to this "
+            f"machine: {ram.total_mb if ram else 0} MiB RAM, "
+            f"{cpu.cores if cpu else 0} cores",
             file=sys.stderr,
         )
 
