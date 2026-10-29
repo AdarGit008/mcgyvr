@@ -6,8 +6,8 @@ helper of a Mac or Windows rig's pooled sessions (its own repository). The produ
 `mcgyvr.rig.userwg` (the session host that drives it). This document is normative: the field table
 in section 4 is the grammar. `tests/fake_wg_helper.py` is a test double that speaks a subset of it
 (it refuses what the product must never send; it does not prove every refusal the helper owes).
-Proto 1 is the head-only grammar; workers (section 6) come with the helper's first release that
-pins rows here.
+Proto 1 is the head-only grammar; workers (section 6) come with a later proto, or with additive
+verbs.
 
 ## 1. Asset, tag and pin
 
