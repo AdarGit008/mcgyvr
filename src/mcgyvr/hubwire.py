@@ -2,7 +2,8 @@
 
 The hub serves models to a member's rigs and the product rides them: relief
 rungs (hitchhike), the ladder a rider reports, the units a host advertises,
-the relay that carries a ride, and the ``/v1`` refusals a rider reads. Every
+the resources a rig lends, the relay that carries a ride, and the ``/v1``
+refusals a rider reads. Every
 value both sides hold for that is here, once, and the hub builds its own types
 from these names rather than writing them again:
 
@@ -42,6 +43,9 @@ A pattern is held unanchored and matched whole (``fullmatch``); a JSON Schema
 or a pydantic type writes it as ``^<pattern>$``. Nothing here is a validator
 of a whole message: the hub's pydantic models and the product's readers stay
 two, and each value they share is held to the schemas by the product's tests.
+A resource, a reading and a host carry their own rules (``validate()``,
+:func:`resources_fit`, :func:`readings_fit`) for both sides to call; their
+values join the schemas once the hub publishes them.
 
 Stdlib only, and nothing from ``mcgyvr.cli`` or ``mcgyvr.rig``: the offline
 core and the hub import this module without either.
@@ -50,9 +54,8 @@ core and the hub import this module without either.
 from __future__ import annotations
 
 import json
-import math
 import re
-from collections.abc import Iterable, Mapping, Sequence
+from collections.abc import Mapping, Sequence
 from dataclasses import dataclass
 from importlib import resources
 from types import MappingProxyType
@@ -288,7 +291,8 @@ RESOURCE_KINDS: tuple[str, ...] = (
 #: The kinds that are cards too: each is a legacy card at its index, so the two
 #: share the card indexes (:func:`cards_from_resources`).
 CARD_KINDS: tuple[str, ...] = (RESOURCE_GPU, RESOURCE_UNIFIED)
-#: The backend a resource computes with.
+#: The backend a resource computes with. Host memory and cores compute with
+#: ``cpu`` alone, and a card never does.
 RESOURCE_BACKENDS: tuple[str, ...] = ("cuda", "metal", "vulkan", "rocm", "cpu")
 #: What a resource's figures are: an estimate, or the rig's own reading. A
 #: number on the wire says which it is.
@@ -296,25 +300,29 @@ FIGURE_KINDS: tuple[str, ...] = ("estimate", "reading")
 #: The operating system and the architecture a rig's host names in its hello.
 HOST_OS: tuple[str, ...] = ("linux", "darwin", "windows")
 HOST_ARCH: tuple[str, ...] = ("x86_64", "arm64")
-#: Most resources one advert may name.
+#: Most resources one advert may name; of them, at most :data:`MAX_CARDS`
+#: cards, one ``ram`` and one ``cpu``.
 MAX_RESOURCES = 32
+#: Most cards one hello or heartbeat may report.
+MAX_CARDS = 16
 #: Highest index a resource may have: a card's highest index.
 MAX_RESOURCE_INDEX = 63
 #: Most logical cores one ``cpu`` resource may lend.
 MAX_RESOURCE_CORES = 1024
+#: Highest memory bandwidth a resource may name, in GB/s.
+MAX_BANDWIDTH_GBPS = 100_000
 #: Longest host version a hello may name, in characters.
 HOST_VERSION_MAX = 64
 #: A resource's name is text a hub may show, as a card's is: no control
 #: characters, no C1 controls, no bidi embedding, override or isolate marks;
 #: at most :data:`RESOURCE_NAME_MAX` characters.
-RESOURCE_NAME = re.compile("[^\x00-\x1f\x7f-\x9f\u202a-\u202e\u2066-\u2069]+")
+RESOURCE_NAME = re.compile("[^\x00-\x1f\x7f-\x9f‪-‮⁦-⁩]+")
 RESOURCE_NAME_MAX = 128
 #: Largest memory figure a resource may carry, in MiB, as a card's.
 RESOURCE_MAX_MB = 1 << 30
 #: The unit standby is counted in for each kind: a card is a card whether its
 #: memory is its own or the host's, so a unified device is a card and never
-#: also memory; host memory is counted per 16 GiB and cores per 8. Names only:
-#: what a unit earns is the hub's setting.
+#: also memory; host memory is counted per 16 GiB and cores per 8. Names only.
 STANDBY_UNITS: Mapping[str, str] = MappingProxyType(
     {
         RESOURCE_GPU: "card",
@@ -329,16 +337,53 @@ def _is_int(value: object) -> bool:
     return type(value) is int
 
 
+def _need(ok: bool, field: str, why: str) -> None:
+    if not ok:
+        raise ValueError(f"{field}: {why}")
+
+
+def _one_of(value: object, values: tuple[str, ...], field: str) -> None:
+    _need(type(value) is str and value in values, field, f"not one of {values}")
+
+
+def _text(value: object, most: int, field: str) -> None:
+    """Printable text a hub may show, 1 to ``most`` characters, that encodes
+    (no lone surrogate)."""
+    ok = (
+        type(value) is str
+        and len(value) <= most
+        and RESOURCE_NAME.fullmatch(value) is not None
+    )
+    if ok:
+        assert isinstance(value, str)
+        try:
+            value.encode("utf-8")
+        except UnicodeEncodeError:
+            ok = False
+    _need(ok, field, f"not 1 to {most} printable characters")
+
+
+def _kind_and_index(kind: object, index: object) -> None:
+    _one_of(kind, RESOURCE_KINDS, "kind")
+    _need(
+        _is_int(index) and 0 <= index <= MAX_RESOURCE_INDEX,  # type: ignore[operator]
+        "index",
+        f"not 0 to {MAX_RESOURCE_INDEX}",
+    )
+
+
 @dataclass(frozen=True, kw_only=True)
 class Resource:
     """One thing a rig lends, as its hello advertises it.
 
     ``index`` counts per kind; a card kind's index is its card index.
-    ``total_mb`` is the MiB lent (0 for ``cpu``: memory lent beside cores is a
-    ``ram`` resource) and ``free_mb`` the MiB free, once read. ``cores`` is set
-    for ``cpu`` alone. ``shared_with_ram`` is true for ``unified`` alone: its
-    memory is the host's, counted once. ``figure`` says whether
-    ``bandwidth_gbps`` and ``total_mb`` are an estimate or a reading.
+    ``total_mb`` is the MiB lent, at least 1 (0 for ``cpu``: memory lent beside
+    cores is a ``ram`` resource) and ``free_mb`` the MiB free, once read.
+    ``cores`` is set for ``cpu`` alone. ``shared_with_ram`` is true for
+    ``unified`` alone: its memory is the host's, counted once. ``figure`` says
+    whether ``bandwidth_gbps`` and ``total_mb`` are an estimate or a reading.
+    A hub mirroring these rules refuses a non-finite bandwidth, as JSON's
+    ``Infinity`` parses to one.
 
     A ``cpu`` resource serves whole models only, never a pipeline stage: it
     runs a small model end to end and holds no layers of a split one.
@@ -359,19 +404,14 @@ class Resource:
         """Raise ValueError, naming the field at fault, unless this resource
         keeps every rule a hub holds it to."""
         _kind_and_index(self.kind, self.index)
-        _need(
-            isinstance(self.name, str)
-            and len(self.name) <= RESOURCE_NAME_MAX
-            and RESOURCE_NAME.fullmatch(self.name) is not None,
-            "name",
-            f"not 1 to {RESOURCE_NAME_MAX} printable characters",
-        )
-        _need(
-            _is_int(self.total_mb) and 0 <= self.total_mb <= RESOURCE_MAX_MB,
-            "total_mb",
-            f"not 0 to {RESOURCE_MAX_MB} MiB",
-        )
+        _text(self.name, RESOURCE_NAME_MAX, "name")
         cpu = self.kind == RESOURCE_CPU
+        least = 0 if cpu else 1
+        _need(
+            _is_int(self.total_mb) and least <= self.total_mb <= RESOURCE_MAX_MB,
+            "total_mb",
+            f"not {least} to {RESOURCE_MAX_MB} MiB",
+        )
         _need(not cpu or self.total_mb == 0, "total_mb", "not 0 for cpu")
         _need(
             self.free_mb is None
@@ -400,44 +440,26 @@ class Resource:
             bandwidth is None
             or (
                 type(bandwidth) in (int, float)
-                and math.isfinite(bandwidth)
-                and bandwidth > 0
+                and 0 < bandwidth <= MAX_BANDWIDTH_GBPS  # NaN fails both
             ),
             "bandwidth_gbps",
-            "not null or a finite number > 0",
+            f"not null or a number over 0 to {MAX_BANDWIDTH_GBPS}",
         )
-        _need(self.figure in FIGURE_KINDS, "figure", f"not one of {FIGURE_KINDS}")
+        _one_of(self.figure, FIGURE_KINDS, "figure")
+        _one_of(self.backend, RESOURCE_BACKENDS, "backend")
+        host = self.kind in (RESOURCE_RAM, RESOURCE_CPU)
         _need(
-            self.backend in RESOURCE_BACKENDS,
+            (self.backend == "cpu") is host,
             "backend",
-            f"not one of {RESOURCE_BACKENDS}",
+            "not cpu for ram and cpu, or cpu for a card",
         )
-
-
-def _need(ok: bool, field: str, why: str) -> None:
-    if not ok:
-        raise ValueError(f"{field}: {why}")
-
-
-def _kind_and_index(kind: object, index: object) -> None:
-    _need(kind in RESOURCE_KINDS, "kind", f"not one of {RESOURCE_KINDS}")
-    _need(
-        _is_int(index) and 0 <= index <= MAX_RESOURCE_INDEX,  # type: ignore[operator]
-        "index",
-        f"not 0 to {MAX_RESOURCE_INDEX}",
-    )
-
-
-def _unique_keys(items: Sequence[Resource] | Sequence[ResourceReading]) -> None:
-    _need(len(items) <= MAX_RESOURCES, "resources", f"more than {MAX_RESOURCES}")
-    keys = [(item.kind, item.index) for item in items]
-    _need(len(set(keys)) == len(keys), "resources", "a kind and index twice")
 
 
 @dataclass(frozen=True, kw_only=True)
 class ResourceReading:
-    """What a heartbeat reads of one advertised resource: its ``kind`` and
-    ``index``, as the hello named it, and the MiB free now (``free_mb``)."""
+    """What a heartbeat reads of one advertised memory resource: its ``kind``
+    and ``index``, as the hello named it, and the MiB free now (``free_mb``).
+    A ``cpu`` resource lends no memory, so it has no reading."""
 
     kind: str
     index: int
@@ -447,6 +469,7 @@ class ResourceReading:
         """Raise ValueError, naming the field at fault, unless this reading
         keeps every rule a hub holds it to."""
         _kind_and_index(self.kind, self.index)
+        _need(self.kind != RESOURCE_CPU, "kind", "cpu, which has no memory to read")
         _need(
             _is_int(self.free_mb) and 0 <= self.free_mb <= RESOURCE_MAX_MB,
             "free_mb",
@@ -454,10 +477,37 @@ class ResourceReading:
         )
 
 
+def _fit(items: Sequence[Resource] | Sequence[ResourceReading]) -> None:
+    for item in items:
+        item.validate()
+    _need(len(items) <= MAX_RESOURCES, "resources", f"more than {MAX_RESOURCES}")
+    keys = [(item.kind, item.index) for item in items]
+    _need(len(set(keys)) == len(keys), "resources", "a kind and index twice")
+    cards = [item.index for item in items if item.kind in CARD_KINDS]
+    _need(len(cards) <= MAX_CARDS, "resources", f"more than {MAX_CARDS} cards")
+    _need(len(set(cards)) == len(cards), "resources", "a card index twice")
+    for kind in (RESOURCE_RAM, RESOURCE_CPU):
+        _need(
+            sum(item.kind == kind for item in items) <= 1,
+            "resources",
+            f"more than one {kind}",
+        )
+
+
+def resources_fit(resources: Sequence[Resource]) -> None:
+    """Raise ValueError unless one advert may name ``resources``: each valid
+    (:meth:`Resource.validate`), at most :data:`MAX_RESOURCES`, each ``(kind,
+    index)`` once, at most :data:`MAX_CARDS` cards, each card index once
+    across :data:`CARD_KINDS`, and at most one ``ram`` and one ``cpu``."""
+    _fit(resources)
+
+
 def readings_fit(readings: Sequence[ResourceReading]) -> None:
-    """Raise ValueError unless one heartbeat may carry ``readings``: at most
-    :data:`MAX_RESOURCES`, each ``(kind, index)`` once."""
-    _unique_keys(readings)
+    """Raise ValueError unless one heartbeat may carry ``readings``, by the
+    rules of :func:`resources_fit`. Whether each names an advertised resource,
+    and its ``free_mb`` that resource's ``total_mb`` at most, is the hub's to
+    hold against the advert it keeps."""
+    _fit(readings)
 
 
 @dataclass(frozen=True, kw_only=True)
@@ -473,54 +523,31 @@ class Host:
     def validate(self) -> None:
         """Raise ValueError, naming the field at fault, unless this host keeps
         every rule a hub holds it to."""
-        _need(self.os in HOST_OS, "os", f"not one of {HOST_OS}")
-        _need(self.arch in HOST_ARCH, "arch", f"not one of {HOST_ARCH}")
-        _need(
-            isinstance(self.version, str)
-            and len(self.version) <= HOST_VERSION_MAX
-            and RESOURCE_NAME.fullmatch(self.version) is not None,
-            "version",
-            f"not 1 to {HOST_VERSION_MAX} printable characters",
-        )
+        _one_of(self.os, HOST_OS, "os")
+        _one_of(self.arch, HOST_ARCH, "arch")
+        _text(self.version, HOST_VERSION_MAX, "version")
 
 
-def resources_fit(resources: Sequence[Resource]) -> None:
-    """Raise ValueError unless one advert may name ``resources``: at most
-    :data:`MAX_RESOURCES`, each ``(kind, index)`` once, and each card index
-    once across :data:`CARD_KINDS`. Each resource's own rules are
-    :meth:`Resource.validate`'s."""
-    _unique_keys(resources)
-    cards = [r.index for r in resources if r.kind in CARD_KINDS]
-    _need(len(set(cards)) == len(cards), "resources", "a card index twice")
-
-
-def cards_from_resources(resources: Iterable[Resource]) -> list[dict[str, Any]]:
+def cards_from_resources(resources: Sequence[Resource]) -> list[dict[str, Any]]:
     """The legacy ``cards[]`` a hello carries, made from ``resources``.
 
-    Each ``gpu`` and ``unified`` resource is one card at its index, by index,
-    with its name and memory. A ``free_mb`` not read yet is all free: the
+    The advert must fit (:func:`resources_fit`, which raises ValueError). Each
+    ``gpu`` and ``unified`` resource is one card at its index, by index, with
+    its name and memory; a hub that reads only cards takes a unified device's
+    memory for the card's own. A ``free_mb`` not read yet is all free: the
     next heartbeat's reading corrects it. Host memory and cores make no card.
-    The hello's own card count limit still applies.
-
-    Raises ValueError for a resource that breaks a rule
-    (:meth:`Resource.validate`) and for a card index named twice.
     """
-    cards: dict[int, dict[str, Any]] = {}
-    for resource in resources:
-        resource.validate()
-        if resource.kind not in CARD_KINDS:
-            continue
-        if resource.index in cards:
-            raise ValueError(f"cards: card index {resource.index} twice")
-        cards[resource.index] = {
-            "index": resource.index,
-            "name": resource.name,
-            "vram_total_mb": resource.total_mb,
-            "vram_free_mb": (
-                resource.total_mb if resource.free_mb is None else resource.free_mb
-            ),
+    resources_fit(resources)
+    return [
+        {
+            "index": r.index,
+            "name": r.name,
+            "vram_total_mb": r.total_mb,
+            "vram_free_mb": r.total_mb if r.free_mb is None else r.free_mb,
         }
-    return [cards[index] for index in sorted(cards)]
+        for r in sorted(resources, key=lambda r: r.index)
+        if r.kind in CARD_KINDS
+    ]
 
 
 #: The agent channel's schema: every frame between the hub and a rig's agent.

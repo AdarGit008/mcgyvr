@@ -2,15 +2,16 @@
 
 A hello and a heartbeat carry, beside the legacy ``cards[]``, the resources a
 rig lends: a discrete card (``gpu``), a device whose memory is the host's
-(``unified``), host memory (``ram``) and host cores (``cpu``). The names, the
-closed sets and the rules a resource keeps are :mod:`mcgyvr.hubwire`'s; the
-hub mirrors them in its own types until it imports them.
+(``unified``), host memory (``ram``) and host cores (``cpu``), on a host that
+names its os, arch and version. The names, the closed sets and the rules are
+:mod:`mcgyvr.hubwire`'s, and the hub imports them.
 
-Held here: each closed set is the one the plan fixes and holds no value twice;
-a resource's name and memory follow the card's published rules; every rule
-:meth:`hubwire.Resource.validate` keeps refuses its own break and names the
-field; an advert fits by count and by ``(kind, index)``, and a card index is
-one card's whatever its kind; the legacy cards come out of a unified-only, a
+Held here: each closed set holds the values the hub takes, each once; the rig
+agent's card rules are the resource's, by import, and the shipped schema's;
+every rule :meth:`hubwire.Resource.validate`, :meth:`hubwire.Host.validate`
+and :meth:`hubwire.ResourceReading.validate` keep refuses its own break and
+names the field; an advert and a heartbeat fit by count, by ``(kind, index)``,
+by card and by host resource; the legacy cards come out of a unified-only, a
 gpu-only and a mixed advert; and a standby unit is named for every kind.
 """
 
@@ -26,16 +27,16 @@ from mcgyvr import hubwire
 from tests import rig_schema
 
 
-def _gpu(index: Any = 0, **changed: Any) -> hubwire.Resource:
+def _gpu(index: int = 0, **changed: Any) -> hubwire.Resource:
     fields: dict[str, Any] = {
         "kind": hubwire.RESOURCE_GPU,
         "index": index,
         "name": f"Example Card {index}",
-        "total_mb": 12_000 + index,
-        "free_mb": 11_000,
+        "total_mb": 20_000 + index,
+        "free_mb": 19_000,
         "cores": None,
         "shared_with_ram": False,
-        "bandwidth_gbps": 360.0,
+        "bandwidth_gbps": 512.0,
         "figure": "reading",
         "backend": "cuda",
     }
@@ -47,11 +48,11 @@ def _unified(index: int = 0, **changed: Any) -> hubwire.Resource:
         "kind": hubwire.RESOURCE_UNIFIED,
         "index": index,
         "name": "Example Unified GPU",
-        "total_mb": 49_152,
+        "total_mb": 40_000,
         "free_mb": None,
         "cores": None,
         "shared_with_ram": True,
-        "bandwidth_gbps": 400.0,
+        "bandwidth_gbps": 300.0,
         "figure": "estimate",
         "backend": "metal",
     }
@@ -63,7 +64,7 @@ def _ram(**changed: Any) -> hubwire.Resource:
         "kind": hubwire.RESOURCE_RAM,
         "index": 0,
         "name": "host RAM",
-        "total_mb": 32_768,
+        "total_mb": 30_000,
         "free_mb": 20_000,
         "cores": None,
         "shared_with_ram": False,
@@ -81,28 +82,41 @@ def _cpu(**changed: Any) -> hubwire.Resource:
         "name": "CPU",
         "total_mb": 0,
         "free_mb": None,
-        "cores": 8,
+        "cores": 6,
         "shared_with_ram": False,
-        "bandwidth_gbps": 60.0,
+        "bandwidth_gbps": 50.0,
         "figure": "estimate",
         "backend": "cpu",
     }
     return hubwire.Resource(**{**fields, **changed})
 
 
-# --- the closed sets are the plan's ---------------------------------------------
+def _host(**changed: Any) -> hubwire.Host:
+    fields: dict[str, Any] = {"os": "linux", "arch": "x86_64", "version": "1.2.3"}
+    return hubwire.Host(**{**fields, **changed})
 
 
-def test_the_closed_sets_are_the_ones_the_plan_fixes() -> None:
+def _reading(
+    kind: str = "gpu", index: int = 0, **changed: Any
+) -> hubwire.ResourceReading:
+    fields: dict[str, Any] = {"kind": kind, "index": index, "free_mb": 1}
+    return hubwire.ResourceReading(**{**fields, **changed})
+
+
+def _refused(field: str, check: Any) -> None:
+    with pytest.raises(ValueError, match=rf"^{field}: "):
+        check()
+
+
+# --- the closed sets hold the values the hub takes --------------------------------
+
+
+def test_the_closed_sets_hold_the_values_the_hub_takes() -> None:
     assert hubwire.RESOURCE_KINDS == ("gpu", "unified", "ram", "cpu")
     assert hubwire.RESOURCE_BACKENDS == ("cuda", "metal", "vulkan", "rocm", "cpu")
     assert hubwire.FIGURE_KINDS == ("estimate", "reading")
     assert hubwire.HOST_OS == ("linux", "darwin", "windows")
     assert hubwire.HOST_ARCH == ("x86_64", "arm64")
-    assert hubwire.MAX_RESOURCES == 32
-    assert hubwire.MAX_RESOURCE_INDEX == 63
-    assert hubwire.MAX_RESOURCE_CORES == 1024
-    assert hubwire.HOST_VERSION_MAX == 64
     kinds = (
         hubwire.RESOURCE_GPU,
         hubwire.RESOURCE_UNIFIED,
@@ -111,6 +125,16 @@ def test_the_closed_sets_are_the_ones_the_plan_fixes() -> None:
     )
     assert kinds == hubwire.RESOURCE_KINDS
     assert hubwire.CARD_KINDS == (hubwire.RESOURCE_GPU, hubwire.RESOURCE_UNIFIED)
+
+
+def test_the_limits_are_the_ones_the_hub_takes() -> None:
+    assert hubwire.MAX_RESOURCES == 32
+    assert hubwire.MAX_CARDS == 16
+    assert hubwire.MAX_RESOURCE_INDEX == 63
+    assert hubwire.MAX_RESOURCE_CORES == 1024
+    assert hubwire.MAX_BANDWIDTH_GBPS == 100_000
+    assert hubwire.RESOURCE_NAME_MAX == 128
+    assert hubwire.HOST_VERSION_MAX == 64
 
 
 @pytest.mark.parametrize(
@@ -144,6 +168,16 @@ def test_the_fields_are_the_contracts_in_its_order() -> None:
         "figure",
         "backend",
     ]
+    assert [f.name for f in dataclasses.fields(hubwire.ResourceReading)] == [
+        "kind",
+        "index",
+        "free_mb",
+    ]
+    assert [f.name for f in dataclasses.fields(hubwire.Host)] == [
+        "os",
+        "arch",
+        "version",
+    ]
 
 
 def test_a_resource_is_frozen_and_built_by_keyword() -> None:
@@ -154,31 +188,37 @@ def test_a_resource_is_frozen_and_built_by_keyword() -> None:
         hubwire.Resource("gpu", 0)  # type: ignore[call-arg]
 
 
-def test_a_resource_name_and_memory_follow_the_cards_published_rules() -> None:
-    """A resource's name is shown where a card's is and its memory is counted
-    as a card's: the shipped schema's card rules are the resource's."""
-    card = rig_schema.load(rig_schema.PROTOCOL)["$defs"]["CardReport"]["properties"]
+def test_the_rig_agents_card_rules_are_the_resources_by_import() -> None:
+    """A card reported as a resource and as a card is refused by neither or
+    both: the rig agent's card rules are the wire's own objects."""
+    from mcgyvr.rig import protocol
+
+    assert protocol.CARD_NAME is hubwire.RESOURCE_NAME
+    assert protocol.CARD_NAME_MAX is hubwire.RESOURCE_NAME_MAX
+    assert protocol.MAX_MB is hubwire.RESOURCE_MAX_MB
+    assert protocol.MAX_CARD_INDEX is hubwire.MAX_RESOURCE_INDEX
+    assert protocol.MAX_CARDS is hubwire.MAX_CARDS
+
+
+def test_the_card_rules_are_the_ones_the_shipped_schema_holds() -> None:
+    schema = rig_schema.load(rig_schema.PROTOCOL)
+    card = schema["$defs"]["CardReport"]["properties"]
     assert card["name"]["pattern"] == f"^{hubwire.RESOURCE_NAME.pattern}$"
-    assert card["name"]["maxLength"] == hubwire.RESOURCE_NAME_MAX
-    assert card["name"]["minLength"] == 1
+    assert (card["name"]["minLength"], card["name"]["maxLength"]) == (
+        1,
+        hubwire.RESOURCE_NAME_MAX,
+    )
+    assert card["index"]["exclusiveMaximum"] == hubwire.MAX_RESOURCE_INDEX + 1
     for field in ("vram_total_mb", "vram_free_mb"):
         assert (card[field]["minimum"], card[field]["maximum"]) == (
             0,
             hubwire.RESOURCE_MAX_MB,
         )
+    cards = schema["$defs"]["HelloBody"]["properties"]["cards"]
+    assert cards["maxItems"] == hubwire.MAX_CARDS
 
 
-def test_the_rig_protocols_card_rules_are_the_resources() -> None:
-    """The rig agent's card name and memory bound are the same rules: a card
-    reported as a resource and as a card is refused by neither or both."""
-    from mcgyvr.rig import protocol
-
-    assert protocol.CARD_NAME.pattern == hubwire.RESOURCE_NAME.pattern
-    assert protocol.CARD_NAME_MAX == hubwire.RESOURCE_NAME_MAX
-    assert protocol.MAX_MB == hubwire.RESOURCE_MAX_MB
-
-
-# --- every validator ------------------------------------------------------------
+# --- a resource -------------------------------------------------------------------
 
 
 @pytest.mark.parametrize("resource", [_gpu(), _unified(), _ram(), _cpu()])
@@ -186,73 +226,125 @@ def test_a_resource_of_each_kind_validates(resource: hubwire.Resource) -> None:
     resource.validate()
 
 
+@pytest.mark.parametrize("kind", ["npu", "GPU", "", None, 0])
+def test_a_resource_names_a_kind_the_wire_holds(kind: Any) -> None:
+    _refused("kind", _gpu(kind=kind).validate)
+
+
+@pytest.mark.parametrize("index", [-1, 64, True, 1.0, "0", None])
+def test_a_resource_index_is_a_whole_number_0_to_63(index: Any) -> None:
+    _refused("index", dataclasses.replace(_gpu(), index=index).validate)
+
+
 @pytest.mark.parametrize(
-    ("resource", "field"),
-    [
-        (_gpu(kind="npu"), "kind"),
-        (_gpu(kind="GPU"), "kind"),
-        (_gpu(index=-1), "index"),
-        (_gpu(index=hubwire.MAX_RESOURCE_INDEX + 1), "index"),
-        (_gpu(index=True), "index"),
-        (_gpu(index=1.0), "index"),
-        (_gpu(name=""), "name"),
-        (_gpu(name="x" * 129), "name"),
-        (_gpu(name="card\nname"), "name"),
-        (_gpu(name="card‮name"), "name"),
-        (_gpu(name="card\x85name"), "name"),
-        (_gpu(name=7), "name"),
-        (_gpu(total_mb=-1), "total_mb"),
-        (_gpu(total_mb=hubwire.RESOURCE_MAX_MB + 1), "total_mb"),
-        (_gpu(total_mb=1.5), "total_mb"),
-        (_gpu(free_mb=-1), "free_mb"),
-        (_gpu(free_mb=12_001), "free_mb"),
-        (_gpu(free_mb=False), "free_mb"),
-        (_cpu(total_mb=1024), "total_mb"),
-        (_cpu(cores=None), "cores"),
-        (_cpu(cores=0), "cores"),
-        (_cpu(cores=hubwire.MAX_RESOURCE_CORES + 1), "cores"),
-        (_cpu(cores=True), "cores"),
-        (_gpu(cores=8), "cores"),
-        (_ram(cores=4), "cores"),
-        (_unified(cores=1), "cores"),
-        (_unified(shared_with_ram=False), "shared_with_ram"),
-        (_gpu(shared_with_ram=True), "shared_with_ram"),
-        (_ram(shared_with_ram=True), "shared_with_ram"),
-        (_cpu(shared_with_ram=True), "shared_with_ram"),
-        (_gpu(shared_with_ram=1), "shared_with_ram"),
-        (_gpu(bandwidth_gbps=0.0), "bandwidth_gbps"),
-        (_gpu(bandwidth_gbps=-1.0), "bandwidth_gbps"),
-        (_gpu(bandwidth_gbps=math.inf), "bandwidth_gbps"),
-        (_gpu(bandwidth_gbps=math.nan), "bandwidth_gbps"),
-        (_gpu(bandwidth_gbps=True), "bandwidth_gbps"),
-        (_gpu(bandwidth_gbps="360"), "bandwidth_gbps"),
-        (_gpu(figure="measured"), "figure"),
-        (_gpu(figure=None), "figure"),
-        (_gpu(backend="opencl"), "backend"),
-        (_gpu(backend="CUDA"), "backend"),
-    ],
+    "name",
+    ["", "x" * 129, "card\nname", "card‮name", "card\x85name", "\ud800", 7, None],
 )
-def test_each_rule_a_resource_keeps_refuses_its_break_and_names_the_field(
-    resource: hubwire.Resource, field: str
-) -> None:
-    with pytest.raises(ValueError, match=rf"^{field}: "):
-        resource.validate()
+def test_a_resource_name_is_1_to_128_printable_characters(name: Any) -> None:
+    _refused("name", _gpu(name=name).validate)
 
 
 @pytest.mark.parametrize(
     "resource",
     [
-        _gpu(index=0, total_mb=0, free_mb=0),
+        _gpu(total_mb=0, free_mb=0),
+        _unified(total_mb=0),
+        _ram(total_mb=0, free_mb=0),
+        _gpu(total_mb=hubwire.RESOURCE_MAX_MB + 1),
+        _gpu(total_mb=1.5),
+        _gpu(total_mb=True),
+        _gpu(total_mb=None),
+        _cpu(total_mb=1024),
+    ],
+)
+def test_a_resource_lends_at_least_a_mib_and_cpu_lends_none(
+    resource: hubwire.Resource,
+) -> None:
+    _refused("total_mb", resource.validate)
+
+
+@pytest.mark.parametrize("free_mb", [-1, 20_001, False, 1.0, "1"])
+def test_a_resources_free_mib_is_none_or_within_what_it_lends(free_mb: Any) -> None:
+    _refused("free_mb", _gpu(free_mb=free_mb).validate)
+
+
+@pytest.mark.parametrize(
+    "resource",
+    [
+        _cpu(cores=None),
+        _cpu(cores=0),
+        _cpu(cores=hubwire.MAX_RESOURCE_CORES + 1),
+        _cpu(cores=True),
+        _gpu(cores=8),
+        _ram(cores=4),
+        _unified(cores=1),
+    ],
+)
+def test_only_a_cpu_resource_lends_cores_1_to_1024(resource: hubwire.Resource) -> None:
+    _refused("cores", resource.validate)
+
+
+@pytest.mark.parametrize(
+    "resource",
+    [
+        _unified(shared_with_ram=False),
+        _gpu(shared_with_ram=True),
+        _ram(shared_with_ram=True),
+        _cpu(shared_with_ram=True),
+        _unified(shared_with_ram=1),
+    ],
+)
+def test_only_a_unified_device_shares_the_hosts_memory(
+    resource: hubwire.Resource,
+) -> None:
+    _refused("shared_with_ram", resource.validate)
+
+
+@pytest.mark.parametrize(
+    "bandwidth",
+    [0.0, -1.0, math.inf, math.nan, 10**400, 100_000.5, True, "360"],
+)
+def test_a_bandwidth_is_none_or_a_number_over_0_to_its_most(bandwidth: Any) -> None:
+    _refused("bandwidth_gbps", _gpu(bandwidth_gbps=bandwidth).validate)
+
+
+@pytest.mark.parametrize("figure", ["measured", "Reading", None])
+def test_a_figure_is_an_estimate_or_a_reading(figure: Any) -> None:
+    _refused("figure", _gpu(figure=figure).validate)
+
+
+@pytest.mark.parametrize(
+    "resource",
+    [
+        _gpu(backend="opencl"),
+        _gpu(backend="CUDA"),
+        _gpu(backend="cpu"),
+        _unified(backend="cpu"),
+        _ram(backend="cuda"),
+        _cpu(backend="metal"),
+    ],
+)
+def test_host_memory_and_cores_compute_on_cpu_and_a_card_never_does(
+    resource: hubwire.Resource,
+) -> None:
+    _refused("backend", resource.validate)
+
+
+@pytest.mark.parametrize(
+    "resource",
+    [
         _gpu(index=hubwire.MAX_RESOURCE_INDEX),
-        _cpu(cores=1),
-        _cpu(cores=hubwire.MAX_RESOURCE_CORES),
+        _gpu(total_mb=1, free_mb=0),
         _gpu(name="x" * hubwire.RESOURCE_NAME_MAX),
         _gpu(name="Карта ü 显卡"),
         _gpu(total_mb=hubwire.RESOURCE_MAX_MB, free_mb=hubwire.RESOURCE_MAX_MB),
         _gpu(free_mb=None, bandwidth_gbps=None),
-        _gpu(bandwidth_gbps=448),
-        _cpu(free_mb=0),
-        _ram(index=3, backend="cpu", figure="estimate"),
+        _gpu(bandwidth_gbps=448, backend="vulkan"),
+        _gpu(bandwidth_gbps=hubwire.MAX_BANDWIDTH_GBPS, backend="rocm"),
+        _unified(backend="vulkan"),
+        _cpu(cores=1, free_mb=0),
+        _cpu(cores=hubwire.MAX_RESOURCE_CORES),
+        _ram(index=3, figure="estimate"),
     ],
 )
 def test_a_resource_at_each_rules_edge_validates(resource: hubwire.Resource) -> None:
@@ -262,30 +354,47 @@ def test_a_resource_at_each_rules_edge_validates(resource: hubwire.Resource) -> 
 # --- an advert fits -------------------------------------------------------------
 
 
-def _unfit(resources: list[hubwire.Resource]) -> None:
-    with pytest.raises(ValueError, match=r"^resources: "):
+def _unfit(resources: list[hubwire.Resource], why: str) -> None:
+    with pytest.raises(ValueError, match=rf"^resources: {why}"):
         hubwire.resources_fit(resources)
 
 
 def test_an_advert_fits_up_to_its_most_resources() -> None:
-    most = [_gpu(i) for i in range(hubwire.MAX_RESOURCES)]
-    hubwire.resources_fit(most)
+    """Its widest is every card a hello takes, the host's memory and its
+    cores; the count bound refuses an advert longer still before any other."""
+    cards = hubwire.MAX_CARDS
+    widest = [*(_gpu(i) for i in range(cards // 2)), _ram(), _cpu()]
+    widest += [_unified(i) for i in range(cards // 2, cards)]
+    hubwire.resources_fit(widest)
     hubwire.resources_fit([])
-    _unfit([*most, _ram()])
+    _unfit([_gpu(i) for i in range(hubwire.MAX_RESOURCES + 1)], "more than 32")
+
+
+def test_an_advert_reports_no_more_cards_than_a_hello_takes() -> None:
+    hubwire.resources_fit([_gpu(i) for i in range(hubwire.MAX_CARDS)])
+    _unfit([_gpu(i) for i in range(hubwire.MAX_CARDS + 1)], "more than 16 cards")
 
 
 def test_an_advert_names_each_kind_and_index_once() -> None:
     hubwire.resources_fit([_gpu(0), _gpu(1), _ram(), _cpu()])
-    hubwire.resources_fit([_ram(index=0), _cpu(index=0)])
-    _unfit([_gpu(0), _gpu(0, name="Another Card")])
-    _unfit([_ram(), _ram(total_mb=1024)])
+    _unfit([_gpu(0), _gpu(0, name="Another Card")], "a kind and index twice")
 
 
 def test_a_card_index_is_one_cards_whatever_its_kind() -> None:
     """A gpu and a unified resource each become a legacy card at their index,
     so the two kinds share the card indexes."""
     hubwire.resources_fit([_gpu(0), _unified(1)])
-    _unfit([_gpu(0), _unified(0)])
+    _unfit([_gpu(0), _unified(0)], "a card index twice")
+
+
+def test_an_advert_lends_the_hosts_memory_once_and_its_cores_once() -> None:
+    _unfit([_ram(), _ram(index=1)], "more than one ram")
+    _unfit([_cpu(), _cpu(index=1)], "more than one cpu")
+
+
+def test_an_advert_fits_only_when_each_resource_validates() -> None:
+    with pytest.raises(ValueError, match=r"^kind: "):
+        hubwire.resources_fit([_gpu(kind=["gpu"])])
 
 
 # --- the legacy cards ------------------------------------------------------------
@@ -297,8 +406,8 @@ def test_a_unified_only_advert_is_one_card_all_free_until_it_is_read() -> None:
         {
             "index": 0,
             "name": "Example Unified GPU",
-            "vram_total_mb": 49_152,
-            "vram_free_mb": 49_152,
+            "vram_total_mb": 40_000,
+            "vram_free_mb": 40_000,
         }
     ]
 
@@ -309,13 +418,13 @@ def test_a_gpu_only_advert_is_its_cards_by_index() -> None:
         {
             "index": 0,
             "name": "Example Card 0",
-            "vram_total_mb": 12_000,
-            "vram_free_mb": 11_000,
+            "vram_total_mb": 20_000,
+            "vram_free_mb": 19_000,
         },
         {
             "index": 1,
             "name": "Example Card 1",
-            "vram_total_mb": 12_001,
+            "vram_total_mb": 20_001,
             "vram_free_mb": 9_000,
         },
     ]
@@ -326,7 +435,7 @@ def test_a_mixed_advert_is_its_gpu_and_unified_cards_and_nothing_else() -> None:
     cards = hubwire.cards_from_resources(advert)
     assert [(c["index"], c["vram_free_mb"]) for c in cards] == [
         (0, 30_000),
-        (2, 11_000),
+        (2, 19_000),
     ]
     assert hubwire.cards_from_resources([_ram(), _cpu()]) == []
 
@@ -337,11 +446,77 @@ def test_the_legacy_cards_are_the_shape_the_published_schema_takes() -> None:
         rig_schema.validate(card, protocol, "#/$defs/CardReport")
 
 
-def test_no_legacy_card_is_made_from_a_resource_that_breaks_a_rule() -> None:
-    with pytest.raises(ValueError, match=r"^shared_with_ram: "):
-        hubwire.cards_from_resources([_unified(shared_with_ram=False)])
-    with pytest.raises(ValueError, match="card index 0 twice"):
+def test_no_legacy_card_is_made_from_an_advert_that_does_not_fit() -> None:
+    _refused(
+        "shared_with_ram",
+        lambda: hubwire.cards_from_resources([_unified(shared_with_ram=False)]),
+    )
+    with pytest.raises(ValueError, match=r"^resources: a card index twice"):
         hubwire.cards_from_resources([_gpu(0), _unified(0)])
+
+
+# --- a heartbeat's readings ---------------------------------------------------------
+
+
+def test_a_reading_names_its_resource_and_the_mib_free_now() -> None:
+    _reading("unified", 0, free_mb=0).validate()
+    _reading(
+        "ram", hubwire.MAX_RESOURCE_INDEX, free_mb=hubwire.RESOURCE_MAX_MB
+    ).validate()
+
+
+@pytest.mark.parametrize("kind", ["disk", None, "cpu"])
+def test_a_reading_is_of_a_memory_resource(kind: Any) -> None:
+    _refused("kind", _reading(kind).validate)
+
+
+@pytest.mark.parametrize("index", [-1, 64, True])
+def test_a_readings_index_is_a_resources(index: Any) -> None:
+    _refused("index", _reading(index=index).validate)
+
+
+@pytest.mark.parametrize("free_mb", [-1, hubwire.RESOURCE_MAX_MB + 1, None, True])
+def test_a_readings_free_mib_is_a_whole_number_within_the_most(free_mb: Any) -> None:
+    _refused("free_mb", _reading(free_mb=free_mb).validate)
+
+
+def test_a_heartbeat_fits_by_the_adverts_rules() -> None:
+    hubwire.readings_fit([_reading("gpu", 0), _reading("unified", 1), _reading("ram")])
+    for readings, why in (
+        ([_reading("gpu", 0), _reading("gpu", 0)], "a kind and index twice"),
+        ([_reading("gpu", 0), _reading("unified", 0)], "a card index twice"),
+        ([_reading("gpu", i) for i in range(17)], "more than 16 cards"),
+        ([_reading("ram", 0), _reading("ram", 1)], "more than one ram"),
+    ):
+        with pytest.raises(ValueError, match=rf"^resources: {why}"):
+            hubwire.readings_fit(readings)
+
+
+# --- the host -------------------------------------------------------------------
+
+
+@pytest.mark.parametrize(
+    "host",
+    [_host(os=os, arch=arch) for os in hubwire.HOST_OS for arch in hubwire.HOST_ARCH]
+    + [_host(version="x" * hubwire.HOST_VERSION_MAX)],
+)
+def test_a_host_of_each_os_and_arch_validates(host: hubwire.Host) -> None:
+    host.validate()
+
+
+@pytest.mark.parametrize("os", ["freebsd", "Darwin", None])
+def test_a_host_names_an_os_the_wire_holds(os: Any) -> None:
+    _refused("os", _host(os=os).validate)
+
+
+@pytest.mark.parametrize("arch", ["aarch64", "amd64", None])
+def test_a_host_names_an_arch_the_wire_holds(arch: Any) -> None:
+    _refused("arch", _host(arch=arch).validate)
+
+
+@pytest.mark.parametrize("version", ["", "x" * 65, "6.8\n", "\udc80", 6])
+def test_a_hosts_version_is_1_to_64_printable_characters(version: Any) -> None:
+    _refused("version", _host(version=version).validate)
 
 
 # --- standby is counted in units named per kind -----------------------------------
@@ -363,92 +538,3 @@ def test_a_cpu_resource_is_a_whole_model_unit_and_the_wire_says_so() -> None:
     doc = " ".join((hubwire.Resource.__doc__ or "").split())
     assert "whole models only" in doc
     assert "never a pipeline stage" in doc
-
-
-# --- the host ---------------------------------------------------------------------
-
-
-@pytest.mark.parametrize(
-    "host",
-    [
-        hubwire.Host(os=os, arch=arch, version="14.5")
-        for os in hubwire.HOST_OS
-        for arch in hubwire.HOST_ARCH
-    ]
-    + [
-        hubwire.Host(
-            os="windows", arch="x86_64", version="x" * hubwire.HOST_VERSION_MAX
-        )
-    ],
-)
-def test_a_host_of_each_os_and_arch_validates(host: hubwire.Host) -> None:
-    host.validate()
-
-
-@pytest.mark.parametrize(
-    ("host", "field"),
-    [
-        (hubwire.Host(os="freebsd", arch="x86_64", version="1"), "os"),
-        (hubwire.Host(os="Darwin", arch="arm64", version="1"), "os"),
-        (hubwire.Host(os="linux", arch="aarch64", version="1"), "arch"),
-        (hubwire.Host(os="linux", arch="amd64", version="1"), "arch"),
-        (hubwire.Host(os="linux", arch="x86_64", version=""), "version"),
-        (hubwire.Host(os="linux", arch="x86_64", version="x" * 65), "version"),
-        (hubwire.Host(os="linux", arch="x86_64", version="6.8\n"), "version"),
-        (hubwire.Host(os="linux", arch="x86_64", version=6), "version"),  # type: ignore[arg-type]
-    ],
-)
-def test_each_rule_a_host_keeps_refuses_its_break_and_names_the_field(
-    host: hubwire.Host, field: str
-) -> None:
-    with pytest.raises(ValueError, match=rf"^{field}: "):
-        host.validate()
-
-
-# --- a heartbeat's readings ---------------------------------------------------------
-
-
-def test_a_reading_names_its_resource_and_the_mib_free_now() -> None:
-    hubwire.ResourceReading(kind="unified", index=0, free_mb=0).validate()
-    hubwire.ResourceReading(
-        kind="cpu", index=hubwire.MAX_RESOURCE_INDEX, free_mb=hubwire.RESOURCE_MAX_MB
-    ).validate()
-
-
-@pytest.mark.parametrize(
-    ("reading", "field"),
-    [
-        (hubwire.ResourceReading(kind="disk", index=0, free_mb=1), "kind"),
-        (hubwire.ResourceReading(kind="gpu", index=-1, free_mb=1), "index"),
-        (hubwire.ResourceReading(kind="gpu", index=64, free_mb=1), "index"),
-        (hubwire.ResourceReading(kind="gpu", index=0, free_mb=-1), "free_mb"),
-        (
-            hubwire.ResourceReading(
-                kind="gpu", index=0, free_mb=hubwire.RESOURCE_MAX_MB + 1
-            ),
-            "free_mb",
-        ),
-        (hubwire.ResourceReading(kind="gpu", index=0, free_mb=None), "free_mb"),  # type: ignore[arg-type]
-    ],
-)
-def test_each_rule_a_reading_keeps_refuses_its_break_and_names_the_field(
-    reading: hubwire.ResourceReading, field: str
-) -> None:
-    with pytest.raises(ValueError, match=rf"^{field}: "):
-        reading.validate()
-
-
-def test_a_heartbeat_reads_each_kind_and_index_once_and_no_more_than_an_advert() -> (
-    None
-):
-    def read(kind: str, index: int) -> hubwire.ResourceReading:
-        return hubwire.ResourceReading(kind=kind, index=index, free_mb=1)
-
-    hubwire.readings_fit([read("gpu", 0), read("unified", 1), read("ram", 0)])
-    hubwire.readings_fit([read("gpu", i) for i in range(hubwire.MAX_RESOURCES)])
-    for readings in (
-        [read("gpu", 0), read("gpu", 0)],
-        [read("gpu", i) for i in range(hubwire.MAX_RESOURCES + 1)],
-    ):
-        with pytest.raises(ValueError, match=r"^resources: "):
-            hubwire.readings_fit(readings)
