@@ -54,7 +54,8 @@ from these names rather than writing them again:
   (:func:`rpc_compatible`);
 * the devices a head runs a model on (:data:`HEAD_DEVICE_KINDS`);
 * how fast a device decodes by its memory bandwidth
-  (:func:`decode_ms_per_gib`, with :data:`DECODE_EFFICIENCY`).
+  (:func:`decode_ms_per_gib`, with :data:`DECODE_EFFICIENCY`, and whether a
+  device is of the vendor that was fitted on, :func:`fitted_on`).
 
 A pattern is held unanchored and matched whole (``fullmatch``); a JSON Schema
 or a pydantic type writes it as ``^<pattern>$``. Nothing here is a validator
@@ -431,9 +432,6 @@ MAX_RESOURCES = 32
 #: The kinds a rig names at most once: one device whose memory is the host's
 #: (a host has one such memory to share), the host's memory and its cores.
 ONE_PER_RIG: tuple[str, ...] = (RESOURCE_UNIFIED, RESOURCE_RAM, RESOURCE_CPU)
-#: The kinds a heartbeat reads at most once: those of :data:`ONE_PER_RIG`
-#: that are not cards.
-_ONE_PER_HEARTBEAT = tuple(k for k in ONE_PER_RIG if k not in CARD_KINDS)
 #: Most cards one hello or heartbeat may report.
 MAX_CARDS = 16
 #: Highest index a resource may have: a card's highest index.
@@ -458,8 +456,7 @@ RESOURCE_NAME_MAX = 128
 FORMAT_CHARACTERS = re.compile("[\u061c\u200b-\u200f\u2028-\u202e\u2060-\u2064\ufeff]")
 #: Largest memory figure a resource may carry, in MiB, as a card's.
 RESOURCE_MAX_MB = 1 << 30
-#: MiB in a GiB.
-MB_PER_GIB = 1024
+_MB_PER_GIB = 1024
 #: How much of each kind one standby unit is, which a hub pays standby by:
 #: one card, whether its memory is its own or the host's, so a unified device
 #: is a card and never also memory; host memory per 16384 MiB (16 GiB) and
@@ -468,7 +465,7 @@ STANDBY_UNIT_SIZE: Mapping[str, int] = MappingProxyType(
     {
         RESOURCE_GPU: 1,
         RESOURCE_UNIFIED: 1,
-        RESOURCE_RAM: 16 * MB_PER_GIB,
+        RESOURCE_RAM: 16 * _MB_PER_GIB,
         RESOURCE_CPU: 8,
     }
 )
@@ -478,7 +475,7 @@ STANDBY_UNITS: Mapping[str, str] = MappingProxyType(
     {
         RESOURCE_GPU: "card",
         RESOURCE_UNIFIED: "card",
-        RESOURCE_RAM: f"{STANDBY_UNIT_SIZE[RESOURCE_RAM] // MB_PER_GIB}GiB",
+        RESOURCE_RAM: f"{STANDBY_UNIT_SIZE[RESOURCE_RAM] // _MB_PER_GIB}GiB",
         RESOURCE_CPU: f"{STANDBY_UNIT_SIZE[RESOURCE_CPU]}cores",
     }
 )
@@ -716,12 +713,13 @@ def counts_as_lent(resource: Resource) -> bool:
 def readings_fit(readings: Sequence[ResourceReading]) -> None:
     """Raise ValueError unless one heartbeat may carry ``readings``, by the
     rules of :func:`resources_fit` (each card index once across
-    :data:`CARD_KINDS` among them), but for how many unified devices: a card's
-    reading is held by its index, and how many unified devices a rig has is
-    its advert's to say. Whether each names an advertised resource, and its
-    ``free_mb`` that resource's ``total_mb`` at most, is the hub's to hold
-    against the advert it keeps, which reads nothing of one it does not."""
-    _fit(readings, _ONE_PER_HEARTBEAT)
+    :data:`CARD_KINDS` among them), but for how many of a kind it reads: how
+    many of each a rig has is its advert's to say (:data:`ONE_PER_RIG`).
+    Whether each names an advertised resource, and its ``free_mb`` that
+    resource's ``total_mb`` at most, is the hub's to hold against the advert
+    it keeps, which reads nothing of a ``(kind, index)`` the advert did not
+    name."""
+    _fit(readings, ())
 
 
 @dataclass(frozen=True, kw_only=True)
@@ -798,8 +796,10 @@ def _lent_or_none(value: object, floor: int, most: int, field: str) -> None:
 @dataclass(frozen=True, kw_only=True)
 class Lending:
     """What a member chooses to lend on one rig: ``cards``, the card indexes
-    lent whole (None for every card the rig has, empty for none), ``ram_mb``
-    the host memory lent, in MiB, and ``cpu_cores`` the host cores lent.
+    lent whole, each once (None for every card the rig has, empty for none;
+    always written, null included, so a missing key is no third meaning),
+    ``ram_mb`` the host memory lent, in MiB, and ``cpu_cores`` the host cores
+    lent.
     Memory and cores are each 0, lending none, or at least their kind's
     lending floor (:data:`LEND_FLOOR_MB`, :data:`LEND_FLOOR_CORES`): an
     amount under it would count as nothing lent, so it is never asked for."""
@@ -898,8 +898,7 @@ HEAD_DEVICE_KINDS: tuple[str, ...] = (
 BYTES_PER_DECIMAL_GB = 1e9
 #: Bytes in a GiB, the unit a model's weights are planned in.
 BYTES_PER_GIB = 1 << 30
-#: Milliseconds in a second.
-MS_PER_S = 1000
+_MS_PER_S = 1000
 
 #: Decode efficiency: measured text-generation speed over the speed the
 #: bandwidth alone would allow, ``tg x model_GB / bandwidth_GBps``. Fitted to
@@ -948,12 +947,24 @@ def quant_class(quant: str) -> str | None:
     return None
 
 
+def fitted_on(kind: str, backend: str) -> bool:
+    """Whether a resource of ``kind`` computing with ``backend`` is of the
+    vendor the decode shares were fitted on (:data:`FITTED_ON`): a
+    ``unified`` device on ``metal``, an Apple chip. The wire carries a
+    resource's kind and backend, never its vendor; the product lends an Apple
+    chip as a unified Metal device and an NVIDIA card as a gpu, so a hub
+    passes ``vendor=FITTED_ON`` when this holds and another vendor's name
+    when it does not."""
+    return kind == RESOURCE_UNIFIED and backend == BACKEND_METAL
+
+
 def decode_efficiency(
-    bandwidth_gbps: float, quant: str, *, vendor: str = FITTED_ON
+    bandwidth_gbps: float, quant: str, *, vendor: str
 ) -> float | None:
     """The decode efficiency for this bandwidth, quantisation and vendor, None
     when the quantisation has no class. The high-bandwidth ceiling holds for
-    the vendor the shares were fitted on alone."""
+    the vendor the shares were fitted on (:data:`FITTED_ON`) alone; the wire
+    names no vendor, so a hub tells it by :func:`fitted_on`."""
     klass = quant_class(quant)
     if klass is None:
         return None
@@ -964,7 +975,7 @@ def decode_efficiency(
 
 
 def decode_ms_per_gib(
-    bandwidth_gbps: float, quant: str, *, vendor: str = FITTED_ON
+    bandwidth_gbps: float, quant: str, *, vendor: str
 ) -> float | None:
     """Milliseconds a token takes per GiB of weights it reads, on a device of
     ``bandwidth_gbps`` (decimal GB/s) at the share of it
@@ -974,4 +985,4 @@ def decode_ms_per_gib(
     eff = decode_efficiency(bandwidth_gbps, quant, vendor=vendor)
     if eff is None or not bandwidth_gbps > 0:
         return None
-    return MS_PER_S * BYTES_PER_GIB / (eff * bandwidth_gbps * BYTES_PER_DECIMAL_GB)
+    return _MS_PER_S * BYTES_PER_GIB / (eff * bandwidth_gbps * BYTES_PER_DECIMAL_GB)

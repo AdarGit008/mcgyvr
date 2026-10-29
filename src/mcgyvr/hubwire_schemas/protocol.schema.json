@@ -949,7 +949,7 @@
       ]
     },
     "Lending": {
-      "description": "What a member chooses to lend on one rig: card indexes lent whole\n(null: every card), host memory in MiB and host cores, each 0 or at least\nits lending floor.",
+      "description": "What a member chooses to lend on one rig: card indexes lent whole, each\nonce (always written: null for every card, empty for none), host memory in\nMiB and host cores, each 0 or at least its lending floor.",
       "properties": {
         "cards": {
           "anyOf": [
@@ -960,7 +960,8 @@
                 "type": "integer"
               },
               "maxItems": 16,
-              "type": "array"
+              "type": "array",
+              "uniqueItems": true
             },
             {
               "type": "null"
