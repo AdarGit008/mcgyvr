@@ -19,6 +19,7 @@ standby unit is named for every kind.
 from __future__ import annotations
 
 import dataclasses
+import json
 import math
 from typing import Any
 
@@ -166,6 +167,7 @@ def test_the_fields_are_the_contracts_in_its_order() -> None:
         "total_mb",
         "free_mb",
         "cores",
+        "ddr",
         "bandwidth_gbps",
         "bandwidth_figure",
         "figure",
@@ -254,6 +256,8 @@ def test_a_resources_fields_and_bounds_are_the_shipped_schemas() -> None:
     assert _value(props["free_mb"])["maximum"] == hubwire.RESOURCE_MAX_MB
     cores = _value(props["cores"])
     assert (cores["minimum"], cores["maximum"]) == (1, hubwire.MAX_RESOURCE_CORES)
+    ddr = _value(props["ddr"])
+    assert (ddr["minimum"], ddr["maximum"]) == (1, hubwire.MAX_RAM_DDR)
     bandwidth = _value(props["bandwidth_gbps"])
     assert (bandwidth["exclusiveMinimum"], bandwidth["maximum"]) == (
         0,
@@ -284,7 +288,7 @@ def test_a_hello_and_a_heartbeat_carry_at_most_an_adverts_resources() -> None:
 
 def test_what_the_wire_validates_the_shipped_schema_takes() -> None:
     protocol = rig_schema.load(rig_schema.PROTOCOL)
-    for resource in (_gpu(), _unified(), _ram(), _cpu()):
+    for resource in (_gpu(), _unified(), _ram(), _ram(ddr=4), _cpu()):
         resource.validate()
         body = dataclasses.asdict(resource)
         rig_schema.validate(body, protocol, "#/$defs/Resource")
@@ -294,6 +298,19 @@ def test_what_the_wire_validates_the_shipped_schema_takes() -> None:
         "#/$defs/ResourceReading",
     )
     rig_schema.validate(dataclasses.asdict(_host()), protocol, "#/$defs/Host")
+
+
+def test_a_ddr_generation_goes_through_the_shipped_schema_and_back() -> None:
+    protocol = rig_schema.load(rig_schema.PROTOCOL)
+    body = json.loads(json.dumps(dataclasses.asdict(_ram(ddr=5))))
+    rig_schema.validate(body, protocol, "#/$defs/Resource")
+    back = hubwire.Resource(**body)
+    back.validate()
+    assert back.ddr == 5
+    with pytest.raises(rig_schema.SchemaError):
+        rig_schema.validate(
+            {**body, "ddr": hubwire.MAX_RAM_DDR + 1}, protocol, "#/$defs/Resource"
+        )
 
 
 # --- a resource -------------------------------------------------------------------
@@ -360,6 +377,32 @@ def test_a_resources_free_mib_is_none_or_within_what_it_lends(free_mb: Any) -> N
 )
 def test_only_a_cpu_resource_lends_cores_1_to_1024(resource: hubwire.Resource) -> None:
     _refused("cores", resource.validate)
+
+
+@pytest.mark.parametrize(
+    "resource",
+    [
+        _gpu(ddr=4),
+        _unified(ddr=5),
+        _cpu(ddr=4),
+        _ram(ddr=0),
+        _ram(ddr=hubwire.MAX_RAM_DDR + 1),
+        _ram(ddr=4.0),
+        _ram(ddr=True),
+        _ram(ddr="4"),
+    ],
+)
+def test_only_host_memory_names_a_ddr_generation_1_to_its_most(
+    resource: hubwire.Resource,
+) -> None:
+    _refused("ddr", resource.validate)
+
+
+@pytest.mark.parametrize("ddr", [None, 1, 3, 4, 5, hubwire.MAX_RAM_DDR])
+def test_host_memory_of_any_or_an_unknown_ddr_generation_validates(
+    ddr: int | None,
+) -> None:
+    _ram(ddr=ddr).validate()
 
 
 def test_only_a_unified_device_shares_the_hosts_memory() -> None:
@@ -663,9 +706,10 @@ def test_every_kind_has_one_standby_unit_and_only_names_it() -> None:
 
 
 def test_the_lending_floor_is_named_per_kind() -> None:
-    assert dict(hubwire.LEND_FLOOR_MB) == {"gpu": 2048, "unified": 4096, "ram": 4096}
+    assert dict(hubwire.LEND_FLOOR_MB) == {"gpu": 2048, "unified": 4096, "ram": 8192}
     assert set(hubwire.LEND_FLOOR_MB) == set(hubwire.RESOURCE_KINDS) - {"cpu"}
     assert hubwire.LEND_FLOOR_CORES == 2
+    assert hubwire.RAM_DDR_MIN == 4
 
 
 @pytest.mark.parametrize(
@@ -676,7 +720,9 @@ def test_the_lending_floor_is_named_per_kind() -> None:
         ("gpu", 1, None, False),
         ("unified", 4096, None, True),
         ("unified", 4095, None, False),
-        ("ram", 4096, None, True),
+        ("ram", 8192, None, True),
+        ("ram", 8191, None, False),
+        ("ram", 4096, None, False),
         ("ram", 1, None, False),
         ("cpu", 0, 2, True),
         ("cpu", 0, 1, False),
@@ -695,6 +741,25 @@ def test_a_resource_counts_as_lent_only_at_its_kinds_floor(
         figure="reading",
         backend="cpu" if kind == "cpu" else "cuda",
     )
+    assert hubwire.counts_as_lent(resource) is lent
+
+
+@pytest.mark.parametrize(
+    ("total_mb", "ddr", "lent"),
+    [
+        (8192, None, True),
+        (16384, 3, False),
+        (8192, 4, True),
+        (8191, 5, False),
+        (hubwire.RESOURCE_MAX_MB, 1, False),
+        (8192, hubwire.MAX_RAM_DDR, True),
+    ],
+)
+def test_host_memory_counts_as_lent_only_when_ddr4_or_newer_or_unknown(
+    total_mb: int, ddr: int | None, lent: bool
+) -> None:
+    resource = _ram(total_mb=total_mb, free_mb=None, ddr=ddr)
+    resource.validate()
     assert hubwire.counts_as_lent(resource) is lent
 
 

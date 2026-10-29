@@ -2187,7 +2187,7 @@
       "type": "object"
     },
     "Resource": {
-      "description": "One thing a rig lends: a ``gpu`` card, a ``unified`` device whose\nmemory is the host's, host ``ram``, or ``cpu`` cores. ``index`` counts\nper kind; a gpu or unified device is also the card at its index.\n``total_mb`` is the memory lent (0 for cpu) and ``free_mb`` the part free\nwhen read; ``figure`` says whether those are an estimate or the rig's\nreading. ``cores`` is for cpu alone. ``bandwidth_gbps`` is the memory\nbandwidth, when known, and ``bandwidth_figure`` says the same of it. A\nunified device's memory is the host's. A cpu resource serves whole models\nonly, never a pipeline stage.",
+      "description": "One thing a rig lends: a ``gpu`` card, a ``unified`` device whose\nmemory is the host's, host ``ram``, or ``cpu`` cores. ``index`` counts\nper kind; a gpu or unified device is also the card at its index.\n``total_mb`` is the memory lent (0 for cpu) and ``free_mb`` the part free\nwhen read; ``figure`` says whether those are an estimate or the rig's\nreading. ``cores`` is for cpu alone. ``ddr`` is a ram resource's DDR\ngeneration, when the rig could tell, and is for ram alone.\n``bandwidth_gbps`` is the memory bandwidth, when known, and\n``bandwidth_figure`` says the same of it. A unified device's memory is the\nhost's. A cpu resource serves whole models only, never a pipeline stage.",
       "properties": {
         "backend": {
           "enum": [
@@ -2243,6 +2243,20 @@
           ],
           "default": null,
           "title": "Cores"
+        },
+        "ddr": {
+          "anyOf": [
+            {
+              "maximum": 9,
+              "minimum": 1,
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Ddr"
         },
         "figure": {
           "enum": [

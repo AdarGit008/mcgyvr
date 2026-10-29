@@ -40,6 +40,7 @@ from these names rather than writing them again:
   (:func:`cards_from_resources`, :func:`card_readings_from`), the unit
   standby is counted in per kind (:data:`STANDBY_UNITS`) and the least a
   resource lends to count (:data:`LEND_FLOOR_MB`, :data:`LEND_FLOOR_CORES`,
+  the oldest DDR generation host memory may be, :data:`RAM_DDR_MIN`, and
   :func:`counts_as_lent`);
 * the llama.cpp RPC protocol version a rig speaks (:class:`RpcProto`, carried
   as :data:`RPC_PROTO_FIELD`) and which workers a head may take
@@ -370,6 +371,8 @@ MAX_CARDS = 16
 MAX_RESOURCE_INDEX = 63
 #: Most logical cores one ``cpu`` resource may lend.
 MAX_RESOURCE_CORES = 1024
+#: Highest DDR generation a ``ram`` resource may name (:attr:`Resource.ddr`).
+MAX_RAM_DDR = 9
 #: Highest memory bandwidth a resource may name, in GB/s.
 MAX_BANDWIDTH_GBPS = 100_000.0
 #: Longest host version a hello may name, in characters.
@@ -405,10 +408,12 @@ LEND_FLOOR_MB: Mapping[str, int] = MappingProxyType(
     {
         RESOURCE_GPU: 2048,
         RESOURCE_UNIFIED: 4096,
-        RESOURCE_RAM: 4096,
+        RESOURCE_RAM: 8192,
     }
 )
 LEND_FLOOR_CORES = 2
+#: The oldest DDR generation host memory may be and count as lent: DDR4.
+RAM_DDR_MIN = 4
 
 
 def shares_ram(kind: str) -> bool:
@@ -465,7 +470,9 @@ class Resource:
     ``total_mb`` is the MiB lent, at least 1 (0 for ``cpu``: memory lent beside
     cores is a ``ram`` resource) and ``free_mb`` the MiB free, once read;
     ``figure`` says whether those two are an estimate or a reading. ``cores``
-    is set for ``cpu`` alone. ``bandwidth_gbps`` is the memory bandwidth, when
+    is set for ``cpu`` alone. ``ddr`` is a ``ram`` resource's DDR generation
+    (3, 4, 5, at most :data:`MAX_RAM_DDR`), None when the reader could not
+    tell, and is set for ``ram`` alone. ``bandwidth_gbps`` is the memory bandwidth, when
     known, and ``bandwidth_figure`` says which it is, set with it alone. A
     ``unified`` device's memory is the host's (:func:`shares_ram`). A hub
     mirroring these rules refuses a non-finite bandwidth, as JSON's
@@ -481,6 +488,7 @@ class Resource:
     total_mb: int
     free_mb: int | None = None
     cores: int | None = None
+    ddr: int | None = None
     bandwidth_gbps: float | None = None
     bandwidth_figure: str | None = None
     figure: str
@@ -514,6 +522,15 @@ class Resource:
             )
         else:
             _need(self.cores is None, "cores", "set for a kind that is not cpu")
+        if self.kind == RESOURCE_RAM:
+            _need(
+                self.ddr is None
+                or (_is_int(self.ddr) and 1 <= self.ddr <= MAX_RAM_DDR),
+                "ddr",
+                f"not null or 1 to {MAX_RAM_DDR}",
+            )
+        else:
+            _need(self.ddr is None, "ddr", "set for a kind that is not ram")
         bandwidth = self.bandwidth_gbps
         _need(
             bandwidth is None
@@ -593,9 +610,21 @@ def counts_as_lent(resource: Resource) -> bool:
     """Whether ``resource`` reaches its kind's lending floor: ``cpu`` lends at
     least :data:`LEND_FLOOR_CORES` cores, any other kind at least
     :data:`LEND_FLOOR_MB` of its kind. A hub counts a rig as giving only while
-    one of its resources does; a product refuses to lend less."""
+    one of its resources does; a product refuses to lend less.
+
+    Host memory must also be DDR4 or newer (:data:`RAM_DDR_MIN`): a ``ram``
+    resource whose generation is known to be older (``ddr`` 3 or less) never
+    counts, whatever its size. One whose generation the reader could not tell
+    (``ddr`` None) counts by its size alone. Linux reads the memory type from
+    the firmware's SMBIOS table only as root, and the product asks for no
+    sudo, so an unknown generation is the usual Linux answer and is not held
+    against the rig; Windows reads it from WMI. An Apple Silicon Mac's memory
+    is its ``unified`` device's, not ``ram``, so this rule never touches it."""
     if resource.kind == RESOURCE_CPU:
         return (resource.cores or 0) >= LEND_FLOOR_CORES
+    ddr = resource.ddr
+    if resource.kind == RESOURCE_RAM and ddr is not None and ddr < RAM_DDR_MIN:
+        return False
     return resource.total_mb >= LEND_FLOOR_MB[resource.kind]
 
 

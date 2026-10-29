@@ -45,7 +45,12 @@ archived outside this repository, under the same paths.
   `cards[]` of a hello and a heartbeat from the `gpu` and `unified` ones, and
   `STANDBY_UNITS` names the unit standby is counted in per kind (names only);
   `LEND_FLOOR_MB`, `LEND_FLOOR_CORES` and `counts_as_lent` say the least a
-  resource lends to count as lent (a 1 MiB card or one core earns nothing);
+  resource lends to count as lent (a 1 MiB card or one core earns nothing):
+  2048 MiB for a `gpu`, 4096 for a `unified` device, 8192 of host `ram`, two
+  `cpu` cores. A `ram` resource may name its DDR generation (`Resource.ddr`,
+  1 to `MAX_RAM_DDR`, `ram` alone); one known to be older than `RAM_DDR_MIN`
+  (DDR4) never counts, and one whose generation the reader could not tell
+  counts by its size. The shipped protocol schema carries `ddr` on a resource;
   `FIGURE_ESTIMATE` and `FIGURE_READING` name the two figure kinds.
   A `cpu` resource serves whole models only, never a pipeline stage. The rig
   agent's card rules (`rig.protocol.CARD_NAME`, `CARD_NAME_MAX`, `MAX_MB`,
