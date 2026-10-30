@@ -115,7 +115,8 @@ def test_both_programs_are_the_ones_the_native_launch_runs() -> None:
 def test_a_planted_nvidia_smi_in_the_working_folder_is_never_run_on_windows(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
-    from mcgyvr.serving import native
+    # The native build asks the reader's nvidia-smi (rigscan.nvidia_smi).
+    from mcgyvr.serving import rigscan
     from tests.hostos_fakes import as_system
 
     here = tmp_path / "cwd"
@@ -128,10 +129,10 @@ def test_a_planted_nvidia_smi_in_the_working_folder_is_never_run_on_windows(
     for variable in ("SYSTEMROOT", "PROGRAMW6432", "PROGRAMFILES"):
         monkeypatch.setenv(variable, str(elsewhere))
     as_system(monkeypatch, "windows")
-    assert native.nvidia_smi() is None
+    assert rigscan.nvidia_smi() is None
 
     real = tmp_path / "Program Files" / "NVIDIA Corporation" / "NVSMI"
     real.mkdir(parents=True)
     (real / "nvidia-smi.exe").write_text("driver's")
     monkeypatch.setenv("PROGRAMFILES", str(tmp_path / "Program Files"))
-    assert native.nvidia_smi() == os.path.join(str(real), "nvidia-smi.exe")
+    assert rigscan.nvidia_smi() == os.path.join(str(real), "nvidia-smi.exe")

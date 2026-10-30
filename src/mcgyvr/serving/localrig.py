@@ -85,7 +85,7 @@ def run(
         return _find(command, words)
     if words[:2] == ["bash", "-s"]:
         bash = shutil.which("bash")
-        if bash is None or hostos.os_name() == "windows":
+        if bash is None or hostos.os_name() == hostos.WINDOWS:
             return _refused(command, "this machine has no bash to read the script")
         return subprocess.run(
             [bash, *words[1:]],

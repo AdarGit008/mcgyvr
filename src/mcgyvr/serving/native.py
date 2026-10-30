@@ -62,7 +62,6 @@ import json
 import os
 import platform
 import re
-import shutil
 import signal
 import subprocess
 import sys
@@ -79,7 +78,17 @@ from typing import Any
 # (the compose file's yaml, the config's and the launch spec's names) is
 # imported where it is used.
 from mcgyvr import hostos
-from mcgyvr.serving import llamacpp, release
+from mcgyvr.config import LAUNCHER_NATIVE
+from mcgyvr.hubwire import FIGURE_READING
+from mcgyvr.serving import (
+    CARDS_KEY,
+    LAUNCHER_KEY,
+    PROGRAM_KEY,
+    SLEEPER_PROFILE,
+    llamacpp,
+    release,
+    rigscan,
+)
 
 #: The folders under the data folder: supervisors' locks, specs and records;
 #: the units' logs.
@@ -129,16 +138,7 @@ BACKOFF = "backoff"
 GAVE_UP = "gave_up"
 STOPPED = "stopped"
 FAILED = "failed"
-#: How the machine's architecture is spelled by ``platform.machine()``.
-#: The reader (``host.arch`` in its reading) is the one reader of it; until
-#: that reading is on this branch's base, this is its local stand-in.
-ARCH_NAMES = {
-    "x86_64": "x86_64",
-    "amd64": "x86_64",
-    "arm64": "arm64",
-    "aarch64": "arm64",
-}
-#: How long ``nvidia-smi`` and ``sysctl`` are given.
+#: How long ``nvidia-smi`` is given to name its driver.
 PROBE_S = 10.0
 #: Where a shipped launcher leaves the copy its supervisors run, under the
 #: mcgyvr home: one file per program, named by its sha256.
@@ -274,47 +274,14 @@ def parse(compose_file: Path) -> tuple[NativeUnit, ...]:
 # --- which build -------------------------------------------------------------
 
 
-def machine_arch() -> str:
-    """This machine's architecture: ``x86_64`` or ``arm64`` (else the raw name).
-
-    On macOS, ``hw.optional.arm64`` is 1 on Apple silicon even under an x86_64
-    interpreter (https://developer.apple.com/forums/thread/659846), so the
-    native build matches the machine, not the interpreter.
-    """
-    machine = platform.machine().lower()
-    arch = ARCH_NAMES.get(machine, machine)
-    if hostos.os_name() == "darwin":
-        try:
-            done = subprocess.run(
-                ["/usr/sbin/sysctl", "-n", "hw.optional.arm64"],
-                stdin=subprocess.DEVNULL,
-                capture_output=True,
-                text=True,
-                timeout=PROBE_S,
-                check=False,
-            )
-        except (OSError, subprocess.SubprocessError):
-            return arch
-        if done.stdout.strip() == "1":
-            return "arm64"
-    return arch
-
-
-def nvidia_smi() -> str | None:
-    """The ``nvidia-smi`` to ask, by its full path, or None.
-
-    POSIX: the one on PATH. Windows: :func:`mcgyvr.hostos.windows_nvidia_smi`,
-    never a bare name, since Windows' ``which`` looks in the working folder first and
-    honours PATHEXT, where anyone may leave an ``nvidia-smi.bat``.
-    """
-    if hostos.os_name() == "windows":
-        return hostos.windows_nvidia_smi()
-    return shutil.which("nvidia-smi")
-
 
 def nvidia_driver() -> str | None:
-    """The NVIDIA driver's version ``nvidia-smi`` reads, or None without one."""
-    smi = nvidia_smi()
+    """The NVIDIA driver's version ``nvidia-smi`` reads, or None without one.
+
+    The tool is the one the reader runs (:func:`mcgyvr.serving.rigscan.nvidia_smi`),
+    so on Windows it is found by its full path alone, never in the working folder.
+    """
+    smi = rigscan.nvidia_smi()
     if smi is None:
         return None
     try:
@@ -334,10 +301,10 @@ def nvidia_driver() -> str | None:
 
 def vulkan_loader() -> bool:
     """Whether this machine has a Vulkan loader for a Vulkan build to use."""
-    if hostos.os_name() == "windows":
+    if hostos.os_name() == hostos.WINDOWS:
         system = os.environ.get("SYSTEMROOT") or r"C:\Windows"
         return (Path(system) / "System32" / "vulkan-1.dll").is_file()
-    if hostos.os_name() == "linux":
+    if hostos.os_name() == hostos.LINUX:
         # Looked up, not loaded: the door's own process loads no driver.
         import ctypes.util
 
@@ -346,8 +313,20 @@ def vulkan_loader() -> bool:
 
 
 def pick() -> llamacpp.Build:
-    """The pinned build for this machine (K5), or for ``$MCGYVR_NATIVE_BACKEND``."""
-    os_name, arch = hostos.os_name(), machine_arch()
+    """The pinned build for this machine (K5), or for ``$MCGYVR_NATIVE_BACKEND``.
+
+    The system and its architecture are the reader's (:func:`rigscan.host`):
+    the machine's, so an Apple silicon Mac under an x86_64 interpreter still
+    gets its Metal build. A machine whose arch the reader does not name has
+    no build.
+    """
+    host = rigscan.host()
+    os_name, arch = str(host["os"]), host["arch"]
+    if arch is None:
+        raise NativeError(
+            f"this machine's arch ({platform.machine()!r}) is not one a pinned "
+            f"llama.cpp build is made for: {', '.join(llamacpp.ARCHES)}"
+        )
     driver = nvidia_driver()
     named = os.environ.get(BACKEND_ENV, "").strip().lower()
     if named and named not in llamacpp.BACKENDS:
@@ -844,7 +823,7 @@ def held() -> dict[str, str]:
 
 
 def _card_holders() -> str:
-    smi = nvidia_smi()
+    smi = rigscan.nvidia_smi()
     if smi is None:
         return "none"
     try:
@@ -1055,7 +1034,7 @@ def _scan_metal(log_file: Path, offset: int, unit: str, spec: dict[str, Any]) ->
         state_dir() / METAL_FILE,
         {
             "bytes": found,
-            "figure": "reading",
+            "figure": FIGURE_READING,
             "source": "llama-server's Metal start-up log, recommendedMaxWorkingSetSize",
             "unit": unit,
             "tag": spec.get("tag"),

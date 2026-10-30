@@ -270,6 +270,10 @@ class Box:
             return [f for f in self.frames if f["type"] == kind]
 
 
+#: The logical cores the fake report's machine has.
+REPORT_THREADS = 12
+
+
 def report() -> Any:
     from mcgyvr.rig import hardware, protocol
 
@@ -290,6 +294,55 @@ def report() -> Any:
         ),
         notes=(),
         sources=(("nvidia", 0), ("nvidia", 1), ("othervendor", 0)),
+        # The cards as resources, as the reader names them beside its cards.
+        resources=(
+            *(
+                {
+                    "kind": "gpu",
+                    "index": index,
+                    "name": name,
+                    "total_mb": total,
+                    "free_mb": free,
+                    "cores": None,
+                    "bandwidth_gbps": None,
+                    "bandwidth_figure": None,
+                    "ddr": None,
+                    "figure": "reading",
+                    "backend": backend,
+                }
+                for index, name, total, free, backend in (
+                    (0, "Card A", 8192, 8000, "cuda"),
+                    (1, "Card A", 8192, 8000, "cuda"),
+                    (2, "Card B", 4096, 4000, "vulkan"),
+                )
+            ),
+            {
+                "kind": "ram",
+                "index": 0,
+                "name": "host RAM",
+                "total_mb": 65536,
+                "free_mb": 60000,
+                "cores": None,
+                "bandwidth_gbps": None,
+                "bandwidth_figure": None,
+                "ddr": None,
+                "figure": "reading",
+                "backend": "cpu",
+            },
+            {
+                "kind": "cpu",
+                "index": 0,
+                "name": "Example CPU",
+                "total_mb": 0,
+                "free_mb": None,
+                "cores": REPORT_THREADS,
+                "bandwidth_gbps": None,
+                "bandwidth_figure": None,
+                "ddr": None,
+                "figure": "reading",
+                "backend": "cpu",
+            },
+        ),
     )
 
 

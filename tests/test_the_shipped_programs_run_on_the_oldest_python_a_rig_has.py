@@ -218,7 +218,7 @@ def test_up_starts_a_supervised_unit_on_3_9_and_down_stops_it(
     import socket
 
     from mcgyvr import hostos
-    from mcgyvr.serving import llamacpp, native, release
+    from mcgyvr.serving import llamacpp, native, release, rigscan
 
     assert PYTHON39 is not None
     env = {
@@ -234,7 +234,7 @@ def test_up_starts_a_supervised_unit_on_3_9_and_down_stops_it(
     # leaves it), so nothing is fetched: a stand-in server, recorded as the
     # release's own unpacking records it.
     build = llamacpp.build_for(
-        hostos.os_name(), native.machine_arch(), llamacpp.CPU, nvidia_driver=None
+        hostos.os_name(), rigscan.host()["arch"], llamacpp.CPU, nvidia_driver=None
     )
     folder = native.bin_root() / build.name
     folder.mkdir(parents=True)

@@ -141,7 +141,11 @@ def test_the_hello_always_names_hitchhike_units_and_offers_a_role_only_when_lend
 
     held = fakes.inventory(tmp_path)
     idle = session.offer(
-        fakes.sharing(tmp_path, enabled=False), held, (fakes.LAN_ADDRESS,), ("s1",)
+        fakes.sharing(tmp_path, enabled=False),
+        held,
+        (fakes.LAN_ADDRESS,),
+        ("s1",),
+        fakes.report(),
     )
     assert idle == protocol.Offer(
         roles=(),

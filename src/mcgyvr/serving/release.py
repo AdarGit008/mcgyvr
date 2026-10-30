@@ -370,7 +370,7 @@ def strip_quarantine(folder: Path) -> bool | None:
     ``xattr -d`` exit non-zero too, and a flag left on is Gatekeeper's prompt
     the first time the program runs, not a broken install.
     """
-    if hostos.os_name() != "darwin":
+    if hostos.os_name() != hostos.DARWIN:
         return None
     try:
         done = subprocess.run(
@@ -398,7 +398,7 @@ def strip_quarantine(folder: Path) -> bool | None:
 
 def _mark_executable(path: Path) -> None:
     """Let the owner run `path`; nothing to do on Windows, which runs by extension."""
-    if hostos.os_name() == "windows":
+    if hostos.os_name() == hostos.WINDOWS:
         return
     mode = stat.S_IMODE(path.stat().st_mode)
     path.chmod((mode | stat.S_IXUSR) & ~(stat.S_IWGRP | stat.S_IWOTH))

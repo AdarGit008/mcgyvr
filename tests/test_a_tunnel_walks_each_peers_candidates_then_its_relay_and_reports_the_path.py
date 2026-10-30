@@ -295,7 +295,7 @@ def test_an_address_the_owner_names_outside_the_lan_is_offered_as_public(
         ]
         share = made.sessions.machine.sharing()
         held = inventory.Inventory(folder=None, models=(), files={})
-        offer = session.offer(share, held, share.endpoints, ())
+        offer = session.offer(share, held, share.endpoints, (), fakes.report())
         assert offer is not None
         assert [kind for _, _, kind in offer.endpoints] == ["lan", "public"]
     finally:

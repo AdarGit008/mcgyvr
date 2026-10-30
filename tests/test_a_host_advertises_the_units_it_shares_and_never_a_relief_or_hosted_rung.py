@@ -484,7 +484,7 @@ def test_the_hello_names_hitchhike_units_whether_the_rig_lends_or_not(
     held = fakes.inventory(tmp_path)
     idle = fakes.sharing(tmp_path, enabled=False)
 
-    sharing_only = session.offer(idle, held, (fakes.LAN_ADDRESS,), ())
+    sharing_only = session.offer(idle, held, (fakes.LAN_ADDRESS,), (), fakes.report())
     assert sharing_only == protocol.Offer(
         roles=(),
         runtime=None,
@@ -493,7 +493,9 @@ def test_the_hello_names_hitchhike_units_whether_the_rig_lends_or_not(
         sessions=(),
         features=("hitchhike_units",),
     )
-    lending = session.offer(fakes.sharing(tmp_path), held, (fakes.LAN_ADDRESS,), ())
+    lending = session.offer(
+        fakes.sharing(tmp_path), held, (fakes.LAN_ADDRESS,), (), fakes.report()
+    )
     assert lending.features == session.FEATURES
 
     schema = rig_schema.load()

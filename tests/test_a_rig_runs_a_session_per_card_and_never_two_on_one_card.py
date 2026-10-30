@@ -255,6 +255,7 @@ def test_a_lending_hello_names_the_feature(tmp_path: Path) -> None:
         fakes.inventory(tmp_path),
         (fakes.LAN_ADDRESS,),
         (),
+        fakes.report(),
     )
     assert "multi_session" in offer.features
     assert len(offer.features) <= protocol.MAX_FEATURES

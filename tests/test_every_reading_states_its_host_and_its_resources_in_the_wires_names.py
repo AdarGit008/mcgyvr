@@ -21,6 +21,8 @@ from mcgyvr import hubwire
 from tests.machine_shapes import Card, HostShape, host_reading, host_shape, host_shapes
 from tests.machinereader import Staged, run
 
+#: The fields a reading's resource carries: the wire's record, every one (a
+#: ``ram`` resource's DDR generation is read on Windows, None where unread).
 RESOURCE_FIELDS = {field.name for field in dataclasses.fields(hubwire.Resource)}
 
 

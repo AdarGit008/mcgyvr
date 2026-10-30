@@ -155,8 +155,8 @@ REG_MACHINE_GUID = (
 #: (https://learn.microsoft.com/en-us/powershell/module/microsoft.powershell.core/about/about_powershell_exe?view=powershell-5.1).
 CIM_SCRIPT = (
     "$ErrorActionPreference='SilentlyContinue';[pscustomobject]@{"
-    "memory=@(Get-CimInstance Win32_PhysicalMemory|"
-    "ForEach-Object{[string]$_.Capacity});"
+    "memory=@(Get-CimInstance Win32_PhysicalMemory|ForEach-Object{[pscustomobject]@{"
+    "capacity=[string]$_.Capacity;type=[string]$_.SMBIOSMemoryType}});"
     "processors=@(Get-CimInstance Win32_Processor|ForEach-Object{[pscustomobject]@{"
     "name=$_.Name;cores=$_.NumberOfCores;threads=$_.NumberOfLogicalProcessors;"
     "architecture=$_.Architecture}});"
@@ -166,6 +166,14 @@ CIM_SCRIPT = (
     "video=@(Get-CimInstance Win32_VideoController|ForEach-Object{[pscustomobject]@{"
     "name=$_.Name;pnp=$_.PNPDeviceID}})}|ConvertTo-Json -Depth 4 -Compress"
 )
+#: The DDR generation of a module's raw SMBIOS memory type
+#: (Win32_PhysicalMemory.SMBIOSMemoryType, "The raw SMBIOS memory type",
+#: Windows 10 and later), SMBIOS type 17 codes as dmidecode names them in
+#: dmi_memory_device_type (https://github.com/mirror/dmidecode/blob/master/dmidecode.c):
+#: 0x18 "DDR3", 0x1A "DDR4", 0x22 "DDR5", and a laptop's 0x1D "LPDDR3",
+#: 0x1E "LPDDR4", 0x23 "LPDDR5". Any other code (0, "Unknown", "Other") is a
+#: generation unread, never 0.
+SMBIOS_DDR = {0x18: 3, 0x1A: 4, 0x22: 5, 0x1D: 3, 0x1E: 4, 0x23: 5}
 CIM_ARGS = (
     "powershell",
     "-NoProfile",
@@ -1206,7 +1214,7 @@ def _other_memory(platform_: _Platform) -> _MemoryRead:
     else:
         data, why = platform_.cim()
         system = platform_.cim_first("system")
-        modules = [_size(v) for v in _items((data or {}).get("memory"))]
+        modules = [_size(_module_field(m, "capacity")) for m in _modules(data)]
         how = "Win32_PhysicalMemory Capacity, summed"
         total = (
             sum(m for m in modules if m) if modules and None not in modules else None
@@ -1396,6 +1404,28 @@ def _host_section(platform_: _Platform, reading: _Reading) -> dict[str, Any]:
     return {"os": system, "arch": arch, "version": version if usable else None}
 
 
+def host(*, system: str | None = None, bound: float = BOUND_S) -> dict[str, Any]:
+    """This machine's host section alone, as a reading names it (`os`, `arch`,
+    `version`), for a caller that needs no more of the machine: the arch is the
+    machine's (`hw.optional.arm64` on a Mac under an x86_64 interpreter, the
+    processor's on Windows), not the interpreter's. `system` is one of SYSTEMS;
+    by default the one this runs on."""
+    platform_ = _Platform(_system_of("", system), bound, keep=True)
+    return _host_section(platform_, _Reading())
+
+
+def nvidia_smi(*, system: str | None = None) -> str | None:
+    """The nvidia-smi this reader runs, or None when there is none: on Windows
+    by its full path alone (`_windows_nvidia_smi`, never the working folder),
+    elsewhere the one in an absolute PATH folder (a relative entry would be
+    the working folder)."""
+    if _system_of("", system) == "windows":
+        return _windows_nvidia_smi()
+    folders = os.environ.get("PATH", "").split(os.pathsep)
+    absolute = os.pathsep.join(d for d in folders if os.path.isabs(d))
+    return shutil.which(FIRST_TOOL, path=absolute) if absolute else None
+
+
 #: A CPU reading: the section, its facts and its notes.
 _CpuRead: TypeAlias = "tuple[dict[str, Any] | None, list[dict[str, str]], list[str]]"
 
@@ -1499,15 +1529,43 @@ def _cpuinfo_model(root: str) -> str | None:
     return None
 
 
+def _modules(data: dict[str, Any] | None) -> list[Any]:
+    """The memory modules of a CIM answer, one {capacity, type} each."""
+    return _items((data or {}).get("memory"))
+
+
+def _module_field(module: Any, name: str) -> Any:
+    return module.get(name) if isinstance(module, dict) else None
+
+
+def _ddr(platform_: _Platform) -> int | None:
+    """The DDR generation of the machine's RAM: on Windows the lowest of its
+    modules' that is read (SMBIOS_DDR; a board holds one generation), None when
+    none is. Linux reads SMBIOS only as root and macOS names none, so elsewhere
+    None."""
+    if platform_.system != "windows":
+        return None
+    data, _ = platform_.cim()
+    found = [
+        SMBIOS_DDR.get(_size(_module_field(m, "type")) or 0) for m in _modules(data)
+    ]
+    read = [n for n in found if n is not None]
+    return min(read) if read else None
+
+
 def _resources(
-    cards: list[dict[str, Any]], memory_mib: _Mib, cpu: Mapping[str, Any] | None
+    cards: list[dict[str, Any]],
+    memory_mib: _Mib,
+    cpu: Mapping[str, Any] | None,
+    ddr: int | None = None,
 ) -> list[dict[str, Any]]:
     """The machine's resources in the hub's contract: each sized card (`gpu` or
     `unified`, numbered per kind in the reading's order, as a hardware report
     numbers its cards), host RAM, and the CPU's logical cores. A card that read as
     0 MiB keeps its number but is no resource, as the wire takes none that small.
-    A unified device shares host RAM by its kind alone. Bandwidth is not read
-    here, so it and its figure are None."""
+    A unified device shares host RAM by its kind alone. Host RAM carries its DDR
+    generation (`ddr`, :func:`_ddr`), None where unread and on every other kind.
+    Bandwidth is not read here, so it and its figure are None."""
     found: list[dict[str, Any]] = []
     numbered: dict[str, int] = {}
 
@@ -1544,7 +1602,7 @@ def _resources(
                 backend=str(card["backend"]),
             )
     if memory_mib[0] is not None:
-        add(RESOURCE_RAM, "host RAM", total_mb=memory_mib[0], free_mb=memory_mib[1])
+        add(RESOURCE_RAM, "host RAM", total_mb=memory_mib[0], free_mb=memory_mib[1], ddr=ddr)
     if cpu is not None:
         add(RESOURCE_CPU, cpu.get("model") or "CPU", cores=cpu["threads"])
     return found
@@ -1585,6 +1643,7 @@ class _Short:
         self.first_answered = reading.first_answered
         self.notes += memory_notes
         self.cpu, self.cpu_facts, self.cpu_notes = _cpu(root, bound, platform_)
+        self.ddr = _ddr(platform_)
         host = _host_section(platform_, reading)
         cards = [reading.cards[where] for where in sorted(reading.cards)]
         # A field that no source filled and no source explained is still named, so
@@ -1620,7 +1679,7 @@ class _Short:
             "unsized": unsized,
             "memory": memory,
             "cpu": self.cpu,
-            "resources": _resources(cards, memory_mib, self.cpu),
+            "resources": _resources(cards, memory_mib, self.cpu, self.ddr),
             "unread": reading.unread,
         }
 

@@ -5,8 +5,10 @@ This module holds no detection of its own: the one reader,
 :func:`mcgyvr.fleet.ids.rig_id` names it with the ``rig-`` id the hub knows it
 by. :func:`read` turns that reading into a :class:`Report`, and the report
 makes the two frames an agent sends about its hardware, a ``hello`` and a
-``heartbeat``. A reading that fails or that cannot be named is raised as
-:class:`HardwareError` rather than reported as a guess.
+``heartbeat``: what the rig lends of it, as resources in the hub's contract
+(:mod:`mcgyvr.hubwire`), and the legacy cards those make. A reading that
+fails or that cannot be named is raised as :class:`HardwareError` rather
+than reported as a guess.
 """
 
 from __future__ import annotations
@@ -15,7 +17,9 @@ from collections.abc import Callable, Mapping
 from dataclasses import dataclass
 from typing import Any
 
+from mcgyvr import estimate, hubwire
 from mcgyvr.fleet import ids
+from mcgyvr.hubwire import CARD_KINDS, FIGURE_ESTIMATE, RESOURCE_CPU
 from mcgyvr.rig import protocol
 from mcgyvr.scan import Host
 
@@ -55,6 +59,9 @@ class Report:
     resources: tuple[Mapping[str, Any], ...] = ()
     #: The system the reading was taken on; None when the reading had none.
     host: Host | None = None
+    #: What the rig lends of this machine, as its hello advertises it: none
+    #: until the lending settings say (:meth:`mcgyvr.rig.sharing.Sharing.lendable`).
+    lent: tuple[hubwire.Resource, ...] = ()
 
 
 def read_machine() -> Mapping[str, Any]:
@@ -153,17 +160,18 @@ def read(*, reader: Callable[[], Mapping[str, Any]] | None = None) -> Report:
         notes=tuple(notes),
         sources=tuple(sources),
         kinds=tuple(kinds),
-        resources=_resources(reading, kinds),
+        resources=_resources(reading, kinds, ram_total),
         host=Host.from_reading(reading.get("host")),
     )
 
 
 def _resources(
-    reading: Mapping[str, Any], kinds: list[str]
+    reading: Mapping[str, Any], kinds: list[str], ram_total_mb: int
 ) -> tuple[Mapping[str, Any], ...]:
     """The reading's resources as the report may carry them: a card's resource
     only when its index is a card the report keeps, its name printable and held
-    to the protocol's, its sizes to MAX_MB."""
+    to the protocol's, its sizes to MAX_MB. A card whose bandwidth the reader
+    did not read gets its class's (:func:`_class_bandwidth`)."""
     kept: list[Mapping[str, Any]] = []
     for resource in reading.get("resources") or ():
         if not isinstance(resource, Mapping) or not isinstance(
@@ -181,8 +189,38 @@ def _resources(
             if isinstance(resource.get(key), int)
         }
         name = _printable(str(resource.get("name") or ""), kind)
-        kept.append({**resource, **sizes, "name": name})
+        made = {**resource, **sizes, "name": name}
+        if kind in CARD_KINDS and made.get("bandwidth_gbps") is None:
+            made.update(_class_bandwidth(made, ram_total_mb))
+        kept.append(made)
     return tuple(kept)
+
+
+def _class_bandwidth(card: Mapping[str, Any], ram_total_mb: int) -> dict[str, Any]:
+    """The memory bandwidth of a card's class (:func:`mcgyvr.estimate.match`),
+    as an estimate, since the card is only matched to the class; nothing when
+    no class names it. The reader cannot ship the table, so the agent adds it."""
+    found = estimate.match(
+        str(card["name"]),
+        vram_mib=card.get("total_mb"),
+        memory_mib=ram_total_mb or None,
+    )
+    if isinstance(found, estimate.NoEstimate):
+        return {}
+    return {"bandwidth_gbps": found.bandwidth_gbps, "bandwidth_figure": FIGURE_ESTIMATE}
+
+
+def _host(host: Host | None) -> hubwire.Host | None:
+    """The host a hello names: the reading's, when it names all three of its
+    fields as the wire takes them; else none."""
+    if host is None or host.arch is None or host.version is None:
+        return None
+    wire = hubwire.Host(os=host.os, arch=host.arch, version=host.version)
+    try:
+        wire.validate()
+    except ValueError:
+        return None
+    return wire
 
 
 def hello_frame(
@@ -194,7 +232,10 @@ def hello_frame(
 ) -> str:
     """The ``hello`` frame this report makes, under ``message_id``.
 
-    It carries the machine id, the agent version, the RAM totals, the cards,
+    It carries the machine id, the agent version, the RAM totals, what the rig
+    lends (``report.lent``) with the cards those make
+    (:func:`mcgyvr.hubwire.cards_from_resources`, never every card the machine
+    has: a rig that lends nothing names no card), the host beside what it lends,
     and ``offer`` when the agent advertises what it can do.
     """
     return protocol.hello(
@@ -203,22 +244,37 @@ def hello_frame(
         agent_version=agent_version,
         ram_total_mb=report.ram_total_mb,
         ram_free_mb=report.ram_free_mb,
-        cards=report.cards,
+        cards=tuple(
+            protocol.CardReport(**card)
+            for card in hubwire.cards_from_resources(report.lent)
+        ),
         offer=offer,
+        resources=report.lent,
+        # The host (its version is the machine's patch level) only beside
+        # what it lends, which is what the hub plans by.
+        host=_host(report.host) if report.lent else None,
     )
 
 
 def heartbeat_frame(report: Report, message_id: str) -> str:
     """The ``heartbeat`` frame this report makes, under ``message_id``.
 
-    A heartbeat carries only what changes: free RAM when the report has it, and
-    each card's index with its free VRAM, so the card list matches the hello's.
+    A heartbeat carries only what changes: free RAM when the report has it, the
+    free MiB of each lent resource that has memory and a reading of it, and the
+    card readings those make (:func:`mcgyvr.hubwire.card_readings_from`), so
+    the cards match the hello's.
     """
+    readings = tuple(
+        hubwire.ResourceReading(kind=r.kind, index=r.index, free_mb=r.free_mb)
+        for r in report.lent
+        if r.kind != RESOURCE_CPU and r.free_mb is not None
+    )
     return protocol.heartbeat(
         message_id,
         ram_free_mb=report.ram_free_mb,
         cards=tuple(
-            protocol.CardReading(index=card.index, vram_free_mb=card.vram_free_mb)
-            for card in report.cards
+            protocol.CardReading(**card)
+            for card in hubwire.card_readings_from(readings)
         ),
+        resources=readings,
     )

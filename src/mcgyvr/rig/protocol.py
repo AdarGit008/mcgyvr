@@ -14,12 +14,13 @@ fault rather than write a frame the hub would refuse, and a reader raises
 
 from __future__ import annotations
 
+import dataclasses
 import enum
 import json
 import re
 import uuid
 from collections.abc import Mapping, Sequence
-from dataclasses import dataclass
+from dataclasses import asdict, dataclass
 from typing import Any
 
 from mcgyvr import hubwire
@@ -147,6 +148,12 @@ class Ack:
     re: str
     rig_id: str | None
     heartbeat_interval_s: int | None
+    #: What the member chose on the hub for this rig to lend
+    #: (:data:`mcgyvr.hubwire.LENDING_FIELD`), when the hub says.
+    lending: hubwire.Lending | None = None
+    #: Why a lending the hub sent was not taken (not the wire's shape), so the
+    #: rig lends as its own settings say; None when there was none to refuse.
+    lending_unread: str | None = None
 
 
 @dataclass(frozen=True, kw_only=True)
@@ -284,11 +291,16 @@ def decode(raw: str | bytes) -> Envelope:
 
 
 def read_ack(envelope: Envelope) -> Ack:
-    """Read an ack's body: the rig id and the beat interval the hub set.
+    """Read an ack's body: the rig id, the beat interval the hub set, and
+    what the member chose for the rig to lend.
 
     The frame must answer a message, so ``re`` cannot be missing.
-    ``rig_id`` and ``heartbeat_interval_s`` may be left out, and an interval
-    must be a whole number of seconds within ``HEARTBEAT_INTERVAL_S``.
+    ``rig_id``, ``heartbeat_interval_s`` and the lending may be left out, and
+    an interval must be a whole number of seconds within
+    ``HEARTBEAT_INTERVAL_S``. A lending that does not keep
+    :meth:`mcgyvr.hubwire.Lending.validate`'s rules, or leaves a field out, is
+    not taken, and the ack says why (``lending_unread``): the rig then lends as
+    its own settings say.
     """
     if envelope.re is None:
         raise ProtocolError(
@@ -307,7 +319,44 @@ def read_ack(envelope: Envelope) -> Ack:
             f"body.heartbeat_interval_s: not a whole number of {low} to {high}",
             envelope.id,
         )
-    return Ack(re=envelope.re, rig_id=rig_id, heartbeat_interval_s=interval)
+    lending, unread = _lending(envelope.body.get(hubwire.LENDING_FIELD))
+    return Ack(
+        re=envelope.re,
+        rig_id=rig_id,
+        heartbeat_interval_s=interval,
+        lending=lending,
+        lending_unread=unread,
+    )
+
+
+def _lending(raw: object) -> tuple[hubwire.Lending | None, str | None]:
+    """An ack's :class:`mcgyvr.hubwire.Lending` held to its rules, or None
+    with why it is not taken. Every field must be there: ``cards`` null is
+    every card and an empty list none, while a missing ``cards`` is no
+    lending at all (never read as every card). None, None when the hub sent
+    none."""
+    if raw is None:
+        return None, None
+    where = f"{hubwire.LENDING_FIELD}"
+    names = {f.name for f in dataclasses.fields(hubwire.Lending)}
+    if not isinstance(raw, Mapping):
+        return None, f"{where}: not an object"
+    missing = sorted(names - set(raw))
+    if missing:
+        return None, f"{where}: no {', '.join(missing)}"
+    cards = raw["cards"]
+    if cards is not None and not isinstance(cards, list):
+        return None, f"{where}.cards: not null or a list"
+    lending = hubwire.Lending(
+        cards=None if cards is None else tuple(cards),
+        ram_mb=raw["ram_mb"],
+        cpu_cores=raw["cpu_cores"],
+    )
+    try:
+        lending.validate()
+    except (TypeError, ValueError) as exc:
+        return None, f"{where}.{exc}"
+    return lending, None
 
 
 def read_error(envelope: Envelope) -> Error:
@@ -494,6 +543,8 @@ def hello(
     ram_free_mb: int | None,
     cards: Sequence[CardReport],
     offer: Offer | None = None,
+    resources: Sequence[hubwire.Resource] = (),
+    host: hubwire.Host | None = None,
 ) -> str:
     """A ``hello`` frame: what this machine is, and what it offers.
 
@@ -503,6 +554,11 @@ def hello(
     capabilities, endpoints, models and sessions the rig brings; left out, the
     frame says nothing about them. Free RAM is left out when it is None, and a
     card with more free VRAM than it has in total is refused.
+
+    ``resources`` are what the rig lends (:class:`mcgyvr.hubwire.Resource`),
+    left out when there are none; with them, ``cards`` must be exactly the
+    cards they make (:func:`mcgyvr.hubwire.cards_from_resources`), as the hub
+    refuses any other. ``host`` names the system the rig runs on.
     """
     _need(bool(MACHINE_ID.fullmatch(machine_id)), "machine_id: not a machine id")
     _need(bool(AGENT_VERSION.fullmatch(agent_version)), "agent_version: not a version")
@@ -539,18 +595,35 @@ def hello(
     }
     if ram_free_mb is not None:
         body["ram_free_mb"] = ram_free_mb
+    if resources:
+        made = hubwire.cards_from_resources(resources)  # it holds them to fit
+        _need(
+            body["cards"] == made,
+            f"cards: not the cards the {' and '.join(hubwire.CARD_KINDS)} "
+            "resources make",
+        )
+        body["resources"] = [asdict(resource) for resource in resources]
+    if host is not None:
+        host.validate()
+        body["host"] = asdict(host)
     if offer is not None:
         body.update(_offer_body(offer))
     return _frame("hello", message_id, body, None)
 
 
 def heartbeat(
-    message_id: str, *, ram_free_mb: int | None, cards: Sequence[CardReading]
+    message_id: str,
+    *,
+    ram_free_mb: int | None,
+    cards: Sequence[CardReading],
+    resources: Sequence[hubwire.ResourceReading] = (),
 ) -> str:
     """A ``heartbeat`` frame: how much memory and VRAM is free right now.
 
     Free RAM is left out when it is None, and each card carries only its index
-    and its free MiB.
+    and its free MiB. ``resources`` re-read the free MiB of what the hello
+    lent, left out when there are none; with them, ``cards`` must be exactly
+    the readings they make (:func:`mcgyvr.hubwire.card_readings_from`).
     """
     if ram_free_mb is not None:
         _megabytes(ram_free_mb, "ram_free_mb")
@@ -564,6 +637,14 @@ def heartbeat(
     }
     if ram_free_mb is not None:
         body["ram_free_mb"] = ram_free_mb
+    if resources:
+        made = hubwire.card_readings_from(resources)  # it holds them to fit
+        _need(
+            body["cards"] == made,
+            f"cards: not the readings the {' and '.join(hubwire.CARD_KINDS)} "
+            "resources make",
+        )
+        body["resources"] = [asdict(reading) for reading in resources]
     return _frame("heartbeat", message_id, body, None)
 
 

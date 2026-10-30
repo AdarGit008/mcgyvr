@@ -725,7 +725,15 @@ class Sessions:
                     envelope.id, SessionCode.NOT_CAPABLE, "this agent is stopping"
                 )
             share = self.machine.sharing()
-            if asked.role not in share.offered_roles():
+            try:
+                report = self.machine.report()
+            except hardware.HardwareError:
+                return sessionwire.refusal(
+                    envelope.id,
+                    SessionCode.NOT_CAPABLE,
+                    "this machine could not be read",
+                )
+            if asked.role not in share.session_roles(report):
                 return sessionwire.refusal(
                     envelope.id,
                     SessionCode.NOT_CAPABLE,
@@ -743,7 +751,6 @@ class Sessions:
                     return self._prepared(live, envelope.id)
                 live.pending.append(envelope.id)
                 return None
-            report = self.machine.report()
             lent = {
                 card.index
                 for card in report.cards
@@ -1145,6 +1152,16 @@ class Sessions:
                         "devices: a card this rig does not lend",
                     )
                 local.append(gpu)
+        if not share.lends_a_card(report) and any(
+            isinstance(device, sessionwire.RpcDevice) for device in asked.devices
+        ):
+            # Memory and cores serve a whole model: a rig lending no card heads
+            # no pipeline, so rpc devices are not for it.
+            return sessionwire.refusal(
+                re,
+                SessionCode.NOT_CAPABLE,
+                "devices: a rig that lends no card heads whole models only",
+            )
         gpus = sorted(local)
         names: list[str] = []
         rpc: list[tuple[str, int]] = []
@@ -1168,6 +1185,8 @@ class Sessions:
             rpc.append((str(device.host), device.port))
         session.rpc = tuple(rpc)
         session.head_file = held.folder / relative
+        # The head runs under the lend as the hello advertised it.
+        memory_mb, cpus = share.head_limits(report)
         return pooled.HeadSpec(
             session_id=session.id,
             image=share.image,
@@ -1183,7 +1202,8 @@ class Sessions:
             tensor_split=asked.tensor_split,
             rpc=tuple(f"{host}:{port}" for host, port in rpc),
             bind=str(ipaddress.IPv4Interface(session.hello.address).ip),
-            memory_mb=share.container_mb(),
+            memory_mb=memory_mb,
+            cpus=cpus,
         )
 
     def _hub_lost(self) -> None:
@@ -2111,14 +2131,18 @@ def offer(
     held: inventory.Inventory,
     hosts: Sequence[str],
     running: tuple[str, ...],
+    report: hardware.Report,
 ) -> protocol.Offer:
     """The offer this rig answers a probe with: what it lends and where to reach it.
 
-    A setup that lends nothing has no roles, no runtime, no models and no endpoints,
-    yet still names ``HITCHHIKE_FEATURE``, since it may advertise the units it
-    shares. Models are offered only to a rig that lends the head role.
+    The roles are those its sessions run in on the machine `report` reads
+    (:meth:`mcgyvr.rig.sharing.Sharing.session_roles`: the head alone for a
+    rig that lends no card). A setup that lends nothing has no roles, no
+    runtime, no models and no endpoints, yet still names ``HITCHHIKE_FEATURE``,
+    since it may advertise the units it shares. Models are offered only to a
+    rig that lends the head role.
     """
-    roles = share.offered_roles()
+    roles = share.session_roles(report)
     if not roles:
         return protocol.Offer(
             roles=(),

@@ -89,6 +89,33 @@ archived outside this repository, under the same paths.
 
 ### Added
 
+- **A rig lends host memory and cores, and its hello says exactly what it
+  lends (#822).** `mcgyvr rig share` (or `rig lend`) `--ram-mb N --cpu-cores
+  N` lends memory and cores to the heads it runs (0, the default, lends none):
+  a head's container is given the memory lent and held to the cores lent, and
+  llama-server to that many threads; an amount under the hub's lending floor
+  (`hubwire.LEND_FLOOR_MB`, `LEND_FLOOR_CORES`) is refused naming the floor,
+  and so is RAM of a DDR generation under `hubwire.RAM_DDR_MIN` (read on
+  Windows from each module's SMBIOS type; unread elsewhere, where RAM counts
+  by its size alone). Memory past what is available less a headroom, cores
+  past all but one, and a listed card under its kind's floor are refused too.
+  The hello carries the lent resources (`resources`, hubwire's contract) and
+  the host it runs on; its `cards` are now the cards those make
+  (`hubwire.cards_from_resources`), not every card the machine has, so a rig
+  that lends nothing names no card, and the heartbeat re-reads the lent
+  resources. A card's memory bandwidth, which the reader does not read, is its
+  class's estimate from `data/hardware-classes.json`, labelled so. A rig
+  lending no card offers the head role alone and heads no pipeline (memory and
+  cores serve whole models, never a pipeline stage); a Mac or Windows rig
+  offers no session role, so lends nothing, until a native session host runs
+  there. `mcgyvr rig status` names what is lent and, with your personal hub
+  key in `$MCGYVR_HUB_API_KEY`, your credits. The native build's arch and
+  `nvidia-smi` are now the machine reader's. Deploy a hub that reads resources
+  first: a card whose free memory was not read goes out with `free_mb` unset,
+  which such a hub marks unread and an older hub, reading the cards alone,
+  takes as all free.
+
+
 - **A plan says how fast its model decodes, and a unified GPU's memory is
   counted once (#817).** `data/hardware-classes.json` states the memory
   bandwidth of Apple silicon chips and NVIDIA consumer cards, each row with

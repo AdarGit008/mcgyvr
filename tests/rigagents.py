@@ -162,6 +162,7 @@ class Report:
         self.reads = 0
 
     def __call__(self) -> Any:
+        from mcgyvr import hubwire
         from mcgyvr.rig import hardware, protocol
 
         self.reads += 1
@@ -178,6 +179,18 @@ class Report:
                 ),
             ),
             notes=(),
+            # What the rig lends of it, which is what its frames carry.
+            lent=(
+                hubwire.Resource(
+                    kind=hubwire.RESOURCE_GPU,
+                    index=0,
+                    name="Example Card",
+                    total_mb=8192,
+                    free_mb=self.reads,
+                    figure=hubwire.FIGURE_READING,
+                    backend="cuda",
+                ),
+            ),
         )
 
 
