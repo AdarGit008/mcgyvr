@@ -15,8 +15,10 @@ the top), and a test can fake any of them. Standard library only.
 
 from __future__ import annotations
 
+import calendar
 import contextlib
 import errno
+import functools
 import getpass
 import os
 import re
@@ -48,6 +50,10 @@ TASKKILL_S = 10.0
 BOOT_ID = Path("/proc/sys/kernel/random/boot_id")
 #: macOS's command that prints the id it gives the current boot.
 DARWIN_BOOT_ID = ("/usr/sbin/sysctl", "-n", "kern.bootsessionuuid")
+#: macOS's ``ps``, which reads a process's start time without privilege.
+DARWIN_PS = "/bin/ps"
+#: ``%c`` in the C locale, which is how that ``ps`` prints a start time.
+DARWIN_LSTART = "%a %b %d %H:%M:%S %Y"
 #: How long that command is given to answer.
 BOOT_ID_S = 5.0
 #: The bit of a Windows reparse tag that marks a name surrogate: a symbolic
@@ -59,6 +65,16 @@ _NAME_SURROGATE = 0x2000_0000
 _STILL_ACTIVE = 259
 _ERROR_INVALID_PARAMETER = 87
 _QUERY_LIMITED_INFORMATION = 0x1000
+#: The access asked to end a process; Windows' creation flags subprocess does
+#: not name: no console, and out of the starter's job; and the job limit that
+#: ends a job's processes when its last handle closes, set as the extended
+#: limit information class.
+_PROCESS_TERMINATE = 0x0001
+_DETACHED_PROCESS = 0x0000_0008
+_CREATE_BREAKAWAY_FROM_JOB = 0x0100_0000
+_CREATE_NO_WINDOW = 0x0800_0000
+_JOB_OBJECT_LIMIT_KILL_ON_JOB_CLOSE = 0x0000_2000
+_JOB_EXTENDED_LIMIT_INFORMATION = 9
 #: What a Windows user name keeps when it names a folder; the rest becomes ``_``.
 _UNSAFE_NAME = re.compile(r"[^a-z0-9._-]")
 
@@ -378,6 +394,262 @@ def pid_alive(pid: int) -> bool:
     except OSError:
         return True
     return True
+
+
+def process_start_time(pid: int) -> str | None:
+    """When `pid` started, as a token compared only with a later reading of it.
+
+    A pid can be reused by a new process once the first is gone; the pid with
+    the start time it had names one process. Linux: field 22 of
+    ``/proc/<pid>/stat`` (clock ticks since boot). macOS: ``ps -o lstart=``,
+    "the exact time the command started, using the '%c' format described in
+    strftime(3)" (https://keith.github.io/xcode-man-pages/ps.1.html), read in
+    the C locale and UTC so every reader spells it alike, as whole seconds
+    since the epoch (one plain token, as a lease line needs). Windows: the creation
+    time ``GetProcessTimes`` gives, in 100 ns units
+    (https://learn.microsoft.com/en-us/windows/win32/api/processthreadsapi/nf-processthreadsapi-getprocesstimes).
+    None when it cannot be read: the process is gone, or not this user's to ask.
+    """
+    if sys.platform == "win32":
+        return _windows_start_time(pid)
+    if sys.platform == "darwin":
+        try:
+            done = subprocess.run(
+                [DARWIN_PS, "-o", "lstart=", "-p", str(pid)],
+                stdin=subprocess.DEVNULL,
+                capture_output=True,
+                text=True,
+                timeout=BOOT_ID_S,
+                check=False,
+                env={"LC_ALL": "C", "TZ": "UTC", "PATH": "/usr/bin:/bin"},
+            )
+        except (OSError, subprocess.SubprocessError):
+            return None
+        found = " ".join(done.stdout.split()) if done.returncode == 0 else ""
+        try:
+            return str(calendar.timegm(time.strptime(found, DARWIN_LSTART)))
+        except ValueError:
+            return None
+    try:
+        record = Path(f"/proc/{pid}/stat").read_text(encoding="utf-8")
+        start = record.rsplit(")", 1)[1].split()[19]
+    except (OSError, IndexError):
+        return None
+    return start if start.isdigit() else None
+
+
+@functools.cache
+def _kernel32() -> Any:
+    """kernel32, with the calls that answer a HANDLE declared so once.
+
+    ctypes takes an undeclared result for a C ``int``, which would cut a
+    64-bit HANDLE short.
+    """
+    import ctypes
+    from ctypes import wintypes
+
+    kernel = ctypes.WinDLL("kernel32", use_last_error=True)  # type: ignore[attr-defined]
+    kernel.OpenProcess.restype = wintypes.HANDLE
+    kernel.OpenProcess.argtypes = (wintypes.DWORD, wintypes.BOOL, wintypes.DWORD)
+    kernel.CreateJobObjectW.restype = wintypes.HANDLE
+    kernel.CloseHandle.argtypes = (wintypes.HANDLE,)
+    return kernel
+
+
+def _windows_start_time(pid: int) -> str | None:
+    """``GetProcessTimes``' creation time of `pid`, or None."""
+    import ctypes
+    from ctypes import wintypes
+
+    kernel = _kernel32()
+    handle = kernel.OpenProcess(_QUERY_LIMITED_INFORMATION, False, pid)
+    if not handle:
+        return None
+    try:
+        times = [wintypes.FILETIME() for _ in range(4)]
+        if not kernel.GetProcessTimes(handle, *(ctypes.byref(t) for t in times)):
+            return None
+        created = times[0]
+        return str((created.dwHighDateTime << 32) | created.dwLowDateTime)
+    finally:
+        kernel.CloseHandle(handle)
+
+
+def popen_detached_kwargs(*, breakaway: bool = True) -> dict[str, Any]:
+    """What ``subprocess.Popen`` takes to start a child that outlives its starter.
+
+    POSIX: a new session, so no signal sent to the starter's group or
+    terminal reaches it. Windows: a new process group with no console
+    (``DETACHED_PROCESS``), and, when `breakaway`, out of any job the starter
+    runs in (``CREATE_BREAKAWAY_FROM_JOB``): a job that kills its processes
+    when it closes would otherwise end the child with its starter. A job that
+    forbids breaking away makes the start fail; the caller then starts it
+    again without `breakaway`.
+    (https://docs.python.org/3/library/subprocess.html#windows-constants)
+    """
+    if sys.platform == "win32":
+        flags = subprocess.CREATE_NEW_PROCESS_GROUP | _DETACHED_PROCESS
+        if breakaway:
+            flags |= _CREATE_BREAKAWAY_FROM_JOB
+        return {"creationflags": flags}
+    return {"start_new_session": True}
+
+
+def popen_no_window_kwargs() -> dict[str, Any]:
+    """What ``subprocess.Popen`` takes so a console program opens no window.
+
+    Windows gives a console program started by a process with no console of
+    its own (a detached supervisor) a new visible console, whose closing ends
+    it; ``CREATE_NO_WINDOW`` starts it with none
+    (https://docs.python.org/3/library/subprocess.html#subprocess.CREATE_NO_WINDOW).
+    Nothing elsewhere.
+    """
+    if sys.platform == "win32":
+        return {"creationflags": _CREATE_NO_WINDOW}
+    return {}
+
+
+def kill_on_close_job(proc: subprocess.Popen[Any]) -> int | None:
+    """Tie `proc` to this process's life where the system can, and say how.
+
+    Windows: a Job Object with ``JOB_OBJECT_LIMIT_KILL_ON_JOB_CLOSE``, which
+    "causes all processes associated with the job to terminate when the last
+    handle to the job is closed"
+    (https://learn.microsoft.com/en-us/windows/win32/api/winnt/ns-winnt-jobobject_basic_limit_information),
+    set through ``SetInformationJobObject`` with
+    ``JobObjectExtendedLimitInformation`` (9)
+    (https://learn.microsoft.com/en-us/windows/win32/api/jobapi2/nf-jobapi2-setinformationjobobject),
+    and `proc` assigned to it. The handle returned is this process's only one:
+    it closes when this process ends, however it ends, and `proc` and what it
+    started end with it. None when no job could be made, and on POSIX, which
+    has no such object: there the caller ends the group itself
+    (:func:`end_pid`).
+    """
+    if sys.platform == "win32":
+        return _windows_job(proc)
+    return None
+
+
+def _windows_job(proc: subprocess.Popen[Any]) -> int | None:
+    """The Job Object :func:`kill_on_close_job` makes on Windows, or None."""
+    import ctypes
+    from ctypes import wintypes
+
+    class _Basic(ctypes.Structure):
+        _fields_ = [
+            ("PerProcessUserTimeLimit", ctypes.c_int64),
+            ("PerJobUserTimeLimit", ctypes.c_int64),
+            ("LimitFlags", wintypes.DWORD),
+            ("MinimumWorkingSetSize", ctypes.c_size_t),
+            ("MaximumWorkingSetSize", ctypes.c_size_t),
+            ("ActiveProcessLimit", wintypes.DWORD),
+            ("Affinity", ctypes.c_size_t),
+            ("PriorityClass", wintypes.DWORD),
+            ("SchedulingClass", wintypes.DWORD),
+        ]
+
+    class _Io(ctypes.Structure):
+        _fields_ = [
+            (name, ctypes.c_uint64)
+            for name in (
+                "ReadOperationCount",
+                "WriteOperationCount",
+                "OtherOperationCount",
+                "ReadTransferCount",
+                "WriteTransferCount",
+                "OtherTransferCount",
+            )
+        ]
+
+    class _Extended(ctypes.Structure):
+        _fields_ = [
+            ("BasicLimitInformation", _Basic),
+            ("IoInfo", _Io),
+            ("ProcessMemoryLimit", ctypes.c_size_t),
+            ("JobMemoryLimit", ctypes.c_size_t),
+            ("PeakProcessMemoryUsed", ctypes.c_size_t),
+            ("PeakJobMemoryUsed", ctypes.c_size_t),
+        ]
+
+    kernel = _kernel32()
+    job = kernel.CreateJobObjectW(None, None)
+    if not job:
+        return None
+    info = _Extended()
+    info.BasicLimitInformation.LimitFlags = _JOB_OBJECT_LIMIT_KILL_ON_JOB_CLOSE
+    handle = int(getattr(proc, "_handle", 0))
+    if not (
+        kernel.SetInformationJobObject(
+            job,
+            _JOB_EXTENDED_LIMIT_INFORMATION,
+            ctypes.byref(info),
+            ctypes.sizeof(info),
+        )
+        and handle
+        and kernel.AssignProcessToJobObject(job, handle)
+    ):
+        kernel.CloseHandle(job)
+        return None
+    return int(job)
+
+
+def end_pid(pid: int, *, force: bool = False, group: bool = False) -> bool:
+    """Ask the process `pid` (and its group, when `group`) to end; True if asked.
+
+    For a process this one did not start and holds no handle to, such as a
+    supervisor found by its record. POSIX: ``SIGTERM``, or ``SIGKILL`` when
+    `force`, to the pid or, when `group`, to the group it heads. Windows:
+    ``TerminateProcess``, which is the only end Windows gives a process with
+    no console of its own; `group` is not reached there, which is what a Job
+    Object (:func:`kill_on_close_job`) is for. False when the process is gone
+    or not this user's to end.
+    """
+    if sys.platform == "win32":
+        kernel = _kernel32()
+        handle = kernel.OpenProcess(_PROCESS_TERMINATE, False, pid)
+        if not handle:
+            return False
+        try:
+            return bool(kernel.TerminateProcess(handle, 1))
+        finally:
+            kernel.CloseHandle(handle)
+    signum = signal.SIGKILL if force else signal.SIGTERM
+    try:
+        if group:
+            os.killpg(pid, signum)
+        else:
+            os.kill(pid, signum)
+    except (ProcessLookupError, PermissionError):
+        return False
+    return True
+
+
+def inherited_fd_kwargs(fd: int) -> tuple[str, dict[str, Any]]:
+    """How a child is handed a pipe's write end `fd`: its name, and Popen's kwargs.
+
+    POSIX: the descriptor number, kept open across exec by ``pass_fds``.
+    Windows, where ``pass_fds`` is not supported: the OS handle behind `fd`,
+    made inheritable and passed alone in the ``handle_list``
+    (https://docs.python.org/3/library/subprocess.html#subprocess.STARTUPINFO);
+    the child opens it again with :func:`inherited_fd`.
+    """
+    if sys.platform == "win32":
+        import msvcrt
+
+        handle = msvcrt.get_osfhandle(fd)
+        os.set_handle_inheritable(handle, True)
+        info = subprocess.STARTUPINFO(lpAttributeList={"handle_list": [handle]})  # type: ignore[attr-defined]
+        return str(handle), {"startupinfo": info, "close_fds": True}
+    return str(fd), {"pass_fds": (fd,)}
+
+
+def inherited_fd(name: str) -> int:
+    """The descriptor the name :func:`inherited_fd_kwargs` gave stands for here."""
+    if sys.platform == "win32":
+        import msvcrt
+
+        return msvcrt.open_osfhandle(int(name), os.O_WRONLY)
+    return int(name)
 
 
 def lower_priority() -> None:

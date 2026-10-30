@@ -63,6 +63,33 @@ from mcgyvr.cli.sizing import _hosts_wanted, _model_specs
 from mcgyvr.serving.rigfile import recorded_scans, resolve_hosts
 
 
+def _native_status(host: str) -> int:
+    """Print one line per native unit this machine supervises, or has.
+
+    Native units run on the machine mcgyvr runs on, so only a name of this
+    machine (`gatelib.LOCAL_RIGS`) has any; another is refused.
+    """
+    from mcgyvr.serving import gatelib, native
+
+    if host not in gatelib.LOCAL_RIGS:
+        print(
+            f"error: {host} is not this machine; native units run where "
+            "mcgyvr runs, and their status is read there",
+            file=sys.stderr,
+        )
+        return Exit.REFUSED
+    rows = native.status()
+    if not rows:
+        print("no native unit on this machine")
+    for row in rows:
+        print(
+            f"{row['unit']}: {row['state']}, port {row['port']}, "
+            f"server pid {row['server_pid']}, {row['restarts']} restarts, "
+            f"{row['backend']}; log {row['log']}"
+        )
+    return Exit.OK
+
+
 def _serve(args: argparse.Namespace) -> int:
     """Put one card to sleep, or wake it, through the serving door.
 
@@ -71,6 +98,8 @@ def _serve(args: argparse.Namespace) -> int:
     and a card whose slots could not be drained for the sleep; a door that
     exited without switching the card is `Exit.ERROR`.
     """
+    if args.direction == "status":
+        return _native_status(args.host)
     try:
         config = load_config(Path(args.config) if args.config else None)
     except ConfigError as exc:
@@ -516,11 +545,12 @@ def add_parser(sub: argparse._SubParsersAction[argparse.ArgumentParser]) -> None
     )
     srv.add_argument(
         "direction",
-        choices=("sleep", "wake"),
+        choices=("sleep", "wake", "status"),
         help=(
             "sleep drains every slot the card serves, then rests it at vLLM "
             "level 2 where every unit is vLLM and has the sleep route, and "
-            "stops it otherwise; wake brings it back the way it went"
+            "stops it otherwise; wake brings it back the way it went; status "
+            "lists the native units this machine (--host localhost) keeps up"
         ),
     )
     srv.add_argument(

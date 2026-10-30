@@ -27,7 +27,9 @@ import yaml
 # module's name so a caller — and a test — reads and cuts it here.
 from mcgyvr.config import HEALTH_INTERVAL_S as HEALTH_INTERVAL_S
 from mcgyvr.config import HEALTH_POLLS as HEALTH_POLLS
-from mcgyvr.serving.gatelib import door_required, need, ssh
+from mcgyvr.config import LAUNCHER_DOCKER, LAUNCHER_NATIVE, LAUNCHERS
+from mcgyvr.serving import CARDS_KEY, LAUNCHER_KEY
+from mcgyvr.serving.gatelib import LOCAL_RIGS, door_required, need, ssh, tool
 
 #: The compose project every file is brought up under, passed as `-p`, so a
 #: container's project is this tool; fleet read calls such a container ours.
@@ -66,6 +68,24 @@ class Service:
     #: leaves it down: that is how the swap partner that starts asleep is declared.
     #: A whole `serve up` does not wait for it; a whole `serve down` names it.
     asleep: bool = False
+    #: `docker`, or `native` for a unit `mcgyvr.serving.native` runs and keeps up.
+    launcher: str = LAUNCHER_DOCKER
+
+
+def launcher_of(units: tuple[Service, ...]) -> str:
+    """How a launch spec's units run: all in containers, or all natively.
+
+    A spec mixing the two is a `ComposeError`: one step either runs `docker
+    compose` over the file or hands it to the native launcher, not both.
+    """
+    found = {unit.launcher for unit in units} or {LAUNCHER_DOCKER}
+    if len(found) > 1:
+        raise ComposeError(
+            "the launch spec mixes containers and native units; `mcgyvr emit` "
+            "writes a rig's native units and its containers apart"
+        )
+    (only,) = found
+    return only
 
 
 def services(compose: Path) -> tuple[Service, ...]:
@@ -108,13 +128,24 @@ def services(compose: Path) -> tuple[Service, ...]:
             raise ComposeError(
                 f"{compose}: service {name!r} states --port {raw!r}, not a number"
             ) from None
+        launcher = block.get(LAUNCHER_KEY, LAUNCHER_DOCKER)
+        if launcher not in LAUNCHERS:
+            raise ComposeError(
+                f"{compose}: service {name!r} states {LAUNCHER_KEY}: {launcher!r}, "
+                f"not one of {', '.join(LAUNCHERS)}"
+            )
         found.append(
             Service(
                 name=str(name),
                 container=container.strip(),
                 port=port,
-                devices=_devices(block),
+                devices=(
+                    tuple(str(card) for card in block.get(CARDS_KEY) or ())
+                    if launcher == LAUNCHER_NATIVE
+                    else _devices(block)
+                ),
                 asleep=bool(block.get("profiles")),
+                launcher=launcher,
             )
         )
     if not found:
@@ -151,7 +182,7 @@ def compose(
     `subprocess.TimeoutExpired`.
     """
     return subprocess.run(
-        ["docker", "compose", "-f", str(compose_file), "-p", PROJECT, *args],
+        [*tool("docker"), "compose", "-f", str(compose_file), "-p", PROJECT, *args],
         capture_output=True,
         text=True,
         timeout=timeout,
@@ -168,7 +199,16 @@ def up(
     and removes orphans. With units named, only those services start
     (`--no-deps`), which is how `serve up --unit` brings up a sleeper written
     under a profile without pulling in the partners it swaps with.
+
+    A spec of native units is handed to `mcgyvr.serving.native` instead, which
+    answers in the same shape.
     """
+    if _is_native(compose_file):
+        from mcgyvr.serving import native
+
+        _native_here()
+        done = native.up(compose_file, (u.name for u in units))
+        return done
     if not units:
         return compose(compose_file, "up", "-d", "--remove-orphans")
     return compose(compose_file, "up", "-d", "--no-deps", *(u.name for u in units))
@@ -182,21 +222,47 @@ def down(
     With no units named this is `docker compose down --remove-orphans` over the
     whole file. With units named it is `docker compose rm --stop --force` on
     those services only — the verb that also reaches a service written under a
-    profile, which `down` is not promised to touch.
+    profile, which `down` is not promised to touch. A spec of native units
+    stops them through `mcgyvr.serving.native`.
     """
+    if _is_native(compose_file):
+        from mcgyvr.serving import native
+
+        _native_here()
+        named = units or services(compose_file)
+        return native.down(u.container for u in named)
     if not units:
         return compose(compose_file, "down", "--remove-orphans")
     return compose(compose_file, "rm", "--stop", "--force", *(u.name for u in units))
 
 
-def containers_up() -> list[str]:
+def _native_here() -> None:
+    """Refuse a native step whose run names a rig other than this machine."""
+    host = os.environ.get("RUN_HOST", "")
+    if host not in LOCAL_RIGS:
+        raise ComposeError(
+            f"the launch spec runs natively, on this machine, and the run is for "
+            f"{host or 'no host'}"
+        )
+
+
+def _is_native(compose_file: Path) -> bool:
+    return launcher_of(services(compose_file)) == LAUNCHER_NATIVE
+
+
+def containers_up(launcher: str = LAUNCHER_DOCKER) -> list[str]:
     """The names of every container the docker daemon reports as up.
 
-    Raises `ComposeError` when `docker ps` fails, so a daemon that could not be
-    read is never mistaken for a rig with nothing left running.
+    For `native`, the names of the units a native supervisor keeps up. Raises
+    `ComposeError` when `docker ps` fails, so a daemon that could not be read
+    is never mistaken for a rig with nothing left running.
     """
+    if launcher == LAUNCHER_NATIVE:
+        from mcgyvr.serving import native
+
+        return sorted(native.running().values())
     done = subprocess.run(
-        ["docker", "ps", "--format", "{{.Names}}"],
+        [*tool("docker"), "ps", "--format", "{{.Names}}"],
         capture_output=True,
         text=True,
         timeout=120,
@@ -214,9 +280,14 @@ def restart_count(container: str) -> int:
     container that is gone — because an unreadable count is no evidence of a
     restart.
     """
+    if container in _native_units():
+        from mcgyvr.serving import native
+
+        found = (native.read_record(container) or {}).get("restarts")
+        return found if isinstance(found, int) else 0
     try:
         done = subprocess.run(
-            ["docker", "inspect", "--format", "{{.RestartCount}}", container],
+            [*tool("docker"), "inspect", "--format", "{{.RestartCount}}", container],
             capture_output=True,
             text=True,
             timeout=60,
@@ -230,6 +301,19 @@ def restart_count(container: str) -> int:
         return int(done.stdout.strip())
     except ValueError:
         return 0
+
+
+def _native_units() -> set[str]:
+    """The units this run's launch spec runs natively (none outside a native run)."""
+    if os.environ.get("RUN_LAUNCHER") != LAUNCHER_NATIVE:
+        return set()
+    compose_file = os.environ.get("RUN_COMPOSE")
+    if not compose_file:
+        return set()
+    try:
+        return {s.container for s in services(Path(compose_file))}
+    except ComposeError:
+        return set()
 
 
 def models_served(host: str, port: int) -> list[str] | None:

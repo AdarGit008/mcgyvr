@@ -1,2 +1,4 @@
 # Binary artefacts: never diffed, never merged textually.
 *.pdf binary -diff -merge
+# Windows batch launchers: cmd.exe reads CRLF lines.
+*.cmd text eol=crlf

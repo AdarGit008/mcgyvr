@@ -18,7 +18,12 @@ the run was opened for, and executes the real tool.
 from __future__ import annotations
 
 import base64
+import contextlib
+import functools
 import getpass
+import hashlib
+import hmac
+import json
 import os
 import re
 import secrets
@@ -43,6 +48,66 @@ DOOR = "python -m mcgyvr.serving.run serve|read|link --host H ..."
 #: here so the rest of the tree does not spell the door's path again.
 DOOR_FILE = "mcgyvr/serving/run.py"
 DOOR_MODULE = "mcgyvr.serving.run"
+
+#: The door's own `ssh` and `docker`, put first on a run's PATH (the shims), and
+#: the Windows launchers beside them that a program looking a command up by
+#: PATHEXT finds (`docker` looking up `ssh` for an ssh:// daemon).
+SHIM_DIR = Path(__file__).resolve().parent / "gate-scripts" / "bin"
+WINDOWS_LAUNCHER = ".cmd"
+#: The interpreter the door runs on, which a Windows launcher and a shim that
+#: cannot import mcgyvr hand themselves to.
+PYTHON_VAR = "RUN_PYTHON"
+
+
+def tool(name: str) -> list[str]:
+    """The argv that runs the door's `name` (`ssh` or `docker`) under a run.
+
+    POSIX: the bare name, which PATH resolves to the shim the door put first.
+    Windows, where a program is found by its `.exe` and a shim is a Python
+    file: the shim itself, run on this interpreter.
+    """
+    if sys.platform == "win32":
+        return [sys.executable, str(SHIM_DIR / name)]
+    return [name]
+
+
+#: The rig names that are this machine, and the variable that says how the
+#: door reaches it: `direct` (no ssh) or `ssh`.
+LOCAL_RIGS = frozenset({"localhost", "127.0.0.1", "::1", "[::1]"})
+LOCAL_TRANSPORT_ENV = "MCGYVR_LOCAL_TRANSPORT"
+TRANSPORT_DIRECT = "direct"
+TRANSPORT_SSH = "ssh"
+#: Where an sshd listens when this machine runs one, and how long it is asked.
+SSHD = ("127.0.0.1", 22)
+SSHD_S = 1.0
+
+
+def local_transport(host: str) -> bool:
+    """Whether the door reaches `host` without ssh, by running its steps here.
+
+    Only for this machine (`LOCAL_RIGS`): always on macOS and Windows, which
+    run no sshd unless asked to; on Linux when nothing listens on port 22.
+    `$MCGYVR_LOCAL_TRANSPORT` (`direct` or `ssh`) decides instead. Every other
+    rig is reached over ssh.
+    """
+    if host not in LOCAL_RIGS:
+        return False
+    chosen = os.environ.get(LOCAL_TRANSPORT_ENV, "").strip().lower()
+    if chosen in (TRANSPORT_DIRECT, TRANSPORT_SSH):
+        return chosen == TRANSPORT_DIRECT
+    if sys.platform in ("darwin", "win32"):
+        return True
+    return not _sshd_listens()
+
+
+@functools.cache
+def _sshd_listens() -> bool:
+    try:
+        with socket.create_connection(SSHD, timeout=SSHD_S):
+            return True
+    except OSError:
+        return False
+
 
 #: The status a `sleep` step answers with when one of its units has no sleep
 #: route: nothing was asked of any unit and the card can only be stopped. It sits
@@ -72,7 +137,21 @@ def export(key: str, value: object) -> None:
         )
     # One line, written in a single call so the door never reads half of it: the
     # door refuses a line of any shape but `KEY=VALUE`.
-    os.write(int(raw), f"{key}={value}\n".encode())
+    os.write(_export_fd(raw), f"{key}={value}\n".encode())
+
+
+@functools.cache
+def _export_fd(raw: str) -> int:
+    """The descriptor the door's `RUN_EXPORT_FD` names in this process.
+
+    POSIX: the number itself. Windows: the pipe's handle, opened as a
+    descriptor once (`mcgyvr.hostos.inherited_fd`).
+    """
+    if sys.platform != "win32":
+        return int(raw)
+    from mcgyvr import hostos
+
+    return hostos.inherited_fd(raw)
 
 
 def refuse(rule: str, status: int = 2) -> NoReturn:
@@ -160,15 +239,146 @@ def is_door(argv: list[str]) -> bool:
     return False
 
 
+#: Where `/proc` answers for this process, which makes the ancestry walk the proof.
+PROC_SELF = Path("/proc/self/stat")
+#: The variable the door hands its one-time proof down in, and the folder, under
+#: the data folder, the proof's file waits in while the door lives.
+PROOF_VAR = "RUN_DOOR_PROOF"
+PROOF_DIR = Path("door") / ".proof"
+
+
 def under_door() -> bool:
-    """Whether some ancestor of this process is the door.
+    """Whether this process descends from a live door.
+
+    Linux (`/proc` answers): the ancestry walk, :func:`_door_ancestor`.
+    Elsewhere: the door's one-time proof, :func:`_proof_holds`.
+
+    Threat note. What is sealed is every code path in this repository: a gate,
+    a step or a shim started by hand, or by code that was not started under the
+    door, is refused even with every `RUN_*` variable set right. It is not a
+    seal against an operator impersonating the door: the operator runs as the
+    same user and can forge either proof, a command line plus `RUN_HOST` with
+    ``bash -c ...``, or a running door's proof file read off disk. The proof
+    keeps the property the walk has: it exists only while a door process lives
+    (its file names the door's pid and start time and is removed when the door
+    ends), it is handed down only through the environment the door builds, so
+    only its descendants carry it (the native supervisors a run starts are
+    handed an environment without it), and it is a 256-bit secret that no
+    file on disk spells (the file holds only its sha256): code that was not
+    handed it does not have it, though a process of the same user could read
+    it out of a door's environment, which is the operator caveat above. Its
+    file is the user's own (0600 in a 0700 folder, where modes say so), opened
+    without following a link.
+    """
+    if PROC_SELF.exists():
+        return _door_ancestor()
+    return _proof_holds()
+
+
+def mint_proof() -> tuple[str, Path]:
+    """The door's one-time proof for its descendants: the secret, and its file.
+
+    The file is created exclusively in the user's proof folder, named by the
+    secret's digest, and holds the digest with the door's pid and start time;
+    the door removes it when it ends (:func:`drop_proof`).
+    """
+    from mcgyvr import hostos
+
+    secret = secrets.token_hex(32)
+    digest = hashlib.sha256(secret.encode("ascii")).hexdigest()
+    folder = _proof_dir()
+    folder.mkdir(parents=True, exist_ok=True)
+    hostos.chmod_private(folder, directory=True)
+    _sweep_proofs(folder)
+    path = folder / digest[:32]
+    fd = hostos.open_nofollow(path, os.O_WRONLY | os.O_CREAT | os.O_EXCL, 0o600)
+    try:
+        body = {
+            "digest": digest,
+            "pid": os.getpid(),
+            "start": hostos.process_start_time(os.getpid()),
+        }
+        os.write(fd, json.dumps(body).encode("ascii"))
+    finally:
+        os.close(fd)
+    return secret, path
+
+
+def _sweep_proofs(folder: Path) -> None:
+    """Remove the proofs of doors that ended without removing their own."""
+    from mcgyvr import hostos
+
+    for old in folder.iterdir():
+        try:
+            body = json.loads(_read_nofollow(old))
+            pid = body["pid"]
+            alive = (
+                isinstance(pid, int)
+                and hostos.pid_alive(pid)
+                and hostos.process_start_time(pid) == body.get("start")
+            )
+        except (OSError, ValueError, KeyError, TypeError):
+            alive = False
+        if not alive:
+            with contextlib.suppress(OSError):
+                old.unlink()
+
+
+def drop_proof(path: Path | None) -> None:
+    """Remove the door's proof file; a door that ended proves nothing."""
+    if path is not None:
+        with contextlib.suppress(OSError):
+            path.unlink()
+
+
+def _proof_dir() -> Path:
+    from mcgyvr.fleet.roots import data_home
+
+    return data_home() / PROOF_DIR
+
+
+def _proof_holds() -> bool:
+    """Whether this process was handed a live door's proof (see :func:`under_door`)."""
+    secret = os.environ.get(PROOF_VAR, "")
+    if not re.fullmatch(r"[0-9a-f]{64}", secret):
+        return False
+    try:
+        from mcgyvr import hostos
+
+        digest = hashlib.sha256(secret.encode("ascii")).hexdigest()
+        path = _proof_dir() / digest[:32]
+        found = os.lstat(path)
+        if (
+            not stat.S_ISREG(found.st_mode)
+            or hostos.is_link(found)
+            or not hostos.owned_by_current_user(found)
+            or hostos.others_mode_bits(found)
+        ):
+            return False
+        fd = hostos.open_nofollow(path, os.O_RDONLY)
+        try:
+            body = json.loads(os.read(fd, 4096).decode("ascii"))
+        finally:
+            os.close(fd)
+        pid = body["pid"]
+        return (
+            hmac.compare_digest(str(body["digest"]), digest)
+            and isinstance(pid, int)
+            and pid > 0
+            and body.get("start") is not None
+            and hostos.pid_alive(pid)
+            and hostos.process_start_time(pid) == body["start"]
+        )
+    except (ImportError, OSError, ValueError, KeyError, TypeError, AttributeError):
+        return False
+
+
+def _door_ancestor() -> bool:
+    """Whether some ancestor of this process is the door, read off `/proc`.
 
     The walk reads each ancestor's command line from `/proc` — up to 128 of them
     — and answers False as soon as it reaches pid 1 or a process whose files
     cannot be read. A `RUN_*` variable set by hand does not stand in for this.
-    The proof is forgeable by an operator — a command line plus `RUN_HOST` can
-    be faked with ``bash -c ...`` — so the seal is against every code path in
-    this repository, not against an operator impersonating the door.
     """
     pid = os.getpid()
     for _ in range(128):
@@ -254,9 +464,13 @@ def ssh(
     status is left to the caller (`check=False`).
     """
     _admit(f"ssh to {host}", host)
+    if local_transport(host):
+        from mcgyvr.serving import localrig
+
+        return localrig.run(command, input=input, timeout=timeout)
     return subprocess.run(
         [
-            "ssh",
+            *tool("ssh"),
             "-o",
             "BatchMode=yes",
             "-o",
@@ -408,9 +622,13 @@ def ssh_read_only(
             "the shipped-reader header read are "
             f"admitted), not {shlex.quote(command)[:80]}"
         )
+    if local_transport(host):
+        from mcgyvr.serving import localrig
+
+        return localrig.run(command, input=None, timeout=timeout)
     return subprocess.run(
         [
-            "ssh",
+            *tool("ssh"),
             "-o",
             "BatchMode=yes",
             "-o",
@@ -561,18 +779,16 @@ def os_machine_id() -> str:
 
 
 def process_start(pid: int) -> str | None:
-    """Field 22 of `/proc/<pid>/stat` — when `pid` started — or None.
+    """When `pid` started (`mcgyvr.hostos.process_start_time`; on Linux field 22
+    of `/proc/<pid>/stat`), or None.
 
     It is ever only compared with the same field read later, so a pid recycled
     by a new process is not mistaken for the one that took a lease. None means
     the field could not be read, or was not a number.
     """
-    try:
-        stat = Path(f"/proc/{pid}/stat").read_text(encoding="utf-8")
-        start = stat.rsplit(")", 1)[1].split()[19]
-    except (OSError, IndexError):
-        return None
-    return start if start.isdigit() else None
+    from mcgyvr import hostos
+
+    return hostos.process_start_time(pid)
 
 
 @dataclass(frozen=True)
@@ -669,12 +885,13 @@ class Lease:
         """
         if not self.has_id or self.machine != os_machine_id() or self.pid <= 0:
             return False
+        from mcgyvr import hostos
+
         try:
-            os.kill(self.pid, 0)
-        except (ProcessLookupError, OverflowError):
-            return True  # no such process: the holder is gone
-        except PermissionError:
-            pass  # alive, just not this user's to signal
+            if not hostos.pid_alive(self.pid):
+                return True  # no such process: the holder is gone
+        except OverflowError:
+            return True
         if self.pid_start == "none":
             return False
         now = process_start(self.pid)
@@ -733,10 +950,10 @@ def held_by(host: str, held: Lease) -> str:
 
 
 def _lease_script(
-    via: Transport, host: str, script: str
+    via: Transport | None, host: str, op: str, **fields: str
 ) -> subprocess.CompletedProcess[str]:
     try:
-        return via(host, LEASE_SHELL, script)
+        return _lease_op(host, op, via=via, **fields)
     except subprocess.TimeoutExpired:
         refuse(
             f"lease: {host} did not answer for its lease. A rig whose lease "
@@ -763,6 +980,104 @@ _STAMP = (
     'printf \'%s\\n\' \'{line}\' > "$f.$$" && mv -f "$f.$$" "$f"\n'
 )
 _RELEASE = 'f={file}\ngrep -qs -- \'lease_id={held} \' "$f" && rm -f "$f"\ntrue\n'
+#: Each lease operation by name, as the script the rig's shell runs.
+_LEASE_SCRIPTS = {
+    "read": _READ,
+    "take_free": _TAKE_FREE,
+    "take_stale": _TAKE_STALE,
+    "stamp": _STAMP,
+    "release": _RELEASE,
+}
+
+
+def _read_nofollow(path: Path) -> str:
+    """The text of `path`, refused (`OSError`) when it is a link."""
+    from mcgyvr import hostos
+
+    fd = hostos.open_nofollow(path, os.O_RDONLY)
+    with os.fdopen(fd, "r", encoding="utf-8") as handle:
+        return handle.read()
+
+
+def _lease_op(
+    host: str, op: str, *, via: Transport | None = None, **fields: str
+) -> subprocess.CompletedProcess[str]:
+    """Run the lease operation `op` on `host`, answering as its shell script does.
+
+    Over ssh (or `via`) it is the script; on a rig the door reaches through its
+    local transport it is :func:`_local_lease`, the same operation on the same
+    file in Python, so no shell is needed there.
+    """
+    if via is None and local_transport(host):
+        return _local_lease(op, **fields)
+    script = _LEASE_SCRIPTS[op].format(dir=LEASE_DIR, file=LEASE_FILE, **fields)
+    return (via or _over_ssh)(host, LEASE_SHELL, script)
+
+
+def _local_lease(op: str, **fields: str) -> subprocess.CompletedProcess[str]:
+    """The lease scripts' operation `op` on this machine's lease file.
+
+    Statuses as the scripts give them: 0 done, 1 a free take found a lease
+    there, 3 the lease is not the one expected, 4 no lease folder. Each
+    operation holds `lease.lock` beside the file, so two on this machine do not
+    interleave. Every write goes through a temporary file renamed over the
+    lease, as the scripts' `mv -f` does; a free take creates it exclusively, as
+    `set -C` does.
+    """
+    from mcgyvr import hostos
+
+    folder = Path(LEASE_DIR).expanduser()
+    lease = Path(LEASE_FILE).expanduser()
+
+    def answer(code: int, out: str = "") -> subprocess.CompletedProcess[str]:
+        return subprocess.CompletedProcess(["lease", op], code, out, "")
+
+    try:
+        folder.mkdir(parents=True, exist_ok=True)
+        fd = hostos.open_nofollow(folder / "lease.lock", os.O_RDWR | os.O_CREAT, 0o600)
+    except OSError as exc:
+        return subprocess.CompletedProcess(["lease", op], 4, "", f"{exc}\n")
+    try:
+        hostos.lock(fd)
+        try:
+            now = _read_nofollow(lease)
+        except FileNotFoundError:
+            now = ""
+        except OSError as exc:
+            return subprocess.CompletedProcess(["lease", op], 5, "", f"{exc}\n")
+        held = f"lease_id={fields.get('held', '')} "
+        if op == "read":
+            return answer(0, now)
+        if op == "release":
+            if held in now:
+                lease.unlink(missing_ok=True)
+            return answer(0)
+        line = fields["line"] + "\n"
+        if op == "take_free":
+            try:
+                out = hostos.open_nofollow(
+                    lease, os.O_WRONLY | os.O_CREAT | os.O_EXCL, 0o644
+                )
+            except FileExistsError:
+                return answer(1)
+            with os.fdopen(out, "w", encoding="utf-8") as handle:
+                handle.write(line)
+            return answer(0)
+        if op == "take_stale" and not fields.get("held"):
+            if now.strip():
+                return answer(3)
+        elif held not in now:
+            return answer(3)
+        part = folder / f"lease.{os.getpid()}"
+        part.unlink(missing_ok=True)
+        out = hostos.open_nofollow(part, os.O_WRONLY | os.O_CREAT | os.O_EXCL, 0o644)
+        with os.fdopen(out, "w", encoding="utf-8") as handle:
+            handle.write(line)
+        os.replace(part, lease)
+        return answer(0)
+    finally:
+        hostos.unlock(fd)
+        os.close(fd)
 
 
 def lease_read(host: str, *, via: Transport | None = None) -> Lease | None:
@@ -771,7 +1086,7 @@ def lease_read(host: str, *, via: Transport | None = None) -> Lease | None:
     A lease that cannot be read at all is a refusal: a rig whose lease cannot be
     read is not entered. `via` sends the script by something other than ssh.
     """
-    done = _lease_script(via or _over_ssh, host, _READ)
+    done = _lease_script(via, host, "read")
     if done.returncode != 0:
         refuse(
             f"lease: the lease on {host} could not be read: "
@@ -792,11 +1107,7 @@ def lease_take(host: str, lease: Lease, *, held: Lease | None) -> Lease | None:
     run holds is a refusal.
     """
     if held is None:
-        done = _lease_script(
-            _over_ssh,
-            host,
-            _TAKE_FREE.format(dir=LEASE_DIR, file=LEASE_FILE, line=lease.line()),
-        )
+        done = _lease_script(None, host, "take_free", line=lease.line())
         if done.returncode == 0:
             return None
         now = lease_read(host)
@@ -809,13 +1120,7 @@ def lease_take(host: str, lease: Lease, *, held: Lease | None) -> Lease | None:
         held_id = held.lease_id
     else:
         refuse(f"lease: {held_by(host, held)}")
-    done = _lease_script(
-        _over_ssh,
-        host,
-        _TAKE_STALE.format(
-            dir=LEASE_DIR, file=LEASE_FILE, held=held_id, line=lease.line()
-        ),
-    )
+    done = _lease_script(None, host, "take_stale", held=held_id, line=lease.line())
     if done.returncode == 0:
         return None
     now = lease_read(host)
@@ -837,11 +1142,7 @@ def lease_stamp(host: str, lease: Lease, run_id: str) -> Lease:
     nothing is minted on a rig this run no longer holds.
     """
     stamped = replace(lease, run_id=run_id)
-    done = _lease_script(
-        _over_ssh,
-        host,
-        _STAMP.format(file=LEASE_FILE, held=lease.lease_id, line=stamped.line()),
-    )
+    done = _lease_script(None, host, "stamp", held=lease.lease_id, line=stamped.line())
     if done.returncode == 0:
         return stamped
     now = lease_read(host)
@@ -867,9 +1168,7 @@ def lease_release(host: str, lease_id: str, *, via: Transport | None = None) -> 
     be confirmed — a shell that timed out or exited non-zero.
     """
     try:
-        done = (via or _over_ssh)(
-            host, LEASE_SHELL, _RELEASE.format(file=LEASE_FILE, held=lease_id)
-        )
+        done = _lease_op(host, "release", via=via, held=lease_id)
     except subprocess.TimeoutExpired:
         return False
     return done.returncode == 0
@@ -994,7 +1293,7 @@ def next_on_path(name: str, *, skip: Path) -> str | None:
                 continue
         except OSError:
             continue
-        candidate = directory / name
+        candidate = directory / _program_name(name)
         # `is_file()` and `access()` are asked inside the guard: an entry that
         # vanished or cannot be stat'ed is passed over, rather than ending the
         # search for the real tool.
@@ -1005,6 +1304,30 @@ def next_on_path(name: str, *, skip: Path) -> str | None:
         if found:
             return str(candidate)
     return None
+
+
+def _program_name(name: str) -> str:
+    """`name` as a program file is named here (`ssh.exe` on Windows).
+
+    `mcgyvr.hostos.exe`'s rule, spelled here because a shim may load this
+    module where mcgyvr itself cannot be imported.
+    """
+    if sys.platform == "win32" and not name.lower().endswith(".exe"):
+        return f"{name}.exe"
+    return name
+
+
+def become(real: str, argv: list[str]) -> NoReturn:
+    """Be the program `real` with `argv`: an exec on POSIX, a child on Windows.
+
+    Windows has no exec that keeps the process: `os.execv` starts a new one and
+    ends this one at once, so whoever waits on the shim would see it end before
+    the tool did. There the tool is run and waited for, and its status is this
+    shim's.
+    """
+    if sys.platform == "win32":
+        raise SystemExit(subprocess.run([real, *argv[1:]], check=False).returncode)
+    os.execv(real, argv)
 
 
 def shim_ssh(argv: list[str], *, own: Path) -> NoReturn:
@@ -1034,7 +1357,7 @@ def shim_ssh(argv: list[str], *, own: Path) -> NoReturn:
     real = next_on_path("ssh", skip=own)
     if real is None:
         refuse("ssh refused: no ssh on PATH beyond the door's own shim")
-    os.execv(real, [real, "-o", "BatchMode=yes", "-o", "ConnectTimeout=10", *argv])
+    become(real, [real, "-o", "BatchMode=yes", "-o", "ConnectTimeout=10", *argv])
 
 
 def docker_names_a_daemon(argv: list[str]) -> list[str]:
@@ -1062,7 +1385,8 @@ def shim_docker(argv: list[str], *, own: Path) -> NoReturn:
     A command line that names a daemon of its own is refused, so the client
     cannot be pointed anywhere but `ssh://RUN_HOST`. The real docker is then
     found on PATH past the shim and executed with `-H ssh://<RUN_HOST>` in front
-    of the caller's arguments. This function does not return.
+    of the caller's arguments, or as it is when the rig is this machine reached
+    through the local transport. This function does not return.
     """
     named = docker_names_a_daemon(argv)
     if named:
@@ -1075,4 +1399,8 @@ def shim_docker(argv: list[str], *, own: Path) -> NoReturn:
     real = next_on_path("docker", skip=own)
     if real is None:
         refuse("docker refused: no docker on PATH beyond the door's own shim")
-    os.execv(real, [real, "-H", f"ssh://{host}", *argv])
+    if local_transport(host):
+        # The rig is this machine, reached without ssh: its daemon is the one
+        # the client already talks to, and no other is named.
+        become(real, [real, *argv])
+    become(real, [real, "-H", f"ssh://{host}", *argv])

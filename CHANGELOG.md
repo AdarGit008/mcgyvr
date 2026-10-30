@@ -11,6 +11,12 @@ archived outside this repository, under the same paths.
 
 ### Changed
 
+- **The Linux llama.cpp image is pinned to the native build: `server-cuda-b11960`**
+  (was the floating `server-cuda`), so a container and a native binary of one
+  split are one build. A fleet already stamped keeps the `image` its units
+  state (a stamp fills only an empty one); `mcgyvr emit --check` reports a
+  compose file emitted with the old tag as changed until it is emitted again.
+
 - **mcgyvr imports, and keeps its files, on macOS and Windows too
   (`mcgyvr.hostos`, #810).** One module answers what differs between the three
   systems: file locks (`flock`, or `msvcrt.locking` of one byte past the end
@@ -116,6 +122,39 @@ archived outside this repository, under the same paths.
   estimate. A Linux machine reads as before and keeps its rig id. A Mac's
   unified GPU is not lent yet: a lent card is served by a CUDA worker in a
   container, and it joins lending with native launch. (#809)
+
+- **A unit runs natively, with no container: `launcher: native` (#818).** The
+  llama.cpp build mcgyvr pins (b11960, `mcgyvr.serving.llamacpp`; the Linux
+  image is the same build, `server-cuda-b11960`) is fetched on first use into
+  `bin/llama.cpp/<tag>/` under the mcgyvr home, checked against the size and
+  sha256 committed for each archive, unpacked so no member lands outside its
+  folder, cleared of macOS's quarantine flag, and kept up by mcgyvr's own
+  supervisor: one per unit, restarting a server that exits with a doubling
+  pause and giving up after five crashes running, its log in
+  `logs/<container>.log` under the data folder. The build is Metal on Apple
+  silicon; CUDA where `nvidia-smi` reads a driver one of the pinned CUDA
+  builds runs, else Vulkan where a Vulkan loader is installed, else the CPU
+  (`$MCGYVR_NATIVE_BACKEND` names one instead). A native server listens on
+  127.0.0.1 alone (the rig agent relays to it), and runs only on the
+  machine mcgyvr runs on (`--host localhost`). The door's
+  `serve up`/`down` start and stop native units, gate 3 asks no daemon of
+  them, and `mcgyvr serve status --host localhost` lists them; `serve
+  sleep`/`wake` refuse them (no sleep route: down, then up). The working set
+  Metal reports at start-up (`recommendedMaxWorkingSetSize`) is filed as a
+  reading. `setup` writes `launcher: native` for a llama.cpp unit on the Mac
+  or Windows machine it runs on; a unit stating no launcher is a container,
+  as before.
+- **The rig that is this machine is reached without ssh** where it runs no
+  sshd: always on macOS and Windows, on Linux when nothing listens on port 22
+  (`$MCGYVR_LOCAL_TRANSPORT=direct|ssh` decides instead). The door runs the
+  rig's steps here: the shipped readers and the fetcher on its own
+  interpreter, health probes with urllib, the lease in `~/.mcgyvr/lease` in
+  Python, and nothing else; `docker` talks to the local daemon, and Docker
+  Desktop's `docker-desktop` stands for this machine. Where `/proc` cannot
+  prove a gate descends from the door, a one-time secret the door hands down,
+  whose digest waits in a 0600 file while the door lives, proves it. On
+  Windows the door runs its `ssh`/`docker` shims by argv (with `.cmd`
+  launchers beside them) and hands a gate its export pipe as a handle.
 
 - **What a rig lends is defined once, as resources, in `mcgyvr.hubwire`
   (#812).** A `Resource` (`gpu`, `unified`, `ram` or `cpu`; `RESOURCE_KINDS`)

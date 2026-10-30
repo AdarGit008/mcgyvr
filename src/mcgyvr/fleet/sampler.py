@@ -104,11 +104,15 @@ def unit_id(unit: Mapping[str, Any]) -> str:
 
     The engine, image, container, launch spec, model and address are digested
     under the unit prefix, a missing engine read as llama.cpp, so the id changes
-    exactly when what the unit is or where it answers changes.
+    exactly when what the unit is or where it answers changes. A native unit's
+    launcher is digested too; a container's is not, so every id a unit had
+    before units could run natively is the id it has now.
     """
+    native = {"launcher": "native"} if unit.get("launcher") == "native" else {}
     return ids.digest(
         "unt-",
         {
+            **native,
             "engine": str(unit.get("engine") or "llama.cpp"),
             "image": str(unit.get("image") or ""),
             "container": str(unit.get("container") or ""),
