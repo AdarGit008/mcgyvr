@@ -28,9 +28,9 @@ import subprocess
 import sys
 import time
 import unicodedata
-from collections.abc import Iterable, Mapping, Sequence
+from collections.abc import Callable, Iterable, Iterator, Mapping, Sequence
 from datetime import UTC, datetime
-from typing import Any
+from typing import IO, Any
 
 KB_PER_GB = 1024.0 * 1024.0
 MIB_PER_GB = 1024.0
@@ -60,6 +60,10 @@ DRM = "/sys/class/drm"
 #: What one tool call may take: seconds before it is killed, and bytes of output kept.
 BOUND_S = 20.0
 BYTES_MAX = 262144
+#: How long a Windows tree kill is given (``mcgyvr.hostos.TASKKILL_S``).
+TASKKILL_S = 10.0
+#: How often a Windows pipe is looked at while a tool's output is awaited.
+PIPE_POLL_S = 0.05
 #: What text read from a file or a tool may take: one line's length, and how many
 #: lines a whole card list may run to.
 LINE_MAX = 4096
@@ -234,6 +238,83 @@ def is_machine_id(value: object) -> bool:
 # back as a reason a note can carry to the reader.
 
 
+def _group_kwargs() -> dict[str, Any]:
+    """What Popen takes to start a tool heading a group of its own.
+
+    A clone of ``mcgyvr.hostos.popen_group_kwargs`` (this file is shipped to a
+    rig alone, so it cannot import it): a new session on POSIX, a new console
+    process group on Windows.
+    """
+    if sys.platform == "win32":
+        return {"creationflags": subprocess.CREATE_NEW_PROCESS_GROUP}
+    return {"start_new_session": True}
+
+
+def _kill_group(process: subprocess.Popen[Any]) -> None:
+    """Kill a tool and all it started: a clone of ``mcgyvr.hostos.kill_group``.
+
+    POSIX: SIGKILL to its process group. Windows: ``taskkill /F /T`` by its
+    full path, then the tool itself.
+    """
+    if sys.platform == "win32":
+        system = os.environ.get("SYSTEMROOT") or r"C:\Windows"
+        taskkill = os.path.join(system, "System32", "taskkill.exe")
+        with contextlib.suppress(OSError, subprocess.SubprocessError):
+            subprocess.run(
+                [taskkill, "/F", "/T", "/PID", str(process.pid)],
+                stdin=subprocess.DEVNULL,
+                stdout=subprocess.DEVNULL,
+                stderr=subprocess.DEVNULL,
+                timeout=TASKKILL_S,
+                check=False,
+            )
+        process.kill()
+        return
+    os.killpg(process.pid, signal.SIGKILL)
+
+
+@contextlib.contextmanager
+def _reader(stream: IO[bytes]) -> Iterator[Callable[[float], bytes | None]]:
+    """A read of at most 65536 bytes from `stream` that waits `left` seconds.
+
+    It answers None when nothing came in time and ``b""`` at the end. POSIX
+    waits on a selector over the pipe. Windows, whose selectors take sockets
+    only, looks at the pipe every PIPE_POLL_S with ``PeekNamedPipe`` and reads
+    only what is there, so no read is ever left waiting on a pipe that a tool's
+    leftover child holds open; a pipe whose writers are gone is the end.
+    """
+    if sys.platform == "win32":
+        import _winapi
+        import msvcrt
+
+        handle = msvcrt.get_osfhandle(stream.fileno())
+
+        def peeked(left: float) -> bytes | None:
+            until = time.monotonic() + left
+            while True:
+                try:
+                    waiting = _winapi.PeekNamedPipe(handle, 0)[0]
+                except OSError:
+                    return b""
+                if waiting:
+                    return os.read(stream.fileno(), min(waiting, 65536))
+                if time.monotonic() >= until:
+                    return None
+                time.sleep(PIPE_POLL_S)
+
+        yield peeked
+        return
+    with selectors.DefaultSelector() as watch:
+        watch.register(stream, selectors.EVENT_READ)
+
+        def selected(left: float) -> bytes | None:
+            if not watch.select(left):
+                return None
+            return os.read(stream.fileno(), 65536)
+
+        yield selected
+
+
 def _run(
     argv: Sequence[str], *, bound: float = BOUND_S
 ) -> tuple[str | None, str | None]:
@@ -242,9 +323,10 @@ def _run(
     The tool is looked up on PATH first, so a tool that is not installed gives
     (None, None): nothing was tried, and nothing failed. Stdout is read through a
     selector until the tool closes it, the bound runs out, or the output passes
-    BYTES_MAX; stderr is discarded and the process is started in its own session,
-    so a kill takes any children with it. The text is decoded as utf-8 with
-    replacement, since a tool may print bytes that are not text.
+    BYTES_MAX; stderr is discarded and the process is started heading a group of
+    its own (a session on POSIX), so a kill takes any children with it. The text
+    is decoded as utf-8 with replacement, since a tool may print bytes that are
+    not text.
     """
     found = shutil.which(argv[0])
     if found is None:
@@ -256,7 +338,7 @@ def _run(
             stdin=subprocess.DEVNULL,
             stdout=subprocess.PIPE,
             stderr=subprocess.DEVNULL,
-            start_new_session=True,
+            **_group_kwargs(),
         )
     except OSError as exc:
         return None, f"{label} could not start ({exc.strerror or exc})"
@@ -265,8 +347,7 @@ def _run(
     chunks: list[bytes] = []
     size = 0
     why: str | None = None
-    with selectors.DefaultSelector() as watch:
-        watch.register(process.stdout, selectors.EVENT_READ)
+    with _reader(process.stdout) as read:
         while True:
             left = deadline - time.monotonic()
             if left <= 0:
@@ -276,9 +357,9 @@ def _run(
                     else f"{label} left its output open past {bound:g} s"
                 )
                 break
-            if not watch.select(left):
+            data = read(left)
+            if data is None:
                 continue
-            data = os.read(process.stdout.fileno(), 65536)
             if not data:
                 break
             chunks.append(data)
@@ -293,7 +374,7 @@ def _run(
             why = f"{label} did not answer within {bound:g} s"
     if why is not None or process.poll() is None:
         with contextlib.suppress(OSError):
-            os.killpg(process.pid, signal.SIGKILL)
+            _kill_group(process)
     process.stdout.close()
     process.wait()
     if why is not None:
@@ -1129,10 +1210,21 @@ def measure_bandwidth(root: str = "") -> dict[str, Any] | None:
 
 def default_weights_dir() -> str:
     """Where weights live when the caller names no directory: MCGYVR_WEIGHTS with ~
-    expanded, or ~/.cache/mcgyvr/weights."""
+    expanded, or ``weights`` in the system's cache folder: ~/.cache/mcgyvr/weights
+    on Linux (whatever XDG_CACHE_HOME says, as always), ~/Library/Caches/mcgyvr/weights
+    on macOS, %LOCALAPPDATA%\\mcgyvr\\cache\\weights on Windows. A clone of
+    ``mcgyvr.hostos.user_cache_dir`` with no XDG variable, since this file is shipped
+    alone."""
     override = os.environ.get(WEIGHTS_DIR_ENV)
     if override:
         return os.path.expanduser(override)
+    if sys.platform == "darwin":
+        return os.path.expanduser("~/Library/Caches/mcgyvr/weights")
+    if sys.platform == "win32":
+        local = os.environ.get("LOCALAPPDATA")
+        if not (local and os.path.isabs(local)):
+            local = os.path.join(os.path.expanduser("~"), "AppData", "Local")
+        return os.path.join(local, "mcgyvr", "cache", "weights")
     return os.path.expanduser("~/.cache/mcgyvr/weights")
 
 

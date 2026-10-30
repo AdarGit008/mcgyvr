@@ -1,0 +1,28 @@
+name: platforms
+# macOS and Windows: the CLI imports, and the OS seam (mcgyvr.hostos) and the
+# machine reader's tests pass there, on the real system. The full suite runs on
+# Linux in .forgejo/workflows/ci.yml; this job is not a required check.
+on: [push, pull_request]
+permissions:
+  contents: read
+jobs:
+  platforms:
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [macos-latest, windows-latest]
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: astral-sh/setup-uv@c18668ad3cf93ea998bef934396af7bb5c839dc7 # v10.2.0
+        with:
+          version: "0.11.28"
+          python-version: "3.12"
+      - name: install (frozen against uv.lock)
+        run: uv sync --frozen
+      - name: the CLI imports
+        run: uv run --no-sync python -c "import mcgyvr.cli; import mcgyvr.hostos"
+      - name: hostos and the machine reader
+        # bash on both runners, so the test glob expands on Windows too.
+        shell: bash
+        run: uv run --no-sync pytest tests/test_hostos*.py tests/test_detect.py -q

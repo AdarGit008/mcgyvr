@@ -559,7 +559,8 @@ def _ssh(host: str, command: str) -> str:
 def default_weights_dir() -> Path:
     """Where this machine keeps its weights.
 
-    ``MCGYVR_WEIGHTS`` when set, else ``~/.cache/mcgyvr/weights``, expanded;
+    ``MCGYVR_WEIGHTS`` when set, else ``weights`` in the system's cache folder
+    (``~/.cache/mcgyvr/weights`` on Linux), expanded;
     rigscan resolves it, so a local and a remote path follow the same rule.
     """
     from mcgyvr.serving import rigscan

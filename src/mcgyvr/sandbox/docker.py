@@ -22,6 +22,7 @@ from pathlib import Path, PurePosixPath
 from typing import ClassVar
 from urllib.parse import urlparse, urlunparse
 
+from mcgyvr import hostos
 from mcgyvr.sandbox.base import (
     TIMEOUT_EXIT,
     CommandResult,
@@ -455,11 +456,8 @@ def _host_user() -> str | None:
     A platform without `getuid` and `getgid` returns nothing, and the container
     then runs as its image says.
     """
-    getuid = getattr(os, "getuid", None)
-    getgid = getattr(os, "getgid", None)
-    if getuid is None or getgid is None:
-        return None
-    return f"{getuid()}:{getgid()}"
+    ids = hostos.posix_ids()
+    return None if ids is None else f"{ids[0]}:{ids[1]}"
 
 
 def _as_text(stream: str | bytes | None) -> str:

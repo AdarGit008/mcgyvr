@@ -2,7 +2,8 @@
 
 Promise: the config folder is ``$MCGYVR_HOME``, default ``~/.mcgyvr``, and the
 data folder is ``$MCGYVR_DATA``, default ``mcgyvr`` under ``$XDG_STATE_HOME``,
-default ``~/.local/state/mcgyvr``; either moves alone. Under those two, this
+default ``~/.local/state/mcgyvr`` (macOS and Windows: that system's own place,
+:func:`mcgyvr.hostos.user_data_dir`); either moves alone. Under those two, this
 module names the promoted fleets, the user's rig files, the pointer that names
 the live fleet, and the staging area a setup is sampled in before anything is
 locked, and it settles whether a run is held to the live lock
@@ -16,19 +17,21 @@ from __future__ import annotations
 import json
 import os
 import re
+from collections.abc import Callable
 from datetime import date
 from pathlib import Path
+
+from mcgyvr import hostos
 
 #: The variable that moves the config folder, and the folder it names when
 #: nothing does.
 HOME_ENV = "MCGYVR_HOME"
 HOME_DIR = "~/.mcgyvr"
-#: The variable that moves the data folder, the convention's variable for state,
-#: the folder taken under it, and the folder named when neither of the two is
-#: set.
+#: The variable that moves the data folder, the folder's name, and the folder
+#: named on Linux when neither it nor ``$XDG_STATE_HOME`` is set (the default on
+#: every system is :func:`mcgyvr.hostos.user_data_dir`).
 DATA_ENV = "MCGYVR_DATA"
-STATE_ENV = "XDG_STATE_HOME"
-DATA_NAME = "mcgyvr"
+DATA_NAME = hostos.APP
 DATA_DIR = f"~/.local/state/{DATA_NAME}"
 #: The config folder's own folder of promoted fleets, one folder per fleet.
 FLEETS_DIR = "fleets"
@@ -71,13 +74,13 @@ class FolderError(RuntimeError):
     """A folder named in the environment cannot be expanded or resolved."""
 
 
-def _named(variable: str, default: str) -> Path | None:
+def _named(variable: str, default: str | Callable[[], str]) -> Path | None:
     """The folder ``variable`` names, or ``None`` when it names none.
 
     An empty value names no folder. A value that cannot be expanded, or that is
     not absolute — and so would name a different folder from each working
     directory — is refused in the variable's own name, and the refusal names
-    ``default`` as the way out.
+    ``default`` (called first, when it is a function) as the way out.
     """
     value = os.environ.get(variable)
     if not value:
@@ -87,6 +90,8 @@ def _named(variable: str, default: str) -> Path | None:
     except RuntimeError as exc:
         raise FolderError(f"${variable}={value!r} cannot be expanded: {exc}") from exc
     if not path.is_absolute():
+        if not isinstance(default, str):
+            default = default()
         raise FolderError(
             f"${variable}={value!r} is not an absolute path, so it would name "
             f"a different folder from each working directory; name the folder "
@@ -106,16 +111,20 @@ def data_home() -> Path:
 
     ``$MCGYVR_DATA`` names it; failing that, ``mcgyvr`` under
     ``$XDG_STATE_HOME`` when that variable is absolute; failing both,
-    ``~/.local/state/mcgyvr``.
+    ``~/.local/state/mcgyvr`` on Linux and the system's own place elsewhere
+    (:func:`mcgyvr.hostos.user_data_dir`).
     """
-    state = os.environ.get(STATE_ENV)
-    under_state = (
-        Path(state) / DATA_NAME if state and Path(state).is_absolute() else None
-    )
-    named = _named(DATA_ENV, DATA_DIR if under_state is None else str(under_state))
-    if named is not None:
-        return named
-    return under_state if under_state is not None else Path(DATA_DIR).expanduser()
+    named = _named(DATA_ENV, _data_shown)
+    return named if named is not None else hostos.user_data_dir()
+
+
+def _data_shown() -> str:
+    """The data folder's default as a refusal names it: ``~/.local/state/mcgyvr``
+    on Linux with no absolute ``$XDG_STATE_HOME``, else the folder in full."""
+    state = os.environ.get("XDG_STATE_HOME")
+    if hostos.os_name() == "linux" and not (state and Path(state).is_absolute()):
+        return DATA_DIR
+    return str(hostos.user_data_dir())
 
 
 def staging_dir(run_id: str) -> Path:

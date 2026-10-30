@@ -51,10 +51,23 @@ GOOD = frozenset({PRESENT, FETCHED, RESUMED})
 
 
 def weights_dir() -> str:
-    """Return MCGYVR_WEIGHTS expanded if it is set, else ~/.cache/mcgyvr/weights."""
+    """Return MCGYVR_WEIGHTS expanded if it is set, else the system's weights folder.
+
+    The same answer as ``rigscan.default_weights_dir`` (a clone: each file is
+    shipped to a rig alone): ~/.cache/mcgyvr/weights on Linux,
+    ~/Library/Caches/mcgyvr/weights on macOS, and
+    %LOCALAPPDATA%\\mcgyvr\\cache\\weights on Windows.
+    """
     override = os.environ.get(WEIGHTS_DIR_ENV)
     if override:
         return os.path.expanduser(override)
+    if sys.platform == "darwin":
+        return os.path.expanduser("~/Library/Caches/mcgyvr/weights")
+    if sys.platform == "win32":
+        local = os.environ.get("LOCALAPPDATA")
+        if not (local and os.path.isabs(local)):
+            local = os.path.join(os.path.expanduser("~"), "AppData", "Local")
+        return os.path.join(local, "mcgyvr", "cache", "weights")
     return os.path.expanduser("~/.cache/mcgyvr/weights")
 
 

@@ -15,7 +15,6 @@ it is ready.
 from __future__ import annotations
 
 import contextvars
-import fcntl
 import hashlib
 import inspect
 import os
@@ -31,6 +30,7 @@ from pathlib import Path
 from typing import TYPE_CHECKING, cast
 from typing import Protocol as TypingProtocol
 
+from mcgyvr import hostos
 from mcgyvr.userdir import owned_outright, private_dir, user_tempdir
 
 if TYPE_CHECKING:  # pragma: no cover - typing only
@@ -75,13 +75,13 @@ def _private(directory: Path) -> Path:
     if private_dir(directory, make=True) is None:
         with suppress(OSError):
             found = os.lstat(directory)
-            if stat.S_ISDIR(found.st_mode) and found.st_uid == os.getuid():
-                os.chmod(directory, 0o700)
+            if stat.S_ISDIR(found.st_mode) and hostos.owned_by_current_user(found):
+                hostos.chmod_private(directory, directory=True)
     if not owned_outright(directory):
         raise CapacityError(
             f"the slot directory {directory} is not this user's own: it must be a "
-            f"directory (not a symlink) owned by uid {os.getuid()}. Remove it, and "
-            f"the next run makes it afresh with mode 0700."
+            f"directory (not a symlink) owned by uid {hostos.current_user_id()}. "
+            f"Remove it, and the next run makes it afresh with mode 0700."
         )
     return directory
 
@@ -94,14 +94,14 @@ def _open_slot(directory: Path, name: str) -> int:
     """
     path = directory / name
     try:
-        fd = os.open(path, os.O_RDWR | os.O_CREAT | os.O_NOFOLLOW, 0o600)
+        fd = hostos.open_nofollow(path, os.O_RDWR | os.O_CREAT, 0o600)
     except OSError as exc:
         raise CapacityError(
             f"the slot file {path} could not be opened ({exc.strerror}); a slot "
             f"file is a plain file, never a symlink. Remove it, and the next run "
             f"makes it afresh."
         ) from exc
-    if os.fstat(fd).st_uid != os.getuid():
+    if not hostos.owned_by_current_user(os.fstat(fd)):
         os.close(fd)
         raise CapacityError(
             f"the slot file {path} belongs to another user, who could hold it. "
@@ -980,7 +980,7 @@ class Capacity:
         fd = _open_slot(directory, f"{stem}.{index}.slot")
         while True:
             try:
-                fcntl.flock(fd, fcntl.LOCK_EX | fcntl.LOCK_NB)
+                hostos.lock(fd, blocking=False)
             except OSError:
                 if deadline is not None and time.monotonic() >= deadline:
                     os.close(fd)
@@ -1020,7 +1020,7 @@ class Capacity:
                 for index in range(limit):
                     fd = _open_slot(directory, f"{stem}.{index}.slot")
                     try:
-                        fcntl.flock(fd, fcntl.LOCK_EX | fcntl.LOCK_NB)
+                        hostos.lock(fd, blocking=False)
                     except OSError:
                         os.close(fd)
                         continue

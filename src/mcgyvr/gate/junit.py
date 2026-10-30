@@ -41,6 +41,8 @@ from collections.abc import Sequence
 from dataclasses import dataclass
 from pathlib import Path, PurePosixPath
 
+from mcgyvr import hostos
+
 #: Where the report is written, relative to the workspace root the gate runs
 #: commands in. A dot-file, so a listing of the tree does not show it.
 REPORT = ".mcgyvr-acceptance-junit.xml"
@@ -333,9 +335,8 @@ def _read_bounded(path: Path) -> str | None:
     larger than :data:`_MAX_REPORT_BYTES` or cannot be read."""
     # Non-blocking, and checked again once open, so a FIFO swapped in after the
     # caller's look at the path can neither block the read nor be read.
-    flags = os.O_RDONLY | os.O_NONBLOCK | getattr(os, "O_NOFOLLOW", 0)
     try:
-        fd = os.open(path, flags)
+        fd = hostos.open_nofollow(path, os.O_RDONLY | hostos.open_flags_nonblock())
     except OSError:
         return None
     with os.fdopen(fd, "rb") as handle:

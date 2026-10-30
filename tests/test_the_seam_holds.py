@@ -301,7 +301,8 @@ ABOVE_THE_SEAM: tuple[str, ...] = (
 #: one half of it: the package itself, the setup's schema and the two files it reads
 #: (``config.py``), the vocabulary of what may be asked for (``catalog.py``), how a
 #: file is replaced whole (``atomic.py``), the exit codes a caller branches on
-#: (``exits.py``), how git is run against a repository (``gitcmd.py``), the wire
+#: (``exits.py``), how git is run against a repository (``gitcmd.py``), what
+#: differs between Linux, macOS and Windows (``hostos.py``), the wire
 #: the hub serves a rider (``hubwire.py``), where a line ends (``lines.py``), what
 #: is safe to quote to an
 #: operator (``redact.py``), the schema walk both schemas share (``schema.py``),
@@ -318,6 +319,7 @@ SHARED_ACROSS_THE_SEAM: tuple[str, ...] = (
     "mcgyvr.config",
     "mcgyvr.exits",
     "mcgyvr.gitcmd",
+    "mcgyvr.hostos",
     "mcgyvr.hubwire",
     "mcgyvr.lines",
     "mcgyvr.redact",

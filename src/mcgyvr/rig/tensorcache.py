@@ -24,6 +24,8 @@ import time
 from collections.abc import Iterator, Sequence
 from pathlib import Path
 
+from mcgyvr import hostos
+
 #: FNV-1a 64-bit: the offset basis, prime multiplier and the mask that keeps
 FNV_OFFSET = 0xCBF29CE484222325
 FNV_PRIME = 0x100000001B3
@@ -39,7 +41,6 @@ HASHERS = max(1, min(4, (os.cpu_count() or 1) // 2))
 HASHER_POLL_S = 0.01
 
 #: Identifies the current boot: a ledger written in another boot is discarded.
-BOOT_ID = Path("/proc/sys/kernel/random/boot_id")
 #: Ledger format version, and the largest ledger file this code will read.
 SAVED_VERSION = 1
 MAX_SAVED_BYTES = 64 << 20
@@ -149,12 +150,12 @@ def _remove(path: Path) -> None:
 
 
 def boot_id() -> str | None:
-    """Return the kernel's identifier for the current boot, or None if unreadable."""
-    try:
-        found = BOOT_ID.read_text(encoding="ascii").strip()
-    except (OSError, ValueError):
-        return None
-    return found or None
+    """Return the system's identifier for the current boot, or None if unreadable.
+
+    Read by :func:`mcgyvr.hostos.boot_id`; Windows has none, so there no ledger is
+    trusted and every file is hashed again.
+    """
+    return hostos.boot_id()
 
 
 def saved_beside(folder: Path) -> Path:
@@ -175,7 +176,9 @@ def _read_saved(saved: Path) -> dict[Path, Identity]:
     if boot is None:
         return {}
     try:
-        descriptor = os.open(saved, os.O_RDONLY | os.O_NOFOLLOW | os.O_NONBLOCK)
+        descriptor = hostos.open_nofollow(
+            saved, os.O_RDONLY | hostos.open_flags_nonblock()
+        )
     except OSError:
         return {}
     try:
@@ -244,8 +247,8 @@ class Ledger:
         partial = self._saved.with_name(f"{self._saved.name}.{os.getpid()}.tmp")
         try:
             _remove(partial)
-            descriptor = os.open(
-                partial, os.O_WRONLY | os.O_CREAT | os.O_EXCL | os.O_NOFOLLOW, 0o600
+            descriptor = hostos.open_nofollow(
+                partial, os.O_WRONLY | os.O_CREAT | os.O_EXCL, 0o600
             )
             with os.fdopen(descriptor, "w", encoding="ascii") as handle:
                 json.dump(document, handle)
@@ -307,6 +310,5 @@ class Ledger:
 
 if __name__ == "__main__":
     # Hasher child: name the one path given, at the lowest priority.
-    with contextlib.suppress(OSError):
-        os.nice(19)
+    hostos.lower_priority()
     sys.stdout.write(file_name(Path(sys.argv[1])) + "\n")

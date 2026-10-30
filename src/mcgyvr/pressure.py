@@ -10,7 +10,6 @@ is left silent rather than raised into the work it is attached to.
 
 from __future__ import annotations
 
-import fcntl
 import hashlib
 import itertools
 import os
@@ -21,6 +20,7 @@ from contextlib import contextmanager, suppress
 from pathlib import Path
 from typing import TYPE_CHECKING
 
+from mcgyvr import hostos
 from mcgyvr.runner import unit_in_flight
 from mcgyvr.userdir import private_dir, user_tempdir
 
@@ -129,7 +129,7 @@ class Gauge:
         except OSError:
             return None
         try:
-            fcntl.flock(fd, fcntl.LOCK_EX)
+            hostos.lock(fd)
             os.rename(scratch, marker)
         except OSError:
             _quietly_remove(scratch)
@@ -174,13 +174,7 @@ def _running(pid: int) -> bool:
     A pid that cannot be signalled but is there (another user's) counts as
     running; only a pid the kernel reports as gone is dead.
     """
-    try:
-        os.kill(pid, 0)
-    except ProcessLookupError:
-        return False
-    except OSError:
-        return True
-    return True
+    return hostos.pid_alive(pid)
 
 
 def _held(marker: Path) -> bool:
@@ -191,14 +185,14 @@ def _held(marker: Path) -> bool:
     here rather than left to be counted again.
     """
     try:
-        fd = os.open(marker, os.O_RDONLY | os.O_NOFOLLOW)
+        fd = hostos.open_nofollow(marker, os.O_RDONLY)
     except OSError:
         # Gone, or not a plain file this process may open (a symlink is refused
         # by O_NOFOLLOW): either way there is no live mark to count.
         return False
     try:
         try:
-            fcntl.flock(fd, fcntl.LOCK_EX | fcntl.LOCK_NB)
+            hostos.lock(fd, blocking=False)
         except BlockingIOError:
             return True
         except OSError:

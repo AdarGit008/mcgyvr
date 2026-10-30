@@ -6,6 +6,11 @@ restart, so it is kept in a file of its own in the mcgyvr home folder, at mode
 not at all and `load` refuses a file that is a link, of another user, readable
 or writable by others, or not the shape `save` writes -- each refusal says what
 to do instead. What is shown of a token is its public id, never the secret.
+
+On Windows no mode or owner is set or checked (:mod:`mcgyvr.hostos`): the file
+is as private as its folder's ACL, which in the default ``~\\.mcgyvr`` under
+the user's profile is the user's alone; a ``$MCGYVR_HOME`` elsewhere keeps
+whatever ACL that folder has.
 """
 
 from __future__ import annotations
@@ -17,7 +22,7 @@ import stat
 from dataclasses import dataclass
 from pathlib import Path
 
-from mcgyvr import atomic
+from mcgyvr import atomic, hostos
 from mcgyvr.fleet import roots
 
 #: The name of the token file inside the mcgyvr home folder.
@@ -81,7 +86,7 @@ def save(credentials: Credentials) -> Path:
     folder = target.parent
     if not folder.exists():
         folder.mkdir(mode=0o700, parents=True)
-        os.chmod(folder, 0o700)
+        hostos.chmod_private(folder, directory=True)
     if target.is_symlink():
         raise CredentialsError(
             f"{target} is a link; remove it, and keep no link in its place"
@@ -102,7 +107,7 @@ def load() -> Credentials | None:
     """
     target = path()
     try:
-        fd = os.open(target, os.O_RDONLY | os.O_NOFOLLOW)
+        fd = hostos.open_nofollow(target, os.O_RDONLY)
     except FileNotFoundError:
         return None
     except OSError as exc:
@@ -114,11 +119,11 @@ def load() -> Credentials | None:
         facts = os.fstat(handle.fileno())
         if not stat.S_ISREG(facts.st_mode):
             raise CredentialsError(f"{target} is not a plain file; remove it")
-        if facts.st_uid != os.getuid():
+        if not hostos.owned_by_current_user(facts):
             raise CredentialsError(
                 f"{target} belongs to another user; remove it and join again"
             )
-        if stat.S_IMODE(facts.st_mode) & 0o077:
+        if hostos.others_mode_bits(facts):
             raise CredentialsError(
                 f"{target} can be read or written by others; run `chmod 600 "
                 f"{target}`, and if anyone else could have read it, rotate the "

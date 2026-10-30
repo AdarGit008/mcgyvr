@@ -37,7 +37,6 @@ its run wrote, when one is there, else failed as `abandoned`.
 from __future__ import annotations
 
 import contextlib
-import fcntl
 import hashlib
 import json
 import os
@@ -47,7 +46,7 @@ from collections.abc import Callable, Iterable, Iterator, Mapping
 from pathlib import Path
 from typing import Any
 
-from mcgyvr import atomic
+from mcgyvr import atomic, hostos
 from mcgyvr.contract import Contract, ContractError, dumps, loads
 from mcgyvr.deliver import between_deliveries
 from mcgyvr.exits import Exit
@@ -552,7 +551,7 @@ class Board:
         except OSError:
             return True
         try:
-            fcntl.flock(fd, fcntl.LOCK_EX | fcntl.LOCK_NB)
+            hostos.lock(fd, blocking=False)
         except OSError:
             return True
         else:
@@ -570,7 +569,7 @@ class Board:
         path.parent.mkdir(parents=True, exist_ok=True)
         fd = os.open(path, os.O_RDWR | os.O_CREAT | os.O_EXCL, 0o600)
         try:
-            fcntl.flock(fd, fcntl.LOCK_EX | fcntl.LOCK_NB)
+            hostos.lock(fd, blocking=False)
         except OSError:
             os.close(fd)
             raise
