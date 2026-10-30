@@ -42,15 +42,19 @@ from mcgyvr.fleet.roots import HOME_ENV as HOME_ENV
 from mcgyvr.hubwire import (
     FIGURE_ESTIMATE,
     FIGURE_READING,
-    HOST_VERSION_MAX,
     RESOURCE_CPU,
     RESOURCE_GPU,
-    RESOURCE_NAME_MAX,
     RESOURCE_RAM,
     RESOURCE_UNIFIED,
 )
 from mcgyvr.hubwire import (
     HOST_OS as HOST_OS,
+)
+from mcgyvr.hubwire import (
+    HOST_VERSION_MAX as HOST_VERSION_MAX,
+)
+from mcgyvr.hubwire import (
+    RESOURCE_NAME_MAX as RESOURCE_NAME_MAX,
 )
 
 if TYPE_CHECKING:  # typing.TypeAlias is 3.10's; a shipped reader runs on 3.9
@@ -1602,7 +1606,13 @@ def _resources(
                 backend=str(card["backend"]),
             )
     if memory_mib[0] is not None:
-        add(RESOURCE_RAM, "host RAM", total_mb=memory_mib[0], free_mb=memory_mib[1], ddr=ddr)
+        add(
+            RESOURCE_RAM,
+            "host RAM",
+            total_mb=memory_mib[0],
+            free_mb=memory_mib[1],
+            ddr=ddr,
+        )
     if cpu is not None:
         add(RESOURCE_CPU, cpu.get("model") or "CPU", cores=cpu["threads"])
     return found

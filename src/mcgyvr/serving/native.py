@@ -265,7 +265,6 @@ def parse(compose_file: Path) -> tuple[NativeUnit, ...]:
 # --- which build -------------------------------------------------------------
 
 
-
 def nvidia_driver() -> str | None:
     """The NVIDIA driver's version ``nvidia-smi`` reads, or None without one.
 

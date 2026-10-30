@@ -865,6 +865,7 @@ CACHE_FOLDERS: tuple[tuple[str, str], ...] = (
     ("Windows", "%LOCALAPPDATA%\\mcgyvr\\cache"),
 )
 
+
 def _local_app_data() -> Path:
     """``%LOCALAPPDATA%`` when absolute, else ``~\\AppData\\Local``."""
     local = os.environ.get("LOCALAPPDATA")
