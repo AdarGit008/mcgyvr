@@ -27,6 +27,7 @@ import socket
 import stat
 import subprocess
 import sys
+import zlib
 from collections.abc import Callable
 from dataclasses import dataclass, replace
 from datetime import UTC, datetime
@@ -293,16 +294,32 @@ def _header_read_blob() -> str:
     return base64.b64encode(source.read_bytes()).decode("ascii")
 
 
-def _scan_read_blob() -> str:
-    """The rig scanner's source from this checkout, base64-encoded to ship.
+def packed_reader(source: bytes) -> bytes:
+    """The reader as a program that unpacks itself: its source zlib-compressed and
+    base85-encoded inside one exec line, run as the source would be.
 
-    `rigscan` is imported in the call, so the bytes encoded are the file as it
+    The shipped line is one argument to ssh, and Linux refuses an argument past
+    MAX_ARG_STRLEN (128 KiB with 4 KiB pages); the reader's own source in base64
+    nears that, the packed program is about a third of it. base85 holds no quote
+    or backslash, so the bytes literal needs no escaping.
+    """
+    packed = base64.b85encode(zlib.compress(source, 9))
+    return b"import base64,zlib\nexec(zlib.decompress(base64.b85decode(b'%s')))\n" % (
+        packed
+    )
+
+
+def _scan_read_blob() -> str:
+    """The rig scanner from this checkout, packed (`packed_reader`) and
+    base64-encoded to ship.
+
+    `rigscan` is imported in the call, so the bytes packed are the file as it
     stands when the command is built.
     """
     from mcgyvr.serving import rigscan
 
-    source = Path(rigscan.__file__)
-    return base64.b64encode(source.read_bytes()).decode("ascii")
+    source = Path(rigscan.__file__).read_bytes()
+    return base64.b64encode(packed_reader(source)).decode("ascii")
 
 
 def _single_quote(token: str) -> str:

@@ -35,6 +35,14 @@ archived outside this repository, under the same paths.
   to the new folders, or keep them with the XDG variables (the weights, which
   no XDG variable moves, with `$MCGYVR_WEIGHTS`).
 
+- **A Mac's rig id changes once, and the reader ships packed.** A Mac had no
+  machine-id file, so its id was hashed from its host name; it is now hashed
+  from its IOPlatformUUID, with its unified GPU named in it, so a fleet lock
+  that pinned a Mac's rig id names it again after one `mcgyvr scan`. The
+  reader the door ships over ssh goes as one zlib-packed program (the line is
+  about a third of its old length), since its source in base64 neared the
+  128 KiB Linux allows one argument; the line's shape is unchanged. (#809)
+
 - **Under `mcgyvr-code` an unset `fanout` is `idle` and an unset `triage` is
   `jev` while a Jev unit is bound and on (`none` when Jev is off).** A raw use
   case keeps both `none`, and a stated value wins. `idle` takes the first own
@@ -63,6 +71,25 @@ archived outside this repository, under the same paths.
   loads; `mcgyvr use mcgyvr-code` rewrites that one line and nothing else.
 
 ### Added
+
+- **The machine reader reads macOS and Windows.** On a Mac (Apple silicon) the
+  GPU that shares the memory is read as one `unified` card: its size is the
+  share the kernel lets it take (`iogpu.wired_limit_mb`, else three quarters
+  of the memory), always labelled an estimate, its free memory is what the
+  machine has available, and the rig id holds when that cap moves. Memory comes
+  from `sysctl` and `vm_stat`, so a Mac keeps its memory section; the machine
+  id is its IOPlatformUUID. On Windows one PowerShell CIM call reads memory,
+  CPU, system and display adapters (never `wmic`), nvidia-smi.exe is looked
+  for on PATH, in System32 and in the NVSMI folder, a card no tool sizes is
+  listed unsized under Vulkan, and the machine id is the registry's
+  MachineGuid. Every reading now carries `host` (`os`, `arch`, `version`),
+  `cpu` (`model`, `cores`, `threads`, `performance_cores`) and `resources` in
+  the hub's resource contract (a sized card, host RAM, the CPU); each card
+  names its `kind` and `backend`. `mcgyvr detect` and `mcgyvr scan` print the
+  system, a card's backend and the CPU model, and say when a size is an
+  estimate. A Linux machine reads as before and keeps its rig id. A Mac's
+  unified GPU is not lent yet: a lent card is served by a CUDA worker in a
+  container, and it joins lending with native launch. (#809)
 
 - **What a rig lends is defined once, as resources, in `mcgyvr.hubwire`
   (#812).** A `Resource` (`gpu`, `unified`, `ram` or `cpu`; `RESOURCE_KINDS`)

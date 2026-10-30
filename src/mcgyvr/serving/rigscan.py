@@ -15,6 +15,7 @@ docker, network and the token-only `snapshot` that a later visit is compared
 against, and `main` prints either; every tool call and file read is bounded.
 """
 
+import base64
 import contextlib
 import hashlib
 import json
@@ -75,6 +76,106 @@ DIGITS_MAX = 18
 
 ROOT_VARIABLE = "MCGYVR_TEST_MACHINE_ROOT"
 SECONDS_VARIABLE = "MCGYVR_TEST_TOOL_SECONDS"
+#: Reads the machine as another system (one of SYSTEMS), for tests.
+SYSTEM_VARIABLE = "MCGYVR_TEST_MACHINE_OS"
+
+#: The systems read, as the wire's HOST_OS names them; spelled again because
+#: this file runs on a rig without the package. Machine names fold to the
+#: wire's arch names; Win32_Processor.Architecture is "x64 (9)", "ARM64 (12)"
+#: (https://learn.microsoft.com/en-us/windows/win32/cimwin32prov/win32-processor).
+SYSTEMS = ("linux", "darwin", "windows")
+#: Longest system version kept (the wire's HOST_VERSION_MAX) and longest
+#: resource name (its RESOURCE_NAME_MAX), spelled again for the same reason.
+VERSION_MAX = 64
+RESOURCE_NAME_MAX = 128
+ARCHES = {"x86_64": "x86_64", "amd64": "x86_64", "arm64": "arm64", "aarch64": "arm64"}
+WINDOWS_ARCHES = {9: "x86_64", 12: "arm64"}
+
+# macOS. sysctl needs no privilege, hw.memsize is bytes
+# (https://keith.github.io/xcode-man-pages/sysctl.3.html); hw.optional.arm64 is
+# 1 on Apple silicon (https://developer.apple.com/forums/thread/659846).
+SYSCTL = "sysctl"
+SYSCTL_MEMSIZE = "hw.memsize"
+SYSCTL_PHYSICAL = "hw.physicalcpu"
+SYSCTL_LOGICAL = "hw.logicalcpu"
+SYSCTL_PERFORMANCE = "hw.perflevel0.physicalcpu"
+SYSCTL_BRAND = "machdep.cpu.brand_string"
+SYSCTL_ARM64 = "hw.optional.arm64"
+#: The GPU's wired cap in MB, "0" meaning the kernel's own
+#: (https://modelpiper.com/blog/iogpu-wired-limit-mb-mac). The kernel's own is
+#: taken as UNIFIED_SHARE of memory, an estimate with no Apple source: 75.1% of
+#: 192 GB logged (https://github.com/ggml-org/llama.cpp/discussions/9784).
+SYSCTL_WIRED_LIMIT = "iogpu.wired_limit_mb"
+UNIFIED_SHARE = 0.75
+#: vm_stat's free count leaves out speculative pages, so available is free +
+#: speculative + inactive, psutil's "available = inactive + free"
+#: (https://github.com/apple-oss-distributions/system_cmds/blob/main/vm_stat/vm_stat.c,
+#: https://github.com/giampaolo/psutil/blob/master/psutil/arch/osx/mem.c).
+VM_STAT = "vm_stat"
+VM_STAT_AVAILABLE = ("Pages free", "Pages speculative", "Pages inactive")
+#: GPU cores, a string under sppci_cores, else spdisplays_cores (third-party code
+#: only: https://github.com/exelban/stats/blob/master/Kit/plugins/SystemKit.swift,
+#: https://github.com/youssofal/MTPLX/blob/main/mtplx/hardware.py).
+SYSTEM_PROFILER_ARGS = ("system_profiler", "SPDisplaysDataType", "-json")
+GPU_CORE_KEYS = ("sppci_cores", "spdisplays_cores")
+#: "IOPlatformUUID" = "..." (https://docs.rs/crate/host-identity/1.1.0/source/src/sources/macos.rs).
+IOREG_ARGS = ("ioreg", "-rd1", "-c", "IOPlatformExpertDevice")
+#: sw_vers "is backwards compatible with previous versions which expect options
+#: passed with a single dash" (https://keith.github.io/xcode-man-pages/sw_vers.1.html).
+SW_VERS_ARGS = ("sw_vers", "-productVersion")
+
+# Windows. MachineGuid in the 64-bit view, as HKLM\SOFTWARE is redirected for
+# a 32-bit process (https://docs.rs/crate/host-identity/1.1.1/source/src/sources/windows.rs,
+# https://learn.microsoft.com/en-us/windows/win32/winprog64/shared-registry-keys).
+REG_MACHINE_GUID = (
+    "reg",
+    "query",
+    "HKLM\\SOFTWARE\\Microsoft\\Cryptography",
+    "/v",
+    "MachineGuid",
+    "/reg:64",
+)
+#: nvidia-smi.exe: PATH, then System32, then NVSMI
+#: (https://github.com/influxdata/telegraf/blob/master/plugins/inputs/nvidia_smi/README.md).
+#: Windows names its variables without regard to case; a 32-bit Python sees
+#: PROGRAMFILES as "Program Files (x86)", so PROGRAMW6432 comes first.
+NVIDIA_SMI_EXE = "nvidia-smi.exe"
+NVIDIA_SMI_DIRS = (
+    ("SYSTEMROOT", "C:\\Windows", ("System32",)),
+    ("PROGRAMW6432", "", ("NVIDIA Corporation", "NVSMI")),
+    ("PROGRAMFILES", "C:\\Program Files", ("NVIDIA Corporation", "NVSMI")),
+)
+#: One CIM call, never wmic (https://learn.microsoft.com/en-us/windows/win32/wmisdk/wmic).
+#: Capacity is bytes
+#: (https://learn.microsoft.com/en-us/windows/win32/cimwin32prov/win32-physicalmemory),
+#: FreePhysicalMemory and TotalVisibleMemorySize kilobytes
+#: (https://learn.microsoft.com/en-us/windows/win32/cimwin32prov/win32-operatingsystem);
+#: AdapterRAM, a uint32, is not read
+#: (https://learn.microsoft.com/en-us/windows/win32/cimwin32prov/win32-videocontroller).
+#: Sent as -EncodedCommand, base 64 of UTF-16LE
+#: (https://learn.microsoft.com/en-us/powershell/module/microsoft.powershell.core/about/about_powershell_exe?view=powershell-5.1).
+CIM_SCRIPT = (
+    "$ErrorActionPreference='SilentlyContinue';[pscustomobject]@{"
+    "memory=@(Get-CimInstance Win32_PhysicalMemory|"
+    "ForEach-Object{[string]$_.Capacity});"
+    "processors=@(Get-CimInstance Win32_Processor|ForEach-Object{[pscustomobject]@{"
+    "name=$_.Name;cores=$_.NumberOfCores;threads=$_.NumberOfLogicalProcessors;"
+    "architecture=$_.Architecture}});"
+    "system=@(Get-CimInstance Win32_OperatingSystem|ForEach-Object{[pscustomobject]@{"
+    "version=$_.Version;free_kb=[string]$_.FreePhysicalMemory;"
+    "total_kb=[string]$_.TotalVisibleMemorySize}});"
+    "video=@(Get-CimInstance Win32_VideoController|ForEach-Object{[pscustomobject]@{"
+    "name=$_.Name;pnp=$_.PNPDeviceID}})}|ConvertTo-Json -Depth 4 -Compress"
+)
+CIM_ARGS = (
+    "powershell",
+    "-NoProfile",
+    "-NonInteractive",
+    "-EncodedCommand",
+    base64.b64encode(CIM_SCRIPT.encode("utf-16-le")).decode("ascii"),
+)
+#: PCI\VEN_v(4)&DEV_d(4) (https://learn.microsoft.com/en-us/windows-hardware/drivers/install/identifiers-for-pci-devices).
+_PNP_PCI = re.compile(r"PCI\\VEN_([0-9A-Fa-f]{4})&DEV_([0-9A-Fa-f]{4})", re.ASCII)
 
 #: Quantisation tag closing a GGUF file name, as in Q4_K_M.gguf or BF16.gguf.
 GGUF_QUANT = re.compile(
@@ -539,8 +640,12 @@ def _lines(text: str, reading: _Reading, field: str, what: str) -> list[str] | N
     return lines
 
 
-def _first_tool(reading: _Reading, bound: float) -> list[dict[str, Any]]:
+def _first_tool(
+    reading: _Reading, bound: float, tool: str = FIRST_TOOL
+) -> list[dict[str, Any]]:
     """Read the NVIDIA rows into the reading and return its NVIDIA cards.
+
+    `tool` is nvidia-smi's name, or on Windows the path it was found at.
 
     A line is index,total,used,free,name in that order. A line that is not a card
     line is noted and skipped; when it comes right after a card, that card's name
@@ -549,7 +654,7 @@ def _first_tool(reading: _Reading, bound: float) -> list[dict[str, Any]]:
     and a tool that could not be run leaves the cards unread.
     """
     text, why = _run(
-        (FIRST_TOOL, f"--query-gpu={FIRST_QUERY}", "--format=csv,noheader,nounits"),
+        (tool, f"--query-gpu={FIRST_QUERY}", "--format=csv,noheader,nounits"),
         bound=bound,
     )
     if text is None:
@@ -818,11 +923,13 @@ def _sysfs(reading: _Reading, root: str) -> None:
             )
 
 
-def _host(root: str, reading: _Reading) -> str:
+def _host(root: str, reading: _Reading, system: str = "linux") -> str:
     """The host name from sysfs, or the node name when there is no test root and the
     file gave nothing; a name that is missing or ill-formed is noted and read as the
-    empty string."""
-    got, _ = _first_line(root, HOSTNAME_FILE)
+    empty string. Off Linux on a real machine the node name alone is read: on
+    Windows /proc/... is C:\\proc\\..., which any user may create."""
+    off_linux = system != "linux" and not root
+    got = None if off_linux else _first_line(root, HOSTNAME_FILE)[0]
     if not got and not root:
         got = platform.node()
     if not got:
@@ -839,16 +946,134 @@ def _host(root: str, reading: _Reading) -> str:
     return got
 
 
-def _machine(root: str, reading: _Reading) -> tuple[dict[str, Any], list[str]]:
-    """The machine's identity: host name, kernel release, and an id hashed from the
-    first machine-id file that holds a value, or from the host name when none does.
+def host_os() -> str:
+    """The system this runs on, as SYSTEMS names it."""
+    return {"darwin": "darwin", "win32": "windows"}.get(sys.platform, "linux")
 
-    `id_from` names the seed that was used. A file holding what a machine id cannot
-    be (a control character, a second line, more than a line) is not hashed, and the
-    host name is not used in its place, since the machine evidently has an id that
-    could not be read; that case and the host-name case are both noted.
+
+def _system_of(root: str, system: str | None) -> str:
+    # A test root stands in for a Linux tree, so a root with no system named is
+    # read as Linux, as before the other branches; else the machine's own.
+    return system or ("linux" if root else host_os())
+
+
+def _items(value: object) -> list[Any]:
+    # PowerShell prints one object bare, several as a list, and may wrap a list
+    # as {"value": [...], "Count": n}.
+    if isinstance(value, dict) and set(value) == {"value", "Count"}:
+        value = value["value"]
+    return [] if value is None else value if isinstance(value, list) else [value]
+
+
+def _size(value: object) -> int | None:
+    """A count printed as a JSON number or as digits, else None."""
+    if is_size(value):
+        return int(str(value))
+    ok = (
+        isinstance(value, str) and _DIGITS.fullmatch(value) and len(value) <= DIGITS_MAX
+    )
+    return int(str(value)) if ok else None
+
+
+#: Answers of tools that say what does not change while a process lives (the
+#: machine id, the CPU, the GPU's cores, the system version), kept per process on
+#: a real machine so a heartbeat's reading does not ask them again.
+_STATIC = (SYSCTL, IOREG_ARGS[0], SW_VERS_ARGS[0], SYSTEM_PROFILER_ARGS[0], "reg")
+_KEPT: dict[tuple[str, ...], tuple[str | None, str | None]] = {}
+
+
+def _windows_tool(name: str, *folders: str) -> str:
+    # A Windows tool by its full path under System32: a bare name would also be
+    # looked for in the working folder, where anyone may leave a reg.bat.
+    root = os.environ.get("SYSTEMROOT") or "C:\\Windows"
+    return os.path.join(root, "System32", *folders, name)
+
+
+class _Platform:
+    """The system a reading is taken on, and each tool's answer, asked once."""
+
+    def __init__(self, system: str, bound: float, keep: bool = False) -> None:
+        self.system, self.bound, self.keep = system, bound, keep
+        self._said: dict[tuple[str, ...], tuple[str | None, str | None]] = {}
+
+    def run(self, argv: Sequence[str]) -> tuple[str | None, str | None]:
+        key = tuple(argv)
+        # The GPU's wired cap is a setting a user changes at run time: asked anew.
+        kept = key[0] in _STATIC and SYSCTL_WIRED_LIMIT not in key
+        said = _KEPT if self.keep and kept else self._said
+        if key not in said:
+            called = key
+            if self.system == "windows" and key[0] in ("reg", "powershell"):
+                where = ("WindowsPowerShell", "v1.0") if key[0] == "powershell" else ()
+                called = (_windows_tool(f"{key[0]}.exe", *where), *key[1:])
+            said[key] = _run(called, bound=self.bound)
+        return said[key]
+
+    def sysctl(self, name: str) -> tuple[str | None, str]:
+        text, why = self.run((SYSCTL, "-n", name))
+        value = (text or "").strip()
+        if text is None:
+            return None, why or f"{SYSCTL} is not on PATH"
+        if not value or len(value) > LINE_MAX or not is_text(value):
+            return None, f"{SYSCTL} printed no usable {name}"
+        return value, ""
+
+    def sysctl_size(self, name: str) -> tuple[int | None, str]:
+        value, why = self.sysctl(name)
+        size = _size(value)
+        return size, "" if size is not None else why or f"{name} is not a number"
+
+    def cim(self) -> tuple[dict[str, Any] | None, str]:
+        text, why = self.run(CIM_ARGS)
+        if text is None:
+            return None, why or "powershell is not on PATH"
+        try:
+            data = json.loads(text)
+        except (ValueError, RecursionError):
+            data = None
+        if not isinstance(data, dict):
+            return None, "powershell Get-CimInstance printed no JSON object"
+        return data, ""
+
+    def cim_first(self, member: str) -> dict[str, Any]:
+        data, _ = self.cim()
+        found = [i for i in _items((data or {}).get(member)) if isinstance(i, dict)]
+        return found[0] if found else {}
+
+
+def _os_machine_id(platform_: _Platform) -> tuple[str | None, str, str | None]:
+    """(seed, source, why) from IOPlatformUUID or MachineGuid, the seed named by
+    its source so no other use of the same id hashes alike; a why of None means
+    the tool is not installed."""
+    darwin = platform_.system == "darwin"
+    text, why = platform_.run(IOREG_ARGS if darwin else REG_MACHINE_GUID)
+    if text is None:
+        return None, "", why
+    for line in text.splitlines():
+        if darwin:
+            found = re.search(r'"IOPlatformUUID"\s*=\s*"([^"]{1,256})"', line)
+            if found is not None:
+                return f"IOPlatformUUID:{found.group(1)}", "ioreg IOPlatformUUID", ""
+        elif line.split()[:2] == ["MachineGuid", "REG_SZ"] and len(line.split()) == 3:
+            return f"MachineGuid:{line.split()[2]}", "registry MachineGuid", ""
+    return None, "", f"{'ioreg' if darwin else 'reg'} printed no machine id"
+
+
+def _machine(
+    root: str, reading: _Reading, platform_: _Platform | None = None
+) -> tuple[dict[str, Any], list[str]]:
+    """The machine's identity: host name, kernel release, and an id hashed from the
+    machine's own id (Linux: the first machine-id file holding a value; macOS:
+    IOPlatformUUID; Windows: MachineGuid), or from the host name when it has none.
+
+    `id_from` names the seed that was used. A value that is not what a machine id
+    can be (a control character, a second line, more than a line), or an id tool
+    that answers with none, is not hashed, and the host name is not used in its
+    place, since the machine evidently has an id that could not be read; that case
+    and the host-name case are both noted.
     """
-    host = _host(root, reading)
+    system = "linux" if platform_ is None else platform_.system
+    host = _host(root, reading, system)
     notes: list[str] = []
     machine: dict[str, Any] = {
         "id": "",
@@ -856,7 +1081,20 @@ def _machine(root: str, reading: _Reading) -> tuple[dict[str, Any], list[str]]:
         "host": host,
         "kernel": platform.release(),
     }
-    for path in MACHINE_ID_FILES:
+    missing = "no /etc/machine-id"
+    if platform_ is not None and system != "linux":
+        seed, source, why = _os_machine_id(platform_)
+        if seed is None and why is not None:
+            reading.note("machine_id", f"{why}; nor is the host name taken")
+            return machine, notes
+        if seed is not None:
+            if len(seed) > LINE_MAX or not is_text(seed):
+                reading.note("machine_id", f"{source} is not a machine id")
+                return machine, notes
+            machine["id"], machine["id_from"] = _fingerprint(seed), source
+            return machine, notes
+        missing = "no " + ("ioreg" if system == "darwin" else "reg")
+    for path in MACHINE_ID_FILES if system == "linux" else ():
         text, why = _read(root, path)
         if text is None:
             if why in ("is not there", "is not readable"):
@@ -882,24 +1120,27 @@ def _machine(root: str, reading: _Reading) -> tuple[dict[str, Any], list[str]]:
         reading.note(
             "machine_id",
             f"no machine-id file ({', '.join(MACHINE_ID_FILES)}) and no host name to "
-            "derive it from",
+            "derive it from"
+            if system == "linux"
+            else f"{missing} and no host name to derive the id from",
         )
         return machine, notes
-    # No machine-id file held a value, so the host name is the seed; the note
+    # No machine id held a value, so the host name is the seed; the note
     # appended below says that the id then holds only until the machine is renamed.
     machine["id"], machine["id_from"] = _fingerprint(f"host:{host}"), "hostname"
     notes.append(
-        "Machine id: derived from the hostname — no /etc/machine-id. It is "
+        f"Machine id: derived from the hostname — {missing}. It is "
         "stable until the host is renamed, and a rename will read as a new "
         "machine rather than as a changed one."
     )
     return machine, notes
 
 
-def machine_id(*, root: str = "") -> str:
+def machine_id(*, root: str = "", system: str | None = None) -> str:
     """The machine id alone, for callers that need nothing else; the empty string
     when it could not be read."""
-    machine, _ = _machine(root, _Reading())
+    platform_ = _Platform(_system_of(root, system), BOUND_S)
+    machine, _ = _machine(root, _Reading(), platform_)
     return str(machine["id"])
 
 
@@ -913,38 +1154,39 @@ def _meminfo_field(text: str, key: str) -> int | None:
     return None
 
 
-def _memory(
-    root: str, bound: float
-) -> tuple[dict[str, Any] | None, list[dict[str, str]], list[str]]:
-    """Total and available memory in GB, with the facts behind them and the notes
-    about anything missing.
+#: A memory reading: the section, its facts, its notes, and (total, available)
+#: in MiB for the resources.
+_Mib = tuple[int | None, int | None]
+_MemoryRead = tuple[dict[str, Any] | None, list[dict[str, str]], list[str], _Mib]
 
-    A figure that was not read is never passed off as whole: without MemTotal the
+
+def _memory(root: str, bound: float, platform_: _Platform | None = None) -> _MemoryRead:
+    """Total and available memory in GB, with the facts behind them, the notes
+    about anything missing, and both in MiB.
+
+    A figure that was not read is never passed off as whole: without a total the
     memory is None with a note, and available memory is None when nothing reported
-    it. On macOS, where there is no meminfo and no test root, sysctl gives the total
-    and the note says available memory was not read. The middle value is the
-    {field, how} facts and the last one the note prose.
+    it. Linux reads /proc/meminfo, macOS sysctl and vm_stat, Windows CIM.
     """
+    system = "linux" if platform_ is None else platform_.system
+    if platform_ is not None and system != "linux":
+        return _other_memory(platform_)
     text, _ = _read(root, "/proc/meminfo")
     if text is None:
-        if platform.system() == "Darwin" and not root:
-            out, _ = _run(("sysctl", "-n", "hw.memsize"), bound=bound)
-            if out is not None and out.strip().isdigit():
-                gb = round(int(out.strip()) / BYTES_PER_GB, 1)
-                return (
-                    {"total_gb": gb, "available_gb": None},
-                    [{"field": "memory.total_gb", "how": "sysctl -n hw.memsize"}],
-                    [
-                        "Memory: available memory not read — sysctl gives the "
-                        "total only."
-                    ],
-                )
-        return None, [], ["Memory: not determined — /proc/meminfo is unreadable."]
+        return (
+            None,
+            [],
+            ["Memory: not determined — /proc/meminfo is unreadable."],
+            (
+                None,
+                None,
+            ),
+        )
     total = _meminfo_field(text, "MemTotal")
     available = _meminfo_field(text, "MemAvailable")
     how = "/proc/meminfo MemAvailable"
     if total is None:
-        return None, [], ["Memory: /proc/meminfo carried no MemTotal."]
+        return None, [], ["Memory: /proc/meminfo carried no MemTotal."], (None, None)
     if available is None:
         # Kernels that print no MemAvailable have only MemFree, which is what is
         # left before caches give anything back; the fact's "how" records the swap.
@@ -955,6 +1197,7 @@ def _memory(
             None,
             [],
             ["Memory: MemTotal was readable but nothing reported free memory."],
+            (None, None),
         )
     return (
         {
@@ -966,27 +1209,431 @@ def _memory(
             {"field": "memory.available_gb", "how": how},
         ],
         [],
+        (total // 1024, available // 1024),
     )
+
+
+def _vm_stat_available(platform_: _Platform) -> tuple[int | None, str]:
+    """Available memory in bytes from vm_stat, or None and why."""
+    text, why = platform_.run((VM_STAT,))
+    page = re.search(r"page size of ([0-9]{1,9}) bytes", text or "")
+    if text is None or page is None:
+        return None, why or f"{VM_STAT} printed no page size"
+    counts = {}
+    for line in text.splitlines():
+        name, _, rest = line.partition(":")
+        counts[name.strip()] = _size(rest.strip().rstrip("."))
+    found = [counts.get(kind) for kind in VM_STAT_AVAILABLE]
+    if None in found:
+        return None, f"{VM_STAT} printed no {' + '.join(VM_STAT_AVAILABLE)}"
+    return sum(n for n in found if n is not None) * int(page.group(1)), ""
+
+
+def _other_memory(platform_: _Platform) -> _MemoryRead:
+    """macOS: hw.memsize and vm_stat. Windows: the memory modules summed, else
+    the memory the system sees (a virtual machine may list no module), and
+    FreePhysicalMemory."""
+    total: int | None
+    available: int | None
+    if platform_.system == "darwin":
+        total, why = platform_.sysctl_size(SYSCTL_MEMSIZE)
+        how = f"{SYSCTL} -n {SYSCTL_MEMSIZE}"
+        available, unread = _vm_stat_available(platform_)
+        free_how = f"{VM_STAT} ({' + '.join(VM_STAT_AVAILABLE)}) x page size"
+    else:
+        data, why = platform_.cim()
+        system = platform_.cim_first("system")
+        modules = [_size(v) for v in _items((data or {}).get("memory"))]
+        how = "Win32_PhysicalMemory Capacity, summed"
+        total = (
+            sum(m for m in modules if m) if modules and None not in modules else None
+        )
+        if total is None and _size(system.get("total_kb")) is not None:
+            total, how = (
+                (_size(system.get("total_kb")) or 0) * 1024,
+                "Win32_OperatingSystem TotalVisibleMemorySize",
+            )
+        kb = _size(system.get("free_kb"))
+        available = None if kb is None else kb * 1024
+        unread, free_how = (
+            "no FreePhysicalMemory",
+            "Win32_OperatingSystem FreePhysicalMemory",
+        )
+    if total is None:
+        return None, [], [f"Memory: not determined — {why or how}."], (None, None)
+    facts = [{"field": "memory.total_gb", "how": how}]
+    notes = []
+    if available is None:
+        notes.append(f"Memory: available memory not read — {unread}.")
+    else:
+        facts.append({"field": "memory.available_gb", "how": free_how})
+    gb = None if available is None else round(available / BYTES_PER_GB, 1)
+    mib = None if available is None else available // MIB_BYTES
+    memory = {"total_gb": round(total / BYTES_PER_GB, 1), "available_gb": gb}
+    return memory, facts, notes, (total // MIB_BYTES, mib)
+
+
+def _gpu_cores(reading: _Reading, platform_: _Platform, key: str) -> int | None:
+    """The GPU cores system_profiler prints, or None with the field noted."""
+    text, why = platform_.run(SYSTEM_PROFILER_ARGS)
+    try:
+        data = json.loads(text or "")
+    except (ValueError, RecursionError):
+        data = None
+    shown = data.get("SPDisplaysDataType") if isinstance(data, dict) else None
+    for entry in shown if isinstance(shown, list) else []:
+        for name in GPU_CORE_KEYS if isinstance(entry, dict) else ():
+            if _size(entry.get(name)) is not None:
+                return _size(entry.get(name))
+    reading.note(
+        f"{key}.cores",
+        why or f"system_profiler printed none of {', '.join(GPU_CORE_KEYS)}",
+    )
+    return None
+
+
+def _apple_gpu(
+    reading: _Reading, platform_: _Platform, memory_mib: _Mib, notes: list[str]
+) -> None:
+    """Add a Mac's unified-memory GPU as card apple.0.
+
+    Its total is the memory the GPU may wire: iogpu.wired_limit_mb when set, else
+    UNIFIED_SHARE of memory, an estimate either way; its free memory is the
+    machine's available memory held to that total, since the two are one memory.
+    Its name is the CPU brand with " GPU", steadier than system_profiler, which
+    gives its cores. A Mac that is not Apple silicon has none, and says so.
+    """
+    if platform_.sysctl(SYSCTL_ARM64)[0] != "1":
+        notes.append(
+            f"GPU: not Apple silicon ({SYSCTL_ARM64} is not 1): no unified-memory "
+            "GPU is sized, and a model runs on the CPU."
+        )
+        return
+    key = "card.apple.0"
+    brand, why = platform_.sysctl(SYSCTL_BRAND)
+    name = None
+    if brand is None:
+        reading.note(f"{key}.name", why)
+    else:
+        name = reading.name(f"{brand} GPU", f"{key}.name", SYSCTL)
+    total, available = memory_mib
+    wired, _ = platform_.sysctl_size(SYSCTL_WIRED_LIMIT)
+    usable = used = free = None
+    how = f"{SYSCTL} {SYSCTL_WIRED_LIMIT} (estimate)"
+    if total is None:
+        reading.note(f"{key}.total", "the machine's memory is unread")
+    else:
+        if not wired:
+            how = f"{UNIFIED_SHARE:g} x {SYSCTL_MEMSIZE} (estimate: no wired limit set)"
+        usable = min(wired, total) if wired else int(total * UNIFIED_SHARE)
+        if available is None:
+            for field in ("used", "free"):
+                reading.note(
+                    f"{key}.{field}", "the machine's available memory is unread"
+                )
+        else:
+            free = min(usable, available)
+            used = usable - free
+    card = {"total_mib": usable, "used_mib": used, "free_mib": free, "name": name}
+    reading.add(
+        "apple",
+        0,
+        {
+            **card,
+            "kind": "unified",
+            "backend": "metal",
+            "figure": "estimate",
+            "how": how,
+            "gpu_cores": _gpu_cores(reading, platform_, key),
+        },
+    )
+    reading.sources.append(SYSCTL)
+
+
+def _windows_nvidia_smi() -> str | None:
+    """nvidia-smi.exe by its full path: in a PATH folder named in full, else the
+    first NVIDIA_SMI_DIRS folder holding it, else None, and nothing is run. It is
+    never called by bare name: Windows' which() would look in the working folder
+    first, where anyone may leave an nvidia-smi.bat."""
+    folders = [
+        d for d in os.environ.get("PATH", "").split(os.pathsep) if os.path.isabs(d)
+    ]
+    for variable, default, parts in NVIDIA_SMI_DIRS:
+        if os.environ.get(variable) or default:
+            folders.append(os.path.join(os.environ.get(variable) or default, *parts))
+    for folder in folders:
+        if os.path.isfile(os.path.join(folder, NVIDIA_SMI_EXE)):
+            return os.path.join(folder, NVIDIA_SMI_EXE)
+    return None
+
+
+def _windows_adapters(
+    reading: _Reading, platform_: _Platform, notes: list[str]
+) -> None:
+    """Add the PCI display adapters nvidia-smi did not read, numbered by their
+    place in Windows' list and unsized, since Windows gives no usable size; an
+    adapter that is not a PCI card is left out with a note."""
+    data, why = platform_.cim()
+    if data is None:
+        notes.append(f"GPU: Windows' display adapters are unread — {why}.")
+        return
+    start = len(reading.cards)
+    for number, adapter in enumerate(_items(data.get("video"))):
+        pnp = adapter.get("pnp") if isinstance(adapter, dict) else None
+        found = _PNP_PCI.match(pnp) if isinstance(pnp, str) else None
+        if found is None:
+            notes.append(
+                f"GPU: display adapter {number} is not a PCI card; not counted."
+            )
+            continue
+        vid, did = f"0x{found.group(1).lower()}", f"0x{found.group(2).lower()}"
+        vendor = PCI_VENDORS.get(vid, f"pci-{vid}")
+        if vendor in reading.covered:
+            continue
+        key = f"card.{vendor}.{number}"
+        printed = adapter.get("name")
+        shown = printed if isinstance(printed, str) else f"PCI {vid}:{did}"
+        tool = "nvidia-smi.exe did not answer" if vendor == "nvidia" else "no tool"
+        reading.note(f"{key}.total", f"Windows gives no size past 4 GiB, and {tool}")
+        reading.note(f"{key}.used", "Windows gives no used memory")
+        reading.unsized.append(key)
+        reading.add(
+            vendor,
+            number,
+            {
+                "total_mib": None,
+                "used_mib": None,
+                "free_mib": reading.free(None, None, f"{key}.free", "Windows"),
+                "name": reading.name(shown, f"{key}.name", "Win32_VideoController"),
+            },
+        )
+    if len(reading.cards) > start:
+        reading.sources.append("Win32_VideoController")
+
+
+def _backend(vendor: str, system: str, covered: set[str]) -> str:
+    """CUDA for an NVIDIA card (on Windows only when nvidia-smi read it), ROCm for
+    an AMD card on Linux, else Vulkan."""
+    if vendor == "nvidia" and (system != "windows" or "nvidia" in covered):
+        return "cuda"
+    return "rocm" if vendor == "amd" and system == "linux" else "vulkan"
+
+
+def _host_section(platform_: _Platform, reading: _Reading) -> dict[str, Any]:
+    """The system, its arch and its version (kernel release, macOS product
+    version, Windows version). An arch the wire does not name, and a version that
+    is unread or past VERSION_MAX, are None and noted."""
+    system = platform_.system
+    arch = ARCHES.get(platform.machine().lower())
+    if system == "darwin":
+        if platform_.sysctl(SYSCTL_ARM64)[0] == "1":
+            arch = "arm64"
+        version = (platform_.run(SW_VERS_ARGS)[0] or "").strip()
+    elif system == "windows":
+        code = _size(platform_.cim_first("processors").get("architecture"))
+        arch = arch if code is None else WINDOWS_ARCHES.get(code)
+        printed = platform_.cim_first("system").get("version")
+        version = printed.strip() if isinstance(printed, str) else ""
+    else:
+        version = platform.release()
+    if arch is None:
+        reading.note("host.arch", f"{platform.machine()!r} is not an arch read")
+    usable = bool(version) and len(version) <= VERSION_MAX and is_text(version)
+    if not usable:
+        reading.note("host.version", f"the {system} version is unread")
+    return {"os": system, "arch": arch, "version": version if usable else None}
+
+
+#: A CPU reading: the section, its facts and its notes.
+_CpuRead = tuple[dict[str, Any] | None, list[dict[str, str]], list[str]]
+
+
+def _cpu_section(
+    model: str | None, cores: int, threads: int, performance: int | None = None
+) -> dict[str, Any]:
+    if model is not None and name_problem(model) is not None:
+        model = None
+    return {
+        "model": model,
+        "cores": cores,
+        "threads": threads,
+        "performance_cores": performance,
+    }
+
+
+def _cpu(root: str, bound: float, platform_: _Platform | None = None) -> _CpuRead:
+    """The CPU's model, cores and threads, with the facts and notes.
+
+    Linux: lscpu, the cores as Core(s) per socket times the socket count, and
+    os.cpu_count() for both counts when lscpu gives no core count, with a note
+    saying that this count is of threads and not of cores; the model from
+    /proc/cpuinfo, else lscpu. macOS: sysctl, with the performance cores.
+    Windows: Win32_Processor, summed over its sockets.
+    """
+    platform_ = platform_ or _Platform("linux", bound)
+    if platform_.system != "linux":
+        return _other_cpu(platform_)
+    text, _ = platform_.run(("lscpu",))
+    model = _cpuinfo_model(root) or _lscpu_field(text or "", "Model name") or None
+    known = (
+        [{"field": "cpu.model", "how": "/proc/cpuinfo, else lscpu"}] if model else []
+    )
+    if text is not None:
+        threads = _lscpu_int(text, "CPU(s)")
+        per_socket = _lscpu_int(text, "Core(s) per socket")
+        sockets = _lscpu_int(text, "Socket(s)") or 1
+        if threads is not None and per_socket is not None:
+            return (
+                _cpu_section(model, per_socket * sockets, threads),
+                [
+                    {"field": "cpu.threads", "how": "lscpu CPU(s)"},
+                    {
+                        "field": "cpu.cores",
+                        "how": "lscpu Core(s) per socket x Socket(s)",
+                    },
+                    *known,
+                ],
+                [],
+            )
+    count = os.cpu_count()
+    if count is None:
+        return (
+            None,
+            [],
+            ["CPU: not determined — lscpu and os.cpu_count() gave nothing."],
+        )
+    return (
+        _cpu_section(model, count, count),
+        [{"field": "cpu.threads", "how": "os.cpu_count()"}, *known],
+        [
+            "CPU: lscpu gave no core count, and os.cpu_count() reports the thread "
+            "count; cores are taken as the same number (no SMT claim either way)."
+        ],
+    )
+
+
+def _other_cpu(platform_: _Platform) -> _CpuRead:
+    if platform_.system == "darwin":
+        threads, why = platform_.sysctl_size(SYSCTL_LOGICAL)
+        cores = platform_.sysctl_size(SYSCTL_PHYSICAL)[0] or threads
+        performance = platform_.sysctl_size(SYSCTL_PERFORMANCE)[0]
+        model = platform_.sysctl(SYSCTL_BRAND)[0]
+        how = f"{SYSCTL} {SYSCTL_LOGICAL}, {SYSCTL_PHYSICAL}, {SYSCTL_PERFORMANCE}"
+    else:
+        data, why = platform_.cim()
+        found = [
+            p for p in _items((data or {}).get("processors")) if isinstance(p, dict)
+        ]
+        counts = [(_size(p.get("cores")), _size(p.get("threads"))) for p in found]
+        threads = cores = None
+        if counts and all(c is not None and t is not None for c, t in counts):
+            cores = sum(c or 0 for c, _ in counts)
+            threads = sum(t or 0 for _, t in counts)
+        printed = found[0].get("name") if found else None
+        model = printed.strip() if isinstance(printed, str) else None
+        performance, how = None, "Win32_Processor, summed over sockets"
+    if threads is None or cores is None:
+        return None, [], [f"CPU: not determined — {why or how}."]
+    facts = [{"field": f"cpu.{f}", "how": how} for f in ("threads", "cores")]
+    return _cpu_section(model or None, cores, threads, performance), facts, []
+
+
+def _cpuinfo_model(root: str) -> str | None:
+    text, _ = _read(root, "/proc/cpuinfo")
+    for line in (text or "").splitlines():
+        name, sep, rest = line.partition(":")
+        if sep and name.strip() == "model name" and rest.strip():
+            return rest.strip()
+    return None
+
+
+def _resources(
+    cards: list[dict[str, Any]], memory_mib: _Mib, cpu: Mapping[str, Any] | None
+) -> list[dict[str, Any]]:
+    """The machine's resources in the hub's contract: each sized card (`gpu` or
+    `unified`, numbered per kind in the reading's order, as a hardware report
+    numbers its cards), host RAM, and the CPU's logical cores. A card that read as
+    0 MiB keeps its number but is no resource, as the wire takes none that small.
+    A unified device shares host RAM by its kind alone. Bandwidth is not read
+    here, so it and its figure are None."""
+    found: list[dict[str, Any]] = []
+    numbered: dict[str, int] = {}
+
+    def add(kind: str, name: str, **fields: Any) -> None:
+        index = numbered.get(kind, 0)
+        numbered[kind] = index + 1
+        if kind in ("gpu", "unified") and not fields["total_mb"]:
+            return
+        found.append(
+            {
+                "kind": kind,
+                "index": index,
+                "name": name[:RESOURCE_NAME_MAX],
+                "total_mb": 0,
+                "free_mb": None,
+                "cores": None,
+                "bandwidth_gbps": None,
+                "bandwidth_figure": None,
+                "ddr": None,
+                "figure": "reading",
+                "backend": "cpu",
+                **fields,
+            }
+        )
+
+    for card in cards:
+        if card["total_mib"] is not None:
+            add(
+                str(card["kind"]),
+                card["name"] or f"{card['vendor']} card",
+                total_mb=card["total_mib"],
+                free_mb=card["free_mib"],
+                figure=str(card.get("figure", "reading")),
+                backend=str(card["backend"]),
+            )
+    if memory_mib[0] is not None:
+        add("ram", "host RAM", total_mb=memory_mib[0], free_mb=memory_mib[1])
+    if cpu is not None:
+        add("cpu", cpu.get("model") or "CPU", cores=cpu["threads"])
+    return found
 
 
 class _Short:
     """One short reading of the machine, kept as the document it is handed out as.
 
-    The card list is merged from all three sources, and then any card field that
-    came back empty without a reason of its own is given one, so the list never
-    shows a blank it cannot explain. `unsized` holds the cards still missing a
-    memory size after the merge, and `notes` the prose from identity and memory.
+    The card list is merged from the system's sources (Linux: nvidia-smi, rocm-smi,
+    sysfs; macOS: the unified GPU; Windows: nvidia-smi, the display adapters), and
+    then any card field that came back empty without a reason of its own is given
+    one, so the list never shows a blank it cannot explain. `unsized` holds the
+    cards still missing a memory size after the merge, and `notes` the prose from
+    identity, memory and the cards.
     """
 
-    def __init__(self, root: str, bound: float) -> None:
+    def __init__(self, root: str, bound: float, system: str | None = None) -> None:
+        self.system = _system_of(root, system)
+        platform_ = _Platform(self.system, bound, keep=not root)
         reading = _Reading()
-        machine, self.notes = _machine(root, reading)
-        self.rows = _first_tool(reading, bound)
+        machine, self.notes = _machine(root, reading, platform_)
+        memory, self.memory_facts, memory_notes, memory_mib = _memory(
+            root, bound, platform_
+        )
+        self.first_tool: str | None = FIRST_TOOL
+        self.rows: list[dict[str, Any]] = []
+        if self.system == "darwin":
+            _apple_gpu(reading, platform_, memory_mib, self.notes)
+        elif self.system == "windows":
+            self.first_tool = _windows_nvidia_smi()
+            if self.first_tool is not None:
+                self.rows = _first_tool(reading, bound, self.first_tool)
+            _windows_adapters(reading, platform_, self.notes)
+        else:
+            self.rows = _first_tool(reading, bound)
+            _second_tool(reading, bound)
+            _sysfs(reading, root)
         self.first_answered = reading.first_answered
-        _second_tool(reading, bound)
-        _sysfs(reading, root)
-        memory, self.memory_facts, memory_notes = _memory(root, bound)
         self.notes += memory_notes
+        self.cpu, self.cpu_facts, self.cpu_notes = _cpu(root, bound, platform_)
+        host = _host_section(platform_, reading)
         cards = [reading.cards[where] for where in sorted(reading.cards)]
         # A field that no source filled and no source explained is still named, so
         # a card list reads as incomplete field by field and not only as a list
@@ -1003,6 +1650,10 @@ class _Short:
                     reading.note(
                         f"{key}.{name}", "the source printed no value and no reason"
                     )
+            card.setdefault("kind", "gpu")
+            card.setdefault(
+                "backend", _backend(card["vendor"], self.system, reading.covered)
+            )
         held = {f"card.{c['vendor']}.{c['index']}": c for c in cards}
         unsized = [
             key
@@ -1011,25 +1662,33 @@ class _Short:
         ]
         self.document: dict[str, Any] = {
             "machine": machine,
+            "host": host,
             "cards": cards,
             "card_sources": reading.sources,
             "unsized": unsized,
             "memory": memory,
+            "cpu": self.cpu,
+            "resources": _resources(cards, memory_mib, self.cpu),
             "unread": reading.unread,
         }
 
 
-def read_machine(*, root: str = "", bound: float = BOUND_S) -> dict[str, Any]:
-    """The short reading of this machine: its identity, its cards with the sources
-    that answered and the fields that could not be read, and its memory. No CPU,
-    disk, docker or snapshot work is done here."""
-    return _Short(root, bound).document
+def read_machine(
+    *, root: str = "", bound: float = BOUND_S, system: str | None = None
+) -> dict[str, Any]:
+    """The short reading of this machine: its identity and host, its cards with the
+    sources that answered and the fields that could not be read, its memory, CPU
+    and resources. No disk, docker or snapshot work is done here. `system` is one
+    of SYSTEMS; by default the one this runs on (Linux under a test root).
+    """
+    return _Short(root, bound, system).document
 
 
-# The gpus section of a scan is built from the NVIDIA rows alone; the cards of
-# other vendors stay in the card list, unsized for a fit. A row that could not be
-# read is named in a note with its reasons instead of vanishing, and a machine whose
-# NVIDIA tool never answered is reported as not determined, never as zero.
+# The gpus section of a scan is built from the NVIDIA rows alone (a Mac's from its
+# unified GPU); the cards of other vendors stay in the card list, unsized for a
+# fit. A row that could not be read is named in a note with its reasons instead
+# of vanishing, and a machine whose NVIDIA tool never answered is reported as not
+# determined, never as zero.
 
 
 def _gpus(
@@ -1062,7 +1721,7 @@ def _gpus(
     for card in sorted(rows, key=lambda c: c["index"]):
         values = [card[k] for k in ("name", "total_mib", "used_mib", "free_mib")]
         if any(v is None for v in values):
-            key = f"card.nvidia.{card['index']}"
+            key = f"card.{card['vendor']}.{card['index']}"
             why = "; ".join(
                 f"{u['field']}: {u['why']}"
                 for u in unread
@@ -1080,6 +1739,8 @@ def _gpus(
             continue
         name, total, used, free = values
         index = card["index"]
+        if card.get("how"):
+            how = str(card["how"])
         gpus.append(
             {
                 "index": index,
@@ -1090,6 +1751,9 @@ def _gpus(
                     "free_mib": free,
                     "reserved_mib": max(total - used - free, 0),
                 },
+                "kind": card.get("kind", "gpu"),
+                "backend": card.get("backend", "cuda"),
+                "figure": card.get("figure", "reading"),
             }
         )
         facts.append({"field": f"gpu[{index}].vram.total_mib", "how": how})
@@ -1103,44 +1767,6 @@ def _gpus(
     if not gpus and not notes:
         notes.append(f"GPU: {FIRST_TOOL} answered but reported no device.")
     return gpus, facts, notes
-
-
-def _cpu(bound: float) -> tuple[dict[str, int] | None, list[dict[str, str]], list[str]]:
-    """Core and thread counts from lscpu, the cores as Core(s) per socket times the
-    socket count, and os.cpu_count() for both counts when lscpu gives no core count,
-    with a note saying that this count is of threads and not of cores."""
-    text, _ = _run(("lscpu",), bound=bound)
-    if text is not None:
-        threads = _lscpu_int(text, "CPU(s)")
-        per_socket = _lscpu_int(text, "Core(s) per socket")
-        sockets = _lscpu_int(text, "Socket(s)") or 1
-        if threads is not None and per_socket is not None:
-            return (
-                {"cores": per_socket * sockets, "threads": threads},
-                [
-                    {"field": "cpu.threads", "how": "lscpu CPU(s)"},
-                    {
-                        "field": "cpu.cores",
-                        "how": "lscpu Core(s) per socket x Socket(s)",
-                    },
-                ],
-                [],
-            )
-    count = os.cpu_count()
-    if count is None:
-        return (
-            None,
-            [],
-            ["CPU: not determined — lscpu and os.cpu_count() gave nothing."],
-        )
-    return (
-        {"cores": count, "threads": count},
-        [{"field": "cpu.threads", "how": "os.cpu_count()"}],
-        [
-            "CPU: lscpu gave no core count, and os.cpu_count() reports the thread "
-            "count; cores are taken as the same number (no SMT claim either way)."
-        ],
-    )
 
 
 def _lscpu_field(text: str, key: str) -> str | None:
@@ -1264,7 +1890,7 @@ def _disk_device(path: str) -> str | None:
     return best
 
 
-def _disk(path: str) -> tuple[dict[str, Any], list[dict[str, str]]]:
+def _disk(path: str, linux: bool = True) -> tuple[dict[str, Any], list[dict[str, str]]]:
     """Free and total space in GB on the weights path, and the device behind it.
 
     The counts are asked of the path and then of its parents, since the weights
@@ -1288,7 +1914,7 @@ def _disk(path: str) -> tuple[dict[str, Any], list[dict[str, str]]]:
     if total:
         disk["total_gb"] = round(total / BYTES_PER_GB, 1)
         facts.append({"field": "disk.total_gb", "how": f"total space on {path}"})
-    device = _disk_device(path)
+    device = _disk_device(path) if linux else None
     if device is not None:
         disk["device"] = device
         facts.append(
@@ -1392,7 +2018,9 @@ def _parse_hostname_addresses(output: str) -> list[dict[str, str]]:
     return found
 
 
-def _network(bound: float) -> tuple[dict[str, Any], list[dict[str, str]], list[str]]:
+def _network(
+    bound: float, system: str = "linux"
+) -> tuple[dict[str, Any], list[dict[str, str]], list[str]]:
     """The address this machine was reached at and the IPv4 addresses on its
     interfaces.
 
@@ -1403,6 +2031,10 @@ def _network(bound: float) -> tuple[dict[str, Any], list[dict[str, str]], list[s
     """
     said = os.environ.get(SSH_CONNECTION_ENV, "").split()
     reached = said[2] if len(said) == 4 else None
+    # `ip` and `hostname -I` are Linux's; off Linux the addresses are unread.
+    if system != "linux":
+        notes_off = [f"Network: the addresses are not read on {system}."]
+        return {"reached_at": reached, "ipv4": []}, [], notes_off
     text, _ = _run(("ip", *IP_ADDR_ARGS), bound=bound)
     facts: list[dict[str, str]] = []
     notes: list[str] = []
@@ -1490,11 +2122,9 @@ def _cpu_max_mhz(root: str, bound: float) -> tuple[str | None, str]:
 
 
 def _cpu_model(root: str, bound: float) -> tuple[str | None, str]:
-    text, _ = _read(root, "/proc/cpuinfo")
-    for line in (text or "").splitlines():
-        name, sep, rest = line.partition(":")
-        if sep and name.strip() == "model name" and rest.strip():
-            return rest.strip(), ""
+    model = _cpuinfo_model(root)
+    if model:
+        return model, ""
     out, _ = _run(("lscpu",), bound=bound)
     model = _lscpu_field(out or "", "Model name")
     if model:
@@ -1576,7 +2206,10 @@ def _power_limit(root: str, which: str) -> tuple[str | None, str]:
 
 
 def _snapshot_cards(
-    snapshot: _Snapshot, cards: list[dict[str, Any]], bound: float
+    snapshot: _Snapshot,
+    cards: list[dict[str, Any]],
+    bound: float,
+    tool: str | None = FIRST_TOOL,
 ) -> None:
     """Fill the GPU keys of the snapshot from the first NVIDIA card.
 
@@ -1589,15 +2222,19 @@ def _snapshot_cards(
     nvidia = sorted(
         (c for c in cards if c["vendor"] == "nvidia"), key=lambda c: c["index"]
     )
+    if tool is None:
+        for key in SNAPSHOT_CARD_KEYS:
+            snapshot.put(key, None, "the GPU state is unread: no nvidia-smi.exe")
+        return
     text, why = _run(
-        (FIRST_TOOL, f"--query-gpu={SNAPSHOT_QUERY}", "--format=csv,noheader,nounits"),
+        (tool, f"--query-gpu={SNAPSHOT_QUERY}", "--format=csv,noheader,nounits"),
         bound=bound,
     )
     reserved_read = True
     if text is None:
         text, why = _run(
             (
-                FIRST_TOOL,
+                tool,
                 f"--query-gpu={SNAPSHOT_QUERY_OLD}",
                 "--format=csv,noheader,nounits",
             ),
@@ -1674,15 +2311,21 @@ def _snapshot(
     cards: list[dict[str, Any]],
     docker: str | None,
     docker_why: str | None,
+    tool: str | None = FIRST_TOOL,
+    system: str = "linux",
 ) -> _Snapshot:
     snapshot = _Snapshot()
-    snapshot.put(*_pair("uptime_since", _uptime_since(root, bound)))
-    snapshot.put(*_pair("cpu_max_mhz", _cpu_max_mhz(root, bound)))
-    snapshot.put(*_pair("cpu_model", _cpu_model(root, bound)))
-    snapshot.put(*_pair("ram_mt_s", _ram_mt_s(bound)))
-    snapshot.put(*_pair("pl1_uw", _power_limit(root, "pl1")))
-    snapshot.put(*_pair("pl2_uw", _power_limit(root, "pl2")))
-    _snapshot_cards(snapshot, cards, bound)
+    linux = system == "linux"
+    # Off Linux the keys read from /proc, /sys, lscpu and dmidecode are unread:
+    # none of them is there, and dmidecode would be tried through sudo.
+    off = (None, f"not read on {system}")
+    snapshot.put(*_pair("uptime_since", _uptime_since(root, bound) if linux else off))
+    snapshot.put(*_pair("cpu_max_mhz", _cpu_max_mhz(root, bound) if linux else off))
+    snapshot.put(*_pair("cpu_model", _cpu_model(root, bound) if linux else off))
+    snapshot.put(*_pair("ram_mt_s", _ram_mt_s(bound) if linux else off))
+    snapshot.put(*_pair("pl1_uw", _power_limit(root, "pl1") if linux else off))
+    snapshot.put(*_pair("pl2_uw", _power_limit(root, "pl2") if linux else off))
+    _snapshot_cards(snapshot, cards, bound, tool)
     # Docker is recorded by the version its daemon answered with, so that a daemon
     # upgrade is the change and an installed CLI on its own is not.
     snapshot.put(
@@ -1697,7 +2340,7 @@ def _snapshot(
         machine.get("id") or None,
         "the machine id is unread (see machine_id)",
     )
-    meminfo, why = _read(root, "/proc/meminfo")
+    meminfo, why = _read(root, "/proc/meminfo") if linux else off
     for key, field in (
         ("mem_available_kib", "MemAvailable"),
         ("mem_total_kib", "MemTotal"),
@@ -1709,7 +2352,9 @@ def _snapshot(
             None if value is None else str(value),
             f"cannot read {field} from /proc/meminfo" + (f" (it {why})" if why else ""),
         )
-    swappiness, why = _first_line(root, "/proc/sys/vm/swappiness")
+    swappiness, why = (
+        _first_line(root, "/proc/sys/vm/swappiness") if linux else (None, off[1])
+    )
     snapshot.put(
         "swappiness",
         swappiness if swappiness and _DIGITS.fullmatch(swappiness) else None,
@@ -1741,26 +2386,47 @@ def scan(
     *,
     root: str = "",
     bound: float = BOUND_S,
+    system: str | None = None,
 ) -> dict[str, Any]:
     """The whole reading of this machine, in one document.
 
-    The short reading is the base, and gpus, cpu, bandwidth, disk, models_on_disk,
+    The short reading is the base, and gpus, bandwidth, disk, models_on_disk,
     docker, network, home and snapshot are added to it, with every fact, note and
     unread field gathered from those sections. The weights directory is the one
-    given, or the default, and model_stores are searched alongside it.
+    given, or the default, and model_stores are searched alongside it. `system` is
+    read_machine's.
     """
-    read = _Short(root, bound)
+    read = _Short(root, bound, system)
     short = read.document
     machine = short["machine"]
-    gpus, gpu_facts, gpu_notes = _gpus(read.rows, read.first_answered, short["unread"])
-    cpu, cpu_facts, cpu_notes = _cpu(bound)
+    rows, answered = read.rows, read.first_answered
+    if read.system == "darwin":
+        # A Mac's one GPU is its unified one, sized as the reading estimates it.
+        rows = [c for c in short["cards"] if c["kind"] == "unified"]
+        answered = bool(rows)
+    gpus, gpu_facts, gpu_notes = _gpus(rows, answered, short["unread"])
+    if read.system == "darwin" and not rows:
+        gpu_notes = [
+            f"{GPU_NOT_DETERMINED} — this Mac has no unified-memory GPU the reader "
+            "sized; the notes above say why."
+        ]
+    cpu_facts, cpu_notes = read.cpu_facts, read.cpu_notes
     bandwidth = measure_bandwidth(root)
     path = weights_dir if weights_dir is not None else default_weights_dir()
-    disk, disk_facts = _disk(path)
+    disk, disk_facts = _disk(path, read.system == "linux")
     models, model_facts = _models_on_disk((*model_stores, path))
     docker, docker_why = _docker(bound)
-    network, network_facts, network_notes = _network(bound)
-    snapshot = _snapshot(root, bound, machine, short["cards"], docker, docker_why)
+    network, network_facts, network_notes = _network(bound, read.system)
+    snapshot = _snapshot(
+        root,
+        bound,
+        machine,
+        short["cards"],
+        docker,
+        docker_why,
+        read.first_tool,
+        read.system,
+    )
     notes = list(read.notes)
     facts = [
         {
@@ -1792,7 +2458,6 @@ def scan(
     return {
         **short,
         "gpus": gpus,
-        "cpu": cpu,
         "bandwidth": bandwidth,
         "disk": disk,
         "models_on_disk": models,
@@ -1812,7 +2477,8 @@ def main(argv: Sequence[str] | None = None) -> int:
     MCGYVR_TEST_MACHINE_ROOT is prefixed to every path that is read, and
     MCGYVR_TEST_TOOL_SECONDS replaces the time bound when it holds 1 to 6 digits
     giving a whole number of seconds above zero; anything else in it is noted rather
-    than used. Any argument other than --cards is a usage error, which returns 2.
+    than used; so is MCGYVR_TEST_MACHINE_OS when it names none of SYSTEMS. Any
+    argument other than --cards is a usage error, which returns 2.
     """
     args = list(sys.argv[1:] if argv is None else argv)
     root = os.environ.get(ROOT_VARIABLE, "")
@@ -1830,11 +2496,24 @@ def main(argv: Sequence[str] | None = None) -> int:
                     f"number of seconds above 0; the bound is {BOUND_S:g} s",
                 }
             )
+    # Honoured under a test root only, so a stray setting never renames a rig.
+    system = os.environ.get(SYSTEM_VARIABLE) if root else None
+    if system is not None and system not in SYSTEMS:
+        named.append(
+            {
+                "field": "system",
+                "why": f"{SYSTEM_VARIABLE} names none of {', '.join(SYSTEMS)}; the "
+                "machine is read as the system it is",
+            }
+        )
+        system = None
     if args not in ([], ["--cards"]):
         print(f"rigscan: takes no argument but --cards, not {args!r}", file=sys.stderr)
         return 2
     document = (
-        read_machine(root=root, bound=bound) if args else scan(root=root, bound=bound)
+        read_machine(root=root, bound=bound, system=system)
+        if args
+        else scan(root=root, bound=bound, system=system)
     )
     document["unread"] = [*named, *document["unread"]]
     print(json.dumps(document, indent=2))

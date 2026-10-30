@@ -240,8 +240,9 @@ def _scan_host(host: str) -> Scan:
 
 
 def _host_ram_bytes(scan: Scan) -> int | None:
-    """Available host RAM in bytes, or `None` when the scan reported no memory."""
-    if scan.memory is None:
+    """Available host RAM in bytes, or `None` when the scan reported no available
+    memory."""
+    if scan.memory is None or scan.memory.available_gb is None:
         return None
     return int(scan.memory.available_gb * BYTES_PER_GB)
 

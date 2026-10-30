@@ -6,18 +6,22 @@ rights may, over every invented machine, and asks no card tool anything but
 the questions it is known to ask. The whole reading asks for raised rights
 once, for the snapshot's DDR speed: ``dmidecode`` plainly, then through
 ``sudo -n``, which never prompts. No other command of the whole reading
-raises rights.
+raises rights. Off Linux the whole reading raises none: there is no dmidecode to
+read there, so it is never tried, through sudo or otherwise.
 """
 
 from __future__ import annotations
 
+import dataclasses
+import json
+import sys
 from collections.abc import Sequence
 from pathlib import Path
 
 import pytest
 
-from tests.machine_shapes import Shape, shapes
-from tests.machinereader import ELEVATION, run, stage
+from tests.machine_shapes import HostShape, Shape, host_shapes, shapes
+from tests.machinereader import ELEVATION, run, stage, stage_host
 
 
 @pytest.mark.parametrize("machine", shapes(), ids=lambda m: m.label)
@@ -70,3 +74,22 @@ def test_the_short_reading_asks_no_command_that_raises_rights(
     rigscan.read_machine(root=str(tmp_path / "root"))
     assert asked
     assert not [argv for argv in asked if set(argv) & set(ELEVATION)]
+
+
+@pytest.mark.parametrize(
+    "machine",
+    [m for m in host_shapes() if m.system != "linux"],
+    ids=lambda m: m.label,
+)
+def test_the_whole_reading_off_linux_raises_no_rights(
+    machine: HostShape, tmp_path: Path
+) -> None:
+    staged = stage_host(machine)
+    home = {"HOME": "{where}/home", "MCGYVR_WEIGHTS": "{where}/weights"}
+    staged = dataclasses.replace(staged, environment={**staged.environment, **home})
+    ran = run(staged, tmp_path, command=(sys.executable, "-I", "-B", "-"))
+    assert ran.returncode == 0, ran.stderr
+    assert ran.elevated == ()
+    assert ran.unexpected == ()
+    unread = {u["field"] for u in json.loads(ran.stdout)["unread"]}
+    assert "snapshot.ram_mt_s" in unread

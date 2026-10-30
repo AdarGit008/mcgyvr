@@ -176,6 +176,12 @@ def rig_id(reading: Mapping[str, Any]) -> str:
     reason for it, when the reading gives one, and its remedy. Otherwise the
     id is the digest of the machine id and the cards' names and sizes, with the
     cards sorted by normalized name and size and the names normalized to NFC.
+
+    A unified-memory GPU (a card of kind ``unified``) is hashed by its name
+    alone, under its own key: its size is the share of memory the kernel lets
+    it take, which a setting moves and a reboot resets, and a machine whose
+    setting moved is the same machine. A reading with no such card hashes
+    exactly as it did before the kind existed.
     """
     refused, cards = _policy(reading)
     if refused:
@@ -201,12 +207,18 @@ def rig_id(reading: Mapping[str, Any]) -> str:
     pairs = sorted(
         (unicodedata.normalize("NFC", str(card["name"])), int(card["total_mib"]))
         for card in cards
+        if card.get("kind") != "unified"
+    )
+    unified = sorted(
+        unicodedata.normalize("NFC", str(card["name"]))
+        for card in cards
+        if card.get("kind") == "unified"
     )
     machine = reading["machine"]
-    return digest(
-        "rig-",
-        {
-            "machine_id": str(machine["id"]),
-            "cards": [{"name": name, "total_mib": total} for name, total in pairs],
-        },
-    )
+    fields: dict[str, Any] = {
+        "machine_id": str(machine["id"]),
+        "cards": [{"name": name, "total_mib": total} for name, total in pairs],
+    }
+    if unified:
+        fields["unified"] = unified
+    return digest("rig-", fields)
