@@ -28,6 +28,7 @@ from mcgyvr.exits import Exit
 
 if TYPE_CHECKING:
     from mcgyvr.rig.credentials import Credentials
+    from mcgyvr.rig.session import SessionHost
 
 #: The path on a hub under which an agent is given its channel.
 AGENT_PATH = "/api/v1/agent"
@@ -117,6 +118,19 @@ def _agent_version() -> str:
     if protocol.AGENT_VERSION.fullmatch(__version__):
         return __version__
     return "0.0.0+unknown"
+
+
+def native_host(agent_pid: int) -> SessionHost | None:
+    """The host a native rig's sessions run on, on a system whose units run
+    natively by default (macOS, Windows), else ``None``: a Linux rig's
+    sessions run in containers whatever its launcher says."""
+    from mcgyvr.config import NATIVE_BY_DEFAULT
+
+    if hostos.os_name() not in NATIVE_BY_DEFAULT:
+        return None
+    from mcgyvr.rig import userwg
+
+    return userwg.NativeHost(agent_pid=agent_pid)
 
 
 def run_agent(kept: Credentials, config: Path | None = None) -> int:
@@ -262,6 +276,7 @@ def run_agent(kept: Credentials, config: Path | None = None) -> int:
             bind_relay=session.bind_relay,
         ),
         send=box.put,
+        native=native_host(os.getpid()),
     )
     # The parts of a rig: hitchhike units ride other rigs and offer this setup's
     # units to riders, relays carry what a session sends and receives, probes
@@ -355,11 +370,16 @@ def run_agent(kept: Credentials, config: Path | None = None) -> int:
     )
     share = lending()
     try:
-        roles = share.session_roles(last_report())
+        report = last_report()
+        roles = share.session_roles(report)
     except hardware.HardwareError:
         roles = ()
     if roles:
-        print(f"lending: {', '.join(roles)} on {share.image}", file=sys.stderr)
+        print(
+            f"lending: {', '.join(roles)} on "
+            f"{session.offer(share, models(), (), (), report).runtime}",
+            file=sys.stderr,
+        )
     elif share.offered_roles():
         print("lending: no session role is offered on this machine", file=sys.stderr)
     for note in share.notes:
@@ -760,11 +780,13 @@ def _share(args: argparse.Namespace) -> int:
             changes["ram_mb"] = int(args.ram_mb)
         if args.cpu_cores is not None:
             changes["cpu_cores"] = int(args.cpu_cores)
+        if args.launcher is not None:
+            changes["launcher"] = args.launcher
     except ValueError:
         print("error: a number was asked for and something else given", file=sys.stderr)
         return int(Exit.USAGE)
     wanted = replace(kept, **changes)  # type: ignore[arg-type]
-    if wanted.enabled and wanted.image is None:
+    if wanted.enabled and wanted.image is None and not wanted.native_here():
         print(
             "error: lending runs in an engine image; name it with --image",
             file=sys.stderr,
@@ -798,13 +820,20 @@ def _share(args: argparse.Namespace) -> int:
     roles = wanted.offered_roles()
     print(f"lending: {'on' if wanted.enabled else 'off'}")
     print(f"roles:   {', '.join(roles) if roles else 'none offered'}")
-    print(f"image:   {wanted.image or 'none'}")
+    if wanted.native_here():
+        print("image:   none (launcher native: the pinned llama.cpp build)")
+    else:
+        print(f"image:   {wanted.image or 'none'}")
     cards = "all" if wanted.cards is None else ", ".join(map(str, wanted.cards))
     print(f"cards:   {cards} (each lent whole)")
     print(f"ram:     {wanted.container_mb()} MiB per container")
     print(f"models:  {wanted.models_dir or 'none (no head)'}")
     endpoints = (
-        ", ".join(wanted.endpoints) if wanted.endpoints else "this machine's LAN"
+        ", ".join(wanted.endpoints)
+        if wanted.endpoints
+        else "none named: set --endpoints"
+        if wanted.native_here()
+        else "this machine's LAN"
     )
     ports = wanted.tunnel_ports()
     udp = f"{ports[0]}" if len(ports) == 1 else f"{ports[0]}-{ports[-1]}"
@@ -942,5 +971,13 @@ def add_parser(
     )
     share.add_argument(
         "--cpu-cores", help="cores lent to whole models this rig heads, or 0"
+    )
+    from mcgyvr.config import LAUNCHERS
+
+    share.add_argument(
+        "--launcher",
+        choices=LAUNCHERS,
+        help="docker: sessions run in containers; native (macOS, Windows): "
+        "through the mcgyvr-wg helper on the pinned llama.cpp build, head only",
     )
     share.set_defaults(func=_share, on=None, cache=None)

@@ -81,11 +81,18 @@ class ShipError(ValueError):
 
 
 def module_path(name: str) -> Path:
-    """The source file of the ``mcgyvr`` module `name` (``mcgyvr.serving.rigscan``)."""
+    """The source file of the ``mcgyvr`` module `name` (``mcgyvr.serving.rigscan``).
+
+    A package (``mcgyvr.serving``) is its ``__init__.py``; a module is its
+    ``.py`` file.
+    """
     parts = name.split(".")
     if parts[0] != "mcgyvr" or len(parts) < 2:
         raise ShipError(f"{name!r} is not a module of the mcgyvr package")
-    return PACKAGE.joinpath(*parts[1:-1], parts[-1] + ".py")
+    rel = PACKAGE.joinpath(*parts[1:])
+    if rel.is_dir():
+        return rel / "__init__.py"
+    return rel.with_suffix(".py")
 
 
 def source(name: str) -> str:
@@ -315,6 +322,7 @@ NATIVE_MODULES = (
     "mcgyvr.hostos",
     "mcgyvr.userdir",
     "mcgyvr.fleet.roots",
+    "mcgyvr.serving.rigscan",
     "mcgyvr.serving.fetcher",
     "mcgyvr.serving.release",
     "mcgyvr.serving.llamacpp",

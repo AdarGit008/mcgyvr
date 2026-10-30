@@ -65,7 +65,7 @@ from mcgyvr.serving import (
 )
 from mcgyvr.serving.gatelib import LOCAL_RIGS
 from mcgyvr.serving.llamacpp import HOST_ENV as HOST_ENV
-from mcgyvr.serving.llamacpp import HOST_FLAG, LOOPBACK
+from mcgyvr.serving.llamacpp import HOST_FLAG, LOOPBACK, OVERLAY
 from mcgyvr.serving.sharding import Target
 from mcgyvr.serving.shardlaunch import (
     LaunchError,
@@ -550,11 +550,11 @@ def _native_service(unit: Unit) -> dict[str, object]:
     No image, no volumes, no devices: the program (`PROGRAM_KEY`) is the
     pinned llama.cpp build's server or rpc worker, run with the same argv a
     container is given, and the cards it may use are listed under
-    `CARDS_KEY` (:func:`_native_block`).
+    `CARDS_KEY` (:func:`native_block`).
     """
     if unit.role == ROLE_SERVE and HOST_FLAG not in unit.args:
         unit = replace(unit, args={**unit.args, HOST_FLAG: LOOPBACK})
-    return _native_block(
+    return native_block(
         unit.key.slug,
         engine=unit.engine,
         host=unit.host,
@@ -566,7 +566,7 @@ def _native_service(unit: Unit) -> dict[str, object]:
     )
 
 
-def _native_block(
+def native_block(
     slug: str,
     *,
     engine: str | None,
@@ -584,7 +584,11 @@ def _native_block(
     door ships the launcher there): another engine or rig is refused. A
     server listens on
     `LOOPBACK` alone: its `--host` must name it, or it is given it, and a
-    `LLAMA_ARG_HOST` or another `--host` is refused.
+    `LLAMA_ARG_HOST` (in any letter case) or another `--host` is refused. An
+    rpc worker (`rpc`) binds the address its head reaches it on, which its
+    `-H`/`--host` must state as an IPv4 literal a worker may listen on. Both
+    rules are :func:`mcgyvr.serving.llamacpp.beyond_loopback`'s, the one place
+    they live.
     """
     if (engine or "llama.cpp") != "llama.cpp":
         raise EmitError(
@@ -1087,9 +1091,10 @@ def _locked_native(
     """The native launch spec of a locked unit, from what its lock states.
 
     The lock carries what the unlocked unit was emitted with: `unit_id`,
-    `container`, `launch.argv` and `launch.env`; the cards come from its
+    `container`, `launch.argv` and `launch.env`, and the block's own `role`,
+    which makes an rpc worker's block an rpc-server's; the cards come from its
     span. It is the same block an unlocked native unit renders
-    (:func:`_native_block`), so locking a native fleet does not change how
+    (:func:`native_block`), so locking a native fleet does not change how
     it runs.
     """
     launch = unit.get("launch") or {}
@@ -1108,21 +1113,16 @@ def _locked_native(
             f"{name}: a locked unit is rendered from what it states, and it does "
             f"not state {', '.join(missing)}"
         )
-    return _native_block(
+    return native_block(
         name,
         engine=unit.get("engine"),
         host=host_of(str(unit["address"])),
-        rpc=False,
+        rpc=unit.get("role") == ROLE_RPC,
         container=str(unit["container"]),
         command=list(cast(list[str], argv)),
         env={str(k): str(v) for k, v in env.items()},
         cards=cards,
     )
-
-
-#: The shared address space overlay networks hand out (RFC 6598). A worker
-#: recorded at one of these is reached only by a head on the same overlay.
-OVERLAY = ipaddress.IPv4Network("100.64.0.0/10")
 
 
 def _locked_workers(

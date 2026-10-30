@@ -233,3 +233,38 @@ def test_a_card_is_lent_whole_and_the_cap_that_was_is_read_with_a_note(
     with pytest.raises(SystemExit):
         cli.main(["rig", "share", "--max-vram-mb", "4000"])
     assert "--max-vram-mb" in capsys.readouterr().err
+
+
+def test_a_mac_shares_natively_without_an_image_and_offers_the_head_alone(
+    tmp_path: Path,
+    capsys: pytest.CaptureFixture[str],
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    from mcgyvr import cli
+    from mcgyvr.rig import sharing
+    from tests.native_pool_fakes import as_native_system
+
+    as_native_system(monkeypatch, "darwin")
+    models = tmp_path / "models"
+    models.mkdir()
+    code = cli.main(
+        [
+            "rig",
+            "share",
+            "--on",
+            "--launcher",
+            "native",
+            "--roles",
+            "worker,head",
+            "--models",
+            str(models),
+            "--endpoints",
+            fakes.LAN_ADDRESS,
+        ]
+    )
+    assert code == 0
+    kept = sharing.load()
+    assert kept.launcher == "native" and kept.image is None
+    said = capsys.readouterr().out
+    assert "roles:   head\n" in said
+    assert "launcher native" in said

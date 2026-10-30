@@ -47,6 +47,8 @@ class FakeDocker:
     """A daemon that keeps what was started, and the knobs a test turns."""
 
     containers: dict[str, Container] = field(default_factory=dict)
+    #: Every container ever started, removed or not, in the order started.
+    containers_ever: list[Container] = field(default_factory=list)
     calls: list[tuple[str, tuple[str, ...]]] = field(default_factory=list)
     scripts: list[tuple[str, str, tuple[str, ...]]] = field(default_factory=list)
     leases: int = 0
@@ -93,6 +95,7 @@ class FakeDocker:
             part = labels.get("mcgyvr.pool.part", "")
             state = "exited" if part in self.exits_on_start else "running"
             self.containers[name] = Container(argv=argv, labels=labels, state=state)
+            self.containers_ever.append(self.containers[name])
 
     def run_script(self, name: str, script: str, *args: str) -> str:
         from mcgyvr.rig import pooled

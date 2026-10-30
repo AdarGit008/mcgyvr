@@ -144,7 +144,7 @@ def test_a_worker_runs_rpc_server_with_no_model_and_no_weights_mount() -> None:
     assert service["image"] == RPC_IMAGE
     command = service["command"]
     assert "--model" not in command
-    assert command[command.index("-H") + 1] == "192.0.2.20"
+    assert command[command.index("-H") + 1] == "10.20.0.20"
     assert command[command.index("-d") + 1] == "CUDA0"
     assert devices_of(service) == ["0"]
 
@@ -175,7 +175,7 @@ def test_workers_and_the_server_of_one_model_have_names_of_their_own() -> None:
 def test_the_head_is_told_where_its_workers_are() -> None:
     head = llama_units()[0]
     command = service_of(head)["command"]
-    assert command[command.index("--rpc") + 1] == ("192.0.2.20:50052,192.0.2.20:50053")
+    assert command[command.index("--rpc") + 1] == ("10.20.0.20:50052,10.20.0.20:50053")
     assert service_of(head)["environment"]["CUDA_DEVICE_ORDER"] == "PCI_BUS_ID"
 
 

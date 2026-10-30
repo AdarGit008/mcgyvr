@@ -27,8 +27,8 @@ from mcgyvr.serving import rigfile, rigscan
 
 #: The invented rig's LAN addresses (RFC 5737), its overlay address, and docker's
 #: default bridge address.
-LAN = "192.0.2.20"
-SECOND_LAN = "198.51.100.30"
+LAN = "10.20.0.20"
+SECOND_LAN = "10.30.0.30"
 OVERLAY = "100.64.0.7"
 DOCKER = "172.17.0.1"
 #: `ip -4 -o addr show` lines as a rig prints them: loopback, its LAN card, and
@@ -38,11 +38,11 @@ LO_LINE = (
     "preferred_lft forever\n"
 )
 LAN_LINE = (
-    f"2: enp5s0    inet {LAN}/24 brd 192.0.2.255 scope global dynamic "
+    f"2: enp5s0    inet {LAN}/24 brd 10.20.0.255 scope global dynamic "
     "noprefixroute enp5s0\\       valid_lft 85000sec preferred_lft 85000sec\n"
 )
 SECOND_LAN_LINE = (
-    f"3: wlp4s0    inet {SECOND_LAN}/24 brd 198.51.100.255 scope global dynamic "
+    f"3: wlp4s0    inet {SECOND_LAN}/24 brd 10.30.0.255 scope global dynamic "
     "noprefixroute wlp4s0\\       valid_lft 85000sec preferred_lft 85000sec\n"
 )
 OVERLAY_LINE = (
@@ -91,7 +91,7 @@ def _read(
     if reached_at is None:
         monkeypatch.delenv("SSH_CONNECTION", raising=False)
     else:
-        monkeypatch.setenv("SSH_CONNECTION", f"198.51.100.7 52000 {reached_at} 22")
+        monkeypatch.setenv("SSH_CONNECTION", f"10.30.0.7 52000 {reached_at} 22")
     return rigfile.from_reading("box-a.invalid", rigscan.scan())
 
 

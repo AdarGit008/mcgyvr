@@ -226,3 +226,54 @@ def test_a_locked_native_unit_elsewhere_or_on_another_address_is_refused() -> No
     wide = {"argv": ["--port", "8080", "--host", "0.0.0.0"], "env": {}}
     with pytest.raises(emit.EmitError, match=r"127\.0\.0\.1 alone"):
         emit._locked_service("m", _locked(launch=wide), (0,))
+
+
+#: An address of a tailnet's range, from the pin's own network.
+SHARED_RANGE = str(llamacpp.OVERLAY[7])
+
+
+@pytest.mark.parametrize("bind", ["10.211.0.2", "10.8.0.3", SHARED_RANGE])
+def test_a_locked_native_rpc_worker_runs_rpc_server_on_the_address_it_states(
+    bind: str,
+) -> None:
+    worker = _locked(
+        role="rpc",
+        address="http://localhost:50052",
+        container="mcgyvr-localhost-m-rpc",
+        launch={"argv": ["-H", bind, "-p", "50052"], "env": {}},
+    )
+    service = emit._locked_service("m", worker, (1,))
+    assert service[PROGRAM_KEY] == llamacpp.RPC_SERVER
+    command = service["command"]
+    assert isinstance(command, list)
+    assert command[command.index("-H") + 1] == bind
+    assert "--host" not in command  # not a server on the loopback
+    head = emit._locked_service("m", _locked(), (0,))
+    assert head[PROGRAM_KEY] == llamacpp.SERVER
+    assert isinstance(head["command"], list)
+    assert head["command"][head["command"].index("--host") + 1] == "127.0.0.1"
+
+
+@pytest.mark.parametrize(
+    "bind",
+    [
+        [],
+        ["-H", "0.0.0.0"],
+        ["-H", "0"],
+        ["-H", "0x0"],
+        ["-H", "0.0"],
+        ["-H", "00"],
+        ["--host", "::"],
+        ["-H", "127.0.0.1"],
+        ["-H", "8.8.8.8"],
+        ["-H", "169.254.1.1"],
+        ["-H", "203.0.113.9"],
+        ["-H", "10.211.0.2", "--host", "0"],
+    ],
+)
+def test_a_locked_native_rpc_worker_binding_wide_or_nowhere_is_refused(
+    bind: list[str],
+) -> None:
+    worker = _locked(role="rpc", launch={"argv": [*bind, "-p", "50052"], "env": {}})
+    with pytest.raises(emit.EmitError, match="nothing wider"):
+        emit._locked_service("m", worker, (1,))

@@ -162,11 +162,17 @@ def _bind(target: Target, *, model: str) -> str:
             f"machine must listen on the one address the head reaches it at, "
             f"never every interface and never loopback; state it as `bind`"
         )
+    bridge = (
+        " (a Mac's Thunderbolt Bridge assigns itself a 169.254 address: give "
+        "the bridge a private address)"
+        if address.is_link_local
+        else ""
+    )
     raise LaunchError(
-        f"{model}: {where} would bind {stated}, an address reachable from "
-        f"the internet, and rpc-server has no authentication: anyone who "
+        f"{model}: {where} would bind {stated}, not a private or overlay "
+        f"network address, and rpc-server has no authentication: anyone who "
         f"reaches it can use the card. Bind a private or overlay-network "
-        f"address the head reaches it at"
+        f"address the head reaches it at{bridge}"
     )
 
 

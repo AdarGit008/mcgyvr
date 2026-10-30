@@ -39,14 +39,14 @@ from tests import usermode
 #: The invented rig's addresses: a documentation address (RFC 5737) on its
 #: LAN card, another on its container bridge, and loopback; a third on a second
 #: LAN card where the rig holds two.
-LAN = "192.0.2.20"
-BRIDGE = "198.51.100.30"
-SECOND_LAN = "203.0.113.40"
+LAN = "10.20.0.20"
+BRIDGE = "10.30.0.30"
+SECOND_LAN = "10.40.0.40"
 IP_ADDR = (
     "1: lo    inet 127.0.0.1/8 scope host lo\\       valid_lft forever\n"
-    f"2: eth0    inet {LAN}/24 brd 192.0.2.255 scope global eth0\\       "
+    f"2: eth0    inet {LAN}/24 brd 10.20.0.255 scope global eth0\\       "
     "valid_lft forever\n"
-    f"3: docker0    inet {BRIDGE}/24 brd 198.51.100.255 scope global docker0\\  "
+    f"3: docker0    inet {BRIDGE}/24 brd 10.30.0.255 scope global docker0\\  "
     "     valid_lft forever\n"
 )
 
@@ -86,7 +86,7 @@ def test_the_rig_reports_where_ssh_reached_it_and_the_addresses_it_holds(
         return None, None
 
     monkeypatch.setattr(rigscan, "_run", answered)
-    monkeypatch.setenv("SSH_CONNECTION", f"198.51.100.7 52000 {LAN} 22")
+    monkeypatch.setenv("SSH_CONNECTION", f"10.30.0.7 52000 {LAN} 22")
 
     payload = rigscan.scan()
 

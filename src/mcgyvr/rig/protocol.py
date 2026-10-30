@@ -213,6 +213,9 @@ class Offer:
     and ``features`` the behaviours the agent speaks, while ``endpoints`` are
     candidate addresses peers may reach the rig's tunnel on, ``models`` the
     files it can serve, and ``sessions`` the ids of the sessions it is in now.
+    ``rpc_proto`` is the llama.cpp RPC protocol its runtime speaks, when the
+    agent knows it (the pinned build), sent as
+    :data:`mcgyvr.hubwire.RPC_PROTO_FIELD` among the capabilities.
     """
 
     roles: tuple[str, ...]
@@ -221,6 +224,7 @@ class Offer:
     models: tuple[ModelInfo, ...]
     sessions: tuple[str, ...]
     features: tuple[str, ...] = ()
+    rpc_proto: hubwire.RpcProto | None = None
 
 
 @dataclass(frozen=True, kw_only=True)
@@ -523,6 +527,12 @@ def _offer_body(offer: Offer) -> dict[str, Any]:
         capabilities["runtime"] = offer.runtime
     if offer.features:
         capabilities["features"] = list(offer.features)
+    if offer.rpc_proto is not None:
+        try:
+            offer.rpc_proto.validate()
+        except ValueError as exc:
+            raise ValueError(f"capabilities.{hubwire.RPC_PROTO_FIELD}: {exc}") from exc
+        capabilities[hubwire.RPC_PROTO_FIELD] = asdict(offer.rpc_proto)
     return {
         "capabilities": capabilities,
         "endpoints": [

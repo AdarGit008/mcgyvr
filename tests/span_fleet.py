@@ -80,7 +80,7 @@ def fleet() -> dict[str, Any]:
                             "rig": B,
                             "gpu": 0,
                             "room_mib": BIG_ROOM_B,
-                            "bind": "192.0.2.20",
+                            "bind": "10.20.0.20",
                         },
                     ]
                 },
@@ -92,7 +92,7 @@ def fleet() -> dict[str, Any]:
                 launch={
                     "shards": [
                         {"rig": B, "gpu": 0, "room_mib": 1000},
-                        {"rig": A, "gpu": 1, "room_mib": 1000, "bind": "192.0.2.10"},
+                        {"rig": A, "gpu": 1, "room_mib": 1000, "bind": "10.20.0.10"},
                     ]
                 },
             ),

@@ -131,7 +131,7 @@ def test_a_split_across_machines_lends_the_other_machines_card_over_rpc(
 ) -> None:
     shards = [
         {"rig": "box-a.example", "gpu": 0},
-        {"rig": "box-b.example", "gpu": 0, "bind": "192.0.2.20"},
+        {"rig": "box-b.example", "gpu": 0, "bind": "10.20.0.20"},
     ]
     head, worker = units_for(
         config(tmp_path, {"shards": shards}, image="example/llama-rpc:1"),
@@ -140,11 +140,11 @@ def test_a_split_across_machines_lends_the_other_machines_card_over_rpc(
         ctx_per_slot=WINDOW,
     )
     assert head.host == "box-a.example"
-    assert head.args["--rpc"] == "192.0.2.20:50052"
+    assert head.args["--rpc"] == "10.20.0.20:50052"
     assert worker.host == "box-b.example"
     assert worker.role == ROLE_RPC
     assert worker.port == 50052
-    assert worker.args["-H"] == "192.0.2.20"
+    assert worker.args["-H"] == "10.20.0.20"
     assert worker.cards == (0,)
     assert worker.rungs == ()
     assert worker.image == "example/llama-rpc:1"

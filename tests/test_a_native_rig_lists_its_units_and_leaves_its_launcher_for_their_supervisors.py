@@ -26,7 +26,7 @@ import pytest
 
 from mcgyvr import hostos
 from mcgyvr.fleet import read
-from mcgyvr.serving import localrig, native, shipped
+from mcgyvr.serving import localrig, native, rigscan, shipped
 
 
 @pytest.fixture
@@ -55,7 +55,7 @@ def test_a_supervised_unit_is_a_row_and_its_card_holder_is_named_by_it(
     tool = tmp_path / "nvidia-smi"
     tool.write_text(f"#!/bin/sh\necho '{pid}, 9000, /opt/llama/llama-server'\n")
     tool.chmod(0o755)
-    monkeypatch.setattr(native, "nvidia_smi", lambda: str(tool))
+    monkeypatch.setattr(rigscan, "nvidia_smi", lambda system=None: str(tool))
     asked: list[str] = []
 
     def ask(url: str, **_kw: Any) -> tuple[int, bytes]:
