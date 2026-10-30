@@ -9,6 +9,7 @@ file, and the door does the switching.
 from __future__ import annotations
 
 import argparse
+import os
 import sys
 from collections.abc import Iterable, Mapping, Sequence
 from pathlib import Path
@@ -141,10 +142,15 @@ def _serve(args: argparse.Namespace) -> int:
         return Exit.REFUSED
 
     if not made.ok:
+        from mcgyvr.fleet.roots import data_home
+        from mcgyvr.serving.gatelib import DOOR_LOG
+
+        # The data folder is each system's own (and $MCGYVR_DATA's when set),
+        # so the log is named where it is, not where Linux keeps it.
         print(
             f"error: the door exited {made.code} on `serve {made.direction}` for "
             f"{made.host} — read its envelope in the door's log under "
-            f"~/.local/state/mcgyvr/door/",
+            f"{data_home() / DOOR_LOG}{os.sep}",
             file=sys.stderr,
         )
         return Exit.ERROR

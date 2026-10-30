@@ -12,7 +12,8 @@ mcgyvr local_pool
 
 `mcgyvr setup` reads each rig once and stages a setup bound to what it
 serves in a folder of the run's own, `$MCGYVR_DATA/setup/<run>/` (default
-`~/.local/state/mcgyvr/setup/<run>/`), kept as the record of that run; it
+`~/.local/state/mcgyvr/setup/<run>/` on Linux; *macOS and Windows*
+below names the data folder there), kept as the record of that run; it
 writes nothing in the working directory. It prints what was decided and
 why, then what is *not* configured and what that costs.
 
@@ -27,8 +28,9 @@ model of that use case for each rig, says whether its candidates came
 from the Hugging Face Hub, the cache of an earlier Hub read or the
 shipped catalog, asks before each download, writes the staged setup
 once and emits its launch specs once, and asks before it starts the
-serving containers through the door. It then samples the fleet: a read
-of every rig, a
+serving containers (on this Mac or Windows machine, native servers:
+*macOS and Windows* below) through the door. It then samples the
+fleet: a read of every rig, a
 probe and a load of every unit, the use case's sample task (for
 `mcgyvr-code`, a one-function bug fix the deterministic gate must pass;
 for `code` and `chat`, one word from each unit) and
@@ -36,11 +38,20 @@ a Jev unit's one typed choice. A green sample is stamped, and on
 `Lock the fleet and name it live? [y/N]` it is locked, promoted and
 named live. A red sample is never locked; its reasons are printed.
 
-When the interactive setup finishes, it offers to append
-`export PATH="$HOME/.local/bin:$PATH"` to the login shell's rc file
+When the interactive setup finishes, it offers to put `~/.local/bin`,
+where `uv tool install` puts `mcgyvr`, on PATH, once you say yes. A
+shell's rc file gets `export PATH="$HOME/.local/bin:$PATH"`
 (`~/.bashrc`, `~/.zshrc`, `~/.profile`, or
-`~/.config/fish/config.fish`, by `$SHELL`), once you say yes; a file
-that already carries a `.local/bin` PATH line is left alone.
+`~/.config/fish/config.fish`, by `$SHELL`; `~/.zshrc` on macOS when
+`$SHELL` is unset). On Windows the PowerShell profile gets
+`$env:Path = "$HOME\.local\bin;$env:Path"`:
+the profile PowerShell itself names (PowerShell 7's when it is
+installed, else Windows PowerShell's, each run by its full path).
+Where PowerShell's execution policy runs no profile (`Restricted`,
+a Windows client's when none is set, or `AllSigned`), setup writes
+none and names `uv tool update-shell`, uv's own way to put the folder
+on PATH. A file that already carries a `.local/bin` (or `.local\bin`)
+PATH line is left alone.
 
 A fleet that could not be sampled — its containers not started, or
 every unit hosted — is locked
@@ -143,6 +154,106 @@ you read all three:
 
 `mcgyvr config` prints the resolved config; `mcgyvr detect` shows what
 can run the work; `mcgyvr capabilities` shows the shipped capability table.
+
+## macOS and Windows
+
+mcgyvr runs on macOS and Windows as it does on Linux; this is what differs. `~` is your home folder
+(`%USERPROFILE%` on Windows).
+
+**Install.** `uv tool install mcgyvr` puts the CLI in `~/.local/bin` on every system. On Windows the
+skills install with `skills/mcgyvr/install.ps1`, the twin of `install.sh`: the same skills, into the same
+folders under `~` (`.claude/skills`, `.pi/agent/skills`). `-ExecutionPolicy RemoteSigned` lets that one
+run go ahead where PowerShell's policy refuses every script, and changes no setting; a script from `git
+clone` carries no downloaded-file mark, so it runs (one taken from a zip a browser downloaded needs
+`Unblock-File` first):
+
+```
+powershell -NoProfile -ExecutionPolicy RemoteSigned -File mcgyvr\skills\mcgyvr\install.ps1
+```
+
+**Folders.** Each system's own, by default:
+
+- data (`$MCGYVR_DATA`): `~/.local/state/mcgyvr` on Linux; `~/Library/Application Support/mcgyvr` on
+  macOS; `%LOCALAPPDATA%\mcgyvr` on Windows.
+- caches (the model index, the weights): `~/.cache/mcgyvr` on Linux; `~/Library/Caches/mcgyvr` on macOS;
+  `%LOCALAPPDATA%\mcgyvr\cache` on Windows.
+- config (`$MCGYVR_HOME`): `~/.mcgyvr` on every system.
+
+`$XDG_STATE_HOME` and `$XDG_CACHE_HOME` still win when set (the weights follow `$MCGYVR_WEIGHTS` alone),
+and `journal.dir` defaults to `~/.local/state/mcgyvr/journal` everywhere. Windows checks no file owner or
+mode: a file is as private as its folder, and these folders are in your own profile. A folder named by
+`$MCGYVR_HOME`, `$MCGYVR_DATA` or an XDG variable keeps whatever ACL it has, so keep the rig token's
+folder (`$MCGYVR_HOME`) inside your profile.
+
+**Serving, with no Docker.** On a Mac or a Windows machine, `mcgyvr setup` writes `launcher: native` for
+a llama.cpp unit on the machine it runs on. Its first start fetches the llama.cpp build mcgyvr pins
+(`b11960`, the same build as the Linux image) into `bin/llama.cpp/b11960/` under `~/.mcgyvr`, checks it
+against its pinned sha256, and keeps the server up with mcgyvr's own supervisor. The build is `metal` on
+Apple silicon; on Windows `cuda` where `nvidia-smi.exe` reads a driver a pinned CUDA build runs (found by
+full path only: an absolute folder on PATH, `System32` or the NVIDIA `NVSMI` folder, never by bare name),
+else `vulkan` where a Vulkan loader is installed, else `cpu`; `$MCGYVR_NATIVE_BACKEND` names one instead.
+vLLM units run only on Linux, in containers, and remote rigs are Linux machines read over ssh. This
+machine is reached without ssh: always on macOS and Windows, and on Linux when no sshd answers on port 22
+(`$MCGYVR_LOCAL_TRANSPORT`, `direct` or `ssh`, decides instead). A native unit has no sleep route, so
+`mcgyvr serve sleep` and `wake` refuse it.
+
+**Firewall and quarantine.** A native server listens on 127.0.0.1 alone (a unit stating another address
+is refused) and takes no connection from the network, so neither the macOS nor the Windows firewall is
+expected to ask about it. On macOS a unit the hub uses is reached through the rig agent, which relays to
+that address over its own outgoing connection; on Windows a native unit serves this machine, since the
+rig agent does not run there yet (below). On macOS the fetch removes the `com.apple.quarantine` flag from
+the build after its sha256 check, so Gatekeeper does not stop it at first start.
+
+**Long paths (Windows).** Windows limits a path to 260 characters (`MAX_PATH`). The weights land under
+their own file names in the cache folder, well inside that; if a path of yours still passes it, point
+`$MCGYVR_WEIGHTS` at a short folder. Windows' `LongPathsEnabled` key lifts the limit only for programs
+that declare long paths (Python does; the llama.cpp build is not known to), and is set from a PowerShell
+run as administrator (Microsoft's command, from *Maximum Path Length Limitation*):
+
+```
+New-ItemProperty -Path "HKLM:\SYSTEM\CurrentControlSet\Control\FileSystem" `
+  -Name "LongPathsEnabled" -Value 1 -PropertyType DWORD -Force
+```
+
+**Starting at login.** mcgyvr installs no service. A rig lending to a hub runs `mcgyvr rig run` in a
+terminal; to start it at login instead, once `mcgyvr rig join` has kept its token (`mcgyvr rig status`
+says so), run these yourself. On macOS, a launchd user agent that starts at login and again after an exit
+with an error, at most once a minute. On macOS today the agent relays to this machine's units; it lends
+no unified GPU yet and offers peers no LAN address:
+
+```sh
+mkdir -p ~/Library/LaunchAgents ~/Library/Logs
+cat > ~/Library/LaunchAgents/mcgyvr-rig.plist <<EOF
+<?xml version="1.0" encoding="UTF-8"?>
+<plist version="1.0"><dict>
+  <key>Label</key><string>mcgyvr-rig</string>
+  <key>ProgramArguments</key><array>
+    <string>$HOME/.local/bin/mcgyvr</string>
+    <string>rig</string><string>run</string>
+  </array>
+  <key>RunAtLoad</key><true/>
+  <key>KeepAlive</key><dict><key>SuccessfulExit</key><false/></dict>
+  <key>ThrottleInterval</key><integer>60</integer>
+  <key>StandardErrorPath</key><string>$HOME/Library/Logs/mcgyvr-rig.log</string>
+</dict></plist>
+EOF
+launchctl bootstrap gui/$(id -u) ~/Library/LaunchAgents/mcgyvr-rig.plist
+```
+
+`launchctl bootout gui/$(id -u)/mcgyvr-rig` stops it until the next login or `bootstrap` (after editing
+the plist, `bootout` first, then `bootstrap` again); delete the plist to drop it. launchd starts it
+without your shell's variables, so a variable the agent reads (`$MCGYVR_HUB_API_KEY`) set in `~/.zshrc`
+is not seen there.
+
+On Windows, `mcgyvr rig run` does not start yet (its pooled-session code imports a module Windows lacks,
+`fcntl`). When it does, a line in your Startup folder starts it at your login with no administrator (a
+`schtasks /sc onlogon` task runs at any user's logon and is created from an elevated prompt). From
+PowerShell, and `Remove-Item` on the same path to drop it:
+
+```powershell
+Set-Content -LiteralPath "$([Environment]::GetFolderPath('Startup'))\mcgyvr-rig.cmd" `
+  -Value '@start "" /min "%USERPROFILE%\.local\bin\mcgyvr.exe" rig run'
+```
 
 ## Use cases and switches
 

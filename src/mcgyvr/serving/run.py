@@ -266,6 +266,10 @@ READ_ID = re.compile(r"^run-(\d{8}T\d{6})-([0-9a-f]{8})$")
 LOAD_SPEC = re.compile(r"^([1-9][0-9]*)x([1-9][0-9]*)$")
 
 
+#: The folder separator each system's paths are shown with in the help.
+_SEP_SHOWN = {"Linux": "/", "macOS": "/", "Windows": "\\"}
+
+
 def mint_read_id(now: datetime | None = None) -> str:
     """A fresh read id: the UTC moment it was minted, and four random bytes
     in hex.
@@ -595,7 +599,13 @@ def _serve_parse(argv: list[str]) -> argparse.Namespace:
             'fetch only: the fetch list (JSON: {"files": [{repo, revision, file, '
             "sha256, bytes}]}), each file pinned to a commit and its sha256 as "
             "the model knowledge records it. The files land in the rig's weights "
-            "folder ($MCGYVR_WEIGHTS there, else ~/.cache/mcgyvr/weights) under "
+            "folder ($MCGYVR_WEIGHTS there, else "
+            + ", ".join(
+                # argparse formats help with %: a literal % is written %%.
+                f"{folder.replace('%', '%%')}{_SEP_SHOWN[system]}weights on {system}"
+                for system, folder in hostos.CACHE_FOLDERS
+            )
+            + ") under "
             "their base names; a download resumes from its .part, and one whose "
             "sha256 does not match is deleted. No size cap: the total is said "
             "before a byte moves. The Hub is $HF_ENDPOINT when set (https, or "
