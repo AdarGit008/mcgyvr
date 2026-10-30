@@ -24,6 +24,7 @@ from __future__ import annotations
 
 import copy
 import json
+import math
 from collections.abc import Mapping
 from datetime import UTC, datetime
 from pathlib import Path
@@ -40,7 +41,13 @@ from mcgyvr.fleet.layout import combination_id, layout_sha256
 # Re-exported: the folder a fleet's lock files sit in, which the modules that
 # promote and admit a fleet import from here.
 from mcgyvr.fleet.roots import LOCK_DIR as LOCK_DIR
-from mcgyvr.fleet.roots import fleets_dir, split_name
+from mcgyvr.fleet.roots import (
+    FolderError,
+    LiveFleetError,
+    fleets_dir,
+    live_fleet_dir,
+    split_name,
+)
 from mcgyvr.fleet.sample import WAY_IN, WAYS, sleeper
 from mcgyvr.fleet.spans import (
     Span,
@@ -915,3 +922,65 @@ def write_unsampled(
         json.dumps(record, indent=2, sort_keys=True) + "\n", encoding="utf-8"
     )
     return tree
+
+
+#: The names one machine's loopback address goes by, read as one host.
+_LOOPBACK = frozenset({"localhost", "127.0.0.1", "::1"})
+
+
+def host_key(host: str) -> str:
+    """A host as readings are keyed by it: lower case, no ``user@``, no trailing
+    dot, and every loopback name as ``localhost``."""
+    plain = host.rsplit("@", 1)[-1].strip().rstrip(".").lower()
+    return "localhost" if plain in _LOOPBACK else plain
+
+
+def decode_readings(folder: Path | None = None) -> dict[tuple[str, str], float]:
+    """Measured warm decode speeds in the live fleet's lock, by (host, model).
+
+    A unit's approved ``warm_decode_tok_s`` in any rig record of the lock
+    (``lock/rigs/<rig_id>/<combination>.json``, as `write` files them) is a
+    reading of the model the fleet's ``fleet.yaml`` names for that unit, at
+    the host of the unit's address (:func:`host_key`). Where one model at one
+    host was measured more than once, the slowest answers. No live fleet, a
+    ``fleet.yaml`` that cannot be read, and a record or a figure that is not
+    one give no reading; nothing here raises.
+    """
+    from urllib.parse import urlsplit
+
+    try:
+        where = folder if folder is not None else live_fleet_dir()
+    except (LiveFleetError, FolderError):
+        return {}
+    if where is None:
+        return {}
+    try:
+        fleet = load_fleet((where / "fleet.yaml").read_text(encoding="utf-8"))
+    except (OSError, ValueError, FleetFileError):
+        return {}
+    units = fleet.get("units") or {}
+    found: dict[tuple[str, str], float] = {}
+    for record in sorted((where / LOCK_DIR / "rigs").glob("*/*.json")):
+        try:
+            approved = json.loads(record.read_text(encoding="utf-8"))["approved"]
+        except (OSError, ValueError, KeyError, TypeError):
+            continue
+        if not isinstance(approved, dict) or not isinstance(units, dict):
+            continue
+        for unit_name, entry in approved.items():
+            unit = units.get(unit_name)
+            warm = entry.get("warm_decode_tok_s") if isinstance(entry, dict) else None
+            if not isinstance(unit, dict) or isinstance(warm, bool):
+                continue
+            if not isinstance(warm, int | float) or not math.isfinite(warm):
+                continue
+            model = unit.get("model")
+            try:
+                host = urlsplit(str(unit.get("address") or "")).hostname
+            except ValueError:
+                continue
+            if warm <= 0 or not isinstance(model, str) or not model or not host:
+                continue
+            key = (host_key(host), model)
+            found[key] = min(found.get(key, float(warm)), float(warm))
+    return found
