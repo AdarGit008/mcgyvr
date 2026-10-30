@@ -18,16 +18,17 @@ import signal
 import sys
 import time
 import urllib.parse
-from collections.abc import Callable
+from collections.abc import Callable, Mapping
 from pathlib import Path
 from types import FrameType
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Any
 
 from mcgyvr import hostos
 from mcgyvr.exits import Exit
 
 if TYPE_CHECKING:
     from mcgyvr.rig.credentials import Credentials
+    from mcgyvr.rig.session import SessionHost
 
 #: The path on a hub under which an agent is given its channel.
 AGENT_PATH = "/api/v1/agent"
@@ -119,6 +120,19 @@ def _agent_version() -> str:
     return "0.0.0+unknown"
 
 
+def native_host(agent_pid: int) -> SessionHost | None:
+    """The host a native rig's sessions run on, on a system whose units run
+    natively by default (macOS, Windows), else ``None``: a Linux rig's
+    sessions run in containers whatever its launcher says."""
+    from mcgyvr.config import NATIVE_BY_DEFAULT
+
+    if hostos.os_name() not in NATIVE_BY_DEFAULT:
+        return None
+    from mcgyvr.rig import userwg
+
+    return userwg.NativeHost(agent_pid=agent_pid)
+
+
 def run_agent(kept: Credentials, config: Path | None = None) -> int:
     """Run an agent for `kept` in the foreground and return its `Exit` code.
 
@@ -137,6 +151,7 @@ def run_agent(kept: Credentials, config: Path | None = None) -> int:
     earlier handlers put back after it ends. The code is Exit.OK when the agent
     was asked to stop and Exit.ERROR otherwise.
     """
+    from mcgyvr import hubwire
     from mcgyvr.fleet import roots
     from mcgyvr.rig import (
         agent,
@@ -194,11 +209,31 @@ def run_agent(kept: Credentials, config: Path | None = None) -> int:
         except OSError as exc:
             print(f"note: the agent's state was not written: {exc}", file=sys.stderr)
 
-    def lending() -> sharing.Sharing:
+    # What the member chose on the hub for this rig to lend, from the hello's
+    # ack: it wins over the lending file's cards, memory and cores while the
+    # hub asks it (the file is left as the owner wrote it).
+    choice = sharing.HubChoice()
+    lending = choice.settings
+
+    def on_lending(said: hubwire.Lending | None) -> None:
+        if not choice.take(said):
+            return
+        if said is None:
+            print("lending as this rig's settings say", file=sys.stderr)
+            return
         try:
-            return sharing.load()
-        except sharing.SharingError:
-            return sharing.Sharing()  # unreadable settings lend nothing
+            held = {r.kind: r for r in lending().lent(last_report())}
+        except hardware.HardwareError:
+            held = {}
+        ram, cpu = held.get(hubwire.RESOURCE_RAM), held.get(hubwire.RESOURCE_CPU)
+        print(
+            "lending as chosen on the hub: cards "
+            f"{'all' if said.cards is None else list(said.cards)}, "
+            f"{said.ram_mb} MiB RAM, {said.cpu_cores} cores; held to this "
+            f"machine: {ram.total_mb if ram else 0} MiB RAM, "
+            f"{cpu.cores if cpu else 0} cores",
+            file=sys.stderr,
+        )
 
     read: list[hardware.Report] = []
 
@@ -241,6 +276,7 @@ def run_agent(kept: Credentials, config: Path | None = None) -> int:
             bind_relay=session.bind_relay,
         ),
         send=box.put,
+        native=native_host(os.getpid()),
     )
     # The parts of a rig: hitchhike units ride other rigs and offer this setup's
     # units to riders, relays carry what a session sends and receives, probes
@@ -253,7 +289,7 @@ def run_agent(kept: Credentials, config: Path | None = None) -> int:
         port=lambda: None if sessions.running() else lending().listen_port,
         hosts=lambda: session.endpoint_hosts(lending(), tunnel.read_interfaces),
         own=lambda: tuple(i.ip for _, i in tunnel.read_interfaces()),
-        lending=lambda: bool(lending().offered_roles()),
+        lending=lambda: bool(lending().session_roles(last_report())),
     )
     sessions.before_prepare(lambda: probes.release(lending().listen_port))
     dispatcher = commands.Dispatcher()
@@ -284,7 +320,7 @@ def run_agent(kept: Credentials, config: Path | None = None) -> int:
     def offer() -> protocol.Offer | None:
         share = lending()
         hosts = session.endpoint_hosts(share, tunnel.read_interfaces)
-        return session.offer(share, models(), hosts, sessions.running())
+        return session.offer(share, models(), hosts, sessions.running(), last_report())
 
     def online() -> None:
         sessions.online()
@@ -321,6 +357,7 @@ def run_agent(kept: Credentials, config: Path | None = None) -> int:
         hurry=sessions.waiting,
         on_hub_error=sessions.hub_error,
         on_beat=beat,
+        on_lending=on_lending,
     )
     sessions.on_end(lambda ended: running.beat_soon())
 
@@ -332,11 +369,19 @@ def run_agent(kept: Credentials, config: Path | None = None) -> int:
         file=sys.stderr,
     )
     share = lending()
-    if share.offered_roles():
+    try:
+        report = last_report()
+        roles = share.session_roles(report)
+    except hardware.HardwareError:
+        roles = ()
+    if roles:
         print(
-            f"lending: {', '.join(share.offered_roles())} on {share.image}",
+            f"lending: {', '.join(roles)} on "
+            f"{session.offer(share, models(), (), (), report).runtime}",
             file=sys.stderr,
         )
+    elif share.offered_roles():
+        print("lending: no session role is offered on this machine", file=sys.stderr)
     for note in share.notes:
         print(f"note: {note}", file=sys.stderr)
     previous = {sig: signal.signal(sig, stop) for sig in hostos.stop_signals()}
@@ -458,6 +503,7 @@ def _status(args: argparse.Namespace) -> int:
         report = hardware.read()
     except hardware.HardwareError as exc:
         print(f"machine: not read: {exc}")
+        _say_credits(kept.hub)
         return int(Exit.OK)
     print(
         f"machine: {report.machine_id}; {len(report.cards)} cards; "
@@ -470,7 +516,68 @@ def _status(args: argparse.Namespace) -> int:
         )
     for note in report.notes:
         print(f"  note: {note}")
+    _say_lent(report)
+    _say_credits(kept.hub)
     return int(Exit.OK)
+
+
+def _say_lent(report: Any) -> None:
+    """Print what this rig advertises as lent on the machine `report` reads, or
+    why it lends nothing."""
+    from mcgyvr.hubwire import CARD_KINDS, RESOURCE_CPU
+    from mcgyvr.rig import sharing
+
+    try:
+        share = sharing.load()
+    except sharing.SharingError as exc:
+        print(f"lends:   nothing ({exc})")
+        return
+    lent = share.lendable(report).lent
+    if not lent:
+        if not share.enabled:
+            why = "lending is off"
+        elif not share.session_roles(report):
+            why = "no session role is offered on this machine"
+        else:
+            why = "nothing reaches the hub's lending floor"
+        print(f"lends:   nothing ({why})")
+        return
+    lines = []
+    for resource in lent:
+        if resource.kind in CARD_KINDS:
+            lines.append(
+                f"card {resource.index}: {resource.name}, {resource.total_mb} MiB "
+                f"{resource.figure} ({resource.kind}, {resource.backend})"
+            )
+        elif resource.kind == RESOURCE_CPU:
+            lines.append(f"cpu {resource.cores} cores")
+        else:
+            lines.append(f"{resource.kind} {resource.total_mb} MiB {resource.figure}")
+    print(f"lends:   {lines[0]}")
+    for line in lines[1:]:
+        print(f"         {line}")
+    if not any(resource.kind in CARD_KINDS for resource in lent):
+        print(
+            "         memory and cores alone are advertised but not yet placeable: "
+            "no hub starts a head on a CPU yet"
+        )
+
+
+def _say_credits(hub: str) -> None:
+    """Print the member's balance as the hub answers it, asked with the
+    personal hub key in ``$MCGYVR_HUB_API_KEY``; a note when it is not read."""
+    from mcgyvr.rig import agent, rungs
+
+    key = os.environ.get(rungs.KEY_ENV)
+    if not key:
+        print(f"credits: set ${rungs.KEY_ENV} to your personal hub key to see them")
+        return
+    try:
+        balance = rungs.balance(hub, key)
+    except (rungs.HubAnswerError, rungs.SyncError, _RefusalError, ValueError) as exc:
+        print(f"credits: not read: {agent.shown(str(exc))}")
+        return
+    print(f"credits: {balance}")
 
 
 def _leave(args: argparse.Namespace) -> int:
@@ -605,9 +712,31 @@ def _maybe_number(text: str) -> int | None:
     return None if text == "none" else int(text)
 
 
+def _beyond_the_machine(wanted: Any, changes: Mapping[str, object]) -> list[str]:
+    """What of a lend the machine, read now, cannot give: memory and cores lent
+    and cards listed are held to it when one of them changes. A machine that
+    cannot be read refuses a lend of memory or cores (nothing to hold them to)."""
+    from mcgyvr.rig import hardware
+
+    asked = {"ram_mb", "cpu_cores", "cards"} & set(changes)
+    lends_any = wanted.ram_mb or wanted.cpu_cores or wanted.cards
+    if not asked or not lends_any:
+        return []
+    try:
+        report = hardware.read()
+    except hardware.HardwareError as exc:
+        if wanted.ram_mb or wanted.cpu_cores:
+            return [
+                f"what to lend is held to this machine, which could not be read: {exc}"
+            ]
+        return []
+    return list(wanted.refusals(report))
+
+
 def _share(args: argparse.Namespace) -> int:
     from dataclasses import replace
 
+    from mcgyvr.hubwire import LEND_FLOOR_CORES, LEND_FLOOR_MB, RESOURCE_RAM
     from mcgyvr.rig import sharing
 
     try:
@@ -647,17 +776,41 @@ def _share(args: argparse.Namespace) -> int:
             changes["cache"] = args.cache
         if args.cache_max_mb is not None:
             changes["cache_max_mb"] = args.cache_max_mb
+        if args.ram_mb is not None:
+            changes["ram_mb"] = int(args.ram_mb)
+        if args.cpu_cores is not None:
+            changes["cpu_cores"] = int(args.cpu_cores)
+        if args.launcher is not None:
+            changes["launcher"] = args.launcher
     except ValueError:
         print("error: a number was asked for and something else given", file=sys.stderr)
         return int(Exit.USAGE)
     wanted = replace(kept, **changes)  # type: ignore[arg-type]
-    if wanted.enabled and wanted.image is None:
+    if wanted.enabled and wanted.image is None and not wanted.native_here():
         print(
             "error: lending runs in an engine image; name it with --image",
             file=sys.stderr,
         )
         return int(Exit.USAGE)
     if changes:
+        try:
+            sharing.read(sharing.as_data(wanted))
+            wanted.lending.validate()  # the wire's lending rules, floors included
+        except sharing.SharingError as exc:
+            print(f"error: {exc}", file=sys.stderr)
+            return int(Exit.USAGE)
+        except ValueError as exc:
+            print(
+                f"error: {exc} (0 lends none; the least the hub counts as lent is "
+                f"{LEND_FLOOR_MB[RESOURCE_RAM]} MiB of RAM, {LEND_FLOOR_CORES} cores)",
+                file=sys.stderr,
+            )
+            return int(Exit.USAGE)
+        refused = _beyond_the_machine(wanted, changes)
+        if refused:
+            for line in refused:
+                print(f"error: {line}", file=sys.stderr)
+            return int(Exit.REFUSED)
         try:
             where = sharing.save(wanted)
         except sharing.SharingError as exc:
@@ -667,19 +820,28 @@ def _share(args: argparse.Namespace) -> int:
     roles = wanted.offered_roles()
     print(f"lending: {'on' if wanted.enabled else 'off'}")
     print(f"roles:   {', '.join(roles) if roles else 'none offered'}")
-    print(f"image:   {wanted.image or 'none'}")
+    if wanted.native_here():
+        print("image:   none (launcher native: the pinned llama.cpp build)")
+    else:
+        print(f"image:   {wanted.image or 'none'}")
     cards = "all" if wanted.cards is None else ", ".join(map(str, wanted.cards))
     print(f"cards:   {cards} (each lent whole)")
     print(f"ram:     {wanted.container_mb()} MiB per container")
     print(f"models:  {wanted.models_dir or 'none (no head)'}")
     endpoints = (
-        ", ".join(wanted.endpoints) if wanted.endpoints else "this machine's LAN"
+        ", ".join(wanted.endpoints)
+        if wanted.endpoints
+        else "none named: set --endpoints"
+        if wanted.native_here()
+        else "this machine's LAN"
     )
     ports = wanted.tunnel_ports()
     udp = f"{ports[0]}" if len(ports) == 1 else f"{ports[0]}-{ports[-1]}"
     print(f"tunnel:  udp {udp} on {endpoints} (one port per session at once)")
     cache = f"up to {wanted.cache_max_mb} MiB" if wanted.cache else "off"
     print(f"cache:   {cache}")
+    print(f"lent ram: {f'{wanted.ram_mb} MiB' if wanted.ram_mb else 'none'}")
+    print(f"lent cpu: {f'{wanted.cpu_cores} cores' if wanted.cpu_cores else 'none'}")
     for note in wanted.notes:
         print(f"note:    {note}")
     return int(Exit.OK)
@@ -777,7 +939,9 @@ def add_parser(
         func=_crew_sync,
     )
     share = verbs.add_parser(
-        "share", help="what this rig lends to the hub's sessions; change it"
+        "share",
+        aliases=["lend"],
+        help="what this rig lends to the hub's sessions; change it",
     )
     switch = share.add_mutually_exclusive_group()
     switch.add_argument("--on", dest="on", action="store_const", const=True)
@@ -801,4 +965,19 @@ def add_parser(
     cache.add_argument("--cache", dest="cache", action="store_const", const=True)
     cache.add_argument("--no-cache", dest="cache", action="store_const", const=False)
     share.add_argument("--cache-max-mb", type=int, help="the worker cache's size")
+    share.add_argument(
+        "--ram-mb",
+        help="host memory lent to whole models this rig heads, in MiB, or 0",
+    )
+    share.add_argument(
+        "--cpu-cores", help="cores lent to whole models this rig heads, or 0"
+    )
+    from mcgyvr.config import LAUNCHERS
+
+    share.add_argument(
+        "--launcher",
+        choices=LAUNCHERS,
+        help="docker: sessions run in containers; native (macOS, Windows): "
+        "through the mcgyvr-wg helper on the pinned llama.cpp build, head only",
+    )
     share.set_defaults(func=_share, on=None, cache=None)

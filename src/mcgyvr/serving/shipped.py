@@ -1,0 +1,361 @@
+"""The programs the door ships to a rig, assembled from this checkout's modules.
+
+A rig is asked to run a program it does not have installed: the machine
+reader, the weights fetcher, the lease, the native launcher. Each is one
+Python program, built here at ship time from the modules it imports, so a
+module shipped to a rig imports ``mcgyvr.hostos`` or a ``mcgyvr.hubwire`` name
+like any other module, and nothing is copied into it to make it stand alone.
+
+:func:`program` writes one: a short bootstrap that refuses a Python older than
+:data:`FLOOR` (macOS's own ``python3`` is 3.9), registers each module under its
+own name in ``sys.modules`` with empty parent packages (so nothing installed on
+the rig is imported in its place), then runs the main module as ``__main__``.
+A module given by :func:`constants` is only the named top-level assignments of
+its source (and the names they are built from): the wire module's names, not
+its classes, which the reader does not need and an old Python cannot run.
+
+:func:`packed` wraps a program as P2's shipped reader is wrapped: its bytes
+zlib-compressed and base85-encoded inside one exec line, kept in
+``__shipped__`` so a program that must leave a copy of itself on the rig (the
+native launcher's supervisors) has its own bytes. The same checkout always
+builds the same bytes: sources are read as they stand and embedded by
+``repr``, in the order given.
+
+Standard library only; this module runs on the door, never on the rig.
+"""
+
+from __future__ import annotations
+
+import ast
+import base64
+import sys
+import zlib
+from collections.abc import Iterable, Sequence
+from pathlib import Path
+
+#: The oldest Python a shipped program runs on: macOS's own ``python3`` (the
+#: Command Line Tools'), which a non-login ssh shell finds first there.
+FLOOR = (3, 9)
+
+#: The folder the ``mcgyvr`` package is, which every module path is under.
+PACKAGE = Path(__file__).resolve().parent.parent
+
+#: The name a shipped program's own bytes are kept under while it runs.
+SELF = "__shipped__"
+
+_BOOT = """\
+import sys
+if sys.version_info < {floor!r}:
+    sys.stderr.write(
+        "mcgyvr: this program needs Python {need} or newer, and the python here "
+        "is %d.%d\\n" % sys.version_info[:2]
+    )
+    raise SystemExit(127)
+import types
+
+
+def _mcgyvr_module(name, source):
+    parts = name.split(".")
+    for end in range(1, len(parts)):
+        package = ".".join(parts[:end])
+        if package not in sys.modules:
+            made = types.ModuleType(package)
+            made.__path__ = []
+            sys.modules[package] = made
+            if end > 1:
+                setattr(sys.modules[".".join(parts[: end - 1])], parts[end - 1], made)
+    module = types.ModuleType(name)
+    module.__file__ = "<shipped>/" + "/".join(parts) + ".py"
+    sys.modules[name] = module
+    exec(compile(source, module.__file__, "exec"), module.__dict__)
+    if len(parts) > 1:
+        setattr(sys.modules[".".join(parts[:-1])], parts[-1], module)
+    return module
+
+
+"""
+
+
+class ShipError(ValueError):
+    """A program that cannot be assembled from the modules named."""
+
+
+def module_path(name: str) -> Path:
+    """The source file of the ``mcgyvr`` module `name` (``mcgyvr.serving.rigscan``).
+
+    A package (``mcgyvr.serving``) is its ``__init__.py``; a module is its
+    ``.py`` file.
+    """
+    parts = name.split(".")
+    if parts[0] != "mcgyvr" or len(parts) < 2:
+        raise ShipError(f"{name!r} is not a module of the mcgyvr package")
+    rel = PACKAGE.joinpath(*parts[1:])
+    if rel.is_dir():
+        return rel / "__init__.py"
+    return rel.with_suffix(".py")
+
+
+def source(name: str) -> str:
+    """The source of the ``mcgyvr`` module `name`, as it stands in this checkout."""
+    return module_path(name).read_text(encoding="utf-8")
+
+
+#: The expression nodes a shipped constant may be built from: literals and the
+#: names of other constants, so taking it out of its module changes nothing.
+_PLAIN = (
+    ast.Constant,
+    ast.Tuple,
+    ast.List,
+    ast.Set,
+    ast.Dict,
+    ast.Name,
+    ast.Load,
+    ast.BinOp,
+    ast.UnaryOp,
+    ast.operator,
+    ast.unaryop,
+)
+#: The one call a shipped constant may make: a frozen set of plain values.
+_PLAIN_CALLS = frozenset({"frozenset"})
+
+
+def constants(name: str, wanted: Iterable[str]) -> str:
+    """The top-level assignments of module `name` that `wanted` names, as a source.
+
+    Each name is taken with the names its value is built from, in the order
+    the module assigns them. A value that is not plain (a call, an attribute,
+    a comprehension) is a :class:`ShipError`: it could mean something else
+    outside its module.
+    """
+    text = source(name)
+    tree = ast.parse(text)
+    assigned: dict[str, ast.stmt] = {}
+    values: dict[str, ast.expr] = {}
+    for node in tree.body:
+        if isinstance(node, ast.Assign) and len(node.targets) == 1:
+            target, value = node.targets[0], node.value
+        elif isinstance(node, ast.AnnAssign) and node.value is not None:
+            target, value = node.target, node.value
+        else:
+            continue
+        if isinstance(target, ast.Name):
+            assigned[target.id] = node
+            values[target.id] = value
+    taken: set[str] = set()
+    todo = list(wanted)
+    while todo:
+        one = todo.pop()
+        if one in taken:
+            continue
+        if one not in values:
+            raise ShipError(f"{name} assigns no constant {one!r} at its top level")
+        called: set[int] = set()
+        for part in ast.walk(values[one]):
+            if (
+                isinstance(part, ast.Call)
+                and isinstance(part.func, ast.Name)
+                and part.func.id in _PLAIN_CALLS
+                and not part.keywords
+            ):
+                called.add(id(part.func))
+                continue
+            if not isinstance(part, _PLAIN):
+                raise ShipError(
+                    f"{name}.{one} is not built from literals and constants "
+                    f"alone ({type(part).__name__}); it is not shipped"
+                )
+            if isinstance(part, ast.Name) and id(part) not in called:
+                todo.append(part.id)
+        taken.add(one)
+    lines = [f"# {name}: {', '.join(sorted(taken))}, as this checkout assigns them"]
+    for one in assigned:
+        if one in taken:
+            # The value alone: an annotation is not shipped, so none written
+            # for a newer Python reaches an older one.
+            segment = ast.get_source_segment(text, values[one])
+            if segment is None:  # pragma: no cover - parsed from this text
+                raise ShipError(f"{name}.{one} has no source")
+            lines.append(f"{one} = {segment}")
+    return "\n".join(lines) + "\n"
+
+
+#: Imports in a shipped module of something the program does not carry, each
+#: inside a function no verb a rig is asked runs: the door's own use of that
+#: module. Any other is refused when the program is built (:func:`imports`).
+#: Each is (importing module, the function the import sits in, what it
+#: imports by its full name: a package outside mcgyvr, or
+#: ``mcgyvr.module.NAME``), so the same import in any other function, or at the
+#: top, is checked again.
+DOOR_ONLY = frozenset(
+    {
+        # `native.parse` reads the compose file on the door; a rig is sent units.
+        ("mcgyvr.serving.native", "parse", "yaml"),
+        ("mcgyvr.serving.native", "parse", "mcgyvr.config.LAUNCHER_NATIVE"),
+        ("mcgyvr.serving.native", "parse", "mcgyvr.serving.CARDS_KEY"),
+        ("mcgyvr.serving.native", "parse", "mcgyvr.serving.LAUNCHER_KEY"),
+        ("mcgyvr.serving.native", "parse", "mcgyvr.serving.PROGRAM_KEY"),
+        ("mcgyvr.serving.native", "parse", "mcgyvr.serving.SLEEPER_PROFILE"),
+    }
+)
+
+
+def _owners(tree: ast.Module) -> dict[int, str]:
+    """The innermost function each import of `tree` sits in, by node id."""
+    owner: dict[int, str] = {}
+    for node in ast.walk(tree):  # outer functions before the ones inside them
+        if isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef)):
+            for inner in ast.walk(node):
+                if isinstance(inner, (ast.Import, ast.ImportFrom)):
+                    owner[id(inner)] = node.name
+    return owner
+
+
+def _imported(node: ast.Import | ast.ImportFrom) -> list[tuple[str, str | None]]:
+    """What one import statement names: (module, name taken from it or None)."""
+    if isinstance(node, ast.Import):
+        return [(alias.name, None) for alias in node.names]
+    return [(node.module or "", alias.name) for alias in node.names]
+
+
+def imports(main: str, modules: Sequence[str]) -> dict[str, list[str]]:
+    """The constants the program of `main` and `modules` imports from ``mcgyvr``
+    modules it does not carry, by module (:func:`constants`), after checking
+    every import of every module in it.
+
+    A top-level ``from mcgyvr.X import NAME`` of a module not carried takes
+    NAME as a constant. Any other import of something not carried, a module
+    of the standard library aside, is a :class:`ShipError` unless
+    :data:`DOOR_ONLY` names it: on the rig it would be a ModuleNotFoundError.
+    """
+    carried = {*modules, main}
+    wanted: dict[str, list[str]] = {}
+    for module in (*modules, main):
+        tree = ast.parse(source(module))
+        top = {id(node) for node in tree.body}
+        owners = _owners(tree)
+        for node in ast.walk(tree):
+            if not isinstance(node, (ast.Import, ast.ImportFrom)):
+                continue
+            if isinstance(node, ast.ImportFrom) and node.level:
+                raise ShipError(f"{module} imports relatively; it is not shipped")
+            for target, name in _imported(node):
+                root = target.split(".")[0]
+                if root != "mcgyvr":
+                    if root in sys.stdlib_module_names:
+                        continue
+                    if (module, owners.get(id(node)), root) in DOOR_ONLY:
+                        continue
+                    raise ShipError(f"{module} imports {target}, which is not shipped")
+                if target in carried or (name and f"{target}.{name}" in carried):
+                    continue
+                if (
+                    name
+                    and id(node) in top
+                    and isinstance(node, ast.ImportFrom)
+                    and target != "mcgyvr"
+                ):
+                    wanted.setdefault(target, []).append(name)
+                    continue
+                shown = f"{target}.{name}" if name else target
+                if (module, owners.get(id(node)), shown) in DOOR_ONLY:
+                    continue
+                raise ShipError(f"{module} imports {shown}, which is not shipped")
+    return wanted
+
+
+def program(
+    main: str,
+    *,
+    modules: Sequence[str] = (),
+    tail: str = "",
+) -> bytes:
+    """One program: the bootstrap, each module registered, then `main` run.
+
+    `modules` are whole ``mcgyvr`` modules, registered in the order given (a
+    module is registered before one that imports it at its top). The names
+    its modules import at their top from any other ``mcgyvr`` module are
+    registered as that module holding only those constants (:func:`imports`,
+    :func:`constants`); any other import of something not carried is
+    refused. `main` is the module run as ``__main__``, followed by `tail` (a
+    call into it, for a program whose job travels inside it).
+    """
+    floor = ".".join(str(part) for part in FLOOR)
+    out = [_BOOT.format(floor=FLOOR, need=floor)]
+    names = sorted(imports(main, modules).items())
+    for module, wanted in names:
+        out.append(f"_mcgyvr_module({module!r}, {constants(module, wanted)!r})\n")
+    for module in modules:
+        out.append(f"_mcgyvr_module({module!r}, {source(module)!r})\n")
+    out.append("del _mcgyvr_module\n")
+    text = source(main) + ("\n" + tail if tail else "")
+    where = "<shipped>/" + "/".join(main.split(".")) + ".py"
+    # Its own compile, so its `from __future__` line is its first statement.
+    out.append(f"exec(compile({text!r}, {where!r}, 'exec'))\n")
+    return "".join(out).encode("utf-8")
+
+
+def packed(text: bytes) -> bytes:
+    """`text` as a program that unpacks itself: zlib-compressed, base85-encoded,
+    inside one exec line, its bytes kept in ``__shipped__``.
+
+    The shipped line is one argument to ssh, and Linux refuses an argument past
+    MAX_ARG_STRLEN (128 KiB with 4 KiB pages); the packed program is about a
+    third of the source. base85 holds no quote or backslash, so the bytes
+    literal needs no escaping.
+    """
+    blob = base64.b85encode(zlib.compress(text, 9))
+    return (
+        b"import base64,zlib\n%s=zlib.decompress(base64.b85decode(b'%s'))\nexec(%s)\n"
+        % (SELF.encode(), blob, SELF.encode())
+    )
+
+
+def b64(data: bytes) -> str:
+    """`data` in base64, as a line of a command or of a rig's stdin."""
+    return base64.b64encode(data).decode("ascii")
+
+
+# --- the programs ----------------------------------------------------------------
+
+#: The modules the native launcher imports, each before any that needs it.
+NATIVE_MODULES = (
+    "mcgyvr.hostos",
+    "mcgyvr.userdir",
+    "mcgyvr.fleet.roots",
+    "mcgyvr.serving.rigscan",
+    "mcgyvr.serving.fetcher",
+    "mcgyvr.serving.release",
+    "mcgyvr.serving.llamacpp",
+    "mcgyvr.serving.localrig",
+)
+
+
+def reader() -> bytes:
+    """The machine reader (``rigscan``) with ``hostos``, and the names it
+    imports from the wire (``hubwire``) and the folders (``fleet.roots``)."""
+    return program("mcgyvr.serving.rigscan", modules=("mcgyvr.hostos",))
+
+
+def fetcher(job: str | None) -> bytes:
+    """The weights fetcher with ``hostos``, ending in a call to its ``main``.
+
+    `job` (JSON text) travels inside the program, which a POSIX rig reads on
+    stdin; None reads it from stdin instead, for a Windows rig, where the
+    program is written to a file and a job holding a token must not be.
+    """
+    call = "__import__('sys').stdin.read()" if job is None else repr(job)
+    return program(
+        "mcgyvr.serving.fetcher",
+        modules=("mcgyvr.hostos",),
+        tail=f"raise SystemExit(main({call}))\n",
+    )
+
+
+def lease() -> bytes:
+    """The lease (``leasefile``) with ``hostos``: one operation per run."""
+    return program("mcgyvr.serving.leasefile", modules=("mcgyvr.hostos",))
+
+
+def native() -> bytes:
+    """The native launcher with the modules it imports, run by its verbs."""
+    return program("mcgyvr.serving.native", modules=NATIVE_MODULES)

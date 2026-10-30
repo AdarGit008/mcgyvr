@@ -24,7 +24,10 @@ from pathlib import Path
 from typing import Any
 
 from mcgyvr import config as configlib
+from mcgyvr.config import LAUNCHER_NATIVE
+from mcgyvr.serving import gatelib, nativerig
 from mcgyvr.serving.gatelib import (
+    LOCAL_RIGS,
     Lease,
     held_by,
     lease_read,
@@ -32,7 +35,6 @@ from mcgyvr.serving.gatelib import (
     need,
     new_lease,
     refuse,
-    scan_read_command,
     ssh,
     step_name,
 )
@@ -91,8 +93,13 @@ def reading(host: str) -> dict[str, Any]:
     machine that cannot be read. The reason the reader itself gave for a field it
     could not read is carried into the refusal that names that field.
     """
+    sent = gatelib.scan_read(gatelib.shipping_os(host))
     try:
-        done = ssh(host, scan_read_command(), timeout=180)
+        done = (
+            ssh(host, sent.command, timeout=180)
+            if sent.stdin is None
+            else ssh(host, sent.command, timeout=180, input=sent.stdin)
+        )
     except subprocess.TimeoutExpired:
         refuse(
             f"gate 2: {host} did not answer in 180s. A rig that cannot be read "
@@ -137,28 +144,51 @@ def held(host: str) -> dict[str, str]:
     lands on its disk and nothing there is started, stopped or leased. Its rows
     are read by `mcgyvr.fleet.read`, the one parser of that format, and come back
     as the two keys gate 2's idle check names, each "none" when there is nothing
-    to report.
+    to report. A native run on this machine is read by the native launcher
+    instead (:func:`mcgyvr.serving.native.held`): its supervised units stand
+    where containers would.
     """
     from mcgyvr.fleet import read
 
-    units = (_GATE_SCRIPTS / "rig-units.sh").read_text(encoding="utf-8")
+    if os.environ.get("RUN_LAUNCHER") == LAUNCHER_NATIVE and host in LOCAL_RIGS:
+        # A native rig is this machine, and its units are no daemon's
+        # containers: the native launcher says what holds it, docker unasked.
+        from mcgyvr.serving import native
+
+        return native.held()
+    if nativerig.remote(host):
+        # A macOS or Windows rig runs native units: the launcher shipped to it
+        # lists them in rig-units.sh's rows.
+        try:
+            listed = nativerig.rows(host)
+        except nativerig.NativeRigError as exc:
+            refuse(
+                f"gate 2: {exc}. A rig whose card holders and units are unread "
+                "is not compared"
+            )
+    else:
+        units = (_GATE_SCRIPTS / "rig-units.sh").read_text(encoding="utf-8")
+        try:
+            done = ssh(host, "bash -s", timeout=180, input=units)
+        except subprocess.TimeoutExpired:
+            refuse(f"gate 2: {host} did not say what holds it in 180s")
+        if done.returncode != 0:
+            refuse(
+                f"gate 2: what holds {host} could not be read: "
+                f"{done.stderr.strip()[:500]}. A rig whose card holders and "
+                "containers are unread is not compared"
+            )
+        listed = done.stdout
     try:
-        done = ssh(host, "bash -s", timeout=180, input=units)
-    except subprocess.TimeoutExpired:
-        refuse(f"gate 2: {host} did not say what holds it in 180s")
-    if done.returncode != 0:
-        refuse(
-            f"gate 2: what holds {host} could not be read: "
-            f"{done.stderr.strip()[:500]}. A rig whose card holders and "
-            "containers are unread is not compared"
-        )
-    try:
-        found = read.parse(done.stdout)
+        found = read.parse(listed)
     except read.ReadError as exc:
         refuse(f"gate 2: what holds {host} reads wrong: {exc}")
     # One token each, no spaces and ids cut to docker's short 12: gate 2 exports
     # these as space-separated `key=value` pairs.
-    containers = ";".join(c.id[:12] for c in found.containers)
+    # A native unit's id (native-<pid>) is kept whole: it is no docker id.
+    containers = ";".join(
+        c.id if c.id.startswith("native-") else c.id[:12] for c in found.containers
+    )
     procs = ";".join(
         f"{h.pid},{h.process},{'unread' if h.mib is None else h.mib}MiB"
         for h in found.holders

@@ -27,11 +27,14 @@ import sys
 from datetime import UTC, datetime
 from pathlib import Path
 
+from mcgyvr.config import LAUNCHER_NATIVE
 from mcgyvr.serving.gatelib import (
+    LOCAL_RIGS,
     artifact_escape,
     door_required,
     envelope_escape,
     need,
+    tool,
 )
 from mcgyvr.serving.rigread import snapshot
 
@@ -74,9 +77,25 @@ def _containers_up() -> dict[str, str] | None:
     unknown, which is said on stderr and leaves the caller holding the run not
     green.
     """
+    if os.environ.get("RUN_LAUNCHER") == LAUNCHER_NATIVE:
+        # A native run's units are no daemon's containers: the native
+        # launcher's supervisors say which are up, by the same id -> name.
+        from mcgyvr.serving import native, nativerig
+
+        host = need("RUN_HOST")
+        if host in LOCAL_RIGS:
+            return native.running()
+        try:
+            return nativerig.running(host)
+        except nativerig.NativeRigError as exc:
+            print(
+                f"gate 7: {exc}; whether the run left a unit is unknown",
+                file=sys.stderr,
+            )
+            return None
     try:
         listed = subprocess.run(
-            ["docker", "ps", "--format", "{{.ID}}\t{{.Names}}"],
+            [*tool("docker"), "ps", "--format", "{{.ID}}\t{{.Names}}"],
             capture_output=True,
             text=True,
             timeout=120,

@@ -30,9 +30,9 @@ GIB = 1 << 30
 HOST_A = "box-a.example"
 HOST_B = "box-b.example"
 HOST_C = "box-c.example"
-ADDR_A = "192.0.2.10"
-ADDR_B = "192.0.2.20"
-ADDR_C = "192.0.2.30"
+ADDR_A = "10.20.0.10"
+ADDR_B = "10.20.0.20"
+ADDR_C = "10.20.0.30"
 
 NAME = "example-model-large"
 WEIGHTS = Path("/srv/weights/example-model-large.gguf")

@@ -283,6 +283,8 @@ def test_joined_to_a_hub_the_agent_says_hello_beats_and_ends_when_revoked(
     rig_schema.validate(hello, schema, "#/$defs/Hello")
     rig_schema.validate(beat, schema, "#/$defs/Heartbeat")
     assert hello["body"]["machine_id"] == ids.rig_id(document)
-    assert len(hello["body"]["cards"]) == len(shape.cards)
+    # The rig lends nothing (no lending settings), so its hello names no card:
+    # a hello's cards are the ones it lends.
+    assert hello["body"]["cards"] == [] and "resources" not in hello["body"]
     err = capsys.readouterr().err
     assert "revoked" in err and SECRET not in err

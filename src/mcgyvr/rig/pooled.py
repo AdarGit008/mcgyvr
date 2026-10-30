@@ -465,7 +465,9 @@ class HeadSpec:
     """What the head container needs: the session and image, the llama-server
     binary, the local cards to expose, the host folder holding the models and the
     model file inside it, the settings llama-server is started with, and the rpc
-    devices on other rigs it should spread the model over.
+    devices on other rigs it should spread the model over. ``cpus``, the cores
+    the owner lends, holds the container to that many and llama-server to that
+    many threads.
     """
 
     session_id: str
@@ -483,6 +485,7 @@ class HeadSpec:
     bind: str  # address llama-server listens on (--host): this rig's tunnel address
     memory_mb: int
     slots: int = 1  # parallel slots (-np); the context and KV cache scale with it
+    cpus: int | None = None  # cores lent: the container's --cpus and the --threads
 
 
 @dataclass(frozen=True, kw_only=True)
@@ -676,8 +679,10 @@ def head_argv(spec: HeadSpec, owner: Owner) -> list[str]:
     if spec.gpus:
         listed = ",".join(str(gpu) for gpu in spec.gpus)
         argv += ["--gpus", f'"device={listed}"']
+    argv += _engine_lockdown(owner, spec.memory_mb, HEAD_PIDS)
+    if spec.cpus is not None:
+        argv += ["--cpus", str(spec.cpus)]
     argv += [
-        *_engine_lockdown(owner, spec.memory_mb, HEAD_PIDS),
         "--volume",
         f"{spec.models_dir}:{MODELS_MOUNT}:ro",
         "--entrypoint",
@@ -687,8 +692,31 @@ def head_argv(spec: HeadSpec, owner: Owner) -> list[str]:
         GUARD_SCRIPT,
         "mcgyvr-guard",
         spec.binary,
+        *head_server_args(
+            spec,
+            model=f"{MODELS_MOUNT}/{spec.model}",
+            port=HEAD_API_PORT,
+            rpc=spec.rpc,
+        ),
+    ]
+    return argv
+
+
+def head_server_args(
+    spec: HeadSpec, *, model: str, port: int, rpc: Sequence[str]
+) -> list[str]:
+    """The llama-server arguments of a session's head, wherever it runs.
+
+    The model file as the server sees it, the alias, layers, slots and context,
+    fitting off (`HEAD_FIT`), flash attention and the KV cache type, the address
+    it listens on (`spec.bind`) and `port`, the rpc devices it reaches (`rpc`,
+    host:port each, left out when there are none), and the device list and
+    split. A container head and a native one differ only in `model`, `port` and
+    `rpc`.
+    """
+    args = [
         "-m",
-        f"{MODELS_MOUNT}/{spec.model}",
+        model,
         "--alias",
         spec.name,
         "-ngl",
@@ -710,17 +738,19 @@ def head_argv(spec: HeadSpec, owner: Owner) -> list[str]:
         "--host",
         spec.bind,
         "--port",
-        str(HEAD_API_PORT),
+        str(port),
     ]
-    if spec.rpc:
-        argv += ["--rpc", ",".join(spec.rpc)]
-    argv += [
+    if spec.cpus is not None:
+        args += ["--threads", str(spec.cpus)]
+    if rpc:
+        args += ["--rpc", ",".join(rpc)]
+    args += [
         "-dev",
         ",".join(spec.devices),
         "-ts",
         ",".join(str(share) for share in spec.tensor_split),
     ]
-    return argv
+    return args
 
 
 def read_tunnel_hello(logs: str) -> TunnelHello | None:

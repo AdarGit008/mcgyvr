@@ -147,6 +147,12 @@ class Rig:
         return self.scan.machine.host
 
     @property
+    def os(self) -> str | None:
+        """The system the reading states (``host.os``), or None for a reading
+        taken before readers stated one."""
+        return self.scan.host.os if self.scan.host is not None else None
+
+    @property
     def machine_id(self) -> str:
         return self.scan.machine.id
 
@@ -298,10 +304,10 @@ def _listenable(stated: object) -> ipaddress.IPv4Address | None:
 
     None for everything else: text that is not an address, an IPv6 address that
     is not the mapped form of an IPv4 one, and any address the door's own rule
-    (:func:`mcgyvr.serving.shardlaunch.worker_may_listen`) excludes — every
-    interface, loopback, or one the internet can reach.
+    (:func:`mcgyvr.serving.llamacpp.worker_may_listen`) excludes: anything
+    that is not an address of a private or overlay network.
     """
-    from mcgyvr.serving.shardlaunch import worker_may_listen
+    from mcgyvr.serving.llamacpp import worker_may_listen
 
     if not isinstance(stated, str):
         return None

@@ -205,6 +205,15 @@ payload_files() {
   done
 }
 
+# Whether a record line names a file inside the skill folder: relative, with
+# no `..` part. Anything else is not this script's, and is neither checked nor
+# removed.
+inside() {
+  case "/$1/" in
+    //*|*/../*) return 1 ;;
+  esac
+}
+
 # Asked of every target before any of them is written, so a refusal leaves all
 # of them as they were rather than half of them upgraded. Every file named in
 # the record is checked, the reference files among them.
@@ -222,6 +231,7 @@ check_installed() {
     # A record written before this script listed paths carries one bare
     # digest, and it is SKILL.md's.
     [[ -n "${rel}" ]] || rel="SKILL.md"
+    inside "${rel}" || continue
     file="${dest}/${rel}"
     [[ -f "${file}" ]] || continue
     now="$(digest_of "${file}")"
@@ -244,6 +254,7 @@ prune_removed() {
   local was rel keep found
   while read -r was rel; do
     [[ -n "${rel}" ]] || continue
+    inside "${rel}" || continue
     found=0
     for keep in "$@"; do
       if [[ "${keep}" == "${rel}" ]]; then

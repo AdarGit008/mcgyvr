@@ -204,6 +204,12 @@ def test_a_bind_reachable_from_the_internet_is_refused_as_unauthenticated() -> N
         launch(made)
 
 
+def test_a_link_local_bind_is_refused_and_told_to_give_the_bridge_an_address() -> None:
+    made = llama_plan([card(HOST_A, 0), card(HOST_B, 0, bind="169.254.10.2")])
+    with pytest.raises(LaunchError, match="Thunderbolt Bridge"):
+        launch(made)
+
+
 def test_two_workers_that_would_share_an_address_and_port_are_refused() -> None:
     made = llama_plan(
         [

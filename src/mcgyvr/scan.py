@@ -25,6 +25,8 @@ from typing import Any
 # How long one ssh read may run before its host counts as unreachable.
 # Each host gets this to itself; the bound is not shared across a sweep.
 SSH_TIMEOUT_S = 60.0
+#: The status ssh itself exits with when it fails (no connection, no login).
+SSH_FAILED = 255
 
 BYTES_PER_GB = 1024.0**3
 
@@ -61,10 +63,12 @@ class ScannerMissing(Exception):  # noqa: N818
     which is where the reason is usually said.
     """
 
-    def __init__(self, host: str, said: str = "") -> None:
+    def __init__(self, host: str, said: str = "", code: int | None = None) -> None:
         shown = f" ({said.strip()[:300]})" if said.strip() else ""
         super().__init__(f"{host}: no scanner over ssh{shown}")
         self.host = host
+        #: The exit status, when known: 255 is ssh's own failure, not the rig's.
+        self.code = code
 
 
 class ScanFailed(Exception):  # noqa: N818
@@ -113,12 +117,13 @@ class Memory:
     """This machine's RAM, in GB of ``BYTES_PER_GB`` (1024**3) bytes.
 
     ``total_gb`` is the installed memory and ``available_gb`` what a new process
-    could still allocate; a reading that could give only a total is not a
-    Memory at all, since ``Scan.from_json`` drops the whole section.
+    could still allocate, None when the reading gave only a total (a Mac whose
+    vm_stat did not answer): the total still stands, and nothing is promised
+    free.
     """
 
     total_gb: float
-    available_gb: float
+    available_gb: float | None
 
 
 @dataclass(frozen=True)
@@ -132,6 +137,11 @@ class Cpu:
 
     cores: int
     threads: int
+    #: The CPU's name as the machine prints it, None when it was not read.
+    model: str | None = None
+    #: The performance cores of a CPU that has two kinds (macOS
+    #: hw.perflevel0.physicalcpu), None elsewhere.
+    performance_cores: int | None = None
 
 
 @dataclass(frozen=True)
@@ -203,9 +213,57 @@ class Network:
 
 @dataclass(frozen=True)
 class Gpu:
+    """One card the scan sized.
+
+    ``kind`` is ``gpu`` for a card with its own memory and ``unified`` for a GPU
+    that shares the machine's memory (a Mac's), whose ``vram`` is the share the
+    GPU may take. ``backend`` is the llama.cpp build it runs under (``cuda``,
+    ``metal``, ``vulkan``, ``rocm``), and ``figure`` says whether ``vram`` is
+    the card's own ``reading`` or an ``estimate``. A reading from before these
+    fields reads as a CUDA card's reading.
+    """
+
     index: int
     name: str
     vram: Vram
+    kind: str = "gpu"
+    backend: str = "cuda"
+    figure: str = "reading"
+
+
+@dataclass(frozen=True)
+class Host:
+    """The system a reading was taken on: ``os`` (linux, darwin, windows), ``arch``
+    (x86_64, arm64; None when the reader names none) and ``version`` (the kernel
+    release on Linux, the product version on macOS, the system version on
+    Windows; None when unread)."""
+
+    os: str
+    arch: str | None = None
+    version: str | None = None
+
+    @classmethod
+    def from_reading(cls, raw: Any) -> Host | None:
+        """The host section of a reading, or None when its system is not one the
+        reader reads. An arch outside the reader's names, and a version that is
+        not printable or longer than its limit, read as None."""
+        from mcgyvr import hubwire
+        from mcgyvr.serving import rigscan
+
+        if not isinstance(raw, dict) or raw.get("os") not in hubwire.HOST_OS:
+            return None
+        arch, version = raw.get("arch"), raw.get("version")
+        arches = {*rigscan.ARCHES.values(), *rigscan.WINDOWS_ARCHES.values()}
+        usable = (
+            isinstance(version, str)
+            and 0 < len(version) <= hubwire.HOST_VERSION_MAX
+            and version.isprintable()
+        )
+        return cls(
+            os=str(raw["os"]),
+            arch=arch if arch in arches else None,
+            version=version if usable else None,
+        )
 
 
 @dataclass(frozen=True)
@@ -246,6 +304,9 @@ class Scan:
     #: ``~/.mcgyvr``); None when the reading carried none, as a reading from an
     #: older scanner does.
     home: Path | None = None
+    #: The system the reading was taken on; None for a reading from an older
+    #: scanner.
+    host: Host | None = None
 
     @property
     def gpus_determined(self) -> bool:
@@ -338,6 +399,9 @@ class Scan:
                         "free_mib": gpu.vram.free_mib,
                         "reserved_mib": gpu.vram.reserved_mib,
                     },
+                    "kind": gpu.kind,
+                    "backend": gpu.backend,
+                    "figure": gpu.figure,
                 }
                 for gpu in self.gpus
             ],
@@ -352,7 +416,12 @@ class Scan:
             "cpu": (
                 None
                 if self.cpu is None
-                else {"cores": self.cpu.cores, "threads": self.cpu.threads}
+                else {
+                    "cores": self.cpu.cores,
+                    "threads": self.cpu.threads,
+                    "model": self.cpu.model,
+                    "performance_cores": self.cpu.performance_cores,
+                }
             ),
             "bandwidth": (
                 None
@@ -394,6 +463,15 @@ class Scan:
                 }
             ),
             "home": None if self.home is None else str(self.home),
+            "host": (
+                None
+                if self.host is None
+                else {
+                    "os": self.host.os,
+                    "arch": self.host.arch,
+                    "version": self.host.version,
+                }
+            ),
             "notes": list(self.notes),
             "facts": [{"field": f.field, "how": f.how} for f in self.facts],
         }
@@ -405,8 +483,9 @@ class Scan:
 
         Sections that are absent or null come back as None or as empty tuples
         rather than as errors, which is how a reading from an older or a
-        partial scanner still parses, and a memory section with no available
-        memory is dropped whole. Whatever json and the field conversions raise
+        partial scanner still parses, and a memory section with no total is
+        dropped whole while one with no available memory keeps its total.
+        Whatever json and the field conversions raise
         is left to the caller, and ``scan_over`` turns that into ``ScanFailed``.
         """
         raw: Any = json.loads(text)
@@ -434,23 +513,41 @@ class Scan:
                         # reading that omits it has nothing to report.
                         reserved_mib=int(gpu["vram"].get("reserved_mib", 0)),
                     ),
+                    # kind, backend and figure arrived with the Mac and
+                    # Windows readers: a reading that omits them is of a CUDA card.
+                    kind=str(gpu.get("kind") or "gpu"),
+                    backend=str(gpu.get("backend") or "cuda"),
+                    figure=str(gpu.get("figure") or "reading"),
                 )
                 for gpu in raw.get("gpus") or ()
             ),
-            # A memory section with no available_gb says nothing a process
-            # could allocate, so it reads as not determined at all.
+            # A memory section with no total says nothing; one with a total and
+            # no available memory keeps the total and promises nothing free.
             memory=(
                 None
-                if memory is None or memory.get("available_gb") is None
+                if memory is None or memory.get("total_gb") is None
                 else Memory(
                     total_gb=float(memory["total_gb"]),
-                    available_gb=float(memory["available_gb"]),
+                    available_gb=(
+                        None
+                        if memory.get("available_gb") is None
+                        else float(memory["available_gb"])
+                    ),
                 )
             ),
             cpu=(
                 None
                 if cpu is None
-                else Cpu(cores=int(cpu["cores"]), threads=int(cpu["threads"]))
+                else Cpu(
+                    cores=int(cpu["cores"]),
+                    threads=int(cpu["threads"]),
+                    model=None if cpu.get("model") is None else str(cpu["model"]),
+                    performance_cores=(
+                        None
+                        if cpu.get("performance_cores") is None
+                        else int(cpu["performance_cores"])
+                    ),
+                )
             ),
             bandwidth=(
                 None
@@ -510,6 +607,7 @@ class Scan:
                 )
             ),
             home=Path(str(raw["home"])) if raw.get("home") else None,
+            host=Host.from_reading(raw.get("host")),
         )
 
 
@@ -536,23 +634,31 @@ class Reach:
         return self.host is None
 
 
-def _ssh(host: str, command: str) -> str:
+def _ssh(host: str, command: str, input: str | None = None) -> str:
     """Run one read command on ``host`` over ssh and return its stdout.
 
-    The command has to be one ``gatelib.ssh_read_only`` admits, so this channel
-    can only read. A transport failure or a timeout raises ``Unreachable``, a
-    non-zero exit raises ``ScannerMissing`` carrying the host's stderr, and
-    anything else hands the stdout back for the caller to parse.
+    The command (with its stdin, `input`) has to be one
+    ``gatelib.ssh_read_only`` admits, so this channel can only read. A
+    transport failure or a timeout raises ``Unreachable``, a non-zero exit
+    raises ``ScannerMissing`` carrying the host's stderr, and anything else
+    hands the stdout back for the caller to parse.
     """
     # The gate library refuses any command that is not the shipped reader.
     from mcgyvr.serving import gatelib
 
     try:
-        done = gatelib.ssh_read_only(host, command, timeout=SSH_TIMEOUT_S)
+        # A POSIX read carries no stdin, and is asked exactly as it always was.
+        done = (
+            gatelib.ssh_read_only(host, command, timeout=SSH_TIMEOUT_S)
+            if input is None
+            else gatelib.ssh_read_only(
+                host, command, timeout=SSH_TIMEOUT_S, input=input
+            )
+        )
     except (OSError, subprocess.SubprocessError):
         raise Unreachable(host) from None
     if done.returncode != 0:
-        raise ScannerMissing(host, done.stderr)
+        raise ScannerMissing(host, done.stderr, done.returncode)
     return done.stdout
 
 
@@ -613,17 +719,73 @@ def _remote_scan_command() -> str:
     return gatelib.scan_read_command()
 
 
+#: The rigs this process has found to be Windows on first contact, before a
+#: rig file records it.
+_WINDOWS_FOUND: set[str] = set()
+
+
+def shipping_os(host: str) -> str:
+    """How a read is shipped to ``host``: ``windows`` for a rig its rig file
+    records as Windows or this process found to be one, the POSIX line
+    (``linux``) for every other."""
+    from mcgyvr.serving import gatelib
+
+    if host in _WINDOWS_FOUND or gatelib.shipping_os(host) == gatelib.WINDOWS:
+        return gatelib.WINDOWS
+    return gatelib.LINUX
+
+
+def _answers_powershell(host: str) -> bool:
+    """Whether ``host``'s shell runs Windows PowerShell (the first contact's
+    second question, asked when the POSIX reader did not run)."""
+    from mcgyvr.serving import gatelib
+
+    try:
+        return _ssh(host, gatelib.PROBE_WINDOWS).strip() == gatelib.WINDOWS_PLATFORM
+    except (Unreachable, ScannerMissing):
+        return False
+
+
+def _read_text(host: str) -> str:
+    """What the shipped reader on ``host`` printed, shipped the way its shell
+    takes it.
+
+    A rig with no rig file is sent the POSIX line first, as every rig was; one
+    that cannot run it and answers PowerShell is a Windows rig, sent the
+    Windows shipment (and remembered for this process: ``mcgyvr scan --rig``
+    files the reading, whose ``host.os`` says so from then on).
+    """
+    from mcgyvr.serving import gatelib
+
+    if shipping_os(host) == gatelib.WINDOWS:
+        sent = gatelib.scan_read(gatelib.WINDOWS)
+        return _ssh(host, sent.command, sent.stdin)
+    try:
+        return _ssh(host, _remote_scan_command())
+    except ScannerMissing as failed:
+        # 255 is ssh failing to reach or log in, which no shell answered.
+        if (
+            failed.code == SSH_FAILED
+            or gatelib.recorded_os(host) is not None
+            or not _answers_powershell(host)
+        ):
+            raise
+    _WINDOWS_FOUND.add(host)
+    sent = gatelib.scan_read(gatelib.WINDOWS)
+    return _ssh(host, sent.command, sent.stdin)
+
+
 def read_over(reach: Reach) -> dict[str, Any]:
     """Read one machine's raw reading over ``reach``.
 
     A local reach calls rigscan here and opens no connection; a host reach runs
-    the shipped reader there and parses what it printed. The ssh itself raises
-    ``Unreachable`` or ``ScannerMissing``, and output that is not json or not a
-    json object raises ``ScanFailed``.
+    the shipped reader there (:func:`_read_text`) and parses what it printed.
+    The ssh itself raises ``Unreachable`` or ``ScannerMissing``, and output
+    that is not json or not a json object raises ``ScanFailed``.
     """
     if reach.host is None:
         return reading()
-    text = _ssh(reach.host, _remote_scan_command())
+    text = _read_text(reach.host)
     try:
         document = json.loads(text)
     except ValueError:

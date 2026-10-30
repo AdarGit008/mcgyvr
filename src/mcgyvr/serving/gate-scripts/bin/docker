@@ -10,6 +10,7 @@
 from __future__ import annotations
 
 import importlib.util
+import os
 import sys
 from pathlib import Path
 
@@ -20,6 +21,14 @@ def _gatelib():  # noqa: ANN202 - a shim, outside the checked tree
     try:
         from mcgyvr.serving import gatelib
     except ImportError:
+        # The door names its own interpreter, which has mcgyvr: a shim started
+        # through another python3 hands itself to it, so the door's whole proof
+        # of descent (`gatelib.under_door`) is read where mcgyvr can be imported.
+        door_python = os.environ.get("RUN_PYTHON")
+        if door_python and os.path.realpath(door_python) != os.path.realpath(
+            sys.executable
+        ):
+            os.execv(door_python, [door_python, str(Path(__file__)), *sys.argv[1:]])
         spec = importlib.util.spec_from_file_location(
             "gatelib", OWN.parents[1] / "gatelib.py"
         )

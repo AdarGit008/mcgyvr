@@ -313,7 +313,11 @@ def test_the_agent_says_it_speaks_head_slots(tmp_path: Path) -> None:
 
     assert "head_slots" in session.FEATURES
     on = session.offer(
-        fakes.sharing(tmp_path), fakes.inventory(tmp_path), (fakes.LAN_ADDRESS,), ()
+        fakes.sharing(tmp_path),
+        fakes.inventory(tmp_path),
+        (fakes.LAN_ADDRESS,),
+        (),
+        fakes.report(),
     )
     assert on is not None
     hello = json.loads(

@@ -31,6 +31,7 @@ from mcgyvr.fleet.files import (
 )
 from mcgyvr.fleet.ids import _canonical_dump
 from mcgyvr.fleet.roots import LiveFleetError, live_fleet_dir
+from mcgyvr.hostos import DARWIN, WINDOWS
 
 # The use cases an install may serve, in the order setup offers them, are the
 # wire's: `mcgyvr-code` opts in to mcgyvr between a model and you (contracts
@@ -440,6 +441,31 @@ ROLE_ALWAYS_ON = "always-on"
 ROLE_SLEEPER = "sleeps-until-needed"
 ROLES = (ROLE_ALWAYS_ON, ROLE_SLEEPER)
 
+#: How a unit's server process is run: in a container the docker daemon keeps
+#: up, or as the pinned llama.cpp binary mcgyvr fetches and supervises itself.
+LAUNCHER_DOCKER = "docker"
+LAUNCHER_NATIVE = "native"
+LAUNCHERS = (LAUNCHER_DOCKER, LAUNCHER_NATIVE)
+#: The systems whose machines run a unit natively by default: no NVIDIA
+#: container runtime serves a GPU to a container there (Metal on macOS; on
+#: Windows the pinned CUDA, Vulkan or CPU build).
+NATIVE_BY_DEFAULT = (DARWIN, WINDOWS)
+
+
+def default_launcher(*, engine: str | None, system: str) -> str:
+    """The launcher `setup` and `recommend` write for a unit.
+
+    `native` for a llama.cpp unit (no `engine`, or `llama.cpp`) on a macOS or
+    Windows machine (`system`: the machine setup runs on, as
+    `mcgyvr.hostos.os_name` names it, or the rig its rig file records,
+    `mcgyvr.serving.gatelib.rig_system`); `docker` otherwise, which is what a
+    unit that states no launcher runs as.
+    """
+    if (engine or "llama.cpp") == "llama.cpp" and system in NATIVE_BY_DEFAULT:
+        return LAUNCHER_NATIVE
+    return LAUNCHER_DOCKER
+
+
 #: The reply room, in tokens, that `mcgyvr setup --api` writes into a hosted
 #: unit's `output_tokens`: the reply cap every request to that unit is sent,
 #: hidden reasoning included. A hosted reasoning model spends its reasoning
@@ -479,6 +505,30 @@ UNIT_FIELDS: tuple[Field, ...] = (
         "str",
         "Container image this unit runs, as a tag or digest.",
         bind_hint="e.g. vllm/vllm-openai@sha256:<hex>",
+    ),
+    Field(
+        "launcher",
+        "enum",
+        "How this unit's server runs. `docker`: in a container, kept up by the "
+        "docker daemon (Linux, NVIDIA). `native`: the llama.cpp release build "
+        "mcgyvr pins, fetched into `bin/llama.cpp/<tag>/` under the mcgyvr "
+        "home, checked against its pinned sha256, and kept up by mcgyvr's own "
+        "supervisor, which "
+        "restarts it with a growing pause and gives up after a few crashes: "
+        "Metal on a Mac, CUDA where `nvidia-smi` reads a driver it runs, else "
+        "Vulkan, else the CPU. A native unit listens on 127.0.0.1 alone, so no "
+        "firewall is expected to ask: on macOS the hub reaches it through the "
+        "rig agent's relay to that local address (Windows has no rig agent "
+        "yet), and a pooled worker binds the tunnel address "
+        "only, so a unit stating another `--host` is refused; its "
+        "log is "
+        "`logs/<container>.log` in the data folder. llama.cpp only. On a Mac "
+        "or Windows rig reached over ssh (its rig file, `mcgyvr scan --rig`, "
+        "says so) the door ships the launcher there and it runs the same way, "
+        "with no docker. Absent means `docker`; `setup` writes `native` for a "
+        "unit on a Mac or Windows machine, this one or such a rig.",
+        choices=LAUNCHERS,
+        bind_hint="e.g. native -- leave it out for a container",
     ),
     Field(
         "api_key_env",
@@ -1331,6 +1381,8 @@ class Unit:
     sampling: str = "request"
     #: `always-on`, or `sleeps-until-needed` for a swap partner started on demand.
     role: str = ROLE_ALWAYS_ON
+    #: `docker`, or `native` for the pinned llama.cpp binary mcgyvr supervises.
+    launcher: str = LAUNCHER_DOCKER
     launch: Mapping[str, Any] = field(default_factory=dict)
     #: The slots riders from the hub may use on this unit at once, as
     #: `rider_slots.<name>` states it and always below the unit's `width`, so
@@ -2307,6 +2359,7 @@ def _build(
             hf_cache=block["hf_cache"],
             sampling=block.get("sampling") or "request",
             role=block.get("role") or ROLE_ALWAYS_ON,
+            launcher=block.get("launcher") or LAUNCHER_DOCKER,
             launch=block["launch"],
             rider_slots=(data["rider_slots"] or {}).get(name, 0),
             scope=block["scope"],

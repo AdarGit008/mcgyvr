@@ -1,8 +1,9 @@
-"""hostos names the startup file each shell reads, and setup extends only a POSIX one.
+"""hostos names the startup file each shell reads; setup extends it in its words.
 
 bash, zsh, sh/dash and fish read their rc files under the home, PowerShell
 its profile; no shell named is zsh on macOS and nothing elsewhere. Setup's
-PATH offer writes a POSIX export line, so a PowerShell profile is left alone.
+PATH offer writes a POSIX export line to an rc file and a PowerShell line to a
+profile, never the export.
 """
 
 from __future__ import annotations
@@ -52,11 +53,14 @@ def test_a_windows_shell_drops_its_exe_and_posix_keeps_the_name(
 
 
 def test_setup_offers_no_posix_path_line_to_a_powershell_profile(
-    tmp_path: Path,
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
-    def never(_question: str) -> str:
-        raise AssertionError("nothing should be asked")
-
-    assert _shell_rc("pwsh", tmp_path) is None
-    assert _offer_path_append(prompt=never, shell="pwsh", home=tmp_path) is None
-    assert not (tmp_path / "Documents").exists()
+    as_system(monkeypatch, "windows")
+    profile = tmp_path / "Documents" / "PowerShell" / "Microsoft.PowerShell_profile.ps1"
+    assert _shell_rc("pwsh", tmp_path) == profile
+    assert (
+        _offer_path_append(prompt=lambda _q: "y", shell="pwsh", home=tmp_path)
+        == profile
+    )
+    written = profile.read_text(encoding="utf-8")
+    assert "export PATH" not in written and "$env:Path" in written

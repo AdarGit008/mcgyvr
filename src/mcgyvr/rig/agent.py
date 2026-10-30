@@ -27,6 +27,7 @@ from collections.abc import Callable
 from dataclasses import dataclass
 from typing import Protocol
 
+from mcgyvr import hubwire
 from mcgyvr.rig import commands, hardware, protocol, websocket
 from mcgyvr.rig.outbox import Outbox
 
@@ -152,6 +153,16 @@ class _LostError(Exception):
     """The channel is gone, but another attempt may get past what took it."""
 
 
+class _LendsChangedError(_LostError):
+    """What the rig lends changed since its hello: a new hello says it, at once."""
+
+
+def _lends(report: hardware.Report) -> frozenset[tuple[str, int, int, int | None]]:
+    """What a report lends, as a hub keeps it from the hello: each resource's
+    kind, index, size and cores (its free memory is what heartbeats re-read)."""
+    return frozenset((r.kind, r.index, r.total_mb, r.cores) for r in report.lent)
+
+
 class _RefusedError(Exception):
     """The hub refused this rig for good; the same token will not do again."""
 
@@ -180,9 +191,16 @@ class _Session:
         self.rig_id: str | None = None
         self.interval: int | None = None
         self.last_error: protocol.Error | None = None
+        #: What the member chose on the hub for this rig to lend, when said.
+        self.lending: hubwire.Lending | None = None
+        self.lending_unread: str | None = None
 
     def on_ack(self, ack: protocol.Ack) -> None:
         self.acked.add(ack.re)
+        if ack.lending is not None:
+            self.lending = ack.lending
+        if ack.lending_unread is not None:
+            self.lending_unread = ack.lending_unread
         if ack.rig_id is not None:
             self.rig_id = ack.rig_id
         if ack.heartbeat_interval_s is not None:
@@ -315,6 +333,7 @@ class Agent:
         on_hub_error: Callable[[protocol.Error], None] | None = None,
         on_beat: Callable[[], None] | None = None,
         aside: Callable[[Callable[[], None]], None] | None = None,
+        on_lending: Callable[[hubwire.Lending | None], None] | None = None,
     ) -> None:
         self._connect = connect
         self._read = read_hardware
@@ -340,6 +359,7 @@ class Agent:
         self._hurry = hurry or (lambda: False)
         self._on_hub_error = on_hub_error or (lambda error: None)
         self._on_beat = on_beat or (lambda: None)
+        self._on_lending = on_lending or (lambda lending: None)
         self._soon = threading.Event()
 
     def beat_soon(self) -> None:
@@ -368,6 +388,10 @@ class Agent:
                 held_from: list[float] = []
                 try:
                     self._session(held_from)
+                except _LendsChangedError as changed:
+                    self._status(connected=False)
+                    self._say(f"{changed}; saying hello again")
+                    continue
                 except _LostError as lost:
                     held = bool(held_from) and (
                         self._clock() - held_from[0] >= self._backoff.steady_s
@@ -531,6 +555,16 @@ class Agent:
                 done=lambda: hello_id in session.acked,
             )
         held_from.append(self._clock())
+        if session.lending_unread is not None:
+            self._say(
+                "note: the hub's lending choice is not taken "
+                f"({shown(session.lending_unread)}); lending as this rig's "
+                "settings say"
+            )
+        # The member's choice on the hub, or None when the hub asks nothing
+        # (or sent a lending not taken): the next reading lends it, and a
+        # heartbeat that finds the lend changed says hello again.
+        self._on_lending(session.lending)
         if self._outbox is not None:
             self._outbox.open(wake=channel.wake)
         self._on_online()
@@ -542,6 +576,7 @@ class Agent:
         )
         for note in report.notes:
             self._say(f"note: {note}")
+        lends = _lends(report)
         readings = self._readings
         readings.hand(report)
         ahead = min(READ_AHEAD_S, interval)
@@ -582,6 +617,13 @@ class Agent:
                 raise _LostError(
                     f"the hub acked none of the last {MISSED_ACKS} heartbeats"
                 )
+            if (
+                not isinstance(outcome, hardware.HardwareError)
+                and _lends(outcome) != lends
+            ):
+                # A hub keeps what the hello lent and reads only those again:
+                # a change (lent, or taken back) needs a new hello to be heard.
+                raise _LendsChangedError("what this rig lends changed")
             beat_id = protocol.new_id()
             if isinstance(outcome, hardware.HardwareError):
                 self._say(f"note: this heartbeat carries no reading: {outcome}")

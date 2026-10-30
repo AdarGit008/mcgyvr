@@ -22,6 +22,7 @@ import threading
 from collections.abc import Callable
 from typing import Any
 
+from mcgyvr import hubwire
 from tests.rigagents import Channel, Clock, Hub, _frame
 
 #: The longest real wait for a read the fake world needs, in seconds: far
@@ -94,6 +95,18 @@ class Machine:
                     ),
                 ),
                 notes=(),
+                # What the rig lends of it, which is what its frames carry.
+                lent=(
+                    hubwire.Resource(
+                        kind=hubwire.RESOURCE_GPU,
+                        index=0,
+                        name="Example Card",
+                        total_mb=8192,
+                        free_mb=n,
+                        figure=hubwire.FIGURE_READING,
+                        backend="cuda",
+                    ),
+                ),
             )
         finally:
             with self.cond:

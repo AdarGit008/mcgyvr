@@ -41,9 +41,15 @@ from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any, NoReturn
 
-from mcgyvr.config import CONFIG_PATH_ENV
+from mcgyvr import hostos
+from mcgyvr.config import (
+    CONFIG_PATH_ENV,
+    LAUNCHER_DOCKER,
+    LAUNCHER_NATIVE,
+    NATIVE_BY_DEFAULT,
+)
 from mcgyvr.fleet.roots import RIGS_SHOWN
-from mcgyvr.serving import gatelib
+from mcgyvr.serving import gatelib, nativerig
 from mcgyvr.serving.gatelib import DOOR_MODULE
 
 #: The gate scripts, resolved beside this file so a run does not depend
@@ -54,7 +60,7 @@ GATE_SCRIPTS = HERE / "gate-scripts"
 #: The wrappers a gate or a step finds first on PATH. `ssh` admits
 #: exactly the host the run was opened for; `docker` sends the daemon
 #: there through that same shim.
-BIN = GATE_SCRIPTS / "bin"
+BIN = gatelib.SHIM_DIR
 SHIMS = ("docker", "ssh")
 #: The shims are checked for themselves, apart from the gates: while one
 #: of them cannot be run, PATH falls through to the operator's own binary
@@ -260,6 +266,10 @@ READ_ID = re.compile(r"^run-(\d{8}T\d{6})-([0-9a-f]{8})$")
 LOAD_SPEC = re.compile(r"^([1-9][0-9]*)x([1-9][0-9]*)$")
 
 
+#: The folder separator each system's paths are shown with in the help.
+_SEP_SHOWN = {"Linux": "/", "macOS": "/", "Windows": "\\"}
+
+
 def mint_read_id(now: datetime | None = None) -> str:
     """A fresh read id: the UTC moment it was minted, and four random bytes
     in hex.
@@ -291,6 +301,14 @@ EXPORTED = (
     # `serve` only: the containers the compose file marks asleep, sorted;
     # teardown subtracts them from what it expects to have been running.
     "RUN_SERVE_ASLEEP",
+    # `serve` only: how the compose file's units run, `docker` or `native`
+    # (a fetch: `native` on a macOS or Windows rig reached without ssh).
+    "RUN_LAUNCHER",
+    # Every verb: the door's interpreter, which the shims and their Windows
+    # launchers run on, and, where /proc cannot prove a gate's descent, the
+    # door's one-time proof of it (gatelib.under_door).
+    "RUN_PYTHON",
+    "RUN_DOOR_PROOF",
     # `fetch` only: the fetch list as one JSON blob, and the variable the
     # token is read from on the rig (HF_TOKEN unless --hf-token-env names
     # another).
@@ -398,6 +416,11 @@ def check_manifest() -> None:
         name
         for name in SHIMS
         if not ((BIN / name).is_file() and os.access(BIN / name, os.X_OK))
+    ] + [
+        f"{name}{gatelib.WINDOWS_LAUNCHER}"
+        for name in SHIMS
+        if hostos.os_name() == "windows"
+        and not (BIN / f"{name}{gatelib.WINDOWS_LAUNCHER}").is_file()
     ]
     if shims_gone:
         _refuse(
@@ -422,11 +445,14 @@ def run_entry(entry: Entry, env: dict[str, str]) -> int:
     read_fd, write_fd = os.pipe()
     try:
         try:
+            # POSIX hands the gate the pipe's descriptor; Windows, which cannot,
+            # its handle (`hostos.inherited_fd_kwargs`).
+            named, passing = hostos.inherited_fd_kwargs(write_fd)
             proc = subprocess.Popen(
                 [sys.executable, str(script)],
                 cwd=ROOT,
-                env=dict(env, RUN_EXPORT_FD=str(write_fd)),
-                pass_fds=(write_fd,),
+                env=dict(env, RUN_EXPORT_FD=named),
+                **passing,
             )
         except (OSError, ValueError) as escape:
             _refuse(2, f"{entry.script} could not be started: {escape}")
@@ -502,6 +528,23 @@ def _end(proc: subprocess.Popen[bytes]) -> None:
         proc.wait()
 
 
+#: The door's one-time proof of descent, minted on the first verb's environment
+#: where `/proc` cannot prove it (`gatelib.under_door`), and removed when the
+#: door ends.
+_PROOF: list[tuple[str, Path]] = []
+
+
+def _door_env(env: dict[str, str]) -> None:
+    """Make `env` a run's: the shims first on PATH, the door's interpreter named
+    for them, and the door's proof where it is needed."""
+    env["PATH"] = f"{BIN}{os.pathsep}{env.get('PATH') or os.defpath}"
+    env[gatelib.PYTHON_VAR] = sys.executable
+    if not gatelib.PROC_SELF.exists():
+        if not _PROOF:
+            _PROOF.append(gatelib.mint_proof())
+        env[gatelib.PROOF_VAR] = _PROOF[0][0]
+
+
 def _ambient() -> str | None:
     """The first RUN_*/DOCKER_* variable already set in the calling
     environment, or None when the caller is not itself a run.
@@ -556,7 +599,13 @@ def _serve_parse(argv: list[str]) -> argparse.Namespace:
             'fetch only: the fetch list (JSON: {"files": [{repo, revision, file, '
             "sha256, bytes}]}), each file pinned to a commit and its sha256 as "
             "the model knowledge records it. The files land in the rig's weights "
-            "folder ($MCGYVR_WEIGHTS there, else ~/.cache/mcgyvr/weights) under "
+            "folder ($MCGYVR_WEIGHTS there, else "
+            + ", ".join(
+                # argparse formats help with %: a literal % is written %%.
+                f"{folder.replace('%', '%%')}{_SEP_SHOWN[system]}weights on {system}"
+                for system, folder in hostos.CACHE_FOLDERS
+            )
+            + ") under "
             "their base names; a download resumes from its .part, and one whose "
             "sha256 does not match is deleted. No size cap: the total is said "
             "before a byte moves. The Hub is $HF_ENDPOINT when set (https, or "
@@ -699,8 +748,45 @@ def serve(argv: list[str]) -> int:
             )
             return 2
 
+    if compose_file is not None:
+        try:
+            launcher = servelib.launcher_of(units)
+        except servelib.ComposeError as escape:
+            print(f"run.py: REFUSED — {escape}", file=sys.stderr)
+            return 2
+        if (
+            launcher == LAUNCHER_NATIVE
+            and opts.host not in gatelib.LOCAL_RIGS
+            and not nativerig.remote(opts.host)
+        ):
+            print(
+                f"run.py: REFUSED — the compose file's units run natively, which "
+                f"is on this machine or on a macOS or Windows rig, and the rig "
+                f"file of --host {opts.host} records neither (`mcgyvr scan --rig "
+                f"{opts.host}` writes it); a unit on a Linux rig runs in its "
+                "container",
+                file=sys.stderr,
+            )
+            return 2
+        if launcher == LAUNCHER_NATIVE and opts.direction in ("sleep", "wake"):
+            print(
+                f"run.py: REFUSED — serve {opts.direction}: the compose file's "
+                "units run natively, and a native unit has no sleep route; "
+                "`serve down` stops it and `serve up` starts it again",
+                file=sys.stderr,
+            )
+            return 2
+    else:
+        # A fetch starts nothing; it is a native run where the rig is this
+        # macOS or Windows machine, reached without ssh, or a macOS or Windows
+        # rig its rig file records, and needs no daemon.
+        here = (
+            gatelib.local_transport(opts.host) and hostos.os_name() in NATIVE_BY_DEFAULT
+        )
+        there = nativerig.remote(opts.host)
+        launcher = LAUNCHER_NATIVE if here or there else LAUNCHER_DOCKER
     env = dict(os.environ)
-    env["PATH"] = f"{BIN}{os.pathsep}{env.get('PATH') or os.defpath}"
+    _door_env(env)
     try:
         pin_config(env)
     except RefusedError as refusal:
@@ -717,6 +803,7 @@ def serve(argv: list[str]) -> int:
         RUN_SERVE_EXPECTED=" ".join(unit.container for unit in units),
         RUN_SERVE_ONLY=" ".join(sorted(set(opts.unit))),
         RUN_SERVE_ASLEEP=" ".join(sorted(u.container for u in units if u.asleep)),
+        RUN_LAUNCHER=launcher,
         RUN_COMMAND=_command("serve", argv),
         **fetch,
     )
@@ -864,7 +951,7 @@ def read(argv: list[str]) -> int:
         )
         return 2
     env = dict(os.environ)
-    env["PATH"] = f"{BIN}{os.pathsep}{env.get('PATH') or os.defpath}"
+    _door_env(env)
     try:
         pin_config(env)
     except RefusedError as refusal:
@@ -970,7 +1057,7 @@ def link(argv: list[str]) -> int:
         print(f"run.py: REFUSED — {refusal.rule}", file=sys.stderr)
         return refusal.status
     env = dict(os.environ)
-    env["PATH"] = f"{BIN}{os.pathsep}{env.get('PATH') or os.defpath}"
+    _door_env(env)
     env.update(
         RUN_ROOT=str(ROOT),
         RUN_BIN=str(BIN),
@@ -996,7 +1083,11 @@ def main(argv: list[str] | None = None) -> int:
     given = list(sys.argv[1:] if argv is None else argv)
     verbs = {"serve": serve, "read": read, "link": link}
     if given[:1] and given[0] in verbs:
-        return verbs[given[0]](given[1:])
+        try:
+            return verbs[given[0]](given[1:])
+        finally:
+            while _PROOF:
+                gatelib.drop_proof(_PROOF.pop()[1])
     parser = argparse.ArgumentParser(
         prog="python -m mcgyvr.serving.run",
         description="the one access point to the rigs",

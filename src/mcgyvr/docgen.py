@@ -33,7 +33,9 @@ from . import notes as failure_notes
 from .config import (
     CREW_FILENAME,
     FLEET_FILENAME,
+    JOURNAL_DIR_DEFAULT,
     KNOBS,
+    LAUNCHER_NATIVE,
     POLICY_FILENAME,
     RELIEF_FILENAME,
     SCHEMA,
@@ -41,6 +43,8 @@ from .config import (
     USE_CASES,
     Field,
 )
+from .fleet import roots
+from .hostos import CACHE_FOLDERS, DATA_FOLDERS, PATH_EXPORT, PATH_POWERSHELL
 
 # First line of every document generated from the config schema: the note that
 # it is generated, which source it comes from, and the command that redraws it.
@@ -298,6 +302,204 @@ def render_reference() -> str:
 _LEVERS: tuple[str, ...] = ("units", "ladder", "max_escalations")
 
 
+#: The launchd label the macOS login note names, and its plist's file name.
+_LAUNCHD_LABEL = "mcgyvr-rig"
+#: The least time launchd leaves between two starts of that agent, in seconds
+#: (launchd.plist's ThrottleInterval), so a rig that refuses at once is not
+#: restarted in a tight loop.
+_LAUNCHD_THROTTLE_S = 60
+#: How SETUP.md and the README install the skills on Windows: the PowerShell
+#: every Windows has, for this one run, with no profile; a policy that
+#: refuses every script is lifted for the run only, the downloaded-file check
+#: kept.
+INSTALL_PS1_COMMAND = (
+    "powershell -NoProfile -ExecutionPolicy RemoteSigned -File "
+    "mcgyvr\\skills\\mcgyvr\\install.ps1"
+)
+#: The file the Windows login note puts in the user's Startup folder.
+_STARTUP_FILE = "mcgyvr-rig.cmd"
+
+
+#: The serving and rig names *macOS and Windows* states. docgen sits above
+#: the serving seam and imports neither `mcgyvr.serving` nor `mcgyvr.rig`, so
+#: they are written here once, and
+#: tests/test_the_setup_document_speaks_macos_and_windows.py holds each to
+#: the constant that defines it (`llamacpp.TAG`/`BACKENDS`, `native.BIN`,
+#: `NVIDIA_SMI_EXE`, `BACKEND_ENV`, `fetcher.WEIGHTS_DIR_ENV`,
+#: `gatelib.LOCAL_TRANSPORT_ENV`/`SSHD`, `release.QUARANTINE`,
+#: `rungs.KEY_ENV`): a rename there fails the suite until this follows.
+NATIVE_TAG = "b11960"
+NATIVE_BACKENDS = ("metal", "cuda", "vulkan", "cpu")
+NATIVE_BIN = "bin/llama.cpp"
+NATIVE_BACKEND_ENV = "MCGYVR_NATIVE_BACKEND"
+NVIDIA_SMI_EXE = "nvidia-smi.exe"
+WEIGHTS_DIR_ENV = "MCGYVR_WEIGHTS"
+LOCAL_TRANSPORT_ENV = "MCGYVR_LOCAL_TRANSPORT"
+SSHD_PORT = 22
+QUARANTINE = "com.apple.quarantine"
+HUB_KEY_ENV = "MCGYVR_HUB_API_KEY"
+
+
+def _macos_windows_section() -> list[str]:
+    """SETUP.md's *macOS and Windows*: what differs there, and nothing else.
+
+    Names from the core (folders, the launcher, the journal default, the
+    PATH lines) come from their modules; the serving and rig names come from
+    the constants above, each held to its module by a test. The commands are
+    ones a person runs; mcgyvr installs no service.
+    """
+    tag = NATIVE_TAG
+    metal, cuda, vulkan, cpu = NATIVE_BACKENDS
+    plist = f"~/Library/LaunchAgents/{_LAUNCHD_LABEL}.plist"
+    startup = f"\"$([Environment]::GetFolderPath('Startup'))\\{_STARTUP_FILE}\""
+    home = roots.HOME_DIR
+
+    def para(text: str) -> list[str]:
+        return [*_wrap(text, rest=""), ""]
+
+    def folders(name: str, shown: Sequence[tuple[str, str]]) -> list[str]:
+        where = "; ".join(f"`{folder}` on {system}" for system, folder in shown)
+        return _wrap(f"{name}: {where}.", first="- ", rest="  ")
+
+    return [
+        "## macOS and Windows",
+        "",
+        *para(
+            "mcgyvr runs on macOS and Windows as it does on Linux; this is what "
+            "differs. `~` is your home folder (`%USERPROFILE%` on Windows)."
+        ),
+        *para(
+            "**Install.** `uv tool install mcgyvr` puts the CLI in `~/.local/bin` "
+            "on every system. On Windows the skills install with "
+            "`skills/mcgyvr/install.ps1`, the twin of `install.sh`: the same "
+            "skills, into the same folders under `~` (`.claude/skills`, "
+            "`.pi/agent/skills`). `-ExecutionPolicy RemoteSigned` lets that one "
+            "run go ahead where PowerShell's policy refuses every script, and "
+            "changes no setting; a script from `git clone` carries no "
+            "downloaded-file mark, so it runs (one taken from a zip a browser "
+            "downloaded needs `Unblock-File` first):"
+        ),
+        "```",
+        INSTALL_PS1_COMMAND,
+        "```",
+        "",
+        "**Folders.** Each system's own, by default:",
+        "",
+        *folders(f"data (`${roots.DATA_ENV}`)", DATA_FOLDERS),
+        *folders("caches (the model index, the weights)", CACHE_FOLDERS),
+        f"- config (`${roots.HOME_ENV}`): `{home}` on every system.",
+        "",
+        *para(
+            "`$XDG_STATE_HOME` and `$XDG_CACHE_HOME` still win when set (the "
+            f"weights follow `${WEIGHTS_DIR_ENV}` alone), and `journal.dir` "
+            f"defaults to `{JOURNAL_DIR_DEFAULT}` everywhere. Windows checks no "
+            "file owner or mode: a file is as private as its folder, and these "
+            "folders are in your own profile. A folder named by "
+            f"`${roots.HOME_ENV}`, `${roots.DATA_ENV}` or an XDG variable keeps "
+            "whatever ACL it has, so keep the rig token's folder "
+            f"(`${roots.HOME_ENV}`) inside your profile."
+        ),
+        *para(
+            "**Serving, with no Docker.** On a Mac or a Windows machine, `mcgyvr "
+            f"setup` writes `launcher: {LAUNCHER_NATIVE}` for a llama.cpp unit on "
+            "the machine it runs on. Its first start fetches the llama.cpp build "
+            f"mcgyvr pins (`{tag}`, the same build as the Linux image) into "
+            f"`{NATIVE_BIN}/{tag}/` under `{home}`, checks it "
+            "against its pinned sha256, and keeps the server up with mcgyvr's "
+            f"own supervisor. The build is `{metal}` on Apple silicon; on Windows "
+            f"`{cuda}` where `{NVIDIA_SMI_EXE}` reads a driver a pinned "
+            "CUDA build runs (found by full path only: an absolute folder on "
+            "PATH, `System32` or the NVIDIA `NVSMI` folder, never by bare name), "
+            f"else `{vulkan}` where a Vulkan loader is installed, else `{cpu}`; "
+            f"`${NATIVE_BACKEND_ENV}` names one instead. vLLM units run only on "
+            "Linux, in containers, and remote rigs are Linux machines read over "
+            "ssh. This machine is reached without ssh: always on macOS and "
+            f"Windows, and on Linux when no sshd answers on port {SSHD_PORT} "
+            f"(`${LOCAL_TRANSPORT_ENV}`, `direct` or `ssh`, decides instead). A "
+            "native unit has no sleep route, so `mcgyvr serve sleep` and `wake` "
+            "refuse it."
+        ),
+        *para(
+            "**Firewall and quarantine.** A native server listens on 127.0.0.1 "
+            "alone (a unit stating another address is refused) and takes no "
+            "connection from the network, so neither the macOS nor the Windows "
+            "firewall is expected to ask about it. On macOS a unit the hub uses "
+            "is reached through the rig agent, which relays to that address "
+            "over its own outgoing connection; on Windows a native unit serves "
+            "this machine, since the rig agent does not run there yet (below). "
+            f"On macOS the fetch removes the `{QUARANTINE}` flag from the build "
+            "after its sha256 check, so Gatekeeper does not stop it at first "
+            "start."
+        ),
+        *para(
+            "**Long paths (Windows).** Windows limits a path to 260 characters "
+            "(`MAX_PATH`). The weights land under their own file names in the "
+            "cache folder, well inside that; if a path of yours still passes "
+            f"it, point `${WEIGHTS_DIR_ENV}` at a short folder. Windows' "
+            "`LongPathsEnabled` key lifts the limit only for programs that "
+            "declare long paths (Python does; the llama.cpp build is not known "
+            "to), and is set from a PowerShell run as administrator "
+            "(Microsoft's command, from *Maximum Path Length Limitation*):"
+        ),
+        "```",
+        "New-ItemProperty -Path "
+        '"HKLM:\\SYSTEM\\CurrentControlSet\\Control\\FileSystem" `',
+        '  -Name "LongPathsEnabled" -Value 1 -PropertyType DWORD -Force',
+        "```",
+        "",
+        *para(
+            "**Starting at login.** mcgyvr installs no service. A rig lending to "
+            "a hub runs `mcgyvr rig run` in a terminal; to start it at login "
+            "instead, once `mcgyvr rig join` has kept its token (`mcgyvr rig "
+            "status` says so), run these yourself. On macOS, a launchd user "
+            "agent that starts at login and again after an exit with an error, "
+            "at most once a minute. On macOS today the agent relays to this "
+            "machine's units; it lends no unified GPU yet and offers peers no "
+            "LAN address:"
+        ),
+        "```sh",
+        "mkdir -p ~/Library/LaunchAgents ~/Library/Logs",
+        f"cat > {plist} <<EOF",
+        '<?xml version="1.0" encoding="UTF-8"?>',
+        '<plist version="1.0"><dict>',
+        f"  <key>Label</key><string>{_LAUNCHD_LABEL}</string>",
+        "  <key>ProgramArguments</key><array>",
+        "    <string>$HOME/.local/bin/mcgyvr</string>",
+        "    <string>rig</string><string>run</string>",
+        "  </array>",
+        "  <key>RunAtLoad</key><true/>",
+        "  <key>KeepAlive</key><dict><key>SuccessfulExit</key><false/></dict>",
+        f"  <key>ThrottleInterval</key><integer>{_LAUNCHD_THROTTLE_S}</integer>",
+        "  <key>StandardErrorPath</key>"
+        "<string>$HOME/Library/Logs/mcgyvr-rig.log</string>",
+        "</dict></plist>",
+        "EOF",
+        f"launchctl bootstrap gui/$(id -u) {plist}",
+        "```",
+        "",
+        *para(
+            f"`launchctl bootout gui/$(id -u)/{_LAUNCHD_LABEL}` stops it until "
+            "the next login or `bootstrap` (after editing the plist, `bootout` "
+            "first, then `bootstrap` again); delete the plist to drop it. "
+            "launchd starts it without your shell's variables, so a variable the "
+            f"agent reads (`${HUB_KEY_ENV}`) set in `~/.zshrc` is not seen there."
+        ),
+        *para(
+            "On Windows, `mcgyvr rig run` does not start yet (its pooled-session "
+            "code imports a module Windows lacks, `fcntl`). When it does, a line "
+            "in your Startup folder starts it at your login with no "
+            "administrator (a `schtasks /sc onlogon` task runs at any user's "
+            "logon and is created from an elevated prompt). From PowerShell, "
+            "and `Remove-Item` on the same path to drop it:"
+        ),
+        "```powershell",
+        f"Set-Content -LiteralPath {startup} `",
+        '  -Value \'@start "" /min "%USERPROFILE%\\.local\\bin\\mcgyvr.exe" rig run\'',
+        "```",
+        "",
+    ]
+
+
 def render_setup() -> str:
     """Render SETUP.md: how a machine comes to have a config, and what it says.
 
@@ -321,7 +523,8 @@ def render_setup() -> str:
         "",
         "`mcgyvr setup` reads each rig once and stages a setup bound to what it",
         "serves in a folder of the run's own, `$MCGYVR_DATA/setup/<run>/` (default",
-        "`~/.local/state/mcgyvr/setup/<run>/`), kept as the record of that run; it",
+        "`~/.local/state/mcgyvr/setup/<run>/` on Linux; *macOS and Windows*",
+        "below names the data folder there), kept as the record of that run; it",
         "writes nothing in the working directory. It prints what was decided and",
         "why, then what is *not* configured and what that costs.",
         "",
@@ -336,8 +539,9 @@ def render_setup() -> str:
         "from the Hugging Face Hub, the cache of an earlier Hub read or the",
         "shipped catalog, asks before each download, writes the staged setup",
         "once and emits its launch specs once, and asks before it starts the",
-        "serving containers through the door. It then samples the fleet: a read",
-        "of every rig, a",
+        "serving containers (on this Mac or Windows machine, native servers:",
+        "*macOS and Windows* below) through the door. It then samples the",
+        "fleet: a read of every rig, a",
         "probe and a load of every unit, the use case's sample task (for",
         "`mcgyvr-code`, a one-function bug fix the deterministic gate must pass;",
         "for `code` and `chat`, one word from each unit) and",
@@ -345,11 +549,20 @@ def render_setup() -> str:
         "`Lock the fleet and name it live? [y/N]` it is locked, promoted and",
         "named live. A red sample is never locked; its reasons are printed.",
         "",
-        "When the interactive setup finishes, it offers to append",
-        '`export PATH="$HOME/.local/bin:$PATH"` to the login shell\'s rc file',
+        "When the interactive setup finishes, it offers to put `~/.local/bin`,",
+        "where `uv tool install` puts `mcgyvr`, on PATH, once you say yes. A",
+        f"shell's rc file gets `{PATH_EXPORT}`",
         "(`~/.bashrc`, `~/.zshrc`, `~/.profile`, or",
-        "`~/.config/fish/config.fish`, by `$SHELL`), once you say yes; a file",
-        "that already carries a `.local/bin` PATH line is left alone.",
+        "`~/.config/fish/config.fish`, by `$SHELL`; `~/.zshrc` on macOS when",
+        "`$SHELL` is unset). On Windows the PowerShell profile gets",
+        f"`{PATH_POWERSHELL}`:",
+        "the profile PowerShell itself names (PowerShell 7's when it is",
+        "installed, else Windows PowerShell's, each run by its full path).",
+        "Where PowerShell's execution policy runs no profile (`Restricted`,",
+        "a Windows client's when none is set, or `AllSigned`), setup writes",
+        "none and names `uv tool update-shell`, uv's own way to put the folder",
+        "on PATH. A file that already carries a `.local/bin` (or `.local\\bin`)",
+        "PATH line is left alone.",
         "",
         "A fleet that could not be sampled — its containers not started, or",
         "every unit hosted — is locked",
@@ -409,8 +622,11 @@ def render_setup() -> str:
         "model catalog, when the Hub cannot be asked), says which answered,",
         "and names the host it goes on. `chat` and `agent` plan one unit: the",
         "biggest model that fits, at the most context that fits and at least",
-        "8192 per user. It wakes and sleeps nothing, and writes nothing but that",
-        "cache.",
+        "8192 per user. The placement says how fast its model decodes: the",
+        "speed the live fleet measured for it there (a `reading`), else an",
+        "`estimate` from the memory bandwidth of the card's class, else why",
+        "there is none. It wakes and sleeps nothing, and writes nothing but",
+        "that cache.",
         "",
         "A setup is two files in one directory, and `mcgyvr setup` writes both",
         "(staged under the data folder, as above):",
@@ -455,6 +671,7 @@ def render_setup() -> str:
         "`mcgyvr config` prints the resolved config; `mcgyvr detect` shows what",
         "can run the work; `mcgyvr capabilities` shows the shipped capability table.",
         "",
+        *_macos_windows_section(),
         *_use_cases_section(),
         "## Value types",
         "",

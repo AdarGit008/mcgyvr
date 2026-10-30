@@ -47,6 +47,8 @@ class FakeDocker:
     """A daemon that keeps what was started, and the knobs a test turns."""
 
     containers: dict[str, Container] = field(default_factory=dict)
+    #: Every container ever started, removed or not, in the order started.
+    containers_ever: list[Container] = field(default_factory=list)
     calls: list[tuple[str, tuple[str, ...]]] = field(default_factory=list)
     scripts: list[tuple[str, str, tuple[str, ...]]] = field(default_factory=list)
     leases: int = 0
@@ -93,6 +95,7 @@ class FakeDocker:
             part = labels.get("mcgyvr.pool.part", "")
             state = "exited" if part in self.exits_on_start else "running"
             self.containers[name] = Container(argv=argv, labels=labels, state=state)
+            self.containers_ever.append(self.containers[name])
 
     def run_script(self, name: str, script: str, *args: str) -> str:
         from mcgyvr.rig import pooled
@@ -270,6 +273,10 @@ class Box:
             return [f for f in self.frames if f["type"] == kind]
 
 
+#: The logical cores the fake report's machine has.
+REPORT_THREADS = 12
+
+
 def report() -> Any:
     from mcgyvr.rig import hardware, protocol
 
@@ -290,6 +297,55 @@ def report() -> Any:
         ),
         notes=(),
         sources=(("nvidia", 0), ("nvidia", 1), ("othervendor", 0)),
+        # The cards as resources, as the reader names them beside its cards.
+        resources=(
+            *(
+                {
+                    "kind": "gpu",
+                    "index": index,
+                    "name": name,
+                    "total_mb": total,
+                    "free_mb": free,
+                    "cores": None,
+                    "bandwidth_gbps": None,
+                    "bandwidth_figure": None,
+                    "ddr": None,
+                    "figure": "reading",
+                    "backend": backend,
+                }
+                for index, name, total, free, backend in (
+                    (0, "Card A", 8192, 8000, "cuda"),
+                    (1, "Card A", 8192, 8000, "cuda"),
+                    (2, "Card B", 4096, 4000, "vulkan"),
+                )
+            ),
+            {
+                "kind": "ram",
+                "index": 0,
+                "name": "host RAM",
+                "total_mb": 65536,
+                "free_mb": 60000,
+                "cores": None,
+                "bandwidth_gbps": None,
+                "bandwidth_figure": None,
+                "ddr": None,
+                "figure": "reading",
+                "backend": "cpu",
+            },
+            {
+                "kind": "cpu",
+                "index": 0,
+                "name": "Example CPU",
+                "total_mb": 0,
+                "free_mb": None,
+                "cores": REPORT_THREADS,
+                "bandwidth_gbps": None,
+                "bandwidth_figure": None,
+                "ddr": None,
+                "figure": "reading",
+                "backend": "cpu",
+            },
+        ),
     )
 
 

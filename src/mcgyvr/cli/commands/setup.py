@@ -15,6 +15,8 @@ from __future__ import annotations
 import argparse
 import json
 import os
+import shutil
+import subprocess
 import sys
 from collections.abc import Callable, Mapping, Sequence
 from concurrent.futures import ThreadPoolExecutor
@@ -32,6 +34,7 @@ from mcgyvr.config import (
     CONFIG_PATH_ENV,
     FLEET_FILENAME,
     MCGYVR_CODE,
+    NATIVE_BY_DEFAULT,
     POLICY_FILENAME,
     RAW_USE_CASES,
     RETIRED_USE_CASES,
@@ -457,24 +460,155 @@ def _setup_pick_unit(role: str, units: Sequence[str]) -> str:
     )
 
 
-_PATH_EXPORT = 'export PATH="$HOME/.local/bin:$PATH"'
+_PATH_EXPORT = hostos.PATH_EXPORT
+_PATH_POWERSHELL = hostos.PATH_POWERSHELL
+#: How long setup waits for PowerShell to name its profile.
+_PROFILE_ASK_S = 15.0
 
 
 def _shell_rc(shell: str | None, home: Path | None = None) -> Path | None:
-    """Answer the rc file a shell reads at startup, or None for no or unknown shell.
+    """Answer the file a shell reads at startup, or None for no or unknown shell.
 
-    bash, zsh, sh/dash and fish each have their file under `home`, which
-    defaults to the user's home directory (:func:`mcgyvr.hostos.shell_rc_file`,
-    which names zsh's on macOS when no shell is named). A PowerShell profile is
-    None here: it takes a PATH line of its own, not the export this offers.
+    bash, zsh, sh/dash and fish each have their rc file under `home`, which
+    defaults to the user's home directory, and PowerShell its profile
+    (:func:`mcgyvr.hostos.shell_rc_file`, which names zsh's on macOS when no
+    shell is named). A profile takes :data:`_PATH_POWERSHELL`, an rc file
+    :data:`_PATH_EXPORT` (:func:`mcgyvr.hostos.path_line`).
     """
-    rc = hostos.shell_rc_file(shell, home)
-    return None if rc is None or rc.suffix == ".ps1" else rc
+    return hostos.shell_rc_file(shell, home)
+
+
+#: Where PowerShell 7's MSI installs it, "$Env:ProgramFiles\PowerShell\7", for
+#: when it is not on PATH
+#: (https://learn.microsoft.com/en-us/powershell/scripting/install/install-powershell-on-windows).
+_PWSH_DIRS = (("ProgramFiles", "C:\\Program Files", ("PowerShell", "7")),)
+#: Windows PowerShell, which every Windows has, under the system folder.
+_WINDOWS_POWERSHELL = ("System32", "WindowsPowerShell", "v1.0", "powershell.exe")
+#: The execution policies under which an unsigned profile does not run
+#: (https://learn.microsoft.com/en-us/powershell/module/microsoft.powershell.core/about/about_execution_policies):
+#: `Restricted` runs no script, profiles included, and is a Windows client's
+#: policy when none is set; `AllSigned` runs only signed ones.
+_NO_PROFILE_POLICIES = ("Restricted", "AllSigned")
+
+
+def _powershell_exe(shell: str) -> str | None:
+    """The PowerShell `shell` names, by its full path, or None.
+
+    On Windows never by bare name, which would find a `pwsh.exe` left in the
+    working folder first: Windows PowerShell is the one under
+    `%SYSTEMROOT%\\System32`; PowerShell 7 is the one in a PATH folder named
+    in full, else under Program Files (:func:`mcgyvr.hostos.program_in`).
+    Elsewhere `shell` as `$SHELL` gives it, a path, or found on PATH.
+    """
+    base = os.path.basename(shell).lower().removesuffix(".exe")
+    if hostos.os_name() != "windows":
+        return shell if os.path.isabs(shell) else shutil.which(shell)
+    if base == "powershell":
+        root = os.environ.get("SYSTEMROOT") or "C:\\Windows"
+        found = os.path.join(root, *_WINDOWS_POWERSHELL)
+        return found if os.path.isfile(found) else None
+    if base == "pwsh":
+        folders = [
+            os.path.join(os.environ.get(variable) or default, *parts)
+            for variable, default, parts in _PWSH_DIRS
+        ]
+        return hostos.program_in("pwsh.exe", folders)
+    return None
+
+
+def _login_shell() -> str | None:
+    """The shell whose startup file the PATH offer extends.
+
+    `$SHELL` when it is set, on every system. Unset on Windows, PowerShell:
+    PowerShell 7 (`pwsh`) when it is installed, else Windows PowerShell, which
+    every Windows has. Unset elsewhere, None, which hostos reads as zsh on
+    macOS and as no shell on Linux.
+    """
+    named = os.environ.get("SHELL")
+    if named:
+        return named
+    if hostos.os_name() == "windows":
+        return "pwsh" if _powershell_exe("pwsh") else "powershell"
+    return None
+
+
+#: What setup asks PowerShell: its effective execution policy, then the
+#: profile it reads, in UTF-8 whatever the console's code page.
+_POWERSHELL_ASK = (
+    "[Console]::OutputEncoding = [Text.UTF8Encoding]::new($false); "
+    "Get-ExecutionPolicy; $PROFILE"
+)
+
+
+def _ask_powershell(shell: str) -> tuple[str | None, Path | None]:
+    """PowerShell `shell`'s execution policy and the profile it reads.
+
+    `$PROFILE` follows a Documents folder moved elsewhere (a synced folder,
+    say), which the default under the home does not. The profile is taken
+    only as an absolute `.ps1` path whose folder's parent exists, so a
+    garbled answer makes no folders; anything else, a shell that cannot be
+    found by full path, fails or is slow, answers None for both.
+    """
+    program = _powershell_exe(shell)
+    if program is None:
+        return None, None
+    try:
+        done = subprocess.run(
+            [
+                program,
+                "-NoLogo",
+                "-NoProfile",
+                "-NonInteractive",
+                "-Command",
+                _POWERSHELL_ASK,
+            ],
+            stdin=subprocess.DEVNULL,
+            capture_output=True,
+            encoding="utf-8",
+            errors="replace",
+            timeout=_PROFILE_ASK_S,
+            check=False,
+            **hostos.popen_no_window_kwargs(),
+        )
+    except (OSError, subprocess.SubprocessError):
+        return None, None
+    lines = [line.strip() for line in (done.stdout or "").strip().splitlines()]
+    if done.returncode != 0 or len(lines) != 2:
+        return None, None
+    policy, named = lines[0] or None, Path(lines[1])
+    if not (
+        named.is_absolute() and named.suffix == ".ps1" and named.parent.parent.is_dir()
+    ):
+        return policy, None
+    return policy, named
 
 
 def _has_local_bin_path(text: str) -> bool:
-    """Answer whether any line of the text already names ~/.local/bin on PATH."""
-    return any(".local/bin" in line and "PATH" in line for line in text.splitlines())
+    """Answer whether any line of the text already names ~/.local/bin on PATH.
+
+    Either separator counts (`.local/bin`, PowerShell's `.local\\bin`), on a
+    line naming `PATH` or PowerShell's `$env:Path` (in any case).
+    """
+    return any(
+        (".local/bin" in line or ".local\\bin" in line)
+        and ("PATH" in line or "$env:path" in line.lower())
+        for line in text.splitlines()
+    )
+
+
+def _shown(rc: Path, base: Path) -> str:
+    """`rc` as the offer names it: under `~` when it is in the home."""
+    try:
+        inside = rc.relative_to(base)
+    except ValueError:
+        return str(rc)
+    return "~" + os.sep + str(inside)
+
+
+#: What the PATH offer names when it leaves a startup file alone.
+_UV_UPDATE_SHELL = (
+    f"`uv tool update-shell` puts ~{os.sep}.local{os.sep}bin on PATH instead."
+)
 
 
 def _offer_path_append(
@@ -484,31 +618,66 @@ def _offer_path_append(
 ) -> Path | None:
     """Offer to put ~/.local/bin on the shell's PATH, answering the file or None.
 
-    The shell defaults to `$SHELL`. Nothing is asked when the shell is unknown
-    or the rc file already has that directory on PATH. A yes appends one export
-    line, creating the file's directory when it is missing; a file that cannot
-    be written is reported and answered as None.
+    The shell defaults to the login shell (:func:`_login_shell`). Nothing is
+    asked when the shell is unknown or its startup file already has that
+    directory on PATH. A yes appends one line, the export for an rc file and
+    PowerShell's for a profile, creating the file's directory when it is
+    missing; a file that cannot be written is reported and answered as None.
+    A PowerShell profile is the one PowerShell names when `home` is the
+    user's own (not given), else the default under `home`; where PowerShell's
+    execution policy runs no profile, nothing is asked or written and
+    `uv tool update-shell` is named instead.
     """
     if shell is None:
-        shell = os.environ.get("SHELL")
+        shell = _login_shell()
     base = home if home is not None else Path.home()
     rc = _shell_rc(shell, base)
     if rc is None:
         return None
+    if rc.suffix == ".ps1" and hostos.os_name() != "windows":
+        # PowerShell's line names Windows' folder and separator; PowerShell
+        # on macOS or Linux is left as it is.
+        return None
+    if rc.suffix == ".ps1" and home is None and shell:
+        policy, named = _ask_powershell(shell)
+        if policy in _NO_PROFILE_POLICIES:
+            # The profile would never run, and PowerShell would print an error
+            # at every start; uv's own command needs no policy change.
+            print(
+                f"PowerShell's execution policy is {policy}, so it runs no "
+                f"profile and none was changed; {_UV_UPDATE_SHELL}"
+            )
+            return None
+        rc = named or rc
     try:
         text = rc.read_text(encoding="utf-8")
     except OSError:
         text = ""
+    except UnicodeError:
+        # Not UTF-8 (Windows PowerShell writes UTF-16 with `>` and Out-File,
+        # the ANSI code page with Set-Content): a UTF-8 line appended there
+        # would corrupt it, so it is left as it is.
+        print(
+            f"{_shown(rc, base)} is not UTF-8, so it was not changed; "
+            + _UV_UPDATE_SHELL
+        )
+        return None
     if _has_local_bin_path(text):
         return None
-    shown = "~/" + str(rc.relative_to(base))
-    question = f"Add ~/.local/bin to your shell PATH in {shown}? [y/n] "
+    shown = _shown(rc, base)
+    if rc.suffix == ".ps1":
+        question = (
+            f"Add ~{os.sep}.local{os.sep}bin to your PATH in your PowerShell "
+            f"profile {shown}? [y/n] "
+        )
+    else:
+        question = f"Add ~/.local/bin to your shell PATH in {shown}? [y/n] "
     if not _confirm(question, prompt):
         return None
     try:
         rc.parent.mkdir(parents=True, exist_ok=True)
         with rc.open("a", encoding="utf-8") as stream:
-            stream.write(_PATH_EXPORT + "\n")
+            stream.write(hostos.path_line(rc) + "\n")
     except OSError as exc:
         print(
             f"warning: could not add ~/.local/bin to {shown}: {exc}",
@@ -871,6 +1040,70 @@ def _setup_start(rigs: Sequence[str], scans: Mapping[str, Scan], path: Path) -> 
         raise _SetupInteractiveError("; ".join(failed))
 
 
+def _native_rigs(rigs: Sequence[str]) -> tuple[str, ...]:
+    """The rigs among `rigs` whose units run natively: this machine, on macOS
+    or Windows (:func:`mcgyvr.config.default_launcher`). Remote rigs are
+    containers."""
+    from mcgyvr.detect import is_local_host
+
+    if hostos.os_name() not in NATIVE_BY_DEFAULT:
+        return ()
+    return tuple(rig for rig in dict.fromkeys(rigs) if is_local_host(rig))
+
+
+def _start_question(rigs: Sequence[str]) -> str:
+    """The start step's question, naming what it starts.
+
+    The serving containers, as on Linux; native llama.cpp servers when every
+    rig is this Mac or Windows machine; both, said apart, when remote rigs
+    serve beside it.
+    """
+    named = ", ".join(rigs)
+    here = _native_rigs(rigs)
+    if not here:
+        return f"Start the serving containers on {named}? [y/N] "
+    remote = [rig for rig in dict.fromkeys(rigs) if rig not in here]
+    if not remote:
+        return f"Start the native llama.cpp servers on {named}? [y/N] "
+    return (
+        f"Start the servers (native here, containers on {', '.join(remote)}) "
+        f"on {named}? [y/N] "
+    )
+
+
+def _native_notes(rigs: Sequence[str]) -> tuple[str, ...]:
+    """What starting this machine's native units does, said before the question.
+
+    Nothing when no rig of `rigs` runs natively. Otherwise: the first start
+    fetches the pinned llama.cpp build into the mcgyvr home and checks its
+    sha256 (and, on macOS, clears the quarantine flag the fetch would leave);
+    and a native server listens on 127.0.0.1 alone, so no firewall is
+    expected to ask, the rig agent relaying a hub's requests to it on macOS.
+    """
+    if not _native_rigs(rigs):
+        return ()
+    from mcgyvr.serving import llamacpp, native
+
+    cleared = (
+        ", and clears macOS's quarantine flag from it"
+        if hostos.os_name() == "darwin"
+        else ""
+    )
+    return (
+        "This machine's units run natively, with no container: the first start "
+        f"fetches the pinned llama.cpp {llamacpp.TAG} build into "
+        f"{native.bin_root()} and checks its sha256{cleared}.",
+        "A native server listens on 127.0.0.1 only, so the firewall is not "
+        "expected to ask; "
+        + (
+            "the rig agent (`mcgyvr rig run`) relays a hub's requests to it."
+            if hostos.os_name() == "darwin"
+            else "it serves this machine, since the rig agent that relays a "
+            "hub's requests does not run on Windows yet."
+        ),
+    )
+
+
 def _setup_interactive(path: Path, run_id: str = "") -> int:
     """Run the wizard end to end and answer the exit code.
 
@@ -925,12 +1158,15 @@ def _setup_interactive(path: Path, run_id: str = "") -> int:
         _setup_emit(path, ctx_per_slot)
 
         _rule("Step 4 of 4 — start and lock")
-        if _confirm(f"Start the serving containers on {', '.join(rigs)}? [y/N] "):
+        for note in _native_notes(rigs):
+            _note(note)
+        if _confirm(_start_question(rigs)):
             _setup_start(rigs, scans, path)
             approved, unapproved = _setup_sample(path, run_id, readings, rooms)
         else:
+            started = "Servers" if _native_rigs(rigs) else "Containers"
             print(
-                "Containers were not started. The staged setup and its launch "
+                f"{started} were not started. The staged setup and its launch "
                 f"specs are at {path}.\n"
             )
             approved, unapproved = _setup_unsampled(

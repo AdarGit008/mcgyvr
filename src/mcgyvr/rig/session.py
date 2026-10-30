@@ -43,6 +43,7 @@ from functools import cache
 from pathlib import Path
 from typing import Protocol
 
+from mcgyvr import hubwire
 from mcgyvr.rig import (
     commands,
     hardware,
@@ -56,6 +57,7 @@ from mcgyvr.rig import (
 )
 from mcgyvr.rig import sharing as sharing_module
 from mcgyvr.rig.sessionwire import SessionCode
+from mcgyvr.serving import llamacpp
 
 #: The session state machine, which ``_move`` enforces: the states a session may enter.
 TRANSITIONS: dict[str, frozenset[str]] = {
@@ -86,6 +88,8 @@ TEARDOWN_ROUNDS = 3
 #: The feature that says this rig advertises the units it shares, with their slots,
 #: in ``unit_advert`` frames; a rig names it even when it lends no session.
 HITCHHIKE_FEATURE = "hitchhike_units"
+#: The feature that says this rig walks STUN candidates and its peers' relays.
+TRAVERSAL_FEATURE = "traversal"
 #: The feature that says this rig runs one session per card, never two on one card.
 #: A rig that names it may hold several sessions at once, one per card.
 MULTI_SESSION_FEATURE = "multi_session"
@@ -97,11 +101,21 @@ MULTI_SESSION_FEATURE = "multi_session"
 #: The hub publishes these names, so a name it does not publish refuses the hello.
 FEATURES = (
     "probe",
-    "traversal",
+    TRAVERSAL_FEATURE,
     "head_slots",
     HITCHHIKE_FEATURE,
     MULTI_SESSION_FEATURE,
 )
+#: The llama.cpp RPC protocol of the pinned build, as the wire names it: what
+#: a rig running that build declares in its hello.
+PINNED_RPC_PROTO = hubwire.RpcProto(
+    major=llamacpp.RPC_PROTO_MAJOR, minor=llamacpp.RPC_PROTO_MINOR
+)
+#: What a native rig (a Mac or Windows rig lending with ``launcher: native``)
+#: names: every feature but ``traversal``, until a reply to the helper's own
+#: UDP is known to pass the host firewall unasked; until then the hub pairs it
+#: with rigs on its own LAN alone.
+NATIVE_FEATURES = tuple(name for name in FEATURES if name != TRAVERSAL_FEATURE)
 #: How many sessions a rig runs at once: one per tunnel port, each with its own.
 #: The live session count and the tunnel port count are the same number.
 MAX_LIVE_SESSIONS = sharing_module.TUNNEL_PORTS
@@ -161,6 +175,224 @@ class Docker(Protocol):
     def remove(self, names: Sequence[str]) -> None: ...
 
     def owned(self) -> list[pooled.Owned]: ...
+
+
+class SessionHost(Protocol):
+    """What a session asks of the machine its tunnel and engines run on.
+
+    The session's own logic — states, the walk to each peer, the watch on a
+    head's workers, the failures the hub is told — is the same whatever runs
+    the parts; this seam is the machine. :class:`DockerHost` runs them in
+    containers over a :class:`Docker` daemon, exactly as before the seam (a
+    test pins its calls); :class:`mcgyvr.rig.userwg.NativeHost` runs them on a
+    Mac or Windows host through the ``mcgyvr-wg`` helper. Parts are named by
+    their container names (:func:`mcgyvr.rig.pooled.container_name`) on both.
+
+    A step a session cannot continue without raises ``pooled.PoolError``;
+    ``listening`` and ``renew_lease`` answer failure as ``False``, ``state`` as
+    ``None``, and ``remove`` and ``logs`` never fail.
+    """
+
+    def tunnel_image(self) -> str: ...
+
+    def start_tunnel(self, spec: pooled.TunnelSpec) -> None: ...
+
+    def tunnel_hello(self, name: str) -> pooled.TunnelHello | None: ...
+
+    def stun(
+        self, name: str, port: int, token: str, servers: Sequence[tuple[str, int]]
+    ) -> list[tuple[str, str, int]]: ...
+
+    def keep(
+        self, name: str, port: int, token: str, servers: Sequence[tuple[str, int]]
+    ) -> None: ...
+
+    def tunnel_up(self, name: str, plan: tunnel.TunnelPlan) -> None: ...
+
+    def aim(self, name: str, port: int, aims: Sequence[Aim]) -> None: ...
+
+    def peers(self, name: str, pokes: Sequence[str]) -> pooled.PeersSeen | None: ...
+
+    def ping(self, name: str, host: str) -> pooled.PingSeen: ...
+
+    def transfer(
+        self, name: str, pokes: Sequence[str]
+    ) -> tuple[dict[str, int], dict[str, int]]: ...
+
+    def head_runtime(self, share: sharing_module.Sharing) -> str | None: ...
+
+    def head_bind(self, hello: pooled.TunnelHello) -> str: ...
+
+    def local_device(self, number: int) -> str | None: ...
+
+    def start_worker(self, spec: pooled.WorkerSpec) -> None: ...
+
+    def open_worker(
+        self, name: str, own: str, port: int, nets: Sequence[str]
+    ) -> None: ...
+
+    def listening(self, name: str, own: str, port: int) -> bool: ...
+
+    def open_head(
+        self, name: str, own: str, gateway: str, pairs: Sequence[str]
+    ) -> None: ...
+
+    def start_head(self, spec: pooled.HeadSpec) -> None: ...
+
+    def renew_lease(self, name: str) -> bool: ...
+
+    def logs(self, name: str, tail: int) -> str: ...
+
+    def state(self, name: str) -> str | None: ...
+
+    def remove(self, names: Sequence[str]) -> None: ...
+
+    def owned(self) -> list[pooled.Owned]: ...
+
+
+@dataclass(frozen=True)
+class Aim:
+    """Where the tunnel points one peer: its key, the host and port aimed at
+    (``None`` and 0 for no aim), whether the port must match too (``exact``),
+    and whether WireGuard's endpoint moves to it (``moved``)."""
+
+    key: str
+    host: str | None
+    port: int
+    exact: bool
+    moved: bool
+
+
+class DockerHost:
+    """The parts of a session as containers, over a :class:`Docker` daemon.
+
+    Each method makes the docker calls the session made before the host seam,
+    with the same arguments in the same order: the tunnel container and its
+    scripts, the STUN probe and keep-alive run with the tunnel image's python,
+    and the worker and head containers, run as ``owner``.
+    """
+
+    def __init__(self, docker: Docker, owner: pooled.Owner) -> None:
+        self.docker = docker
+        self._owner = owner
+
+    def tunnel_image(self) -> str:
+        return self.docker.ensure_tunnel_image()
+
+    def start_tunnel(self, spec: pooled.TunnelSpec) -> None:
+        self.docker.start(pooled.tunnel_argv(spec, self._owner))
+
+    def tunnel_hello(self, name: str) -> pooled.TunnelHello | None:
+        return pooled.read_tunnel_hello(self.docker.logs(name, LOG_LINES))
+
+    def stun(
+        self, name: str, port: int, token: str, servers: Sequence[tuple[str, int]]
+    ) -> list[tuple[str, str, int]]:
+        pairs = [word for host, at in servers for word in (host, str(at))]
+        self.docker.run_script(name, pooled.STUN_SCRIPT, str(port), *pairs)
+        said = self.docker.run_python(
+            name,
+            _udpwire_source(),
+            "stun",
+            str(port),
+            token,
+            str(udpwire.STUN_ATTEMPTS),
+            str(STUN_WAIT_MS),
+            *pairs,
+        )
+        rtts = []
+        for line in said.splitlines():
+            words = line.split()
+            if len(words) == 4 and words[0] == "rtt" and words[3].isdigit():
+                rtts.append((words[1], words[2], int(words[3])))
+        return rtts
+
+    def keep(
+        self, name: str, port: int, token: str, servers: Sequence[tuple[str, int]]
+    ) -> None:
+        pairs = [word for host, at in servers for word in (host, str(at))]
+        self.docker.start_python(
+            name,
+            _udpwire_source(),
+            "keep",
+            str(port),
+            token,
+            str(KEEP_EVERY_S),
+            str(KEEP_FOR_S),
+            pooled.KEEPER_PID_FILE,
+            *pairs,
+        )
+
+    def tunnel_up(self, name: str, plan: tunnel.TunnelPlan) -> None:
+        self.docker.run_script(name, pooled.TUNNEL_SCRIPT, *plan.script_args())
+
+    def aim(self, name: str, port: int, aims: Sequence[Aim]) -> None:
+        args = [str(port)]
+        for one in aims:
+            mode = "exact" if one.exact else "host"
+            args += [
+                one.key,
+                one.host if one.host is not None else "-",
+                str(one.port),
+                mode,
+                "1" if one.moved else "0",
+            ]
+        self.docker.run_script(name, pooled.PATH_SCRIPT, *args)
+
+    def peers(self, name: str, pokes: Sequence[str]) -> pooled.PeersSeen | None:
+        return pooled.read_peers(
+            self.docker.run_script(name, pooled.PEERS_SCRIPT, *pokes)
+        )
+
+    def ping(self, name: str, host: str) -> pooled.PingSeen:
+        return pooled.read_ping(self.docker.run_script(name, pooled.PING_SCRIPT, host))
+
+    def transfer(
+        self, name: str, pokes: Sequence[str]
+    ) -> tuple[dict[str, int], dict[str, int]]:
+        said = self.docker.run_script(name, pooled.TRANSFER_SCRIPT, *pokes)
+        return pooled.read_transfer(said), pooled.read_sent(said)
+
+    def head_runtime(self, share: sharing_module.Sharing) -> str | None:
+        return share.image
+
+    def head_bind(self, hello: pooled.TunnelHello) -> str:
+        return str(ipaddress.IPv4Interface(hello.address).ip)
+
+    def local_device(self, number: int) -> str | None:
+        return f"CUDA{number}"
+
+    def start_worker(self, spec: pooled.WorkerSpec) -> None:
+        self.docker.start(pooled.worker_argv(spec, self._owner))
+
+    def open_worker(self, name: str, own: str, port: int, nets: Sequence[str]) -> None:
+        self.docker.run_script(name, pooled.OPEN_WORKER_SCRIPT, own, str(port), *nets)
+
+    def listening(self, name: str, own: str, port: int) -> bool:
+        return self.docker.try_script(name, pooled.LISTENING_SCRIPT, own, str(port))
+
+    def open_head(
+        self, name: str, own: str, gateway: str, pairs: Sequence[str]
+    ) -> None:
+        self.docker.run_script(name, pooled.OPEN_HEAD_SCRIPT, own, gateway, *pairs)
+
+    def start_head(self, spec: pooled.HeadSpec) -> None:
+        self.docker.start(pooled.head_argv(spec, self._owner))
+
+    def renew_lease(self, name: str) -> bool:
+        return self.docker.renew_lease(name)
+
+    def logs(self, name: str, tail: int) -> str:
+        return self.docker.logs(name, tail)
+
+    def state(self, name: str) -> str | None:
+        return self.docker.state(name)
+
+    def remove(self, names: Sequence[str]) -> None:
+        self.docker.remove(names)
+
+    def owned(self) -> list[pooled.Owned]:
+        return self.docker.owned()
 
 
 @dataclass(frozen=True, kw_only=True)
@@ -250,6 +482,7 @@ class _Session:
     listen_port: int
     api_port: int | None
     endpoints: tuple[sessionwire.Endpoint, ...]
+    host: SessionHost  # what runs the session's parts: containers, or the helper
     state: str = "preparing"
     error_code: str | None = None
     log_excerpt: str = ""
@@ -494,11 +727,15 @@ class Sessions:
         timing: Timing | None = None,
         clock: Callable[[], float] = time.monotonic,
         log: Callable[[str], None] = _log,
+        native: SessionHost | None = None,
     ) -> None:
         self.machine = machine
         self._log = log
         self.timing = timing or Timing()
-        self._docker = docker
+        # The hosts a session's parts run on: containers, and, for a Mac or
+        # Windows rig lending with the native launcher, the mcgyvr-wg helper.
+        self._docker_host = DockerHost(docker, machine.owner)
+        self._native = native
         self._send = send
         self._clock = clock
         self._lock = threading.RLock()
@@ -679,29 +916,35 @@ class Sessions:
             check = self._cache_check
         if check is not None:
             check.join(self.timing.stop_wait_s)
-        with contextlib.suppress(pooled.PoolError):
-            mine = [
-                o.name
-                for o in self._docker.owned()
-                if o.agent_pid == self.machine.owner.agent_pid
-            ]
-            self._docker.remove(mine)
+        for host in self._hosts():
+            with contextlib.suppress(pooled.PoolError):
+                mine = [
+                    o.name
+                    for o in host.owned()
+                    if o.agent_pid == self.machine.owner.agent_pid
+                ]
+                host.remove(mine)
 
     def sweep(self) -> list[str]:
         """Remove the containers no live agent owns, and name the ones removed.
 
         A container is swept when it carries no agent pid, when it is this agent's
         own, or when the agent that made it is gone — the leftovers of an agent that
-        was killed.
+        was killed. A native session's helper ends its parts and itself when the
+        agent that started it is gone (its stdin closes); what it could not end is
+        swept here by its record (:class:`mcgyvr.rig.userwg.NativeHost`).
         """
-        left = [
-            o.name
-            for o in self._docker.owned()
-            if o.agent_pid is None
-            or o.agent_pid == self.machine.owner.agent_pid
-            or not _alive(o.agent_pid)
-        ]
-        self._docker.remove(left)
+        left: list[str] = []
+        for host in self._hosts():
+            gone = [
+                o.name
+                for o in host.owned()
+                if o.agent_pid is None
+                or o.agent_pid == self.machine.owner.agent_pid
+                or not _alive(o.agent_pid)
+            ]
+            host.remove(gone)
+            left += gone
         return left
 
     # The frames the hub sends: the three that start a session's parts, and two more.
@@ -725,7 +968,29 @@ class Sessions:
                     envelope.id, SessionCode.NOT_CAPABLE, "this agent is stopping"
                 )
             share = self.machine.sharing()
-            if asked.role not in share.offered_roles():
+            try:
+                report = self.machine.report()
+            except hardware.HardwareError:
+                return sessionwire.refusal(
+                    envelope.id,
+                    SessionCode.NOT_CAPABLE,
+                    "this machine could not be read",
+                )
+            native = share.native_here()
+            if native and asked.role == "worker":
+                return sessionwire.refusal(
+                    envelope.id,
+                    SessionCode.NOT_CAPABLE,
+                    "role: a rig lending with launcher native lends the head "
+                    "role alone, not the worker role",
+                )
+            if native and self._native is None:
+                return sessionwire.refusal(
+                    envelope.id,
+                    SessionCode.NOT_CAPABLE,
+                    "launcher: this agent runs no native sessions",
+                )
+            if asked.role not in share.session_roles(report):
                 return sessionwire.refusal(
                     envelope.id,
                     SessionCode.NOT_CAPABLE,
@@ -743,7 +1008,6 @@ class Sessions:
                     return self._prepared(live, envelope.id)
                 live.pending.append(envelope.id)
                 return None
-            report = self.machine.report()
             lent = {
                 card.index
                 for card in report.cards
@@ -787,6 +1051,7 @@ class Sessions:
                     )
                     for h in hosts
                 ),
+                host=self._native if native and self._native else self._docker_host,
                 pending=[envelope.id],
             )
             self._sessions.pop(asked.session_id, None)
@@ -831,8 +1096,7 @@ class Sessions:
                     )
                 session.reported_to.append(envelope.id)
                 return None
-            own = [interface for _, interface in self.machine.interfaces()]
-            own.append(ipaddress.IPv4Interface(session.hello.address))
+            own = self._own(session, session.hello)
             try:
                 plan = tunnel.plan(asked, listen_port=session.listen_port, own=own)
             except tunnel.RefusedError as refused:
@@ -987,6 +1251,23 @@ class Sessions:
 
     # What is taken by whom, and the frames the sessions say.
 
+    def _own(
+        self, session: _Session, hello: pooled.TunnelHello
+    ) -> list[ipaddress.IPv4Interface]:
+        """This machine's own addresses, which a tunnel never aims at: every
+        interface, the tunnel's own address, and, for a native session (whose
+        system's interfaces are not read here), the hosts it is reached on."""
+        own = [interface for _, interface in self.machine.interfaces()]
+        own.append(ipaddress.IPv4Interface(hello.address))
+        if session.host is not self._docker_host:
+            own += [ipaddress.IPv4Interface(e.host) for e in session.endpoints]
+        return own
+
+    def _hosts(self) -> list[SessionHost]:
+        """The hosts this agent's sessions may run on: containers, and the native
+        host when the agent has one."""
+        return [self._docker_host, *([self._native] if self._native else [])]
+
     def _live(self) -> _Session | None:
         for found in self._sessions.values():
             if found.state in LIVE:
@@ -1130,7 +1411,8 @@ class Sessions:
         report = self.machine.report()
         held = self.machine.inventory()
         relative = inventory.resolve(held, asked.model)
-        if relative is None or held.folder is None or share.image is None:
+        runtime = session.host.head_runtime(share)
+        if relative is None or held.folder is None or runtime is None:
             return sessionwire.refusal(
                 re, SessionCode.MODEL_MISSING, "model: not a model this rig holds"
             )
@@ -1145,6 +1427,16 @@ class Sessions:
                         "devices: a card this rig does not lend",
                     )
                 local.append(gpu)
+        if not share.lends_a_card(report) and any(
+            isinstance(device, sessionwire.RpcDevice) for device in asked.devices
+        ):
+            # Memory and cores serve a whole model: a rig lending no card heads
+            # no pipeline, so rpc devices are not for it.
+            return sessionwire.refusal(
+                re,
+                SessionCode.NOT_CAPABLE,
+                "devices: a rig that lends no card heads whole models only",
+            )
         gpus = sorted(local)
         names: list[str] = []
         rpc: list[tuple[str, int]] = []
@@ -1152,7 +1444,15 @@ class Sessions:
             if isinstance(device, sessionwire.LocalDevice):
                 gpu = share.lends(device.card_index, report)
                 assert gpu is not None
-                names.append(f"CUDA{gpus.index(gpu)}")
+                name = session.host.local_device(gpus.index(gpu))
+                if name is None:
+                    return sessionwire.refusal(
+                        re,
+                        SessionCode.NOT_CAPABLE,
+                        "devices: this rig's native build cannot name its cards "
+                        "in the order the hub numbers them",
+                    )
+                names.append(name)
                 continue
             if (
                 session.plan is None
@@ -1168,9 +1468,11 @@ class Sessions:
             rpc.append((str(device.host), device.port))
         session.rpc = tuple(rpc)
         session.head_file = held.folder / relative
+        # The head runs under the lend as the hello advertised it.
+        memory_mb, cpus = share.head_limits(report)
         return pooled.HeadSpec(
             session_id=session.id,
-            image=share.image,
+            image=runtime,
             binary=share.head_binary,
             gpus=tuple(gpus),
             models_dir=held.folder,
@@ -1182,8 +1484,9 @@ class Sessions:
             devices=tuple(names),
             tensor_split=asked.tensor_split,
             rpc=tuple(f"{host}:{port}" for host, port in rpc),
-            bind=str(ipaddress.IPv4Interface(session.hello.address).ip),
-            memory_mb=share.container_mb(),
+            bind=session.host.head_bind(session.hello),
+            memory_mb=memory_mb,
+            cpus=cpus,
         )
 
     def _hub_lost(self) -> None:
@@ -1275,13 +1578,13 @@ class Sessions:
         if session.hello is None or now - session.renewed_at < self.timing.renew_s:
             return
         session.renewed_at = now
-        if not self._docker.renew_lease(session.tunnel_name):
+        if not session.host.renew_lease(session.tunnel_name):
             raise _FailureError(
                 SessionCode.TUNNEL_FAILED
                 if session.state != "ready"
                 else SessionCode.UPSTREAM_FAILED,
                 "the session's tunnel ended",
-                self._docker.logs(session.tunnel_name, LOG_LINES),
+                session.host.logs(session.tunnel_name, LOG_LINES),
             )
 
     def _tick(self, session: _Session) -> None:
@@ -1293,11 +1596,11 @@ class Sessions:
             return
         session.checked_at = now
         for name in list(session.containers):
-            if self._docker.state(name) != "running":
+            if session.host.state(name) != "running":
                 raise _FailureError(
                     SessionCode.UPSTREAM_FAILED,
                     f"{name.rsplit('-', 1)[-1]}: the container ended",
-                    self._docker.logs(name, LOG_LINES),
+                    session.host.logs(name, LOG_LINES),
                 )
 
     def _watch(self, session: _Session) -> None:
@@ -1327,13 +1630,9 @@ class Sessions:
             if now - session.heard[key][1] >= self.timing.monitor_s
         ]
         try:
-            said = self._docker.run_script(
-                session.tunnel_name, pooled.TRANSFER_SCRIPT, *quiet
-            )
+            received, sent = session.host.transfer(session.tunnel_name, quiet)
         except pooled.PoolError:
-            said = ""
-        received = pooled.read_transfer(said)
-        sent = pooled.read_sent(said)
+            received, sent = {}, {}
         if any(key in sent for key in watched):
             session.sent = sum(sent.get(key, 0) for key in watched)
         now = self._clock()
@@ -1347,7 +1646,7 @@ class Sessions:
                     SessionCode.NO_PATH,
                     f"the worker at {host} was not heard from over the tunnel "
                     f"for {now - at:.0f} s",
-                    self._docker.logs(
+                    session.host.logs(
                         pooled.container_name(session.id, "head"), LOG_LINES
                     ),
                 )
@@ -1378,7 +1677,7 @@ class Sessions:
                 f"{max(0, session.sent - before)} bytes in {now - at:.1f} s, "
                 f"under the {LOAD_STALL_BYTES} that count as moving in "
                 f"{self.timing.stall_s:g} s",
-                self._docker.logs(pooled.container_name(session.id, "head"), LOG_LINES),
+                session.host.logs(pooled.container_name(session.id, "head"), LOG_LINES),
             )
 
     def _loaded(self, session: _Session, started: float, how: str) -> None:
@@ -1421,11 +1720,11 @@ class Sessions:
         threading.Thread(target=run, daemon=True).start()
         deadline = self._clock() + self.timing.warm_s
         while True:
-            if self._docker.state(name) != "running":
+            if session.host.state(name) != "running":
                 raise _FailureError(
                     SessionCode.START_FAILED,
                     "the head ended while it was warmed",
-                    self._docker.logs(name, LOG_LINES),
+                    session.host.logs(name, LOG_LINES),
                 )
             if done.is_set() or self._clock() > deadline:
                 return
@@ -1437,9 +1736,10 @@ class Sessions:
         for hook in self._prepare_hooks:
             with contextlib.suppress(Exception):
                 hook()
-        image = self._docker.ensure_tunnel_image()
+        host = session.host
+        image = host.tunnel_image()
         name = session.tunnel_name
-        self._docker.remove([name])
+        host.remove([name])
         spec = pooled.TunnelSpec(
             session_id=session.id,
             image=image,
@@ -1449,17 +1749,17 @@ class Sessions:
             lease_s=self.timing.lease_s,
         )
         session.containers.append(name)
-        self._docker.start(pooled.tunnel_argv(spec, self.machine.owner))
+        host.start_tunnel(spec)
         deadline = self._clock() + self.timing.prepare_s
         while True:
-            hello = pooled.read_tunnel_hello(self._docker.logs(name, LOG_LINES))
+            hello = host.tunnel_hello(name)
             if hello is not None:
                 break
-            if self._docker.state(name) != "running":
+            if host.state(name) != "running":
                 raise _FailureError(
                     SessionCode.TUNNEL_FAILED,
                     "the tunnel container ended before it was ready",
-                    self._docker.logs(name, LOG_LINES),
+                    host.logs(name, LOG_LINES),
                 )
             if self._clock() > deadline:
                 raise _FailureError(
@@ -1500,8 +1800,7 @@ class Sessions:
         session without a traversal reading is still a session.
         """
         assert session.traversal is not None
-        own = [interface for _, interface in self.machine.interfaces()]
-        own.append(ipaddress.IPv4Interface(hello.address))
+        own = self._own(session, hello)
         servers: list[tuple[str, int]] = []
         for endpoint in session.traversal.stun[: sessionwire.MAX_STUN_ENDPOINTS]:
             host = sessionwire._ipv4(endpoint.host)
@@ -1509,52 +1808,25 @@ class Sessions:
                 servers.append((str(host), endpoint.port))
         if not servers:
             return None
-        pairs = [word for host, port in servers for word in (host, str(port))]
-        port, token = str(session.listen_port), session.traversal.token.hex()
+        port, token = session.listen_port, session.traversal.token.hex()
         name = session.tunnel_name
         try:
-            self._docker.run_script(name, pooled.STUN_SCRIPT, port, *pairs)
-            said = self._docker.run_python(
-                name,
-                _udpwire_source(),
-                "stun",
-                port,
-                token,
-                str(udpwire.STUN_ATTEMPTS),
-                str(STUN_WAIT_MS),
-                *pairs,
-            )
-            self._docker.start_python(
-                name,
-                _udpwire_source(),
-                "keep",
-                port,
-                token,
-                str(KEEP_EVERY_S),
-                str(KEEP_FOR_S),
-                pooled.KEEPER_PID_FILE,
-                *pairs,
-            )
+            said = session.host.stun(name, port, token, servers)
+            session.host.keep(name, port, token, servers)
         except pooled.PoolError:
             return None
-        rtts = []
-        for line in said.splitlines():
-            words = line.split()
-            if (
-                len(words) == 4
-                and words[0] == "rtt"
-                and (words[1], words[2]) in {(h, str(p)) for h, p in servers}
-                and words[3].isdigit()
-            ):
-                rtts.append(min(int(words[3]), sessionwire.MAX_RTT_US))
+        asked = {(h, str(p)) for h, p in servers}
+        rtts = [
+            min(us, sessionwire.MAX_RTT_US)
+            for host, at, us in said
+            if (host, at) in asked and us >= 0
+        ]
         return min(rtts) if rtts else None
 
     def _do_tunnel(self, session: _Session) -> None:
         assert session.plan is not None and session.tunnel_asked is not None
         plan, asked = session.plan, session.tunnel_asked
-        self._docker.run_script(
-            session.tunnel_name, pooled.TUNNEL_SCRIPT, *plan.script_args()
-        )
+        session.host.tunnel_up(session.tunnel_name, plan)
         attempt = (
             asked.attempt_s if asked.attempt_s is not None else self.timing.attempt_s
         )
@@ -1592,11 +1864,7 @@ class Sessions:
                 if w.aim is not None and w.peer.tunnel_host is not None
             ]
             try:
-                seen = pooled.read_peers(
-                    self._docker.run_script(
-                        session.tunnel_name, pooled.PEERS_SCRIPT, *pokes
-                    )
-                )
+                seen = session.host.peers(session.tunnel_name, pokes)
             except pooled.PoolError:
                 seen = None
             now = self._clock()
@@ -1685,11 +1953,7 @@ class Sessions:
         if host is None:
             return None
         try:
-            return pooled.read_ping(
-                self._docker.run_script(
-                    session.tunnel_name, pooled.PING_SCRIPT, str(host)
-                )
-            )
+            return session.host.ping(session.tunnel_name, str(host))
         except pooled.PoolError:
             return None
 
@@ -1756,19 +2020,19 @@ class Sessions:
         a rule for the address aimed at, and the peer's endpoint is moved to it, which
         is what makes the tunnel try a new candidate.
         """
-        args = [str(session.listen_port)]
+        aims = []
         for walk in walks:
+            key = walk.peer.public_key
             if walk.held is not None:
                 host, port = walk.held
-                args += [walk.peer.public_key, host, str(port), "exact", "0"]
+                aims.append(Aim(key, host, port, exact=True, moved=False))
             elif walk.aim is not None:
                 host, port = walk.aim
-                moved = "1" if walk.moved else "0"
-                args += [walk.peer.public_key, host, str(port), "host", moved]
+                aims.append(Aim(key, host, port, exact=False, moved=walk.moved))
             else:
-                args += [walk.peer.public_key, "-", "0", "host", "0"]
+                aims.append(Aim(key, None, 0, exact=False, moved=False))
             walk.moved = False
-        self._docker.run_script(session.tunnel_name, pooled.PATH_SCRIPT, *args)
+        session.host.aim(session.tunnel_name, session.listen_port, aims)
 
     def _report(self, session: _Session, walks: Sequence[_Walk]) -> None:
         """Settle the walk: report the paths found, or fail the session with no path.
@@ -1894,40 +2158,33 @@ class Sessions:
             _, gpu, port = worker
             name = pooled.container_name(session.id, f"worker-{gpu}")
             names[worker] = name
-            self._docker.remove([name])
+            session.host.remove([name])
             session.containers.append(name)
-            self._docker.start(
-                pooled.worker_argv(
-                    pooled.WorkerSpec(
-                        session_id=session.id,
-                        image=image,
-                        binary=share.worker_binary,
-                        gpu=gpu,
-                        bind=own,
-                        port=port,
-                        cache_dir=cache,
-                        memory_mb=share.container_mb(),
-                    ),
-                    self.machine.owner,
+            session.host.start_worker(
+                pooled.WorkerSpec(
+                    session_id=session.id,
+                    image=image,
+                    binary=share.worker_binary,
+                    gpu=gpu,
+                    bind=own,
+                    port=port,
+                    cache_dir=cache,
+                    memory_mb=share.container_mb(),
                 )
             )
-            self._docker.run_script(
-                session.tunnel_name, pooled.OPEN_WORKER_SCRIPT, own, str(port), *nets
-            )
+            session.host.open_worker(session.tunnel_name, own, port, nets)
         waiting = set(session.workers)
         deadline = self._clock() + self.timing.start_s
         while waiting:
             for worker in sorted(waiting):
                 name = names[worker]
-                if self._docker.state(name) != "running":
+                if session.host.state(name) != "running":
                     raise _FailureError(
                         SessionCode.START_FAILED,
                         f"the worker on card {worker[0]} ended while starting",
-                        self._docker.logs(name, LOG_LINES),
+                        session.host.logs(name, LOG_LINES),
                     )
-                if self._docker.try_script(
-                    session.tunnel_name, pooled.LISTENING_SCRIPT, own, str(worker[2])
-                ):
+                if session.host.listening(session.tunnel_name, own, worker[2]):
                     waiting.discard(worker)
             if not waiting:
                 break
@@ -1936,7 +2193,7 @@ class Sessions:
                 raise _FailureError(
                     SessionCode.START_FAILED,
                     f"the worker on card {worker[0]} did not listen in time",
-                    self._docker.logs(names[worker], LOG_LINES),
+                    session.host.logs(names[worker], LOG_LINES),
                 )
             if self._pause(session):
                 return
@@ -1979,17 +2236,13 @@ class Sessions:
             if session.plan is not None
             else ipaddress.IPv4Interface(session.hello.address).ip
         )
-        self._docker.run_script(
-            session.tunnel_name,
-            pooled.OPEN_HEAD_SCRIPT,
-            str(own),
-            session.hello.gateway,
-            *pairs,
+        session.host.open_head(
+            session.tunnel_name, str(own), session.hello.gateway, pairs
         )
         name = pooled.container_name(session.id, "head")
-        self._docker.remove([name])
+        session.host.remove([name])
         session.containers.append(name)
-        self._docker.start(pooled.head_argv(session.head, self.machine.owner))
+        session.host.start_head(session.head)
         self._move(session, "loading")
         self._say(self._status(session, None))
         started = self._clock()
@@ -1997,11 +2250,11 @@ class Sessions:
         how = "ended"
         try:
             while True:
-                if self._docker.state(name) != "running":
+                if session.host.state(name) != "running":
                     raise _FailureError(
                         SessionCode.START_FAILED,
                         "the head ended while loading",
-                        self._docker.logs(name, LOG_LINES),
+                        session.host.logs(name, LOG_LINES),
                     )
                 self._watch(session)
                 if self.machine.head_health(session.api_port) == "ok":
@@ -2012,7 +2265,7 @@ class Sessions:
                     raise _FailureError(
                         SessionCode.START_FAILED,
                         "the head did not load in time",
-                        self._docker.logs(name, LOG_LINES),
+                        session.host.logs(name, LOG_LINES),
                     )
                 if self._pause(session):
                     return
@@ -2031,12 +2284,12 @@ class Sessions:
         for _ in range(TEARDOWN_ROUNDS):
             with contextlib.suppress(pooled.PoolError):
                 names += [
-                    o.name for o in self._docker.owned() if o.session_id == session.id
+                    o.name for o in session.host.owned() if o.session_id == session.id
                 ]
             names = list(dict.fromkeys(names))
             if not names:
                 break
-            self._docker.remove(names)
+            session.host.remove(names)
             names = []
         # The session holds nothing from now: its port rests from this moment, the
         # tensor cache is free for the next session if this one held it, and the hooks
@@ -2111,14 +2364,21 @@ def offer(
     held: inventory.Inventory,
     hosts: Sequence[str],
     running: tuple[str, ...],
+    report: hardware.Report,
 ) -> protocol.Offer:
     """The offer this rig answers a probe with: what it lends and where to reach it.
 
-    A setup that lends nothing has no roles, no runtime, no models and no endpoints,
-    yet still names ``HITCHHIKE_FEATURE``, since it may advertise the units it
-    shares. Models are offered only to a rig that lends the head role.
+    The roles are those its sessions run in on the machine `report` reads
+    (:meth:`mcgyvr.rig.sharing.Sharing.session_roles`: the head alone for a
+    rig that lends no card). A setup that lends nothing has no roles, no
+    runtime, no models and no endpoints, yet still names ``HITCHHIKE_FEATURE``,
+    since it may advertise the units it shares. Models are offered only to a
+    rig that lends the head role. A native rig names the pinned llama.cpp build
+    as its runtime and drops ``traversal`` (:data:`NATIVE_FEATURES`); a rig
+    running the pinned build, natively or as its image, names the build's RPC
+    protocol.
     """
-    roles = share.offered_roles()
+    roles = share.session_roles(report)
     if not roles:
         return protocol.Offer(
             roles=(),
@@ -2128,13 +2388,16 @@ def offer(
             sessions=running,
             features=(HITCHHIKE_FEATURE,),
         )
+    native = share.native_here()
+    pinned = native or share.image == llamacpp.IMAGE
     return protocol.Offer(
         roles=roles,
-        runtime=share.image,
+        runtime=llamacpp.RUNTIME if native else share.image,
         endpoints=tuple(
             (host, share.listen_port, endpoint_kind(host)) for host in hosts
         ),
         models=held.models if "head" in roles else (),
         sessions=running,
-        features=FEATURES,
+        features=NATIVE_FEATURES if native else FEATURES,
+        rpc_proto=PINNED_RPC_PROTO if pinned else None,
     )

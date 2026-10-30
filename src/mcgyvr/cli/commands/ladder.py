@@ -9,6 +9,7 @@ file, and the door does the switching.
 from __future__ import annotations
 
 import argparse
+import os
 import sys
 from collections.abc import Iterable, Mapping, Sequence
 from pathlib import Path
@@ -63,6 +64,36 @@ from mcgyvr.cli.sizing import _hosts_wanted, _model_specs
 from mcgyvr.serving.rigfile import recorded_scans, resolve_hosts
 
 
+def _native_status(host: str) -> int:
+    """Print one line per native unit this machine supervises, or has.
+
+    Only a name of this machine (`gatelib.LOCAL_RIGS`) is read here; a macOS
+    or Windows rig's native units are read through the door
+    (`python -m mcgyvr.serving.run read --host RIG`), and any other host is
+    refused.
+    """
+    from mcgyvr.serving import gatelib, native
+
+    if host not in gatelib.LOCAL_RIGS:
+        print(
+            f"error: {host} is not this machine; a rig's native units are "
+            "read through the door (`python -m mcgyvr.serving.run read --host "
+            f"{host}`)",
+            file=sys.stderr,
+        )
+        return Exit.REFUSED
+    rows = native.status()
+    if not rows:
+        print("no native unit on this machine")
+    for row in rows:
+        print(
+            f"{row['unit']}: {row['state']}, port {row['port']}, "
+            f"server pid {row['server_pid']}, {row['restarts']} restarts, "
+            f"{row['backend']}; log {row['log']}"
+        )
+    return Exit.OK
+
+
 def _serve(args: argparse.Namespace) -> int:
     """Put one card to sleep, or wake it, through the serving door.
 
@@ -71,6 +102,8 @@ def _serve(args: argparse.Namespace) -> int:
     and a card whose slots could not be drained for the sleep; a door that
     exited without switching the card is `Exit.ERROR`.
     """
+    if args.direction == "status":
+        return _native_status(args.host)
     try:
         config = load_config(Path(args.config) if args.config else None)
     except ConfigError as exc:
@@ -109,10 +142,15 @@ def _serve(args: argparse.Namespace) -> int:
         return Exit.REFUSED
 
     if not made.ok:
+        from mcgyvr.fleet.roots import data_home
+        from mcgyvr.serving.gatelib import DOOR_LOG
+
+        # The data folder is each system's own (and $MCGYVR_DATA's when set),
+        # so the log is named where it is, not where Linux keeps it.
         print(
             f"error: the door exited {made.code} on `serve {made.direction}` for "
             f"{made.host} — read its envelope in the door's log under "
-            f"~/.local/state/mcgyvr/door/",
+            f"{data_home() / DOOR_LOG}{os.sep}",
             file=sys.stderr,
         )
         return Exit.ERROR
@@ -516,11 +554,12 @@ def add_parser(sub: argparse._SubParsersAction[argparse.ArgumentParser]) -> None
     )
     srv.add_argument(
         "direction",
-        choices=("sleep", "wake"),
+        choices=("sleep", "wake", "status"),
         help=(
             "sleep drains every slot the card serves, then rests it at vLLM "
             "level 2 where every unit is vLLM and has the sleep route, and "
-            "stops it otherwise; wake brings it back the way it went"
+            "stops it otherwise; wake brings it back the way it went; status "
+            "lists the native units this machine (--host localhost) keeps up"
         ),
     )
     srv.add_argument(

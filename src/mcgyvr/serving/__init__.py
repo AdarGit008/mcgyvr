@@ -13,7 +13,8 @@ from typing import Any
 from urllib.parse import urlparse
 
 from mcgyvr import derived
-from mcgyvr.config import ROLE_SLEEPER, Config
+from mcgyvr.config import LAUNCHER_DOCKER, ROLE_SLEEPER, Config
+from mcgyvr.hubwire import shares_ram
 from mcgyvr.propose import DEFAULT_HEADROOM_GB
 from mcgyvr.scan import Gpu, Scan, default_weights_dir
 from mcgyvr.serving import vramfit
@@ -60,6 +61,14 @@ COMPOSE_SUFFIX = ".yml"
 #: leaves it down until something names the profile. This is how the
 #: `sleeps-until-needed` role reaches the rendered file.
 SLEEPER_PROFILE = "asleep"
+#: The service keys a launch spec carries for a native unit, beside the
+#: compose keys a native unit shares (`container_name`, `command`,
+#: `environment`, `profiles`, `depends_on`): which launcher runs it, the cards
+#: it is given, and the program in the pinned build it runs. The docker
+#: daemon never reads such a file; `servelib` hands it to `native` instead.
+LAUNCHER_KEY = "x-mcgyvr-launcher"
+CARDS_KEY = "x-mcgyvr-cards"
+PROGRAM_KEY = "x-mcgyvr-program"
 
 # Every character a host or model name may not carry into a file name:
 # each run of them collapses to one hyphen, so safe_host(), safe_model()
@@ -382,6 +391,9 @@ class Unit:
     #: emit.py mounts into a llama.cpp unit's container. None when the scan
     #: read no home, and for vLLM, whose units are not handed the store.
     kernel_cache: Path | None = None
+    #: How the process runs: in a container (`docker`), or as the pinned
+    #: llama.cpp binary mcgyvr supervises (`native`), as the unit states it.
+    launcher: str = LAUNCHER_DOCKER
 
     @property
     def cards(self) -> tuple[int, ...]:
@@ -450,7 +462,8 @@ def _sized(
     place it on the freest card, pick a loading mode, and return the Fit."""
     free_bytes = _free_vram_bytes(scan)
     free_vram = free_bytes / _BYTES_PER_GIB
-    available_ram = scan.memory.available_gb if scan.memory else 0.0
+    # Memory read as a total alone promises nothing free, as no memory does.
+    available_ram = (scan.memory.available_gb if scan.memory else None) or 0.0
 
     if spec.speculative == SPECULATIVE_MTP and not _mtp_head_blocks(spec):
         return Fit(fits=False, headroom_gb=DEFAULT_HEADROOM_GB, why=_no_mtp_head(spec))
@@ -498,6 +511,10 @@ def _sized(
     # unit_for() writes --load-mode into the argv only when it is set, so a
     # unit sized as mapped launches exactly as llama.cpp would by default
     # and one sized as unmapped says so on its command line.
+    # A card that shares the host's memory (a unified GPU) takes what it holds
+    # from that same memory, so the host side is weighed against what the card
+    # leaves; a card with memory of its own leaves the host's figure whole.
+    available_ram, shared = _host_left_gb(scan, available_ram, placed.vram_gb)
     load_mode: str | None = None
     if placed.ram_gb and spec.disk_gb + MODE_RAM_HEADROOM_GB > available_ram:
         if placed.ram_gb + REFUSAL_RAM_HEADROOM_GB > available_ram:
@@ -510,8 +527,8 @@ def _sized(
                     f"{REFUSAL_RAM_HEADROOM_GB:.1f} GB held back, or "
                     f"{spec.disk_gb:.1f} GB to hold its blob mapped with "
                     f"{MODE_RAM_HEADROOM_GB:.1f} GB held back, against "
-                    f"{available_ram:.1f} GB available. No loading mode "
-                    f"fits this host"
+                    f"{available_ram:.1f} GB available{shared}. No loading "
+                    f"mode fits this host"
                 ),
             )
         load_mode = "none"
@@ -784,6 +801,9 @@ def units_for(
     models: dict[UnitKey, ModelSpec] = {}
     widths: dict[UnitKey, int] = {}
     images: dict[UnitKey, str | None] = {}
+    #: How each process is run, by key: one process runs one way, so two
+    #: units behind one address that state different launchers are an error.
+    launchers: dict[UnitKey, str] = {}
     #: The context windows declared per process, by key: a window is
     #: stated per unit, so two units behind one address that state
     #: different ones are an error rather than a silent choice.
@@ -870,6 +890,12 @@ def units_for(
         hosts.setdefault(key, scan)
         models.setdefault(key, spec)
         images.setdefault(key, unit.image)
+        if launchers.setdefault(key, unit.launcher) != unit.launcher:
+            raise UnitError(
+                f"{name}: names the process {key.slug}, which another unit runs "
+                f"as {launchers[key]}; one process runs one way, not as "
+                f"{unit.launcher} too"
+            )
         if unit.width is not None:
             # Units naming one process may each state a width: the widest
             # wins, so the process is sized for the slots they all ask for.
@@ -913,8 +939,16 @@ def units_for(
                 ctx_per_slot=window,
             )
             return [
-                replace(head, rungs=tuple(rungs), image=images[key]),
-                *(replace(worker, image=images[key]) for worker in workers),
+                replace(
+                    head,
+                    rungs=tuple(rungs),
+                    image=images[key],
+                    launcher=launchers[key],
+                ),
+                *(
+                    replace(worker, image=images[key], launcher=launchers[key])
+                    for worker in workers
+                ),
             ]
         return [
             replace(
@@ -930,6 +964,7 @@ def units_for(
                     tuple(rungs),
                 ),
                 image=images[key],
+                launcher=launchers[key],
             )
         ]
 
@@ -1160,7 +1195,13 @@ def _shard_targets(name: str, declared: object, scans: Mapping[str, Scan]) -> li
                 f"{where}: {rig} has no card {gpu} in its scan (cards: {found})"
             )
         targets.append(
-            Target(host=rig, gpu=gpu, free_bytes=card.vram.free_mib << 20, bind=bind)
+            Target(
+                host=rig,
+                gpu=gpu,
+                free_bytes=card.vram.free_mib << 20,
+                bind=bind,
+                backend=card.backend,
+            )
         )
     return targets
 
@@ -1397,13 +1438,20 @@ def hold_together(units: Iterable[Unit], scans: Mapping[str, Scan]) -> tuple[str
                     f"have measured"
                 )
         memory = scan.memory
-        if memory is None:
-            # A scan with no host memory reading cannot say whether these
-            # units fit in RAM together; the card check above still stands,
-            # and nothing is guessed here about a figure nobody read.
+        if memory is None or memory.available_gb is None:
+            # A scan with no reading of available host memory cannot say
+            # whether these units fit in RAM together; the card check above
+            # still stands, and nothing is guessed about a figure nobody read.
             continue
         hungriest = sorted(up, key=lambda unit: unit.key.slug)
         wanted = sum(unit.fit.ram_gb for unit in hungriest)
+        on_unified = ""
+        if wanted and scan.gpus and shares_ram(_roomiest_gpu(scan).kind):
+            # On a unified GPU what the units hold on the card is host memory
+            # as well, so it is summed with what they hold beside it.
+            held = sum(unit.fit.vram_gb for unit in hungriest)
+            wanted += held
+            on_unified = f" with {held:.2f} GB they hold on the unified GPU"
         # The margin host memory is judged with: the same refusal headroom
         # _sized() holds back, because spilled experts are really allocated
         # in host RAM and must stay clear of what the OS needs.
@@ -1417,7 +1465,8 @@ def hold_together(units: Iterable[Unit], scans: Mapping[str, Scan]) -> tuple[str
             )
             raise UnitError(
                 f"{spec.host}: {listed} fit host memory one at a time and not "
-                f"together — {wanted:.2f} GB summed with {margin:.1f} GB held "
+                f"together — {wanted:.2f} GB summed{on_unified} with "
+                f"{margin:.1f} GB held "
                 f"back, against "
                 f"{memory.available_gb:.2f} GB available. Serve one of them "
                 f"from another host, drop one, or narrow a window"
@@ -1734,6 +1783,24 @@ def _free_vram_bytes(scan: Scan) -> int:
     return max(gpu.vram.free_mib for gpu in scan.gpus) << 20
 
 
+def _host_left_gb(
+    scan: Scan, available_gb: float, on_card_gb: float
+) -> tuple[float, str]:
+    """The host memory left beside a unit, in GiB, and how it was reckoned.
+
+    A unit sits on the roomiest card. When that card shares the host's memory
+    (`hubwire.shares_ram`: a unified GPU), what the unit holds on it comes out
+    of the host's available memory, so that memory is counted once; otherwise
+    the available figure is returned as it is, with an empty note."""
+    if not scan.gpus or not shares_ram(_roomiest_gpu(scan).kind):
+        return available_gb, ""
+    left = max(0.0, available_gb - on_card_gb)
+    return left, (
+        f" (the {on_card_gb:.1f} GB on the unified GPU taken from the host's "
+        f"{available_gb:.1f} GB)"
+    )
+
+
 def _remaining_scan(scan: Scan, claim_gb: float) -> Scan:
     """The scan with another unit's claim subtracted from its roomiest card, so what is
     sized against it afterwards sees what is left."""
@@ -1754,7 +1821,13 @@ def _remaining_scan(scan: Scan, claim_gb: float) -> Scan:
             free_mib=gpu.vram.free_mib - taken,
         ),
     )
-    return replace(scan, gpus=tuple(gpus))
+    memory = scan.memory
+    if shares_ram(gpu.kind) and memory is not None and memory.available_gb is not None:
+        # A unified GPU's memory is the host's: the claim leaves the host too.
+        memory = replace(
+            memory, available_gb=max(0.0, memory.available_gb - taken / 1024)
+        )
+    return replace(scan, gpus=tuple(gpus), memory=memory)
 
 
 def _allowance_gb(spec: ModelSpec) -> float:

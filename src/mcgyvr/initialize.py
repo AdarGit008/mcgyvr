@@ -39,6 +39,7 @@ from mcgyvr.config import (
     GATE_FIELDS,
     JEV_FIELDS,
     JOURNAL_FIELDS,
+    LAUNCHER_NATIVE,
     LOCAL_ONLY,
     MCGYVR_CODE,
     ORCHESTRATOR_FIELDS,
@@ -49,6 +50,7 @@ from mcgyvr.config import (
     Config,
     ConfigError,
     Field,
+    default_launcher,
     local_orchestrator,
 )
 from mcgyvr.config import load as load_config
@@ -59,6 +61,7 @@ from mcgyvr.detect import (
     PORT_CONVENTIONS,
     Detection,
     detect,
+    host_system,
     is_local_host,
     targets_for,
 )
@@ -604,6 +607,17 @@ def build(
             unit["window"] = backend.window
         if backend is not None and backend.kind == "vllm":
             unit["engine"] = "vllm"
+        if backend is not None and (
+            default_launcher(
+                engine=unit.get("engine"),
+                system=host_system(backend.host),
+            )
+            == LAUNCHER_NATIVE
+        ):
+            # A llama.cpp unit on a macOS or Windows machine (this one, or a rig
+            # its rig file records) runs as the pinned native build; a
+            # container there reaches no GPU.
+            unit["launcher"] = LAUNCHER_NATIVE
         unit["rig"] = _rig_name(backend, rung.source)
         units[rung.name] = unit
     for api in api_units:

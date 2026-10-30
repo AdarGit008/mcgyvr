@@ -18,6 +18,7 @@ from dataclasses import dataclass, replace
 from pathlib import Path
 
 from mcgyvr.serving import ROLE_HEADLESS, ROLE_RPC, ROLE_SERVE
+from mcgyvr.serving.llamacpp import worker_may_listen as worker_may_listen
 from mcgyvr.serving.sharding import (
     LLAMACPP_ENGINE,
     VLLM_ENGINE,
@@ -131,16 +132,6 @@ def _pinned() -> dict[str, str]:
     return {DEVICE_ORDER_ENV: DEVICE_ORDER_BUS}
 
 
-def worker_may_listen(address: ipaddress.IPv4Address) -> bool:
-    """Whether a worker on another machine may bind this address.
-
-    rpc-server has no authentication, so the address must be one the head
-    reaches that worker at and nothing wider: not every interface, not
-    loopback, and not an address the internet can reach.
-    """
-    return not (address.is_unspecified or address.is_loopback or address.is_global)
-
-
 def _bind(target: Target, *, model: str) -> str:
     """The IPv4 literal a worker on this card's machine listens on for the head.
 
@@ -171,11 +162,17 @@ def _bind(target: Target, *, model: str) -> str:
             f"machine must listen on the one address the head reaches it at, "
             f"never every interface and never loopback; state it as `bind`"
         )
+    bridge = (
+        " (a Mac's Thunderbolt Bridge assigns itself a 169.254 address: give "
+        "the bridge a private address)"
+        if address.is_link_local
+        else ""
+    )
     raise LaunchError(
-        f"{model}: {where} would bind {stated}, an address reachable from "
-        f"the internet, and rpc-server has no authentication: anyone who "
+        f"{model}: {where} would bind {stated}, not a private or overlay "
+        f"network address, and rpc-server has no authentication: anyone who "
         f"reaches it can use the card. Bind a private or overlay-network "
-        f"address the head reaches it at"
+        f"address the head reaches it at{bridge}"
     )
 
 

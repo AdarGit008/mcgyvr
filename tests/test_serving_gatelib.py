@@ -451,12 +451,13 @@ def _shipped_reader_blob() -> str:
 
 
 def _shipped_scan_blob() -> str:
-    """The base64 payload the read line ships, from the one reader."""
+    """The base64 payload the read line ships: the one reader, assembled and
+    packed."""
     import base64
 
-    from mcgyvr.serving import rigscan
+    from mcgyvr.serving import shipped
 
-    return base64.b64encode(Path(rigscan.__file__).read_bytes()).decode("ascii")
+    return base64.b64encode(shipped.packed(shipped.reader())).decode("ascii")
 
 
 def test_read_only_command_admits_the_scan_and_discovery_shapes() -> None:
@@ -468,6 +469,16 @@ def test_read_only_command_admits_the_scan_and_discovery_shapes() -> None:
         "find /models/store -maxdepth 1 -name '*.gguf' -print"
     )
     assert not gatelib._read_only_command("mcgyvr scan --json")
+
+
+def test_a_discovery_folder_find_would_read_as_an_expression_is_refused() -> None:
+    from mcgyvr import recommend
+
+    assert not gatelib._read_only_command(
+        "find '-delete' -maxdepth 1 -name '*.gguf' -print"
+    )
+    with pytest.raises(recommend.RecommendError, match="starting with '-'"):
+        recommend.discover_command("-delete")
 
 
 def test_scan_read_command_is_the_sanctioned_shape() -> None:

@@ -391,7 +391,11 @@ def add_parser(sub: argparse._SubParsersAction[argparse.ArgumentParser]) -> None
         type=float,
         default=None,
         metavar="GB",
-        help="show only models that fit this much VRAM with working headroom",
+        help=(
+            "show only models that fit this much VRAM with working headroom; "
+            "for a unified-memory GPU, the memory it may use, as `mcgyvr "
+            "detect` states it (an estimate)"
+        ),
     )
     caps.set_defaults(func=_capabilities)
 

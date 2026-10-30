@@ -102,7 +102,11 @@ def test_a_hello_offers_only_while_the_rig_lends(tmp_path: Path) -> None:
 
     held = fakes.inventory(tmp_path)
     off = session.offer(
-        fakes.sharing(tmp_path, enabled=False), held, (fakes.LAN_ADDRESS,), ()
+        fakes.sharing(tmp_path, enabled=False),
+        held,
+        (fakes.LAN_ADDRESS,),
+        (),
+        fakes.report(),
     )
     # A rig that lends nothing offers no role, endpoint or model; it still
     # names the shared units' feature, so the hub takes its adverts whenever
@@ -115,7 +119,9 @@ def test_a_hello_offers_only_while_the_rig_lends(tmp_path: Path) -> None:
         sessions=(),
         features=(session.HITCHHIKE_FEATURE,),
     )
-    on = session.offer(fakes.sharing(tmp_path), held, (fakes.LAN_ADDRESS,), ("s1",))
+    on = session.offer(
+        fakes.sharing(tmp_path), held, (fakes.LAN_ADDRESS,), ("s1",), fakes.report()
+    )
     assert on == protocol.Offer(
         roles=("head", "worker"),
         runtime="engine:rpc",
@@ -125,7 +131,11 @@ def test_a_hello_offers_only_while_the_rig_lends(tmp_path: Path) -> None:
         features=session.FEATURES,
     )
     worker_only = session.offer(
-        fakes.sharing(tmp_path, roles=("worker",)), held, (fakes.LAN_ADDRESS,), ()
+        fakes.sharing(tmp_path, roles=("worker",)),
+        held,
+        (fakes.LAN_ADDRESS,),
+        (),
+        fakes.report(),
     )
     assert worker_only is not None and worker_only.models == ()
     frame = json.loads(
@@ -223,3 +233,38 @@ def test_a_card_is_lent_whole_and_the_cap_that_was_is_read_with_a_note(
     with pytest.raises(SystemExit):
         cli.main(["rig", "share", "--max-vram-mb", "4000"])
     assert "--max-vram-mb" in capsys.readouterr().err
+
+
+def test_a_mac_shares_natively_without_an_image_and_offers_the_head_alone(
+    tmp_path: Path,
+    capsys: pytest.CaptureFixture[str],
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    from mcgyvr import cli
+    from mcgyvr.rig import sharing
+    from tests.native_pool_fakes import as_native_system
+
+    as_native_system(monkeypatch, "darwin")
+    models = tmp_path / "models"
+    models.mkdir()
+    code = cli.main(
+        [
+            "rig",
+            "share",
+            "--on",
+            "--launcher",
+            "native",
+            "--roles",
+            "worker,head",
+            "--models",
+            str(models),
+            "--endpoints",
+            fakes.LAN_ADDRESS,
+        ]
+    )
+    assert code == 0
+    kept = sharing.load()
+    assert kept.launcher == "native" and kept.image is None
+    said = capsys.readouterr().out
+    assert "roles:   head\n" in said
+    assert "launcher native" in said

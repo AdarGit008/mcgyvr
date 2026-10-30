@@ -1,7 +1,8 @@
 """Runs the product's one machine reader over an invented machine.
 
 The reader, ``src/mcgyvr/serving/rigscan.py``, is run as the door ships it:
-``python3 -I -B -`` with the source on stdin, asked for its short reading
+``python3 -I -B -`` with the assembled program (``mcgyvr.serving.shipped``) on
+stdin, asked for its short reading
 (``--cards``). Here its PATH holds only stub card tools and traps for six
 commands that raise rights or read what only raised rights may
 (:data:`ELEVATION`). Every file it reads (sysfs, the machine-id files, the
@@ -50,13 +51,32 @@ from pathlib import Path
 from typing import Any
 
 from tests._paths import REPO as REPO
-from tests.machine_shapes import Card, Shape, card_reader_text
+from tests.machine_shapes import (
+    PCI_VENDOR_IDS,
+    Card,
+    HostShape,
+    Shape,
+    card_reader_text,
+    device_id,
+    host_files,
+    host_tools,
+)
 
 READER = REPO / "src" / "mcgyvr" / "serving" / "rigscan.py"
+
+
+def shipped_reader() -> bytes:
+    """The reader as the door ships it: assembled with the modules it imports and
+    packed (``mcgyvr.serving.shipped``), so a run here imports nothing installed."""
+    from mcgyvr.serving import shipped
+
+    return shipped.packed(shipped.reader())
+
 
 #: The environment variables the reader takes, for tests only.
 ROOT_VARIABLE = "MCGYVR_TEST_MACHINE_ROOT"
 SECONDS_VARIABLE = "MCGYVR_TEST_TOOL_SECONDS"
+SYSTEM_VARIABLE = "MCGYVR_TEST_MACHINE_OS"
 
 FIRST_TOOL = "nvidia-smi"
 SECOND_TOOL = "rocm-smi"
@@ -71,7 +91,9 @@ SECOND_TOOL_CARDS = ("--showproductname", "--showmeminfo", "vram", "--json")
 #: The vendor label the reading gives a card read by its vendor's tool, and
 #: the vendor id sysfs gives it.
 TOOL_VENDOR: Mapping[str, str] = {"vendor-a": "nvidia", "vendor-b": "amd"}
-PCI_VENDOR: Mapping[str, str] = {"vendor-a": "0x10de", "vendor-b": "0x1002"}
+PCI_VENDOR: Mapping[str, str] = {
+    vendor: f"0x{pci.lower()}" for vendor, pci in PCI_VENDOR_IDS.items()
+}
 
 #: Commands that raise rights or read what only raised rights may; each is a
 #: trap on the reader's PATH that records being called.
@@ -128,6 +150,18 @@ class Staged:
     hostname: str | bytes | None = "box-1.example"
     tool_seconds: int | None = None
     environment: Mapping[str, str] = field(default_factory=dict)
+    #: The system the reader is told to read the machine as (None: its own).
+    system: str | None = None
+    #: Further stub tools: name, then each exact argument list (as one string)
+    #: with what the tool prints and its exit status; any other question is
+    #: recorded as unexpected.
+    tools: Mapping[str, Mapping[str, tuple[bytes, int]]] = field(default_factory=dict)
+    #: Stub tools kept outside PATH: a path under the run's folder, and the name of
+    #: the tool in ``tools`` it answers as. ``{where}`` in an ``environment``
+    #: value is the run's folder, so a variable can point the reader there.
+    placed: Mapping[str, str] = field(default_factory=dict)
+    #: Further files under the fake root, by their absolute path on the machine.
+    files: Mapping[str, str] = field(default_factory=dict)
 
 
 @dataclass(frozen=True, kw_only=True)
@@ -143,7 +177,7 @@ class Ran:
 
 
 def _device_id(name: str) -> str:
-    return "0x" + hashlib.sha256(name.encode("utf-8")).hexdigest()[:4]
+    return "0x" + device_id(name)
 
 
 def _second_tool_used_mib(card: Card) -> int:
@@ -249,7 +283,7 @@ def _program(name: str) -> str:
 
 
 _STUB_HEAD = """#!{bash}
-here={here}
+here='{here}'
 say() {{ {cat} "$here/$1.out"; read -r s < "$here/$1.exit"; exit "$s"; }}
 odd() {{ printf '%s %s\\n' "${{0##*/}}" "$*" >> "$here/unexpected.log"; exit 97; }}
 """
@@ -273,6 +307,10 @@ if [ "$*" = "{cards}" ]; then say cards; fi
 odd "$@"
 """
 
+_TABLE_STUB_CASE = """
+if [ "$*" = "{arguments}" ]; then say {key}; fi
+"""
+
 _TRAP = """#!{bash}
 printf '%s %s\\n' "{name}" "$*" >> {log}
 exit 1
@@ -290,6 +328,21 @@ def _stub(
     script = folder / name
     script.write_text(head + prelude + body.replace("{cat}", _program("cat")), "utf-8")
     script.chmod(0o755)
+
+
+def _table_stub(
+    folder: Path, name: str, table: Mapping[str, tuple[bytes, int]]
+) -> None:
+    """A stub tool that answers each argument list of ``table`` and records any
+    other question as unexpected."""
+    body = "".join(
+        _TABLE_STUB_CASE.format(arguments=arguments, key=f"a{number}")
+        for number, arguments in enumerate(table)
+    )
+    answers = {f"a{n}": text for n, (text, _) in enumerate(table.values())}
+    _stub(folder, name, body + 'odd "$@"\n', answers)
+    for number, (_, status) in enumerate(table.values()):
+        _exit(folder, name, f"a{number}", status)
 
 
 def _exit(folder: Path, name: str, key: str, status: int) -> None:
@@ -330,6 +383,15 @@ def _set_out(
             {"cards": staged.second_tool},
         )
         _exit(stubs, SECOND_TOOL, "cards", staged.second_tool_exit)
+    for name, table in staged.tools.items():
+        if name not in staged.placed.values():
+            _table_stub(stubs, name, table)
+    for place, name in staged.placed.items():
+        folder = stubs.parent / Path(place).parent
+        folder.mkdir(parents=True, exist_ok=True)
+        _table_stub(folder, Path(place).name, staged.tools[name])
+    for path, text in staged.files.items():
+        _write(root / path.lstrip("/"), text)
     for card in staged.sysfs:
         device = root / "sys" / "class" / "drm" / f"card{card.number}" / "device"
         if card.vendor is not None:
@@ -367,7 +429,14 @@ def reader_env(where: Path, staged: Staged) -> dict[str, str]:
     }
     if staged.tool_seconds is not None:
         env[SECONDS_VARIABLE] = str(staged.tool_seconds)
-    env.update(staged.environment)
+    if staged.system is not None:
+        env[SYSTEM_VARIABLE] = staged.system
+    env.update(
+        {
+            name: value.replace("{where}", str(where))
+            for name, value in staged.environment.items()
+        }
+    )
     return env
 
 
@@ -378,13 +447,15 @@ def run(
     *,
     give_up_after: float = 60,
     command: tuple[str, ...] | None = None,
+    source: bytes | None = None,
 ) -> Ran:
     """Run the reader over ``staged``, in fresh folders under ``where``.
 
     After ``give_up_after`` seconds the reader and everything it started are
     killed, and what it printed so far is returned. ``command`` runs another
     command than ``python3 -I -B - --cards`` (for example one that traces it),
-    with the source still on its standard input.
+    with the program still on its standard input; ``source`` hands it other
+    bytes than the program the door ships.
     """
     stubs = where / "stubs"
     programs = where / "programs"
@@ -405,14 +476,16 @@ def run(
     )
     gave_up = False
     try:
-        out, err = process.communicate(READER.read_bytes(), timeout=give_up_after)
+        out, err = process.communicate(
+            shipped_reader() if source is None else source, timeout=give_up_after
+        )
     except subprocess.TimeoutExpired:
         gave_up = True
         os.killpg(process.pid, signal.SIGKILL)
         out, err = process.communicate()
     unexpected = [
         line
-        for path in sorted(stubs.glob(".*/unexpected.log"))
+        for path in sorted(where.glob("**/.*/unexpected.log"))
         for line in path.read_text("utf-8").splitlines()
     ]
     elevated = log.read_text("utf-8").splitlines() if log.exists() else []
@@ -564,6 +637,55 @@ def expected_unsized(shape: Shape, /) -> tuple[str, ...]:
             continue
         found.append((TOOL_VENDOR[card.vendor], number))
     return tuple(f"card.{vendor}.{index}" for vendor, index in sorted(found))
+
+
+#: Where an invented Windows machine keeps nvidia-smi.exe outside PATH, under the
+#: run's folder, and the variable that names that folder's root.
+_CARD_TOOL_FOLDERS: Mapping[str, tuple[str, str]] = {
+    "system32": ("windows/System32", "SYSTEMROOT"),
+    "nvsmi": ("program-files/NVIDIA Corporation/NVSMI", "PROGRAMFILES"),
+}
+#: Where Windows keeps its own tools, which the reader calls by full path.
+_SYSTEM_TOOLS: Mapping[str, str] = {
+    "reg": "windows/System32/reg.exe",
+    "powershell": "windows/System32/WindowsPowerShell/v1.0/powershell.exe",
+}
+
+
+def stage_host(machine: HostShape, /) -> Staged:
+    """An invented machine with its system, set out as the reader will find it:
+    every tool of :func:`tests.machine_shapes.host_tools` a stub (on PATH, or on
+    Windows where Windows keeps it, under ``SYSTEMROOT`` and the vendor's
+    folder), and every file of :func:`tests.machine_shapes.host_files` under the
+    root."""
+    tables: dict[str, dict[str, tuple[bytes, int]]] = {}
+    for argv, (text, status) in host_tools(machine).items():
+        tables.setdefault(argv[0], {})[" ".join(argv[1:])] = (
+            text.encode("utf-8"),
+            status,
+        )
+    placed: dict[str, str] = {}
+    environment: dict[str, str] = {}
+    if machine.system == "windows":
+        environment["SYSTEMROOT"] = "{where}/windows"
+        for name, place in _SYSTEM_TOOLS.items():
+            if name in tables:
+                placed[place] = name
+        folder = _CARD_TOOL_FOLDERS.get(machine.card_tool)
+        if FIRST_TOOL in tables:
+            relative, variable = folder or ("stubs", "")
+            placed[f"{relative}/nvidia-smi.exe"] = FIRST_TOOL
+            if variable and variable != "SYSTEMROOT":
+                environment[variable] = "{where}/" + relative.split("/")[0]
+    return Staged(
+        machine_id_file=None,
+        hostname=None,
+        system=machine.system,
+        tools=tables,
+        placed=placed,
+        environment=environment,
+        files=host_files(machine),
+    )
 
 
 def replace(staged: Staged, /, **changes: Any) -> Staged:

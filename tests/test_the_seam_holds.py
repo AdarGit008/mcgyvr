@@ -91,7 +91,8 @@ from tests.wheels import (
 #: (availability, capacity, cooldown), a sandbox to run a command in
 #: (sandbox.*), the docker probe that decides which sandbox mode is available
 #: (detect), what the hardware measures and what that is worth running
-#: (scan, capability, propose, initialize), what is known about a model
+#: (scan, capability, propose, initialize), how fast a device is estimated
+#: to decode before a unit of it is measured (estimate), what is known about a model
 #: before it is downloaded (knowledge.*), a serving unit to write out and
 #: launch (emit, serving.*), whether a card that is down is asleep and how it
 #: is woken (wake), the per-user temporary directories those keep their
@@ -111,6 +112,7 @@ BELOW_THE_SEAM: tuple[str, ...] = (
     "mcgyvr.derived",
     "mcgyvr.detect",
     "mcgyvr.emit",
+    "mcgyvr.estimate",
     "mcgyvr.fleet",
     "mcgyvr.fleet.admission",
     "mcgyvr.fleet.admit",
@@ -162,8 +164,11 @@ BELOW_THE_SEAM: tuple[str, ...] = (
     "mcgyvr.rig.tensorcache",
     "mcgyvr.rig.tunnel",
     "mcgyvr.rig.udpwire",
+    "mcgyvr.rig.userwg",
     "mcgyvr.rig.verbs",
     "mcgyvr.rig.websocket",
+    "mcgyvr.rig.wghelper",
+    "mcgyvr.rig.wgpin",
     "mcgyvr.runner",
     "mcgyvr.sandbox",
     "mcgyvr.sandbox.base",
@@ -180,7 +185,13 @@ BELOW_THE_SEAM: tuple[str, ...] = (
     "mcgyvr.serving.ggufscan",
     "mcgyvr.serving.interconnect",
     "mcgyvr.serving.kernelcache",
+    "mcgyvr.serving.leasefile",
     "mcgyvr.serving.linktime",
+    "mcgyvr.serving.llamacpp",
+    "mcgyvr.serving.localrig",
+    "mcgyvr.serving.native",
+    "mcgyvr.serving.nativerig",
+    "mcgyvr.serving.release",
     "mcgyvr.serving.rigfile",
     "mcgyvr.serving.rigread",
     "mcgyvr.serving.rigscan",
@@ -188,6 +199,7 @@ BELOW_THE_SEAM: tuple[str, ...] = (
     "mcgyvr.serving.safetensorscan",
     "mcgyvr.serving.servelib",
     "mcgyvr.serving.sharding",
+    "mcgyvr.serving.shipped",
     "mcgyvr.serving.shardlaunch",
     "mcgyvr.serving.vramfit",
     "mcgyvr.userdir",

@@ -47,7 +47,7 @@ READS_NO_CONFIG = {
 }
 
 #: Aliases are the same command under a second name, not a second command.
-_ALIASES = {"caps": "capabilities"}
+_ALIASES = {"caps": "capabilities", "lend": "share"}
 
 FLEET = """\
 units:

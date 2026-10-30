@@ -1,4 +1,5 @@
-"""Ask the hub for the relief rungs this setup may ride, and keep them written.
+"""Ask the hub for the relief rungs this setup may ride, and keep them written;
+ask it for the member's balance with the same key.
 
 A relief rung is a unit other people lend you through the hub (hitchhike): it
 is a step of the ladder only where you name it there, so all this module does
@@ -20,6 +21,8 @@ answers with.
 * :class:`Refresher` re-runs a sync off the rig agent's heartbeat, no more
   often than the hub's ``refresh_s``, and once every ``RETRY_S`` after a
   failure.
+* :func:`balance` asks ``CREDITS_PATH`` for the member's credits, through the
+  same :func:`ask` a sync posts with.
 """
 
 from __future__ import annotations
@@ -27,6 +30,7 @@ from __future__ import annotations
 import json
 import math
 import os
+import re
 import sys
 import threading
 import time
@@ -66,6 +70,13 @@ from mcgyvr.rig.verbs import AGENT_PATH, _RefusalError, hub_address
 
 #: The hub's rider API path, taken on the hub's own address and not on a rung's.
 RUNGS_PATH = "/api/v1/me/rungs"
+#: The member's balance and ledger on the hub, asked with the same key.
+CREDITS_PATH = "/api/v1/me/credits"
+#: Most bytes of the credits answer read: a balance and the latest entries.
+MAX_CREDITS_BYTES = 64 * 1024
+#: A balance as the hub writes one: an exact decimal, at most this long.
+MAX_BALANCE = 40
+BALANCE = re.compile(rf"(?=.{{1,{MAX_BALANCE}}}$)-?[0-9]+(\.[0-9]+)?")
 #: The variable name a sync reads the rider's personal hub key from.
 KEY_ENV = "MCGYVR_HUB_API_KEY"
 #: What the address check names as the credential that would travel in clear.
@@ -338,14 +349,16 @@ def ask(
     body: Mapping[str, Any] | None = None,
     headers: Mapping[str, str] | None = None,
     timeout: float = FETCH_TIMEOUT_S,
+    most: int = MAX_ANSWER_BYTES,
 ) -> object:
     """Ask the hub at ``url`` and return its answer, parsed as JSON.
 
     ``body`` is POSTed as JSON; with none the request is a GET. ``headers`` go
     beside the key, which travels in an ``Authorization: Bearer`` header, never
     in the URL, and a redirect is not followed. :class:`HubAnswerError` covers
-    a refusal status, an answer over ``MAX_ANSWER_BYTES`` and a body that is not
-    JSON; :class:`SyncError` covers a hub that could not be reached at all.
+    a refusal status, an answer over ``most`` bytes (``MAX_ANSWER_BYTES`` unless
+    said) and a body that is not JSON; :class:`SyncError` covers a hub that
+    could not be reached at all.
     """
     sent = {"Authorization": f"Bearer {key}", "Accept": "application/json"}
     if body is not None:
@@ -359,22 +372,31 @@ def ask(
     opener = urllib.request.build_opener(_NoRedirect)
     try:
         with opener.open(request, timeout=timeout) as response:
-            raw: bytes = response.read(MAX_ANSWER_BYTES + 1)
+            raw: bytes = response.read(most + 1)
     except urllib.error.HTTPError as exc:
         raise HubAnswerError(
             f"the hub refused: {url} answered HTTP {exc.code}"
         ) from exc
     except (OSError, ValueError) as exc:
         raise SyncError(f"the hub at {hub} could not be reached: {exc}") from exc
-    if len(raw) > MAX_ANSWER_BYTES:
-        raise HubAnswerError(
-            f"the hub's answer is refused: it is over {MAX_ANSWER_BYTES} bytes"
-        )
+    if len(raw) > most:
+        raise HubAnswerError(f"the hub's answer is refused: it is over {most} bytes")
     try:
         document: object = json.loads(raw.decode("utf-8"))
     except (UnicodeError, ValueError, RecursionError) as exc:
         raise HubAnswerError("the hub's answer is refused: it is not JSON") from exc
     return document
+
+
+def balance(hub: str, key: str) -> str:
+    """The member's credits as the hub states them (``CREDITS_PATH``): an
+    exact decimal of at most ``MAX_BALANCE`` characters, or
+    :class:`HubAnswerError` for anything else."""
+    document = ask(hub_url(hub, CREDITS_PATH), hub, key, most=MAX_CREDITS_BYTES)
+    said = document.get("balance") if isinstance(document, dict) else None
+    if not isinstance(said, str) or not BALANCE.fullmatch(said):
+        raise refused("balance", "is not a decimal number of credits")
+    return said
 
 
 def refused(where: str, why: str) -> HubAnswerError:
