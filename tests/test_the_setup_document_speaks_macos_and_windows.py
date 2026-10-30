@@ -166,7 +166,7 @@ def test_the_serving_names_docgen_states_are_the_modules_own() -> None:
     assert docgen.NATIVE_BACKENDS == llamacpp.BACKENDS
     assert native.BIN.as_posix() == docgen.NATIVE_BIN
     assert docgen.NATIVE_BACKEND_ENV == native.BACKEND_ENV
-    assert docgen.NVIDIA_SMI_EXE == native.NVIDIA_SMI_EXE
+    assert docgen.NVIDIA_SMI_EXE == hostos.NVIDIA_SMI_EXE
     assert docgen.WEIGHTS_DIR_ENV == fetcher.WEIGHTS_DIR_ENV
     assert docgen.LOCAL_TRANSPORT_ENV == gatelib.LOCAL_TRANSPORT_ENV
     assert gatelib.SSHD[1] == docgen.SSHD_PORT

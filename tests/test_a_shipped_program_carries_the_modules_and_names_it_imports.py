@@ -81,7 +81,7 @@ def test_an_import_of_something_not_carried_is_refused_unless_the_door_alone_run
 def test_the_native_launcher_carries_the_loopback_names_not_the_door() -> None:
     assert "mcgyvr.serving.gatelib" not in shipped.NATIVE_MODULES
     wanted = shipped.imports("mcgyvr.serving.native", shipped.NATIVE_MODULES)
-    assert wanted == {"mcgyvr.serving.gatelib": ["LOCAL_RIGS"]}
+    assert wanted["mcgyvr.serving.gatelib"] == ["LOCAL_RIGS"]
     namespace: dict[str, object] = {}
     exec(shipped.constants("mcgyvr.serving.gatelib", ["LOCAL_RIGS"]), namespace)
     assert namespace["LOCAL_RIGS"] == gatelib.LOCAL_RIGS

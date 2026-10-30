@@ -78,17 +78,8 @@ from typing import Any
 # (the compose file's yaml, the config's and the launch spec's names) is
 # imported where it is used.
 from mcgyvr import hostos
-from mcgyvr.config import LAUNCHER_NATIVE
 from mcgyvr.hubwire import FIGURE_READING
-from mcgyvr.serving import (
-    CARDS_KEY,
-    LAUNCHER_KEY,
-    PROGRAM_KEY,
-    SLEEPER_PROFILE,
-    llamacpp,
-    release,
-    rigscan,
-)
+from mcgyvr.serving import llamacpp, release, rigscan
 
 #: The folders under the data folder: supervisors' locks, specs and records;
 #: the units' logs.
