@@ -31,11 +31,11 @@ from collections.abc import Mapping, Sequence
 from dataclasses import dataclass
 from typing import Any
 
-from mcgyvr import availability, decision, estimate, hostos
+from mcgyvr import availability, decision, estimate
 from mcgyvr import scan as scan_module
 from mcgyvr.config import DEFAULT_REQUEST_TIMEOUT_S, default_launcher
 from mcgyvr.decision import Choice, ChoiceAnswer
-from mcgyvr.detect import is_local_host
+from mcgyvr.detect import host_system
 from mcgyvr.fleet import lock as fleet_lock
 from mcgyvr.hubwire import FIGURE_ESTIMATE, USE_CASE_CATEGORY, shares_ram
 from mcgyvr.knowledge import geometry as geometry_rows
@@ -142,6 +142,11 @@ def discover_command(directory: str) -> str:
             "a model-store directory with an embedded single quote cannot be "
             "read read-only"
         )
+    if directory.startswith("-"):
+        raise RecommendError(
+            f"a model-store directory starting with '-' ({directory!r}) is read "
+            "by find as an expression, not a folder; name it with ./ or a path"
+        )
     return f"find '{directory}'{_DISCOVER_SUFFIX}"
 
 
@@ -211,10 +216,14 @@ def _read_header(host: str, path: str) -> Mapping[str, Any]:
     raises `RecommendError`, as does a header reporting its own `error`.
     """
     try:
-        command = gatelib.header_read_command(path)
+        sent = gatelib.header_read(scan_module.shipping_os(host), path)
     except ValueError as exc:
         raise RecommendError(str(exc)) from exc
-    listing = scan_module._ssh(host, command)
+    listing = (
+        scan_module._ssh(host, sent.command, sent.stdin)
+        if sent.stdin is not None
+        else scan_module._ssh(host, sent.command)
+    )
     try:
         rows = json.loads(listing)
     except json.JSONDecodeError as exc:
@@ -243,7 +252,11 @@ def _discover(host: str, directory: str) -> tuple[str, ...]:
     local candidates instead of failing the whole plan.
     """
     try:
-        listing = scan_module._ssh(host, discover_command(directory))
+        if scan_module.shipping_os(host) == gatelib.WINDOWS:
+            sent = gatelib.windows_discover(directory)
+            listing = scan_module._ssh(host, sent.command, sent.stdin)
+        else:
+            listing = scan_module._ssh(host, discover_command(directory))
     except ScannerMissing:
         return ()
     return tuple(
@@ -732,9 +745,8 @@ def _placement_document(
         # How the unit setup writes for this placement runs (docker on Linux;
         # native for llama.cpp on this macOS or Windows machine).
         "launcher": default_launcher(
-            local=is_local_host(candidate.host),
             engine=candidate.engine,
-            system=hostos.os_name(),
+            system=host_system(candidate.host),
         ),
         "checkpoint": candidate.checkpoint,
         "model_id": candidate.model_id,

@@ -32,10 +32,9 @@ import socket
 import stat
 import subprocess
 import sys
-import zlib
 from collections.abc import Callable
 from dataclasses import dataclass, replace
-from datetime import UTC, datetime
+from datetime import datetime, timezone
 from pathlib import Path
 from typing import NoReturn
 
@@ -307,10 +306,11 @@ def mint_proof() -> tuple[str, Path]:
 def _sweep_proofs(folder: Path) -> None:
     """Remove the proofs of doors that ended without removing their own."""
     from mcgyvr import hostos
+    from mcgyvr.serving.leasefile import read_nofollow
 
     for old in folder.iterdir():
         try:
-            body = json.loads(_read_nofollow(old))
+            body = json.loads(read_nofollow(old))
             pid = body["pid"]
             alive = (
                 isinstance(pid, int)
@@ -455,13 +455,16 @@ def ssh(
     timeout: float | None = 120.0,
     *,
     input: str | None = None,
+    keepalive: bool = False,
 ) -> subprocess.CompletedProcess[str]:
     """Run `command` on `host` over ssh, once the door has admitted the host.
 
     `BatchMode=yes` keeps the call from prompting for a password nobody is there
     to give, `ConnectTimeout=10` bounds the connect itself, and `timeout` bounds
-    the whole call. `input` is fed to the remote command's stdin, and the exit
-    status is left to the caller (`check=False`).
+    the whole call. `keepalive` (for a call with no time bound) has ssh end a
+    connection the rig stopped answering (`KEEPALIVE`), rather than hold the
+    door and the lease forever. `input` is fed to the remote command's stdin,
+    and the exit status is left to the caller (`check=False`).
     """
     _admit(f"ssh to {host}", host)
     if local_transport(host):
@@ -475,6 +478,7 @@ def ssh(
             "BatchMode=yes",
             "-o",
             "ConnectTimeout=10",
+            *(KEEPALIVE if keepalive else ()),
             host,
             command,
         ],
@@ -486,6 +490,97 @@ def ssh(
     )
 
 
+#: The ssh options that end a connection whose far side stopped answering: a
+#: probe every 30 s, given up after 4 unanswered (two minutes).
+KEEPALIVE = ("-o", "ServerAliveInterval=30", "-o", "ServerAliveCountMax=4")
+
+
+# What a rig's shell is, and how a program is shipped to it. Linux and macOS
+# take the POSIX line; Windows (OpenSSH, whose shell is cmd.exe unless set to
+# PowerShell) takes a PowerShell command that writes the program out and runs
+# it on the Python it finds. A rig's first contact sends the POSIX reader, as it
+# always did, so a Linux or macOS rig is asked nothing more; a rig that cannot
+# run it is asked the PowerShell question (`PROBE_WINDOWS`). The reading names
+# the system (`host.os`), and its rig file keeps it for every later run
+# (`recorded_os`).
+
+#: The systems a rig is told apart into: `mcgyvr.hubwire.HOST_OS`'s names, as
+#: the reader's `host.os` states them (this file is loaded by path where the
+#: package may be absent, so it spells them; a test holds them to the wire's).
+LINUX = "linux"
+DARWIN = "darwin"
+WINDOWS = "windows"
+#: How Windows PowerShell is asked to run a script: the same under cmd.exe and
+#: under PowerShell as OpenSSH's default shell, the script's UTF-16LE base64
+#: after it.
+POWERSHELL = "powershell -NoProfile -NonInteractive -EncodedCommand "
+
+
+def powershell(script: str) -> str:
+    """The command that runs `script` in Windows PowerShell, from either shell.
+
+    `-EncodedCommand` (base64 of the script's UTF-16LE) reads the same under
+    cmd.exe and under PowerShell as OpenSSH's default shell, with nothing to
+    quote; `-NoProfile` keeps the user's profile out of it.
+    """
+    encoded = base64.b64encode(script.encode("utf-16-le")).decode("ascii")
+    return POWERSHELL + encoded
+
+
+#: The question a rig that could not run the POSIX reader is asked: a Windows
+#: shell (cmd.exe or PowerShell) runs it and prints the platform .NET names,
+#: `Win32NT` on Windows (a Linux box with a `powershell` prints `Unix`).
+PROBE_WINDOWS = powershell("[Environment]::OSVersion.Platform.ToString()")
+WINDOWS_PLATFORM = "Win32NT"
+
+
+def recorded_os(host: str) -> str | None:
+    """The system `host`'s rig file records, or None when it has no file.
+
+    A reading taken before readers stated `host.os` was taken over the POSIX
+    line, which only a Linux or macOS rig answered, and reads as Linux: the
+    transport is the same (a Mac rig scanned then is scanned again for its
+    native units). A system the reader does not name reads as Linux too.
+    """
+    from mcgyvr.serving import rigfile
+
+    try:
+        saved = rigfile.read(host)
+    except rigfile.RigFileError:
+        return None
+    if saved is None:
+        return None
+    from mcgyvr import hubwire
+
+    try:
+        system = saved.os
+    except (ValueError, KeyError, TypeError, AttributeError):
+        system = None
+    return system if system in hubwire.HOST_OS else LINUX
+
+
+def rig_system(host: str) -> str:
+    """The system a door run takes `host` to be, with no question asked of it:
+    this machine's for a name of this machine, else the one its rig file
+    records, else Linux, as every rig was before readers named one. A door run
+    needs the rig file anyway (gate 2), so only first contact probes.
+    """
+    if host in LOCAL_RIGS:
+        from mcgyvr import hostos
+
+        return hostos.os_name()
+    return recorded_os(host) or LINUX
+
+
+def shipping_os(host: str) -> str:
+    """The system a program shipped to `host` is shaped for: Windows for a rig
+    over ssh that records Windows; the POSIX line otherwise, which this
+    machine's local transport also runs itself, on any system."""
+    if host not in LOCAL_RIGS and rig_system(host) == WINDOWS:
+        return WINDOWS
+    return LINUX
+
+
 #: A read-only command ships the reader's own source, base64-encoded, and decodes
 #: it into python3 on the rig, so the rig runs the file this checkout has and
 #: nothing has to be installed there. `_SCAN_READ_SUFFIX` is that tail for the
@@ -495,6 +590,17 @@ _SCAN_READ_SUFFIX = " | base64 -d | python3 -I -B -"
 #: The same tail for the header reader, which is followed by the path it reads.
 _HEADER_READ_MIDDLE = " | base64 -d | python3 - "
 
+#: What a POSIX line hands the shipped program after `-`: one plain token each,
+#: or a single-quoted one (`_single_quote`).
+_PLAIN_ARG = re.compile(r"[A-Za-z0-9._@:+/=,-]+")
+
+
+def _header_source() -> bytes:
+    """The header reader's source from this checkout, as it stands now."""
+    from mcgyvr.serving import ggufscan
+
+    return Path(ggufscan.__file__).read_bytes()
+
 
 def _header_read_blob() -> str:
     """The header reader's source from this checkout, base64-encoded to ship.
@@ -502,56 +608,41 @@ def _header_read_blob() -> str:
     `ggufscan` is imported in the call, so the bytes encoded are the file as it
     stands when the command is built.
     """
-    from mcgyvr.serving import ggufscan
-
-    source = Path(ggufscan.__file__)
-    return base64.b64encode(source.read_bytes()).decode("ascii")
+    return base64.b64encode(_header_source()).decode("ascii")
 
 
-def packed_reader(source: bytes) -> bytes:
-    """The reader as a program that unpacks itself: its source zlib-compressed and
-    base85-encoded inside one exec line, run as the source would be.
+def _reader_program() -> bytes:
+    """The rig scanner as it ships: `rigscan` assembled with the modules it
+    imports (`mcgyvr.serving.shipped.reader`), packed."""
+    from mcgyvr.serving import shipped
 
-    The shipped line is one argument to ssh, and Linux refuses an argument past
-    MAX_ARG_STRLEN (128 KiB with 4 KiB pages); the reader's own source in base64
-    nears that, the packed program is about a third of it. base85 holds no quote
-    or backslash, so the bytes literal needs no escaping.
-    """
-    packed = base64.b85encode(zlib.compress(source, 9))
-    return b"import base64,zlib\nexec(zlib.decompress(base64.b85decode(b'%s')))\n" % (
-        packed
-    )
+    return shipped.packed(shipped.reader())
 
 
 def _scan_read_blob() -> str:
-    """The rig scanner from this checkout, packed (`packed_reader`) and
-    base64-encoded to ship.
-
-    `rigscan` is imported in the call, so the bytes packed are the file as it
-    stands when the command is built.
-    """
-    from mcgyvr.serving import rigscan
-
-    source = Path(rigscan.__file__).read_bytes()
-    return base64.b64encode(packed_reader(source)).decode("ascii")
+    """The rig scanner from this checkout, assembled, packed and base64-encoded
+    to ship. The modules are read in the call, so the bytes are the files as
+    they stand when the command is built."""
+    return base64.b64encode(_reader_program()).decode("ascii")
 
 
 def _single_quote(token: str) -> str:
-    """Wrap a path or directory in single quotes, refusing one holding a quote.
+    """Wrap a path, folder or argument in single quotes, refusing one holding a
+    quote.
 
     A token with an embedded single quote cannot be quoted safely for the shell
     line it is shipped in, so it is refused rather than escaped.
     """
     if "'" in token:
         raise ValueError(
-            "a read-only path or directory with an embedded single quote "
-            "cannot be proven safe; refuse rather than ship it"
+            f"{token[:80]!r} holds a single quote, which cannot be proven safe "
+            "on a rig's shell line; it is refused rather than shipped"
         )
     return f"'{token}'"
 
 
 def scan_read_command() -> str:
-    """The read-only command that runs the shipped scanner on a rig."""
+    """The read-only command that runs the shipped scanner on a POSIX rig."""
     return f"echo {_scan_read_blob()}{_SCAN_READ_SUFFIX}"
 
 
@@ -561,7 +652,7 @@ def cards_read_command() -> str:
 
 
 def header_read_command(path: str) -> str:
-    """The read-only command that reads the header of `path` on a rig.
+    """The read-only command that reads the header of `path` on a POSIX rig.
 
     `path` is the file as the rig spells it, single-quoted by `_single_quote()`
     so it cannot break out of the shell line.
@@ -569,15 +660,248 @@ def header_read_command(path: str) -> str:
     return f"echo {_header_read_blob()}{_HEADER_READ_MIDDLE}{_single_quote(path)}"
 
 
-def _read_only_command(command: str) -> bool:
-    """Whether `command` is one of the read-only lines this module builds.
+@dataclass(frozen=True)
+class Shipped:
+    """A program shipped to a rig: the command its shell runs and its stdin."""
 
-    Three shapes pass: the shipped scanner's run, the `find` that discovers
-    `*.gguf` files one level down a quoted directory, and the shipped header read
-    with one quoted path. Each blob is compared against the one this checkout
-    builds, so anything else — a hand-edited line included — is not traffic a
-    read is allowed to make.
+    command: str
+    stdin: str | None = None
+
+
+#: The PowerShell a Windows rig runs every shipped program with: one constant
+#: script, so nothing the door sends is ever part of a script. Its stdin is
+#: three base64 lines: the program; the program's arguments as one Windows
+#: command line (UTF-8; `subprocess.list2cmdline`); what the program reads on
+#: its own stdin (a job that must not land on disk), each line possibly
+#: empty. It finds a Python 3.9 or newer (each `py -3`, then each `python`, on
+#: PATH; the Store's `python` alias answers no version and is passed over),
+#: writes the program with WriteAllBytes under `mcgyvr\tmp` in the user's
+#: local application data (`mcgyvr.hostos.user_temp_root`'s folder), runs it
+#: with `-I -B` and those arguments, hands it its stdin byte for byte, removes
+#: the file and exits with the program's status.
+_WINDOWS_SHIP_SCRIPT = """\
+$ProgressPreference = 'SilentlyContinue'
+$lines = [Console]::In.ReadToEnd().Split([char]10)
+function Line($n) {
+  if ($lines.Count -gt $n -and $lines[$n].Trim()) {
+    return [Convert]::FromBase64String($lines[$n].Trim())
+  }
+  return [byte[]]@()
+}
+$program = Line 0
+$arguments = [Text.Encoding]::UTF8.GetString((Line 1))
+$feed = Line 2
+$python = $null
+foreach ($try in @(@('py', '-3'), @('python'))) {
+  $lead = @($try | Select-Object -Skip 1)
+  foreach ($found in @(Get-Command $try[0] -CommandType Application -All `
+      -ErrorAction SilentlyContinue)) {
+    & $found.Source @lead -I -B -c 'import sys; sys.exit(sys.version_info < (3, 9))' `
+      2>$null | Out-Null
+    if ($LASTEXITCODE -eq 0) { $python = @($found.Source) + $lead; break }
+  }
+  if ($python) { break }
+}
+if (-not $python) {
+  [Console]::Error.WriteLine('mcgyvr: no Python 3.9 or newer here (py -3, python)')
+  exit 127
+}
+$local = [Environment]::GetFolderPath('LocalApplicationData')
+$folder = Join-Path $local 'mcgyvr\\tmp'
+[void][IO.Directory]::CreateDirectory($folder)
+$file = Join-Path $folder ('shipped-' + [Guid]::NewGuid().ToString('N') + '.py')
+[IO.File]::WriteAllBytes($file, $program)
+$start = New-Object Diagnostics.ProcessStartInfo
+$start.FileName = $python[0]
+$lead = (@($python | Select-Object -Skip 1) + @('-I', '-B')) -join ' '
+$start.Arguments = ($lead + ' "' + $file + '" ' + $arguments).Trim()
+$start.UseShellExecute = $false
+$start.RedirectStandardInput = $true
+$code = 1
+try {
+  $child = [Diagnostics.Process]::Start($start)
+  $child.StandardInput.BaseStream.Write($feed, 0, $feed.Length)
+  $child.StandardInput.Close()
+  $child.WaitForExit()
+  $code = $child.ExitCode
+} finally {
+  Remove-Item -LiteralPath $file -Force -ErrorAction SilentlyContinue
+}
+exit $code
+"""
+#: The one command every program shipped to a Windows rig is run by.
+WINDOWS_SHIP = powershell(_WINDOWS_SHIP_SCRIPT)
+
+
+def windows_split(line: str) -> list[str]:
+    """`line` split as a Windows program's C runtime splits its command line:
+    the inverse of `subprocess.list2cmdline`.
+
+    Spaces and tabs part arguments outside double quotes; backslashes are
+    literal unless they precede a double quote, where 2n of them are n and the
+    quote opens or closes, and 2n+1 are n and a literal quote
+    (https://learn.microsoft.com/en-us/cpp/c-language/parsing-c-command-line-arguments).
     """
+    args: list[str] = []
+    word: list[str] = []
+    quoted = started = False
+    slashes = 0
+    for char in line:
+        if char == "\\":
+            slashes += 1
+            started = True
+            continue
+        if char == '"':
+            word.append("\\" * (slashes // 2))
+            if slashes % 2:
+                word.append('"')
+            else:
+                quoted = not quoted
+            slashes = 0
+            started = True
+            continue
+        word.append("\\" * slashes)
+        slashes = 0
+        if char in " \t" and not quoted:
+            if started:
+                args.append("".join(word))
+            word, started = [], False
+            continue
+        word.append(char)
+        started = True
+    word.append("\\" * slashes)
+    if started:
+        args.append("".join(word))
+    return args
+
+
+def _b64(data: bytes) -> str:
+    return base64.b64encode(data).decode("ascii")
+
+
+def ship(
+    system: str,
+    program: bytes,
+    args: tuple[str, ...] = (),
+    *,
+    feed: bytes | None = None,
+    on_stdin: bool = False,
+) -> Shipped:
+    """How `program` runs on a rig of `system` with `args`.
+
+    POSIX (Linux, macOS): `echo <base64> | base64 -d | python3 -I -B - ARGS`,
+    each argument a plain token or single-quoted; `on_stdin` sends the base64
+    on stdin instead (`base64 -d | python3 -I -B - ARGS`), for a program too
+    long for one argument of the door's own ssh command line. A `feed` has no
+    place on a POSIX line and is refused. Windows: :data:`WINDOWS_SHIP`, the
+    program, its arguments and the feed on stdin (:data:`_WINDOWS_SHIP_SCRIPT`).
+    """
+    for arg in args:
+        if "\0" in arg:
+            # Windows cuts a command line at it; POSIX refuses it.
+            raise ValueError(f"{arg[:80]!r} holds a NUL; it is refused, not shipped")
+    if system == WINDOWS:
+        line = subprocess.list2cmdline(list(args)).encode("utf-8")
+        lines = (_b64(program), _b64(line), _b64(feed or b""))
+        return Shipped(WINDOWS_SHIP, "\n".join(lines) + "\n")
+    if feed is not None:
+        raise ValueError("a POSIX line carries its program on echo, and no feed")
+    tail = "".join(
+        f" {arg}" if _PLAIN_ARG.fullmatch(arg) else f" {_single_quote(arg)}"
+        for arg in args
+    )
+    if on_stdin:
+        return Shipped(f"{_SCAN_READ_SUFFIX[3:]}{tail}", _b64(program) + "\n")
+    return Shipped(f"echo {_b64(program)}{_SCAN_READ_SUFFIX}{tail}")
+
+
+def scan_read(system: str, *, cards: bool = False) -> Shipped:
+    """The shipped scanner for a rig of `system` (asked for `--cards` alone)."""
+    if system != WINDOWS:
+        return Shipped(cards_read_command() if cards else scan_read_command())
+    return ship(WINDOWS, _reader_program(), ("--cards",) if cards else ())
+
+
+def header_read(system: str, path: str) -> Shipped:
+    """The shipped header reader of `path` for a rig of `system`."""
+    if system != WINDOWS:
+        return Shipped(header_read_command(path))
+    return ship(WINDOWS, _header_source(), (path,))
+
+
+#: The `*.gguf` files one level down a folder on a Windows rig, one full path a
+#: line: a constant script, the folder (UTF-8, base64) its one stdin line.
+WINDOWS_DISCOVER = powershell(
+    "$folder = [Text.Encoding]::UTF8.GetString("
+    "[Convert]::FromBase64String([Console]::In.ReadToEnd().Trim()))\n"
+    "Get-ChildItem -LiteralPath $folder -File -ErrorAction SilentlyContinue | "
+    "Where-Object { $_.Extension -eq '.gguf' } | "
+    "ForEach-Object { $_.FullName }\n"
+)
+
+
+def windows_discover(directory: str) -> Shipped:
+    """The read-only listing of the `*.gguf` files directly in `directory` on a
+    Windows rig."""
+    if not directory:
+        raise ValueError("no folder to list")
+    return Shipped(WINDOWS_DISCOVER, _b64(directory.encode("utf-8")) + "\n")
+
+
+def _decoded(line: str) -> str | None:
+    """One base64 stdin line as UTF-8 text, or None when it is not one."""
+    try:
+        return base64.b64decode(line, validate=True).decode("utf-8")
+    except (ValueError, UnicodeDecodeError):
+        return None
+
+
+def _read_only_windows(command: str, stdin: str | None) -> bool:
+    """Whether a Windows command (and its stdin) is a sanctioned read: the
+    probe; the `*.gguf` listing of one folder; or the ship script running this
+    checkout's scanner (no argument) or header reader (one argument), with no
+    feed. Every script is a constant, compared whole; the data on stdin is
+    checked, and none of it is ever part of a script."""
+    if command == PROBE_WINDOWS:
+        return stdin is None
+    if stdin is None or not stdin.endswith("\n"):
+        return False
+    lines = stdin[:-1].split("\n")
+    if command == WINDOWS_DISCOVER:
+        folder = _decoded(lines[0]) if len(lines) == 1 else None
+        return bool(folder)
+    if command != WINDOWS_SHIP or len(lines) != 3 or lines[2]:
+        return False
+    sent, arguments = lines[0], _decoded(lines[1])
+    if arguments is None:
+        return False
+    if not arguments:
+        # The `--cards` read goes under the door (`ssh`), as on POSIX.
+        return sent == _b64(_reader_program())
+    one = windows_split(arguments)
+    return (
+        len(one) == 1
+        and bool(one[0])
+        and subprocess.list2cmdline(one) == arguments
+        and sent == _header_read_blob()
+    )
+
+
+def _read_only_command(command: str, stdin: str | None = None) -> bool:
+    """Whether `command` (with `stdin`) is one of the read-only lines this
+    module builds.
+
+    POSIX shapes: the shipped scanner's run, the `find` that discovers `*.gguf`
+    files one level down a quoted directory, the shipped header read with one
+    quoted path, none with a stdin. Windows shapes:
+    :func:`_read_only_windows`. Each blob is compared against the one this
+    checkout builds, so anything else — a hand-edited line included — is not
+    traffic a read is allowed to make.
+    """
+    if command.startswith(POWERSHELL):
+        return _read_only_windows(command, stdin)
+    if stdin is not None:
+        return False
     if command.startswith("echo ") and command.endswith(_SCAN_READ_SUFFIX):
         blob = command[len("echo ") : -len(_SCAN_READ_SUFFIX)]
         return blob == _scan_read_blob()
@@ -592,6 +916,8 @@ def _read_only_command(command: str) -> bool:
             and directory[-1] == "'"
             and "'" not in directory[1:-1]
             and bool(directory[1:-1])
+            # `find` reads a leading `-` as an expression (`-delete`).
+            and not directory[1:-1].startswith("-")
         )
 
     if not command.startswith("echo ") or _HEADER_READ_MIDDLE not in command:
@@ -608,24 +934,27 @@ def ssh_read_only(
     host: str,
     command: str,
     timeout: float | None = 120.0,
+    *,
+    input: str | None = None,
 ) -> subprocess.CompletedProcess[str]:
     """Run one sanctioned read-only command on `host`, or refuse the command.
 
-    What is admitted is the command — the three shapes `_read_only_command()`
-    recognizes — so nothing but a read reaches a rig down this channel. The ssh
-    options are those of `ssh()`, and the exit status is left to the caller.
+    What is admitted is the command and its stdin — the shapes
+    `_read_only_command()` recognizes — so nothing but a read reaches a rig
+    down this channel. The ssh options are those of `ssh()`, and the exit
+    status is left to the caller.
     """
-    if not _read_only_command(command):
+    if not _read_only_command(command, input):
         refuse(
             "ssh_read_only refused: the command is not a sanctioned read-only "
-            "detection line (only the shipped reader, the *.gguf discovery and "
-            "the shipped-reader header read are "
+            "detection line (only the shipped reader, the *.gguf discovery, "
+            "the shipped-reader header read and the system probe are "
             f"admitted), not {shlex.quote(command)[:80]}"
         )
     if local_transport(host):
         from mcgyvr.serving import localrig
 
-        return localrig.run(command, input=None, timeout=timeout)
+        return localrig.run(command, input=input, timeout=timeout)
     return subprocess.run(
         [
             *tool("ssh"),
@@ -636,6 +965,7 @@ def ssh_read_only(
             host,
             command,
         ],
+        input=input,
         capture_output=True,
         text=True,
         timeout=timeout,
@@ -923,7 +1253,7 @@ def new_lease(step: str, pid: int) -> Lease:
         machine=os_machine_id(),
         pid=pid,
         pid_start=process_start(pid) or "none",
-        started_at=datetime.now(UTC).strftime("%Y-%m-%dT%H:%M:%SZ"),
+        started_at=datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ"),
         step=step,
     )
 
@@ -990,94 +1320,44 @@ _LEASE_SCRIPTS = {
 }
 
 
-def _read_nofollow(path: Path) -> str:
-    """The text of `path`, refused (`OSError`) when it is a link."""
-    from mcgyvr import hostos
-
-    fd = hostos.open_nofollow(path, os.O_RDONLY)
-    with os.fdopen(fd, "r", encoding="utf-8") as handle:
-        return handle.read()
-
-
 def _lease_op(
     host: str, op: str, *, via: Transport | None = None, **fields: str
 ) -> subprocess.CompletedProcess[str]:
     """Run the lease operation `op` on `host`, answering as its shell script does.
 
-    Over ssh (or `via`) it is the script; on a rig the door reaches through its
-    local transport it is :func:`_local_lease`, the same operation on the same
-    file in Python, so no shell is needed there.
+    On a rig the door reaches through its local transport it is
+    :func:`_local_lease`. On a Linux rig over ssh (or `via`) it is the script,
+    as it always was. On a macOS or Windows rig it is the same Python lease
+    (:mod:`mcgyvr.serving.leasefile`), shipped as the reader is: a Windows rig
+    has no bash, and one implementation answers for both.
     """
     if via is None and local_transport(host):
         return _local_lease(op, **fields)
+    system = LINUX if via is not None else rig_system(host)
+    if system != LINUX:
+        from mcgyvr.serving import shipped
+
+        try:
+            sent = ship(
+                system,
+                shipped.packed(shipped.lease()),
+                (op, LEASE_DIR, *(f"{k}={v}" for k, v in sorted(fields.items()))),
+            )
+        except ValueError as exc:
+            refuse(f"lease: the lease cannot be sent to {host}: {exc}")
+        return ssh(host, sent.command, input=sent.stdin)
     script = _LEASE_SCRIPTS[op].format(dir=LEASE_DIR, file=LEASE_FILE, **fields)
     return (via or _over_ssh)(host, LEASE_SHELL, script)
 
 
 def _local_lease(op: str, **fields: str) -> subprocess.CompletedProcess[str]:
-    """The lease scripts' operation `op` on this machine's lease file.
+    """The lease scripts' operation `op` on this machine's lease file, in Python
+    (:func:`mcgyvr.serving.leasefile.operate`, the implementation a macOS or
+    Windows rig is shipped)."""
+    from mcgyvr.serving import leasefile
 
-    Statuses as the scripts give them: 0 done, 1 a free take found a lease
-    there, 3 the lease is not the one expected, 4 no lease folder. Each
-    operation holds `lease.lock` beside the file, so two on this machine do not
-    interleave. Every write goes through a temporary file renamed over the
-    lease, as the scripts' `mv -f` does; a free take creates it exclusively, as
-    `set -C` does.
-    """
-    from mcgyvr import hostos
-
-    folder = Path(LEASE_DIR).expanduser()
-    lease = Path(LEASE_FILE).expanduser()
-
-    def answer(code: int, out: str = "") -> subprocess.CompletedProcess[str]:
-        return subprocess.CompletedProcess(["lease", op], code, out, "")
-
-    try:
-        folder.mkdir(parents=True, exist_ok=True)
-        fd = hostos.open_nofollow(folder / "lease.lock", os.O_RDWR | os.O_CREAT, 0o600)
-    except OSError as exc:
-        return subprocess.CompletedProcess(["lease", op], 4, "", f"{exc}\n")
-    try:
-        hostos.lock(fd)
-        try:
-            now = _read_nofollow(lease)
-        except FileNotFoundError:
-            now = ""
-        except OSError as exc:
-            return subprocess.CompletedProcess(["lease", op], 5, "", f"{exc}\n")
-        held = f"lease_id={fields.get('held', '')} "
-        if op == "read":
-            return answer(0, now)
-        if op == "release":
-            if held in now:
-                lease.unlink(missing_ok=True)
-            return answer(0)
-        line = fields["line"] + "\n"
-        if op == "take_free":
-            try:
-                out = hostos.open_nofollow(
-                    lease, os.O_WRONLY | os.O_CREAT | os.O_EXCL, 0o644
-                )
-            except FileExistsError:
-                return answer(1)
-            with os.fdopen(out, "w", encoding="utf-8") as handle:
-                handle.write(line)
-            return answer(0)
-        if op == "take_stale" and not fields.get("held"):
-            if now.strip():
-                return answer(3)
-        elif held not in now:
-            return answer(3)
-        part = folder / f"lease.{os.getpid()}"
-        part.unlink(missing_ok=True)
-        out = hostos.open_nofollow(part, os.O_WRONLY | os.O_CREAT | os.O_EXCL, 0o644)
-        with os.fdopen(out, "w", encoding="utf-8") as handle:
-            handle.write(line)
-        os.replace(part, lease)
-        return answer(0)
-    finally:
-        hostos.unlock(fd)
-        os.close(fd)
+    code, out, err = leasefile.operate(op, LEASE_DIR, fields)
+    return subprocess.CompletedProcess(["lease", op], code, out, err)
 
 
 def lease_read(host: str, *, via: Transport | None = None) -> Lease | None:

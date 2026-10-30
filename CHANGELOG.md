@@ -11,6 +11,17 @@ archived outside this repository, under the same paths.
 
 ### Changed
 
+- **The programs shipped to a rig are assembled from the modules they import,
+  and run on Python 3.9.** The reader, the fetcher, the lease and the native
+  launcher each go as one program built at ship time
+  (`mcgyvr.serving.shipped`): `hostos`, the wire's names from `hubwire` and the
+  module itself, so the reader and the fetcher keep no copies of `hostos`
+  (the weights folder, the process group, the nvidia-smi.exe lookup are
+  `hostos`'s) and the reader names the system, the resource kinds and the
+  figures the wire names. They run on the oldest Python a rig has, macOS's own
+  `python3` (3.9), and refuse an older one with a sentence. The reader's line
+  is about 52% of the one ssh argument Linux allows (it was 36%).
+
 - **The Linux llama.cpp image is pinned to the native build: `server-cuda-b11960`**
   (was the floating `server-cuda`), so a container and a native binary of one
   split are one build. A fleet already stamped keeps the `image` its units
@@ -123,6 +134,31 @@ archived outside this repository, under the same paths.
   unified GPU is not lent yet: a lent card is served by a CUDA worker in a
   container, and it joins lending with native launch. (#809)
 
+- **A Mac or Windows machine is a remote rig over ssh (#824).** A rig's first
+  contact is sent the POSIX reader line as every rig always was; a rig whose
+  shell cannot run it is asked the PowerShell question, and a Windows rig
+  (OpenSSH, with cmd.exe or PowerShell as its shell) is sent every program by
+  one constant `powershell -NoProfile -NonInteractive -EncodedCommand` line
+  that finds a Python 3.9 or newer (`py -3`, then `python`), writes the program
+  with WriteAllBytes under `%LOCALAPPDATA%\mcgyvr\tmp`, runs it with `-I -B`
+  and removes it; the program, its arguments and what it reads on its own
+  stdin (the fetcher's job, which holds a token, never on disk) travel on
+  stdin, so no path or argument is ever read as PowerShell. `mcgyvr scan --rig` files the reading, whose
+  `host.os` the door reads from then on, asking nothing. On a rig whose file
+  records macOS or Windows: the lease is the one Python lease this machine
+  runs itself (Linux rigs keep their bash scripts, unchanged); `serve up`,
+  `down` and `fetch` run the native launcher there, shipped like the reader,
+  each unit on 127.0.0.1 under a supervisor that runs a copy the launcher
+  leaves in `bin/shipped/` under the rig's mcgyvr home; what holds the rig
+  (gates 2 and 7, `read`) is the launcher's twin of rig-units.sh; the health
+  probe names `curl.exe` on Windows. `emit` and `setup` write `launcher:
+  native` for a llama.cpp unit on such a rig. `read --probe`/`--load` (the
+  lock's harness) and pooled sessions stay Linux's. A Linux rig is sent, byte
+  for byte, the commands it was sent before. Upgrading: a Mac rig scanned
+  before this release has a reading that names no system and is taken as
+  Linux; `mcgyvr scan --rig NAME` once makes it a Mac rig.
+
+
 - **A unit runs natively, with no container: `launcher: native` (#818).** The
   llama.cpp build mcgyvr pins (b11960, `mcgyvr.serving.llamacpp`; the Linux
   image is the same build, `server-cuda-b11960`) is fetched on first use into
@@ -188,6 +224,7 @@ archived outside this repository, under the same paths.
   may take: llama.cpp's own rule, the same major and no newer minor. Nothing
   sends resources yet. Ruff now refuses a raw bidirectional control character in
   source (`PLE2502`).
+
 - **The wire names each value it holds, and carries a member's lending, a cpu
   head device and the decode rule (#814).** Each backend, OS and arch has its
   own name (`BACKEND_CUDA`..`BACKEND_CPU`, `HOST_LINUX`/`HOST_DARWIN`/

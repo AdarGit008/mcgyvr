@@ -30,12 +30,11 @@ import subprocess
 import sys
 from pathlib import Path
 
-from mcgyvr.serving import rigfile
+from mcgyvr.serving import gatelib, nativerig, rigfile
 from mcgyvr.serving.gatelib import (
     door_required,
     need,
     refuse,
-    scan_read_command,
     ssh,
 )
 
@@ -74,6 +73,21 @@ def harness_on_rig(host: str, spec: str, source: str) -> str | None:
     return answered.stdout
 
 
+def _native_rows(host: str, args: list[str]) -> subprocess.CompletedProcess[str]:
+    """What holds a native rig, in rig-units.sh's rows: this machine's units read
+    here, a remote rig's by the launcher shipped to it."""
+    from mcgyvr.serving import native, nativerig
+
+    if host in gatelib.LOCAL_RIGS:
+        return subprocess.CompletedProcess(["native"], 0, native.unit_rows(args), "")
+    try:
+        return subprocess.CompletedProcess(
+            ["native"], 0, nativerig.rows(host, args), ""
+        )
+    except nativerig.NativeRigError as exc:
+        return subprocess.CompletedProcess(["native"], 1, "", str(exc))
+
+
 def main() -> int:
     door_required("read")
     from mcgyvr.fleet import harness, read
@@ -94,9 +108,22 @@ def main() -> int:
         refuse(f"read: {exc}. Nothing was read and nothing is filed")
 
     saved = rigfile.required(host, "read")
+    system = gatelib.rig_system(host)
+    native_rig = host in gatelib.LOCAL_RIGS and system != gatelib.LINUX
+    native_rig = native_rig or nativerig.remote(host)
+    if native_rig and (probe or load):
+        refuse(
+            f"read: {host} is a {system} rig, and the lock's harness (--probe, "
+            "--load) runs on a Linux rig; read it without them"
+        )
 
+    sent = gatelib.scan_read(gatelib.shipping_os(host))
     try:
-        scanned = ssh(host, scan_read_command(), timeout=READ_TIMEOUT_S)
+        scanned = (
+            ssh(host, sent.command, timeout=READ_TIMEOUT_S)
+            if sent.stdin is None
+            else ssh(host, sent.command, timeout=READ_TIMEOUT_S, input=sent.stdin)
+        )
     except subprocess.TimeoutExpired:
         refuse(f"read: {host} did not answer in {READ_TIMEOUT_S}s; nothing is filed")
     if scanned.returncode != 0:
@@ -106,16 +133,23 @@ def main() -> int:
     except ValueError:
         refuse(f"read: the reader on {host} printed no reading; nothing is filed")
 
-    units = (
-        "set -- "
-        + " ".join(shlex.quote(arg) for arg in args)
-        + "\n"
-        + (HERE / "rig-units.sh").read_text(encoding="utf-8")
-    )
-    try:
-        done = ssh(host, "bash -s", timeout=READ_TIMEOUT_S, input=units)
-    except subprocess.TimeoutExpired:
-        refuse(f"read: {host} did not answer in {READ_TIMEOUT_S}s; nothing is filed")
+    if native_rig:
+        # A macOS or Windows rig runs native units: the native launcher's twin
+        # of rig-units.sh lists them (here, or shipped to the rig).
+        done = _native_rows(host, args)
+    else:
+        units = (
+            "set -- "
+            + " ".join(shlex.quote(arg) for arg in args)
+            + "\n"
+            + (HERE / "rig-units.sh").read_text(encoding="utf-8")
+        )
+        try:
+            done = ssh(host, "bash -s", timeout=READ_TIMEOUT_S, input=units)
+        except subprocess.TimeoutExpired:
+            refuse(
+                f"read: {host} did not answer in {READ_TIMEOUT_S}s; nothing is filed"
+            )
     if done.returncode != 0:
         refuse(f"read: {host} could not be read: {done.stderr.strip()[:500]}")
     try:

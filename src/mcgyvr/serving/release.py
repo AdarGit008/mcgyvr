@@ -170,10 +170,21 @@ def install(
     return folder
 
 
+#: How much of a file is hashed at a time.
+HASH_CHUNK = 1 << 20
+
+
 def sha256_of(path: Path) -> str:
-    """The sha256 of the file at `path`, as hex."""
+    """The sha256 of the file at `path`, as hex.
+
+    Read in chunks, not by 3.11's ``hashlib.file_digest``: this module is
+    shipped to rigs whose Python may be 3.9 (``mcgyvr.serving.shipped``).
+    """
+    digest = hashlib.sha256()
     with path.open("rb") as handle:
-        return hashlib.file_digest(handle, "sha256").hexdigest()
+        for chunk in iter(lambda: handle.read(HASH_CHUNK), b""):
+            digest.update(chunk)
+    return digest.hexdigest()
 
 
 def _current(
@@ -291,10 +302,21 @@ def _unpack_tar(archive: Path, into: Path) -> None:
             # A folder's own entry has its trailing slash dropped by tarfile;
             # it is given back, so the folder reads as one.
             top = _top(m.name + "/" if m.isdir() else m.name for m in members)
+            # The "data" extraction filter is 3.12's (and 3.9.17's); a Python
+            # without it extracts only files, folders and the links checked
+            # below, and nothing else (no devices, fifos), as it would allow.
+            filtered = hasattr(tarfile, "data_filter")
             for member in members:
                 relative = _inside(member.name, top)
                 if relative is None:
                     continue
+                if not (member.isfile() or member.isdir() or member.issym()) and not (
+                    member.islnk()
+                ):
+                    raise ReleaseError(
+                        f"the archive member {member.name!r} is not a file, a "
+                        "folder or a link"
+                    )
                 member.name = relative
                 if member.issym() and (
                     member.linkname.startswith("/")
@@ -309,10 +331,12 @@ def _unpack_tar(archive: Path, into: Path) -> None:
                     if linked is None:
                         raise ReleaseError(f"the archive link {relative!r} is empty")
                     member.linkname = linked
-                tar.extract(member, into, filter="data")
+                if filtered:
+                    tar.extract(member, into, filter="data")
+                else:
+                    member.mode &= 0o755
+                    tar.extract(member, into)
     except (tarfile.TarError, OSError) as exc:
-        if isinstance(exc, tarfile.FilterError):
-            raise ReleaseError(f"{archive.name}: {exc}") from exc
         raise ReleaseError(f"{archive.name} could not be unpacked: {exc}") from exc
 
 

@@ -96,4 +96,4 @@ def test_the_door_refuses_a_native_spec_for_another_rig(
     }
     spec.write_text(yaml.safe_dump({"services": {"m": service}}))
     assert run.serve(["up", "--host", "box1", "--compose", str(spec)]) == 2
-    assert "names another" in capsys.readouterr().err
+    assert "--host box1 records neither" in capsys.readouterr().err

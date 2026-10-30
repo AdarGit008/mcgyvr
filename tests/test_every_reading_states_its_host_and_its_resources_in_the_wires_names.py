@@ -17,31 +17,24 @@ from typing import Any
 
 import pytest
 
-from mcgyvr.hubwire import (
-    FIGURE_KINDS,
-    HOST_ARCH,
-    HOST_OS,
-    RESOURCE_BACKENDS,
-    RESOURCE_KINDS,
-    Resource,
-)
+from mcgyvr import hubwire
 from tests.machine_shapes import Card, HostShape, host_reading, host_shape, host_shapes
 from tests.machinereader import Staged, run
 
-RESOURCE_FIELDS = {field.name for field in dataclasses.fields(Resource)}
+RESOURCE_FIELDS = {field.name for field in dataclasses.fields(hubwire.Resource)}
 
 
 def _takes(resource: dict[str, Any]) -> None:
     """The wire takes the resource: its own record validates it."""
-    Resource(**resource).validate()
+    hubwire.Resource(**resource).validate()
 
 
 def test_the_reader_names_the_wires_systems() -> None:
     from mcgyvr.serving import rigscan
 
-    assert tuple(rigscan.SYSTEMS) == tuple(HOST_OS)
+    assert rigscan.HOST_OS is hubwire.HOST_OS
     assert set(rigscan.ARCHES.values()) | set(rigscan.WINDOWS_ARCHES.values()) <= set(
-        HOST_ARCH
+        hubwire.HOST_ARCH
     )
 
 
@@ -51,13 +44,13 @@ def test_every_resource_has_the_contracts_fields_and_values(
 ) -> None:
     document = host_reading(machine)
     assert document["host"]["os"] == machine.system
-    assert document["host"]["os"] in HOST_OS
+    assert document["host"]["os"] in hubwire.HOST_OS
     for resource in document["resources"]:
         assert set(resource) == RESOURCE_FIELDS
         _takes(resource)
-        assert resource["kind"] in RESOURCE_KINDS
-        assert resource["backend"] in RESOURCE_BACKENDS
-        assert resource["figure"] in FIGURE_KINDS
+        assert resource["kind"] in hubwire.RESOURCE_KINDS
+        assert resource["backend"] in hubwire.RESOURCE_BACKENDS
+        assert resource["figure"] in hubwire.FIGURE_KINDS
         assert isinstance(resource["total_mb"], int) and resource["total_mb"] >= 0
         assert resource["bandwidth_gbps"] is None
         assert resource["bandwidth_figure"] is None

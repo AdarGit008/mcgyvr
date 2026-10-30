@@ -45,6 +45,15 @@ def is_local_host(host: str) -> bool:
     return host in LOCAL_HOSTS
 
 
+def host_system(host: str) -> str:
+    """The system `host` is (`mcgyvr.serving.gatelib.rig_system`: this
+    machine's for a name of this machine, else the one its rig file records,
+    Linux when it records none). No ssh is made."""
+    from mcgyvr.serving import gatelib
+
+    return gatelib.rig_system(host)
+
+
 @dataclass(frozen=True)
 class ProbeTarget:
     """One candidate backend to ask: a display name, the base URL to call, the

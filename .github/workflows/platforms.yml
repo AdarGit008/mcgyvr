@@ -26,3 +26,10 @@ jobs:
         # bash on both runners, so the test glob expands on Windows too.
         shell: bash
         run: uv run --no-sync pytest tests/test_hostos*.py tests/test_detect.py -q
+      - name: the programs shipped to a rig run in this system's own shells
+        # PowerShell and cmd.exe on Windows, sh with base64 on macOS.
+        shell: bash
+        run: >-
+          uv run --no-sync pytest -q
+          tests/test_the_shipped_programs_run_in_a_real_shell_of_each_system.py
+          tests/test_a_program_reaches_a_windows_rig_through_powershell_and_the_python_it_finds.py
