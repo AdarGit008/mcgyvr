@@ -92,7 +92,7 @@ def test_natpmp_maps_unmaps_and_reads_the_external_address(gateway: Gateway) -> 
     )
     assert lease == 600
     assert struct.unpack("!BBHHHI", gateway.asked[-1]) == (0, 1, 0, 51820, 52000, 600)
-    client.remove(internal=51820, external=52000)
+    client.remove(lan_host="192.168.1.20", internal=51820, external=52000)
     assert struct.unpack("!BBHHHI", gateway.asked[-1]) == (0, 1, 0, 51820, 0, 0)
 
 
@@ -292,7 +292,7 @@ def test_upnp_maps_unmaps_and_reads_the_external_address(igd: portmap.Upnp) -> N
         b"<NewLeaseDuration>600</NewLeaseDuration>",
     ):
         assert part in body
-    igd.remove(internal=51820, external=52000)
+    igd.remove(lan_host="192.168.1.20", internal=51820, external=52000)
     assert Igd.calls[-1][0] == "DeletePortMapping"
 
 
@@ -338,6 +338,19 @@ def test_upnp_never_takes_a_port_that_forwards_to_another_device(
     assert "AddPortMapping" not in [action for action, _ in Igd.calls]
     Igd.held = ("192.168.1.20", 51820)  # its own, from before: renewed
     assert igd.add(lan_host="192.168.1.20", internal=51820, external=52000, lease_s=600)
+
+
+def test_upnp_never_removes_a_port_that_forwards_to_another_device_now(
+    igd: portmap.Upnp,
+) -> None:
+    """Its lease ran out and another device took the port: giving the forward
+    back must not take that device's away."""
+    Igd.held = ("192.168.1.77", 3074)
+    igd.remove(lan_host="192.168.1.20", internal=51820, external=52000)
+    assert "DeletePortMapping" not in [action for action, _ in Igd.calls]
+    Igd.held = ("192.168.1.20", 51820)
+    igd.remove(lan_host="192.168.1.20", internal=51820, external=52000)
+    assert Igd.calls[-1][0] == "DeletePortMapping"
 
 
 def test_a_utf16_description_is_refused_before_it_is_parsed() -> None:

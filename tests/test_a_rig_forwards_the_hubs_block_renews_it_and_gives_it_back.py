@@ -49,8 +49,9 @@ class FakeRouter:
         self.held[external] = (lan_host, internal, granted)
         return granted
 
-    def remove(self, *, internal: int, external: int) -> None:
-        self.held.pop(external, None)
+    def remove(self, *, lan_host: str, internal: int, external: int) -> None:
+        if self.held.get(external, (lan_host,))[0] == lan_host:
+            self.held.pop(external, None)
 
 
 class Clock:
@@ -243,16 +244,67 @@ def test_a_null_ask_releases_and_a_new_block_moves_the_forward() -> None:
     assert [r["state"] for r in world.reports()] == ["mapped", "mapped", "released"]
 
 
-def test_the_same_block_asked_again_is_reported_again_not_remapped() -> None:
+def test_the_same_block_asked_again_is_mapped_afresh_and_reported_again() -> None:
+    """A reconnect asks for the block the agent holds: the router may have
+    lost it (a reboot), so the agent maps it again before saying it holds it."""
     upnp = FakeRouter()
     world = World([upnp])
     mapper = world.mapper()
     ask(mapper, external_port=52000)
     mapper.tick()
+    upnp.held.clear()  # the router rebooted
     ask(mapper, external_port=52000)
     mapper.tick()
-    assert len(upnp.adds) == 4
+    assert len(upnp.adds) == 8
+    assert sorted(upnp.held) == [52000, 52001, 52002, 52003]
     assert [r["state"] for r in world.reports()] == ["mapped", "mapped"]
+
+
+def test_the_same_block_refused_on_a_reconnect_is_mapped_from_scratch() -> None:
+    upnp = FakeRouter()
+    natpmp = FakeRouter(method="natpmp")
+    world = World([upnp, natpmp])
+    mapper = world.mapper()
+    ask(mapper, external_port=52000)
+    mapper.tick()
+    upnp.refuse_at[52000] = "refused"
+    ask(mapper, external_port=52000)
+    mapper.tick()
+    assert upnp.held == {}
+    assert sorted(natpmp.held) == [52000, 52001, 52002, 52003]
+    assert [(r["state"], r.get("method")) for r in world.reports()] == [
+        ("mapped", "upnp"),
+        ("mapped", "natpmp"),
+    ]
+
+
+def test_a_new_lan_address_moves_the_forward_at_its_renewal() -> None:
+    """DHCP gave the rig another address: the old one may be another
+    device's now, so the forward is given back and made to the new one."""
+    upnp = FakeRouter()
+    world = World([upnp], hosts=(LAN, "192.168.1.21"))
+    mapper = world.mapper()
+    ask(mapper, external_port=52000, lease_s=600)
+    mapper.tick()
+    upnp.host = "192.168.1.21"
+    world.clock.now += 300
+    mapper.tick()
+    assert {h[0] for h in upnp.held.values()} == {"192.168.1.21"}
+    assert [(r["state"], r.get("lan_host")) for r in world.reports()] == [
+        ("mapped", LAN),
+        ("mapped", "192.168.1.21"),
+    ]
+
+
+def test_the_rule_by_hand_names_a_private_address_only() -> None:
+    """The setup names a public address for the tunnel: the router's forward
+    cannot land there, so the report names no LAN host for the rule."""
+    world = World([], hosts=("1.2.3.4",))
+    mapper = world.mapper()
+    ask(mapper, external_port=52000)
+    mapper.tick()
+    assert world.reports()[0]["state"] == "failed"
+    assert "lan_host" not in world.reports()[0]
 
 
 def test_a_rig_with_fewer_tunnel_ports_maps_only_those() -> None:

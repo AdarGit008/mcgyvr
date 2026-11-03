@@ -126,8 +126,8 @@ class Router(Protocol):
         """Forward ``external`` to ``lan_host:internal``; the lease granted."""
         ...
 
-    def remove(self, *, internal: int, external: int) -> None:
-        """Take that forward away again."""
+    def remove(self, *, lan_host: str, internal: int, external: int) -> None:
+        """Take that forward away again, unless it now forwards somewhere else."""
         ...
 
 
@@ -264,7 +264,8 @@ class NatPmp:
             raise MapError("conflict", f"NAT-PMP gave port {got}, not {external}")
         return granted
 
-    def remove(self, *, internal: int, external: int) -> None:
+    def remove(self, *, lan_host: str, internal: int, external: int) -> None:
+        # NAT-PMP removes this host's own mapping of ``internal``, nobody else's.
         self._map(internal, 0, 0)
 
 
@@ -495,7 +496,9 @@ class Upnp:
             return 0
         return lease_s
 
-    def remove(self, *, internal: int, external: int) -> None:
+    def remove(self, *, lan_host: str, internal: int, external: int) -> None:
+        if self._held_by_another(lan_host, internal, external):
+            return  # the port went to another device since: it is not ours to take
         self._call(
             "DeletePortMapping",
             (
@@ -723,9 +726,14 @@ class Mapper:
         held = self._held
         if asked:
             if held is not None and self._same(held, wanted):
-                # The same block again (a reconnect): say it is still held, so
-                # the hub may check it once more.
-                self._report(self._mapped(held))
+                # The same block again (a reconnect): map it afresh, since the
+                # router may have lost it, and say so, so the hub checks it
+                # once more. A refusal or a new LAN address maps from scratch.
+                if self._refresh(held):
+                    self._report(self._mapped(held))
+                else:
+                    self._release(report=False)
+                    held = None
             elif held is not None:
                 self._release(report=wanted is None)
                 held = None
@@ -779,8 +787,8 @@ class Mapper:
             self._report(self._mapped(held))
             return
         # What the owner forwards by hand instead: the block on to the first
-        # LAN address the tunnel is published on that is IPv4.
-        lan = next((h for h in self._hosts() if _ipv4(h)), None)
+        # private IPv4 address the tunnel is published on (none: the hub says).
+        lan = next((h for h in self._hosts() if _private(h)), None)
         self._report(
             PortMapped(
                 state="failed",
@@ -819,7 +827,9 @@ class Mapper:
             for offset in range(len(granted)):
                 with contextlib.suppress(MapError):
                     router.remove(
-                        internal=internal + offset, external=external + offset
+                        lan_host=lan_host,
+                        internal=internal + offset,
+                        external=external + offset,
                     )
             raise
         lease = min(min(granted), sessionwire.MAX_PORT_MAP_LEASE_S)
@@ -851,16 +861,41 @@ class Mapper:
             lease_s=held.lease_s,
         )
 
+    def _refresh(self, held: _Held) -> bool:
+        """Map the held block again where it is; False when the router refuses
+        or this host's LAN address changed (the forward would land elsewhere)."""
+        try:
+            self._readd(held)
+        except MapError:
+            return False
+        held.misses = 0
+        held.renew_at = None if held.lease_s == 0 else self._clock() + held.lease_s / 2
+        return True
+
+    def _readd(self, held: _Held) -> None:
+        if held.router.lan_host() != held.lan_host:
+            raise MapError("no_lan_host", "this host's LAN address changed")
+        for offset in range(held.ports):
+            held.router.add(
+                lan_host=held.lan_host,
+                internal=held.internal + offset,
+                external=held.external + offset,
+                lease_s=held.lease_s,
+            )
+
     def _renew(self, held: _Held) -> None:
         try:
-            for offset in range(held.ports):
-                held.router.add(
-                    lan_host=held.lan_host,
-                    internal=held.internal + offset,
-                    external=held.external + offset,
-                    lease_s=held.lease_s,
-                )
+            self._readd(held)
         except MapError as exc:
+            if exc.error == "no_lan_host":
+                # The DHCP lease moved this host: the old address may be
+                # another device's now. Give it back, map the block afresh.
+                self._release(report=False)
+                with self._lock:
+                    wanted = self._wanted
+                if wanted is not None:
+                    self._map(wanted)
+                return
             held.misses += 1
             if held.misses < RENEW_TRIES:
                 held.renew_at = self._clock() + RENEW_RETRY_S
@@ -879,7 +914,9 @@ class Mapper:
             for offset in range(held.ports):
                 with contextlib.suppress(MapError):
                     held.router.remove(
-                        internal=held.internal + offset, external=held.external + offset
+                        lan_host=held.lan_host,
+                        internal=held.internal + offset,
+                        external=held.external + offset,
                     )
         if report:
             self._report(PortMapped(state="released"))
