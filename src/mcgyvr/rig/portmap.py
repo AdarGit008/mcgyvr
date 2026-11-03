@@ -40,6 +40,7 @@ import re
 import select
 import socket
 import struct
+import sys
 import threading
 import time
 import urllib.parse
@@ -69,9 +70,13 @@ MAX_DESCRIPTION_BYTES = 64 * 1024
 HTTP_WAIT_S = 3.0
 #: What a mapping says it is on the router.
 DESCRIPTION = "mcgyvr tunnel"
-#: How long the worker waits at most before it looks again, and how soon it
-#: retries a renewal that failed for want of an answer.
+#: How long the worker waits at most before it looks again; how soon, and how
+#: many times, it retries a renewal the router did not take before it gives
+#: the forward up; and how long stopping waits for a mapping under way.
 IDLE_S = 60.0
+RENEW_RETRY_S = 30.0
+RENEW_TRIES = 3
+CLOSE_WAIT_S = 30.0
 #: How long one check's socket waits for datagrams per pass.
 CHECK_SLICE_S = 0.1
 
@@ -82,6 +87,17 @@ _UPNP_PERMANENT_ONLY = 725  # OnlyPermanentLeasesSupported
 _NATPMP_REFUSED = {2}  # not authorized
 _NATPMP_UNSUPPORTED = {1, 5}
 _DECLARATION = re.compile(rb"<!(DOCTYPE|ENTITY)", re.IGNORECASE)
+_UPNP_NO_ENTRY = 714  # NoSuchEntryInArray: the external port maps nothing
+
+
+def _plain(raw: bytes) -> bool:
+    """Whether ``raw`` is XML this module reads: bounded, one-byte encoded (no
+    NUL, so no UTF-16 past the declaration check), with no type or entity."""
+    return (
+        len(raw) <= MAX_DESCRIPTION_BYTES
+        and b"\x00" not in raw
+        and not _DECLARATION.search(raw)
+    )
 
 
 class MapError(Exception):
@@ -299,7 +315,7 @@ def read_description(raw: bytes, location: str) -> tuple[str, str] | None:
     Refused (None) when the document declares a type or an entity, does not
     parse, or puts its control URL on another host than the description's.
     """
-    if len(raw) > MAX_DESCRIPTION_BYTES or _DECLARATION.search(raw):
+    if not _plain(raw):
         return None
     try:
         root = ElementTree.fromstring(raw)
@@ -353,7 +369,7 @@ def soap_body(
 
 def read_soap(raw: bytes) -> dict[str, str]:
     """The leaf values of a SOAP answer, by local name (a fault's too)."""
-    if len(raw) > MAX_DESCRIPTION_BYTES or _DECLARATION.search(raw):
+    if not _plain(raw):
         raise MapError("failed", "UPnP: an answer that is no plain SOAP")
     try:
         root = ElementTree.fromstring(raw)
@@ -448,7 +464,30 @@ class Upnp:
             ),
         )
 
+    def _held_by_another(self, lan_host: str, internal: int, external: int) -> bool:
+        """Whether the external port already forwards somewhere else (a router
+        may overwrite another device's forward without a word)."""
+        try:
+            entry = self._call(
+                "GetSpecificPortMappingEntry",
+                (
+                    ("NewRemoteHost", ""),
+                    ("NewExternalPort", external),
+                    ("NewProtocol", "UDP"),
+                ),
+            )
+        except MapError:
+            return False  # no such entry (714), or a router that cannot say
+        if not entry.get("NewInternalClient"):
+            return False
+        return (entry.get("NewInternalClient"), entry.get("NewInternalPort")) != (
+            lan_host,
+            str(internal),
+        )
+
     def add(self, *, lan_host: str, internal: int, external: int, lease_s: int) -> int:
+        if self._held_by_another(lan_host, internal, external):
+            raise MapError("conflict", f"UPnP: port {external} forwards elsewhere")
         try:
             self._add(lan_host, internal, external, lease_s)
         except _PermanentOnlyError:
@@ -553,6 +592,7 @@ class _Held:
     ports: int
     lease_s: int
     renew_at: float | None  # None: a permanent lease, never renewed
+    misses: int = 0  # renewals in a row the router did not take
 
 
 @dataclass
@@ -653,7 +693,7 @@ class Mapper:
         self._stopped.set()
         self._wake.set()
         if self._thread is not None:
-            self._thread.join(timeout=10)
+            self._thread.join(timeout=CLOSE_WAIT_S)
         with self._lock:
             checks = list(self._checks)
         for check in checks:
@@ -664,7 +704,11 @@ class Mapper:
 
     def _run(self) -> None:
         while not self._stopped.is_set():
-            wait = self.tick()
+            try:
+                wait = self.tick()
+            except Exception as exc:  # the worker must outlive any one pass
+                print(f"port forward: {exc!r}", file=sys.stderr)
+                wait = IDLE_S
             self._wake.wait(wait)
             self._wake.clear()
 
@@ -689,6 +733,8 @@ class Mapper:
                 self._report(PortMapped(state="released"))
             if wanted is not None and held is None:
                 self._map(wanted)
+                if self._stopped.is_set():  # it stopped while the router mapped
+                    self._release(report=False)
         elif held is not None and held.renew_at is not None:
             if self._clock() >= held.renew_at:
                 self._renew(held)
@@ -776,7 +822,7 @@ class Mapper:
                         internal=internal + offset, external=external + offset
                     )
             raise
-        lease = min(granted)
+        lease = min(min(granted), sessionwire.MAX_PORT_MAP_LEASE_S)
         return _Held(
             router=router,
             lan_host=lan_host,
@@ -815,11 +861,16 @@ class Mapper:
                     lease_s=held.lease_s,
                 )
         except MapError as exc:
-            self._held = None
+            held.misses += 1
+            if held.misses < RENEW_TRIES:
+                held.renew_at = self._clock() + RENEW_RETRY_S
+                return
+            self._release(report=False)
             self._report(
                 PortMapped(state="failed", error=exc.error, message=exc.message)
             )
             return
+        held.misses = 0
         held.renew_at = self._clock() + held.lease_s / 2
 
     def _release(self, *, report: bool) -> None:
