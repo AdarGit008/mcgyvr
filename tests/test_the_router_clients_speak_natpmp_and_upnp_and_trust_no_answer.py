@@ -200,6 +200,7 @@ def test_a_description_names_its_wan_service_on_its_own_host() -> None:
 class Igd(BaseHTTPRequestHandler):
     calls: ClassVar[list[tuple[str, bytes]]] = []
     fault: ClassVar[dict[str, int]] = {}
+    held: ClassVar[tuple[str, int] | None] = None  # what 52000 forwards to now
 
     def do_POST(self) -> None:
         action = self.headers["SOAPAction"].strip('"').rpartition("#")[2]
@@ -207,6 +208,9 @@ class Igd(BaseHTTPRequestHandler):
         Igd.calls.append((action, body))
         code = Igd.fault.pop(action, 0)
         if code:
+            self._fault(code)
+            return
+        if False:
             self._send(
                 500,
                 "<s:Envelope xmlns:s='http://schemas.xmlsoap.org/soap/envelope/'>"
@@ -217,6 +221,17 @@ class Igd(BaseHTTPRequestHandler):
             )
             return
         inner = ""
+        if action == "GetSpecificPortMappingEntry":
+            if Igd.held is None:
+                code = 714
+            else:
+                inner = (
+                    f"<NewInternalPort>{Igd.held[1]}</NewInternalPort>"
+                    f"<NewInternalClient>{Igd.held[0]}</NewInternalClient>"
+                )
+        if code:
+            self._fault(code)
+            return
         if action == "GetExternalIPAddress":
             inner = "<NewExternalIPAddress>198.51.100.7</NewExternalIPAddress>"
         self._send(
@@ -224,6 +239,16 @@ class Igd(BaseHTTPRequestHandler):
             "<s:Envelope xmlns:s='http://schemas.xmlsoap.org/soap/envelope/'>"
             f"<s:Body><u:{action}Response xmlns:u='{WAN}'>{inner}"
             f"</u:{action}Response></s:Body></s:Envelope>",
+        )
+
+    def _fault(self, code: int) -> None:
+        self._send(
+            500,
+            "<s:Envelope xmlns:s='http://schemas.xmlsoap.org/soap/envelope/'>"
+            "<s:Body><s:Fault><detail><UPnPError xmlns='urn:schemas-upnp-org:"
+            f"control-1-0'><errorCode>{code}</errorCode><errorDescription>"
+            "no</errorDescription></UPnPError></detail></s:Fault></s:Body>"
+            "</s:Envelope>",
         )
 
     def _send(self, status: int, text: str) -> None:
@@ -241,6 +266,7 @@ class Igd(BaseHTTPRequestHandler):
 def igd() -> Iterator[portmap.Upnp]:
     Igd.calls = []
     Igd.fault = {}
+    Igd.held = None
     server = HTTPServer(("127.0.0.1", 0), Igd)
     thread = threading.Thread(target=server.serve_forever, daemon=True)
     thread.start()
@@ -300,3 +326,21 @@ def test_upnp_says_a_dead_gateway_timed_out() -> None:
 def test_a_soap_answer_with_a_declaration_is_refused() -> None:
     with pytest.raises(portmap.MapError):
         portmap.read_soap(b'<!DOCTYPE x [<!ENTITY a "a">]><x>&a;</x>')
+
+
+def test_upnp_never_takes_a_port_that_forwards_to_another_device(
+    igd: portmap.Upnp,
+) -> None:
+    Igd.held = ("192.168.1.77", 3074)  # a console's forward
+    with pytest.raises(portmap.MapError) as taken:
+        igd.add(lan_host="192.168.1.20", internal=51820, external=52000, lease_s=600)
+    assert taken.value.error == "conflict"
+    assert "AddPortMapping" not in [action for action, _ in Igd.calls]
+    Igd.held = ("192.168.1.20", 51820)  # its own, from before: renewed
+    assert igd.add(lan_host="192.168.1.20", internal=51820, external=52000, lease_s=600)
+
+
+def test_a_utf16_description_is_refused_before_it_is_parsed() -> None:
+    at = "http://192.168.1.1:5000/rootDesc.xml"
+    text = description("/ctl", extra='<!DOCTYPE r [<!ENTITY a "aaaa">]>').decode()
+    assert portmap.read_description(text.encode("utf-16"), at) is None

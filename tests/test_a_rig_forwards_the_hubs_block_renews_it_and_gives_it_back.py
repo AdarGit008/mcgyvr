@@ -19,7 +19,7 @@ from typing import Any
 
 import pytest
 
-from mcgyvr.rig import portmap, protocol, udpwire
+from mcgyvr.rig import portmap, protocol, sessionwire, udpwire
 
 LAN = "192.168.1.20"
 PORTS = (51820, 51821, 51822, 51823)
@@ -183,20 +183,37 @@ def test_the_lease_is_renewed_before_half_of_it_is_gone() -> None:
     assert len(world.reports()) == 1
 
 
-def test_a_renewal_refused_drops_the_forward_and_says_so() -> None:
+def test_a_renewal_refused_is_retried_then_the_forward_given_up_and_said() -> None:
     upnp = FakeRouter()
     world = World([upnp])
     mapper = world.mapper()
     ask(mapper, external_port=52000, lease_s=600)
     mapper.tick()
-    upnp.refuse_at[52000] = "refused"
+    upnp.refuse_at[52000] = "timeout"
     world.clock.now += 300
+    for _ in range(portmap.RENEW_TRIES - 1):
+        mapper.tick()
+        assert len(world.reports()) == 1  # a miss, retried
+        world.clock.now += portmap.RENEW_RETRY_S
+    del upnp.refuse_at[52000]
+    mapper.tick()  # the router answers again: kept
+    assert len(world.reports()) == 1 and len(upnp.held) == 4
+    upnp.refuse_at[52000] = "timeout"
+    for _ in range(portmap.RENEW_TRIES):
+        world.clock.now += 300
+        mapper.tick()
+    assert world.reports()[-1]["state"] == "failed"
+    assert world.reports()[-1]["error"] == "timeout"
+    assert upnp.held == {}  # what was left of it is given back
+
+
+def test_a_lease_longer_than_the_wire_carries_is_held_to_it() -> None:
+    upnp = FakeRouter(lease=10**9)
+    world = World([upnp])
+    mapper = world.mapper()
+    ask(mapper, external_port=52000)
     mapper.tick()
-    assert world.reports()[-1] == {
-        "state": "failed",
-        "error": "refused",
-        "message": "no",
-    }
+    assert world.reports()[0]["lease_s"] == sessionwire.MAX_PORT_MAP_LEASE_S
 
 
 def test_a_permanent_lease_is_never_renewed() -> None:
