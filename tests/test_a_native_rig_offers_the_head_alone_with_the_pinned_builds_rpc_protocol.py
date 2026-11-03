@@ -63,7 +63,11 @@ def test_a_native_mac_or_windows_rig_offers_the_head_on_the_pinned_build(
     assert offer.runtime == llamacpp.RUNTIME
     assert f"{llamacpp.REPO}@{llamacpp.TAG}" == llamacpp.RUNTIME
     assert session.TRAVERSAL_FEATURE not in offer.features
-    assert set(offer.features) == set(session.FEATURES) - {session.TRAVERSAL_FEATURE}
+    assert session.PORT_MAP_FEATURE not in offer.features  # nor forwards a port
+    assert set(offer.features) == set(session.FEATURES) - {
+        session.TRAVERSAL_FEATURE,
+        session.PORT_MAP_FEATURE,
+    }
     capabilities = _hello(offer)["capabilities"]
     assert capabilities[hubwire.RPC_PROTO_FIELD] == {"major": 8, "minor": 0}
 

@@ -93,10 +93,14 @@ TRAVERSAL_FEATURE = "traversal"
 #: The feature that says this rig runs one session per card, never two on one card.
 #: A rig that names it may hold several sessions at once, one per card.
 MULTI_SESSION_FEATURE = "multi_session"
+#: The feature that says this rig forwards its tunnel ports on its home router when
+#: the hub asks (the owner agreed to it on the hub) and answers the hub's check.
+PORT_MAP_FEATURE = "port_map"
 #: Every feature the hello and the offer name, within ``MAX_FEATURES``, no repeats:
 #: ``probe`` and ``traversal``: it answers UDP probes and walks STUN candidates,
 #: ``head_slots``: it reads the slots of the head it runs,
-#: and the hitchhike units and the several sessions a card rig holds.
+#: the hitchhike units and the several sessions a card rig holds,
+#: and ``port_map``: it forwards its tunnel ports on its router when asked.
 #: ``offer`` names only ``HITCHHIKE_FEATURE`` for a rig that lends nothing.
 #: The hub publishes these names, so a name it does not publish refuses the hello.
 FEATURES = (
@@ -105,6 +109,7 @@ FEATURES = (
     "head_slots",
     HITCHHIKE_FEATURE,
     MULTI_SESSION_FEATURE,
+    PORT_MAP_FEATURE,
 )
 #: The llama.cpp RPC protocol of the pinned build, as the wire names it: what
 #: a rig running that build declares in its hello.
@@ -114,8 +119,10 @@ PINNED_RPC_PROTO = hubwire.RpcProto(
 #: What a native rig (a Mac or Windows rig lending with ``launcher: native``)
 #: names: every feature but ``traversal``, until a reply to the helper's own
 #: UDP is known to pass the host firewall unasked; until then the hub pairs it
-#: with rigs on its own LAN alone.
-NATIVE_FEATURES = tuple(name for name in FEATURES if name != TRAVERSAL_FEATURE)
+#: with rigs on its own LAN alone, so it forwards no port either (``port_map``).
+NATIVE_FEATURES = tuple(
+    name for name in FEATURES if name not in (TRAVERSAL_FEATURE, PORT_MAP_FEATURE)
+)
 #: How many sessions a rig runs at once: one per tunnel port, each with its own.
 #: The live session count and the tunnel port count are the same number.
 MAX_LIVE_SESSIONS = sharing_module.TUNNEL_PORTS
