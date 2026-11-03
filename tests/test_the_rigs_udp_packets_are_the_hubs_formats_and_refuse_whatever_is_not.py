@@ -62,6 +62,7 @@ def test_the_constants_are_the_schemas() -> None:
         "relay_bind_min_bytes": u.RELAY_BIND_MIN_BYTES,
         "relay_bind_max_bytes": u.RELAY_BIND_MAX_BYTES,
         "relay_max_packet_bytes": u.RELAY_MAX_PACKET_BYTES,
+        "port_check_max_pongs": u.PORT_CHECK_MAX_PONGS,
     }
 
 

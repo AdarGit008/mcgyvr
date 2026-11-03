@@ -39,6 +39,9 @@ PROBE_PACKET_MAX_BYTES = 1200
 RELAY_BIND_MIN_BYTES = 96
 RELAY_BIND_MAX_BYTES = 512
 RELAY_MAX_PACKET_BYTES = 2048
+#: The most pings one port check answers (``port_check``, the hub's check of a
+#: rig's port forward).
+PORT_CHECK_MAX_PONGS = 8
 TOKEN_BYTES = 16
 TXID_BYTES = 12
 #: Probe kinds carried in the packet's kind byte.
