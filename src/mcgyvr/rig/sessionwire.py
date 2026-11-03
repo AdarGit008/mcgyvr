@@ -173,10 +173,11 @@ class Endpoint:
 
 @dataclass(frozen=True, kw_only=True)
 class Traversal:
-    """What a prepare offers for punching through NAT.
+    """What a prepare offers for the hub to see where the tunnel port comes from.
 
     The token both ends match their packets on, and the STUN endpoints that
-    report the addresses they see.
+    report the addresses they see. The hub never hands that mapped address to a
+    peer: it punches no holes through NATs.
     """
 
     token: bytes
