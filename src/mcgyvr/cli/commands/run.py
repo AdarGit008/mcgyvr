@@ -1226,8 +1226,9 @@ def _commit(
 
     A change whose code is not yours (`report.whose`, written by `model`) is
     committed with the trailers that say so, and under `delivery.lent_code:
-    branch` it is always committed, onto `mcgyvr/<contract id>` or the named
-    branch when that is not the checked-out one, never into your checkout.
+    branch` it is always committed, onto `mcgyvr/<contract id>` (or the first
+    free `-2`, `-3`, … after it) or the named branch when that is not the
+    checked-out one, never into your checkout.
     """
     from mcgyvr.deliver import (
         DeliveryError,

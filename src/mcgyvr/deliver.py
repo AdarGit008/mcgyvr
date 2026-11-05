@@ -27,6 +27,7 @@ from __future__ import annotations
 
 import contextlib
 import hashlib
+import itertools
 import os
 import subprocess
 import tempfile
@@ -384,8 +385,10 @@ def deliver(
     `trailers` end the commit message (:func:`lent_trailers`). `away` is the
     branch the commit lands on when it must not land on the checked-out one —
     a change whose code is not yours, under `delivery.lent_code: branch` — and
-    `branch` names none or names the checked-out one; a checked-out `away` is
-    refused. With `away` the checkout's working tree and index are never
+    `branch` names none or names the checked-out one. An `away` some branch
+    already has — the same contract run again — gives way to the first free
+    ``<away>-2``, ``<away>-3``, … (:func:`_unused`), so an earlier lent change is
+    never overwritten. With `away` the checkout's working tree and index are never
     touched: the change is written, judged again and committed in a temporary
     worktree (:func:`_delivered_apart`).
 
@@ -418,7 +421,19 @@ def deliver(
             base=resolved,
             paths=tuple(rel for rel, _ in files),
         )
-        onto = _elsewhere(root, branch) or _elsewhere(root, away)
+        onto = _elsewhere(root, branch)
+        if away and not onto:
+            lent, blocker = _unused(root, away)
+            if blocker:
+                return call.refuse(
+                    f"you have a branch named {blocker}, so git can make no "
+                    f"branch {away} beside it, and a change whose code came from "
+                    f"a rung that is not yours lands on a branch of its own under "
+                    f"`delivery.lent_code: branch`. Rename {blocker}, name "
+                    f"another branch with `--branch`, or set `delivery.lent_code: "
+                    f"checkout` to deliver it as your own rungs' changes are"
+                )
+            onto = _elsewhere(root, lent)
         if away and not onto:
             return call.refuse(
                 f"{away} is the branch you have checked out, and a change whose "
@@ -428,6 +443,10 @@ def deliver(
                 f"checkout` to deliver it as your own rungs' changes are"
             )
 
+        # Kept for a lent change too, though its delivery never touches the
+        # checkout: its base is your HEAD, and mid-merge, mid-rebase or mid-
+        # bisect that is a commit you are still settling, not one to build a
+        # branch for review on. Finish or abort, then run again.
         hazard = _checkout_hazard(root, detached_ok=bool(onto))
         if hazard is None and onto:
             hazard = _branch_refusal(root, onto, resolved, call.paths)
@@ -684,6 +703,36 @@ def _elsewhere(root: Path, branch: str) -> str:
     return "" if branch == current else branch
 
 
+def _unused(root: Path, away: str) -> tuple[str, str]:
+    """`away`, or the first of ``<away>-2``, ``<away>-3``, … git can still make;
+    with ``""`` and the branch in the way when it can make none of them.
+
+    A lent change always lands on a branch of its own, made from the base it was
+    judged against: the same contract run again finds its earlier branch taken
+    and lands beside it, so that branch is never overwritten or built on and
+    the new one holds the judged change and nothing else. A name is taken when
+    a branch has it or has it as a directory (``<away>/x``); a branch named
+    after one of `away`'s own directories (``mcgyvr`` for ``mcgyvr/<id>``)
+    leaves git no such name at all, and is handed back to be named.
+    """
+    taken = {
+        line.strip().removeprefix("refs/heads/")
+        for line in _git(
+            root, "for-each-ref", "--format=%(refname)", "refs/heads/"
+        ).splitlines()
+    }
+    parts = away.split("/")
+    for depth in range(1, len(parts)):
+        if (blocker := "/".join(parts[:depth])) in taken:
+            return "", blocker
+
+    def free(name: str) -> bool:
+        return name not in taken and not any(t.startswith(f"{name}/") for t in taken)
+
+    candidates = itertools.chain((away,), (f"{away}-{n}" for n in itertools.count(2)))
+    return next(name for name in candidates if free(name)), ""
+
+
 def _branch_refusal(
     root: Path, branch: str, base: str, rels: Sequence[str]
 ) -> str | None:
@@ -833,8 +882,11 @@ def _delivered_apart(
 def _apart(root: Path, commit: str) -> Iterator[Path]:
     """Yield a temporary worktree of `root`'s repository, detached at `commit`.
 
-    Hooks are off, so checking it out runs nothing of the repository's, and it
-    is removed, and its record pruned, however the block ends.
+    Hooks are off for ``worktree add``, so checking it out runs no hook of the
+    repository's; the scratch-index plumbing :func:`_commit_onto` runs in it
+    afterwards still fires your own ``post-index-change`` hook, as it does for
+    any named branch. The worktree is removed, and its record pruned, however
+    the block ends.
     """
     with tempfile.TemporaryDirectory(prefix="mcgyvr-delivery-") as where:
         there = Path(where) / "tree"
