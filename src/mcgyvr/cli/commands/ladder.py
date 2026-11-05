@@ -36,6 +36,7 @@ from mcgyvr.emit import (
     emit_locked,
     is_locked,
     keyed,
+    listening,
     listens_beyond_loopback,
     locked_keyed,
     locked_open,
@@ -327,7 +328,7 @@ def _emit(args: argparse.Namespace) -> int:
         print(f"error: {exc}", file=sys.stderr)
         return Exit.ERROR
     if fleet is not None:
-        return _emit_locked(fleet, args, config.path)
+        return _emit_locked(fleet, args, config.path, config)
 
     scans = recorded_scans()
     try:
@@ -427,7 +428,7 @@ def _emit(args: argparse.Namespace) -> int:
     # A unit of `expose: lan` is given its key now that its compose file names
     # it, and every unit that listens other than it did before says so.
     try:
-        _exposure(units)
+        _exposure(units, config)
     except unitkey.UnitKeyError as exc:
         print(f"error: {exc}", file=sys.stderr)
         return Exit.ERROR
@@ -458,54 +459,114 @@ def _emit(args: argparse.Namespace) -> int:
     return Exit.OK
 
 
-def _exposure(units: Iterable[Unit]) -> None:
-    """Make the key of each unit of `expose: lan` that has none, and say where
-    the units listen when it is not what they listened on before.
+def _exposure(units: Iterable[Unit], config: Config) -> None:
+    """Make the key of each keyed unit that has none, and say where the units
+    listen when it is not where their address reaches them.
 
-    A keyed unit is named with its key file. A serving unit in a container
-    that states no host of its own and keeps `expose: local` listens on the
-    loopback, which no other machine reaches: when its address names another
-    host than this machine's loopback, that is said as a warning, since what
-    dials it there (mcgyvr on another machine, a client of yours) no longer
-    reaches it. A unit whose own launch states a host beyond the loopback is
-    rendered as it states, with no key unless it states `lan`, and is warned
-    about too. UnitKeyError says a key file is there and cannot be trusted.
+    A keyed unit (`expose: lan`, stated or read off an address on another host)
+    is named with where it listens and its key file (`_key_note`), or warned
+    about when its own launch keeps it on this machine's loopback. A serving
+    unit in a container that keeps `expose: local` while its address names
+    another host is warned about (`_local_but_remote`), and so is one whose
+    launch states a host beyond this machine with no key. UnitKeyError says a
+    key file is there and cannot be trusted.
     """
     for unit in sorted(units, key=lambda u: u.key.slug):
         names = ", ".join(unit.rungs) or unit.key.slug
-        if keyed(unit):
-            _key_note(unit.key.slug, *unitkey.ensure(unit.host, unit.port), names)
-        elif unit.launcher == LAUNCHER_NATIVE or unit.role != ROLE_SERVE:
+        if unit.launcher == LAUNCHER_NATIVE or unit.role != ROLE_SERVE:
             continue
+        shared = any(
+            (declared := config.units.get(name)) is not None and declared.rider_slots
+            for name in unit.rungs
+        )
+        where = listening(unit)
+        if keyed(unit):
+            path, made = unitkey.ensure(unit.host, unit.port)
+            if where in LOCAL_RIGS:
+                _keyed_on_loopback(
+                    unit.key.slug,
+                    where,
+                    "launch",
+                    "drop the --host or LLAMA_ARG_HOST it states",
+                )
+            else:
+                _key_note(unit.key.slug, where, path, made, names, unit.host, shared)
         elif states_host(unit):
             if listens_beyond_loopback(unit):
                 print(
                     f"warning: {unit.key.slug}: its launch states where it "
-                    "listens, beyond 127.0.0.1, and it asks for no key; state "
-                    f"`expose: lan` on {names} for one",
+                    f"listens, {where}, beyond this machine, and it asks for no "
+                    f"key; state `expose: lan` on {names} for one",
                     file=sys.stderr,
                 )
         elif unit.host not in LOCAL_RIGS:
-            print(
-                f"warning: {unit.key.slug}: listens on 127.0.0.1 alone "
-                f"(expose: local, the default), and its address names "
-                f"{unit.host}: no other machine reaches it. State `expose: lan` "
-                f"on {names} to listen on every interface, behind a key mcgyvr "
-                "makes",
-                file=sys.stderr,
-            )
+            _local_but_remote(unit, names, shared)
 
 
-def _key_note(slug: str, path: Path, made: bool, names: str) -> None:
-    """Say that `slug` listens on every interface behind the key in `path`."""
-    kept = "made its key in" if made else "its key is in"
+def _local_but_remote(unit: Unit, names: str, shared: bool) -> None:
+    """Warn that a unit stating `expose: local` is one its own address, which
+    names another host, never reaches; and, for a unit shared with riders, how
+    that shows on the rig."""
+    said = (
+        f"warning: {unit.key.slug}: listens on 127.0.0.1 alone, as its unit states "
+        f"(expose: local), and its address names {unit.host}: that name reaches "
+        "the machine's network address, never 127.0.0.1, so nothing dials it by "
+        f"that name, this machine included. State `expose: lan` on {names}, or "
+        "leave `expose` out (an address on another host is `lan` by default), to "
+        "listen on every interface behind a key mcgyvr makes"
+    )
+    if shared:
+        first = unit.rungs[0] if unit.rungs else unit.key.slug
+        said += (
+            ". It is shared with riders, so the rig agent advertises it with no "
+            f"free slot and says `unit {first!r} is shared with no free slot: its "
+            "server does not say what it has in flight` once on its stderr; "
+            "riders are matched elsewhere and no ride fails. On "
+            f"{unit.host}, address the unit as http://localhost:{unit.port} in "
+            "the rig agent's own config"
+        )
+    print(said, file=sys.stderr)
+
+
+def _keyed_on_loopback(slug: str, where: str, stated: str, remedy: str) -> None:
+    """Warn that `expose: lan` gave `slug` a key while its own `stated` (launch
+    or lock) keeps it listening on this machine's `where` alone."""
     print(
-        f"note: {slug}: listens on every interface (expose: lan) and asks every "
-        f"request for its key; {kept} {path} (mode 0600). mcgyvr's own requests "
-        f"send it; `mcgyvr fleet key {names.split(', ')[0]}` prints it for a "
-        "client of yours",
+        f"warning: {slug}: expose: lan gives it a key, but its {stated} states "
+        f"{where}, so it listens there alone; {remedy}",
         file=sys.stderr,
     )
+
+
+def _key_note(
+    slug: str,
+    where: str,
+    path: Path,
+    made: bool,
+    names: str,
+    host: str,
+    shared: bool,
+) -> None:
+    """Say that `slug` listens on `where` behind the key in `path`; for a unit
+    shared with riders on another host, that the rig agent there needs the same
+    file and `mcgyvr emit` does not put it there."""
+    kept = "made its key in" if made else "its key is in"
+    said = (
+        f"note: {slug}: listens on {where} (expose: lan) and asks every request "
+        f"for its key; {kept} {path} (mode 0600). mcgyvr's own requests from this "
+        f"machine send it; `mcgyvr fleet key {names.split(', ')[0]}` prints it for "
+        "a client of yours"
+    )
+    if shared and host not in LOCAL_RIGS:
+        said += (
+            f". It is shared with riders, and the rig agent on {host} reads the key "
+            f"from {unitkey.KEYS_DIR}/{path.name} in its own data folder, which "
+            "`mcgyvr emit` does not fill: copy the file there at mode 0600, or the "
+            "agent cannot read the unit's slots, advertises it with no free slot "
+            "and says so once on its stderr; riders are matched elsewhere and no "
+            "ride fails"
+        )
+    print(said, file=sys.stderr)
 
 
 def _locked_fleet(config: Config) -> dict[str, Any] | None:
@@ -525,7 +586,10 @@ def _locked_fleet(config: Config) -> dict[str, Any] | None:
 
 
 def _emit_locked(
-    fleet: dict[str, Any], args: argparse.Namespace, setup: Path | None = None
+    fleet: dict[str, Any],
+    args: argparse.Namespace,
+    setup: Path | None = None,
+    config: Config | None = None,
 ) -> int:
     """Write, or check, what a locked fleet states; return an `Exit`.
 
@@ -550,8 +614,14 @@ def _emit_locked(
                 planned_locked_paths(fleet, out, setup),
             )
         written = emit_locked(fleet, out, setup)
-        for name, host, port in locked_keyed(fleet):
-            _key_note(name, *unitkey.ensure(host, port), names=name)
+        for name, host, port, where in locked_keyed(fleet):
+            path, made = unitkey.ensure(host, port)
+            if where in LOCAL_RIGS:
+                _keyed_on_loopback(name, where, "lock", "lock it again")
+                continue
+            declared = config.units.get(name) if config is not None else None
+            shared = declared is not None and declared.rider_slots > 0
+            _key_note(name, where, path, made, name, host, shared)
     except LockedLaunchError as exc:
         print(f"refused: {exc}", file=sys.stderr)
         return Exit.REFUSED
@@ -560,9 +630,9 @@ def _emit_locked(
         return Exit.ERROR
     for name, host in locked_open(fleet):
         print(
-            f"warning: {name}: its lock has it listen on {host} with no key "
-            "(locked before units listened on 127.0.0.1 by default); state "
-            "`expose: lan` on it for a key, or lock it again",
+            f"warning: {name}: its lock has it listen on {host} with no key, and "
+            "it is `expose: local` (stated, or its address names this machine); "
+            "state `expose: lan` on it for a key, or lock it again for 127.0.0.1",
             file=sys.stderr,
         )
     for compose in written:

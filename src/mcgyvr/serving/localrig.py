@@ -80,7 +80,7 @@ def run(
     if words[:1] == ["python3"]:
         return _python(words[1:], input, timeout)
     if words[:1] == ["curl"]:
-        return _curl(command, words[1:])
+        return _curl(command, words[1:], input)
     if command.startswith("find ") and command.endswith(FIND_TAIL):
         return _find(command, words)
     if words[:2] == ["bash", "-s"]:
@@ -203,8 +203,15 @@ def ask(
         return NO_ANSWER, b""
 
 
-def _curl(command: str, words: list[str]) -> subprocess.CompletedProcess[str]:
-    """A curl the serve steps make of this machine's own port, made with urllib."""
+def _curl(
+    command: str, words: list[str], input: str | None = None
+) -> subprocess.CompletedProcess[str]:
+    """A curl the serve steps make of this machine's own port, made with urllib.
+
+    `-H @-` reads its headers from `input`, one `Name: value` per line, as curl
+    reads them from stdin: that is how a probe sends a unit's key
+    (`servelib._bearer`) without putting it on a command line.
+    """
     fail = False
     write_out: str | None = None
     method: str | None = None
@@ -227,6 +234,11 @@ def _curl(command: str, words: list[str]) -> subprocess.CompletedProcess[str]:
             write_out = value
         elif word == "-X":
             method = value.upper()
+        elif word == "-H" and value == "@-":
+            for line in (input or "").splitlines():
+                name, sep, said = line.partition(":")
+                if sep and name.strip():
+                    headers[name.strip()] = said.strip()
         elif word == "-H":
             name, _sep, said = value.partition(":")
             headers[name.strip()] = said.strip()

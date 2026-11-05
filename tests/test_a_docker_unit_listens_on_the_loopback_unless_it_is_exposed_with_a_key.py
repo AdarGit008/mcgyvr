@@ -1,16 +1,19 @@
 """A docker unit listens on the loopback unless it is exposed, and then only with a key.
 
 Promise: a llama.cpp or vLLM server mcgyvr renders into a container listens on
-127.0.0.1 unless its unit states ``expose: lan``. A unit that does listens on
-every interface and asks every request for a key mcgyvr makes the first time
+127.0.0.1 when its unit is ``expose: local``, and on every interface when it is
+``expose: lan``; a unit that states neither is ``local`` when its address names
+this machine and ``lan`` when it names another host. A ``lan`` unit asks every
+request for a key mcgyvr makes the first time
 ``mcgyvr emit`` writes it: kept at mode 0600 in the data folder, named in the
 compose service's ``env_file`` and never written into the compose file, and
 sent by mcgyvr's own requests to the unit (a dispatch, a status poll, the
 availability probe, the door's probes and the rig agent's relay) as a bearer
 token. A unit that states its own ``--host`` or ``LLAMA_ARG_HOST`` renders byte
-for byte as it did before units listened on the loopback by default, and a unit
-from a config that names no ``expose`` listens on the loopback. ``mcgyvr fleet
-key`` prints the key, for a client of the owner's own.
+for byte as it did before units listened on the loopback by default. ``mcgyvr
+emit`` says where each keyed unit listens, and warns where a unit's own address
+cannot reach it. ``mcgyvr fleet key`` prints the key, for a client of the owner's
+own.
 
 The machines are invented, and so are their addresses.
 """
@@ -19,6 +22,7 @@ from __future__ import annotations
 
 import os
 import stat
+import sys
 import threading
 from collections.abc import Iterator
 from dataclasses import dataclass, field, replace
@@ -27,6 +31,7 @@ from pathlib import Path
 from typing import Any
 
 import pytest
+import yaml
 
 import mcgyvr.runner as runner
 from mcgyvr import unitkey
@@ -34,17 +39,40 @@ from mcgyvr.availability import probe_endpoint
 from mcgyvr.cli import main
 from mcgyvr.cli.commands.ladder import _exposure
 from mcgyvr.config import CONFIG_PATH_ENV, ConfigSchemaError, parse
-from mcgyvr.emit import EmitError, _healthcheck, render_compose
+from mcgyvr.emit import (
+    EmitError,
+    _healthcheck,
+    emit_locked,
+    locked_keyed,
+    locked_open,
+    render_compose,
+)
 from mcgyvr.exits import Exit
 from mcgyvr.local_pool import SourceUnavailableError, source_map
 from mcgyvr.rig.relay import Target
 from mcgyvr.rig.relay import _page as relay_page
 from mcgyvr.scan import Scan
-from mcgyvr.serving import ROLE_HEADLESS, ROLE_RPC, Unit, servelib, unit_for
+from mcgyvr.serving import (
+    ROLE_HEADLESS,
+    ROLE_RPC,
+    Unit,
+    exposure,
+    host_of,
+    servelib,
+    unit_for,
+    units_for,
+)
 from tests import records
 from tests.doors import DENSE, SEVEN_B_SPEC, rig, service_of
 from tests.relays import Host, _host, _ride_body
 from tests.sizings import WINDOW
+from tests.test_a_locked_unit_split_across_rigs_is_emitted_as_its_head_and_rpc_workers import (  # noqa: E501
+    A as LOCKED_RIG,
+)
+from tests.test_a_locked_unit_split_across_rigs_is_emitted_as_its_head_and_rpc_workers import (  # noqa: E501
+    plain,
+)
+from tests.test_serving_gatelib import clean_env, fake_door, ssh_stub, under
 
 HOST = "gpu-box.example"
 #: A key of the shape `unitkey` makes, for files a test writes itself.
@@ -127,19 +155,40 @@ def test_a_worker_and_a_headless_rank_are_rendered_as_before_whatever_expose_say
         assert "--host" not in service["command"]
 
 
-def test_a_unit_from_a_config_that_names_no_expose_listens_on_the_loopback() -> None:
+@pytest.mark.parametrize(
+    ("address", "stated", "listens", "keyed"),
+    [
+        ("http://localhost:8080", None, "127.0.0.1", False),
+        ("http://127.0.0.1:8080", None, "127.0.0.1", False),
+        (f"http://{HOST}:8080", None, "0.0.0.0", True),
+        (f"http://{HOST}:8080", "local", "127.0.0.1", False),
+        ("http://localhost:8080", "lan", "0.0.0.0", True),
+    ],
+)
+def test_a_unit_that_states_no_expose_follows_its_address(
+    address: str, stated: str | None, listens: str, keyed: bool
+) -> None:
+    host = host_of(address)
     config = parse(
         "units:\n"
         "  coder:\n"
-        f"    address: http://{HOST}:8080\n"
-        "    model: coder-7b\n"
-        "ladder: [coder]\n"
+        f"    address: {address}\n"
+        f"    model: {DENSE.name}\n"
+        + (f"    expose: {stated}\n" if stated else "")
+        + "ladder: [coder]\n"
     )
 
-    assert config.units["coder"].expose == "local"
-    assert service_of(render_compose(llama()))["environment"] == {
-        "LLAMA_ARG_HOST": "127.0.0.1"
-    }
+    (unit,) = units_for(config, {host: rig(host)}, specs=[DENSE], ctx_per_slot=WINDOW)
+    service = service_of(render_compose(unit))
+
+    assert config.units["coder"].expose == stated
+    assert service["environment"]["LLAMA_ARG_HOST"] == listens
+    assert ("env_file" in service) is keyed
+
+
+def test_a_native_unit_follows_no_address_and_listens_on_the_loopback() -> None:
+    assert exposure(None, address=f"http://{HOST}:8080", launcher="native") == "local"
+    assert exposure(None, address="not an address") == "local"
 
 
 def test_a_native_unit_cannot_be_exposed() -> None:
@@ -203,20 +252,143 @@ def test_an_exposed_unit_whose_env_sets_its_own_key_is_refused() -> None:
         render_compose(unit)
 
 
-def test_a_stated_host_beyond_the_loopback_with_no_key_is_warned_about(
+def one_unit_config(*, rider_slots: int = 0) -> Any:
+    return parse(
+        "units:\n"
+        "  coder:\n"
+        f"    address: http://{HOST}:8080\n"
+        "    model: coder-7b\n"
+        "    width: 2\n"
+        "ladder: [coder]\n"
+        + (f"rider_slots: {{coder: {rider_slots}}}\n" if rider_slots else "")
+    )
+
+
+def test_a_stated_host_beyond_this_machine_with_no_key_is_warned_about(
     capsys: pytest.CaptureFixture[str],
 ) -> None:
     wide = replace(llama(), rungs=("coder",), env={"LLAMA_ARG_HOST": "0.0.0.0"})
-    loopback = replace(llama(), rungs=("near",), extra=("--host", "127.0.0.1"))
+    near = replace(llama(), rungs=("near",), extra=("--host", "127.0.0.1"))
+    named = replace(llama(), rungs=("named",), extra=("--host", "localhost"))
 
-    _exposure([wide, loopback])
+    _exposure([wide, near, named], one_unit_config())
 
     said = capsys.readouterr().err
     assert said.count("warning:") == 1
     assert (
-        "its launch states where it listens, beyond 127.0.0.1, and it asks for "
-        "no key; state `expose: lan` on coder for one"
+        "its launch states where it listens, 0.0.0.0, beyond this machine, and it "
+        "asks for no key; state `expose: lan` on coder for one"
     ) in said
+
+
+@pytest.mark.parametrize(
+    ("unit", "stated"),
+    [
+        (replace(llama("lan"), env={"LLAMA_ARG_HOST": "127.0.0.1"}), "127.0.0.1"),
+        (replace(vllm("lan"), extra=("--host", "127.0.0.1")), "127.0.0.1"),
+    ],
+)
+def test_a_keyed_unit_its_launch_keeps_on_the_loopback_is_warned_not_noted(
+    unit: Unit, stated: str, capsys: pytest.CaptureFixture[str]
+) -> None:
+    _exposure([replace(unit, rungs=("coder",))], one_unit_config())
+
+    said = capsys.readouterr().err
+    assert "note:" not in said
+    assert (
+        f"expose: lan gives it a key, but its launch states {stated}, so it listens "
+        "there alone; drop the --host or LLAMA_ARG_HOST it states"
+    ) in said
+
+
+def test_the_note_names_where_a_keyed_unit_listens(
+    capsys: pytest.CaptureFixture[str],
+) -> None:
+    unit = replace(llama("lan"), rungs=("coder",), extra=("--host", "192.168.7.20"))
+
+    _exposure([unit], one_unit_config())
+
+    assert ": listens on 192.168.7.20 (expose: lan)" in capsys.readouterr().err
+
+
+def test_a_shared_keyed_unit_on_another_host_says_the_agent_needs_the_key_file(
+    capsys: pytest.CaptureFixture[str],
+) -> None:
+    unit = replace(llama("lan"), rungs=("coder",))
+
+    _exposure([unit], one_unit_config(rider_slots=1))
+
+    said = capsys.readouterr().err
+    path = unitkey.path(HOST, unit.port)
+    assert (
+        f"It is shared with riders, and the rig agent on {HOST} reads the key from "
+        f"unit-keys/{path.name} in its own data folder, which `mcgyvr emit` does "
+        "not fill: copy the file there at mode 0600, or the agent cannot read the "
+        "unit's slots, advertises it with no free slot and says so once on its "
+        "stderr; riders are matched elsewhere and no ride fails"
+    ) in said
+
+
+def test_a_unit_stating_its_host_env_in_another_case_is_given_the_host_too() -> None:
+    service = service_of(render_compose(replace(llama(), env={"llama_arg_host": "x"})))
+
+    assert service["environment"] == {
+        "LLAMA_ARG_HOST": "127.0.0.1",
+        "llama_arg_host": "x",
+    }
+
+
+def test_a_lock_that_states_no_expose_on_another_host_gains_its_key(
+    tmp_path: Path,
+) -> None:
+    fleet = {
+        "rigs": {LOCKED_RIG: {}},
+        "units": {"small": plain("small", 8080), "big": plain("big", 8082)},
+        "fleets": {
+            "one": {"layout": {LOCKED_RIG: [["small", "awake"], ["big", "awake"]]}}
+        },
+    }
+
+    (written,) = emit_locked(fleet, tmp_path)
+    services = yaml.safe_load(written.read_text("utf-8"))["services"]
+
+    for name, port in (("small", 8080), ("big", 8082)):
+        assert services[name]["env_file"] == [str(unitkey.path(LOCKED_RIG, port))]
+        assert services[name]["environment"] == {"LLAMA_ARG_HOST": "0.0.0.0"}
+    assert "http://localhost:8080/health" in str(services["small"]["healthcheck"])
+
+
+def test_a_locked_unit_follows_its_address_and_its_lock_states_where_it_listens() -> (
+    None
+):
+    fleet = {
+        "units": {
+            "far": {
+                "address": f"http://{HOST}:8080",
+                "launch": {"env": {"LLAMA_ARG_HOST": "0.0.0.0"}},
+            },
+            "kept": {
+                "address": f"http://{HOST}:8081",
+                "expose": "lan",
+                "launch": {"argv": ["--host", "127.0.0.1"]},
+            },
+            "near": {
+                "address": "http://localhost:8082",
+                "launch": {"env": {"LLAMA_ARG_HOST": "0.0.0.0"}},
+            },
+            "old_vllm": {
+                "address": "http://localhost:8083",
+                "engine": "vllm",
+                "launch": {"argv": ["--port", "8083"]},
+            },
+        }
+    }
+
+    assert locked_keyed(fleet) == (
+        ("far", HOST, 8080, "0.0.0.0"),
+        ("kept", HOST, 8081, "127.0.0.1"),
+    )
+    assert locked_open(fleet) == (("near", "0.0.0.0"), ("old_vllm", "0.0.0.0"))
 
 
 def test_a_stated_host_on_an_exposed_unit_is_kept_and_given_the_key() -> None:
@@ -492,6 +664,27 @@ def test_the_doors_probe_sends_the_key_on_stdin_and_a_plain_unit_as_before(
     assert plain_kwargs == {"timeout": 30}
 
 
+def test_the_doors_probe_of_this_machine_sends_the_key_without_ssh(
+    tmp_path: Path, keyed: KeyedServer
+) -> None:
+    door = fake_door(tmp_path)
+    stub = ssh_stub(tmp_path / "stubs")
+    env = clean_env(stub.parent)
+    env.update(RUN_HOST="localhost", MCGYVR_LOCAL_TRANSPORT="direct")
+    code = (
+        "from mcgyvr.serving import servelib\n"
+        f"print(servelib.models_served('localhost', {keyed.port}, key={keyed.key!r}))\n"
+        f"print(servelib.models_served('localhost', {keyed.port}))\n"
+    )
+
+    result = under(door, [sys.executable, "-c", code], env)
+
+    assert result.returncode == 0, result.stderr
+    assert result.stdout.splitlines() == ["['coder-7b']", "None"]
+    assert keyed.seen == [("/v1/models", f"Bearer {keyed.key}"), ("/v1/models", None)]
+    assert not (tmp_path / "stubs" / "ssh.log").exists(), "ssh was reached"
+
+
 def test_the_door_reads_a_services_key_from_the_file_its_env_file_names(
     tmp_path: Path,
 ) -> None:
@@ -536,7 +729,7 @@ def install(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> tuple[Path, Path
     return config, out
 
 
-def declare(config: Path, expose: str | None) -> None:
+def declare(config: Path, expose: str | None, *, rider_slots: int = 0) -> None:
     config.write_text(
         "units:\n"
         "  coder:\n"
@@ -551,7 +744,8 @@ def declare(config: Path, expose: str | None) -> None:
         "      kv_cache_dtype_k: f16\n"
         "      kv_cache_dtype_v: f16\n"
         "ladder:\n"
-        "- coder\n",
+        "- coder\n"
+        + (f"rider_slots: {{coder: {rider_slots}}}\n" if rider_slots else ""),
         encoding="utf-8",
     )
 
@@ -560,40 +754,67 @@ def emit(out: Path) -> int:
     return main(["emit", "--out", str(out), "--ctx-per-slot", str(WINDOW)])
 
 
-def test_emit_warns_that_a_unit_another_machine_dials_now_listens_on_the_loopback(
+SLUG = f"{HOST}:8080/qwen2.5-coder:3b/llama.cpp"
+
+
+def test_emit_warns_that_a_unit_stating_local_is_one_its_address_cannot_reach(
     install: tuple[Path, Path], capsys: pytest.CaptureFixture[str]
 ) -> None:
     config, out = install
-    declare(config, None)
+    declare(config, "local")
 
     assert emit(out) == Exit.OK
 
     said = capsys.readouterr().err
     assert (
-        f"warning: {HOST}:8080/qwen2.5-coder:3b/llama.cpp: listens on 127.0.0.1 alone "
-        f"(expose: local, the default), and its address names {HOST}: no other "
-        "machine reaches it. State `expose: lan` on coder to listen on every "
-        "interface, behind a key mcgyvr makes"
-    ) in said.replace("\n", " ")
+        f"warning: {SLUG}: listens on 127.0.0.1 alone, as its unit states "
+        f"(expose: local), and its address names {HOST}: that name reaches the "
+        "machine's network address, never 127.0.0.1, so nothing dials it by that "
+        "name, this machine included. State `expose: lan` on coder, or leave "
+        "`expose` out (an address on another host is `lan` by default), to listen "
+        "on every interface behind a key mcgyvr makes\n"
+    ) in said
     assert not unitkey.path(HOST, 8080).exists()
 
 
-def test_emit_makes_an_exposed_units_key_names_it_and_fleet_key_prints_it(
+def test_emit_warns_how_a_shared_unit_stating_local_shows_on_the_rig(
     install: tuple[Path, Path], capsys: pytest.CaptureFixture[str]
 ) -> None:
     config, out = install
-    declare(config, "lan")
+    declare(config, "local", rider_slots=1)
+
+    assert emit(out) == Exit.OK
+
+    assert (
+        "It is shared with riders, so the rig agent advertises it with no free "
+        "slot and says `unit 'coder' is shared with no free slot: its server does "
+        "not say what it has in flight` once on its stderr; riders are matched "
+        f"elsewhere and no ride fails. On {HOST}, address the unit as "
+        "http://localhost:8080 in the rig agent's own config"
+    ) in capsys.readouterr().err
+
+
+@pytest.mark.parametrize("stated", [None, "lan"])
+def test_emit_makes_a_lan_units_key_names_it_and_fleet_key_prints_it(
+    stated: str | None,
+    install: tuple[Path, Path],
+    capsys: pytest.CaptureFixture[str],
+) -> None:
+    config, out = install
+    declare(config, stated)
 
     assert emit(out) == Exit.OK
     said = capsys.readouterr().err
     path = unitkey.path(HOST, 8080)
     key = unitkey.load(HOST, 8080)
     assert key is not None
+    assert f"note: {SLUG}: listens on 0.0.0.0 (expose: lan)" in said
     assert f"made its key in {path} (mode 0600)" in said
     assert "`mcgyvr fleet key coder` prints it" in said
     assert key not in said
     (written,) = out.iterdir()
     assert key not in written.read_text(encoding="utf-8")
+    assert f"env_file:\n    - {path}\n" in written.read_text(encoding="utf-8")
     assert key not in config.read_text(encoding="utf-8")
 
     assert emit(out) == Exit.OK
@@ -608,7 +829,7 @@ def test_fleet_key_refuses_a_unit_that_is_not_exposed(
     install: tuple[Path, Path], capsys: pytest.CaptureFixture[str]
 ) -> None:
     config, _ = install
-    declare(config, None)
+    declare(config, "local")
 
     assert main(["fleet", "key", "coder"]) == Exit.REFUSED
     assert "expose: local" in capsys.readouterr().err
@@ -618,7 +839,7 @@ def test_fleet_key_refuses_an_exposed_unit_emit_has_not_keyed_yet(
     install: tuple[Path, Path], capsys: pytest.CaptureFixture[str]
 ) -> None:
     config, _ = install
-    declare(config, "lan")
+    declare(config, None)
 
     assert main(["fleet", "key", "coder"]) == Exit.REFUSED
     assert "`mcgyvr emit` makes it" in capsys.readouterr().err
