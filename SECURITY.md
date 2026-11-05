@@ -181,3 +181,28 @@ taken as before, unpinned, and the rig logs each one it takes that way
 token (not against the hub): once that rig's key is bound, the hub refuses a
 hello from it that names none, so stripping the key cuts that rig off rather
 than handing its peers no key.
+
+## Who can read a prompt
+
+A request a rider sends through a hub reaches a model server someone runs.
+Where its text is in clear:
+
+- **A ride (a relief rung) whose host's agent advertises a seal key** is sealed
+  end to end (`mcgyvr.seal`): the hub carries the envelope and the answer's
+  events without the keys to open them. In clear on the hub: the model asked
+  for, whether it streams, the sizes and timing of the request and of each
+  answer event, the answer's model name and its token counts (`usage`,
+  `timings`, which the hub charges by), and who rode whose unit. **The host
+  reads the prompt and the answer**: their agent opens the request and their
+  model server answers it.
+- **A ride to a rung with no key** (an older agent or hub), **a request to the
+  general or a crew pool** (served by a pooled session's head), and **any
+  request a third-party client sends** in clear: the hub, the head's rig and
+  the unit's host can read it.
+
+What sealing does not yet do: the hub is the key directory and the key is not
+signed (the `seal.sig` slot is for rig identity), so a hub that hands a rider a
+key of its own can read what is sealed to it; sealing keeps out a hub that
+relays honestly and reads what passes, not one that lies about whose key it
+lists. A hub can still drop or cut an answer (the rider sees it fail, not a
+changed answer), and it may send one sealed request again.

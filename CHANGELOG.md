@@ -139,6 +139,26 @@ archived outside this repository, under the same paths.
 
 ### Added
 
+- **A ride is sealed end to end, rider to host: the hub carries ciphertext.**
+  The host's agent makes an X25519 key each time it starts (`mcgyvr.seal`, in
+  memory only) and names it on every unit it advertises (`unit_advert`'s
+  `seal`); the hub lists it with the rung, and `mcgyvr rig rungs sync` keeps it
+  in `relief.yaml` (`relief.<rung>.seal`). Every request to a keyed rung, a
+  dispatch's and a Jev decision's alike, is sealed to it (X25519, HKDF-SHA256,
+  ChaCha20-Poly1305; `hubwire.SEAL_SUITE`): in clear go only `model`, `stream`
+  and `stream_options` (`hubwire.SEALED_CLEAR_FIELDS`). The agent opens it,
+  holds it to the fields the hub passes a unit (`hubwire.FORWARDED_FIELDS`,
+  the hub's `max_tokens` cap), and seals the answer back event by event, each
+  event bound to its place; only its model and token counts stay in clear,
+  for the hub to name and charge it by (`hubwire.SEALED_ANSWER_CLEAR_FIELDS`).
+  An answer that does not open is a protocol error. A key the unit no longer
+  holds (its agent started again) is answered `503 seal_key_unknown`, now one
+  of `hubwire.RUNG_BUSY`, so the rung is passed over until the next sync; a
+  ride the agent cannot open ends `bad_seal`. A rung with no key (an older
+  hub or agent) is asked in clear as before, and so is everything that is not
+  a ride. New dependency: `cryptography>=44`. SECURITY.md says where plaintext
+  still is.
+
 - **A rig lends host memory and cores, and its hello says exactly what it
   lends (#822).** `mcgyvr rig share` (or `rig lend`) `--ram-mb N --cpu-cores
   N` lends memory and cores to the heads it runs (0, the default, lends none):
