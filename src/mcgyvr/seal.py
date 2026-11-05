@@ -259,7 +259,8 @@ def unit_body(
     pass, ``max_completion_tokens`` folds into ``max_tokens``, ``n`` is 1 or absent,
     ``chat_template_kwargs`` keeps only :data:`mcgyvr.hubwire.CHAT_TEMPLATE_KEYS`,
     ``top_logprobs`` only with ``logprobs``. Every value is held to the bounds the hub
-    holds a request in clear to (:func:`_held`): a body outside them reaches no unit.
+    holds a request in clear to (:func:`held_to_bounds`): a body outside them reaches
+    no unit.
     The model is the unit's own, whatever the rider named; ``max_tokens`` is held to
     the hub's cap ``max_tokens``, which the hub sends in clear; ``stream`` is what the
     hub relays the answer as, and a stream asks for its usage. Raises
@@ -273,7 +274,7 @@ def unit_body(
         raise SealError("the sealed request is not an object")
     if asked.get("n") is not None and not _within(asked.get("n"), 1, 1):
         raise SealError("the sealed request asks for more than one choice")
-    asked = _held(asked)
+    asked = held_to_bounds(asked)
     passed = hubwire.FORWARDED_FIELDS - {"max_completion_tokens", "n"}
     request = {key: value for key, value in asked.items() if key in passed}
     wanted = asked.get("max_tokens") or asked.get("max_completion_tokens")
@@ -316,7 +317,7 @@ def _optional(asked: Mapping[str, Any], field: str, fits: bool) -> None:
         raise SealError(f"the sealed request's {field} is not one the hub passes")
 
 
-def _held(asked: dict[str, Any]) -> dict[str, Any]:
+def held_to_bounds(asked: dict[str, Any]) -> dict[str, Any]:
     """``asked`` held to the bounds a chat request in clear is held to on the hub
     (``hubwire.CHAT_MAX_*``, :data:`~mcgyvr.hubwire.MESSAGE_ROLES`,
     :data:`~mcgyvr.hubwire.CHAT_RANGES`), its messages kept to

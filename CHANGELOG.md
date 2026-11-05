@@ -108,7 +108,10 @@ archived outside this repository, under the same paths.
   cannot open, or one outside the bounds the hub holds a clear request to (now
   hubwire's: `CHAT_MAX_MESSAGES`, `CHAT_MAX_TOOLS`, `CHAT_MAX_STOP`,
   `CHAT_MAX_TOP_LOGPROBS`, `MESSAGE_ROLES`, `MESSAGE_FIELDS`, `CHAT_RANGES`),
-  ends `bad_seal` and reaches no unit. Each rung `rungs sync` keeps says
+  ends `bad_seal` and reaches no unit; the rider holds its own request to the
+  same bounds before sealing it and refuses one outside them as the hub's `400
+  invalid_request` would, unsent, so it never reads as a stale key. Each rung
+  `rungs sync` keeps says
   `sealed <kid>` or `in clear`, and a rung that was sealed and comes back
   keyless is noted, by the sync and by `rig up`'s refresher; `rig up` says its
   run's key id when it first advertises a unit, and loads no cipher on a rig
