@@ -68,8 +68,10 @@ _REFUSALS = {
     protocol.ErrorCode.MACHINE_MISMATCH: (
         "the hub has this rig bound to another machine (a rig's token binds to "
         "the first machine that says hello with it, and a machine whose cards "
-        "changed is another machine); create a rig for this machine on the hub "
-        "and join with its token"
+        "changed is another machine), or to another identity key (`mcgyvr rig "
+        "status` prints this one's fingerprint); create a rig for this machine "
+        "on the hub and join with its token, or, if this machine's identity key "
+        "was made anew, rotate it on the hub's rig page"
     ),
     protocol.ErrorCode.UNSUPPORTED_VERSION: (
         "the hub speaks another version of the agent protocol; update mcgyvr"
@@ -334,8 +336,10 @@ class Agent:
         on_beat: Callable[[], None] | None = None,
         aside: Callable[[Callable[[], None]], None] | None = None,
         on_lending: Callable[[hubwire.Lending | None], None] | None = None,
+        identity_key: str | None = None,
     ) -> None:
         self._connect = connect
+        self._identity_key = identity_key
         self._read = read_hardware
         # Readings run on a thread of the agent's own unless the caller says how
         # to start one, which is what lets a test read in the calling thread.
@@ -538,7 +542,11 @@ class Agent:
         self._send(
             channel,
             hardware.hello_frame(
-                report, hello_id, agent_version=self._version, offer=offer
+                report,
+                hello_id,
+                agent_version=self._version,
+                offer=offer,
+                identity_key=self._identity_key,
             ),
             answer=False,
         )

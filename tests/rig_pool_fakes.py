@@ -553,7 +553,13 @@ def quick_timing() -> Any:
     )
 
 
-def make_pool(tmp_path: Path, **sharing_changes: Any) -> Pool:
+def make_pool(
+    tmp_path: Path,
+    *,
+    rig_identity: Any = None,
+    pins: Any = None,
+    **sharing_changes: Any,
+) -> Pool:
     from mcgyvr.rig import commands, pooled
     from mcgyvr.rig import session as rs
 
@@ -598,6 +604,8 @@ def make_pool(tmp_path: Path, **sharing_changes: Any) -> Pool:
         send=box.put,
         timing=quick_timing(),
         log=logged.append,
+        rig_identity=rig_identity,
+        pins=pins,
     )
     dispatcher = commands.Dispatcher()
     rs.register(dispatcher, sessions)

@@ -159,6 +159,7 @@ def run_agent(kept: Credentials, config: Path | None = None) -> int:
         credentials,
         hardware,
         hitchhike,
+        identity,
         inventory,
         outbox,
         pooled,
@@ -177,6 +178,12 @@ def run_agent(kept: Credentials, config: Path | None = None) -> int:
         sharing.load()
     except sharing.SharingError as exc:
         print(f"error: {exc}; fix it or run `mcgyvr rig share --off`", file=sys.stderr)
+        return int(Exit.REFUSED)
+    # The identity key is made the first time a rig joins or runs, and kept.
+    try:
+        rig_identity = identity.ensure()
+    except credentials.CredentialsError as exc:
+        print(f"error: {exc}", file=sys.stderr)
         return int(Exit.REFUSED)
     url = agent_url(kept.hub)
     version = _agent_version()
@@ -277,6 +284,8 @@ def run_agent(kept: Credentials, config: Path | None = None) -> int:
         ),
         send=box.put,
         native=native_host(os.getpid()),
+        rig_identity=rig_identity,
+        pins=identity.Pins(),
     )
     # The parts of a rig: hitchhike units ride other rigs and offer this setup's
     # units to riders, relays carry what a session sends and receives, probes
@@ -358,6 +367,7 @@ def run_agent(kept: Credentials, config: Path | None = None) -> int:
         on_hub_error=sessions.hub_error,
         on_beat=beat,
         on_lending=on_lending,
+        identity_key=rig_identity.public_key,
     )
     sessions.on_end(lambda ended: running.beat_soon())
 
@@ -365,7 +375,8 @@ def run_agent(kept: Credentials, config: Path | None = None) -> int:
         running.stop()
 
     print(
-        f"agent for {kept.hub} as {credentials.shown(kept.token)}; Ctrl-C stops it",
+        f"agent for {kept.hub} as {credentials.shown(kept.token)}, identity key "
+        f"{rig_identity.fingerprint}; Ctrl-C stops it",
         file=sys.stderr,
     )
     share = lending()
@@ -484,6 +495,7 @@ def _status(args: argparse.Namespace) -> int:
         return int(Exit.ERROR)
     print(f"hub:     {kept.hub}")
     print(f"token:   {credentials.shown(kept.token)} (kept in {credentials.path()})")
+    _say_identity()
     last = state.read()
     if last is None or last.hub != kept.hub:
         print("agent:   no word from an agent yet")
@@ -518,6 +530,50 @@ def _status(args: argparse.Namespace) -> int:
         print(f"  note: {note}")
     _say_lent(report)
     _say_credits(kept.hub)
+    return int(Exit.OK)
+
+
+def _say_identity() -> None:
+    """Print this rig's identity key fingerprint, for its owner to compare with
+    what the hub and the peers show, or why it is not read."""
+    from mcgyvr.rig import credentials, identity
+
+    try:
+        mine = identity.load()
+    except credentials.CredentialsError as exc:
+        print(f"identity: not read: {exc}")
+        return
+    if mine is None:
+        print("identity: none yet; the agent makes one when it next runs")
+        return
+    print(f"identity: {mine.fingerprint} (kept in {identity.path()})")
+
+
+def _peers(args: argparse.Namespace) -> int:
+    """List the peers whose identity keys this rig pinned, or forget one."""
+    from mcgyvr import hubwire
+    from mcgyvr.rig import credentials, identity
+
+    pins = identity.Pins()
+    try:
+        if args.forget is not None:
+            if pins.forget(args.forget):
+                print(
+                    f"forgot peer {args.forget}: the identity key it next shows is "
+                    "pinned anew, so compare its fingerprint with its owner"
+                )
+                return int(Exit.OK)
+            print(f"peer {args.forget} is not pinned; nothing to forget")
+            return int(Exit.OK)
+        pinned = pins.all()
+    except credentials.CredentialsError as exc:
+        print(f"error: {exc}", file=sys.stderr)
+        return int(Exit.REFUSED)
+    if not pinned:
+        print("no peer pinned yet")
+        return int(Exit.OK)
+    for rig_id, key in sorted(pinned.items()):
+        print(f"{rig_id}  {hubwire.identity_fingerprint(key)}")
     return int(Exit.OK)
 
 
@@ -879,7 +935,7 @@ def add_parser(
     *,
     add_config: Callable[..., None],
 ) -> None:
-    """Add the `rig` verb and the verbs under it: join, run, status, leave,
+    """Add the `rig` verb and the verbs under it: join, run, status, leave, peers,
     rungs sync, crew sync and share, each with the defaults its parser starts
     from.
 
@@ -914,6 +970,17 @@ def add_parser(
     status.set_defaults(func=_status)
     leave = verbs.add_parser("leave", help="forget the rig token here")
     leave.set_defaults(func=_leave)
+    peers = verbs.add_parser(
+        "peers",
+        help="the peers whose identity keys this rig pinned, with their fingerprints",
+    )
+    peers.add_argument(
+        "--forget",
+        metavar="RIG_ID",
+        help="forget one peer's pinned key, after its owner rotated it and you "
+        "compared the new fingerprint with them",
+    )
+    peers.set_defaults(func=_peers)
     rungs = verbs.add_parser(
         "rungs", help="the relief rungs the hub matched you to (hitchhike)"
     )
