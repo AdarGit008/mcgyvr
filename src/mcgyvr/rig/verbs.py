@@ -28,7 +28,9 @@ from mcgyvr.exits import Exit
 
 if TYPE_CHECKING:
     from mcgyvr.rig.credentials import Credentials
+    from mcgyvr.rig.portmap import Consent
     from mcgyvr.rig.session import SessionHost
+    from mcgyvr.rig.sharing import Sharing
 
 #: The path on a hub under which an agent is given its channel.
 AGENT_PATH = "/api/v1/agent"
@@ -294,12 +296,15 @@ def run_agent(kept: Credentials, config: Path | None = None) -> int:
         lending=lambda: bool(lending().session_roles(last_report())),
     )
     sessions.before_prepare(lambda: probes.release(lending().listen_port))
-    # The port forward the owner agreed to on the hub: mapped on the router when
-    # the hub asks, renewed, and given back when the agent stops.
+    # The port forward, when the owner allowed it both here and on the hub:
+    # mapped on the router when the hub asks, renewed, recorded until given
+    # back, and given back when the agent stops (or the next one starts).
     mapper = portmap.Mapper(
         send=box.put,
         tunnel_ports=lambda: tuple(lending().tunnel_ports()),
         hosts=lambda: session.endpoint_hosts(lending(), tunnel.read_interfaces),
+        consent=lambda: forward_consent(lending()),
+        record=roots.data_home() / portmap.RECORD_FILE,
     )
     sessions.before_prepare(lambda: mapper.release_check(lending().listen_port))
     dispatcher = commands.Dispatcher()
@@ -395,13 +400,7 @@ def run_agent(kept: Credentials, config: Path | None = None) -> int:
     elif share.offered_roles():
         print("lending: no session role is offered on this machine", file=sys.stderr)
     if roles and native is None:
-        ports = list(share.tunnel_ports())
-        print(
-            f"port forward: as agreed on the hub, its UDP ports go to {ports[0]}-"
-            f"{ports[-1]} here, by UPnP or NAT-PMP on your router, given back "
-            "when this agent stops; withdraw it on the hub's My rigs page",
-            file=sys.stderr,
-        )
+        print(port_forward_line(share), file=sys.stderr)
     for note in share.notes:
         print(f"note: {note}", file=sys.stderr)
     previous = {sig: signal.signal(sig, stop) for sig in hostos.stop_signals()}
@@ -413,6 +412,41 @@ def run_agent(kept: Credentials, config: Path | None = None) -> int:
         for sig, handler in previous.items():
             signal.signal(sig, handler)
     return int(Exit.OK if ended.stopped else Exit.ERROR)
+
+
+def forward_consent(share: Sharing) -> Consent:
+    """What the owner allowed on this rig for the port forward, from its
+    lending settings (:class:`mcgyvr.rig.portmap.Consent`)."""
+    from mcgyvr.rig import portmap
+
+    return portmap.Consent(
+        forward=share.port_forward, permanent=share.port_forward_permanent
+    )
+
+
+def port_forward_line(share: Sharing) -> str:
+    """The line the agent starts with about the port forward: what this rig
+    allows, as its own settings say, never what the hub says."""
+    from mcgyvr.rig import portmap
+
+    ports = list(share.tunnel_ports())
+    if not share.port_forward:
+        return (
+            "port forward: not allowed on this rig, so the hub's ask is refused; "
+            f"`{portmap.ALLOW_FORWARD}` allows it (agree to it on the hub's My "
+            "rigs page too)"
+        )
+    lease = (
+        "a permanent lease where the router grants no other"
+        if share.port_forward_permanent
+        else f"never a permanent lease (`{portmap.ALLOW_PERMANENT}` allows one)"
+    )
+    return (
+        f"port forward: allowed on this rig; once agreed on the hub too, UDP "
+        f"{ports[0]}-{ports[-1]} here are forwarded by UPnP or NAT-PMP on your "
+        f"router, {lease}, given back when this agent stops; "
+        "`mcgyvr rig share --no-port-forward` withdraws it"
+    )
 
 
 def _join(args: argparse.Namespace) -> int:
@@ -455,7 +489,32 @@ def _join(args: argparse.Namespace) -> int:
         f"joined {hub} as {credentials.shown(token)}; the token is kept in {where}",
         flush=True,
     )
+    if args.port_forward is not None:
+        not_kept = _keep_port_forward(args.port_forward)
+        if not_kept is not None:
+            return not_kept
     return run_agent(wanted, _named(args))
+
+
+def _keep_port_forward(allowed: bool) -> int | None:
+    """Keep the owner's word on the port forward in the lending settings, as
+    `rig join --port-forward` gives it; the exit code when it is not kept."""
+    from dataclasses import replace
+
+    from mcgyvr.rig import sharing
+
+    try:
+        kept = sharing.load()
+        where = sharing.save(replace(kept, port_forward=allowed))
+    except sharing.SharingError as exc:
+        print(f"error: {exc}", file=sys.stderr)
+        return int(Exit.REFUSED)
+    print(
+        f"port forward: {'allowed' if allowed else 'not allowed'} on this rig, "
+        f"kept in {where}",
+        flush=True,
+    )
+    return None
 
 
 def _named(args: argparse.Namespace) -> Path | None:
@@ -803,6 +862,10 @@ def _share(args: argparse.Namespace) -> int:
             changes["cpu_cores"] = int(args.cpu_cores)
         if args.launcher is not None:
             changes["launcher"] = args.launcher
+        if args.port_forward is not None:
+            changes["port_forward"] = args.port_forward
+        if args.permanent_forward is not None:
+            changes["port_forward_permanent"] = args.permanent_forward
     except ValueError:
         print("error: a number was asked for and something else given", file=sys.stderr)
         return int(Exit.USAGE)
@@ -863,6 +926,16 @@ def _share(args: argparse.Namespace) -> int:
     print(f"cache:   {cache}")
     print(f"lent ram: {f'{wanted.ram_mb} MiB' if wanted.ram_mb else 'none'}")
     print(f"lent cpu: {f'{wanted.cpu_cores} cores' if wanted.cpu_cores else 'none'}")
+    forward = "allowed" if wanted.port_forward else "not allowed"
+    if wanted.port_forward:
+        permanent = "a permanent one too" if wanted.port_forward_permanent else "none"
+        forward += f", with a lease (permanent leases: {permanent})"
+    print(f"forward: {forward} on this rig (the hub asks only once agreed there too)")
+    if changes.get("port_forward"):
+        print(
+            "note:    a running agent offers the forward from its next hello; "
+            "stop it and `mcgyvr rig run` to offer it now"
+        )
     for note in wanted.notes:
         print(f"note:    {note}")
     return int(Exit.OK)
@@ -895,6 +968,27 @@ def _sync_parser(
     sync.set_defaults(func=func)
 
 
+def _forward_switch(parser: argparse.ArgumentParser) -> None:
+    """Add --port-forward and --no-port-forward: the owner's word, on this rig,
+    on the hub's UDP port forward (off until given)."""
+    switch = parser.add_mutually_exclusive_group()
+    switch.add_argument(
+        "--port-forward",
+        dest="port_forward",
+        action="store_const",
+        const=True,
+        help="allow the hub's UDP port forward of this rig's tunnel ports on "
+        "your router (UPnP or NAT-PMP), once agreed on the hub too",
+    )
+    switch.add_argument(
+        "--no-port-forward",
+        dest="port_forward",
+        action="store_const",
+        const=False,
+        help="refuse it (the default)",
+    )
+
+
 def add_parser(
     sub: argparse._SubParsersAction[argparse.ArgumentParser],
     *,
@@ -924,8 +1018,9 @@ def add_parser(
         help="the rig token the hub showed when the rig was created; - reads it "
         "from stdin",
     )
+    _forward_switch(join)
     add_config(join, what="setup whose units the agent shares")
-    join.set_defaults(func=_join)
+    join.set_defaults(func=_join, port_forward=None)
     run = verbs.add_parser("run", help="run the agent again from the kept token")
     add_config(run, what="setup whose units the agent shares")
     run.set_defaults(func=_run)
@@ -1001,4 +1096,22 @@ def add_parser(
         help="docker: sessions run in containers; native (macOS, Windows): "
         "through the mcgyvr-wg helper on the pinned llama.cpp build, head only",
     )
-    share.set_defaults(func=_share, on=None, cache=None)
+    _forward_switch(share)
+    permanent = share.add_mutually_exclusive_group()
+    permanent.add_argument(
+        "--permanent-forward",
+        dest="permanent_forward",
+        action="store_const",
+        const=True,
+        help="let the port forward take a permanent lease on a router that "
+        "grants no other (given back when the agent stops)",
+    )
+    permanent.add_argument(
+        "--no-permanent-forward",
+        dest="permanent_forward",
+        action="store_const",
+        const=False,
+    )
+    share.set_defaults(
+        func=_share, on=None, cache=None, port_forward=None, permanent_forward=None
+    )

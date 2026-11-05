@@ -36,6 +36,7 @@ class Gateway:
         self.asked: list[bytes] = []
         self.result = 0
         self.give_external: int | None = None  # else the suggested one
+        self.give_lease: int | None = None  # else the asked one
         self.wrong_internal = False
         self._thread = threading.Thread(target=self._serve, daemon=True)
         self._thread.start()
@@ -57,6 +58,8 @@ class Gateway:
                     external = self.give_external
                 if self.wrong_internal:
                     internal += 1
+                if self.give_lease is not None and external:
+                    lease = self.give_lease
                 answer = struct.pack(
                     "!BBHIHHI", 0, 129, self.result, 7, internal, external, lease
                 )
@@ -110,6 +113,20 @@ def test_natpmp_says_a_refusal_and_a_conflict_and_undoes_the_conflict(
     with pytest.raises(portmap.MapError) as refused:
         client.add(lan_host="x", internal=51820, external=52000, lease_s=600)
     assert refused.value.error == "refused"
+
+
+def test_natpmp_never_asks_for_nor_keeps_a_lifetime_of_zero(gateway: Gateway) -> None:
+    client = natpmp(gateway)
+    # A lifetime of 0 deletes in NAT-PMP: never sent as a "permanent" lease.
+    with pytest.raises(portmap.MapError) as zero:
+        client.add(lan_host="x", internal=51820, external=52000, lease_s=0)
+    assert zero.value.error == portmap.PERMANENT_ONLY
+    assert gateway.asked == []
+    gateway.give_lease = 0
+    with pytest.raises(portmap.MapError) as none:
+        client.add(lan_host="x", internal=51820, external=52000, lease_s=600)
+    assert none.value.error == "failed"
+    assert struct.unpack("!BBHHHI", gateway.asked[-1])[4:] == (0, 0)  # undone
 
 
 def test_natpmp_refuses_an_answer_for_another_port(gateway: Gateway) -> None:
@@ -296,16 +313,23 @@ def test_upnp_maps_unmaps_and_reads_the_external_address(igd: portmap.Upnp) -> N
     assert Igd.calls[-1][0] == "DeletePortMapping"
 
 
-def test_upnp_reads_a_conflict_and_falls_back_to_a_permanent_lease(
+def test_upnp_reads_a_conflict_and_a_router_that_grants_only_permanent_leases(
     igd: portmap.Upnp,
 ) -> None:
     Igd.fault["AddPortMapping"] = 718
     with pytest.raises(portmap.MapError) as conflict:
         igd.add(lan_host="192.168.1.20", internal=51820, external=52000, lease_s=600)
     assert conflict.value.error == "conflict"
+    # Only permanent leases: refused as such, never taken unasked; the
+    # mapper asks for one (lease 0) only when the owner allowed it.
     Igd.fault["AddPortMapping"] = 725
+    with pytest.raises(portmap.MapError) as permanent:
+        igd.add(lan_host="192.168.1.20", internal=51820, external=52000, lease_s=600)
+    assert permanent.value.error == portmap.PERMANENT_ONLY
+    adds = [body for action, body in Igd.calls if action == "AddPortMapping"]
+    assert not any(b"<NewLeaseDuration>0<" in body for body in adds)
     granted = igd.add(
-        lan_host="192.168.1.20", internal=51820, external=52000, lease_s=600
+        lan_host="192.168.1.20", internal=51820, external=52000, lease_s=0
     )
     assert granted == 0
     assert b"<NewLeaseDuration>0</NewLeaseDuration>" in Igd.calls[-1][1]

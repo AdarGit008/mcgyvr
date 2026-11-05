@@ -801,6 +801,25 @@ archived outside this repository, under the same paths.
 
 ### Security
 
+- **A rig forwards its UDP ports only when its owner allowed it on the rig
+  too, and never takes a permanent lease unasked.** The lending settings gain
+  `port_forward` and `port_forward_permanent` (`rig-sharing.json`, both off;
+  `mcgyvr rig share --port-forward` / `--permanent-forward`, and
+  `mcgyvr rig join --port-forward`). Until `port_forward` is on, the hello
+  names no `port_map` feature, a `port_map` from the hub is refused as
+  `port_map_report` `failed` `not_allowed` (an open-set error tag: no new wire
+  state) and a `port_check` as `not_capable`; turning it off gives a forward
+  back within a minute. A router that grants only permanent leases (UPnP 725,
+  or a lease of 0) is refused as `failed` `permanent_only` unless
+  `port_forward_permanent` is on; NAT-PMP is never asked for a lifetime of 0
+  (that deletes). Every mapping is recorded in `rig-port-forward.json` under
+  the data home until it is given back, and an agent that starts gives back
+  what a crashed one left (a permanent one stays on record until its router
+  takes the release). The agent's first line about the forward says what this
+  rig allows, no longer "as agreed on the hub". A rig that relied on the hub's
+  consent alone refuses the forward until its owner runs
+  `mcgyvr rig share --port-forward`.
+
 - A failure note names no path on the machine it was made on. The acceptance
   rung gives a path under the workspace its command ran in — pytest's
   `rootdir:`, a traceback's file, in either sandbox mode — repo-relative

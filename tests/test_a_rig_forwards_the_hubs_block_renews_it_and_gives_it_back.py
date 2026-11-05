@@ -1,12 +1,15 @@
 """A rig forwards the hub's block of ports on its router, renews it, gives it back.
 
-The hub asks (``port_map``) only after the owner agreed; the agent maps the
-block on to its first tunnel ports at the LAN address its tunnel is published
-on, by the first router way that takes every port (UPnP before NAT-PMP),
-rolls back a block half taken, renews before half a lease is gone, and
-releases on a null ask and when it stops. Each outcome is one
-``port_map_report``. A check (``port_check``) answers the hub's pings with
-the check's secret, a few at most, on a tunnel port only.
+The hub asks (``port_map``) only after the owner agreed, and the rig acts
+only as far as its owner allowed it here too (each world below allows the
+forward; tests/test_the_port_forward_is_the_rigs_own_consent_too.py holds
+what it does when it does not); the agent maps the block on to its first
+tunnel ports at the LAN address its tunnel is published on, by the first
+router way that takes every port (UPnP before NAT-PMP), rolls back a block
+half taken, renews before half a lease is gone, and releases on a null ask
+and when it stops. Each outcome is one ``port_map_report``. A check
+(``port_check``) answers the hub's pings with the check's secret, a few at
+most, on a tunnel port only.
 """
 
 from __future__ import annotations
@@ -24,6 +27,7 @@ from mcgyvr.rig import portmap, protocol, sessionwire, udpwire
 LAN = "192.168.1.20"
 PORTS = (51820, 51821, 51822, 51823)
 SECRET = bytes(range(16))
+ALLOWED = portmap.Consent(forward=True)
 
 
 @dataclass
@@ -34,6 +38,9 @@ class FakeRouter:
     lease: int | None = None  # what it grants, else what is asked
     held: dict[int, tuple[str, int, int]] = field(default_factory=dict)
     adds: list[int] = field(default_factory=list)
+
+    def address(self) -> dict[str, str]:
+        return {"name": self.method}
 
     def lan_host(self) -> str:
         return self.host
@@ -69,6 +76,7 @@ class World:
     clock: Clock = field(default_factory=Clock)
     ports: tuple[int, ...] = PORTS
     hosts: tuple[str, ...] = (LAN,)
+    consent: portmap.Consent = field(default_factory=lambda: ALLOWED)
 
     def send(self, frame: str) -> bool:
         self.sent.append(json.loads(frame))
@@ -80,6 +88,7 @@ class World:
             tunnel_ports=lambda: self.ports,
             hosts=lambda: self.hosts,
             routers=lambda: self.routers,
+            consent=lambda: self.consent,
             bind_host="127.0.0.1",
             clock=self.clock,
         )
@@ -217,9 +226,9 @@ def test_a_lease_longer_than_the_wire_carries_is_held_to_it() -> None:
     assert world.reports()[0]["lease_s"] == sessionwire.MAX_PORT_MAP_LEASE_S
 
 
-def test_a_permanent_lease_is_never_renewed() -> None:
+def test_a_permanent_lease_the_owner_allowed_is_never_renewed() -> None:
     upnp = FakeRouter(lease=0)
-    world = World([upnp])
+    world = World([upnp], consent=portmap.Consent(forward=True, permanent=True))
     mapper = world.mapper()
     ask(mapper, external_port=52000)
     mapper.tick()

@@ -122,13 +122,16 @@ def test_a_hello_offers_only_while_the_rig_lends(tmp_path: Path) -> None:
     on = session.offer(
         fakes.sharing(tmp_path), held, (fakes.LAN_ADDRESS,), ("s1",), fakes.report()
     )
+    # port_map only once the owner allowed the forward on the rig
+    # (tests/test_the_port_forward_is_the_rigs_own_consent_too.py).
+    features = tuple(f for f in session.FEATURES if f != session.PORT_MAP_FEATURE)
     assert on == protocol.Offer(
         roles=("head", "worker"),
         runtime="engine:rpc",
         endpoints=((fakes.LAN_ADDRESS, 51820, "lan"),),
         models=held.models,
         sessions=("s1",),
-        features=session.FEATURES,
+        features=features,
     )
     worker_only = session.offer(
         fakes.sharing(tmp_path, roles=("worker",)),
@@ -152,7 +155,7 @@ def test_a_hello_offers_only_while_the_rig_lends(tmp_path: Path) -> None:
     assert frame["body"]["capabilities"] == {
         "roles": ["head", "worker"],
         "runtime": "engine:rpc",
-        "features": list(session.FEATURES),
+        "features": list(features),
     }
     assert frame["body"]["models"] == [{"name": fakes.MODEL, "size_bytes": 1024}]
     assert inventory.resolve(held, fakes.MODEL) == f"dense/{fakes.MODEL}"
