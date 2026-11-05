@@ -782,6 +782,19 @@
           ],
           "default": null
         },
+        "identity_key": {
+          "anyOf": [
+            {
+              "pattern": "^[A-Za-z0-9+/]{42}[AEIMQUYcgkosw048]=$",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Identity Key"
+        },
         "machine_id": {
           "pattern": "^[A-Za-z0-9][A-Za-z0-9._:-]{0,127}$",
           "title": "Machine Id",
@@ -3026,6 +3039,19 @@
           "title": "Public Key",
           "type": "string"
         },
+        "public_key_sig": {
+          "anyOf": [
+            {
+              "pattern": "^[A-Za-z0-9+/]{85}[AQgw]==$",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Public Key Sig"
+        },
         "session_id": {
           "pattern": "^[A-Za-z0-9_-]{1,64}$",
           "title": "Session Id",
@@ -3352,6 +3378,19 @@
           "title": "Endpoints",
           "type": "array"
         },
+        "identity_key": {
+          "anyOf": [
+            {
+              "pattern": "^[A-Za-z0-9+/]{42}[AEIMQUYcgkosw048]=$",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Identity Key"
+        },
         "keepalive_s": {
           "default": 25,
           "maximum": 600,
@@ -3363,6 +3402,19 @@
           "pattern": "^[A-Za-z0-9+/]{42}[AEIMQUYcgkosw048]=$",
           "title": "Public Key",
           "type": "string"
+        },
+        "public_key_sig": {
+          "anyOf": [
+            {
+              "pattern": "^[A-Za-z0-9+/]{85}[AQgw]==$",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Public Key Sig"
         },
         "relay": {
           "anyOf": [

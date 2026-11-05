@@ -9,6 +9,7 @@ description = "Offload scoped coding work from your agent to a configurable work
 license = { file = "LICENSE" }
 requires-python = ">=3.12"
 dependencies = [
+    "cryptography>=50.0.2",
     "pyyaml>=6.0.3",
     "tree-sitter>=0.24",
     "tree-sitter-go>=0.25",
