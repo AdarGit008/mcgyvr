@@ -775,11 +775,12 @@ class Refresher:
             if not repeated:
                 self._say(failure)
             return
-        line = self._told(rides)
         with self._lock:
             self._due = self._clock() + rides.refresh_s
             self._going = False
             self._last_failure = ""
+        line = self._told(rides)  # after: what it says never stops a sync
+        with self._lock:
             fresh, self._last_told = line != self._last_told, line
         if fresh and line is not None:
             self._say(line)
