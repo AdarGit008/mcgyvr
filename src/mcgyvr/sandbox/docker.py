@@ -151,6 +151,9 @@ class DockerSandbox(Sandbox):
         # in, and whether the commands that follow go to it.
         self._confined: str | None = None
         self._lent = False
+        # Why the container with no network could not be started, once it
+        # could not: every later try that needs it is refused with it.
+        self._unconfinable: str | None = None
         self._image_tag: str | None = None
         self._dead: str | None = None
         self._seeded: tuple[str, ...] = ()
@@ -217,8 +220,17 @@ class DockerSandbox(Sandbox):
         """
         if self._container is None:
             raise SandboxError("container is not running — use as a context manager")
-        if lent and self._network != "none" and self._confined is None:
-            self._launch(confined=True)
+        if lent and self._network != "none":
+            if self._unconfinable is not None:
+                raise SandboxError(self._unconfinable)
+            if self._confined is None:
+                try:
+                    self._launch(confined=True)
+                except SandboxError as exc:
+                    # Its name stays for the reap; every later ask is refused
+                    # with the same words rather than sent to it.
+                    self._unconfinable = str(exc)
+                    raise
         self._lent = lent
         return True
 

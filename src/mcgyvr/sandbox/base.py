@@ -989,7 +989,15 @@ def confine_for(
     may go ahead.
     """
     lent = whose != SCOPE_OWN
-    if sandbox.confine(lent) or on_host:
+    try:
+        confined = sandbox.confine(lent)
+    except SandboxError as exc:
+        if not lent:
+            raise
+        # The container with no network did not start: that rung is passed
+        # over, and the climb goes on with the rungs that are yours.
+        return f"rung {rung!r} is not sent: its code would run with no network, {exc}"
+    if confined or on_host:
         return None
     return (
         f"rung {rung!r} is served from {WHOSE_WORDS.get(whose, whose)} "

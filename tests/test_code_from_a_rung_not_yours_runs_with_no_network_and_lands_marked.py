@@ -191,6 +191,36 @@ def test_a_task_with_no_network_runs_every_rungs_code_in_its_one_container(
     assert execs == [_name(only), _name(only)]
 
 
+class _NoNoneNetwork(_Daemon):
+    """A docker that cannot start a container with no network."""
+
+    def __call__(self, args: Sequence[str], stdin: bytes | None = None) -> DockerResult:
+        self.argvs.append(list(args))
+        if args[:1] == ["run"] and "none" in args:
+            return DockerResult(1, "", "network none is not available")
+        return DockerResult(0, "container-id", "")
+
+
+def test_a_container_with_no_network_that_does_not_start_passes_the_rung_over(
+    repo: Path, execs: list[str]
+) -> None:
+    daemon = _NoNoneNetwork()
+    with _docker(repo, daemon) as sandbox:
+        refused = confine_for(sandbox, "lent", "anyone")
+        assert refused is not None and "is not sent" in refused, refused
+        assert "network none is not available" in refused
+        # Your own rungs go on in the task's own container.
+        assert confine_for(sandbox, "mine", "own") is None
+        sandbox.run(["true"])
+        # A later lent try is refused the same way, not sent to a dead name.
+        again = confine_for(sandbox, "lent", "crew")
+        assert again is not None and "network none is not available" in again
+    # One start of each: the failed one is not tried again.
+    own, confined = daemon.started()
+    assert execs == [_name(own)]
+    assert daemon.removed() == {_name(own), _name(confined)}
+
+
 @pytest.mark.parametrize("from_whom", ["crew", "anyone"])
 def test_the_tempdir_sandbox_refuses_code_not_yours_and_names_the_key(
     repo: Path, from_whom: str

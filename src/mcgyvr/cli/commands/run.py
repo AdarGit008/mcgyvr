@@ -956,7 +956,10 @@ def _report_climb(
     landed = outcome.history[-1]
     # Whose machines the accepted code may have come from, which decides where
     # delivery lands it and what its commit says (`mcgyvr.deliver.lent_trailers`).
-    report.whose = landed.whose
+    report.whose = next(
+        (row.whose for row in reversed(outcome.history) if row.rung == outcome.rung),
+        landed.whose,
+    )
     return _commit(
         args,
         contract,

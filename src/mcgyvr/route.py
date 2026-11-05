@@ -37,6 +37,7 @@ from enum import StrEnum
 from typing import TYPE_CHECKING
 
 from mcgyvr.catalog import Family, catalog
+from mcgyvr.hubwire import SCOPE_OWN
 
 if TYPE_CHECKING:  # pragma: no cover - typing only
     from mcgyvr.capacity import Capacity
@@ -398,7 +399,7 @@ class Attempted:
     address: str = ""
     #: `whose` is whose machines the try's code may have come from: `own`,
     #: `crew` or `anyone` (:func:`mcgyvr.config.whose`).
-    whose: str = "own"
+    whose: str = SCOPE_OWN
 
 
 def attempted(rung: str, attempt: int, result: Result) -> Attempted:
