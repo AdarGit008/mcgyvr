@@ -1406,8 +1406,9 @@ class Sessions:
     def _vet_peers(self, asked: sessionwire.TunnelUp) -> str | None:
         """Why the peers of `asked` are refused, or None once each is taken
         (:func:`mcgyvr.rig.identity.vet_peer`) and every new identity key among
-        them is pinned."""
+        them is pinned: the pins are read once and written at most once."""
         try:
+            known = self._pins.all() if self._pins is not None else {}
             for peer in asked.peers:
                 why = identity.vet_peer(
                     rig_id=peer.rig_id,
@@ -1415,20 +1416,25 @@ class Sessions:
                     identity_key=peer.identity_key,
                     signature=peer.public_key_sig,
                     session_id=asked.session_id,
-                    pins=self._pins,
+                    pinned=known.get(peer.rig_id),
                 )
                 if why is not None:
                     return why
-            for peer in asked.peers:
-                if self._pins is None or peer.identity_key is None:
-                    continue
-                if not self._pins.pin(peer.rig_id, peer.identity_key):
+            met = {
+                peer.rig_id: peer.identity_key
+                for peer in asked.peers
+                if peer.identity_key is not None and peer.rig_id not in known
+            }
+            if self._pins is not None and met:
+                for rig_id in sorted(self._pins.pin_all(met)):
                     self._log(
                         f"note: {self._pins.path} holds {identity.MAX_PINS} peers; "
-                        f"peer {peer.rig_id} is checked but not pinned"
+                        f"peer {rig_id} is checked but not pinned"
                     )
         except credentials.CredentialsError as exc:
             return f"the pinned peers cannot be read: {exc}"
+        except OSError as exc:
+            return f"the pinned peers cannot be written: {exc.strerror or exc}"
         return None
 
     def _status(self, session: _Session, re: str | None) -> str:

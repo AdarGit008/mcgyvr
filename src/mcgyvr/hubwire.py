@@ -898,6 +898,8 @@ SESSION_KEY_SIG_FIELD = "public_key_sig"
 #: base64 (44 characters, the last before the ``=`` holding 4 zero bits), the
 #: shape WireGuard writes its own 32-byte keys in.
 IDENTITY_KEY = re.compile(r"[A-Za-z0-9+/]{42}[AEIMQUYcgkosw048]=")
+#: How many characters an :data:`IDENTITY_KEY` is.
+IDENTITY_KEY_CHARS = 44
 #: A signature: the 64 raw bytes of an Ed25519 signature in standard base64
 #: (88 characters, the last before the ``==`` holding 4 zero bits).
 IDENTITY_SIG = re.compile(r"[A-Za-z0-9+/]{85}[AQgw]==")
