@@ -558,5 +558,5 @@ The key the host's unit opens sealed requests with, as the hub lists it. Set, ev
 
 | Key | Type | Required | Default | Description |
 | --- | --- | --- | --- | --- |
-| `relief.seal.kid` | text | no | unset | The key's id: 32 hex digits, the start of the SHA-256 of `pub`. Set with `pub`, or neither. |
-| `relief.seal.pub` | text | no | unset | The host unit's X25519 public key, in base64. Set with `kid`, or neither. |
+| `relief.seal.kid` | text | no | unset | The key's id: 32 hex digits, the start of the SHA-256 of `pub`. Set with `pub`, or neither. To bind it: run `mcgyvr rig rungs sync` to write the key the hub lists, or leave unset to ask the rung in clear. |
+| `relief.seal.pub` | text | no | unset | The host unit's X25519 public key, in base64. Set with `kid`, or neither. To bind it: run `mcgyvr rig rungs sync` to write the key the hub lists, or leave unset to ask the rung in clear. |
