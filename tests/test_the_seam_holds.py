@@ -99,9 +99,10 @@ from tests.wheels import (
 #: files in (userdir), how load is counted across processes and read for the
 #: ladder manager (pressure), how a served model id is read against the name a
 #: config declares (weights), how a unit's stream is assembled into the whole
-#: answer it would have written (whole), and a machine published as a rig of a
-#: hub, whose commands will start and stop units through the serving door
-#: (rig.*).
+#: answer it would have written (whole), the one policy line a rig's sync or
+#: ``mcgyvr use`` rewrites in a setup (policy_line), and a machine published as
+#: a rig of a hub, whose commands will start and stop units through the serving
+#: door (rig.*).
 BELOW_THE_SEAM: tuple[str, ...] = (
     "mcgyvr.availability",
     "mcgyvr.capability",
@@ -140,6 +141,7 @@ BELOW_THE_SEAM: tuple[str, ...] = (
     "mcgyvr.knowledge.record",
     "mcgyvr.knowledge.store",
     "mcgyvr.local_pool",
+    "mcgyvr.policy_line",
     "mcgyvr.pressure",
     "mcgyvr.propose",
     "mcgyvr.recommend",

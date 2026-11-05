@@ -368,7 +368,7 @@ def test_a_unit_with_a_key_not_lent_by_a_crew_is_still_an_api_rung() -> None:
 
 def _relief_as_written_before(address: str) -> str:
     """``relief.yaml`` for one listed rung, as ``rungs sync`` wrote it before
-    crew units existed."""
+    crew units existed, for a setup naming no ``ride_scope`` (so ``crew``)."""
     return (
         "# Written by `mcgyvr rig rungs sync`, which rewrites it whole: an edit\n"
         "# here lasts until the next sync. Each host can read the prompts sent\n"
@@ -391,7 +391,7 @@ def _relief_as_written_before(address: str) -> str:
         "      code: hitchhike_not_served_yet\n"
         "    - status: 503\n"
         "      code: pool_busy\n"
-        "    scope: anyone\n"
+        "    scope: crew\n"
     )
 
 
