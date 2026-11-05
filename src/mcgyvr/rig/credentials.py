@@ -75,14 +75,23 @@ def _check(credentials: Credentials) -> None:
 def save(credentials: Credentials) -> Path:
     """Write the token file for `credentials`, and say where it went.
 
-    The values are checked first, raising ValueError if either cannot be used.
-    The home folder is created at 0700 only when it is missing; one that exists
-    keeps its own mode. A link in the file's place raises CredentialsError
-    rather than being written through. `atomic.write` puts the JSON in place in
-    one step, at 0600, fsynced.
+    The values are checked first, raising ValueError if either cannot be used,
+    and the file is written by :func:`write_private`.
     """
     _check(credentials)
-    target = path()
+    data = json.dumps({"hub": credentials.hub, "token": credentials.token})
+    return write_private(path(), data + "\n")
+
+
+def write_private(target: Path, text: str) -> Path:
+    """Write `text` to `target`, a file of this rig's own in the home folder,
+    readable by its owner alone, and say where it went.
+
+    The home folder is created at 0700 only when it is missing; one that exists
+    keeps its own mode. A link in the file's place raises CredentialsError
+    rather than being written through. `atomic.write` puts the text in place in
+    one step, at 0600, fsynced.
+    """
     folder = target.parent
     if not folder.exists():
         folder.mkdir(mode=0o700, parents=True)
@@ -91,21 +100,21 @@ def save(credentials: Credentials) -> Path:
         raise CredentialsError(
             f"{target} is a link; remove it, and keep no link in its place"
         )
-    data = json.dumps({"hub": credentials.hub, "token": credentials.token})
-    atomic.write(target, data + "\n", private=True, fsync=True)
+    atomic.write(target, text, private=True, fsync=True)
     return target
 
 
-def load() -> Credentials | None:
-    """Read the token file back, or None when this machine has none.
+def read_private(target: Path, most: int, *, again: str, leaked: str) -> bytes | None:
+    """The bytes of `target` as :func:`write_private` wrote it, at most `most`
+    of them and one more (so a caller can tell a file that is too long), or
+    None when there is no such file.
 
     The file is opened without following a link and then judged by what is
     actually open, not by the path: it must be a plain file of this user with no
-    group or other bits, no longer than `MAX_CREDENTIALS_BYTES`, holding the
-    JSON object `save` writes. Anything else raises CredentialsError saying what
-    to do; a file that is absent is not an error.
+    group or other bits. Anything else raises CredentialsError saying what to
+    do: `again` how to make the file anew, `leaked` what to do if another could
+    have read it.
     """
-    target = path()
     try:
         fd = hostos.open_nofollow(target, os.O_RDONLY)
     except FileNotFoundError:
@@ -121,15 +130,34 @@ def load() -> Credentials | None:
             raise CredentialsError(f"{target} is not a plain file; remove it")
         if not hostos.owned_by_current_user(facts):
             raise CredentialsError(
-                f"{target} belongs to another user; remove it and join again"
+                f"{target} belongs to another user; remove it and {again}"
             )
         if hostos.others_mode_bits(facts):
             raise CredentialsError(
                 f"{target} can be read or written by others; run `chmod 600 "
-                f"{target}`, and if anyone else could have read it, rotate the "
-                "rig's token on the hub and join again"
+                f"{target}`, and if anyone else could have read it, {leaked}"
             )
-        raw = handle.read(MAX_CREDENTIALS_BYTES + 1)
+        return handle.read(most + 1)
+
+
+def load() -> Credentials | None:
+    """Read the token file back, or None when this machine has none.
+
+    The file is opened without following a link and then judged by what is
+    actually open, not by the path: it must be a plain file of this user with no
+    group or other bits, no longer than `MAX_CREDENTIALS_BYTES`, holding the
+    JSON object `save` writes. Anything else raises CredentialsError saying what
+    to do; a file that is absent is not an error.
+    """
+    target = path()
+    raw = read_private(
+        target,
+        MAX_CREDENTIALS_BYTES,
+        again="join again",
+        leaked="rotate the rig's token on the hub and join again",
+    )
+    if raw is None:
+        return None
     unreadable = CredentialsError(
         f"{target} is not as `mcgyvr rig join` writes it; remove it with "
         "`mcgyvr rig leave` and join again"
