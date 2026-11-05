@@ -52,6 +52,11 @@ from these names rather than writing them again:
 * the llama.cpp RPC protocol version a rig speaks (:class:`RpcProto`, carried
   as :data:`RPC_PROTO_FIELD`) and which workers a head may take
   (:func:`rpc_compatible`);
+* a rig's identity key and the signature it puts on each session's tunnel
+  key (:data:`IDENTITY_KEY_FIELD`, :data:`SESSION_KEY_SIG_FIELD`, their shapes
+  :data:`IDENTITY_KEY` and :data:`IDENTITY_SIG`, the bytes signed
+  :func:`session_key_message`), and the fingerprint people compare
+  (:func:`identity_fingerprint`);
 * the devices a head runs a model on (:data:`HEAD_DEVICE_KINDS`);
 * how fast a device decodes by its memory bandwidth
   (:func:`decode_ms_per_gib`, with :data:`DECODE_EFFICIENCY`, and whether a
@@ -71,6 +76,9 @@ core and the hub import this module without either.
 
 from __future__ import annotations
 
+import base64
+import binascii
+import hashlib
 import json
 import re
 from collections.abc import Mapping, Sequence
@@ -874,6 +882,70 @@ def rpc_compatible(head: RpcProto, worker: RpcProto) -> bool:
     A major changes on a break; a newer head speaks an older minor.
     """
     return worker.major == head.major and worker.minor <= head.minor
+
+
+# --- a rig's identity key ----------------------------------------------------------
+
+#: The ``hello`` field carrying the rig's long-lived Ed25519 identity public key,
+#: and the ``tunnel_up`` peer field the hub forwards it in. Optional: an agent
+#: that predates it sends none, and a hub that predates it ignores it.
+IDENTITY_KEY_FIELD = "identity_key"
+#: The ``session_prepared`` field carrying the identity key's signature over
+#: :func:`session_key_message`, and the ``tunnel_up`` peer field the hub
+#: forwards it in beside the peer's tunnel key.
+SESSION_KEY_SIG_FIELD = "public_key_sig"
+#: An identity key: the 32 raw bytes of an Ed25519 public key in standard
+#: base64 (44 characters, the last before the ``=`` holding 4 zero bits), the
+#: shape WireGuard writes its own 32-byte keys in.
+IDENTITY_KEY = re.compile(r"[A-Za-z0-9+/]{42}[AEIMQUYcgkosw048]=")
+#: A signature: the 64 raw bytes of an Ed25519 signature in standard base64
+#: (88 characters, the last before the ``==`` holding 4 zero bits).
+IDENTITY_SIG = re.compile(r"[A-Za-z0-9+/]{85}[AQgw]==")
+#: What every signed tunnel key starts with, so a signature made for it is
+#: never a signature over anything else the key might one day sign.
+SESSION_KEY_CONTEXT = b"mcgyvr session tunnel key v1\x00"
+#: How many base32 characters of the key's sha256 a fingerprint shows (80
+#: bits), in groups of :data:`FINGERPRINT_GROUP`.
+FINGERPRINT_CHARS = 16
+FINGERPRINT_GROUP = 4
+
+
+def session_key_message(session_id: str, public_key: str) -> bytes:
+    """The bytes a rig's identity key signs for one session: the context, the
+    session id and the WireGuard public key the rig answers that session with,
+    each ended by a NUL. The session id binds the signature to the one session,
+    so a hub cannot hand an old session's key to a new one."""
+    for field, value in (("session_id", session_id), ("public_key", public_key)):
+        _need(isinstance(value, str) and "\x00" not in value, field, "not plain text")
+    return SESSION_KEY_CONTEXT + f"{session_id}\x00{public_key}\x00".encode()
+
+
+def identity_key_bytes(identity_key: str) -> bytes:
+    """The 32 raw bytes of an identity key; ValueError unless it is
+    :data:`IDENTITY_KEY` in shape."""
+    _need(
+        isinstance(identity_key, str) and bool(IDENTITY_KEY.fullmatch(identity_key)),
+        IDENTITY_KEY_FIELD,
+        "not a base64 Ed25519 public key",
+    )
+    try:
+        raw = base64.b64decode(identity_key, validate=True)
+    except binascii.Error as exc:  # the pattern admits none; kept for the type
+        raise ValueError(f"{IDENTITY_KEY_FIELD}: not base64") from exc
+    return raw
+
+
+def identity_fingerprint(identity_key: str) -> str:
+    """The short form of an identity key people compare out of band: the first
+    :data:`FINGERPRINT_CHARS` characters of the base32 of its sha256, in
+    groups of :data:`FINGERPRINT_GROUP` joined by ``-``, e.g.
+    ``ABCD-EFGH-IJKL-MNOP``. ValueError unless the key is in shape."""
+    digest = hashlib.sha256(identity_key_bytes(identity_key)).digest()
+    text = base64.b32encode(digest).decode()[:FINGERPRINT_CHARS]
+    return "-".join(
+        text[at : at + FINGERPRINT_GROUP]
+        for at in range(0, FINGERPRINT_CHARS, FINGERPRINT_GROUP)
+    )
 
 
 # --- the devices a head runs a model on -------------------------------------------
