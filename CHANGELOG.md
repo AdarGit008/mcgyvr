@@ -913,8 +913,12 @@ archived outside this repository, under the same paths.
   On `tunnel_up` the rig checks each peer's signature against the identity
   key the hub forwards and pins that key by rig id in `rig-peers.json`; a
   changed key, an unsigned or wrongly signed tunnel key, or a missing key for
-  a pinned peer is refused as `tunnel_failed`, naming both fingerprints. The
-  hub can still stand in for a peer on first contact: compare the fingerprint
+  a pinned peer is refused as `tunnel_failed`, naming both fingerprints; a
+  peer taken with no key is logged ("sent no identity key ... taken
+  unpinned"). Two first runs at once keep one key: the key is linked into
+  place, and the run that finds one there takes it. The hub can still stand
+  in for a peer on first contact, and names the rig ids, so only a pinned id
+  is protected: compare the fingerprint
   (`hubwire.identity_fingerprint`, base32 of the key's sha256, 16 characters)
   that `mcgyvr rig status` prints with the hub's rig page; `mcgyvr rig peers`
   lists the pins and `--forget <rig-id>` drops one after a rotation. All

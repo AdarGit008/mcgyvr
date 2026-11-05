@@ -122,7 +122,7 @@ refuses to guess for a unit that needs RPC (`src/mcgyvr/emit.py:732-762`).
 mcgyvr cannot read the build of such an image. **An image that serves
 `rpc-server` must be built from llama.cpp b8492 or later.** A rig whose
 image is not the pinned one names no RPC protocol in its offer
-(`src/mcgyvr/rig/session.py:2440`), so the hub pairs it only with rigs that
+(`src/mcgyvr/rig/session.py:2457`, `:2467`), so the hub pairs it only with rigs that
 name none either.
 
 No build is known to fix CVE-2026-78147, so what bounds it is who can reach
@@ -167,11 +167,17 @@ sends no key once one is pinned is refused before any tunnel is planned.
 
 What this does not do: **the hub can still stand in for a peer on first
 contact**, since the first identity key a rig sees for a peer is the one the
-hub hands it. Compare fingerprints out of band to close that: `mcgyvr rig
-status` prints this rig's, `mcgyvr rig peers` the ones pinned here, and the
-hub shows each rig's on its rig page and in a session's members. After a
-peer's owner rotates its key, `mcgyvr rig peers --forget <rig-id>` drops the
-old pin once you have compared the new fingerprint with them. A peer from
-before identity keys sends none and is taken as before, unpinned; once a
-rig's key is bound, the hub refuses a hello from it that names none, so
-stripping the key would cut the rig off rather than hand its peers no key.
+hub hands it. And the hub decides what a first contact is: a peer is known by
+the rig id the hub names for it, so a hub can make any peer a first contact by
+naming an id this rig has not met, or by sending no key for one it has not
+pinned. Only a pinned id is protected; comparing fingerprints is the anchor.
+Compare them out of band: `mcgyvr rig status` prints this rig's, `mcgyvr rig
+peers` the ones pinned here, and the hub shows each rig's on its rig page and
+in a session's members. After a peer's owner rotates its key, `mcgyvr rig
+peers --forget <rig-id>` drops the old pin once you have compared the new
+fingerprint with them. A peer from before identity keys sends none and is
+taken as before, unpinned, and the rig logs each one it takes that way
+("sent no identity key ... taken unpinned"). Against someone holding a rig's
+token (not against the hub): once that rig's key is bound, the hub refuses a
+hello from it that names none, so stripping the key cuts that rig off rather
+than handing its peers no key.
