@@ -260,7 +260,7 @@ def test_dev_emit_fills_only_what_a_unit_does_not_state(
     # Everything else was missing and is filled in.
     assert block["engine"] == "llama.cpp"
     assert block["container"]
-    assert block["launch"]["env"] == {"LLAMA_ARG_HOST": "0.0.0.0"}
+    assert block["launch"]["env"] == {"LLAMA_ARG_HOST": "127.0.0.1"}
     assert block["launch"]["volumes"]
 
 

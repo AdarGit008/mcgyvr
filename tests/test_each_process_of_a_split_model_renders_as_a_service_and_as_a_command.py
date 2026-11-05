@@ -128,7 +128,7 @@ def test_a_unit_that_names_no_cards_still_reserves_its_one_card() -> None:
     )
     service = service_of(plain)
     assert devices_of(service) == ["3"]
-    assert service["environment"] == {"LLAMA_ARG_HOST": "0.0.0.0"}
+    assert service["environment"] == {"LLAMA_ARG_HOST": "127.0.0.1"}
     assert "entrypoint" not in service
 
 

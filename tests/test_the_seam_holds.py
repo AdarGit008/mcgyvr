@@ -206,6 +206,7 @@ BELOW_THE_SEAM: tuple[str, ...] = (
     "mcgyvr.serving.shipped",
     "mcgyvr.serving.shardlaunch",
     "mcgyvr.serving.vramfit",
+    "mcgyvr.unitkey",
     "mcgyvr.userdir",
     "mcgyvr.wake",
     "mcgyvr.weights",
