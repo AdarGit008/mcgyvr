@@ -35,6 +35,7 @@ from __future__ import annotations
 
 import base64
 import binascii
+import functools
 import hashlib
 import json
 import os
@@ -123,14 +124,15 @@ class SealKey:
     def of(cls, raw: object) -> SealKey:
         """The key a listing or an advert carries (``{"kid", "pub", "sig"?}``).
 
-        Raises ValueError for one not of that shape. ``sig`` is the slot for the
-        rig's signature over the key: its shape is checked, its value not yet.
+        Raises ValueError for one not of that shape; a field beyond
+        :data:`~mcgyvr.hubwire.SEAL_KEY_FIELDS` is ignored. ``sig`` is the slot for
+        the rig's signature over the key: its shape is checked, its value not yet.
         """
         if not isinstance(raw, Mapping):
             raise ValueError("seal: not an object")
-        unknown = set(raw) - set(hubwire.SEAL_KEY_FIELDS)
-        if unknown:
-            raise ValueError(f"seal: unknown field {sorted(unknown)[0]!r}")
+        # A field this product does not know (one a later rig identity adds
+        # beside ``sig``) is left unread, not refused: refusing it would refuse
+        # the whole listing it came in.
         sig = raw.get("sig")
         if sig is not None and (
             not isinstance(sig, str) or not hubwire.SEAL_SIGNATURE.fullmatch(sig)
@@ -147,11 +149,22 @@ class HostKey:
     memory only, never written."""
 
     def __init__(self, private: X25519PrivateKey | None = None) -> None:
+        self._given = private
+
+    @functools.cached_property
+    def _private(self) -> X25519PrivateKey:
+        """Made on first use, so an agent that hosts nothing loads no cipher."""
         from cryptography.hazmat.primitives.asymmetric.x25519 import X25519PrivateKey
 
-        self._private = private or X25519PrivateKey.generate()
-        self._public = self._private.public_key().public_bytes_raw()
-        self.unit_key = SealKey(kid=key_id(self._public), pub=_b64(self._public))
+        return self._given or X25519PrivateKey.generate()
+
+    @functools.cached_property
+    def _public(self) -> bytes:
+        return self._private.public_key().public_bytes_raw()
+
+    @functools.cached_property
+    def unit_key(self) -> SealKey:
+        return SealKey(kid=key_id(self._public), pub=_b64(self._public))
 
     @property
     def kid(self) -> str:
@@ -245,11 +258,12 @@ def unit_body(
     does, as the hub does for one in clear: only :data:`mcgyvr.hubwire.FORWARDED_FIELDS`
     pass, ``max_completion_tokens`` folds into ``max_tokens``, ``n`` is 1 or absent,
     ``chat_template_kwargs`` keeps only :data:`mcgyvr.hubwire.CHAT_TEMPLATE_KEYS`,
-    ``top_logprobs`` only with ``logprobs``. The model is the unit's own, whatever the
-    rider named; ``max_tokens`` is held to the hub's cap ``max_tokens``, which the
-    hub sends in clear; ``stream`` is what the hub relays the answer as, and a stream
-    asks for its usage. Raises :class:`SealError` for a body that is not a chat
-    request.
+    ``top_logprobs`` only with ``logprobs``. Every value is held to the bounds the hub
+    holds a request in clear to (:func:`_held`): a body outside them reaches no unit.
+    The model is the unit's own, whatever the rider named; ``max_tokens`` is held to
+    the hub's cap ``max_tokens``, which the hub sends in clear; ``stream`` is what the
+    hub relays the answer as, and a stream asks for its usage. Raises
+    :class:`SealError` for a body that is not a chat request within those bounds.
     """
     try:
         asked = json.loads(body)
@@ -257,16 +271,12 @@ def unit_body(
         raise SealError("the sealed request is not JSON") from exc
     if not isinstance(asked, dict):
         raise SealError("the sealed request is not an object")
-    messages = asked.get("messages")
-    if not isinstance(messages, list) or not messages:
-        raise SealError("the sealed request has no messages")
-    if asked.get("n", 1) not in (1, None) or isinstance(asked.get("n"), bool):
+    if asked.get("n") is not None and not _within(asked.get("n"), 1, 1):
         raise SealError("the sealed request asks for more than one choice")
+    asked = _held(asked)
     passed = hubwire.FORWARDED_FIELDS - {"max_completion_tokens", "n"}
     request = {key: value for key, value in asked.items() if key in passed}
     wanted = asked.get("max_tokens") or asked.get("max_completion_tokens")
-    if not isinstance(wanted, int) or isinstance(wanted, bool) or wanted < 1:
-        wanted = None
     caps = [cap for cap in (wanted, max_tokens) if cap is not None]
     request.pop("max_tokens", None)
     if caps:
@@ -285,6 +295,108 @@ def unit_body(
     else:
         request.pop("stream_options", None)
     return whole.dump(request)
+
+
+def _whole(value: object) -> bool:
+    return type(value) is int
+
+
+def _within(value: object, low: float, high: float, *, whole: bool = True) -> bool:
+    """Whether ``value`` is a number (a whole one when ``whole``; never a bool)
+    from ``low`` to ``high``."""
+    if isinstance(value, bool):
+        return False
+    if isinstance(value, int):
+        return low <= value <= high
+    return not whole and isinstance(value, float) and low <= value <= high
+
+
+def _optional(asked: Mapping[str, Any], field: str, fits: bool) -> None:
+    if asked.get(field) is not None and not fits:
+        raise SealError(f"the sealed request's {field} is not one the hub passes")
+
+
+def _held(asked: dict[str, Any]) -> dict[str, Any]:
+    """``asked`` held to the bounds a chat request in clear is held to on the hub
+    (``hubwire.CHAT_MAX_*``, :data:`~mcgyvr.hubwire.MESSAGE_ROLES`,
+    :data:`~mcgyvr.hubwire.CHAT_RANGES`), its messages kept to
+    :data:`~mcgyvr.hubwire.MESSAGE_FIELDS` as the hub drops any other. Raises
+    :class:`SealError` for a value the hub would refuse."""
+    messages = asked.get("messages")
+    if (
+        not isinstance(messages, list)
+        or not messages
+        or len(messages) > hubwire.CHAT_MAX_MESSAGES
+    ):
+        raise SealError(
+            "the sealed request has no messages, or more than the hub passes"
+        )
+    asked = {**asked, "messages": [_message(m) for m in messages]}
+    for field in ("max_tokens", "max_completion_tokens"):
+        _optional(asked, field, _within(asked.get(field), 1, float("inf")))
+    for field, (low, high, whole_only) in hubwire.CHAT_RANGES.items():
+        _optional(asked, field, _within(asked.get(field), low, high, whole=whole_only))
+    stop = asked.get("stop")
+    _optional(
+        asked,
+        "stop",
+        isinstance(stop, str)
+        or (
+            isinstance(stop, list)
+            and len(stop) <= hubwire.CHAT_MAX_STOP
+            and all(isinstance(s, str) for s in stop)
+        ),
+    )
+    tools = asked.get("tools")
+    _optional(asked, "tools", _dicts(tools, hubwire.CHAT_MAX_TOOLS))
+    _optional(asked, "seed", _whole(asked.get("seed")))
+    _optional(asked, "stream_options", isinstance(asked.get("stream_options"), dict))
+    _optional(asked, "response_format", isinstance(asked.get("response_format"), dict))
+    _optional(asked, "tool_choice", isinstance(asked.get("tool_choice"), str | dict))
+    _optional(asked, "logprobs", type(asked.get("logprobs")) is bool)
+    top = asked.get("top_logprobs")
+    _optional(asked, "top_logprobs", _within(top, 0, hubwire.CHAT_MAX_TOP_LOGPROBS))
+    knobs = asked.get("chat_template_kwargs")
+    _optional(asked, "chat_template_kwargs", isinstance(knobs, dict))
+    if isinstance(knobs, dict):
+        _optional(knobs, "enable_thinking", type(knobs.get("enable_thinking")) is bool)
+    return asked
+
+
+def _dicts(value: object, most: int) -> bool:
+    return (
+        isinstance(value, list)
+        and len(value) <= most
+        and all(isinstance(item, dict) for item in value)
+    )
+
+
+def _message(message: object) -> dict[str, Any]:
+    """One message held to the hub's bounds, with only the fields it passes."""
+    if not isinstance(message, dict) or "content" not in message:
+        raise SealError("a sealed message is not a message")
+    if message.get("role") not in hubwire.MESSAGE_ROLES:
+        raise SealError("a sealed message's role is not one the hub passes")
+    content = message["content"]
+    if not (
+        content is None
+        or isinstance(content, str)
+        or (isinstance(content, list) and _dicts(content, len(content)))
+    ):
+        raise SealError("a sealed message's content is not text or parts")
+    name, call = message.get("name"), message.get("tool_call_id")
+    _optional(
+        message, "name", isinstance(name, str) and len(name) <= hubwire.CHAT_MAX_NAME
+    )
+    _optional(
+        message,
+        "tool_call_id",
+        isinstance(call, str) and len(call) <= hubwire.CHAT_MAX_TOOL_CALL_ID,
+    )
+    _optional(
+        message, "tool_calls", _dicts(message.get("tool_calls"), hubwire.CHAT_MAX_TOOLS)
+    )
+    return {k: v for k, v in message.items() if k in hubwire.MESSAGE_FIELDS}
 
 
 def _events(held: bytearray, chunk: bytes) -> list[bytes]:
