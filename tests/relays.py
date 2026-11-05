@@ -724,6 +724,8 @@ def _host(
     rider_slots: int = 2,
     max_active: int = 16,
     second: bool = False,
+    key: Any = None,
+    address: str | None = None,
 ) -> Host:
     from mcgyvr.capacity import Capacity
     from mcgyvr.config import parse
@@ -734,7 +736,7 @@ def _host(
     text = (
         "units:\n"
         "  coder:\n"
-        f"    address: http://127.0.0.1:{unit.port}/v1\n"
+        f"    address: {address or f'http://127.0.0.1:{unit.port}/v1'}\n"
         f"    model: {RIDE_MODEL}\n"
         f"    width: {width}\n"
         "    window: 8192\n"
@@ -773,6 +775,7 @@ def _host(
         clock=now,
         say=lambda line: None,
         start=lambda work: work(),
+        key=None if key is None else key.unit_key,
     )
     units.online()
     made = relay.Relays(
@@ -780,6 +783,7 @@ def _host(
         send=box.put,
         units=units,
         max_active=max_active,
+        key=key,
     )
     dispatcher = commands.Dispatcher()
     relay.register(dispatcher, made)

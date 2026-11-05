@@ -36,6 +36,7 @@ from mcgyvr.hubwire import UNIT_ADVERT_INTERVAL_S as UNIT_ADVERT_INTERVAL_S
 from mcgyvr.hubwire import UNIT_ADVERT_STALE_S as UNIT_ADVERT_STALE_S
 from mcgyvr.rig import protocol
 from mcgyvr.rig.protocol import ErrorCode, ProtocolError
+from mcgyvr.seal import UnitKey
 
 #: Bounds on the fields read below: how many of each may appear and how
 #: far they may go.
@@ -154,6 +155,9 @@ class SessionCode:
     MODEL_MISMATCH = "model_mismatch"
     NO_PATH = "no_path"
     UNKNOWN_UNIT = "unknown_unit"
+    #: A sealed ride that does not open: sealed to a key this agent no longer
+    #: holds, tampered with, or no chat request once opened.
+    BAD_SEAL = "bad_seal"
     #: The load stopped moving bytes for long enough that the head gave up.
     LOAD_STALLED = "load_stalled"
     #: A path to the peer does exist, but it lost every full-size packet: its
@@ -1121,6 +1125,9 @@ class AdvertisedUnit:
     ctx: int
     free_slots: int
     rider_cap: int
+    #: The key a ride to the unit may be sealed to (:mod:`mcgyvr.seal`), None
+    #: for a unit that opens no sealed ride.
+    seal: UnitKey | None = None
 
 
 def _whole(value: object, low: int, high: int) -> bool:
@@ -1151,16 +1158,18 @@ def unit_advert(units: Sequence[AdvertisedUnit]) -> str:
             and hubwire.rider_cap_fits(unit.rider_cap, unit.slots),
             "rider_cap: not 1 to one below slots",
         )
-        body.append(
-            {
-                "unit_id": unit.unit_id,
-                "model": unit.model,
-                "slots": unit.slots,
-                "ctx": unit.ctx,
-                "free_slots": unit.free_slots,
-                "rider_cap": unit.rider_cap,
-            }
-        )
+        entry: dict[str, Any] = {
+            "unit_id": unit.unit_id,
+            "model": unit.model,
+            "slots": unit.slots,
+            "ctx": unit.ctx,
+            "free_slots": unit.free_slots,
+            "rider_cap": unit.rider_cap,
+        }
+        if unit.seal is not None:
+            _need(isinstance(unit.seal, UnitKey), "seal: not a seal key")
+            entry[hubwire.SEAL_KEY_FIELD] = unit.seal.wire()
+        body.append(entry)
     return _frame("unit_advert", {"units": body}, None)
 
 
