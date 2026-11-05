@@ -900,6 +900,31 @@ archived outside this repository, under the same paths.
   which leaves git no `mcgyvr/<id>`, is refused naming `delivery.lent_code`.
   `checkout` delivers it as before. SECURITY.md names the hub, the rider, the
   host and a peer on your network, and what each can do.
+- **A rig has an identity key, signs each session's tunnel key with it, and
+  pins its peers' keys.** `mcgyvr rig join` (or the first `rig run` of a rig
+  that joined before) makes a long-lived Ed25519 key, kept beside the rig
+  token as `rig-identity.json` at 0600, owner-checked and opened without
+  following a link, as the token is (`mcgyvr.rig.identity`; the token file's
+  checks are now `credentials.write_private` and `read_private`, its messages
+  unchanged). Its public half rides in every `hello`
+  (`hubwire.IDENTITY_KEY_FIELD`), and `session_prepared` carries its
+  signature over the session's WireGuard key (`hubwire.SESSION_KEY_SIG_FIELD`,
+  over `hubwire.session_key_message`: a context, the session id and the key).
+  On `tunnel_up` the rig checks each peer's signature against the identity
+  key the hub forwards and pins that key by rig id in `rig-peers.json`; a
+  changed key, an unsigned or wrongly signed tunnel key, or a missing key for
+  a pinned peer is refused as `tunnel_failed`, naming both fingerprints. The
+  hub can still stand in for a peer on first contact: compare the fingerprint
+  (`hubwire.identity_fingerprint`, base32 of the key's sha256, 16 characters)
+  that `mcgyvr rig status` prints with the hub's rig page; `mcgyvr rig peers`
+  lists the pins and `--forget <rig-id>` drops one after a rotation. All
+  fields are optional: an agent or hub from before them sends none and
+  ignores them. Adds the `cryptography` dependency.
+- SECURITY.md names the llama.cpp build mcgyvr pins (b11960, above b8492,
+  the fix for CVE-2026-34159), says an image that serves `rpc-server` must be
+  b8492 or later, and states what bounds CVE-2026-78147, which no build fixes
+  yet: the RPC port is open only to the session's WireGuard peers, in locked
+  down containers.
 - A failure note names no path on the machine it was made on. The acceptance
   rung gives a path under the workspace its command ran in — pytest's
   `rootdir:`, a traceback's file, in either sandbox mode — repo-relative
