@@ -44,6 +44,17 @@ from tests.rigsyncs import (
 )
 
 RIDE = f"hitchhike-{FIRST}"
+
+
+@pytest.fixture(autouse=True)
+def nothing_refused_yet(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Each test starts with no rung held out as out of scope: the runner
+    keeps them for its process."""
+    from mcgyvr import runner
+
+    monkeypatch.setattr(runner, "_OUT_OF_SCOPE_RUNGS", set())
+
+
 FLEET = """\
 units:
   local:
