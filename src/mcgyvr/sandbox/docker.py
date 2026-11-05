@@ -116,10 +116,14 @@ class DockerSandbox(Sandbox):
     and `_stop` removes it, so an instance is usable only inside `with`.
 
     Code from a rung that is not yours runs in a second container over the same
-    workspace, one with no network, started the first time `confine` asks for
-    it and kept until `_stop`: the task's own container never runs that code,
-    and the one that does never has a network, so switching between the two is
-    a choice of container rather than a container started again.
+    workspace — whatever `network` says, `none` included — one with no
+    network, no capabilities, no new privileges and a `/tmp` of its own in
+    memory (:data:`CONFINED_ARGS`). It is started the first time `confine` asks
+    for it, started again before each later lent try, so nothing one host's
+    code leaves in `/tmp` or running is there for the next one's, and kept
+    until `_stop`: the task's own container never runs that code, and the one
+    that does never has a network. Switching back to your own rungs is a choice
+    of container rather than a container started again.
     """
 
     isolation: ClassVar[str] = "container"
@@ -151,6 +155,9 @@ class DockerSandbox(Sandbox):
         # in, and whether the commands that follow go to it.
         self._confined: str | None = None
         self._lent = False
+        # Whether a lent try has had the container with no network, so the
+        # next one is given it started again.
+        self._confined_used = False
         # Why the container with no network could not be started, once it
         # could not: every later try that needs it is refused with it.
         self._unconfinable: str | None = None
@@ -185,6 +192,7 @@ class DockerSandbox(Sandbox):
         network = "none" if confined else self._network
         if confined:
             self._confined = name
+            self._confined_used = False
         else:
             self._container = name
         reaches_out = network != "none"
@@ -198,6 +206,7 @@ class DockerSandbox(Sandbox):
             user=_host_user(),
             env=self._container_env(reaches_out=reaches_out),
             seeded=self._seeded,
+            confined=confined,
         )
         result = self._runner(args, None)
         if not result.ok:
@@ -215,31 +224,46 @@ class DockerSandbox(Sandbox):
         `lent`, and to the task's own container otherwise; always True.
 
         The container with no network is started the first time it is asked
-        for. A task whose `network` is `none` already is its own: one container
-        serves both.
+        for, and started again (``docker restart``) for every lent try after
+        that: a hub's `anyone` rung may be served by another host on each try,
+        and a fresh start ends what the last one left running and empties its
+        in-memory `/tmp`, where the XDG directories point. That holds for a task
+        whose `network` is `none` too, so its own container never runs a
+        stranger's code either.
         """
         if self._container is None:
             raise SandboxError("container is not running — use as a context manager")
-        if lent and self._network != "none":
+        if lent:
             if self._unconfinable is not None:
                 raise SandboxError(self._unconfinable)
-            if self._confined is None:
-                try:
+            try:
+                if self._confined is None:
                     self._launch(confined=True)
-                except SandboxError as exc:
-                    # Its name stays for the reap; every later ask is refused
-                    # with the same words rather than sent to it.
-                    self._unconfinable = str(exc)
-                    raise
+                elif self._confined_used:
+                    self._restart_confined()
+            except SandboxError as exc:
+                # Its name stays for the reap; every later ask is refused
+                # with the same words rather than sent to it.
+                self._unconfinable = str(exc)
+                raise
+            self._confined_used = True
         self._lent = lent
         return True
+
+    def _restart_confined(self) -> None:
+        """Start the container with no network again, for the next lent try."""
+        assert self._confined is not None
+        done = self._runner(["restart", "--time", "0", self._confined], None)
+        if not done.ok:
+            raise SandboxError(
+                f"could not start the container with no network again: "
+                f"{done.stderr.strip()}"
+            )
 
     @property
     def _running(self) -> str | None:
         """The container the next command runs in."""
-        if self._lent and self._network != "none":
-            return self._confined
-        return self._container
+        return self._confined if self._lent else self._container
 
     def _reap_container(self) -> None:
         """Force the containers and their volumes away, and forget their names.
@@ -261,6 +285,7 @@ class DockerSandbox(Sandbox):
         self._container = None
         self._confined = None
         self._lent = False
+        self._confined_used = False
 
     def run(
         self,
@@ -406,6 +431,21 @@ class DockerSandbox(Sandbox):
 # The docker command lines, plus the helpers that build and run them.
 
 
+#: What the container that runs code from a rung not yours is started with on
+#: top of the task's own arguments, as `mcgyvr.rig.pooled` hardens the engine
+#: a host serves strangers from: no capabilities, no gaining privileges, and a
+#: `/tmp` in memory that a restart empties (`exec`, so a command that runs a
+#: script it wrote there runs as it would in the task's container).
+CONFINED_ARGS: tuple[str, ...] = (
+    "--cap-drop",
+    "ALL",
+    "--security-opt",
+    "no-new-privileges=true",
+    "--tmpfs",
+    "/tmp:rw,exec,mode=1777",
+)
+
+
 def _run_args(
     *,
     name: str,
@@ -417,13 +457,15 @@ def _run_args(
     env: Mapping[str, str],
     network: str = "bridge",
     seeded: Sequence[str] = (),
+    confined: bool = False,
 ) -> list[str]:
     """The `docker run` arguments for a detached container that just idles.
 
     The workspace is mounted at `/workspace` with `.git` read-only over it,
     seeded folders get a volume each, resources and the environment are
-    applied, and the command is `sleep infinity`, for `docker exec` to have a
-    container to run in.
+    applied, a `confined` container — the one code not yours runs in — takes
+    :data:`CONFINED_ARGS` as well, and the command is `sleep infinity`, for
+    `docker exec` to have a container to run in.
     """
     args = [
         "run",
@@ -448,6 +490,7 @@ def _run_args(
         # bridge is docker's default, so only another network is named.
         *(["--network", network] if network != "bridge" else []),
         *gateway,
+        *(CONFINED_ARGS if confined else ()),
     ]
     if user is not None:
         args += ["--user", user]

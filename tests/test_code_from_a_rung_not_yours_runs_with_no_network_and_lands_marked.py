@@ -11,7 +11,8 @@ rung returns is somebody else's, so:
   under ``sandbox.lent_code_on_host``;
 * **delivery** commits it with ``Mcgyvr-Source`` and ``Mcgyvr-Model``
   trailers, and under ``delivery.lent_code: branch`` (the default) onto
-  ``mcgyvr/<contract id>``, never into your checkout — whatever
+  ``mcgyvr/<contract id>`` (``-2``, ``-3``, … beside an earlier run's, which
+  is never overwritten), never into your checkout — whatever
   ``delivery.commit`` says. ``checkout`` delivers it as your own.
 
 Your own rungs' code is gated and delivered exactly as before.
@@ -36,7 +37,12 @@ from mcgyvr.deliver import (
 )
 from mcgyvr.sandbox import docker as docker_module
 from mcgyvr.sandbox.base import confine_for
-from mcgyvr.sandbox.docker import ENDPOINTS_ENV, DockerSandbox, _ExecResult
+from mcgyvr.sandbox.docker import (
+    CONFINED_ARGS,
+    ENDPOINTS_ENV,
+    DockerSandbox,
+    _ExecResult,
+)
 from mcgyvr.sandbox.image import DockerResult
 from mcgyvr.sandbox.tempdir import TempDirSandbox
 from tests import livejournal as lj
@@ -94,6 +100,9 @@ class _Daemon:
     def removed(self) -> set[str]:
         return {argv[-1] for argv in self.argvs if argv[:1] == ["rm"]}
 
+    def restarted(self) -> list[str]:
+        return [argv[-1] for argv in self.argvs if argv[:1] == ["restart"]]
+
 
 def _name(run: list[str]) -> str:
     return run[run.index("--name") + 1]
@@ -148,6 +157,10 @@ def test_docker_runs_code_not_yours_in_a_second_container_with_no_network(
     assert _network(own) == "bridge"
     assert _network(confined) == "none"
     assert not any(token.startswith(ENDPOINTS_ENV) for token in confined)
+    # Hardened as the engine a host serves strangers from is, /tmp in memory.
+    for flag in ("--cap-drop", "--security-opt", "--tmpfs"):
+        assert flag in confined and flag not in own, flag
+    assert " ".join(CONFINED_ARGS) in " ".join(confined)
     assert execs == [_name(confined)], "the lent code ran in the task's container"
     assert daemon.removed() == {_name(own), _name(confined)}
 
@@ -168,7 +181,8 @@ def test_switching_between_rungs_is_a_choice_of_container_never_a_new_one(
     repo: Path, execs: list[str]
 ) -> None:
     """Under fan-out the climb goes own → lent → own → lent: the container with
-    no network is started once, and the task's own never runs lent code."""
+    no network is started once, given a restart (not a new container) before
+    the second lent try, and the task's own never runs lent code."""
     daemon = _Daemon()
     with _docker(repo, daemon) as sandbox:
         for from_whom in ("own", "anyone", "own", "crew"):
@@ -176,9 +190,25 @@ def test_switching_between_rungs_is_a_choice_of_container_never_a_new_one(
             sandbox.run(["true"])
     own, confined = daemon.started()
     assert execs == [_name(own), _name(confined), _name(own), _name(confined)]
+    assert daemon.restarted() == [_name(confined)]
 
 
-def test_a_task_with_no_network_runs_every_rungs_code_in_its_one_container(
+def test_each_lent_try_after_the_first_gets_the_container_started_again(
+    repo: Path, execs: list[str]
+) -> None:
+    """What one host's code leaves in /tmp or running is gone before the next
+    lent try — the same rung too, since a hub may serve it from another host.
+    Your own tries never restart anything."""
+    daemon = _Daemon()
+    with _docker(repo, daemon) as sandbox:
+        for from_whom in ("anyone", "anyone", "own", "own", "crew"):
+            confine_for(sandbox, "rung", from_whom)
+            sandbox.run(["true"])
+    _own, confined = daemon.started()
+    assert daemon.restarted() == [_name(confined)] * 2
+
+
+def test_a_task_with_no_network_still_keeps_lent_code_out_of_its_own_container(
     repo: Path, execs: list[str]
 ) -> None:
     daemon = _Daemon()
@@ -186,9 +216,35 @@ def test_a_task_with_no_network_runs_every_rungs_code_in_its_one_container(
         for from_whom in ("own", "anyone"):
             confine_for(sandbox, "rung", from_whom)
             sandbox.run(["true"])
-    (only,) = daemon.started()
-    assert _network(only) == "none"
-    assert execs == [_name(only), _name(only)]
+    own, confined = daemon.started()
+    assert _network(own) == _network(confined) == "none"
+    assert "--tmpfs" in confined and "--tmpfs" not in own
+    assert execs == [_name(own), _name(confined)]
+
+
+class _NoRestart(_Daemon):
+    """A docker that cannot restart a container."""
+
+    def __call__(self, args: Sequence[str], stdin: bytes | None = None) -> DockerResult:
+        self.argvs.append(list(args))
+        if args[:1] == ["restart"]:
+            return DockerResult(1, "", "restart failed")
+        return DockerResult(0, "container-id", "")
+
+
+def test_a_container_that_will_not_restart_passes_later_lent_rungs_over(
+    repo: Path, execs: list[str]
+) -> None:
+    daemon = _NoRestart()
+    with _docker(repo, daemon) as sandbox:
+        assert confine_for(sandbox, "lent", "anyone") is None
+        sandbox.run(["true"])
+        refused = confine_for(sandbox, "lent", "anyone")
+        assert refused is not None and "restart failed" in refused, refused
+        assert confine_for(sandbox, "mine", "own") is None
+        sandbox.run(["true"])
+    own, confined = daemon.started()
+    assert execs == [_name(confined), _name(own)]
 
 
 class _NoNoneNetwork(_Daemon):
@@ -207,7 +263,7 @@ def test_a_container_with_no_network_that_does_not_start_passes_the_rung_over(
     daemon = _NoNoneNetwork()
     with _docker(repo, daemon) as sandbox:
         refused = confine_for(sandbox, "lent", "anyone")
-        assert refused is not None and "is not sent" in refused, refused
+        assert refused is not None and "it is not sent" in refused, refused
         assert "network none is not available" in refused
         # Your own rungs go on in the task's own container.
         assert confine_for(sandbox, "mine", "own") is None
@@ -290,6 +346,10 @@ def test_a_lent_rung_in_the_tempdir_sandbox_is_declined_before_it_is_sent(
     assert attempt["verdict"] == "declined", attempt
     assert "`sandbox.lent_code_on_host`" in attempt["detail"]
     assert attempt["whose"] == "crew"
+    # The halt names the remedy — the sandbox — not the ladder.
+    assert result["outcome"] == "declined_throughout", result
+    assert "`sandbox.lent_code_on_host`" in result["detail"], result
+    assert "`sandbox.mode: docker`" in result["detail"], result
     assert lj.git(repo, "rev-parse", "HEAD").strip() == head
     assert not lj.git(repo, "status", "--porcelain").strip()
 
@@ -313,6 +373,25 @@ def test_lent_code_lands_on_a_branch_of_its_own_marked_even_with_commit_off(
     assert trailers[SOURCE_TRAILER] == "crew"
     assert trailers[MODEL_TRAILER] == "qwen2.5-coder:7b"
     assert "localhost" not in lj.git(repo, "log", "-1", "--format=%B", "mcgyvr/impl")
+
+
+def test_running_the_same_lent_contract_again_lands_on_a_branch_beside_it(
+    tmp_path: Path, home: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    code, repo, head, first, _ = _run(tmp_path, monkeypatch)
+    assert code == 0 and first["branch"] == "mcgyvr/impl", first
+    contract = tmp_path / "impl.yaml"
+    lj.scripted(monkeypatch, lj.GOOD_REPLY)
+
+    again = lj.main(lj.run_args(contract, repo, tmp_path / "setup"))
+    second = dict(json.loads(lj.result_of(contract).read_text()))
+
+    assert again == 0, second
+    assert second["committed"] is True and second["branch"] == "mcgyvr/impl-2"
+    assert lj.git(repo, "rev-parse", "mcgyvr/impl").strip() == first["commit"]
+    assert lj.git(repo, "rev-parse", "mcgyvr/impl-2~1").strip() == head
+    assert lj.git(repo, "rev-parse", "HEAD").strip() == head
+    assert not lj.git(repo, "status", "--porcelain").strip()
 
 
 def test_a_named_branch_you_have_not_checked_out_takes_lent_code(
@@ -436,19 +515,85 @@ def test_a_lent_change_never_touches_the_checkout_or_its_index(work: Path) -> No
     assert listed.count("worktree ") == 1, f"a worktree was left behind:\n{listed}"
 
 
-def test_a_lent_branch_that_is_checked_out_is_refused(work: Path) -> None:
-    lj.git(work, "checkout", "-q", "-b", "mcgyvr/fetch-retry")
-    result = deliver(
+def _lend(work: Path, body: str, base: str = "HEAD") -> Any:
+    return deliver(
         repo=work,
         contract=loads(CONTRACT),
-        content='def fetch(u):\n    """Retry."""\n    return u\n',
-        base="HEAD",
+        content=f'def fetch(u):\n    """{body}"""\n    return u\n',
+        base=base,
         trailers=lent_trailers("anyone", "m"),
         away="mcgyvr/fetch-retry",
     )
-    assert not result.committed
-    assert "`delivery.lent_code: checkout`" in result.reason
+
+
+def test_the_same_contract_lent_again_lands_beside_its_earlier_branch(
+    work: Path,
+) -> None:
+    """A rerun finds ``mcgyvr/<id>`` taken, holding a different copy of the
+    target: it lands on the first free ``-2``, ``-3`` from the base it was
+    judged on, and neither the earlier branch nor the checkout moves."""
+    head = lj.git(work, "rev-parse", "HEAD").strip()
+    first = _lend(work, "One.")
+    assert first.committed and first.branch == "mcgyvr/fetch-retry", first
+    before = _checkout(work)
+
+    second = _lend(work, "Two.")
+    third = _lend(work, "Three.")
+
+    assert second.committed, second.reason
+    assert (second.branch, third.branch) == (
+        "mcgyvr/fetch-retry-2",
+        "mcgyvr/fetch-retry-3",
+    )
+    assert lj.git(work, "rev-parse", "mcgyvr/fetch-retry").strip() == first.commit
+    for done, body in ((second, "Two."), (third, "Three.")):
+        assert lj.git(work, "rev-parse", f"{done.branch}~1").strip() == head
+        shown = lj.git(work, "show", f"{done.branch}:src/pkg/fetch.py")
+        assert f'"""{body}"""' in shown
+        assert _trailers(work, done.branch)[SOURCE_TRAILER] == "anyone"
+    assert _checkout(work) == before, "delivery touched the checkout"
+    assert lj.git(work, "rev-parse", "HEAD").strip() == head
+
+
+def test_a_lent_branch_you_have_checked_out_is_left_as_it_is(work: Path) -> None:
+    """Reviewing the earlier lent change with it checked out: the rerun lands
+    beside it, and the checkout you are reading is byte-identical."""
+    _lend(work, "One.")
+    lj.git(work, "checkout", "-q", "mcgyvr/fetch-retry")
+    tip = lj.git(work, "rev-parse", "HEAD").strip()
+    before = _checkout(work)
+
+    result = _lend(work, "Two.")
+
+    assert result.committed, result.reason
+    assert result.branch == "mcgyvr/fetch-retry-2"
+    assert lj.git(work, "rev-parse", "mcgyvr/fetch-retry").strip() == tip
+    assert _checkout(work) == before
     assert not lj.git(work, "status", "--porcelain").strip()
+
+
+def test_a_branch_named_like_the_lent_prefix_is_refused_with_the_way_out(
+    work: Path,
+) -> None:
+    """A plain ``mcgyvr`` branch leaves git no ``mcgyvr/<id>``: a refusal that
+    names the setting, not git's ref-lock error and a temporary path."""
+    lj.git(work, "branch", "mcgyvr")
+    before = _checkout(work)
+
+    result = _lend(work, "One.")
+
+    assert not result.committed
+    assert "branch named mcgyvr" in result.reason, result.reason
+    assert "`delivery.lent_code: checkout`" in result.reason
+    assert "/tmp" not in result.reason and "lock" not in result.reason
+    assert _checkout(work) == before
+
+
+def test_a_branch_under_the_lent_name_is_stepped_past(work: Path) -> None:
+    lj.git(work, "branch", "mcgyvr/fetch-retry/old")
+    result = _lend(work, "One.")
+    assert result.committed, result.reason
+    assert result.branch == "mcgyvr/fetch-retry-2"
 
 
 def test_a_model_name_cannot_add_a_line_or_a_trailer_of_its_own() -> None:

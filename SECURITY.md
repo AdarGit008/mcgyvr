@@ -68,18 +68,26 @@ What the gate and delivery do with code from a rung that is not yours:
 
 1. **It never runs with a network.** In `sandbox.mode: docker` it runs in a
    second task container started with `--network none`, whatever
-   `sandbox.network` says; your own rungs' code keeps the task's own container,
-   which never runs a stranger's code. In the `tempdir` sandbox (by name, or as
+   `sandbox.network` says (`none` included), with no capabilities
+   (`--cap-drop ALL`), no gaining privileges (`no-new-privileges`) and a `/tmp`
+   in memory, started again before every lent try after its first, so what one
+   host's code leaves in `/tmp` or running is gone before the next host's runs.
+   Your own rungs' code keeps the task's own container, which never runs a
+   stranger's code. In the `tempdir` sandbox (by name, or as
    the fallback) it would run on this host, so a try on such a rung is declined
    before anything is sent, unless the repository is listed under
    `sandbox.lent_code_on_host`.
 2. **It never lands unmarked.** Its commit carries `Mcgyvr-Source:` (`crew` or
    `anyone`) and `Mcgyvr-Model:` trailers, never the machine or member that
    served it. Under `delivery.lent_code: branch` (the default) it is committed
-   onto `mcgyvr/<contract id>`, whatever `delivery.commit` says, and never
-   written into your checkout; `checkout` delivers it as your own rungs' code.
+   onto a branch of its own from the base it was judged against —
+   `mcgyvr/<contract id>`, or `-2`, `-3`, … beside an earlier run's —
+   whatever `delivery.commit` says, and never written into your checkout;
+   `checkout` delivers it as your own rungs' code.
 
 What stays yours to weigh: the container is Docker's boundary, not a virtual
 machine; the second look delivery takes at an accepted file runs on this host,
-with the checkers the threat model's first property names; and a lent change
-is a stranger's code until you have read it.
+with the checkers the threat model's first property names; the draws of one
+try share the second container's `/tmp`, and a rider running as root shares
+its dependency folders (`.venv`, `node_modules`) from one lent try to the
+next; and a lent change is a stranger's code until you have read it.

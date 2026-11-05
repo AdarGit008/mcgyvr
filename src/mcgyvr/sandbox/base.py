@@ -975,6 +975,16 @@ WHOSE_WORDS = {
 }
 
 
+#: In every reason :func:`confine_for` gives, so a halt can tell a ladder the
+#: sandbox kept from running (:func:`kept_off`) from one that stepped aside.
+NOT_SENT = "so it is not sent"
+
+
+def kept_off(detail: str) -> bool:
+    """Whether `detail` is a reason :func:`confine_for` declined a try with."""
+    return NOT_SENT in detail
+
+
 def confine_for(
     sandbox: Sandbox, rung: str, whose: str, *, on_host: bool = False
 ) -> str | None:
@@ -996,14 +1006,17 @@ def confine_for(
             raise
         # The container with no network did not start: that rung is passed
         # over, and the climb goes on with the rungs that are yours.
-        return f"rung {rung!r} is not sent: its code would run with no network, {exc}"
+        return (
+            f"rung {rung!r} runs only in a container with no network, which did "
+            f"not start ({exc}), {NOT_SENT}"
+        )
     if confined or on_host:
         return None
     return (
         f"rung {rung!r} is served from {WHOSE_WORDS.get(whose, whose)} "
         f"(`scope: {whose}`) and this task runs in the temp-directory sandbox, on "
         f"this host, where the code it returns would run with this host's network "
-        f"and files, so it is not sent. Run in a container (`sandbox.mode: "
+        f"and files, {NOT_SENT}. Run in a container (`sandbox.mode: "
         f"docker`, with a daemon that answers), or list this repository under "
         f"`sandbox.lent_code_on_host` to run such code on this host."
     )
