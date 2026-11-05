@@ -250,3 +250,15 @@ def test_the_rigs_refresher_syncs_nothing_for_a_private_setup(
 
     assert hub.asked == []
     assert len(said) == 1 and "private" in said[0]
+
+
+def test_an_opt_in_repairs_a_kept_relief_file_as_a_plain_sync_does(
+    setup: Path, hub: Hub, capsys: pytest.CaptureFixture[str]
+) -> None:
+    (setup / "relief.yaml").write_text("relief: [not, a, map]\n", encoding="utf-8")
+    hub.answer(hub.listing(FIRST))
+
+    assert cli("--ride-scope", "anyone") == Exit.OK
+
+    assert _policy(setup) == POLICY + "ride_scope: anyone\n"
+    assert [r["scope"] for r in _kept(setup).values()] == ["anyone"]

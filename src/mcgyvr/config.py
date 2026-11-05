@@ -837,8 +837,8 @@ RELIEF_FIELDS: tuple[Field, ...] = (
         f"`{SCOPE_HEADER}` header. A sync writes the setup's `ride_scope`. "
         "A ride is served from the hub's hitchhike pool whatever its scope, "
         "which still bounds whose host may serve it: `own` or `crew` refuses a "
-        "ride on a host outside it. A scope wider than the setup's "
-        "`ride_scope` is narrowed to it, so an edit here can only narrow. "
+        "ride on a host outside it. Whatever it says, a ride is never wider "
+        "than the setup's `ride_scope`: a wider scope is narrowed to it. "
         "Unset is the setup's `ride_scope`.",
         default=None,
         choices=SCOPE_VALUES,
@@ -998,8 +998,9 @@ SCHEMA: tuple[Field, ...] = (
         "Unset is `idle` under `use_case: mcgyvr-code` and `none` under a raw "
         "use case; a stated value wins. Fan-out spreads work over your own "
         "rungs and, under `idle`, a relief rung whose host reads your prompts "
-        "(one within `ride_scope`) when your own rungs are full. It never sends a contract to a priced "
-        "api rung: only escalation climbs there, in ladder order.",
+        "(one within `ride_scope`) when your own rungs are full. It never "
+        "sends a contract to a priced api rung: only escalation climbs there, "
+        "in ladder order.",
         choices=FANOUT_CHOICES,
         bind_hint="name one of `none`, `idle`, `full`, or leave it to the use case",
     ),
