@@ -44,7 +44,9 @@ def main() -> int:
     # narrowed sleep leaves a card's other units exactly as they are.
     only = ctx.only
     units = tuple(s for s in ctx.units if not only or s.container in only)
-    before = {s.container: servelib.sleeping(ctx.host, s.port) for s in units}
+    before = {
+        s.container: servelib.sleeping(ctx.host, s.port, key=s.key()) for s in units
+    }
     routeless = sorted(
         name for name, said in before.items() if not isinstance(said, bool)
     )
@@ -59,7 +61,7 @@ def main() -> int:
         status = 0
         for service in units:
             asked = servelib.sleep(ctx.host, service.port, 2)
-            after = servelib.sleeping(ctx.host, service.port)
+            after = servelib.sleeping(ctx.host, service.port, key=service.key())
             rows.append(
                 {
                     "container": service.container,

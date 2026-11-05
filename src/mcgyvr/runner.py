@@ -50,7 +50,13 @@ from mcgyvr.hubwire import (
     SCOPE_HEADER,
     USE_CASE_HEADER,
 )
-from mcgyvr.local_pool import Endpoint, Protocol, SourceMap, UnknownRungError
+from mcgyvr.local_pool import (
+    Endpoint,
+    PoolError,
+    Protocol,
+    SourceMap,
+    UnknownRungError,
+)
 from mcgyvr.redact import safe_url
 from mcgyvr.weights import is_model
 
@@ -1067,15 +1073,26 @@ def _prefill(
 def _status(endpoint: Endpoint) -> _Status | None:
     """Poll this endpoint's status page, or `None` where it cannot be read.
 
-    An endpoint that sends a credential is not polled at all: the status path is
-    fetched without a key, and a unit that needs one is not going to answer it.
+    An endpoint that sends a credential from the environment is not polled at
+    all: that is a hosted unit, whose status path is not its to give. vLLM's
+    `/metrics` asks no unit for a key; llama-server's `/slots` does when the
+    unit has one (`expose: lan`), and one of your own units is polled with the
+    key mcgyvr made for it.
     """
     if endpoint.credential_env is not None:
         return None
     if endpoint.engine == "vllm":
         page = _get_text(_url_for(endpoint.base_url, METRICS_PATH), STATUS_TIMEOUT_S)
         return _vllm_status(page)
-    page = _get_text(_url_for(endpoint.base_url, SLOTS_PATH), STATUS_TIMEOUT_S)
+    try:
+        key = endpoint.credential()
+    except PoolError:
+        return None
+    url = _url_for(endpoint.base_url, SLOTS_PATH)
+    if key is None:
+        page = _get_text(url, STATUS_TIMEOUT_S)
+    else:
+        page = _get_text(url, STATUS_TIMEOUT_S, key=key)
     return _slots_status(page)
 
 
@@ -1085,13 +1102,16 @@ def unit_in_flight(
     engine: str | None,
     max_parallel: int = 1,
     credential_env: str | None = None,
+    *,
+    own_key: bool = False,
 ) -> int | None:
     """How many requests an address is carrying, from what a probe knows about it.
 
     The endpoint is assembled here so the same poll a dispatch uses can be made
     against a unit that is not being dispatched at, which is what a capacity gauge
     needs. `credential_env` is the unit's own: a unit that needs a key is not
-    polled, as `_status` never polls one.
+    polled, as `_status` never polls one. `own_key` says the address is one of
+    your own units, which is polled with the key mcgyvr keeps for it, if any.
     """
     endpoint = Endpoint(
         source=source,
@@ -1100,6 +1120,7 @@ def unit_in_flight(
         max_parallel=max_parallel,
         credential_env=credential_env,
         engine=engine,
+        own_key=own_key,
     )
     status = _status(endpoint)
     return None if status is None else status.busy
@@ -1140,14 +1161,17 @@ def _vllm_status(page: str | None) -> _Status | None:
     )
 
 
-def _get_text(url: str, timeout: float) -> str | None:
+def _get_text(url: str, timeout: float, *, key: str | None = None) -> str | None:
     """Fetch a page as text, or `None` when it cannot be fetched or read.
 
-    Errors are swallowed on purpose: a status poll is a measurement, never a
-    reason to fail the dispatch it is measuring.
+    `key`, when given, is sent as a bearer token. Errors are swallowed on
+    purpose: a status poll is a measurement, never a reason to fail the
+    dispatch it is measuring.
     """
+    headers = {"Authorization": f"Bearer {key}"} if key else {}
+    request = urllib.request.Request(url, headers=headers)
     try:
-        with urllib.request.urlopen(url, timeout=timeout) as response:
+        with urllib.request.urlopen(request, timeout=timeout) as response:
             raw: bytes = response.read(_STATUS_BYTES)
     except (OSError, ValueError, http.client.HTTPException):
         return None

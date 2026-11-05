@@ -141,7 +141,8 @@ def unit_in_flight(name: str, unit: Mapping[str, Any]) -> int | None:
     """The unit's in-flight count now, asked of `mcgyvr.runner.unit_in_flight`
     (imported at call time) with its address, its engine, its width — a width
     that is absent or not above 0 counts as one — and its `api_key_env`, so a
-    unit that needs a key is not polled. None when it cannot be read.
+    unit that needs a key is not polled; a unit of `expose: lan` is polled with
+    the key mcgyvr keeps for it. None when it cannot be read.
     """
     from mcgyvr.runner import unit_in_flight as read
 
@@ -154,6 +155,7 @@ def unit_in_flight(name: str, unit: Mapping[str, Any]) -> int | None:
         engine if isinstance(engine, str) else None,
         width if isinstance(width, int) and width > 0 else 1,
         credential_env=key if isinstance(key, str) and key else None,
+        own_key=True,
     )
 
 

@@ -15,6 +15,7 @@ from dataclasses import dataclass, replace
 from enum import StrEnum
 from typing import Protocol as TypingProtocol
 
+from mcgyvr import unitkey
 from mcgyvr.config import Config, Unit
 
 _ROLES = ("orchestrator", "verifier", "jev")
@@ -143,6 +144,11 @@ class Endpoint:
     #: Whose rigs may serve this endpoint's requests, the unit's `scope`, which
     #: every chat request names in the `mcgyvr.hubwire.SCOPE_HEADER` header so a
     #: hub serves it from that scope's pool; `None` sends no header.
+    own_key: bool = False
+    #: Whether the address is one of your own units, whose server may ask for
+    #: the key mcgyvr made for it (`expose: lan`, :mod:`mcgyvr.unitkey`): such
+    #: an endpoint sends that key when one is kept for its address. A relief
+    #: rung, a crew unit and a hosted unit are never sent it.
 
     @property
     def requires_credential(self) -> bool:
@@ -157,7 +163,7 @@ class Endpoint:
         the value is never written into a config file.
         """
         if self.credential_env is None:
-            return None
+            return self._unit_key() if self.own_key else None
         value = os.environ.get(self.credential_env)
         if not value:
             raise SourceUnavailableError(
@@ -167,6 +173,18 @@ class Endpoint:
                 f"config file."
             )
         return value
+
+    def _unit_key(self) -> str | None:
+        """The key mcgyvr keeps for this address (`expose: lan`), or None.
+
+        Read each time it is asked for, so a unit given a key by a later
+        `mcgyvr emit` is sent it. A key file that cannot be trusted raises
+        `SourceUnavailableError` naming it, rather than sending no key.
+        """
+        try:
+            return unitkey.for_address(self.base_url)
+        except unitkey.UnitKeyError as exc:
+            raise SourceUnavailableError(f"source {self.source!r}: {exc}") from exc
 
 
 @dataclass(frozen=True)
@@ -551,6 +569,7 @@ def _endpoint(
         sampling=unit.sampling,
         use_case=use_case,
         scope=unit.scope,
+        own_key=not unit.relief and not unit.crew and unit.api_key_env is None,
     )
 
 

@@ -11,6 +11,30 @@ archived outside this repository, under the same paths.
 
 ### Changed
 
+- **A docker llama.cpp or vLLM unit listens on 127.0.0.1 unless its unit
+  states `expose: lan`, and then only behind a key mcgyvr makes.** `mcgyvr
+  emit` rendered every container's server on every interface with no key
+  (`LLAMA_ARG_HOST=0.0.0.0`; vLLM's own default). Now `expose: local`, the
+  default, is `LLAMA_ARG_HOST=127.0.0.1` or `--host 127.0.0.1`; `expose: lan`
+  is `0.0.0.0` plus an API key (`mcgyvr.unitkey`): 256 bits, made the first
+  time `mcgyvr emit` writes the unit, kept at 0600 in
+  `unit-keys/<host>-<port>.env` in the data folder and named by the service's
+  `env_file`, so it is in no compose file and no `fleet.yaml`. mcgyvr's own
+  requests to the unit send it as a bearer token: a dispatch, the
+  availability probe, the status poll (`/slots`), the door's `serve`
+  probes (on curl's stdin, never its command line), the compose healthcheck
+  (which asks `/health` of a keyed unit) and the rig agent's relay of a ride.
+  `mcgyvr fleet key <unit>` prints the key for a client of your own. A
+  `--host` or `LLAMA_ARG_HOST` a unit's launch states renders byte for byte as
+  before; a native unit (127.0.0.1 alone) refuses `expose: lan`; rpc workers
+  and vLLM headless ranks are unchanged. Upgrading: a unit another machine
+  dials (its `address` names a host that is not this machine's loopback) is
+  unreachable from there after its next emit until it states `expose: lan`,
+  and `mcgyvr emit` says so for each such unit with a `warning:` naming it; a
+  client of your own then needs the key. A locked unit renders what its lock
+  states, so a lock written before this one still listens on `0.0.0.0` with
+  no key, and `mcgyvr emit` warns about it by name.
+
 - **The programs shipped to a rig are assembled from the modules they import,
   and run on Python 3.9.** The reader, the fetcher, the lease and the native
   launcher each go as one program built at ship time

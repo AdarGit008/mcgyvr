@@ -25,6 +25,7 @@ import yaml
 
 # The health budget `wait_for` spends on every unit, re-exported under this
 # module's name so a caller — and a test — reads and cuts it here.
+from mcgyvr import unitkey
 from mcgyvr.config import HEALTH_INTERVAL_S as HEALTH_INTERVAL_S
 from mcgyvr.config import HEALTH_POLLS as HEALTH_POLLS
 from mcgyvr.config import LAUNCHER_DOCKER, LAUNCHER_NATIVE, LAUNCHERS
@@ -70,6 +71,23 @@ class Service:
     asleep: bool = False
     #: `docker`, or `native` for a unit `mcgyvr.serving.native` runs and keeps up.
     launcher: str = LAUNCHER_DOCKER
+    #: The key file the service's `env_file` names, for a unit of `expose: lan`
+    #: whose server asks every request but `/health` for its key; None otherwise.
+    key_file: str | None = None
+
+    def key(self) -> str | None:
+        """The key the door's probes of this unit send, or None.
+
+        None also for a file that is not a key file as `mcgyvr emit` writes it:
+        compose read it to start the unit, and a probe without the key then
+        reads as not answering, which is what it is to the door.
+        """
+        if self.key_file is None:
+            return None
+        try:
+            return unitkey.read(Path(self.key_file))
+        except unitkey.UnitKeyError:
+            return None
 
 
 def launcher_of(units: tuple[Service, ...]) -> str:
@@ -146,11 +164,43 @@ def services(compose: Path) -> tuple[Service, ...]:
                 ),
                 asleep=bool(block.get("profiles")),
                 launcher=launcher,
+                key_file=_key_file(block),
             )
         )
     if not found:
         raise ComposeError(f"{compose}: declares no services")
     return tuple(found)
+
+
+def _key_file(block: dict[object, object]) -> str | None:
+    """The one key file a service's `env_file` names, as `mcgyvr emit` writes
+    it; None for a service that names none, or names it otherwise."""
+    named = block.get("env_file")
+    if isinstance(named, list) and len(named) == 1 and isinstance(named[0], str):
+        return named[0]
+    return None
+
+
+def _bearer(key: str | None) -> tuple[str, str | None]:
+    """The curl flag and the stdin that send `key` as a bearer token, or none.
+
+    The header is read from stdin (`-H @-`), so the key is never on the rig's
+    command line, where another user's `ps` would show it. With no key the probe
+    is the command it always was, with nothing on its stdin.
+    """
+    if key is None:
+        return "", None
+    return " -H @-", f"Authorization: Bearer {key}\n"
+
+
+def _probe(
+    host: str, command: str, stdin: str | None
+) -> subprocess.CompletedProcess[str]:
+    """One probe of a unit over ssh, bounded at 30 s, fed `stdin` when there is
+    one (`_bearer`); with none it is the call it always was."""
+    if stdin is None:
+        return ssh(host, command, timeout=30)
+    return ssh(host, command, timeout=30, input=stdin)
 
 
 def _devices(block: dict[object, object]) -> tuple[str, ...]:
@@ -348,16 +398,18 @@ def _native_units() -> set[str]:
         return set()
 
 
-def models_served(host: str, port: int) -> list[str] | None:
+def models_served(host: str, port: int, *, key: str | None = None) -> list[str] | None:
     """The model ids the unit on `host:port` lists at `/v1/models`, or None.
 
     None means the probe could not be read at all: ssh timed out, curl failed,
     the body did not parse. A list — possibly empty — means the unit answered;
-    each row's `id`, else `name`, else `model` is taken as its id.
+    each row's `id`, else `name`, else `model` is taken as its id. `key` is
+    sent for a unit that asks for one (`Service.key`).
     """
+    flag, stdin = _bearer(key)
     try:
-        done = ssh(
-            host, f"{_curl(host)} -sf http://localhost:{port}/v1/models", timeout=30
+        done = _probe(
+            host, f"{_curl(host)} -sf{flag} http://localhost:{port}/v1/models", stdin
         )
     except subprocess.TimeoutExpired:
         return None
@@ -384,20 +436,23 @@ def models_served(host: str, port: int) -> list[str] | None:
 SLEEP_UNREAD = "unread"
 
 
-def sleeping(host: str, port: int) -> bool | str | None:
+def sleeping(host: str, port: int, *, key: str | None = None) -> bool | str | None:
     """Whether the unit on `host:port` says it is asleep, or why that is unread.
 
     `True` or `False` is the unit's own `is_sleeping` answer. None means the
     route is not there at all (404): a unit with no sleep route has no way to be
     asleep, so it is awake. `SLEEP_UNREAD` means the probe failed in any other
     way — ssh timed out, curl failed, a non-404 status, a body that does not
-    parse or states no bool — and such a unit never reads as serving.
+    parse or states no bool — and such a unit never reads as serving. `key` is
+    sent for a unit that asks for one (`Service.key`): llama-server asks for it
+    on every route but `/health`.
     """
+    flag, stdin = _bearer(key)
     try:
-        done = ssh(
+        done = _probe(
             host,
-            f"curl -s -w '\\n%{{http_code}}' http://localhost:{port}/is_sleeping",
-            timeout=30,
+            f"curl -s{flag} -w '\\n%{{http_code}}' http://localhost:{port}/is_sleeping",
+            stdin,
         )
     except subprocess.TimeoutExpired:
         return SLEEP_UNREAD
@@ -502,12 +557,15 @@ def wait_for(host: str, service: Service) -> dict[str, object]:
     started = time.monotonic()
     asleep: bool | str | None = None
     ids: list[str] | None = None
+    key = service.key()
     for attempt in range(HEALTH_POLLS):
-        ids = models_served(host, service.port)
+        ids = models_served(host, service.port, key=key)
         # A native unit has no sleep route (llama.cpp), so it is not asked.
         native_run = os.environ.get("RUN_LAUNCHER") == LAUNCHER_NATIVE
         asleep = (
-            sleeping(host, service.port) if ids is not None and not native_run else None
+            sleeping(host, service.port, key=key)
+            if ids is not None and not native_run
+            else None
         )
         if ids is not None and not asleep:
             return {

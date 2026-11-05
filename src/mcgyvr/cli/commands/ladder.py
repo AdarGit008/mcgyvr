@@ -15,12 +15,13 @@ from collections.abc import Iterable, Mapping, Sequence
 from pathlib import Path
 from typing import TYPE_CHECKING, Any
 
-from mcgyvr import atomic
+from mcgyvr import atomic, unitkey
 from mcgyvr.capability import (
     CapabilityTableError,
 )
 from mcgyvr.config import (
     FLEET_FILENAME,
+    LAUNCHER_NATIVE,
     Config,
     ConfigError,
 )
@@ -34,9 +35,14 @@ from mcgyvr.emit import (
     emit_all,
     emit_locked,
     is_locked,
+    keyed,
+    listens_beyond_loopback,
+    locked_keyed,
+    locked_open,
     planned_locked_paths,
     planned_paths,
     resolved_launch,
+    states_host,
     unplanned,
     unplanned_locked,
 )
@@ -47,6 +53,7 @@ from mcgyvr.initialize import (
     render_fleet,
 )
 from mcgyvr.serving import (
+    ROLE_SERVE,
     ModelSpec,
     Unit,
     UnitError,
@@ -54,6 +61,7 @@ from mcgyvr.serving import (
     hold_together,
     units_for,
 )
+from mcgyvr.serving.gatelib import LOCAL_RIGS
 
 if TYPE_CHECKING:  # pragma: no cover - typing only
     pass
@@ -416,6 +424,14 @@ def _emit(args: argparse.Namespace) -> int:
         print(f"error: {exc}", file=sys.stderr)
         return Exit.ERROR
 
+    # A unit of `expose: lan` is given its key now that its compose file names
+    # it, and every unit that listens other than it did before says so.
+    try:
+        _exposure(units)
+    except unitkey.UnitKeyError as exc:
+        print(f"error: {exc}", file=sys.stderr)
+        return Exit.ERROR
+
     # The launch just rendered is stamped back into `fleet.yaml`, so `serve`
     # reads the launch a unit actually runs rather than deriving
     # it again, and a block that states its own launch keeps what it states.
@@ -440,6 +456,56 @@ def _emit(args: argparse.Namespace) -> int:
         print(f"stamped {stamped}")
     print("\nNothing was started. `docker compose -f <file> up -d` is yours to run.")
     return Exit.OK
+
+
+def _exposure(units: Iterable[Unit]) -> None:
+    """Make the key of each unit of `expose: lan` that has none, and say where
+    the units listen when it is not what they listened on before.
+
+    A keyed unit is named with its key file. A serving unit in a container
+    that states no host of its own and keeps `expose: local` listens on the
+    loopback, which no other machine reaches: when its address names another
+    host than this machine's loopback, that is said as a warning, since what
+    dials it there (mcgyvr on another machine, a client of yours) no longer
+    reaches it. A unit whose own launch states a host beyond the loopback is
+    rendered as it states, with no key unless it states `lan`, and is warned
+    about too. UnitKeyError says a key file is there and cannot be trusted.
+    """
+    for unit in sorted(units, key=lambda u: u.key.slug):
+        names = ", ".join(unit.rungs) or unit.key.slug
+        if keyed(unit):
+            _key_note(unit.key.slug, *unitkey.ensure(unit.host, unit.port), names)
+        elif unit.launcher == LAUNCHER_NATIVE or unit.role != ROLE_SERVE:
+            continue
+        elif states_host(unit):
+            if listens_beyond_loopback(unit):
+                print(
+                    f"warning: {unit.key.slug}: its launch states where it "
+                    "listens, beyond 127.0.0.1, and it asks for no key; state "
+                    f"`expose: lan` on {names} for one",
+                    file=sys.stderr,
+                )
+        elif unit.host not in LOCAL_RIGS:
+            print(
+                f"warning: {unit.key.slug}: listens on 127.0.0.1 alone "
+                f"(expose: local, the default), and its address names "
+                f"{unit.host}: no other machine reaches it. State `expose: lan` "
+                f"on {names} to listen on every interface, behind a key mcgyvr "
+                "makes",
+                file=sys.stderr,
+            )
+
+
+def _key_note(slug: str, path: Path, made: bool, names: str) -> None:
+    """Say that `slug` listens on every interface behind the key in `path`."""
+    kept = "made its key in" if made else "its key is in"
+    print(
+        f"note: {slug}: listens on every interface (expose: lan) and asks every "
+        f"request for its key; {kept} {path} (mode 0600). mcgyvr's own requests "
+        f"send it; `mcgyvr fleet key {names.split(', ')[0]}` prints it for a "
+        "client of yours",
+        file=sys.stderr,
+    )
 
 
 def _locked_fleet(config: Config) -> dict[str, Any] | None:
@@ -484,12 +550,21 @@ def _emit_locked(
                 planned_locked_paths(fleet, out, setup),
             )
         written = emit_locked(fleet, out, setup)
+        for name, host, port in locked_keyed(fleet):
+            _key_note(name, *unitkey.ensure(host, port), names=name)
     except LockedLaunchError as exc:
         print(f"refused: {exc}", file=sys.stderr)
         return Exit.REFUSED
-    except (EmitError, UnitError, OSError) as exc:
+    except (EmitError, UnitError, OSError, unitkey.UnitKeyError) as exc:
         print(f"error: {exc}", file=sys.stderr)
         return Exit.ERROR
+    for name, host in locked_open(fleet):
+        print(
+            f"warning: {name}: its lock has it listen on {host} with no key "
+            "(locked before units listened on 127.0.0.1 by default); state "
+            "`expose: lan` on it for a key, or lock it again",
+            file=sys.stderr,
+        )
     for compose in written:
         print(f"wrote {compose}")
     print("\nNothing was started. `docker compose -f <file> up -d` is yours to run.")

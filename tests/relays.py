@@ -572,6 +572,8 @@ class UnitServer:
     hold: bool = False
     release: threading.Event = field(default_factory=threading.Event)
     seen: list[tuple[str, bytes]] = field(default_factory=list)
+    #: The Authorization header of each request, None where it carried none.
+    authorized: list[str | None] = field(default_factory=list)
     running: int = 0
     hung_up: threading.Event = field(default_factory=threading.Event)
     lock: threading.Lock = field(default_factory=threading.Lock)
@@ -598,6 +600,7 @@ def _ride_serve(unit: UnitServer) -> ThreadingHTTPServer:
             body = self.rfile.read(length)
             with unit.lock:
                 unit.seen.append((self.path, body))
+                unit.authorized.append(self.headers.get("Authorization"))
                 unit.running += 1
             try:
                 self.send_response(200)

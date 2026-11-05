@@ -34,7 +34,7 @@ from contextlib import AbstractContextManager, nullcontext
 from dataclasses import dataclass, field
 from typing import Protocol
 
-from mcgyvr import whole
+from mcgyvr import unitkey, whole
 from mcgyvr.rig import commands, protocol, sessionwire
 from mcgyvr.rig.protocol import ErrorCode, ProtocolError
 from mcgyvr.rig.sessionwire import SessionCode
@@ -114,12 +114,14 @@ class Units(Protocol):
 
 @dataclass(frozen=True)
 class Target:
-    """Where one relayed request is posted: one host, one port, one path."""
+    """Where one relayed request is posted: one host, one port, one path, and the
+    key the unit there asks for, sent as a bearer token when there is one."""
 
     host: str
     port: int
     path: str
     tls: bool = False
+    key: str | None = field(default=None, repr=False)
 
     @classmethod
     def loopback(cls, port: int, endpoint: str) -> Target:
@@ -132,6 +134,10 @@ class Target:
 
         Only an http(s) URL with a host is taken; a port left out defaults by scheme
         and a path left out to ``/``. A URL of any other shape is a ``ValueError``.
+        The key mcgyvr keeps for a unit of `expose: lan` at that host and port
+        (:func:`mcgyvr.unitkey.load`) is carried along, and a key file that
+        cannot be trusted is a ``ValueError`` too, so the ride ends as failed
+        upstream rather than being posted without the key.
         """
         parts = urllib.parse.urlsplit(url)
         scheme = parts.scheme.lower()
@@ -139,7 +145,11 @@ class Target:
             raise ValueError("a unit's address is an http(s) URL")
         tls = scheme == "https"
         port = parts.port or (443 if tls else 80)
-        return cls(parts.hostname, port, parts.path or "/", tls)
+        try:
+            key = unitkey.load(parts.hostname, port)
+        except unitkey.UnitKeyError as exc:
+            raise ValueError(str(exc)) from exc
+        return cls(parts.hostname, port, parts.path or "/", tls, key)
 
     def connect(self, timeout: float) -> http.client.HTTPConnection:
         if self.tls:
@@ -590,9 +600,12 @@ class Relays:
             body=body,
             headers={
                 "Content-Type": "application/json",
-                "Accept": whole.EVENT_STREAM
-                if relay.asked.stream or assembly is not None
-                else "application/json",
+                **_asked(
+                    relay.target,
+                    whole.EVENT_STREAM
+                    if relay.asked.stream or assembly is not None
+                    else "application/json",
+                ),
             },
         )
         with relay.changed:
@@ -797,6 +810,15 @@ def _count(value: object) -> int | None:
     return value if 0 <= value <= sessionwire.RELAY_MAX_TOKENS else None
 
 
+def _asked(target: Target, accept: str) -> dict[str, str]:
+    """The headers a request to `target` names what it accepts with, and the
+    unit's key as a bearer token when the target carries one."""
+    headers = {"Accept": accept}
+    if target.key:
+        headers["Authorization"] = f"Bearer {target.key}"
+    return headers
+
+
 def _page(target: Target) -> bytes | None:
     """The ``/slots`` page of the server a relay posts to, or ``None``.
 
@@ -809,7 +831,9 @@ def _page(target: Target) -> bytes | None:
     except (OSError, ValueError):
         return None
     try:
-        connection.request("GET", SLOTS_PATH, headers={"Accept": "application/json"})
+        connection.request(
+            "GET", SLOTS_PATH, headers=_asked(target, "application/json")
+        )
         response = connection.getresponse()
         if response.status != 200:
             return None

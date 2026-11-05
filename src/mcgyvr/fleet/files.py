@@ -55,6 +55,7 @@ _UNIT_KEYS = frozenset(
         "sampling",
         "role",
         "launcher",
+        "expose",
         "launch",
         "scope",
     }
