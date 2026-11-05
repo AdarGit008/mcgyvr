@@ -30,6 +30,7 @@ from mcgyvr.runner import (
     _url_for,
     request_headers,
     request_timeout,
+    sealed_for,
 )
 
 if TYPE_CHECKING:  # pragma: no cover - typing only
@@ -362,8 +363,12 @@ def classify(
             payload["temperature"] = 0.0
         # A server-sampled unit fixes its own sampling and refuses a temperature
         # parameter, so the field is left out of its request entirely.
-        document = _post_json(
-            url, whole.asking(payload), headers, request_timeout(endpoint, timeout_s)
+        asked, opener = sealed_for(endpoint, whole.asking(payload))
+        timeout = request_timeout(endpoint, timeout_s)
+        document = (
+            _post_json(url, asked, headers, timeout)
+            if opener is None
+            else _post_json(url, asked, headers, timeout, opener=opener)
         )
         answers[name] = answer_for(question, _top_logprobs(document))
     return Decision(answers=answers)

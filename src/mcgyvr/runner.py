@@ -33,7 +33,7 @@ from dataclasses import dataclass, replace
 from enum import StrEnum
 from typing import Any, ClassVar
 
-from mcgyvr import whole
+from mcgyvr import seal, whole
 from mcgyvr.capacity import Capacity, SlotUnavailableError
 from mcgyvr.config import DEFAULT_REQUEST_TIMEOUT_S
 from mcgyvr.fleet.harness import (
@@ -540,12 +540,14 @@ class Runner(ABC):
         url = _url_for(self.endpoint.base_url, self.path)
         before = _status(self.endpoint)
         started = time.monotonic()
+        payload, opener = sealed_for(self.endpoint, self._payload(model, request))
         try:
-            document = _post_json(
+            document = _ask(
                 url,
-                self._payload(model, request),
+                payload,
                 self._headers(),
                 request_timeout(self.endpoint, request.timeout_s),
+                opener,
             )
         except BackendError as exc:
             # The hub refused the host as outside the scope the request named:
@@ -920,6 +922,35 @@ def _sent_text(request: Request) -> str:
     return "\n".join(part for part in parts if part)
 
 
+def sealed_for(
+    endpoint: Endpoint, payload: dict[str, Any]
+) -> tuple[dict[str, Any], seal.AnswerOpener | None]:
+    """The payload as it is sent to ``endpoint``, and the opener of its answer.
+
+    A rung whose host advertises a key (`Endpoint.seal`) is asked sealed to it
+    (:func:`mcgyvr.seal.seal_request`): the hub carries the request and its answer
+    without reading either. Any other endpoint is asked the payload as it is, with
+    no opener.
+    """
+    if endpoint.seal is None:
+        return payload, None
+    return seal.seal_request(payload, endpoint.seal)
+
+
+def _ask(
+    url: str,
+    payload: dict[str, Any],
+    headers: dict[str, str],
+    timeout: float | None,
+    opener: seal.AnswerOpener | None,
+) -> dict[str, Any]:
+    """`_post_json`, its answer opened with ``opener`` when the payload is sealed;
+    a payload in clear is posted with `_post_json`'s four arguments alone."""
+    if opener is None:
+        return _post_json(url, payload, headers, timeout)
+    return _post_json(url, payload, headers, timeout, opener=opener)
+
+
 def request_headers(endpoint: Endpoint) -> dict[str, str]:
     """The headers a chat request to `endpoint` is sent with: JSON, a bearer
     token when the endpoint's credential resolves to a key (an endpoint naming
@@ -1223,8 +1254,14 @@ def _post_json(
     payload: dict[str, Any],
     headers: dict[str, str],
     timeout: float | None,
+    *,
+    opener: seal.AnswerOpener | None = None,
 ) -> dict[str, Any]:
     """POST a JSON body and return the document that answered it.
+
+    With an ``opener`` the body is a sealed request (:mod:`mcgyvr.seal`) and its
+    answer is opened as it is read, so what follows reads the answer in clear; an
+    answer that does not open raises `ProtocolError`.
 
     A request that asked to be streamed is sent an event stream and its reply is
     assembled back into one document, so the caller reads a single answer either
@@ -1273,7 +1310,7 @@ def _post_json(
         status = response.status
         media = whole.media(response.getheader("Content-Type", "") or "")
         if status == 200 and streamed and media == whole.EVENT_STREAM:
-            answered = _assembled(response, sock, deadline, timeout)
+            answered = _assembled(response, sock, deadline, timeout, opener)
             if answered is None:
                 if gone():
                     raise HungUpError(
@@ -1317,6 +1354,8 @@ def _post_json(
                     f"({type(lost).__name__}: {lost})",
                     status=status,
                 ) from lost
+            if opener is not None:
+                raw_detail = opener.body(raw_detail)
             text = raw_detail.decode("utf-8", "replace").strip()
             detail = text[:_ERROR_BODY_CHARS]
             raise BackendError(
@@ -1325,7 +1364,10 @@ def _post_json(
                 code=_error_code(text),
             )
         else:
-            raw = _body(response, sock, deadline, timeout).decode("utf-8", "replace")
+            raw_bytes = _body(response, sock, deadline, timeout)
+            if opener is not None:
+                raw_bytes = opener.body(raw_bytes)
+            raw = raw_bytes.decode("utf-8", "replace")
     except OSError as exc:
         if gone():
             raise HungUpError(
@@ -1367,6 +1409,13 @@ def _post_json(
         raise TransportError(
             f"{safe_url(url)} sent a reply that could not be read: "
             f"{type(exc).__name__}: {exc}"
+        ) from exc
+    except seal.SealError as exc:
+        # The answer to a sealed request did not open: altered on the way, or not
+        # the answer of the unit it was sealed to.
+        raise ProtocolError(
+            f"{safe_url(url)} answered a sealed request with an answer that does "
+            f"not open: {exc}"
         ) from exc
     except ValueError as exc:
         # `whole.Whole.feed` raises `ValueError` for a stream that is not a chat
@@ -1468,6 +1517,7 @@ def _assembled(
     sock: socket.socket,
     deadline: float | None,
     timeout: float | None,
+    opener: seal.AnswerOpener | None = None,
 ) -> tuple[int, str, bytes] | None:
     """Assemble a streamed reply into the one document it stands for.
 
@@ -1478,7 +1528,9 @@ def _assembled(
     assembled = whole.Whole()
     with contextlib.suppress(http.client.IncompleteRead):
         for chunk in _reads(response, sock, deadline, timeout):
-            assembled.feed(chunk)
+            assembled.feed(chunk if opener is None else opener.feed(chunk))
+    if opener is not None:
+        assembled.feed(opener.end())
     return assembled.answer()
 
 
