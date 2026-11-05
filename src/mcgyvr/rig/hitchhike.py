@@ -277,9 +277,11 @@ class Units:
         clock: Callable[[], float] = time.monotonic,
         say: Callable[[str], None] = _say,
         start: Callable[[Callable[[], None]], None] = _thread,
-        key: SealKey | None = None,
+        key: SealKey | Callable[[], SealKey] | None = None,
     ) -> None:
         self._send = send
+        # The key, or what makes it on the first advert with a unit in it: a rig
+        # hosting nothing never loads the cipher.
         self._key = key
         self._setup = setup
         self._clock = clock
@@ -460,7 +462,7 @@ class Units:
                         ctx=unit.ctx,
                         free_slots=free_slots(unit.slots, in_flight, riding),
                         rider_cap=unit.rider_cap,
-                        seal=self._key,
+                        seal=self._key() if callable(self._key) else self._key,
                     )
                 )
             wanted = tuple(advert)
