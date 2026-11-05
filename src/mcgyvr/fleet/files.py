@@ -72,6 +72,8 @@ _POLICY_KEYS = frozenset(
         "deployment",
         "ladder",
         "fanout",
+        "ride_scope",
+        "private",
         "triage",
         "dependents",
         "infer_dependencies",

@@ -114,7 +114,8 @@ def test_a_ladder_step_naming_a_relief_rung_is_a_step_and_no_longer_ridden(
         runner.dispatch(pool, RIDE, ask)
     ((url, headers),) = sent
     assert url.startswith(HUB)
-    assert headers[hubwire.SCOPE_HEADER] == hubwire.SCOPE_ANYONE
+    # its block says anyone; the setup's ride_scope (crew, unset) narrows it
+    assert headers[hubwire.SCOPE_HEADER] == hubwire.SCOPE_CREW
 
 
 @pytest.mark.parametrize("role", ["orchestrator", "verifier", "jev"])
@@ -137,7 +138,8 @@ def test_a_role_naming_a_relief_rung_resolves_to_it(
         runner.dispatch_role(pool, role, ask)
     ((url, headers),) = sent
     assert url.startswith(HUB)
-    assert headers[hubwire.SCOPE_HEADER] == hubwire.SCOPE_ANYONE
+    # its block says anyone; the setup's ride_scope (crew, unset) narrows it
+    assert headers[hubwire.SCOPE_HEADER] == hubwire.SCOPE_CREW
 
 
 def test_a_relief_rung_a_role_binds_is_still_ridden_as_relief() -> None:
@@ -202,7 +204,8 @@ def test_a_raw_use_case_runs_on_any_scope(where: str, use_case: str) -> None:
 @pytest.mark.parametrize("where", sorted(BINDINGS))
 def test_a_ride_serves_mcgyvr_code_whatever_its_scope(where: str, scope: str) -> None:
     stated = RELIEF.replace("scope: anyone", f"scope: {scope}")
-    config = parse(_setup(where, RIDE), relief_text=stated)
+    opted = _setup(where, RIDE) + "ride_scope: anyone\n"  # the block's scope stands
+    config = parse(opted, relief_text=stated)
 
     assert config.units[RIDE].scope == scope
 

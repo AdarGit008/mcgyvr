@@ -25,6 +25,7 @@ from typing import TYPE_CHECKING, Any
 
 from mcgyvr import hostos
 from mcgyvr.exits import Exit
+from mcgyvr.hubwire import SCOPE_VALUES
 
 if TYPE_CHECKING:
     from mcgyvr.rig.credentials import Credentials
@@ -730,22 +731,63 @@ def _hub_sync(args: argparse.Namespace) -> tuple[str, str, str, Path] | int:
     return hub, key, key_env, folder
 
 
+#: Whose rigs each ride scope lets read a ride, as the sync says it.
+_WHOSE = {"own": "your own rigs", "crew": "your own and your crewmates' rigs"}
+
+
 def _rungs_sync(args: argparse.Namespace) -> int:
-    from mcgyvr.config import ConfigError, load
+    from mcgyvr import policy_line
+    from mcgyvr.config import RIDE_SCOPE, ConfigError, load
+    from mcgyvr.hubwire import SCOPE_ANYONE
     from mcgyvr.rig import rungs
 
     named = _hub_sync(args)
     if isinstance(named, int):
         return named
     hub, key, key_env, folder = named
+    wanted: str | None = args.ride_scope
+    change = None
+    if wanted is not None:
+        # checked before the hub is asked, written once its answer is kept
+        try:
+            change = policy_line.rewrite(folder, "ride_scope", wanted)
+            policy_line.loads_with(change)
+        except (OSError, UnicodeDecodeError) as exc:
+            print(f"error: cannot read {folder}: {exc}", file=sys.stderr)
+            return int(Exit.ERROR)
+        except ConfigError as exc:
+            print(
+                f"error: {folder} would not load with ride_scope: {wanted}, so "
+                f"nothing was written: {exc}",
+                file=sys.stderr,
+            )
+            return int(Exit.ERROR)
     try:
-        rides, where = rungs.sync(folder, hub, key, key_env)
+        rides, where = rungs.sync(folder, hub, key, key_env, ride_scope=wanted)
+    except rungs.PrivateSetupError as exc:
+        print(f"error: {exc}", file=sys.stderr)
+        return int(Exit.REFUSED)
     except rungs.HubAnswerError as exc:
         print(f"error: {exc}; the relief rungs kept are unchanged", file=sys.stderr)
         return int(Exit.REFUSED)
     except (rungs.SyncError, OSError) as exc:
         print(f"error: {exc}", file=sys.stderr)
         return int(Exit.ERROR)
+    if change is not None and change.before != wanted:
+        try:
+            policy_line.write(change)
+        except OSError as exc:
+            # relief.yaml names the new scope; the policy's, narrower or
+            # wider, is what a ride is held to until it is written
+            print(f"error: cannot write {change.target}: {exc}", file=sys.stderr)
+            return int(Exit.ERROR)
+        before = change.before or f"{RIDE_SCOPE} (unset)"
+        print(f"ride scope: {before} -> {wanted} in {change.target}")
+        if wanted == SCOPE_ANYONE:
+            print(
+                "opted in: this setup's relief rungs may now ride on any host the "
+                "hub matches you to. From the hub:"
+            )
     print(rides.privacy)
     if not rides.ride:
         print("riding is off on the hub, so no relief rung is kept; turn it on there")
@@ -756,9 +798,16 @@ def _rungs_sync(args: argparse.Namespace) -> int:
             f"hosted by {each.hosted_by}"
         )
     try:
-        fanout = load(folder).ladder.fanout
+        config = load(folder)
+        fanout, scope = config.ladder.fanout, config.ride_scope
     except ConfigError:
-        fanout = "idle"
+        fanout, scope = "idle", wanted or RIDE_SCOPE
+    if rides.rungs and scope != SCOPE_ANYONE:
+        print(
+            f"ride scope: {scope}: only {_WHOSE[scope]} take this setup's rides, "
+            "and the hub refuses a host outside them; `--ride-scope anyone` "
+            "opts this setup in to any host"
+        )
     if rides.rungs and fanout != "idle":
         print(
             f"note: relief rungs take work only under `fanout: idle`; this "
@@ -948,9 +997,9 @@ def _sync_parser(
     help: str,
     written: str,
     func: Callable[[argparse.Namespace], int],
-) -> None:
+) -> argparse.ArgumentParser:
     """Add a `sync` verb under `verbs`: the hub to ask, the key's variable and
-    the setup whose `written` file it rewrites."""
+    the setup whose `written` file it rewrites. Returns its parser."""
     sync = verbs.add_parser("sync", help=help)
     sync.add_argument(
         "--hub",
@@ -966,6 +1015,7 @@ def _sync_parser(
     )
     add_config(sync, what=f"setup whose {written} is written")
     sync.set_defaults(func=func)
+    return sync
 
 
 def _forward_switch(parser: argparse.ArgumentParser) -> None:
@@ -1034,13 +1084,21 @@ def add_parser(
         "rungs", help="the relief rungs the hub matched you to (hitchhike)"
     )
     rung_verbs = rungs.add_subparsers(dest="rungs_command", required=True)
-    _sync_parser(
+    rungs_sync = _sync_parser(
         rung_verbs,
         add_config,
         help="keep the hub's relief rungs in the setup's relief.yaml, replacing "
         "the ones kept",
         written="relief.yaml",
         func=_rungs_sync,
+    )
+    rungs_sync.add_argument(
+        "--ride-scope",
+        choices=SCOPE_VALUES,
+        metavar="SCOPE",
+        help="set the setup's ride_scope first: whose rigs may read its rides, "
+        "own, crew (the default) or anyone, an opt-in that shows the hub's "
+        "privacy text",
     )
     crew = verbs.add_parser(
         "crew", help="the units your crews lend you through the hub"

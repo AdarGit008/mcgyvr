@@ -50,7 +50,7 @@ from mcgyvr.config import (
     FLEET_FILENAME,
     POLICY_FILENAME,
     RELIEF_FILENAME,
-    RELIEF_SCOPE,
+    RIDE_SCOPE,
     Config,
     ConfigError,
     Unit,
@@ -112,6 +112,11 @@ class SyncError(Exception):
     hub cannot take, a file that cannot be read, or a hub that could not be
     reached. Whatever ``relief.yaml`` already holds is left as it was.
     """
+
+
+class PrivateSetupError(SyncError):
+    """The setup says ``private: true``: it rides no relief rung, so nothing
+    is synced and the hub is sent nothing."""
 
 
 class HubAnswerError(Exception):
@@ -509,13 +514,14 @@ def read(document: object, hub: str) -> Rides:
     return Rides(ride=ride, privacy=privacy, refresh_s=float(refresh), rungs=rides)
 
 
-def render(rides: Rides, key_env: str) -> str:
+def render(rides: Rides, key_env: str, scope: str = RIDE_SCOPE) -> str:
     """The ``relief.yaml`` text for one answer.
 
     Every rung becomes a block under ``relief``, keyed by its name and carrying
     its address, model, key variable name, width, position, host, served model,
     the answers that say it is full (:data:`mcgyvr.hubwire.RUNG_BUSY`) and the
-    scope its requests name (:data:`mcgyvr.config.RELIEF_SCOPE`). A
+    scope its requests name: ``scope``, the setup's ``ride_scope`` (unsaid:
+    :data:`mcgyvr.config.RIDE_SCOPE`). A
     header says a sync rewrites the file whole and that each host can read the
     prompts sent to their rung.
     """
@@ -531,7 +537,7 @@ def render(rides: Rides, key_env: str) -> str:
             "busy_answers": [
                 {"status": status, "code": code} for status, code in RUNG_BUSY
             ],
-            "scope": RELIEF_SCOPE,
+            "scope": scope,
         }
         for each in rides.rungs
     }
@@ -631,22 +637,32 @@ def keep(
     return target
 
 
-def sync(folder: Path, hub: str, key: str, key_env: str) -> tuple[Rides, Path]:
+def sync(
+    folder: Path, hub: str, key: str, key_env: str, *, ride_scope: str | None = None
+) -> tuple[Rides, Path]:
     """Sync once: report the setup's ladder, then write the answer beside it.
 
     The setup is read by :func:`load_setup`, its ladder reported, and the
-    answer written by :func:`keep` as ``relief.yaml``: a relief rung a step or
-    a role binds that the hub no longer lists, or an answer the setup would
-    refuse, leaves the file as it was. Returns the answer read and the file it
-    was written to.
+    answer written by :func:`keep` as ``relief.yaml``, each rung under
+    ``ride_scope`` (unsaid: the setup's): a relief rung a step or a role binds
+    that the hub no longer lists, or an answer the setup would refuse, leaves
+    the file as it was. A private setup raises :class:`PrivateSetupError`
+    before anything is sent. Returns the answer read and the file it was
+    written to.
     """
     setup = load_setup(folder, RELIEF)
     own = setup.config
+    if own.private:
+        raise PrivateSetupError(
+            f"the setup in {folder} is private (`private: true`): it rides no "
+            "relief rung, so nothing is synced and the hub is sent nothing; set "
+            "`private: false` in its policy to ride"
+        )
     rides = fetch(hub, key, ladder_report(own))
     target = keep(
         setup,
         RELIEF,
-        render(rides, key_env),
+        render(rides, key_env, ride_scope or own.ride_scope),
         held=[name for name, unit in own.units.items() if unit.relief],
         listed={each.name for each in rides.rungs},
     )
