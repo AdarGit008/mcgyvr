@@ -155,6 +155,18 @@
           "title": "Relief",
           "type": "boolean"
         },
+        "seal": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/SealKey"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "The key the host's unit opens sealed requests with, as its agent advertises it now: seal each request to it and the hub carries it unread. None: the unit opens none, ask it in clear. The host's agent makes a new key each time it starts."
+        },
         "served_model": {
           "description": "What the host's unit runs: a ridden answer's model is exactly this (any other: the rung refused the request).",
           "title": "Served Model",
@@ -244,6 +256,40 @@
       ],
       "title": "RungsSyncIn",
       "type": "object"
+    },
+    "SealKey": {
+      "description": "The key a unit opens sealed rides with (see Hitchhiking above).",
+      "properties": {
+        "kid": {
+          "pattern": "^[0-9a-f]{32}$",
+          "title": "Kid",
+          "type": "string"
+        },
+        "pub": {
+          "pattern": "^[A-Za-z0-9+/]{42}[AEIMQUYcgkosw048]=$",
+          "title": "Pub",
+          "type": "string"
+        },
+        "sig": {
+          "anyOf": [
+            {
+              "pattern": "^[A-Za-z0-9+/]{85}[AQgw]==$",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Sig"
+        }
+      },
+      "required": [
+        "kid",
+        "pub"
+      ],
+      "title": "SealKey",
+      "type": "object"
     }
   },
   "$id": "https://mcgyvr-hub/rider/v1.schema.json",
@@ -274,6 +320,7 @@
     "rate_limit_exceeded": 429,
     "request_too_large": 413,
     "rpc_incompatible": 503,
+    "seal_key_unknown": 503,
     "session_failed": 502,
     "signed_out": 403,
     "timeout": 504,
