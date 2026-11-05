@@ -43,6 +43,7 @@ from mcgyvr.gate.changeset import ChangeSet, ChangeSetError, FileChange
 from mcgyvr.gate.findings import Finding
 from mcgyvr.gate.runner import Gate, GateResult, InconclusiveRung
 from mcgyvr.gitcmd import run_git
+from mcgyvr.hubwire import SCOPE_OWN
 from mcgyvr.orchestrator.repo import AttachedRepo
 from mcgyvr.scope import OutsideTreeError, inside
 
@@ -78,6 +79,37 @@ class Identity:
 #: The identity every delivery commit is attributed to, so a commit does not
 #: depend on the machine having a git identity configured.
 IDENTITY = Identity("mcgyvr", "delivery@mcgyvr.invalid")
+
+#: The trailers a commit of code from a rung that is not yours carries: whose
+#: machines it came from (`crew` or `anyone`, `mcgyvr.config.whose`) and the
+#: model that wrote it. Neither names the machine or the member that served it.
+SOURCE_TRAILER = "Mcgyvr-Source"
+MODEL_TRAILER = "Mcgyvr-Model"
+#: The most characters of a model's name a trailer carries.
+_MODEL_TRAILER_WIDTH = 100
+#: Where `delivery.lent_code: branch` lands a change whose code is not yours,
+#: under its contract's id.
+LENT_BRANCH_PREFIX = "mcgyvr/"
+
+
+def lent_trailers(whose: str, model: str = "") -> tuple[tuple[str, str], ...]:
+    """The trailers for a commit of code from machines `whose` names; none for
+    your own.
+
+    The model's name is one line of printable characters, cut to
+    `_MODEL_TRAILER_WIDTH`, so a name a host reported cannot add a line or a
+    trailer of its own; a name with nothing left is left out.
+    """
+    if whose == SCOPE_OWN:
+        return ()
+    shown = "".join(ch for ch in " ".join(model.split()) if ch.isprintable())
+    shown = shown[:_MODEL_TRAILER_WIDTH].strip()
+    return ((SOURCE_TRAILER, whose),) + (((MODEL_TRAILER, shown),) if shown else ())
+
+
+def lent_branch(contract: Contract) -> str:
+    """The branch `delivery.lent_code: branch` lands `contract`'s change on."""
+    return f"{LENT_BRANCH_PREFIX}{contract.id}"
 
 
 @dataclass(frozen=True)
@@ -344,8 +376,16 @@ def deliver(
     branch: str = "",
     identity: Identity = IDENTITY,
     adapters: Sequence[LanguageAdapter] | None = None,
+    trailers: Sequence[tuple[str, str]] = (),
+    away: str = "",
 ) -> Delivery:
     """Write `content` into `repo`, re-check it, and commit it.
+
+    `trailers` end the commit message (:func:`lent_trailers`). `away` is the
+    branch the commit lands on when it must not land on the checked-out one —
+    a change whose code is not yours, under `delivery.lent_code: branch` — and
+    `branch` names none or names the checked-out one; a checked-out `away` is
+    refused.
 
     The steps, in order: resolve `content` to text and to an optional bound verdict
     (:func:`_verdict`); work out which files land (:func:`_files`); take the
@@ -365,6 +405,7 @@ def deliver(
     text, refused, bound = _verdict(content, accepted)
     files = _files(root, contract, text, bound)
     branch = _branch_named(root, branch)
+    away = _branch_named(root, away)
     _named_base(base)
 
     with _exclusive(root):
@@ -375,7 +416,15 @@ def deliver(
             base=resolved,
             paths=tuple(rel for rel, _ in files),
         )
-        onto = _elsewhere(root, branch)
+        onto = _elsewhere(root, branch) or _elsewhere(root, away)
+        if away and not onto:
+            return call.refuse(
+                f"{away} is the branch you have checked out, and a change whose "
+                f"code came from a rung that is not yours lands on a branch of its "
+                f"own under `delivery.lent_code: branch`, never the checked-out "
+                f"one. Check out another branch, or set `delivery.lent_code: "
+                f"checkout` to deliver it as your own rungs' changes are"
+            )
 
         hazard = _checkout_hazard(root, detached_ok=bool(onto))
         if hazard is None and onto:
@@ -414,7 +463,7 @@ def deliver(
             if refusal is not None:
                 return refusal
 
-            message = _message(contract, resolved, call.paths)
+            message = _message(contract, resolved, call.paths, trailers)
             if onto:
                 return call.delivered(
                     _commit_onto(root, call.paths, message, identity, onto), onto
@@ -1441,12 +1490,19 @@ def _commit(root: Path, rels: Sequence[str], message: str, identity: Identity) -
     return _git(root, "rev-parse", "HEAD").strip()
 
 
-def _message(contract: Contract, base: str, paths: Sequence[str] = ()) -> str:
+def _message(
+    contract: Contract,
+    base: str,
+    paths: Sequence[str] = (),
+    trailers: Sequence[tuple[str, str]] = (),
+) -> str:
     """The commit message for a delivery.
 
     The subject is the contract id and its task, shortened to 72 columns, and the
     body names the contract, the target and the base. A ``Files:`` line is added
-    only when the delivery covers paths beyond the contract's own target.
+    only when the delivery covers paths beyond the contract's own target, and
+    `trailers` follow the base in the same closing block, where git reads them
+    as trailers.
     """
     files = (
         f"Files: {', '.join(paths)}\n"
@@ -1464,6 +1520,7 @@ def _message(contract: Contract, base: str, paths: Sequence[str] = ()) -> str:
         f"Target: {contract.target}\n"
         f"{files}"
         f"Base: {_shown(base)}\n"
+        + "".join(f"{key}: {value}\n" for key, value in trailers)
     )
 
 

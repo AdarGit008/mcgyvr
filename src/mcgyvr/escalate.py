@@ -17,6 +17,7 @@ from enum import StrEnum
 from typing import TYPE_CHECKING, assert_never
 
 from mcgyvr.catalog import Family, TaskType, catalog
+from mcgyvr.config import whose
 from mcgyvr.notes import FailureNotes
 from mcgyvr.route import (
     Accepted,
@@ -933,12 +934,17 @@ def escalate(
             accepted_judgement = judgement
         return judgement.as_result()
 
-    def _unit_of(rung: str) -> tuple[str, str, bool]:
-        """The model, address and relief flag of the unit `rung` names."""
+    def _unit_of(rung: str) -> tuple[str, str, bool, str]:
+        """The model, address, relief flag and `whose` of the unit `rung` names."""
         unit = config.units.get(rung) or config.relief.get(rung)
         if unit is None:
-            return "", "", False
-        return unit.served_model or unit.model or "", unit.address or "", unit.relief
+            return "", "", False, whose(None)
+        return (
+            unit.served_model or unit.model or "",
+            unit.address or "",
+            unit.relief,
+            unit.whose,
+        )
 
     def recorded() -> tuple[Attempted, ...]:
         """The history, each try stamped with the unit that served it.
@@ -949,8 +955,16 @@ def escalate(
         """
         rows: list[Attempted] = []
         for row in history:
-            model, address, relief = _unit_of(row.rung)
-            rows.append(replace(row, relief=relief, model=model, address=address))
+            model, address, relief, from_whom = _unit_of(row.rung)
+            rows.append(
+                replace(
+                    row,
+                    relief=relief,
+                    model=model,
+                    address=address,
+                    whose=from_whom,
+                )
+            )
         return tuple(rows)
 
     def raised_to_halted(raised: _AttemptError, family: Family) -> Halted:

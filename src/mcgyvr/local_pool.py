@@ -15,7 +15,7 @@ from dataclasses import dataclass, replace
 from enum import StrEnum
 from typing import Protocol as TypingProtocol
 
-from mcgyvr.config import Config, Unit
+from mcgyvr.config import Config, Unit, whose
 
 _ROLES = ("orchestrator", "verifier", "jev")
 
@@ -148,6 +148,12 @@ class Endpoint:
     def requires_credential(self) -> bool:
         """Whether a key must be resolved before this endpoint is called."""
         return self.credential_env is not None
+
+    @property
+    def whose(self) -> str:
+        """Whose machines this endpoint's code may come from
+        (:func:`mcgyvr.config.whose`)."""
+        return whose(self.scope, relief=self.relief)
 
     def credential(self) -> str | None:
         """The key read from the environment variable `credential_env` names.

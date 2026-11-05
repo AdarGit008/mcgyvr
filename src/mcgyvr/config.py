@@ -47,6 +47,7 @@ from mcgyvr.hubwire import MCGYVR_CODE as MCGYVR_CODE
 from mcgyvr.hubwire import (
     RUNG_POSITIONS,
     SCOPE_ANYONE,
+    SCOPE_CREW,
     SCOPE_HEADER,
     SCOPE_OWN,
     SCOPE_POOLS,
@@ -145,6 +146,10 @@ MAX_REFINE_FANOUT_DEFAULT = 8
 #: `none` nothing.
 RETRY_NOTES_CHOICES: tuple[str, ...] = ("climb", "rung", "none")
 
+#: Where an accepted change whose code came from a rung that is not yours
+#: lands (`delivery.lent_code`): on a branch of its own, or as your own do.
+LENT_CODE_CHOICES: tuple[str, ...] = ("branch", "checkout")
+
 SANDBOX_FIELDS: tuple[Field, ...] = (
     Field(
         "mode",
@@ -176,9 +181,25 @@ SANDBOX_FIELDS: tuple[Field, ...] = (
         "reach. `none` gives the container no network at all, so a contract "
         "whose commands download anything fails. `none` needs `mode: docker`: "
         "the `tempdir` sandbox runs on this host, where the network cannot be "
-        "taken away, and is refused under it.",
+        "taken away, and is refused under it. It is the network your own "
+        "rungs' code runs on: code from a rung that is not yours always runs "
+        "with none (see `lent_code_on_host`).",
         default="bridge",
         choices=NETWORKS,
+    ),
+    Field(
+        "lent_code_on_host",
+        "str_list",
+        "Repositories, by path, where code a rung that is not yours returned "
+        "(a relief rung, or a unit of scope `crew` or `anyone`) may run in the "
+        "`tempdir` sandbox, on this host. In `mode: docker` such code always "
+        "runs in a second container with no network, whatever `network` says, "
+        "and your own rungs' code in the task's own container. In the "
+        "`tempdir` sandbox — by name, or as the fallback — it would run on "
+        "this host with its network and files, so a try on such a rung is "
+        "declined before anything is sent unless the run's repository is "
+        "listed here. Empty: none is.",
+        default=(),
     ),
     Field(
         "image",
@@ -232,6 +253,21 @@ DELIVERY_FIELDS: tuple[Field, ...] = (
         "names one for one run and implies `--commit`.",
         bind_hint="name a branch, or leave unset to commit onto the branch you "
         "have checked out",
+    ),
+    Field(
+        "lent_code",
+        "enum",
+        "Where an accepted change lands when its code came from a rung that is "
+        "not yours (a relief rung, or a unit of scope `crew` or `anyone`). "
+        "`branch` commits it onto `mcgyvr/<contract id>`, or onto `branch` "
+        "when that names one you do not have checked out, whatever `commit` "
+        "says: the branch you have checked out, your index and your working "
+        "tree are left as they were, and the run prints the `git push` to "
+        "run. `checkout` delivers it as your own rungs' changes are. Either "
+        "way its commit carries `Mcgyvr-Source:` (`crew` or `anyone`) and "
+        "`Mcgyvr-Model:` trailers, and never names the machine that served it.",
+        default="branch",
+        choices=LENT_CODE_CHOICES,
     ),
 )
 
@@ -1354,6 +1390,23 @@ _CREDENTIAL_VALUE_PATTERNS: tuple[re.Pattern[str], ...] = (
 _ENV_NAME = re.compile(r"^[A-Za-z_][A-Za-z0-9_]*$")
 
 
+def whose(scope: str | None, *, relief: bool = False) -> str:
+    """Whose machines the code a rung returns may come from: `own`, `crew` or
+    `anyone`, the values of `hubwire.SCOPE_VALUES`.
+
+    It is the rung's `scope`, which bounds whose rigs may serve its requests:
+    `crew` and `anyone` are read as they are, a unit `crew.yaml` holds has
+    scope `crew`, and a rung that names none or `own` is yours. A relief rung
+    is lent by another member's host, so it is never read as yours: one that
+    names `own` reads as `anyone`. The gate runs code that is not yours with no
+    network, and delivery commits it marked (`mcgyvr.sandbox.base.confine_for`,
+    `mcgyvr.deliver.lent_trailers`).
+    """
+    if scope in (SCOPE_CREW, SCOPE_ANYONE):
+        return scope
+    return SCOPE_ANYONE if relief else SCOPE_OWN
+
+
 @dataclass(frozen=True)
 class Unit:
     """One unit as a dispatch sees it: where it answers, what it serves, and
@@ -1412,6 +1465,11 @@ class Unit:
     @property
     def requires_credential(self) -> bool:
         return self.api_key_env is not None
+
+    @property
+    def whose(self) -> str:
+        """Whose machines this unit's code may come from (:func:`whose`)."""
+        return whose(self.scope, relief=self.relief)
 
 
 @dataclass(frozen=True)

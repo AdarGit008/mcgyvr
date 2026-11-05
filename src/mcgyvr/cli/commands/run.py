@@ -898,6 +898,7 @@ def _report_climb(
                 relief=step.relief,
                 model=step.model,
                 address=step.address,
+                whose=step.whose,
             )
         )
 
@@ -953,6 +954,9 @@ def _report_climb(
             f"content, so there is nothing a delivery could re-judge.",
         )
     landed = outcome.history[-1]
+    # Whose machines the accepted code may have come from, which decides where
+    # delivery lands it and what its commit says (`mcgyvr.deliver.lent_trailers`).
+    report.whose = landed.whose
     return _commit(
         args,
         contract,
@@ -962,6 +966,7 @@ def _report_climb(
         report,
         verdict=verdict,
         recording=recording,
+        model=landed.model,
         attempt_id=(
             recording.attempt_id(
                 contract.id,
@@ -1116,7 +1121,8 @@ def _settle_delivery(args: argparse.Namespace, config: Config | None) -> None:
 
     A named branch implies a commit; a typed `--commit`/`--no-commit` beats
     `delivery.commit` while an untyped one takes the policy; an unnamed branch
-    falls back to `delivery.branch`.
+    falls back to `delivery.branch`; `delivery.lent_code` says where a change
+    whose code is not yours lands.
     """
     typed = (getattr(args, "branch", None) or "").strip()
     policy_commit = bool(config.get("delivery.commit")) if config is not None else False
@@ -1126,6 +1132,11 @@ def _settle_delivery(args: argparse.Namespace, config: Config | None) -> None:
     commit = getattr(args, "commit", None)
     args.commit = True if typed else (policy_commit if commit is None else commit)
     args.branch = typed or policy_branch
+    # Where a change whose code is not yours lands: `delivery.lent_code`, read
+    # as `branch`, its default, with no config at all.
+    args.lent_code = (
+        config.get("delivery.lent_code", "branch") if config is not None else "branch"
+    )
 
 
 def _delivery_problem(args: argparse.Namespace) -> str | None:
@@ -1199,6 +1210,7 @@ def _commit(
     verdict: _Headline,
     recording: Recording | None = None,
     attempt_id: str | None = None,
+    model: str = "",
 ) -> int:
     """Deliver an accepted change, committed or left in the working tree.
 
@@ -1208,9 +1220,38 @@ def _commit(
     change touches or on a gate that rejects it a second time, and a refusal is
     reported as such: the checks passed, but nothing was written. Every outcome is
     written into the journal as a correction on the accepted attempt.
+
+    A change whose code is not yours (`report.whose`, written by `model`) is
+    committed with the trailers that say so, and under `delivery.lent_code:
+    branch` it is always committed, onto `mcgyvr/<contract id>` or the named
+    branch when that is not the checked-out one, never into your checkout.
     """
-    from mcgyvr.deliver import DeliveryError, DeliveryRefusedError, deliver, place
+    from mcgyvr.deliver import (
+        DeliveryError,
+        DeliveryRefusedError,
+        deliver,
+        lent_branch,
+        lent_trailers,
+        place,
+    )
+    from mcgyvr.sandbox.base import WHOSE_WORDS
     from mcgyvr.telemetry import correct
+
+    trailers = lent_trailers(report.whose, model)
+    away = (
+        lent_branch(contract)
+        if trailers and getattr(args, "lent_code", "branch") == "branch"
+        else ""
+    )
+    if trailers:
+        said = f"this change's code came from {WHOSE_WORDS[report.whose]}; " + (
+            f"it is committed onto a branch of its own, marked "
+            f"{trailers[0][0]}: {report.whose} (`delivery.lent_code: branch`)"
+            if away
+            else "read it before you keep it (`delivery.lent_code: checkout`)"
+        )
+        print(f"note: {said}", file=sys.stderr)
+        report.notes.append(said)
 
     def landed(outcome: str, detail: str) -> None:
         if recording is not None and attempt_id is not None:
@@ -1243,7 +1284,7 @@ def _commit(
             "nothing was written",
         )
 
-    if not args.commit:
+    if not args.commit and not away:
         try:
             place(
                 repo=repo,
@@ -1280,6 +1321,8 @@ def _commit(
             base=base,
             branch=getattr(args, "branch", None) or "",
             adapters=adapters,
+            trailers=trailers,
+            away=away,
         )
     except DeliveryError as exc:
         refused(str(exc))

@@ -114,6 +114,12 @@ class DockerSandbox(Sandbox):
 
     `_start` creates the container with the workspace mounted at `/workspace`
     and `_stop` removes it, so an instance is usable only inside `with`.
+
+    Code from a rung that is not yours runs in a second container over the same
+    workspace, one with no network, started the first time `confine` asks for
+    it and kept until `_stop`: the task's own container never runs that code,
+    and the one that does never has a network, so switching between the two is
+    a choice of container rather than a container started again.
     """
 
     isolation: ClassVar[str] = "container"
@@ -141,6 +147,10 @@ class DockerSandbox(Sandbox):
         self._runner = runner
         self._system = system or platform_module.system()
         self._container: str | None = None
+        # The container with no network that code from a rung not yours runs
+        # in, and whether the commands that follow go to it.
+        self._confined: str | None = None
+        self._lent = False
         self._image_tag: str | None = None
         self._dead: str | None = None
         self._seeded: tuple[str, ...] = ()
@@ -155,21 +165,35 @@ class DockerSandbox(Sandbox):
         # visible past the workspace mount. An override image is taken as it is.
         if self._image_override is None:
             self._seeded = seeded_folders(self._image_tag, self._runner)
-        self._container = f"mcgyvr-task-{uuid.uuid4().hex[:12]}"
-        # Reaping is registered with the exit hook too, so the container is
+        # Reaping is registered with the exit hook too, so the containers are
         # removed even when the sandbox is never closed and `_stop` never runs.
         self._register_reaper(self._reap_container)
+        self._launch(confined=False)
 
-        env = self._container_env()
+    def _launch(self, *, confined: bool) -> None:
+        """Start one idle container over the workspace: the task's own, on its
+        `network`, or the `confined` one, with none.
+
+        The name is held before `docker run` is asked, so a start that fails
+        still leaves a container a reap finds and removes.
+        """
+        assert self._image_tag is not None
+        name = f"mcgyvr-task-{uuid.uuid4().hex[:12]}"
+        network = "none" if confined else self._network
+        if confined:
+            self._confined = name
+        else:
+            self._container = name
+        reaches_out = network != "none"
         args = _run_args(
-            name=self._container,
+            name=name,
             image=self._image_tag,
             workspace=self.workspace,
             resources=self._resources,
-            network=self._network,
-            gateway=host_gateway_args(self._system) if self._reaches_out else [],
+            network=network,
+            gateway=host_gateway_args(self._system) if reaches_out else [],
             user=_host_user(),
-            env=env,
+            env=self._container_env(reaches_out=reaches_out),
             seeded=self._seeded,
         )
         result = self._runner(args, None)
@@ -183,23 +207,48 @@ class DockerSandbox(Sandbox):
     def _stop(self) -> None:
         self._reap_container()
 
+    def confine(self, lent: bool) -> bool:
+        """Send the commands that follow to the container with no network when
+        `lent`, and to the task's own container otherwise; always True.
+
+        The container with no network is started the first time it is asked
+        for. A task whose `network` is `none` already is its own: one container
+        serves both.
+        """
+        if self._container is None:
+            raise SandboxError("container is not running — use as a context manager")
+        if lent and self._network != "none" and self._confined is None:
+            self._launch(confined=True)
+        self._lent = lent
+        return True
+
+    @property
+    def _running(self) -> str | None:
+        """The container the next command runs in."""
+        if self._lent and self._network != "none":
+            return self._confined
+        return self._container
+
     def _reap_container(self) -> None:
-        """Force the container and its volumes away, and forget its name.
+        """Force the containers and their volumes away, and forget their names.
 
         A container that is already gone is not an error; any other failure is
         reported on stderr, since this runs while the sandbox is being torn
         down and has nothing left to raise into.
         """
-        if self._container is None:
-            return
-        removed = self._runner(["rm", "--force", "--volumes", self._container], None)
-        if not removed.ok and "No such container" not in removed.stderr:
-            print(
-                f"mcgyvr: task container {self._container} could not be removed: "
-                f"{removed.stderr.strip()}",
-                file=sys.stderr,
-            )
+        for name in (self._container, self._confined):
+            if name is None:
+                continue
+            removed = self._runner(["rm", "--force", "--volumes", name], None)
+            if not removed.ok and "No such container" not in removed.stderr:
+                print(
+                    f"mcgyvr: task container {name} could not be removed: "
+                    f"{removed.stderr.strip()}",
+                    file=sys.stderr,
+                )
         self._container = None
+        self._confined = None
+        self._lent = False
 
     def run(
         self,
@@ -209,19 +258,20 @@ class DockerSandbox(Sandbox):
         env: Mapping[str, str] | None = None,
         cwd: str | None = None,
     ) -> CommandResult:
-        if self._container is None:
+        name = self._running
+        if name is None:
             raise SandboxError("container is not running — use as a context manager")
         if self._dead is not None:
             raise SandboxError(self._dead)
         argv = tuple(command)
         exec_args = _exec_args(
-            name=self._container,
+            name=name,
             command=argv,
             env=merge_env(env),  # credential-looking values are dropped
             workdir=str(CONTAINER_WORKSPACE / workdir(cwd)),
         )
         result = _docker_exec(exec_args, command_timeout(timeout))
-        self._end_leftovers(self._container, result.timed_out)
+        self._end_leftovers(name, result.timed_out)
         return CommandResult(
             command=argv,
             exit_code=result.exit_code,
@@ -319,13 +369,16 @@ class DockerSandbox(Sandbox):
         """Whether the container is given a network to reach anything over."""
         return self._network != "none"
 
-    def _container_env(self) -> dict[str, str]:
-        """The environment the container is started with.
+    def _container_env(self, *, reaches_out: bool | None = None) -> dict[str, str]:
+        """The environment a container is started with.
 
         `HOME` and the XDG directories point inside the workspace and at `/tmp`
         of the container, and the endpoint list rides along as one value when
-        the container has a network to reach those endpoints over.
+        the container has a network to reach those endpoints over: the task's
+        own network unless `reaches_out` says otherwise.
         """
+        if reaches_out is None:
+            reaches_out = self._reaches_out
         base: dict[str, str] = {
             "HOME": "/workspace",
             "XDG_CACHE_HOME": "/tmp/cache",
@@ -333,7 +386,7 @@ class DockerSandbox(Sandbox):
             "XDG_DATA_HOME": "/tmp/data",
         }
         reachable = [translate_endpoint(url) for url in self._endpoints]
-        if reachable and self._reaches_out:
+        if reachable and reaches_out:
             base[ENDPOINTS_ENV] = ",".join(reachable)
         return merge_env(base)
 

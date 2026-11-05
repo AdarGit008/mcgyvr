@@ -19,6 +19,7 @@ from __future__ import annotations
 import threading
 from dataclasses import dataclass, field, replace
 from functools import partial
+from pathlib import Path
 from typing import TYPE_CHECKING
 
 import mcgyvr.drive as _drive
@@ -47,6 +48,7 @@ from mcgyvr.escalate import (
 from mcgyvr.notes import FailureNotes, handed_on, primed
 from mcgyvr.route import Try, Verdict, draws_for, family_of
 from mcgyvr.runner import Completion, RunnerError
+from mcgyvr.sandbox.base import confine_for
 from mcgyvr.telemetry import observe
 from mcgyvr.verify import VERIFIER_ROLE, NoReviewer, Reviewer, verify
 from mcgyvr.worker.reply import (
@@ -89,6 +91,14 @@ class _Dispatches:
         """Count one dispatch that was observed, under the lock threads share."""
         with self.lock:
             self.rows += 1
+
+
+def lent_code_on_host(config: Config, sandbox: Sandbox) -> bool:
+    """Whether `sandbox.lent_code_on_host` lists the repository `sandbox` is
+    built from, each path read with its `~` expanded and resolved."""
+    listed = config.get("sandbox.lent_code_on_host") or ()
+    here = sandbox.source.expanduser().resolve()
+    return any(Path(path).expanduser().resolve() == here for path in listed)
 
 
 def worker_attempt(
@@ -155,6 +165,10 @@ def worker_attempt(
     # is `None` when serving sleep and wake is not configured, in which case
     # every send is simply made.
     waker = _drive.wake_for_config(config)
+    # Whether code from a rung that is not yours may run in this sandbox when it
+    # cannot keep that code off the network: only for a repository
+    # `sandbox.lent_code_on_host` lists by path.
+    on_host = lent_code_on_host(config, sandbox)
 
     def attempt(this: Try) -> Judgement:
         # One try of one rung: a fresh counter for the rows it will write, the
@@ -213,6 +227,22 @@ def worker_attempt(
                     draws=draws,
                     rows=0,
                 )
+
+        # Code from a rung that is not yours runs where the sandbox keeps it off
+        # the network, and your own rung's where the task's always has; a
+        # sandbox that cannot keep it off declines the try before anything is
+        # sent, so no one is asked for code that would not be run.
+        refused = confine_for(
+            sandbox, this.rung.name, pool.bind(this.rung.name).whose, on_host=on_host
+        )
+        if refused is not None:
+            return Judgement(
+                verdict=Verdict.DECLINED,
+                policy=required_policy(contract, family),
+                detail=refused,
+                draws=draws,
+                rows=0,
+            )
 
         def judge_draw(space: Sandbox) -> GateResult:
             # A reply that hands its target back unchanged fails the draw before

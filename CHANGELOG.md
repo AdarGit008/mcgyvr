@@ -801,6 +801,26 @@ archived outside this repository, under the same paths.
 
 ### Security
 
+- **Code from a rung that is not yours never runs with a network, and never
+  lands unmarked.** Whose machines a rung's code may come from is its `scope`,
+  with a relief rung never read as yours (`mcgyvr.config.whose`, `Unit.whose`,
+  `Endpoint.whose`); every attempt and the run's result record it as `whose`
+  (`own`, `crew`, `anyone`). In `sandbox.mode: docker` such a try runs in a
+  second task container started with `--network none`, whatever
+  `sandbox.network` says, and kept for the task, while your own rungs' code
+  keeps the task's own container, which never runs a stranger's code
+  (`Sandbox.confine`, `mcgyvr.sandbox.base.confine_for`); the second
+  container costs one `docker run` (about 1 s here) the first time a task
+  rides, and a switch between rungs costs nothing after. In the `tempdir`
+  sandbox, by name or as the fallback, a try on such a rung is declined before
+  anything is sent, the refusal naming `sandbox.lent_code_on_host`, the list of
+  repositories where it may run on this host. An accepted change from such a
+  rung is committed with `Mcgyvr-Source:` and `Mcgyvr-Model:` trailers (never
+  the machine or member that served it), and under the new `delivery.lent_code:
+  branch` (the default) onto `mcgyvr/<contract id>` (or a named branch you do
+  not have checked out), whatever `delivery.commit` says, never into your
+  checkout; `checkout` delivers it as before. SECURITY.md names the hub, the
+  rider, the host and a peer on your network, and what each can do.
 - A failure note names no path on the machine it was made on. The acceptance
   rung gives a path under the workspace its command ran in — pytest's
   `rootdir:`, a traceback's file, in either sandbox mode — repo-relative

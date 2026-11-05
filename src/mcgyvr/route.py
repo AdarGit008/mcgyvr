@@ -396,6 +396,9 @@ class Attempted:
     relief: bool = False
     model: str = ""
     address: str = ""
+    #: `whose` is whose machines the try's code may have come from: `own`,
+    #: `crew` or `anyone` (:func:`mcgyvr.config.whose`).
+    whose: str = "own"
 
 
 def attempted(rung: str, attempt: int, result: Result) -> Attempted:
