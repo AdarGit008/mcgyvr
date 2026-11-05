@@ -48,7 +48,13 @@ archived outside this repository, under the same paths.
   fan-out included, until it opts in with `mcgyvr rig rungs sync --ride-scope
   anyone`, which writes the policy line and shows the hub's privacy text as it
   does; a sync now writes the setup's `ride_scope` on each rung and says whose
-  rigs take its rides. `private: true` rides no relief rung: a sync and the
+  rigs take its rides (the rig's refresher says the same line once). A ride
+  the hub refuses as outside that scope (`403 out_of_scope`,
+  `hubwire.OUT_OF_SCOPE`) is a full rung: one note names the rung, the scope
+  and the opt-in, the climb and fan-out move on with no attempt spent, and the
+  rung is not asked again in that process. Under `ride_scope: own` the sync
+  says no relief rung serves the setup (the hub never lists your own rigs as
+  rungs). `private: true` rides no relief rung: a sync and the
   rig's refresher refuse before the hub is sent anything, a rung already kept
   is not ridden, and a ladder step or a role naming one is refused.
   `deployment: local-only` is unchanged (it says mcgyvr is the backend, not
