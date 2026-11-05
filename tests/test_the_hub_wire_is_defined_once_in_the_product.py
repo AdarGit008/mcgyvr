@@ -156,12 +156,15 @@ def test_every_pair_the_product_reads_is_a_published_pair(
         hubwire.api_error("relay_warming_up")
 
 
-def test_a_relief_rung_is_full_on_four_answers_a_full_ride_among_them() -> None:
+def test_a_relief_rung_is_full_on_five_answers_a_full_ride_and_a_stale_key_among() -> (
+    None
+):
     assert hubwire.RUNG_BUSY == (
         (404, "model_not_found"),
         (503, "hitchhike_host_away"),
         (503, "hitchhike_not_served_yet"),
         (503, "pool_busy"),
+        (503, "seal_key_unknown"),
     )
     assert hubwire.MODEL_UNPLACED == (503, "model_unplaced")
     assert hubwire.MODEL_NOT_FOUND == (404, "model_not_found")
