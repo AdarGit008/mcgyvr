@@ -20,10 +20,14 @@ The machines are invented, and so are their addresses.
 
 from __future__ import annotations
 
+import base64
+import json
 import os
 import stat
+import subprocess
 import sys
 import threading
+import types
 from collections.abc import Iterator
 from dataclasses import dataclass, field, replace
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
@@ -48,7 +52,9 @@ from mcgyvr.emit import (
     render_compose,
 )
 from mcgyvr.exits import Exit
+from mcgyvr.fleet import harness, read
 from mcgyvr.local_pool import SourceUnavailableError, source_map
+from mcgyvr.rig import hitchhike
 from mcgyvr.rig.relay import Target
 from mcgyvr.rig.relay import _page as relay_page
 from mcgyvr.scan import Scan
@@ -62,7 +68,8 @@ from mcgyvr.serving import (
     unit_for,
     units_for,
 )
-from tests import records
+from mcgyvr.serving.run import GATE_SCRIPTS
+from tests import onedoor, reads, records
 from tests.doors import DENSE, SEVEN_B_SPEC, rig, service_of
 from tests.relays import Host, _host, _ride_body
 from tests.sizings import WINDOW
@@ -321,11 +328,13 @@ def test_a_shared_keyed_unit_on_another_host_says_the_agent_needs_the_key_file(
     said = capsys.readouterr().err
     path = unitkey.path(HOST, unit.port)
     assert (
-        f"It is shared with riders, and the rig agent on {HOST} reads the key from "
-        f"unit-keys/{path.name} in its own data folder, which `mcgyvr emit` does "
-        "not fill: copy the file there at mode 0600, or the agent cannot read the "
-        "unit's slots, advertises it with no free slot and says so once on its "
-        "stderr; riders are matched elsewhere and no ride fails"
+        f"It is shared with riders, and the rig agent on {HOST} looks its key up in "
+        "its own data folder, in unit-keys/ under the name of the address its own "
+        f"config gives the unit: {path.name} for http://{HOST}:{unit.port}, "
+        f"localhost-{unit.port}.env for http://localhost:{unit.port}. `mcgyvr emit` "
+        "does not put it there: copy this file there under that name at mode 0600, "
+        "or the agent does not share the unit and says once on its stderr which "
+        "file it lacks"
     ) in said
 
 
@@ -481,6 +490,18 @@ def keyed() -> Iterator[KeyedServer]:
                 return
             body = b'{"data": [{"id": "coder-7b"}]}' if "models" in self.path else b"[]"
             self.send_response(200)
+            self.send_header("Content-Type", "application/json")
+            self.send_header("Content-Length", str(len(body)))
+            self.end_headers()
+            self.wfile.write(body)
+
+        def do_POST(self) -> None:
+            said = self.headers.get("Authorization")
+            self.rfile.read(int(self.headers.get("Content-Length", "0")))
+            made.seen.append((f"POST {self.path}", said))
+            ok = said == f"Bearer {made.key}"
+            body = b'{"choices": []}' if ok else b'{"error": "Unauthorized"}'
+            self.send_response(200 if ok else 401)
             self.send_header("Content-Type", "application/json")
             self.send_header("Content-Length", str(len(body)))
             self.end_headers()
@@ -697,6 +718,208 @@ def test_the_door_reads_a_services_key_from_the_file_its_env_file_names(
 
     assert service.key_file == str(path)
     assert service.key() == unitkey.load(unit.host, unit.port)
+
+
+# --- what runs on the rig: the door's read and the lock's harness send the key ------
+
+
+def test_the_rig_reader_sends_a_keyed_ports_key_on_curls_stdin(
+    tmp_path: Path, keyed: KeyedServer
+) -> None:
+    stubs = tmp_path / "bin"
+    onedoor.executable(stubs / "docker", "#!/usr/bin/env bash\nexit 0\n")
+    onedoor.executable(stubs / "nvidia-smi", "#!/usr/bin/env bash\nexit 0\n")
+    env = {**os.environ, "PATH": f"{stubs}{os.pathsep}{os.environ['PATH']}"}
+    script = (GATE_SCRIPTS / "rig-units.sh").read_text(encoding="utf-8")
+    wanted = f"set -- llama.cpp:{keyed.port}\n" + script
+
+    def rows(prefix: str) -> list[str]:
+        done = subprocess.run(
+            ["bash", "-s"],
+            input=prefix + wanted,
+            env=env,
+            capture_output=True,
+            text=True,
+            timeout=60,
+            check=False,
+        )
+        assert done.returncode == 0, done.stderr
+        return [row for row in done.stdout.splitlines() if row.startswith("status=")]
+
+    assert rows(read.key_function({keyed.port: keyed.key})) == [
+        f"status={keyed.port},{base64.b64encode(b'[]').decode()}"
+    ]
+    assert rows(read.key_function({})) == []
+    assert keyed.seen == [("/slots", f"Bearer {keyed.key}"), ("/slots", None)]
+    assert keyed.key not in read.key_function({}) + wanted
+
+
+def test_the_door_finds_the_keys_of_the_units_it_reads_on_a_rig() -> None:
+    unitkey.ensure(HOST, 8080)
+    fleet = read.Live(
+        "f",
+        Path("/nowhere"),
+        {
+            "fleets": {
+                "f": {"layout": {HOST: [["coder", "awake"], ["plain", "awake"]]}}
+            },
+            "units": {
+                "coder": {"address": f"http://{HOST}:8080"},
+                "plain": {"address": f"http://{HOST}:8081"},
+            },
+        },
+    )
+
+    keys = read.unit_keys(fleet, HOST)
+
+    assert keys == {8080: unitkey.load(HOST, 8080)}
+    assert f"8080) printf %s '{keys[8080]}' ;;" in read.key_function(keys)
+
+
+def test_the_harness_shipped_with_a_key_sends_it_on_every_request(
+    keyed: KeyedServer,
+) -> None:
+    source = Path(harness.__file__).read_text(encoding="utf-8")
+    shipped = types.ModuleType("shipped_harness")
+    exec(
+        compile(harness.with_key(source, keyed.key), "harness", "exec"),
+        shipped.__dict__,
+    )
+
+    shipped.HttpTransport().get(f"{keyed.address}/v1/models", 5)
+    shipped.HttpTransport().post(f"{keyed.address}/v1/chat/completions", {}, 5)
+    assert shipped._page(f"{keyed.address}/slots") == "[]"
+
+    assert keyed.seen == [
+        ("/v1/models", f"Bearer {keyed.key}"),
+        ("POST /v1/chat/completions", f"Bearer {keyed.key}"),
+        ("/slots", f"Bearer {keyed.key}"),
+    ]
+    assert harness.with_key(source, None) == source
+    assert harness.UNIT_KEY is None
+
+
+def test_the_harness_takes_no_key_that_could_break_out_of_its_line() -> None:
+    source = Path(harness.__file__).read_text(encoding="utf-8")
+
+    with pytest.raises(ValueError, match="only letters"):
+        harness.with_key(source, "x'\nimport os")
+    with pytest.raises(ValueError, match="key line once"):
+        harness.with_key("no line here", A_KEY)
+
+
+def test_a_door_read_of_a_keyed_unit_ships_its_key_on_stdin_alone(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    root = onedoor.fixture_repo(tmp_path, host="box2")
+    reads.go_live(tmp_path)
+    reads.reading(root, status=(f"8001,{reads.page(reads.metrics(0))}",))
+    stubs = onedoor.stubs_dir(root)
+    (stubs / "harness.json").write_text(
+        reads.Rig()("box2_3b", json.dumps({})), encoding="utf-8"
+    )
+    ssh = stubs / "ssh"
+    stub = ssh.read_text(encoding="utf-8")
+    for kept, was in (
+        ("bash", '"bash -s")\n    cat >/dev/null'),
+        ("harness", '*"mcgyvr-harness"*) cat >/dev/null'),
+    ):
+        assert stub.count(was) == 1, was
+        stub = stub.replace(
+            was, was.replace("cat >/dev/null", f'cat > "$STUBS/{kept}.in"')
+        )
+    ssh.write_text(stub, encoding="utf-8")
+    monkeypatch.setenv("MCGYVR_DATA", str(root / "data"))
+    unitkey.ensure("box2", 8001)
+    key = unitkey.load("box2", 8001)
+    assert key is not None
+
+    result = reads.read_door(root, "--probe", "box2_3b")
+
+    assert result.returncode == 0, (result.stdout, result.stderr[-2000:])
+    assert f"8001) printf %s '{key}' ;;" in (stubs / "bash.in").read_text("utf-8")
+    assert f"UNIT_KEY: str | None = {key!r}" in (stubs / "harness.in").read_text(
+        "utf-8"
+    )
+    assert key not in "\n".join(onedoor.ssh_log(root))
+    assert key not in result.stdout + result.stderr
+
+
+# --- the rig agent shares a keyed unit only with its key ----------------------------
+
+
+def agent_config(address: str, *, expose: str | None = None) -> Any:
+    return parse(
+        "units:\n"
+        "  coder:\n"
+        f"    address: {address}\n"
+        "    model: coder-7b\n"
+        "    width: 2\n"
+        "    window: 4096\n"
+        + (f"    expose: {expose}\n" if expose else "")
+        + "ladder: [coder]\n"
+        "rider_slots: {coder: 1}\n"
+    )
+
+
+@pytest.fixture
+def fresh_probe(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setattr(hitchhike, "_asked", {})
+
+
+@pytest.mark.usefixtures("fresh_probe")
+def test_an_agent_with_no_key_for_a_unit_that_asks_for_one_does_not_share_it(
+    keyed: KeyedServer,
+) -> None:
+    config = agent_config(keyed.address)
+    units, _ = hitchhike.shared_units(config)
+
+    kept, notes = hitchhike.keyed_shares(config, units)
+
+    path = unitkey.path("127.0.0.1", keyed.port)
+    assert kept == ()
+    assert notes == (
+        f"unit 'coder' is not shared with riders: its server asks for a key and "
+        f"this agent holds none in {path}; put the key there at mode 0600 "
+        "(`mcgyvr fleet key coder` prints it on the machine whose `mcgyvr emit` "
+        "made it)",
+    )
+    assert keyed.seen == [("/v1/models", None)]
+
+
+@pytest.mark.usefixtures("fresh_probe")
+def test_an_agent_holding_the_key_shares_the_unit_and_asks_nothing(
+    keyed: KeyedServer,
+) -> None:
+    keep(keyed.key, keyed.port)
+    config = agent_config(keyed.address)
+    units, _ = hitchhike.shared_units(config)
+
+    assert hitchhike.keyed_shares(config, units) == (units, ())
+    assert keyed.seen == []
+
+
+@pytest.mark.usefixtures("fresh_probe")
+def test_an_agent_shares_a_keyless_unit_as_before_and_asks_once_a_while(
+    keyed: KeyedServer,
+) -> None:
+    config = agent_config("http://127.0.0.1:9")  # nothing listens there
+    units, _ = hitchhike.shared_units(config)
+
+    assert hitchhike.keyed_shares(config, units) == (units, ())
+    assert hitchhike.keyed_shares(config, units) == (units, ())
+
+
+def test_an_agent_whose_config_keys_a_remote_unit_needs_its_key_without_asking() -> (
+    None
+):
+    config = agent_config(f"http://{HOST}:8080")
+    units, _ = hitchhike.shared_units(config)
+
+    kept, notes = hitchhike.keyed_shares(config, units)
+
+    assert kept == ()
+    assert str(unitkey.path(HOST, 8080)) in notes[0]
 
 
 # --- the CLI: emit makes the key and says so; fleet key prints it -------------------

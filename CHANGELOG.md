@@ -27,8 +27,11 @@ archived outside this repository, under the same paths.
   own requests to the unit send the key as a bearer token: a dispatch, the
   availability probe, the status poll (`/slots`), the door's `serve` probes
   (on curl's stdin, never its command line; the direct transport reads it from
-  there too), the compose healthcheck (which asks `/health` of a keyed unit)
-  and the rig agent's relay of a ride. `mcgyvr fleet key <unit>` prints the
+  there too), the compose healthcheck (which asks `/health` of a keyed unit),
+  the rig agent's relay of a ride, and what runs on the rig for `serve read`,
+  a lock's sample and `fleet probe`: rig-units.sh's reads and the lock's
+  harness, both handed the key on ssh's stdin with the text they run, never on
+  a command line or a file on the rig. `mcgyvr fleet key <unit>` prints the
   key. A `--host` or `LLAMA_ARG_HOST` a unit's launch states renders byte for
   byte as before; native units refuse `expose: lan`; rpc workers and vLLM
   headless ranks are unchanged. `mcgyvr emit` names where each keyed unit
@@ -39,17 +42,17 @@ archived outside this repository, under the same paths.
     yours other than mcgyvr needs `mcgyvr fleet key <unit>`, and an existing
     lock of such a unit gains the key too (`mcgyvr emit --check` reports its
     compose file changed until it is emitted again);
-  - a unit shared with riders (`rider_slots`) whose rig agent runs on another
-    machine than `mcgyvr emit`: the agent cannot read a keyed unit's slots,
-    so the unit is advertised with no free slot, the agent says `unit
-    '<name>' is shared with no free slot: its server does not say what it has
-    in flight` once on its stderr, riders are matched elsewhere and no ride
-    fails. Copy `unit-keys/<host>-<port>.env` into the agent's data folder at
-    0600; for a unit stating `expose: local`, address it as
-    `http://localhost:<port>` in the rig agent's own config;
-  - a keyed unit cannot yet be measured, so not locked or `fleet probe`d:
-    the harness runs on the rig, has no key, and gets 401 (llama.cpp and
-    vLLM alike).
+  - hitchhike sharing stops for a docker unit with `rider_slots` that a
+    controller emits onto another machine, until the rig agent there holds
+    its key: an agent that holds no key for a unit whose server asks for one
+    (its config says `lan`, or the server refuses `/v1/models` without a key,
+    asked once every 30 s) does not share it, and says once on its stderr
+    `unit '<name>' is not shared with riders: its server asks for a key and
+    this agent holds none in <data>/unit-keys/<host>-<port>.env; ...`, the
+    file named for the address the agent's own config gives the unit (e.g.
+    `localhost-<port>.env`). Copy the key there at 0600 (`mcgyvr fleet key
+    <unit>` on the machine that emitted it). A rig that emits and serves its
+    own localhost units is unaffected.
 - **The programs shipped to a rig are assembled from the modules they import,
   and run on Python 3.9.** The reader, the fetcher, the lease and the native
   launcher each go as one program built at ship time

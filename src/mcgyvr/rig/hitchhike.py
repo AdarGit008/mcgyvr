@@ -24,12 +24,16 @@ import re
 import sys
 import threading
 import time
+import urllib.error
+import urllib.parse
+import urllib.request
 from collections.abc import Callable, Iterator
 from contextlib import AbstractContextManager, ExitStack, contextmanager, nullcontext
 from dataclasses import dataclass, field
 from pathlib import Path
 from typing import TYPE_CHECKING
 
+from mcgyvr import unitkey
 from mcgyvr.capacity import SlotUnavailableError
 from mcgyvr.rig import protocol, sessionwire
 from mcgyvr.rig.relay import SEND_WAIT_S, RideRefusedError
@@ -176,6 +180,90 @@ def shared_units(config: Config) -> tuple[tuple[Shared, ...], tuple[str, ...]]:
     return tuple(found), tuple(notes)
 
 
+#: How long the answer to whether a unit's server asks for a key is kept, per
+#: address: a check runs every `POLL_S`, and asking costs one request.
+KEY_PROBE_TTL_S = 30.0
+#: How long that one request may take.
+KEY_PROBE_TIMEOUT_S = 3.0
+_asked: dict[str, tuple[float, bool]] = {}
+_asked_lock = threading.Lock()
+
+
+def asks_for_key(address: str, *, clock: Callable[[], float] = time.monotonic) -> bool:
+    """Whether the server at `address` refuses its models list without a key.
+
+    `/v1/models` is a path both engines guard with their key (llama-server every
+    path but `/health`, vLLM `/v1`), so a 401 or a 403 there, asked with no key,
+    is a server that asks for one. A server that does not answer is counted as
+    one that asks for none: its share reads as it always did. The answer is kept
+    `KEY_PROBE_TTL_S`.
+    """
+    now = clock()
+    with _asked_lock:
+        kept = _asked.get(address)
+        if kept is not None and now - kept[0] < KEY_PROBE_TTL_S:
+            return kept[1]
+    parts = urllib.parse.urlsplit(address)
+    url = f"{parts.scheme}://{parts.netloc}/v1/models"
+    try:
+        with urllib.request.urlopen(url, timeout=KEY_PROBE_TIMEOUT_S):
+            asks = False
+    except urllib.error.HTTPError as exc:
+        asks = exc.code in (401, 403)
+    except (OSError, ValueError):
+        asks = False
+    with _asked_lock:
+        _asked[address] = (now, asks)
+    return asks
+
+
+def keyed_shares(
+    config: Config, units: tuple[Shared, ...]
+) -> tuple[tuple[Shared, ...], tuple[str, ...]]:
+    """`units`, less each whose server asks for a key this agent does not hold,
+    and one note for each one left out.
+
+    A unit asks for a key when its unit here is `expose: lan` (stated, or read
+    off an address on another host, :func:`mcgyvr.serving.exposure`), or when its
+    server refuses a request without one (:func:`asks_for_key`): a unit emitted
+    keyed from another machine that this config addresses at localhost. Such a
+    unit shared with no key would take a ride and answer it 401, or say nothing
+    of what it has in flight; so it is not shared. The note names the file the
+    agent looks the key up in, the one named for the address this config gives
+    the unit (:func:`mcgyvr.unitkey.for_address`). A key file that cannot be
+    trusted leaves the unit out with its reason.
+    """
+    from mcgyvr.config import EXPOSE_LAN
+    from mcgyvr.serving import UnitError, exposure, host_of, port_of
+
+    kept: list[Shared] = []
+    notes: list[str] = []
+    for unit in units:
+        try:
+            key = unitkey.for_address(unit.address)
+        except unitkey.UnitKeyError as exc:
+            notes.append(f"unit {unit.name!r} is not shared with riders: {exc}")
+            continue
+        declared = config.units[unit.name]
+        stated = exposure(
+            declared.expose, address=unit.address, launcher=declared.launcher
+        )
+        if key is not None or (stated != EXPOSE_LAN and not asks_for_key(unit.address)):
+            kept.append(unit)
+            continue
+        try:
+            where = str(unitkey.path(host_of(unit.address), port_of(unit.address)))
+        except (UnitError, ValueError):
+            where = f"{unitkey.KEYS_DIR}/ in the data folder"
+        notes.append(
+            f"unit {unit.name!r} is not shared with riders: its server asks for a "
+            f"key and this agent holds none in {where}; put the key there at mode "
+            f"0600 (`mcgyvr fleet key {unit.name}` prints it on the machine whose "
+            "`mcgyvr emit` made it)"
+        )
+    return tuple(kept), tuple(notes)
+
+
 def free_slots(slots: int, in_flight: int | None, riding: int) -> int:
     """How many of a unit's ``slots`` are open to riders right now.
 
@@ -228,6 +316,8 @@ def setup_of(config: Config) -> Setup:
     from mcgyvr.pressure import server_counts
 
     units, notes = shared_units(config)
+    units, unkeyed = keyed_shares(config, units)
+    notes += unkeyed
     if not units:
         return Setup(notes=notes)
     capacity = Capacity.of(config, busy=server_counts(source_map(config)))

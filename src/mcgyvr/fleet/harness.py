@@ -40,6 +40,43 @@ from typing import Any, Literal, Protocol, overload
 #: usage error before a spec is read.
 HARNESS_WORD = "mcgyvr-harness"
 
+#: The key the unit measured here asks for (`expose: lan`, :mod:`mcgyvr.unitkey`),
+#: sent on every request as a bearer token; None for a unit that asks for none.
+#: The door ships this file to the rig on ssh's stdin and writes the key into this
+#: one line as it goes (:func:`with_key`), so the key is never on the rig's
+#: command line and never on its disk.
+UNIT_KEY: str | None = None
+_KEY_LINE = "UNIT_KEY: str | None = None\n"
+#: What a key may hold: what `unitkey` makes, and nothing a Python literal or a
+#: header could be broken out of.
+_KEY_CHARS = frozenset(
+    "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789_-"
+)
+
+
+def with_key(source: str, key: str | None) -> str:
+    """This file's `source` with `UNIT_KEY` set to `key`, or as it is for None.
+
+    A key of other characters than `unitkey` makes raises ValueError, and so
+    does a source that does not hold `UNIT_KEY`'s line once.
+    """
+    if key is None:
+        return source
+    if not key or not set(key) <= _KEY_CHARS:
+        raise ValueError("a unit key holds only letters, digits, '_' and '-'")
+    if source.count(_KEY_LINE) != 1:
+        raise ValueError("the harness source does not hold its key line once")
+    return source.replace(_KEY_LINE, f"UNIT_KEY: str | None = {key!r}\n")
+
+
+def _asked(headers: dict[str, str] | None = None) -> dict[str, str]:
+    """`headers`, with the unit's key as a bearer token when it has one."""
+    said = dict(headers or {})
+    if UNIT_KEY:
+        said["Authorization"] = f"Bearer {UNIT_KEY}"
+    return said
+
+
 _SHORT_TEXT = "Write a Python function that reverses a singly linked list in place.\n"
 _LONG_BLOCK = (
     "You are a precise software engineer. Explain step by step how to compute "
@@ -149,14 +186,14 @@ class HttpTransport:
 
     def get(self, url: str, timeout: float | None) -> Any:
         """The JSON document at url, read within timeout."""
-        return _json_answer(url, timeout)
+        return _json_answer(urllib.request.Request(url, headers=_asked()), timeout)
 
     def post(self, url: str, payload: dict[str, Any], timeout: float | None) -> Any:
         """payload as a JSON body posted to url; the JSON answer is returned."""
         request = urllib.request.Request(
             url,
             data=json.dumps(payload).encode("utf-8"),
-            headers={"Content-Type": "application/json"},
+            headers=_asked({"Content-Type": "application/json"}),
             method="POST",
         )
         return _json_answer(request, timeout)
@@ -352,7 +389,8 @@ def _page(url: str) -> str | None:
     """The text url answers with within MODELS_TIMEOUT_S, or None when it is not
     readable."""
     try:
-        with urllib.request.urlopen(url, timeout=MODELS_TIMEOUT_S) as response:
+        request = urllib.request.Request(url, headers=_asked())
+        with urllib.request.urlopen(request, timeout=MODELS_TIMEOUT_S) as response:
             text: str = response.read().decode("utf-8", "replace")
             return text
     except _UNREADABLE_REPLY:
@@ -453,7 +491,9 @@ def _unbounded_page(url: str) -> str | None:
     """The text url answers with, waited on with no timeout, or None when it
     cannot be read."""
     try:
-        with urllib.request.urlopen(url) as response:
+        with urllib.request.urlopen(
+            urllib.request.Request(url, headers=_asked())
+        ) as response:
             text: str = response.read().decode("utf-8", "replace")
             return text
     except _UNREADABLE_REPLY:
@@ -594,7 +634,7 @@ class Requests:
                 "POST",
                 self._path,
                 body=json.dumps(payload).encode("utf-8"),
-                headers={"Content-Type": "application/json"},
+                headers=_asked({"Content-Type": "application/json"}),
             )
             response = connection.getresponse()
             response.read()

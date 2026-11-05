@@ -30,6 +30,7 @@ import subprocess
 import sys
 from pathlib import Path
 
+from mcgyvr import unitkey
 from mcgyvr.serving import gatelib, nativerig, rigfile
 from mcgyvr.serving.gatelib import (
     door_required,
@@ -104,7 +105,12 @@ def main() -> int:
     try:
         fleet = read.prepare(host, probe, load, fleet_name=fleet_name, setup=setup)
         args = read.reader_args(fleet, host)
+        # The keys of the units that ask for one (`expose: lan`), read here and
+        # shipped on ssh's stdin with what reads them, never on argv.
+        keys = read.unit_keys(fleet, host)
     except read.ReadError as exc:
+        refuse(f"read: {exc}. Nothing was read and nothing is filed")
+    except unitkey.UnitKeyError as exc:
         refuse(f"read: {exc}. Nothing was read and nothing is filed")
 
     saved = rigfile.required(host, "read")
@@ -139,7 +145,8 @@ def main() -> int:
         done = _native_rows(host, args)
     else:
         units = (
-            "set -- "
+            read.key_function(keys)
+            + "set -- "
             + " ".join(shlex.quote(arg) for arg in args)
             + "\n"
             + (HERE / "rig-units.sh").read_text(encoding="utf-8")
@@ -164,7 +171,12 @@ def main() -> int:
 
     def measure(unit: str, spec: str) -> str | None:
         print(f"read: running the lock's harness for {unit} on {host}")
-        return harness_on_rig(host, spec, source)
+        try:
+            port = int(json.loads(spec)["port"])
+        except (ValueError, KeyError, TypeError):
+            port = None
+        key = keys.get(port) if port is not None else None
+        return harness_on_rig(host, spec, harness.with_key(source, key))
 
     try:
         recorded = read.record(
