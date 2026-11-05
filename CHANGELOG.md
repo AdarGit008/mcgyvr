@@ -103,11 +103,20 @@ archived outside this repository, under the same paths.
   for the hub to name and charge it by (`hubwire.SEALED_ANSWER_CLEAR_FIELDS`).
   An answer that does not open is a protocol error. A key the unit no longer
   holds (its agent started again) is answered `503 seal_key_unknown`, now one
-  of `hubwire.RUNG_BUSY`, so the rung is passed over until the next sync; a
-  ride the agent cannot open ends `bad_seal`. A rung with no key (an older
-  hub or agent) is asked in clear as before, and so is everything that is not
-  a ride. New dependency: `cryptography>=44`. SECURITY.md says where plaintext
-  still is.
+  of `hubwire.RUNG_BUSY`: the rung is passed over, said once, and held out for
+  the rest of the run until `rungs sync` writes the new key. A ride the agent
+  cannot open, or one outside the bounds the hub holds a clear request to (now
+  hubwire's: `CHAT_MAX_MESSAGES`, `CHAT_MAX_TOOLS`, `CHAT_MAX_STOP`,
+  `CHAT_MAX_TOP_LOGPROBS`, `MESSAGE_ROLES`, `MESSAGE_FIELDS`, `CHAT_RANGES`),
+  ends `bad_seal` and reaches no unit. Each rung `rungs sync` keeps says
+  `sealed <kid>` or `in clear`, and a rung that was sealed and comes back
+  keyless is noted, by the sync and by `rig up`'s refresher; `rig up` says its
+  run's key id when it first advertises a unit, and loads no cipher on a rig
+  hosting nothing. A rung with no key (an older hub or agent) is asked in
+  clear as before, and so is everything that is not a ride. New dependency:
+  `cryptography>=44`. Upgrading: an older product cannot load a `relief.yaml`
+  a sync by this one wrote with a `seal` (`unknown key 'seal'`): remove
+  `relief.yaml`, which a sync rewrites whole, and sync with the older one. SECURITY.md says where plaintext still is.
 
 - **A rig lends host memory and cores, and its hello says exactly what it
   lends (#822).** `mcgyvr rig share` (or `rig lend`) `--ram-mb N --cpu-cores

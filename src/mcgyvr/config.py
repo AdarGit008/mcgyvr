@@ -854,11 +854,16 @@ RELIEF_FIELDS: tuple[Field, ...] = (
         "seal",
         "block",
         "The key the host's unit opens sealed requests with, as the hub lists "
-        "it. Set, every request to the rung is sealed to it end to end: the hub "
-        "carries it without reading the prompt or the answer, and the host's "
-        "agent opens it. Unset, the rung is asked in clear. The host changes "
+        "it. Set, every request to the rung is sealed to it end to end: a hub "
+        "that lists the host's own key carries it without reading the prompt or "
+        "the answer, and the host's agent opens it. Until rig identity signs the "
+        "key it is the hub's word, so a hub that lists a key of its own can read "
+        "what is sealed to it (SECURITY.md). Unset, the rung is asked in clear. "
+        "The host changes "
         "the key each time its agent starts; a request sealed to an old one is "
-        "answered as a full rung until the next sync.",
+        "answered as a full rung, which is then held out for the rest of the run, "
+        "until `mcgyvr rig rungs sync` writes the new key and the setup is read "
+        "again.",
         block=SEAL_FIELDS,
         bind_hint="leave it to `mcgyvr rig rungs sync`, which writes the hub's word",
     ),

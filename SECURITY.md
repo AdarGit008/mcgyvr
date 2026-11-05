@@ -65,4 +65,18 @@ signed (the `seal.sig` slot is for rig identity), so a hub that hands a rider a
 key of its own can read what is sealed to it; sealing keeps out a hub that
 relays honestly and reads what passes, not one that lies about whose key it
 lists. A hub can still drop or cut an answer (the rider sees it fail, not a
-changed answer), and it may send one sealed request again.
+changed answer), and it may send one sealed request again. The end of the
+answer is not sealed: a hub that drops every event after the one carrying the
+finish reason (today the trailing `usage` event) leaves an answer the rider
+accepts without its counts. `mcgyvr rig rungs sync` says each rung's key id
+(`sealed <kid>`), as the host's `rig up` does, so the two can be compared, and
+notes a rung that was sealed and comes back keyless.
+
+The host's agent holds an opened request to the bounds the hub holds one in
+clear to (`hubwire.CHAT_MAX_*`, `MESSAGE_ROLES`, `CHAT_RANGES`), since the hub
+cannot read it: a sealed request outside them ends `bad_seal` and reaches no
+unit.
+
+Python cannot clear what it freed: copies of a recent prompt and answer stay in
+the freed memory of the rider's process and of the host's agent until it is
+reused, sealed or not, so a memory dump of either reads them.
