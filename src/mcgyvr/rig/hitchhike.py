@@ -12,6 +12,8 @@ then sends. This module is that policy and the state behind it:
 * :func:`free_slots` is what the host's own requests leave open to riders.
 * :class:`Units` sends the advert while the channel is up, and admits a ride
   only while the unit has a slot free and fewer than ``rider_cap`` rides run.
+  Given the agent's seal key, every unit it advertises names it, so a rider
+  may seal its rides to the unit (:mod:`mcgyvr.seal`).
 
 Nothing here opens a connection or sends anything itself: the send, the setup
 read, the clock and the thread a check runs on are all handed in.
@@ -34,6 +36,7 @@ from mcgyvr.capacity import SlotUnavailableError
 from mcgyvr.rig import protocol, sessionwire
 from mcgyvr.rig.relay import SEND_WAIT_S, RideRefusedError
 from mcgyvr.rig.sessionwire import SessionCode
+from mcgyvr.seal import UnitKey
 
 if TYPE_CHECKING:  # pragma: no cover - typing only
     from mcgyvr.config import Config
@@ -274,8 +277,10 @@ class Units:
         clock: Callable[[], float] = time.monotonic,
         say: Callable[[str], None] = _say,
         start: Callable[[Callable[[], None]], None] = _thread,
+        key: UnitKey | None = None,
     ) -> None:
         self._send = send
+        self._key = key
         self._setup = setup
         self._clock = clock
         self._say = say
@@ -455,6 +460,7 @@ class Units:
                         ctx=unit.ctx,
                         free_slots=free_slots(unit.slots, in_flight, riding),
                         rider_cap=unit.rider_cap,
+                        seal=self._key,
                     )
                 )
             wanted = tuple(advert)
