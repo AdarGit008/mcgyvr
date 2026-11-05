@@ -18,7 +18,8 @@ from these names rather than writing them again:
 * the relay's limits (``RELAY_MAX_*``);
 * the ``/v1`` error codes with their one HTTP status each
   (:data:`API_ERROR_STATUS`), and the pairs the product reads off them
-  (:data:`RUNG_BUSY`, :data:`MODEL_UNPLACED`, :data:`MODEL_NOT_FOUND`);
+  (:data:`RUNG_BUSY`, :data:`MODEL_UNPLACED`, :data:`MODEL_NOT_FOUND`,
+  :data:`OUT_OF_SCOPE`);
 * the chat request fields the hub forwards to a unit
   (:data:`FORWARDED_FIELDS`, :data:`CHAT_TEMPLATE_KEYS`);
 * the header naming who may serve a request (:data:`SCOPE_HEADER`,
@@ -182,6 +183,10 @@ MODEL_NOT_FOUND = api_error("model_not_found")
 #: The pool the request is served from has no slot for it now: a full pool,
 #: not a broken unit.
 POOL_BUSY = api_error("pool_busy")
+#: The hub refused a ride because its host is outside the scope the request
+#: named (:data:`SCOPE_HEADER`): asked again under the same scope, the same
+#: host is refused again.
+OUT_OF_SCOPE = api_error("out_of_scope")
 #: The answers that say a relief rung cannot take a request now, sorted: the
 #: hub names no host running the model (404 ``model_not_found``), the host's
 #: machine is away (503 ``hitchhike_host_away``), the hub has not yet matched

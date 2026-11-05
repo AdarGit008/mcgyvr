@@ -651,10 +651,6 @@ def _hub_sync(args: argparse.Namespace) -> tuple[str, str, str, Path] | int:
     return hub, key, key_env, folder
 
 
-#: Whose rigs each ride scope lets read a ride, as the sync says it.
-_WHOSE = {"own": "your own rigs", "crew": "your own and your crewmates' rigs"}
-
-
 def _rungs_sync(args: argparse.Namespace) -> int:
     from mcgyvr import policy_line
     from mcgyvr.config import RIDE_SCOPE, ConfigError, load
@@ -726,12 +722,9 @@ def _rungs_sync(args: argparse.Namespace) -> int:
         fanout, scope = config.ladder.fanout, config.ride_scope
     except ConfigError:
         fanout, scope = "idle", wanted or RIDE_SCOPE
-    if rides.rungs and scope != SCOPE_ANYONE:
-        print(
-            f"ride scope: {scope}: only {_WHOSE[scope]} take this setup's rides, "
-            "and the hub refuses a host outside them; `--ride-scope anyone` "
-            "opts this setup in to any host"
-        )
+    said = rungs.ride_scope_line(rides, scope)
+    if said is not None:
+        print(said)
     if rides.rungs and fanout != "idle":
         print(
             f"note: relief rungs take work only under `fanout: idle`; this "

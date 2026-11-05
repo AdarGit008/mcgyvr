@@ -11,6 +11,13 @@ policy line and shows the hub's privacy text as it does.
 sent anything, a relief rung already kept is not ridden, and a ladder step or
 a role naming one is refused.
 
+A ride the hub refuses as outside the scope it names (``403 out_of_scope``)
+is a full rung, not the rung's error: one note says which rung, under which
+scope, and how to opt in; the climb moves on with no attempt spent; and the
+rung is not asked again in the process, since every refusal spends the
+rider's hub budget. The rig's refresher says whose rigs ride once, as a sync
+does, and under ``own`` the sync says no relief rung serves the setup.
+
 Every hub here is a loopback server this test starts.
 """
 
@@ -262,3 +269,202 @@ def test_an_opt_in_repairs_a_kept_relief_file_as_a_plain_sync_does(
 
     assert _policy(setup) == POLICY + "ride_scope: anyone\n"
     assert [r["scope"] for r in _kept(setup).values()] == ["anyone"]
+
+
+def test_under_own_the_sync_says_no_relief_rung_serves_the_setup(
+    setup: Path, hub: Hub, capsys: pytest.CaptureFixture[str]
+) -> None:
+    (setup / "policy.yaml").write_text(POLICY + "ride_scope: own\n", encoding="utf-8")
+    hub.answer(hub.listing(FIRST))
+
+    assert cli() == Exit.OK
+
+    out = capsys.readouterr().out
+    assert "ride scope: own: " in out and "no relief rung serves it" in out
+
+
+def test_the_rigs_refresher_says_whose_rigs_ride_once_as_the_sync_does(
+    setup: Path, hub: Hub, capsys: pytest.CaptureFixture[str]
+) -> None:
+    from mcgyvr.rig import rungs
+
+    hub.answer(hub.listing(FIRST))
+    assert cli() == Exit.OK
+    (line,) = [
+        each
+        for each in capsys.readouterr().out.splitlines()
+        if each.startswith("ride scope: ")
+    ]
+    said: list[str] = []
+    refresher = rungs.refresher_for(hub.address, folder=setup)
+    assert refresher is not None
+    refresher._say = said.append  # what it tells the rig's log
+    refresher._start = lambda work: work()  # on this thread
+
+    refresher.tick()
+    refresher._due = None  # due again at once
+    refresher.tick()
+
+    assert said == [line]
+    assert [r["scope"] for r in _kept(setup).values()] == ["crew"]
+
+
+# --- a ride the hub refuses as outside the setup's scope -------------------------
+
+OUT_OF_SCOPE = (403, "out_of_scope")
+
+
+def _refusing_hub_setup(
+    hub: str, other: str, fast: str = "http://fast.invalid/v1"
+) -> str:
+    return f"""
+units:
+  local_fast:
+    address: {fast}
+    model: {FAST_MODEL}
+    width: 1
+    window: 32768
+    output_tokens: 256
+  api_big:
+    address: {other}
+    model: {OTHER_MODEL}
+    api_key_env: HUB_KEY
+    width: 1
+    window: 32768
+ladder: [local_fast, {RIDE}, api_big]
+max_escalations: 3
+relief:
+  {RIDE}:
+    address: {hub}
+    model: hitchhike@{FIRST}
+    api_key_env: HUB_KEY
+    width: 1
+    position: within
+"""
+
+
+FAST_MODEL = "qwen2.5-coder-3b"
+OTHER_MODEL = "vendor-large"
+
+
+@pytest.fixture
+def hub_key(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setenv("HUB_KEY", "mhu_" + "1" * 16)
+
+
+def _notes(capsys: pytest.CaptureFixture[str]) -> list[str]:
+    return [line for line in capsys.readouterr().err.splitlines() if line.strip()]
+
+
+@pytest.mark.usefixtures("hub_key")
+def test_a_relief_rung_refused_as_out_of_scope_is_full_asked_once_and_said(
+    tmp_path: Path, capsys: pytest.CaptureFixture[str]
+) -> None:
+    from mcgyvr.capacity import Capacity, SlotUnavailableError
+    from mcgyvr.local_pool import source_map
+    from mcgyvr.runner import ReliefUnavailableError, Request, RunnerError, dispatch
+    from tests.rungs import answering_unplaced, error
+
+    assert hubwire.OUT_OF_SCOPE == OUT_OF_SCOPE
+    seen: list[str] = []
+    outcomes: list[BaseException] = []
+    with answering_unplaced(*error(*OUT_OF_SCOPE), seen) as address:
+        config = parse(_refusing_hub_setup(address, "http://other.invalid/v1"))
+        capacity = Capacity.of(config, root=tmp_path / "slots")
+        for _ in range(2):
+            try:
+                dispatch(
+                    source_map(config),
+                    RIDE,
+                    Request(prompt="hello", max_output_tokens=8),
+                    capacity=capacity,
+                )
+            except Exception as exc:
+                outcomes.append(exc)
+
+    assert len(outcomes) == 2
+    for outcome in outcomes:
+        assert isinstance(outcome, ReliefUnavailableError)
+        assert isinstance(outcome, SlotUnavailableError)
+        # Not a runner error, so the cooldown does not learn the rung as failing.
+        assert not isinstance(outcome, RunnerError)
+    assert seen == [f"hitchhike@{FIRST}"], "the hub was asked once, not again"
+    assert capacity.load(RIDE) == 0, "the slot it held is given back"
+    (said,) = _notes(capsys)
+    assert said.startswith("note: ") and repr(RIDE) in said
+    assert "ride_scope (crew)" in said
+    assert "mcgyvr rig rungs sync --ride-scope anyone" in said
+    assert "hello" not in said
+
+
+@pytest.mark.usefixtures("hub_key")
+def test_a_unit_refused_as_out_of_scope_is_still_its_error(tmp_path: Path) -> None:
+    from mcgyvr.capacity import Capacity
+    from mcgyvr.local_pool import source_map
+    from mcgyvr.runner import BackendError, Request, dispatch
+    from tests.rungs import answering_unplaced, error
+
+    seen: list[str] = []
+    with answering_unplaced(*error(*OUT_OF_SCOPE), seen) as address:
+        config = parse(_refusing_hub_setup("http://hub.invalid/v1", address))
+        capacity = Capacity.of(config, root=tmp_path / "slots")
+        with pytest.raises(BackendError) as raised:
+            dispatch(
+                source_map(config),
+                "api_big",
+                Request(prompt="hello", max_output_tokens=8),
+                capacity=capacity,
+            )
+
+    assert (raised.value.status, raised.value.code) == OUT_OF_SCOPE
+
+
+@pytest.mark.usefixtures("hub_key")
+def test_a_ladder_step_on_a_refused_relief_rung_climbs_to_the_next(
+    tmp_path: Path, capsys: pytest.CaptureFixture[str]
+) -> None:
+    """The reviewer's repro (#834): a ladder step bound to a stranger's relief
+    rung, no `ride_scope` stated, is passed over and the climb reaches
+    `api_big`. The step's dispatch is the real one, against a hub refusing it;
+    a full rung declines, as the driver turns one (drive/attempt.py)."""
+    from mcgyvr.capacity import Capacity, SlotUnavailableError
+    from mcgyvr.escalate import Delivered, Judgement, escalate
+    from mcgyvr.local_pool import source_map
+    from mcgyvr.route import Try, Verdict
+    from mcgyvr.runner import Request, dispatch
+    from tests.relieftakes import Script, contract
+    from tests.rungs import answering_unplaced, error
+
+    asked_hub: list[str] = []
+    with answering_unplaced(*error(*OUT_OF_SCOPE), asked_hub) as hub:
+        config = parse(_refusing_hub_setup(hub, "http://api.invalid/v1"))
+        assert config.units[RIDE].scope == hubwire.SCOPE_CREW
+        pool = source_map(config)
+        capacity = Capacity.of(config, root=tmp_path / "slots")
+
+        class Riding(Script):
+            def __call__(self, this: Try) -> Judgement:
+                if this.rung.name != RIDE:
+                    return super().__call__(this)
+                self.tried.append(RIDE)
+                request = Request(prompt="hello", max_output_tokens=8)
+                try:
+                    dispatch(pool, RIDE, request, capacity=capacity)
+                except SlotUnavailableError as busy:
+                    return Judgement(verdict=Verdict.DECLINED, detail=str(busy))
+                raise AssertionError("the hub refused this ride")
+
+        script = Riding(local_fast=Verdict.FAILED, api_big=Verdict.PASSED)
+        outcome = escalate(config, pool, contract(), script, capacity=capacity)
+
+    assert isinstance(outcome, Delivered), outcome
+    assert outcome.rung == "api_big"
+    assert script.tried == ["local_fast", RIDE, "api_big"]
+    assert [(a.rung, a.verdict) for a in outcome.history] == [
+        ("local_fast", Verdict.FAILED),
+        (RIDE, Verdict.DECLINED),
+        ("api_big", Verdict.PASSED),
+    ]
+    assert asked_hub == [f"hitchhike@{FIRST}"]
+    said = [line for line in _notes(capsys) if "out_of_scope" in line]
+    assert len(said) == 1 and "--ride-scope anyone" in said[0]
