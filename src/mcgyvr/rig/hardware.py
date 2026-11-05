@@ -229,6 +229,7 @@ def hello_frame(
     *,
     agent_version: str,
     offer: protocol.Offer | None = None,
+    identity_key: str | None = None,
 ) -> str:
     """The ``hello`` frame this report makes, under ``message_id``.
 
@@ -236,7 +237,8 @@ def hello_frame(
     lends (``report.lent``) with the cards those make
     (:func:`mcgyvr.hubwire.cards_from_resources`, never every card the machine
     has: a rig that lends nothing names no card), the host beside what it lends,
-    and ``offer`` when the agent advertises what it can do.
+    ``offer`` when the agent advertises what it can do, and the rig's
+    ``identity_key`` when it has one.
     """
     return protocol.hello(
         message_id,
@@ -253,6 +255,7 @@ def hello_frame(
         # The host (its version is the machine's patch level) only beside
         # what it lends, which is what the hub plans by.
         host=_host(report.host) if report.lent else None,
+        identity_key=identity_key,
     )
 
 

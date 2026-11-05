@@ -555,6 +555,7 @@ def hello(
     offer: Offer | None = None,
     resources: Sequence[hubwire.Resource] = (),
     host: hubwire.Host | None = None,
+    identity_key: str | None = None,
 ) -> str:
     """A ``hello`` frame: what this machine is, and what it offers.
 
@@ -568,7 +569,9 @@ def hello(
     ``resources`` are what the rig lends (:class:`mcgyvr.hubwire.Resource`),
     left out when there are none; with them, ``cards`` must be exactly the
     cards they make (:func:`mcgyvr.hubwire.cards_from_resources`), as the hub
-    refuses any other. ``host`` names the system the rig runs on.
+    refuses any other. ``host`` names the system the rig runs on, and
+    ``identity_key`` is the rig's identity public key
+    (:mod:`mcgyvr.rig.identity`), left out when None.
     """
     _need(bool(MACHINE_ID.fullmatch(machine_id)), "machine_id: not a machine id")
     _need(bool(AGENT_VERSION.fullmatch(agent_version)), "agent_version: not a version")
@@ -616,6 +619,9 @@ def hello(
     if host is not None:
         host.validate()
         body["host"] = asdict(host)
+    if identity_key is not None:
+        hubwire.identity_key_bytes(identity_key)  # it raises unless in shape
+        body[hubwire.IDENTITY_KEY_FIELD] = identity_key
     if offer is not None:
         body.update(_offer_body(offer))
     return _frame("hello", message_id, body, None)

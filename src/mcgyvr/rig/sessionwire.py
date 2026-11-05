@@ -219,6 +219,10 @@ class TunnelPeer:
     allowed_ips: tuple[ipaddress.IPv4Network, ...]
     keepalive_s: int
     relay: RelayGrant | None = None
+    #: The peer's identity key and its signature over `public_key`
+    #: (:mod:`mcgyvr.rig.identity`), when the hub forwards them.
+    identity_key: str | None = None
+    public_key_sig: str | None = None
 
 
 @dataclass(frozen=True, kw_only=True)
@@ -539,6 +543,12 @@ def read_tunnel_up(envelope: protocol.Envelope) -> TunnelUp:
                     "keepalive_s", 0, MAX_KEEPALIVE_S, default=DEFAULT_KEEPALIVE_S
                 ),
                 relay=relay,
+                identity_key=peer.text(
+                    hubwire.IDENTITY_KEY_FIELD, hubwire.IDENTITY_KEY, optional=True
+                ),
+                public_key_sig=peer.text(
+                    hubwire.SESSION_KEY_SIG_FIELD, hubwire.IDENTITY_SIG, optional=True
+                ),
             )
         )
     _unique(body, "peers", [peer.rig_id for peer in peers])
@@ -871,13 +881,19 @@ def session_prepared(
     listen_port: int,
     endpoints: Sequence[Endpoint],
     stun_rtt_us: int | None = None,
+    public_key_sig: str | None = None,
 ) -> str:
-    """Build a session_prepared reply: the head's key, port and endpoints."""
+    """Build a session_prepared reply: the head's key, port and endpoints,
+    and the rig's identity signature over the key when it has one."""
     _need(bool(SESSION_ID.fullmatch(session_id)), "session_id: not a session id")
     _need(bool(WIREGUARD_KEY.fullmatch(public_key)), "public_key: not a key")
     _need(1 <= listen_port <= MAX_PORT, "listen_port: not a port")
     _need(len(endpoints) <= MAX_ENDPOINTS, f"endpoints: more than {MAX_ENDPOINTS}")
     _rtt(stun_rtt_us, "stun_rtt_us")
+    _need(
+        public_key_sig is None or bool(hubwire.IDENTITY_SIG.fullmatch(public_key_sig)),
+        f"{hubwire.SESSION_KEY_SIG_FIELD}: not a signature",
+    )
     body: dict[str, Any] = {
         "session_id": session_id,
         "public_key": public_key,
@@ -886,6 +902,8 @@ def session_prepared(
     }
     if stun_rtt_us is not None:
         body["stun_rtt_us"] = stun_rtt_us
+    if public_key_sig is not None:
+        body[hubwire.SESSION_KEY_SIG_FIELD] = public_key_sig
     return _frame("session_prepared", body, re)
 
 
