@@ -243,14 +243,25 @@ class Pins:
     def pin(self, rig_id: str, identity_key: str) -> bool:
         """Pin `identity_key` for `rig_id` if it has none yet; False when the
         file is full (:data:`MAX_PINS`) and the peer was not pinned."""
+        return rig_id not in self.pin_all({rig_id: identity_key})
+
+    def pin_all(self, keys: dict[str, str]) -> set[str]:
+        """Pin each of `keys` (rig id to identity key) that has none yet, in
+        one write, and return the rig ids left unpinned because the file is
+        full (:data:`MAX_PINS`)."""
         peers = self.all()
-        if rig_id in peers:
-            return True
-        if len(peers) >= MAX_PINS:
-            return False
-        peers[rig_id] = identity_key
-        self._write(peers)
-        return True
+        before = len(peers)
+        left = set()
+        for rig_id, key in keys.items():
+            if rig_id in peers:
+                continue
+            if len(peers) >= MAX_PINS:
+                left.add(rig_id)
+                continue
+            peers[rig_id] = key
+        if len(peers) > before:
+            self._write(peers)
+        return left
 
     def forget(self, rig_id: str) -> bool:
         "Drop the pin of `rig_id`, and say whether there was one."
@@ -268,18 +279,16 @@ def vet_peer(
     identity_key: str | None,
     signature: str | None,
     session_id: str,
-    pins: Pins | None,
+    pinned: str | None,
 ) -> str | None:
     """Why the peer `rig_id` of session `session_id` is refused, or None to
     take it.
 
     A peer that carries an identity key must have signed its tunnel key
-    `public_key` with it (`signature`), and must carry the key pinned for it,
+    `public_key` with it (`signature`), and must carry the key `pinned` for it,
     if one is. A peer that carries none is taken as an agent from before
     identity keys, unless one is pinned for it: then the hub left it out.
-    With no `pins`, keys are checked and nothing is pinned.
     """
-    pinned = pins.pinned(rig_id) if pins is not None else None
     if identity_key is None:
         if pinned is None:
             return None

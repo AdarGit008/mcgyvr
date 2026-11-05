@@ -172,4 +172,6 @@ status` prints this rig's, `mcgyvr rig peers` the ones pinned here, and the
 hub shows each rig's on its rig page and in a session's members. After a
 peer's owner rotates its key, `mcgyvr rig peers --forget <rig-id>` drops the
 old pin once you have compared the new fingerprint with them. A peer from
-before identity keys sends none and is taken as before, unpinned.
+before identity keys sends none and is taken as before, unpinned; once a
+rig's key is bound, the hub refuses a hello from it that names none, so
+stripping the key would cut the rig off rather than hand its peers no key.

@@ -349,3 +349,17 @@ def test_rig_status_prints_this_rigs_fingerprint(
     made = identity.ensure()
     assert _cli("rig", "status") == 0
     assert f"identity: {made.fingerprint}" in capsys.readouterr().out
+
+
+def test_pins_that_cannot_be_written_refuse_the_tunnel(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    pins = identity.Pins(tmp_path / "pins.json")
+
+    def full(self: identity.Pins, peers: dict[str, str]) -> None:
+        raise OSError(28, "No space left on device")
+
+    monkeypatch.setattr(identity.Pins, "_write", full)
+    refused = _refusal(tmp_path, pins, _signed_peer(_identity()))
+    assert refused is not None
+    assert "cannot be written: No space left on device" in refused["body"]["message"]
