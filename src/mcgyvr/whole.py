@@ -122,12 +122,42 @@ class _Choice:
         return choice
 
 
+#: The data of the event that ends an OpenAI stream.
+DONE = b"[DONE]"
+
+
+def cut_events(held: bytearray, chunk: bytes) -> list[bytes]:
+    """The events ``chunk`` completes, each without its blank-line separator, cut
+    from ``held``; the rest of an event stays held. Raises ValueError once what is
+    held is longer than any event of a chat completion (:data:`MAX_EVENT_BYTES`)."""
+    held += chunk
+    events = []
+    while (cut := held.find(b"\n\n")) >= 0:
+        events.append(bytes(held[:cut]))
+        del held[: cut + 2]
+    if len(held) > MAX_EVENT_BYTES:
+        raise ValueError("an event longer than any of a chat completion's")
+    return events
+
+
+def field_of(event: bytes, name: bytes) -> bytes | None:
+    """The value of an event's ``name:`` lines, joined by newlines; None when it has
+    no such line."""
+    prefix = name + b":"
+    lines = [
+        line[len(prefix) :].removeprefix(b" ")
+        for line in (raw.rstrip(b"\r") for raw in event.split(b"\n"))
+        if line.startswith(prefix)
+    ]
+    return b"\n".join(lines) if lines else None
+
+
 class Whole:
     """One streamed answer being assembled: `feed` it the bytes as they arrive
     and `answer` returns the whole body once every choice has finished."""
 
     def __init__(self) -> None:
-        self._held = b""  # the event so far, short of its blank-line separator
+        self._held = bytearray()  # the event so far, short of its blank line
         self._choices: dict[int, _Choice] = {}
         self._last: dict[str, Any] = {}  # chunk fields kept for the answer, later wins
         self._usage: dict[str, Any] | None = None
@@ -135,12 +165,8 @@ class Whole:
         self.size = 0
 
     def feed(self, chunk: bytes) -> None:
-        self._held += chunk
-        while (cut := self._held.find(b"\n\n")) >= 0:
-            event, self._held = self._held[:cut], self._held[cut + 2 :]
+        for event in cut_events(self._held, chunk):
             self._event(event)
-        if len(self._held) > MAX_EVENT_BYTES:
-            raise ValueError("an event longer than any of a chat completion's")
 
     def answer(self) -> tuple[int, str, bytes] | None:
         """The answer as status, content type and body, or None while any choice
@@ -172,18 +198,12 @@ class Whole:
         return 200, JSON_TYPE, dump(answer)
 
     def _event(self, event: bytes) -> None:
-        data: list[bytes] = []
-        error: list[bytes] = []
-        for line in event.split(b"\n"):
-            line = line.rstrip(b"\r")
-            if line.startswith(b"data:"):
-                data.append(line[5:].removeprefix(b" "))
-            elif line.startswith(b"error:"):
-                error.append(line[6:].removeprefix(b" "))
-        if error:
-            self._fail(b"\n".join(error))
-        if data:
-            self._data(b"\n".join(data))
+        error = field_of(event, b"error")
+        if error is not None:
+            self._fail(error)
+        data = field_of(event, b"data")
+        if data is not None:
+            self._data(data)
 
     def _fail(self, text: bytes) -> None:
         try:
@@ -192,7 +212,7 @@ class Whole:
             self._error = {"message": text.decode("utf-8", errors="replace")}
 
     def _data(self, data: bytes) -> None:
-        if data.strip() == b"[DONE]":
+        if data.strip() == DONE:
             return
         try:
             event = json.loads(data)

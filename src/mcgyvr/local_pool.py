@@ -16,7 +16,7 @@ from enum import StrEnum
 from typing import Protocol as TypingProtocol
 
 from mcgyvr.config import Config, Unit, whose
-from mcgyvr.seal import UnitKey
+from mcgyvr.seal import SealKey
 
 _ROLES = ("orchestrator", "verifier", "jev")
 
@@ -144,7 +144,7 @@ class Endpoint:
     #: Whose rigs may serve this endpoint's requests, the unit's `scope`, which
     #: every chat request names in the `mcgyvr.hubwire.SCOPE_HEADER` header so a
     #: hub serves it from that scope's pool; `None` sends no header.
-    seal: UnitKey | None = None
+    seal: SealKey | None = None
     #: The key every request to this endpoint is sealed to (`mcgyvr.seal`), the
     #: relief rung's `seal`; `None` sends requests in clear.
 

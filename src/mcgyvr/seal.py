@@ -59,7 +59,6 @@ _TAG_BYTES = 16
 #: The most bytes of an answer's sealed stream held back while an event is not yet
 #: whole, as :class:`mcgyvr.whole.Whole` holds an event of the stream it assembles.
 MAX_EVENT_BYTES = whole.MAX_EVENT_BYTES
-_DONE = b"[DONE]"
 
 
 class SealError(ValueError):
@@ -107,7 +106,7 @@ def _answer_aad(place: int) -> bytes:
 
 
 @dataclass(frozen=True)
-class UnitKey:
+class SealKey:
     """The key a unit advertises, as a rider holds it: its id and public half."""
 
     kid: str
@@ -121,7 +120,7 @@ class UnitKey:
             raise ValueError("kid: not the id of this key")
 
     @classmethod
-    def of(cls, raw: object) -> UnitKey:
+    def of(cls, raw: object) -> SealKey:
         """The key a listing or an advert carries (``{"kid", "pub", "sig"?}``).
 
         Raises ValueError for one not of that shape. ``sig`` is the slot for the
@@ -129,7 +128,7 @@ class UnitKey:
         """
         if not isinstance(raw, Mapping):
             raise ValueError("seal: not an object")
-        unknown = set(raw) - {"kid", "pub", "sig"}
+        unknown = set(raw) - set(hubwire.SEAL_KEY_FIELDS)
         if unknown:
             raise ValueError(f"seal: unknown field {sorted(unknown)[0]!r}")
         sig = raw.get("sig")
@@ -152,7 +151,7 @@ class HostKey:
 
         self._private = private or X25519PrivateKey.generate()
         self._public = self._private.public_key().public_bytes_raw()
-        self.unit_key = UnitKey(kid=key_id(self._public), pub=_b64(self._public))
+        self.unit_key = SealKey(kid=key_id(self._public), pub=_b64(self._public))
 
     @property
     def kid(self) -> str:
@@ -170,7 +169,7 @@ class HostKey:
 
         if not isinstance(sealed, Mapping):
             raise SealError("sealed: not an object")
-        if set(sealed) != {"v", "to", "epk", "nonce", "ct"}:
+        if set(sealed) != set(hubwire.SEAL_ENVELOPE_FIELDS):
             raise SealError("sealed: not the envelope's fields")
         if sealed["v"] != hubwire.SEAL_VERSION or isinstance(sealed["v"], bool):
             raise SealError("sealed.v: not a version this agent opens")
@@ -199,7 +198,7 @@ class HostKey:
 
 
 def seal_request(
-    request: Mapping[str, Any], key: UnitKey
+    request: Mapping[str, Any], key: SealKey
 ) -> tuple[dict[str, Any], AnswerOpener]:
     """The sealed request for ``request`` to the unit holding ``key``, and the
     opener of its answer.
@@ -289,25 +288,11 @@ def unit_body(
 
 
 def _events(held: bytearray, chunk: bytes) -> list[bytes]:
-    """The events ``chunk`` completes, cut from ``held``; the rest stays held."""
-    held += chunk
-    events = []
-    while (cut := held.find(b"\n\n")) >= 0:
-        events.append(bytes(held[:cut]))
-        del held[: cut + 2]
-    if len(held) > MAX_EVENT_BYTES:
-        raise SealError("an event longer than any of a chat completion's")
-    return events
-
-
-def _data(event: bytes) -> bytes | None:
-    """The data an event carries, its ``data:`` lines joined; None when it has none."""
-    lines = [
-        line.rstrip(b"\r")[5:].removeprefix(b" ")
-        for line in event.split(b"\n")
-        if line.rstrip(b"\r").startswith(b"data:")
-    ]
-    return b"\n".join(lines) if lines else None
+    """The events ``chunk`` completes (:func:`mcgyvr.whole.cut_events`)."""
+    try:
+        return whole.cut_events(held, chunk)
+    except ValueError as exc:
+        raise SealError(str(exc)) from exc
 
 
 def _object(data: bytes | None) -> dict[str, Any] | None:
@@ -352,9 +337,9 @@ class AnswerSealer:
         return self._wrapped(body, _object(body))
 
     def _event(self, event: bytes) -> bytes:
-        data = _data(event)
-        if data is not None and data.strip() == _DONE:
-            return b"data: " + _DONE + b"\n\n"
+        data = whole.field_of(event, b"data")
+        if data is not None and data.strip() == whole.DONE:
+            return b"data: " + whole.DONE + b"\n\n"
         if not event.strip():
             return b""
         # An event is read for its clear fields only where it can hold more than
@@ -415,7 +400,9 @@ class AnswerOpener:
         from cryptography.exceptions import InvalidTag
 
         sealed = document.get(hubwire.SEALED_FIELD)
-        if not isinstance(sealed, dict) or set(sealed) != {"nonce", "ct"}:
+        if not isinstance(sealed, dict) or set(sealed) != set(
+            hubwire.SEALED_ANSWER_ENVELOPE_FIELDS
+        ):
             raise SealError("sealed: not an answer's envelope")
         nonce = _unb64(sealed["nonce"], hubwire.SEAL_NONCE, "sealed.nonce")
         ciphertext = _unb64(sealed["ct"], hubwire.SEAL_CIPHERTEXT, "sealed.ct")
@@ -437,7 +424,7 @@ class AnswerOpener:
             return plain  # not one data line: passed as the host's agent sealed it
         if not isinstance(model, str) or b'"model":' + whole.dump(model) in plain:
             return plain  # no name written over it, or the one it already has
-        inner = _object(_data(plain) if data else plain)
+        inner = _object(whole.field_of(plain, b"data") if data else plain)
         if not isinstance(model, str) or inner is None or "model" not in inner:
             return plain
         inner["model"] = model
@@ -464,15 +451,15 @@ class AnswerOpener:
         return self._named(self._open(document), document, data=False)
 
     def _event(self, event: bytes) -> bytes:
-        data = _data(event)
+        data = whole.field_of(event, b"data")
         if data is None:
             if not event.strip() or all(
                 line.startswith(b":") for line in event.split(b"\n") if line.strip()
             ):
                 return b""  # nothing but comments: a keepalive
             raise SealError("a clear event in a sealed answer")
-        if data.strip() == _DONE:
-            return b"data: " + _DONE + b"\n\n"
+        if data.strip() == whole.DONE:
+            return b"data: " + whole.DONE + b"\n\n"
         document = _object(data)
         if self._clear_error(document):
             return event + b"\n\n"

@@ -84,6 +84,7 @@ def test_the_envelope_carries_the_prompt_only_sealed_and_names_the_key_it_is_for
     assert hubwire.SEAL_NONCE.fullmatch(envelope["nonce"])
     assert hubwire.SEAL_CIPHERTEXT.fullmatch(envelope["ct"])
 
+    assert set(envelope) == set(hubwire.SEAL_ENVELOPE_FIELDS)
     body, _ = host.open(envelope)
     assert json.loads(body) == _request()
 
@@ -92,14 +93,15 @@ def test_a_unit_key_is_its_public_halfs_id_and_its_shape_is_the_wires() -> None:
     key = seal.HostKey().unit_key
     assert hubwire.SEAL_KEY_ID.fullmatch(key.kid)
     assert hubwire.SEAL_PUBLIC_KEY.fullmatch(key.pub)
-    assert seal.UnitKey.of(key.wire()) == key
-    assert seal.UnitKey.of(key.wire() | {"sig": "A" * 86 + "=="}) == key
+    assert seal.SealKey.of(key.wire()) == key
+    assert tuple(key.wire()) == hubwire.SEAL_KEY_FIELDS[:2]  # sig: not yet made
+    assert seal.SealKey.of(key.wire() | {"sig": "A" * 86 + "=="}) == key
     other = seal.HostKey().unit_key
     with pytest.raises(ValueError, match="not the id of this key"):
-        seal.UnitKey(kid=key.kid, pub=other.pub)
+        seal.SealKey(kid=key.kid, pub=other.pub)
     for wrong in ({"kid": key.kid}, {**key.wire(), "extra": 1}, "key", None):
         with pytest.raises(ValueError):
-            seal.UnitKey.of(wrong)
+            seal.SealKey.of(wrong)
 
 
 def test_every_answer_event_is_sealed_with_its_model_and_counts_in_clear() -> None:
@@ -113,6 +115,8 @@ def test_every_answer_event_is_sealed_with_its_model_and_counts_in_clear() -> No
     assert events[-1] == b"data: [DONE]"
     clear = [json.loads(e[len(b"data: ") :]) for e in events[:-1]]
     assert all(set(c) <= {"model", "usage", "sealed"} for c in clear)
+    fields = set(hubwire.SEALED_ANSWER_ENVELOPE_FIELDS)
+    assert all(set(c["sealed"]) == fields for c in clear)
     assert all(c["model"] == "host.gguf" for c in clear)
     assert clear[-1]["usage"] == {"prompt_tokens": 9, "completion_tokens": 4}
 

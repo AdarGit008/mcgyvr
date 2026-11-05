@@ -36,7 +36,7 @@ from mcgyvr.hubwire import UNIT_ADVERT_INTERVAL_S as UNIT_ADVERT_INTERVAL_S
 from mcgyvr.hubwire import UNIT_ADVERT_STALE_S as UNIT_ADVERT_STALE_S
 from mcgyvr.rig import protocol
 from mcgyvr.rig.protocol import ErrorCode, ProtocolError
-from mcgyvr.seal import UnitKey
+from mcgyvr.seal import SealKey
 
 #: Bounds on the fields read below: how many of each may appear and how
 #: far they may go.
@@ -1127,7 +1127,7 @@ class AdvertisedUnit:
     rider_cap: int
     #: The key a ride to the unit may be sealed to (:mod:`mcgyvr.seal`), None
     #: for a unit that opens no sealed ride.
-    seal: UnitKey | None = None
+    seal: SealKey | None = None
 
 
 def _whole(value: object, low: int, high: int) -> bool:
@@ -1167,7 +1167,7 @@ def unit_advert(units: Sequence[AdvertisedUnit]) -> str:
             "rider_cap": unit.rider_cap,
         }
         if unit.seal is not None:
-            _need(isinstance(unit.seal, UnitKey), "seal: not a seal key")
+            _need(isinstance(unit.seal, SealKey), "seal: not a seal key")
             entry[hubwire.SEAL_KEY_FIELD] = unit.seal.wire()
         body.append(entry)
     return _frame("unit_advert", {"units": body}, None)
