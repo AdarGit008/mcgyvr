@@ -745,12 +745,30 @@ def read_record(path: Path) -> list[Recorded]:
 
 
 def write_record(path: Path, mappings: Sequence[Recorded]) -> None:
-    """Record ``mappings`` (the file goes when there are none)."""
+    """Record ``mappings`` (the file goes when there are none), at most
+    :data:`MAX_RECORDED`: past that the oldest leased ones go first (they end
+    on their own), and a permanent one only with a note that it is forgotten."""
     if not mappings:
         path.unlink(missing_ok=True)
         return
+    kept = list(mappings)
+    for permanent in (False, True):
+        while len(kept) > MAX_RECORDED:
+            index = next(
+                (i for i, m in enumerate(kept) if (m.lease_s == 0) == permanent), None
+            )
+            if index is None:
+                break
+            gone = kept.pop(index)
+            if permanent:
+                print(
+                    f"note: the port forward's record is full; the permanent "
+                    f"forward of external port {gone.external} on {gone.lan_host} "
+                    "is forgotten, not given back",
+                    file=sys.stderr,
+                )
     path.parent.mkdir(mode=0o700, parents=True, exist_ok=True)
-    data = {"mappings": [m.data() for m in mappings[-MAX_RECORDED:]]}
+    data = {"mappings": [m.data() for m in kept]}
     atomic.write(path, json.dumps(data) + "\n", private=True)
 
 
@@ -897,25 +915,33 @@ class Mapper:
     def give_back_recorded(self) -> None:
         """Give back what an agent before this one recorded and left mapped
         (it crashed, or its host lost power): this one wants none of it until
-        the hub asks. A permanent mapping whose router is not reached stays on
-        record for the next start; a leased one ends on its own."""
+        the hub asks. Only to a router this rig is on the LAN of now, as the
+        one that mapped it: a rig that moved (a laptop that crashed at home
+        and starts elsewhere) sends nothing to whatever holds that address
+        here. A permanent mapping not given back (its router is elsewhere or
+        not reached) stays on record for the next start; a leased one ends on
+        its own."""
         if self._record is None:
             return
         left = read_record(self._record)
         kept = []
+        given = 0
         for entry in left:
             router = self._recall(entry.method, entry.address)
             if router is None:
                 continue
-            reached = self._give_back(
+            reached = self._here(router, entry.lan_host) and self._give_back(
                 router, entry.lan_host, entry.internal, entry.external, entry.ports
             )
-            if not reached and entry.lease_s == 0:
+            if reached:
+                given += 1
+            elif entry.lease_s == 0:
                 kept.append(entry)
         if left:
             print(
-                f"port forward: gave back {len(left) - len(kept)} of the "
-                f"{len(left)} forward(s) an agent before this one left on the router",
+                f"port forward: gave back {given} of the {len(left)} forward(s) "
+                "an agent before this one left on the router"
+                + (f"; {len(kept)} kept on record" if kept else ""),
                 file=sys.stderr,
             )
         self._leftover = kept
@@ -1075,7 +1101,8 @@ class Mapper:
             raise MapError("no_lan_host", f"{lan_host} is no address the tunnel is on")
         added: set[int] = set()
         # Recorded before the router is asked, so a crash mid-way leaves it on
-        # record (as permanent when one may be granted: kept until given back).
+        # record (as permanent when one may be granted, which only UPnP does:
+        # kept until given back).
         self._pending = Recorded(
             method=router.method,
             address=router.address(),
@@ -1083,7 +1110,11 @@ class Mapper:
             internal=internal,
             external=external,
             ports=count,
-            lease_s=0 if allowed.permanent else wanted.lease_s,
+            lease_s=(
+                0
+                if allowed.permanent and router.method == Upnp.method
+                else wanted.lease_s
+            ),
         )
         self._write_record()
 
@@ -1212,6 +1243,14 @@ class Mapper:
             self._write_record()
         if report:
             self._report(PortMapped(state="released"))
+
+    def _here(self, router: Router, lan_host: str) -> bool:
+        """Whether this rig is on ``router``'s LAN now, at ``lan_host``: a
+        route lookup, no packet sent (a router with no route is not here)."""
+        try:
+            return router.lan_host() == lan_host and lan_host in self._hosts()
+        except MapError:
+            return False
 
     @staticmethod
     def _give_back(

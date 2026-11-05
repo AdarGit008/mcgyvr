@@ -814,8 +814,9 @@ archived outside this repository, under the same paths.
   `port_forward_permanent` is on; NAT-PMP is never asked for a lifetime of 0
   (that deletes). Every mapping is recorded in `rig-port-forward.json` under
   the data home until it is given back, and an agent that starts gives back
-  what a crashed one left (a permanent one stays on record until its router
-  takes the release). The agent's first line about the forward says what this
+  what a crashed one left, only to a router whose LAN the rig is on now (a
+  rig that moved sends nothing; a permanent one stays on record until its
+  router takes the release, and a full record forgets leased ones first). The agent's first line about the forward says what this
   rig allows, no longer "as agreed on the hub". A rig that relied on the hub's
   consent alone refuses the forward until its owner runs
   `mcgyvr rig share --port-forward`.

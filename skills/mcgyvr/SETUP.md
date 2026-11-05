@@ -264,9 +264,10 @@ on the hub's My rigs page, and on the rig itself, where it is off until `mcgyvr 
 offer the forward, refuses any ask of the hub (reported as `not_allowed`), and the agent's first lines
 say so. No hole is punched through a NAT either way. A forward is given back when the agent stops or the
 owner turns it off (`--no-port-forward`), and recorded until then, so an agent that starts after a crash
-gives back what the one before left. No lease is permanent by default: a router that grants only
-permanent leases is refused (`permanent_only`) unless `mcgyvr rig share --permanent-forward` allows one;
-the hub shows the rule to forward the ports by hand instead.
+gives back what the one before left, to its router only while the rig is on that router's LAN again. No
+lease is permanent by default: a router that grants only permanent leases is refused (`permanent_only`)
+unless `mcgyvr rig share --permanent-forward` allows one; the hub shows the rule to forward the ports by
+hand instead.
 
 ## Use cases and switches
 
