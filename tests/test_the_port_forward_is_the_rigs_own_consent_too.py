@@ -515,3 +515,140 @@ def test_a_record_never_aims_a_router_at_this_host_or_a_link_local_one(
     assert (
         portmap.recall("upnp", {"service": wan, "control": f"http://{host}/c"}) is None
     )
+
+
+# --- a rig that moved gives nothing back to the LAN it is on now ---------------------
+
+
+def _natpmp_entry(lease_s: int) -> dict[str, Any]:
+    return {
+        "method": "natpmp",
+        "address": {"gateway": "192.168.77.1"},
+        "lan_host": "192.168.77.23",
+        "internal": 51820,
+        "external": 52000,
+        "ports": 4,
+        "lease_s": lease_s,
+    }
+
+
+@pytest.mark.parametrize(("lease_s", "kept"), [(3600, 0), (0, 1)])
+def test_a_rig_on_another_lan_sends_nothing_to_the_gateway_it_recorded(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, lease_s: int, kept: int
+) -> None:
+    # Crashed at home (192.168.77.0/24), started at a cafe (10.0.0.5): the
+    # record's gateway address is whatever holds it here, and gets nothing.
+    sent: list[tuple[str, int, int, int]] = []
+
+    def natpmp_map(
+        self: portmap.NatPmp, internal: int, external: int, lease: int
+    ) -> tuple[int, int]:
+        sent.append((self._gateway, internal, external, lease))
+        return external, lease
+
+    monkeypatch.setattr(portmap.NatPmp, "_map", natpmp_map)
+    record = tmp_path / portmap.RECORD_FILE
+    record.write_text(json.dumps({"mappings": [_natpmp_entry(lease_s)]}))
+    portmap.Mapper(
+        send=lambda _: True,
+        tunnel_ports=lambda: (51820, 51821, 51822, 51823),
+        hosts=lambda: ("10.0.0.5",),
+        routers=list,
+        record=record,
+    ).give_back_recorded()
+    assert sent == []
+    # A permanent one waits for the rig to be home again; a leased one ends there.
+    assert len(portmap.read_record(record)) == kept
+
+
+def test_a_permanent_mapping_is_given_back_once_the_rig_is_on_its_lan_again(
+    tmp_path: Path, capsys: pytest.CaptureFixture[str]
+) -> None:
+    record = tmp_path / "data" / portmap.RECORD_FILE
+    upnp = FakeRouter(lease=0)
+    world = World([upnp], consent=PERMANENT)
+    first = recording(world, record, {"upnp": upnp})
+    ask(first, external_port=52000)
+    first.tick()  # the agent dies here, the block mapped for good
+    upnp.host, world.hosts = "10.0.0.5", ("10.0.0.5",)  # the rig moved
+    removed: list[int] = []
+    upnp.remove = lambda **kw: removed.append(kw["external"])  # type: ignore[method-assign]
+    recording(world, record, {"upnp": upnp}).give_back_recorded()
+    assert removed == [] and len(portmap.read_record(record)) == 1
+    assert "gave back 0 of the 1" in capsys.readouterr().err
+    del upnp.remove
+    upnp.host, world.hosts = LAN, (LAN,)  # home again
+    recording(world, record, {"upnp": upnp}).give_back_recorded()
+    assert upnp.held == {} and not record.exists()
+
+
+def test_a_recorded_router_with_no_route_here_is_not_asked(tmp_path: Path) -> None:
+    record = tmp_path / "data" / portmap.RECORD_FILE
+    upnp = FakeRouter(lease=0)
+    world = World([upnp], consent=PERMANENT)
+    first = recording(world, record, {"upnp": upnp})
+    ask(first, external_port=52000)
+    first.tick()
+
+    def no_route() -> str:
+        raise portmap.MapError("no_gateway", "no route")
+
+    upnp.lan_host = no_route  # type: ignore[method-assign]
+    recording(world, record, {"upnp": upnp}).give_back_recorded()
+    assert len(upnp.held) == 4 and len(portmap.read_record(record)) == 1
+
+
+def test_a_natpmp_mapping_is_recorded_leased_even_where_permanent_is_allowed(
+    tmp_path: Path,
+) -> None:
+    # NAT-PMP never grants a permanent lease, so a crash mid-way must not
+    # leave the block on record as one (kept forever if its gateway is away).
+    record = tmp_path / "data" / portmap.RECORD_FILE
+    natpmp = FakeRouter(method="natpmp")
+    seen: list[list[portmap.Recorded]] = []
+
+    def add(*, lan_host: str, internal: int, external: int, lease_s: int) -> int:
+        seen.append(portmap.read_record(record))
+        return FakeRouter.add(
+            natpmp,
+            lan_host=lan_host,
+            internal=internal,
+            external=external,
+            lease_s=lease_s,
+        )
+
+    natpmp.add = add  # type: ignore[method-assign]
+    world = World([natpmp], consent=PERMANENT)
+    mapper = recording(world, record, {"natpmp": natpmp})
+    ask(mapper, external_port=52000)
+    mapper.tick()
+    assert seen and all([r.lease_s for r in found] == [3600] for found in seen)
+
+
+def _recorded_entry(external: int, lease_s: int) -> portmap.Recorded:
+    return portmap.Recorded(
+        method="upnp",
+        address={"name": "upnp"},
+        lan_host=LAN,
+        internal=51820,
+        external=external,
+        ports=4,
+        lease_s=lease_s,
+    )
+
+
+def test_a_full_record_forgets_leased_forwards_first_and_says_a_permanent_one(
+    tmp_path: Path, capsys: pytest.CaptureFixture[str]
+) -> None:
+    record = tmp_path / portmap.RECORD_FILE
+    full = [_recorded_entry(40000 + 10 * i, 0) for i in range(portmap.MAX_RECORDED)]
+    leased = _recorded_entry(30000, 3600)
+    portmap.write_record(record, [leased, *full])
+    assert [r.external for r in portmap.read_record(record)] == [
+        r.external for r in full
+    ]
+    assert capsys.readouterr().err == ""
+    portmap.write_record(record, [*full, _recorded_entry(50000, 0)])
+    kept = [r.external for r in portmap.read_record(record)]
+    assert 40000 not in kept and 50000 in kept and len(kept) == portmap.MAX_RECORDED
+    assert "external port 40000" in capsys.readouterr().err
