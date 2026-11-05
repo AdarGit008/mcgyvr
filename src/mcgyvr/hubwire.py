@@ -289,6 +289,46 @@ FORWARDED_FIELDS: frozenset[str] = frozenset(
 #: rig.
 CHAT_TEMPLATE_KEYS: frozenset[str] = frozenset({"enable_thinking"})
 
+# The bounds a chat request is held to before a unit is asked it: the hub holds a
+# request in clear to them, and a host's agent holds a sealed one it has opened,
+# which the hub cannot read (:func:`mcgyvr.seal.unit_body`).
+
+#: Most messages in one request (and at least one).
+CHAT_MAX_MESSAGES = 1024
+#: Most tools offered in one request, and most tool calls in one message.
+CHAT_MAX_TOOLS = 128
+#: Most stop strings in one request (``stop`` is one string or a list of them).
+CHAT_MAX_STOP = 8
+#: Most alternatives a token's ``top_logprobs`` asks for.
+CHAT_MAX_TOP_LOGPROBS = 20
+#: Longest a message's ``name`` and its ``tool_call_id`` may be.
+CHAT_MAX_NAME = 64
+CHAT_MAX_TOOL_CALL_ID = 128
+#: The roles a message may have.
+MESSAGE_ROLES: tuple[str, ...] = ("system", "developer", "user", "assistant", "tool")
+#: The fields of a message passed on; any other is dropped. ``role`` and ``content``
+#: are required (``content`` may be null), ``content`` is text or a list of parts.
+MESSAGE_FIELDS: tuple[str, ...] = (
+    "role",
+    "content",
+    "name",
+    "tool_calls",
+    "tool_call_id",
+)
+#: The sampling fields held to a range, each with its lowest and highest value and
+#: whether it is a whole number (an ``int``) rather than any number.
+CHAT_RANGES: Mapping[str, tuple[float, float, bool]] = MappingProxyType(
+    {
+        "temperature": (0, 2, False),
+        "top_p": (0, 1, False),
+        "top_k": (0, 1000, True),
+        "min_p": (0, 1, False),
+        "presence_penalty": (-1e6, 1e6, False),
+        "frequency_penalty": (-1e6, 1e6, False),
+        "repeat_penalty": (-1e6, 1e6, False),
+    }
+)
+
 #: The request header naming whose rigs may serve one request; without it the
 #: member's own setting applies.
 SCOPE_HEADER = "x-mcgyvr-scope"

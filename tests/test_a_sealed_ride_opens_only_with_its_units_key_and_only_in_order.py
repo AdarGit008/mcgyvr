@@ -99,7 +99,8 @@ def test_a_unit_key_is_its_public_halfs_id_and_its_shape_is_the_wires() -> None:
     other = seal.HostKey().unit_key
     with pytest.raises(ValueError, match="not the id of this key"):
         seal.SealKey(kid=key.kid, pub=other.pub)
-    for wrong in ({"kid": key.kid}, {**key.wire(), "extra": 1}, "key", None):
+    assert seal.SealKey.of(key.wire() | {"id_pub": "later"}) == key  # left unread
+    for wrong in ({"kid": key.kid}, "key", None):
         with pytest.raises(ValueError):
             seal.SealKey.of(wrong)
 
@@ -292,3 +293,100 @@ def test_the_opened_request_is_held_to_the_hubs_forwarded_fields_and_cap() -> No
             seal.unit_body(wrong, model="m", max_tokens=1, stream=False)
     with pytest.raises(seal.SealError, match="more than one choice"):
         seal.unit_body(whole.dump(_request(n=2)), model="m", max_tokens=1, stream=False)
+
+
+def _unit_body(**more: Any) -> dict[str, Any]:
+    asked = {"model": RIDE, "messages": [{"role": "user", "content": PROMPT}], **more}
+    body = seal.unit_body(whole.dump(asked), model="m", max_tokens=256, stream=False)
+    sent: dict[str, Any] = json.loads(body)
+    return sent
+
+
+_MESSAGE = {"role": "user", "content": PROMPT}
+
+
+@pytest.mark.parametrize(
+    "outside",
+    [
+        {"messages": [_MESSAGE] * (hubwire.CHAT_MAX_MESSAGES + 1)},
+        {"messages": [{"role": "evil", "content": PROMPT}]},
+        {"messages": [{"role": "user"}]},
+        {"messages": [{"role": "user", "content": 7}]},
+        {"messages": [_MESSAGE | {"name": "n" * (hubwire.CHAT_MAX_NAME + 1)}]},
+        {"messages": [_MESSAGE | {"tool_calls": [{}] * (hubwire.CHAT_MAX_TOOLS + 1)}]},
+        {"tools": [{"type": "function"}] * (hubwire.CHAT_MAX_TOOLS + 1)},
+        {"stop": ["s"] * (hubwire.CHAT_MAX_STOP + 1)},
+        {"stop": [1]},
+        {"logprobs": True, "top_logprobs": hubwire.CHAT_MAX_TOP_LOGPROBS + 1},
+        {"logprobs": "yes"},
+        {"temperature": 2.5},
+        {"temperature": float("nan")},
+        {"top_k": 1.5},
+        {"top_k": -5},
+        {"min_p": "abc"},
+        {"presence_penalty": 1e300},
+        {"seed": "x"},
+        {"max_tokens": 0},
+        {"max_completion_tokens": True},
+        {"response_format": "json"},
+        {"tool_choice": 1},
+        {"stream_options": []},
+        {"chat_template_kwargs": {"enable_thinking": "{{ 7*7 }}"}},
+        {"n": 1.0},
+        {"n": True},
+    ],
+)
+def test_an_opened_request_outside_the_hubs_bounds_is_refused(
+    outside: dict[str, Any],
+) -> None:
+    """Each bound the hub holds a request in clear to (hubwire's ``CHAT_*``,
+    ``MESSAGE_ROLES``, ``CHAT_RANGES``), held by the agent to an opened one."""
+    with pytest.raises(seal.SealError):
+        _unit_body(**outside)
+
+
+def test_an_opened_request_at_the_bounds_passes_its_messages_without_extra_keys() -> (
+    None
+):
+    at = {
+        "messages": [_MESSAGE | {"prefix": True, "reasoning_content": "r"}]
+        + [_MESSAGE] * (hubwire.CHAT_MAX_MESSAGES - 1),
+        "tools": [{"type": "function"}] * hubwire.CHAT_MAX_TOOLS,
+        "stop": ["s"] * hubwire.CHAT_MAX_STOP,
+        "logprobs": True,
+        "top_logprobs": hubwire.CHAT_MAX_TOP_LOGPROBS,
+        "temperature": 2,
+        "top_k": 1000,
+        "min_p": 0.0,
+        "seed": -1,
+        "n": 1,
+        "chat_template_kwargs": {"enable_thinking": False},
+    }
+    sent = _unit_body(**at)
+    assert sent["messages"][0] == _MESSAGE
+    assert all(set(m) <= set(hubwire.MESSAGE_FIELDS) for m in sent["messages"])
+    assert sent["top_logprobs"] == hubwire.CHAT_MAX_TOP_LOGPROBS
+    for role in hubwire.MESSAGE_ROLES:
+        assert _unit_body(messages=[{"role": role, "content": None}])["messages"]
+
+
+def test_a_host_key_loads_no_cipher_until_a_unit_is_advertised_or_a_ride_opened() -> (
+    None
+):
+    """``rig up`` makes the run's key on every rig; one hosting nothing never
+    advertises a unit, so it never loads ``cryptography``."""
+    import subprocess
+    import sys
+
+    probe = (
+        "import sys\n"
+        "from mcgyvr import seal\n"
+        "key = seal.HostKey()\n"
+        "before = 'cryptography' in sys.modules\n"
+        "key.unit_key\n"
+        "print(before, 'cryptography' in sys.modules)\n"
+    )
+    out = subprocess.run(
+        [sys.executable, "-c", probe], capture_output=True, text=True, check=True
+    )
+    assert out.stdout.split() == ["False", "True"]

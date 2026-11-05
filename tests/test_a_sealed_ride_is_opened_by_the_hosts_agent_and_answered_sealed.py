@@ -34,7 +34,9 @@ from tests.relays import _ride_body as _clear_body
 CAP = 64
 
 
-def _forwarded(key: seal.SealKey, *, stream: bool) -> tuple[bytes, seal.AnswerOpener]:
+def _forwarded(
+    key: seal.SealKey, *, stream: bool, **more: Any
+) -> tuple[bytes, seal.AnswerOpener]:
     """The body the hub relays for a sealed ride, and the rider's opener."""
     asked = whole.asking(
         {
@@ -42,6 +44,7 @@ def _forwarded(key: seal.SealKey, *, stream: bool) -> tuple[bytes, seal.AnswerOp
             "messages": [{"role": "user", "content": RIDE_PROMPT}],
             "max_tokens": 5000,
             "grammar": "root ::= x",
+            **more,
         }
     )
     sealed, opener = seal.seal_request(asked, key)
@@ -174,6 +177,34 @@ def test_a_sealed_ride_the_agent_cannot_open_ends_bad_seal_and_reaches_no_unit(
     tampered["sealed"]["ct"] = ("B" if ct[0] == "A" else "A") + ct[1:]
     host.ride(json.dumps(tampered).encode(), request_id="q2")
     assert host.ended("q2")["error_code"] == "bad_seal"
+    assert host.unit.seen == []
+
+
+def test_a_sealed_ride_outside_the_hubs_bounds_ends_bad_seal_and_reaches_no_unit(
+    host: Host, key: seal.HostKey
+) -> None:
+    """The hub cannot hold a sealed request to the bounds it holds one in clear
+    to, so the agent does: what a stranger could not hand a host in clear, it
+    cannot hand it sealed. (The message counts past the bound are the seal
+    module's tests: one frame here carries the whole ride.)"""
+    hostile = {
+        "messages": [
+            {"role": "evil", "content": RIDE_PROMPT, "prefix": True},
+            {"role": "user", "content": "x"},
+        ],
+        "tools": [{}] * (hubwire.CHAT_MAX_TOOLS + 1),
+        "stop": ["s"] * (hubwire.CHAT_MAX_STOP + 1),
+        "logprobs": True,
+        "top_logprobs": 100000,
+        "temperature": 1e300,
+        "top_k": -5,
+        "min_p": "abc",
+        "seed": "x",
+        "chat_template_kwargs": {"enable_thinking": "{{ 7*7 }}"},
+    }
+    body, _ = _forwarded(key.unit_key, stream=False, **hostile)
+    host.ride(body)
+    assert host.ended()["error_code"] == "bad_seal"
     assert host.unit.seen == []
 
 
