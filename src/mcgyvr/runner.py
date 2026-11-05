@@ -44,6 +44,7 @@ from mcgyvr.fleet.harness import (
     slots_in_flight,
 )
 from mcgyvr.hubwire import (
+    INVALID_REQUEST,
     MODEL_NOT_FOUND,
     MODEL_UNPLACED,
     OUT_OF_SCOPE,
@@ -978,9 +979,25 @@ def sealed_for(
     (:func:`mcgyvr.seal.seal_request`): the hub carries the request and its answer
     without reading either. Any other endpoint is asked the payload as it is, with
     no opener.
+
+    The hub cannot hold a sealed payload to the bounds it holds one in clear to,
+    so it is held to them here first (:func:`mcgyvr.seal.held_to_bounds`, the
+    host's agent's check too): one outside them raises `BackendError` as the hub's
+    ``400 invalid_request`` would, and is never sent, so it cannot read as a stale
+    key at the host and hold the rung out.
     """
     if endpoint.seal is None:
         return payload, None
+    try:
+        seal.held_to_bounds(payload)
+    except seal.SealError as exc:
+        status, code = INVALID_REQUEST
+        raise BackendError(
+            f"the request to relief rung {endpoint.source!r} is outside the bounds "
+            f"the hub holds a request to: {exc}",
+            status=status,
+            code=code,
+        ) from exc
     return seal.seal_request(payload, endpoint.seal)
 
 

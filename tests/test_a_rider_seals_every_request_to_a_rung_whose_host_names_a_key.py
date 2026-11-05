@@ -31,12 +31,19 @@ from typing import Any
 import pytest
 import yaml
 
-from mcgyvr import config, hubwire, seal, whole
+from mcgyvr import config, hubwire, runner, seal, whole
 from mcgyvr.capacity import Capacity
 from mcgyvr.config import ConfigError, parse
 from mcgyvr.local_pool import source_map
 from mcgyvr.rig import rungs
-from mcgyvr.runner import ProtocolError, ReliefUnavailableError, Request, dispatch
+from mcgyvr.runner import (
+    BackendError,
+    ProtocolError,
+    ReliefUnavailableError,
+    Request,
+    dispatch,
+    sealed_for,
+)
 from tests.rungs import KEY, RIDE, RUNG_ID, error
 
 PROMPT = "the rider's own secret prompt"
@@ -209,6 +216,32 @@ def test_a_stale_key_is_a_full_rung_held_out_for_the_run_and_said_once(
     fresh = seal.HostKey()  # a sync writes the new key: the rung is asked again
     with hosting(fresh, seen) as address:
         assert ask(address, fresh.unit_key, tmp_path).text == ANSWER
+
+
+def test_a_request_outside_the_bounds_is_refused_here_as_the_hub_would(
+    tmp_path: Path,
+) -> None:
+    """The hub cannot check a sealed request, so the rider holds it to the
+    bounds first: one outside them is the ``400 invalid_request`` the clear
+    path would get, never sent, so the host's ``bad_seal`` (the backstop) cannot
+    come back as a stale key and hold the rung out."""
+    key = seal.HostKey()
+    endpoint = source_map(parse(setup("http://127.0.0.1:9/v1", key.unit_key))).bind(
+        RIDE
+    )
+    asked = {"model": "m", "messages": [{"role": "user", "content": PROMPT}]}
+    for outside in (
+        {"temperature": 5},
+        {"messages": [{"role": "evil", "content": PROMPT}]},
+        {"logprobs": True, "top_logprobs": hubwire.CHAT_MAX_TOP_LOGPROBS + 1},
+    ):
+        with pytest.raises(BackendError) as refused:
+            sealed_for(endpoint, asked | outside)
+        assert (refused.value.status, refused.value.code) == hubwire.INVALID_REQUEST
+        assert "outside the bounds" in str(refused.value)
+    assert (RIDE, key.kid) not in runner._STALE_KEYS  # the rung is not held out
+    sent, _ = sealed_for(endpoint, asked)  # in bounds: sealed as before
+    assert PROMPT not in json.dumps(sent)
 
 
 # --- a sync keeps the key, and only a key of its shape -------------------------------

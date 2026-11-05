@@ -223,6 +223,9 @@ MODEL_NOT_FOUND = api_error("model_not_found")
 #: No unit holds the key a sealed request was sealed to: its host's agent started
 #: again since the rider's last sync, with a new key.
 SEAL_KEY_UNKNOWN = api_error("seal_key_unknown")
+#: A request the hub refuses as malformed or outside its bounds; a rider seals
+#: none such, refusing it itself as the hub would (:func:`mcgyvr.runner.sealed_for`).
+INVALID_REQUEST = api_error("invalid_request")
 #: The pool the request is served from has no slot for it now: a full pool,
 #: not a broken unit.
 POOL_BUSY = api_error("pool_busy")
