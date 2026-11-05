@@ -69,9 +69,10 @@ What the gate and delivery do with code from a rung that is not yours:
 1. **It never runs with a network.** In `sandbox.mode: docker` it runs in a
    second task container started with `--network none`, whatever
    `sandbox.network` says (`none` included), with no capabilities
-   (`--cap-drop ALL`), no gaining privileges (`no-new-privileges`) and a `/tmp`
-   in memory, started again before every lent try after its first, so what one
-   host's code leaves in `/tmp` or running is gone before the next host's runs.
+   (`--cap-drop ALL`), no gaining privileges (`no-new-privileges`), a read-only
+   root and a `/tmp` and `/var/tmp` in memory, started again before every lent
+   try after its first, so what one host's code leaves outside the workspace
+   (which every try resets) or running is gone before the next host's runs.
    Your own rungs' code keeps the task's own container, which never runs a
    stranger's code. In the `tempdir` sandbox (by name, or as
    the fallback) it would run on this host, so a try on such a rung is declined

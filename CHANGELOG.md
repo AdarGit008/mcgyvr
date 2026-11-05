@@ -807,13 +807,15 @@ archived outside this repository, under the same paths.
   `Endpoint.whose`); every attempt and the run's result record it as `whose`
   (`own`, `crew`, `anyone`). In `sandbox.mode: docker` such a try runs in a
   second task container started with `--network none`, whatever
-  `sandbox.network` says (`none` included), `--cap-drop ALL`, `no-new-privileges`
-  and a `/tmp` in memory (`CONFINED_ARGS`), while your own rungs' code keeps
+  `sandbox.network` says (`none` included), `--cap-drop ALL`, `no-new-privileges`,
+  `--read-only` and a `/tmp` and `/var/tmp` in memory (`CONFINED_ARGS`), while
+  your own rungs' code keeps
   the task's own container, which never runs a stranger's code
   (`Sandbox.confine`, `mcgyvr.sandbox.base.confine_for`); the second
   container costs one `docker run` (about 1 s here) the first time a task
   rides, and a `docker restart` (about 1 s) before each later lent try, so
-  nothing one host's code leaves in `/tmp` or running is there for the next;
+  nothing one host's code leaves outside the workspace or running is there for
+  the next;
   a switch back to your own rungs costs nothing. In the `tempdir`
   sandbox, by name or as the fallback, a try on such a rung is declined before
   anything is sent, the refusal naming `sandbox.lent_code_on_host`, the list of

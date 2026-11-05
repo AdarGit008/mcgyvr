@@ -117,10 +117,11 @@ class DockerSandbox(Sandbox):
 
     Code from a rung that is not yours runs in a second container over the same
     workspace — whatever `network` says, `none` included — one with no
-    network, no capabilities, no new privileges and a `/tmp` of its own in
-    memory (:data:`CONFINED_ARGS`). It is started the first time `confine` asks
-    for it, started again before each later lent try, so nothing one host's
-    code leaves in `/tmp` or running is there for the next one's, and kept
+    network, no capabilities, no new privileges, a read-only root and a `/tmp`
+    and `/var/tmp` of its own in memory (:data:`CONFINED_ARGS`). It is started
+    the first time `confine` asks for it, started again before each later lent
+    try, so nothing one host's code leaves outside the workspace (which every
+    try resets) or running is there for the next one's, and kept
     until `_stop`: the task's own container never runs that code, and the one
     that does never has a network. Switching back to your own rungs is a choice
     of container rather than a container started again.
@@ -243,8 +244,10 @@ class DockerSandbox(Sandbox):
                     self._restart_confined()
             except SandboxError as exc:
                 # Its name stays for the reap; every later ask is refused
-                # with the same words rather than sent to it.
+                # with the same words rather than sent to it, and no command
+                # goes to it in the meantime.
                 self._unconfinable = str(exc)
+                self._lent = False
                 raise
             self._confined_used = True
         self._lent = lent
@@ -434,15 +437,21 @@ class DockerSandbox(Sandbox):
 #: What the container that runs code from a rung not yours is started with on
 #: top of the task's own arguments, as `mcgyvr.rig.pooled` hardens the engine
 #: a host serves strangers from: no capabilities, no gaining privileges, and a
-#: `/tmp` in memory that a restart empties (`exec`, so a command that runs a
-#: script it wrote there runs as it would in the task's container).
+#: read-only root whose only writable places outside the workspace and its
+#: seeded volumes are a `/tmp` and a `/var/tmp` in memory, which a restart
+#: empties — a restart keeps a container's writable layer, so without
+#: `--read-only` a file left in `/var/tmp` would outlive it. `exec`, so a
+#: command that runs a script it wrote there runs as in the task's container.
 CONFINED_ARGS: tuple[str, ...] = (
     "--cap-drop",
     "ALL",
     "--security-opt",
     "no-new-privileges=true",
+    "--read-only",
     "--tmpfs",
     "/tmp:rw,exec,mode=1777",
+    "--tmpfs",
+    "/var/tmp:rw,exec,mode=1777",
 )
 
 

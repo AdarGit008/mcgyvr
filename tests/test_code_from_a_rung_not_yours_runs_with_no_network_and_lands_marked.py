@@ -158,7 +158,7 @@ def test_docker_runs_code_not_yours_in_a_second_container_with_no_network(
     assert _network(confined) == "none"
     assert not any(token.startswith(ENDPOINTS_ENV) for token in confined)
     # Hardened as the engine a host serves strangers from is, /tmp in memory.
-    for flag in ("--cap-drop", "--security-opt", "--tmpfs"):
+    for flag in ("--cap-drop", "--security-opt", "--read-only", "--tmpfs"):
         assert flag in confined and flag not in own, flag
     assert " ".join(CONFINED_ARGS) in " ".join(confined)
     assert execs == [_name(confined)], "the lent code ran in the task's container"
@@ -241,10 +241,12 @@ def test_a_container_that_will_not_restart_passes_later_lent_rungs_over(
         sandbox.run(["true"])
         refused = confine_for(sandbox, "lent", "anyone")
         assert refused is not None and "restart failed" in refused, refused
+        # A stray command is not sent to the container that did not restart.
+        sandbox.run(["true"])
         assert confine_for(sandbox, "mine", "own") is None
         sandbox.run(["true"])
     own, confined = daemon.started()
-    assert execs == [_name(confined), _name(own)]
+    assert execs == [_name(confined), _name(own), _name(own)]
 
 
 class _NoNoneNetwork(_Daemon):
@@ -348,6 +350,7 @@ def test_a_lent_rung_in_the_tempdir_sandbox_is_declined_before_it_is_sent(
     assert attempt["whose"] == "crew"
     # The halt names the remedy — the sandbox — not the ladder.
     assert result["outcome"] == "declined_throughout", result
+    assert "serves code that is not yours" in result["detail"], result
     assert "`sandbox.lent_code_on_host`" in result["detail"], result
     assert "`sandbox.mode: docker`" in result["detail"], result
     assert lj.git(repo, "rev-parse", "HEAD").strip() == head
@@ -589,8 +592,14 @@ def test_a_branch_named_like_the_lent_prefix_is_refused_with_the_way_out(
     assert _checkout(work) == before
 
 
-def test_a_branch_under_the_lent_name_is_stepped_past(work: Path) -> None:
-    lj.git(work, "branch", "mcgyvr/fetch-retry/old")
+@pytest.mark.parametrize(
+    ("ref", "kind"),
+    [("mcgyvr/fetch-retry/old", "branch"), ("mcgyvr/fetch-retry", "tag")],
+)
+def test_a_branch_under_the_lent_name_or_a_tag_of_it_is_stepped_past(
+    work: Path, ref: str, kind: str
+) -> None:
+    lj.git(work, kind, ref)
     result = _lend(work, "One.")
     assert result.committed, result.reason
     assert result.branch == "mcgyvr/fetch-retry-2"

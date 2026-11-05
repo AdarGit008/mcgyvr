@@ -713,21 +713,27 @@ def _unused(root: Path, away: str) -> tuple[str, str]:
     the new one holds the judged change and nothing else. A name is taken when
     a branch has it or has it as a directory (``<away>/x``); a branch named
     after one of `away`'s own directories (``mcgyvr`` for ``mcgyvr/<id>``)
-    leaves git no such name at all, and is handed back to be named.
+    leaves git no such name at all, and is handed back to be named. A tag of
+    a candidate's name passes it over as well.
     """
-    taken = {
-        line.strip().removeprefix("refs/heads/")
-        for line in _git(
-            root, "for-each-ref", "--format=%(refname)", "refs/heads/"
-        ).splitlines()
-    }
+    refs = _git(
+        root, "for-each-ref", "--format=%(refname)", "refs/heads/", "refs/tags/"
+    ).splitlines()
+    taken = {r.removeprefix("refs/heads/") for r in refs if r.startswith("refs/heads/")}
+    # A tag of the same name is stepped past too: `mcgyvr/<id>` would then be
+    # ambiguous to the `git push` the run prints.
+    tags = {r.removeprefix("refs/tags/") for r in refs if r.startswith("refs/tags/")}
     parts = away.split("/")
     for depth in range(1, len(parts)):
         if (blocker := "/".join(parts[:depth])) in taken:
             return "", blocker
 
     def free(name: str) -> bool:
-        return name not in taken and not any(t.startswith(f"{name}/") for t in taken)
+        return (
+            name not in taken
+            and name not in tags
+            and not any(t.startswith(f"{name}/") for t in taken)
+        )
 
     candidates = itertools.chain((away,), (f"{away}-{n}" for n in itertools.count(2)))
     return next(name for name in candidates if free(name)), ""

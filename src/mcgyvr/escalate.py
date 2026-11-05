@@ -1277,12 +1277,13 @@ def _halt_detail(
         and all(kept_off(a.detail) for a in tried)
     ):
         # Every rung was one whose code is not yours, and the sandbox could not
-        # keep it off the network: the remedy is the sandbox, not the ladder.
+        # keep it off the network: the remedy is the sandbox, not the ladder,
+        # and the last rung's own reason says which (a temp-directory sandbox,
+        # or a container with no network that did not start).
         return (
             f"every rung of {climbed} serves code that is not yours, and this "
-            f"task's sandbox cannot run it with no network, so none was sent. Run "
-            f"in a container (`sandbox.mode: docker`, with a daemon that answers), "
-            f"or list this repository under `sandbox.lent_code_on_host`."
+            f"task's sandbox could not run it with no network, so none was "
+            f"sent: {tried[-1].detail}"
         )
     if outcome is Outcome.DECLINED_THROUGHOUT:
         return (
@@ -1430,10 +1431,10 @@ def disposition(outcome: Outcome, *, replans: int = 0) -> Disposition:
                     "ladder claims the contract. Nothing dearer is being "
                     "withheld; what is missing is a rung that accepts this "
                     "work, or a contract the bound rungs recognise — or, when "
-                    "every rung's code is not yours and the sandbox cannot "
-                    "keep it off the network, a container to run it in "
-                    "(`sandbox.mode: docker`) or this repository listed under "
-                    "`sandbox.lent_code_on_host`."
+                    "every rung's code is not yours and the sandbox could not "
+                    "keep it off the network, a container with no network "
+                    "that starts (`sandbox.mode: docker`) or this repository "
+                    "listed under `sandbox.lent_code_on_host`."
                 ),
             )
         case Outcome.ERROR:
