@@ -14,6 +14,13 @@ the repository. `skills/mcgyvr/SKILL.md` (`/mcgyvr <prompt>`) and
 vocabulary) say how a session drives each; how a setup is written is in
 `skills/mcgyvr/SETUP.md`.
 
+## Privacy
+
+By default your prompts run only on your own rigs or your crew's, and a stranger's rig serves you only if you opt in (ride_scope / serve_scope anyone) and the hub's admin has approved that host; whoever runs your prompt can read it and the answer, and the hub can read requests it routes to pool units but not rides your mcgyvr client seals end to end to the host key; nothing but who asked, whose rig answered, which model, how many tokens and when is kept after the answer; every rig is pinned to its identity key; a rig forwards a port only with its owner's consent on the rig; your docker units listen on this machine alone unless you expose them behind a key; and code you accept from a host runs on your machine with no network access.
+
+Before you ride, the hub's hitchhike page warns that each rung's host reads
+your prompts and the answers; [`SECURITY.md`](SECURITY.md) has the detail.
+
 ## Install
 
 Linux and macOS:

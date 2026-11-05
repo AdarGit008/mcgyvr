@@ -926,6 +926,14 @@ archived outside this repository, under the same paths.
 
 ### Security
 
+- **The README says, in one sentence, what the privacy + security program
+  makes true** (`## Privacy`; the hub's README carries the same line): whose
+  rigs run your prompts by default, who can read a prompt and its answer, that
+  a ride your client seals is unread by the hub, what is kept after the answer
+  (who asked, whose rig answered, which model, how many tokens and when; never
+  the text), identity-key pinning, port-forward consent on the rig, docker
+  units on loopback unless exposed behind a key, and no network for code a
+  host returns. `SECURITY.md` has the detail.
 - **A rig forwards its UDP ports only when its owner allowed it on the rig
   too, and never takes a permanent lease unasked.** The lending settings gain
   `port_forward` and `port_forward_permanent` (`rig-sharing.json`, both off;
