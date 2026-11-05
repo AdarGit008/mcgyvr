@@ -7,10 +7,9 @@ a general-pool unit of the same model by the scope header
 request to it, the runner's and Jev's alike, names it beside the use case.
 
 * A unit of your fleet is ``own`` unless it says otherwise.
-* A relief rung keeps the scope ``mcgyvr rig rungs sync`` writes. The hub
-  matched the rung to you under your own serve scope and hands a ride only to
-  rungs you are matched to, so the sync writes the scope that keeps the hub's
-  match the only filter: ``anyone``.
+* A relief rung's requests name the narrower of the scope ``mcgyvr rig rungs
+  sync`` writes and the setup's ``ride_scope`` (unset ``crew``); the sync
+  writes ``ride_scope`` itself, so the hub refuses a host outside it.
 * The header goes out through ``runner.request_headers`` alone.
 
 No request leaves the process: the transport is replaced, and what it was

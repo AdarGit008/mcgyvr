@@ -751,7 +751,11 @@ def _rungs_sync(args: argparse.Namespace) -> int:
         # checked before the hub is asked, written once its answer is kept
         try:
             change = policy_line.rewrite(folder, "ride_scope", wanted)
-            policy_line.loads_with(change)
+            try:
+                policy_line.loads_with(change)
+            except ConfigError:
+                # as the sync reads it: relief.yaml is what it rewrites
+                policy_line.loads_with(change, relief_kept=False)
         except (OSError, UnicodeDecodeError) as exc:
             print(f"error: cannot read {folder}: {exc}", file=sys.stderr)
             return int(Exit.ERROR)

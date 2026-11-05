@@ -31,7 +31,7 @@ def _line(key: str) -> re.Pattern[str]:
     line), its value (bare, quoted or empty) and whatever follows the value on
     the line, a comment and a CR included."""
     return re.compile(
-        rf"^(?P<key>﻿?{re.escape(key)}:[ \t]*)"
+        rf"^(?P<key>\ufeff?{re.escape(key)}:[ \t]*)"
         r"(?P<value>\"[^\"\n]*\"|'[^'\n]*'|[^\s#]*)"
         r"(?P<rest>[^\n]*)$",
         re.MULTILINE,
@@ -78,20 +78,25 @@ def rewrite(setup: Path, key: str, value: str) -> Rewrite:
     return Rewrite(setup=setup, target=target, before=before, text=rewritten)
 
 
-def loads_with(change: Rewrite) -> Config:
-    """The setup as it loads with the rewritten text. Raises `ConfigError`
-    when it would not, and OSError or UnicodeDecodeError on a file that
-    cannot be read."""
+def loads_with(change: Rewrite, *, relief_kept: bool = True) -> Config:
+    """The setup as it loads with the rewritten text (without `relief.yaml`
+    when not `relief_kept`: a sync rewrites it). Raises `ConfigError` when it
+    would not, and OSError or UnicodeDecodeError on a file that cannot be
+    read."""
     setup = change.setup
     if setup.is_file():
         return parse(change.text, path=setup.resolve().parent)
-    relief = setup / RELIEF_FILENAME
+    relief = setup / RELIEF_FILENAME if relief_kept else None
     crew = setup / CREW_FILENAME
     return parse(
         (setup / FLEET_FILENAME).read_text(encoding="utf-8"),
         change.text,
         path=setup,
-        relief_text=relief.read_text(encoding="utf-8") if relief.exists() else "",
+        relief_text=(
+            relief.read_text(encoding="utf-8")
+            if relief is not None and relief.exists()
+            else ""
+        ),
         crew_text=crew.read_text(encoding="utf-8") if crew.exists() else "",
     )
 
