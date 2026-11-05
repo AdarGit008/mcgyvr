@@ -174,6 +174,7 @@ def _fleet_key(args: argparse.Namespace) -> int:
     from mcgyvr.config import EXPOSE_LAN, ConfigError
     from mcgyvr.config import load as load_config
     from mcgyvr.exits import Exit
+    from mcgyvr.serving import exposure
 
     try:
         config = load_config(Path(args.config) if args.config else None)
@@ -184,9 +185,10 @@ def _fleet_key(args: argparse.Namespace) -> int:
     if unit is None or unit.relief or unit.crew:
         print(f"error: no unit of your fleet is named {args.unit!r}", file=sys.stderr)
         return Exit.ERROR
-    if unit.expose != EXPOSE_LAN:
+    exposed = exposure(unit.expose, address=unit.address, launcher=unit.launcher)
+    if exposed != EXPOSE_LAN:
         print(
-            f"refused: {args.unit} is expose: {unit.expose}, so it listens on "
+            f"refused: {args.unit} is expose: {exposed}, so it listens on "
             "127.0.0.1 alone and asks for no key; state `expose: lan` on it and "
             "run `mcgyvr emit` to give it one",
             file=sys.stderr,

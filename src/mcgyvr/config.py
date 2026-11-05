@@ -546,15 +546,15 @@ UNIT_FIELDS: tuple[Field, ...] = (
         "`unit-keys/<host>-<port>.env` in the data folder, handed to the server "
         "through its compose file's `env_file` (never written into the compose "
         "file or `fleet.yaml`) and sent by mcgyvr's own requests to the unit; "
-        "`mcgyvr fleet key <unit>` prints it for a client of your own. A unit "
-        "on another machine that mcgyvr here dials needs `lan`. A `--host` the "
-        "unit's own args state, or a `LLAMA_ARG_HOST` its env states, is "
+        "`mcgyvr fleet key <unit>` prints it for a client of your own. A `--host` "
+        "the unit's own args state, or a `LLAMA_ARG_HOST` its env states, is "
         "kept as stated. A docker unit only: a native one listens on 127.0.0.1 "
         "alone, and a pooled rpc worker on its tunnel address. Absent means "
-        "`local`.",
-        default=EXPOSE_LOCAL,
+        "`local` for a unit whose address names this machine (localhost, "
+        "127.0.0.1, ::1) or that runs native, and `lan` for one whose address "
+        "names another host, which is the only way that address reaches it.",
         choices=EXPOSES,
-        bind_hint="e.g. lan -- leave it out for this machine alone",
+        bind_hint="e.g. local -- leave it out to follow the unit's address",
     ),
     Field(
         "api_key_env",
@@ -1409,8 +1409,10 @@ class Unit:
     role: str = ROLE_ALWAYS_ON
     #: `docker`, or `native` for the pinned llama.cpp binary mcgyvr supervises.
     launcher: str = LAUNCHER_DOCKER
-    #: `local` (127.0.0.1), or `lan` for every interface behind a key mcgyvr makes.
-    expose: str = EXPOSE_LOCAL
+    #: `local` (127.0.0.1) or `lan` (every interface, behind a key mcgyvr makes),
+    #: as the unit states it; None when it states neither, and then
+    #: `mcgyvr.serving.exposure` reads it off the address.
+    expose: str | None = None
     launch: Mapping[str, Any] = field(default_factory=dict)
     #: The slots riders from the hub may use on this unit at once, as
     #: `rider_slots.<name>` states it and always below the unit's `width`, so
@@ -2388,7 +2390,7 @@ def _build(
             sampling=block.get("sampling") or "request",
             role=block.get("role") or ROLE_ALWAYS_ON,
             launcher=block.get("launcher") or LAUNCHER_DOCKER,
-            expose=block.get("expose") or EXPOSE_LOCAL,
+            expose=block.get("expose"),
             launch=block["launch"],
             rider_slots=(data["rider_slots"] or {}).get(name, 0),
             scope=block["scope"],

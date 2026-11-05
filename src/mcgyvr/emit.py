@@ -52,6 +52,7 @@ from mcgyvr.serving import (
     Unit,
     UnitKey,
     Width,
+    exposure,
     host_of,
     kernelcache,
     launch_specs,
@@ -532,8 +533,9 @@ def _service(unit: Unit, *, sleep_mode: bool = False) -> dict[str, object]:
     # the unit states its own. A unit whose argv states `--host` keeps the
     # `0.0.0.0` it was always rendered with (the flag wins over the variable,
     # so the flag is what it listens on); one whose env states `HOST_ENV` is
-    # given no value to disagree with, and its own stands.
-    if any(key.upper() == HOST_ENV for key in unit.env):
+    # given no value to disagree with, and its own stands. The name is matched
+    # exactly, as Linux reads a variable's name.
+    if HOST_ENV in unit.env:
         host_env: dict[str, str] = {}
     elif llamacpp.stated_hosts(argv(unit)):
         host_env = {HOST_ENV: ANY_ADDRESS}
@@ -594,59 +596,106 @@ def states_host(unit: Unit) -> bool:
     unit is rendered as it states, and `expose` decides only its key."""
     if unit.engine == "vllm":
         return HOST_FLAG in unit.args or bool(llamacpp.stated_hosts(unit.extra))
-    return any(key.upper() == HOST_ENV for key in unit.env) or bool(
-        llamacpp.stated_hosts(argv(unit))
-    )
+    return HOST_ENV in unit.env or bool(llamacpp.stated_hosts(argv(unit)))
+
+
+def listening(unit: Unit) -> str:
+    """Where a container's server listens as it is rendered: the last `--host`
+    its argv states (the flag wins over `HOST_ENV`), else for llama.cpp the
+    `HOST_ENV` its env states, else what `expose` names (`listens_on`)."""
+    hosts = llamacpp.stated_hosts(argv(unit))
+    if hosts:
+        return hosts[-1]
+    if unit.engine != "vllm" and HOST_ENV in unit.env:
+        return unit.env[HOST_ENV]
+    return listens_on(unit)
 
 
 def listens_beyond_loopback(unit: Unit) -> bool:
-    """Whether a unit that states its own host (`states_host`) names one other
-    than `LOOPBACK`: its `--host`, or for llama.cpp the `HOST_ENV` its env
-    states."""
-    hosts = llamacpp.stated_hosts(argv(unit))
-    if unit.engine != "vllm":
-        hosts += [v for k, v in unit.env.items() if k.upper() == HOST_ENV]
-    return any(host != LOOPBACK for host in hosts)
+    """Whether the unit listens on an address other than this machine's own
+    (`LOCAL_RIGS`), as it is rendered (`listening`)."""
+    return listening(unit) not in LOCAL_RIGS
 
 
-def locked_keyed(fleet: Mapping[str, Any]) -> tuple[tuple[str, str, int], ...]:
+#: Where each engine listens when its launch states no host: llama-server's
+#: `hostnames` default is 127.0.0.1 (common/common.h at b11960), and vLLM's
+#: `host` default None is every interface.
+_UNSTATED_HOST = {"llama.cpp": LOOPBACK, "vllm": ANY_ADDRESS}
+
+
+def locked_listening(block: Mapping[str, Any]) -> str:
+    """Where a locked unit listens, as its lock states it: the last `--host` of
+    its `launch.argv`, else for llama.cpp the `HOST_ENV` of its `launch.env`,
+    else where its engine listens when told nothing (`_UNSTATED_HOST`)."""
+    launch = block.get("launch") or {}
+    stated = launch.get("argv") if isinstance(launch, Mapping) else None
+    env = launch.get("env") if isinstance(launch, Mapping) else None
+    hosts = llamacpp.stated_hosts([str(part) for part in stated or ()])
+    if hosts:
+        return hosts[-1]
+    engine = str(block.get("engine") or "llama.cpp")
+    if engine != "vllm" and isinstance(env, Mapping) and HOST_ENV in env:
+        return str(env[HOST_ENV])
+    return _UNSTATED_HOST.get(engine, LOOPBACK)
+
+
+def _locked_serves(block: object) -> bool:
+    """Whether a locked fleet's unit block is a server in a container: not native,
+    not an rpc worker."""
+    return (
+        isinstance(block, Mapping)
+        and block.get("launcher") != LAUNCHER_NATIVE
+        and block.get("role") != ROLE_RPC
+    )
+
+
+def locked_exposed(block: Mapping[str, Any]) -> bool:
+    """Whether a locked unit's server asks for a key: a server in a container
+    whose exposure (`mcgyvr.serving.exposure`, from what it states or else its
+    address) is `lan`."""
+    return _locked_serves(block) and (
+        exposure(
+            block.get("expose"),
+            address=block.get("address"),
+            launcher=block.get("launcher"),
+        )
+        == EXPOSE_LAN
+    )
+
+
+def locked_keyed(
+    fleet: Mapping[str, Any],
+) -> tuple[tuple[str, str, int, str], ...]:
     """The units of a locked fleet whose server asks for a key, as (name, host,
-    port): a unit in a container, not a worker, that states `expose: lan`."""
-    keyed: list[tuple[str, str, int]] = []
+    port, where it listens): `locked_exposed`, with an address to keep the key
+    for."""
+    keyed: list[tuple[str, str, int, str]] = []
     for name, block in sorted((fleet.get("units") or {}).items()):
         if (
             isinstance(block, Mapping)
-            and block.get("expose") == EXPOSE_LAN
-            and block.get("launcher") != LAUNCHER_NATIVE
-            and block.get("role") != ROLE_RPC
+            and locked_exposed(block)
             and isinstance(block.get("address"), str)
         ):
             address = str(block["address"])
-            keyed.append((str(name), host_of(address), port_of(address)))
+            keyed.append(
+                (str(name), host_of(address), port_of(address), locked_listening(block))
+            )
     return tuple(keyed)
 
 
 def locked_open(fleet: Mapping[str, Any]) -> tuple[tuple[str, str], ...]:
-    """The units of a locked fleet whose lock has them listen beyond the loopback
-    with no key, as (name, the address stated): a docker unit whose
-    `launch.argv` states a `--host`, or whose `launch.env` a `HOST_ENV`, other
-    than `LOOPBACK`, and which does not state `expose: lan`. A lock written
-    before units listened on the loopback by default states `0.0.0.0`."""
+    """The units of a locked fleet whose lock has them listen beyond this machine
+    with no key, as (name, where it listens): a server in a container that is
+    not `locked_exposed` and whose `locked_listening` is not one of this
+    machine's own names (`LOCAL_RIGS`). A lock written before units listened on
+    the loopback by default states `0.0.0.0`."""
     found: list[tuple[str, str]] = []
     for name, block in sorted((fleet.get("units") or {}).items()):
-        if not isinstance(block, Mapping) or block.get("expose") == EXPOSE_LAN:
+        if not _locked_serves(block) or locked_exposed(block):
             continue
-        if block.get("launcher") == LAUNCHER_NATIVE or block.get("role") == ROLE_RPC:
-            continue
-        launch = block.get("launch") or {}
-        stated = launch.get("argv") if isinstance(launch, Mapping) else None
-        env = launch.get("env") if isinstance(launch, Mapping) else None
-        hosts = llamacpp.stated_hosts([str(part) for part in stated or ()])
-        if isinstance(env, Mapping):
-            hosts += [str(v) for k, v in env.items() if str(k).upper() == HOST_ENV]
-        wide = [host for host in hosts if host != LOOPBACK]
-        if wide:
-            found.append((str(name), wide[-1]))
+        host = locked_listening(block)
+        if host not in LOCAL_RIGS:
+            found.append((str(name), host))
     return tuple(found)
 
 
@@ -664,7 +713,7 @@ def _keyed(service: dict[str, object], unit: Unit) -> dict[str, object]:
     the launch `ladder emit` stamps into `fleet.yaml`.
     """
     if keyed(unit):
-        stated = sorted(name for name in unit.env if name.upper() in unitkey.ENV_NAMES)
+        stated = sorted(name for name in unit.env if name in unitkey.ENV_NAMES)
         if stated:
             # Compose lets `environment` win over `env_file`, so the server
             # would take this key and mcgyvr's own requests send another.
@@ -1190,7 +1239,7 @@ def _locked_service(
         missing.append("engine (llama.cpp or vllm)")
     if seccomp is not None and (not isinstance(seccomp, str) or not seccomp.strip()):
         missing.append("launch.seccomp (a file name)")
-    exposed = unit.get("expose") == EXPOSE_LAN and unit.get("role") != ROLE_RPC
+    exposed = locked_exposed(unit)
     if exposed and (not isinstance(unit.get("address"), str) or not unit["address"]):
         missing.append("address (its key is kept for the address it answers at)")
     if missing:

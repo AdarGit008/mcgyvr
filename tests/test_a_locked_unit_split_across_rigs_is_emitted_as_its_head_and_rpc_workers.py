@@ -299,11 +299,17 @@ def plain(name: str, port: int, shards: Any = None) -> dict[str, Any]:
 def test_a_locked_fleet_with_no_unit_across_rigs_is_emitted_as_before(
     tmp_path: Path,
 ) -> None:
+    # Both units state `expose: local`, so each renders what its lock states,
+    # byte for byte. A lock that states no `expose` and whose address names
+    # another host is keyed instead, as
+    # test_a_docker_unit_listens_on_the_loopback_unless_it_is_exposed_with_a_key
+    # shows of this same fleet.
     unsplit = {
         "rigs": {A: {}},
         "units": {
-            "small": plain("small", 8080),
-            "big": plain("big", 8082, [{"rig": A, "gpu": 0}, {"rig": A, "gpu": 1}]),
+            "small": plain("small", 8080) | {"expose": "local"},
+            "big": plain("big", 8082, [{"rig": A, "gpu": 0}, {"rig": A, "gpu": 1}])
+            | {"expose": "local"},
         },
         "fleets": {"one": {"layout": {A: [["small", "awake"], ["big", "awake"]]}}},
     }

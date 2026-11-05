@@ -45,11 +45,15 @@ Deviations from either are security-relevant and in scope for a report.
 ## Model servers mcgyvr renders
 
 A llama.cpp or vLLM server that `mcgyvr emit` writes into a container listens
-on 127.0.0.1 unless its unit states `expose: lan`
-(`src/mcgyvr/emit.py`, `listens_on`). A unit that states `lan` listens on
+on 127.0.0.1 when its unit is `expose: local` (`src/mcgyvr/emit.py`,
+`listens_on`), and on every interface when it is `expose: lan`; a unit that
+states neither is `local` when its address names this machine and `lan` when
+it names another host (`mcgyvr.serving.exposure`). A `lan` unit listens on
 every interface and asks every request for an API key mcgyvr makes for it
 (`src/mcgyvr/unitkey.py`): 256 bits, kept at mode 0600 in
-`unit-keys/<host>-<port>.env` in the data folder, written and read by
+`unit-keys/<host>-<port>.env` in the data folder of the machine that runs
+`mcgyvr emit` (not the rig's, which `docker compose` reaches over ssh), written
+and read by
 `atomic.write_private` and `read_private` (no link, owner and mode checked), and
 handed to the server through the compose service's
 `env_file`, which `docker compose` reads where it runs, so the key is never in
