@@ -25,6 +25,7 @@ import textwrap
 from collections.abc import Sequence
 from pathlib import Path
 
+from mcgyvr import hubwire
 from mcgyvr.catalog import catalog
 from mcgyvr.hubwire import SCOPE_CREW
 
@@ -345,8 +346,8 @@ HUB_KEY_ENV = "MCGYVR_HUB_API_KEY"
 SHARING_FILE = "rig-sharing.json"
 PORT_FORWARD_SWITCH = "--port-forward"
 PERMANENT_FORWARD_SWITCH = "--permanent-forward"
-FORWARD_NOT_ALLOWED = "not_allowed"
-FORWARD_PERMANENT_ONLY = "permanent_only"
+FORWARD_NOT_ALLOWED = hubwire.PORT_MAP_NOT_ALLOWED
+FORWARD_PERMANENT_ONLY = hubwire.PORT_MAP_PERMANENT_ONLY
 
 
 def _port_forward_section() -> list[str]:

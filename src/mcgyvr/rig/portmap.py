@@ -63,7 +63,7 @@ from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any, Protocol
 
-from mcgyvr import atomic
+from mcgyvr import atomic, hubwire
 from mcgyvr.rig import commands, protocol, sessionwire, udpwire
 from mcgyvr.rig.sessionwire import PortMapped, SessionCode
 
@@ -101,8 +101,8 @@ MAX_RECORDED = 8
 MAX_RECORD_BYTES = 16384
 #: The report's tags for a forward this rig's owner did not allow: the forward
 #: itself, and a permanent lease (the only one some routers grant).
-NOT_ALLOWED = "not_allowed"
-PERMANENT_ONLY = "permanent_only"
+NOT_ALLOWED = hubwire.PORT_MAP_NOT_ALLOWED
+PERMANENT_ONLY = hubwire.PORT_MAP_PERMANENT_ONLY
 #: The settings that allow each, as the owner sets them (``mcgyvr rig share``).
 ALLOW_FORWARD = "mcgyvr rig share --port-forward"
 ALLOW_PERMANENT = "mcgyvr rig share --permanent-forward"
