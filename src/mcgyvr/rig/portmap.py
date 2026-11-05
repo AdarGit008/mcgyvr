@@ -211,6 +211,15 @@ def local_address(peer: str, port: int = NATPMP_PORT) -> str | None:
     return host
 
 
+def _lan_address(host: str) -> bool:
+    """A private address a router or a LAN host may have: not loopback, not
+    link-local (what a record names, which is read back, not found)."""
+    if not _private(host):
+        return False
+    address = ipaddress.IPv4Address(host)
+    return not (address.is_loopback or address.is_link_local)
+
+
 def _private(host: str) -> bool:
     try:
         address = ipaddress.IPv4Address(host)
@@ -637,10 +646,10 @@ def find_routers() -> list[Router]:
 def recall(method: str, address: Mapping[str, str]) -> Router | None:
     """The router a record names (:meth:`Router.address`), held to what a
     found one may be: a NAT-PMP gateway or a UPnP control URL, plain HTTP, on
-    a private address; else None."""
+    a private LAN address (no loopback, no link-local); else None."""
     if method == NatPmp.method:
         gateway = address.get("gateway", "")
-        return NatPmp(gateway) if _private(gateway) else None
+        return NatPmp(gateway) if _lan_address(gateway) else None
     if method == Upnp.method:
         service, control = address.get("service", ""), address.get("control", "")
         try:
@@ -651,7 +660,7 @@ def recall(method: str, address: Mapping[str, str]) -> Router | None:
         if (
             service in WAN_SERVICES
             and url.scheme == "http"
-            and _private(url.hostname or "")
+            and _lan_address(url.hostname or "")
         ):
             return Upnp(Gateway(service, control))
     return None
@@ -697,7 +706,7 @@ def _recorded(entry: object) -> Recorded | None:
         or not all(
             isinstance(k, str) and isinstance(v, str) for k, v in address.items()
         )
-        or not _private(str(entry.get("lan_host", "")))
+        or not _lan_address(str(entry.get("lan_host", "")))
         or len(whole) != len(numbers)
     ):
         return None
@@ -804,6 +813,7 @@ class Mapper:
         self._record = record
         self._recall = recall
         self._leftover: list[Recorded] = []  # permanent, not given back yet
+        self._pending: Recorded | None = None  # being mapped: recorded first
         self._bind_host = bind_host
         self._clock = clock
         self._lock = threading.Lock()
@@ -944,6 +954,9 @@ class Mapper:
                 + f": this rig does not allow it; `{ALLOW_FORWARD}` allows it",
                 file=sys.stderr,
             )
+            if asked and wanted is None:  # the hub asked it back: it is
+                self._release(report=True)
+                return IDLE_S
             self._release(report=False)
             self._report(
                 PortMapped(
@@ -1027,7 +1040,7 @@ class Mapper:
             self._report(self._mapped(held))
             return
         message = failure.message
-        if failure.error == PERMANENT_ONLY:
+        if failure.error == PERMANENT_ONLY and not allowed.permanent:
             message += (
                 "; this rig allows no permanent lease "
                 f"(`{ALLOW_PERMANENT}` allows one), or forward the ports by hand"
@@ -1061,6 +1074,18 @@ class Mapper:
         if lan_host not in self._hosts():
             raise MapError("no_lan_host", f"{lan_host} is no address the tunnel is on")
         added: set[int] = set()
+        # Recorded before the router is asked, so a crash mid-way leaves it on
+        # record (as permanent when one may be granted: kept until given back).
+        self._pending = Recorded(
+            method=router.method,
+            address=router.address(),
+            lan_host=lan_host,
+            internal=internal,
+            external=external,
+            ports=count,
+            lease_s=0 if allowed.permanent else wanted.lease_s,
+        )
+        self._write_record()
 
         def block(lease_s: int) -> list[int]:
             granted = []
@@ -1096,7 +1121,10 @@ class Mapper:
                         internal=internal + offset,
                         external=external + offset,
                     )
+            self._pending = None
+            self._write_record()
             raise
+        self._pending = None
         lease = min(min(granted), sessionwire.MAX_PORT_MAP_LEASE_S)
         return _Held(
             router=router,
@@ -1221,6 +1249,8 @@ class Mapper:
         entries = [*self._leftover]
         if self._held is not None:
             entries.append(self._recorded(self._held))
+        if self._pending is not None:
+            entries.append(self._pending)
         try:
             write_record(self._record, entries)
         except OSError as exc:
