@@ -365,6 +365,7 @@ def classify(
         # parameter, so the field is left out of its request entirely.
         asked, opener = sealed_for(endpoint, whole.asking(payload))
         timeout = request_timeout(endpoint, timeout_s)
+        # As runner._ask, through this module's own _post_json name (patched apart).
         document = (
             _post_json(url, asked, headers, timeout)
             if opener is None

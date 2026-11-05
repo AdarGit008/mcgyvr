@@ -36,7 +36,7 @@ from mcgyvr.capacity import SlotUnavailableError
 from mcgyvr.rig import protocol, sessionwire
 from mcgyvr.rig.relay import SEND_WAIT_S, RideRefusedError
 from mcgyvr.rig.sessionwire import SessionCode
-from mcgyvr.seal import UnitKey
+from mcgyvr.seal import SealKey
 
 if TYPE_CHECKING:  # pragma: no cover - typing only
     from mcgyvr.config import Config
@@ -277,7 +277,7 @@ class Units:
         clock: Callable[[], float] = time.monotonic,
         say: Callable[[str], None] = _say,
         start: Callable[[Callable[[], None]], None] = _thread,
-        key: UnitKey | None = None,
+        key: SealKey | None = None,
     ) -> None:
         self._send = send
         self._key = key

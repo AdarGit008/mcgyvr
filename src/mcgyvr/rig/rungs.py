@@ -68,7 +68,7 @@ from mcgyvr.hubwire import (
     rung_offer,
 )
 from mcgyvr.rig.verbs import AGENT_PATH, _RefusalError, hub_address
-from mcgyvr.seal import UnitKey
+from mcgyvr.seal import SealKey
 
 #: The hub's rider API path, taken on the hub's own address and not on a rung's.
 RUNGS_PATH = "/api/v1/me/rungs"
@@ -175,7 +175,7 @@ class Ride:
     position: str
     #: The key the host's unit opens sealed requests with, None where the hub
     #: lists none (an older agent or hub): such a rung is asked in clear.
-    seal: UnitKey | None = None
+    seal: SealKey | None = None
 
     @property
     def name(self) -> str:
@@ -463,7 +463,7 @@ def _ride(raw: object, where: str, origin: tuple[str, str, int]) -> Ride:
     assert isinstance(position, str)  # RUNG_POSITIONS is text: the type narrows
     key = raw.get(SEAL_KEY_FIELD)
     try:
-        sealed = None if key is None else UnitKey.of(key)
+        sealed = None if key is None else SealKey.of(key)
     except ValueError as exc:
         raise refused(
             f"{where}.{SEAL_KEY_FIELD}", f"is not a seal key ({exc})"

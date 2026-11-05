@@ -388,6 +388,19 @@ SEALED_CLEAR_FIELDS: frozenset[str] = frozenset(
 #: clear beside the sealed event: the name the answer goes out under, which the hub
 #: rewrites as for any answer, and the token counts the hub charges by.
 SEALED_ANSWER_CLEAR_FIELDS: tuple[str, ...] = ("model", "usage", "timings")
+#: The fields of a seal key (an advert's, a rung's ``seal``): its id, its public
+#: half and the optional signature over it (:data:`SEAL_SIGNATURE`).
+SEAL_KEY_FIELDS: tuple[str, ...] = ("kid", "pub", "sig")
+#: The fields of a sealed request's envelope, every one required: its version,
+#: the id of the key it is sealed to, the rider's ephemeral public key, the nonce
+#: and the ciphertext.
+SEAL_ENVELOPE_FIELDS: tuple[str, ...] = ("v", "to", "epk", "nonce", "ct")
+#: The fields of a sealed answer event's (or a whole answer's) envelope.
+SEALED_ANSWER_ENVELOPE_FIELDS: tuple[str, ...] = ("nonce", "ct")
+#: The fields of the body the hub relays to a host's agent for a sealed ride: the
+#: clear fields (the unit's own model in place of the one asked for) and the hub's
+#: cap on ``max_tokens``, which the agent holds the opened request to.
+SEALED_FORWARDED_FIELDS: frozenset[str] = SEALED_CLEAR_FIELDS | {"max_tokens"}
 
 #: The agent channel's schema: every frame between the hub and a rig's agent.
 PROTOCOL_SCHEMA = "protocol.schema.json"

@@ -19,7 +19,7 @@ from typing import Any
 
 import pytest
 
-from mcgyvr import seal, whole
+from mcgyvr import hubwire, seal, whole
 from tests.relays import (
     RIDE_MODEL,
     RIDE_PROMPT,
@@ -34,7 +34,7 @@ from tests.relays import _ride_body as _clear_body
 CAP = 64
 
 
-def _forwarded(key: seal.UnitKey, *, stream: bool) -> tuple[bytes, seal.AnswerOpener]:
+def _forwarded(key: seal.SealKey, *, stream: bool) -> tuple[bytes, seal.AnswerOpener]:
     """The body the hub relays for a sealed ride, and the rider's opener."""
     asked = whole.asking(
         {
@@ -53,6 +53,7 @@ def _forwarded(key: seal.UnitKey, *, stream: bool) -> tuple[bytes, seal.AnswerOp
     }
     if stream:
         body["stream_options"] = {"include_usage": True}
+    assert set(body) <= hubwire.SEALED_FORWARDED_FIELDS
     return json.dumps(body).encode(), opener
 
 

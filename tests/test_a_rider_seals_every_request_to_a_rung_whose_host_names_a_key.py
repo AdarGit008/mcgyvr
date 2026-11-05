@@ -31,7 +31,7 @@ from typing import Any
 import pytest
 import yaml
 
-from mcgyvr import hubwire, seal, whole
+from mcgyvr import config, hubwire, seal, whole
 from mcgyvr.capacity import Capacity
 from mcgyvr.config import ConfigError, parse
 from mcgyvr.local_pool import source_map
@@ -105,7 +105,7 @@ def hosting(
         server.server_close()
 
 
-def setup(address: str, key: seal.UnitKey | None) -> str:
+def setup(address: str, key: seal.SealKey | None) -> str:
     sealed = "" if key is None else f"    seal: {json.dumps(key.wire())}\n"
     return (
         f"units:\n  local_fast:\n    address: {address}\n    model: qwen-3b\n"
@@ -126,7 +126,7 @@ def hub_key(monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.setenv("HUB_KEY", KEY)
 
 
-def ask(address: str, key: seal.UnitKey | None, tmp_path: Path) -> Any:
+def ask(address: str, key: seal.SealKey | None, tmp_path: Path) -> Any:
     config = parse(setup(address, key))
     capacity = Capacity.of(config, root=tmp_path / "slots")
     request = Request(prompt=PROMPT, max_output_tokens=8)
@@ -229,6 +229,9 @@ def test_a_sync_keeps_the_key_the_hub_lists_and_the_setup_loads_it() -> None:
         relief_text=text,
     ).relief[ride.name]
     assert unit.seal == key
+
+    # the relief.yaml block names the key's fields, less the signature not yet made
+    assert tuple(f.name for f in config.SEAL_FIELDS) == hubwire.SEAL_KEY_FIELDS[:2]
 
     (old,) = rungs.read(_listing(), "https://hub.example.org").rungs
     assert old.seal is None
