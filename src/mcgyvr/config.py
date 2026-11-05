@@ -59,6 +59,7 @@ from mcgyvr.hubwire import USE_CASES as USE_CASES
 from mcgyvr.sandbox.base import NETWORKS
 from mcgyvr.schema import Dialect, join_path, walk_block
 from mcgyvr.schema import Field as Field
+from mcgyvr.seal import UnitKey
 from mcgyvr.strict_yaml import strict_loader
 
 #: The files a setup directory holds. `load()` reads all of them: fleet.yaml
@@ -768,6 +769,20 @@ BUSY_ANSWER_FIELDS: tuple[Field, ...] = (
     ),
 )
 
+SEAL_FIELDS: tuple[Field, ...] = (
+    Field(
+        "kid",
+        "str",
+        "The key's id: 32 hex digits, the start of the SHA-256 of `pub`. Set "
+        "with `pub`, or neither.",
+    ),
+    Field(
+        "pub",
+        "str",
+        "The host unit's X25519 public key, in base64. Set with `kid`, or neither.",
+    ),
+)
+
 RELIEF_FIELDS: tuple[Field, ...] = (
     Field(
         "address",
@@ -827,6 +842,18 @@ RELIEF_FIELDS: tuple[Field, ...] = (
         "the rung names no busy answers; a sync writes them.",
         block=BUSY_ANSWER_FIELDS,
         bind_hint="leave it to `mcgyvr rig rungs sync`, which writes them",
+    ),
+    Field(
+        "seal",
+        "block",
+        "The key the host's unit opens sealed requests with, as the hub lists "
+        "it. Set, every request to the rung is sealed to it end to end: the hub "
+        "carries it without reading the prompt or the answer, and the host's "
+        "agent opens it. Unset, the rung is asked in clear. The host changes "
+        "the key each time its agent starts; a request sealed to an old one is "
+        "answered as a full rung until the next sync.",
+        block=SEAL_FIELDS,
+        bind_hint="leave it to `mcgyvr rig rungs sync`, which writes the hub's word",
     ),
     Field(
         "scope",
@@ -1401,6 +1428,9 @@ class Unit:
     #: The `(status, code)` answers that say the rung is full, as `busy_answers`
     #: states them; None when the rung names none.
     busy_answers: tuple[tuple[int, str], ...] | None = None
+    #: The key a relief rung's requests are sealed to (`mcgyvr.seal`), as `seal`
+    #: states it; None for a rung asked in clear, and for every unit of yours.
+    seal: UnitKey | None = None
     #: Whose rigs may serve this unit's requests (`hubwire.SCOPE_VALUES`), which
     #: every request names: `own` for a unit of your fleet that states none, and
     #: what `mcgyvr rig rungs sync` wrote for a relief rung.
@@ -2128,6 +2158,19 @@ def _block(raw: object, fields: tuple[Field, ...], path: str) -> dict[str, Any]:
     return walk_block(raw, fields, path, _DIALECT)
 
 
+def _seal_key(name: str, block: Mapping[str, Any] | None) -> UnitKey | None:
+    """The key a relief rung's `seal` block states, or None where it states none.
+
+    Raises ConfigSchemaError for a key not of its shape, or an id not its key's.
+    """
+    if not block or (block.get("kid") is None and block.get("pub") is None):
+        return None
+    try:
+        return UnitKey(kid=block["kid"], pub=block["pub"])
+    except ValueError as exc:
+        raise ConfigSchemaError(f"relief.{name}.seal: {exc}") from exc
+
+
 def _refuse_userinfo(name: str, base_url: str, block: str = "units") -> None:
     """Refuse an address that carries `user:password@` in its URL.
 
@@ -2384,6 +2427,7 @@ def _build(
                 (answer["status"], answer["code"]) for answer in block["busy_answers"]
             )
             or None,
+            seal=_seal_key(name, block["seal"]),
             scope=block["scope"],
         )
         for name, block in data["relief"].items()

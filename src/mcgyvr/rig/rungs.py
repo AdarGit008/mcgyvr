@@ -64,9 +64,11 @@ from mcgyvr.hubwire import (
     OFFER_ID,
     RUNG_BUSY,
     RUNG_POSITIONS,
+    SEAL_KEY_FIELD,
     rung_offer,
 )
 from mcgyvr.rig.verbs import AGENT_PATH, _RefusalError, hub_address
+from mcgyvr.seal import UnitKey
 
 #: The hub's rider API path, taken on the hub's own address and not on a rung's.
 RUNGS_PATH = "/api/v1/me/rungs"
@@ -171,6 +173,9 @@ class Ride:
     served_model: str
     width: int
     position: str
+    #: The key the host's unit opens sealed requests with, None where the hub
+    #: lists none (an older agent or hub): such a rung is asked in clear.
+    seal: UnitKey | None = None
 
     @property
     def name(self) -> str:
@@ -456,6 +461,13 @@ def _ride(raw: object, where: str, origin: tuple[str, str, int]) -> Ride:
     if position not in RUNG_POSITIONS:
         raise refused(f"{where}.position", f"is not one of {', '.join(RUNG_POSITIONS)}")
     assert isinstance(position, str)  # RUNG_POSITIONS is text: the type narrows
+    key = raw.get(SEAL_KEY_FIELD)
+    try:
+        sealed = None if key is None else UnitKey.of(key)
+    except ValueError as exc:
+        raise refused(
+            f"{where}.{SEAL_KEY_FIELD}", f"is not a seal key ({exc})"
+        ) from exc
     return Ride(
         id=rung_id,
         hosted_by=_text(raw.get("host"), f"{where}.host", MAX_TEXT),
@@ -464,6 +476,7 @@ def _ride(raw: object, where: str, origin: tuple[str, str, int]) -> Ride:
         served_model=_text(raw.get("served_model"), f"{where}.served_model", MAX_TEXT),
         width=_count(raw.get("width"), f"{where}.width"),
         position=position,
+        seal=sealed,
     )
 
 
@@ -514,8 +527,9 @@ def render(rides: Rides, key_env: str) -> str:
 
     Every rung becomes a block under ``relief``, keyed by its name and carrying
     its address, model, key variable name, width, position, host, served model,
-    the answers that say it is full (:data:`mcgyvr.hubwire.RUNG_BUSY`) and the
-    scope its requests name (:data:`mcgyvr.config.RELIEF_SCOPE`). A
+    the answers that say it is full (:data:`mcgyvr.hubwire.RUNG_BUSY`), the
+    scope its requests name (:data:`mcgyvr.config.RELIEF_SCOPE`) and the key its
+    requests are sealed to where the hub lists one. A
     header says a sync rewrites the file whole and that each host can read the
     prompts sent to their rung.
     """
@@ -533,12 +547,14 @@ def render(rides: Rides, key_env: str) -> str:
             ],
             "scope": RELIEF_SCOPE,
         }
+        | ({} if each.seal is None else {SEAL_KEY_FIELD: each.seal.wire()})
         for each in rides.rungs
     }
     header = (
         "# Written by `mcgyvr rig rungs sync`, which rewrites it whole: an edit\n"
         "# here lasts until the next sync. Each host can read the prompts sent\n"
-        "# to their rung.\n"
+        "# to their rung. A rung with a `seal` key is asked sealed to it: the hub\n"
+        "# carries its prompts and answers unread.\n"
     )
     return header + yaml.safe_dump({"relief": block}, sort_keys=False)
 
