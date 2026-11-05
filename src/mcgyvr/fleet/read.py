@@ -365,6 +365,60 @@ def prepare(
     return fleet
 
 
+def unit_keys(fleet: Live, host: str) -> dict[int, str]:
+    """The key each unit of the fleet on `host` asks for, by its port: the key
+    this machine keeps for the unit's address (`unitkey.for_address`), for each
+    unit that has one. `unitkey.UnitKeyError` says a key file is there and cannot
+    be trusted."""
+    from mcgyvr import unitkey
+
+    keys: dict[int, str] = {}
+    for _, unit, _ in fleet.slots(host):
+        key = unitkey.for_address(str(unit.get("address") or ""))
+        if key is not None:
+            keys[port_of(unit)] = key
+    return keys
+
+
+#: What the door puts before rig-units.sh on its stdin when units on the rig ask
+#: for a key (`key_function`): `unit_key PORT` prints the port's key, and `curl`
+#: becomes a function that pipes it to the real curl's own stdin (`-H @-`) for a
+#: read of `http://127.0.0.1:PORT...`, so the key is on no command line and in no
+#: file on the rig. rig-units.sh itself is shipped unchanged.
+_KEYED_CURL = """\
+curl() {
+    local arg port key=
+    for arg in "$@"; do
+        case $arg in
+            http://127.0.0.1:*)
+                port=${arg#http://127.0.0.1:}
+                key=$(unit_key "${port%%/*}")
+                ;;
+        esac
+    done
+    if [ -n "$key" ]; then
+        printf 'Authorization: Bearer %s\\n' "$key" | command curl -H @- "$@"
+    else
+        command curl "$@"
+    fi
+}
+"""
+
+
+def key_function(keys: Mapping[int, str]) -> str:
+    """What goes before rig-units.sh on its stdin for `keys`, a key by port:
+    `unit_key PORT` and the keyed `curl` (`_KEYED_CURL`). Empty for no keys, so
+    the reader is shipped as it always was. A key is what `unitkey` makes,
+    letters, digits, '_' and '-', so it is quoted whole."""
+    if not keys:
+        return ""
+    cases = "".join(
+        f"        {int(port)}) printf %s '{key}' ;;\n"
+        for port, key in sorted(keys.items())
+    )
+    return f"unit_key() {{\n    case $1 in\n{cases}    esac\n}}\n{_KEYED_CURL}"
+
+
 def reader_args(fleet: Live, host: str) -> list[str]:
     """The `ENGINE:PORT:CONTAINER` arguments the rig's runtime reader takes, one
     per unit of the fleet on `host`, with the container dropped for a unit the

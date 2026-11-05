@@ -108,7 +108,10 @@ and read by
 `atomic.write_private` and `read_private` (no link, owner and mode checked), and
 handed to the server through the compose service's
 `env_file`, which `docker compose` reads where it runs, so the key is never in
-a compose file or in `fleet.yaml`. llama-server b11960 then asks for it on
+a compose file or in `fleet.yaml`. What runs on the rig for a read, a lock's
+sample or `fleet probe` (rig-units.sh, the lock's harness) is handed the key on
+ssh's stdin with its own text, never on a command line or in a file there; a
+rig agent shares a keyed unit only when its own data folder holds the key. llama-server b11960 then asks for it on
 every path but `/health` and `/v1/health`; vLLM asks for it under `/v1`,
 `/v2` and `/inference` only, so its `/metrics` and the sleep routes stay open
 to whoever reaches the port. The key travels as a bearer token over plain HTTP:

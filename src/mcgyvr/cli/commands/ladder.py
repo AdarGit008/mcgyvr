@@ -490,7 +490,16 @@ def _exposure(units: Iterable[Unit], config: Config) -> None:
                     "drop the --host or LLAMA_ARG_HOST it states",
                 )
             else:
-                _key_note(unit.key.slug, where, path, made, names, unit.host, shared)
+                _key_note(
+                    unit.key.slug,
+                    where,
+                    path,
+                    made,
+                    names,
+                    unit.host,
+                    unit.port,
+                    shared,
+                )
         elif states_host(unit):
             if listens_beyond_loopback(unit):
                 print(
@@ -545,6 +554,7 @@ def _key_note(
     made: bool,
     names: str,
     host: str,
+    port: int,
     shared: bool,
 ) -> None:
     """Say that `slug` listens on `where` behind the key in `path`; for a unit
@@ -559,12 +569,13 @@ def _key_note(
     )
     if shared and host not in LOCAL_RIGS:
         said += (
-            f". It is shared with riders, and the rig agent on {host} reads the key "
-            f"from {unitkey.KEYS_DIR}/{path.name} in its own data folder, which "
-            "`mcgyvr emit` does not fill: copy the file there at mode 0600, or the "
-            "agent cannot read the unit's slots, advertises it with no free slot "
-            "and says so once on its stderr; riders are matched elsewhere and no "
-            "ride fails"
+            f". It is shared with riders, and the rig agent on {host} looks its key "
+            f"up in its own data folder, in {unitkey.KEYS_DIR}/ under the name of "
+            "the address its own config gives the unit: "
+            f"{path.name} for http://{host}:{port}, localhost-{port}.env for "
+            f"http://localhost:{port}. `mcgyvr emit` does not put it there: copy "
+            "this file there under that name at mode 0600, or the agent does not "
+            "share the unit and says once on its stderr which file it lacks"
         )
     print(said, file=sys.stderr)
 
@@ -621,7 +632,7 @@ def _emit_locked(
                 continue
             declared = config.units.get(name) if config is not None else None
             shared = declared is not None and declared.rider_slots > 0
-            _key_note(name, where, path, made, name, host, shared)
+            _key_note(name, where, path, made, name, host, port, shared)
     except LockedLaunchError as exc:
         print(f"refused: {exc}", file=sys.stderr)
         return Exit.REFUSED
