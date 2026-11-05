@@ -299,7 +299,7 @@ def test_a_named_branch_you_have_not_checked_out_takes_lent_code(
 def test_checkout_delivers_lent_code_as_your_own_and_still_marks_it(
     tmp_path: Path, home: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
-    code, repo, head, result, _ = _run(
+    code, repo, _head, result, _ = _run(
         tmp_path,
         monkeypatch,
         "--commit",
@@ -315,7 +315,7 @@ def test_checkout_delivers_lent_code_as_your_own_and_still_marks_it(
 def test_checkout_with_commit_off_leaves_lent_code_in_the_tree_and_says_whose(
     tmp_path: Path, home: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
-    code, repo, head, result, _ = _run(
+    code, repo, _head, result, _ = _run(
         tmp_path, monkeypatch, policy="delivery:\n  lent_code: checkout\n"
     )
 
@@ -328,7 +328,7 @@ def test_checkout_with_commit_off_leaves_lent_code_in_the_tree_and_says_whose(
 def test_your_own_rungs_change_is_delivered_and_committed_as_before(
     tmp_path: Path, home: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
-    code, repo, head, result, _ = _run(
+    code, repo, _head, result, _ = _run(
         tmp_path, monkeypatch, "--commit", fleet=lj.LADDER_FLEET, on_host=False
     )
 
@@ -364,6 +364,46 @@ def work(tmp_path: Path) -> Path:
     lj.git(where, "add", "-A")
     lj.git(where, "commit", "-qm", "base")
     return where
+
+
+def _checkout(repo: Path) -> dict[str, tuple[bytes, int]]:
+    """Every file of the checkout, and the index, with its bytes and mtime."""
+    held = {
+        str(path.relative_to(repo)): (path.read_bytes(), path.stat().st_mtime_ns)
+        for path in sorted(repo.rglob("*"))
+        if path.is_file() and ".git" not in path.relative_to(repo).parts
+    }
+    index = repo / ".git" / "index"
+    held[".git/index"] = (index.read_bytes(), index.stat().st_mtime_ns)
+    return held
+
+
+def test_a_lent_change_never_touches_the_checkout_or_its_index(work: Path) -> None:
+    """Not written and put back: never written. The checkout is byte-identical,
+    to the mtime, though it is dirty — the target edited, a file untracked."""
+    (work / "src/pkg/fetch.py").write_text("def fetch(u):\n    return u  # wip\n")
+    (work / "notes.txt").write_text("mine\n")
+    lj.git(work, "add", "notes.txt")
+    head = lj.git(work, "rev-parse", "HEAD").strip()
+    before = _checkout(work)
+
+    result = deliver(
+        repo=work,
+        contract=loads(CONTRACT),
+        content='def fetch(u):\n    """Retry."""\n    return u\n',
+        base=head,
+        trailers=lent_trailers("anyone", "m"),
+        away="mcgyvr/fetch-retry",
+    )
+
+    assert result.committed, result
+    assert result.branch == "mcgyvr/fetch-retry"
+    assert _checkout(work) == before, "delivery touched the checkout"
+    assert lj.git(work, "rev-parse", "HEAD").strip() == head
+    assert '"""Retry."""' in lj.git(work, "show", "mcgyvr/fetch-retry:src/pkg/fetch.py")
+    assert lj.git(work, "rev-parse", "mcgyvr/fetch-retry~1").strip() == head
+    listed = lj.git(work, "worktree", "list", "--porcelain")
+    assert listed.count("worktree ") == 1, f"a worktree was left behind:\n{listed}"
 
 
 def test_a_lent_branch_that_is_checked_out_is_refused(work: Path) -> None:

@@ -32,7 +32,7 @@ import subprocess
 import tempfile
 import textwrap
 from collections.abc import Iterator, Mapping, Sequence
-from dataclasses import dataclass, field
+from dataclasses import dataclass, field, replace
 from pathlib import Path
 
 from mcgyvr import hostos
@@ -385,7 +385,9 @@ def deliver(
     branch the commit lands on when it must not land on the checked-out one —
     a change whose code is not yours, under `delivery.lent_code: branch` — and
     `branch` names none or names the checked-out one; a checked-out `away` is
-    refused.
+    refused. With `away` the checkout's working tree and index are never
+    touched: the change is written, judged again and committed in a temporary
+    worktree (:func:`_delivered_apart`).
 
     The steps, in order: resolve `content` to text and to an optional bound verdict
     (:func:`_verdict`); work out which files land (:func:`_files`); take the
@@ -436,6 +438,14 @@ def deliver(
         if refusal is not None:
             return refusal
         payloads = {rel: _encoded(body) for rel, body in files}
+
+        if away:
+            # A change whose code is not yours never touches your checkout, not
+            # even for the second look: it is written, judged and committed in a
+            # worktree of its own, so a dirty tree is no hazard to it either.
+            return _delivered_apart(
+                call, contract, resolved, payloads, adapters, onto, identity, trailers
+            )
 
         dirty = _uncommitted(root, call.paths)
         if dirty:
@@ -788,6 +798,65 @@ def _commit_onto(
         tip,
     )
     return sha
+
+
+def _delivered_apart(
+    call: _Call,
+    contract: Contract,
+    resolved: str,
+    payloads: Mapping[str, bytes],
+    adapters: Sequence[LanguageAdapter] | None,
+    onto: str,
+    identity: Identity,
+    trailers: Sequence[tuple[str, str]],
+) -> Delivery:
+    """Write, re-judge and commit `payloads` onto `onto` in a worktree of their
+    own, so the checkout's working tree and index are never touched.
+
+    The worktree is detached at `resolved`, the revision the change was judged
+    against, and goes when the call does; the commit is built with plumbing
+    (:func:`_commit_onto`) and only the branch's ref moves.
+    """
+    with _apart(call.root, resolved) as there:
+        inside = replace(call, root=there)
+        for rel, payload in payloads.items():
+            _write(there / rel, payload)
+        refusal = _refusal(inside, contract, resolved, payloads, adapters)
+        if refusal is not None:
+            return refusal
+        message = _message(contract, resolved, call.paths, trailers)
+        sha = _commit_onto(there, call.paths, message, identity, onto)
+    return call.delivered(sha, onto)
+
+
+@contextlib.contextmanager
+def _apart(root: Path, commit: str) -> Iterator[Path]:
+    """Yield a temporary worktree of `root`'s repository, detached at `commit`.
+
+    Hooks are off, so checking it out runs nothing of the repository's, and it
+    is removed, and its record pruned, however the block ends.
+    """
+    with tempfile.TemporaryDirectory(prefix="mcgyvr-delivery-") as where:
+        there = Path(where) / "tree"
+        _git(
+            root,
+            "-c",
+            f"core.hooksPath={_NO_HOOKS}",
+            "worktree",
+            "add",
+            "--quiet",
+            "--detach",
+            str(there),
+            commit,
+        )
+        try:
+            yield there
+        finally:
+            for args in (
+                ("worktree", "remove", "--force", str(there)),
+                ("worktree", "prune"),
+            ):
+                subprocess.run(["git", *args], cwd=root, capture_output=True)
 
 
 @contextlib.contextmanager
