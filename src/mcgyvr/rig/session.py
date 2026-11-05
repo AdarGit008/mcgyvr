@@ -1406,7 +1406,11 @@ class Sessions:
     def _vet_peers(self, asked: sessionwire.TunnelUp) -> str | None:
         """Why the peers of `asked` are refused, or None once each is taken
         (:func:`mcgyvr.rig.identity.vet_peer`) and every new identity key among
-        them is pinned: the pins are read once and written at most once."""
+        them is pinned: the pins are written at most once.
+
+        A peer taken with no identity key is logged, one line each: it is an
+        agent from before identity keys, or a hub that left the key out, and
+        nothing else would show that the peer went unchecked."""
         try:
             known = self._pins.all() if self._pins is not None else {}
             for peer in asked.peers:
@@ -1420,6 +1424,13 @@ class Sessions:
                 )
                 if why is not None:
                     return why
+            for peer in asked.peers:
+                if peer.identity_key is None:
+                    self._log(
+                        f"session {asked.session_id}: peer {peer.rig_id} sent no "
+                        "identity key (an agent from before identity keys, or a "
+                        "hub that left it out); taken unpinned"
+                    )
             met = {
                 peer.rig_id: peer.identity_key
                 for peer in asked.peers

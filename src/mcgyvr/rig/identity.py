@@ -29,7 +29,10 @@ from __future__ import annotations
 
 import base64
 import binascii
+import errno
 import json
+import os
+import secrets
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Literal
@@ -164,18 +167,49 @@ def load() -> Identity | None:
     return Identity(private)
 
 
+#: The errors a folder gives for a hard link it cannot hold.
+_NO_LINKS = frozenset({errno.EPERM, errno.ENOTSUP, errno.EOPNOTSUPP, errno.EXDEV})
+
+
 def create() -> Identity:
-    "Make a new identity keypair, write it (replacing any), and return it."
+    """Make a new identity keypair and keep it, unless another process kept
+    one first: then that one is returned, so two first runs (``rig join`` and
+    a service's ``rig run``, say) end up holding one key, the one the hub
+    binds.
+
+    The key is written to a file of its own and then linked into place, which
+    fails when the file is already there; a folder that holds no hard links
+    has the file renamed into place instead, as the token's is.
+    """
     private = Ed25519PrivateKey.generate()
     seed = private.private_bytes(Encoding.Raw, PrivateFormat.Raw, NoEncryption())
     data = json.dumps({"v": FILE_VERSION, "private_key": _b64(seed)})
-    credentials.write_private(path(), data + "\n")
+    target = path()
+    staging = target.with_name(f".{target.name}.{secrets.token_hex(8)}")
+    credentials.write_private(staging, data + "\n")
+    try:
+        os.link(staging, target)
+    except FileExistsError:
+        kept = load()
+        if kept is None:
+            raise CredentialsError(
+                f"{target} was made and removed while this rig made its identity "
+                "key; run `mcgyvr rig run` again"
+            ) from None
+        return kept
+    except OSError as exc:
+        if exc.errno not in _NO_LINKS:
+            raise
+        os.replace(staging, target)
+    finally:
+        staging.unlink(missing_ok=True)
     return Identity(private)
 
 
 def ensure() -> Identity:
     """This rig's identity, made now if it has none: a rig that joined before
-    identity keys gets one the first time its agent runs."""
+    identity keys gets one the first time its agent runs. Two runs at once
+    get the same one (:func:`create`)."""
     return load() or create()
 
 
@@ -199,7 +233,10 @@ class Pins:
             target,
             MAX_PINS_BYTES,
             again="the peers met again are pinned anew",
-            leaked="nothing is secret in it, but check no key in it was changed",
+            leaked=(
+                "nothing in it is secret, but whoever could write it could have "
+                "changed a pinned key: compare them with `mcgyvr rig peers`"
+            ),
         )
         if raw is None:
             return {}

@@ -16,6 +16,7 @@ from __future__ import annotations
 
 import base64
 import json
+import multiprocessing
 import os
 import stat
 import sys
@@ -74,6 +75,49 @@ def test_the_identity_key_is_made_once_and_kept_private_beside_the_token(
     assert again.public_key == made.public_key
     assert hubwire.IDENTITY_KEY.fullmatch(made.public_key)
     assert made.fingerprint == hubwire.identity_fingerprint(made.public_key)
+
+
+#: How many times two first runs race for the identity key.
+RACES = 20
+
+
+def _first_runs(barrier: Any, keys: Any) -> None:
+    """One of two rigs' first runs, `RACES` times: each starts at the barrier
+    with the parent, which clears the key file between them."""
+    for _ in range(RACES):
+        barrier.wait()
+        keys.put(identity.ensure().public_key)
+        barrier.wait()
+
+
+def test_two_first_runs_at_once_keep_one_identity_key(home: Path) -> None:
+    """``rig join`` and a service's ``rig run`` both making the first key: both
+    must hold the one kept, or the hub binds a key the rig no longer has."""
+    spawn = multiprocessing.get_context("spawn")
+    barrier, keys = spawn.Barrier(3, timeout=60), spawn.Queue()
+    runs = [spawn.Process(target=_first_runs, args=(barrier, keys)) for _ in "ab"]
+    for run in runs:
+        run.start()
+    try:
+        for race in range(RACES):
+            (home / identity.IDENTITY_FILE).unlink(missing_ok=True)
+            barrier.wait()
+            held = {keys.get(timeout=60), keys.get(timeout=60)}
+            barrier.wait()
+            on_disk = identity.load()
+            assert on_disk is not None
+            assert held == {on_disk.public_key}, f"race {race}: two keys held"
+            staged = [p.name for p in home.iterdir() if "identity" in p.name]
+            assert staged == [identity.IDENTITY_FILE], "a staged key was left"
+    except BaseException:
+        barrier.abort()  # a failed race leaves no run waiting for the next
+        raise
+    finally:
+        for run in runs:
+            run.join(timeout=60)
+            if run.is_alive():
+                run.kill()
+    assert [run.exitcode for run in runs] == [0, 0]
 
 
 @pytest.mark.skipif(sys.platform == "win32", reason="no POSIX modes on Windows")
@@ -211,13 +255,15 @@ def _refusal(tmp_path: Path, pins: identity.Pins, body: dict[str, Any]) -> Any:
         pool.sessions.close()
 
 
-def _taken(tmp_path: Path, pins: identity.Pins, body: dict[str, Any]) -> None:
+def _taken(tmp_path: Path, pins: identity.Pins, body: dict[str, Any]) -> list[str]:
+    "Take the tunnel_up `body`, and return what the rig logged."
     pool = make_pool(tmp_path, rig_identity=_identity(), pins=pins)
     try:
         fakes.prepared(pool)
         assert pool.up("t1", **body)["type"] == "tunnel_report"
     finally:
         pool.sessions.close()
+    return pool.logged
 
 
 def test_a_peer_met_first_is_pinned_and_taken_again_with_the_same_key(
@@ -272,8 +318,14 @@ def test_a_peer_from_before_identity_keys_is_taken_and_nothing_pinned(
     tmp_path: Path,
 ) -> None:
     pins = identity.Pins(tmp_path / "pins.json")
-    _taken(tmp_path, pins, fakes.tunnel_up_body())
+    logged = _taken(tmp_path, pins, fakes.tunnel_up_body())
     assert pins.all() == {}
+    # taken, but not without a word: the log says this peer went unchecked
+    unchecked = [line for line in logged if "sent no identity key" in line]
+    assert unchecked == [
+        f"session s1: peer {PEER_ID} sent no identity key (an agent from before "
+        "identity keys, or a hub that left it out); taken unpinned"
+    ]
 
 
 def test_a_rotated_peer_is_taken_once_its_pin_is_forgotten(tmp_path: Path) -> None:
