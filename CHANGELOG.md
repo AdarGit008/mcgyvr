@@ -818,8 +818,9 @@ archived outside this repository, under the same paths.
   rung is committed with `Mcgyvr-Source:` and `Mcgyvr-Model:` trailers (never
   the machine or member that served it), and under the new `delivery.lent_code:
   branch` (the default) onto `mcgyvr/<contract id>` (or a named branch you do
-  not have checked out), whatever `delivery.commit` says, never into your
-  checkout; `checkout` delivers it as before. SECURITY.md names the hub, the
+  not have checked out), whatever `delivery.commit` says, without touching
+  your checkout or its index: it is written, judged again and committed in a
+  temporary worktree. `checkout` delivers it as before. SECURITY.md names the hub, the
   rider, the host and a peer on your network, and what each can do.
 - A failure note names no path on the machine it was made on. The acceptance
   rung gives a path under the workspace its command ran in — pytest's
