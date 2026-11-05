@@ -801,6 +801,14 @@ archived outside this repository, under the same paths.
 
 ### Security
 
+- **The README says, in one sentence, what the privacy + security program
+  makes true** (`## Privacy`; the hub's README carries the same line): whose
+  rigs run your prompts by default, who can read a prompt and its answer, that
+  a ride your client seals is unread by the hub, what is kept after the answer
+  (who asked, whose rig answered, which model, how many tokens and when; never
+  the text), identity-key pinning, port-forward consent on the rig, docker
+  units on loopback unless exposed behind a key, and no network for code a
+  host returns. `SECURITY.md` has the detail.
 - A failure note names no path on the machine it was made on. The acceptance
   rung gives a path under the workspace its command ran in — pytest's
   `rootdir:`, a traceback's file, in either sandbox mode — repo-relative
