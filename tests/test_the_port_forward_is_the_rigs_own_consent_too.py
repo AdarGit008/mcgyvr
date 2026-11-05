@@ -454,3 +454,64 @@ def test_the_setup_document_names_the_rigs_own_switches_and_tags() -> None:
     assert join.port_forward is True
     section = "\n".join(docgen._port_forward_section())
     assert "on the hub's My rigs page, and on the rig itself" in section
+
+
+def test_a_release_the_hub_asks_as_the_owner_withdraws_is_said_released() -> None:
+    upnp = FakeRouter()
+    world = World([upnp])
+    mapper = world.mapper()
+    ask(mapper, external_port=52000)
+    mapper.tick()
+    world.consent = portmap.Consent()
+    ask(mapper)  # the hub asks it back in the same pass
+    mapper.tick()
+    assert upnp.held == {}
+    assert world.reports()[-1] == {"state": "released"}
+
+
+def test_a_mapping_is_on_record_before_the_router_is_asked(tmp_path: Path) -> None:
+    record = tmp_path / "data" / portmap.RECORD_FILE
+    upnp = FakeRouter()
+    seen: list[list[portmap.Recorded]] = []
+
+    def add(*, lan_host: str, internal: int, external: int, lease_s: int) -> int:
+        seen.append(portmap.read_record(record))  # as a crash right now would leave it
+        return FakeRouter.add(
+            upnp,
+            lan_host=lan_host,
+            internal=internal,
+            external=external,
+            lease_s=lease_s,
+        )
+
+    upnp.add = add  # type: ignore[method-assign]
+    world = World([upnp])
+    mapper = recording(world, record, {"upnp": upnp})
+    ask(mapper, external_port=52000)
+    mapper.tick()
+    assert all(
+        [(r.external, r.ports, r.lease_s) for r in found] == [(52000, 4, 3600)]
+        for found in seen
+    )
+    assert len(seen) == 4
+
+
+def test_a_mapping_no_router_took_leaves_no_record(tmp_path: Path) -> None:
+    record = tmp_path / "data" / portmap.RECORD_FILE
+    upnp = FakeRouter(refuse_at={52001: "refused"})
+    world = World([upnp])
+    mapper = recording(world, record, {"upnp": upnp})
+    ask(mapper, external_port=52000)
+    mapper.tick()
+    assert upnp.held == {} and not record.exists()
+
+
+@pytest.mark.parametrize("host", ["127.0.0.1", "169.254.1.1"])
+def test_a_record_never_aims_a_router_at_this_host_or_a_link_local_one(
+    host: str,
+) -> None:
+    wan = portmap.WAN_SERVICES[0]
+    assert portmap.recall("natpmp", {"gateway": host}) is None
+    assert (
+        portmap.recall("upnp", {"service": wan, "control": f"http://{host}/c"}) is None
+    )
