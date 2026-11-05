@@ -22,7 +22,8 @@ from these names rather than writing them again:
 * the chat request fields the hub forwards to a unit
   (:data:`FORWARDED_FIELDS`, :data:`CHAT_TEMPLATE_KEYS`);
 * the header naming who may serve a request (:data:`SCOPE_HEADER`,
-  :data:`SCOPE_VALUES`), and the pool each scope is served from
+  :data:`SCOPE_VALUES`, narrowest first: :func:`narrowest_scope`), and the
+  pool each scope is served from
   (:data:`SCOPE_POOLS`, :func:`serving_pool`);
 * where the hub lists the models a scope may use (:data:`MODELS_PATH` under
   :data:`API_ROOT`), each with its units' slots (:data:`MODEL_SLOTS`);
@@ -245,7 +246,16 @@ SCOPE_HEADER = "x-mcgyvr-scope"
 SCOPE_OWN = "own"
 SCOPE_CREW = "crew"
 SCOPE_ANYONE = "anyone"
+#: Narrowest first: each scope's rigs are also the next one's.
 SCOPE_VALUES: tuple[str, ...] = (SCOPE_OWN, SCOPE_CREW, SCOPE_ANYONE)
+
+
+def narrowest_scope(*scopes: str) -> str:
+    """The narrowest of ``scopes`` (by :data:`SCOPE_VALUES`' order): the one
+    whose rigs every other one also allows. Raises ValueError for a value
+    that is not one of :data:`SCOPE_VALUES`, and for none at all."""
+    return min(scopes, key=SCOPE_VALUES.index)
+
 
 #: The hub's OpenAI-compatible root on its own address: a unit the hub serves
 #: is asked there.
