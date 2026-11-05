@@ -317,7 +317,8 @@ ABOVE_THE_SEAM: tuple[str, ...] = (
 #: differs between Linux, macOS and Windows (``hostos.py``), the wire
 #: the hub serves a rider (``hubwire.py``), where a line ends (``lines.py``), what
 #: is safe to quote to an
-#: operator (``redact.py``), the schema walk both schemas share (``schema.py``),
+#: operator (``redact.py``), the schema walk both schemas share (``schema.py``), how a
+#: ride is sealed between a rider and a host (``seal.py``),
 #: where a shipped data file is read from
 #: (``shipped.py``), and the strict YAML loader both schemas share
 #: (``strict_yaml.py``), each as its module docstring's first line says. Being on this
@@ -336,6 +337,7 @@ SHARED_ACROSS_THE_SEAM: tuple[str, ...] = (
     "mcgyvr.lines",
     "mcgyvr.redact",
     "mcgyvr.schema",
+    "mcgyvr.seal",
     "mcgyvr.shipped",
     "mcgyvr.strict_yaml",
 )

@@ -769,17 +769,24 @@ BUSY_ANSWER_FIELDS: tuple[Field, ...] = (
     ),
 )
 
+_SEAL_BIND_HINT = (
+    "run `mcgyvr rig rungs sync` to write the key the hub lists, or leave unset "
+    "to ask the rung in clear"
+)
+
 SEAL_FIELDS: tuple[Field, ...] = (
     Field(
         "kid",
         "str",
         "The key's id: 32 hex digits, the start of the SHA-256 of `pub`. Set "
         "with `pub`, or neither.",
+        bind_hint=_SEAL_BIND_HINT,
     ),
     Field(
         "pub",
         "str",
         "The host unit's X25519 public key, in base64. Set with `kid`, or neither.",
+        bind_hint=_SEAL_BIND_HINT,
     ),
 )
 
