@@ -101,6 +101,22 @@ def test_a_beat_while_a_sync_is_going_starts_no_other() -> None:
     assert calls == [1]
 
 
+def test_a_rung_that_was_sealed_and_comes_back_keyless_is_said_by_the_refresher() -> (
+    None
+):
+    now, said = Now(), list[str]()
+    name = "hitchhike-" + "a" * 32
+
+    def sync() -> rungs.Rides:
+        return rungs.Rides(
+            ride=True, privacy="p", refresh_s=60, rungs=(), unsealed=(name,)
+        )
+
+    refresher(sync, now, said).tick()
+    assert said == [rungs.unsealed_note(name)]
+    assert name in said[0] and "in clear" in said[0]
+
+
 def test_a_failing_sync_is_said_once_retried_later_and_never_raised() -> None:
     now, said = Now(), list[str]()
     tried: list[float] = []

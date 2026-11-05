@@ -373,8 +373,9 @@ def _relief_as_written_before(address: str) -> str:
     return (
         "# Written by `mcgyvr rig rungs sync`, which rewrites it whole: an edit\n"
         "# here lasts until the next sync. Each host can read the prompts sent\n"
-        "# to their rung. A rung with a `seal` key is asked sealed to it: the hub\n"
-        "# carries its prompts and answers unread.\n"
+        "# to their rung. A rung with a `seal` key is asked sealed to it: its\n"
+        "# prompts and answers are unread by a hub that lists the host's own key;\n"
+        "# until rig identity signs it, the key is the hub's word (SECURITY.md).\n"
         "relief:\n"
         f"  hitchhike-{FIRST}:\n"
         f"    address: {address}/v1\n"

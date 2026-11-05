@@ -186,15 +186,29 @@ def test_an_answer_that_does_not_open_is_a_protocol_error(
     assert "does not open" in str(outcome)
 
 
-def test_a_stale_key_is_a_full_rung_passed_over_at_no_cost(tmp_path: Path) -> None:
+def test_a_stale_key_is_a_full_rung_held_out_for_the_run_and_said_once(
+    tmp_path: Path, capsys: pytest.CaptureFixture[str]
+) -> None:
+    """The host's agent started again since the sync, so no unit holds the key
+    the setup names: the rung is passed over at no cost, said once, and not
+    asked again in this process, since the setup is read once."""
     key = seal.HostKey()
     seen: list[bytes] = []
     with hosting(key, seen, "stale") as address:
         outcome = ask(address, key.unit_key, tmp_path)
+        again = ask(address, key.unit_key, tmp_path)
 
     assert isinstance(outcome, ReliefUnavailableError), outcome
     assert "seal_key_unknown" in str(outcome)
-    assert len(seen) == 1
+    assert isinstance(again, ReliefUnavailableError), again
+    assert "held out" in str(again) and "mcgyvr rig rungs sync" in str(again)
+    assert len(seen) == 1  # the second ask never left
+    (note,) = [ln for ln in capsys.readouterr().err.splitlines() if "note:" in ln]
+    assert "mcgyvr rig rungs sync" in note
+
+    fresh = seal.HostKey()  # a sync writes the new key: the rung is asked again
+    with hosting(fresh, seen) as address:
+        assert ask(address, fresh.unit_key, tmp_path).text == ANSWER
 
 
 # --- a sync keeps the key, and only a key of its shape -------------------------------

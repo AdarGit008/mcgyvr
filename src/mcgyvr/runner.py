@@ -48,6 +48,7 @@ from mcgyvr.hubwire import (
     MODEL_UNPLACED,
     POOL_BUSY,
     SCOPE_HEADER,
+    SEAL_KEY_UNKNOWN,
     USE_CASE_HEADER,
 )
 from mcgyvr.local_pool import Endpoint, Protocol, SourceMap, UnknownRungError
@@ -488,6 +489,7 @@ class Runner(ABC):
         url = _url_for(self.endpoint.base_url, self.path)
         before = _status(self.endpoint)
         started = time.monotonic()
+        _refuse_a_stale_key(self.endpoint)
         payload, opener = sealed_for(self.endpoint, self._payload(model, request))
         try:
             document = _ask(
@@ -498,6 +500,8 @@ class Runner(ABC):
                 opener,
             )
         except BackendError as exc:
+            if (exc.status, exc.code) == SEAL_KEY_UNKNOWN:
+                _hold_out_a_stale_key(self.endpoint)
             busy = self.endpoint.busy_answers
             if (
                 self.endpoint.relief
@@ -864,6 +868,49 @@ def _sent_text(request: Request) -> str:
     parts += [json.dumps(dict(tool)) for tool in request.tools]
     parts.append(request.prompt)
     return "\n".join(part for part in parts if part)
+
+
+#: The relief rungs, by name and key id, whose host's agent holds that key no
+#: longer (it started again since the sync that wrote it): each is passed over
+#: unasked for the rest of the process, since the setup is read once. A sync and
+#: the next run read the new key.
+_STALE_KEYS: set[tuple[str, str]] = set()
+_STALE_LOCK = threading.Lock()
+
+
+def _stale(endpoint: Endpoint) -> tuple[str, str] | None:
+    if not endpoint.relief or endpoint.seal is None:
+        return None
+    return endpoint.source, endpoint.seal.kid
+
+
+def _hold_out_a_stale_key(endpoint: Endpoint) -> None:
+    """Hold ``endpoint`` out for the process after a ``seal_key_unknown``, said once."""
+    stale = _stale(endpoint)
+    if stale is None:
+        return
+    with _STALE_LOCK:
+        first = stale not in _STALE_KEYS
+        _STALE_KEYS.add(stale)
+    if first:
+        print(
+            f"note: relief rung {endpoint.source!r}'s host started again with a new "
+            "seal key; it is passed over until `mcgyvr rig rungs sync` writes the "
+            "new one and the setup is read again",
+            file=sys.stderr,
+        )
+
+
+def _refuse_a_stale_key(endpoint: Endpoint) -> None:
+    """Pass ``endpoint`` over unasked when its key is held out as stale."""
+    stale = _stale(endpoint)
+    with _STALE_LOCK:
+        held = stale is not None and stale in _STALE_KEYS
+    if held:
+        raise ReliefUnavailableError(
+            f"relief rung {endpoint.source!r} is held out: its host no longer "
+            "holds the seal key this setup names; run `mcgyvr rig rungs sync`"
+        )
 
 
 def sealed_for(

@@ -38,7 +38,7 @@ import urllib.error
 import urllib.parse
 import urllib.request
 from collections.abc import Callable, Collection, Mapping
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
 from pathlib import Path
 from typing import Any
 
@@ -182,6 +182,12 @@ class Ride:
         """The rung's name in ``relief.yaml``: the prefix, then the rung id."""
         return f"{NAME_PREFIX}{self.id}"
 
+    @property
+    def sealing(self) -> str:
+        """How the rung is asked, as a sync says it: ``sealed`` and the start of
+        its key's id, which the host's ``rig up`` prints too, or ``in clear``."""
+        return "in clear" if self.seal is None else f"sealed {self.seal.kid[:8]}"
+
 
 @dataclass(frozen=True)
 class Rides:
@@ -197,6 +203,9 @@ class Rides:
     privacy: str
     refresh_s: float
     rungs: tuple[Ride, ...]
+    #: The rungs the setup asked sealed before this answer that it lists with no
+    #: key now, so they are asked in clear from here on (:func:`sync` fills it).
+    unsealed: tuple[str, ...] = ()
 
 
 def _origin(parts: urllib.parse.SplitResult) -> tuple[str, str, int]:
@@ -553,8 +562,9 @@ def render(rides: Rides, key_env: str) -> str:
     header = (
         "# Written by `mcgyvr rig rungs sync`, which rewrites it whole: an edit\n"
         "# here lasts until the next sync. Each host can read the prompts sent\n"
-        "# to their rung. A rung with a `seal` key is asked sealed to it: the hub\n"
-        "# carries its prompts and answers unread.\n"
+        "# to their rung. A rung with a `seal` key is asked sealed to it: its\n"
+        "# prompts and answers are unread by a hub that lists the host's own key;\n"
+        "# until rig identity signs it, the key is the hub's word (SECURITY.md).\n"
     )
     return header + yaml.safe_dump({"relief": block}, sort_keys=False)
 
@@ -654,11 +664,21 @@ def sync(folder: Path, hub: str, key: str, key_env: str) -> tuple[Rides, Path]:
     answer written by :func:`keep` as ``relief.yaml``: a relief rung a step or
     a role binds that the hub no longer lists, or an answer the setup would
     refuse, leaves the file as it was. Returns the answer read and the file it
-    was written to.
+    was written to; its ``unsealed`` names each rung the setup asked sealed that
+    the answer lists with no key.
     """
     setup = load_setup(folder, RELIEF)
     own = setup.config
     rides = fetch(hub, key, ladder_report(own))
+    sealed_before = {name for name, unit in own.relief.items() if unit.seal is not None}
+    rides = replace(
+        rides,
+        unsealed=tuple(
+            each.name
+            for each in rides.rungs
+            if each.seal is None and each.name in sealed_before
+        ),
+    )
     target = keep(
         setup,
         RELIEF,
@@ -667,6 +687,15 @@ def sync(folder: Path, hub: str, key: str, key_env: str) -> tuple[Rides, Path]:
         listed={each.name for each in rides.rungs},
     )
     return rides, target
+
+
+def unsealed_note(name: str) -> str:
+    """What a sync says of a rung it asked sealed that the hub lists keyless."""
+    return (
+        f"note: relief rung {name} was asked sealed and the hub lists no key for "
+        "it now, so it is asked in clear from here on (its host's agent or the "
+        "hub may be older, or the hub dropped the key)"
+    )
 
 
 def _thread(work: Callable[[], None]) -> None:
@@ -734,6 +763,8 @@ class Refresher:
             self._due = self._clock() + rides.refresh_s
             self._going = False
             self._last_failure = ""
+        for name in rides.unsealed:
+            self._say(unsealed_note(name))
 
 
 def refresher_for(
