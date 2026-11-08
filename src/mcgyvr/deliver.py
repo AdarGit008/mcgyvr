@@ -27,12 +27,13 @@ from __future__ import annotations
 
 import contextlib
 import hashlib
+import itertools
 import os
 import subprocess
 import tempfile
 import textwrap
 from collections.abc import Iterator, Mapping, Sequence
-from dataclasses import dataclass, field
+from dataclasses import dataclass, field, replace
 from pathlib import Path
 
 from mcgyvr import hostos
@@ -43,6 +44,7 @@ from mcgyvr.gate.changeset import ChangeSet, ChangeSetError, FileChange
 from mcgyvr.gate.findings import Finding
 from mcgyvr.gate.runner import Gate, GateResult, InconclusiveRung
 from mcgyvr.gitcmd import run_git
+from mcgyvr.hubwire import SCOPE_OWN
 from mcgyvr.orchestrator.repo import AttachedRepo
 from mcgyvr.scope import OutsideTreeError, inside
 
@@ -78,6 +80,37 @@ class Identity:
 #: The identity every delivery commit is attributed to, so a commit does not
 #: depend on the machine having a git identity configured.
 IDENTITY = Identity("mcgyvr", "delivery@mcgyvr.invalid")
+
+#: The trailers a commit of code from a rung that is not yours carries: whose
+#: machines it came from (`crew` or `anyone`, `mcgyvr.config.whose`) and the
+#: model that wrote it. Neither names the machine or the member that served it.
+SOURCE_TRAILER = "Mcgyvr-Source"
+MODEL_TRAILER = "Mcgyvr-Model"
+#: The most characters of a model's name a trailer carries.
+_MODEL_TRAILER_WIDTH = 100
+#: Where `delivery.lent_code: branch` lands a change whose code is not yours,
+#: under its contract's id.
+LENT_BRANCH_PREFIX = "mcgyvr/"
+
+
+def lent_trailers(whose: str, model: str = "") -> tuple[tuple[str, str], ...]:
+    """The trailers for a commit of code from machines `whose` names; none for
+    your own.
+
+    The model's name is one line of printable characters, cut to
+    `_MODEL_TRAILER_WIDTH`, so a name a host reported cannot add a line or a
+    trailer of its own; a name with nothing left is left out.
+    """
+    if whose == SCOPE_OWN:
+        return ()
+    shown = "".join(ch for ch in " ".join(model.split()) if ch.isprintable())
+    shown = shown[:_MODEL_TRAILER_WIDTH].strip()
+    return ((SOURCE_TRAILER, whose),) + (((MODEL_TRAILER, shown),) if shown else ())
+
+
+def lent_branch(contract: Contract) -> str:
+    """The branch `delivery.lent_code: branch` lands `contract`'s change on."""
+    return f"{LENT_BRANCH_PREFIX}{contract.id}"
 
 
 @dataclass(frozen=True)
@@ -344,8 +377,20 @@ def deliver(
     branch: str = "",
     identity: Identity = IDENTITY,
     adapters: Sequence[LanguageAdapter] | None = None,
+    trailers: Sequence[tuple[str, str]] = (),
+    away: str = "",
 ) -> Delivery:
     """Write `content` into `repo`, re-check it, and commit it.
+
+    `trailers` end the commit message (:func:`lent_trailers`). `away` is the
+    branch the commit lands on when it must not land on the checked-out one —
+    a change whose code is not yours, under `delivery.lent_code: branch` — and
+    `branch` names none or names the checked-out one. An `away` some branch
+    already has — the same contract run again — gives way to the first free
+    ``<away>-2``, ``<away>-3``, … (:func:`_unused`), so an earlier lent change is
+    never overwritten. With `away` the checkout's working tree and index are never
+    touched: the change is written, judged again and committed in a temporary
+    worktree (:func:`_delivered_apart`).
 
     The steps, in order: resolve `content` to text and to an optional bound verdict
     (:func:`_verdict`); work out which files land (:func:`_files`); take the
@@ -365,6 +410,7 @@ def deliver(
     text, refused, bound = _verdict(content, accepted)
     files = _files(root, contract, text, bound)
     branch = _branch_named(root, branch)
+    away = _branch_named(root, away)
     _named_base(base)
 
     with _exclusive(root):
@@ -376,7 +422,31 @@ def deliver(
             paths=tuple(rel for rel, _ in files),
         )
         onto = _elsewhere(root, branch)
+        if away and not onto:
+            lent, blocker = _unused(root, away)
+            if blocker:
+                return call.refuse(
+                    f"you have a branch named {blocker}, so git can make no "
+                    f"branch {away} beside it, and a change whose code came from "
+                    f"a rung that is not yours lands on a branch of its own under "
+                    f"`delivery.lent_code: branch`. Rename {blocker}, name "
+                    f"another branch with `--branch`, or set `delivery.lent_code: "
+                    f"checkout` to deliver it as your own rungs' changes are"
+                )
+            onto = _elsewhere(root, lent)
+        if away and not onto:
+            return call.refuse(
+                f"{away} is the branch you have checked out, and a change whose "
+                f"code came from a rung that is not yours lands on a branch of its "
+                f"own under `delivery.lent_code: branch`, never the checked-out "
+                f"one. Check out another branch, or set `delivery.lent_code: "
+                f"checkout` to deliver it as your own rungs' changes are"
+            )
 
+        # Kept for a lent change too, though its delivery never touches the
+        # checkout: its base is your HEAD, and mid-merge, mid-rebase or mid-
+        # bisect that is a commit you are still settling, not one to build a
+        # branch for review on. Finish or abort, then run again.
         hazard = _checkout_hazard(root, detached_ok=bool(onto))
         if hazard is None and onto:
             hazard = _branch_refusal(root, onto, resolved, call.paths)
@@ -387,6 +457,14 @@ def deliver(
         if refusal is not None:
             return refusal
         payloads = {rel: _encoded(body) for rel, body in files}
+
+        if away:
+            # A change whose code is not yours never touches your checkout, not
+            # even for the second look: it is written, judged and committed in a
+            # worktree of its own, so a dirty tree is no hazard to it either.
+            return _delivered_apart(
+                call, contract, resolved, payloads, adapters, onto, identity, trailers
+            )
 
         dirty = _uncommitted(root, call.paths)
         if dirty:
@@ -414,7 +492,7 @@ def deliver(
             if refusal is not None:
                 return refusal
 
-            message = _message(contract, resolved, call.paths)
+            message = _message(contract, resolved, call.paths, trailers)
             if onto:
                 return call.delivered(
                     _commit_onto(root, call.paths, message, identity, onto), onto
@@ -625,6 +703,42 @@ def _elsewhere(root: Path, branch: str) -> str:
     return "" if branch == current else branch
 
 
+def _unused(root: Path, away: str) -> tuple[str, str]:
+    """`away`, or the first of ``<away>-2``, ``<away>-3``, … git can still make;
+    with ``""`` and the branch in the way when it can make none of them.
+
+    A lent change always lands on a branch of its own, made from the base it was
+    judged against: the same contract run again finds its earlier branch taken
+    and lands beside it, so that branch is never overwritten or built on and
+    the new one holds the judged change and nothing else. A name is taken when
+    a branch has it or has it as a directory (``<away>/x``); a branch named
+    after one of `away`'s own directories (``mcgyvr`` for ``mcgyvr/<id>``)
+    leaves git no such name at all, and is handed back to be named. A tag of
+    a candidate's name passes it over as well.
+    """
+    refs = _git(
+        root, "for-each-ref", "--format=%(refname)", "refs/heads/", "refs/tags/"
+    ).splitlines()
+    taken = {r.removeprefix("refs/heads/") for r in refs if r.startswith("refs/heads/")}
+    # A tag of the same name is stepped past too: `mcgyvr/<id>` would then be
+    # ambiguous to the `git push` the run prints.
+    tags = {r.removeprefix("refs/tags/") for r in refs if r.startswith("refs/tags/")}
+    parts = away.split("/")
+    for depth in range(1, len(parts)):
+        if (blocker := "/".join(parts[:depth])) in taken:
+            return "", blocker
+
+    def free(name: str) -> bool:
+        return (
+            name not in taken
+            and name not in tags
+            and not any(t.startswith(f"{name}/") for t in taken)
+        )
+
+    candidates = itertools.chain((away,), (f"{away}-{n}" for n in itertools.count(2)))
+    return next(name for name in candidates if free(name)), ""
+
+
 def _branch_refusal(
     root: Path, branch: str, base: str, rels: Sequence[str]
 ) -> str | None:
@@ -739,6 +853,68 @@ def _commit_onto(
         tip,
     )
     return sha
+
+
+def _delivered_apart(
+    call: _Call,
+    contract: Contract,
+    resolved: str,
+    payloads: Mapping[str, bytes],
+    adapters: Sequence[LanguageAdapter] | None,
+    onto: str,
+    identity: Identity,
+    trailers: Sequence[tuple[str, str]],
+) -> Delivery:
+    """Write, re-judge and commit `payloads` onto `onto` in a worktree of their
+    own, so the checkout's working tree and index are never touched.
+
+    The worktree is detached at `resolved`, the revision the change was judged
+    against, and goes when the call does; the commit is built with plumbing
+    (:func:`_commit_onto`) and only the branch's ref moves.
+    """
+    with _apart(call.root, resolved) as there:
+        inside = replace(call, root=there)
+        for rel, payload in payloads.items():
+            _write(there / rel, payload)
+        refusal = _refusal(inside, contract, resolved, payloads, adapters)
+        if refusal is not None:
+            return refusal
+        message = _message(contract, resolved, call.paths, trailers)
+        sha = _commit_onto(there, call.paths, message, identity, onto)
+    return call.delivered(sha, onto)
+
+
+@contextlib.contextmanager
+def _apart(root: Path, commit: str) -> Iterator[Path]:
+    """Yield a temporary worktree of `root`'s repository, detached at `commit`.
+
+    Hooks are off for ``worktree add``, so checking it out runs no hook of the
+    repository's; the scratch-index plumbing :func:`_commit_onto` runs in it
+    afterwards still fires your own ``post-index-change`` hook, as it does for
+    any named branch. The worktree is removed, and its record pruned, however
+    the block ends.
+    """
+    with tempfile.TemporaryDirectory(prefix="mcgyvr-delivery-") as where:
+        there = Path(where) / "tree"
+        _git(
+            root,
+            "-c",
+            f"core.hooksPath={_NO_HOOKS}",
+            "worktree",
+            "add",
+            "--quiet",
+            "--detach",
+            str(there),
+            commit,
+        )
+        try:
+            yield there
+        finally:
+            for args in (
+                ("worktree", "remove", "--force", str(there)),
+                ("worktree", "prune"),
+            ):
+                subprocess.run(["git", *args], cwd=root, capture_output=True)
 
 
 @contextlib.contextmanager
@@ -1441,12 +1617,19 @@ def _commit(root: Path, rels: Sequence[str], message: str, identity: Identity) -
     return _git(root, "rev-parse", "HEAD").strip()
 
 
-def _message(contract: Contract, base: str, paths: Sequence[str] = ()) -> str:
+def _message(
+    contract: Contract,
+    base: str,
+    paths: Sequence[str] = (),
+    trailers: Sequence[tuple[str, str]] = (),
+) -> str:
     """The commit message for a delivery.
 
     The subject is the contract id and its task, shortened to 72 columns, and the
     body names the contract, the target and the base. A ``Files:`` line is added
-    only when the delivery covers paths beyond the contract's own target.
+    only when the delivery covers paths beyond the contract's own target, and
+    `trailers` follow the base in the same closing block, where git reads them
+    as trailers.
     """
     files = (
         f"Files: {', '.join(paths)}\n"
@@ -1464,6 +1647,7 @@ def _message(contract: Contract, base: str, paths: Sequence[str] = ()) -> str:
         f"Target: {contract.target}\n"
         f"{files}"
         f"Base: {_shown(base)}\n"
+        + "".join(f"{key}: {value}\n" for key, value in trailers)
     )
 
 

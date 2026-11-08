@@ -17,6 +17,7 @@ from pathlib import Path
 from typing import Any
 
 from mcgyvr import atomic
+from mcgyvr.hubwire import SCOPE_OWN
 
 RESULTS_DIR = "results"
 
@@ -61,6 +62,9 @@ class AttemptResult:
     relief: bool = False
     model: str = ""
     address: str = ""
+    #: `whose` is whose machines the try's code may have come from: `own`,
+    #: `crew` or `anyone` (`mcgyvr.config.whose`).
+    whose: str = SCOPE_OWN
 
 
 @dataclass
@@ -95,9 +99,12 @@ class RunResult:
     #: that never reached delivery, which is every rejected one: those stop at
     #: the gate, with the change still in the sandbox and nothing written.
     delivery: str = ""
-    #: `rung` is the rung the accepted change came from, `assurance` what
-    #: accepting it rests on, and `attempts` every try in the order they were made.
+    #: `rung` is the rung the accepted change came from, `whose` whose
+    #: machines its code may have come from (`own`, `crew` or `anyone`, as
+    #: `mcgyvr.config.whose` reads the rung), `assurance` what accepting it
+    #: rests on, and `attempts` every try in the order they were made.
     rung: str | None = None
+    whose: str = SCOPE_OWN
     assurance: str | None = None
     attempts: list[AttemptResult] = field(default_factory=list)
     #: `findings` is why a change was refused, one line per reason; `committed`,

@@ -11,12 +11,13 @@ acceptance rests on in words.
 
 from __future__ import annotations
 
-from collections.abc import Callable, Mapping
+from collections.abc import Callable, Mapping, Sequence
 from dataclasses import dataclass, field, replace
 from enum import StrEnum
 from typing import TYPE_CHECKING, assert_never
 
 from mcgyvr.catalog import Family, TaskType, catalog
+from mcgyvr.config import whose
 from mcgyvr.notes import FailureNotes
 from mcgyvr.route import (
     Accepted,
@@ -37,6 +38,7 @@ from mcgyvr.route import (
     plan,
     priced,
 )
+from mcgyvr.sandbox.base import kept_off
 from mcgyvr.triage import Triage, triage_for
 
 if TYPE_CHECKING:  # pragma: no cover - typing only
@@ -933,12 +935,17 @@ def escalate(
             accepted_judgement = judgement
         return judgement.as_result()
 
-    def _unit_of(rung: str) -> tuple[str, str, bool]:
-        """The model, address and relief flag of the unit `rung` names."""
+    def _unit_of(rung: str) -> tuple[str, str, bool, str]:
+        """The model, address, relief flag and `whose` of the unit `rung` names."""
         unit = config.units.get(rung) or config.relief.get(rung)
         if unit is None:
-            return "", "", False
-        return unit.served_model or unit.model or "", unit.address or "", unit.relief
+            return "", "", False, whose(None)
+        return (
+            unit.served_model or unit.model or "",
+            unit.address or "",
+            unit.relief,
+            unit.whose,
+        )
 
     def recorded() -> tuple[Attempted, ...]:
         """The history, each try stamped with the unit that served it.
@@ -949,8 +956,16 @@ def escalate(
         """
         rows: list[Attempted] = []
         for row in history:
-            model, address, relief = _unit_of(row.rung)
-            rows.append(replace(row, relief=relief, model=model, address=address))
+            model, address, relief, from_whom = _unit_of(row.rung)
+            rows.append(
+                replace(
+                    row,
+                    relief=relief,
+                    model=model,
+                    address=address,
+                    whose=from_whom,
+                )
+            )
         return tuple(rows)
 
     def raised_to_halted(raised: _AttemptError, family: Family) -> Halted:
@@ -1091,7 +1106,7 @@ def escalate(
         attempts_spent=attempts_spent,
         escalations=escalations,
         detail=_halt_detail(
-            outcome, route, attempts_spent, escalations, tuple(entered)
+            outcome, route, attempts_spent, escalations, tuple(entered), history
         ),
         triage=triaged,
     )
@@ -1221,6 +1236,7 @@ def _halt_detail(
     attempts_spent: int,
     escalations: int,
     entered: tuple[Family, ...],
+    history: Sequence[Attempted] = (),
 ) -> str:
     """The sentence a halted task carries, saying why it stopped.
 
@@ -1253,6 +1269,21 @@ def _halt_detail(
             f"the task stopped at max_escalations "
             f"({route.ceiling.escalations}), having spent {attempts_spent} "
             f"attempt(s) on {route.most_rungs} rung(s) of {climbed}."
+        )
+    tried = [a for a in history if not a.raised]
+    if (
+        outcome is Outcome.DECLINED_THROUGHOUT
+        and tried
+        and all(kept_off(a.detail) for a in tried)
+    ):
+        # Every rung was one whose code is not yours, and the sandbox could not
+        # keep it off the network: the remedy is the sandbox, not the ladder,
+        # and the last rung's own reason says which (a temp-directory sandbox,
+        # or a container with no network that did not start).
+        return (
+            f"every rung of {climbed} serves code that is not yours, and this "
+            f"task's sandbox could not run it with no network, so none was "
+            f"sent: {tried[-1].detail}"
         )
     if outcome is Outcome.DECLINED_THROUGHOUT:
         return (
@@ -1399,7 +1430,11 @@ def disposition(outcome: Outcome, *, replans: int = 0) -> Disposition:
                     "aside without spending an attempt, so no rung of this "
                     "ladder claims the contract. Nothing dearer is being "
                     "withheld; what is missing is a rung that accepts this "
-                    "work, or a contract the bound rungs recognise."
+                    "work, or a contract the bound rungs recognise — or, when "
+                    "every rung's code is not yours and the sandbox could not "
+                    "keep it off the network, a container with no network "
+                    "that starts (`sandbox.mode: docker`) or this repository "
+                    "listed under `sandbox.lent_code_on_host`."
                 ),
             )
         case Outcome.ERROR:

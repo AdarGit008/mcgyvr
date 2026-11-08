@@ -41,3 +41,54 @@ against a repository. Two properties are load-bearing:
    either.
 
 Deviations from either are security-relevant and in scope for a report.
+
+## Who else is in a run that rides a hub
+
+A rung is not always yours. A relief rung (`mcgyvr rig rungs sync`) is lent by
+another member's machine, and a unit of scope `crew` or `anyone` is served from
+your crews' or anyone's machines. Four parties then have a part in a run:
+
+- **The hub** relays each request and answer, in plaintext: TLS ends there.
+  It picks the machine that serves a request, within the scope the request
+  names, and it writes the relief rungs and crew units a sync fetches. It never
+  reaches your machine: your machine dials it. A unit of scope `own` that a
+  hub serves is trusted as yours on the hub's word alone.
+- **You, riding** another member's unit, send what a prompt carries: the
+  system bundle, the task, the full text of the files the contract names
+  (secret-looking file names are skipped) and earlier failure notes, redacted
+  on a best-effort basis. The hub and the host can read all of it.
+- **The host** that serves a ride reads every prompt sent to its unit and
+  answers with any text it likes. That text is the code your gate runs and
+  your delivery commits. A reply naming a model other than the one the hub
+  matched passes the rung over.
+- **A peer on your local network** can reach what a task container on Docker's
+  default network can reach, and anything your machine serves on its network.
+
+What the gate and delivery do with code from a rung that is not yours:
+
+1. **It never runs with a network.** In `sandbox.mode: docker` it runs in a
+   second task container started with `--network none`, whatever
+   `sandbox.network` says (`none` included), with no capabilities
+   (`--cap-drop ALL`), no gaining privileges (`no-new-privileges`), a read-only
+   root and a `/tmp` and `/var/tmp` in memory, started again before every lent
+   try after its first, so what one host's code leaves outside the workspace
+   (which every try resets) or running is gone before the next host's runs.
+   Your own rungs' code keeps the task's own container, which never runs a
+   stranger's code. In the `tempdir` sandbox (by name, or as
+   the fallback) it would run on this host, so a try on such a rung is declined
+   before anything is sent, unless the repository is listed under
+   `sandbox.lent_code_on_host`.
+2. **It never lands unmarked.** Its commit carries `Mcgyvr-Source:` (`crew` or
+   `anyone`) and `Mcgyvr-Model:` trailers, never the machine or member that
+   served it. Under `delivery.lent_code: branch` (the default) it is committed
+   onto a branch of its own from the base it was judged against —
+   `mcgyvr/<contract id>`, or `-2`, `-3`, … beside an earlier run's —
+   whatever `delivery.commit` says, and never written into your checkout;
+   `checkout` delivers it as your own rungs' code.
+
+What stays yours to weigh: the container is Docker's boundary, not a virtual
+machine; the second look delivery takes at an accepted file runs on this host,
+with the checkers the threat model's first property names; the draws of one
+try share the second container's `/tmp`, and a rider running as root shares
+its dependency folders (`.venv`, `node_modules`) from one lent try to the
+next; and a lent change is a stranger's code until you have read it.

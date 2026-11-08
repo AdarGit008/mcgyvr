@@ -31,6 +31,7 @@ from pathlib import Path, PurePosixPath
 from typing import ClassVar
 
 from mcgyvr.gitcmd import run_git
+from mcgyvr.hubwire import SCOPE_ANYONE, SCOPE_CREW, SCOPE_OWN
 from mcgyvr.redact import scrub
 
 _WORKSPACE_PREFIX = "mcgyvr-task-"
@@ -261,6 +262,11 @@ class Sandbox(ABC):
         self._source_commit: str = ""
         self.notes: tuple[str, ...] = tuple(notes)
 
+    @property
+    def source(self) -> Path:
+        """The repository, or directory, this sandbox's workspace is built from."""
+        return self._source
+
     # The workspace exists only between `__enter__` and `__exit__`, and these
     # accessors refuse rather than pretend otherwise.
 
@@ -489,6 +495,17 @@ class Sandbox(ABC):
         outlives its timeout is killed and reported as timed out with
         `TIMEOUT_EXIT` as its exit code.
         """
+
+    def confine(self, lent: bool) -> bool:
+        """Get ready to run code from a rung that is not yours (`lent`), or from
+        one of yours; whether this backend can keep that code off the network.
+
+        The base answer: your own code runs as the task always has, and code
+        that is not yours cannot be kept off the network, because a backend
+        without a container of its own runs on this host. A container backend
+        overrides it.
+        """
+        return not lent
 
     def host_path(self, reported: str) -> Path:
         """Where a path the sandbox reported lives on this host. The base answer is
@@ -948,6 +965,61 @@ _WEAKER_MODE_NOTE = (
     "still gets a throwaway git workspace, but process, network and resource "
     "isolation are the host's."
 )
+
+
+#: The words a refusal names whose machines a rung's code may come from, by
+#: `mcgyvr.config.whose`.
+WHOSE_WORDS = {
+    SCOPE_CREW: "your crews' machines",
+    SCOPE_ANYONE: "anyone's machines",
+}
+
+
+#: In every reason :func:`confine_for` gives, so a halt can tell a ladder the
+#: sandbox kept from running (:func:`kept_off`) from one that stepped aside.
+NOT_SENT = "so it is not sent"
+
+
+def kept_off(detail: str) -> bool:
+    """Whether `detail` is a reason :func:`confine_for` declined a try with."""
+    return NOT_SENT in detail
+
+
+def confine_for(
+    sandbox: Sandbox, rung: str, whose: str, *, on_host: bool = False
+) -> str | None:
+    """Put `sandbox` under the policy for code from `rung`; why it may not run.
+
+    `whose` is whose machines the rung's code may come from (`own`, `crew` or
+    `anyone`, as `mcgyvr.config.whose` reads the rung). Your own rung's code
+    runs as the task always has. Anyone else's runs only where the sandbox can
+    keep it off the network — a container with none — and a sandbox that
+    cannot, the temp-directory one, refuses it unless `on_host` says this
+    repository is listed under `sandbox.lent_code_on_host`. None means the try
+    may go ahead.
+    """
+    lent = whose != SCOPE_OWN
+    try:
+        confined = sandbox.confine(lent)
+    except SandboxError as exc:
+        if not lent:
+            raise
+        # The container with no network did not start: that rung is passed
+        # over, and the climb goes on with the rungs that are yours.
+        return (
+            f"rung {rung!r} runs only in a container with no network, which did "
+            f"not start ({exc}), {NOT_SENT}"
+        )
+    if confined or on_host:
+        return None
+    return (
+        f"rung {rung!r} is served from {WHOSE_WORDS.get(whose, whose)} "
+        f"(`scope: {whose}`) and this task runs in the temp-directory sandbox, on "
+        f"this host, where the code it returns would run with this host's network "
+        f"and files, {NOT_SENT}. Run in a container (`sandbox.mode: "
+        f"docker`, with a daemon that answers), or list this repository under "
+        f"`sandbox.lent_code_on_host` to run such code on this host."
+    )
 
 
 def open_sandbox(
