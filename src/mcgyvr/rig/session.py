@@ -93,9 +93,15 @@ TRAVERSAL_FEATURE = "traversal"
 #: The feature that says this rig runs one session per card, never two on one card.
 #: A rig that names it may hold several sessions at once, one per card.
 MULTI_SESSION_FEATURE = "multi_session"
+#: The feature that says this rig honors the ``worker_start`` card ``backend``
+#: name: its fork reads the backend env vars (``GGML_*_BACKEND``) that map each
+#: name to a device. An agent without it runs an older fork; the hub falls
+#: back to the safe backends that fork already speaks.
+BACKEND_SELECT_FEATURE = "backend_select"
 #: Every feature the hello and the offer name, within ``MAX_FEATURES``, no repeats:
 #: ``probe`` and ``traversal``: it answers UDP probes and walks STUN candidates,
 #: ``head_slots``: it reads the slots of the head it runs,
+#: ``backend_select``: it honors a worker card's ``backend`` name,
 #: and the hitchhike units and the several sessions a card rig holds.
 #: ``offer`` names only ``HITCHHIKE_FEATURE`` for a rig that lends nothing.
 #: The hub publishes these names, so a name it does not publish refuses the hello.
@@ -105,6 +111,7 @@ FEATURES = (
     "head_slots",
     HITCHHIKE_FEATURE,
     MULTI_SESSION_FEATURE,
+    BACKEND_SELECT_FEATURE,
 )
 #: The llama.cpp RPC protocol of the pinned build, as the wire names it: what
 #: a rig running that build declares in its hello.
