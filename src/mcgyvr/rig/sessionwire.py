@@ -21,8 +21,10 @@ from dataclasses import dataclass
 from typing import Any, Literal
 
 from mcgyvr import hubwire
+from mcgyvr.hubwire import MAX_BIRTHDAY_PORTS as MAX_BIRTHDAY_PORTS
 from mcgyvr.hubwire import MAX_SLOTS as MAX_SLOTS
 from mcgyvr.hubwire import MAX_UNITS as MAX_UNITS
+from mcgyvr.hubwire import MIN_BIRTHDAY_PORTS as MIN_BIRTHDAY_PORTS
 from mcgyvr.hubwire import RELAY_MAX_CHUNK_BYTES as RELAY_MAX_CHUNK_BYTES
 from mcgyvr.hubwire import RELAY_MAX_REQUEST_BYTES as RELAY_MAX_REQUEST_BYTES
 from mcgyvr.hubwire import RELAY_MAX_RESPONSE_BYTES as RELAY_MAX_RESPONSE_BYTES
@@ -164,11 +166,16 @@ class SessionCode:
 
 @dataclass(frozen=True, kw_only=True)
 class Endpoint:
-    """One address a peer was or might be reached at, and what kind it is."""
+    """One address a peer was or might be reached at, and what kind it is.
+
+    ``ports`` is the birthday-paradox hint: a ``birthday`` candidate's bounded
+    probe range (``port`` through ``port + ports - 1``) or a ``birthday_burst``
+    candidate's burst count; one elsewhere."""
 
     host: str
     port: int
     kind: str
+    ports: int = 1
 
 
 @dataclass(frozen=True, kw_only=True)
@@ -456,6 +463,9 @@ def _endpoints(body: _Body, field: str) -> tuple[Endpoint, ...]:
                 host=entry.text("host", HOST),
                 port=entry.number("port", 1, MAX_PORT),
                 kind=entry.text("kind", protocol.TAG),
+                ports=entry.number(
+                    "ports", MIN_BIRTHDAY_PORTS, MAX_BIRTHDAY_PORTS, default=1
+                ),
             )
         )
     return tuple(found)

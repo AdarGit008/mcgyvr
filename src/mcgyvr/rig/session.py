@@ -222,6 +222,17 @@ class SessionHost(Protocol):
 
     def ping(self, name: str, host: str) -> pooled.PingSeen: ...
 
+    def birthday(
+        self,
+        name: str,
+        port: int,
+        host: str,
+        target: int,
+        count: int,
+        *,
+        burst: bool,
+    ) -> None: ...
+
     def transfer(
         self, name: str, pokes: Sequence[str]
     ) -> tuple[dict[str, int], dict[str, int]]: ...
@@ -353,6 +364,26 @@ class DockerHost:
 
     def ping(self, name: str, host: str) -> pooled.PingSeen:
         return pooled.read_ping(self.docker.run_script(name, pooled.PING_SCRIPT, host))
+
+    def birthday(
+        self,
+        name: str,
+        port: int,
+        host: str,
+        target: int,
+        count: int,
+        *,
+        burst: bool,
+    ) -> None:
+        """Run the birthday dance in the tunnel container: a bounded burst of
+        probe packets (``burst``: one from each of ``count`` sockets at
+        ``host:target``; else one socket probing ``count`` ports from
+        ``target`` on ``host``)."""
+        if burst:
+            args = ["birthday", "burst", host, str(target), str(count)]
+        else:
+            args = ["birthday", "probe", str(port), host, str(target), str(count)]
+        self.docker.run_python(name, _udpwire_source(), *args)
 
     def transfer(
         self, name: str, pokes: Sequence[str]
@@ -656,6 +687,8 @@ class _Walk:
     why: str = ""  # why this peer's path was given up on, logged and told to the hub
     # Set when the walk ended with no path right after an endpoint was too narrow.
     too_narrow: bool = False
+    # Whether the birthday dance for the candidate aimed at now has run.
+    birthday_sent: bool = False
 
 
 def candidate_time(
@@ -1875,6 +1908,15 @@ class Sessions:
             except pooled.PoolError:
                 seen = None
             now = self._clock()
+            for walk in open_:
+                if walk.aim is not None and not walk.relayed and not walk.birthday_sent:
+                    candidate = walk.peer.candidates[walk.step]
+                    if candidate.endpoint.kind in (
+                        hubwire.BIRTHDAY_KIND,
+                        hubwire.BIRTHDAY_BURST_KIND,
+                    ):
+                        walk.birthday_sent = True
+                        self._birthday(session, walk, candidate)
             changed = False
             for walk in open_:
                 key = walk.peer.public_key
@@ -1924,6 +1966,22 @@ class Sessions:
                 return
         self._report(session, walks)
 
+    def _birthday(
+        self, session: _Session, walk: _Walk, candidate: tunnel.Candidate
+    ) -> None:
+        """Run the birthday dance for one candidate: the symmetric side bursts
+        at the peer's stable endpoint, the non-symmetric side probes a bounded
+        range of the symmetric side's public address. The tunnel keeps accepting
+        the peer's handshake from that host whatever port it comes back on."""
+        session.host.birthday(
+            session.tunnel_name,
+            session.listen_port,
+            str(candidate.host),
+            candidate.port,
+            candidate.ports,
+            burst=candidate.endpoint.kind == hubwire.BIRTHDAY_BURST_KIND,
+        )
+
     def _next_aim(self, walk: _Walk) -> None:
         """Aim the tunnel at this peer's next candidate, or at its relay, or at nothing.
 
@@ -1938,6 +1996,7 @@ class Sessions:
         if not walk.relayed and walk.step < len(candidates):
             found = candidates[walk.step]
             walk.aim = (str(found.host), found.port)
+            walk.birthday_sent = False
             return
         relay = walk.peer.relay
         if relay is not None and not walk.relayed:

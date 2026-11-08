@@ -417,6 +417,20 @@ class NativeHost:
             host, pooled.TUNNEL_MTU - pooled.PING_HEADERS, pooled.FULL_PINGS
         )
 
+    def birthday(
+        self,
+        name: str,
+        port: int,
+        host: str,
+        target: int,
+        count: int,
+        *,
+        burst: bool,
+    ) -> None:
+        # Native (Mac/Win) sessions do not cross NATs: the birthday dance has
+        # nothing to punch, and a native host never walks a birthday candidate.
+        raise pooled.PoolError("no birthday probe on a native host")
+
     def transfer(
         self, name: str, pokes: Sequence[str]
     ) -> tuple[dict[str, int], dict[str, int]]:
