@@ -249,7 +249,14 @@ def test_emit_says_it_for_each_such_unit_when_it_writes_and_when_it_checks(
         told = main(["emit", *check, "--out", str(out), "--ctx-per-slot", str(WINDOW)])
         said = capsys.readouterr()
         assert told == Exit.OK, said.err
-        notes = [text for text in said.err.splitlines() if text.startswith("note: ")]
+        # The note `emit` gives a unit of `expose: lan` (its address names
+        # another host) says where it listens and where its key is, not what
+        # its sizing read; it is left out here.
+        notes = [
+            text
+            for text in said.err.splitlines()
+            if text.startswith("note: ") and "(expose: lan)" not in text
+        ]
         for engine, slug in slugs.items():
             about = [text for text in notes if text.startswith(f"note: {slug}: ")]
             if engine in not_shipped():

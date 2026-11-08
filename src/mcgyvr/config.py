@@ -489,6 +489,12 @@ ROLES = (ROLE_ALWAYS_ON, ROLE_SLEEPER)
 LAUNCHER_DOCKER = "docker"
 LAUNCHER_NATIVE = "native"
 LAUNCHERS = (LAUNCHER_DOCKER, LAUNCHER_NATIVE)
+#: Who may reach a unit's server: this machine alone (`local`, 127.0.0.1), or
+#: every machine that can reach this one (`lan`, every interface), which is
+#: given an API key mcgyvr makes and keeps (:mod:`mcgyvr.unitkey`).
+EXPOSE_LOCAL = "local"
+EXPOSE_LAN = "lan"
+EXPOSES = (EXPOSE_LOCAL, EXPOSE_LAN)
 #: The systems whose machines run a unit natively by default: no NVIDIA
 #: container runtime serves a GPU to a container there (Metal on macOS; on
 #: Windows the pinned CUDA, Vulkan or CPU build).
@@ -572,6 +578,26 @@ UNIT_FIELDS: tuple[Field, ...] = (
         "unit on a Mac or Windows machine, this one or such a rig.",
         choices=LAUNCHERS,
         bind_hint="e.g. native -- leave it out for a container",
+    ),
+    Field(
+        "expose",
+        "enum",
+        "Who may reach this unit's server. `local`: this machine alone, on "
+        "127.0.0.1. `lan`: every machine that reaches this one, on every "
+        "interface, and only with the API key mcgyvr makes for the unit the "
+        "first time `mcgyvr emit` writes it: kept at mode 0600 in "
+        "`unit-keys/<host>-<port>.env` in the data folder, handed to the server "
+        "through its compose file's `env_file` (never written into the compose "
+        "file or `fleet.yaml`) and sent by mcgyvr's own requests to the unit; "
+        "`mcgyvr fleet key <unit>` prints it for a client of your own. A `--host` "
+        "the unit's own args state, or a `LLAMA_ARG_HOST` its env states, is "
+        "kept as stated. A docker unit only: a native one listens on 127.0.0.1 "
+        "alone, and a pooled rpc worker on its tunnel address. Absent means "
+        "`local` for a unit whose address names this machine (localhost, "
+        "127.0.0.1, ::1) or that runs native, and `lan` for one whose address "
+        "names another host, which is the only way that address reaches it.",
+        choices=EXPOSES,
+        bind_hint="e.g. local -- leave it out to follow the unit's address",
     ),
     Field(
         "api_key_env",
@@ -1507,6 +1533,10 @@ class Unit:
     role: str = ROLE_ALWAYS_ON
     #: `docker`, or `native` for the pinned llama.cpp binary mcgyvr supervises.
     launcher: str = LAUNCHER_DOCKER
+    #: `local` (127.0.0.1) or `lan` (every interface, behind a key mcgyvr makes),
+    #: as the unit states it; None when it states neither, and then
+    #: `mcgyvr.serving.exposure` reads it off the address.
+    expose: str | None = None
     launch: Mapping[str, Any] = field(default_factory=dict)
     #: The slots riders from the hub may use on this unit at once, as
     #: `rider_slots.<name>` states it and always below the unit's `width`, so
@@ -2515,6 +2545,7 @@ def _build(
             sampling=block.get("sampling") or "request",
             role=block.get("role") or ROLE_ALWAYS_ON,
             launcher=block.get("launcher") or LAUNCHER_DOCKER,
+            expose=block.get("expose"),
             launch=block["launch"],
             rider_slots=(data["rider_slots"] or {}).get(name, 0),
             scope=block["scope"],
@@ -2608,6 +2639,16 @@ def _cross_validate_fleet(data: Mapping[str, Any]) -> None:
 
     for name, block in units.items():
         _refuse_userinfo(name, str(block["address"]))
+        if (
+            block.get("expose") == EXPOSE_LAN
+            and block.get("launcher") == LAUNCHER_NATIVE
+        ):
+            raise ConfigSchemaError(
+                f"units.{name}.expose: lan, and the unit runs with launcher "
+                f"native, which listens on 127.0.0.1 alone (the rig agent relays "
+                f"to it); drop `expose`, or run the unit in its container "
+                f"(launcher docker)"
+            )
 
     seen: set[str] = set()
     if not data["ladder"]:

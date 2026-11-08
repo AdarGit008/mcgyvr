@@ -33,7 +33,8 @@ from typing import TYPE_CHECKING, Any, cast
 
 import yaml
 
-from mcgyvr.config import LAUNCHER_NATIVE
+from mcgyvr import unitkey
+from mcgyvr.config import EXPOSE_LAN, LAUNCHER_NATIVE
 from mcgyvr.fleet.spans import Shard, Span, SpanError, check_spans, spans
 from mcgyvr.serving import (
     CARDS_KEY,
@@ -51,6 +52,7 @@ from mcgyvr.serving import (
     Unit,
     UnitKey,
     Width,
+    exposure,
     host_of,
     kernelcache,
     launch_specs,
@@ -163,6 +165,18 @@ def argv(unit: Unit, *, sleep_mode: bool = False) -> tuple[str, ...]:
     its argv is never a shell line.
     """
     flags = {**unit.args, "--port": str(unit.port)}
+    # vLLM listens on every interface when it is given no `--host`, so a vLLM
+    # server whose unit states none is given the address `expose` names
+    # (`listens_on`); a headless rank runs no server. A llama.cpp server in a
+    # container is told by `HOST_ENV` instead (`_service`), and one the native
+    # launcher runs is given `LOOPBACK` by `native_block`.
+    if (
+        unit.engine == "vllm"
+        and unit.role == ROLE_SERVE
+        and HOST_FLAG not in flags
+        and not llamacpp.stated_hosts(unit.extra)
+    ):
+        flags[HOST_FLAG] = listens_on(unit)
     if (
         unit.engine == "llama.cpp"
         and unit.role == ROLE_SERVE
@@ -422,7 +436,9 @@ def _sequence_on_one_card(
             waits = services[waiter].setdefault("depends_on", {})
             assert isinstance(waits, dict)
             waits[ahead] = {"condition": "service_healthy"}
-            services[ahead]["healthcheck"] = _healthcheck(port)
+            services[ahead]["healthcheck"] = _healthcheck(
+                port, keyed="env_file" in services[ahead]
+            )
 
 
 #: How long a service may take to answer its first healthcheck. Loading a
@@ -432,14 +448,16 @@ def _sequence_on_one_card(
 _HEALTH_START_PERIOD_S = 600
 
 
-def _healthcheck(port: int) -> dict[str, object]:
+def _healthcheck(port: int, *, keyed: bool = False) -> dict[str, object]:
     """A healthcheck that polls the unit's own port for `/v1/models`.
 
     `curl` is tried first and `wget` second because either may be missing
     from an engine's image; the `||` lives in the shell, so the check passes
-    as soon as one of them answers.
+    as soon as one of them answers. A unit that asks for a key (`keyed`) is
+    polled at `/health` instead, which both engines answer without one once
+    the model is loaded (llama-server's `/v1/models` asks for the key).
     """
-    url = f"http://localhost:{port}/v1/models"
+    url = f"http://localhost:{port}/{'health' if keyed else 'v1/models'}"
     return {
         "test": [
             "CMD-SHELL",
@@ -511,7 +529,19 @@ def _service(unit: Unit, *, sleep_mode: bool = False) -> dict[str, object]:
     if unit.role == ROLE_RPC:
         return _rpc_service(unit)
     store = _kernel_store(unit)
-    return {
+    # The listening address: `HOST_ENV` at the address `expose` names, unless
+    # the unit states its own. A unit whose argv states `--host` keeps the
+    # `0.0.0.0` it was always rendered with (the flag wins over the variable,
+    # so the flag is what it listens on); one whose env states `HOST_ENV` is
+    # given no value to disagree with, and its own stands. The name is matched
+    # exactly, as Linux reads a variable's name.
+    if HOST_ENV in unit.env:
+        host_env: dict[str, str] = {}
+    elif llamacpp.stated_hosts(argv(unit)):
+        host_env = {HOST_ENV: ANY_ADDRESS}
+    else:
+        host_env = {HOST_ENV: listens_on(unit)}
+    service: dict[str, object] = {
         "image": _image(unit),
         "container_name": f"mcgyvr-{safe_host(unit.host)}-{_service_name(unit)}",
         "command": list(argv(unit)),
@@ -522,16 +552,16 @@ def _service(unit: Unit, *, sleep_mode: bool = False) -> dict[str, object]:
         # the same list `render_command` joins into a shell line, one
         # configuration in two spellings.
         "network_mode": "host",
-        # `LLAMA_ARG_HOST=0.0.0.0` makes the server listen on every interface,
-        # which under host networking is the box's own; `_environment` merges
-        # the unit's env over it and refuses a key that would change the value.
-        # The weights are mounted read-only twice, here and at their own path,
-        # so a `-m` in the argv resolves against either spelling, beside the
-        # rig's kernel store when its scan read one (`_kernel_store`), and
-        # `deploy` reserves the card or cards `unit.cards` names.
-        "environment": _environment(
-            {"LLAMA_ARG_HOST": "0.0.0.0", **(store.env if store else {})}, unit
-        ),
+        # `LLAMA_ARG_HOST` is where the server listens, under host networking
+        # on the box's own interfaces: 127.0.0.1 for a unit of `expose: local`,
+        # every interface for `lan`, whose key comes from its `env_file`
+        # (`_keyed`); `_environment` merges the unit's env over it and refuses
+        # a key that would change the value. The weights are mounted read-only
+        # twice, here and at their own path, so a `-m` in the argv resolves
+        # against either spelling, beside the rig's kernel store when its scan
+        # read one (`_kernel_store`), and `deploy` reserves the card or cards
+        # `unit.cards` names.
+        "environment": _environment({**host_env, **(store.env if store else {})}, unit),
         "restart": "unless-stopped",
         "volumes": sorted(
             {
@@ -542,6 +572,157 @@ def _service(unit: Unit, *, sleep_mode: bool = False) -> dict[str, object]:
         ),
         "deploy": _reservation(*unit.cards),
     }
+    return _keyed(service, unit)
+
+
+#: Every interface: where a unit of `expose: lan` listens, and where a docker
+#: llama.cpp unit that states its own `--host` was always rendered to.
+ANY_ADDRESS = "0.0.0.0"
+
+
+def keyed(unit: Unit) -> bool:
+    """Whether the unit's server asks every request for the key mcgyvr keeps:
+    a serving process in a container whose unit states `expose: lan`."""
+    return (
+        unit.launcher != LAUNCHER_NATIVE
+        and unit.role == ROLE_SERVE
+        and unit.expose == EXPOSE_LAN
+    )
+
+
+def states_host(unit: Unit) -> bool:
+    """Whether the unit's own launch states where its server listens: a
+    `--host` among its args, or for llama.cpp a `HOST_ENV` in its env. Such a
+    unit is rendered as it states, and `expose` decides only its key."""
+    if unit.engine == "vllm":
+        return HOST_FLAG in unit.args or bool(llamacpp.stated_hosts(unit.extra))
+    return HOST_ENV in unit.env or bool(llamacpp.stated_hosts(argv(unit)))
+
+
+def listening(unit: Unit) -> str:
+    """Where a container's server listens as it is rendered: the last `--host`
+    its argv states (the flag wins over `HOST_ENV`), else for llama.cpp the
+    `HOST_ENV` its env states, else what `expose` names (`listens_on`)."""
+    hosts = llamacpp.stated_hosts(argv(unit))
+    if hosts:
+        return hosts[-1]
+    if unit.engine != "vllm" and HOST_ENV in unit.env:
+        return unit.env[HOST_ENV]
+    return listens_on(unit)
+
+
+def listens_beyond_loopback(unit: Unit) -> bool:
+    """Whether the unit listens on an address other than this machine's own
+    (`LOCAL_RIGS`), as it is rendered (`listening`)."""
+    return listening(unit) not in LOCAL_RIGS
+
+
+#: Where each engine listens when its launch states no host: llama-server's
+#: `hostnames` default is 127.0.0.1 (common/common.h at b11960), and vLLM's
+#: `host` default None is every interface.
+_UNSTATED_HOST = {"llama.cpp": LOOPBACK, "vllm": ANY_ADDRESS}
+
+
+def locked_listening(block: Mapping[str, Any]) -> str:
+    """Where a locked unit listens, as its lock states it: the last `--host` of
+    its `launch.argv`, else for llama.cpp the `HOST_ENV` of its `launch.env`,
+    else where its engine listens when told nothing (`_UNSTATED_HOST`)."""
+    launch = block.get("launch") or {}
+    stated = launch.get("argv") if isinstance(launch, Mapping) else None
+    env = launch.get("env") if isinstance(launch, Mapping) else None
+    hosts = llamacpp.stated_hosts([str(part) for part in stated or ()])
+    if hosts:
+        return hosts[-1]
+    engine = str(block.get("engine") or "llama.cpp")
+    if engine != "vllm" and isinstance(env, Mapping) and HOST_ENV in env:
+        return str(env[HOST_ENV])
+    return _UNSTATED_HOST.get(engine, LOOPBACK)
+
+
+def _locked_serves(block: object) -> bool:
+    """Whether a locked fleet's unit block is a server in a container: not native,
+    not an rpc worker."""
+    return (
+        isinstance(block, Mapping)
+        and block.get("launcher") != LAUNCHER_NATIVE
+        and block.get("role") != ROLE_RPC
+    )
+
+
+def locked_exposed(block: Mapping[str, Any]) -> bool:
+    """Whether a locked unit's server asks for a key: a server in a container
+    whose exposure (`mcgyvr.serving.exposure`, from what it states or else its
+    address) is `lan`."""
+    return _locked_serves(block) and (
+        exposure(
+            block.get("expose"),
+            address=block.get("address"),
+            launcher=block.get("launcher"),
+        )
+        == EXPOSE_LAN
+    )
+
+
+def locked_keyed(
+    fleet: Mapping[str, Any],
+) -> tuple[tuple[str, str, int, str], ...]:
+    """The units of a locked fleet whose server asks for a key, as (name, host,
+    port, where it listens): `locked_exposed`, with an address to keep the key
+    for."""
+    keyed: list[tuple[str, str, int, str]] = []
+    for name, block in sorted((fleet.get("units") or {}).items()):
+        if (
+            isinstance(block, Mapping)
+            and locked_exposed(block)
+            and isinstance(block.get("address"), str)
+        ):
+            address = str(block["address"])
+            keyed.append(
+                (str(name), host_of(address), port_of(address), locked_listening(block))
+            )
+    return tuple(keyed)
+
+
+def locked_open(fleet: Mapping[str, Any]) -> tuple[tuple[str, str], ...]:
+    """The units of a locked fleet whose lock has them listen beyond this machine
+    with no key, as (name, where it listens): a server in a container that is
+    not `locked_exposed` and whose `locked_listening` is not one of this
+    machine's own names (`LOCAL_RIGS`). A lock written before units listened on
+    the loopback by default states `0.0.0.0`."""
+    found: list[tuple[str, str]] = []
+    for name, block in sorted((fleet.get("units") or {}).items()):
+        if not _locked_serves(block) or locked_exposed(block):
+            continue
+        host = locked_listening(block)
+        if host not in LOCAL_RIGS:
+            found.append((str(name), host))
+    return tuple(found)
+
+
+def listens_on(unit: Unit) -> str:
+    """Where a container's server listens when its unit states no host of its
+    own: every interface for `expose: lan`, else `LOOPBACK` alone."""
+    return ANY_ADDRESS if keyed(unit) else LOOPBACK
+
+
+def _keyed(service: dict[str, object], unit: Unit) -> dict[str, object]:
+    """`service`, naming the unit's key file under `env_file` when it is keyed.
+
+    `docker compose` reads that file where it runs, so the key reaches the
+    server's environment without being written into the compose file, or into
+    the launch `ladder emit` stamps into `fleet.yaml`.
+    """
+    if keyed(unit):
+        stated = sorted(name for name in unit.env if name in unitkey.ENV_NAMES)
+        if stated:
+            # Compose lets `environment` win over `env_file`, so the server
+            # would take this key and mcgyvr's own requests send another.
+            raise EmitError(
+                f"{unit.key.slug}: its env sets {', '.join(stated)}, and a unit of "
+                "expose: lan is given the key mcgyvr makes for it; drop it"
+            )
+        service["env_file"] = [str(unitkey.path(unit.host, unit.port))]
+    return service
 
 
 def _native_service(unit: Unit) -> dict[str, object]:
@@ -685,7 +866,7 @@ def _vllm_service(unit: Unit, *, sleep_mode: bool = False) -> dict[str, object]:
     environment = {"HF_HUB_OFFLINE": "1"}
     if sleep_mode:
         environment[VLLM_DEV_ROUTES] = "1"
-    return {
+    service: dict[str, object] = {
         "image": _image(unit),
         "container_name": f"mcgyvr-{safe_host(unit.host)}-{_service_name(unit)}",
         "command": list(argv(unit, sleep_mode=sleep_mode)),
@@ -696,6 +877,7 @@ def _vllm_service(unit: Unit, *, sleep_mode: bool = False) -> dict[str, object]:
         "volumes": [f"{unit.weights_dir}:{HF_CACHE_MOUNT}:ro"],
         "deploy": _reservation(*unit.cards),
     }
+    return _keyed(service, unit)
 
 
 def _command(unit: Unit) -> tuple[str, ...]:
@@ -965,7 +1147,9 @@ def _planned_locked(
                     service["depends_on"] = {
                         waited_on: {"condition": "service_healthy"}
                     }
-                    services[waited_on]["healthcheck"] = _healthcheck(port)
+                    services[waited_on]["healthcheck"] = _healthcheck(
+                        port, keyed="env_file" in services[waited_on]
+                    )
                 if name in lent:
                     raise LockedLaunchError(
                         f"{name}: on {host} it would be the compose service "
@@ -1055,6 +1239,9 @@ def _locked_service(
         missing.append("engine (llama.cpp or vllm)")
     if seccomp is not None and (not isinstance(seccomp, str) or not seccomp.strip()):
         missing.append("launch.seccomp (a file name)")
+    exposed = locked_exposed(unit)
+    if exposed and (not isinstance(unit.get("address"), str) or not unit["address"]):
+        missing.append("address (its key is kept for the address it answers at)")
     if missing:
         raise LockedLaunchError(
             f"{name}: a locked unit is rendered from what it states, and it does "
@@ -1082,6 +1269,12 @@ def _locked_service(
         service["volumes"] = [f"{unit['hf_cache']}:{HF_CACHE_MOUNT}:ro"]
     else:
         service["volumes"] = list(volumes or ())
+    if exposed:
+        # The lock states where the server listens (its argv and env, as
+        # emitted); `expose: lan` adds the key the unit asks for, as the
+        # unlocked path does (`_keyed`).
+        address = str(unit["address"])
+        service["env_file"] = [str(unitkey.path(host_of(address), port_of(address)))]
     return service
 
 

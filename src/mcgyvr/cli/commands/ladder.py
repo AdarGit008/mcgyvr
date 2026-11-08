@@ -15,12 +15,13 @@ from collections.abc import Iterable, Mapping, Sequence
 from pathlib import Path
 from typing import TYPE_CHECKING, Any
 
-from mcgyvr import atomic
+from mcgyvr import atomic, unitkey
 from mcgyvr.capability import (
     CapabilityTableError,
 )
 from mcgyvr.config import (
     FLEET_FILENAME,
+    LAUNCHER_NATIVE,
     Config,
     ConfigError,
 )
@@ -34,9 +35,15 @@ from mcgyvr.emit import (
     emit_all,
     emit_locked,
     is_locked,
+    keyed,
+    listening,
+    listens_beyond_loopback,
+    locked_keyed,
+    locked_open,
     planned_locked_paths,
     planned_paths,
     resolved_launch,
+    states_host,
     unplanned,
     unplanned_locked,
 )
@@ -47,6 +54,7 @@ from mcgyvr.initialize import (
     render_fleet,
 )
 from mcgyvr.serving import (
+    ROLE_SERVE,
     ModelSpec,
     Unit,
     UnitError,
@@ -54,6 +62,7 @@ from mcgyvr.serving import (
     hold_together,
     units_for,
 )
+from mcgyvr.serving.gatelib import LOCAL_RIGS
 
 if TYPE_CHECKING:  # pragma: no cover - typing only
     pass
@@ -319,7 +328,7 @@ def _emit(args: argparse.Namespace) -> int:
         print(f"error: {exc}", file=sys.stderr)
         return Exit.ERROR
     if fleet is not None:
-        return _emit_locked(fleet, args, config.path)
+        return _emit_locked(fleet, args, config.path, config)
 
     scans = recorded_scans()
     try:
@@ -416,6 +425,14 @@ def _emit(args: argparse.Namespace) -> int:
         print(f"error: {exc}", file=sys.stderr)
         return Exit.ERROR
 
+    # A unit of `expose: lan` is given its key now that its compose file names
+    # it, and every unit that listens other than it did before says so.
+    try:
+        _exposure(units, config)
+    except unitkey.UnitKeyError as exc:
+        print(f"error: {exc}", file=sys.stderr)
+        return Exit.ERROR
+
     # The launch just rendered is stamped back into `fleet.yaml`, so `serve`
     # reads the launch a unit actually runs rather than deriving
     # it again, and a block that states its own launch keeps what it states.
@@ -442,6 +459,127 @@ def _emit(args: argparse.Namespace) -> int:
     return Exit.OK
 
 
+def _exposure(units: Iterable[Unit], config: Config) -> None:
+    """Make the key of each keyed unit that has none, and say where the units
+    listen when it is not where their address reaches them.
+
+    A keyed unit (`expose: lan`, stated or read off an address on another host)
+    is named with where it listens and its key file (`_key_note`), or warned
+    about when its own launch keeps it on this machine's loopback. A serving
+    unit in a container that keeps `expose: local` while its address names
+    another host is warned about (`_local_but_remote`), and so is one whose
+    launch states a host beyond this machine with no key. UnitKeyError says a
+    key file is there and cannot be trusted.
+    """
+    for unit in sorted(units, key=lambda u: u.key.slug):
+        names = ", ".join(unit.rungs) or unit.key.slug
+        if unit.launcher == LAUNCHER_NATIVE or unit.role != ROLE_SERVE:
+            continue
+        shared = any(
+            (declared := config.units.get(name)) is not None and declared.rider_slots
+            for name in unit.rungs
+        )
+        where = listening(unit)
+        if keyed(unit):
+            path, made = unitkey.ensure(unit.host, unit.port)
+            if where in LOCAL_RIGS:
+                _keyed_on_loopback(
+                    unit.key.slug,
+                    where,
+                    "launch",
+                    "drop the --host or LLAMA_ARG_HOST it states",
+                )
+            else:
+                _key_note(
+                    unit.key.slug,
+                    where,
+                    path,
+                    made,
+                    names,
+                    unit.host,
+                    unit.port,
+                    shared,
+                )
+        elif states_host(unit):
+            if listens_beyond_loopback(unit):
+                print(
+                    f"warning: {unit.key.slug}: its launch states where it "
+                    f"listens, {where}, beyond this machine, and it asks for no "
+                    f"key; state `expose: lan` on {names} for one",
+                    file=sys.stderr,
+                )
+        elif unit.host not in LOCAL_RIGS:
+            _local_but_remote(unit, names, shared)
+
+
+def _local_but_remote(unit: Unit, names: str, shared: bool) -> None:
+    """Warn that a unit stating `expose: local` is one its own address, which
+    names another host, never reaches; and, for a unit shared with riders, how
+    that shows on the rig."""
+    said = (
+        f"warning: {unit.key.slug}: listens on 127.0.0.1 alone, as its unit states "
+        f"(expose: local), and its address names {unit.host}: that name reaches "
+        "the machine's network address, never 127.0.0.1, so nothing dials it by "
+        f"that name, this machine included. State `expose: lan` on {names}, or "
+        "leave `expose` out (an address on another host is `lan` by default), to "
+        "listen on every interface behind a key mcgyvr makes"
+    )
+    if shared:
+        first = unit.rungs[0] if unit.rungs else unit.key.slug
+        said += (
+            ". It is shared with riders, so the rig agent advertises it with no "
+            f"free slot and says `unit {first!r} is shared with no free slot: its "
+            "server does not say what it has in flight` once on its stderr; "
+            "riders are matched elsewhere and no ride fails. On "
+            f"{unit.host}, address the unit as http://localhost:{unit.port} in "
+            "the rig agent's own config"
+        )
+    print(said, file=sys.stderr)
+
+
+def _keyed_on_loopback(slug: str, where: str, stated: str, remedy: str) -> None:
+    """Warn that `expose: lan` gave `slug` a key while its own `stated` (launch
+    or lock) keeps it listening on this machine's `where` alone."""
+    print(
+        f"warning: {slug}: expose: lan gives it a key, but its {stated} states "
+        f"{where}, so it listens there alone; {remedy}",
+        file=sys.stderr,
+    )
+
+
+def _key_note(
+    slug: str,
+    where: str,
+    path: Path,
+    made: bool,
+    names: str,
+    host: str,
+    port: int,
+    shared: bool,
+) -> None:
+    """Say that `slug` listens on `where` behind the key in `path`; for a unit
+    shared with riders on another host, that the rig agent there needs the same
+    file and `mcgyvr emit` does not put it there."""
+    kept = "made its key in" if made else "its key is in"
+    said = (
+        f"note: {slug}: listens on {where} (expose: lan) and asks every request "
+        f"for its key; {kept} {path} (mode 0600). mcgyvr's own requests from this "
+        f"machine send it; `mcgyvr fleet key {names.split(', ')[0]}` prints it for "
+        "a client of yours"
+    )
+    if shared and host not in LOCAL_RIGS:
+        said += (
+            f". It is shared with riders, and the rig agent on {host} looks its key "
+            f"up in its own data folder, in {unitkey.KEYS_DIR}/ under the name of "
+            "the address its own config gives the unit: "
+            f"{path.name} for http://{host}:{port}, localhost-{port}.env for "
+            f"http://localhost:{port}. `mcgyvr emit` does not put it there: copy "
+            "this file there under that name at mode 0600, or the agent does not "
+            "share the unit and says once on its stderr which file it lacks"
+        )
+    print(said, file=sys.stderr)
+
+
 def _locked_fleet(config: Config) -> dict[str, Any] | None:
     """The parsed `fleet.yaml` when it is locked, or None when there is none.
 
@@ -459,7 +597,10 @@ def _locked_fleet(config: Config) -> dict[str, Any] | None:
 
 
 def _emit_locked(
-    fleet: dict[str, Any], args: argparse.Namespace, setup: Path | None = None
+    fleet: dict[str, Any],
+    args: argparse.Namespace,
+    setup: Path | None = None,
+    config: Config | None = None,
 ) -> int:
     """Write, or check, what a locked fleet states; return an `Exit`.
 
@@ -484,12 +625,27 @@ def _emit_locked(
                 planned_locked_paths(fleet, out, setup),
             )
         written = emit_locked(fleet, out, setup)
+        for name, host, port, where in locked_keyed(fleet):
+            path, made = unitkey.ensure(host, port)
+            if where in LOCAL_RIGS:
+                _keyed_on_loopback(name, where, "lock", "lock it again")
+                continue
+            declared = config.units.get(name) if config is not None else None
+            shared = declared is not None and declared.rider_slots > 0
+            _key_note(name, where, path, made, name, host, port, shared)
     except LockedLaunchError as exc:
         print(f"refused: {exc}", file=sys.stderr)
         return Exit.REFUSED
-    except (EmitError, UnitError, OSError) as exc:
+    except (EmitError, UnitError, OSError, unitkey.UnitKeyError) as exc:
         print(f"error: {exc}", file=sys.stderr)
         return Exit.ERROR
+    for name, host in locked_open(fleet):
+        print(
+            f"warning: {name}: its lock has it listen on {host} with no key, and "
+            "it is `expose: local` (stated, or its address names this machine); "
+            "state `expose: lan` on it for a key, or lock it again for 127.0.0.1",
+            file=sys.stderr,
+        )
     for compose in written:
         print(f"wrote {compose}")
     print("\nNothing was started. `docker compose -f <file> up -d` is yours to run.")

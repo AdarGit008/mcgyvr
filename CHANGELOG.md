@@ -11,6 +11,49 @@ archived outside this repository, under the same paths.
 
 ### Changed
 
+- **A docker llama.cpp or vLLM unit listens on 127.0.0.1 or, behind a key
+  mcgyvr makes, on every interface (`expose: local | lan`).** `mcgyvr emit`
+  rendered every container's server on every interface with no key
+  (`LLAMA_ARG_HOST=0.0.0.0`; vLLM's own default). Now `expose: local` is
+  `LLAMA_ARG_HOST=127.0.0.1` or `--host 127.0.0.1`, and `expose: lan` is
+  `0.0.0.0` plus an API key (`mcgyvr.unitkey`): 256 bits, made the first time
+  `mcgyvr emit` writes the unit, kept at 0600 in `unit-keys/<host>-<port>.env`
+  in the data folder of the machine that runs `mcgyvr emit` (one shared helper,
+  `atomic.write_private` / `read_private`), and named by the service's
+  `env_file`, so it is in no compose file and no `fleet.yaml`. A unit that
+  states no `expose` is `local` when its address names this machine
+  (localhost, 127.0.0.1, ::1) or it runs native, and `lan` when its address
+  names another host, a locked unit too (`mcgyvr.serving.exposure`). mcgyvr's
+  own requests to the unit send the key as a bearer token: a dispatch, the
+  availability probe, the status poll (`/slots`), the door's `serve` probes
+  (on curl's stdin, never its command line; the direct transport reads it from
+  there too), the compose healthcheck (which asks `/health` of a keyed unit),
+  the rig agent's relay of a ride, and what runs on the rig for `serve read`,
+  a lock's sample and `fleet probe`: rig-units.sh's reads and the lock's
+  harness, both handed the key on ssh's stdin with the text they run, never on
+  a command line or a file on the rig. `mcgyvr fleet key <unit>` prints the
+  key. A `--host` or `LLAMA_ARG_HOST` a unit's launch states renders byte for
+  byte as before; native units refuse `expose: lan`; rpc workers and vLLM
+  headless ranks are unchanged. `mcgyvr emit` names where each keyed unit
+  listens, and warns about a keyed unit its launch or lock keeps on 127.0.0.1,
+  a unit stating `expose: local` whose address names another host, and a
+  stated host beyond this machine with no key. Upgrading:
+  - a unit addressed at another host is keyed on its next emit: a client of
+    yours other than mcgyvr needs `mcgyvr fleet key <unit>`, and an existing
+    lock of such a unit gains the key too (`mcgyvr emit --check` reports its
+    compose file changed until it is emitted again);
+  - hitchhike sharing stops for a docker unit with `rider_slots` that a
+    controller emits onto another machine, until the rig agent there holds
+    its key: an agent that holds no key for a unit whose server asks for one
+    (its config says `lan`, or the server refuses `/v1/models` without a key,
+    asked once every 30 s) does not share it, and says once on its stderr
+    `unit '<name>' is not shared with riders: its server asks for a key and
+    this agent holds none in <data>/unit-keys/<host>-<port>.env; ...`, the
+    file named for the address the agent's own config gives the unit (e.g.
+    `localhost-<port>.env`). Copy the key there at 0600 (`mcgyvr fleet key
+    <unit>` on the machine that emitted it). A rig that emits and serves its
+    own localhost units is unaffected.
+
 - **Two rigs behind cone NATs reach each other directly: the hub punches a
   UDP hole.** When a session's rigs have no working port forward, the hub
   offers each rig the other's reflexive address — the address its STUN

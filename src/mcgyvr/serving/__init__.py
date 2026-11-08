@@ -13,7 +13,14 @@ from typing import Any
 from urllib.parse import urlparse
 
 from mcgyvr import derived
-from mcgyvr.config import LAUNCHER_DOCKER, ROLE_SLEEPER, Config
+from mcgyvr.config import (
+    EXPOSE_LAN,
+    EXPOSE_LOCAL,
+    LAUNCHER_DOCKER,
+    LAUNCHER_NATIVE,
+    ROLE_SLEEPER,
+    Config,
+)
 from mcgyvr.hubwire import shares_ram
 from mcgyvr.propose import DEFAULT_HEADROOM_GB
 from mcgyvr.scan import Gpu, Scan, default_weights_dir
@@ -394,6 +401,10 @@ class Unit:
     #: How the process runs: in a container (`docker`), or as the pinned
     #: llama.cpp binary mcgyvr supervises (`native`), as the unit states it.
     launcher: str = LAUNCHER_DOCKER
+    #: Who may reach the server, as the unit states it (`mcgyvr.config.EXPOSES`):
+    #: `local` listens on 127.0.0.1, `lan` on every interface behind the key
+    #: :mod:`mcgyvr.unitkey` keeps for its address. A worker never reads it.
+    expose: str = EXPOSE_LOCAL
 
     @property
     def cards(self) -> tuple[int, ...]:
@@ -804,6 +815,9 @@ def units_for(
     #: How each process is run, by key: one process runs one way, so two
     #: units behind one address that state different launchers are an error.
     launchers: dict[UnitKey, str] = {}
+    #: Who may reach each process, by key: two units behind one address that
+    #: state different ones are an error, since one process listens one way.
+    exposes: dict[UnitKey, str] = {}
     #: The context windows declared per process, by key: a window is
     #: stated per unit, so two units behind one address that state
     #: different ones are an error rather than a silent choice.
@@ -896,6 +910,13 @@ def units_for(
                 f"as {launchers[key]}; one process runs one way, not as "
                 f"{unit.launcher} too"
             )
+        exposed = exposure(unit.expose, address=unit.address, launcher=unit.launcher)
+        if exposes.setdefault(key, exposed) != exposed:
+            raise UnitError(
+                f"{name}: names the process {key.slug}, which another unit "
+                f"exposes as {exposes[key]}; one process listens one way, not "
+                f"as {exposed} too"
+            )
         if unit.width is not None:
             # Units naming one process may each state a width: the widest
             # wins, so the process is sized for the slots they all ask for.
@@ -944,6 +965,7 @@ def units_for(
                     rungs=tuple(rungs),
                     image=images[key],
                     launcher=launchers[key],
+                    expose=exposes[key],
                 ),
                 *(
                     replace(worker, image=images[key], launcher=launchers[key])
@@ -965,6 +987,7 @@ def units_for(
                 ),
                 image=images[key],
                 launcher=launchers[key],
+                expose=exposes[key],
             )
         ]
 
@@ -1737,6 +1760,30 @@ def load_geometry(path: Path | str, *, name: str | None = None) -> dict[str, Any
         )
     geometry: dict[str, Any] = row
     return geometry
+
+
+def exposure(stated: object, *, address: object, launcher: object = None) -> str:
+    """Who may reach a unit's server (`mcgyvr.config.EXPOSES`): what the unit
+    states, else what its address says.
+
+    A unit that states no `expose` is `local` when it runs native (which listens
+    on 127.0.0.1 alone) or when its address names this machine
+    (`gatelib.LOCAL_RIGS`), and `lan` when its address names another host: a
+    unit on the loopback is one that address cannot reach, and `lan` is behind
+    the key mcgyvr makes and its own clients send. One rule for a unit of a
+    setup and for a locked unit's block, whose fields arrive as read.
+    """
+    from mcgyvr.serving.gatelib import LOCAL_RIGS
+
+    if stated in (EXPOSE_LOCAL, EXPOSE_LAN):
+        return str(stated)
+    if launcher == LAUNCHER_NATIVE:
+        return EXPOSE_LOCAL
+    try:
+        host = urlparse(address).hostname if isinstance(address, str) else None
+    except ValueError:
+        host = None
+    return EXPOSE_LOCAL if not host or host in LOCAL_RIGS else EXPOSE_LAN
 
 
 def host_of(base_url: str) -> str:

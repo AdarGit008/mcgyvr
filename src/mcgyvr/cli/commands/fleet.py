@@ -2,7 +2,8 @@
 `live.json` and says whether the move from the fleet that was live is one that
 fleet's lock measured; `probe` judges the live fleet's awake units by the figures
 their lock approves and files the result; `alerts` lists the combinations the
-journal holds pulled, with the unit/field pairs that tripped them.
+journal holds pulled, with the unit/field pairs that tripped them; `key` prints
+the key mcgyvr made for a unit of `expose: lan`.
 """
 
 from __future__ import annotations
@@ -12,6 +13,7 @@ import sys
 from pathlib import Path
 from typing import TYPE_CHECKING
 
+from mcgyvr.cli.common import CONFIG_DEFAULT_HELP, _named_path
 from mcgyvr.fleet.roots import (
     LIVE_FILE_SHOWN,
 )
@@ -161,9 +163,56 @@ def _fleet_probe(args: argparse.Namespace) -> int:
     return report.exit_code
 
 
+def _fleet_key(args: argparse.Namespace) -> int:
+    """Print the key of a unit of `expose: lan`, alone on stdout, for a client.
+
+    Refused (3) for a unit that is not `lan`, and for one whose key `mcgyvr
+    emit` has not made yet; an unknown unit, a config that cannot be read and a
+    key file that cannot be trusted are errors (1). Nothing is made here.
+    """
+    from mcgyvr import unitkey
+    from mcgyvr.config import EXPOSE_LAN, ConfigError
+    from mcgyvr.config import load as load_config
+    from mcgyvr.exits import Exit
+    from mcgyvr.serving import exposure
+
+    try:
+        config = load_config(Path(args.config) if args.config else None)
+    except ConfigError as exc:
+        print(f"error: {exc}", file=sys.stderr)
+        return Exit.ERROR
+    unit = config.units.get(args.unit)
+    if unit is None or unit.relief or unit.crew:
+        print(f"error: no unit of your fleet is named {args.unit!r}", file=sys.stderr)
+        return Exit.ERROR
+    exposed = exposure(unit.expose, address=unit.address, launcher=unit.launcher)
+    if exposed != EXPOSE_LAN:
+        print(
+            f"refused: {args.unit} is expose: {exposed}, so it listens on "
+            "127.0.0.1 alone and asks for no key; state `expose: lan` on it and "
+            "run `mcgyvr emit` to give it one",
+            file=sys.stderr,
+        )
+        return Exit.REFUSED
+    try:
+        key = unitkey.for_address(unit.address)
+    except unitkey.UnitKeyError as exc:
+        print(f"error: {exc}", file=sys.stderr)
+        return Exit.ERROR
+    if key is None:
+        print(
+            f"refused: {args.unit} has no key yet; `mcgyvr emit` makes it the "
+            "first time it writes the unit",
+            file=sys.stderr,
+        )
+        return Exit.REFUSED
+    print(key)
+    return Exit.OK
+
+
 def add_parser(sub: argparse._SubParsersAction[argparse.ArgumentParser]) -> None:
-    """Add the `fleet` subparser to `sub`, with its `use`, `probe` and `alerts`
-    subcommands, each one's arguments and the command its `func` runs.
+    """Add the `fleet` subparser to `sub`, with its `use`, `probe`, `alerts` and
+    `key` subcommands, each one's arguments and the command its `func` runs.
     """
 
     fleet = sub.add_parser(
@@ -221,3 +270,19 @@ def add_parser(sub: argparse._SubParsersAction[argparse.ArgumentParser]) -> None
         ),
     )
     falerts.set_defaults(func=_fleet_alerts)
+    fkey = fleet_sub.add_parser(
+        "key",
+        help=(
+            "print the key a unit of `expose: lan` asks every request for, for "
+            "a client of yours (mcgyvr's own requests send it already)"
+        ),
+    )
+    fkey.add_argument("unit", metavar="UNIT", help="the unit, as fleet.yaml names it")
+    fkey.add_argument(
+        "--config",
+        default=None,
+        type=_named_path,
+        metavar="PATH",
+        help=f"config to read (default: {CONFIG_DEFAULT_HELP})",
+    )
+    fkey.set_defaults(func=_fleet_key)

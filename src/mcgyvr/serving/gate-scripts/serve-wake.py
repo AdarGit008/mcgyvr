@@ -30,7 +30,7 @@ def main() -> int:
     units = tuple(s for s in ctx.units if not only or s.container in only)
     woken: dict[str, bool | None] = {}
     for service in units:
-        if servelib.sleeping(ctx.host, service.port) is True:
+        if servelib.sleeping(ctx.host, service.port, key=service.key()) is True:
             print(f"serve-wake: waking {service.container} :{service.port}")
             woken[service.container] = servelib.wake(ctx.host, service.port)
         else:

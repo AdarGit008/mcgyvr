@@ -211,6 +211,7 @@ def _status(endpoint: Endpoint) -> int | None:
         endpoint.engine,
         endpoint.max_parallel,
         credential_env=endpoint.credential_env,
+        own_key=endpoint.own_key,
     )
 
 
