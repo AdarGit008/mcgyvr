@@ -11,6 +11,17 @@ archived outside this repository, under the same paths.
 
 ### Changed
 
+- **Two rigs behind cone NATs reach each other directly: the hub punches a
+  UDP hole.** When a session's rigs have no working port forward, the hub
+  offers each rig the other's reflexive address — the address its STUN
+  responder saw the tunnel port at — and the two send to each other at once,
+  each opening its own NAT to the other, so a pair of cone NATs settles on a
+  direct path instead of the relay. The mapped address is a candidate only
+  when both rigs have one and neither NAT is known to map per destination; a
+  symmetric NAT never admits a peer's packet, so such a pair still takes the
+  relay. Only the address the hub observed itself is offered: a rig's word
+  alone never aims a peer at a third party.
+
 - **The programs shipped to a rig are assembled from the modules they import,
   and run on Python 3.9.** The reader, the fetcher, the lease and the native
   launcher each go as one program built at ship time
