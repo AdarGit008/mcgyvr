@@ -34,7 +34,7 @@ from contextlib import AbstractContextManager, nullcontext
 from dataclasses import dataclass, field
 from typing import Protocol
 
-from mcgyvr import whole
+from mcgyvr import hubwire, seal, whole
 from mcgyvr.rig import commands, protocol, sessionwire
 from mcgyvr.rig.protocol import ErrorCode, ProtocolError
 from mcgyvr.rig.sessionwire import SessionCode
@@ -173,6 +173,7 @@ class _Relay:
     pending: bytearray = field(default_factory=bytearray)  # bytes read, no frame yet
     queued: bool = False  # its frame waits to be sent
     seq: int = 0  # seq of the next relay_data frame
+    sealer: seal.AnswerSealer | None = None  # a sealed ride's: seals its answer
 
     @property
     def complete(self) -> bool:
@@ -200,9 +201,11 @@ class Relays:
         max_active: int = MAX_ACTIVE,
         clock: Callable[[], float] = time.monotonic,
         units: Units | None = None,
+        key: seal.HostKey | None = None,
     ) -> None:
         self._heads = heads
         self._units = units
+        self._key = key
         self._send = send
         self._max_active = max_active
         self._clock = clock
@@ -572,6 +575,16 @@ class Relays:
             if relay.outcome is not None:
                 return
             body = bytes(relay.body)
+        if isinstance(relay.asked, sessionwire.UnitRelayRequest):
+            try:
+                body = self._opened(relay, body)
+            except seal.SealError:
+                with relay.changed:
+                    self._decide(relay, "error", SessionCode.BAD_SEAL)
+                return
+        with relay.changed:
+            if relay.outcome is not None:
+                return
             connection = relay.target.connect(max(0.001, self._left(relay)))
             relay.connection = connection
         # A requester who asked for one body is served the same way: the head is asked
@@ -605,6 +618,37 @@ class Relays:
             with relay.changed:
                 relay.working = False
 
+    def _opened(self, relay: _Relay, body: bytes) -> bytes:
+        """A ride's body as its unit is asked it: a sealed one opened, any other as
+        it came.
+
+        A sealed ride (:data:`mcgyvr.hubwire.SEALED_FIELD`) is opened with this
+        agent's key, and the relay keeps the sealer of its answer. The request posted
+        is the opened one held to the fields a unit is passed
+        (:func:`mcgyvr.seal.unit_body`), under the model, the cap on ``max_tokens``
+        and the streaming the hub named in clear. Raises :class:`mcgyvr.seal.SealError`
+        for a sealed ride this agent cannot open.
+        """
+        if f'"{hubwire.SEALED_FIELD}"'.encode() not in body:
+            return body
+        try:
+            outer = json.loads(body)
+        except (ValueError, RecursionError):
+            return body
+        if not isinstance(outer, dict) or hubwire.SEALED_FIELD not in outer:
+            return body
+        if self._key is None:
+            raise seal.SealError("this agent opens no sealed ride")
+        plain, relay.sealer = self._key.open(outer[hubwire.SEALED_FIELD])
+        model, cap = outer.get("model"), outer.get("max_tokens")
+        if not isinstance(model, str):
+            raise seal.SealError("a sealed ride names no model")
+        if not isinstance(cap, int) or isinstance(cap, bool) or cap < 1:
+            cap = None
+        return seal.unit_body(
+            plain, model=model, max_tokens=cap, stream=relay.asked.stream
+        )
+
     def _answer(
         self,
         relay: _Relay,
@@ -631,12 +675,29 @@ class Relays:
             kind = "application/octet-stream"
         source: io.BufferedIOBase = response
         streamed = whole.media(kind) == whole.EVENT_STREAM
-        if assembly is not None and status == 200 and streamed:
+        assembled = assembly is not None and status == 200 and streamed
+        if assembled:
+            assert assembly is not None  # assembled says so: the type narrows
             answer = self._assemble(relay, response, assembly)
             if answer is None:
                 return
             status, kind, body = answer
             source = io.BytesIO(body)
+        read1: Callable[[int], bytes] = source.read1
+        if relay.sealer is not None:
+            # A sealed ride's answer goes back sealed: a stream event by event as
+            # it comes, any other answer whole, as the one JSON body it seals to.
+            if streamed and not assembled:
+                read1 = relay.sealer.reader(
+                    response.read1, sessionwire.RELAY_MAX_CHUNK_BYTES
+                )
+            else:
+                whole_body = source.read(relay.asked.max_response_bytes + 1)
+                if len(whole_body) > relay.asked.max_response_bytes:
+                    self._stop(relay, "too_large", SessionCode.TOO_LARGE)
+                    return
+                read1 = io.BytesIO(relay.sealer.body(whole_body)).read1
+                kind = whole.JSON_TYPE
         if not relay.asked.stream:
             # The whole answer is in hand, so the head is no longer at work on it:
             # a leave from here on has no page worth reading.
@@ -663,7 +724,7 @@ class Relays:
                 if relay.outcome is not None:
                     return
                 room = limit - len(relay.pending)
-            chunk = source.read1(room)
+            chunk = read1(room)
             if not chunk:
                 return
             if sent + len(chunk) > relay.asked.max_response_bytes:

@@ -94,6 +94,39 @@ def test_a_sync_keeps_each_rung_the_hub_lists_as_a_relief_rung(
     assert only.served_model == "Qwen2.5-Coder-7B-Instruct-Q4_K_M.gguf"
 
 
+def test_each_rung_a_sync_keeps_says_whether_it_is_asked_sealed_or_in_clear(
+    setup: Path, hub: Hub, capsys: pytest.CaptureFixture[str]
+) -> None:
+    """A rung keyed by its host is said ``sealed`` with the start of its key's
+    id, which the host's ``rig up`` prints too; one with no key ``in clear``.
+    A rung asked sealed before that comes back keyless is noted once, so a
+    hub, or an older agent, that drops the key does not turn it clear unseen."""
+    from mcgyvr import seal
+
+    key = seal.HostKey().unit_key
+    keyed = hub.listing(FIRST, SECOND)
+    keyed["rungs"][0]["seal"] = key.wire()
+    hub.answer(keyed)
+    assert cli() == 0
+    out = capsys.readouterr().out
+    (first,) = [line for line in out.splitlines() if FIRST in line]
+    (second,) = [line for line in out.splitlines() if SECOND in line]
+    assert first.endswith(f", sealed {key.kid[:8]}")
+    assert second.endswith(", in clear")
+    assert "note:" not in out
+
+    hub.answer(hub.listing(FIRST, SECOND))  # the key dropped
+    assert cli() == 0
+    out = capsys.readouterr().out
+    (note,) = [line for line in out.splitlines() if line.startswith("note:")]
+    assert f"hitchhike-{FIRST}" in note and "in clear" in note
+    assert relief(setup)[f"hitchhike-{FIRST}"].seal is None
+
+    hub.answer(hub.listing(FIRST, SECOND))  # clear already: said once, not again
+    assert cli() == 0
+    assert "note:" not in capsys.readouterr().out
+
+
 def test_a_sync_asks_with_the_personal_key_and_never_shows_or_keeps_it(
     setup: Path, hub: Hub, capsys: pytest.CaptureFixture[str]
 ) -> None:

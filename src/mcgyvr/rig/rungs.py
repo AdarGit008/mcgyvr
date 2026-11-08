@@ -38,7 +38,7 @@ import urllib.error
 import urllib.parse
 import urllib.request
 from collections.abc import Callable, Collection, Mapping
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
 from pathlib import Path
 from typing import Any
 
@@ -67,9 +67,11 @@ from mcgyvr.hubwire import (
     SCOPE_ANYONE,
     SCOPE_CREW,
     SCOPE_OWN,
+    SEAL_KEY_FIELD,
     rung_offer,
 )
 from mcgyvr.rig.verbs import AGENT_PATH, _RefusalError, hub_address
+from mcgyvr.seal import SealKey
 
 #: The hub's rider API path, taken on the hub's own address and not on a rung's.
 RUNGS_PATH = "/api/v1/me/rungs"
@@ -179,11 +181,20 @@ class Ride:
     served_model: str
     width: int
     position: str
+    #: The key the host's unit opens sealed requests with, None where the hub
+    #: lists none (an older agent or hub): such a rung is asked in clear.
+    seal: SealKey | None = None
 
     @property
     def name(self) -> str:
         """The rung's name in ``relief.yaml``: the prefix, then the rung id."""
         return f"{NAME_PREFIX}{self.id}"
+
+    @property
+    def sealing(self) -> str:
+        """How the rung is asked, as a sync says it: ``sealed`` and the start of
+        its key's id, which the host's ``rig up`` prints too, or ``in clear``."""
+        return "in clear" if self.seal is None else f"sealed {self.seal.kid[:8]}"
 
 
 @dataclass(frozen=True)
@@ -200,6 +211,9 @@ class Rides:
     privacy: str
     refresh_s: float
     rungs: tuple[Ride, ...]
+    #: The rungs the setup asked sealed before this answer that it lists with no
+    #: key now, so they are asked in clear from here on (:func:`sync` fills it).
+    unsealed: tuple[str, ...] = ()
 
 
 def _origin(parts: urllib.parse.SplitResult) -> tuple[str, str, int]:
@@ -464,6 +478,13 @@ def _ride(raw: object, where: str, origin: tuple[str, str, int]) -> Ride:
     if position not in RUNG_POSITIONS:
         raise refused(f"{where}.position", f"is not one of {', '.join(RUNG_POSITIONS)}")
     assert isinstance(position, str)  # RUNG_POSITIONS is text: the type narrows
+    key = raw.get(SEAL_KEY_FIELD)
+    try:
+        sealed = None if key is None else SealKey.of(key)
+    except ValueError as exc:
+        raise refused(
+            f"{where}.{SEAL_KEY_FIELD}", f"is not a seal key ({exc})"
+        ) from exc
     return Ride(
         id=rung_id,
         hosted_by=_text(raw.get("host"), f"{where}.host", MAX_TEXT),
@@ -472,6 +493,7 @@ def _ride(raw: object, where: str, origin: tuple[str, str, int]) -> Ride:
         served_model=_text(raw.get("served_model"), f"{where}.served_model", MAX_TEXT),
         width=_count(raw.get("width"), f"{where}.width"),
         position=position,
+        seal=sealed,
     )
 
 
@@ -522,9 +544,10 @@ def render(rides: Rides, key_env: str, scope: str = RIDE_SCOPE) -> str:
 
     Every rung becomes a block under ``relief``, keyed by its name and carrying
     its address, model, key variable name, width, position, host, served model,
-    the answers that say it is full (:data:`mcgyvr.hubwire.RUNG_BUSY`) and the
+    the answers that say it is full (:data:`mcgyvr.hubwire.RUNG_BUSY`), the
     scope its requests name: ``scope``, the setup's ``ride_scope`` (unsaid:
-    :data:`mcgyvr.config.RIDE_SCOPE`). A
+    :data:`mcgyvr.config.RIDE_SCOPE`), and the key its requests are sealed to
+    where the hub lists one. A
     header says a sync rewrites the file whole and that each host can read the
     prompts sent to their rung.
     """
@@ -542,12 +565,15 @@ def render(rides: Rides, key_env: str, scope: str = RIDE_SCOPE) -> str:
             ],
             "scope": scope,
         }
+        | ({} if each.seal is None else {SEAL_KEY_FIELD: each.seal.wire()})
         for each in rides.rungs
     }
     header = (
         "# Written by `mcgyvr rig rungs sync`, which rewrites it whole: an edit\n"
         "# here lasts until the next sync. Each host can read the prompts sent\n"
-        "# to their rung.\n"
+        "# to their rung. A rung with a `seal` key is asked sealed to it: its\n"
+        "# prompts and answers are unread by a hub that lists the host's own key;\n"
+        "# until rig identity signs it, the key is the hub's word (SECURITY.md).\n"
     )
     return header + yaml.safe_dump({"relief": block}, sort_keys=False)
 
@@ -658,7 +684,8 @@ def sync(
     the file as it was. A private setup raises :class:`PrivateSetupError`
     before anything is sent. Returns the answer read and the file it was
     written to; the scope the rungs were written under is put in ``scoped``
-    when one is given.
+    when one is given; its ``unsealed`` names each rung the setup asked sealed
+    that the answer lists with no key.
     """
     setup = load_setup(folder, RELIEF)
     own = setup.config
@@ -670,6 +697,15 @@ def sync(
         )
     rides = fetch(hub, key, ladder_report(own))
     scope = ride_scope or own.ride_scope
+    sealed_before = {name for name, unit in own.relief.items() if unit.seal is not None}
+    rides = replace(
+        rides,
+        unsealed=tuple(
+            each.name
+            for each in rides.rungs
+            if each.seal is None and each.name in sealed_before
+        ),
+    )
     target = keep(
         setup,
         RELIEF,
@@ -706,6 +742,15 @@ def ride_scope_line(rides: Rides, scope: str) -> str | None:
     return (
         f"ride scope: {scope}: {_WHOSE[scope]}; `--ride-scope anyone` opts this "
         "setup in to any host"
+    )
+
+
+def unsealed_note(name: str) -> str:
+    """What a sync says of a rung it asked sealed that the hub lists keyless."""
+    return (
+        f"note: relief rung {name} was asked sealed and the hub lists no key for "
+        "it now, so it is asked in clear from here on (its host's agent or the "
+        "hub may be older, or the hub dropped the key)"
     )
 
 
@@ -784,6 +829,8 @@ class Refresher:
             fresh, self._last_told = line != self._last_told, line
         if fresh and line is not None:
             self._say(line)
+        for name in rides.unsealed:
+            self._say(unsealed_note(name))
 
 
 def refresher_for(

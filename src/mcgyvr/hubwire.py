@@ -22,6 +22,12 @@ from these names rather than writing them again:
   :data:`OUT_OF_SCOPE`);
 * the chat request fields the hub forwards to a unit
   (:data:`FORWARDED_FIELDS`, :data:`CHAT_TEMPLATE_KEYS`);
+* a sealed ride's shapes: the envelope a request carries
+  (:data:`SEALED_FIELD`, :data:`SEAL_VERSION`, ``SEAL_*`` patterns), the key a
+  unit advertises and a relief rung lists (:data:`SEAL_KEY_FIELD`), what such
+  a request and its answer leave in clear (:data:`SEALED_CLEAR_FIELDS`,
+  :data:`SEALED_ANSWER_CLEAR_FIELDS`) and the refusal of a key no unit holds
+  (:data:`SEAL_KEY_UNKNOWN`);
 * the header naming who may serve a request (:data:`SCOPE_HEADER`,
   :data:`SCOPE_VALUES`, narrowest first: :func:`narrowest_scope`), and the
   pool each scope is served from
@@ -188,6 +194,7 @@ API_ERROR_STATUS: Mapping[str, int] = MappingProxyType(
         "model_loading": 503,
         "hitchhike_not_served_yet": 503,
         "hitchhike_host_away": 503,
+        "seal_key_unknown": 503,
         "model_metadata": 503,
         "no_head": 503,
         "insufficient_vram": 503,
@@ -213,6 +220,12 @@ def api_error(code: str) -> tuple[int, str]:
 MODEL_UNPLACED = api_error("model_unplaced")
 #: The address does not know the asked model.
 MODEL_NOT_FOUND = api_error("model_not_found")
+#: No unit holds the key a sealed request was sealed to: its host's agent started
+#: again since the rider's last sync, with a new key.
+SEAL_KEY_UNKNOWN = api_error("seal_key_unknown")
+#: A request the hub refuses as malformed or outside its bounds; a rider seals
+#: none such, refusing it itself as the hub would (:func:`mcgyvr.runner.sealed_for`).
+INVALID_REQUEST = api_error("invalid_request")
 #: The pool the request is served from has no slot for it now: a full pool,
 #: not a broken unit.
 POOL_BUSY = api_error("pool_busy")
@@ -223,9 +236,11 @@ OUT_OF_SCOPE = api_error("out_of_scope")
 #: The answers that say a relief rung cannot take a request now, sorted: the
 #: hub names no host running the model (404 ``model_not_found``), the host's
 #: machine is away (503 ``hitchhike_host_away``), the hub has not yet matched
-#: this host to work (503 ``hitchhike_not_served_yet``), and the host's unit
-#: serves as many rides as it may (503 ``pool_busy``). One of them is a full
-#: rung, passed over at no cost.
+#: this host to work (503 ``hitchhike_not_served_yet``), the host's unit
+#: serves as many rides as it may (503 ``pool_busy``), and the host's unit no
+#: longer holds the key a sealed request was sealed to (503
+#: ``seal_key_unknown``: its agent started again with a new key, which the next
+#: sync brings). One of them is a full rung, passed over at no cost.
 RUNG_BUSY: tuple[tuple[int, str], ...] = tuple(
     sorted(
         api_error(code)
@@ -234,6 +249,7 @@ RUNG_BUSY: tuple[tuple[int, str], ...] = tuple(
             "hitchhike_host_away",
             "hitchhike_not_served_yet",
             "pool_busy",
+            "seal_key_unknown",
         )
     )
 )
@@ -275,6 +291,46 @@ FORWARDED_FIELDS: frozenset[str] = frozenset(
 #: so a one-token answer is the answer, and the only ones the hub passes to a
 #: rig.
 CHAT_TEMPLATE_KEYS: frozenset[str] = frozenset({"enable_thinking"})
+
+# The bounds a chat request is held to before a unit is asked it: the hub holds a
+# request in clear to them, and a host's agent holds a sealed one it has opened,
+# which the hub cannot read (:func:`mcgyvr.seal.unit_body`).
+
+#: Most messages in one request (and at least one).
+CHAT_MAX_MESSAGES = 1024
+#: Most tools offered in one request, and most tool calls in one message.
+CHAT_MAX_TOOLS = 128
+#: Most stop strings in one request (``stop`` is one string or a list of them).
+CHAT_MAX_STOP = 8
+#: Most alternatives a token's ``top_logprobs`` asks for.
+CHAT_MAX_TOP_LOGPROBS = 20
+#: Longest a message's ``name`` and its ``tool_call_id`` may be.
+CHAT_MAX_NAME = 64
+CHAT_MAX_TOOL_CALL_ID = 128
+#: The roles a message may have.
+MESSAGE_ROLES: tuple[str, ...] = ("system", "developer", "user", "assistant", "tool")
+#: The fields of a message passed on; any other is dropped. ``role`` and ``content``
+#: are required (``content`` may be null), ``content`` is text or a list of parts.
+MESSAGE_FIELDS: tuple[str, ...] = (
+    "role",
+    "content",
+    "name",
+    "tool_calls",
+    "tool_call_id",
+)
+#: The sampling fields held to a range, each with its lowest and highest value and
+#: whether it is a whole number (an ``int``) rather than any number.
+CHAT_RANGES: Mapping[str, tuple[float, float, bool]] = MappingProxyType(
+    {
+        "temperature": (0, 2, False),
+        "top_p": (0, 1, False),
+        "top_k": (0, 1000, True),
+        "min_p": (0, 1, False),
+        "presence_penalty": (-1e6, 1e6, False),
+        "frequency_penalty": (-1e6, 1e6, False),
+        "repeat_penalty": (-1e6, 1e6, False),
+    }
+)
 
 #: The request header naming whose rigs may serve one request; without it the
 #: member's own setting applies.
@@ -378,6 +434,64 @@ def serving_pool(scope: str, model: str) -> str:
     pool = SCOPE_POOLS[scope]
     return POOL_HITCHHIKE if rung_offer(model) is not None else pool
 
+
+# --- sealed rides ---------------------------------------------------------------
+#
+# A ride may be sealed end to end, rider to host: the rider seals its chat request
+# to the key the host's unit advertises, the hub carries ciphertext and the host's
+# agent opens it, posts it to the unit and seals the answer back. The cipher is the
+# product's (:mod:`mcgyvr.seal`); the shapes below are what the hub holds a sealed
+# request and a sealed answer to without opening either.
+
+#: The field a sealed request carries its envelope in, at the top level of an
+#: OpenAI chat completion request; and the field of a unit's advert, and of a relief
+#: rung the hub lists, carrying the key a request to it is sealed to.
+SEALED_FIELD = "sealed"
+SEAL_KEY_FIELD = "seal"
+#: The one envelope version, carried as ``v``: X25519 key agreement, HKDF-SHA256,
+#: ChaCha20-Poly1305 (:data:`SEAL_SUITE`). Another suite is another version.
+SEAL_VERSION = 1
+SEAL_SUITE = "x25519-hkdf-sha256-chacha20poly1305"
+#: A seal key's id: the first 16 bytes of the SHA-256 of its public key, in hex.
+SEAL_KEY_ID = re.compile(r"[0-9a-f]{32}")
+#: An X25519 public key: standard base64 of its 32 bytes.
+SEAL_PUBLIC_KEY = re.compile(r"[A-Za-z0-9+/]{42}[AEIMQUYcgkosw048]=")
+#: A nonce: standard base64 of 12 bytes.
+SEAL_NONCE = re.compile(r"[A-Za-z0-9+/]{16}")
+#: A signature over a seal key by the rig's own identity key, standard base64 of
+#: 64 bytes (Ed25519). Optional and not yet checked: the slot for rig identity.
+SEAL_SIGNATURE = re.compile(r"[A-Za-z0-9+/]{85}[AQgw]==")
+#: Ciphertext: standard base64, padded, of at least the 16-byte tag.
+SEAL_CIPHERTEXT = re.compile(
+    r"(?:[A-Za-z0-9+/]{4})+(?:[A-Za-z0-9+/]{2}==|[A-Za-z0-9+/]{3}=)?"
+)
+#: The longest ciphertext text a sealed request carries: the base64 of a relayed
+#: request at its largest (:data:`RELAY_MAX_REQUEST_BYTES`).
+SEAL_MAX_CIPHERTEXT = 4 * -(-RELAY_MAX_REQUEST_BYTES // 3)
+#: The fields a sealed request may carry in clear beside its envelope, all the hub
+#: needs to route and meter it: the model asked for, whether it streams and its
+#: stream options. A sealed request carrying any other field is refused, so a client
+#: that sealed a request and left its messages in clear is told rather than relayed.
+SEALED_CLEAR_FIELDS: frozenset[str] = frozenset(
+    {"model", "stream", "stream_options", SEALED_FIELD}
+)
+#: The fields of an answer's event (or of a whole answer) a host's agent leaves in
+#: clear beside the sealed event: the name the answer goes out under, which the hub
+#: rewrites as for any answer, and the token counts the hub charges by.
+SEALED_ANSWER_CLEAR_FIELDS: tuple[str, ...] = ("model", "usage", "timings")
+#: The fields of a seal key (an advert's, a rung's ``seal``): its id, its public
+#: half and the optional signature over it (:data:`SEAL_SIGNATURE`).
+SEAL_KEY_FIELDS: tuple[str, ...] = ("kid", "pub", "sig")
+#: The fields of a sealed request's envelope, every one required: its version,
+#: the id of the key it is sealed to, the rider's ephemeral public key, the nonce
+#: and the ciphertext.
+SEAL_ENVELOPE_FIELDS: tuple[str, ...] = ("v", "to", "epk", "nonce", "ct")
+#: The fields of a sealed answer event's (or a whole answer's) envelope.
+SEALED_ANSWER_ENVELOPE_FIELDS: tuple[str, ...] = ("nonce", "ct")
+#: The fields of the body the hub relays to a host's agent for a sealed ride: the
+#: clear fields (the unit's own model in place of the one asked for) and the hub's
+#: cap on ``max_tokens``, which the agent holds the opened request to.
+SEALED_FORWARDED_FIELDS: frozenset[str] = SEALED_CLEAR_FIELDS | {"max_tokens"}
 
 #: The agent channel's schema: every frame between the hub and a rig's agent.
 PROTOCOL_SCHEMA = "protocol.schema.json"

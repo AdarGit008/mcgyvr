@@ -61,6 +61,7 @@ from mcgyvr.hubwire import USE_CASES as USE_CASES
 from mcgyvr.sandbox.base import NETWORKS
 from mcgyvr.schema import Dialect, join_path, walk_block
 from mcgyvr.schema import Field as Field
+from mcgyvr.seal import SealKey
 from mcgyvr.strict_yaml import strict_loader
 
 #: The files a setup directory holds. `load()` reads all of them: fleet.yaml
@@ -810,6 +811,27 @@ BUSY_ANSWER_FIELDS: tuple[Field, ...] = (
     ),
 )
 
+_SEAL_BIND_HINT = (
+    "run `mcgyvr rig rungs sync` to write the key the hub lists, or leave unset "
+    "to ask the rung in clear"
+)
+
+SEAL_FIELDS: tuple[Field, ...] = (
+    Field(
+        "kid",
+        "str",
+        "The key's id: 32 hex digits, the start of the SHA-256 of `pub`. Set "
+        "with `pub`, or neither.",
+        bind_hint=_SEAL_BIND_HINT,
+    ),
+    Field(
+        "pub",
+        "str",
+        "The host unit's X25519 public key, in base64. Set with `kid`, or neither.",
+        bind_hint=_SEAL_BIND_HINT,
+    ),
+)
+
 RELIEF_FIELDS: tuple[Field, ...] = (
     Field(
         "address",
@@ -869,6 +891,23 @@ RELIEF_FIELDS: tuple[Field, ...] = (
         "the rung names no busy answers; a sync writes them.",
         block=BUSY_ANSWER_FIELDS,
         bind_hint="leave it to `mcgyvr rig rungs sync`, which writes them",
+    ),
+    Field(
+        "seal",
+        "block",
+        "The key the host's unit opens sealed requests with, as the hub lists "
+        "it. Set, every request to the rung is sealed to it end to end: a hub "
+        "that lists the host's own key carries it without reading the prompt or "
+        "the answer, and the host's agent opens it. Until rig identity signs the "
+        "key it is the hub's word, so a hub that lists a key of its own can read "
+        "what is sealed to it (SECURITY.md). Unset, the rung is asked in clear. "
+        "The host changes "
+        "the key each time its agent starts; a request sealed to an old one is "
+        "answered as a full rung, which is then held out for the rest of the run, "
+        "until `mcgyvr rig rungs sync` writes the new key and the setup is read "
+        "again.",
+        block=SEAL_FIELDS,
+        bind_hint="leave it to `mcgyvr rig rungs sync`, which writes the hub's word",
     ),
     Field(
         "scope",
@@ -1486,6 +1525,9 @@ class Unit:
     #: The `(status, code)` answers that say the rung is full, as `busy_answers`
     #: states them; None when the rung names none.
     busy_answers: tuple[tuple[int, str], ...] | None = None
+    #: The key a relief rung's requests are sealed to (`mcgyvr.seal`), as `seal`
+    #: states it; None for a rung asked in clear, and for every unit of yours.
+    seal: SealKey | None = None
     #: Whose rigs may serve this unit's requests (`hubwire.SCOPE_VALUES`), which
     #: every request names: `own` for a unit of your fleet that states none, and
     #: what `mcgyvr rig rungs sync` wrote for a relief rung.
@@ -2228,6 +2270,19 @@ def _block(raw: object, fields: tuple[Field, ...], path: str) -> dict[str, Any]:
     return walk_block(raw, fields, path, _DIALECT)
 
 
+def _seal_key(name: str, block: Mapping[str, Any] | None) -> SealKey | None:
+    """The key a relief rung's `seal` block states, or None where it states none.
+
+    Raises ConfigSchemaError for a key not of its shape, or an id not its key's.
+    """
+    if not block or (block.get("kid") is None and block.get("pub") is None):
+        return None
+    try:
+        return SealKey(kid=block["kid"], pub=block["pub"])
+    except ValueError as exc:
+        raise ConfigSchemaError(f"relief.{name}.seal: {exc}") from exc
+
+
 def _refuse_userinfo(name: str, base_url: str, block: str = "units") -> None:
     """Refuse an address that carries `user:password@` in its URL.
 
@@ -2484,6 +2539,7 @@ def _build(
                 (answer["status"], answer["code"]) for answer in block["busy_answers"]
             )
             or None,
+            seal=_seal_key(name, block["seal"]),
             scope=_relief_scope(block, data),
         )
         for name, block in data["relief"].items()

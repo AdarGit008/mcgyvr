@@ -154,7 +154,7 @@ def run_agent(kept: Credentials, config: Path | None = None) -> int:
     earlier handlers put back after it ends. The code is Exit.OK when the agent
     was asked to stop and Exit.ERROR otherwise.
     """
-    from mcgyvr import hubwire
+    from mcgyvr import hubwire, seal
     from mcgyvr.fleet import roots
     from mcgyvr.rig import (
         agent,
@@ -295,8 +295,26 @@ def run_agent(kept: Credentials, config: Path | None = None) -> int:
     # The parts of a rig: hitchhike units ride other rigs and offer this setup's
     # units to riders, relays carry what a session sends and receives, probes
     # measure the paths to peers. Each of them speaks through the one outbox.
-    units = hitchhike.Units(send=box.put, setup=lambda: hitchhike.load_setup(config))
-    relays = relay.Relays(heads=sessions, send=box.put, units=units)
+    # One seal key per run of the agent, held in memory only: a rider seals its
+    # ride to the unit with it, and the hub carries only what it cannot open. It
+    # is made when a unit is first advertised, so a rig hosting nothing never
+    # loads the cipher.
+    key = seal.HostKey()
+    told: list[str] = []
+
+    def unit_key() -> seal.SealKey:
+        """The run's key, said once: a rider's `rungs sync` prints the same id."""
+        if not told:
+            told.append(key.kid)
+            print(f"riders seal to this run's key {key.kid[:8]}", file=sys.stderr)
+        return key.unit_key
+
+    units = hitchhike.Units(
+        send=box.put,
+        setup=lambda: hitchhike.load_setup(config),
+        key=unit_key,
+    )
+    relays = relay.Relays(heads=sessions, send=box.put, units=units, key=key)
     sessions.on_end(relays.session_ended)
     probes = probe.Probes(
         send=box.put,
@@ -851,8 +869,10 @@ def _rungs_sync(args: argparse.Namespace) -> int:
     for each in rides.rungs:
         print(
             f"  {each.name}  {each.position}  x{each.width}  {each.served_model}, "
-            f"hosted by {each.hosted_by}"
+            f"hosted by {each.hosted_by}, {each.sealing}"
         )
+    for name in rides.unsealed:
+        print(rungs.unsealed_note(name))
     try:
         config = load(folder)
         fanout, scope = config.ladder.fanout, config.ride_scope

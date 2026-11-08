@@ -33,7 +33,7 @@ from dataclasses import dataclass, replace
 from enum import StrEnum
 from typing import Any, ClassVar
 
-from mcgyvr import whole
+from mcgyvr import seal, whole
 from mcgyvr.capacity import Capacity, SlotUnavailableError
 from mcgyvr.config import DEFAULT_REQUEST_TIMEOUT_S
 from mcgyvr.fleet.harness import (
@@ -44,11 +44,13 @@ from mcgyvr.fleet.harness import (
     slots_in_flight,
 )
 from mcgyvr.hubwire import (
+    INVALID_REQUEST,
     MODEL_NOT_FOUND,
     MODEL_UNPLACED,
     OUT_OF_SCOPE,
     POOL_BUSY,
     SCOPE_HEADER,
+    SEAL_KEY_UNKNOWN,
     USE_CASE_HEADER,
 )
 from mcgyvr.local_pool import Endpoint, Protocol, SourceMap, UnknownRungError
@@ -540,18 +542,23 @@ class Runner(ABC):
         url = _url_for(self.endpoint.base_url, self.path)
         before = _status(self.endpoint)
         started = time.monotonic()
+        _refuse_a_stale_key(self.endpoint)
+        payload, opener = sealed_for(self.endpoint, self._payload(model, request))
         try:
-            document = _post_json(
+            document = _ask(
                 url,
-                self._payload(model, request),
+                payload,
                 self._headers(),
                 request_timeout(self.endpoint, request.timeout_s),
+                opener,
             )
         except BackendError as exc:
             # The hub refused the host as outside the scope the request named:
             # not the rung's failure, and asking again would be refused again.
             if self.endpoint.relief and (exc.status, exc.code) == OUT_OF_SCOPE:
                 raise _refused_out_of_scope(self.endpoint, exc) from exc
+            if (exc.status, exc.code) == SEAL_KEY_UNKNOWN:
+                _hold_out_a_stale_key(self.endpoint)
             busy = self.endpoint.busy_answers
             if (
                 self.endpoint.relief
@@ -920,6 +927,94 @@ def _sent_text(request: Request) -> str:
     return "\n".join(part for part in parts if part)
 
 
+#: The relief rungs, by name and key id, whose host's agent holds that key no
+#: longer (it started again since the sync that wrote it): each is passed over
+#: unasked for the rest of the process, since the setup is read once. A sync and
+#: the next run read the new key.
+_STALE_KEYS: set[tuple[str, str]] = set()
+_STALE_LOCK = threading.Lock()
+
+
+def _stale(endpoint: Endpoint) -> tuple[str, str] | None:
+    if not endpoint.relief or endpoint.seal is None:
+        return None
+    return endpoint.source, endpoint.seal.kid
+
+
+def _hold_out_a_stale_key(endpoint: Endpoint) -> None:
+    """Hold ``endpoint`` out for the process after a ``seal_key_unknown``, said once."""
+    stale = _stale(endpoint)
+    if stale is None:
+        return
+    with _STALE_LOCK:
+        first = stale not in _STALE_KEYS
+        _STALE_KEYS.add(stale)
+    if first:
+        print(
+            f"note: relief rung {endpoint.source!r}'s host started again with a new "
+            "seal key; it is passed over until `mcgyvr rig rungs sync` writes the "
+            "new one and the setup is read again",
+            file=sys.stderr,
+        )
+
+
+def _refuse_a_stale_key(endpoint: Endpoint) -> None:
+    """Pass ``endpoint`` over unasked when its key is held out as stale."""
+    stale = _stale(endpoint)
+    with _STALE_LOCK:
+        held = stale is not None and stale in _STALE_KEYS
+    if held:
+        raise ReliefUnavailableError(
+            f"relief rung {endpoint.source!r} is held out: its host no longer "
+            "holds the seal key this setup names; run `mcgyvr rig rungs sync`"
+        )
+
+
+def sealed_for(
+    endpoint: Endpoint, payload: dict[str, Any]
+) -> tuple[dict[str, Any], seal.AnswerOpener | None]:
+    """The payload as it is sent to ``endpoint``, and the opener of its answer.
+
+    A rung whose host advertises a key (`Endpoint.seal`) is asked sealed to it
+    (:func:`mcgyvr.seal.seal_request`): the hub carries the request and its answer
+    without reading either. Any other endpoint is asked the payload as it is, with
+    no opener.
+
+    The hub cannot hold a sealed payload to the bounds it holds one in clear to,
+    so it is held to them here first (:func:`mcgyvr.seal.held_to_bounds`, the
+    host's agent's check too): one outside them raises `BackendError` as the hub's
+    ``400 invalid_request`` would, and is never sent, so it cannot read as a stale
+    key at the host and hold the rung out.
+    """
+    if endpoint.seal is None:
+        return payload, None
+    try:
+        seal.held_to_bounds(payload)
+    except seal.SealError as exc:
+        status, code = INVALID_REQUEST
+        raise BackendError(
+            f"the request to relief rung {endpoint.source!r} is outside the bounds "
+            f"the hub holds a request to: {exc}",
+            status=status,
+            code=code,
+        ) from exc
+    return seal.seal_request(payload, endpoint.seal)
+
+
+def _ask(
+    url: str,
+    payload: dict[str, Any],
+    headers: dict[str, str],
+    timeout: float | None,
+    opener: seal.AnswerOpener | None,
+) -> dict[str, Any]:
+    """`_post_json`, its answer opened with ``opener`` when the payload is sealed;
+    a payload in clear is posted with `_post_json`'s four arguments alone."""
+    if opener is None:
+        return _post_json(url, payload, headers, timeout)
+    return _post_json(url, payload, headers, timeout, opener=opener)
+
+
 def request_headers(endpoint: Endpoint) -> dict[str, str]:
     """The headers a chat request to `endpoint` is sent with: JSON, a bearer
     token when the endpoint's credential resolves to a key (an endpoint naming
@@ -1223,8 +1318,14 @@ def _post_json(
     payload: dict[str, Any],
     headers: dict[str, str],
     timeout: float | None,
+    *,
+    opener: seal.AnswerOpener | None = None,
 ) -> dict[str, Any]:
     """POST a JSON body and return the document that answered it.
+
+    With an ``opener`` the body is a sealed request (:mod:`mcgyvr.seal`) and its
+    answer is opened as it is read, so what follows reads the answer in clear; an
+    answer that does not open raises `ProtocolError`.
 
     A request that asked to be streamed is sent an event stream and its reply is
     assembled back into one document, so the caller reads a single answer either
@@ -1273,7 +1374,7 @@ def _post_json(
         status = response.status
         media = whole.media(response.getheader("Content-Type", "") or "")
         if status == 200 and streamed and media == whole.EVENT_STREAM:
-            answered = _assembled(response, sock, deadline, timeout)
+            answered = _assembled(response, sock, deadline, timeout, opener)
             if answered is None:
                 if gone():
                     raise HungUpError(
@@ -1317,6 +1418,8 @@ def _post_json(
                     f"({type(lost).__name__}: {lost})",
                     status=status,
                 ) from lost
+            if opener is not None:
+                raw_detail = opener.body(raw_detail)
             text = raw_detail.decode("utf-8", "replace").strip()
             detail = text[:_ERROR_BODY_CHARS]
             raise BackendError(
@@ -1325,7 +1428,10 @@ def _post_json(
                 code=_error_code(text),
             )
         else:
-            raw = _body(response, sock, deadline, timeout).decode("utf-8", "replace")
+            raw_bytes = _body(response, sock, deadline, timeout)
+            if opener is not None:
+                raw_bytes = opener.body(raw_bytes)
+            raw = raw_bytes.decode("utf-8", "replace")
     except OSError as exc:
         if gone():
             raise HungUpError(
@@ -1367,6 +1473,13 @@ def _post_json(
         raise TransportError(
             f"{safe_url(url)} sent a reply that could not be read: "
             f"{type(exc).__name__}: {exc}"
+        ) from exc
+    except seal.SealError as exc:
+        # The answer to a sealed request did not open: altered on the way, or not
+        # the answer of the unit it was sealed to.
+        raise ProtocolError(
+            f"{safe_url(url)} answered a sealed request with an answer that does "
+            f"not open: {exc}"
         ) from exc
     except ValueError as exc:
         # `whole.Whole.feed` raises `ValueError` for a stream that is not a chat
@@ -1468,6 +1581,7 @@ def _assembled(
     sock: socket.socket,
     deadline: float | None,
     timeout: float | None,
+    opener: seal.AnswerOpener | None = None,
 ) -> tuple[int, str, bytes] | None:
     """Assemble a streamed reply into the one document it stands for.
 
@@ -1478,7 +1592,9 @@ def _assembled(
     assembled = whole.Whole()
     with contextlib.suppress(http.client.IncompleteRead):
         for chunk in _reads(response, sock, deadline, timeout):
-            assembled.feed(chunk)
+            assembled.feed(chunk if opener is None else opener.feed(chunk))
+    if opener is not None:
+        assembled.feed(opener.end())
     return assembled.answer()
 
 

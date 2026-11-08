@@ -538,6 +538,7 @@ Each entry takes these keys:
 | `relief.hosted_by` | text | no | unset | The handle of the person whose unit this is. They can read your prompts and the answers. To bind it: leave it to `mcgyvr rig rungs sync`, which writes the hub's word. |
 | `relief.served_model` | text | no | unset | What the host's unit runs, for display. Never sent. To bind it: leave it to `mcgyvr rig rungs sync`, which writes the hub's word. |
 | `relief.busy_answers` | list of blocks | no | — | The answers, each an HTTP status and an error code, that say this rung cannot take a request now: one of them is a full rung, passed over at no cost, and any other answer is read as on any rung. Unset, the rung names no busy answers; a sync writes them. To bind it: leave it to `mcgyvr rig rungs sync`, which writes them. |
+| `relief.seal` | block | no | — | The key the host's unit opens sealed requests with, as the hub lists it. Set, every request to the rung is sealed to it end to end: a hub that lists the host's own key carries it without reading the prompt or the answer, and the host's agent opens it. Until rig identity signs the key it is the hub's word, so a hub that lists a key of its own can read what is sealed to it (SECURITY.md). Unset, the rung is asked in clear. The host changes the key each time its agent starts; a request sealed to an old one is answered as a full rung, which is then held out for the rest of the run, until `mcgyvr rig rungs sync` writes the new key and the setup is read again. To bind it: leave it to `mcgyvr rig rungs sync`, which writes the hub's word. |
 | `relief.scope` | one of `own`, `crew`, `anyone` | no | unset | Whose rigs may serve this rung's requests, named on each one in the `x-mcgyvr-scope` header. A sync writes the setup's `ride_scope`. A ride is served from the hub's hitchhike pool whatever its scope, which still bounds whose host may serve it: `own` or `crew` refuses a ride on a host outside it. Whatever it says, a ride is never wider than the setup's `ride_scope`: a wider scope is narrowed to it. Unset is the setup's `ride_scope`. To bind it: leave it to `mcgyvr rig rungs sync`, which writes it. |
 
 ### `relief.busy_answers`
@@ -550,3 +551,12 @@ An ordered list; each entry takes these keys:
 | --- | --- | --- | --- | --- |
 | `relief.busy_answers.status` | number (min 100, max 599) | **yes** | — | The HTTP status of the answer. |
 | `relief.busy_answers.code` | text | **yes** | — | The error code the answer's body carries (`error.code`). |
+
+### `relief.seal`
+
+The key the host's unit opens sealed requests with, as the hub lists it. Set, every request to the rung is sealed to it end to end: a hub that lists the host's own key carries it without reading the prompt or the answer, and the host's agent opens it. Until rig identity signs the key it is the hub's word, so a hub that lists a key of its own can read what is sealed to it (SECURITY.md). Unset, the rung is asked in clear. The host changes the key each time its agent starts; a request sealed to an old one is answered as a full rung, which is then held out for the rest of the run, until `mcgyvr rig rungs sync` writes the new key and the setup is read again.
+
+| Key | Type | Required | Default | Description |
+| --- | --- | --- | --- | --- |
+| `relief.seal.kid` | text | no | unset | The key's id: 32 hex digits, the start of the SHA-256 of `pub`. Set with `pub`, or neither. To bind it: run `mcgyvr rig rungs sync` to write the key the hub lists, or leave unset to ask the rung in clear. |
+| `relief.seal.pub` | text | no | unset | The host unit's X25519 public key, in base64. Set with `kid`, or neither. To bind it: run `mcgyvr rig rungs sync` to write the key the hub lists, or leave unset to ask the rung in clear. |

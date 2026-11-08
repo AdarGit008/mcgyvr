@@ -368,11 +368,15 @@ def test_a_unit_with_a_key_not_lent_by_a_crew_is_still_an_api_rung() -> None:
 
 def _relief_as_written_before(address: str) -> str:
     """``relief.yaml`` for one listed rung, as ``rungs sync`` wrote it before
-    crew units existed, for a setup naming no ``ride_scope`` (so ``crew``)."""
+    crew units existed, for a setup naming no ``ride_scope`` (so ``crew``), and
+    since sealed rides the header's last sentence and the ``seal_key_unknown``
+    busy answer."""
     return (
         "# Written by `mcgyvr rig rungs sync`, which rewrites it whole: an edit\n"
         "# here lasts until the next sync. Each host can read the prompts sent\n"
-        "# to their rung.\n"
+        "# to their rung. A rung with a `seal` key is asked sealed to it: its\n"
+        "# prompts and answers are unread by a hub that lists the host's own key;\n"
+        "# until rig identity signs it, the key is the hub's word (SECURITY.md).\n"
         "relief:\n"
         f"  hitchhike-{FIRST}:\n"
         f"    address: {address}/v1\n"
@@ -391,6 +395,8 @@ def _relief_as_written_before(address: str) -> str:
         "      code: hitchhike_not_served_yet\n"
         "    - status: 503\n"
         "      code: pool_busy\n"
+        "    - status: 503\n"
+        "      code: seal_key_unknown\n"
         "    scope: crew\n"
     )
 
