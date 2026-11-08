@@ -99,7 +99,9 @@ MULTI_SESSION_FEATURE = "multi_session"
 #: back to the safe backends that fork already speaks.
 BACKEND_SELECT_FEATURE = "backend_select"
 #: The feature that says this rig forwards its tunnel ports on its home router when
-#: the hub asks (the owner agreed to it on the hub) and answers the hub's check.
+#: the hub asks and answers the hub's check: named only when the owner allowed it
+#: on this rig (``Sharing.port_forward``), as the hub asks only when they agreed
+#: there too.
 PORT_MAP_FEATURE = "port_map"
 #: Every feature the hello and the offer name, within ``MAX_FEATURES``, no repeats:
 #: ``probe`` and ``traversal``: it answers UDP probes and walks STUN candidates,
@@ -2449,7 +2451,8 @@ def offer(
     rig that lends the head role. A native rig names the pinned llama.cpp build
     as its runtime and drops ``traversal`` (:data:`NATIVE_FEATURES`); a rig
     running the pinned build, natively or as its image, names the build's RPC
-    protocol.
+    protocol. ``port_map`` is named only when the owner allowed the port
+    forward on this rig (``Sharing.port_forward``).
     """
     roles = share.session_roles(report)
     if not roles:
@@ -2471,6 +2474,10 @@ def offer(
         ),
         models=held.models if "head" in roles else (),
         sessions=running,
-        features=NATIVE_FEATURES if native else FEATURES,
+        features=tuple(
+            name
+            for name in (NATIVE_FEATURES if native else FEATURES)
+            if name != PORT_MAP_FEATURE or share.port_forward
+        ),
         rpc_proto=PINNED_RPC_PROTO if pinned else None,
     )

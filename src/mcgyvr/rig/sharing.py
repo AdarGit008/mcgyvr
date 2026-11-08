@@ -80,6 +80,11 @@ RETIRED = {
 }
 
 
+#: The owner's consents a settings file may carry, each true or false and
+#: written only when given (:meth:`Sharing` names what each allows).
+_CONSENTS = ("port_forward", "port_forward_permanent")
+
+
 class SharingError(Exception):
     """Lending settings that could not be read, understood or written."""
 
@@ -103,8 +108,14 @@ class Sharing:
     macOS and Windows a native rig runs its sessions on the host, through the
     ``mcgyvr-wg`` helper, with the pinned llama.cpp build and no image, and
     lends the head role alone (:meth:`native_here`); elsewhere ``native``
-    changes nothing. `notes` carries what the reader said about retired
-    settings, and takes no part in comparison.
+    changes nothing. `port_forward` is the owner's consent, on this rig, to
+    forward its tunnel UDP ports on the home router (UPnP or NAT-PMP) when the
+    hub asks; the hub asks only when the owner agreed there too, and a rig
+    without it names no ``port_map`` feature and refuses the hub's ask.
+    `port_forward_permanent` lets that forward take a permanent lease (held
+    until it is given back) on a router that grants no other; without it such
+    a router's forward is refused. `notes` carries what the reader said about
+    retired settings, and takes no part in comparison.
     """
 
     enabled: bool = False
@@ -122,6 +133,8 @@ class Sharing:
     ram_mb: int = 0
     cpu_cores: int = 0
     launcher: str = LAUNCHER_DOCKER
+    port_forward: bool = False
+    port_forward_permanent: bool = False
     notes: tuple[str, ...] = field(default=(), compare=False)
 
     def native_here(self) -> bool:
@@ -482,10 +495,11 @@ def read(data: object) -> Sharing:
         if type(data["enabled"]) is not bool:
             raise _refuse("enabled", "not true or false")
         out["enabled"] = data["enabled"]
-    if "cache" in data:
-        if type(data["cache"]) is not bool:
-            raise _refuse("cache", "not true or false")
-        out["cache"] = data["cache"]
+    for name in ("cache", *_CONSENTS):
+        if name in data:
+            if type(data[name]) is not bool:
+                raise _refuse(name, "not true or false")
+            out[name] = data[name]
     if "roles" in data:
         roles = data["roles"]
         if (
@@ -587,6 +601,9 @@ def as_data(sharing: Sharing) -> dict[str, Any]:
     data.pop("notes")
     if data["launcher"] == LAUNCHER_DOCKER:
         data.pop("launcher")  # the default stays unwritten, as files had it
+    for name in _CONSENTS:
+        if not data[name]:
+            data.pop(name)  # unwritten until given, so older agents read the file
     for name in ("roles", "cards", "endpoints"):
         if data[name] is not None:
             data[name] = list(data[name])

@@ -255,6 +255,20 @@ Set-Content -LiteralPath "$([Environment]::GetFolderPath('Startup'))\mcgyvr-rig.
   -Value '@start "" /min "%USERPROFILE%\.local\bin\mcgyvr.exe" rig run'
 ```
 
+## Lending to a hub: the port forward
+
+A rig lending to a hub is reached by its peers directly when its home router forwards its tunnel UDP
+ports to it. The hub asks a rig to map them, by UPnP or NAT-PMP, only when its owner agreed to it twice:
+on the hub's My rigs page, and on the rig itself, where it is off until `mcgyvr rig share --port-forward`
+(or `mcgyvr rig join --port-forward`) turns it on in `rig-sharing.json`. Until then the rig does not
+offer the forward, refuses any ask of the hub (reported as `not_allowed`), and the agent's first lines
+say so. No hole is punched through a NAT either way. A forward is given back when the agent stops or the
+owner turns it off (`--no-port-forward`), and recorded until then, so an agent that starts after a crash
+gives back what the one before left, to its router only while the rig is on that router's LAN again. No
+lease is permanent by default: a router that grants only permanent leases is refused (`permanent_only`)
+unless `mcgyvr rig share --permanent-forward` allows one; the hub shows the rule to forward the ports by
+hand instead.
+
 ## Use cases and switches
 
 `use_case` in the policy says what this install serves, and
