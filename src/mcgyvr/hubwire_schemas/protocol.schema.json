@@ -2292,9 +2292,12 @@
         "backend": {
           "enum": [
             "cuda",
+            "cuda_notc",
             "metal",
             "vulkan",
             "rocm",
+            "openvino",
+            "sycl",
             "cpu"
           ],
           "title": "Backend",
@@ -3376,6 +3379,28 @@
     },
     "WorkerCard": {
       "properties": {
+        "backend": {
+          "anyOf": [
+            {
+              "enum": [
+                "cuda",
+                "cuda_notc",
+                "metal",
+                "vulkan",
+                "rocm",
+                "openvino",
+                "sycl",
+                "cpu"
+              ],
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Backend"
+        },
         "card_index": {
           "maximum": 63,
           "minimum": 0,
