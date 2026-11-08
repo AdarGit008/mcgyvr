@@ -98,11 +98,15 @@ MULTI_SESSION_FEATURE = "multi_session"
 #: name to a device. An agent without it runs an older fork; the hub falls
 #: back to the safe backends that fork already speaks.
 BACKEND_SELECT_FEATURE = "backend_select"
+#: The feature that says this rig forwards its tunnel ports on its home router when
+#: the hub asks (the owner agreed to it on the hub) and answers the hub's check.
+PORT_MAP_FEATURE = "port_map"
 #: Every feature the hello and the offer name, within ``MAX_FEATURES``, no repeats:
 #: ``probe`` and ``traversal``: it answers UDP probes and walks STUN candidates,
 #: ``head_slots``: it reads the slots of the head it runs,
 #: ``backend_select``: it honors a worker card's ``backend`` name,
-#: and the hitchhike units and the several sessions a card rig holds.
+#: the hitchhike units and the several sessions a card rig holds,
+#: and ``port_map``: it forwards its tunnel ports on its router when asked.
 #: ``offer`` names only ``HITCHHIKE_FEATURE`` for a rig that lends nothing.
 #: The hub publishes these names, so a name it does not publish refuses the hello.
 FEATURES = (
@@ -112,6 +116,7 @@ FEATURES = (
     HITCHHIKE_FEATURE,
     MULTI_SESSION_FEATURE,
     BACKEND_SELECT_FEATURE,
+    PORT_MAP_FEATURE,
 )
 #: The llama.cpp RPC protocol of the pinned build, as the wire names it: what
 #: a rig running that build declares in its hello.
@@ -121,8 +126,10 @@ PINNED_RPC_PROTO = hubwire.RpcProto(
 #: What a native rig (a Mac or Windows rig lending with ``launcher: native``)
 #: names: every feature but ``traversal``, until a reply to the helper's own
 #: UDP is known to pass the host firewall unasked; until then the hub pairs it
-#: with rigs on its own LAN alone.
-NATIVE_FEATURES = tuple(name for name in FEATURES if name != TRAVERSAL_FEATURE)
+#: with rigs on its own LAN alone, so it forwards no port either (``port_map``).
+NATIVE_FEATURES = tuple(
+    name for name in FEATURES if name not in (TRAVERSAL_FEATURE, PORT_MAP_FEATURE)
+)
 #: How many sessions a rig runs at once: one per tunnel port, each with its own.
 #: The live session count and the tunnel port count are the same number.
 MAX_LIVE_SESSIONS = sharing_module.TUNNEL_PORTS
@@ -221,6 +228,17 @@ class SessionHost(Protocol):
     def peers(self, name: str, pokes: Sequence[str]) -> pooled.PeersSeen | None: ...
 
     def ping(self, name: str, host: str) -> pooled.PingSeen: ...
+
+    def birthday(
+        self,
+        name: str,
+        port: int,
+        host: str,
+        target: int,
+        count: int,
+        *,
+        burst: bool,
+    ) -> None: ...
 
     def transfer(
         self, name: str, pokes: Sequence[str]
@@ -353,6 +371,26 @@ class DockerHost:
 
     def ping(self, name: str, host: str) -> pooled.PingSeen:
         return pooled.read_ping(self.docker.run_script(name, pooled.PING_SCRIPT, host))
+
+    def birthday(
+        self,
+        name: str,
+        port: int,
+        host: str,
+        target: int,
+        count: int,
+        *,
+        burst: bool,
+    ) -> None:
+        """Run the birthday dance in the tunnel container: a bounded burst of
+        probe packets (``burst``: one from each of ``count`` sockets at
+        ``host:target``; else one socket probing ``count`` ports from
+        ``target`` on ``host``)."""
+        if burst:
+            args = ["birthday", "burst", host, str(target), str(count)]
+        else:
+            args = ["birthday", "probe", str(port), host, str(target), str(count)]
+        self.docker.run_python(name, _udpwire_source(), *args)
 
     def transfer(
         self, name: str, pokes: Sequence[str]
@@ -656,6 +694,8 @@ class _Walk:
     why: str = ""  # why this peer's path was given up on, logged and told to the hub
     # Set when the walk ended with no path right after an endpoint was too narrow.
     too_narrow: bool = False
+    # Whether the birthday dance for the candidate aimed at now has run.
+    birthday_sent: bool = False
 
 
 def candidate_time(
@@ -1875,6 +1915,15 @@ class Sessions:
             except pooled.PoolError:
                 seen = None
             now = self._clock()
+            for walk in open_:
+                if walk.aim is not None and not walk.relayed and not walk.birthday_sent:
+                    candidate = walk.peer.candidates[walk.step]
+                    if candidate.endpoint.kind in (
+                        hubwire.BIRTHDAY_KIND,
+                        hubwire.BIRTHDAY_BURST_KIND,
+                    ):
+                        walk.birthday_sent = True
+                        self._birthday(session, walk, candidate)
             changed = False
             for walk in open_:
                 key = walk.peer.public_key
@@ -1924,6 +1973,22 @@ class Sessions:
                 return
         self._report(session, walks)
 
+    def _birthday(
+        self, session: _Session, walk: _Walk, candidate: tunnel.Candidate
+    ) -> None:
+        """Run the birthday dance for one candidate: the symmetric side bursts
+        at the peer's stable endpoint, the non-symmetric side probes a bounded
+        range of the symmetric side's public address. The tunnel keeps accepting
+        the peer's handshake from that host whatever port it comes back on."""
+        session.host.birthday(
+            session.tunnel_name,
+            session.listen_port,
+            str(candidate.host),
+            candidate.port,
+            candidate.ports,
+            burst=candidate.endpoint.kind == hubwire.BIRTHDAY_BURST_KIND,
+        )
+
     def _next_aim(self, walk: _Walk) -> None:
         """Aim the tunnel at this peer's next candidate, or at its relay, or at nothing.
 
@@ -1938,6 +2003,7 @@ class Sessions:
         if not walk.relayed and walk.step < len(candidates):
             found = candidates[walk.step]
             walk.aim = (str(found.host), found.port)
+            walk.birthday_sent = False
             return
         relay = walk.peer.relay
         if relay is not None and not walk.relayed:

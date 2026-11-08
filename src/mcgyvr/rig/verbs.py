@@ -162,6 +162,7 @@ def run_agent(kept: Credentials, config: Path | None = None) -> int:
         inventory,
         outbox,
         pooled,
+        portmap,
         probe,
         protocol,
         relay,
@@ -261,6 +262,7 @@ def run_agent(kept: Credentials, config: Path | None = None) -> int:
         uid=uid or NOBODY, gid=gid if uid else NOBODY, agent_pid=os.getpid()
     )
     box = outbox.Outbox()
+    native = native_host(os.getpid())
     sessions = session.Sessions(
         docker=pooled.Pool(),
         machine=session.Machine(
@@ -276,7 +278,7 @@ def run_agent(kept: Credentials, config: Path | None = None) -> int:
             bind_relay=session.bind_relay,
         ),
         send=box.put,
-        native=native_host(os.getpid()),
+        native=native,
     )
     # The parts of a rig: hitchhike units ride other rigs and offer this setup's
     # units to riders, relays carry what a session sends and receives, probes
@@ -292,10 +294,19 @@ def run_agent(kept: Credentials, config: Path | None = None) -> int:
         lending=lambda: bool(lending().session_roles(last_report())),
     )
     sessions.before_prepare(lambda: probes.release(lending().listen_port))
+    # The port forward the owner agreed to on the hub: mapped on the router when
+    # the hub asks, renewed, and given back when the agent stops.
+    mapper = portmap.Mapper(
+        send=box.put,
+        tunnel_ports=lambda: tuple(lending().tunnel_ports()),
+        hosts=lambda: session.endpoint_hosts(lending(), tunnel.read_interfaces),
+    )
+    sessions.before_prepare(lambda: mapper.release_check(lending().listen_port))
     dispatcher = commands.Dispatcher()
     session.register(dispatcher, sessions)
     relay.register(dispatcher, relays)
     probe.register(dispatcher, probes)
+    portmap.register(dispatcher, mapper)
     try:
         for name in sessions.sweep():
             print(f"removed {name}, left by an agent that is gone", file=sys.stderr)
@@ -337,6 +348,7 @@ def run_agent(kept: Credentials, config: Path | None = None) -> int:
         probes.close()
         sessions.close()
         units.close()
+        mapper.close()
 
     def beat() -> None:
         if refresher is not None:
@@ -382,10 +394,19 @@ def run_agent(kept: Credentials, config: Path | None = None) -> int:
         )
     elif share.offered_roles():
         print("lending: no session role is offered on this machine", file=sys.stderr)
+    if roles and native is None:
+        ports = list(share.tunnel_ports())
+        print(
+            f"port forward: as agreed on the hub, its UDP ports go to {ports[0]}-"
+            f"{ports[-1]} here, by UPnP or NAT-PMP on your router, given back "
+            "when this agent stops; withdraw it on the hub's My rigs page",
+            file=sys.stderr,
+        )
     for note in share.notes:
         print(f"note: {note}", file=sys.stderr)
     previous = {sig: signal.signal(sig, stop) for sig in hostos.stop_signals()}
     units.run_ticker()
+    mapper.start()
     try:
         ended = running.run()
     finally:

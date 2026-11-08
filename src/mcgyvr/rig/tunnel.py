@@ -61,17 +61,28 @@ class RefusedError(Exception):
 
 
 #: The path a reachable peer is reported on: one found on this LAN is "lan",
-#: one reached at a public or reflexive address is "direct".
-PATHS = {"lan": "lan", "public": "direct", "reflexive": "direct"}
+#: one reached at a public, reflexive or birthday-punched address is "direct".
+PATHS = {
+    "lan": "lan",
+    "public": "direct",
+    "reflexive": "direct",
+    "birthday": "direct",
+    "birthday_burst": "direct",
+}
 
 
 @dataclass(frozen=True, kw_only=True)
 class Candidate:
-    """One address a peer may be reached at, and the port to aim at there."""
+    """One address a peer may be reached at, and the port to aim at there.
+
+    ``ports`` is the birthday-paradox hint: a ``birthday`` candidate's bounded
+    probe range (``port`` through ``port + ports - 1``) or a ``birthday_burst``
+    candidate's burst count; one elsewhere."""
 
     endpoint: sessionwire.Endpoint
     host: ipaddress.IPv4Address
     port: int
+    ports: int = 1
 
     @property
     def path(self) -> str:
@@ -244,7 +255,14 @@ def candidates(
         if endpoint.kind == "lan" and not is_lan(host):
             continue
         if may_aim_at(host, network, own):
-            found.append(Candidate(endpoint=endpoint, host=host, port=endpoint.port))
+            found.append(
+                Candidate(
+                    endpoint=endpoint,
+                    host=host,
+                    port=endpoint.port,
+                    ports=endpoint.ports,
+                )
+            )
     return tuple(found)
 
 

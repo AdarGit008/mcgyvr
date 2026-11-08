@@ -127,6 +127,28 @@ RELAY_MAX_SEQ = 1 << 31
 #: Most prompt or completion tokens a relayed call may report at its end.
 RELAY_MAX_TOKENS = 1 << 31
 
+#: The birthday-paradox hole punch: one side behind a symmetric (per-destination)
+#: NAT, the other on a stable endpoint (cone NAT, port forward, owner-declared,
+#: public). The non-symmetric side probes a bounded range of candidate ports on
+#: the symmetric side's public IP while the symmetric side sends bursts at the
+#: peer's stable endpoint, so its per-destination mapping lands inside the range.
+#: The collision of the two sets is the birthday paradox: with BIRTHDAY_BURST_PORTS
+#: bursts and BIRTHDAY_PROBE_PORTS probes the success chance is ~98% (the
+#: published Tailscale curve, reproduced in the hub's ``tests/test_birthday.py``).
+#: Endpoint kinds the hub emits for this rung (``Endpoint.kind`` is an open set).
+BIRTHDAY_KIND = "birthday"  # probe the bounded range (the non-symmetric side)
+# burst at the stable endpoint (the symmetric side)
+BIRTHDAY_BURST_KIND = "birthday_burst"
+#: The symmetric NAT's port space the model draws from, and the two counts the
+#: hub sets on the wire: 256 bursts on the symmetric side, 1024 probes on the
+#: non-symmetric side (~98%, see the module note).
+BIRTHDAY_PORT_SPACE = 65536
+BIRTHDAY_BURST_PORTS = 256
+BIRTHDAY_PROBE_PORTS = 1024
+#: The bounds on any one probe or burst count a rig may be asked for.
+MIN_BIRTHDAY_PORTS = 1
+MAX_BIRTHDAY_PORTS = 2048
+
 #: The ``error.code`` of a refused ``/v1`` request, each with its one HTTP
 #: status. A client matches on the pair; the hub publishes the table in its
 #: rider schema (``x-openai-errors``).

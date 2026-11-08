@@ -217,10 +217,19 @@ class Hub:
 
     def rig(self, name: str, machine: Machine) -> None:
         """Alice's pool rig ``name``, lent by an agent on ``machine``."""
+        # A rig joins only with its UDP port forward agreed; it is withdrawn
+        # at once, so the agent never asks this machine's real router.
         status, body = self.call(
-            "POST", "/api/v1/rigs", {"name": name, "sharing_mode": "pool"}
+            "POST",
+            "/api/v1/rigs",
+            {"name": name, "sharing_mode": "pool", "port_forward_consent": True},
         )
         assert status == 201, body
+        rig_id = body["rig"]["id"]
+        status, withdrawn = self.call(
+            "PUT", f"/api/v1/rigs/{rig_id}/port-forward", {"consent": False}
+        )
+        assert status == 200, withdrawn
         home = self.work / f"home-{name}"
         (home / "models").mkdir(parents=True)
         env = {k: v for k, v in os.environ.items() if not k.startswith("MCGYVR_")}

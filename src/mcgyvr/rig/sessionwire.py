@@ -21,8 +21,10 @@ from dataclasses import dataclass
 from typing import Any, Literal
 
 from mcgyvr import hubwire
+from mcgyvr.hubwire import MAX_BIRTHDAY_PORTS as MAX_BIRTHDAY_PORTS
 from mcgyvr.hubwire import MAX_SLOTS as MAX_SLOTS
 from mcgyvr.hubwire import MAX_UNITS as MAX_UNITS
+from mcgyvr.hubwire import MIN_BIRTHDAY_PORTS as MIN_BIRTHDAY_PORTS
 from mcgyvr.hubwire import RELAY_MAX_CHUNK_BYTES as RELAY_MAX_CHUNK_BYTES
 from mcgyvr.hubwire import RELAY_MAX_REQUEST_BYTES as RELAY_MAX_REQUEST_BYTES
 from mcgyvr.hubwire import RELAY_MAX_RESPONSE_BYTES as RELAY_MAX_RESPONSE_BYTES
@@ -84,6 +86,17 @@ MAX_ATTEMPT_S = 30
 MAX_CONNECT_TIMEOUT_S = 300
 MAX_RATE_KBPS = 100_000_000
 MAX_PCT = 100
+#: The port forward: a block covers every tunnel port a rig may use at once,
+#: and a lease is renewed before half of it is gone (the pings a check answers
+#: are ``udpwire.PORT_CHECK_MAX_PONGS``).
+PORT_MAP_PORTS = protocol.MAX_SESSIONS_REPORTED
+MIN_PORT_MAP_LEASE_S = 120
+MAX_PORT_MAP_LEASE_S = 86_400
+DEFAULT_PORT_MAP_LEASE_S = 3600
+MIN_PORT_CHECK_TTL_S = 5
+MAX_PORT_CHECK_TTL_S = 60
+DEFAULT_PORT_CHECK_TTL_S = 15
+PORT_MAP_STATES = ("mapped", "failed", "released")
 
 #: Shapes of the string fields these bodies carry; the ones the rest of the
 #: protocol already defines are reused as they are.
@@ -153,19 +166,26 @@ class SessionCode:
 
 @dataclass(frozen=True, kw_only=True)
 class Endpoint:
-    """One address a peer was or might be reached at, and what kind it is."""
+    """One address a peer was or might be reached at, and what kind it is.
+
+    ``ports`` is the birthday-paradox hint: a ``birthday`` candidate's bounded
+    probe range (``port`` through ``port + ports - 1``) or a ``birthday_burst``
+    candidate's burst count; one elsewhere."""
 
     host: str
     port: int
     kind: str
+    ports: int = 1
 
 
 @dataclass(frozen=True, kw_only=True)
 class Traversal:
-    """What a prepare offers for punching through NAT.
+    """What a prepare offers for the hub to see where the tunnel port comes from.
 
     The token both ends match their packets on, and the STUN endpoints that
-    report the addresses they see.
+    report the addresses they see. The hub hands that mapped address to a peer
+    only as a hole-punching candidate (``reflexive``), never to aim a peer at
+    a third party.
     """
 
     token: bytes
@@ -328,6 +348,26 @@ class RelayCancel:
     reason: str | None
 
 
+@dataclass(frozen=True, kw_only=True)
+class PortMap:
+    """The hub's ask to map ``ports`` external ports from ``external_port`` on to
+    this rig's tunnel ports, or, with ``external_port`` None, to release them."""
+
+    external_port: int | None
+    ports: int
+    lease_s: int
+
+
+@dataclass(frozen=True, kw_only=True)
+class PortCheck:
+    """The hub's ask to answer pings carrying ``secret`` on ``port`` for a while."""
+
+    check_id: str
+    secret: bytes
+    port: int
+    ttl_s: int
+
+
 class _Body:
     """A body being read, which refuses a bad field with a ProtocolError."""
 
@@ -423,6 +463,9 @@ def _endpoints(body: _Body, field: str) -> tuple[Endpoint, ...]:
                 host=entry.text("host", HOST),
                 port=entry.number("port", 1, MAX_PORT),
                 kind=entry.text("kind", protocol.TAG),
+                ports=entry.number(
+                    "ports", MIN_BIRTHDAY_PORTS, MAX_BIRTHDAY_PORTS, default=1
+                ),
             )
         )
     return tuple(found)
@@ -674,6 +717,43 @@ def read_probe_run(envelope: protocol.Envelope) -> ProbeRun:
             MIN_PROBE_DEADLINE_MS,
             MAX_PROBE_DEADLINE_MS,
             default=DEFAULT_PROBE_DEADLINE_MS,
+        ),
+    )
+
+
+def read_port_map(envelope: protocol.Envelope) -> PortMap:
+    """Read a port_map body: the hub's block of external ports, or a release."""
+    body = _start(envelope)
+    external = (
+        body.number("external_port", 1, MAX_PORT) if body.has("external_port") else None
+    )
+    ports = body.number("ports", 1, PORT_MAP_PORTS, default=PORT_MAP_PORTS)
+    if external is not None and external + ports - 1 > MAX_PORT:
+        raise body.refuse("ports", f"the block runs past {MAX_PORT}")
+    return PortMap(
+        external_port=external,
+        ports=ports,
+        lease_s=body.number(
+            "lease_s",
+            MIN_PORT_MAP_LEASE_S,
+            MAX_PORT_MAP_LEASE_S,
+            default=DEFAULT_PORT_MAP_LEASE_S,
+        ),
+    )
+
+
+def read_port_check(envelope: protocol.Envelope) -> PortCheck:
+    """Read a port_check body: the check, its secret, the port and the ttl."""
+    body = _start(envelope)
+    return PortCheck(
+        check_id=body.text("check_id", protocol.MESSAGE_ID),
+        secret=_token(body, "secret"),
+        port=body.number("port", 1, MAX_PORT),
+        ttl_s=body.number(
+            "ttl_s",
+            MIN_PORT_CHECK_TTL_S,
+            MAX_PORT_CHECK_TTL_S,
+            default=DEFAULT_PORT_CHECK_TTL_S,
         ),
     )
 
@@ -1064,6 +1144,88 @@ def unit_advert(units: Sequence[AdvertisedUnit]) -> str:
             }
         )
     return _frame("unit_advert", {"units": body}, None)
+
+
+@dataclass(frozen=True, kw_only=True)
+class PortMapped:
+    """What became of the hub's latest port_map, as a port_map_report says it.
+
+    ``state`` is mapped, failed or released. A mapping names its method, the
+    LAN address the router forwards to, the first internal and external port
+    of the block, how many ports, the lease granted (0: until released) and
+    the external address the router reports; a failure names why.
+    """
+
+    state: str
+    method: str | None = None
+    lan_host: str | None = None
+    internal_port: int | None = None
+    external_port: int | None = None
+    ports: int | None = None
+    router_host: str | None = None
+    lease_s: int | None = None
+    error: str | None = None
+    message: str = ""
+
+
+def _block(first: int | None, ports: int | None, field: str) -> None:
+    _need(first is None or 1 <= first <= MAX_PORT, f"{field}: not a port")
+    _need(ports is None or 1 <= ports <= PORT_MAP_PORTS, "ports: out of bounds")
+    if first is not None and ports is not None:
+        _need(first + ports - 1 <= MAX_PORT, f"{field}: the block runs past the end")
+
+
+def port_map_report(report: PortMapped) -> str:
+    """Build a port_map_report: what this rig did with the hub's port_map."""
+    _need(report.state in PORT_MAP_STATES, "state: not a port map state")
+    for name in ("lan_host", "router_host"):
+        value = getattr(report, name)
+        _need(
+            value is None or (bool(IPV4.fullmatch(value)) and _ipv4(value) is not None),
+            f"{name}: not an IPv4 address",
+        )
+    for name in ("method", "error"):
+        value = getattr(report, name)
+        _need(
+            value is None or bool(protocol.TAG.fullmatch(value)), f"{name}: not a tag"
+        )
+    _block(report.internal_port, report.ports, "internal_port")
+    _block(report.external_port, report.ports, "external_port")
+    _need(
+        report.lease_s is None or 0 <= report.lease_s <= MAX_PORT_MAP_LEASE_S,
+        "lease_s: out of bounds",
+    )
+    if report.state == "mapped":
+        _need(
+            None
+            not in (
+                report.method,
+                report.lan_host,
+                report.internal_port,
+                report.external_port,
+                report.ports,
+            ),
+            "mapped: the method, host, ports and their count are required",
+        )
+    if report.state == "failed":
+        _need(report.error is not None, "failed: the error is required")
+    body: dict[str, Any] = {"state": report.state}
+    for name in (
+        "method",
+        "lan_host",
+        "internal_port",
+        "external_port",
+        "ports",
+        "router_host",
+        "lease_s",
+        "error",
+    ):
+        value = getattr(report, name)
+        if value is not None:
+            body[name] = value
+    if report.message:
+        body["message"] = scrub(report.message)[-protocol.MAX_ERROR_TEXT :]
+    return _frame("port_map_report", body, None)
 
 
 def ack(re: str) -> str:

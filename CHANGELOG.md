@@ -11,6 +11,33 @@ archived outside this repository, under the same paths.
 
 ### Changed
 
+- **Two rigs behind cone NATs reach each other directly: the hub punches a
+  UDP hole.** When a session's rigs have no working port forward, the hub
+  offers each rig the other's reflexive address — the address its STUN
+  responder saw the tunnel port at — and the two send to each other at once,
+  each opening its own NAT to the other, so a pair of cone NATs settles on a
+  direct path instead of the relay. The mapped address is a candidate only
+  when both rigs have one and neither NAT is known to map per destination; a
+  symmetric NAT never admits a peer's packet, so such a pair still takes the
+  relay. Only the address the hub observed itself is offered: a rig's word
+  alone never aims a peer at a third party.
+
+- **One symmetric NAT no longer forces the relay: the birthday-paradox hole
+  punch.** When exactly one side of a pair is behind a symmetric
+  (per-destination) NAT and the other has a stable endpoint (cone NAT, port
+  forward, owner-declared or public), the hub offers the two a ``birthday``
+  candidate instead of a reflexive one: the non-symmetric side probes a
+  bounded range of candidate ports on the symmetric side's public address
+  (``birthday``, ``ports``), while the symmetric side sends bursts at the
+  peer's stable endpoint (``birthday_burst``) so its per-destination mapping
+  lands inside the probed range. 256 bursts against 1024 probes meets ~98% of
+  the time (the published curve, reproduced by the hub's ``test_birthday``);
+  the probe and the burst are both bounded, so a rig is never turned into a
+  port scanner or an amplifier. Two symmetric NATs still take the relay.
+  The wire stays version 1: ``birthday``/``birthday_burst`` are new kinds of
+  the open-set ``Endpoint.kind`` and ``ports`` is an optional hint a rig that
+  does not read it ignores.
+
 - **The programs shipped to a rig are assembled from the modules they import,
   and run on Python 3.9.** The reader, the fetcher, the lease and the native
   launcher each go as one program built at ship time

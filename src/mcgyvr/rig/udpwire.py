@@ -39,6 +39,9 @@ PROBE_PACKET_MAX_BYTES = 1200
 RELAY_BIND_MIN_BYTES = 96
 RELAY_BIND_MAX_BYTES = 512
 RELAY_MAX_PACKET_BYTES = 2048
+#: The most pings one port check answers (``port_check``, the hub's check of a
+#: rig's port forward).
+PORT_CHECK_MAX_PONGS = 8
 TOKEN_BYTES = 16
 TXID_BYTES = 12
 #: Probe kinds carried in the packet's kind byte.
@@ -71,6 +74,11 @@ STUN_ATTEMPTS = 3
 #: Largest value the 32-bit seq and 64-bit stamp header fields can hold.
 MAX_SEQ = (1 << 32) - 1
 MAX_STAMP = (1 << 64) - 1
+#: A birthday-probe's bounded range and burst count: at most this many ports.
+#: (the hub never asks for more; the product's hubwire caps it too).
+BIRTHDAY_MAX_PORTS = 2048
+#: The highest valid UDP port; a birthday range wraps within 1..MAX_PORT.
+MAX_PORT = 65535
 
 
 @dataclass(frozen=True, kw_only=True)
@@ -317,6 +325,77 @@ def bind_relay(
     return None
 
 
+def birthday_ports(base: int, count: int) -> list[int]:
+    """The bounded range of ``count`` distinct ports a birthday probe covers,
+    starting at ``base`` and wrapping within 1..MAX_PORT (0 is never aimed at).
+
+    Both must be in bounds, else ``ValueError``: a probe is a bounded burst,
+    never a scan of the whole space."""
+    if not (1 <= base <= MAX_PORT and 1 <= count <= BIRTHDAY_MAX_PORTS):
+        raise ValueError("base and count: not 1..MAX_PORT and 1..BIRTHDAY_MAX_PORTS")
+    ports: list[int] = []
+    for i in range(count):
+        port = ((base - 1 + i) % MAX_PORT) + 1
+        if port not in ports:
+            ports.append(port)
+    return ports
+
+
+def birthday_probe(sock: socket.socket, host: str, base: int, count: int) -> None:
+    """Send ``count`` probe packets from one socket across the bounded range
+    starting at ``base`` on ``host`` (the non-symmetric side's action). The
+    socket's source port stays fixed, so a cone NAT keeps its mapping."""
+    for port in birthday_ports(base, count):
+        sock.sendto(
+            probe_packet(PING, secrets.token_bytes(TOKEN_BYTES), 0, _now_us()),
+            (host, port),
+        )
+
+
+def birthday_burst(host: str, port: int, count: int) -> None:
+    """Send ``count`` bursts at ``host:port``, one packet from each of ``count``
+    fresh sockets (the symmetric side's action). Each source port gets its own
+    per-destination mapping, so the NAT opens ``count`` ports for the peer to
+    meet; bounded by BIRTHDAY_MAX_PORTS, so never an amplification vector."""
+    if not (1 <= port <= MAX_PORT and 1 <= count <= BIRTHDAY_MAX_PORTS):
+        raise ValueError("port and count: not 1..MAX_PORT and 1..BIRTHDAY_MAX_PORTS")
+    for _ in range(count):
+        with socket.socket(socket.AF_INET, socket.SOCK_DGRAM) as sock:
+            sock.sendto(
+                probe_packet(PING, secrets.token_bytes(TOKEN_BYTES), 0, _now_us()),
+                (host, port),
+            )
+
+
+def _birthday_main(argv: Sequence[str]) -> int:
+    """Run the birthday probe or burst over ``argv``; return 2 on a bad ask."""
+    if len(argv) < 1 or argv[0] not in ("probe", "burst"):
+        print(
+            "usage: birthday probe PORT HOST BASE COUNT"
+            " | birthday burst HOST PORT COUNT",
+            file=sys.stderr,
+        )
+        return 2
+    try:
+        if argv[0] == "probe" and len(argv) == 5:
+            port, host, base, count = int(argv[1]), argv[2], int(argv[3]), int(argv[4])
+            with socket.socket(socket.AF_INET, socket.SOCK_DGRAM) as sock:
+                sock.bind(("0.0.0.0", port))
+                birthday_probe(sock, str(ipaddress.IPv4Address(host)), base, count)
+            return 0
+        if argv[0] == "burst" and len(argv) == 4:
+            host, port, count = argv[1], int(argv[2]), int(argv[3])
+            birthday_burst(str(ipaddress.IPv4Address(host)), port, count)
+            return 0
+    except (ValueError, OSError):
+        return 2
+    print(
+        "usage: birthday probe PORT HOST BASE COUNT | birthday burst HOST PORT COUNT",
+        file=sys.stderr,
+    )
+    return 2
+
+
 def _servers(words: Sequence[str]) -> list[tuple[str, int]]:
     servers = []
     for host, port in zip(words[::2], words[1::2], strict=True):
@@ -325,7 +404,8 @@ def _servers(words: Sequence[str]) -> list[tuple[str, int]]:
 
 
 def main(argv: Sequence[str]) -> int:
-    """Run the stun or keep subcommand over argv (program name excluded).
+    """Run the stun, keep or birthday subcommand over argv (program name
+    excluded).
 
     "stun PORT TOKEN ATTEMPTS WAIT_MS HOST PORT [HOST PORT ...]" binds a UDP
     socket to PORT and prints "rtt HOST PORT MICROSECONDS" for each server
@@ -336,9 +416,20 @@ def main(argv: Sequence[str]) -> int:
     binding request to every server each EVERY_S seconds for LIFETIME_S
     seconds, discarding whatever comes back; SIGTERM exits with status 0.
 
+    "birthday probe PORT HOST BASE COUNT" binds one socket to PORT and sends
+    COUNT probe packets across the bounded range from BASE on HOST.
+
+    "birthday burst HOST PORT COUNT" opens COUNT fresh sockets and sends one
+    probe packet each to HOST:PORT (the symmetric side's bursts).
+
     A missing command or too few arguments, and a TOKEN that is not 16 bytes,
     print a message to stderr and return 2.
     """
+    if not argv:
+        print("usage: stun|keep|birthday …", file=sys.stderr)
+        return 2
+    if argv[0] == "birthday":
+        return _birthday_main(argv[1:])
     if len(argv) < 7 or argv[0] not in ("stun", "keep"):
         print("usage: stun|keep …", file=sys.stderr)
         return 2

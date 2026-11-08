@@ -153,6 +153,7 @@ BELOW_THE_SEAM: tuple[str, ...] = (
     "mcgyvr.rig.inventory",
     "mcgyvr.rig.outbox",
     "mcgyvr.rig.pooled",
+    "mcgyvr.rig.portmap",
     "mcgyvr.rig.probe",
     "mcgyvr.rig.protocol",
     "mcgyvr.rig.relay",
