@@ -1,17 +1,29 @@
 """Forward this rig's tunnel ports on its home router, keep them, give them back.
 
 A rig behind a home router is reached by its peers directly only when the
-router forwards its tunnel ports. The hub asks for that (``port_map``) only
-after the rig's owner agreed to a UDP port forward when they added the rig:
-it names the first of a block of external ports it chose (so two rigs behind
-one router never ask for the same) and a lease. This module maps the block,
-in order, on to this rig's own tunnel ports at its LAN address, by UPnP IGD
-when the router answers it and else by NAT-PMP, renews every lease before
-half of it is gone, and releases the block when the hub says so (a
+router forwards its tunnel ports. Consent to that is the owner's twice: on
+the hub, when they add the rig, and on this rig (:class:`Consent`, the
+``port_forward`` lending setting, off until they set it). The hub asks
+(``port_map``) only after the first, and only a rig that names the
+``port_map`` feature, which it does only after the second; an ask this rig
+does not allow is refused all the same (``failed``, ``not_allowed``), and a
+forward the owner withdraws here is given back within ``IDLE_S``. The ask
+names the first of a block of external ports the hub chose (so two rigs
+behind one router never ask for the same) and a lease. This module maps the
+block, in order, on to this rig's own tunnel ports at its LAN address, by
+UPnP IGD when the router answers it and else by NAT-PMP, renews every lease
+before half of it is gone, and releases the block when the hub says so (a
 ``port_map`` with no external port), when the agent stops and when the rig
-leaves. Each outcome goes to the hub as a ``port_map_report``: mapped (with
-the method, the addresses and the lease), failed (with why: the owner can
-then forward the ports by hand) or released.
+leaves. A lease is never permanent unless the owner allowed that too
+(``port_forward_permanent``): a router that grants only permanent leases is
+refused (``failed``, ``permanent_only``). Each outcome goes to the hub as a
+``port_map_report``: mapped (with the method, the addresses and the lease),
+failed (with why: the owner can then forward the ports by hand) or released.
+
+Every mapping this rig makes is recorded (:data:`RECORD_FILE`, under the data
+home) until it is given back, so an agent that starts after one that crashed
+gives back what that one left first: a permanent mapping is kept on record
+until its router takes the release, a leased one ends on its own.
 
 The hub then checks the forward from outside (``port_check``): this rig opens
 its first tunnel port for a few seconds and answers each probe ping that
@@ -36,6 +48,7 @@ from __future__ import annotations
 import contextlib
 import http.client
 import ipaddress
+import json
 import re
 import select
 import socket
@@ -45,10 +58,12 @@ import threading
 import time
 import urllib.parse
 import xml.etree.ElementTree as ElementTree
-from collections.abc import Callable, Sequence
+from collections.abc import Callable, Mapping, Sequence
 from dataclasses import dataclass, field
-from typing import Protocol
+from pathlib import Path
+from typing import Any, Protocol
 
+from mcgyvr import atomic, hubwire
 from mcgyvr.rig import commands, protocol, sessionwire, udpwire
 from mcgyvr.rig.sessionwire import PortMapped, SessionCode
 
@@ -79,6 +94,21 @@ RENEW_TRIES = 3
 CLOSE_WAIT_S = 30.0
 #: How long one check's socket waits for datagrams per pass.
 CHECK_SLICE_S = 0.1
+#: The file, under the data home, that records the mappings this rig made and
+#: has not given back; the most entries it keeps, and its largest size read.
+RECORD_FILE = "rig-port-forward.json"
+MAX_RECORDED = 8
+MAX_RECORD_BYTES = 16384
+#: The report's tags for a forward this rig's owner did not allow: the forward
+#: itself, and a permanent lease (the only one some routers grant).
+NOT_ALLOWED = hubwire.PORT_MAP_NOT_ALLOWED
+PERMANENT_ONLY = hubwire.PORT_MAP_PERMANENT_ONLY
+#: The settings that allow each, as the owner sets them (``mcgyvr rig share``).
+ALLOW_FORWARD = "mcgyvr rig share --port-forward"
+ALLOW_PERMANENT = "mcgyvr rig share --permanent-forward"
+#: A router that could not be reached keeps what it holds: the release is
+#: tried again at the next start.
+_UNREACHED = {"timeout", "no_gateway"}
 
 # UPnP error codes that say why a mapping was refused.
 _UPNP_CONFLICT = {718}  # ConflictInMappingEntry
@@ -88,6 +118,8 @@ _NATPMP_REFUSED = {2}  # not authorized
 _NATPMP_UNSUPPORTED = {1, 5}
 _DECLARATION = re.compile(rb"<!(DOCTYPE|ENTITY)", re.IGNORECASE)
 _UPNP_NO_ENTRY = 714  # NoSuchEntryInArray: the external port maps nothing
+# Which failure the report names when no router maps: the most telling one.
+_RANK = {"conflict": 2, "permanent_only": 1}
 
 
 def _plain(raw: bytes) -> bool:
@@ -98,6 +130,15 @@ def _plain(raw: bytes) -> bool:
         and b"\x00" not in raw
         and not _DECLARATION.search(raw)
     )
+
+
+@dataclass(frozen=True)
+class Consent:
+    """What the owner allowed on this rig: a port forward at all, and one
+    with a permanent lease on a router that grants no other."""
+
+    forward: bool = False
+    permanent: bool = False
 
 
 class MapError(Exception):
@@ -113,6 +154,10 @@ class Router(Protocol):
     """One way to ask the home router for a forward."""
 
     method: str  # upnp, natpmp
+
+    def address(self) -> dict[str, str]:
+        """What names this router again after a restart (:func:`recall`)."""
+        ...
 
     def lan_host(self) -> str:
         """This host's address on the router's LAN, where forwards land."""
@@ -166,6 +211,15 @@ def local_address(peer: str, port: int = NATPMP_PORT) -> str | None:
     return host
 
 
+def _lan_address(host: str) -> bool:
+    """A private address a router or a LAN host may have: not loopback, not
+    link-local (what a record names, which is read back, not found)."""
+    if not _private(host):
+        return False
+    address = ipaddress.IPv4Address(host)
+    return not (address.is_loopback or address.is_link_local)
+
+
 def _private(host: str) -> bool:
     try:
         address = ipaddress.IPv4Address(host)
@@ -196,6 +250,9 @@ class NatPmp:
         self._first_wait_s = first_wait_s
         self._tries = tries
         self._lan = lan
+
+    def address(self) -> dict[str, str]:
+        return {"gateway": self._gateway}
 
     def lan_host(self) -> str:
         host = self._lan(self._gateway)
@@ -257,11 +314,17 @@ class NatPmp:
         return got_external, granted
 
     def add(self, *, lan_host: str, internal: int, external: int, lease_s: int) -> int:
+        if lease_s == 0:  # a lifetime of 0 asks NAT-PMP to delete, not to keep
+            raise MapError(PERMANENT_ONLY, "NAT-PMP maps with a lease only")
         got, granted = self._map(internal, external, lease_s)
         if got != external:
             with contextlib.suppress(MapError):
                 self._map(internal, 0, 0)
             raise MapError("conflict", f"NAT-PMP gave port {got}, not {external}")
+        if granted == 0:
+            with contextlib.suppress(MapError):
+                self._map(internal, 0, 0)
+            raise MapError("failed", "NAT-PMP granted no lifetime")
         return granted
 
     def remove(self, *, lan_host: str, internal: int, external: int) -> None:
@@ -408,6 +471,9 @@ class Upnp:
         self._lan = lan
         self._wait_s = wait_s
 
+    def address(self) -> dict[str, str]:
+        return {"service": self._gateway.service, "control": self._gateway.control}
+
     def lan_host(self) -> str:
         host = self._lan(self._url.hostname or "")
         if host is None:
@@ -487,13 +553,11 @@ class Upnp:
         )
 
     def add(self, *, lan_host: str, internal: int, external: int, lease_s: int) -> int:
+        """Map with ``lease_s``, 0 for a permanent lease; a router that takes
+        only a permanent one refuses any other (``permanent_only``)."""
         if self._held_by_another(lan_host, internal, external):
             raise MapError("conflict", f"UPnP: port {external} forwards elsewhere")
-        try:
-            self._add(lan_host, internal, external, lease_s)
-        except _PermanentOnlyError:
-            self._add(lan_host, internal, external, 0)
-            return 0
+        self._add(lan_host, internal, external, lease_s)
         return lease_s
 
     def remove(self, *, lan_host: str, internal: int, external: int) -> None:
@@ -509,14 +573,10 @@ class Upnp:
         )
 
 
-class _PermanentOnlyError(MapError):
-    pass
-
-
 def _upnp_error(action: str, code: int, values: dict[str, str]) -> MapError:
     said = sessionwire.scrub(values.get("errorDescription", ""))[:200]
     if code == _UPNP_PERMANENT_ONLY:
-        return _PermanentOnlyError("failed", f"UPnP {action}: only permanent leases")
+        return MapError(PERMANENT_ONLY, f"UPnP {action}: only permanent leases")
     if code in _UPNP_CONFLICT:
         return MapError("conflict", f"UPnP {action}: {code} {said}".strip())
     if code in {606, 714, 729} or 600 <= code < 700:
@@ -583,6 +643,135 @@ def find_routers() -> list[Router]:
     return routers
 
 
+def recall(method: str, address: Mapping[str, str]) -> Router | None:
+    """The router a record names (:meth:`Router.address`), held to what a
+    found one may be: a NAT-PMP gateway or a UPnP control URL, plain HTTP, on
+    a private LAN address (no loopback, no link-local); else None."""
+    if method == NatPmp.method:
+        gateway = address.get("gateway", "")
+        return NatPmp(gateway) if _lan_address(gateway) else None
+    if method == Upnp.method:
+        service, control = address.get("service", ""), address.get("control", "")
+        try:
+            url = urllib.parse.urlsplit(control)
+            _ = url.port
+        except ValueError:
+            return None
+        if (
+            service in WAN_SERVICES
+            and url.scheme == "http"
+            and _lan_address(url.hostname or "")
+        ):
+            return Upnp(Gateway(service, control))
+    return None
+
+
+# --- the record -------------------------------------------------------------------
+
+
+@dataclass(frozen=True)
+class Recorded:
+    """A mapping this rig made and has not given back, as its record keeps it."""
+
+    method: str
+    address: dict[str, str]
+    lan_host: str
+    internal: int
+    external: int
+    ports: int
+    lease_s: int
+
+    def data(self) -> dict[str, Any]:
+        return {
+            "method": self.method,
+            "address": dict(self.address),
+            "lan_host": self.lan_host,
+            "internal": self.internal,
+            "external": self.external,
+            "ports": self.ports,
+            "lease_s": self.lease_s,
+        }
+
+
+def _recorded(entry: object) -> Recorded | None:
+    """One record entry, or None when it is not the shape this module writes."""
+    if not isinstance(entry, dict):
+        return None
+    address = entry.get("address")
+    numbers = [entry.get(k) for k in ("internal", "external", "ports", "lease_s")]
+    whole = [n for n in numbers if type(n) is int]
+    if (
+        not isinstance(entry.get("method"), str)
+        or not isinstance(address, dict)
+        or not all(
+            isinstance(k, str) and isinstance(v, str) for k, v in address.items()
+        )
+        or not _lan_address(str(entry.get("lan_host", "")))
+        or len(whole) != len(numbers)
+    ):
+        return None
+    internal, external, ports, lease = whole
+    if not (
+        1 <= ports <= sessionwire.PORT_MAP_PORTS
+        and 1 <= internal <= sessionwire.MAX_PORT - ports + 1
+        and 1 <= external <= sessionwire.MAX_PORT - ports + 1
+        and 0 <= lease <= sessionwire.MAX_PORT_MAP_LEASE_S
+    ):
+        return None
+    return Recorded(
+        method=entry["method"],
+        address=address,
+        lan_host=entry["lan_host"],
+        internal=internal,
+        external=external,
+        ports=ports,
+        lease_s=lease,
+    )
+
+
+def read_record(path: Path) -> list[Recorded]:
+    """The mappings ``path`` records; nothing for a missing, oversized or
+    unreadable file, and entries of another shape are skipped."""
+    try:
+        with path.open("rb") as handle:
+            raw = handle.read(MAX_RECORD_BYTES + 1)
+        data = json.loads(raw.decode("utf-8")) if len(raw) <= MAX_RECORD_BYTES else []
+    except (OSError, UnicodeError, ValueError):
+        return []
+    entries = data.get("mappings") if isinstance(data, dict) else None
+    if not isinstance(entries, list):
+        return []
+    return [r for r in map(_recorded, entries[:MAX_RECORDED]) if r is not None]
+
+
+def write_record(path: Path, mappings: Sequence[Recorded]) -> None:
+    """Record ``mappings`` (the file goes when there are none), at most
+    :data:`MAX_RECORDED`: past that the oldest leased ones go first (they end
+    on their own), and a permanent one only with a note that it is forgotten."""
+    if not mappings:
+        path.unlink(missing_ok=True)
+        return
+    kept = list(mappings)
+    for permanent in (False, True):
+        while len(kept) > MAX_RECORDED:
+            index = next(
+                (i for i, m in enumerate(kept) if (m.lease_s == 0) == permanent), None
+            )
+            if index is None:
+                break
+            gone = kept.pop(index)
+            if permanent:
+                print(
+                    f"note: the port forward's record is full; the permanent "
+                    f"forward of external port {gone.external} on {gone.lan_host} "
+                    "is forgotten, not given back",
+                    file=sys.stderr,
+                )
+    path.parent.mkdir(mode=0o700, parents=True, exist_ok=True)
+    data = {"mappings": [m.data() for m in kept]}
+    atomic.write(path, json.dumps(data) + "\n", private=True)
+
+
 # --- the mapper -----------------------------------------------------------------
 
 
@@ -614,7 +803,11 @@ class Mapper:
     this rig's tunnel ports in order (the block maps on to its first ones),
     ``hosts`` the LAN addresses its tunnel is published on (a forward to any
     other address would land nowhere), and ``routers`` finds the ways to ask
-    the router, best first. ``clock`` drives renewals and checks.
+    the router, best first. ``consent`` is what the owner allowed on this rig,
+    read afresh at each pass (none by default: every ask is refused).
+    ``record`` is the file the mappings are recorded in (None: not recorded),
+    and ``recall`` names a recorded router again. ``clock`` drives renewals
+    and checks.
     """
 
     def __init__(
@@ -624,6 +817,9 @@ class Mapper:
         tunnel_ports: Callable[[], Sequence[int]],
         hosts: Callable[[], Sequence[str]],
         routers: Callable[[], Sequence[Router]] = find_routers,
+        consent: Callable[[], Consent] = Consent,
+        record: Path | None = None,
+        recall: Callable[[str, Mapping[str, str]], Router | None] = recall,
         bind_host: str = "0.0.0.0",
         clock: Callable[[], float] = time.monotonic,
     ) -> None:
@@ -631,6 +827,11 @@ class Mapper:
         self._tunnel_ports = tunnel_ports
         self._hosts = hosts
         self._routers = routers
+        self._consent = consent
+        self._record = record
+        self._recall = recall
+        self._leftover: list[Recorded] = []  # permanent, not given back yet
+        self._pending: Recorded | None = None  # being mapped: recorded first
         self._bind_host = bind_host
         self._clock = clock
         self._lock = threading.Lock()
@@ -656,6 +857,12 @@ class Mapper:
     def check(self, envelope: protocol.Envelope) -> str | None:
         """Take a ``port_check``: answer the hub's pings on a tunnel port a while."""
         asked = sessionwire.read_port_check(envelope)
+        if not self._consent().forward:
+            return sessionwire.refusal(
+                envelope.id,
+                SessionCode.NOT_CAPABLE,
+                "port: no port forward is allowed on this rig",
+            )
         if asked.port not in self._tunnel_ports():
             return sessionwire.refusal(
                 envelope.id, SessionCode.NOT_CAPABLE, "port: not a tunnel port here"
@@ -705,7 +912,46 @@ class Mapper:
 
     # The worker.
 
+    def give_back_recorded(self) -> None:
+        """Give back what an agent before this one recorded and left mapped
+        (it crashed, or its host lost power): this one wants none of it until
+        the hub asks. Only to a router this rig is on the LAN of now, as the
+        one that mapped it: a rig that moved (a laptop that crashed at home
+        and starts elsewhere) sends nothing to whatever holds that address
+        here. A permanent mapping not given back (its router is elsewhere or
+        not reached) stays on record for the next start; a leased one ends on
+        its own."""
+        if self._record is None:
+            return
+        left = read_record(self._record)
+        kept = []
+        given = 0
+        for entry in left:
+            router = self._recall(entry.method, entry.address)
+            if router is None:
+                continue
+            reached = self._here(router, entry.lan_host) and self._give_back(
+                router, entry.lan_host, entry.internal, entry.external, entry.ports
+            )
+            if reached:
+                given += 1
+            elif entry.lease_s == 0:
+                kept.append(entry)
+        if left:
+            print(
+                f"port forward: gave back {given} of the {len(left)} forward(s) "
+                "an agent before this one left on the router"
+                + (f"; {len(kept)} kept on record" if kept else ""),
+                file=sys.stderr,
+            )
+        self._leftover = kept
+        self._write_record()
+
     def _run(self) -> None:
+        try:
+            self.give_back_recorded()
+        except Exception as exc:  # the worker must outlive a bad record
+            print(f"port forward: {exc!r}", file=sys.stderr)
         while not self._stopped.is_set():
             try:
                 wait = self.tick()
@@ -723,7 +969,36 @@ class Mapper:
         with self._lock:
             wanted, asked = self._wanted, self._asked
             self._asked = False
+        allowed = self._consent()
         held = self._held
+        if not allowed.forward and (held is not None or (asked and wanted is not None)):
+            # Not allowed on this rig (or no longer): what is held goes back,
+            # and the hub hears it refused, with how the owner allows it.
+            print(
+                "port forward: "
+                + ("no longer allowed here, given back" if held else "refused")
+                + f": this rig does not allow it; `{ALLOW_FORWARD}` allows it",
+                file=sys.stderr,
+            )
+            if asked and wanted is None:  # the hub asked it back: it is
+                self._release(report=True)
+                return IDLE_S
+            self._release(report=False)
+            self._report(
+                PortMapped(
+                    state="failed",
+                    error=NOT_ALLOWED,
+                    message="the rig's owner has not allowed a port forward on "
+                    f"the rig; `{ALLOW_FORWARD}` there allows it",
+                )
+            )
+            return IDLE_S
+        if held is not None and held.lease_s == 0 and not allowed.permanent:
+            # A permanent lease the owner no longer allows: given back, and
+            # the block mapped again with a lease, or refused.
+            self._release(report=wanted is None)
+            held = None
+            asked = wanted is not None
         if asked:
             if held is not None and self._same(held, wanted):
                 # The same block again (a reconnect): map it afresh, since the
@@ -740,7 +1015,7 @@ class Mapper:
             elif wanted is None:
                 self._report(PortMapped(state="released"))
             if wanted is not None and held is None:
-                self._map(wanted)
+                self._map(wanted, allowed)
                 if self._stopped.is_set():  # it stopped while the router mapped
                     self._release(report=False)
         elif held is not None and held.renew_at is not None:
@@ -764,7 +1039,7 @@ class Mapper:
             return None
         return ports[0], count
 
-    def _map(self, wanted: sessionwire.PortMap) -> None:
+    def _map(self, wanted: sessionwire.PortMap, allowed: Consent) -> None:
         assert wanted.external_port is not None
         block = self._block(wanted)
         if block is None:
@@ -776,16 +1051,27 @@ class Mapper:
         failure = MapError("no_gateway", "no UPnP or NAT-PMP router answered")
         for router in self._routers():
             try:
-                held = self._add(router, internal, wanted.external_port, count, wanted)
+                held = self._add(
+                    router, internal, wanted.external_port, count, wanted, allowed
+                )
             except MapError as exc:
-                # A conflict says the hub's block is taken: worth saying over
-                # a router that merely does not speak the method.
-                if failure.error != "conflict":
+                # A conflict says the hub's block is taken, a permanent lease
+                # what the owner may allow: worth saying over a router that
+                # merely does not speak the method.
+                if _RANK.get(exc.error, 0) >= _RANK.get(failure.error, 0):
                     failure = exc
                 continue
             self._held = held
+            self._write_record()
             self._report(self._mapped(held))
             return
+        message = failure.message
+        if failure.error == PERMANENT_ONLY and not allowed.permanent:
+            message += (
+                "; this rig allows no permanent lease "
+                f"(`{ALLOW_PERMANENT}` allows one), or forward the ports by hand"
+            )
+            print(f"port forward: refused: {message}", file=sys.stderr)
         # What the owner forwards by hand instead: the block on to the first
         # private IPv4 address the tunnel is published on (none: the hub says).
         lan = next((h for h in self._hosts() if _private(h)), None)
@@ -793,7 +1079,7 @@ class Mapper:
             PortMapped(
                 state="failed",
                 error=failure.error,
-                message=failure.message,
+                message=message,
                 lan_host=lan,
                 internal_port=internal,
                 external_port=wanted.external_port,
@@ -808,30 +1094,68 @@ class Mapper:
         external: int,
         count: int,
         wanted: sessionwire.PortMap,
+        allowed: Consent,
     ) -> _Held:
         lan_host = router.lan_host()
         if lan_host not in self._hosts():
             raise MapError("no_lan_host", f"{lan_host} is no address the tunnel is on")
-        granted: list[int] = []
-        try:
+        added: set[int] = set()
+        # Recorded before the router is asked, so a crash mid-way leaves it on
+        # record (as permanent when one may be granted, which only UPnP does:
+        # kept until given back).
+        self._pending = Recorded(
+            method=router.method,
+            address=router.address(),
+            lan_host=lan_host,
+            internal=internal,
+            external=external,
+            ports=count,
+            lease_s=(
+                0
+                if allowed.permanent and router.method == Upnp.method
+                else wanted.lease_s
+            ),
+        )
+        self._write_record()
+
+        def block(lease_s: int) -> list[int]:
+            granted = []
             for offset in range(count):
                 granted.append(
                     router.add(
                         lan_host=lan_host,
                         internal=internal + offset,
                         external=external + offset,
-                        lease_s=wanted.lease_s,
+                        lease_s=lease_s,
                     )
                 )
+                added.add(offset)
+            return granted
+
+        try:
+            try:
+                granted = block(wanted.lease_s)
+            except MapError as exc:
+                if exc.error != PERMANENT_ONLY or not allowed.permanent:
+                    raise
+                granted = block(0)  # the whole block, so no port's lease runs out
+            if 0 in granted and not allowed.permanent:
+                raise MapError(
+                    PERMANENT_ONLY,
+                    f"{router.method}: the router granted a permanent lease",
+                )
         except MapError:
-            for offset in range(len(granted)):
+            for offset in sorted(added):
                 with contextlib.suppress(MapError):
                     router.remove(
                         lan_host=lan_host,
                         internal=internal + offset,
                         external=external + offset,
                     )
+            self._pending = None
+            self._write_record()
             raise
+        self._pending = None
         lease = min(min(granted), sessionwire.MAX_PORT_MAP_LEASE_S)
         return _Held(
             router=router,
@@ -894,7 +1218,7 @@ class Mapper:
                 with self._lock:
                     wanted = self._wanted
                 if wanted is not None:
-                    self._map(wanted)
+                    self._map(wanted, self._consent())
                 return
             held.misses += 1
             if held.misses < RENEW_TRIES:
@@ -911,15 +1235,68 @@ class Mapper:
     def _release(self, *, report: bool) -> None:
         held, self._held = self._held, None
         if held is not None:
-            for offset in range(held.ports):
-                with contextlib.suppress(MapError):
-                    held.router.remove(
-                        lan_host=held.lan_host,
-                        internal=held.internal + offset,
-                        external=held.external + offset,
-                    )
+            reached = self._give_back(
+                held.router, held.lan_host, held.internal, held.external, held.ports
+            )
+            if not reached and held.lease_s == 0:
+                self._leftover.append(self._recorded(held))
+            self._write_record()
         if report:
             self._report(PortMapped(state="released"))
+
+    def _here(self, router: Router, lan_host: str) -> bool:
+        """Whether this rig is on ``router``'s LAN now, at ``lan_host``: a
+        route lookup, no packet sent (a router with no route is not here)."""
+        try:
+            return router.lan_host() == lan_host and lan_host in self._hosts()
+        except MapError:
+            return False
+
+    @staticmethod
+    def _give_back(
+        router: Router, lan_host: str, internal: int, external: int, ports: int
+    ) -> bool:
+        """Remove each port of a block; False when the router was not reached."""
+        reached = True
+        for offset in range(ports):
+            try:
+                router.remove(
+                    lan_host=lan_host,
+                    internal=internal + offset,
+                    external=external + offset,
+                )
+            except MapError as exc:
+                reached = reached and exc.error not in _UNREACHED
+        return reached
+
+    @staticmethod
+    def _recorded(held: _Held) -> Recorded:
+        return Recorded(
+            method=held.router.method,
+            address=held.router.address(),
+            lan_host=held.lan_host,
+            internal=held.internal,
+            external=held.external,
+            ports=held.ports,
+            lease_s=held.lease_s,
+        )
+
+    def _write_record(self) -> None:
+        """Record what is held and what is not given back yet."""
+        if self._record is None:
+            return
+        entries = [*self._leftover]
+        if self._held is not None:
+            entries.append(self._recorded(self._held))
+        if self._pending is not None:
+            entries.append(self._pending)
+        try:
+            write_record(self._record, entries)
+        except OSError as exc:
+            print(
+                f"note: the port forward's record was not written: {exc}",
+                file=sys.stderr,
+            )
 
     def _report(self, report: PortMapped) -> None:
         self._send(sessionwire.port_map_report(report))

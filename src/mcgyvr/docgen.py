@@ -25,6 +25,7 @@ import textwrap
 from collections.abc import Sequence
 from pathlib import Path
 
+from mcgyvr import hubwire
 from mcgyvr.catalog import catalog
 from mcgyvr.hubwire import SCOPE_CREW
 
@@ -338,6 +339,38 @@ LOCAL_TRANSPORT_ENV = "MCGYVR_LOCAL_TRANSPORT"
 SSHD_PORT = 22
 QUARANTINE = "com.apple.quarantine"
 HUB_KEY_ENV = "MCGYVR_HUB_API_KEY"
+#: The rig names *Lending to a hub: the port forward* states, held to
+#: `sharing.SHARING_FILE`, the `rig share` and `rig join` switches and
+#: `portmap.NOT_ALLOWED`/`PERMANENT_ONLY` by
+#: tests/test_the_port_forward_is_the_rigs_own_consent_too.py.
+SHARING_FILE = "rig-sharing.json"
+PORT_FORWARD_SWITCH = "--port-forward"
+PERMANENT_FORWARD_SWITCH = "--permanent-forward"
+FORWARD_NOT_ALLOWED = hubwire.PORT_MAP_NOT_ALLOWED
+FORWARD_PERMANENT_ONLY = hubwire.PORT_MAP_PERMANENT_ONLY
+
+
+def _port_forward_section() -> list[str]:
+    """SETUP.md's *Lending to a hub: the port forward*: whose consent it takes."""
+    text = (
+        "A rig lending to a hub is reached by its peers directly when its home "
+        "router forwards its tunnel UDP ports to it. The hub asks a rig to map "
+        "them, by UPnP or NAT-PMP, only when its owner agreed to it twice: on "
+        "the hub's My rigs page, and on the rig itself, where it is off until "
+        f"`mcgyvr rig share {PORT_FORWARD_SWITCH}` (or `mcgyvr rig join "
+        f"{PORT_FORWARD_SWITCH}`) turns it on in `{SHARING_FILE}`. Until then "
+        "the rig does not offer the forward, refuses any ask of the hub "
+        f"(reported as `{FORWARD_NOT_ALLOWED}`), and the agent's first lines say so. "
+        "No hole is punched through a NAT either way. A forward is given back "
+        f"when the agent stops or the owner turns it off (`--no-port-forward`), "
+        "and recorded until then, so an agent that starts after a crash gives "
+        "back what the one before left, to its router only while the rig is on "
+        "that router's LAN again. No lease is permanent by default: a router "
+        f"that grants only permanent leases is refused (`{FORWARD_PERMANENT_ONLY}`) "
+        f"unless `mcgyvr rig share {PERMANENT_FORWARD_SWITCH}` allows one; "
+        "the hub shows the rule to forward the ports by hand instead."
+    )
+    return ["## Lending to a hub: the port forward", "", *_wrap(text, rest=""), ""]
 
 
 def _macos_windows_section() -> list[str]:
@@ -672,6 +705,7 @@ def render_setup() -> str:
         "can run the work; `mcgyvr capabilities` shows the shipped capability table.",
         "",
         *_macos_windows_section(),
+        *_port_forward_section(),
         *_use_cases_section(),
         "## Value types",
         "",

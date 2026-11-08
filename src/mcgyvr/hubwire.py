@@ -55,7 +55,10 @@ from these names rather than writing them again:
 * the devices a head runs a model on (:data:`HEAD_DEVICE_KINDS`);
 * how fast a device decodes by its memory bandwidth
   (:func:`decode_ms_per_gib`, with :data:`DECODE_EFFICIENCY`, and whether a
-  device is of the vendor that was fitted on, :func:`fitted_on`).
+  device is of the vendor that was fitted on, :func:`fitted_on`);
+* the ``port_map_report`` ``error`` tags of a forward the rig itself refuses
+  (:data:`PORT_MAP_NOT_ALLOWED`, :data:`PORT_MAP_PERMANENT_ONLY`), which the
+  hub tells apart from a router's refusal.
 
 A pattern is held unanchored and matched whole (``fullmatch``); a JSON Schema
 or a pydantic type writes it as ``^<pattern>$``. Nothing here is a validator
@@ -1014,3 +1017,13 @@ def decode_ms_per_gib(
     if eff is None or not bandwidth_gbps > 0:
         return None
     return _MS_PER_S * BYTES_PER_GIB / (eff * bandwidth_gbps * BYTES_PER_DECIMAL_GB)
+
+
+#: The ``port_map_report`` ``error`` (an open set of tags) of a forward its
+#: owner has not allowed on the rig: the hub's ask is refused there, and no
+#: rule by hand is the answer to it.
+PORT_MAP_NOT_ALLOWED = "not_allowed"
+#: The ``port_map_report`` ``error`` of a router that grants only permanent
+#: leases, which the rig refuses unless its owner allowed a permanent one: a
+#: rule added by hand on the router is the way left.
+PORT_MAP_PERMANENT_ONLY = "permanent_only"

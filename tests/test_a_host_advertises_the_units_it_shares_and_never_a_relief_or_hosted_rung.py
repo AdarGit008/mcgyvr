@@ -496,7 +496,11 @@ def test_the_hello_names_hitchhike_units_whether_the_rig_lends_or_not(
     lending = session.offer(
         fakes.sharing(tmp_path), held, (fakes.LAN_ADDRESS,), (), fakes.report()
     )
-    assert lending.features == session.FEATURES
+    # port_map only once the owner allowed the forward on the rig
+    # (tests/test_the_port_forward_is_the_rigs_own_consent_too.py).
+    assert lending.features == tuple(
+        f for f in session.FEATURES if f != session.PORT_MAP_FEATURE
+    )
 
     schema = rig_schema.load()
     for offer in (sharing_only, lending):
