@@ -402,15 +402,21 @@ CARD_KINDS: tuple[str, ...] = (RESOURCE_GPU, RESOURCE_UNIFIED)
 #: The backend a resource computes with. Host memory and cores compute with
 #: ``cpu`` alone, and a card never does.
 BACKEND_CUDA = "cuda"
+BACKEND_CUDA_NOTC = "cuda_notc"
 BACKEND_METAL = "metal"
 BACKEND_VULKAN = "vulkan"
 BACKEND_ROCM = "rocm"
+BACKEND_OPENVINO = "openvino"
+BACKEND_SYCL = "sycl"
 BACKEND_CPU = "cpu"
 RESOURCE_BACKENDS: tuple[str, ...] = (
     BACKEND_CUDA,
+    BACKEND_CUDA_NOTC,
     BACKEND_METAL,
     BACKEND_VULKAN,
     BACKEND_ROCM,
+    BACKEND_OPENVINO,
+    BACKEND_SYCL,
     BACKEND_CPU,
 )
 #: What a number is: an estimate, or the rig's own reading. Each number on the

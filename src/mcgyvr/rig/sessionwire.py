@@ -240,6 +240,7 @@ class ProbeRun:
 class WorkerCard:
     card_index: int
     port: int
+    backend: str | None = None
 
 
 @dataclass(frozen=True, kw_only=True)
@@ -517,16 +518,22 @@ def read_tunnel_up(envelope: protocol.Envelope) -> TunnelUp:
 
 
 def read_worker_start(envelope: protocol.Envelope) -> WorkerStart:
-    """Read a worker_start body: which cards, on which ports, to serve."""
+    """Read a worker_start body: which cards, on which ports and backend, to serve."""
     body = _start(envelope)
     session_id = body.text("session_id", SESSION_ID)
     cards = []
     for item in body.items("cards", 1, protocol.MAX_CARDS):
         card = body.nested("cards", item)
+        backend = (
+            card.one_of("backend", hubwire.RESOURCE_BACKENDS)
+            if card.has("backend")
+            else None
+        )
         cards.append(
             WorkerCard(
                 card_index=card.number("card_index", 0, protocol.MAX_CARD_INDEX),
                 port=card.number("port", 1, MAX_PORT),
+                backend=backend,
             )
         )
     _unique(body, "cards", [card.card_index for card in cards])
