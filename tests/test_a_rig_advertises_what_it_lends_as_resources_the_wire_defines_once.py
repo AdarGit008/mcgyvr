@@ -117,7 +117,16 @@ def _refused(field: str, check: Any) -> None:
 
 def test_the_closed_sets_hold_the_values_the_hub_takes() -> None:
     assert hubwire.RESOURCE_KINDS == ("gpu", "unified", "ram", "cpu")
-    assert hubwire.RESOURCE_BACKENDS == ("cuda", "metal", "vulkan", "rocm", "cpu")
+    assert hubwire.RESOURCE_BACKENDS == (
+        "cuda",
+        "cuda_notc",
+        "metal",
+        "vulkan",
+        "rocm",
+        "openvino",
+        "sycl",
+        "cpu",
+    )
     assert hubwire.FIGURE_KINDS == ("estimate", "reading")
     assert (hubwire.FIGURE_ESTIMATE, hubwire.FIGURE_READING) == hubwire.FIGURE_KINDS
     assert hubwire.HOST_OS == ("linux", "darwin", "windows")
@@ -139,9 +148,12 @@ def test_the_closed_sets_hold_the_values_the_hub_takes() -> None:
             hubwire.RESOURCE_BACKENDS,
             (
                 hubwire.BACKEND_CUDA,
+                hubwire.BACKEND_CUDA_NOTC,
                 hubwire.BACKEND_METAL,
                 hubwire.BACKEND_VULKAN,
                 hubwire.BACKEND_ROCM,
+                hubwire.BACKEND_OPENVINO,
+                hubwire.BACKEND_SYCL,
                 hubwire.BACKEND_CPU,
             ),
         ),
@@ -163,7 +175,9 @@ def test_each_closed_set_is_its_values_names_in_order(
 
 def test_each_value_name_holds_its_value() -> None:
     assert (hubwire.BACKEND_CUDA, hubwire.BACKEND_METAL) == ("cuda", "metal")
+    assert hubwire.BACKEND_CUDA_NOTC == "cuda_notc"
     assert (hubwire.BACKEND_VULKAN, hubwire.BACKEND_ROCM) == ("vulkan", "rocm")
+    assert (hubwire.BACKEND_OPENVINO, hubwire.BACKEND_SYCL) == ("openvino", "sycl")
     assert hubwire.BACKEND_CPU == "cpu"
     assert (hubwire.HOST_LINUX, hubwire.HOST_DARWIN) == ("linux", "darwin")
     assert hubwire.HOST_WINDOWS == "windows"
