@@ -46,6 +46,7 @@ from mcgyvr.fleet.harness import (
 from mcgyvr.hubwire import (
     MODEL_NOT_FOUND,
     MODEL_UNPLACED,
+    OUT_OF_SCOPE,
     POOL_BUSY,
     SCOPE_HEADER,
     USE_CASE_HEADER,
@@ -212,6 +213,53 @@ class ModelUnplacedError(SlotUnavailableError):
 class UnknownModelError(SlotUnavailableError):
     """The rung's address does not know the model the rung asks for: the rung's
     `model` is wrong, and the rung is passed over with a note saying so."""
+
+
+#: The relief rungs the hub refused as outside the scope their requests name
+#: (403 `out_of_scope`), by address, rung and scope sent. Each is passed over
+#: without asking for the rest of the process: the same host under the same
+#: scope is refused again, and every refusal spends the rider's hub budget.
+#: A setup that opts in sends another scope, so it is asked again.
+_OUT_OF_SCOPE_RUNGS: set[tuple[str, str, str | None]] = set()
+_OUT_OF_SCOPE_LOCK = threading.Lock()
+
+
+def _out_of_scope_key(endpoint: Endpoint) -> tuple[str, str, str | None]:
+    return (endpoint.base_url, endpoint.source, endpoint.scope)
+
+
+def _held_out_of_scope(endpoint: Endpoint) -> ReliefUnavailableError | None:
+    """The refusal to raise for a relief rung the hub already refused as out
+    of scope in this process, `None` for one it has not."""
+    with _OUT_OF_SCOPE_LOCK:
+        held = _out_of_scope_key(endpoint) in _OUT_OF_SCOPE_RUNGS
+    if not held:
+        return None
+    return ReliefUnavailableError(
+        f"relief rung {endpoint.source!r} is hosted outside this setup's "
+        f"ride_scope ({endpoint.scope or 'unstated'}); it is passed over"
+    )
+
+
+def _refused_out_of_scope(
+    endpoint: Endpoint, exc: BackendError
+) -> ReliefUnavailableError:
+    """Hold a relief rung the hub refused as out of scope for the rest of the
+    process, saying so once on the run's log (its standard error)."""
+    with _OUT_OF_SCOPE_LOCK:
+        key = _out_of_scope_key(endpoint)
+        first = key not in _OUT_OF_SCOPE_RUNGS
+        _OUT_OF_SCOPE_RUNGS.add(key)
+    said = (
+        f"relief rung {endpoint.source!r} is hosted outside this setup's "
+        f"ride_scope ({endpoint.scope or 'unstated'}), so the hub refused it "
+        f"(HTTP 403 out_of_scope); it is passed over for the rest of this run. "
+        f"`mcgyvr rig rungs sync --ride-scope anyone` opts this setup in to any "
+        f"host"
+    )
+    if first:
+        print(f"note: {said}", file=sys.stderr)
+    return ReliefUnavailableError(f"{said}: {exc}")
 
 
 class ProtocolError(RunnerError):
@@ -483,6 +531,10 @@ class Runner(ABC):
                 f"{self.protocol} path of source {self.endpoint.source!r}. "
                 f"{CAVEAT_NOTE}"
             )
+        if self.endpoint.relief:
+            held = _held_out_of_scope(self.endpoint)
+            if held is not None:
+                raise held
         request = at_unit_max(self.endpoint, request)
 
         url = _url_for(self.endpoint.base_url, self.path)
@@ -496,6 +548,10 @@ class Runner(ABC):
                 request_timeout(self.endpoint, request.timeout_s),
             )
         except BackendError as exc:
+            # The hub refused the host as outside the scope the request named:
+            # not the rung's failure, and asking again would be refused again.
+            if self.endpoint.relief and (exc.status, exc.code) == OUT_OF_SCOPE:
+                raise _refused_out_of_scope(self.endpoint, exc) from exc
             busy = self.endpoint.busy_answers
             if (
                 self.endpoint.relief

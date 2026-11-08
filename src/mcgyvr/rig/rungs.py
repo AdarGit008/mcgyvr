@@ -50,7 +50,7 @@ from mcgyvr.config import (
     FLEET_FILENAME,
     POLICY_FILENAME,
     RELIEF_FILENAME,
-    RELIEF_SCOPE,
+    RIDE_SCOPE,
     Config,
     ConfigError,
     Unit,
@@ -64,6 +64,9 @@ from mcgyvr.hubwire import (
     OFFER_ID,
     RUNG_BUSY,
     RUNG_POSITIONS,
+    SCOPE_ANYONE,
+    SCOPE_CREW,
+    SCOPE_OWN,
     rung_offer,
 )
 from mcgyvr.rig.verbs import AGENT_PATH, _RefusalError, hub_address
@@ -112,6 +115,11 @@ class SyncError(Exception):
     hub cannot take, a file that cannot be read, or a hub that could not be
     reached. Whatever ``relief.yaml`` already holds is left as it was.
     """
+
+
+class PrivateSetupError(SyncError):
+    """The setup says ``private: true``: it rides no relief rung, so nothing
+    is synced and the hub is sent nothing."""
 
 
 class HubAnswerError(Exception):
@@ -509,13 +517,14 @@ def read(document: object, hub: str) -> Rides:
     return Rides(ride=ride, privacy=privacy, refresh_s=float(refresh), rungs=rides)
 
 
-def render(rides: Rides, key_env: str) -> str:
+def render(rides: Rides, key_env: str, scope: str = RIDE_SCOPE) -> str:
     """The ``relief.yaml`` text for one answer.
 
     Every rung becomes a block under ``relief``, keyed by its name and carrying
     its address, model, key variable name, width, position, host, served model,
     the answers that say it is full (:data:`mcgyvr.hubwire.RUNG_BUSY`) and the
-    scope its requests name (:data:`mcgyvr.config.RELIEF_SCOPE`). A
+    scope its requests name: ``scope``, the setup's ``ride_scope`` (unsaid:
+    :data:`mcgyvr.config.RIDE_SCOPE`). A
     header says a sync rewrites the file whole and that each host can read the
     prompts sent to their rung.
     """
@@ -531,7 +540,7 @@ def render(rides: Rides, key_env: str) -> str:
             "busy_answers": [
                 {"status": status, "code": code} for status, code in RUNG_BUSY
             ],
-            "scope": RELIEF_SCOPE,
+            "scope": scope,
         }
         for each in rides.rungs
     }
@@ -631,26 +640,73 @@ def keep(
     return target
 
 
-def sync(folder: Path, hub: str, key: str, key_env: str) -> tuple[Rides, Path]:
+def sync(
+    folder: Path,
+    hub: str,
+    key: str,
+    key_env: str,
+    *,
+    ride_scope: str | None = None,
+    scoped: list[str] | None = None,
+) -> tuple[Rides, Path]:
     """Sync once: report the setup's ladder, then write the answer beside it.
 
     The setup is read by :func:`load_setup`, its ladder reported, and the
-    answer written by :func:`keep` as ``relief.yaml``: a relief rung a step or
-    a role binds that the hub no longer lists, or an answer the setup would
-    refuse, leaves the file as it was. Returns the answer read and the file it
-    was written to.
+    answer written by :func:`keep` as ``relief.yaml``, each rung under
+    ``ride_scope`` (unsaid: the setup's): a relief rung a step or a role binds
+    that the hub no longer lists, or an answer the setup would refuse, leaves
+    the file as it was. A private setup raises :class:`PrivateSetupError`
+    before anything is sent. Returns the answer read and the file it was
+    written to; the scope the rungs were written under is put in ``scoped``
+    when one is given.
     """
     setup = load_setup(folder, RELIEF)
     own = setup.config
+    if own.private:
+        raise PrivateSetupError(
+            f"the setup in {folder} is private (`private: true`): it rides no "
+            "relief rung, so nothing is synced and the hub is sent nothing; set "
+            "`private: false` in its policy to ride"
+        )
     rides = fetch(hub, key, ladder_report(own))
+    scope = ride_scope or own.ride_scope
     target = keep(
         setup,
         RELIEF,
-        render(rides, key_env),
+        render(rides, key_env, scope),
         held=[name for name, unit in own.units.items() if unit.relief],
         listed={each.name for each in rides.rungs},
     )
+    if scoped is not None:
+        scoped[:] = [scope]
     return rides, target
+
+
+#: What each narrower ride scope means for the rungs a sync kept, as the sync
+#: says it. The hub never lists a rider's own rigs as relief rungs, so under
+#: `own` none of them can serve.
+_WHOSE = {
+    SCOPE_OWN: (
+        "only your own rigs may take this setup's rides, and the hub never "
+        "lists your own rigs as relief rungs, so no relief rung serves it; "
+        "`--ride-scope crew` lets your crewmates' rigs take them"
+    ),
+    SCOPE_CREW: (
+        "only your own and your crewmates' rigs take this setup's rides, and "
+        "the hub refuses a host outside them"
+    ),
+}
+
+
+def ride_scope_line(rides: Rides, scope: str) -> str | None:
+    """The line a sync says about whose rigs take the rides of a setup under
+    ride scope `scope`, `None` when it kept no rung or rides under `anyone`."""
+    if not rides.rungs or scope == SCOPE_ANYONE:
+        return None
+    return (
+        f"ride scope: {scope}: {_WHOSE[scope]}; `--ride-scope anyone` opts this "
+        "setup in to any host"
+    )
 
 
 def _thread(work: Callable[[], None]) -> None:
@@ -667,7 +723,9 @@ class Refresher:
     :meth:`tick` decides whether a sync is due and hands the work to the thread
     ``start`` gives it, so the caller is never blocked. The next sync is due
     ``refresh_s`` after an answer, or ``RETRY_S`` after a failure, and a failure
-    is said once rather than on every tick that follows it.
+    is said once rather than on every tick that follows it. What ``told`` makes
+    of an answer (the ride-scope line a sync says) is said once too, and again
+    only when it changes.
     """
 
     def __init__(
@@ -677,8 +735,11 @@ class Refresher:
         clock: Callable[[], float] = time.monotonic,
         say: Callable[[str], None] = _say,
         start: Callable[[Callable[[], None]], None] = _thread,
+        told: Callable[[Rides], str | None] = lambda _: None,
     ) -> None:
         self._sync = sync
+        self._told = told
+        self._last_told: str | None = None
         self._clock = clock
         self._say = say
         self._start = start
@@ -718,6 +779,11 @@ class Refresher:
             self._due = self._clock() + rides.refresh_s
             self._going = False
             self._last_failure = ""
+        line = self._told(rides)  # after: what it says never stops a sync
+        with self._lock:
+            fresh, self._last_told = line != self._last_told, line
+        if fresh and line is not None:
+            self._say(line)
 
 
 def refresher_for(
@@ -734,6 +800,7 @@ def refresher_for(
     """
     if not environ.get(KEY_ENV):
         return None
+    scope = [RIDE_SCOPE]  # the setup's, as the last sync read it
 
     def once() -> Rides:
         key = environ.get(KEY_ENV)
@@ -743,7 +810,7 @@ def refresher_for(
             where = folder if folder is not None else config_path()
         except ConfigError as exc:
             raise SyncError(str(exc)) from exc
-        rides, _ = sync(where, hub, key, KEY_ENV)
+        rides, _ = sync(where, hub, key, KEY_ENV, scoped=scope)
         return rides
 
-    return Refresher(sync=once)
+    return Refresher(sync=once, told=lambda rides: ride_scope_line(rides, scope[0]))

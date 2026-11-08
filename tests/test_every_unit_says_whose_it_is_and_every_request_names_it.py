@@ -7,10 +7,9 @@ a general-pool unit of the same model by the scope header
 request to it, the runner's and Jev's alike, names it beside the use case.
 
 * A unit of your fleet is ``own`` unless it says otherwise.
-* A relief rung keeps the scope ``mcgyvr rig rungs sync`` writes. The hub
-  matched the rung to you under your own serve scope and hands a ride only to
-  rungs you are matched to, so the sync writes the scope that keeps the hub's
-  match the only filter: ``anyone``.
+* A relief rung's requests name the narrower of the scope ``mcgyvr rig rungs
+  sync`` writes and the setup's ``ride_scope`` (unset ``crew``); the sync
+  writes ``ride_scope`` itself, so the hub refuses a host outside it.
 * The header goes out through ``runner.request_headers`` alone.
 
 No request leaves the process: the transport is replaced, and what it was
@@ -80,10 +79,12 @@ def test_a_scope_the_wire_does_not_name_is_refused() -> None:
         parse(_unit("everyone"))
 
 
-def test_a_relief_rung_is_anyones_when_its_block_names_no_scope() -> None:
+def test_a_relief_rung_takes_the_setups_ride_scope_when_its_block_names_none() -> None:
     config = parse(f"{FLEET}ladder: [local]\n", relief_text=RELIEF)
+    opted = parse(f"{FLEET}ladder: [local]\nride_scope: anyone\n", relief_text=RELIEF)
 
-    assert config.relief[RIDE].scope == hubwire.SCOPE_ANYONE
+    assert config.relief[RIDE].scope == hubwire.SCOPE_CREW
+    assert opted.relief[RIDE].scope == hubwire.SCOPE_ANYONE
 
 
 def test_a_relief_rung_keeps_the_scope_its_block_names() -> None:
@@ -149,8 +150,8 @@ def test_every_request_names_its_units_scope_beside_the_use_case(
         (hubwire.SCOPE_OWN, use_case),
         (hubwire.SCOPE_CREW, use_case),
         (hubwire.SCOPE_CREW, use_case),
-        (hubwire.SCOPE_ANYONE, use_case),
-        (hubwire.SCOPE_ANYONE, use_case),
+        (hubwire.SCOPE_CREW, use_case),  # the ride: the setup's ride_scope
+        (hubwire.SCOPE_CREW, use_case),
     ]
 
 
@@ -185,7 +186,7 @@ def test_a_sync_writes_each_rungs_scope_and_the_file_reads_it_back() -> None:
     text = rungs.render(_rides(), KEY_ENV)
 
     written = yaml.safe_load(text)["relief"][RIDE]
-    assert written["scope"] == hubwire.SCOPE_ANYONE
+    assert written["scope"] == hubwire.SCOPE_CREW
     config = parse(f"{FLEET}ladder: [local]\n", relief_text=text)
     assert config.relief[RIDE].scope == written["scope"]
 
@@ -214,7 +215,7 @@ def test_a_sync_whose_ladder_steps_on_a_relief_rung_reports_only_your_own_rungs(
     (report,) = reported
     assert [r["model"] for r in report["ladder"]["rungs"]] == ["coder-7b"]
     kept = yaml.safe_load((tmp_path / "relief.yaml").read_text(encoding="utf-8"))
-    assert kept["relief"][RIDE]["scope"] == hubwire.SCOPE_ANYONE
+    assert kept["relief"][RIDE]["scope"] == hubwire.SCOPE_CREW
 
 
 def test_a_sync_that_drops_a_bound_relief_rung_names_it_and_writes_nothing(

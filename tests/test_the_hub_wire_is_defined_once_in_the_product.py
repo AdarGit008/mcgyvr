@@ -142,10 +142,15 @@ def test_a_split_its_rigs_rpc_protocols_cannot_run_is_refused_as_no_path_is() ->
 def test_every_pair_the_product_reads_is_a_published_pair(
     rider: dict[str, Any],
 ) -> None:
-    """The busy answers a sync writes into ``relief.yaml``, and the two the
+    """The busy answers a sync writes into ``relief.yaml``, and the three the
     runner names itself: each is a code the hub publishes, with its status."""
     published = rider["x-openai-errors"]
-    read = {*hubwire.RUNG_BUSY, hubwire.MODEL_UNPLACED, hubwire.MODEL_NOT_FOUND}
+    read = {
+        *hubwire.RUNG_BUSY,
+        hubwire.MODEL_UNPLACED,
+        hubwire.MODEL_NOT_FOUND,
+        hubwire.OUT_OF_SCOPE,
+    }
     assert [pair for pair in sorted(read) if published.get(pair[1]) != pair[0]] == []
     with pytest.raises(KeyError):
         hubwire.api_error("relay_warming_up")

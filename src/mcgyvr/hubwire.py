@@ -18,11 +18,13 @@ from these names rather than writing them again:
 * the relay's limits (``RELAY_MAX_*``);
 * the ``/v1`` error codes with their one HTTP status each
   (:data:`API_ERROR_STATUS`), and the pairs the product reads off them
-  (:data:`RUNG_BUSY`, :data:`MODEL_UNPLACED`, :data:`MODEL_NOT_FOUND`);
+  (:data:`RUNG_BUSY`, :data:`MODEL_UNPLACED`, :data:`MODEL_NOT_FOUND`,
+  :data:`OUT_OF_SCOPE`);
 * the chat request fields the hub forwards to a unit
   (:data:`FORWARDED_FIELDS`, :data:`CHAT_TEMPLATE_KEYS`);
 * the header naming who may serve a request (:data:`SCOPE_HEADER`,
-  :data:`SCOPE_VALUES`), and the pool each scope is served from
+  :data:`SCOPE_VALUES`, narrowest first: :func:`narrowest_scope`), and the
+  pool each scope is served from
   (:data:`SCOPE_POOLS`, :func:`serving_pool`);
 * where the hub lists the models a scope may use (:data:`MODELS_PATH` under
   :data:`API_ROOT`), each with its units' slots (:data:`MODEL_SLOTS`);
@@ -206,6 +208,10 @@ MODEL_NOT_FOUND = api_error("model_not_found")
 #: The pool the request is served from has no slot for it now: a full pool,
 #: not a broken unit.
 POOL_BUSY = api_error("pool_busy")
+#: The hub refused a ride because its host is outside the scope the request
+#: named (:data:`SCOPE_HEADER`): asked again under the same scope, the same
+#: host is refused again.
+OUT_OF_SCOPE = api_error("out_of_scope")
 #: The answers that say a relief rung cannot take a request now, sorted: the
 #: hub names no host running the model (404 ``model_not_found``), the host's
 #: machine is away (503 ``hitchhike_host_away``), the hub has not yet matched
@@ -270,7 +276,16 @@ SCOPE_HEADER = "x-mcgyvr-scope"
 SCOPE_OWN = "own"
 SCOPE_CREW = "crew"
 SCOPE_ANYONE = "anyone"
+#: Narrowest first: each scope's rigs are also the next one's.
 SCOPE_VALUES: tuple[str, ...] = (SCOPE_OWN, SCOPE_CREW, SCOPE_ANYONE)
+
+
+def narrowest_scope(*scopes: str) -> str:
+    """The narrowest of ``scopes`` (by :data:`SCOPE_VALUES`' order): the one
+    whose rigs every other one also allows. Raises ValueError for a value
+    that is not one of :data:`SCOPE_VALUES`, and for none at all."""
+    return min(scopes, key=SCOPE_VALUES.index)
+
 
 #: The hub's OpenAI-compatible root on its own address: a unit the hub serves
 #: is asked there.

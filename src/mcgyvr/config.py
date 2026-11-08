@@ -52,6 +52,7 @@ from mcgyvr.hubwire import (
     SCOPE_OWN,
     SCOPE_POOLS,
     SCOPE_VALUES,
+    narrowest_scope,
     pool_serves,
     rider_cap_fits,
     serving_pool,
@@ -72,11 +73,12 @@ RELIEF_FILENAME = "relief.yaml"
 #: The units your crews lend you through a hub, written whole by
 #: `mcgyvr rig crew sync` and read as units of the fleet.
 CREW_FILENAME = "crew.yaml"
-#: The scope `mcgyvr rig rungs sync` writes on each relief rung, and the one a
-#: relief rung naming none is read with: the hub matched the rung to you under
-#: your own serve scope and hands a ride only to rungs you are matched to, so the
-#: match stays the only filter, as it was before a request named a scope.
-RELIEF_SCOPE = SCOPE_ANYONE
+#: Whose rigs may read what a setup sends when it rides a relief rung, unless
+#: its `ride_scope` says otherwise: your own and your crewmates'. Every relief
+#: rung's requests name the narrower of its own scope and the setup's
+#: `ride_scope`, so a host outside it is refused by the hub before it sees the
+#: request; `anyone` is an opt-in a setup states.
+RIDE_SCOPE = SCOPE_CREW
 # Names a setup path directly, ahead of the live fleet directory.
 CONFIG_PATH_ENV = "MCGYVR_CONFIG"
 
@@ -872,14 +874,13 @@ RELIEF_FIELDS: tuple[Field, ...] = (
         "scope",
         "enum",
         "Whose rigs may serve this rung's requests, named on each one in the "
-        f"`{SCOPE_HEADER}` header. A sync writes `{RELIEF_SCOPE}`: the hub "
-        "matched the rung to you under your own serve scope and hands a ride "
-        "only to rungs you are matched to, so its match stays the only filter. "
+        f"`{SCOPE_HEADER}` header. A sync writes the setup's `ride_scope`. "
         "A ride is served from the hub's hitchhike pool whatever its scope, "
         "which still bounds whose host may serve it: `own` or `crew` refuses a "
-        "ride on a host outside it. "
-        f"Unset is `{RELIEF_SCOPE}`.",
-        default=RELIEF_SCOPE,
+        "ride on a host outside it. Whatever it says, a ride is never wider "
+        "than the setup's `ride_scope`: a wider scope is narrowed to it. "
+        "Unset is the setup's `ride_scope`.",
+        default=None,
         choices=SCOPE_VALUES,
         bind_hint="leave it to `mcgyvr rig rungs sync`, which writes it",
     ),
@@ -1037,10 +1038,35 @@ SCHEMA: tuple[Field, ...] = (
         "Unset is `idle` under `use_case: mcgyvr-code` and `none` under a raw "
         "use case; a stated value wins. Fan-out spreads work over your own "
         "rungs and, under `idle`, a relief rung whose host reads your prompts "
-        "when your own rungs are full. It never sends a contract to a priced "
-        "api rung: only escalation climbs there, in ladder order.",
+        "(one within `ride_scope`) when your own rungs are full. It never "
+        "sends a contract to a priced api rung: only escalation climbs there, "
+        "in ladder order.",
         choices=FANOUT_CHOICES,
         bind_hint="name one of `none`, `idle`, `full`, or leave it to the use case",
+    ),
+    Field(
+        "ride_scope",
+        "enum",
+        "Whose rigs may read what this setup sends when it rides a relief "
+        "rung (fan-out under `idle`, or a step or role naming one): `own` (your "
+        "own rigs), `crew` (yours and your crewmates') or `anyone` (any host "
+        "the hub matches you to; each can read your prompts and the answers). "
+        "Every relief rung's requests name it, and the hub refuses a ride on "
+        f"a host outside it. Unset is `{RIDE_SCOPE}`; `anyone` is an opt-in, "
+        "made with `mcgyvr rig rungs sync --ride-scope anyone`, which shows "
+        "the hub's privacy text as it does.",
+        default=RIDE_SCOPE,
+        choices=SCOPE_VALUES,
+    ),
+    Field(
+        "private",
+        "bool",
+        "On, nothing of this setup rides a relief rung: `mcgyvr rig rungs sync` "
+        "and the rig's refresher refuse to sync, sending the hub nothing, and a "
+        "relief rung already kept is never ridden; a ladder step or a role "
+        "naming one is refused. Your own units, your crews' units and the "
+        "api rungs you name are not relief rungs, and are not changed by it.",
+        default=False,
     ),
     Field(
         "triage",
@@ -1349,7 +1375,9 @@ SCHEMA: tuple[Field, ...] = (
         "full, and no escalation climbs to it. A ladder step or a role may name "
         "one. When it is full too, the contract waits on your own ladder; "
         "fan-out never sends it to a priced api rung. Its host can read your "
-        "prompts.",
+        "prompts, so only a host within the setup's `ride_scope` (unset: your "
+        "own and your crewmates' rigs) takes a ride, and none does under "
+        "`private: true`.",
         block=RELIEF_FIELDS,
     ),
 )
@@ -1592,6 +1620,16 @@ class Config:
         return "classifier" if self.use_case == MCGYVR_CODE and self.jev_on else "prose"
 
     @property
+    def ride_scope(self) -> str:
+        """`ride_scope` from the config, :data:`RIDE_SCOPE` when it is not set."""
+        return str(self.get("ride_scope") or RIDE_SCOPE)
+
+    @property
+    def private(self) -> bool:
+        """`private` from the config: True, the setup rides no relief rung."""
+        return self.get("private") is True
+
+    @property
     def deployment(self) -> str:
         """`deployment` from the config, `hybrid` when it is not set."""
         return str(self.get("deployment", "hybrid"))
@@ -1756,8 +1794,8 @@ SWITCHES: tuple[Switch, ...] = (
         "fan-out",
         ("fanout",),
         "`none`",
-        "a batch takes own rungs with free slots (`idle`), relief ones too, "
-        "never a priced api rung",
+        "a batch takes own rungs with free slots (`idle`), relief ones within "
+        "`ride_scope` too, never a priced api rung",
         stage="fanout",
     ),
     Switch(
@@ -2446,7 +2484,7 @@ def _build(
                 (answer["status"], answer["code"]) for answer in block["busy_answers"]
             )
             or None,
-            scope=block["scope"],
+            scope=_relief_scope(block, data),
         )
         for name, block in data["relief"].items()
     }
@@ -2454,6 +2492,15 @@ def _build(
     # A relief rung a ladder step or a role names is a unit of the dispatch,
     # and one the ladder names is a step, no longer ridden as relief.
     bound = {*data["ladder"], *(data[role].get("unit") for role in _ROLE_BLOCKS)}
+    if data["private"]:
+        named = sorted(name for name in lent if name in bound)
+        if named:
+            raise ConfigSchemaError(
+                f"private: true, and {', '.join(named)} is a relief rung a ladder "
+                "step or a role names: a private setup rides no relief rung; "
+                "unbind it, or set private: false"
+            )
+        lent = {}  # kept on disk, never ridden
     units |= {name: unit for name, unit in lent.items() if name in bound}
     ridden = {name: unit for name, unit in lent.items() if name not in data["ladder"]}
     ladder = Ladder(names=tuple(data["ladder"]), fanout=data["fanout"])
@@ -2599,6 +2646,13 @@ def _bindable(data: Mapping[str, Any]) -> str:
     return said
 
 
+def _relief_scope(block: Mapping[str, Any], data: Mapping[str, Any]) -> str:
+    """The scope a relief rung's requests name: its block's, never wider than
+    the setup's `ride_scope`, which it is when the block names none."""
+    ride = str(data["ride_scope"])
+    return narrowest_scope(block["scope"] or ride, ride)
+
+
 def _cross_validate_pools(data: Mapping[str, Any]) -> None:
     """Check that each unit a ladder step or a role binds is served from a pool
     that serves the use case.
@@ -2614,8 +2668,11 @@ def _cross_validate_pools(data: Mapping[str, Any]) -> None:
         if block.get("unit") is not None and block.get("enabled") is not False:
             bound.append((f"{role}.unit", block["unit"]))
     for where, name in bound:
-        unit = data["units"].get(name) or data["relief"][name]
-        scope = unit["scope"]
+        if name in data["units"]:
+            unit, scope = data["units"][name], data["units"][name]["scope"]
+        else:
+            unit = data["relief"][name]
+            scope = _relief_scope(unit, data)
         pool = serving_pool(scope, unit["model"])
         if pool_serves(pool, use_case):
             continue

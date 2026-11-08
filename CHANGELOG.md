@@ -38,6 +38,29 @@ archived outside this repository, under the same paths.
   the open-set ``Endpoint.kind`` and ``ports`` is an optional hint a rig that
   does not read it ignores.
 
+- **A setup rides only the rigs it trusts: `ride_scope`, unset `crew`, and
+  `private`.** A relief rung's requests name the narrower of its own scope and
+  the setup's new `ride_scope` (`own`, `crew` or `anyone`, the wire's scopes,
+  narrowest first: `hubwire.narrowest_scope`), so the hub refuses a ride on a
+  host outside it before the host sees it. Unset is `crew`: your own rigs and
+  your crewmates'. A setup whose relief rungs were synced before (every one
+  written `scope: anyone`) now rides only its own and its crewmates' hosts,
+  fan-out included, until it opts in with `mcgyvr rig rungs sync --ride-scope
+  anyone`, which writes the policy line and shows the hub's privacy text as it
+  does; a sync now writes the setup's `ride_scope` on each rung and says whose
+  rigs take its rides (the rig's refresher says the same line once). A ride
+  the hub refuses as outside that scope (`403 out_of_scope`,
+  `hubwire.OUT_OF_SCOPE`) is a full rung: one note names the rung, the scope
+  and the opt-in, the climb and fan-out move on with no attempt spent, and the
+  rung is not asked again in that process. Under `ride_scope: own` the sync
+  says no relief rung serves the setup (the hub never lists your own rigs as
+  rungs). `private: true` rides no relief rung: a sync and the
+  rig's refresher refuse before the hub is sent anything, a rung already kept
+  is not ridden, and a ladder step or a role naming one is refused.
+  `deployment: local-only` is unchanged (it says mcgyvr is the backend, not
+  that nothing leaves). `mcgyvr use` and the opt-in share one policy-line
+  writer (`mcgyvr.policy_line`).
+
 - **The programs shipped to a rig are assembled from the modules they import,
   and run on Python 3.9.** The reader, the fetcher, the lease and the native
   launcher each go as one program built at ship time
