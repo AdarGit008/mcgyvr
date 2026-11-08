@@ -46,7 +46,9 @@ from typing import Protocol
 from mcgyvr import hubwire
 from mcgyvr.rig import (
     commands,
+    credentials,
     hardware,
+    identity,
     inventory,
     pooled,
     protocol,
@@ -777,9 +779,15 @@ class Sessions:
         clock: Callable[[], float] = time.monotonic,
         log: Callable[[str], None] = _log,
         native: SessionHost | None = None,
+        rig_identity: identity.Identity | None = None,
+        pins: identity.Pins | None = None,
     ) -> None:
         self.machine = machine
         self._log = log
+        # The rig's identity key signs the tunnel key of each session it
+        # prepares; the peers' keys are checked against the pins on tunnel_up.
+        self._identity = rig_identity
+        self._pins = pins
         self.timing = timing or Timing()
         # The hosts a session's parts run on: containers, and, for a Mac or
         # Windows rig lending with the native launcher, the mcgyvr-wg helper.
@@ -1145,6 +1153,12 @@ class Sessions:
                     )
                 session.reported_to.append(envelope.id)
                 return None
+            unvetted = self._vet_peers(asked)
+            if unvetted is not None:
+                self._log(f"session {session.id}: refused: {unvetted}")
+                return sessionwire.refusal(
+                    envelope.id, SessionCode.TUNNEL_FAILED, unvetted
+                )
             own = self._own(session, session.hello)
             try:
                 plan = tunnel.plan(asked, listen_port=session.listen_port, own=own)
@@ -1423,14 +1437,65 @@ class Sessions:
 
     def _prepared(self, session: _Session, re: str) -> str:
         assert session.hello is not None
+        public_key = session.hello.public_key
         return sessionwire.session_prepared(
             re,
             session_id=session.id,
-            public_key=session.hello.public_key,
+            public_key=public_key,
             listen_port=session.listen_port,
             endpoints=session.endpoints,
             stun_rtt_us=session.stun_rtt_us,
+            public_key_sig=(
+                self._identity.sign_session_key(session.id, public_key)
+                if self._identity is not None
+                else None
+            ),
         )
+
+    def _vet_peers(self, asked: sessionwire.TunnelUp) -> str | None:
+        """Why the peers of `asked` are refused, or None once each is taken
+        (:func:`mcgyvr.rig.identity.vet_peer`) and every new identity key among
+        them is pinned: the pins are written at most once.
+
+        A peer taken with no identity key is logged, one line each: it is an
+        agent from before identity keys, or a hub that left the key out, and
+        nothing else would show that the peer went unchecked."""
+        try:
+            known = self._pins.all() if self._pins is not None else {}
+            for peer in asked.peers:
+                why = identity.vet_peer(
+                    rig_id=peer.rig_id,
+                    public_key=peer.public_key,
+                    identity_key=peer.identity_key,
+                    signature=peer.public_key_sig,
+                    session_id=asked.session_id,
+                    pinned=known.get(peer.rig_id),
+                )
+                if why is not None:
+                    return why
+            for peer in asked.peers:
+                if peer.identity_key is None:
+                    self._log(
+                        f"session {asked.session_id}: peer {peer.rig_id} sent no "
+                        "identity key (an agent from before identity keys, or a "
+                        "hub that left it out); taken unpinned"
+                    )
+            met = {
+                peer.rig_id: peer.identity_key
+                for peer in asked.peers
+                if peer.identity_key is not None and peer.rig_id not in known
+            }
+            if self._pins is not None and met:
+                for rig_id in sorted(self._pins.pin_all(met)):
+                    self._log(
+                        f"note: {self._pins.path} holds {identity.MAX_PINS} peers; "
+                        f"peer {rig_id} is checked but not pinned"
+                    )
+        except credentials.CredentialsError as exc:
+            return f"the pinned peers cannot be read: {exc}"
+        except OSError as exc:
+            return f"the pinned peers cannot be written: {exc.strerror or exc}"
+        return None
 
     def _status(self, session: _Session, re: str | None) -> str:
         failed = session.state == "failed"

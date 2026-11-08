@@ -44,6 +44,7 @@ READS_NO_CONFIG = {
     "rig status": "reads the kept credentials and the agent's last state",
     "rig leave": "forgets the kept credentials",
     "rig share": "reads and writes the rig's own sharing file",
+    "rig peers": "reads and writes the identity keys of the peers this rig met",
 }
 
 #: Aliases are the same command under a second name, not a second command.
