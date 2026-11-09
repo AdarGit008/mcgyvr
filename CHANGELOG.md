@@ -11,6 +11,24 @@ archived outside this repository, under the same paths.
 
 ### Changed
 
+- **The agent channel's limits, shapes and codes are defined once, in
+  `mcgyvr.hubwire`.** The protocol version, frame limits, the counts and
+  bounds of every frame (models, sessions, endpoints, features, peers, allowed
+  IPs, devices, RTT samples, probe, tunnel and port-forward bounds and their
+  schema defaults), the roles, session states and relay outcomes, the text
+  shapes (message id, tag, machine id, agent version, digest, short tag,
+  runtime, endpoint host, WireGuard key, IPv4, content type, base64, token,
+  ticket) and the close, error and session codes were written in
+  `rig/protocol.py` and `rig/sessionwire.py` and again in the hub. They now
+  live in `hubwire` (stdlib only, as before), with `AGENT_ERROR_CODES` (every
+  code, the schema's `x-error-codes`), `UDP_VERSION` and
+  `RIDER_SCHEMA_VERSION`; the rig modules name them as the same objects, and
+  the hub can import them at its next pin. No value and no behaviour changed
+  (every public name of `rig/protocol.py`, `rig/sessionwire.py` and
+  `rig/udpwire.py` compares equal before and after); `rig/udpwire.py` runs
+  without the package, so it keeps its UDP version, held to `hubwire`'s by
+  test. The `hubwire` docstring now lists what is shared and what is not.
+
 - **A docker llama.cpp or vLLM unit listens on 127.0.0.1 or, behind a key
   mcgyvr makes, on every interface (`expose: local | lan`).** `mcgyvr emit`
   rendered every container's server on every interface with no key

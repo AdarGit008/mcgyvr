@@ -1,12 +1,15 @@
 """The hub wire is defined once, in the product, and the schemas hold it.
 
 :mod:`mcgyvr.hubwire` holds every value the hub and the product both keep for
-the wire the hub serves a rider: rung positions, the model-name pattern and a
-relief rung's ``hitchhike@<offer>``, the ladder and unit-advert limits with the
-ride-cap rule, the relay limits, the ``/v1`` error table and the pairs read off
-it, the forwarded request fields, the scope header, and the hub's JSON Schemas
-as package resources. The hub imports these names; the product's copies are
-imports of them too.
+the hub wire: rung positions, the model-name pattern and a relief rung's
+``hitchhike@<offer>``, the ladder and unit-advert limits with the ride-cap
+rule, the relay limits, the ``/v1`` error table and the pairs read off it, the
+forwarded request fields, the scope header, the agent channel's versions,
+limits, shapes and close and error codes, and the hub's JSON Schemas as
+package resources. The hub imports these names; the rig's ``protocol`` and
+``sessionwire`` name them as the same objects (held here), and the one
+module that runs without the package, ``rig/udpwire.py``, keeps the UDP
+version held to the wire's.
 
 Held here: each value is the one the shipped schema says (every limit test
 that held a copy to the schema moved here), ``hitchhike@<offer>`` formats and
@@ -469,11 +472,185 @@ def test_the_use_case_header_sits_beside_the_scope_header() -> None:
     assert hubwire.USE_CASE_HEADER.startswith("x-mcgyvr-")
 
 
+# --- the agent channel -----------------------------------------------------------
+
+
+def test_the_channels_versions_and_frame_limits_are_the_schemas(
+    protocol: dict[str, Any], rider: dict[str, Any]
+) -> None:
+    assert protocol["x-protocol-version"] == hubwire.PROTOCOL_VERSION
+    assert protocol["$id"].endswith(f"/v{hubwire.PROTOCOL_VERSION}.schema.json")
+    assert rider["$id"].endswith(f"/v{hubwire.RIDER_SCHEMA_VERSION}.schema.json")
+    assert protocol["x-udp"]["version"] == hubwire.UDP_VERSION
+    assert protocol["x-max-message-bytes"] == hubwire.MAX_MESSAGE_BYTES
+    assert protocol["x-max-frames-per-second"] == hubwire.MAX_FRAMES_PER_SECOND
+    assert protocol["x-log-excerpt-max-chars"] == hubwire.LOG_EXCERPT_MAX_CHARS
+    assert _props(protocol, "ErrorBody")["message"]["maxLength"] == (
+        hubwire.MAX_ERROR_TEXT
+    )
+    beat = _branch(_props(protocol, "AckBody")["heartbeat_interval_s"])
+    assert (beat["minimum"], beat["maximum"]) == hubwire.HEARTBEAT_INTERVAL_S
+    envelope = _props(protocol, "Envelope")
+    assert envelope["id"]["pattern"] == f"^{hubwire.MESSAGE_ID.pattern}$"
+    assert envelope["type"]["pattern"] == f"^{hubwire.TAG.pattern}$"
+
+
+def test_the_udp_wire_keeps_the_wires_version() -> None:
+    """``rig/udpwire.py`` runs in the tunnel without the package, so it cannot
+    import the version: its copy is held here."""
+    from mcgyvr.rig import udpwire
+
+    assert udpwire.VERSION == hubwire.UDP_VERSION
+
+
+def test_the_channels_close_and_error_codes_are_the_schemas(
+    protocol: dict[str, Any],
+) -> None:
+    assert protocol["x-close-codes"] == {
+        code.name.lower(): code.value for code in hubwire.CloseCode
+    }
+    codes = hubwire.AGENT_ERROR_CODES
+    assert len(set(codes)) == len(codes)
+    assert sorted(codes) == protocol["x-error-codes"]
+    assert hubwire.SessionCode.BAD_SEAL in codes
+
+
+#: The rig's names for the agent channel's values, each the wire's own object:
+#: ``(module, its name, hubwire's name)``.
+_RIG_NAMES = (
+    *(
+        ("protocol", name, name)
+        for name in (
+            "PROTOCOL_VERSION",
+            "MAX_MESSAGE_BYTES",
+            "MAX_FRAMES_PER_SECOND",
+            "MAX_ERROR_TEXT",
+            "HEARTBEAT_INTERVAL_S",
+            "MAX_MODELS",
+            "MAX_SESSIONS_REPORTED",
+            "MAX_MODEL_BYTES",
+            "MAX_LAYERS",
+            "MAX_COUNT",
+            "MAX_KV_BYTES_PER_TOKEN",
+            "MESSAGE_ID",
+            "TAG",
+            "MACHINE_ID",
+            "AGENT_VERSION",
+            "CloseCode",
+            "ErrorCode",
+            "MODEL_NAME",
+            "DIGEST",
+            "SHORT_TAG",
+            "RUNTIME",
+            "ENDPOINT_HOST",
+            "MAX_ENDPOINTS",
+            "MAX_FEATURES",
+        )
+    ),
+    ("protocol", "ROLES", "RIG_ROLES"),
+    ("sessionwire", "ROLES", "RIG_ROLES"),
+    ("sessionwire", "Role", "RigRole"),
+    ("sessionwire", "STATES", "SESSION_STATES"),
+    ("sessionwire", "SESSION_ID", "MESSAGE_ID"),
+    ("sessionwire", "HOST", "ENDPOINT_HOST"),
+    *(
+        ("sessionwire", name, name)
+        for name in (
+            "MAX_ENDPOINTS",
+            "MAX_PEERS",
+            "MAX_ALLOWED_IPS",
+            "MAX_DEVICES",
+            "MAX_RTT_SAMPLES",
+            "MAX_RTT_US",
+            "MIN_CTX",
+            "MAX_CTX",
+            "MAX_TENSOR_SHARE",
+            "MAX_GPU_LAYERS",
+            "DEFAULT_GPU_LAYERS",
+            "DEFAULT_SLOTS",
+            "MAX_KEEPALIVE_S",
+            "DEFAULT_KEEPALIVE_S",
+            "MAX_PORT",
+            "LOG_EXCERPT_MAX_CHARS",
+            "MAX_CONTENT_TYPE",
+            "MAX_PCT",
+            "RELAY_MAX_CHUNK_B64",
+            "MAX_STUN_ENDPOINTS",
+            "MIN_PROBE_TTL_S",
+            "MAX_PROBE_TTL_S",
+            "DEFAULT_PROBE_TTL_S",
+            "MAX_PROBE_COUNT",
+            "DEFAULT_PROBE_COUNT",
+            "MIN_PROBE_INTERVAL_MS",
+            "MAX_PROBE_INTERVAL_MS",
+            "DEFAULT_PROBE_INTERVAL_MS",
+            "MAX_PROBE_BULK_BYTES",
+            "MIN_PROBE_DEADLINE_MS",
+            "MAX_PROBE_DEADLINE_MS",
+            "DEFAULT_PROBE_DEADLINE_MS",
+            "MAX_ATTEMPT_S",
+            "MAX_CONNECT_TIMEOUT_S",
+            "MAX_RATE_KBPS",
+            "PORT_MAP_PORTS",
+            "MIN_PORT_MAP_LEASE_S",
+            "MAX_PORT_MAP_LEASE_S",
+            "DEFAULT_PORT_MAP_LEASE_S",
+            "MIN_PORT_CHECK_TTL_S",
+            "MAX_PORT_CHECK_TTL_S",
+            "DEFAULT_PORT_CHECK_TTL_S",
+            "PORT_MAP_STATES",
+            "RELAY_OUTCOMES",
+            "MODEL_NAME",
+            "DIGEST",
+            "WIREGUARD_KEY",
+            "IPV4",
+            "IPV4_CIDR",
+            "CONTENT_TYPE",
+            "BASE64",
+            "TOKEN",
+            "TICKET",
+            "SessionCode",
+        )
+    ),
+)
+
+
+@pytest.mark.parametrize(("module", "name", "wire"), _RIG_NAMES)
+def test_each_rig_name_for_a_channel_value_is_the_wires_own(
+    module: str, name: str, wire: str
+) -> None:
+    import importlib
+
+    rig = importlib.import_module(f"mcgyvr.rig.{module}")
+    assert getattr(rig, name) is getattr(hubwire, wire)
+
+
 #: Text only the wire module may hold: each value it defines, as a literal.
+#: The relay ticket's shape is left out: ``rig/udpwire.py`` runs without the
+#: package and keeps its own.
 _DEFINED_ONCE = (
     hubwire.MODEL_NAME.pattern,
     hubwire.RESOURCE_NAME.pattern,
     hubwire.LADDER_MODEL.pattern,
+    *(
+        shape.pattern
+        for shape in (
+            hubwire.MESSAGE_ID,
+            hubwire.TAG,
+            hubwire.MACHINE_ID,
+            hubwire.AGENT_VERSION,
+            hubwire.DIGEST,
+            hubwire.SHORT_TAG,
+            hubwire.RUNTIME,
+            hubwire.ENDPOINT_HOST,
+            hubwire.WIREGUARD_KEY,
+            hubwire.IPV4,
+            hubwire.IPV4_CIDR,
+            hubwire.CONTENT_TYPE,
+            hubwire.BASE64,
+            hubwire.TOKEN,
+        )
+    ),
     *(f"{quote}{hubwire.RUNG_PREFIX}" for quote in "\"'"),
     hubwire.SCOPE_HEADER,
     hubwire.USE_CASE_HEADER,
