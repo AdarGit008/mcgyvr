@@ -245,7 +245,10 @@ firewall unasked); `up` from `tunnel.TunnelPlan` (mtu `pooled.TUNNEL_MTU`);
 device, then `spawn` of `head` (the pinned llama-server, `--host 127.0.0.1`, `--rpc` naming the
 forwards, an environment of PATH-like variables plus `GGML_*`/`CUDA_*`/`VK_*`/`MTL_*`/`METAL_*`,
 the card variables, and always `GGML_RPC_NO_COMM=1` and `GGML_RPC_NO_RDMA=1`, so the head never asks
-a worker for comm_init's wildcard listener and never negotiates RDMA); `state`/`lease` while it
+a worker for comm_init's wildcard listener and never negotiates RDMA, and `LLAMA_API_KEY`, the key
+this session made for the head's API, which the head asks of every request but `/health`; the key is
+in the `spawn` env only, never in `argv`, and the helper keeps it as it keeps every request field: in
+memory, never on stdout, stderr or a file); `state`/`lease` while it
 runs; `kill` and `teardown` at the end. Every tunable of the session (ports, lease, MTU, probe
 size and count, STUN attempts and wait, keep-alive timing) is passed in; proto 1 fixes only the
 probe's small-ping shape and the teardown grace.
@@ -262,9 +265,14 @@ probe's small-ping shape and the teardown grace.
   `test_a_native_unit_is_emitted_as_a_program_not_a_container.py`). A pooled native worker's engine
   is NOT such a block: it listens on 127.0.0.1 behind `serve` (above), so if the worker work reuses
   `emit.native_block` for it, it needs an explicit loopback case, not the fleet rule.
-- A per-session `--api-key` for the head's loopback API needs the agent's relay to send
-  it. It MUST land before the first pin row: a pinned helper makes the native head reachable by
-  any local process on the loopback, and the key is what keeps another local user off it.
+- Done: a per-session key for the head's loopback API (it had to land before the first pin row:
+  a pinned helper makes the native head reachable by any local process on the loopback, and the
+  key is what keeps another local user off it). `userwg.NativeHost.head_key` makes 256 bits per
+  session (`unitkey.new_key`), the head reads it as `LLAMA_API_KEY` (llama-server's `--api-key`),
+  and the agent's health check, warm-up, relayed requests and `/slots` read send it as a bearer
+  token; a native head is not started without one (tests in
+  `test_a_native_heads_api_answers_only_the_key_its_session_made.py`). A Linux pooled head, in a
+  container on its tunnel's network, takes none.
 - `rpc_server::comm_init` (llama.cpp b11960, `ggml/src/ggml-rpc/ggml-rpc.cpp`): with rank 0 it
   calls `create_server("0.0.0.0", request.port)` on a client's command, with the port the client
   chooses and nothing gating it (read at b11960; re-read it at every pin bump). A

@@ -382,6 +382,9 @@ class _Heads:
     def head_port(self, session_id: str) -> int | None:
         return self.port if session_id == "s1" else None
 
+    def head_key(self, session_id: str) -> str | None:
+        return None
+
     def head_slots(self, session_id: str) -> int:
         return self.slots if session_id == "s1" else 1
 

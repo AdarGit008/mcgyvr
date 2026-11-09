@@ -926,6 +926,17 @@ archived outside this repository, under the same paths.
 
 ### Security
 
+- **A Mac or Windows rig's pooled head answers only the key its session
+  made.** A native head listens on 127.0.0.1, which every local process
+  reaches, so each native session makes a key of its own (256 bits,
+  `unitkey.new_key`, as a unit's key is made) and hands it to llama-server as
+  `LLAMA_API_KEY` (its `--api-key`) in the head's environment, never on its
+  command line, and into no record, log or hub frame. The agent's health
+  check, warm-up, relayed requests and `/slots` read send it as a bearer
+  token, and a native head is not started without one. HELPER-SPEC.md
+  section 6 asked for this before the helper's first pin. A Linux rig's
+  pooled head, in a container on its tunnel's network, is started and asked
+  as before, with no key.
 - **A rig forwards its UDP ports only when its owner allowed it on the rig
   too, and never takes a permanent lease unasked.** The lending settings gain
   `port_forward` and `port_forward_permanent` (`rig-sharing.json`, both off;
