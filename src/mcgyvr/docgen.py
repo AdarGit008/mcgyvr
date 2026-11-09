@@ -5,8 +5,8 @@ configuration reference and SETUP.md. `render_skill` is /mcgyvr, a prompt
 handed to `mcgyvr "<prompt>"` and nothing about writing a contract;
 `render_direct_skill` is /mcgyvr-direct, contracts someone wrote handed to
 `mcgyvr direct`, one instruction generated from the contract schema, carrying
-the failure-notes record's fields from `mcgyvr.notes`. Setup is part of
-neither, and both take their flags and exit codes from the CLI's own parser.
+the failure-notes record's fields from `mcgyvr.notes`. Setup is not part of
+either, and both take their flags and exit codes from the CLI's own parser.
 `render_use_skill` is /mcgyvr-use, `mcgyvr use NAME` switching the setup's use
 case. `render_examples` and `render_notes_schema` write /mcgyvr-direct's
 `references/`. `main` renders the reference to a temporary file, checks it and
