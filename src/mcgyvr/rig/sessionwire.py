@@ -6,7 +6,8 @@ raising ProtocolError that names the first field which does not fit. The
 builders (`session_prepared`, `tunnel_report`, `probe_result`,
 `session_status`, `relay_*`, `unit_advert`, ...) go the other way: they
 check their arguments with ValueError and return the finished frame text.
-The limits both ends have to agree on live here as module constants.
+The limits, shapes and codes both ends have to agree on are the wire's,
+defined once in `mcgyvr.hubwire` and named here as module constants.
 """
 
 from __future__ import annotations
@@ -18,13 +19,60 @@ import json
 import re
 from collections.abc import Mapping, Sequence
 from dataclasses import dataclass
-from typing import Any, Literal
+from typing import Any
 
 from mcgyvr import hubwire
+from mcgyvr.hubwire import BASE64 as BASE64
+from mcgyvr.hubwire import CONTENT_TYPE as CONTENT_TYPE
+from mcgyvr.hubwire import DEFAULT_GPU_LAYERS as DEFAULT_GPU_LAYERS
+from mcgyvr.hubwire import DEFAULT_KEEPALIVE_S as DEFAULT_KEEPALIVE_S
+from mcgyvr.hubwire import DEFAULT_PORT_CHECK_TTL_S as DEFAULT_PORT_CHECK_TTL_S
+from mcgyvr.hubwire import DEFAULT_PORT_MAP_LEASE_S as DEFAULT_PORT_MAP_LEASE_S
+from mcgyvr.hubwire import DEFAULT_PROBE_COUNT as DEFAULT_PROBE_COUNT
+from mcgyvr.hubwire import DEFAULT_PROBE_DEADLINE_MS as DEFAULT_PROBE_DEADLINE_MS
+from mcgyvr.hubwire import DEFAULT_PROBE_INTERVAL_MS as DEFAULT_PROBE_INTERVAL_MS
+from mcgyvr.hubwire import DEFAULT_PROBE_TTL_S as DEFAULT_PROBE_TTL_S
+from mcgyvr.hubwire import DEFAULT_SLOTS as DEFAULT_SLOTS
+from mcgyvr.hubwire import IPV4 as IPV4
+from mcgyvr.hubwire import IPV4_CIDR as IPV4_CIDR
+from mcgyvr.hubwire import LOG_EXCERPT_MAX_CHARS as LOG_EXCERPT_MAX_CHARS
+from mcgyvr.hubwire import MAX_ALLOWED_IPS as MAX_ALLOWED_IPS
+from mcgyvr.hubwire import MAX_ATTEMPT_S as MAX_ATTEMPT_S
 from mcgyvr.hubwire import MAX_BIRTHDAY_PORTS as MAX_BIRTHDAY_PORTS
+from mcgyvr.hubwire import MAX_CONNECT_TIMEOUT_S as MAX_CONNECT_TIMEOUT_S
+from mcgyvr.hubwire import MAX_CONTENT_TYPE as MAX_CONTENT_TYPE
+from mcgyvr.hubwire import MAX_CTX as MAX_CTX
+from mcgyvr.hubwire import MAX_DEVICES as MAX_DEVICES
+from mcgyvr.hubwire import MAX_ENDPOINTS as MAX_ENDPOINTS
+from mcgyvr.hubwire import MAX_GPU_LAYERS as MAX_GPU_LAYERS
+from mcgyvr.hubwire import MAX_KEEPALIVE_S as MAX_KEEPALIVE_S
+from mcgyvr.hubwire import MAX_PCT as MAX_PCT
+from mcgyvr.hubwire import MAX_PEERS as MAX_PEERS
+from mcgyvr.hubwire import MAX_PORT as MAX_PORT
+from mcgyvr.hubwire import MAX_PORT_CHECK_TTL_S as MAX_PORT_CHECK_TTL_S
+from mcgyvr.hubwire import MAX_PORT_MAP_LEASE_S as MAX_PORT_MAP_LEASE_S
+from mcgyvr.hubwire import MAX_PROBE_BULK_BYTES as MAX_PROBE_BULK_BYTES
+from mcgyvr.hubwire import MAX_PROBE_COUNT as MAX_PROBE_COUNT
+from mcgyvr.hubwire import MAX_PROBE_DEADLINE_MS as MAX_PROBE_DEADLINE_MS
+from mcgyvr.hubwire import MAX_PROBE_INTERVAL_MS as MAX_PROBE_INTERVAL_MS
+from mcgyvr.hubwire import MAX_PROBE_TTL_S as MAX_PROBE_TTL_S
+from mcgyvr.hubwire import MAX_RATE_KBPS as MAX_RATE_KBPS
+from mcgyvr.hubwire import MAX_RTT_SAMPLES as MAX_RTT_SAMPLES
+from mcgyvr.hubwire import MAX_RTT_US as MAX_RTT_US
 from mcgyvr.hubwire import MAX_SLOTS as MAX_SLOTS
+from mcgyvr.hubwire import MAX_STUN_ENDPOINTS as MAX_STUN_ENDPOINTS
+from mcgyvr.hubwire import MAX_TENSOR_SHARE as MAX_TENSOR_SHARE
 from mcgyvr.hubwire import MAX_UNITS as MAX_UNITS
 from mcgyvr.hubwire import MIN_BIRTHDAY_PORTS as MIN_BIRTHDAY_PORTS
+from mcgyvr.hubwire import MIN_CTX as MIN_CTX
+from mcgyvr.hubwire import MIN_PORT_CHECK_TTL_S as MIN_PORT_CHECK_TTL_S
+from mcgyvr.hubwire import MIN_PORT_MAP_LEASE_S as MIN_PORT_MAP_LEASE_S
+from mcgyvr.hubwire import MIN_PROBE_DEADLINE_MS as MIN_PROBE_DEADLINE_MS
+from mcgyvr.hubwire import MIN_PROBE_INTERVAL_MS as MIN_PROBE_INTERVAL_MS
+from mcgyvr.hubwire import MIN_PROBE_TTL_S as MIN_PROBE_TTL_S
+from mcgyvr.hubwire import PORT_MAP_PORTS as PORT_MAP_PORTS
+from mcgyvr.hubwire import PORT_MAP_STATES as PORT_MAP_STATES
+from mcgyvr.hubwire import RELAY_MAX_CHUNK_B64 as RELAY_MAX_CHUNK_B64
 from mcgyvr.hubwire import RELAY_MAX_CHUNK_BYTES as RELAY_MAX_CHUNK_BYTES
 from mcgyvr.hubwire import RELAY_MAX_REQUEST_BYTES as RELAY_MAX_REQUEST_BYTES
 from mcgyvr.hubwire import RELAY_MAX_RESPONSE_BYTES as RELAY_MAX_RESPONSE_BYTES
@@ -32,137 +80,35 @@ from mcgyvr.hubwire import RELAY_MAX_SEQ as RELAY_MAX_SEQ
 from mcgyvr.hubwire import RELAY_MAX_TIMEOUT_S as RELAY_MAX_TIMEOUT_S
 from mcgyvr.hubwire import RELAY_MAX_TOKENS as RELAY_MAX_TOKENS
 from mcgyvr.hubwire import RELAY_MAX_WINDOW as RELAY_MAX_WINDOW
+from mcgyvr.hubwire import RELAY_OUTCOMES as RELAY_OUTCOMES
+from mcgyvr.hubwire import TICKET as TICKET
+from mcgyvr.hubwire import TOKEN as TOKEN
 from mcgyvr.hubwire import UNIT_ADVERT_INTERVAL_S as UNIT_ADVERT_INTERVAL_S
 from mcgyvr.hubwire import UNIT_ADVERT_STALE_S as UNIT_ADVERT_STALE_S
+from mcgyvr.hubwire import WIREGUARD_KEY as WIREGUARD_KEY
+from mcgyvr.hubwire import SessionCode as SessionCode
 from mcgyvr.rig import protocol
 from mcgyvr.rig.protocol import ErrorCode, ProtocolError
 from mcgyvr.seal import SealKey
 
-#: Bounds on the fields read below: how many of each may appear and how
-#: far they may go.
-MAX_ENDPOINTS = protocol.MAX_ENDPOINTS
-MAX_PEERS = 15
-MAX_ALLOWED_IPS = 4
-MAX_DEVICES = 64
-MAX_RTT_SAMPLES = 32
-MAX_RTT_US = 60_000_000
-MAX_CTX = 1 << 20
-MIN_CTX = 256
-MAX_TENSOR_SHARE = 1 << 20
-MAX_GPU_LAYERS = 4096
-#: Slots are a unit's concurrency budget, one session per slot: MAX_SLOTS
-#: (the wire's, :mod:`mcgyvr.hubwire`) is the most a head may ask for and
-#: DEFAULT_SLOTS is what a start request gets when it leaves the field out.
-DEFAULT_SLOTS = 1
-#: Units advertise themselves so other rigs know what they may ride, at the
-#: wire's MAX_UNITS and UNIT_ADVERT_* (:mod:`mcgyvr.hubwire`), as are the
-#: relay's RELAY_MAX_* bounds. Keepalives and the GPU layer default follow,
-#: next to the port and log excerpt bounds the ends of a session share.
-MAX_KEEPALIVE_S = 600
-DEFAULT_KEEPALIVE_S = 25
-DEFAULT_GPU_LAYERS = 999
-MAX_PORT = 65535
-LOG_EXCERPT_MAX_CHARS = 4000
-MAX_CONTENT_TYPE = 128
-#: Longest base64 text that still decodes to one relay chunk, rounded up to
-#: whole four-character groups.
-RELAY_MAX_CHUNK_B64 = 4 * -(-RELAY_MAX_CHUNK_BYTES // 3)
-#: STUN-assisted probes: how many STUN endpoints one end may offer, how long
-#: a probe stays open, how many echoes it sends and how far apart, and the
-#: bulk payload and overall deadline used to measure throughput.
-MAX_STUN_ENDPOINTS = 2
-MIN_PROBE_TTL_S = 5
-MAX_PROBE_TTL_S = 120
-DEFAULT_PROBE_TTL_S = 30
-MAX_PROBE_COUNT = 20
-DEFAULT_PROBE_COUNT = 5
-MIN_PROBE_INTERVAL_MS = 10
-MAX_PROBE_INTERVAL_MS = 1000
-DEFAULT_PROBE_INTERVAL_MS = 50
-MAX_PROBE_BULK_BYTES = 256 * 1024
-MIN_PROBE_DEADLINE_MS = 100
-MAX_PROBE_DEADLINE_MS = 15_000
-DEFAULT_PROBE_DEADLINE_MS = 5000
-MAX_ATTEMPT_S = 30
-MAX_CONNECT_TIMEOUT_S = 300
-MAX_RATE_KBPS = 100_000_000
-MAX_PCT = 100
-#: The port forward: a block covers every tunnel port a rig may use at once,
-#: and a lease is renewed before half of it is gone (the pings a check answers
-#: are ``udpwire.PORT_CHECK_MAX_PONGS``).
-PORT_MAP_PORTS = protocol.MAX_SESSIONS_REPORTED
-MIN_PORT_MAP_LEASE_S = 120
-MAX_PORT_MAP_LEASE_S = 86_400
-DEFAULT_PORT_MAP_LEASE_S = 3600
-MIN_PORT_CHECK_TTL_S = 5
-MAX_PORT_CHECK_TTL_S = 60
-DEFAULT_PORT_CHECK_TTL_S = 15
-PORT_MAP_STATES = ("mapped", "failed", "released")
-
-#: Shapes of the string fields these bodies carry; the ones the rest of the
-#: protocol already defines are reused as they are.
+#: The bounds, shapes and codes of these bodies are the wire's, defined once in
+#: :mod:`mcgyvr.hubwire` and imported above: how many of each field may appear
+#: and how far it may go, a start's defaults (slots, keepalive, GPU layers),
+#: the probe's and the port forward's bounds (the pings a check answers are
+#: ``udpwire.PORT_CHECK_MAX_PONGS``), the relay's ``RELAY_MAX_*``, the session
+#: states and relay outcomes, and the codes a refusal carries
+#: (:class:`SessionCode`). The ones the rest of the protocol already names are
+#: reused under this module's names.
 SESSION_ID = protocol.MESSAGE_ID
 MODEL_NAME = hubwire.MODEL_NAME
 DIGEST = protocol.DIGEST
 HOST = protocol.ENDPOINT_HOST
-WIREGUARD_KEY = re.compile(r"[A-Za-z0-9+/]{42}[AEIMQUYcgkosw048]=")
-IPV4 = re.compile(r"\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3}")
-IPV4_CIDR = re.compile(r"\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3}/\d{1,2}")
-CONTENT_TYPE = re.compile(
-    r"[A-Za-z0-9!#$&^_.+-]+/[A-Za-z0-9!#$&^_.+-]+(; ?[A-Za-z0-9_-]+=[A-Za-z0-9_.-]+)?"
-)
-BASE64 = re.compile(r"[A-Za-z0-9+/]*={0,2}")
-#: A 16-byte traversal token, sent as hex in the STUN binding requests.
-TOKEN = re.compile(r"[0-9a-f]{32}")
-#: The ticket a relay grant carries, which binds a tunnel with the relay.
-TICKET = re.compile(r"[A-Za-z0-9_-]{22,256}")
-
-Role = Literal["head", "worker"]
+Role = hubwire.RigRole
 ROLES = protocol.ROLES
-#: Session states a status may report, and the outcomes a relayed call ends with.
-STATES = (
-    "absent",
-    "preparing",
-    "prepared",
-    "tunnel_up",
-    "starting",
-    "loading",
-    "ready",
-    "failed",
-    "stopped",
-)
-RELAY_OUTCOMES = ("complete", "error", "cancelled", "timeout", "too_large")
+STATES = hubwire.SESSION_STATES
 #: The endpoints a relayed request may name on the wire, mapped to the path
-#: the relay fetches upstream.
+#: the relay fetches upstream (the path is this agent's own, not the wire's).
 RELAY_PATHS = {"chat_completions": "/v1/chat/completions"}
-
-
-class SessionCode:
-    """Codes a refusal carries to say why a rig would not take a request."""
-
-    BUSY = "busy"
-    NOT_CAPABLE = "not_capable"
-    UNKNOWN_SESSION = "unknown_session"
-    MODEL_MISSING = "model_missing"
-    INSUFFICIENT_MEMORY = "insufficient_memory"
-    TUNNEL_FAILED = "tunnel_failed"
-    START_FAILED = "start_failed"
-    NOT_READY = "not_ready"
-    DUPLICATE = "duplicate"
-    UPSTREAM_FAILED = "upstream_failed"
-    TOO_LARGE = "too_large"
-    CANCELLED = "cancelled"
-    MODEL_MISMATCH = "model_mismatch"
-    NO_PATH = "no_path"
-    UNKNOWN_UNIT = "unknown_unit"
-    #: A sealed ride that does not open: sealed to a key this agent no longer
-    #: holds, tampered with, or no chat request once opened.
-    BAD_SEAL = "bad_seal"
-    #: The load stopped moving bytes for long enough that the head gave up.
-    LOAD_STALLED = "load_stalled"
-    #: A path to the peer does exist, but it lost every full-size packet: its
-    #: MTU is too small to carry the tunnel.
-    PATH_TOO_NARROW = "path_too_narrow"
 
 
 # The bodies the rigs exchange, whether read from the wire or built for it.
