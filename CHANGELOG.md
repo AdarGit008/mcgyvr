@@ -871,7 +871,7 @@ archived outside this repository, under the same paths.
 
 - Prose says what the code does, with no behaviour change. The host's verb
   that prints a run's seal key id is `rig run` (there is no `rig up`);
-  SECURITY.md cites `Share.image`, `_image` and `rpc_proto=` instead of line
+  SECURITY.md cites `Sharing.image`, `_image` and `rpc_proto=` instead of line
   numbers that had moved; `--orchestrator` is not described as a working
   alias, since the CLI refuses it; README's, docgen's and the Makefile's lists
   of generated documents name `/mcgyvr-use`; docstrings no longer say delivery

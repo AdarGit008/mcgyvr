@@ -145,7 +145,7 @@ b8492: the Linux image it names
 native archives a Mac or Windows rig fetches are that build. That image holds
 `llama-server` alone, so an `rpc-server` in a container always runs an image
 the rig's owner chose: a pooled rig's `rig share --image`
-(`Share.image`, `src/mcgyvr/rig/sharing.py`), or a unit's own `image`, which
+(`Sharing.image`, `src/mcgyvr/rig/sharing.py`), or a unit's own `image`, which
 mcgyvr refuses to guess for a unit that needs RPC (`_image`,
 `src/mcgyvr/emit.py`). mcgyvr cannot read the build of such an image. **An
 image that serves `rpc-server` must be built from llama.cpp b8492 or later.**
