@@ -869,6 +869,19 @@ archived outside this repository, under the same paths.
 
 ### Fixed
 
+- Prose says what the code does, with no behaviour change. The host's verb
+  that prints a run's seal key id is `rig run` (there is no `rig up`);
+  SECURITY.md cites `Share.image`, `_image` and `rpc_proto=` instead of line
+  numbers that had moved; `--orchestrator` is not described as a working
+  alias, since the CLI refuses it; README's, docgen's and the Makefile's lists
+  of generated documents name `/mcgyvr-use`; docstrings no longer say delivery
+  gates through `gate_workspace` or that nothing wires the shadow decision
+  sink (`mcgyvr PROMPT --log` does); retired `init` and `mcgyvr run` names in a
+  docstring and a comment are `setup`, `mcgyvr PROMPT` and `mcgyvr direct`; the
+  install script's floor comment states its rule without a version. Two
+  internal helpers nothing called, `symbol_options` and `shipped.b64`, are
+  deleted.
+
 - A relief rung whose host's unit already serves as many rides as it may
   (`503 pool_busy`) is passed over as full, as the other busy answers are,
   instead of failing the dispatch: a sync writes `pool_busy` into each rung's
