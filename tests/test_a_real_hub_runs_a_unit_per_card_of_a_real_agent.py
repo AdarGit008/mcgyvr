@@ -392,8 +392,7 @@ def test_a_rig_whose_agent_lacks_multi_session_is_taken_whole(hub: Hub) -> None:
     assert "placed whole (agent lacks multi_session): whole" in hub.cli(
         "fleet", "status", "--url", hub.url
     )
-    whole = "whole rig: its agent runs one unit at a time"
-    assert hub.board() == [("whole", f"runs {ALPHA} · {whole}")] * 2
+    assert hub.board() == [("whole", f"runs {ALPHA} whole rig")] * 2
     assert ALPHA in hub.models()
     code, said = hub.chat(ALPHA)
     assert code == 200 and ALPHA in said and "device=0,1" in said, said

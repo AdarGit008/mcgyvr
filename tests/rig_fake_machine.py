@@ -82,6 +82,7 @@ class Machine:
 
 
 def report(machine: Machine) -> Any:
+    from mcgyvr import hubwire
     from mcgyvr.rig import hardware, protocol
 
     return hardware.Report(
@@ -99,6 +100,23 @@ def report(machine: Machine) -> Any:
         ),
         notes=(),
         sources=tuple(("nvidia", i) for i in range(machine.cards)),
+        kinds=(hubwire.RESOURCE_GPU,) * machine.cards,
+        # The resources the cards make, one per card, as a real reader would
+        # state them: a discrete NVIDIA card of ``machine.vram_mb`` MiB, named
+        # "Card A", computing with the CUDA backend. The agent lends these;
+        # without them the sharing settings have no resource to lend.
+        resources=tuple(
+            {
+                "kind": hubwire.RESOURCE_GPU,
+                "index": i,
+                "name": "Card A",
+                "total_mb": machine.vram_mb,
+                "free_mb": machine.vram_mb - 200,
+                "figure": hubwire.FIGURE_READING,
+                "backend": hubwire.BACKEND_CUDA,
+            }
+            for i in range(machine.cards)
+        ),
     )
 
 
