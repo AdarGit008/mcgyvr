@@ -6,10 +6,10 @@ the hub wire: rung positions, the model-name pattern and a relief rung's
 rule, the relay limits, the ``/v1`` error table and the pairs read off it, the
 forwarded request fields, the scope header, the agent channel's versions,
 limits, shapes and close and error codes, and the hub's JSON Schemas as
-package resources. The hub imports these names; the rig's ``protocol`` and
-``sessionwire`` name them as the same objects (held here), and the one
-module that runs without the package, ``rig/udpwire.py``, keeps the UDP
-version held to the wire's.
+package resources. The hub imports these names as it drops its copies; the
+rig's ``protocol`` and ``sessionwire`` name them as the same objects (held
+here), and the one module that runs without the package, ``rig/udpwire.py``,
+keeps the UDP version held to the wire's.
 
 Held here: each value is the one the shipped schema says (every limit test
 that held a copy to the schema moved here), ``hitchhike@<offer>`` formats and

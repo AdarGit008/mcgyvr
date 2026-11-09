@@ -6,10 +6,12 @@ the resources a rig lends, the relay that carries a ride, the ``/v1``
 refusals a rider reads, and the agent channel a rig holds to the hub. Every
 limit, pattern and code list both sides hold for that is defined here, once.
 The product's modules import them (the rig's ``protocol`` and ``sessionwire``
-name them under their own names, as the same objects); the hub imports them
-through its pinned product, and a value the hub still spells itself is held
-to the published schemas by the product's tests until the hub reads it from
-here. What is here:
+name them under their own names, as the same objects). The hub reads them
+through its pinned product as it drops its own copies: some it imports
+already (the resource, identity-key and seal values among them), the agent
+channel's it still spells itself, and each value it spells is held to the
+published schemas by the product's tests until it reads it from here. What
+is here:
 
 * the agent channel: its version (:data:`PROTOCOL_VERSION`, and the UDP
   packets' :data:`UDP_VERSION`), the frame limits (``MAX_MESSAGE_BYTES``,
@@ -191,8 +193,9 @@ RELAY_OUTCOMES: tuple[str, ...] = (
 # --- the agent channel -------------------------------------------------------
 # The websocket a rig's agent holds to the hub (the protocol schema): its
 # envelope, the limits and shapes of the frames on it, and its close and error
-# codes. The rig's ``protocol`` and ``sessionwire`` modules name these, and the
-# hub's pydantic models are bounded by them.
+# codes. The rig's ``protocol`` and ``sessionwire`` modules name these; the
+# hub's pydantic models state the same bounds (its own copies, until its pin
+# reaches these names).
 
 #: The version an agent and a hub write in ``v`` and the only one they read:
 #: another number is refused as ``unsupported_version``.

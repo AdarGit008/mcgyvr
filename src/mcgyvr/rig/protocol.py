@@ -459,7 +459,10 @@ def _offer_body(offer: Offer) -> dict[str, Any]:
     _need(len(offer.endpoints) <= MAX_ENDPOINTS, "endpoints: too many")
     for host, port, kind in offer.endpoints:
         _need(bool(ENDPOINT_HOST.fullmatch(host)), "endpoints: a host not of its shape")
-        _need(_is_int(port) and 1 <= port <= 65535, "endpoints: a port that is not one")
+        _need(
+            _is_int(port) and 1 <= port <= hubwire.MAX_PORT,
+            "endpoints: a port that is not one",
+        )
         _need(bool(TAG.fullmatch(kind)), "endpoints: a kind that is not a tag")
     _need(len(offer.models) <= MAX_MODELS, f"models: more than {MAX_MODELS}")
     names = [model.name for model in offer.models]

@@ -94,7 +94,8 @@ from mcgyvr.seal import SealKey
 #: The bounds, shapes and codes of these bodies are the wire's, defined once in
 #: :mod:`mcgyvr.hubwire` and imported above: how many of each field may appear
 #: and how far it may go, a start's defaults (slots, keepalive, GPU layers),
-#: the probe's and the port forward's bounds (the pings a check answers are
+#: the probe's and the port forward's bounds (a port forward's lease is renewed
+#: before half of it is gone, and the pings a check answers are
 #: ``udpwire.PORT_CHECK_MAX_PONGS``), the relay's ``RELAY_MAX_*``, the session
 #: states and relay outcomes, and the codes a refusal carries
 #: (:class:`SessionCode`). The ones the rest of the protocol already names are
