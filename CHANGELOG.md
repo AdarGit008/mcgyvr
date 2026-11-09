@@ -287,32 +287,34 @@ archived outside this repository, under the same paths.
   container, and it joins lending with native launch. (#809)
 
 - **A Mac or Windows rig lends a pooled head natively through its pinned
-  helper (#823).** `mcgyvr rig share --launcher native --endpoints
-  HOSTS` on macOS or Windows needs no engine image: the rig's sessions run
-  through `mcgyvr-wg`, a userspace WireGuard helper (no TUN device, no admin
+  helper (#823).** `mcgyvr rig share --launcher native --endpoints HOSTS` on
+  macOS or Windows needs no engine image: the rig's sessions run through
+  `mcgyvr-wg`, a userspace WireGuard helper (no TUN device, no admin
   rights), one per session, whose release mcgyvr pins by tag and sha256
-  (`mcgyvr.rig.wgpin`) and fetches as it fetches llama.cpp. Its first release,
-  `v0.1.0` (https://github.com/AdarGit008/mcgyvr-wg/releases/tag/v0.1.0), is
-  pinned for macOS and Windows on arm64 and x86_64 (and for Linux, whose rigs
-  do not run it), so such a rig now offers the head role where it used to say
+  (`mcgyvr.rig.wgpin`) and fetches as it fetches llama.cpp. Its first
+  release, `v0.1.0`
+  (https://github.com/AdarGit008/mcgyvr-wg/releases/tag/v0.1.0), is pinned
+  for macOS and Windows on arm64 and x86_64 (and for Linux, whose rigs do
+  not run it), so such a rig now offers the head role where it used to say
   `roles: none offered`; its head's API asks a key of the session's own
-  (Security, below). The helper holds the session's key and UDP socket and starts the pinned llama-server as its own
-  child on 127.0.0.1 alone, the head reaches each worker only through a
-  forward that accepts the head's own process and dials only that worker
-  through the tunnel, and each process is recorded so a head left behind is
-  ended by the next teardown or sweep. Such a rig offers the head role alone
-  (a worker is refused `not_capable`), names the pinned build as its runtime,
-  and does not list `traversal` yet, so the hub pairs it with rigs on its own
-  LAN. A Mac or Windows machine reads no network interface yet, which is why
-  it names `--endpoints`. On Linux the launcher changes nothing: the session
-  layer reaches its machine through one host, and the docker host asks the
-  daemon exactly what it asked before. A locked native unit whose `role` is
-  `rpc` renders as `ggml-rpc-server` bound to the IPv4 address its `-H`
-  states, one a worker may listen on (`llamacpp.worker_may_listen`), not as
-  a server on the loopback. That rule is now an allow-list, for container
-  fleets too: an rpc worker binds an address of a private network (RFC 1918:
-  10/8, 172.16/12, 192.168/16) or an overlay's (RFC 6598: 100.64/10) and
-  nothing else, so a link-local or documentation-range bind is refused.
+  (Security, below). The helper holds the session's key and UDP socket and
+  starts the pinned llama-server as its own child on 127.0.0.1 alone, the
+  head reaches each worker only through a forward that accepts the head's
+  own process and dials only that worker through the tunnel, and each
+  process is recorded so a head left behind is ended by the next teardown or
+  sweep. Such a rig offers the head role alone (a worker is refused
+  `not_capable`), names the pinned build as its runtime, and does not list
+  `traversal` yet, so the hub pairs it with rigs on its own LAN. A Mac or
+  Windows machine reads no network interface yet, which is why it names
+  `--endpoints`. On Linux the launcher changes nothing: the session layer
+  reaches its machine through one host, and the docker host asks the daemon
+  exactly what it asked before. A locked native unit whose `role` is `rpc`
+  renders as `ggml-rpc-server` bound to the IPv4 address its `-H` states,
+  one a worker may listen on (`llamacpp.worker_may_listen`), not as a server
+  on the loopback. That rule is now an allow-list, for container fleets too:
+  an rpc worker binds an address of a private network (RFC 1918: 10/8,
+  172.16/12, 192.168/16) or an overlay's (RFC 6598: 100.64/10) and nothing
+  else, so a link-local or documentation-range bind is refused.
 - **A rig names the llama.cpp RPC protocol it speaks.** A rig running the
   pinned build, natively or as the pinned image, sends
   `capabilities.rpc_proto` (`hubwire.RPC_PROTO_FIELD`; b11960 speaks 8.0) in
@@ -365,7 +367,7 @@ archived outside this repository, under the same paths.
   SETUP.md's *macOS and Windows* (docgen) names each system's folders, the
   native launcher and its backends, the firewall and quarantine, long paths,
   and the commands that start `mcgyvr rig run` at login (a launchd agent on
-  macOS; on Windows, a Startup-folder line for when `rig run` runs there). A
+  macOS; on Windows, a Startup-folder line). A
   failed `mcgyvr serve` names the door's log in this system's data folder, and
   the door's `--help` names each system's weights folder.
 
