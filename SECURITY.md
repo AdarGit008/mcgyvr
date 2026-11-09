@@ -145,13 +145,13 @@ b8492: the Linux image it names
 native archives a Mac or Windows rig fetches are that build. That image holds
 `llama-server` alone, so an `rpc-server` in a container always runs an image
 the rig's owner chose: a pooled rig's `rig share --image`
-(`src/mcgyvr/rig/sharing.py:112`), or a unit's own `image`, which mcgyvr
-refuses to guess for a unit that needs RPC (`src/mcgyvr/emit.py:732-762`).
-mcgyvr cannot read the build of such an image. **An image that serves
-`rpc-server` must be built from llama.cpp b8492 or later.** A rig whose
-image is not the pinned one names no RPC protocol in its offer
-(`src/mcgyvr/rig/session.py:2457`, `:2467`), so the hub pairs it only with rigs that
-name none either.
+(`Share.image`, `src/mcgyvr/rig/sharing.py`), or a unit's own `image`, which
+mcgyvr refuses to guess for a unit that needs RPC (`_image`,
+`src/mcgyvr/emit.py`). mcgyvr cannot read the build of such an image. **An
+image that serves `rpc-server` must be built from llama.cpp b8492 or later.**
+A rig whose image is not the pinned one names no RPC protocol in its offer
+(`rpc_proto=` in `offer`, `src/mcgyvr/rig/session.py`), so the hub pairs it
+only with rigs that name none either.
 
 No build is known to fix CVE-2026-78147, so what bounds it is who can reach
 the port:
