@@ -206,7 +206,7 @@ archived outside this repository, under the same paths.
   invalid_request` would, unsent, so it never reads as a stale key. Each rung
   `rungs sync` keeps says
   `sealed <kid>` or `in clear`, and a rung that was sealed and comes back
-  keyless is noted, by the sync and by `rig up`'s refresher; `rig up` says its
+  keyless is noted, by the sync and by `rig run`'s refresher; `rig run` says its
   run's key id when it first advertises a unit, and loads no cipher on a rig
   hosting nothing. A rung with no key (an older hub or agent) is asked in
   clear as before, and so is everything that is not a ride. New dependency:

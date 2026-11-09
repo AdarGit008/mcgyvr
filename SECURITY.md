@@ -237,7 +237,7 @@ changed answer), and it may send one sealed request again. The end of the
 answer is not sealed: a hub that drops every event after the one carrying the
 finish reason (today the trailing `usage` event) leaves an answer the rider
 accepts without its counts. `mcgyvr rig rungs sync` says each rung's key id
-(`sealed <kid>`), as the host's `rig up` does, so the two can be compared, and
+(`sealed <kid>`), as the host's `rig run` does, so the two can be compared, and
 notes a rung that was sealed and comes back keyless.
 
 The host's agent holds an opened request to the bounds the hub holds one in
