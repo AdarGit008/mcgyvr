@@ -33,7 +33,7 @@ import pytest
 from mcgyvr.cli.commands import delegate as command
 from mcgyvr.config import Config
 from mcgyvr.contract import Contract, Dependency, dumps
-from mcgyvr.orchestrator.decompose import Decomposition
+from mcgyvr.decompose.decompose import Decomposition
 from mcgyvr.scope import Scope
 from mcgyvr.session import Session
 from mcgyvr.tree import State

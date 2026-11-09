@@ -5,10 +5,10 @@ from __future__ import annotations
 import subprocess
 from pathlib import Path
 
-from mcgyvr.orchestrator.decompose import (
+from mcgyvr.decompose.decompose import (
     Proposal,
 )
-from mcgyvr.orchestrator.index import Index, build_index
+from mcgyvr.repo.index import Index, build_index
 
 
 def git(repo: Path, *args: str) -> None:

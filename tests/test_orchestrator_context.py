@@ -15,16 +15,16 @@ from __future__ import annotations
 import subprocess
 from pathlib import Path
 
-from mcgyvr.orchestrator.context import (
+from mcgyvr.repo.context import (
     Discrepancy,
     SuppliedContext,
     VerifiedContext,
     accelerate,
     verify,
 )
-from mcgyvr.orchestrator.index import Index, build_index
-from mcgyvr.orchestrator.read import explore
-from mcgyvr.orchestrator.resolve import Candidate, Resolution, Verdict, resolve
+from mcgyvr.repo.index import Index, build_index
+from mcgyvr.repo.read import explore
+from mcgyvr.repo.resolve import Candidate, Resolution, Verdict, resolve
 
 
 def git(repo: Path, *args: str) -> None:

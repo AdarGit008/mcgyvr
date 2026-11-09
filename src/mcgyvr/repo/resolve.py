@@ -16,7 +16,7 @@ whether nothing scored at all. A token-only shortlist that names a compound the
 index does not hold is discarded as empty rather than answered from its parts,
 so a made-up camelCase name never resolves on its fragments. What a caller does
 with the shortlist -- reading excerpts under a token budget -- belongs to
-``mcgyvr.orchestrator.read``.
+``mcgyvr.repo.read``.
 """
 
 from __future__ import annotations
@@ -28,8 +28,8 @@ from dataclasses import dataclass
 from enum import StrEnum
 from pathlib import Path
 
-from mcgyvr.orchestrator.index import Index
-from mcgyvr.orchestrator.symbols import Symbol, SymbolKind
+from mcgyvr.repo.index import Index
+from mcgyvr.repo.symbols import Symbol, SymbolKind
 
 # Words that say nothing about *which* file a query means. They are dropped
 # before scoring, so a request phrased as prose ("the fetch helper function")
