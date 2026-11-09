@@ -723,10 +723,9 @@ archived outside this repository, under the same paths.
   (was 0).
 - **The session a run is filed under is named with `--session ID`.** On
   `mcgyvr run` and `mcgyvr delegate`, `--session` replaces `--orchestrator`,
-  which named the session and not the orchestrator role; `--orchestrator` is
-  kept for one release as a deprecated alias that still works and says so on
-  stderr. The result file carries the name as `session`, and still writes it
-  under `orchestrator` too, the same value, for the same release.
+  which named the session and not the orchestrator role. The result file
+  carries the name as `session`, and still writes it under `orchestrator` too,
+  the same value, for one release.
 - **`delegate --run` names its session before the orchestrator is asked.**
   The session is resolved through the same check `mcgyvr run` makes, before
   the config is read: nobody to file the batch under is exit 2 (was 1, after
