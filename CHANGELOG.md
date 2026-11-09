@@ -286,15 +286,17 @@ archived outside this repository, under the same paths.
   unified GPU is not lent yet: a lent card is served by a CUDA worker in a
   container, and it joins lending with native launch. (#809)
 
-- **A Mac or Windows rig is ready to lend a pooled head natively, once its
-  helper is pinned (#823).** `mcgyvr rig share --launcher native --endpoints
+- **A Mac or Windows rig lends a pooled head natively through its pinned
+  helper (#823).** `mcgyvr rig share --launcher native --endpoints
   HOSTS` on macOS or Windows needs no engine image: the rig's sessions run
   through `mcgyvr-wg`, a userspace WireGuard helper (no TUN device, no admin
   rights), one per session, whose release mcgyvr pins by tag and sha256
-  (`mcgyvr.rig.wgpin`) and fetches as it fetches llama.cpp. The helper's first
-  release is not pinned yet, so for now such a rig offers no session role
-  (`rig share` says `roles: none offered`). Once it is, the helper holds the
-  session's key and UDP socket and starts the pinned llama-server as its own
+  (`mcgyvr.rig.wgpin`) and fetches as it fetches llama.cpp. Its first release,
+  `v0.1.0` (https://github.com/AdarGit008/mcgyvr-wg/releases/tag/v0.1.0), is
+  pinned for macOS and Windows on arm64 and x86_64 (and for Linux, whose rigs
+  do not run it), so such a rig now offers the head role where it used to say
+  `roles: none offered`; its head's API asks a key of the session's own
+  (Security, below). The helper holds the session's key and UDP socket and starts the pinned llama-server as its own
   child on 127.0.0.1 alone, the head reaches each worker only through a
   forward that accepts the head's own process and dials only that worker
   through the tunnel, and each process is recorded so a head left behind is

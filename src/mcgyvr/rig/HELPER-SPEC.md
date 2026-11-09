@@ -32,9 +32,10 @@ verbs.
   would check the mirror against itself); the published archives (Forgejo release and the GitHub mirror's
   `assets[].size` / `assets[].digest`) are then downloaded and must match. Signing the archives
   (minisign or cosign) is an optional extra, as is Apple/Authenticode code signing.
-- This repository ships with no rows yet: `wgpin.pinned_for(os, arch)` is false everywhere, so no
-  rig offers a native session, and `wgpin.helper()` refuses with "no pinned mcgyvr-wg <tag>
-  archive for <os> <arch>; a native pooled session needs it, and nothing unpinned is fetched".
+- Pinned: `v0.1.0`, all six assets (https://github.com/AdarGit008/mcgyvr-wg/releases/tag/v0.1.0).
+  For a system or architecture with no row, `wgpin.pinned_for(os, arch)` is false, that rig
+  offers no native session, and `wgpin.helper()` refuses with "no pinned mcgyvr-wg <tag> archive
+  for <os> <arch>; a native pooled session needs it, and nothing unpinned is fetched".
 - The helper's own tests cannot use example addresses from the overlay range 100.64/10: the
   private-word guard both repositories run refuses those literals; compute them, or use RFC 1918
   ranges.
