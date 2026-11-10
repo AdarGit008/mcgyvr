@@ -246,8 +246,10 @@ archived outside this repository, under the same paths.
   (`hubwire.HOSTING_APPROVED_FIELD`, a boolean, optional so an older hub that
   omits it changes nothing): the agent keeps it in its state, and `rig status`
   and `rig share` print "approved to host" or "waiting for admin approval" when
-  the hub has said. The shipped `protocol.schema.json` gains the optional field
-  on `AckBody`; the hub sends it at its next pin.
+  the hub has said — as of the agent's last connect, since only the hello ack
+  carries it (a mid-session approval shows after the next reconnect), and only
+  for the hub this machine is joined to now. The shipped `protocol.schema.json`
+  gains the optional field on `AckBody`; the hub sends it at its next pin.
 
 - **A ride is sealed end to end, rider to host: the hub carries ciphertext.**
   The host's agent makes an X25519 key each time it starts (`mcgyvr.seal`, in

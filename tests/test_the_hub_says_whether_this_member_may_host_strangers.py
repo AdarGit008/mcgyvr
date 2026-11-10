@@ -162,12 +162,16 @@ def _dirs(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.setenv("MCGYVR_DATA", str(tmp_path / "data"))
 
 
-def _write_state(approved: bool | None) -> None:
+_HUB = "https://hub.example.com"
+_TOKEN = "mhr_0123456789abcdef_" + "s" * 43
+
+
+def _write_state(approved: bool | None, hub: str = _HUB) -> None:
     from mcgyvr.rig import state
 
     state.write(
         state.State(
-            hub="https://hub.example.com",
+            hub=hub,
             pid=os.getpid(),
             connected=True,
             rig_id="r-1",
@@ -177,6 +181,12 @@ def _write_state(approved: bool | None) -> None:
             hosting_approved=approved,
         )
     )
+
+
+def _join(hub: str = _HUB) -> None:
+    from mcgyvr.rig import credentials
+
+    credentials.save(credentials.Credentials(hub=hub, token=_TOKEN))
 
 
 @pytest.mark.parametrize(
@@ -191,6 +201,7 @@ def test_share_says_whether_the_member_may_host_strangers(
 ) -> None:
     from mcgyvr import cli
 
+    _join()
     _write_state(approved)
     assert cli.main(["rig", "share", "--off"]) == 0
     said = capsys.readouterr().out
@@ -202,6 +213,20 @@ def test_share_says_nothing_of_hosting_when_no_ack_has_arrived(
 ) -> None:
     from mcgyvr import cli
 
-    # No state file at all: the agent has heard nothing from a hub yet.
+    # Joined, but no state file: the agent has heard nothing from a hub yet.
+    _join()
+    assert cli.main(["rig", "share", "--off"]) == 0
+    assert "hosting:" not in capsys.readouterr().out
+
+
+def test_share_does_not_show_a_hosting_approval_from_a_hub_since_left(
+    _dirs: None, capsys: pytest.CaptureFixture[str]
+) -> None:
+    from mcgyvr import cli
+
+    # The state file is from a hub this machine has since left (joined elsewhere),
+    # so its approval is not this hub's and must not be shown.
+    _join("https://now.example.com")
+    _write_state(True, hub="https://old.example.com")
     assert cli.main(["rig", "share", "--off"]) == 0
     assert "hosting:" not in capsys.readouterr().out

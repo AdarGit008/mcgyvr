@@ -954,7 +954,7 @@ def _share(args: argparse.Namespace) -> int:
     from dataclasses import replace
 
     from mcgyvr.hubwire import LEND_FLOOR_CORES, LEND_FLOOR_MB, RESOURCE_RAM
-    from mcgyvr.rig import sharing, state
+    from mcgyvr.rig import credentials, sharing, state
 
     try:
         kept = sharing.load()
@@ -1042,9 +1042,15 @@ def _share(args: argparse.Namespace) -> int:
     print(f"lending: {'on' if wanted.enabled else 'off'}")
     print(f"roles:   {', '.join(roles) if roles else 'none offered'}")
     # Serving strangers (the general pool's `anyone`, riders on your units) waits
-    # on a hub admin approving this member once; the agent learns it from the ack.
+    # on a hub admin approving this member once; the agent learns it from the ack
+    # (as of its last connect). Show it only for the hub this machine is joined to
+    # now, so a state file left by a hub since left is not read as the current one.
     last = state.read()
-    if last is not None:
+    try:
+        joined = credentials.load()
+    except credentials.CredentialsError:
+        joined = None
+    if last is not None and joined is not None and last.hub == joined.hub:
         _say_hosting(last.hosting_approved)
     if wanted.native_here():
         print("image:   none (launcher native: the pinned llama.cpp build)")
