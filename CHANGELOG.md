@@ -11,6 +11,25 @@ archived outside this repository, under the same paths.
 
 ### Changed
 
+- **One shared vocabulary for what a credential looks like, by value shape and
+  by name (`mcgyvr.credential_shapes`).** Four checks decided what a credential
+  is, each from its own list — the gate's secret scan (`mcgyvr.gate.secrets`),
+  the config loader's refusal of a pasted key (`mcgyvr.config`), the sandbox's
+  environment filter and its rc-file check (`mcgyvr.sandbox.base`) — and the
+  lists disagreed, so a key could pass one check and be refused by the next (a
+  GitHub token had to be exactly 36 characters in the gate and 20-or-more in the
+  config loader; an `sk-proj-...` key whose hyphens stopped the gate's
+  `[A-Za-z0-9]{20,}` run was refused only by the config loader). The value
+  shapes and the name words now live in one module; each check keeps its own
+  anchoring (the scan looks anywhere in a line, the config loader matches the
+  whole value) and its own name rule (an exact key, a word inside a variable
+  name, a word followed by `=`). The merged shapes are the widest of the old
+  lists — the smaller length floor, the wider character class — so no key any
+  check refused before is let through now, and three checks grew stricter: the
+  config loader also refuses Stripe-shaped and private-key-header values and the
+  key `session`; the gate's `sk-` scan catches `sk-proj-...`; the sandbox env
+  and rc-file checks recognise the full vocabulary (`auth` is no longer fenced
+  to `_auth`). `mcgyvr.redact`, which only strips URL userinfo, is unchanged.
 - **A docker llama.cpp or vLLM unit listens on 127.0.0.1 or, behind a key
   mcgyvr makes, on every interface (`expose: local | lan`).** `mcgyvr emit`
   rendered every container's server on every interface with no key
