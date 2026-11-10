@@ -1,12 +1,16 @@
 """The gate as the driver asks it of a sandbox.
 
-``gate_workspace`` is the one function an attempt and the delivery path both
-gate a change through: it refuses a workspace that holds a nested git entry,
-and otherwise runs the gate over the tree the model left — the contract's scope
-and the secret scan first, then the structured-data check, the language
-adapters, the type check, the semantic rung and the contract's acceptance
-commands, each skipped once an earlier one has recorded a finding, with the
-contract's prose passed to the rungs that read it.
+``gate_workspace`` is the function an attempt gates a change through: it
+refuses a workspace that holds a nested git entry, and otherwise runs the gate
+over the tree the model left — the contract's scope and the secret scan first,
+then the structured-data check, the language adapters, the type check, the
+semantic rung and the contract's acceptance commands, each skipped once an
+earlier one has recorded a finding, with the contract's prose passed to the
+rungs that read it. Delivery does not come through here: it builds its own
+``Gate`` over the delivered changes (``mcgyvr.deliver._judged``), which runs
+the secret scan, the structured-data check and the run's language adapters
+(none when ``gate.enabled`` is off, see ``gate_adapters``), and none of the
+type check, the semantic rung or the acceptance commands.
 
 The rest of the module is what the attempt loop composes around it: a
 draw that left its target unchanged refused before the gate runs

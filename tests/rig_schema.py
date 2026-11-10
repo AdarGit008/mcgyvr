@@ -5,10 +5,11 @@ The hub publishes the contracts the agent speaks as JSON Schemas (draft
 The product ships both inside its package (:data:`mcgyvr.hubwire.SCHEMAS`),
 byte for byte the hub's files, and defines the values both sides share once,
 in :mod:`mcgyvr.hubwire`; the hub imports them and renders its schemas equal
-to these. The agent does not read the schemas at run time: it states the few
-limits it needs (:mod:`mcgyvr.hubwire`, :mod:`mcgyvr.rig.protocol`,
-:mod:`mcgyvr.rig.udpwire`), and these tests hold those limits, and every
-message the agent writes, to the shipped schema (:data:`SCHEMAS`):
+to these. The agent does not read the schemas at run time: the limits it
+needs are :mod:`mcgyvr.hubwire`'s (:mod:`mcgyvr.rig.protocol` and
+:mod:`mcgyvr.rig.sessionwire` name them; :mod:`mcgyvr.rig.udpwire`, which runs
+without the package, keeps its own), and these tests hold those limits, and
+every message the agent writes, to the shipped schema (:data:`SCHEMAS`):
 
 * :data:`PROTOCOL`, ``protocol.schema.json``;
 * :data:`RIDER`, ``rider.schema.json``.

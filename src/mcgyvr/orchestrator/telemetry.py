@@ -5,15 +5,18 @@ being decided, the candidate ids shown (in order), the id jev picked (or
 ``None`` when it abstained or its reply could not be read), the enumerator's
 rank-0 id, whether jev abstained, its confidence, whether its reply failed to
 parse, the round-trip latency, and the model and seed that produced it. A
-:class:`ShadowSink` appends one JSON line per record to a path it is given, and
-is inert until then, so nothing is written unless a caller wires it. The pure
-helpers below answer the wave-2 metric questions over any iterable of records:
-``recall_at_k``, ``override_rate``, ``abstain_rate``, ``parse_fail_rate``,
+:class:`ShadowSink` appends one JSON line per record to a path it is given.
+Its one writer is ``mcgyvr PROMPT`` (:mod:`mcgyvr.cli.commands.delegate`), and
+only under ``--log PATH`` with the classifier authoring strategy: the typed
+classifier then records to ``<PATH>.decisions.jsonl``. Otherwise no
+sink is built and nothing is written. The pure helpers below answer the
+wave-2 metric questions over any iterable of records: ``recall_at_k``,
+``override_rate``, ``abstain_rate``, ``parse_fail_rate``,
 ``per_letter_distribution`` and ``confidence_by_field``.
 
 This module is a shadow: it observes the decision loop and writes beside it.
-It never feeds a decision back into the pipeline, and it is not wired into
-``mcgyvr.gate.jev`` or any other seam — later workstreams call it explicitly.
+It never feeds a decision back into the pipeline, and ``mcgyvr.gate.jev`` does
+not call it.
 
 The sink's line discipline mirrors the dispatch journal's (:mod:`mcgyvr.telemetry`):
 one JSON object per line, appended under an exclusive ``flock`` so concurrent
