@@ -126,11 +126,26 @@ A setup is two files in one directory, and `mcgyvr setup` writes both
 A third file, `relief.yaml`, holds `relief`: the units other
 people lend you through a hub. `mcgyvr rig rungs sync` writes it whole
 and nothing else does, so it is neither locked nor edited by hand.
+Beside `relief` it records `api_key_env`: the NAME of the variable the
+sync read your personal hub key from (`--key-env`), which the rig
+agent's refresh and `mcgyvr rig status` read the key from too (where
+it records none, the one the units of `crew.yaml` name).
 A fourth, `crew.yaml`, holds `crew`: the units your crews lend
 you through a hub, each read as a unit of `units` under scope `crew`.
 `mcgyvr rig crew sync` writes it whole the same way. A ladder step or a
 role names a crew unit as it names any unit, and fan-out may use it:
 a crew lends free, so it is no api rung.
+
+A fifth file, `numbers.yaml`, is optional and written by hand,
+not by any command: it holds your own values for the numbers mcgyvr
+sizes and judges a machine with but cannot read off it — decode drift,
+link speeds, host memory. It lives in the config folder (`$MCGYVR_HOME`,
+default `~/.mcgyvr`), and each number is keyed by what every
+machine has — an engine, a unit's tolerance class, or a class of link —
+never by a machine's name, so your value replaces the shipped estimate
+wherever that key applies. A refusal that rests on a number names it and
+spells the exact setting to write; leave the file out and the shipped
+estimates answer.
 
 Each file refuses a key that belongs in the other. `rigs`, `fleets` and
 each unit's `unit_id` are not in the tables below: the fleet lock
@@ -192,10 +207,17 @@ against its pinned sha256, and keeps the server up with mcgyvr's own supervisor.
 Apple silicon; on Windows `cuda` where `nvidia-smi.exe` reads a driver a pinned CUDA build runs (found by
 full path only: an absolute folder on PATH, `System32` or the NVIDIA `NVSMI` folder, never by bare name),
 else `vulkan` where a Vulkan loader is installed, else `cpu`; `$MCGYVR_NATIVE_BACKEND` names one instead.
-vLLM units run only on Linux, in containers, and remote rigs are Linux machines read over ssh. This
-machine is reached without ssh: always on macOS and Windows, and on Linux when no sshd answers on port 22
-(`$MCGYVR_LOCAL_TRANSPORT`, `direct` or `ssh`, decides instead). A native unit has no sleep route, so
-`mcgyvr serve sleep` and `wake` refuse it.
+vLLM units run only on Linux, in containers. This machine is reached without ssh: always on macOS and
+Windows, and on Linux when no sshd answers on port 22 (`$MCGYVR_LOCAL_TRANSPORT`, `direct` or `ssh`,
+decides instead). A native unit has no sleep route, so `mcgyvr serve sleep` and `wake` refuse it.
+
+**A rig over ssh.** Every other rig is read over ssh. `mcgyvr scan --rig RIG`, `setup` and `recommend`
+read a rig with no rig file yet by sending it the POSIX reader; a rig whose shell cannot run it and
+answers PowerShell is a Windows rig, and is sent the Windows reader instead. The rig file `mcgyvr scan
+--rig RIG` writes then records the system. The door asks no such question. A serve or a read through the
+door refuses a rig with no rig file before it reads the rig, and ships what that file records; the door's
+link timer needs no rig file and is sent the POSIX line, to any rig. So scan a rig once before the door
+serves on it, a Windows rig above all.
 
 **Firewall and quarantine.** A native server listens on 127.0.0.1 alone (a unit stating another address
 is refused) and takes no connection from the network, so neither the macOS nor the Windows firewall is
@@ -245,10 +267,9 @@ the plist, `bootout` first, then `bootstrap` again); delete the plist to drop it
 without your shell's variables, so a variable the agent reads (`$MCGYVR_HUB_API_KEY`) set in `~/.zshrc`
 is not seen there.
 
-On Windows, `mcgyvr rig run` does not start yet (its pooled-session code imports a module Windows lacks,
-`fcntl`). When it does, a line in your Startup folder starts it at your login with no administrator (a
-`schtasks /sc onlogon` task runs at any user's logon and is created from an elevated prompt). From
-PowerShell, and `Remove-Item` on the same path to drop it:
+On Windows, a line in your Startup folder starts it at your login with no administrator (a `schtasks /sc
+onlogon` task runs at any user's logon and is created from an elevated prompt). From PowerShell, and
+`Remove-Item` on the same path to drop it:
 
 ```powershell
 Set-Content -LiteralPath "$([Environment]::GetFolderPath('Startup'))\mcgyvr-rig.cmd" `
@@ -371,7 +392,7 @@ locks and waking a card are machinery, not switches.
 | `dependents` | one of `hold`, `run` | no | `hold` | What a batch of contracts (`mcgyvr PROMPT` or `mcgyvr direct`) does with a contract whose `depends_on` names one that did not land. `hold` keeps it back, unspent: it is sent only once what it waits on is in the tree its sandbox starts from, and one whose provider failed, or landed without a symbol it needs, is never sent — its result says `blocked`, who held it and what it needed, with no attempt spent. A contract that uses from the failed provider's file only names that are already there and that the provider was not to change still runs. `run` sends every contract once what it waits on has come to anything, as before. |
 | `infer_dependencies` | boolean | no | `true` | Whether a batch of contracts also waits on what it can infer. On, a contract that uses a name the committed tree does not define yet waits on the sibling whose target creates it, though its `depends_on` does not say so, and one whose name nothing defines or creates is held. Off, a batch is ordered by `depends_on` alone. Contracts `mcgyvr PROMPT` proposes state such waits in `depends_on` themselves. |
 | `same_file` | one of `wait`, `parallel` | no | `wait` | What a batch run with `--jobs` does with two ready contracts whose scopes can write one file. `wait` runs the second once the first has settled, from the tree the first left. `parallel` runs them at once, from one base: their deliveries still take turns, and one that no longer applies is refused and named, never lost. |
-| `attempts` | map of numbers (min 1) | no | — | How many times each unit may be tried before escalation moves on. To bind it: e.g. `{<unit>: 2}`. |
+| `attempts` | map of numbers (min 1) | no | — | How many times each unit may be tried before escalation moves on. A unit with no entry gets 1, not the contract's `limits.attempts` default: that limit caps the number and never raises it. To bind it: e.g. `{<unit>: 2}`. |
 | `draws` | map of numbers (min 1) | no | — | How many candidates one attempt asks *this* unit for, overriding `breadth.draws` for the units named; a unit with no entry draws the breadth. Spelled the way `attempts` is because it is the same kind of per-unit routing decision, and it is policy rather than a unit fact, which is why it is not under `units`. `mcgyvr local_pool` prints the effective number where it exceeds one. To bind it: e.g. `{<unit>: 3}`. |
 | `rider_slots` | map of numbers (min 0) | no | — | How many of each named unit's slots riders may use at once (hitchhike): people the hub matches to you, whose requests for the unit's model the agent of `mcgyvr rig` passes to it and whose prompts you can read. A unit the map does not name shares none. It is policy, not a fact of the unit, so changing it never changes the setup's identity or its lock, and a running agent sends the hub the change within a second, with no reconnect. Below the unit's `width`, so you always keep a slot, and your own requests go first: a ride is taken only while the unit has a slot free, your requests and the rides in flight together fewer than its `width`, so riders use only slots you are not using, and a unit whose server does not report what it has in flight shares nothing. A ride that has started runs to its end; a request of yours that arrives meanwhile waits for a slot as any of yours does. A unit is shared only when it is on the `ladder`, needs no key (`api_key_env`), is not a relief rung, states its `window`, the context of each slot, and has a `width` of at most 16, the most the hub takes; one unit per model. To bind it: e.g. `{<unit>: 1}` -- at most one below the unit's `width`. |
 | `max_escalations` | number (min 0) | no | unset | How many rungs a task may climb before it is handed back unfinished. Unset: every rung of the ladder may be entered. To bind it: set a whole number of moves up the ladder, or leave it unset. |
@@ -408,7 +429,7 @@ Each entry takes these keys:
 | `units.model` | text | **yes** | — | Model identifier as the unit names it. |
 | `units.engine` | one of `llama.cpp`, `vllm` | no | unset | Which server program runs behind this address. Absent means llama.cpp. To bind it: e.g. vllm -- leave it out for llama.cpp. |
 | `units.image` | text | no | unset | Container image this unit runs, as a tag or digest. To bind it: e.g. vllm/vllm-openai@sha256:<hex>. |
-| `units.launcher` | one of `docker`, `native` | no | unset | How this unit's server runs. `docker`: in a container, kept up by the docker daemon (Linux, NVIDIA). `native`: the llama.cpp release build mcgyvr pins, fetched into `bin/llama.cpp/<tag>/` under the mcgyvr home, checked against its pinned sha256, and kept up by mcgyvr's own supervisor, which restarts it with a growing pause and gives up after a few crashes: Metal on a Mac, CUDA where `nvidia-smi` reads a driver it runs, else Vulkan, else the CPU. A native unit listens on 127.0.0.1 alone, so no firewall is expected to ask: on macOS the hub reaches it through the rig agent's relay to that local address (Windows has no rig agent yet), and a pooled worker binds the tunnel address only, so a unit stating another `--host` is refused; its log is `logs/<container>.log` in the data folder. llama.cpp only. On a Mac or Windows rig reached over ssh (its rig file, `mcgyvr scan --rig`, says so) the door ships the launcher there and it runs the same way, with no docker. Absent means `docker`; `setup` writes `native` for a unit on a Mac or Windows machine, this one or such a rig. To bind it: e.g. native -- leave it out for a container. |
+| `units.launcher` | one of `docker`, `native` | no | unset | How this unit's server runs. `docker`: in a container, kept up by the docker daemon (Linux, NVIDIA). `native`: the llama.cpp release build mcgyvr pins, fetched into `bin/llama.cpp/<tag>/` under the mcgyvr home, checked against its pinned sha256, and kept up by mcgyvr's own supervisor, which restarts it with a growing pause and gives up after a few crashes: Metal on a Mac, CUDA where `nvidia-smi` reads a driver it runs, else Vulkan, else the CPU. A native unit listens on 127.0.0.1 alone, so no firewall is expected to ask: on macOS and Windows the hub reaches it through the rig agent's relay to that local address, and a pooled worker binds the tunnel address only, so a unit stating another `--host` is refused; its log is `logs/<container>.log` in the data folder. llama.cpp only. On a Mac or Windows rig reached over ssh (its rig file, `mcgyvr scan --rig`, says so) the door ships the launcher there and it runs the same way, with no docker. Absent means `docker`; `setup` writes `native` for a unit on a Mac or Windows machine, this one or such a rig. To bind it: e.g. native -- leave it out for a container. |
 | `units.expose` | one of `local`, `lan` | no | unset | Who may reach this unit's server. `local`: this machine alone, on 127.0.0.1. `lan`: every machine that reaches this one, on every interface, and only with the API key mcgyvr makes for the unit the first time `mcgyvr emit` writes it: kept at mode 0600 in `unit-keys/<host>-<port>.env` in the data folder, handed to the server through its compose file's `env_file` (never written into the compose file or `fleet.yaml`) and sent by mcgyvr's own requests to the unit; `mcgyvr fleet key <unit>` prints it for a client of your own. A `--host` the unit's own args state, or a `LLAMA_ARG_HOST` its env states, is kept as stated. A docker unit only: a native one listens on 127.0.0.1 alone, and a pooled rpc worker on its tunnel address. Absent means `local` for a unit whose address names this machine (localhost, 127.0.0.1, ::1) or that runs native, and `lan` for one whose address names another host, which is the only way that address reaches it. To bind it: e.g. local -- leave it out to follow the unit's address. |
 | `units.api_key_env` | env var name | no | unset | NAME of the environment variable holding this unit's key. To bind it: set it to the variable's NAME (e.g. ANTHROPIC_API_KEY), never the key itself. |
 | `units.scope` | one of `own`, `crew`, `anyone` | no | `own` | Whose rigs may serve this unit's requests, named on each one in the `x-mcgyvr-scope` header: `own` (your own rigs), `crew` (your crews' too) or `anyone`. A hub serves the request from that scope's pool; a server of your own ignores it. A ladder step or a role may bind the unit only where its pool serves the setup's use case, so under `mcgyvr-code` a unit served from the hub's general pool, which serves models raw, is refused when the setup is read. Unset is `own`. |
@@ -469,6 +490,7 @@ Where a task's commands run.
 | `sandbox.lent_code_on_host` | list of text | no | `[]` | Repositories, by path, where code a rung that is not yours returned (a relief rung, or a unit of scope `crew` or `anyone`) may run in the `tempdir` sandbox, on this host. In `mode: docker` such code always runs in a second container with no network, whatever `network` says, started again before each such try, and your own rungs' code in the task's own container. In the `tempdir` sandbox — by name, or as the fallback — it would run on this host with its network and files, so a try on such a rung is declined before anything is sent unless the run's repository is listed here. Empty: none is. |
 | `sandbox.image` | text | no | unset | Base image for task containers. Unset means detect the repository's stack and build one. To bind it: name an image tag, or leave unset to let the stack be detected. |
 | `sandbox.setup` | list of text | no | `[]` | Commands run once when the task image is built, before any task. In docker mode the gate's type checker, eslint and prettier run in the task container, because their configuration can load code from the task's workspace, so they are found on the image's PATH. The image mcgyvr builds installs the one the repository configures (mypy, eslint, prettier) when its dependency install does not, at the lockfile's version where it pins one; pyright, or a checker the repository does not configure, is yours to put on the image, here or with `sandbox.image`. A checker the image lacks is skipped and said so, as an absent checker is on the host. |
+| `sandbox.image_cache_keep` | number (min 0) | no | `8` | How many task images of one repository the image cache keeps, a repository being known by its directory's name. After `mode: docker` builds a repository's image, the cached images of that directory name beyond the newest this many are removed, and it says so on stderr; images of another directory name are never counted or touched, so a run of such a repository keeps the image it is about to start, and an image a container still uses is left in place. Two checkouts whose directories share a name (`~/work/api` and `~/oss/api`) count as one repository here. `0` removes none. `mcgyvr sandbox --cache` lists what is cached, and `mcgyvr sandbox --clear-cache` removes all of it. |
 
 ## `delivery`
 

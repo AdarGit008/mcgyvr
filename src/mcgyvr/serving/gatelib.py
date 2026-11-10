@@ -72,6 +72,14 @@ def tool(name: str) -> list[str]:
 
 #: The rig names that are this machine, and the variable that says how the
 #: door reaches it: `direct` (no ssh) or `ssh`.
+#:
+#: These exact names alone decide a unit's bind and key
+#: (`mcgyvr.serving.exposure`, `mcgyvr.emit`): a name not here is another
+#: host's, so its unit is `lan`, listens on every interface and asks for a
+#: key. That is fail-closed, and the list must never grow to the looser match
+#: that finds a host's rig file (`rigfile._names_this_machine`, which takes
+#: any loopback or unspecified address and the localhost aliases): with it,
+#: 127.0.0.2, 0.0.0.0 or `::` would make a unit `local`, and so unkeyed.
 LOCAL_RIGS = frozenset({"localhost", "127.0.0.1", "::1", "[::1]"})
 LOCAL_TRANSPORT_ENV = "MCGYVR_LOCAL_TRANSPORT"
 TRANSPORT_DIRECT = "direct"
@@ -575,7 +583,16 @@ def rig_system(host: str) -> str:
 def shipping_os(host: str) -> str:
     """The system a program shipped to `host` is shaped for: Windows for a rig
     over ssh that records Windows; the POSIX line otherwise, which this
-    machine's local transport also runs itself, on any system."""
+    machine's local transport also runs itself, on any system.
+
+    The rig file alone decides, and the rig is asked nothing: this is what the
+    door's readers ship by, and a serve or a read through the door requires
+    the rig file before it reads the rig (gate 2 and the read's
+    `read-02-rig.py`, `rigfile.required`). The door's `link` timer consults
+    no rig file and ships the POSIX line to any rig. Telling a rig with no file
+    that answers PowerShell from one that answers the POSIX line is first
+    contact's, which `mcgyvr scan --rig`, `setup` and `recommend` keep
+    (`mcgyvr.scan.shipping_os`); that is the design, not a gap."""
     if host not in LOCAL_RIGS and rig_system(host) == WINDOWS:
         return WINDOWS
     return LINUX

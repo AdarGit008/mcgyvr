@@ -11,6 +11,7 @@ from __future__ import annotations
 import re
 from dataclasses import dataclass
 
+from mcgyvr.credential_shapes import VALUE_SHAPES, scan_pattern
 from mcgyvr.gate.changeset import ChangeSet, read_added_text
 from mcgyvr.gate.findings import Finding
 
@@ -26,27 +27,14 @@ def _p(code: str, message: str, pattern: str, flags: int = 0) -> _Pattern:
     return _Pattern(code=code, message=message, regex=re.compile(pattern, flags))
 
 
-# High-signal credential shapes: provider token prefixes and private key
-# headers, plus one conservative assignment heuristic at the end. Order is
-# load-bearing, because a line reports only the first pattern that matches it.
+# The high-signal provider shapes come from the one shared vocabulary
+# (`mcgyvr.credential_shapes`), each compiled for a search anywhere in a line,
+# followed here by one conservative assignment heuristic the shared shapes do
+# not cover. Order is load-bearing, because a line reports only the first
+# pattern that matches it, so the specific provider shapes stay ahead of the
+# broad assignment rule.
 _PATTERNS: tuple[_Pattern, ...] = (
-    _p(
-        "private-key",
-        "private key block",
-        r"-----BEGIN (?:RSA |EC |DSA |OPENSSH |PGP )?PRIVATE KEY-----",
-    ),
-    _p("aws-access-key-id", "AWS access key id", r"\bAKIA[0-9A-Z]{16}\b"),
-    _p(
-        "github-token",
-        "GitHub token",
-        r"\b(?:ghp|gho|ghu|ghs|ghr)_[A-Za-z0-9]{36}\b|\bgithub_pat_[A-Za-z0-9_]{22,}\b",
-    ),
-    _p("slack-token", "Slack token", r"\bxox[baprs]-[A-Za-z0-9-]{10,}\b"),
-    _p("google-api-key", "Google API key", r"\bAIza[0-9A-Za-z_\-]{35}\b"),
-    _p(
-        "stripe-secret-key", "Stripe secret key", r"\b(?:sk|rk)_live_[A-Za-z0-9]{16,}\b"
-    ),
-    _p("openai-key", "OpenAI-style secret key", r"\bsk-[A-Za-z0-9]{20,}\b"),
+    *(_Pattern(s.code, s.message, scan_pattern(s)) for s in VALUE_SHAPES),
     # Broadest rule: a credential-sounding name assigned a quoted literal. It
     # stays last so a line holding a real token prefix is reported by the
     # specific pattern above, and it deliberately ignores non-literal values

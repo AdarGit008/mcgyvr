@@ -45,6 +45,7 @@ from .config import (
     USE_CASES,
     Field,
 )
+from .derived import OVERRIDES_FILENAME
 from .fleet import roots
 from .hostos import CACHE_FOLDERS, DATA_FOLDERS, PATH_EXPORT, PATH_POWERSHELL
 
@@ -446,12 +447,23 @@ def _macos_windows_section() -> list[str]:
             "PATH, `System32` or the NVIDIA `NVSMI` folder, never by bare name), "
             f"else `{vulkan}` where a Vulkan loader is installed, else `{cpu}`; "
             f"`${NATIVE_BACKEND_ENV}` names one instead. vLLM units run only on "
-            "Linux, in containers, and remote rigs are Linux machines read over "
-            "ssh. This machine is reached without ssh: always on macOS and "
-            f"Windows, and on Linux when no sshd answers on port {SSHD_PORT} "
-            f"(`${LOCAL_TRANSPORT_ENV}`, `direct` or `ssh`, decides instead). A "
-            "native unit has no sleep route, so `mcgyvr serve sleep` and `wake` "
-            "refuse it."
+            "Linux, in containers. This machine is reached without ssh: always "
+            "on macOS and Windows, and on Linux when no sshd answers on port "
+            f"{SSHD_PORT} (`${LOCAL_TRANSPORT_ENV}`, `direct` or `ssh`, decides "
+            "instead). A native unit has no sleep route, so `mcgyvr serve "
+            "sleep` and `wake` refuse it."
+        ),
+        *para(
+            "**A rig over ssh.** Every other rig is read over ssh. `mcgyvr scan "
+            "--rig RIG`, `setup` and `recommend` read a rig with no rig file yet "
+            "by sending it the POSIX reader; a rig whose shell cannot run it and "
+            "answers PowerShell is a Windows rig, and is sent the Windows reader "
+            "instead. The rig file `mcgyvr scan --rig RIG` writes then records "
+            "the system. The door asks no such question. A serve or a read "
+            "through the door refuses a rig with no rig file before it reads the "
+            "rig, and ships what that file records; the door's link timer needs "
+            "no rig file and is sent the POSIX line, to any rig. So scan a rig "
+            "once before the door serves on it, a Windows rig above all."
         ),
         *para(
             "**Firewall and quarantine.** A native server listens on 127.0.0.1 "
@@ -519,9 +531,8 @@ def _macos_windows_section() -> list[str]:
             f"agent reads (`${HUB_KEY_ENV}`) set in `~/.zshrc` is not seen there."
         ),
         *para(
-            "On Windows, `mcgyvr rig run` does not start yet (its pooled-session "
-            "code imports a module Windows lacks, `fcntl`). When it does, a line "
-            "in your Startup folder starts it at your login with no "
+            "On Windows, a line in your Startup folder starts it at your login "
+            "with no "
             "administrator (a `schtasks /sc onlogon` task runs at any user's "
             "logon and is created from an elevated prompt). From PowerShell, "
             "and `Remove-Item` on the same path to drop it:"
@@ -672,12 +683,28 @@ def render_setup() -> str:
         f"A third file, `{RELIEF_FILENAME}`, holds `relief`: the units other",
         "people lend you through a hub. `mcgyvr rig rungs sync` writes it whole",
         "and nothing else does, so it is neither locked nor edited by hand.",
+        "Beside `relief` it records `api_key_env`: the NAME of the variable the",
+        "sync read your personal hub key from (`--key-env`), which the rig",
+        "agent's refresh and `mcgyvr rig status` read the key from too (where",
+        f"it records none, the one the units of `{CREW_FILENAME}` name).",
         f"A fourth, `{CREW_FILENAME}`, holds `crew`: the units your crews lend",
         f"you through a hub, each read as a unit of `units` under scope "
         f"`{SCOPE_CREW}`.",
         "`mcgyvr rig crew sync` writes it whole the same way. A ladder step or a",
         "role names a crew unit as it names any unit, and fan-out may use it:",
         "a crew lends free, so it is no api rung.",
+        "",
+        f"A fifth file, `{OVERRIDES_FILENAME}`, is optional and written by hand,",
+        "not by any command: it holds your own values for the numbers mcgyvr",
+        "sizes and judges a machine with but cannot read off it — decode drift,",
+        f"link speeds, host memory. It lives in the config folder "
+        f"(`${roots.HOME_ENV}`,",
+        f"default `{roots.HOME_DIR}`), and each number is keyed by what every",
+        "machine has — an engine, a unit's tolerance class, or a class of link —",
+        "never by a machine's name, so your value replaces the shipped estimate",
+        "wherever that key applies. A refusal that rests on a number names it and",
+        "spells the exact setting to write; leave the file out and the shipped",
+        "estimates answer.",
         "",
         "Each file refuses a key that belongs in the other. `rigs`, `fleets` and",
         "each unit's `unit_id` are not in the tables below: the fleet lock",

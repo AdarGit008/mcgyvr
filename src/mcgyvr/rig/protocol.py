@@ -143,8 +143,10 @@ class ModelInfo:
     has one. The rest come from the file's header: the architecture, the layer
     and training context counts, the embedding and head counts, the key and
     value cache one token costs, and the bytes the token embedding and output
-    tensors take. A field the header does not give is None and goes unspoken on
-    the wire.
+    tensors take. ``quant`` is the quantisation the file's name spells
+    (``Q4_K_M``, ``BF16``), the one a hub reads the wire's decode rule at
+    (:func:`mcgyvr.hubwire.decode_ms_per_gib`). A field the agent does not know
+    is None and goes unspoken on the wire.
     """
 
     name: str
@@ -162,6 +164,7 @@ class ModelInfo:
     #: own and carries 0 here, while a header that names neither leaves both None.
     embd_bytes: int | None = None
     output_bytes: int | None = None
+    quant: str | None = None
 
 
 @dataclass(frozen=True, kw_only=True)
@@ -176,6 +179,9 @@ class Offer:
     ``rpc_proto`` is the llama.cpp RPC protocol its runtime speaks, when the
     agent knows it (the pinned build), sent as
     :data:`mcgyvr.hubwire.RPC_PROTO_FIELD` among the capabilities.
+    ``weight_cache`` are the sha256 digests of the models whose weights its
+    worker cache holds (:class:`mcgyvr.rig.tensorcache.Record`), left out of the
+    hello when there are none.
     """
 
     roles: tuple[str, ...]
@@ -185,6 +191,7 @@ class Offer:
     sessions: tuple[str, ...]
     features: tuple[str, ...] = ()
     rpc_proto: hubwire.RpcProto | None = None
+    weight_cache: tuple[str, ...] = ()
 
 
 @dataclass(frozen=True, kw_only=True)
@@ -418,6 +425,10 @@ def _model_body(model: ModelInfo) -> dict[str, Any]:
         model.arch is None or bool(SHORT_TAG.fullmatch(model.arch)),
         "models.arch: not of its shape",
     )
+    _need(
+        model.quant is None or bool(SHORT_TAG.fullmatch(model.quant)),
+        "models.quant: not of its shape",
+    )
     _bounded(model.n_layers, 1, MAX_LAYERS, "models.n_layers")
     _bounded(model.n_ctx_train, 1, MAX_COUNT, "models.n_ctx_train")
     for field in ("n_embd", "n_head", "n_head_kv"):
@@ -439,6 +450,7 @@ def _model_body(model: ModelInfo) -> dict[str, Any]:
         "kv_bytes_per_token",
         "embd_bytes",
         "output_bytes",
+        "quant",
     ):
         value = getattr(model, field)
         if value is not None:
@@ -482,6 +494,12 @@ def _offer_body(offer: Offer) -> dict[str, Any]:
         and all(TAG.fullmatch(feature) for feature in offer.features),
         "capabilities.features: not distinct tags",
     )
+    _need(
+        len(offer.weight_cache) <= MAX_MODELS
+        and len(set(offer.weight_cache)) == len(offer.weight_cache)
+        and all(DIGEST.fullmatch(digest) for digest in offer.weight_cache),
+        f"weight_cache: not at most {MAX_MODELS} distinct sha256 digests",
+    )
     capabilities: dict[str, Any] = {"roles": list(offer.roles)}
     if offer.runtime is not None:
         capabilities["runtime"] = offer.runtime
@@ -493,7 +511,7 @@ def _offer_body(offer: Offer) -> dict[str, Any]:
         except ValueError as exc:
             raise ValueError(f"capabilities.{hubwire.RPC_PROTO_FIELD}: {exc}") from exc
         capabilities[hubwire.RPC_PROTO_FIELD] = asdict(offer.rpc_proto)
-    return {
+    body: dict[str, Any] = {
         "capabilities": capabilities,
         "endpoints": [
             {"host": host, "port": port, "kind": kind}
@@ -502,6 +520,9 @@ def _offer_body(offer: Offer) -> dict[str, Any]:
         "models": [_model_body(model) for model in offer.models],
         "sessions": list(offer.sessions),
     }
+    if offer.weight_cache:
+        body["weight_cache"] = list(offer.weight_cache)
+    return body
 
 
 def hello(

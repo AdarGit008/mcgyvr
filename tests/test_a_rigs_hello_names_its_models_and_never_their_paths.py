@@ -6,7 +6,10 @@ folder the hello carries its own name, its size, and what the product's GGUF
 reader reads from its header — architecture, layers, trained context,
 embedding width, KV heads, the KV cache's bytes per token at the head's KV
 type, and the sizes of the token embedding and output tensors from its tensor
-table — and a header that does not read leaves those unsaid. A hidden
+table — and a header that does not read leaves those unsaid. The quantisation
+is the one the file's name spells, read as the product's own decode estimate
+reads it, so the hub plans by the same decode rule; a name that spells none
+says none. A hidden
 folder, a later part of a split model, a link that leaves the folder, a name
 the protocol cannot carry, and a second file of one name are not named.
 """
@@ -148,6 +151,36 @@ def test_the_hello_sizes_the_embedding_and_output_tensors(tmp_path: Path) -> Non
         None,
         None,
     )
+
+
+def test_the_hello_names_the_quantisation_the_files_name_spells(
+    tmp_path: Path,
+) -> None:
+    from mcgyvr.knowledge import hub
+    from mcgyvr.rig import inventory
+
+    folder = tmp_path / "models"
+    for name in (
+        "model-Q4_K_M.gguf",
+        "model.BF16.gguf",
+        "model-UD-Q4_K_XL.gguf",
+        "model-iq4_xs.gguf",
+        "model.gguf",
+    ):
+        write_gguf(folder / name)
+    (folder / "broken-Q8_0.gguf").write_bytes(b"not a model at all")
+    held = {m.name: m.quant for m in inventory.read(str(folder)).models}
+    assert held == {
+        "model-Q4_K_M.gguf": "Q4_K_M",
+        "model.BF16.gguf": "BF16",
+        "model-UD-Q4_K_XL.gguf": "Q4_K_XL",
+        "model-iq4_xs.gguf": "IQ4_XS",
+        "model.gguf": None,
+        # a header that does not read still has the name's quantisation
+        "broken-Q8_0.gguf": "Q8_0",
+    }
+    # the very reading the product's own decode estimate takes
+    assert all(quant == hub.quant_of(name) for name, quant in held.items())
 
 
 def test_a_head_is_started_only_on_a_name_the_inventory_holds(models: Path) -> None:

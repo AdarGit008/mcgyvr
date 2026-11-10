@@ -77,7 +77,13 @@ class ProbeTarget:
 
 
 # The (kind, port, api) triples every default sweep is built from: the
-# conventional local port of each well-known server.
+# conventional local port of each well-known server (vLLM's own default is
+# 8000). A unit whose address states no port listens on `serving.DEFAULT_PORT`
+# (8080) for every engine, not on these — these are the stock ports of the
+# servers the sweep probes. The setup wizard reuses vLLM's stock port from this
+# list, writing it into the address it stages, rather than spelling 8000 again;
+# so a vLLM unit the wizard stages does state 8000, because the wizard set it,
+# not because 8000 is any engine's default.
 # Names here double as kinds for WINDOW_SOURCES lookups, and the order is
 # the order targets are probed and reported in.
 PORT_CONVENTIONS: tuple[tuple[str, int, str], ...] = (

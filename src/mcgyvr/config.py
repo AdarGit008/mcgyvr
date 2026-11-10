@@ -21,6 +21,11 @@ from typing import Any
 
 import yaml
 
+from mcgyvr.credential_shapes import (
+    CREDENTIAL_WORDS,
+    VALUE_SHAPES,
+    whole_value_pattern,
+)
 from mcgyvr.fleet.files import (
     FleetFileError,
     _typename,
@@ -59,6 +64,7 @@ from mcgyvr.hubwire import (
 )
 from mcgyvr.hubwire import USE_CASES as USE_CASES
 from mcgyvr.sandbox.base import NETWORKS
+from mcgyvr.sandbox.image import DEFAULT_MAX_CACHED_IMAGES
 from mcgyvr.schema import Dialect, join_path, walk_block
 from mcgyvr.schema import Field as Field
 from mcgyvr.seal import SealKey
@@ -132,6 +138,11 @@ DEPENDENTS_CHOICES: tuple[str, ...] = ("hold", "run")
 #: ladder is spent back to the proposer to be re-planned (see
 #: `mcgyvr.replan`); 0 turns re-planning off.
 MAX_REPLANS_DEFAULT = 1
+
+#: How many attempts a unit with no entry under `attempts` gets on its rung:
+#: one, so a failed attempt escalates rather than retries. The contract's
+#: `limits.attempts` caps it and never raises it (see `mcgyvr.route`).
+UNSET_RUNG_ATTEMPTS = 1
 
 #: How many rounds a proposal the decomposer refused is handed back to the
 #: proposer with what to change (see `mcgyvr.repropose`); 0 turns it off.
@@ -226,6 +237,22 @@ SANDBOX_FIELDS: tuple[Field, ...] = (
         "with `sandbox.image`. A checker the image lacks is skipped and said "
         "so, as an absent checker is on the host.",
         default=(),
+    ),
+    Field(
+        "image_cache_keep",
+        "int",
+        "How many task images of one repository the image cache keeps, a "
+        "repository being known by its directory's name. After `mode: docker` "
+        "builds a repository's image, the cached images of that directory name "
+        "beyond the newest this many are removed, and it says so on stderr; "
+        "images of another directory name are never counted or touched, so a "
+        "run of such a repository keeps the image it is about to start, and an "
+        "image a container still uses is left in place. Two checkouts whose "
+        "directories share a name (`~/work/api` and `~/oss/api`) count as one "
+        "repository here. `0` removes none. `mcgyvr sandbox --cache` lists what "
+        "is cached, and `mcgyvr sandbox --clear-cache` removes all of it.",
+        default=DEFAULT_MAX_CACHED_IMAGES,
+        min_value=0,
     ),
 )
 
@@ -566,9 +593,9 @@ UNIT_FIELDS: tuple[Field, ...] = (
         "restarts it with a growing pause and gives up after a few crashes: "
         "Metal on a Mac, CUDA where `nvidia-smi` reads a driver it runs, else "
         "Vulkan, else the CPU. A native unit listens on 127.0.0.1 alone, so no "
-        "firewall is expected to ask: on macOS the hub reaches it through the "
-        "rig agent's relay to that local address (Windows has no rig agent "
-        "yet), and a pooled worker binds the tunnel address "
+        "firewall is expected to ask: on macOS and Windows the hub reaches it "
+        "through the rig agent's relay to that local address, and a pooled "
+        "worker binds the tunnel address "
         "only, so a unit stating another `--host` is refused; its "
         "log is "
         "`logs/<container>.log` in the data folder. llama.cpp only. On a Mac "
@@ -1194,7 +1221,10 @@ SCHEMA: tuple[Field, ...] = (
     Field(
         "attempts",
         "int_map",
-        "How many times each unit may be tried before escalation moves on.",
+        "How many times each unit may be tried before escalation moves on. A "
+        f"unit with no entry gets {UNSET_RUNG_ATTEMPTS}, not the contract's "
+        "`limits.attempts` default: that limit caps the number and never raises "
+        "it.",
         default=None,
         min_value=1,
         bind_hint="e.g. `{<unit>: 2}`",
@@ -1451,37 +1481,17 @@ SCHEMA: tuple[Field, ...] = (
 # Key names a config may not use, compared lowercased. A key that names a
 # credential is refused wherever it appears, so no setup can be read as holding
 # a secret value, and the refusal says to name the environment variable that
-# holds it (`api_key_env` on a unit) instead.
-_CREDENTIAL_KEYS = frozenset(
-    {
-        "access_key",
-        "api_key",
-        "apikey",
-        "auth",
-        "auth_token",
-        "credential",
-        "credentials",
-        "key",
-        "passwd",
-        "password",
-        "private_key",
-        "secret",
-        "secret_key",
-        "token",
-    }
-)
+# holds it (`api_key_env` on a unit) instead. The words are the one shared
+# vocabulary (`mcgyvr.credential_shapes`); this check's rule is an exact match.
+_CREDENTIAL_KEYS = CREDENTIAL_WORDS
 
-# Values shaped like a credential of a known provider: OpenAI/Anthropic-style
-# `sk-` keys, GitHub tokens, AWS access keys, Slack tokens and Google API keys.
-# A text value matching one is refused wherever it appears, so a key pasted in
-# under a neutral key name is caught too.
-_CREDENTIAL_VALUE_PATTERNS: tuple[re.Pattern[str], ...] = (
-    re.compile(r"^sk-[A-Za-z0-9_\-]{16,}$"),
-    re.compile(r"^(ghp|gho|ghs|ghu|ghr)_[A-Za-z0-9]{20,}$"),
-    re.compile(r"^github_pat_[A-Za-z0-9_]{20,}$"),
-    re.compile(r"^AKIA[0-9A-Z]{16}$"),
-    re.compile(r"^xox[baprs]-[A-Za-z0-9\-]{10,}$"),
-    re.compile(r"^AIza[0-9A-Za-z_\-]{30,}$"),
+# Values shaped like a credential of a known provider, matched whole: the value
+# is refused only when the entire string is the credential. The shapes are the
+# one shared vocabulary (`mcgyvr.credential_shapes`), compiled here for a
+# whole-value match, so a key pasted in under a neutral key name is caught with
+# exactly the shapes the gate's scan uses.
+_CREDENTIAL_VALUE_PATTERNS: tuple[re.Pattern[str], ...] = tuple(
+    whole_value_pattern(shape) for shape in VALUE_SHAPES
 )
 
 _ENV_NAME = re.compile(r"^[A-Za-z_][A-Za-z0-9_]*$")

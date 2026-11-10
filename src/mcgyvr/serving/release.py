@@ -46,7 +46,7 @@ from collections.abc import Iterable, Sequence
 from dataclasses import dataclass
 from pathlib import Path, PurePosixPath
 
-from mcgyvr import hostos
+from mcgyvr import atomic, hostos
 from mcgyvr.serving import fetcher
 
 #: Where a release's archives are published.
@@ -161,7 +161,7 @@ def install(
         )
         if folder.exists():
             shutil.rmtree(folder)
-        os.replace(staging, folder)
+        atomic.replace(staging, folder)
     except BaseException:
         shutil.rmtree(staging, ignore_errors=True)
         raise

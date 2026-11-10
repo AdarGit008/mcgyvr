@@ -10,12 +10,12 @@ Statuses: 0 done, 1 a free take found a lease there, 3 the lease is not the one
 expected, 4 no lease folder, 5 the lease file could not be read. Each operation
 holds ``lease.lock`` beside the file (:func:`mcgyvr.hostos.lock`), so two on
 one machine do not interleave. Every write goes through a temporary file
-renamed over the lease; a free take creates it exclusively, so a lease already
-there is never written over.
+renamed over the lease (:func:`mcgyvr.atomic.write`); a free take creates it
+exclusively, so a lease already there is never written over.
 
 Run as a program: ``OP FOLDER [held=ID] [line=LINE]``, with the lease on
-stdout and a failure on stderr, exiting with the status. Standard library and
-``mcgyvr.hostos`` only.
+stdout and a failure on stderr, exiting with the status. Standard library,
+``mcgyvr.hostos`` and ``mcgyvr.atomic`` only.
 """
 
 from __future__ import annotations
@@ -25,7 +25,7 @@ import sys
 from collections.abc import Mapping, Sequence
 from pathlib import Path
 
-from mcgyvr import hostos
+from mcgyvr import atomic, hostos
 
 #: The lease file and its lock, inside the lease folder.
 FILE = "lease"
@@ -79,20 +79,17 @@ def operate(op: str, folder: str, fields: Mapping[str, str]) -> tuple[int, str, 
                 )
             except FileExistsError:
                 return 1, "", ""
-            with os.fdopen(out, "w", encoding="utf-8") as handle:
-                handle.write(line)
+            # Bytes, as atomic.write writes a rewrite: one line end, `\n`, on every
+            # system, as the scripts write it.
+            with os.fdopen(out, "wb") as handle:
+                handle.write(line.encode("utf-8"))
             return 0, "", ""
         if op == "take_stale" and not fields.get("held"):
             if now.strip():
                 return 3, "", ""
         elif held not in now:
             return 3, "", ""
-        part = where / f"{FILE}.{os.getpid()}"
-        part.unlink(missing_ok=True)
-        out = hostos.open_nofollow(part, os.O_WRONLY | os.O_CREAT | os.O_EXCL, 0o644)
-        with os.fdopen(out, "w", encoding="utf-8") as handle:
-            handle.write(line)
-        os.replace(part, lease)
+        atomic.write(lease, line, mode=0o644, staging=where / f"{FILE}.{os.getpid()}")
         return 0, "", ""
     finally:
         hostos.unlock(fd)
