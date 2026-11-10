@@ -802,6 +802,17 @@ archived outside this repository, under the same paths.
 
 ### Removed
 
+- **`mcgyvr recommend --profile code` no longer asks a local model to pick.**
+  It asked whatever answered on `http://127.0.0.1:8080` to choose among the
+  fitting candidates, by name and description only, and fell back to the
+  largest weights when nothing answered, the request failed or the answer
+  named nothing offered. Now it always takes the candidate with the largest
+  weights, as `chat` and `agent` already did, and probes and asks nothing.
+  The plan's `decision` is always `deterministic` for a placement (`null` for
+  a scaffold, as before) and its `decision_endpoint` key is gone. Upgrading: a
+  `code` plan made with a model answering on port 8080 may now name a
+  different candidate; one made without one is unchanged.
+
 - **Sessions, the manager loop and the retired-name shims are gone.** `chat`
   and `agent` are no longer contract task types: `code` is the one shipped
   type, and chat and agent stay as plain use of an endpoint. Removed with

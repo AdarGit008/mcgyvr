@@ -15,9 +15,7 @@ is for.
 - `code` first discovers GGUF checkpoints in the model stores it is given and
   sizes their weights plus per-user cache against each rig's free VRAM and host
   RAM with `vramfit`, and takes the catalog when no local checkpoint fits. The
-  surviving candidates are offered by those names to the decision model on the
-  local endpoint when it answers, and the largest candidate wins when it does
-  not.
+  largest surviving candidate wins; no model is asked.
 - `chat` and `agent` are one unit: the biggest model that fits, with the most
   context that fits up to the model's own, and never under
   `MIN_CONTEXT_PER_USER` per user. A tie goes to the candidate the Hub ranks
@@ -31,10 +29,9 @@ from collections.abc import Mapping, Sequence
 from dataclasses import dataclass
 from typing import Any
 
-from mcgyvr import availability, decision, estimate
+from mcgyvr import estimate
 from mcgyvr import scan as scan_module
-from mcgyvr.config import DEFAULT_REQUEST_TIMEOUT_S, default_launcher
-from mcgyvr.decision import Choice, ChoiceAnswer
+from mcgyvr.config import default_launcher
 from mcgyvr.detect import host_system
 from mcgyvr.fleet import lock as fleet_lock
 from mcgyvr.hubwire import FIGURE_ESTIMATE, USE_CASE_CATEGORY, shares_ram
@@ -42,8 +39,6 @@ from mcgyvr.knowledge import geometry as geometry_rows
 from mcgyvr.knowledge import hub
 from mcgyvr.knowledge import store as knowledge_store
 from mcgyvr.knowledge.record import KnowledgeError, ModelRecord
-from mcgyvr.local_pool import Endpoint, Protocol
-from mcgyvr.runner import RunnerError
 from mcgyvr.scan import (
     BYTES_PER_GB,
     Gpu,
@@ -54,7 +49,6 @@ from mcgyvr.scan import (
     Unreachable,
 )
 from mcgyvr.serving import (
-    DEFAULT_PORT,
     DEFAULT_SPEC_DRAFT_N_MAX,
     DEFAULT_UBATCH,
     _free_vram_bytes,
@@ -67,7 +61,7 @@ from mcgyvr.serving import (
 PROFILES = (*hub.USE_CASES, "other")
 #: The profiles that are use cases, each placed from the Hub's candidates for it.
 PLACEMENT_PROFILES = hub.USE_CASES
-#: The one placed as a ladder's rung, with local stores and the decision model.
+#: The one placed as a ladder's rung, with local stores.
 PLACEMENT_PROFILE = hub.CODE
 #: The kind of model each use case is recommended: `mcgyvr-code` climbs a ladder
 #: of coding models and `code` serves one raw, so both are placed as `code`.
@@ -107,7 +101,7 @@ class Candidate:
 
     `host` is the rig it was sized for and would run on, and `name` carries that
     rig with the engine, the weights and the head, so it is unique among one
-    plan's candidates and is what the decision answers with. A discovered local
+    plan's candidates and two of them are never taken for one. A discovered local
     checkpoint fills `checkpoint` and leaves `model_id` and `quant` empty, while
     a catalog entry does the reverse; `flags` is what the chosen engine should be
     launched with, and `wake` is true when the scan found no GPU on the rig at
@@ -501,8 +495,8 @@ def _local_candidates(
     """Candidates for one discovered checkpoint that already fitted on `host`.
 
     A checkpoint carrying a grafted MTP head yields two candidates, one serving
-    that head and one without it, so the decision can weigh speculative decode
-    against the plain path; a checkpoint without one yields only the plain path.
+    that head and one without it, so speculative decode and the plain path are
+    two placements; a checkpoint without one yields only the plain path.
     A path names one file on one rig, so the rig, the path and the head name
     each candidate.
     """
@@ -665,19 +659,8 @@ def _one_unit_candidates(
     return _catalog_candidates(host, scan, {"models": sized}, users)
 
 
-def _decision_endpoint() -> Endpoint:
-    """The local OpenAI-protocol endpoint a decision model is expected to answer on."""
-    return Endpoint(
-        source="recommend",
-        base_url=f"http://127.0.0.1:{DEFAULT_PORT}",
-        protocol=Protocol.OPENAI,
-        max_parallel=1,
-        credential_env=None,
-    )
-
-
 def _deterministic_pick(candidates: tuple[Candidate, ...]) -> Candidate:
-    """The pick made without a model: the candidate with the largest weights."""
+    """The pick: the candidate with the largest weights."""
     return max(candidates, key=lambda candidate: candidate.size_bytes)
 
 
@@ -692,46 +675,6 @@ def _distinct(candidates: Sequence[Candidate]) -> tuple[Candidate, ...]:
     for candidate in candidates:
         kept.setdefault(candidate.name, candidate)
     return tuple(kept.values())
-
-
-def _decide(
-    candidates: tuple[Candidate, ...], state: Mapping[str, Any]
-) -> tuple[Candidate, str]:
-    """Choose one candidate, asking the local decision model when it is live.
-
-    The probe's "not live" verdict, an error from the request, and an answer
-    naming something that was not offered all fall back to `_deterministic_pick`;
-    the second element says which route decided, `"model"` or `"deterministic"`.
-    """
-    endpoint = _decision_endpoint()
-    verdict = availability.probe_endpoint(endpoint)
-    if not verdict.live:
-        return _deterministic_pick(candidates), "deterministic"
-
-    by_name = {candidate.name: candidate for candidate in candidates}
-    question = {
-        "placement": Choice(
-            instructions=(
-                "Given this usage profile and the measured machine, pick the "
-                "placement that best fits."
-            ),
-            options={candidate.name: candidate.description for candidate in candidates},
-        )
-    }
-    try:
-        answered = decision.classify(
-            endpoint,
-            "recommend-decision",
-            dict(state),
-            question,
-            timeout_s=DEFAULT_REQUEST_TIMEOUT_S,
-        )
-    except (RunnerError, decision.DecisionError):
-        return _deterministic_pick(candidates), "deterministic"
-    answer = answered.answers.get("placement")
-    if isinstance(answer, ChoiceAnswer) and answer.choice in by_name:
-        return by_name[answer.choice], "model"
-    return _deterministic_pick(candidates), "deterministic"
 
 
 def _placement_document(
@@ -781,13 +724,14 @@ def plan(
     Only the `PLACEMENT_PROFILES` go further. For `code`, each .gguf in
     `model_stores` is read and kept as a candidate when it fits some rig, and
     when none does, or no store was given, the use case's catalog
-    (`load_catalog`) supplies candidates from every rig's scan; they are decided
-    by `_decide`. For `chat` and `agent` the catalog alone supplies them, each
-    at the most context it fits (`_one_unit_candidates`), and the biggest wins.
-    The plan states the placement with the host it is for, which route decided
-    it, the decision endpoint for a model decision, and which of the Hub, the
-    cache or the shipped catalog answered (`candidates_from`, None for a local
-    store). Having no candidate at all raises `RecommendError`.
+    (`load_catalog`) supplies candidates from every rig's scan, and the one with
+    the largest weights wins (`_deterministic_pick`); no model is asked. For
+    `chat` and `agent` the catalog alone supplies them, each at the most context
+    it fits (`_one_unit_candidates`), and the biggest wins the same way. The
+    plan states the placement with the host it is for, `decision:
+    deterministic`, and which of the Hub, the cache or the shipped catalog
+    answered (`candidates_from`, None for a local store). Having no candidate at
+    all raises `RecommendError`.
 
     The placement states its decode speed (`decode_tok_s`): the reading in
     `readings`, by (host, model), when there is one (the live fleet's lock,
@@ -886,28 +830,9 @@ def plan(
             "model for any scanned rig"
         )
 
-    state: dict[str, Any] = {
-        "profile": profile,
-        "users": users,
-        "hosts": [str(host) for host in dict.fromkeys(hosts)],
-        "measured": rigs,
-        "candidates": [
-            {
-                "name": candidate.name,
-                "host": candidate.host,
-                "engine": candidate.engine,
-                "checkpoint": candidate.checkpoint,
-                "model_id": candidate.model_id,
-            }
-            for candidate in candidates
-        ],
-    }
-    if profile == PLACEMENT_PROFILE:
-        selected, decision_source = _decide(candidates, state)
-    else:
-        # The default for one chat or agent unit is the biggest model that fits,
-        # which is the largest-weights pick, with no model asked.
-        selected, decision_source = _deterministic_pick(candidates), "deterministic"
+    # The biggest that fits: the largest-weights pick, for a coding rung as for
+    # one chat or agent unit.
+    selected = _deterministic_pick(candidates)
     plan: dict[str, Any] = {
         "profile": profile,
         "users": users,
@@ -930,9 +855,6 @@ def plan(
                 )
             ),
         ),
-        "decision": decision_source,
-        "decision_endpoint": (
-            _decision_endpoint().base_url if decision_source == "model" else None
-        ),
+        "decision": "deterministic",
     }
     return plan
