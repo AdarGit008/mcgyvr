@@ -575,7 +575,14 @@ def rig_system(host: str) -> str:
 def shipping_os(host: str) -> str:
     """The system a program shipped to `host` is shaped for: Windows for a rig
     over ssh that records Windows; the POSIX line otherwise, which this
-    machine's local transport also runs itself, on any system."""
+    machine's local transport also runs itself, on any system.
+
+    The rig file alone decides, and the rig is asked nothing: this is what the
+    door's readers ship by, and a door run requires the rig file before it
+    reads the rig (gate 2, `rigfile.required`). Telling a rig with no file
+    that answers PowerShell from one that answers the POSIX line is first
+    contact's, which `mcgyvr scan --rig`, `setup` and `recommend` keep
+    (`mcgyvr.scan.shipping_os`); that is the design, not a gap."""
     if host not in LOCAL_RIGS and rig_system(host) == WINDOWS:
         return WINDOWS
     return LINUX
