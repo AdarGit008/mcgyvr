@@ -62,7 +62,6 @@ def _invented() -> kr.ModelRecord:
         model_id="invented-org/Only-In-The-Cache",
         quant="Q5_K_M",
         weights=None,
-        scores=(),
     )
 
 

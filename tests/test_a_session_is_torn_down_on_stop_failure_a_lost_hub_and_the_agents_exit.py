@@ -21,6 +21,7 @@ from pathlib import Path
 
 import pytest
 
+from mcgyvr.redact import REDACTED
 from tests import rig_pool_fakes as fakes
 from tests.rig_pool_fakes import Pool, make_pool, prepared
 
@@ -52,6 +53,30 @@ def test_a_worker_that_exits_on_start_fails_the_session_and_leaves_nothing(
     status = pool.ask("session_query", "q1", session_id="s1")
     assert status is not None and status["body"]["state"] == "failed"
     assert status["body"]["error_code"] == "start_failed"
+
+
+def test_a_failure_excerpt_is_cleaned_of_host_paths_and_credentials(pool: Pool) -> None:
+    """The excerpt reaches the other members of the session, so redact runs first.
+
+    ``sessionwire.scrub`` was a printable filter under the real cleaner's name; it
+    is now ``printable_tail`` and ``_fail`` runs ``redact.scrub_paths`` and
+    ``redact.scrub`` on the excerpt before it leaves the rig. A container log that
+    names a host path or echoes a key must carry neither to another user.
+    """
+    pool.docker.logs_said = (
+        "engine said: load failed at /home/realuser/mcgyvr/rig.py "
+        "with key sk-live-A1b2C3d4E5f6G7h8 and header Bearer ey.JhbGci.OiJFUzI1\n"
+    )
+    pool.docker.exits_on_start.add("worker-0")
+    _worker(pool)
+    pool.wait_for("session_status", "failed")
+    excerpt = pool.box.of_type("session_status")[-1]["body"]["log_excerpt"]
+    assert "/home/realuser" not in excerpt, "a host path reached another user"
+    assert "sk-live-A1b2C3d4E5f6G7h8" not in excerpt, "a key reached another user"
+    assert "ey.JhbGci.OiJFUzI1" not in excerpt, "a Bearer token reached another user"
+    assert REDACTED in excerpt
+    # The readable part of the message survives, so the excerpt still says something.
+    assert "engine said: load failed" in excerpt
 
 
 def test_a_worker_that_never_listens_fails_on_time_and_leaves_nothing(

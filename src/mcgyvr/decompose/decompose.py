@@ -150,7 +150,7 @@ class Evidence:
     ceiling: int = _DEFAULT_MAX_INPUT_TOKENS
     """The ceiling on a contract's worker view this decomposition holds to.
 
-    `decompose`'s and `iterate`'s `max_input_tokens`."""
+    `decompose`'s `max_input_tokens`."""
     spent: Spent | None = None
     """The contract this decomposition re-plans, with its failure notes.
 
@@ -451,7 +451,7 @@ def _repropose(
     """
     # Imported here: `mcgyvr.delegate` imports this module.
     from mcgyvr.delegate import DelegationError
-    from mcgyvr.local_pool import SourceUnavailableError
+    from mcgyvr.ladder_map import UnitUnavailableError
     from mcgyvr.runner import RunnerError
 
     reported = list(refused)
@@ -464,7 +464,7 @@ def _repropose(
         handed += len(sending)
         try:
             answer = fix(replace(vetting.evidence, refused=tuple(sending)))
-        except (DelegationError, RunnerError, SourceUnavailableError) as exc:
+        except (DelegationError, RunnerError, UnitUnavailableError) as exc:
             failed = type(exc).__name__
             break
         fresh = tuple(a for a in answer if isinstance(a, Proposal))
@@ -503,7 +503,7 @@ def _evidence(
 ) -> Evidence:
     """The deterministic pass a proposer is handed: resolve, read, catalog, baseline.
 
-    `adapters` is accepted for the shared call shape with `decompose`/`iterate`;
+    `adapters` is accepted for the shared call shape with `decompose`;
     the evidence itself needs none — the baseline is located from the index's
     root and the vocabulary from the catalog. `ceiling` is the worker-view
     ceiling the caller holds the contracts to, and `spent` the contract being
@@ -1304,19 +1304,3 @@ def _proposal_of(built: Contract) -> Proposal:
         operation=built.operation,
         sources=built.sources,
     )
-
-
-@dataclass(frozen=True)
-class RecordedProposer:
-    """A proposer that answers the same proposals and keeps the evidence it was shown.
-
-    For callers that already know what to propose: `seen` receives each
-    `Evidence` in the order the calls arrived.
-    """
-
-    proposals: tuple[Proposal, ...] = ()
-    seen: list[Evidence] = field(default_factory=list)
-
-    def __call__(self, evidence: Evidence) -> Sequence[Proposal]:
-        self.seen.append(evidence)
-        return self.proposals

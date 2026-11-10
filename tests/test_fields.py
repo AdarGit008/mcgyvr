@@ -1,9 +1,9 @@
-"""The per-field instruction rendering and its constraints slot (W6).
+"""The per-field instruction rendering and its constraints slot.
 
-`instructions` renders the CONSTRAINTS section that W6's retry loop fills; W3
-left it empty. When no constraints are given the rendered text must stay
-byte-identical to what W3 shipped, and a non-empty directive must land under
-the CONSTRAINTS heading in place of the blank line.
+`instructions` renders the CONSTRAINTS section that the re-ask fills with a
+refusal's ``what_to_change``; W3 left it empty. When no constraints are given
+the rendered text must stay byte-identical to what W3 shipped, and a non-empty
+directive must land under the CONSTRAINTS heading in place of the blank line.
 """
 
 from __future__ import annotations

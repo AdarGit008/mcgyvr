@@ -356,16 +356,16 @@ def test_the_verifier_role_is_answered_without_handing_over_a_credential(
 ) -> None:
     """E2: a presence check must not come with something to dispatch with.
 
-    ``reviewer_for`` asked ``source_map.role(VERIFIER_ROLE) is None`` — a yes/no
+    ``reviewer_for`` asked ``unit_map.role(VERIFIER_ROLE) is None`` — a yes/no
     question answered with a ``RoleBinding``, which carries an ``Endpoint``,
     which carries ``credential()``. The module imported neither forbidden name,
     which is precisely why the import guard could not see it.
     """
     from mcgyvr.config import parse as parse_config
-    from mcgyvr.local_pool import source_map
+    from mcgyvr.ladder_map import unit_map
 
     monkeypatch.setenv("EXAMPLE_API_KEY", "sk-" + "0" * 12)
-    pool = source_map(
+    pool = unit_map(
         parse_config(
             """\
 units:
@@ -396,7 +396,7 @@ def test_the_seam_guard_catches_every_spelling_it_used_to_miss(
     """E6: the guard had three bypasses, so it was reporting on spelling.
 
     Each module below crosses the seam in a way the original guard's single
-    shape — ``ast.ImportFrom`` with ``module == "mcgyvr.local_pool"`` — does not match.
+    shape — ``ast.ImportFrom`` with ``module == "mcgyvr.ladder_map"`` — does not match.
     Written as synthetic source rather than by asserting against ``src/``,
     because a guard is only shown to hold by giving it something that should
     fail.
@@ -404,13 +404,13 @@ def test_the_seam_guard_catches_every_spelling_it_used_to_miss(
     from tests.wheels import seam_offenders
 
     (tmp_path / "by_module_import.py").write_text(
-        "import mcgyvr.local_pool\n\nE = mcgyvr.local_pool.Endpoint\n", encoding="utf-8"
+        "import mcgyvr.ladder_map\n\nE = mcgyvr.ladder_map.Endpoint\n", encoding="utf-8"
     )
     (tmp_path / "by_relative_import.py").write_text(
-        "from .local_pool import Endpoint\n", encoding="utf-8"
+        "from .ladder_map import Endpoint\n", encoding="utf-8"
     )
     (tmp_path / "by_accessor.py").write_text(
-        "def f(source_map):\n    return source_map.role('verifier').endpoint\n",
+        "def f(unit_map):\n    return unit_map.role('verifier').endpoint\n",
         encoding="utf-8",
     )
 
@@ -426,15 +426,15 @@ def test_the_seam_guard_catches_every_spelling_it_used_to_miss(
 def test_the_seam_guard_still_passes_an_innocent_module(tmp_path: Path) -> None:
     """The other half: a guard that fails everything is not holding a boundary.
 
-    ``SourceMap`` and ``Rung`` are the seam's public face and are meant to be
+    ``UnitMap`` and ``Rung`` are the seam's public face and are meant to be
     imported above it; ``role_model`` is the accessor that replaces ``role``.
     """
     from tests.wheels import seam_offenders
 
     (tmp_path / "innocent.py").write_text(
-        "from mcgyvr.local_pool import SourceMap\n\n"
-        "def f(source_map: SourceMap) -> str | None:\n"
-        "    return source_map.role_model('verifier')\n",
+        "from mcgyvr.ladder_map import UnitMap\n\n"
+        "def f(unit_map: UnitMap) -> str | None:\n"
+        "    return unit_map.role_model('verifier')\n",
         encoding="utf-8",
     )
 

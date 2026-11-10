@@ -10,7 +10,7 @@ actual diff.
 Nothing here stubs the thing under test. The one thing that is substituted is a
 model, because a test that needed one would not run on a machine with no
 backend — and the seam that lets it be substituted (``dispatch`` takes a rung
-name and a source map) is the same seam the whole project is built on.
+name and a unit map) is the same seam the whole project is built on.
 """
 
 from __future__ import annotations
@@ -399,7 +399,7 @@ def test_the_units_maximum_reaches_the_request(
     import mcgyvr.drive as drive
     from mcgyvr.config import parse as parse_config
     from mcgyvr.gate.preflight import unit_max
-    from mcgyvr.local_pool import Protocol, source_map
+    from mcgyvr.ladder_map import Protocol, unit_map
     from mcgyvr.runner import Completion, Request, StopReason
     from mcgyvr.worker.prompt import build_prompt
 
@@ -419,7 +419,7 @@ limits:
     )
     sent: list[Request] = []
 
-    def fake_dispatch(source_map, rung, request, *, capacity=None):  # type: ignore[no-untyped-def]
+    def fake_dispatch(unit_map, rung, request, *, capacity=None):  # type: ignore[no-untyped-def]
         sent.append(request)
         return Completion(
             text="```python\nx = 1\n```",
@@ -433,7 +433,7 @@ limits:
         )
 
     monkeypatch.setattr(drive, "dispatch", fake_dispatch)
-    pool = source_map(parse_config(CONFIG))
+    pool = unit_map(parse_config(CONFIG))
     prompt = build_prompt(contract)
 
     dispatch_prompt(pool, "local_qwen-7b", prompt, contract)
@@ -455,7 +455,7 @@ def test_a_prompt_that_does_not_fit_is_refused_rather_than_truncated() -> None:
     decorative and send a request whose reply is cut at a boundary nobody chose.
     """
     from mcgyvr.config import parse as parse_config
-    from mcgyvr.local_pool import source_map
+    from mcgyvr.ladder_map import unit_map
     from mcgyvr.worker.prompt import build_prompt
 
     # The ceiling is the smallest the schema allows beside the output cap, and
@@ -480,7 +480,7 @@ scope:
     prompt = build_prompt(contract)
     assert not prompt.fits
 
-    pool = source_map(parse_config(CONFIG))
+    pool = unit_map(parse_config(CONFIG))
     with pytest.raises(PromptTooLargeError) as exc:
         dispatch_prompt(pool, "local_qwen-7b", prompt, contract)
 
@@ -515,11 +515,11 @@ def test_one_attempt_reaches_a_judgement_over_a_real_gate(
     """
     from mcgyvr.config import parse as parse_config
     from mcgyvr.drive import worker_attempt
-    from mcgyvr.local_pool import Rung, source_map
+    from mcgyvr.ladder_map import Rung, unit_map
     from mcgyvr.route import Try, Verdict
 
     config = parse_config(LADDER)
-    pool = source_map(config)
+    pool = unit_map(config)
     contract = load_contract(MODEL_CONTRACT)
     _driven(monkeypatch, "```python\nVALUE = 1\n```")
 
@@ -553,11 +553,11 @@ def test_a_driver_with_no_journal_reports_the_rows_it_did_not_write(
     """
     from mcgyvr.config import parse as parse_config
     from mcgyvr.drive import worker_attempt
-    from mcgyvr.local_pool import Rung, source_map
+    from mcgyvr.ladder_map import Rung, unit_map
     from mcgyvr.route import Try, Verdict
 
     config = parse_config(LADDER + "breadth:\n  draws: 2\n")
-    pool = source_map(config)
+    pool = unit_map(config)
     contract = load_contract(MODEL_CONTRACT)
     _driven(monkeypatch, "```python\nVALUE = 1\n```", "```python\nVALUE = 1\n```")
 
@@ -586,11 +586,11 @@ def test_a_hand_authored_contract_shows_the_target_file_in_the_prompt(
     """
     from mcgyvr.config import parse as parse_config
     from mcgyvr.drive import worker_attempt
-    from mcgyvr.local_pool import Rung, source_map
+    from mcgyvr.ladder_map import Rung, unit_map
     from mcgyvr.route import Try
 
     config = parse_config(LADDER)
-    pool = source_map(config)
+    pool = unit_map(config)
     contract = load_contract(MODEL_CONTRACT)  # hand-authored: target_content == ""
     sent = _driven(monkeypatch, "```python\nVALUE = 1\n```")
 
@@ -619,11 +619,11 @@ def test_a_rejected_attempt_tells_the_next_one_what_failed(
     """
     from mcgyvr.config import parse as parse_config
     from mcgyvr.drive import worker_attempt
-    from mcgyvr.local_pool import Rung, source_map
+    from mcgyvr.ladder_map import Rung, unit_map
     from mcgyvr.route import Try, Verdict
 
     config = parse_config(LADDER)
-    pool = source_map(config)
+    pool = unit_map(config)
     contract = load_contract(MODEL_CONTRACT)
     # First reply misses the acceptance command; the second satisfies it.
     sent = _driven(
@@ -653,11 +653,11 @@ def test_the_retry_note_does_not_carry_the_acceptance_command(
     """
     from mcgyvr.config import parse as parse_config
     from mcgyvr.drive import worker_attempt
-    from mcgyvr.local_pool import Rung, source_map
+    from mcgyvr.ladder_map import Rung, unit_map
     from mcgyvr.route import Try
 
     config = parse_config(LADDER)
-    pool = source_map(config)
+    pool = unit_map(config)
     contract = load_contract(MODEL_CONTRACT)
     sent = _driven(
         monkeypatch, "```python\nOTHER = 1\n```", "```python\nVALUE = 1\n```"
@@ -679,11 +679,11 @@ def test_an_unreadable_reply_is_a_failed_attempt_not_an_exception(
     """A worker that answers in prose has failed an attempt, not broken the run."""
     from mcgyvr.config import parse as parse_config
     from mcgyvr.drive import worker_attempt
-    from mcgyvr.local_pool import Rung, source_map
+    from mcgyvr.ladder_map import Rung, unit_map
     from mcgyvr.route import Try, Verdict
 
     config = parse_config(LADDER)
-    pool = source_map(config)
+    pool = unit_map(config)
     contract = load_contract(MODEL_CONTRACT)
     _driven(monkeypatch, "Sure! I would start by looking at the file.")
 
@@ -710,10 +710,10 @@ def test_the_attempt_function_plugs_into_escalate(
     from mcgyvr.config import parse as parse_config
     from mcgyvr.drive import worker_attempt
     from mcgyvr.escalate import Delivered, escalate
-    from mcgyvr.local_pool import source_map
+    from mcgyvr.ladder_map import unit_map
 
     config = parse_config(LADDER)
-    pool = source_map(config)
+    pool = unit_map(config)
     contract = load_contract(MODEL_CONTRACT)
     _driven(
         monkeypatch,
@@ -882,12 +882,12 @@ def test_an_attempt_is_recorded_under_the_session_that_made_it(
     """
     from mcgyvr.config import parse as parse_config
     from mcgyvr.drive import Recording, worker_attempt
-    from mcgyvr.local_pool import Rung, source_map
+    from mcgyvr.ladder_map import Rung, unit_map
     from mcgyvr.route import Try
     from mcgyvr.telemetry import fold
 
     config = parse_config(LADDER)
-    pool = source_map(config)
+    pool = unit_map(config)
     contract = load_contract(MODEL_CONTRACT)
     _driven(monkeypatch, "```python\nVALUE = 1\n```")
     sink = tmp_path / "telemetry.jsonl"
@@ -923,12 +923,12 @@ def test_two_sessions_share_one_stream_and_stay_distinguishable(
     """
     from mcgyvr.config import parse as parse_config
     from mcgyvr.drive import Recording, worker_attempt
-    from mcgyvr.local_pool import Rung, source_map
+    from mcgyvr.ladder_map import Rung, unit_map
     from mcgyvr.route import Try
     from mcgyvr.telemetry import fold
 
     config = parse_config(LADDER)
-    pool = source_map(config)
+    pool = unit_map(config)
     contract = load_contract(MODEL_CONTRACT)
     _driven(monkeypatch, "```python\nVALUE = 1\n```", "```python\nVALUE = 1\n```")
     sink = tmp_path / "telemetry.jsonl"
@@ -996,11 +996,11 @@ def test_a_cooling_source_is_declined_without_a_dispatch(
     """
     from mcgyvr.config import parse as parse_config
     from mcgyvr.drive import worker_attempt
-    from mcgyvr.local_pool import Rung, source_map
+    from mcgyvr.ladder_map import Rung, unit_map
     from mcgyvr.route import Try, Verdict
 
     config = parse_config(LADDER)
-    pool = source_map(config)
+    pool = unit_map(config)
     contract = load_contract(MODEL_CONTRACT)
     sent = _driven(monkeypatch, "```python\nVALUE = 1\n```")
     cooldown = _cooldown()
@@ -1028,16 +1028,16 @@ def test_a_dispatch_failure_feeds_the_cooldown(
     from mcgyvr.config import parse as parse_config
     from mcgyvr.drive import worker_attempt
     from mcgyvr.escalate import DispatchRaisedError
-    from mcgyvr.local_pool import Rung, source_map
+    from mcgyvr.ladder_map import Rung, unit_map
     from mcgyvr.route import Try
     from mcgyvr.runner import RunnerError
 
     config = parse_config(LADDER)
-    pool = source_map(config)
+    pool = unit_map(config)
     contract = load_contract(MODEL_CONTRACT)
     cooldown = _cooldown()
 
-    def boom(source_map, rung, request, *, capacity=None):  # type: ignore[no-untyped-def]
+    def boom(unit_map, rung, request, *, capacity=None):  # type: ignore[no-untyped-def]
         raise RunnerError("the source answered and failed the generation")
 
     monkeypatch.setattr(drive, "dispatch", boom)

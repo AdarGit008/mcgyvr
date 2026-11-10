@@ -168,7 +168,11 @@ def is_credential_var(name: str) -> bool:
 
 
 def credential_env_names(env: Mapping[str, str]) -> frozenset[str]:
-    """The names in `env` that `is_credential_var` calls credentials."""
+    """The names in `env` that `is_credential_var` calls credentials.
+
+    Used by the security tests, which assert through it that no credential
+    reaches a checker; the product itself asks `is_credential_var` directly.
+    """
     return frozenset(name for name in env if is_credential_var(name))
 
 
@@ -944,10 +948,10 @@ def check_network(network: str) -> str:
 
 _WEAKER_MODE_NOTE = (
     "This is the explicitly weaker mode: a contract's acceptance commands run "
-    "without a shell, but each runs whatever program it names, on the host, "
-    "not inside a container. Credentials are still kept out and each task "
-    "still gets a throwaway git workspace, but process, network and resource "
-    "isolation are the host's."
+    "without a shell, but each runs whatever program it names, on this "
+    "machine, not inside a container. Credentials are still kept out and each "
+    "task still gets a throwaway git workspace, but process, network and "
+    "resource isolation are this machine's."
 )
 
 
@@ -1072,7 +1076,7 @@ def open_sandbox(
     if network != "bridge":
         raise SandboxError(
             f"`sandbox.network: {network}` asks for a task with no network, and "
-            f"this task would run in the temp-directory sandbox, on this host, "
+            f"this task would run in the temp-directory sandbox, on this machine, "
             f"where mcgyvr cannot take the network away. Run it in a container "
             f"(`sandbox.mode: docker`, with a daemon that answers), or set "
             f"`sandbox.network: bridge`."

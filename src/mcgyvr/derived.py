@@ -460,11 +460,6 @@ def lookup_all(
     return _resolve(asked, path)
 
 
-def lookup(number: str, key: str, *, path: Path | None = None) -> Number:
-    """Answer one ``number`` for one ``key``, refusing if no file states it."""
-    return _resolve([(number, key)], path)[(number, key)]
-
-
 def runtime_resident_gb(host: str | None = None, *, path: Path | None = None) -> float:
     """Host memory a llama.cpp server holds beyond the experts held in host memory.
 

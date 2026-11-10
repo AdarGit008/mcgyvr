@@ -34,7 +34,7 @@ def _fold() -> Any:
 
 
 def _completion(model: str) -> Any:
-    from mcgyvr.local_pool import Protocol
+    from mcgyvr.ladder_map import Protocol
     from mcgyvr.runner import Completion, StopReason
 
     return Completion(

@@ -17,8 +17,11 @@ Promises:
 * A record that leaves any of that out is refused by name when it is read:
   a bare number, a number with no source or no date, a date that is not a
   day, a source the layer does not name, a kind outside the closed list, a
-  key the record does not have, a score from a board the layer does not name
-  or under another metric than that board's.
+  key the record does not have.
+* A number the model card states about itself is an estimate, never a fact.
+* A version-2 document, whose records carried a ``scores`` list of
+  leaderboard figures nothing read, still loads with that list skipped; a
+  current one that carries it is refused.
 * What the cache writer files passes the same walk, so the cache cannot hold
   a number the catalog could not.
 
@@ -162,16 +165,6 @@ _INVENTED: dict[str, Any] = {
         "source": "gguf-header-range:invented-org/Invented-7B-GGUF@" + "0" * 40,
         "read_at": "2026-10-07",
     },
-    "scores": [
-        {
-            "board": "bfcl",
-            "metric": "overall_acc",
-            "value": 0.5,
-            "kind": "fact",
-            "source": "board:bfcl@2026-10-07",
-            "read_at": "2026-10-07",
-        }
-    ],
 }
 
 
@@ -221,9 +214,7 @@ def _broken(path: tuple[str | int, ...], value: Any) -> dict[str, Any]:
             },
             "params_b",
         ),
-        (("scores", 0, "board"), "a-board-nobody-names", "board"),
-        (("scores", 0, "metric"), "rating", "metric"),
-        (("scores", 0, "source"), ..., "source"),
+        (("scores",), [], "scores"),
         (("size_bytes", "kind"), "reading", "reading"),
     ],
 )
@@ -261,18 +252,45 @@ def test_a_reading_must_say_it_was_measured_and_a_measurement_must_be_a_reading(
         )
 
 
-def test_a_self_reported_score_is_an_estimate() -> None:
-    score = {**_INVENTED["scores"][0], "source": "model-card:invented-org/Invented-7B"}
+def test_a_self_reported_number_is_an_estimate() -> None:
+    stated = {
+        **_INVENTED["context_length"],
+        "source": "model-card:invented-org/Invented-7B",
+    }
     with pytest.raises(kr.KnowledgeError, match="estimate"):
         kr.parse_document(
-            _document(_broken(("scores", 0), score)), "invented", shipped=True
+            _document(_broken(("context_length",), stated)), "invented", shipped=True
         )
     (one,) = kr.parse_document(
-        _document(_broken(("scores", 0), {**score, "kind": "estimate"})),
+        _document(_broken(("context_length",), {**stated, "kind": "estimate"})),
         "invented",
         shipped=True,
     )
-    assert one.scores[0].value.kind == "estimate"
+    assert one.context_length.kind == "estimate"
+
+
+def test_a_version_two_document_loads_with_its_scores_skipped() -> None:
+    """A cache an older mcgyvr wrote carries `"scores": []` and still loads."""
+    older = {
+        "schema_version": 2,
+        "models": [{**_INVENTED, "scores": []}],
+    }
+    (one,) = kr.parse_document(older, "an older cache file", shipped=False)
+    assert one.size_bytes.value == _INVENTED["size_bytes"]["value"]
+    assert "scores" not in kr.dump_record(one)
+    with pytest.raises(kr.KnowledgeError, match="scores is not a list"):
+        kr.parse_document(
+            {**older, "models": [{**_INVENTED, "scores": "none"}]},
+            "an older cache file",
+            shipped=False,
+        )
+
+
+def test_a_version_the_reader_does_not_know_is_refused() -> None:
+    with pytest.raises(kr.KnowledgeError, match="schema_version 1"):
+        kr.parse_document(
+            {**_document(_INVENTED), "schema_version": 1}, "invented", shipped=True
+        )
 
 
 def test_what_the_cache_writer_files_says_its_source_and_date() -> None:

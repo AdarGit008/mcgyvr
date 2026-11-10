@@ -43,7 +43,7 @@ from functools import cache
 from pathlib import Path
 from typing import Protocol
 
-from mcgyvr import hubwire
+from mcgyvr import hubwire, redact
 from mcgyvr.rig import (
     commands,
     credentials,
@@ -1379,12 +1379,15 @@ class Sessions:
         """Answer a ``session_stop`` by asking the session's thread to stop.
 
         The session tears its containers down and says ``stopped``; a session that is
-        unknown or already ended is acked all the same.
+        unknown or already ended is acked all the same. The reason the hub gives, if
+        any, is said in the log, so the rig's log tells why a session was stopped.
         """
         asked = sessionwire.read_session_stop(envelope)
         with self._lock:
             found = self._sessions.get(asked.session_id)
             if found is not None and found.state in LIVE:
+                why = asked.reason or "no reason given"
+                self._log(f"session {found.id}: the hub stops it: {why}")
                 self._ask_stop(found)
         return sessionwire.ack(envelope.id)
 
@@ -2603,9 +2606,14 @@ class Sessions:
             if session.state not in LIVE:
                 return
             session.error_code = failure.code
-            session.log_excerpt = sessionwire.scrub(
-                f"{failure.message}\n{failure.excerpt}".strip()
+            # The excerpt goes to the other members of the session, so the real
+            # cleaners run first — host paths and credentials must not reach
+            # another user (redact.py's own rule) — and only then the wire's
+            # printable-and-capped shaping.
+            cleaned = redact.scrub_paths(
+                redact.scrub(f"{failure.message}\n{failure.excerpt}".strip())
             )
+            session.log_excerpt = sessionwire.printable_tail(cleaned)
             session.state = "failed"
         self._teardown(session)
         self._say(self._status(session, None))

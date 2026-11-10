@@ -19,7 +19,7 @@ import pytest
 
 from mcgyvr.cli import main
 from mcgyvr.drive.record import run_of
-from mcgyvr.local_pool import Protocol
+from mcgyvr.ladder_map import Protocol
 from mcgyvr.runner import Completion, StopReason
 from mcgyvr.telemetry import (
     TELEMETRY_VERSION,

@@ -1,7 +1,7 @@
 """The setup composed from measured facts, with the choice of one left to a model.
 
 A candidate is a whole setup both config files can be rendered from: the data
-`initialize.build` writes from a `Detection`, a `Proposal` and the declared
+`initialize.build` writes from a `Detection`, a `LadderProposal` and the declared
 `ApiUnit`s. `candidate_setups` assembles every candidate the facts allow, and
 `recommend` asks one typed `Choice` question naming them, so what the model
 picks is which setup is written — never a number inside one, since each
@@ -22,8 +22,8 @@ from typing import TYPE_CHECKING, Any
 from mcgyvr.config import MCGYVR_CODE
 from mcgyvr.decision import Choice, ChoiceAnswer, Decision, classify
 from mcgyvr.detect import Backend, Detection
-from mcgyvr.local_pool import Endpoint, Protocol
-from mcgyvr.propose import Proposal
+from mcgyvr.ladder_map import Endpoint, Protocol
+from mcgyvr.ladder_proposal import LadderProposal
 
 if TYPE_CHECKING:
     from mcgyvr.initialize import ApiUnit
@@ -84,7 +84,7 @@ def endpoint_for_backend(backend: Backend) -> Endpoint:
 
 def candidate_setups(
     detection: Detection,
-    proposal: Proposal,
+    proposal: LadderProposal,
     *,
     api_units: Sequence[ApiUnit] = (),
     use_case: str = MCGYVR_CODE,
@@ -130,7 +130,7 @@ def candidate_setups(
             SetupCandidate(
                 name="hosted",
                 description=HOSTED_DESCRIPTION,
-                data=build(detection, Proposal(), api_units=api_units, **asked),
+                data=build(detection, LadderProposal(), api_units=api_units, **asked),
             )
         )
     return tuple(candidates)
@@ -138,7 +138,7 @@ def candidate_setups(
 
 def decision_state(
     detection: Detection,
-    proposal: Proposal,
+    proposal: LadderProposal,
     priority: str,
     *,
     api_units: Sequence[ApiUnit] = (),
@@ -174,7 +174,7 @@ def recommend(
     endpoint: Endpoint,
     model: str,
     detection: Detection,
-    proposal: Proposal,
+    proposal: LadderProposal,
     priority: str,
     *,
     api_units: Sequence[ApiUnit] = (),

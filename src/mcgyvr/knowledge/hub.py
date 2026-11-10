@@ -60,6 +60,7 @@ from __future__ import annotations
 
 import http.client
 import json
+import math
 import os
 import re
 import tempfile
@@ -118,9 +119,9 @@ TOOL_TAGS = frozenset({"tool-use", "tool-call", "tool-calling", "function-callin
 _UNSEEN_TEMPLATE = "tools"
 #: The engines a GGUF record is served by.
 ENGINES: tuple[str, ...] = ("llama.cpp",)
-#: The bytes one cached element takes at an f16 cache, the width a record's
-#: `kv_bytes_per_token` is stated at, as the shipped catalog states it.
-F16_BYTES = 2
+#: The cache type a record's `kv_bytes_per_token` is stated at, as the shipped
+#: catalog states it: f16, `vramfit.CACHE_ELEM_BYTES` bytes an element.
+CATALOG_CACHE_TYPE = "f16"
 
 #: Seconds one request waits for an answer before the network is taken as gone.
 TIMEOUT_S = 20.0
@@ -460,15 +461,19 @@ def read_header(
 
 def _kv_bytes_per_token(row: Mapping[str, Any]) -> int:
     """The bytes one token of context takes over every caching layer of a header
-    row at an f16 cache (`F16_BYTES` an element), 0 when the row states none."""
-    total = 0
-    for layer in row.get("kv_layers") or ():
-        k = layer.get("k_elems") if isinstance(layer, dict) else None
-        v = layer.get("v_elems") if isinstance(layer, dict) else None
-        if type(k) is not int or type(v) is not int:
-            return 0
-        total += (k + v) * F16_BYTES
-    return total
+    row at the catalog's cache type (`CATALOG_CACHE_TYPE`), every layer charged
+    as a full-context one (`vramfit.cache_bytes_per_token`), 0 when the row
+    states none."""
+    layers = row.get("kv_layers") or ()
+    if not all(isinstance(layer, dict) for layer in layers):
+        return 0
+    try:
+        per_token = vramfit.cache_bytes_per_token(
+            layers, cache_type_k=CATALOG_CACHE_TYPE, cache_type_v=CATALOG_CACHE_TYPE
+        )
+    except ValueError:
+        return 0
+    return math.ceil(per_token)
 
 
 def build_record(
@@ -510,7 +515,6 @@ def build_record(
         context_length=Number(n_ctx, "fact", header, today),
         kv_bytes_per_token=Number(kv, "fact", header, today),
         recurrent_bytes_per_slot=Number(recurrent, "fact", header, today),
-        scores=(),
         use_cases=tuple(use_cases),
         downloads=Number(one.downloads, "fact", f"hub-search:{searched}", today),
         likes=Number(one.likes, "fact", f"hub-search:{searched}", today),

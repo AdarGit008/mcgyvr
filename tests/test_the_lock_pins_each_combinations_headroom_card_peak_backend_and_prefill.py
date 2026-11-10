@@ -7,7 +7,7 @@
   its card, so the fit uses that reading and nothing pooled.
 * **A llama.cpp unit is locked on its measured card peak.** Its room must hold
   the highest reading across the load and the requests, and the 2.0 GB guessed
-  for a model with no geometry (``mcgyvr.propose.DEFAULT_HEADROOM_GB``) never
+  for a model with no geometry (``mcgyvr.ladder_proposal.DEFAULT_HEADROOM_GB``) never
   stands in for that reading.
 * **A vLLM unit pins its attention backend** (``--attention-backend``, which
   v0.26.0 resolves), and the lock

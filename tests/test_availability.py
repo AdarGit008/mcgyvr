@@ -35,7 +35,7 @@ from mcgyvr.availability import (
     probe_endpoint,
 )
 from mcgyvr.config import parse
-from mcgyvr.local_pool import Endpoint, Protocol, SourceUnavailableError, source_map
+from mcgyvr.ladder_map import Endpoint, Protocol, UnitUnavailableError, unit_map
 
 TWO_SOURCES = """\
 units:
@@ -122,7 +122,7 @@ def dead(_endpoint: Endpoint, _timeout: float) -> AvailabilityVerdict:
     return AvailabilityVerdict(
         _endpoint.source,
         False,
-        f"source {_endpoint.source!r} did not answer",
+        f"unit {_endpoint.source!r} did not answer",
         "stub: dead",
         0.0,
     )
@@ -333,7 +333,7 @@ def test_a_hosted_provider_refusing_the_key_is_down_and_names_the_variable(
 ) -> None:
     """401 is the hosted-provider case: answering, and useless to every rung.
 
-    Distinct from the fault ``source_map`` already catches structurally — there
+    Distinct from the fault ``unit_map`` already catches structurally — there
     the variable is *unset*, here it is set and rejected, which no amount of
     retrying improves.
     """
@@ -416,7 +416,7 @@ def test_a_probe_is_a_listing_not_a_generation(monkeypatch: pytest.MonkeyPatch) 
 
 
 class Stub:
-    """A SourceProbe backed by a set of dead source names."""
+    """A UnitProbe backed by a set of dead source names."""
 
     def __init__(self, *down: str) -> None:
         self.down = set(down)
@@ -425,7 +425,7 @@ class Stub:
     def unavailable(self, endpoints: Sequence[Endpoint]) -> Mapping[str, str]:
         self.asked = [e.source for e in endpoints]
         return {
-            e.source: f"source {e.source!r} did not answer"
+            e.source: f"unit {e.source!r} did not answer"
             for e in endpoints
             if e.source in self.down
         }
@@ -433,14 +433,14 @@ class Stub:
 
 def test_without_a_probe_nothing_touches_the_network() -> None:
     """Resolving a ladder must stay free; the probe is opt-in."""
-    pool = source_map(parse(TWO_SOURCES))
+    pool = unit_map(parse(TWO_SOURCES))
 
     assert len(pool) == 3
     assert pool.skipped == ()
 
 
 def test_an_unreachable_source_takes_its_rungs_with_it() -> None:
-    pool = source_map(parse(TWO_SOURCES), probe=Stub("local_small", "local_large"))
+    pool = unit_map(parse(TWO_SOURCES), probe=Stub("local_small", "local_large"))
 
     assert [r.name for r in pool.rungs] == ["remote_large"]
     assert [s.name for s in pool.skipped] == ["local_small", "local_large"]
@@ -449,22 +449,22 @@ def test_an_unreachable_source_takes_its_rungs_with_it() -> None:
 
 def test_the_ladder_keeps_declared_order_when_it_shortens() -> None:
     """Cheapest-first is the ladder's meaning; shortening must not reorder it."""
-    pool = source_map(parse(TWO_SOURCES), probe=Stub("remote_large"))
+    pool = unit_map(parse(TWO_SOURCES), probe=Stub("remote_large"))
 
     assert [r.name for r in pool.rungs] == ["local_small", "local_large"]
 
 
 def test_binding_a_dropped_rung_names_the_reason() -> None:
     """The reason has to survive out of the seam, not just into a report."""
-    pool = source_map(parse(TWO_SOURCES), probe=Stub("local_small", "local_large"))
+    pool = unit_map(parse(TWO_SOURCES), probe=Stub("local_small", "local_large"))
 
-    with pytest.raises(SourceUnavailableError, match="did not answer"):
+    with pytest.raises(UnitUnavailableError, match="did not answer"):
         pool.bind("local_small")
 
 
 def test_all_sources_down_is_an_empty_ladder_that_says_why() -> None:
     """A named failure, not an exception and not a hang."""
-    pool = source_map(
+    pool = unit_map(
         parse(TWO_SOURCES), probe=Stub("local_small", "local_large", "remote_large")
     )
 
@@ -480,7 +480,7 @@ def test_a_structurally_skipped_source_is_never_probed(
     monkeypatch.delenv("MCGYVR_AVAIL_TEST_KEY", raising=False)
     stub = Stub()
 
-    pool = source_map(parse(MIXED_CAUSES), probe=stub)
+    pool = unit_map(parse(MIXED_CAUSES), probe=stub)
 
     assert stub.asked == ["first", "third"]
     assert [s.name for s in pool.skipped] == ["second"]
@@ -494,7 +494,7 @@ def test_skipped_keeps_ladder_order_across_both_causes(
     two blocks — the order a reader is entitled to expect."""
     monkeypatch.delenv("MCGYVR_AVAIL_TEST_KEY", raising=False)
 
-    pool = source_map(parse(MIXED_CAUSES), probe=Stub("first", "third"))
+    pool = unit_map(parse(MIXED_CAUSES), probe=Stub("first", "third"))
 
     assert [s.name for s in pool.skipped] == ["first", "second", "third"]
     # And the two causes stay distinguishable in the words, not just the order.
@@ -503,9 +503,9 @@ def test_skipped_keeps_ladder_order_across_both_causes(
 
 
 def test_a_role_on_a_dead_source_is_reported_not_silently_dropped() -> None:
-    pool = source_map(parse(WITH_VERIFIER), probe=Stub("spare"))
+    pool = unit_map(parse(WITH_VERIFIER), probe=Stub("spare"))
 
-    with pytest.raises(SourceUnavailableError, match="did not answer"):
+    with pytest.raises(UnitUnavailableError, match="did not answer"):
         pool.role("verifier")
 
 
@@ -514,7 +514,7 @@ def test_a_role_is_probed_alongside_the_ladder_in_one_batch() -> None:
     counting = Counting(verdict=live)
     availability = Availability(probe=counting)
 
-    source_map(parse(WITH_VERIFIER), probe=availability)
+    unit_map(parse(WITH_VERIFIER), probe=availability)
 
     assert sorted(counting.calls) == ["local_small", "spare"]
 
@@ -524,6 +524,6 @@ def test_the_probe_runs_once_for_the_whole_map() -> None:
     counting = Counting()
     availability = Availability(probe=counting)
 
-    source_map(parse(TWO_SOURCES), probe=availability)
+    unit_map(parse(TWO_SOURCES), probe=availability)
 
     assert sorted(counting.calls) == ["local_large", "local_small", "remote_large"]

@@ -30,7 +30,7 @@ import pytest
 
 from mcgyvr.config import parse as parse_config
 from mcgyvr.contract import loads as load_contract
-from mcgyvr.local_pool import source_map
+from mcgyvr.ladder_map import unit_map
 from tests.rungs import caps_sent
 
 #: Two units on an invented rig: the cheap one serves a 2048-token window, the
@@ -84,13 +84,13 @@ def repo(tmp_path: Path) -> Path:
 def _sent(monkeypatch: pytest.MonkeyPatch) -> list[str]:
     """Record every rung a request reaches; answer with a valid file."""
     from mcgyvr import drive
-    from mcgyvr.local_pool import Protocol
+    from mcgyvr.ladder_map import Protocol
     from mcgyvr.runner import Completion, StopReason
 
     seen: list[str] = []
 
     def fake_dispatch(
-        source_map: Any, rung: str, request: Any, *, capacity: Any = None
+        unit_map: Any, rung: str, request: Any, *, capacity: Any = None
     ) -> Completion:
         seen.append(rung)
         return Completion(
@@ -118,7 +118,7 @@ def test_a_contract_whose_ceiling_exceeds_the_rungs_window_is_not_sent(
     from mcgyvr.worker.prompt import build_prompt
 
     sent = _sent(monkeypatch)
-    pool = source_map(parse_config(LADDER))
+    pool = unit_map(parse_config(LADDER))
     contract = load_contract(CONTRACT)
     assert contract.max_input_tokens == 4096
 
@@ -146,7 +146,7 @@ def test_a_prompt_that_fills_most_of_the_window_is_sent_the_room_it_leaves(
     from mcgyvr.worker.prompt import build_prompt
 
     seen = caps_sent(monkeypatch)
-    pool = source_map(parse_config(LADDER))
+    pool = unit_map(parse_config(LADDER))
     contract = load_contract(
         CONTRACT
         + "context:\n  max_input_tokens: 2048\n"
@@ -169,7 +169,7 @@ def test_the_same_contract_is_sent_to_a_rung_that_serves_its_size(
     from mcgyvr.worker.prompt import build_prompt
 
     sent = _sent(monkeypatch)
-    pool = source_map(parse_config(LADDER))
+    pool = unit_map(parse_config(LADDER))
     contract = load_contract(CONTRACT)
 
     dispatch_prompt(pool, "local_wide", build_prompt(contract), contract)
@@ -186,7 +186,7 @@ def test_a_contract_cap_larger_than_the_window_is_not_what_is_sent(
     from mcgyvr.worker.prompt import build_prompt
 
     seen = caps_sent(monkeypatch)
-    pool = source_map(parse_config(LADDER))
+    pool = unit_map(parse_config(LADDER))
     contract = load_contract(
         CONTRACT.replace("max_output_tokens: 256", "max_output_tokens: 4096")
         + "context:\n  max_input_tokens: 2048\n"
@@ -211,7 +211,7 @@ def test_a_run_fails_on_the_rung_it_was_sent_to_and_does_not_climb(
 
     sent = _sent(monkeypatch)
     config = parse_config(LADDER)
-    pool = source_map(config)
+    pool = unit_map(config)
     contract = load_contract(CONTRACT)
     journal = tmp_path / "journal" / "orch.jsonl"
     journal.parent.mkdir()

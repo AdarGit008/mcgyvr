@@ -36,7 +36,7 @@ import yaml
 
 from mcgyvr.capacity import Capacity, SlotUnavailableError
 from mcgyvr.config import parse
-from mcgyvr.local_pool import source_map
+from mcgyvr.ladder_map import unit_map
 from mcgyvr.runner import (
     BackendError,
     ReliefUnavailableError,
@@ -103,7 +103,7 @@ def ask(address: str, rung: str, tmp_path: Path) -> tuple[Capacity, Any]:
     capacity = Capacity.of(config, root=tmp_path / "slots")
     request = Request(prompt="hello", max_output_tokens=8)
     try:
-        return capacity, dispatch(source_map(config), rung, request, capacity=capacity)
+        return capacity, dispatch(unit_map(config), rung, request, capacity=capacity)
     except Exception as exc:
         return capacity, exc
 

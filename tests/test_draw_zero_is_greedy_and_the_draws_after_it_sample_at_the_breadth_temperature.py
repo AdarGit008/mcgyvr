@@ -29,7 +29,7 @@ from mcgyvr.config import (
 )
 from mcgyvr.contract import loads as load_contract
 from mcgyvr.drive import dispatch_prompt, worker_attempt
-from mcgyvr.local_pool import Rung, source_map
+from mcgyvr.ladder_map import Rung, unit_map
 from mcgyvr.route import Try
 from mcgyvr.sandbox.tempdir import TempDirSandbox
 from mcgyvr.worker.prompt import build_prompt
@@ -42,7 +42,7 @@ def _temperatures_sent(monkeypatch: pytest.MonkeyPatch) -> list[float]:
     """Every dispatch's temperature, in the order the dispatches were made."""
     sent: list[float] = []
 
-    def fake_dispatch(source_map: Any, rung: str, request: Any, **_: Any) -> Any:
+    def fake_dispatch(unit_map: Any, rung: str, request: Any, **_: Any) -> Any:
         sent.append(request.temperature)
         return lj.completion(lj.BAD_REPLY, request)
 
@@ -55,7 +55,7 @@ def _drive(tmp_path: Path, policy: str) -> Any:
     config = parse(lj.LADDER + policy)
     contract = load_contract(lj.MODEL_CONTRACT)
     with TempDirSandbox(repo) as sandbox:
-        attempt = worker_attempt(config, source_map(config), contract, sandbox)
+        attempt = worker_attempt(config, unit_map(config), contract, sandbox)
         return attempt(Try(rung=RUNG, attempt=1, of=1))
 
 
@@ -108,7 +108,7 @@ def test_a_config_that_names_no_breadth_temperature_samples_at_the_schema_defaul
     assert config.get("breadth.temperature") is None
     contract = load_contract(lj.MODEL_CONTRACT)
     with TempDirSandbox(repo) as sandbox:
-        attempt = worker_attempt(config, source_map(config), contract, sandbox)
+        attempt = worker_attempt(config, unit_map(config), contract, sandbox)
         judgement = attempt(Try(rung=RUNG, attempt=1, of=1))
 
     assert judgement.draws == 3
@@ -132,12 +132,12 @@ def test_dispatch_prompt_puts_the_temperature_it_is_handed_on_the_request(
 ) -> None:
     sent: list[Any] = []
 
-    def fake_dispatch(source_map: Any, rung: str, request: Any, **_: Any) -> Any:
+    def fake_dispatch(unit_map: Any, rung: str, request: Any, **_: Any) -> Any:
         sent.append(request)
         return lj.completion(lj.BAD_REPLY, request)
 
     lj.patch_dispatch(monkeypatch, fake_dispatch)
-    pool = source_map(parse(lj.LADDER))
+    pool = unit_map(parse(lj.LADDER))
     contract = load_contract(lj.MODEL_CONTRACT)
     prompt = build_prompt(contract)
 

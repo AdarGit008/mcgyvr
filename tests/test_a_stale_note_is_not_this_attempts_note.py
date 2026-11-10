@@ -42,7 +42,7 @@ import pytest
 from mcgyvr.config import parse as parse_config
 from mcgyvr.contract import loads as load_contract
 from mcgyvr.drive import worker_attempt
-from mcgyvr.local_pool import Rung, source_map
+from mcgyvr.ladder_map import Rung, unit_map
 from mcgyvr.route import Try, Verdict
 from mcgyvr.sandbox.tempdir import TempDirSandbox
 
@@ -135,7 +135,7 @@ def repo(tmp_path: Path) -> Path:
 
 
 def _completion(text: str):  # type: ignore[no-untyped-def]
-    from mcgyvr.local_pool import Protocol
+    from mcgyvr.ladder_map import Protocol
     from mcgyvr.runner import Completion, StopReason
 
     return Completion(
@@ -162,7 +162,7 @@ def _driven(monkeypatch: pytest.MonkeyPatch, *replies: str) -> list[str]:
     sent: list[str] = []
     scripted = list(replies)
 
-    def fake_dispatch(source_map, rung, request, *, capacity=None):  # type: ignore[no-untyped-def]
+    def fake_dispatch(unit_map, rung, request, *, capacity=None):  # type: ignore[no-untyped-def]
         sent.append(request.prompt)
         if not scripted:
             raise AssertionError(f"an unscripted dispatch was made to {rung!r}")
@@ -175,7 +175,7 @@ def _driven(monkeypatch: pytest.MonkeyPatch, *replies: str) -> list[str]:
 def _attempts(repo: Path, count: int, **kwargs: object):  # type: ignore[no-untyped-def]
     """Run ``count`` attempts on one rung, the way ``climb`` would."""
     config = parse_config(LADDER)
-    pool = source_map(config)
+    pool = unit_map(config)
     contract = load_contract(CONTRACT)
     rung = Rung(name="local_qwen-7b", model="m")
     with TempDirSandbox(repo) as sandbox:
@@ -188,7 +188,7 @@ def _attempts(repo: Path, count: int, **kwargs: object):  # type: ignore[no-unty
 def _attempts_under(mode: str, repo: Path, count: int, **kwargs: object):  # type: ignore[no-untyped-def]
     """``_attempts`` with ``retry_notes`` set to ``mode``."""
     config = parse_config(LADDER + f"retry_notes: {mode}\n")
-    pool = source_map(config)
+    pool = unit_map(config)
     contract = load_contract(CONTRACT)
     rung = Rung(name="local_qwen-7b", model="m")
     with TempDirSandbox(repo) as sandbox:

@@ -17,7 +17,7 @@ from mcgyvr.escalate import (
     Halted,
     escalate,
 )
-from mcgyvr.local_pool import SourceMap, source_map
+from mcgyvr.ladder_map import UnitMap, unit_map
 from mcgyvr.sandbox.tempdir import TempDirSandbox
 
 _IDENTITY = {
@@ -60,7 +60,7 @@ ladder:
 
 
 def _completion(text: str):  # type: ignore[no-untyped-def]
-    from mcgyvr.local_pool import Protocol
+    from mcgyvr.ladder_map import Protocol
     from mcgyvr.runner import Completion, StopReason
 
     return Completion(
@@ -82,7 +82,7 @@ def _driven(monkeypatch: pytest.MonkeyPatch, *replies: str):  # type: ignore[no-
     sent: list[str] = []
     scripted = list(replies)
 
-    def fake_dispatch(source_map, rung, request, *, capacity=None):  # type: ignore[no-untyped-def]
+    def fake_dispatch(unit_map, rung, request, *, capacity=None):  # type: ignore[no-untyped-def]
         sent.append(request.prompt)
         if not scripted:
             raise AssertionError(f"an unscripted dispatch was made to {rung!r}")
@@ -120,9 +120,9 @@ limits:
 """
 
 
-def mapped(text: str) -> tuple[Config, SourceMap]:
+def mapped(text: str) -> tuple[Config, UnitMap]:
     config = parse(text)
-    return config, source_map(config)
+    return config, unit_map(config)
 
 
 def contract(text: str = CONTRACT) -> Contract:
@@ -230,13 +230,13 @@ def a_git_repo(tmp_path: Path) -> Path:
 def _sent(monkeypatch: pytest.MonkeyPatch) -> list[str]:
     """Record every rung a request reaches; answer with a valid file."""
     from mcgyvr import drive
-    from mcgyvr.local_pool import Protocol
+    from mcgyvr.ladder_map import Protocol
     from mcgyvr.runner import Completion, StopReason
 
     seen: list[str] = []
 
     def fake_dispatch(
-        source_map: Any, rung: str, request: Any, *, capacity: Any = None
+        unit_map: Any, rung: str, request: Any, *, capacity: Any = None
     ) -> Completion:
         seen.append(rung)
         return Completion(
@@ -280,7 +280,7 @@ def _run(
     waker = _Waker()
     monkeypatch.setattr(drive, "wake_for_config", lambda config: waker)
     config = parse_config(SHARE_LADDER + policy)
-    pool = source_map(config)
+    pool = unit_map(config)
     contract = load_contract(contract_text)
     journal = tmp_path / "journal" / "orch.jsonl"
     journal.parent.mkdir()

@@ -23,7 +23,7 @@ import hashlib
 from pathlib import Path
 from typing import TYPE_CHECKING, Any, cast
 
-from mcgyvr.local_pool import Protocol
+from mcgyvr.ladder_map import Protocol
 from mcgyvr.redact import REDACTED
 from mcgyvr.runner import Completion, StopReason
 from mcgyvr.telemetry import fold, observe
@@ -133,3 +133,27 @@ def test_a_credential_in_the_prompt_never_reaches_the_blob(tmp_path: Path) -> No
     line = sink.read_text(encoding="utf-8")
     assert secret not in line
     assert USER not in line
+
+
+def test_a_bare_token_a_model_echoed_into_the_reply_never_reaches_the_blob(
+    tmp_path: Path,
+) -> None:
+    """A key or ``Bearer`` token in the reply is scrubbed by shape, not only in a URL.
+
+    ``redact.scrub`` carries the shared provider token shapes and a Bearer shape,
+    so a model that quotes ``sk-...`` or an ``Authorization`` header back into its
+    answer leaves none of it in the content-addressed reply blob.
+    """
+    sink = tmp_path / "journal" / "agent-a.jsonl"
+    key = "sk-live-" + "A1b2C3d4E5f6G7h8"
+    header = "Bearer " + "ey.JhbGci.OiJFUzI1NiJ9"
+    reply = f"```sh\ncurl -H 'Authorization: {header}' with {key}\n```"
+    _record(sink, "agent-a:impl:local_qwen-7b:1", reply=reply)
+
+    (row,) = fold(path=sink)
+    blob = (sink.parent / "blobs" / row["reply_sha256"]).read_text(encoding="utf-8")
+    assert key not in blob, "the key reached the reply blob"
+    assert "ey.JhbGci.OiJFUzI1NiJ9" not in blob, "the Bearer token reached the blob"
+    assert REDACTED in blob, "the token was dropped rather than redacted"
+    # Bearer keeps its word, so the header still reads as one.
+    assert "Bearer <redacted>" in blob

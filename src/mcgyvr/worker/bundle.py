@@ -7,6 +7,11 @@ gate adapter that owns it. Any other use case, and any unregistered or unowned
 target, gets `None`, because another language's standards are worse than no
 system prompt at all.
 
+A bundle's first output rule asks for code in the language's fence, which is
+the whole-file reply; a contract asking for a `unified_diff` is sent the bundle
+with that one rule saying diff instead (`for_reply`), so the system prompt and
+the user message ask for the same shape.
+
 Nothing here runs a sweep — it only carries what a sweep said. `BundleStanding`
 keeps never-swept, swept-and-flat and swept-and-redundant-with-this-harness
 apart, and `load_bundle` refuses an artifact over `MAX_BUNDLE_BYTES` rather than
@@ -15,11 +20,13 @@ sending it.
 
 from __future__ import annotations
 
+import re
 from collections.abc import Sequence
 from dataclasses import dataclass
 from enum import StrEnum
 from importlib import resources
 
+from mcgyvr.contract import UNIFIED_DIFF, WHOLE_FILE
 from mcgyvr.gate.adapter import LanguageAdapter
 from mcgyvr.gate.adapters import JavaScriptAdapter, PythonAdapter
 
@@ -171,19 +178,59 @@ def load_bundle(key: str) -> Bundle:
     )
 
 
+#: The output rule a language bundle states for a whole-file reply: its first
+#: rule, naming the language's fence, or its fences joined by "or" (js/ts names
+#: ```js and ```ts). A bundle stays as measured for that reply.
+_WHOLE_FILE_RULE = re.compile(
+    r"(?m)^- Return ONLY code, in a single ```\S+(?: or ```\S+)* fenced block\.$"
+)
+
+#: The same rule for a `unified_diff` reply, so the system prompt does not tell
+#: the worker to return code while the user message asks for a diff.
+#: Kept short so every shipped bundle, swapped, stays under the measured ceiling
+#: (js/ts is closest); the user message's OUTPUT rule names the target.
+DIFF_RULE = "- Return ONLY a unified diff, in a single ```diff fenced block."
+
+
+def for_reply(bundle: Bundle, output_schema: str) -> Bundle:
+    """`bundle` as it is sent for a reply in `output_schema`.
+
+    A whole-file reply gets the bundle unchanged, byte for byte. A diff reply
+    gets its whole-file output rule replaced by :data:`DIFF_RULE`, the size
+    re-measured against the ceiling, and the standing `UNMEASURED`: what a sweep
+    found was found for the text it swept, and this text is not that one.
+    """
+    if output_schema != UNIFIED_DIFF:
+        return bundle
+    text, swapped = _WHOLE_FILE_RULE.subn(DIFF_RULE, bundle.text, count=1)
+    if not swapped:
+        return bundle
+    size = len(text.encode("utf-8"))
+    if size > MAX_BUNDLE_BYTES:
+        raise BundleTooLargeError(bundle.key, size)
+    return Bundle(
+        key=bundle.key,
+        text=text,
+        size_bytes=size,
+        standing=BundleStanding.UNMEASURED,
+    )
+
+
 def bundle_for(
     use_case: str,
     target: str = "",
     adapters: Sequence[LanguageAdapter] | None = None,
+    output_schema: str = WHOLE_FILE,
 ) -> Bundle | None:
     """The bundle for a contract's use case, or `None` when it should get none.
 
     Only `mcgyvr-code` carries one: the adapter that owns `target` names the
     language, and no owning adapter — or one whose name has no registered
     bundle — yields `None`. `adapters` defaults to the Python and JavaScript
-    adapters and exists so a caller can restrict the languages in play."""
+    adapters and exists so a caller can restrict the languages in play. The
+    bundle's output rule follows `output_schema` (:func:`for_reply`)."""
     if use_case == MCGYVR_CODE:
         for adapter in adapters if adapters is not None else _DEFAULT_ADAPTERS:
             if adapter.owns(target) and adapter.name in _LANGUAGE_BUNDLES:
-                return load_bundle(adapter.name)
+                return for_reply(load_bundle(adapter.name), output_schema)
     return None

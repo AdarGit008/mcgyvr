@@ -26,7 +26,7 @@ from mcgyvr import wake_judge
 from mcgyvr.config import Config, parse
 from mcgyvr.delegate import ClassifierProposer, classifier_proposer_for
 from mcgyvr.gate.jev import jev_check_for
-from mcgyvr.local_pool import SourceMap, source_map
+from mcgyvr.ladder_map import UnitMap, unit_map
 from mcgyvr.verify import Reviewer, decider_for, reviewers_for
 
 SMALL = ("http://localhost:18001/v1/chat/completions", "example-coder:3b")
@@ -89,9 +89,9 @@ def _wire(monkeypatch: pytest.MonkeyPatch) -> list[tuple[str, str]]:
     return sent
 
 
-def _loaded(text: str) -> tuple[Config, SourceMap]:
+def _loaded(text: str) -> tuple[Config, UnitMap]:
     config = parse(text)
-    return config, source_map(config)
+    return config, unit_map(config)
 
 
 @NO_JEV

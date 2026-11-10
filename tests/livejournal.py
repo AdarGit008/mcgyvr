@@ -144,7 +144,7 @@ def pi_transcript(home: Path, session_id: str) -> Path:
 
 def completion(text: str, request: Any) -> Any:
     """The reply a stubbed dispatch hands back, shaped as the runner's own."""
-    from mcgyvr.local_pool import Protocol
+    from mcgyvr.ladder_map import Protocol
     from mcgyvr.runner import Completion, StopReason
 
     return Completion(
@@ -213,7 +213,7 @@ def scripted(monkeypatch: pytest.MonkeyPatch, *replies: str) -> list[str]:
     sent: list[str] = []
     queue = list(replies)
 
-    def fake_dispatch(source_map: Any, rung: str, request: Any, **_: Any) -> Any:
+    def fake_dispatch(unit_map: Any, rung: str, request: Any, **_: Any) -> Any:
         if not queue:
             raise AssertionError(f"an unscripted dispatch was made to {rung!r}")
         sent.append(request.prompt)

@@ -7,7 +7,7 @@ this is how `fleet.yaml` and `policy.yaml` come to exist and what they can say.
 
 ```
 mcgyvr setup
-mcgyvr local_pool
+mcgyvr ladder show
 ```
 
 `mcgyvr setup` reads each rig once and stages a setup bound to what it
@@ -37,6 +37,15 @@ for `code` and `chat`, one word from each unit) and
 a Jev unit's one typed choice. A green sample is stamped, and on
 `Lock the fleet and name it live? [y/n]` it is locked, promoted and
 named live. A red sample is never locked; its reasons are printed.
+
+The sample also edits the staged `fleet.yaml`: each unit on a rig
+that names no `output_tokens` is given one, the warm decode its reads
+measured times its `request_timeout_s`, clipped to its `window`, so a
+reply is capped at what the unit can finish inside its timeout: the
+lock refuses a measured unit that states none, or whose reply cannot
+finish inside its timeout at the measured speed. A unit that names its own
+`output_tokens`, or whose reads measured no decode, is left as it is;
+the file is rewritten only when some unit changed.
 
 When the interactive setup finishes, it offers to put `~/.local/bin`,
 where `uv tool install` puts `mcgyvr`, on PATH, once you say yes. A
@@ -89,9 +98,6 @@ What the config is for comes in with these, all optional:
   `chat` and `hybrid` otherwise.
 - `--priority` — compose the ladder for `throughput`, `quality` or
   `cost` instead of the default ladder.
-- `--profile` — deprecated, removed in the release after next: use
-  `--priority`. A word naming a priority maps onto it, other text is
-  ignored, and either way it warns.
 - `--jev UNIT` — dedicate VRAM to a Jev unit, the written unit every
   typed decision asks; it is never slept or woken.
 
@@ -109,13 +115,19 @@ that profile, from `--model-store DIR` when a checkpoint there fits,
 otherwise from the use case's candidates on the Hugging Face Hub
 (ranked by downloads; the cache of an earlier read, then the shipped
 model catalog, when the Hub cannot be asked), says which answered,
-and names the host it goes on. `chat` and `agent` plan one unit: the
+and names the rig it goes on. `chat` and `agent` plan one unit: the
 biggest model that fits, at the most context that fits and at least
 8192 per user. The placement says how fast its model decodes: the
 speed the live fleet measured for it there (a `reading`), else an
 `estimate` from the memory bandwidth of the card's class, else why
 there is none. It wakes and sleeps nothing, and writes nothing but
 that cache.
+
+`mcgyvr emit` sizes each unit from those rig files and refuses one whose
+weights need more disk than the rig file read free (`needs N GB of
+disk, M GB free at PATH`); a unit split across cards is held to the
+free disk of the machine its address points at. A rig file with no
+disk reading skips the check.
 
 A setup is two files in one directory, and `mcgyvr setup` writes both
 (staged under the data folder, as above):
@@ -165,14 +177,14 @@ Who may use a rig is one of `own`, `crew`, `anyone`: a unit's `scope` and the se
 
 Under `own` a rig lends to nobody, whatever its mode. A rig whose audience reaches strangers serves someone who is neither you nor a crewmate only once a hub admin has approved you as a host. The hub's old sharing modes are refused with these: `solo` is `own` + `lend`; `crew` is `crew` + `lend`; `pool` is `anyone` + `lend`; `hitchhike` is `anyone` + `hitchhike`.
 
-`mcgyvr local_pool` reads that config back: the usable rungs cheapest-first with
+`mcgyvr ladder show` reads that config back: the usable rungs cheapest-first with
 their family, attempt budget and model; the escalation ceiling and where it
 came from; every skipped rung with the reason it was skipped; and the
 orchestrator and verifier models. `--probe` also asks each unit whether it
 is answering — off by default, because resolving a ladder should not need
 a network. Run it whenever a run picks a rung you did not expect.
 
-Three keys across the two files are the levers, and `mcgyvr local_pool` is how
+Three keys across the two files are the levers, and `mcgyvr ladder show` is how
 you read all three:
 
 - `units` — What runs where, keyed by a name you choose. A unit carries every fact about what it is and can physically do: its address, engine, model, width, window, reply size and timeout.
@@ -181,6 +193,16 @@ you read all three:
 
 `mcgyvr config` prints the resolved config; `mcgyvr detect` shows what
 can run the work; `mcgyvr capabilities` shows the shipped capability table.
+
+mcgyvr sets `$MCGYVR_ENDPOINTS` in every task container that has a network: the address of each unit of
+the config, comma-separated, a name for this machine rewritten to `host.docker.internal`, so a check that
+calls a unit finds it from inside the container. Weights are fetched from the Hugging Face Hub with the
+token in `$HF_TOKEN` (`--hf-token-env` names another variable), and `$HF_ENDPOINT` names a mirror for the
+Hub reads and fetches alike. The `MCGYVR_TEST_*` variables the rig reader notices are for mcgyvr's own
+tests; leave them unset.
+
+`mcgyvr -h` and `mcgyvr VERB -h` print every verb and flag an install takes; `COMMANDS.md`, at the root
+of mcgyvr's source repository, lists them all on one page, rendered from the same parser.
 
 A unit split across machines (`units.launch.shards`) is checked before
 anything starts: a split that cannot be launched is refused when
@@ -229,10 +251,11 @@ powershell -NoProfile -ExecutionPolicy RemoteSigned -File mcgyvr\skills\mcgyvr\i
 - config (`$MCGYVR_HOME`): `~/.mcgyvr` on every system.
 
 `$XDG_STATE_HOME` and `$XDG_CACHE_HOME` still win when absolute (the weights follow `$MCGYVR_WEIGHTS`
-alone), and `journal.dir` defaults to `~/.local/state/mcgyvr/journal` everywhere. Windows checks no file
-owner or mode: a file is as private as its folder, and these folders are in your own profile. A folder
-named by `$MCGYVR_HOME`, `$MCGYVR_DATA` or an XDG variable keeps whatever ACL it has, so keep the rig
-token's folder (`$MCGYVR_HOME`) inside your profile.
+alone), and `journal.dir` defaults to `~/.local/state/mcgyvr/journal` everywhere: the journal is the one
+piece of state that does not move with `$MCGYVR_DATA` or `$XDG_STATE_HOME`, so set `journal.dir` to move
+it. Windows checks no file owner or mode: a file is as private as its folder, and these folders are in
+your own profile. A folder named by `$MCGYVR_HOME`, `$MCGYVR_DATA` or an XDG variable keeps whatever ACL
+it has, so keep the rig token's folder (`$MCGYVR_HOME`) inside your profile.
 
 **Serving, with no Docker.** On a Mac or a Windows machine, `mcgyvr setup` writes `launcher: native` for
 a llama.cpp unit on the machine it runs on. Its first start fetches the llama.cpp build mcgyvr pins
@@ -324,10 +347,15 @@ lease is permanent by default: a router that grants only permanent leases is ref
 unless `mcgyvr rig share --permanent-forward` allows one; the hub shows the rule to forward the ports by
 hand instead.
 
+**A head's model.** A head the hub starts on a lending rig may name its model's sha256 digest. The rig
+then hashes its own file of that model before it starts anything, renewing the session's lease between
+chunks, and a file whose digest is another fails the session as `model_missing`. Hashing a large model
+delays the head's start; a session stopped meanwhile stops the hashing too.
+
 ## Use cases and switches
 
 `use_case` in the policy says what this install serves, and
-`mcgyvr use NAME` switches it (`/mcgyvr-use` is the same for a session):
+`mcgyvr use NAME` switches it (`/mcgyvr-use` is the same, typed in a chat):
 
 - `mcgyvr-code` — mcgyvr between the model and you: contracts proposed,
   vetted, run up the ladder, gated, repaired, reviewed and re-planned,
@@ -394,6 +422,52 @@ keeps a climb on the rung it starts on. Vetting has no switch: it is what
 makes a proposal a runnable contract. Model loading, slots, the sandbox,
 locks and waking a card are machinery, not switches.
 
+## Glossary
+
+- **decomposition** — the whole step that turns a prompt into contracts (`decompose`): a survey of the
+  repository, then scaffold, then fill or draft, then vet.
+- **scaffold** — the candidates mcgyvr builds from the survey for each field of a contract, with no model
+  asked; the first of each set is the default.
+- **fill** — Jev picks each field of the scaffold from its fixed candidates (`authoring: classifier` in
+  today's policy.yaml).
+- **draft** — a model writes the proposals freely, as JSON (`authoring: prose` in today's policy.yaml).
+- **vet** — the deterministic checks every proposal and every hand-written contract passes before
+  anything runs; a proposal vetting refuses goes back to the proposer (`max_reproposals`).
+- **proposer** — the propose stage, fill or draft as `authoring` picks; policy.yaml binds its model in
+  the block spelled `orchestrator` today.
+- **direct** — you, or the session agent, write the contracts; `mcgyvr direct FILE...` (`/mcgyvr-direct`)
+  vets and runs them, and a spent contract comes back to its author.
+- **delegate** — you hand mcgyvr the prompt: `mcgyvr PROMPT` (`/mcgyvr`) decomposes it into contracts and
+  runs them. The session agent chooses direct or delegate; mcgyvr dispatches either way.
+- **ladder** — the rungs a task climbs, in the order policy.yaml's `ladder` lists them; `mcgyvr ladder
+  show` prints it as it resolves.
+- **rung** — one step of the ladder: a unit, and the model sent to it.
+- **top rung** — the dearest rung of the ladder, the last a climb tries.
+- **unit** — one configured model server, an entry of fleet.yaml's `units`: where it answers, the model
+  it serves and how many requests at once.
+- **standing session** — on the hub, a session the hub itself keeps running on a lent rig, serving one
+  model to the general pool or a crew pool.
+- **hitchhike** — slot sharing: a host offers open slots of their own units, and a rider's task takes one
+  only when the rider's own rung is full (`fanout: idle`), never as a step to climb. A host can read the
+  prompts sent to it.
+- **general pool** — the hub's shared pool: models an admin curates, run as standing sessions on rigs
+  lent to it, for any member.
+- **crew pool** — the same, invite only: one crew's owner curates its models, its rigs are lent to that
+  crew, and only its members are served.
+- **rig** — a machine: one mcgyvr serves from, or one lent to a hub (`mcgyvr rig`).
+- **host** — the person who offers slots to hitchhikers. The wire keeps its own `host` fields (a rig's
+  system, a lending member); the docs say rig for the machine and system for its OS. Host memory and host
+  cores are a machine's own RAM and CPU, as against a card's.
+- **system** — a rig's operating system block: OS, architecture and version.
+- **session** — two layers: the writer's chat (`--session`, the journal file a run is filed in), and a
+  pooled inference run across rigs (`mcgyvr rig`, the hub).
+- **writer** — the Claude Code or Pi chat a command was typed from; a run, its result and its journal
+  rows are filed under it.
+- **family** — the catalog kind a rung is served from: `deterministic` (tools), `local` or `api`,
+  cheapest first.
+- **floor** — the no-model path, the `deterministic` family: a tool makes the change, in one attempt, and
+  no tokens are spent.
+
 ## Value types
 
 | Type | Accepted |
@@ -427,7 +501,7 @@ locks and waking a card are machinery, not switches.
 | `infer_dependencies` | boolean | no | `true` | Whether a batch of contracts also waits on what it can infer. On, a contract that uses a name the committed tree does not define yet waits on the sibling whose target creates it, though its `depends_on` does not say so, and one whose name nothing defines or creates is held. Off, a batch is ordered by `depends_on` alone. Contracts `mcgyvr PROMPT` proposes state such waits in `depends_on` themselves. |
 | `same_file` | one of `wait`, `parallel` | no | `wait` | What a batch run with `--jobs` does with two ready contracts whose scopes can write one file. `wait` runs the second once the first has settled, from the tree the first left. `parallel` runs them at once, from one base: their deliveries still take turns, and one that no longer applies is refused and named, never lost. |
 | `attempts` | map of numbers (min 1) | no | — | How many times each unit may be tried before escalation moves on. A unit with no entry gets 1, not the contract's `limits.attempts` default: that limit caps the number and never raises it. To bind it: e.g. `{<unit>: 2}`. |
-| `draws` | map of numbers (min 1) | no | — | How many candidates one attempt asks *this* unit for, overriding `breadth.draws` for the units named; a unit with no entry draws the breadth. Spelled the way `attempts` is because it is the same kind of per-unit routing decision, and it is policy rather than a unit fact, which is why it is not under `units`. `mcgyvr local_pool` prints the effective number where it exceeds one. To bind it: e.g. `{<unit>: 3}`. |
+| `draws` | map of numbers (min 1) | no | — | How many candidates one attempt asks *this* unit for, overriding `breadth.draws` for the units named; a unit with no entry draws the breadth. Spelled the way `attempts` is because it is the same kind of per-unit routing decision, and it is policy rather than a unit fact, which is why it is not under `units`. `mcgyvr ladder show` prints the effective number where it exceeds one. To bind it: e.g. `{<unit>: 3}`. |
 | `rider_slots` | map of numbers (min 0) | no | — | How many of each named unit's slots riders may use at once (hitchhike): people the hub matches to you, whose requests for the unit's model the agent of `mcgyvr rig` passes to it and whose prompts you can read. A unit the map does not name shares none. It is policy, not a fact of the unit, so changing it never changes the setup's identity or its lock, and a running agent sends the hub the change within a second, with no reconnect. Below the unit's `width`, so you always keep a slot, and your own requests go first: a ride is taken only while the unit has a slot free, your requests and the rides in flight together fewer than its `width`, so riders use only slots you are not using, and a unit whose server does not report what it has in flight shares nothing. A ride that has started runs to its end; a request of yours that arrives meanwhile waits for a slot as any of yours does. A unit is shared only when it is on the `ladder`, needs no key (`api_key_env`), is not a relief rung, states its `window`, the context of each slot, and has a `width` of at most 16, the most the hub takes; one unit per model. To bind it: e.g. `{<unit>: 1}` -- at most one below the unit's `width`. |
 | `max_escalations` | number (min 0) | no | unset | How many rungs a task may climb before it is handed back unfinished. Unset: every rung of the ladder may be entered. To bind it: set a whole number of moves up the ladder, or leave it unset. |
 | `max_replans` | number (min 0) | no | `1` | How many times a batch of contracts (`mcgyvr PROMPT`) hands a line of work whose ladder is spent back to the proposer to be re-planned. A contract that tried every rung and came to `ladder_spent` goes back with the failure notes its climb left, as evidence; the contract or contracts the proposer proposes in its place take its place in the batch, carry `replan` (the id they replace and the round), and what waited on it waits on them. A contract already at this round is not re-planned again, and one the proposer proposes unchanged is not run again. The `orchestrator` unit re-plans when a model is bound there, and the top rung of the ladder (as for `max_reproposals`) when none is. 0 turns re-planning off: a spent contract stops there, as under `mcgyvr direct`, which never re-plans. To bind it: set a whole number of re-plans, or 0 to stop at a spent ladder. |
@@ -436,7 +510,7 @@ locks and waking a card are machinery, not switches.
 | `max_refine_fanout` | number (min 2) | no | `8` | How many parts classifier authoring may split one proposal into at once: the files of a scope over several, or the parts of the split jev picks. A split into more is refused with this key to raise rather than emitted unsplit. To bind it: set a whole number of parts, 2 or more. |
 | `retry_notes` | one of `climb`, `rung`, `none` | no | `climb` | What a try is told about the attempts before it that failed. Each failed attempt leaves a record of what the gate, the reviewer or the reply parser observed, naming its rung and attempt. `climb`: every record of the climb, so a rung above starts with what the rungs below it were refused for — the latest in full, up to 20 notes, and the 4 before it a line each. `rung`: only the record of the attempt just before this one on the same rung. `none`: nothing. |
 | `max_attempts` | number (min 1) | no | unset | Hard ceiling on how many attempts one task may spend in total. To bind it: set a whole number of attempts, or leave it unset. |
-| `task_timeout_s` | number (min 1) | no | `900` | Wall-clock ceiling for one task, including acceptance commands. |
+| `task_timeout_s` | number (min 1) | no | `900` | Wall-clock ceiling for one task, including acceptance commands. The same number is how long a dispatch may wait for a busy unit's slot before it gives up. With no config at all, no ceiling is read from one, and each command still ends after the sandbox's own 900 s default; a config that leaves this key out gets the default. |
 | `max_window_fraction` | decimal number (min 0.0, max 1.0) | no | unset | The largest share of a unit's context window one contract's prompt may claim, checked before the contract is sent, so the reply -- sent the unit's maximum within the room the prompt leaves -- keeps at least the rest; a contract claiming more fails unsent on the unit it was sent to. It is a ceiling no contract can raise: a contract's own `limits.max_window_fraction` may hold it to less, never to more, and the stricter of the two applies. Unset enforces no run-wide share. To bind it: a share between 0 and 1. |
 | `users` | number (min 1) | no | `1` | Users this install serves at once, and therefore the slot count the local orchestrator unit is served at: one session per user. A written `width` on the orchestrator's unit wins. `1` is a single-user install, which for a local-only `mcgyvr-code` install is flagged, not refused — the resident orchestrator consumes the card the ladder would otherwise use. |
 | `orchestrator` | block | no | — | Which unit turns a prompt plus a repository into contracts, and what that unit is. |
@@ -464,7 +538,7 @@ Each entry takes these keys:
 | `units.engine` | one of `llama.cpp`, `vllm` | no | unset | Which server program runs behind this address. Absent means llama.cpp. To bind it: e.g. vllm -- leave it out for llama.cpp. |
 | `units.image` | text | no | unset | Container image this unit runs, as a tag or digest. To bind it: e.g. vllm/vllm-openai@sha256:<hex>. |
 | `units.launcher` | one of `docker`, `native` | no | unset | How this unit's server runs. `docker`: in a container, kept up by the docker daemon (Linux, NVIDIA). `native`: the llama.cpp release build mcgyvr pins, fetched into `bin/llama.cpp/<tag>/` under the mcgyvr home, checked against its pinned sha256, and kept up by mcgyvr's own supervisor, which restarts it with a growing pause and gives up after a few crashes: Metal on a Mac, CUDA where `nvidia-smi` reads a driver it runs, else Vulkan, else the CPU. A native unit listens on 127.0.0.1 alone, so no firewall is expected to ask: on macOS and Windows the hub reaches it through the rig agent's relay to that local address, and a pooled worker binds the tunnel address only, so a unit stating another `--host` is refused; its log is `logs/<container>.log` in the data folder. llama.cpp only. On a Mac or Windows rig reached over ssh (its rig file, `mcgyvr scan --rig`, says so) the door ships the launcher there and it runs the same way, with no docker. Absent means `docker`; `setup` writes `native` for a unit on a Mac or Windows machine, this one or such a rig. To bind it: e.g. native -- leave it out for a container. |
-| `units.expose` | one of `local`, `lan` | no | unset | Who may reach this unit's server. `local`: this machine alone, on 127.0.0.1. `lan`: every machine that reaches this one, on every interface, and only with the API key mcgyvr makes for the unit the first time `mcgyvr emit` writes it: kept at mode 0600 in `unit-keys/<host>-<port>.env` in the data folder, handed to the server through its compose file's `env_file` (never written into the compose file or `fleet.yaml`) and sent by mcgyvr's own requests to the unit; `mcgyvr fleet key <unit>` prints it for a client of your own. A `--host` the unit's own args state, or a `LLAMA_ARG_HOST` its env states, is kept as stated. A docker unit only: a native one listens on 127.0.0.1 alone, and a pooled rpc worker on its tunnel address. Absent means `local` for a unit whose address names this machine (localhost, 127.0.0.1, ::1) or that runs native, and `lan` for one whose address names another host, which is the only way that address reaches it. To bind it: e.g. local -- leave it out to follow the unit's address. |
+| `units.expose` | one of `local`, `lan` | no | unset | Who may reach this unit's server. `local`: this machine alone, on 127.0.0.1. `lan`: every machine that reaches this one, on every interface, and only with the API key mcgyvr makes for the unit the first time `mcgyvr emit` writes it: kept at mode 0600 in `unit-keys/<address>-<port>.env` in the data folder, handed to the server through its compose file's `env_file` (never written into the compose file or `fleet.yaml`) and sent by mcgyvr's own requests to the unit; `mcgyvr fleet key <unit>` prints it for a client of your own. A `--host` the unit's own args state, or a `LLAMA_ARG_HOST` its env states, is kept as stated. A docker unit only: a native one listens on 127.0.0.1 alone, and a pooled rpc worker on its tunnel address. Absent means `local` for a unit whose address names this machine (localhost, 127.0.0.1, ::1) or that runs native, and `lan` for one whose address names another machine, which is the only way that address reaches it. To bind it: e.g. local -- leave it out to follow the unit's address. |
 | `units.api_key_env` | env var name | no | unset | NAME of the environment variable holding this unit's key. To bind it: set it to the variable's NAME (e.g. ANTHROPIC_API_KEY), never the key itself. |
 | `units.scope` | one of `own`, `crew`, `anyone` | no | `own` | Whose rigs may serve this unit's requests, named on each one in the `x-mcgyvr-scope` header: `own` (your own rigs), `crew` (your crews' too) or `anyone`. A hub serves the request from that scope's pool; a server of your own ignores it. A ladder step or a role may bind the unit only where its pool serves the setup's use case (every pool a unit is served from serves all four), else it is refused when the setup is read. Unset is `own`. |
 | `units.rig` | text | no | unset | The rig this unit runs on, by the name fleet.yaml uses. Units that share a rig and an address are served by one process. To bind it: e.g. box.example. |
@@ -518,12 +592,12 @@ Where a task's commands run.
 
 | Key | Type | Required | Default | Description |
 | --- | --- | --- | --- | --- |
-| `sandbox.mode` | one of `docker`, `tempdir` | no | `docker` | `docker` runs each task in its own container, torn down after; with no Docker daemon answering, the task is refused unless `allow_fallback` is on. `tempdir` is the explicitly weaker mode for installs without Docker: a contract's acceptance commands run without a shell, but each runs whatever program it names, on the host, with only the host's process, network and resource isolation. |
+| `sandbox.mode` | one of `docker`, `tempdir` | no | `docker` | `docker` runs each task in its own container, torn down after; with no Docker daemon answering, the task is refused unless `allow_fallback` is on. `tempdir` is the explicitly weaker mode for installs without Docker: a contract's acceptance commands run without a shell, but each runs whatever program it names, on this machine, with only its own process, network and resource isolation. |
 | `sandbox.allow_fallback` | boolean | no | `false` | What `mode: docker` does when no Docker daemon answers. Off, the task is refused and the refusal says how to go on. On, the task runs in the `tempdir` sandbox instead and says so once — the weaker mode, chosen ahead of time rather than read about after the run started. |
-| `sandbox.network` | one of `bridge`, `none` | no | `bridge` | The network a task container is attached to. `bridge` is Docker's default: acceptance commands can fetch dependencies and reach the configured worker endpoints — and anything else this machine can reach. `none` gives the container no network at all, so a contract whose commands download anything fails. `none` needs `mode: docker`: the `tempdir` sandbox runs on this host, where the network cannot be taken away, and is refused under it. It is the network your own rungs' code runs on: code from a rung that is not yours always runs with none (see `lent_code_on_host`). |
-| `sandbox.lent_code_on_host` | list of text | no | `[]` | Repositories, by path, where code a rung that is not yours returned (a relief rung, or a unit of scope `crew` or `anyone`) may run in the `tempdir` sandbox, on this host. In `mode: docker` such code always runs in a second container with no network, whatever `network` says, started again before each such try, and your own rungs' code in the task's own container. In the `tempdir` sandbox — by name, or as the fallback — it would run on this host with its network and files, so a try on such a rung is declined before anything is sent unless the run's repository is listed here. Empty: none is. |
+| `sandbox.network` | one of `bridge`, `none` | no | `bridge` | The network a task container is attached to. `bridge` is Docker's default: acceptance commands can fetch dependencies and reach the configured worker endpoints — and anything else this machine can reach. `none` gives the container no network at all, so a contract whose commands download anything fails. `none` needs `mode: docker`: the `tempdir` sandbox runs on this machine, where the network cannot be taken away, and is refused under it. It is the network your own rungs' code runs on: code from a rung that is not yours always runs with none (see `lent_code_on_host`). |
+| `sandbox.lent_code_on_host` | list of text | no | `[]` | Repositories, by path, where code a rung that is not yours returned (a relief rung, or a unit of scope `crew` or `anyone`) may run in the `tempdir` sandbox, on this machine. In `mode: docker` such code always runs in a second container with no network, whatever `network` says, started again before each such try, and your own rungs' code in the task's own container. In the `tempdir` sandbox — by name, or as the fallback — it would run on this host with its network and files, so a try on such a rung is declined before anything is sent unless the run's repository is listed here. Empty: none is. |
 | `sandbox.image` | text | no | unset | Base image for task containers. Unset means detect the repository's stack and build one. To bind it: name an image tag, or leave unset to let the stack be detected. |
-| `sandbox.setup` | list of text | no | `[]` | Commands run once when the task image is built, before any task. In docker mode the gate's type checker, eslint and prettier run in the task container, because their configuration can load code from the task's workspace, so they are found on the image's PATH. The image mcgyvr builds installs the one the repository configures (mypy, eslint, prettier) when its dependency install does not, at the lockfile's version where it pins one; pyright, or a checker the repository does not configure, is yours to put on the image, here or with `sandbox.image`. A checker the image lacks is skipped and said so, as an absent checker is on the host. |
+| `sandbox.setup` | list of text | no | `[]` | Commands run once when the task image is built, before any task. In docker mode the gate's type checker, eslint and prettier run in the task container, because their configuration can load code from the task's workspace, so they are found on the image's PATH. The image mcgyvr builds installs the one the repository configures (mypy, eslint, prettier) when its dependency install does not, at the lockfile's version where it pins one; pyright, or a checker the repository does not configure, is yours to put on the image, here or with `sandbox.image`. A checker the image lacks is skipped and said so, as an absent checker is on this machine. |
 | `sandbox.image_cache_keep` | number (min 0) | no | `8` | How many task images of one repository the image cache keeps, a repository being known by its directory's name. After `mode: docker` builds a repository's image, the cached images of that directory name beyond the newest this many are removed, and it says so on stderr; images of another directory name are never counted or touched, so a run of such a repository keeps the image it is about to start, and an image a container still uses is left in place. Two checkouts whose directories share a name (`~/work/api` and `~/oss/api`) count as one repository here. `0` removes none. `mcgyvr sandbox --cache` lists what is cached, and `mcgyvr sandbox --clear-cache` removes all of it. |
 
 ## `delivery`

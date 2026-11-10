@@ -1,6 +1,6 @@
 {
-  "schema_version": 2,
-  "_purpose": "The downloadable models `mcgyvr recommend` falls back to when no local model store fits and the Hugging Face Hub cannot be asked, after the user's cache ($MCGYVR_HOME/knowledge) of an earlier Hub read (mcgyvr.knowledge.hub). Each entry is one model at one quantisation: `use_cases` names the kinds of model it is a candidate for (code, chat, agent; `mcgyvr-code` and `code` both draw on `code`), `weights` names the file a pick downloads (repository, revision, file, and the sha256 the Hub states for it), and every number is an object that says its `value`, its `kind` (fact, estimate or reading; never a reading here, which would be a number taken on someone's machine), its `source` (`<source>:<where>`, the sources named in mcgyvr.knowledge.record.SOURCES) and the day it was read (`read_at`). `size_bytes` is the file's size as the Hub API lists it; `context_length` is the model's declared context (config.json max_position_embeddings, or the GGUF header's context length where its source says so), the context a catalog pick is priced at; `kv_bytes_per_token` is the KV cache one token takes over every caching layer at an f16 cache, summed from the GGUF header's per-layer heads and key/value widths; `recurrent_bytes_per_slot` is the recurrent/SSM state one slot keeps, 0 where the header has no recurrent block; `downloads` (the Hub's 30-day count) and `likes`, where present, are what the Hub search that listed the weights repository said of it. `scores` are board figures, each with its board. This file is data: adding a model is an edit here, not a code change.",
+  "schema_version": 3,
+  "_purpose": "The downloadable models `mcgyvr recommend` falls back to when no local model store fits and the Hugging Face Hub cannot be asked, after the user's cache ($MCGYVR_HOME/knowledge) of an earlier Hub read (mcgyvr.knowledge.hub). Each entry is one model at one quantisation: `use_cases` names the kinds of model it is a candidate for (code, chat, agent; `mcgyvr-code` and `code` both draw on `code`), `weights` names the file a pick downloads (repository, revision, file, and the sha256 the Hub states for it), and every number is an object that says its `value`, its `kind` (fact, estimate or reading; never a reading here, which would be a number taken on someone's machine), its `source` (`<source>:<where>`, the sources named in mcgyvr.knowledge.record.SOURCES) and the day it was read (`read_at`). `size_bytes` is the file's size as the Hub API lists it; `context_length` is the model's declared context (config.json max_position_embeddings, or the GGUF header's context length where its source says so), the context a catalog pick is priced at; `kv_bytes_per_token` is the KV cache one token takes over every caching layer at an f16 cache, summed from the GGUF header's per-layer heads and key/value widths; `recurrent_bytes_per_slot` is the recurrent/SSM state one slot keeps, 0 where the header has no recurrent block; `downloads` (the Hub's 30-day count) and `likes`, where present, are what the Hub search that listed the weights repository said of it. This file is data: adding a model is an edit here, not a code change.",
   "models": [
     {
       "model_id": "Qwen/Qwen2.5-Coder-7B-Instruct",
@@ -41,8 +41,7 @@
         "kind": "fact",
         "source": "gguf-header-range:Qwen/Qwen2.5-Coder-7B-Instruct-GGUF@13fb94bfda8c8cf22497dc57b78f391a9acb426a/qwen2.5-coder-7b-instruct-q4_k_m.gguf",
         "read_at": "2026-10-07"
-      },
-      "scores": []
+      }
     },
     {
       "model_id": "Qwen/Qwen2.5-Coder-14B-Instruct",
@@ -83,8 +82,7 @@
         "kind": "fact",
         "source": "gguf-header-range:Qwen/Qwen2.5-Coder-14B-Instruct-GGUF@d0a692ef765eefbf2fabb130b3cb2e8917e3d225/qwen2.5-coder-14b-instruct-q4_k_m.gguf",
         "read_at": "2026-10-07"
-      },
-      "scores": []
+      }
     },
     {
       "model_id": "deepseek-ai/DeepSeek-Coder-V2-Lite-Instruct",
@@ -124,8 +122,7 @@
         "kind": "fact",
         "source": "gguf-header-range:bartowski/DeepSeek-Coder-V2-Lite-Instruct-GGUF@8f248fa2072348f77a8bc37754e470de1f61866e/DeepSeek-Coder-V2-Lite-Instruct-Q4_K_M.gguf",
         "read_at": "2026-10-07"
-      },
-      "scores": []
+      }
     },
     {
       "model_id": "Qwen/Qwen3.5-4B",
@@ -178,8 +175,7 @@
         "kind": "fact",
         "source": "hub-search:https://huggingface.co/api/models?filter=gguf&search=Qwen3.5-4B&sort=downloads&direction=-1&limit=100&expand%5B%5D=downloads&expand%5B%5D=likes&expand%5B%5D=tags&expand%5B%5D=pipeline_tag&expand%5B%5D=gguf",
         "read_at": "2026-10-20"
-      },
-      "scores": []
+      }
     },
     {
       "model_id": "Qwen/Qwen3-8B",
@@ -232,8 +228,7 @@
         "kind": "fact",
         "source": "hub-search:https://huggingface.co/api/models?filter=gguf&search=Qwen3-8B&sort=downloads&direction=-1&limit=100&expand%5B%5D=downloads&expand%5B%5D=likes&expand%5B%5D=tags&expand%5B%5D=pipeline_tag&expand%5B%5D=gguf",
         "read_at": "2026-10-20"
-      },
-      "scores": []
+      }
     },
     {
       "model_id": "Qwen/Qwen3-14B",
@@ -286,8 +281,7 @@
         "kind": "fact",
         "source": "hub-search:https://huggingface.co/api/models?filter=gguf&search=Qwen3-14B&sort=downloads&direction=-1&limit=100&expand%5B%5D=downloads&expand%5B%5D=likes&expand%5B%5D=tags&expand%5B%5D=pipeline_tag&expand%5B%5D=gguf",
         "read_at": "2026-10-20"
-      },
-      "scores": []
+      }
     },
     {
       "model_id": "Qwen/Qwen3-30B-A3B",
@@ -340,8 +334,7 @@
         "kind": "fact",
         "source": "hub-search:https://huggingface.co/api/models?filter=gguf&search=Qwen3-30B-A3B&sort=downloads&direction=-1&limit=100&expand%5B%5D=downloads&expand%5B%5D=likes&expand%5B%5D=tags&expand%5B%5D=pipeline_tag&expand%5B%5D=gguf",
         "read_at": "2026-10-20"
-      },
-      "scores": []
+      }
     }
   ]
 }

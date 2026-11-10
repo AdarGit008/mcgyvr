@@ -8,8 +8,8 @@ truncated by the engine at a boundary nobody chose; a contract declaring a small
 one is refused on a rung that had room.
 
 **Where the window lives is the seam question.**
-``tests/test_pool.py::test_a_rung_cannot_say_where_its_work_runs`` pins
-``dataclasses.fields(Rung) == {"name", "model"}``, and ``local_pool.py`` argues that
+``tests/test_ladder_map.py::test_a_rung_cannot_say_where_its_work_runs`` pins
+``dataclasses.fields(Rung) == {"name", "model"}``, and ``ladder_map.py`` argues that
 emptiness *is* the seam — "a caller holding a ``Rung`` cannot come to depend on
 where its work runs". A window is a fact about the machine, so putting it on
 ``Rung`` breaks the seam; and a bare ``Rung`` with no source could only answer from
@@ -68,9 +68,9 @@ limits:
 def _bound(rung: str) -> Any:
     """What the pool resolves a rung to — below the seam, where the machine is."""
     from mcgyvr.config import parse
-    from mcgyvr.local_pool import source_map
+    from mcgyvr.ladder_map import unit_map
 
-    pool = source_map(parse(LADDER))
+    pool = unit_map(parse(LADDER))
     return pool.bind(rung)
 
 
@@ -94,13 +94,13 @@ def test_a_resolved_rung_reports_the_window_its_source_serves() -> None:
 def test_a_rung_above_the_seam_still_says_nothing_about_its_machine() -> None:
     """The invariant this must not buy its way past.
 
-    ``local_pool.py`` makes the emptiness of ``Rung`` the seam, and
-    ``tests/test_pool.py`` pins it. A window added there would let every caller
+    ``ladder_map.py`` makes the emptiness of ``Rung`` the seam, and
+    ``tests/test_ladder_map.py`` pins it. A window added there would let every caller
     above the seam depend on where its work runs.
     """
     import dataclasses
 
-    from mcgyvr.local_pool import Rung
+    from mcgyvr.ladder_map import Rung
 
     assert {f.name for f in dataclasses.fields(Rung)} == {"name", "model"}, (
         "the window belongs below the seam; adding it to Rung breaks the "

@@ -5,7 +5,8 @@
 that may cost before anything is spent; `escalate` climbs them, charging
 every attempt to the configured ceilings, and returns a `Delivered` or the
 `Halted` outcome that stopped it, which `disposition` reads to say whether
-the work may be handed on. `how_judged` and `reply_judged` state the bar an
+the work may be handed on (a seam not wired yet: only tests call it, and the
+run report is its natural caller). `how_judged` and `reply_judged` state the bar an
 acceptance rests on in words.
 """
 
@@ -52,7 +53,7 @@ if TYPE_CHECKING:  # pragma: no cover - typing only
     # must not be read for one another.
     from mcgyvr.deliver import Accepted as BoundContent
     from mcgyvr.gate import GateResult
-    from mcgyvr.local_pool import SourceMap
+    from mcgyvr.ladder_map import UnitMap
 
 GATE_ONLY = "gate_only"
 MODEL = "model"
@@ -619,7 +620,7 @@ class Ascent:
 
 def ascent(
     config: Config,
-    pool: SourceMap,
+    pool: UnitMap,
     contract: Contract,
     *,
     floor: Family | None = None,
@@ -811,7 +812,7 @@ class _AttemptError(Exception):
 
 def escalate(
     config: Config,
-    pool: SourceMap,
+    pool: UnitMap,
     contract: Contract,
     attempt: Callable[[Try], Judgement],
     *,
@@ -1134,7 +1135,7 @@ def _raised_attempt(raised: _AttemptError) -> Attempted:
 
 def _entered(
     config: Config,
-    pool: SourceMap,
+    pool: UnitMap,
     contract: Contract,
     capacity: Capacity | None,
     entry: Entry,
@@ -1193,7 +1194,7 @@ def _next_is_api(plans: tuple[Plan, ...], index: int) -> bool:
 
 def _single_rung_plan(
     config: Config,
-    pool: SourceMap,
+    pool: UnitMap,
     contract: Contract,
     rung: str,
     family: Family,
@@ -1352,6 +1353,9 @@ def disposition(outcome: Outcome, *, replans: int = 0) -> Disposition:
     work — those are the ones worth handing on. `replans` is `max_replans`:
     above zero, a spent ladder's remedy is the re-plan a batch makes of it
     (`mcgyvr.replan`), not a hand-narrowed contract.
+
+    Not wired yet: no product command calls this; tests pin it until the run
+    report or a hand-off reads it.
     """
     match outcome:
         case Outcome.ACCEPTED:

@@ -18,11 +18,11 @@ from typing import Any
 import pytest
 
 from mcgyvr import runner
-from mcgyvr.capacity import Capacity, CapacityError
+from mcgyvr.capacity import Capacity
 from mcgyvr.config import ConfigSchemaError, parse
 from mcgyvr.contract import loads as load_contract
 from mcgyvr.escalate import ascent
-from mcgyvr.local_pool import source_map
+from mcgyvr.ladder_map import unit_map
 from mcgyvr.route import Result, Try, climb, plan
 from mcgyvr.runner import Request
 
@@ -77,14 +77,6 @@ ladder:
 """
 
 
-class Probe:
-    def __init__(self, **widths: int | None) -> None:
-        self.widths = widths
-
-    def width(self, source: str, rung: str | None = None) -> int | None:
-        return self.widths.get(rung or source)
-
-
 def test_a_tier_accepts_its_own_width() -> None:
     assert parse(TIER_WIDTH).units["local_moe"].width == 8
 
@@ -122,24 +114,9 @@ def test_slots_are_held_per_rung_not_pooled_across_the_source(
         assert capacity.in_flight("fast") == 0
 
 
-def test_a_written_width_is_confirmed_rather_than_assumed() -> None:
-    capacity = Capacity.of(parse(TWO_WIDTHS), probe=Probe(fast=16, smart=4))
-    assert capacity.confirmed("fast") is True
-
-
-def test_an_unprobed_width_is_not_confirmed() -> None:
+def test_a_written_width_is_not_confirmed() -> None:
     capacity = Capacity.of(parse(TWO_WIDTHS))
     assert capacity.confirmed("fast") is False
-
-
-def test_a_backend_reporting_less_than_written_is_an_error() -> None:
-    with pytest.raises(CapacityError):
-        Capacity.of(parse(TWO_WIDTHS), probe=Probe(fast=4, smart=4))
-
-
-def test_a_backend_reporting_more_than_written_wins() -> None:
-    capacity = Capacity.of(parse(NO_TIER_WIDTH), probe=Probe(local_moe=12))
-    assert capacity.limit("local_moe") == 12
 
 
 # ---------------------------------------------------------------------------
@@ -211,23 +188,6 @@ ladder:
 - slow
 - api_big
 fanout: idle
-"""
-
-WIDENED_SOURCE_NARROW_RUNG = """\
-units:
-  fast:
-    address: http://desktop-1:8080
-    model: qwen2.5-coder-3b
-    rig: d1
-    width: 2
-  slow:
-    address: http://desktop-1:8080
-    model: qwen3-coder-30b
-    rig: d1
-    width: 2
-ladder:
-- fast
-- slow
 """
 
 CONTRACT = """
@@ -319,7 +279,7 @@ def test_a_rungs_declared_width_is_reached_by_dispatches_to_it(
     backend together are the only assertion the bug could not pass.
     """
     config = parse(RUNG_WIDER_THAN_ITS_SOURCE)
-    pool = source_map(config)
+    pool = unit_map(config)
     capacity = Capacity.of(config, root=tmp_path)
     together = Together(4)
     transport(monkeypatch, together)
@@ -345,7 +305,7 @@ def test_a_dispatch_holds_its_units_slot_for_the_length_of_the_request(
 ) -> None:
     """A unit's width is the bound a dispatch to it is held against."""
     config = parse(NO_TIER_WIDTH)
-    pool = source_map(config)
+    pool = unit_map(config)
     capacity = Capacity.of(config, root=tmp_path)
     seen: list[int] = []
 
@@ -379,7 +339,7 @@ def test_full_fanout_can_see_a_rung_that_is_full_of_its_own_holds(
     knob still saying ``full``.
     """
     config = parse(PEER_RIGS)
-    pool = source_map(config)
+    pool = unit_map(config)
     capacity = Capacity.of(config, root=tmp_path)
     tried: list[str] = []
 
@@ -403,7 +363,7 @@ def test_a_load_read_for_no_rung_is_still_the_sources_own_queue(
 ) -> None:
     """The compatibility half of the load: an unnamed rung reads what it always did."""
     config = parse(PEER_RIGS)
-    pool = source_map(config)
+    pool = unit_map(config)
     capacity = Capacity.of(config, root=tmp_path)
     made = plan(config, pool, load_contract(CONTRACT))
     machine = made.climbable[0].machine
@@ -429,7 +389,7 @@ def test_idle_takes_a_free_narrow_rung_rather_than_reading_it_as_full(
     """
     monkeypatch.setenv("EXAMPLE_API_KEY", "sk-" + "0" * 12)
     config = parse(ONE_RIG_TWO_PROCESSES)
-    pool = source_map(config)
+    pool = unit_map(config)
     capacity = Capacity.of(config, root=tmp_path)
 
     route = ascent(config, pool, load_contract(CONTRACT), capacity=capacity)
@@ -437,39 +397,6 @@ def test_idle_takes_a_free_narrow_rung_rather_than_reading_it_as_full(
 
     with capacity.hold(pool.bind("fast"), rung="fast"):
         assert route.next_free_rung == "slow"
-
-
-def test_a_narrow_rung_on_a_widened_source_is_not_a_contradiction(
-    tmp_path: Path,
-) -> None:
-    """Nobody wrote the number the rung was refused for contradicting.
-
-    The source declares 2 and neither rung declares anything. A probe reporting
-    source 8, fast 8 and slow 4 was read as "slow is written for 8 and reports
-    4" — the 8 being the probe's own answer about the *other* process, promoted
-    to a declaration on the way past. One rig running a wide process and a
-    narrow one is exactly what per-rung widths are for, and it has to start.
-    """
-    capacity = Capacity.of(
-        parse(WIDENED_SOURCE_NARROW_RUNG),
-        probe=Probe(d1=8, fast=8, slow=4),
-        root=tmp_path,
-    )
-
-    assert capacity.limit("fast") == 8, "the widened report still wins"
-    assert capacity.limit("slow") == 4
-
-
-def test_a_rung_narrower_than_the_config_wrote_is_still_refused() -> None:
-    """The rule that is not being loosened: a machine contradicting the *config*.
-
-    The source declares 2 and the rung's server reports 1, with no probe having
-    widened anything. That is two answers to one question with a config on one
-    side of it, and quietly lowering the bound would leave the config wrong and
-    the operator guessing.
-    """
-    with pytest.raises(CapacityError, match="reports 1"):
-        Capacity.of(parse(WIDENED_SOURCE_NARROW_RUNG), probe=Probe(slow=1))
 
 
 def test_a_rigs_superseded_source_width_is_not_a_second_queue() -> None:
@@ -538,7 +465,7 @@ def test_a_rungs_own_slot_covers_its_own_reservation(tmp_path: Path) -> None:
     as two — a two-wide rung would look full with one attempt on it.
     """
     config = parse(ONE_RIG_TWO_PROCESSES)
-    pool = source_map(config)
+    pool = unit_map(config)
     capacity = Capacity.of(config, root=tmp_path)
 
     capacity.reserve("fast")
@@ -559,7 +486,7 @@ def test_a_climb_gives_back_the_reservation_on_the_rung_it_took_it_on(
     why it is asserted rather than watched for.
     """
     config = parse(PEER_RIGS)
-    pool = source_map(config)
+    pool = unit_map(config)
     capacity = Capacity.of(config, root=tmp_path)
 
     def attempt(each: Try) -> Result:

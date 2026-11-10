@@ -20,7 +20,7 @@ from mcgyvr.config import parse as parse_config
 from mcgyvr.contract import loads as load_contract
 from mcgyvr.escalate import Review, judge
 from mcgyvr.gate import GateResult
-from mcgyvr.local_pool import source_map
+from mcgyvr.ladder_map import unit_map
 from mcgyvr.route import Verdict
 from mcgyvr.verify import Reviewer, reviewers_for
 
@@ -86,7 +86,7 @@ def _refused_by(reviewer: str) -> str:
 
 def _reviewer(builder: str) -> Reviewer:
     config = parse_config(HOSTED_PAIR)
-    chosen = reviewers_for(config, source_map(config))(builder)
+    chosen = reviewers_for(config, unit_map(config))(builder)
     assert isinstance(chosen, Reviewer), chosen
     return chosen
 

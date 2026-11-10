@@ -17,7 +17,7 @@ from typing import Any
 import pytest
 
 from mcgyvr.contract import Contract
-from mcgyvr.decompose.decompose import RecordedProposer, decompose
+from mcgyvr.decompose.decompose import decompose
 from mcgyvr.delegate import build_prompt
 from mcgyvr.notes import FailureNote, FailureNotes, NoteKind
 from mcgyvr.replan import MAX_LINE_CHARS, Spent, failures_of, request_for
@@ -25,6 +25,7 @@ from mcgyvr.repo.index import Index, build_index
 from mcgyvr.scope import Scope
 from mcgyvr.worker.prompt import MAX_NOTES_SHOWN, MAX_RECORDS_SHOWN
 from tests.decomposes import git
+from tests.recorded_proposer import RecordedProposer
 
 SPENT = Contract(
     id="code-rename",

@@ -98,18 +98,5 @@
       "requires_backend": "vllm",
       "not_for_fit": "its memory figure is the server's configured allocation, not the model's footprint"
     }
-  ],
-  "backends": {
-    "_doc": "What each server program offers and where it is limited.",
-    "ollama": {
-      "wire_protocol": "ollama",
-      "strengths": ["multiple distinct models resident concurrently", "GGUF native", "setup in one command"],
-      "limits": ["no continuous batching", "no structured-output enforcement", "backend-native generate API is unsafe for benchmark measurement"]
-    },
-    "vllm": {
-      "wire_protocol": "openai",
-      "strengths": ["continuous batching", "JSON-schema structured output", "prefix caching", "sleep/wake model swap"],
-      "limits": ["one model per process", "VRAM allocation is configured, not intrinsic — footprint is gpu-memory-utilization, not weight size", "needs Docker on newer glibc", "a card with little memory to spare beside the weights leaves it little room to batch in"]
-    }
-  }
+  ]
 }

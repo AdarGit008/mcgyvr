@@ -47,7 +47,7 @@ from typing import Any
 
 import pytest
 
-from mcgyvr.local_pool import Protocol
+from mcgyvr.ladder_map import Protocol
 from mcgyvr.runner import Completion, StopReason
 from tests._helpers import required
 

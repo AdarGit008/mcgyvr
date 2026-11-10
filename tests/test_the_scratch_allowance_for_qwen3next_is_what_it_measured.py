@@ -12,4 +12,5 @@ import importlib
 def test_the_scratch_allowance_for_qwen3next_is_what_it_measured() -> None:
     """Below 829, a qwen3next unit sized with it clears every gate and can OOM."""
     vramfit = importlib.import_module("mcgyvr.serving.vramfit")
-    assert vramfit.allowance_mib({"arch": "qwen3next"}) >= 829
+    charged = vramfit.allowance({"arch": "qwen3next"}, n_ctx=4096, n_ubatch=512)
+    assert charged.measured and charged.total >= 829 * (1 << 20)

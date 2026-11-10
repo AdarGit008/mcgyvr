@@ -43,8 +43,8 @@ import pytest
 from mcgyvr import runner as runner_module
 from mcgyvr.capacity import Capacity
 from mcgyvr.config import parse
-from mcgyvr.local_pool import Endpoint, Protocol
-from mcgyvr.local_pool import source_map as build_source_map
+from mcgyvr.ladder_map import Endpoint, Protocol
+from mcgyvr.ladder_map import unit_map as build_unit_map
 from mcgyvr.runner import Completion, Request, StopReason, dispatch, runner_for
 from mcgyvr.telemetry import fold, observe
 
@@ -296,7 +296,7 @@ def test_another_process_on_the_unit_is_counted_where_this_process_counts_one(
 ) -> None:
     """Three ``mcgyvr direct`` processes on one unit: this one holds one slot."""
     config = parse(LADDER)
-    ladder, capacity = build_source_map(config), Capacity.of(config)
+    ladder, capacity = build_unit_map(config), Capacity.of(config)
     stub_post(monkeypatch, answer(timings=LLAMA_TIMINGS))
     StatusPages(monkeypatch, {"/slots": [slots(2, total=4), slots(2, total=4)]})
 
@@ -319,7 +319,7 @@ def test_a_count_that_cannot_be_read_is_absent_not_this_processes_count(
     monkeypatch: pytest.MonkeyPatch, rung: str, path: str, page: str | None
 ) -> None:
     config = parse(LADDER)
-    ladder, capacity = build_source_map(config), Capacity.of(config)
+    ladder, capacity = build_unit_map(config), Capacity.of(config)
     stub_post(monkeypatch, answer())
     StatusPages(monkeypatch, {path: [page, page]})
 

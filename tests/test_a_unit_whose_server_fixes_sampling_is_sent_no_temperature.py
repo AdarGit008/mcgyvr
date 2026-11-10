@@ -24,7 +24,7 @@ import pytest
 from mcgyvr import decision, runner
 from mcgyvr.config import ConfigSchemaError, parse
 from mcgyvr.decision import Noul
-from mcgyvr.local_pool import source_map
+from mcgyvr.ladder_map import unit_map
 
 SETUP = """\
 units:
@@ -77,7 +77,7 @@ def test_the_declared_fact_reaches_the_endpoint(
     config = parse(SETUP)
     assert config.units["hosted"].sampling == "server"
     assert config.units["local"].sampling == "request"
-    pool = source_map(config)
+    pool = unit_map(config)
     assert pool.bind("hosted").sampling == "server"
     assert pool.bind("local").sampling == "request"
 
@@ -86,7 +86,7 @@ def test_a_server_sampled_unit_is_sent_no_temperature_and_a_local_one_still_is(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     monkeypatch.setenv("EXAMPLE_KEY", "k")
-    pool = source_map(parse(SETUP))
+    pool = unit_map(parse(SETUP))
     posted = _wire(monkeypatch, runner)
     ask = runner.Request(prompt="hello", max_output_tokens=16)
     runner.runner_for(pool.bind("hosted")).generate("hosted-big", ask)
@@ -107,7 +107,7 @@ def test_a_typed_decision_on_a_server_sampled_unit_sends_no_temperature(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     monkeypatch.setenv("EXAMPLE_KEY", "k")
-    pool = source_map(parse(SETUP))
+    pool = unit_map(parse(SETUP))
     posted = _wire(monkeypatch, decision)
     decision.classify(pool.bind("hosted"), "hosted-big", {"x": 1}, {"q": Noul("Q?")})
     decision.classify(pool.bind("local"), "coder-7b", {"x": 1}, {"q": Noul("Q?")})

@@ -582,7 +582,7 @@ def _climb(
     from mcgyvr.cooldown import Cooldown
     from mcgyvr.drive import DriveError, acceptance_for, worker_attempt
     from mcgyvr.escalate import Outcome, ascent, escalate, redundant_relief
-    from mcgyvr.local_pool import SourceUnavailableError, source_map
+    from mcgyvr.ladder_map import UnitUnavailableError, unit_map
     from mcgyvr.replan import max_replans
     from mcgyvr.route import RouteError
     from mcgyvr.sandbox.base import SandboxError, open_sandbox
@@ -607,7 +607,7 @@ def _climb(
     # It is built once and handed to everything below, the route, the capacity,
     # the reviewers, the driver and the climb itself, so they all agree on which
     # sources exist.
-    pool = source_map(config)
+    pool = unit_map(config)
 
     # Relief rungs that duplicate a unit this install already serves are said
     # once, before any dispatch: riding them re-sends to what the user has, so
@@ -678,7 +678,7 @@ def _climb(
             if contract.kind.judges_a_change
             else None
         )
-    except SourceUnavailableError as exc:
+    except UnitUnavailableError as exc:
         return _error(
             report,
             f"verification is enabled and the verifier role cannot run: "

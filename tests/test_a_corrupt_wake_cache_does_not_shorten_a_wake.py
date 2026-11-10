@@ -1,39 +1,22 @@
-"""A derived budget may never shorten or abort a wake — not even by raising.
+"""A wake record left in the clock directory may never shorten or abort a wake.
 
-``predicted_wake_s`` breaks that rule by accident, in the narrowest possible
-way. It catches ``OSError`` and ``ValueError`` around the read and the parse and
-then calls ``.get`` on whatever came back::
+A wake used to read the last `up`'s timing from ``<host>.wake.json`` in the
+clock directory before spawning the door, to warn when a wake ran long; the
+warning never printed, and the timing is no longer written or read. A file
+an older mcgyvr left there, in any shape (a good record, a crashed process's
+truncated write, bytes that are not text, a directory where a file was), is
+read by nothing, and a wake beside it runs as any other does.
 
-    said = json.loads(raw).get("seconds")
-
-so a cache file holding JSON ``null``, a list, a number or a string raises
-``AttributeError``, and a file of bytes that are not UTF-8 raises
-``UnicodeDecodeError`` before ``json`` is reached. ``_run_door`` calls it
-**before** spawning the door. So a one-line file — which is what a crashed
-process, a full disk or a truncated write leaves behind — does not degrade the
-warning: it kills the wake, and the rung declines against a rig that would have
-come back.
-
-The cache is also at ``/tmp/mcgyvr-wake-<uid>/``, a predictable path in a
-world-writable directory, and ``_remember``'s ``mkdir(exist_ok=True)`` adopts a
-directory another local user got there first with. Nothing secret is in it, but
-what it holds is a number this process then reads back and prints as fact, and
-adopting a stranger's directory to write it in is not something to do by
-default.
+The clock directory sits at a predictable path in a world-writable place
+(``/tmp/mcgyvr-wake-<uid>/``), so one this user does not own outright is
+somebody else's to plant: a wake writes nothing into it.
 
 **What this file pins**
 
-1. Every unreadable cache — wrong JSON type, not JSON at all, not UTF-8, a
-   directory where a file should be — degrades to *no prediction*, and never to
-   an exception.
-2. A wake with an unreadable cache **still wakes**: the door is spawned, and it
-   is spawned with ``predicted_s`` of ``None``.
-3. ``{"seconds": true}`` predicts nothing. ``isinstance(True, int)`` is true in
-   Python, so a boolean walked straight through the type check and was reported
-   to an operator as a 1.0 s wake.
-4. A clock directory this user does not own outright is not read and not
-   written. It degrades to no prediction, which is the ordinary state on a first
-   wake and costs nothing.
+1. A wake beside any leftover wake record still wakes: the door is spawned
+   once, the run is ok, and the leftover file is left as it was.
+2. A wake writes no wake record of its own.
+3. A clock directory this user does not own outright is not written by a wake.
 """
 
 from __future__ import annotations
@@ -49,6 +32,7 @@ import pytest
 
 from mcgyvr.config import parse
 from mcgyvr.serving import Card
+from mcgyvr.wake import Wake
 
 HOST = "rig"
 
@@ -67,39 +51,66 @@ ladder:
 def clock(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> Path:
     """A temporary directory of this test's own for the wake clock to live in.
 
-    Keyed host-wide by uid in production, which is what makes it readable by the
-    next run and is exactly why a test that used the developer's would read
-    another test's number.
+    Keyed host-wide by uid in production, which is exactly why a test that used
+    the developer's would read another test's files.
     """
     (tmp_path / "rendezvous").mkdir()
     monkeypatch.setattr(tempfile, "tempdir", str(tmp_path / "rendezvous"))
     return tmp_path / "rendezvous"
 
 
+@pytest.fixture
+def spawned(monkeypatch: pytest.MonkeyPatch) -> list[list[str]]:
+    """Every door argv a wake spawns, each answering 0; nothing is started."""
+    import mcgyvr.wake as wake
+
+    made: list[list[str]] = []
+
+    def spawn(argv: Sequence[str], **_: Any) -> int:
+        made.append(list(argv))
+        return 0
+
+    monkeypatch.setattr(wake, "spawn_door", spawn)
+    return made
+
+
 def card(tmp_path: Path) -> Card:
-    return Card(host=HOST, compose_file=tmp_path / "compose.rig.yml")
+    compose = tmp_path / "compose.rig.yml"
+    compose.write_text("services: {}\n", encoding="utf-8")
+    return Card(host=HOST, compose_file=compose, specs=(compose,))
 
 
-def cache_of(card_: Card, raw: bytes) -> Path:
-    """Whatever ``raw`` is, sitting where the next wake will read it."""
+def door(one: Card, direction: str = "up") -> Wake:
+    """Run the wake's door for ``one`` the way ``mcgyvr up``/``sleep`` does."""
+    import mcgyvr.wake as wake
+
+    assert one.compose_file is not None
+    return wake._run_door(parse(LADDER), one, direction, one.compose_file)
+
+
+def clock_dir() -> Path:
+    """The clock directory, made 0o700 the way a wake's own writer makes it."""
     import mcgyvr.wake as wake
 
     where = wake._clock_dir()
-    # 0o700, the way `_remember` makes it: a directory anybody else could write
-    # into is one this reader is entitled to ignore, which is its own test
-    # below.
     where.mkdir(parents=True, mode=0o700, exist_ok=True)
-    path = where / f"{card_.host}.wake.json"
-    path.write_bytes(raw)
-    return path
+    return where
 
 
-#: Every shape a cache file has been found in that is not ``{"seconds": <n>}``.
-#: The first four are valid JSON of the wrong type — ``.get`` on them is an
-#: ``AttributeError`` — the fifth is a truncated write, and the sixth is a file
-#: that is not text at all, whose ``UnicodeDecodeError`` is a ``ValueError`` but
-#: is raised by ``read_text`` where only ``OSError`` was caught.
-UNREADABLE: tuple[bytes, ...] = (
+def contents(where: Path) -> dict[str, bytes | None]:
+    """Every entry of ``where`` by name: a file's bytes, None for a directory."""
+    return {
+        entry.name: None if entry.is_dir() else entry.read_bytes()
+        for entry in where.iterdir()
+    }
+
+
+#: Every shape a leftover wake record has been found in: a good record an older
+#: mcgyvr wrote, valid JSON of the wrong type, a truncated write, a file that is
+#: not text at all, and an empty file.
+LEFTOVERS: tuple[bytes, ...] = (
+    json.dumps({"host": HOST, "seconds": 133.4}).encode("utf-8"),
+    json.dumps({"seconds": True}).encode("utf-8"),
     b"null",
     b"[1.0]",
     b"133.0",
@@ -110,117 +121,66 @@ UNREADABLE: tuple[bytes, ...] = (
 )
 
 
-@pytest.mark.parametrize("raw", UNREADABLE)
-def test_an_unreadable_cache_is_no_prediction_and_never_a_raise(
-    raw: bytes, tmp_path: Path, clock: Path
+@pytest.mark.parametrize("raw", LEFTOVERS)
+def test_a_wake_beside_a_leftover_record_still_wakes_and_leaves_it_be(
+    raw: bytes, tmp_path: Path, clock: Path, spawned: list[list[str]]
 ) -> None:
-    """Each of these killed the wake before the door was spawned."""
-    from mcgyvr.wake import predicted_wake_s
+    """The rule, as behaviour: the door runs, and the file is nobody's input."""
 
     one = card(tmp_path)
-    cache_of(one, raw)
+    where = clock_dir()
+    (where / f"{HOST}.wake.json").write_bytes(raw)
+    before = contents(where)
 
-    assert predicted_wake_s(one) is None, raw
-
-
-def test_a_directory_where_the_cache_should_be_is_no_prediction(
-    tmp_path: Path, clock: Path
-) -> None:
-    """``IsADirectoryError`` is an ``OSError`` and was already handled — pinned
-    so the rewrite does not narrow what is caught while widening what is
-    parsed."""
-    import mcgyvr.wake as wake
-
-    one = card(tmp_path)
-    where = wake._clock_dir()
-    where.mkdir(parents=True, mode=0o700, exist_ok=True)
-    (where / f"{HOST}.wake.json").mkdir()
-
-    assert wake.predicted_wake_s(one) is None
-
-
-def test_a_boolean_is_not_a_number_of_seconds(tmp_path: Path, clock: Path) -> None:
-    """``isinstance(True, int)`` is true, and 1.0 s is not a wake anything took."""
-    from mcgyvr.wake import predicted_wake_s
-
-    one = card(tmp_path)
-    cache_of(one, json.dumps({"seconds": True}).encode("utf-8"))
-
-    assert predicted_wake_s(one) is None
-
-
-def test_a_number_that_was_written_is_read_back(tmp_path: Path, clock: Path) -> None:
-    """The other side: the one number every fleet has for free still arrives."""
-    from mcgyvr.wake import predicted_wake_s
-
-    one = card(tmp_path)
-    cache_of(one, json.dumps({"host": HOST, "seconds": 133.4}).encode("utf-8"))
-
-    assert predicted_wake_s(one) == pytest.approx(133.4)
-
-
-def test_a_wake_with_an_unreadable_cache_still_wakes(
-    tmp_path: Path, clock: Path, monkeypatch: pytest.MonkeyPatch
-) -> None:
-    """The rule, as behaviour: the door runs, and the prediction is absent.
-
-    This is the whole severity of it. The prediction is a sentence in a warning;
-    the wake is a card coming back for a rung that is queued on it.
-    """
-    import mcgyvr.wake as wake
-
-    spawned: list[list[str]] = []
-
-    def spawn(argv: Sequence[str], **_: Any) -> int:
-        spawned.append(list(argv))
-        return 0
-
-    monkeypatch.setattr(wake, "spawn_door", spawn)
-
-    compose = tmp_path / "compose.rig.yml"
-    compose.write_text("services: {}\n", encoding="utf-8")
-    one = Card(host=HOST, compose_file=compose, specs=(compose,))
-    cache_of(one, b"null")
-
-    made = wake._run_door(parse(LADDER), one, "up", compose)
+    made = door(one)
 
     assert len(spawned) == 1, spawned
-    assert made.ok and made.predicted_s is None, made
+    assert made.ok, made
+    assert contents(where) == before
 
 
-def test_a_clock_directory_this_user_does_not_own_outright_is_not_used(
-    tmp_path: Path, clock: Path
+def test_a_directory_where_the_record_was_does_not_stop_a_wake(
+    tmp_path: Path, clock: Path, spawned: list[list[str]]
 ) -> None:
-    """A predictable path in a world-writable place is somebody else's to plant.
-
-    Nothing in the file is secret. What is at stake is that this process reads a
-    number back out of it and prints it to an operator as what the card did last
-    time, and that ``_remember`` would otherwise write into a directory it did
-    not create. Degrading to "no history" is free — it is the ordinary state of
-    a first wake.
-    """
-    import mcgyvr.wake as wake
 
     one = card(tmp_path)
-    where = wake._clock_dir()
-    where.mkdir(parents=True, mode=0o700, exist_ok=True)
+    (clock_dir() / f"{HOST}.wake.json").mkdir()
+
+    made = door(one)
+
+    assert len(spawned) == 1, spawned
+    assert made.ok, made
+
+
+def test_a_wake_writes_no_wake_record(
+    tmp_path: Path, clock: Path, spawned: list[list[str]]
+) -> None:
+
+    one = card(tmp_path)
+    where = clock_dir()
+
+    made = door(one)
+
+    assert made.ok, made
+    assert not (where / f"{HOST}.wake.json").exists()
+
+
+def test_a_clock_directory_this_user_does_not_own_outright_is_not_written(
+    tmp_path: Path, clock: Path, spawned: list[list[str]]
+) -> None:
+    """A predictable path in a world-writable place is somebody else's to plant,
+    and a wake writes nothing into a directory it did not make its own."""
+
+    one = card(tmp_path)
+    where = clock_dir()
     (where / f"{HOST}.wake.json").write_text(
         json.dumps({"seconds": 4.0}), encoding="utf-8"
     )
     os.chmod(where, 0o777)
+    before = contents(where)
 
-    assert wake.predicted_wake_s(one) is None
+    for direction in ("up", "sleep"):
+        made = door(one, direction)
+        assert made.ok, made
 
-    made = wake.Wake(
-        host=HOST,
-        compose_file=tmp_path / "compose.rig.yml",
-        direction="up",
-        seconds=99.0,
-        predicted_s=None,
-        code=0,
-    )
-    wake._remember(made)
-
-    assert json.loads((where / f"{HOST}.wake.json").read_text(encoding="utf-8")) == {
-        "seconds": 4.0
-    }, "a wake wrote into a directory another user could have created"
+    assert contents(where) == before, "a wake wrote into a directory not its own"

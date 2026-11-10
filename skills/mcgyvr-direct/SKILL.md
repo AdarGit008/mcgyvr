@@ -79,16 +79,21 @@ another's work names its id in `depends_on`.
 **`stop_conditions`**
 - type: list of text; optional, default `[]`
 - description: Explicit triggers on which the worker must stop and report BLOCKED instead of guessing —
-  scope creep, an unknown API, an ambiguous directive. Required when a model writes a `whole_file` reply,
-  the one whose refusal is caught and escalated: guessing is the documented small-model failure mode
-  these exist to prevent. Start from `<task_type> on <target> would require deciding something the
-  contract does not state — report BLOCKED rather than guess`. (worker-facing)
+  scope creep, an unknown API, an ambiguous directive. Required when a model writes the target (a
+  `whole_file` or `unified_diff` reply), whose refusal is caught and escalated: guessing is the
+  documented small-model failure mode these exist to prevent. Start from `<task_type> on <target> would
+  require deciding something the contract does not state — report BLOCKED rather than guess`.
+  (worker-facing)
 
 **`output_schema`**
 - type: one of `whole_file`, `unified_diff`; optional, default `whole_file`
 - description: The shape the worker must reply in, declared so a runner can hand the model format
-  instructions rather than hoping for a convention. `whole_file` is the single-file output protocol.
-  `unified_diff` validates here and is refused before dispatch. (worker-facing)
+  instructions rather than hoping for a convention. `whole_file` is the single-file output protocol: the
+  complete new content of the target as one fenced block. `unified_diff` is one fenced block holding a
+  unified diff of the target alone, applied onto the content the model was shown; a diff that names
+  another file, renames, deletes or is binary, or whose context does not match, is a failed attempt and
+  is retried like an unreadable `whole_file`. Either way the gate and delivery see the whole resulting
+  file. (worker-facing)
 
 **`sources`**
 - type: list of text; optional, default `[]`
@@ -155,11 +160,12 @@ another's work names its id in `depends_on`.
 
 **`start_rung`**
 - type: text; optional, default empty
-- description: The ladder rung this contract's climb starts on, decided ahead of time — what
-  `mcgyvr.triage.triage_ahead` asks the `jev` unit, stored with the contract so every later run starts
-  there without asking again. The rungs below it are skipped, not spent, and escalation goes on upward
-  from it; it wins over the config's `triage`. A rung the ladder does not list, or one this contract's
-  climb does not offer, is refused before anything is dispatched. Not worker-facing. e.g. local_qwen-14b.
+- description: The ladder rung this contract's climb starts on, written into the contract by its author,
+  so every run starts there without asking triage. No mcgyvr command picks it for you
+  (`mcgyvr.triage.triage_ahead` can, from Python, and is wired to no command). The rungs below it are
+  skipped, not spent, and escalation goes on upward from it; it wins over the config's `triage`. A rung
+  the ladder does not list, or one this contract's climb does not offer, is refused before anything is
+  dispatched. Not worker-facing. e.g. local_qwen-14b.
 
 **`rename`**
 - type: block; optional
@@ -457,8 +463,10 @@ the config's `journal.dir`, in `results/`. The file's keys:
 - `delivery` — where the work went: left uncommitted in the tree (the
   default), the commit, or why it was refused (as `detail`).
   `committed`, `commit`, `branch`, `handoff` are the commit as fields.
-- `target`, `contract`, `task_type`, `session` (the session the run is
-  filed under), `run`, `session_file`, `journal`, `exit_code`.
+- `target`, `contract`, `task_type`, `session` (the writer: the chat the run
+  is filed under; written only as `session` now, while journal rows from
+  before carry it as `orchestrator`, read as `session` for one release),
+  `run`, `session_file`, `journal`, `exit_code`.
 - `copy_errors` — a `--record DIR` copy that could not be written, and
   why. Empty on almost every run. mcgyvr's own record under `journal`
   is complete whatever this says; a copy is not a sink and its failure
@@ -597,6 +605,10 @@ A failed attempt already had its retries inside the run, and under
 `mcgyvr direct` a spent ladder is not handed to a proposer: the next
 contract is yours to write. When `outcome` is not `accepted`, read
 `attempts[].findings`: each line is one reason the gate refused.
+One is not the gate's: check `unchanged`, code `identical-to-base`, is
+a reply that handed its target back exactly as HEAD holds it. That draw
+fails before the gate runs and is never repaired, so a climb does not
+settle on a change that delivery would refuse as identical to the base.
 `attempts[].notes` is the same evidence as a record, one per failed
 attempt in climb order: the check, the file and line, the tool's code, and
 the command and its exit where the check ran one. Write a *different*
