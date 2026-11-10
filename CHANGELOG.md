@@ -46,6 +46,27 @@ archived outside this repository, under the same paths.
   imports `mcgyvr.orchestrator` must import from the new paths. The
   policy.yaml `orchestrator` block, journal keys and messages are unchanged.
 
+- **A Linux rig is leased by the one Python lease, as macOS and Windows rigs
+  are; the bash lease scripts are gone.** A Linux rig over ssh was sent five
+  bash scripts on `bash -s -- lease` (read, take a free rig, reclaim a stale
+  lease, stamp, release), and every other rig the Python lease
+  (`mcgyvr.serving.leasefile`), held to the scripts by a twin test. Now every
+  rig over ssh is shipped that Python lease (`shipped.lease`), on the
+  reader's line (`echo <base64> | base64 -d | python3 -I -B - OP '~/.mcgyvr'
+  [held=ID] ['line=LINE']`), and `gatelib._LEASE_SCRIPTS` and
+  `gatelib.LEASE_SHELL` are removed. The lease file (`~/.mcgyvr/lease`, one
+  line), each operation's exit status and the file it leaves are the
+  scripts' own over every lease state, pinned by a table test that keeps
+  every case of the twin test. A Linux rig needs nothing new: its Python 3.9
+  or newer already runs the shipped reader for `mcgyvr scan --rig` and at
+  gate 2, before the lease. What differs there: each lease call starts a
+  Python (about a tenth of a second more than bash) and carries the
+  program (about 23 KB) in its command line; `~/.mcgyvr/lease.lock` appears
+  beside the lease and two lease calls on one rig no longer interleave; a
+  lease file that is a symbolic link, or cannot be read, is refused (status
+  5, and the run is not let onto the rig) where bash followed the link or
+  read it as empty; and the read makes `~/.mcgyvr` when it is missing.
+
 - **A docker llama.cpp or vLLM unit listens on 127.0.0.1 or, behind a key
   mcgyvr makes, on every interface (`expose: local | lan`).** `mcgyvr emit`
   rendered every container's server on every interface with no key

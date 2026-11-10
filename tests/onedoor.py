@@ -298,6 +298,15 @@ case $cmd in
   # Its short reading (`--cards`), which a serve step files of the card.
   *"| base64 -d | python3 -I -B - --cards")
     python3 "$STUBS/rig-answer.py" cards "$STUBS" ;;
+  # The rig's lease (`~/.mcgyvr/lease` ON the rig): the shipped Python lease,
+  # its operation and the lease folder after the `-`. The command is run as
+  # written, under a HOME of the stub's own, so a test reads or plants the
+  # file at `rig-home/.mcgyvr/lease`; lease.log keeps each operation's name.
+  *"| base64 -d | python3 -I -B - "*" '~/.mcgyvr'"*)
+    op=${cmd#*" | base64 -d | python3 -I -B - "}
+    printf '%s\n' "${op%% *}" >> "$STUBS/lease.log"
+    mkdir -p "$STUBS/rig-home"
+    HOME=$STUBS/rig-home bash -c "$cmd" ;;
   # The weights fetcher a `serve fetch` ships, with its job, on stdin: run
   # as written, by this machine's python3, under a HOME of the stub's own,
   # so its weights folder is `rig-home/.cache/mcgyvr/weights`.
@@ -305,16 +314,11 @@ case $cmd in
     mkdir -p "$STUBS/rig-home"
     HOME=$STUBS/rig-home MCGYVR_WEIGHTS= python3 - ;;
   *"python3 -"*) cat "$STUBS/geometry.json" ;;
-  # The rig's lease (`~/.mcgyvr/lease` ON the rig): the remote command is
-  # run as written, by a real bash, under a HOME of the stub's own — so
-  # `set -C` and `>` mean what they mean on the rig, and a test reads or
-  # plants the file at `rig-home/.mcgyvr/lease`.
+  # A step's own look at the rig's lease (`cat ~/.mcgyvr/lease`): run as
+  # written, by a real bash, under the stub's HOME.
   *".mcgyvr/lease"*)
     mkdir -p "$STUBS/rig-home"
     HOME=$STUBS/rig-home bash -c "$cmd" ;;
-  "bash -s -- lease")
-    mkdir -p "$STUBS/rig-home"
-    HOME=$STUBS/rig-home bash -s ;;
   *'echo $HOME'*) echo "$STUB_RIG_HOME" ;;
   *"cat >>"*) cat >/dev/null ;;
   *mkdir*) : ;;
@@ -771,6 +775,11 @@ def docker_log(where: Path) -> list[str]:
 
 def ssh_log(where: Path) -> list[str]:
     return _log(where, "ssh.log")
+
+
+def lease_log(where: Path) -> list[str]:
+    """The lease operations the stub rig ran, in order (``read``, ``take_free``...)."""
+    return _log(where, "lease.log")
 
 
 # --------------------------------------------------------------------------
