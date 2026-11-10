@@ -30,6 +30,32 @@ archived outside this repository, under the same paths.
   SETUP.md maps each audience and mode to its pool and the use cases it
   serves, and says a host serves strangers only once a hub admin approved it.
 
+- **The docs say what already ships, tests pin it, and helpers no command
+  calls say so; one prompt changes.** A new generated `COMMANDS.md` lists
+  every verb and flag, rendered from the CLI's own parser by
+  `mcgyvr.cli.verbdoc` (`attach`, `index`, `resolve`, `read --hint/--holds`,
+  `fleet alerts`, `rig leave`, `rig peers`, the `caps` and `rig lend` aliases
+  were in no document); `make docs` writes it and `make docs-check` fails when
+  it drifts. SETUP.md points at it, and says that `emit` refuses a
+  unit larger than the free disk, that setup's sample writes a reply ceiling
+  into `fleet.yaml` for a unit that names none, what `$MCGYVR_ENDPOINTS`,
+  `$HF_TOKEN` and `$HF_ENDPOINT` do (the `MCGYVR_TEST_*` hooks are test-only),
+  that a head given a model digest refuses another file as `model_missing`,
+  and that the journal is the one piece of state that does not move with
+  `$MCGYVR_DATA` or `$XDG_STATE_HOME`.
+  `task_timeout_s` names its second use, the queue wait, and says that with
+  no config each command still ends at the sandbox's own 900 s; `start_rung` no longer promises a rung picked ahead of a run
+  (`triage_ahead` is wired to no command); /mcgyvr-direct names the
+  `unchanged` / `identical-to-base` finding. New tests pin the split-path disk
+  refusal, the head digest check and its lease renewal, the `crew.yaml`
+  reader, the reply ceilings and `read --hint/--holds`. `disposition`,
+  `credential_env_names`, the decision-log metrics, `alerts.rejudge` and
+  `delegate_log`'s reader say who calls them. The js/ts worker prompt asks
+  for the target's own language — TypeScript for `.ts`/`.mts`/`.cts`/`.tsx`,
+  plain JavaScript otherwise — instead of typed TypeScript for every target
+  (its standing stays "measured, no effect": #144 measured the text before
+  this change, and it is not re-measured).
+
 - **A Mac's GPU is sized from the Metal working set llama.cpp logged, a
   reading, once a native server has started on it.** The native supervisor
   already filed `recommendedMaxWorkingSetSize` from llama-server's start-up

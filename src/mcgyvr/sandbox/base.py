@@ -168,7 +168,11 @@ def is_credential_var(name: str) -> bool:
 
 
 def credential_env_names(env: Mapping[str, str]) -> frozenset[str]:
-    """The names in `env` that `is_credential_var` calls credentials."""
+    """The names in `env` that `is_credential_var` calls credentials.
+
+    Used by the security tests, which assert through it that no credential
+    reaches a checker; the product itself asks `is_credential_var` directly.
+    """
     return frozenset(name for name in env if is_credential_var(name))
 
 
