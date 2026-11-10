@@ -35,6 +35,7 @@ from mcgyvr.serving import (
     shipped,
     units_for,
 )
+from tests.emitted import compose_of
 from tests.remote_rigs import FakeShell, record_rig
 
 MODEL = "Qwen3.6-35B-A3B-UD-IQ3_XXS"
@@ -72,7 +73,7 @@ def _spec(tmp_path: Path, host: str) -> Path:
     }
     (unit,) = units_for(parse(_config(host)), scans, specs=(), ctx_per_slot=4096)
     spec = tmp_path / "compose.yml"
-    spec.write_text(emit.render_compose(unit))
+    spec.write_text(compose_of(unit))
     return spec
 
 

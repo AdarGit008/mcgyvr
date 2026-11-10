@@ -32,7 +32,7 @@ from mcgyvr.hubwire import (
     RESOURCE_RAM,
     RESOURCE_UNIFIED,
 )
-from mcgyvr.propose import DEFAULT_HEADROOM_GB
+from mcgyvr.ladder_proposal import DEFAULT_HEADROOM_GB
 from mcgyvr.rig import hardware, protocol, sessionwire
 
 #: The settings file's name inside the rig's home folder; `path()` joins the two.

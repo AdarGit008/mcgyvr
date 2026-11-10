@@ -3,7 +3,7 @@
 A block or unit key that was renamed outright (`orchestrator` is now `proposer`,
 a unit's `role` is now `sleep`) is refused, and the refusal names the new
 spelling. A key or value that is read for one release under its old name
-(`max_replans`, `proposer.authoring: classifier|prose`) loads, and says
+(`max_redecompositions`, `proposer.authoring: classifier|prose`) loads, and says
 `RenamedWarning`.
 """
 
@@ -34,7 +34,7 @@ def test_an_orchestrator_block_is_refused_naming_proposer() -> None:
 
 def test_max_replans_is_read_as_max_redecompositions_with_a_warning() -> None:
     with pytest.warns(RenamedWarning, match="max_redecompositions"):
-        config = parse(FLEET + "max_replans: 2\n")
+        config = parse(FLEET + "max_redecompositions: 2\n")
 
     assert config.get("max_redecompositions") == 2
 

@@ -17,7 +17,6 @@ never changed.
 
 from __future__ import annotations
 
-import shlex
 from pathlib import Path
 
 import pytest
@@ -28,12 +27,11 @@ from mcgyvr.emit import (
     argv,
     check_all,
     emit_all,
-    render_command,
-    render_compose,
     sleep_mode,
 )
 from mcgyvr.serving import Unit, unit_for
 from tests.doors import DENSE, SEVEN_B_SPEC, rig, service_of
+from tests.emitted import compose_of
 from tests.sizings import WINDOW
 
 HOST = "gpu-box.example"
@@ -55,7 +53,7 @@ def llama_unit() -> Unit:
 
 def test_a_vllm_unit_with_sleep_mode_starts_with_the_flag_and_the_dev_routes() -> None:
     unit = vllm_unit()
-    document = render_compose(unit, sleep_mode=True)
+    document = compose_of(unit, sleep_mode=True)
     service = service_of(document)
 
     assert SLEEP_FLAG in service["command"]
@@ -64,7 +62,7 @@ def test_a_vllm_unit_with_sleep_mode_starts_with_the_flag_and_the_dev_routes() -
 
 
 def test_the_spec_says_the_routes_answer_anyone_who_reaches_the_port() -> None:
-    document = render_compose(vllm_unit(), sleep_mode=True)
+    document = compose_of(vllm_unit(), sleep_mode=True)
     comment = "".join(
         line for line in document.splitlines(keepends=True) if line.startswith("#")
     ).lower()
@@ -77,10 +75,10 @@ def test_the_spec_says_the_routes_answer_anyone_who_reaches_the_port() -> None:
 
 def test_without_sleep_mode_a_vllm_unit_is_emitted_exactly_as_before() -> None:
     unit = vllm_unit()
-    document = render_compose(unit, sleep_mode=False)
+    document = compose_of(unit, sleep_mode=False)
     service = service_of(document)
 
-    assert document == render_compose(unit)
+    assert document == compose_of(unit)
     assert SLEEP_FLAG not in service["command"]
     assert DEV_MODE not in service["environment"]
     assert not document.startswith("#")
@@ -89,17 +87,7 @@ def test_without_sleep_mode_a_vllm_unit_is_emitted_exactly_as_before() -> None:
 def test_a_llamacpp_unit_has_no_sleep_mode_to_turn_on() -> None:
     unit = llama_unit()
 
-    assert render_compose(unit, sleep_mode=True) == render_compose(unit)
-
-
-def test_the_bare_command_carries_the_same_flag_and_variable() -> None:
-    unit = vllm_unit()
-    words = shlex.split(render_command(unit, sleep_mode=True))
-
-    assert words[0] == f"{DEV_MODE}=1"
-    assert words[-len(argv(unit, sleep_mode=True)) :] == list(
-        argv(unit, sleep_mode=True)
-    )
+    assert compose_of(unit, sleep_mode=True) == compose_of(unit)
 
 
 def test_a_file_written_with_sleep_mode_drifts_from_one_without_it(

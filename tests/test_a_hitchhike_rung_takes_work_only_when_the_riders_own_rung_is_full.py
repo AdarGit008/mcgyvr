@@ -1,6 +1,6 @@
-"""A relief rung takes work only when the rider's own rung is full, and never climbs.
+"""A hitchhike rung takes work only when the rider's own rung is full, and never climbs.
 
-A relief rung is another person's unit, lent through the hub ("hitchhike"). It
+A hitchhike rung is another person's unit, lent through the hub ("hitchhike"). It
 may serve a model above the rider's ceiling or below their floor; what it is
 for is a shorter queue, not more capability. So it enters routing at exactly
 one place, the spill ``fanout: idle`` already makes when a rung is full
@@ -11,8 +11,8 @@ one place, the spill ``fanout: idle`` already makes when a rung is full
   server's own count at width). A free rung of the rider's own is always taken
   first.
 * **In place of a priced api rung, never ahead of one.** When the rider's own
-  family is full, a free relief rung is the one place the work may spill: fan-out
-  never sends a contract to an api rung. A full relief rung, or one that is
+  family is full, a free hitchhike rung is the one place the work may spill: fan-out
+  never sends a contract to an api rung. A full hitchhike rung, or one that is
   not offered, is passed over as any full rung is, and the contract waits on its
   own ladder; only escalation reaches the api family.
 * **Never as a step of the climb.** It is on no plan of the ascent, so no
@@ -21,8 +21,8 @@ one place, the spill ``fanout: idle`` already makes when a rung is full
   says where the host's model sits against the rider's own, for display; it
   places nothing.
 * **Only under ``fanout: idle``,** the mode that spills; ``none`` and ``full``
-  never leave the family they were handed, and they never reach a relief rung.
-* **A relief rung that cannot take the request now is as if it were full**:
+  never leave the family they were handed, and they never reach a hitchhike rung.
+* **A hitchhike rung that cannot take the request now is as if it were full**:
   the climb steps aside at no cost and decides its entry again without it.
 
 Nothing here touches a network: the attempt is a script, the capacity is built
@@ -43,13 +43,13 @@ from mcgyvr.escalate import (
     Outcome,
     ascent,
     escalate,
-    redundant_relief,
+    redundant_hitchhike,
 )
 from mcgyvr.route import Verdict
-from tests.relieftakes import (
+from tests.hitchhiketakes import (
     API,
     FAST,
-    RELIEF,
+    HITCHHIKE,
     SETUP,
     Script,
     capacity_of,
@@ -84,9 +84,9 @@ def next_free(
     full: tuple[str, ...] = (),
     servers: dict[str, int | None] | None = None,
     fanout: str = "idle",
-    relief: str = RELIEF,
+    hitchhike: str = HITCHHIKE,
 ) -> str | None:
-    config, pool = mapped(fanout, relief=relief)
+    config, pool = mapped(fanout, hitchhike=hitchhike)
     cap = capacity_of(config, tmp_path, servers)
     for name in full:
         cap.reserve(name)
@@ -96,26 +96,26 @@ def next_free(
 # --- where the spill goes ------------------------------------------------------
 
 
-def test_the_riders_own_free_rung_is_taken_before_any_relief_rung(
+def test_the_riders_own_free_rung_is_taken_before_any_hitchhike_rung(
     tmp_path: Path,
 ) -> None:
     assert next_free(tmp_path) == FAST
 
 
-def test_a_full_own_rung_spills_to_a_free_relief_rung_before_a_priced_one(
+def test_a_full_own_rung_spills_to_a_free_hitchhike_rung_before_a_priced_one(
     tmp_path: Path,
 ) -> None:
     assert next_free(tmp_path, full=(FAST,)) == RIDE
 
 
-def test_a_full_relief_rung_is_passed_over_and_no_api_rung_is_entered_instead(
+def test_a_full_hitchhike_rung_is_passed_over_and_no_api_rung_is_entered_instead(
     tmp_path: Path,
 ) -> None:
-    """With the relief rung full too, the contract waits on its own ladder."""
+    """With the hitchhike rung full too, the contract waits on its own ladder."""
     assert next_free(tmp_path, full=(FAST, RIDE)) is None
 
 
-def test_a_relief_rung_whose_server_count_is_at_width_is_full(
+def test_a_hitchhike_rung_whose_server_count_is_at_width_is_full(
     tmp_path: Path,
 ) -> None:
     """The one definition of full: the server's own count fills it too."""
@@ -123,17 +123,17 @@ def test_a_relief_rung_whose_server_count_is_at_width_is_full(
     assert next_free(tmp_path, full=(FAST,), servers={RIDE: 1}) is None
 
 
-def test_of_two_free_relief_rungs_the_first_the_hub_listed_wins(
+def test_of_two_free_hitchhike_rungs_the_first_the_hub_listed_wins(
     tmp_path: Path,
 ) -> None:
     """The hub lists its rungs best first; ``position`` reorders nothing."""
-    both = RELIEF + SECOND
-    assert next_free(tmp_path, full=(FAST,), relief=both) == RIDE
-    assert next_free(tmp_path, full=(FAST, RIDE), relief=both) == OTHER
+    both = HITCHHIKE + SECOND
+    assert next_free(tmp_path, full=(FAST,), hitchhike=both) == RIDE
+    assert next_free(tmp_path, full=(FAST, RIDE), hitchhike=both) == OTHER
 
 
 @pytest.mark.parametrize("fanout", ["none", "full"])
-def test_no_mode_but_idle_reaches_a_relief_rung(tmp_path: Path, fanout: str) -> None:
+def test_no_mode_but_idle_reaches_a_hitchhike_rung(tmp_path: Path, fanout: str) -> None:
     config, pool = mapped(fanout)
     cap = capacity_of(config, tmp_path)
     cap.reserve(FAST)
@@ -144,7 +144,7 @@ def test_no_mode_but_idle_reaches_a_relief_rung(tmp_path: Path, fanout: str) -> 
     assert route.reserve_entry() is None
 
 
-def test_a_relief_rung_whose_credential_is_unset_is_not_offered(
+def test_a_hitchhike_rung_whose_credential_is_unset_is_not_offered(
     monkeypatch: pytest.MonkeyPatch, tmp_path: Path
 ) -> None:
     monkeypatch.delenv("HUB_KEY")
@@ -152,7 +152,7 @@ def test_a_relief_rung_whose_credential_is_unset_is_not_offered(
     assert next_free(tmp_path, full=(FAST,)) is None
 
 
-def test_the_relief_rung_stands_in_for_the_first_family_with_rungs(
+def test_the_hitchhike_rung_stands_in_for_the_first_family_with_rungs(
     tmp_path: Path,
 ) -> None:
     """A floor below the local family has nothing to climb; the spill is after
@@ -187,14 +187,14 @@ def test_a_rider_whose_own_rung_is_an_api_one_rides_when_it_is_full(
 
 
 @pytest.mark.parametrize("fanout", ["none", "idle", "full"])
-def test_a_relief_rung_is_on_no_plan_and_changes_no_budget(
+def test_a_hitchhike_rung_is_on_no_plan_and_changes_no_budget(
     tmp_path: Path, fanout: str
 ) -> None:
-    with_relief, pool = mapped(fanout)
-    without, bare = mapped(fanout, relief="")
-    cap = capacity_of(with_relief, tmp_path)
+    with_hitchhike, pool = mapped(fanout)
+    without, bare = mapped(fanout, hitchhike="")
+    cap = capacity_of(with_hitchhike, tmp_path)
 
-    riding = ascent(with_relief, pool, contract(), capacity=cap)
+    riding = ascent(with_hitchhike, pool, contract(), capacity=cap)
     plain = ascent(without, bare, contract())
 
     assert RIDE not in riding.rungs
@@ -203,7 +203,7 @@ def test_a_relief_rung_is_on_no_plan_and_changes_no_budget(
     assert (riding.budget, riding.most_rungs) == (plain.budget, plain.most_rungs)
 
 
-def test_the_capacity_bounds_a_relief_rung_at_the_width_the_hub_gave(
+def test_the_capacity_bounds_a_hitchhike_rung_at_the_width_the_hub_gave(
     tmp_path: Path,
 ) -> None:
     config, _ = mapped()
@@ -234,7 +234,7 @@ def test_a_full_ladder_rides_and_a_ridden_answer_is_delivered_free_of_a_move(
     assert script.tried == [RIDE]
 
 
-def test_a_relief_rung_that_cannot_take_it_now_is_passed_over_as_if_full(
+def test_a_hitchhike_rung_that_cannot_take_it_now_is_passed_over_as_if_full(
     tmp_path: Path,
 ) -> None:
     """It steps aside at no cost, and the entry is decided again without it:
@@ -254,7 +254,7 @@ def test_a_relief_rung_that_cannot_take_it_now_is_passed_over_as_if_full(
     assert [a.verdict for a in done.history] == [Verdict.DECLINED, Verdict.PASSED]
 
 
-def test_a_failed_relief_ride_is_ladder_spent_not_declined_throughout(
+def test_a_failed_hitchhike_ride_is_ladder_spent_not_declined_throughout(
     tmp_path: Path,
 ) -> None:
     """A failed ride is free (no budget counts it), but it is still a rung
@@ -280,10 +280,10 @@ def test_a_failed_relief_ride_is_ladder_spent_not_declined_throughout(
     assert script.tried == [RIDE, FAST, API]
 
 
-def test_a_ridden_relief_attempt_is_recorded_with_its_unit_details(
+def test_a_ridden_hitchhike_attempt_is_recorded_with_its_unit_details(
     tmp_path: Path,
 ) -> None:
-    """A relief try is recorded like any other, stamped with the borrowed unit."""
+    """A hitchhike try is recorded like any other, stamped with the borrowed unit."""
     config, pool = mapped()
     cap = capacity_of(config, tmp_path)
     cap.reserve(FAST)
@@ -295,13 +295,13 @@ def test_a_ridden_relief_attempt_is_recorded_with_its_unit_details(
 
     assert isinstance(done, Halted)
     ride = done.history[0]
-    assert ride.relief is True
+    assert ride.hitchhike is True
     assert ride.model == f"hitchhike@{RUNG_ID}"  # the fixture states no served_model
     assert ride.address == "https://hub.example.org/v1"
 
 
-def test_a_relief_rung_that_duplicates_an_own_unit_is_called_out() -> None:
-    """A relief rung serving a model you already run re-sends to what you have."""
+def test_a_hitchhike_rung_that_duplicates_an_own_unit_is_called_out() -> None:
+    """A hitchhike rung serving a model you already run re-sends to what you have."""
     config = parse(
         """
 units:
@@ -311,7 +311,7 @@ units:
     width: 1
 ladder:
 - mine
-relief:
+hitchhike:
   borrow:
     address: https://hub.example.org/v1
     model: hitchhike@abc
@@ -321,7 +321,7 @@ relief:
     served_model: qwen2.5-coder-3b
 """
     )
-    notes = redundant_relief(config)
+    notes = redundant_hitchhike(config)
     assert len(notes) == 1
     assert "borrow" in notes[0]
     assert "mine" in notes[0]
@@ -348,7 +348,7 @@ def test_a_ride_that_could_not_go_leaves_no_reservation_behind(
     }
 
 
-def test_an_escalation_climbs_the_ladder_and_never_to_a_relief_rung(
+def test_an_escalation_climbs_the_ladder_and_never_to_a_hitchhike_rung(
     tmp_path: Path,
 ) -> None:
     config, pool = mapped()
@@ -361,7 +361,7 @@ def test_an_escalation_climbs_the_ladder_and_never_to_a_relief_rung(
     assert script.tried == [FAST, API]
 
 
-def test_an_escalation_stopped_by_its_ceiling_does_not_go_on_to_a_relief_rung(
+def test_an_escalation_stopped_by_its_ceiling_does_not_go_on_to_a_hitchhike_rung(
     tmp_path: Path,
 ) -> None:
     config, pool = mapped(escalations=0)
@@ -375,10 +375,10 @@ def test_an_escalation_stopped_by_its_ceiling_does_not_go_on_to_a_relief_rung(
     assert script.tried == [FAST]
 
 
-# --- what `mcgyvr local_pool` shows --------------------------------------------------
+# --- what `mcgyvr ladder show` shows --------------------------------------------------
 
 
-def test_pool_shows_the_relief_rungs_apart_from_the_ladder(
+def test_pool_shows_the_hitchhike_rungs_apart_from_the_ladder(
     tmp_path: Path, capsys: pytest.CaptureFixture[str]
 ) -> None:
     from mcgyvr.cli import main
@@ -386,15 +386,15 @@ def test_pool_shows_the_relief_rungs_apart_from_the_ladder(
 
     folder = write_setup(
         tmp_path / "setup",
-        SETUP.format(fanout="idle", escalations=1) + RELIEF + SECOND,
+        SETUP.format(fanout="idle", escalations=1) + HITCHHIKE + SECOND,
     )
 
-    assert main(["local_pool", str(folder)]) == 0
+    assert main(["ladder", "show", str(folder)]) == 0
     out = capsys.readouterr().out
 
-    ladder, _, relief = out.partition("Relief rungs")
+    ladder, _, hitchhike = out.partition("Hitchhike rungs")
     assert RIDE not in ladder and OTHER not in ladder
     assert "2 usable rung(s)" in ladder
-    assert RIDE in relief and "above_ceiling" in relief
-    assert OTHER in relief and "below_floor" in relief
-    assert "never climbed to" in relief
+    assert RIDE in hitchhike and "above_ceiling" in hitchhike
+    assert OTHER in hitchhike and "below_floor" in hitchhike
+    assert "never climbed to" in hitchhike

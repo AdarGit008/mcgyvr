@@ -279,6 +279,15 @@ LINEAGE_FIELDS: tuple[Field, ...] = (
 #: The attempts a contract allows each rung when its `limits.attempts` is unset.
 DEFAULT_ATTEMPTS = 2
 
+#: The reply shapes a contract may ask a model for (`output_schema`): the whole
+#: new file as one fenced block, or a unified diff of the target as one. Both are
+#: parsed in :mod:`mcgyvr.worker.reply` and asked for in :mod:`mcgyvr.worker.prompt`;
+#: a diff is applied onto the content the model was shown, so either way the gate
+#: and delivery see the whole resulting file.
+WHOLE_FILE = "whole_file"
+UNIFIED_DIFF = "unified_diff"
+OUTPUT_SCHEMAS = (WHOLE_FILE, UNIFIED_DIFF)
+
 LIMITS_FIELDS: tuple[Field, ...] = (
     Field(
         "max_output_tokens",
@@ -414,8 +423,9 @@ SCHEMA: tuple[Field, ...] = (
         "str_list",
         "Explicit triggers on which the worker must stop and report BLOCKED "
         "instead of guessing — scope creep, an unknown API, an ambiguous "
-        "directive. Required when a model writes a `whole_file` reply, the "
-        "one whose refusal is caught and escalated: guessing is the documented "
+        "directive. Required when a model writes the target (a `whole_file` "
+        "or `unified_diff` reply), whose refusal is caught and escalated: "
+        "guessing is the documented "
         "small-model failure mode these exist to prevent. Start from "
         f"`{generic_stop_condition('<task_type>', '<target>')}`.",
         default=(),
@@ -426,10 +436,15 @@ SCHEMA: tuple[Field, ...] = (
         "enum",
         "The shape the worker must reply in, declared so a runner can hand "
         "the model format instructions rather than hoping for a convention. "
-        "`whole_file` is the single-file output protocol. `unified_diff` "
-        "validates here and is refused before dispatch.",
-        default="whole_file",
-        choices=("whole_file", "unified_diff"),
+        "`whole_file` is the single-file output protocol: the complete new "
+        "content of the target as one fenced block. `unified_diff` is one "
+        "fenced block holding a unified diff of the target alone, applied onto "
+        "the content the model was shown; a diff that names another file, "
+        "renames, deletes or is binary, or whose context does not match, is a "
+        "failed attempt and is retried like an unreadable `whole_file`. Either "
+        "way the gate and delivery see the whole resulting file.",
+        default=WHOLE_FILE,
+        choices=OUTPUT_SCHEMAS,
         worker_facing=True,
     ),
     Field(
@@ -532,10 +547,11 @@ SCHEMA: tuple[Field, ...] = (
     Field(
         "start_rung",
         "str",
-        "The ladder rung this contract's climb starts on, decided ahead of "
-        "time — what `mcgyvr.triage.triage_ahead` asks the `jev` unit, stored "
-        "with the contract so every later run starts there without asking "
-        "again. The rungs below it are skipped, not spent, and escalation goes "
+        "The ladder rung this contract's climb starts on, written into the "
+        "contract by its author, so every run starts there without asking "
+        "triage. No mcgyvr command picks it for you (`mcgyvr.triage.triage_ahead` "
+        "can, from Python, and is wired to no command). The rungs below it are "
+        "skipped, not spent, and escalation goes "
         "on upward from it; it wins over the config's `triage`. A rung the "
         "ladder does not list, or one this contract's climb does not offer, is "
         "refused before anything is dispatched. Not worker-facing.",
@@ -644,7 +660,7 @@ class Contract:
     interface: str = ""
     deps: tuple[Dependency, ...] = ()
     stop_conditions: tuple[str, ...] = ()
-    output_schema: str = "whole_file"
+    output_schema: str = WHOLE_FILE
     sources: tuple[str, ...] = ()
     max_input_tokens: int = 4096
     acceptance: tuple[str, ...] = ()
@@ -1165,19 +1181,17 @@ def _cross_validate(data: Mapping[str, Any]) -> None:
 
     _check_destination(data, kind, target, allow, forbid)
 
-    # `whole_file` is the reply shape whose refusal escalates: a model that meets
-    # something the contract never stated either stops or guesses, and a guess is
-    # applied straight to the target. So a model-written whole-file contract must
-    # name at least one condition that sends it to BLOCKED instead.
-    if (
-        not kind.deterministic
-        and data["output_schema"] == "whole_file"
-        and not data["stop_conditions"]
-    ):
+    # Every reply shape writes the target, and its refusal escalates: a model
+    # that meets something the contract never stated either stops or guesses,
+    # and a guess - a whole file or a diff applied onto the target - lands
+    # straight in the target. So a model-written contract must name at least
+    # one condition that sends it to BLOCKED instead.
+    if not kind.deterministic and not data["stop_conditions"]:
         raise ContractSchemaError(
             f"stop_conditions: is empty, but task type {kind.name!r} runs on "
-            f"a model that replies with a whole_file. Without a stated trigger "
-            f"to report BLOCKED, a worker that meets an unknown will guess. "
+            f"a model that replies with a {data['output_schema']}. Without a "
+            f"stated trigger to report BLOCKED, a worker that meets an unknown "
+            f"will guess. "
             f"Name at least one condition; start from "
             f'"{generic_stop_condition(kind.name, target)}".'
         )
@@ -1352,7 +1366,7 @@ def _check_destination(
     allow: Sequence[str],
     forbid: Sequence[str],
 ) -> None:
-    """Check the target against the scope: literal or pattern by tier, and writable."""
+    """Check the target against the scope: a literal, or a pattern (floor); writable."""
     if not allow:
         raise ContractSchemaError(
             "scope.allow: is empty, which permits nothing — the contract "
@@ -1381,7 +1395,7 @@ def _check_destination(
             f"target_content: is set, but target {target!r} is a pattern — "
             f"there is no one file whose content this could be. Name a single "
             f"literal path, or drop target_content: a pattern target runs on "
-            f"the deterministic tier, whose tools read each file themselves."
+            f"the floor, whose tools read each file themselves."
         )
 
     overlap = sorted(set(allow) & set(forbid))

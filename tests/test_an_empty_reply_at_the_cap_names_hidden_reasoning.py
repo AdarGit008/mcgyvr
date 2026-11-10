@@ -18,7 +18,7 @@ from typing import Any
 
 import pytest
 
-from mcgyvr.local_pool import Protocol
+from mcgyvr.ladder_map import Protocol
 from mcgyvr.runner import Completion, StopReason
 from mcgyvr.worker.reply import empty_at_cap
 from tests import livejournal as lj
@@ -91,7 +91,7 @@ def test_a_run_whose_replies_come_back_empty_says_so(
     """Through ``mcgyvr direct``: the attempt's detail is the new refusal."""
 
     def reasons_until_the_cap(
-        source_map: Any, rung: str, request: Any, **_: Any
+        unit_map: Any, rung: str, request: Any, **_: Any
     ) -> Completion:
         return _reply(
             "",

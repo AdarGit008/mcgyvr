@@ -43,7 +43,7 @@ from mcgyvr.decompose.decompose import (
 from mcgyvr.decompose.fields import FIELD_ORDER
 from mcgyvr.delegate import FillProposer, proposer_by_authoring
 from mcgyvr.gate.adapters import JavaScriptAdapter, PythonAdapter
-from mcgyvr.local_pool import source_map
+from mcgyvr.ladder_map import unit_map
 from mcgyvr.refine import (
     Part,
     Partition,
@@ -577,7 +577,7 @@ def _typed_for(monkeypatch: pytest.MonkeyPatch, text: str) -> Any:
 
     monkeypatch.setattr(delegate, "proposer_by_authoring", spy)
     config = parse(text)
-    _proposer_for_delegate(config, source_map(config))
+    _proposer_for_delegate(config, unit_map(config))
     (typed,) = seen
     return typed
 

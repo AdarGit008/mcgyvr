@@ -121,9 +121,9 @@ ladder: [local]
 """
 
 
-def _relief(scope: str) -> str:
+def _hitchhike(scope: str) -> str:
     return f"""\
-relief:
+hitchhike:
   {RIDE}:
     address: {HUB}
     model: hitchhike@{FIRST}
@@ -151,9 +151,9 @@ def test_a_ride_scope_in_an_old_word_is_refused_naming_the_new_one() -> None:
         parse(_fleet("own") + "ride_scope: general\n")
 
 
-def test_a_relief_rungs_scope_in_an_old_word_is_refused_naming_the_new_one() -> None:
+def test_a_hitchhike_rungs_scope_in_an_old_word_is_refused_naming_the_new_one() -> None:
     with pytest.raises(ConfigSchemaError, match="`solo` is no longer an audience"):
-        parse(_fleet("own"), relief_text=_relief("solo"))
+        parse(_fleet("own"), hitchhike_text=_hitchhike("solo"))
 
 
 def test_any_other_wrong_scope_is_refused_as_before() -> None:

@@ -79,7 +79,7 @@ from mcgyvr.worker.reply import FENCE_OPEN as _FENCE_OPEN
 if TYPE_CHECKING:  # pragma: no cover - typing only
     from mcgyvr.capacity import Capacity
     from mcgyvr.config import Config
-    from mcgyvr.local_pool import SourceMap
+    from mcgyvr.ladder_map import UnitMap
 
 #: The role whose bound unit turns a prompt into contracts: `proposer_for`
 #: dispatches the draft prompt there, `fill_proposer_for` asks the typed
@@ -578,7 +578,7 @@ def _deps(item: dict[str, object]) -> tuple[DepRef, ...]:
 
 
 def proposer_for(
-    source_map: SourceMap,
+    unit_map: UnitMap,
     *,
     capacity: Capacity | None = None,
 ) -> Proposer | None:
@@ -592,13 +592,11 @@ def proposer_for(
     limit is not parsed: it raises `ProposerReplyCutOffError`. Either way,
     an unreadable reply's error carries the raw reply as its `reply`.
     """
-    if source_map.role_model(PROPOSER_ROLE) is None:
+    if unit_map.role_model(PROPOSER_ROLE) is None:
         return None
 
     def send(request: Request) -> Completion:
-        completion = dispatch_role(
-            source_map, PROPOSER_ROLE, request, capacity=capacity
-        )
+        completion = dispatch_role(unit_map, PROPOSER_ROLE, request, capacity=capacity)
         if completion is None:  # The role lists a model but resolves to no unit.
             raise ProposerUnavailableError(
                 f"the {PROPOSER_ROLE!r} role has no unit to dispatch to"
@@ -630,7 +628,7 @@ class TopRungProposer:
 
 def top_rung_proposer_for(
     config: Config,
-    source_map: SourceMap,
+    unit_map: UnitMap,
     *,
     capacity: Capacity | None = None,
 ) -> TopRungProposer | None:
@@ -643,16 +641,16 @@ def top_rung_proposer_for(
     """
     from mcgyvr.route import top_rung
 
-    rung = top_rung(config, source_map)
+    rung = top_rung(config, unit_map)
     if rung is None:
         return None
     name = rung.name
 
     def send(request: Request) -> Completion:
-        endpoint = source_map.bind(name)
+        endpoint = unit_map.bind(name)
         if request.timeout_s is None:
             request = replace(request, timeout_s=endpoint.request_timeout_s)
-        return dispatch(source_map, name, request, capacity=capacity)
+        return dispatch(unit_map, name, request, capacity=capacity)
 
     return TopRungProposer(
         rung=name, model=rung.model, propose=_drafting(send, asked="top rung")
@@ -754,7 +752,7 @@ class FillProposer:
     reply cap is asked for or stated: the work is sent its unit's maximum.
     Each decision is appended to `sink`, when one is wired.
 
-    For the W6 retry loop, a decline returns a `Refusal` field/directive as
+    For the re-ask (`iterate.reask`), a decline returns a `Refusal` field/directive as
     follows: no targets or no vocabulary → `target`/`task_type`; `task_type`
     below the confidence floor or not servable → `task_type`; `target` below
     the confidence floor → `target`. `__call__` still returns `()` for any
@@ -1103,7 +1101,7 @@ def scaffold_proposer() -> Proposer:
 
 
 def fill_proposer_for(
-    source_map: SourceMap,
+    unit_map: UnitMap,
     *,
     capacity: Capacity | None = None,
     confidence: float = MIN_CONFIDENCE,
@@ -1118,12 +1116,12 @@ def fill_proposer_for(
     deterministically and asks nothing — the gate, verifier and wake decisions
     keep asking their pre-jev roles, unchanged.
     """
-    if not jev_bound(source_map):
+    if not jev_bound(unit_map):
         return scaffold_proposer()
 
     def classify(state: Any, questions: Mapping[str, Question]) -> Decision:
         return classify_for(
-            source_map,
+            unit_map,
             state,
             questions,
             role=PROPOSER_ROLE,
@@ -1134,12 +1132,12 @@ def fill_proposer_for(
         classify=classify,
         confidence=confidence,
         sink=sink,
-        model=source_map.role_model(JEV_ROLE) or "",
+        model=unit_map.role_model(JEV_ROLE) or "",
     )
 
 
 def refining_proposer_for(
-    source_map: SourceMap,
+    unit_map: UnitMap,
     *,
     capacity: Capacity | None = None,
     confidence: float = MIN_CONFIDENCE,
@@ -1156,7 +1154,7 @@ def refining_proposer_for(
     a proposal splits, so the rank-0 collapse comes back as it was.
     """
     typed = fill_proposer_for(
-        source_map, capacity=capacity, confidence=confidence, sink=sink
+        unit_map, capacity=capacity, confidence=confidence, sink=sink
     )
     if not isinstance(typed, FillProposer):
         return typed

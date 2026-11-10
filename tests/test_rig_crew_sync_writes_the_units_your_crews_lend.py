@@ -14,7 +14,7 @@ A crew unit is a plain unit: a step or a role binds it by name, under every use
 case, and every request to it names scope crew. It is served from the crew pool,
 which lends free, so it is not an api rung and fan-out may use it.
 
-The fetch and the writer are ``rungs sync``'s, shared: its ``relief.yaml`` is
+The fetch and the writer are ``rungs sync``'s, shared: its ``hitchhike.yaml`` is
 held here to the bytes it wrote before crew units existed.
 
 Every hub here is a loopback server this test starts.
@@ -107,7 +107,7 @@ def test_each_listed_model_is_kept_as_a_unit_under_scope_crew(
     assert coder.model == CODER
     assert coder.api_key_env == "MCGYVR_HUB_API_KEY"
     assert coder.width == 6
-    assert coder.relief is False
+    assert coder.hitchhike is False
     assert kept[f"crew-{SMALL}"].width == 1
 
 
@@ -141,7 +141,7 @@ def test_a_sync_says_what_it_kept_and_where(
     assert f"  crew-{CODER}  x6  {CODER}" in out
 
 
-def test_a_sync_touches_neither_the_fleet_nor_the_policy_nor_the_relief_rungs(
+def test_a_sync_touches_neither_the_fleet_nor_the_policy_nor_the_hitchhike_rungs(
     setup: Path, hub: Hub
 ) -> None:
     before = {path.name: path.read_bytes() for path in setup.iterdir()}
@@ -302,12 +302,12 @@ def _bound(setup: Path, hub: Hub, policy: str) -> Any:
 
 
 def test_a_request_to_a_crew_unit_names_scope_crew(setup: Path, hub: Hub) -> None:
-    from mcgyvr.local_pool import source_map
+    from mcgyvr.ladder_map import unit_map
     from mcgyvr.runner import request_headers
 
     config = _bound(setup, hub, f"ladder: [local_fast, crew-{CODER}]\n")
 
-    endpoint = source_map(config).bind(f"crew-{CODER}")
+    endpoint = unit_map(config).bind(f"crew-{CODER}")
     assert request_headers(endpoint)[hubwire.SCOPE_HEADER] == hubwire.SCOPE_CREW
 
 
@@ -357,7 +357,7 @@ def test_a_unit_with_a_key_not_lent_by_a_crew_is_still_an_api_rung() -> None:
         address="https://hub.example/v1",
         model=hubwire.rung_model(FIRST),
         api_key_env="MCGYVR_HUB_API_KEY",
-        relief=True,
+        hitchhike=True,
         scope=hubwire.SCOPE_CREW,
     )
     assert catalog().family_of(ride).name == "api"
@@ -366,8 +366,8 @@ def test_a_unit_with_a_key_not_lent_by_a_crew_is_still_an_api_rung() -> None:
 # --- rungs sync is what it was -------------------------------------------------
 
 
-def _relief_as_written_before(address: str) -> str:
-    """``relief.yaml`` for one listed rung, as ``rungs sync`` wrote it before
+def _hitchhike_as_written_before(address: str) -> str:
+    """``hitchhike.yaml`` for one listed rung, as ``rungs sync`` wrote it before
     crew units existed, for a setup naming no ``ride_scope`` (so ``crew``), and
     since sealed rides the header's last sentence and the ``seal_key_unknown``
     busy answer, and since the key's variable is recorded the ``api_key_env``
@@ -379,7 +379,7 @@ def _relief_as_written_before(address: str) -> str:
         "# prompts and answers are unread by a hub that lists the host's own key;\n"
         "# until rig identity signs it, the key is the hub's word (SECURITY.md).\n"
         "api_key_env: MCGYVR_HUB_API_KEY\n"
-        "relief:\n"
+        "hitchhike:\n"
         f"  hitchhike-{FIRST}:\n"
         f"    address: {address}/v1\n"
         f"    model: hitchhike@{FIRST}\n"
@@ -403,7 +403,7 @@ def _relief_as_written_before(address: str) -> str:
     )
 
 
-def test_rungs_sync_writes_its_relief_rungs_byte_for_byte_beside_crew_units(
+def test_rungs_sync_writes_its_hitchhike_rungs_byte_for_byte_beside_crew_units(
     setup: Path, hub: Hub
 ) -> None:
     hub.answer(models((CODER, [2])))
@@ -413,8 +413,8 @@ def test_rungs_sync_writes_its_relief_rungs_byte_for_byte_beside_crew_units(
     hub.answer(hub.listing(FIRST))
     assert rungs_cli() == 0
 
-    relief = (setup / "relief.yaml").read_text(encoding="utf-8")
-    assert relief == _relief_as_written_before(hub.address)
+    hitchhike = (setup / "hitchhike.yaml").read_text(encoding="utf-8")
+    assert hitchhike == _hitchhike_as_written_before(hub.address)
     assert (setup / "crew.yaml").read_bytes() == crew_kept
     assert hub.asked[-1]["path"] == "/api/v1/me/rungs"
 
@@ -427,7 +427,7 @@ def test_a_crew_unit_whose_pool_is_full_is_passed_over_not_failed(
     cooldown would learn it failing by."""
     from mcgyvr.capacity import Capacity, SlotUnavailableError
     from mcgyvr.config import parse
-    from mcgyvr.local_pool import source_map
+    from mcgyvr.ladder_map import unit_map
     from mcgyvr.rig import crew as crew_sync
     from mcgyvr.runner import Request, RunnerError, dispatch
     from tests.rungs import answering, error
@@ -446,7 +446,7 @@ def test_a_crew_unit_whose_pool_is_full_is_passed_over_not_failed(
         capacity = Capacity.of(config, root=tmp_path / "slots")
         try:
             outcome: object = dispatch(
-                source_map(config),
+                unit_map(config),
                 name,
                 Request(prompt="hello", max_output_tokens=8),
                 capacity=capacity,

@@ -28,7 +28,7 @@ from mcgyvr.initialize import (
     parse_api_unit,
     render,
 )
-from mcgyvr.propose import binding_name, propose
+from mcgyvr.ladder_proposal import binding_name, propose
 from tests.inits import KEYLESS_RIG, KINDS, _serving
 from tests.machine_shapes import Shape, detection, shape, shapes, with_server
 
@@ -458,30 +458,6 @@ def test_a_written_config_binds_ollama_on_the_uncaveated_protocol(
     initialize(path, detection=KEYLESS_RIG)
     config = load_config(path)
     assert next(iter(config.units.values())).engine is None
-
-
-def test_no_rung_of_a_written_config_carries_the_quality_caveat(
-    tmp_path: Path,
-) -> None:
-    """The property that matters, asserted where it is actually decided.
-
-    Binding `api: openai` is only the mechanism; the claim is that a config
-    init wrote can serve a measurement. That is `Runner.quality_safe`, so the
-    assertion goes through the runner rather than through the string.
-    """
-    from mcgyvr.local_pool import source_map
-    from mcgyvr.runner import runner_for
-
-    path = tmp_path / "setup"
-    initialize(path, detection=KEYLESS_RIG)
-    pool = source_map(load_config(path))
-    assert pool.rungs, "this fixture is only interesting with rungs on it"
-    for rung in pool.rungs:
-        runner = runner_for(pool.bind(rung.name))
-        assert runner.quality_safe, (
-            f"{rung.name} dispatches on a path not safe to measure through, so this "
-            f"install cannot serve a measurement"
-        )
 
 
 def test_detection_still_reads_the_whole_model_listing(tmp_path: Path) -> None:

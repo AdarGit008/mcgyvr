@@ -28,7 +28,7 @@ SSH_TIMEOUT_S = 60.0
 #: The status ssh itself exits with when it fails (no connection, no login).
 SSH_FAILED = 255
 
-BYTES_PER_GB = 1024.0**3
+BYTES_PER_GIB = 1024.0**3
 
 #: Interface names starting with these are container and VM bridges and their
 #: pairs: docker's own bridges, a compose network's br-*, each container's veth*
@@ -114,7 +114,7 @@ class Vram:
 
 @dataclass(frozen=True)
 class Memory:
-    """This machine's RAM, in GB of ``BYTES_PER_GB`` (1024**3) bytes.
+    """This machine's RAM, in GB of ``BYTES_PER_GIB`` (1024**3) bytes.
 
     ``total_gb`` is the installed memory and ``available_gb`` what a new process
     could still allocate, None when the reading gave only a total (a Mac whose

@@ -24,7 +24,7 @@ import mcgyvr.initialize as init_module
 from mcgyvr import detect
 from mcgyvr.config import load as load_config
 from mcgyvr.initialize import initialize, parse_api_unit
-from mcgyvr.propose import binding_name
+from mcgyvr.ladder_proposal import binding_name
 from tests.machine_shapes import Shape, detection, shape, shapes, with_server
 
 KINDS = tuple(kind for kind, _, _ in detect.PORT_CONVENTIONS)

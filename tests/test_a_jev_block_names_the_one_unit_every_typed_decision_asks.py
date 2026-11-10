@@ -25,8 +25,8 @@ from mcgyvr.config import load as load_config
 from mcgyvr.detect import Detection
 from mcgyvr.fleet.files import _POLICY_KEYS
 from mcgyvr.initialize import _sources_for, build, initialize
-from mcgyvr.local_pool import source_map
-from mcgyvr.propose import propose
+from mcgyvr.ladder_map import unit_map
+from mcgyvr.ladder_proposal import propose
 from tests.machine_shapes import detection, shape, with_server
 
 LADDER = """\
@@ -64,22 +64,22 @@ def test_the_jev_block_is_policy() -> None:
 
 
 def test_an_unbound_jev_block_resolves_to_no_model() -> None:
-    assert source_map(parse(LADDER)).role_model("jev") is None
+    assert unit_map(parse(LADDER)).role_model("jev") is None
 
 
 def test_a_bound_jev_unit_without_a_model_answers_on_the_units_own() -> None:
     body = LADDER + "jev:\n  unit: judge\n"
-    assert source_map(parse(body)).role_model("jev") == "example-judge:1b"
+    assert unit_map(parse(body)).role_model("jev") == "example-judge:1b"
 
 
 def test_a_bound_jev_model_is_the_one_named() -> None:
     body = LADDER + "jev:\n  unit: judge\n  model: example-judge:1b-q8\n"
-    assert source_map(parse(body)).role_model("jev") == "example-judge:1b-q8"
+    assert unit_map(parse(body)).role_model("jev") == "example-judge:1b-q8"
 
 
 def test_a_jev_unit_switched_off_resolves_to_no_model() -> None:
     body = LADDER + "jev:\n  unit: judge\n  enabled: false\n"
-    assert source_map(parse(body)).role_model("jev") is None
+    assert unit_map(parse(body)).role_model("jev") is None
 
 
 def test_a_jev_unit_nobody_declared_is_refused_naming_the_key() -> None:
@@ -104,4 +104,4 @@ def test_init_writes_the_jev_block_unbound(tmp_path: Path) -> None:
     assert result.written
     policy = (tmp_path / "setup" / "policy.yaml").read_text(encoding="utf-8")
     assert "\njev:" in policy
-    assert source_map(load_config(tmp_path / "setup")).role_model("jev") is None
+    assert unit_map(load_config(tmp_path / "setup")).role_model("jev") is None

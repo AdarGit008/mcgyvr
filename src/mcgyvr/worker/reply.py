@@ -1,26 +1,37 @@
 """Turn one reply's text into the bytes meant for a file, or a named refusal.
 
-A whole-file reply is treated as a file only when the protocol can vouch for it:
-the backend stopped complete, the output schema is one this module implements,
-and the text holds exactly one closed fenced block. Everything else - no fence,
-two blocks because the model offered an alternative, a fence the cap cut off, an
+A reply is treated as a file only when the protocol can vouch for it: the
+backend stopped complete, the output schema is one this module implements, and
+the text holds exactly one closed fenced block. Everything else - no fence, two
+blocks because the model offered an alternative, a fence the cap cut off, an
 empty block - becomes a `ReplyError` carrying a code, so a caller can tell the
-causes apart instead of writing a plausible file. Given a target path, a block
-that holds no code for that extension is refused as a refusal rather than a file,
-and a reply that spent its whole cap on hidden reasoning is named as empty.
+causes apart instead of writing a plausible file. Given a target path, a file
+that holds no code for that extension is refused as a refusal rather than a
+file, and a reply that spent its whole cap on hidden reasoning is named as empty.
+
+Under `whole_file` the block is the file. Under `unified_diff` the block is a
+unified diff of the target alone (:func:`parse_diff`), applied by `git apply`
+onto the content the model was shown (:func:`apply_diff`); what comes back is
+the whole resulting file, so the gate and delivery cannot tell the two apart. A
+diff that names another file, deletes, renames, changes a mode or is binary is
+refused before anything is applied, and one whose context does not match is a
+named error the next attempt is told about, never a crash.
 """
 
 from __future__ import annotations
 
 import json
 import re
+import tempfile
 from dataclasses import dataclass
+from pathlib import Path
 from typing import Any
 
+from mcgyvr.contract import UNIFIED_DIFF as UNIFIED_DIFF
+from mcgyvr.contract import WHOLE_FILE as WHOLE_FILE
+from mcgyvr.gitcmd import run_git
 from mcgyvr.runner import Completion, StopReason
-
-# The output schema with a parser here: the reply is taken to be a whole file.
-WHOLE_FILE = "whole_file"
+from mcgyvr.scope import inside
 
 # The JSON field a schema-pinned reply is expected to carry the file text in, and the
 # field assumed when a pinned schema names no single string property. It is also the
@@ -191,11 +202,11 @@ def _unreadable(output_schema: str, stop_reason: StopReason) -> ReplyError | Non
     or None when its text may be parsed. Runs before any text is inspected, so an
     unsupported schema or an incomplete reply is reported by cause rather than as
     a malformed block."""
-    if output_schema != WHOLE_FILE:
+    if output_schema not in (WHOLE_FILE, UNIFIED_DIFF):
         return ReplyError(
             "unsupported-schema",
             f"output_schema {output_schema!r} has no parser; only "
-            f"{WHOLE_FILE!r} is implemented",
+            f"{WHOLE_FILE!r} and {UNIFIED_DIFF!r} are implemented",
         )
     if stop_reason is not StopReason.COMPLETE:
         return ReplyError(
@@ -311,12 +322,255 @@ def _fenced(
     return ParsedFile(content=content + "\n", info_string=info)
 
 
+# --- unified_diff ------------------------------------------------------------
+
+#: The path a diff names for the side of a file that does not exist.
+_DEV_NULL = "/dev/null"
+
+#: A hunk header: `@@ -start[,count] +start[,count] @@`, anything after it kept.
+_HUNK = re.compile(r"^@@ -\d+(?:,\d+)? \+\d+(?:,\d+)? @@")
+
+#: Header lines a git diff may carry before its `---`/`+++` pair that say nothing
+#: the pair does not: they are dropped, and the pair is rebuilt from the target.
+_INERT_HEADERS = ("diff --git ", "index ", "new file mode ")
+
+#: Header lines that make the diff something other than an edit of one text
+#: file's lines, each with what it would do. The contract writes one target's
+#: content, so none of them is applied.
+_REFUSED_HEADERS = (
+    ("deleted file mode", "deletes the file"),
+    ("rename from", "renames a file"),
+    ("rename to", "renames a file"),
+    ("copy from", "copies a file"),
+    ("copy to", "copies a file"),
+    ("similarity index", "renames or copies a file"),
+    ("dissimilarity index", "rewrites a file under another name"),
+    ("old mode", "changes a file's mode"),
+    ("new mode", "changes a file's mode"),
+    ("GIT binary patch", "is a binary patch"),
+    ("Binary files ", "is a binary patch"),
+)
+
+
+@dataclass(frozen=True)
+class ParsedDiff:
+    """One diff reply the protocol accepted, not yet applied: the patch `git
+    apply` is given, rebuilt from the target, and whether it creates the file."""
+
+    patch: str
+    creates: bool
+    """Whether the old side is `/dev/null`: a new file, which is only applied
+    onto a target that has no content yet."""
+
+
+def _side(header: str, marker: str) -> str:
+    """The path a `---` or `+++` header line names: the text after the marker,
+    up to a tab (where `diff -u` puts a timestamp), with no trailing blanks."""
+    return header[len(marker) :].split("\t", 1)[0].rstrip()
+
+
+def _names_target(path: str, target: str) -> bool:
+    """Whether a header `path` names `target`: as written, or behind git's `a/`
+    or `b/` prefix, either with a leading `./` dropped."""
+    candidates = {path, path.removeprefix("./")}
+    for prefix in ("a/", "b/"):
+        if path.startswith(prefix):
+            candidates.add(path[len(prefix) :].removeprefix("./"))
+    return target.removeprefix("./") in candidates
+
+
+def _is_hunk_line(line: str) -> bool:
+    """Whether `line` belongs to a hunk body: context, a removal, an addition,
+    git's no-newline marker, or an empty line (a context line whose single space
+    a model or an editor stripped, which `git apply` reads as one)."""
+    return line == "" or line[0] in " +-\\"
+
+
+def parse_diff(body: str, *, target: str) -> ParsedDiff | ReplyError:
+    """Read the body of a fenced diff block as a unified diff of `target` alone.
+
+    The lines before the `---`/`+++` pair may be blank or git's own `diff
+    --git`, `index` and `new file mode` lines; a header that deletes, renames,
+    copies, changes a mode or carries a binary patch is refused, and anything
+    else there is not a diff. The pair must name `target` on both sides (the old
+    side may be `/dev/null` for a new file), then at least one hunk follows,
+    whose lines are context, removals, additions or the no-newline marker. A
+    second `---`/`+++` pair is a second file and refused. The patch handed on is
+    the hunks under a header rebuilt from `target`, so what `git apply` is told
+    to touch is the contract's file and nothing the model wrote.
+    """
+    lines = body.split("\n")
+    while lines and not lines[-1].strip():
+        # Blank lines after the last hunk would read as empty context lines.
+        lines.pop()
+    index = 0
+    while index < len(lines) and not lines[index].startswith("--- "):
+        line = lines[index]
+        for prefix, does in _REFUSED_HEADERS:
+            if line.startswith(prefix):
+                return ReplyError(
+                    "diff-not-a-text-edit",
+                    f"the diff {does} (line {index + 1}: {line[:80]!r}); the "
+                    f"reply may only edit the lines of {target!r}",
+                )
+        if line.strip() and not line.startswith(_INERT_HEADERS):
+            return ReplyError(
+                "malformed-diff",
+                f"line {index + 1} of the diff block, {line[:80]!r}, is not part "
+                f"of a unified diff; the block must be the diff and nothing else, "
+                f"starting with `--- a/{target}` and `+++ b/{target}`",
+            )
+        index += 1
+    if index + 1 >= len(lines) or not lines[index + 1].startswith("+++ "):
+        return ReplyError(
+            "malformed-diff",
+            f"the diff block has no `--- a/{target}` line followed by a "
+            f"`+++ b/{target}` line, so it names no file to change",
+        )
+    old = _side(lines[index], "--- ")
+    new = _side(lines[index + 1], "+++ ")
+    if new == _DEV_NULL:
+        return ReplyError(
+            "diff-not-a-text-edit",
+            f"the diff deletes {target!r} (`+++ /dev/null`); the reply may only "
+            f"edit its lines",
+        )
+    for side in (old, new):
+        if side != _DEV_NULL and not _names_target(side, target):
+            return ReplyError(
+                "diff-outside-contract",
+                f"the diff edits {side!r}, which is not this contract's target "
+                f"{target!r}; a reply changes the target and no other file",
+            )
+    creates = old == _DEV_NULL
+    hunks = lines[index + 2 :]
+    if not hunks or not _HUNK.match(hunks[0]):
+        return ReplyError(
+            "malformed-diff",
+            "the diff's file header is not followed by a hunk "
+            "(`@@ -start,count +start,count @@`), so it changes nothing",
+        )
+    for offset, line in enumerate(hunks):
+        number = index + 3 + offset
+        if _HUNK.match(line):
+            continue
+        if (
+            line.startswith("--- ")
+            and offset + 1 < len(hunks)
+            and hunks[offset + 1].startswith("+++ ")
+        ) or line.startswith("diff --git "):
+            return ReplyError(
+                "diff-many-files",
+                f"the diff starts a second file at line {number}; the reply is "
+                f"one diff of {target!r} alone",
+            )
+        if line.startswith(tuple(prefix for prefix, _ in _REFUSED_HEADERS)):
+            return ReplyError(
+                "diff-not-a-text-edit",
+                f"line {number} of the diff, {line[:80]!r}, is a file header "
+                f"inside a hunk; the reply may only edit the lines of {target!r}",
+            )
+        if not _is_hunk_line(line):
+            return ReplyError(
+                "malformed-diff",
+                f"line {number} of the diff, {line[:80]!r}, is not a hunk line: "
+                f"each starts with a space (context), `-`, `+` or `\\`",
+            )
+    header = f"--- {_DEV_NULL if creates else 'a/' + target}\n+++ b/{target}\n"
+    return ParsedDiff(patch=header + "\n".join(hunks) + "\n", creates=creates)
+
+
+class _NotAppliedError(Exception):
+    """`git apply` refused the patch; the message is git's own."""
+
+
+def apply_diff(diff: ParsedDiff, *, target: str, base: str) -> str | ReplyError:
+    """Apply `diff` onto `base`, the content of `target` the model was shown, and
+    return the whole resulting file, or a ReplyError when it does not apply.
+
+    The base is written at `target` in a scratch directory of its own - never the
+    workspace, which the caller writes the result into - and `git apply` applies
+    the patch there, all or nothing. Context lines must match the base exactly
+    (no fuzz, no whitespace leniency); hunk line counts are recounted, since a
+    model miscounts more often than it miscopies. An empty `base` with a diff
+    that creates the file is applied onto no file at all. Bytes are carried with
+    `surrogateescape`, so content that is not UTF-8 round-trips.
+    """
+    with tempfile.TemporaryDirectory(prefix="mcgyvr-diff-") as scratch:
+        root = Path(scratch).resolve()
+        path = inside(root, target)
+        if base or not diff.creates:
+            path.parent.mkdir(parents=True, exist_ok=True)
+            path.write_bytes(base.encode("utf-8", "surrogateescape"))
+        prefix = f"git apply failed in {root}: "
+        try:
+            run_git(
+                root,
+                "apply",
+                "--recount",
+                # The user's `apply.whitespace` must not turn a trailing blank
+                # into a refusal; whitespace in context still has to match.
+                "--whitespace=nowarn",
+                "-",
+                input=diff.patch.encode("utf-8", "surrogateescape"),
+                # The scratch directory is no repository, and git must not climb
+                # out of it into one: outside a repository `git apply` patches
+                # the working directory, as `patch` does.
+                env={"GIT_CEILING_DIRECTORIES": str(root.parent)},
+                error=_NotAppliedError,
+            )
+        except _NotAppliedError as refused:
+            detail = str(refused).removeprefix(prefix).strip()
+            return ReplyError(
+                "diff-does-not-apply",
+                f"the diff does not apply to the current content of {target!r}: "
+                f"{detail or 'git apply refused it'}. Diff against the current "
+                f"content as shown, copying each context and removed line exactly",
+            )
+        if not path.is_file():
+            return ReplyError(
+                "diff-does-not-apply",
+                f"applying the diff left no {target!r}",
+            )
+        return path.read_bytes().decode("utf-8", "surrogateescape")
+
+
+def _diffed(
+    text: str, *, stop_reason: StopReason, target: str, base: str
+) -> ParsedFile | ReplyError:
+    """A `unified_diff` reply turned into the whole file it describes: one fenced
+    block, read by :func:`parse_diff`, applied by :func:`apply_diff`, and the
+    result judged for code like a whole-file block is."""
+    block = _fenced(text, output_schema=UNIFIED_DIFF, stop_reason=stop_reason)
+    if isinstance(block, ReplyError):
+        return block
+    # A refusal dressed as a block (comments only, or a JSON status blob) is
+    # named as one before it is read as a diff: as `malformed-diff` its retry
+    # note would push the model to guess a diff instead of escalating. Every
+    # diff line (`---`, `+++`, `@@`, hunk lines) is code to this check.
+    if _carries_no_code(block.content, target):
+        return _refusal(target)
+    diff = parse_diff(block.content, target=target)
+    if isinstance(diff, ReplyError):
+        return diff
+    # The prompt shows the base closed by a newline, so the diff is read against
+    # that; a whole-file reply ends in one too.
+    shown = _as_file(base) if base else base
+    content = apply_diff(diff, target=target, base=shown)
+    if isinstance(content, ReplyError):
+        return content
+    if _carries_no_code(content, target):
+        return _refusal(target)
+    return ParsedFile(content=content, info_string=block.info_string)
+
+
 def parse_reply(
     text: str,
     *,
     output_schema: str = WHOLE_FILE,
     stop_reason: StopReason = StopReason.COMPLETE,
     target: str | None = None,
+    base: str | None = None,
 ) -> ParsedFile | ReplyError:
     """Parse a reply into the text to write, or a ReplyError saying why not.
 
@@ -324,10 +578,22 @@ def parse_reply(
     may itself wrap a JSON envelope around. With no `target`, nothing is judged
     about the content; with one, a block that carries no code for that extension
     is refused as a refusal.
+
+    A `unified_diff` reply must be one closed fenced block holding a diff of
+    `target`, which is applied onto `base` - the target's content as the model
+    was shown it, empty for a file that does not exist yet - and the whole
+    resulting file is returned. Both are required for that schema.
     """
     unreadable = _unreadable(output_schema, stop_reason)
     if unreadable is not None:
         return unreadable
+    if output_schema == UNIFIED_DIFF:
+        if target is None or base is None:
+            raise ValueError(
+                "a unified_diff reply is applied onto its target: pass the "
+                "target and the base content the model was shown"
+            )
+        return _diffed(text, stop_reason=stop_reason, target=target, base=base)
     parsed = _fenced(text, output_schema=output_schema, stop_reason=stop_reason)
     if isinstance(parsed, ReplyError):
         if parsed.code == "no-fenced-block" and target is None:
@@ -374,6 +640,14 @@ def parse_pinned(
     unreadable = _unreadable(output_schema, stop_reason)
     if unreadable is not None:
         return unreadable
+    if output_schema != WHOLE_FILE:
+        # A pinned schema carries the file text in a field; a diff has no field
+        # of its own to arrive in, so it is never asked for through a pin.
+        return ReplyError(
+            "unsupported-schema",
+            f"a pinned response schema carries a {WHOLE_FILE!r} reply; "
+            f"{output_schema!r} is parsed unpinned, by parse_reply",
+        )
 
     field = _schema_field(response_schema)
     info = ""

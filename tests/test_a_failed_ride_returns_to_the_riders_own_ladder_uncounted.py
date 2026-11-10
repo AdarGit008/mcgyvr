@@ -1,11 +1,11 @@
 """A ride that fails returns the request to the rider's own ladder, uncounted.
 
-A relief rung is ridden before the climb and is never a step of it, so what
+A hitchhike rung is ridden before the climb and is never a step of it, so what
 happens on it is not what the ladder's ceilings are about: a ride that fails —
 a verdict against its answer, a dispatch that raised, or a rung that could not
 take the request (503, 404, an answer from another model) — spends none of the
 task's attempts and none of its escalations. The request goes back to the
-rider's own ladder, the entry is decided again as if the relief rung had been
+rider's own ladder, the entry is decided again as if the hitchhike rung had been
 full, and the climb from there has its whole budget. With the rider's own rung
 still full, that climb starts on it, to queue: fan-out never sends the request
 on to a priced api rung. The ride stays in the
@@ -23,12 +23,12 @@ import pytest
 
 from mcgyvr.config import parse
 from mcgyvr.escalate import Delivered, Judgement, escalate
-from mcgyvr.local_pool import source_map
+from mcgyvr.ladder_map import unit_map
 from mcgyvr.route import Try, Verdict
-from tests.relieftakes import (
+from tests.hitchhiketakes import (
     API,
     FAST,
-    RELIEF,
+    HITCHHIKE,
     SETUP,
     Script,
     capacity_of,
@@ -59,11 +59,11 @@ def ride_then_own(
 ) -> Delivered:
     """Escalate with the rider's own cheap rung full, so the entry is a ride."""
     config = parse(
-        SETUP.format(fanout="idle", escalations=escalations) + setting + RELIEF
+        SETUP.format(fanout="idle", escalations=escalations) + setting + HITCHHIKE
     )
     cap = capacity_of(config, tmp_path)
     cap.reserve(FAST)
-    done = escalate(config, source_map(config), contract(), script, capacity=cap)
+    done = escalate(config, unit_map(config), contract(), script, capacity=cap)
     assert isinstance(done, Delivered), done
     return done
 

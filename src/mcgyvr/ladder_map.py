@@ -1,9 +1,9 @@
-"""What a config resolves into: the sources work may be dispatched to.
+"""What a config resolves into: the units work may be dispatched to.
 
-`source_map` reads a `Config` and answers what it can actually use: which
+`unit_map` reads a `Config` and answers what it can actually use: which
 ladder rungs survive the key they name, which are dropped and why, the
 `Endpoint` each name is dispatched at, and which unit each role runs on. A
-`SourceProbe` may be handed in to drop sources that are not answering, or that
+`UnitProbe` may be handed in to drop units that are not answering, or that
 answer while holding weights other than the model their rung names.
 """
 
@@ -22,43 +22,43 @@ from mcgyvr.seal import SealKey
 _ROLES = ("proposer", "verifier", "jev")
 
 
-class SourceProbe(TypingProtocol):
+class UnitProbe(TypingProtocol):
     """What a caller may ask about endpoints before any work is dispatched.
 
-    `source_map` asks `unavailable`, and asks `not_serving` only when the probe
+    `unit_map` asks `unavailable`, and asks `not_serving` only when the probe
     has it, so a probe may answer liveness alone.
     """
 
     def unavailable(self, endpoints: Sequence[Endpoint]) -> Mapping[str, str]:
-        """The sources among `endpoints` that are not live, each mapped to why.
+        """The units among `endpoints` that are not live, each mapped to why.
 
-        A source the mapping leaves out is taken as live.
+        A unit the mapping leaves out is taken as live.
         """
         ...
 
-    # `source_map` is the only caller that asks a probe: it is how a caller
+    # `unit_map` is the only caller that asks a probe: it is how a caller
     # that has already looked at the machines says which of them to drop.
     # The second question a probe may answer, `not_serving`, is not declared
     # here because answering it is optional. It takes `(endpoint, model)`
     # pairs and returns why each model is not held, keyed by
-    # `(source, model)`. It is asked because a source can be live and still
+    # `(source, model)`. It is asked because a unit can be live and still
     # hold other weights: llama.cpp answers a request naming weights it is
     # not serving from the weights it is, so such a reply is another
     # model's and nothing in it says so.
-    # A probe is asked about ladder rungs and role endpoints, never relief
+    # A probe is asked about ladder rungs and role endpoints, never hitchhike
     # rungs: a lent rung is reached through a hub, not probed here.
 
 
-class PoolError(Exception):
-    """Base class for what goes wrong resolving or using the source map."""
+class LadderError(Exception):
+    """Base class for what goes wrong resolving or using the unit map."""
 
 
-class UnknownRungError(PoolError):
+class UnknownRungError(LadderError):
     """A name was asked for that the config lists nowhere, as rung or role."""
 
 
-class SourceUnavailableError(PoolError):
-    """A source the config declares cannot be used: it was skipped, or the
+class UnitUnavailableError(LadderError):
+    """A unit the config declares cannot be used: it was skipped, or the
     environment variable holding its key is unset."""
 
 
@@ -109,8 +109,8 @@ class Endpoint:
     #: given and the other is room the whole request is served in, and where
     #: both are stated the smaller one holds.
     output_ceiling: int | None = None
-    #: The reply room of the rung this one stands in for, set on relief
-    #: rungs alone by `source_map`: a lent rung answers as one of yours
+    #: The reply room of the rung this one stands in for, set on hitchhike
+    #: rungs alone by `unit_map`: a lent rung answers as one of yours
     #: would, so its reply cap is held to this ceiling too.
     request_timeout_s: float | None = None
     #: Seconds one dispatched request to this endpoint may take before the
@@ -123,18 +123,18 @@ class Endpoint:
     #: The server program behind the address, as the unit declares it;
     #: `None` means llama.cpp. Read where a request or a status poll has to
     #: speak the engine's own API rather than the one path they share.
-    relief: bool = False
+    hitchhike: bool = False
     #: Whether this endpoint is a rung lent through a hub rather than one
-    #: of your own. A relief rung is a step of the ladder only where the
+    #: of your own. A hitchhike rung is a step of the ladder only where the
     #: ladder names it.
     served_model: str | None = None
     #: What the host says its unit runs, for people to read; it is not what
-    #: is asked for. On a relief rung it is what a reply's own model is
+    #: is asked for. On a hitchhike rung it is what a reply's own model is
     #: checked against, and a mismatch passes the rung over as full.
     busy_answers: frozenset[tuple[int, str]] | None = None
     #: The (status, code) answers that say this endpoint cannot take a
-    #: request now. On a relief rung one of them raises
-    #: `ReliefUnavailableError`, which is what makes a full lent rung cost
+    #: request now. On a hitchhike rung one of them raises
+    #: `HitchhikeUnavailableError`, which is what makes a full lent rung cost
     #: nothing to pass over; elsewhere an answer is read as any other.
     sampling: str = "request"
     use_case: str | None = None
@@ -147,11 +147,11 @@ class Endpoint:
     #: hub serves it from that scope's pool; `None` sends no header.
     seal: SealKey | None = None
     #: The key every request to this endpoint is sealed to (`mcgyvr.seal`), the
-    #: relief rung's `seal`; `None` sends requests in clear.
+    #: hitchhike rung's `seal`; `None` sends requests in clear.
     own_key: bool = False
     #: Whether the address is one of your own units, whose server may ask for
     #: the key mcgyvr made for it (`expose: lan`, :mod:`mcgyvr.unitkey`): such
-    #: an endpoint sends that key when one is kept for its address. A relief
+    #: an endpoint sends that key when one is kept for its address. A hitchhike
     #: rung, a crew unit and a hosted unit are never sent it.
 
     @property
@@ -163,21 +163,21 @@ class Endpoint:
     def whose(self) -> str:
         """Whose machines this endpoint's code may come from
         (:func:`mcgyvr.config.whose`)."""
-        return whose(self.scope, relief=self.relief)
+        return whose(self.scope, hitchhike=self.hitchhike)
 
     def credential(self) -> str | None:
         """The key read from the environment variable `credential_env` names.
 
         `None` when the endpoint names no variable, meaning nothing is sent.
-        Raises `SourceUnavailableError` when the variable is unset or empty:
+        Raises `UnitUnavailableError` when the variable is unset or empty:
         the value is never written into a config file.
         """
         if self.credential_env is None:
             return self._unit_key() if self.own_key else None
         value = os.environ.get(self.credential_env)
         if not value:
-            raise SourceUnavailableError(
-                f"source {self.source!r} needs a credential, but "
+            raise UnitUnavailableError(
+                f"unit {self.source!r} needs a credential, but "
                 f"${self.credential_env} is not set. Export it in your shell or "
                 f"put it in a git-ignored .env; never write the value into the "
                 f"config file."
@@ -189,12 +189,12 @@ class Endpoint:
 
         Read each time it is asked for, so a unit given a key by a later
         `mcgyvr emit` is sent it. A key file that cannot be trusted raises
-        `SourceUnavailableError` naming it, rather than sending no key.
+        `UnitUnavailableError` naming it, rather than sending no key.
         """
         try:
             return unitkey.for_address(self.base_url)
         except unitkey.UnitKeyError as exc:
-            raise SourceUnavailableError(f"source {self.source!r}: {exc}") from exc
+            raise UnitUnavailableError(f"unit {self.source!r}: {exc}") from exc
 
 
 @dataclass(frozen=True)
@@ -210,7 +210,7 @@ class Skipped:
     """A rung the pool will not offer, with the reason it was dropped.
 
     The reason is either structural, the key the unit names being unset, or
-    what a probe said about the source.
+    what a probe said about the unit.
     """
 
     name: str
@@ -228,13 +228,13 @@ class RoleBinding:
     endpoint: Endpoint
 
 
-class SourceMap:
+class UnitMap:
     """A config resolved into what can be dispatched, and what cannot.
 
-    `rungs` are the ladder's usable steps in the ladder's own order, `relief`
-    the usable lent rungs, and `skipped` and `relief_skipped` the rest with
+    `rungs` are the ladder's usable steps in the ladder's own order, `hitchhike`
+    the usable lent rungs, and `skipped` and `hitchhike_skipped` the rest with
     their reasons. `bind` turns a rung name into the `Endpoint` to call and
-    `role` a role into its `RoleBinding`. `source_map` builds it.
+    `role` a role into its `RoleBinding`. `unit_map` builds it.
     """
 
     def __init__(
@@ -244,16 +244,16 @@ class SourceMap:
         endpoints: dict[str, Endpoint],
         roles: dict[str, RoleBinding],
         role_skips: dict[str, str],
-        relief: tuple[Rung, ...] = (),
-        relief_skipped: tuple[Skipped, ...] = (),
+        hitchhike: tuple[Rung, ...] = (),
+        hitchhike_skipped: tuple[Skipped, ...] = (),
     ) -> None:
         self._rungs = rungs
         self._skipped = skipped
         self._endpoints = endpoints
         self._roles = roles
         self._role_skips = role_skips
-        self._relief = relief
-        self._relief_skipped = relief_skipped
+        self._hitchhike = hitchhike
+        self._hitchhike_skipped = hitchhike_skipped
 
     @property
     def rungs(self) -> tuple[Rung, ...]:
@@ -266,44 +266,44 @@ class SourceMap:
         return self._skipped
 
     @property
-    def relief(self) -> tuple[Rung, ...]:
-        """The usable relief rungs: lent units, never a step of the ladder."""
-        return self._relief
+    def hitchhike(self) -> tuple[Rung, ...]:
+        """The usable hitchhike rungs: lent units, never a step of the ladder."""
+        return self._hitchhike
 
     @property
-    def relief_skipped(self) -> tuple[Skipped, ...]:
-        """The relief rungs that cannot be dispatched, each with its reason."""
-        return self._relief_skipped
+    def hitchhike_skipped(self) -> tuple[Skipped, ...]:
+        """The hitchhike rungs that cannot be dispatched, each with its reason."""
+        return self._hitchhike_skipped
 
     def __bool__(self) -> bool:
-        """Whether any ladder rung is usable. Relief rungs alone are not."""
+        """Whether any ladder rung is usable. Hitchhike rungs alone are not."""
         return bool(self._rungs)
 
     def __len__(self) -> int:
         return len(self._rungs)
 
     def get(self, name: str) -> Rung | None:
-        """The rung of that name on the ladder, else among the relief, or `None`."""
+        """The rung of that name on the ladder, else among the hitchhike, or `None`."""
         return next(
-            (rung for rung in (*self._rungs, *self._relief) if rung.name == name),
+            (rung for rung in (*self._rungs, *self._hitchhike) if rung.name == name),
             None,
         )
 
     def bind(self, name: str) -> Endpoint:
         """The endpoint to dispatch at for the rung of that name.
 
-        Raises `SourceUnavailableError` when the rung was skipped, carrying the
-        reason, and `UnknownRungError` when no rung or relief rung is named so.
+        Raises `UnitUnavailableError` when the rung was skipped, carrying the
+        reason, and `UnknownRungError` when no rung or hitchhike rung is named so.
         """
         endpoint = self._endpoints.get(name)
         if endpoint is not None:
             return endpoint
         skipped = next(
-            (s for s in (*self._skipped, *self._relief_skipped) if s.name == name),
+            (s for s in (*self._skipped, *self._hitchhike_skipped) if s.name == name),
             None,
         )
         if skipped is not None:
-            raise SourceUnavailableError(
+            raise UnitUnavailableError(
                 f"rung {name!r} is not available: {skipped.reason}"
             )
         offered = ", ".join(rung.name for rung in self._rungs) or "none"
@@ -313,7 +313,7 @@ class SourceMap:
         """The binding for a role, or `None` when the config binds none.
 
         The role must be one of `proposer`, `verifier` and `jev`. One bound
-        to a unit that was skipped raises `SourceUnavailableError` rather than
+        to a unit that was skipped raises `UnitUnavailableError` rather than
         reading as unbound.
         """
         if role not in _ROLES:
@@ -323,7 +323,7 @@ class SourceMap:
             return binding
         reason = self._role_skips.get(role)
         if reason is not None:
-            raise SourceUnavailableError(f"role {role!r} cannot run: {reason}")
+            raise UnitUnavailableError(f"role {role!r} cannot run: {reason}")
         return None
 
     def role_model(self, role: str) -> str | None:
@@ -335,15 +335,15 @@ class SourceMap:
         return None if binding is None else binding.model
 
 
-def source_map(config: Config, probe: SourceProbe | None = None) -> SourceMap:
-    """Resolve `config` into the `SourceMap` work is dispatched from.
+def unit_map(config: Config, probe: UnitProbe | None = None) -> UnitMap:
+    """Resolve `config` into the `UnitMap` work is dispatched from.
 
     Each ladder unit is checked for the key it names and, when it passes, given
-    an endpoint; relief rungs are taken the same way and kept off the ladder.
+    an endpoint; hitchhike rungs are taken the same way and kept off the ladder.
     Each role bound in the config becomes a `RoleBinding`, its model defaulting
-    to its unit's own. With a `probe`, sources it reports unreachable are
-    dropped, and so are rungs whose source is up but not holding their model.
-    A relief rung ends up with `output_ceiling` set to the reply room of the
+    to its unit's own. With a `probe`, units it reports unreachable are
+    dropped, and so are rungs whose unit is up but not holding their model.
+    A hitchhike rung ends up with `output_ceiling` set to the reply room of the
     cheapest usable rung, so a lent rung is held to what it stands in for.
     """
     usable: list[Rung] = []
@@ -375,14 +375,16 @@ def source_map(config: Config, probe: SourceProbe | None = None) -> SourceMap:
             unit, width=_served(unit, name), use_case=config.use_case
         )
 
-    relief: list[Rung] = []
-    relief_skipped: list[Skipped] = []
-    for name, unit in config.relief.items():
+    hitchhike: list[Rung] = []
+    hitchhike_skipped: list[Skipped] = []
+    for name, unit in config.hitchhike.items():
         reason = _unusable(unit)
         if reason is not None:
-            relief_skipped.append(Skipped(name=name, model=unit.model, reason=reason))
+            hitchhike_skipped.append(
+                Skipped(name=name, model=unit.model, reason=reason)
+            )
             continue
-        relief.append(Rung(name=name, model=unit.model))
+        hitchhike.append(Rung(name=name, model=unit.model))
         endpoints[name] = _endpoint(unit, use_case=config.use_case)
 
     roles: dict[str, RoleBinding] = {}
@@ -415,12 +417,12 @@ def source_map(config: Config, probe: SourceProbe | None = None) -> SourceMap:
         )
 
     if probe is not None:
-        # One endpoint per source, so each source is asked about once however
-        # many rungs and roles sit on it. Relief rungs are left out, being
+        # One endpoint per unit, so each unit is asked about once however
+        # many rungs and roles sit on it. Hitchhike rungs are left out, being
         # another person's machine reached through a hub.
         asking: dict[str, Endpoint] = {}
         for endpoint in (*endpoints.values(), *(b.endpoint for b in roles.values())):
-            if endpoint.relief:
+            if endpoint.hitchhike:
                 continue
             asking.setdefault(endpoint.source, endpoint)
         down = probe.unavailable(tuple(asking.values()))
@@ -433,12 +435,12 @@ def source_map(config: Config, probe: SourceProbe | None = None) -> SourceMap:
                 if reason is not None:
                     role_skips[role] = reason
                     del roles[role]
-        # Then the question a probe need not answer: a source can be up and
+        # Then the question a probe need not answer: a unit can be up and
         # still not hold the model its rung names. llama.cpp answers a
         # request naming weights it is not serving from the weights it is,
         # so such a reply is another model's with nothing saying so.
         # It is looked up with `getattr` rather than declared on the protocol,
-        # so a probe answering only `unavailable` is still a `SourceProbe`;
+        # so a probe answering only `unavailable` is still a `UnitProbe`;
         # one answering this too has its verdict applied to the ladder rungs
         # still standing.
         asks_models = getattr(probe, "not_serving", None)
@@ -458,19 +460,19 @@ def source_map(config: Config, probe: SourceProbe | None = None) -> SourceMap:
     # of yours: `output_ceiling` is the reply room of the cheapest usable
     # rung, and a reply on it is capped there as it would be on the rung the
     # lent one stands in for.
-    if usable and relief:
+    if usable and hitchhike:
         local = endpoints[usable[0].name].output_tokens
-        for rung in relief:
+        for rung in hitchhike:
             endpoints[rung.name] = replace(endpoints[rung.name], output_ceiling=local)
 
-    return SourceMap(
+    return UnitMap(
         rungs=tuple(usable),
         skipped=tuple(skipped),
         endpoints=endpoints,
         roles=roles,
         role_skips=role_skips,
-        relief=tuple(relief),
-        relief_skipped=tuple(relief_skipped),
+        hitchhike=tuple(hitchhike),
+        hitchhike_skipped=tuple(hitchhike_skipped),
     )
 
 
@@ -481,7 +483,7 @@ def _drop_unreachable(
     endpoints: dict[str, Endpoint],
     down: Mapping[str, str],
 ) -> tuple[list[Rung], list[Skipped], dict[str, Endpoint]]:
-    """Drop the usable rungs whose source `down` reports unreachable.
+    """Drop the usable rungs whose unit `down` reports unreachable.
 
     The ladder's order is walked, so the kept rungs stay in it. A rung already
     skipped keeps the reason it was skipped for; a rung dropped here is recorded
@@ -515,7 +517,7 @@ def _drop_wrong_model(
     endpoints: dict[str, Endpoint],
     elsewhere: Mapping[tuple[str, str], str],
 ) -> tuple[list[Rung], list[Skipped], dict[str, Endpoint]]:
-    """Drop the usable rungs whose source is up but not serving their model.
+    """Drop the usable rungs whose unit is up but not serving their model.
 
     `elsewhere` is keyed by `(source, model)`, so one endpoint serving several
     rungs loses only the rungs asking for the model it lacks. The ladder's order
@@ -571,7 +573,7 @@ def _endpoint(
         output_tokens=unit.output_tokens,
         request_timeout_s=unit.request_timeout_s,
         engine=unit.engine,
-        relief=unit.relief,
+        hitchhike=unit.hitchhike,
         served_model=unit.served_model,
         busy_answers=(
             None if unit.busy_answers is None else frozenset(unit.busy_answers)
@@ -580,7 +582,7 @@ def _endpoint(
         use_case=use_case,
         scope=unit.scope,
         seal=unit.seal,
-        own_key=not unit.relief and not unit.crew and unit.api_key_env is None,
+        own_key=not unit.hitchhike and not unit.crew and unit.api_key_env is None,
     )
 
 

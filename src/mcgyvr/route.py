@@ -1,6 +1,6 @@
 """One contract's route through one family's rungs, and the climb that spends it.
 
-:func:`plan` turns a config and a source map into a :class:`Plan`: the family
+:func:`plan` turns a config and a unit map into a :class:`Plan`: the family
 the contract starts on (or the one a caller names) and that family's usable
 rungs as :class:`Step` objects in the order the pool lists them, each carrying
 the attempts it may spend and the :class:`Machine` — one source's place in a
@@ -45,7 +45,7 @@ if TYPE_CHECKING:  # pragma: no cover - typing only
     from mcgyvr.config import Config
     from mcgyvr.contract import Contract
     from mcgyvr.deterministic import ToolStep
-    from mcgyvr.local_pool import Rung, SourceMap
+    from mcgyvr.ladder_map import Rung, UnitMap
     from mcgyvr.notes import FailureNotes
 
 
@@ -390,12 +390,12 @@ class Attempted:
     #: ever saw it. It is the one field here that is about the machinery instead
     #: of about the work.
     raised: bool = False
-    #: `relief` is `True` when the rung is one lent through a hub rather than
+    #: `hitchhike` is `True` when the rung is one lent through a hub rather than
     #: a step of the ladder. `model` and `address` name the unit that served
-    #: the try, so a relief attempt can be read as the borrowed machine it
-    #: actually ran on. A relief try is recorded like any other; it charges
+    #: the try, so a hitchhike attempt can be read as the borrowed machine it
+    #: actually ran on. A hitchhike try is recorded like any other; it charges
     #: the budget only when it passes.
-    relief: bool = False
+    hitchhike: bool = False
     model: str = ""
     address: str = ""
     #: `whose` is whose machines the try's code may have come from: `own`,
@@ -474,20 +474,20 @@ class Exhausted:
 
 # Which family a rung is in. A family is a fact about the unit a rung names —
 # whether it needs a credential — and not a field anywhere in the ladder, so the
-# question is answered by resolving the name and asking the catalog. Relief is
-# resolved first because a relief rung the ladder does not name is never a step
+# question is answered by resolving the name and asking the catalog. Hitchhike is
+# resolved first because a hitchhike rung the ladder does not name is never a step
 # of it; one the ladder names is a unit of the dispatch and resolves either way.
 
 
 def family_of(config: Config, rung: str) -> Family:
     """The catalog family of the rung of that name.
 
-    A relief rung resolves through ``config.relief``, which holds the lent unit
+    A hitchhike rung resolves through ``config.hitchhike``, which holds the lent unit
     itself; a ladder rung through ``config.ladder`` and the unit that name points
     at. A name in neither raises ``RouteError`` listing what the ladder does
     offer, rather than reading as some default family.
     """
-    lent = config.relief.get(rung)
+    lent = config.hitchhike.get(rung)
     if lent is not None:
         return catalog().family_of(lent)
     name = config.ladder.get(rung)
@@ -497,7 +497,7 @@ def family_of(config: Config, rung: str) -> Family:
     return catalog().family_of(config.units[name])
 
 
-def by_family(config: Config, pool: SourceMap) -> Mapping[Family, tuple[Rung, ...]]:
+def by_family(config: Config, pool: UnitMap) -> Mapping[Family, tuple[Rung, ...]]:
     """The pool's usable rungs, grouped by the family each one is in.
 
     Every family the catalog declares is a key, so a caller asking about one gets
@@ -514,7 +514,7 @@ def by_family(config: Config, pool: SourceMap) -> Mapping[Family, tuple[Rung, ..
     return {family: tuple(rungs) for family, rungs in grouped.items()}
 
 
-def climb_order(config: Config, pool: SourceMap) -> list[tuple[Family, Rung]]:
+def climb_order(config: Config, pool: UnitMap) -> list[tuple[Family, Rung]]:
     """Every usable rung of the pool in climb order, each with its family.
 
     Families come cheapest first (`Family.rank`), and each family's rungs keep
@@ -528,14 +528,14 @@ def climb_order(config: Config, pool: SourceMap) -> list[tuple[Family, Rung]]:
     ]
 
 
-def top_rung(config: Config, pool: SourceMap) -> Rung | None:
+def top_rung(config: Config, pool: UnitMap) -> Rung | None:
     """The top rung: the dearest rung of the ladder this setup runs, or None.
 
     The pool's usable rungs in climb order — families cheapest first, each
     family's rungs in the ladder's own order — from the lowest family any task
     type starts on, cut at the ceiling ``max_escalations`` sets (every rung when
     it is unset), as :func:`mcgyvr.rig.rungs.ladder_report` reports the ladder to
-    a hub; the last of them is the top rung. A relief rung is never one: it is
+    a hub; the last of them is the top rung. A hitchhike rung is never one: it is
     the hub's, not a step of the ladder. None when no rung is usable.
     """
     from mcgyvr.escalate import Ceiling
@@ -570,7 +570,7 @@ def capped_attempts(family: Family, configured: int, limit: int) -> int:
 
 def plan(
     config: Config,
-    pool: SourceMap,
+    pool: UnitMap,
     contract: Contract,
     *,
     family: Family | None = None,
@@ -701,7 +701,7 @@ def _machines(config: Config, rungs: tuple[Rung, ...]) -> Mapping[str, Machine]:
     return by_rung
 
 
-def _why_empty(config: Config, family: Family, pool: SourceMap) -> str:
+def _why_empty(config: Config, family: Family, pool: UnitMap) -> str:
     """The sentence an empty plan carries for why it has no steps.
 
     Three different absences, said differently because they are fixed

@@ -15,7 +15,7 @@ from pathlib import Path
 
 from mcgyvr.capacity import Capacity, _slot_stem
 from mcgyvr.config import parse
-from mcgyvr.local_pool import source_map
+from mcgyvr.ladder_map import unit_map
 from mcgyvr.scan import Scan
 from mcgyvr.serving import ModelSpec, units_for
 
@@ -61,7 +61,7 @@ def test_a_slot_held_on_one_rung_does_not_count_on_the_other(tmp_path: Path) -> 
 
 
 def test_the_pool_lists_both_rungs_of_one_host() -> None:
-    pool = source_map(parse(CO_RESIDENT))
+    pool = unit_map(parse(CO_RESIDENT))
     assert [rung.name for rung in pool.rungs] == ["local_3b", "local_7b"]
 
 

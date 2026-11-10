@@ -12,7 +12,9 @@ fill proposer then records to ``<PATH>.decisions.jsonl``. Otherwise no
 sink is built and nothing is written. The pure helpers below answer the
 wave-2 metric questions over any iterable of records: ``recall_at_k``,
 ``override_rate``, ``abstain_rate``, ``parse_fail_rate``,
-``per_letter_distribution`` and ``confidence_by_field``.
+``per_letter_distribution`` and ``confidence_by_field``. No mcgyvr command
+reads them: they are the analysis API over the shadow log, for a script or an
+outside tool that folds ``<PATH>.decisions.jsonl``.
 
 This module is a shadow: it observes the decision loop and writes beside it.
 It never feeds a decision back into the pipeline, and ``mcgyvr.gate.jev`` does
@@ -39,12 +41,12 @@ from pathlib import Path
 from typing import Any
 
 from mcgyvr import hostos
+from mcgyvr.decision import CHOICE_LABELS
 
-#: Labels a lettered candidate list may use, by position: upper-case letters,
-#: then lower-case, then digits. This is the same 62-label alphabet
+#: Labels a lettered candidate list may use, by position: the 62-label alphabet
 #: :mod:`mcgyvr.decision` holds for a Choice, so a candidate shown at position 0
 #: is the letter "A" in both places.
-_LETTERS = tuple("ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789")
+_LETTERS = CHOICE_LABELS
 
 
 def _now_iso() -> str:

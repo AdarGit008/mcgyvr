@@ -68,7 +68,7 @@ if TYPE_CHECKING:  # pragma: no cover - typing only
     from mcgyvr.cooldown import Cooldown
     from mcgyvr.gate import GateResult
     from mcgyvr.gate.adapter import LanguageAdapter
-    from mcgyvr.local_pool import SourceMap
+    from mcgyvr.ladder_map import UnitMap
     from mcgyvr.sandbox.base import Sandbox
     from mcgyvr.verify import Ask, Reviewers
 
@@ -104,7 +104,7 @@ def lent_code_on_host(config: Config, sandbox: Sandbox) -> bool:
 
 def worker_attempt(
     config: Config,
-    pool: SourceMap,
+    pool: UnitMap,
     contract: Contract,
     sandbox: Sandbox,
     *,
@@ -118,7 +118,7 @@ def worker_attempt(
     """Build the driver that tries one rung: `Try` in, `Judgement` out.
 
     The whole attempt lives in the returned callable, which is why what it needs
-    once is bound here: the ladder's config and source map, the contract, the
+    once is bound here: the ladder's config and unit map, the contract, the
     sandbox the draws are written into and gated in, the language adapters, the
     journal, the cooldown and the verifier selector. A driver outlives one
     attempt — the climb calls it again, on this rung and on the rungs above — so
@@ -141,8 +141,8 @@ def worker_attempt(
         # `Reviewer`, carrying the `verifier` role's model or no model at all
         # when the role binds none, and that same verifier answers for every
         # builder. It is how a caller — a test — hands in a function where the
-        # run hands in a configured unit, without a source map able to place the
-        # verifier.
+        # run hands in a configured unit, without a unit map able to place the
+        # reviewer.
         only = Reviewer(model=pool.role_model(VERIFIER_ROLE) or "", ask=reviewer)
         reviewers = lambda builder: only  # noqa: E731
     # The temperature the draws after the first are sampled at, from
@@ -318,7 +318,7 @@ def worker_attempt(
             window_fraction=window_share,
         )
         # Two journal fields, gathered only when the run records: the endpoint the
-        # row is stamped with, read from the source map rather than from the
+        # row is stamped with, read from the unit map rather than from the
         # completion so a row that never answered still says where it was sent,
         # and the messages exactly as they are about to go on the wire. Neither
         # is used by the dispatch itself.
@@ -457,12 +457,17 @@ def worker_attempt(
                 output_schema=contract.output_schema,
                 stop_reason=reply.stop_reason,
                 target=contract.target,
+                # A diff is applied onto the content the prompt showed, so what
+                # comes back is the whole file either schema leaves; a
+                # whole-file reply reads no base.
+                base=sized.target_content,
             )
             if isinstance(parsed, ReplyError):
                 # The reply did not parse as the contract's schema asked — no
-                # fenced block, a refusal, a truncated block: `parse_reply`
-                # refuses it by name and the draw is unusable, which is honest
-                # where a fabricated string would have been gated and ranked.
+                # fenced block, a refusal, a truncated block, a diff that names
+                # another file or does not apply: `parse_reply` refuses it by
+                # name and the draw is unusable, which is honest where a
+                # fabricated string would have been gated and ranked.
                 return Unusable(f"the reply could not be read: {parsed}")
             return parsed.content
 

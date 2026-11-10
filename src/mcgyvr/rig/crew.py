@@ -1,7 +1,7 @@
 """Ask the hub for the units your crews lend you, and keep them written.
 
 A crew unit is a unit of a crew you are in, served by the hub from its crew
-pool. Unlike a relief rung it is a plain unit of the setup: a ladder step or a
+pool. Unlike a hitchhike rung it is a plain unit of the setup: a ladder step or a
 role binds it by name, and every request to it names scope crew, so the hub
 serves it from the crew pool and from nowhere else.
 

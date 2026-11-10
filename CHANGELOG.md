@@ -33,6 +33,128 @@ archived outside this repository, under the same paths.
   `ClassifierProposer` are `PROPOSER_ROLE`, `Proposer*Error`, `LocalProposer`,
   `scaffold_proposer` and `FillProposer`.
 
+- **`relief.yaml` is `hitchhike.yaml`, and nothing says relief rung any
+  more.** A rung a hub lends you is a hitchhike rung (slot sharing; the owner:
+  relief rung is not a concept). `mcgyvr rig rungs sync` writes
+  `hitchhike.yaml` with its one key `hitchhike` and removes an old
+  `relief.yaml` beside it. Migration: none needed; a setup holding only
+  `relief.yaml` is read from it, under its key `relief`, for one release, and
+  the rig agent's next refresh (or `mcgyvr rig rungs sync`) rewrites it. A
+  `relief` block in fleet.yaml, policy.yaml or a setup written as one document
+  is refused, naming `hitchhike`. The config reference's `relief.*` fields are
+  `hitchhike.*`; a result file's per-attempt `relief` is `hitchhike`; `mcgyvr
+  ladder show` lists *Hitchhike rungs*. On the wire, the rider no longer
+  requires the hub's constant `relief: true` on each rung, and the published
+  rider schema marks it deprecated: a hub keeps sending it this release, from
+  one compat shim, for rigs up to 0.5.1. Deprecated: the hub stops sending it
+  in the next release, and a rig up to 0.5.1 then refuses every rung listing
+  until it is upgraded. For Python callers: `Config.relief`, `Unit.relief`,
+  `RELIEF_FILENAME`, `load_relief`, `ReliefUnavailableError` and the rest are
+  their `hitchhike` names. Also: hubwire's `ONE_PER_RIG`,
+  `SESSION_KEY_CONTEXT`, `HEAD_DEVICE_RPC` and `QUANT_CLASSES`, read nowhere
+  else, are private (`_ONE_PER_RIG` and so on), and `scan.BYTES_PER_GB` is
+  `BYTES_PER_GIB` (1024**3 bytes).
+
+- **`mcgyvr local_pool` is now `mcgyvr ladder show`, and SETUP.md opens its
+  words with a glossary.** The verb printed the ladder but was named for a
+  pool, which the hub's pool is not; `mcgyvr local_pool` is refused with the
+  new name (exit 2) and is never sent to a proposer as a prompt. Migration:
+  type `mcgyvr ladder show` (same flags: `PATH`, `--config`, `--probe`,
+  `--probe-timeout`). Its output, the capacity errors, the cool-down reason
+  and the verifier's refusal say unit where they said source (`Probed N
+  unit(s)`, `unit 'x' did not answer`, `unit 'x' failed N dispatches in a
+  row`). SETUP.md's new *Glossary* defines each word once: decomposition,
+  scaffold, fill, draft, vet, proposer, direct, delegate, ladder, rung, top
+  rung, unit, standing session, hitchhike, general and crew pool, rig, host,
+  system, session, writer, family and floor. The prose follows it: the chat a
+  run is filed under is the writer; host is the person who offers slots, rig
+  the machine and system its OS block (the wire keeps `host`); the unit key
+  file is `unit-keys/<address>-<port>.env`; the `tempdir` sandbox's notes and
+  the `sandbox` and `expose` field help say this machine where they said the
+  host; `mcgyvr contract` shows `floor (no model)` or `ladder (a model)` where
+  it said `deterministic tier` or `model tier`; and the header of a generated
+  fleet.yaml/policy.yaml and the notes and refusals `mcgyvr setup` prints say
+  `setup` where they said `init`. For Python callers: `mcgyvr.local_pool` is
+  `mcgyvr.ladder_map` (`PoolError` is `LadderError`; `SourceMap`,
+  `source_map`, `SourceUnavailableError` and `SourceProbe` are `UnitMap`,
+  `unit_map`, `UnitUnavailableError` and `UnitProbe`), the setup wizard's
+  `mcgyvr.propose` is `mcgyvr.ladder_proposal` (`Rung` and `Proposal` are
+  `LadderRung` and `LadderProposal`, apart from the ladder's `Rung` and a
+  contract's `Proposal`), `deliver.digest_of` is `text_sha256` and
+  `repo.index.digest_of` is `bytes_fingerprint` (one name meant two digests),
+  and the jev choice alphabet is `decision.CHOICE_LABELS`, which the decision
+  log now reads instead of a copy. `rig.pooled.PoolError` is a different error
+  and keeps its name.
+
+- **`mcgyvr recommend` asks placement whether a model fits (I-47).** Its own
+  arithmetic left out the scratch allowance and the RAM rule placement applies,
+  so it could recommend what placement then refused. A checkpoint is now a
+  `ModelSpec` with its header as the geometry and a catalog record one stated
+  by its file and cache, and both go through `serving.fit` at the context and
+  user count recommend plans (`recommend._sized`). A checkpoint whose experts
+  fit beside the card is no longer refused for want of RAM for all of them; a
+  catalog record is held to the 2.0 GB headroom placement gives an unscanned
+  model, as placement's own catalog specs are, so a chat or agent plan's most
+  context is that much smaller and a coder placement would refuse is no longer
+  picked (on the shipped catalog: Qwen3-8B on an 8 GiB card 24064 -> 9472
+  tokens; on 16 GiB the 7B coder instead of the 14B; on 8 GiB no coder).
+  `recommend._slot_bytes` and `_host_ram_bytes` are gone.
+
+- **One per-card fit law, in `mcgyvr.hubwire`, for the sizer, a split and the
+  hub's planner; the flat 768 MiB allowance is gone (I-05, I-23).** What a card
+  of a llama.cpp layer split holds beside its tensors was two laws: the
+  product charged a flat 768 MiB on one card (`SCRATCH_AND_CONTEXT_MIB`) and a
+  measured per-arch reading only on a split, and the hub charged its own
+  context-growing compute buffer. Now one law decides it, on one card and on
+  each card of a split, and the hub imports it: a reading from
+  `hubwire.MEASURED_SCRATCH_MIB` (per arch, by ubatch, CUDA cards only) when
+  there is one, else the card's context (`CARD_CONTEXT_MIB` 161 MiB, or
+  `UNIFIED_CONTEXT_MIB` 512 MiB on a unified device) plus a compute buffer of
+  232 MiB and, per cell of context, the larger of the KQ mask (6 bytes an ubatch
+  row) and an f16 copy of the widest layer's K and V
+  (`hubwire.card_allowance`). The cells (`cache_cells`, `cache_bytes`, padded
+  to 256 a sequence), the card total (`card_bytes`, `bytes_on_card`) and an MoE
+  spill's host bytes (`offloaded_expert_bytes`) are there too;
+  `vramfit.kv_bytes` and `vramfit.allowance` price a scan's rows for it, and
+  `hubwire.FIT_CALIBRATION_RUNS` are the ten measured runs both planners are
+  held to. A reading holds at the cells it was read at
+  (`hubwire.MEASURED_SCRATCH_CELLS`: qwen35moe's 16384, qwen3next's 8192; none
+  on record for the others) and grows past them at the law's per-cell slope
+  (`compute_bytes_per_cell`), and a card is never charged less than its context
+  (512 MiB on a unified device), as the hub's reserve already was. Numbers
+  move: qwen35moe on one card is charged its 316.57 MiB reading at ubatch 512
+  (304.57 at 256, the reading with a context on record, for 302.7) and
+  qwen3next its 829 MiB (both were 768) up to their read contexts; an
+  unmeasured arch is charged 161 + 232 MiB plus its per-cell term, less than
+  768 MiB below about 128k cells of 3 KiB and more above, so the width search
+  can choose fewer slots. `vramfit.SCRATCH_AND_CONTEXT_MIB` and
+  `vramfit.allowance_mib` are removed (`vramfit.allowance` replaces the second).
+
+- **A llama.cpp unit's cache type is one llama.cpp takes, priced at its own
+  width (I-24).** `vramfit.CACHE_ELEM_BYTES` knew f32, f16, bf16 and q8_0, so a
+  unit naming q4_0, q4_1, iq4_nl, q5_0 or q5_1 (all of which llama.cpp takes)
+  failed with a bare `KeyError` once it was sized. The widths are now the
+  scanner's type table (`ggufscan.T`) filtered to the nine types llama.cpp's
+  `kv_cache_types` lists (`vramfit.LLAMACPP_CACHE_TYPES`), and a llama.cpp unit
+  naming any other (`auto`, `q4_k`, an upper-case spelling) is refused when its
+  launch block is read, naming the ones it takes
+  (`serving.check_cache_types`). vLLM's names are not checked. Upgrading: a
+  llama.cpp unit with such a type, which llama.cpp itself would refuse at
+  launch, now stops `mcgyvr` at load instead.
+
+- **One function prices a token of cache for the catalog, a rig's hello and the
+  sizer (I-46).** The catalog's `kv_bytes_per_token` (f16, every caching layer),
+  the hello's (q8_0, every caching layer, rounded up) and `vramfit.kv_bytes`
+  (the run's cache types, sliding rows charged their window) were three sums of
+  the same `kv_layers` rows. All three now call
+  `vramfit.cache_bytes_per_token(rows, cache_type_k=, cache_type_v=, only=)`:
+  `only=None` charges every row the full context (the catalog and the hello),
+  `"full"` and `"sliding"` are the two sums `kv_bytes` multiplies by its own
+  cell counts, so the sliding-window discount stays in `kv_bytes`. Every figure
+  is the one it was: the shipped catalog's values and the hello's are
+  unchanged. `knowledge.hub.F16_BYTES` is now `CATALOG_CACHE_TYPE = "f16"` and
+  `rig.inventory._KV_TYPES` is gone (the widths are `vramfit.CACHE_ELEM_BYTES`).
+
 - **Who may use a rig is one vocabulary, `own | crew | anyone`, and how a rig
   takes part is its mode, `lend | hitchhike` (I-04).** The pools the wire
   names by audience now carry the audience's name: `hubwire.POOL_SOLO`
@@ -52,6 +174,65 @@ archived outside this repository, under the same paths.
   SETUP.md maps each audience and mode to its pool and the use cases it
   serves, and says a host serves strangers only once a hub admin approved it.
 
+- **The docs say what already ships, tests pin it, and helpers no command
+  calls say so; one prompt changes.** A new generated `COMMANDS.md` lists
+  every verb and flag, rendered from the CLI's own parser by
+  `mcgyvr.cli.verbdoc` (`attach`, `index`, `resolve`, `read --hint/--holds`,
+  `fleet alerts`, `rig leave`, `rig peers`, the `caps` and `rig lend` aliases
+  were in no document); `make docs` writes it and `make docs-check` fails when
+  it drifts. SETUP.md points at it, and says that `emit` refuses a
+  unit larger than the free disk, that setup's sample writes a reply ceiling
+  into `fleet.yaml` for a unit that names none, what `$MCGYVR_ENDPOINTS`,
+  `$HF_TOKEN` and `$HF_ENDPOINT` do (the `MCGYVR_TEST_*` hooks are test-only),
+  that a head given a model digest refuses another file as `model_missing`,
+  and that the journal is the one piece of state that does not move with
+  `$MCGYVR_DATA` or `$XDG_STATE_HOME`.
+  `task_timeout_s` names its second use, the queue wait, and says that with
+  no config each command still ends at the sandbox's own 900 s; `start_rung` no longer promises a rung picked ahead of a run
+  (`triage_ahead` is wired to no command); /mcgyvr-direct names the
+  `unchanged` / `identical-to-base` finding. New tests pin the split-path disk
+  refusal, the head digest check and its lease renewal, the `crew.yaml`
+  reader, the reply ceilings and `read --hint/--holds`. `disposition`,
+  `credential_env_names`, the decision-log metrics, `alerts.rejudge` and
+  `delegate_log`'s reader say who calls them. The js/ts worker prompt asks
+  for the target's own language — TypeScript for `.ts`/`.mts`/`.cts`/`.tsx`,
+  plain JavaScript otherwise — instead of typed TypeScript for every target
+  (its standing stays "measured, no effect": #144 measured the text before
+  this change, and it is not re-measured).
+
+- **`redact.scrub` drops a bare credential, not only a URL's userinfo.** It
+  stored whole prompts and replies — and failure notes and run tags — cleaned
+  only of the `user:token@` of a URL, so a key a model echoed back (`sk-...`,
+  `ghp_...`, an AWS id, a pasted private key, a `Bearer` token) survived into a
+  journal blob that can be copied elsewhere. `scrub` now also blanks every
+  provider token shape of the one shared vocabulary
+  (`mcgyvr.credential_shapes.VALUE_SHAPES`, folded into one pass), a pasted
+  private key taken whole from its header to its footer, and a `Bearer`
+  authorization token (the last two spelled in `redact`: a Bearer token has no
+  prefix of its own, and the whole-block private-key pass is wider than the
+  gate's line-form header shape; the gate and config loader want neither). The
+  one cleaning entry point is what telemetry, notes and the sandbox already
+  call, so the widening reaches them
+  all: the sandbox's `safe_env` now drops an environment *value* that holds a
+  token (not only a credential-named variable), and `holds_a_secret` now keeps
+  a login rc file out of a workspace when its text carries a token as well as
+  when it carries a `word=` login. `safe_url` stays userinfo-only; text with
+  no credential still comes back unchanged, so the compare-to-detect callers
+  are unaffected (I-62).
+- **A failed session's log excerpt is cleaned of host paths and credentials
+  before it is sent to the other members.** `rig/sessionwire.scrub` only blanked
+  unprintable characters and cut the text to the excerpt cap — it removed no
+  secrets — yet it shared its name with the real cleaner `redact.scrub`. The rig
+  sends this excerpt to every member of a session, so a host path or a key in a
+  container's log reached other users. It is renamed `printable_tail` (its call
+  sites in `sessionwire` and the UPnP error text in `rig/portmap` with it), and
+  `rig/session`'s `_fail` now runs `redact.scrub_paths` and `redact.scrub` on the
+  excerpt before the printable-and-capped shaping, so host paths become
+  `<redacted>` and a token (now that `redact.scrub` carries the token shapes,
+  I-62) is dropped. The protocol schema's `log_excerpt` text now says the rig
+  strips host paths and credentials before sending; the hub renders that text
+  from its own docstring; a hub twin PR carries the identical text and re-pins
+  in the same train (I-63).
 - **A Mac's GPU is sized from the Metal working set llama.cpp logged, a
   reading, once a native server has started on it.** The native supervisor
   already filed `recommendedMaxWorkingSetSize` from llama-server's start-up
@@ -673,6 +854,29 @@ archived outside this repository, under the same paths.
 
 ### Added
 
+- **The release can be rehearsed, on GitHub and locally, and publishes nothing
+  when it is.** `.github/workflows/release.yml` takes a `workflow_dispatch`
+  input `dry_run`, true by default: `gh workflow run release.yml --ref
+  <branch>` builds once, checks the wheel's version, takes the CHANGELOG
+  notes, runs `twine check`, keeps the files on the run and writes a job
+  summary, and the GitHub release and the PyPI upload are skipped. From a
+  branch the version is stamped from the newest CHANGELOG section
+  (`scripts/release/changelog_notes.py --latest`), and when that version is
+  already tagged on another commit the run stays green and its summary says so
+  in `make release`'s words; `dry_run: false` is refused unless the ref is a
+  tag. The workflow now names no repository: `gh release
+  create --repo "$GITHUB_REPOSITORY"`, so a fork's tag makes the fork's
+  release. The jobs are `build` → `github-release` → `pypi` (the release moved
+  out of `build`, which now holds only `contents: read`), and a tag run also
+  runs `twine check` (twine 7.0.0, pinned in the workflow and the Makefile
+  alike; nothing is added to `pyproject.toml` or `uv.lock`) before anything is
+  published. `make release` runs the
+  same local half into `build/release/` and prints the tag command; it tags,
+  pushes and uploads nothing, and refuses a tree that differs from HEAD or a
+  version tagged on another commit. README gains a Releasing section: what a
+  tag does, the version and notes rule, both rehearsals, the secrets (none
+  stored; the PyPI trusted publisher and the `pypi` environment), and how a
+  fork releases.
 - **A rig's hello names each model's quantisation (`quant`), so a hub can plan
   by the wire's decode rule.** The hub's planner bounded a device's decode
   speed by its memory bandwidth alone, because the rig never said a model's
@@ -743,6 +947,33 @@ archived outside this repository, under the same paths.
   nothing is named after a reboot until the folder is checked again, and a
   hello says what the last check saw: the hub learns of a new model at the
   next hello. A rig with nothing recorded sends the same hello as before.
+- **A contract with `output_schema: unified_diff` runs: the model answers with
+  a diff, and it is applied, gated and delivered as a whole file is.** Such a
+  contract passed `mcgyvr contract` and was then refused when the run built its
+  prompt ("only 'whole_file' is implemented"). Now the user message asks for one
+  fenced ```` ```diff ```` block of the target alone, and the language bundle's
+  first output rule says the same (`worker.bundle.for_reply`; that text is
+  marked unmeasured, the whole-file bundle is sent byte for byte as before).
+  The reply is read strictly (`worker.reply.parse_diff`): the target on both
+  sides, behind `a/`/`b/` or not, at least one hunk, hunk lines only, and
+  `--- /dev/null` only for a target with no content yet. A diff that names another file or a
+  second file, deletes, renames, copies, changes a mode or is binary is refused
+  before anything is applied. `git apply --recount` (through `gitcmd.run_git`)
+  then applies it, all or nothing, onto the content the prompt showed, in a
+  scratch directory git is kept from climbing out of; context must match
+  exactly. The whole resulting file goes to the gate and delivery unchanged, and
+  a result with no code left is a refusal, as it is for a whole file; so is a
+  block with no code in it (comments only, or a JSON status), before it is read
+  as a diff, so the model is not told to guess one. Every
+  refusal, a context mismatch included, is a named `ReplyError`
+  (`malformed-diff`, `diff-outside-contract`, `diff-many-files`,
+  `diff-not-a-text-edit`, `diff-does-not-apply`), so the draw fails and the next
+  attempt is told why, as for a malformed `whole_file` reply. A
+  `unified_diff` contract written by hand now needs `stop_conditions`, as a
+  `whole_file` one always did. `worker.prompt.UnsupportedSchemaError` is gone:
+  every schema the contract field accepts (`contract.OUTPUT_SCHEMAS`) has an
+  output rule and a parser. `whole_file` contracts are sent and read exactly as
+  before.
 
 - **The hub says whether a member may host strangers, and the rig prints it.**
   A member's rigs serve strangers (the general pool's `anyone`, riders on their
@@ -1380,6 +1611,22 @@ archived outside this repository, under the same paths.
 
 ### Removed
 
+- **Serving and rig paths nothing called are cut (I-75, I-81, I-82, I-103,
+  I-143, I-154, I-157).** `session_status` takes no `progress_pct` (no caller
+  sent one; the hub's schema keeps its optional field). The capability table
+  drops its `backends` block, which was shape-checked and never loaded; a
+  table that still carries it is refused by the key's name, and only the
+  shipped table is ever read. `emit.render_command` (the bare shell line) and
+  `emit.render_compose` go: `mcgyvr emit` writes through `emit_all`, and the
+  tests that called them now read the file `emit_all` writes. `Wake.deviation`
+  (always None), `Wake.predicted_s`, `predicted_wake_s` and the
+  `<host>.wake.json` record that fed only them go: a wake no longer writes it,
+  and one left by an earlier mcgyvr is read by nothing. The tolerance class no
+  longer reads `launch.flags` or `launch.n_cpu_moe`, keys nothing writes and
+  emit never applies: a fleet file that carries them by hand is classed by its
+  `argv` and `speculative` alone. `derived.lookup` goes; `lookup_all` and the
+  named getters remain.
+
 - **`mcgyvr recommend --profile code` no longer asks a local model to pick.**
   It asked whatever answered on `http://127.0.0.1:8080` to choose among the
   fitting candidates, by name and description only, and fell back to the
@@ -1479,8 +1726,37 @@ archived outside this repository, under the same paths.
   modules: import them from `mcgyvr.worker.bundle`, `mcgyvr.worker.prompt`
   and `mcgyvr.worker.reply` directly.
 - `mcgyvr.fleet.layout.actions` is gone; nothing but its tests called it.
+- **`mcgyvr setup --profile` is gone**, as the 0.4.0 deprecation promised: it
+  is now an unknown flag. Use `--priority throughput|quality|cost`.
+- Paths nothing but tests reached are cut (no command, flag or default
+  changes):
+  - per-rung width bounds and the width probe: `mcgyvr.capacity.RungWidth`,
+    `WidthProbe`, `SourceWidthProbe`, `Capacity(rungs=)` and
+    `Capacity.of(probe=)`. Every rung is held on its unit's own bound, as every
+    production capacity already was;
+  - `mcgyvr.gate.check_clean_tree` (a run on a dirty tree already says the
+    sandbox is HEAD);
+  - `mcgyvr.decompose.iterate.iterate`, its `Approver` and
+    `MAX_REFUSAL_RETRIES`: a refused proposal goes to the top rung
+    (`mcgyvr.repropose`), bounded by `max_reproposals`;
+  - `Request.quality_sensitive`, `QualityCaveatError`, `CAVEAT_NOTE` and
+    `quality_safe` in `mcgyvr.runner`; the completion row in the journal no
+    longer carries `quality_safe`, which was always true;
+  - `RecordedProposer` leaves `mcgyvr.decompose` for `tests/recorded_proposer.py`:
+    it is a test double.
+- **Model records carry no leaderboard `scores`.** `BOARDS`, `Board`, `Score`
+  and the `board` source are gone from `mcgyvr.knowledge.record`, and the
+  knowledge document is `schema_version: 3`. A version-2 document (a cache an
+  earlier mcgyvr wrote) still loads, its `scores` skipped unread; an earlier
+  mcgyvr refuses a version-3 cache file and skips it.
 
 ### Fixed
+
+- **The rig's log says why the hub stopped a session or cancelled a relay
+  (I-76).** `session_stop` and `relay_cancel` carry the hub's reason; the
+  agent parsed it and dropped it. `Sessions.stop` and `Relays.cancel` now log
+  it (`session s1: the hub stops it: <reason>`, "no reason given" when the
+  frame has none). No wire change.
 
 - The setup reference says what an unset `attempts` entry means: a unit with
   no entry is tried once on its rung, as it always was, not the contract's

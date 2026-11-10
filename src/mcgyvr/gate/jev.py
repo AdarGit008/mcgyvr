@@ -34,7 +34,7 @@ from mcgyvr.gate.changeset import (
     read_current_text,
 )
 from mcgyvr.gate.findings import Finding
-from mcgyvr.local_pool import SourceMap
+from mcgyvr.ladder_map import UnitMap
 
 if TYPE_CHECKING:  # pragma: no cover - typing only
     from mcgyvr.capacity import Capacity
@@ -123,7 +123,7 @@ class JevCheck:
 
 
 def jev_check_for(
-    source_map: SourceMap,
+    unit_map: UnitMap,
     role: str,
     *,
     timeout_s: float | None = None,
@@ -137,12 +137,12 @@ def jev_check_for(
     so a unit bound to the `jev` role answers instead of `role`, and `timeout_s`
     and `capacity` are passed on to that request.
     """
-    if source_map.role_model(role) is None:
+    if unit_map.role_model(role) is None:
         return None
 
     def decide(state: Any) -> Decision:
         return classify_for(
-            source_map,
+            unit_map,
             state,
             JEV_QUESTIONS,
             role=role,

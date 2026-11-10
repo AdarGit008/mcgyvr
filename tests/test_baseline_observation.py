@@ -19,9 +19,10 @@ from mcgyvr.decompose.baseline import (
     locate_baseline,
     locate_runner,
 )
-from mcgyvr.decompose.decompose import Proposal, RecordedProposer, decompose
+from mcgyvr.decompose.decompose import Proposal, decompose
 from mcgyvr.repo.index import build_index
 from tests.livejournal import git
+from tests.recorded_proposer import RecordedProposer
 
 
 def _pytest_repo(tmp_path: Path) -> Path:

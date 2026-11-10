@@ -19,6 +19,7 @@ import pytest
 
 from mcgyvr import derived
 from tests import numbers_fixture as nf
+from tests.numbers_fixture import one_number
 
 
 def _named(number: str, key: str) -> str:
@@ -61,7 +62,7 @@ def test_each_unstated_number_asked_alone_is_refused_by_name(
         if (number, key) in stated:
             continue
         with pytest.raises(derived.DerivedNumbersError) as was:
-            derived.lookup(number, key, path=shipped)
+            one_number(number, key, path=shipped)
         assert _named(number, key) in str(was.value)
         assert str(derived.overrides_path()) in str(was.value)
 
@@ -159,6 +160,6 @@ def test_a_key_the_shipped_file_states_twice_is_refused_by_name(
     path = tmp_path / "twice.json"
     path.write_text(text.replace(*twice), encoding="utf-8")
     with pytest.raises(derived.DerivedNumbersError) as was:
-        derived.lookup(entry.id, key, path=path)
+        one_number(entry.id, key, path=path)
     assert str(path) in str(was.value)
     assert twice[0].strip('{"') in str(was.value)

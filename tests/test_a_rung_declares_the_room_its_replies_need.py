@@ -19,7 +19,7 @@ import pytest
 
 from mcgyvr.config import parse as parse_config
 from mcgyvr.contract import loads as load_contract
-from mcgyvr.local_pool import source_map
+from mcgyvr.ladder_map import unit_map
 from tests.rungs import ROOM_CONTRACT as CONTRACT
 from tests.rungs import UNCAPPED_CONTRACT, caps_sent
 
@@ -88,7 +88,7 @@ def test_each_rung_is_sent_its_own_units_maximum(
     from mcgyvr.worker.prompt import build_prompt
 
     sent = caps_sent(monkeypatch)
-    pool = source_map(parse_config(cfg(LADDER)))
+    pool = unit_map(parse_config(cfg(LADDER)))
     contract = load_contract(CONTRACT)
     prompt = build_prompt(contract)
     cheap, dear = "local_qwen2.5-coder-3b", "local_qwen3.6-35b-a3b"
@@ -108,7 +108,7 @@ def test_a_rung_room_that_fits_is_not_refused() -> None:
     """The opposite direction on the same ladder — a check, not a wall."""
     from mcgyvr.gate.preflight import check_contract_against_rung
 
-    pool = source_map(parse_config(cfg(LADDER)))
+    pool = unit_map(parse_config(cfg(LADDER)))
     assert (
         check_contract_against_rung(
             load_contract(CONTRACT),
@@ -125,7 +125,7 @@ def test_a_rung_room_that_fits_is_not_refused() -> None:
 def test_a_contract_with_no_cap_is_sent_the_rungs_room() -> None:
     from mcgyvr.gate.preflight import unit_max
 
-    pool = source_map(parse_config(cfg(LADDER)))
+    pool = unit_map(parse_config(cfg(LADDER)))
     contract = load_contract(UNCAPPED_CONTRACT)
     assert contract.limits.max_output_tokens is None
 
@@ -138,7 +138,7 @@ def test_a_small_window_does_not_refuse_a_contract_with_no_cap() -> None:
     from mcgyvr.gate.preflight import check_contract_against_rung
 
     small = cfg(LADDER).replace("window: 4096", "window: 64")
-    pool = source_map(parse_config(small))
+    pool = unit_map(parse_config(small))
     contract = load_contract(UNCAPPED_CONTRACT)
 
     assert (

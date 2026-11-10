@@ -116,7 +116,7 @@ live, probes the live one against its lock, and lists pulled combinations.
   the run reports. A request in words goes to `mcgyvr "<prompt>" --session ID`,
   which plans the contracts and runs them.
 
-Read-only introspection: `mcgyvr config`, `mcgyvr local_pool`,
+Read-only introspection: `mcgyvr config`, `mcgyvr ladder show`,
 `mcgyvr catalog`, `mcgyvr sandbox`, `mcgyvr capabilities` and `mcgyvr usage`
 (what the journal's runs spent and came to).
 
@@ -140,11 +140,15 @@ cheapest-first until a rung passes the gate or a ceiling stops it.
   can be asked to do: the task type (`code`), the families work
   may start on (`deterministic`, `local`, `api`), and the evidence each type
   must carry.
-- **Fleet** (`src/mcgyvr/fleet/`) — reads `fleet.yaml` (units, rigs, fleets)
-  and `policy.yaml` (the ladder and policy settings), locks a sampled fleet
+- **Fleet** (`src/mcgyvr/fleet/`) — reads `fleet.yaml` (units, rigs, fleets),
+  `policy.yaml` (the ladder and policy settings), and the two files a sync
+  writes beside them and nothing else does: `hitchhike.yaml` (the hitchhike
+  rungs a hub lends you, from `mcgyvr rig rungs sync`; read from its old name
+  `relief.yaml` for one release) and `crew.yaml` (the units your crews lend
+  you, from `mcgyvr rig crew sync`). It locks a sampled fleet
   and promotes it to `~/.mcgyvr/fleets/`, with `~/.mcgyvr/live.json` naming
   the live one.
-- **Ladder** — `src/mcgyvr/local_pool.py` resolves a setup into the dispatch
+- **Ladder** — `src/mcgyvr/ladder_map.py` resolves a setup into the dispatch
   endpoints work may actually use. `src/mcgyvr/rig/` is the optional
   hub-agent protocol, not part of setup.
 
@@ -163,5 +167,42 @@ The documented way in is `make`:
   the CLI's flags and the schemas in `src/mcgyvr/config.py`,
   `src/mcgyvr/contract.py` and `src/mcgyvr/notes.py`.
 - `make check` — everything CI runs: lint, typecheck, docs check, and test.
+- `make release` — the local half of a release (see Releasing); publishes
+  nothing.
 
 The CLI is `mcgyvr` (`mcgyvr.cli:main`, defined under `src/mcgyvr/cli/`).
+
+## Releasing
+
+A release is a pushed `v*` tag. `.github/workflows/release.yml` then builds
+the wheel and the sdist once, checks the wheel's version is the tag's, takes
+the notes from the tag's `CHANGELOG.md` section, runs `twine check`, makes the
+GitHub release of the run's own repository with both files attached, and
+uploads the same files to PyPI.
+
+- **Version.** The tag is the version (hatch-vcs); nothing in the tree spells
+  one. `v0.6.0-rc1` builds `0.6.0rc1`.
+- **Notes.** Write `## [0.6.0] - <date>` in `CHANGELOG.md`, with entries under
+  it, before tagging. A tag with no section, or an empty one, is refused.
+- **Locally first.** `make release` builds into `build/release/`, runs the
+  same checks, prints the notes and the tag command, and pushes nothing. It
+  rehearses the newest `CHANGELOG.md` section, or `RELEASE_VERSION=0.6.0`.
+- **Dry run on GitHub.** `gh workflow run release.yml --ref <branch>`
+  rehearses on the runners: `dry_run` defaults to true, the files stay on the
+  run as an artifact, the job summary says what was skipped, and no release or
+  upload is made. From a branch the version is stamped from the newest
+  `CHANGELOG.md` section, and the summary says when that version is already
+  tagged (where `make release` refuses). `-f dry_run=false` is refused unless
+  the ref is a tag.
+- **Secrets.** None are stored. The release uses the run's own `GITHUB_TOKEN`;
+  PyPI is reached by trusted publishing, which needs a GitHub environment named
+  `pypi` and, on pypi.org, a trusted publisher for the project naming this
+  repository's owner and name, workflow `release.yml` and environment `pypi`.
+  Until that publisher exists the `pypi` job fails and the GitHub release
+  stands.
+- **A fork** makes its GitHub releases in its own repository with no edit to
+  the workflow. To also publish to PyPI it needs a project it owns there:
+  rename `[project] name` in `pyproject.toml` and the distribution that
+  `src/mcgyvr/__init__.py` reads its version from (`version("mcgyvr")`),
+  register the trusted publisher for that project with the fork's owner and
+  name, and create the `pypi` environment in the fork.

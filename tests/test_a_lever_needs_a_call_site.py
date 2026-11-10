@@ -125,7 +125,7 @@ def _config(tmp_path: Path, text: str = LADDER) -> Path:
 
 
 def _completion(text: str):  # type: ignore[no-untyped-def]
-    from mcgyvr.local_pool import Protocol
+    from mcgyvr.ladder_map import Protocol
     from mcgyvr.runner import Completion, StopReason
 
     return Completion(
@@ -151,7 +151,7 @@ def _answers(monkeypatch: pytest.MonkeyPatch, *replies: str) -> list[str]:
     sent: list[str] = []
     scripted = list(replies)
 
-    def fake_dispatch(source_map, rung, request, *, capacity=None):  # type: ignore[no-untyped-def]
+    def fake_dispatch(unit_map, rung, request, *, capacity=None):  # type: ignore[no-untyped-def]
         sent.append(request.prompt)
         if not scripted:
             raise AssertionError(f"an unscripted dispatch was made to {rung!r}")
@@ -219,7 +219,7 @@ def test_the_ladder_is_found_the_way_every_other_command_finds_it(
 ) -> None:
     """No flag at all still climbs, because the config has its own resolution order.
 
-    ``mcgyvr config`` and ``mcgyvr local_pool`` already resolve a path from
+    ``mcgyvr config`` and ``mcgyvr ladder show`` already resolve a path from
     ``$MCGYVR_CONFIG``, then the working directory, then the user config dir. A
     ``direct`` that could only be pointed at a ladder by flag would be a second
     answer to a question the project has already settled once, and an install
@@ -322,7 +322,7 @@ def test_a_backend_that_does_not_answer_is_reported_against_its_rung(
     from mcgyvr.cli import main
     from mcgyvr.runner import TransportError
 
-    def dead(source_map, rung, request, *, capacity=None):  # type: ignore[no-untyped-def]
+    def dead(unit_map, rung, request, *, capacity=None):  # type: ignore[no-untyped-def]
         raise TransportError("could not reach http://localhost:11434 within 60s")
 
     monkeypatch.setattr(drive, "dispatch", dead)
@@ -808,7 +808,7 @@ def _reviews(monkeypatch: pytest.MonkeyPatch, *replies: str) -> list[str]:
     asked: list[str] = []
     scripted = list(replies)
 
-    def fake_dispatch_role(source_map, role, request, *, capacity=None):  # type: ignore[no-untyped-def]
+    def fake_dispatch_role(unit_map, role, request, *, capacity=None):  # type: ignore[no-untyped-def]
         asked.append(request.prompt)
         if not scripted:
             raise AssertionError(f"an unscripted dispatch was made to {role!r}")
@@ -978,7 +978,7 @@ def test_verification_asked_for_and_unusable_is_refused_before_the_sandbox(
 ) -> None:
     """An install told to verify that cannot is stopped, not quietly downgraded.
 
-    ``source_map`` reports a role declared on an unusable source by raising when
+    ``unit_map`` reports a role declared on an unusable source by raising when
     it is asked, which is the distinction that matters here: "no verifier" is an
     ordinary install and "the verifier is misconfigured" is a task that would
     deliver work on a warrant the operator asked for and did not get. It is

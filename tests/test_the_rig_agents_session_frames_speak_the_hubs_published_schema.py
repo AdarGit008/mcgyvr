@@ -178,7 +178,6 @@ def _agent_frames() -> list[str]:
             state="failed",
             role="head",
             error_code="start_failed",
-            progress_pct=100,
             log_excerpt="x\x00y\u202e" + "z" * 10_000,
         ),
         w.relay_response("q1", status=200, content_type="text/event-stream"),
@@ -427,7 +426,7 @@ def test_the_devices_a_head_start_names_are_the_wires_kinds(
 
     assert hubwire.HEAD_DEVICE_KINDS == (
         hubwire.HEAD_DEVICE_LOCAL,
-        hubwire.HEAD_DEVICE_RPC,
+        hubwire._HEAD_DEVICE_RPC,
         hubwire.HEAD_DEVICE_CPU,
     )
     assert hubwire.HEAD_DEVICE_KINDS == ("local", "rpc", "cpu")

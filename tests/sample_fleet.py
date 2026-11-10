@@ -239,8 +239,10 @@ def read(
     harness: Harness | None = None,
     load: str | None = LOAD,
     probe: tuple[str, ...] = (UNIT,),
+    fleet: str = FLEET,
 ) -> Any:
-    """One door read of the invented rig under the staged setup, filed."""
+    """One door read of the invented rig under the staged setup, filed (under
+    `fleet`, the sample's fleet unless another is named)."""
     from mcgyvr.fleet import read as door_read
 
     return door_read.record(
@@ -250,7 +252,7 @@ def read(
         probe=probe,
         measure=Harness() if harness is None else harness,
         load=load,
-        fleet_name=FLEET,
+        fleet_name=fleet,
         setup=setup,
     )
 

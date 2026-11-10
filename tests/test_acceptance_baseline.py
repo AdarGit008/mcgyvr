@@ -74,12 +74,12 @@ def _prompts(monkeypatch: pytest.MonkeyPatch) -> list[str]:
     sends none, a run that reached a rung sends one.
     """
     import mcgyvr.drive as drive
-    from mcgyvr.local_pool import Protocol
+    from mcgyvr.ladder_map import Protocol
     from mcgyvr.runner import Completion, StopReason
 
     sent: list[str] = []
 
-    def fake_dispatch(source_map, rung, request, *, capacity=None):  # type: ignore[no-untyped-def]
+    def fake_dispatch(unit_map, rung, request, *, capacity=None):  # type: ignore[no-untyped-def]
         sent.append(request.prompt)
         return Completion(
             text="```python\ndef fetch(url: str) -> str:\n    return url\n```\n",

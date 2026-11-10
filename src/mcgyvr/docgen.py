@@ -35,11 +35,11 @@ from . import notes as failure_notes
 from .config import (
     CREW_FILENAME,
     FLEET_FILENAME,
+    HITCHHIKE_FILENAME,
     JOURNAL_DIR_DEFAULT,
     KNOBS,
     LAUNCHER_NATIVE,
     POLICY_FILENAME,
-    RELIEF_FILENAME,
     SCHEMA,
     SWITCHES,
     USE_CASES,
@@ -259,7 +259,7 @@ def render_reference() -> str:
         "# Configuration reference",
         "",
         f"Every key `{FLEET_FILENAME}`, `{POLICY_FILENAME}` and "
-        f"`{RELIEF_FILENAME}` accept.",
+        f"`{HITCHHIKE_FILENAME}` accept.",
         "",
         "This page is generated from `SCHEMA` in `src/mcgyvr/config.py` — the same",
         "declaration the loader validates against. It is not a description of the",
@@ -297,7 +297,7 @@ def render_reference() -> str:
 
 # SETUP.md alone: the constants its prose and its notes are built from.
 
-#: The three keys SETUP.md lists as the levers, whose effect `mcgyvr local_pool`
+#: The three keys SETUP.md lists as the levers, whose effect `mcgyvr ladder show`
 #: prints. Each bullet's text is the key's own schema doc, so the list cannot
 #: drift from the field it describes; a name here that `SCHEMA` does not declare
 #: raises `KeyError` at render time instead of printing a bullet with nothing
@@ -341,6 +341,24 @@ LOCAL_TRANSPORT_ENV = "MCGYVR_LOCAL_TRANSPORT"
 SSHD_PORT = 22
 QUARANTINE = "com.apple.quarantine"
 HUB_KEY_ENV = "MCGYVR_HUB_API_KEY"
+#: The environment names SETUP.md's setup text states, held to
+#: `sandbox.docker.ENDPOINTS_ENV`/`HOST_ALIAS`, `fetchlist.DEFAULT_TOKEN_ENV`/
+#: `ENDPOINT_ENV` and the rig reader's `MCGYVR_TEST_*` variables by
+#: tests/test_the_setup_document_names_the_environment_mcgyvr_sets_and_reads.py.
+ENDPOINTS_ENV = "MCGYVR_ENDPOINTS"
+HOST_ALIAS = "host.docker.internal"
+HF_TOKEN_ENV = "HF_TOKEN"
+HF_ENDPOINT_ENV = "HF_ENDPOINT"
+TEST_ENV_PREFIX = "MCGYVR_TEST_"
+#: The finding /mcgyvr-direct's Step 5 names, held to `drive.gate.UNCHANGED` and
+#: the code `unchanged_target` files by the same kind of test
+#: (tests/test_the_direct_skill_names_the_unchanged_reply_finding.py).
+UNCHANGED_CHECK = "unchanged"
+UNCHANGED_CODE = "identical-to-base"
+#: The document of every verb and flag, rendered by `mcgyvr.cli.verbdoc` (held
+#: to its `COMMANDS_PATH` by
+#: tests/test_commands_md_lists_every_verb_and_flag_the_parser_defines.py).
+COMMANDS_DOC = "COMMANDS.md"
 #: The rig names *Lending to a hub: the port forward* states, held to
 #: `sharing.SHARING_FILE`, the `rig share` and `rig join` switches and
 #: `portmap.NOT_ALLOWED`/`PERMANENT_ONLY` by
@@ -372,7 +390,144 @@ def _port_forward_section() -> list[str]:
         f"unless `mcgyvr rig share {PERMANENT_FORWARD_SWITCH}` allows one; "
         "the hub shows the rule to forward the ports by hand instead."
     )
-    return ["## Lending to a hub: the port forward", "", *_wrap(text, rest=""), ""]
+    digest = (
+        "**A head's model.** A head the hub starts on a lending rig may name its "
+        "model's sha256 digest. The rig then hashes its own file of that model "
+        "before it starts anything, renewing the session's lease between chunks, "
+        "and a file whose digest is another fails the session as "
+        f"`{hubwire.SessionCode.MODEL_MISSING}`. Hashing a large model delays the "
+        "head's start; a session stopped meanwhile stops the hashing too."
+    )
+    return [
+        "## Lending to a hub: the port forward",
+        "",
+        *_wrap(text, rest=""),
+        "",
+        *_wrap(digest, rest=""),
+        "",
+    ]
+
+
+#: The words mcgyvr's help, docs and output use, each for one thing, in the
+#: order a request meets them: how a prompt becomes contracts, where they run,
+#: what the hub shares, and who and what is named.
+GLOSSARY: tuple[tuple[str, str], ...] = (
+    (
+        "decomposition",
+        "the whole step that turns a prompt into contracts (`decompose`): a "
+        "survey of the repository, then scaffold, then fill or draft, then vet.",
+    ),
+    (
+        "scaffold",
+        "the candidates mcgyvr builds from the survey for each field of a "
+        "contract, with no model asked; the first of each set is the default.",
+    ),
+    (
+        "fill",
+        "Jev picks each field of the scaffold from its fixed candidates "
+        "(`proposer.authoring: fill`).",
+    ),
+    (
+        "draft",
+        "a model writes the proposals freely, as JSON (`proposer.authoring: draft`).",
+    ),
+    (
+        "vet",
+        "the deterministic checks every proposal and every hand-written "
+        "contract passes before anything runs; a proposal vetting refuses goes "
+        "back to the proposer (`max_reproposals`).",
+    ),
+    (
+        "proposer",
+        "the propose stage, fill or draft as `authoring` picks; policy.yaml "
+        "binds its model in the `proposer` block.",
+    ),
+    (
+        "direct",
+        "you, or the session agent, write the contracts; `mcgyvr direct "
+        "FILE...` (`/mcgyvr-direct`) vets and runs them, and a spent contract "
+        "comes back to its author.",
+    ),
+    (
+        "delegate",
+        "you hand mcgyvr the prompt: `mcgyvr PROMPT` (`/mcgyvr`) decomposes it "
+        "into contracts and runs them. The session agent chooses direct or "
+        "delegate; mcgyvr dispatches either way.",
+    ),
+    (
+        "ladder",
+        "the rungs a task climbs, in the order policy.yaml's `ladder` lists "
+        "them; `mcgyvr ladder show` prints it as it resolves.",
+    ),
+    ("rung", "one step of the ladder: a unit, and the model sent to it."),
+    ("top rung", "the dearest rung of the ladder, the last a climb tries."),
+    (
+        "unit",
+        "one configured model server, an entry of fleet.yaml's `units`: where "
+        "it answers, the model it serves and how many requests at once.",
+    ),
+    (
+        "standing session",
+        "on the hub, a session the hub itself keeps running on a lent rig, "
+        "serving one model to the general pool or a crew pool.",
+    ),
+    (
+        "hitchhike",
+        "slot sharing: a host offers open slots of their own units, and a "
+        "rider's task takes one only when the rider's own rung is full "
+        "(`fanout: idle`), never as a step to climb. A host can read the "
+        "prompts sent to it. The rungs a hub lends a rider this way are "
+        "hitchhike rungs, kept in `hitchhike.yaml` by `mcgyvr rig rungs sync`.",
+    ),
+    (
+        "general pool",
+        "the hub's shared pool: models an admin curates, run as standing "
+        "sessions on rigs lent to it, for any member.",
+    ),
+    (
+        "crew pool",
+        "the same, invite only: one crew's owner curates its models, its rigs "
+        "are lent to that crew, and only its members are served.",
+    ),
+    ("rig", "a machine: one mcgyvr serves from, or one lent to a hub (`mcgyvr rig`)."),
+    (
+        "host",
+        "the person who offers slots to hitchhikers. The wire keeps its own "
+        "`host` fields (a rig's system, a lending member); the docs say rig "
+        "for the machine and system for its OS. Host memory and host cores "
+        "are a machine's own RAM and CPU, as against a card's.",
+    ),
+    ("system", "a rig's operating system block: OS, architecture and version."),
+    (
+        "session",
+        "two layers: the writer's chat (`--session`, the journal file a run is "
+        "filed in), and a pooled inference run across rigs (`mcgyvr rig`, the "
+        "hub).",
+    ),
+    (
+        "writer",
+        "the Claude Code or Pi chat a command was typed from; a run, its result "
+        "and its journal rows are filed under it.",
+    ),
+    (
+        "family",
+        "the catalog kind a rung is served from: `deterministic` (tools), "
+        "`local` or `api`, cheapest first.",
+    ),
+    (
+        "floor",
+        "the no-model path, the `deterministic` family: a tool makes the "
+        "change, in one attempt, and no tokens are spent.",
+    ),
+)
+
+
+def _glossary_section() -> list[str]:
+    """SETUP.md's *Glossary*: one meaning per word, as `GLOSSARY` states it."""
+    lines = ["## Glossary", ""]
+    for term, meaning in GLOSSARY:
+        lines += _wrap(f"- **{term}** — {meaning}")
+    return [*lines, ""]
 
 
 def _macos_windows_section() -> list[str]:
@@ -427,7 +582,9 @@ def _macos_windows_section() -> list[str]:
         *para(
             "`$XDG_STATE_HOME` and `$XDG_CACHE_HOME` still win when absolute (the "
             f"weights follow `${WEIGHTS_DIR_ENV}` alone), and `journal.dir` "
-            f"defaults to `{JOURNAL_DIR_DEFAULT}` everywhere. Windows checks no "
+            f"defaults to `{JOURNAL_DIR_DEFAULT}` everywhere: the journal is the "
+            f"one piece of state that does not move with `${roots.DATA_ENV}` or "
+            "`$XDG_STATE_HOME`, so set `journal.dir` to move it. Windows checks no "
             "file owner or mode: a file is as private as its folder, and these "
             "folders are in your own profile. A folder named by "
             f"`${roots.HOME_ENV}`, `${roots.DATA_ENV}` or an XDG variable keeps "
@@ -601,7 +758,7 @@ def render_setup() -> str:
         "",
         "```",
         "mcgyvr setup",
-        "mcgyvr local_pool",
+        "mcgyvr ladder show",
         "```",
         "",
         "`mcgyvr setup` reads each rig once and stages a setup bound to what it",
@@ -631,6 +788,15 @@ def render_setup() -> str:
         "a Jev unit's one typed choice. A green sample is stamped, and on",
         "`Lock the fleet and name it live? [y/n]` it is locked, promoted and",
         "named live. A red sample is never locked; its reasons are printed.",
+        "",
+        f"The sample also edits the staged `{FLEET_FILENAME}`: each unit on a rig",
+        "that names no `output_tokens` is given one, the warm decode its reads",
+        "measured times its `request_timeout_s`, clipped to its `window`, so a",
+        "reply is capped at what the unit can finish inside its timeout: the",
+        "lock refuses a measured unit that states none, or whose reply cannot",
+        "finish inside its timeout at the measured speed. A unit that names its own",
+        "`output_tokens`, or whose reads measured no decode, is left as it is;",
+        "the file is rewritten only when some unit changed.",
         "",
         "When the interactive setup finishes, it offers to put `~/.local/bin`,",
         "where `uv tool install` puts `mcgyvr`, on PATH, once you say yes. A",
@@ -683,9 +849,6 @@ def render_setup() -> str:
         "  `chat` and `hybrid` otherwise.",
         "- `--priority` — compose the ladder for `throughput`, `quality` or",
         "  `cost` instead of the default ladder.",
-        "- `--profile` — deprecated, removed in the release after next: use",
-        "  `--priority`. A word naming a priority maps onto it, other text is",
-        "  ignored, and either way it warns.",
         "- `--jev UNIT` — dedicate VRAM to a Jev unit, the written unit every",
         "  typed decision asks; it is never slept or woken.",
         "",
@@ -703,7 +866,7 @@ def render_setup() -> str:
         "otherwise from the use case's candidates on the Hugging Face Hub",
         "(ranked by downloads; the cache of an earlier read, then the shipped",
         "model catalog, when the Hub cannot be asked), says which answered,",
-        "and names the host it goes on. `chat` and `agent` plan one unit: the",
+        "and names the rig it goes on. `chat` and `agent` plan one unit: the",
         "biggest model that fits, at the most context that fits and at least",
         "8192 per user. The placement says how fast its model decodes: the",
         "speed the live fleet measured for it there (a `reading`), else an",
@@ -711,17 +874,23 @@ def render_setup() -> str:
         "there is none. It wakes and sleeps nothing, and writes nothing but",
         "that cache.",
         "",
+        "`mcgyvr emit` sizes each unit from those rig files and refuses one whose",
+        "weights need more disk than the rig file read free (`needs N GB of",
+        "disk, M GB free at PATH`); a unit split across cards is held to the",
+        "free disk of the machine its address points at. A rig file with no",
+        "disk reading skips the check.",
+        "",
         "A setup is two files in one directory, and `mcgyvr setup` writes both",
         "(staged under the data folder, as above):",
         "",
         f"- `{FLEET_FILENAME}` — what runs where: `units`, `rigs` and `fleets`.",
         f"- `{POLICY_FILENAME}` — how work moves over those units: `ladder` and "
-        "every other top-level key below but `relief`.",
+        "every other top-level key below but `hitchhike`.",
         "",
-        f"A third file, `{RELIEF_FILENAME}`, holds `relief`: the units other",
+        f"A third file, `{HITCHHIKE_FILENAME}`, holds `hitchhike`: the units other",
         "people lend you through a hub. `mcgyvr rig rungs sync` writes it whole",
         "and nothing else does, so it is neither locked nor edited by hand.",
-        "Beside `relief` it records `api_key_env`: the NAME of the variable the",
+        "Beside `hitchhike` it records `api_key_env`: the NAME of the variable the",
         "sync read your personal hub key from (`--key-env`), which the rig",
         "agent's refresh and `mcgyvr rig status` read the key from too (where",
         f"it records none, the one the units of `{CREW_FILENAME}` name).",
@@ -752,7 +921,7 @@ def render_setup() -> str:
         "",
         *_audience_lines(),
         "",
-        "`mcgyvr local_pool` reads that config back: the usable rungs "
+        "`mcgyvr ladder show` reads that config back: the usable rungs "
         "cheapest-first with",
         "their family, attempt budget and model; the escalation ceiling and where it",
         "came from; every skipped rung with the reason it was skipped; and the",
@@ -760,7 +929,7 @@ def render_setup() -> str:
         "is answering — off by default, because resolving a ladder should not need",
         "a network. Run it whenever a run picks a rung you did not expect.",
         "",
-        "Three keys across the two files are the levers, and `mcgyvr local_pool` "
+        "Three keys across the two files are the levers, and `mcgyvr ladder show` "
         "is how",
         "you read all three:",
         "",
@@ -771,6 +940,26 @@ def render_setup() -> str:
         "",
         "`mcgyvr config` prints the resolved config; `mcgyvr detect` shows what",
         "can run the work; `mcgyvr capabilities` shows the shipped capability table.",
+        "",
+        *_wrap(
+            f"mcgyvr sets `${ENDPOINTS_ENV}` in every task container that has a "
+            "network: the address of each unit of the config, comma-separated, a "
+            f"name for this machine rewritten to `{HOST_ALIAS}`, so a check that "
+            "calls a unit finds it from inside the container. Weights are fetched "
+            f"from the Hugging Face Hub with the token in `${HF_TOKEN_ENV}` "
+            "(`--hf-token-env` names another variable), and "
+            f"`${HF_ENDPOINT_ENV}` names a mirror for the Hub reads and fetches "
+            f"alike. The `{TEST_ENV_PREFIX}*` variables the rig reader notices are for "
+            "mcgyvr's own tests; leave them unset.",
+            rest="",
+        ),
+        "",
+        *_wrap(
+            "`mcgyvr -h` and `mcgyvr VERB -h` print every verb and flag an install "
+            f"takes; `{COMMANDS_DOC}`, at the root of mcgyvr's source repository, "
+            "lists them all on one page, rendered from the same parser.",
+            rest="",
+        ),
         "",
         "A unit split across machines (`units.launch.shards`) is checked before",
         "anything starts: a split that cannot be launched is refused when",
@@ -797,6 +986,7 @@ def render_setup() -> str:
         *_macos_windows_section(),
         *_port_forward_section(),
         *_use_cases_section(),
+        *_glossary_section(),
         "## Value types",
         "",
         "| Type | Accepted |",
@@ -826,7 +1016,7 @@ def _use_cases_section() -> list[str]:
         "## Use cases and switches",
         "",
         "`use_case` in the policy says what this install serves, and",
-        "`mcgyvr use NAME` switches it (`/mcgyvr-use` is the same for a session):",
+        "`mcgyvr use NAME` switches it (`/mcgyvr-use` is the same, typed in a chat):",
         "",
         "- `mcgyvr-code` — mcgyvr between the model and you: contracts proposed,",
         "  vetted, run up the ladder, gated, repaired, reviewed and re-decomposed,",
@@ -1282,7 +1472,7 @@ _RESULT_KEYS: tuple[str, ...] = (
     "- `attempts[]` — every try: `rung`, `attempt`, `verdict` (`passed`,",
     "  `failed`, `declined`, `error`), `detail`, `findings` (the gate's lines",
     "  behind a failure), `notes` (the record those lines are rendered from;",
-    "  below), `attempt_id`, `draw`, `draws`, `rows`, `relief`,",
+    "  below), `attempt_id`, `draw`, `draws`, `rows`, `hitchhike`,",
     "  `model`, `address`. `draws` is the",
     "  breadth the attempt asked for (`breadth.draws`), whatever the verdict;",
     "  `rows` is how many of those draws left a journal row, which is `draws`",
@@ -1290,10 +1480,10 @@ _RESULT_KEYS: tuple[str, ...] = (
     "  raised before dispatching. `draw` is the draw the entry is about, and is",
     "  `null` — with `attempt_id` `null` beside it — on an `error` no single",
     "  dispatch caused: `rows: 0` means it raised before dispatching at all,",
-    "  and anything more means it raised past draw `rows - 1`. `relief` is",
+    "  and anything more means it raised past draw `rows - 1`. `hitchhike` is",
     "  `true` for a rung lent through a hub — recorded like any try, but",
     "  charged against the budget only when it passes — and `model`/`address`",
-    "  name the unit that served it, so a relief try shows which borrowed",
+    "  name the unit that served it, so a hitchhike try shows which borrowed",
     "  machine answered.",
     "- `assurance` — what an `accepted` result rests on, and `detail` says it",
     "  in a sentence: `deterministic` (a tool's change, on the gate),",
@@ -1306,8 +1496,8 @@ _RESULT_KEYS: tuple[str, ...] = (
     "- `delivery` — where the work went: left uncommitted in the tree (the",
     "  default), the commit, or why it was refused (as `detail`).",
     "  `committed`, `commit`, `branch`, `handoff` are the commit as fields.",
-    "- `target`, `contract`, `task_type`, `session` (the session the run is",
-    "  filed under; also written as `orchestrator`, its old key, for one",
+    "- `target`, `contract`, `task_type`, `session` (the writer: the chat the run",
+    "  is filed under; also written as `orchestrator`, its old key, for one",
     "  release), `run`, `session_file`, `journal`, `exit_code`.",
     "- `copy_errors` — a `--record DIR` copy that could not be written, and",
     "  why. Empty on almost every run. mcgyvr's own record under `journal`",
@@ -1316,7 +1506,7 @@ _RESULT_KEYS: tuple[str, ...] = (
     "- `notes` — what the run said in passing (not failure notes): the",
     "  uncommitted and untracked paths the sandbox of HEAD left out, what a",
     "  tool printed as it worked (what a rename renamed), what the baseline",
-    "  left behind (now cleaned up), and a relief rung that duplicates a unit",
+    "  left behind (now cleaned up), and a hitchhike rung that duplicates a unit",
     "  this install serves.",
     "- `triage` — only under `triage: jev` or a contract's `start_rung`: the",
     "  `rung` the climb started on and its `source` (`jev`, asked for this",
@@ -1489,6 +1679,11 @@ def render_direct_skill() -> str:
         "`mcgyvr direct` a spent ladder is not handed to a proposer: the next",
         "contract is yours to write. When `outcome` is not `accepted`, read",
         "`attempts[].findings`: each line is one reason the gate refused.",
+        f"One is not the gate's: check `{UNCHANGED_CHECK}`, code "
+        f"`{UNCHANGED_CODE}`, is",
+        "a reply that handed its target back exactly as HEAD holds it. That draw",
+        "fails before the gate runs and is never repaired, so a climb does not",
+        "settle on a change that delivery would refuse as identical to the base.",
         "`attempts[].notes` is the same evidence as a record, one per failed",
         "attempt in climb order: the check, the file and line, the tool's code, and",
         "the command and its exit where the check ran one. Write a *different*",

@@ -23,6 +23,7 @@ import pytest
 
 from mcgyvr import derived
 from tests import numbers_fixture as nf
+from tests.numbers_fixture import one_number
 
 
 def _shipped() -> dict[str, dict[str, Any]]:
@@ -39,13 +40,13 @@ def _every_shipped_ask() -> list[tuple[str, str]]:
 def test_a_value_the_user_sets_replaces_the_estimate(
     number: str, key: str, tmp_path_factory: pytest.TempPathFactory
 ) -> None:
-    estimate = derived.lookup(number, key)
+    estimate = one_number(number, key)
     mine = nf.a_value(
         estimate.unit, random.Random(f"{number}{key}"), unlike=estimate.value
     )
     path = nf.write_user_file(tmp_path_factory, {number: {key: mine}})
 
-    answered = derived.lookup(number, key)
+    answered = one_number(number, key)
     assert (answered.value, answered.source, answered.where) == (mine, "override", path)
     assert answered.unit == estimate.unit
 
@@ -64,7 +65,7 @@ def test_every_key_of_every_estimate_can_be_set_at_once(
     rng = random.Random(7)
     settings: dict[str, dict[str, float]] = {}
     for number, key in _every_shipped_ask():
-        unit = derived.lookup(number, key).unit
+        unit = one_number(number, key).unit
         settings.setdefault(number, {})[key] = nf.a_value(unit, rng)
     nf.write_user_file(tmp_path_factory, settings)
     answered = derived.lookup_all(_every_shipped_ask())
@@ -132,7 +133,7 @@ def test_a_value_that_is_not_a_finite_number_inside_its_bounds_is_refused(
     number, key = entry.id, next(iter(entry.values))
     path = nf.write_user_file(tmp_path_factory, f"{number}:\n  {key}: {literal}\n")
     with pytest.raises(derived.DerivedNumbersError) as was:
-        derived.lookup(other.id, next(iter(other.values)), path=shipped)
+        one_number(other.id, next(iter(other.values)), path=shipped)
     assert str(path) in str(was.value)
     assert number in str(was.value) and key in str(was.value)
 
@@ -158,7 +159,7 @@ def test_a_value_the_yaml_reader_cannot_build_is_refused_by_name(
     number, key = _every_shipped_ask()[0]
     path = nf.write_user_file(tmp_path_factory, f"{number}:\n  {key}: {literal}\n")
     with pytest.raises(derived.DerivedNumbersError) as was:
-        derived.lookup(*_another_ask(number))
+        one_number(*_another_ask(number))
     assert str(path) in str(was.value)
 
 
@@ -182,7 +183,7 @@ def test_a_refusal_never_spells_out_a_value_far_larger_than_the_file(
     )
     path = nf.write_user_file(tmp_path_factory, text)
     with pytest.raises(derived.DerivedNumbersError) as was:
-        derived.lookup(*_another_ask(number))
+        one_number(*_another_ask(number))
     assert str(path) in str(was.value)
     assert len(str(was.value)) < len(text) + 1_000
 
@@ -193,7 +194,7 @@ def test_an_unknown_number_is_refused_even_when_another_is_asked(
     number, key = _every_shipped_ask()[0]
     path = nf.write_user_file(tmp_path_factory, {"no_such_number": {key: 1.0}})
     with pytest.raises(derived.DerivedNumbersError) as was:
-        derived.lookup(number, key)
+        one_number(number, key)
     assert str(path) in str(was.value)
     assert "no_such_number" in str(was.value)
 
@@ -204,7 +205,7 @@ def test_a_key_outside_the_numbers_key_space_is_refused(
     number = _every_shipped_ask()[0][0]
     path = nf.write_user_file(tmp_path_factory, {number: {"no-such-key": 1.0}})
     with pytest.raises(derived.DerivedNumbersError) as was:
-        derived.lookup(*_another_ask(number))
+        one_number(*_another_ask(number))
     assert str(path) in str(was.value)
     assert number in str(was.value) and "no-such-key" in str(was.value)
 
@@ -227,7 +228,7 @@ def test_a_settings_file_that_is_not_a_mapping_of_numbers_is_refused(
     number, key = _every_shipped_ask()[0]
     path = nf.write_user_file(tmp_path_factory, text.format(number=number, key=key))
     with pytest.raises(derived.DerivedNumbersError) as was:
-        derived.lookup(number, key)
+        one_number(number, key)
     assert str(path) in str(was.value)
 
 
@@ -239,7 +240,7 @@ def test_a_settings_file_that_is_not_utf8_text_is_refused_by_name(
         tmp_path_factory, f"{number}:\n  {key}: 1 # caf\xe9\n".encode("latin-1")
     )
     with pytest.raises(derived.DerivedNumbersError) as was:
-        derived.lookup(number, key)
+        one_number(number, key)
     assert str(path) in str(was.value)
 
 
@@ -249,13 +250,13 @@ def test_a_settings_path_that_cannot_be_read_is_refused(
     path = nf.users_file(tmp_path_factory)
     path.mkdir(parents=True)
     with pytest.raises(derived.DerivedNumbersError) as was:
-        derived.lookup(*_every_shipped_ask()[0])
+        one_number(*_every_shipped_ask()[0])
     assert str(path) in str(was.value)
 
 
 def test_a_settings_file_that_is_not_there_sets_nothing() -> None:
     assert not derived.overrides_path().exists()
-    assert derived.lookup(*_every_shipped_ask()[0]).source == "estimate"
+    assert one_number(*_every_shipped_ask()[0]).source == "estimate"
 
 
 def test_a_settings_folder_that_is_a_file_sets_nothing(
@@ -264,11 +265,11 @@ def test_a_settings_folder_that_is_a_file_sets_nothing(
     folder = nf.users_file(tmp_path_factory).parent
     folder.parent.mkdir(parents=True, exist_ok=True)
     folder.write_text("not a folder", encoding="utf-8")
-    assert derived.lookup(*_every_shipped_ask()[0]).source == "estimate"
+    assert one_number(*_every_shipped_ask()[0]).source == "estimate"
 
 
 def test_an_empty_settings_file_sets_nothing(
     tmp_path_factory: pytest.TempPathFactory,
 ) -> None:
     nf.write_user_file(tmp_path_factory, "# nothing set yet\n")
-    assert derived.lookup(*_every_shipped_ask()[0]).source == "estimate"
+    assert one_number(*_every_shipped_ask()[0]).source == "estimate"

@@ -10,7 +10,7 @@ import.
 another file or is unknown. `load_policy(text)` reads the text of
 a `policy.yaml` and returns its `ladder` — an ordered list of unit names — with
 the policy settings alongside it, raising `FleetFileError` for a unit fact or
-an unknown key. Both refuse a `relief` block, which belongs in `relief.yaml`.
+an unknown key. Both refuse a `hitchhike` block, which belongs in `hitchhike.yaml`.
 """
 
 from mcgyvr.fleet.files import FleetFileError, load_fleet, load_policy

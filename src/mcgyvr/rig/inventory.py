@@ -19,17 +19,13 @@ from typing import Any
 
 from mcgyvr.knowledge import hub
 from mcgyvr.rig import pooled, protocol
-from mcgyvr.serving import ggufscan
+from mcgyvr.serving import ggufscan, vramfit
 
 #: How many folders below the models folder the walk descends; nothing deeper is read.
 MAX_DEPTH = 4
 #: A split model's first part carries this in its name; the parts after it are
 #: not named.
 _SPLIT_FIRST = "-00001-of-"
-
-#: The ggml type id of each KV cache type a head can be run with, looked up in the
-#: reader's table of block elements and block bytes.
-_KV_TYPES = {"f16": 1, "q8_0": 8}
 
 Scan = Callable[[str], Mapping[str, Any]]
 
@@ -56,24 +52,24 @@ def kv_bytes_per_token(row: Mapping[str, Any], kv_type: str) -> int | None:
     """The bytes one token of context occupies in the KV cache at ``kv_type``.
 
     The row's ``kv_layers`` names the layers that cache and, for each, the key and
-    value elements a token takes there; those elements are summed, turned into
-    bytes at the ggml block size of ``kv_type`` and rounded up. None when the row
-    gives no usable per-layer elements, or when the result is not a size the
-    protocol would carry.
+    value elements a token takes there; every one of them is charged as a
+    full-context layer at ``kv_type`` (``vramfit.cache_bytes_per_token``, the one
+    per-token figure the catalog and the sizer read too) and rounded up. None when
+    the row gives no usable per-layer elements, or when the result is not a size
+    the protocol would carry.
     """
     layers = row.get("kv_layers")
     if not isinstance(layers, list) or not layers:
         return None
-    elements = 0
-    for layer in layers:
-        if not isinstance(layer, dict):
-            return None
-        k, v = layer.get("k_elems"), layer.get("v_elems")
-        if type(k) is not int or type(v) is not int:
-            return None
-        elements += k + v
-    block_elements, block_bytes = ggufscan.T[_KV_TYPES[kv_type]]
-    total = math.ceil(elements * block_bytes / block_elements)
+    if not all(isinstance(layer, dict) for layer in layers):
+        return None
+    try:
+        per_token = vramfit.cache_bytes_per_token(
+            layers, cache_type_k=kv_type, cache_type_v=kv_type
+        )
+    except ValueError:
+        return None
+    total = math.ceil(per_token)
     return total if 1 <= total <= protocol.MAX_KV_BYTES_PER_TOKEN else None
 
 

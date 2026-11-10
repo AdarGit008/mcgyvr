@@ -56,10 +56,10 @@ class AttemptResult:
     #: `rows` is how many of those draws left a journal row: `draws` unless the
     #: attempt raised part-way, and `0` for a try that declined before dispatch.
     rows: int = 1
-    #: `relief` is `True` for a rung lent through a hub — recorded like any
+    #: `hitchhike` is `True` for a rung lent through a hub — recorded like any
     #: try, but charged against the budget only when it passes — and `model`
     #: and `address` name the unit that served it.
-    relief: bool = False
+    hitchhike: bool = False
     model: str = ""
     address: str = ""
     #: `whose` is whose machines the try's code may have come from: `own`,

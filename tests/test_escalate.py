@@ -82,7 +82,7 @@ from mcgyvr.escalate import (
     required_policy,
 )
 from mcgyvr.gate import Finding, GateResult
-from mcgyvr.local_pool import SourceMap
+from mcgyvr.ladder_map import UnitMap
 from mcgyvr.notes import FailureNotes
 from mcgyvr.route import RouteError, Try, Verdict
 from mcgyvr.worker.prompt import build_prompt
@@ -945,7 +945,7 @@ def narrow(mode: str = "") -> str:
 
 
 @contextmanager
-def holding(capacity: Capacity, pool: SourceMap, *rungs: str) -> Iterator[None]:
+def holding(capacity: Capacity, pool: UnitMap, *rungs: str) -> Iterator[None]:
     """Really hold one slot on each of ``rungs`` for the body of the block.
 
     Real slots rather than a stubbed load, for the reason ``test_capacity.py``
@@ -1152,7 +1152,7 @@ class Dispatching:
     the routing about where the routing had sent it.
     """
 
-    def __init__(self, pool: SourceMap, *verdicts: Verdict) -> None:
+    def __init__(self, pool: UnitMap, *verdicts: Verdict) -> None:
         self._pool = pool
         self._verdicts = list(verdicts)
         self.seen: list[str] = []
@@ -1826,7 +1826,7 @@ def test_the_pool_command_prints_the_ceilings_that_bound_a_task(
     path.write_text(with_budgets(MIXED, max_attempts=2), encoding="utf-8")
     monkeypatch.setenv(CONFIG_PATH_ENV, str(path))
 
-    assert main(["local_pool"]) == 0
+    assert main(["ladder", "show"]) == 0
 
     out = capsys.readouterr().out
     assert "no escalation ceiling (max_escalations unset)" in out
@@ -1845,7 +1845,7 @@ def test_the_pool_command_prints_a_stated_escalation_ceiling(
     path.write_text(with_budgets(MIXED, max_escalations=1), encoding="utf-8")
     monkeypatch.setenv(CONFIG_PATH_ENV, str(path))
 
-    assert main(["local_pool"]) == 0
+    assert main(["ladder", "show"]) == 0
 
     out = capsys.readouterr().out
     assert "at most 1 escalation(s)" in out
@@ -1862,7 +1862,7 @@ def test_the_pool_command_says_where_an_unset_ceiling_comes_from(
     path.write_text(MIXED, encoding="utf-8")
     monkeypatch.setenv(CONFIG_PATH_ENV, str(path))
 
-    assert main(["local_pool"]) == 0
+    assert main(["ladder", "show"]) == 0
 
     out = capsys.readouterr().out
     assert "the ladder's own budget" in out

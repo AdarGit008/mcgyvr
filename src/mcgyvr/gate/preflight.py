@@ -2,22 +2,18 @@
 
 Every check here returns a `PreflightIssue` or `None` rather than raising, so the
 caller decides what a refusal costs and what class it is reported under. Nothing
-here spends or writes: `check_clean_tree` reads `git status` and leaves the tree
-alone, and the sizing checks count the prompt with the model-free estimator and
-compare that count against what the rung serves — the window, the reply ceiling,
-and the share of the window the contract and the run between them allow. The
-reply cap every generating request is sent, the unit's maximum within the room
-its window leaves the prompt, is sized here too (`unit_max`).
+here spends or writes: the sizing checks count the prompt with the model-free
+estimator and compare that count against what the rung serves — the window, the
+reply ceiling, and the share of the window the contract and the run between them
+allow. The reply cap every generating request is sent, the unit's maximum within
+the room its window leaves the prompt, is sized here too (`unit_max`).
 """
 
 from __future__ import annotations
 
 import math
-import os
-import subprocess
 from dataclasses import dataclass
 from enum import StrEnum
-from pathlib import Path
 from typing import Protocol
 
 from mcgyvr.contract import Contract
@@ -94,39 +90,6 @@ class PreflightIssue:
 
     def __str__(self) -> str:
         return f"preflight[{self.reason}]: {self.message}"
-
-
-def check_clean_tree(repo: str | os.PathLike[str]) -> PreflightIssue | None:
-    """The issue for a repository with uncommitted work, or `None` when it is clean.
-
-    `git status --porcelain -z --untracked-files=all` is read, and the tree
-    itself is never touched. The check exists so that an attempt starts from a
-    state a gate can attribute to itself. A non-zero exit is `not-a-repo`,
-    carrying git's own stderr, because a directory git cannot read is a
-    different fault from a checkout with work in it. Up to five paths are named,
-    with a count of the rest, so the refusal stays readable in a long-changed
-    tree.
-    """
-    root = Path(repo)
-    proc = subprocess.run(
-        ["git", "status", "--porcelain", "-z", "--untracked-files=all"],
-        cwd=root,
-        capture_output=True,
-    )
-    if proc.returncode != 0:
-        detail = proc.stderr.decode("utf-8", "replace").strip()
-        return PreflightIssue("not-a-repo", f"cannot read git status: {detail}")
-
-    entries = [e for e in proc.stdout.split(b"\x00") if e]
-    if not entries:
-        return None
-    paths = [e[3:].decode("utf-8", "surrogateescape") for e in entries]
-    shown = ", ".join(paths[:5])
-    more = "" if len(paths) <= 5 else f" (+{len(paths) - 5} more)"
-    return PreflightIssue(
-        "dirty-tree",
-        f"working tree has uncommitted changes before the attempt: {shown}{more}",
-    )
 
 
 def check_prompt_fits(

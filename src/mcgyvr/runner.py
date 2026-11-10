@@ -53,11 +53,11 @@ from mcgyvr.hubwire import (
     SEAL_KEY_UNKNOWN,
     USE_CASE_HEADER,
 )
-from mcgyvr.local_pool import (
+from mcgyvr.ladder_map import (
     Endpoint,
-    PoolError,
+    LadderError,
     Protocol,
-    SourceMap,
+    UnitMap,
     UnknownRungError,
 )
 from mcgyvr.redact import safe_url
@@ -84,14 +84,6 @@ _ERROR_BODY_CHARS = 400
 # form asks for one, and nothing reads it back: the schema beside it is what the
 # backend holds the reply to.
 _RESPONSE_SCHEMA_NAME = "reply"
-
-#: The sentence carried by a reply from a path that cannot back a quality
-#: measurement. It is put in a `Completion`'s notes, and is quoted when a
-#: quality-sensitive request is refused on such a path rather than answered.
-CAVEAT_NOTE = (
-    "Served by a path this build marks as unable to carry a quality "
-    "measurement. Usable for work, not for measuring a model."
-)
 
 
 class RunnerError(Exception):
@@ -203,7 +195,7 @@ class BackendError(RunnerError):
         self.code = code
 
 
-class ReliefUnavailableError(SlotUnavailableError):
+class HitchhikeUnavailableError(SlotUnavailableError):
     """A lent rung cannot take the request now, so it is passed over as full: it
     answered busy, or from another model than the one it was matched to."""
 
@@ -223,7 +215,7 @@ class UnknownModelError(SlotUnavailableError):
     `model` is wrong, and the rung is passed over with a note saying so."""
 
 
-#: The relief rungs the hub refused as outside the scope their requests name
+#: The hitchhike rungs the hub refused as outside the scope their requests name
 #: (403 `out_of_scope`), by address, rung and scope sent. Each is passed over
 #: without asking for the rest of the process: the same host under the same
 #: scope is refused again, and every refusal spends the rider's hub budget.
@@ -236,30 +228,30 @@ def _out_of_scope_key(endpoint: Endpoint) -> tuple[str, str, str | None]:
     return (endpoint.base_url, endpoint.source, endpoint.scope)
 
 
-def _held_out_of_scope(endpoint: Endpoint) -> ReliefUnavailableError | None:
-    """The refusal to raise for a relief rung the hub already refused as out
+def _held_out_of_scope(endpoint: Endpoint) -> HitchhikeUnavailableError | None:
+    """The refusal to raise for a hitchhike rung the hub already refused as out
     of scope in this process, `None` for one it has not."""
     with _OUT_OF_SCOPE_LOCK:
         held = _out_of_scope_key(endpoint) in _OUT_OF_SCOPE_RUNGS
     if not held:
         return None
-    return ReliefUnavailableError(
-        f"relief rung {endpoint.source!r} is hosted outside this setup's "
+    return HitchhikeUnavailableError(
+        f"hitchhike rung {endpoint.source!r} is hosted outside this setup's "
         f"ride_scope ({endpoint.scope or 'unstated'}); it is passed over"
     )
 
 
 def _refused_out_of_scope(
     endpoint: Endpoint, exc: BackendError
-) -> ReliefUnavailableError:
-    """Hold a relief rung the hub refused as out of scope for the rest of the
+) -> HitchhikeUnavailableError:
+    """Hold a hitchhike rung the hub refused as out of scope for the rest of the
     process, saying so once on the run's log (its standard error)."""
     with _OUT_OF_SCOPE_LOCK:
         key = _out_of_scope_key(endpoint)
         first = key not in _OUT_OF_SCOPE_RUNGS
         _OUT_OF_SCOPE_RUNGS.add(key)
     said = (
-        f"relief rung {endpoint.source!r} is hosted outside this setup's "
+        f"hitchhike rung {endpoint.source!r} is hosted outside this setup's "
         f"ride_scope ({endpoint.scope or 'unstated'}), so the hub refused it "
         f"(HTTP 403 out_of_scope); it is passed over for the rest of this run. "
         f"`mcgyvr rig rungs sync --ride-scope anyone` opts this setup in to any "
@@ -267,17 +259,12 @@ def _refused_out_of_scope(
     )
     if first:
         print(f"note: {said}", file=sys.stderr)
-    return ReliefUnavailableError(f"{said}: {exc}")
+    return HitchhikeUnavailableError(f"{said}: {exc}")
 
 
 class ProtocolError(RunnerError):
     """The answer is not the shape the protocol promises: no choices, content that
     is not a string, malformed tool calls, or a body that is not JSON."""
-
-
-class QualityCaveatError(RunnerError):
-    """A quality-sensitive request was refused because the path it would run on
-    cannot carry a quality measurement."""
 
 
 class WrongWeightsError(RunnerError):
@@ -360,7 +347,6 @@ class Request:
     system: str = ""
     temperature: float = 0.0
     timeout_s: float | None = None
-    quality_sensitive: bool = False
     response_schema: dict[str, Any] | None = None
     turns: tuple[Mapping[str, Any], ...] = ()
     tools: tuple[Mapping[str, Any], ...] = ()
@@ -396,8 +382,7 @@ class Completion:
     """One dispatch's answer: the text, why it stopped, what the backend said
     about tokens, and the rates measured around the request.
 
-    `notes` carries the caveats that have to travel with it, and `quality_safe`
-    says whether it may be used as a quality measurement at all.
+    `notes` carries the caveats that have to travel with it.
     """
 
     text: str
@@ -411,7 +396,6 @@ class Completion:
     input_tokens: int | None = None
     output_tokens: int | None = None
     served_model: str | None = None
-    quality_safe: bool = True
     notes: tuple[str, ...] = ()
     decode_tok_s: float | None = None
     decode_source: str | None = None
@@ -499,20 +483,15 @@ class _Parsed:
 class Runner(ABC):
     """One protocol path on one endpoint.
 
-    A subclass states which path it speaks (`protocol`, `path`), whether a reply
-    on it can back a quality measurement (`quality_safe`), and whether it can be
-    sent a pinned schema (`honours_response_schema`), and it builds and reads its
-    own payload. This class does the dispatch: it refuses a request the path
-    cannot carry, posts the body, and maps every answer that is not the one asked
-    for onto a `RunnerError`.
+    A subclass states which path it speaks (`protocol`, `path`) and whether it
+    can be sent a pinned schema (`honours_response_schema`), and it builds and
+    reads its own payload. This class does the dispatch: it refuses a request
+    the path cannot carry, posts the body, and maps every answer that is not the
+    one asked for onto a `RunnerError`.
     """
 
     protocol: ClassVar[Protocol]
     path: ClassVar[str]
-    # Whether a reply on this path may be recorded as a quality measurement. It is
-    # `True` where the path carries the model's own sampling and its token counts;
-    # a path that drops either cannot back a measurement.
-    quality_safe: ClassVar[bool] = True
     # Whether this path has a parameter to send a pinned response schema. Where
     # there is none, the schema is not sent, the reply is prose the parser falls
     # back to reading, and `_notes` says so on the reply rather than letting it
@@ -528,18 +507,10 @@ class Runner(ABC):
         A request that states no cap is sent the unit's maximum
         (`at_unit_max`). The status page is polled before and after the
         request, so the derived throughput and in-flight figures cover the
-        window the reply came from. Raises `QualityCaveatError` before anything
-        is sent when the path cannot carry a quality-sensitive request, and
-        otherwise one of the `RunnerError` subclasses for every answer that is
-        not the one asked for.
+        window the reply came from. Raises one of the `RunnerError` subclasses
+        for every answer that is not the one asked for.
         """
-        if request.quality_sensitive and not self.quality_safe:
-            raise QualityCaveatError(
-                f"refusing a quality-sensitive request on the "
-                f"{self.protocol} path of source {self.endpoint.source!r}. "
-                f"{CAVEAT_NOTE}"
-            )
-        if self.endpoint.relief:
+        if self.endpoint.hitchhike:
             held = _held_out_of_scope(self.endpoint)
             if held is not None:
                 raise held
@@ -561,18 +532,18 @@ class Runner(ABC):
         except BackendError as exc:
             # The hub refused the host as outside the scope the request named:
             # not the rung's failure, and asking again would be refused again.
-            if self.endpoint.relief and (exc.status, exc.code) == OUT_OF_SCOPE:
+            if self.endpoint.hitchhike and (exc.status, exc.code) == OUT_OF_SCOPE:
                 raise _refused_out_of_scope(self.endpoint, exc) from exc
             if (exc.status, exc.code) == SEAL_KEY_UNKNOWN:
                 _hold_out_a_stale_key(self.endpoint)
             busy = self.endpoint.busy_answers
             if (
-                self.endpoint.relief
+                self.endpoint.hitchhike
                 and busy is not None
                 and (exc.status, exc.code) in busy
             ):
-                raise ReliefUnavailableError(
-                    f"relief rung {self.endpoint.source!r} cannot take the "
+                raise HitchhikeUnavailableError(
+                    f"hitchhike rung {self.endpoint.source!r} cannot take the "
                     f"request now: {exc}"
                 ) from exc
             # The pool the hub serves the unit from is full: width unavailable,
@@ -606,7 +577,7 @@ class Runner(ABC):
         after = _status(self.endpoint)
 
         parsed = self._parse(document)
-        if self.endpoint.relief:
+        if self.endpoint.hitchhike:
             self._refuse_another_host_model(parsed.served_model)
         else:
             self._refuse_other_weights(model, parsed.served_model)
@@ -626,7 +597,6 @@ class Runner(ABC):
             input_tokens=parsed.input_tokens,
             output_tokens=parsed.output_tokens,
             served_model=parsed.served_model,
-            quality_safe=self.quality_safe,
             notes=self._notes(parsed, stop_reason, request),
             decode_tok_s=decode_tok_s,
             decode_source=decode_source,
@@ -657,36 +627,34 @@ class Runner(ABC):
         )
 
     def _refuse_another_host_model(self, served: str | None) -> None:
-        """Pass a relief rung over as full when it answered from another model.
+        """Pass a hitchhike rung over as full when it answered from another model.
 
         The reply is kept only if both the model the rung was matched to and the
         model it answered from are known and name the same weights; otherwise a
-        note is printed and `ReliefUnavailableError` is raised, which is what
+        note is printed and `HitchhikeUnavailableError` is raised, which is what
         makes passing the rung over cost nothing.
         """
         expected = self.endpoint.served_model
         if expected is not None and served is not None and is_model(served, expected):
             return
         said = (
-            f"relief rung {self.endpoint.source!r} answered from "
+            f"hitchhike rung {self.endpoint.source!r} answered from "
             f"{served or 'no named model'!r}, not the {expected or 'unstated'!r} it "
             f"was matched to; it is passed over as full"
         )
         print(f"note: {said}", file=sys.stderr)
-        raise ReliefUnavailableError(said)
+        raise HitchhikeUnavailableError(said)
 
     def _notes(
         self, parsed: _Parsed, stop_reason: StopReason, request: Request
     ) -> tuple[str, ...]:
         """The caveats that have to travel with this reply, in the order listed.
 
-        The quality caveat, a schema the path could not send, the three ways a
-        length stop is read, an unrecognised stop reason, and a backend that went
-        over the cap it was sent.
+        A schema the path could not send, the three ways a length stop is read,
+        an unrecognised stop reason, and a backend that went over the cap it was
+        sent.
         """
         notes: list[str] = []
-        if not self.quality_safe:
-            notes.append(CAVEAT_NOTE)
         if request.response_schema is not None and not self.honours_response_schema:
             notes.append(
                 f"a response schema was pinned and the {self.protocol} path has "
@@ -933,7 +901,7 @@ def _sent_text(request: Request) -> str:
     return "\n".join(part for part in parts if part)
 
 
-#: The relief rungs, by name and key id, whose host's agent holds that key no
+#: The hitchhike rungs, by name and key id, whose host's agent holds that key no
 #: longer (it started again since the sync that wrote it): each is passed over
 #: unasked for the rest of the process, since the setup is read once. A sync and
 #: the next run read the new key.
@@ -942,7 +910,7 @@ _STALE_LOCK = threading.Lock()
 
 
 def _stale(endpoint: Endpoint) -> tuple[str, str] | None:
-    if not endpoint.relief or endpoint.seal is None:
+    if not endpoint.hitchhike or endpoint.seal is None:
         return None
     return endpoint.source, endpoint.seal.kid
 
@@ -957,7 +925,7 @@ def _hold_out_a_stale_key(endpoint: Endpoint) -> None:
         _STALE_KEYS.add(stale)
     if first:
         print(
-            f"note: relief rung {endpoint.source!r}'s host started again with a new "
+            f"note: hitchhike rung {endpoint.source!r}'s host started again with a new "
             "seal key; it is passed over until `mcgyvr rig rungs sync` writes the "
             "new one and the setup is read again",
             file=sys.stderr,
@@ -970,8 +938,8 @@ def _refuse_a_stale_key(endpoint: Endpoint) -> None:
     with _STALE_LOCK:
         held = stale is not None and stale in _STALE_KEYS
     if held:
-        raise ReliefUnavailableError(
-            f"relief rung {endpoint.source!r} is held out: its host no longer "
+        raise HitchhikeUnavailableError(
+            f"hitchhike rung {endpoint.source!r} is held out: its host no longer "
             "holds the seal key this setup names; run `mcgyvr rig rungs sync`"
         )
 
@@ -999,7 +967,7 @@ def sealed_for(
     except seal.SealError as exc:
         status, code = INVALID_REQUEST
         raise BackendError(
-            f"the request to relief rung {endpoint.source!r} is outside the bounds "
+            f"the request to hitchhike rung {endpoint.source!r} is outside the bounds "
             f"the hub holds a request to: {exc}",
             status=status,
             code=code,
@@ -1062,7 +1030,7 @@ def request_timeout(endpoint: Endpoint, stated: float | None) -> float | None:
 
 
 def dispatch(
-    source_map: SourceMap,
+    unit_map: UnitMap,
     rung: str,
     request: Request,
     *,
@@ -1075,8 +1043,8 @@ def dispatch(
     the width the rung declares is respected; without one the request is sent
     unclaimed.
     """
-    endpoint = source_map.bind(rung)
-    step = source_map.get(rung)
+    endpoint = unit_map.bind(rung)
+    step = unit_map.get(rung)
     if step is None:  # bound, but no rung of this name carries a model to ask for
         raise UnknownRungError(f"no rung named {rung!r}")
     if capacity is None:
@@ -1091,7 +1059,7 @@ def dispatch(
 
 
 def dispatch_role(
-    source_map: SourceMap,
+    unit_map: UnitMap,
     role: str,
     request: Request,
     *,
@@ -1103,7 +1071,7 @@ def dispatch_role(
     "not configured" from "configured and answered". A `capacity` holds the unit's
     slot for the whole dispatch, as `dispatch` does.
     """
-    binding = source_map.role(role)
+    binding = unit_map.role(role)
     if binding is None:
         return None
     if request.timeout_s is None:
@@ -1237,7 +1205,7 @@ def _status(endpoint: Endpoint) -> _Status | None:
         return _vllm_status(page)
     try:
         key = endpoint.credential()
-    except PoolError:
+    except LadderError:
         return None
     url = _url_for(endpoint.base_url, SLOTS_PATH)
     if key is None:

@@ -201,7 +201,7 @@ def test_the_bare_verb_says_the_same_before_it_drafts(
     )
 
     # The note is said before the role is asked, so the role need not answer.
-    def fake_dispatch_role(source_map, role, request, *, capacity=None):  # type: ignore[no-untyped-def]
+    def fake_dispatch_role(unit_map, role, request, *, capacity=None):  # type: ignore[no-untyped-def]
         raise RunnerError("the role is not asked in this test")
 
     monkeypatch.setattr(delegate, "dispatch_role", fake_dispatch_role)

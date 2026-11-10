@@ -14,7 +14,7 @@ ceiling, below their floor, or within. What is sent is the ladder's shape:
   ``max_escalations`` lets it reach from there.
 
 Never an address, a key, or the name of a variable holding one; never a
-relief rung, which is not the rider's ladder. The body is checked against the
+hitchhike rung, which is not the rider's ladder. The body is checked against the
 contract before it is sent, and a ladder the contract cannot carry is refused
 without asking the hub.
 """
@@ -142,11 +142,11 @@ def test_no_address_key_or_variable_name_is_ever_sent(setup: Path, hub: Hub) -> 
         assert set(each) == {"model", "family", "size_bytes", "params_b"}
 
 
-def test_a_relief_rung_is_not_part_of_the_reported_ladder(
+def test_a_hitchhike_rung_is_not_part_of_the_reported_ladder(
     setup: Path, hub: Hub
 ) -> None:
     assert cli() == 0
-    assert (setup / "relief.yaml").is_file()
+    assert (setup / "hitchhike.yaml").is_file()
 
     assert cli() == 0
 

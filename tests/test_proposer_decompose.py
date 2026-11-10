@@ -23,7 +23,6 @@ from mcgyvr.config import Config, Ladder
 from mcgyvr.decompose.decompose import (
     DepRef,
     Proposal,
-    RecordedProposer,
     _fan_out,
     _identify,
     decompose,
@@ -33,6 +32,7 @@ from mcgyvr.repo.index import Index, build_index
 from mcgyvr.repo.read import estimate_tokens
 from mcgyvr.worker.prompt import build_prompt
 from tests.decomposes import an_annotation, declaring_mypy, git
+from tests.recorded_proposer import RecordedProposer
 
 
 @pytest.fixture

@@ -34,7 +34,7 @@ from mcgyvr.delegate import (
     FillProposer,
     fill_proposer_for,
 )
-from mcgyvr.local_pool import Protocol, source_map
+from mcgyvr.ladder_map import Protocol, unit_map
 from mcgyvr.repo.index import Index, build_index
 from mcgyvr.repo.read import explore
 from mcgyvr.repo.resolve import resolve
@@ -292,7 +292,7 @@ def test_fill_proposer_for_degrades_without_a_jev_unit(
     """Without jev the factory returns the rank-0 proposer and asks nothing."""
     import mcgyvr.decision as decision
 
-    pool = source_map(parse(cfg(PROPOSER)))
+    pool = unit_map(parse(cfg(PROPOSER)))
 
     def fail(*args: Any, **kwargs: Any) -> Any:
         raise AssertionError("no typed question goes to the proposer without jev")

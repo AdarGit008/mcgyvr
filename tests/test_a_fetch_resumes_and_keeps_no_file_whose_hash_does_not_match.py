@@ -503,7 +503,6 @@ def _coder_record() -> ModelRecord:
         context_length=number(),
         kv_bytes_per_token=number(),
         recurrent_bytes_per_slot=number(),
-        scores=(),
     )
 
 

@@ -130,7 +130,7 @@ def test_a_blank_proposer_is_still_refused_by_its_own_message(
     ("argv", "named"),
     [
         (["config", ""], "path"),
-        (["local_pool", ""], "path"),
+        (["ladder", "show", ""], "path"),
         (["catalog", "--against", ""], "--against"),
         (["emit", "--config", ""], "--config"),
     ],

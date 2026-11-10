@@ -1,7 +1,7 @@
 """Fan-out never sends a contract to a priced api rung.
 
-Fan-out, ``idle`` or ``full``, spreads work over your own rungs and the relief
-rungs lent to you, and nowhere else. When every own rung is full and no relief
+Fan-out, ``idle`` or ``full``, spreads work over your own rungs and the hitchhike
+rungs lent to you, and nowhere else. When every own rung is full and no hitchhike
 rung has room, the contract waits on its own ladder: fan-out does not enter it
 at an api rung. Escalation up the ladder is not fan-out. A climb that spends its
 own rungs still reaches the api rungs, in the order the ladder lists them, so a
@@ -23,9 +23,9 @@ import pytest
 from mcgyvr.catalog import catalog
 from mcgyvr.config import parse
 from mcgyvr.escalate import Delivered, ascent, escalate
-from mcgyvr.local_pool import source_map
+from mcgyvr.ladder_map import unit_map
 from mcgyvr.route import Verdict
-from tests.relieftakes import (
+from tests.hitchhiketakes import (
     API,
     FAST,
     Script,
@@ -76,7 +76,7 @@ def keys(monkeypatch: pytest.MonkeyPatch) -> None:
 def test_with_every_own_rung_full_fanout_enters_no_api_rung(
     tmp_path: Path, fanout: str
 ) -> None:
-    config, pool = mapped(fanout, relief="")
+    config, pool = mapped(fanout, hitchhike="")
     cap = capacity_of(config, tmp_path)
     cap.reserve(FAST)
 
@@ -93,7 +93,7 @@ def test_with_every_own_rung_full_the_contract_climbs_its_own_ladder_first(
 ) -> None:
     """The contract queues on its own rung; the api rung is reached only by
     escalating, and that move is counted."""
-    config, pool = mapped(fanout, relief="")
+    config, pool = mapped(fanout, hitchhike="")
     cap = capacity_of(config, tmp_path)
     cap.reserve(FAST)
     script = Script(**{FAST: Verdict.FAILED, API: Verdict.PASSED})
@@ -105,7 +105,7 @@ def test_with_every_own_rung_full_the_contract_climbs_its_own_ladder_first(
     assert (done.rung, done.escalations) == (API, 1)
 
 
-def test_with_every_own_and_relief_rung_full_idle_enters_no_api_rung(
+def test_with_every_own_and_hitchhike_rung_full_idle_enters_no_api_rung(
     tmp_path: Path,
 ) -> None:
     config, pool = mapped("idle")
@@ -122,10 +122,10 @@ def test_with_every_own_and_relief_rung_full_idle_enters_no_api_rung(
     assert script.tried == [FAST, API]
 
 
-# --- relief is ridden as before --------------------------------------------------
+# --- hitchhike is ridden as before -----------------------------------------------
 
 
-def test_idle_still_rides_a_free_relief_rung_when_the_own_rung_is_full(
+def test_idle_still_rides_a_free_hitchhike_rung_when_the_own_rung_is_full(
     tmp_path: Path,
 ) -> None:
     config, pool = mapped("idle")
@@ -142,10 +142,10 @@ def test_idle_still_rides_a_free_relief_rung_when_the_own_rung_is_full(
     assert script.tried == [RIDE]
 
 
-def test_a_relief_rung_that_cannot_take_it_now_hands_back_to_the_own_ladder(
+def test_a_hitchhike_rung_that_cannot_take_it_now_hands_back_to_the_own_ladder(
     tmp_path: Path,
 ) -> None:
-    """After a ride steps aside, the entry is decided again without relief, and
+    """After a ride steps aside, the entry is decided again without hitchhike, and
     a full own ladder still sends nothing straight to the api rung."""
     config, pool = mapped("idle")
     cap = capacity_of(config, tmp_path)
@@ -168,7 +168,7 @@ def test_a_relief_rung_that_cannot_take_it_now_hands_back_to_the_own_ladder(
 def test_a_climb_that_ends_on_an_api_rung_still_escalates_there(
     tmp_path: Path, fanout: str
 ) -> None:
-    config, pool = mapped(fanout, relief="")
+    config, pool = mapped(fanout, hitchhike="")
     cap = capacity_of(config, tmp_path)
     script = Script(**{FAST: Verdict.FAILED, API: Verdict.PASSED})
 
@@ -185,7 +185,7 @@ def test_escalation_takes_the_api_rungs_in_ladder_order_however_busy(
 ) -> None:
     """Fan-out does not pass a busy cheap api rung over for a dearer free one."""
     config = parse(TWO_PRICED.format(fanout=fanout))
-    pool = source_map(config)
+    pool = unit_map(config)
     cap = capacity_of(config, tmp_path)
     cap.reserve(SMALL)
     script = Script(**{SMALL: Verdict.FAILED, API: Verdict.PASSED})

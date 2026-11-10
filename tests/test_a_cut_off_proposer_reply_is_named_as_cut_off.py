@@ -24,7 +24,7 @@ from mcgyvr.delegate import (
     UnreadableProposalError,
     proposer_for,
 )
-from mcgyvr.local_pool import Protocol, source_map
+from mcgyvr.ladder_map import Protocol, unit_map
 from mcgyvr.repo.index import Index, build_index
 from mcgyvr.repo.read import explore
 from mcgyvr.repo.resolve import resolve
@@ -77,11 +77,11 @@ def evidence(tmp_path: Path) -> Evidence:
 def _propose(
     monkeypatch: pytest.MonkeyPatch, evidence: Evidence, answer: Completion
 ) -> None:
-    def fake_dispatch_role(source_map, role, request, *, capacity=None):  # type: ignore[no-untyped-def]
+    def fake_dispatch_role(unit_map, role, request, *, capacity=None):  # type: ignore[no-untyped-def]
         return answer
 
     monkeypatch.setattr(delegate, "dispatch_role", fake_dispatch_role)
-    propose = proposer_for(source_map(parse(CONFIG)))
+    propose = proposer_for(unit_map(parse(CONFIG)))
     assert propose is not None
     propose(evidence)
 

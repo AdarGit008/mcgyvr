@@ -3,7 +3,7 @@ read by the same rule as a rung of one's own.
 
 llama.cpp names an answer's ``model`` after the path it was handed unless it is
 started with ``--alias``. A unit emitted without one answers
-``/models/<name>.gguf`` to a request for ``<name>``, and a rider whose relief
+``/models/<name>.gguf`` to a request for ``<name>``, and a rider whose hitchhike
 rung was matched on ``<name>`` receives the host's path. So the emitted launch
 carries ``--alias <the unit's model>``: the name the setup declares and the hub
 is told, with no path and no file suffix added.
@@ -24,10 +24,11 @@ from pathlib import Path
 import pytest
 import yaml
 
-from mcgyvr.emit import argv, render_command, render_compose
+from mcgyvr.emit import argv
 from mcgyvr.runner import Completion
 from mcgyvr.scan import Scan
 from mcgyvr.serving import ROLE_RPC, ModelSpec, Unit, unit_for
+from tests.emitted import compose_of
 from tests.rungs import SERVED, completion, ride, set_hub_key
 
 MODEL = "qwen2.5-coder-3b"
@@ -69,12 +70,11 @@ def test_the_emitted_server_answers_by_the_units_model_name() -> None:
     assert alias_of(argv(unit())) == [MODEL]
 
 
-def test_the_compose_file_and_the_bare_command_carry_the_same_alias() -> None:
+def test_the_compose_file_carries_the_alias() -> None:
     emitted = unit()
-    service = next(iter(yaml.safe_load(render_compose(emitted))["services"].values()))
+    service = next(iter(yaml.safe_load(compose_of(emitted))["services"].values()))
 
     assert alias_of(service["command"]) == [MODEL]
-    assert alias_of(render_command(emitted).split()) == [MODEL]
 
 
 def test_a_model_named_as_a_file_is_aliased_as_declared_and_not_doubled() -> None:

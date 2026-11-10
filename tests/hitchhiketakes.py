@@ -1,4 +1,4 @@
-"""A relief rung taking work the rider's own rung is too full for."""
+"""A hitchhike rung taking work the rider's own rung is too full for."""
 
 from __future__ import annotations
 
@@ -12,7 +12,7 @@ from mcgyvr.escalate import (
     Assurance,
     Judgement,
 )
-from mcgyvr.local_pool import SourceMap, source_map
+from mcgyvr.ladder_map import UnitMap, unit_map
 from mcgyvr.route import Try, Verdict
 from tests.rungs import RIDE
 
@@ -59,8 +59,8 @@ fanout: {fanout}
 """
 
 
-RELIEF = f"""
-relief:
+HITCHHIKE = f"""
+hitchhike:
   {RIDE}:
     address: https://hub.example.org/v1
     model: hitchhike@{RUNG_ID}
@@ -71,10 +71,10 @@ relief:
 
 
 def mapped(
-    fanout: str = "idle", *, relief: str = RELIEF, escalations: int = 1
-) -> tuple[Config, SourceMap]:
-    config = parse(SETUP.format(fanout=fanout, escalations=escalations) + relief)
-    return config, source_map(config)
+    fanout: str = "idle", *, hitchhike: str = HITCHHIKE, escalations: int = 1
+) -> tuple[Config, UnitMap]:
+    config = parse(SETUP.format(fanout=fanout, escalations=escalations) + hitchhike)
+    return config, unit_map(config)
 
 
 def contract() -> Contract:

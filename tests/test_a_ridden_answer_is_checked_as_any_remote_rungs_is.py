@@ -1,6 +1,6 @@
 """A ridden answer is checked as any remote rung's answer is, by the same path.
 
-An answer from a relief rung gets the same gate and the
+An answer from a hitchhike rung gets the same gate and the
 same review as an answer from any other remote (api) rung, and no path of its
 own. So:
 
@@ -9,8 +9,8 @@ own. So:
 * its reviewer is chosen as an api rung's is: the unit ``verifier.unit``
   names when one is named, and otherwise none (a hosted rung reviews only when
   named, and no local rung is dearer than an api one);
-* the driver, the gate and the review read no relief flag at all: the only
-  places a relief rung is told apart are routing (the spill and the ride) and
+* the driver, the gate and the review read no hitchhike flag at all: the only
+  places a hitchhike rung is told apart are routing (the spill and the ride) and
   the runner's reading of the hub's answers.
 
 These pin what already holds; they change nothing.
@@ -23,11 +23,11 @@ import pytest
 from mcgyvr.catalog import catalog
 from mcgyvr.config import Config, parse
 from mcgyvr.escalate import required_policy
-from mcgyvr.local_pool import SourceMap, source_map
+from mcgyvr.ladder_map import UnitMap, unit_map
 from mcgyvr.route import family_of
 from mcgyvr.verify import NoReviewer, Reviewer, reviewers_for
 from tests._paths import SRC
-from tests.relieftakes import API, RELIEF, SETUP, contract
+from tests.hitchhiketakes import API, HITCHHIKE, SETUP, contract
 from tests.rungs import RIDE
 
 
@@ -37,12 +37,12 @@ def keys(monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.setenv("HUB_KEY", "mhu_" + "0" * 16)
 
 
-def configured(verifier: str = "") -> tuple[Config, SourceMap]:
-    config = parse(SETUP.format(fanout="idle", escalations=1) + verifier + RELIEF)
-    return config, source_map(config)
+def configured(verifier: str = "") -> tuple[Config, UnitMap]:
+    config = parse(SETUP.format(fanout="idle", escalations=1) + verifier + HITCHHIKE)
+    return config, unit_map(config)
 
 
-def test_a_relief_rung_is_judged_in_the_api_family_under_its_policy() -> None:
+def test_a_hitchhike_rung_is_judged_in_the_api_family_under_its_policy() -> None:
     config, _ = configured()
 
     assert family_of(config, RIDE) == family_of(config, API) == catalog().family("api")
@@ -72,9 +72,9 @@ def test_with_no_verifier_named_neither_a_ride_nor_an_api_rung_is_reviewed() -> 
     "module",
     ["drive", "verify.py", "deliver.py", "consensus.py", "gate"],
 )
-def test_the_driver_gate_and_review_read_no_relief_flag(module: str) -> None:
+def test_the_driver_gate_and_review_read_no_hitchhike_flag(module: str) -> None:
     where = SRC / module
     files = sorted(where.rglob("*.py")) if where.is_dir() else [where]
 
     for path in files:
-        assert "relief" not in path.read_text(encoding="utf-8"), path
+        assert "hitchhike" not in path.read_text(encoding="utf-8"), path

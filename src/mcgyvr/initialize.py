@@ -67,15 +67,21 @@ from mcgyvr.detect import (
     is_local_host,
     targets_for,
 )
-from mcgyvr.propose import API, AvailableSource, Proposal, binding_name, propose
+from mcgyvr.ladder_proposal import (
+    API,
+    AvailableSource,
+    LadderProposal,
+    binding_name,
+    propose,
+)
 from mcgyvr.runner import RunnerError
 
 if TYPE_CHECKING:
-    from mcgyvr.local_pool import Endpoint
+    from mcgyvr.ladder_map import Endpoint
 
 COMMENT_WIDTH = 78
 
-#: Said in a setup that binds listed models: init knows only what a server
+#: Said in a setup that binds listed models: setup knows only what a server
 #: listed, so there is no estimate behind a unit's size. The notice states that
 #: a unit is sized from the shipped table only when its model name equals a row,
 #: and that anything declared for the unit in fleet.yaml wins over that row.
@@ -87,12 +93,12 @@ NO_ESTIMATE_NOTICE = (
     "example under `launch` or as `room_mib`, wins over that row."
 )
 
-#: Said when the ladder has rungs: init orders them by where it found them —
+#: Said when the ladder has rungs: setup orders them by where it found them —
 #: `--host` order, then the fixed probe order of `PORT_CONVENTIONS`, then each
 #: server's own listing order — and the notice says that this is discovery
 #: order, no judgement of cost or quality, and that policy.yaml sets the climb.
 LISTED_ORDER_NOTICE = (
-    "The ladder is written in the order init found the models: the machines "
+    "The ladder is written in the order setup found the models: the machines "
     "in the order `--host` named them (this one when none was named), then on "
     "each machine the server programs in mcgyvr's fixed probe order ("
     + ", ".join(kind for kind, _, _ in PORT_CONVENTIONS)
@@ -114,7 +120,7 @@ _RESERVED = frozenset({"true", "false", "null", "yes", "no", "on", "off", "~"})
 
 
 class InitError(Exception):
-    """What init refuses: a flag naming a unit it does not write, or a setup the
+    """What setup refuses: a flag naming a unit it does not write, or a setup the
     loader would not accept. The message says what is wrong and what to do
     instead."""
 
@@ -257,24 +263,27 @@ def _these_cards(detection: Detection) -> str:
     return f"This machine's GPUs (the machine running mcgyvr; {unread}): {cards}."
 
 
-def _nothing_to_bind(detection: Detection, why: ConfigError, proposal: Proposal) -> str:
+def _nothing_to_bind(
+    detection: Detection, why: ConfigError, proposal: LadderProposal
+) -> str:
     """The refusal when the composed setup binds nothing and `--api` was not
     asked for.
 
     It states what was reached and why nothing was bound — no server answered,
-    or none lists a model init can bind — how much of the card could be read,
+    or none lists a model setup can bind — how much of the card could be read,
     what the loader said, and the ways out: bind a unit by hand with the
     `room_mib` it needs, start a backend, load a model, name another rig with
     `--host`, or bind a hosted unit with `--api`."""
     local = [b for b in detection.backends if b.is_local]
-    binds = "init binds only a model a running server lists."
+    binds = "setup binds only a model a running server lists."
     nothing = f"there is nothing to bind: {binds}"
     if detection.backends:
         found = ", ".join(f"{b.name} at {b.base_url}" for b in detection.backends)
         if proposal.rejected:
             situation = (
                 f"Reachable model servers: {found} — but none of them lists a "
-                f"model init can bind: " + " ".join(r.reason for r in proposal.rejected)
+                f"model setup can bind: "
+                + " ".join(r.reason for r in proposal.rejected)
             )
         else:
             situation = (
@@ -336,7 +345,7 @@ def _nothing_to_bind(detection: Detection, why: ConfigError, proposal: Proposal)
         f"  - bind a hosted API unit, which needs no GPU and no backend:\n\n"
         f"      mcgyvr setup --api model=claude-opus-5,"
         f"address=https://api.anthropic.com,api_key_env=ANTHROPIC_API_KEY\n\n"
-        f"    That writes the same two files any other init writes. "
+        f"    That writes the same two files any other setup writes. "
         f"`api_key_env`\n"
         f"    names the environment variable holding your key; the key itself "
         f"is\n"
@@ -348,7 +357,7 @@ def _nothing_to_bind(detection: Detection, why: ConfigError, proposal: Proposal)
 @dataclass(frozen=True)
 class Delta:
     """One key that differs between the setup on disk and the one proposed: the
-    dotted path, the value there now and the value init would write. `str` gives
+    dotted path, the value there now and the value setup would write. `str` gives
     it as one line, and a side that has no such key shows as `(unset)`."""
 
     key: str
@@ -478,9 +487,9 @@ def _render_list_item(
 
 FLEET_FIELDS: tuple[Field, ...] = tuple(f for f in SCHEMA if f.name == "units")
 #: The schema split across the two files: fleet.yaml is the `units` block, and
-#: policy.yaml is every other field except `relief`, which the loader derives.
+#: policy.yaml is every other field except `hitchhike`, which the loader derives.
 POLICY_FIELDS: tuple[Field, ...] = tuple(
-    f for f in SCHEMA if f.name not in ("units", "relief")
+    f for f in SCHEMA if f.name not in ("units", "hitchhike")
 )
 
 
@@ -489,7 +498,7 @@ def _header(title: str, decisions: Sequence[str] = ()) -> list[str]:
         f"# mcgyvr {title} — one of the two files that define a setup.",
         "#",
         "# Generated by `mcgyvr setup`, and safe to edit by hand: re-running",
-        "# init reports what it would change rather than overwriting you.",
+        "# setup reports what it would change rather than overwriting you.",
         "#",
         "# Comments below are rendered from the same schema the loader",
         "# validates against, so they cannot drift from what is enforced.",
@@ -499,7 +508,7 @@ def _header(title: str, decisions: Sequence[str] = ()) -> list[str]:
     ]
     if decisions:
         lines.append("#")
-        lines.append("# What init decided on this machine:")
+        lines.append("# What setup decided on this machine:")
         for decision in decisions:
             lines.extend(
                 f"#   {line}"
@@ -510,7 +519,7 @@ def _header(title: str, decisions: Sequence[str] = ()) -> list[str]:
 
 
 def render_fleet(data: Mapping[str, Any], decisions: Sequence[str] = ()) -> str:
-    """The whole fleet.yaml: the shared header carrying what init decided, then
+    """The whole fleet.yaml: the shared header carrying what setup decided, then
     the `units` block of the schema, commented from it."""
     lines = _header(FLEET_FILENAME, decisions)
     lines.extend(_render_fields(FLEET_FIELDS, data, 0))
@@ -519,7 +528,7 @@ def render_fleet(data: Mapping[str, Any], decisions: Sequence[str] = ()) -> str:
 
 #: The extra comment `render_policy` puts on `sandbox.mode` when no daemon answered.
 NO_DAEMON_MODE_NOTE = (
-    "No Docker daemon answered when init ran, so this is `tempdir`: the "
+    "No Docker daemon answered when setup ran, so this is `tempdir`: the "
     "explicitly weaker mode, in which a contract's acceptance commands run on "
     "this machine rather than in a container. Once Docker runs here, set "
     "`mode: docker` to run each task in its own container."
@@ -530,7 +539,7 @@ def render_policy(
     data: Mapping[str, Any], notes: Mapping[str, str] | None = None
 ) -> str:
     """The whole policy.yaml: the shared header without decisions, then every
-    schema field that is not `units` or `relief`. `notes` adds comment text under
+    schema field that is not `units` or `hitchhike`. `notes` adds comment text under
     a dotted key such as `sandbox.mode`."""
     lines = _header(POLICY_FILENAME)
     lines.extend(_render_fields(POLICY_FIELDS, data, 0, notes))
@@ -576,7 +585,7 @@ def _rig_name(backend: Any, fallback: str) -> str:
 
 def build(
     detection: Detection,
-    proposal: Proposal,
+    proposal: LadderProposal,
     *,
     api_units: Sequence[ApiUnit] = (),
     use_case: str = MCGYVR_CODE,
@@ -647,7 +656,7 @@ def build(
             deployment if deployment is not None else _deployment_default(use_case)
         ),
         "units": units,
-        # The ladder lists units in the order init found them: the proposal's
+        # The ladder lists units in the order setup found them: the proposal's
         # rungs, then the units `--api` stated. Nothing here judges cost or
         # quality; `LISTED_ORDER_NOTICE` says so in the header, and the order to
         # climb in is set in policy.yaml.
@@ -697,7 +706,7 @@ def build(
         "breadth": _defaults(BREADTH_FIELDS, "draws"),
         "cleanup": _defaults(CLEANUP_FIELDS, "enabled"),
         # The gate keeps the schema's `enabled` and `param_mutation`, `refuse`
-        # included, so init states no gate policy nobody stated.
+        # included, so setup states no gate policy nobody stated.
         "gate": _defaults(GATE_FIELDS, "enabled", "param_mutation"),
         # The journal is written where the schema's default `dir` puts it, under
         # this user's state directory rather than inside any repository.
@@ -708,13 +717,13 @@ def build(
 def _opt_ins(data: dict[str, Any], *, jev: str | None) -> dict[str, Any]:
     """Apply `--jev` to the built data.
 
-    The flag must name a unit this init writes, or `InitError` lists the ones it
+    The flag must name a unit this `setup` run writes, or `InitError` lists the ones it
     does. `--jev` binds the Jev block to that unit."""
     if jev is None:
         return data
     if jev not in data["units"]:
         raise InitError(
-            f"--jev {jev!r} names no unit this init writes. The units are: "
+            f"--jev {jev!r} names no unit this `setup` run writes. The units are: "
             f"{', '.join(sorted(data['units']))}."
         )
     data["jev"] = {**data.get("jev", {}), "unit": jev, "model": None}
@@ -753,7 +762,7 @@ def _sources_for(detection: Detection) -> list[AvailableSource]:
 
 def _decisions(
     detection: Detection,
-    proposal: Proposal,
+    proposal: LadderProposal,
     api_units: Sequence[ApiUnit] = (),
 ) -> tuple[str, ...]:
     decisions: list[str] = []
@@ -799,7 +808,7 @@ def _decisions(
 
 def _limits(
     detection: Detection,
-    proposal: Proposal,
+    proposal: LadderProposal,
     api_units: Sequence[ApiUnit] = (),
 ) -> tuple[str, ...]:
     """What the written setup cannot do, said plainly.
@@ -828,7 +837,7 @@ def _limits(
         named = ", ".join(f"{u.name} (${u.api_key_env})" for u in api_units)
         limits.append(
             f"Hosted units are bound and every dispatch to one spends money: "
-            f"{named}. Each needs its variable exported — `mcgyvr local_pool` skips "
+            f"{named}. Each needs its variable exported — `mcgyvr ladder show` skips "
             f"a rung whose variable is unset and says so. Review is on and "
             f"picks the next dearer local rung with another model; a hosted "
             f"unit never reviews on its own, and reviews — spending money on "
@@ -850,7 +859,7 @@ def _limits(
         limits.append(
             "sandbox.mode is `tempdir`, the explicitly weaker mode. A "
             "contract's acceptance commands run without a shell, but each runs "
-            "whatever program it names, on the host, with only the host's "
+            "whatever program it names, on this machine, with only its own "
             "process, network and resource isolation, so install Docker "
             "before running contracts you did not write."
         )
@@ -908,7 +917,7 @@ def diff(current: Config, proposed: Mapping[str, Any]) -> tuple[Delta, ...]:
 
 
 def _decision_from(
-    found: Detection, proposal: Proposal
+    found: Detection, proposal: LadderProposal
 ) -> tuple[Endpoint | None, str | None]:
     """The endpoint and model to decide on when `--priority` was given without
     naming them: the first detected backend as an endpoint, and the first
@@ -948,7 +957,7 @@ def _compose_unavailable_note(priority: str) -> str:
     no endpoint and model could be named to decide on."""
     return (
         f"A priority {priority!r} was asked for, but no backend answered "
-        f"to run the Jev decision on, so init wrote the deterministic ladder "
+        f"to run the Jev decision on, so setup wrote the deterministic ladder "
         f"instead. Re-run with a backend up — or `mcgyvr setup --host <name>` "
         f"for a rig — to have the ladder composed."
     )
@@ -959,7 +968,7 @@ def _compose_failed_note(priority: str, why: Exception) -> str:
     be read, naming what the decision or the runner raised."""
     return (
         f"A priority {priority!r} was asked for, but the Jev decision "
-        f"could not be read ({why}), so init wrote the deterministic ladder "
+        f"could not be read ({why}), so setup wrote the deterministic ladder "
         f"instead. Every number in the file is still measured or the schema's."
     )
 
@@ -1083,7 +1092,7 @@ def initialize(
             fleet_content, policy_content, path=path
         ).data
     except ConfigError as exc:
-        # The composed setup does not load, so init refuses rather than writes a
+        # The composed setup does not load, so setup refuses rather than writes a
         # file the loader would reject: the refusal says what the loader objected
         # to and, for `--api`, what a hosted spec must carry.
         if asked:

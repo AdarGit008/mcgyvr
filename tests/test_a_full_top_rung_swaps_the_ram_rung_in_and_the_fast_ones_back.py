@@ -245,12 +245,13 @@ def test_a_role_is_always_on_or_sleeps_until_needed_and_nothing_else() -> None:
 
 def test_only_a_llamacpp_unit_sleeps_until_needed() -> None:
     """vLLM swaps at level 2 with its process kept; it is not started asleep."""
-    config = parse(
-        ladder_text(None, ram_engine="vllm").replace(
-            "      kv_cache_dtype_k: f16\n      kv_cache_dtype_v: f16\n",
-            "      kv_cache_dtype_k: auto\n",
-        )
+    # Only the RAM unit (the last) is vLLM, so only its cache dtype is vLLM's:
+    # the llama.cpp units keep the types llama.cpp takes.
+    head, f16, tail = ladder_text(None, ram_engine="vllm").rpartition(
+        "      kv_cache_dtype_k: f16\n      kv_cache_dtype_v: f16\n"
     )
+    assert f16
+    config = parse(head + "      kv_cache_dtype_k: auto\n" + tail)
 
     with pytest.raises(UnitError, match="sleeps-until-needed"):
         units_for(config, SCANS, specs=(), ctx_per_slot=None)

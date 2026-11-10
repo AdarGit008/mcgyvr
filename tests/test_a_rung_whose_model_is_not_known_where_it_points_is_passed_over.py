@@ -13,7 +13,7 @@ A rung skipped so is skipped every time, and a mistyped name would be skipped
 without a word. So each such dispatch writes one line to the run's log (its
 standard error) naming the rung and the model it does not know.
 
-A relief rung's ``404`` is unchanged: a stale rung, a full rung, with no
+A hitchhike rung's ``404`` is unchanged: a stale rung, a full rung, with no
 line. Any other ``404`` is still the rung's error.
 
 Every server here is a loopback one this test starts.
@@ -32,11 +32,11 @@ from mcgyvr.config import parse
 from mcgyvr.contract import loads as load_contract
 from mcgyvr.drive import worker_attempt
 from mcgyvr.escalate import Delivered, escalate
-from mcgyvr.local_pool import source_map
+from mcgyvr.ladder_map import unit_map
 from mcgyvr.route import Verdict
 from mcgyvr.runner import (
     BackendError,
-    ReliefUnavailableError,
+    HitchhikeUnavailableError,
     Request,
     RunnerError,
     UnknownModelError,
@@ -53,7 +53,7 @@ LOCAL_MODEL = "qwen2.5-coder-3b"
 
 
 def mixed(address: str) -> str:
-    """A keyed rung, a keyless one and a relief rung, all at ``address``."""
+    """A keyed rung, a keyless one and a hitchhike rung, all at ``address``."""
     return f"""
 units:
   pooled:
@@ -69,7 +69,7 @@ units:
     window: 32768
 ladder: [local_fast, pooled]
 fanout: idle
-relief:
+hitchhike:
   {RIDE}:
     address: {address}
     model: hitchhike@{RUNG_ID}
@@ -107,7 +107,7 @@ def ask(address: str, rung: str, tmp_path: Path) -> tuple[Capacity, Any]:
     capacity = Capacity.of(config, root=tmp_path / "slots")
     request = Request(prompt="hello", max_output_tokens=8)
     try:
-        return capacity, dispatch(source_map(config), rung, request, capacity=capacity)
+        return capacity, dispatch(unit_map(config), rung, request, capacity=capacity)
     except Exception as exc:
         return capacity, exc
 
@@ -159,14 +159,14 @@ def test_any_other_answer_is_still_the_rungs_error(
     assert notes(capsys) == []
 
 
-def test_a_relief_rungs_404_is_a_stale_rung_as_before(
+def test_a_hitchhike_rungs_404_is_a_stale_rung_as_before(
     tmp_path: Path, capsys: pytest.CaptureFixture[str]
 ) -> None:
     seen: list[str] = []
     with answering(*UNKNOWN, seen) as address:
         _, outcome = ask(address, RIDE, tmp_path)
 
-    assert isinstance(outcome, ReliefUnavailableError)
+    assert isinstance(outcome, HitchhikeUnavailableError)
     assert not isinstance(outcome, UnknownModelError)
     assert notes(capsys) == []
 
@@ -182,7 +182,7 @@ def test_the_climb_tries_the_next_rung_at_once_and_the_log_says_why(
         answering(*good, asked_other) as other,
     ):
         config = parse(setup(hub, other))
-        pool = source_map(config)
+        pool = unit_map(config)
         contract = load_contract(CONTRACT)
         with TempDirSandbox(repo) as sandbox:
             outcome = escalate(

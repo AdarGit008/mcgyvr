@@ -98,6 +98,17 @@ def test_the_js_bundle_states_its_null_result_in_the_file_but_not_in_the_prompt(
     assert "NO EFFECT" not in load_bundle("js/ts").text
 
 
+def test_the_js_bundle_speaks_javascript_and_typescript_by_the_target() -> None:
+    """One bundle serves every target the JavaScript adapter owns, so it asks for
+    the target's own language: types only in TypeScript, none in a `.js` file."""
+    text = load_bundle("js/ts").text
+    assert "senior TypeScript engineer" not in text
+    assert "TypeScript for a .ts/.mts/.cts/.tsx" in text
+    assert "plain JavaScript otherwise" in text
+    assert "```js or ```ts" in text
+    assert "in JavaScript, no type annotations" in text
+
+
 # --- the ceiling is enforced, not documented -------------------------------
 
 

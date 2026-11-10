@@ -41,7 +41,7 @@ from mcgyvr.config import parse
 from mcgyvr.contract import Contract
 from mcgyvr.contract import loads as load_contract
 from mcgyvr.escalate import Assurance, Delivered, Halted, Judgement, escalate
-from mcgyvr.local_pool import source_map
+from mcgyvr.ladder_map import unit_map
 from mcgyvr.route import Try, Verdict
 
 FAST = "local_fast"
@@ -107,7 +107,7 @@ def key(monkeypatch: pytest.MonkeyPatch) -> None:
 
 def mapped(text: str) -> tuple[Any, Any]:
     config = parse(text)
-    return config, source_map(config)
+    return config, unit_map(config)
 
 
 def judge_pool() -> tuple[Any, Any]:

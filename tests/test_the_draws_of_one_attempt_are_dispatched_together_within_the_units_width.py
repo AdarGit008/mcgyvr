@@ -32,7 +32,7 @@ from mcgyvr.config import parse
 from mcgyvr.contract import loads as load_contract
 from mcgyvr.drive import Recording, worker_attempt
 from mcgyvr.escalate import DispatchRaisedError
-from mcgyvr.local_pool import Rung, source_map
+from mcgyvr.ladder_map import Rung, unit_map
 from mcgyvr.route import Try, Verdict
 from mcgyvr.runner import RunnerError
 from mcgyvr.sandbox.tempdir import TempDirSandbox
@@ -101,7 +101,7 @@ def _attempt(
     recording = Recording(path=journal / "t.jsonl", orchestrator="t")
     with TempDirSandbox(repo) as sandbox:
         attempt = worker_attempt(
-            config, source_map(config), contract, sandbox, recording=recording
+            config, unit_map(config), contract, sandbox, recording=recording
         )
         return attempt(Try(rung=RUNG, attempt=1, of=1, capacity=capacity)), journal
 
@@ -165,7 +165,7 @@ def test_a_draw_declined_for_want_of_a_slot_is_skipped_not_fatal(
 ) -> None:
     """Draw 0 answers and draw 1 finds no slot: the attempt is judged on draw 0."""
 
-    def one_slot_short(source_map: Any, rung: str, request: Any, **_: Any) -> Any:
+    def one_slot_short(unit_map: Any, rung: str, request: Any, **_: Any) -> Any:
         if request.temperature > 0.0:
             raise SlotUnavailableError("every slot busy for as long as it would wait")
         return lj.completion(lj.GOOD_REPLY, request)
@@ -175,7 +175,7 @@ def test_a_draw_declined_for_want_of_a_slot_is_skipped_not_fatal(
     config = parse(lj.LADDER + "breadth:\n  draws: 2\n")
     contract = load_contract(lj.MODEL_CONTRACT)
     with TempDirSandbox(repo) as sandbox:
-        attempt = worker_attempt(config, source_map(config), contract, sandbox)
+        attempt = worker_attempt(config, unit_map(config), contract, sandbox)
         judgement = attempt(Try(rung=RUNG, attempt=1, of=1))
 
     assert judgement.verdict is Verdict.PASSED, "a decline is not a failure"
@@ -185,7 +185,7 @@ def test_a_draw_declined_for_want_of_a_slot_is_skipped_not_fatal(
 def test_an_attempt_whose_every_draw_was_declined_is_declined(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
-    def no_slot(source_map: Any, rung: str, request: Any, **_: Any) -> Any:
+    def no_slot(unit_map: Any, rung: str, request: Any, **_: Any) -> Any:
         raise SlotUnavailableError("every slot busy for as long as it would wait")
 
     lj.patch_dispatch(monkeypatch, no_slot)
@@ -193,7 +193,7 @@ def test_an_attempt_whose_every_draw_was_declined_is_declined(
     config = parse(lj.LADDER + "breadth:\n  draws: 2\n")
     contract = load_contract(lj.MODEL_CONTRACT)
     with TempDirSandbox(repo) as sandbox:
-        attempt = worker_attempt(config, source_map(config), contract, sandbox)
+        attempt = worker_attempt(config, unit_map(config), contract, sandbox)
         judgement = attempt(Try(rung=RUNG, attempt=1, of=1))
 
     assert judgement.verdict is Verdict.DECLINED, "nothing was asked, nothing answered"

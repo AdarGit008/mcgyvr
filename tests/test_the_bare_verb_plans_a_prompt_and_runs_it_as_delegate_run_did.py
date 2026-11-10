@@ -26,7 +26,7 @@ import mcgyvr.delegate as delegate
 from mcgyvr.cli.commands import delegate as command
 from mcgyvr.cli.dispatcher import _build
 from mcgyvr.delegate_log import DelegateKind, read
-from mcgyvr.local_pool import Protocol
+from mcgyvr.ladder_map import Protocol
 from mcgyvr.result import RunResult, result_path, run_stamp, write
 from mcgyvr.runner import Completion, StopReason
 from mcgyvr.session import Session
@@ -99,7 +99,7 @@ def proposes(monkeypatch: pytest.MonkeyPatch, reply: str) -> list[str]:
     """The proposer answers `reply` to every request; the requests are kept."""
     asked: list[str] = []
 
-    def answer(source_map: Any, role: Any, request: Any, *, capacity: Any = None):  # type: ignore[no-untyped-def]
+    def answer(unit_map: Any, role: Any, request: Any, *, capacity: Any = None):  # type: ignore[no-untyped-def]
         asked.append(request.prompt)
         return Completion(
             text=reply,

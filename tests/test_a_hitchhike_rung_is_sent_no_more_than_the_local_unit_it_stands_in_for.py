@@ -1,7 +1,7 @@
-"""A relief rung is sent no more than the local unit it stands in for gives.
+"""A hitchhike rung is sent no more than the local unit it stands in for gives.
 
 Every request is sent its unit's maximum
-(``tests/test_every_generating_request_is_sent_its_units_maximum.py``). A relief
+(``tests/test_every_generating_request_is_sent_its_units_maximum.py``). A hitchhike
 rung is another person's unit and declares nothing, so its maximum is the
 reply room of the local unit it stands in for — the first usable rung of the
 rider's own ladder, the one a ride stands in for when it is full:
@@ -22,7 +22,7 @@ from mcgyvr.config import parse as parse_config
 from mcgyvr.contract import Contract
 from mcgyvr.contract import loads as load_contract
 from mcgyvr.gate.preflight import unit_max
-from mcgyvr.local_pool import SourceMap, source_map
+from mcgyvr.ladder_map import UnitMap, unit_map
 from tests.rungs import RIDE, RUNG_ID, UNCAPPED_CONTRACT, caps_sent
 from tests.rungs import ROOM_CONTRACT as CONTRACT
 
@@ -34,8 +34,8 @@ def key(monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.setenv("HUB_KEY", "mhu_" + "1" * 16)
 
 
-def pool(local: int | None, *, second: int | None = None) -> SourceMap:
-    """A ladder of one local unit (and a dearer second), with one relief rung."""
+def pool(local: int | None, *, second: int | None = None) -> UnitMap:
+    """A ladder of one local unit (and a dearer second), with one hitchhike rung."""
 
     def room(tokens: int | None) -> str:
         return "" if tokens is None else f"    output_tokens: {tokens}\n"
@@ -50,7 +50,7 @@ def pool(local: int | None, *, second: int | None = None) -> SourceMap:
         "    model: qwen3.6:35b-a3b\n"
         "    width: 1\n" + room(second) + f"ladder: [{LOCAL}, local_dear]\n"
         "fanout: idle\n"
-        "relief:\n"
+        "hitchhike:\n"
         f"  {RIDE}:\n"
         "    address: http://localhost:8765/v1\n"
         f"    model: hitchhike@{RUNG_ID}\n"
@@ -59,7 +59,7 @@ def pool(local: int | None, *, second: int | None = None) -> SourceMap:
         "    position: within\n"
         "    served_model: qwen2.5-coder-7b\n"
     )
-    return source_map(parse_config(text))
+    return unit_map(parse_config(text))
 
 
 def contract(cap: int | None) -> Contract:
@@ -72,7 +72,7 @@ def contract(cap: int | None) -> Contract:
     )
 
 
-def cap(contract_: Contract, rung: str, pool_: SourceMap) -> int | None:
+def cap(contract_: Contract, rung: str, pool_: UnitMap) -> int | None:
     from mcgyvr.worker.prompt import build_prompt
 
     return unit_max(pool_.bind(rung), build_prompt(contract_).measured).tokens

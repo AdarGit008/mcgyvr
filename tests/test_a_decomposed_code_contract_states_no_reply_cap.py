@@ -28,7 +28,6 @@ from mcgyvr.decision import Choice, ChoiceAnswer, Decision, Question
 from mcgyvr.decompose.decompose import (
     Evidence,
     Proposal,
-    RecordedProposer,
     decompose,
 )
 from mcgyvr.delegate import (
@@ -38,9 +37,10 @@ from mcgyvr.delegate import (
     proposals_from_reply,
     proposer_by_authoring,
 )
-from mcgyvr.local_pool import source_map
+from mcgyvr.ladder_map import unit_map
 from mcgyvr.repo.index import Index, build_index
 from tests.livejournal import git
+from tests.recorded_proposer import RecordedProposer
 
 LISTING = "def listing(items):\n    return list(items)\n"
 
@@ -165,7 +165,7 @@ def test_the_no_jev_collapse_states_no_cap(
         raise AssertionError("no model is asked without a jev unit")
 
     monkeypatch.setattr(decision, "_post_json", no_model)
-    typed = fill_proposer_for(source_map(parse(LADDER)))
+    typed = fill_proposer_for(unit_map(parse(LADDER)))
     propose = proposer_by_authoring("fill", typed=typed, prose=_no_prose)
     assert propose is not None
 

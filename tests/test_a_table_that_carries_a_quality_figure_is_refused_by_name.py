@@ -7,9 +7,7 @@ whose keys describe a quality metric, so no such figure can enter the table
 without first being declared in code, where a reviewer reads it.
 
 A level is closed when every key of it is one the product declares
-(:data:`mcgyvr.capability.DECLARED_KEYS`). Under ``backends`` a key names a
-backend rather than a fact, so that block is not closed, and each backend
-under it is.
+(:data:`mcgyvr.capability.DECLARED_KEYS`), and every level is.
 
 Every table here is generated (:mod:`tests.table_fixture`), with invented
 model ids and numbers.
@@ -27,15 +25,10 @@ from mcgyvr import capability
 from mcgyvr.capability import CapabilityTableError, load
 from tests.table_fixture import table_document_with_every_block, write_table
 
-#: The level whose keys name backends, not facts.
-OPEN_LEVEL = "backends block"
-
-
 #: Where each closed level's entry sits in a document with an entry at every level.
 ENTRY: dict[str, Callable[[dict[str, Any]], dict[str, Any]]] = {
     "table": lambda d: d,
     "model row": lambda d: d["models"][0],
-    "backend": lambda d: d["backends"]["some-server"],
 }
 
 
@@ -61,9 +54,7 @@ QUALITY: dict[str, Callable[[dict[str, Any]], Any]] = {
 
 def test_every_closed_level_is_tried() -> None:
     """Without it a level that does declare a quality key would go untried."""
-    closed = set(capability.DECLARED_KEYS) - {OPEN_LEVEL}
-
-    assert set(ENTRY) == closed
+    assert set(ENTRY) == set(capability.DECLARED_KEYS)
 
 
 def test_a_document_with_an_entry_at_every_level_loads(tmp_path: Path) -> None:
