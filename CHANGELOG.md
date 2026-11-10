@@ -16,8 +16,8 @@ archived outside this repository, under the same paths.
   specs and settled copy, the rig identity key's no-hard-links fallback, the
   Python lease's rewrite, the fetcher's verified download, the unpacked
   llama.cpp build and a standing swap's record each staged a file and renamed
-  it by hand, and only the launcher's records were
-  tried again when Windows refused the rename. They now go through
+  it by hand, and only the launcher's records were tried again when Windows
+  refused the rename. They now go through
   `atomic.write` or, for a staged file or folder built some other way,
   `atomic.replace`: `os.replace` tried again on PermissionError, 20 times
   50 ms apart (the launcher's `REPLACE_TRIES`, now `atomic.REPLACE_TRIES`),
@@ -29,8 +29,10 @@ archived outside this repository, under the same paths.
   Modes, fsync and the lease's staging name are as they were; the launcher's
   and the swap record's staging files are now atomic's
   `.<name>.<pid>-<thread>.part`, and on Windows the launcher's records and the
-  lease's rewrite are written with `\n` line ends instead of `\r\n`. A test
-  holds that no module but `atomic` calls `os.replace` or `Path.replace`.
+  lease (a free take as well as a rewrite) are written with `\n` line ends
+  instead of `\r\n`. A test holds that no module but `atomic` calls
+  `os.replace` or `Path.replace`, and the macOS and Windows runners replace a
+  file a reader holds open.
 
 - **Two machine-reading designs are said and pinned; nothing behaves
   differently.** First contact with a rig over ssh is the scan's: `mcgyvr scan
