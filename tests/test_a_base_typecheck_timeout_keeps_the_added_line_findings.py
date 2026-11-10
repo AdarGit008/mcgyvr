@@ -94,7 +94,9 @@ def test_a_type_error_on_an_added_line_rejects_when_the_base_rerun_times_out(
         "only the added line's fault is charged: the inherited one on line 2 could "
         f"not be compared with the base and must not be: {result.findings}"
     )
-    assert any("base" in issue for issue in result.environment_issues), (
+    assert any(
+        "typecheck base re-run" in issue for issue in result.environment_issues
+    ), (
         "the base re-run's timeout was not reported, so the skipped comparison "
         f"looks complete: {result.environment_issues}"
     )
@@ -112,6 +114,6 @@ def test_an_inherited_fault_alone_is_not_charged_when_the_base_rerun_times_out(
         "a fault the worker did not write was charged to them because the base "
         f"re-run that would have cleared it timed out: {result.findings}"
     )
-    assert any("base" in issue for issue in result.environment_issues), (
-        f"the base re-run's timeout was not reported: {result.environment_issues}"
-    )
+    assert any(
+        "typecheck base re-run" in issue for issue in result.environment_issues
+    ), f"the base re-run's timeout was not reported: {result.environment_issues}"
