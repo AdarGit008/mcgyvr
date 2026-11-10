@@ -319,7 +319,8 @@ ABOVE_THE_SEAM: tuple[str, ...] = (
 #: The modules both halves import, written down. Each is read from above the seam and
 #: from below it, and each answers one question for the whole project rather than for
 #: one half of it: the package itself, the setup's schema and the two files it reads
-#: (``config.py``), the vocabulary of what may be asked for (``catalog.py``), how a
+#: (``config.py``), the vocabulary of what may be asked for (``catalog.py``), the one
+#: vocabulary of what a credential looks like (``credential_shapes.py``), how a
 #: file is replaced whole (``atomic.py``), the exit codes a caller branches on
 #: (``exits.py``), how git is run against a repository (``gitcmd.py``), what
 #: differs between Linux, macOS and Windows (``hostos.py``), the wire
@@ -338,6 +339,7 @@ SHARED_ACROSS_THE_SEAM: tuple[str, ...] = (
     "mcgyvr.atomic",
     "mcgyvr.catalog",
     "mcgyvr.config",
+    "mcgyvr.credential_shapes",
     "mcgyvr.exits",
     "mcgyvr.gitcmd",
     "mcgyvr.hostos",
