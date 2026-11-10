@@ -80,8 +80,10 @@ def operate(op: str, folder: str, fields: Mapping[str, str]) -> tuple[int, str, 
                 )
             except FileExistsError:
                 return 1, "", ""
-            with os.fdopen(out, "w", encoding="utf-8") as handle:
-                handle.write(line)
+            # Bytes, as atomic.write writes a rewrite: one line end, `\n`, on every
+            # system, as the scripts write it.
+            with os.fdopen(out, "wb") as handle:
+                handle.write(line.encode("utf-8"))
             return 0, "", ""
         if op == "take_stale" and not fields.get("held"):
             if now.strip():
