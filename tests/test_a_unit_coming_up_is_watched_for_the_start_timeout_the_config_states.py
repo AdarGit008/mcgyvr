@@ -150,6 +150,10 @@ def test_a_unit_that_never_answers_is_polled_as_often_as_its_timeout_buys(
 ) -> None:
     rig = Rig(models=NO_ROUTE, is_sleeping=NO_ROUTE)
     monkeypatch.setattr(servelib, "ssh", rig)
+    # The row's restart count asks the docker daemon, through a subprocess whose
+    # wait sleeps in short steps of its own: answered here, nothing reaches this
+    # machine's docker and every sleep recorded below is a poll's.
+    monkeypatch.setattr(servelib, "restart_count", lambda container: 0)
     slept: list[float] = []
     monkeypatch.setattr(time, "sleep", slept.append)
 
