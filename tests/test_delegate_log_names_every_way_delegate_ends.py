@@ -200,7 +200,8 @@ def test_a_bare_install_is_config_no_orchestrator(tmp_path: Path, root: Path) ->
     _ended(record, DelegateKind.CONFIG_NO_ORCHESTRATOR)
     assert code == 3
     assert record.detail["bare_install"] is True
-    assert "orchestrator role is not configured" in record.message
+    assert "no mcgyvr config was found" in record.message
+    assert "mcgyvr setup" in record.message
 
 
 def test_prose_chosen_with_no_role_bound_is_config_no_orchestrator_too(
@@ -212,6 +213,8 @@ def test_prose_chosen_with_no_role_bound_is_config_no_orchestrator_too(
     assert code == 3
     _ended(record, DelegateKind.CONFIG_NO_ORCHESTRATOR)
     assert record.detail["bare_install"] is False
+    assert "orchestrator role is not configured" in record.message
+    assert "drop `authoring: prose`" in record.message
 
 
 # --- the orchestrator role -----------------------------------------------------

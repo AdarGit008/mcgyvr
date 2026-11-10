@@ -13,8 +13,8 @@ each is on one file and jev says it cannot be split further.
 which corrects what vetting refuses and re-plans when no orchestrator model is
 bound.
 
-``NO_ORCHESTRATOR_ROLE`` is what a caller prints when no orchestrator unit is
-bound, so no prompt can be turned into contracts.
+``NO_ORCHESTRATOR_ROLE`` is what a caller prints when prose authoring is chosen
+and no orchestrator unit is bound; ``NO_SETUP`` when there is no config at all.
 """
 
 from __future__ import annotations
@@ -83,13 +83,25 @@ if TYPE_CHECKING:  # pragma: no cover - typing only
 #: questions there. No binding means nothing here can propose.
 ORCHESTRATOR_ROLE = "orchestrator"
 
-#: Printed, with a refusal exit, when no orchestrator unit is bound and so no
-#: prompt can be turned into contracts: the text names the ways forward.
+#: Printed, with a refusal exit, when `orchestrator.authoring: prose` is chosen
+#: and no orchestrator unit is bound, so no model can draft the contracts: the
+#: text names the ways forward, the scaffold among them.
 NO_ORCHESTRATOR_ROLE = (
-    "the orchestrator role is not configured, so a prompt cannot be turned "
-    "into contracts here. Bind `orchestrator.unit` and `orchestrator.model` "
-    "in the config, or author a contract yourself and run it with "
-    "`mcgyvr direct`."
+    "`orchestrator.authoring: prose` is set but the orchestrator role is not "
+    "configured, so no model can draft contracts here. Bind "
+    "`orchestrator.unit` and `orchestrator.model` in the config, drop "
+    "`authoring: prose` to have the scaffold propose with no model, or author "
+    "a contract yourself and run it with `mcgyvr direct`."
+)
+
+#: Printed, with a refusal exit, when no config is found at all (a bare
+#: install): there is no ladder to run a contract on. The scaffold proposes
+#: with no orchestrator model, so a setup is all that is missing.
+NO_SETUP = (
+    "no mcgyvr config was found, so there is no ladder to run contracts on. "
+    "Run `mcgyvr setup` to write one; `mcgyvr PROMPT` then scaffolds the "
+    "contracts and needs no orchestrator model. Or author a contract yourself "
+    "and run it with `mcgyvr direct`."
 )
 
 

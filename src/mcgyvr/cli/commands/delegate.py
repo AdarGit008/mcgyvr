@@ -285,10 +285,11 @@ def _delegate_logged(args: argparse.Namespace, book: _Logbook) -> int:
     `decompose` turns the prompt into contracts from that index, the proposer,
     the config and `--budget`. The contracts are reported, then written to
     `--output` and left there, or printed and each of them run, re-planning a
-    contract whose ladder is spent through the prose proposer on the same
-    checkout. The exit code is 0 when contracts were emitted; 3
-    (`Exit.REFUSED`) when there is no orchestrator role to ask or no contract
-    came of the request; 1 when the config, attaching, indexing or proposing
+    contract whose ladder is spent through the orchestrator model, or the top
+    rung when none is bound, on the same checkout. The exit code is 0 when
+    contracts were emitted; 3 (`Exit.REFUSED`) when there is no config at all,
+    when prose authoring is chosen with no orchestrator role, or when no
+    contract came of the request; 1 when the config, attaching, indexing or proposing
     failed; and when they run, the batch's, the last non-zero exit of its runs
     (3 for a contract held `blocked`). A batch with no session to file it
     under never gets here: `_refuse_before_delegating` refuses it first, exit
@@ -301,6 +302,7 @@ def _delegate_logged(args: argparse.Namespace, book: _Logbook) -> int:
     from mcgyvr.decompose import decompose
     from mcgyvr.delegate import (
         NO_ORCHESTRATOR_ROLE,
+        NO_SETUP,
         DelegationError,
         UnreadableProposalError,
         top_rung_proposer_for,
@@ -335,10 +337,8 @@ def _delegate_logged(args: argparse.Namespace, book: _Logbook) -> int:
         )
         return 1
     if config is None:
-        print(NO_ORCHESTRATOR_ROLE, file=sys.stderr)
-        book.ended(
-            DelegateKind.CONFIG_NO_ORCHESTRATOR, NO_ORCHESTRATOR_ROLE, bare_install=True
-        )
+        print(NO_SETUP, file=sys.stderr)
+        book.ended(DelegateKind.CONFIG_NO_ORCHESTRATOR, NO_SETUP, bare_install=True)
         return Exit.REFUSED
     raw = requires_mcgyvr_code(config)
     if raw is not None:

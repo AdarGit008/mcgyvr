@@ -27,7 +27,7 @@ from mcgyvr.decompose.decompose import (
     decompose,
 )
 from mcgyvr.delegate import (
-    NO_ORCHESTRATOR_ROLE,
+    NO_SETUP,
     UnreadableProposalError,
     proposals_from_reply,
     proposer_for,
@@ -327,7 +327,7 @@ def test_proposer_for_returns_none_without_an_orchestrator_role() -> None:
     assert proposer_for(pool) is None
 
 
-def test_a_keyless_install_answers_the_documented_no_role(
+def test_a_keyless_install_says_a_setup_is_all_it_lacks(
     tmp_path: Path,
     monkeypatch: pytest.MonkeyPatch,
     capsys: pytest.CaptureFixture[str],
@@ -343,7 +343,10 @@ def test_a_keyless_install_answers_the_documented_no_role(
     code = main(["document the listing helper", "--output", str(tmp_path / "out")])
 
     assert code == Exit.REFUSED
-    assert NO_ORCHESTRATOR_ROLE in capsys.readouterr().err
+    said = capsys.readouterr().err
+    assert NO_SETUP in said
+    # The default path scaffolds: a bare install is not told to bind a model.
+    assert "orchestrator.model" not in said
 
 
 def test_the_bare_verb_writes_contracts_from_the_role(

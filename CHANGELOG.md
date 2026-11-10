@@ -19,7 +19,9 @@ archived outside this repository, under the same paths.
   `orchestrator` model: with none bound the command proposes rather than
   exiting 3, and the prose unit stands in only where one is bound.
   `authoring: prose` stays as the opt-in, and still exits 3 with no model
-  bound. A proposal vetting refuses is no longer handed back to the proposer
+  bound; its message now says dropping `authoring: prose` scaffolds instead.
+  A bare install (no config at all) still exits 3, now told to run `mcgyvr
+  setup` rather than to bind an orchestrator model. A proposal vetting refuses is no longer handed back to the proposer
   that made it: it goes, with the refusal, to the top rung — the ladder's
   dearest usable rung within `max_escalations`, named once as
   `route.top_rung` — in a prompt that asks for the corrected proposal and
