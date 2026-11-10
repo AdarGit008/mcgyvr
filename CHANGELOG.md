@@ -159,8 +159,8 @@ archived outside this repository, under the same paths.
   harness, both handed the key on ssh's stdin with the text they run, never on
   a command line or a file on the rig. `mcgyvr fleet key <unit>` prints the
   key. A `--host` or `LLAMA_ARG_HOST` a unit's launch states renders byte for
-  byte as before; native units refuse `expose: lan`; rpc workers and vLLM
-  headless ranks are unchanged. `mcgyvr emit` names where each keyed unit
+  byte as before; native units refuse `expose: lan`; rpc workers are
+  unchanged. `mcgyvr emit` names where each keyed unit
   listens, and warns about a keyed unit its launch or lock keeps on 127.0.0.1,
   a unit stating `expose: local` whose address names another host, and a
   stated host beyond this machine with no key. Upgrading:
@@ -953,6 +953,8 @@ archived outside this repository, under the same paths.
   role, `launch.master_port` and its default `VLLM_MASTER_PORT` (29501), and
   the equal-cards-per-machine check. A vLLM split over one machine's cards
   (tensor x pipeline, one process) is unchanged, as is every llama.cpp split.
+  Upgrading: a stated `launch.master_port` is now ignored, not checked;
+  delete it.
 - **Sessions, the manager loop and the retired-name shims are gone.** `chat`
   and `agent` are no longer contract task types: `code` is the one shipped
   type, and chat and agent stay as plain use of an endpoint. Removed with
