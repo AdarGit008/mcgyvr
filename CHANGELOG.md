@@ -11,6 +11,21 @@ archived outside this repository, under the same paths.
 
 ### Changed
 
+- **A hub refuses a request whose use case its pool does not serve, with a
+  new `/v1` code, `use_case_not_served` (403).** `hubwire` said the hub
+  refuses a use case its pool does not serve (`USE_CASE_HEADER`,
+  `pool_serves`), but no code for that refusal existed and the hub did not
+  read the header. `hubwire.API_ERROR_STATUS` and the rider schema's
+  `x-openai-errors` now hold `use_case_not_served: 403`, named
+  `hubwire.USE_CASE_NOT_SERVED`, beside `out_of_scope`; the hub change that
+  reads `x-mcgyvr-use-case` follows in the hub repo. The pool is the one the
+  request is served from (`serving_pool`, by its scope and model), never the
+  model: of the four use cases only `mcgyvr-code` asked of the general pool
+  (scope `anyone`, not a ride) is refused, as the setup check already refuses
+  binding such a unit; a value that is not a use case is refused by every
+  pool; a request without the header is not checked. The `hubwire` text on
+  the header now says this.
+
 - **A docker llama.cpp or vLLM unit listens on 127.0.0.1 or, behind a key
   mcgyvr makes, on every interface (`expose: local | lan`).** `mcgyvr emit`
   rendered every container's server on every interface with no key

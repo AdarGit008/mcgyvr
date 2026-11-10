@@ -463,6 +463,38 @@ def test_a_pool_serves_its_use_cases_and_refuses_the_rest(
         hubwire.pool_serves("anyone", hubwire.CHAT)
 
 
+@pytest.mark.parametrize("use_case", hubwire.USE_CASES)
+@pytest.mark.parametrize("ride", [False, True])
+@pytest.mark.parametrize("scope", hubwire.SCOPE_VALUES)
+def test_only_mcgyvr_code_off_a_ride_under_scope_anyone_is_a_use_case_refused(
+    scope: str, ride: bool, use_case: str
+) -> None:
+    """What the hub refuses with ``use_case_not_served``: the pool a request is
+    served from (by its scope and model) not serving its use case. The general
+    pool serves chat, agent and code, a crew's pool, a ride and a member's own
+    rigs every use case, so ``mcgyvr-code`` asked of the general pool is the
+    one known use case refused; the model a pool serves plays no part."""
+    model = hubwire.rung_model(FIRST) if ride else "coder-7b"
+    pool = hubwire.serving_pool(scope, model)
+    refused = not hubwire.pool_serves(pool, use_case)
+    expected = scope == hubwire.SCOPE_ANYONE and not ride
+    assert refused is (expected and use_case == hubwire.MCGYVR_CODE)
+
+
+def test_a_use_case_no_pool_serves_is_refused_by_every_pool() -> None:
+    """A header value that is not a use case (``coding``, the name replaced)
+    is refused under any scope: no pool serves it."""
+    assert all(not hubwire.pool_serves(p, "coding") for p in hubwire.POOLS)
+
+
+def test_a_use_case_refused_is_a_403_beside_out_of_scope_and_not_a_full_rung() -> None:
+    """Asked again under the same scope and model, it is refused again, as a
+    host outside the scope is: not an answer a rung passes over as full."""
+    assert hubwire.USE_CASE_NOT_SERVED == (403, "use_case_not_served")
+    assert hubwire.OUT_OF_SCOPE[0] == hubwire.USE_CASE_NOT_SERVED[0]
+    assert hubwire.USE_CASE_NOT_SERVED not in hubwire.RUNG_BUSY
+
+
 def test_the_use_case_header_sits_beside_the_scope_header() -> None:
     assert hubwire.USE_CASE_HEADER.islower()
     assert hubwire.USE_CASE_HEADER != hubwire.SCOPE_HEADER
