@@ -219,6 +219,30 @@ def test_a_missing_program_is_an_environment_issue_never_a_failure(
     assert "dearer family" in outcome.environment_issue
 
 
+def test_a_pattern_over_a_workspace_git_cannot_list_is_refused_by_name(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """A glob target is expanded by the repo index's listing, so a workspace
+    git cannot list is an `IndexBuildError` naming it, not a raw
+    `CalledProcessError` traceback from a second, hand-run `git ls-files`."""
+    from types import SimpleNamespace
+    from typing import Any, cast
+
+    from mcgyvr.repo import IndexBuildError
+
+    contract = load_contract(
+        FORMAT_CONTRACT.replace("target: src/pkg/messy.py", "target: src/**/*.py")
+    )
+    (step,) = tool_steps(contract)
+    workspace = tmp_path / "not-a-repo"
+    workspace.mkdir()
+    monkeypatch.setenv("GIT_CEILING_DIRECTORIES", str(tmp_path))
+    sandbox = cast(Any, SimpleNamespace(workspace=workspace))
+
+    with pytest.raises(IndexBuildError, match="cannot enumerate"):
+        run_tool_step(step, sandbox)
+
+
 # --- the floor's product is judged by the same gate --------------------------
 
 
