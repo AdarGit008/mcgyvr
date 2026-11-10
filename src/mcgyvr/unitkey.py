@@ -36,7 +36,7 @@ KEYS_DIR = "unit-keys"
 LLAMA_ENV = "LLAMA_API_KEY"
 VLLM_ENV = "VLLM_API_KEY"
 ENV_NAMES = (LLAMA_ENV, VLLM_ENV)
-#: A key as `ensure` makes it: 43 characters of URL-safe base64, 256 bits.
+#: A key as `new_key` makes it: 43 characters of URL-safe base64, 256 bits.
 KEY = re.compile(r"[A-Za-z0-9_-]{43}")
 #: A key file is two short lines; anything longer is not one `ensure` wrote.
 MAX_KEY_FILE_BYTES = 512
@@ -100,6 +100,13 @@ def read(target: Path) -> str | None:
     return key
 
 
+def new_key() -> str:
+    """A fresh key, as every key mcgyvr hands a llama-server or vLLM is made
+    (:data:`KEY`): a unit's by :func:`ensure`, a pooled native head's for one
+    session (:meth:`mcgyvr.rig.userwg.NativeHost.head_key`)."""
+    return secrets.token_urlsafe(32)
+
+
 def ensure(host: str, port: int) -> tuple[Path, bool]:
     """The key file of the unit at `host:port`, made when there is none.
 
@@ -112,7 +119,7 @@ def ensure(host: str, port: int) -> tuple[Path, bool]:
     if read(target) is not None:
         return target, False
     try:
-        atomic.write_private(target, _text(secrets.token_urlsafe(32)))
+        atomic.write_private(target, _text(new_key()))
     except atomic.PrivateFileError as exc:
         raise UnitKeyError(str(exc)) from exc
     return target, True

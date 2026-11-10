@@ -164,8 +164,15 @@ def make_native_pool(
     box = fakes.Box()
     health: list[str] = ["loading", "ok"]
 
-    def head_health(port: int) -> str:
+    keys: list[tuple[str, str | None]] = []
+
+    def head_health(port: int, key: str | None) -> str:
+        keys.append(("health", key))
         return health.pop(0) if len(health) > 1 else health[0]
+
+    def warm_up(port: int, ctx: int, key: str | None) -> bool:
+        keys.append(("warm", key))
+        return True
 
     changes = {"launcher": "native", "image": None, **sharing_changes}
     machine = rs.Machine(
@@ -177,7 +184,7 @@ def make_native_pool(
         cache_dir=None,
         free_port=itertools.count(18080).__next__,
         head_health=head_health,
-        warm_up=lambda port, ctx: True,
+        warm_up=warm_up,
         bind_relay=lambda grant: None,
     )
     docker = fakes.FakeDocker()
@@ -190,5 +197,5 @@ def make_native_pool(
     )
     dispatcher = commands.Dispatcher()
     rs.register(dispatcher, sessions)
-    pool = fakes.Pool(docker, box, sessions, dispatcher, health)
+    pool = fakes.Pool(docker, box, sessions, dispatcher, health, keys=keys)
     return NativePool(pool=pool, host=host, tmp=tmp_path, echo=echo, config=settings)

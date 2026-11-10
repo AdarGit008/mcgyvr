@@ -162,7 +162,12 @@ def test_the_native_build_is_hashed_and_unpacked_on_3_9(tmp_path: Path) -> None:
     )
     program = shipped.program(
         "mcgyvr.serving.release",
-        modules=("mcgyvr.hostos", "mcgyvr.userdir", "mcgyvr.serving.fetcher"),
+        modules=(
+            "mcgyvr.hostos",
+            "mcgyvr.atomic",
+            "mcgyvr.userdir",
+            "mcgyvr.serving.fetcher",
+        ),
         tail=tail,
     )
     (tmp_path / "out").mkdir()

@@ -653,9 +653,8 @@ def _macos_windows_section() -> list[str]:
             f"agent reads (`${HUB_KEY_ENV}`) set in `~/.zshrc` is not seen there."
         ),
         *para(
-            "On Windows, `mcgyvr rig run` does not start yet (its pooled-session "
-            "code imports a module Windows lacks, `fcntl`). When it does, a line "
-            "in your Startup folder starts it at your login with no "
+            "On Windows, a line in your Startup folder starts it at your login "
+            "with no "
             "administrator (a `schtasks /sc onlogon` task runs at any user's "
             "logon and is created from an elevated prompt). From PowerShell, "
             "and `Remove-Item` on the same path to drop it:"
@@ -806,6 +805,10 @@ def render_setup() -> str:
         f"A third file, `{RELIEF_FILENAME}`, holds `relief`: the units other",
         "people lend you through a hub. `mcgyvr rig rungs sync` writes it whole",
         "and nothing else does, so it is neither locked nor edited by hand.",
+        "Beside `relief` it records `api_key_env`: the NAME of the variable the",
+        "sync read your personal hub key from (`--key-env`), which the rig",
+        "agent's refresh and `mcgyvr rig status` read the key from too (where",
+        f"it records none, the one the units of `{CREW_FILENAME}` name).",
         f"A fourth, `{CREW_FILENAME}`, holds `crew`: the units your crews lend",
         f"you through a hub, each read as a unit of `units` under scope "
         f"`{SCOPE_CREW}`.",
