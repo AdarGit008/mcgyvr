@@ -20,8 +20,7 @@ import pytest
 from mcgyvr import contract as contract_module
 from mcgyvr.catalog import catalog
 from mcgyvr.config import Config, Ladder
-from mcgyvr.gate.adapters import PythonAdapter
-from mcgyvr.orchestrator.decompose import (
+from mcgyvr.decompose.decompose import (
     DepRef,
     Proposal,
     RecordedProposer,
@@ -29,8 +28,9 @@ from mcgyvr.orchestrator.decompose import (
     _identify,
     decompose,
 )
-from mcgyvr.orchestrator.index import Index, build_index
-from mcgyvr.orchestrator.read import estimate_tokens
+from mcgyvr.gate.adapters import PythonAdapter
+from mcgyvr.repo.index import Index, build_index
+from mcgyvr.repo.read import estimate_tokens
 from mcgyvr.worker.prompt import build_prompt
 from tests.decomposes import an_annotation, declaring_mypy, git
 

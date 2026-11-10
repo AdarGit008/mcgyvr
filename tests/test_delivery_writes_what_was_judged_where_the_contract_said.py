@@ -32,13 +32,13 @@ import pytest
 
 from mcgyvr import contract as contract_module
 from mcgyvr.contract import load
+from mcgyvr.decompose.decompose import DepRef, Proposal, RecordedProposer, decompose
 from mcgyvr.deliver import Accepted, DeliveryRefusedError, deliver, place
 from mcgyvr.gate import GateResult
-from mcgyvr.orchestrator import index as index_module
-from mcgyvr.orchestrator.decompose import DepRef, Proposal, RecordedProposer, decompose
-from mcgyvr.orchestrator.index import Index, SymbolTable, build_index
 from mcgyvr.rename import RenameError
 from mcgyvr.rename import apply as rename_apply
+from mcgyvr.repo import index as index_module
+from mcgyvr.repo.index import Index, SymbolTable, build_index
 from tests import livejournal as lj
 
 

@@ -24,7 +24,7 @@
   (``new Foo<>()``) names.
 
 A file with syntax errors yields what parsed around them (see
-:mod:`mcgyvr.orchestrator.languages.engine`).
+:mod:`mcgyvr.repo.languages.engine`).
 """
 
 from __future__ import annotations
@@ -32,7 +32,7 @@ from __future__ import annotations
 from tree_sitter import Language, Node
 from tree_sitter_java import language as _java_language
 
-from mcgyvr.orchestrator.languages.engine import (
+from mcgyvr.repo.languages.engine import (
     TreeSitterLanguage,
     definition,
     export,
@@ -43,7 +43,7 @@ from mcgyvr.orchestrator.languages.engine import (
     node_text,
     reference,
 )
-from mcgyvr.orchestrator.languages.model import Symbol, SymbolKind
+from mcgyvr.repo.languages.model import Symbol, SymbolKind
 
 _JAVA = Language(_java_language())
 

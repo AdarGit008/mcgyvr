@@ -2,7 +2,7 @@
 
 A contract's `interface` declares the symbols it creates, and its `task` may
 state a rename (``rename old to new``). Decomposition reads both to state a
-dependency on a symbol a sibling creates (`mcgyvr.orchestrator.decompose`), and
+dependency on a symbol a sibling creates (`mcgyvr.decompose.decompose`), and
 the dependency tree reads them to tell what a dependent waits for
 (`mcgyvr.tree`). Both read them here, so the two agree on what a contract
 provides.
@@ -12,7 +12,7 @@ from __future__ import annotations
 
 import re
 
-from mcgyvr.orchestrator.symbols import SymbolKind, extract
+from mcgyvr.repo.symbols import SymbolKind, extract
 
 #: The keywords that declare the name after them, for an interface the parser
 #: cannot read as source — a bare header such as ``def f(x: int) -> str`` with

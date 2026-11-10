@@ -27,9 +27,9 @@ from enum import StrEnum
 from tree_sitter import Node, Parser
 
 from mcgyvr.lines import parser_lines
-from mcgyvr.orchestrator.languages.engine import node_text, walk
-from mcgyvr.orchestrator.languages.javascript import grammar_for
-from mcgyvr.orchestrator.symbols import language_of
+from mcgyvr.repo.languages.engine import node_text, walk
+from mcgyvr.repo.languages.javascript import grammar_for
+from mcgyvr.repo.symbols import language_of
 
 # One verdict per occurrence, the shapes they come back in, and the refusal.
 

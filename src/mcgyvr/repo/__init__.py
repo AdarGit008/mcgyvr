@@ -1,7 +1,7 @@
 """The deterministic context layer, re-exported as one flat namespace.
 
 Each submodule owns one step and stays importable directly; this module gathers
-their public names so a caller can ``from mcgyvr.orchestrator import resolve``
+their public names so a caller can ``from mcgyvr.repo import resolve``
 without knowing which step a name lives on.
 
 ``symbols`` extracts ``Symbol``/``SymbolKind`` from source (Python with ``ast``;
@@ -16,9 +16,10 @@ excerpts that fit a token budget (``explore`` returning an ``Exploration`` of
 tokens saved by regions the caller already supplied), and ``context`` checks the
 paths and contents a caller supplied against the index (``verify`` ->
 ``VerifiedContext``/``ContextFinding``/``Discrepancy``) and re-ranks with their
-help (``accelerate`` -> ``Acceleration``). ``decompose`` runs those steps for a
-prompt, hands the evidence to a caller-supplied ``Proposer``, and turns its
-``Proposal``s into a ``Decomposition`` of contracts and ``Refusal``s.
+help (``accelerate`` -> ``Acceleration``). ``mcgyvr.decompose`` runs those steps
+for a prompt, hands the evidence to a caller-supplied ``Proposer``, and turns its
+``Proposal``s into a ``Decomposition`` of contracts and ``Refusal``s; it is the
+only part that takes a proposer, so it is its own package above this one.
 
 ``repo`` attaches the repository a run works on (``attach`` yielding an
 ``AttachedRepo``, or raising ``AttachError``) and explains what a sandbox built
@@ -28,21 +29,21 @@ memoises index builds on disk (``build_index_cached``, ``cache_path``,
 re-exported here as ``clear_cache`` and ``prune_cache`` to say which cache they
 clear.
 
-Names not listed in ``__all__`` -- ``baseline`` and ``references`` -- remain
-reachable only through their own modules.
+Names not listed in ``__all__`` -- ``references`` -- remain reachable only
+through their own modules.
 """
 
 from __future__ import annotations
 
-from mcgyvr.orchestrator.cache import (
+from mcgyvr.repo.cache import (
     CachedBuild,
     CacheStats,
     build_index_cached,
     cache_path,
 )
-from mcgyvr.orchestrator.cache import clear as clear_cache
-from mcgyvr.orchestrator.cache import prune as prune_cache
-from mcgyvr.orchestrator.context import (
+from mcgyvr.repo.cache import clear as clear_cache
+from mcgyvr.repo.cache import prune as prune_cache
+from mcgyvr.repo.context import (
     Acceleration,
     ContextFinding,
     Discrepancy,
@@ -51,17 +52,7 @@ from mcgyvr.orchestrator.context import (
     accelerate,
     verify,
 )
-from mcgyvr.orchestrator.decompose import (
-    Decomposition,
-    DepRef,
-    Evidence,
-    Proposal,
-    Proposer,
-    RecordedProposer,
-    Refusal,
-    decompose,
-)
-from mcgyvr.orchestrator.index import (
+from mcgyvr.repo.index import (
     BuildStats,
     Index,
     IndexBuildError,
@@ -70,16 +61,16 @@ from mcgyvr.orchestrator.index import (
     SymbolTable,
     build_index,
 )
-from mcgyvr.orchestrator.read import (
+from mcgyvr.repo.read import (
     Deferral,
     Exploration,
     ExplorationError,
     TargetedRead,
     explore,
 )
-from mcgyvr.orchestrator.repo import AttachedRepo, AttachError, attach, head_only_note
-from mcgyvr.orchestrator.resolve import Candidate, Resolution, Verdict, resolve
-from mcgyvr.orchestrator.symbols import Symbol, SymbolKind
+from mcgyvr.repo.repo import AttachedRepo, AttachError, attach, head_only_note
+from mcgyvr.repo.resolve import Candidate, Resolution, Verdict, resolve
+from mcgyvr.repo.symbols import Symbol, SymbolKind
 
 __all__ = [
     "Acceleration",
@@ -90,21 +81,14 @@ __all__ = [
     "CachedBuild",
     "Candidate",
     "ContextFinding",
-    "Decomposition",
     "Deferral",
-    "DepRef",
     "Discrepancy",
-    "Evidence",
     "Exploration",
     "ExplorationError",
     "Index",
     "IndexBuildError",
     "IndexedFile",
     "Match",
-    "Proposal",
-    "Proposer",
-    "RecordedProposer",
-    "Refusal",
     "Resolution",
     "SuppliedContext",
     "Symbol",
@@ -119,7 +103,6 @@ __all__ = [
     "build_index_cached",
     "cache_path",
     "clear_cache",
-    "decompose",
     "explore",
     "head_only_note",
     "prune_cache",
