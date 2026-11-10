@@ -170,6 +170,28 @@ you read all three:
 `mcgyvr config` prints the resolved config; `mcgyvr detect` shows what
 can run the work; `mcgyvr capabilities` shows the shipped capability table.
 
+A unit split across machines (`units.launch.shards`) is checked before
+anything starts: a split that cannot be launched is refused when
+`mcgyvr emit` or `mcgyvr setup` sizes its units against the rigs. Once
+it is up, nothing watches the unit as a whole. Its head and each worker
+are services of their own rig's launch spec, and each is kept up on its
+own. A docker part has docker's `unless-stopped` restart policy and
+whatever starts docker when the rig boots (systemd, on most Linux
+rigs). A part whose unit takes `launcher: native` has
+mcgyvr's own supervisor, which restarts it when it exits, after a
+growing pause, and gives up after five exits running; nothing starts
+that supervisor again when the rig boots, so a native part stays down
+after a reboot until its rig's `serve up` runs again. That is all the
+supervision there is. Nothing orders a worker before its head or ties
+their health together, and a worker on another rig is in that rig's
+file, which the head's cannot name. So when a worker stops or its rig
+reboots, the head is not told, and requests to the unit fail or time
+out until the worker is back. The serving door's `serve down` then
+`serve up` on the head's rig starts the head afresh against its
+workers: `python -m mcgyvr.serving.run serve down --host RIG --compose
+FILE`, then the same with `serve up`, where `FILE` is the launch spec
+`mcgyvr emit` wrote for that rig.
+
 ## macOS and Windows
 
 mcgyvr runs on macOS and Windows as it does on Linux; this is what differs. `~` is your home folder
@@ -536,6 +558,7 @@ What mcgyvr may do to the machines that serve the units. A unit's HuggingFace ca
 | --- | --- | --- | --- | --- |
 | `serving.enable_sleep_wake` | boolean | no | `false` | Whether mcgyvr may take a card down and bring it back on its own. Off by default, because the feature is a trade and not an improvement: turning it on lets a run stop containers on a rig other people share. It is a key here and not a `--flag` for the reason `--config` already gives about which rung runs — the config a run is made under is what a run is reproducible from, and a flag would let two runs share one config where only one of them started and stopped containers on a shared rig, putting the rig side effect outside the only record that explains the run. A card sleeps when a person runs `mcgyvr serve sleep`, or when a run swaps a sleeper in to make room and puts it back once it is idle; a sleep rests a vLLM card at level 2, which keeps its process and drops its weights and KV cache, and stops the containers of any other card, of a vLLM card with no sleep route, or of one holding a unit split across machines, whose level 2 is not measured; either way the next wake loads the model from disk. For that sleep it also makes `mcgyvr emit` start every vLLM unit with `--enable-sleep-mode` and `VLLM_SERVER_DEV_MODE=1`, which registers vLLM's development routes -- /sleep, /wake_up, /reset_prefix_cache and others -- on the unit's serving port, unauthenticated: anyone who can reach that port can sleep, wake or reset the unit. The emitted file says so in a comment. With the switch off, emit writes neither. It governs the *decisions*: `mcgyvr serve sleep\|wake`, typed by a person who has therefore asked, is not gated by it. It is a key of its own rather than part of `fanout` because `fanout` decides where work goes among rungs that exist and this decides whether rungs come into existence — two authorities, and only one of them touches a rig. |
 | `serving.compose_dir` | text | no | unset | Where this checkout keeps the launch specs `mcgyvr emit` wrote. The one thing that has to be stated rather than derived, because `mcgyvr emit --out` defaults to the current directory and a wake has to find the file again. It is deliberately not a device and not a host: a `device: cuda:0` beside a unit's `address` would be two statements of one fact and would go stale the first time a unit was re-pointed, whereas this cannot go stale against anything — it says where files are, not where work runs. A config that omits it has no sleeping cards at all, only down ones: `asleep` is `down` plus a launch spec mcgyvr holds for that card, and with no directory there is no spec. To bind it: the directory `mcgyvr emit --out` writes to -- e.g. ~/.mcgyvr/fleets/<fleet>/compose -- or leave it unset and this ladder has no sleeping cards, only down ones. |
+| `serving.start_timeout_s` | decimal number (min 0.0) | no | `360.0` | How long the serving door's `serve up` and `serve wake` watch a unit come up before they give up on it and report it down, in seconds. The unit is asked for the models it serves every 3 s until it lists them and does not read as asleep, and at least once however short this is. `mcgyvr serve wake` and a run that wakes a card go through the same door, so they are bounded by this too. The door reads it from the config `$MCGYVR_CONFIG` names, else from the live fleet's, never from a `--config` path given to the command that started it. Raise it for a model whose load takes longer, such as a large vLLM unit read off a slow disk. To bind it: seconds; e.g. 900 for a load that takes longer than six minutes. |
 
 ## `journal`
 

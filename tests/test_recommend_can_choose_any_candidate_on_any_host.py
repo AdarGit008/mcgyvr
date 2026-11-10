@@ -1,21 +1,22 @@
 """`mcgyvr recommend` can choose any candidate it assembled, on any host.
 
-The plan is one placement picked from candidates assembled per rig. The pick
-is a name: the decision answers with one of the candidates' names, and the
-plan places the candidate of that name. Two things broke that:
+The plan is one placement picked from candidates assembled per rig, and a
+candidate is known by its name: two under one name are taken for one listed
+twice, and only the first is kept. Two things broke that:
 
 * the names were not unique. A local checkpoint was named only by its
   speculative head (`llama.cpp:no speculative head`), and a catalog pick only
   by engine and model, so the same name stood for a checkpoint on every rig,
-  and for every checkpoint in a store. The lookup by name kept the last one,
-  so most candidates could never be chosen;
+  and for every checkpoint in a store, and most candidates could never be
+  placed;
 * the placement said nothing about the rig it was for, so even the candidate
   picked could not be told apart from its twin on another rig.
 
 So: every candidate's name is its own, every candidate is reachable by its
 name, and every placement says which host it is on. The rigs are invented
-and answer through the read-only ssh seam; the decision is faked at
-`mcgyvr.decision.classify` and names each option in turn.
+and answer through the read-only ssh seam; the pick is replaced at
+`mcgyvr.recommend._deterministic_pick` by one that takes each candidate in
+turn.
 """
 
 from __future__ import annotations
@@ -25,10 +26,8 @@ from typing import Any
 
 import pytest
 
-from mcgyvr import availability, decision
 from mcgyvr import recommend as recommend_module
 from mcgyvr import scan as scan_module
-from mcgyvr.availability import AvailabilityVerdict
 from tests.test_recommend import (
     CHECKPOINT,
     FAKE_CATALOG,
@@ -45,50 +44,25 @@ HOSTS = ("rig-a.invalid", "rig-b.invalid")
 
 
 class Picks:
-    """A stand-in for ``decision.classify`` that names the option it is told."""
+    """A stand-in for ``recommend._deterministic_pick`` that takes the candidate
+    it is told, and records the names it was offered."""
 
     def __init__(self) -> None:
         self.pick = 0
         self.options: list[tuple[str, ...]] = []
 
     def __call__(
-        self,
-        endpoint: Any,
-        model: str,
-        state: Any,
-        questions: Mapping[str, Any],
-        *,
-        timeout_s: float,
-    ) -> decision.Decision:
-        options = tuple(questions["placement"].options)
-        self.options.append(options)
-        chosen = options[self.pick]
-        return decision.Decision(
-            answers={
-                "placement": decision.ChoiceAnswer(
-                    choice=chosen, probabilities={chosen: 1.0}, confidence=1.0
-                )
-            }
-        )
-
-
-def _probe(monkeypatch: pytest.MonkeyPatch, live: bool) -> None:
-    """Answer the decision backend's reachability probe with ``live``."""
-
-    def answer(endpoint: Any, timeout_s: float = 2.0) -> AvailabilityVerdict:
-        return AvailabilityVerdict(
-            source=endpoint.source, live=live, reason="stub", how="stub", elapsed_s=0.0
-        )
-
-    monkeypatch.setattr(availability, "probe_endpoint", answer)
+        self, candidates: tuple[recommend_module.Candidate, ...]
+    ) -> recommend_module.Candidate:
+        self.options.append(tuple(candidate.name for candidate in candidates))
+        return candidates[self.pick]
 
 
 @pytest.fixture
 def picks(monkeypatch: pytest.MonkeyPatch) -> Picks:
-    """A live decision backend that names the option ``Picks.pick`` points at."""
-    _probe(monkeypatch, live=True)
+    """A pick that takes the candidate ``Picks.pick`` points at."""
     chooser = Picks()
-    monkeypatch.setattr(decision, "classify", chooser)
+    monkeypatch.setattr(recommend_module, "_deterministic_pick", chooser)
     return chooser
 
 
@@ -114,7 +88,7 @@ def _every_pick(
     hosts: tuple[str, ...],
     *model_stores: str,
 ) -> tuple[tuple[str, ...], dict[str, tuple[Any, ...]]]:
-    """Name each option in turn; return the options and where each landed."""
+    """Take each candidate in turn; return the names and where each landed."""
     code, plan = run_and_parse(capsys, "code", "single", *model_stores, hosts=hosts)
     assert code == 0, plan
     options = picks.options[-1]
@@ -123,7 +97,6 @@ def _every_pick(
         picks.pick = index
         code, plan = run_and_parse(capsys, "code", "single", *model_stores, hosts=hosts)
         assert code == 0, plan
-        assert plan["decision"] == "model"
         assert picks.options[-1] == options
         placed[options[index]] = _where(plan["placement"])
     return options, placed
@@ -227,9 +200,7 @@ def test_a_deterministic_placement_also_names_its_host(
     monkeypatch: pytest.MonkeyPatch,
     capsys: pytest.CaptureFixture[str],
 ) -> None:
-    """No decision backend answers: the fixed rule picks, and the pick still
-    says where."""
-    _probe(monkeypatch, live=False)
+    """The fixed rule picks, and the pick still says where."""
     _ssh(monkeypatch, *HOSTS)
 
     code, plan = run_and_parse(capsys, "code", "single", STORE_DIR, hosts=HOSTS)

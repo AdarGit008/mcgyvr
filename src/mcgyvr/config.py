@@ -360,11 +360,13 @@ JOURNAL_FIELDS: tuple[Field, ...] = (
 # on your own rig.
 DEFAULT_REQUEST_TIMEOUT_S = 120.0
 
-# How long `serving.servelib.wait_for` watches a unit come up: at most
-# `HEALTH_POLLS` polls of the models it serves, `HEALTH_INTERVAL_S` seconds
-# apart, so 120 polls of three seconds come to six minutes before it gives up.
-HEALTH_POLLS = 120
+# How far apart `serving.servelib.wait_for` polls the models a unit that is
+# coming up serves.
 HEALTH_INTERVAL_S = 3.0
+#: How long `serving.servelib.wait_for` watches a unit come up before it gives
+#: up, when `serving.start_timeout_s` is unset: six minutes, 120 polls three
+#: seconds apart.
+START_TIMEOUT_S_DEFAULT = 360.0
 
 
 BREADTH_FIELDS: tuple[Field, ...] = (
@@ -508,6 +510,23 @@ SERVING_FIELDS: tuple[Field, ...] = (
             "ladder has no "
             "sleeping cards, only down ones"
         ),
+    ),
+    Field(
+        "start_timeout_s",
+        "float",
+        "How long the serving door's `serve up` and `serve wake` watch a unit "
+        "come up before they give up on it and report it down, in seconds. The "
+        f"unit is asked for the models it serves every {HEALTH_INTERVAL_S:g} s "
+        "until it lists them and does not read as asleep, and at least once "
+        "however short this is. `mcgyvr serve wake` and a run that wakes a card "
+        "go through the same door, so they are bounded by this too. The door "
+        f"reads it from the config `${CONFIG_PATH_ENV}` names, else from the "
+        "live fleet's, never from a `--config` path given to the command that "
+        "started it. Raise it for a model whose load takes longer, such as a "
+        "large vLLM unit read off a slow disk.",
+        default=START_TIMEOUT_S_DEFAULT,
+        min_value=0.0,
+        bind_hint="seconds; e.g. 900 for a load that takes longer than six minutes",
     ),
 )
 

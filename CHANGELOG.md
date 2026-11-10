@@ -172,6 +172,18 @@ archived outside this repository, under the same paths.
   file. `docgen.render_setup` adds a paragraph for it, so `make docs`
   regenerates `skills/mcgyvr/SETUP.md` with it. Docs only; no code path changes.
 
+- **SETUP.md says what is and is not supervised for a unit split across
+  machines.** A split that cannot be launched is refused when `mcgyvr emit`
+  or `mcgyvr setup` sizes its units. Once up, each part is kept up on its own
+  rig: a docker part by docker's `unless-stopped` policy and the rig's boot, a
+  `launcher: native` part by mcgyvr's own supervisor, which restarts it and
+  gives up after five exits running and is not started again at boot. Nothing
+  orders a worker before its head or tells the head that a worker on another
+  rig stopped, so the unit's requests fail or time out until the worker is
+  back; the serving door's `serve down` then `serve up` on the head's rig
+  starts the head afresh. Documentation only: supervision stays with compose,
+  the native supervisor and the rig's boot (I-52).
+
 - **mcgyvr keeps one default port, 8080, for every engine, and the setup wizard
   reads vLLM's stock 8000 from the detect sweep instead of spelling it again.**
   `serving.DEFAULT_PORT` is the port any engine's unit listens on when its
@@ -435,6 +447,22 @@ archived outside this repository, under the same paths.
   additive: a hub from before it ignores the field (its models read with
   `extra="ignore"`), and a hub that reads it plans without it for an agent
   that does not send it.
+
+- **`serving.start_timeout_s`: how long the serving door's `serve up` and
+  `serve wake` watch a unit come up.** The door polled each unit 120 times, three seconds apart,
+  and then reported it down, with no way to wait longer for a load that needs
+  it, such as a large vLLM unit read off a slow disk. The key states the
+  limit in seconds (unset: 360, the same six minutes; at least one poll is
+  always made; a negative value is refused when the config is read). The
+  serve step reads it from the config gate 1 read, so `mcgyvr serve wake` and
+  a run that wakes a card through the door are bounded by it too. That config
+  is the one `$MCGYVR_CONFIG` names, else the live fleet's, never a `--config`
+  path given to the command that started the door. A config the step can no
+  longer read, or one that is no longer the config gate 1 read (a `mcgyvr
+  fleet use` in between), is refused (exit 2) before anything starts.
+  `HEALTH_POLLS` is gone:
+  `servelib.wait_for` takes `timeout_s`, and `health_polls` says how many
+  polls it buys (I-53).
 
 - **A worker rig tells the hub which models its tensor cache holds
   (`hello.weight_cache`), so the hub plans a cheaper load there.** The cache
@@ -1073,6 +1101,17 @@ archived outside this repository, under the same paths.
   once instead of serving `.go`, `.rs` and `.java` files without symbols (#747).
 
 ### Removed
+
+- **`mcgyvr recommend --profile code` no longer asks a local model to pick.**
+  It asked whatever answered on `http://127.0.0.1:8080` to choose among the
+  fitting candidates, by name and description only, and fell back to the
+  largest weights when nothing answered, the request failed or the answer
+  named nothing offered. Now it always takes the candidate with the largest
+  weights, as `chat` and `agent` already did, and probes and asks nothing.
+  The plan's `decision` is always `deterministic` for a placement (`null` for
+  a scaffold, as before) and its `decision_endpoint` key is gone. Upgrading: a
+  `code` plan made with a model answering on port 8080 may now name a
+  different candidate; one made without one is unchanged.
 
 - **Sessions, the manager loop and the retired-name shims are gone.** `chat`
   and `agent` are no longer contract task types: `code` is the one shipped
