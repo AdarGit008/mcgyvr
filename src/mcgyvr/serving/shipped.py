@@ -310,11 +310,6 @@ def packed(text: bytes) -> bytes:
     )
 
 
-def b64(data: bytes) -> str:
-    """`data` in base64, as a line of a command or of a rig's stdin."""
-    return base64.b64encode(data).decode("ascii")
-
-
 # --- the programs ----------------------------------------------------------------
 
 #: The modules the native launcher imports, each before any that needs it.
