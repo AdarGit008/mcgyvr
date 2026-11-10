@@ -2380,6 +2380,16 @@ def _resolved_paths(data: dict[str, Any], path: Path | None) -> dict[str, Any]:
     return out
 
 
+def journal_dir(config: Config | None) -> Path:
+    """The journal directory a run under `config` writes into.
+
+    `journal.dir` when the config binds it, else `JOURNAL_DIR_DEFAULT` — also
+    when there is no config at all — with `~` expanded.
+    """
+    configured = config.get("journal.dir") if config is not None else None
+    return Path(configured or JOURNAL_DIR_DEFAULT).expanduser()
+
+
 def named_config_path() -> Path | None:
     """The setup path `MCGYVR_CONFIG` names, or None when it is unset."""
     override = os.environ.get(CONFIG_PATH_ENV)

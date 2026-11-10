@@ -66,7 +66,7 @@ def _run(args: argparse.Namespace) -> int:
     are reported, and the result is written to `--result` (or the journal's
     copy) and copied into every mirror. The exit code returned is the run's.
     """
-    from mcgyvr.config import JOURNAL_DIR_DEFAULT
+    from mcgyvr.config import journal_dir as journal_dir_of
     from mcgyvr.contract import ContractError
     from mcgyvr.contract import load as load_task_contract
     from mcgyvr.deliver import between_deliveries
@@ -158,8 +158,7 @@ def _run(args: argparse.Namespace) -> int:
     # under the state directory when there is no config or the key is unset. `~`
     # is expanded because the default names it, and every path recorded below is
     # built inside this directory.
-    configured = config.get("journal.dir") if config is not None else None
-    journal_dir = Path(configured or JOURNAL_DIR_DEFAULT).expanduser()
+    journal_dir = journal_dir_of(config)
     # `--record` asks for a second, complete copy of this run in a directory of
     # the caller's own: the same journal rows, blobs and results the journal
     # gets. It is a mirror only when it resolves somewhere other than the

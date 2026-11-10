@@ -646,7 +646,7 @@ def _run_delegated(
     from mcgyvr.board import Board, GitSource
     from mcgyvr.capacity import run_eager
     from mcgyvr.cli import streams
-    from mcgyvr.config import JOURNAL_DIR_DEFAULT
+    from mcgyvr.config import journal_dir
     from mcgyvr.replan import SPENT
     from mcgyvr.tree import State
 
@@ -663,7 +663,7 @@ def _run_delegated(
     folder = staging if staging is not None else paths[0].parent
 
     session: Session = args.session
-    journal = Path(config.get("journal.dir") or JOURNAL_DIR_DEFAULT).expanduser()
+    journal = journal_dir(config)
     source = GitSource(repo)
 
     def came_to(contract_id: str, started: str) -> dict[str, Any] | None:
