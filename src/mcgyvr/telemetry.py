@@ -31,7 +31,7 @@ import time
 from pathlib import Path
 from typing import TYPE_CHECKING, Any
 
-from mcgyvr import atomic, hostos
+from mcgyvr import atomic, jsonl
 from mcgyvr.redact import scrub
 from mcgyvr.runner import Completion
 
@@ -672,59 +672,12 @@ def _append(
     The line is serialized once and the same bytes are written to every sink.
     """
     line = (json.dumps(record) + "\n").encode("utf-8")
-    _append_line(path, line)
-    _also(mirrors, on_copy_error, lambda mirror: _append_line(mirror / path.name, line))
-
-
-def _append_line(path: Path, line: bytes) -> None:
-    """Append ``line`` to the journal file at ``path``, creating it if needed.
-
-    The parent directory is created, and the write happens under an exclusive
-    ``flock`` on the file so concurrent writers append whole lines instead of
-    interleaving them.
-    """
-    path.parent.mkdir(parents=True, exist_ok=True)
-    flags = os.O_RDWR | os.O_CREAT | os.O_APPEND | hostos.open_flags_binary()
-    fd = os.open(path, flags, 0o666)
-    try:
-        hostos.lock(fd)
-        try:
-            _terminate_stump(fd)
-            _write_all(fd, line)
-        finally:
-            hostos.unlock(fd)
-    finally:
-        os.close(fd)
-
-
-def _terminate_stump(fd: int) -> None:
-    """End the file in a newline before more is appended to it.
-
-    A writer that died mid-line would otherwise leave a partial line for the next
-    record to be glued onto, and ``_read`` would drop both of them.
-    """
-    end = os.lseek(fd, 0, os.SEEK_END)
-    if end == 0:
-        return
-    os.lseek(fd, end - 1, os.SEEK_SET)
-    if os.read(fd, 1) != b"\n":
-        os.write(fd, b"\n")
-
-
-def _write_all(fd: int, data: bytes) -> None:
-    """Write all of ``data`` to ``fd``, looping while the kernel takes less.
-
-    ``os.write`` may accept fewer bytes than it was given; a write that accepts
-    none is raised as an error naming how much of the record reached the sink.
-    """
-    view = memoryview(data)
-    while view:
-        written = os.write(fd, view)
-        if written <= 0:
-            raise OSError(
-                f"telemetry sink accepted {len(data) - len(view)} of {len(data)} bytes"
-            )
-        view = view[written:]
+    jsonl.append_line(path, line)
+    _also(
+        mirrors,
+        on_copy_error,
+        lambda mirror: jsonl.append_line(mirror / path.name, line),
+    )
 
 
 def _read(path: Path) -> list[Record]:
@@ -737,21 +690,8 @@ def _read(path: Path) -> list[Record]:
     carrying none, raises ``JournalVersionError`` naming its line, because its
     fields would otherwise be read under meanings they were not written with.
     """
-    try:
-        raw = path.read_bytes()
-    except FileNotFoundError:
-        return []
     records: list[Record] = []
-    for number, line in enumerate(raw.splitlines(), start=1):
-        if not line.strip():
-            continue
-        try:
-            text = line.decode("utf-8")
-            parsed = json.loads(text)
-        except (UnicodeDecodeError, json.JSONDecodeError):
-            continue
-        if not isinstance(parsed, dict):
-            continue
+    for number, parsed in jsonl.read_lines(path):
         version = parsed.get("version")
         # `type(...) is int`: JSON `true` loads as a bool, which equals 1.
         if type(version) is not int or version != TELEMETRY_VERSION:

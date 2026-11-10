@@ -33,6 +33,7 @@ from collections.abc import Iterable, Iterator, Mapping
 from pathlib import Path
 from typing import Any
 
+from mcgyvr import jsonl
 from mcgyvr.fleet.admit import layout_ids
 from mcgyvr.fleet.roots import LOCK_DIR
 
@@ -133,8 +134,7 @@ def _journal_file(journal: Path, combination_id: str, key: str) -> Path:
 
 
 def _append(path: Path, row: dict[str, Any]) -> Path:
-    with path.open("a", encoding="utf-8") as fh:
-        fh.write(json.dumps(row, sort_keys=True) + "\n")
+    jsonl.append_line(path, (json.dumps(row, sort_keys=True) + "\n").encode("utf-8"))
     return path
 
 

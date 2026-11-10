@@ -37,6 +37,7 @@ from pathlib import Path
 from typing import Any
 from urllib.parse import urlsplit
 
+from mcgyvr import jsonl
 from mcgyvr.config import DEFAULT_ENGINE
 from mcgyvr.fleet import alerts, ids
 from mcgyvr.fleet.admit import layout_ids
@@ -700,9 +701,9 @@ def record(
         "unloaded": done.unloaded,
     }
     where = filing.journal / filing.stamp["combination_id"]
-    where.mkdir(parents=True, exist_ok=True)
-    with (where / RIG_ROWS).open("a", encoding="utf-8") as rows:
-        rows.write(json.dumps(row, sort_keys=True) + "\n")
+    jsonl.append_line(
+        where / RIG_ROWS, (json.dumps(row, sort_keys=True) + "\n").encode("utf-8")
+    )
     return done
 
 

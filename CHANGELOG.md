@@ -11,6 +11,18 @@ archived outside this repository, under the same paths.
 
 ### Changed
 
+- **Every JSON-lines journal appends through one helper, `mcgyvr.jsonl`
+  (I-107).** "Append one line under a lock, end a torn last line first" was
+  copied letter for letter in `telemetry` and `decision_log`; it is now
+  `jsonl.append_line`, with `jsonl.read_lines` the lenient reader both read
+  through (each keeps its own record checks: the dispatch journal still
+  refuses a row of another `version`). The fleet read's alert journal
+  (`fleet.alerts`) and `rig.jsonl` rows (`fleet.read`) appended with a plain
+  `open("a")`; they now take the same lock and end a torn line before their
+  row, at about 15-25 µs more an append (measured 36-41 -> 50-67 µs on a local
+  disk). A sink that stops taking bytes now says `journal sink accepted ...`
+  where it said `telemetry sink accepted ...`.
+
 - **A contract's `limits.max_output_tokens` is sent (I-102).** It was read,
   shown and never sent: every attempt was sent its unit's maximum. Now an
   attempt is sent the smaller of the two (`gate.preflight.contract_cap`), the
