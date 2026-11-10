@@ -329,7 +329,9 @@ archived outside this repository, under the same paths.
   then applies it, all or nothing, onto the content the prompt showed, in a
   scratch directory git is kept from climbing out of; context must match
   exactly. The whole resulting file goes to the gate and delivery unchanged, and
-  a result with no code left is a refusal, as it is for a whole file. Every
+  a result with no code left is a refusal, as it is for a whole file; so is a
+  block with no code in it (comments only, or a JSON status), before it is read
+  as a diff, so the model is not told to guess one. Every
   refusal, a context mismatch included, is a named `ReplyError`
   (`malformed-diff`, `diff-outside-contract`, `diff-many-files`,
   `diff-not-a-text-edit`, `diff-does-not-apply`), so the draw fails and the next

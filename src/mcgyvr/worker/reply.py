@@ -544,6 +544,12 @@ def _diffed(
     block = _fenced(text, output_schema=UNIFIED_DIFF, stop_reason=stop_reason)
     if isinstance(block, ReplyError):
         return block
+    # A refusal dressed as a block (comments only, or a JSON status blob) is
+    # named as one before it is read as a diff: as `malformed-diff` its retry
+    # note would push the model to guess a diff instead of escalating. Every
+    # diff line (`---`, `+++`, `@@`, hunk lines) is code to this check.
+    if _carries_no_code(block.content, target):
+        return _refusal(target)
     diff = parse_diff(block.content, target=target)
     if isinstance(diff, ReplyError):
         return diff

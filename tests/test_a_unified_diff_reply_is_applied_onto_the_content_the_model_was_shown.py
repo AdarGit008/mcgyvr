@@ -330,6 +330,24 @@ def test_a_diff_that_leaves_no_code_is_a_refusal() -> None:
     assert refused(_fence(body)).code == "refusal"
 
 
+@pytest.mark.parametrize(
+    "block",
+    [
+        "# I cannot change this without knowing the retry policy.\n",
+        '{"status": "blocked", "reason": "the retry policy is not stated"}\n',
+    ],
+    ids=["comment-only", "json-status"],
+)
+def test_a_refusal_dressed_as_the_block_is_a_refusal_not_a_bad_diff(
+    block: str,
+) -> None:
+    """A block that is not a diff at all but carries no code is the model
+    declining: named `refusal`, so it escalates, not `malformed-diff`, whose
+    retry note would push the model to guess a diff."""
+    for info in ("diff", "python"):
+        assert refused(_fence(block, info)).code == "refusal"
+
+
 def test_a_diff_reply_needs_its_target_and_base() -> None:
     with pytest.raises(ValueError, match="base content"):
         parse_reply(GOOD, output_schema="unified_diff", target=TARGET)
