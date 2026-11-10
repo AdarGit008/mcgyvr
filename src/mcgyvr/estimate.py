@@ -179,7 +179,7 @@ def classes_path() -> Path:
     return found
 
 
-_TOP_KEYS = frozenset({"_doc", "schema", "classes", "_sources"})
+_TOP_KEYS = frozenset({"_doc", "schema_version", "classes", "_sources"})
 _ROW_KEYS = frozenset(
     {
         "id",
@@ -253,7 +253,7 @@ def load_classes(path: Path | None = None) -> tuple[HardwareClass, ...]:
         raw = json.loads(where.read_text(encoding="utf-8"))
     except (OSError, ValueError) as exc:
         raise HardwareClassesError(f"cannot read {where}: {exc}") from exc
-    if not isinstance(raw, dict) or raw.get("schema") != CLASSES_SCHEMA:
+    if not isinstance(raw, dict) or raw.get("schema_version") != CLASSES_SCHEMA:
         raise HardwareClassesError(f"{where}: not schema {CLASSES_SCHEMA}")
     unknown = sorted(set(raw) - _TOP_KEYS)
     if unknown:

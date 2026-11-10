@@ -793,6 +793,10 @@ def _names_this_machine(name: str) -> bool:
 
     Anything else, including a name that is not an IP address at all, is another
     host's name as far as this check can tell.
+
+    This is the loose match :func:`resolve_hosts` finds a host's rig file by.
+    A unit's bind and key are decided by the exact names of
+    `gatelib.LOCAL_RIGS` alone, and this check must never take their place.
     """
     lowered = name.strip().lower().rstrip(".")
     if lowered in _LOCAL_NAMES:
