@@ -164,7 +164,7 @@ def test_an_unverified_row_is_used_and_flagged(
 @pytest.mark.parametrize(
     "broken",
     [
-        {"schema": 99},
+        {"schema_version": 99},
         {"extra": 1},
         {"classes": []},
         {"classes": [{**hwclasses.ROWS[0], "score": 1}]},
