@@ -1,18 +1,17 @@
 """A rig's lease file, read and written one operation at a time, in Python.
 
 The lease (:mod:`mcgyvr.serving.gatelib`) is one line in ``lease`` under the
-rig's lease folder. This is its Python implementation: the one the door runs on
-this machine when it reaches it without ssh, and the one it ships to a macOS or
-Windows rig (``mcgyvr.serving.shipped.lease``), which has an interpreter but,
-on Windows, no bash. A Linux rig is still sent gatelib's bash scripts, whose
-statuses and writes these are.
+rig's lease folder. This is its one implementation: the door runs it on this
+machine when it reaches it without ssh, and ships it to every other rig, Linux,
+macOS or Windows (``mcgyvr.serving.shipped.lease``), whose Python runs it. A
+Linux rig was sent bash scripts before; these are their statuses and writes.
 
 Statuses: 0 done, 1 a free take found a lease there, 3 the lease is not the one
 expected, 4 no lease folder, 5 the lease file could not be read. Each operation
 holds ``lease.lock`` beside the file (:func:`mcgyvr.hostos.lock`), so two on
 one machine do not interleave. Every write goes through a temporary file
-renamed over the lease (:func:`mcgyvr.atomic.write`), as the scripts' ``mv -f``
-does; a free take creates it exclusively, as ``set -C`` does.
+renamed over the lease (:func:`mcgyvr.atomic.write`); a free take creates it
+exclusively, so a lease already there is never written over.
 
 Run as a program: ``OP FOLDER [held=ID] [line=LINE]``, with the lease on
 stdout and a failure on stderr, exiting with the status. Standard library,
@@ -31,7 +30,7 @@ from mcgyvr import atomic, hostos
 #: The lease file and its lock, inside the lease folder.
 FILE = "lease"
 LOCK = "lease.lock"
-#: The operations, by the names gatelib's scripts carry.
+#: The operations, by the names gatelib calls them.
 OPS = ("read", "take_free", "take_stale", "stamp", "release")
 
 

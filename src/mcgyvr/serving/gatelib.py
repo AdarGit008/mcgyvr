@@ -1094,9 +1094,9 @@ def release(out_dir: Path, run_id: str) -> None:
 # two live runs off one rig. The holder is named by pid and that process's start
 # time, so a recycled pid is not mistaken for the run that took the lease.
 
-#: Where the lease lives on the rig, spelled for the shell that reads and writes
-#: it: a directory the lease scripts make when it is missing, and the file inside
-#: it.
+#: Where the lease lives on the rig, as the lease program is handed it (``~``
+#: is the rig user's home, expanded there): a folder the program makes when it
+#: is missing, and the file inside it.
 LEASE_DIR = "~/.mcgyvr"
 LEASE_FILE = f"{LEASE_DIR}/lease"
 #: What one field of a lease line may hold: one plain token, since a lease line is
@@ -1105,13 +1105,9 @@ LEASE_TOKEN = re.compile(r"[A-Za-z0-9._@:+/-]+")
 #: The variable a run's lease is handed down to it in, so a step releases the rig
 #: from what the door exported instead of reading the lease back off the rig.
 LEASE_VAR = "RUN_LEASE"
-#: How every lease operation reaches the rig: bash reads the script from stdin and
-#: `lease` becomes argv[0], so a process listing on the rig says what the shell is
-#: for.
-LEASE_SHELL = "bash -s -- lease"
 
-#: What a lease operation is sent through in place of ssh: the host and the script
-#: for its stdin, answering with the finished call.
+#: What a lease operation is sent through in place of ssh: the host, the command
+#: and its stdin, answering with the finished call.
 Transport = Callable[[str, str, "str | None"], "subprocess.CompletedProcess[str]"]
 
 
@@ -1303,7 +1299,7 @@ def held_by(host: str, held: Lease) -> str:
     )
 
 
-def _lease_script(
+def _lease_call(
     via: Transport | None, host: str, op: str, **fields: str
 ) -> subprocess.CompletedProcess[str]:
     try:
@@ -1315,69 +1311,37 @@ def _lease_script(
         )
 
 
-#: The lease scripts, run on the rig as `bash -s -- lease` with their fields
-#: filled in. Each answers with its status: 0 the lease now reads as this run
-#: wrote it, 3 the lease is not the one expected, 4 no lease directory.
-_READ = f"cat {LEASE_FILE} 2>/dev/null || true\n"
-_TAKE_FREE = "mkdir -p {dir} || exit 4\nset -C\nprintf '%s\\n' '{line}' > {file}\n"
-#: Replacing a lease is the same write behind a check: it only goes through while
-#: the file still holds the lease the caller was told about, or holds nothing.
-_TAKE_STALE = (
-    "mkdir -p {dir} || exit 4\nf={file}\n"
-    "if [ -z '{held}' ]; then grep -qs -- '[^[:space:]]' \"$f\" && exit 3; "
-    "else grep -qs -- 'lease_id={held} ' \"$f\" || exit 3; fi\n"
-    'printf \'%s\\n\' \'{line}\' > "$f.$$" && mv -f "$f.$$" "$f"\n'
-)
-_STAMP = (
-    "f={file}\n"
-    "grep -qs -- 'lease_id={held} ' \"$f\" || exit 3\n"
-    'printf \'%s\\n\' \'{line}\' > "$f.$$" && mv -f "$f.$$" "$f"\n'
-)
-_RELEASE = 'f={file}\ngrep -qs -- \'lease_id={held} \' "$f" && rm -f "$f"\ntrue\n'
-#: Each lease operation by name, as the script the rig's shell runs.
-_LEASE_SCRIPTS = {
-    "read": _READ,
-    "take_free": _TAKE_FREE,
-    "take_stale": _TAKE_STALE,
-    "stamp": _STAMP,
-    "release": _RELEASE,
-}
-
-
 def _lease_op(
     host: str, op: str, *, via: Transport | None = None, **fields: str
 ) -> subprocess.CompletedProcess[str]:
-    """Run the lease operation `op` on `host`, answering as its shell script does.
+    """Run the lease operation `op` on `host`, answering with its status.
 
-    On a rig the door reaches through its local transport it is
-    :func:`_local_lease`. On a Linux rig over ssh (or `via`) it is the script,
-    as it always was. On a macOS or Windows rig it is the same Python lease
-    (:mod:`mcgyvr.serving.leasefile`), shipped as the reader is: a Windows rig
-    has no bash, and one implementation answers for both.
+    There is one lease, :mod:`mcgyvr.serving.leasefile`. On a rig the door
+    reaches through its local transport it runs here (:func:`_local_lease`);
+    on any other rig, Linux, macOS or Windows, over ssh (or `via`), it is
+    shipped as a program (:func:`mcgyvr.serving.shipped.lease`), as the reader
+    is, and run by the rig's Python. It answers with leasefile's statuses.
     """
     if via is None and local_transport(host):
         return _local_lease(op, **fields)
-    system = LINUX if via is not None else rig_system(host)
-    if system != LINUX:
-        from mcgyvr.serving import shipped
+    from mcgyvr.serving import shipped
 
-        try:
-            sent = ship(
-                system,
-                shipped.packed(shipped.lease()),
-                (op, LEASE_DIR, *(f"{k}={v}" for k, v in sorted(fields.items()))),
-            )
-        except ValueError as exc:
-            refuse(f"lease: the lease cannot be sent to {host}: {exc}")
-        return ssh(host, sent.command, input=sent.stdin)
-    script = _LEASE_SCRIPTS[op].format(dir=LEASE_DIR, file=LEASE_FILE, **fields)
-    return (via or _over_ssh)(host, LEASE_SHELL, script)
+    system = LINUX if via is not None else rig_system(host)
+    try:
+        sent = ship(
+            system,
+            shipped.packed(shipped.lease()),
+            (op, LEASE_DIR, *(f"{k}={v}" for k, v in sorted(fields.items()))),
+        )
+    except ValueError as exc:
+        refuse(f"lease: the lease cannot be sent to {host}: {exc}")
+    return (via or _over_ssh)(host, sent.command, sent.stdin)
 
 
 def _local_lease(op: str, **fields: str) -> subprocess.CompletedProcess[str]:
-    """The lease scripts' operation `op` on this machine's lease file, in Python
-    (:func:`mcgyvr.serving.leasefile.operate`, the implementation a macOS or
-    Windows rig is shipped)."""
+    """The lease operation `op` on this machine's lease file
+    (:func:`mcgyvr.serving.leasefile.operate`, the program every other rig is
+    shipped)."""
     from mcgyvr.serving import leasefile
 
     code, out, err = leasefile.operate(op, LEASE_DIR, fields)
@@ -1388,9 +1352,9 @@ def lease_read(host: str, *, via: Transport | None = None) -> Lease | None:
     """The lease `host` holds right now, or None when it holds none.
 
     A lease that cannot be read at all is a refusal: a rig whose lease cannot be
-    read is not entered. `via` sends the script by something other than ssh.
+    read is not entered. `via` sends the program by something other than ssh.
     """
-    done = _lease_script(via, host, "read")
+    done = _lease_call(via, host, "read")
     if done.returncode != 0:
         refuse(
             f"lease: the lease on {host} could not be read: "
@@ -1411,7 +1375,7 @@ def lease_take(host: str, lease: Lease, *, held: Lease | None) -> Lease | None:
     run holds is a refusal.
     """
     if held is None:
-        done = _lease_script(None, host, "take_free", line=lease.line())
+        done = _lease_call(None, host, "take_free", line=lease.line())
         if done.returncode == 0:
             return None
         now = lease_read(host)
@@ -1424,7 +1388,7 @@ def lease_take(host: str, lease: Lease, *, held: Lease | None) -> Lease | None:
         held_id = held.lease_id
     else:
         refuse(f"lease: {held_by(host, held)}")
-    done = _lease_script(None, host, "take_stale", held=held_id, line=lease.line())
+    done = _lease_call(None, host, "take_stale", held=held_id, line=lease.line())
     if done.returncode == 0:
         return None
     now = lease_read(host)
@@ -1446,7 +1410,7 @@ def lease_stamp(host: str, lease: Lease, run_id: str) -> Lease:
     nothing is minted on a rig this run no longer holds.
     """
     stamped = replace(lease, run_id=run_id)
-    done = _lease_script(None, host, "stamp", held=lease.lease_id, line=stamped.line())
+    done = _lease_call(None, host, "stamp", held=lease.lease_id, line=stamped.line())
     if done.returncode == 0:
         return stamped
     now = lease_read(host)
@@ -1467,9 +1431,9 @@ def lease_stamp(host: str, lease: Lease, run_id: str) -> Lease:
 def lease_release(host: str, lease_id: str, *, via: Transport | None = None) -> bool:
     """Remove this run's lease from `host`, and say whether it is gone.
 
-    The script removes the file only while it still holds `lease_id`, so a lease
+    The lease removes the file only while it still holds `lease_id`, so a lease
     another run has taken since is left alone. False means the release could not
-    be confirmed — a shell that timed out or exited non-zero.
+    be confirmed — a call that timed out or exited non-zero.
     """
     try:
         done = _lease_op(host, "release", via=via, held=lease_id)

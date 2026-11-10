@@ -8,8 +8,8 @@ it, whichever machine the run starts from and wherever that machine keeps its
 config folder; two runs that named it differently would each find the machine
 free.
 
-Nothing is reached: the transport the lease scripts travel over is replaced by
-one that records what would have been sent.
+Nothing is reached: the transport the lease travels over is replaced by one
+that records what would have been sent.
 """
 
 from __future__ import annotations
@@ -37,7 +37,7 @@ STALE = dataclasses.replace(LEASE, lease_id="fedcba9876543210", pid=4_000_000_00
 
 
 def _sent(monkeypatch: pytest.MonkeyPatch) -> list[str]:
-    """Every lease script a run sends: read, take a free machine, reclaim a
+    """Every lease call a run sends: read, take a free machine, reclaim a
     stale lease, stamp and release."""
     sent: list[str] = []
 
@@ -56,7 +56,7 @@ def _sent(monkeypatch: pytest.MonkeyPatch) -> list[str]:
     return sent
 
 
-def test_moving_the_config_folder_leaves_every_lease_script_as_it_was(
+def test_moving_the_config_folder_leaves_every_lease_call_as_it_was(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
     monkeypatch.delenv("MCGYVR_HOME", raising=False)
@@ -69,8 +69,8 @@ def test_moving_the_config_folder_leaves_every_lease_script_as_it_was(
 
     assert after == before
     assert len(after) == 5
-    assert all(gatelib.LEASE_FILE in script for script in after), after
-    assert not any(str(moved) in script for script in after), after
+    assert all(f" '{gatelib.LEASE_DIR}'" in call for call in after), after
+    assert not any(str(moved) in call for call in after), after
 
 
 def test_the_lease_is_named_from_the_served_machines_own_home(
@@ -79,4 +79,4 @@ def test_the_lease_is_named_from_the_served_machines_own_home(
     for name in (gatelib.LEASE_DIR, gatelib.LEASE_FILE):
         assert name.startswith("~/"), name
     local = str(Path.home())
-    assert not any(local in script for script in _sent(monkeypatch))
+    assert not any(local in call for call in _sent(monkeypatch))
