@@ -84,6 +84,8 @@ is here:
   :func:`counts_as_lent`);
 * what a member chooses to lend on a rig (:class:`Lending`, carried as
   :data:`LENDING_FIELD`);
+* whether a hub admin has approved this member to host strangers (carried in
+  the ack as :data:`HOSTING_APPROVED_FIELD`);
 * the llama.cpp RPC protocol version a rig speaks (:class:`RpcProto`, carried
   as :data:`RPC_PROTO_FIELD`) and which workers a head may take
   (:func:`rpc_compatible`);
@@ -1301,6 +1303,15 @@ class Lending:
             self.ram_mb, LEND_FLOOR_MB[RESOURCE_RAM], RESOURCE_MAX_MB, "ram_mb"
         )
         _lent_or_none(self.cpu_cores, LEND_FLOOR_CORES, MAX_RESOURCE_CORES, "cpu_cores")
+
+
+# --- whether the hub has approved this member to host strangers ------------------
+
+#: The ack field carrying whether a hub admin has approved this member to host
+#: strangers on their rigs (the general pool's ``anyone``, riders on their
+#: units). A bool when the hub says, and left out otherwise: an older hub that
+#: predates the approval sends none, and the agent then says nothing of it.
+HOSTING_APPROVED_FIELD = "hosting_approved"
 
 
 # --- the RPC protocol a split model's workers speak -------------------------------

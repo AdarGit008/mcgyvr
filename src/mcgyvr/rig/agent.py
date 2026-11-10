@@ -137,6 +137,9 @@ class Status:
     rig_id: str | None
     heartbeat_s: int | None
     last_ack_at: float | None
+    #: Whether a hub admin has approved this member to host strangers, as the
+    #: last ack said; None until the hub says, or from an older hub.
+    hosting_approved: bool | None = None
 
 
 def shown(text: str) -> str:
@@ -196,6 +199,9 @@ class _Session:
         #: What the member chose on the hub for this rig to lend, when said.
         self.lending: hubwire.Lending | None = None
         self.lending_unread: str | None = None
+        #: Whether a hub admin has approved this member to host strangers, as the
+        #: last ack said; None until an ack carries it.
+        self.hosting_approved: bool | None = None
 
     def on_ack(self, ack: protocol.Ack) -> None:
         self.acked.add(ack.re)
@@ -207,6 +213,8 @@ class _Session:
             self.rig_id = ack.rig_id
         if ack.heartbeat_interval_s is not None:
             self.interval = ack.heartbeat_interval_s
+        if ack.hosting_approved is not None:
+            self.hosting_approved = ack.hosting_approved
         self._told(self)
 
     def on_error(self, error: protocol.Error) -> None:
@@ -434,6 +442,7 @@ class Agent:
                 rig_id=session.rig_id if session else None,
                 heartbeat_s=session.interval if session else None,
                 last_ack_at=acked,
+                hosting_approved=session.hosting_approved if session else None,
             )
         )
 
