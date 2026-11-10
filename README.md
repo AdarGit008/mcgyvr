@@ -112,8 +112,12 @@ cheapest-first until a rung passes the gate or a ceiling stops it.
   can be asked to do: the task type (`code`), the families work
   may start on (`deterministic`, `local`, `api`), and the evidence each type
   must carry.
-- **Fleet** (`src/mcgyvr/fleet/`) — reads `fleet.yaml` (units, rigs, fleets)
-  and `policy.yaml` (the ladder and policy settings), locks a sampled fleet
+- **Fleet** (`src/mcgyvr/fleet/`) — reads `fleet.yaml` (units, rigs, fleets),
+  `policy.yaml` (the ladder and policy settings), and the two files a sync
+  writes beside them and nothing else does: `hitchhike.yaml` (the hitchhike
+  rungs a hub lends you, from `mcgyvr rig rungs sync`; read from its old name
+  `relief.yaml` for one release) and `crew.yaml` (the units your crews lend
+  you, from `mcgyvr rig crew sync`). It locks a sampled fleet
   and promotes it to `~/.mcgyvr/fleets/`, with `~/.mcgyvr/live.json` naming
   the live one.
 - **Ladder** — `src/mcgyvr/ladder_map.py` resolves a setup into the dispatch

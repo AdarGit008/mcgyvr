@@ -11,6 +11,26 @@ archived outside this repository, under the same paths.
 
 ### Changed
 
+- **`relief.yaml` is `hitchhike.yaml`, and nothing says relief rung any
+  more.** A rung a hub lends you is a hitchhike rung (slot sharing; the owner:
+  relief rung is not a concept). `mcgyvr rig rungs sync` writes
+  `hitchhike.yaml` with its one key `hitchhike` and removes an old
+  `relief.yaml` beside it. Migration: none needed; a setup holding only
+  `relief.yaml` is read from it, under its key `relief`, for one release, and
+  the rig agent's next refresh (or `mcgyvr rig rungs sync`) rewrites it. A
+  `relief` block in fleet.yaml, policy.yaml or a setup written as one document
+  is refused, naming `hitchhike`. The config reference's `relief.*` fields are
+  `hitchhike.*`; a result file's per-attempt `relief` is `hitchhike`; `mcgyvr
+  ladder show` lists *Hitchhike rungs*. On the wire, the rider no longer
+  requires the hub's constant `relief: true` on each rung, and the published
+  rider schema drops it (a hub keeps sending it one release for rigs before
+  this one). For Python callers: `Config.relief`, `Unit.relief`,
+  `RELIEF_FILENAME`, `load_relief`, `ReliefUnavailableError` and the rest are
+  their `hitchhike` names. Also: hubwire's `ONE_PER_RIG`,
+  `SESSION_KEY_CONTEXT`, `HEAD_DEVICE_RPC` and `QUANT_CLASSES`, read nowhere
+  else, are private (`_ONE_PER_RIG` and so on), and `scan.BYTES_PER_GB` is
+  `BYTES_PER_GIB` (1024**3 bytes).
+
 - **`mcgyvr local_pool` is now `mcgyvr ladder show`, and SETUP.md opens its
   words with a glossary.** The verb printed the ladder but was named for a
   pool, which the hub's pool is not; `mcgyvr local_pool` is refused with the
