@@ -259,7 +259,7 @@ def _load_shipped(path: Path | None) -> tuple[Path, dict[str, Any]]:
     numbers = document.get("numbers")
     if not isinstance(numbers, dict):
         return where, {}
-    schema = document.get("schema")
+    schema = document.get("schema_version")
     if isinstance(schema, bool) or schema != NUMBERS_SCHEMA:
         has = "states no schema" if schema is None else f"is schema {_shown(schema)}"
         raise DerivedNumbersError(

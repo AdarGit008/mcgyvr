@@ -30,6 +30,7 @@ from functools import cache
 from pathlib import Path, PurePosixPath
 from typing import ClassVar
 
+from mcgyvr.credential_shapes import KNOWN_CREDENTIAL_VARS, words_alternation
 from mcgyvr.gitcmd import run_git
 from mcgyvr.hubwire import SCOPE_ANYONE, SCOPE_CREW, SCOPE_OWN
 from mcgyvr.redact import scrub
@@ -45,34 +46,14 @@ _GIT_IDENTITY = {
     "GIT_COMMITTER_EMAIL": "sandbox@mcgyvr.invalid",
 }
 
-# The shape of a variable name that names a credential: the word appearing
-# anywhere in the name is enough, so `AWS_SECRET_ACCESS_KEY` and
-# `SESSION_TOKEN` both match; `_KNOWN_CREDENTIAL_VARS` covers the names this
-# pattern misses.
-_CREDENTIAL_NAME = re.compile(
-    r"(KEY|TOKEN|SECRET|PASSWORD|PASSWD|CREDENTIAL|_AUTH|APIKEY|SESSION)",
-    re.IGNORECASE,
-)
-
-# Credentials whose names the pattern above would not catch, listed by name.
-_KNOWN_CREDENTIAL_VARS = frozenset(
-    {
-        "ANTHROPIC_API_KEY",
-        "OPENAI_API_KEY",
-        "GEMINI_API_KEY",
-        "GOOGLE_API_KEY",
-        "GROQ_API_KEY",
-        "MISTRAL_API_KEY",
-        "COHERE_API_KEY",
-        "HF_TOKEN",
-        "HUGGING_FACE_HUB_TOKEN",
-        "GH_TOKEN",
-        "GITHUB_TOKEN",
-        "AWS_ACCESS_KEY_ID",
-        "AWS_SECRET_ACCESS_KEY",
-        "AWS_SESSION_TOKEN",
-    }
-)
+# This check's rule: a variable name names a credential when one of the shared
+# credential words (`mcgyvr.credential_shapes`) appears anywhere in it — a
+# substring of the name, so `AWS_SECRET_ACCESS_KEY` and `SESSION_TOKEN` both
+# match — or when the name is one of the known full names. The vocabulary comes
+# from the shared module; this pattern, the substring rule over it, is built and
+# kept here.
+_CREDENTIAL_NAME = re.compile(f"(?:{words_alternation()})", re.IGNORECASE)
+_KNOWN_CREDENTIAL_VARS = KNOWN_CREDENTIAL_VARS
 
 
 #: The exit code a command is reported with when the sandbox killed it at the
@@ -663,7 +644,10 @@ _SECRET_UNDER = {
 #: reads them and looks for a token, password or auth entry.
 _LOGIN_RC = frozenset({".npmrc", ".pypirc", ".yarnrc", ".yarnrc.yml"})
 
-_RC_LOGIN = re.compile(r"(auth|token|password|passwd|secret)\w*\s*[=:]", re.IGNORECASE)
+# This check's rule: a login line in an rc file is one of the shared credential
+# words (`mcgyvr.credential_shapes`) followed by `=` or `:`. The vocabulary is
+# shared; the word-then-assignment pattern is built and kept here.
+_RC_LOGIN = re.compile(rf"(?:{words_alternation()})\w*\s*[=:]", re.IGNORECASE)
 
 
 def holds_a_secret(path: Path) -> bool:

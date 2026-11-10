@@ -1,9 +1,9 @@
 """The record every language extractor emits: :class:`Symbol` and :class:`SymbolKind`.
 
 It lives below the extractors so that each of them, and
-:mod:`mcgyvr.orchestrator.symbols` which dispatches to them, can import it without
+:mod:`mcgyvr.repo.symbols` which dispatches to them, can import it without
 importing one another. Callers import both names from
-:mod:`mcgyvr.orchestrator.symbols`.
+:mod:`mcgyvr.repo.symbols`.
 """
 
 from __future__ import annotations

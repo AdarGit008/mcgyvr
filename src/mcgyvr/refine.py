@@ -56,15 +56,15 @@ from typing import TYPE_CHECKING, Any, Protocol
 
 from mcgyvr.config import MAX_REFINE_FANOUT_DEFAULT, MAX_SPLITS_PER_FILE_DEFAULT
 from mcgyvr.decision import Choice, Noul, Question
-from mcgyvr.orchestrator.candidates import (
+from mcgyvr.decompose.candidates import (
     CandidateSet,
     FieldCandidate,
     kind_for,
     symbols_of,
 )
-from mcgyvr.orchestrator.decompose import Evidence, Proposal, Refusal
-from mcgyvr.orchestrator.iterate import Classifier, reproposals
-from mcgyvr.orchestrator.provides import declared_names, identifiers, renames
+from mcgyvr.decompose.decompose import Evidence, Proposal, Refusal
+from mcgyvr.decompose.iterate import Classifier, reproposals
+from mcgyvr.decompose.provides import declared_names, identifiers, renames
 
 if TYPE_CHECKING:  # pragma: no cover - typing only
     from mcgyvr.config import Config

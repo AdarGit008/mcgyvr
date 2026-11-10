@@ -14,7 +14,7 @@ from pathlib import Path
 
 import pytest
 
-from mcgyvr.orchestrator.decompose import (
+from mcgyvr.decompose.decompose import (
     Decomposition,
     DepRef,
     Proposal,
@@ -22,7 +22,7 @@ from mcgyvr.orchestrator.decompose import (
     Refusal,
     decompose,
 )
-from mcgyvr.orchestrator.index import Index, build_index
+from mcgyvr.repo.index import Index, build_index
 from tests.decomposes import an_annotation, git
 
 

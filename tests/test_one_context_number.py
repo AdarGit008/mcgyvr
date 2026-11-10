@@ -11,7 +11,7 @@ from the unit rather than assumed.
 constants matching ``CONTEXT|CTX`` is defeated by a rename and flags constants that
 are not windows at all — ``hubwire.CARD_CONTEXT_MIB`` (part of the placement
 allowance) and
-``_DEFAULT_CONTEXT`` in ``orchestrator/read.py`` (lines of source context for a file
+``_DEFAULT_CONTEXT`` in ``repo/read.py`` (lines of source context for a file
 reader).
 """
 

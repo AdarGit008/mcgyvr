@@ -34,9 +34,8 @@ from mcgyvr.decision import (
     DecisionError,
     Question,
 )
-from mcgyvr.delegate import MIN_CONFIDENCE, ClassifierProposer, classifier_proposer_for
-from mcgyvr.local_pool import source_map
-from mcgyvr.orchestrator.candidates import (
+from mcgyvr.decision_log import ShadowSink, read
+from mcgyvr.decompose.candidates import (
     _NO_SYMBOL,
     CandidateSet,
     Provenance,
@@ -53,11 +52,12 @@ from mcgyvr.orchestrator.candidates import (
     task_candidates,
     task_type_candidates,
 )
-from mcgyvr.orchestrator.decompose import Evidence, Refusal
-from mcgyvr.orchestrator.index import Index, build_index
-from mcgyvr.orchestrator.read import explore
-from mcgyvr.orchestrator.resolve import resolve
-from mcgyvr.orchestrator.telemetry import ShadowSink, read
+from mcgyvr.decompose.decompose import Evidence, Refusal
+from mcgyvr.delegate import MIN_CONFIDENCE, ClassifierProposer, classifier_proposer_for
+from mcgyvr.local_pool import source_map
+from mcgyvr.repo.index import Index, build_index
+from mcgyvr.repo.read import explore
+from mcgyvr.repo.resolve import resolve
 from tests import ungated
 
 #: A keyless local ladder with no orchestrator or jev block.
