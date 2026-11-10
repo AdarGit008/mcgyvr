@@ -27,9 +27,20 @@ from tests.machinereader import machine_reading
 
 
 def _with_memory(
-    document: dict[str, Any], total_gb: float = 64.0, available_gb: float | None = 40.5
+    document: dict[str, Any],
+    total_mib: int = 64 * 1024,
+    available_gb: float | None = 40.5,
 ) -> dict[str, Any]:
-    return {**document, "memory": {"total_gb": total_gb, "available_gb": available_gb}}
+    """The reading with this much host RAM, as the reader writes it: the exact MiB
+    on the host-RAM resource and the GB figure rounded from it on the memory
+    section. A machine whose invented tree has no meminfo gets the resource the
+    reader would have written."""
+    from mcgyvr.serving import rigscan
+
+    resources = [r for r in document["resources"] if r.get("kind") != "ram"]
+    resources += rigscan._resources([], (total_mib, None), None)
+    memory = {"total_gb": round(total_mib / 1024, 1), "available_gb": available_gb}
+    return {**document, "memory": memory, "resources": resources}
 
 
 @pytest.mark.parametrize("machine", shapes(), ids=lambda m: m.label)
@@ -78,11 +89,42 @@ def test_a_machine_with_no_card_reports_none_and_its_memory(tmp_path: Path) -> N
     from mcgyvr.rig import hardware
 
     machine = next(m for m in shapes() if not m.cards)
-    document = _with_memory(machine_reading(machine, tmp_path), 15.6, 9.0)
+    document = _with_memory(machine_reading(machine, tmp_path), 15_974, 9.0)
     report = hardware.read(reader=lambda: document)
     assert report.cards == ()
-    assert report.ram_total_mb == round(15.6 * 1024)
+    assert report.ram_total_mb == 15_974
     assert report.machine_id.startswith("rig-")
+
+
+def test_the_ram_total_is_the_readers_exact_mib_not_its_rounded_gb(
+    tmp_path: Path,
+) -> None:
+    """16 030 MiB reads as 15.7 GB, which is 16 077 MiB again: the report carries
+    the figure the reader counted, the one its host-RAM resource holds."""
+    from mcgyvr.rig import hardware
+
+    machine = next(m for m in shapes() if not m.cards)
+    document = _with_memory(machine_reading(machine, tmp_path), 16_030, 9.0)
+    assert document["memory"]["total_gb"] == 15.7
+    report = hardware.read(reader=lambda: document)
+    (ram,) = [r for r in report.resources if r["kind"] == "ram"]
+    assert report.ram_total_mb == ram["total_mb"] == 16_030
+    assert report.ram_free_mb == round(9.0 * 1024)
+
+
+def test_a_reading_with_no_host_ram_resource_reports_ram_unread(
+    tmp_path: Path,
+) -> None:
+    """The memory section alone is not a total: without the resource the reader
+    counted, the RAM is reported unread, as it is with no memory section."""
+    from mcgyvr.rig import hardware
+
+    machine = next(m for m in shapes() if not m.cards)
+    document = _with_memory(machine_reading(machine, tmp_path))
+    document["resources"] = [r for r in document["resources"] if r["kind"] != "ram"]
+    report = hardware.read(reader=lambda: document)
+    assert (report.ram_total_mb, report.ram_free_mb) == (0, None)
+    assert any("memory" in note.lower() for note in report.notes)
 
 
 def test_memory_that_cannot_be_read_is_reported_as_none_free_and_zero_total(
@@ -104,7 +146,7 @@ def test_a_total_without_an_available_figure_reports_none_free(
     from mcgyvr.rig import hardware
 
     machine = next(m for m in shapes() if not m.cards)
-    document = _with_memory(machine_reading(machine, tmp_path), 16.0, None)
+    document = _with_memory(machine_reading(machine, tmp_path), 16 * 1024, None)
     report = hardware.read(reader=lambda: document)
     assert (report.ram_total_mb, report.ram_free_mb) == (16 * 1024, None)
 

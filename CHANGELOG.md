@@ -119,6 +119,60 @@ archived outside this repository, under the same paths.
   stays in the setup identity: no lock digest, rendered unit or SETUP.md line
   changes. A literal that names llama.cpp as a kind of engine stays.
 
+- **The four model-on-disk listers are pinned together by one test (I-138).**
+  The scan (`rigscan._models_on_disk`), the rig agent (`rig/inventory.read`),
+  recommend's discovery (`recommend.discover_command`) and the local-rig
+  emulator (`localrig.run`) list model files by different rules, on purpose:
+  their protocols differ. One test lists an invented tree with all four and
+  states each rule (formats, depth, split parts, hidden names, case), and
+  checks the emulator against the real `find`. Nothing behaves differently.
+
+- **A scan reads /proc/meminfo and the CPU model once (I-141).** The reader
+  parsed /proc/meminfo three times per scan (the memory section, the bandwidth
+  probe's `_spare_gb`, the snapshot) and looked the CPU model up twice (the CPU
+  section, the snapshot's `cpu_model`). The short reading now reads each once
+  and the probe and snapshot take those reads: `rigscan.measure_bandwidth`
+  takes the memory section's available MiB (`spare_mib`, MemAvailable else
+  MemFree) instead of a root to read from, and `_spare_gb` is gone. A scan's
+  output is unchanged on every invented machine (15 scans compared, meminfo and
+  cpuinfo variants among them), and it does fewer reads: meminfo 3 to 1,
+  cpuinfo 2 to 1. Off Linux the probe still takes its small block, as it did.
+
+- **The native supervisor asks `nvidia-smi` through the reader's runner
+  (I-140).** `native.nvidia_driver` and the card-holder read behind
+  `native.held` ran `nvidia-smi` with their own `subprocess.run`, bounded in
+  time only; both now run through `rigscan._run`, still held to
+  `native.PROBE_S` (10 s) and now also to the reader's output bound
+  (`rigscan.BYTES_MAX`), with the tool's process group ended with it. The
+  answers are the same: the driver or None, and holders as `pid,name,<n>MiB`,
+  "none" or "unread".
+
+- **`mcgyvr detect` finds Docker as the reader finds its tools (I-139).**
+  `detect._run` and `detect_docker` looked the program up with `shutil.which`,
+  which on Windows tries the working folder first and everywhere searches a
+  relative PATH entry; they now use `hostos.which_absolute`, PATH's absolute
+  folders only, and run the path that was found. A `docker` reachable only
+  through the working folder or a relative PATH entry now reads as "not on
+  PATH". The `docker info` check itself and the CPU count are unchanged.
+
+- **A relative `$XDG_CACHE_HOME` is passed over, as a relative
+  `$XDG_STATE_HOME` already was (I-146).** `hostos.user_cache_dir` took any
+  value, so `XDG_CACHE_HOME=cache` put the model index under whatever folder a
+  command ran from; it now honours the variable only when it is absolute (`~`
+  still expanded) and otherwise uses the system's own cache folder. The
+  `weights_dir` docstring no longer says the weights follow the variable (they
+  never did), and SETUP.md's *Folders* says the XDG variables win "when
+  absolute".
+
+- **A hello's `ram_total_mb` is the MiB the reader counted (I-133).** The
+  rig's hardware report (`rig/hardware.py`) took the hello's RAM total from the
+  memory section's GB figure, which the reader rounds to 0.1 GB, so it could
+  differ from the host-RAM resource in the same hello by up to ~51 MiB. It now
+  takes the resource's exact `total_mb`; a reading with no host-RAM resource
+  reports RAM unread (0 MiB total), as one with no memory section did. Every
+  rig's hello figure moves by those few MiB. `recommend`'s own GB-to-MiB turn
+  (`recommend._memory_mib`) is left as it is.
+
 - **Two machine-reading designs are said and pinned; nothing behaves
   differently.** First contact with a rig over ssh is the scan's: `mcgyvr scan
   --rig`, `setup` and `recommend` send a rig with no rig file the POSIX reader,

@@ -1141,18 +1141,18 @@ _MemoryRead: TypeAlias = (
 )
 
 
-def _memory(root: str, bound: float, platform_: _Platform | None = None) -> _MemoryRead:
+def _memory(platform_: _Platform, meminfo: str | None) -> _MemoryRead:
     """Total and available memory in GB, with the facts behind them, the notes
     about anything missing, and both in MiB.
 
     A figure that was not read is never passed off as whole: without a total the
     memory is None with a note, and available memory is None when nothing reported
-    it. Linux reads /proc/meminfo, macOS sysctl and vm_stat, Windows CIM.
+    it. Linux takes /proc/meminfo as the reading read it once (`meminfo`, None when
+    it could not be read), macOS sysctl and vm_stat, Windows CIM.
     """
-    system = "linux" if platform_ is None else platform_.system
-    if platform_ is not None and system != "linux":
+    if platform_.system != "linux":
         return _other_memory(platform_)
-    text, _ = _read(root, "/proc/meminfo")
+    text = meminfo
     if text is None:
         return (
             None,
@@ -1518,20 +1518,19 @@ def _cpu_section(
     }
 
 
-def _cpu(root: str, bound: float, platform_: _Platform | None = None) -> _CpuRead:
+def _cpu(platform_: _Platform, model: str | None) -> _CpuRead:
     """The CPU's model, cores and threads, with the facts and notes.
 
     Linux: lscpu, the cores as Core(s) per socket times the socket count, and
     os.cpu_count() for both counts when lscpu gives no core count, with a note
-    saying that this count is of threads and not of cores; the model from
-    /proc/cpuinfo, else lscpu. macOS: sysctl, with the performance cores.
-    Windows: Win32_Processor, summed over its sockets.
+    saying that this count is of threads and not of cores; the model is the one
+    the reading looked up once (:func:`_cpu_model`: /proc/cpuinfo, else lscpu).
+    macOS: sysctl, with the performance cores. Windows: Win32_Processor, summed
+    over its sockets.
     """
-    platform_ = platform_ or _Platform("linux", bound)
     if platform_.system != "linux":
         return _other_cpu(platform_)
     text, _ = platform_.run(("lscpu",))
-    model = _cpuinfo_model(root) or _lscpu_field(text or "", "Model name") or None
     known = (
         [{"field": "cpu.model", "how": "/proc/cpuinfo, else lscpu"}] if model else []
     )
@@ -1602,6 +1601,22 @@ def _cpuinfo_model(root: str) -> str | None:
         if sep and name.strip() == "model name" and rest.strip():
             return rest.strip()
     return None
+
+
+def _cpu_model(root: str, platform_: _Platform) -> tuple[str | None, str]:
+    """The CPU model as the machine prints it, or None and why: /proc/cpuinfo's
+    model name, else lscpu's Model name (asked through the platform, so the
+    reading runs lscpu once). Looked up once per reading, for the CPU section
+    (:func:`_cpu`, which drops a name it may not print) and the snapshot's
+    cpu_model."""
+    model = _cpuinfo_model(root)
+    if model:
+        return model, ""
+    out, _ = platform_.run(("lscpu",))
+    model = _lscpu_field(out or "", "Model name")
+    if model:
+        return model, ""
+    return None, "cannot read the CPU model (/proc/cpuinfo, lscpu)"
 
 
 def _modules(data: dict[str, Any] | None) -> list[Any]:
@@ -1705,9 +1720,17 @@ class _Short:
         platform_ = _Platform(self.system, bound, keep=not root)
         reading = _Reading()
         machine, self.notes = _machine(root, reading, platform_)
+        # /proc/meminfo and the CPU model are read once per reading, and the scan's
+        # bandwidth probe and snapshot take these same reads (`meminfo`,
+        # `cpu_model`, `spare_mib`) rather than reading them again.
+        linux = self.system == "linux"
+        self.meminfo = _read(root, "/proc/meminfo") if linux else (None, "")
         memory, self.memory_facts, memory_notes, memory_mib = _memory(
-            root, bound, platform_
+            platform_, self.meminfo[0]
         )
+        # Off Linux the probe has always measured as a small machine does: it took
+        # its figure from /proc/meminfo alone.
+        self.spare_mib = memory_mib[1] if linux else None
         self.first_tool: str | None = FIRST_TOOL
         self.rows: list[dict[str, Any]] = []
         if self.system == "darwin":
@@ -1723,7 +1746,10 @@ class _Short:
             _sysfs(reading, root)
         self.first_answered = reading.first_answered
         self.notes += memory_notes
-        self.cpu, self.cpu_facts, self.cpu_notes = _cpu(root, bound, platform_)
+        self.cpu_model = _cpu_model(root, platform_) if linux else (None, "")
+        self.cpu, self.cpu_facts, self.cpu_notes = _cpu(
+            platform_, self.cpu_model[0] or None
+        )
         self.ddr = _ddr(platform_)
         host = _host_section(platform_, reading)
         cards = [reading.cards[where] for where in sorted(reading.cards)]
@@ -1876,31 +1902,21 @@ def _lscpu_int(text: str, key: str) -> int | None:
     return int(value[0]) if value and _DIGITS.fullmatch(value[0]) else None
 
 
-def _spare_gb(root: str) -> float:
-    """The memory a new allocation could take, in GB, from MemAvailable or MemFree;
-    0.0 when meminfo cannot be read, so a machine whose memory cannot be seen is
-    measured by the bandwidth probe as a small one."""
-    text, _ = _read(root, "/proc/meminfo")
-    if text is None:
-        return 0.0
-    available = _meminfo_field(text, "MemAvailable")
-    if available is None:
-        available = _meminfo_field(text, "MemFree")
-    return 0.0 if available is None else available / KB_PER_GB
-
-
-def measure_bandwidth(root: str = "") -> dict[str, Any] | None:
+def measure_bandwidth(spare_mib: int | None = None) -> dict[str, Any] | None:
     """Copy one block of memory onto another and keep the fastest pass.
 
     Two buffers are allocated and one is copied onto the other COPY_PASSES times;
     the result is the highest bytes-copied-per-second of those passes, so one slow
     pass does not drag it down. The block is COPY_MIB, or COPY_MIB_TIGHT when the
-    machine has less than TIGHT_RAM_GB spare beyond the two buffers. None when the
-    buffers cannot be allocated or no pass could be timed, which the caller reports
-    as not measured rather than filling in.
+    machine has less than TIGHT_RAM_GB spare beyond the two buffers. `spare_mib` is
+    the memory a new allocation could take, the available MiB of the reading's own
+    memory section (MemAvailable, else MemFree); None, memory that could not be
+    seen, is measured as a small machine's. None when the buffers cannot be
+    allocated or no pass could be timed, which the caller reports as not measured
+    rather than filling in.
     """
     mib = COPY_MIB
-    if _spare_gb(root) < TIGHT_RAM_GB + 2 * mib / MIB_PER_GB:
+    if (spare_mib or 0) < TIGHT_RAM_GB * MIB_PER_GB + 2 * mib:
         mib = COPY_MIB_TIGHT
     try:
         source = bytearray(mib * MIB_BYTES)
@@ -2210,17 +2226,6 @@ def _cpu_max_mhz(root: str, bound: float) -> tuple[str | None, str]:
     return None, "cannot read cpu_max_mhz (cpufreq/cpuinfo_max_freq, lscpu)"
 
 
-def _cpu_model(root: str, bound: float) -> tuple[str | None, str]:
-    model = _cpuinfo_model(root)
-    if model:
-        return model, ""
-    out, _ = _run(("lscpu",), bound=bound)
-    model = _lscpu_field(out or "", "Model name")
-    if model:
-        return model, ""
-    return None, "cannot read the CPU model (/proc/cpuinfo, lscpu)"
-
-
 def _ram_mt_s(bound: float) -> tuple[str | None, str]:
     # The DDR speed is only in the firmware tables, which dmidecode needs root to
     # read, so `sudo -n` is tried second: it fails at once instead of asking for a
@@ -2396,13 +2401,16 @@ def _snapshot_cards(
 def _snapshot(
     root: str,
     bound: float,
-    machine: Mapping[str, Any],
+    read: _Short,
     cards: list[dict[str, Any]],
     docker: str | None,
     docker_why: str | None,
-    tool: str | None = FIRST_TOOL,
-    system: str = "linux",
 ) -> _Snapshot:
+    """The snapshot keys. /proc/meminfo and the CPU model are the reading's own
+    reads (`read`), not read again."""
+    machine = read.document["machine"]
+    system = read.system
+    tool = read.first_tool
     snapshot = _Snapshot()
     linux = system == "linux"
     # Off Linux the keys read from /proc, /sys, lscpu and dmidecode are unread:
@@ -2410,7 +2418,7 @@ def _snapshot(
     off = (None, f"not read on {system}")
     snapshot.put(*_pair("uptime_since", _uptime_since(root, bound) if linux else off))
     snapshot.put(*_pair("cpu_max_mhz", _cpu_max_mhz(root, bound) if linux else off))
-    snapshot.put(*_pair("cpu_model", _cpu_model(root, bound) if linux else off))
+    snapshot.put(*_pair("cpu_model", read.cpu_model if linux else off))
     snapshot.put(*_pair("ram_mt_s", _ram_mt_s(bound) if linux else off))
     snapshot.put(*_pair("pl1_uw", _power_limit(root, "pl1") if linux else off))
     snapshot.put(*_pair("pl2_uw", _power_limit(root, "pl2") if linux else off))
@@ -2429,7 +2437,7 @@ def _snapshot(
         machine.get("id") or None,
         "the machine id is unread (see machine_id)",
     )
-    meminfo, why = _read(root, "/proc/meminfo") if linux else off
+    meminfo, why = read.meminfo if linux else off
     for key, field in (
         ("mem_available_kib", "MemAvailable"),
         ("mem_total_kib", "MemTotal"),
@@ -2500,22 +2508,13 @@ def scan(
             "sized; the notes above say why."
         ]
     cpu_facts, cpu_notes = read.cpu_facts, read.cpu_notes
-    bandwidth = measure_bandwidth(root)
+    bandwidth = measure_bandwidth(read.spare_mib)
     path = weights_dir if weights_dir is not None else default_weights_dir()
     disk, disk_facts = _disk(path, read.system == "linux")
     models, model_facts = _models_on_disk((*model_stores, path))
     docker, docker_why = _docker(bound)
     network, network_facts, network_notes = _network(bound, read.system)
-    snapshot = _snapshot(
-        root,
-        bound,
-        machine,
-        short["cards"],
-        docker,
-        docker_why,
-        read.first_tool,
-        read.system,
-    )
+    snapshot = _snapshot(root, bound, read, short["cards"], docker, docker_why)
     notes = list(read.notes)
     facts = [
         {

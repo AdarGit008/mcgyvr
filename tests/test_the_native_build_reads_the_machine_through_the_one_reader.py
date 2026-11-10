@@ -11,7 +11,6 @@ Metal working set is filed under.
 
 from __future__ import annotations
 
-import subprocess
 from typing import Any
 
 import pytest
@@ -85,25 +84,69 @@ def test_a_host_whose_arch_the_reader_does_not_name_has_no_build(
         native.pick()
 
 
+def _answering(
+    monkeypatch: pytest.MonkeyPatch, answer: tuple[str | None, str | None]
+) -> list[tuple[list[str], float]]:
+    """The reader's runner stubbed to give ``answer``; what it was asked, kept."""
+    ran: list[tuple[list[str], float]] = []
+
+    def run(
+        argv: list[str], *, bound: float = rigscan.BOUND_S
+    ) -> tuple[str | None, str | None]:
+        ran.append((list(argv), bound))
+        return answer
+
+    monkeypatch.setattr(rigscan, "nvidia_smi", lambda system=None: "/opt/tool/smi")
+    monkeypatch.setattr(rigscan, "_run", run)
+    return ran
+
+
 def test_the_driver_is_asked_of_the_readers_nvidia_smi(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    ran: list[list[str]] = []
-
-    class Done:
-        returncode = 0
-        stdout = "580.95.05\n"
-
-    def run(argv: list[str], **kwargs: Any) -> Done:
-        ran.append(argv)
-        return Done()
-
-    monkeypatch.setattr(rigscan, "nvidia_smi", lambda system=None: "/opt/tool/smi")
-    monkeypatch.setattr(subprocess, "run", run)
+    """Through the reader's runner, held to the native probe's time."""
+    ran = _answering(monkeypatch, ("580.95.05\n", None))
     assert native.nvidia_driver() == "580.95.05"
-    assert ran[0][0] == "/opt/tool/smi"
+    assert ran[0][0][0] == "/opt/tool/smi" and ran[0][1] == native.PROBE_S
+    _answering(monkeypatch, (None, "nvidia-smi did not answer within 10 s"))
+    assert native.nvidia_driver() is None
     monkeypatch.setattr(rigscan, "nvidia_smi", lambda system=None: None)
     assert native.nvidia_driver() is None
+
+
+@pytest.mark.parametrize(
+    ("answer", "holders"),
+    [
+        (
+            ("4242, 900, /opt/app/serve\n77, 12, /usr/bin/x y\n", None),
+            "4242,serve,900MiB;77,x_y,12MiB",
+        ),
+        (("", None), "none"),
+        ((None, None), "none"),
+        ((None, "/opt/tool/smi --query-compute-apps exited 9"), "unread"),
+        ((None, "/opt/tool/smi printed more than 262144 bytes"), "unread"),
+    ],
+)
+def test_the_card_holders_are_asked_of_the_readers_runner(
+    answer: tuple[str | None, str | None],
+    holders: str,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """A tool that is not there names no holder; one that was run and gave no
+    answer leaves them unread, as a non-zero exit always did."""
+    ran = _answering(monkeypatch, answer)
+    assert native._card_holders() == holders
+    assert ran[0][1] == native.PROBE_S
+    assert ran[0][0][1] == "--query-compute-apps=pid,used_memory,process_name"
+
+
+def test_with_no_nvidia_smi_no_card_holder_is_asked_for(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    ran = _answering(monkeypatch, ("never asked", None))
+    monkeypatch.setattr(rigscan, "nvidia_smi", lambda system=None: None)
+    assert native._card_holders() == "none"
+    assert ran == []
 
 
 def test_on_windows_the_readers_tool_is_never_the_working_folders(
