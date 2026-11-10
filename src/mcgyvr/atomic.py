@@ -94,7 +94,10 @@ def write_private(target: Path, text: str) -> Path:
     """
     folder = target.parent
     if not folder.exists():
-        folder.mkdir(mode=0o700, parents=True)
+        # Two first writes at once both see no folder; the later mkdir finds
+        # the one the other just made, as new and as private, and must not
+        # fail on it.
+        folder.mkdir(mode=0o700, parents=True, exist_ok=True)
         hostos.chmod_private(folder, directory=True)
     if target.is_symlink():
         raise PrivateFileError(

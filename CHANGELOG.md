@@ -870,6 +870,14 @@ archived outside this repository, under the same paths.
 
 ### Fixed
 
+- **Two first writes into a home folder that does not exist yet both land.**
+  `rig join` and a service's `rig run` (or two first unit keys) could both
+  find no home folder and both `mkdir` it; the second failed with
+  `FileExistsError` and lost its write, which the identity-key race test
+  caught now and then. `atomic.write_private` and
+  `rig.credentials.write_private` now take the folder the other write just
+  made (still created at 0700) instead of failing on it.
+
 - A relief rung whose host's unit already serves as many rides as it may
   (`503 pool_busy`) is passed over as full, as the other busy answers are,
   instead of failing the dispatch: a sync writes `pool_busy` into each rung's
