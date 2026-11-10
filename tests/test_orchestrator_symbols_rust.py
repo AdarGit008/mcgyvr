@@ -11,7 +11,7 @@ macro bodies stay opaque, and a file cut mid-item still yields what parsed.
 
 from __future__ import annotations
 
-from mcgyvr.orchestrator.symbols import Symbol, SymbolKind, extract, language_of
+from mcgyvr.repo.symbols import Symbol, SymbolKind, extract, language_of
 
 
 def _of(kind: SymbolKind, source: bytes) -> list[Symbol]:

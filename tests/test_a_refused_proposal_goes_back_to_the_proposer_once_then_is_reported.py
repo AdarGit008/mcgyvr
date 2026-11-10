@@ -25,9 +25,8 @@ import mcgyvr.decision as decision
 from mcgyvr.catalog import catalog
 from mcgyvr.config import ConfigSchemaError, parse
 from mcgyvr.decision import Choice
-from mcgyvr.delegate import ClassifierProposer, build_prompt, proposer_by_authoring
-from mcgyvr.delegate_log import read
-from mcgyvr.orchestrator.decompose import (
+from mcgyvr.decision_log import read as read_decisions
+from mcgyvr.decompose.decompose import (
     Evidence,
     Proposal,
     Refusal,
@@ -35,10 +34,11 @@ from mcgyvr.orchestrator.decompose import (
     Reproposal,
     decompose,
 )
-from mcgyvr.orchestrator.index import Index, build_index
-from mcgyvr.orchestrator.read import explore
-from mcgyvr.orchestrator.resolve import resolve
-from mcgyvr.orchestrator.telemetry import read as read_decisions
+from mcgyvr.delegate import ClassifierProposer, build_prompt, proposer_by_authoring
+from mcgyvr.delegate_log import read
+from mcgyvr.repo.index import Index, build_index
+from mcgyvr.repo.read import explore
+from mcgyvr.repo.resolve import resolve
 from mcgyvr.repropose import max_reproposals
 from tests import livejournal as lj
 from tests.refines import ScriptedJev, git, refining, repository
@@ -475,7 +475,7 @@ def test_a_held_batch_keeps_the_counts_and_a_new_log_drops_old_decisions(
     tmp_path: Path, index: Index
 ) -> None:
     from mcgyvr.cli.commands.delegate import _Logbook
-    from mcgyvr.orchestrator.decompose import Decomposition
+    from mcgyvr.decompose.decompose import Decomposition
 
     log = tmp_path / "log.json"
     stale = tmp_path / "log.json.decisions.jsonl"

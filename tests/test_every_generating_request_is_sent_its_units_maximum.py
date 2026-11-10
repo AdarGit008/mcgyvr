@@ -36,7 +36,7 @@ from mcgyvr.gate.preflight import (
     unit_max,
 )
 from mcgyvr.local_pool import source_map
-from mcgyvr.orchestrator.read import estimate_tokens
+from mcgyvr.repo.read import estimate_tokens
 from tests.rungs import caps_sent
 
 CONTRACT = """
@@ -240,8 +240,8 @@ def test_a_role_request_that_states_no_cap_is_sent_the_units_maximum(
 def test_the_decomposer_and_the_reviewer_are_sent_the_units_maximum(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
+    from mcgyvr.decompose.decompose import Evidence
     from mcgyvr.delegate import proposer_for
-    from mcgyvr.orchestrator.decompose import Evidence
     from mcgyvr.verify import reviewer_for
 
     setup = (
