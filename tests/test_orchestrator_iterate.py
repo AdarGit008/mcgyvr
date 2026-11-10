@@ -3,9 +3,9 @@
 `reask` asks the classifier again for the field a refusal names, carrying the
 fields already decided and dropping the rejected candidate from the next
 question, with the refusal's ``what_to_change`` as that field's constraint.
-`reaskable` says whether the classifier decides the field at all. The live
-flow takes the re-ask through `reproposals`
-(test_a_refused_proposal_goes_back_to_the_proposer_once_then_is_reported.py).
+`reaskable` says whether the classifier decides the field at all. A refused
+proposal in a decomposition is not re-asked: it goes to the top rung
+(test_a_refused_proposal_goes_to_the_top_rung_once_then_is_reported.py).
 """
 
 from __future__ import annotations

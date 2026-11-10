@@ -2,12 +2,12 @@
 
 Promise: a process that holds several cards reserves every one of them; a
 worker that lends a card runs ``rpc-server`` with no model and no weights
-mount; a vLLM node that answers nothing renders like any vLLM unit with its
-``--headless``; what an engine reads beside its argv is the service's
-environment, and a clash with what the file already sets is refused by name.
-A launch that needs an image built with RPC support is refused, naming the
-unit, until the unit states one. The compose service and the bare command say
-the same thing, as they do for any other unit.
+mount; a vLLM process holding a pipeline over one machine's cards renders like
+any vLLM unit, told its layer partition; what an engine reads beside its argv
+is the service's environment, and a clash with what the file already sets is
+refused by name. A launch that needs an image built with RPC support is
+refused, naming the unit, until the unit states one. The compose service and
+the bare command say the same thing, as they do for any other unit.
 
 The machines are invented, and so are their addresses.
 """
@@ -23,7 +23,6 @@ import yaml
 
 from mcgyvr.emit import EmitError, render_command, render_compose
 from mcgyvr.serving import (
-    ROLE_HEADLESS,
     ROLE_RPC,
     ROLE_SERVE,
     Fit,
@@ -36,7 +35,6 @@ from mcgyvr.serving.shardlaunch import Process
 from tests.invented_split_plans import (
     HF_CACHE,
     HOST_A,
-    HOST_B,
     NAME,
     WEIGHTS,
     card,
@@ -96,7 +94,7 @@ def llama_units(image: str | None = RPC_IMAGE) -> list[Unit]:
 
 def vllm_units() -> list[Unit]:
     made = vllm_plan(
-        [card(HOST_A, 0), card(HOST_A, 1), card(HOST_B, 0), card(HOST_B, 1)],
+        [card(HOST_A, gpu) for gpu in range(4)],
         Grid(tensor=2, pipeline=2),
     )
     return [unit_of(process, engine="vllm", model=REPO) for process in launch(made)]
@@ -110,10 +108,9 @@ def test_a_process_that_holds_two_cards_reserves_both() -> None:
     assert devices_of(service_of(head)) == ["0", "1"]
 
 
-def test_a_vllm_node_reserves_every_card_it_holds() -> None:
-    first, second = vllm_units()
-    assert devices_of(service_of(first)) == ["0", "1"]
-    assert devices_of(service_of(second)) == ["0", "1"]
+def test_a_vllm_process_reserves_every_card_it_holds() -> None:
+    (node,) = vllm_units()
+    assert devices_of(service_of(node)) == ["0", "1", "2", "3"]
 
 
 def test_a_unit_that_names_no_cards_still_reserves_its_one_card() -> None:
@@ -179,29 +176,20 @@ def test_the_head_is_told_where_its_workers_are() -> None:
     assert service_of(head)["environment"]["CUDA_DEVICE_ORDER"] == "PCI_BUS_ID"
 
 
-# The node that answers nothing.
+# The vLLM process.
 
 
-def test_a_headless_node_renders_like_a_vllm_unit_with_its_switch() -> None:
-    first, second = vllm_units()
-    served, headless = service_of(first), service_of(second)
+def test_a_vllm_pipeline_renders_like_a_vllm_unit_told_its_partition() -> None:
+    (node,) = vllm_units()
+    served = service_of(node)
 
-    assert headless["command"][-1] == "--headless"
+    assert served["command"][0] == REPO
     assert "--headless" not in served["command"]
-    assert headless["command"][0] == REPO
-    assert headless["image"] == served["image"]
-    assert headless["volumes"] == served["volumes"]
-    assert headless["ipc"] == "host"
-    assert headless["environment"]["HF_HUB_OFFLINE"] == "1"
-    assert headless["environment"]["VLLM_PP_LAYER_PARTITION"]
-    assert second.role == ROLE_HEADLESS
-
-
-def test_a_node_of_a_multi_node_launch_carries_its_rank() -> None:
-    first, second = vllm_units()
-    for rank, unit in enumerate((first, second)):
-        command = service_of(unit)["command"]
-        assert command[command.index("--node-rank") + 1] == str(rank)
+    assert "--node-rank" not in served["command"]
+    assert served["ipc"] == "host"
+    assert served["environment"]["HF_HUB_OFFLINE"] == "1"
+    assert served["environment"]["VLLM_PP_LAYER_PARTITION"]
+    assert node.role == ROLE_SERVE
 
 
 # What the engine needs that the file cannot supply.
@@ -247,9 +235,9 @@ def test_a_variable_the_file_already_sets_differently_is_refused_by_name() -> No
 
 
 def test_a_role_the_engine_has_no_process_for_is_refused() -> None:
-    head = llama_units()[0]
-    wrong = replace(head, role=ROLE_HEADLESS)
-    with pytest.raises(EmitError, match=wrong.key.slug):
+    head = vllm_units()[0]
+    wrong = replace(head, role=ROLE_RPC)
+    with pytest.raises(EmitError, match=f"{wrong.key.slug}: role 'rpc' is not"):
         render_compose(wrong)
 
 

@@ -175,12 +175,29 @@ class RunResult:
         return data
 
 
+#: How a run stamp spells UTC time: ``YYYYMMDDTHHMMSS.ffffffZ``.
+RUN_STAMP_FORMAT = "%Y%m%dT%H%M%S.%fZ"
+
+
 def run_stamp(now: datetime | None = None) -> str:
     """This run's stamp: UTC as ``YYYYMMDDTHHMMSS.ffffffZ``, sortable as text.
 
     ``now`` lets the caller supply the clock instead of it being read here.
     """
-    return (now or datetime.now(UTC)).strftime("%Y%m%dT%H%M%S.%fZ")
+    return (now or datetime.now(UTC)).strftime(RUN_STAMP_FORMAT)
+
+
+def is_run_stamp(text: str) -> bool:
+    """Whether ``text`` is spelled exactly the way ``run_stamp`` spells one.
+
+    Parsed and written back, because ``strptime`` alone also takes unpadded
+    fields and short fractions that ``run_stamp`` never writes.
+    """
+    try:
+        parsed = datetime.strptime(text, RUN_STAMP_FORMAT)
+    except ValueError:
+        return False
+    return parsed.strftime(RUN_STAMP_FORMAT) == text
 
 
 def result_path(journal_dir: Path, contract_id: str, stamp: str) -> Path:

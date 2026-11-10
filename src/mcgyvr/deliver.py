@@ -43,16 +43,10 @@ from mcgyvr.gate.adapters import JavaScriptAdapter, PythonAdapter
 from mcgyvr.gate.changeset import ChangeSet, ChangeSetError, FileChange
 from mcgyvr.gate.findings import Finding
 from mcgyvr.gate.runner import Gate, GateResult, InconclusiveRung
-from mcgyvr.gitcmd import run_git
+from mcgyvr.gitcmd import EMPTY_TREE, run_git
 from mcgyvr.hubwire import SCOPE_OWN
 from mcgyvr.repo.repo import AttachedRepo
 from mcgyvr.scope import OutsideTreeError, inside
-
-# git's empty tree: the object every empty tree hashes to, and the only
-# tree-ish that can stand for a base when there is no commit yet.
-# `_resolve` substitutes it for an unborn HEAD, so a diff against it reads
-# every file as added.
-_EMPTY_TREE = "4b825dc642cb6eb9a060e54bf8d69288fbee4904"
 
 #: The lock file `_exclusive` flocks inside the git directory. It sits in
 #: `.git` rather than the work tree so it is never picked up as a file the
@@ -1032,7 +1026,7 @@ def _resolve(root: Path, base: str) -> str:
     """
     if base != "HEAD":
         return base
-    return _head(root) or _EMPTY_TREE
+    return _head(root) or EMPTY_TREE
 
 
 def _checkout_hazard(root: Path, *, detached_ok: bool = False) -> str | None:
@@ -1653,7 +1647,7 @@ def _message(
 
 def _shown(base: str) -> str:
     """The empty-tree sentinel spelled out for a reader, and any other base as given."""
-    return "the empty tree" if base == _EMPTY_TREE else base
+    return "the empty tree" if base == EMPTY_TREE else base
 
 
 def _listed(paths: Sequence[str]) -> str:

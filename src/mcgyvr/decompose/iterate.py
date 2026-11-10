@@ -3,16 +3,13 @@
 When a proposal is refused on a field the classifier decides, ``reask`` records
 the refusal's ``what_to_change`` as that field's constraint, drops the rejected
 candidate value, carries the already-decided upstream fields forward, and asks
-the classifier again. ``reproposals`` takes it once per refused proposal a
-decomposition hands back to the classifier (F16, ``Evidence.refused``), so
-there is one re-ask and one retry policy: the decomposition's
-``max_reproposals``.
+the classifier again. A decomposition does not re-ask: what vetting refuses
+there, the top rung corrects (``decompose``'s ``fix``).
 """
 
 from __future__ import annotations
 
 from collections.abc import Collection, Mapping
-from dataclasses import replace
 from typing import TYPE_CHECKING, Any, Protocol
 
 from mcgyvr.decompose.decompose import Proposal, Refusal
@@ -94,29 +91,3 @@ def reask(
     return classify.propose(
         evidence, decided=decided, constraints=constraints, rejected=rejected
     )
-
-
-def reproposals(classify: Classifier, evidence: Evidence) -> tuple[Proposal, ...]:
-    """What the classifier proposes in place of each of `evidence.refused`.
-
-    Each refused proposal whose refusal names a field the classifier decides is
-    re-asked once (`reask`), against the same evidence with that proposal's own
-    task as the request and nothing marked refused; one the classifier refuses
-    again, or whose field it does not decide, has no replacement here.
-    """
-    replacements: list[Proposal] = []
-    for item in evidence.refused:
-        if not reaskable(item.refusal):
-            continue
-        asked = reask(
-            classify,
-            replace(evidence, prompt=item.proposal.task, refused=()),
-            item.proposal,
-            item.refusal,
-            decided={},
-            constraints={},
-            rejected={},
-        )
-        if isinstance(asked, Proposal):
-            replacements.append(asked)
-    return tuple(replacements)

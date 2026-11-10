@@ -425,7 +425,7 @@ def _macos_windows_section() -> list[str]:
         f"- config (`${roots.HOME_ENV}`): `{home}` on every system.",
         "",
         *para(
-            "`$XDG_STATE_HOME` and `$XDG_CACHE_HOME` still win when set (the "
+            "`$XDG_STATE_HOME` and `$XDG_CACHE_HOME` still win when absolute (the "
             f"weights follow `${WEIGHTS_DIR_ENV}` alone), and `journal.dir` "
             f"defaults to `{JOURNAL_DIR_DEFAULT}` everywhere. Windows checks no "
             "file owner or mode: a file is as private as its folder, and these "
@@ -531,9 +531,8 @@ def _macos_windows_section() -> list[str]:
             f"agent reads (`${HUB_KEY_ENV}`) set in `~/.zshrc` is not seen there."
         ),
         *para(
-            "On Windows, `mcgyvr rig run` does not start yet (its pooled-session "
-            "code imports a module Windows lacks, `fcntl`). When it does, a line "
-            "in your Startup folder starts it at your login with no "
+            "On Windows, a line in your Startup folder starts it at your login "
+            "with no "
             "administrator (a `schtasks /sc onlogon` task runs at any user's "
             "logon and is created from an elevated prompt). From PowerShell, "
             "and `Remove-Item` on the same path to drop it:"
@@ -681,6 +680,10 @@ def render_setup() -> str:
         f"A third file, `{RELIEF_FILENAME}`, holds `relief`: the units other",
         "people lend you through a hub. `mcgyvr rig rungs sync` writes it whole",
         "and nothing else does, so it is neither locked nor edited by hand.",
+        "Beside `relief` it records `api_key_env`: the NAME of the variable the",
+        "sync read your personal hub key from (`--key-env`), which the rig",
+        "agent's refresh and `mcgyvr rig status` read the key from too (where",
+        f"it records none, the one the units of `{CREW_FILENAME}` name).",
         f"A fourth, `{CREW_FILENAME}`, holds `crew`: the units your crews lend",
         f"you through a hub, each read as a unit of `units` under scope "
         f"`{SCOPE_CREW}`.",
@@ -725,6 +728,28 @@ def render_setup() -> str:
         "",
         "`mcgyvr config` prints the resolved config; `mcgyvr detect` shows what",
         "can run the work; `mcgyvr capabilities` shows the shipped capability table.",
+        "",
+        "A unit split across machines (`units.launch.shards`) is checked before",
+        "anything starts: a split that cannot be launched is refused when",
+        "`mcgyvr emit` or `mcgyvr setup` sizes its units against the rigs. Once",
+        "it is up, nothing watches the unit as a whole. Its head and each worker",
+        "are services of their own rig's launch spec, and each is kept up on its",
+        "own. A docker part has docker's `unless-stopped` restart policy and",
+        "whatever starts docker when the rig boots (systemd, on most Linux",
+        "rigs). A part whose unit takes `launcher: native` has",
+        "mcgyvr's own supervisor, which restarts it when it exits, after a",
+        "growing pause, and gives up after five exits running; nothing starts",
+        "that supervisor again when the rig boots, so a native part stays down",
+        "after a reboot until its rig's `serve up` runs again. That is all the",
+        "supervision there is. Nothing orders a worker before its head or ties",
+        "their health together, and a worker on another rig is in that rig's",
+        "file, which the head's cannot name. So when a worker stops or its rig",
+        "reboots, the head is not told, and requests to the unit fail or time",
+        "out until the worker is back. The serving door's `serve down` then",
+        "`serve up` on the head's rig starts the head afresh against its",
+        "workers: `python -m mcgyvr.serving.run serve down --host RIG --compose",
+        "FILE`, then the same with `serve up`, where `FILE` is the launch spec",
+        "`mcgyvr emit` wrote for that rig.",
         "",
         *_macos_windows_section(),
         *_port_forward_section(),
@@ -1106,23 +1131,29 @@ def render_skill() -> str:
         "## What it does",
         "",
         "```",
-        "prompt -survey-> evidence -propose-> proposals -vet-> contracts | refusals",
+        "prompt -survey-> evidence -scaffold-> proposals -(Jev fills, if opted in)->",
+        "       -vet-> contracts | refusals -(top rung fixes a refusal)-> vet again",
         "       -schedule-> tree -run-> settle -(spent)-> replan",
         "```",
         "",
         "Planning is survey, propose and vet. mcgyvr reads the repository for the",
-        "evidence the prompt points at, and the proposer bound in the config proposes",
-        "contracts from it. Every proposal is vetted: its target is a file the index",
-        "holds, each dependency's signature is in the index or in a contract that",
-        "creates it, what the worker is shown fits its ceiling, and its id is unused.",
-        "One that fails is a refusal, printed as `refused:` with a `change:` line",
-        "saying what to change.",
+        "evidence the prompt points at, and the scaffold lays out each field's",
+        "candidates from it, with no model asked. With Jev opted in, Jev picks from",
+        "them; without it the scaffold's first candidates stand. `authoring: prose`",
+        "opts in to a model drafting the proposals instead. Every proposal is vetted:",
+        "its target is a file the index holds, each dependency's signature is in the",
+        "index or in a contract that creates it, what the worker is shown fits its",
+        "ceiling, and its id is unused. One that fails goes to the top rung of the",
+        "ladder with the reason, to be corrected and vetted again, up to",
+        "`max_reproposals` times; one still refused is printed as `refused:` with a",
+        "`change:` line saying what to change.",
         "",
         "Dispatch is schedule, run, settle and replan. The contracts that passed go on",
         "one dependency tree and run in the order it allows, each settled as it ends.",
         "One whose provider did not land is held, never sent (`blocked`). One whose",
-        "ladder is spent goes back to the proposer with its failure notes, and what",
-        "comes back runs in its place, up to `max_replans` times.",
+        "ladder is spent goes back to the proposer with its failure notes (the top",
+        "rung when no orchestrator model is bound), and what comes back runs in its",
+        "place, up to `max_replans` times.",
         "",
         "## Flags that matter",
         "",
