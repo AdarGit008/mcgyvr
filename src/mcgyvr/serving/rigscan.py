@@ -43,8 +43,18 @@ from mcgyvr.fleet.roots import HOME_ENV as HOME_ENV
 from mcgyvr.fleet.roots import METAL_FILE as METAL_FILE
 from mcgyvr.fleet.roots import NATIVE_DIR as NATIVE_DIR
 from mcgyvr.hubwire import (
+    ARCH_ARM64,
+    ARCH_X86_64,
+    BACKEND_CPU,
+    BACKEND_CUDA,
+    BACKEND_METAL,
+    BACKEND_ROCM,
+    BACKEND_VULKAN,
     FIGURE_ESTIMATE,
     FIGURE_READING,
+    HOST_DARWIN,
+    HOST_LINUX,
+    HOST_WINDOWS,
     RESOURCE_CPU,
     RESOURCE_GPU,
     RESOURCE_RAM,
@@ -106,8 +116,13 @@ SYSTEM_VARIABLE = "MCGYVR_TEST_MACHINE_OS"
 #: Machine names fold to the wire's arch names; Win32_Processor.Architecture is
 #: "x64 (9)", "ARM64 (12)"
 #: (https://learn.microsoft.com/en-us/windows/win32/cimwin32prov/win32-processor).
-ARCHES = {"x86_64": "x86_64", "amd64": "x86_64", "arm64": "arm64", "aarch64": "arm64"}
-WINDOWS_ARCHES = {9: "x86_64", 12: "arm64"}
+ARCHES = {
+    "x86_64": ARCH_X86_64,
+    "amd64": ARCH_X86_64,
+    "arm64": ARCH_ARM64,
+    "aarch64": ARCH_ARM64,
+}
+WINDOWS_ARCHES = {9: ARCH_X86_64, 12: ARCH_ARM64}
 
 # macOS. sysctl needs no privilege, hw.memsize is bytes
 # (https://keith.github.io/xcode-man-pages/sysctl.3.html); hw.optional.arm64 is
@@ -909,12 +924,12 @@ def _sysfs(reading: _Reading, root: str) -> None:
             )
 
 
-def _host(root: str, reading: _Reading, system: str = "linux") -> str:
+def _host(root: str, reading: _Reading, system: str = HOST_LINUX) -> str:
     """The host name from sysfs, or the node name when there is no test root and the
     file gave nothing; a name that is missing or ill-formed is noted and read as the
     empty string. Off Linux on a real machine the node name alone is read: on
     Windows /proc/... is C:\\proc\\..., which any user may create."""
-    off_linux = system != "linux" and not root
+    off_linux = system != HOST_LINUX and not root
     got = None if off_linux else _first_line(root, HOSTNAME_FILE)[0]
     if not got and not root:
         got = platform.node()
@@ -935,7 +950,7 @@ def _host(root: str, reading: _Reading, system: str = "linux") -> str:
 def _system_of(root: str, system: str | None) -> str:
     # A test root stands in for a Linux tree, so a root with no system named is
     # read as Linux, as before the other branches; else the machine's own.
-    return system or ("linux" if root else hostos.os_name())
+    return system or (HOST_LINUX if root else hostos.os_name())
 
 
 def _items(value: object) -> list[Any]:
@@ -984,7 +999,7 @@ class _Platform:
         said = _KEPT if self.keep and kept else self._said
         if key not in said:
             called = key
-            if self.system == "windows" and key[0] in ("reg", "powershell"):
+            if self.system == HOST_WINDOWS and key[0] in ("reg", "powershell"):
                 where = ("WindowsPowerShell", "v1.0") if key[0] == "powershell" else ()
                 called = (_windows_tool(f"{key[0]}.exe", *where), *key[1:])
             said[key] = _run(called, bound=self.bound)
@@ -1026,7 +1041,7 @@ def _os_machine_id(platform_: _Platform) -> tuple[str | None, str, str | None]:
     """(seed, source, why) from IOPlatformUUID or MachineGuid, the seed named by
     its source so no other use of the same id hashes alike; a why of None means
     the tool is not installed."""
-    darwin = platform_.system == "darwin"
+    darwin = platform_.system == HOST_DARWIN
     text, why = platform_.run(IOREG_ARGS if darwin else REG_MACHINE_GUID)
     if text is None:
         return None, "", why
@@ -1053,7 +1068,7 @@ def _machine(
     place, since the machine evidently has an id that could not be read; that case
     and the host-name case are both noted.
     """
-    system = "linux" if platform_ is None else platform_.system
+    system = HOST_LINUX if platform_ is None else platform_.system
     host = _host(root, reading, system)
     notes: list[str] = []
     machine: dict[str, Any] = {
@@ -1063,7 +1078,7 @@ def _machine(
         "kernel": platform.release(),
     }
     missing = "no /etc/machine-id"
-    if platform_ is not None and system != "linux":
+    if platform_ is not None and system != HOST_LINUX:
         seed, source, why = _os_machine_id(platform_)
         if seed is None and why is not None:
             reading.note("machine_id", f"{why}; nor is the host name taken")
@@ -1074,8 +1089,8 @@ def _machine(
                 return machine, notes
             machine["id"], machine["id_from"] = _fingerprint(seed), source
             return machine, notes
-        missing = "no " + ("ioreg" if system == "darwin" else "reg")
-    for path in MACHINE_ID_FILES if system == "linux" else ():
+        missing = "no " + ("ioreg" if system == HOST_DARWIN else "reg")
+    for path in MACHINE_ID_FILES if system == HOST_LINUX else ():
         text, why = _read(root, path)
         if text is None:
             if why in ("is not there", "is not readable"):
@@ -1102,7 +1117,7 @@ def _machine(
             "machine_id",
             f"no machine-id file ({', '.join(MACHINE_ID_FILES)}) and no host name to "
             "derive it from"
-            if system == "linux"
+            if system == HOST_LINUX
             else f"{missing} and no host name to derive the id from",
         )
         return machine, notes
@@ -1152,7 +1167,7 @@ def _memory(platform_: _Platform, meminfo: str | None) -> _MemoryRead:
     it. Linux takes /proc/meminfo as the reading read it once (`meminfo`, None when
     it could not be read), macOS sysctl and vm_stat, Windows CIM.
     """
-    if platform_.system != "linux":
+    if platform_.system != HOST_LINUX:
         return _other_memory(platform_)
     text = meminfo
     if text is None:
@@ -1218,7 +1233,7 @@ def _other_memory(platform_: _Platform) -> _MemoryRead:
     FreePhysicalMemory."""
     total: int | None
     available: int | None
-    if platform_.system == "darwin":
+    if platform_.system == HOST_DARWIN:
         total, why = platform_.sysctl_size(SYSCTL_MEMSIZE)
         how = f"{SYSCTL} -n {SYSCTL_MEMSIZE}"
         available, unread = _vm_stat_available(platform_)
@@ -1278,7 +1293,7 @@ def _gpu_cores(reading: _Reading, platform_: _Platform, key: str) -> int | None:
 def metal_wired_limit() -> int | None:
     """iogpu.wired_limit_mb as sysctl prints it now (0: the kernel's own), or None
     when it is unread; asked anew each time, as a user changes it at run time."""
-    return _Platform("darwin", BOUND_S).sysctl_size(SYSCTL_WIRED_LIMIT)[0]
+    return _Platform(HOST_DARWIN, BOUND_S).sysctl_size(SYSCTL_WIRED_LIMIT)[0]
 
 
 def metal_working_set() -> tuple[dict[str, Any] | None, str]:
@@ -1387,7 +1402,7 @@ def _apple_gpu(
         {
             **card,
             "kind": RESOURCE_UNIFIED,
-            "backend": "metal",
+            "backend": BACKEND_METAL,
             "figure": figure,
             "how": how,
             "gpu_cores": _gpu_cores(reading, platform_, key),
@@ -1451,9 +1466,9 @@ def _windows_adapters(
 def _backend(vendor: str, system: str, covered: set[str]) -> str:
     """CUDA for an NVIDIA card (on Windows only when nvidia-smi read it), ROCm for
     an AMD card on Linux, else Vulkan."""
-    if vendor == "nvidia" and (system != "windows" or "nvidia" in covered):
-        return "cuda"
-    return "rocm" if vendor == "amd" and system == "linux" else "vulkan"
+    if vendor == "nvidia" and (system != HOST_WINDOWS or "nvidia" in covered):
+        return BACKEND_CUDA
+    return BACKEND_ROCM if vendor == "amd" and system == HOST_LINUX else BACKEND_VULKAN
 
 
 def _host_section(platform_: _Platform, reading: _Reading) -> dict[str, Any]:
@@ -1462,11 +1477,11 @@ def _host_section(platform_: _Platform, reading: _Reading) -> dict[str, Any]:
     is unread or past HOST_VERSION_MAX, are None and noted."""
     system = platform_.system
     arch = ARCHES.get(platform.machine().lower())
-    if system == "darwin":
+    if system == HOST_DARWIN:
         if platform_.sysctl(SYSCTL_ARM64)[0] == "1":
-            arch = "arm64"
+            arch = ARCH_ARM64
         version = (platform_.run(SW_VERS_ARGS)[0] or "").strip()
-    elif system == "windows":
+    elif system == HOST_WINDOWS:
         code = _size(platform_.cim_first("processors").get("architecture"))
         arch = arch if code is None else WINDOWS_ARCHES.get(code)
         printed = platform_.cim_first("system").get("version")
@@ -1496,7 +1511,7 @@ def nvidia_smi(*, system: str | None = None) -> str | None:
     by its full path alone (`_windows_nvidia_smi`, never the working folder),
     elsewhere the one in an absolute PATH folder (a relative entry would be
     the working folder)."""
-    if _system_of("", system) == "windows":
+    if _system_of("", system) == HOST_WINDOWS:
         return _windows_nvidia_smi()
     folders = os.environ.get("PATH", "").split(os.pathsep)
     absolute = os.pathsep.join(d for d in folders if os.path.isabs(d))
@@ -1530,7 +1545,7 @@ def _cpu(platform_: _Platform, model: str | None) -> _CpuRead:
     macOS: sysctl, with the performance cores. Windows: Win32_Processor, summed
     over its sockets.
     """
-    if platform_.system != "linux":
+    if platform_.system != HOST_LINUX:
         return _other_cpu(platform_)
     text, _ = platform_.run(("lscpu",))
     known = (
@@ -1571,7 +1586,7 @@ def _cpu(platform_: _Platform, model: str | None) -> _CpuRead:
 
 
 def _other_cpu(platform_: _Platform) -> _CpuRead:
-    if platform_.system == "darwin":
+    if platform_.system == HOST_DARWIN:
         threads, why = platform_.sysctl_size(SYSCTL_LOGICAL)
         cores = platform_.sysctl_size(SYSCTL_PHYSICAL)[0] or threads
         performance = platform_.sysctl_size(SYSCTL_PERFORMANCE)[0]
@@ -1635,7 +1650,7 @@ def _ddr(platform_: _Platform) -> int | None:
     modules' that is read (SMBIOS_DDR; a board holds one generation), None when
     none is. Linux reads SMBIOS only as root and macOS names none, so elsewhere
     None."""
-    if platform_.system != "windows":
+    if platform_.system != HOST_WINDOWS:
         return None
     data, _ = platform_.cim()
     found = [
@@ -1678,7 +1693,7 @@ def _resources(
                 "bandwidth_figure": None,
                 "ddr": None,
                 "figure": FIGURE_READING,
-                "backend": "cpu",
+                "backend": BACKEND_CPU,
                 **fields,
             }
         )
@@ -1725,7 +1740,7 @@ class _Short:
         # /proc/meminfo and the CPU model are read once per reading, and the scan's
         # bandwidth probe and snapshot take these same reads (`meminfo`,
         # `cpu_model`, `spare_mib`) rather than reading them again.
-        linux = self.system == "linux"
+        linux = self.system == HOST_LINUX
         self.meminfo = _read(root, "/proc/meminfo") if linux else (None, "")
         memory, self.memory_facts, memory_notes, memory_mib = _memory(
             platform_, self.meminfo[0]
@@ -1735,9 +1750,9 @@ class _Short:
         self.spare_mib = memory_mib[1] if linux else None
         self.first_tool: str | None = FIRST_TOOL
         self.rows: list[dict[str, Any]] = []
-        if self.system == "darwin":
+        if self.system == HOST_DARWIN:
             _apple_gpu(reading, platform_, memory_mib, self.notes)
-        elif self.system == "windows":
+        elif self.system == HOST_WINDOWS:
             self.first_tool = _windows_nvidia_smi()
             if self.first_tool is not None:
                 self.rows = _first_tool(reading, bound, self.first_tool)
@@ -1872,7 +1887,7 @@ def _gpus(
                     "reserved_mib": max(total - used - free, 0),
                 },
                 "kind": card.get("kind", "gpu"),
-                "backend": card.get("backend", "cuda"),
+                "backend": card.get("backend", BACKEND_CUDA),
                 "figure": card.get("figure", "reading"),
             }
         )
@@ -2126,7 +2141,7 @@ def _parse_hostname_addresses(output: str) -> list[dict[str, str]]:
 
 
 def _network(
-    bound: float, system: str = "linux"
+    bound: float, system: str = HOST_LINUX
 ) -> tuple[dict[str, Any], list[dict[str, str]], list[str]]:
     """The address this machine was reached at and the IPv4 addresses on its
     interfaces.
@@ -2139,7 +2154,7 @@ def _network(
     said = os.environ.get(SSH_CONNECTION_ENV, "").split()
     reached = said[2] if len(said) == 4 else None
     # `ip` and `hostname -I` are Linux's; off Linux the addresses are unread.
-    if system != "linux":
+    if system != HOST_LINUX:
         notes_off = [f"Network: the addresses are not read on {system}."]
         return {"reached_at": reached, "ipv4": []}, [], notes_off
     text, _ = _run(("ip", *IP_ADDR_ARGS), bound=bound)
@@ -2414,7 +2429,7 @@ def _snapshot(
     system = read.system
     tool = read.first_tool
     snapshot = _Snapshot()
-    linux = system == "linux"
+    linux = system == HOST_LINUX
     # Off Linux the keys read from /proc, /sys, lscpu and dmidecode are unread:
     # none of them is there, and dmidecode would be tried through sudo.
     off = (None, f"not read on {system}")
@@ -2499,12 +2514,12 @@ def scan(
     short = read.document
     machine = short["machine"]
     rows, answered = read.rows, read.first_answered
-    if read.system == "darwin":
+    if read.system == HOST_DARWIN:
         # A Mac's one GPU is its unified one, sized as the reading estimates it.
         rows = [c for c in short["cards"] if c["kind"] == "unified"]
         answered = bool(rows)
     gpus, gpu_facts, gpu_notes = _gpus(rows, answered, short["unread"])
-    if read.system == "darwin" and not rows:
+    if read.system == HOST_DARWIN and not rows:
         gpu_notes = [
             f"{GPU_NOT_DETERMINED} — this Mac has no unified-memory GPU the reader "
             "sized; the notes above say why."
@@ -2512,7 +2527,7 @@ def scan(
     cpu_facts, cpu_notes = read.cpu_facts, read.cpu_notes
     bandwidth = measure_bandwidth(read.spare_mib)
     path = weights_dir if weights_dir is not None else default_weights_dir()
-    disk, disk_facts = _disk(path, read.system == "linux")
+    disk, disk_facts = _disk(path, read.system == HOST_LINUX)
     models, model_facts = _models_on_disk((*model_stores, path))
     docker, docker_why = _docker(bound)
     network, network_facts, network_notes = _network(bound, read.system)

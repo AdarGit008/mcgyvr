@@ -34,8 +34,10 @@ from collections.abc import Iterable, Iterator
 from pathlib import Path
 from typing import Any
 
-#: The systems :func:`os_name` answers, spelled as the wire spells a host's os.
-LINUX, DARWIN, WINDOWS = "linux", "darwin", "windows"
+from mcgyvr.hubwire import HOST_DARWIN, HOST_LINUX, HOST_WINDOWS
+
+#: The systems :func:`os_name` answers: the wire's names of a host's os.
+LINUX, DARWIN, WINDOWS = HOST_LINUX, HOST_DARWIN, HOST_WINDOWS
 
 #: The name mcgyvr's own data and cache folders take under the system's.
 APP = "mcgyvr"
