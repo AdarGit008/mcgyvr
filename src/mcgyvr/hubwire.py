@@ -61,6 +61,9 @@ is here:
   recommended (:data:`USE_CASE_CATEGORY`), the header a request names its own in
   (:data:`USE_CASE_HEADER`), and which use cases each pool serves
   (:data:`POOL_USE_CASES`, :func:`pool_serves`): the hub refuses the rest;
+  the pools themselves are :data:`POOLS` (:data:`POOL_SOLO`,
+  :data:`POOL_GENERAL`, :data:`POOL_CREW`, :data:`POOL_HITCHHIKE`,
+  :data:`POOL_SHARED_LADDER`);
 * the hub's published JSON Schemas (:data:`SCHEMAS`), shipped inside this
   package and read with :func:`schema_bytes` and :func:`schema`, and the
   version the rider schema is published at (:data:`RIDER_SCHEMA_VERSION`);
@@ -69,10 +72,10 @@ is here:
   (:class:`ResourceReading`): their kinds (:data:`RESOURCE_KINDS`, the card
   kinds :data:`CARD_KINDS`, :func:`shares_ram`), backends
   (:data:`RESOURCE_BACKENDS`, each named ``BACKEND_*``), what a number is
-  (:data:`FIGURE_KINDS`), the host a rig runs on (:data:`HOST_OS`,
+  (:data:`FIGURE_KINDS`), the system a rig runs on (:data:`HOST_OS`,
   :data:`HOST_ARCH`, each named ``HOST_*`` and ``ARCH_*``), how many one
-  advert or heartbeat may name (:data:`MAX_RESOURCES`, the kinds a rig names
-  once, :data:`ONE_PER_RIG`, :func:`resources_fit`, :func:`readings_fit`),
+  advert or heartbeat may name (:data:`MAX_RESOURCES`, and the kinds a rig names
+  once: :func:`resources_fit`, :func:`readings_fit`),
   the legacy cards they make (:func:`cards_from_resources`,
   :func:`card_readings_from`), the unit standby is counted in per kind
   (:data:`STANDBY_UNITS`, its size :data:`STANDBY_UNIT_SIZE`) and the least a
@@ -860,11 +863,11 @@ ARCH_X86_64 = "x86_64"
 ARCH_ARM64 = "arm64"
 HOST_ARCH: tuple[str, ...] = (ARCH_X86_64, ARCH_ARM64)
 #: Most resources one advert may name; of them, at most :data:`MAX_CARDS`
-#: cards, and each kind of :data:`ONE_PER_RIG` once.
+#: cards, and each kind of :data:`_ONE_PER_RIG` once.
 MAX_RESOURCES = 32
 #: The kinds a rig names at most once: one device whose memory is the host's
 #: (a host has one such memory to share), the host's memory and its cores.
-ONE_PER_RIG: tuple[str, ...] = (RESOURCE_UNIFIED, RESOURCE_RAM, RESOURCE_CPU)
+_ONE_PER_RIG: tuple[str, ...] = (RESOURCE_UNIFIED, RESOURCE_RAM, RESOURCE_CPU)
 #: Most cards one hello or heartbeat may report.
 MAX_CARDS = 16
 #: Highest index a resource may have: a card's highest index.
@@ -1117,8 +1120,8 @@ def resources_fit(resources: Sequence[Resource]) -> None:
     :data:`MAX_RESOURCES`, each valid (:meth:`Resource.validate`), each
     ``(kind, index)`` once, at most :data:`MAX_CARDS` cards, each card index
     once across :data:`CARD_KINDS`, and at most one of each kind in
-    :data:`ONE_PER_RIG`: one ``unified`` device, one ``ram``, one ``cpu``."""
-    _fit(resources, ONE_PER_RIG)
+    :data:`_ONE_PER_RIG`: one ``unified`` device, one ``ram``, one ``cpu``."""
+    _fit(resources, _ONE_PER_RIG)
 
 
 def counts_as_lent(resource: Resource) -> bool:
@@ -1147,7 +1150,7 @@ def readings_fit(readings: Sequence[ResourceReading]) -> None:
     """Raise ValueError unless one heartbeat may carry ``readings``, by the
     rules of :func:`resources_fit` (each card index once across
     :data:`CARD_KINDS` among them), but for how many of a kind it reads: how
-    many of each a rig has is its advert's to say (:data:`ONE_PER_RIG`).
+    many of each a rig has is its advert's to say (:data:`_ONE_PER_RIG`).
     Whether each names an advertised resource, and its ``free_mb`` that
     resource's ``total_mb`` at most, is the hub's to hold against the advert
     it keeps, which reads nothing of a ``(kind, index)`` the advert did not
@@ -1331,7 +1334,7 @@ IDENTITY_KEY_CHARS = 44
 IDENTITY_SIG = re.compile(r"[A-Za-z0-9+/]{85}[AQgw]==")
 #: What every signed tunnel key starts with, so a signature made for it is
 #: never a signature over anything else the key might one day sign.
-SESSION_KEY_CONTEXT = b"mcgyvr session tunnel key v1\x00"
+_SESSION_KEY_CONTEXT = b"mcgyvr session tunnel key v1\x00"
 #: How many base32 characters of the key's sha256 a fingerprint shows (80
 #: bits), in groups of :data:`FINGERPRINT_GROUP`.
 FINGERPRINT_CHARS = 16
@@ -1345,7 +1348,7 @@ def session_key_message(session_id: str, public_key: str) -> bytes:
     so a hub cannot hand an old session's key to a new one."""
     for field, value in (("session_id", session_id), ("public_key", public_key)):
         _need(isinstance(value, str) and "\x00" not in value, field, "not plain text")
-    return SESSION_KEY_CONTEXT + f"{session_id}\x00{public_key}\x00".encode()
+    return _SESSION_KEY_CONTEXT + f"{session_id}\x00{public_key}\x00".encode()
 
 
 def identity_key_bytes(identity_key: str) -> bytes:
@@ -1383,11 +1386,11 @@ def identity_fingerprint(identity_key: str) -> str:
 #: head's own host memory and cores (``cpu``), which serve a whole model only,
 #: never a pipeline stage (see :class:`Resource`).
 HEAD_DEVICE_LOCAL = "local"
-HEAD_DEVICE_RPC = "rpc"
+_HEAD_DEVICE_RPC = "rpc"
 HEAD_DEVICE_CPU = "cpu"
 HEAD_DEVICE_KINDS: tuple[str, ...] = (
     HEAD_DEVICE_LOCAL,
-    HEAD_DEVICE_RPC,
+    _HEAD_DEVICE_RPC,
     HEAD_DEVICE_CPU,
 )
 
@@ -1429,7 +1432,7 @@ FITTED_ON = "apple"
 #: Quantisation names, by the efficiency class they decode at. Matched on the
 #: name's start, case-insensitively, after a ``UD-`` prefix: ``Q4_K_M`` is
 #: ``q4``, ``IQ4_XS`` is ``iq4``, ``UD-Q4_K_XL`` is ``q4``.
-QUANT_CLASSES: Mapping[str, tuple[str, ...]] = MappingProxyType(
+_QUANT_CLASSES: Mapping[str, tuple[str, ...]] = MappingProxyType(
     {
         "8bit": ("f16", "bf16", "q8"),
         "4bit": ("q4", "iq4", "mxfp4", "q5", "q6"),
@@ -1441,7 +1444,7 @@ _QUANT_PREFIX = "ud-"
 def quant_class(quant: str) -> str | None:
     """The efficiency class of a quantisation name, None when it has none."""
     name = quant.strip().lower().removeprefix(_QUANT_PREFIX)
-    for klass, prefixes in QUANT_CLASSES.items():
+    for klass, prefixes in _QUANT_CLASSES.items():
         if name.startswith(prefixes):
             return klass
     return None

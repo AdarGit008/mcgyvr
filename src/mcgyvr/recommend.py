@@ -45,7 +45,7 @@ from mcgyvr.knowledge.record import KnowledgeError, ModelRecord
 from mcgyvr.ladder_map import Endpoint, Protocol
 from mcgyvr.runner import RunnerError
 from mcgyvr.scan import (
-    BYTES_PER_GB,
+    BYTES_PER_GIB,
     Gpu,
     Reach,
     Scan,
@@ -274,7 +274,7 @@ def _host_ram_bytes(scan: Scan) -> int | None:
     memory."""
     if scan.memory is None or scan.memory.available_gb is None:
         return None
-    return int(scan.memory.available_gb * BYTES_PER_GB)
+    return int(scan.memory.available_gb * BYTES_PER_GIB)
 
 
 def _slot_bytes(header: Mapping[str, Any], users: int) -> int | None:
