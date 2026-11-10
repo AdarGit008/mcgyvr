@@ -11,6 +11,15 @@ archived outside this repository, under the same paths.
 
 ### Changed
 
+- **A hello's `ram_total_mb` is the MiB the reader counted (I-133).** The
+  rig's hardware report (`rig/hardware.py`) took the hello's RAM total from the
+  memory section's GB figure, which the reader rounds to 0.1 GB, so it could
+  differ from the host-RAM resource in the same hello by up to ~51 MiB. It now
+  takes the resource's exact `total_mb`; a reading with no host-RAM resource
+  reports RAM unread (0 MiB total), as one with no memory section did. Every
+  rig's hello figure moves by those few MiB. `recommend`'s own GB-to-MiB turn
+  (`recommend._memory_mib`) is left as it is.
+
 - **Two machine-reading designs are said and pinned; nothing behaves
   differently.** First contact with a rig over ssh is the scan's: `mcgyvr scan
   --rig`, `setup` and `recommend` send a rig with no rig file the POSIX reader,
