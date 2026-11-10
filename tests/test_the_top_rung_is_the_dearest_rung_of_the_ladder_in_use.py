@@ -56,7 +56,7 @@ def test_the_ceiling_cuts_the_ladder_the_top_rung_is_taken_from() -> None:
     assert rung.name == "local_fast"
 
 
-def test_a_relief_rung_is_never_the_top_rung() -> None:
+def test_a_hub_lent_rung_is_never_the_top_rung() -> None:
     config, pool = mapped(escalations=5)
 
     assert pool.relief  # one is lent, above the ceiling

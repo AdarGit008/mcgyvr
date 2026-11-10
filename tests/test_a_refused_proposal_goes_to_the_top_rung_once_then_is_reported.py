@@ -502,7 +502,7 @@ def test_with_nothing_refused_the_top_rung_is_not_asked_or_named(
     assert "fixer" not in record.detail
 
 
-def test_no_jev_and_no_authoring_scaffolds_with_no_orchestrator_model(
+def test_no_jev_and_no_authoring_scaffolds_with_no_prose_model(
     tmp_path: Path, checkout: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
     """I-30a: the default needs no prose model; nothing is dispatched to plan."""
@@ -685,7 +685,7 @@ def test_direct_hands_a_refused_contract_back_to_its_author_and_asks_nobody(
 # -- the re-plan of a spent contract ------------------------------------------------
 
 
-def test_with_no_orchestrator_model_the_top_rung_re_plans_a_spent_contract(
+def test_with_no_prose_model_the_top_rung_redoes_a_spent_contract(
     checkout: Path,
 ) -> None:
     """The re-plan needs a prose proposer; with none bound it is the top rung."""
