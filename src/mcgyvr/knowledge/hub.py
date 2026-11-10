@@ -74,6 +74,9 @@ from pathlib import Path
 from typing import Any
 
 import mcgyvr
+from mcgyvr.hubwire import AGENT as AGENT
+from mcgyvr.hubwire import CHAT as CHAT
+from mcgyvr.hubwire import CODE as CODE
 from mcgyvr.knowledge import geometry, store
 from mcgyvr.knowledge.record import (
     KnowledgeError,
@@ -85,9 +88,9 @@ from mcgyvr.knowledge.record import (
 )
 from mcgyvr.serving import fetchlist, ggufscan, vramfit
 
-#: The use cases the Hub is asked about, by the task catalog's names.
-USE_CASES: tuple[str, ...] = ("code", "chat", "agent")
-CODE, CHAT, AGENT = USE_CASES
+#: The use cases the Hub is asked about, by the task catalog's names: the raw
+#: ones of the wire's (``mcgyvr-code`` is asked as ``code``).
+USE_CASES: tuple[str, ...] = (CODE, CHAT, AGENT)
 #: The answer's origin when the Hub was asked now; the other two are the store's.
 LIVE = "live"
 
