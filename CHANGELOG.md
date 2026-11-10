@@ -42,8 +42,14 @@ archived outside this repository, under the same paths.
   spill's host bytes (`offloaded_expert_bytes`) are there too;
   `vramfit.kv_bytes` and `vramfit.allowance` price a scan's rows for it, and
   `hubwire.FIT_CALIBRATION_RUNS` are the ten measured runs both planners are
-  held to. Numbers move: qwen35moe on one card is charged its 316.57 MiB
-  reading at ubatch 512 and qwen3next its 829 MiB (both were 768); an
+  held to. A reading holds at the cells it was read at
+  (`hubwire.MEASURED_SCRATCH_CELLS`: qwen35moe's 16384, qwen3next's 8192; none
+  on record for the others) and grows past them at the law's per-cell slope
+  (`compute_bytes_per_cell`), and a card is never charged less than its context
+  (512 MiB on a unified device), as the hub's reserve already was. Numbers
+  move: qwen35moe on one card is charged its 316.57 MiB reading at ubatch 512
+  (304.57 at 256, the reading with a context on record, for 302.7) and
+  qwen3next its 829 MiB (both were 768) up to their read contexts; an
   unmeasured arch is charged 161 + 232 MiB plus its per-cell term, less than
   768 MiB below about 128k cells of 3 KiB and more above, so the width search
   can choose fewer slots. `vramfit.SCRATCH_AND_CONTEXT_MIB` and

@@ -1536,15 +1536,31 @@ CACHE_PAD_CELLS = 256
 #: reading is never averaged or carried to another batch: a miss on the arch or
 #: the ubatch is a reading to take, and is charged :func:`card_allowance`'s
 #: context-growing law meanwhile. Two quantisations of one arch share a row.
+#: A reading holds at the context it was read at (:data:`MEASURED_SCRATCH_CELLS`)
+#: and grows beyond it, as the engine's buffers do.
 MEASURED_SCRATCH_MIB: Mapping[str, Mapping[int, float]] = MappingProxyType(
     {
         "deepseek2": MappingProxyType({256: 259.5}),
         "gptoss": MappingProxyType({256: 302.1}),
-        "qwen35moe": MappingProxyType({256: 302.7, 512: 316.57}),
+        # At 256, the reading taken beside the 512 one on the same placement
+        # (304.57 MiB), which reproduced an earlier 302.7 to 0.6% and, unlike it,
+        # has its context on record.
+        "qwen35moe": MappingProxyType({256: 304.57, 512: 316.57}),
         "nemotron_h_moe": MappingProxyType({256: 521.2}),
         # qwen3next's reading is at ubatch 512 (829.0 MiB), not 256 like the
         # rest, so it is filed under the batch the load actually ran with.
         "qwen3next": MappingProxyType({512: 829.0}),
+    }
+)
+#: The cells of cache each :data:`MEASURED_SCRATCH_MIB` reading was taken at
+#: (:func:`cache_cells` of the load's ``-c`` and ``-np``): qwen35moe's at
+#: ``-c 16384 -np 2``, qwen3next's at ``-c 8192 -np 2``. A reading whose context
+#: is not on record is filed at none, so all of its context is charged growth:
+#: it is never charged below the law's slope from zero.
+MEASURED_SCRATCH_CELLS: Mapping[str, Mapping[int, int]] = MappingProxyType(
+    {
+        "qwen35moe": MappingProxyType({256: 16384, 512: 16384}),
+        "qwen3next": MappingProxyType({512: 8192}),
     }
 )
 #: The backend every :data:`MEASURED_SCRATCH_MIB` reading was taken under: a card
@@ -1658,18 +1674,29 @@ def compute_buffer_bytes(
     and an f16 copy of one layer's K and V (``layer_f16_bytes_per_token``, the
     widest caching layer's). They are the measured slopes: 3 KiB a token for the
     MoE (the mask), 4 KiB for the dense model (the K and V copy)."""
-    per_cell = max(KQ_MASK_BYTES_PER_ROW * n_ubatch, layer_f16_bytes_per_token)
-    raw = base_mib * BYTES_PER_MIB + cells * per_cell
+    raw = base_mib * BYTES_PER_MIB + cells * compute_bytes_per_cell(
+        n_ubatch=n_ubatch, layer_f16_bytes_per_token=layer_f16_bytes_per_token
+    )
     return _ceil_div(raw, BYTES_PER_MIB) * BYTES_PER_MIB
+
+
+def compute_bytes_per_cell(*, n_ubatch: int, layer_f16_bytes_per_token: int) -> int:
+    """What a device's buffers grow by per cell of context: the larger of the KQ
+    mask (:data:`KQ_MASK_BYTES_PER_ROW` per ubatch row) and an f16 copy of the
+    widest caching layer's K and V. :func:`compute_buffer_bytes` charges it from
+    zero cells; a measured reading from the cells it was read at."""
+    return max(KQ_MASK_BYTES_PER_ROW * n_ubatch, layer_f16_bytes_per_token)
 
 
 @dataclass(frozen=True)
 class Allowance:
     """What a card holds beyond its weights, caches and state: the engine's
     context (``context_bytes``) and its buffers (``compute_bytes``).
-    ``measured`` says the total is a :data:`MEASURED_SCRATCH_MIB` reading, in
-    which case the context is the card's :data:`CARD_CONTEXT_MIB` (or its
-    unified figure) at most and the buffers the rest of that one gap."""
+    ``measured`` says the total is a :data:`MEASURED_SCRATCH_MIB` reading (grown
+    past the cells it was read at), in which case the context is the card's
+    :data:`CARD_CONTEXT_MIB` (or its unified figure) and the buffers whatever of
+    the reading lies beyond it, so a card is never charged less than its
+    context."""
 
     context_bytes: int
     compute_bytes: int
@@ -1693,7 +1720,9 @@ def card_allowance(
 ) -> Allowance:
     """The allowance one card is charged at ``cells`` of context: the measured
     reading for ``arch`` at ``n_ubatch`` on that ``backend`` when there is one
-    (:func:`measured_scratch_mib`), else the card's context
+    (:func:`measured_scratch_mib`), grown by :func:`compute_bytes_per_cell` for
+    every cell past those it was read at (:data:`MEASURED_SCRATCH_CELLS`) and
+    never less than the card's context; else the card's context
     (:data:`CARD_CONTEXT_MIB`, :data:`UNIFIED_CONTEXT_MIB` when ``unified``,
     ``context_mib`` when a caller names its own) plus
     :func:`compute_buffer_bytes`. The same on one card or on each of a split."""
@@ -1701,10 +1730,18 @@ def card_allowance(
     if context is None:
         context = UNIFIED_CONTEXT_MIB if unified else CARD_CONTEXT_MIB
     reading = measured_scratch_mib(arch, n_ubatch=n_ubatch, backend=backend)
-    if reading is not None:
-        total = int(reading * BYTES_PER_MIB)
-        held = min(context * BYTES_PER_MIB, total)
-        return Allowance(context_bytes=held, compute_bytes=total - held, measured=True)
+    if reading is not None and arch is not None:
+        read_at = MEASURED_SCRATCH_CELLS.get(arch, {}).get(n_ubatch, 0)
+        growth = max(0, cells - read_at) * compute_bytes_per_cell(
+            n_ubatch=n_ubatch, layer_f16_bytes_per_token=layer_f16_bytes_per_token
+        )
+        total = int(reading * BYTES_PER_MIB) + _ceil_div(growth, BYTES_PER_MIB) * (
+            BYTES_PER_MIB
+        )
+        held = context * BYTES_PER_MIB
+        return Allowance(
+            context_bytes=held, compute_bytes=max(0, total - held), measured=True
+        )
     return Allowance(
         context_bytes=context * BYTES_PER_MIB,
         compute_bytes=compute_buffer_bytes(

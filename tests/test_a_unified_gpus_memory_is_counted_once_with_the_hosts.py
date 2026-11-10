@@ -141,7 +141,16 @@ def test_a_split_prices_scratch_from_a_cuda_reading_only_on_cuda_cards(
         made = split.sized(model, targets, grid, allowance_bytes=None, n_ubatch=batch)
         return [shard.allowance_bytes for shard in made.shards]
 
-    assert charged(vramfit.MEASURED_SCRATCH_BACKEND) == [int(reading * MIB)] * 2
+    # On CUDA the reading is given, grown by the cells past those it was read at.
+    on_cuda = vramfit.allowance(
+        model,
+        n_ctx=2 * 4096,
+        n_seq_max=2,
+        n_ubatch=batch,
+        backend=vramfit.MEASURED_SCRATCH_BACKEND,
+    )
+    assert on_cuda.measured and on_cuda.total >= int(reading * MIB)
+    assert charged(vramfit.MEASURED_SCRATCH_BACKEND) == [on_cuda.total] * 2
     # Off CUDA the reading is not given: the card is charged the law, its context
     # and the compute buffer at the split's 2 x 4096 cells.
     law = vramfit.allowance(

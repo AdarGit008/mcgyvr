@@ -237,3 +237,55 @@ def test_a_shard_holds_what_the_law_says_its_blocks_cost_on_its_card() -> None:
             unified=False,
             layer_f16_bytes_per_token=vramfit.widest_layer_f16_bytes(rows),
         )
+
+
+def _measured(arch: str, cells: int, *, unified: bool = False) -> hubwire.Allowance:
+    return hubwire.card_allowance(
+        arch,
+        cells=cells,
+        n_ubatch=512 if arch != "nemotron_h_moe" else 256,
+        backend=hubwire.BACKEND_CUDA,
+        unified=unified,
+        layer_f16_bytes_per_token=0,
+    )
+
+
+def test_a_reading_holds_at_its_context_and_grows_past_it() -> None:
+    """qwen35moe's 316.57 MiB was read at ``-c 16384 -np 2``: at those cells it
+    is the reading, and past them each cell adds what the law's buffers grow by
+    (the KQ mask, 6 bytes an ubatch row), so a context thirteen times larger is
+    not charged the small one's buffers."""
+    read_at = hubwire.MEASURED_SCRATCH_CELLS["qwen35moe"][512]
+    assert read_at == hubwire.cache_cells(16384, 2)
+    reading = int(hubwire.MEASURED_SCRATCH_MIB["qwen35moe"][512] * MIB)
+    assert _measured("qwen35moe", read_at).total == reading
+    assert _measured("qwen35moe", 4096).total == reading
+    per_cell = hubwire.compute_bytes_per_cell(n_ubatch=512, layer_f16_bytes_per_token=0)
+    assert per_cell == hubwire.KQ_MASK_BYTES_PER_ROW * 512
+    for cells in (131072, 211456, 262144):
+        grown = _measured("qwen35moe", cells).total
+        assert grown == reading + -(-(cells - read_at) * per_cell // MIB) * MIB
+        assert grown - reading >= (cells - read_at) * per_cell
+
+
+def test_a_reading_with_no_context_on_record_grows_from_none() -> None:
+    """nemotron_h_moe's reading has no context beside it, so every cell is charged
+    growth: never less than the law's slope from zero."""
+    assert "nemotron_h_moe" not in hubwire.MEASURED_SCRATCH_CELLS
+    reading = int(hubwire.MEASURED_SCRATCH_MIB["nemotron_h_moe"][256] * MIB)
+    per_cell = hubwire.KQ_MASK_BYTES_PER_ROW * 256
+    assert _measured("nemotron_h_moe", 8192).total == reading + 8192 * per_cell
+
+
+def test_a_measured_card_is_charged_at_least_its_context() -> None:
+    """On a unified CUDA device the card's context (512 MiB) is more than
+    qwen35moe's whole reading: the card is charged its context, as the hub's
+    planner charges its reserve, and the buffers nothing more."""
+    discrete = _measured("qwen35moe", 4096)
+    assert discrete.context_bytes == hubwire.CARD_CONTEXT_MIB * MIB
+    assert discrete.total == int(hubwire.MEASURED_SCRATCH_MIB["qwen35moe"][512] * MIB)
+    unified = _measured("qwen35moe", 4096, unified=True)
+    assert unified.measured
+    assert unified.context_bytes == hubwire.UNIFIED_CONTEXT_MIB * MIB
+    assert unified.compute_bytes == 0
+    assert unified.total == hubwire.UNIFIED_CONTEXT_MIB * MIB
