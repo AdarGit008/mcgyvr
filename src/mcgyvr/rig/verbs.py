@@ -26,7 +26,7 @@ from typing import TYPE_CHECKING, Any
 from mcgyvr import hostos
 from mcgyvr.exits import Exit
 from mcgyvr.hubwire import AGENT_PATH as AGENT_PATH
-from mcgyvr.hubwire import SCOPE_VALUES, retired_audience
+from mcgyvr.hubwire import SCOPE_VALUES, bearer, retired_audience
 
 if TYPE_CHECKING:
     from mcgyvr.rig.credentials import Credentials
@@ -191,7 +191,7 @@ def run_agent(kept: Credentials, config: Path | None = None) -> int:
     url = agent_url(kept.hub)
     version = _agent_version()
     headers = {
-        "Authorization": f"Bearer {kept.token}",
+        **bearer(kept.token),
         "User-Agent": f"mcgyvr/{version}",
     }
 

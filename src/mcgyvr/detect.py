@@ -21,7 +21,7 @@ from concurrent.futures import ThreadPoolExecutor
 from dataclasses import dataclass, field
 from typing import Any
 
-from mcgyvr import hostos
+from mcgyvr import hostos, hubwire
 from mcgyvr.scan import Host
 
 # Seconds allowed for one HTTP probe of a candidate backend.
@@ -279,8 +279,8 @@ def _get_json(url: str, timeout: float, *, key: str | None = None) -> Any | None
     body. `key`, when given, is sent as a bearer token to url alone: it is
     not replayed to whatever address a redirect points at."""
     request = urllib.request.Request(url)
-    if key:
-        request.add_unredirected_header("Authorization", f"Bearer {key}")
+    for name, value in hubwire.bearer(key).items():
+        request.add_unredirected_header(name, value)
     try:
         with urllib.request.urlopen(request, timeout=timeout) as response:
             return json.loads(response.read().decode("utf-8"))

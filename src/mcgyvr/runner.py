@@ -53,6 +53,7 @@ from mcgyvr.hubwire import (
     SCOPE_HEADER,
     SEAL_KEY_UNKNOWN,
     USE_CASE_HEADER,
+    bearer,
 )
 from mcgyvr.local_pool import (
     Endpoint,
@@ -998,10 +999,7 @@ def request_headers(endpoint: Endpoint) -> dict[str, str]:
     refuse a use case its pool does not serve, and the unit's scope under
     `hubwire.SCOPE_HEADER` when it carries one, so a hub serves the request
     from that scope's pool."""
-    headers = {"Content-Type": "application/json"}
-    key = endpoint.credential()
-    if key:
-        headers["Authorization"] = f"Bearer {key}"
+    headers = {"Content-Type": "application/json", **bearer(endpoint.credential())}
     if endpoint.use_case is not None:
         headers[USE_CASE_HEADER] = endpoint.use_case
     if endpoint.scope is not None:
@@ -1288,8 +1286,7 @@ def _get_text(url: str, timeout: float, *, key: str | None = None) -> str | None
     purpose: a status poll is a measurement, never a reason to fail the
     dispatch it is measuring.
     """
-    headers = {"Authorization": f"Bearer {key}"} if key else {}
-    request = urllib.request.Request(url, headers=headers)
+    request = urllib.request.Request(url, headers=bearer(key))
     try:
         with urllib.request.urlopen(request, timeout=timeout) as response:
             raw: bytes = response.read(_STATUS_BYTES)

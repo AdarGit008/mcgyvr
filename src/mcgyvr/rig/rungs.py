@@ -77,6 +77,7 @@ from mcgyvr.hubwire import (
     SCOPE_CREW,
     SCOPE_OWN,
     SEAL_KEY_FIELD,
+    bearer,
     rung_offer,
 )
 from mcgyvr.hubwire import CREDITS_PATH as CREDITS_PATH
@@ -390,7 +391,7 @@ def ask(
     said) and a body that is not JSON; :class:`SyncError` covers a hub that
     could not be reached at all.
     """
-    sent = {"Authorization": f"Bearer {key}", "Accept": "application/json"}
+    sent = {**bearer(key), "Accept": "application/json"}
     if body is not None:
         sent["Content-Type"] = "application/json"
     request = urllib.request.Request(

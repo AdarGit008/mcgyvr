@@ -604,11 +604,6 @@ def free_port() -> int:
         return port
 
 
-def _head_headers(key: str | None) -> dict[str, str]:
-    """The header that carries a head's key as a bearer token, when it has one."""
-    return {"Authorization": f"Bearer {key}"} if key else {}
-
-
 def head_health(port: int, key: str | None = None) -> str:
     """Ask the head's ``/health`` on a loopback port for its state.
 
@@ -619,7 +614,7 @@ def head_health(port: int, key: str | None = None) -> str:
     """
     connection = http.client.HTTPConnection("127.0.0.1", port, timeout=HEALTH_TIMEOUT_S)
     try:
-        connection.request("GET", "/health", headers=_head_headers(key))
+        connection.request("GET", "/health", headers=hubwire.bearer(key))
         status = connection.getresponse().status
     except (OSError, http.client.HTTPException):
         return "down"
@@ -655,7 +650,7 @@ def warm_up(
             "POST",
             sessionwire.RELAY_PATHS["chat_completions"],
             body=body,
-            headers={"Content-Type": "application/json", **_head_headers(key)},
+            headers={"Content-Type": "application/json", **hubwire.bearer(key)},
         )
         answer = connection.getresponse()
         answer.read()

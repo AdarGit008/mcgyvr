@@ -71,6 +71,7 @@ is here:
   (:data:`RUNGS_PATH`) and a member's credits (:data:`CREDITS_PATH`, its
   balance :data:`CREDITS_BALANCE_FIELD`, an exact decimal
   :data:`CREDITS_BALANCE` of at most :data:`CREDITS_MAX_BALANCE` characters);
+* the header a key travels in to the hub or a unit (:func:`bearer`);
 * the use cases (:data:`USE_CASES`) with the model category each is
   recommended (:data:`USE_CASE_CATEGORY`), the header a request names its own in
   (:data:`USE_CASE_HEADER`), and which use cases each pool serves
@@ -742,6 +743,12 @@ CREDITS_PATH = f"{API_PREFIX}/me/credits"
 CREDITS_BALANCE_FIELD = "balance"
 CREDITS_BALANCE = re.compile(r"-?[0-9]+(\.[0-9]+)?")
 CREDITS_MAX_BALANCE = 40
+
+
+def bearer(key: str | None) -> dict[str, str]:
+    """The header that carries ``key`` as a bearer token, or none without a key:
+    how every request the product makes to the hub or a unit sends its key."""
+    return {"Authorization": f"Bearer {key}"} if key else {}
 
 
 #: The use cases a setup runs: ``mcgyvr-code`` is the gated coding loop with
