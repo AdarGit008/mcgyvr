@@ -11,6 +11,15 @@ archived outside this repository, under the same paths.
 
 ### Changed
 
+- **`SETUP.md` now names `numbers.yaml`, the file that overrides mcgyvr's
+  shipped estimates.** A user can drop `numbers.yaml` in the config folder
+  (`$MCGYVR_HOME`, default `~/.mcgyvr`) to replace the estimates mcgyvr sizes
+  and judges a machine with but cannot read off it — decode drift, link speeds,
+  host memory — each keyed by an engine or a unit's tolerance class, and a
+  refusal already invites it, but the setup document never named the file.
+  `docgen.render_setup` adds a paragraph for it, so `make docs` regenerates
+  `skills/mcgyvr/SETUP.md` with it. Docs only; no code path changes.
+
 - **A docker llama.cpp or vLLM unit listens on 127.0.0.1 or, behind a key
   mcgyvr makes, on every interface (`expose: local | lan`).** `mcgyvr emit`
   rendered every container's server on every interface with no key

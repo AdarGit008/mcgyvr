@@ -44,6 +44,7 @@ from .config import (
     USE_CASES,
     Field,
 )
+from .derived import OVERRIDES_FILENAME
 from .fleet import roots
 from .hostos import CACHE_FOLDERS, DATA_FOLDERS, PATH_EXPORT, PATH_POWERSHELL
 
@@ -677,6 +678,16 @@ def render_setup() -> str:
         "`mcgyvr rig crew sync` writes it whole the same way. A ladder step or a",
         "role names a crew unit as it names any unit, and fan-out may use it:",
         "a crew lends free, so it is no api rung.",
+        "",
+        f"A fifth file, `{OVERRIDES_FILENAME}`, is optional and written by hand,",
+        "not by any command: it holds your own values for the numbers mcgyvr",
+        "sizes and judges a machine with but cannot read off it — decode drift,",
+        "link speeds, host memory. It lives in the config folder (`$MCGYVR_HOME`,",
+        "default `~/.mcgyvr`), and each number is keyed by an engine or a unit's",
+        "tolerance class, never by a machine's name, so your value replaces the",
+        "shipped estimate wherever that key applies. A refusal that rests on a",
+        "number names it and spells the exact setting to write; leave the file",
+        "out and the shipped estimates answer.",
         "",
         "Each file refuses a key that belongs in the other. `rigs`, `fleets` and",
         "each unit's `unit_id` are not in the tables below: the fleet lock",
