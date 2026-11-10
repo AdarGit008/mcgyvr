@@ -53,6 +53,32 @@ def test_which_rigs_are_reached_without_ssh(
     assert gatelib.local_transport(host) is expected
 
 
+@pytest.mark.parametrize("chosen", ["ssh2", "Direct-ish", "none"])
+def test_a_transport_word_that_is_neither_direct_nor_ssh_is_refused_by_name(
+    monkeypatch: pytest.MonkeyPatch, chosen: str
+) -> None:
+    """A misspelled `$MCGYVR_LOCAL_TRANSPORT` is refused, naming the two words
+    it takes, rather than ignored for auto-detection, which would hand a user
+    forcing one transport the other one."""
+    monkeypatch.setattr(gatelib, "_sshd_listens", lambda: True)
+    monkeypatch.setenv(gatelib.LOCAL_TRANSPORT_ENV, chosen)
+    with pytest.raises(ValueError) as refused:
+        gatelib.local_transport("localhost")
+    message = str(refused.value)
+    assert gatelib.LOCAL_TRANSPORT_ENV in message
+    assert repr(chosen.strip().lower()) in message
+    assert f"{gatelib.TRANSPORT_DIRECT}, {gatelib.TRANSPORT_SSH}" in message
+
+
+def test_another_rigs_transport_is_ssh_whatever_the_word_says(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """The variable speaks only for this machine's names: a rig that is not
+    this machine is reached over ssh and the word is never read."""
+    monkeypatch.setenv(gatelib.LOCAL_TRANSPORT_ENV, "ssh2")
+    assert gatelib.local_transport("box1") is False
+
+
 def test_this_machines_names_are_the_ones_detection_calls_local() -> None:
     from mcgyvr.detect import LOCAL_HOSTS
 

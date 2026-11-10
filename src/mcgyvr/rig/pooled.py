@@ -59,6 +59,12 @@ KV_CACHE_TYPE = "q8_0"
 #: dry-run the load and read free memory once; off, a load that does not fit is
 #: a clean exit. The rig side does not import the emit stack, hence the copy.
 HEAD_FIT = "off"
+#: llama-server's `-dev` value for a head that runs a whole model on the host's
+#: cores and memory (a `cpu` head): "none", which llama.cpp reads as "don't
+#: offload" (`-dev, --device <..>`, "none = don't offload"), so every layer
+#: stays on the CPU. Such a head carries no tensor split (`-ts`), as there is
+#: one device to spread over.
+CPU_DEVICE = "none"
 #: Touched by Pool.renew_lease; the entrypoint exits once its mtime lags by lease_s.
 LEASE_FILE = "/run/mcgyvr/lease"
 #: Where the detached STUN keep-alive writes its pid, so the next TUNNEL_SCRIPT can
@@ -481,7 +487,7 @@ class HeadSpec:
     name: str  # the alias llama-server serves it under (--alias)
     ctx: int  # context per slot; the -c argument is slots * ctx
     n_gpu_layers: int
-    devices: tuple[str, ...]  # -dev list: CUDA<n> local cards, RPC<n> remote ones
+    devices: tuple[str, ...]  # -dev list: CUDA<n> cards, RPC<n> ends, or CPU_DEVICE
     tensor_split: tuple[int, ...]
     rpc: tuple[str, ...]  # host:port of each remote rpc device, joined for --rpc
     bind: str  # address llama-server listens on (--host): this rig's tunnel address
@@ -751,12 +757,10 @@ def head_server_args(
         args += ["--threads", str(spec.cpus)]
     if rpc:
         args += ["--rpc", ",".join(rpc)]
-    args += [
-        "-dev",
-        ",".join(spec.devices),
-        "-ts",
-        ",".join(str(share) for share in spec.tensor_split),
-    ]
+    args += ["-dev", ",".join(spec.devices)]
+    # A cpu head runs on `-dev none` with one device and no split to state.
+    if spec.tensor_split:
+        args += ["-ts", ",".join(str(share) for share in spec.tensor_split)]
     return args
 
 

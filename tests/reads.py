@@ -388,7 +388,6 @@ APPROVED: dict[str, dict[str, dict[str, Any]]] = {
         "card_steady_mib": {"expected": 7000.0, "tolerance": {"abs": 32.0}},
         "card_peak_mib": {"expected": 7026.0, "tolerance": {"abs": 32.0}},
         "prefill_tok_s": {"expected": 440.0, "tolerance": {"pct": 5.0}},
-        "l2_wake_s": {"expected": 0.25, "tolerance": {"s": 0.1}},
     },
     SWITCH: {"downtime_s": {"expected": 0.3, "tolerance": {"s": 1.0}}},
 }

@@ -8,11 +8,13 @@ The units are the ones `serve_prologue` re-read from the emitted compose file,
 narrowed by `--unit` when the door was given it. A unit is asked to wake only
 when its `/is_sleeping` route answered True, so an awake unit is neither woken
 twice nor reported as woken; the rest are recorded without a wake answer. Every
-unit in the set is then polled by `servelib.wait_for`, healthy or not, and the
-step files `woken` and `units` as `serve-wake.json`.
+unit in the set is then polled by `servelib.wait_for`, healthy or not, for at
+most `serving.start_timeout_s` (six minutes unset), and the step files `woken`
+and `units` as `serve-wake.json`.
 
-The exit status is the step's: 2 when the prologue refused and nothing was
-touched, 1 when a wake call did not land or a unit is not serving, 0 otherwise.
+The exit status is the step's: 2 when the prologue refused, or the config the
+run is under cannot be read again, and nothing was touched, 1 when a wake call
+did not land or a unit is not serving, 0 otherwise.
 """
 
 from __future__ import annotations
@@ -23,6 +25,9 @@ from mcgyvr.serving import servelib
 def main() -> int:
     ctx = servelib.serve_prologue("wake")
     if ctx is None:
+        return 2
+    timeout_s = servelib.start_timeout_s("wake")
+    if timeout_s is None:
         return 2
 
     # No --unit narrowing means every unit; otherwise only the named ones.
@@ -35,7 +40,9 @@ def main() -> int:
             woken[service.container] = servelib.wake(ctx.host, service.port)
         else:
             woken[service.container] = None
-    rows = [servelib.wait_for(ctx.host, service) for service in units]
+    rows = [
+        servelib.wait_for(ctx.host, service, timeout_s=timeout_s) for service in units
+    ]
     for row in rows:
         state = "up" if row["healthy"] else "NOT SERVING"
         print(

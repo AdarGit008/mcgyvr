@@ -55,11 +55,11 @@ from mcgyvr.hubwire import (
     SCOPE_CREW,
     SCOPE_HEADER,
     SCOPE_OWN,
-    SCOPE_POOLS,
     SCOPE_VALUES,
     narrowest_scope,
     pool_serves,
     rider_cap_fits,
+    scopes_serving,
     serving_pool,
 )
 from mcgyvr.hubwire import USE_CASES as USE_CASES
@@ -154,6 +154,12 @@ MAX_REPROPOSALS_DEFAULT = 1
 #: second is refused with what to change rather than emitted unsplit.
 MAX_SPLITS_PER_FILE_DEFAULT = 3
 MAX_REFINE_FANOUT_DEFAULT = 8
+
+#: The temperature every draw after the first samples at
+#: (`breadth.temperature`); draw 0 stays greedy whatever it says. A reader of a
+#: config that does not name the key (one built by hand) falls back to it too,
+#: so its extra draws are not greedy copies of draw 0.
+BREADTH_TEMPERATURE_DEFAULT = 0.7
 
 #: Which failure-notes records a try is shown (see `mcgyvr.notes.handed_on`):
 #: `climb` every record of the climb, `rung` this rung's previous attempt's,
@@ -354,11 +360,13 @@ JOURNAL_FIELDS: tuple[Field, ...] = (
 # on your own rig.
 DEFAULT_REQUEST_TIMEOUT_S = 120.0
 
-# How long `serving.servelib.wait_for` watches a unit come up: at most
-# `HEALTH_POLLS` polls of the models it serves, `HEALTH_INTERVAL_S` seconds
-# apart, so 120 polls of three seconds come to six minutes before it gives up.
-HEALTH_POLLS = 120
+# How far apart `serving.servelib.wait_for` polls the models a unit that is
+# coming up serves.
 HEALTH_INTERVAL_S = 3.0
+#: How long `serving.servelib.wait_for` watches a unit come up before it gives
+#: up, when `serving.start_timeout_s` is unset: six minutes, 120 polls three
+#: seconds apart.
+START_TIMEOUT_S_DEFAULT = 360.0
 
 
 BREADTH_FIELDS: tuple[Field, ...] = (
@@ -384,7 +392,7 @@ BREADTH_FIELDS: tuple[Field, ...] = (
         "any unit's effective draws exceed 1: identical draws buy N gate runs "
         "and nothing else. The wire field is the OpenAI-compatible "
         "`temperature`. The journal records the temperature per row.",
-        default=0.7,
+        default=BREADTH_TEMPERATURE_DEFAULT,
         min_value=0.0,
         max_value=2.0,
     ),
@@ -503,6 +511,23 @@ SERVING_FIELDS: tuple[Field, ...] = (
             "sleeping cards, only down ones"
         ),
     ),
+    Field(
+        "start_timeout_s",
+        "float",
+        "How long the serving door's `serve up` and `serve wake` watch a unit "
+        "come up before they give up on it and report it down, in seconds. The "
+        f"unit is asked for the models it serves every {HEALTH_INTERVAL_S:g} s "
+        "until it lists them and does not read as asleep, and at least once "
+        "however short this is. `mcgyvr serve wake` and a run that wakes a card "
+        "go through the same door, so they are bounded by this too. The door "
+        f"reads it from the config `${CONFIG_PATH_ENV}` names, else from the "
+        "live fleet's, never from a `--config` path given to the command that "
+        "started it. Raise it for a model whose load takes longer, such as a "
+        "large vLLM unit read off a slow disk.",
+        default=START_TIMEOUT_S_DEFAULT,
+        min_value=0.0,
+        bind_hint="seconds; e.g. 900 for a load that takes longer than six minutes",
+    ),
 )
 
 #: Whether a unit is up whenever its launch spec is (`always-on`), or a swap
@@ -528,6 +553,15 @@ EXPOSES = (EXPOSE_LOCAL, EXPOSE_LAN)
 NATIVE_BY_DEFAULT = (DARWIN, WINDOWS)
 
 
+#: The engine a unit is served by when `units.<unit>.engine` states none: the
+#: one place "absent means llama.cpp" is decided. Every reader of a unit's
+#: engine falls back to it. It is not the `engine` field's schema `default`, so
+#: a loaded unit keeps `engine` unset (None) when its file says nothing, and a
+#: stated `engine: llama.cpp` stays declared in the setup identity, which lock
+#: digests are taken over.
+DEFAULT_ENGINE = "llama.cpp"
+
+
 def default_launcher(*, engine: str | None, system: str) -> str:
     """The launcher `setup` and `recommend` write for a unit.
 
@@ -537,7 +571,7 @@ def default_launcher(*, engine: str | None, system: str) -> str:
     `mcgyvr.serving.gatelib.rig_system`); `docker` otherwise, which is what a
     unit that states no launcher runs as.
     """
-    if (engine or "llama.cpp") == "llama.cpp" and system in NATIVE_BY_DEFAULT:
+    if (engine or DEFAULT_ENGINE) == "llama.cpp" and system in NATIVE_BY_DEFAULT:
         return LAUNCHER_NATIVE
     return LAUNCHER_DOCKER
 
@@ -570,11 +604,10 @@ UNIT_FIELDS: tuple[Field, ...] = (
     Field(
         "engine",
         "enum",
-        "Which server program runs behind this address. Absent means \
-"
-        "llama.cpp.",
+        "Which server program runs behind this address. Absent means "
+        f"{DEFAULT_ENGINE}.",
         choices=("llama.cpp", "vllm"),
-        bind_hint="e.g. vllm -- leave it out for llama.cpp",
+        bind_hint=f"e.g. vllm -- leave it out for {DEFAULT_ENGINE}",
     ),
     Field(
         "image",
@@ -642,9 +675,9 @@ UNIT_FIELDS: tuple[Field, ...] = (
         f"`{SCOPE_HEADER}` header: `own` (your own rigs), `crew` (your crews' "
         "too) or `anyone`. A hub serves the request from that scope's pool; a "
         "server of your own ignores it. A ladder step or a role may bind the "
-        "unit only where its pool serves the setup's use case, so under "
-        "`mcgyvr-code` a unit served from the hub's general pool, which serves "
-        "models raw, is refused when the setup is read. Unset is `own`.",
+        "unit only where its pool serves the setup's use case (every pool a "
+        "unit is served from serves all four), else it is refused when the "
+        "setup is read. Unset is `own`.",
         default=SCOPE_OWN,
         choices=SCOPE_VALUES,
     ),
@@ -1077,6 +1110,22 @@ VERIFIER_UNIT_FIELDS: tuple[Field, ...] = (
     *(field for field in ROLE_UNIT_FIELDS if field.name != "unit"),
 )
 
+#: The `deployment` key: its choices and default are read from here by
+#: `Config.deployment`, `mcgyvr setup --deployment` and `mcgyvr init`, so the
+#: two words and which one an unset key means are written once.
+DEPLOYMENT_FIELD = Field(
+    "deployment",
+    "enum",
+    "How mcgyvr is run. `hybrid` drives it from an API-tier "
+    "orchestrator in the user's session; scoped work is offloaded to the "
+    "local cheap-to-dear ladder, whose dearest rung is an API model so a "
+    "task always completes. `local-only` makes mcgyvr the backend: "
+    "`mcgyvr-code` provisions a local orchestrator unit, and a raw use case "
+    "(`code`, `chat`, `agent`) is just the ladder serving its model.",
+    choices=("hybrid", "local-only"),
+    default="hybrid",
+)
+
 SCHEMA: tuple[Field, ...] = (
     Field(
         "use_case",
@@ -1092,18 +1141,7 @@ SCHEMA: tuple[Field, ...] = (
         choices=USE_CASES,
         default=MCGYVR_CODE,
     ),
-    Field(
-        "deployment",
-        "enum",
-        "How mcgyvr is run. `hybrid` drives it from an API-tier "
-        "orchestrator in the user's session; scoped work is offloaded to the "
-        "local cheap-to-dear ladder, whose dearest rung is an API model so a "
-        "task always completes. `local-only` makes mcgyvr the backend: "
-        "`mcgyvr-code` provisions a local orchestrator unit, and a raw use case "
-        "(`code`, `chat`, `agent`) is just the ladder serving its model.",
-        choices=("hybrid", "local-only"),
-        default="hybrid",
-    ),
+    DEPLOYMENT_FIELD,
     Field(
         "units",
         "block_map",
@@ -1713,8 +1751,9 @@ class Config:
 
     @property
     def deployment(self) -> str:
-        """`deployment` from the config, `hybrid` when it is not set."""
-        return str(self.get("deployment", "hybrid"))
+        """`deployment` from the config, the schema's default (`hybrid`) when it
+        is not set."""
+        return str(self.get("deployment", DEPLOYMENT_FIELD.default))
 
     @property
     def provisions_local_orchestrator(self) -> bool:
@@ -2783,7 +2822,7 @@ def _cross_validate_pools(data: Mapping[str, Any]) -> None:
         pool = serving_pool(scope, unit["model"])
         if pool_serves(pool, use_case):
             continue
-        serving = [s for s in SCOPE_VALUES if pool_serves(SCOPE_POOLS[s], use_case)]
+        serving = scopes_serving(use_case)
         raise ConfigSchemaError(
             f"{where}: unit {name!r} is asked under scope {scope!r}, which a hub "
             f"serves from the {pool} pool, and that pool does not serve use case "

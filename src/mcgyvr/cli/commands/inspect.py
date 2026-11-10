@@ -22,6 +22,7 @@ from mcgyvr.capability import (
     load,
 )
 from mcgyvr.config import (
+    DEFAULT_ENGINE,
     ConfigError,
 )
 from mcgyvr.config import load as load_config
@@ -72,7 +73,7 @@ def _config(args: argparse.Namespace) -> int:
         credential = (
             f"key from ${unit.api_key_env}" if unit.api_key_env else "no credential"
         )
-        engine = unit.engine or "llama.cpp"
+        engine = unit.engine or DEFAULT_ENGINE
         print(
             f"  {unit.name:<16} {engine:<9} {unit.address:<32} "
             f"x{unit.width or 1}  ({credential})"

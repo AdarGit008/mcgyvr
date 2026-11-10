@@ -128,6 +128,21 @@ class TypeCheckTimeoutError(ToolFailedError):
     """The declared checker did not finish inside the configured timeout."""
 
 
+class TypeCheckBaseTimeoutError(TypeCheckTimeoutError):
+    """The checker ran over the change, but its re-run on the base tree timed out.
+
+    ``findings`` are the diagnostics on lines the worker added. They are charged to
+    the diff without the base, so they stand; only the diagnostics elsewhere in the
+    touched files, which needed the base to be told apart, went unjudged.
+    """
+
+    def __init__(
+        self, tool: str, exit_code: int, detail: str, findings: Sequence[Finding]
+    ) -> None:
+        super().__init__(tool, exit_code, detail)
+        self.findings = tuple(findings)
+
+
 @dataclass(frozen=True)
 class TypeCheck:
     """One repository's typecheck rung.
@@ -156,6 +171,10 @@ class TypeCheck:
         directly; diagnostics anywhere else in those files are compared against the
         same file at the base commit, so a fault that was already there is not
         charged to this diff. The result is sorted by path, then line.
+
+        A timeout over the worker's tree raises :class:`TypeCheckTimeoutError`. A
+        timeout of the base re-run alone raises :class:`TypeCheckBaseTimeoutError`,
+        which carries the added-line findings.
         """
         command = self.declared_command()
         if command is None:
@@ -182,14 +201,26 @@ class TypeCheck:
         def worker_line(d: _Diagnostic) -> bool:
             return d.line in added.get(d.path, frozenset())
 
+        def findings(diagnostics: Iterable[_Diagnostic]) -> list[Finding]:
+            return [
+                _finding(d, command=ran, exit_code=exit_code)
+                for d in sorted(diagnostics, key=lambda d: (d.path, d.line))
+            ]
+
         on_added = [d for d in reported if worker_line(d)]
         elsewhere = [d for d in reported if not worker_line(d)]
         if elsewhere:
-            on_added.extend(self._new_since_base(elsewhere, changeset, command, tool))
-        return [
-            _finding(d, command=ran, exit_code=exit_code)
-            for d in sorted(on_added, key=lambda d: (d.path, d.line))
-        ]
+            try:
+                caused = self._new_since_base(elsewhere, changeset, command, tool)
+            except TypeCheckTimeoutError as exc:
+                # Only the base re-run ran out of time. The added-line findings
+                # never needed it, so they leave with the error rather than being
+                # dropped with the comparison that could not finish.
+                raise TypeCheckBaseTimeoutError(
+                    exc.tool, exc.exit_code, exc.detail, findings(on_added)
+                ) from exc
+            on_added.extend(caused)
+        return findings(on_added)
 
     def _check(
         self, command: Sequence[str], tool: str, repo: Path, paths: Sequence[str]

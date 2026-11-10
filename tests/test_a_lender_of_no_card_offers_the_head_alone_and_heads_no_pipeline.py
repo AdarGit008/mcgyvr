@@ -80,6 +80,115 @@ def test_a_lender_of_no_card_heads_no_pipeline(cardless: Pool) -> None:
     assert len(cardless.docker.runs()) == 1  # the tunnel alone
 
 
+def _cpu_head(cardless: Pool, message_id: str, **changes: Any) -> dict[str, Any] | None:
+    ask: dict[str, Any] = dict(
+        session_id="s1",
+        model={"name": fakes.MODEL},
+        ctx=4096,
+        devices=[{"kind": "cpu"}],
+        tensor_split=[1],
+    )
+    ask.update(changes)
+    return cardless.ask("head_start", message_id, **ask)
+
+
+def test_a_lender_of_no_card_starts_a_cpu_head(cardless: Pool, tmp_path: Path) -> None:
+    """A cpu device starts a whole-model head on the lent cores and memory, no
+    tunnel and no card: -dev none, every layer on the CPU, held to the lend."""
+    from mcgyvr.rig import pooled
+
+    prepared(cardless, role="head")
+    ack = _cpu_head(cardless, "h1")
+    assert ack is not None and ack["type"] == "ack" and ack["re"] == "h1"
+    cardless.wait_for("session_status", "loading")
+    cardless.wait_for("session_status", "ready")
+
+    head = cardless.docker.containers[pooled.container_name("s1", "head")].argv
+    assert "--gpus" not in head
+    assert head[head.index("-dev") + 1] == pooled.CPU_DEVICE == "none"
+    assert head[head.index("-ngl") + 1] == "0"
+    assert "-ts" not in head  # one device, no split to state
+    assert "--rpc" not in head
+    share = fakes.sharing(tmp_path, cards=(), ram_mb=RAM_FLOOR, cpu_cores=4)
+    memory, cores = share.head_limits(fakes.report())
+    assert cores == 4
+    assert head[head.index("--cpus") + 1] == "4"
+    assert head[head.index("--threads") + 1] == "4"
+    assert head[head.index("--memory") + 1] == f"{memory}m"
+    # The head runs without a tunnel, as a head alone on its own rig does.
+    assert not [s for s in cardless.docker.scripts if s[1] == pooled.TUNNEL_SCRIPT]
+
+
+def test_a_cpu_head_refuses_a_model_larger_than_the_lent_ram(
+    cardless: Pool, tmp_path: Path
+) -> None:
+    """A model whose weights pass the lent memory is refused insufficient_memory,
+    rather than started into a container the host RAM cap would OOM-kill."""
+    import dataclasses
+
+    from mcgyvr.rig import protocol
+
+    big = dataclasses.replace(
+        fakes.inventory(tmp_path),
+        models=(protocol.ModelInfo(name=fakes.MODEL, size_bytes=50 * 1024**3),),
+    )
+    cardless.sessions.machine = dataclasses.replace(
+        cardless.sessions.machine, inventory=lambda: big
+    )
+    from mcgyvr.rig import pooled
+
+    prepared(cardless, role="head")
+    answer = _cpu_head(cardless, "h1")
+    _refused(answer, "insufficient_memory")
+    cardless.settle()
+    assert pooled.container_name("s1", "head") not in cardless.docker.runs()
+
+
+def test_a_cpu_device_heads_the_whole_model_alone(cardless: Pool) -> None:
+    """A cpu device beside any other device is refused: it serves the whole
+    model alone, never beside a card or a pipeline stage."""
+    prepared(cardless, role="head")
+    answer = _cpu_head(
+        cardless,
+        "h1",
+        devices=[{"kind": "cpu"}, {"kind": "local", "card_index": 0}],
+        tensor_split=[1, 1],
+    )
+    from mcgyvr.rig import pooled
+
+    assert answer is not None and answer["type"] == "error"
+    assert answer["body"]["code"] == "bad_message", answer
+    cardless.settle()
+    assert pooled.container_name("s1", "head") not in cardless.docker.runs()
+
+
+def test_a_cpu_head_is_refused_on_a_rig_that_lends_no_memory_and_cores(
+    tmp_path: Path,
+) -> None:
+    """The decision runs a whole model on *lent* cores and RAM. A card lender
+    that lends neither must refuse a cpu device whatever a hub sends, rather
+    than run a whole model on all its cores under the default container cap."""
+    from mcgyvr.rig import pooled
+
+    pool = make_pool(tmp_path, cards=(0,), ram_mb=0, cpu_cores=0)
+    try:
+        prepared(pool, role="head")
+        answer = pool.ask(
+            "head_start",
+            "h1",
+            session_id="s1",
+            model={"name": fakes.MODEL},
+            ctx=4096,
+            devices=[{"kind": "cpu"}],
+            tensor_split=[1],
+        )
+        _refused(answer, "not_capable")
+        pool.settle()
+        assert pooled.container_name("s1", "head") not in pool.docker.runs()
+    finally:
+        pool.sessions.close()
+
+
 @pytest.mark.parametrize("system", ["darwin", "windows"])
 def test_a_system_with_no_session_host_offers_no_role(
     tmp_path: Path, system: str
