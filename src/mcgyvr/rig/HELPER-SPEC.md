@@ -28,10 +28,12 @@ verbs.
 - The pin is one `serving.release.Asset(name, bytes, sha256)` row per asset in
   `wgpin.RELEASE.assets`: `bytes` the archive's exact length, `sha256` 64 lowercase hex digits of the
   archive. Where the digests come from: the helper's own reproducible build (`go build -trimpath`,
-  CGO off, pinned Go toolchain) run by whoever cuts the release, NOT the mirror's API alone (that
-  would check the mirror against itself); the published archives (Forgejo release and the GitHub mirror's
-  `assets[].size` / `assets[].digest`) are then downloaded and must match. Signing the archives
-  (minisign or cosign) is an optional extra, as is Apple/Authenticode code signing.
+  CGO off, pinned Go toolchain, from a checkout of the tag itself: Go stamps the module version
+  from VCS, so an untagged commit gives other bytes) run by whoever cuts the release, NOT the
+  mirror's API alone (that would check the mirror against itself); the published archives (Forgejo
+  release and the GitHub mirror's `assets[].size` / `assets[].digest`) are then downloaded and must
+  match. Signing the archives (minisign or cosign) is an optional extra, as is Apple/Authenticode
+  code signing.
 - Pinned: `v0.1.0`, all six assets (https://github.com/AdarGit008/mcgyvr-wg/releases/tag/v0.1.0).
   For a system or architecture with no row, `wgpin.pinned_for(os, arch)` is false, that rig
   offers no native session, and `wgpin.helper()` refuses with "no pinned mcgyvr-wg <tag> archive
