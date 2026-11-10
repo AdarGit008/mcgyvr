@@ -25,7 +25,7 @@ from typing import TYPE_CHECKING, Any
 
 from mcgyvr import hostos
 from mcgyvr.exits import Exit
-from mcgyvr.hubwire import SCOPE_VALUES
+from mcgyvr.hubwire import SCOPE_VALUES, retired_audience
 
 if TYPE_CHECKING:
     from mcgyvr.rig.credentials import Credentials
@@ -1102,6 +1102,15 @@ def _share(args: argparse.Namespace) -> int:
     return int(Exit.OK)
 
 
+def _audience(value: str) -> str:
+    """An audience as typed, refused with the word to write when it is an old
+    one (`hubwire.retired_audience`); argparse's `choices` checks the rest."""
+    retired = retired_audience(value)
+    if retired is not None:
+        raise argparse.ArgumentTypeError(retired)
+    return value
+
+
 def _sync_parser(
     verbs: argparse._SubParsersAction[argparse.ArgumentParser],
     add_config: Callable[..., None],
@@ -1217,6 +1226,7 @@ def add_parser(
     )
     rungs_sync.add_argument(
         "--ride-scope",
+        type=_audience,
         choices=SCOPE_VALUES,
         metavar="SCOPE",
         help="set the setup's ride_scope first: whose rigs may read its rides, "

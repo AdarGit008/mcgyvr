@@ -11,6 +11,25 @@ archived outside this repository, under the same paths.
 
 ### Changed
 
+- **Who may use a rig is one vocabulary, `own | crew | anyone`, and how a rig
+  takes part is its mode, `lend | hitchhike` (I-04).** The pools the wire
+  names by audience now carry the audience's name: `hubwire.POOL_SOLO`
+  (`solo`) is `POOL_OWN` (`own`) and `POOL_GENERAL` (`general`) is
+  `POOL_ANYONE` (`anyone`); `crew`, `hitchhike` and `shared_ladder` are
+  unchanged. New in `mcgyvr.hubwire`, for the hub to import: `MODE_LEND`,
+  `MODE_HITCHHIKE`, `MODES`, `MODE_AUDIENCES` (a hitchhike rig is `own` or
+  `anyone`, never a crew's alone), `rig_pool(audience, mode)`, `POOL_NAMES`
+  (each pool in words: the general pool is shown as "general pool
+  (anyone)"), and `RETIRED_SHARING_MODES` (the hub's old `solo`, `crew`,
+  `pool`, `hitchhike`, each as the audience and mode that replace it). A
+  unit's `scope`, `ride_scope`, `relief.scope` and `mcgyvr rig rungs sync
+  --ride-scope` that write `solo`, `pool` or `general` are refused with the
+  word to write (`own`, `anyone`; `hubwire.RETIRED_AUDIENCES`,
+  `retired_audience`), never read as
+  an alias; they were refused before too, without naming it. The generated
+  SETUP.md maps each audience and mode to its pool and the use cases it
+  serves, and says a host serves strangers only once a hub admin approved it.
+
 - **A Mac's GPU is sized from the Metal working set llama.cpp logged, a
   reading, once a native server has started on it.** The native supervisor
   already filed `recommendedMaxWorkingSetSize` from llama-server's start-up
