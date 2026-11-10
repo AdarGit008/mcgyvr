@@ -28,13 +28,13 @@ import pytest
 from mcgyvr import runner as runner_module
 from mcgyvr.capacity import Capacity
 from mcgyvr.config import parse
-from mcgyvr.local_pool import (
+from mcgyvr.ladder_map import (
     Endpoint,
     Protocol,
-    SourceUnavailableError,
+    UnitUnavailableError,
     UnknownRungError,
 )
-from mcgyvr.local_pool import source_map as build_source_map
+from mcgyvr.ladder_map import unit_map as build_unit_map
 from mcgyvr.runner import (
     BackendError,
     Completion,
@@ -559,7 +559,7 @@ def test_a_key_that_vanished_fails_loudly_rather_than_dispatching_bare(
     read as an auth failure from the provider instead."""
     monkeypatch.delenv("MCGYVR_TEST_KEY", raising=False)
     sent = stub_post(monkeypatch, openai_answer())
-    with pytest.raises(SourceUnavailableError, match="MCGYVR_TEST_KEY"):
+    with pytest.raises(UnitUnavailableError, match="MCGYVR_TEST_KEY"):
         runner_for(KEYED_OPENAI).generate("big-model", ASK)
     assert sent.calls == []
 
@@ -682,7 +682,7 @@ def test_dispatch_takes_the_model_from_the_rung_and_the_protocol_from_its_source
     """A caller names a step of the ladder and nothing about a machine. Both the
     model and the wire shape are resolved on the other side of the seam."""
     monkeypatch.delenv("MCGYVR_TEST_KEY", raising=False)
-    ladder = build_source_map(parse(cfg(LADDER)))
+    ladder = build_unit_map(parse(cfg(LADDER)))
 
     sent = stub_post(monkeypatch, openai_answer())
     cheap = dispatch(ladder, "cheap", ASK)
@@ -708,7 +708,7 @@ def test_repointing_a_rung_at_another_source_changes_the_protocol_alone(
         "    - name: cheap\n      source: local\n",
         "    - name: cheap\n      source: fast\n",
     )
-    ladder = build_source_map(parse(cfg(repointed)))
+    ladder = build_unit_map(parse(cfg(repointed)))
     sent = stub_post(monkeypatch, openai_answer())
     cheap = dispatch(ladder, "cheap", ASK)
     assert cheap.protocol is Protocol.OPENAI
@@ -719,13 +719,13 @@ def test_dispatch_keeps_an_unknown_rung_and_an_unusable_one_apart(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     monkeypatch.delenv("MCGYVR_TEST_KEY", raising=False)
-    ladder = build_source_map(parse(cfg(LADDER)))
+    ladder = build_unit_map(parse(cfg(LADDER)))
 
     with pytest.raises(UnknownRungError, match="no rung named 'nope'"):
         dispatch(ladder, "nope", ASK)
 
     # `hosted` is declared but its key is unset, so the map skipped it.
-    with pytest.raises(SourceUnavailableError, match="MCGYVR_TEST_KEY"):
+    with pytest.raises(UnitUnavailableError, match="MCGYVR_TEST_KEY"):
         dispatch(ladder, "hosted", ASK)
 
 
@@ -735,7 +735,7 @@ def test_dispatch_role_runs_a_role_and_returns_none_when_there_is_not_one(
     """A keyless install runs with no verifier at all, and that is an ordinary
     state — the caller gets ``None`` rather than an exception to catch."""
     monkeypatch.delenv("MCGYVR_TEST_KEY", raising=False)
-    ladder = build_source_map(parse(cfg(LADDER)))
+    ladder = build_unit_map(parse(cfg(LADDER)))
 
     stub_post(monkeypatch, openai_answer())
     verified = dispatch_role(ladder, "verifier", ASK)
@@ -754,7 +754,7 @@ def test_a_role_on_a_local_unit_is_given_the_time_its_unit_states(
     slow = LADDER.replace(
         "    rig: fast\n", "    rig: fast\n    request_timeout_s: 900\n"
     )
-    ladder = build_source_map(parse(cfg(slow)))
+    ladder = build_unit_map(parse(cfg(slow)))
 
     sent = stub_post(monkeypatch, openai_answer())
     dispatch_role(ladder, "verifier", ASK)
@@ -801,7 +801,7 @@ def test_dispatch_holds_its_sources_slot_for_the_length_of_the_request(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     monkeypatch.delenv("MCGYVR_TEST_KEY", raising=False)
-    ladder = build_source_map(parse(cfg(LADDER)))
+    ladder = build_unit_map(parse(cfg(LADDER)))
     capacity = Capacity.of(parse(cfg(LADDER)))
     seen = held_during_post(monkeypatch, capacity, "cheap", openai_answer())
 
@@ -817,7 +817,7 @@ def test_a_role_is_bounded_by_the_same_capacity_as_a_rung(
 ) -> None:
     """A verifier sharing a card with the ladder competes with it for slots."""
     monkeypatch.delenv("MCGYVR_TEST_KEY", raising=False)
-    ladder = build_source_map(parse(cfg(LADDER)))
+    ladder = build_unit_map(parse(cfg(LADDER)))
     capacity = Capacity.of(parse(cfg(LADDER)))
     seen = held_during_post(monkeypatch, capacity, "strong", openai_answer())
 
@@ -840,7 +840,7 @@ def test_escalating_to_another_source_has_already_released_the_first(
     what it must see is `local` already back to zero.
     """
     monkeypatch.delenv("MCGYVR_TEST_KEY", raising=False)
-    ladder = build_source_map(parse(cfg(LADDER)))
+    ladder = build_unit_map(parse(cfg(LADDER)))
     capacity = Capacity.of(parse(cfg(LADDER)))
     seen: list[tuple[int, int]] = []
 
@@ -873,7 +873,7 @@ def test_dispatch_without_a_capacity_is_unbounded_and_says_nothing(
 ) -> None:
     """The default is the single-request case; a batch supplies one (#23)."""
     monkeypatch.delenv("MCGYVR_TEST_KEY", raising=False)
-    ladder = build_source_map(parse(cfg(LADDER)))
+    ladder = build_unit_map(parse(cfg(LADDER)))
     capacity = Capacity.of(parse(cfg(LADDER)))
     stub_post(monkeypatch, openai_answer())
 

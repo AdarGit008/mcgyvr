@@ -53,11 +53,11 @@ from mcgyvr.hubwire import (
     SEAL_KEY_UNKNOWN,
     USE_CASE_HEADER,
 )
-from mcgyvr.local_pool import (
+from mcgyvr.ladder_map import (
     Endpoint,
-    PoolError,
+    LadderError,
     Protocol,
-    SourceMap,
+    UnitMap,
     UnknownRungError,
 )
 from mcgyvr.redact import safe_url
@@ -1062,7 +1062,7 @@ def request_timeout(endpoint: Endpoint, stated: float | None) -> float | None:
 
 
 def dispatch(
-    source_map: SourceMap,
+    unit_map: UnitMap,
     rung: str,
     request: Request,
     *,
@@ -1075,8 +1075,8 @@ def dispatch(
     the width the rung declares is respected; without one the request is sent
     unclaimed.
     """
-    endpoint = source_map.bind(rung)
-    step = source_map.get(rung)
+    endpoint = unit_map.bind(rung)
+    step = unit_map.get(rung)
     if step is None:  # bound, but no rung of this name carries a model to ask for
         raise UnknownRungError(f"no rung named {rung!r}")
     if capacity is None:
@@ -1091,7 +1091,7 @@ def dispatch(
 
 
 def dispatch_role(
-    source_map: SourceMap,
+    unit_map: UnitMap,
     role: str,
     request: Request,
     *,
@@ -1103,7 +1103,7 @@ def dispatch_role(
     "not configured" from "configured and answered". A `capacity` holds the unit's
     slot for the whole dispatch, as `dispatch` does.
     """
-    binding = source_map.role(role)
+    binding = unit_map.role(role)
     if binding is None:
         return None
     if request.timeout_s is None:
@@ -1237,7 +1237,7 @@ def _status(endpoint: Endpoint) -> _Status | None:
         return _vllm_status(page)
     try:
         key = endpoint.credential()
-    except PoolError:
+    except LadderError:
         return None
     url = _url_for(endpoint.base_url, SLOTS_PATH)
     if key is None:

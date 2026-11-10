@@ -35,7 +35,7 @@ from mcgyvr.userdir import owned_outright, private_dir, user_tempdir
 
 if TYPE_CHECKING:  # pragma: no cover - typing only
     from mcgyvr.config import Config
-    from mcgyvr.local_pool import Endpoint
+    from mcgyvr.ladder_map import Endpoint
     from mcgyvr.pressure import Gauge
 
 # How long a waiter sleeps between rounds of non-blocking attempts at a bound's
@@ -294,7 +294,7 @@ class Capacity:
                 raise CapacityError(
                     f"unit {source!r} declares width={limit}, which "
                     f"would admit no dispatch at all. The config schema floors "
-                    f"it at 1; a source that should not be used belongs out of "
+                    f"it at 1; a unit that should not be used belongs out of "
                     f"the ladder, not at zero capacity."
                 )
         self._limits = dict(limits)
@@ -306,9 +306,9 @@ class Capacity:
         unknown = ", ".join(sorted(self._confirmed - set(self._limits)))
         if unknown:
             raise CapacityError(
-                f"confirmed width(s) for source(s) {unknown}, which this "
+                f"confirmed width(s) for unit(s) {unknown}, which this "
                 f"capacity does not bound. A confirmation is a fact about a "
-                f"source's limit, so there has to be a limit for it to be about."
+                f"unit's limit, so there has to be a limit for it to be about."
             )
         # Slots each unit keeps back for a role, counted apart from the width
         # the ladder is offered: the unit serves `limit + reserved` dispatches
@@ -319,7 +319,7 @@ class Capacity:
         unknown = ", ".join(sorted(set(self._role_reserved) - set(self._limits)))
         if unknown:
             raise CapacityError(
-                f"reserved slot(s) for source(s) {unknown}, which this "
+                f"reserved slot(s) for unit(s) {unknown}, which this "
                 f"capacity does not bound. A reservation is a claim against a "
                 f"bound, so there has to be a bound for it to be about."
             )

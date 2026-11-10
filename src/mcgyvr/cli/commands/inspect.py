@@ -90,11 +90,11 @@ def _config(args: argparse.Namespace) -> int:
     return 0
 
 
-def _local_pool(args: argparse.Namespace) -> int:
+def _ladder_show(args: argparse.Namespace) -> int:
     from mcgyvr.contract import DEFAULT_ATTEMPTS
     from mcgyvr.decision import JEV_ROLE
     from mcgyvr.escalate import Ceiling
-    from mcgyvr.local_pool import SourceUnavailableError, source_map
+    from mcgyvr.ladder_map import UnitUnavailableError, unit_map
     from mcgyvr.route import capped_attempts, draws_for, family_of
 
     try:
@@ -108,7 +108,7 @@ def _local_pool(args: argparse.Namespace) -> int:
         from mcgyvr.availability import Availability
 
         availability = Availability(timeout_s=args.probe_timeout)
-    pool = source_map(config, probe=availability)
+    pool = unit_map(config, probe=availability)
 
     # What follows is read off `pool`: the config resolved into the rungs work
     # may be dispatched to. A ladder unit that names the key it needs and an
@@ -140,7 +140,7 @@ def _local_pool(args: argparse.Namespace) -> int:
             tries += f", {draws} draws"
         print(f"  {rung.name:<20} {family.name:<14} {tries:<11} {rung.model}")
     if not pool.rungs:
-        print("  (none — every rung's source is unusable)")
+        print("  (none — every rung's unit is unusable)")
     else:
         # The ceiling bounds a task, not the ladder: `max_escalations`, when the
         # config states it, caps how many rungs a climb may take — unset, every
@@ -194,18 +194,18 @@ def _local_pool(args: argparse.Namespace) -> int:
     for role in ("orchestrator", "verifier", JEV_ROLE):
         try:
             model = pool.role_model(role)
-        except SourceUnavailableError as exc:
+        except UnitUnavailableError as exc:
             print(f"\n{role}: unavailable — {exc}")
             continue
         if model is not None:
             print(f"\n{role}: {model}")
 
     if availability is not None:
-        # A probe asked each source whether it was answering, and `source_map`
+        # A probe asked each unit whether it was answering, and `unit_map`
         # dropped the rungs of any that was not. These are the verdicts behind
-        # that, sorted by source name: live or down, how long the answer took,
-        # and `how` — the probe's own account of what the source answered.
-        print(f"\nProbed {len(availability.verdicts)} source(s):")
+        # that, sorted by unit name: live or down, how long the answer took,
+        # and `how` — the probe's own account of what the unit answered.
+        print(f"\nProbed {len(availability.verdicts)} unit(s):")
         for name, verdict in sorted(availability.verdicts.items()):
             state = "live" if verdict.live else "down"
             print(f"  {name:<20} {state:<5} {verdict.elapsed_s:.2f}s  {verdict.how}")
@@ -322,10 +322,11 @@ def _contract(args: argparse.Namespace) -> int:
         print(json.dumps(contract.worker_view(), indent=2))
         return 0
 
-    tier = "deterministic tier" if contract.is_deterministic else "model tier"
+    # "floor": the no-model path, a tool runs it; otherwise a ladder rung does.
+    runs_on = "floor (no model)" if contract.is_deterministic else "ladder (a model)"
     print(f"{args.path}: valid\n")
     operation = f", operation {contract.operation}" if contract.operation else ""
-    print(f"  {contract.id}  [{contract.task_type}{operation}] — {tier}")
+    print(f"  {contract.id}  [{contract.task_type}{operation}] — {runs_on}")
     print(f"  target:  {contract.target}")
     print(f"  allow:   {', '.join(contract.scope.allow)}")
     if contract.scope.forbid:
@@ -375,7 +376,7 @@ def add_parser(sub: argparse._SubParsersAction[argparse.ArgumentParser]) -> None
     """Register these read-only commands on `sub`, the top-level subparsers.
 
     Five subcommands, each naming its handler in `func`: `capabilities` for the
-    shipped estimates, `config` and `local_pool` for a setup and the ladder it
+    shipped estimates, `config` and `ladder show` for a setup and the ladder it
     resolves to, `catalog` for the task types, and `contract` for one contract.
     """
 
@@ -414,11 +415,13 @@ def add_parser(sub: argparse._SubParsersAction[argparse.ArgumentParser]) -> None
     add_config(conf, dest="path")
     conf.set_defaults(func=_config)
 
-    local_pool = sub.add_parser(
-        "local_pool",
-        help="show the ladder as it resolves against the declared sources",
+    ladder = sub.add_parser("ladder", help="read the ladder a setup resolves to")
+    ladder_verbs = ladder.add_subparsers(dest="ladder_command", required=True)
+    show = ladder_verbs.add_parser(
+        "show",
+        help="show the ladder as it resolves against the declared units",
     )
-    local_pool.add_argument(
+    show.add_argument(
         "path",
         nargs="?",
         default=None,
@@ -426,24 +429,24 @@ def add_parser(sub: argparse._SubParsersAction[argparse.ArgumentParser]) -> None
         action=_OneSetup,
         help="the same as --config, by position",
     )
-    add_config(local_pool, dest="path")
-    local_pool.add_argument(
+    add_config(show, dest="path")
+    show.add_argument(
         "--probe",
         action="store_true",
         help=(
-            "also ask each source whether it is answering, and drop the rungs "
+            "also ask each unit whether it is answering, and drop the rungs "
             "of any that is not (off by default: resolving a ladder should not "
             "require a network)"
         ),
     )
-    local_pool.add_argument(
+    show.add_argument(
         "--probe-timeout",
         type=float,
         default=PROBE_TIMEOUT_S,
         metavar="SECONDS",
-        help=f"how long a source has to answer a probe (default: {PROBE_TIMEOUT_S:g})",
+        help=f"how long a unit has to answer a probe (default: {PROBE_TIMEOUT_S:g})",
     )
-    local_pool.set_defaults(func=_local_pool)
+    show.set_defaults(func=_ladder_show)
 
     cat = sub.add_parser(
         "catalog",

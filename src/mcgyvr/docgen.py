@@ -297,7 +297,7 @@ def render_reference() -> str:
 
 # SETUP.md alone: the constants its prose and its notes are built from.
 
-#: The three keys SETUP.md lists as the levers, whose effect `mcgyvr local_pool`
+#: The three keys SETUP.md lists as the levers, whose effect `mcgyvr ladder show`
 #: prints. Each bullet's text is the key's own schema doc, so the list cannot
 #: drift from the field it describes; a name here that `SCHEMA` does not declare
 #: raises `KeyError` at render time instead of printing a bullet with nothing
@@ -553,7 +553,7 @@ def render_setup() -> str:
         "",
         "```",
         "mcgyvr setup",
-        "mcgyvr local_pool",
+        "mcgyvr ladder show",
         "```",
         "",
         "`mcgyvr setup` reads each rig once and stages a setup bound to what it",
@@ -655,7 +655,7 @@ def render_setup() -> str:
         "otherwise from the use case's candidates on the Hugging Face Hub",
         "(ranked by downloads; the cache of an earlier read, then the shipped",
         "model catalog, when the Hub cannot be asked), says which answered,",
-        "and names the host it goes on. `chat` and `agent` plan one unit: the",
+        "and names the rig it goes on. `chat` and `agent` plan one unit: the",
         "biggest model that fits, at the most context that fits and at least",
         "8192 per user. The placement says how fast its model decodes: the",
         "speed the live fleet measured for it there (a `reading`), else an",
@@ -698,7 +698,7 @@ def render_setup() -> str:
         "setup. A `fleets` entry takes `layout` and `next`; a `rigs` entry is",
         "checked only as a block. `examples/fleet.yaml` shows all three.",
         "",
-        "`mcgyvr local_pool` reads that config back: the usable rungs "
+        "`mcgyvr ladder show` reads that config back: the usable rungs "
         "cheapest-first with",
         "their family, attempt budget and model; the escalation ceiling and where it",
         "came from; every skipped rung with the reason it was skipped; and the",
@@ -706,7 +706,7 @@ def render_setup() -> str:
         "is answering — off by default, because resolving a ladder should not need",
         "a network. Run it whenever a run picks a rung you did not expect.",
         "",
-        "Three keys across the two files are the levers, and `mcgyvr local_pool` "
+        "Three keys across the two files are the levers, and `mcgyvr ladder show` "
         "is how",
         "you read all three:",
         "",
@@ -750,7 +750,7 @@ def _use_cases_section() -> list[str]:
         "## Use cases and switches",
         "",
         "`use_case` in the policy says what this install serves, and",
-        "`mcgyvr use NAME` switches it (`/mcgyvr-use` is the same for a session):",
+        "`mcgyvr use NAME` switches it (`/mcgyvr-use` is the same, typed in a chat):",
         "",
         "- `mcgyvr-code` — mcgyvr between the model and you: contracts proposed,",
         "  vetted, run up the ladder, gated, repaired, reviewed and re-planned,",
@@ -1213,8 +1213,8 @@ _RESULT_KEYS: tuple[str, ...] = (
     "- `delivery` — where the work went: left uncommitted in the tree (the",
     "  default), the commit, or why it was refused (as `detail`).",
     "  `committed`, `commit`, `branch`, `handoff` are the commit as fields.",
-    "- `target`, `contract`, `task_type`, `session` (the session the run is",
-    "  filed under; also written as `orchestrator`, its old key, for one",
+    "- `target`, `contract`, `task_type`, `session` (the writer: the chat the run",
+    "  is filed under; also written as `orchestrator`, its old key, for one",
     "  release), `run`, `session_file`, `journal`, `exit_code`.",
     "- `copy_errors` — a `--record DIR` copy that could not be written, and",
     "  why. Empty on almost every run. mcgyvr's own record under `journal`",

@@ -48,10 +48,10 @@ def test_a_consensus_names_the_dispatch_index_of_its_winner(tmp_path: Path) -> N
 
 
 def test_a_consensus_with_no_refusals_dispatched_what_it_chose() -> None:
-    from mcgyvr.deliver import Accepted, digest_of
+    from mcgyvr.deliver import Accepted, text_sha256
 
     def _bound(text: str, *, accepted: bool) -> Accepted:
-        return Accepted(content=text, accepted=accepted, digest=digest_of(text))
+        return Accepted(content=text, accepted=accepted, digest=text_sha256(text))
 
     picked = Consensus(
         draws=(_bound("x = 1\n", accepted=False), _bound("y = 1\n", accepted=True)),

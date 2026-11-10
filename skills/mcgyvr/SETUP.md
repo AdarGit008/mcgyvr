@@ -7,7 +7,7 @@ this is how `fleet.yaml` and `policy.yaml` come to exist and what they can say.
 
 ```
 mcgyvr setup
-mcgyvr local_pool
+mcgyvr ladder show
 ```
 
 `mcgyvr setup` reads each rig once and stages a setup bound to what it
@@ -109,7 +109,7 @@ that profile, from `--model-store DIR` when a checkpoint there fits,
 otherwise from the use case's candidates on the Hugging Face Hub
 (ranked by downloads; the cache of an earlier read, then the shipped
 model catalog, when the Hub cannot be asked), says which answered,
-and names the host it goes on. `chat` and `agent` plan one unit: the
+and names the rig it goes on. `chat` and `agent` plan one unit: the
 biggest model that fits, at the most context that fits and at least
 8192 per user. The placement says how fast its model decodes: the
 speed the live fleet measured for it there (a `reading`), else an
@@ -149,14 +149,14 @@ keys on them, and the run config drops them when it loads the
 setup. A `fleets` entry takes `layout` and `next`; a `rigs` entry is
 checked only as a block. `examples/fleet.yaml` shows all three.
 
-`mcgyvr local_pool` reads that config back: the usable rungs cheapest-first with
+`mcgyvr ladder show` reads that config back: the usable rungs cheapest-first with
 their family, attempt budget and model; the escalation ceiling and where it
 came from; every skipped rung with the reason it was skipped; and the
 orchestrator and verifier models. `--probe` also asks each unit whether it
 is answering — off by default, because resolving a ladder should not need
 a network. Run it whenever a run picks a rung you did not expect.
 
-Three keys across the two files are the levers, and `mcgyvr local_pool` is how
+Three keys across the two files are the levers, and `mcgyvr ladder show` is how
 you read all three:
 
 - `units` — What runs where, keyed by a name you choose. A unit carries every fact about what it is and can physically do: its address, engine, model, width, window, reply size and timeout.
@@ -283,7 +283,7 @@ hand instead.
 ## Use cases and switches
 
 `use_case` in the policy says what this install serves, and
-`mcgyvr use NAME` switches it (`/mcgyvr-use` is the same for a session):
+`mcgyvr use NAME` switches it (`/mcgyvr-use` is the same, typed in a chat):
 
 - `mcgyvr-code` — mcgyvr between the model and you: contracts proposed,
   vetted, run up the ladder, gated, repaired, reviewed and re-planned,
@@ -383,7 +383,7 @@ locks and waking a card are machinery, not switches.
 | `infer_dependencies` | boolean | no | `true` | Whether a batch of contracts also waits on what it can infer. On, a contract that uses a name the committed tree does not define yet waits on the sibling whose target creates it, though its `depends_on` does not say so, and one whose name nothing defines or creates is held. Off, a batch is ordered by `depends_on` alone. Contracts `mcgyvr PROMPT` proposes state such waits in `depends_on` themselves. |
 | `same_file` | one of `wait`, `parallel` | no | `wait` | What a batch run with `--jobs` does with two ready contracts whose scopes can write one file. `wait` runs the second once the first has settled, from the tree the first left. `parallel` runs them at once, from one base: their deliveries still take turns, and one that no longer applies is refused and named, never lost. |
 | `attempts` | map of numbers (min 1) | no | — | How many times each unit may be tried before escalation moves on. To bind it: e.g. `{<unit>: 2}`. |
-| `draws` | map of numbers (min 1) | no | — | How many candidates one attempt asks *this* unit for, overriding `breadth.draws` for the units named; a unit with no entry draws the breadth. Spelled the way `attempts` is because it is the same kind of per-unit routing decision, and it is policy rather than a unit fact, which is why it is not under `units`. `mcgyvr local_pool` prints the effective number where it exceeds one. To bind it: e.g. `{<unit>: 3}`. |
+| `draws` | map of numbers (min 1) | no | — | How many candidates one attempt asks *this* unit for, overriding `breadth.draws` for the units named; a unit with no entry draws the breadth. Spelled the way `attempts` is because it is the same kind of per-unit routing decision, and it is policy rather than a unit fact, which is why it is not under `units`. `mcgyvr ladder show` prints the effective number where it exceeds one. To bind it: e.g. `{<unit>: 3}`. |
 | `rider_slots` | map of numbers (min 0) | no | — | How many of each named unit's slots riders may use at once (hitchhike): people the hub matches to you, whose requests for the unit's model the agent of `mcgyvr rig` passes to it and whose prompts you can read. A unit the map does not name shares none. It is policy, not a fact of the unit, so changing it never changes the setup's identity or its lock, and a running agent sends the hub the change within a second, with no reconnect. Below the unit's `width`, so you always keep a slot, and your own requests go first: a ride is taken only while the unit has a slot free, your requests and the rides in flight together fewer than its `width`, so riders use only slots you are not using, and a unit whose server does not report what it has in flight shares nothing. A ride that has started runs to its end; a request of yours that arrives meanwhile waits for a slot as any of yours does. A unit is shared only when it is on the `ladder`, needs no key (`api_key_env`), is not a relief rung, states its `window`, the context of each slot, and has a `width` of at most 16, the most the hub takes; one unit per model. To bind it: e.g. `{<unit>: 1}` -- at most one below the unit's `width`. |
 | `max_escalations` | number (min 0) | no | unset | How many rungs a task may climb before it is handed back unfinished. Unset: every rung of the ladder may be entered. To bind it: set a whole number of moves up the ladder, or leave it unset. |
 | `max_replans` | number (min 0) | no | `1` | How many times a batch of contracts (`mcgyvr PROMPT`) hands a line of work whose ladder is spent back to the proposer to be re-planned. A contract that tried every rung and came to `ladder_spent` goes back with the failure notes its climb left, as evidence; the contract or contracts the proposer proposes in its place take its place in the batch, carry `replan` (the id they replace and the round), and what waited on it waits on them. A contract already at this round is not re-planned again, and one the proposer proposes unchanged is not run again. 0 turns re-planning off: a spent contract stops there, as under `mcgyvr direct`, which never re-plans. To bind it: set a whole number of re-plans, or 0 to stop at a spent ladder. |
@@ -420,7 +420,7 @@ Each entry takes these keys:
 | `units.engine` | one of `llama.cpp`, `vllm` | no | unset | Which server program runs behind this address. Absent means llama.cpp. To bind it: e.g. vllm -- leave it out for llama.cpp. |
 | `units.image` | text | no | unset | Container image this unit runs, as a tag or digest. To bind it: e.g. vllm/vllm-openai@sha256:<hex>. |
 | `units.launcher` | one of `docker`, `native` | no | unset | How this unit's server runs. `docker`: in a container, kept up by the docker daemon (Linux, NVIDIA). `native`: the llama.cpp release build mcgyvr pins, fetched into `bin/llama.cpp/<tag>/` under the mcgyvr home, checked against its pinned sha256, and kept up by mcgyvr's own supervisor, which restarts it with a growing pause and gives up after a few crashes: Metal on a Mac, CUDA where `nvidia-smi` reads a driver it runs, else Vulkan, else the CPU. A native unit listens on 127.0.0.1 alone, so no firewall is expected to ask: on macOS the hub reaches it through the rig agent's relay to that local address (Windows has no rig agent yet), and a pooled worker binds the tunnel address only, so a unit stating another `--host` is refused; its log is `logs/<container>.log` in the data folder. llama.cpp only. On a Mac or Windows rig reached over ssh (its rig file, `mcgyvr scan --rig`, says so) the door ships the launcher there and it runs the same way, with no docker. Absent means `docker`; `setup` writes `native` for a unit on a Mac or Windows machine, this one or such a rig. To bind it: e.g. native -- leave it out for a container. |
-| `units.expose` | one of `local`, `lan` | no | unset | Who may reach this unit's server. `local`: this machine alone, on 127.0.0.1. `lan`: every machine that reaches this one, on every interface, and only with the API key mcgyvr makes for the unit the first time `mcgyvr emit` writes it: kept at mode 0600 in `unit-keys/<host>-<port>.env` in the data folder, handed to the server through its compose file's `env_file` (never written into the compose file or `fleet.yaml`) and sent by mcgyvr's own requests to the unit; `mcgyvr fleet key <unit>` prints it for a client of your own. A `--host` the unit's own args state, or a `LLAMA_ARG_HOST` its env states, is kept as stated. A docker unit only: a native one listens on 127.0.0.1 alone, and a pooled rpc worker on its tunnel address. Absent means `local` for a unit whose address names this machine (localhost, 127.0.0.1, ::1) or that runs native, and `lan` for one whose address names another host, which is the only way that address reaches it. To bind it: e.g. local -- leave it out to follow the unit's address. |
+| `units.expose` | one of `local`, `lan` | no | unset | Who may reach this unit's server. `local`: this machine alone, on 127.0.0.1. `lan`: every machine that reaches this one, on every interface, and only with the API key mcgyvr makes for the unit the first time `mcgyvr emit` writes it: kept at mode 0600 in `unit-keys/<address>-<port>.env` in the data folder, handed to the server through its compose file's `env_file` (never written into the compose file or `fleet.yaml`) and sent by mcgyvr's own requests to the unit; `mcgyvr fleet key <unit>` prints it for a client of your own. A `--host` the unit's own args state, or a `LLAMA_ARG_HOST` its env states, is kept as stated. A docker unit only: a native one listens on 127.0.0.1 alone, and a pooled rpc worker on its tunnel address. Absent means `local` for a unit whose address names this machine (localhost, 127.0.0.1, ::1) or that runs native, and `lan` for one whose address names another host, which is the only way that address reaches it. To bind it: e.g. local -- leave it out to follow the unit's address. |
 | `units.api_key_env` | env var name | no | unset | NAME of the environment variable holding this unit's key. To bind it: set it to the variable's NAME (e.g. ANTHROPIC_API_KEY), never the key itself. |
 | `units.scope` | one of `own`, `crew`, `anyone` | no | `own` | Whose rigs may serve this unit's requests, named on each one in the `x-mcgyvr-scope` header: `own` (your own rigs), `crew` (your crews' too) or `anyone`. A hub serves the request from that scope's pool; a server of your own ignores it. A ladder step or a role may bind the unit only where its pool serves the setup's use case, so under `mcgyvr-code` a unit served from the hub's general pool, which serves models raw, is refused when the setup is read. Unset is `own`. |
 | `units.rig` | text | no | unset | The rig this unit runs on, by the name fleet.yaml uses. Units that share a rig and an address are served by one process. To bind it: e.g. box.example. |

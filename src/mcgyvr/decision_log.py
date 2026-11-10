@@ -39,12 +39,12 @@ from pathlib import Path
 from typing import Any
 
 from mcgyvr import hostos
+from mcgyvr.decision import CHOICE_LABELS
 
-#: Labels a lettered candidate list may use, by position: upper-case letters,
-#: then lower-case, then digits. This is the same 62-label alphabet
+#: Labels a lettered candidate list may use, by position: the 62-label alphabet
 #: :mod:`mcgyvr.decision` holds for a Choice, so a candidate shown at position 0
 #: is the letter "A" in both places.
-_LETTERS = tuple("ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789")
+_LETTERS = CHOICE_LABELS
 
 
 def _now_iso() -> str:

@@ -395,11 +395,13 @@ def test_setup_with_no_path_stages_in_the_override_or_the_data_folder(
     assert seen[-1] == tmp_path / "named"
 
 
-@pytest.mark.parametrize("command", ["config", "local_pool", "emit", "direct"])
+@pytest.mark.parametrize(
+    "command", [("config",), ("ladder", "show"), ("emit",), ("direct",)], ids=" ".join
+)
 def test_every_config_help_line_names_the_live_fleet_and_not_the_retired_dir(
-    command: str, capsys: pytest.CaptureFixture[str]
+    command: tuple[str, ...], capsys: pytest.CaptureFixture[str]
 ) -> None:
-    assert lj.main([command, "--help"]) == 0
+    assert lj.main([*command, "--help"]) == 0
     out = " ".join(capsys.readouterr().out.split())
     assert "~/.mcgyvr/live.json" in out, out
     assert "~/.mcgyvr/config" not in out, out

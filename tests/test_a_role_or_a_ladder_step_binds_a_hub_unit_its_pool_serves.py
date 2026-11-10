@@ -97,14 +97,14 @@ def test_a_ladder_step_naming_a_relief_rung_is_a_step_and_no_longer_ridden(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     from mcgyvr import runner
-    from mcgyvr.local_pool import source_map
+    from mcgyvr.ladder_map import unit_map
 
     config = parse(_setup("ladder", RIDE) + "fanout: idle\n", relief_text=RELIEF)
 
     assert config.ladder.names == ("local", RIDE)
     assert config.units[RIDE].relief is True
     assert RIDE not in config.relief
-    pool = source_map(config)
+    pool = unit_map(config)
     assert [r.name for r in pool.rungs] == ["local", RIDE]
     assert pool.relief == ()
 
@@ -123,10 +123,10 @@ def test_a_role_naming_a_relief_rung_resolves_to_it(
     monkeypatch: pytest.MonkeyPatch, role: str
 ) -> None:
     from mcgyvr import runner
-    from mcgyvr.local_pool import source_map
+    from mcgyvr.ladder_map import unit_map
 
     config = parse(_setup(role, RIDE), relief_text=RELIEF)
-    pool = source_map(config)
+    pool = unit_map(config)
 
     binding = pool.role(role)
     assert binding is not None
@@ -166,13 +166,13 @@ def test_a_name_neither_a_unit_nor_a_relief_rung_is_refused_naming_both() -> Non
 
 
 def test_a_relief_rung_nothing_binds_is_ridden_as_before() -> None:
-    from mcgyvr.local_pool import source_map
+    from mcgyvr.ladder_map import unit_map
 
     config = parse(f"{FLEET}ladder: [local]\nfanout: idle\n", relief_text=RELIEF)
 
     assert RIDE in config.relief
     assert RIDE not in config.units
-    pool = source_map(config)
+    pool = unit_map(config)
     assert [r.name for r in pool.relief] == [RIDE]
     assert [r.name for r in pool.rungs] == ["local"]
 

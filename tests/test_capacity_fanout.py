@@ -59,7 +59,7 @@ from mcgyvr.config import Config, parse
 from mcgyvr.contract import Contract
 from mcgyvr.contract import loads as load_contract
 from mcgyvr.escalate import ascent
-from mcgyvr.local_pool import SourceMap, source_map
+from mcgyvr.ladder_map import UnitMap, unit_map
 from mcgyvr.route import Accepted, Result, Try, climb, plan
 
 # How long a job waits for its group to assemble before giving up. Nothing
@@ -138,9 +138,9 @@ def peers(mode: str = "") -> str:
     return PEERS.format(fanout=f"fanout: {mode}\n" if mode else "")
 
 
-def mapped(text: str | None = None) -> tuple[Config, SourceMap]:
+def mapped(text: str | None = None) -> tuple[Config, UnitMap]:
     config = parse(text if text is not None else peers())
-    return config, source_map(config)
+    return config, unit_map(config)
 
 
 def contract(text: str = CONTRACT) -> Contract:
@@ -215,7 +215,7 @@ class Rendezvous:
 
 
 def climbing(
-    pool: SourceMap,
+    pool: UnitMap,
     config: Config,
     observer: Observer,
     rendezvous: Rendezvous,
@@ -225,7 +225,7 @@ def climbing(
     The attempt function is where a real caller would dispatch, so it is where
     the slot is held — around the request and not around the task, which is the
     rule :mod:`mcgyvr.capacity` is built on. Resolving the rung to an endpoint
-    goes through :meth:`~mcgyvr.local_pool.SourceMap.bind`, the one seam crossing,
+    goes through :meth:`~mcgyvr.ladder_map.UnitMap.bind`, the one seam crossing,
     because the source a rung lands on is exactly the fact under test and a job
     that closed over an endpoint would have assumed the answer.
     """
@@ -255,7 +255,7 @@ def climbing(
 
 
 @contextmanager
-def saturated(capacity: Capacity, pool: SourceMap, *rungs: str) -> Iterator[None]:
+def saturated(capacity: Capacity, pool: UnitMap, *rungs: str) -> Iterator[None]:
     """Hold every slot of ``rungs`` for the body, from threads that can hold them.
 
     One thread per slot rather than a nested stack on this one, because

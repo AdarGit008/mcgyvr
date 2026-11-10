@@ -353,11 +353,11 @@ def complete(setup: Path, unit: str) -> str:
     was sent, so a caller can tell an empty answer from an absent one.
     """
     from mcgyvr.config import load
-    from mcgyvr.local_pool import source_map
+    from mcgyvr.ladder_map import unit_map
     from mcgyvr.runner import Request, dispatch
 
     answer = dispatch(
-        source_map(load(setup)),
+        unit_map(load(setup)),
         unit,
         Request(prompt=CHAT_PROMPT, max_output_tokens=CHAT_TOKENS),
     )
@@ -374,7 +374,7 @@ def ground(setup: Path, unit: str) -> str:
     reply text is returned as it was sent.
     """
     from mcgyvr.config import load
-    from mcgyvr.local_pool import source_map
+    from mcgyvr.ladder_map import unit_map
     from mcgyvr.runner import Request, dispatch
     from mcgyvr.worker.prompt import _render_sources
 
@@ -386,7 +386,7 @@ def ground(setup: Path, unit: str) -> str:
         ]
     )
     answer = dispatch(
-        source_map(load(setup)),
+        unit_map(load(setup)),
         unit,
         Request(
             prompt=f"{sample['task']}\nSOURCES:\n{sources}\n",
@@ -437,10 +437,10 @@ def choose(setup: Path) -> tuple[str, float]:
     """
     from mcgyvr.config import load
     from mcgyvr.decision import JEV_ROLE, Choice, ChoiceAnswer, classify_role
-    from mcgyvr.local_pool import source_map
+    from mcgyvr.ladder_map import unit_map
 
     decided = classify_role(
-        source_map(load(setup)),
+        unit_map(load(setup)),
         JEV_ROLE,
         {"sample": "every unit of the staged fleet answered its sample"},
         {"sample": Choice(instructions=JEV_INSTRUCTIONS, options=JEV_OPTIONS)},

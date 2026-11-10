@@ -73,7 +73,7 @@ from mcgyvr.worker.reply import FENCE_OPEN as _FENCE_OPEN
 
 if TYPE_CHECKING:  # pragma: no cover - typing only
     from mcgyvr.capacity import Capacity
-    from mcgyvr.local_pool import SourceMap
+    from mcgyvr.ladder_map import UnitMap
 
 #: The role whose bound unit turns a prompt into contracts: `proposer_for`
 #: dispatches the prose prompt there, `classifier_proposer_for` asks the typed
@@ -545,7 +545,7 @@ def _deps(item: dict[str, object]) -> tuple[DepRef, ...]:
 
 
 def proposer_for(
-    source_map: SourceMap,
+    unit_map: UnitMap,
     *,
     capacity: Capacity | None = None,
 ) -> Proposer | None:
@@ -559,12 +559,12 @@ def proposer_for(
     limit is not parsed: it raises `OrchestratorReplyCutOffError`. Either way,
     an unreadable reply's error carries the raw reply as its `reply`.
     """
-    if source_map.role_model(ORCHESTRATOR_ROLE) is None:
+    if unit_map.role_model(ORCHESTRATOR_ROLE) is None:
         return None
 
     def propose(evidence: Evidence) -> Sequence[Proposal]:
         completion = dispatch_role(
-            source_map,
+            unit_map,
             ORCHESTRATOR_ROLE,
             # No cap is stated: the runner sends the unit's maximum.
             Request(prompt=build_prompt(evidence), max_output_tokens=None),
@@ -1003,7 +1003,7 @@ def deterministic_proposer() -> Proposer:
 
 
 def classifier_proposer_for(
-    source_map: SourceMap,
+    unit_map: UnitMap,
     *,
     capacity: Capacity | None = None,
     confidence: float = MIN_CONFIDENCE,
@@ -1018,12 +1018,12 @@ def classifier_proposer_for(
     deterministically and asks nothing — the gate, reviewer and wake decisions
     keep asking their pre-jev roles, unchanged.
     """
-    if not jev_bound(source_map):
+    if not jev_bound(unit_map):
         return deterministic_proposer()
 
     def classify(state: Any, questions: Mapping[str, Question]) -> Decision:
         return classify_for(
-            source_map,
+            unit_map,
             state,
             questions,
             role=ORCHESTRATOR_ROLE,
@@ -1034,12 +1034,12 @@ def classifier_proposer_for(
         classify=classify,
         confidence=confidence,
         sink=sink,
-        model=source_map.role_model(JEV_ROLE) or "",
+        model=unit_map.role_model(JEV_ROLE) or "",
     )
 
 
 def refining_proposer_for(
-    source_map: SourceMap,
+    unit_map: UnitMap,
     *,
     capacity: Capacity | None = None,
     confidence: float = MIN_CONFIDENCE,
@@ -1056,7 +1056,7 @@ def refining_proposer_for(
     a proposal splits, so the rank-0 collapse comes back as it was.
     """
     typed = classifier_proposer_for(
-        source_map, capacity=capacity, confidence=confidence, sink=sink
+        unit_map, capacity=capacity, confidence=confidence, sink=sink
     )
     if not isinstance(typed, ClassifierProposer):
         return typed

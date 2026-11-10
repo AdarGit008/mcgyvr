@@ -201,7 +201,7 @@ _OUTSIDE = """
 import json
 from pathlib import Path
 import mcgyvr
-from mcgyvr.local_pool import Protocol
+from mcgyvr.ladder_map import Protocol
 from mcgyvr.runner import Completion, StopReason
 from mcgyvr.telemetry import fold, observe
 
@@ -221,7 +221,7 @@ print(json.dumps({"file": mcgyvr.__file__, "row": row}))
 
 
 # The modules allowed to hold an `Endpoint`, which is to say the ones that live
-# *below* the seam. `local_pool.py` defines it; `runner.py` (#21) is what it was
+# *below* the seam. `ladder_map.py` defines it; `runner.py` (#21) is what it was
 # defined for — dispatch is the whole reason the type exists, and a runner is
 # the last place that can still be said to not know who asked. Anything else
 # reaching for it is the failure this guard is here to catch, so the list is
@@ -232,7 +232,7 @@ print(json.dumps({"file": mcgyvr.__file__, "row": row}))
 # does the same kind of thing a runner does — it takes an endpoint and sends it
 # a request over the network — and it is the only other module that needs a
 # base URL and a protocol to do its job. Crucially it does not travel *upward*:
-# `source_map` consults it through `SourceProbe`, which passes endpoints down
+# `unit_map` consults it through `UnitProbe`, which passes endpoints down
 # and gets back a mapping of source name to reason, so nothing above the seam
 # gains a way to learn where a rung runs. If a future module wants on this list
 # because it "just needs the URL", that is the case this guard exists to make
@@ -245,7 +245,7 @@ print(json.dumps({"file": mcgyvr.__file__, "row": row}))
 # the credential, so it cannot dispatch even by accident. And it is the use
 # `Endpoint` itself names: "``source`` is the declared source name, kept for
 # capacity accounting and telemetry — both of which live below the seam"
-# (`local_pool.py`). Nothing travels upward either — a caller above the seam hands
+# (`ladder_map.py`). Nothing travels upward either — a caller above the seam hands
 # `run_batch` a capacity and gets back outcomes, and never an endpoint.
 #
 # `cooldown.py` (D09) is the fifth, and it is capacity's argument rather than
@@ -254,8 +254,8 @@ print(json.dumps({"file": mcgyvr.__file__, "row": row}))
 # key its failure record is held under, which is the same key capacity holds its
 # semaphores under and the use `Endpoint` itself names. It touches neither
 # `base_url` nor `protocol` nor the credential, so it cannot dispatch even by
-# accident. Nothing travels upward: `source_map` consults it through
-# `SourceProbe` exactly as it consults availability, handing endpoints down and
+# accident. Nothing travels upward: `unit_map` consults it through
+# `UnitProbe` exactly as it consults availability, handing endpoints down and
 # getting back a mapping of source name to reason.
 #
 # `decision.py` (the Jev primitive) is the sixth, and its argument is the
@@ -295,7 +295,7 @@ print(json.dumps({"file": mcgyvr.__file__, "row": row}))
 # candidates are sized from the rig and the checkpoint header before any model
 # is consulted.
 BELOW_THE_SEAM = {
-    "local_pool.py",
+    "ladder_map.py",
     "runner.py",
     "availability.py",
     "capacity.py",
@@ -317,16 +317,16 @@ def seam_offenders(root: Path) -> list[str]:
     """Every way a module under ``root`` reaches an endpoint, with where.
 
     Three routes, because the guard was defeated by two of them. The original
-    checked one shape — ``from mcgyvr.local_pool import Endpoint`` — and the rule
-    was crossed anyway by ``import mcgyvr.local_pool`` and by
+    checked one shape — ``from mcgyvr.ladder_map import Endpoint`` — and the rule
+    was crossed anyway by ``import mcgyvr.ladder_map`` and by
     a relative import, neither of which that shape matches, and once more by
-    ``SourceMap.role()``, which needs no import at all: it *returns* a
+    ``UnitMap.role()``, which needs no import at all: it *returns* a
     ``RoleBinding``, so a module could hold a live ``credential()`` while
     importing nothing. A guard with three known bypasses is not a weak guard, it
     is a guard that reports on spelling.
 
     ``role()`` is therefore treated as below-the-seam API and
-    ``SourceMap.role_model()`` is what above it may call. The check is by
+    ``UnitMap.role_model()`` is what above it may call. The check is by
     method name, which will occasionally catch an unrelated ``.role(...)``: that
     is the intended direction, and the same argument the module list makes — a
     false positive costs someone an argument, a false negative costs the rule.
@@ -338,20 +338,20 @@ def seam_offenders(root: Path) -> list[str]:
         where = path.relative_to(root)
         tree = ast.parse(path.read_text(encoding="utf-8"))
         for node in ast.walk(tree):
-            # `from mcgyvr.local_pool import Endpoint`, and the relative spelling of
+            # `from mcgyvr.ladder_map import Endpoint`, and the relative spelling of
             # the same import, which resolves to the same module.
             if isinstance(node, ast.ImportFrom):
                 module = node.module or ""
-                if module == "mcgyvr.local_pool" or (
-                    node.level and module == "local_pool"
+                if module == "mcgyvr.ladder_map" or (
+                    node.level and module == "ladder_map"
                 ):
                     imported = {alias.name for alias in node.names}
                     if imported & BELOW_THE_SEAM_NAMES:
                         offenders.append(f"{where}: imports {sorted(imported)}")
-            # `import mcgyvr.local_pool`, which reaches every name in it.
+            # `import mcgyvr.ladder_map`, which reaches every name in it.
             elif isinstance(node, ast.Import):
                 for alias in node.names:
-                    if alias.name == "mcgyvr.local_pool":
+                    if alias.name == "mcgyvr.ladder_map":
                         offenders.append(f"{where}: imports the module whole")
             # `something.role(...)` — an endpoint through an accessor.
             elif isinstance(node, ast.Call):

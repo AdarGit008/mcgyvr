@@ -41,7 +41,7 @@ from typing import Any
 import pytest
 
 from mcgyvr.availability import Availability
-from mcgyvr.local_pool import Endpoint, Protocol
+from mcgyvr.ladder_map import Endpoint, Protocol
 
 SOURCE = Endpoint(
     source="workstation",

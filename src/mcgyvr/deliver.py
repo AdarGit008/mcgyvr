@@ -178,7 +178,7 @@ class Accepted:
             return cls(
                 content=text,
                 accepted=result.accepted,
-                digest=digest_of(text),
+                digest=text_sha256(text),
                 findings=tuple(result.findings),
                 observations=tuple(result.observations),
             )
@@ -190,13 +190,13 @@ class Accepted:
         for rel in rest:
             other = _bound_text(root, contract, rel)
             companions.append(
-                Companion(path=rel, content=other, digest=digest_of(other))
+                Companion(path=rel, content=other, digest=text_sha256(other))
             )
         text = _bound_text(root, contract, first)
         return cls(
             content=text,
             accepted=result.accepted,
-            digest=digest_of(text),
+            digest=text_sha256(text),
             findings=tuple(result.findings),
             observations=tuple(result.observations),
             path=first,
@@ -206,7 +206,7 @@ class Accepted:
     @property
     def intact(self) -> bool:
         """Whether `content` and every companion still hash to the stored digest."""
-        return self.digest == digest_of(self.content) and all(
+        return self.digest == text_sha256(self.content) and all(
             companion.intact for companion in self.companions
         )
 
@@ -233,7 +233,7 @@ class Companion:
     @property
     def intact(self) -> bool:
         """Whether `content` still hashes to `digest`."""
-        return self.digest == digest_of(self.content)
+        return self.digest == text_sha256(self.content)
 
 
 def _bound_text(root: Path, contract: Contract, rel: str) -> str:
@@ -252,7 +252,7 @@ def _bound_text(root: Path, contract: Contract, rel: str) -> str:
         ) from exc
 
 
-def digest_of(content: str) -> str:
+def text_sha256(content: str) -> str:
     """The sha256 of `content`: how a verdict is tied to the bytes it judged.
 
     Encoded with ``surrogatepass``, so the digest is defined even for text
@@ -1488,12 +1488,12 @@ def _unwritable(
         )
 
     if bound is not None and not bound.intact:
-        if bound.digest != digest_of(bound.content):
+        if bound.digest != text_sha256(bound.content):
             return call.refuse(
                 f"the content handed to {contract.id} is not the content its "
                 f"verdict was reached on: the accepted bytes digest to "
                 f"{bound.digest[:12]} and these digest to "
-                f"{digest_of(bound.content)[:12]}. Nothing is written, because "
+                f"{text_sha256(bound.content)[:12]}. Nothing is written, because "
                 f"a verdict that has come apart from its bytes covers neither."
             )
         broken = next(c for c in bound.companions if not c.intact)
@@ -1501,7 +1501,7 @@ def _unwritable(
             f"the content handed to {contract.id} for {broken.path} is not the "
             f"content its verdict was reached on: the accepted bytes digest to "
             f"{broken.digest[:12]} and these digest to "
-            f"{digest_of(broken.content)[:12]}. Nothing is written, because "
+            f"{text_sha256(broken.content)[:12]}. Nothing is written, because "
             f"a verdict that has come apart from its bytes covers neither."
         )
 

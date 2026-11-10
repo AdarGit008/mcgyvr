@@ -317,9 +317,9 @@ def test_every_field_the_runner_sends_is_one_the_hub_forwards(
 ) -> None:
     from mcgyvr import runner
     from mcgyvr.config import parse
-    from mcgyvr.local_pool import source_map
+    from mcgyvr.ladder_map import unit_map
 
-    pool = source_map(parse(_SETUP))
+    pool = unit_map(parse(_SETUP))
     posted = _posted(monkeypatch, runner)
     tool = {"type": "function", "function": {"name": "f", "parameters": {}}}
     ask = runner.Request(
@@ -345,9 +345,9 @@ def test_every_field_jev_sends_is_one_the_hub_forwards(
     from mcgyvr import decision
     from mcgyvr.config import parse
     from mcgyvr.decision import Noul
-    from mcgyvr.local_pool import source_map
+    from mcgyvr.ladder_map import unit_map
 
-    pool = source_map(parse(_SETUP))
+    pool = unit_map(parse(_SETUP))
     posted = _posted(monkeypatch, decision)
     decision.classify(pool.bind("local"), "coder-7b", {"x": 1}, {"q": Noul("Q?")})
 
@@ -366,10 +366,10 @@ def test_the_runner_and_jev_name_the_setups_use_case(
     from mcgyvr import decision, runner
     from mcgyvr.config import parse
     from mcgyvr.decision import Noul
-    from mcgyvr.local_pool import source_map
+    from mcgyvr.ladder_map import unit_map
 
     setup = _SETUP if use_case is None else f"{_SETUP}use_case: {use_case}\n"
-    pool = source_map(parse(setup))
+    pool = unit_map(parse(setup))
     sent: list[dict[str, str]] = []
     _posted(monkeypatch, runner, sent)
     _posted(monkeypatch, decision, sent)

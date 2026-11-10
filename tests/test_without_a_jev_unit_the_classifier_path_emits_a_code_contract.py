@@ -20,7 +20,7 @@ import mcgyvr.decision as decision
 from mcgyvr.config import parse
 from mcgyvr.decompose.decompose import Evidence, Proposal, decompose
 from mcgyvr.delegate import classifier_proposer_for, proposer_by_authoring
-from mcgyvr.local_pool import source_map
+from mcgyvr.ladder_map import unit_map
 from mcgyvr.repo.index import Index, build_index
 
 #: A keyless local ladder with no jev block: nothing to ask typed questions of.
@@ -66,7 +66,7 @@ def test_the_no_jev_collapse_emits_a_code_contract(
         raise AssertionError("the collapse proposed, so prose is not asked")
 
     monkeypatch.setattr(decision, "_post_json", no_model)
-    typed = classifier_proposer_for(source_map(parse(LADDER)))
+    typed = classifier_proposer_for(unit_map(parse(LADDER)))
     propose = proposer_by_authoring("classifier", typed=typed, prose=prose)
     assert propose is not None
 

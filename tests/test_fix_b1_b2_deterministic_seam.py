@@ -41,7 +41,7 @@ from mcgyvr.contract import loads as load_contract
 from mcgyvr.deterministic import ToolStep, tool_steps
 from mcgyvr.deterministic import route as floor_route
 from mcgyvr.escalate import Assurance, Delivered, Judgement, ascent, escalate
-from mcgyvr.local_pool import SourceMap, source_map
+from mcgyvr.ladder_map import UnitMap, unit_map
 from mcgyvr.route import Result, RouteError, Step, Try, Verdict, climb, plan
 
 # A keyless install: one local rung above the floor, no credential anywhere.
@@ -82,9 +82,9 @@ DETERMINISTIC = catalog().family("deterministic")
 LOCAL = catalog().family("local")
 
 
-def mapped(text: str = KEYLESS) -> tuple[Config, SourceMap]:
+def mapped(text: str = KEYLESS) -> tuple[Config, UnitMap]:
     config = parse(text)
-    return config, source_map(config)
+    return config, unit_map(config)
 
 
 def contract(text: str = FORMAT) -> Contract:

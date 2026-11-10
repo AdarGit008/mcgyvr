@@ -32,7 +32,7 @@ import pytest
 
 from mcgyvr.config import parse as parse_config
 from mcgyvr.contract import loads as load_contract
-from mcgyvr.local_pool import source_map
+from mcgyvr.ladder_map import unit_map
 from tests.drives import (  # noqa: F401 - fixtures
     RUN_SHARE,
     _run,
@@ -129,7 +129,7 @@ def test_dispatch_prompt_refuses_on_the_runs_share_before_the_runner(
     from mcgyvr.worker.prompt import build_prompt
 
     sent = _sent(monkeypatch)
-    pool = source_map(parse_config(LADDER))
+    pool = unit_map(parse_config(LADDER))
     contract = load_contract(CONTRACT)
 
     with pytest.raises(ContractTooLargeForRungError) as refused:

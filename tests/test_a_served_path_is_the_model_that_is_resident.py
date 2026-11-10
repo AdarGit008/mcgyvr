@@ -17,7 +17,7 @@ argument, which is the repository id the config names.
 **2. ``mcgyvr direct`` never asks.**
 ``mcgyvr.cli.commands.run._climb`` builds its pool with no probe ("Structural
 resolution, no
-probe"), and only ``mcgyvr local_pool --probe`` passes one. The run-path section
+probe"), and only ``mcgyvr ladder show --probe`` passes one. The run-path section
 below pins that property — a run resolves its ladder without touching the
 network.
 
@@ -37,7 +37,7 @@ import pytest
 
 from mcgyvr.availability import Availability, AvailabilityVerdict
 from mcgyvr.config import parse
-from mcgyvr.local_pool import Endpoint, source_map
+from mcgyvr.ladder_map import Endpoint, unit_map
 from tests import livejournal as lj
 
 #: The name the live config declares for box1's ceiling rung.
@@ -75,7 +75,7 @@ def answering(*models: str) -> Availability:
 
 
 def rungs_of(*models: str) -> tuple[Sequence[str], Mapping[str, str]]:
-    resolved = source_map(parse(LADDER), probe=answering(*models))
+    resolved = unit_map(parse(LADDER), probe=answering(*models))
     return (
         [rung.name for rung in resolved.rungs],
         {skip.name: skip.reason for skip in resolved.skipped},
@@ -223,5 +223,5 @@ def test_the_recorded_llama_cpp_body_is_read_as_the_model_it_holds() -> None:
     assert listed == ("/models/dense/Qwen2.5-Coder-3B-Instruct-Q4_K_M.gguf",)
 
     ladder = LADDER.replace(DECLARED, "Qwen2.5-Coder-3B-Instruct-Q4_K_M")
-    resolved = source_map(parse(ladder), probe=answering(*listed))
+    resolved = unit_map(parse(ladder), probe=answering(*listed))
     assert [rung.name for rung in resolved.rungs] == ["local_big"], resolved.skipped

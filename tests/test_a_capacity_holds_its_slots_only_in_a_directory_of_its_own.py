@@ -19,7 +19,7 @@ from pathlib import Path
 import pytest
 
 from mcgyvr.capacity import Capacity, CapacityError, SlotUnavailableError
-from mcgyvr.local_pool import Endpoint, Protocol
+from mcgyvr.ladder_map import Endpoint, Protocol
 
 UNIT = Endpoint(
     source="local",

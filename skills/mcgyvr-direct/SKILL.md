@@ -454,8 +454,8 @@ the config's `journal.dir`, in `results/`. The file's keys:
 - `delivery` — where the work went: left uncommitted in the tree (the
   default), the commit, or why it was refused (as `detail`).
   `committed`, `commit`, `branch`, `handoff` are the commit as fields.
-- `target`, `contract`, `task_type`, `session` (the session the run is
-  filed under; also written as `orchestrator`, its old key, for one
+- `target`, `contract`, `task_type`, `session` (the writer: the chat the run
+  is filed under; also written as `orchestrator`, its old key, for one
   release), `run`, `session_file`, `journal`, `exit_code`.
 - `copy_errors` — a `--record DIR` copy that could not be written, and
   why. Empty on almost every run. mcgyvr's own record under `journal`

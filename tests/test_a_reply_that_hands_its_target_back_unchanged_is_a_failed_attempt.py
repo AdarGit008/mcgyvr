@@ -22,7 +22,7 @@ from mcgyvr.config import parse as parse_config
 from mcgyvr.contract import loads as load_contract
 from mcgyvr.drive import worker_attempt
 from mcgyvr.escalate import Delivered, Halted, Outcome, escalate
-from mcgyvr.local_pool import source_map
+from mcgyvr.ladder_map import unit_map
 from mcgyvr.route import Verdict
 from mcgyvr.sandbox.tempdir import TempDirSandbox
 from tests.drives import LADDER, a_git_repo
@@ -55,13 +55,13 @@ def _answers(
 ) -> list[tuple[str, str]]:
     """Answer every dispatch with the file its rung returns; record rung and prompt."""
     from mcgyvr import drive
-    from mcgyvr.local_pool import Protocol
+    from mcgyvr.ladder_map import Protocol
     from mcgyvr.runner import Completion, StopReason
 
     asked: list[tuple[str, str]] = []
 
     def fake_dispatch(
-        source_map: Any, rung: str, request: Any, *, capacity: Any = None
+        unit_map: Any, rung: str, request: Any, *, capacity: Any = None
     ) -> Completion:
         asked.append((rung, request.prompt))
         return Completion(
@@ -81,7 +81,7 @@ def _answers(
 
 def _climb(repo: Path) -> Delivered | Halted:
     config = parse_config(LADDER)
-    pool = source_map(config)
+    pool = unit_map(config)
     contract = load_contract(CONTRACT)
     with TempDirSandbox(repo) as sandbox:
         return escalate(
@@ -136,13 +136,13 @@ def test_the_retry_is_told_its_reply_changed_nothing(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
     """A second try on the same rung hears why the first one failed."""
-    from mcgyvr.local_pool import Rung
+    from mcgyvr.ladder_map import Rung
     from mcgyvr.route import Try
 
     repo = a_git_repo(tmp_path)
     asked = _answers(monkeypatch, {"local_qwen-7b": BASE})
     config = parse_config(LADDER)
-    pool = source_map(config)
+    pool = unit_map(config)
     contract = load_contract(CONTRACT)
     rung = Rung(name="local_qwen-7b", model="m")
 

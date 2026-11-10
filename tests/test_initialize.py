@@ -28,7 +28,7 @@ from mcgyvr.initialize import (
     parse_api_unit,
     render,
 )
-from mcgyvr.propose import binding_name, propose
+from mcgyvr.ladder_proposal import binding_name, propose
 from tests.inits import KEYLESS_RIG, KINDS, _serving
 from tests.machine_shapes import Shape, detection, shape, shapes, with_server
 
@@ -469,12 +469,12 @@ def test_no_rung_of_a_written_config_carries_the_quality_caveat(
     init wrote can serve a measurement. That is `Runner.quality_safe`, so the
     assertion goes through the runner rather than through the string.
     """
-    from mcgyvr.local_pool import source_map
+    from mcgyvr.ladder_map import unit_map
     from mcgyvr.runner import runner_for
 
     path = tmp_path / "setup"
     initialize(path, detection=KEYLESS_RIG)
-    pool = source_map(load_config(path))
+    pool = unit_map(load_config(path))
     assert pool.rungs, "this fixture is only interesting with rungs on it"
     for rung in pool.rungs:
         runner = runner_for(pool.bind(rung.name))

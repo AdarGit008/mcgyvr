@@ -21,7 +21,7 @@ from __future__ import annotations
 
 from mcgyvr.availability import AvailabilityVerdict
 from mcgyvr.cooldown import Cooldown
-from mcgyvr.local_pool import Endpoint, Protocol
+from mcgyvr.ladder_map import Endpoint, Protocol
 
 
 class _Clock:

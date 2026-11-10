@@ -448,7 +448,7 @@ def _repropose(
     """
     # Imported here: `mcgyvr.delegate` imports this module.
     from mcgyvr.delegate import DelegationError
-    from mcgyvr.local_pool import SourceUnavailableError
+    from mcgyvr.ladder_map import UnitUnavailableError
     from mcgyvr.runner import RunnerError
 
     reported = list(refused)
@@ -461,7 +461,7 @@ def _repropose(
         handed += len(sending)
         try:
             answer = propose(replace(vetting.evidence, refused=tuple(sending)))
-        except (DelegationError, RunnerError, SourceUnavailableError) as exc:
+        except (DelegationError, RunnerError, UnitUnavailableError) as exc:
             failed = type(exc).__name__
             break
         fresh = tuple(a for a in answer if isinstance(a, Proposal))

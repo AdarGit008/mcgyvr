@@ -31,7 +31,7 @@ from mcgyvr.route import Plan, Planned, Step, attempts_for, plan
 if TYPE_CHECKING:  # pragma: no cover - typing only
     from mcgyvr.config import Config
     from mcgyvr.contract import Contract
-    from mcgyvr.local_pool import SourceMap
+    from mcgyvr.ladder_map import UnitMap
 
 
 # The floor's programs, keyed by the language the target is written in and the
@@ -256,7 +256,7 @@ def tool_steps(contract: Contract) -> tuple[ToolStep, ...]:
 
 def route(
     config: Config,
-    pool: SourceMap,
+    pool: UnitMap,
     contract: Contract,
     *,
     installed: Collection[str] | None = None,
@@ -331,7 +331,7 @@ def _why_missing(contract: Contract, tool: Tool | None) -> str:
 
 def _cheapest_above(
     config: Config,
-    pool: SourceMap,
+    pool: UnitMap,
     contract: Contract,
     floor: Family,
 ) -> Plan:

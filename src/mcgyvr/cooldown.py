@@ -23,7 +23,7 @@ from mcgyvr.availability import (
     AvailabilityVerdict,
     ProbeFn,
 )
-from mcgyvr.local_pool import Endpoint
+from mcgyvr.ladder_map import Endpoint
 
 # Consecutive dispatch failures that arm a cooldown, and the default for
 # ``threshold``. The constructor refuses anything below two: a source dropped

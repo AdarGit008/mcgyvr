@@ -33,7 +33,7 @@ from mcgyvr.config import (
 from mcgyvr.contract import Dependency
 from mcgyvr.escalate import Delivered
 from mcgyvr.exits import Exit
-from mcgyvr.local_pool import source_map
+from mcgyvr.ladder_map import unit_map
 from mcgyvr.tree import Tree
 from tests import drives
 from tests.decomposes import git
@@ -122,7 +122,7 @@ def test_jev_off_takes_the_jev_unit_and_classifier_authoring_out() -> None:
     assert ran["classifier"] is False
     assert config.authoring == "prose"
     # Every typed decision is asked as if no Jev unit were bound.
-    assert source_map(config).role_model("jev") is None
+    assert unit_map(config).role_model("jev") is None
 
 
 def test_the_gate_off_takes_repair_with_it() -> None:

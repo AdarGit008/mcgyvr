@@ -45,7 +45,7 @@ from mcgyvr.catalog import catalog
 from mcgyvr.config import Config, parse
 from mcgyvr.contract import Contract
 from mcgyvr.contract import loads as load_contract
-from mcgyvr.local_pool import SourceMap, source_map
+from mcgyvr.ladder_map import UnitMap, unit_map
 from mcgyvr.route import plan
 from tests._helpers import required
 
@@ -77,9 +77,9 @@ def _route() -> Any:
     )
 
 
-def _installed() -> tuple[Config, SourceMap]:
+def _installed() -> tuple[Config, UnitMap]:
     config = parse(KEYLESS)
-    return config, source_map(config)
+    return config, unit_map(config)
 
 
 def _contract_of(operation: str) -> Contract:
@@ -194,7 +194,7 @@ ladder:
 - api_big
 """
     )
-    pool = source_map(config)
+    pool = unit_map(config)
     contract = _contract_of(DETERMINISTIC[0])
 
     landed = _route()(config, pool, contract, installed=frozenset())

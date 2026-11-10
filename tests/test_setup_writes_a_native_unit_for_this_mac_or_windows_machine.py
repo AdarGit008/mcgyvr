@@ -36,7 +36,7 @@ def test_the_launcher_setup_writes(
 def _unit_written(host: str, kind: str = "llama-server") -> dict[str, object]:
     from mcgyvr.detect import Backend, Detection
     from mcgyvr.initialize import _sources_for, build
-    from mcgyvr.propose import propose
+    from mcgyvr.ladder_proposal import propose
 
     detection = Detection(
         backends=(

@@ -1333,7 +1333,7 @@ def _check_destination(
     allow: Sequence[str],
     forbid: Sequence[str],
 ) -> None:
-    """Check the target against the scope: literal or pattern by tier, and writable."""
+    """Check the target against the scope: a literal, or a pattern (floor); writable."""
     if not allow:
         raise ContractSchemaError(
             "scope.allow: is empty, which permits nothing — the contract "
@@ -1362,7 +1362,7 @@ def _check_destination(
             f"target_content: is set, but target {target!r} is a pattern — "
             f"there is no one file whose content this could be. Name a single "
             f"literal path, or drop target_content: a pattern target runs on "
-            f"the deterministic tier, whose tools read each file themselves."
+            f"the floor, whose tools read each file themselves."
         )
 
     overlap = sorted(set(allow) & set(forbid))

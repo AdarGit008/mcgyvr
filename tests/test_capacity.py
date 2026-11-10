@@ -29,7 +29,7 @@ import pytest
 
 from mcgyvr.capacity import Capacity, CapacityError, Outcome, run_batch
 from mcgyvr.config import parse
-from mcgyvr.local_pool import Endpoint, Protocol, source_map
+from mcgyvr.ladder_map import Endpoint, Protocol, unit_map
 
 
 @pytest.fixture(autouse=True)
@@ -514,7 +514,7 @@ def test_the_orchestrators_endpoint_agrees_with_its_reserved_capacity() -> None:
     """`hold` checks an endpoint against the declaration it was built with,
     so the role's endpoint must carry the served width, not the one slot the
     role is bounded to."""
-    pool = source_map(parse(ORCHESTRATOR))
+    pool = unit_map(parse(ORCHESTRATOR))
     role = pool.role("orchestrator")
 
     assert role is not None
@@ -663,7 +663,7 @@ def test_a_confirmation_for_a_source_with_no_limit_is_refused() -> None:
     with pytest.raises(CapacityError) as caught:
         Capacity({"local": 3}, confirmed=["fast"])
 
-    assert "confirmed width(s) for source(s) fast" in str(caught.value)
+    assert "confirmed width(s) for unit(s) fast" in str(caught.value)
 
 
 def test_an_outcome_reports_failure_rather_than_an_absent_value() -> None:
@@ -680,7 +680,7 @@ def test_a_probed_capacity_dispatches_at_the_width_the_rig_reported() -> None:
 
     Every earlier test in this section reads the bound and stops there, so all
     of them passed while the first `hold` through a widened source raised: the
-    endpoints a `SourceMap` builds carry `max_parallel` from the config, and a
+    endpoints a `UnitMap` builds carry `max_parallel` from the config, and a
     hold that compared them against the *enforced* width refused every one of
     them — blaming a stale config for a disagreement `Capacity.of` had itself
     created one line earlier. So this dispatches, through real endpoints, and
@@ -689,7 +689,7 @@ def test_a_probed_capacity_dispatches_at_the_width_the_rig_reported() -> None:
     """
     config = parse(CONFIG)
     capacity = Capacity.of(config, probe=Widths({"cheap": 8}))
-    dispatched = source_map(config).bind("cheap")
+    dispatched = unit_map(config).bind("cheap")
     observer = Observer()
     barrier = threading.Barrier(4)
 
@@ -739,7 +739,7 @@ def test_an_endpoint_from_another_config_is_refused_by_a_probed_capacity() -> No
     make 5 look like a number that fits inside the bound.
     """
     capacity = Capacity.of(parse(CONFIG), probe=Widths({"cheap": 8}))
-    stale = source_map(parse(CONFIG.replace("width: 3", "width: 5")))
+    stale = unit_map(parse(CONFIG.replace("width: 3", "width: 5")))
 
     with pytest.raises(CapacityError) as caught, capacity.hold(stale.bind("cheap")):
         pass  # pragma: no cover - the hold raises on the way in

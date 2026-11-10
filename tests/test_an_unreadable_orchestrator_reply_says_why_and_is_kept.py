@@ -30,7 +30,7 @@ from mcgyvr.delegate import (
     proposals_from_reply,
     proposer_for,
 )
-from mcgyvr.local_pool import Protocol, source_map
+from mcgyvr.ladder_map import Protocol, unit_map
 from mcgyvr.repo.index import Index, build_index
 from mcgyvr.repo.read import explore
 from mcgyvr.repo.resolve import resolve
@@ -118,7 +118,7 @@ def _answer(text: str, stop: StopReason = StopReason.COMPLETE) -> Completion:
 
 
 def _patch(monkeypatch: pytest.MonkeyPatch, answer: Completion) -> None:
-    def fake_dispatch_role(source_map, role, request, *, capacity=None):  # type: ignore[no-untyped-def]
+    def fake_dispatch_role(unit_map, role, request, *, capacity=None):  # type: ignore[no-untyped-def]
         return answer
 
     monkeypatch.setattr(delegate, "dispatch_role", fake_dispatch_role)
@@ -225,7 +225,7 @@ def test_a_cut_off_reply_still_gets_the_cut_off_error_even_when_its_text_would_r
     # would now be read, but the stop reason says the reply never finished.
     text = ARRAY + "\n\nNote that the rename of fam to sku_famil"
     _patch(monkeypatch, _answer(text, StopReason.TRUNCATED))
-    propose = proposer_for(source_map(parse(CONFIG)))
+    propose = proposer_for(unit_map(parse(CONFIG)))
     assert propose is not None
 
     with pytest.raises(OrchestratorReplyCutOffError) as raised:

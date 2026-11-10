@@ -591,7 +591,7 @@ UNIT_FIELDS: tuple[Field, ...] = (
         "127.0.0.1. `lan`: every machine that reaches this one, on every "
         "interface, and only with the API key mcgyvr makes for the unit the "
         "first time `mcgyvr emit` writes it: kept at mode 0600 in "
-        "`unit-keys/<host>-<port>.env` in the data folder, handed to the server "
+        "`unit-keys/<address>-<port>.env` in the data folder, handed to the server "
         "through its compose file's `env_file` (never written into the compose "
         "file or `fleet.yaml`) and sent by mcgyvr's own requests to the unit; "
         "`mcgyvr fleet key <unit>` prints it for a client of your own. A `--host` "
@@ -1211,7 +1211,7 @@ SCHEMA: tuple[Field, ...] = (
         "`breadth.draws` for the units named; a unit with no entry draws the "
         "breadth. Spelled the way `attempts` is because it is the same kind of "
         "per-unit routing decision, and it is policy rather than a unit fact, "
-        "which is why it is not under `units`. `mcgyvr local_pool` prints the "
+        "which is why it is not under `units`. `mcgyvr ladder show` prints the "
         "effective number where it exceeds one.",
         default=None,
         min_value=1,
@@ -2303,7 +2303,7 @@ def _refuse_userinfo(name: str, base_url: str, block: str = "units") -> None:
 
     `name` and `block` say which address it is. The userinfo is refused
     because a URL is quoted in error messages, probe verdicts and
-    `mcgyvr local_pool`, so a key written there reaches logs and terminals
+    `mcgyvr ladder show`, so a key written there reaches logs and terminals
     that a key in the environment never does.
     """
     userinfo = urllib.parse.urlsplit(base_url).netloc.rpartition("@")[0]
@@ -2312,7 +2312,7 @@ def _refuse_userinfo(name: str, base_url: str, block: str = "units") -> None:
     raise ConfigSchemaError(
         f"{block}.{name}.address: carries credentials in the URL "
         f"({userinfo.split(':')[0]}:...@). A URL is quoted in error messages, "
-        f"probe verdicts and `mcgyvr local_pool`, so a key written here reaches "
+        f"probe verdicts and `mcgyvr ladder show`, so a key written here reaches "
         f"logs and terminals that a key in the environment never does. Remove "
         f"the `user:password@` part and name the variable holding it with "
         f"`api_key_env`."

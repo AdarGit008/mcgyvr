@@ -20,7 +20,7 @@ from mcgyvr.contract import loads
 from mcgyvr.decision import BoolAnswer, Decision
 from mcgyvr.escalate import Opinion
 from mcgyvr.gate import GateResult
-from mcgyvr.local_pool import Endpoint, Protocol, RoleBinding, SourceMap
+from mcgyvr.ladder_map import Endpoint, Protocol, RoleBinding, UnitMap
 from mcgyvr.verify import decider_for, read_typed_verdict, verdict_state, verify
 
 LOCAL = Endpoint(
@@ -174,7 +174,7 @@ def test_the_free_text_reviewer_dispatch_is_uncapped_by_default(
     prompting issue, not a cap issue. The default dispatch is None."""
     import mcgyvr.verify as verify_module
     from mcgyvr.config import parse
-    from mcgyvr.local_pool import source_map
+    from mcgyvr.ladder_map import unit_map
     from mcgyvr.runner import Completion, StopReason
     from mcgyvr.verify import reviewer_for
 
@@ -193,10 +193,10 @@ verifier:
   model: qwen2.5-coder:7b
 """
     )
-    pool = source_map(config)
+    pool = unit_map(config)
     seen: list[int | None] = []
 
-    def fake_dispatch_role(source_map, role, request, *, capacity=None):  # type: ignore[no-untyped-def]
+    def fake_dispatch_role(unit_map, role, request, *, capacity=None):  # type: ignore[no-untyped-def]
         seen.append(request.max_output_tokens)
         return Completion(
             text="approve",
@@ -218,7 +218,7 @@ verifier:
 
 
 def test_decider_for_returns_none_without_a_verifier_role() -> None:
-    pool = SourceMap(rungs=(), skipped=(), endpoints={}, roles={}, role_skips={})
+    pool = UnitMap(rungs=(), skipped=(), endpoints={}, roles={}, role_skips={})
     assert decider_for(pool) is None
 
 
@@ -227,7 +227,7 @@ def test_decider_for_reads_a_typed_verdict_through_classify_role(
 ) -> None:
     import mcgyvr.decision as decision_module
 
-    pool = SourceMap(
+    pool = UnitMap(
         rungs=(),
         skipped=(),
         endpoints={},
@@ -241,7 +241,7 @@ def test_decider_for_reads_a_typed_verdict_through_classify_role(
     sent: list[str] = []
 
     def fake_classify_role(
-        source_map: SourceMap,
+        unit_map: UnitMap,
         role: str,
         state: Any,
         questions: Any,

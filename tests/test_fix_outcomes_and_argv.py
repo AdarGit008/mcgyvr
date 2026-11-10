@@ -37,7 +37,7 @@ from mcgyvr.contract import loads as load_contract
 from mcgyvr.deterministic import Routed, ToolStep, tool_steps
 from mcgyvr.deterministic import route as floor_route
 from mcgyvr.escalate import ascent
-from mcgyvr.local_pool import SourceMap, source_map
+from mcgyvr.ladder_map import UnitMap, unit_map
 from mcgyvr.route import Step
 
 # A keyless install with one local rung: the cheapest ladder a stranger has.
@@ -90,8 +90,8 @@ scope:
 DETERMINISTIC = catalog().family("deterministic")
 
 
-def mapped(text: str) -> tuple[Config, SourceMap]:
-    return (config := parse(text)), source_map(config)
+def mapped(text: str) -> tuple[Config, UnitMap]:
+    return (config := parse(text)), unit_map(config)
 
 
 def work() -> Contract:

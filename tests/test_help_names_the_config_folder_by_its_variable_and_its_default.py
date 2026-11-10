@@ -19,7 +19,7 @@ from mcgyvr.fleet import roots
 #: Commands whose help names a place in the config folder.
 HELPS = (
     ("config",),
-    ("local_pool",),
+    ("ladder", "show"),
     ("emit",),
     ("direct",),
     ("fleet",),

@@ -1157,9 +1157,10 @@ def readings_fit(readings: Sequence[ResourceReading]) -> None:
 
 @dataclass(frozen=True, kw_only=True)
 class Host:
-    """The host a rig runs on, as its hello names it: ``os`` one of
-    :data:`HOST_OS`, ``arch`` one of :data:`HOST_ARCH`, and the system's
-    ``version``, 1 to :data:`HOST_VERSION_MAX` printable characters."""
+    """The system a rig runs on, as its hello names it (the wire field is
+    ``host``): ``os`` one of :data:`HOST_OS`, ``arch`` one of
+    :data:`HOST_ARCH`, and the system's ``version``, 1 to
+    :data:`HOST_VERSION_MAX` printable characters."""
 
     os: str
     arch: str

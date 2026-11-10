@@ -52,7 +52,7 @@ if TYPE_CHECKING:  # pragma: no cover - typing only
     # must not be read for one another.
     from mcgyvr.deliver import Accepted as BoundContent
     from mcgyvr.gate import GateResult
-    from mcgyvr.local_pool import SourceMap
+    from mcgyvr.ladder_map import UnitMap
 
 GATE_ONLY = "gate_only"
 MODEL = "model"
@@ -619,7 +619,7 @@ class Ascent:
 
 def ascent(
     config: Config,
-    pool: SourceMap,
+    pool: UnitMap,
     contract: Contract,
     *,
     floor: Family | None = None,
@@ -811,7 +811,7 @@ class _AttemptError(Exception):
 
 def escalate(
     config: Config,
-    pool: SourceMap,
+    pool: UnitMap,
     contract: Contract,
     attempt: Callable[[Try], Judgement],
     *,
@@ -1134,7 +1134,7 @@ def _raised_attempt(raised: _AttemptError) -> Attempted:
 
 def _entered(
     config: Config,
-    pool: SourceMap,
+    pool: UnitMap,
     contract: Contract,
     capacity: Capacity | None,
     entry: Entry,
@@ -1193,7 +1193,7 @@ def _next_is_api(plans: tuple[Plan, ...], index: int) -> bool:
 
 def _single_rung_plan(
     config: Config,
-    pool: SourceMap,
+    pool: UnitMap,
     contract: Contract,
     rung: str,
     family: Family,

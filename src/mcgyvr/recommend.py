@@ -42,7 +42,7 @@ from mcgyvr.knowledge import geometry as geometry_rows
 from mcgyvr.knowledge import hub
 from mcgyvr.knowledge import store as knowledge_store
 from mcgyvr.knowledge.record import KnowledgeError, ModelRecord
-from mcgyvr.local_pool import Endpoint, Protocol
+from mcgyvr.ladder_map import Endpoint, Protocol
 from mcgyvr.runner import RunnerError
 from mcgyvr.scan import (
     BYTES_PER_GB,

@@ -12,7 +12,7 @@ from __future__ import annotations
 from mcgyvr.config import SCHEMA, parse
 from mcgyvr.contract import loads as load_contract
 from mcgyvr.escalate import Ceiling, Halted, Outcome, ascent, escalate, judge
-from mcgyvr.local_pool import source_map
+from mcgyvr.ladder_map import unit_map
 from mcgyvr.route import Try, Verdict, family_of
 
 LADDER = """\
@@ -60,7 +60,7 @@ def _climb(policy: str = "") -> tuple[Halted, list[str]]:
     from mcgyvr.gate import Finding, GateResult
 
     config = parse(LADDER + policy)
-    pool = source_map(config)
+    pool = unit_map(config)
     contract = load_contract(CONTRACT)
     tried: list[str] = []
     refused = GateResult(
@@ -89,7 +89,7 @@ def test_the_default_is_unset_and_reads_as_every_rung() -> None:
 
     config = parse(LADDER)
     assert Ceiling.of(config).escalations is None
-    route = ascent(config, source_map(config), load_contract(CONTRACT))
+    route = ascent(config, unit_map(config), load_contract(CONTRACT))
     assert route.most_rungs == 3
 
 

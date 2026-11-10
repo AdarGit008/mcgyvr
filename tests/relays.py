@@ -13,7 +13,7 @@ from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
 from typing import Any
 
-from mcgyvr.local_pool import Endpoint, Protocol
+from mcgyvr.ladder_map import Endpoint, Protocol
 from tests import rig_pool_fakes as fakes
 
 IDLE = {"id": 1, "n_ctx": 4096, "speculative": False, "is_processing": False}

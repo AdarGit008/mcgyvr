@@ -24,7 +24,7 @@ import pytest
 from mcgyvr import detect as detect_module
 from mcgyvr.detect import Backend, Detection, ProbeTarget, probe
 from mcgyvr.initialize import _sources_for, build
-from mcgyvr.propose import propose
+from mcgyvr.ladder_proposal import propose
 
 MODELS = {"data": [{"id": "small-coder"}]}
 

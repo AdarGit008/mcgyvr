@@ -37,7 +37,7 @@ from mcgyvr.repo.index import (
     IndexAssembler,
     IndexedFile,
     SkipReason,
-    digest_of,
+    bytes_fingerprint,
     enumerate_files,
     index_source,
     read_source,
@@ -220,7 +220,7 @@ def build_index_cached(
         # no stat at all, (len(raw), 0) is stored and matches no real file.
         stamp = _stamp(root / rel) or stamp
         size, mtime_ns = stamp if stamp is not None else (len(raw), 0)
-        content = digest_of(raw)
+        content = bytes_fingerprint(raw)
 
         if cached is not None and cached.digest == content:
             entry = replace(cached, size=size, mtime_ns=mtime_ns)

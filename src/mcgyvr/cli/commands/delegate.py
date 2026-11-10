@@ -2,7 +2,7 @@
 
 `_delegate` loads the config the orchestrator role is bound in — a bare install,
 with no setup named or found, is refused rather than failed — resolves it into a
-`SourceMap`, and picks a proposer from `orchestrator.authoring`. It attaches the
+`UnitMap`, and picks a proposer from `orchestrator.authoring`. It attaches the
 repository, says once what a sandbox built from it leaves out, builds the index,
 and hands the evidence to `decompose`. The contracts that come back are reported,
 written as `DIR/<id>.json` with `--output` (and nothing more), or printed and
@@ -43,7 +43,7 @@ if TYPE_CHECKING:  # pragma: no cover - typing only
     from mcgyvr.board import Board, GitSource
     from mcgyvr.contract import Contract
     from mcgyvr.decompose.decompose import Decomposition, Proposer
-    from mcgyvr.local_pool import SourceMap
+    from mcgyvr.ladder_map import UnitMap
     from mcgyvr.replan import Replanner, Spent
     from mcgyvr.session import Session
     from mcgyvr.tree import Hold
@@ -255,7 +255,7 @@ def _delegate_logged(args: argparse.Namespace, book: _Logbook) -> int:
     otherwise whatever the environment names and discovery finds. A missing
     setup is a bare install only when nothing named one; a bare install has no
     orchestrator role to ask, so it is refused, while any other load failure is
-    an error. The config is resolved into a `SourceMap`, and the proposer
+    an error. The config is resolved into a `UnitMap`, and the proposer
     `orchestrator.authoring` asks for is built, so a role declared but not
     runnable is reported as a failure and a missing one as a refusal.
 
@@ -284,7 +284,7 @@ def _delegate_logged(args: argparse.Namespace, book: _Logbook) -> int:
         DelegationError,
         UnreadableProposalError,
     )
-    from mcgyvr.local_pool import SourceUnavailableError, source_map
+    from mcgyvr.ladder_map import UnitUnavailableError, unit_map
     from mcgyvr.repo import AttachError, IndexBuildError, attach, build_index
     from mcgyvr.repropose import max_reproposals
     from mcgyvr.runner import RunnerError
@@ -327,10 +327,10 @@ def _delegate_logged(args: argparse.Namespace, book: _Logbook) -> int:
     if getattr(args, "jobs", 1) is None:
         args.jobs = default_jobs(config)
 
-    pool = source_map(config)
+    pool = unit_map(config)
     try:
         propose = _proposer_for_delegate(config, pool, decisions=book.decisions)
-    except SourceUnavailableError as exc:
+    except UnitUnavailableError as exc:
         said = (
             f"the orchestrator role is declared but cannot run: {exc}. "
             f"Bind `orchestrator.unit` to a usable unit, or author contracts "
@@ -396,7 +396,7 @@ def _delegate_logged(args: argparse.Namespace, book: _Logbook) -> int:
         print(f"error: {exc}", file=sys.stderr)
         book.ended(DelegateKind.REPO_INDEX_FAILED, str(exc), repo=str(args.repo))
         return 1
-    except (DelegationError, RunnerError, SourceUnavailableError) as exc:
+    except (DelegationError, RunnerError, UnitUnavailableError) as exc:
         # A delegation, runner or pool failure leaves nothing to run: report it
         # on stderr and exit 1, the same answer an attach or index failure gets.
         print(f"error: {exc}", file=sys.stderr)
@@ -439,7 +439,7 @@ def _print_raw_reply(reply: str) -> None:
 
 
 def _proposer_for_delegate(
-    config: Config, pool: SourceMap, *, decisions: Path | None = None
+    config: Config, pool: UnitMap, *, decisions: Path | None = None
 ) -> Proposer | None:
     """The proposer `orchestrator.authoring` asks for, or None if none can run.
 
@@ -483,7 +483,7 @@ def _replanner(
     args: argparse.Namespace,
     root: Path,
     config: Config,
-    pool: SourceMap,
+    pool: UnitMap,
     propose: Proposer,
 ) -> Replanner:
     """What re-plans a spent contract: the orchestrator, asked again on `root`.
@@ -934,7 +934,7 @@ def _replanned(
 
     from mcgyvr.contract import dumps
     from mcgyvr.delegate import DelegationError
-    from mcgyvr.local_pool import SourceUnavailableError
+    from mcgyvr.ladder_map import UnitUnavailableError
     from mcgyvr.replan import Spent, failures_of, max_replans, next_round, stamped
     from mcgyvr.repo import IndexBuildError
     from mcgyvr.runner import RunnerError
@@ -969,7 +969,7 @@ def _replanned(
     except (
         DelegationError,
         RunnerError,
-        SourceUnavailableError,
+        UnitUnavailableError,
         IndexBuildError,
     ) as exc:
         _say_replanned(

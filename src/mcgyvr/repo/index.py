@@ -190,7 +190,7 @@ def build_index(root: Path, *, max_file_bytes: int = DEFAULT_MAX_FILE_BYTES) -> 
     return assembler.finish(root)
 
 
-def digest_of(raw: bytes) -> str:
+def bytes_fingerprint(raw: bytes) -> str:
     """Hex blake2b digest (128-bit) of ``raw``, used to fingerprint file bytes."""
     return hashlib.blake2b(raw, digest_size=16).hexdigest()
 
@@ -223,7 +223,7 @@ def index_source(rel: str, raw: bytes) -> FileIndex:
         file=IndexedFile(path=rel, language=language, lines=tuple(text.split("\n"))),
         symbols=tuple(extract(rel, raw)),
         size_bytes=len(raw),
-        digest=digest_of(raw),
+        digest=bytes_fingerprint(raw),
     )
 
 

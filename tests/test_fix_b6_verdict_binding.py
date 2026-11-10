@@ -205,7 +205,7 @@ def _forge(content: str, verdict: GateResult) -> Any:
     return module.Accepted(
         content=content,
         accepted=verdict.accepted,
-        digest=module.digest_of(content),
+        digest=module.text_sha256(content),
     )
 
 

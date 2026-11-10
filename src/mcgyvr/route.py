@@ -44,7 +44,7 @@ if TYPE_CHECKING:  # pragma: no cover - typing only
     from mcgyvr.config import Config
     from mcgyvr.contract import Contract
     from mcgyvr.deterministic import ToolStep
-    from mcgyvr.local_pool import Rung, SourceMap
+    from mcgyvr.ladder_map import Rung, UnitMap
     from mcgyvr.notes import FailureNotes
 
 
@@ -496,7 +496,7 @@ def family_of(config: Config, rung: str) -> Family:
     return catalog().family_of(config.units[name])
 
 
-def by_family(config: Config, pool: SourceMap) -> Mapping[Family, tuple[Rung, ...]]:
+def by_family(config: Config, pool: UnitMap) -> Mapping[Family, tuple[Rung, ...]]:
     """The pool's usable rungs, grouped by the family each one is in.
 
     Every family the catalog declares is a key, so a caller asking about one gets
@@ -533,7 +533,7 @@ def capped_attempts(family: Family, configured: int, limit: int) -> int:
 
 def plan(
     config: Config,
-    pool: SourceMap,
+    pool: UnitMap,
     contract: Contract,
     *,
     family: Family | None = None,
@@ -659,7 +659,7 @@ def _machines(config: Config, rungs: tuple[Rung, ...]) -> Mapping[str, Machine]:
     return by_rung
 
 
-def _why_empty(config: Config, family: Family, pool: SourceMap) -> str:
+def _why_empty(config: Config, family: Family, pool: UnitMap) -> str:
     """The sentence an empty plan carries for why it has no steps.
 
     Three different absences, said differently because they are fixed

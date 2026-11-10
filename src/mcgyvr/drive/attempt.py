@@ -67,7 +67,7 @@ if TYPE_CHECKING:  # pragma: no cover - typing only
     from mcgyvr.cooldown import Cooldown
     from mcgyvr.gate import GateResult
     from mcgyvr.gate.adapter import LanguageAdapter
-    from mcgyvr.local_pool import SourceMap
+    from mcgyvr.ladder_map import UnitMap
     from mcgyvr.sandbox.base import Sandbox
     from mcgyvr.verify import Ask, Reviewers
 
@@ -103,7 +103,7 @@ def lent_code_on_host(config: Config, sandbox: Sandbox) -> bool:
 
 def worker_attempt(
     config: Config,
-    pool: SourceMap,
+    pool: UnitMap,
     contract: Contract,
     sandbox: Sandbox,
     *,

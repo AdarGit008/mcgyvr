@@ -302,12 +302,12 @@ def _bound(setup: Path, hub: Hub, policy: str) -> Any:
 
 
 def test_a_request_to_a_crew_unit_names_scope_crew(setup: Path, hub: Hub) -> None:
-    from mcgyvr.local_pool import source_map
+    from mcgyvr.ladder_map import unit_map
     from mcgyvr.runner import request_headers
 
     config = _bound(setup, hub, f"ladder: [local_fast, crew-{CODER}]\n")
 
-    endpoint = source_map(config).bind(f"crew-{CODER}")
+    endpoint = unit_map(config).bind(f"crew-{CODER}")
     assert request_headers(endpoint)[hubwire.SCOPE_HEADER] == hubwire.SCOPE_CREW
 
 
@@ -425,7 +425,7 @@ def test_a_crew_unit_whose_pool_is_full_is_passed_over_not_failed(
     cooldown would learn it failing by."""
     from mcgyvr.capacity import Capacity, SlotUnavailableError
     from mcgyvr.config import parse
-    from mcgyvr.local_pool import source_map
+    from mcgyvr.ladder_map import unit_map
     from mcgyvr.rig import crew as crew_sync
     from mcgyvr.runner import Request, RunnerError, dispatch
     from tests.rungs import answering, error
@@ -444,7 +444,7 @@ def test_a_crew_unit_whose_pool_is_full_is_passed_over_not_failed(
         capacity = Capacity.of(config, root=tmp_path / "slots")
         try:
             outcome: object = dispatch(
-                source_map(config),
+                unit_map(config),
                 name,
                 Request(prompt="hello", max_output_tokens=8),
                 capacity=capacity,

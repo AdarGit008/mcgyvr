@@ -18,7 +18,7 @@ import pytest
 import mcgyvr.runner as runner
 from mcgyvr.config import parse
 from mcgyvr.fleet import probe
-from mcgyvr.local_pool import source_map
+from mcgyvr.ladder_map import unit_map
 from mcgyvr.pressure import server_counts
 
 CONFIG = """\
@@ -56,7 +56,7 @@ def test_the_capacitys_server_count_does_not_poll_a_hosted_unit(
     fetched: list[str], monkeypatch: pytest.MonkeyPatch
 ) -> None:
     monkeypatch.setenv("EXAMPLE_API_KEY", "not-a-real-key")
-    count = server_counts(source_map(parse(CONFIG)))
+    count = server_counts(unit_map(parse(CONFIG)))
     assert count("hosted") is None
     assert fetched == [], "a unit that needs a key was asked its status without one"
     count("local")

@@ -33,7 +33,7 @@ from mcgyvr.delegate import (
     proposer_for,
 )
 from mcgyvr.exits import Exit
-from mcgyvr.local_pool import Protocol, source_map
+from mcgyvr.ladder_map import Protocol, unit_map
 from mcgyvr.repo.index import Index, build_index
 from mcgyvr.repo.read import explore
 from mcgyvr.repo.resolve import resolve
@@ -236,10 +236,10 @@ def test_proposer_for_dispatches_to_the_role_and_parses_the_reply(
 ) -> None:
     import mcgyvr.delegate as delegate
 
-    pool = source_map(parse(cfg(ORCHESTRATOR)))
+    pool = unit_map(parse(cfg(ORCHESTRATOR)))
     seen: list[str] = []
 
-    def fake_dispatch_role(source_map, role, request, *, capacity=None):  # type: ignore[no-untyped-def]
+    def fake_dispatch_role(unit_map, role, request, *, capacity=None):  # type: ignore[no-untyped-def]
         seen.append(request.prompt)
         return completion(DOCSTRING_REPLY)
 
@@ -270,10 +270,10 @@ def test_the_orchestrator_dispatch_states_no_cap_of_its_own(
     units_maximum.py``)."""
     import mcgyvr.delegate as delegate
 
-    pool = source_map(parse(cfg(ORCHESTRATOR)))
+    pool = unit_map(parse(cfg(ORCHESTRATOR)))
     seen: list[int | None] = []
 
-    def fake_dispatch_role(source_map, role, request, *, capacity=None):  # type: ignore[no-untyped-def]
+    def fake_dispatch_role(unit_map, role, request, *, capacity=None):  # type: ignore[no-untyped-def]
         seen.append(request.max_output_tokens)
         return completion(DOCSTRING_REPLY)
 
@@ -295,10 +295,10 @@ def test_decompose_emits_validated_contracts_through_the_role(
     import mcgyvr.delegate as delegate
 
     config = parse(cfg(ORCHESTRATOR))
-    pool = source_map(config)
+    pool = unit_map(config)
     asked: list[str] = []
 
-    def fake_dispatch_role(source_map, role, request, *, capacity=None):  # type: ignore[no-untyped-def]
+    def fake_dispatch_role(unit_map, role, request, *, capacity=None):  # type: ignore[no-untyped-def]
         asked.append(request.prompt)
         return completion(DOCSTRING_REPLY)
 
@@ -322,7 +322,7 @@ def test_decompose_emits_validated_contracts_through_the_role(
 
 
 def test_proposer_for_returns_none_without_an_orchestrator_role() -> None:
-    pool = source_map(parse(cfg(LADDER)))
+    pool = unit_map(parse(cfg(LADDER)))
 
     assert proposer_for(pool) is None
 
@@ -365,7 +365,7 @@ def test_the_bare_verb_writes_contracts_from_the_role(
     config.write_text(cfg(ORCHESTRATOR), encoding="utf-8")
     out = tmp_path / "contracts"
 
-    def fake_dispatch_role(source_map, role, request, *, capacity=None):  # type: ignore[no-untyped-def]
+    def fake_dispatch_role(unit_map, role, request, *, capacity=None):  # type: ignore[no-untyped-def]
         return completion(DOCSTRING_REPLY)
 
     monkeypatch.setattr(delegate, "dispatch_role", fake_dispatch_role)

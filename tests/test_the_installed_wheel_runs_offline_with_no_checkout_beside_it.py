@@ -367,7 +367,7 @@ def test_the_installed_wheel_answers_every_offline_command(
         (("contract", "impl.yaml"), "valid"),
         (("setup", "--accept-unsampled", "--api", HOSTED_UNIT), "Staged"),
         (("config",), "valid"),
-        (("local_pool",), "usable rung"),
+        (("ladder", "show"), "usable rung"),
         (("index", "--repo", repo), "Indexed"),
     ]
     failed = []

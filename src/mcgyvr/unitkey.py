@@ -3,7 +3,7 @@
 A docker unit listens on 127.0.0.1 unless its unit states `expose: lan`; one
 that does listens on every interface, and so asks every request for a key that
 mcgyvr makes for it. The key lives in a file of its own under the data folder,
-``unit-keys/<host>-<port>.env``, named for the address the unit answers at
+``unit-keys/<address>-<port>.env``, named for the address the unit answers at
 (one address is one process), at mode 0600 in a folder created at 0700. It is
 an env file: the compose service names it under `env_file`, and `docker
 compose` reads it where it runs, on this machine, also when the daemon is a
