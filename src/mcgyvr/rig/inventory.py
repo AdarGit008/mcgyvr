@@ -17,6 +17,7 @@ from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any
 
+from mcgyvr import hubwire
 from mcgyvr.knowledge import hub
 from mcgyvr.rig import pooled, protocol
 from mcgyvr.serving import ggufscan, vramfit
@@ -73,6 +74,57 @@ def kv_bytes_per_token(row: Mapping[str, Any], kv_type: str) -> int | None:
     return total if 1 <= total <= protocol.MAX_KV_BYTES_PER_TOKEN else None
 
 
+def cache_fit(row: Mapping[str, Any]) -> hubwire.CacheFit | None:
+    """What the model's caches and recurrent state take on the grid a hub plans
+    on, by the product's own sizing (``vramfit.kv_bytes`` and
+    ``vramfit.rs_bytes``, at the head's cache type and micro-batch), in MiB.
+
+    Answered for every slot count of :data:`hubwire.FIT_SLOTS` and every context
+    of :data:`hubwire.FIT_CTX` up to the model's trained context, and at that
+    context too (padded as the engine pads it), so a hub can plan any context
+    the model takes. None when the row cannot be sized -- no caching layers, a
+    sliding split the header leaves unknown, recurrent blocks of no stated size
+    -- and the hub then sizes the model from its flat figures.
+    """
+    layers = row.get("kv_layers")
+    if not isinstance(layers, list) or not layers:
+        return None
+    if not all(isinstance(layer, dict) for layer in layers):
+        return None
+    geometry = dict(row)
+    trained = _count(row, "n_ctx_train", protocol.MAX_COUNT)
+    top = hubwire.MAX_CTX if trained is None else min(trained, hubwire.MAX_CTX)
+    grid = {c for c in hubwire.FIT_CTX if c <= top}
+    contexts = sorted(grid | {hubwire.context_per_sequence(top, 1)})
+    kv_type = pooled.KV_CACHE_TYPE
+    rows: list[tuple[int, ...]] = []
+    try:
+        for ctx in contexts:
+            answers = []
+            for slots in hubwire.FIT_SLOTS:
+                cache = vramfit.kv_bytes(
+                    geometry,
+                    ctx * slots,
+                    n_seq_max=slots,
+                    n_ubatch=pooled.HEAD_UBATCH,
+                    cache_type_k=kv_type,
+                    cache_type_v=kv_type,
+                )["total"]
+                state = vramfit.rs_bytes(geometry, n_seq_max=slots)["total"]
+                answers.append(-(-(cache + state) // hubwire.BYTES_PER_MIB))
+            rows.append(tuple(answers))
+    except (KeyError, TypeError, ValueError):
+        return None
+    fit = hubwire.CacheFit(
+        slots=hubwire.FIT_SLOTS, ctx=tuple(contexts), cache_mib=tuple(rows)
+    )
+    try:
+        fit.validate()
+    except ValueError:
+        return None
+    return fit
+
+
 def tensor_bytes(row: Mapping[str, Any]) -> tuple[int | None, int | None]:
     """The bytes of the token embedding tensor and of the output tensor.
 
@@ -127,6 +179,7 @@ def describe(name: str, size: int, row: Mapping[str, Any]) -> protocol.ModelInfo
         embd_bytes=embd_bytes,
         output_bytes=output_bytes,
         quant=quant,
+        cache_fit=cache_fit(row),
     )
 
 

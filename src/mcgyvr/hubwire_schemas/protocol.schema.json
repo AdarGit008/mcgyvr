@@ -227,6 +227,56 @@
         }
       ]
     },
+    "CacheFit": {
+      "description": "A rig's answers for one model (``hubwire.CacheFit``): ``cache_mib[i][j]``\nis the MiB its caches and recurrent state take, across all its layers, at\n``ctx[i]`` of context per slot over ``slots[j]`` slots, at the head's cache\ntype and micro-batch. Both axes rise; one row per context, one answer per\nslot count.",
+      "properties": {
+        "cache_mib": {
+          "items": {
+            "items": {
+              "maximum": 1099511627776,
+              "minimum": 0,
+              "type": "integer"
+            },
+            "maxItems": 8,
+            "minItems": 1,
+            "type": "array"
+          },
+          "maxItems": 16,
+          "minItems": 1,
+          "title": "Cache Mib",
+          "type": "array"
+        },
+        "ctx": {
+          "items": {
+            "maximum": 1048576,
+            "minimum": 1,
+            "type": "integer"
+          },
+          "maxItems": 16,
+          "minItems": 1,
+          "title": "Ctx",
+          "type": "array"
+        },
+        "slots": {
+          "items": {
+            "maximum": 16,
+            "minimum": 1,
+            "type": "integer"
+          },
+          "maxItems": 8,
+          "minItems": 1,
+          "title": "Slots",
+          "type": "array"
+        }
+      },
+      "required": [
+        "slots",
+        "ctx",
+        "cache_mib"
+      ],
+      "title": "CacheFit",
+      "type": "object"
+    },
     "Capabilities": {
       "properties": {
         "features": {
@@ -1098,6 +1148,17 @@
           ],
           "default": null,
           "title": "Arch"
+        },
+        "cache_fit": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/CacheFit"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
         },
         "digest": {
           "anyOf": [

@@ -11,6 +11,20 @@ archived outside this repository, under the same paths.
 
 ### Changed
 
+- **A rig's hello answers what each model's cache takes, and the hub plans from
+  the answers (I-17).** The hub sized a model's cache from one flat figure (every
+  caching layer at the full context), so it over-charged a model whose layers
+  slide and under-charged one whose blocks keep a recurrent state. Each model in
+  the hello now carries `cache_fit` (`hubwire.CacheFit`): the MiB its KV caches
+  and recurrent state take at each context per slot of `hubwire.FIT_CTX` (2048
+  to 1048576, doubling, up to the model's trained context, and that context
+  padded) over each slot count of `hubwire.FIT_SLOTS` (1, 2, 4, 8, 16), sized by
+  `vramfit.kv_bytes` and `vramfit.rs_bytes` at the head's cache type and
+  micro-batch (`rig.inventory.cache_fit`). The field is optional: a model that
+  cannot be sized is sent without it, and so is every model of a hello the
+  answers would make larger than one message (the most models a hello names,
+  with every answer, fit). The published schema gains the `CacheFit` shape.
+
 - **The head is started with a named micro-batch, `-ub 512`, and the hub prices
   it at the same flags (I-17c).** The head's cache type and micro-batch are
   `hubwire.HEAD_KV_CACHE_TYPE` (`q8_0`) and `hubwire.HEAD_UBATCH` (512), with

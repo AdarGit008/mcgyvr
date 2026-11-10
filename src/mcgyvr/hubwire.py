@@ -136,8 +136,10 @@ from __future__ import annotations
 import base64
 import binascii
 import enum
+import functools
 import hashlib
 import ipaddress
+import itertools
 import json
 import re
 from collections.abc import Mapping, Sequence
@@ -1951,6 +1953,107 @@ HEAD_KV_BYTES_PER_ELEMENT = 34 / 32
 #: The micro-batch a session's head runs (``-ub``): the rows its compute
 #: buffer's KQ mask holds, and the batch a sliding-window cache keeps in flight.
 HEAD_UBATCH = 512
+
+
+# --- a rig's answers to "what does this model's cache take" ----------------------
+#
+# A rig sizes each model it holds by the product's own law (sliding-window
+# layers, recurrent state, a sequence's padded cells), so the hub need not
+# re-derive a cache from a flattened shape. It answers on a grid: per context a
+# slot and per slot count, what the model's caches and recurrent state take
+# across all its layers, at the head's cache type and micro-batch. The hub
+# picks among the answers; a card of a split holds its layers' share.
+
+#: The ModelInfo field a rig's answers travel in (:class:`CacheFit`); an agent
+#: from before it, or one that could not size the model, sends none.
+CACHE_FIT_FIELD = "cache_fit"
+#: The slot counts a rig answers for: the counts a hub plans a head with,
+#: halving from its target (a count between two is priced at the next one up).
+FIT_SLOTS: tuple[int, ...] = (1, 2, 4, 8, 16)
+#: The contexts per slot a rig answers at, up to :data:`MAX_CTX`; a rig answers
+#: those up to the model's trained context, and that context too.
+FIT_CTX: tuple[int, ...] = tuple(1 << k for k in range(11, 21))
+#: Most slot counts and most contexts one model's answers may hold.
+MAX_FIT_SLOT_COUNTS = 8
+MAX_FIT_CONTEXTS = 16
+#: Largest answer the wire carries, in MiB.
+MAX_FIT_CACHE_MIB = 1 << 40
+
+
+def _rising(values: object, low: int, high: int, most: int, field: str) -> None:
+    _need(
+        type(values) is tuple
+        and 1 <= len(values) <= most
+        and all(_is_int(v) and low <= v <= high for v in values)
+        and all(a < b for a, b in itertools.pairwise(values)),
+        field,
+        f"not 1 to {most} rising integers, each {low} to {high}",
+    )
+
+
+@dataclass(frozen=True, kw_only=True)
+class CacheFit:
+    """A rig's answers for one model: ``cache_mib[i][j]`` is the MiB (rounded
+    up) its KV caches and recurrent state take, across all its layers, at
+    ``ctx[i]`` of context per slot over ``slots[j]`` slots, at
+    :data:`HEAD_KV_CACHE_TYPE` and :data:`HEAD_UBATCH`. Both axes rise; the
+    rig answers on :data:`FIT_CTX` and :data:`FIT_SLOTS`, and a reader takes
+    whatever axes it is sent."""
+
+    slots: tuple[int, ...]
+    ctx: tuple[int, ...]
+    cache_mib: tuple[tuple[int, ...], ...]
+
+    @functools.cached_property
+    def _hash(self) -> int:
+        return hash((self.slots, self.ctx, self.cache_mib))
+
+    def __hash__(self) -> int:
+        # a planner keys its caches by a model's figures, these among them:
+        # hashed once, not every answer at every lookup
+        return self._hash
+
+    def validate(self) -> None:
+        """Raise ValueError, naming the field at fault, unless both axes rise
+        within their limits and there is one answer per context and slot count."""
+        _rising(self.slots, 1, MAX_SLOTS, MAX_FIT_SLOT_COUNTS, "cache_fit.slots")
+        _rising(self.ctx, 1, MAX_CTX, MAX_FIT_CONTEXTS, "cache_fit.ctx")
+        rows = self.cache_mib
+        _need(
+            type(rows) is tuple
+            and len(rows) == len(self.ctx)
+            and all(
+                type(row) is tuple
+                and len(row) == len(self.slots)
+                and all(_is_int(v) and 0 <= v <= MAX_FIT_CACHE_MIB for v in row)
+                for row in rows
+            ),
+            "cache_fit.cache_mib",
+            f"not one row per context of one answer per slot count, each 0 to "
+            f"{MAX_FIT_CACHE_MIB}",
+        )
+
+    def cache_bytes_at(self, ctx: int, slots: int) -> int | None:
+        """The bytes the caches take at ``ctx`` per slot over ``slots`` slots:
+        the cheapest answer at or above both, which holds them since neither
+        context nor slots shrinks a cache. None when no answer reaches them."""
+        first = next((j for j, s in enumerate(self.slots) if s >= slots), None)
+        if first is None:
+            return None
+        found = [
+            min(row[first:])
+            for c, row in zip(self.ctx, self.cache_mib, strict=True)
+            if c >= ctx
+        ]
+        return min(found) * BYTES_PER_MIB if found else None
+
+    def body(self) -> dict[str, list[Any]]:
+        """The answers as the wire carries them."""
+        return {
+            "slots": list(self.slots),
+            "ctx": list(self.ctx),
+            "cache_mib": [list(row) for row in self.cache_mib],
+        }
 
 
 @dataclass(frozen=True)
