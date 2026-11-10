@@ -50,11 +50,11 @@ from mcgyvr.hubwire import (
     SCOPE_CREW,
     SCOPE_HEADER,
     SCOPE_OWN,
-    SCOPE_POOLS,
     SCOPE_VALUES,
     narrowest_scope,
     pool_serves,
     rider_cap_fits,
+    scopes_serving,
     serving_pool,
 )
 from mcgyvr.hubwire import USE_CASES as USE_CASES
@@ -2773,7 +2773,7 @@ def _cross_validate_pools(data: Mapping[str, Any]) -> None:
         pool = serving_pool(scope, unit["model"])
         if pool_serves(pool, use_case):
             continue
-        serving = [s for s in SCOPE_VALUES if pool_serves(SCOPE_POOLS[s], use_case)]
+        serving = scopes_serving(use_case)
         raise ConfigSchemaError(
             f"{where}: unit {name!r} is asked under scope {scope!r}, which a hub "
             f"serves from the {pool} pool, and that pool does not serve use case "

@@ -47,7 +47,9 @@ archived outside this repository, under the same paths.
   is served from serving every use case, what it refuses today is a header
   value that is not a use case; a request without the header is not checked.
   The `hubwire` text on the header and the `units.scope` reference now say
-  this.
+  this. `hubwire.scopes_serving(use_case)` names the scopes whose pool serves
+  a use case: the list the setup check's refusal offers, kept in one place for
+  the hub's refusal too.
 
 - **A docker llama.cpp or vLLM unit listens on 127.0.0.1 or, behind a key
   mcgyvr makes, on every interface (`expose: local | lan`).** `mcgyvr emit`

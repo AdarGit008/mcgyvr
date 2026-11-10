@@ -698,6 +698,14 @@ SCOPE_POOLS: Mapping[str, str] = MappingProxyType(
 )
 
 
+def scopes_serving(use_case: str) -> tuple[str, ...]:
+    """The scopes (of :data:`SCOPE_VALUES`, in order) whose pool serves
+    ``use_case``: what a refusal for a pool that does not serve it offers to
+    ask under instead. Empty for a use case no scope's pool serves.
+    """
+    return tuple(s for s in SCOPE_VALUES if pool_serves(SCOPE_POOLS[s], use_case))
+
+
 def serving_pool(scope: str, model: str) -> str:
     """The pool a request for ``model`` under ``scope`` is served from.
 

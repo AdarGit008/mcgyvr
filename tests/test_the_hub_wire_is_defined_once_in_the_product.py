@@ -485,6 +485,32 @@ def test_a_use_case_no_pool_serves_is_refused_by_every_pool() -> None:
     """A header value that is not a use case (``coding``, the name replaced)
     is refused under any scope: no pool serves it."""
     assert all(not hubwire.pool_serves(p, "coding") for p in hubwire.POOLS)
+    assert hubwire.scopes_serving("coding") == ()
+
+
+@pytest.mark.parametrize("use_case", hubwire.USE_CASES)
+def test_the_scopes_a_refusal_offers_are_those_whose_pool_serves_the_use_case(
+    use_case: str,
+) -> None:
+    """One list, for the setup check's refusal and the hub's alike."""
+    expected = tuple(
+        s
+        for s in hubwire.SCOPE_VALUES
+        if hubwire.pool_serves(hubwire.SCOPE_POOLS[s], use_case)
+    )
+    assert hubwire.scopes_serving(use_case) == expected == hubwire.SCOPE_VALUES
+
+
+def test_a_scope_whose_pool_stops_serving_a_use_case_is_not_offered(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    narrow = {**hubwire.POOL_USE_CASES, hubwire.POOL_GENERAL: ("code", "chat", "agent")}
+    monkeypatch.setattr(hubwire, "POOL_USE_CASES", narrow)
+
+    assert hubwire.scopes_serving(hubwire.MCGYVR_CODE) == (
+        hubwire.SCOPE_OWN,
+        hubwire.SCOPE_CREW,
+    )
 
 
 def test_a_use_case_refused_is_a_403_beside_out_of_scope_and_not_a_full_rung() -> None:
