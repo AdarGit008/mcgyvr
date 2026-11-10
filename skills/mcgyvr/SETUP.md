@@ -126,6 +126,10 @@ A setup is two files in one directory, and `mcgyvr setup` writes both
 A third file, `relief.yaml`, holds `relief`: the units other
 people lend you through a hub. `mcgyvr rig rungs sync` writes it whole
 and nothing else does, so it is neither locked nor edited by hand.
+Beside `relief` it records `api_key_env`: the NAME of the variable the
+sync read your personal hub key from (`--key-env`), which the rig
+agent's refresh and `mcgyvr rig status` read the key from too (where
+it records none, the one the units of `crew.yaml` name).
 A fourth, `crew.yaml`, holds `crew`: the units your crews lend
 you through a hub, each read as a unit of `units` under scope `crew`.
 `mcgyvr rig crew sync` writes it whole the same way. A ladder step or a
