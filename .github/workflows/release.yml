@@ -111,6 +111,13 @@ jobs:
             latest=$(uv run --no-project --with packaging python scripts/release/changelog_notes.py --latest CHANGELOG.md)
             tag="v$latest"
             echo "SETUPTOOLS_SCM_PRETEND_VERSION=$latest" >> "$GITHUB_ENV"
+            # A rehearsal of a version already tagged elsewhere stays green, but
+            # says so: `make release` refuses the same tree in the same words.
+            at=$(git rev-parse -q --verify "refs/tags/$tag^{commit}" || true)
+            if [ -n "$at" ] && [ "$at" != "$(git rev-parse HEAD)" ]; then
+              echo "TAGGED_AT=$at" >> "$GITHUB_ENV"
+              echo "::notice::$tag is already tagged at $at; write the next version's CHANGELOG section"
+            fi
           fi
           echo "TAG=$tag" >> "$GITHUB_ENV"
           echo "tag=$tag" >> "$GITHUB_OUTPUT"
@@ -139,9 +146,11 @@ jobs:
       # The metadata check PyPI's upload runs, run here, before a release
       # exists: a distribution PyPI would refuse is refused while nothing is
       # published yet. Not `--strict`: the project ships no long description,
-      # which is a warning PyPI accepts.
+      # which is a warning PyPI accepts. Pinned, like every action here, and
+      # the same pin as the Makefile's TWINE: a check resolved from the index
+      # of the day would be a different check on every release.
       - name: the distribution's metadata passes twine check
-        run: uv run --no-project --with twine twine check dist/*
+        run: uv run --no-project --with twine==7.0.0 twine check dist/*
       # The files both publishing jobs take, handed on rather than built again
       # there. `if-no-files-found: error` because an empty artifact would reach
       # them as "nothing to upload" and succeed at publishing nothing.
@@ -177,6 +186,11 @@ jobs:
             echo
             if [ -n "${SETUPTOOLS_SCM_PRETEND_VERSION:-}" ]; then
               echo "Version stamped from the newest CHANGELOG section (no tag on \`$GITHUB_REF_NAME\`)."
+              if [ -n "${TAGGED_AT:-}" ]; then
+                echo
+                echo "**$TAG is already tagged at $TAGGED_AT; write the next version's CHANGELOG section**"
+                echo "before releasing: this rehearsal built branch code under a released version's name."
+              fi
             elif [ -n "${TAG:-}" ]; then
               echo "Version read from the tag by hatch-vcs."
             fi

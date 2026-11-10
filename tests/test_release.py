@@ -306,10 +306,33 @@ def test_the_release_is_of_the_runs_own_repository() -> None:
     text = RELEASE.read_text(encoding="utf-8")
     slugs = re.findall(r"(?:github\.com/|/repos/)[\w.-]+/[\w.-]+", text)
     assert slugs == [], f"release.yml names a repository: {slugs}"
+    # A bare `<owner>/mcgyvr` anywhere — a comment, an env value, a `with:` —
+    # unless it is a path in this tree (`src/mcgyvr`).
+    bare = re.findall(r"(?<![\w./-])([\w.-]+/mcgyvr)\b(?![\w-])", text)
+    named = [slug for slug in bare if not (REPO / slug).exists()]
+    assert named == [], f"release.yml names a repository: {named}"
     told = re.findall(r"(?:--repo|-R|GH_REPO:?)[ =]+(\S+)", text)
     assert told == ['"$GITHUB_REPOSITORY"'], f"gh is told a repository: {told}"
-    step = _step(_release()["jobs"]["github-release"], "publish the GitHub release")
+    jobs = _release()["jobs"]
+    step = _step(jobs["github-release"], "publish the GitHub release")
     assert '--repo "$GITHUB_REPOSITORY"' in str(step["run"]), step["run"]
+    # An action told a repository is told the run's own, or nothing.
+    for job in jobs.values():
+        for each in job.get("steps", []):
+            for key in ("repository", "repository-url", "repo"):
+                value = (each.get("with") or {}).get(key)
+                assert value is None or "github.repository" in str(value), (key, each)
+
+
+def test_the_twine_check_is_pinned_and_one_pin() -> None:
+    """The check is part of the release, so it is pinned like the actions, and
+    `make release` checks with the same twine the tag's run does."""
+    pins = re.findall(r"--with twine==(\d[\w.]*)", RELEASE.read_text(encoding="utf-8"))
+    makefile = re.findall(
+        r"--with twine==(\d[\w.]*)", (REPO / "Makefile").read_text(encoding="utf-8")
+    )
+    assert len(pins) == 1 and makefile == pins, (pins, makefile)
+    assert "--with twine " not in RELEASE.read_text(encoding="utf-8")
 
 
 def test_a_dispatch_is_a_dry_run_unless_told_otherwise() -> None:
@@ -333,7 +356,7 @@ def _step(job: dict[str, Any], name: str) -> dict[str, Any]:
 
 
 def _mode(
-    tmp_path: Path, ref_type: str, ref_name: str, dry_run: str
+    tmp_path: Path, ref_type: str, ref_name: str, dry_run: str, cwd: Path = REPO
 ) -> tuple[int, str, str]:
     """Run the `release or rehearsal` step's own script as the runner would,
     with `uv run … python` standing for this interpreter (packaging is in the
@@ -353,7 +376,7 @@ def _mode(
     out_file.write_text("", encoding="utf-8")
     done = subprocess.run(
         ["bash", "-e", "-c", script],
-        cwd=REPO,
+        cwd=cwd,
         capture_output=True,
         text=True,
         check=False,
@@ -383,6 +406,34 @@ def test_a_rehearsal_from_a_branch_stamps_the_newest_changelog_version(
     assert f"SETUPTOOLS_SCM_PRETEND_VERSION={newest}\n" in env, env
     assert f"TAG=v{newest}\n" in env, env
     assert "publish=false\n" in out, out
+
+
+@pytest.mark.skipif(os.name == "nt", reason="the runner's shell is bash on ubuntu")
+def test_a_rehearsal_of_a_version_tagged_elsewhere_stays_green_and_says_so(
+    tmp_path: Path,
+) -> None:
+    """The same tree `make release` refuses: the dry run still passes (it is a
+    rehearsal), but files the tag's commit for the summary to name."""
+    tree = _committed_copy(tmp_path / "t", changelog=RELEASE_CHANGELOG)
+    code, env, _ = _mode(tmp_path, "branch", "feat/x", "true", cwd=tree)
+    assert code == 0 and "TAGGED_AT" not in env, env
+    _git(tree, "tag", "v9.9.9")
+    _git(tree, "commit", "-q", "--allow-empty", "-m", "after the release")
+    tagged = subprocess.run(
+        ["git", "-C", str(tree), "rev-parse", "v9.9.9^{commit}"],
+        capture_output=True,
+        text=True,
+        check=True,
+    ).stdout.strip()
+    code, env, out = _mode(tmp_path, "branch", "feat/x", "true", cwd=tree)
+    assert code == 0 and "publish=false\n" in out, (env, out)
+    assert f"TAGGED_AT={tagged}\n" in env, env
+    summary = str(_step(_release()["jobs"]["build"], "summary")["run"])
+    makefile = (REPO / "Makefile").read_text(encoding="utf-8")
+    words = "is already tagged at $"
+    assert words in summary and words in makefile, "the two rehearsals word it apart"
+    assert "write the next version's CHANGELOG section" in summary
+    assert "write the next version's CHANGELOG section" in makefile
 
 
 @pytest.mark.skipif(os.name == "nt", reason="the runner's shell is bash on ubuntu")

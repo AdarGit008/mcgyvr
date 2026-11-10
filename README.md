@@ -159,7 +159,9 @@ uploads the same files to PyPI.
   rehearses on the runners: `dry_run` defaults to true, the files stay on the
   run as an artifact, the job summary says what was skipped, and no release or
   upload is made. From a branch the version is stamped from the newest
-  `CHANGELOG.md` section. `-f dry_run=false` is refused unless the ref is a tag.
+  `CHANGELOG.md` section, and the summary says when that version is already
+  tagged (where `make release` refuses). `-f dry_run=false` is refused unless
+  the ref is a tag.
 - **Secrets.** None are stored. The release uses the run's own `GITHUB_TOKEN`;
   PyPI is reached by trusted publishing, which needs a GitHub environment named
   `pypi` and, on pypi.org, a trusted publisher for the project naming this

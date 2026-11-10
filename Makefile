@@ -49,7 +49,7 @@ check: setup  ## everything CI runs — one build, then lint, typecheck, docs-ch
 # and a version already tagged on another commit.
 RELEASE_DIR ?= build/release
 RELEASE_PY ?= uv run --no-project --with packaging python
-TWINE ?= uv run --no-project --with twine twine
+TWINE ?= uv run --no-project --with twine==7.0.0 twine
 
 release:  ## the local half of a release (build, version, notes, twine check); prints the tag command
 	@set -e; \

@@ -590,12 +590,16 @@ archived outside this repository, under the same paths.
   notes, runs `twine check`, keeps the files on the run and writes a job
   summary, and the GitHub release and the PyPI upload are skipped. From a
   branch the version is stamped from the newest CHANGELOG section
-  (`scripts/release/changelog_notes.py --latest`); `dry_run: false` is refused
-  unless the ref is a tag. The workflow now names no repository: `gh release
+  (`scripts/release/changelog_notes.py --latest`), and when that version is
+  already tagged on another commit the run stays green and its summary says so
+  in `make release`'s words; `dry_run: false` is refused unless the ref is a
+  tag. The workflow now names no repository: `gh release
   create --repo "$GITHUB_REPOSITORY"`, so a fork's tag makes the fork's
   release. The jobs are `build` → `github-release` → `pypi` (the release moved
   out of `build`, which now holds only `contents: read`), and a tag run also
-  runs `twine check` before anything is published. `make release` runs the
+  runs `twine check` (twine 7.0.0, pinned in the workflow and the Makefile
+  alike; nothing is added to `pyproject.toml` or `uv.lock`) before anything is
+  published. `make release` runs the
   same local half into `build/release/` and prints the tag command; it tags,
   pushes and uploads nothing, and refuses a tree that differs from HEAD or a
   version tagged on another commit. README gains a Releasing section: what a
