@@ -22,9 +22,10 @@ archived outside this repository, under the same paths.
   into `fleet.yaml` for a unit that names none, what `$MCGYVR_ENDPOINTS`,
   `$HF_TOKEN` and `$HF_ENDPOINT` do (the `MCGYVR_TEST_*` hooks are test-only),
   that a head given a model digest refuses another file as `model_missing`,
-  and that `journal.dir` follows neither `$MCGYVR_DATA` nor `$XDG_STATE_HOME`.
-  `task_timeout_s` names its second use, the queue wait, and the no-config
-  case; `start_rung` no longer promises a rung picked ahead of a run
+  and that the journal is the one piece of state that does not move with
+  `$MCGYVR_DATA` or `$XDG_STATE_HOME`.
+  `task_timeout_s` names its second use, the queue wait, and says that with
+  no config each command still ends at the sandbox's own 900 s; `start_rung` no longer promises a rung picked ahead of a run
   (`triage_ahead` is wired to no command); /mcgyvr-direct names the
   `unchanged` / `identical-to-base` finding. New tests pin the split-path disk
   refusal, the head digest check and its lease renewal, the `crew.yaml`
@@ -33,7 +34,8 @@ archived outside this repository, under the same paths.
   `delegate_log`'s reader say who calls them. The js/ts worker prompt asks
   for the target's own language — TypeScript for `.ts`/`.mts`/`.cts`/`.tsx`,
   plain JavaScript otherwise — instead of typed TypeScript for every target
-  (its standing stays "measured, no effect").
+  (its standing stays "measured, no effect": #144 measured the text before
+  this change, and it is not re-measured).
 
 - **Two machine-reading designs are said and pinned; nothing behaves
   differently.** First contact with a rig over ssh is the scan's: `mcgyvr scan
