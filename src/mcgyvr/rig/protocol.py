@@ -143,8 +143,10 @@ class ModelInfo:
     has one. The rest come from the file's header: the architecture, the layer
     and training context counts, the embedding and head counts, the key and
     value cache one token costs, and the bytes the token embedding and output
-    tensors take. A field the header does not give is None and goes unspoken on
-    the wire.
+    tensors take. ``quant`` is the quantisation the file's name spells
+    (``Q4_K_M``, ``BF16``), the one a hub reads the wire's decode rule at
+    (:func:`mcgyvr.hubwire.decode_ms_per_gib`). A field the agent does not know
+    is None and goes unspoken on the wire.
     """
 
     name: str
@@ -162,6 +164,7 @@ class ModelInfo:
     #: own and carries 0 here, while a header that names neither leaves both None.
     embd_bytes: int | None = None
     output_bytes: int | None = None
+    quant: str | None = None
 
 
 @dataclass(frozen=True, kw_only=True)
@@ -422,6 +425,10 @@ def _model_body(model: ModelInfo) -> dict[str, Any]:
         model.arch is None or bool(SHORT_TAG.fullmatch(model.arch)),
         "models.arch: not of its shape",
     )
+    _need(
+        model.quant is None or bool(SHORT_TAG.fullmatch(model.quant)),
+        "models.quant: not of its shape",
+    )
     _bounded(model.n_layers, 1, MAX_LAYERS, "models.n_layers")
     _bounded(model.n_ctx_train, 1, MAX_COUNT, "models.n_ctx_train")
     for field in ("n_embd", "n_head", "n_head_kv"):
@@ -443,6 +450,7 @@ def _model_body(model: ModelInfo) -> dict[str, Any]:
         "kv_bytes_per_token",
         "embd_bytes",
         "output_bytes",
+        "quant",
     ):
         value = getattr(model, field)
         if value is not None:

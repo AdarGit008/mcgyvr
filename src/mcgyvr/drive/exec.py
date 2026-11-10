@@ -10,7 +10,6 @@ caller can report a missing dependency rather than a rejected change.
 
 from __future__ import annotations
 
-import subprocess
 from dataclasses import dataclass
 from pathlib import Path
 from typing import TYPE_CHECKING
@@ -124,15 +123,14 @@ def _named_by(pattern: str, workspace: Path) -> tuple[str, ...]:
     """The workspace files the pattern names, sorted: every tracked file plus
     every untracked file git does not ignore, kept only where the pattern's
     scope permits the path.
+
+    The listing is the repo index's (`enumerate_files`), so a workspace git
+    cannot list is refused as an `IndexBuildError` naming it.
     """
-    listed = subprocess.run(
-        ["git", "ls-files", "-z", "--cached", "--others", "--exclude-standard"],
-        cwd=workspace,
-        capture_output=True,
-        check=True,
-    ).stdout.decode("utf-8", "surrogateescape")
+    from mcgyvr.repo.index import enumerate_files
+
     names = Scope.of([pattern])
-    return tuple(sorted({p for p in listed.split("\0") if p and names.permits(p)}))
+    return tuple(sorted({p for p in enumerate_files(workspace) if names.permits(p)}))
 
 
 def _run_in_process(step: ToolStep, sandbox: Sandbox) -> ToolOutcome:

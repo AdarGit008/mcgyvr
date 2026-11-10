@@ -40,8 +40,9 @@ servelib, "ssh", rig)``: ``tests/test_one_door.py`` scans ``tests/`` for text
 that looks like reaching a rig, and it reads that spelling for what it is —
 taking the one rig-reaching call OUT of the path — rather than as a spawn.
 The polling constants are cut down the same way, because the
-real budget is ``HEALTH_POLLS`` polls at ``HEALTH_INTERVAL_S`` and this file
-must not spend that proving that a sleeper is never called healthy.
+real budget is ``health_polls(serving.start_timeout_s)`` polls at
+``HEALTH_INTERVAL_S`` and this file must not spend that proving that a sleeper
+is never called healthy.
 """
 
 from __future__ import annotations
@@ -133,10 +134,10 @@ class Rig:
 def brief(monkeypatch: pytest.MonkeyPatch) -> None:
     """Four polls with no wait between them, in place of the real budget.
 
-    ``HEALTH_POLLS``/``HEALTH_INTERVAL_S`` are read out of the module on every
+    ``health_polls``/``HEALTH_INTERVAL_S`` are read out of the module on every
     call, so they are cut here rather than lowered in the source.
     """
-    monkeypatch.setattr(servelib, "HEALTH_POLLS", 4)
+    monkeypatch.setattr(servelib, "health_polls", lambda timeout_s: 4)
     monkeypatch.setattr(servelib, "HEALTH_INTERVAL_S", 0.0)
 
 

@@ -1021,6 +1021,7 @@ def open_sandbox(
     endpoints: Sequence[str] = (),
     allow_fallback: bool = False,
     network: str = "bridge",
+    image_cache_keep: int | None = None,
 ) -> Sandbox:
     """The backend the mode and configuration ask for, not yet entered.
 
@@ -1031,7 +1032,9 @@ def open_sandbox(
     the two backends — refusing, or falling back when `allow_fallback` permits it,
     when `docker` was asked for and no daemon answered. The tempdir backend needs
     `network` to be `bridge`: it runs on this host and cannot take the network
-    away.
+    away. `image_cache_keep` is how many of the repository's images a container
+    build leaves cached (`sandbox.image_cache_keep`; None is the image module's
+    default, 0 keeps them all); the tempdir backend builds none.
     """
     check_network(network)
     if mode != "tempdir":
@@ -1053,6 +1056,7 @@ def open_sandbox(
 
     if choice.mode == "docker":
         from mcgyvr.sandbox.docker import DockerSandbox
+        from mcgyvr.sandbox.image import DEFAULT_MAX_CACHED_IMAGES
 
         return DockerSandbox(
             source,
@@ -1062,6 +1066,11 @@ def open_sandbox(
             endpoints=tuple(endpoints),
             network=network,
             notes=choice.notes,
+            image_cache_keep=(
+                DEFAULT_MAX_CACHED_IMAGES
+                if image_cache_keep is None
+                else image_cache_keep
+            ),
         )
 
     if network != "bridge":

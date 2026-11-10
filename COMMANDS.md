@@ -27,6 +27,9 @@ names — a directory holding fleet.yaml and policy.yaml.
     setup).
 - `mcgyvr contract PATH` — validate a task contract and show what it resolves to.
   - `--worker-view` — print exactly the fields a worker prompt may be built from.
+- `mcgyvr usage [JOURNAL]` — show what the journal's runs added up to: tokens, time and outcomes per run
+  and per rung.
+  - `--config PATH` — read the journal this setup's `journal.dir` names (default: the usual setup).
 - `mcgyvr detect` — show what can run the work, and how each fact was detected.
   - `--host HOST` — also sweep this machine for backends, by name or address (repeatable; default:
     localhost only). Hardware detection stays local — a remote rig is described by what it serves.

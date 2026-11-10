@@ -87,6 +87,20 @@ def _mib(gb: float) -> int:
     return max(0, min(round(gb * 1024), protocol.MAX_MB))
 
 
+def _ram_total_mib(reading: Mapping[str, Any]) -> int | None:
+    """Host RAM's total in MiB as the reader counted it: its host-RAM resource,
+    the exact figure the memory section's GB total is rounded from. None when the
+    reading carries no such resource."""
+    for resource in reading.get("resources") or ():
+        if (
+            isinstance(resource, Mapping)
+            and resource.get("kind") == hubwire.RESOURCE_RAM
+            and isinstance(resource.get("total_mb"), int)
+        ):
+            return int(resource["total_mb"])
+    return None
+
+
 def read(*, reader: Callable[[], Mapping[str, Any]] | None = None) -> Report:
     """The report of this machine, from one reading of it.
 
@@ -98,9 +112,10 @@ def read(*, reader: Callable[[], Mapping[str, Any]] | None = None) -> Report:
     cards past :data:`mcgyvr.rig.protocol.MAX_CARDS` are cut with a note. Each
     kept card is renumbered from 0, its total is held to
     :data:`mcgyvr.rig.protocol.MAX_MB`, its free VRAM to its total, and free
-    VRAM the reading did not give is reported as 0 with a note. RAM that was
-    not read is reported as 0 MiB total and no free figure, with a note; free
-    RAM the reading gave is held to the total.
+    VRAM the reading did not give is reported as 0 with a note. The RAM total is
+    the reading's host-RAM resource, in exact MiB (:func:`_ram_total_mib`); RAM
+    that was not read is reported as 0 MiB total and no free figure, with a
+    note; free RAM the reading gave is held to the total.
     """
     try:
         reading = (reader or read_machine)()
@@ -144,13 +159,13 @@ def read(*, reader: Callable[[], Mapping[str, Any]] | None = None) -> Report:
         sources.append((str(card["vendor"]), int(card["index"])))
         kinds.append(str(card.get("kind") or "gpu"))
     memory = reading.get("memory")
-    total_gb = memory.get("total_gb") if isinstance(memory, Mapping) else None
-    if total_gb is None:
+    exact = _ram_total_mib(reading)
+    if exact is None or not isinstance(memory, Mapping):
         notes.append("memory: not read; reported as 0 MiB total")
         ram_total, ram_free = 0, None
     else:
-        ram_total = _mib(float(total_gb))
-        available = memory.get("available_gb") if isinstance(memory, Mapping) else None
+        ram_total = max(0, min(exact, protocol.MAX_MB))
+        available = memory.get("available_gb")
         ram_free = None if available is None else min(_mib(float(available)), ram_total)
     return Report(
         machine_id=machine_id,
