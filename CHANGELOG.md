@@ -11,6 +11,24 @@ archived outside this repository, under the same paths.
 
 ### Changed
 
+- **A task container's build trims that repository's image cache to its
+  newest `sandbox.image_cache_keep` images (default 8; `0` keeps every one).**
+  `sandbox.image.prune` kept the newest 8 images, but nothing called it, so
+  every dependency set a repository moved to stayed cached. Now
+  `DockerSandbox` prunes after each image it builds (a cache hit builds
+  nothing and trims nothing), and `prune` takes the repository's slug and
+  counts and removes only images labelled with it (`slug_of`, the spelling the
+  tag and the `mcgyvr.repo` label share), so a run of another repository,
+  started in parallel, keeps the image it is about to start. An image docker
+  refuses to remove because a container still uses it stays; what was removed
+  is said on stderr, and a cache docker will not list is said and the task
+  goes on. The setting reaches both of a run's sandboxes (`_floor` and
+  `_climb`) through `cli.sandbox._sandbox_policy` and
+  `open_sandbox(image_cache_keep=)`.
+  Upgrading: a repository with more than 8 cached images loses the oldest on
+  its next build; `mcgyvr sandbox --cache` lists what remains, and
+  `sandbox.image_cache_keep: 0` keeps them all.
+
 - **A docker llama.cpp or vLLM unit listens on 127.0.0.1 or, behind a key
   mcgyvr makes, on every interface (`expose: local | lan`).** `mcgyvr emit`
   rendered every container's server on every interface with no key
