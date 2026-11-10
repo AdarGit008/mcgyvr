@@ -1,4 +1,4 @@
-"""The deterministic floor: work a program does, and the bill when it cannot.
+"""The deterministic floor: work a program does instead of a model.
 
 A contract whose kind starts on the cheapest family is not sent to a model. The
 catalog's deterministic operations name work a program performs in place, and
@@ -8,30 +8,22 @@ bound operation becomes a single :class:`ToolStep`: the program, its flags, and
 the contract's target after a `--` separator, which is the whole of what
 :func:`mcgyvr.drive.run_tool_step` needs to run it in a sandbox.
 
-:func:`route` decides between that step and the ladder. When the tool is bound
-and available the contract runs on its own family; when it is not, the work is
-planned on the cheapest family above the floor that has a rung to offer, and the
-:class:`Degradation` carried on the :class:`Routed` says which contract left
-which family, what was missing, and what is paying for it instead — a fallback
-nobody can read is a model bill nobody can explain. A contract that does not
-start on the floor is planned for its own family and carries no degradation.
+:func:`mcgyvr.route.plan` fills the floor from :func:`tool_steps`. An operation
+nothing binds has no step here, and the floor path of ``mcgyvr run`` stops on
+it with exit 1, naming the dearer family it does not climb to.
 """
 
 from __future__ import annotations
 
-import shutil
 from collections.abc import Collection
 from dataclasses import dataclass, field
 from typing import TYPE_CHECKING
 
-from mcgyvr.catalog import Family, catalog
 from mcgyvr.contract import Rename
-from mcgyvr.route import Plan, Planned, Step, attempts_for, plan
+from mcgyvr.route import attempts_for
 
 if TYPE_CHECKING:  # pragma: no cover - typing only
-    from mcgyvr.config import Config
     from mcgyvr.contract import Contract
-    from mcgyvr.local_pool import SourceMap
 
 
 # The floor's programs, keyed by the language the target is written in and the
@@ -135,84 +127,6 @@ class ToolStep:
         return (*self.tool.command, "--", *paths)
 
 
-@dataclass(frozen=True)
-class Degradation:
-    """One contract that left its own family, and what that costs.
-
-    `missing` is why the floor could not run the work — the program is not
-    installed, or nothing binds the operation for that target — and `reason` is
-    why nothing above the floor can run it either, empty when a rung up there is
-    going to. `str` is the sentence a run reports; `as_record` is the same fact
-    shaped for the run's log.
-    """
-
-    contract: str
-    operation: str
-    left: str
-    landed: str
-    missing: str
-    reason: str = ""
-
-    def __str__(self) -> str:
-        if self.reason:
-            return (
-                f"{self.operation} contract {self.contract!r} left the "
-                f"{self.left!r} family: {self.missing}, and nothing above it "
-                f"can run the work ({self.reason}); no model is paying for it."
-            )
-        return (
-            f"{self.operation} contract {self.contract!r} left the "
-            f"{self.left!r} family: {self.missing}, so the work is routed to "
-            f"the {self.landed!r} family and paid for with a model."
-        )
-
-    def as_record(self) -> dict[str, str]:
-        """The degradation as a log record: one key per field, tagged
-        `degraded`, carrying `reason` only when there is one.
-        """
-        record = {
-            "event": "degraded",
-            "contract": self.contract,
-            "operation": self.operation,
-            "left": self.left,
-            "landed": self.landed,
-            "missing": self.missing,
-        }
-        if self.reason:
-            record["reason"] = self.reason
-        return record
-
-
-@dataclass(frozen=True)
-class Routed(Planned):
-    """Where one contract was routed, the steps that route is made of, and the bill.
-
-    `steps` holds both kinds a plan can carry — a `ToolStep` the floor runs and a
-    `Step` to climb — and the readers inherited from :class:`~mcgyvr.route.Planned`
-    (`climbable`, `programs`) tell them apart, so no caller matches on the union.
-    `reason` is why there is nothing to run, and `degradations` records every
-    family this contract left on the way here.
-    """
-
-    family: Family
-    steps: tuple[ToolStep | Step, ...]
-    reason: str = ""
-    degradations: tuple[Degradation, ...] = ()
-
-    def __bool__(self) -> bool:
-        return bool(self.steps)
-
-    def __len__(self) -> int:
-        return len(self.steps)
-
-    @property
-    def degraded(self) -> bool:
-        """True when this route left a family rather than running where the
-        contract started.
-        """
-        return bool(self.degradations)
-
-
 def tool_for(contract: Contract) -> Tool | None:
     """The tool that performs this contract's operation, or `None` if nothing does.
 
@@ -251,116 +165,6 @@ def tool_steps(contract: Contract) -> tuple[ToolStep, ...]:
             attempts=attempts_for(contract.kind.starts_on, 1, contract),
             rename=contract.rename,
         ),
-    )
-
-
-def route(
-    config: Config,
-    pool: SourceMap,
-    contract: Contract,
-    *,
-    installed: Collection[str] | None = None,
-) -> Routed:
-    """Route one contract: onto the floor's tool, or up to the family that can run it.
-
-    A contract whose kind does not start on the floor is planned for its own
-    family by :func:`mcgyvr.route.plan` and carries no degradation, since there
-    is no floor for it to fall off. On the floor, a bound tool that is available
-    becomes the route's single step; otherwise the work is planned on the
-    cheapest family above the floor that has a rung to offer, and a
-    :class:`Degradation` records what was missing, which family was left and
-    which one pays instead — including the case where no family above has a
-    step, where the degradation's `reason` says why nothing can run the work and
-    it does not claim a model paid.
-
-    `installed` names the programs a caller already knows to be present, and
-    `None` asks the machine's PATH.
-    """
-    floor = contract.kind.starts_on
-    if floor.rank != 0:
-        planned = plan(config, pool, contract)
-        return Routed(family=planned.family, steps=planned.steps, reason=planned.reason)
-
-    tool = tool_for(contract)
-    if tool is not None and _have(tool, installed):
-        return Routed(family=floor, steps=tool_steps(contract))
-
-    onward = _cheapest_above(config, pool, contract, floor)
-    return Routed(
-        family=onward.family,
-        steps=onward.steps,
-        reason=onward.reason,
-        degradations=(
-            Degradation(
-                contract=contract.id,
-                operation=contract.kind.name,
-                left=floor.name,
-                landed=onward.family.name,
-                missing=_why_missing(contract, tool),
-                reason=onward.reason if not onward.steps else "",
-            ),
-        ),
-    )
-
-
-def _have(tool: Tool, installed: Collection[str] | None) -> bool:
-    """Whether this tool can be run here.
-
-    An operation run in process has no program to find and so is always
-    available; a program is looked for by name in `installed` when the caller
-    supplied one, and on the machine's PATH when it did not.
-    """
-    if tool.program is None:
-        return True
-    if installed is None:
-        return shutil.which(tool.program) is not None
-    return tool.program in installed
-
-
-def _why_missing(contract: Contract, tool: Tool | None) -> str:
-    """The sentence a degradation carries for why the floor could not run this.
-
-    Either the program that was not installed, or the fact that no binding
-    exists for this operation and this target. An in-process operation never
-    reaches here, since `_have` answers for it without a program.
-    """
-    if tool is not None and tool.program is not None:
-        return f"{tool.program} is not installed"
-    return f"no deterministic tool binds {contract.kind.name!r} for {contract.target}"
-
-
-def _cheapest_above(
-    config: Config,
-    pool: SourceMap,
-    contract: Contract,
-    floor: Family,
-) -> Plan:
-    """The cheapest family above the floor that has a step, and why not when none has.
-
-    Every family dearer than the floor is planned and the first with steps wins;
-    the catalog lists families cheapest to dearest, so that first one is the
-    cheapest. When none has a step, the cheapest of those families is returned
-    with no steps and a `reason` joining the reasons each family was planned
-    empty, so a degradation can say why nothing above could run the work.
-    """
-    plans = tuple(
-        plan(config, pool, contract, family=family)
-        for family in catalog().families
-        if family.rank > floor.rank
-    )
-    runnable = next((p for p in plans if p.steps), None)
-    if runnable is not None:
-        return runnable
-    if not plans:  # The catalog declares no family above the floor.
-        return Plan(
-            family=floor,
-            steps=(),
-            reason=f"no family is dearer than {floor.name!r} to degrade into.",
-        )
-    return Plan(
-        family=plans[0].family,
-        steps=(),
-        reason=" ".join(f"{p.family.name}: {p.reason}" for p in plans if p.reason),
     )
 
 

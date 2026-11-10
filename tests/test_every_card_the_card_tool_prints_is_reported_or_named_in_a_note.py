@@ -202,7 +202,9 @@ def test_the_notes_travel_into_the_detection(
 ) -> None:
     output = rows(("Inventa Shared V", "[N/A]"), ("[N/A]", str(8 * MIB)))
     feed(monkeypatch, output)
-    monkeypatch.setattr(detect, "_get_json", lambda url, timeout: None, raising=True)
+    monkeypatch.setattr(
+        detect, "_get_json", lambda url, timeout, key=None: None, raising=True
+    )
     found = detect.detect()
     assert [g.name for g in found.gpus] == ["Inventa Shared V"]
     assert any(n.startswith(detect.GPU_SIZE_UNDETERMINED) for n in found.notes)
@@ -233,7 +235,9 @@ def test_the_detect_command_prints_every_card_and_every_note(
         ("Plain X8", str(8 * MIB)), ("Inventa Shared V", "[N/A]"), ("[N/A]", "8")
     )
     feed(monkeypatch, output)
-    monkeypatch.setattr(detect, "_get_json", lambda url, timeout: None, raising=True)
+    monkeypatch.setattr(
+        detect, "_get_json", lambda url, timeout, key=None: None, raising=True
+    )
     monkeypatch.setattr(
         detect, "detect_ram_gb", lambda *_: (None, "invented"), raising=True
     )

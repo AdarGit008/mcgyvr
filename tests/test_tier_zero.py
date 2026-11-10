@@ -1,5 +1,4 @@
-"""X07 — a deterministic operation plans a tool on its own floor, and a missing tool
-costs something visible rather than nothing at all.
+"""X07 — a deterministic operation plans a tool on its own floor.
 
 The deterministic family binds no rung — a rung's family is derived from whether its
 *source* needs a credential, and a program has no source — so
@@ -8,38 +7,18 @@ The deterministic family binds no rung — a rung's family is derived from wheth
 tool does perfectly, for free, deterministically; a contract names one as
 ``task_type: code`` with ``operation:``.
 
-Three statements:
+**There is something to run.** Asserted through :func:`~mcgyvr.route.plan`, against
+the real catalog, for every operation whose ``starts_on`` is the deterministic
+family — read from the catalog rather than listed here, so an operation added to
+the data file is covered on the day it is added. Asserted as a plan and not as an
+execution because a plan is the thing mcgyvr can inspect before a token is spent,
+and "the ladder's cheapest family is empty" is exactly the fact a plan is supposed
+to be able to show.
 
-* **There is something to run.** Asserted through :func:`~mcgyvr.route.plan`,
-  against the real catalog, for every operation whose ``starts_on`` is the deterministic
-  family — read from the catalog rather than listed here, so an operation added to
-  the data file is covered on the day it is added. Asserted as a plan and not as an
-  execution because a plan is the thing mcgyvr can inspect before a token is spent,
-  and "the ladder's cheapest family is empty" is exactly the fact a plan is supposed
-  to be able to show.
-
-* **A missing tool degrades rather than halts.** ``ruff`` not being installed is an
-  ordinary state of an ordinary machine. It must not turn a ``format`` contract into
-  a task that cannot run: the work is still doable, just dearly, and the next family
-  up can do it. This is asserted as *where the work lands*, not as an absence of an
-  exception, because a route that returned a family with nothing in it would also
-  not raise.
-
-* **The degradation is recorded.** A silent fallback is the failure mode that makes
-  a missing dependency invisible: the contract still completes, the operator sees no
-  error, and the only evidence is a model bill that is quietly larger than it should
-  be. So the reason is asserted to name three things — the operation, the family it
-  left and the family it landed in. A constant sentence can satisfy any one of them
-  and not all three, which is the point of asserting all three.
-
-The first test uses the real routing code and no seam.
+The tests use the real routing code and no seam.
 """
 
 from __future__ import annotations
-
-from typing import Any
-
-import pytest
 
 from mcgyvr.catalog import catalog
 from mcgyvr.config import Config, parse
@@ -47,12 +26,6 @@ from mcgyvr.contract import Contract
 from mcgyvr.contract import loads as load_contract
 from mcgyvr.local_pool import SourceMap, source_map
 from mcgyvr.route import plan
-from tests._helpers import required
-
-ONWARD = (
-    "route a deterministic task onward to the next family when its tool is not "
-    "installed, recording what the missing dependency cost"
-)
 
 # A keyless install: one local rung, no credential anywhere. The cheapest ladder
 # a stranger can have, and the one where a deterministic tool is worth most.
@@ -68,13 +41,6 @@ ladder:
 """
 
 DETERMINISTIC = tuple(o.name for o in catalog().operations if o.starts_on.rank == 0)
-
-
-def _route() -> Any:
-    return required(
-        ONWARD,
-        lambda: __import__("mcgyvr.deterministic", fromlist=["route"]).route,
-    )
 
 
 def _installed() -> tuple[Config, SourceMap]:
@@ -124,91 +90,6 @@ def test_a_deterministic_operation_has_something_to_run_on_its_own_floor() -> No
         f"to run on their own floor, so each of them is a model call for work a tool "
         f"does for free: "
         + "; ".join(f"{name}: {reason}" for name, reason in empty.items())
-    )
-
-
-def test_a_task_whose_tool_is_missing_routes_onward_instead_of_halting() -> None:
-    """A machine without ruff can still get its file formatted, just dearly.
-
-    Asserted on the family the work lands in. "It did not raise" would be satisfied
-    by a route that landed nowhere, which is the halt this is about.
-    """
-    config, pool = _installed()
-    contract = _contract_of(DETERMINISTIC[0])
-
-    landed = _route()(config, pool, contract, installed=frozenset())
-
-    family = getattr(landed, "family", None)
-    assert family is not None and family.name != "deterministic", (
-        f"a {contract.type.name!r} contract with no tool installed did not leave the "
-        f"deterministic family: it landed on {family!r}, which has nothing to run it"
-    )
-    assert getattr(landed, "steps", ()), (
-        f"the work moved to the {family.name!r} family and that family offers no "
-        f"rung either, so the task still cannot run — this is a halt wearing a "
-        f"different family's name"
-    )
-
-
-def test_the_cost_of_the_missing_dependency_is_recorded_rather_than_silent() -> None:
-    """A fallback nobody can see is a bill nobody can explain.
-
-    Three specifics are required of the reason, because any one of them alone is
-    satisfiable by a fixed sentence: which contract degraded, which family it was
-    supposed to run on, and which family is now paying for it.
-    """
-    config, pool = _installed()
-    contract = _contract_of(DETERMINISTIC[0])
-
-    landed = _route()(config, pool, contract, installed=frozenset())
-
-    recorded = getattr(landed, "degradations", ())
-    assert recorded, (
-        f"a {contract.kind.name!r} contract fell off its own floor and nothing was "
-        f"recorded: the only trace of the missing tool is a larger model bill"
-    )
-    said = " ".join(str(entry) for entry in recorded)
-    for expected in (contract.kind.name, "deterministic", landed.family.name):
-        assert expected in said, (
-            f"the degradation does not name {expected!r}, so a reader cannot tell "
-            f"what degraded, where it should have run, or what is paying for it "
-            f"instead. It said: {said!r}"
-        )
-
-
-def test_a_degradation_that_lands_nowhere_does_not_claim_a_model_paid(
-    monkeypatch: pytest.MonkeyPatch,
-) -> None:
-    """Nothing above the floor offers a rung; the record must say so, not lie."""
-    monkeypatch.delenv("MCGYVR_TEST_KEY_THAT_IS_NOT_SET", raising=False)
-    config = parse(
-        """\
-units:
-  api_big:
-    address: https://api.example.com/v1
-    model: vendor-large
-    rig: vendor
-    width: 4
-    api_key_env: MCGYVR_TEST_KEY_THAT_IS_NOT_SET
-ladder:
-- api_big
-"""
-    )
-    pool = source_map(config)
-    contract = _contract_of(DETERMINISTIC[0])
-
-    landed = _route()(config, pool, contract, installed=frozenset())
-
-    degradations = getattr(landed, "degradations", ())
-    assert degradations, "no degradation was recorded"
-    recorded = degradations[0]
-    said = str(recorded)
-    assert "paid for with a model" not in said, (
-        f"nothing above the floor can run the work, yet the degradation claims a "
-        f"model is paying for it: {said!r}"
-    )
-    assert recorded.as_record().get("reason"), (
-        f"the degradation carries no reason for landing nowhere: {said!r}"
     )
 
 

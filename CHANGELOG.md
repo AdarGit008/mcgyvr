@@ -11,6 +11,51 @@ archived outside this repository, under the same paths.
 
 ### Changed
 
+- **Who may use a rig is one vocabulary, `own | crew | anyone`, and how a rig
+  takes part is its mode, `lend | hitchhike` (I-04).** The pools the wire
+  names by audience now carry the audience's name: `hubwire.POOL_SOLO`
+  (`solo`) is `POOL_OWN` (`own`) and `POOL_GENERAL` (`general`) is
+  `POOL_ANYONE` (`anyone`); `crew`, `hitchhike` and `shared_ladder` are
+  unchanged. New in `mcgyvr.hubwire`, for the hub to import: `MODE_LEND`,
+  `MODE_HITCHHIKE`, `MODES`, `MODE_AUDIENCES` (a hitchhike rig is `own` or
+  `anyone`, never a crew's alone), `rig_pool(audience, mode)`, `POOL_NAMES`
+  (each pool in words: the general pool is shown as "general pool
+  (anyone)"), and `RETIRED_SHARING_MODES` (the hub's old `solo`, `crew`,
+  `pool`, `hitchhike`, each as the audience and mode that replace it). A
+  unit's `scope`, `ride_scope`, `relief.scope` and `mcgyvr rig rungs sync
+  --ride-scope` that write `solo`, `pool` or `general` are refused with the
+  word to write (`own`, `anyone`; `hubwire.RETIRED_AUDIENCES`,
+  `retired_audience`), never read as
+  an alias; they were refused before too, without naming it. The generated
+  SETUP.md maps each audience and mode to its pool and the use cases it
+  serves, and says a host serves strangers only once a hub admin approved it.
+
+- **The docs say what already ships, tests pin it, and helpers no command
+  calls say so; one prompt changes.** A new generated `COMMANDS.md` lists
+  every verb and flag, rendered from the CLI's own parser by
+  `mcgyvr.cli.verbdoc` (`attach`, `index`, `resolve`, `read --hint/--holds`,
+  `fleet alerts`, `rig leave`, `rig peers`, the `caps` and `rig lend` aliases
+  were in no document); `make docs` writes it and `make docs-check` fails when
+  it drifts. SETUP.md points at it, and says that `emit` refuses a
+  unit larger than the free disk, that setup's sample writes a reply ceiling
+  into `fleet.yaml` for a unit that names none, what `$MCGYVR_ENDPOINTS`,
+  `$HF_TOKEN` and `$HF_ENDPOINT` do (the `MCGYVR_TEST_*` hooks are test-only),
+  that a head given a model digest refuses another file as `model_missing`,
+  and that the journal is the one piece of state that does not move with
+  `$MCGYVR_DATA` or `$XDG_STATE_HOME`.
+  `task_timeout_s` names its second use, the queue wait, and says that with
+  no config each command still ends at the sandbox's own 900 s; `start_rung` no longer promises a rung picked ahead of a run
+  (`triage_ahead` is wired to no command); /mcgyvr-direct names the
+  `unchanged` / `identical-to-base` finding. New tests pin the split-path disk
+  refusal, the head digest check and its lease renewal, the `crew.yaml`
+  reader, the reply ceilings and `read --hint/--holds`. `disposition`,
+  `credential_env_names`, the decision-log metrics, `alerts.rejudge` and
+  `delegate_log`'s reader say who calls them. The js/ts worker prompt asks
+  for the target's own language — TypeScript for `.ts`/`.mts`/`.cts`/`.tsx`,
+  plain JavaScript otherwise — instead of typed TypeScript for every target
+  (its standing stays "measured, no effect": #144 measured the text before
+  this change, and it is not re-measured).
+
 - **A Mac's GPU is sized from the Metal working set llama.cpp logged, a
   reading, once a native server has started on it.** The native supervisor
   already filed `recommendedMaxWorkingSetSize` from llama-server's start-up
@@ -240,6 +285,23 @@ archived outside this repository, under the same paths.
   reference (SETUP.md) and `sharding._vllm_kv` now say so; no figure changed.
   What vLLM allocates for a sliding layer is to be measured before any
   discount is taken.
+
+- **The rule for an address a peer can be at is defined once, in
+  `mcgyvr.hubwire.is_peer_address`.** `rig/tunnel.py` (`is_lan`, `may_aim_at`)
+  and `rig/probe.py` (`reachable`) each spelled the same five checks (not
+  loopback, link-local, multicast, reserved or unspecified). They now read the
+  one predicate: `probe.reachable` is it, `tunnel.is_lan` is it and private,
+  and `may_aim_at` is it outside the tunnel's network and this machine's own
+  addresses. No address is classified differently. Reading interfaces is
+  unchanged and still Linux only; macOS and Windows rigs still name their
+  `endpoints` by hand.
+
+- **Every yes/no question in `mcgyvr setup` is written `[y/n]` (I-122).** The
+  wizard mixed `[Y/n]`, `[y/N]` and `[y/n]`; it now asks `[y/n]` everywhere,
+  as the Jev and PATH questions already did. What Enter means is unchanged:
+  Enter is no at every question except the one that offers to reuse a model
+  already on disk, where Enter still reuses it, and that question now says so
+  (`[y/n, Enter reuses]`). `SETUP.md` quotes the new spelling.
 
 - **The agent channel's limits, shapes and codes are defined once, in
   `mcgyvr.hubwire`.** The protocol version, frame limits, the counts and
@@ -615,6 +677,29 @@ archived outside this repository, under the same paths.
 
 ### Added
 
+- **The release can be rehearsed, on GitHub and locally, and publishes nothing
+  when it is.** `.github/workflows/release.yml` takes a `workflow_dispatch`
+  input `dry_run`, true by default: `gh workflow run release.yml --ref
+  <branch>` builds once, checks the wheel's version, takes the CHANGELOG
+  notes, runs `twine check`, keeps the files on the run and writes a job
+  summary, and the GitHub release and the PyPI upload are skipped. From a
+  branch the version is stamped from the newest CHANGELOG section
+  (`scripts/release/changelog_notes.py --latest`), and when that version is
+  already tagged on another commit the run stays green and its summary says so
+  in `make release`'s words; `dry_run: false` is refused unless the ref is a
+  tag. The workflow now names no repository: `gh release
+  create --repo "$GITHUB_REPOSITORY"`, so a fork's tag makes the fork's
+  release. The jobs are `build` → `github-release` → `pypi` (the release moved
+  out of `build`, which now holds only `contents: read`), and a tag run also
+  runs `twine check` (twine 7.0.0, pinned in the workflow and the Makefile
+  alike; nothing is added to `pyproject.toml` or `uv.lock`) before anything is
+  published. `make release` runs the
+  same local half into `build/release/` and prints the tag command; it tags,
+  pushes and uploads nothing, and refuses a tree that differs from HEAD or a
+  version tagged on another commit. README gains a Releasing section: what a
+  tag does, the version and notes rule, both rehearsals, the secrets (none
+  stored; the PyPI trusted publisher and the `pypi` environment), and how a
+  fork releases.
 - **A rig's hello names each model's quantisation (`quant`), so a hub can plan
   by the wire's decode rule.** The hub's planner bounded a device's decode
   speed by its memory bandwidth alone, because the rig never said a model's
@@ -661,6 +746,16 @@ archived outside this repository, under the same paths.
   before. `config.journal_dir` is the one resolution of `journal.dir` that
   `direct`, `mcgyvr PROMPT` and `usage` share.
 
+- **The README says which NVIDIA cards each pinned engine runs on (I-124).**
+  A new *GPUs and engines* section gives the lowest compute capability of the
+  llama.cpp `b11960` container and native archives (5.0 on CUDA 12, 7.5 on
+  CUDA 13) and of the vLLM `v0.26.0` image (7.5), says that CUDA 13 drops every
+  card below 7.5, and names `MCGYVR_NATIVE_BACKEND` for an older card whose
+  driver would get the CUDA 13 native build. It replaces `docs/GPU-SUPPORT.md`,
+  which left main with the docs/ archive (16acf4884); its last version is
+  tagged `archive/gpu-support-on-main-pin`. The engines mcgyvr does not pin are
+  left out, and every floor was read again from the pinned builds.
+
 - **A worker rig tells the hub which models its tensor cache holds
   (`hello.weight_cache`), so the hub plans a cheaper load there.** The cache
   names each file by the FNV-1a hash of one tensor, and the hub names weights
@@ -675,6 +770,19 @@ archived outside this repository, under the same paths.
   nothing is named after a reboot until the folder is checked again, and a
   hello says what the last check saw: the hub learns of a new model at the
   next hello. A rig with nothing recorded sends the same hello as before.
+
+- **The hub says whether a member may host strangers, and the rig prints it.**
+  A member's rigs serve strangers (the general pool's `anyone`, riders on their
+  units) only after a hub admin approves that member once; nothing on the wire
+  said so, so `mcgyvr rig status` and `mcgyvr rig share` could not tell a host
+  why they served nobody. The hello's ack now carries `hosting_approved`
+  (`hubwire.HOSTING_APPROVED_FIELD`, a boolean, optional so an older hub that
+  omits it changes nothing): the agent keeps it in its state, and `rig status`
+  and `rig share` print "approved to host" or "waiting for admin approval" when
+  the hub has said — as of the agent's last connect, since only the hello ack
+  carries it (a mid-session approval shows after the next reconnect), and only
+  for the hub this machine is joined to now. The shipped `protocol.schema.json`
+  gains the optional field on `AckBody`; the hub sends it at its next pin.
 
 - **A ride is sealed end to end, rider to host: the hub carries ciphertext.**
   The host's agent makes an X25519 key each time it starts (`mcgyvr.seal`, in
@@ -1323,6 +1431,16 @@ archived outside this repository, under the same paths.
   (tensor x pipeline, one process) is unchanged, as is every llama.cpp split.
   Upgrading: a stated `launch.master_port` is now ignored, not checked;
   delete it.
+
+- **The unused floor fallback is gone: `mcgyvr.deterministic.route`,
+  `Degradation` and `Routed`.** `route` planned a floor contract whose program
+  was missing on the cheapest dearer family and recorded a `degraded` note
+  saying who pays; nothing in mcgyvr called it, only its tests. It is removed
+  with its helpers (`_have`, `_why_missing`, `_cheapest_above`) and the tests
+  that exercised it; the tests that ran the floor's step through `route` now
+  plan it through `mcgyvr.route.plan`, which is the path runs take. Nothing
+  behaves differently: a floor contract with no program bound still stops
+  `mcgyvr run` with exit 1, naming the dearer family it does not climb to.
 - **Sessions, the manager loop and the retired-name shims are gone.** `chat`
   and `agent` are no longer contract task types: `code` is the one shipped
   type, and chat and agent stay as plain use of an endpoint. Removed with
@@ -1442,6 +1560,19 @@ archived outside this repository, under the same paths.
   attributed to the lines the change added or compared with the base, as the
   gate's own type check does for Python; no tsc output parser exists. Prose
   only, no behaviour change (I-56).
+
+- **Setup's discovery and the fleet sampler send a keyed unit its own key.**
+  Both asked a unit's `/v1/models` (and `/props`, `/api/v0/models`, `/info`)
+  with no key, so a unit behind `expose: lan` answered 401: setup did not list
+  it, and the sampler read no window or slots from it. Now `detect.probe`, its
+  window read and `fleet.sampler.served` send the key mcgyvr keeps for that
+  address (`unitkey.for_address`) as a bearer token, to that address alone:
+  the key file is named for one host and port, so a sweep of another host or
+  port sends none, and the header is not replayed across a redirect. Setup
+  therefore lists keyed units it used to skip. A key file setup cannot trust,
+  or a data folder it cannot name (a relative `$MCGYVR_DATA`), is a `Unit key:`
+  note and the unit is asked without the key; the sampler raises, as a
+  dispatch to the unit does.
 
 - Prose says what the code does, with no behaviour change. The host's `rig
   run` and `rig join` print a run's seal key id (there is no `rig up`);

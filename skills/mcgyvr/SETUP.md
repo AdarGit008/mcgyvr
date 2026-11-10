@@ -35,8 +35,17 @@ probe and a load of every unit, the use case's sample task (for
 `mcgyvr-code`, a one-function bug fix the deterministic gate must pass;
 for `code` and `chat`, one word from each unit) and
 a Jev unit's one typed choice. A green sample is stamped, and on
-`Lock the fleet and name it live? [y/N]` it is locked, promoted and
+`Lock the fleet and name it live? [y/n]` it is locked, promoted and
 named live. A red sample is never locked; its reasons are printed.
+
+The sample also edits the staged `fleet.yaml`: each unit on a rig
+that names no `output_tokens` is given one, the warm decode its reads
+measured times its `request_timeout_s`, clipped to its `window`, so a
+reply is capped at what the unit can finish inside its timeout: the
+lock refuses a measured unit that states none, or whose reply cannot
+finish inside its timeout at the measured speed. A unit that names its own
+`output_tokens`, or whose reads measured no decode, is left as it is;
+the file is rewritten only when some unit changed.
 
 When the interactive setup finishes, it offers to put `~/.local/bin`,
 where `uv tool install` puts `mcgyvr`, on PATH, once you say yes. A
@@ -56,7 +65,7 @@ PATH line is left alone.
 A fleet that could not be sampled — its containers not started, or
 every unit hosted — is locked
 approved on no evidence only once you say so: setup says why and what
-that means, and asks `Lock it approved on no evidence? [y/N]`. With
+that means, and asks `Lock it approved on no evidence? [y/n]`. With
 flags, setup binds the servers already answering and starts none, so
 nothing is sampled; `--accept-unsampled` is that acknowledgment, and
 without it nothing is locked. Backends on another machine come in with
@@ -114,6 +123,12 @@ speed the live fleet measured for it there (a `reading`), else an
 there is none. It wakes and sleeps nothing, and writes nothing but
 that cache.
 
+`mcgyvr emit` sizes each unit from those rig files and refuses one whose
+weights need more disk than the rig file read free (`needs N GB of
+disk, M GB free at PATH`); a unit split across cards is held to the
+free disk of the machine its address points at. A rig file with no
+disk reading skips the check.
+
 A setup is two files in one directory, and `mcgyvr setup` writes both
 (staged under the data folder, as above):
 
@@ -150,6 +165,18 @@ keys on them, and the run config drops them when it loads the
 setup. A `fleets` entry takes `layout` and `next`; a `rigs` entry is
 checked only as a block. `examples/fleet.yaml` shows all three.
 
+Who may use a rig is one of `own`, `crew`, `anyone`: a unit's `scope` and the setup's `ride_scope` name it, and so does each rig you add to a hub, with its mode, `lend` or `hitchhike`. A rig in mode `lend` puts its hardware in its audience's pool; one in mode `hitchhike` runs your own units and lets riders the hub matches use their spare slots. The pairs, and what each pool serves:
+
+| audience | mode | pool | use cases |
+|---|---|---|---|
+| `own` | `lend` | own rigs | `mcgyvr-code`, `code`, `chat`, `agent` |
+| `crew` | `lend` | crew pool | `mcgyvr-code`, `code`, `chat`, `agent` |
+| `anyone` | `lend` | general pool (anyone) | `mcgyvr-code`, `code`, `chat`, `agent` |
+| `own` | `hitchhike` | own rigs | `mcgyvr-code`, `code`, `chat`, `agent` |
+| `anyone` | `hitchhike` | hitchhike | `mcgyvr-code`, `code`, `chat`, `agent` |
+
+Under `own` a rig lends to nobody, whatever its mode. A rig whose audience reaches strangers serves someone who is neither you nor a crewmate only once a hub admin has approved you as a host. The hub's old sharing modes are refused with these: `solo` is `own` + `lend`; `crew` is `crew` + `lend`; `pool` is `anyone` + `lend`; `hitchhike` is `anyone` + `hitchhike`.
+
 `mcgyvr local_pool` reads that config back: the usable rungs cheapest-first with
 their family, attempt budget and model; the escalation ceiling and where it
 came from; every skipped rung with the reason it was skipped; and the
@@ -166,6 +193,16 @@ you read all three:
 
 `mcgyvr config` prints the resolved config; `mcgyvr detect` shows what
 can run the work; `mcgyvr capabilities` shows the shipped capability table.
+
+mcgyvr sets `$MCGYVR_ENDPOINTS` in every task container that has a network: the address of each unit of
+the config, comma-separated, a name for this machine rewritten to `host.docker.internal`, so a check that
+calls a unit finds it from inside the container. Weights are fetched from the Hugging Face Hub with the
+token in `$HF_TOKEN` (`--hf-token-env` names another variable), and `$HF_ENDPOINT` names a mirror for the
+Hub reads and fetches alike. The `MCGYVR_TEST_*` variables the rig reader notices are for mcgyvr's own
+tests; leave them unset.
+
+`mcgyvr -h` and `mcgyvr VERB -h` print every verb and flag an install takes; `COMMANDS.md`, at the root
+of mcgyvr's source repository, lists them all on one page, rendered from the same parser.
 
 A unit split across machines (`units.launch.shards`) is checked before
 anything starts: a split that cannot be launched is refused when
@@ -214,10 +251,11 @@ powershell -NoProfile -ExecutionPolicy RemoteSigned -File mcgyvr\skills\mcgyvr\i
 - config (`$MCGYVR_HOME`): `~/.mcgyvr` on every system.
 
 `$XDG_STATE_HOME` and `$XDG_CACHE_HOME` still win when absolute (the weights follow `$MCGYVR_WEIGHTS`
-alone), and `journal.dir` defaults to `~/.local/state/mcgyvr/journal` everywhere. Windows checks no file
-owner or mode: a file is as private as its folder, and these folders are in your own profile. A folder
-named by `$MCGYVR_HOME`, `$MCGYVR_DATA` or an XDG variable keeps whatever ACL it has, so keep the rig
-token's folder (`$MCGYVR_HOME`) inside your profile.
+alone), and `journal.dir` defaults to `~/.local/state/mcgyvr/journal` everywhere: the journal is the one
+piece of state that does not move with `$MCGYVR_DATA` or `$XDG_STATE_HOME`, so set `journal.dir` to move
+it. Windows checks no file owner or mode: a file is as private as its folder, and these folders are in
+your own profile. A folder named by `$MCGYVR_HOME`, `$MCGYVR_DATA` or an XDG variable keeps whatever ACL
+it has, so keep the rig token's folder (`$MCGYVR_HOME`) inside your profile.
 
 **Serving, with no Docker.** On a Mac or a Windows machine, `mcgyvr setup` writes `launcher: native` for
 a llama.cpp unit on the machine it runs on. Its first start fetches the llama.cpp build mcgyvr pins
@@ -308,6 +346,11 @@ gives back what the one before left, to its router only while the rig is on that
 lease is permanent by default: a router that grants only permanent leases is refused (`permanent_only`)
 unless `mcgyvr rig share --permanent-forward` allows one; the hub shows the rule to forward the ports by
 hand instead.
+
+**A head's model.** A head the hub starts on a lending rig may name its model's sha256 digest. The rig
+then hashes its own file of that model before it starts anything, renewing the session's lease between
+chunks, and a file whose digest is another fails the session as `model_missing`. Hashing a large model
+delays the head's start; a session stopped meanwhile stops the hashing too.
 
 ## Use cases and switches
 
@@ -421,7 +464,7 @@ locks and waking a card are machinery, not switches.
 | `max_refine_fanout` | number (min 2) | no | `8` | How many parts classifier authoring may split one proposal into at once: the files of a scope over several, or the parts of the split jev picks. A split into more is refused with this key to raise rather than emitted unsplit. To bind it: set a whole number of parts, 2 or more. |
 | `retry_notes` | one of `climb`, `rung`, `none` | no | `climb` | What a try is told about the attempts before it that failed. Each failed attempt leaves a record of what the gate, the reviewer or the reply parser observed, naming its rung and attempt. `climb`: every record of the climb, so a rung above starts with what the rungs below it were refused for — the latest in full, up to 20 notes, and the 4 before it a line each. `rung`: only the record of the attempt just before this one on the same rung. `none`: nothing. |
 | `max_attempts` | number (min 1) | no | unset | Hard ceiling on how many attempts one task may spend in total. To bind it: set a whole number of attempts, or leave it unset. |
-| `task_timeout_s` | number (min 1) | no | `900` | Wall-clock ceiling for one task, including acceptance commands. |
+| `task_timeout_s` | number (min 1) | no | `900` | Wall-clock ceiling for one task, including acceptance commands. The same number is how long a dispatch may wait for a busy unit's slot before it gives up. With no config at all, no ceiling is read from one, and each command still ends after the sandbox's own 900 s default; a config that leaves this key out gets the default. |
 | `max_window_fraction` | decimal number (min 0.0, max 1.0) | no | unset | The largest share of a unit's context window one contract's prompt may claim, checked before the contract is sent, so the reply -- sent the unit's maximum within the room the prompt leaves -- keeps at least the rest; a contract claiming more fails unsent on the unit it was sent to. It is a ceiling no contract can raise: a contract's own `limits.max_window_fraction` may hold it to less, never to more, and the stricter of the two applies. Unset enforces no run-wide share. To bind it: a share between 0 and 1. |
 | `users` | number (min 1) | no | `1` | Users this install serves at once, and therefore the slot count the local orchestrator unit is served at: one session per user. A written `width` on the orchestrator's unit wins. `1` is a single-user install, which for a local-only `mcgyvr-code` install is flagged, not refused — the resident orchestrator consumes the card the ladder would otherwise use. |
 | `orchestrator` | block | no | — | Which unit turns a prompt plus a repository into contracts, and what that unit is. |

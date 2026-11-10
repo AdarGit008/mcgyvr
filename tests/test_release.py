@@ -17,7 +17,14 @@ What must be observably true:
   start, so a wheel without them is a broken install, not a degraded one;
 * one workflow builds the distribution, on a ``v*`` tag, with every action
   pinned by commit, and publishes it to a GitHub release; no other workflow
-  builds one. A wheel built twice is two products with one name.
+  builds one. A wheel built twice is two products with one name;
+* the workflow names no repository: it releases the run's own, so a fork's tag
+  is a fork's release;
+* a rehearsal publishes nothing: dispatched by hand it defaults to a dry run
+  that builds and checks and skips both publishing jobs, and a real release
+  from anything but a tag is refused;
+* ``make release`` is the local half — build, version check, notes, ``twine
+  check`` — and prints the tag command instead of running it.
 
 The build runs here, not in a mock: ``uv build`` is what the release runs,
 and a test that inspected the config instead of the wheel would be a test of
@@ -31,6 +38,7 @@ import re
 import shutil
 import stat
 import subprocess
+import sys
 import tomllib
 import zipfile
 from pathlib import Path
@@ -98,10 +106,13 @@ def _git(where: Path, *args: str) -> None:
     )
 
 
-def _tagged_copy(tmp_path: Path, tag: str) -> Path:
-    """This tree's build inputs, as one commit under ``tag``."""
+def _committed_copy(
+    tmp_path: Path, extra: tuple[str, ...] = (), changelog: str | None = None
+) -> Path:
+    """This tree's build inputs (and ``extra`` entries), as one commit, with
+    ``changelog`` as its CHANGELOG.md when one is given."""
     tree = tmp_path / "tree"
-    for entry in BUILD_INPUTS:
+    for entry in (*BUILD_INPUTS, *extra):
         source, target = REPO / entry, tree / entry
         if source.is_dir():
             shutil.copytree(
@@ -110,9 +121,17 @@ def _tagged_copy(tmp_path: Path, tag: str) -> Path:
         else:
             target.parent.mkdir(parents=True, exist_ok=True)
             shutil.copy2(source, target)
+    if changelog is not None:
+        (tree / "CHANGELOG.md").write_text(changelog, encoding="utf-8")
     _git(tree, "init", "-q")
     _git(tree, "add", "-A")
     _git(tree, "commit", "-qm", "the tree under test")
+    return tree
+
+
+def _tagged_copy(tmp_path: Path, tag: str) -> Path:
+    """This tree's build inputs, as one commit under ``tag``."""
+    tree = _committed_copy(tmp_path)
     _git(tree, "tag", tag)
     return tree
 
@@ -264,18 +283,270 @@ ON_GITHUB = "github.server_url == 'https://github.com'"
 def test_the_release_runs_on_github_and_reaches_pypi_by_trusted_publishing() -> None:
     """The release is a GitHub release and the PyPI identity is GitHub's OIDC
     token: a forge that also reads `.github/workflows` must skip `build`, and
-    `pypi` must ride on `build` (so it is skipped with it) under the
-    environment and the one permission the trusted publisher names."""
+    `pypi` must ride on it (so it is skipped with it) under the environment
+    and the one permission the trusted publisher names. It rides on
+    `github-release`, which rides on `build`, so whatever skips the GitHub
+    release — a forge, a rehearsal — skips the upload with it."""
     jobs = _release()["jobs"]
     assert jobs["build"].get("if") == ON_GITHUB, jobs["build"].get("if")
+    assert jobs["github-release"].get("needs") == "build", jobs["github-release"]
     pypi = jobs["pypi"]
-    assert pypi.get("needs") == "build", pypi.get("needs")
+    assert pypi.get("needs") == "github-release", pypi.get("needs")
     assert "if" not in pypi, "an `if:` on pypi would be evaluated, not skipped"
     assert pypi.get("environment") == "pypi", pypi.get("environment")
     assert pypi.get("permissions") == {"id-token": "write"}, pypi.get("permissions")
     text = RELEASE.read_text(encoding="utf-8")
     secrets = re.findall(r"\$\{\{\s*secrets\.[A-Za-z0-9_]+", text)
     assert secrets == [], f"the release reads a stored secret: {secrets}"
+
+
+def test_the_release_is_of_the_runs_own_repository() -> None:
+    """No repository is written in the workflow: `gh` is told the run's own,
+    so a fork's tag makes the fork's release and never the upstream's."""
+    text = RELEASE.read_text(encoding="utf-8")
+    slugs = re.findall(r"(?:github\.com/|/repos/)[\w.-]+/[\w.-]+", text)
+    assert slugs == [], f"release.yml names a repository: {slugs}"
+    # A bare `<owner>/mcgyvr` anywhere — a comment, an env value, a `with:` —
+    # unless it is a path in this tree (`src/mcgyvr`).
+    bare = re.findall(r"(?<![\w./-])([\w.-]+/mcgyvr)\b(?![\w-])", text)
+    named = [slug for slug in bare if not (REPO / slug).exists()]
+    assert named == [], f"release.yml names a repository: {named}"
+    told = re.findall(r"(?:--repo|-R|GH_REPO:?)[ =]+(\S+)", text)
+    assert told == ['"$GITHUB_REPOSITORY"'], f"gh is told a repository: {told}"
+    jobs = _release()["jobs"]
+    step = _step(jobs["github-release"], "publish the GitHub release")
+    assert '--repo "$GITHUB_REPOSITORY"' in str(step["run"]), step["run"]
+    # An action told a repository is told the run's own, or nothing.
+    for job in jobs.values():
+        for each in job.get("steps", []):
+            for key in ("repository", "repository-url", "repo"):
+                value = (each.get("with") or {}).get(key)
+                assert value is None or "github.repository" in str(value), (key, each)
+
+
+def test_the_twine_check_is_pinned_and_one_pin() -> None:
+    """The check is part of the release, so it is pinned like the actions, and
+    `make release` checks with the same twine the tag's run does."""
+    pins = re.findall(r"--with twine==(\d[\w.]*)", RELEASE.read_text(encoding="utf-8"))
+    makefile = re.findall(
+        r"--with twine==(\d[\w.]*)", (REPO / "Makefile").read_text(encoding="utf-8")
+    )
+    assert len(pins) == 1 and makefile == pins, (pins, makefile)
+    assert "--with twine " not in RELEASE.read_text(encoding="utf-8")
+
+
+def test_a_dispatch_is_a_dry_run_unless_told_otherwise() -> None:
+    """By hand the workflow rehearses: `dry_run` is a boolean that defaults to
+    true, and only `build` runs unless `build` says this run publishes."""
+    workflow = _release()
+    trigger = workflow.get("on", workflow.get(True))
+    assert isinstance(trigger, dict), trigger
+    dry_run = trigger["workflow_dispatch"]["inputs"]["dry_run"]
+    assert dry_run.get("type") == "boolean", dry_run
+    assert dry_run.get("default") is True, dry_run
+    jobs = workflow["jobs"]
+    assert jobs["github-release"].get("if") == "needs.build.outputs.publish == 'true'"
+    assert jobs["build"]["outputs"]["publish"] == "${{ steps.mode.outputs.publish }}"
+
+
+def _step(job: dict[str, Any], name: str) -> dict[str, Any]:
+    (found,) = [step for step in job["steps"] if step.get("name") == name]
+    assert isinstance(found, dict)
+    return found
+
+
+def _mode(
+    tmp_path: Path, ref_type: str, ref_name: str, dry_run: str, cwd: Path = REPO
+) -> tuple[int, str, str]:
+    """Run the `release or rehearsal` step's own script as the runner would,
+    with `uv run … python` standing for this interpreter (packaging is in the
+    test environment) and the runner's files in ``tmp_path``. Returns the exit
+    code, then what it wrote to GITHUB_ENV and to GITHUB_OUTPUT."""
+    script = str(_step(_release()["jobs"]["build"], "release or rehearsal")["run"])
+    shim = tmp_path / "bin" / "uv"
+    shim.parent.mkdir(exist_ok=True)
+    shim.write_text(
+        '#!/bin/sh\nwhile [ "$1" != python ]; do shift; done; shift\n'
+        f'exec "{sys.executable}" "$@"\n',
+        encoding="utf-8",
+    )
+    shim.chmod(0o755)
+    env_file, out_file = tmp_path / "env", tmp_path / "out"
+    env_file.write_text("", encoding="utf-8")
+    out_file.write_text("", encoding="utf-8")
+    done = subprocess.run(
+        ["bash", "-e", "-c", script],
+        cwd=cwd,
+        capture_output=True,
+        text=True,
+        check=False,
+        env={
+            **os.environ,
+            "PATH": f"{shim.parent}{os.pathsep}{os.environ['PATH']}",
+            "DRY_RUN": dry_run,
+            "GITHUB_REF_TYPE": ref_type,
+            "GITHUB_REF_NAME": ref_name,
+            "GITHUB_ENV": str(env_file),
+            "GITHUB_OUTPUT": str(out_file),
+        },
+    )
+    assert done.returncode == 0 or "REFUSED" in done.stderr, done.stderr
+    return done.returncode, env_file.read_text("utf-8"), out_file.read_text("utf-8")
+
+
+@pytest.mark.skipif(os.name == "nt", reason="the runner's shell is bash on ubuntu")
+def test_a_rehearsal_from_a_branch_stamps_the_newest_changelog_version(
+    tmp_path: Path,
+) -> None:
+    from scripts.release.changelog_notes import latest
+
+    newest = latest((REPO / "CHANGELOG.md").read_text(encoding="utf-8"))
+    code, env, out = _mode(tmp_path, "branch", "feat/x", "true")
+    assert code == 0
+    assert f"SETUPTOOLS_SCM_PRETEND_VERSION={newest}\n" in env, env
+    assert f"TAG=v{newest}\n" in env, env
+    assert "publish=false\n" in out, out
+
+
+@pytest.mark.skipif(os.name == "nt", reason="the runner's shell is bash on ubuntu")
+def test_a_rehearsal_of_a_version_tagged_elsewhere_stays_green_and_says_so(
+    tmp_path: Path,
+) -> None:
+    """The same tree `make release` refuses: the dry run still passes (it is a
+    rehearsal), but files the tag's commit for the summary to name."""
+    tree = _committed_copy(tmp_path / "t", changelog=RELEASE_CHANGELOG)
+    code, env, _ = _mode(tmp_path, "branch", "feat/x", "true", cwd=tree)
+    assert code == 0 and "TAGGED_AT" not in env, env
+    _git(tree, "tag", "v9.9.9")
+    _git(tree, "commit", "-q", "--allow-empty", "-m", "after the release")
+    tagged = subprocess.run(
+        ["git", "-C", str(tree), "rev-parse", "v9.9.9^{commit}"],
+        capture_output=True,
+        text=True,
+        check=True,
+    ).stdout.strip()
+    code, env, out = _mode(tmp_path, "branch", "feat/x", "true", cwd=tree)
+    assert code == 0 and "publish=false\n" in out, (env, out)
+    assert f"TAGGED_AT={tagged}\n" in env, env
+    summary = str(_step(_release()["jobs"]["build"], "summary")["run"])
+    makefile = (REPO / "Makefile").read_text(encoding="utf-8")
+    words = "is already tagged at $"
+    assert words in summary and words in makefile, "the two rehearsals word it apart"
+    assert "write the next version's CHANGELOG section" in summary
+    assert "write the next version's CHANGELOG section" in makefile
+
+
+@pytest.mark.skipif(os.name == "nt", reason="the runner's shell is bash on ubuntu")
+def test_a_tag_is_read_not_stamped_and_a_real_release_needs_one(tmp_path: Path) -> None:
+    code, env, out = _mode(tmp_path, "tag", "v9.9.9", "false")
+    assert code == 0
+    assert "PRETEND" not in env, "a tag's version is read from the tag, not stamped"
+    assert "TAG=v9.9.9\n" in env and "publish=true\n" in out, (env, out)
+    code, env, out = _mode(tmp_path, "tag", "v9.9.9", "true")
+    assert code == 0 and "PRETEND" not in env and "publish=false\n" in out, (env, out)
+    code, env, out = _mode(tmp_path, "branch", "main", "false")
+    assert code == 1, "a real release from a branch must be refused"
+    assert out == "", f"a refused run told the later jobs something: {out}"
+
+
+# --- make release: the local half ---------------------------------------------------
+
+#: A changelog with one written release, the version the local half rehearses.
+RELEASE_CHANGELOG = """\
+# Changelog
+
+## [Unreleased]
+
+## [9.9.9] - 2026-11-10
+
+### Added
+- The rehearsed release.
+"""
+
+
+def _release_tree(tmp_path: Path) -> Path:
+    """This tree's build inputs and its Makefile, one commit, no tag."""
+    return _committed_copy(tmp_path, ("Makefile",), RELEASE_CHANGELOG)
+
+
+def _make_release(tree: Path, tmp_path: Path) -> subprocess.CompletedProcess[str]:
+    """`make release` with this interpreter for the release scripts and a
+    recording stand-in for twine, so the test needs no index to reach."""
+    twine = tmp_path / "twine"
+    twine.write_text(f'#!/bin/sh\necho "$@" >> "{tmp_path / "twine.calls"}"\n')
+    twine.chmod(0o755)
+    return subprocess.run(
+        [
+            "make",
+            "release",
+            f"RELEASE_PY={sys.executable}",
+            f"TWINE={twine}",
+            f"RELEASE_DIR={tmp_path / 'out'}",
+        ],
+        cwd=tree,
+        capture_output=True,
+        text=True,
+        timeout=600,
+        check=False,
+        env={**os.environ, "GIT_CONFIG_GLOBAL": os.devnull},
+    )
+
+
+needs_make = pytest.mark.skipif(
+    shutil.which("make") is None or os.name == "nt", reason="`make release` needs make"
+)
+
+
+@needs_make
+def test_make_release_runs_the_local_half_and_only_prints_the_tag(
+    tmp_path: Path,
+) -> None:
+    tree = _release_tree(tmp_path)
+    done = _make_release(tree, tmp_path)
+    assert done.returncode == 0, done.stderr[-2000:]
+    # uv leaves a `.gitignore` in its out-dir; the recipe's globs skip it.
+    out = (tmp_path / "out").iterdir()
+    built = sorted(p.name for p in out if not p.name.startswith("."))
+    assert built == ["mcgyvr-9.9.9-py3-none-any.whl", "mcgyvr-9.9.9.tar.gz"], built
+    assert "The rehearsed release." in done.stdout, "the notes were not printed"
+    (call,) = (tmp_path / "twine.calls").read_text().splitlines()
+    assert call.split()[0] == "check" and len(call.split()) == 3, call
+    assert "git tag -a v9.9.9 -m v9.9.9" in done.stdout, done.stdout
+    assert "git push origin v9.9.9" in done.stdout, done.stdout
+    tags = subprocess.run(
+        ["git", "-C", str(tree), "tag", "-l"],
+        capture_output=True,
+        text=True,
+        check=True,
+    )
+    assert tags.stdout == "", f"make release tagged: {tags.stdout}"
+
+
+@needs_make
+def test_make_release_refuses_a_version_tagged_elsewhere_and_a_changed_tree(
+    tmp_path: Path,
+) -> None:
+    tree = _release_tree(tmp_path)
+    (tree / "pyproject.toml").write_text(
+        (tree / "pyproject.toml").read_text() + "\n", encoding="utf-8"
+    )
+    done = _make_release(tree, tmp_path)
+    assert done.returncode != 0 and "commit first" in done.stderr, done.stderr
+    _git(tree, "commit", "-qam", "a second commit")
+    _git(tree, "tag", "v9.9.9", "HEAD~1")
+    done = _make_release(tree, tmp_path)
+    assert done.returncode != 0 and "already tagged" in done.stderr, done.stderr
+    assert not (tmp_path / "out").exists(), "a refused release built something"
+
+
+def test_make_release_pushes_and_uploads_nothing() -> None:
+    """What the recipe runs, not what it prints: with its echoed lines taken
+    out, nothing in it tags, pushes, uploads or makes a release."""
+    makefile = (REPO / "Makefile").read_text(encoding="utf-8")
+    recipe = makefile.split("\nrelease:", 1)[1]
+    run = re.sub(r'echo "[^"]*"', "", recipe)
+    for spelling in ("git tag", "git push", "twine upload", "gh release", "publish"):
+        assert spelling not in run, f"make release runs {spelling!r}"
 
 
 def test_the_macos_and_windows_job_waits_on_a_github_only_job() -> None:

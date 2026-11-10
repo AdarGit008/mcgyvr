@@ -15,9 +15,10 @@ A ``lan`` unit asks every request for a key mcgyvr makes the first time
 ``mcgyvr emit`` writes it: kept at mode 0600 in the data folder, named in the
 compose service's ``env_file`` and never written into the compose file, and
 sent by mcgyvr's own requests to the unit (a dispatch, a status poll, the
-availability probe, the door's probes and the rig agent's relay) as a bearer
-token. A unit that states its own ``--host`` or ``LLAMA_ARG_HOST`` renders byte
-for byte as it did before units listened on the loopback by default. ``mcgyvr
+availability probe, setup's discovery, the sampler's read, the door's probes
+and the rig agent's relay) as a bearer token, to the unit's own address alone.
+A unit that states its own ``--host`` or ``LLAMA_ARG_HOST`` renders byte for
+byte as it did before units listened on the loopback by default. ``mcgyvr
 emit`` says where each keyed unit listens, and warns where a unit's own address
 cannot reach it. ``mcgyvr fleet key`` prints the key, for a client of the owner's
 own.
@@ -45,7 +46,7 @@ import pytest
 import yaml
 
 import mcgyvr.runner as runner
-from mcgyvr import unitkey
+from mcgyvr import detect, unitkey
 from mcgyvr.availability import probe_endpoint
 from mcgyvr.cli import main
 from mcgyvr.cli.commands.ladder import _exposure
@@ -60,7 +61,7 @@ from mcgyvr.emit import (
     render_compose,
 )
 from mcgyvr.exits import Exit
-from mcgyvr.fleet import harness, read
+from mcgyvr.fleet import harness, read, sampler
 from mcgyvr.local_pool import SourceUnavailableError, source_map
 from mcgyvr.rig import hitchhike
 from mcgyvr.rig.relay import Target
@@ -631,6 +632,145 @@ def test_a_unit_with_no_key_file_is_sent_no_key(keyed: KeyedServer) -> None:
 
     assert "Authorization" not in runner.request_headers(endpoint)
     assert not probe_endpoint(endpoint).live
+
+
+def llama_target(address: str) -> detect.ProbeTarget:
+    """The target setup's discovery sweeps for a llama-server at `address`."""
+    return detect.ProbeTarget(
+        name="llama-server", base_url=address, api="openai", host=host_of(address)
+    )
+
+
+def test_setup_discovery_lists_a_unit_that_asks_for_its_key(
+    keyed: KeyedServer,
+) -> None:
+    keep(keyed.key, keyed.port)
+
+    found = detect.probe(llama_target(keyed.address))
+
+    assert found is not None and found.models == ("coder-7b",)
+    assert keyed.seen == [
+        ("/v1/models", f"Bearer {keyed.key}"),
+        ("/props", f"Bearer {keyed.key}"),
+    ]
+
+
+def test_setup_discovery_sends_no_key_where_none_is_kept(keyed: KeyedServer) -> None:
+    assert detect.probe(llama_target(keyed.address)) is None
+    assert keyed.seen == [("/v1/models", None)]
+
+
+def test_a_sweep_sends_a_unit_its_key_and_no_other_host_or_port(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """The key is kept for one address; every other address the sweep tries,
+    on another host or another port of the unit's own, is asked keyless."""
+    unitkey.ensure("unit-a.lan", 8080)
+    asked: list[tuple[str, str | None]] = []
+
+    def urlopen(request: Any, timeout: float) -> Any:
+        asked.append((request.full_url, request.get_header("Authorization")))
+        raise OSError("nothing listens on an invented machine")
+
+    monkeypatch.setattr("mcgyvr.detect.urllib.request.urlopen", urlopen)
+
+    assert detect.probe_all(detect.targets_for(("unit-a.lan", "rig-b.lan"))) == ()
+    assert len(asked) == 2 * len(detect.PORT_CONVENTIONS)
+    assert [(url, said) for url, said in asked if said is not None] == [
+        (
+            "http://unit-a.lan:8080/v1/models",
+            f"Bearer {unitkey.load('unit-a.lan', 8080)}",
+        )
+    ]
+
+    asked.clear()
+    assert detect.probe_all(detect.targets_for(("rig-b.lan",))) == ()
+    assert asked and all(said is None for _, said in asked)
+
+
+@pytest.fixture
+def redirecting(keyed: KeyedServer) -> Iterator[str]:
+    """A server that sends every request on to the keyed server."""
+
+    class Handler(BaseHTTPRequestHandler):
+        def log_message(self, format: str, *args: Any) -> None:
+            pass
+
+        def do_GET(self) -> None:
+            self.send_response(302)
+            self.send_header("Location", f"{keyed.address}{self.path}")
+            self.end_headers()
+
+    server = ThreadingHTTPServer(("127.0.0.1", 0), Handler)
+    server.daemon_threads = True
+    threading.Thread(target=server.serve_forever, daemon=True).start()
+    yield f"http://127.0.0.1:{server.server_address[1]}"
+    server.shutdown()
+
+
+def test_a_units_key_does_not_follow_its_redirect_to_another_address(
+    keyed: KeyedServer, redirecting: str
+) -> None:
+    keep(keyed.key, int(redirecting.rsplit(":", 1)[1]))
+
+    assert detect.probe(llama_target(redirecting)) is None
+    assert keyed.seen == [("/v1/models", None)]
+
+
+def test_a_key_file_setup_cannot_trust_is_noted_and_its_unit_asked_keyless(
+    keyed: KeyedServer, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    keep(keyed.key, keyed.port).chmod(0o644)
+    monkeypatch.setattr(detect, "_reading", lambda: {})
+    monkeypatch.setattr(detect, "detect_docker", lambda: (True, "an invented daemon"))
+
+    found = detect.detect((llama_target(keyed.address),))
+
+    assert found.backends == ()
+    assert keyed.seen == [("/v1/models", None)]
+    assert any(
+        note.startswith("Unit key: ") and f"{keyed.address} was asked without" in note
+        for note in found.notes
+    ), found.notes
+
+
+def test_a_data_folder_setup_cannot_name_is_noted_and_detection_goes_on(
+    keyed: KeyedServer, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """A relative `$MCGYVR_DATA` names no folder a key could be read from:
+    setup notes it and asks keyless, as it did before it read keys at all."""
+    monkeypatch.setenv("MCGYVR_DATA", "relative/data")
+    monkeypatch.setattr(detect, "_reading", lambda: {})
+    monkeypatch.setattr(detect, "detect_docker", lambda: (True, "an invented daemon"))
+
+    found = detect.detect((llama_target(keyed.address),))
+
+    assert found.backends == ()
+    assert keyed.seen == [("/v1/models", None)]
+    assert any(
+        note.startswith("Unit key: ") and "$MCGYVR_DATA" in note for note in found.notes
+    ), found.notes
+
+
+def test_the_sampler_reads_a_keyed_units_window_and_slots_with_its_key(
+    keyed: KeyedServer,
+) -> None:
+    keep(keyed.key, keyed.port)
+
+    sampler.served({"address": f"{keyed.address}/v1", "engine": "llama.cpp"})
+    sampler.served({"address": f"{keyed.address}/v1", "engine": "vllm"})
+
+    assert keyed.seen == [
+        ("/props", f"Bearer {keyed.key}"),
+        ("/v1/models", f"Bearer {keyed.key}"),
+    ]
+
+
+def test_the_sampler_sends_no_key_to_a_unit_none_is_kept_for(
+    keyed: KeyedServer,
+) -> None:
+    assert sampler.served({"address": f"{keyed.address}/v1"}) == {}
+    assert keyed.seen == [("/props", None)]
 
 
 @pytest.fixture

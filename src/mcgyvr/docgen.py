@@ -341,6 +341,24 @@ LOCAL_TRANSPORT_ENV = "MCGYVR_LOCAL_TRANSPORT"
 SSHD_PORT = 22
 QUARANTINE = "com.apple.quarantine"
 HUB_KEY_ENV = "MCGYVR_HUB_API_KEY"
+#: The environment names SETUP.md's setup text states, held to
+#: `sandbox.docker.ENDPOINTS_ENV`/`HOST_ALIAS`, `fetchlist.DEFAULT_TOKEN_ENV`/
+#: `ENDPOINT_ENV` and the rig reader's `MCGYVR_TEST_*` variables by
+#: tests/test_the_setup_document_names_the_environment_mcgyvr_sets_and_reads.py.
+ENDPOINTS_ENV = "MCGYVR_ENDPOINTS"
+HOST_ALIAS = "host.docker.internal"
+HF_TOKEN_ENV = "HF_TOKEN"
+HF_ENDPOINT_ENV = "HF_ENDPOINT"
+TEST_ENV_PREFIX = "MCGYVR_TEST_"
+#: The finding /mcgyvr-direct's Step 5 names, held to `drive.gate.UNCHANGED` and
+#: the code `unchanged_target` files by the same kind of test
+#: (tests/test_the_direct_skill_names_the_unchanged_reply_finding.py).
+UNCHANGED_CHECK = "unchanged"
+UNCHANGED_CODE = "identical-to-base"
+#: The document of every verb and flag, rendered by `mcgyvr.cli.verbdoc` (held
+#: to its `COMMANDS_PATH` by
+#: tests/test_commands_md_lists_every_verb_and_flag_the_parser_defines.py).
+COMMANDS_DOC = "COMMANDS.md"
 #: The rig names *Lending to a hub: the port forward* states, held to
 #: `sharing.SHARING_FILE`, the `rig share` and `rig join` switches and
 #: `portmap.NOT_ALLOWED`/`PERMANENT_ONLY` by
@@ -372,7 +390,22 @@ def _port_forward_section() -> list[str]:
         f"unless `mcgyvr rig share {PERMANENT_FORWARD_SWITCH}` allows one; "
         "the hub shows the rule to forward the ports by hand instead."
     )
-    return ["## Lending to a hub: the port forward", "", *_wrap(text, rest=""), ""]
+    digest = (
+        "**A head's model.** A head the hub starts on a lending rig may name its "
+        "model's sha256 digest. The rig then hashes its own file of that model "
+        "before it starts anything, renewing the session's lease between chunks, "
+        "and a file whose digest is another fails the session as "
+        f"`{hubwire.SessionCode.MODEL_MISSING}`. Hashing a large model delays the "
+        "head's start; a session stopped meanwhile stops the hashing too."
+    )
+    return [
+        "## Lending to a hub: the port forward",
+        "",
+        *_wrap(text, rest=""),
+        "",
+        *_wrap(digest, rest=""),
+        "",
+    ]
 
 
 def _macos_windows_section() -> list[str]:
@@ -427,7 +460,9 @@ def _macos_windows_section() -> list[str]:
         *para(
             "`$XDG_STATE_HOME` and `$XDG_CACHE_HOME` still win when absolute (the "
             f"weights follow `${WEIGHTS_DIR_ENV}` alone), and `journal.dir` "
-            f"defaults to `{JOURNAL_DIR_DEFAULT}` everywhere. Windows checks no "
+            f"defaults to `{JOURNAL_DIR_DEFAULT}` everywhere: the journal is the "
+            f"one piece of state that does not move with `${roots.DATA_ENV}` or "
+            "`$XDG_STATE_HOME`, so set `journal.dir` to move it. Windows checks no "
             "file owner or mode: a file is as private as its folder, and these "
             "folders are in your own profile. A folder named by "
             f"`${roots.HOME_ENV}`, `${roots.DATA_ENV}` or an XDG variable keeps "
@@ -545,6 +580,44 @@ def _macos_windows_section() -> list[str]:
     ]
 
 
+def _audience_lines() -> list[str]:
+    """Who may use a rig on a hub, in one vocabulary: the audiences a rig, a
+    unit's `scope` and `ride_scope` name, each rig's mode, and the pool each
+    pair puts it in, from `mcgyvr.hubwire`."""
+    audiences = ", ".join(f"`{a}`" for a in hubwire.SCOPE_VALUES)
+    modes = " or ".join(f"`{m}`" for m in hubwire.MODES)
+    lines = [
+        f"Who may use a rig is one of {audiences}: a unit's `scope` and the "
+        "setup's `ride_scope` name it, and so does each rig you add to a hub, "
+        f"with its mode, {modes}. A rig in mode `{hubwire.MODE_LEND}` puts its "
+        "hardware in its audience's pool; one in mode "
+        f"`{hubwire.MODE_HITCHHIKE}` runs your own units and lets riders the "
+        "hub matches use their spare slots. The pairs, and what each pool "
+        "serves:",
+        "",
+        "| audience | mode | pool | use cases |",
+        "|---|---|---|---|",
+    ]
+    for mode in hubwire.MODES:
+        for audience in hubwire.MODE_AUDIENCES[mode]:
+            pool = hubwire.rig_pool(audience, mode)
+            cases = ", ".join(f"`{c}`" for c in hubwire.POOL_USE_CASES[pool])
+            name = hubwire.POOL_NAMES[pool]
+            lines.append(f"| `{audience}` | `{mode}` | {name} | {cases} |")
+    retired = "; ".join(
+        f"`{old}` is `{a}` + `{m}`"
+        for old, (a, m) in hubwire.RETIRED_SHARING_MODES.items()
+    )
+    lines += [
+        "",
+        f"Under `{hubwire.SCOPE_OWN}` a rig lends to nobody, whatever its mode. "
+        "A rig whose audience reaches strangers serves someone who is neither "
+        "you nor a crewmate only once a hub admin has approved you as a host. "
+        f"The hub's old sharing modes are refused with these: {retired}.",
+    ]
+    return lines
+
+
 def render_setup() -> str:
     """Render SETUP.md: how a machine comes to have a config, and what it says.
 
@@ -591,8 +664,17 @@ def render_setup() -> str:
         "`mcgyvr-code`, a one-function bug fix the deterministic gate must pass;",
         "for `code` and `chat`, one word from each unit) and",
         "a Jev unit's one typed choice. A green sample is stamped, and on",
-        "`Lock the fleet and name it live? [y/N]` it is locked, promoted and",
+        "`Lock the fleet and name it live? [y/n]` it is locked, promoted and",
         "named live. A red sample is never locked; its reasons are printed.",
+        "",
+        f"The sample also edits the staged `{FLEET_FILENAME}`: each unit on a rig",
+        "that names no `output_tokens` is given one, the warm decode its reads",
+        "measured times its `request_timeout_s`, clipped to its `window`, so a",
+        "reply is capped at what the unit can finish inside its timeout: the",
+        "lock refuses a measured unit that states none, or whose reply cannot",
+        "finish inside its timeout at the measured speed. A unit that names its own",
+        "`output_tokens`, or whose reads measured no decode, is left as it is;",
+        "the file is rewritten only when some unit changed.",
         "",
         "When the interactive setup finishes, it offers to put `~/.local/bin`,",
         "where `uv tool install` puts `mcgyvr`, on PATH, once you say yes. A",
@@ -612,7 +694,7 @@ def render_setup() -> str:
         "A fleet that could not be sampled — its containers not started, or",
         "every unit hosted — is locked",
         "approved on no evidence only once you say so: setup says why and what",
-        "that means, and asks `Lock it approved on no evidence? [y/N]`. With",
+        "that means, and asks `Lock it approved on no evidence? [y/n]`. With",
         "flags, setup binds the servers already answering and starts none, so",
         "nothing is sampled; `--accept-unsampled` is that acknowledgment, and",
         "without it nothing is locked. Backends on another machine come in with",
@@ -670,6 +752,12 @@ def render_setup() -> str:
         "there is none. It wakes and sleeps nothing, and writes nothing but",
         "that cache.",
         "",
+        "`mcgyvr emit` sizes each unit from those rig files and refuses one whose",
+        "weights need more disk than the rig file read free (`needs N GB of",
+        "disk, M GB free at PATH`); a unit split across cards is held to the",
+        "free disk of the machine its address points at. A rig file with no",
+        "disk reading skips the check.",
+        "",
         "A setup is two files in one directory, and `mcgyvr setup` writes both",
         "(staged under the data folder, as above):",
         "",
@@ -709,6 +797,8 @@ def render_setup() -> str:
         "setup. A `fleets` entry takes `layout` and `next`; a `rigs` entry is",
         "checked only as a block. `examples/fleet.yaml` shows all three.",
         "",
+        *_audience_lines(),
+        "",
         "`mcgyvr local_pool` reads that config back: the usable rungs "
         "cheapest-first with",
         "their family, attempt budget and model; the escalation ceiling and where it",
@@ -728,6 +818,26 @@ def render_setup() -> str:
         "",
         "`mcgyvr config` prints the resolved config; `mcgyvr detect` shows what",
         "can run the work; `mcgyvr capabilities` shows the shipped capability table.",
+        "",
+        *_wrap(
+            f"mcgyvr sets `${ENDPOINTS_ENV}` in every task container that has a "
+            "network: the address of each unit of the config, comma-separated, a "
+            f"name for this machine rewritten to `{HOST_ALIAS}`, so a check that "
+            "calls a unit finds it from inside the container. Weights are fetched "
+            f"from the Hugging Face Hub with the token in `${HF_TOKEN_ENV}` "
+            "(`--hf-token-env` names another variable), and "
+            f"`${HF_ENDPOINT_ENV}` names a mirror for the Hub reads and fetches "
+            f"alike. The `{TEST_ENV_PREFIX}*` variables the rig reader notices are for "
+            "mcgyvr's own tests; leave them unset.",
+            rest="",
+        ),
+        "",
+        *_wrap(
+            "`mcgyvr -h` and `mcgyvr VERB -h` print every verb and flag an install "
+            f"takes; `{COMMANDS_DOC}`, at the root of mcgyvr's source repository, "
+            "lists them all on one page, rendered from the same parser.",
+            rest="",
+        ),
         "",
         "A unit split across machines (`units.launch.shards`) is checked before",
         "anything starts: a split that cannot be launched is refused when",
@@ -1434,6 +1544,11 @@ def render_direct_skill() -> str:
         "`mcgyvr direct` a spent ladder is not handed to a proposer: the next",
         "contract is yours to write. When `outcome` is not `accepted`, read",
         "`attempts[].findings`: each line is one reason the gate refused.",
+        f"One is not the gate's: check `{UNCHANGED_CHECK}`, code "
+        f"`{UNCHANGED_CODE}`, is",
+        "a reply that handed its target back exactly as HEAD holds it. That draw",
+        "fails before the gate runs and is never repaired, so a climb does not",
+        "settle on a change that delivery would refuse as identical to the base.",
         "`attempts[].notes` is the same evidence as a record, one per failed",
         "attempt in climb order: the check, the file and line, the tool's code, and",
         "the command and its exit where the check ran one. Write a *different*",

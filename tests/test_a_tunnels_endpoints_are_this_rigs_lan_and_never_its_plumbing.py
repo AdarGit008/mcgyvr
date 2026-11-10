@@ -51,6 +51,38 @@ def test_a_lan_address_is_private_and_nothing_else(address: str, lan: bool) -> N
     assert tunnel.is_lan(ipaddress.IPv4Address(address)) is lan
 
 
+# One address of each kind the rule tells apart, and two a peer can be at.
+_KINDS = (
+    "127.0.0.1",  # loopback
+    "169.254.1.1",  # link-local
+    "224.0.0.1",  # multicast
+    "240.0.0.1",  # reserved
+    "255.255.255.255",  # the limited broadcast
+    "0.0.0.0",  # unspecified
+    "192.0.2.10",  # private
+    str(ipaddress.IPv4Address(bytes((100, 64, 0, 1)))),  # shared: not private
+    str(ipaddress.IPv4Address(2**31 + 5)),  # public
+)
+
+
+@pytest.mark.parametrize("address", _KINDS)
+def test_the_lan_rule_the_tunnels_aim_and_the_probes_are_the_one_wire_rule(
+    address: str,
+) -> None:
+    """``is_lan``, ``may_aim_at`` and the probe's default rule do not each spell
+    the five properties no peer can be at; they read ``hubwire.is_peer_address``,
+    and a LAN address is that rule and private."""
+    from mcgyvr import hubwire
+    from mcgyvr.rig import probe, tunnel
+
+    host = ipaddress.IPv4Address(address)
+    peer = hubwire.is_peer_address(host)
+
+    assert probe.reachable is hubwire.is_peer_address
+    assert tunnel.is_lan(host) is (host.is_private and peer)
+    assert tunnel.may_aim_at(host, None, ()) is peer
+
+
 def test_this_machines_interfaces_are_read_from_the_kernel() -> None:
     from mcgyvr.rig import tunnel
 
