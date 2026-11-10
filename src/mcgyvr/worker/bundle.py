@@ -187,9 +187,9 @@ _WHOLE_FILE_RULE = re.compile(
 
 #: The same rule for a `unified_diff` reply, so the system prompt does not tell
 #: the worker to return code while the user message asks for a diff.
-DIFF_RULE = (
-    "- Return ONLY a unified diff of the target, in a single ```diff fenced block."
-)
+#: Kept short so every shipped bundle, swapped, stays under the measured ceiling
+#: (js/ts is closest); the user message's OUTPUT rule names the target.
+DIFF_RULE = "- Return ONLY a unified diff, in a single ```diff fenced block."
 
 
 def for_reply(bundle: Bundle, output_schema: str) -> Bundle:
