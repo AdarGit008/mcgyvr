@@ -36,6 +36,30 @@ archived outside this repository, under the same paths.
   (no caller) and `native.metal_working_set` (tests only) are removed, and
   with them `estimate.UNIFIED_SHARE`, which only that function used.
 
+- **`mcgyvr PROMPT` scaffolds by default, and the top rung fixes what vetting
+  refuses (I-30a, I-30b).** Unset `orchestrator.authoring` is now `classifier`
+  under `mcgyvr-code` whether or not Jev is on: the scaffold lays out each
+  field's candidates, Jev picks from them when it is opted in, and without Jev
+  the scaffold's first candidates stand. That path no longer needs an
+  `orchestrator` model: with none bound the command proposes rather than
+  exiting 3, and the prose unit stands in only where one is bound.
+  `authoring: prose` stays as the opt-in, and still exits 3 with no model
+  bound; its message now says dropping `authoring: prose` scaffolds instead.
+  A bare install (no config at all) still exits 3, now told to run `mcgyvr
+  setup` rather than to bind an orchestrator model. A proposal vetting refuses is no longer handed back to the proposer
+  that made it: it goes, with the refusal, to the top rung — the ladder's
+  dearest usable rung within `max_escalations`, named once as
+  `route.top_rung` — in a prompt that asks for the corrected proposal and
+  nothing else; the answer is vetted again, the rounds are still bounded by
+  `max_reproposals` (default 1), and what is still refused is reported as
+  before. The re-plan of a spent contract asks the `orchestrator` model when
+  one is bound and the top rung when none is. `--log` names the rung asked
+  (`fixer`, `fixer_model`). The classifier, the refiner and the scaffold no
+  longer re-ask their own refusals (`iterate.reproposals` is gone).
+  `mcgyvr direct` is unchanged: a contract you wrote that vetting refuses
+  comes back to you with the reason. No gate approves a contract before
+  dispatch: passing vetting is what stamps it (I-30e).
+
 - **Every kept file is renamed into place by `mcgyvr.atomic`, which retries
   while Windows holds the target (I-54).** The native launcher's records,
   specs and settled copy, the rig identity key's no-hard-links fallback, the
@@ -208,6 +232,14 @@ archived outside this repository, under the same paths.
   stay refused), and `mcgyvr rig status` now says memory and cores run a whole
   model on the CPU rather than that no hub places one. `pooled.CPU_DEVICE` is the `-dev` value
   (`none`, llama.cpp's "don't offload"), and a cpu head carries no tensor split.
+
+- **The vLLM split's cache figure is documented as an upper bound.** A
+  llama.cpp split charges a sliding-window layer's cache only its window; a
+  vLLM split charges every layer the whole context, so the same checkpoint is
+  sized larger under vLLM and a fit can be refused. The `units.<unit>.launch`
+  reference (SETUP.md) and `sharding._vllm_kv` now say so; no figure changed.
+  What vLLM allocates for a sliding layer is to be measured before any
+  discount is taken.
 
 - **The agent channel's limits, shapes and codes are defined once, in
   `mcgyvr.hubwire`.** The protocol version, frame limits, the counts and
@@ -434,8 +466,8 @@ archived outside this repository, under the same paths.
   harness, both handed the key on ssh's stdin with the text they run, never on
   a command line or a file on the rig. `mcgyvr fleet key <unit>` prints the
   key. A `--host` or `LLAMA_ARG_HOST` a unit's launch states renders byte for
-  byte as before; native units refuse `expose: lan`; rpc workers and vLLM
-  headless ranks are unchanged. `mcgyvr emit` names where each keyed unit
+  byte as before; native units refuse `expose: lan`; rpc workers are
+  unchanged. `mcgyvr emit` names where each keyed unit
   listens, and warns about a keyed unit its launch or lock keeps on 127.0.0.1,
   a unit stating `expose: local` whose address names another host, and a
   stated host beyond this machine with no key. Upgrading:
@@ -1278,6 +1310,19 @@ archived outside this repository, under the same paths.
   `code` plan made with a model answering on port 8080 may now name a
   different candidate; one made without one is unchanged.
 
+- **A vLLM unit is no longer split across machines.** The multi-node vLLM
+  launch was planning only: tested with invented rigs, never run live, and a
+  locked `emit` already refused it. A vLLM unit whose `launch.shards` name
+  cards of more than one machine is now refused when it is sized, in the
+  words of that locked refusal (only llama.cpp is split across machines, as a
+  head plus rpc-server workers). Removed with it: the per-machine node launch
+  (`--distributed-executor-backend mp`, `--nnodes`, `--node-rank`,
+  `--master-addr`, `--master-port`, `--headless`), the `headless` process
+  role, `launch.master_port` and its default `VLLM_MASTER_PORT` (29501), and
+  the equal-cards-per-machine check. A vLLM split over one machine's cards
+  (tensor x pipeline, one process) is unchanged, as is every llama.cpp split.
+  Upgrading: a stated `launch.master_port` is now ignored, not checked;
+  delete it.
 - **Sessions, the manager loop and the retired-name shims are gone.** `chat`
   and `agent` are no longer contract task types: `code` is the one shipped
   type, and chat and agent stay as plain use of an endpoint. Removed with
