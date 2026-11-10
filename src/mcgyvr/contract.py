@@ -526,10 +526,11 @@ SCHEMA: tuple[Field, ...] = (
     Field(
         "start_rung",
         "str",
-        "The ladder rung this contract's climb starts on, decided ahead of "
-        "time — what `mcgyvr.triage.triage_ahead` asks the `jev` unit, stored "
-        "with the contract so every later run starts there without asking "
-        "again. The rungs below it are skipped, not spent, and escalation goes "
+        "The ladder rung this contract's climb starts on, written into the "
+        "contract by its author, so every run starts there without asking "
+        "triage. No mcgyvr command picks it for you (`mcgyvr.triage.triage_ahead` "
+        "can, from Python, and is wired to no command). The rungs below it are "
+        "skipped, not spent, and escalation goes "
         "on upward from it; it wins over the config's `triage`. A rung the "
         "ladder does not list, or one this contract's climb does not offer, is "
         "refused before anything is dispatched. Not worker-facing.",

@@ -93,6 +93,8 @@ NAME_MAX = 256
 #: Longest run of digits taken as a size: is_size caps a size at 10**18.
 DIGITS_MAX = 18
 
+#: Test hooks, read by this production reader but set only by mcgyvr's own tests:
+#: a user leaves them unset, and SETUP.md says so.
 ROOT_VARIABLE = "MCGYVR_TEST_MACHINE_ROOT"
 SECONDS_VARIABLE = "MCGYVR_TEST_TOOL_SECONDS"
 #: Reads the machine as another system (one of HOST_OS), for tests.
@@ -2481,6 +2483,7 @@ def scan(
 def main(argv: Sequence[str] | None = None) -> int:
     """Print the scan, or the short reading with --cards, as JSON on stdout.
 
+    Three test hooks, set only by mcgyvr's own tests:
     MCGYVR_TEST_MACHINE_ROOT is prefixed to every path that is read, and
     MCGYVR_TEST_TOOL_SECONDS replaces the time bound when it holds 1 to 6 digits
     giving a whole number of seconds above zero; anything else in it is noted rather
