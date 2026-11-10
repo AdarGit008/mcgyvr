@@ -40,7 +40,7 @@ from mcgyvr.hostos import DARWIN, WINDOWS
 
 # The use cases an install may serve, in the order setup offers them, are the
 # wire's: `mcgyvr-code` opts in to mcgyvr between a model and you (contracts
-# proposed, vetted, run up the ladder, gated, repaired, reviewed and
+# proposed, vetted, run up the ladder, gated, repaired, verified and
 # re-decomposed, each stage under its own switch, `SWITCHES`, every one on by
 # default); `code` is a coding model mcgyvr recommends, served raw; `chat` a
 # raw, un-gated text endpoint; `agent` a raw, un-gated endpoint with
