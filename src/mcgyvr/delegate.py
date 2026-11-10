@@ -34,8 +34,8 @@ from mcgyvr.decision import (
     classify_for,
     jev_bound,
 )
-from mcgyvr.delegate_log import DelegateKind, json_type
-from mcgyvr.orchestrator.candidates import (
+from mcgyvr.decision_log import DecisionRecord, ShadowSink
+from mcgyvr.decompose.candidates import (
     _NO_SYMBOL,
     CandidateSet,
     Provenance,
@@ -55,16 +55,16 @@ from mcgyvr.orchestrator.candidates import (
     task_type_candidates,
     without,
 )
-from mcgyvr.orchestrator.decompose import DepRef, Evidence, Proposal, Proposer, Refusal
-from mcgyvr.orchestrator.fields import (
+from mcgyvr.decompose.decompose import DepRef, Evidence, Proposal, Proposer, Refusal
+from mcgyvr.decompose.fields import (
     abstain_line,
     abstain_value,
     criterion,
     render_choice,
     value_by_id,
 )
-from mcgyvr.orchestrator.iterate import reproposals
-from mcgyvr.orchestrator.telemetry import DecisionRecord, ShadowSink
+from mcgyvr.decompose.iterate import reproposals
+from mcgyvr.delegate_log import DelegateKind, json_type
 from mcgyvr.refine import RefiningProposer
 from mcgyvr.replan import render as render_replan
 from mcgyvr.repropose import render as render_repropose
