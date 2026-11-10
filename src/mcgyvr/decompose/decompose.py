@@ -158,12 +158,12 @@ class Evidence:
     (`mcgyvr.replan`): the request is that contract's own work, and the prose
     proposer shows the records as evidence. None for a first plan."""
     refused: tuple[Refused, ...] = ()
-    """The proposals vetting refused, handed back to be proposed again (F16).
+    """The proposals vetting refused, handed to the fixer to correct (F16).
 
     Set when `decompose` re-proposes: each is a proposal with the refusal that
-    says what to change, and the proposer answers with work in its place —
-    prose shows them as data (`mcgyvr.repropose.render`), the classifier
-    re-asks the refused field (`iterate.reproposals`). Empty for a first plan."""
+    says what to change, and the fixer — the top rung, never the proposer that
+    made them — answers with them corrected, shown them as data
+    (`mcgyvr.repropose.render`). Empty for a first plan."""
 
 
 @dataclass(frozen=True)
@@ -196,9 +196,9 @@ class Refused:
     refusal: Refusal
 
 
-#: The refusal fields a proposer can act on: the fields of a proposal. A
+#: The refusal fields the fixer can act on: the fields of a proposal. A
 #: refusal of the request as a whole (`request`) or a catch-all (`""`) is not
-#: handed back.
+#: handed over.
 REPROPOSABLE: frozenset[str] = frozenset(f.name for f in fields(Proposal))
 
 
@@ -207,11 +207,11 @@ class Reproposal:
     """What re-proposing came to in one decomposition, as counts.
 
     `refused` is how many proposals vetting refused first, `reproposed` how
-    many refusals were handed back over every round (a refusal handed back in
-    two rounds counts twice), `recovered` how many contracts came of what the
-    proposer answered — contracts, not refusals, since one refusal may come
-    back as several proposals or several as one — and `still_refused` the
-    vetting refusals reported in the end. `failed` names the error a proposer
+    many refusals were handed to the fixer over every round (a refusal handed
+    over in two rounds counts twice), `recovered` how many contracts came of
+    what the fixer answered — contracts, not refusals, since one refusal may
+    come back as several proposals or several as one — and `still_refused` the
+    vetting refusals reported in the end. `failed` names the error the fixer
     raised instead of answering, which ended the rounds; empty when none did.
     """
 
@@ -278,6 +278,7 @@ def decompose(
     located: Mapping[str, Sequence[str]] | None = None,
     spent: Spent | None = None,
     max_reproposals: int = 0,
+    fix: Proposer | None = None,
 ) -> Decomposition:
     """Turn a prompt into contracts, or into refusals that say why not.
 
@@ -303,9 +304,10 @@ def decompose(
     probing the disk again. `spent` is the contract this call re-plans, with the
     failure notes its climb left, carried on the evidence for the proposer.
 
-    `max_reproposals` above 0 hands what vetting refused back to `propose`
-    (`_repropose`), at most that many rounds; 0, the default, does not, and the
-    decomposition is what it was before re-proposing existed.
+    `max_reproposals` above 0 hands what vetting refused to `fix`, the top
+    rung, to correct (`_repropose`), at most that many rounds; `propose` is
+    never asked to redo its own refusals. 0, the default, or no `fix` does not,
+    and the decomposition is what it was before re-proposing existed.
     """
     evidence = _evidence(
         index,
@@ -322,7 +324,8 @@ def decompose(
     refused = tuple(a for a in answered if isinstance(a, Refusal))
     proposals = tuple(a for a in answered if not isinstance(a, Refusal))
     # Re-proposing is on, and nothing reached vetting: all counts are zero.
-    nothing = Reproposal() if max_reproposals > 0 else None
+    fixing = max_reproposals > 0 and fix is not None
+    nothing = Reproposal() if fixing else None
     if not proposals and refused:
         return Decomposition(
             refusals=refused,
@@ -354,8 +357,8 @@ def decompose(
     vetting = _Vetting(evidence, owners, max_input_tokens, located)
     vetted = vetting.vet(proposals)
     reproposal: Reproposal | None = None
-    if max_reproposals > 0:
-        vetted, reproposal = _repropose(propose, vetting, vetted, max_reproposals)
+    if fixing and fix is not None:
+        vetted, reproposal = _repropose(fix, vetting, vetted, max_reproposals)
 
     return Decomposition(
         contracts=tuple(vetting.contracts),
@@ -430,12 +433,12 @@ class _Vetting:
 
 
 def _repropose(
-    propose: Proposer, vetting: _Vetting, refused: list[Refused], rounds: int
+    fix: Proposer, vetting: _Vetting, refused: list[Refused], rounds: int
 ) -> tuple[list[Refused], Reproposal]:
-    """Hand what vetting refused back to the proposer, once a round, `rounds` at most.
+    """Hand what vetting refused to the fixer, once a round, `rounds` at most.
 
-    Each round is one call: every refusal a proposer can act on
-    (`REPROPOSABLE`; never the request's, never a catch-all) goes back together
+    Each round is one call: every refusal the fixer can act on
+    (`REPROPOSABLE`; never the request's, never a catch-all) goes over together
     on the evidence's `refused`. The answer is vetted as a first answer is,
     except that a proposal whose id is a contract already emitted is the same
     work and is passed over rather than refused. When the answer emits
@@ -443,7 +446,7 @@ def _repropose(
     contract that waited on one of them waits on each of them instead — and
     what it refuses is reported in their place and is the next round's to hand
     back. An answer that brings nothing new leaves the refusals as they were
-    and ends the rounds; so does a proposer that fails to answer, whose error
+    and ends the rounds; so does a fixer that fails to answer, whose error
     is named in `failed`, and the contracts already emitted stand.
     """
     # Imported here: `mcgyvr.delegate` imports this module.
@@ -460,7 +463,7 @@ def _repropose(
             break
         handed += len(sending)
         try:
-            answer = propose(replace(vetting.evidence, refused=tuple(sending)))
+            answer = fix(replace(vetting.evidence, refused=tuple(sending)))
         except (DelegationError, RunnerError, SourceUnavailableError) as exc:
             failed = type(exc).__name__
             break
