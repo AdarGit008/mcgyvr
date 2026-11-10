@@ -11,7 +11,7 @@ import ast
 import copy
 import warnings
 
-from mcgyvr.orchestrator.languages.model import Symbol, SymbolKind
+from mcgyvr.repo.languages.model import Symbol, SymbolKind
 
 SUFFIXES = (".py", ".pyi")
 

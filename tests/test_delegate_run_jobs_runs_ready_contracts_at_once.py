@@ -33,9 +33,9 @@ import pytest
 from mcgyvr.cli.commands import delegate as command
 from mcgyvr.config import Config, parse
 from mcgyvr.contract import Contract, dumps
+from mcgyvr.decompose.decompose import Decomposition
 from mcgyvr.delegate_log import DelegateKind, read
 from mcgyvr.deliver import deliver
-from mcgyvr.orchestrator.decompose import Decomposition
 from mcgyvr.result import RunResult, result_path, run_stamp, write
 from mcgyvr.scope import Scope
 from mcgyvr.session import Session
@@ -279,9 +279,10 @@ def split_on_one_file(repo: Path) -> tuple[Contract, Contract]:
     its two sentences; neither creates a name the other uses, so no edge
     orders them and only their scopes keep them apart.
     """
-    from mcgyvr.orchestrator import build_index, decompose
-    from mcgyvr.orchestrator.read import explore
-    from mcgyvr.orchestrator.resolve import resolve
+    from mcgyvr.decompose import decompose
+    from mcgyvr.repo import build_index
+    from mcgyvr.repo.read import explore
+    from mcgyvr.repo.resolve import resolve
     from tests.refines import ScriptedJev, refining, tasks
 
     prompt = "Add a function named one. Add a function named two."

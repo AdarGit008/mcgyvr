@@ -50,9 +50,9 @@ def _numbers() -> dict[str, dict[str, Any]]:
 
 def test_the_file_says_what_it_is() -> None:
     document = _shipped()
-    assert set(document) == {"_doc", "schema", "numbers"}
+    assert set(document) == {"_doc", "schema_version", "numbers"}
     assert isinstance(document["_doc"], str) and document["_doc"].strip()
-    assert document["schema"] == 1
+    assert document["schema_version"] == 1
 
 
 def test_every_entry_says_it_is_an_estimate_what_of_what_for_its_unit_and_key() -> None:
@@ -189,9 +189,9 @@ def test_a_shipped_file_of_another_schema_is_refused_by_name(
     entry = nf.Entry(id="invented_schema", unit="GiB", key="lone", values={"only": 1.0})
     document = nf.document([entry])
     if schema is None:
-        del document["schema"]
+        del document["schema_version"]
     else:
-        document["schema"] = schema
+        document["schema_version"] = schema
     path = nf.write_json(tmp_path / "shipped.json", document)
     with pytest.raises(derived.DerivedNumbersError) as was:
         derived.lookup("invented_schema", "only", path=path)
@@ -205,7 +205,7 @@ def test_a_shipped_file_of_another_schema_is_refused_by_name(
 def test_a_document_with_no_numbers_is_not_judged_by_its_schema(
     tmp_path: Path,
 ) -> None:
-    other = nf.write_json(tmp_path / "other.json", {"schema": 99, "a": {}})
+    other = nf.write_json(tmp_path / "other.json", {"schema_version": 99, "a": {}})
     with pytest.raises(derived.DerivedNumbersError) as was:
         derived.class_tolerances(path=other)
     assert "schema" not in str(was.value)
@@ -278,7 +278,7 @@ def test_a_broken_shipped_unit_is_reported_against_the_shipped_file(
 _LONG = "x" * 100_000
 
 
-@pytest.mark.parametrize("field", ["schema", "unit", "key", "values", "a key"])
+@pytest.mark.parametrize("field", ["schema_version", "unit", "key", "values", "a key"])
 def test_a_shipped_refusal_spells_only_the_start_of_what_it_refuses(
     field: str, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
@@ -286,8 +286,8 @@ def test_a_shipped_refusal_spells_only_the_start_of_what_it_refuses(
     entry = nf.Entry(id="invented_long", unit="GiB", key="lone", values={"only": 1.0})
     document = nf.document([entry])
     body = document["numbers"]["invented_long"]
-    if field == "schema":
-        document["schema"] = _LONG
+    if field == "schema_version":
+        document["schema_version"] = _LONG
     elif field == "a key":
         body["values"] = {_LONG: 1.0}
     else:

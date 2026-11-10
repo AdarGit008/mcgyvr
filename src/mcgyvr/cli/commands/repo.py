@@ -5,7 +5,7 @@ it was obtained, whether it is dirty. `index` builds the deterministic index and
 reports what it cost, optionally running a text search or a symbol lookup over
 it. `resolve` turns a natural-language query into a ranked shortlist of paths.
 `read` goes one step further and prints the regions that shortlist justifies,
-within a token budget. The heavy lifting lives in `mcgyvr.orchestrator`; each
+within a token budget. The heavy lifting lives in `mcgyvr.repo`; each
 command here is argument plumbing, a human-readable report, and an exit code.
 """
 
@@ -24,7 +24,7 @@ from mcgyvr.cli.common import _add_repo, _mib
 
 
 def _attach(args: argparse.Namespace) -> int:
-    from mcgyvr.orchestrator import AttachError, attach
+    from mcgyvr.repo import AttachError, attach
 
     into = Path(args.into) if args.into else None
     try:
@@ -61,7 +61,7 @@ def _attach(args: argparse.Namespace) -> int:
 
 
 def _index(args: argparse.Namespace) -> int:
-    from mcgyvr.orchestrator import (
+    from mcgyvr.repo import (
         IndexBuildError,
         build_index,
         build_index_cached,
@@ -144,7 +144,7 @@ def _index(args: argparse.Namespace) -> int:
 
 
 def _resolve(args: argparse.Namespace) -> int:
-    from mcgyvr.orchestrator import IndexBuildError, Verdict, build_index, resolve
+    from mcgyvr.repo import IndexBuildError, Verdict, build_index, resolve
 
     root = Path(args.repo).resolve()
     if not root.is_dir():
@@ -171,7 +171,7 @@ def _resolve(args: argparse.Namespace) -> int:
 
 
 def _read(args: argparse.Namespace) -> int:
-    from mcgyvr.orchestrator import (
+    from mcgyvr.repo import (
         ExplorationError,
         IndexBuildError,
         SuppliedContext,
@@ -262,7 +262,7 @@ def _read_document(
     adapter locates here — enough for a consumer with no path to this repository
     to work from the evidence alone.
     """
-    from mcgyvr.orchestrator.decompose import locate_checkers
+    from mcgyvr.decompose.decompose import locate_checkers
 
     wanted = [candidate.path for candidate in resolution.candidates]
     wanted += [read.path for read in plan.reads if read.path not in wanted]

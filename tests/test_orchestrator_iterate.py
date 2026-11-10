@@ -17,11 +17,11 @@ from typing import Any
 import pytest
 
 from mcgyvr.decision import Choice, ChoiceAnswer, Decision, Question
+from mcgyvr.decompose.decompose import DepRef, Evidence, Proposal, Refusal
+from mcgyvr.decompose.fields import FIELD_ORDER
+from mcgyvr.decompose.iterate import MAX_REFUSAL_RETRIES, iterate
 from mcgyvr.delegate import MIN_CONFIDENCE, ClassifierProposer
-from mcgyvr.orchestrator.decompose import DepRef, Evidence, Proposal, Refusal
-from mcgyvr.orchestrator.fields import FIELD_ORDER
-from mcgyvr.orchestrator.index import Index, build_index
-from mcgyvr.orchestrator.iterate import MAX_REFUSAL_RETRIES, iterate
+from mcgyvr.repo.index import Index, build_index
 from tests import ungated
 
 #: Contracts are emitted as the ungated `agent` kind (tests/ungated.py).

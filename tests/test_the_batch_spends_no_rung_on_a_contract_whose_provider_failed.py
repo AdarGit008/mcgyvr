@@ -21,7 +21,7 @@ import pytest
 from mcgyvr.cli.commands import delegate as command
 from mcgyvr.config import Config
 from mcgyvr.contract import Contract
-from mcgyvr.orchestrator.decompose import Decomposition
+from mcgyvr.decompose.decompose import Decomposition
 from mcgyvr.result import RunResult, result_path, run_stamp, write
 from mcgyvr.scope import Scope
 from mcgyvr.session import Session

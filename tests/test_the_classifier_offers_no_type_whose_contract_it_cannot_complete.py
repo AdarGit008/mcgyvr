@@ -20,11 +20,11 @@ import pytest
 from mcgyvr.catalog import TaskType
 from mcgyvr.catalog import catalog as load_catalog
 from mcgyvr.decision import Choice, ChoiceAnswer, Decision, Question
+from mcgyvr.decompose.decompose import Evidence
 from mcgyvr.delegate import ClassifierProposer
-from mcgyvr.orchestrator.decompose import Evidence
-from mcgyvr.orchestrator.index import build_index
-from mcgyvr.orchestrator.read import explore
-from mcgyvr.orchestrator.resolve import resolve
+from mcgyvr.repo.index import build_index
+from mcgyvr.repo.read import explore
+from mcgyvr.repo.resolve import resolve
 from tests import ungated
 from tests.livejournal import git
 

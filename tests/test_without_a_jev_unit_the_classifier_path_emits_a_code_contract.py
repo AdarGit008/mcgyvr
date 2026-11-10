@@ -18,10 +18,10 @@ import pytest
 
 import mcgyvr.decision as decision
 from mcgyvr.config import parse
+from mcgyvr.decompose.decompose import Evidence, Proposal, decompose
 from mcgyvr.delegate import classifier_proposer_for, proposer_by_authoring
 from mcgyvr.local_pool import source_map
-from mcgyvr.orchestrator.decompose import Evidence, Proposal, decompose
-from mcgyvr.orchestrator.index import Index, build_index
+from mcgyvr.repo.index import Index, build_index
 
 #: A keyless local ladder with no jev block: nothing to ask typed questions of.
 LADDER = """\
