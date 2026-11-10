@@ -11,6 +11,14 @@ archived outside this repository, under the same paths.
 
 ### Changed
 
+- **`breadth.temperature`'s default is one constant,
+  `config.BREADTH_TEMPERATURE_DEFAULT` (0.7).** The schema field reads it,
+  and so does the worker attempt when a config does not name the key, which
+  used to fall back to 0.0 and make every draw after the first a greedy copy
+  of draw 0 (the case the schema refuses at load). A loaded config always
+  carried 0.7, so a user's draws do not change; a hand-built config's draws
+  1..n-1 now sample at 0.7. Draw 0 stays greedy.
+
 - **git's empty-tree id is `gitcmd.EMPTY_TREE`, and a glob step lists its
   files the one way.** `deliver`, `repo.repo` and `gate.changeset` each kept
   their own copy of the id; they now import it. A step whose target is a

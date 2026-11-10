@@ -149,6 +149,12 @@ MAX_REPROPOSALS_DEFAULT = 1
 MAX_SPLITS_PER_FILE_DEFAULT = 3
 MAX_REFINE_FANOUT_DEFAULT = 8
 
+#: The temperature every draw after the first samples at
+#: (`breadth.temperature`); draw 0 stays greedy whatever it says. A reader of a
+#: config that does not name the key (one built by hand) falls back to it too,
+#: so its extra draws are not greedy copies of draw 0.
+BREADTH_TEMPERATURE_DEFAULT = 0.7
+
 #: Which failure-notes records a try is shown (see `mcgyvr.notes.handed_on`):
 #: `climb` every record of the climb, `rung` this rung's previous attempt's,
 #: `none` nothing.
@@ -362,7 +368,7 @@ BREADTH_FIELDS: tuple[Field, ...] = (
         "any unit's effective draws exceed 1: identical draws buy N gate runs "
         "and nothing else. The wire field is the OpenAI-compatible "
         "`temperature`. The journal records the temperature per row.",
-        default=0.7,
+        default=BREADTH_TEMPERATURE_DEFAULT,
         min_value=0.0,
         max_value=2.0,
     ),
