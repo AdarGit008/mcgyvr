@@ -3,11 +3,11 @@
 A plan says which cards hold which blocks; this module turns it into the
 processes those cards need -- for llama.cpp one server on the head's machine
 plus one ``rpc-server`` per card of every other machine, for vLLM one process
-per machine -- and each process carries its host, role, cards, port, engine
-flags, trailing arguments, environment and the shards it holds. What is not a
-split (one card, a split that does not fit, an rpc worker with no address it
-may bind, an engine with no launch) is refused with a LaunchError instead of
-being started.
+holding every card of its one machine -- and each process carries its host,
+role, cards, port, engine flags, trailing arguments, environment and the
+shards it holds. What is not a split (one card, a split that does not fit, an
+rpc worker with no address it may bind, a vLLM card on another machine, an
+engine with no launch) is refused with a LaunchError instead of being started.
 """
 
 from __future__ import annotations
@@ -17,11 +17,12 @@ from collections.abc import Mapping, Sequence
 from dataclasses import dataclass, replace
 from pathlib import Path
 
-from mcgyvr.serving import ROLE_HEADLESS, ROLE_RPC, ROLE_SERVE
+from mcgyvr.serving import ROLE_RPC, ROLE_SERVE
 from mcgyvr.serving.llamacpp import worker_may_listen as worker_may_listen
 from mcgyvr.serving.sharding import (
     LLAMACPP_ENGINE,
     VLLM_ENGINE,
+    VLLM_ONE_MACHINE,
     Plan,
     Shard,
     Target,
@@ -36,8 +37,6 @@ DEVICE_ORDER_BUS = "PCI_BUS_ID"
 PIPELINE_PARTITION_ENV = "VLLM_PP_LAYER_PARTITION"
 #: A worker holds one card, which is device 0 of the process it runs in.
 RPC_DEVICE = "CUDA0"
-#: A vLLM node other than the first is started with this trailing switch.
-HEADLESS_SWITCH = "--headless"
 
 
 class LaunchError(Exception):
@@ -53,10 +52,10 @@ class Process:
     """One process to start, and what it is started with.
 
     ``host`` is the machine it runs on and ``role`` is what it is there for
-    (serving, an rpc worker lending a card, a headless vLLM node); ``gpus``
-    are the cards it holds, ``port`` the one it serves or listens on, ``args``
-    the engine's flags, ``extra`` the trailing arguments after them, ``env``
-    the environment it needs, and ``shards`` the plan's shards whose cards it
+    (serving, or an rpc worker lending a card); ``gpus`` are the cards it
+    holds, ``port`` the one it serves or listens on, ``args`` the engine's
+    flags, ``extra`` the trailing arguments after them, ``env`` the
+    environment it needs, and ``shards`` the plan's shards whose cards it
     holds.
     """
 
@@ -81,14 +80,13 @@ def processes(
     threads: int,
     n_ubatch: int,
     rpc_port: int,
-    master_port: int,
 ) -> tuple[Process, ...]:
     """The processes that serve this plan, the serving one first.
 
     A plan that does not fit is refused rather than started to fail at load,
     and a plan of fewer than two cards is not a split to launch. The engine
     the plan was sized for picks the shape: llama.cpp gives a head server and
-    its rpc workers, vLLM one process per machine.
+    its rpc workers, vLLM one process on its one machine.
     """
     if not plan.fits:
         raise LaunchError(
@@ -118,7 +116,6 @@ def processes(
             model=model,
             port=port,
             cache_type_k=cache_type_k,
-            master_port=master_port,
         )
     raise LaunchError(f"{model}: no launch is known for engine {plan.engine!r}")
 
@@ -318,33 +315,24 @@ def _vllm(
     model: str,
     port: int,
     cache_type_k: str,
-    master_port: int,
 ) -> tuple[Process, ...]:
-    """One process per machine, the head's machine first and the one answering.
+    """One process on the plan's one machine, holding every card it names.
 
-    Machines are ranked in the order their first card appears in the plan,
-    and a plan whose first card is not on the head's machine is refused,
-    vLLM's first node being the one that answers. Every node states the
-    plan's tensor and pipeline sizes, and a pipeline of more than one stage
-    is told the plan's layer partition through the environment. A grid over
-    several machines also states the backend, node count, rank and
-    rendezvous, and starts every node but the first with ``--headless``; a
-    grid on one machine states none of them.
+    The process states the plan's tensor and pipeline sizes, and a pipeline
+    of more than one stage is told the plan's layer partition through the
+    environment. A plan whose cards are on another machine than its head,
+    or on more than one machine, is refused: vLLM is split across the cards
+    of one machine only, and across machines only llama.cpp is.
     """
-    hosts: list[str] = []
-    for shard in plan.shards:
-        if not any(_same(shard.target.host, seen) for seen in hosts):
-            hosts.append(shard.target.host)
-    if not _same(hosts[0], plan.head):
+    elsewhere = sorted(
+        {s.target.host for s in plan.shards if not _same(s.target.host, plan.head)}
+    )
+    if elsewhere:
         raise LaunchError(
-            f"{model}: the plan's first card is on {hosts[0]!r} and its head is "
-            f"{plan.head!r}; vLLM's first node is the one that answers"
+            f"{model}: its plan puts cards on {', '.join(elsewhere)} and its head "
+            f"is {plan.head!r}; {VLLM_ONE_MACHINE}"
         )
-    held = {
-        host.lower(): tuple(s for s in plan.shards if _same(s.target.host, host))
-        for host in hosts
-    }
-    common = {
+    args = {
         "--tensor-parallel-size": str(plan.grid.tensor),
         "--pipeline-parallel-size": str(plan.grid.pipeline),
         "--max-num-seqs": str(plan.slots),
@@ -354,56 +342,15 @@ def _vllm(
     env = _pinned()
     if plan.grid.pipeline > 1:
         env[PIPELINE_PARTITION_ENV] = ",".join(str(c) for c in plan.layer_counts)
-    multi = len(hosts) > 1
-    if multi and master_port == port:
-        raise LaunchError(
-            f"{model}: the rendezvous port and the serving port are both "
-            f"{port} on the head's machine; state a different master_port"
-        )
-    master = _master_addr(held[hosts[0].lower()], model=model)
-    out: list[Process] = []
-    for rank, host in enumerate(hosts):
-        args = dict(common)
-        if multi:
-            args.update(
-                {
-                    "--distributed-executor-backend": "mp",
-                    "--nnodes": str(len(hosts)),
-                    "--node-rank": str(rank),
-                    "--master-addr": master,
-                    "--master-port": str(master_port),
-                }
-            )
-        here = held[host.lower()]
-        out.append(
-            Process(
-                host=host,
-                role=ROLE_SERVE if rank == 0 else ROLE_HEADLESS,
-                gpus=tuple(shard.target.gpu for shard in here),
-                port=port,
-                args=args,
-                extra=() if rank == 0 else (HEADLESS_SWITCH,),
-                env=dict(env),
-                shards=here,
-            )
-        )
-    return tuple(out)
-
-
-def _master_addr(head: tuple[Shard, ...], *, model: str) -> str:
-    """The address the head's machine is reached at for the vLLM rendezvous.
-
-    The first ``bind`` the head's cards state, when one of them states it,
-    otherwise the head host as the plan names it.
-    """
-    for shard in head:
-        if shard.target.bind is not None:
-            try:
-                return str(ipaddress.IPv4Address(shard.target.bind))
-            except ValueError:
-                raise LaunchError(
-                    f"{model}: card {shard.target.gpu} of {shard.target.host} "
-                    f"states bind {shard.target.bind!r}, which is not an IPv4 "
-                    f"literal"
-                ) from None
-    return head[0].target.host
+    return (
+        Process(
+            host=plan.head,
+            role=ROLE_SERVE,
+            gpus=tuple(shard.target.gpu for shard in plan.shards),
+            port=port,
+            args=args,
+            extra=(),
+            env=env,
+            shards=plan.shards,
+        ),
+    )

@@ -722,8 +722,12 @@ def test_unset_authoring_is_the_classifier_under_mcgyvr_code_with_jev_on(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     """`mcgyvr-code` turns its opt-ins on: with a Jev unit bound and on, unset
-    authoring is the classifier; with Jev switched off it is prose."""
+    authoring is the classifier refined by Jev; with Jev switched off it is
+    still the classifier path, the scaffold alone (I-30a)."""
     unset = UNITS.replace("  authoring: classifier\n", "")
-    assert _typed_for(monkeypatch, unset + "jev:\n  unit: judge\n") is not None
+    on = _typed_for(monkeypatch, unset + "jev:\n  unit: judge\n")
+    assert isinstance(on, RefiningProposer)
     off = unset + "jev:\n  unit: judge\n  enabled: false\n"
-    assert _typed_for(monkeypatch, off) is None
+    scaffold = _typed_for(monkeypatch, off)
+    assert scaffold is not None
+    assert not isinstance(scaffold, RefiningProposer)

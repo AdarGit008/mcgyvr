@@ -545,6 +545,44 @@ def _macos_windows_section() -> list[str]:
     ]
 
 
+def _audience_lines() -> list[str]:
+    """Who may use a rig on a hub, in one vocabulary: the audiences a rig, a
+    unit's `scope` and `ride_scope` name, each rig's mode, and the pool each
+    pair puts it in, from `mcgyvr.hubwire`."""
+    audiences = ", ".join(f"`{a}`" for a in hubwire.SCOPE_VALUES)
+    modes = " or ".join(f"`{m}`" for m in hubwire.MODES)
+    lines = [
+        f"Who may use a rig is one of {audiences}: a unit's `scope` and the "
+        "setup's `ride_scope` name it, and so does each rig you add to a hub, "
+        f"with its mode, {modes}. A rig in mode `{hubwire.MODE_LEND}` puts its "
+        "hardware in its audience's pool; one in mode "
+        f"`{hubwire.MODE_HITCHHIKE}` runs your own units and lets riders the "
+        "hub matches use their spare slots. The pairs, and what each pool "
+        "serves:",
+        "",
+        "| audience | mode | pool | use cases |",
+        "|---|---|---|---|",
+    ]
+    for mode in hubwire.MODES:
+        for audience in hubwire.MODE_AUDIENCES[mode]:
+            pool = hubwire.rig_pool(audience, mode)
+            cases = ", ".join(f"`{c}`" for c in hubwire.POOL_USE_CASES[pool])
+            name = hubwire.POOL_NAMES[pool]
+            lines.append(f"| `{audience}` | `{mode}` | {name} | {cases} |")
+    retired = "; ".join(
+        f"`{old}` is `{a}` + `{m}`"
+        for old, (a, m) in hubwire.RETIRED_SHARING_MODES.items()
+    )
+    lines += [
+        "",
+        f"Under `{hubwire.SCOPE_OWN}` a rig lends to nobody, whatever its mode. "
+        "A rig whose audience reaches strangers serves someone who is neither "
+        "you nor a crewmate only once a hub admin has approved you as a host. "
+        f"The hub's old sharing modes are refused with these: {retired}.",
+    ]
+    return lines
+
+
 def render_setup() -> str:
     """Render SETUP.md: how a machine comes to have a config, and what it says.
 
@@ -591,7 +629,7 @@ def render_setup() -> str:
         "`mcgyvr-code`, a one-function bug fix the deterministic gate must pass;",
         "for `code` and `chat`, one word from each unit) and",
         "a Jev unit's one typed choice. A green sample is stamped, and on",
-        "`Lock the fleet and name it live? [y/N]` it is locked, promoted and",
+        "`Lock the fleet and name it live? [y/n]` it is locked, promoted and",
         "named live. A red sample is never locked; its reasons are printed.",
         "",
         "When the interactive setup finishes, it offers to put `~/.local/bin`,",
@@ -612,7 +650,7 @@ def render_setup() -> str:
         "A fleet that could not be sampled — its containers not started, or",
         "every unit hosted — is locked",
         "approved on no evidence only once you say so: setup says why and what",
-        "that means, and asks `Lock it approved on no evidence? [y/N]`. With",
+        "that means, and asks `Lock it approved on no evidence? [y/n]`. With",
         "flags, setup binds the servers already answering and starts none, so",
         "nothing is sampled; `--accept-unsampled` is that acknowledgment, and",
         "without it nothing is locked. Backends on another machine come in with",
@@ -711,6 +749,8 @@ def render_setup() -> str:
         "keys on them, and the run config drops them when it loads the",
         "setup. A `fleets` entry takes `layout` and `next`; a `rigs` entry is",
         "checked only as a block. `examples/fleet.yaml` shows all three.",
+        "",
+        *_audience_lines(),
         "",
         "`mcgyvr local_pool` reads that config back: the usable rungs "
         "cheapest-first with",
@@ -1134,23 +1174,29 @@ def render_skill() -> str:
         "## What it does",
         "",
         "```",
-        "prompt -survey-> evidence -propose-> proposals -vet-> contracts | refusals",
+        "prompt -survey-> evidence -scaffold-> proposals -(Jev fills, if opted in)->",
+        "       -vet-> contracts | refusals -(top rung fixes a refusal)-> vet again",
         "       -schedule-> tree -run-> settle -(spent)-> replan",
         "```",
         "",
         "Planning is survey, propose and vet. mcgyvr reads the repository for the",
-        "evidence the prompt points at, and the proposer bound in the config proposes",
-        "contracts from it. Every proposal is vetted: its target is a file the index",
-        "holds, each dependency's signature is in the index or in a contract that",
-        "creates it, what the worker is shown fits its ceiling, and its id is unused.",
-        "One that fails is a refusal, printed as `refused:` with a `change:` line",
-        "saying what to change.",
+        "evidence the prompt points at, and the scaffold lays out each field's",
+        "candidates from it, with no model asked. With Jev opted in, Jev picks from",
+        "them; without it the scaffold's first candidates stand. `authoring: prose`",
+        "opts in to a model drafting the proposals instead. Every proposal is vetted:",
+        "its target is a file the index holds, each dependency's signature is in the",
+        "index or in a contract that creates it, what the worker is shown fits its",
+        "ceiling, and its id is unused. One that fails goes to the top rung of the",
+        "ladder with the reason, to be corrected and vetted again, up to",
+        "`max_reproposals` times; one still refused is printed as `refused:` with a",
+        "`change:` line saying what to change.",
         "",
         "Dispatch is schedule, run, settle and replan. The contracts that passed go on",
         "one dependency tree and run in the order it allows, each settled as it ends.",
         "One whose provider did not land is held, never sent (`blocked`). One whose",
-        "ladder is spent goes back to the proposer with its failure notes, and what",
-        "comes back runs in its place, up to `max_replans` times.",
+        "ladder is spent goes back to the proposer with its failure notes (the top",
+        "rung when no orchestrator model is bound), and what comes back runs in its",
+        "place, up to `max_replans` times.",
         "",
         "## Flags that matter",
         "",

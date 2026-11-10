@@ -3,7 +3,8 @@
 A scan of the model (llama.cpp or safetensors) yields a tensor table of per-block
 byte counts. From that table, the free memory each named card reports, and the
 requested slots and context, this module builds shard plans for llama.cpp's
-layer/tensor split and for vLLM's tensor x pipeline grids. Each plan sums the
+layer/tensor split and for vLLM's tensor x pipeline grids on one machine's
+cards (only llama.cpp is split across machines). Each plan sums the
 weights, KV cache and recurrent state one card would hold, adds an allowance for
 what the scan cannot see, and estimates the time per token spent on the links
 the split crosses. `choose` enumerates the grids, plans each, and keeps the one
@@ -19,7 +20,7 @@ from dataclasses import dataclass
 from typing import Any
 
 from mcgyvr import derived, hubwire
-from mcgyvr.fleet.links import NETWORK, PCIE, link_class
+from mcgyvr.fleet.links import NETWORK, PCIE
 from mcgyvr.serving import vramfit
 from mcgyvr.serving.interconnect import Link
 from mcgyvr.serving.interconnect import link as shipped_link
@@ -84,6 +85,13 @@ LLAMA_TENSOR_KEYS = (
     "bytes_tensor_split_by_block",
     "bytes_output_tensor_split",
     "tensor_split_refused",
+)
+
+#: Why a vLLM unit naming cards of more than one machine is refused, said the
+#: same way when it is sized, launched (shardlaunch) and rendered locked (emit).
+VLLM_ONE_MACHINE = (
+    "a vLLM unit is split across the cards of one machine; only a llama.cpp "
+    "unit is split across machines, as a head plus rpc-server workers"
 )
 
 #: Width in bytes of one activation element per engine, i.e. its compute dtype;
@@ -398,14 +406,11 @@ def choose(
     return min(candidates, key=_preference)
 
 
-def _preference(made: Plan) -> tuple[int, int]:
-    """Sort key for plans that fit: prefer a plan with no stage whose cards
-    spread over more than one machine, then the widest tensor split."""
-    hosts: dict[int, set[str]] = {}
-    for shard in made.shards:
-        hosts.setdefault(shard.stage, set()).add(shard.target.host.lower())
-    crosses = any(len(stage) > 1 for stage in hosts.values())
-    return (int(crosses), -made.grid.tensor)
+def _preference(made: Plan) -> int:
+    """Sort key for plans that fit: the widest tensor split. No stage of a plan
+    spreads over more than one machine (a llama.cpp layer stage is one card,
+    its tensor split and every vLLM split one machine), so none is to avoid."""
+    return -made.grid.tensor
 
 
 def _grid_words(grid: Grid, engine: str) -> str:
@@ -463,6 +468,7 @@ def _grids(
             f"{name}: `split` is llama.cpp's; vLLM is told tensor_parallel and "
             f"pipeline_parallel"
         )
+    _vllm_order(targets, name=name)
     for stated, what in ((tensor, "tensor_parallel"), (pipeline, "pipeline_parallel")):
         if stated is not None and (stated < 1 or cards % stated):
             raise ShardingError(
@@ -662,7 +668,12 @@ class _Sizing:
 
 def _vllm_kv(sizing: _Sizing, rows: Sequence[Mapping[str, Any]]) -> int:
     """vLLM's cache, closed form: per-layer key and value elements times the
-    dtype width, the context length and the slot count, rounded up."""
+    dtype width, the context length and the slot count, rounded up.
+
+    Every layer is charged the whole context, sliding-window layers included,
+    where llama.cpp's cache (`vramfit.kv_bytes`) charges those only their
+    window. That is an upper bound until a vLLM load shows what vLLM allocates
+    for a sliding layer; no discount is guessed."""
     width = VLLM_CACHE_ELEM_BYTES.get(sizing.cache_type_k)
     if width is None:
         raise ShardingError(
@@ -944,12 +955,6 @@ class _LinkBook:
         self._links = links
         self._seen: dict[str, Link] = {}
 
-    def between(self, host_a: str, host_b: str) -> Link:
-        cls = link_class(host_a, host_b)
-        if cls not in self._seen:
-            self._seen[cls] = self._links(cls)
-        return self._seen[cls]
-
     def of_class(self, cls: str) -> Link:
         if cls not in self._seen:
             self._seen[cls] = self._links(cls)
@@ -999,28 +1004,16 @@ def _llama_comm(
 
 
 def _vllm_order(targets: Sequence[Target], *, name: str) -> list[Target]:
-    """Order vLLM's cards machine by machine, each machine's cards by GPU index,
-    stages taking consecutive runs of the result; a multi-node launch needs the
-    same card count on every machine, so uneven counts are refused."""
-    hosts: list[str] = []
-    for target in targets:
-        if target.host.lower() not in (h.lower() for h in hosts):
-            hosts.append(target.host)
-    by_host = {
-        host: sorted(
-            (t for t in targets if t.host.lower() == host.lower()),
-            key=lambda t: t.gpu,
-        )
-        for host in hosts
-    }
-    sizes = {len(cards) for cards in by_host.values()}
-    if len(sizes) > 1:
-        spelled = ", ".join(f"{host} {len(by_host[host])}" for host in hosts)
+    """Order vLLM's cards by GPU index, stages taking consecutive runs of the
+    result. vLLM is split across the cards of one machine only, so cards on
+    more than one machine are refused; across machines only llama.cpp splits,
+    as a head plus rpc-server workers."""
+    hosts = sorted({target.host.lower() for target in targets})
+    if len(hosts) > 1:
         raise ShardingError(
-            f"{name}: vLLM's multi-node launch runs the same number of cards on "
-            f"every machine, and the unit names {spelled}"
+            f"{name}: its cards are on {', '.join(hosts)}, and {VLLM_ONE_MACHINE}"
         )
-    return [target for host in hosts for target in by_host[host]]
+    return sorted(targets, key=lambda target: target.gpu)
 
 
 def _vllm_plan(
@@ -1093,7 +1086,7 @@ def _vllm_plan(
                 )
             )
         start += held
-    comm, used = _vllm_comm(sizing, ordered, grid, counts, links)
+    comm, used = _vllm_comm(sizing, grid, counts, links)
     return Plan(
         engine=VLLM_ENGINE,
         grid=grid,
@@ -1109,26 +1102,21 @@ def _vllm_plan(
 
 def _vllm_comm(
     sizing: _Sizing,
-    ordered: Sequence[Target],
     grid: Grid,
     counts: Sequence[int],
     links: Links,
 ) -> tuple[float, tuple[Link, ...]]:
-    """Cost per token of what vLLM exchanges: per stage, the all-reduces of its
-    blocks over its tensor ranks, priced on the network when the stage spans
-    machines and on PCIe when it does not; plus one activation hop from each
-    stage to the first card of the next."""
+    """Cost per token of what vLLM exchanges, every card being on one machine
+    and so every link PCIe: per stage, the all-reduces of its blocks over its
+    tensor ranks, plus one activation hop from each stage to the next."""
     book = _LinkBook(links)
     payload = int(sizing.table["n_embd"]) * ACTIVATION_BYTES[VLLM_ENGINE]
     t = grid.tensor
     total = 0.0
     for stage, held in enumerate(counts):
-        cards = ordered[stage * t : (stage + 1) * t]
         if t > 1:
-            hosts = {card.host.lower() for card in cards}
-            link = book.of_class(NETWORK if len(hosts) > 1 else PCIE)
+            link = book.of_class(PCIE)
             total += held * ALL_REDUCES_PER_BLOCK * _all_reduce_s(link, payload, t)
         if stage + 1 < len(counts):
-            nxt = ordered[(stage + 1) * t]
-            total += _hop_s(book.between(cards[0].host, nxt.host), payload)
+            total += _hop_s(book.of_class(PCIE), payload)
     return total, book.used

@@ -80,6 +80,25 @@ archived outside this repository, under the same paths.
   unchanged. `knowledge.hub.F16_BYTES` is now `CATALOG_CACHE_TYPE = "f16"` and
   `rig.inventory._KV_TYPES` is gone (the widths are `vramfit.CACHE_ELEM_BYTES`).
 
+- **Who may use a rig is one vocabulary, `own | crew | anyone`, and how a rig
+  takes part is its mode, `lend | hitchhike` (I-04).** The pools the wire
+  names by audience now carry the audience's name: `hubwire.POOL_SOLO`
+  (`solo`) is `POOL_OWN` (`own`) and `POOL_GENERAL` (`general`) is
+  `POOL_ANYONE` (`anyone`); `crew`, `hitchhike` and `shared_ladder` are
+  unchanged. New in `mcgyvr.hubwire`, for the hub to import: `MODE_LEND`,
+  `MODE_HITCHHIKE`, `MODES`, `MODE_AUDIENCES` (a hitchhike rig is `own` or
+  `anyone`, never a crew's alone), `rig_pool(audience, mode)`, `POOL_NAMES`
+  (each pool in words: the general pool is shown as "general pool
+  (anyone)"), and `RETIRED_SHARING_MODES` (the hub's old `solo`, `crew`,
+  `pool`, `hitchhike`, each as the audience and mode that replace it). A
+  unit's `scope`, `ride_scope`, `relief.scope` and `mcgyvr rig rungs sync
+  --ride-scope` that write `solo`, `pool` or `general` are refused with the
+  word to write (`own`, `anyone`; `hubwire.RETIRED_AUDIENCES`,
+  `retired_audience`), never read as
+  an alias; they were refused before too, without naming it. The generated
+  SETUP.md maps each audience and mode to its pool and the use cases it
+  serves, and says a host serves strangers only once a hub admin approved it.
+
 - **A Mac's GPU is sized from the Metal working set llama.cpp logged, a
   reading, once a native server has started on it.** The native supervisor
   already filed `recommendedMaxWorkingSetSize` from llama-server's start-up
@@ -104,6 +123,30 @@ archived outside this repository, under the same paths.
   in `fleet.roots` (`NATIVE_DIR`, `METAL_FILE`); `estimate.usable_unified_mb`
   (no caller) and `native.metal_working_set` (tests only) are removed, and
   with them `estimate.UNIFIED_SHARE`, which only that function used.
+
+- **`mcgyvr PROMPT` scaffolds by default, and the top rung fixes what vetting
+  refuses (I-30a, I-30b).** Unset `orchestrator.authoring` is now `classifier`
+  under `mcgyvr-code` whether or not Jev is on: the scaffold lays out each
+  field's candidates, Jev picks from them when it is opted in, and without Jev
+  the scaffold's first candidates stand. That path no longer needs an
+  `orchestrator` model: with none bound the command proposes rather than
+  exiting 3, and the prose unit stands in only where one is bound.
+  `authoring: prose` stays as the opt-in, and still exits 3 with no model
+  bound; its message now says dropping `authoring: prose` scaffolds instead.
+  A bare install (no config at all) still exits 3, now told to run `mcgyvr
+  setup` rather than to bind an orchestrator model. A proposal vetting refuses is no longer handed back to the proposer
+  that made it: it goes, with the refusal, to the top rung — the ladder's
+  dearest usable rung within `max_escalations`, named once as
+  `route.top_rung` — in a prompt that asks for the corrected proposal and
+  nothing else; the answer is vetted again, the rounds are still bounded by
+  `max_reproposals` (default 1), and what is still refused is reported as
+  before. The re-plan of a spent contract asks the `orchestrator` model when
+  one is bound and the top rung when none is. `--log` names the rung asked
+  (`fixer`, `fixer_model`). The classifier, the refiner and the scaffold no
+  longer re-ask their own refusals (`iterate.reproposals` is gone).
+  `mcgyvr direct` is unchanged: a contract you wrote that vetting refuses
+  comes back to you with the reason. No gate approves a contract before
+  dispatch: passing vetting is what stamps it (I-30e).
 
 - **Every kept file is renamed into place by `mcgyvr.atomic`, which retries
   while Windows holds the target (I-54).** The native launcher's records,
@@ -277,6 +320,31 @@ archived outside this repository, under the same paths.
   stay refused), and `mcgyvr rig status` now says memory and cores run a whole
   model on the CPU rather than that no hub places one. `pooled.CPU_DEVICE` is the `-dev` value
   (`none`, llama.cpp's "don't offload"), and a cpu head carries no tensor split.
+
+- **The vLLM split's cache figure is documented as an upper bound.** A
+  llama.cpp split charges a sliding-window layer's cache only its window; a
+  vLLM split charges every layer the whole context, so the same checkpoint is
+  sized larger under vLLM and a fit can be refused. The `units.<unit>.launch`
+  reference (SETUP.md) and `sharding._vllm_kv` now say so; no figure changed.
+  What vLLM allocates for a sliding layer is to be measured before any
+  discount is taken.
+
+- **The rule for an address a peer can be at is defined once, in
+  `mcgyvr.hubwire.is_peer_address`.** `rig/tunnel.py` (`is_lan`, `may_aim_at`)
+  and `rig/probe.py` (`reachable`) each spelled the same five checks (not
+  loopback, link-local, multicast, reserved or unspecified). They now read the
+  one predicate: `probe.reachable` is it, `tunnel.is_lan` is it and private,
+  and `may_aim_at` is it outside the tunnel's network and this machine's own
+  addresses. No address is classified differently. Reading interfaces is
+  unchanged and still Linux only; macOS and Windows rigs still name their
+  `endpoints` by hand.
+
+- **Every yes/no question in `mcgyvr setup` is written `[y/n]` (I-122).** The
+  wizard mixed `[Y/n]`, `[y/N]` and `[y/n]`; it now asks `[y/n]` everywhere,
+  as the Jev and PATH questions already did. What Enter means is unchanged:
+  Enter is no at every question except the one that offers to reuse a model
+  already on disk, where Enter still reuses it, and that question now says so
+  (`[y/n, Enter reuses]`). `SETUP.md` quotes the new spelling.
 
 - **The agent channel's limits, shapes and codes are defined once, in
   `mcgyvr.hubwire`.** The protocol version, frame limits, the counts and
@@ -503,8 +571,8 @@ archived outside this repository, under the same paths.
   harness, both handed the key on ssh's stdin with the text they run, never on
   a command line or a file on the rig. `mcgyvr fleet key <unit>` prints the
   key. A `--host` or `LLAMA_ARG_HOST` a unit's launch states renders byte for
-  byte as before; native units refuse `expose: lan`; rpc workers and vLLM
-  headless ranks are unchanged. `mcgyvr emit` names where each keyed unit
+  byte as before; native units refuse `expose: lan`; rpc workers are
+  unchanged. `mcgyvr emit` names where each keyed unit
   listens, and warns about a keyed unit its launch or lock keeps on 127.0.0.1,
   a unit stating `expose: local` whose address names another host, and a
   stated host beyond this machine with no key. Upgrading:
@@ -698,6 +766,16 @@ archived outside this repository, under the same paths.
   before. `config.journal_dir` is the one resolution of `journal.dir` that
   `direct`, `mcgyvr PROMPT` and `usage` share.
 
+- **The README says which NVIDIA cards each pinned engine runs on (I-124).**
+  A new *GPUs and engines* section gives the lowest compute capability of the
+  llama.cpp `b11960` container and native archives (5.0 on CUDA 12, 7.5 on
+  CUDA 13) and of the vLLM `v0.26.0` image (7.5), says that CUDA 13 drops every
+  card below 7.5, and names `MCGYVR_NATIVE_BACKEND` for an older card whose
+  driver would get the CUDA 13 native build. It replaces `docs/GPU-SUPPORT.md`,
+  which left main with the docs/ archive (16acf4884); its last version is
+  tagged `archive/gpu-support-on-main-pin`. The engines mcgyvr does not pin are
+  left out, and every floor was read again from the pinned builds.
+
 - **A worker rig tells the hub which models its tensor cache holds
   (`hello.weight_cache`), so the hub plans a cheaper load there.** The cache
   names each file by the FNV-1a hash of one tensor, and the hub names weights
@@ -712,6 +790,19 @@ archived outside this repository, under the same paths.
   nothing is named after a reboot until the folder is checked again, and a
   hello says what the last check saw: the hub learns of a new model at the
   next hello. A rig with nothing recorded sends the same hello as before.
+
+- **The hub says whether a member may host strangers, and the rig prints it.**
+  A member's rigs serve strangers (the general pool's `anyone`, riders on their
+  units) only after a hub admin approves that member once; nothing on the wire
+  said so, so `mcgyvr rig status` and `mcgyvr rig share` could not tell a host
+  why they served nobody. The hello's ack now carries `hosting_approved`
+  (`hubwire.HOSTING_APPROVED_FIELD`, a boolean, optional so an older hub that
+  omits it changes nothing): the agent keeps it in its state, and `rig status`
+  and `rig share` print "approved to host" or "waiting for admin approval" when
+  the hub has said — as of the agent's last connect, since only the hello ack
+  carries it (a mid-session approval shows after the next reconnect), and only
+  for the hub this machine is joined to now. The shipped `protocol.schema.json`
+  gains the optional field on `AckBody`; the hub sends it at its next pin.
 
 - **A ride is sealed end to end, rider to host: the hub carries ciphertext.**
   The host's agent makes an X25519 key each time it starts (`mcgyvr.seal`, in
@@ -1347,6 +1438,29 @@ archived outside this repository, under the same paths.
   `code` plan made with a model answering on port 8080 may now name a
   different candidate; one made without one is unchanged.
 
+- **A vLLM unit is no longer split across machines.** The multi-node vLLM
+  launch was planning only: tested with invented rigs, never run live, and a
+  locked `emit` already refused it. A vLLM unit whose `launch.shards` name
+  cards of more than one machine is now refused when it is sized, in the
+  words of that locked refusal (only llama.cpp is split across machines, as a
+  head plus rpc-server workers). Removed with it: the per-machine node launch
+  (`--distributed-executor-backend mp`, `--nnodes`, `--node-rank`,
+  `--master-addr`, `--master-port`, `--headless`), the `headless` process
+  role, `launch.master_port` and its default `VLLM_MASTER_PORT` (29501), and
+  the equal-cards-per-machine check. A vLLM split over one machine's cards
+  (tensor x pipeline, one process) is unchanged, as is every llama.cpp split.
+  Upgrading: a stated `launch.master_port` is now ignored, not checked;
+  delete it.
+
+- **The unused floor fallback is gone: `mcgyvr.deterministic.route`,
+  `Degradation` and `Routed`.** `route` planned a floor contract whose program
+  was missing on the cheapest dearer family and recorded a `degraded` note
+  saying who pays; nothing in mcgyvr called it, only its tests. It is removed
+  with its helpers (`_have`, `_why_missing`, `_cheapest_above`) and the tests
+  that exercised it; the tests that ran the floor's step through `route` now
+  plan it through `mcgyvr.route.plan`, which is the path runs take. Nothing
+  behaves differently: a floor contract with no program bound still stops
+  `mcgyvr run` with exit 1, naming the dearer family it does not climb to.
 - **Sessions, the manager loop and the retired-name shims are gone.** `chat`
   and `agent` are no longer contract task types: `code` is the one shipped
   type, and chat and agent stay as plain use of an endpoint. Removed with
@@ -1443,6 +1557,19 @@ archived outside this repository, under the same paths.
   attributed to the lines the change added or compared with the base, as the
   gate's own type check does for Python; no tsc output parser exists. Prose
   only, no behaviour change (I-56).
+
+- **Setup's discovery and the fleet sampler send a keyed unit its own key.**
+  Both asked a unit's `/v1/models` (and `/props`, `/api/v0/models`, `/info`)
+  with no key, so a unit behind `expose: lan` answered 401: setup did not list
+  it, and the sampler read no window or slots from it. Now `detect.probe`, its
+  window read and `fleet.sampler.served` send the key mcgyvr keeps for that
+  address (`unitkey.for_address`) as a bearer token, to that address alone:
+  the key file is named for one host and port, so a sweep of another host or
+  port sends none, and the header is not replayed across a redirect. Setup
+  therefore lists keyed units it used to skip. A key file setup cannot trust,
+  or a data folder it cannot name (a relative `$MCGYVR_DATA`), is a `Unit key:`
+  note and the unit is asked without the key; the sampler raises, as a
+  dispatch to the unit does.
 
 - Prose says what the code does, with no behaviour change. The host's `rig
   run` and `rig join` print a run's seal key id (there is no `rig up`);

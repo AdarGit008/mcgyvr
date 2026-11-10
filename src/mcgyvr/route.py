@@ -514,6 +514,42 @@ def by_family(config: Config, pool: SourceMap) -> Mapping[Family, tuple[Rung, ..
     return {family: tuple(rungs) for family, rungs in grouped.items()}
 
 
+def climb_order(config: Config, pool: SourceMap) -> list[tuple[Family, Rung]]:
+    """Every usable rung of the pool in climb order, each with its family.
+
+    Families come cheapest first (`Family.rank`), and each family's rungs keep
+    the pool's order, which is the ladder's own.
+    """
+    grouped = by_family(config, pool)
+    return [
+        (family, rung)
+        for family in sorted(grouped, key=lambda family: family.rank)
+        for rung in grouped[family]
+    ]
+
+
+def top_rung(config: Config, pool: SourceMap) -> Rung | None:
+    """The top rung: the dearest rung of the ladder this setup runs, or None.
+
+    The pool's usable rungs in climb order — families cheapest first, each
+    family's rungs in the ladder's own order — from the lowest family any task
+    type starts on, cut at the ceiling ``max_escalations`` sets (every rung when
+    it is unset), as :func:`mcgyvr.rig.rungs.ladder_report` reports the ladder to
+    a hub; the last of them is the top rung. A relief rung is never one: it is
+    the hub's, not a step of the ladder. None when no rung is usable.
+    """
+    from mcgyvr.escalate import Ceiling
+
+    known = catalog()
+    lowest = min((kind.starts_on.rank for kind in known.task_types), default=0)
+    climbing = [
+        rung for family, rung in climb_order(config, pool) if family.rank >= lowest
+    ]
+    if not climbing:
+        return None
+    return climbing[Ceiling.of(config).rungs(len(climbing)) - 1]
+
+
 def attempts_for(family: Family, configured: int, contract: Contract) -> int:
     """How many attempts one rung of that family may spend.
 

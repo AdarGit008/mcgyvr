@@ -54,6 +54,7 @@ from typing import Any
 
 import pytest
 
+from mcgyvr import hubwire
 from tests import rig_pool_fakes as fakes
 from tests._paths import REPO
 from tests.rig_fake_machine import Machine, Model
@@ -216,13 +217,19 @@ class Hub:
     # --- the rigs --------------------------------------------------------
 
     def rig(self, name: str, machine: Machine) -> None:
-        """Alice's pool rig ``name``, lent by an agent on ``machine``."""
+        """Alice's general pool rig ``name`` (audience anyone, mode lend), lent
+        by an agent on ``machine``."""
         # A rig joins only with its UDP port forward agreed; it is withdrawn
         # at once, so the agent never asks this machine's real router.
         status, body = self.call(
             "POST",
             "/api/v1/rigs",
-            {"name": name, "sharing_mode": "pool", "port_forward_consent": True},
+            {
+                "name": name,
+                "audience": hubwire.SCOPE_ANYONE,
+                "mode": hubwire.MODE_LEND,
+                "port_forward_consent": True,
+            },
         )
         assert status == 201, body
         rig_id = body["rig"]["id"]
