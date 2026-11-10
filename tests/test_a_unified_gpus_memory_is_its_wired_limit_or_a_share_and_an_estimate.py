@@ -15,6 +15,7 @@ machine here is invented.
 
 from __future__ import annotations
 
+import dataclasses
 import json
 from pathlib import Path
 from typing import Any
@@ -73,8 +74,19 @@ def test_a_first_run_sizes_each_unified_gpu_by_its_wired_limit_or_a_share(
     assert gpu.vram.total_mib == machine.unified_mib
     assert gpu.figure == "estimate"
     assert not [n for n in scan.notes if "Metal reading" in n]
-    if not machine.wired_limit_mib:
+    (card,) = machine_shapes.host_reading(machine)["cards"]
+    if machine.wired_limit_mib:
+        assert card["how"] == f"sysctl {rigscan.SYSCTL_WIRED_LIMIT} (estimate)"
+    else:
         assert gpu.vram.total_mib == int(machine.memory_mib * rigscan.UNIFIED_SHARE)
+        assert "no wired limit set" in card["how"]
+
+
+def test_a_wired_limit_above_the_memory_is_held_to_the_memory() -> None:
+    (capped,) = [m for m in UNIFIED if m.wired_limit_mib]
+    machine = dataclasses.replace(capped, wired_limit_mib=capped.memory_mib + 8192)
+    (gpu,) = machine_shapes.host_scan(machine).gpus
+    assert (gpu.vram.total_mib, gpu.figure) == (machine.memory_mib, "estimate")
 
 
 @pytest.mark.parametrize("machine", UNIFIED, ids=lambda m: m.label)
@@ -141,12 +153,22 @@ def test_a_reading_taken_under_another_wired_limit_is_not_taken(
         ({"wired_limit_mb": None}, f"names no {rigscan.SYSCTL_WIRED_LIMIT}"),
         ({"figure": "estimate"}, "holds no working set read as a reading"),
         ({"bytes": 0}, "holds no working set read as a reading"),
+        ({"bytes": MIB - 1}, "holds no working set read as a reading"),
         ({"bytes": True}, "holds no working set read as a reading"),
         ({"bytes": 1.5e10}, "holds no working set read as a reading"),
         ("not json", "is not a JSON object"),
         ("[1, 2]", "is not a JSON object"),
     ],
-    ids=["no-wired-limit", "estimate", "zero", "bool", "float", "text", "list"],
+    ids=[
+        "no-wired-limit",
+        "estimate",
+        "zero",
+        "under-a-mib",
+        "bool",
+        "float",
+        "text",
+        "list",
+    ],
 )
 def test_a_file_that_holds_no_usable_reading_sizes_by_estimate_and_says_why(
     body: dict[str, Any] | str,

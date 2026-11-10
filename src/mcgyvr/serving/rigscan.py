@@ -1298,7 +1298,8 @@ def metal_working_set() -> tuple[dict[str, Any] | None, str]:
     if not isinstance(found, dict):
         return None, f"{shown} is not a JSON object"
     size, limit = found.get("bytes"), found.get("wired_limit_mb")
-    if not is_size(size) or not size or found.get("figure") != FIGURE_READING:
+    sized = is_size(size) and isinstance(size, int) and size >= MIB_BYTES
+    if not sized or found.get("figure") != FIGURE_READING:
         return None, f"{shown} holds no working set read as a reading"
     if not is_size(limit):
         return None, f"{shown} names no {SYSCTL_WIRED_LIMIT} it was read under"
