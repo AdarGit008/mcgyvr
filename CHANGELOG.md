@@ -11,6 +11,22 @@ archived outside this repository, under the same paths.
 
 ### Changed
 
+- **Two machine-reading designs are said and pinned; nothing behaves
+  differently.** First contact with a rig over ssh is the scan's: `mcgyvr scan
+  --rig`, `setup` and `recommend` send a rig with no rig file the POSIX reader,
+  then the Windows one when its shell answers PowerShell, while the door ships
+  by the rig file alone (`gatelib.shipping_os`) and a serve or a read through
+  it refuses a rig with no rig file before reading it. SETUP.md's *macOS and
+  Windows* says so (*A rig over ssh*), and drops "remote rigs are Linux
+  machines", which a Windows or Mac rig over ssh no longer is. And this
+  machine's exact names (`gatelib.LOCAL_RIGS`: localhost, 127.0.0.1, ::1, [::1])
+  alone decide a unit's bind and key: the comment there says the list must
+  never grow to the looser match that finds a rig file
+  (`rigfile._names_this_machine`), and tests pin that a unit addressed at
+  127.0.0.2, 0.0.0.0 or `[::]` is `lan` and keyed, that a launch stating
+  127.0.0.2, `LOCALHOST`, 0.0.0.0 or `::` listens beyond this machine, and
+  that `http://LOCALHOST` is `local`: a URL's host is case-insensitive, so it
+  names `localhost`.
 - **A docker llama.cpp or vLLM unit listens on 127.0.0.1 or, behind a key
   mcgyvr makes, on every interface (`expose: local | lan`).** `mcgyvr emit`
   rendered every container's server on every interface with no key

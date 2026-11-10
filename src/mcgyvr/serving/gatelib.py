@@ -72,6 +72,14 @@ def tool(name: str) -> list[str]:
 
 #: The rig names that are this machine, and the variable that says how the
 #: door reaches it: `direct` (no ssh) or `ssh`.
+#:
+#: These exact names alone decide a unit's bind and key
+#: (`mcgyvr.serving.exposure`, `mcgyvr.emit`): a name not here is another
+#: host's, so its unit is `lan`, listens on every interface and asks for a
+#: key. That is fail-closed, and the list must never grow to the looser match
+#: that finds a host's rig file (`rigfile._names_this_machine`, which takes
+#: any loopback or unspecified address and the localhost aliases): with it,
+#: 127.0.0.2, 0.0.0.0 or `::` would make a unit `local`, and so unkeyed.
 LOCAL_RIGS = frozenset({"localhost", "127.0.0.1", "::1", "[::1]"})
 LOCAL_TRANSPORT_ENV = "MCGYVR_LOCAL_TRANSPORT"
 TRANSPORT_DIRECT = "direct"
