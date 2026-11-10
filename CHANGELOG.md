@@ -11,6 +11,14 @@ archived outside this repository, under the same paths.
 
 ### Changed
 
+- **The four model-on-disk listers are pinned together by one test (I-138).**
+  The scan (`rigscan._models_on_disk`), the rig agent (`rig/inventory.read`),
+  recommend's discovery (`recommend.discover_command`) and the local-rig
+  emulator (`localrig.run`) list model files by different rules, on purpose:
+  their protocols differ. One test lists an invented tree with all four and
+  states each rule (formats, depth, split parts, hidden names, case), and
+  checks the emulator against the real `find`. Nothing behaves differently.
+
 - **A scan reads /proc/meminfo and the CPU model once (I-141).** The reader
   parsed /proc/meminfo three times per scan (the memory section, the bandwidth
   probe's `_spare_gb`, the snapshot) and looked the CPU model up twice (the CPU
