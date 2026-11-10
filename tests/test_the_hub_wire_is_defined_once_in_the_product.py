@@ -434,8 +434,8 @@ def test_recommend_places_each_use_case_by_the_wires_category() -> None:
 def test_each_use_case_is_recommended_a_category_a_raw_use_case_names() -> None:
     assert tuple(hubwire.USE_CASE_CATEGORY) == hubwire.USE_CASES
     assert hubwire.USE_CASE_CATEGORY[hubwire.MCGYVR_CODE] == hubwire.CODE
-    raw = hubwire.POOL_USE_CASES[hubwire.POOL_GENERAL]
-    assert set(hubwire.USE_CASE_CATEGORY.values()) == set(raw)
+    raw = set(hubwire.USE_CASES) - {hubwire.MCGYVR_CODE}
+    assert set(hubwire.USE_CASE_CATEGORY.values()) == raw
 
 
 def test_every_pool_serves_only_use_cases_and_each_is_served_somewhere() -> None:
@@ -448,7 +448,7 @@ def test_every_pool_serves_only_use_cases_and_each_is_served_somewhere() -> None
     ("pool", "served"),
     [
         (hubwire.POOL_SOLO, {"mcgyvr-code", "code", "chat", "agent"}),
-        (hubwire.POOL_GENERAL, {"code", "chat", "agent"}),
+        (hubwire.POOL_GENERAL, {"mcgyvr-code", "code", "chat", "agent"}),
         (hubwire.POOL_CREW, {"mcgyvr-code", "code", "chat", "agent"}),
         (hubwire.POOL_HITCHHIKE, {"mcgyvr-code", "code", "chat", "agent"}),
         (hubwire.POOL_SHARED_LADDER, {"mcgyvr-code"}),
@@ -466,19 +466,16 @@ def test_a_pool_serves_its_use_cases_and_refuses_the_rest(
 @pytest.mark.parametrize("use_case", hubwire.USE_CASES)
 @pytest.mark.parametrize("ride", [False, True])
 @pytest.mark.parametrize("scope", hubwire.SCOPE_VALUES)
-def test_only_mcgyvr_code_off_a_ride_under_scope_anyone_is_a_use_case_refused(
+def test_every_pool_a_request_is_served_from_serves_every_use_case(
     scope: str, ride: bool, use_case: str
 ) -> None:
     """What the hub refuses with ``use_case_not_served``: the pool a request is
-    served from (by its scope and model) not serving its use case. The general
-    pool serves chat, agent and code, a crew's pool, a ride and a member's own
-    rigs every use case, so ``mcgyvr-code`` asked of the general pool is the
-    one known use case refused; the model a pool serves plays no part."""
+    served from (by its scope and model) not serving its use case. A member's
+    own rigs, the general pool, a crew's pool and a ride each serve all four,
+    so no use case is refused under any scope; the model a pool serves plays
+    no part."""
     model = hubwire.rung_model(FIRST) if ride else "coder-7b"
-    pool = hubwire.serving_pool(scope, model)
-    refused = not hubwire.pool_serves(pool, use_case)
-    expected = scope == hubwire.SCOPE_ANYONE and not ride
-    assert refused is (expected and use_case == hubwire.MCGYVR_CODE)
+    assert hubwire.pool_serves(hubwire.serving_pool(scope, model), use_case)
 
 
 def test_a_use_case_no_pool_serves_is_refused_by_every_pool() -> None:

@@ -615,9 +615,9 @@ UNIT_FIELDS: tuple[Field, ...] = (
         f"`{SCOPE_HEADER}` header: `own` (your own rigs), `crew` (your crews' "
         "too) or `anyone`. A hub serves the request from that scope's pool; a "
         "server of your own ignores it. A ladder step or a role may bind the "
-        "unit only where its pool serves the setup's use case, so under "
-        "`mcgyvr-code` a unit served from the hub's general pool, which serves "
-        "models raw, is refused when the setup is read. Unset is `own`.",
+        "unit only where its pool serves the setup's use case (every pool a "
+        "unit is served from serves all four), else it is refused when the "
+        "setup is read. Unset is `own`.",
         default=SCOPE_OWN,
         choices=SCOPE_VALUES,
     ),

@@ -404,15 +404,15 @@ POOLS: tuple[str, ...] = (
     POOL_HITCHHIKE,
     POOL_SHARED_LADDER,
 )
-#: The use cases each pool serves. A member's own rigs serve every use case;
-#: the general pool serves models raw only; a crew's pool and a ride serve
-#: every use case; a shared ladder is there for ``mcgyvr-code`` alone. The
+#: The use cases each pool serves. A member's own rigs, the general pool (the
+#: hub holds a ladder for its coders), a crew's pool and a ride serve every use
+#: case; a shared ladder is there for ``mcgyvr-code`` alone. The
 #: hub's sharing modes map onto these: ``solo`` is :data:`POOL_SOLO`, ``pool``
 #: is :data:`POOL_GENERAL`, ``crew`` and ``hitchhike`` are themselves.
 POOL_USE_CASES: Mapping[str, tuple[str, ...]] = MappingProxyType(
     {
         POOL_SOLO: USE_CASES,
-        POOL_GENERAL: (CODE, CHAT, AGENT),
+        POOL_GENERAL: USE_CASES,
         POOL_CREW: USE_CASES,
         POOL_HITCHHIKE: USE_CASES,
         POOL_SHARED_LADDER: (MCGYVR_CODE,),
