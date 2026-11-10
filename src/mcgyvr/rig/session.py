@@ -1379,12 +1379,15 @@ class Sessions:
         """Answer a ``session_stop`` by asking the session's thread to stop.
 
         The session tears its containers down and says ``stopped``; a session that is
-        unknown or already ended is acked all the same.
+        unknown or already ended is acked all the same. The reason the hub gives, if
+        any, is said in the log, so the rig's log tells why a session was stopped.
         """
         asked = sessionwire.read_session_stop(envelope)
         with self._lock:
             found = self._sessions.get(asked.session_id)
             if found is not None and found.state in LIVE:
+                why = asked.reason or "no reason given"
+                self._log(f"session {found.id}: the hub stops it: {why}")
                 self._ask_stop(found)
         return sessionwire.ack(envelope.id)
 

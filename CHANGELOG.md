@@ -1407,6 +1407,22 @@ archived outside this repository, under the same paths.
 
 ### Removed
 
+- **Serving and rig paths nothing called are cut (I-75, I-81, I-82, I-103,
+  I-143, I-154, I-157).** `session_status` takes no `progress_pct` (no caller
+  sent one; the hub's schema keeps its optional field). The capability table
+  drops its `backends` block, which was shape-checked and never loaded; a
+  table that still carries it is refused by the key's name, and only the
+  shipped table is ever read. `emit.render_command` (the bare shell line) and
+  `emit.render_compose` go: `mcgyvr emit` writes through `emit_all`, and the
+  tests that called them now read the file `emit_all` writes. `Wake.deviation`
+  (always None), `Wake.predicted_s`, `predicted_wake_s` and the
+  `<host>.wake.json` record that fed only them go: a wake no longer writes it,
+  and one left by an earlier mcgyvr is read by nothing. The tolerance class no
+  longer reads `launch.flags` or `launch.n_cpu_moe`, keys nothing writes and
+  emit never applies: a fleet file that carries them by hand is classed by its
+  `argv` and `speculative` alone. `derived.lookup` goes; `lookup_all` and the
+  named getters remain.
+
 - **`mcgyvr recommend --profile code` no longer asks a local model to pick.**
   It asked whatever answered on `http://127.0.0.1:8080` to choose among the
   fitting candidates, by name and description only, and fell back to the
@@ -1508,6 +1524,12 @@ archived outside this repository, under the same paths.
 - `mcgyvr.fleet.layout.actions` is gone; nothing but its tests called it.
 
 ### Fixed
+
+- **The rig's log says why the hub stopped a session or cancelled a relay
+  (I-76).** `session_stop` and `relay_cancel` carry the hub's reason; the
+  agent parsed it and dropped it. `Sessions.stop` and `Relays.cancel` now log
+  it (`session s1: the hub stops it: <reason>`, "no reason given" when the
+  frame has none). No wire change.
 
 - The setup reference says what an unset `attempts` entry means: a unit with
   no entry is tried once on its rung, as it always was, not the contract's

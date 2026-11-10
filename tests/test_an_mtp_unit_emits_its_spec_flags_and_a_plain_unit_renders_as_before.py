@@ -2,7 +2,7 @@
 
 ``--spec-type draft-mtp`` and ``--spec-draft-n-max N`` are derived flags on the
 unit's ``args`` — the same mapping ``--n-cpu-moe`` and ``-ctk`` ride on — so
-:func:`mcgyvr.emit.argv` sorts them with the rest and both renderings carry
+:func:`mcgyvr.emit.argv` sorts them with the rest and the compose file carries
 them. A unit declaring ``speculative: none`` renders byte-identically to a unit
 built before the keys existed: no flag appears, and the file does not move.
 """
@@ -10,15 +10,15 @@ built before the keys existed: no flag appears, and the file does not move.
 from __future__ import annotations
 
 import json
-import shlex
 from typing import Any
 
 import yaml
 
-from mcgyvr.emit import argv, render_command, render_compose
+from mcgyvr.emit import argv
 from mcgyvr.scan import Scan
 from mcgyvr.serving import ModelSpec, Unit, unit_for
 from tests._paths import TESTS
+from tests.emitted import compose_of
 
 WINDOW = 4096
 GEOMETRY: dict[str, dict[str, Any]] = json.loads(
@@ -72,15 +72,13 @@ def test_both_renderings_carry_the_spec_flags_in_flag_order() -> None:
         "--spec-type",
         "draft-mtp",
     )
-    assert command_of(render_compose(mtp)) == list(parts)
-    assert shlex.split(render_command(mtp))[1:] == list(parts)
+    assert command_of(compose_of(mtp)) == list(parts)
 
 
 def test_a_plain_unit_renders_byte_identically_to_one_built_before() -> None:
     before = unit()
     plain = unit(speculative="none", spec_draft_n_max=2)
-    assert render_compose(plain) == render_compose(before)
-    assert render_command(plain) == render_command(before)
+    assert compose_of(plain) == compose_of(before)
     assert "--spec-type" not in argv(plain)
     assert "--spec-draft-n-max" not in argv(plain)
 
@@ -89,5 +87,5 @@ def test_a_declared_draft_width_is_the_flag_in_both_renderings() -> None:
     mtp = unit(speculative="mtp", spec_draft_n_max=4)
     parts = argv(mtp)
     assert parts[parts.index("--spec-draft-n-max") + 1] == "4"
-    command = command_of(render_compose(mtp))
+    command = command_of(compose_of(mtp))
     assert command[command.index("--spec-draft-n-max") + 1] == "4"

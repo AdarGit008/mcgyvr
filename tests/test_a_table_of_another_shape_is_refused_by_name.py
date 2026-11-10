@@ -117,8 +117,6 @@ def _entry_at(level: str, document: dict[str, Any]) -> dict[str, Any]:
     entries: dict[str, Any] = {
         "table": document,
         "model row": document["models"][0],
-        "backends block": document["backends"],
-        "backend": document["backends"]["some-server"],
     }
     entry: dict[str, Any] = entries[level]
     return entry
@@ -135,6 +133,19 @@ def test_a_key_the_code_does_not_declare_is_refused_at_every_level(
     said = _refusal(tmp_path, document)
 
     assert repr(UNDECLARED) in said, said
+
+
+def test_a_table_that_still_describes_backends_is_refused_by_the_keys_name(
+    tmp_path: Path,
+) -> None:
+    """The `backends` block was checked and never loaded, and is retired: a table
+    that still carries it is refused like any key nobody declares."""
+    document = table_document_with_every_block()
+    document["backends"] = {"some-server": {"wire_protocol": "openai"}}
+
+    said = _refusal(tmp_path, document)
+
+    assert repr("backends") in said, said
 
 
 # --- an object sits only where the table declares entries --------------------

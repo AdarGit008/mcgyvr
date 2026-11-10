@@ -20,10 +20,11 @@ from typing import Any
 import pytest
 import yaml
 
-from mcgyvr.emit import _rpc_service, render_compose, resolved_launch
+from mcgyvr.emit import _rpc_service, resolved_launch
 from mcgyvr.fleet import roots
 from mcgyvr.scan import Scan
 from mcgyvr.serving import ROLE_RPC, ModelSpec, kernelcache, rigscan, unit_for
+from tests.emitted import compose_of
 
 HOME = Path("/srv/someone/.mcgyvr")
 STORE = f"{HOME}/cuda-cache:/cuda-cache:rw"
@@ -54,7 +55,7 @@ def rig(*, home: Path | None) -> Scan:
 
 
 def service(unit: Any) -> dict[str, Any]:
-    document = yaml.safe_load(render_compose(unit))
+    document = yaml.safe_load(compose_of(unit))
     return next(iter(document["services"].values()))
 
 
@@ -112,7 +113,7 @@ def test_a_unit_env_that_moves_the_cache_is_refused_by_name() -> None:
 
     moved = replace(llama(), env={"CUDA_CACHE_PATH": "/elsewhere"})
     with pytest.raises(EmitError, match="CUDA_CACHE_PATH"):
-        render_compose(moved)
+        compose_of(moved)
 
 
 def test_docker_run_flags_spell_the_store_as_compose_does() -> None:
