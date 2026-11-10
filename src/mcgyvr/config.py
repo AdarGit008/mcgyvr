@@ -988,10 +988,12 @@ ORCHESTRATOR_FIELDS: tuple[Field, ...] = (
     Field(
         "authoring",
         "enum",
-        "How `mcgyvr PROMPT` gets its proposals. `prose`: the bound unit is "
-        "asked for JSON proposals (`delegate.build_prompt`), and the "
-        "deterministic decomposer turns them into contracts. `classifier`: the "
-        "`jev` unit answers typed questions (task type, target, symbol, task, "
+        "How `mcgyvr PROMPT` gets its proposals; vetting then turns them into "
+        "contracts, and what it refuses goes to the top rung of the ladder to "
+        "be corrected (`max_reproposals`). `classifier`, the default: the "
+        "scaffold lays out each field's candidates from the repository, with "
+        "no model asked, and with a `jev` unit opted in Jev picks from them — "
+        "it answers typed questions (task type, target, symbol, task, "
         "interface, dependency, scope) first, and each proposal is split again "
         "until it is on one file and jev answers that it cannot be split "
         "further: a scope over several files becomes one proposal per file, and "
@@ -1000,13 +1002,16 @@ ORCHESTRATOR_FIELDS: tuple[Field, ...] = (
         "demonstrates, as jev picks — two or more contracts on one file, which "
         "the dependency tree orders. A proposal is not split again once "
         "`max_splits_per_file` rounds have split its file; a split into more "
-        "parts than `max_refine_fanout` is refused. `prose` stands in when jev "
-        "declines. With no `jev` unit bound no model is asked: each field takes "
-        "its first candidate — the first servable type and target, the "
-        "target's first symbol, and the request as the task — and `prose` "
-        "stands in only when there is no target or servable type to pick. "
-        "Unset is `classifier` under `use_case: mcgyvr-code` when a `jev` unit "
-        "is bound and on, and `prose` otherwise.",
+        "parts than `max_refine_fanout` is refused. With no `jev` unit opted "
+        "in the scaffold runs alone: each field takes its first candidate — "
+        "the first servable type and target, the target's first symbol, and "
+        "the request as the task — and no `orchestrator` model is needed. "
+        "Where one is bound it stands in, in prose, when Jev declines or there "
+        "is no target or servable type to pick. `prose`, an opt-in: the bound "
+        "`orchestrator` unit is asked for JSON proposals "
+        "(`delegate.build_prompt`), and `mcgyvr PROMPT` refuses when none is "
+        "bound. Unset is `classifier` under `use_case: mcgyvr-code`, and "
+        "`prose` otherwise.",
         choices=("prose", "classifier"),
         bind_hint="name one of `prose`, `classifier`",
     ),
@@ -1019,8 +1024,8 @@ JEV_FIELDS: tuple[Field, ...] = (
         "bool",
         "Whether the bound Jev unit is asked. Off, every typed decision is asked "
         "as if no unit were bound -- the verifier, the reviewing rung, the fast "
-        "rung or the orchestrator answers, triage asks nobody, and authoring "
-        "defaults to `prose` -- while the binding stays written, so turning it "
+        "rung or the orchestrator answers, triage asks nobody, and the scaffold "
+        "proposes alone -- while the binding stays written, so turning it "
         "back on is one line.",
         default=True,
     ),
@@ -1676,11 +1681,12 @@ class Config:
     @property
     def authoring(self) -> str:
         """How proposals are authored: `orchestrator.authoring` when stated;
-        otherwise `classifier` under `mcgyvr-code` with Jev on, else `prose`."""
+        otherwise `classifier` under `mcgyvr-code` — Jev's fill when Jev is on,
+        the scaffold alone when it is not — else `prose`."""
         stated = self.get("orchestrator.authoring")
         if stated is not None:
             return str(stated)
-        return "classifier" if self.use_case == MCGYVR_CODE and self.jev_on else "prose"
+        return "classifier" if self.use_case == MCGYVR_CODE else "prose"
 
     @property
     def ride_scope(self) -> str:

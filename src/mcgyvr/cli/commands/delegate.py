@@ -466,13 +466,16 @@ def _proposer_for_delegate(
 ) -> Proposer | None:
     """The proposer `orchestrator.authoring` asks for, or None if none can run.
 
-    The prose proposer on the `orchestrator` role is always built. The typed
-    classifier is built only when the strategy is "classifier" — refined until
-    each proposal is on one file and jev says it cannot be split further, within
-    `max_splits_per_file` and `max_refine_fanout` — and `proposer_by_authoring`
-    then puts it in front of the prose one, which stands in when the classifier
-    declines. A strategy that is not a string is passed as None, which selects
-    prose. None comes back when nothing can propose. With `decisions` (`--log`
+    The prose proposer on the `orchestrator` role is built whenever a model
+    is bound there. The typed classifier — Jev's fill when a `jev` unit is
+    opted in, the scaffold alone when none is — is built when the strategy is
+    "classifier", the default, refined until each proposal is on one file and
+    jev says it cannot be split further, within `max_splits_per_file` and
+    `max_refine_fanout`; `proposer_by_authoring` then puts it in front of the
+    prose one where there is one, which stands in when the classifier
+    declines, and runs it alone where there is none. A strategy that is not a
+    string is passed as None, which selects prose. None comes back when prose
+    was chosen and no `orchestrator` model is bound. With `decisions` (`--log`
     names it) the classifier's shadow sink is that file, so every typed
     decision it asks is recorded there with its model.
     """

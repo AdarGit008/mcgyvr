@@ -1176,15 +1176,16 @@ def proposer_by_authoring(
 ) -> Proposer | None:
     """Pick the proposer for the configured `strategy`.
 
-    Only "classifier" opts into the typed proposer, and even then only in front
-    of a prose proposer: the typed one answers first and prose stands in when it
-    declines. Every other strategy proposes in prose. None means nothing can
-    propose — no prose proposer, or a typed one with no prose to fall back on.
+    Only "classifier" opts into the typed proposer — Jev's fill, or the
+    scaffold alone when no Jev is opted in — and it needs no prose proposer:
+    where one is bound it stands in when the typed one declines, and where none
+    is the typed one answers alone. Every other strategy proposes in prose.
+    None means nothing can propose: prose was chosen and none is bound.
     """
     if strategy != "classifier" or typed is None:
         return prose
     if prose is None:
-        return None
+        return typed
 
     def propose(evidence: Evidence) -> Sequence[Proposal | Refusal]:
         proposals = typed(evidence)

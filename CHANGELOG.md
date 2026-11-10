@@ -11,6 +11,27 @@ archived outside this repository, under the same paths.
 
 ### Changed
 
+- **`mcgyvr PROMPT` scaffolds by default, and the top rung fixes what vetting
+  refuses (I-30a, I-30b).** Unset `orchestrator.authoring` is now `classifier`
+  under `mcgyvr-code` whether or not Jev is on: the scaffold lays out each
+  field's candidates, Jev picks from them when it is opted in, and without Jev
+  the scaffold's first candidates stand. That path no longer needs an
+  `orchestrator` model: with none bound the command proposes rather than
+  exiting 3, and the prose unit stands in only where one is bound.
+  `authoring: prose` stays as the opt-in, and still exits 3 with no model
+  bound. A proposal vetting refuses is no longer handed back to the proposer
+  that made it: it goes, with the refusal, to the top rung — the ladder's
+  dearest usable rung within `max_escalations`, named once as
+  `route.top_rung` — in a prompt that asks for the corrected proposal and
+  nothing else; the answer is vetted again, the rounds are still bounded by
+  `max_reproposals` (default 1), and what is still refused is reported as
+  before. The re-plan of a spent contract asks the `orchestrator` model when
+  one is bound and the top rung when none is. `--log` names the rung asked
+  (`fixer`, `fixer_model`). The classifier, the refiner and the scaffold no
+  longer re-ask their own refusals (`iterate.reproposals` is gone).
+  `mcgyvr direct` is unchanged: a contract you wrote that vetting refuses
+  comes back to you with the reason. No gate approves a contract before
+  dispatch: passing vetting is what stamps it (I-30e).
 - **The agent channel's limits, shapes and codes are defined once, in
   `mcgyvr.hubwire`.** The protocol version, frame limits, the counts and
   bounds of every frame (models, sessions, endpoints, features, peers, allowed

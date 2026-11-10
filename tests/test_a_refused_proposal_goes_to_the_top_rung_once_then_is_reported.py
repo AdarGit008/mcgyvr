@@ -502,6 +502,32 @@ def test_with_nothing_refused_the_top_rung_is_not_asked_or_named(
     assert "fixer" not in record.detail
 
 
+def test_no_jev_and_no_authoring_scaffolds_with_no_orchestrator_model(
+    tmp_path: Path, checkout: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """I-30a: the default needs no prose model; nothing is dispatched to plan."""
+
+    def no_role(*args: Any, **kwargs: Any) -> Any:
+        raise AssertionError("no orchestrator model is asked")
+
+    monkeypatch.setattr("mcgyvr.delegate.dispatch_role", no_role)
+    asked = _top_rung_answers(monkeypatch)
+
+    code_ = _prompt(
+        tmp_path,
+        checkout,
+        _config(tmp_path, UNBOUND),
+        "--output",
+        str(tmp_path / "plan"),
+    )
+
+    record = read(tmp_path / "out" / "delegate-log.json")
+    assert code_ == 0
+    assert record.kind is DelegateKind.EMITTED
+    assert [c.target for c in record.contracts] == ["listing.py"]
+    assert asked == []
+
+
 def test_a_refused_proposal_is_fixed_by_the_top_rung_and_dispatched(
     tmp_path: Path, checkout: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
