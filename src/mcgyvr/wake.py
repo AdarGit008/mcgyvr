@@ -8,12 +8,11 @@ cache leave the card, its process stays) and `wake` brings slept units back. A
 card that is down is gone, while one that is sleeping is resting with its
 process still running: which of the two it is decides `up` from `wake`.
 
-A sleeping card keeps no record of its own that can be asked, so three small
-records are kept in a per-user directory under the temp dir: how long the last
-`up` on a card took, which is what the next wake is measured against; one mark
-per port saying that unit is resting rather than stopped, which is what decides
-`wake` from `up`; and the swap standing on a card, which says which units were
-put down for which sleeper (`standing_swap`, `known_down`). All are read and
+A sleeping card keeps no record of its own that can be asked, so two small
+records are kept in a per-user directory under the temp dir: one mark per port
+saying that unit is resting rather than stopped, which is what decides `wake`
+from `up`; and the swap standing on a card, which says which units were put
+down for which sleeper (`standing_swap`, `known_down`). All are read and
 written only in a directory this user owns and nobody else may write, and a
 record that cannot be read is simply no record.
 
@@ -28,7 +27,6 @@ wake and make room with.
 from __future__ import annotations
 
 import json
-import math
 import os
 import subprocess
 import sys
@@ -129,17 +127,14 @@ def _suffix() -> str:
 class Wake:
     """What one door run did, as the caller is told it.
 
-    `seconds` is how long the run took and `predicted_s` the number the clock
-    directory held before it started, which is the last wake's timing and never
-    this one's. `code` is the door's exit code, `direction` the verb it ran, and
-    `ports` the ports of the rungs the run acted on.
+    `seconds` is how long the run took, `code` the door's exit code, `direction`
+    the verb it ran, and `ports` the ports of the rungs the run acted on.
     """
 
     host: str
     compose_file: Path
     direction: str
     seconds: float
-    predicted_s: float | None
     code: int
     #: The ports of the rungs the run acted on: every rung of the card, or only
     #: the ones named with --unit, and what the resting marks are kept by.
@@ -148,15 +143,6 @@ class Wake:
     @property
     def ok(self) -> bool:
         return self.code == 0
-
-    @property
-    def deviation(self) -> str | None:
-        """How far the run's `seconds` fell from its `predicted_s`, or None.
-
-        Nothing here works that gap out yet, so this is always None and the
-        warning `_run_door` would print is never printed.
-        """
-        return None
 
 
 def _clock_dir() -> Path:
@@ -173,66 +159,8 @@ def _clock_dir() -> Path:
 _ours = owned_outright
 
 
-def _history(card: Card) -> Path:
-    return _clock_dir() / f"{_safe(card.host)}.wake.json"
-
-
 def _safe(host: str) -> str:
     return "".join(ch if ch.isalnum() or ch in "._-" else "-" for ch in host)
-
-
-def predicted_wake_s(card: Card) -> float | None:
-    """What the last `up` on this card took, in seconds, or None.
-
-    The number comes from the record in the clock directory. It is None when
-    this user has no clock directory, the file is missing or unreadable, it is
-    not a JSON object, or its `seconds` is not a finite number — a bool is
-    turned away too, though `isinstance` would have it as an int. Every failure
-    degrades to no prediction, because a prediction may never shorten or abort a
-    wake.
-    """
-    where = _clock_dir()
-    if not _ours(where):
-        return None
-    try:
-        raw = _history(card).read_text(encoding="utf-8")
-    except (OSError, ValueError):
-        return None
-    try:
-        said = json.loads(raw)
-    except ValueError:
-        return None
-    if not isinstance(said, dict):
-        return None
-    seconds = said.get("seconds")
-    if isinstance(seconds, bool) or not isinstance(seconds, (int, float)):
-        return None
-    # `isinstance(True, int)` holds, so a bool is turned away above, not read as 1.0
-    number = float(seconds)
-    return number if math.isfinite(number) else None
-
-
-def _remember(made: Wake) -> None:
-    """Write down how long a successful `up` took, as the next wake's yardstick.
-
-    Only `up` is recorded: a `sleep`, a `wake` or a `down` says nothing about
-    how long coming up takes. The directory is made 0o700 and written into only
-    when it is ours. Every failure is dropped — a record is not worth a wake,
-    and a wake with no record simply has no prediction.
-    """
-    if not made.ok or made.direction != "up":
-        return
-    try:
-        where = _clock_dir()
-        where.mkdir(parents=True, mode=0o700, exist_ok=True)
-        if not _ours(where):
-            return
-        (where / f"{_safe(made.host)}.wake.json").write_text(
-            json.dumps({"host": made.host, "seconds": round(made.seconds, 3)}),
-            encoding="utf-8",
-        )
-    except OSError:
-        return
 
 
 def _rest_mark(host: str, port: int) -> Path:
@@ -605,14 +533,11 @@ def _run_door(
 ) -> Wake:
     """Run one door for a card and answer with what it did.
 
-    The prediction is read before the door is spawned, so it is the last wake's
-    number and not this run's. `only` narrows the run to those rungs' containers
-    when the spec names every one of them; the ports recorded in the `Wake` are
-    the ones the run really acted on, which on a narrowed run is `only` and
-    otherwise every rung of the card. A `deviation` is printed as a warning when
-    there is one to print.
+    `only` narrows the run to those rungs' containers when the spec names every
+    one of them; the ports recorded in the `Wake` are the ones the run really
+    acted on, which on a narrowed run is `only` and otherwise every rung of the
+    card.
     """
-    predicted = predicted_wake_s(card)
     containers = _unit_containers(config, card, compose, only) if only else None
     acting = tuple(only) if containers is not None else card.rungs
     started = time.monotonic()
@@ -630,15 +555,10 @@ def _run_door(
         compose_file=compose,
         direction=direction,
         seconds=time.monotonic() - started,
-        predicted_s=predicted,
         code=code,
         ports=_ports(config, acting),
     )
-    _remember(made)
     _note_rest(made)
-    said = made.deviation
-    if said is not None:
-        print(f"warning: {said}", file=sys.stderr)
     return made
 
 
