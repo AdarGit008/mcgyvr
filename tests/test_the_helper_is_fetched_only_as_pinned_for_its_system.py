@@ -56,6 +56,21 @@ def test_every_pinned_helper_archive_is_named_by_the_rule_with_its_digest() -> N
     assert (wgpin.RELEASE.tag, wgpin.RELEASE.repo) == (wgpin.TAG, wgpin.REPO)
 
 
+def test_the_shipped_pin_holds_one_archive_for_each_system_the_helper_ships_for() -> (
+    None
+):
+    pinned = {asset.name for asset in wgpin.RELEASE.assets}
+    shipped = {
+        wgpin.asset_name(system, arch)
+        for system in ("darwin", "windows", "linux")
+        for arch in ("arm64", "x86_64")
+    }
+    assert pinned == shipped
+    assert len(wgpin.RELEASE.assets) == len(pinned)  # no archive pinned twice
+    assert all(wgpin.pinned_for(system, "arm64") for system in ("darwin", "windows"))
+    assert all(wgpin.pinned_for(system, "x86_64") for system in ("darwin", "windows"))
+
+
 def test_a_pinned_archive_is_known_from_the_table_without_a_fetch(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:

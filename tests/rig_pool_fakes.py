@@ -418,6 +418,8 @@ class Pool:
     relay_port: int | None = 40001
     relayed: list[Any] = field(default_factory=list)
     logged: list[str] = field(default_factory=list)
+    # the head's key each health check and warm-up was given, in order
+    keys: list[tuple[str, str | None]] = field(default_factory=list)
 
     def report(self, message_id: str = "t1") -> dict[str, Any]:
         """The tunnel_report answering tunnel_up ``message_id``, once sent."""
@@ -567,19 +569,21 @@ def make_pool(
     box = Box()
     health: list[str] = ["loading", "ok"]
 
-    def head_health(port: int) -> str:
-        return health.pop(0) if len(health) > 1 else health[0]
-
     made: list[Pool] = []
+
+    def head_health(port: int, key: str | None) -> str:
+        made[0].keys.append(("health", key))
+        return health.pop(0) if len(health) > 1 else health[0]
 
     def bind_relay(grant: Any) -> int | None:
         pool = made[0]
         pool.relayed.append(grant)
         return pool.relay_port
 
-    def warm_up(port: int, ctx: int) -> bool:
+    def warm_up(port: int, ctx: int, key: str | None) -> bool:
         pool = made[0]
         pool.warmed.append((port, ctx))
+        pool.keys.append(("warm", key))
         if pool.warm_with is not None:
             return bool(pool.warm_with(port, ctx))
         return pool.warm_answers[0]

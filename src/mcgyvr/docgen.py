@@ -531,9 +531,8 @@ def _macos_windows_section() -> list[str]:
             f"agent reads (`${HUB_KEY_ENV}`) set in `~/.zshrc` is not seen there."
         ),
         *para(
-            "On Windows, `mcgyvr rig run` does not start yet (its pooled-session "
-            "code imports a module Windows lacks, `fcntl`). When it does, a line "
-            "in your Startup folder starts it at your login with no "
+            "On Windows, a line in your Startup folder starts it at your login "
+            "with no "
             "administrator (a `schtasks /sc onlogon` task runs at any user's "
             "logon and is created from an elevated prompt). From PowerShell, "
             "and `Remove-Item` on the same path to drop it:"
