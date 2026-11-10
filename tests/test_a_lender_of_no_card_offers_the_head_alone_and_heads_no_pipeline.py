@@ -162,6 +162,33 @@ def test_a_cpu_device_heads_the_whole_model_alone(cardless: Pool) -> None:
     assert pooled.container_name("s1", "head") not in cardless.docker.runs()
 
 
+def test_a_cpu_head_is_refused_on_a_rig_that_lends_no_memory_and_cores(
+    tmp_path: Path,
+) -> None:
+    """The decision runs a whole model on *lent* cores and RAM. A card lender
+    that lends neither must refuse a cpu device whatever a hub sends, rather
+    than run a whole model on all its cores under the default container cap."""
+    from mcgyvr.rig import pooled
+
+    pool = make_pool(tmp_path, cards=(0,), ram_mb=0, cpu_cores=0)
+    try:
+        prepared(pool, role="head")
+        answer = pool.ask(
+            "head_start",
+            "h1",
+            session_id="s1",
+            model={"name": fakes.MODEL},
+            ctx=4096,
+            devices=[{"kind": "cpu"}],
+            tensor_split=[1],
+        )
+        _refused(answer, "not_capable")
+        pool.settle()
+        assert pooled.container_name("s1", "head") not in pool.docker.runs()
+    finally:
+        pool.sessions.close()
+
+
 @pytest.mark.parametrize("system", ["darwin", "windows"])
 def test_a_system_with_no_session_host_offers_no_role(
     tmp_path: Path, system: str

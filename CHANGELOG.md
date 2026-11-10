@@ -14,16 +14,19 @@ archived outside this repository, under the same paths.
 - **A rig starts a CPU head: a whole model on the cores and memory it lends, no
   card.** A `head_start` whose devices are a single `cpu` device
   (`hubwire.HEAD_DEVICE_CPU`) now starts a head that runs every layer on the
-  host's CPU (`llama-server -dev none -ngl 0`), held to the memory and cores the
-  rig lends (`sharing.head_limits`: the container's `--memory` and `--cpus`,
-  llama-server's `--threads`), where before the agent refused it `not_capable`
-  ("this agent starts no cpu head yet"). The head needs no tunnel and no card; a
-  `cpu` device is refused beside any other (it serves the whole model alone), and
-  a model whose weights and KV cache for the context asked pass the lent memory
-  is refused `insufficient_memory` naming what it needs against what is lent. A
-  rig that lends no card still heads no pipeline (`rpc` devices stay refused), and
-  `mcgyvr rig status` now says memory and cores run a whole model on the CPU
-  rather than that no hub places one. `pooled.CPU_DEVICE` is the `-dev` value
+  host's CPU (`llama-server -dev none -ngl 0`), held to the cores the rig lends
+  (`sharing.head_limits` → llama-server's `--threads`; a pooled head's container
+  also gets `--cpus` and `--memory`). The agent refuses the head unless the rig
+  actually lends both memory and cores (`not_capable`, "this rig lends no memory
+  and cores"), and refuses a model that does not fit the lent RAM
+  (`insufficient_memory`) — on a native host (macOS/Windows), which runs no
+  container, that fit check is the only thing holding the model to the lent RAM,
+  as there is no `--memory` cap. Before, the agent refused every cpu head
+  `not_capable` ("this agent starts no cpu head yet"). The head needs no tunnel
+  and no card; a `cpu` device is refused beside any other (it serves the whole
+  model alone). A rig that lends no card still heads no pipeline (`rpc` devices
+  stay refused), and `mcgyvr rig status` now says memory and cores run a whole
+  model on the CPU rather than that no hub places one. `pooled.CPU_DEVICE` is the `-dev` value
   (`none`, llama.cpp's "don't offload"), and a cpu head carries no tensor split.
 
 - **The agent channel's limits, shapes and codes are defined once, in

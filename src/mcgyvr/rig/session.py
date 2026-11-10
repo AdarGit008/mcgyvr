@@ -1561,6 +1561,16 @@ class Sessions:
             # A whole model on the host's cores and memory, no card: the lend
             # caps the container (`head_limits`), -ngl 0 keeps every layer on the
             # CPU (`-dev none`), and no tunnel or rpc worker is in play.
+            lent = {resource.kind: resource for resource in share.lent(report)}
+            if hubwire.RESOURCE_RAM not in lent or hubwire.RESOURCE_CPU not in lent:
+                # The decision runs a whole model on *lent* cores and RAM; a rig
+                # that lends neither (a card lender, say) is no cpu head's host,
+                # whatever a hub sends — the agent holds the lend for the owner.
+                return sessionwire.refusal(
+                    re,
+                    SessionCode.NOT_CAPABLE,
+                    "devices: this rig lends no memory and cores",
+                )
             memory_mb, cpus = share.head_limits(report)
             unfit = _cpu_head_unfit(held, asked, memory_mb)
             if unfit is not None:
