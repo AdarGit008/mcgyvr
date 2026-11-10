@@ -641,7 +641,9 @@ UNIT_FIELDS: tuple[Field, ...] = (
         "or Windows rig reached over ssh (its rig file, `mcgyvr scan --rig`, "
         "says so) the door ships the launcher there and it runs the same way, "
         "with no docker. Absent means `docker`; `setup` writes `native` for a "
-        "unit on a Mac or Windows machine, this one or such a rig.",
+        "unit on a Mac or Windows machine, this one or such a rig. A native Mac "
+        "or Windows rig lends a pooled head only: it starts no pooled rpc "
+        "worker, and a session asking it for one is refused.",
         choices=LAUNCHERS,
         bind_hint="e.g. native -- leave it out for a container",
     ),

@@ -11,6 +11,12 @@ archived outside this repository, under the same paths.
 
 ### Changed
 
+- **The `launcher` field text and the helper spec say a native Mac or Windows
+  rig lends a pooled head only (I-78).** Such a rig starts no pooled rpc
+  worker (`a native rig runs no rpc worker`) until the blockers in
+  `rig/HELPER-SPEC.md` section 6 are closed; the field's text (rendered into
+  `SETUP.md`) and section 6 now say so. No behaviour changes.
+
 - **A promoted fleet and a sample run's stamp are published by one helper,
   `atomic.publish_dir` (I-111).** Both built their folder in a hidden staging
   folder beside it, checked that nothing had appeared meanwhile, renamed it
