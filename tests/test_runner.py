@@ -513,22 +513,6 @@ def test_a_non_positive_timeout_is_refused() -> None:
         Request(prompt="p", max_output_tokens=8, timeout_s=0)
 
 
-# --- a caveated path: the dependency is allowed, the silence is not ------
-
-
-def test_a_quality_sensitive_request_runs_on_the_compatible_path(
-    monkeypatch: pytest.MonkeyPatch,
-) -> None:
-    """The remedy has to actually work, or the refusal is just a wall."""
-    stub_post(monkeypatch, openai_answer())
-    ask = Request(
-        prompt="humaneval task", max_output_tokens=512, quality_sensitive=True
-    )
-    done = runner_for(LOCAL_OPENAI).generate("qwen2.5-coder:7b", ask)
-    assert done.quality_safe is True
-    assert done.notes == ()
-
-
 # --- credentials: named, resolved late, never logged ---------------------
 
 

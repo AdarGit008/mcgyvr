@@ -515,7 +515,6 @@ def build_record(
         context_length=Number(n_ctx, "fact", header, today),
         kv_bytes_per_token=Number(kv, "fact", header, today),
         recurrent_bytes_per_slot=Number(recurrent, "fact", header, today),
-        scores=(),
         use_cases=tuple(use_cases),
         downloads=Number(one.downloads, "fact", f"hub-search:{searched}", today),
         likes=Number(one.likes, "fact", f"hub-search:{searched}", today),

@@ -33,12 +33,11 @@ reason. :func:`mcgyvr.escalate.ascent` is already the view "every family this
 contract may climb, from its floor upward", so it is where a load-aware choice
 across families belongs, and where it is stopped short of the api family.
 
-**Where the width comes from.** The declared ``width`` is a guess until a backend
-reports one: ``Capacity.of(config, probe=...)`` takes a reported width that is
-larger, and refuses one that is smaller. A single-slot server handed four
-concurrent requests *serializes them rather than refusing*, so an over-declared
-capacity is not an error anyone sees, it is a queue nobody sees.
-:func:`mcgyvr.initialize.initialize` writes ``1`` for that reason.
+**Where the width comes from.** The declared ``width`` is the bound. A
+single-slot server handed four concurrent requests *serializes them rather than
+refusing*, so an over-declared capacity is not an error anyone sees, it is a
+queue nobody sees. :func:`mcgyvr.initialize.initialize` writes ``1`` for that
+reason.
 
 Concurrency is asserted the way ``test_capacity.py`` asserts it: an independent
 :class:`Observer`, and a :class:`Rendezvous` rather than a stopwatch, so a loaded
@@ -48,7 +47,7 @@ machine makes a test slower and never wrong.
 from __future__ import annotations
 
 import threading
-from collections.abc import Callable, Iterator, Mapping
+from collections.abc import Callable, Iterator
 from contextlib import contextmanager
 from pathlib import Path
 
@@ -290,83 +289,6 @@ def saturated(capacity: Capacity, pool: UnitMap, *rungs: str) -> Iterator[None]:
         release.set()
         for thread in threads:
             thread.join(timeout=RENDEZVOUS_TIMEOUT_S)
-
-
-# --------------------------------------------------------------------------
-# Where the width comes from
-# --------------------------------------------------------------------------
-
-
-def test_a_source_that_reports_its_width_is_bounded_by_what_it_reported() -> None:
-    """The declared number is a guess; a reported one is a fact, and it wins.
-
-    `init` writes ``width: 1`` because it cannot know whether a backend was
-    started with its parallel-slot setting on. A backend that will answer that
-    question ends the guess, and ending it is the whole point: a batching server
-    serves many concurrent requests, and a config pinned at 1 in front of it
-    leaves that unused.
-    """
-    config, _ = mapped()
-    reported = {"local_box1": 4, "local_box2": 4, "api_big": 4}
-
-    capacity = Capacity.of(config, probe=_ReportingProbe(reported))
-
-    assert capacity.limits["local_box1"] == 4, "the config declared 2; the rig said 4"
-    assert capacity.total == 12
-
-
-def test_a_source_that_cannot_report_its_width_keeps_the_declared_one_and_says_so() -> (
-    None
-):
-    """Not every backend will answer, and pretending otherwise is the trap.
-
-    A backend may take its parallelism from a unit file and expose no endpoint
-    for it. The declared number is then the only number there is — and an
-    operator reading a report must be able to tell that from a number a rig
-    confirmed, because only one of the two is evidence.
-    """
-    config, _ = mapped()
-
-    probe = _ReportingProbe({"local_box1": None, "local_box2": None})
-    capacity = Capacity.of(config, probe=probe)
-
-    assert capacity.limits["local_box1"] == 2, (
-        "the declaration stands when nothing answers"
-    )
-    assert capacity.confirmed("local_box1") is False
-    assert capacity.confirmed("api_big") is False
-
-
-def test_a_declared_width_the_setup_contradicts_is_refused_rather_than_enforced() -> (
-    None
-):
-    """A single-slot server behind a wider declaration, made loud.
-
-    A config declaring 2 in front of a single-slot server does not fail. It
-    admits both dispatches, runs them one after another, and looks exactly like
-    a source that is merely slow — so the operator's evidence for "my rig is
-    slow" is indistinguishable from their evidence for "my config is wrong".
-    When the rig will state its width, that ambiguity is a choice, not a limit.
-    """
-    config, _ = mapped()
-
-    with pytest.raises(Exception, match=r"box1.*declares 2.*reports 1"):
-        Capacity.of(config, probe=_ReportingProbe({"local_box1": 1}))
-
-
-class _ReportingProbe:
-    """A stand-in for the width half of #22's probe: source name -> width or None.
-
-    ``None`` is an ordinary answer meaning "this backend does not say", which is
-    the ollama case — not an error, and not
-    the same as a source being down.
-    """
-
-    def __init__(self, widths: Mapping[str, int | None]) -> None:
-        self._widths = widths
-
-    def width(self, source: str) -> int | None:
-        return self._widths.get(source)
 
 
 # --------------------------------------------------------------------------

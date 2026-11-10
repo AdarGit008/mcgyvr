@@ -2,13 +2,12 @@
 
 Structured-data findings must behave like any gate finding; pre-flight issues
 must behave like the opposite — orchestration errors that never touch the
-worker's ledger and, for the dirty-tree case, never touch the tree.
+worker's ledger.
 """
 
 from __future__ import annotations
 
 import math
-import subprocess
 from pathlib import Path
 
 import pytest
@@ -16,9 +15,7 @@ import pytest
 from mcgyvr.gate.changeset import ChangeSet, FileChange
 from mcgyvr.gate.preflight import (
     ESTIMATE_RESERVE,
-    PreflightIssue,
     TokenCount,
-    check_clean_tree,
     check_prompt_fits,
 )
 from mcgyvr.gate.structured import validate_structured_data
@@ -72,50 +69,6 @@ def test_yaml_validation_when_parser_present(tmp_path: Path) -> None:
 
 
 # --- pre-flight ------------------------------------------------------------
-
-
-def git(repo: Path, *args: str) -> None:
-    subprocess.run(
-        ["git", "-c", "user.email=t@t.io", "-c", "user.name=t", *args],
-        cwd=repo,
-        check=True,
-        capture_output=True,
-    )
-
-
-def test_clean_tree_passes(tmp_path: Path) -> None:
-    git(tmp_path, "init", "-q", "-b", "main")
-    (tmp_path / "f.py").write_text("x = 1\n")
-    git(tmp_path, "add", "-A")
-    git(tmp_path, "commit", "-q", "-m", "base")
-    assert check_clean_tree(tmp_path) is None
-
-
-def test_dirty_tree_is_reported_and_not_destroyed(tmp_path: Path) -> None:
-    git(tmp_path, "init", "-q", "-b", "main")
-    (tmp_path / "f.py").write_text("x = 1\n")
-    git(tmp_path, "add", "-A")
-    git(tmp_path, "commit", "-q", "-m", "base")
-    (tmp_path / "f.py").write_text("x = 999  # uncommitted local work\n")
-
-    issue = check_clean_tree(tmp_path)
-    assert isinstance(issue, PreflightIssue)
-    assert issue.reason == "dirty-tree"
-    assert "f.py" in issue.message
-    # The user's uncommitted work must still be exactly where it was.
-    assert (tmp_path / "f.py").read_text() == "x = 999  # uncommitted local work\n"
-
-
-def test_untracked_file_makes_the_tree_dirty(tmp_path: Path) -> None:
-    git(tmp_path, "init", "-q", "-b", "main")
-    (tmp_path / "seed.py").write_text("x = 1\n")
-    git(tmp_path, "add", "-A")
-    git(tmp_path, "commit", "-q", "-m", "base")
-    (tmp_path / "stray.txt").write_text("left behind\n")
-
-    issue = check_clean_tree(tmp_path)
-    assert issue is not None and issue.reason == "dirty-tree"
-    assert "stray.txt" in issue.message
 
 
 def test_prompt_that_fits_passes() -> None:

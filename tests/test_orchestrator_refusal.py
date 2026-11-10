@@ -18,12 +18,12 @@ from mcgyvr.decompose.decompose import (
     Decomposition,
     DepRef,
     Proposal,
-    RecordedProposer,
     Refusal,
     decompose,
 )
 from mcgyvr.repo.index import Index, build_index
 from tests.decomposes import an_annotation, git
+from tests.recorded_proposer import RecordedProposer
 
 
 @pytest.fixture
