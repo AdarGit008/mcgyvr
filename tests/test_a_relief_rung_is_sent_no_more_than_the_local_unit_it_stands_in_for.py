@@ -6,7 +6,8 @@ rung is another person's unit and declares nothing, so its maximum is the
 reply room of the local unit it stands in for — the first usable rung of the
 rider's own ladder, the one a ride stands in for when it is full:
 
-* local unit 2048: the ride is sent 2048, whatever the contract states;
+* local unit 2048: the ride is sent 2048, however much more the contract states
+  (a contract's own smaller cap is sent instead, as on any rung);
 * a local unit that declares none: the ride has no ceiling, and is sent none;
 * the rider's own rungs are sent their own unit's maximum.
 
@@ -81,7 +82,7 @@ def cap(contract_: Contract, rung: str, pool_: SourceMap) -> int | None:
 @pytest.mark.parametrize(
     ("declared", "local", "sent"),
     [
-        (8192, 2048, 2048),  # the contract's cap is not sent
+        (8192, 2048, 2048),  # a larger contract cap does not raise it
         (1024, 2048, 2048),
         (None, 2048, 2048),
         (1024, None, None),  # the local unit declares none: nothing to send
@@ -118,4 +119,6 @@ def test_the_local_units_room_is_what_reaches_the_wire(
     dispatch_prompt(pool(2048), RIDE, build_prompt(large), large)
     dispatch_prompt(pool(2048), LOCAL, build_prompt(small), small)
 
-    assert seen == [(RIDE, 2048), (LOCAL, 2048)]
+    # The ride holds the larger contract to the local unit's 2048; the smaller
+    # contract's own 1024 is below its unit's maximum, so 1024 is sent.
+    assert seen == [(RIDE, 2048), (LOCAL, 1024)]

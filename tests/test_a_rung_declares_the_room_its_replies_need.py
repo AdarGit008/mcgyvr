@@ -3,7 +3,8 @@
 A unit may declare ``output_tokens``. Every request is sent its unit's maximum:
 that number, clamped to the room the unit's window leaves the prompt
 (``tests/test_every_generating_request_is_sent_its_units_maximum.py``). A
-contract's own ``limits.max_output_tokens`` is read and never sent.
+contract's own ``limits.max_output_tokens`` is sent instead only where it is
+smaller.
 
 What is asserted below: a unit may declare the room its replies are given; a
 rung that declared room is sent it, and one that declared none is sent what its
@@ -81,24 +82,32 @@ def test_a_rung_may_declare_the_room_its_replies_need() -> None:
 def test_each_rung_is_sent_its_own_units_maximum(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    """The dear rung declares 2048 and is sent it, not the contract's 1024; the
-    cheap one declares nothing and is sent the room its window leaves."""
+    """The dear rung declares 2048 and is sent it; the cheap one declares
+    nothing and is sent the room its window leaves. A contract stating 1024,
+    below both, is sent its 1024 on each."""
     from mcgyvr.drive import dispatch_prompt
     from mcgyvr.gate.preflight import unit_ceiling
     from mcgyvr.worker.prompt import build_prompt
 
     sent = caps_sent(monkeypatch)
     pool = source_map(parse_config(cfg(LADDER)))
-    contract = load_contract(CONTRACT)
-    prompt = build_prompt(contract)
+    capped = load_contract(CONTRACT)
+    uncapped = load_contract(
+        CONTRACT.replace("limits:\n  max_output_tokens: 1024\n", "")
+    )
+    assert uncapped.limits.max_output_tokens is None
+    assert capped.limits.max_output_tokens == 1024
+    prompt = build_prompt(uncapped)
     cheap, dear = "local_qwen2.5-coder-3b", "local_qwen3.6-35b-a3b"
     room = unit_ceiling(pool.bind(cheap), prompt.measured).tokens
     assert room is not None and room > 2048
 
-    dispatch_prompt(pool, cheap, prompt, contract)
-    dispatch_prompt(pool, dear, prompt, contract)
+    dispatch_prompt(pool, cheap, prompt, uncapped)
+    dispatch_prompt(pool, dear, prompt, uncapped)
+    dispatch_prompt(pool, cheap, build_prompt(capped), capped)
+    dispatch_prompt(pool, dear, build_prompt(capped), capped)
 
-    assert sent == [(cheap, room), (dear, 2048)]
+    assert sent == [(cheap, room), (dear, 2048), (cheap, 1024), (dear, 1024)]
 
 
 # --- a contract cap that fits the rung's ceiling -------------------------

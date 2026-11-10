@@ -4,8 +4,8 @@ The cap model is decided by task type,
 and the preview is where an author reads which rule their contract is under
 before anything is spent:
 
-* model-written `code`: its reply is sent the unit's maximum, and a stated
-  ``limits.max_output_tokens`` is named as not sent;
+* model-written `code`: its reply is sent the unit's maximum, or a stated
+  ``limits.max_output_tokens`` where that is smaller, and the preview names it;
 * a deterministic operation calls no model: no output cap and no attempts.
   It used to print ``<=256 output tokens ... 2 attempt(s)``, a cap and a retry
   budget for a model that is never called.
@@ -50,13 +50,13 @@ def limits(tmp_path: Path, text: str, capsys: pytest.CaptureFixture[str]) -> str
     return next((line.strip() for line in out.splitlines() if "limits:" in line), "")
 
 
-def test_code_with_a_cap_says_the_cap_is_not_sent(
+def test_code_with_a_cap_says_the_cap_is_sent(
     tmp_path: Path, capsys: pytest.CaptureFixture[str]
 ) -> None:
     said = limits(tmp_path, CODE + "limits:\n  max_output_tokens: 512\n", capsys)
     assert said.startswith(
-        "limits:  reply at its unit's maximum (limits.max_output_tokens: 512 "
-        "is not sent)"
+        "limits:  reply at most 512 tokens (limits.max_output_tokens), or its "
+        "unit's maximum if smaller,"
     ), said
 
 

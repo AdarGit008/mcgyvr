@@ -5,7 +5,8 @@ a contract or its prompt does not fit a rung; :func:`refuse_unsendable_climb`
 applies the same check to every climbable rung of the climb before the first
 attempt, so a rung that cannot be sent to ends the run before anything is spent
 on the rungs below it. :func:`dispatch_prompt` sets the reply cap at the unit's
-maximum within the room the prompt leaves, and hands the request to the runner.
+maximum within the room the prompt leaves, or the contract's own smaller cap, and
+hands the request to the runner.
 `_base_content` reads the contract target's current content out of the sandbox,
 and `_as_sent` renders a prompt as the chat messages a runner is given, for
 recording the dispatch.
@@ -26,7 +27,7 @@ from mcgyvr.escalate import ascent
 from mcgyvr.gate.preflight import (
     ServingWindow,
     check_contract_against_rung,
-    unit_max,
+    contract_cap,
 )
 from mcgyvr.runner import Completion, Request
 from mcgyvr.scope import inside
@@ -134,9 +135,9 @@ def dispatch_prompt(
 
     The rung is bound and put through :func:`refuse_unsendable` first, so nothing
     reaches the runner for a contract or prompt that cannot be sent. The reply cap
-    is then the unit's maximum within the room the prompt's measured tokens leave
-    (`unit_max`) — never a number the contract states — and the `Request`
-    carries the prompt's
+    is then the unit's maximum within the room the prompt's measured tokens leave,
+    or the contract's `limits.max_output_tokens` where that is smaller
+    (`contract_cap`), and the `Request` carries the prompt's
     system and user text, that cap, the cap's basis, and the
     timeout and temperature when they are not None — those two fields are omitted
     from the request rather than sent as nulls. `capacity`, when given, is passed
@@ -146,9 +147,10 @@ def dispatch_prompt(
     refuse_unsendable(rung, endpoint, prompt, contract, window_fraction=window_fraction)
     # Every refusal happens here, before the runner is touched: a contract the
     # rung cannot take costs nothing.
-    cap = unit_max(endpoint, prompt.measured)
+    cap = contract_cap(endpoint, prompt.measured, contract)
     # The cap is the most the unit can give, clamped to the room this prompt
-    # leaves its window, and it is sent as a hard limit on the reply.
+    # leaves its window (or the contract's own smaller cap), and it is sent as a
+    # hard limit on the reply.
     # Its basis travels with it so the journal can say where the number came from.
     fields: dict[str, Any] = {
         "prompt": prompt.user,

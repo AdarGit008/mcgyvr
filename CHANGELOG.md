@@ -11,6 +11,18 @@ archived outside this repository, under the same paths.
 
 ### Changed
 
+- **A contract's `limits.max_output_tokens` is sent (I-102).** It was read,
+  shown and never sent: every attempt was sent its unit's maximum. Now an
+  attempt is sent the smaller of the two (`gate.preflight.contract_cap`), the
+  journal's `cap_basis` names the contract's key when its number wins, and a
+  reply cut off at it is the named failure a cut-off reply always was. A
+  contract that states none is sent the unit's maximum, as before. A contract
+  whose cap is below what its file needs now fails every attempt instead of
+  running uncapped. The `mcgyvr contract` preview says `reply at most N tokens
+  (limits.max_output_tokens), or its unit's maximum if smaller` in place of
+  `... is not sent`. The setup's `mcgyvr-code` sample no longer states 1024, so
+  it is still sent its unit's maximum.
+
 - **`mcgyvr recommend` asks placement whether a model fits (I-47).** Its own
   arithmetic left out the scratch allowance and the RAM rule placement applies,
   so it could recommend what placement then refused. A checkpoint is now a
