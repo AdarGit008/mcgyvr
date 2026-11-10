@@ -1,7 +1,7 @@
 """The decomposer takes located checkers from a caller instead of reading the disk.
 
 A `code` proposal with `type_check: true` needs the checker the repository declared, and
-:func:`~mcgyvr.orchestrator.decompose._acceptance_for` finds it by asking the
+:func:`~mcgyvr.decompose.decompose._acceptance_for` finds it by asking the
 owning adapter to read the repository's configuration. A server that holds an
 index assembled from a document has no repository under
 ``index.root`` — the root is a label there — so ``decompose`` takes the
@@ -16,8 +16,8 @@ from __future__ import annotations
 
 from pathlib import Path
 
-from mcgyvr.orchestrator.decompose import RecordedProposer, decompose
-from mcgyvr.orchestrator.index import Index, build_index
+from mcgyvr.decompose.decompose import RecordedProposer, decompose
+from mcgyvr.repo.index import Index, build_index
 from tests.decomposes import an_annotation, declaring_mypy
 from tests.livejournal import git
 

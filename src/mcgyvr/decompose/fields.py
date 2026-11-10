@@ -1,7 +1,7 @@
 """Per-field jev choice rendering for the classifier proposer (W3).
 
 Each W3 field is asked as one :class:`~mcgyvr.decision.Choice` whose option keys
-are the candidate ids of the W2 :class:`~mcgyvr.orchestrator.candidates.CandidateSet`
+are the candidate ids of the W2 :class:`~mcgyvr.decompose.candidates.CandidateSet`
 and whose option texts are the per-field rendered lines. The abstain option is a
 real candidate (the empty/default sentinel) that renders its human sentence
 here; no field reserves a letter, and the letter a candidate shows under is the
@@ -25,12 +25,12 @@ from typing import Any
 
 from mcgyvr.catalog import catalog
 from mcgyvr.decision import Choice
-from mcgyvr.orchestrator.candidates import (
+from mcgyvr.decompose.candidates import (
     _NO_SYMBOL,
     CandidateSet,
     FieldCandidate,
 )
-from mcgyvr.orchestrator.decompose import DepRef
+from mcgyvr.decompose.decompose import DepRef
 
 #: The fields W3 asks the jev unit, in the dependency order the proposer follows.
 FIELD_ORDER: tuple[str, ...] = (

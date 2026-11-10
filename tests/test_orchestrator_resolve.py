@@ -17,8 +17,8 @@ from pathlib import Path
 
 import pytest
 
-from mcgyvr.orchestrator.index import Index, build_index
-from mcgyvr.orchestrator.resolve import Verdict, _fold, _tokenize, resolve
+from mcgyvr.repo.index import Index, build_index
+from mcgyvr.repo.resolve import Verdict, _fold, _tokenize, resolve
 
 
 def git(repo: Path, *args: str) -> None:

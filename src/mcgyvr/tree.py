@@ -48,8 +48,8 @@ from enum import StrEnum
 from typing import Any, Protocol
 
 from mcgyvr.contract import Contract
-from mcgyvr.orchestrator.provides import declared_names, identifiers, renames
-from mcgyvr.orchestrator.symbols import SymbolKind, extract, language_of
+from mcgyvr.decompose.provides import declared_names, identifiers, renames
+from mcgyvr.repo.symbols import SymbolKind, extract, language_of
 
 #: The outcome a held contract's result is written with.
 BLOCKED = "blocked"

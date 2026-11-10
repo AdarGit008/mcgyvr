@@ -11,7 +11,7 @@ The prose proposer is shown the refused proposal and its refusal as data
 (`render`), in the shape a re-plan shows a spent contract (`mcgyvr.replan`):
 under a section that says what it is, one value per line, flattened and held
 to `replan.MAX_LINE_CHARS`, closed by a line nothing rendered can be. The
-classifier re-asks the refused field instead (`orchestrator.iterate.reask`).
+classifier re-asks the refused field instead (`decompose.iterate.reask`).
 """
 
 from __future__ import annotations
@@ -24,7 +24,7 @@ from mcgyvr.replan import flat
 
 if TYPE_CHECKING:  # pragma: no cover - typing only
     from mcgyvr.config import Config
-    from mcgyvr.orchestrator.decompose import Refused
+    from mcgyvr.decompose.decompose import Refused
 
 #: The line that closes the section; no rendered line can be it, since every
 #: value is flattened onto one line behind a label.

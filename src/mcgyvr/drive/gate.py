@@ -6,11 +6,12 @@ over the tree the model left — the contract's scope and the secret scan first,
 then the structured-data check, the language adapters, the type check, the
 semantic rung and the contract's acceptance commands, each skipped once an
 earlier one has recorded a finding, with the contract's prose passed to the
-rungs that read it. Delivery does not come through here: it builds its own
-``Gate`` over the delivered changes (``mcgyvr.deliver._judged``), which runs
-the secret scan, the structured-data check and the run's language adapters
-(none when ``gate.enabled`` is off, see ``gate_adapters``), and none of the
-type check, the semantic rung or the acceptance commands.
+rungs that read it. Delivery does not come through here: it re-checks the
+contract's scope over the resolved paths, then builds its own ``Gate`` over
+the delivered changes (``mcgyvr.deliver._judged``), which runs the secret
+scan, the structured-data check and the run's language adapters (none when
+``gate.enabled`` is off, see ``gate_adapters``), and none of the type check,
+the semantic rung or the acceptance commands.
 
 The rest of the module is what the attempt loop composes around it: a
 draw that left its target unchanged refused before the gate runs
