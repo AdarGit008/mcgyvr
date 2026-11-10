@@ -25,6 +25,7 @@ import http.client
 import io
 import json
 import socket
+import sys
 import threading
 import time
 import urllib.parse
@@ -38,6 +39,12 @@ from mcgyvr import hubwire, seal, unitkey, whole
 from mcgyvr.rig import commands, protocol, sessionwire
 from mcgyvr.rig.protocol import ErrorCode, ProtocolError
 from mcgyvr.rig.sessionwire import SessionCode
+
+
+def _log(line: str) -> None:
+    """Say one line of this agent's log on stderr, flushed as it is written."""
+    print(line, file=sys.stderr, flush=True)
+
 
 #: The default cap on the relays this rig runs at once. A session's relays are
 #: held to its head's slot count or this, whichever is lower; the rides on all
@@ -212,8 +219,10 @@ class Relays:
         clock: Callable[[], float] = time.monotonic,
         units: Units | None = None,
         key: seal.HostKey | None = None,
+        log: Callable[[str], None] = _log,
     ) -> None:
         self._heads = heads
+        self._log = log
         self._units = units
         self._key = key
         self._send = send
@@ -397,13 +406,16 @@ class Relays:
         """The hub has left a relay, which is ended as cancelled on a thread of its own.
 
         That thread reads what the head's slot had made before hanging up, so the
-        thread that hears the hub never waits on a head.
+        thread that hears the hub never waits on a head. The reason the hub gives, if
+        any, is said in the log.
         """
         asked = sessionwire.read_relay_cancel(envelope)
         with self._lock:
             relay = self._active.get(asked.request_id)
         if relay is None:
             return
+        why = asked.reason or "no reason given"
+        self._log(f"relay {asked.request_id}: the hub cancels it: {why}")
         threading.Thread(
             target=self._leave, args=(relay,), name="mcgyvr-relay", daemon=True
         ).start()

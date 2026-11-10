@@ -353,3 +353,36 @@ def test_a_relay_end_says_both_counts_or_neither() -> None:
     for made in ((-1, 7), (40, -1), (1 << 40, 7)):
         with pytest.raises(ValueError):
             sessionwire.relay_end("q1", outcome="cancelled", made=made)
+
+
+def test_the_reason_the_hub_cancels_for_is_said_in_the_log() -> None:
+    """The hub's reason reaches the rig's log, so the log tells why a relay
+    ended; a cancel that gives none says so."""
+    from mcgyvr.rig import commands, relay
+
+    head = Head()
+    head.server = _serve(head)
+    logged: list[str] = []
+    relays = relay.Relays(
+        heads=Heads(head.port, 2), send=(box := fakes.Box()).put, log=logged.append
+    )
+    dispatcher = commands.Dispatcher()
+    relay.register(dispatcher, relays)
+    rig = Rig(head, box, relays, dispatcher)
+    try:
+        rig.ask("q1")
+        rig.answering("q1")
+        rig.send("relay_cancel", "c-q1", request_id="q1", reason="requester_left")
+        rig.ended("q1")
+        rig.ask("q2")
+        rig.answering("q2")
+        rig.cancel("q2")
+        rig.ended("q2")
+    finally:
+        head.page_free.set()
+        relays.cancel_all()
+        head.server.shutdown()
+    assert logged == [
+        "relay q1: the hub cancels it: requester_left",
+        "relay q2: the hub cancels it: no reason given",
+    ]
