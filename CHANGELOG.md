@@ -889,8 +889,8 @@ archived outside this repository, under the same paths.
 
 ### Fixed
 
-- Prose says what the code does, with no behaviour change. The host's verb
-  that prints a run's seal key id is `rig run` (there is no `rig up`);
+- Prose says what the code does, with no behaviour change. The host's `rig
+  run` and `rig join` print a run's seal key id (there is no `rig up`);
   SECURITY.md cites `Sharing.image`, `_image` and `rpc_proto=` instead of line
   numbers that had moved; `--orchestrator` is not described as a working
   alias, since the CLI refuses it; README's, docgen's and the Makefile's lists
