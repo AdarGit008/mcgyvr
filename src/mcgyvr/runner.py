@@ -85,14 +85,6 @@ _ERROR_BODY_CHARS = 400
 # backend holds the reply to.
 _RESPONSE_SCHEMA_NAME = "reply"
 
-#: The sentence carried by a reply from a path that cannot back a quality
-#: measurement. It is put in a `Completion`'s notes, and is quoted when a
-#: quality-sensitive request is refused on such a path rather than answered.
-CAVEAT_NOTE = (
-    "Served by a path this build marks as unable to carry a quality "
-    "measurement. Usable for work, not for measuring a model."
-)
-
 
 class RunnerError(Exception):
     """Base of every error one dispatch at one endpoint can raise."""
@@ -275,11 +267,6 @@ class ProtocolError(RunnerError):
     is not a string, malformed tool calls, or a body that is not JSON."""
 
 
-class QualityCaveatError(RunnerError):
-    """A quality-sensitive request was refused because the path it would run on
-    cannot carry a quality measurement."""
-
-
 class WrongWeightsError(RunnerError):
     """The endpoint answered from weights other than the model it was asked for,
     so the reply is not a completion for that model and must not be recorded as
@@ -360,7 +347,6 @@ class Request:
     system: str = ""
     temperature: float = 0.0
     timeout_s: float | None = None
-    quality_sensitive: bool = False
     response_schema: dict[str, Any] | None = None
     turns: tuple[Mapping[str, Any], ...] = ()
     tools: tuple[Mapping[str, Any], ...] = ()
@@ -396,8 +382,7 @@ class Completion:
     """One dispatch's answer: the text, why it stopped, what the backend said
     about tokens, and the rates measured around the request.
 
-    `notes` carries the caveats that have to travel with it, and `quality_safe`
-    says whether it may be used as a quality measurement at all.
+    `notes` carries the caveats that have to travel with it.
     """
 
     text: str
@@ -411,7 +396,6 @@ class Completion:
     input_tokens: int | None = None
     output_tokens: int | None = None
     served_model: str | None = None
-    quality_safe: bool = True
     notes: tuple[str, ...] = ()
     decode_tok_s: float | None = None
     decode_source: str | None = None
@@ -499,20 +483,15 @@ class _Parsed:
 class Runner(ABC):
     """One protocol path on one endpoint.
 
-    A subclass states which path it speaks (`protocol`, `path`), whether a reply
-    on it can back a quality measurement (`quality_safe`), and whether it can be
-    sent a pinned schema (`honours_response_schema`), and it builds and reads its
-    own payload. This class does the dispatch: it refuses a request the path
-    cannot carry, posts the body, and maps every answer that is not the one asked
-    for onto a `RunnerError`.
+    A subclass states which path it speaks (`protocol`, `path`) and whether it
+    can be sent a pinned schema (`honours_response_schema`), and it builds and
+    reads its own payload. This class does the dispatch: it refuses a request
+    the path cannot carry, posts the body, and maps every answer that is not the
+    one asked for onto a `RunnerError`.
     """
 
     protocol: ClassVar[Protocol]
     path: ClassVar[str]
-    # Whether a reply on this path may be recorded as a quality measurement. It is
-    # `True` where the path carries the model's own sampling and its token counts;
-    # a path that drops either cannot back a measurement.
-    quality_safe: ClassVar[bool] = True
     # Whether this path has a parameter to send a pinned response schema. Where
     # there is none, the schema is not sent, the reply is prose the parser falls
     # back to reading, and `_notes` says so on the reply rather than letting it
@@ -528,17 +507,9 @@ class Runner(ABC):
         A request that states no cap is sent the unit's maximum
         (`at_unit_max`). The status page is polled before and after the
         request, so the derived throughput and in-flight figures cover the
-        window the reply came from. Raises `QualityCaveatError` before anything
-        is sent when the path cannot carry a quality-sensitive request, and
-        otherwise one of the `RunnerError` subclasses for every answer that is
-        not the one asked for.
+        window the reply came from. Raises one of the `RunnerError` subclasses
+        for every answer that is not the one asked for.
         """
-        if request.quality_sensitive and not self.quality_safe:
-            raise QualityCaveatError(
-                f"refusing a quality-sensitive request on the "
-                f"{self.protocol} path of source {self.endpoint.source!r}. "
-                f"{CAVEAT_NOTE}"
-            )
         if self.endpoint.relief:
             held = _held_out_of_scope(self.endpoint)
             if held is not None:
@@ -626,7 +597,6 @@ class Runner(ABC):
             input_tokens=parsed.input_tokens,
             output_tokens=parsed.output_tokens,
             served_model=parsed.served_model,
-            quality_safe=self.quality_safe,
             notes=self._notes(parsed, stop_reason, request),
             decode_tok_s=decode_tok_s,
             decode_source=decode_source,
@@ -680,13 +650,11 @@ class Runner(ABC):
     ) -> tuple[str, ...]:
         """The caveats that have to travel with this reply, in the order listed.
 
-        The quality caveat, a schema the path could not send, the three ways a
-        length stop is read, an unrecognised stop reason, and a backend that went
-        over the cap it was sent.
+        A schema the path could not send, the three ways a length stop is read,
+        an unrecognised stop reason, and a backend that went over the cap it was
+        sent.
         """
         notes: list[str] = []
-        if not self.quality_safe:
-            notes.append(CAVEAT_NOTE)
         if request.response_schema is not None and not self.honours_response_schema:
             notes.append(
                 f"a response schema was pinned and the {self.protocol} path has "
