@@ -182,6 +182,19 @@ archived outside this repository, under the same paths.
 
 ### Added
 
+- **A rig's hello names each model's quantisation (`quant`), so a hub can plan
+  by the wire's decode rule.** The hub's planner bounded a device's decode
+  speed by its memory bandwidth alone, because the rig never said a model's
+  quantisation and `hubwire.decode_ms_per_gib` needs one. `ModelInfo` now
+  carries `quant`, the quantisation the file's name spells (`Q4_K_M`, `BF16`),
+  read by `knowledge.hub.quant_of`, the reading the product's own decode
+  estimate takes; a name that spells none (a split model's first part among
+  them) sends none. The field is in the hub's published schema
+  (`hubwire_schemas/protocol.schema.json`) as an optional short tag. It is
+  additive: a hub from before it ignores the field (its models read with
+  `extra="ignore"`), and a hub that reads it plans without it for an agent
+  that does not send it.
+
 - **A ride is sealed end to end, rider to host: the hub carries ciphertext.**
   The host's agent makes an X25519 key each time it starts (`mcgyvr.seal`, in
   memory only) and names it on every unit it advertises (`unit_advert`'s

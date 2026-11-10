@@ -66,6 +66,7 @@ def test_the_agents_session_limits_shapes_and_sets_are_the_schemas(
     assert model["size_bytes"]["maximum"] == p.MAX_MODEL_BYTES
     assert _branch(model["digest"])["pattern"] == f"^{p.DIGEST.pattern}$"
     assert _branch(model["arch"])["pattern"] == f"^{p.SHORT_TAG.pattern}$"
+    assert _branch(model["quant"])["pattern"] == f"^{p.SHORT_TAG.pattern}$"
     assert _branch(model["n_layers"])["maximum"] == p.MAX_LAYERS
     assert _branch(model["n_ctx_train"])["maximum"] == p.MAX_COUNT
     assert _branch(model["kv_bytes_per_token"])["maximum"] == p.MAX_KV_BYTES_PER_TOKEN
@@ -132,6 +133,7 @@ def _agent_frames() -> list[str]:
             kv_bytes_per_token=p.MAX_KV_BYTES_PER_TOKEN,
             embd_bytes=p.MAX_MODEL_BYTES,
             output_bytes=0,
+            quant="UD-Q4_K_XL",
         )
         for i in range(p.MAX_MODELS)
     )
@@ -241,6 +243,21 @@ def test_the_agent_refuses_to_write_a_session_frame_the_schema_refuses() -> None
                 runtime=None,
                 endpoints=(),
                 models=(p.ModelInfo(name="../x.gguf", size_bytes=1),),
+                sessions=(),
+            ),
+        ),
+        lambda: p.hello(
+            "h",
+            machine_id="m",
+            agent_version="1",
+            ram_total_mb=1,
+            ram_free_mb=None,
+            cards=(),
+            offer=p.Offer(
+                roles=(),
+                runtime=None,
+                endpoints=(),
+                models=(p.ModelInfo(name="x.gguf", size_bytes=1, quant="Q4 K"),),
                 sessions=(),
             ),
         ),
