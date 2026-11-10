@@ -60,7 +60,7 @@ TWO_ON_BOX1["units"]["box1_coder"] = {
     "output_tokens": 2048,
     "request_timeout_s": 180,
     "room_mib": 3000,
-    "launch": {"flags": ["-c", "4096", "-ngl", "99"]},
+    "launch": {"argv": ["-c", "4096", "-ngl", "99"]},
 }
 TWO_ON_BOX1["fleets"]["b-small"]["layout"]["box1"] = [
     ["box1_deepseek", "awake"],

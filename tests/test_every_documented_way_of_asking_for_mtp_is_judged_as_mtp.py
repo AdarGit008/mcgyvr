@@ -50,7 +50,7 @@ def test_the_one_word_form_in_the_argv_is_mtp(offload: list[str]) -> None:
         {"argv": [*BASE, "--cpu-moe"]},
         {"spec_draft_n_max": 3},
     ],
-    ids=["alone", "n_cpu_moe", "cpu_moe_flag", "draft_width"],
+    ids=["alone", "argv_n_cpu_moe", "argv_cpu_moe", "draft_width"],
 )
 def test_speculative_mtp_in_the_launch_block_is_mtp(beside: dict[str, Any]) -> None:
     unit = _llamacpp(speculative="mtp", **beside)
