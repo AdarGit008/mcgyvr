@@ -31,22 +31,19 @@ from mcgyvr.board import GitSource
 from mcgyvr.catalog import catalog
 from mcgyvr.config import ConfigSchemaError, parse
 from mcgyvr.decision import Choice, Noul
-from mcgyvr.delegate import ClassifierProposer, proposer_by_authoring
-from mcgyvr.gate.adapters import JavaScriptAdapter, PythonAdapter
-from mcgyvr.local_pool import source_map
-from mcgyvr.orchestrator.baseline import BaselineObservation
-from mcgyvr.orchestrator.decompose import (
+from mcgyvr.decision_log import ShadowSink, read
+from mcgyvr.decompose.baseline import BaselineObservation
+from mcgyvr.decompose.decompose import (
     Evidence,
     Proposal,
     Refusal,
     decompose,
     emit_one,
 )
-from mcgyvr.orchestrator.fields import FIELD_ORDER
-from mcgyvr.orchestrator.index import Index
-from mcgyvr.orchestrator.read import explore
-from mcgyvr.orchestrator.resolve import resolve
-from mcgyvr.orchestrator.telemetry import ShadowSink, read
+from mcgyvr.decompose.fields import FIELD_ORDER
+from mcgyvr.delegate import ClassifierProposer, proposer_by_authoring
+from mcgyvr.gate.adapters import JavaScriptAdapter, PythonAdapter
+from mcgyvr.local_pool import source_map
 from mcgyvr.refine import (
     Part,
     Partition,
@@ -55,6 +52,9 @@ from mcgyvr.refine import (
     max_splits,
     survey,
 )
+from mcgyvr.repo.index import Index
+from mcgyvr.repo.read import explore
+from mcgyvr.repo.resolve import resolve
 from mcgyvr.tree import State, Tree
 from tests.refines import MODEL, ScriptedJev, refining, repository, tasks
 

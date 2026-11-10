@@ -3,10 +3,10 @@
 One row of :data:`_LANGUAGES` per supported language names it, the file suffixes
 that select it and the extractor it dispatches to; :func:`language_of` and
 :func:`extract` read nothing else. Python is parsed with :mod:`ast`
-(:mod:`~mcgyvr.orchestrator.languages.python`); JavaScript/TypeScript, Go, Rust and
+(:mod:`~mcgyvr.repo.languages.python`); JavaScript/TypeScript, Go, Rust and
 Java are parsed with bundled tree-sitter grammars on one shared engine
-(:mod:`~mcgyvr.orchestrator.languages.engine`), one module per language under
-:mod:`mcgyvr.orchestrator.languages`, each of which states its own rules. Every
+(:mod:`~mcgyvr.repo.languages.engine`), one module per language under
+:mod:`mcgyvr.repo.languages`, each of which states its own rules. Every
 extracted item is returned as a :class:`Symbol` carrying its :class:`SymbolKind` and
 the file path plus 1-based line where it was found.
 """
@@ -16,8 +16,8 @@ from __future__ import annotations
 from collections.abc import Callable
 from dataclasses import dataclass
 
-from mcgyvr.orchestrator.languages import go, java, javascript, python, rust
-from mcgyvr.orchestrator.languages.model import Symbol, SymbolKind
+from mcgyvr.repo.languages import go, java, javascript, python, rust
+from mcgyvr.repo.languages.model import Symbol, SymbolKind
 
 __all__ = ["Symbol", "SymbolKind", "extract", "language_of"]
 

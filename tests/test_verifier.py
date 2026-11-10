@@ -32,6 +32,11 @@ turns a model's reply into a review:
 * **An unreadable verdict is not an approval.** Three replies that a substring search
   would approve, and one that genuinely does approve — the last is the control, because
   "never approve anything" passes the other three.
+* **A reviewer answers in three words, and the two retired refusals still refuse.** The
+  prompt lists APPROVE, APPROVE_WITH_NOTES and REFUSE and nothing else; a reply that
+  still opens with REMEDIATE or ESCALATE — a model tuned on the old prompt — reads as
+  REFUSE for one release, with a debug note, and a word that is none of these is no
+  verdict at all.
 * **VERIFIED is unreachable without agreement.** Asserted end to end through
   :func:`~mcgyvr.escalate.judge`, since the policy is only worth as much as the reply
   parser feeding it: a parser that reads "Cannot approve" as agreement makes the
@@ -43,9 +48,12 @@ it was shown and what its answer became.
 
 from __future__ import annotations
 
+import logging
 from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any
+
+import pytest
 
 from mcgyvr.catalog import Family
 from mcgyvr.escalate import Assurance, Opinion, judge, required_policy
@@ -331,5 +339,103 @@ def test_the_verified_assurance_is_unreachable_unless_a_review_agreed(
     assert assurance_for(APPROVAL) is Assurance.VERIFIED, (
         "a verifier ran and agreed, and the acceptance was not labelled verified"
     )
-    assert assurance_for("REMEDIATE — bound the retry loop.") is not Assurance.VERIFIED
+    assert assurance_for("REFUSE — bound the retry loop.") is not Assurance.VERIFIED
     assert assurance_for("Cannot approve this change.") is not Assurance.VERIFIED
+
+
+def test_the_reviewer_is_offered_three_words_and_none_of_the_retired_two(
+    contract: Any,
+) -> None:
+    """The prompt offers the words the parser acts on, and only those.
+
+    REMEDIATE and ESCALATE both always meant a plain refusal; offering them invited a
+    distinction that nothing downstream read. The prompt now lists the three words that
+    each change what happens — and a prompt that still listed a retired word would be
+    asking the model for an answer the parser only tolerates.
+    """
+    verify = _verify()
+    reviewer = Reviewer()
+    _review(verify, reviewer, contract=contract)
+
+    assert "(APPROVE | APPROVE_WITH_NOTES | REFUSE)" in reviewer.shown, reviewer.shown
+    for retired in ("REMEDIATE", "ESCALATE"):
+        assert retired not in reviewer.shown, f"the prompt still offers {retired}"
+
+
+@pytest.mark.parametrize(
+    ("reply", "opinion", "detail"),
+    [
+        ("APPROVE — it matches.", Opinion.AGREED, "APPROVE: it matches."),
+        ("APPROVE_WITH_NOTES: x.", Opinion.AGREED, "APPROVE_WITH_NOTES: x."),
+        ("approve with notes - x.", Opinion.AGREED, "APPROVE_WITH_NOTES: x."),
+        ("REFUSE: it sleeps last.", Opinion.REFUSED, "REFUSE: it sleeps last."),
+        ("refuse — it sleeps last.", Opinion.REFUSED, "REFUSE: it sleeps last."),
+    ],
+)
+def test_each_of_the_three_words_becomes_its_opinion(
+    contract: Any, reply: str, opinion: Opinion, detail: str
+) -> None:
+    """Each word, in either case and with a space for the underscore, is read as itself.
+
+    The notes after the word survive into the review's detail, because a refusal's notes
+    are what the next attempt is told.
+    """
+    verify = _verify()
+    review = _review(verify, Reviewer(reply=reply), contract=contract)
+
+    assert review.opinion is opinion, f"{reply!r} read as {review.opinion}"
+    assert review.detail == detail, review.detail
+
+
+@pytest.mark.parametrize("retired", ["REMEDIATE", "ESCALATE", "remediate", "Escalate"])
+def test_a_retired_refusal_word_reads_as_refuse_with_a_debug_note(
+    contract: Any, retired: str, caplog: pytest.LogCaptureFixture
+) -> None:
+    """A model tuned on the old four-word prompt still refuses, for one release.
+
+    Both retired words always mapped to a plain refusal, so reading them as REFUSE
+    changes nothing for such a model. The debug note is there for anyone who turns on
+    the ``mcgyvr.verify`` logger; nothing in mcgyvr configures logging, so no switch
+    shows it yet. The detail names REFUSE, the word the refusal is now recorded under,
+    and keeps the reviewer's notes.
+    """
+    verify = _verify()
+    reply = f"{retired}: the loop sleeps after the last attempt."
+
+    with caplog.at_level(logging.DEBUG, logger="mcgyvr.verify"):
+        review = _review(verify, Reviewer(reply=reply), contract=contract)
+
+    assert review.opinion is Opinion.REFUSED, f"{reply!r} read as {review.opinion}"
+    expected = "REFUSE: the loop sleeps after the last attempt."
+    assert review.detail == expected, review.detail
+    notes = [r for r in caplog.records if r.name == "mcgyvr.verify"]
+    assert [r.levelno for r in notes] == [logging.DEBUG], notes
+    assert retired.upper() in notes[0].getMessage(), notes[0].getMessage()
+
+
+@pytest.mark.parametrize(
+    "reply",
+    [
+        "REJECT: the loop sleeps after the last attempt.",
+        "REFUSED — the loop sleeps after the last attempt.",
+        "ESCALATED to a larger model.",
+        "APPROVED.",
+    ],
+)
+def test_an_unknown_opening_word_is_no_verdict(
+    contract: Any, reply: str, caplog: pytest.LogCaptureFixture
+) -> None:
+    """An unknown opening word is unusable — neither an approval nor a refusal.
+
+    The longer words that merely start with a token (REFUSED, ESCALATED, APPROVED) are
+    here because the token pattern ends at a word boundary; a parser that matched
+    prefixes would read "APPROVED." as an approval the reviewer never stated in the
+    form it was asked for.
+    """
+    verify = _verify()
+
+    with caplog.at_level(logging.DEBUG, logger="mcgyvr.verify"):
+        review = _review(verify, Reviewer(reply=reply), contract=contract)
+
+    assert review.opinion is Opinion.UNUSABLE, f"{reply!r} read as {review.opinion}"
+    assert not [r for r in caplog.records if r.name == "mcgyvr.verify"]
