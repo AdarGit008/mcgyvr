@@ -216,11 +216,11 @@ powershell -NoProfile -ExecutionPolicy RemoteSigned -File mcgyvr\skills\mcgyvr\i
 - config (`$MCGYVR_HOME`): `~/.mcgyvr` on every system.
 
 `$XDG_STATE_HOME` and `$XDG_CACHE_HOME` still win when set (the weights follow `$MCGYVR_WEIGHTS` alone),
-and `journal.dir` defaults to `~/.local/state/mcgyvr/journal` everywhere: the journal is the one folder
-that follows neither `$MCGYVR_DATA` nor `$XDG_STATE_HOME`, so set `journal.dir` to move it. Windows
-checks no file owner or mode: a file is as private as its folder, and these folders are in your own
-profile. A folder named by `$MCGYVR_HOME`, `$MCGYVR_DATA` or an XDG variable keeps whatever ACL it has,
-so keep the rig token's folder (`$MCGYVR_HOME`) inside your profile.
+and `journal.dir` defaults to `~/.local/state/mcgyvr/journal` everywhere: the journal is the one piece of
+state that does not move with `$MCGYVR_DATA` or `$XDG_STATE_HOME`, so set `journal.dir` to move it.
+Windows checks no file owner or mode: a file is as private as its folder, and these folders are in your
+own profile. A folder named by `$MCGYVR_HOME`, `$MCGYVR_DATA` or an XDG variable keeps whatever ACL it
+has, so keep the rig token's folder (`$MCGYVR_HOME`) inside your profile.
 
 **Serving, with no Docker.** On a Mac or a Windows machine, `mcgyvr setup` writes `launcher: native` for
 a llama.cpp unit on the machine it runs on. Its first start fetches the llama.cpp build mcgyvr pins
@@ -430,7 +430,7 @@ locks and waking a card are machinery, not switches.
 | `max_refine_fanout` | number (min 2) | no | `8` | How many parts classifier authoring may split one proposal into at once: the files of a scope over several, or the parts of the split jev picks. A split into more is refused with this key to raise rather than emitted unsplit. To bind it: set a whole number of parts, 2 or more. |
 | `retry_notes` | one of `climb`, `rung`, `none` | no | `climb` | What a try is told about the attempts before it that failed. Each failed attempt leaves a record of what the gate, the reviewer or the reply parser observed, naming its rung and attempt. `climb`: every record of the climb, so a rung above starts with what the rungs below it were refused for — the latest in full, up to 20 notes, and the 4 before it a line each. `rung`: only the record of the attempt just before this one on the same rung. `none`: nothing. |
 | `max_attempts` | number (min 1) | no | unset | Hard ceiling on how many attempts one task may spend in total. To bind it: set a whole number of attempts, or leave it unset. |
-| `task_timeout_s` | number (min 1) | no | `900` | Wall-clock ceiling for one task, including acceptance commands. The same number is how long a dispatch may wait for a busy unit's slot before it gives up. With no config at all, nothing sets a ceiling and a task runs as long as it takes; a config that leaves this key out gets the default. |
+| `task_timeout_s` | number (min 1) | no | `900` | Wall-clock ceiling for one task, including acceptance commands. The same number is how long a dispatch may wait for a busy unit's slot before it gives up. With no config at all, no ceiling is read from one, and each command still ends after the sandbox's own 900 s default; a config that leaves this key out gets the default. |
 | `max_window_fraction` | decimal number (min 0.0, max 1.0) | no | unset | The largest share of a unit's context window one contract's prompt may claim, checked before the contract is sent, so the reply -- sent the unit's maximum within the room the prompt leaves -- keeps at least the rest; a contract claiming more fails unsent on the unit it was sent to. It is a ceiling no contract can raise: a contract's own `limits.max_window_fraction` may hold it to less, never to more, and the stricter of the two applies. Unset enforces no run-wide share. To bind it: a share between 0 and 1. |
 | `users` | number (min 1) | no | `1` | Users this install serves at once, and therefore the slot count the local orchestrator unit is served at: one session per user. A written `width` on the orchestrator's unit wins. `1` is a single-user install, which for a local-only `mcgyvr-code` install is flagged, not refused — the resident orchestrator consumes the card the ladder would otherwise use. |
 | `orchestrator` | block | no | — | Which unit turns a prompt plus a repository into contracts, and what that unit is. |

@@ -63,7 +63,7 @@ from mcgyvr.hubwire import (
     serving_pool,
 )
 from mcgyvr.hubwire import USE_CASES as USE_CASES
-from mcgyvr.sandbox.base import NETWORKS
+from mcgyvr.sandbox.base import DEFAULT_COMMAND_TIMEOUT_S, NETWORKS
 from mcgyvr.schema import Dialect, join_path, walk_block
 from mcgyvr.schema import Field as Field
 from mcgyvr.seal import SealKey
@@ -1336,9 +1336,10 @@ SCHEMA: tuple[Field, ...] = (
         "int",
         "Wall-clock ceiling for one task, including acceptance commands. The "
         "same number is how long a dispatch may wait for a busy unit's slot "
-        "before it gives up. With no config at all, nothing sets a ceiling and "
-        "a task runs as long as it takes; a config that leaves this key out "
-        "gets the default.",
+        "before it gives up. With no config at all, no ceiling is read from "
+        "one, and each command still ends after the sandbox's own "
+        f"{DEFAULT_COMMAND_TIMEOUT_S:g} s default; a config that leaves this "
+        "key out gets the default.",
         default=900,
         min_value=1,
     ),

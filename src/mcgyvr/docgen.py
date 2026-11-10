@@ -461,7 +461,7 @@ def _macos_windows_section() -> list[str]:
             "`$XDG_STATE_HOME` and `$XDG_CACHE_HOME` still win when set (the "
             f"weights follow `${WEIGHTS_DIR_ENV}` alone), and `journal.dir` "
             f"defaults to `{JOURNAL_DIR_DEFAULT}` everywhere: the journal is the "
-            f"one folder that follows neither `${roots.DATA_ENV}` nor "
+            f"one piece of state that does not move with `${roots.DATA_ENV}` or "
             "`$XDG_STATE_HOME`, so set `journal.dir` to move it. Windows checks no "
             "file owner or mode: a file is as private as its folder, and these "
             "folders are in your own profile. A folder named by "
