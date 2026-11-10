@@ -251,6 +251,13 @@ archived outside this repository, under the same paths.
   unchanged and still Linux only; macOS and Windows rigs still name their
   `endpoints` by hand.
 
+- **Every yes/no question in `mcgyvr setup` is written `[y/n]` (I-122).** The
+  wizard mixed `[Y/n]`, `[y/N]` and `[y/n]`; it now asks `[y/n]` everywhere,
+  as the Jev and PATH questions already did. What Enter means is unchanged:
+  Enter is no at every question except the one that offers to reuse a model
+  already on disk, where Enter still reuses it, and that question now says so
+  (`[y/n, Enter reuses]`). `SETUP.md` quotes the new spelling.
+
 - **The agent channel's limits, shapes and codes are defined once, in
   `mcgyvr.hubwire`.** The protocol version, frame limits, the counts and
   bounds of every frame (models, sessions, endpoints, features, peers, allowed
@@ -670,6 +677,16 @@ archived outside this repository, under the same paths.
   version; `usage` prints it and exits 1. Damaged lines are still skipped as
   before. `config.journal_dir` is the one resolution of `journal.dir` that
   `direct`, `mcgyvr PROMPT` and `usage` share.
+
+- **The README says which NVIDIA cards each pinned engine runs on (I-124).**
+  A new *GPUs and engines* section gives the lowest compute capability of the
+  llama.cpp `b11960` container and native archives (5.0 on CUDA 12, 7.5 on
+  CUDA 13) and of the vLLM `v0.26.0` image (7.5), says that CUDA 13 drops every
+  card below 7.5, and names `MCGYVR_NATIVE_BACKEND` for an older card whose
+  driver would get the CUDA 13 native build. It replaces `docs/GPU-SUPPORT.md`,
+  which left main with the docs/ archive (16acf4884); its last version is
+  tagged `archive/gpu-support-on-main-pin`. The engines mcgyvr does not pin are
+  left out, and every floor was read again from the pinned builds.
 
 - **A worker rig tells the hub which models its tensor cache holds
   (`hello.weight_cache`), so the hub plans a cheaper load there.** The cache
