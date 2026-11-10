@@ -103,6 +103,8 @@ MAX_RECORD_BYTES = 16384
 #: itself, and a permanent lease (the only one some routers grant).
 NOT_ALLOWED = hubwire.PORT_MAP_NOT_ALLOWED
 PERMANENT_ONLY = hubwire.PORT_MAP_PERMANENT_ONLY
+#: The report's tag for a router that forwards the port elsewhere already.
+CONFLICT = hubwire.PORT_MAP_CONFLICT
 #: The settings that allow each, as the owner sets them (``mcgyvr rig share``).
 ALLOW_FORWARD = "mcgyvr rig share --port-forward"
 ALLOW_PERMANENT = "mcgyvr rig share --permanent-forward"
@@ -119,7 +121,7 @@ _NATPMP_UNSUPPORTED = {1, 5}
 _DECLARATION = re.compile(rb"<!(DOCTYPE|ENTITY)", re.IGNORECASE)
 _UPNP_NO_ENTRY = 714  # NoSuchEntryInArray: the external port maps nothing
 # Which failure the report names when no router maps: the most telling one.
-_RANK = {"conflict": 2, "permanent_only": 1}
+_RANK = {CONFLICT: 2, PERMANENT_ONLY: 1}
 
 
 def _plain(raw: bytes) -> bool:
@@ -320,7 +322,7 @@ class NatPmp:
         if got != external:
             with contextlib.suppress(MapError):
                 self._map(internal, 0, 0)
-            raise MapError("conflict", f"NAT-PMP gave port {got}, not {external}")
+            raise MapError(CONFLICT, f"NAT-PMP gave port {got}, not {external}")
         if granted == 0:
             with contextlib.suppress(MapError):
                 self._map(internal, 0, 0)
@@ -556,7 +558,7 @@ class Upnp:
         """Map with ``lease_s``, 0 for a permanent lease; a router that takes
         only a permanent one refuses any other (``permanent_only``)."""
         if self._held_by_another(lan_host, internal, external):
-            raise MapError("conflict", f"UPnP: port {external} forwards elsewhere")
+            raise MapError(CONFLICT, f"UPnP: port {external} forwards elsewhere")
         self._add(lan_host, internal, external, lease_s)
         return lease_s
 
@@ -578,7 +580,7 @@ def _upnp_error(action: str, code: int, values: dict[str, str]) -> MapError:
     if code == _UPNP_PERMANENT_ONLY:
         return MapError(PERMANENT_ONLY, f"UPnP {action}: only permanent leases")
     if code in _UPNP_CONFLICT:
-        return MapError("conflict", f"UPnP {action}: {code} {said}".strip())
+        return MapError(CONFLICT, f"UPnP {action}: {code} {said}".strip())
     if code in {606, 714, 729} or 600 <= code < 700:
         return MapError("refused", f"UPnP {action}: {code} {said}".strip())
     return MapError("failed", f"UPnP {action}: {code} {said}".strip())

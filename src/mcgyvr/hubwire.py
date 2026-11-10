@@ -121,7 +121,8 @@ is here:
   to (:data:`FIT_CALIBRATION_RUNS`);
 * the ``port_map_report`` ``error`` tags of a forward the rig itself refuses
   (:data:`PORT_MAP_NOT_ALLOWED`, :data:`PORT_MAP_PERMANENT_ONLY`), which the
-  hub tells apart from a router's refusal.
+  hub tells apart from a router's refusal, and of a router that forwards the
+  port elsewhere already (:data:`PORT_MAP_CONFLICT`), which the hub may move.
 
 A pattern is held unanchored and matched whole (``fullmatch``); a JSON Schema
 or a pydantic type writes it as ``^<pattern>$``.
@@ -1723,6 +1724,9 @@ PORT_MAP_NOT_ALLOWED = "not_allowed"
 #: leases, which the rig refuses unless its owner allowed a permanent one: a
 #: rule added by hand on the router is the way left.
 PORT_MAP_PERMANENT_ONLY = "permanent_only"
+#: The ``port_map_report`` ``error`` of a router that forwards the asked port
+#: elsewhere already: the hub may ask again at another block of ports.
+PORT_MAP_CONFLICT = "conflict"
 
 
 # --- the per-card fit law ------------------------------------------------------
