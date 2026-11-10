@@ -251,13 +251,11 @@ def test_the_release_builds_once_on_a_tag_and_publishes() -> None:
     builds = [line for line in runs if "uv build" in line]
     assert len(builds) == 1, f"the release must build exactly once: {builds}"
     published = [
-        line for line in runs if "gh release" in line or "release" in line.lower()
-    ] + [
-        str(step.get("uses"))
-        for step in _steps(workflow)
-        if "release" in str(step.get("uses", "")).lower()
+        line for line in runs if "gh release create" in line and "--verify-tag" in line
     ]
-    assert published, "nothing in release.yml publishes to a GitHub release"
+    assert len(published) == 1, (
+        f"release.yml must run `gh release create --verify-tag` once: {published}"
+    )
 
 
 ON_GITHUB = "github.server_url == 'https://github.com'"
