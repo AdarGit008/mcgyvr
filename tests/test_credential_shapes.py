@@ -35,14 +35,16 @@ from mcgyvr.config import CredentialInConfigError, _reject_credential_key
 from mcgyvr.config import _reject_credential_literal as reject_value
 from mcgyvr.credential_shapes import (
     CREDENTIAL_WORDS,
-    NAME_ASSIGNMENT,
     VALUE_SHAPES,
     scan_pattern,
     whole_value_pattern,
 )
 from mcgyvr.gate.changeset import ChangeSet, FileChange
 from mcgyvr.gate.secrets import scan_secrets
-from mcgyvr.sandbox.base import is_credential_var
+
+# The rc-file match rule lives in sandbox/base.py (each check keeps its own rule);
+# the test reads it there, not from the shared vocabulary module.
+from mcgyvr.sandbox.base import _RC_LOGIN, is_credential_var
 
 # Runtime-assembled samples: (code, value). Each is a credential of its shape at
 # the shared vocabulary's floor length, so a shape that quietly tightened would
@@ -121,6 +123,23 @@ def test_sk_proj_key_slipped_the_old_gate_and_does_not_now(tmp_path: Path) -> No
     assert "openai-key" in {f.code for f in findings}
 
 
+def test_the_config_loader_refuses_a_whole_pasted_private_key_block() -> None:
+    """The config loader's whole-value anchoring refuses a full pasted key.
+
+    The gate scans one line and matches the header; a key pasted as a config
+    value is the whole multi-line block, so the private-key shape carries a
+    ``whole_body`` that spans header to footer. Both a lone header and a full
+    block are refused (the footer is optional in the whole-value form).
+    """
+    header = "-----BEGIN " + "RSA PRIVATE KEY-----"
+    footer = "-----END " + "RSA PRIVATE KEY-----"
+    block = f"{header}\n" + "MIIEabc123\n" * 4 + footer
+    with pytest.raises(CredentialInConfigError):
+        reject_value(block, "units.cheap.launch.key")
+    with pytest.raises(CredentialInConfigError):
+        reject_value(header, "units.cheap.launch.key")
+
+
 def test_config_key_names_are_an_exact_match_over_the_shared_words() -> None:
     """The config loader's rule is an exact key, drawn from the shared words.
 
@@ -157,6 +176,6 @@ def test_rc_login_lines_match_the_shared_words_before_an_assignment() -> None:
     in a ``.npmrc``-style file is caught whichever word it uses.
     """
     for word in ("key", "apikey", "credential", "session", "auth", "token"):
-        assert NAME_ASSIGNMENT.search(f"{word}=value"), word
-        assert NAME_ASSIGNMENT.search(f"{word}: value"), word
-    assert not NAME_ASSIGNMENT.search("registry=https://example.invalid")
+        assert _RC_LOGIN.search(f"{word}=value"), word
+        assert _RC_LOGIN.search(f"{word}: value"), word
+    assert not _RC_LOGIN.search("registry=https://example.invalid")

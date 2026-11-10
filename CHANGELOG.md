@@ -45,10 +45,14 @@ archived outside this repository, under the same paths.
   name, a word followed by `=`). The merged shapes are the widest of the old
   lists — the smaller length floor, the wider character class — so no key any
   check refused before is let through now, and three checks grew stricter: the
-  config loader also refuses Stripe-shaped and private-key-header values and the
-  key `session`; the gate's `sk-` scan catches `sk-proj-...`; the sandbox env
+  config loader also refuses Stripe-shaped values, a pasted private-key block and
+  the key `session`; the gate's `sk-` scan catches `sk-proj-...`; the sandbox env
   and rc-file checks recognise the full vocabulary (`auth` is no longer fenced
-  to `_auth`). `mcgyvr.redact`, which only strips URL userinfo, is unchanged.
+  to `_auth`, and an rc login line keyed by `key`/`apikey`/`credential`/`session`
+  now counts, so a `.npmrc`/`.pypirc`/`.yarnrc` holding one is kept out of a
+  sandbox and a run naming it under `sources:` is refused). The gate's own
+  `hardcoded-credential` assignment rule keeps its separate word list.
+  `mcgyvr.redact`, which only strips URL userinfo, is unchanged.
 - **A docker llama.cpp or vLLM unit listens on 127.0.0.1 or, behind a key
   mcgyvr makes, on every interface (`expose: local | lan`).** `mcgyvr emit`
   rendered every container's server on every interface with no key
