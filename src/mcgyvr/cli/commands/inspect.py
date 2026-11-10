@@ -510,15 +510,21 @@ def _usage(args: argparse.Namespace) -> int:
         runs.setdefault((run, session), _Tally()).add(row)
         rungs.setdefault(str(row.get("rung", "")), _Tally()).add(row)
 
+    # Each key column is as wide as its longest value, so the tally columns
+    # line up under their headings however long a session id (`claude-<uuid>`
+    # is 43 characters) or a rung name is.
+    run_w = max(len("run"), *(len(run or "-") for run, _ in runs))
+    session_w = max(len("session"), *(len(session or "-") for _, session in runs))
+    rung_w = max(len("rung"), *(len(rung or "-") for rung in rungs))
     print(f"{where}: {len(rows)} attempt row(s) in {len(files)} file(s)")
     print("\nPer run, oldest first:")
-    print(f"  {'run':<24} {'session':<20} {_USAGE_COLUMNS}")
+    print(f"  {'run':<{run_w}} {'session':<{session_w}} {_USAGE_COLUMNS}")
     for (run, session), tally in sorted(runs.items()):
-        print(f"  {run or '-':<24} {session or '-':<20} {tally.line()}")
+        print(f"  {run or '-':<{run_w}} {session or '-':<{session_w}} {tally.line()}")
     print("\nPer rung:")
-    print(f"  {'rung':<45} {_USAGE_COLUMNS}")
+    print(f"  {'rung':<{rung_w}} {_USAGE_COLUMNS}")
     for rung, tally in sorted(rungs.items()):
-        print(f"  {rung or '-':<45} {tally.line()}")
+        print(f"  {rung or '-':<{rung_w}} {tally.line()}")
     print(
         "\nTokens are summed over the rows that reported them; `-` is a count no "
         "row reported. Time is each attempt's own `elapsed_s`, summed."
