@@ -23,6 +23,7 @@ from dataclasses import dataclass
 from typing import TYPE_CHECKING, Any
 
 from mcgyvr import whole
+from mcgyvr.hubwire import CHAT_PATH
 from mcgyvr.local_pool import Endpoint, PoolError, SourceMap
 from mcgyvr.runner import (
     SERVER_SAMPLED,
@@ -332,7 +333,7 @@ def classify(
     The timeout is `timeout_s` when it is given, otherwise the one resolved
     from the endpoint.
     """
-    url = _url_for(endpoint.base_url, "/v1/chat/completions")
+    url = _url_for(endpoint.base_url, CHAT_PATH)
     headers = request_headers(endpoint)
     answers: dict[str, Answer] = {}
     for name, question in questions.items():

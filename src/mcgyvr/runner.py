@@ -44,6 +44,7 @@ from mcgyvr.fleet.harness import (
     slots_in_flight,
 )
 from mcgyvr.hubwire import (
+    CHAT_PATH,
     INVALID_REQUEST,
     MODEL_NOT_FOUND,
     MODEL_UNPLACED,
@@ -726,7 +727,7 @@ class OpenAIRunner(Runner):
     """
 
     protocol: ClassVar[Protocol] = Protocol.OPENAI
-    path: ClassVar[str] = "/v1/chat/completions"
+    path: ClassVar[str] = CHAT_PATH
     honours_response_schema: ClassVar[bool] = True
 
     def _payload(self, model: str, request: Request) -> dict[str, Any]:

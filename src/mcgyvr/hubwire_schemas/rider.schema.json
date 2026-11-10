@@ -1,5 +1,173 @@
 {
   "$defs": {
+    "CreditEntryOut": {
+      "description": "One ledger entry. Amounts are credits as exact decimal strings.",
+      "properties": {
+        "created_at": {
+          "format": "date-time",
+          "title": "Created At",
+          "type": "string"
+        },
+        "credits": {
+          "description": "Signed: earned (+) or spent (-).",
+          "title": "Credits",
+          "type": "string"
+        },
+        "detail": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "What a standby entry paid for: units x unit for hours.",
+          "title": "Detail"
+        },
+        "estimated": {
+          "description": "The hub estimated the counts: the client hung up mid-answer.",
+          "title": "Estimated",
+          "type": "boolean"
+        },
+        "kind": {
+          "$ref": "#/$defs/CreditKind"
+        },
+        "model": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "title": "Model"
+        },
+        "reason": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "title": "Reason"
+        },
+        "request_id": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "title": "Request Id"
+        },
+        "rig_id": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "description": "Your rig that earned it, if one did.",
+          "title": "Rig Id"
+        },
+        "session_id": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "title": "Session Id"
+        },
+        "tokens_in": {
+          "anyOf": [
+            {
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "title": "Tokens In"
+        },
+        "tokens_out": {
+          "anyOf": [
+            {
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "title": "Tokens Out"
+        }
+      },
+      "required": [
+        "kind",
+        "credits",
+        "created_at",
+        "model",
+        "tokens_in",
+        "tokens_out",
+        "request_id",
+        "session_id",
+        "rig_id",
+        "reason",
+        "estimated"
+      ],
+      "title": "CreditEntryOut",
+      "type": "object"
+    },
+    "CreditKind": {
+      "description": "Why a ledger entry moved credits (see ``credits``).",
+      "enum": [
+        "earn_work",
+        "earn_standby",
+        "starter",
+        "spend",
+        "grant",
+        "spend_ride",
+        "earn_host"
+      ],
+      "title": "CreditKind",
+      "type": "string"
+    },
+    "CreditsOut": {
+      "properties": {
+        "balance": {
+          "description": "Your credits, as an exact decimal string.",
+          "maxLength": 40,
+          "pattern": "^-?[0-9]+(\\.[0-9]+)?$",
+          "title": "Balance",
+          "type": "string"
+        },
+        "entries": {
+          "description": "The latest, newest first.",
+          "items": {
+            "$ref": "#/$defs/CreditEntryOut"
+          },
+          "title": "Entries",
+          "type": "array"
+        }
+      },
+      "required": [
+        "balance",
+        "entries"
+      ],
+      "title": "CreditsOut",
+      "type": "object"
+    },
     "LadderIn": {
       "additionalProperties": false,
       "description": "Your own ladder's shape: model rungs only, cheapest first; never an\naddress or a key.",
@@ -294,7 +462,7 @@
   },
   "$id": "https://mcgyvr-hub/rider/v1.schema.json",
   "$schema": "https://json-schema.org/draft/2020-12/schema",
-  "description": "The hub's REST API as a rider's agent uses it, beside the agent channel.\n\n``GET /api/v1/me/rungs`` answers the rider's rungs (``RungsOut``);\n``POST /api/v1/me/rungs`` takes the rider's own ladder's shape\n(``RungsSyncIn``) and answers as the ``GET`` does. ``x-paths`` names each\nmethod's request and response model; ``$defs`` holds the models.\n\nA request to ``/v1`` (the OpenAI-compatible API) that the hub refuses is\nanswered with OpenAI's error shape, ``{\"error\": {\"message\", \"type\", \"code\",\n\"param\"}}``; each ``code`` comes with one HTTP status, the pairs in\n``x-openai-errors``. A client matches on the pair. A stream cut off after\nits first bytes ends with an error event instead, whose code may also be\nthe relay's own.\n\nCompatibility: answers are open (a client ignores fields it does not\nknow), so a new answer field or a new error code stays under ``/api/v1``.\nRequests are closed (``additionalProperties`` false: the hub answers ``422``\nto a field it does not know), so a new request field is not additive: an\nolder hub refuses it. A client sends one only to a hub that says it takes it\n(a feature it publishes), or it comes with ``/api/v2``, as any breaking\nchange does.",
+  "description": "The hub's REST API as a rider's agent uses it, beside the agent channel.\n\n``GET /api/v1/me/rungs`` answers the rider's rungs (``RungsOut``);\n``POST /api/v1/me/rungs`` takes the rider's own ladder's shape\n(``RungsSyncIn``) and answers as the ``GET`` does. ``GET /api/v1/me/credits``\nanswers the member's balance, an exact decimal, and latest ledger entries\n(``CreditsOut``). ``x-paths`` names each method's request and response model;\n``$defs`` holds the models.\n\nA request to ``/v1`` (the OpenAI-compatible API) that the hub refuses is\nanswered with OpenAI's error shape, ``{\"error\": {\"message\", \"type\", \"code\",\n\"param\"}}``; each ``code`` comes with one HTTP status, the pairs in\n``x-openai-errors``. A client matches on the pair. A stream cut off after\nits first bytes ends with an error event instead, whose code may also be\nthe relay's own.\n\nCompatibility: answers are open (a client ignores fields it does not\nknow), so a new answer field or a new error code stays under ``/api/v1``.\nRequests are closed (``additionalProperties`` false: the hub answers ``422``\nto a field it does not know), so a new request field is not additive: an\nolder hub refuses it. A client sends one only to a hub that says it takes it\n(a feature it publishes), or it comes with ``/api/v2``, as any breaking\nchange does.",
   "title": "mcgyvr hub rider API",
   "x-openai-errors": {
     "busy": 503,
@@ -330,6 +498,13 @@
     "use_case_not_served": 403
   },
   "x-paths": {
+    "/api/v1/me/credits": {
+      "get": {
+        "response": {
+          "$ref": "#/$defs/CreditsOut"
+        }
+      }
+    },
     "/api/v1/me/rungs": {
       "get": {
         "response": {

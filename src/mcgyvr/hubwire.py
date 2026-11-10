@@ -13,8 +13,8 @@ channel's it still spells itself, and each value it spells is held to the
 published schemas by the product's tests until it reads it from here. What
 is here:
 
-* the agent channel: its version (:data:`PROTOCOL_VERSION`), the frame
-  limits (``MAX_MESSAGE_BYTES``,
+* the agent channel: its path (:data:`AGENT_PATH`), its version
+  (:data:`PROTOCOL_VERSION`), the frame limits (``MAX_MESSAGE_BYTES``,
   ``MAX_FRAMES_PER_SECOND``, ``MAX_ERROR_TEXT``, ``HEARTBEAT_INTERVAL_S``),
   the counts a frame may carry (models, sessions, endpoints, features, peers,
   allowed IPs, devices, RTT samples, STUN endpoints), a model's, a head's, a
@@ -65,7 +65,12 @@ is here:
   pool each scope is served from
   (:data:`SCOPE_POOLS`, :func:`serving_pool`);
 * where the hub lists the models a scope may use (:data:`MODELS_PATH` under
-  :data:`API_ROOT`), each with its units' slots (:data:`MODEL_SLOTS`);
+  :data:`API_ROOT`), each with its units' slots (:data:`MODEL_SLOTS`), and
+  where a chat request goes (:data:`CHAT_PATH`);
+* the hub's JSON API (:data:`API_PREFIX`): a rider's rungs
+  (:data:`RUNGS_PATH`) and a member's credits (:data:`CREDITS_PATH`, its
+  balance :data:`CREDITS_BALANCE_FIELD`, an exact decimal
+  :data:`CREDITS_BALANCE` of at most :data:`CREDITS_MAX_BALANCE` characters);
 * the use cases (:data:`USE_CASES`) with the model category each is
   recommended (:data:`USE_CASE_CATEGORY`), the header a request names its own in
   (:data:`USE_CASE_HEADER`), and which use cases each pool serves
@@ -720,6 +725,24 @@ MODELS_PATH = f"{API_ROOT}/models"
 #: The field of each listed model holding the request slots of every ready
 #: unit of it, one whole number per unit.
 MODEL_SLOTS = "slots"
+#: Where a chat request is sent, under :data:`API_ROOT`: the hub's, a relief
+#: rung's and any OpenAI-compatible server's.
+CHAT_PATH = f"{API_ROOT}/chat/completions"
+#: The hub's own JSON API root, beside :data:`API_ROOT`.
+API_PREFIX = "/api/v1"
+#: The websocket a rig's agent holds to the hub (the protocol schema).
+AGENT_PATH = f"{API_PREFIX}/agent"
+#: Where a rider reports its ladder and reads its rungs (the rider schema).
+RUNGS_PATH = f"{API_PREFIX}/me/rungs"
+#: Where a member reads its credits (the rider schema's ``CreditsOut``).
+CREDITS_PATH = f"{API_PREFIX}/me/credits"
+#: The field of the credits answer holding the member's balance: an exact
+#: decimal (:data:`CREDITS_BALANCE`) of at most :data:`CREDITS_MAX_BALANCE`
+#: characters.
+CREDITS_BALANCE_FIELD = "balance"
+CREDITS_BALANCE = re.compile(r"-?[0-9]+(\.[0-9]+)?")
+CREDITS_MAX_BALANCE = 40
+
 
 #: The use cases a setup runs: ``mcgyvr-code`` is the gated coding loop with
 #: its opt-ins; ``code``, ``chat`` and ``agent`` serve a model raw.
