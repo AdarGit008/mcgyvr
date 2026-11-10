@@ -216,6 +216,9 @@ class Offer:
     ``rpc_proto`` is the llama.cpp RPC protocol its runtime speaks, when the
     agent knows it (the pinned build), sent as
     :data:`mcgyvr.hubwire.RPC_PROTO_FIELD` among the capabilities.
+    ``weight_cache`` are the sha256 digests of the models whose weights its
+    worker cache holds (:class:`mcgyvr.rig.tensorcache.Record`), left out of the
+    hello when there are none.
     """
 
     roles: tuple[str, ...]
@@ -225,6 +228,7 @@ class Offer:
     sessions: tuple[str, ...]
     features: tuple[str, ...] = ()
     rpc_proto: hubwire.RpcProto | None = None
+    weight_cache: tuple[str, ...] = ()
 
 
 @dataclass(frozen=True, kw_only=True)
@@ -522,6 +526,12 @@ def _offer_body(offer: Offer) -> dict[str, Any]:
         and all(TAG.fullmatch(feature) for feature in offer.features),
         "capabilities.features: not distinct tags",
     )
+    _need(
+        len(offer.weight_cache) <= MAX_MODELS
+        and len(set(offer.weight_cache)) == len(offer.weight_cache)
+        and all(DIGEST.fullmatch(digest) for digest in offer.weight_cache),
+        f"weight_cache: not at most {MAX_MODELS} distinct sha256 digests",
+    )
     capabilities: dict[str, Any] = {"roles": list(offer.roles)}
     if offer.runtime is not None:
         capabilities["runtime"] = offer.runtime
@@ -533,7 +543,7 @@ def _offer_body(offer: Offer) -> dict[str, Any]:
         except ValueError as exc:
             raise ValueError(f"capabilities.{hubwire.RPC_PROTO_FIELD}: {exc}") from exc
         capabilities[hubwire.RPC_PROTO_FIELD] = asdict(offer.rpc_proto)
-    return {
+    body: dict[str, Any] = {
         "capabilities": capabilities,
         "endpoints": [
             {"host": host, "port": port, "kind": kind}
@@ -542,6 +552,9 @@ def _offer_body(offer: Offer) -> dict[str, Any]:
         "models": [_model_body(model) for model in offer.models],
         "sessions": list(offer.sessions),
     }
+    if offer.weight_cache:
+        body["weight_cache"] = list(offer.weight_cache)
+    return body
 
 
 def hello(

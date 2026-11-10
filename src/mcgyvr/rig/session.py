@@ -558,6 +558,9 @@ class _Session:
     report: tuple[sessionwire.PeerPath, ...] | None = None
     reported_to: list[str] = field(default_factory=list)
     released: bool = False  # whether teardown has run and the cards are free
+    # The cache names the ledger vouched for when this session took the tensor
+    # cache, or None while it holds none: what its workers stored is the rest.
+    cache_before: frozenset[str] | None = None
 
     @property
     def tunnel_name(self) -> str:
@@ -817,6 +820,21 @@ class Sessions:
         )
         self._cache_check: threading.Thread | None = None
         self._cache_stop = threading.Event()
+        # Which model each cache file was stored for, by the digest the hub names
+        # it by, kept beside the folder; ``_weight_cache`` is what a hello reports
+        # of it: the models whose every file the ledger vouched for when last read.
+        self._cache_record = tensorcache.Record(
+            None
+            if machine.cache_dir is None
+            else tensorcache.record_beside(machine.cache_dir)
+        )
+        self._weight_cache: tuple[str, ...] = (
+            ()
+            if machine.cache_dir is None
+            else self._cache_record.digests(
+                self._cache_ledger.vouched(machine.cache_dir)
+            )
+        )
 
     # The hooks the agent hangs on a session's preparation and on its end.
 
@@ -844,6 +862,16 @@ class Sessions:
         with self._lock:
             live = [s.id for s in self._sessions.values() if s.state in LIVE]
         return tuple(live[: protocol.MAX_SESSIONS_REPORTED])
+
+    def weight_cache(self) -> tuple[str, ...]:
+        """The digests of the models the tensor cache holds, newest last.
+
+        A model is one a worker session that was told its digest stored files for,
+        while the ledger vouches for every one of them; read when the agent started
+        and after each check of the folder, so a hello says what the last check saw.
+        """
+        with self._lock:
+            return self._weight_cache
 
     def head_port(self, session_id: str) -> int | None:
         """The loopback port of this session's head API, while the head is ready.
@@ -2251,16 +2279,26 @@ class Sessions:
                     self._check_cache(folder, session.sharing.cache_max_mb)
                     return None
                 self._cache_holder = session
+                session.cache_before = self._cache_ledger.names()
         folder.mkdir(mode=0o700, parents=True, exist_ok=True)
         return folder
 
-    def _check_cache(self, folder: Path, max_mb: int) -> None:
+    def _check_cache(
+        self,
+        folder: Path,
+        max_mb: int,
+        stored: tuple[str, frozenset[str]] | None = None,
+    ) -> None:
         """Check the tensor cache folder off this thread, then trim it.
 
         One check runs at a time, and ``_cache_stop`` ends it when the agent closes.
         The check hashes the files the ledger does not know and removes what the
         ledger says changed or what is not a cache entry; the folder is then trimmed
-        to ``max_mb``.
+        to ``max_mb``. ``stored`` is the digest of the model a session that gave the
+        cache back loaded, with the names the folder held when it took the cache:
+        each file the ledger now vouches for beyond those is recorded under that
+        digest. The record then forgets each model with a file gone, and what a
+        hello reports is read again from it.
         """
         if self._cache_check is not None or self._closed:
             return
@@ -2272,6 +2310,7 @@ class Sessions:
                         self._cache_ledger.check(folder, self._cache_stop)
                         if not self._cache_stop.is_set():
                             trim_cache(folder, max_mb)
+                            self._record_cache(folder, stored)
             finally:
                 with self._lock:
                     self._cache_check = None
@@ -2280,6 +2319,19 @@ class Sessions:
             target=run, name="mcgyvr-cache-check", daemon=True
         )
         self._cache_check.start()
+
+    def _record_cache(
+        self, folder: Path, stored: tuple[str, frozenset[str]] | None
+    ) -> None:
+        """Bring the record up to the folder a check just left (``_check_cache``)."""
+        vouched = self._cache_ledger.vouched(folder)
+        if stored is not None:
+            digest, before = stored
+            self._cache_record.stored(digest, vouched - before)
+        self._cache_record.settle(vouched)
+        digests = self._cache_record.digests(vouched)
+        with self._lock:
+            self._weight_cache = digests
 
     def _do_worker(self, session: _Session) -> None:
         share = session.sharing
@@ -2435,9 +2487,18 @@ class Sessions:
             self._port_left[session.listen_port] = self._clock()
             if self._cache_holder is session:
                 self._cache_holder = None
+                asked = session.workers_asked
+                stored = (
+                    None
+                    if asked is None
+                    or asked.digest is None
+                    or session.cache_before is None
+                    else (asked.digest, session.cache_before)
+                )
+                session.cache_before = None
                 if self.machine.cache_dir is not None:
                     self._check_cache(
-                        self.machine.cache_dir, session.sharing.cache_max_mb
+                        self.machine.cache_dir, session.sharing.cache_max_mb, stored
                     )
         for hook in self._ended_hooks:
             with contextlib.suppress(Exception):
@@ -2501,6 +2562,7 @@ def offer(
     hosts: Sequence[str],
     running: tuple[str, ...],
     report: hardware.Report,
+    cached: Sequence[str] = (),
 ) -> protocol.Offer:
     """The offer this rig answers a probe with: what it lends and where to reach it.
 
@@ -2513,7 +2575,10 @@ def offer(
     as its runtime and drops ``traversal`` (:data:`NATIVE_FEATURES`); a rig
     running the pinned build, natively or as its image, names the build's RPC
     protocol. ``port_map`` is named only when the owner allowed the port
-    forward on this rig (``Sharing.port_forward``).
+    forward on this rig (``Sharing.port_forward``). ``cached`` are the digests of
+    the models the tensor cache holds (:meth:`Sessions.weight_cache`), newest
+    last: the newest ``MAX_MODELS`` of them are offered as ``weight_cache`` by a
+    rig that lends the worker role and shares its cache with its workers.
     """
     roles = share.session_roles(report)
     if not roles:
@@ -2541,4 +2606,9 @@ def offer(
             if name != PORT_MAP_FEATURE or share.port_forward
         ),
         rpc_proto=PINNED_RPC_PROTO if pinned else None,
+        weight_cache=(
+            tuple(cached)[-protocol.MAX_MODELS :]
+            if "worker" in roles and share.cache
+            else ()
+        ),
     )

@@ -275,6 +275,7 @@ class WorkerCard:
 class WorkerStart:
     session_id: str
     cards: tuple[WorkerCard, ...]
+    digest: str | None = None  # the sha256 of the weights the head will load
 
 
 @dataclass(frozen=True, kw_only=True)
@@ -575,7 +576,8 @@ def read_tunnel_up(envelope: protocol.Envelope) -> TunnelUp:
 
 
 def read_worker_start(envelope: protocol.Envelope) -> WorkerStart:
-    """Read a worker_start body: which cards, on which ports and backend, to serve."""
+    """Read a worker_start body: which cards, on which ports and backend, to serve,
+    and the digest of the weights the head will load, when the hub names it."""
     body = _start(envelope)
     session_id = body.text("session_id", SESSION_ID)
     cards = []
@@ -595,7 +597,12 @@ def read_worker_start(envelope: protocol.Envelope) -> WorkerStart:
         )
     _unique(body, "cards", [card.card_index for card in cards])
     _unique(body, "cards", [card.port for card in cards])
-    return WorkerStart(session_id=session_id, cards=tuple(cards))
+    digest = (
+        body.nested("model", body.raw("model")).text("digest", DIGEST, optional=True)
+        if body.has("model")
+        else None
+    )
+    return WorkerStart(session_id=session_id, cards=tuple(cards), digest=digest)
 
 
 def read_head_start(envelope: protocol.Envelope) -> HeadStart:
