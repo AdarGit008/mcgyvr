@@ -20,7 +20,8 @@ can list the pulled combinations and :func:`pulled_units` names the slots a
 live fleet skips. Nothing
 clears a pull on its own: a combination whose lock record holds a later
 ``validated_at`` than its newest alert is no longer pulled, and :func:`rejudge`
-reports what a newly approved table would trip without rewriting the journal.
+reports what a newly approved table would trip without rewriting the journal
+(a test seam: no product command calls it).
 """
 
 from __future__ import annotations
@@ -445,7 +446,7 @@ def rejudge(
 
     Every journal row of this combination is run through the rules again and
     reported by unit and field when it trips. Nothing is written and nothing
-    is pulled.
+    is pulled. A test seam: the tests call it, and no product command does.
     """
     found: list[dict[str, Any]] = []
     for row in _rows(journal):

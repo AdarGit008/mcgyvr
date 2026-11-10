@@ -12,6 +12,8 @@ Its reader is the process that ran `mcgyvr PROMPT` or `mcgyvr direct`. It is
 not part of the /mcgyvr skill and is not rendered under `skills/`: the session
 agent neither defines nor reads it. `json_schema` is its one schema, and a
 reader imports this module (`read`, `DelegateKind`) rather than copying either.
+The product only writes the record: `read`, `DelegateLog.from_json` and
+`DelegateLog.known` are the reader side, used by the tests and by outside tools.
 
 The schema id is `mcgyvr.delegate_log/1`. Every way the command can end is one
 `kind`; the prefix is the group. Within `/1` new kinds may be added, so a
@@ -215,7 +217,7 @@ class DelegateLog:
 
     @property
     def known(self) -> bool:
-        """Whether `kind` is one this build knows."""
+        """Whether `kind` is one this build knows (reader side: tests, other tools)."""
         return isinstance(self.kind, DelegateKind)
 
     def as_json(self) -> dict[str, Any]:
@@ -249,6 +251,9 @@ class DelegateLog:
     @classmethod
     def from_json(cls, data: object) -> DelegateLog:
         """Read a record; another schema id, or a record that is not one, refused.
+
+        Reader side, used by `read`, the tests and outside tools; the product
+        only writes the record.
 
         A `kind` this build does not know is kept as its string (see the module
         note on growing kinds); everything else must have the shape `/1` gives.
@@ -299,7 +304,10 @@ class DelegateLog:
 
 
 def read(path: Path) -> DelegateLog:
-    """The record at `path`; `DelegateLogError` when it is not a `/1` record."""
+    """The record at `path`; `DelegateLogError` when it is not a `/1` record.
+
+    The reader outside tools and the tests import; no product command reads it.
+    """
     try:
         data = json.loads(Path(path).read_text(encoding="utf-8"))
     except json.JSONDecodeError as exc:
