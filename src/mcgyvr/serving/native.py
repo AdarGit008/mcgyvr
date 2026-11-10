@@ -178,6 +178,17 @@ def bin_root() -> Path:
     return home() / BIN / llamacpp.TAG
 
 
+def pin_root(pin: llamacpp.Pin | None = None) -> Path:
+    """Where ``pin``'s builds are unpacked: the upstream pin's in
+    :func:`bin_root`, any other pin's in a folder of its own beside it, named
+    by its id and tag, so neither ever overwrites the other."""
+    if pin is None or pin == llamacpp.UPSTREAM:
+        return bin_root()
+    from mcgyvr.fleet.roots import home
+
+    return home() / BIN / pin.id / pin.tag
+
+
 def _checked(unit: str) -> str:
     if not UNIT_NAME.fullmatch(unit):
         raise NativeError(f"{unit!r} cannot name a native unit's files")
@@ -298,8 +309,10 @@ def vulkan_loader() -> bool:
     return False
 
 
-def pick() -> llamacpp.Build:
-    """The pinned build for this machine (K5), or for ``$MCGYVR_NATIVE_BACKEND``.
+def pick(pin: llamacpp.Pin | None = None) -> llamacpp.Build:
+    """The pinned build for this machine (K5), or for ``$MCGYVR_NATIVE_BACKEND``:
+    the upstream pin's, or ``pin``'s on the backend the upstream pin picks, so
+    both builds run on the same devices.
 
     The system and its architecture are the reader's (:func:`rigscan.host`):
     the machine's, so an Apple silicon Mac under an x86_64 interpreter still
@@ -324,18 +337,19 @@ def pick() -> llamacpp.Build:
         os_name, arch, nvidia_driver=driver, vulkan=vulkan_loader()
     )
     try:
-        return llamacpp.build_for(os_name, arch, backend, nvidia_driver=driver)
+        return llamacpp.build_for(os_name, arch, backend, nvidia_driver=driver, pin=pin)
     except llamacpp.NoBuildError as exc:
         raise NativeError(str(exc)) from exc
 
 
-def binaries(build: llamacpp.Build) -> Path:
-    """The folder holding `build`'s programs, fetched and verified on first use."""
+def binaries(build: llamacpp.Build, pin: llamacpp.Pin | None = None) -> Path:
+    """The folder holding `build`'s programs (of the upstream pin, or of
+    ``pin``), fetched and verified on first use."""
     try:
         return release.install(
-            llamacpp.RELEASE,
+            llamacpp.RELEASE if pin is None else pin.release,
             build.assets,
-            bin_root() / build.name,
+            pin_root(pin) / build.name,
             executables=llamacpp.EXECUTABLES,
         )
     except release.ReleaseError as exc:

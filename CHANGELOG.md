@@ -345,6 +345,33 @@ archived outside this repository, under the same paths.
 
 ### Added
 
+- **A rig starts the build a session names, and a ring build's head runs star
+  only when the hub says so; the ring pin ships empty, so nothing changes until
+  it is filled in.** `serving.llamacpp` gains `Pin` (`UPSTREAM`, the build
+  every rig runs, and `RING = None`: the fork's ring build, which its owner
+  fills in with the release's archives, their sizes and sha256, and its
+  digest-pinned image with its two programs). With the pin empty no rig
+  offers builds, fetches anything new or names anything new in its hello.
+  Filled in: a native rig offers it when the pin has an archive for its
+  system, architecture and the backend the upstream build picks
+  (`native.pick(pin)`), and fetches it the first time a session runs it, into
+  its own folder (`native.pin_root`); a container rig offers it when its
+  owner names its image by the pin's digest (`ring_image`, `mcgyvr rig share
+  --ring-image`; a mirror of it counts), and an image that is the pin's runs
+  the ring build alone. Any other `ring_image` names no build, and a start of
+  the ring build is refused `not_capable` with the reason. A rig names
+  `runtime_select` only when it offers a ring build. `worker_start` /
+  `head_start` `runtime_id` start that build (its image and programs, or its
+  archives); an id the rig does not offer is refused `not_capable`.
+  `head_start.ring` false on a ring build sets `GGML_RPC_STAR_ONLY=1` on the
+  head (container and native); on another build it changes nothing. A native
+  ring head gets `GGML_RPC_NO_RDMA=1` (no `GGML_RPC_NO_COMM`: the fork has
+  no comm_init) and, with its ring on, `GGML_RPC_PEER_ENDPOINTS` naming for
+  each loopback forward the worker's tunnel `host:port`, the address the
+  other workers dial (`userwg.peer_endpoints`). `mcgyvr rig share` gains
+  `--ring-links` / `--no-ring-links`. Local serving, units, `emit` and
+  `docgen` keep the upstream build.
+
 - **The wire can name the llama.cpp builds a rig can start, and which one a
   session runs (the wire only: no rig names or acts on it yet).** The fork's
   ring build and upstream llama.cpp cannot run in one session, so a hub must

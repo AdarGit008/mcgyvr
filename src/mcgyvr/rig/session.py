@@ -123,6 +123,11 @@ FEATURES = (
     MULTI_SESSION_FEATURE,
     PORT_MAP_FEATURE,
 )
+#: The feature that says this rig offers the builds it can start and starts the
+#: one a start names (:data:`mcgyvr.hubwire.RUNTIME_SELECT_FEATURE`): named only
+#: when it offers a ring build (:func:`rig_builds`), and kept out of FEATURES,
+#: so a rig without one names what it always named.
+RUNTIME_SELECT_FEATURE = hubwire.RUNTIME_SELECT_FEATURE
 #: The llama.cpp RPC protocol of the pinned build, as the wire names it: what
 #: a rig running that build declares in its hello.
 PINNED_RPC_PROTO = hubwire.RpcProto(
@@ -555,6 +560,9 @@ class _Session:
     plan: tunnel.TunnelPlan | None = None
     workers_asked: sessionwire.WorkerStart | None = None
     workers: tuple[tuple[int, int, int], ...] = ()  # the card, its GPU number and port
+    # The build its worker or head runs (:func:`rig_builds`), None for the one
+    # a rig that offers no builds runs.
+    build: RigBuild | None = None
     head_asked: sessionwire.HeadStart | None = None
     head: pooled.HeadSpec | None = None
     head_file: Path | None = None
@@ -1269,6 +1277,9 @@ class Sessions:
                     "the session's workers are started on other cards",
                 )
             share = self.machine.sharing()
+            build = chosen_build(share, asked.runtime_id)
+            if isinstance(build, str):
+                return sessionwire.refusal(envelope.id, SessionCode.NOT_CAPABLE, build)
             report = self.machine.report()
             workers = []
             for card in asked.cards:
@@ -1292,6 +1303,7 @@ class Sessions:
             session.workers_asked = asked
             session.workers = tuple(workers)
             session.sharing = share
+            session.build = build
             self._queue(session, "worker")
             return sessionwire.ack(envelope.id)
 
@@ -1596,10 +1608,17 @@ class Sessions:
     ) -> pooled.HeadSpec | str:
         assert session.hello is not None
         share = self.machine.sharing()
+        build = chosen_build(share, asked.runtime_id)
+        if isinstance(build, str):
+            return sessionwire.refusal(re, SessionCode.NOT_CAPABLE, build)
         report = self.machine.report()
         held = self.machine.inventory()
         relative = inventory.resolve(held, asked.model)
-        runtime = session.host.head_runtime(share)
+        runtime = (
+            build.image
+            if build is not None and build.image is not None
+            else session.host.head_runtime(share)
+        )
         if relative is None or held.folder is None or runtime is None:
             return sessionwire.refusal(
                 re, SessionCode.MODEL_MISSING, "model: not a model this rig holds"
@@ -1658,10 +1677,16 @@ class Sessions:
         session.head_file = held.folder / relative
         # The head runs under the lend as the hello advertised it.
         memory_mb, cpus = share.head_limits(report)
+        session.build = build
+        ring = build is not None and build.wire.ring
         return pooled.HeadSpec(
             session_id=session.id,
             image=runtime,
-            binary=share.head_binary,
+            binary=(
+                build.head_binary
+                if build is not None and build.head_binary
+                else share.head_binary
+            ),
             gpus=tuple(gpus),
             models_dir=held.folder,
             model=relative,
@@ -1676,6 +1701,9 @@ class Sessions:
             memory_mb=memory_mb,
             cpus=cpus,
             api_key=session.host.head_key(),
+            build=build.wire.id if build is not None else None,
+            ring=ring,
+            star_only=ring and asked.ring is False,
         )
 
     def _hub_lost(self) -> None:
@@ -2409,7 +2437,13 @@ class Sessions:
 
     def _do_worker(self, session: _Session) -> None:
         share = session.sharing
-        image = share.image
+        build = session.build
+        image = build.image if build is not None else share.image
+        binary = (
+            build.worker_binary
+            if build is not None and build.worker_binary
+            else share.worker_binary
+        )
         assert session.plan is not None and image is not None
         self._move(session, "starting")
         own = str(session.plan.address.ip)
@@ -2437,7 +2471,7 @@ class Sessions:
                 pooled.WorkerSpec(
                     session_id=session.id,
                     image=image,
-                    binary=share.worker_binary,
+                    binary=binary,
                     gpu=gpu,
                     bind=own,
                     port=port,
@@ -2645,6 +2679,143 @@ def endpoint_kind(host: str) -> str:
     return "lan" if found is not None and tunnel.is_lan(found) else "public"
 
 
+@dataclass(frozen=True, kw_only=True)
+class RigBuild:
+    """A build this rig can start for a session: as its hello names it
+    (``wire``), and what runs it. A container rig runs ``image`` with
+    ``head_binary`` and ``worker_binary``; a native rig runs ``pin``'s
+    archives (``image`` None)."""
+
+    wire: hubwire.Runtime
+    pin: llamacpp.Pin | None
+    image: str | None = None
+    head_binary: str | None = None
+    worker_binary: str | None = None
+
+
+def _wire(pin: llamacpp.Pin) -> hubwire.Runtime:
+    major, minor = pin.rpc_proto
+    return hubwire.Runtime(
+        id=pin.id,
+        runtime=pin.runtime,
+        rpc_proto=hubwire.RpcProto(major=major, minor=minor),
+        ring=pin.ring,
+    )
+
+
+def _digest(image: str) -> str | None:
+    """The ``sha256:<hex>`` an image reference pins, or None for a tag."""
+    _, at, digest = image.rpartition("@")
+    return digest if at and hubwire.DIGEST.fullmatch(digest) else None
+
+
+def ring_image_fault(share: sharing_module.Sharing) -> str | None:
+    """Why a container rig does not offer the ring build, or None when it does:
+    the ring pin must be filled in with its image and programs, and the owner's
+    ``ring_image`` must pin that image's digest."""
+    pin = llamacpp.RING
+    if pin is None or pin.image is None or not (pin.head_binary and pin.worker_binary):
+        return "no ring build is pinned for container rigs"
+    if share.ring_image is None:
+        return "the owner names no ring_image"
+    if _digest(share.ring_image) != _digest(pin.image):
+        return (
+            f"ring_image {share.ring_image} is not the pinned ring build "
+            f"{pin.runtime} (its image is {pin.image}): name it by that digest"
+        )
+    return None
+
+
+@cache
+def native_pin_here(pin: llamacpp.Pin) -> bool:
+    """Whether ``pin`` has an archive for this machine's system, architecture
+    and the backend the upstream build runs on; nothing is fetched."""
+    from mcgyvr.serving import native
+
+    try:
+        native.pick(pin)
+    except native.NativeError:
+        return False
+    return True
+
+
+def rig_builds(share: sharing_module.Sharing) -> tuple[RigBuild, ...]:
+    """The builds this rig offers, its default first, or none.
+
+    A rig offers builds only when one of them is the ring build
+    (:data:`mcgyvr.serving.llamacpp.RING`): with the ring pin empty, or a
+    rig that cannot run it, it offers none and its hello is the one it always
+    sent. A native rig offers the upstream pin and the ring build when the
+    ring pin has an archive for it (:func:`native_pin_here`). A container rig
+    offers the build its ``image`` runs (the upstream pin's when it is that
+    pin's image, else the owner's own, whose protocol it does not know) and
+    the ring build when ``ring_image`` names it (:func:`ring_image_fault`);
+    an ``image`` that pins the ring pin's digest is the ring build alone.
+    """
+    pin = llamacpp.RING
+    if pin is None:
+        return ()
+    if share.native_here():
+        if not native_pin_here(pin):
+            return ()
+        return (
+            RigBuild(wire=_wire(llamacpp.UPSTREAM), pin=llamacpp.UPSTREAM),
+            RigBuild(wire=_wire(pin), pin=pin),
+        )
+    if share.image is None:
+        return ()
+    if pin.image is not None and pin.head_binary and pin.worker_binary:
+        digest = _digest(share.image)
+        if digest is not None and digest == _digest(pin.image):
+            return (_ring_in(pin, share.image),)
+    if ring_image_fault(share) is not None or share.ring_image is None:
+        return ()
+    upstream = share.image == llamacpp.IMAGE
+    default = RigBuild(
+        wire=(
+            _wire(llamacpp.UPSTREAM)
+            if upstream
+            else hubwire.Runtime(id=llamacpp.IMAGE_ID, runtime=share.image)
+        ),
+        pin=llamacpp.UPSTREAM if upstream else None,
+        image=share.image,
+        head_binary=share.head_binary,
+        worker_binary=share.worker_binary,
+    )
+    return (default, _ring_in(pin, share.ring_image))
+
+
+def _ring_in(pin: llamacpp.Pin, image: str) -> RigBuild:
+    """The ring build run in a container of ``image``, with its pin's programs."""
+    return RigBuild(
+        wire=_wire(pin),
+        pin=pin,
+        image=image,
+        head_binary=pin.head_binary,
+        worker_binary=pin.worker_binary,
+    )
+
+
+def chosen_build(
+    share: sharing_module.Sharing, runtime_id: str | None
+) -> RigBuild | str | None:
+    """The build a start names (``runtime_id``), its default when it names
+    none, None on a rig that offers no builds; or why it is no build this rig
+    offers, for the refusal."""
+    builds = rig_builds(share)
+    if runtime_id is None:
+        return builds[0] if builds else None
+    for build in builds:
+        if build.wire.id == runtime_id:
+            return build
+    why = f"{hubwire.RUNTIME_ID_FIELD}: {runtime_id} is no build this rig offers"
+    if runtime_id == llamacpp.RING_ID and not share.native_here():
+        fault = ring_image_fault(share)
+        if fault is not None:
+            why += f" ({fault})"
+    return why
+
+
 def offer(
     share: sharing_module.Sharing,
     held: inventory.Inventory,
@@ -2666,7 +2837,9 @@ def offer(
     protocol. ``port_map`` is named only when the owner allowed the port
     forward on this rig (``Sharing.port_forward``), and ``ring_peers`` only when
     the owner turned the ring links on (``Sharing.ring_links``) on a rig that is
-    not native. ``cached`` are the digests of
+    not native. The builds it can start (:func:`rig_builds`) are named, with
+    ``runtime_select``, only when one is the ring build; ``rpc_proto`` is then
+    its default build's. ``cached`` are the digests of
     the models the tensor cache holds (:meth:`Sessions.weight_cache`), newest
     last: the newest ``MAX_MODELS`` of them are offered as ``weight_cache`` by a
     rig that lends the worker role and shares its cache with its workers.
@@ -2683,6 +2856,7 @@ def offer(
         )
     native = share.native_here()
     pinned = native or share.image == llamacpp.IMAGE
+    builds = rig_builds(share)
     return protocol.Offer(
         roles=roles,
         runtime=llamacpp.RUNTIME if native else share.image,
@@ -2696,8 +2870,12 @@ def offer(
             for name in (NATIVE_FEATURES if native else FEATURES)
             if name != PORT_MAP_FEATURE or share.port_forward
         )
-        + ((RING_PEERS_FEATURE,) if share.ring_links and not native else ()),
-        rpc_proto=PINNED_RPC_PROTO if pinned else None,
+        + ((RING_PEERS_FEATURE,) if share.ring_links and not native else ())
+        + ((RUNTIME_SELECT_FEATURE,) if builds else ()),
+        rpc_proto=(
+            builds[0].wire.rpc_proto if builds else PINNED_RPC_PROTO if pinned else None
+        ),
+        runtimes=tuple(build.wire for build in builds),
         weight_cache=(
             tuple(cached)[-protocol.MAX_MODELS :]
             if "worker" in roles and share.cache

@@ -19,7 +19,13 @@ import time
 
 def main() -> int:
     args = sys.argv[1:]
-    said: dict[str, object] = {"argv": args, "env": sorted(os.environ), "rpc": {}}
+    said: dict[str, object] = {
+        "argv": args,
+        "env": sorted(os.environ),
+        "rpc": {},
+        # the RPC client's own settings, with their values
+        "rpc_env": {k: v for k, v in os.environ.items() if k.startswith("GGML_RPC_")},
+    }
     model = args[args.index("-m") + 1] if "-m" in args else ""
     target = (
         os.path.join(os.path.dirname(os.path.dirname(model)), "head-said.json")

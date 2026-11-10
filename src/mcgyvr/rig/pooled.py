@@ -493,6 +493,13 @@ class WorkerSpec:
     memory_mb: int
 
 
+#: The variable that keeps a ring build's head star only: every copy between
+#: two workers goes through the head, none worker to worker (the fork's
+#: ``GGML_RPC_STAR_ONLY``, read in ``ggml/src/ggml-rpc/ggml-rpc.cpp``). Set
+#: when ``head_start.ring`` is false on a ring build, never on another build.
+STAR_ONLY_ENV = "GGML_RPC_STAR_ONLY"
+
+
 @dataclass(frozen=True, kw_only=True)
 class HeadSpec:
     """What the head container needs: the session and image, the llama-server
@@ -503,6 +510,11 @@ class HeadSpec:
     many threads. ``api_key``, when the session host makes one
     (:meth:`mcgyvr.rig.session.SessionHost.head_key`), is the key the head's API
     asks of every request but ``/health``; it is never part of a repr.
+    ``build`` is the id of the build a native head runs
+    (:data:`mcgyvr.serving.llamacpp.RING_ID`), None for the default one; a
+    container head runs ``image``, whatever it is. ``ring`` says the build is a
+    ring build, and ``star_only`` that its workers may not pass tensors worker
+    to worker: the head runs with :data:`STAR_ONLY_ENV` set.
     """
 
     session_id: str
@@ -522,6 +534,9 @@ class HeadSpec:
     slots: int = 1  # parallel slots (-np); the context and KV cache scale with it
     cpus: int | None = None  # cores lent: the container's --cpus and the --threads
     api_key: str | None = field(default=None, repr=False)
+    build: str | None = None
+    ring: bool = False
+    star_only: bool = False
 
 
 @dataclass(frozen=True, kw_only=True)
@@ -704,6 +719,8 @@ def head_argv(spec: HeadSpec, owner: Owner) -> list[str]:
     fitting off (`HEAD_FIT`), since it states its context and layers itself.
     A container's head takes no key (its API is published on the tunnel's own
     network); a spec that carries one is refused rather than started without it.
+    A ring build's head told to keep its ring off (``star_only``) is given
+    :data:`STAR_ONLY_ENV`; nothing else differs between builds.
     """
     if spec.api_key is not None:
         raise PoolError("a docker head is started with no API key")
@@ -720,6 +737,8 @@ def head_argv(spec: HeadSpec, owner: Owner) -> list[str]:
         listed = ",".join(str(gpu) for gpu in spec.gpus)
         argv += ["--gpus", f'"device={listed}"']
     argv += _engine_lockdown(owner, spec.memory_mb, HEAD_PIDS)
+    if spec.star_only:
+        argv += ["--env", f"{STAR_ONLY_ENV}=1"]
     if spec.cpus is not None:
         argv += ["--cpus", str(spec.cpus)]
     argv += [
