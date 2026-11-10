@@ -1,7 +1,7 @@
 """Ask the hub for the hitchhike rungs this setup may ride, and keep them written;
 ask it for the member's balance with the same key.
 
-A hitchhike rung is a unit other people lend you through the hub (hitchhike): it
+A hitchhike rung is a unit other people lend you through the hub: it
 is a step of the ladder only where you name it there, so all this module does
 is report the shape of your own ladder to the hub and record the rungs it
 answers with.

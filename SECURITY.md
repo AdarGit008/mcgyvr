@@ -44,13 +44,13 @@ Deviations from either are security-relevant and in scope for a report.
 
 ## Who else is in a run that rides a hub
 
-A rung is not always yours. A relief rung (`mcgyvr rig rungs sync`) is lent by
+A rung is not always yours. A hitchhike rung (`mcgyvr rig rungs sync`) is lent by
 another member's machine, and a unit of scope `crew` or `anyone` is served from
 your crews' or anyone's machines. Four parties then have a part in a run:
 
 - **The hub** relays each request and answer, in plaintext: TLS ends there.
   It picks the machine that serves a request, within the scope the request
-  names, and it writes the relief rungs and crew units a sync fetches. It never
+  names, and it writes the hitchhike rungs and crew units a sync fetches. It never
   reaches your machine: your machine dials it. A unit of scope `own` that a
   hub serves is trusted as yours on the hub's word alone.
 - **You, riding** another member's unit, send what a prompt carries: the
@@ -220,7 +220,7 @@ than handing its peers no key.
 A request a rider sends through a hub reaches a model server someone runs.
 Where its text is in clear:
 
-- **A ride (a relief rung) whose host's agent advertises a seal key** is sealed
+- **A ride (a hitchhike rung) whose host's agent advertises a seal key** is sealed
   end to end (`mcgyvr.seal`): the hub carries the envelope and the answer's
   events without the keys to open them. In clear on the hub: the model asked
   for, whether it streams, the sizes and timing of the request and of each

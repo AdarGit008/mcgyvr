@@ -56,7 +56,7 @@ def hub(setup: Path) -> Iterator[Hub]:
         yield made
 
 
-def test_a_setup_holding_only_relief_yaml_loads_its_rungs(setup: Path) -> None:
+def test_a_setup_holding_only_the_old_file_loads_its_rungs(setup: Path) -> None:
     (setup / "relief.yaml").write_text(_rungs("relief"), encoding="utf-8")
 
     config = load(setup)
@@ -80,7 +80,7 @@ def test_the_key_env_is_read_from_the_old_file_too(setup: Path) -> None:
     assert rungs.key_env(setup) == "MY_HUB_KEY"
 
 
-def test_a_sync_writes_hitchhike_yaml_and_removes_relief_yaml(
+def test_a_sync_writes_hitchhike_yaml_and_removes_the_old_file(
     setup: Path, hub: Hub
 ) -> None:
     (setup / "relief.yaml").write_text(_rungs("relief"), encoding="utf-8")
@@ -132,7 +132,7 @@ def test_a_rungs_block_in_a_file_a_person_writes_is_refused_naming_hitchhike_yam
     assert ("`relief` is now `hitchhike`" in said) == (key == "relief")
 
 
-def test_a_setup_written_as_one_document_refuses_relief_naming_hitchhike() -> None:
+def test_a_setup_written_as_one_document_refuses_the_old_key_naming_hitchhike() -> None:
     with pytest.raises(ConfigSchemaError) as refused:
         parse(FLEET + POLICY + "relief: {}\n")
 
