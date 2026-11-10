@@ -506,6 +506,15 @@ EXPOSES = (EXPOSE_LOCAL, EXPOSE_LAN)
 NATIVE_BY_DEFAULT = (DARWIN, WINDOWS)
 
 
+#: The engine a unit is served by when `units.<unit>.engine` states none: the
+#: one place "absent means llama.cpp" is decided. Every reader of a unit's
+#: engine falls back to it. It is not the `engine` field's schema `default`, so
+#: a loaded unit keeps `engine` unset (None) when its file says nothing, and a
+#: stated `engine: llama.cpp` stays declared in the setup identity, which lock
+#: digests are taken over.
+DEFAULT_ENGINE = "llama.cpp"
+
+
 def default_launcher(*, engine: str | None, system: str) -> str:
     """The launcher `setup` and `recommend` write for a unit.
 
@@ -515,7 +524,7 @@ def default_launcher(*, engine: str | None, system: str) -> str:
     `mcgyvr.serving.gatelib.rig_system`); `docker` otherwise, which is what a
     unit that states no launcher runs as.
     """
-    if (engine or "llama.cpp") == "llama.cpp" and system in NATIVE_BY_DEFAULT:
+    if (engine or DEFAULT_ENGINE) == "llama.cpp" and system in NATIVE_BY_DEFAULT:
         return LAUNCHER_NATIVE
     return LAUNCHER_DOCKER
 
@@ -548,11 +557,10 @@ UNIT_FIELDS: tuple[Field, ...] = (
     Field(
         "engine",
         "enum",
-        "Which server program runs behind this address. Absent means \
-"
-        "llama.cpp.",
+        "Which server program runs behind this address. Absent means "
+        f"{DEFAULT_ENGINE}.",
         choices=("llama.cpp", "vllm"),
-        bind_hint="e.g. vllm -- leave it out for llama.cpp",
+        bind_hint=f"e.g. vllm -- leave it out for {DEFAULT_ENGINE}",
     ),
     Field(
         "image",

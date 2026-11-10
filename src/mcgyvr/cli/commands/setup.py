@@ -32,6 +32,7 @@ from mcgyvr.capability import (
 from mcgyvr.config import (
     API_OUTPUT_TOKENS,
     CONFIG_PATH_ENV,
+    DEFAULT_ENGINE,
     FLEET_FILENAME,
     MCGYVR_CODE,
     NATIVE_BY_DEFAULT,
@@ -908,7 +909,7 @@ def _setup_synthetic_detection(
                 f"{rig}: its placement is a local checkpoint, and the wizard "
                 "does not bootstrap from a local store yet"
             )
-        engine = str(placement.get("engine") or "llama.cpp")
+        engine = str(placement.get("engine") or DEFAULT_ENGINE)
         kind = "vllm" if engine == "vllm" else "llama-server"
         port = stock_ports["vllm"] if engine == "vllm" else DEFAULT_PORT
         name = f"{rig}_{kind}" if len(plans) > 1 else kind

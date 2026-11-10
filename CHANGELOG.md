@@ -11,6 +11,17 @@ archived outside this repository, under the same paths.
 
 ### Changed
 
+- **"Absent engine means llama.cpp" is decided once, in
+  `config.DEFAULT_ENGINE`.** The default was `serving.DEFAULT_ENGINE` and the
+  bare string in `default_launcher`, emit's unit host, the native launcher
+  check, the lock's and the sampler's unit digests, `fleet.read.engine_of`,
+  `inspect`, the sampler's window read and setup's bootstrap; each now reads
+  the one constant (`serving.DEFAULT_ENGINE` re-exports it) and the `engine`
+  field's doc quotes it. It is not made the field's schema default, so a loaded
+  unit that names no engine still has none and a stated `engine: llama.cpp`
+  stays in the setup identity: no lock digest, rendered unit or SETUP.md line
+  changes. A literal that names llama.cpp as a kind of engine stays.
+
 - **Two machine-reading designs are said and pinned; nothing behaves
   differently.** First contact with a rig over ssh is the scan's: `mcgyvr scan
   --rig`, `setup` and `recommend` send a rig with no rig file the POSIX reader,
