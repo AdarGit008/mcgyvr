@@ -1069,6 +1069,22 @@ VERIFIER_UNIT_FIELDS: tuple[Field, ...] = (
     *(field for field in ROLE_UNIT_FIELDS if field.name != "unit"),
 )
 
+#: The `deployment` key: its choices and default are read from here by
+#: `Config.deployment`, `mcgyvr setup --deployment` and `mcgyvr init`, so the
+#: two words and which one an unset key means are written once.
+DEPLOYMENT_FIELD = Field(
+    "deployment",
+    "enum",
+    "How mcgyvr is run. `hybrid` drives it from an API-tier "
+    "orchestrator in the user's session; scoped work is offloaded to the "
+    "local cheap-to-dear ladder, whose dearest rung is an API model so a "
+    "task always completes. `local-only` makes mcgyvr the backend: "
+    "`mcgyvr-code` provisions a local orchestrator unit, and a raw use case "
+    "(`code`, `chat`, `agent`) is just the ladder serving its model.",
+    choices=("hybrid", "local-only"),
+    default="hybrid",
+)
+
 SCHEMA: tuple[Field, ...] = (
     Field(
         "use_case",
@@ -1084,18 +1100,7 @@ SCHEMA: tuple[Field, ...] = (
         choices=USE_CASES,
         default=MCGYVR_CODE,
     ),
-    Field(
-        "deployment",
-        "enum",
-        "How mcgyvr is run. `hybrid` drives it from an API-tier "
-        "orchestrator in the user's session; scoped work is offloaded to the "
-        "local cheap-to-dear ladder, whose dearest rung is an API model so a "
-        "task always completes. `local-only` makes mcgyvr the backend: "
-        "`mcgyvr-code` provisions a local orchestrator unit, and a raw use case "
-        "(`code`, `chat`, `agent`) is just the ladder serving its model.",
-        choices=("hybrid", "local-only"),
-        default="hybrid",
-    ),
+    DEPLOYMENT_FIELD,
     Field(
         "units",
         "block_map",
@@ -1702,8 +1707,9 @@ class Config:
 
     @property
     def deployment(self) -> str:
-        """`deployment` from the config, `hybrid` when it is not set."""
-        return str(self.get("deployment", "hybrid"))
+        """`deployment` from the config, the schema's default (`hybrid`) when it
+        is not set."""
+        return str(self.get("deployment", DEPLOYMENT_FIELD.default))
 
     @property
     def provisions_local_orchestrator(self) -> bool:

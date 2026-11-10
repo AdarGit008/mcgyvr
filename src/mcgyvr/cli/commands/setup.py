@@ -33,6 +33,7 @@ from mcgyvr.config import (
     API_OUTPUT_TOKENS,
     CONFIG_PATH_ENV,
     DEFAULT_ENGINE,
+    DEPLOYMENT_FIELD,
     FLEET_FILENAME,
     MCGYVR_CODE,
     NATIVE_BY_DEFAULT,
@@ -1796,12 +1797,12 @@ def add_parser(sub: argparse._SubParsersAction[argparse.ArgumentParser]) -> None
     setup.add_argument(
         "--deployment",
         default=None,
-        choices=("hybrid", "local-only"),
+        choices=DEPLOYMENT_FIELD.choices,
         metavar="MODEL",
         help=(
             "how mcgyvr is run: hybrid (an API-tier orchestrator drives it) or "
             "local-only (mcgyvr is the backend and provisions a local "
-            "orchestrator for mcgyvr-code); default: hybrid"
+            f"orchestrator for mcgyvr-code); default: {DEPLOYMENT_FIELD.default}"
         ),
     )
     setup.add_argument(

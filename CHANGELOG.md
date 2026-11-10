@@ -11,6 +11,13 @@ archived outside this repository, under the same paths.
 
 ### Changed
 
+- **`deployment`'s two words and its default are written once, in the schema
+  field (`config.DEPLOYMENT_FIELD`).** `mcgyvr setup --deployment` took its
+  choices and the default its help names, `Config.deployment` its unset value,
+  and `mcgyvr init` the deployment it writes when none is asked for, each from
+  its own copy of `hybrid` / `local-only`; they now read the field. Every value
+  agrees with before, so nothing a user sees changes.
+
 - **A misspelled `$MCGYVR_LOCAL_TRANSPORT` is refused, not ignored.** For
   this machine's rig names, a value that is neither `direct` nor `ssh` (after
   trimming and lowercasing, so `Direct ` still works) used to fall through to
