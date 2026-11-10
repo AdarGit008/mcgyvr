@@ -2,7 +2,7 @@
 
 Beside the machine's reading, status names each resource the rig advertises as
 lent (a card whole, memory in MiB, cores) or says why it lends nothing, and
-says when memory and cores alone are lent, which no hub places a head on yet. With
+says when memory and cores alone are lent, which run a whole model on the CPU. With
 the member's personal hub key in ``$MCGYVR_HUB_API_KEY`` it asks the hub's
 ``/api/v1/me/credits`` with that key in the ``Authorization`` header and prints
 the balance; a hub that refuses, redirects (the key never follows), or
@@ -181,7 +181,7 @@ def test_a_hub_that_redirects_is_not_followed_with_the_key(
         other.server.shutdown()
 
 
-def test_status_says_a_lend_of_memory_and_cores_alone_is_not_yet_placeable(
+def test_status_says_a_lend_of_memory_and_cores_alone_runs_a_cpu_head(
     hub: _Hub, capsys: pytest.CaptureFixture[str]
 ) -> None:
     from dataclasses import replace
@@ -191,6 +191,6 @@ def test_status_says_a_lend_of_memory_and_cores_alone_is_not_yet_placeable(
     sharing.save(replace(sharing.load(), cards=()))
     out = _status(capsys)
     assert "lends:   ram" in out and f"ram {RAM} MiB" in out
-    assert "not yet placeable" in out
+    assert "run a whole model on the CPU" in out
     sharing.save(replace(sharing.load(), cards=None))
-    assert "not yet placeable" not in _status(capsys)
+    assert "run a whole model on the CPU" not in _status(capsys)

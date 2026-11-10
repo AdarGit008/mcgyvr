@@ -45,6 +45,45 @@ def _head_spec(bind: str) -> pooled.HeadSpec:
     )
 
 
+def _cpu_head_spec() -> pooled.HeadSpec:
+    """A cpu head as ``session._plan_head`` builds it: no card, every layer on
+    the CPU (`-dev none`), held to the lent cores (`--threads`)."""
+    return pooled.HeadSpec(
+        session_id="s1",
+        image=llamacpp.RUNTIME,
+        binary="/app/llama-server",
+        gpus=(),
+        models_dir=Path("/models"),
+        model="m.gguf",
+        name="m.gguf",
+        ctx=4096,
+        n_gpu_layers=0,
+        devices=(pooled.CPU_DEVICE,),
+        tensor_split=(),
+        rpc=(),
+        bind=LOOPBACK,
+        memory_mb=8192,
+        cpus=8,
+    )
+
+
+def test_a_native_cpu_head_runs_on_the_cpu_leaving_every_card_to_dev_none() -> None:
+    """A native cpu head runs the whole model on the host's cores: -dev none,
+    -ngl 0, --threads the lent cores, no tensor split. A native host runs no
+    container, so it hides no card from the engine (``device_env`` is empty with
+    no gpus); only `-dev none` keeps the model off any card the host has, and
+    the lent RAM is held by the head's fit check, not a container `--memory`."""
+    from mcgyvr.serving import native
+
+    spec = _cpu_head_spec()
+    argv = pooled.head_server_args(spec, model="/models/m.gguf", port=8080, rpc=())
+    assert argv[argv.index("-dev") + 1] == "none" == pooled.CPU_DEVICE
+    assert argv[argv.index("-ngl") + 1] == "0"
+    assert "-ts" not in argv
+    assert argv[argv.index("--threads") + 1] == "8"
+    assert native.device_env(llamacpp.CUDA, spec.gpus) == {}
+
+
 def _host(tmp_path: Path, backend: str = llamacpp.CUDA) -> userwg.NativeHost:
     engine = userwg.Engine(program=tmp_path / "llama-server", backend=backend)
     return userwg.NativeHost(
