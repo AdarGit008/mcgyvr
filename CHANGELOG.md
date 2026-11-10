@@ -583,6 +583,25 @@ archived outside this repository, under the same paths.
 
 ### Added
 
+- **The release can be rehearsed, on GitHub and locally, and publishes nothing
+  when it is.** `.github/workflows/release.yml` takes a `workflow_dispatch`
+  input `dry_run`, true by default: `gh workflow run release.yml --ref
+  <branch>` builds once, checks the wheel's version, takes the CHANGELOG
+  notes, runs `twine check`, keeps the files on the run and writes a job
+  summary, and the GitHub release and the PyPI upload are skipped. From a
+  branch the version is stamped from the newest CHANGELOG section
+  (`scripts/release/changelog_notes.py --latest`); `dry_run: false` is refused
+  unless the ref is a tag. The workflow now names no repository: `gh release
+  create --repo "$GITHUB_REPOSITORY"`, so a fork's tag makes the fork's
+  release. The jobs are `build` → `github-release` → `pypi` (the release moved
+  out of `build`, which now holds only `contents: read`), and a tag run also
+  runs `twine check` before anything is published. `make release` runs the
+  same local half into `build/release/` and prints the tag command; it tags,
+  pushes and uploads nothing, and refuses a tree that differs from HEAD or a
+  version tagged on another commit. README gains a Releasing section: what a
+  tag does, the version and notes rule, both rehearsals, the secrets (none
+  stored; the PyPI trusted publisher and the `pypi` environment), and how a
+  fork releases.
 - **A rig's hello names each model's quantisation (`quant`), so a hub can plan
   by the wire's decode rule.** The hub's planner bounded a device's decode
   speed by its memory bandwidth alone, because the rig never said a model's
