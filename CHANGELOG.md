@@ -117,6 +117,18 @@ archived outside this repository, under the same paths.
   REMEDIATE or ESCALATE (a model tuned on the old prompt) is read as REFUSE,
   with a debug note on the `mcgyvr.verify` logger; the next release drops
   them, and such a reply will then be no verdict at all.
+
+- **The two shipped data files that spelled their format version `schema` now
+  spell it `schema_version`, the spelling the other four already use.**
+  `data/numbers.json` and `data/hardware-classes.json` recorded their version
+  under `schema`; they now say `schema_version`, matching
+  `data/model-geometry.json`, `data/model-catalog.json`,
+  `data/capability-table.json` and `data/task-catalog.json`. Their readers
+  (`mcgyvr.derived`, `mcgyvr.estimate`) read the new key, and the test fixtures
+  that write these documents follow. A file and its reader ship in one wheel, so
+  nothing reads the old key and no file carries both. The wire's `v`, the
+  user-written `links.json` in the data folder (still `schema`), and every
+  other document's version key are unchanged.
 - **A docker llama.cpp or vLLM unit listens on 127.0.0.1 or, behind a key
   mcgyvr makes, on every interface (`expose: local | lan`).** `mcgyvr emit`
   rendered every container's server on every interface with no key

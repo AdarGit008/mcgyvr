@@ -46,7 +46,7 @@ def invented_estimates() -> dict[str, object]:
     }
     return {
         "_doc": "Invented for a test.",
-        "schema": derived.NUMBERS_SCHEMA,
+        "schema_version": derived.NUMBERS_SCHEMA,
         "numbers": {
             derived.LINK_GIB_S: {
                 **entry,

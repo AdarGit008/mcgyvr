@@ -103,7 +103,7 @@ def document(made: list[Entry]) -> dict[str, Any]:
     """A shipped-shaped document stating ``made``."""
     return {
         "_doc": "Invented for a test.",
-        "schema": 1,
+        "schema_version": 1,
         "numbers": {
             e.id: {
                 "kind": "estimate",
