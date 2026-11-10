@@ -55,11 +55,11 @@ from mcgyvr.hubwire import (
     SCOPE_CREW,
     SCOPE_HEADER,
     SCOPE_OWN,
-    SCOPE_POOLS,
     SCOPE_VALUES,
     narrowest_scope,
     pool_serves,
     rider_cap_fits,
+    scopes_serving,
     serving_pool,
 )
 from mcgyvr.hubwire import USE_CASES as USE_CASES
@@ -675,9 +675,9 @@ UNIT_FIELDS: tuple[Field, ...] = (
         f"`{SCOPE_HEADER}` header: `own` (your own rigs), `crew` (your crews' "
         "too) or `anyone`. A hub serves the request from that scope's pool; a "
         "server of your own ignores it. A ladder step or a role may bind the "
-        "unit only where its pool serves the setup's use case, so under "
-        "`mcgyvr-code` a unit served from the hub's general pool, which serves "
-        "models raw, is refused when the setup is read. Unset is `own`.",
+        "unit only where its pool serves the setup's use case (every pool a "
+        "unit is served from serves all four), else it is refused when the "
+        "setup is read. Unset is `own`.",
         default=SCOPE_OWN,
         choices=SCOPE_VALUES,
     ),
@@ -2822,7 +2822,7 @@ def _cross_validate_pools(data: Mapping[str, Any]) -> None:
         pool = serving_pool(scope, unit["model"])
         if pool_serves(pool, use_case):
             continue
-        serving = [s for s in SCOPE_VALUES if pool_serves(SCOPE_POOLS[s], use_case)]
+        serving = scopes_serving(use_case)
         raise ConfigSchemaError(
             f"{where}: unit {name!r} is asked under scope {scope!r}, which a hub "
             f"serves from the {pool} pool, and that pool does not serve use case "

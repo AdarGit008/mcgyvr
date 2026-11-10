@@ -264,6 +264,26 @@ archived outside this repository, under the same paths.
   its next build; `mcgyvr sandbox --cache` lists what remains, and
   `sandbox.image_cache_keep: 0` keeps them all.
 
+- **The general pool serves `mcgyvr-code` too, and a hub refuses a use case
+  its pool does not serve with a new `/v1` code, `use_case_not_served` (403).**
+  `hubwire.POOL_USE_CASES` had the general pool serve models raw only; the hub
+  holds a ladder for general-pool coders, so it now serves all four use cases,
+  as a member's own rigs, a crew's pool and a ride do. Upgrading: a setup under
+  `mcgyvr-code` whose ladder step or role binds a unit of scope `anyone` (not a
+  ride) was refused when read and is now taken; the check itself is unchanged
+  (`serving_pool` and `pool_serves`). `hubwire` said the hub refuses a use case
+  its pool does not serve, but no code for that existed and the hub did not
+  read the header. `hubwire.API_ERROR_STATUS` and the rider schema's
+  `x-openai-errors` now hold `use_case_not_served: 403`, named
+  `hubwire.USE_CASE_NOT_SERVED`, beside `out_of_scope`; the hub change that
+  reads `x-mcgyvr-use-case` follows in the hub repo. With every pool a request
+  is served from serving every use case, what it refuses today is a header
+  value that is not a use case; a request without the header is not checked.
+  The `hubwire` text on the header and the `units.scope` reference now say
+  this. `hubwire.scopes_serving(use_case)` names the scopes whose pool serves
+  a use case: the list the setup check's refusal offers, kept in one place for
+  the hub's refusal too.
+
 - **A docker llama.cpp or vLLM unit listens on 127.0.0.1 or, behind a key
   mcgyvr makes, on every interface (`expose: local | lan`).** `mcgyvr emit`
   rendered every container's server on every interface with no key
