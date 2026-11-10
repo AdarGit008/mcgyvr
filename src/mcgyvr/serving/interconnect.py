@@ -27,8 +27,9 @@ from mcgyvr.hubwire import BYTES_PER_GIB
 READINGS_FILENAME = "links.json"
 #: The schema number a readings file must state; a file stating another is refused.
 READINGS_SCHEMA = 1
-#: Bytes in a GiB, and microseconds in a second, for turning a fitted slope and
-#: intercept (seconds per byte, seconds) into GiB/s and microseconds.
+#: Microseconds in a second, for turning a fitted intercept (seconds) into
+#: microseconds; a slope (seconds per byte) becomes GiB/s through
+#: `hubwire.BYTES_PER_GIB`.
 _MICROSECONDS_PER_SECOND = 1_000_000.0
 
 #: The layers a number can come from: the user's own setting, the user's own
