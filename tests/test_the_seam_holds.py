@@ -510,7 +510,7 @@ def test_every_module_is_on_one_side_of_the_seam() -> None:
     )
 
 
-def test_nothing_below_the_seam_imports_the_contract_or_the_repo_layer() -> None:
+def test_nothing_below_the_seam_imports_the_contract_or_the_exploration() -> None:
     """Below the seam a rung is already resolved; it never needs to read a
     contract or explore a repo to decide what to run.
 
