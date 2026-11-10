@@ -39,10 +39,9 @@ from mcgyvr.config import Config, parse
 from mcgyvr.contract import Contract
 from mcgyvr.contract import loads as load_contract
 from mcgyvr.deterministic import ToolStep, tool_steps
-from mcgyvr.deterministic import route as floor_route
 from mcgyvr.escalate import Assurance, Delivered, Judgement, ascent, escalate
 from mcgyvr.ladder_map import UnitMap, unit_map
-from mcgyvr.route import Result, RouteError, Step, Try, Verdict, climb, plan
+from mcgyvr.route import Result, RouteError, Try, Verdict, climb, plan
 
 # A keyless install: one local rung above the floor, no credential anywhere.
 # The cheapest ladder a stranger can have, and the one a deterministic tool is
@@ -308,36 +307,10 @@ def test_the_step_the_floor_plans_actually_formats_the_target_when_run(
     target.parent.mkdir(parents=True)
     target.write_text("x = {  'a':1 }\n", encoding="utf-8")
 
-    landed = floor_route(config, pool, contract(), installed=frozenset({"ruff"}))
+    landed = plan(config, pool, contract())
     (step,) = steps_of(landed)
     finished = subprocess.run(step.argv, cwd=tmp_path, capture_output=True, check=False)
 
     assert landed.family == DETERMINISTIC, "the floor was not honoured"
     assert finished.returncode == 0, finished.stderr.decode()
     assert target.read_text(encoding="utf-8") == 'x = {"a": 1}\n'
-
-
-def test_without_the_tool_the_work_degrades_to_a_rung_and_is_delivered_there(
-    tmp_path: Path,
-) -> None:
-    """The other half of the same contract's story, end to end.
-
-    A machine with no `ruff` still gets its file formatted, dearly: the floor
-    degrades onto the local rung with the cost recorded, and the same contract
-    driven through `escalate` is delivered by that rung rather than aborting the
-    run. Both halves are asserted because a degradation that named a family the
-    climb cannot reach would read as a fallback and behave as a halt.
-    """
-    config, pool = mapped()
-
-    landed = floor_route(config, pool, contract(), installed=frozenset())
-    outcome = escalate(config, pool, contract(), passes)
-
-    assert landed.family == LOCAL
-    assert [d.landed for d in landed.degradations] == ["local"]
-    assert "ruff is not installed" in str(landed.degradations[0])
-    (step,) = landed.steps
-    assert isinstance(step, Step), "the work degraded onto something with no rung"
-    assert isinstance(outcome, Delivered)
-    assert outcome.family == landed.family
-    assert outcome.rung == step.rung.name

@@ -4,7 +4,7 @@ A fleet that cannot be sampled -- every unit hosted, the
 containers not started, a use case with no sample -- is locked self-approved
 on no evidence only after the user acknowledges it. Setup prints why it could
 not be sampled and what a lock on no evidence means, and asks "Lock it
-approved on no evidence? [y/N]"; on the flag path ``--accept-unsampled`` is
+approved on no evidence? [y/n]"; on the flag path ``--accept-unsampled`` is
 that acknowledgment, and without it nothing is locked and the limits say how.
 
 Nothing reaches a machine: detection is substituted and the door is a fake.
@@ -23,7 +23,7 @@ from mcgyvr.fleet.roots import live_file
 from tests import setup_door as sd
 
 HOSTED = "model=hosted-model,address=https://api.hosted.example/v1,api_key_env=K"
-ASK = "Lock it approved on no evidence? [y/N] "
+ASK = "Lock it approved on no evidence? [y/n] "
 START = "Start the serving containers"
 
 

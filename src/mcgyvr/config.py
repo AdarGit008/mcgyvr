@@ -50,6 +50,7 @@ from mcgyvr.hubwire import CHAT as CHAT
 from mcgyvr.hubwire import CODE as CODE
 from mcgyvr.hubwire import MCGYVR_CODE as MCGYVR_CODE
 from mcgyvr.hubwire import (
+    POOL_NAMES,
     RUNG_POSITIONS,
     SCOPE_ANYONE,
     SCOPE_CREW,
@@ -58,6 +59,7 @@ from mcgyvr.hubwire import (
     SCOPE_VALUES,
     narrowest_scope,
     pool_serves,
+    retired_audience,
     rider_cap_fits,
     scopes_serving,
     serving_pool,
@@ -2307,6 +2309,9 @@ def _value(raw: object, spec: Field, path: str) -> Any:
             )
         _reject_credential_literal(value, path)
         if spec.kind == "enum" and value not in spec.choices:
+            retired = retired_audience(value) if spec.choices == SCOPE_VALUES else None
+            if retired is not None:
+                raise ConfigSchemaError(f"{path}: {retired}")
             raise ConfigSchemaError(
                 f"{path}: {value!r} is not a valid value. Valid: "
                 f"{', '.join(spec.choices)}"
@@ -2880,8 +2885,8 @@ def _cross_validate_pools(data: Mapping[str, Any]) -> None:
         serving = scopes_serving(use_case)
         raise ConfigSchemaError(
             f"{where}: unit {name!r} is asked under scope {scope!r}, which a hub "
-            f"serves from the {pool} pool, and that pool does not serve use case "
-            f"{use_case!r}. Set the unit's `scope` to one whose pool does "
+            f"serves from the {POOL_NAMES[pool]}, and that pool does not serve use "
+            f"case {use_case!r}. Set the unit's `scope` to one whose pool does "
             f"({', '.join(serving)}), bind another unit, or switch the use case "
             f"with `mcgyvr use`."
         )

@@ -668,6 +668,44 @@ def _macos_windows_section() -> list[str]:
     ]
 
 
+def _audience_lines() -> list[str]:
+    """Who may use a rig on a hub, in one vocabulary: the audiences a rig, a
+    unit's `scope` and `ride_scope` name, each rig's mode, and the pool each
+    pair puts it in, from `mcgyvr.hubwire`."""
+    audiences = ", ".join(f"`{a}`" for a in hubwire.SCOPE_VALUES)
+    modes = " or ".join(f"`{m}`" for m in hubwire.MODES)
+    lines = [
+        f"Who may use a rig is one of {audiences}: a unit's `scope` and the "
+        "setup's `ride_scope` name it, and so does each rig you add to a hub, "
+        f"with its mode, {modes}. A rig in mode `{hubwire.MODE_LEND}` puts its "
+        "hardware in its audience's pool; one in mode "
+        f"`{hubwire.MODE_HITCHHIKE}` runs your own units and lets riders the "
+        "hub matches use their spare slots. The pairs, and what each pool "
+        "serves:",
+        "",
+        "| audience | mode | pool | use cases |",
+        "|---|---|---|---|",
+    ]
+    for mode in hubwire.MODES:
+        for audience in hubwire.MODE_AUDIENCES[mode]:
+            pool = hubwire.rig_pool(audience, mode)
+            cases = ", ".join(f"`{c}`" for c in hubwire.POOL_USE_CASES[pool])
+            name = hubwire.POOL_NAMES[pool]
+            lines.append(f"| `{audience}` | `{mode}` | {name} | {cases} |")
+    retired = "; ".join(
+        f"`{old}` is `{a}` + `{m}`"
+        for old, (a, m) in hubwire.RETIRED_SHARING_MODES.items()
+    )
+    lines += [
+        "",
+        f"Under `{hubwire.SCOPE_OWN}` a rig lends to nobody, whatever its mode. "
+        "A rig whose audience reaches strangers serves someone who is neither "
+        "you nor a crewmate only once a hub admin has approved you as a host. "
+        f"The hub's old sharing modes are refused with these: {retired}.",
+    ]
+    return lines
+
+
 def render_setup() -> str:
     """Render SETUP.md: how a machine comes to have a config, and what it says.
 
@@ -714,7 +752,7 @@ def render_setup() -> str:
         "`mcgyvr-code`, a one-function bug fix the deterministic gate must pass;",
         "for `code` and `chat`, one word from each unit) and",
         "a Jev unit's one typed choice. A green sample is stamped, and on",
-        "`Lock the fleet and name it live? [y/N]` it is locked, promoted and",
+        "`Lock the fleet and name it live? [y/n]` it is locked, promoted and",
         "named live. A red sample is never locked; its reasons are printed.",
         "",
         "When the interactive setup finishes, it offers to put `~/.local/bin`,",
@@ -735,7 +773,7 @@ def render_setup() -> str:
         "A fleet that could not be sampled — its containers not started, or",
         "every unit hosted — is locked",
         "approved on no evidence only once you say so: setup says why and what",
-        "that means, and asks `Lock it approved on no evidence? [y/N]`. With",
+        "that means, and asks `Lock it approved on no evidence? [y/n]`. With",
         "flags, setup binds the servers already answering and starts none, so",
         "nothing is sampled; `--accept-unsampled` is that acknowledgment, and",
         "without it nothing is locked. Backends on another machine come in with",
@@ -834,6 +872,8 @@ def render_setup() -> str:
         "keys on them, and the run config drops them when it loads the",
         "setup. A `fleets` entry takes `layout` and `next`; a `rigs` entry is",
         "checked only as a block. `examples/fleet.yaml` shows all three.",
+        "",
+        *_audience_lines(),
         "",
         "`mcgyvr ladder show` reads that config back: the usable rungs "
         "cheapest-first with",

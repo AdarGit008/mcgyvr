@@ -395,9 +395,9 @@ def test_the_scope_header_is_one_header_and_its_values_are_three() -> None:
 def test_each_scope_is_served_from_one_pool() -> None:
     assert tuple(hubwire.SCOPE_POOLS) == hubwire.SCOPE_VALUES
     assert dict(hubwire.SCOPE_POOLS) == {
-        "own": hubwire.POOL_SOLO,
+        "own": hubwire.POOL_OWN,
         "crew": hubwire.POOL_CREW,
-        "anyone": hubwire.POOL_GENERAL,
+        "anyone": hubwire.POOL_ANYONE,
     }
 
 
@@ -448,8 +448,8 @@ def test_every_pool_serves_only_use_cases_and_each_is_served_somewhere() -> None
 @pytest.mark.parametrize(
     ("pool", "served"),
     [
-        (hubwire.POOL_SOLO, {"mcgyvr-code", "code", "chat", "agent"}),
-        (hubwire.POOL_GENERAL, {"mcgyvr-code", "code", "chat", "agent"}),
+        (hubwire.POOL_OWN, {"mcgyvr-code", "code", "chat", "agent"}),
+        (hubwire.POOL_ANYONE, {"mcgyvr-code", "code", "chat", "agent"}),
         (hubwire.POOL_CREW, {"mcgyvr-code", "code", "chat", "agent"}),
         (hubwire.POOL_HITCHHIKE, {"mcgyvr-code", "code", "chat", "agent"}),
         (hubwire.POOL_SHARED_LADDER, {"mcgyvr-code"}),
@@ -460,8 +460,8 @@ def test_a_pool_serves_its_use_cases_and_refuses_the_rest(
 ) -> None:
     for use_case in hubwire.USE_CASES:
         assert hubwire.pool_serves(pool, use_case) is (use_case in served)
-    with pytest.raises(KeyError):
-        hubwire.pool_serves("anyone", hubwire.CHAT)
+    with pytest.raises(KeyError):  # the general pool's old name is no pool
+        hubwire.pool_serves("general", hubwire.CHAT)
 
 
 @pytest.mark.parametrize("use_case", hubwire.USE_CASES)
@@ -502,7 +502,7 @@ def test_the_scopes_a_refusal_offers_are_those_whose_pool_serves_the_use_case(
 def test_a_scope_whose_pool_stops_serving_a_use_case_is_not_offered(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    narrow = {**hubwire.POOL_USE_CASES, hubwire.POOL_GENERAL: ("code", "chat", "agent")}
+    narrow = {**hubwire.POOL_USE_CASES, hubwire.POOL_ANYONE: ("code", "chat", "agent")}
     monkeypatch.setattr(hubwire, "POOL_USE_CASES", narrow)
 
     assert hubwire.scopes_serving(hubwire.MCGYVR_CODE) == (

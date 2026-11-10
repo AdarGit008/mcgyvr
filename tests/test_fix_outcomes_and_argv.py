@@ -14,9 +14,9 @@ about an argument parser and not about a tuple.
 **N5 and N6, one class over.** ``Ascent.__len__`` counts the families that offer
 something to *climb* and ``Ascent.__bool__`` counted the plans that hold
 *anything*, so an ascent whose only non-empty plan is the program-only floor was
-true and empty at once. :class:`~mcgyvr.deterministic.Routed` carries the same
-``ToolStep | Step`` union :class:`~mcgyvr.route.Plan` does and gained none of the
-properties that tell the two apart.
+true and empty at once. A floor's :class:`~mcgyvr.route.Plan` carries the same
+``ToolStep | Step`` union and is read through the properties that tell the two
+apart.
 
 Nothing here needs a model, a key or a network. The subprocess tests run the
 project's own tools on a file in ``tmp_path``.
@@ -34,11 +34,10 @@ from mcgyvr.catalog import catalog
 from mcgyvr.config import Config, parse
 from mcgyvr.contract import Contract
 from mcgyvr.contract import loads as load_contract
-from mcgyvr.deterministic import Routed, ToolStep, tool_steps
-from mcgyvr.deterministic import route as floor_route
+from mcgyvr.deterministic import ToolStep, tool_steps
 from mcgyvr.escalate import ascent
 from mcgyvr.ladder_map import UnitMap, unit_map
-from mcgyvr.route import Step
+from mcgyvr.route import Plan, Step, plan
 
 # A keyless install with one local rung: the cheapest ladder a stranger has.
 KEYLESS = """\
@@ -158,17 +157,15 @@ def test_an_ascent_whose_floor_holds_a_program_still_climbs_the_rung_above() -> 
 # --- N6: the same union, one class over ------------------------------------
 
 
-def test_a_route_that_planned_a_program_tells_a_caller_it_is_one() -> None:
-    """``Routed`` carries ``ToolStep | Step`` and had no way to say which.
+def test_the_floor_that_holds_a_program_tells_a_caller_it_is_one() -> None:
+    """The floor's plan carries ``ToolStep | Step`` and says which it holds.
 
-    Every reader of a :class:`~mcgyvr.route.Plan` gained ``climbable`` and
-    ``programs`` when B1 was fixed; a reader of a ``Routed`` was left with
-    ``steps`` and truthiness — the exact pair that sent ``escalate`` into a
-    family whose only step ``climb`` refuses.
+    A reader with only ``steps`` and truthiness is the exact pair that sent
+    ``escalate`` into a family whose only step ``climb`` refuses.
     """
     config, pool = mapped(KEYLESS)
 
-    landed = floor_route(config, pool, formatting(), installed=frozenset({"ruff"}))
+    landed = plan(config, pool, formatting())
 
     assert landed.family == DETERMINISTIC
     assert landed.climbable == (), "a program was offered to the ladder as a rung"
@@ -177,16 +174,16 @@ def test_a_route_that_planned_a_program_tells_a_caller_it_is_one() -> None:
         f"a program the ladder never climbs was counted in what it may spend: "
         f"{landed.climb_budget}"
     )
-    assert bool(landed) is True, "the floor planned work; the route is not empty"
+    assert bool(landed) is True, "the floor planned work; the plan is not empty"
 
 
-def test_a_route_that_degraded_onto_a_rung_reports_a_rung() -> None:
+def test_the_family_above_the_floor_reports_a_rung() -> None:
     """The complement, so that the properties cannot be constants."""
     config, pool = mapped(KEYLESS)
 
-    landed = floor_route(config, pool, formatting(), installed=frozenset())
+    landed = plan(config, pool, formatting(), family=catalog().family("local"))
 
-    assert landed.programs == (), "nothing was installed, so nothing runs on the floor"
+    assert landed.programs == (), "the rung above the floor runs no program"
     assert [step.rung.name for step in landed.climbable] == ["local_qwen-7b"]
     assert landed.climb_budget == 1
     assert all(isinstance(step, Step) for step in landed.steps)
@@ -242,9 +239,7 @@ def test_a_target_that_reads_as_a_flag_is_formatted_rather_than_obeyed(
     target.write_text(unformatted, encoding="utf-8")
     config, pool = mapped(KEYLESS)
 
-    landed = floor_route(
-        config, pool, formatting("-h.py"), installed=frozenset({"ruff"})
-    )
+    landed = plan(config, pool, formatting("-h.py"))
     (step,) = [s for s in landed.steps if isinstance(s, ToolStep)]
     finished = subprocess.run(
         [shutil.which("ruff") or "ruff", *step.argv[1:]],
@@ -293,4 +288,4 @@ def test_the_separator_is_not_confused_for_the_target(tmp_path: Path) -> None:
 
     assert step.argv[-2:] == ("--", "src/pkg/fetch.py")
     assert step.argv.count("--") == 1, f"the separator was doubled: {step.argv}"
-    assert Routed(family=DETERMINISTIC, steps=(step,)).programs == (step,)
+    assert Plan(family=DETERMINISTIC, steps=(step,)).programs == (step,)
