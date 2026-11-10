@@ -157,7 +157,7 @@ def test_an_ascent_whose_floor_holds_a_program_still_climbs_the_rung_above() -> 
 # --- N6: the same union, one class over ------------------------------------
 
 
-def test_a_floor_plan_that_holds_a_program_tells_a_caller_it_is_one() -> None:
+def test_the_floor_that_holds_a_program_tells_a_caller_it_is_one() -> None:
     """The floor's plan carries ``ToolStep | Step`` and says which it holds.
 
     A reader with only ``steps`` and truthiness is the exact pair that sent
@@ -177,7 +177,7 @@ def test_a_floor_plan_that_holds_a_program_tells_a_caller_it_is_one() -> None:
     assert bool(landed) is True, "the floor planned work; the plan is not empty"
 
 
-def test_a_plan_on_the_rung_above_the_floor_reports_a_rung() -> None:
+def test_the_family_above_the_floor_reports_a_rung() -> None:
     """The complement, so that the properties cannot be constants."""
     config, pool = mapped(KEYLESS)
 
