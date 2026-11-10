@@ -66,13 +66,13 @@ def test_the_error_lands_on_the_draw_whose_dispatch_raised(
     capsys: pytest.CaptureFixture[str],
 ) -> None:
     """Two draws, the second one's dispatch dies: ``#1`` is the row corrected."""
-    from mcgyvr.local_pool import Protocol
+    from mcgyvr.ladder_map import Protocol
     from mcgyvr.runner import Completion, RunnerError, StopReason
 
     answers: list[str | None] = [lj.BAD_REPLY, None]
 
     def dies_on_the_second_draw(
-        source_map: Any, rung: str, request: Any, **_: Any
+        unit_map: Any, rung: str, request: Any, **_: Any
     ) -> Any:
         reply = answers.pop(0)
         if reply is None:

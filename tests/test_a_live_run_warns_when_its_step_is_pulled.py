@@ -181,7 +181,7 @@ def _git(repo: Path, *args: str) -> None:
 
 
 def _completion(text: str) -> Any:
-    from mcgyvr.local_pool import Protocol
+    from mcgyvr.ladder_map import Protocol
     from mcgyvr.runner import Completion, StopReason
 
     return Completion(
@@ -228,7 +228,7 @@ def climb(
     dispatched: list[str] = []
 
     def fake_dispatch(
-        source_map: Any, rung: str, request: Any, *, capacity: Any = None
+        unit_map: Any, rung: str, request: Any, *, capacity: Any = None
     ) -> Any:
         dispatched.append(rung)
         if rung == FIRST:

@@ -28,7 +28,7 @@ from mcgyvr.initialize import (
     parse_api_unit,
     render,
 )
-from mcgyvr.propose import binding_name, propose
+from mcgyvr.ladder_proposal import binding_name, propose
 from tests.inits import KEYLESS_RIG, KINDS, _serving
 from tests.machine_shapes import Shape, detection, shape, shapes, with_server
 

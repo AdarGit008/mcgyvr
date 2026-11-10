@@ -26,7 +26,7 @@ import pytest
 
 from mcgyvr.cli.commands.setup import _setup_placements
 from mcgyvr.knowledge import store as ks
-from mcgyvr.propose import DEFAULT_HEADROOM_GB
+from mcgyvr.ladder_proposal import DEFAULT_HEADROOM_GB
 from mcgyvr.recommend import MIN_CONTEXT_PER_USER
 from mcgyvr.scan import Scan
 

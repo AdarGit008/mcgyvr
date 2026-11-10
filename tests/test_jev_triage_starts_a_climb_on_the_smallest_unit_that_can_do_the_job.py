@@ -468,7 +468,7 @@ def _run(
     result_path = tmp_path / "result.json"
     dispatched: list[str] = []
 
-    def fake_dispatch(source_map, rung, request, *, capacity=None):  # type: ignore[no-untyped-def]
+    def fake_dispatch(unit_map, rung, request, *, capacity=None):  # type: ignore[no-untyped-def]
         dispatched.append(rung)
         return _completion(f"```python\n{CHANGED}```\n")
 

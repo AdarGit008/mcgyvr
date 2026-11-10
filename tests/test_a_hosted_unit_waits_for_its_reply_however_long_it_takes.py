@@ -30,7 +30,7 @@ from mcgyvr import decision as decision_module
 from mcgyvr import runner as runner_module
 from mcgyvr.config import parse
 from mcgyvr.decision import Noul, classify
-from mcgyvr.local_pool import Endpoint, Protocol, source_map
+from mcgyvr.ladder_map import Endpoint, Protocol, unit_map
 from mcgyvr.runner import (
     GENERATE_TIMEOUT_S,
     Request,
@@ -151,7 +151,7 @@ ladder:
 """
     )
     seen = _bounds(monkeypatch)
-    dispatch(source_map(config), "api_deepseek", ASK)
+    dispatch(unit_map(config), "api_deepseek", ASK)
     assert seen == [None]
 
 

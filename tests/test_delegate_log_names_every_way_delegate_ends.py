@@ -36,7 +36,7 @@ from mcgyvr.delegate_log import (
     json_schema,
     read,
 )
-from mcgyvr.local_pool import Protocol, SourceUnavailableError
+from mcgyvr.ladder_map import Protocol, UnitUnavailableError
 from mcgyvr.repo import IndexBuildError
 from mcgyvr.runner import Completion, RunnerError, StopReason
 from tests import livejournal as lj
@@ -124,7 +124,7 @@ def _answer(text: str, stop: StopReason = StopReason.COMPLETE) -> Completion:
 def _reply(monkeypatch: pytest.MonkeyPatch, answer: Any) -> None:
     """The orchestrator answers `answer`: a reply, None, or an exception raised."""
 
-    def fake_dispatch_role(source_map, role, request, *, capacity=None):  # type: ignore[no-untyped-def]
+    def fake_dispatch_role(unit_map, role, request, *, capacity=None):  # type: ignore[no-untyped-def]
         if isinstance(answer, BaseException):
             raise answer
         if isinstance(answer, str):
@@ -224,12 +224,12 @@ def test_a_role_declared_but_not_runnable_is_orchestrator_unrunnable(
     tmp_path: Path, root: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
     def unrunnable(config: Any, pool: Any, **kwargs: Any) -> None:
-        raise SourceUnavailableError("unit 'planner' was skipped: no key")
+        raise UnitUnavailableError("unit 'planner' was skipped: no key")
 
     monkeypatch.setattr(command, "_proposer_for_delegate", unrunnable)
     _code, record = _delegate(tmp_path, root, config=_config(tmp_path))
     _ended(record, DelegateKind.ORCHESTRATOR_UNRUNNABLE)
-    assert record.detail["error_class"] == "SourceUnavailableError"
+    assert record.detail["error_class"] == "UnitUnavailableError"
 
 
 def test_a_role_with_no_unit_is_orchestrator_unavailable(
@@ -253,7 +253,7 @@ def test_a_dispatch_that_failed_is_orchestrator_dispatch_failed(
 def test_a_source_unusable_at_dispatch_is_source_unavailable(
     tmp_path: Path, root: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
-    _reply(monkeypatch, SourceUnavailableError("the planner key is unset"))
+    _reply(monkeypatch, UnitUnavailableError("the planner key is unset"))
     _code, record = _delegate(tmp_path, root, config=_config(tmp_path))
     _ended(record, DelegateKind.SOURCE_UNAVAILABLE)
 

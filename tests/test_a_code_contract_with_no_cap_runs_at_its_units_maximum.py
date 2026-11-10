@@ -18,7 +18,7 @@ import pytest
 
 from mcgyvr.config import parse as parse_config
 from mcgyvr.contract import loads as load_contract
-from mcgyvr.local_pool import source_map
+from mcgyvr.ladder_map import unit_map
 from tests import livejournal as lj
 
 #: Two units with room to spare, so nothing but the missing cap can refuse.
@@ -69,13 +69,13 @@ def repo(tmp_path: Path) -> Path:
 def _sent(monkeypatch: pytest.MonkeyPatch) -> list[tuple[str, int | None]]:
     """Record every rung a request reaches, and its cap; answer with a file."""
     from mcgyvr import drive
-    from mcgyvr.local_pool import Protocol
+    from mcgyvr.ladder_map import Protocol
     from mcgyvr.runner import Completion, StopReason
 
     seen: list[tuple[str, int | None]] = []
 
     def fake_dispatch(
-        source_map: Any, rung: str, request: Any, *, capacity: Any = None
+        unit_map: Any, rung: str, request: Any, *, capacity: Any = None
     ) -> Completion:
         seen.append((rung, request.max_output_tokens))
         return Completion(
@@ -102,7 +102,7 @@ def _room(contract: Any) -> int:
     from mcgyvr.gate.preflight import unit_ceiling
     from mcgyvr.worker.prompt import build_prompt
 
-    pool = source_map(parse_config(LADDER))
+    pool = unit_map(parse_config(LADDER))
     room = unit_ceiling(pool.bind("local_cheap"), build_prompt(contract).measured)
     assert room.tokens is not None
     return room.tokens
@@ -127,7 +127,7 @@ def test_the_dispatch_sends_it_the_room_its_unit_leaves(
     from mcgyvr.worker.prompt import build_prompt
 
     sent = _sent(monkeypatch)
-    pool = source_map(parse_config(LADDER))
+    pool = unit_map(parse_config(LADDER))
     contract = load_contract(UNCAPPED)
 
     dispatch_prompt(pool, "local_cheap", build_prompt(contract), contract)
@@ -140,7 +140,7 @@ def test_a_stated_cap_is_not_what_is_sent(monkeypatch: pytest.MonkeyPatch) -> No
     from mcgyvr.worker.prompt import build_prompt
 
     sent = _sent(monkeypatch)
-    pool = source_map(parse_config(LADDER))
+    pool = unit_map(parse_config(LADDER))
     contract = load_contract(CAPPED)
 
     dispatch_prompt(pool, "local_cheap", build_prompt(contract), contract)
@@ -158,7 +158,7 @@ def test_a_run_reaches_a_model_at_its_units_maximum(
 
     sent = _sent(monkeypatch)
     config = parse_config(LADDER)
-    pool = source_map(config)
+    pool = unit_map(config)
     contract = load_contract(UNCAPPED)
 
     with TempDirSandbox(repo) as sandbox:

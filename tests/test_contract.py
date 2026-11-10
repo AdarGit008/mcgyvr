@@ -257,7 +257,7 @@ def test_content_on_a_pattern_target_is_rejected() -> None:
 
 def test_a_pattern_target_without_content_is_still_fine() -> None:
     """The rejection is the contradiction, not the pattern — #150 adds no
-    restriction to the deterministic tier, whose tools read files themselves."""
+    restriction to the floor, whose tools read files themselves."""
     pattern = DETERMINISTIC.replace("target: src/pkg/fetch.py", 'target: "src/**"')
     assert loads(pattern).target_content == ""
 

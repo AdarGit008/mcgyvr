@@ -349,16 +349,16 @@ def grounded(answer: str, citation: str, facts: Sequence[str]) -> str | None:
 def complete(setup: Path, unit: str) -> str:
     """Ask one unit of the staged setup for the single word `ready` and answer its text.
 
-    The request is dispatched at the unit through the setup's source map with the
+    The request is dispatched at the unit through the setup's unit map with the
     chat reply cap as its output ceiling, and the reply text is returned as it
     was sent, so a caller can tell an empty answer from an absent one.
     """
     from mcgyvr.config import load
-    from mcgyvr.local_pool import source_map
+    from mcgyvr.ladder_map import unit_map
     from mcgyvr.runner import Request, dispatch
 
     answer = dispatch(
-        source_map(load(setup)),
+        unit_map(load(setup)),
         unit,
         Request(prompt=CHAT_PROMPT, max_output_tokens=CHAT_TOKENS),
     )
@@ -370,12 +370,12 @@ def ground(setup: Path, unit: str) -> str:
 
     The sample's files are rendered as numbered sources, the way a worker is
     shown them, under its task, and the request is dispatched at the unit
-    through the setup's source map stating no output cap, so it is sent the
+    through the setup's unit map stating no output cap, so it is sent the
     unit's maximum: the agent use case is the served model used directly. The
     reply text is returned as it was sent.
     """
     from mcgyvr.config import load
-    from mcgyvr.local_pool import source_map
+    from mcgyvr.ladder_map import unit_map
     from mcgyvr.runner import Request, dispatch
     from mcgyvr.worker.prompt import _render_sources
 
@@ -387,7 +387,7 @@ def ground(setup: Path, unit: str) -> str:
         ]
     )
     answer = dispatch(
-        source_map(load(setup)),
+        unit_map(load(setup)),
         unit,
         Request(
             prompt=f"{sample['task']}\nSOURCES:\n{sources}\n",
@@ -444,10 +444,10 @@ def choose(setup: Path) -> tuple[str, float]:
     """
     from mcgyvr.config import load
     from mcgyvr.decision import JEV_ROLE, Choice, ChoiceAnswer, classify_role
-    from mcgyvr.local_pool import source_map
+    from mcgyvr.ladder_map import unit_map
 
     decided = classify_role(
-        source_map(load(setup)),
+        unit_map(load(setup)),
         JEV_ROLE,
         {"sample": "every unit of the staged fleet answered its sample"},
         {"sample": Choice(instructions=JEV_INSTRUCTIONS, options=JEV_OPTIONS)},

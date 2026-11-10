@@ -25,7 +25,7 @@ from mcgyvr.runner import unit_in_flight
 from mcgyvr.userdir import private_dir, user_tempdir
 
 if TYPE_CHECKING:  # pragma: no cover - typing only
-    from mcgyvr.local_pool import Endpoint, SourceMap
+    from mcgyvr.ladder_map import Endpoint, UnitMap
 
 # Everything in a key that is not a letter, digit, dot or hyphen, collapsed to
 # runs so a key can be used as part of a file name. Applied to a key before it
@@ -215,14 +215,14 @@ def _status(endpoint: Endpoint) -> int | None:
     )
 
 
-def server_counts(pool: SourceMap) -> Callable[[str], int | None]:
+def server_counts(pool: UnitMap) -> Callable[[str], int | None]:
     """Build the capacity's server-count reader: source name to work in flight.
 
     A name the pool has no rung for reads as `None` instead of raising, since the
     capacity may ask about a unit it was given no address for.
     """
 
-    from mcgyvr.local_pool import UnknownRungError
+    from mcgyvr.ladder_map import UnknownRungError
 
     def count(source: str) -> int | None:
         try:

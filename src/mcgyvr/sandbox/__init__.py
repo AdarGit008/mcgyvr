@@ -1,7 +1,7 @@
 """The sandbox: the throwaway workspace a task's commands are run in.
 
 A contract's acceptance commands run without a shell, each in whatever program
-it names, on the host unless a container holds it. This package holds no logic
+it names, on this machine unless a container holds it. This package holds no logic
 of its own. It re-exports the pieces a caller
 composes so one import is enough: `open_sandbox` builds a `Sandbox` — a
 container-backed one, or the weaker temp-directory one — over a source

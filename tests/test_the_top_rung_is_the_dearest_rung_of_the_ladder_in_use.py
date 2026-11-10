@@ -12,7 +12,7 @@ from __future__ import annotations
 import pytest
 
 from mcgyvr.config import parse
-from mcgyvr.local_pool import source_map
+from mcgyvr.ladder_map import unit_map
 from mcgyvr.route import top_rung
 from tests.relieftakes import mapped
 
@@ -68,7 +68,7 @@ def test_a_hub_lent_rung_is_never_the_top_rung() -> None:
 def test_inside_one_family_the_last_rung_the_ladder_lists_is_the_top() -> None:
     config = parse(LOCAL_ONLY)
 
-    rung = top_rung(config, source_map(config))
+    rung = top_rung(config, unit_map(config))
 
     assert rung is not None
     assert rung.name == "smart"

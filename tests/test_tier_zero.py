@@ -24,7 +24,7 @@ from mcgyvr.catalog import catalog
 from mcgyvr.config import Config, parse
 from mcgyvr.contract import Contract
 from mcgyvr.contract import loads as load_contract
-from mcgyvr.local_pool import SourceMap, source_map
+from mcgyvr.ladder_map import UnitMap, unit_map
 from mcgyvr.route import plan
 
 # A keyless install: one local rung, no credential anywhere. The cheapest ladder
@@ -43,9 +43,9 @@ ladder:
 DETERMINISTIC = tuple(o.name for o in catalog().operations if o.starts_on.rank == 0)
 
 
-def _installed() -> tuple[Config, SourceMap]:
+def _installed() -> tuple[Config, UnitMap]:
     config = parse(KEYLESS)
-    return config, source_map(config)
+    return config, unit_map(config)
 
 
 def _contract_of(operation: str) -> Contract:

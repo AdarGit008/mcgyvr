@@ -61,7 +61,7 @@ from mcgyvr.emit import (
 )
 from mcgyvr.exits import Exit
 from mcgyvr.fleet import harness, read, sampler
-from mcgyvr.local_pool import SourceUnavailableError, source_map
+from mcgyvr.ladder_map import UnitUnavailableError, unit_map
 from mcgyvr.rig import hitchhike
 from mcgyvr.rig.relay import Target
 from mcgyvr.rig.relay import _page as relay_page
@@ -620,7 +620,7 @@ def test_a_dispatch_and_the_availability_probe_send_the_units_key(
     keyed: KeyedServer,
 ) -> None:
     keep(keyed.key, keyed.port)
-    endpoint = source_map(parse(config_for(keyed.address))).bind("coder")
+    endpoint = unit_map(parse(config_for(keyed.address))).bind("coder")
 
     assert runner.request_headers(endpoint)["Authorization"] == f"Bearer {keyed.key}"
     assert probe_endpoint(endpoint).live
@@ -628,7 +628,7 @@ def test_a_dispatch_and_the_availability_probe_send_the_units_key(
 
 
 def test_a_unit_with_no_key_file_is_sent_no_key(keyed: KeyedServer) -> None:
-    endpoint = source_map(parse(config_for(keyed.address))).bind("coder")
+    endpoint = unit_map(parse(config_for(keyed.address))).bind("coder")
 
     assert "Authorization" not in runner.request_headers(endpoint)
     assert not probe_endpoint(endpoint).live
@@ -806,7 +806,7 @@ def test_a_hosted_unit_and_an_address_not_your_own_are_never_sent_a_units_key(
 ) -> None:
     keep(keyed.key, keyed.port)
     monkeypatch.setenv("EXAMPLE_API_KEY", "a-hosted-key")
-    hosted = source_map(
+    hosted = unit_map(
         parse(config_for(keyed.address, extra="    api_key_env: EXAMPLE_API_KEY\n"))
     ).bind("coder")
 
@@ -819,9 +819,9 @@ def test_a_key_file_that_cannot_be_trusted_stops_the_dispatch_by_name(
     keyed: KeyedServer,
 ) -> None:
     keep(keyed.key, keyed.port).chmod(0o640)
-    endpoint = source_map(parse(config_for(keyed.address))).bind("coder")
+    endpoint = unit_map(parse(config_for(keyed.address))).bind("coder")
 
-    with pytest.raises(SourceUnavailableError, match="chmod 600"):
+    with pytest.raises(UnitUnavailableError, match="chmod 600"):
         runner.request_headers(endpoint)
 
 

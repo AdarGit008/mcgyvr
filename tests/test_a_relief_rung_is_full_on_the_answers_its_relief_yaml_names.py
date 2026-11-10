@@ -23,7 +23,7 @@ import yaml
 from mcgyvr.capacity import Capacity, SlotUnavailableError
 from mcgyvr.config import ConfigSchemaError, parse
 from mcgyvr.hubwire import RUNG_BUSY
-from mcgyvr.local_pool import source_map
+from mcgyvr.ladder_map import unit_map
 from mcgyvr.runner import (
     BackendError,
     Request,
@@ -82,7 +82,7 @@ def ask(
         request = Request(prompt="hello", max_output_tokens=8)
         try:
             return capacity, dispatch(
-                source_map(config), RIDE, request, capacity=capacity
+                unit_map(config), RIDE, request, capacity=capacity
             )
         except Exception as exc:
             return capacity, exc

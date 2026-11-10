@@ -41,7 +41,7 @@ import pytest
 from mcgyvr.config import parse as parse_config
 from mcgyvr.contract import loads as load_contract
 from mcgyvr.drive import worker_attempt
-from mcgyvr.local_pool import Rung, source_map
+from mcgyvr.ladder_map import Rung, unit_map
 from mcgyvr.route import Try, Verdict
 from mcgyvr.sandbox.tempdir import TempDirSandbox
 from mcgyvr.telemetry import fold
@@ -73,7 +73,7 @@ def test_an_attempt_whose_draws_all_refused_says_how_many_it_drew(
     rung = Rung(name="local_qwen-7b", model="qwen2.5-coder:7b")
 
     with TempDirSandbox(repo) as sandbox:
-        attempt = worker_attempt(config, source_map(config), contract, sandbox)
+        attempt = worker_attempt(config, unit_map(config), contract, sandbox)
         judgement = attempt(Try(rung=rung, attempt=1, of=1))
 
     assert judgement.verdict is Verdict.FAILED

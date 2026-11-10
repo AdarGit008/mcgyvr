@@ -34,7 +34,7 @@ import yaml
 from mcgyvr import config, hubwire, runner, seal, whole
 from mcgyvr.capacity import Capacity
 from mcgyvr.config import ConfigError, parse
-from mcgyvr.local_pool import source_map
+from mcgyvr.ladder_map import unit_map
 from mcgyvr.rig import rungs
 from mcgyvr.runner import (
     BackendError,
@@ -138,7 +138,7 @@ def ask(address: str, key: seal.SealKey | None, tmp_path: Path) -> Any:
     capacity = Capacity.of(config, root=tmp_path / "slots")
     request = Request(prompt=PROMPT, max_output_tokens=8)
     try:
-        return dispatch(source_map(config), RIDE, request, capacity=capacity)
+        return dispatch(unit_map(config), RIDE, request, capacity=capacity)
     except Exception as exc:
         return exc
 
@@ -226,9 +226,7 @@ def test_a_request_outside_the_bounds_is_refused_here_as_the_hub_would(
     path would get, never sent, so the host's ``bad_seal`` (the backstop) cannot
     come back as a stale key and hold the rung out."""
     key = seal.HostKey()
-    endpoint = source_map(parse(setup("http://127.0.0.1:9/v1", key.unit_key))).bind(
-        RIDE
-    )
+    endpoint = unit_map(parse(setup("http://127.0.0.1:9/v1", key.unit_key))).bind(RIDE)
     asked = {"model": "m", "messages": [{"role": "user", "content": PROMPT}]}
     for outside in (
         {"temperature": 5},

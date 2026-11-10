@@ -15,7 +15,7 @@ from typing import Any
 from mcgyvr.config import parse
 from mcgyvr.decompose.decompose import Evidence, Proposal
 from mcgyvr.delegate import proposer_by_authoring
-from mcgyvr.local_pool import source_map
+from mcgyvr.ladder_map import unit_map
 
 SETUP = """\
 units:
@@ -118,5 +118,5 @@ def test_the_command_reads_the_field_from_the_config(monkeypatch: Any) -> None:
 
     monkeypatch.setattr(delegate, "proposer_by_authoring", spy)
     config = parse(SETUP + "  authoring: classifier\n")
-    _proposer_for_delegate(config, source_map(config))
+    _proposer_for_delegate(config, unit_map(config))
     assert seen == ["classifier"]

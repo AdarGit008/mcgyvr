@@ -152,7 +152,7 @@ def test_a_source_named_twice_is_refused_at_load() -> None:
 def _attempt(repo: Path, document: str, monkeypatch: pytest.MonkeyPatch, *replies: str):  # type: ignore[no-untyped-def]
     from mcgyvr.config import parse as parse_config
     from mcgyvr.drive import worker_attempt
-    from mcgyvr.local_pool import Rung, source_map
+    from mcgyvr.ladder_map import Rung, unit_map
     from mcgyvr.route import Try
     from mcgyvr.sandbox.tempdir import TempDirSandbox
     from tests.drives import LADDER, _driven
@@ -160,9 +160,9 @@ def _attempt(repo: Path, document: str, monkeypatch: pytest.MonkeyPatch, *replie
     config = parse_config(LADDER)
     sent = _driven(monkeypatch, *replies)
     with TempDirSandbox(repo) as sandbox:
-        judgement = worker_attempt(
-            config, source_map(config), loads(document), sandbox
-        )(Try(rung=Rung(name="local_qwen-7b", model="m"), attempt=1, of=1))
+        judgement = worker_attempt(config, unit_map(config), loads(document), sandbox)(
+            Try(rung=Rung(name="local_qwen-7b", model="m"), attempt=1, of=1)
+        )
     return judgement, sent
 
 

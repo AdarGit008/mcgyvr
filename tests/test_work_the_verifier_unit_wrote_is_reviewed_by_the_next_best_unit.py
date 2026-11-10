@@ -40,7 +40,7 @@ from mcgyvr.config import parse as parse_config
 from mcgyvr.contract import loads as load_contract
 from mcgyvr.decision import BoolAnswer, Decision, Noul, ScoreAnswer
 from mcgyvr.escalate import Assurance
-from mcgyvr.local_pool import Protocol, Rung, source_map
+from mcgyvr.ladder_map import Protocol, Rung, unit_map
 from mcgyvr.route import Try, Verdict
 from mcgyvr.runner import Completion, StopReason
 from mcgyvr.verify import NoReviewer, Reviewer, reviewers_for
@@ -223,7 +223,7 @@ def _builders(monkeypatch: pytest.MonkeyPatch, *replies: str) -> list[str]:
     scripted = list(replies)
     sent: list[str] = []
 
-    def fake(source_map, rung, request, *, capacity=None):  # type: ignore[no-untyped-def]
+    def fake(unit_map, rung, request, *, capacity=None):  # type: ignore[no-untyped-def]
         sent.append(rung)
         if not scripted:
             raise AssertionError(f"an unscripted worker dispatch to {rung!r}")
@@ -236,7 +236,7 @@ def _builders(monkeypatch: pytest.MonkeyPatch, *replies: str) -> list[str]:
 def _no_prose_review(monkeypatch: pytest.MonkeyPatch) -> None:
     import mcgyvr.verify as verify
 
-    def fake(source_map, rung, request, *, capacity=None):  # type: ignore[no-untyped-def]
+    def fake(unit_map, rung, request, *, capacity=None):  # type: ignore[no-untyped-def]
         raise AssertionError(f"a prose review was asked of {rung!r}")
 
     monkeypatch.setattr(verify, "dispatch", fake)
@@ -248,7 +248,7 @@ def _typed(monkeypatch: pytest.MonkeyPatch) -> list[str]:
 
     asked: list[str] = []
 
-    def fake(source_map, rung, state, questions, **kwargs):  # type: ignore[no-untyped-def]
+    def fake(unit_map, rung, state, questions, **kwargs):  # type: ignore[no-untyped-def]
         asked.append(rung)
         answers: dict[str, Any] = {}
         for name, question in questions.items():
@@ -265,7 +265,7 @@ def _typed(monkeypatch: pytest.MonkeyPatch) -> list[str]:
 
 def _chosen(text: str, builder: str) -> Reviewer | NoReviewer:
     config = parse_config(text)
-    return reviewers_for(config, source_map(config))(builder)
+    return reviewers_for(config, unit_map(config))(builder)
 
 
 def _attempt_on(repo: Path, text: str, rung: str) -> Any:
@@ -274,7 +274,7 @@ def _attempt_on(repo: Path, text: str, rung: str) -> Any:
     from mcgyvr.sandbox.tempdir import TempDirSandbox
 
     config = parse_config(text)
-    pool = source_map(config)
+    pool = unit_map(config)
     offered = pool.get(rung)
     assert offered is not None, f"{rung!r} is not offered"
     with TempDirSandbox(repo) as sandbox:
@@ -305,21 +305,21 @@ def test_the_nearest_rung_below_the_verifier_stands_in_before_any_above_it() -> 
     from mcgyvr.verify import stand_in_rung
 
     config = parse_config(THREE_LOCAL + "verifier:\n  unit: middle\n")
-    assert stand_in_rung(config, source_map(config), "middle", "middle") == "small"
+    assert stand_in_rung(config, unit_map(config), "middle", "middle") == "small"
 
 
 def test_with_nothing_below_the_verifier_the_nearest_rung_above_stands_in() -> None:
     from mcgyvr.verify import stand_in_rung
 
     config = parse_config(THREE_LOCAL + "verifier:\n  unit: small\n")
-    assert stand_in_rung(config, source_map(config), "small", "small") == "middle"
+    assert stand_in_rung(config, unit_map(config), "small", "small") == "middle"
 
 
 def test_a_rung_serving_the_builders_model_never_stands_in() -> None:
     from mcgyvr.verify import stand_in_rung
 
     config = parse_config(WITH_A_TWIN + "verifier:\n  unit: small\n")
-    assert stand_in_rung(config, source_map(config), "small", "small") == "big"
+    assert stand_in_rung(config, unit_map(config), "small", "small") == "big"
 
     only_the_twin = WITH_A_TWIN.replace("- big\n", "") + "verifier:\n  unit: small\n"
     chosen = _chosen(only_the_twin, "small")

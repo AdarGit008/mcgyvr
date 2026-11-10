@@ -19,7 +19,7 @@ import pytest
 
 from mcgyvr import decision, runner
 from mcgyvr.decision import Noul, classify
-from mcgyvr.local_pool import Endpoint, Protocol
+from mcgyvr.ladder_map import Endpoint, Protocol
 
 
 def _endpoint() -> Endpoint:

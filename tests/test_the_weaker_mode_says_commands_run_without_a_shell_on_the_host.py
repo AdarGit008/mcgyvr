@@ -4,7 +4,7 @@ A contract's acceptance commands are split like a shell would split them and
 executed with no shell at all (``contract.py`` refuses shell syntax for that
 reason). So "arbitrary shell" is false, and a user who knows it is false has
 reason to doubt the rest of the warning. The rest is true and is the point:
-each command runs whatever program it names, on the host, with only the host's
+each command runs whatever program it names, on this machine, with only its own
 process, network and resource isolation, so Docker belongs on a machine that
 runs contracts its user did not write.
 
@@ -34,7 +34,7 @@ def _says_what_the_commands_are(text: str) -> None:
     assert "arbitrary shell" not in flat, flat
     assert "without a shell" in flat, flat
     assert "whatever program" in flat, flat
-    assert "on the host" in flat, flat
+    assert "on this machine" in flat, flat
 
 
 def test_setup_says_the_commands_run_without_a_shell_and_to_install_docker(

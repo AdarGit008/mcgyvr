@@ -13,7 +13,7 @@ from __future__ import annotations
 import pytest
 
 from mcgyvr.config import parse
-from mcgyvr.local_pool import _ROLES, source_map
+from mcgyvr.ladder_map import _ROLES, unit_map
 
 SETUP = """\
 units:
@@ -29,18 +29,18 @@ ladder:
 
 @pytest.mark.parametrize("role", _ROLES)
 def test_every_role_bound_without_a_model_answers_on_the_units_own(role: str) -> None:
-    pool = source_map(parse(SETUP + f"{role}:\n  unit: cheap\n"))
+    pool = unit_map(parse(SETUP + f"{role}:\n  unit: cheap\n"))
     assert pool.role_model(role) == "coder-7b"
 
 
 @pytest.mark.parametrize("role", _ROLES)
 def test_a_named_model_still_wins(role: str) -> None:
-    pool = source_map(parse(SETUP + f"{role}:\n  unit: cheap\n  model: coder-14b\n"))
+    pool = unit_map(parse(SETUP + f"{role}:\n  unit: cheap\n  model: coder-14b\n"))
     assert pool.role_model(role) == "coder-14b"
 
 
 def test_a_delegate_orchestrator_bound_by_unit_alone_is_configured() -> None:
     from mcgyvr.delegate import proposer_for
 
-    pool = source_map(parse(SETUP + "orchestrator:\n  unit: cheap\n"))
+    pool = unit_map(parse(SETUP + "orchestrator:\n  unit: cheap\n"))
     assert proposer_for(pool) is not None

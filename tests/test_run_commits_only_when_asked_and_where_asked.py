@@ -128,9 +128,9 @@ def test_the_schema_default_is_commit_off_onto_the_checked_out_branch() -> None:
 def test_setup_writes_commit_off_into_policy_yaml() -> None:
     from mcgyvr.detect import Detection
     from mcgyvr.initialize import build, render_policy
-    from mcgyvr.propose import Proposal
+    from mcgyvr.ladder_proposal import LadderProposal
 
-    text = render_policy(build(Detection(), Proposal()))
+    text = render_policy(build(Detection(), LadderProposal()))
 
     delivery = text[text.index("\ndelivery:") :]
     assert "\n  commit: false\n" in delivery, delivery[:1200]
