@@ -1186,6 +1186,18 @@ archived outside this repository, under the same paths.
   section 6 asked for this before the helper's first pin. A Linux rig's
   pooled head, in a container on its tunnel's network, is started and asked
   as before, with no key.
+- **The README says, in one sentence, what the privacy + security program
+  makes true** (`## Privacy`; the hub's README carries the same paragraph):
+  your own and your crew's rigs by default (an account made before crew became
+  the default keeps the scope it had, anyone for most), strangers' rigs only
+  by opt-in and the hub admin's approval, who can read a prompt and its
+  answer, that a ride your client seals is unread by the hub unless the hub
+  swaps the host's key for its own, what the hub keeps (who asked and from
+  what address, which rigs answered, which model, how many tokens and when;
+  never the text), identity-key pinning for current rigs from first contact,
+  port-forward consent on the rig, docker units on their own machine or behind
+  a key, and no network while the gate tests code a host returns.
+  `SECURITY.md` has the detail.
 - **A rig forwards its UDP ports only when its owner allowed it on the rig
   too, and never takes a permanent lease unasked.** The lending settings gain
   `port_forward` and `port_forward_permanent` (`rig-sharing.json`, both off;
