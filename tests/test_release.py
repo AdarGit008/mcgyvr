@@ -260,6 +260,36 @@ def test_the_release_builds_once_on_a_tag_and_publishes() -> None:
     assert published, "nothing in release.yml publishes to a GitHub release"
 
 
+ON_GITHUB = "github.server_url == 'https://github.com'"
+
+
+def test_the_release_runs_on_github_and_reaches_pypi_by_trusted_publishing() -> None:
+    """The release is a GitHub release and the PyPI identity is GitHub's OIDC
+    token: a forge that also reads `.github/workflows` must skip `build`, and
+    `pypi` must ride on `build` (so it is skipped with it) under the
+    environment and the one permission the trusted publisher names."""
+    jobs = _release()["jobs"]
+    assert jobs["build"].get("if") == ON_GITHUB, jobs["build"].get("if")
+    pypi = jobs["pypi"]
+    assert pypi.get("needs") == "build", pypi.get("needs")
+    assert "if" not in pypi, "an `if:` on pypi would be evaluated, not skipped"
+    assert pypi.get("environment") == "pypi", pypi.get("environment")
+    assert pypi.get("permissions") == {"id-token": "write"}, pypi.get("permissions")
+    text = RELEASE.read_text(encoding="utf-8")
+    secrets = re.findall(r"\$\{\{\s*secrets\.[A-Za-z0-9_]+", text)
+    assert secrets == [], f"the release reads a stored secret: {secrets}"
+
+
+def test_the_macos_and_windows_job_waits_on_a_github_only_job() -> None:
+    """On a forge with no macOS or Windows runners the job is skipped, not
+    queued for a runner that never comes."""
+    loaded = yaml.safe_load((WORKFLOWS / "platforms.yml").read_text(encoding="utf-8"))
+    jobs = loaded["jobs"]
+    assert jobs["on-github"].get("if") == ON_GITHUB, jobs["on-github"]
+    assert jobs["platforms"].get("needs") == "on-github", jobs["platforms"]
+    assert "if" not in jobs["platforms"], jobs["platforms"]
+
+
 def test_every_action_in_the_release_is_pinned_by_commit() -> None:
     text = RELEASE.read_text(encoding="utf-8")
     used = USES.findall(text)
