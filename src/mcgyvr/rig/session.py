@@ -2716,6 +2716,8 @@ def ring_image_fault(share: sharing_module.Sharing) -> str | None:
     pin = llamacpp.RING
     if pin is None or pin.image is None or not (pin.head_binary and pin.worker_binary):
         return "no ring build is pinned for container rigs"
+    if _digest(pin.image) is None:
+        return f"the ring pin's image {pin.image} is not pinned by its digest"
     if share.ring_image is None:
         return "the owner names no ring_image"
     if _digest(share.ring_image) != _digest(pin.image):

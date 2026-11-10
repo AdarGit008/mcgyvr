@@ -98,6 +98,11 @@ RING_HEAD_FIXED_ENV = {"GGML_RPC_NO_RDMA": "1"}
 #: ``host:port``): a native head reaches each worker through a loopback
 #: forward, an address no worker can dial.
 PEER_ENDPOINTS_ENV = "GGML_RPC_PEER_ENDPOINTS"
+#: What a ring build's head never takes from the agent's own environment: the
+#: two variables :func:`head_build_env` alone decides (the fork reads a peer
+#: mapping at its first connection even when star only, and aborts on a
+#: malformed one).
+RING_SET_ENV = frozenset({PEER_ENDPOINTS_ENV, pooled.STAR_ONLY_ENV})
 #: The fork's bounds on it, past which its head aborts at its first
 #: connection: at most 16 pairs (``GGML_RPC_MAX_SERVERS``), each side at most
 #: 255 bytes, the whole value at most 8192, no ``local`` or ``peer`` twice, and
@@ -322,6 +327,7 @@ class NativeHost:
         self._reply_s = reply_s
         self._lock = threading.Lock()
         self._fetching = threading.Lock()
+        self._ring_fetching = threading.Lock()
         self._runs: dict[str, _Run] = {}
         self._argv: list[str] | None = None
         self._found: Engine | None = None
@@ -579,7 +585,9 @@ class NativeHost:
         if run.api_port is None or found is None:
             raise pooled.PoolError("the session prepared no API port or build")
         if llamacpp.RING is not None and spec.build == llamacpp.RING.id:
-            with self._fetching:
+            # A lock of its own: two ring fetches wait on each other, and no
+            # other session's prepare (``tunnel_image``) waits on either.
+            with self._ring_fetching:
                 ring = self._ring_engine()
             if ring.backend != found.backend:
                 raise pooled.PoolError(
@@ -604,7 +612,11 @@ class NativeHost:
         # The key goes in the head's environment, never its argv, which any local
         # user may list; llama-server reads it as its --api-key.
         env = {
-            **engine_env(self._env),
+            **{
+                key: value
+                for key, value in engine_env(self._env).items()
+                if not (spec.ring and key in RING_SET_ENV)
+            },
             **native.device_env(found.backend, spec.gpus),
             **head_build_env(spec, pairs),
             unitkey.LLAMA_ENV: spec.api_key,

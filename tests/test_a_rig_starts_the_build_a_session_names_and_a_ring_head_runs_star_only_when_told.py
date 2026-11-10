@@ -18,6 +18,7 @@ head names each worker as the other workers reach it
 
 from __future__ import annotations
 
+import json
 import time
 from collections.abc import Iterator
 from pathlib import Path
@@ -382,15 +383,29 @@ def test_a_ring_pin_is_picked_on_the_upstream_builds_backend_and_kept_apart(
 
 
 @pytest.fixture
+def ring_control() -> dict[str, Any]:
+    """How the fake ring fetch behaves: ``fails`` (a reason it raises with),
+    ``backend`` (the build's), ``gate`` (an Event it waits on first)."""
+    return {"fails": None, "backend": "cuda", "gate": None}
+
+
+@pytest.fixture
 def ring_rig(
-    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, ring: llamacpp.Pin
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+    ring: llamacpp.Pin,
+    ring_control: dict[str, Any],
 ) -> Iterator[tuple[native_fakes.NativePool, list[str]]]:
     fetched: list[str] = []
     program = native_fakes.write_engine(tmp_path / "ring-engine")
 
     def ring_engine() -> userwg.Engine:
         fetched.append("ring")
-        return userwg.Engine(program=program, backend="cuda")
+        if ring_control["gate"] is not None:
+            assert ring_control["gate"].wait(10.0)
+        if ring_control["fails"] is not None:
+            raise pooled.PoolError(ring_control["fails"])
+        return userwg.Engine(program=program, backend=ring_control["backend"])
 
     monkeypatch.setattr(userwg, "ring_engine", ring_engine)
     monkeypatch.setattr(session, "native_pin_here", lambda pin: pin == ring)
@@ -401,6 +416,14 @@ def ring_rig(
 
 
 def _native_head(rig: native_fakes.NativePool, **changes: Any) -> dict[str, Any]:
+    answer = _native_head_start(rig, **changes)
+    assert answer is not None and answer["type"] == "ack", answer
+    return rig.head_said()
+
+
+def _native_head_start(
+    rig: native_fakes.NativePool, **changes: Any
+) -> dict[str, Any] | None:
     assert rig.pool.ask("session_prepare", "p1", session_id="s1", role="head") is None
     rig.pool.wait_for("session_prepared")
     rig.pool.up("t1", **fakes.tunnel_up_body())
@@ -419,8 +442,7 @@ def _native_head(rig: native_fakes.NativePool, **changes: Any) -> dict[str, Any]
         tensor_split=[1, 1],
         **changes,
     )
-    assert answer is not None and answer["type"] == "ack", answer
-    return rig.head_said()
+    return answer
 
 
 def test_a_native_ring_head_names_each_worker_as_the_others_reach_it(
@@ -587,3 +609,129 @@ def test_the_ring_pin_when_filled_in_is_named_as_the_rig_starts_it() -> None:
         assert pin.id == llamacpp.RING_ID and pin.ring
         assert pin.image is None or session._digest(pin.image) is not None
     assert _pin().id == llamacpp.RING_ID
+
+
+# --- review round: what a ring fetch holds up, and what a ring head inherits ---------
+
+
+def _failed(rig: native_fakes.NativePool) -> dict[str, Any]:
+    rig.pool.wait_for("session_status", "failed")
+    (failed,) = [
+        f
+        for f in rig.pool.box.of_type("session_status")
+        if f["body"]["state"] == "failed"
+    ]
+    body: dict[str, Any] = failed["body"]
+    return body
+
+
+@pytest.mark.parametrize(
+    ("changes", "reason"),
+    [
+        (
+            {"fails": "llama-r1-bin-win-cuda-13.4-x64.zip: sha256 mismatch"},
+            "sha256 mismatch",
+        ),
+        ({"backend": "vulkan"}, "the ring build runs vulkan"),
+    ],
+)
+def test_a_ring_build_that_cannot_be_fetched_or_runs_elsewhere_fails_its_start(
+    ring_rig: tuple[native_fakes.NativePool, list[str]],
+    ring_control: dict[str, Any],
+    changes: dict[str, Any],
+    reason: str,
+) -> None:
+    rig, fetched = ring_rig
+    ring_control.update(changes)
+    answer = _native_head_start(rig, runtime_id=llamacpp.RING_ID)
+    assert answer is not None and answer["type"] == "ack", answer
+    failed = _failed(rig)
+    assert failed["error_code"] == "start_failed"
+    assert reason in json.dumps(failed)
+    assert fetched == ["ring"]
+    assert "spawn" not in rig.verbs()  # no head was started
+    assert not (rig.tmp / "head-said.json").exists()
+
+
+def test_a_ring_fetch_holds_up_no_other_sessions_prepare(
+    ring_rig: tuple[native_fakes.NativePool, list[str]],
+    ring_control: dict[str, Any],
+) -> None:
+    import threading
+
+    rig, fetched = ring_rig
+    gate = threading.Event()
+    ring_control["gate"] = gate
+    try:
+        answer = _native_head_start(rig, runtime_id=llamacpp.RING_ID)
+        assert answer is not None and answer["type"] == "ack", answer
+        deadline = time.monotonic() + 5.0
+        while fetched != ["ring"] and time.monotonic() < deadline:
+            time.sleep(0.01)
+        assert fetched == ["ring"]  # the fetch is under way, and held
+        asked = rig.pool.ask("session_prepare", "p2", session_id="s2", role="head")
+        assert asked is None
+        rig.pool.wait_for("session_prepared", count=2)  # while the fetch is held
+    finally:
+        gate.set()
+    rig.head_said()
+
+
+@pytest.mark.parametrize("ring_on", [True, False])
+def test_a_ring_head_takes_no_peer_mapping_or_star_switch_from_the_agent(
+    ring_rig: tuple[native_fakes.NativePool, list[str]], ring_on: bool
+) -> None:
+    rig, _ = ring_rig
+    rig.host._env[userwg.PEER_ENDPOINTS_ENV] = "not=a,mapping"
+    rig.host._env[pooled.STAR_ONLY_ENV] = "0"
+    env = _native_head(rig, runtime_id=llamacpp.RING_ID, ring=ring_on)["rpc_env"]
+    if ring_on:
+        assert env[userwg.PEER_ENDPOINTS_ENV] != "not=a,mapping"
+        assert pooled.STAR_ONLY_ENV not in env
+    else:
+        assert env[pooled.STAR_ONLY_ENV] == "1"
+        assert userwg.PEER_ENDPOINTS_ENV not in env
+
+
+def test_an_upstream_head_still_takes_the_agents_gpu_settings_as_it_always_did(
+    ring_rig: tuple[native_fakes.NativePool, list[str]],
+) -> None:
+    rig, _ = ring_rig
+    rig.host._env[userwg.PEER_ENDPOINTS_ENV] = "kept=as,before"
+    env = _native_head(rig)["rpc_env"]
+    assert env[userwg.PEER_ENDPOINTS_ENV] == "kept=as,before"
+
+
+def test_a_ring_pin_whose_image_names_no_digest_is_offered_by_no_container(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    monkeypatch.setattr(llamacpp, "RING", _pin(image="registry.example/r:tag"))
+    for named in ("anything:latest", "registry.example/r:tag"):
+        share = fakes.sharing(tmp_path, ring_image=named)
+        fault = session.ring_image_fault(share)
+        assert fault is not None and "not pinned by its digest" in fault
+        assert session.rig_builds(share) == ()
+        assert session.rig_builds(fakes.sharing(tmp_path, image=named)) == ()
+
+
+def test_once_the_pin_is_filled_an_image_that_pins_its_digest_runs_as_the_ring_build(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """The one rig whose unchanged sharing file offers something new once the
+    ring pin is filled in: its image is the ring build's, so its hello names
+    that build and its protocol, and its head and worker run the pin's
+    programs, not the file's head_binary and worker_binary."""
+    changes = {"image": MIRROR, "head_binary": "/own/head", "worker_binary": "/own/w"}
+    before = _offer(tmp_path, **changes)
+    assert before.runtimes == () and before.rpc_proto is None
+    monkeypatch.setattr(llamacpp, "RING", _pin())
+    after = _offer(tmp_path, **changes)
+    assert [r.id for r in after.runtimes] == [llamacpp.RING_ID]
+    assert after.rpc_proto == hubwire.RpcProto(major=7, minor=3)
+    assert after.features == (*before.features, session.RUNTIME_SELECT_FEATURE)
+    (build,) = session.rig_builds(fakes.sharing(tmp_path, **changes))
+    assert (build.image, build.head_binary, build.worker_binary) == (
+        MIRROR,
+        RING_HEAD,
+        RING_WORKER,
+    )
