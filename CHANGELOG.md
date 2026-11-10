@@ -969,6 +969,29 @@ archived outside this repository, under the same paths.
   modules: import them from `mcgyvr.worker.bundle`, `mcgyvr.worker.prompt`
   and `mcgyvr.worker.reply` directly.
 - `mcgyvr.fleet.layout.actions` is gone; nothing but its tests called it.
+- **`mcgyvr setup --profile` is gone**, as the 0.4.0 deprecation promised: it
+  is now an unknown flag. Use `--priority throughput|quality|cost`.
+- Paths nothing but tests reached are cut (no command, flag or default
+  changes):
+  - per-rung width bounds and the width probe: `mcgyvr.capacity.RungWidth`,
+    `WidthProbe`, `SourceWidthProbe`, `Capacity(rungs=)` and
+    `Capacity.of(probe=)`. Every rung is held on its unit's own bound, as every
+    production capacity already was;
+  - `mcgyvr.gate.check_clean_tree` (a run on a dirty tree already says the
+    sandbox is HEAD);
+  - `mcgyvr.decompose.iterate.iterate`, its `Approver` and
+    `MAX_REFUSAL_RETRIES`: the live re-ask is `reproposals`, bounded by
+    `max_reproposals`;
+  - `Request.quality_sensitive`, `QualityCaveatError`, `CAVEAT_NOTE` and
+    `quality_safe` in `mcgyvr.runner`; the completion row in the journal no
+    longer carries `quality_safe`, which was always true;
+  - `RecordedProposer` leaves `mcgyvr.decompose` for `tests/recorded_proposer.py`:
+    it is a test double.
+- **Model records carry no leaderboard `scores`.** `BOARDS`, `Board`, `Score`
+  and the `board` source are gone from `mcgyvr.knowledge.record`, and the
+  knowledge document is `schema_version: 3`. A version-2 document (a cache an
+  earlier mcgyvr wrote) still loads, its `scores` skipped unread; an earlier
+  mcgyvr refuses a version-3 cache file and skips it.
 
 ### Fixed
 
