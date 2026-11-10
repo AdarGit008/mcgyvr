@@ -315,6 +315,7 @@ def packed(text: bytes) -> bytes:
 #: The modules the native launcher imports, each before any that needs it.
 NATIVE_MODULES = (
     "mcgyvr.hostos",
+    "mcgyvr.atomic",
     "mcgyvr.userdir",
     "mcgyvr.fleet.roots",
     "mcgyvr.serving.rigscan",
