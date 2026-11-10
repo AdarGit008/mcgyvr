@@ -74,7 +74,7 @@ def test_a_link_value_outside_its_units_bounds_is_refused_by_name(
 def test_a_rank_allowance_is_keyed_by_the_engine(tmp_path: Path) -> None:
     document = {
         "_doc": "Invented for a test.",
-        "schema": derived.NUMBERS_SCHEMA,
+        "schema_version": derived.NUMBERS_SCHEMA,
         "numbers": {
             derived.SHARD_ALLOWANCE: {
                 "kind": "estimate",
