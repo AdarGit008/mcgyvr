@@ -114,6 +114,10 @@ class Ack:
     #: Why a lending the hub sent was not taken (not the wire's shape), so the
     #: rig lends as its own settings say; None when there was none to refuse.
     lending_unread: str | None = None
+    #: Whether a hub admin has approved this member to host strangers
+    #: (:data:`mcgyvr.hubwire.HOSTING_APPROVED_FIELD`), when the hub says; None
+    #: from an older hub that does not carry it.
+    hosting_approved: bool | None = None
 
 
 @dataclass(frozen=True, kw_only=True)
@@ -264,7 +268,9 @@ def read_ack(envelope: Envelope) -> Ack:
     ``HEARTBEAT_INTERVAL_S``. A lending that does not keep
     :meth:`mcgyvr.hubwire.Lending.validate`'s rules, or leaves a field out, is
     not taken, and the ack says why (``lending_unread``): the rig then lends as
-    its own settings say.
+    its own settings say. ``hosting_approved`` is a boolean when the hub says
+    whether an admin has approved this member to host strangers, and None when
+    the hub (an older one) does not carry it; a value of another type is refused.
     """
     if envelope.re is None:
         raise ProtocolError(
@@ -284,12 +290,20 @@ def read_ack(envelope: Envelope) -> Ack:
             envelope.id,
         )
     lending, unread = _lending(envelope.body.get(hubwire.LENDING_FIELD))
+    approved = envelope.body.get(hubwire.HOSTING_APPROVED_FIELD)
+    if approved is not None and type(approved) is not bool:
+        raise ProtocolError(
+            ErrorCode.BAD_MESSAGE,
+            f"body.{hubwire.HOSTING_APPROVED_FIELD}: not a boolean",
+            envelope.id,
+        )
     return Ack(
         re=envelope.re,
         rig_id=rig_id,
         heartbeat_interval_s=interval,
         lending=lending,
         lending_unread=unread,
+        hosting_approved=approved,
     )
 
 

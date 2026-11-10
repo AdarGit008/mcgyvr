@@ -215,6 +215,7 @@ def run_agent(kept: Credentials, config: Path | None = None) -> int:
                     heartbeat_s=status.heartbeat_s,
                     last_ack_at=status.last_ack_at,
                     written_at=time.time(),
+                    hosting_approved=status.hosting_approved,
                 )
             )
         except OSError as exc:
@@ -610,6 +611,7 @@ def _status(args: argparse.Namespace) -> int:
         heard = f"; last ack {_ago(last.last_ack_at)}" if last.last_ack_at else ""
         link = "online" if last.connected else "offline"
         print(f"agent:   {running} (pid {last.pid}), {link} as {rig}{heard}")
+        _say_hosting(last.hosting_approved)
     try:
         report = hardware.read()
     except hardware.HardwareError as exc:
@@ -646,6 +648,19 @@ def _say_identity() -> None:
         print("identity: none yet; the agent makes one when it next runs")
         return
     print(f"identity: {mine.fingerprint} (kept in {identity.path()})")
+
+
+def _say_hosting(approved: bool | None) -> None:
+    """Print whether a hub admin has approved this member to host strangers, as
+    the last ack said. Nothing is printed when the hub has not said (an older
+    hub, or no ack yet): ``approved`` is then None."""
+    if approved is None:
+        return
+    print(
+        "hosting: approved to host"
+        if approved
+        else "hosting: waiting for admin approval"
+    )
 
 
 def _peers(args: argparse.Namespace) -> int:
@@ -939,7 +954,7 @@ def _share(args: argparse.Namespace) -> int:
     from dataclasses import replace
 
     from mcgyvr.hubwire import LEND_FLOOR_CORES, LEND_FLOOR_MB, RESOURCE_RAM
-    from mcgyvr.rig import sharing
+    from mcgyvr.rig import sharing, state
 
     try:
         kept = sharing.load()
@@ -1026,6 +1041,11 @@ def _share(args: argparse.Namespace) -> int:
     roles = wanted.offered_roles()
     print(f"lending: {'on' if wanted.enabled else 'off'}")
     print(f"roles:   {', '.join(roles) if roles else 'none offered'}")
+    # Serving strangers (the general pool's `anyone`, riders on your units) waits
+    # on a hub admin approving this member once; the agent learns it from the ack.
+    last = state.read()
+    if last is not None:
+        _say_hosting(last.hosting_approved)
     if wanted.native_here():
         print("image:   none (launcher native: the pinned llama.cpp build)")
     else:

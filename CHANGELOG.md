@@ -238,6 +238,17 @@ archived outside this repository, under the same paths.
 
 ### Added
 
+- **The hub says whether a member may host strangers, and the rig prints it.**
+  A member's rigs serve strangers (the general pool's `anyone`, riders on their
+  units) only after a hub admin approves that member once; nothing on the wire
+  said so, so `mcgyvr rig status` and `mcgyvr rig share` could not tell a host
+  why they served nobody. The hello's ack now carries `hosting_approved`
+  (`hubwire.HOSTING_APPROVED_FIELD`, a boolean, optional so an older hub that
+  omits it changes nothing): the agent keeps it in its state, and `rig status`
+  and `rig share` print "approved to host" or "waiting for admin approval" when
+  the hub has said. The shipped `protocol.schema.json` gains the optional field
+  on `AckBody`; the hub sends it at its next pin.
+
 - **A ride is sealed end to end, rider to host: the hub carries ciphertext.**
   The host's agent makes an X25519 key each time it starts (`mcgyvr.seal`, in
   memory only) and names it on every unit it advertises (`unit_advert`'s
