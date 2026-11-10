@@ -150,7 +150,8 @@ def test_a_reading_taken_under_another_wired_limit_is_not_taken(
 @pytest.mark.parametrize(
     ("body", "why"),
     [
-        ({"wired_limit_mb": None}, f"names no {rigscan.SYSCTL_WIRED_LIMIT}"),
+        # An older supervisor's file: the note names the one way out.
+        ({"wired_limit_mb": None}, "restart the native units on this release"),
         ({"figure": "estimate"}, "holds no working set read as a reading"),
         ({"bytes": 0}, "holds no working set read as a reading"),
         ({"bytes": MIB - 1}, "holds no working set read as a reading"),

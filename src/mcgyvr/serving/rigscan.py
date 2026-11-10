@@ -1302,7 +1302,13 @@ def metal_working_set() -> tuple[dict[str, Any] | None, str]:
     if not sized or found.get("figure") != FIGURE_READING:
         return None, f"{shown} holds no working set read as a reading"
     if not is_size(limit):
-        return None, f"{shown} names no {SYSCTL_WIRED_LIMIT} it was read under"
+        # An older supervisor wrote it, and every server it restarts writes the
+        # same again: only its unit, started anew on this release, files one.
+        return None, (
+            f"{shown} names no {SYSCTL_WIRED_LIMIT} it was read under, so an "
+            "older native supervisor filed it; restart the native units on this "
+            "release to file it anew"
+        )
     return found, ""
 
 
