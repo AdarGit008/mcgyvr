@@ -179,9 +179,10 @@ def load_bundle(key: str) -> Bundle:
 
 
 #: The output rule a language bundle states for a whole-file reply: its first
-#: rule, naming the language's fence. A bundle stays as measured for that reply.
+#: rule, naming the language's fence, or its fences joined by "or" (js/ts names
+#: ```js and ```ts). A bundle stays as measured for that reply.
 _WHOLE_FILE_RULE = re.compile(
-    r"(?m)^- Return ONLY code, in a single ```\S+ fenced block\.$"
+    r"(?m)^- Return ONLY code, in a single ```\S+(?: or ```\S+)* fenced block\.$"
 )
 
 #: The same rule for a `unified_diff` reply, so the system prompt does not tell
