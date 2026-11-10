@@ -118,7 +118,8 @@ live, probes the live one against its lock, and lists pulled combinations.
 
 Read-only introspection: `mcgyvr config`, `mcgyvr local_pool`,
 `mcgyvr catalog`, `mcgyvr sandbox`, `mcgyvr capabilities` and `mcgyvr usage`
-(what the journal's runs spent and came to).
+(what the journal's runs spent and came to). `mcgyvr sandbox --cache` lists the
+task images mcgyvr built, and `--clear-cache` removes them.
 
 ## What decides acceptance
 

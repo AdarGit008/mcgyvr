@@ -14,6 +14,14 @@ entries name development tooling, flags and records outside this repository.
 
 ### Changed
 
+- **`mcgyvr sandbox --cache` and `--clear-cache` are tested and named in the
+  docs (I-150).** `tests/test_sandbox_cli.py` runs both flags through the real
+  image listing and removal against an invented docker: the listing newest
+  first with sizes and total, an empty cache, a listing that fails (exit 1),
+  removal naming each tag, `--clear-cache` taken before `--cache`, and no
+  daemon. The README's introspection line and the setup skill's `SETUP.md`
+  say what the two flags do. No behaviour changes.
+
 - **The `launcher` field text and the helper spec say a native Mac or Windows
   rig lends a pooled head only (I-78).** Such a rig starts no pooled rpc
   worker (`a native rig runs no rpc worker`) until the blockers in

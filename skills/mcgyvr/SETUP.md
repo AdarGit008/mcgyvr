@@ -193,6 +193,8 @@ you read all three:
 
 `mcgyvr config` prints the resolved config; `mcgyvr detect` shows what
 can run the work; `mcgyvr capabilities` shows the shipped capability table.
+`mcgyvr sandbox --cache` lists the task images mcgyvr built, with their
+sizes, and `mcgyvr sandbox --clear-cache` removes them.
 
 mcgyvr sets `$MCGYVR_ENDPOINTS` in every task container that has a network: the address of each unit of
 the config, comma-separated, a name for this machine rewritten to `host.docker.internal`, so a check that
