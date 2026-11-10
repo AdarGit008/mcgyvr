@@ -162,8 +162,8 @@ def test_a_sync_touches_neither_the_fleet_nor_the_policy(setup: Path, hub: Hub) 
     assert (setup / "policy.yaml").read_text(encoding="utf-8") == POLICY
     assert sorted(path.name for path in setup.iterdir()) == [
         "fleet.yaml",
-        "policy.yaml",
         "hitchhike.yaml",
+        "policy.yaml",
     ]
 
 
