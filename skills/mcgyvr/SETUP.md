@@ -155,6 +155,19 @@ you read all three:
 `mcgyvr config` prints the resolved config; `mcgyvr detect` shows what
 can run the work; `mcgyvr capabilities` shows the shipped capability table.
 
+A unit split across machines (`units.launch.shards`) is checked before
+anything starts: a split that cannot be launched is refused when the
+config is read. Once it is up, nothing in mcgyvr watches it. Its head
+and each worker are services of their own rig's launch spec, each kept
+up by docker's `unless-stopped` restart policy and by whatever starts
+docker when the rig boots (systemd, on most Linux rigs); that is all the
+supervision there is. Nothing starts a worker before its head or ties
+their health together, and a worker on another rig is in that rig's
+file, which the head's cannot name. So when a worker stops or its rig
+reboots, the head is not told, and requests to the unit fail or time
+out until the worker is back; `mcgyvr serve down` then `mcgyvr serve up`
+on the head's rig starts the head afresh against its workers.
+
 ## macOS and Windows
 
 mcgyvr runs on macOS and Windows as it does on Linux; this is what differs. `~` is your home folder

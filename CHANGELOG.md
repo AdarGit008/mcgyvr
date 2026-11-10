@@ -11,6 +11,14 @@ archived outside this repository, under the same paths.
 
 ### Changed
 
+- **SETUP.md says what is and is not supervised for a unit split across
+  machines.** A split that cannot be launched is refused when the config is
+  read; once up, its head and workers are each kept up only by docker's
+  `unless-stopped` policy on their own rig. Nothing orders a worker before
+  its head or tells the head that a worker on another rig stopped, so the
+  unit's requests fail or time out until the worker is back. Documentation
+  only: supervision stays with compose and the rig's boot (I-52).
+
 - **A docker llama.cpp or vLLM unit listens on 127.0.0.1 or, behind a key
   mcgyvr makes, on every interface (`expose: local | lan`).** `mcgyvr emit`
   rendered every container's server on every interface with no key
