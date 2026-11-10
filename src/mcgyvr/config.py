@@ -315,9 +315,13 @@ JOURNAL_FIELDS: tuple[Field, ...] = (
         "lands in the repository a run works on, and nothing on the command "
         "line moves it: it is the one place every run is, which is what makes "
         "it worth asking questions of. `--record DIR` on either verb adds a second "
-        "copy for your own use. Read either copy back from DIR directly: one "
-        "JSONL per writer, prompts and replies under `blobs/`, results under "
-        "`results/`.",
+        "copy for your own use. `mcgyvr usage` reads the journal back: per run "
+        "and per rung, the attempts, the tokens and time they spent, and the "
+        "verdicts they came to. Every row carries the layout version it was "
+        "written under, and `mcgyvr usage` refuses a row of a version it does "
+        "not read rather than misread it. Either copy can also be read from DIR "
+        "directly: one JSONL per writer, prompts and replies under `blobs/`, "
+        "results under `results/`.",
         default=JOURNAL_DIR_DEFAULT,
     ),
 )

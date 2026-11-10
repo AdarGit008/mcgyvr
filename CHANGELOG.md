@@ -182,6 +182,23 @@ archived outside this repository, under the same paths.
 
 ### Added
 
+- **`mcgyvr usage` reads the journal back, and a row of a layout it does not
+  know is refused.** Every run appended rows under `journal.dir`, and nothing a
+  user ran read them: `telemetry.fold` was called only by tests, and the layout
+  `version` stamped on each row was checked by nothing. `mcgyvr usage [JOURNAL]`
+  folds each `<session>.jsonl` in the journal (or one named file) with
+  `telemetry.fold` and prints, per run and per rung, the attempts, how many
+  answered, the input and output tokens the rows reported (`-` when none did),
+  the summed `elapsed_s`, and the verdicts the attempts folded to; corrections
+  that name no attempt are counted apart. With no argument it reads the
+  `journal.dir` of the setup a run here would use (`--config PATH` names
+  another), and an empty or not-yet-made journal says so and exits 0. `fold` now
+  raises `telemetry.JournalVersionError` for a row whose `version` is not
+  `TELEMETRY_VERSION` (`1`) or is missing, naming the file, the line and the
+  version; `usage` prints it and exits 1. Damaged lines are still skipped as
+  before. `config.journal_dir` is the one resolution of `journal.dir` that
+  `direct`, `mcgyvr PROMPT` and `usage` share.
+
 - **A ride is sealed end to end, rider to host: the hub carries ciphertext.**
   The host's agent makes an X25519 key each time it starts (`mcgyvr.seal`, in
   memory only) and names it on every unit it advertises (`unit_advert`'s

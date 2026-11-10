@@ -13,6 +13,8 @@ from __future__ import annotations
 from dataclasses import dataclass, field
 from pathlib import Path
 
+from mcgyvr.result import is_run_stamp
+
 
 @dataclass(frozen=True)
 class Recording:
@@ -81,3 +83,18 @@ class Recording:
         who = f"{self.orchestrator}:{self.run}" if self.run else self.orchestrator
         row = f"{who}:{contract}:{rung}:{attempt}"
         return row if draw == 0 else f"{row}#{draw}"
+
+
+def run_of(attempt_id: str, orchestrator: str) -> str:
+    """The run stamp ``Recording.attempt_id`` wrote into ``attempt_id``.
+
+    ``orchestrator`` is the row's own field, the id the attempt id starts with;
+    the stamp is the segment after it when that segment is spelled as
+    ``run_stamp`` spells one. An id that does not start with ``orchestrator``,
+    or was written with no run stamp, gives the empty string.
+    """
+    head = f"{orchestrator}:"
+    if not attempt_id.startswith(head):
+        return ""
+    stamp = attempt_id[len(head) :].split(":", 1)[0]
+    return stamp if is_run_stamp(stamp) else ""
