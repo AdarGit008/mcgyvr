@@ -2,11 +2,16 @@
 
 Every file mcgyvr keeps for a later reader is written through ``write``, so a
 failed or interrupted write leaves the previous file intact and no litter
-beside it. The module also holds the two modes a kept file can have:
+beside it; ``replace`` is the rename that ends it, for a caller whose staged
+file or folder is built some other way (a resumed download, an unpacked
+release). The module also holds the two modes a kept file can have:
 `_PRIVATE` for what only its owner may read, and `_ORDINARY` for the rest,
 which the writer's umask narrows further, and the pair that keeps a secret in a
 file of its own (`write_private`, `read_private`): written at 0600, read back
 only from a plain file of this user that nobody else may read or write.
+
+Standard library and ``mcgyvr.hostos`` only, and Python 3.9: the programs the
+door ships to a rig (:mod:`mcgyvr.serving.shipped`) carry this module.
 """
 
 from __future__ import annotations
@@ -14,6 +19,7 @@ from __future__ import annotations
 import os
 import stat
 import threading
+import time
 from pathlib import Path
 
 from mcgyvr import hostos
@@ -24,6 +30,11 @@ _PRIVATE = stat.S_IRUSR | stat.S_IWUSR
 #: Baseline mode for a shared file: owner read and write plus group and other
 #: read and write, narrowed by whatever umask the writing process runs under.
 _ORDINARY = _PRIVATE | stat.S_IRGRP | stat.S_IWGRP | stat.S_IROTH | stat.S_IWOTH
+#: How often, and how far apart, a staged file is renamed over its target
+#: while the rename is refused: Windows refuses it while a reader holds the
+#: target open, which a record read at that moment does.
+REPLACE_TRIES = 20
+REPLACE_PAUSE_S = 0.05
 
 
 def write(
@@ -33,6 +44,7 @@ def write(
     private: bool = False,
     fsync: bool = False,
     staging: Path | None = None,
+    mode: int | None = None,
 ) -> None:
     """Replace `target` with `data`, whole or not at all.
 
@@ -46,12 +58,17 @@ def write(
     whatever the umask says; otherwise group and other are given read and
     write, which the umask then narrows. `fsync` flushes the bytes to the
     device before the rename, so they survive a crash once the call returns.
+    `mode` names the mode an ordinary file is made with instead, which the
+    umask then narrows; it cannot be given with `private`.
 
     The staging file is created exclusively and without following a link, so a
-    link planted at that path is refused rather than written through. If the
-    write or the rename fails, the staging file is removed and the error is
-    raised with `target` untouched.
+    link planted at that path is refused rather than written through. The
+    rename is :func:`replace`, tried again while it is refused. If the write
+    or the rename fails, the staging file is removed and the error is raised
+    with `target` untouched.
     """
+    if private and mode is not None:
+        raise ValueError("a private file has its own mode; give `private` or `mode`")
     if staging is None:
         staging = target.with_name(
             f".{target.name}.{os.getpid()}-{threading.get_ident()}.part"
@@ -59,7 +76,8 @@ def write(
     body = data.encode("utf-8") if isinstance(data, str) else data
     staging.unlink(missing_ok=True)
     flags = os.O_WRONLY | os.O_CREAT | os.O_EXCL
-    fd = hostos.open_nofollow(staging, flags, _PRIVATE if private else _ORDINARY)
+    made = _PRIVATE if private else _ORDINARY if mode is None else mode
+    fd = hostos.open_nofollow(staging, flags, made)
     try:
         try:
             if private:
@@ -71,10 +89,28 @@ def write(
                 os.fsync(fd)
         finally:
             os.close(fd)
-        os.replace(staging, target)
+        replace(staging, target)
     except BaseException:
         staging.unlink(missing_ok=True)
         raise
+
+
+def replace(source: str | os.PathLike[str], target: str | os.PathLike[str]) -> None:
+    """Rename `source` over `target` in one step, as ``os.replace`` does.
+
+    A rename refused with PermissionError is tried again, :data:`REPLACE_TRIES`
+    times in all, :data:`REPLACE_PAUSE_S` apart, and the last refusal is
+    raised: Windows refuses it while another process holds `target` open, as a
+    reader of a record does for a moment. Anywhere else a refusal stands, and
+    is raised the same way once the tries are spent.
+    """
+    for _ in range(REPLACE_TRIES - 1):
+        try:
+            os.replace(source, target)
+            return
+        except PermissionError:
+            time.sleep(REPLACE_PAUSE_S)
+    os.replace(source, target)
 
 
 class PrivateFileError(Exception):
@@ -94,7 +130,10 @@ def write_private(target: Path, text: str) -> Path:
     """
     folder = target.parent
     if not folder.exists():
-        folder.mkdir(mode=0o700, parents=True)
+        # Two first writes at once both see no folder; the later mkdir finds
+        # the one the other just made, as new and as private, and must not
+        # fail on it.
+        folder.mkdir(mode=0o700, parents=True, exist_ok=True)
         hostos.chmod_private(folder, directory=True)
     if target.is_symlink():
         raise PrivateFileError(

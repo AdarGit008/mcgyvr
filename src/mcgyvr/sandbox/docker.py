@@ -34,11 +34,14 @@ from mcgyvr.sandbox.base import (
     workdir,
 )
 from mcgyvr.sandbox.image import (
+    DEFAULT_MAX_CACHED_IMAGES,
     DockerRunner,
     ImageError,
     ensure_image,
     foreign_daemon,
+    prune,
     seeded_folders,
+    slug_of,
     subprocess_runner,
 )
 from mcgyvr.sandbox.stack import detect_stack
@@ -142,11 +145,15 @@ class DockerSandbox(Sandbox):
         notes: Sequence[str] = (),
         runner: DockerRunner = subprocess_runner,
         system: str | None = None,
+        image_cache_keep: int = DEFAULT_MAX_CACHED_IMAGES,
     ) -> None:
         super().__init__(source, base, notes=notes)
         self._network = check_network(network)
         self._image_override = image
         self._setup = tuple(setup)
+        # How many of this repository's images a build leaves cached; 0 keeps
+        # them all (`sandbox.image_cache_keep`).
+        self._image_cache_keep = image_cache_keep
         self._endpoints = tuple(endpoints)
         self._resources = resources or Resources()
         self._runner = runner
@@ -385,8 +392,9 @@ class DockerSandbox(Sandbox):
         """The tag of the image the task container runs.
 
         The override when one is set; otherwise the cached or freshly built
-        image for the stack detected in the source. A stack that is not
-        detected, and a build that fails, are raised as a `SandboxError`.
+        image for the stack detected in the source. A fresh build is followed
+        by `_prune_cache`. A stack that is not detected, and a build that fails,
+        are raised as a `SandboxError`.
         """
         if self._image_override is not None:
             return self._image_override
@@ -398,11 +406,43 @@ class DockerSandbox(Sandbox):
                 "`sandbox.image` override is set"
             )
         try:
-            return ensure_image(
+            task_image = ensure_image(
                 stack, self._source, self._setup, runner=self._runner
-            ).tag
+            )
         except ImageError as exc:
             raise SandboxError(str(exc)) from exc
+        if task_image.built:
+            self._prune_cache()
+        return task_image.tag
+
+    def _prune_cache(self) -> None:
+        """Trim this repository's cached images after a build.
+
+        Keeps the `image_cache_keep` newest images labelled with this
+        repository's slug, the one just built among them, and never counts or
+        touches another slug's, so a parallel run of a repository with another
+        directory name keeps the image it is about to start; two checkouts
+        whose directories share a name share a slug, and trim each other's
+        images. 0 keeps every image. This is
+        housekeeping, not the task: what was removed, and a cache that could
+        not be read, are said on stderr, and the task goes on either way.
+        """
+        if self._image_cache_keep == 0:
+            return
+        slug = slug_of(self._source)
+        try:
+            removed = prune(slug, self._image_cache_keep, runner=self._runner)
+        except ImageError as exc:
+            print(f"mcgyvr: the image cache was not trimmed: {exc}", file=sys.stderr)
+            return
+        if removed:
+            print(
+                f"mcgyvr: removed {len(removed)} older task image(s) of {slug}, "
+                f"keeping the newest {self._image_cache_keep} "
+                f"(`sandbox.image_cache_keep`); `mcgyvr sandbox --cache` lists "
+                f"what remains.",
+                file=sys.stderr,
+            )
 
     @property
     def _reaches_out(self) -> bool:
