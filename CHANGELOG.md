@@ -30,7 +30,6 @@ archived outside this repository, under the same paths.
   without the package, so it keeps its UDP version and relay ticket shape,
   held to `hubwire`'s by test. The `hubwire` docstring now lists what is
   shared and what is not.
-
 - **The `mcgyvr.orchestrator` package is split by job: `mcgyvr.repo`,
   `mcgyvr.decompose` and `mcgyvr.decision_log`.** The package read code, built
   and cached the repository index, ranked and read files, and turned proposals
@@ -45,6 +44,50 @@ archived outside this repository, under the same paths.
   import rewrite, with no compatibility shim, so code outside mcgyvr that
   imports `mcgyvr.orchestrator` must import from the new paths. The
   policy.yaml `orchestrator` block, journal keys and messages are unchanged.
+- **`SETUP.md` now names `numbers.yaml`, the file that overrides mcgyvr's
+  shipped estimates.** A user can drop `numbers.yaml` in the config folder
+  (`$MCGYVR_HOME`, default `~/.mcgyvr`) to replace the estimates mcgyvr sizes
+  and judges a machine with but cannot read off it — decode drift, link speeds,
+  host memory — each keyed by an engine, a unit's tolerance class, or a class of
+  link, and a refusal already invites it, but the setup document never named the
+  file. `docgen.render_setup` adds a paragraph for it, so `make docs`
+  regenerates `skills/mcgyvr/SETUP.md` with it. Docs only; no code path changes.
+
+- **mcgyvr keeps one default port, 8080, for every engine, and the setup wizard
+  reads vLLM's stock 8000 from the detect sweep instead of spelling it again.**
+  `serving.DEFAULT_PORT` is the port any engine's unit listens on when its
+  address carries none, so a portless vLLM unit resolves to 8080, not vLLM's
+  own 8000; vLLM's stock 8000 is recorded among the well-known servers' ports
+  in the detect sweep's list (`detect.PORT_CONVENTIONS`). The wizard's synthetic
+  detection now reuses vLLM's port from that list — writing it into the address
+  it stages — rather than spelling a second literal `8000`. No existing unit
+  changes the port it is served on — the value is identical, only the duplicate
+  is removed — and `serving.port_of` is
+  unchanged.
+
+- **One shared vocabulary for what a credential looks like, by value shape and
+  by name (`mcgyvr.credential_shapes`).** Four checks decided what a credential
+  is, each from its own list — the gate's secret scan (`mcgyvr.gate.secrets`),
+  the config loader's refusal of a pasted key (`mcgyvr.config`), the sandbox's
+  environment filter and its rc-file check (`mcgyvr.sandbox.base`) — and the
+  lists disagreed, so a key could pass one check and be refused by the next (a
+  GitHub token had to be exactly 36 characters in the gate and 20-or-more in the
+  config loader; an `sk-proj-...` key whose hyphens stopped the gate's
+  `[A-Za-z0-9]{20,}` run was refused only by the config loader). The value
+  shapes and the name words now live in one module; each check keeps its own
+  anchoring (the scan looks anywhere in a line, the config loader matches the
+  whole value) and its own name rule (an exact key, a word inside a variable
+  name, a word followed by `=`). The merged shapes are the widest of the old
+  lists — the smaller length floor, the wider character class — so no key any
+  check refused before is let through now, and three checks grew stricter: the
+  config loader also refuses Stripe-shaped values, a pasted private-key block and
+  the key `session`; the gate's `sk-` scan catches `sk-proj-...`; the sandbox env
+  and rc-file checks recognise the full vocabulary (`auth` is no longer fenced
+  to `_auth`, and an rc login line keyed by `key`/`apikey`/`credential`/`session`
+  now counts, so a `.npmrc`/`.pypirc`/`.yarnrc` holding one is kept out of a
+  sandbox and a run naming it under `sources:` is refused). The gate's own
+  `hardcoded-credential` assignment rule keeps its separate word list.
+  `mcgyvr.redact`, which only strips URL userinfo, is unchanged.
 
 - **The two shipped data files that spelled their format version `schema` now
   spell it `schema_version`, the spelling the other four already use.**
@@ -57,7 +100,6 @@ archived outside this repository, under the same paths.
   nothing reads the old key and no file carries both. The wire's `v`, the
   user-written `links.json` in the data folder (still `schema`), and every
   other document's version key are unchanged.
-
 - **A docker llama.cpp or vLLM unit listens on 127.0.0.1 or, behind a key
   mcgyvr makes, on every interface (`expose: local | lan`).** `mcgyvr emit`
   rendered every container's server on every interface with no key
@@ -916,8 +958,8 @@ archived outside this repository, under the same paths.
 
 ### Fixed
 
-- Prose says what the code does, with no behaviour change. The host's verb
-  that prints a run's seal key id is `rig run` (there is no `rig up`);
+- Prose says what the code does, with no behaviour change. The host's `rig
+  run` and `rig join` print a run's seal key id (there is no `rig up`);
   SECURITY.md cites `Sharing.image`, `_image` and `rpc_proto=` instead of line
   numbers that had moved; `--orchestrator` is not described as a working
   alias, since the CLI refuses it; README's, docgen's and the Makefile's lists

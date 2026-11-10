@@ -885,13 +885,19 @@ def _setup_synthetic_detection(
 ) -> Detection:
     """Build the detection the wizard stages from its plans, probing no running server.
 
-    Each placement becomes one openai-shaped backend on its rig: vllm on port
-    8000, anything else as llama-server on the default port, named after the rig
+    Each placement becomes one openai-shaped backend on its rig: vllm on the
+    stock vLLM server's port, which the detect sweep already records in
+    ``PORT_CONVENTIONS``; anything else as llama-server on the one unit default
+    (``DEFAULT_PORT``, 8080 for every engine). The backend is named after the rig
     once there is more than one. A placement with no model fails the step,
     because a local checkpoint is not bootstrapped here.
     """
-    from mcgyvr.detect import Backend, Detection
+    from mcgyvr.detect import PORT_CONVENTIONS, Backend, Detection
     from mcgyvr.serving import DEFAULT_PORT
+
+    # The sweep's list of stock ports, read here so vLLM's 8000 is stated once,
+    # in detect, rather than spelled a second time in the wizard.
+    stock_ports = {kind: port for kind, port, _ in PORT_CONVENTIONS}
 
     backends: list[Backend] = []
     for rig, plan in plans.items():
@@ -904,7 +910,7 @@ def _setup_synthetic_detection(
             )
         engine = str(placement.get("engine") or "llama.cpp")
         kind = "vllm" if engine == "vllm" else "llama-server"
-        port = 8000 if engine == "vllm" else DEFAULT_PORT
+        port = stock_ports["vllm"] if engine == "vllm" else DEFAULT_PORT
         name = f"{rig}_{kind}" if len(plans) > 1 else kind
         backends.append(
             Backend(
