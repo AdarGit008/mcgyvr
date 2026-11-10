@@ -30,6 +30,32 @@ archived outside this repository, under the same paths.
   SETUP.md maps each audience and mode to its pool and the use cases it
   serves, and says a host serves strangers only once a hub admin approved it.
 
+- **The docs say what already ships, tests pin it, and helpers no command
+  calls say so; one prompt changes.** A new generated `COMMANDS.md` lists
+  every verb and flag, rendered from the CLI's own parser by
+  `mcgyvr.cli.verbdoc` (`attach`, `index`, `resolve`, `read --hint/--holds`,
+  `fleet alerts`, `rig leave`, `rig peers`, the `caps` and `rig lend` aliases
+  were in no document); `make docs` writes it and `make docs-check` fails when
+  it drifts. SETUP.md points at it, and says that `emit` refuses a
+  unit larger than the free disk, that setup's sample writes a reply ceiling
+  into `fleet.yaml` for a unit that names none, what `$MCGYVR_ENDPOINTS`,
+  `$HF_TOKEN` and `$HF_ENDPOINT` do (the `MCGYVR_TEST_*` hooks are test-only),
+  that a head given a model digest refuses another file as `model_missing`,
+  and that the journal is the one piece of state that does not move with
+  `$MCGYVR_DATA` or `$XDG_STATE_HOME`.
+  `task_timeout_s` names its second use, the queue wait, and says that with
+  no config each command still ends at the sandbox's own 900 s; `start_rung` no longer promises a rung picked ahead of a run
+  (`triage_ahead` is wired to no command); /mcgyvr-direct names the
+  `unchanged` / `identical-to-base` finding. New tests pin the split-path disk
+  refusal, the head digest check and its lease renewal, the `crew.yaml`
+  reader, the reply ceilings and `read --hint/--holds`. `disposition`,
+  `credential_env_names`, the decision-log metrics, `alerts.rejudge` and
+  `delegate_log`'s reader say who calls them. The js/ts worker prompt asks
+  for the target's own language — TypeScript for `.ts`/`.mts`/`.cts`/`.tsx`,
+  plain JavaScript otherwise — instead of typed TypeScript for every target
+  (its standing stays "measured, no effect": #144 measured the text before
+  this change, and it is not re-measured).
+
 - **A Mac's GPU is sized from the Metal working set llama.cpp logged, a
   reading, once a native server has started on it.** The native supervisor
   already filed `recommendedMaxWorkingSetSize` from llama-server's start-up
@@ -651,6 +677,29 @@ archived outside this repository, under the same paths.
 
 ### Added
 
+- **The release can be rehearsed, on GitHub and locally, and publishes nothing
+  when it is.** `.github/workflows/release.yml` takes a `workflow_dispatch`
+  input `dry_run`, true by default: `gh workflow run release.yml --ref
+  <branch>` builds once, checks the wheel's version, takes the CHANGELOG
+  notes, runs `twine check`, keeps the files on the run and writes a job
+  summary, and the GitHub release and the PyPI upload are skipped. From a
+  branch the version is stamped from the newest CHANGELOG section
+  (`scripts/release/changelog_notes.py --latest`), and when that version is
+  already tagged on another commit the run stays green and its summary says so
+  in `make release`'s words; `dry_run: false` is refused unless the ref is a
+  tag. The workflow now names no repository: `gh release
+  create --repo "$GITHUB_REPOSITORY"`, so a fork's tag makes the fork's
+  release. The jobs are `build` → `github-release` → `pypi` (the release moved
+  out of `build`, which now holds only `contents: read`), and a tag run also
+  runs `twine check` (twine 7.0.0, pinned in the workflow and the Makefile
+  alike; nothing is added to `pyproject.toml` or `uv.lock`) before anything is
+  published. `make release` runs the
+  same local half into `build/release/` and prints the tag command; it tags,
+  pushes and uploads nothing, and refuses a tree that differs from HEAD or a
+  version tagged on another commit. README gains a Releasing section: what a
+  tag does, the version and notes rule, both rehearsals, the secrets (none
+  stored; the PyPI trusted publisher and the `pypi` environment), and how a
+  fork releases.
 - **A rig's hello names each model's quantisation (`quant`), so a hub can plan
   by the wire's decode rule.** The hub's planner bounded a device's decode
   speed by its memory bandwidth alone, because the rig never said a model's
