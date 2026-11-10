@@ -272,7 +272,6 @@ def _completion_fields(answer: Completion) -> Record:
         "stop_reason": answer.stop_reason.value,
         "raw_stop_reason": answer.raw_stop_reason,
         "max_output_tokens": answer.max_output_tokens,
-        "quality_safe": answer.quality_safe,
     }
     # Everything below is optional and goes on the row only when the completion
     # carries it, so an absent field means the backend did not report it rather

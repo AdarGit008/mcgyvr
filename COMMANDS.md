@@ -80,8 +80,6 @@ names — a directory holding fleet.yaml and policy.yaml.
   - `--priority PRIORITY` — compose the ladder for this priority (throughput, quality or cost) instead of
     writing the default ladder. The decision runs on the first detected backend; every number in the file
     stays measured or the schema's, never the model's.
-  - `--profile TEXT` — deprecated, removed in the release after next: use --priority. A word naming a
-    priority maps onto it; other text is ignored.
   - `--use-case USE_CASE` — which use case this install serves: mcgyvr-code (mcgyvr between the model and
     you: the gate, repair, reviewer, ladder and the rest, each switchable), or code, chat or agent (the
     model served raw); default: mcgyvr-code.

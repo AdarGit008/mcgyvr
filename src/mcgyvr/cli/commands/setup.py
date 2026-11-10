@@ -77,43 +77,6 @@ from mcgyvr.cli.sizing import _hosts_wanted, _model_specs
 from mcgyvr.serving.rigfile import recorded_scans, resolve_hosts
 
 
-def _setup_priority(args: argparse.Namespace) -> str | None:
-    """Answer the priority to compose for, mapping a deprecated --profile onto one.
-
-    Answers None when no priority is asked for, which writes the default ladder.
-    A --profile given beside --priority is reported and ignored; so is a word
-    that names no priority, since it is not a ladder to compose.
-    """
-    priority: str | None = args.priority
-    if args.profile is None:
-        return priority
-    head = (
-        "warning: `mcgyvr setup --profile` is deprecated and will be removed "
-        "in the release after next"
-    )
-    word = str(args.profile).strip().lower()
-    names = "|".join(PRIORITIES)
-    if priority is not None:
-        print(
-            f"{head}; --profile {args.profile!r} is ignored because "
-            f"`--priority {priority}` was given",
-            file=sys.stderr,
-        )
-        return priority
-    if word in PRIORITIES:
-        print(
-            f"{head}; use `--priority {word}`",
-            file=sys.stderr,
-        )
-        return word
-    print(
-        f"{head}; --profile {args.profile!r} names no priority ({names}), so it "
-        "is ignored and the default ladder is written",
-        file=sys.stderr,
-    )
-    return None
-
-
 class _SetupInteractiveError(Exception):
     """A wizard step could not finish; its message is the error setup reports."""
 
@@ -139,7 +102,6 @@ def _setup_is_interactive(args: argparse.Namespace) -> bool:
         or bool(args.api)
         or args.force
         or args.priority is not None
-        or args.profile is not None
         or args.use_case is not None
         or args.deployment is not None
         or args.jev is not None
@@ -1446,20 +1408,19 @@ def _setup(args: argparse.Namespace) -> int:
         return 1
     # The flag path binds what already answers: it parses each --api spec before
     # anything is written, so a malformed spec is reported first, and it hands
-    # the hosts, the mapped priority and the named use case to initialize.
+    # the hosts, the priority and the named use case to initialize.
     try:
         api_units = tuple(parse_api_unit(spec) for spec in (args.api or ()))
     except ApiSpecError as exc:
         print(f"error: {exc}", file=sys.stderr)
         return 1
-    priority = _setup_priority(args)
     try:
         result = initialize(
             path,
             force=args.force,
             hosts=tuple(args.host or ()),
             api_units=api_units,
-            priority=priority,
+            priority=args.priority,
             use_case=args.use_case or MCGYVR_CODE,
             deployment=args.deployment,
             jev=args.jev,
@@ -1772,15 +1733,6 @@ def add_parser(sub: argparse._SubParsersAction[argparse.ArgumentParser]) -> None
             "cost) instead of writing the default ladder. The decision runs on "
             "the first detected backend; every number in the file stays "
             "measured or the schema's, never the model's"
-        ),
-    )
-    setup.add_argument(
-        "--profile",
-        default=None,
-        metavar="TEXT",
-        help=(
-            "deprecated, removed in the release after next: use --priority. "
-            "A word naming a priority maps onto it; other text is ignored"
         ),
     )
     setup.add_argument(

@@ -124,7 +124,6 @@ def _setup_namespace(**overrides: object) -> argparse.Namespace:
         "api": [],
         "force": False,
         "priority": None,
-        "profile": None,
         "use_case": None,
         "deployment": None,
         "jev": None,
@@ -215,7 +214,6 @@ def test_interactive_download_is_gated_on_an_explicit_yes(
         context_length=number(),
         kv_bytes_per_token=number(),
         recurrent_bytes_per_slot=number(),
-        scores=(),
     )
     monkeypatch.setattr(
         "mcgyvr.knowledge.store.offline",
@@ -275,7 +273,6 @@ def test_interactive_reuse_is_found_on_the_rigs_inventory(
         context_length=number(),
         kv_bytes_per_token=number(),
         recurrent_bytes_per_slot=number(),
-        scores=(),
     )
     monkeypatch.setattr(
         "mcgyvr.knowledge.store.offline",
@@ -408,7 +405,6 @@ def test_setup_fetch_and_start_go_through_the_door(
         context_length=number(),
         kv_bytes_per_token=number(),
         recurrent_bytes_per_slot=number(),
-        scores=(),
     )
 
     _setup_fetch("box1", record, tmp_path)

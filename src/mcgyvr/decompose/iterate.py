@@ -1,49 +1,26 @@
-"""The self-contained retry loop (W6): re-ask a refused field, then re-emit.
+"""The re-ask: a refused field is asked again, once.
 
-`iterate` drives one classifier proposal through the same `emit_one` seam
-`decompose` uses. When the proposal is refused on a field the classifier can
-re-ask, the loop records the refusal's ``what_to_change`` as a constraint,
-drops the rejected candidate value, carries the already-decided upstream fields
-forward, and asks again — each retry gated by an injected ``approve`` callable.
-The loop is inert unless an approver is wired in: ``approve`` has no default.
-
-The re-ask itself is ``reask``, one step, which the loop takes once per
-retry. A decomposition does not re-ask: what vetting refuses there, the top
-rung corrects (``decompose``'s ``fix``).
+When a proposal is refused on a field the classifier decides, ``reask`` records
+the refusal's ``what_to_change`` as that field's constraint, drops the rejected
+candidate value, carries the already-decided upstream fields forward, and asks
+the classifier again. A decomposition does not re-ask: what vetting refuses
+there, the top rung corrects (``decompose``'s ``fix``).
 """
 
 from __future__ import annotations
 
-from collections.abc import Callable, Collection, Mapping, Sequence
+from collections.abc import Collection, Mapping
 from typing import TYPE_CHECKING, Any, Protocol
 
-from mcgyvr.decompose.decompose import (
-    _DEFAULT_MAX_INPUT_TOKENS,
-    Decomposition,
-    Proposal,
-    Refusal,
-    _default_adapters,
-    _evidence,
-    emit_one,
-)
+from mcgyvr.decompose.decompose import Proposal, Refusal
 from mcgyvr.decompose.fields import FIELD_ORDER
-from mcgyvr.gate.adapter import LanguageAdapter
 
 if TYPE_CHECKING:  # pragma: no cover - typing only
-    from mcgyvr.config import Config
     from mcgyvr.decompose.decompose import Evidence
-    from mcgyvr.repo.index import Index
-
-#: The gate each retry must clear: given the refusal and the attempt index,
-#: return True to re-ask (so an always-False approver leaves the loop inert).
-Approver = Callable[[Refusal, int], bool]
-
-#: Total attempts the loop makes before giving up (so 3 == 2 retries).
-MAX_REFUSAL_RETRIES = 3
 
 
 class Classifier(Protocol):
-    """The classifier seam `iterate` drives: one proposal per call, or a refusal."""
+    """The classifier seam `reask` asks: one proposal per call, or a refusal."""
 
     def propose(
         self,
@@ -114,104 +91,3 @@ def reask(
     return classify.propose(
         evidence, decided=decided, constraints=constraints, rejected=rejected
     )
-
-
-def iterate(
-    index: Index,
-    prompt: str,
-    *,
-    classify: Classifier,
-    approve: Approver,
-    config: Config | None = None,
-    budget: int | None = None,
-    adapters: Sequence[LanguageAdapter] | None = None,
-    located: Mapping[str, Sequence[str]] | None = None,
-    max_attempts: int = MAX_REFUSAL_RETRIES,
-    max_input_tokens: int = _DEFAULT_MAX_INPUT_TOKENS,
-) -> Decomposition:
-    """Turn one prompt into one contract through a classifier, retrying refusals.
-
-    The classifier emits a single proposal (`N=1`). On a refusal that names a
-    re-askable field, the loop re-asks only that field — carrying the upstream
-    fields already decided and the rejected candidate out of the next question,
-    with the refusal's ``what_to_change`` rendered as a constraint — until the
-    emission succeeds, the attempt budget runs out, an approver declines, or
-    the refusal names a field that cannot be re-asked (terminal).
-
-    `max_attempts` counts *total* attempts, so ``max_attempts=1`` means no
-    retry. `approve` is required: no default, so nothing retries unless a real
-    approver is wired in.
-    """
-    ceiling = max_input_tokens
-    evidence = _evidence(
-        index,
-        prompt,
-        config=config,
-        budget=budget,
-        adapters=adapters,
-        ceiling=ceiling,
-    )
-    owners = tuple(adapters) if adapters is not None else _default_adapters()
-    seen: dict[str, str] = {}
-    refusals: list[Refusal] = []
-    decided: dict[str, Any] = {}
-    constraints: dict[str, str] = {}
-    rejected: dict[str, frozenset[Any]] = {}
-
-    proposal = classify.propose(evidence)
-    attempt = 1
-    while True:
-        if isinstance(proposal, Refusal):
-            refusal = proposal
-        else:
-            emitted = emit_one(
-                evidence,
-                proposal,
-                seen=seen,
-                adapters=owners,
-                ceiling=ceiling,
-                located=located,
-            )
-            if not isinstance(emitted, Refusal):
-                built, document = emitted
-                return Decomposition(
-                    contracts=(built,),
-                    documents=(document,),
-                    refusals=tuple(refusals),
-                    resolution=evidence.resolution,
-                    exploration=evidence.exploration,
-                )
-            refusal = emitted
-
-        # A field the classifier never decides (type_check, request, a
-        # catch-all, ...) cannot be re-asked: this is terminal.
-        if not reaskable(refusal):
-            refusals.append(refusal)
-            return Decomposition(
-                contracts=(),
-                documents=(),
-                refusals=tuple(refusals),
-                resolution=evidence.resolution,
-                exploration=evidence.exploration,
-            )
-
-        if attempt >= max_attempts or not approve(refusal, attempt):
-            refusals.append(refusal)
-            return Decomposition(
-                contracts=(),
-                documents=(),
-                refusals=tuple(refusals),
-                resolution=evidence.resolution,
-                exploration=evidence.exploration,
-            )
-
-        proposal = reask(
-            classify,
-            evidence,
-            proposal,
-            refusal,
-            decided=decided,
-            constraints=constraints,
-            rejected=rejected,
-        )
-        attempt += 1
