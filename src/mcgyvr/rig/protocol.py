@@ -181,7 +181,10 @@ class Offer:
     :data:`mcgyvr.hubwire.RPC_PROTO_FIELD` among the capabilities.
     ``weight_cache`` are the sha256 digests of the models whose weights its
     worker cache holds (:class:`mcgyvr.rig.tensorcache.Record`), left out of the
-    hello when there are none.
+    hello when there are none. ``runtimes`` are the llama.cpp builds it can
+    start for a session, its default first (:class:`mcgyvr.hubwire.Runtime`),
+    sent as :data:`mcgyvr.hubwire.RUNTIMES_FIELD` among the capabilities and
+    left out when there are none.
     """
 
     roles: tuple[str, ...]
@@ -192,6 +195,7 @@ class Offer:
     features: tuple[str, ...] = ()
     rpc_proto: hubwire.RpcProto | None = None
     weight_cache: tuple[str, ...] = ()
+    runtimes: tuple[hubwire.Runtime, ...] = ()
 
 
 @dataclass(frozen=True, kw_only=True)
@@ -458,6 +462,14 @@ def _model_body(model: ModelInfo) -> dict[str, Any]:
     return body
 
 
+def _runtime_body(runtime: hubwire.Runtime) -> dict[str, Any]:
+    body: dict[str, Any] = {"id": runtime.id, "runtime": runtime.runtime}
+    if runtime.rpc_proto is not None:
+        body[hubwire.RPC_PROTO_FIELD] = asdict(runtime.rpc_proto)
+    body["ring"] = runtime.ring
+    return body
+
+
 def _offer_body(offer: Offer) -> dict[str, Any]:
     _need(len(offer.roles) <= len(ROLES), "capabilities.roles: too many")
     _need(
@@ -511,6 +523,14 @@ def _offer_body(offer: Offer) -> dict[str, Any]:
         except ValueError as exc:
             raise ValueError(f"capabilities.{hubwire.RPC_PROTO_FIELD}: {exc}") from exc
         capabilities[hubwire.RPC_PROTO_FIELD] = asdict(offer.rpc_proto)
+    if offer.runtimes:
+        try:
+            hubwire.runtimes_fit(offer.runtimes)
+        except ValueError as exc:
+            raise ValueError(f"capabilities.{hubwire.RUNTIMES_FIELD}: {exc}") from exc
+        capabilities[hubwire.RUNTIMES_FIELD] = [
+            _runtime_body(runtime) for runtime in offer.runtimes
+        ]
     body: dict[str, Any] = {
         "capabilities": capabilities,
         "endpoints": [

@@ -345,6 +345,28 @@ archived outside this repository, under the same paths.
 
 ### Added
 
+- **The wire can name the llama.cpp builds a rig can start, and which one a
+  session runs (the wire only: no rig names or acts on it yet).** The fork's
+  ring build and upstream llama.cpp cannot run in one session, so a hub must
+  know every build a rig can start and name the one to run. `hubwire` gains
+  `Runtime` (`id`, shape `RUNTIME_ID`; `runtime`, the build's name, a pinned
+  release as `<repo>@<tag>` whether from an image or an archive;
+  `rpc_proto`; `ring`), the hello field `capabilities.runtimes`
+  (`RUNTIMES_FIELD`, default build first, at most `MAX_RUNTIMES`,
+  `runtimes_fit`), the feature `runtime_select` (`RUNTIME_SELECT_FEATURE`),
+  the optional start fields `worker_start.runtime_id` / `head_start.runtime_id`
+  (`RUNTIME_ID_FIELD`) and `head_start.ring` (`HEAD_RING_FIELD`: false runs
+  a ring build's head star only), and one pairing rule, `runtimes_pair`: a
+  ring build pairs only with the same ring build (same `runtime`, same
+  protocol), any other build by `rpc_compatible` as before, and a rig that
+  names no build stands for the one its `runtime` and `rpc_proto` describe
+  (`implied_runtime`, `rig_runtimes`), so two rigs from before it pair as they
+  always did. `protocol.Offer` takes `runtimes` and a hello names them only
+  when there are some: every hello today's rigs send is unchanged. The
+  agent reads `runtime_id` and `ring` from a start, refusing an id not of its
+  shape (`bad_message`), and does not act on them yet. The protocol schema
+  gains `Runtime`, `Capabilities.runtimes`, the start fields and the feature.
+
 - **A worker may take its ring neighbours as optional tunnel peers, off until
   the owner turns it on (`ring_links`).** A pooled session's tunnel was a star:
   a worker's only peer was the head, so a worker -> worker ring link could
