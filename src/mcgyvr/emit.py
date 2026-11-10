@@ -43,7 +43,6 @@ from mcgyvr.serving import (
     HF_CACHE_MOUNT,
     LAUNCHER_KEY,
     PROGRAM_KEY,
-    ROLE_HEADLESS,
     ROLE_RPC,
     ROLE_SERVE,
     RPC_DEFAULT_PORT,
@@ -68,7 +67,7 @@ from mcgyvr.serving import (
 from mcgyvr.serving.gatelib import LOCAL_RIGS
 from mcgyvr.serving.llamacpp import HOST_ENV as HOST_ENV
 from mcgyvr.serving.llamacpp import HOST_FLAG, LOOPBACK, OVERLAY
-from mcgyvr.serving.sharding import Target
+from mcgyvr.serving.sharding import VLLM_ONE_MACHINE, Target
 from mcgyvr.serving.shardlaunch import (
     LaunchError,
     rpc_endpoints,
@@ -167,7 +166,7 @@ def argv(unit: Unit, *, sleep_mode: bool = False) -> tuple[str, ...]:
     flags = {**unit.args, "--port": str(unit.port)}
     # vLLM listens on every interface when it is given no `--host`, so a vLLM
     # server whose unit states none is given the address `expose` names
-    # (`listens_on`); a headless rank runs no server. A llama.cpp server in a
+    # (`listens_on`). A llama.cpp server in a
     # container is told by `HOST_ENV` instead (`_service`), and one the native
     # launcher runs is given `LOOPBACK` by `native_block`.
     if (
@@ -413,7 +412,7 @@ def _sequence_on_one_card(
         if unit.role != ROLE_SERVE:
             continue
         # Only a serve unit answers the `/v1/models` healthcheck the next unit
-        # waits on; an rpc worker or a headless rank has no such endpoint.
+        # waits on; an rpc worker has no such endpoint.
         if unit.asleep:
             continue
         holds = _fixes_its_memory(
@@ -895,19 +894,17 @@ def _command(unit: Unit) -> tuple[str, ...]:
 def _check_role(unit: Unit) -> None:
     """Refuse a role its engine has no process for, naming the roles it has.
 
-    `serve` is a process for either engine; llama.cpp's worker is `rpc` and
-    vLLM's is `headless`, so any other pairing is caught here, before a
-    service is built around it.
+    `serve` is a process for either engine and llama.cpp's worker is `rpc`;
+    vLLM, split on one machine only, has no worker, so any other pairing is
+    caught here, before a service is built around it.
     """
     if unit.role == ROLE_SERVE:
         return
     if unit.role == ROLE_RPC and unit.engine == "llama.cpp":
         return
-    if unit.role == ROLE_HEADLESS and unit.engine == "vllm":
-        return
     raise EmitError(
         f"{unit.key.slug}: role {unit.role!r} is not a process engine "
-        f"{unit.engine!r} has (llama.cpp's workers are 'rpc', vLLM's are 'headless')"
+        f"{unit.engine!r} has (llama.cpp's workers are 'rpc'; vLLM has none)"
     )
 
 
@@ -949,8 +946,8 @@ def _service_name(unit: Unit) -> str:
 
     `_UNSAFE` folds anything a service name cannot carry to `-`. The port
     is in the name because two units of one model can be rendered together
-    and the model alone would name both; a worker or a headless rank
-    appends its role so it does not collide with the model's own service.
+    and the model alone would name both; a worker appends its role so it
+    does not collide with the model's own service.
     """
     name = f"{_UNSAFE.sub('-', unit.model)}-{unit.port}"
     # A role other than `serve` gets its role appended, so the worker and
@@ -1323,8 +1320,9 @@ def _locked_workers(
 ) -> dict[str, dict[str, dict[str, object]]]:
     """The rpc-server workers of a locked unit split across rigs, by rig.
 
-    Only llama.cpp splits across rigs as a head plus workers; another engine's
-    other ranks state no launch of their own, so it is refused. The unit must
+    Only llama.cpp splits across rigs, as a head plus workers; another engine
+    is refused here as the unlocked path refuses it (`sharding._vllm_order`),
+    a vLLM unit being split across one machine's cards only. The unit must
     state what its head renders from (`_locked_service`) and its `model`. The
     workers are the ones the unlocked path starts -- `rpc_workers` over the
     shards off the head's rig, their ports counted from `launch.rpc_port` --
@@ -1336,9 +1334,8 @@ def _locked_workers(
     engine = unit.get("engine")
     if engine != "llama.cpp":
         raise LockedLaunchError(
-            f"{name}: spans {', '.join(span.rigs)}, and only a llama.cpp unit is "
-            f"rendered across rigs, as a head plus rpc-server workers; a "
-            f"{engine} unit's other ranks state no launch of their own"
+            f"{name}: spans {', '.join(span.rigs)}, and {engine} is not split "
+            f"across rigs: {VLLM_ONE_MACHINE}"
         )
     model = unit.get("model")
     if not isinstance(model, str) or not model:

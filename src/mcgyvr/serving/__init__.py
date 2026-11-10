@@ -169,13 +169,12 @@ DEFAULT_SPEC_DRAFT_N_MAX = 2
 
 _BYTES_PER_GIB = 1024**3
 
-#: The process roles a unit's parts can carry: the process that answers,
-#: llama.cpp's rpc-server workers and vLLM's headless ranks. emit.py
-#: checks that an engine has the role it is asked to render.
+#: The process roles a unit's parts can carry: the process that answers and
+#: llama.cpp's rpc-server workers. emit.py checks that an engine has the
+#: role it is asked to render.
 ROLE_SERVE = "serve"
 ROLE_RPC = "rpc"
-ROLE_HEADLESS = "headless"
-ROLES = (ROLE_SERVE, ROLE_RPC, ROLE_HEADLESS)
+ROLES = (ROLE_SERVE, ROLE_RPC)
 
 #: The launch key that splits one unit across cards: a list of {rig, gpu}
 #: entries, the first on the host the unit's address points at.
@@ -184,10 +183,6 @@ SHARDS_KEY = "shards"
 #: block states no rpc_port. Workers on one host take successive ports
 #: from it, and the head's --rpc list names each of them.
 RPC_DEFAULT_PORT = 50052
-#: The rendezvous port a vLLM launch uses when no master_port is stated.
-#: It is handed to every rank as --master-port and must differ from the
-#: serving port on the head's machine.
-VLLM_MASTER_PORT = 29501
 
 
 class UnitError(Exception):
@@ -385,9 +380,9 @@ class Unit:
     #: branch on which kind of unit they have.
     gpus: tuple[int, ...] = ()
     #: What this process does in a split: `serve` for the process that
-    #: answers, `rpc` for a llama.cpp rpc-server worker, `headless` for a
-    #: vLLM rank that is not the first. emit.py checks an engine can render
-    #: the role, and a worker's serve_args are withheld from an rpc-server.
+    #: answers, `rpc` for a llama.cpp rpc-server worker. emit.py checks an
+    #: engine can render the role, and a worker's serve_args are withheld
+    #: from an rpc-server.
     role: str = ROLE_SERVE
     #: Environment this process needs set for it, such as the device order
     #: that keeps a card's index stable across processes.
@@ -1125,8 +1120,6 @@ def _sharded_units(
             threads=_threads(head_scan),
             n_ubatch=DEFAULT_UBATCH,
             rpc_port=_stated_count(spec.name, launch, "rpc_port") or RPC_DEFAULT_PORT,
-            master_port=_stated_count(spec.name, launch, "master_port")
-            or VLLM_MASTER_PORT,
         )
     except (sharding.ShardingError, shardlaunch.LaunchError) as exc:
         raise UnitError(str(exc)) from exc

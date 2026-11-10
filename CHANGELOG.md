@@ -942,6 +942,17 @@ archived outside this repository, under the same paths.
 
 ### Removed
 
+- **A vLLM unit is no longer split across machines.** The multi-node vLLM
+  launch was planning only: tested with invented rigs, never run live, and a
+  locked `emit` already refused it. A vLLM unit whose `launch.shards` name
+  cards of more than one machine is now refused when it is sized, in the
+  words of that locked refusal (only llama.cpp is split across machines, as a
+  head plus rpc-server workers). Removed with it: the per-machine node launch
+  (`--distributed-executor-backend mp`, `--nnodes`, `--node-rank`,
+  `--master-addr`, `--master-port`, `--headless`), the `headless` process
+  role, `launch.master_port` and its default `VLLM_MASTER_PORT` (29501), and
+  the equal-cards-per-machine check. A vLLM split over one machine's cards
+  (tensor x pipeline, one process) is unchanged, as is every llama.cpp split.
 - **Sessions, the manager loop and the retired-name shims are gone.** `chat`
   and `agent` are no longer contract task types: `code` is the one shipped
   type, and chat and agent stay as plain use of an endpoint. Removed with
