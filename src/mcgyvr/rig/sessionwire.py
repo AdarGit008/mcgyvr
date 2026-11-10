@@ -238,12 +238,19 @@ class RpcDevice:
 
 
 @dataclass(frozen=True, kw_only=True)
+class CpuDevice:
+    """The head's own host memory and cores: a whole model on no card, the only
+    device a ``cpu`` head names (:data:`hubwire.HEAD_DEVICE_CPU`)."""
+
+
+@dataclass(frozen=True, kw_only=True)
 class HeadStart:
     session_id: str
     model: str
     digest: str | None
     ctx: int  # the context window, in tokens, that each slot gets
-    devices: tuple[LocalDevice | RpcDevice, ...]  # local cards and rpc ends, in order
+    # local cards, rpc ends, or the host's cores and memory (one cpu device, alone)
+    devices: tuple[LocalDevice | RpcDevice | CpuDevice, ...]
     tensor_split: tuple[int, ...]
     n_gpu_layers: int
     slots: int = DEFAULT_SLOTS
@@ -565,16 +572,13 @@ def read_head_start(envelope: protocol.Envelope) -> HeadStart:
     name = model.text("name", MODEL_NAME)
     digest = model.text("digest", DIGEST, optional=True)
     ctx = body.number("ctx", MIN_CTX, MAX_CTX)
-    devices: list[LocalDevice | RpcDevice] = []
+    devices: list[LocalDevice | RpcDevice | CpuDevice] = []
     for item in body.items("devices", 1, MAX_DEVICES):
         device = body.nested("devices", item)
         kind = device.one_of("kind", hubwire.HEAD_DEVICE_KINDS)
         if kind == hubwire.HEAD_DEVICE_CPU:
-            raise ProtocolError(
-                SessionCode.NOT_CAPABLE,
-                "devices: this agent starts no cpu head yet",
-                envelope.id,
-            )
+            devices.append(CpuDevice())
+            continue
         if kind == hubwire.HEAD_DEVICE_LOCAL:
             devices.append(
                 LocalDevice(
@@ -586,6 +590,10 @@ def read_head_start(envelope: protocol.Envelope) -> HeadStart:
         if host is None:
             raise device.refuse("host", "not an address")
         devices.append(RpcDevice(host=host, port=device.number("port", 1, MAX_PORT)))
+    if any(isinstance(d, CpuDevice) for d in devices) and len(devices) != 1:
+        # Host memory and cores serve a whole model, never beside a card or a
+        # pipeline stage, so a cpu device is the one device a head names.
+        raise body.refuse("devices", "a cpu device heads the whole model alone")
     shares = []
     for share in body.items("tensor_split", 1, MAX_DEVICES):
         if type(share) is not int or not 0 <= share <= MAX_TENSOR_SHARE:

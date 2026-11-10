@@ -21,7 +21,12 @@ from typing import Any
 
 import pytest
 
-from mcgyvr.config import BREADTH_FIELDS, ConfigSchemaError, parse
+from mcgyvr.config import (
+    BREADTH_FIELDS,
+    BREADTH_TEMPERATURE_DEFAULT,
+    ConfigSchemaError,
+    parse,
+)
 from mcgyvr.contract import loads as load_contract
 from mcgyvr.drive import dispatch_prompt, worker_attempt
 from mcgyvr.ladder_map import Rung, unit_map
@@ -57,7 +62,7 @@ def _drive(tmp_path: Path, policy: str) -> Any:
 def test_the_schema_declares_a_breadth_temperature_between_zero_and_two() -> None:
     (field,) = [f for f in BREADTH_FIELDS if f.name == "temperature"]
     assert field.kind == "float"
-    assert field.default == 0.7
+    assert field.default == BREADTH_TEMPERATURE_DEFAULT == 0.7
     assert (field.min_value, field.max_value) == (0.0, 2.0)
     assert field.doc, "a key that cannot be explained does not belong in the file"
 
@@ -85,6 +90,29 @@ def test_draw_zero_goes_out_greedy_and_the_rest_at_the_breadth_temperature(
         "draw 0 is the greedy anchor and every draw after it is sampled; "
         f"the dispatches went out at {sent}"
     )
+
+
+def test_a_config_that_names_no_breadth_temperature_samples_at_the_schema_default(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """A config built by hand (a test, a tool) with no `breadth.temperature`
+    falls back to `BREADTH_TEMPERATURE_DEFAULT`, the schema's own default, so
+    its draws after the first are not greedy copies of draw 0."""
+    from dataclasses import replace
+
+    sent = _temperatures_sent(monkeypatch)
+    repo = lj.make_repo(tmp_path / "repo")
+    loaded = parse(lj.LADDER + "breadth:\n  draws: 3\n")
+    breadth = {k: v for k, v in loaded.data["breadth"].items() if k != "temperature"}
+    config = replace(loaded, data={**loaded.data, "breadth": breadth})
+    assert config.get("breadth.temperature") is None
+    contract = load_contract(lj.MODEL_CONTRACT)
+    with TempDirSandbox(repo) as sandbox:
+        attempt = worker_attempt(config, unit_map(config), contract, sandbox)
+        judgement = attempt(Try(rung=RUNG, attempt=1, of=1))
+
+    assert judgement.draws == 3
+    assert sent == [0.0, BREADTH_TEMPERATURE_DEFAULT, BREADTH_TEMPERATURE_DEFAULT]
 
 
 def test_a_single_draw_is_greedy_whatever_the_temperature_says(

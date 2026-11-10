@@ -130,8 +130,11 @@ another's work names its id in `depends_on`.
 **`type_check`**
 - type: boolean; optional, default `false`
 - description: Whether the project's own type checker must pass on the changed target. A flag rather than
-  a task type: for `task_type: code` it derives the `type_check` evidence, and for every other type it is
-  ignored. Defaults to false.
+  a task type: for `task_type: code` it derives the `type_check` evidence — the checker the repository
+  declares, run as an acceptance command that passes or fails on its exit code — and for every other type
+  it is ignored. For a TypeScript target that command is `tsc --noEmit`, checked pass or fail only: its
+  errors are not attributed to the change or compared with the base, as the gate's own type check does
+  for Python. Defaults to false.
 
 **`depends_on`**
 - type: list of text; optional, default `[]`

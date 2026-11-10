@@ -71,7 +71,7 @@ def _a_quiet_machine(monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.setattr(
         rigscan,
         "measure_bandwidth",
-        lambda root="": {"measured_gbps": 20.0, "how": "an invented copy"},
+        lambda spare_mib=None: {"measured_gbps": 20.0, "how": "an invented copy"},
     )
     monkeypatch.setattr(
         shutil,

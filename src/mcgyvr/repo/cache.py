@@ -137,8 +137,9 @@ class _Entry:
 
 def cache_dir() -> Path:
     """The directory holding every cache file: ``index`` in mcgyvr's cache folder,
-    ``$XDG_CACHE_HOME/mcgyvr/index``, else ``~/.cache/mcgyvr/index`` on Linux and
-    the system's own cache folder elsewhere (:func:`mcgyvr.hostos.user_cache_dir`)."""
+    ``$XDG_CACHE_HOME/mcgyvr/index`` when that variable is absolute, else
+    ``~/.cache/mcgyvr/index`` on Linux and the system's own cache folder elsewhere
+    (:func:`mcgyvr.hostos.user_cache_dir`)."""
     return hostos.user_cache_dir() / "index"
 
 

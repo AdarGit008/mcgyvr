@@ -14,7 +14,6 @@ import http.client
 import json
 import os
 import re
-import shutil
 import subprocess
 import urllib.request
 from collections.abc import Mapping, Sequence
@@ -22,6 +21,7 @@ from concurrent.futures import ThreadPoolExecutor
 from dataclasses import dataclass, field
 from typing import Any
 
+from mcgyvr import hostos
 from mcgyvr.scan import Host
 
 # Seconds allowed for one HTTP probe of a candidate backend.
@@ -251,14 +251,18 @@ class Detection:
 
 
 def _run(command: Sequence[str]) -> str | None:
-    """Run command and return its stdout, or None when the program is not on
-    PATH, when running it raised or timed out, or when it exited non-zero.
-    stderr is captured and discarded."""
-    if shutil.which(command[0]) is None:
+    """Run command and return its stdout, or None when the program is not in
+    PATH's absolute folders, when running it raised or timed out, or when it
+    exited non-zero. The program is looked up as the reader looks its tools up
+    (:func:`mcgyvr.hostos.which_absolute`), so a file of that name in the
+    working folder or a relative PATH entry is never run. stderr is captured and
+    discarded."""
+    found = hostos.which_absolute(command[0])
+    if found is None:
         return None
     try:
         done = subprocess.run(
-            command,
+            [found, *command[1:]],
             capture_output=True,
             text=True,
             timeout=COMMAND_TIMEOUT_S,
@@ -505,7 +509,7 @@ def detect_docker() -> tuple[bool, str]:
     refusal = foreign_daemon()
     if refusal is not None:
         return False, refusal
-    if shutil.which("docker") is None:
+    if hostos.which_absolute("docker") is None:
         return False, "docker is not on PATH"
     output = _run(["docker", "info", "--format", "{{.ServerVersion}}"])
     if output is None or not output.strip():

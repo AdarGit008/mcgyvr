@@ -14,6 +14,7 @@ ports.
 from __future__ import annotations
 
 import json
+import math
 import os
 import subprocess
 import sys
@@ -23,12 +24,14 @@ from pathlib import Path
 
 import yaml
 
-# The health budget `wait_for` spends on every unit, re-exported under this
-# module's name so a caller — and a test — reads and cuts it here.
+from mcgyvr import config as configlib
 from mcgyvr import unitkey
+
+# The health poll `wait_for` spends on every unit, re-exported under this
+# module's name so a caller — and a test — reads and cuts it here.
 from mcgyvr.config import HEALTH_INTERVAL_S as HEALTH_INTERVAL_S
-from mcgyvr.config import HEALTH_POLLS as HEALTH_POLLS
 from mcgyvr.config import LAUNCHER_DOCKER, LAUNCHER_NATIVE, LAUNCHERS
+from mcgyvr.config import START_TIMEOUT_S_DEFAULT as START_TIMEOUT_S_DEFAULT
 from mcgyvr.serving import CARDS_KEY, LAUNCHER_KEY, gatelib
 from mcgyvr.serving.gatelib import LOCAL_RIGS, door_required, need, ssh, tool
 
@@ -543,14 +546,65 @@ def wake(host: str, port: int) -> bool:
     return True
 
 
-def wait_for(host: str, service: Service) -> dict[str, object]:
+def health_polls(timeout_s: float) -> int:
+    """How many polls, `HEALTH_INTERVAL_S` apart, `timeout_s` seconds buys.
+
+    At least one, so a unit is always asked once however short the timeout;
+    the default six minutes is 120.
+    """
+    return max(1, math.ceil(timeout_s / HEALTH_INTERVAL_S))
+
+
+def start_timeout_s(mode: str) -> float | None:
+    """`serving.start_timeout_s` of the config this run is under, or why not.
+
+    The config is the one gate 1 read, found the way gate 1 found it
+    (`mcgyvr.serving.rigread.config`: `$MCGYVR_CONFIG`, which the door made
+    absolute, else the live fleet). A run gate 1 found under no config
+    (`RUN_CONFIG=none`, or no gate 1 at all) takes `START_TIMEOUT_S_DEFAULT`,
+    as does a config that leaves the key unset. A config gate 1 read and this
+    step cannot is refused, and so is one found at another path than the one
+    gate 1 exported (a `mcgyvr fleet use` between the two): `serve-<mode>:
+    REFUSED — ...` on stderr and None, which the step answers with exit 2
+    before it starts or wakes anything.
+    """
+    source = os.environ.get("RUN_CONFIG", "none")
+    if source == "none":
+        return START_TIMEOUT_S_DEFAULT
+    try:
+        loaded = configlib.load()
+    except (configlib.ConfigError, OSError, RuntimeError) as exc:
+        print(
+            f"serve-{mode}: REFUSED — the config the run is under, {source}, "
+            f"cannot be read again: {exc}",
+            file=sys.stderr,
+        )
+        return None
+    if str(loaded.path) != source:
+        # Gate 1 exports `str(loaded.path)` of the same `configlib.load()`, so
+        # anything else is a config that changed under the run.
+        print(
+            f"serve-{mode}: REFUSED — the run is under the config at {source}, "
+            f"and the config found now is at {loaded.path}; nothing is started "
+            "under a config the run was not made under",
+            file=sys.stderr,
+        )
+        return None
+    stated = loaded.get("serving.start_timeout_s")
+    return START_TIMEOUT_S_DEFAULT if stated is None else float(stated)
+
+
+def wait_for(
+    host: str, service: Service, *, timeout_s: float = START_TIMEOUT_S_DEFAULT
+) -> dict[str, object]:
     """Poll a unit until it serves, and describe what was seen.
 
     `/v1/models` is asked first and `/is_sleeping` only once that answered,
     so a unit that is not answering is not credited with a sleep state
-    either. At most `HEALTH_POLLS` polls, `HEALTH_INTERVAL_S` apart, ending
-    as soon as the unit lists models and does not read as asleep; if the
-    budget runs out first, the unit is reported down. The row carries
+    either. At most `health_polls(timeout_s)` polls, `HEALTH_INTERVAL_S`
+    apart, ending as soon as the unit lists models and does not read as
+    asleep; if the polls run out first, the unit is reported down. The serve
+    steps pass `serving.start_timeout_s` (`start_timeout_s`). The row carries
     container, port, healthy, sleeping, seconds, models and restarts, and
     is what the serve steps print and file.
     """
@@ -558,7 +612,8 @@ def wait_for(host: str, service: Service) -> dict[str, object]:
     asleep: bool | str | None = None
     ids: list[str] | None = None
     key = service.key()
-    for attempt in range(HEALTH_POLLS):
+    polls = health_polls(timeout_s)
+    for attempt in range(polls):
         ids = models_served(host, service.port, key=key)
         # A native unit has no sleep route (llama.cpp), so it is not asked.
         native_run = os.environ.get("RUN_LAUNCHER") == LAUNCHER_NATIVE
@@ -577,7 +632,7 @@ def wait_for(host: str, service: Service) -> dict[str, object]:
                 "models": ids,
                 "restarts": restart_count(service.container),
             }
-        if attempt + 1 < HEALTH_POLLS:
+        if attempt + 1 < polls:
             time.sleep(HEALTH_INTERVAL_S)
     return {
         "container": service.container,

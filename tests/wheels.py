@@ -288,12 +288,6 @@ print(json.dumps({"file": mcgyvr.__file__, "row": row}))
 # status read) and hands back a number. Nothing travels upward: no endpoint, and
 # no credential, leaves it.
 #
-# `recommend.py` is the same argument for the read-only placement planner:
-# it assembles a keyless decision endpoint and hands it to
-# `mcgyvr.decision.classify`, which is what dispatches the decision. It never
-# dispatches through the endpoint itself, and it lives below the seam — its
-# candidates are sized from the rig and the checkpoint header before any model
-# is consulted.
 BELOW_THE_SEAM = {
     "ladder_map.py",
     "runner.py",
@@ -304,7 +298,6 @@ BELOW_THE_SEAM = {
     "decision.py",
     "initialize.py",
     "pressure.py",
-    "recommend.py",
 }
 
 

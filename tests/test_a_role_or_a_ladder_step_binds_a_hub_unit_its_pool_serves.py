@@ -10,9 +10,10 @@ Whatever a role or a step binds must be served from a pool that serves the
 setup's use case. The pool comes from the wire (``hubwire.serving_pool``): a
 ride's model is the hitchhike pool, and otherwise the unit's scope names it.
 Which use cases a pool serves is ``hubwire.pool_serves``, never a rule of the
-config's own. Under ``mcgyvr-code`` a unit served from the general pool, which
-serves models raw, is refused when the setup is read, naming the unit, its scope
-and the use case; ``code``, ``chat`` and ``agent`` run on any scope.
+config's own. Every pool a unit is served from serves all four use cases (the
+general pool too: the hub holds a ladder for its coders), so every use case runs
+on any scope. The refusal, naming the unit, its scope and the use case, is shown
+on a wire whose general pool served models raw only (``narrow_general``).
 """
 
 from __future__ import annotations
@@ -180,6 +181,14 @@ def test_a_relief_rung_nothing_binds_is_ridden_as_before() -> None:
 # --- the pool must serve the use case ------------------------------------------
 
 
+@pytest.fixture
+def narrow_general(monkeypatch: pytest.MonkeyPatch) -> None:
+    """A wire whose general pool serves models raw only, not ``mcgyvr-code``."""
+    served = {**hubwire.POOL_USE_CASES, hubwire.POOL_GENERAL: ("code", "chat", "agent")}
+    monkeypatch.setattr(hubwire, "POOL_USE_CASES", served)
+
+
+@pytest.mark.usefixtures("narrow_general")
 @pytest.mark.parametrize("where", sorted(BINDINGS))
 def test_mcgyvr_code_refuses_a_unit_whose_pool_serves_models_raw(where: str) -> None:
     with pytest.raises(ConfigSchemaError) as refused:
@@ -210,6 +219,7 @@ def test_a_ride_serves_mcgyvr_code_whatever_its_scope(where: str, scope: str) ->
     assert config.units[RIDE].scope == scope
 
 
+@pytest.mark.usefixtures("narrow_general")
 def test_mcgyvr_code_is_the_use_case_a_setup_naming_none_is_held_to() -> None:
     unnamed = f"{FLEET}{BINDINGS['ladder'].format(name='pool_coder')}"
 
@@ -217,6 +227,7 @@ def test_mcgyvr_code_is_the_use_case_a_setup_naming_none_is_held_to() -> None:
         parse(unnamed)
 
 
+@pytest.mark.usefixtures("narrow_general")
 def test_a_jev_switched_off_is_not_held_to_its_pool() -> None:
     off = _setup("jev", "pool_coder").replace(
         "jev: {unit: pool_coder}", "jev: {unit: pool_coder, enabled: false}"
@@ -225,10 +236,14 @@ def test_a_jev_switched_off_is_not_held_to_its_pool() -> None:
     assert parse(off).get("jev.unit") == "pool_coder"
 
 
-def test_the_rule_is_the_wires_matrix(monkeypatch: pytest.MonkeyPatch) -> None:
-    """A general pool that served ``mcgyvr-code`` would be taken: the config
-    holds no rule of its own about which scope is allowed."""
-    served = {**hubwire.POOL_USE_CASES, hubwire.POOL_GENERAL: hubwire.USE_CASES}
-    monkeypatch.setattr(hubwire, "POOL_USE_CASES", served)
+@pytest.mark.parametrize("where", sorted(BINDINGS))
+def test_the_rule_is_the_wires_matrix(where: str) -> None:
+    """The wire's general pool serves ``mcgyvr-code``, so a unit of scope
+    ``anyone`` is taken under it: the config holds no rule of its own about
+    which scope is allowed (refused only where the wire says, above)."""
+    config = parse(_setup(where, "pool_coder"), relief_text=RELIEF)
 
-    assert parse(_setup("ladder", "pool_coder")).ladder.names == ("local", "pool_coder")
+    assert config.units["pool_coder"].scope == hubwire.SCOPE_ANYONE
+    assert hubwire.pool_serves(hubwire.POOL_GENERAL, hubwire.MCGYVR_CODE)
+    if where == "ladder":
+        assert config.ladder.names == ("local", "pool_coder")
