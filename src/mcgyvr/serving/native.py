@@ -129,7 +129,7 @@ BACKOFF = "backoff"
 GAVE_UP = "gave_up"
 STOPPED = "stopped"
 FAILED = "failed"
-#: How long ``nvidia-smi`` is given to name its driver.
+#: How long ``nvidia-smi`` is given to name its driver or the card holders.
 PROBE_S = 10.0
 #: Where a shipped launcher leaves the copy its supervisors run, under the
 #: mcgyvr home: one file per program, named by its sha256.
@@ -269,23 +269,18 @@ def nvidia_driver() -> str | None:
     """The NVIDIA driver's version ``nvidia-smi`` reads, or None without one.
 
     The tool is the one the reader runs (:func:`mcgyvr.serving.rigscan.nvidia_smi`),
-    so on Windows it is found by its full path alone, never in the working folder.
+    so on Windows it is found by its full path alone, never in the working folder,
+    and it is run by the reader's runner (``rigscan._run``): held to
+    :data:`PROBE_S` and to the reader's output bound, its process group ended
+    with it.
     """
     smi = rigscan.nvidia_smi()
     if smi is None:
         return None
-    try:
-        done = subprocess.run(
-            [smi, "--query-gpu=driver_version", "--format=csv,noheader"],
-            stdin=subprocess.DEVNULL,
-            capture_output=True,
-            text=True,
-            timeout=PROBE_S,
-            check=False,
-        )
-    except (OSError, subprocess.SubprocessError):
-        return None
-    lines = done.stdout.strip().splitlines() if done.returncode == 0 else []
+    text, _why = rigscan._run(
+        [smi, "--query-gpu=driver_version", "--format=csv,noheader"], bound=PROBE_S
+    )
+    lines = (text or "").strip().splitlines()
     return lines[0].strip() if lines and lines[0].strip() else None
 
 
@@ -813,28 +808,27 @@ def held() -> dict[str, str]:
 
 
 def _card_holders() -> str:
+    """The compute processes on the NVIDIA cards as ``pid,name,<n>MiB`` joined by
+    ``;``: "none" when there is no ``nvidia-smi`` or it names none, "unread"
+    when it was run and gave no answer (it could not start, ran past
+    :data:`PROBE_S` or the reader's output bound, or exited non-zero). It runs
+    through the reader's runner (``rigscan._run``), whose (None, None) is a tool
+    that is not there and whose (None, why) is one that failed."""
     smi = rigscan.nvidia_smi()
     if smi is None:
         return "none"
-    try:
-        done = subprocess.run(
-            [
-                smi,
-                "--query-compute-apps=pid,used_memory,process_name",
-                "--format=csv,noheader,nounits",
-            ],
-            stdin=subprocess.DEVNULL,
-            capture_output=True,
-            text=True,
-            timeout=PROBE_S,
-            check=False,
-        )
-    except (OSError, subprocess.SubprocessError):
-        return "unread"
-    if done.returncode != 0:
-        return "unread"
+    text, why = rigscan._run(
+        [
+            smi,
+            "--query-compute-apps=pid,used_memory,process_name",
+            "--format=csv,noheader,nounits",
+        ],
+        bound=PROBE_S,
+    )
+    if text is None:
+        return "none" if why is None else "unread"
     rows = []
-    for line in done.stdout.splitlines():
+    for line in text.splitlines():
         fields = [part.strip() for part in line.split(",")]
         if len(fields) >= 3 and fields[0].isdigit():
             name = re.sub(r"[\s,;]+", "_", Path(fields[2]).name) or "unnamed"

@@ -11,6 +11,15 @@ archived outside this repository, under the same paths.
 
 ### Changed
 
+- **The native supervisor asks `nvidia-smi` through the reader's runner
+  (I-140).** `native.nvidia_driver` and the card-holder read behind
+  `native.held` ran `nvidia-smi` with their own `subprocess.run`, bounded in
+  time only; both now run through `rigscan._run`, still held to
+  `native.PROBE_S` (10 s) and now also to the reader's output bound
+  (`rigscan.BYTES_MAX`), with the tool's process group ended with it. The
+  answers are the same: the driver or None, and holders as `pid,name,<n>MiB`,
+  "none" or "unread".
+
 - **`mcgyvr detect` finds Docker as the reader finds its tools (I-139).**
   `detect._run` and `detect_docker` looked the program up with `shutil.which`,
   which on Windows tries the working folder first and everywhere searches a
