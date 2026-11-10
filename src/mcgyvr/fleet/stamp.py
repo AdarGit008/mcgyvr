@@ -17,11 +17,10 @@ no half-stamp behind and a run id already stamped is refused, not overwritten.
 from __future__ import annotations
 
 import json
-import shutil
-import tempfile
 from dataclasses import dataclass
 from pathlib import Path
 
+from mcgyvr import atomic
 from mcgyvr.fleet.roots import FolderError, data_home, is_live
 from mcgyvr.fleet.sample import Sample, SampleError, judge
 
@@ -117,21 +116,15 @@ def stamp(sample: Sample, *, run_id: str) -> Stamp:
     if target.exists() or target.is_symlink():
         return red(f"stamp: {target} already exists: sample run {run_id} was stamped")
 
-    target.parent.mkdir(parents=True, exist_ok=True)
-    staging = Path(tempfile.mkdtemp(prefix=f".{run_id}.", dir=target.parent))
+    files = {
+        Path(SETUP_DIR) / name: (sample.setup / name).read_bytes()
+        for name in SETUP_FILES
+    }
+    files[Path(EVIDENCE_FILE)] = (
+        json.dumps(verdict.evidence, indent=2, sort_keys=True) + "\n"
+    ).encode("utf-8")
     try:
-        (staging / SETUP_DIR).mkdir()
-        for name in SETUP_FILES:
-            shutil.copyfile(sample.setup / name, staging / SETUP_DIR / name)
-        (staging / EVIDENCE_FILE).write_text(
-            json.dumps(verdict.evidence, indent=2, sort_keys=True) + "\n",
-            encoding="utf-8",
-        )
-        if target.exists() or target.is_symlink():
-            shutil.rmtree(staging, ignore_errors=True)
-            return red(f"stamp: {target} appeared while the stamp was being written")
-        staging.rename(target)
-    except BaseException:
-        shutil.rmtree(staging, ignore_errors=True)
-        raise
+        atomic.publish_dir(target, files)
+    except atomic.TargetAppearedError:
+        return red(f"stamp: {target} appeared while the stamp was being written")
     return Stamp(fleet=sample.fleet, folder=target)

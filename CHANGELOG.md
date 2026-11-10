@@ -11,6 +11,19 @@ archived outside this repository, under the same paths.
 
 ### Changed
 
+- **A promoted fleet and a sample run's stamp are published by one helper,
+  `atomic.publish_dir` (I-111).** Both built their folder in a hidden staging
+  folder beside it, checked that nothing had appeared meanwhile, renamed it
+  into place and removed the staging folder on any failure, written twice. Now
+  `publish_dir(target, files)` does it and raises `atomic.TargetAppearedError`
+  when the folder appeared; promote and stamp say the same refusals
+  as before (`... appeared while it was being built; it is left as it is`,
+  `stamp: ... appeared while the stamp was being written`). The staging
+  folder's prefix is now the target folder's own name. A stamp's
+  `evidence.json` is written as bytes, so on Windows it ends lines in `\n`
+  rather than `\r\n`. `serving/release.py`'s replace of an existing folder
+  stays its own.
+
 - **Every JSON-lines journal appends through one helper, `mcgyvr.jsonl`
   (I-107).** "Append one line under a lock, end a torn last line first" was
   copied letter for letter in `telemetry` and `decision_log`; it is now
