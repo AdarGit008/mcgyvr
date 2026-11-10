@@ -39,7 +39,7 @@ from mcgyvr.hubwire import BYTES_PER_GIB, FIGURE_ESTIMATE, USE_CASE_CATEGORY
 from mcgyvr.knowledge import geometry as geometry_rows
 from mcgyvr.knowledge import hub
 from mcgyvr.knowledge import store as knowledge_store
-from mcgyvr.knowledge.record import KnowledgeError, ModelRecord
+from mcgyvr.knowledge.record import MOE, KnowledgeError, ModelRecord, architecture_of
 from mcgyvr.scan import (
     Gpu,
     Reach,
@@ -300,7 +300,7 @@ def _header_spec(header: Mapping[str, Any]) -> ModelSpec | None:
             vram_gb=0.0,
             ram_gb=0.0,
             disk_gb=int(header.get("size_bytes") or 0) / BYTES_PER_GIB,
-            moe=bool(header.get("placeable_blocks")),
+            moe=architecture_of(header) == MOE,
             geometry=dict(header),
             kv_cache_dtype_k=_CACHE_TYPE,
             kv_cache_dtype_v=_CACHE_TYPE,

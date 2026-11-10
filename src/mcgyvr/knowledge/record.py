@@ -7,8 +7,10 @@ quantisation, so the pair `(model_id, quant)` is its identity. A record holds
 record is about a downloadable file, four whole-number fields (`size_bytes`,
 `context_length`, `kv_bytes_per_token`, `recurrent_bytes_per_slot`) and the
 `scores` filed under the boards in `BOARDS`. It may also hold the `use_cases`
-it is a candidate for, and the Hub's `downloads` (its 30-day count) and `likes`
-of the repository its weights come from. Every number is a `Number`: a value, a
+it is a candidate for, the `architecture` of its weights (one of
+`ARCHITECTURES`, read from the file's header; every shipped record states it),
+and the Hub's `downloads` (its 30-day count) and `likes` of the repository its
+weights come from. Every number is a `Number`: a value, a
 kind from `KINDS`, a source written `<origin>:<where>` whose origin is one of
 `SOURCES`, and the day it was read.
 
@@ -38,6 +40,16 @@ SCHEMA_VERSION = 2
 DENSE = "dense"
 MOE = "moe"
 ARCHITECTURES: tuple[str, ...] = (DENSE, MOE)
+
+
+def architecture_of(row: Mapping[str, Any]) -> str:
+    """The architecture a GGUF header row's tensors make: `MOE` when the scan
+    found expert blocks `--n-cpu-moe` can move (``placeable_blocks``), `DENSE`
+    otherwise. A name, a parameter count or a file size never decides it. The
+    one law for it: placement (`serving.ModelSpec`), recommend and a Hub read
+    all read a header's architecture here."""
+    return MOE if row.get("placeable_blocks") else DENSE
+
 
 #: The closed list of kinds a number may claim: a fact stated by the source it
 #: names, an estimate the model card makes about itself, or a reading taken on a
@@ -191,6 +203,7 @@ _RECORD_KEYS = frozenset(
     {
         "model_id",
         "quant",
+        "architecture",
         "engines",
         "use_cases",
         "weights",
@@ -209,8 +222,10 @@ _DOCUMENT_KEYS = frozenset({"schema_version", "models", "_purpose"})
 class ModelRecord:
     """One model at one quantisation: what serves it, the file it names, its four
     whole-number fields and the scores read for it, the use cases it is a
-    candidate for (empty when nothing said), and the Hub's downloads and likes of
-    its weights repository when they were read."""
+    candidate for (empty when nothing said), the architecture of its weights
+    (None when a cache written before records carried one says nothing), and
+    the Hub's downloads and likes of its weights repository when they were
+    read."""
 
     model_id: str
     quant: str
@@ -224,6 +239,7 @@ class ModelRecord:
     use_cases: tuple[str, ...] = ()
     downloads: Number | None = None
     likes: Number | None = None
+    architecture: str | None = None
 
     @property
     def key(self) -> tuple[str, str]:
@@ -355,10 +371,11 @@ def parse_record(raw: Any, where: str, *, shipped: bool) -> ModelRecord:
     """Read one entry of a knowledge document into a `ModelRecord`.
 
     `where` names the document the entry came from and prefixes every error;
-    `shipped` marks the packaged catalog, where a reading is refused. A key the
-    record does not have, a missing field, a number out of range, a score from a
-    board not in `BOARDS` or under another metric than that board's, raises
-    `KnowledgeError`.
+    `shipped` marks the packaged catalog, where a reading is refused and an
+    architecture must be stated. A key the record does not have, a missing
+    field, a number out of range, an architecture not in `ARCHITECTURES`, a
+    score from a board not in `BOARDS` or under another metric than that
+    board's, raises `KnowledgeError`.
     """
     if not isinstance(raw, dict):
         raise KnowledgeError(f"{where}: a model entry is not an object")
@@ -393,6 +410,16 @@ def parse_record(raw: Any, where: str, *, shipped: bool) -> ModelRecord:
     scores = raw.get("scores", [])
     if not isinstance(scores, list):
         raise KnowledgeError(f"{here} scores is not a list")
+    architecture = raw.get("architecture")
+    if architecture is None and shipped:
+        raise KnowledgeError(
+            f"{here} states no architecture; every shipped record says which of "
+            f"{list(ARCHITECTURES)} its weights are"
+        )
+    if architecture is not None and architecture not in ARCHITECTURES:
+        raise KnowledgeError(
+            f"{here} architecture {architecture!r} is not one of {list(ARCHITECTURES)}"
+        )
     return ModelRecord(
         model_id=model_id,
         quant=quant,
@@ -406,6 +433,7 @@ def parse_record(raw: Any, where: str, *, shipped: bool) -> ModelRecord:
         **numbers,
         downloads=optional["downloads"],
         likes=optional["likes"],
+        architecture=architecture,
     )
 
 
@@ -449,16 +477,18 @@ def _dump_number(number: Number) -> dict[str, Any]:
 
 
 def dump_record(one: ModelRecord) -> dict[str, Any]:
-    """The object a document holds for one record: its identity, engines and use
-    cases, the weights when it has some, its four numbers, the downloads and likes
-    when held, and its scores, each number written as value, kind, source and
-    `read_at` day."""
+    """The object a document holds for one record: its identity, its architecture
+    when stated, engines and use cases, the weights when it has some, its four
+    numbers, the downloads and likes when held, and its scores, each number
+    written as value, kind, source and `read_at` day."""
     out: dict[str, Any] = {
         "model_id": one.model_id,
         "quant": one.quant,
-        "engines": list(one.engines),
-        "use_cases": list(one.use_cases),
     }
+    if one.architecture is not None:
+        out["architecture"] = one.architecture
+    out["engines"] = list(one.engines)
+    out["use_cases"] = list(one.use_cases)
     if one.weights is not None:
         out["weights"] = {key: getattr(one.weights, key) for key in _WEIGHTS_KEYS}
     for name in _INT_FIELDS:

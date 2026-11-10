@@ -23,6 +23,7 @@ from mcgyvr.config import (
     Config,
 )
 from mcgyvr.hubwire import shares_ram
+from mcgyvr.knowledge.record import MOE, architecture_of
 from mcgyvr.propose import DEFAULT_HEADROOM_GB
 from mcgyvr.scan import Gpu, Scan, default_weights_dir
 from mcgyvr.serving import vramfit
@@ -253,7 +254,7 @@ class ModelSpec:
                 f"python -m mcgyvr.serving.ggufscan <gguf>"
             )
         object.__setattr__(self, "disk_gb", measured)
-        object.__setattr__(self, "moe", bool(self.geometry.get("placeable_blocks")))
+        object.__setattr__(self, "moe", architecture_of(self.geometry) == MOE)
 
 
 @dataclass(frozen=True)
