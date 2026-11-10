@@ -33,10 +33,10 @@ jobs:
       # One `make check` — a single `make setup`, then lint, typecheck,
       # docs-check and test in one pass. The four leaf targets each depend on
       # `setup`, so running them separately rebuilds the editable package four
-      # times per run; `check` builds once and reuses it. pytest runs the
-      # whole suite on two xdist workers (PYTEST_ADDOPTS overrides the
-      # `-n auto` in pyproject.toml): a fixed count, so a runner on a shared
-      # machine does not start one worker per core it can see.
+      # times per run; `check` builds once and reuses it. pytest runs under
+      # `-n auto` (xdist, pyproject.toml) to cut wall-clock. Not
+      # PYTEST_ADDOPTS: tests that run pytest themselves inherit it, and a
+      # nested run on xdist workers reports in a shape those tests do not read.
       #
       # docs-check lives in this job on purpose: `test` is the required status
       # check, so the config-reference / skill drift it guards cannot merge.
@@ -45,8 +45,6 @@ jobs:
       # (tests/test_the_hub_wire_is_defined_once_in_the_product.py,
       # tests/test_the_rig_agent_speaks_the_hubs_published_schema.py).
       - name: check (lint, typecheck, docs, test)
-        env:
-          PYTEST_ADDOPTS: "-n 2"
         # The door refuses any ambient RUN_*/DOCKER_* variable (its own
         # vocabulary), and a runner may set some (RUN_TOOL_CACHE). Strip them
         # before `make check`.
