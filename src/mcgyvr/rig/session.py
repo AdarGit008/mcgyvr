@@ -89,31 +89,31 @@ HEALTH_TIMEOUT_S = 2.0
 TEARDOWN_ROUNDS = 3
 #: The feature that says this rig advertises the units it shares, with their slots,
 #: in ``unit_advert`` frames; a rig names it even when it lends no session.
-HITCHHIKE_FEATURE = "hitchhike_units"
+HITCHHIKE_FEATURE = hubwire.FEATURE_HITCHHIKE_UNITS
 #: The feature that says this rig walks STUN candidates and its peers' relays.
-TRAVERSAL_FEATURE = "traversal"
+TRAVERSAL_FEATURE = hubwire.FEATURE_TRAVERSAL
 #: The feature that says this rig runs one session per card, never two on one card.
 #: A rig that names it may hold several sessions at once, one per card.
-MULTI_SESSION_FEATURE = "multi_session"
+MULTI_SESSION_FEATURE = hubwire.FEATURE_MULTI_SESSION
 #: The feature that says this rig forwards its tunnel ports on its home router when
 #: the hub asks and answers the hub's check: named only when the owner allowed it
 #: on this rig (``Sharing.port_forward``), as the hub asks only when they agreed
 #: there too.
-PORT_MAP_FEATURE = "port_map"
-#: Every feature the hello and the offer name, within ``MAX_FEATURES``, no repeats:
+PORT_MAP_FEATURE = hubwire.FEATURE_PORT_MAP
+#: Every feature the hello and the offer name, within ``MAX_FEATURES``, no repeats,
+#: each one of the wire's (:data:`mcgyvr.hubwire.FEATURES`, which the hub publishes):
 #: ``probe`` and ``traversal``: it answers UDP probes and walks STUN candidates,
 #: ``head_slots``: it reads the slots of the head it runs,
 #: the hitchhike units and the several sessions a card rig holds,
 #: and ``port_map``: it forwards its tunnel ports on its router when asked.
 #: ``offer`` names only ``HITCHHIKE_FEATURE`` for a rig that lends nothing.
-#: The hub publishes these names, so a name it does not publish refuses the hello.
 #: ``backend_select`` is not named: a worker starts the same whatever ``backend``
 #: its card names (:attr:`mcgyvr.rig.sessionwire.WorkerCard.backend` is read and not
 #: used yet), so the hub names only the backends every fork speaks.
 FEATURES = (
-    "probe",
+    hubwire.FEATURE_PROBE,
     TRAVERSAL_FEATURE,
-    "head_slots",
+    hubwire.FEATURE_HEAD_SLOTS,
     HITCHHIKE_FEATURE,
     MULTI_SESSION_FEATURE,
     PORT_MAP_FEATURE,

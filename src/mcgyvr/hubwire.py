@@ -13,8 +13,8 @@ channel's it still spells itself, and each value it spells is held to the
 published schemas by the product's tests until it reads it from here. What
 is here:
 
-* the agent channel: its version (:data:`PROTOCOL_VERSION`, and the UDP
-  packets' :data:`UDP_VERSION`), the frame limits (``MAX_MESSAGE_BYTES``,
+* the agent channel: its version (:data:`PROTOCOL_VERSION`), the frame
+  limits (``MAX_MESSAGE_BYTES``,
   ``MAX_FRAMES_PER_SECOND``, ``MAX_ERROR_TEXT``, ``HEARTBEAT_INTERVAL_S``),
   the counts a frame may carry (models, sessions, endpoints, features, peers,
   allowed IPs, devices, RTT samples, STUN endpoints), a model's, a head's, a
@@ -32,6 +32,13 @@ is here:
   refusal's :class:`SessionCode`, all of them :data:`AGENT_ERROR_CODES`; and
   the rule for an IPv4 address a peer of another rig can be at
   (:func:`is_peer_address`), which a LAN address keeps as well;
+* the optional behaviours an agent lists (:data:`FEATURES`, each named
+  ``FEATURE_*``);
+* the UDP packets beside the channel: their version (:data:`UDP_VERSION`),
+  each family's magic (``*_MAGIC``), each format's sizes (``*_BYTES``), the
+  pongs a port check answers (:data:`PORT_CHECK_MAX_PONGS`), and the kind and
+  reason bytes (``UDP_KIND_*``, ``PROBE_PING`` .. ``PROBE_BULK``,
+  ``RELAY_BAD_TICKET`` .. ``RELAY_RATE_LIMITED``);
 * :data:`RUNG_POSITIONS`, where a relief rung's host model sits against the
   rider's ladder;
 * :data:`MODEL_NAME`, the shape of a model name on the wire, and
@@ -117,15 +124,13 @@ Not here: a validator of a whole message. The hub's pydantic models and the
 product's readers and builders (``mcgyvr.rig.protocol``,
 ``mcgyvr.rig.sessionwire``) stay two, each bounded by the values here, and
 the hub renders the schemas from its models (the product's tests hold each
-shared value to them). Nor the upstream path a relay fetches, which is the
-agent's alone. Not yet here, so still spelled on both sides and held by the
-schemas: the feature names an agent lists (``x-features``) and the UDP
-packet formats (``x-udp``); ``mcgyvr.rig.udpwire`` runs in the tunnel
-without this package, so it keeps its own copy of what it needs,
-:data:`UDP_VERSION` among them, held to this one by test. A resource, a
-reading and a host carry their own rules (``validate()``,
-:func:`resources_fit`, :func:`readings_fit`) for both sides to call; their
-values join the schemas once the hub publishes them.
+shared value to them). Nor which upstream path a relay fetches for an
+endpoint a frame names, which is the agent's alone. ``mcgyvr.rig.udpwire``
+runs in the tunnel without this package, so it keeps its own copy of the UDP
+packets' values on purpose; the product's equality test holds that copy to
+the names here. A resource, a reading and a host carry their own rules
+(``validate()``, :func:`resources_fit`, :func:`readings_fit`) for both sides
+to call; their values join the schemas once the hub publishes them.
 
 Stdlib only, and nothing from ``mcgyvr.cli`` or ``mcgyvr.rig``: the offline
 core and the hub import this module without either.
@@ -220,6 +225,38 @@ PROTOCOL_VERSION = 1
 #: in the tunnel without this package, so it keeps its own copy, held to this
 #: one by the product's tests.
 UDP_VERSION = 1
+#: The UDP packets' other values (``x-udp``), which ``udpwire`` copies under
+#: the same names and the product's equality test holds to these: each
+#: family's 4-byte magic (binding requests and answers, probes, relay binds
+#: and answers), each format's size floor and ceiling in bytes, the most
+#: bytes one relayed packet carries, the most pings one port check answers,
+#: and the byte lengths of a binding's token and transaction id.
+STUN_MAGIC = b"MCGS"
+PROBE_MAGIC = b"MCGP"
+RELAY_MAGIC = b"MCGR"
+STUN_REQUEST_MIN_BYTES = 64
+STUN_REQUEST_MAX_BYTES = 512
+PROBE_PACKET_MIN_BYTES = 36
+PROBE_PACKET_MAX_BYTES = 1200
+RELAY_BIND_MIN_BYTES = 96
+RELAY_BIND_MAX_BYTES = 512
+RELAY_MAX_PACKET_BYTES = 2048
+PORT_CHECK_MAX_PONGS = 8
+TOKEN_BYTES = 16
+TXID_BYTES = 12
+#: The kind byte of a binding or relay packet: a request, its answer, a refusal.
+UDP_KIND_REQUEST = 1
+UDP_KIND_ANSWER = 2
+UDP_KIND_REFUSED = 3
+#: The kind byte of a probe packet (``x-udp`` ``probe_kinds``).
+PROBE_PING = 1
+PROBE_PONG = 2
+PROBE_BULK = 3
+#: The reason byte of a relay's refusal (``x-udp`` ``relay_refusals``).
+RELAY_BAD_TICKET = 1
+RELAY_EXPIRED = 2
+RELAY_FULL = 3
+RELAY_RATE_LIMITED = 4
 #: Largest frame, in bytes of UTF-8, either side reads or writes.
 MAX_MESSAGE_BYTES = 64 * 1024
 #: Frames per second one agent may send over its channel; the hub closes floods.
@@ -244,6 +281,30 @@ MAX_KV_BYTES_PER_TOKEN = 1 << 30
 MAX_ENDPOINTS = 8
 #: Most features one offer may name.
 MAX_FEATURES = 16
+#: The names ``capabilities.features`` may list (an open set; the protocol
+#: schema's ``x-features``), each an optional behaviour the hub uses only with
+#: an agent that lists it: it answers the latency probe, walks tunnel
+#: candidates, starts a head with several slots, advertises its host's units
+#: and serves rides, runs several sessions at once one per card, honors a
+#: worker card's backend name, and forwards its tunnel ports on its router.
+#: An agent lists the ones it does; this product's rig names every one but
+#: ``backend_select`` (``mcgyvr.rig.session.FEATURES``).
+FEATURE_PROBE = "probe"
+FEATURE_TRAVERSAL = "traversal"
+FEATURE_HEAD_SLOTS = "head_slots"
+FEATURE_HITCHHIKE_UNITS = "hitchhike_units"
+FEATURE_MULTI_SESSION = "multi_session"
+FEATURE_BACKEND_SELECT = "backend_select"
+FEATURE_PORT_MAP = "port_map"
+FEATURES: tuple[str, ...] = (
+    FEATURE_PROBE,
+    FEATURE_TRAVERSAL,
+    FEATURE_HEAD_SLOTS,
+    FEATURE_HITCHHIKE_UNITS,
+    FEATURE_MULTI_SESSION,
+    FEATURE_BACKEND_SELECT,
+    FEATURE_PORT_MAP,
+)
 #: The roles a rig may offer in a session: at most both.
 RigRole = Literal["head", "worker"]
 RIG_ROLES: tuple[str, ...] = get_args(RigRole)
