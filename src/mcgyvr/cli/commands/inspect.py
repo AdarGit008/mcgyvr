@@ -1,10 +1,10 @@
-"""Read-only commands: what the install, a setup, and a contract resolve to.
+"""Read-only commands: what the install, a setup, a contract and the journal hold.
 
 Each handler loads one document — the shipped capability table, a config, the
-task-type catalog, or a contract — prints what it resolved to, and returns a
-shell exit status: 0 when the document was read, 1 when it was not, with the
-refusal on stderr. Nothing here dispatches work, starts a model, or writes to
-the tree; the handlers resolve and print.
+task-type catalog, a contract, or the journal — prints what it resolved to,
+and returns a shell exit status: 0 when the document was read, 1 when it was
+not, with the refusal on stderr. Nothing here dispatches work, starts a model,
+or writes to the tree; the handlers resolve and print.
 """
 
 from __future__ import annotations
@@ -12,6 +12,8 @@ from __future__ import annotations
 import argparse
 import json
 import sys
+from collections import Counter
+from dataclasses import dataclass, field
 from pathlib import Path
 from typing import TYPE_CHECKING
 
@@ -28,7 +30,7 @@ from mcgyvr.config import (
 from mcgyvr.config import load as load_config
 
 if TYPE_CHECKING:  # pragma: no cover - typing only
-    pass
+    from mcgyvr.telemetry import Record
 
 from mcgyvr.cli.common import CONFIG_DEFAULT_HELP, _named_path, _OneSetup, add_config
 
@@ -378,12 +380,174 @@ def _contract(args: argparse.Namespace) -> int:
     return 0
 
 
+@dataclass
+class _Tally:
+    """What a group of folded attempt rows adds up to.
+
+    `rows` counts the attempts and `ok` those whose dispatch answered. A token
+    total is None while no row in the group reported that count, so a backend
+    that never sends usage reads as unmeasured rather than as zero. `elapsed_s`
+    sums each row's own `elapsed_s`, and `outcomes` counts the verdict each
+    attempt folded to, `None` for an attempt no correction judged.
+    """
+
+    rows: int = 0
+    ok: int = 0
+    input_tokens: int | None = None
+    output_tokens: int | None = None
+    elapsed_s: float = 0.0
+    outcomes: Counter[str | None] = field(default_factory=Counter)
+
+    def add(self, row: Record) -> None:
+        self.rows += 1
+        self.ok += row.get("ok") is True
+        self.input_tokens = _plus(self.input_tokens, row.get("input_tokens"))
+        self.output_tokens = _plus(self.output_tokens, row.get("output_tokens"))
+        elapsed = row.get("elapsed_s")
+        if isinstance(elapsed, int | float) and not isinstance(elapsed, bool):
+            self.elapsed_s += elapsed
+        outcome = row.get("outcome")
+        self.outcomes[outcome if isinstance(outcome, str) else None] += 1
+
+    def line(self) -> str:
+        """The tally as the columns `_USAGE_COLUMNS` heads, after the key."""
+        verdicts = ", ".join(
+            f"{name or 'no verdict'} {count}"
+            for name, count in sorted(
+                self.outcomes.items(), key=lambda item: (-item[1], item[0] or "")
+            )
+        )
+        return (
+            f"{self.rows:>5} {self.ok:>5} {self.rows - self.ok:>6} "
+            f"{_tokens(self.input_tokens):>9} {_tokens(self.output_tokens):>9} "
+            f"{self.elapsed_s:>9.1f}s  {verdicts}"
+        )
+
+
+#: The column headings of a tally line, aligned with `_Tally.line`.
+_USAGE_COLUMNS = (
+    f"{'rows':>5} {'ok':>5} {'failed':>6} {'in tok':>9} {'out tok':>9} "
+    f"{'time':>10}  outcomes"
+)
+
+
+def _plus(total: int | None, count: object) -> int | None:
+    """`total` with a row's token `count` added, when the row reported one."""
+    if isinstance(count, int) and not isinstance(count, bool):
+        return count + (total or 0)
+    return total
+
+
+def _tokens(total: int | None) -> str:
+    return "-" if total is None else str(total)
+
+
+def _usage(args: argparse.Namespace) -> int:
+    from mcgyvr.config import ConfigMissingError, journal_dir, named_config_path
+    from mcgyvr.drive.record import run_of
+    from mcgyvr.telemetry import CORRECTION_KIND, JournalVersionError, fold
+
+    named = getattr(args, "config", None)
+    if args.journal is not None and named is not None:
+        print(
+            "error: name the journal or the setup whose `journal.dir` holds it, "
+            "not both",
+            file=sys.stderr,
+        )
+        return 1
+
+    if args.journal is not None:
+        where = Path(args.journal).expanduser()
+        if not where.exists():
+            print(f"error: no journal at {where}", file=sys.stderr)
+            return 1
+    else:
+        # The journal a run here writes: the setup's `journal.dir`, or the
+        # default when no setup is named and none is live. A setup that is named
+        # and missing, or that does not load, is refused: its `journal.dir`
+        # could name another directory, and reading the default would print a
+        # journal the caller did not ask for.
+        chosen = Path(named) if named is not None else None
+        try:
+            config = load_config(chosen)
+        except ConfigMissingError as exc:
+            if chosen is not None or named_config_path() is not None:
+                print(f"error: {exc}", file=sys.stderr)
+                return 1
+            config = None
+        except ConfigError as exc:
+            print(f"error: {exc}", file=sys.stderr)
+            return 1
+        where = journal_dir(config)
+
+    # A journal directory holds one `<session>.jsonl` per writer beside
+    # `blobs/` and `results/`; each file is folded on its own, because a
+    # correction names an attempt in the file it was appended to.
+    files = sorted(where.glob("*.jsonl")) if where.is_dir() else [where]
+    rows: list[Record] = []
+    orphans = 0
+    try:
+        for path in files:
+            for row in fold(path=path):
+                if row.get("record_kind") == CORRECTION_KIND:
+                    orphans += 1
+                else:
+                    rows.append(row)
+    except JournalVersionError as exc:
+        print(f"error: {exc}", file=sys.stderr)
+        return 1
+    except OSError as exc:
+        print(f"error: the journal at {where} cannot be read ({exc})", file=sys.stderr)
+        return 1
+
+    if not rows:
+        written = "" if where.is_file() else " Every run writes its rows here."
+        print(f"{where}: no attempt rows yet.{written}")
+        if orphans:
+            print(f"{orphans} correction(s) name an attempt no row holds.")
+        return 0
+
+    runs: dict[tuple[str, str], _Tally] = {}
+    rungs: dict[str, _Tally] = {}
+    for row in rows:
+        # The `orchestrator` field holds the id of the session that wrote the
+        # row, and the attempt id carries the run's stamp after it.
+        session = str(row.get("orchestrator", ""))
+        run = run_of(str(row.get("attempt_id", "")), session)
+        runs.setdefault((run, session), _Tally()).add(row)
+        rungs.setdefault(str(row.get("rung", "")), _Tally()).add(row)
+
+    # Each key column is as wide as its longest value, so the tally columns
+    # line up under their headings however long a session id (`claude-<uuid>`
+    # is 43 characters) or a rung name is.
+    run_w = max(len("run"), *(len(run or "-") for run, _ in runs))
+    session_w = max(len("session"), *(len(session or "-") for _, session in runs))
+    rung_w = max(len("rung"), *(len(rung or "-") for rung in rungs))
+    print(f"{where}: {len(rows)} attempt row(s) in {len(files)} file(s)")
+    print("\nPer run, oldest first:")
+    print(f"  {'run':<{run_w}} {'session':<{session_w}} {_USAGE_COLUMNS}")
+    for (run, session), tally in sorted(runs.items()):
+        print(f"  {run or '-':<{run_w}} {session or '-':<{session_w}} {tally.line()}")
+    print("\nPer rung:")
+    print(f"  {'rung':<{rung_w}} {_USAGE_COLUMNS}")
+    for rung, tally in sorted(rungs.items()):
+        print(f"  {rung or '-':<{rung_w}} {tally.line()}")
+    print(
+        "\nTokens are summed over the rows that reported them; `-` is a count no "
+        "row reported. Time is each attempt's own `elapsed_s`, summed."
+    )
+    if orphans:
+        print(f"{orphans} correction(s) name an attempt no row holds; not counted.")
+    return 0
+
+
 def add_parser(sub: argparse._SubParsersAction[argparse.ArgumentParser]) -> None:
     """Register these read-only commands on `sub`, the top-level subparsers.
 
-    Five subcommands, each naming its handler in `func`: `capabilities` for the
+    Six subcommands, each naming its handler in `func`: `capabilities` for the
     shipped estimates, `config` and `local_pool` for a setup and the ladder it
-    resolves to, `catalog` for the task types, and `contract` for one contract.
+    resolves to, `catalog` for the task types, `contract` for one contract, and
+    `usage` for what the journal's runs added up to.
     """
 
     caps = sub.add_parser(
@@ -496,3 +660,24 @@ def add_parser(sub: argparse._SubParsersAction[argparse.ArgumentParser]) -> None
         help="print exactly the fields a worker prompt may be built from",
     )
     con.set_defaults(func=_contract)
+
+    usage = sub.add_parser(
+        "usage",
+        help=(
+            "show what the journal's runs added up to: tokens, time and outcomes "
+            "per run and per rung"
+        ),
+    )
+    usage.add_argument(
+        "journal",
+        nargs="?",
+        default=None,
+        type=_named_path,
+        metavar="JOURNAL",
+        help=(
+            "a journal directory, or one `<session>.jsonl` in it (default: the "
+            "`journal.dir` of the setup a run here would use)"
+        ),
+    )
+    add_config(usage, what="read the journal this setup's `journal.dir` names")
+    usage.set_defaults(func=_usage)
