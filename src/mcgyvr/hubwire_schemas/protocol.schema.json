@@ -1216,6 +1216,19 @@
           "default": null,
           "title": "Output Bytes"
         },
+        "quant": {
+          "anyOf": [
+            {
+              "pattern": "^[A-Za-z0-9][A-Za-z0-9._-]{0,31}$",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Quant"
+        },
         "size_bytes": {
           "maximum": 1125899906842624,
           "minimum": 1,

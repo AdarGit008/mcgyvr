@@ -34,7 +34,7 @@ from mcgyvr.decision import (
 )
 from mcgyvr.escalate import GATE_ONLY, Opinion, Review, required_policy
 from mcgyvr.gate.jev import JEV_QUESTIONS, JevCheck, jev_check_for
-from mcgyvr.route import by_family
+from mcgyvr.route import climb_order
 from mcgyvr.runner import Completion, Request, dispatch, dispatch_role
 from mcgyvr.weights import WEIGHTS_SUFFIXES
 
@@ -659,7 +659,7 @@ def reviewer_for(
         )
         if completion is None:  # unreachable once the role has a model
             raise ReviewerUnavailableError(
-                f"the {VERIFIER_ROLE!r} role has no source to dispatch to"
+                f"the {VERIFIER_ROLE!r} role has no unit to dispatch to"
             )
         return _review_text(completion, f"the {VERIFIER_ROLE!r} role")
 
@@ -733,14 +733,9 @@ def _climb(config: Config, unit_map: UnitMap) -> list[tuple[str, Rung]]:
     """Every rung of the ladder in climb order, tagged with its family name.
 
     Families come cheapest first (`Family.rank`), and each family's rungs keep
-    the order they are mapped in.
+    the order they are mapped in (`route.climb_order`).
     """
-    grouped = by_family(config, unit_map)
-    return [
-        (family.name, rung)
-        for family in sorted(grouped, key=lambda family: family.rank)
-        for rung in grouped[family]
-    ]
+    return [(family.name, rung) for family, rung in climb_order(config, unit_map)]
 
 
 def reviewer_rung(config: Config, unit_map: UnitMap, builder: str) -> str | None:

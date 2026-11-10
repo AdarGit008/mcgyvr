@@ -2,14 +2,16 @@
 
 Promise: when a unit leaves its split to the product, the cards of one machine
 share every block (a tensor split, as wide as the heads allow) and the machines
-are pipeline stages. That is vLLM's own guidance and the rule both engines'
-users apply: a tensor split meets twice in every block and wants the bus, a
-pipeline passes one hidden state per stage and tolerates the network. A split
-that does not fit is never taken; when the rule's split does not fit, the next
-widest one that does is. What a unit states -- its tensor or pipeline width --
-always wins. llama.cpp follows the same rule with its own two splits (by
-tensor across one machine's cards, by layer otherwise); its row split has no
-split buffers on the CUDA backend and is refused by name.
+are pipeline stages: a tensor split meets twice in every block and wants the
+bus, a pipeline passes one hidden state per stage and tolerates the network. A
+split that does not fit is never taken; when the rule's split does not fit, the
+next widest one that does is. What a unit states -- its tensor or pipeline
+width -- always wins. vLLM is split across the cards of one machine only, as
+tensor ranks times pipeline stages there, and a vLLM unit naming cards of two
+machines is refused by name. llama.cpp follows the rule with its own two
+splits (by tensor across one machine's cards, by layer otherwise, across
+machines too); its row split has no split buffers on the CUDA backend and is
+refused by name.
 
 What a token spends crossing links is still estimated for every plan -- the bus
 for two cards of one machine, the network between machines, each from the
@@ -105,15 +107,6 @@ def one_machine(cards: int, free_gib: float = 6) -> list[Target]:
     return targets(*(("box-a.example", gpu, free_gib) for gpu in range(cards)))
 
 
-def two_machines_of_two() -> list[Target]:
-    return targets(
-        ("box-a.example", 0, 6),
-        ("box-a.example", 1, 6),
-        ("box-b.example", 0, 6),
-        ("box-b.example", 1, 6),
-    )
-
-
 def chosen(model: dict[str, Any], cards: list[Target], **kw: Any) -> Any:
     args: dict[str, Any] = {
         "engine": LLAMACPP_ENGINE,
@@ -153,19 +146,19 @@ def test_four_cards_of_one_machine_are_one_tensor_group() -> None:
     assert made.grid == Grid(tensor=4, pipeline=1)
 
 
-def test_two_machines_of_two_cards_are_tensor_inside_and_pipeline_across() -> None:
-    made = vllm(table(), two_machines_of_two())
-    assert made.grid == Grid(tensor=2, pipeline=2)
-    # Each stage is one machine's two cards.
-    stages: dict[int, set[str]] = {}
-    for shard in made.shards:
-        stages.setdefault(shard.stage, set()).add(shard.target.host)
-    assert stages == {0: {"box-a.example"}, 1: {"box-b.example"}}
-
-
-def test_two_machines_of_one_card_are_a_pipeline() -> None:
-    made = vllm(table(), targets(("box-a.example", 0, 6), ("box-b.example", 0, 6)))
-    assert made.grid == Grid(tensor=1, pipeline=2)
+@pytest.mark.parametrize(
+    "hints",
+    [{}, {"tensor": 1}, {"pipeline": 2}],
+    ids=["left-to-the-rule", "tensor-stated", "pipeline-stated"],
+)
+def test_a_vllm_unit_over_two_machines_is_refused_by_name(
+    hints: dict[str, int],
+) -> None:
+    cards = targets(("box-a.example", 0, 6), ("box-b.example", 0, 6))
+    with pytest.raises(
+        ShardingError, match=r"split across the cards of one machine.*llama\.cpp"
+    ):
+        vllm(table(), cards, **hints)
 
 
 @pytest.mark.parametrize(
@@ -177,8 +170,8 @@ def test_two_machines_of_one_card_are_a_pipeline() -> None:
     ids=["slow-bus-fast-network", "fast-bus-slow-network"],
 )
 def test_no_link_figure_changes_the_split_the_rule_takes(book: Book) -> None:
-    made = vllm(table(), two_machines_of_two(), links=book)
-    assert made.grid == Grid(tensor=2, pipeline=2)
+    made = vllm(table(), one_machine(4), links=book)
+    assert made.grid == Grid(tensor=4, pipeline=1)
 
 
 def test_heads_that_do_not_divide_a_machines_cards_narrow_the_tensor_split() -> None:
@@ -202,10 +195,10 @@ def test_a_stated_pipeline_is_honoured_over_the_rule() -> None:
 
 
 def test_a_stated_tensor_width_fixes_the_pipeline_to_the_rest_of_the_cards() -> None:
-    made = vllm(table(), two_machines_of_two(), tensor=2)
+    made = vllm(table(), one_machine(4), tensor=2)
     assert made.grid == Grid(tensor=2, pipeline=2)
-    stages = {shard.stage: shard.target.host for shard in made.shards}
-    assert stages == {0: "box-a.example", 1: "box-b.example"}
+    stages = {shard.stage: shard.target.gpu for shard in made.shards if shard.rank == 0}
+    assert stages == {0: 0, 1: 2}
 
 
 # llama.cpp: by layer, or by tensor on one machine.

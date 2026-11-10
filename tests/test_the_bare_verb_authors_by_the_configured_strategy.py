@@ -1,10 +1,10 @@
 """`mcgyvr PROMPT` authors by `orchestrator.authoring`.
 
-The field names how a request becomes contracts. `classifier` has
-`mcgyvr PROMPT` ask the jev unit (or the orchestrator role, when none is
-bound) the typed choices first and fall back to the prose proposer when the
-classifier returns nothing; any other value — `prose`, or unbound — is the
-prose proposer the command has always used.
+The field names how a request becomes contracts. `classifier`, the default
+under `mcgyvr-code`, has `mcgyvr PROMPT` scaffold the candidates and ask the
+jev unit, when one is opted in, the typed choices first, falling back to the
+prose proposer when the classifier returns nothing and one is bound; with no
+prose proposer the classifier answers alone. `prose` is the prose proposer.
 """
 
 from __future__ import annotations
@@ -91,11 +91,13 @@ def test_any_other_strategy_is_the_prose_proposer_as_before() -> None:
         assert propose is prose
 
 
-def test_with_no_prose_proposer_there_is_none_to_fall_back_to() -> None:
+def test_with_no_prose_proposer_the_classifier_answers_alone() -> None:
+    """The classifier path needs no prose model (I-30a); only prose chosen does."""
+
     def typed(evidence: Evidence) -> Sequence[Proposal]:
         return ()
 
-    assert proposer_by_authoring("classifier", typed=typed, prose=None) is None
+    assert proposer_by_authoring("classifier", typed=typed, prose=None) is typed
     assert proposer_by_authoring("prose", typed=typed, prose=None) is None
 
 

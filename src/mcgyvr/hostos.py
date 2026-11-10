@@ -747,13 +747,16 @@ def user_data_dir() -> Path:
 def user_cache_dir() -> Path:
     """Where this user's mcgyvr caches go.
 
-    ``mcgyvr`` under ``$XDG_CACHE_HOME`` when that is set (``~`` expanded), on
-    every system. Unset: Linux ``~/.cache/mcgyvr``, as before; macOS
-    ``~/Library/Caches/mcgyvr``; Windows ``%LOCALAPPDATA%\\mcgyvr\\cache``.
-    The weights do not follow ``$XDG_CACHE_HOME`` (:func:`weights_dir`).
+    ``mcgyvr`` under ``$XDG_CACHE_HOME`` when that is absolute (``~``
+    expanded), on every system, by the rule :func:`user_data_dir` keeps: a
+    relative value names a different folder from each working directory, so
+    it is passed over. Unset or relative: Linux ``~/.cache/mcgyvr``, as before;
+    macOS ``~/Library/Caches/mcgyvr``; Windows
+    ``%LOCALAPPDATA%\\mcgyvr\\cache``. The weights do not follow
+    ``$XDG_CACHE_HOME`` (:func:`weights_dir`).
     """
     cached = os.environ.get("XDG_CACHE_HOME")
-    if cached:
+    if cached and Path(cached).expanduser().is_absolute():
         return Path(cached).expanduser() / APP
     if sys.platform == "win32":
         return _local_app_data() / APP / "cache"
@@ -834,9 +837,10 @@ def weights_dir() -> str:
 
     ``$MCGYVR_WEIGHTS`` with ``~`` expanded when set, else ``weights`` in the
     system's cache folder: ``~/.cache/mcgyvr/weights`` on Linux (whatever
-    ``$XDG_CACHE_HOME`` says, as always), ``~/Library/Caches/mcgyvr/weights``
-    on macOS, ``%LOCALAPPDATA%\\mcgyvr\\cache\\weights`` on Windows. The reader
-    and the fetcher, both shipped to rigs, ask here.
+    ``$XDG_CACHE_HOME`` says: it moves :func:`user_cache_dir`, never the
+    weights), ``~/Library/Caches/mcgyvr/weights`` on macOS,
+    ``%LOCALAPPDATA%\\mcgyvr\\cache\\weights`` on Windows. The reader and the
+    fetcher, both shipped to rigs, ask here.
     """
     override = os.environ.get(WEIGHTS_DIR_ENV)
     if override:

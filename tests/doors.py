@@ -315,9 +315,12 @@ def split_ladder(compose_dir: Path, *, across: str) -> str:
     """The shared host's larger unit split over two cards, the second on ``across``.
 
     No worker ``bind`` is stated: which machines a unit spans is all the
-    switches read, and an address is emit's to check.
+    switches read, and an address is emit's to check. A split onto another
+    machine is llama.cpp's, the one engine split across machines; one on the
+    shared host's own cards keeps the ladder's vLLM.
     """
-    return ladder_text(compose_dir).replace(
+    engine = "vllm" if across == SHARED_HOST else "llama.cpp"
+    return ladder_text(compose_dir, engine=engine).replace(
         "    model: large-coder\n",
         "    model: large-coder\n"
         "    launch:\n"

@@ -29,7 +29,12 @@ from mcgyvr.gate.jev import JevCheck, JevReport
 from mcgyvr.gate.secrets import scan_secrets
 from mcgyvr.gate.semantic import SemanticCheck, SemanticReport
 from mcgyvr.gate.structured import validate_structured_data
-from mcgyvr.gate.typecheck import STYLE, TypeCheck, TypeCheckTimeoutError
+from mcgyvr.gate.typecheck import (
+    STYLE,
+    TypeCheck,
+    TypeCheckBaseTimeoutError,
+    TypeCheckTimeoutError,
+)
 from mcgyvr.scope import Scope
 
 
@@ -180,6 +185,18 @@ class Gate:
                 # `style` axis, where it joins the observations.
                 for item in typecheck.run(changeset):
                     (observations if item.check == STYLE else findings).append(item)
+            except TypeCheckBaseTimeoutError as exc:
+                # The re-run on the base tree ran out of time. What the checker
+                # reported on the lines the worker added stands without the base;
+                # the diagnostics elsewhere in the touched files cannot be told
+                # apart from inherited ones, so they are left out and the skipped
+                # comparison is recorded.
+                for item in exc.findings:
+                    (observations if item.check == STYLE else findings).append(item)
+                env_issues.append(
+                    f"python: typecheck base re-run {exc.detail} — diagnostics off "
+                    "the added lines not compared"
+                )
             except TypeCheckTimeoutError as exc:
                 # A checker that ran out of time says nothing about the change,
                 # so it is recorded as an environment issue and the gate moves on

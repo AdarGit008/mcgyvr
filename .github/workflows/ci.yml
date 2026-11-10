@@ -1,4 +1,8 @@
 name: ci
+# The full Linux suite. `test` is the check a pull request into main needs
+# before it may merge, so keep the workflow name `ci` and the job id `test`:
+# the required context is `ci / test (pull_request)`, and renaming either one
+# leaves every pull request waiting on a check that never reports.
 on: [push, pull_request]
 permissions:
   contents: read
@@ -21,23 +25,28 @@ jobs:
           version: "0.11.28"
           python-version: "3.12"
       # The gate scripts' shellcheck test skips with no shellcheck on PATH.
-      # The runner image ships it today; naming it here keeps the test from
-      # turning into a silent skip if the image ever drops it.
+      # Naming it here keeps the test from turning into a silent skip if the
+      # runner image ever drops it. The index is refreshed first: a runner
+      # image can ship one too stale to resolve the package.
       - name: install shellcheck
-        # FORGEJO: act-latest ships a stale apt index — update first.
         run: sudo apt-get update && sudo apt-get install -y shellcheck
       # One `make check` — a single `make setup`, then lint, typecheck,
       # docs-check and test in one pass. The four leaf targets each depend on
       # `setup`, so running them separately rebuilds the editable package four
       # times per run; `check` builds once and reuses it. pytest runs under
-      # `-n auto` (xdist) to cut wall-clock.
+      # `-n auto` (xdist, pyproject.toml) to cut wall-clock. Not
+      # PYTEST_ADDOPTS: tests that run pytest themselves inherit it, and a
+      # nested run on xdist workers reports in a shape those tests do not read.
       #
-      # docs-check lives in this job on purpose: `test` is a required status
+      # docs-check lives in this job on purpose: `test` is the required status
       # check, so the config-reference / skill drift it guards cannot merge.
-      # A separate job would not be required.
+      # A separate job would not be required. The hub-wire schemas the
+      # product ships are held by the suite itself
+      # (tests/test_the_hub_wire_is_defined_once_in_the_product.py,
+      # tests/test_the_rig_agent_speaks_the_hubs_published_schema.py).
       - name: check (lint, typecheck, docs, test)
-        # FORGEJO: the runner sets RUN_TOOL_CACHE; the door refuses any
-        # ambient RUN_*/DOCKER_* variable (its own vocabulary). Strip them
+        # The door refuses any ambient RUN_*/DOCKER_* variable (its own
+        # vocabulary), and a runner may set some (RUN_TOOL_CACHE). Strip them
         # before `make check`.
         run: |
           for v in $(env | grep -E '^(RUN_|DOCKER_)' | cut -d= -f1); do unset "$v"; done

@@ -18,13 +18,7 @@ from contextlib import contextmanager
 from dataclasses import dataclass
 from pathlib import Path
 
-from mcgyvr.gitcmd import run_git
-
-# The object id of git's empty tree. Used as the revision sentinel for a
-# repository with no commits yet: `git rev-parse HEAD^{commit}` fails there,
-# and the empty tree is the only revision such a repository can be compared
-# against.
-_EMPTY_TREE = "4b825dc642cb6eb9a060e54bf8d69288fbee4904"
+from mcgyvr.gitcmd import EMPTY_TREE, run_git
 
 # Matches a leading ``scheme://``, which is how a string is recognised as a URL
 # rather than a filesystem path.
@@ -94,7 +88,7 @@ class AttachedRepo:
     def is_unborn(self) -> bool:
         """Whether the repository had no commit at attach time, so the
         revision is the empty-tree sentinel."""
-        return self.revision == _EMPTY_TREE
+        return self.revision == EMPTY_TREE
 
 
 @contextmanager
@@ -241,7 +235,7 @@ def _revision(root: Path) -> str:
         text=True,
     )
     revision = proc.stdout.strip()
-    return revision if proc.returncode == 0 and revision else _EMPTY_TREE
+    return revision if proc.returncode == 0 and revision else EMPTY_TREE
 
 
 def head_only_note(root: Path) -> str | None:
@@ -261,7 +255,7 @@ def head_only_note(root: Path) -> str | None:
         revision = _revision(root)
         base = (
             "no commit (the repository has none yet)"
-            if revision == _EMPTY_TREE
+            if revision == EMPTY_TREE
             else f"commit {_git(root, 'rev-parse', '--short', revision).strip()}"
         )
     except AttachError:

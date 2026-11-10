@@ -76,12 +76,13 @@ and `tree_state` (the Board's state file, `<journal>/trees/<tree>.json`) for
 `batch_held`. With re-proposing on (`max_reproposals` above 0), `emitted`,
 `emitted_with_refusals`, `none_emitted` and `batch_held` also carry what the
 first planning's re-proposing came to: `refused` (proposals vetting refused
-first), `reproposed` (refusals handed back, every round), `recovered`
-(contracts that came of the answers), `still_refused` (vetting refusals
-reported in the end), and `reproposal_failed` (the error class a proposer
-raised instead of answering, when one did). Under `--log PATH`, `decisions` is
-`PATH.decisions.jsonl`, the classifier's typed decisions of this run, when it
-asked any.
+first), `reproposed` (refusals handed to the top rung, every round),
+`recovered` (contracts that came of its answers), `still_refused` (vetting
+refusals reported in the end), `reproposal_failed` (the error class the top
+rung raised instead of answering, when it did), and `fixer` and
+`fixer_model` (the top rung asked and its model, once it was asked). Under
+`--log PATH`, `decisions` is `PATH.decisions.jsonl`, the classifier's typed
+decisions of this run, when it asked any.
 """
 
 from __future__ import annotations

@@ -13,8 +13,8 @@ down and for which *this config's* ``serving.compose_dir`` holds a launch spec
 than a decline. The instant refusal is the wake signal: mcgyvr
 does not probe first, because a card that is up must cost nothing extra and the
 check *is* the request. The wake goes through the door and through nothing else,
-bounded by the door's own health poll (``HEALTH_POLLS`` x
-``HEALTH_INTERVAL_S``), and the dispatch that follows spends no attempt —
+bounded by the door's own health poll (``serving.start_timeout_s``, polled
+every ``HEALTH_INTERVAL_S``), and the dispatch that follows spends no attempt —
 nothing was asked and nothing answered, which is the rule ``drive`` applies to a
 declined rung.
 

@@ -320,7 +320,8 @@
     "timeout": 504,
     "too_many_concurrent_requests": 429,
     "too_slow": 503,
-    "upstream_error": 502
+    "upstream_error": 502,
+    "use_case_not_served": 403
   },
   "x-paths": {
     "/api/v1/me/rungs": {

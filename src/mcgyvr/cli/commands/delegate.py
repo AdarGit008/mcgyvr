@@ -10,7 +10,9 @@ run (`_run_delegated`) through the machinery each run has, in the order their
 dependency tree allows, up to `--jobs` of them at once — a contract whose
 provider did not land is held, not run, and one whose ladder is spent is handed
 back to the orchestrator to be re-planned (`mcgyvr.replan`, up to
-`max_replans`), what comes back taking its place.
+`max_replans`; the top rung re-plans when no orchestrator model is bound), what
+comes back taking its place. A proposal vetting refuses goes to the top rung of
+the ladder to be corrected (`mcgyvr.repropose`, up to `max_reproposals`).
 With `--log PATH` how the command ended is written there as one
 `mcgyvr.delegate_log` record, on every exit. `add_flags` is the flag set this
 verb and `mcgyvr direct` share, and `prompt_parser` the verb's own parser.
@@ -43,6 +45,7 @@ if TYPE_CHECKING:  # pragma: no cover - typing only
     from mcgyvr.board import Board, GitSource
     from mcgyvr.contract import Contract
     from mcgyvr.decompose.decompose import Decomposition, Proposer
+    from mcgyvr.delegate import TopRungProposer
     from mcgyvr.ladder_map import UnitMap
     from mcgyvr.replan import Replanner, Spent
     from mcgyvr.session import Session
@@ -54,7 +57,15 @@ from mcgyvr.cli.sandbox import _say_what_the_sandbox_leaves_out
 
 #: The `detail` keys a decomposition's re-proposing is counted under.
 _COUNTS = frozenset(
-    {"refused", "reproposed", "recovered", "still_refused", "reproposal_failed"}
+    {
+        "refused",
+        "reproposed",
+        "recovered",
+        "still_refused",
+        "reproposal_failed",
+        "fixer",
+        "fixer_model",
+    }
 )
 
 
@@ -94,12 +105,18 @@ class _Logbook:
         self.detail = dict(detail)
 
     def decomposed(
-        self, dec: Decomposition, written: Sequence[Path], *, said: str = "proposed"
+        self,
+        dec: Decomposition,
+        written: Sequence[Path],
+        *,
+        said: str = "proposed",
+        fixer: TopRungProposer | None = None,
     ) -> None:
         """What the decomposition came to; `written` is the contracts' paths.
 
         `said` is what became of the contracts: `proposed` for a prompt's,
-        `vetted` for a set someone wrote.
+        `vetted` for a set someone wrote. `fixer` is the top rung refusals
+        were handed to, named with its model once it was asked.
         """
         # `--output` wrote one path per contract; printed ones have none.
         paths: list[str | None] = (
@@ -123,6 +140,9 @@ class _Logbook:
             }
             if dec.reproposal.failed:
                 counts["reproposal_failed"] = dec.reproposal.failed
+            if fixer is not None and dec.reproposal.reproposed:
+                counts["fixer"] = fixer.rung
+                counts["fixer_model"] = fixer.model
         if not dec.contracts:
             self.ended(
                 DelegateKind.NONE_EMITTED, "No contracts were emitted.", **counts
@@ -265,10 +285,11 @@ def _delegate_logged(args: argparse.Namespace, book: _Logbook) -> int:
     `decompose` turns the prompt into contracts from that index, the proposer,
     the config and `--budget`. The contracts are reported, then written to
     `--output` and left there, or printed and each of them run, re-planning a
-    contract whose ladder is spent through the prose proposer on the same
-    checkout. The exit code is 0 when contracts were emitted; 3
-    (`Exit.REFUSED`) when there is no orchestrator role to ask or no contract
-    came of the request; 1 when the config, attaching, indexing or proposing
+    contract whose ladder is spent through the orchestrator model, or the top
+    rung when none is bound, on the same checkout. The exit code is 0 when
+    contracts were emitted; 3 (`Exit.REFUSED`) when there is no config at all,
+    when prose authoring is chosen with no orchestrator role, or when no
+    contract came of the request; 1 when the config, attaching, indexing or proposing
     failed; and when they run, the batch's, the last non-zero exit of its runs
     (3 for a contract held `blocked`). A batch with no session to file it
     under never gets here: `_refuse_before_delegating` refuses it first, exit
@@ -281,8 +302,10 @@ def _delegate_logged(args: argparse.Namespace, book: _Logbook) -> int:
     from mcgyvr.decompose import decompose
     from mcgyvr.delegate import (
         NO_ORCHESTRATOR_ROLE,
+        NO_SETUP,
         DelegationError,
         UnreadableProposalError,
+        top_rung_proposer_for,
     )
     from mcgyvr.ladder_map import UnitUnavailableError, unit_map
     from mcgyvr.repo import AttachError, IndexBuildError, attach, build_index
@@ -314,10 +337,8 @@ def _delegate_logged(args: argparse.Namespace, book: _Logbook) -> int:
         )
         return 1
     if config is None:
-        print(NO_ORCHESTRATOR_ROLE, file=sys.stderr)
-        book.ended(
-            DelegateKind.CONFIG_NO_ORCHESTRATOR, NO_ORCHESTRATOR_ROLE, bare_install=True
-        )
+        print(NO_SETUP, file=sys.stderr)
+        book.ended(DelegateKind.CONFIG_NO_ORCHESTRATOR, NO_SETUP, bare_install=True)
         return Exit.REFUSED
     raw = requires_mcgyvr_code(config)
     if raw is not None:
@@ -353,6 +374,7 @@ def _delegate_logged(args: argparse.Namespace, book: _Logbook) -> int:
         )
         return Exit.REFUSED
 
+    fix = top_rung_proposer_for(config, pool)
     into = Path(args.into) if args.into else None
     try:
         with attach(args.repo, into=into) as repo:
@@ -368,12 +390,13 @@ def _delegate_logged(args: argparse.Namespace, book: _Logbook) -> int:
                 config=config,
                 budget=args.budget,
                 max_reproposals=max_reproposals(config),
+                fix=fix,
             )
             _report_decomposition(decomposition)
             written = _write_delegated(
                 decomposition, Path(args.output) if args.output else None
             )
-            book.decomposed(decomposition, written)
+            book.decomposed(decomposition, written, fixer=fix)
             if decomposition.empty:
                 # The request was read and nothing came of it: refused, not done.
                 return Exit.REFUSED
@@ -384,7 +407,7 @@ def _delegate_logged(args: argparse.Namespace, book: _Logbook) -> int:
                     decomposition,
                     written,
                     config,
-                    replan=_replanner(args, repo.root, config, pool, propose),
+                    replan=_replanner(args, repo.root, config, pool, propose, fix),
                     book=book,
                 )
             return 0
@@ -443,13 +466,16 @@ def _proposer_for_delegate(
 ) -> Proposer | None:
     """The proposer `orchestrator.authoring` asks for, or None if none can run.
 
-    The prose proposer on the `orchestrator` role is always built. The typed
-    classifier is built only when the strategy is "classifier" — refined until
-    each proposal is on one file and jev says it cannot be split further, within
-    `max_splits_per_file` and `max_refine_fanout` — and `proposer_by_authoring`
-    then puts it in front of the prose one, which stands in when the classifier
-    declines. A strategy that is not a string is passed as None, which selects
-    prose. None comes back when nothing can propose. With `decisions` (`--log`
+    The prose proposer on the `orchestrator` role is built whenever a model
+    is bound there. The typed classifier — Jev's fill when a `jev` unit is
+    opted in, the scaffold alone when none is — is built when the strategy is
+    "classifier", the default, refined until each proposal is on one file and
+    jev says it cannot be split further, within `max_splits_per_file` and
+    `max_refine_fanout`; `proposer_by_authoring` then puts it in front of the
+    prose one where there is one, which stands in when the classifier
+    declines, and runs it alone where there is none. A strategy that is not a
+    string is passed as None, which selects prose. None comes back when prose
+    was chosen and no `orchestrator` model is bound. With `decisions` (`--log`
     names it) the classifier's shadow sink is that file, so every typed
     decision it asks is recorded there with its model.
     """
@@ -485,14 +511,17 @@ def _replanner(
     config: Config,
     pool: UnitMap,
     propose: Proposer,
+    fix: Proposer | None = None,
 ) -> Replanner:
     """What re-plans a spent contract: the orchestrator, asked again on `root`.
 
     The index is built again, since what landed before the spend is in the
     tree now — under `--jobs`, between two deliveries of the runs beside it —
     and the spent contract's own work is decomposed with its failure notes on
-    the evidence. The prose proposer is asked, since it is the one
-    that is shown the notes; `propose` stands in when no prose one is bound.
+    the evidence. A prose proposer is asked, since it is the one that is shown
+    the notes: the `orchestrator` model when one is bound, else `fix`, the top
+    rung, which corrects the re-plan's refusals too; `propose` stands in when
+    neither is there.
     """
     from contextlib import nullcontext
 
@@ -503,7 +532,7 @@ def _replanner(
     from mcgyvr.repo import build_index
     from mcgyvr.repropose import max_reproposals
 
-    asked = proposer_for(pool) or propose
+    asked = proposer_for(pool) or fix or propose
     # With other runs delivering beside it (`--jobs`), the tree is read
     # between two deliveries, never in the middle of one.
     beside = getattr(args, "jobs", 1) != 1
@@ -519,6 +548,7 @@ def _replanner(
             budget=args.budget,
             spent=spent,
             max_reproposals=max_reproposals(config),
+            fix=fix,
         )
         _report_decomposition(dec)
         return dec
@@ -642,7 +672,7 @@ def _run_delegated(
     from mcgyvr.board import Board, GitSource
     from mcgyvr.capacity import run_eager
     from mcgyvr.cli import streams
-    from mcgyvr.config import JOURNAL_DIR_DEFAULT
+    from mcgyvr.config import journal_dir
     from mcgyvr.replan import SPENT
     from mcgyvr.tree import State
 
@@ -659,7 +689,7 @@ def _run_delegated(
     folder = staging if staging is not None else paths[0].parent
 
     session: Session = args.session
-    journal = Path(config.get("journal.dir") or JOURNAL_DIR_DEFAULT).expanduser()
+    journal = journal_dir(config)
     source = GitSource(repo)
 
     def came_to(contract_id: str, started: str) -> dict[str, Any] | None:
