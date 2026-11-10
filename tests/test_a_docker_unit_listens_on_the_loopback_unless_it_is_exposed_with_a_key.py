@@ -3,8 +3,15 @@
 Promise: a llama.cpp or vLLM server mcgyvr renders into a container listens on
 127.0.0.1 when its unit is ``expose: local``, and on every interface when it is
 ``expose: lan``; a unit that states neither is ``local`` when its address names
-this machine and ``lan`` when it names another host. A ``lan`` unit asks every
-request for a key mcgyvr makes the first time
+this machine and ``lan`` when it names another host. Only this machine's exact
+names (``gatelib.LOCAL_RIGS``) are this machine here, in two cases. A launch
+that states where it listens is held to them as written: 127.0.0.2,
+``LOCALHOST``, 0.0.0.0 and ``::``, which the looser match that finds a rig file
+takes for this machine, listen beyond it. A unit's address is held to them by
+its URL host, which a URL lower-cases (RFC 3986: a host is case-insensitive):
+``http://LOCALHOST`` is ``http://localhost``, so it is ``local`` and listens on
+127.0.0.1, while 127.0.0.2, 0.0.0.0 and ``[::]`` come out ``lan`` and keyed.
+A ``lan`` unit asks every request for a key mcgyvr makes the first time
 ``mcgyvr emit`` writes it: kept at mode 0600 in the data folder, named in the
 compose service's ``env_file`` and never written into the compose file, and
 sent by mcgyvr's own requests to the unit (a dispatch, a status poll, the
@@ -47,6 +54,7 @@ from mcgyvr.emit import (
     EmitError,
     _healthcheck,
     emit_locked,
+    listens_beyond_loopback,
     locked_keyed,
     locked_open,
     render_compose,
@@ -64,10 +72,12 @@ from mcgyvr.serving import (
     Unit,
     exposure,
     host_of,
+    rigfile,
     servelib,
     unit_for,
     units_for,
 )
+from mcgyvr.serving.gatelib import LOCAL_RIGS
 from mcgyvr.serving.run import GATE_SCRIPTS
 from tests import onedoor, reads, records
 from tests.doors import DENSE, SEVEN_B_SPEC, rig, service_of
@@ -191,6 +201,80 @@ def test_a_unit_that_states_no_expose_follows_its_address(
     assert config.units["coder"].expose == stated
     assert service["environment"]["LLAMA_ARG_HOST"] == listens
     assert ("env_file" in service) is keyed
+
+
+# --- this machine's exact names alone decide a unit's bind and key -----------------
+
+#: Spellings the looser match that finds a rig file takes for this machine
+#: (`rigfile._names_this_machine`) and the exact names (`LOCAL_RIGS`) do not.
+LOOSELY_THIS_MACHINE = ("127.0.0.2", "LOCALHOST", "0.0.0.0", "::")
+
+
+@pytest.mark.parametrize("spelling", LOOSELY_THIS_MACHINE)
+def test_a_name_only_the_loose_match_takes_for_this_machine_listens_beyond_it(
+    spelling: str,
+) -> None:
+    # The two lists disagree on purpose: widening LOCAL_RIGS to the loose
+    # match would make such a unit local, and so unkeyed.
+    assert rigfile._names_this_machine(spelling)
+    assert spelling not in LOCAL_RIGS
+    assert listens_beyond_loopback(replace(llama(), extra=("--host", spelling)))
+    assert listens_beyond_loopback(replace(llama(), env={"LLAMA_ARG_HOST": spelling}))
+    fleet = {
+        "units": {
+            "near": {
+                "address": "http://localhost:8080",
+                "launch": {"env": {"LLAMA_ARG_HOST": spelling}},
+            }
+        }
+    }
+    assert locked_open(fleet) == (("near", spelling),)
+
+
+@pytest.mark.parametrize("host", ["127.0.0.2", "0.0.0.0", "[::]"])
+def test_a_unit_whose_address_is_only_loosely_this_machine_is_lan_and_keyed(
+    host: str,
+) -> None:
+    address = f"http://{host}:8080"
+    config = parse(
+        "units:\n"
+        "  coder:\n"
+        f"    address: {address}\n"
+        f"    model: {DENSE.name}\n"
+        "ladder: [coder]\n"
+    )
+    named = host_of(address)
+
+    (unit,) = units_for(config, {named: rig(named)}, specs=[DENSE], ctx_per_slot=WINDOW)
+    service = service_of(render_compose(unit))
+
+    assert exposure(None, address=address) == "lan"
+    assert service["environment"]["LLAMA_ARG_HOST"] == "0.0.0.0"
+    assert service["env_file"] == [str(unitkey.path(unit.host, unit.port))]
+
+
+def test_a_unit_addressed_at_localhost_in_any_case_is_local_and_unkeyed() -> None:
+    # A URL's host is case-insensitive, so the address names `localhost`, one
+    # of the exact names: the unit listens on the loopback, which that address
+    # reaches, and no list grew to say so.
+    address = "http://LOCALHOST:8080"
+    config = parse(
+        "units:\n"
+        "  coder:\n"
+        f"    address: {address}\n"
+        f"    model: {DENSE.name}\n"
+        "ladder: [coder]\n"
+    )
+    named = host_of(address)
+
+    (unit,) = units_for(config, {named: rig(named)}, specs=[DENSE], ctx_per_slot=WINDOW)
+    service = service_of(render_compose(unit))
+
+    assert named == "localhost"
+    assert "LOCALHOST" not in LOCAL_RIGS
+    assert exposure(None, address=address) == "local"
+    assert service["environment"]["LLAMA_ARG_HOST"] == "127.0.0.1"
+    assert "env_file" not in service
 
 
 def test_a_native_unit_follows_no_address_and_listens_on_the_loopback() -> None:
