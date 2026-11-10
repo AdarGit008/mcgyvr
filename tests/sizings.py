@@ -4,6 +4,7 @@ from __future__ import annotations
 
 from typing import Any
 
+from mcgyvr.hubwire import shares_ram
 from mcgyvr.scan import Scan
 from mcgyvr.serving import ModelSpec, vramfit
 from tests import machine_shapes
@@ -33,8 +34,15 @@ def spilling(scan: Scan) -> ModelSpec:
     host memory. It caches nothing and has no recurrent state, so its slot
     count moves nothing here.
     """
-    free = max(gpu.vram.free_mib for gpu in scan.gpus) << 20
-    room = free - (vramfit.SCRATCH_AND_CONTEXT_MIB << 20)
+    card = max(scan.gpus, key=lambda gpu: gpu.vram.free_mib)
+    free = card.vram.free_mib << 20
+    charged = vramfit.allowance(
+        {"arch": "invented", "kv_layers": []},
+        n_ctx=WINDOW,
+        backend=card.backend,
+        unified=shares_ram(card.kind),
+    )
+    room = free - charged.total
     nonexpert = room // 2
     block = room // 4
     by_block = {str(index): block for index in range(BLOCKS)}

@@ -26,6 +26,7 @@ import pytest
 
 from mcgyvr.cli.commands.setup import _setup_placements
 from mcgyvr.knowledge import store as ks
+from mcgyvr.ladder_proposal import DEFAULT_HEADROOM_GB
 from mcgyvr.recommend import MIN_CONTEXT_PER_USER
 from mcgyvr.scan import Scan
 
@@ -41,10 +42,13 @@ def _placement(use_case: str, vram_mib: int) -> dict[str, Any]:
 
 
 def _cost(one: Any, context: int) -> int:
+    """What placement holds a catalog model to on a card: its file, its cache and
+    state, and the headroom an unscanned model is given (`serving.fit`)."""
     return int(
         one.size_bytes.value
         + context * one.kv_bytes_per_token.value
         + one.recurrent_bytes_per_slot.value
+        + DEFAULT_HEADROOM_GB * (1 << 30)
     )
 
 

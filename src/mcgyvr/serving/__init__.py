@@ -12,7 +12,7 @@ from pathlib import Path
 from typing import Any
 from urllib.parse import urlparse
 
-from mcgyvr import derived
+from mcgyvr import derived, hubwire
 from mcgyvr.config import DEFAULT_ENGINE as DEFAULT_ENGINE
 from mcgyvr.config import (
     EXPOSE_LAN,
@@ -500,9 +500,16 @@ def _sized(
             engine=engine,
             host=scan.machine.host,
             ctx_per_slot=ctx_per_slot,
+            gpu=_roomiest_gpu(scan) if scan.gpus else None,
         )
     except UnitError as exc:
-        return Fit(fits=False, headroom_gb=_allowance_gb(spec), why=str(exc))
+        headroom = _allowance_gb(
+            spec,
+            _roomiest_gpu(scan) if scan.gpus else None,
+            ctx_per_slot=ctx_per_slot,
+            slots=width or 1,
+        )
+        return Fit(fits=False, headroom_gb=headroom, why=str(exc))
     # With the model placed on the card, host RAM decides how its blob is
     # read, and the mode it is read in decides what the host is charged.
     # Left alone, llama.cpp memory-maps the file: the resident pages of a
@@ -629,7 +636,26 @@ def _require_cache_types(engine: str, spec: ModelSpec) -> tuple[str, str]:
             f"the unit that serves it"
         )
     assert kv_k is not None and kv_v is not None
+    check_cache_types(spec.name, engine, kv_k, kv_v)
     return kv_k, kv_v
+
+
+def check_cache_types(
+    name: str, engine: str, cache_type_k: str | None, cache_type_v: str | None
+) -> None:
+    """Refuse a llama.cpp cache type the engine does not accept, naming the ones it
+    does (`vramfit.LLAMACPP_CACHE_TYPES`): the cache is priced at that type's width
+    and launched as `-ctk`/`-ctv`, so a name with no width is no cache at all. A
+    type left unstated is not checked here; other engines name their own."""
+    if engine != DEFAULT_ENGINE:
+        return
+    for flag, stated in (("k", cache_type_k), ("v", cache_type_v)):
+        if stated is not None and stated not in vramfit.CACHE_ELEM_BYTES:
+            raise UnitError(
+                f"{name}: kv_cache_dtype_{flag} is {stated!r}, which llama.cpp "
+                f"does not take as a cache type (-ct{flag}); it takes "
+                f"{', '.join(vramfit.LLAMACPP_CACHE_TYPES)}"
+            )
 
 
 def _engine_not_wired(name: str, engine: str) -> str:
@@ -715,6 +741,7 @@ def unit_for(
         engine=engine,
         host=scan.machine.host,
         ctx_per_slot=ctx_per_slot,
+        gpu=gpu,
     )
     if width is not None:
         chosen = Width(value=width, how="written")
@@ -1222,6 +1249,7 @@ def _shard_targets(name: str, declared: object, scans: Mapping[str, Scan]) -> li
                 free_bytes=card.vram.free_mib << 20,
                 bind=bind,
                 backend=card.backend,
+                unified=shares_ram(card.kind),
             )
         )
     return targets
@@ -1655,6 +1683,12 @@ def declared_models(config: Config) -> dict[str, ModelSpec]:
             if not where.is_absolute() and config.path is not None:
                 where = config.path / where
             geometry = load_geometry(where, name=name)
+        check_cache_types(
+            name,
+            unit.engine or DEFAULT_ENGINE,
+            block.get("kv_cache_dtype_k"),
+            block.get("kv_cache_dtype_v"),
+        )
         specs[name] = ModelSpec(
             name=name,
             vram_gb=block.get("vram_gb") or 0.0,
@@ -1875,12 +1909,35 @@ def _remaining_scan(scan: Scan, claim_gb: float) -> Scan:
     return replace(scan, gpus=tuple(gpus), memory=memory)
 
 
-def _allowance_gb(spec: ModelSpec) -> float:
-    """The headroom a failed placement quotes: the scratch allowance when the model is
-    sized from a geometry, the default headroom otherwise."""
+def _allowance_gb(
+    spec: ModelSpec, gpu: Gpu | None, *, ctx_per_slot: int, slots: int
+) -> float:
+    """The headroom a placement quotes: the per-card fit law's allowance on `gpu` at
+    this context and slot count when the model is sized from a geometry
+    (`vramfit.allowance`), the default headroom otherwise."""
     if spec.geometry is None:
         return DEFAULT_HEADROOM_GB
-    return vramfit.SCRATCH_AND_CONTEXT_MIB / 1024
+    return _allowance_bytes(spec.geometry, gpu, ctx_per_slot, slots) / _BYTES_PER_GIB
+
+
+def _allowance_bytes(
+    geometry: Mapping[str, Any],
+    gpu: Gpu | None,
+    ctx_per_slot: int,
+    slots: int,
+    n_ubatch: int = DEFAULT_UBATCH,
+) -> int:
+    """The allowance one card is charged beside a geometry's tensors, at
+    `ctx_per_slot` x `slots` cells on `gpu`'s backend and kind (a CUDA discrete
+    card when no card is named)."""
+    return vramfit.allowance(
+        geometry,
+        n_ctx=ctx_per_slot * slots,
+        n_seq_max=slots,
+        n_ubatch=n_ubatch,
+        backend=gpu.backend if gpu is not None else vramfit.MEASURED_SCRATCH_BACKEND,
+        unified=gpu is not None and shares_ram(gpu.kind),
+    ).total
 
 
 def _needs_geometry(spec: ModelSpec) -> str:
@@ -1946,10 +2003,12 @@ def _placement(
     host: str,
     ctx_per_slot: int,
     n_ubatch: int = DEFAULT_UBATCH,
+    gpu: Gpu | None = None,
 ) -> _Placement:
     """Find, for one card, the fewest expert blocks to spill and the most slots that
     fit: the width the caller states, or the widest the search reaches under
-    MAX_WIDTH."""
+    MAX_WIDTH. `gpu` is the card, whose backend and kind decide its allowance (a
+    CUDA discrete card when none is named)."""
     if spec.geometry is None:
         if spec.moe:
             raise UnitError(_needs_geometry(spec))
@@ -1990,12 +2049,11 @@ def _placement(
                 f"{spec.name}: the cache cannot be sized, so nothing is placed "
                 f"from an invented split: {exc}"
             ) from exc
-        return (
-            int(geometry["bytes_nonexpert"])
-            + head_bytes
-            + kv_total
-            + rs["total"]
-            + (vramfit.SCRATCH_AND_CONTEXT_MIB << 20)
+        return hubwire.card_bytes(
+            weights=int(geometry["bytes_nonexpert"]) + head_bytes,
+            cache=kv_total,
+            state=rs["total"],
+            allowance=_allowance_bytes(geometry, gpu, ctx_per_slot, slots, n_ubatch),
         )
 
     def floor_at(slots: int) -> int | None:
@@ -2027,7 +2085,8 @@ def _placement(
         ram_gb=max(
             spec.ram_gb, _host_gb(geometry, n_cpu_moe, engine=engine, host=host)
         ),
-        headroom_gb=vramfit.SCRATCH_AND_CONTEXT_MIB / 1024,
+        headroom_gb=_allowance_bytes(geometry, gpu, ctx_per_slot, slots, n_ubatch)
+        / _BYTES_PER_GIB,
         head_bytes=head_bytes,
     )
 
@@ -2037,8 +2096,8 @@ def _host_gb(
 ) -> float:
     """The host RAM a spill costs: the expert bytes left off the card, plus the engine's
     runtime-resident figure where that is read per host."""
-    offloaded = int(geometry["bytes_experts"]) - vramfit.experts_on_card(
-        geometry, n_cpu_moe
+    offloaded = hubwire.offloaded_expert_bytes(
+        int(geometry["bytes_experts"]), vramfit.experts_on_card(geometry, n_cpu_moe)
     )
     if offloaded <= 0:
         return 0.0

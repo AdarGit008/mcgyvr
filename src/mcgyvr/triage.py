@@ -17,10 +17,11 @@ names no rung and says why, and the climb starts where it would have without
 triage. With `triage: none` (unset is `jev` only under `mcgyvr-code` while a
 Jev unit is on), nothing is asked and nothing is recorded.
 
-Triage can also be decided ahead of time. `triage_ahead` asks jev about a set
-of contracts once, outside any run, and returns one record per contract; a
-contract that then states the chosen rung as its `start_rung` starts there on
-every later run and jev is not asked again. A stated rung is the one thing here
+Triage can also be decided ahead of time, from Python: no mcgyvr command calls
+`triage_ahead` yet. It asks jev about a set of contracts once, outside any run,
+and returns one record per contract; a contract that then states the chosen
+rung as its `start_rung` (or one its author wrote by hand) starts there on every
+later run and jev is not asked again. A stated rung is the one thing here
 that is refused rather than fallen back from: a rung the ladder does not list,
 or one this contract's climb does not offer, raises `RouteError` before
 anything is dispatched, since starting elsewhere would quietly run a different

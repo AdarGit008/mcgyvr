@@ -119,6 +119,12 @@ def document(made: list[Entry]) -> dict[str, Any]:
     }
 
 
+def one_number(number: str, key: str, *, path: Path | None = None) -> derived.Number:
+    """One ``number`` for one ``key``, asked through :func:`mcgyvr.derived.lookup_all`,
+    the way the product reads its numbers; an unstated one is refused as there."""
+    return derived.lookup_all([(number, key)], path=path)[(number, key)]
+
+
 def write_json(path: Path, content: Mapping[str, Any]) -> Path:
     """``content`` as JSON at ``path``."""
     path.parent.mkdir(parents=True, exist_ok=True)

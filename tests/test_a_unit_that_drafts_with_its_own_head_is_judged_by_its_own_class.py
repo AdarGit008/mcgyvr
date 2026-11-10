@@ -8,7 +8,7 @@ prefill, so a live probe judged by the class's 1% prefill would have failed a
 sample the lock itself accepted.
 
 * :func:`mcgyvr.fleet.tolerance.tolerance_class` puts a llama.cpp unit whose
-  argv (or ``flags``) carries ``--spec-type draft-mtp`` in ``mtp``, whether or
+  argv carries ``--spec-type draft-mtp`` in ``mtp``, whether or
   not experts are on the CPU beside it; any other ``--spec-type`` value, and a
   vLLM unit whatever its argv says, are judged as before.
 * Every other unit keeps the class it had: ``mtp`` adds a class, it moves
@@ -52,12 +52,8 @@ BEFORE: dict[str, tuple[dict[str, Any], str]] = {
         {"engine": "llama.cpp", "launch": {"argv": [*BASE, "--n-cpu-moe", "8"]}},
         CLASS_CPU_EXPERTS,
     ),
-    "experts_on_the_cpu_as_a_key": (
-        {"engine": "llama.cpp", "launch": {"n_cpu_moe": 8}},
-        CLASS_CPU_EXPERTS,
-    ),
-    "experts_on_the_cpu_among_the_flags": (
-        {"engine": "llama.cpp", "launch": {"flags": ["--cpu-moe"]}},
+    "all_experts_on_the_cpu_in_the_argv": (
+        {"engine": "llama.cpp", "launch": {"argv": [*BASE, "--cpu-moe"]}},
         CLASS_CPU_EXPERTS,
     ),
 }
@@ -97,9 +93,18 @@ def test_draft_mtp_in_the_argv_is_mtp_with_or_without_experts_on_the_cpu(
     assert tolerance_class(_llamacpp(argv)) == CLASS_MTP
 
 
-def test_draft_mtp_among_the_flags_is_mtp() -> None:
-    unit = {"engine": "llama.cpp", "launch": {"flags": SPEC}}
-    assert tolerance_class(unit) == CLASS_MTP
+@pytest.mark.parametrize(
+    "launch",
+    [{"flags": SPEC}, {"flags": ["--cpu-moe"]}, {"n_cpu_moe": 8}],
+    ids=["draft_mtp_flags", "cpu_moe_flags", "n_cpu_moe"],
+)
+def test_a_launch_key_nothing_writes_does_not_move_the_class(
+    launch: dict[str, Any],
+) -> None:
+    """``launch.flags`` and ``launch.n_cpu_moe`` are no launch field: nothing
+    writes them and emit never applies them, so the argv alone is read."""
+    unit = {"engine": "llama.cpp", "launch": launch}
+    assert tolerance_class(unit) == CLASS_LLAMACPP
 
 
 @pytest.mark.parametrize(

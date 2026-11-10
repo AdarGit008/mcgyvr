@@ -12,7 +12,9 @@ classifier then records to ``<PATH>.decisions.jsonl``. Otherwise no
 sink is built and nothing is written. The pure helpers below answer the
 wave-2 metric questions over any iterable of records: ``recall_at_k``,
 ``override_rate``, ``abstain_rate``, ``parse_fail_rate``,
-``per_letter_distribution`` and ``confidence_by_field``.
+``per_letter_distribution`` and ``confidence_by_field``. No mcgyvr command
+reads them: they are the analysis API over the shadow log, for a script or an
+outside tool that folds ``<PATH>.decisions.jsonl``.
 
 This module is a shadow: it observes the decision loop and writes beside it.
 It never feeds a decision back into the pipeline, and ``mcgyvr.gate.jev`` does
