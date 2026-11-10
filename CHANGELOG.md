@@ -1051,6 +1051,19 @@ archived outside this repository, under the same paths.
 
 ### Fixed
 
+- The setup reference says what an unset `attempts` entry means: a unit with
+  no entry is tried once on its rung, as it always was, not the contract's
+  `limits.attempts` default of 2, which only caps the number. The one value
+  is `config.UNSET_RUNG_ATTEMPTS`, and `mcgyvr local_pool` now reads a rung's
+  budget through `route.configured_attempts` (was `_configured_attempts`),
+  the reader a plan uses, instead of its own copy of the default.
+
+- The Python worker prompt (`prompts/python.md`) no longer tells the model
+  to leave out "everything listed under OUT OF SCOPE": the message a worker
+  is sent has no such section, and the gate already refuses a change outside
+  the contract's scope. The bundle is 1901 bytes after provenance is
+  stripped (was 1972; the ceiling is 2048), and its standing is unchanged.
+
 - Prose says what the code does, with no behaviour change. The host's `rig
   run` and `rig join` print a run's seal key id (there is no `rig up`);
   SECURITY.md cites `Sharing.image`, `_image` and `rpc_proto=` instead of line
