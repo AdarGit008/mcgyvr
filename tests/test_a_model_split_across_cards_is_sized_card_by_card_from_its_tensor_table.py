@@ -186,7 +186,9 @@ def test_every_card_is_charged_the_allowance_a_single_card_fit_charges() -> None
         Grid(tensor=1, pipeline=2, split=SPLIT_LAYER),
         allowance_bytes=None,
     )
-    expected = int(vramfit.allowance_mib(model, n_ubatch=512) * MIB)
+    expected = vramfit.allowance(
+        model, n_ctx=2 * 4096, n_seq_max=2, n_ubatch=512
+    ).total
     assert [shard.allowance_bytes for shard in made.shards] == [expected, expected]
 
 

@@ -19,7 +19,7 @@ from typing import Any
 import pytest
 
 from mcgyvr import recommend
-from mcgyvr.hubwire import RESOURCE_BACKENDS
+from mcgyvr.hubwire import RESOURCE_BACKENDS, shares_ram
 from mcgyvr.scan import Scan
 from mcgyvr.serving import (
     ModelSpec,
@@ -62,9 +62,14 @@ def geometry(scan: Scan) -> dict[str, Any]:
     """An invented MoE whose shared weights take half of the card beside the
     scratch allowance and whose three expert blocks a quarter each: two stay on
     the card and one spills."""
-    room = (max(g.vram.free_mib for g in scan.gpus) << 20) - (
-        vramfit.SCRATCH_AND_CONTEXT_MIB << 20
+    (card,) = scan.gpus
+    charged = vramfit.allowance(
+        {"arch": "invented", "kv_layers": []},
+        n_ctx=WINDOW,
+        backend=card.backend,
+        unified=shares_ram(card.kind),
     )
+    room = (card.vram.free_mib << 20) - charged.total
     nonexpert, block = room // 2, room // 4
     return {
         "file": "/models/example-moe.gguf",
@@ -137,8 +142,13 @@ def test_a_split_prices_scratch_from_a_cuda_reading_only_on_cuda_cards(
         return [shard.allowance_bytes for shard in made.shards]
 
     assert charged(vramfit.MEASURED_SCRATCH_BACKEND) == [int(reading * MIB)] * 2
-    default = int(vramfit.SCRATCH_AND_CONTEXT_MIB * MIB)
-    assert charged(backend) == [default, default]
+    # Off CUDA the reading is not given: the card is charged the law, its context
+    # and the compute buffer at the split's 2 x 4096 cells.
+    law = vramfit.allowance(
+        model, n_ctx=2 * 4096, n_seq_max=2, n_ubatch=batch, backend=backend
+    )
+    assert not law.measured
+    assert charged(backend) == [law.total, law.total]
 
 
 def test_the_measured_backend_is_one_the_wire_names() -> None:

@@ -75,7 +75,7 @@
         "vllm": 1.5,
         "llama.cpp": 1.0
       },
-      "note": "A starting value, not a reading of your machine. It may differ with the model, the context size, the batch, the engine version and the width of the split. llama.cpp's is its single-card scratch and context bound (768 MiB) with room for the meta device's reduction buffers. Set your own value in numbers.yaml when your own reading of a card's memory differs."
+      "note": "A starting value, not a reading of your machine. It may differ with the model, the context size, the batch, the engine version and the width of the split. llama.cpp's was set as the flat 768 MiB single-card allowance mcgyvr charged before its per-card fit law, with room for the meta device's reduction buffers. Set your own value in numbers.yaml when your own reading of a card's memory differs."
     }
   }
 }

@@ -11,6 +11,29 @@ archived outside this repository, under the same paths.
 
 ### Changed
 
+- **One per-card fit law, in `mcgyvr.hubwire`, for the sizer, a split and the
+  hub's planner; the flat 768 MiB allowance is gone (I-05, I-23).** What a card
+  of a llama.cpp layer split holds beside its tensors was two laws: the
+  product charged a flat 768 MiB on one card (`SCRATCH_AND_CONTEXT_MIB`) and a
+  measured per-arch reading only on a split, and the hub charged its own
+  context-growing compute buffer. Now one law decides it, on one card and on
+  each card of a split, and the hub imports it: a reading from
+  `hubwire.MEASURED_SCRATCH_MIB` (per arch, by ubatch, CUDA cards only) when
+  there is one, else the card's context (`CARD_CONTEXT_MIB` 161 MiB, or
+  `UNIFIED_CONTEXT_MIB` 512 MiB on a unified device) plus a compute buffer of
+  232 MiB and, per cell of context, the larger of the KQ mask (6 bytes an ubatch
+  row) and an f16 copy of the widest layer's K and V
+  (`hubwire.card_allowance`). The cells (`cache_cells`, `cache_bytes`, padded
+  to 256 a sequence), the card total (`card_bytes`, `bytes_on_card`) and an MoE
+  spill's host bytes (`offloaded_expert_bytes`) are there too;
+  `vramfit.kv_bytes` and `vramfit.allowance` price a scan's rows for it, and
+  `hubwire.FIT_CALIBRATION_RUNS` are the ten measured runs both planners are
+  held to. Numbers move: qwen35moe on one card is charged its 316.57 MiB
+  reading at ubatch 512 and qwen3next its 829 MiB (both were 768); an
+  unmeasured arch is charged 161 + 232 MiB plus its per-cell term, less than
+  768 MiB below about 128k cells of 3 KiB and more above, so the width search
+  can choose fewer slots. `vramfit.SCRATCH_AND_CONTEXT_MIB` and
+  `vramfit.allowance_mib` are removed (`vramfit.allowance` replaces the second).
 - **A llama.cpp unit's cache type is one llama.cpp takes, priced at its own
   width (I-24).** `vramfit.CACHE_ELEM_BYTES` knew f32, f16, bf16 and q8_0, so a
   unit naming q4_0, q4_1, iq4_nl, q5_0 or q5_1 (all of which llama.cpp takes)

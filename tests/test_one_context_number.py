@@ -9,8 +9,8 @@ from the unit rather than assumed.
 
 **Stated as behaviour, not as a search of the source.** A grep for module
 constants matching ``CONTEXT|CTX`` is defeated by a rename and flags constants that
-are not windows at all — ``vramfit.SCRATCH_AND_CONTEXT_MIB`` (the placement
-allowance, which ``test_dod_placement_conservatism.py`` requires to exist) and
+are not windows at all — ``hubwire.CARD_CONTEXT_MIB`` (part of the placement
+allowance) and
 ``_DEFAULT_CONTEXT`` in ``orchestrator/read.py`` (lines of source context for a file
 reader).
 """

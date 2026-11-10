@@ -88,27 +88,29 @@ def sizings(scan: Scan) -> dict[str, str]:
 
 
 #: Per invented machine and model: the digest of the sizing as it was before
-#: unified memory was counted once.
+#: unified memory was counted once. The spilling MoE's digests were pinned again
+#: when the per-card fit law (``hubwire.card_allowance``) replaced the flat 768 MiB
+#: allowance: its figures move with the allowance, the dense ones do not.
 BEFORE: dict[str, dict[str, str]] = {
     "busy-beside-free": {
         "dense-small": "61477553d501c2db",
         "dense-too-big": "127d568ce8b0754c",
-        "moe-spilling": "71ab7928adf801be",
+        "moe-spilling": "d49cb5a066b2821a",
     },
     "busy-card": {
         "dense-small": "e9ae439e1995e077",
         "dense-too-big": "032c16b37d791eb6",
-        "moe-spilling": "3d9569ace2b311d8",
+        "moe-spilling": "f6ec07bd3ea713be",
     },
     "four-equal": {
         "dense-small": "b95ee9d1430c850c",
         "dense-too-big": "0c3a82a19f34ab4c",
-        "moe-spilling": "0e5c37b19cc535d6",
+        "moe-spilling": "3ff4c1fc37744830",
     },
     "linux-one-card": {
         "dense-small": "61477553d501c2db",
         "dense-too-big": "127d568ce8b0754c",
-        "moe-spilling": "0da83a710e977315",
+        "moe-spilling": "b77ab4792d0ab674",
     },
     "mac-without-unified": {
         "dense-small": "6ac7fe9eb778d0d6",
@@ -117,52 +119,52 @@ BEFORE: dict[str, dict[str, str]] = {
     "mixed-vendors": {
         "dense-small": "f45a19b67f102650",
         "dense-too-big": "199bc672c4fbaa2b",
-        "moe-spilling": "5a2542b79ee783be",
+        "moe-spilling": "ad6cb152582e80da",
     },
     "one-card": {
         "dense-small": "61477553d501c2db",
         "dense-too-big": "127d568ce8b0754c",
-        "moe-spilling": "71ab7928adf801be",
+        "moe-spilling": "d49cb5a066b2821a",
     },
     "same-cards-here": {
         "dense-small": "f45a19b67f102650",
         "dense-too-big": "199bc672c4fbaa2b",
-        "moe-spilling": "5a2542b79ee783be",
+        "moe-spilling": "ad6cb152582e80da",
     },
     "same-cards-there": {
         "dense-small": "f45a19b67f102650",
         "dense-too-big": "199bc672c4fbaa2b",
-        "moe-spilling": "5a2542b79ee783be",
+        "moe-spilling": "ad6cb152582e80da",
     },
     "several-sizes": {
         "dense-small": "21d98ea1d564f781",
         "dense-too-big": "b333124cc680aa1b",
-        "moe-spilling": "79abfb6dc84580a7",
+        "moe-spilling": "341d6eaed74e7229",
     },
     "two-sizes": {
         "dense-small": "ce4af6490f5b1ca1",
         "dense-too-big": "60fee3eca1aeaa8d",
-        "moe-spilling": "78f52a9af6c30c5e",
+        "moe-spilling": "641d08a8a9a56c9f",
     },
     "unreadable-size": {
         "dense-small": "61477553d501c2db",
         "dense-too-big": "127d568ce8b0754c",
-        "moe-spilling": "71ab7928adf801be",
+        "moe-spilling": "d49cb5a066b2821a",
     },
     "unreadable-size-first": {
         "dense-small": "61477553d501c2db",
         "dense-too-big": "127d568ce8b0754c",
-        "moe-spilling": "71ab7928adf801be",
+        "moe-spilling": "d49cb5a066b2821a",
     },
     "windows-card-tool-in-system": {
         "dense-small": "b95ee9d1430c850c",
         "dense-too-big": "0c3a82a19f34ab4c",
-        "moe-spilling": "4dc0686ed3854784",
+        "moe-spilling": "29dfe1bbbd5f55a2",
     },
     "windows-card-tool-in-vendor-folder": {
         "dense-small": "40dd99a1a0355f7c",
         "dense-too-big": "b1ea77d5911d479f",
-        "moe-spilling": "c6c33b0e438234ba",
+        "moe-spilling": "032d3094132b9a4b",
     },
     "windows-no-modules": {
         "dense-small": "6ac7fe9eb778d0d6",
@@ -171,7 +173,7 @@ BEFORE: dict[str, dict[str, str]] = {
     "windows-one-card": {
         "dense-small": "61477553d501c2db",
         "dense-too-big": "127d568ce8b0754c",
-        "moe-spilling": "a8a221b6b284929c",
+        "moe-spilling": "41134330d44bede5",
     },
     "windows-other-gpu": {
         "dense-small": "6ac7fe9eb778d0d6",

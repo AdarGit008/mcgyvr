@@ -17,6 +17,10 @@ a placement with every expert on the card. A probe therefore describes the
 placements on its own side of that step, and one taken with every expert on the
 card under-states every placement that offloads.
 
+What a card holds beside its tensors, how a cache's cells are counted and how
+the parts add up are the per-card fit law in `mcgyvr.hubwire`, which the hub's
+planner sizes with too; this module prices a scanned geometry's rows for it.
+
 Every figure here is fitted to what the engine's allocator summary or
 `nvidia-smi` printed, never to a share of the file size: expert costs come from
 the scan's per-block totals, the sliding split from the checkpoint's declared
@@ -29,6 +33,7 @@ from __future__ import annotations
 from collections.abc import Iterable, Mapping
 from typing import Any, Literal
 
+from mcgyvr import hubwire
 from mcgyvr.serving import ggufscan
 
 #: The cache types llama.cpp accepts for `-ctk`/`-ctv`, by the names it reads
@@ -58,82 +63,13 @@ CACHE_ELEM_BYTES = {
     for name in LLAMACPP_CACHE_TYPES
 }
 
-#: The allowance, in MiB, that `allowance_mib` returns when it has no reading
-#: for the architecture it was asked about, or none for the ubatch: what the
-#: engine and the driver hold beyond the weights and the caches -- the CUDA
-#: context, the compute buffers, and the allocations that move with a batch.
-#: The scan cannot state this figure; the engine's own allocator decides it,
-#: which is why the architectures in `MEASURED_SCRATCH_MIB` were read off a
-#: load on a rig. An unmeasured model is gated on this number rather than on
-#: nothing, so its prediction still leaves the card room for what llama.cpp
-#: will allocate next to the tensors. It is a default, not a ceiling: no load
-#: here was measured against it. The serving sizer adds it to the card
-#: constant, so a placement compared with free VRAM is compared against the
-#: tensors, the caches they sit in, and this headroom together rather than the
-#: tensors alone. A caller that wants the figure for one architecture at one
-#: batch asks `allowance_mib`; this constant is only what it returns on a miss,
-#: and 768 MiB is that answer, not a measurement of any particular model.
-SCRATCH_AND_CONTEXT_MIB = 768
-
-#: The scratch allowance measured on a rig, in MiB, filed under the ubatch it
-#: was read at: what that load actually held beyond the weights, the KV cache
-#: and the recurrent state that `kv_bytes` and `rs_bytes` predict. Each figure
-#: is the gap left by the engine's allocator summary (`--verbose`, whose second
-#: loader pass is the real one) cross-checked against `nvidia-smi`, and that
-#: gap carries the CUDA context, the compute buffers, and whatever else the
-#: engine allocates beside the tensors. It differs by architecture -- the
-#: kernels and per-layer buffers are the model's own -- and it grows with the
-#: ubatch, which is why a reading is filed under the batch it was taken at as
-#: well as under the arch. `allowance_mib` reads this table and nothing else
-#: derives from it: a hit returns the measured figure, a miss on the
-#: architecture or on the ubatch returns `SCRATCH_AND_CONTEXT_MIB`. Neither the
-#: entries nor the gaps between them are averaged or interpolated, because a
-#: value computed between two readings would be a guess written down as a
-#: measurement; a new placement batch means a new reading. The arch name is the
-#: one the scan writes, so `qwen35moe` and `gptoss` are spellings of an
-#: architecture family and not of a checkpoint: two quantizations of one arch
-#: share a row, since the quant changes the tensors and not the buffers the
-#: engine allocates around them. A row says nothing about slots or context:
-#: those are in the cache figures, not in the gap. A reading missing for an
-#: arch, or for the batch a placement runs at, is a reading to take, not a
-#: value to carry over from the neighbouring entry -- keying by ubatch says
-#: that the buffer sizes it describes are not interchangeable between
-#: batches.
-MEASURED_SCRATCH_MIB = {
-    "deepseek2": {256: 259.5},
-    "gptoss": {256: 302.1},
-    "qwen35moe": {256: 302.7, 512: 316.57},
-    "nemotron_h_moe": {256: 521.2},
-    #: qwen3next's reading is at ubatch 512 (829.0 MiB), not 256 like the rest, so
-    #: it is filed under the batch the load actually ran with.
-    "qwen3next": {512: 829.0},
-}
-
-#: The backend every `MEASURED_SCRATCH_MIB` reading was taken under: each gap
-#: carries a CUDA context and CUDA's compute buffers, so a card of another
-#: backend (a unified GPU under Metal, a card under Vulkan or ROCm) is never
-#: given one and gets `SCRATCH_AND_CONTEXT_MIB`, the unmeasured default, which
-#: stands in for what Metal allocates beside the tensors until a reading of a
-#: Metal load (llama.cpp's logged working set) replaces it.
-MEASURED_SCRATCH_BACKEND = "cuda"
-
-#: Cell granule llama.cpp pads the sliding-window cache to: the engine rounds
-#: its SWA cell count up to a multiple of 256, so a partial chunk costs a whole.
-SWA_PAD = 256
-
-
-def _pad(value: int, to: int) -> int:
-    return -(-value // to) * to
-
-
-def context_per_sequence(n_ctx: int, n_seq_max: int) -> int:
-    """Cells per sequence: `n_ctx` divided by `n_seq_max`, rounded up to 256."""
-    if n_seq_max <= 0:
-        raise ValueError("n_seq_max must be positive")
-    # `-c` is the total across sequences, not one sequence's context: llama.cpp
-    # divides it, rounds each sequence up to 256 cells, and rewrites the total to
-    # slots x per-sequence cells, so the allocation can exceed the request.
-    return _pad(-(-n_ctx // n_seq_max), 256)
+#: The measured scratch readings, the backend they were read under and the cache
+#: pad are the per-card fit law's (`mcgyvr.hubwire`), which the hub's planner
+#: computes from too; named here for the sizer's callers.
+MEASURED_SCRATCH_MIB = hubwire.MEASURED_SCRATCH_MIB
+MEASURED_SCRATCH_BACKEND = hubwire.MEASURED_SCRATCH_BACKEND
+SWA_PAD = hubwire.CACHE_PAD_CELLS
+context_per_sequence = hubwire.context_per_sequence
 
 
 def cache_bytes_per_token(
@@ -242,34 +178,16 @@ def kv_bytes(
         for side in ("full", "sliding")
     )
 
-    # `-c` is a total, not a slot's context. Unified KV shares one cache across
-    # the sequences, so `n_ctx` cells are the whole allocation and no per-sequence
-    # multiplier applies; otherwise each sequence is charged its own padded cells.
-    if kv_unified:
-        cells_full, seq_factor = n_ctx, 1
-    else:
-        cells_full, seq_factor = context_per_sequence(n_ctx, n_seq_max), n_seq_max
-
-    window = geometry.get("sliding_window")
-    if swa_full or not window:
-        cells_swa = cells_full
-    else:
-        # The sliding cache need hold only the window, plus one batch of tokens in
-        # flight. Unified, the window is claimed once for every sequence together, so
-        # the count is against the total; otherwise it is claimed per sequence and
-        # multiplied by `seq_factor` below, padded to the engine's granule, capped.
-        want = int(window) * (n_seq_max if kv_unified else 1) + n_ubatch
-        cells_swa = min(cells_full, _pad(want, SWA_PAD))
-
-    non_swa_bytes = int(cells_full * seq_factor * full)
-    swa_bytes = int(cells_swa * seq_factor * swa)
-    return {
-        "total": non_swa_bytes + swa_bytes,
-        "non_swa": non_swa_bytes,
-        "swa": swa_bytes,
-        "n_ctx_seq": cells_full,
-        "cells_swa": cells_swa if swa else 0,
-    }
+    return hubwire.cache_bytes(
+        full,
+        n_ctx,
+        n_seq_max=n_seq_max,
+        sliding_bytes_per_token=swa,
+        sliding_window=geometry.get("sliding_window"),
+        n_ubatch=n_ubatch,
+        swa_full=swa_full,
+        kv_unified=kv_unified,
+    )
 
 
 def rs_bytes(
@@ -357,22 +275,40 @@ def predict(geometry: dict[str, Any], n_cpu_moe: int, constant: int) -> int:
     return constant + experts_on_card(geometry, n_cpu_moe)
 
 
-def allowance_mib(
-    geometry: dict[str, Any],
+def widest_layer_f16_bytes(geometry: Mapping[str, Any]) -> int:
+    """The bytes one cell costs in an f16 copy of the widest caching layer's K
+    and V: what the compute buffer's context-growing law charges per cell
+    (`hubwire.compute_buffer_bytes`). 0 when no row states its widths."""
+    widths = [0.0]
+    for row in geometry.get("kv_layers") or ():
+        try:
+            widths.append(
+                cache_bytes_per_token([row], cache_type_k="f16", cache_type_v="f16")
+            )
+        except ValueError:
+            continue
+    return int(max(widths))
+
+
+def allowance(
+    geometry: Mapping[str, Any],
     *,
+    n_ctx: int,
+    n_seq_max: int = 1,
     n_ubatch: int = 512,
     backend: str = MEASURED_SCRATCH_BACKEND,
-) -> float:
-    """The scratch allowance in MiB for `geometry`'s arch at `n_ubatch` on `backend`.
-
-    Returns the measured reading from `MEASURED_SCRATCH_MIB` when that architecture
-    has one for that ubatch and the card runs the backend it was measured under
-    (`MEASURED_SCRATCH_BACKEND`), and `SCRATCH_AND_CONTEXT_MIB` otherwise -- for
-    the arch, the batch or the backend. A miss falls back rather than
-    interpolating, so the answer is either a reading or a stated default."""
-    if backend != MEASURED_SCRATCH_BACKEND:
-        return SCRATCH_AND_CONTEXT_MIB
-    readings = MEASURED_SCRATCH_MIB.get(str(geometry.get("arch")))
-    if readings is None:
-        return SCRATCH_AND_CONTEXT_MIB
-    return readings.get(n_ubatch, SCRATCH_AND_CONTEXT_MIB)
+    unified: bool = False,
+) -> hubwire.Allowance:
+    """What one card holding (part of) `geometry` is charged beside its weights,
+    caches and state at `-c n_ctx` over `n_seq_max` sequences: the measured
+    reading for its arch at `n_ubatch` on `backend`, else the context-growing
+    law (`hubwire.card_allowance`). Charged the same on one card and on each
+    card of a split."""
+    return hubwire.card_allowance(
+        str(geometry["arch"]) if geometry.get("arch") else None,
+        cells=hubwire.cache_cells(n_ctx, n_seq_max),
+        n_ubatch=n_ubatch,
+        backend=backend,
+        unified=unified,
+        layer_f16_bytes_per_token=widest_layer_f16_bytes(geometry),
+    )
