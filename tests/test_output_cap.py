@@ -28,7 +28,7 @@ from typing import Any
 
 from mcgyvr.contract import loads
 from mcgyvr.gate.preflight import ESTIMATE_RESERVE
-from mcgyvr.orchestrator.read import estimate_tokens
+from mcgyvr.repo.read import estimate_tokens
 from tests._helpers import required
 
 BEHAVIOR = (

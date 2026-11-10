@@ -38,7 +38,7 @@ from mcgyvr.worker.prompt import MAX_NOTES_SHOWN, MAX_RECORDS_SHOWN
 
 if TYPE_CHECKING:  # pragma: no cover - typing only
     from mcgyvr.config import Config
-    from mcgyvr.orchestrator.decompose import Decomposition
+    from mcgyvr.decompose.decompose import Decomposition
 
 #: The outcome a batch re-plans: the ladder honestly tried and not up to the
 #: work. The ceilings, an error and a ladder with nothing to run say nothing

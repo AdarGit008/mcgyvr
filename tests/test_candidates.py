@@ -18,9 +18,8 @@ import pytest
 
 from mcgyvr.catalog import TaskType, catalog
 from mcgyvr.decision import Answer, Choice, ChoiceAnswer, Decision, Question
-from mcgyvr.delegate import ClassifierProposer
-from mcgyvr.orchestrator.baseline import BaselineObservation
-from mcgyvr.orchestrator.candidates import (
+from mcgyvr.decompose.baseline import BaselineObservation
+from mcgyvr.decompose.candidates import (
     CandidateSet,
     FieldCandidate,
     Provenance,
@@ -45,10 +44,11 @@ from mcgyvr.orchestrator.candidates import (
     task_type_candidates,
     without,
 )
-from mcgyvr.orchestrator.decompose import DepRef, Evidence, Proposal
-from mcgyvr.orchestrator.index import Index, build_index
-from mcgyvr.orchestrator.read import Exploration, TargetedRead, explore
-from mcgyvr.orchestrator.resolve import Candidate, Resolution, Verdict, resolve
+from mcgyvr.decompose.decompose import DepRef, Evidence, Proposal
+from mcgyvr.delegate import ClassifierProposer
+from mcgyvr.repo.index import Index, build_index
+from mcgyvr.repo.read import Exploration, TargetedRead, explore
+from mcgyvr.repo.resolve import Candidate, Resolution, Verdict, resolve
 from tests import ungated
 
 #: The ungated example kind (tests/ungated.py), as in test_classifier_proposer.py:

@@ -25,7 +25,7 @@ from typing import NoReturn
 
 import pytest
 
-from mcgyvr.orchestrator.repo import (
+from mcgyvr.repo.repo import (
     _EMPTY_TREE,
     AttachedRepo,
     AttachError,

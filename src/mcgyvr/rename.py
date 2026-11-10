@@ -1,7 +1,7 @@
 """The in-process executor for `rename_symbol`: rewrite one symbol's references.
 
 `apply` builds the tree's index, decides which file holds the symbol's module-level
-definition, asks `mcgyvr.orchestrator.references` for a verdict on every spelling of
+definition, asks `mcgyvr.repo.references` for a verdict on every spelling of
 the old name, splices the ones judged to be that symbol by byte column, and writes
 the result. It fails closed: a pair that is not usable, occurrences that cannot be
 told apart, a collision with the new name, a path outside the tree, or a rename that
@@ -16,8 +16,8 @@ from dataclasses import dataclass, field
 from pathlib import Path
 
 from mcgyvr.lines import parser_lines
-from mcgyvr.orchestrator.index import Index, IndexedFile, build_index
-from mcgyvr.orchestrator.references import (
+from mcgyvr.repo.index import Index, IndexedFile, build_index
+from mcgyvr.repo.references import (
     Definition,
     Occurrence,
     UnsafeRenameError,
@@ -25,7 +25,7 @@ from mcgyvr.orchestrator.references import (
     definitions,
     resolve,
 )
-from mcgyvr.orchestrator.symbols import language_of
+from mcgyvr.repo.symbols import language_of
 from mcgyvr.scope import OutsideTreeError, Scope, inside
 
 #: The only shape a rename may write: a plain ASCII identifier. The rewrite is a byte
@@ -36,7 +36,7 @@ _IDENTIFIER = re.compile(r"^[A-Za-z_][A-Za-z0-9_]*$")
 #: A star import (Python) or star export (JS/TS) can bring the old name into a file
 #: without ever spelling it, so a file holding one is still judged as a reference site.
 #: Its keys are also the languages a rename is resolved in: the index extracts symbols
-#: from more languages than `mcgyvr.orchestrator.references` can bind, and a symbol
+#: from more languages than `mcgyvr.repo.references` can bind, and a symbol
 #: defined in any other is refused rather than rewritten by spelling.
 _STAR = {
     "python": re.compile(r"\bimport\s+\*"),

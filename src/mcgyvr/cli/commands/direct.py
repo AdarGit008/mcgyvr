@@ -167,7 +167,7 @@ def _direct_logged(args: argparse.Namespace, book: _Logbook) -> int:
     names, and what passed runs where it was written, through
     `_run_delegated`, with no re-planner; the exit is the batch's.
     """
-    from mcgyvr.orchestrator import AttachError, IndexBuildError, attach, build_index
+    from mcgyvr.repo import AttachError, IndexBuildError, attach, build_index
     from mcgyvr.vet import vet
 
     chosen = Path(args.config) if args.config else None
