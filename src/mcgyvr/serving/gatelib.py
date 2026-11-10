@@ -586,8 +586,10 @@ def shipping_os(host: str) -> str:
     machine's local transport also runs itself, on any system.
 
     The rig file alone decides, and the rig is asked nothing: this is what the
-    door's readers ship by, and a door run requires the rig file before it
-    reads the rig (gate 2, `rigfile.required`). Telling a rig with no file
+    door's readers ship by, and a serve or a read through the door requires
+    the rig file before it reads the rig (gate 2 and the read's
+    `read-02-rig.py`, `rigfile.required`). The door's `link` timer consults
+    no rig file and ships the POSIX line to any rig. Telling a rig with no file
     that answers PowerShell from one that answers the POSIX line is first
     contact's, which `mcgyvr scan --rig`, `setup` and `recommend` keep
     (`mcgyvr.scan.shipping_os`); that is the design, not a gap."""

@@ -458,10 +458,11 @@ def _macos_windows_section() -> list[str]:
             "by sending it the POSIX reader; a rig whose shell cannot run it and "
             "answers PowerShell is a Windows rig, and is sent the Windows reader "
             "instead. The rig file `mcgyvr scan --rig RIG` writes then records "
-            "the system. The door asks no such question: it ships what the rig "
-            "file records, and a serve or a read through the door refuses a rig "
-            "with no rig file before it reads the rig, so scan a rig once before "
-            "the door serves on it, a Windows rig above all."
+            "the system. The door asks no such question. A serve or a read "
+            "through the door refuses a rig with no rig file before it reads the "
+            "rig, and ships what that file records; the door's link timer needs "
+            "no rig file and is sent the POSIX line, to any rig. So scan a rig "
+            "once before the door serves on it, a Windows rig above all."
         ),
         *para(
             "**Firewall and quarantine.** A native server listens on 127.0.0.1 "

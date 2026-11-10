@@ -199,9 +199,10 @@ decides instead). A native unit has no sleep route, so `mcgyvr serve sleep` and 
 **A rig over ssh.** Every other rig is read over ssh. `mcgyvr scan --rig RIG`, `setup` and `recommend`
 read a rig with no rig file yet by sending it the POSIX reader; a rig whose shell cannot run it and
 answers PowerShell is a Windows rig, and is sent the Windows reader instead. The rig file `mcgyvr scan
---rig RIG` writes then records the system. The door asks no such question: it ships what the rig file
-records, and a serve or a read through the door refuses a rig with no rig file before it reads the rig,
-so scan a rig once before the door serves on it, a Windows rig above all.
+--rig RIG` writes then records the system. The door asks no such question. A serve or a read through the
+door refuses a rig with no rig file before it reads the rig, and ships what that file records; the door's
+link timer needs no rig file and is sent the POSIX line, to any rig. So scan a rig once before the door
+serves on it, a Windows rig above all.
 
 **Firewall and quarantine.** A native server listens on 127.0.0.1 alone (a unit stating another address
 is refused) and takes no connection from the network, so neither the macOS nor the Windows firewall is

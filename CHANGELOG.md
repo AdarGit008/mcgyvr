@@ -14,9 +14,10 @@ archived outside this repository, under the same paths.
 - **Two machine-reading designs are said and pinned; nothing behaves
   differently.** First contact with a rig over ssh is the scan's: `mcgyvr scan
   --rig`, `setup` and `recommend` send a rig with no rig file the POSIX reader,
-  then the Windows one when its shell answers PowerShell, while the door ships
-  by the rig file alone (`gatelib.shipping_os`) and a serve or a read through
-  it refuses a rig with no rig file before reading it. SETUP.md's *macOS and
+  then the Windows one when its shell answers PowerShell, while a serve or a
+  read through the door ships by the rig file alone (`gatelib.shipping_os`)
+  and refuses a rig with no rig file before reading it; the door's `link`
+  timer needs no rig file and ships the POSIX line. SETUP.md's *macOS and
   Windows* says so (*A rig over ssh*), and drops "remote rigs are Linux
   machines", which a Windows or Mac rig over ssh no longer is. And this
   machine's exact names (`gatelib.LOCAL_RIGS`: localhost, 127.0.0.1, ::1, [::1])
