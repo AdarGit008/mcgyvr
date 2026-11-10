@@ -73,11 +73,15 @@ archived outside this repository, under the same paths.
 
 - **SETUP.md says what is and is not supervised for a unit split across
   machines.** A split that cannot be launched is refused when `mcgyvr emit`
-  or `mcgyvr setup` sizes its units; once up, its head and workers are each kept up only by docker's
-  `unless-stopped` policy on their own rig. Nothing orders a worker before
-  its head or tells the head that a worker on another rig stopped, so the
-  unit's requests fail or time out until the worker is back. Documentation
-  only: supervision stays with compose and the rig's boot (I-52).
+  or `mcgyvr setup` sizes its units. Once up, each part is kept up on its own
+  rig: a docker part by docker's `unless-stopped` policy and the rig's boot, a
+  `launcher: native` part by mcgyvr's own supervisor, which restarts it and
+  gives up after five exits running and is not started again at boot. Nothing
+  orders a worker before its head or tells the head that a worker on another
+  rig stopped, so the unit's requests fail or time out until the worker is
+  back; the serving door's `serve down` then `serve up` on the head's rig
+  starts the head afresh. Documentation only: supervision stays with compose,
+  the native supervisor and the rig's boot (I-52).
 
 - **mcgyvr keeps one default port, 8080, for every engine, and the setup wizard
   reads vLLM's stock 8000 from the detect sweep instead of spelling it again.**
