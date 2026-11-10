@@ -209,7 +209,7 @@ def _concurrency_note(rungs: Sequence[Rung]) -> str:
     """The closing note of a non-empty proposal.
 
     It names the distinct sources the rungs come from, sorted, so the reader
-    knows which units get `width: 1` written by `init`, and adds that raising
+    knows which units get `width: 1` written by `setup`, and adds that raising
     the figure only helps when the backend was started with its parallel-slot
     setting enabled — an over-declared capacity shows up as a queue, not an
     error.
