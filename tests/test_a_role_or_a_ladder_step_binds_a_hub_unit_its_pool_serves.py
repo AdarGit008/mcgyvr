@@ -1,9 +1,9 @@
 """A role or a ladder step may bind a hub unit, on a pool that serves the use case.
 
-A unit the hub lent (a relief rung, as ``mcgyvr rig rungs sync`` writes it) may
+A unit the hub lent (a hitchhike rung, as ``mcgyvr rig rungs sync`` writes it) may
 be named by a ladder step or by ``orchestrator``, ``verifier`` or ``jev``, as a
-unit of your own fleet is. A relief rung so bound is a unit of the dispatch; one
-the ladder names is a step of it and is no longer ridden as relief. A relief
+unit of your own fleet is. A hitchhike rung so bound is a unit of the dispatch; one
+the ladder names is a step of it and is no longer ridden as a hitchhike. A hitchhike
 rung nothing binds is ridden as before, under ``fanout: idle`` alone.
 
 Whatever a role or a step binds must be served from a pool that serves the
@@ -43,8 +43,8 @@ units:
     api_key_env: {KEY_ENV}
     scope: anyone
 """
-RELIEF = f"""\
-relief:
+HITCHHIKE = f"""\
+hitchhike:
   {RIDE}:
     address: {HUB}
     model: hitchhike@{FIRST}
@@ -93,20 +93,20 @@ def _sent(monkeypatch: pytest.MonkeyPatch) -> list[tuple[str, dict[str, str]]]:
 # --- a hub unit binds ----------------------------------------------------------
 
 
-def test_a_ladder_step_naming_a_relief_rung_is_a_step_and_no_longer_ridden(
+def test_a_ladder_step_naming_a_hitchhike_rung_is_a_step_and_no_longer_ridden(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     from mcgyvr import runner
     from mcgyvr.ladder_map import unit_map
 
-    config = parse(_setup("ladder", RIDE) + "fanout: idle\n", relief_text=RELIEF)
+    config = parse(_setup("ladder", RIDE) + "fanout: idle\n", hitchhike_text=HITCHHIKE)
 
     assert config.ladder.names == ("local", RIDE)
-    assert config.units[RIDE].relief is True
-    assert RIDE not in config.relief
+    assert config.units[RIDE].hitchhike is True
+    assert RIDE not in config.hitchhike
     pool = unit_map(config)
     assert [r.name for r in pool.rungs] == ["local", RIDE]
-    assert pool.relief == ()
+    assert pool.hitchhike == ()
 
     sent = _sent(monkeypatch)
     ask = runner.Request(prompt="hello", max_output_tokens=16)
@@ -119,13 +119,13 @@ def test_a_ladder_step_naming_a_relief_rung_is_a_step_and_no_longer_ridden(
 
 
 @pytest.mark.parametrize("role", ["orchestrator", "verifier", "jev"])
-def test_a_role_naming_a_relief_rung_resolves_to_it(
+def test_a_role_naming_a_hitchhike_rung_resolves_to_it(
     monkeypatch: pytest.MonkeyPatch, role: str
 ) -> None:
     from mcgyvr import runner
     from mcgyvr.ladder_map import unit_map
 
-    config = parse(_setup(role, RIDE), relief_text=RELIEF)
+    config = parse(_setup(role, RIDE), hitchhike_text=HITCHHIKE)
     pool = unit_map(config)
 
     binding = pool.role(role)
@@ -142,38 +142,42 @@ def test_a_role_naming_a_relief_rung_resolves_to_it(
     assert headers[hubwire.SCOPE_HEADER] == hubwire.SCOPE_CREW
 
 
-def test_a_relief_rung_a_role_binds_is_still_ridden_as_relief() -> None:
-    config = parse(_setup("verifier", RIDE) + "fanout: idle\n", relief_text=RELIEF)
+def test_a_hitchhike_rung_a_role_binds_is_still_ridden_as_hitchhike() -> None:
+    config = parse(
+        _setup("verifier", RIDE) + "fanout: idle\n", hitchhike_text=HITCHHIKE
+    )
 
-    assert RIDE in config.relief
-    assert config.units[RIDE] is config.relief[RIDE]
-
-
-def test_a_relief_rung_a_role_binds_is_not_said_to_duplicate_itself() -> None:
-    from mcgyvr.escalate import redundant_relief
-
-    config = parse(_setup("verifier", RIDE) + "fanout: idle\n", relief_text=RELIEF)
-
-    assert redundant_relief(config) == ()
+    assert RIDE in config.hitchhike
+    assert config.units[RIDE] is config.hitchhike[RIDE]
 
 
-def test_a_name_neither_a_unit_nor_a_relief_rung_is_refused_naming_both() -> None:
-    with pytest.raises(ConfigSchemaError, match=r"ladder\.1: 'nowhere'.*relief"):
-        parse(_setup("ladder", "nowhere"), relief_text=RELIEF)
+def test_a_hitchhike_rung_a_role_binds_is_not_said_to_duplicate_itself() -> None:
+    from mcgyvr.escalate import redundant_hitchhike
+
+    config = parse(
+        _setup("verifier", RIDE) + "fanout: idle\n", hitchhike_text=HITCHHIKE
+    )
+
+    assert redundant_hitchhike(config) == ()
 
 
-# --- relief nothing binds ------------------------------------------------------
+def test_a_name_neither_a_unit_nor_a_hitchhike_rung_is_refused_naming_both() -> None:
+    with pytest.raises(ConfigSchemaError, match=r"ladder\.1: 'nowhere'.*hitchhike"):
+        parse(_setup("ladder", "nowhere"), hitchhike_text=HITCHHIKE)
 
 
-def test_a_relief_rung_nothing_binds_is_ridden_as_before() -> None:
+# --- hitchhike nothing binds ---------------------------------------------------
+
+
+def test_a_hitchhike_rung_nothing_binds_is_ridden_as_before() -> None:
     from mcgyvr.ladder_map import unit_map
 
-    config = parse(f"{FLEET}ladder: [local]\nfanout: idle\n", relief_text=RELIEF)
+    config = parse(f"{FLEET}ladder: [local]\nfanout: idle\n", hitchhike_text=HITCHHIKE)
 
-    assert RIDE in config.relief
+    assert RIDE in config.hitchhike
     assert RIDE not in config.units
     pool = unit_map(config)
-    assert [r.name for r in pool.relief] == [RIDE]
+    assert [r.name for r in pool.hitchhike] == [RIDE]
     assert [r.name for r in pool.rungs] == ["local"]
 
 
@@ -183,7 +187,7 @@ def test_a_relief_rung_nothing_binds_is_ridden_as_before() -> None:
 @pytest.mark.parametrize("where", sorted(BINDINGS))
 def test_mcgyvr_code_refuses_a_unit_whose_pool_serves_models_raw(where: str) -> None:
     with pytest.raises(ConfigSchemaError) as refused:
-        parse(_setup(where, "pool_coder"), relief_text=RELIEF)
+        parse(_setup(where, "pool_coder"), hitchhike_text=HITCHHIKE)
 
     said = str(refused.value)
     assert "'pool_coder'" in said
@@ -195,7 +199,7 @@ def test_mcgyvr_code_refuses_a_unit_whose_pool_serves_models_raw(where: str) -> 
 @pytest.mark.parametrize("use_case", ["code", "chat", "agent"])
 @pytest.mark.parametrize("where", sorted(BINDINGS))
 def test_a_raw_use_case_runs_on_any_scope(where: str, use_case: str) -> None:
-    config = parse(_setup(where, "pool_coder", use_case), relief_text=RELIEF)
+    config = parse(_setup(where, "pool_coder", use_case), hitchhike_text=HITCHHIKE)
 
     assert config.units["pool_coder"].scope == hubwire.SCOPE_ANYONE
 
@@ -203,9 +207,9 @@ def test_a_raw_use_case_runs_on_any_scope(where: str, use_case: str) -> None:
 @pytest.mark.parametrize("scope", hubwire.SCOPE_VALUES)
 @pytest.mark.parametrize("where", sorted(BINDINGS))
 def test_a_ride_serves_mcgyvr_code_whatever_its_scope(where: str, scope: str) -> None:
-    stated = RELIEF.replace("scope: anyone", f"scope: {scope}")
+    stated = HITCHHIKE.replace("scope: anyone", f"scope: {scope}")
     opted = _setup(where, RIDE) + "ride_scope: anyone\n"  # the block's scope stands
-    config = parse(opted, relief_text=stated)
+    config = parse(opted, hitchhike_text=stated)
 
     assert config.units[RIDE].scope == scope
 

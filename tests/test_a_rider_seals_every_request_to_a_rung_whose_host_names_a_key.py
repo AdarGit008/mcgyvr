@@ -1,7 +1,7 @@
 """A rider seals every request to a rung whose host names a key.
 
 ``mcgyvr rig rungs sync`` keeps the ``seal`` key the hub lists with a rung (the
-host's agent advertises it) in ``relief.yaml``; every request to that rung is
+host's agent advertises it) in ``hitchhike.yaml``; every request to that rung is
 then sealed to it (:func:`mcgyvr.runner.sealed_for`), and its answer opened as
 it streams back, so the hub between carries neither the prompt nor the answer.
 
@@ -38,8 +38,8 @@ from mcgyvr.ladder_map import unit_map
 from mcgyvr.rig import rungs
 from mcgyvr.runner import (
     BackendError,
+    HitchhikeUnavailableError,
     ProtocolError,
-    ReliefUnavailableError,
     Request,
     dispatch,
     sealed_for,
@@ -116,7 +116,7 @@ def setup(address: str, key: seal.SealKey | None) -> str:
     sealed = "" if key is None else f"    seal: {json.dumps(key.wire())}\n"
     return (
         f"units:\n  local_fast:\n    address: {address}\n    model: qwen-3b\n"
-        f"    width: 1\nladder: [local_fast]\nfanout: idle\nrelief:\n"
+        f"    width: 1\nladder: [local_fast]\nfanout: idle\nhitchhike:\n"
         f"  {RIDE}:\n    address: {address}\n    model: hitchhike@{RUNG_ID}\n"
         f"    api_key_env: HUB_KEY\n    width: 1\n    position: within\n"
         f"    served_model: {SERVED}\n"
@@ -205,9 +205,9 @@ def test_a_stale_key_is_a_full_rung_held_out_for_the_run_and_said_once(
         outcome = ask(address, key.unit_key, tmp_path)
         again = ask(address, key.unit_key, tmp_path)
 
-    assert isinstance(outcome, ReliefUnavailableError), outcome
+    assert isinstance(outcome, HitchhikeUnavailableError), outcome
     assert "seal_key_unknown" in str(outcome)
-    assert isinstance(again, ReliefUnavailableError), again
+    assert isinstance(again, HitchhikeUnavailableError), again
     assert "held out" in str(again) and "mcgyvr rig rungs sync" in str(again)
     assert len(seen) == 1  # the second ask never left
     (note,) = [ln for ln in capsys.readouterr().err.splitlines() if "note:" in ln]
@@ -254,7 +254,6 @@ def _listing(**more: Any) -> dict[str, Any]:
         "served_model": SERVED,
         "width": 1,
         "position": "within",
-        "relief": True,
         **more,
     }
     return {"ride": True, "privacy": "p", "refresh_s": 60, "rungs": [rung]}
@@ -267,21 +266,21 @@ def test_a_sync_keeps_the_key_the_hub_lists_and_the_setup_loads_it() -> None:
     assert ride.seal == key
 
     text = rungs.render(rides, "HUB_KEY")
-    assert yaml.safe_load(text)["relief"][ride.name]["seal"] == key.wire()
+    assert yaml.safe_load(text)["hitchhike"][ride.name]["seal"] == key.wire()
     unit = parse(
         "units:\n  own:\n    address: http://127.0.0.1:9\n    model: m\n"
         "ladder: [own]\n",
-        relief_text=text,
-    ).relief[ride.name]
+        hitchhike_text=text,
+    ).hitchhike[ride.name]
     assert unit.seal == key
 
-    # the relief.yaml block names the key's fields, less the signature not yet made
+    # the hitchhike.yaml block names the key's fields, less the signature not yet made
     assert tuple(f.name for f in config.SEAL_FIELDS) == hubwire.SEAL_KEY_FIELDS[:2]
 
     (old,) = rungs.read(_listing(), "https://hub.example.org").rungs
     assert old.seal is None
     text = rungs.render(rungs.Rides(True, "p", 60.0, (old,)), "HUB_KEY")
-    assert "seal" not in yaml.safe_load(text)["relief"][old.name]
+    assert "seal" not in yaml.safe_load(text)["hitchhike"][old.name]
 
 
 @pytest.mark.parametrize(
@@ -298,7 +297,7 @@ def test_a_listing_whose_key_is_not_of_its_shape_is_refused_whole(wrong: Any) ->
         rungs.read(_listing(seal=wrong), "https://hub.example.org")
 
 
-def test_a_relief_yaml_whose_key_is_not_its_ids_does_not_load() -> None:
+def test_a_hitchhike_yaml_whose_key_is_not_its_ids_does_not_load() -> None:
     key, other = seal.HostKey().unit_key, seal.HostKey().unit_key
     bad = setup("http://127.0.0.1:9/v1", None) + (
         f"    seal: {json.dumps({'kid': key.kid, 'pub': other.pub})}\n"

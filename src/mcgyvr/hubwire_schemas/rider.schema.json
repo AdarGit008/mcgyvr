@@ -120,7 +120,7 @@
       "type": "object"
     },
     "RungOut": {
-      "description": "A host's unit, as a remote rung of your own ladder: queue relief,\nnever a step up in capability.",
+      "description": "A host's unit, as a remote rung of your own ladder: room for your\nwork when your own rung is full, never a step up in capability.",
       "properties": {
         "address": {
           "description": "The hub's OpenAI-compatible base, /v1.",
@@ -148,12 +148,6 @@
         },
         "price": {
           "$ref": "#/$defs/PriceOut"
-        },
-        "relief": {
-          "const": true,
-          "default": true,
-          "title": "Relief",
-          "type": "boolean"
         },
         "seal": {
           "anyOf": [
@@ -192,7 +186,7 @@
       "type": "object"
     },
     "RungPosition": {
-      "description": "Where a host's unit sits against a rider's own ladder: never a step\nup in capability, only queue relief.",
+      "description": "Where a host's unit sits against a rider's own ladder: never a step\nup in capability, only room when your own rung is full.",
       "enum": [
         "above_ceiling",
         "below_floor",

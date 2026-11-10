@@ -430,7 +430,7 @@ the config's `journal.dir`, in `results/`. The file's keys:
 - `attempts[]` — every try: `rung`, `attempt`, `verdict` (`passed`,
   `failed`, `declined`, `error`), `detail`, `findings` (the gate's lines
   behind a failure), `notes` (the record those lines are rendered from;
-  below), `attempt_id`, `draw`, `draws`, `rows`, `relief`,
+  below), `attempt_id`, `draw`, `draws`, `rows`, `hitchhike`,
   `model`, `address`. `draws` is the
   breadth the attempt asked for (`breadth.draws`), whatever the verdict;
   `rows` is how many of those draws left a journal row, which is `draws`
@@ -438,10 +438,10 @@ the config's `journal.dir`, in `results/`. The file's keys:
   raised before dispatching. `draw` is the draw the entry is about, and is
   `null` — with `attempt_id` `null` beside it — on an `error` no single
   dispatch caused: `rows: 0` means it raised before dispatching at all,
-  and anything more means it raised past draw `rows - 1`. `relief` is
+  and anything more means it raised past draw `rows - 1`. `hitchhike` is
   `true` for a rung lent through a hub — recorded like any try, but
   charged against the budget only when it passes — and `model`/`address`
-  name the unit that served it, so a relief try shows which borrowed
+  name the unit that served it, so a hitchhike try shows which borrowed
   machine answered.
 - `assurance` — what an `accepted` result rests on, and `detail` says it
   in a sentence: `deterministic` (a tool's change, on the gate),
@@ -464,7 +464,7 @@ the config's `journal.dir`, in `results/`. The file's keys:
 - `notes` — what the run said in passing (not failure notes): the
   uncommitted and untracked paths the sandbox of HEAD left out, what a
   tool printed as it worked (what a rename renamed), what the baseline
-  left behind (now cleaned up), and a relief rung that duplicates a unit
+  left behind (now cleaned up), and a hitchhike rung that duplicates a unit
   this install serves.
 - `triage` — only under `triage: jev` or a contract's `start_rung`: the
   `rung` the climb started on and its `source` (`jev`, asked for this

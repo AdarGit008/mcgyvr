@@ -389,12 +389,12 @@ class Attempted:
     #: ever saw it. It is the one field here that is about the machinery instead
     #: of about the work.
     raised: bool = False
-    #: `relief` is `True` when the rung is one lent through a hub rather than
+    #: `hitchhike` is `True` when the rung is one lent through a hub rather than
     #: a step of the ladder. `model` and `address` name the unit that served
-    #: the try, so a relief attempt can be read as the borrowed machine it
-    #: actually ran on. A relief try is recorded like any other; it charges
+    #: the try, so a hitchhike attempt can be read as the borrowed machine it
+    #: actually ran on. A hitchhike try is recorded like any other; it charges
     #: the budget only when it passes.
-    relief: bool = False
+    hitchhike: bool = False
     model: str = ""
     address: str = ""
     #: `whose` is whose machines the try's code may have come from: `own`,
@@ -473,20 +473,20 @@ class Exhausted:
 
 # Which family a rung is in. A family is a fact about the unit a rung names —
 # whether it needs a credential — and not a field anywhere in the ladder, so the
-# question is answered by resolving the name and asking the catalog. Relief is
-# resolved first because a relief rung the ladder does not name is never a step
+# question is answered by resolving the name and asking the catalog. Hitchhike is
+# resolved first because a hitchhike rung the ladder does not name is never a step
 # of it; one the ladder names is a unit of the dispatch and resolves either way.
 
 
 def family_of(config: Config, rung: str) -> Family:
     """The catalog family of the rung of that name.
 
-    A relief rung resolves through ``config.relief``, which holds the lent unit
+    A hitchhike rung resolves through ``config.hitchhike``, which holds the lent unit
     itself; a ladder rung through ``config.ladder`` and the unit that name points
     at. A name in neither raises ``RouteError`` listing what the ladder does
     offer, rather than reading as some default family.
     """
-    lent = config.relief.get(rung)
+    lent = config.hitchhike.get(rung)
     if lent is not None:
         return catalog().family_of(lent)
     name = config.ladder.get(rung)

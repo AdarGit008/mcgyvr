@@ -1,6 +1,6 @@
 """The hub wire, defined once: the product's, the hub's by import.
 
-The hub serves models to a member's rigs and the product rides them: relief
+The hub serves models to a member's rigs and the product rides them: hitchhike
 rungs (hitchhike), the ladder a rider reports, the units a host advertises,
 the resources a rig lends, the relay that carries a ride, the ``/v1``
 refusals a rider reads, and the agent channel a rig holds to the hub. Every
@@ -30,11 +30,11 @@ is here:
   :data:`CONTENT_TYPE`, :data:`BASE64`, :data:`TOKEN`, :data:`TICKET`), and
   its codes: :class:`CloseCode`, the channel's :class:`ErrorCode`, a
   refusal's :class:`SessionCode`, all of them :data:`AGENT_ERROR_CODES`;
-* :data:`RUNG_POSITIONS`, where a relief rung's host model sits against the
+* :data:`RUNG_POSITIONS`, where a hitchhike rung's host model sits against the
   rider's ladder;
 * :data:`MODEL_NAME`, the shape of a model name on the wire, and
   :data:`RUNG_PREFIX`, which with an offer's id (:data:`OFFER_ID`) names a
-  relief rung's model (:func:`rung_model`, :func:`rung_offer`);
+  hitchhike rung's model (:func:`rung_model`, :func:`rung_offer`);
 * the ladder a rider reports (``LADDER_*``);
 * the units a host advertises (:data:`MAX_SLOTS`, :data:`MAX_UNITS`,
   ``UNIT_ADVERT_*``) and the rule a ride cap keeps (:func:`rider_cap_fits`);
@@ -47,7 +47,7 @@ is here:
   (:data:`FORWARDED_FIELDS`, :data:`CHAT_TEMPLATE_KEYS`);
 * a sealed ride's shapes: the envelope a request carries
   (:data:`SEALED_FIELD`, :data:`SEAL_VERSION`, ``SEAL_*`` patterns), the key a
-  unit advertises and a relief rung lists (:data:`SEAL_KEY_FIELD`), what such
+  unit advertises and a hitchhike rung lists (:data:`SEAL_KEY_FIELD`), what such
   a request and its answer leave in clear (:data:`SEALED_CLEAR_FIELDS`,
   :data:`SEALED_ANSWER_CLEAR_FIELDS`) and the refusal of a key no unit holds
   (:data:`SEAL_KEY_UNKNOWN`);
@@ -135,14 +135,14 @@ from importlib import resources
 from types import MappingProxyType
 from typing import Any, Literal, get_args
 
-#: Where a relief rung's host model sits against the models of the rider's own
+#: Where a hitchhike rung's host model sits against the models of the rider's own
 #: ladder, as the hub judges it: shown, never a place on the ladder.
 RUNG_POSITIONS: tuple[str, ...] = ("above_ceiling", "below_floor", "within")
 
 #: A model name on the wire: named, never addressed by path, so no separator
 #: and no leading dot; 1 to 128 characters.
 MODEL_NAME = re.compile(r"[A-Za-z0-9][A-Za-z0-9._+=@-]{0,127}")
-#: What a relief rung's model starts with: the hub's offer id follows.
+#: What a hitchhike rung's model starts with: the hub's offer id follows.
 RUNG_PREFIX = "hitchhike@"
 #: An offer's id, as the hub writes it: 32 lowercase hex digits.
 OFFER_ID = re.compile(r"[0-9a-f]{32}")
@@ -498,7 +498,7 @@ POOL_BUSY = api_error("pool_busy")
 #: named (:data:`SCOPE_HEADER`): asked again under the same scope, the same
 #: host is refused again.
 OUT_OF_SCOPE = api_error("out_of_scope")
-#: The answers that say a relief rung cannot take a request now, sorted: the
+#: The answers that say a hitchhike rung cannot take a request now, sorted: the
 #: hub names no host running the model (404 ``model_not_found``), the host's
 #: machine is away (503 ``hitchhike_host_away``), the hub has not yet matched
 #: this host to work (503 ``hitchhike_not_served_yet``), the host's unit
@@ -691,7 +691,7 @@ SCOPE_POOLS: Mapping[str, str] = MappingProxyType(
 def serving_pool(scope: str, model: str) -> str:
     """The pool a request for ``model`` under ``scope`` is served from.
 
-    A relief rung's model (:data:`RUNG_PREFIX` and an offer) is a ride, served
+    A hitchhike rung's model (:data:`RUNG_PREFIX` and an offer) is a ride, served
     from :data:`POOL_HITCHHIKE` whatever the scope; any other model is served
     from the scope's pool (:data:`SCOPE_POOLS`). Raises KeyError for a scope
     that is not one of :data:`SCOPE_VALUES`.
@@ -709,7 +709,7 @@ def serving_pool(scope: str, model: str) -> str:
 # request and a sealed answer to without opening either.
 
 #: The field a sealed request carries its envelope in, at the top level of an
-#: OpenAI chat completion request; and the field of a unit's advert, and of a relief
+#: OpenAI chat completion request; and the field of a unit's advert, and of a hitchhike
 #: rung the hub lists, carrying the key a request to it is sealed to.
 SEALED_FIELD = "sealed"
 SEAL_KEY_FIELD = "seal"
@@ -783,7 +783,7 @@ def rung_model(offer: str) -> str:
 
 
 def rung_offer(model: str) -> str | None:
-    """The offer id a relief rung's ``model`` names, or None when it names none."""
+    """The offer id a hitchhike rung's ``model`` names, or None when it names none."""
     if not model.startswith(RUNG_PREFIX):
         return None
     offer = model[len(RUNG_PREFIX) :]

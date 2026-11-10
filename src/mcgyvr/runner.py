@@ -203,7 +203,7 @@ class BackendError(RunnerError):
         self.code = code
 
 
-class ReliefUnavailableError(SlotUnavailableError):
+class HitchhikeUnavailableError(SlotUnavailableError):
     """A lent rung cannot take the request now, so it is passed over as full: it
     answered busy, or from another model than the one it was matched to."""
 
@@ -223,7 +223,7 @@ class UnknownModelError(SlotUnavailableError):
     `model` is wrong, and the rung is passed over with a note saying so."""
 
 
-#: The relief rungs the hub refused as outside the scope their requests name
+#: The hitchhike rungs the hub refused as outside the scope their requests name
 #: (403 `out_of_scope`), by address, rung and scope sent. Each is passed over
 #: without asking for the rest of the process: the same host under the same
 #: scope is refused again, and every refusal spends the rider's hub budget.
@@ -236,30 +236,30 @@ def _out_of_scope_key(endpoint: Endpoint) -> tuple[str, str, str | None]:
     return (endpoint.base_url, endpoint.source, endpoint.scope)
 
 
-def _held_out_of_scope(endpoint: Endpoint) -> ReliefUnavailableError | None:
-    """The refusal to raise for a relief rung the hub already refused as out
+def _held_out_of_scope(endpoint: Endpoint) -> HitchhikeUnavailableError | None:
+    """The refusal to raise for a hitchhike rung the hub already refused as out
     of scope in this process, `None` for one it has not."""
     with _OUT_OF_SCOPE_LOCK:
         held = _out_of_scope_key(endpoint) in _OUT_OF_SCOPE_RUNGS
     if not held:
         return None
-    return ReliefUnavailableError(
-        f"relief rung {endpoint.source!r} is hosted outside this setup's "
+    return HitchhikeUnavailableError(
+        f"hitchhike rung {endpoint.source!r} is hosted outside this setup's "
         f"ride_scope ({endpoint.scope or 'unstated'}); it is passed over"
     )
 
 
 def _refused_out_of_scope(
     endpoint: Endpoint, exc: BackendError
-) -> ReliefUnavailableError:
-    """Hold a relief rung the hub refused as out of scope for the rest of the
+) -> HitchhikeUnavailableError:
+    """Hold a hitchhike rung the hub refused as out of scope for the rest of the
     process, saying so once on the run's log (its standard error)."""
     with _OUT_OF_SCOPE_LOCK:
         key = _out_of_scope_key(endpoint)
         first = key not in _OUT_OF_SCOPE_RUNGS
         _OUT_OF_SCOPE_RUNGS.add(key)
     said = (
-        f"relief rung {endpoint.source!r} is hosted outside this setup's "
+        f"hitchhike rung {endpoint.source!r} is hosted outside this setup's "
         f"ride_scope ({endpoint.scope or 'unstated'}), so the hub refused it "
         f"(HTTP 403 out_of_scope); it is passed over for the rest of this run. "
         f"`mcgyvr rig rungs sync --ride-scope anyone` opts this setup in to any "
@@ -267,7 +267,7 @@ def _refused_out_of_scope(
     )
     if first:
         print(f"note: {said}", file=sys.stderr)
-    return ReliefUnavailableError(f"{said}: {exc}")
+    return HitchhikeUnavailableError(f"{said}: {exc}")
 
 
 class ProtocolError(RunnerError):
@@ -539,7 +539,7 @@ class Runner(ABC):
                 f"{self.protocol} path of source {self.endpoint.source!r}. "
                 f"{CAVEAT_NOTE}"
             )
-        if self.endpoint.relief:
+        if self.endpoint.hitchhike:
             held = _held_out_of_scope(self.endpoint)
             if held is not None:
                 raise held
@@ -561,18 +561,18 @@ class Runner(ABC):
         except BackendError as exc:
             # The hub refused the host as outside the scope the request named:
             # not the rung's failure, and asking again would be refused again.
-            if self.endpoint.relief and (exc.status, exc.code) == OUT_OF_SCOPE:
+            if self.endpoint.hitchhike and (exc.status, exc.code) == OUT_OF_SCOPE:
                 raise _refused_out_of_scope(self.endpoint, exc) from exc
             if (exc.status, exc.code) == SEAL_KEY_UNKNOWN:
                 _hold_out_a_stale_key(self.endpoint)
             busy = self.endpoint.busy_answers
             if (
-                self.endpoint.relief
+                self.endpoint.hitchhike
                 and busy is not None
                 and (exc.status, exc.code) in busy
             ):
-                raise ReliefUnavailableError(
-                    f"relief rung {self.endpoint.source!r} cannot take the "
+                raise HitchhikeUnavailableError(
+                    f"hitchhike rung {self.endpoint.source!r} cannot take the "
                     f"request now: {exc}"
                 ) from exc
             # The pool the hub serves the unit from is full: width unavailable,
@@ -606,7 +606,7 @@ class Runner(ABC):
         after = _status(self.endpoint)
 
         parsed = self._parse(document)
-        if self.endpoint.relief:
+        if self.endpoint.hitchhike:
             self._refuse_another_host_model(parsed.served_model)
         else:
             self._refuse_other_weights(model, parsed.served_model)
@@ -657,23 +657,23 @@ class Runner(ABC):
         )
 
     def _refuse_another_host_model(self, served: str | None) -> None:
-        """Pass a relief rung over as full when it answered from another model.
+        """Pass a hitchhike rung over as full when it answered from another model.
 
         The reply is kept only if both the model the rung was matched to and the
         model it answered from are known and name the same weights; otherwise a
-        note is printed and `ReliefUnavailableError` is raised, which is what
+        note is printed and `HitchhikeUnavailableError` is raised, which is what
         makes passing the rung over cost nothing.
         """
         expected = self.endpoint.served_model
         if expected is not None and served is not None and is_model(served, expected):
             return
         said = (
-            f"relief rung {self.endpoint.source!r} answered from "
+            f"hitchhike rung {self.endpoint.source!r} answered from "
             f"{served or 'no named model'!r}, not the {expected or 'unstated'!r} it "
             f"was matched to; it is passed over as full"
         )
         print(f"note: {said}", file=sys.stderr)
-        raise ReliefUnavailableError(said)
+        raise HitchhikeUnavailableError(said)
 
     def _notes(
         self, parsed: _Parsed, stop_reason: StopReason, request: Request
@@ -933,7 +933,7 @@ def _sent_text(request: Request) -> str:
     return "\n".join(part for part in parts if part)
 
 
-#: The relief rungs, by name and key id, whose host's agent holds that key no
+#: The hitchhike rungs, by name and key id, whose host's agent holds that key no
 #: longer (it started again since the sync that wrote it): each is passed over
 #: unasked for the rest of the process, since the setup is read once. A sync and
 #: the next run read the new key.
@@ -942,7 +942,7 @@ _STALE_LOCK = threading.Lock()
 
 
 def _stale(endpoint: Endpoint) -> tuple[str, str] | None:
-    if not endpoint.relief or endpoint.seal is None:
+    if not endpoint.hitchhike or endpoint.seal is None:
         return None
     return endpoint.source, endpoint.seal.kid
 
@@ -957,7 +957,7 @@ def _hold_out_a_stale_key(endpoint: Endpoint) -> None:
         _STALE_KEYS.add(stale)
     if first:
         print(
-            f"note: relief rung {endpoint.source!r}'s host started again with a new "
+            f"note: hitchhike rung {endpoint.source!r}'s host started again with a new "
             "seal key; it is passed over until `mcgyvr rig rungs sync` writes the "
             "new one and the setup is read again",
             file=sys.stderr,
@@ -970,8 +970,8 @@ def _refuse_a_stale_key(endpoint: Endpoint) -> None:
     with _STALE_LOCK:
         held = stale is not None and stale in _STALE_KEYS
     if held:
-        raise ReliefUnavailableError(
-            f"relief rung {endpoint.source!r} is held out: its host no longer "
+        raise HitchhikeUnavailableError(
+            f"hitchhike rung {endpoint.source!r} is held out: its host no longer "
             "holds the seal key this setup names; run `mcgyvr rig rungs sync`"
         )
 
@@ -999,7 +999,7 @@ def sealed_for(
     except seal.SealError as exc:
         status, code = INVALID_REQUEST
         raise BackendError(
-            f"the request to relief rung {endpoint.source!r} is outside the bounds "
+            f"the request to hitchhike rung {endpoint.source!r} is outside the bounds "
             f"the hub holds a request to: {exc}",
             status=status,
             code=code,

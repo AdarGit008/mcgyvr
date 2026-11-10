@@ -1,4 +1,4 @@
-"""``mcgyvr rig rungs sync`` keeps the hub's relief rungs, and touches nothing else.
+"""``mcgyvr rig rungs sync`` keeps the hub's hitchhike rungs, and touches nothing else.
 
 The hub matches this rider to other people's open slots (hitchhike) and lists
 them at ``/api/v1/me/rungs``; the sync ``POST``s the rider's ladder there (what
@@ -7,7 +7,7 @@ it holds is the business of
 the same listing back. The sync asks with the rider's *personal*
 key — read from a variable whose NAME it is told (``MCGYVR_HUB_API_KEY`` when
 it is told none), never the rig token, never printed and never written — and
-writes the answer whole into ``relief.yaml`` beside the setup: one relief rung
+writes the answer whole into ``hitchhike.yaml`` beside the setup: one hitchhike rung
 per listed rung, each naming that variable as its ``api_key_env``. A rung the
 hub no longer lists is gone after the next sync. ``fleet.yaml`` and
 ``policy.yaml`` are not touched. The hub's privacy warning is shown every time.
@@ -21,7 +21,7 @@ key is sent there.
 The hub's answer is hostile until read. A response this client cannot read
 whole — a field of the wrong type or size, a model outside the pattern, a
 width under one, a position the contract does not name, an id twice, a rung
-on another host — is refused whole: nothing is written, and the relief rungs
+on another host — is refused whole: nothing is written, and the hitchhike rungs
 already kept stay as they were. A hub that half-speaks the contract is not
 trusted for the half it seems to get right.
 
@@ -55,10 +55,10 @@ from tests.rigsyncs import (  # noqa: F401 - fixtures
 )
 
 
-def relief(setup: Path) -> dict[str, Any]:
+def hitchhike(setup: Path) -> dict[str, Any]:
     from mcgyvr.config import load
 
-    return {name: unit for name, unit in load(setup).relief.items()}
+    return {name: unit for name, unit in load(setup).hitchhike.items()}
 
 
 # --- what a sync writes --------------------------------------------------------
@@ -75,16 +75,16 @@ def setup(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> Path:
     return a_syncing_setup(tmp_path, monkeypatch)
 
 
-def test_a_sync_keeps_each_rung_the_hub_lists_as_a_relief_rung(
+def test_a_sync_keeps_each_rung_the_hub_lists_as_a_hitchhike_rung(
     setup: Path, hub: Hub, capsys: pytest.CaptureFixture[str]
 ) -> None:
     hub.answer(hub.listing(FIRST))
 
     assert cli() == 0
 
-    (only,) = relief(setup).values()
+    (only,) = hitchhike(setup).values()
     assert only.name == f"hitchhike-{FIRST}"
-    assert only.relief is True
+    assert only.hitchhike is True
     assert only.address == f"{hub.address}/v1"
     assert only.model == f"hitchhike@{FIRST}"
     assert only.api_key_env == "MCGYVR_HUB_API_KEY"
@@ -120,7 +120,7 @@ def test_each_rung_a_sync_keeps_says_whether_it_is_asked_sealed_or_in_clear(
     out = capsys.readouterr().out
     (note,) = [line for line in out.splitlines() if line.startswith("note:")]
     assert f"hitchhike-{FIRST}" in note and "in clear" in note
-    assert relief(setup)[f"hitchhike-{FIRST}"].seal is None
+    assert hitchhike(setup)[f"hitchhike-{FIRST}"].seal is None
 
     hub.answer(hub.listing(FIRST, SECOND))  # clear already: said once, not again
     assert cli() == 0
@@ -138,7 +138,7 @@ def test_a_sync_asks_with_the_personal_key_and_never_shows_or_keeps_it(
     assert asked["path"] == "/api/v1/me/rungs"
     assert asked["authorization"] == f"Bearer {KEY}"
     out = capsys.readouterr()
-    written = (setup / "relief.yaml").read_text(encoding="utf-8")
+    written = (setup / "hitchhike.yaml").read_text(encoding="utf-8")
     for text in (out.out, out.err, written):
         assert KEY not in text and "k" * 40 not in text
 
@@ -163,7 +163,7 @@ def test_a_sync_touches_neither_the_fleet_nor_the_policy(setup: Path, hub: Hub) 
     assert sorted(path.name for path in setup.iterdir()) == [
         "fleet.yaml",
         "policy.yaml",
-        "relief.yaml",
+        "hitchhike.yaml",
     ]
 
 
@@ -172,21 +172,23 @@ def test_a_rung_the_hub_no_longer_lists_is_gone_after_the_next_sync(
 ) -> None:
     hub.answer(hub.listing(FIRST, SECOND))
     assert cli() == 0
-    assert sorted(relief(setup)) == [f"hitchhike-{FIRST}", f"hitchhike-{SECOND}"]
+    assert sorted(hitchhike(setup)) == [f"hitchhike-{FIRST}", f"hitchhike-{SECOND}"]
 
     hub.answer(hub.listing(SECOND))
     assert cli() == 0
-    assert sorted(relief(setup)) == [f"hitchhike-{SECOND}"]
+    assert sorted(hitchhike(setup)) == [f"hitchhike-{SECOND}"]
 
 
-def test_a_rider_who_does_not_ride_keeps_no_relief_rung(setup: Path, hub: Hub) -> None:
+def test_a_rider_who_does_not_ride_keeps_no_hitchhike_rung(
+    setup: Path, hub: Hub
+) -> None:
     hub.answer(hub.listing(FIRST))
     assert cli() == 0
 
     hub.answer(hub.listing(ride=False))
     assert cli() == 0
 
-    assert relief(setup) == {}
+    assert hitchhike(setup) == {}
 
 
 def test_the_keys_variable_is_named_by_the_rider(
@@ -199,7 +201,7 @@ def test_the_keys_variable_is_named_by_the_rider(
     assert cli("--key-env", "MY_HUB_KEY") == 0
 
     assert hub.asked[0]["authorization"] == f"Bearer {KEY}"
-    assert [unit.api_key_env for unit in relief(setup).values()] == ["MY_HUB_KEY"]
+    assert [unit.api_key_env for unit in hitchhike(setup).values()] == ["MY_HUB_KEY"]
 
 
 def test_a_named_hub_is_asked_instead_of_the_kept_one(setup: Path, hub: Hub) -> None:
@@ -247,7 +249,7 @@ def test_the_key_is_never_sent_in_clear_past_this_machine(
 
     assert cli("--hub", named) == Exit.REFUSED
     assert "https://" in capsys.readouterr().err
-    assert not (setup / "relief.yaml").exists()
+    assert not (setup / "hitchhike.yaml").exists()
 
 
 def test_a_folder_with_no_setup_is_not_written_into(
@@ -275,7 +277,7 @@ def test_dash_dash_config_names_the_setup_over_the_environment(
 
     assert cli("--config", str(setup)) == 0
 
-    (only,) = relief(setup).values()
+    (only,) = hitchhike(setup).values()
     assert only.name == f"hitchhike-{FIRST}"
     assert list(empty.iterdir()) == []
 
@@ -289,7 +291,7 @@ def test_a_hub_that_refuses_the_key_is_said_and_nothing_is_written(
 
     assert cli() == Exit.REFUSED
     assert "401" in capsys.readouterr().err
-    assert not (setup / "relief.yaml").exists()
+    assert not (setup / "hitchhike.yaml").exists()
 
 
 Mutation = Callable[[dict[str, Any]], object]
@@ -353,7 +355,6 @@ HOSTILE: dict[str, Mutation] = {
     "width zero": _set("width", 0),
     "width a flag": _set("width", True),
     "width text": _set("width", "2"),
-    "relief false": _set("relief", False),
     "position unknown": _set("position", "beside"),
     "position missing": _drop("position"),
     "host not text": _set("host", ["bob"]),
@@ -373,12 +374,12 @@ def test_a_response_this_client_cannot_read_whole_is_refused_whole(
 
     hub.answer(hub.listing(SECOND))
     assert cli() == 0
-    kept = (setup / "relief.yaml").read_bytes()
+    kept = (setup / "hitchhike.yaml").read_bytes()
 
     hub.answer(mutate(hub.listing(FIRST)))
     assert cli() == Exit.REFUSED
 
-    assert (setup / "relief.yaml").read_bytes() == kept
+    assert (setup / "hitchhike.yaml").read_bytes() == kept
     assert "refused" in capsys.readouterr().err
 
 
@@ -388,7 +389,7 @@ def test_an_answer_that_is_not_json_is_refused(setup: Path, hub: Hub) -> None:
     hub.status, hub.body = 200, b"<html>gateway</html>"
 
     assert cli() == Exit.REFUSED
-    assert not (setup / "relief.yaml").exists()
+    assert not (setup / "hitchhike.yaml").exists()
 
 
 def test_an_answer_too_large_to_be_a_listing_is_refused(setup: Path, hub: Hub) -> None:
@@ -399,7 +400,7 @@ def test_an_answer_too_large_to_be_a_listing_is_refused(setup: Path, hub: Hub) -
     hub.answer(document)
 
     assert cli() == Exit.REFUSED
-    assert not (setup / "relief.yaml").exists()
+    assert not (setup / "hitchhike.yaml").exists()
 
 
 def test_a_rung_address_in_clear_past_this_machine_is_refused() -> None:

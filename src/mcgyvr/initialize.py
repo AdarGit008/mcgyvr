@@ -485,9 +485,9 @@ def _render_list_item(
 
 FLEET_FIELDS: tuple[Field, ...] = tuple(f for f in SCHEMA if f.name == "units")
 #: The schema split across the two files: fleet.yaml is the `units` block, and
-#: policy.yaml is every other field except `relief`, which the loader derives.
+#: policy.yaml is every other field except `hitchhike`, which the loader derives.
 POLICY_FIELDS: tuple[Field, ...] = tuple(
-    f for f in SCHEMA if f.name not in ("units", "relief")
+    f for f in SCHEMA if f.name not in ("units", "hitchhike")
 )
 
 
@@ -537,7 +537,7 @@ def render_policy(
     data: Mapping[str, Any], notes: Mapping[str, str] | None = None
 ) -> str:
     """The whole policy.yaml: the shared header without decisions, then every
-    schema field that is not `units` or `relief`. `notes` adds comment text under
+    schema field that is not `units` or `hitchhike`. `notes` adds comment text under
     a dotted key such as `sandbox.mode`."""
     lines = _header(POLICY_FILENAME)
     lines.extend(_render_fields(POLICY_FIELDS, data, 0, notes))

@@ -1,11 +1,11 @@
-"""A host advertises the units it shares, and never a relief or a hosted rung.
+"""A host advertises the units it shares, and never a hitchhike or a hosted rung.
 
 A host runs their own units and may let riders the hub matches use open slots
 of them (hitchhike, the policy's ``rider_slots``). The host's agent tells the
 hub which, in a ``unit_advert`` (:mod:`mcgyvr.rig.hitchhike`):
 
 * **What is shared.** A unit of the ladder, in ladder order, with
-  ``rider_slots`` of 1 or more, that needs no key and is not a relief rung
+  ``rider_slots`` of 1 or more, that needs no key and is not a hitchhike rung
   (another person's unit, lent to this host as a rider). One unit per model,
   the first the ladder climbs; at most 16. A unit is advertised with its
   ``width`` as its slots, its ``window`` as the context of each slot, and its
@@ -49,7 +49,7 @@ from tests import rig_schema
 
 
 def _setup(
-    *units: dict[str, Any], ladder: list[str] | None = None, relief: str = ""
+    *units: dict[str, Any], ladder: list[str] | None = None, hitchhike: str = ""
 ) -> Config:
     lines = ["units:"]
     shares = []
@@ -64,7 +64,7 @@ def _setup(
     names = ladder if ladder is not None else [unit["name"] for unit in units]
     lines.append(f"ladder: [{', '.join(names)}]")
     lines.append(f"rider_slots: {{{', '.join(shares)}}}")
-    return parse("\n".join(lines) + "\n" + relief)
+    return parse("\n".join(lines) + "\n" + hitchhike)
 
 
 def _unit(name: str, model: str, **more: Any) -> dict[str, Any]:
@@ -111,11 +111,11 @@ def test_the_shared_units_are_the_ladders_own_in_its_order_with_their_facts() ->
     assert notes == ()
 
 
-def test_a_relief_rung_is_never_shared_even_of_a_model_the_host_runs() -> None:
+def test_a_hitchhike_rung_is_never_shared_even_of_a_model_the_host_runs() -> None:
     from mcgyvr.rig import hitchhike
 
-    relief = (
-        "relief:\n"
+    lent = (
+        "hitchhike:\n"
         "  hitchhike-" + "a" * 32 + ":\n"
         "    address: https://hub.example.org/v1\n"
         "    model: hitchhike@" + "a" * 32 + "\n"
@@ -123,7 +123,7 @@ def test_a_relief_rung_is_never_shared_even_of_a_model_the_host_runs() -> None:
         "    width: 4\n"
         "    position: within\n"
     )
-    config = _setup(_unit("own", "qwen-7b"), relief=relief)
+    config = _setup(_unit("own", "qwen-7b"), hitchhike=lent)
 
     shared, _ = hitchhike.shared_units(config)
 

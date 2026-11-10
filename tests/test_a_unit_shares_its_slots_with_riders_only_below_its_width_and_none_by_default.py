@@ -12,7 +12,7 @@ are what they were.
 * A share is below the unit's width, so the host always keeps a slot; a unit
   whose width is unset serves one request at once and shares none.
 * The map names declared units only, and never a unit that needs a key
-  (``api_key_env``, a hosted provider's, not the host's to share) nor a relief
+  (``api_key_env``, a hosted provider's, not the host's to share) nor a hitchhike
   rung (another person's unit, lent to this host): each is refused by name.
 * A value is a whole number of 0 or more, read the way every count is.
 * ``fleet.yaml`` refuses ``units.<name>.rider_slots`` and says it belongs in
@@ -47,11 +47,11 @@ FLEET = (
 )
 
 
-def _load(policy: str, width: int = 4, relief: str = "") -> Config:
+def _load(policy: str, width: int = 4, hitchhike: str = "") -> Config:
     return parse(
         FLEET.format(width=width),
         "ladder: [local, hosted]\n" + policy,
-        relief_text=relief,
+        hitchhike_text=hitchhike,
     )
 
 
@@ -99,10 +99,10 @@ def test_a_unit_with_no_width_shares_none() -> None:
     assert "width" in str(refused.value)
 
 
-def test_a_relief_rung_is_not_the_hosts_to_share() -> None:
+def test_a_hitchhike_rung_is_not_the_hosts_to_share() -> None:
     rung = "hitchhike-" + "a" * 32
-    relief = (
-        "relief:\n"
+    hitchhike = (
+        "hitchhike:\n"
         f"  {rung}:\n"
         "    address: https://hub.example.org/v1\n"
         f"    model: hitchhike@{'a' * 32}\n"
@@ -111,9 +111,9 @@ def test_a_relief_rung_is_not_the_hosts_to_share() -> None:
         "    position: within\n"
     )
     with pytest.raises(ConfigSchemaError) as refused:
-        _load(f"rider_slots: {{{rung}: 1}}\n", relief=relief)
+        _load(f"rider_slots: {{{rung}: 1}}\n", hitchhike=hitchhike)
     assert f"rider_slots.{rung}" in str(refused.value)
-    assert "relief" in str(refused.value)
+    assert "hitchhike" in str(refused.value)
 
 
 def test_the_fleet_file_refuses_a_share_and_points_to_the_policy() -> None:

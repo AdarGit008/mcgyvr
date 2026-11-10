@@ -1,4 +1,4 @@
-"""A relief rung is full on the answers its ``relief.yaml`` entry names.
+"""A hitchhike rung is full on the answers its ``hitchhike.yaml`` entry names.
 
 Which of the hub's answers mean "this rung cannot take the request now" is the
 hub's vocabulary, defined once in the product's wire module
@@ -42,8 +42,8 @@ def key(monkeypatch: pytest.MonkeyPatch) -> None:
 
 
 def ladder(address: str, busy: list[dict[str, Any]] | None) -> str:
-    """A setup with one relief rung at ``address``, naming ``busy`` as its
-    busy answers, or none (a ``relief.yaml`` from before they were written)."""
+    """A setup with one hitchhike rung at ``address``, naming ``busy`` as its
+    busy answers, or none (a ``hitchhike.yaml`` from before they were written)."""
     rung: dict[str, Any] = {
         "address": address,
         "model": f"hitchhike@{RUNG_ID}",
@@ -64,7 +64,7 @@ def ladder(address: str, busy: list[dict[str, Any]] | None) -> str:
             },
             "ladder": ["local_fast"],
             "fanout": "idle",
-            "relief": {RIDE: rung},
+            "hitchhike": {RIDE: rung},
         },
         sort_keys=False,
     )
@@ -73,7 +73,7 @@ def ladder(address: str, busy: list[dict[str, Any]] | None) -> str:
 def ask(
     answer: tuple[int, bytes], busy: list[dict[str, Any]] | None, tmp_path: Path
 ) -> tuple[Capacity, Any]:
-    """What one dispatch to the relief rung ends as, when its hub answers
+    """What one dispatch to the hitchhike rung ends as, when its hub answers
     ``answer``."""
     seen: list[dict[str, Any]] = []
     with answering(*answer, seen) as address:
@@ -112,7 +112,7 @@ def setup(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> Path:
     return a_syncing_setup(tmp_path, monkeypatch)
 
 
-def test_a_sync_writes_each_rungs_busy_answers_into_relief_yaml(
+def test_a_sync_writes_each_rungs_busy_answers_into_hitchhike_yaml(
     setup: Path, hub: Hub
 ) -> None:
     from mcgyvr.config import load
@@ -121,10 +121,10 @@ def test_a_sync_writes_each_rungs_busy_answers_into_relief_yaml(
 
     assert cli() == 0
 
-    written = yaml.safe_load((setup / "relief.yaml").read_text(encoding="utf-8"))
+    written = yaml.safe_load((setup / "hitchhike.yaml").read_text(encoding="utf-8"))
     for name in (f"hitchhike-{FIRST}", f"hitchhike-{SECOND}"):
-        assert written["relief"][name]["busy_answers"] == what_a_sync_writes()
-        assert load(setup).relief[name].busy_answers == RUNG_BUSY
+        assert written["hitchhike"][name]["busy_answers"] == what_a_sync_writes()
+        assert load(setup).hitchhike[name].busy_answers == RUNG_BUSY
 
 
 # --- the runner reads them off the rung ----------------------------------------
@@ -167,7 +167,7 @@ def test_a_code_under_another_status_is_not_the_answer_named(tmp_path: Path) -> 
     assert not isinstance(outcome, SlotUnavailableError)
 
 
-# --- what relief.yaml may say --------------------------------------------------
+# --- what hitchhike.yaml may say -----------------------------------------------
 
 
 @pytest.mark.parametrize(

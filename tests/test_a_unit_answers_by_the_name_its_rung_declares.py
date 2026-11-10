@@ -3,7 +3,7 @@ read by the same rule as a rung of one's own.
 
 llama.cpp names an answer's ``model`` after the path it was handed unless it is
 started with ``--alias``. A unit emitted without one answers
-``/models/<name>.gguf`` to a request for ``<name>``, and a rider whose relief
+``/models/<name>.gguf`` to a request for ``<name>``, and a rider whose hitchhike
 rung was matched on ``<name>`` receives the host's path. So the emitted launch
 carries ``--alias <the unit's model>``: the name the setup declares and the hub
 is told, with no path and no file suffix added.

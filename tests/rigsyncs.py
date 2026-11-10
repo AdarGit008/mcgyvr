@@ -64,7 +64,6 @@ def rung(
         "model": f"hitchhike@{rung_id}",
         "served_model": "Qwen2.5-Coder-7B-Instruct-Q4_K_M.gguf",
         "width": 2,
-        "relief": True,
         "position": position,
         "price": {
             "currency": "credits",

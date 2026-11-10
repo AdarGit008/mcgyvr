@@ -1,5 +1,5 @@
 """The `mcgyvr rig` verbs: the agent that holds a channel to a hub, and the
-commands that join, run, inspect, leave, sync relief rungs and crew units and set
+commands that join, run, inspect, leave, sync hitchhike rungs and crew units and set
 what this machine lends.
 
 `run_agent` is the substance: it wires sessions, relays, probes and hitchhike
@@ -149,7 +149,7 @@ def run_agent(kept: Credentials, config: Path | None = None) -> int:
     hitchhike units share a setup's units; relays carry a session's traffic;
     probes measure the paths to peers. Each answers envelopes through one
     dispatcher and sends through one outbox. Containers left by a gone agent are
-    swept first, a relief-rungs refresher starts only when the hub key is in the
+    swept first, a hitchhike-rungs refresher starts only when the hub key is in the
     environment, and SIGTERM and SIGHUP are routed to the agent's stop, with the
     earlier handlers put back after it ends. The code is Exit.OK when the agent
     was asked to stop and Exit.ERROR otherwise.
@@ -349,12 +349,12 @@ def run_agent(kept: Credentials, config: Path | None = None) -> int:
                 f"note: this machine's containers were not read: {exc}", file=sys.stderr
             )
 
-    # The relief rungs kept beside the setup are refreshed from the hub only
+    # The hitchhike rungs kept beside the setup are refreshed from the hub only
     # while the personal hub key is in the environment.
     refresher = rungs.refresher_for(kept.hub, folder=config)
     if refresher is not None:
         print(
-            f"relief rungs: kept fresh from {kept.hub} with ${refresher.key_env}",
+            f"hitchhike rungs: kept fresh from {kept.hub} with ${refresher.key_env}",
             file=sys.stderr,
         )
 
@@ -836,8 +836,8 @@ def _rungs_sync(args: argparse.Namespace) -> int:
             try:
                 policy_line.loads_with(change)
             except ConfigError:
-                # as the sync reads it: relief.yaml is what it rewrites
-                policy_line.loads_with(change, relief_kept=False)
+                # as the sync reads it: hitchhike.yaml is what it rewrites
+                policy_line.loads_with(change, hitchhike_kept=False)
         except (OSError, UnicodeDecodeError) as exc:
             print(f"error: cannot read {folder}: {exc}", file=sys.stderr)
             return int(Exit.ERROR)
@@ -854,7 +854,7 @@ def _rungs_sync(args: argparse.Namespace) -> int:
         print(f"error: {exc}", file=sys.stderr)
         return int(Exit.REFUSED)
     except rungs.HubAnswerError as exc:
-        print(f"error: {exc}; the relief rungs kept are unchanged", file=sys.stderr)
+        print(f"error: {exc}; the hitchhike rungs kept are unchanged", file=sys.stderr)
         return int(Exit.REFUSED)
     except (rungs.SyncError, OSError) as exc:
         print(f"error: {exc}", file=sys.stderr)
@@ -863,7 +863,7 @@ def _rungs_sync(args: argparse.Namespace) -> int:
         try:
             policy_line.write(change)
         except OSError as exc:
-            # relief.yaml names the new scope; the policy's, narrower or
+            # hitchhike.yaml names the new scope; the policy's, narrower or
             # wider, is what a ride is held to until it is written
             print(f"error: cannot write {change.target}: {exc}", file=sys.stderr)
             return int(Exit.ERROR)
@@ -871,13 +871,15 @@ def _rungs_sync(args: argparse.Namespace) -> int:
         print(f"ride scope: {before} -> {wanted} in {change.target}")
         if wanted == SCOPE_ANYONE:
             print(
-                "opted in: this setup's relief rungs may now ride on any host the "
+                "opted in: this setup's hitchhike rungs may now ride on any host the "
                 "hub matches you to. From the hub:"
             )
     print(rides.privacy)
     if not rides.ride:
-        print("riding is off on the hub, so no relief rung is kept; turn it on there")
-    print(f"kept {len(rides.rungs)} relief rung(s) in {where}")
+        print(
+            "riding is off on the hub, so no hitchhike rung is kept; turn it on there"
+        )
+    print(f"kept {len(rides.rungs)} hitchhike rung(s) in {where}")
     for each in rides.rungs:
         print(
             f"  {each.name}  {each.position}  x{each.width}  {each.served_model}, "
@@ -895,7 +897,7 @@ def _rungs_sync(args: argparse.Namespace) -> int:
         print(said)
     if rides.rungs and fanout != "idle":
         print(
-            f"note: relief rungs take work only under `fanout: idle`; this "
+            f"note: hitchhike rungs take work only under `fanout: idle`; this "
             f"ladder's is `{fanout}`"
         )
     return int(Exit.OK)
@@ -1176,16 +1178,14 @@ def add_parser(
         "compared the new fingerprint with them",
     )
     peers.set_defaults(func=_peers)
-    rungs = verbs.add_parser(
-        "rungs", help="the relief rungs the hub matched you to (hitchhike)"
-    )
+    rungs = verbs.add_parser("rungs", help="the hitchhike rungs the hub matched you to")
     rung_verbs = rungs.add_subparsers(dest="rungs_command", required=True)
     rungs_sync = _sync_parser(
         rung_verbs,
         add_config,
-        help="keep the hub's relief rungs in the setup's relief.yaml, replacing "
+        help="keep the hub's hitchhike rungs in the setup's hitchhike.yaml, replacing "
         "the ones kept",
-        written="relief.yaml",
+        written="hitchhike.yaml",
         func=_rungs_sync,
     )
     rungs_sync.add_argument(

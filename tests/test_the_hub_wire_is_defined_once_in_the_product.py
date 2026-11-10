@@ -1,7 +1,7 @@
 """The hub wire is defined once, in the product, and the schemas hold it.
 
 :mod:`mcgyvr.hubwire` holds every value the hub and the product both keep for
-the hub wire: rung positions, the model-name pattern and a relief rung's
+the hub wire: rung positions, the model-name pattern and a hitchhike rung's
 ``hitchhike@<offer>``, the ladder and unit-advert limits with the ride-cap
 rule, the relay limits, the ``/v1`` error table and the pairs read off it, the
 forwarded request fields, the scope header, the agent channel's versions,
@@ -145,7 +145,7 @@ def test_a_split_its_rigs_rpc_protocols_cannot_run_is_refused_as_no_path_is() ->
 def test_every_pair_the_product_reads_is_a_published_pair(
     rider: dict[str, Any],
 ) -> None:
-    """The busy answers a sync writes into ``relief.yaml``, and the three the
+    """The busy answers a sync writes into ``hitchhike.yaml``, and the three the
     runner names itself: each is a code the hub publishes, with its status."""
     published = rider["x-openai-errors"]
     read = {
@@ -159,9 +159,7 @@ def test_every_pair_the_product_reads_is_a_published_pair(
         hubwire.api_error("relay_warming_up")
 
 
-def test_a_relief_rung_is_full_on_five_answers_a_full_ride_and_a_stale_key_among() -> (
-    None
-):
+def test_a_hitchhike_rung_is_full_on_five_answers_a_full_ride_and_a_stale_key() -> None:
     assert hubwire.RUNG_BUSY == (
         (404, "model_not_found"),
         (503, "hitchhike_host_away"),
@@ -187,7 +185,7 @@ def test_the_package_ships_exactly_the_schemas_it_names() -> None:
 # --- hitchhike@<offer> ---------------------------------------------------------
 
 
-def test_a_relief_rungs_model_is_the_prefix_and_its_offer() -> None:
+def test_a_hitchhike_rungs_model_is_the_prefix_and_its_offer() -> None:
     model = hubwire.rung_model(FIRST)
     assert model == f"hitchhike@{FIRST}"
     assert hubwire.MODEL_NAME.fullmatch(model)
@@ -250,7 +248,7 @@ def test_a_listing_in_the_schemas_shape_reads_back_and_writes_the_busy_answers(
         zip(offers, hubwire.RUNG_POSITIONS, strict=True)
     )
     assert [hubwire.rung_offer(r.model) for r in read.rungs] == list(offers)
-    written = yaml.safe_load(rungs.render(read, "HUB_KEY"))["relief"]
+    written = yaml.safe_load(rungs.render(read, "HUB_KEY"))["hitchhike"]
     for block in written.values():
         pairs = tuple((a["status"], a["code"]) for a in block["busy_answers"])
         assert pairs == hubwire.RUNG_BUSY

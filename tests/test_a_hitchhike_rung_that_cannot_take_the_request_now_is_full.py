@@ -1,10 +1,10 @@
-"""A relief rung that cannot take the request now is a full rung, not a failure.
+"""A hitchhike rung that cannot take the request now is a full rung, not a failure.
 
-The hub answers a request to a relief rung it cannot serve yet with ``503``
+The hub answers a request to a hitchhike rung it cannot serve yet with ``503``
 and the code ``hitchhike_not_served_yet``, one whose host went away with
 ``503`` and ``hitchhike_host_away``, one whose host's unit already serves as
 many rides as it may (a full ride) with ``503`` and ``pool_busy``, and one to
-a rung it no longer matches this rider to (a stale ``relief.yaml``) with
+a rung it no longer matches this rider to (a stale ``hitchhike.yaml``) with
 ``404`` and ``model_not_found``. None is a verdict on the work: nothing was
 asked of a model. So the dispatch
 ends as :class:`~mcgyvr.capacity.SlotUnavailableError`, the one capacity error
@@ -16,8 +16,8 @@ A host that left is not waited for: the rung is asked once and passed over,
 whatever the answer says of retrying.
 
 Only those four answers (:data:`mcgyvr.hubwire.RUNG_BUSY`), as a sync writes
-them into ``relief.yaml``, and only from a relief rung. Any other error status
-from a relief rung is still the error it was, and either ``503`` body from a
+them into ``hitchhike.yaml``, and only from a hitchhike rung. Any other error status
+from a hitchhike rung is still the error it was, and either ``503`` body from a
 unit of the rider's own ladder is that unit's error. (A ladder rung's ``404``
 ``model_not_found`` is passed over by its own rule, with a line in the log:
 ``tests/test_a_rung_whose_model_is_not_known_where_it_points_is_passed_over.py``.)
@@ -39,7 +39,7 @@ from mcgyvr.config import parse
 from mcgyvr.ladder_map import unit_map
 from mcgyvr.runner import (
     BackendError,
-    ReliefUnavailableError,
+    HitchhikeUnavailableError,
     Request,
     RunnerError,
     dispatch,
@@ -63,7 +63,7 @@ units:
     width: 1
 ladder: [local_fast]
 fanout: idle
-relief:
+hitchhike:
   {RIDE}:
     address: {address}
     model: hitchhike@{RUNG_ID}
@@ -89,7 +89,7 @@ def what_a_sync_writes() -> list[dict[str, Any]]:
     )
     listing = rungs.Rides(ride=True, privacy="p", refresh_s=60.0, rungs=(ride,))
     written = yaml.safe_load(rungs.render(listing, "HUB_KEY"))
-    answers: list[dict[str, Any]] = written["relief"][ride.name]["busy_answers"]
+    answers: list[dict[str, Any]] = written["hitchhike"][ride.name]["busy_answers"]
     return answers
 
 
@@ -109,7 +109,7 @@ def ask(address: str, rung: str, tmp_path: Path) -> tuple[Capacity, Any]:
 
 
 @pytest.mark.parametrize("answer", UNAVAILABLE, ids=IDS)
-def test_a_relief_rung_that_cannot_take_it_now_is_a_full_rung(
+def test_a_hitchhike_rung_that_cannot_take_it_now_is_a_full_rung(
     tmp_path: Path, answer: tuple[int, bytes]
 ) -> None:
     seen: list[dict[str, Any]] = []
@@ -131,7 +131,7 @@ def test_a_full_ride_is_read_as_busy_not_as_an_error(tmp_path: Path) -> None:
     with answering(*FULL_RIDE, seen) as address:
         capacity, outcome = ask(address, RIDE, tmp_path)
 
-    assert isinstance(outcome, ReliefUnavailableError), outcome
+    assert isinstance(outcome, HitchhikeUnavailableError), outcome
     assert not isinstance(outcome, BackendError)
     assert "pool_busy" in str(outcome)
     assert len(seen) == 1
@@ -169,7 +169,7 @@ def test_a_ride_is_asked_with_the_hubs_model_and_the_personal_key(
     [error(503, "pool_unavailable"), error(401, "invalid_api_key"), (500, b"{}")],
     ids=["503-other", "401", "500"],
 )
-def test_any_other_error_from_a_relief_rung_is_still_that_error(
+def test_any_other_error_from_a_hitchhike_rung_is_still_that_error(
     tmp_path: Path, answer: tuple[int, bytes]
 ) -> None:
     seen: list[dict[str, Any]] = []
