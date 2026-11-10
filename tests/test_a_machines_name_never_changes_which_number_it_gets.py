@@ -17,6 +17,7 @@ import pytest
 
 from mcgyvr import derived
 from tests import numbers_fixture as nf
+from tests.numbers_fixture import one_number
 
 
 def _names(seed: int) -> list[str | None]:
@@ -36,7 +37,7 @@ def _names(seed: int) -> list[str | None]:
 
 @pytest.mark.parametrize("seed", range(4))
 def test_every_name_gets_the_shipped_estimate(seed: int) -> None:
-    expected = derived.lookup(derived.RUNTIME_RESIDENT, derived.RUNTIME_RESIDENT_KEY)
+    expected = one_number(derived.RUNTIME_RESIDENT, derived.RUNTIME_RESIDENT_KEY)
     assert expected.source == "estimate"
     for name in _names(seed):
         assert derived.runtime_resident_gb(name) == expected.value, name
@@ -46,14 +47,14 @@ def test_every_name_gets_the_shipped_estimate(seed: int) -> None:
 def test_every_name_gets_the_users_own_setting(
     seed: int, tmp_path_factory: pytest.TempPathFactory
 ) -> None:
-    shipped = derived.lookup(derived.RUNTIME_RESIDENT, derived.RUNTIME_RESIDENT_KEY)
+    shipped = one_number(derived.RUNTIME_RESIDENT, derived.RUNTIME_RESIDENT_KEY)
     mine = nf.a_value(shipped.unit, random.Random(seed), unlike=shipped.value)
     nf.write_user_file(
         tmp_path_factory,
         {derived.RUNTIME_RESIDENT: {derived.RUNTIME_RESIDENT_KEY: mine}},
     )
     assert (
-        derived.lookup(derived.RUNTIME_RESIDENT, derived.RUNTIME_RESIDENT_KEY).source
+        one_number(derived.RUNTIME_RESIDENT, derived.RUNTIME_RESIDENT_KEY).source
         == "override"
     )
     for name in _names(seed):

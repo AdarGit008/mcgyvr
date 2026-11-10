@@ -35,6 +35,7 @@ from mcgyvr.serving.sharding import (
     plan,
 )
 from mcgyvr.serving.shardlaunch import processes
+from tests.numbers_fixture import one_number
 
 MIB = 1 << 20
 GIB = 1 << 30
@@ -149,7 +150,7 @@ def test_each_card_is_charged_the_shipped_estimate_for_its_scratch() -> None:
     made = sized(table(), cards(*ONE_MACHINE))
     expected = int(derived.shard_allowance_gib("llama.cpp") * GIB)
     assert [shard.allowance_bytes for shard in made.shards] == [expected, expected]
-    answered = derived.lookup(derived.SHARD_ALLOWANCE, "llama.cpp")
+    answered = one_number(derived.SHARD_ALLOWANCE, "llama.cpp")
     assert answered.source == "estimate"
 
 

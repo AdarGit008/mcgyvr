@@ -17,6 +17,7 @@ import yaml
 
 from mcgyvr import derived
 from tests import numbers_fixture as nf
+from tests.numbers_fixture import one_number
 
 
 @pytest.mark.parametrize("seed", nf.SEEDS)
@@ -42,18 +43,18 @@ def test_each_answer_comes_from_the_first_layer_that_states_it(
     for entry in made:
         for key in nf.KEY_SPACES[entry.key]:
             if key in settings.get(entry.id, {}):
-                number = derived.lookup(entry.id, key, path=shipped)
+                number = one_number(entry.id, key, path=shipped)
                 assert number.value == settings[entry.id][key]
                 assert number.source == "override"
                 assert number.where == user
             elif key in entry.values:
-                number = derived.lookup(entry.id, key, path=shipped)
+                number = one_number(entry.id, key, path=shipped)
                 assert number.value == entry.values[key]
                 assert number.source == "estimate"
                 assert number.where == shipped
             else:
                 with pytest.raises(derived.DerivedNumbersError):
-                    derived.lookup(entry.id, key, path=shipped)
+                    one_number(entry.id, key, path=shipped)
                 continue
             assert (number.id, number.key, number.unit) == (entry.id, key, entry.unit)
             assert str(number.where) in number.says()
@@ -91,7 +92,7 @@ def test_the_two_layers_say_different_things_about_themselves(
     shipped = nf.write_json(tmp_path / "shipped.json", nf.document(made))
     entry = made[0]
     key = next(iter(entry.values))
-    estimate = derived.lookup(entry.id, key, path=shipped)
+    estimate = one_number(entry.id, key, path=shipped)
     nf.write_user_file(
         tmp_path_factory,
         {
@@ -100,7 +101,7 @@ def test_the_two_layers_say_different_things_about_themselves(
             }
         },
     )
-    override = derived.lookup(entry.id, key, path=shipped)
+    override = one_number(entry.id, key, path=shipped)
     assert estimate.source != override.source
     assert estimate.says() != override.says()
 
@@ -141,9 +142,9 @@ def test_an_answer_states_its_value_as_its_setting_does(
     key = nf.KEY_SPACES[space][0]
     entry = nf.Entry(id="invented_spelling", unit=unit, key=space, values={key: value})
     shipped = nf.write_json(tmp_path / "shipped.json", nf.document([entry]))
-    estimate = derived.lookup(entry.id, key, path=shipped)
+    estimate = one_number(entry.id, key, path=shipped)
     nf.write_user_file(tmp_path_factory, {entry.id: {key: value}})
-    override = derived.lookup(entry.id, key, path=shipped)
+    override = one_number(entry.id, key, path=shipped)
 
     for number in (estimate, override):
         says = number.says()
