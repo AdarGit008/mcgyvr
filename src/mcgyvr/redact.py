@@ -1,15 +1,25 @@
 """What is safe to quote to an operator, and to another user.
 
-One shape of credential is removed here: the userinfo of a URL, the
-``user:token@`` part that a model endpoint's address tends to carry.
+Two shapes of credential are removed here. The first is the userinfo of a URL,
+the ``user:token@`` part that a model endpoint's address tends to carry.
 ``safe_url`` redacts a single URL by parsing it into its parts and rebuilding it
 without the userinfo, so an address can still name its host in a message.
 ``scrub`` redacts the same thing by pattern in free text — a prompt, a reply, an
 exception's message, an environment value — where the URL is a fragment of a
-larger string and there is nothing to parse.
+larger string and there is nothing to parse. The second is a bare token a model
+may echo into that same text: every provider shape of the one shared credential
+vocabulary (``credential_shapes.VALUE_SHAPES`` — ``sk-``, ``ghp_``, an AWS id, a
+private-key header and the rest), and a ``Bearer`` authorization token, which
+carries no prefix of its own and so is spelled here rather than in the shared
+module. ``scrub`` blanks each with ``REDACTED`` too, so a key a model quoted
+back does not survive into a journal blob, a failure note or a command's
+environment. ``safe_url`` stays userinfo-only; a bare token is free text's
+concern, not a parsed URL's.
 
-Neither function alters a URL that has no userinfo, so a caller can compare the
-result with its argument to ask whether a credential was present.
+``safe_url`` does not alter a URL with no userinfo, and ``scrub`` does not alter
+text that holds no credential at all, so a caller can compare the result with
+its argument to ask whether a credential was present — the sandbox does exactly
+that to drop an environment value or to flag a login file.
 
 The other shape is a host path: what a command printed names the machine it ran
 on — its workspace, its interpreter, a home directory. ``relativize`` turns a
@@ -23,6 +33,8 @@ from __future__ import annotations
 import re
 import urllib.parse
 from collections.abc import Iterable
+
+from mcgyvr.credential_shapes import VALUE_SHAPES, scan_pattern
 
 #: What a removed userinfo is replaced with. Bracketed and spelled out rather
 #: than emptied, so a reader of a message can see that something was dropped and
@@ -61,16 +73,40 @@ def safe_url(url: str) -> str:
 #: a sentence, a log line or a JSON string and there is nothing to parse around.
 _URL_WITH_USERINFO = re.compile(r"\b([a-zA-Z][a-zA-Z0-9+.-]*://)([^\s/@]+)@")
 
+#: A ``Bearer`` authorization token in free text: the scheme word, then the
+#: token's base64url/JWT run (``.`` and ``~+/=-`` among its characters). Unlike
+#: the provider shapes, a Bearer token has no prefix of its own — only this
+#: header word marks it — so it is not in the shared vocabulary (the gate and
+#: the config loader do not want it) and is spelled here, redact's alone. The
+#: word is kept and only the token blanked, so ``Bearer <redacted>`` still reads
+#: as an authorization header.
+_BEARER = re.compile(r"\bBearer\s+[A-Za-z0-9._~+/=-]+")
+
+#: Every provider credential shape of the one shared vocabulary
+#: (:data:`credential_shapes.VALUE_SHAPES`), each compiled for a search anywhere
+#: in a line — the same anchoring the gate's scan uses — so a token a model
+#: quoted into free text is found wherever it sits. The shapes are defined once
+#: in that module; this is only where ``scrub`` reaches for them.
+_TOKEN_SCANS: tuple[re.Pattern[str], ...] = tuple(scan_pattern(s) for s in VALUE_SHAPES)
+
 
 def scrub(text: str) -> str:
-    """``text`` with the userinfo of every URL in it replaced by ``REDACTED``.
+    """``text`` with every credential in it replaced by ``REDACTED``.
 
-    Everything else in the string is passed through, including the rest of each
-    URL, so the text keeps its shape and stays readable. Text with no
-    credentialed URL comes back unchanged, which is how callers test for one:
+    Three passes, each by pattern because the credential is a fragment of a
+    larger string: the userinfo of every URL, then a ``Bearer`` token (its word
+    kept, its value blanked), then every provider token shape of the shared
+    vocabulary (``sk-``, ``ghp_``, an AWS id, a private-key header and the
+    rest). Everything else — the rest of each URL, the text around a token — is
+    passed through, so the string keeps its shape and stays readable. Text that
+    holds no credential comes back unchanged, which is how callers test for one:
     a value this had to alter is a value holding a secret.
     """
-    return _URL_WITH_USERINFO.sub(rf"\1{REDACTED}@", text)
+    cleaned = _URL_WITH_USERINFO.sub(rf"\1{REDACTED}@", text)
+    cleaned = _BEARER.sub(f"Bearer {REDACTED}", cleaned)
+    for scan in _TOKEN_SCANS:
+        cleaned = scan.sub(REDACTED, cleaned)
+    return cleaned
 
 
 #: A character a path segment is spelled with. Deliberately narrow — no space,

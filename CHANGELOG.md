@@ -11,6 +11,22 @@ archived outside this repository, under the same paths.
 
 ### Changed
 
+- **`redact.scrub` drops a bare credential, not only a URL's userinfo.** It
+  stored whole prompts and replies — and failure notes and run tags — cleaned
+  only of the `user:token@` of a URL, so a key a model echoed back (`sk-...`,
+  `ghp_...`, an AWS id, a private-key header, a `Bearer` token) survived into a
+  journal blob that can be copied elsewhere. `scrub` now also blanks every
+  provider token shape of the one shared vocabulary
+  (`mcgyvr.credential_shapes.VALUE_SHAPES`) and a `Bearer` authorization token
+  (spelled in `redact`, since it has no prefix of its own and the gate and
+  config loader do not want it). The one cleaning entry point is what
+  telemetry, notes and the sandbox already call, so the widening reaches them
+  all: the sandbox's `safe_env` now drops an environment *value* that holds a
+  token (not only a credential-named variable), and `holds_a_secret` now keeps
+  a login rc file out of a workspace when its text carries a token as well as
+  when it carries a `word=` login. `safe_url` stays userinfo-only; text with
+  no credential still comes back unchanged, so the compare-to-detect callers
+  are unaffected (I-62).
 - **The agent channel's limits, shapes and codes are defined once, in
   `mcgyvr.hubwire`.** The protocol version, frame limits, the counts and
   bounds of every frame (models, sessions, endpoints, features, peers, allowed
