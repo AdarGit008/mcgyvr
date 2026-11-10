@@ -100,6 +100,11 @@ MULTI_SESSION_FEATURE = "multi_session"
 #: on this rig (``Sharing.port_forward``), as the hub asks only when they agreed
 #: there too.
 PORT_MAP_FEATURE = "port_map"
+#: The feature that says this rig takes a session's worker <-> worker ring peers
+#: (:data:`mcgyvr.hubwire.RING_PEERS_FEATURE`): named only when the owner turned it
+#: on (``Sharing.ring_links``) on a rig whose sessions run in containers, and kept
+#: out of FEATURES, so a rig without the switch names what it always named.
+RING_PEERS_FEATURE = hubwire.RING_PEERS_FEATURE
 #: Every feature the hello and the offer name, within ``MAX_FEATURES``, no repeats:
 #: ``probe`` and ``traversal``: it answers UDP probes and walks STUN candidates,
 #: ``head_slots``: it reads the slots of the head it runs,
@@ -262,6 +267,8 @@ class SessionHost(Protocol):
         self, name: str, own: str, gateway: str, pairs: Sequence[str]
     ) -> None: ...
 
+    def open_ring(self, name: str, own: str, pairs: Sequence[str]) -> None: ...
+
     def start_head(self, spec: pooled.HeadSpec) -> None: ...
 
     def renew_lease(self, name: str) -> bool: ...
@@ -420,6 +427,9 @@ class DockerHost:
         self, name: str, own: str, gateway: str, pairs: Sequence[str]
     ) -> None:
         self.docker.run_script(name, pooled.OPEN_HEAD_SCRIPT, own, gateway, *pairs)
+
+    def open_ring(self, name: str, own: str, pairs: Sequence[str]) -> None:
+        self.docker.run_script(name, pooled.OPEN_RING_SCRIPT, own, *pairs)
 
     def start_head(self, spec: pooled.HeadSpec) -> None:
         self.docker.start(pooled.head_argv(spec, self._owner))
@@ -1177,6 +1187,14 @@ class Sessions:
                     )
                 session.reported_to.append(envelope.id)
                 return None
+            if any(peer.ring is not None for peer in asked.peers) and not (
+                self._takes_ring_peers()
+            ):
+                return sessionwire.refusal(
+                    envelope.id,
+                    SessionCode.NOT_CAPABLE,
+                    "peers: a ring peer, and this rig takes none",
+                )
             unvetted = self._vet_peers(asked)
             if unvetted is not None:
                 self._log(f"session {session.id}: refused: {unvetted}")
@@ -1475,6 +1493,13 @@ class Sessions:
                 else None
             ),
         )
+
+    def _takes_ring_peers(self) -> bool:
+        """Whether this rig names :data:`RING_PEERS_FEATURE`: its owner turned the
+        ring links on, and its sessions run in containers (a native rig's helper
+        serves no worker, :func:`offer`)."""
+        share = self.machine.sharing()
+        return share.ring_links and not share.native_here()
 
     def _vet_peers(self, asked: sessionwire.TunnelUp) -> str | None:
         """Why the peers of `asked` are refused, or None once each is taken
@@ -2056,6 +2081,17 @@ class Sessions:
                             rig_id=walk.peer.rig_id, path="none"
                         )
                 changed = True
+            elif all(w.result is not None for w in walks if w.peer.ring is None):
+                # Every peer the session needs has settled: a ring peer still
+                # walking is given up on now, so it never holds the session up.
+                for walk in walks:
+                    if walk.result is None:
+                        walk.aim = None
+                        walk.result = sessionwire.PeerPath(
+                            rig_id=walk.peer.rig_id, path="none"
+                        )
+                        walk.why = "the peers the session needs settled first"
+                        changed = True
             if changed:
                 self._aim(session, walks)
             if all(w.result is not None for w in walks):
@@ -2223,7 +2259,19 @@ class Sessions:
                 )
                 samples.append((walk.peer.rig_id, rtt))
             paths.append(result)
-        lost = [p.rig_id for p in paths if p.path == "none"]
+        assert session.plan is not None
+        for rig_id in session.plan.unreached:
+            # A ring peer with nothing this rig may aim at was never configured.
+            paths.append(sessionwire.PeerPath(rig_id=rig_id, path="none"))
+        gone = [w for w, p in zip(walks, paths, strict=False) if p.path == "none"]
+        ring_lost = [w.peer.rig_id for w in gone if w.peer.ring is not None]
+        ring_lost += session.plan.unreached
+        if ring_lost:
+            self._log(
+                f"session {session.id}: no ring link to {', '.join(ring_lost)}; "
+                "the head carries what would go over it"
+            )
+        lost = [w.peer.rig_id for w in gone if w.peer.ring is None]
         narrow = next(
             (w for w in walks if w.too_narrow and w.peer.rig_id in lost), None
         )
@@ -2339,7 +2387,32 @@ class Sessions:
         assert session.plan is not None and image is not None
         self._move(session, "starting")
         own = str(session.plan.address.ip)
-        nets = [str(net) for net in session.plan.peer_nets()]
+        # A ring peer counts only once its walk found a path: it may dial the
+        # ports it is named to accept, and this rig may dial the ports it names.
+        came_up = {p.rig_id for p in session.report or () if p.path != "none"}
+        rings = [
+            peer
+            for peer in session.plan.peers
+            if peer.ring is not None and peer.rig_id in came_up
+        ]
+
+        def nets_for(port: int) -> list[str]:
+            assert session.plan is not None
+            return [
+                str(net)
+                for peer in session.plan.peers
+                if peer.ring is None
+                or (peer in rings and port in peer.ring.accept_ports)
+                for net in peer.allowed
+            ]
+
+        dials = [
+            word
+            for peer in rings
+            if peer.ring is not None and peer.tunnel_host is not None
+            for port in peer.ring.dial_ports
+            for word in (str(peer.tunnel_host), str(port))
+        ]
         cache = self._cache(session)
         names: dict[tuple[int, int, int], str] = {}
         for worker in session.workers:
@@ -2360,7 +2433,9 @@ class Sessions:
                     memory_mb=share.container_mb(),
                 )
             )
-            session.host.open_worker(session.tunnel_name, own, port, nets)
+            session.host.open_worker(session.tunnel_name, own, port, nets_for(port))
+        if dials:
+            session.host.open_ring(session.tunnel_name, own, dials)
         waiting = set(session.workers)
         deadline = self._clock() + self.timing.start_s
         while waiting:
@@ -2575,7 +2650,9 @@ def offer(
     as its runtime and drops ``traversal`` (:data:`NATIVE_FEATURES`); a rig
     running the pinned build, natively or as its image, names the build's RPC
     protocol. ``port_map`` is named only when the owner allowed the port
-    forward on this rig (``Sharing.port_forward``). ``cached`` are the digests of
+    forward on this rig (``Sharing.port_forward``), and ``ring_peers`` only when
+    the owner turned the ring links on (``Sharing.ring_links``) on a rig that is
+    not native. ``cached`` are the digests of
     the models the tensor cache holds (:meth:`Sessions.weight_cache`), newest
     last: the newest ``MAX_MODELS`` of them are offered as ``weight_cache`` by a
     rig that lends the worker role and shares its cache with its workers.
@@ -2604,7 +2681,8 @@ def offer(
             name
             for name in (NATIVE_FEATURES if native else FEATURES)
             if name != PORT_MAP_FEATURE or share.port_forward
-        ),
+        )
+        + ((RING_PEERS_FEATURE,) if share.ring_links and not native else ()),
         rpc_proto=PINNED_RPC_PROTO if pinned else None,
         weight_cache=(
             tuple(cached)[-protocol.MAX_MODELS :]

@@ -100,8 +100,9 @@ class RelayAim:
 @dataclass(frozen=True, kw_only=True)
 class PeerPlan:
     """A peer as the tunnel is told about it: its key, its keepalive interval,
-    the addresses it is allowed, the candidates to aim at in order, and a relay
-    to fall back on when none of them answers."""
+    the addresses it is allowed, the candidates to aim at in order, a relay
+    to fall back on when none of them answers, and the ring link it is named
+    for (None for a peer the session needs)."""
 
     rig_id: str
     public_key: str
@@ -109,6 +110,7 @@ class PeerPlan:
     allowed: tuple[ipaddress.IPv4Network, ...]
     candidates: tuple[Candidate, ...]
     relay: RelayAim | None = None
+    ring: sessionwire.RingLink | None = None
 
     @property
     def tunnel_host(self) -> ipaddress.IPv4Address | None:
@@ -123,11 +125,13 @@ class PeerPlan:
 @dataclass(frozen=True, kw_only=True)
 class TunnelPlan:
     """This rig's end of a tunnel: its address on it, the port it listens on,
-    and what was planned for each peer."""
+    what was planned for each peer, and the ring peers left out of it for
+    having nothing this rig may aim at (reported with no path)."""
 
     address: ipaddress.IPv4Interface
     listen_port: int
     peers: tuple[PeerPlan, ...]
+    unreached: tuple[str, ...] = ()
 
     def script_args(self) -> list[str]:
         """The arguments the tunnel script is run with: this end's address and
@@ -293,7 +297,12 @@ def plan(
     no other peer's, and include an endpoint or relay this rig may aim at.
 
     A tunnel-up that breaks any of these is refused by code and message; an
-    accepted one becomes a plan carrying the port asked for."""
+    accepted one becomes a plan carrying the port asked for. A ring peer
+    (:attr:`mcgyvr.rig.sessionwire.TunnelPeer.ring`) is held to the same
+    rules but two: its relay is never taken (the star through the head is its
+    fallback), and with no endpoint this rig may aim at it is left out of the
+    plan, never configured, rather than refusing the tunnel the session
+    needs."""
     if up.listen_port != listen_port:
         raise RefusedError(
             protocol.ErrorCode.BAD_MESSAGE,
@@ -321,7 +330,12 @@ def plan(
                 sessionwire.SessionCode.TUNNEL_FAILED,
                 "address: the tunnel's network overlaps one this machine is on",
             )
+    if all(peer.ring is not None for peer in up.peers):
+        raise RefusedError(
+            protocol.ErrorCode.BAD_MESSAGE, "peers: only ring peers, none it needs"
+        )
     peers = []
+    unreached: list[str] = []
     taken: list[ipaddress.IPv4Network] = []
     for peer in up.peers:
         for net in peer.allowed_ips:
@@ -342,7 +356,10 @@ def plan(
                 )
             taken.append(net)
         found = candidates(peer, network, own)
-        relay = _relay(peer, network, own)
+        relay = _relay(peer, network, own) if peer.ring is None else None
+        if not found and peer.ring is not None:
+            unreached.append(peer.rig_id)
+            continue
         if not found and relay is None:
             raise RefusedError(
                 sessionwire.SessionCode.TUNNEL_FAILED,
@@ -356,6 +373,12 @@ def plan(
                 allowed=peer.allowed_ips,
                 candidates=found,
                 relay=relay,
+                ring=peer.ring,
             )
         )
-    return TunnelPlan(address=address, listen_port=listen_port, peers=tuple(peers))
+    return TunnelPlan(
+        address=address,
+        listen_port=listen_port,
+        peers=tuple(peers),
+        unreached=tuple(unreached),
+    )

@@ -300,6 +300,26 @@ archived outside this repository, under the same paths.
 
 ### Added
 
+- **A worker may take its ring neighbours as optional tunnel peers, off until
+  the owner turns it on (`ring_links`).** A pooled session's tunnel was a star:
+  a worker's only peer was the head, so a worker -> worker ring link could
+  never form. With `"ring_links": true` in its lending settings (off, and
+  unwritten, by default; a native rig never) a rig names the new feature
+  `ring_peers` (`hubwire.RING_PEERS_FEATURE`, the first feature name defined
+  in `hubwire`), and a `tunnel_up` peer may carry `ring`
+  (`hubwire.RING_FIELD`: `dial_ports`, `accept_ports`). Such a peer is
+  optional: it is walked beside the head under the same deadline, given up
+  the moment the head has settled, never relayed, left out of the tunnel when
+  it has nothing the rig may aim at, and reported `none` without failing the
+  session. Once the worker starts, a ring peer that came up may dial the
+  rig's `accept_ports` and the rig may dial the peer's `dial_ports` (a new
+  `OPEN_RING_SCRIPT`: TCP on wg0 only, replies to the ephemeral range, the
+  head's own dial rules); nothing changes on eth0. A rig without the switch
+  refuses a ring peer (`not_capable`) and makes exactly the calls it made.
+  The pinned build (upstream llama.cpp) never dials a ring link and the head
+  still runs with `GGML_RPC_NO_COMM=1`: this builds the tunnel and firewall
+  only. The protocol schema gains `RingLink` and `TunnelPeer.ring`.
+
 - **A worker rig tells the hub which models its tensor cache holds
   (`hello.weight_cache`), so the hub plans a cheaper load there.** The cache
   names each file by the FNV-1a hash of one tensor, and the hub names weights

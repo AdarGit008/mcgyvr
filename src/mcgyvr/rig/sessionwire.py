@@ -57,6 +57,7 @@ from mcgyvr.hubwire import MAX_PROBE_DEADLINE_MS as MAX_PROBE_DEADLINE_MS
 from mcgyvr.hubwire import MAX_PROBE_INTERVAL_MS as MAX_PROBE_INTERVAL_MS
 from mcgyvr.hubwire import MAX_PROBE_TTL_S as MAX_PROBE_TTL_S
 from mcgyvr.hubwire import MAX_RATE_KBPS as MAX_RATE_KBPS
+from mcgyvr.hubwire import MAX_RING_PORTS as MAX_RING_PORTS
 from mcgyvr.hubwire import MAX_RTT_SAMPLES as MAX_RTT_SAMPLES
 from mcgyvr.hubwire import MAX_RTT_US as MAX_RTT_US
 from mcgyvr.hubwire import MAX_SLOTS as MAX_SLOTS
@@ -164,6 +165,17 @@ class RelayGrant:
 
 
 @dataclass(frozen=True, kw_only=True)
+class RingLink:
+    """A worker <-> worker ring link the hub names a peer for
+    (:data:`mcgyvr.hubwire.RING_FIELD`): the peer's rpc ports this rig may open
+    TCP to, and this rig's own rpc ports the peer may open TCP to. A peer that
+    carries one is optional: the session neither fails nor waits on it."""
+
+    dial_ports: tuple[int, ...] = ()
+    accept_ports: tuple[int, ...] = ()
+
+
+@dataclass(frozen=True, kw_only=True)
 class TunnelPeer:
     rig_id: str
     public_key: str
@@ -175,6 +187,9 @@ class TunnelPeer:
     #: (:mod:`mcgyvr.rig.identity`), when the hub forwards them.
     identity_key: str | None = None
     public_key_sig: str | None = None
+    #: The ring link this peer is named for, or None for a peer the session
+    #: needs (every peer before :data:`mcgyvr.hubwire.RING_PEERS_FEATURE`).
+    ring: RingLink | None = None
 
 
 @dataclass(frozen=True, kw_only=True)
@@ -433,6 +448,31 @@ def _slots(body: _Body) -> int:
     return body.number("slots", 1, MAX_SLOTS, default=DEFAULT_SLOTS)
 
 
+def _ports(body: _Body, field: str) -> tuple[int, ...]:
+    found = []
+    for port in body.items(field, 0, MAX_RING_PORTS, optional=True):
+        if type(port) is not int or not 1 <= port <= MAX_PORT:
+            raise body.refuse(field, f"not a list of ports of 1 to {MAX_PORT}")
+        found.append(port)
+    _unique(body, field, found)
+    return tuple(found)
+
+
+def _ring(peer: _Body) -> RingLink | None:
+    """The ring link a tunnel_up peer is named for: none when the field is left
+    out, and refused when it names no port either way."""
+    if not peer.has(hubwire.RING_FIELD):
+        return None
+    link = peer.nested(hubwire.RING_FIELD, peer.raw(hubwire.RING_FIELD))
+    found = RingLink(
+        dial_ports=_ports(link, "dial_ports"),
+        accept_ports=_ports(link, "accept_ports"),
+    )
+    if not (found.dial_ports or found.accept_ports):
+        raise link.refuse("dial_ports", "no port either way")
+    return found
+
+
 def _start(envelope: protocol.Envelope) -> _Body:
     return _Body(envelope.body, "body", envelope.id)
 
@@ -502,6 +542,7 @@ def read_tunnel_up(envelope: protocol.Envelope) -> TunnelUp:
                 public_key_sig=peer.text(
                     hubwire.SESSION_KEY_SIG_FIELD, hubwire.IDENTITY_SIG, optional=True
                 ),
+                ring=_ring(peer),
             )
         )
     _unique(body, "peers", [peer.rig_id for peer in peers])
