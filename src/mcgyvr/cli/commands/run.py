@@ -391,6 +391,7 @@ def _floor(
         run_tool_step,
         task_ceiling,
     )
+    from mcgyvr.escalate import Outcome
     from mcgyvr.sandbox.base import SandboxError, open_sandbox
     from mcgyvr.telemetry import correct, observe
 
@@ -517,7 +518,7 @@ def _floor(
         correct(
             path=recording.path,
             attempt_id=attempt_id,
-            outcome=RAISED,
+            outcome=Outcome.ERROR.value,
             detail=str(exc),
             orchestrator=recording.orchestrator,
             mirrors=recording.mirrors,
@@ -854,7 +855,7 @@ def _report_climb(
             )
         print(f"  triage: {said}")
     for step in outcome.history:
-        word = RAISED if step.raised else step.verdict.value
+        word = Outcome.ERROR.value if step.raised else step.verdict.value
         print(f"  {step.rung} #{step.attempt}: {word} — {step.detail}")
         for finding in step.findings:
             print(f"    ✗ {finding}")
@@ -1170,9 +1171,6 @@ DELIVERY_REFUSED = "delivery_refused"
 
 
 NOTHING_TO_CHANGE = "nothing_to_change"
-
-
-RAISED = "error"
 
 
 DETERMINISTIC = "deterministic"

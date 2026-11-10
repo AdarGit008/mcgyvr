@@ -11,6 +11,15 @@ archived outside this repository, under the same paths.
 
 ### Changed
 
+- **The run outcome words `accepted` and `error` are spelled once, in
+  `escalate.Outcome`.** `tree.ACCEPTED` and `cli/commands/run.RAISED` repeated
+  them; the tree's provider check and the run's raised-step word and
+  correction row now read `Outcome.ACCEPTED` / `Outcome.ERROR`, imported where
+  they are used so loading the tree or the command line does not load the
+  climb. The tree's `blocked`/`abandoned` and the run's commit words stay
+  where they are: they name other stages on purpose. The words written are
+  unchanged.
+
 - **`deployment`'s two words and its default are written once, in the schema
   field (`config.DEPLOYMENT_FIELD`).** `mcgyvr setup --deployment` took its
   choices and the default its help names, `Config.deployment` its unset value,
