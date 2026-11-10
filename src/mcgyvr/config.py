@@ -138,8 +138,8 @@ DEPENDENTS_CHOICES: tuple[str, ...] = ("hold", "run")
 #: `mcgyvr.replan`); 0 turns re-planning off.
 MAX_REPLANS_DEFAULT = 1
 
-#: How many rounds a proposal the decomposer refused is handed back to the
-#: proposer with what to change (see `mcgyvr.repropose`); 0 turns it off.
+#: How many rounds a proposal vetting refused is handed to the top rung of the
+#: ladder with what to change (see `mcgyvr.repropose`); 0 turns it off.
 MAX_REPROPOSALS_DEFAULT = 1
 
 #: How many split rounds classifier authoring may take on any one file, and
@@ -1263,7 +1263,9 @@ SCHEMA: tuple[Field, ...] = (
         "place take its place in the batch, carry `replan` (the id they "
         "replace and the round), and what waited on it waits on them. A "
         "contract already at this round is not re-planned again, and one the "
-        "proposer proposes unchanged is not run again. 0 turns re-planning "
+        "proposer proposes unchanged is not run again. The `orchestrator` unit "
+        "re-plans when a model is bound there, and the top rung of the ladder "
+        "(as for `max_reproposals`) when none is. 0 turns re-planning "
         "off: a spent contract stops there, as under `mcgyvr direct`, which "
         "never re-plans.",
         default=MAX_REPLANS_DEFAULT,
@@ -1273,15 +1275,19 @@ SCHEMA: tuple[Field, ...] = (
     Field(
         "max_reproposals",
         "int",
-        "How many times `mcgyvr PROMPT` hands a proposal the decomposer "
-        "refused back to the proposer, with the refused field and what to "
-        "change, before it reports the refusal. What comes back is checked as "
-        "a first answer is: what it emits takes the refusal's place, and what "
-        "is refused again is reported, or handed back again while rounds "
-        "remain. A refusal of the request as a whole, or one that names no "
-        "field, is reported at once. The prose proposer is shown the refused "
-        "proposal and its refusal as data; the classifier asks the refused "
-        "field again. 0 turns re-proposing off.",
+        "How many times `mcgyvr PROMPT` hands a proposal vetting refused to "
+        "the top rung of the ladder — its dearest rung, within "
+        "`max_escalations` — with the refused field and what to change, "
+        "before it reports the refusal. The top rung is shown the proposal and "
+        "its refusal as data and asked for it corrected, and nothing else; "
+        "the proposer that made it (the scaffold, Jev or the prose unit) is "
+        "not asked again. What comes back is checked as a first answer is: "
+        "what it emits takes the refusal's place, and what is refused again is "
+        "reported, or handed over again while rounds remain. A refusal of the "
+        "request as a whole, or one that names no field, is reported at once. "
+        "0 turns re-proposing off. `mcgyvr direct` never re-proposes: a "
+        "contract you wrote that vetting refuses comes back to you with the "
+        "reason.",
         default=MAX_REPROPOSALS_DEFAULT,
         min_value=0,
         bind_hint="set a whole number of rounds, or 0 to report refusals at once",
@@ -1801,7 +1807,8 @@ SWITCHES: tuple[Switch, ...] = (
         "authoring",
         ("orchestrator.authoring",),
         "`prose`",
-        "how a request becomes proposals: typed Jev questions or one prose reply",
+        "how a request becomes proposals: the scaffold, with typed Jev "
+        "questions when Jev is on, or one prose reply",
         stage="classifier",
     ),
     Switch(
@@ -1888,7 +1895,7 @@ SWITCHES: tuple[Switch, ...] = (
         "re-propose",
         ("max_reproposals",),
         "`0`",
-        "a refused proposal goes back to the proposer with what to change",
+        "a refused proposal goes to the top rung with what to change",
         stage="repropose",
     ),
     Switch(

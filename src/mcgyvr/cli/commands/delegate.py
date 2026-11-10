@@ -10,7 +10,9 @@ run (`_run_delegated`) through the machinery each run has, in the order their
 dependency tree allows, up to `--jobs` of them at once — a contract whose
 provider did not land is held, not run, and one whose ladder is spent is handed
 back to the orchestrator to be re-planned (`mcgyvr.replan`, up to
-`max_replans`), what comes back taking its place.
+`max_replans`; the top rung re-plans when no orchestrator model is bound), what
+comes back taking its place. A proposal vetting refuses goes to the top rung of
+the ladder to be corrected (`mcgyvr.repropose`, up to `max_reproposals`).
 With `--log PATH` how the command ended is written there as one
 `mcgyvr.delegate_log` record, on every exit. `add_flags` is the flag set this
 verb and `mcgyvr direct` share, and `prompt_parser` the verb's own parser.
@@ -43,6 +45,7 @@ if TYPE_CHECKING:  # pragma: no cover - typing only
     from mcgyvr.board import Board, GitSource
     from mcgyvr.contract import Contract
     from mcgyvr.decompose.decompose import Decomposition, Proposer
+    from mcgyvr.delegate import TopRungProposer
     from mcgyvr.local_pool import SourceMap
     from mcgyvr.replan import Replanner, Spent
     from mcgyvr.session import Session
@@ -54,7 +57,15 @@ from mcgyvr.cli.sandbox import _say_what_the_sandbox_leaves_out
 
 #: The `detail` keys a decomposition's re-proposing is counted under.
 _COUNTS = frozenset(
-    {"refused", "reproposed", "recovered", "still_refused", "reproposal_failed"}
+    {
+        "refused",
+        "reproposed",
+        "recovered",
+        "still_refused",
+        "reproposal_failed",
+        "fixer",
+        "fixer_model",
+    }
 )
 
 
@@ -94,12 +105,18 @@ class _Logbook:
         self.detail = dict(detail)
 
     def decomposed(
-        self, dec: Decomposition, written: Sequence[Path], *, said: str = "proposed"
+        self,
+        dec: Decomposition,
+        written: Sequence[Path],
+        *,
+        said: str = "proposed",
+        fixer: TopRungProposer | None = None,
     ) -> None:
         """What the decomposition came to; `written` is the contracts' paths.
 
         `said` is what became of the contracts: `proposed` for a prompt's,
-        `vetted` for a set someone wrote.
+        `vetted` for a set someone wrote. `fixer` is the top rung refusals
+        were handed to, named with its model once it was asked.
         """
         # `--output` wrote one path per contract; printed ones have none.
         paths: list[str | None] = (
@@ -123,6 +140,9 @@ class _Logbook:
             }
             if dec.reproposal.failed:
                 counts["reproposal_failed"] = dec.reproposal.failed
+            if fixer is not None and dec.reproposal.reproposed:
+                counts["fixer"] = fixer.rung
+                counts["fixer_model"] = fixer.model
         if not dec.contracts:
             self.ended(
                 DelegateKind.NONE_EMITTED, "No contracts were emitted.", **counts
@@ -283,6 +303,7 @@ def _delegate_logged(args: argparse.Namespace, book: _Logbook) -> int:
         NO_ORCHESTRATOR_ROLE,
         DelegationError,
         UnreadableProposalError,
+        top_rung_proposer_for,
     )
     from mcgyvr.local_pool import SourceUnavailableError, source_map
     from mcgyvr.repo import AttachError, IndexBuildError, attach, build_index
@@ -353,6 +374,7 @@ def _delegate_logged(args: argparse.Namespace, book: _Logbook) -> int:
         )
         return Exit.REFUSED
 
+    fix = top_rung_proposer_for(config, pool)
     into = Path(args.into) if args.into else None
     try:
         with attach(args.repo, into=into) as repo:
@@ -368,12 +390,13 @@ def _delegate_logged(args: argparse.Namespace, book: _Logbook) -> int:
                 config=config,
                 budget=args.budget,
                 max_reproposals=max_reproposals(config),
+                fix=fix,
             )
             _report_decomposition(decomposition)
             written = _write_delegated(
                 decomposition, Path(args.output) if args.output else None
             )
-            book.decomposed(decomposition, written)
+            book.decomposed(decomposition, written, fixer=fix)
             if decomposition.empty:
                 # The request was read and nothing came of it: refused, not done.
                 return Exit.REFUSED
@@ -384,7 +407,7 @@ def _delegate_logged(args: argparse.Namespace, book: _Logbook) -> int:
                     decomposition,
                     written,
                     config,
-                    replan=_replanner(args, repo.root, config, pool, propose),
+                    replan=_replanner(args, repo.root, config, pool, propose, fix),
                     book=book,
                 )
             return 0
@@ -485,14 +508,17 @@ def _replanner(
     config: Config,
     pool: SourceMap,
     propose: Proposer,
+    fix: Proposer | None = None,
 ) -> Replanner:
     """What re-plans a spent contract: the orchestrator, asked again on `root`.
 
     The index is built again, since what landed before the spend is in the
     tree now — under `--jobs`, between two deliveries of the runs beside it —
     and the spent contract's own work is decomposed with its failure notes on
-    the evidence. The prose proposer is asked, since it is the one
-    that is shown the notes; `propose` stands in when no prose one is bound.
+    the evidence. A prose proposer is asked, since it is the one that is shown
+    the notes: the `orchestrator` model when one is bound, else `fix`, the top
+    rung, which corrects the re-plan's refusals too; `propose` stands in when
+    neither is there.
     """
     from contextlib import nullcontext
 
@@ -503,7 +529,7 @@ def _replanner(
     from mcgyvr.repo import build_index
     from mcgyvr.repropose import max_reproposals
 
-    asked = proposer_for(pool) or propose
+    asked = proposer_for(pool) or fix or propose
     # With other runs delivering beside it (`--jobs`), the tree is read
     # between two deliveries, never in the middle of one.
     beside = getattr(args, "jobs", 1) != 1
@@ -519,6 +545,7 @@ def _replanner(
             budget=args.budget,
             spent=spent,
             max_reproposals=max_reproposals(config),
+            fix=fix,
         )
         _report_decomposition(dec)
         return dec
