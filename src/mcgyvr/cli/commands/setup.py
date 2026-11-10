@@ -816,7 +816,7 @@ def _setup_downloads(
         if hit is not None:
             answer = prompt(
                 f"{rig}: {model_id} {quant} ({hit.size_bytes} bytes) is already "
-                f"on disk. Reuse it instead of downloading? [Y/n] "
+                f"on disk. Reuse it instead of downloading? [y/n, Enter reuses] "
             )
             if str(answer).strip().lower() not in {"n", "no"}:
                 print(f"{rig}: reusing {model_id} {quant} already on disk")
@@ -824,7 +824,7 @@ def _setup_downloads(
             chosen = True
         else:
             answer = prompt(
-                f"Download {model_id}{' ' + quant if quant else ''} for {rig}? [y/N] "
+                f"Download {model_id}{' ' + quant if quant else ''} for {rig}? [y/n] "
             )
             chosen = str(answer).strip().lower() in {"y", "yes"}
         if not chosen:
@@ -1067,13 +1067,13 @@ def _start_question(rigs: Sequence[str]) -> str:
     named = ", ".join(rigs)
     here = _native_rigs(rigs)
     if not here:
-        return f"Start the serving containers on {named}? [y/N] "
+        return f"Start the serving containers on {named}? [y/n] "
     remote = [rig for rig in dict.fromkeys(rigs) if rig not in here]
     if not remote:
-        return f"Start the native llama.cpp servers on {named}? [y/N] "
+        return f"Start the native llama.cpp servers on {named}? [y/n] "
     return (
         f"Start the servers (native here, containers on {', '.join(remote)}) "
-        f"on {named}? [y/N] "
+        f"on {named}? [y/n] "
     )
 
 
@@ -1221,7 +1221,7 @@ NO_EVIDENCE_MEANS = (
 )
 
 
-ACCEPT_UNSAMPLED = "Lock it approved on no evidence? [y/N] "
+ACCEPT_UNSAMPLED = "Lock it approved on no evidence? [y/n] "
 
 
 def _setup_unsampled(
@@ -1328,7 +1328,7 @@ def _setup_sample(
             + "; ".join(stamped.why),
         )
     folder = stamped.folder
-    if not _confirm("Lock the fleet and name it live? [y/N] "):
+    if not _confirm("Lock the fleet and name it live? [y/n] "):
         return (), (
             f"The fleet was stamped and not locked: the stamp is kept at "
             f"{folder}, and a later `mcgyvr setup` samples and locks again.",
@@ -1404,7 +1404,7 @@ def _setup_retired(path: Path, force: bool) -> int | None:
         )
         return 1
     print(said)
-    if not _confirm(f"Delete these lines from {policy}? [y/N] "):
+    if not _confirm(f"Delete these lines from {policy}? [y/n] "):
         print(
             f"Left {policy} as it is: the setup does not load until they are deleted.",
             file=sys.stderr,

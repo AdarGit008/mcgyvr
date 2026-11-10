@@ -11,6 +11,12 @@ archived outside this repository, under the same paths.
 
 ### Changed
 
+- **Every yes/no question in `mcgyvr setup` is written `[y/n]` (I-122).** The
+  wizard mixed `[Y/n]`, `[y/N]` and `[y/n]`; it now asks `[y/n]` everywhere,
+  as the Jev and PATH questions already did. What Enter means is unchanged:
+  Enter is no at every question except the one that offers to reuse a model
+  already on disk, where Enter still reuses it, and that question now says so
+  (`[y/n, Enter reuses]`). `SETUP.md` quotes the new spelling.
 - **The agent channel's limits, shapes and codes are defined once, in
   `mcgyvr.hubwire`.** The protocol version, frame limits, the counts and
   bounds of every frame (models, sessions, endpoints, features, peers, allowed

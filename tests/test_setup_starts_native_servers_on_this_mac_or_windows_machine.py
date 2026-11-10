@@ -25,7 +25,7 @@ def test_linux_starts_the_serving_containers_as_before(
     as_system(monkeypatch, "linux")
     assert (
         _start_question(("localhost", "rig-b"))
-        == "Start the serving containers on localhost, rig-b? [y/N] "
+        == "Start the serving containers on localhost, rig-b? [y/n] "
     )
     assert _native_notes(("localhost",)) == ()
 
@@ -37,7 +37,7 @@ def test_this_mac_or_windows_machine_starts_native_servers(
     as_system(monkeypatch, system)
     assert (
         _start_question(("localhost",))
-        == "Start the native llama.cpp servers on localhost? [y/N] "
+        == "Start the native llama.cpp servers on localhost? [y/n] "
     )
 
 
@@ -48,10 +48,10 @@ def test_remote_rigs_beside_this_machine_stay_containers(
     as_system(monkeypatch, system)
     assert _start_question(("localhost", "rig-b")) == (
         "Start the servers (native here, containers on rig-b) on "
-        "localhost, rig-b? [y/N] "
+        "localhost, rig-b? [y/n] "
     )
     assert (
-        _start_question(("rig-b",)) == "Start the serving containers on rig-b? [y/N] "
+        _start_question(("rig-b",)) == "Start the serving containers on rig-b? [y/n] "
     )
     assert _native_notes(("rig-b",)) == ()
 
