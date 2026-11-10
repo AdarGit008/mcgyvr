@@ -979,10 +979,9 @@ def session_status(
     state: str,
     role: str | None = None,
     error_code: str | None = None,
-    progress_pct: int | None = None,
     log_excerpt: str = "",
 ) -> str:
-    """Build a session_status: the state, plus role, error, progress and log."""
+    """Build a session_status: the state, plus role, error and log."""
     _need(bool(SESSION_ID.fullmatch(session_id)), "session_id: not a session id")
     _need(state in STATES, "state: not a session state")
     body: dict[str, Any] = {"session_id": session_id, "state": state}
@@ -992,9 +991,6 @@ def session_status(
     if error_code is not None:
         _need(bool(protocol.TAG.fullmatch(error_code)), "error_code: not a code")
         body["error_code"] = error_code
-    if progress_pct is not None:
-        _need(0 <= progress_pct <= MAX_PCT, "progress_pct: not 0 to 100")
-        body["progress_pct"] = progress_pct
     if log_excerpt:
         body["log_excerpt"] = scrub(log_excerpt)
     return _frame("session_status", body, re)
