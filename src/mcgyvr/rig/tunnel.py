@@ -18,7 +18,7 @@ from collections.abc import Iterable, Sequence
 from dataclasses import dataclass
 
 from mcgyvr import hostos
-from mcgyvr.rig import sessionwire
+from mcgyvr.rig import protocol, sessionwire
 from mcgyvr.scan import BRIDGE_PREFIXES
 
 #: The narrowest tunnel network allowed: a /30, the smallest that still holds
@@ -296,7 +296,8 @@ def plan(
     accepted one becomes a plan carrying the port asked for."""
     if up.listen_port != listen_port:
         raise RefusedError(
-            "bad_message", "listen_port: not the port this session was prepared on"
+            protocol.ErrorCode.BAD_MESSAGE,
+            "listen_port: not the port this session was prepared on",
         )
     address = up.address
     network = address.network
