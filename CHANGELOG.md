@@ -11,6 +11,15 @@ archived outside this repository, under the same paths.
 
 ### Changed
 
+- **A misspelled `$MCGYVR_LOCAL_TRANSPORT` is refused, not ignored.** For
+  this machine's rig names, a value that is neither `direct` nor `ssh` (after
+  trimming and lowercasing, so `Direct ` still works) used to fall through to
+  auto-detection, so a user forcing one transport could get the other; it now
+  stops with a `ValueError` naming the variable, the word and the two it
+  takes, as `$MCGYVR_NATIVE_BACKEND` already does. An unset or empty variable
+  still auto-detects, and another rig is still reached over ssh whatever the
+  word says.
+
 - **`breadth.temperature`'s default is one constant,
   `config.BREADTH_TEMPERATURE_DEFAULT` (0.7).** The schema field reads it,
   and so does the worker attempt when a config does not name the key, which
