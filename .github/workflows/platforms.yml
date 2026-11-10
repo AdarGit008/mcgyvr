@@ -2,12 +2,23 @@ name: platforms
 # macOS and Windows: the CLI imports, the OS seam (mcgyvr.hostos) and the
 # machine reader's tests pass there, on the real system, and setup's PATH offer
 # and the Windows skills installer run. The full suite runs on Linux in
-# .forgejo/workflows/ci.yml; this job is not a required check.
+# ci.yml; this job is not a required check.
 on: [push, pull_request]
 permissions:
   contents: read
 jobs:
+  # The macOS and Windows runners are GitHub's. A forge that also reads
+  # `.github/workflows` and has neither would queue `platforms` for a runner
+  # that never comes; there `on-github` is skipped (its `if:`), and
+  # `platforms`, which needs it, is skipped with it.
+  on-github:
+    if: github.server_url == 'https://github.com'
+    runs-on: ubuntu-latest
+    steps:
+      - name: macOS and Windows runners are here
+        run: echo "$GITHUB_SERVER_URL"
   platforms:
+    needs: on-github
     strategy:
       fail-fast: false
       matrix:
