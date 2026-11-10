@@ -213,7 +213,7 @@ def test_mcgyvr_contract_validates_with_no_config_and_never_mentions_setup(
 
     A contract names no model, no rung, no tier and no host
     (`mcgyvr.contract.SCHEMA`); it is authored and validated by an
-    orchestrator that knows nothing about the ladder. Making Step 2 consult a
+    proposer that knows nothing about the ladder. Making Step 2 consult a
     config would make the ladder a precondition of writing a contract about
     it.
 

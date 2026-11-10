@@ -6,7 +6,7 @@
 * ``detect._quoted`` and ``fleet.harness._bounded``: the harness is piped to a
   rig as source and must stay standard-library only.
 * ``repo.languages.engine.walk`` and ``gate.adapters.javascript._walk``:
-  the adapter importing the orchestrator would be an import cycle.
+  the adapter importing the proposer would be an import cycle.
 
 A fix made to one copy and not the other would leave the two disagreeing
 without any test noticing, so each pair is held to one answer here.

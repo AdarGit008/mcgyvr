@@ -5,7 +5,7 @@ artifact that was measured, or the numbers describe a different file. The size
 ceiling must be enforced by the loader rather than by a comment, since the
 measurement says an oversized bundle degrades the worker it is meant to help.
 And the assembled prompt must be reachable only through
-:meth:`Contract.worker_view`, because the guarantee that orchestrator-only
+:meth:`Contract.worker_view`, because the guarantee that proposer-only
 fields never reach the worker is structural or it is nothing.
 """
 
@@ -162,9 +162,9 @@ def test_an_unknown_use_case_gets_no_bundle() -> None:
 # --- the worker-view boundary ----------------------------------------------
 
 
-def test_orchestrator_only_fields_never_reach_the_prompt() -> None:
+def test_proposer_only_fields_never_reach_the_prompt() -> None:
     """Held structurally: acceptance, verification and limits are
-    how the orchestrator judges the work, and a worker that could read them
+    how the proposer judges the work, and a worker that could read them
     could argue with them."""
     built = build_prompt(contract(PY_CONTRACT))
     whole = built.system + built.user
@@ -184,7 +184,7 @@ def test_the_prompt_carries_the_worker_facing_fields() -> None:
 
 def test_the_input_budget_is_spent_not_shown() -> None:
     """max_input_tokens is worker-facing on the schema but is a budget the
-    orchestrator enforces, not an instruction a model can act on."""
+    proposer enforces, not an instruction a model can act on."""
     view = contract(PY_CONTRACT).worker_view()
     assert "max_input_tokens" not in render_user_message(view)
 

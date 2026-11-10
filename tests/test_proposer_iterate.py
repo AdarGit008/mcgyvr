@@ -20,7 +20,7 @@ from mcgyvr.decision import Choice, ChoiceAnswer, Decision, Question
 from mcgyvr.decompose.decompose import DepRef, Evidence, Proposal, Refusal
 from mcgyvr.decompose.fields import FIELD_ORDER
 from mcgyvr.decompose.iterate import MAX_REFUSAL_RETRIES, iterate
-from mcgyvr.delegate import MIN_CONFIDENCE, ClassifierProposer
+from mcgyvr.delegate import MIN_CONFIDENCE, FillProposer
 from mcgyvr.repo.index import Index, build_index
 from tests import ungated
 
@@ -254,7 +254,7 @@ def test_a_non_askable_field_is_terminal(repo: Index) -> None:
     assert refusal.field not in FIELD_ORDER
 
 
-# --- the loop through the real ClassifierProposer ---------------------------
+# --- the loop through the real FillProposer ---------------------------
 
 
 def test_iterate_retries_a_below_floor_task_type_through_the_real_proposer(
@@ -302,7 +302,7 @@ def test_iterate_retries_a_below_floor_task_type_through_the_real_proposer(
             }
         )
 
-    proposer = ClassifierProposer(classify=classify)
+    proposer = FillProposer(classify=classify)
     result = iterate(
         repo, "document listing", classify=proposer, approve=lambda r, a: True
     )

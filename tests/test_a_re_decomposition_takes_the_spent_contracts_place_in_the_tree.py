@@ -1,6 +1,6 @@
 """A re-decomposition takes the spent contract's place in the tree.
 
-A re-plan can come back as more than one contract: a helper first, then the
+A re-decomposition can come back as more than one contract: a helper first, then the
 change on the spent contract's own target that waits on it. The tree takes
 them all in the spent one's place, and what waited on the spent contract now
 waits on the replacement on its target — or, when none of them is on it, on

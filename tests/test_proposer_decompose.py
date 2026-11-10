@@ -76,7 +76,7 @@ def a_fix(**overrides: object) -> Proposal:
     return Proposal(**{**base, **overrides})  # type: ignore[arg-type]
 
 
-# --- acceptance: direct mode accepts what the orchestrator emits ------------
+# --- acceptance: direct mode accepts what the proposer emits ------------
 
 
 def test_an_emitted_contract_round_trips_through_the_public_api(repo: Index) -> None:
@@ -598,7 +598,7 @@ def test_the_content_is_what_the_index_holds_not_a_fresh_read(repo: Index) -> No
 
 
 def test_the_content_round_trips_through_the_public_loader(repo: Index) -> None:
-    """Direct mode accepts what the orchestrator emits — content included."""
+    """Direct mode accepts what the proposer emits — content included."""
     result = decompose(repo, "fix", propose=RecordedProposer((a_fix(),)))
 
     (built,) = result.contracts

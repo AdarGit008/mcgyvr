@@ -636,7 +636,7 @@ def test_a_keyless_install_is_labelled_unverified_rather_than_accepted_quietly()
     assert verdict.verdict is Verdict.PASSED
     assert verdict.assurance is Assurance.UNVERIFIED
     assert verdict.upgraded is True
-    assert verdict.detail.startswith("unverified: no reviewer is configured")
+    assert verdict.detail.startswith("unverified: no verifier is configured")
 
 
 def test_an_available_verifier_is_never_skipped() -> None:

@@ -7,7 +7,7 @@ it. A hosted Jev unit is someone else's process and is not served. A Jev unit
 that is also the verifier's is one process, served once.
 
 `mcgyvr local_pool` prints each role's model; the Jev role is printed like the
-orchestrator and the verifier.
+proposer and the verifier.
 """
 
 from __future__ import annotations

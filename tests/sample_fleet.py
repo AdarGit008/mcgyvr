@@ -96,7 +96,7 @@ def fleet_doc(*, asleep: bool = False) -> dict[str, Any]:
     if asleep:
         units[STRONG] = {
             **unit(STRONG, STRONG_ID, 8082, STRONG_CONTAINER, room_mib=5000),
-            "role": "sleeps-until-needed",
+            "sleep": "sleeps-until-needed",
         }
         slots.append([STRONG, "asleep"])
     return {

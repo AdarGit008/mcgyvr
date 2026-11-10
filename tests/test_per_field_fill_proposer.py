@@ -53,14 +53,14 @@ from mcgyvr.decompose.candidates import (
     task_type_candidates,
 )
 from mcgyvr.decompose.decompose import Evidence, Refusal
-from mcgyvr.delegate import MIN_CONFIDENCE, ClassifierProposer, classifier_proposer_for
+from mcgyvr.delegate import MIN_CONFIDENCE, FillProposer, fill_proposer_for
 from mcgyvr.local_pool import source_map
 from mcgyvr.repo.index import Index, build_index
 from mcgyvr.repo.read import explore
 from mcgyvr.repo.resolve import resolve
 from tests import ungated
 
-#: A keyless local ladder with no orchestrator or jev block.
+#: A keyless local ladder with no proposer or jev block.
 LADDER = """\
 units:
   local_qwen-7b:
@@ -72,7 +72,7 @@ ladder:
 - local_qwen-7b
 """
 
-#: The ungated example kind (tests/ungated.py), as in test_classifier_proposer.py:
+#: The ungated example kind (tests/ungated.py), as in test_fill_proposer.py:
 #: not ``code``, whose proposal also carries a derived reply cap.
 AGENT = ungated.ungated()
 pytestmark = pytest.mark.usefixtures("ungated_catalog")
@@ -197,7 +197,7 @@ def test_asks_one_choice_per_field_in_dependency_order(repo: Index) -> None:
         assert isinstance(question, Choice)
         return decision_of({field: answer(next(iter(question.options)), 0.9)})
 
-    (proposal,) = ClassifierProposer(classify=classify)(evidence)
+    (proposal,) = FillProposer(classify=classify)(evidence)
     assert proposal.task_type == "agent"
 
     assert [next(iter(q)) for _, q in seen] == list(FIELD_ORDER)
@@ -231,7 +231,7 @@ def test_per_field_picks_reach_the_collapsed_proposal(repo: Index) -> None:
     """Picks away from rank-0 (no symbol, the directive, a named allow) fold in."""
     evidence = evidence_for(repo, "document listing", (AGENT,))
     target = "listing.py"
-    propose = ClassifierProposer(
+    propose = FillProposer(
         classify=_choosing(
             evidence,
             task_type="agent",
@@ -280,7 +280,7 @@ def test_abstain_sentinel_is_a_real_option_and_round_trips(
             return decision_of({field: answer(sentinel_id, 0.9)})
         return decision_of({field: answer(next(iter(question.options)), 0.9)})
 
-    (proposal,) = ClassifierProposer(classify=classify, sink=sink, model="m")(evidence)
+    (proposal,) = FillProposer(classify=classify, sink=sink, model="m")(evidence)
     assert proposal.deps == ()
 
     deps_record = next(
@@ -300,7 +300,7 @@ def test_degrades_deterministically_without_jev(
         raise AssertionError("no model call without a jev unit")
 
     monkeypatch.setattr(decision, "_post_json", fail)
-    propose = classifier_proposer_for(pool)
+    propose = fill_proposer_for(pool)
     assert propose is not None
     evidence = evidence_for(repo, "document listing", (AGENT,))
     assert propose(evidence) == (collapse(enumerate_candidates(evidence)),)
@@ -316,9 +316,7 @@ def test_one_decision_record_per_field(repo: Index, tmp_path: Path) -> None:
         assert isinstance(question, Choice)
         return decision_of({field: answer(next(iter(question.options)), 0.8)})
 
-    ClassifierProposer(classify=classify, sink=ShadowSink(sink_path), model="m")(
-        evidence
-    )
+    FillProposer(classify=classify, sink=ShadowSink(sink_path), model="m")(evidence)
 
     records = read(sink_path)
     assert [r.field for r in records] == list(FIELD_ORDER)
@@ -344,7 +342,7 @@ def test_low_confidence_optional_field_leaves_rank0_but_load_bearing_declines(
         confidence = MIN_CONFIDENCE - 0.1 if field == "allow" else 0.9
         return decision_of({field: answer(next(iter(question.options)), confidence)})
 
-    (proposal,) = ClassifierProposer(classify=classify_low_allow)(evidence)
+    (proposal,) = FillProposer(classify=classify_low_allow)(evidence)
     assert proposal.allow == ()
 
     kind = AGENT
@@ -378,7 +376,7 @@ def test_low_confidence_optional_field_leaves_rank0_but_load_bearing_declines(
         confidence = MIN_CONFIDENCE - 0.1 if field == "task_type" else 0.9
         return decision_of({field: answer(next(iter(question.options)), confidence)})
 
-    assert ClassifierProposer(classify=classify_low_type)(evidence) == ()
+    assert FillProposer(classify=classify_low_type)(evidence) == ()
 
 
 def test_parse_fail_records_and_degrades(repo: Index, tmp_path: Path) -> None:
@@ -393,7 +391,7 @@ def test_parse_fail_records_and_degrades(repo: Index, tmp_path: Path) -> None:
             raise DecisionError("no label in the reply")
         return decision_of({field: answer(next(iter(question.options)), 0.9)})
 
-    (proposal,) = ClassifierProposer(classify=classify, sink=sink, model="m")(evidence)
+    (proposal,) = FillProposer(classify=classify, sink=sink, model="m")(evidence)
     assert proposal.interface == ""
 
     interface_record = next(
@@ -415,7 +413,7 @@ def test_symbol_parse_fail_falls_back_to_deterministic_rank0(repo: Index) -> Non
             raise DecisionError("no label in the reply")
         return decision_of({field: answer(next(iter(question.options)), 0.9)})
 
-    (proposal,) = ClassifierProposer(classify=classify)(evidence)
+    (proposal,) = FillProposer(classify=classify)(evidence)
 
     kind = AGENT
     target_set = target_candidates(evidence)
@@ -462,7 +460,7 @@ def test_value_by_id_keyerror_degrades_and_records_parse_fail(
             return decision_of({field: answer("bogus", 0.9)})
         return decision_of({field: answer(next(iter(question.options)), 0.9)})
 
-    (proposal,) = ClassifierProposer(classify=classify, sink=sink, model="m")(evidence)
+    (proposal,) = FillProposer(classify=classify, sink=sink, model="m")(evidence)
     assert proposal.deps == ()
 
     deps_record = next(
@@ -490,7 +488,7 @@ def test_propose_refuses_a_below_floor_task_type_but_call_declines(
         confidence = MIN_CONFIDENCE - 0.1 if field == "task_type" else 0.9
         return decision_of({field: answer(next(iter(question.options)), confidence)})
 
-    proposer = ClassifierProposer(classify=classify)
+    proposer = FillProposer(classify=classify)
     refusal = proposer.propose(evidence)
     assert isinstance(refusal, Refusal)
     assert refusal.field == "task_type"
@@ -511,7 +509,7 @@ def test_propose_drops_rejected_candidates_from_the_choice(repo: Index) -> None:
         assert isinstance(question, Choice)
         return decision_of({field: answer(next(iter(question.options)), 0.9)})
 
-    result = ClassifierProposer(classify=classify).propose(
+    result = FillProposer(classify=classify).propose(
         evidence, rejected={"target": ["listing.py"]}
     )
     assert not isinstance(result, Refusal)

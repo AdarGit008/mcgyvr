@@ -32,9 +32,9 @@ from mcgyvr.decompose.decompose import (
     decompose,
 )
 from mcgyvr.delegate import (
-    ClassifierProposer,
+    FillProposer,
     _reply_format,
-    classifier_proposer_for,
+    fill_proposer_for,
     proposals_from_reply,
     proposer_by_authoring,
 )
@@ -146,7 +146,7 @@ def test_a_prose_reply_that_still_states_a_cap_is_read_without_it() -> None:
 
 def test_the_typed_proposer_states_no_cap(tmp_path: Path) -> None:
     propose = proposer_by_authoring(
-        "classifier", typed=ClassifierProposer(classify=_chooses_code), prose=_no_prose
+        "fill", typed=FillProposer(classify=_chooses_code), prose=_no_prose
     )
     assert propose is not None
 
@@ -165,8 +165,8 @@ def test_the_no_jev_collapse_states_no_cap(
         raise AssertionError("no model is asked without a jev unit")
 
     monkeypatch.setattr(decision, "_post_json", no_model)
-    typed = classifier_proposer_for(source_map(parse(LADDER)))
-    propose = proposer_by_authoring("classifier", typed=typed, prose=_no_prose)
+    typed = fill_proposer_for(source_map(parse(LADDER)))
+    propose = proposer_by_authoring("fill", typed=typed, prose=_no_prose)
     assert propose is not None
 
     result = decompose(_repo(tmp_path), "document listing", propose=propose)

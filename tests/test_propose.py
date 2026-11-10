@@ -114,7 +114,7 @@ def test_a_tier_name_carries_no_role_token() -> None:
     role token would be constant everywhere it appeared. This is the
     regression guard for that being re-added.
     """
-    assert not hasattr(propose_module, "ORCHESTRATOR")
+    assert not hasattr(propose_module, "PROPOSER")
     assert not hasattr(propose_module, "WORKER")
     assert "role" not in inspect.signature(binding_name).parameters
 

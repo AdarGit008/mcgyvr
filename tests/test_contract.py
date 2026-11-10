@@ -1,12 +1,12 @@
 """The contract is public API an agent authors, so these tests hold it to the
 three things #14 makes acceptance criteria — every rejection names the field
 and the fix, a glob-scoped contract for a model-tier task type is rejected at
-load, and a contract the orchestrator emits is one the loader accepts — plus
+load, and a contract the proposer emits is one the loader accepts — plus
 the self-contradictions that would otherwise surface mid-task, after a rung had
 already been spent.
 
-The worker/orchestrator field split (#94) is tested through
-:meth:`Contract.worker_view`, because "orchestrator-only fields never reach the
+The worker/proposer field split (#94) is tested through
+:meth:`Contract.worker_view`, because "proposer-only fields never reach the
 worker prompt" is only true if there is no other accessor that leaks them.
 """
 
@@ -100,7 +100,7 @@ def with_scope(allow: str, forbid: str | None = None) -> str:
     return MINIMAL.replace(_MINIMAL_SCOPE, block)
 
 
-# --- acceptance: a contract the orchestrator emits is one the API accepts ---
+# --- acceptance: a contract the proposer emits is one the API accepts ---
 
 
 def test_minimal_contract_round_trips() -> None:
@@ -612,9 +612,9 @@ def test_an_output_cap_larger_than_the_prompt_budget_is_accepted() -> None:
     assert contract.max_input_tokens == 1000
 
 
-# --- the worker / orchestrator split (#94) ---------------------------------
+# --- the worker / proposer split (#94) ---------------------------------
 
-ORCHESTRATOR_ONLY = (
+PROPOSER_ONLY = (
     "verification",
     "acceptance",
     "demonstration",
@@ -623,9 +623,9 @@ ORCHESTRATOR_ONLY = (
 )
 
 
-def test_worker_view_excludes_every_orchestrator_only_field() -> None:
+def test_worker_view_excludes_every_proposer_only_field() -> None:
     view = loads(FULL).worker_view()
-    for key in ORCHESTRATOR_ONLY:
+    for key in PROPOSER_ONLY:
         assert key not in view, f"{key} must not reach the worker prompt"
 
 
@@ -653,7 +653,7 @@ def test_worker_view_carries_what_the_worker_needs() -> None:
     assert view["context"]["max_input_tokens"] == 8000
 
 
-def test_no_orchestrator_value_leaks_into_the_serialized_worker_view() -> None:
+def test_no_proposer_value_leaks_into_the_serialized_worker_view() -> None:
     """Not just absent keys — the values themselves must not appear anywhere."""
     import json
 

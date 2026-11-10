@@ -47,7 +47,7 @@ def repo(tmp_path: Path) -> Index:
 
 
 def a_fix(**overrides: object) -> Proposal:
-    """A well-formed `code` proposal, mirroring ``test_orchestrator_decompose``."""
+    """A well-formed `code` proposal, mirroring ``test_proposer_decompose``."""
     base = {
         "task_type": "code",
         "task": "listing() ignores the page size; page the items before returning.",

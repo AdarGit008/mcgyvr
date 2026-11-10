@@ -97,7 +97,7 @@ def test_the_prompt_skill_is_thin_and_hands_the_prompt_to_the_bare_verb() -> Non
         assert f"`{key}`" not in text, key
 
 
-def test_the_direct_skill_walks_vetting_the_run_and_the_replan() -> None:
+def test_the_direct_skill_walks_vetting_the_run_and_the_redecompose() -> None:
     text = docgen.render_direct_skill()
     for needle in (
         "mcgyvr contract",

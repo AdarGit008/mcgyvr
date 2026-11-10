@@ -224,7 +224,7 @@ BELOW_THE_SEAM: tuple[str, ...] = (
 #: scope, and the semantic gate's resolver engine under gate._engine, which is
 #: staged into the sandbox and whose import statements name only itself and the
 #: standard library), the order a batch of contracts runs in (tree, board) and
-#: what a spent contract is re-planned from (replan),
+#: what a spent contract is re-decomposed from (redecompose),
 #: and what the run leaves behind for the caller (result, session, telemetry,
 #: and delegate's own record of how it ended, delegate_log), and the words of
 #: the flags the command line and the skills share (flagset).
@@ -280,7 +280,7 @@ ABOVE_THE_SEAM: tuple[str, ...] = (
     "mcgyvr.refine",
     "mcgyvr.rename",
     "mcgyvr.repair",
-    "mcgyvr.replan",
+    "mcgyvr.redecompose",
     "mcgyvr.repo",
     "mcgyvr.repo.cache",
     "mcgyvr.repo.context",
@@ -345,6 +345,7 @@ SHARED_ACROSS_THE_SEAM: tuple[str, ...] = (
     "mcgyvr.hostos",
     "mcgyvr.hubwire",
     "mcgyvr.lines",
+    "mcgyvr.renamed",
     "mcgyvr.redact",
     "mcgyvr.schema",
     "mcgyvr.seal",

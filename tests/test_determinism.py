@@ -21,7 +21,7 @@ observation about a machine rather than a proof: on a loaded box the sleeps can
 land in submission order and the test passes without the inversion ever having
 happened. This one forces strict reverse completion with a chain of events and
 asserts the inversion occurred.
-``tests/test_orchestrator_decompose.py`` pins the id against two calls over one
+``tests/test_proposer_decompose.py`` pins the id against two calls over one
 index, which cannot see an id that had picked up the repository's path or the
 index object's identity. This one builds two repositories, in two directories,
 and asserts they agree.

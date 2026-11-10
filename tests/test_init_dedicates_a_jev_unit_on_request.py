@@ -31,7 +31,6 @@ def test_jev_names_the_unit_every_typed_decision_asks(tmp_path: Path) -> None:
     result = initialize(where, detection=KEYLESS_RIG, jev=unit)
     config = load_config(where)
     assert config.get("jev.unit") == unit
-    assert config.get("orchestrator.type") == "proposer"
     assert any("Jev" in line and unit in line for line in result.decisions)
 
 

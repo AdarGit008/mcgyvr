@@ -229,7 +229,7 @@ def test_a_batch_that_held_a_contract_is_logged_as_batch_held(
     """The `--log` record names what was held and the Board's state file.
 
     It points at the tree's state file, never at the per-contract result files:
-    those stay with the Board and the re-planner that read them.
+    those stay with the Board and the re-decompositionner that read them.
     """
     from mcgyvr.delegate_log import DelegateKind, read
 

@@ -3,7 +3,7 @@
 ``route.climb`` keeps the history of one family's climb in a local list and
 lets a raising attempt propagate. ``escalate`` caught it and appended the
 raising attempt alone — the two judged attempts before it on the same rung,
-whose journal rows had been written and whose findings the replanner needs,
+whose journal rows had been written and whose findings the redecomposer needs,
 were in a list that died with the exception. ``attempts_spent`` still
 counted them, so the result file said two attempts were spent and listed
 one, and the rows of the two stayed ``uncorrected`` forever.

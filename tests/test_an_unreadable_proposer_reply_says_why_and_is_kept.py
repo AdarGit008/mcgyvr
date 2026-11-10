@@ -1,4 +1,4 @@
-"""An unreadable orchestrator reply says why, and the reply itself is kept.
+"""An unreadable proposer reply says why, and the reply itself is kept.
 
 A reply that finished on its own but does not parse used to be reported only by
 its first 120 characters, with no decoder message and no position, and the reply
@@ -25,7 +25,7 @@ import mcgyvr.delegate as delegate
 from mcgyvr.config import parse
 from mcgyvr.decompose.decompose import Evidence
 from mcgyvr.delegate import (
-    OrchestratorReplyCutOffError,
+    ProposerReplyCutOffError,
     UnreadableProposalError,
     proposals_from_reply,
     proposer_for,
@@ -45,10 +45,10 @@ units:
     width: 1
 ladder:
 - planner
-orchestrator:
+proposer:
   unit: planner
   model: planner-model
-  authoring: prose
+  authoring: draft
 """
 
 #: A complete, well-formed proposal array, pretty-printed as a model writes it.
@@ -208,10 +208,10 @@ def test_the_cli_prints_the_raw_reply_on_an_unreadable_reply(
 
     assert code == 1
     err = capsys.readouterr().err
-    assert "error: the orchestrator's reply" in err
+    assert "error: the proposer's reply" in err
     assert "not JSON" in err
-    opening = "--- the orchestrator's raw reply"
-    closing = "--- end of the orchestrator's raw reply ---"
+    opening = "--- the proposer's raw reply"
+    closing = "--- end of the proposer's raw reply ---"
     assert opening in err and closing in err
     # The block comes after the error and holds the reply verbatim, whole.
     assert err.index("error:") < err.index(opening)
@@ -229,7 +229,7 @@ def test_a_cut_off_reply_still_gets_the_cut_off_error_even_when_its_text_would_r
     propose = proposer_for(source_map(parse(CONFIG)))
     assert propose is not None
 
-    with pytest.raises(OrchestratorReplyCutOffError) as raised:
+    with pytest.raises(ProposerReplyCutOffError) as raised:
         propose(evidence)
 
     said = str(raised.value)

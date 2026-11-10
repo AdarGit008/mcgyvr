@@ -91,7 +91,7 @@ def test_a_config_that_names_no_use_case_is_mcgyvr_code() -> None:
         ("gate:\n  enabled: false\n", "gate"),
         ("cleanup:\n  enabled: false\n", "repair"),
         ("verifier:\n  enabled: false\n", "reviewer"),
-        ("max_replans: 0\n", "replan"),
+        ("max_redecompositions: 0\n", "redecompose"),
         ("max_reproposals: 0\n", "repropose"),
         ("fanout: none\n", "fanout"),
         ("triage: none\n", "triage"),
@@ -99,7 +99,7 @@ def test_a_config_that_names_no_use_case_is_mcgyvr_code() -> None:
         ("max_escalations: 0\n", "ladder"),
         ("infer_dependencies: false\n", "inferred_edges"),
         ("same_file: parallel\n", "same_file"),
-        ("orchestrator:\n  authoring: prose\n", "classifier"),
+        ("proposer:\n  authoring: draft\n", "fill"),
     ],
 )
 def test_each_switch_turns_its_own_stage_off_and_no_other(
@@ -120,8 +120,8 @@ def test_jev_off_takes_the_jev_unit_out_and_the_scaffold_authors_alone() -> None
 
     assert ran["jev"] is False
     # The scaffold still proposes (I-30a): classifier authoring, no Jev asked.
-    assert ran["classifier"] is True
-    assert config.authoring == "classifier"
+    assert ran["fill"] is True
+    assert config.authoring == "fill"
     # Every typed decision is asked as if no Jev unit were bound.
     assert source_map(config).role_model("jev") is None
 
@@ -192,7 +192,7 @@ def _setup(tmp_path: Path, use_case: str) -> Path:
         encoding="utf-8",
     )
     (setup / "policy.yaml").write_text(
-        f"use_case: {use_case}\nladder: [fast]\norchestrator:\n  unit: fast\n"
+        f"use_case: {use_case}\nladder: [fast]\nproposer:\n  unit: fast\n"
         f"journal:\n  dir: {tmp_path / 'journal'}\n",
         encoding="utf-8",
     )

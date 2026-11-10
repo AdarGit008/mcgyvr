@@ -3,8 +3,8 @@
 The typed proposer turns a prompt and a repository into a proposal through
 single-token choices, which makes each of its questions a typed decision.
 With `jev.unit` bound they are asked of that unit, and the proposer exists
-whether or not an orchestrator is bound, because the Jev unit is all it asks.
-With no Jev unit, it asks the orchestrator's unit, as before, and an install
+whether or not a proposer is bound, because the Jev unit is all it asks.
+With no Jev unit, it asks the proposer's unit, as before, and an install
 with neither has no typed proposer.
 
 The wire is faked at `mcgyvr.decision._post_json`; what is asserted is the
@@ -20,7 +20,7 @@ import pytest
 import mcgyvr.decision as decision
 from mcgyvr.config import parse
 from mcgyvr.decision import Choice
-from mcgyvr.delegate import ClassifierProposer, classifier_proposer_for
+from mcgyvr.delegate import FillProposer, fill_proposer_for
 from mcgyvr.local_pool import source_map
 
 ORCH = "http://localhost:18003/v1/chat/completions"
@@ -44,7 +44,7 @@ ladder:
 - fast
 """
 
-ORCHESTRATOR = "orchestrator:\n  unit: orch\n  model: example-planner:7b\n"
+PROPOSER = "proposer:\n  unit: orch\n  model: example-planner:7b\n"
 JEV = "jev:\n  unit: judge\n"
 
 QUESTION = {"kind": Choice("which kind?", {"code": "add a docstring"})}
@@ -65,17 +65,17 @@ def _wire(monkeypatch: pytest.MonkeyPatch) -> list[tuple[str, str]]:
     return sent
 
 
-def _proposer(text: str) -> ClassifierProposer:
-    proposer = classifier_proposer_for(source_map(parse(text)))
-    assert isinstance(proposer, ClassifierProposer)
+def _proposer(text: str) -> FillProposer:
+    proposer = fill_proposer_for(source_map(parse(text)))
+    assert isinstance(proposer, FillProposer)
     return proposer
 
 
-def test_with_a_jev_unit_the_proposer_asks_it_and_not_the_orchestrator(
+def test_with_a_jev_unit_the_proposer_asks_it_and_not_the_proposer(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     sent = _wire(monkeypatch)
-    _proposer(UNITS + ORCHESTRATOR + JEV).classify({"prompt": "x"}, QUESTION)
+    _proposer(UNITS + PROPOSER + JEV).classify({"prompt": "x"}, QUESTION)
     assert sent == [(JUDGE, "example-judge:1b")]
 
 
@@ -91,15 +91,15 @@ def test_without_a_jev_unit_the_proposer_degrades_to_rank0(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     sent = _wire(monkeypatch)
-    proposer = classifier_proposer_for(source_map(parse(UNITS + ORCHESTRATOR)))
+    proposer = fill_proposer_for(source_map(parse(UNITS + PROPOSER)))
     assert proposer is not None
-    assert not isinstance(proposer, ClassifierProposer)
+    assert not isinstance(proposer, FillProposer)
     assert not hasattr(proposer, "classify")
     assert sent == []
 
 
-def test_with_neither_jev_nor_orchestrator_the_proposer_still_degrades() -> None:
-    proposer = classifier_proposer_for(source_map(parse(UNITS)))
+def test_with_neither_jev_nor_proposer_the_proposer_still_degrades() -> None:
+    proposer = fill_proposer_for(source_map(parse(UNITS)))
     assert proposer is not None
-    assert not isinstance(proposer, ClassifierProposer)
+    assert not isinstance(proposer, FillProposer)
     assert not hasattr(proposer, "classify")

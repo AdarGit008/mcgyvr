@@ -1,6 +1,6 @@
 """A sample wakes a sleeper through the card switches, and the lock keeps its swap.
 
-#731 item 3: a fleet whose unit says ``role: sleeps-until-needed`` is
+#731 item 3: a fleet whose unit says ``sleep: sleeps-until-needed`` is
 sampled as ONE fleet. ``mcgyvr setup`` lays the sleeper out asleep, its launch
 spec leaves it down, and the sample swaps it in through the card switches'
 wake (:func:`mcgyvr.ladder_manager.wake_making_room`: the units
@@ -65,7 +65,7 @@ def _staged(tmp_path: Path, *, sleeper: bool = True) -> Path:
     if sleeper:
         units[STRONG] = {
             **_unit(8082, STRONG_CONTAINER),
-            "role": "sleeps-until-needed",
+            "sleep": "sleeps-until-needed",
         }
     setup = tmp_path / "staged"
     setup.mkdir()
@@ -186,7 +186,7 @@ def test_a_read_of_the_setup_probes_its_sleeper_and_no_other_asleep_unit(
     read.prepare(sd.RIG, (STRONG,), fleet_name="own", setup=setup)
 
     doc = yaml.safe_load((setup / "fleet.yaml").read_text(encoding="utf-8"))
-    del doc["units"][STRONG]["role"]
+    del doc["units"][STRONG]["sleep"]
     (setup / "fleet.yaml").write_text(yaml.safe_dump(doc), encoding="utf-8")
     with pytest.raises(read.ReadError, match=f"{STRONG}: not an awake unit"):
         read.prepare(sd.RIG, (STRONG,), fleet_name="own", setup=setup)

@@ -3,7 +3,7 @@
 A typed decision is a question answered with a single token, never prose: the
 gate's Jev rung, the reviewer's verdict, the fleet's wake routing, the ladder
 manager's choices and the typed proposer. The `jev:` block is a role block
-like `orchestrator:` and `verifier:` — a `unit`, and a `model` that defaults
+like `proposer:` and `verifier:` — a `unit`, and a `model` that defaults
 to the unit's own — so one configured unit can answer all of them. Left
 unbound it resolves to nothing, and every one of those callers asks what it
 asked before the block existed.

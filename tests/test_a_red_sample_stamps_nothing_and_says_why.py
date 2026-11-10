@@ -152,7 +152,7 @@ def test_a_unit_laid_out_asleep_that_is_no_sleeper_is_red(
 ) -> None:
     fx.rig_file()
     doc = fx.fleet_doc(asleep=True)
-    del doc["units"][fx.STRONG]["role"]
+    del doc["units"][fx.STRONG]["sleep"]
     setup = fx.staged(tmp_path, fleet=doc)
     fx.read(setup, fx.READS[0], text=fx.reader_text(strong=True))
     fx.read(setup, fx.READS[1], text=fx.reader_text(strong=True), load=None)
