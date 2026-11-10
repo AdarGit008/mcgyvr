@@ -1126,7 +1126,7 @@ def host_scan_document(machine: HostShape, /) -> dict[str, Any]:
     with (
         _host_root(machine) as root,
         _host_tools(machine),
-        mock.patch.object(rigscan, "measure_bandwidth", lambda root="": None),
+        mock.patch.object(rigscan, "measure_bandwidth", lambda spare_mib=None: None),
         tempfile.TemporaryDirectory() as weights,
     ):
         return rigscan.scan(weights, root=root, system=machine.system)

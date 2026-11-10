@@ -11,6 +11,17 @@ archived outside this repository, under the same paths.
 
 ### Changed
 
+- **A scan reads /proc/meminfo and the CPU model once (I-141).** The reader
+  parsed /proc/meminfo three times per scan (the memory section, the bandwidth
+  probe's `_spare_gb`, the snapshot) and looked the CPU model up twice (the CPU
+  section, the snapshot's `cpu_model`). The short reading now reads each once
+  and the probe and snapshot take those reads: `rigscan.measure_bandwidth`
+  takes the memory section's available MiB (`spare_mib`, MemAvailable else
+  MemFree) instead of a root to read from, and `_spare_gb` is gone. A scan's
+  output is unchanged on every invented machine (15 scans compared, meminfo and
+  cpuinfo variants among them), and it does fewer reads: meminfo 3 to 1,
+  cpuinfo 2 to 1. Off Linux the probe still takes its small block, as it did.
+
 - **The native supervisor asks `nvidia-smi` through the reader's runner
   (I-140).** `native.nvidia_driver` and the card-holder read behind
   `native.held` ran `nvidia-smi` with their own `subprocess.run`, bounded in
