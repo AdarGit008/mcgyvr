@@ -89,6 +89,17 @@ archived outside this repository, under the same paths.
   `hardcoded-credential` assignment rule keeps its separate word list.
   `mcgyvr.redact`, which only strips URL userinfo, is unchanged.
 
+- **A reviewer answers in three words: APPROVE, APPROVE_WITH_NOTES or
+  REFUSE.** The prose review prompt offered four, and two of them, REMEDIATE
+  and ESCALATE, were both read as a plain refusal and nothing acted on the
+  difference. REFUSE replaces both (`verify.ReviewOutcome`), and the prompt
+  every reviewer is shown now lists `APPROVE | APPROVE_WITH_NOTES | REFUSE`.
+  What a refusal does is unchanged. A refusal's detail, which the next attempt
+  is told, now opens `REFUSE:`. For this release a reply that still opens with
+  REMEDIATE or ESCALATE (a model tuned on the old prompt) is read as REFUSE,
+  with a debug note on the `mcgyvr.verify` logger; the next release drops
+  them, and such a reply will then be no verdict at all.
+
 - **The two shipped data files that spelled their format version `schema` now
   spell it `schema_version`, the spelling the other four already use.**
   `data/numbers.json` and `data/hardware-classes.json` recorded their version
