@@ -33,6 +33,7 @@ listens anywhere else on this host.
 from __future__ import annotations
 
 import contextlib
+import ipaddress
 import json
 import os
 import threading
@@ -97,15 +98,46 @@ RING_HEAD_FIXED_ENV = {"GGML_RPC_NO_RDMA": "1"}
 #: ``host:port``): a native head reaches each worker through a loopback
 #: forward, an address no worker can dial.
 PEER_ENDPOINTS_ENV = "GGML_RPC_PEER_ENDPOINTS"
+#: The fork's bounds on it, past which its head aborts at its first
+#: connection: at most 16 pairs (``GGML_RPC_MAX_SERVERS``), each side at most
+#: 255 bytes, the whole value at most 8192, no ``local`` or ``peer`` twice, and
+#: each side an IPv4 ``host:port``.
+PEER_ENDPOINTS_MAX_PAIRS = 16
+PEER_ENDPOINTS_MAX_SIDE = 255
+PEER_ENDPOINTS_MAX_BYTES = 8192
 
 
-def peer_endpoints(pairs: Sequence[tuple[str, str]]) -> dict[str, str]:
+def _ipv4_endpoint(text: str) -> bool:
+    host, colon, port = text.rpartition(":")
+    if not colon or len(text) > PEER_ENDPOINTS_MAX_SIDE or not port.isdigit():
+        return False
+    try:
+        ipaddress.IPv4Address(host)
+    except ValueError:
+        return False
+    return str(int(port)) == port and 1 <= int(port) <= 65535
+
+
+def peer_endpoints(pairs: Sequence[tuple[str, str]]) -> dict[str, str] | None:
     """The head's :data:`PEER_ENDPOINTS_ENV` for ``pairs`` of (the ``--rpc``
-    endpoint the head dials, the worker's own tunnel ``host:port``); nothing
-    for no pair. The one place the fork's spelling of it is written."""
+    endpoint the head dials, the worker's own tunnel ``host:port``): nothing
+    for no pair, and None when the pairs break a bound the fork holds the
+    value to (the head would abort), so the head runs star only instead. The
+    one place the fork's spelling of it is written."""
     if not pairs:
         return {}
-    return {PEER_ENDPOINTS_ENV: ",".join(f"{local}={peer}" for local, peer in pairs)}
+    locals_ = [local for local, _ in pairs]
+    peers = [peer for _, peer in pairs]
+    value = ",".join(f"{local}={peer}" for local, peer in pairs)
+    if (
+        len(pairs) > PEER_ENDPOINTS_MAX_PAIRS
+        or len(set(locals_)) != len(locals_)
+        or len(set(peers)) != len(peers)
+        or not all(_ipv4_endpoint(side) for side in (*locals_, *peers))
+        or len(value) > PEER_ENDPOINTS_MAX_BYTES
+    ):
+        return None
+    return {PEER_ENDPOINTS_ENV: value}
 
 
 def head_build_env(
@@ -115,12 +147,15 @@ def head_build_env(
     build's :data:`HEAD_FIXED_ENV`; a ring build's :data:`RING_HEAD_FIXED_ENV`
     with, when its workers may pass tensors worker to worker, each forward's
     worker named as the other workers reach it (:func:`peer_endpoints`), and
-    else :data:`mcgyvr.rig.pooled.STAR_ONLY_ENV`."""
+    else :data:`mcgyvr.rig.pooled.STAR_ONLY_ENV`: also when the forwards are
+    more, or other, than that value may name, so the session runs star only
+    rather than its head aborting."""
     if not spec.ring:
         return dict(HEAD_FIXED_ENV)
-    if spec.star_only:
+    named = None if spec.star_only else peer_endpoints(pairs)
+    if named is None:
         return {**RING_HEAD_FIXED_ENV, pooled.STAR_ONLY_ENV: "1"}
-    return {**RING_HEAD_FIXED_ENV, **peer_endpoints(pairs)}
+    return {**RING_HEAD_FIXED_ENV, **named}
 
 
 #: The bytes of a log read for its last lines.
@@ -543,7 +578,7 @@ class NativeHost:
             )
         if run.api_port is None or found is None:
             raise pooled.PoolError("the session prepared no API port or build")
-        if spec.build == llamacpp.RING_ID:
+        if llamacpp.RING is not None and spec.build == llamacpp.RING.id:
             with self._fetching:
                 ring = self._ring_engine()
             if ring.backend != found.backend:

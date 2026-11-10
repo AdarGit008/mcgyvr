@@ -502,3 +502,88 @@ def test_share_names_the_ring_image_and_turns_the_ring_links_on_and_off(
     assert cli.main(["rig", "share", "--ring-image", "none", "--no-ring-links"]) == 0
     kept = sharing.load()
     assert kept.ring_image is None and not kept.ring_links
+
+
+def _pairs(n: int) -> list[tuple[str, str]]:
+    return [(f"127.0.0.1:{50100 + i}", f"10.0.0.{i + 1}:50052") for i in range(n)]
+
+
+def test_the_peer_mapping_holds_every_bound_the_forks_head_aborts_on() -> None:
+    most = userwg.PEER_ENDPOINTS_MAX_PAIRS
+    full = userwg.peer_endpoints(_pairs(most))
+    assert full is not None
+    value = full[userwg.PEER_ENDPOINTS_ENV]
+    assert len(value.split(",")) == most <= 16
+    assert len(value) <= userwg.PEER_ENDPOINTS_MAX_BYTES
+    for pair in value.split(","):
+        local, peer = pair.split("=")
+        assert len(local) <= 255 and len(peer) <= 255
+    assert userwg.peer_endpoints(_pairs(most + 1)) is None
+    twice_local = [
+        ("127.0.0.1:50100", "10.0.0.1:50052"),
+        ("127.0.0.1:50100", "10.0.0.2:1"),
+    ]
+    twice_peer = [
+        ("127.0.0.1:50100", "10.0.0.1:50052"),
+        ("127.0.0.1:50101", "10.0.0.1:50052"),
+    ]
+    assert userwg.peer_endpoints(twice_local) is None
+    assert userwg.peer_endpoints(twice_peer) is None
+    for bad in (
+        "worker.example:50052",
+        "[2001:db8::1]:50052",
+        "10.0.0.1",
+        "10.0.0.1:0",
+        "10.0.0.1:65536",
+        "10.0.0.1:050052",
+        "10.0.0.1:5005a",
+        "10.0.0.1:50052,10.0.0.2:50052",
+        "10.0.0.1=1:50052",
+    ):
+        assert userwg.peer_endpoints([("127.0.0.1:50100", bad)]) is None, bad
+        assert userwg.peer_endpoints([(bad, "10.0.0.1:50052")]) is None, bad
+
+
+def _ring_spec(rpc: int, **changes: Any) -> pooled.HeadSpec:
+    return pooled.HeadSpec(
+        session_id="s1",
+        image=llamacpp.RUNTIME,
+        binary="/app/llama-server",
+        gpus=(),
+        models_dir=Path("/m"),
+        model="m.gguf",
+        name="m.gguf",
+        ctx=4096,
+        n_gpu_layers=999,
+        devices=tuple(f"RPC{i}" for i in range(rpc)),
+        tensor_split=(1,) * rpc,
+        rpc=tuple(peer for _, peer in _pairs(rpc)),
+        bind="127.0.0.1",
+        memory_mb=1024,
+        build=llamacpp.RING_ID,
+        ring=True,
+        **changes,
+    )
+
+
+def test_a_ring_head_whose_forwards_the_mapping_cannot_name_runs_star_only() -> None:
+    most = userwg.PEER_ENDPOINTS_MAX_PAIRS
+    env = userwg.head_build_env(_ring_spec(most), _pairs(most))
+    assert userwg.PEER_ENDPOINTS_ENV in env and pooled.STAR_ONLY_ENV not in env
+    many = userwg.head_build_env(_ring_spec(most + 1), _pairs(most + 1))
+    assert many == {"GGML_RPC_NO_RDMA": "1", pooled.STAR_ONLY_ENV: "1"}
+    named = userwg.head_build_env(_ring_spec(1), [("127.0.0.1:50100", "host:50052")])
+    assert named == many
+    from dataclasses import replace
+
+    plain = replace(_ring_spec(most + 1), ring=False, build=None)
+    upstream = userwg.head_build_env(plain, _pairs(most + 1))
+    assert upstream == userwg.HEAD_FIXED_ENV
+
+
+def test_the_ring_pin_when_filled_in_is_named_as_the_rig_starts_it() -> None:
+    pin = llamacpp.RING
+    if pin is not None:  # the shipped pin: its id and kind are what a start names
+        assert pin.id == llamacpp.RING_ID and pin.ring
+        assert pin.image is None or session._digest(pin.image) is not None
+    assert _pin().id == llamacpp.RING_ID

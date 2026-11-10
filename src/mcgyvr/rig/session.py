@@ -2726,16 +2726,23 @@ def ring_image_fault(share: sharing_module.Sharing) -> str | None:
     return None
 
 
-@cache
+#: The pins found to have an archive here: a yes is kept for the agent's life,
+#: a no is asked again (a driver installed later may change it).
+_PINS_HERE: set[llamacpp.Pin] = set()
+
+
 def native_pin_here(pin: llamacpp.Pin) -> bool:
     """Whether ``pin`` has an archive for this machine's system, architecture
     and the backend the upstream build runs on; nothing is fetched."""
     from mcgyvr.serving import native
 
+    if pin in _PINS_HERE:
+        return True
     try:
         native.pick(pin)
     except native.NativeError:
         return False
+    _PINS_HERE.add(pin)
     return True
 
 

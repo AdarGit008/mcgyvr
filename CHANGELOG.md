@@ -368,12 +368,14 @@ archived outside this repository, under the same paths.
   ring head gets `GGML_RPC_NO_RDMA=1` (no `GGML_RPC_NO_COMM`: the fork has
   no comm_init) and, with its ring on, `GGML_RPC_PEER_ENDPOINTS` naming for
   each loopback forward the worker's tunnel `host:port`, the address the
-  other workers dial (`userwg.peer_endpoints`). `mcgyvr rig share` gains
+  other workers dial (`userwg.peer_endpoints`), held to the fork's bounds: a
+  head with more than 16 rpc devices, or forwards the value cannot name,
+  runs star only rather than abort. `mcgyvr rig share` gains
   `--ring-links` / `--no-ring-links`. Local serving, units, `emit` and
   `docgen` keep the upstream build.
 
 - **The wire can name the llama.cpp builds a rig can start, and which one a
-  session runs (the wire only: no rig names or acts on it yet).** The fork's
+  session runs (the rig's side is the entry above).** The fork's
   ring build and upstream llama.cpp cannot run in one session, so a hub must
   know every build a rig can start and name the one to run. `hubwire` gains
   `Runtime` (`id`, shape `RUNTIME_ID`; `runtime`, the build's name, a pinned
@@ -391,7 +393,7 @@ archived outside this repository, under the same paths.
   always did. `protocol.Offer` takes `runtimes` and a hello names them only
   when there are some: every hello today's rigs send is unchanged. The
   agent reads `runtime_id` and `ring` from a start, refusing an id not of its
-  shape (`bad_message`), and does not act on them yet. The protocol schema
+  shape (`bad_message`). The protocol schema
   gains `Runtime`, `Capabilities.runtimes`, the start fields and the feature.
 
 - **A worker may take its ring neighbours as optional tunnel peers, off until
