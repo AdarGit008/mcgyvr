@@ -5,10 +5,9 @@ PROMISE
 ``mcgyvr recommend`` is a read-only planner. It re-reads the rigs it is pointed
 at over ssh — measuring free VRAM, available RAM, disk and bandwidth at that
 moment rather than trusting any stored spec — and, for the ``coding`` profile,
-assembles candidate placements from those measured inputs and lets
-:func:`mcgyvr.decision.classify` name one. When no decision backend is
-reachable, the pick is deterministic (the largest checkpoint among the
-candidates that already fit the measured machine) and the plan says so. Every
+assembles candidate placements from those measured inputs and picks one
+deterministically: the largest checkpoint among the candidates that already fit
+the measured machine. No model is asked, and the plan says so. Every
 number in the emitted plan is a measurement the rig or the checkpoint header
 made, or a shipped constant; none is invented. ``chat`` and ``agent`` place
 one unit from their own candidates; the profile that is not a use case
@@ -35,8 +34,8 @@ Models to place come from exactly one of two places:
   measured free VRAM is assembled.
 
 ``--profile coding`` makes a real placement (an engine and a checkpoint are
-chosen and the decision seam is consulted); ``other`` is accepted but
-scaffolded (no engine, no decision).
+chosen, and no model is consulted); ``other`` is accepted but scaffolded (no
+engine, no decision).
 
 The seams this test substitutes are existing module attributes, chosen so the
 command can be exercised without owning hardware:
@@ -44,11 +43,9 @@ command can be exercised without owning hardware:
 * ``mcgyvr.scan._ssh`` — the ssh scan/detection transport (the same seam
   ``tests/test_remote_scan.py`` stubs); the header read and the ``*.gguf``
   discovery both answer through it;
-* ``mcgyvr.decision.classify`` — the placement decision (resolved as a module
-  attribute, so the command must reach it that way, as ``tests/test_compose.py``
-  does for ``mcgyvr.compose.classify``);
-* ``mcgyvr.availability.probe_endpoint`` — the reachability probe that decides
-  whether the decision backend is there before any model is consulted;
+* ``mcgyvr.decision.classify`` and ``mcgyvr.availability.probe_endpoint`` —
+  replaced, where a test pins that no model is asked, by recorders that must
+  stay empty;
 * ``mcgyvr.recommend.load_catalog`` — the shipped HuggingFace catalog loader.
 
 ``mcgyvr.serving.ggufscan.scan`` is patched in exactly one test to fail if the
@@ -71,7 +68,6 @@ from mcgyvr import availability, cli, decision
 from mcgyvr import recommend as recommend_module
 from mcgyvr import scan as scan_module
 from mcgyvr.availability import AvailabilityVerdict
-from mcgyvr.runner import TransportError
 from mcgyvr.serving import gatelib
 from mcgyvr.serving import ggufscan as ggufscan_module
 from tests import records
@@ -361,50 +357,6 @@ class RecordedSsh:
         raise AssertionError(f"unexpected ssh command: {command!r}")
 
 
-class RecordedClassify:
-    """A stand-in for ``decision.classify``: records what it was asked, answers.
-
-    By default it answers like a reachable backend: it names the first option
-    of the placement question. ``reachable=False`` refuses the way a backend
-    that is not there refuses.
-    """
-
-    def __init__(self, reachable: bool = True) -> None:
-        self.reachable = reachable
-        self.calls: list[dict[str, Any]] = []
-
-    def __call__(
-        self,
-        endpoint: Any,
-        model: str,
-        state: Any,
-        questions: Mapping[str, Any],
-        *,
-        timeout_s: float,
-    ) -> decision.Decision:
-        self.calls.append(
-            {
-                "endpoint": endpoint,
-                "model": model,
-                "state": state,
-                "questions": questions,
-            }
-        )
-        if not self.reachable:
-            raise TransportError("stubbed unreachable backend")
-        placement = questions.get("placement")
-        options = placement.options if placement is not None else {}
-        first = next(iter(options), None)
-        answers: dict[str, Any] = {}
-        if first is not None:
-            answers["placement"] = decision.ChoiceAnswer(
-                choice=first,
-                probabilities={first: 1.0},
-                confidence=1.0,
-            )
-        return decision.Decision(answers=answers)
-
-
 @pytest.fixture
 def ssh(monkeypatch: pytest.MonkeyPatch) -> Any:
     def install(*reachable: str) -> RecordedSsh:
@@ -416,34 +368,21 @@ def ssh(monkeypatch: pytest.MonkeyPatch) -> Any:
 
 
 @pytest.fixture
-def classify(monkeypatch: pytest.MonkeyPatch) -> Any:
-    def install(reachable: bool = True) -> RecordedClassify:
-        recorder = RecordedClassify(reachable)
-        monkeypatch.setattr(decision, "classify", recorder)
-        return recorder
+def asked(monkeypatch: pytest.MonkeyPatch) -> list[str]:
+    """Every model the plan asks, or probes for: none, so the list stays empty."""
+    calls: list[str] = []
 
-    return install
+    def classify(*args: Any, **kwargs: Any) -> decision.Decision:
+        calls.append("classify")
+        raise AssertionError("recommend asked a model")
 
+    def probe(*args: Any, **kwargs: Any) -> AvailabilityVerdict:
+        calls.append("probe_endpoint")
+        raise AssertionError("recommend probed for a model")
 
-@pytest.fixture
-def probe(monkeypatch: pytest.MonkeyPatch) -> Any:
-    def install(live: bool = True) -> list[Any]:
-        calls: list[Any] = []
-
-        def fake(endpoint: Any, timeout_s: float = 2.0) -> AvailabilityVerdict:
-            calls.append(endpoint)
-            return AvailabilityVerdict(
-                source="recommend",
-                live=live,
-                reason="stub",
-                how="stub",
-                elapsed_s=0.0,
-            )
-
-        monkeypatch.setattr(availability, "probe_endpoint", fake)
-        return calls
-
-    return install
+    monkeypatch.setattr(decision, "classify", classify)
+    monkeypatch.setattr(availability, "probe_endpoint", probe)
+    return calls
 
 
 @pytest.fixture
@@ -482,8 +421,6 @@ def run_and_parse(
 
 def test_recommend_accepts_every_profile(
     ssh: Any,
-    classify: Any,
-    probe: Any,
     monkeypatch: pytest.MonkeyPatch,
     capsys: pytest.CaptureFixture[str],
 ) -> None:
@@ -495,8 +432,6 @@ def test_recommend_accepts_every_profile(
     has a model it fits at its 8k floor.
     """
     ssh()
-    classify()
-    probe()
     roomy = {
         "models": [
             *FAKE_CATALOG["models"],
@@ -520,11 +455,9 @@ def test_recommend_accepts_every_profile(
 
 
 def test_recommend_accepts_a_numeric_user_count(
-    ssh: Any, classify: Any, probe: Any, capsys: pytest.CaptureFixture[str]
+    ssh: Any, capsys: pytest.CaptureFixture[str]
 ) -> None:
     ssh()
-    classify()
-    probe()
     code, plan = run_and_parse(capsys, "code", "3", STORE_DIR)
     assert code == 0
     assert plan["users"] == 3
@@ -532,8 +465,6 @@ def test_recommend_accepts_a_numeric_user_count(
 
 def test_recommend_re_reads_the_rig_and_uses_measured_not_stored_numbers(
     ssh: Any,
-    classify: Any,
-    probe: Any,
     monkeypatch: pytest.MonkeyPatch,
     capsys: pytest.CaptureFixture[str],
     tmp_path: Path,
@@ -545,8 +476,6 @@ def test_recommend_re_reads_the_rig_and_uses_measured_not_stored_numbers(
     not ``STALE_MIB``.
     """
     recorder = ssh()
-    classify()
-    probe()
     stale = scan_module.Scan.from_json(scan_json(HOST, STALE_MIB))
     rigs = tmp_path / "rigs"
     rigs.mkdir()
@@ -566,15 +495,11 @@ def test_recommend_re_reads_the_rig_and_uses_measured_not_stored_numbers(
 
 def test_recommend_prefers_the_local_store_over_the_catalog(
     ssh: Any,
-    classify: Any,
-    probe: Any,
     catalog: Any,
     capsys: pytest.CaptureFixture[str],
 ) -> None:
     """A fitting local checkpoint wins; the catalog is not consulted for it."""
     recorder = ssh()
-    classify()
-    probe()
     catalog()
 
     code, plan = run_and_parse(capsys, "code", "single", STORE_DIR)
@@ -591,7 +516,7 @@ def test_recommend_prefers_the_local_store_over_the_catalog(
 
 
 def test_recommend_placement_carries_the_measured_local_context_length(
-    ssh: Any, classify: Any, probe: Any, capsys: pytest.CaptureFixture[str]
+    ssh: Any, capsys: pytest.CaptureFixture[str]
 ) -> None:
     """The placement carries the window the local checkpoint was priced at.
 
@@ -600,8 +525,6 @@ def test_recommend_placement_carries_the_measured_local_context_length(
     window it was priced at.
     """
     ssh()
-    classify()
-    probe(live=False)
 
     code, plan = run_and_parse(capsys, "code", "single", STORE_DIR)
     assert code == 0
@@ -611,15 +534,11 @@ def test_recommend_placement_carries_the_measured_local_context_length(
 
 def test_recommend_placement_carries_the_shipped_catalog_context_length(
     ssh: Any,
-    classify: Any,
-    probe: Any,
     catalog: Any,
     capsys: pytest.CaptureFixture[str],
 ) -> None:
     """A catalog placement carries its shipped ``context_length``."""
     ssh()
-    classify()
-    probe(live=False)
     catalog()
 
     code, plan = run_and_parse(capsys, "code", "single")
@@ -630,8 +549,6 @@ def test_recommend_placement_carries_the_shipped_catalog_context_length(
 
 def test_recommend_falls_back_to_the_catalog_when_no_store_is_given(
     ssh: Any,
-    classify: Any,
-    probe: Any,
     catalog: Any,
     capsys: pytest.CaptureFixture[str],
 ) -> None:
@@ -642,8 +559,6 @@ def test_recommend_falls_back_to_the_catalog_when_no_store_is_given(
     entry that does not fit ``FREE_MIB``.
     """
     ssh()
-    classify()
-    probe(live=False)
     catalog()
 
     code, plan = run_and_parse(capsys, "code", "single")
@@ -658,16 +573,12 @@ def test_recommend_falls_back_to_the_catalog_when_no_store_is_given(
 
 def test_recommend_falls_back_to_the_catalog_when_nothing_local_fits(
     ssh: Any,
-    classify: Any,
-    probe: Any,
     catalog: Any,
     capsys: pytest.CaptureFixture[str],
 ) -> None:
     """A store whose only checkpoint cannot fit is not a source of a placement."""
     recorder = ssh()
     recorder.header_sizes[CHECKPOINT] = 50_000_000_000
-    classify()
-    probe(live=False)
     catalog()
 
     code, plan = run_and_parse(capsys, "code", "single", STORE_DIR)
@@ -680,47 +591,41 @@ def test_recommend_falls_back_to_the_catalog_when_nothing_local_fits(
 
 
 def test_coding_places_and_the_other_profiles_are_scaffolded(
-    ssh: Any, classify: Any, probe: Any, capsys: pytest.CaptureFixture[str]
+    ssh: Any, asked: list[str], capsys: pytest.CaptureFixture[str]
 ) -> None:
     """``coding`` is honoured with a real placement; the profile that is not a
     use case is a stub (chat and agent place too, from their own candidates,
     in ``test_a_chat_setup_no_longer_plans_a_coding_model.py``).
 
-    A real placement names a checkpoint and an engine and consults the decision
-    seam. A scaffold names neither an engine nor a checkpoint and consults
-    nothing.
+    A real placement names a checkpoint and an engine, picked without a model.
+    A scaffold names neither an engine nor a checkpoint and consults nothing.
     """
     ssh()
-    decisions = classify()
-    probe()
 
     code, plan = run_and_parse(capsys, "code", "single", STORE_DIR)
     assert code == 0
     rendered = _text(plan)
     assert CHECKPOINT in rendered
     assert any(engine in rendered for engine in ENGINES)
-    assert decisions.calls
-    assert plan["decision"] == "model"
+    assert asked == []
+    assert plan["decision"] == "deterministic"
 
     for profile in ("other",):
-        decisions.calls.clear()
         code, plan = run_and_parse(capsys, profile, "single", STORE_DIR)
         assert code == 0
         rendered = _text(plan)
         assert not any(engine in rendered for engine in ENGINES)
-        assert not decisions.calls
+        assert asked == []
         assert plan["placement"] is None
         assert plan["decision"] is None
 
 
 def test_recommend_reads_each_checkpoint_header_it_is_asked_about(
-    ssh: Any, classify: Any, probe: Any, capsys: pytest.CaptureFixture[str]
+    ssh: Any, capsys: pytest.CaptureFixture[str]
 ) -> None:
     """Every checkpoint discovered in ``--model-store`` is read on the rig."""
     recorder = ssh()
     recorder.ggufs = [CHECKPOINT, OTHER]
-    classify()
-    probe(live=False)
 
     code, _ = run_and_parse(capsys, "code", "single", STORE_DIR)
     assert code == 0
@@ -735,8 +640,6 @@ def test_recommend_reads_each_checkpoint_header_it_is_asked_about(
 
 def test_recommend_reads_the_header_on_the_rig_over_the_read_only_ssh_seam(
     ssh: Any,
-    classify: Any,
-    probe: Any,
     monkeypatch: pytest.MonkeyPatch,
     capsys: pytest.CaptureFixture[str],
 ) -> None:
@@ -748,8 +651,6 @@ def test_recommend_reads_the_header_on_the_rig_over_the_read_only_ssh_seam(
     ``*.gguf`` discovery use.
     """
     recorder = ssh()
-    classify()
-    probe(live=False)
     monkeypatch.setattr(ggufscan_module, "scan", _refuses_in_process_header_read)
 
     code, plan = run_and_parse(capsys, "code", "single", STORE_DIR)
@@ -762,25 +663,22 @@ def test_recommend_reads_the_header_on_the_rig_over_the_read_only_ssh_seam(
     assert SIZE_BYTES in _numbers(plan)
 
 
-def test_recommend_with_no_backend_falls_back_deterministically(
+def test_recommend_picks_deterministically_and_asks_no_model(
     ssh: Any,
-    classify: Any,
-    probe: Any,
+    asked: list[str],
     capsys: pytest.CaptureFixture[str],
 ) -> None:
-    """No backend is reachable: the plan picks deterministically and says so.
+    """The plan picks deterministically and says so.
 
     The plan carries only the measured numbers, records ``decision`` as
-    ``deterministic``, and never consults the model.
+    ``deterministic``, and never asks or probes for a model.
     """
     ssh()
-    decisions = classify()
-    probe(live=False)
 
     code, plan = run_and_parse(capsys, "code", "single", STORE_DIR)
     assert code == 0
     assert plan["decision"] == "deterministic"
-    assert decisions.calls == []
+    assert asked == []
     numbers = _numbers(plan)
     assert FREE_MIB in numbers
     assert AVAILABLE_RAM_GB in numbers
@@ -789,8 +687,6 @@ def test_recommend_with_no_backend_falls_back_deterministically(
 
 def test_recommend_deterministic_fallback_picks_the_largest_checkpoint_that_fits(
     ssh: Any,
-    classify: Any,
-    probe: Any,
     capsys: pytest.CaptureFixture[str],
 ) -> None:
     """The deterministic rule is fixed: the largest fitting checkpoint wins."""
@@ -798,8 +694,6 @@ def test_recommend_deterministic_fallback_picks_the_largest_checkpoint_that_fits
     recorder.ggufs = [CHECKPOINT, OTHER]
     recorder.header_sizes[CHECKPOINT] = SIZE_BYTES
     recorder.header_sizes[OTHER] = 3_000_000_000
-    classify()
-    probe(live=False)
 
     code, plan = run_and_parse(capsys, "code", "single", STORE_DIR)
     assert code == 0
@@ -810,8 +704,6 @@ def test_recommend_deterministic_fallback_picks_the_largest_checkpoint_that_fits
 
 def test_recommend_deterministic_catalog_fallback_picks_the_largest_that_fits(
     ssh: Any,
-    classify: Any,
-    probe: Any,
     catalog: Any,
     capsys: pytest.CaptureFixture[str],
 ) -> None:
@@ -822,8 +714,6 @@ def test_recommend_deterministic_catalog_fallback_picks_the_largest_that_fits(
     one and never the larger non-fitting entry.
     """
     ssh()
-    classify()
-    probe(live=False)
     catalog()
 
     code, plan = run_and_parse(capsys, "code", "single")
@@ -833,26 +723,8 @@ def test_recommend_deterministic_catalog_fallback_picks_the_largest_that_fits(
     assert plan["placement"]["size_bytes"] == 4_000_000_000
 
 
-def test_recommend_with_a_reachable_backend_records_model_and_endpoint(
-    ssh: Any,
-    classify: Any,
-    probe: Any,
-    capsys: pytest.CaptureFixture[str],
-) -> None:
-    """A reachable backend answers the decision: the plan says ``model`` + endpoint."""
-    ssh()
-    decisions = classify()
-    probe(live=True)
-
-    code, plan = run_and_parse(capsys, "code", "single", STORE_DIR)
-    assert code == 0
-    assert plan["decision"] == "model"
-    assert plan["decision_endpoint"] == "http://127.0.0.1:8080"
-    assert decisions.calls
-
-
 def test_recommend_ships_the_scan_and_does_not_require_mcgyvr(
-    ssh: Any, classify: Any, probe: Any, capsys: pytest.CaptureFixture[str]
+    ssh: Any, capsys: pytest.CaptureFixture[str]
 ) -> None:
     """The remote scan is the shipped ``python3 -`` script, not ``mcgyvr scan``.
 
@@ -861,8 +733,6 @@ def test_recommend_ships_the_scan_and_does_not_require_mcgyvr(
     succeeds against a rig that only has python3.
     """
     recorder = ssh()
-    classify()
-    probe()
 
     code, plan = run_and_parse(capsys, "code", "single", STORE_DIR)
     assert code == 0
@@ -899,8 +769,6 @@ class ScanFailuresSsh:
 
 def test_recommend_plan_distinguishes_the_three_scan_failure_modes(
     monkeypatch: pytest.MonkeyPatch,
-    classify: Any,
-    probe: Any,
     catalog: Any,
     capsys: pytest.CaptureFixture[str],
 ) -> None:
@@ -917,8 +785,6 @@ def test_recommend_plan_distinguishes_the_three_scan_failure_modes(
             }
         ),
     )
-    classify()
-    probe(live=False)
     catalog()
 
     code, plan = run_and_parse(
@@ -936,8 +802,6 @@ def test_recommend_plan_distinguishes_the_three_scan_failure_modes(
 
 def test_users_budget_the_placement_and_change_the_flags(
     monkeypatch: pytest.MonkeyPatch,
-    classify: Any,
-    probe: Any,
     catalog: Any,
     capsys: pytest.CaptureFixture[str],
 ) -> None:
@@ -952,8 +816,6 @@ def test_users_budget_the_placement_and_change_the_flags(
         "_ssh",
         RecordedSsh(HOST, header_builder=recurrent_header),
     )
-    classify()
-    probe(live=False)
     catalog()
 
     single_code, single_plan = run_and_parse(capsys, "code", "single", STORE_DIR)
@@ -971,8 +833,6 @@ def test_users_budget_the_placement_and_change_the_flags(
 
 def test_recommend_treats_a_missing_store_dir_as_empty_not_a_failure(
     ssh: Any,
-    classify: Any,
-    probe: Any,
     capsys: pytest.CaptureFixture[str],
 ) -> None:
     """A store directory that does not exist on the rig contributes nothing.
@@ -984,8 +844,6 @@ def test_recommend_treats_a_missing_store_dir_as_empty_not_a_failure(
     """
     recorder = ssh()
     recorder.missing_dirs = {MISSING_STORE_DIR}
-    classify()
-    probe(live=False)
 
     code, plan = run_and_parse(capsys, "code", "single", MISSING_STORE_DIR, STORE_DIR)
     assert code == 0
@@ -999,8 +857,6 @@ def test_recommend_treats_a_missing_store_dir_as_empty_not_a_failure(
 def test_recommend_catalog_budgets_kv_on_top_of_size(
     monkeypatch: pytest.MonkeyPatch,
     ssh: Any,
-    classify: Any,
-    probe: Any,
     capsys: pytest.CaptureFixture[str],
 ) -> None:
     """A catalog entry that fits by size alone but not with its KV cache is out.
@@ -1010,8 +866,6 @@ def test_recommend_catalog_budgets_kv_on_top_of_size(
     so the deterministic pick must name the smaller entry whose size+KV fits.
     """
     ssh()
-    classify()
-    probe(live=False)
     monkeypatch.setattr(
         recommend_module, "load_catalog", lambda *a, **k: KV_HEAVY_CATALOG
     )
@@ -1025,8 +879,6 @@ def test_recommend_catalog_budgets_kv_on_top_of_size(
 
 def test_recommend_rejects_an_moe_whose_expert_spill_exceeds_host_ram(
     monkeypatch: pytest.MonkeyPatch,
-    classify: Any,
-    probe: Any,
     catalog: Any,
     capsys: pytest.CaptureFixture[str],
 ) -> None:
@@ -1042,8 +894,6 @@ def test_recommend_rejects_an_moe_whose_expert_spill_exceeds_host_ram(
         "_ssh",
         RecordedSsh(HOST, header_builder=ram_heavy_moe_header),
     )
-    classify()
-    probe(live=False)
     catalog()
 
     code, plan = run_and_parse(capsys, "code", "single", STORE_DIR)

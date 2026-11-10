@@ -8,12 +8,14 @@ archive per system and architecture; this module pins which
 (:func:`asset_name`) and, for each, the length and sha256 it must have
 (:data:`RELEASE`), as :mod:`mcgyvr.serving.llamacpp` pins llama.cpp. The
 archives are fetched, verified and unpacked by :mod:`mcgyvr.serving.release`,
-nothing else, and nothing that is not pinned here is fetched.
+nothing else, and nothing that is not pinned here is fetched. What the pin
+promises the helper's releases (tag, asset names, archive layout) is section 1
+of ``HELPER-SPEC.md`` beside this module.
 
 :data:`RELEASE` holds one archive per system and architecture of the
 helper's ``v0.1.0``: each digest is taken from the helper's own reproducible
-build and was checked against the archive both the GitHub release and the
-Forgejo release publish before it was committed here. A Linux rig never runs
+build and was checked against the archive the helper's published release
+serves before it was committed here. A Linux rig never runs
 the helper (its sessions run in docker); its archives are pinned because the
 helper ships them. A system or architecture with no row offers no native
 session, and :func:`helper` refuses for it before anything is fetched.
@@ -30,8 +32,8 @@ from mcgyvr.serving.release import Asset, Release, ReleaseError, install
 
 #: The pinned helper release.
 TAG = "v0.1.0"
-#: Where it is published (the helper's own repository, mirrored where
-#: :data:`mcgyvr.serving.release.DOWNLOAD_URL` reaches it).
+#: Where it is published: the helper's GitHub repository, the one
+#: :data:`mcgyvr.serving.release.DOWNLOAD_URL` reaches (HELPER-SPEC.md, section 1).
 REPO = "AdarGit008/mcgyvr-wg"
 #: The program each archive holds (``.exe`` added on Windows).
 PROGRAM = "mcgyvr-wg"
@@ -42,8 +44,8 @@ PROTO = 1
 ARCHIVE = {"darwin": "tar.gz", "linux": "tar.gz", "windows": "zip"}
 
 #: The pinned archives: the helper's v0.1.0, built reproducibly from the tag
-#: (Go 1.27.3, CGO off, ``-trimpath``) and checked against the archives the
-#: GitHub release and the Forgejo release publish (module docstring).
+#: (Go 1.27.3, CGO off, ``-trimpath``) and checked against the archives its
+#: published release serves (module docstring).
 RELEASE = Release(
     repo=REPO,
     tag=TAG,

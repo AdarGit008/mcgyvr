@@ -89,7 +89,8 @@ live, probes the live one against its lock, and lists pulled combinations.
   which plans the contracts and runs them.
 
 Read-only introspection: `mcgyvr config`, `mcgyvr local_pool`,
-`mcgyvr catalog`, `mcgyvr sandbox` and `mcgyvr capabilities`.
+`mcgyvr catalog`, `mcgyvr sandbox`, `mcgyvr capabilities` and `mcgyvr usage`
+(what the journal's runs spent and came to).
 
 ## What decides acceptance
 

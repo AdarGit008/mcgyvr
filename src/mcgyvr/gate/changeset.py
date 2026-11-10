@@ -15,12 +15,7 @@ from collections.abc import Iterator, Mapping
 from dataclasses import dataclass
 from pathlib import Path
 
-from mcgyvr.gitcmd import run_git
-
-# Well-known git object id of the empty tree. It is used as the base when the
-# repository has no commits yet, so `git read-tree` still has a tree to start
-# the temporary index from and every worktree file shows up as added.
-_EMPTY_TREE = "4b825dc642cb6eb9a060e54bf8d69288fbee4904"
+from mcgyvr.gitcmd import EMPTY_TREE, run_git
 
 
 class ChangeSetError(Exception):
@@ -153,7 +148,7 @@ def _resolve_base(root: Path, base: str) -> str:
         cwd=root,
         capture_output=True,
     )
-    return "HEAD" if proc.returncode == 0 else _EMPTY_TREE
+    return "HEAD" if proc.returncode == 0 else EMPTY_TREE
 
 
 def _git(

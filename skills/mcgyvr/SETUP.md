@@ -170,6 +170,28 @@ you read all three:
 `mcgyvr config` prints the resolved config; `mcgyvr detect` shows what
 can run the work; `mcgyvr capabilities` shows the shipped capability table.
 
+A unit split across machines (`units.launch.shards`) is checked before
+anything starts: a split that cannot be launched is refused when
+`mcgyvr emit` or `mcgyvr setup` sizes its units against the rigs. Once
+it is up, nothing watches the unit as a whole. Its head and each worker
+are services of their own rig's launch spec, and each is kept up on its
+own. A docker part has docker's `unless-stopped` restart policy and
+whatever starts docker when the rig boots (systemd, on most Linux
+rigs). A part whose unit takes `launcher: native` has
+mcgyvr's own supervisor, which restarts it when it exits, after a
+growing pause, and gives up after five exits running; nothing starts
+that supervisor again when the rig boots, so a native part stays down
+after a reboot until its rig's `serve up` runs again. That is all the
+supervision there is. Nothing orders a worker before its head or ties
+their health together, and a worker on another rig is in that rig's
+file, which the head's cannot name. So when a worker stops or its rig
+reboots, the head is not told, and requests to the unit fail or time
+out until the worker is back. The serving door's `serve down` then
+`serve up` on the head's rig starts the head afresh against its
+workers: `python -m mcgyvr.serving.run serve down --host RIG --compose
+FILE`, then the same with `serve up`, where `FILE` is the launch spec
+`mcgyvr emit` wrote for that rig.
+
 ## macOS and Windows
 
 mcgyvr runs on macOS and Windows as it does on Linux; this is what differs. `~` is your home folder
@@ -194,11 +216,11 @@ powershell -NoProfile -ExecutionPolicy RemoteSigned -File mcgyvr\skills\mcgyvr\i
   `%LOCALAPPDATA%\mcgyvr\cache` on Windows.
 - config (`$MCGYVR_HOME`): `~/.mcgyvr` on every system.
 
-`$XDG_STATE_HOME` and `$XDG_CACHE_HOME` still win when set (the weights follow `$MCGYVR_WEIGHTS` alone),
-and `journal.dir` defaults to `~/.local/state/mcgyvr/journal` everywhere. Windows checks no file owner or
-mode: a file is as private as its folder, and these folders are in your own profile. A folder named by
-`$MCGYVR_HOME`, `$MCGYVR_DATA` or an XDG variable keeps whatever ACL it has, so keep the rig token's
-folder (`$MCGYVR_HOME`) inside your profile.
+`$XDG_STATE_HOME` and `$XDG_CACHE_HOME` still win when absolute (the weights follow `$MCGYVR_WEIGHTS`
+alone), and `journal.dir` defaults to `~/.local/state/mcgyvr/journal` everywhere. Windows checks no file
+owner or mode: a file is as private as its folder, and these folders are in your own profile. A folder
+named by `$MCGYVR_HOME`, `$MCGYVR_DATA` or an XDG variable keeps whatever ACL it has, so keep the rig
+token's folder (`$MCGYVR_HOME`) inside your profile.
 
 **Serving, with no Docker.** On a Mac or a Windows machine, `mcgyvr setup` writes `launcher: native` for
 a llama.cpp unit on the machine it runs on. Its first start fetches the llama.cpp build mcgyvr pins
@@ -432,7 +454,7 @@ Each entry takes these keys:
 | `units.launcher` | one of `docker`, `native` | no | unset | How this unit's server runs. `docker`: in a container, kept up by the docker daemon (Linux, NVIDIA). `native`: the llama.cpp release build mcgyvr pins, fetched into `bin/llama.cpp/<tag>/` under the mcgyvr home, checked against its pinned sha256, and kept up by mcgyvr's own supervisor, which restarts it with a growing pause and gives up after a few crashes: Metal on a Mac, CUDA where `nvidia-smi` reads a driver it runs, else Vulkan, else the CPU. A native unit listens on 127.0.0.1 alone, so no firewall is expected to ask: on macOS and Windows the hub reaches it through the rig agent's relay to that local address, and a pooled worker binds the tunnel address only, so a unit stating another `--host` is refused; its log is `logs/<container>.log` in the data folder. llama.cpp only. On a Mac or Windows rig reached over ssh (its rig file, `mcgyvr scan --rig`, says so) the door ships the launcher there and it runs the same way, with no docker. Absent means `docker`; `setup` writes `native` for a unit on a Mac or Windows machine, this one or such a rig. To bind it: e.g. native -- leave it out for a container. |
 | `units.expose` | one of `local`, `lan` | no | unset | Who may reach this unit's server. `local`: this machine alone, on 127.0.0.1. `lan`: every machine that reaches this one, on every interface, and only with the API key mcgyvr makes for the unit the first time `mcgyvr emit` writes it: kept at mode 0600 in `unit-keys/<host>-<port>.env` in the data folder, handed to the server through its compose file's `env_file` (never written into the compose file or `fleet.yaml`) and sent by mcgyvr's own requests to the unit; `mcgyvr fleet key <unit>` prints it for a client of your own. A `--host` the unit's own args state, or a `LLAMA_ARG_HOST` its env states, is kept as stated. A docker unit only: a native one listens on 127.0.0.1 alone, and a pooled rpc worker on its tunnel address. Absent means `local` for a unit whose address names this machine (localhost, 127.0.0.1, ::1) or that runs native, and `lan` for one whose address names another host, which is the only way that address reaches it. To bind it: e.g. local -- leave it out to follow the unit's address. |
 | `units.api_key_env` | env var name | no | unset | NAME of the environment variable holding this unit's key. To bind it: set it to the variable's NAME (e.g. ANTHROPIC_API_KEY), never the key itself. |
-| `units.scope` | one of `own`, `crew`, `anyone` | no | `own` | Whose rigs may serve this unit's requests, named on each one in the `x-mcgyvr-scope` header: `own` (your own rigs), `crew` (your crews' too) or `anyone`. A hub serves the request from that scope's pool; a server of your own ignores it. A ladder step or a role may bind the unit only where its pool serves the setup's use case, so under `mcgyvr-code` a unit served from the hub's general pool, which serves models raw, is refused when the setup is read. Unset is `own`. |
+| `units.scope` | one of `own`, `crew`, `anyone` | no | `own` | Whose rigs may serve this unit's requests, named on each one in the `x-mcgyvr-scope` header: `own` (your own rigs), `crew` (your crews' too) or `anyone`. A hub serves the request from that scope's pool; a server of your own ignores it. A ladder step or a role may bind the unit only where its pool serves the setup's use case (every pool a unit is served from serves all four), else it is refused when the setup is read. Unset is `own`. |
 | `units.rig` | text | no | unset | The rig this unit runs on, by the name fleet.yaml uses. Units that share a rig and an address are served by one process. To bind it: e.g. box.example. |
 | `units.width` | number (min 1) | no | unset | How many requests this unit may run at once. Concurrency is a property of the process, so it is a unit fact. To bind it: e.g. 8 -- the slot count the backend was started with. |
 | `units.window` | number (min 1) | no | unset | Tokens this unit serves in one request. Read it back off the running process, not hoped for: `setup` reads it off a local backend and writes it, and lists a unit it could not read as not configured. Less the prompt, it is the room every reply on this unit is clamped to; a unit with neither `window` nor `output_tokens` refuses code dispatch. To bind it: e.g. 4096 -- what the unit reports, not what you hoped for. |
@@ -536,6 +558,7 @@ What mcgyvr may do to the machines that serve the units. A unit's HuggingFace ca
 | --- | --- | --- | --- | --- |
 | `serving.enable_sleep_wake` | boolean | no | `false` | Whether mcgyvr may take a card down and bring it back on its own. Off by default, because the feature is a trade and not an improvement: turning it on lets a run stop containers on a rig other people share. It is a key here and not a `--flag` for the reason `--config` already gives about which rung runs — the config a run is made under is what a run is reproducible from, and a flag would let two runs share one config where only one of them started and stopped containers on a shared rig, putting the rig side effect outside the only record that explains the run. A card sleeps when a person runs `mcgyvr serve sleep`, or when a run swaps a sleeper in to make room and puts it back once it is idle; a sleep rests a vLLM card at level 2, which keeps its process and drops its weights and KV cache, and stops the containers of any other card, of a vLLM card with no sleep route, or of one holding a unit split across machines, whose level 2 is not measured; either way the next wake loads the model from disk. For that sleep it also makes `mcgyvr emit` start every vLLM unit with `--enable-sleep-mode` and `VLLM_SERVER_DEV_MODE=1`, which registers vLLM's development routes -- /sleep, /wake_up, /reset_prefix_cache and others -- on the unit's serving port, unauthenticated: anyone who can reach that port can sleep, wake or reset the unit. The emitted file says so in a comment. With the switch off, emit writes neither. It governs the *decisions*: `mcgyvr serve sleep\|wake`, typed by a person who has therefore asked, is not gated by it. It is a key of its own rather than part of `fanout` because `fanout` decides where work goes among rungs that exist and this decides whether rungs come into existence — two authorities, and only one of them touches a rig. |
 | `serving.compose_dir` | text | no | unset | Where this checkout keeps the launch specs `mcgyvr emit` wrote. The one thing that has to be stated rather than derived, because `mcgyvr emit --out` defaults to the current directory and a wake has to find the file again. It is deliberately not a device and not a host: a `device: cuda:0` beside a unit's `address` would be two statements of one fact and would go stale the first time a unit was re-pointed, whereas this cannot go stale against anything — it says where files are, not where work runs. A config that omits it has no sleeping cards at all, only down ones: `asleep` is `down` plus a launch spec mcgyvr holds for that card, and with no directory there is no spec. To bind it: the directory `mcgyvr emit --out` writes to -- e.g. ~/.mcgyvr/fleets/<fleet>/compose -- or leave it unset and this ladder has no sleeping cards, only down ones. |
+| `serving.start_timeout_s` | decimal number (min 0.0) | no | `360.0` | How long the serving door's `serve up` and `serve wake` watch a unit come up before they give up on it and report it down, in seconds. The unit is asked for the models it serves every 3 s until it lists them and does not read as asleep, and at least once however short this is. `mcgyvr serve wake` and a run that wakes a card go through the same door, so they are bounded by this too. The door reads it from the config `$MCGYVR_CONFIG` names, else from the live fleet's, never from a `--config` path given to the command that started it. Raise it for a model whose load takes longer, such as a large vLLM unit read off a slow disk. To bind it: seconds; e.g. 900 for a load that takes longer than six minutes. |
 
 ## `journal`
 
@@ -543,7 +566,7 @@ Where mcgyvr keeps its own record of what it dispatched. To say what a run belon
 
 | Key | Type | Required | Default | Description |
 | --- | --- | --- | --- | --- |
-| `journal.dir` | text | no | `~/.local/state/mcgyvr/journal` | Where every run journals what it asked, what came back and how it landed: one `<orchestrator>.jsonl` per writer, the prompts and replies content-addressed under `blobs/`, and each run's result file under `results/`. Deterministic runs are here too, with a row naming the program instead of a model. This is mcgyvr's own record, it never lands in the repository a run works on, and nothing on the command line moves it: it is the one place every run is, which is what makes it worth asking questions of. `--record DIR` on either verb adds a second copy for your own use. Read either copy back from DIR directly: one JSONL per writer, prompts and replies under `blobs/`, results under `results/`. |
+| `journal.dir` | text | no | `~/.local/state/mcgyvr/journal` | Where every run journals what it asked, what came back and how it landed: one `<orchestrator>.jsonl` per writer, the prompts and replies content-addressed under `blobs/`, and each run's result file under `results/`. Deterministic runs are here too, with a row naming the program instead of a model. This is mcgyvr's own record, it never lands in the repository a run works on, and nothing on the command line moves it: it is the one place every run is, which is what makes it worth asking questions of. `--record DIR` on either verb adds a second copy for your own use. `mcgyvr usage` reads the journal back: per run and per rung, the attempts, the tokens and time they spent, and the verdicts they came to. Every row carries the layout version it was written under, and `mcgyvr usage` refuses a row of a version it does not read rather than misread it. Either copy can also be read from DIR directly: one JSONL per writer, prompts and replies under `blobs/`, results under `results/`. |
 
 ## `relief`
 

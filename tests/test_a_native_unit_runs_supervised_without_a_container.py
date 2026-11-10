@@ -4,7 +4,8 @@ A stand-in llama-server (``tests/fake_llama_server.py``, written out as the
 build's ``llama-server``) is started from a launch spec whose service is
 native. Its supervisor holds the unit's lock, records both pids with their
 start times and programs, logs the server's output, files the Metal working
-set the server's start-up log states as a reading, and answers ``down`` by
+set the server's start-up log states as a reading with the wired limit in
+force (which the machine reader then takes), and answers ``down`` by
 stopping it. A server that crashes is restarted after a pause, and one that
 keeps crashing is given up on once the restarts allowed are spent.
 """
@@ -12,6 +13,7 @@ keeps crashing is given up on once the restarts allowed are spent.
 from __future__ import annotations
 
 import json
+import os
 import socket
 import sys
 import time
@@ -22,7 +24,15 @@ import pytest
 import yaml
 
 from mcgyvr import hostos
-from mcgyvr.serving import CARDS_KEY, LAUNCHER_KEY, PROGRAM_KEY, llamacpp, native
+from mcgyvr.fleet import roots
+from mcgyvr.serving import (
+    CARDS_KEY,
+    LAUNCHER_KEY,
+    PROGRAM_KEY,
+    llamacpp,
+    native,
+    rigscan,
+)
 
 pytestmark = pytest.mark.skipif(
     sys.platform == "win32", reason="the stand-in server is a script with a shebang"
@@ -65,6 +75,27 @@ def _spec(tmp_path: Path, port: int, env: dict[str, str] | None = None) -> Path:
 
 
 METAL_BUILD = llamacpp.Build("darwin", "arm64", "metal", "macos-arm64", ("x",))
+#: The wired limit the invented Mac's stand-in sysctl prints, in MB.
+WIRED_LIMIT = 30000
+
+
+@pytest.fixture
+def wired_limit(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    """A stand-in sysctl first on PATH, for the supervisor and this process alike,
+    printing :data:`WIRED_LIMIT` for the GPU's wired limit."""
+    tools = tmp_path / "tools"
+    tools.mkdir()
+    sysctl = tools / rigscan.SYSCTL
+    sysctl.write_text(
+        f"#!{sys.executable}\n"
+        "import sys\n"
+        f"if sys.argv[1:] != ['-n', {rigscan.SYSCTL_WIRED_LIMIT!r}]:\n"
+        "    raise SystemExit(1)\n"
+        f"print({WIRED_LIMIT})\n",
+        encoding="utf-8",
+    )
+    sysctl.chmod(0o700)
+    monkeypatch.setenv("PATH", f"{tools}{os.pathsep}{os.environ.get('PATH', '')}")
 
 
 @pytest.fixture
@@ -83,7 +114,7 @@ def _until(check: object, budget: float = 20.0) -> bool:
 
 
 def test_a_native_unit_comes_up_answers_and_goes_down(
-    tmp_path: Path, stopped_after: None
+    tmp_path: Path, stopped_after: None, wired_limit: None
 ) -> None:
     port = _port()
     programs = _programs(tmp_path)
@@ -107,10 +138,15 @@ def test_a_native_unit_comes_up_answers_and_goes_down(
     )
     assert record["port"] == port
 
-    assert _until(lambda: native.metal_working_set() is not None)
-    reading = native.metal_working_set() or {}
+    filed = native.state_dir() / roots.METAL_FILE
+    assert _until(filed.exists)
+    reading, unused = rigscan.metal_working_set()
+    assert unused == ""
+    assert reading is not None
     assert reading["bytes"] == 22_906_500_000
     assert reading["figure"] == "reading"
+    assert reading["wired_limit_mb"] == WIRED_LIMIT
+    assert json.loads(filed.read_text(encoding="utf-8")) == reading
 
     log = native.log_path(UNIT).read_text(encoding="utf-8")
     assert "recommendedMaxWorkingSetSize" in log

@@ -720,8 +720,9 @@ def _say_lent(report: Any) -> None:
         print(f"         {line}")
     if not any(resource.kind in CARD_KINDS for resource in lent):
         print(
-            "         memory and cores alone are advertised but not yet placeable: "
-            "no hub starts a head on a CPU yet"
+            "         memory and cores run a whole model on the CPU, no card: "
+            "the hub places a cpu head here when no card in the pool holds the "
+            "model (it earns no standby yet)"
         )
 
 
