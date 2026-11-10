@@ -12,8 +12,10 @@ from __future__ import annotations
 
 from typing import Any
 
+import pytest
+
 from mcgyvr.contract import OUTPUT_SCHEMAS, SCHEMA, loads
-from mcgyvr.worker.bundle import DIFF_RULE, BundleStanding, load_bundle
+from mcgyvr.worker.bundle import DIFF_RULE, BundleStanding, for_reply, load_bundle
 from mcgyvr.worker.prompt import _REPLY_INSTRUCTIONS, build_prompt
 
 CONTRACT = """
@@ -96,3 +98,17 @@ def test_a_whole_file_contract_is_sent_what_it_was_sent_before() -> None:
     assert prompt.bundle == measured
     assert prompt.bundle is not None
     assert prompt.bundle.standing is BundleStanding.MEASURED_REDUNDANT
+
+
+@pytest.mark.parametrize("key", ["python", "js/ts"])
+def test_every_shipped_bundle_has_the_rule_a_diff_reply_replaces(key: str) -> None:
+    """`for_reply` leaves a bundle with no whole-file rule as it is, so a
+    reworded bundle would tell a diff worker to return code: each shipped
+    bundle must carry the rule, and lose it for a diff."""
+    measured = load_bundle(key)
+    swapped = for_reply(measured, "unified_diff")
+
+    assert swapped.text != measured.text
+    assert DIFF_RULE in swapped.text
+    assert "Return ONLY code" not in swapped.text
+    assert for_reply(measured, "whole_file") is measured
