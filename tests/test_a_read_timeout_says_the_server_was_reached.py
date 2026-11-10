@@ -19,7 +19,7 @@ from typing import Any
 
 import pytest
 
-from mcgyvr.local_pool import Endpoint, Protocol
+from mcgyvr.ladder_map import Endpoint, Protocol
 from mcgyvr.runner import Request, TransportError, runner_for
 
 

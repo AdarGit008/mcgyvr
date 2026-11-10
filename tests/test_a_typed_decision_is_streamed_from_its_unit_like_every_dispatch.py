@@ -25,7 +25,7 @@ import pytest
 
 from mcgyvr import decision as decision_module
 from mcgyvr.decision import BoolAnswer, Noul, classify
-from mcgyvr.local_pool import Endpoint, Protocol
+from mcgyvr.ladder_map import Endpoint, Protocol
 from mcgyvr.runner import Hangup, HungUpError
 from tests.relays import Unit
 from tests.relays import _runner_serve as _serve

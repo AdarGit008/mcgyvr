@@ -16,7 +16,7 @@ from dataclasses import dataclass
 from typing import TYPE_CHECKING, Any, Protocol
 
 from mcgyvr import decision
-from mcgyvr.local_pool import Rung
+from mcgyvr.ladder_map import Rung
 from mcgyvr.runner import RunnerError
 
 if TYPE_CHECKING:  # pragma: no cover - typing only
@@ -24,7 +24,7 @@ if TYPE_CHECKING:  # pragma: no cover - typing only
 
     from mcgyvr.config import Config
     from mcgyvr.contract import Contract
-    from mcgyvr.local_pool import SourceMap
+    from mcgyvr.ladder_map import UnitMap
 
 #: The one question a judgment puts: a `Noul`, so the answer's value is true when
 #: the task reads as too hard for the fast resident model and the API alike.
@@ -64,7 +64,7 @@ class Difficulty:
 
 
 def judge(
-    pool: SourceMap,
+    pool: UnitMap,
     rung: str,
     state: Mapping[str, Any],
     *,
@@ -113,7 +113,7 @@ def state_for(contract: Contract, *, detail: str = "") -> dict[str, Any]:
     }
 
 
-def asleep_rungs(config: Config, pool: SourceMap) -> tuple[Rung, ...]:
+def asleep_rungs(config: Config, pool: UnitMap) -> tuple[Rung, ...]:
     """The pool's rungs that can be slept and woken, in the ladder's own order.
 
     `wake.wakeable_rungs` names the units with a launch spec and no resident
@@ -126,14 +126,14 @@ def asleep_rungs(config: Config, pool: SourceMap) -> tuple[Rung, ...]:
     return tuple(rung for rung in pool.rungs if rung.name in wakeable)
 
 
-def smart_rung(config: Config, pool: SourceMap) -> Rung | None:
+def smart_rung(config: Config, pool: UnitMap) -> Rung | None:
     """The rung a wake would bring up: the last of the sleepable ones, the
     ladder's smartest sleeping rung. None when nothing can be woken."""
     rungs = asleep_rungs(config, pool)
     return rungs[-1] if rungs else None
 
 
-def fast_rung(config: Config, pool: SourceMap) -> Rung | None:
+def fast_rung(config: Config, pool: UnitMap) -> Rung | None:
     """The rung a judgment is asked of: the first rung whose unit needs no
     credential, so the question is answered by a local model and not the API.
 
@@ -147,7 +147,7 @@ def fast_rung(config: Config, pool: SourceMap) -> Rung | None:
     return None
 
 
-def awake_judge(config: Config, pool: SourceMap, smart: str) -> Rung | None:
+def awake_judge(config: Config, pool: UnitMap, smart: str) -> Rung | None:
     """The rung a judgment is asked of now: the first credential-free rung,
     other than `smart`, that no record says is down.
 
@@ -171,7 +171,7 @@ def awake_judge(config: Config, pool: SourceMap, smart: str) -> Rung | None:
 
 def wake_before_api(
     config: Config,
-    pool: SourceMap,
+    pool: UnitMap,
     contract: Contract,
     *,
     judge_with: str,
@@ -196,7 +196,7 @@ def wake_before_api(
 
 def hook_for(
     config: Config,
-    pool: SourceMap,
+    pool: UnitMap,
     *,
     cooldown: Cooling | None = None,
     timeout_s: float | None = None,

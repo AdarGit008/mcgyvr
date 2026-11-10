@@ -1,4 +1,4 @@
-"""``mcgyvr local_pool`` lists its rungs in ladder order, and its header says so.
+"""``mcgyvr ladder show`` lists its rungs in ladder order, and its header says so.
 
 The rungs are printed in the order the ladder names them, which is the order
 work climbs them. The header said "cheapest first", which is only what a ladder
@@ -38,7 +38,7 @@ def test_the_header_names_ladder_order_and_the_rungs_follow_it(
 ) -> None:
     folder = write_setup(tmp_path / "setup", DEAR_FIRST)
 
-    assert main(["local_pool", str(folder)]) == 0
+    assert main(["ladder", "show", str(folder)]) == 0
     out = capsys.readouterr().out
 
     header = out.splitlines()[0]

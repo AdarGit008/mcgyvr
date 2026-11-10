@@ -24,7 +24,7 @@ from mcgyvr.config import parse as parse_config
 from mcgyvr.contract import loads as load_contract
 from mcgyvr.drive import worker_attempt
 from mcgyvr.escalate import Delivered, escalate
-from mcgyvr.local_pool import source_map
+from mcgyvr.ladder_map import unit_map
 from mcgyvr.sandbox.tempdir import TempDirSandbox
 
 LADDER = """\
@@ -99,13 +99,13 @@ def _climb(
     Returns each dispatch as (rung, prompt), in the order they were made.
     """
     import mcgyvr.drive as drive
-    from mcgyvr.local_pool import Protocol
+    from mcgyvr.ladder_map import Protocol
     from mcgyvr.runner import Completion, StopReason
 
     replies = {"local_a": REJECTED, "local_b": ACCEPTED}
     sent: list[tuple[str, str]] = []
 
-    def fake_dispatch(source_map: Any, rung: str, request: Any, **_: Any) -> Any:
+    def fake_dispatch(unit_map: Any, rung: str, request: Any, **_: Any) -> Any:
         sent.append((rung, request.prompt))
         return Completion(
             text=replies[rung],
@@ -120,7 +120,7 @@ def _climb(
 
     monkeypatch.setattr(drive, "dispatch", fake_dispatch)
     config = parse_config(LADDER + policy)
-    pool = source_map(config)
+    pool = unit_map(config)
     contract = load_contract(CONTRACT)
     with TempDirSandbox(repo) as sandbox:
         outcome = escalate(
@@ -152,12 +152,12 @@ def test_the_record_is_kept_where_the_climb_ends(
 ) -> None:
     """The accepted climb's history still holds local_a's record, named as its own."""
     import mcgyvr.drive as drive
-    from mcgyvr.local_pool import Protocol
+    from mcgyvr.ladder_map import Protocol
     from mcgyvr.runner import Completion, StopReason
 
     replies = {"local_a": REJECTED, "local_b": ACCEPTED}
 
-    def fake_dispatch(source_map: Any, rung: str, request: Any, **_: Any) -> Any:
+    def fake_dispatch(unit_map: Any, rung: str, request: Any, **_: Any) -> Any:
         return Completion(
             text=replies[rung],
             stop_reason=StopReason.COMPLETE,
@@ -171,7 +171,7 @@ def test_the_record_is_kept_where_the_climb_ends(
 
     monkeypatch.setattr(drive, "dispatch", fake_dispatch)
     config = parse_config(LADDER)
-    pool = source_map(config)
+    pool = unit_map(config)
     contract = load_contract(CONTRACT)
     with TempDirSandbox(repo) as sandbox:
         outcome = escalate(

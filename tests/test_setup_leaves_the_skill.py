@@ -40,7 +40,7 @@ INSTALLED_DIRS = tuple(
 #: The `mcgyvr` setup verbs; nothing an agent loads may name one.
 SETUP_VERBS: tuple[str, ...] = (
     "setup",
-    "local_pool",
+    "ladder show",
     "detect",
     "capabilities",
     "emit",
@@ -113,14 +113,14 @@ def test_skill_body_names_no_lever_as_a_config_lever(skill: Path) -> None:
 
 
 def test_setup_md_carries_the_first_run_onboarding_path() -> None:
-    """SETUP.md carries `mcgyvr setup` -> `mcgyvr local_pool` and the three levers."""
+    """SETUP.md carries `mcgyvr setup` -> `mcgyvr ladder show` and the three levers."""
     assert SETUP_MD.exists(), "skills/mcgyvr/SETUP.md must exist"
     text = SETUP_MD.read_text(encoding="utf-8")
     init_at = text.find("mcgyvr setup")
-    pool_at = text.find("mcgyvr local_pool")
+    pool_at = text.find("mcgyvr ladder show")
     assert init_at != -1, "SETUP.md must document `mcgyvr setup`"
-    assert pool_at != -1, "SETUP.md must document `mcgyvr local_pool`"
-    assert init_at < pool_at, "`mcgyvr setup` must come before `mcgyvr local_pool`"
+    assert pool_at != -1, "SETUP.md must document `mcgyvr ladder show`"
+    assert init_at < pool_at, "`mcgyvr setup` must come before `mcgyvr ladder show`"
     for lever in LEVERS:
         assert lever in text, f"SETUP.md must document the `{lever}` lever"
 

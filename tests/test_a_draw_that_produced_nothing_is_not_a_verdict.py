@@ -218,7 +218,7 @@ breadth:
 
 
 def _completion(text: str):  # type: ignore[no-untyped-def]
-    from mcgyvr.local_pool import Protocol
+    from mcgyvr.ladder_map import Protocol
     from mcgyvr.runner import Completion, StopReason
 
     return Completion(
@@ -238,7 +238,7 @@ def _answers(monkeypatch: pytest.MonkeyPatch, *replies: str) -> list[str]:
     sent: list[str] = []
     scripted = list(replies)
 
-    def fake_dispatch(source_map, rung, request, *, capacity=None):  # type: ignore[no-untyped-def]
+    def fake_dispatch(unit_map, rung, request, *, capacity=None):  # type: ignore[no-untyped-def]
         sent.append(request.prompt)
         if not scripted:
             raise AssertionError(f"an unscripted dispatch was made to {rung!r}")

@@ -78,6 +78,17 @@ def test_run_and_delegate_are_no_commands_and_spend_nothing(
     assert "`mcgyvr PROMPT`" in capsys.readouterr().err
 
 
+def test_the_old_ladder_verb_is_refused_with_its_new_name(
+    capsys: pytest.CaptureFixture[str],
+) -> None:
+    """`mcgyvr local_pool` is no command and is never sent as a prompt."""
+    parser, _, _ = _build()
+    assert "local_pool" not in _commands(parser)
+
+    assert lj.main(["local_pool"]) == 2
+    assert "`mcgyvr ladder show`" in capsys.readouterr().err
+
+
 def test_the_old_session_spelling_is_gone(tmp_path: Path) -> None:
     _, prompt, direct = _build()
     for parser in (prompt, direct):

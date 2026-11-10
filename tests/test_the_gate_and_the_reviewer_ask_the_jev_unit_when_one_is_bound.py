@@ -27,7 +27,7 @@ import mcgyvr.decision as decision
 from mcgyvr.config import parse
 from mcgyvr.decision import Noul, UnboundRoleError, classify_for, jev_bound
 from mcgyvr.gate.jev import jev_check_for
-from mcgyvr.local_pool import SourceMap, source_map
+from mcgyvr.ladder_map import UnitMap, unit_map
 from mcgyvr.verify import Reviewer, decider_for, reviewers_for
 
 SMALL = "http://localhost:18001/v1/chat/completions"
@@ -76,8 +76,8 @@ def _wire(monkeypatch: pytest.MonkeyPatch) -> list[tuple[str, str]]:
     return sent
 
 
-def _pool(text: str) -> SourceMap:
-    return source_map(parse(text))
+def _pool(text: str) -> UnitMap:
+    return unit_map(parse(text))
 
 
 STATE = {"change": "+x = 1\n"}
@@ -166,7 +166,7 @@ def test_the_reviewing_rungs_typed_half_asks_the_jev_unit_when_one_is_bound(
 ) -> None:
     sent = _wire(monkeypatch)
     config = parse(UNITS + jev)
-    reviewer = reviewers_for(config, source_map(config))("small")
+    reviewer = reviewers_for(config, unit_map(config))("small")
     assert isinstance(reviewer, Reviewer)
     # Who reviews is unchanged: the dearer rung serving another model.
     assert reviewer.unit == "big"

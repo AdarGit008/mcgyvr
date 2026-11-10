@@ -38,7 +38,7 @@ from mcgyvr.contract import loads as load_contract
 from mcgyvr.decision import BoolAnswer, Decision, DecisionError, Noul, ScoreAnswer
 from mcgyvr.escalate import Assurance, Opinion, Review, judge
 from mcgyvr.gate import GateResult
-from mcgyvr.local_pool import Protocol, Rung, source_map
+from mcgyvr.ladder_map import Protocol, Rung, unit_map
 from mcgyvr.route import Try, Verdict
 from mcgyvr.runner import Completion, StopReason, TransportError
 
@@ -174,7 +174,7 @@ def _worker_replies(monkeypatch: pytest.MonkeyPatch, *replies: str) -> list[str]
     scripted = list(replies)
     sent: list[str] = []
 
-    def fake(source_map, rung, request, *, capacity=None):  # type: ignore[no-untyped-def]
+    def fake(unit_map, rung, request, *, capacity=None):  # type: ignore[no-untyped-def]
         sent.append(rung)
         if not scripted:
             raise AssertionError(f"an unscripted worker dispatch to {rung!r}")
@@ -193,7 +193,7 @@ def _prose_reviews(
     scripted = list(replies)
     asked: list[tuple[str, str]] = []
 
-    def fake(source_map, rung, request, *, capacity=None):  # type: ignore[no-untyped-def]
+    def fake(unit_map, rung, request, *, capacity=None):  # type: ignore[no-untyped-def]
         asked.append((rung, request.prompt))
         if not scripted:
             raise AssertionError(f"an unscripted review dispatch to {rung!r}")
@@ -220,7 +220,7 @@ def _typed(
 
     asked: list[tuple[str, tuple[str, ...]]] = []
 
-    def fake(source_map, rung, state, questions, **kwargs):  # type: ignore[no-untyped-def]
+    def fake(unit_map, rung, state, questions, **kwargs):  # type: ignore[no-untyped-def]
         asked.append((rung, tuple(questions)))
         if raises is not None:
             raise raises
@@ -249,7 +249,7 @@ def _attempt_on(repo: Path, text: str, rung: str, model: str) -> Any:
     from mcgyvr.verify import reviewers_for
 
     config = parse_config(text)
-    pool = source_map(config)
+    pool = unit_map(config)
     contract = load_contract(CONTRACT)
     with TempDirSandbox(repo) as sandbox:
         attempt = worker_attempt(
@@ -274,14 +274,14 @@ def test_review_switched_off_asks_no_reviewer_and_says_why() -> None:
     from mcgyvr.verify import NoReviewer, reviewers_for
 
     config = parse_config(TWO_RUNGS + "verifier:\n  enabled: false\n")
-    chosen = reviewers_for(config, source_map(config))("small")
+    chosen = reviewers_for(config, unit_map(config))("small")
     assert isinstance(chosen, NoReviewer)
     assert "verifier.enabled: false" in chosen.reason
 
 
 def test_a_named_unit_with_no_model_reviews_with_the_units_own_model() -> None:
     config = parse_config(TWO_RUNGS + "verifier:\n  unit: big\n")
-    assert source_map(config).role_model("verifier") == "zeta-coder:32b"
+    assert unit_map(config).role_model("verifier") == "zeta-coder:32b"
 
 
 # --- which rung reviews ----------------------------------------------------
@@ -291,7 +291,7 @@ def test_the_reviewer_is_the_next_dearer_rung_with_another_model() -> None:
     from mcgyvr.verify import reviewer_rung
 
     config = parse_config(TWO_RUNGS)
-    pool = source_map(config)
+    pool = unit_map(config)
     assert reviewer_rung(config, pool, "small") == "big"
     assert reviewer_rung(config, pool, "big") is None, "nothing is dearer"
 
@@ -300,7 +300,7 @@ def test_a_dearer_rung_serving_the_builders_model_is_passed_over() -> None:
     from mcgyvr.verify import reviewer_rung
 
     config = parse_config(WITH_A_TWIN)
-    assert reviewer_rung(config, source_map(config), "small") == "big"
+    assert reviewer_rung(config, unit_map(config), "small") == "big"
 
 
 def test_one_model_under_two_spellings_is_one_model() -> None:
@@ -340,7 +340,7 @@ def test_a_review_stopped_at_its_cap_is_not_an_approval(
     from mcgyvr.verify import reviewers_for, verify
 
     config = parse_config(TWO_RUNGS)
-    pool = source_map(config)
+    pool = unit_map(config)
     _prose_reviews(
         monkeypatch,
         _completion(
@@ -547,7 +547,7 @@ def _attempt_with(repo: Path, text: str, contract_text: str) -> Any:
     from mcgyvr.verify import reviewers_for
 
     config = parse_config(text)
-    pool = source_map(config)
+    pool = unit_map(config)
     contract = load_contract(contract_text)
     with TempDirSandbox(repo) as sandbox:
         attempt = worker_attempt(
@@ -625,7 +625,7 @@ def test_a_reviewer_without_probabilities_is_refused_once_per_run(
 
     typed = _typed(monkeypatch, raises=DecisionError("no top_logprobs"))
     config = parse_config(TWO_RUNGS)
-    chosen = reviewers_for(config, source_map(config))("small")
+    chosen = reviewers_for(config, unit_map(config))("small")
     assert isinstance(chosen, Reviewer) and chosen.decide is not None
 
     for _ in range(3):
@@ -642,7 +642,7 @@ def test_an_http_error_does_not_switch_the_typed_verdict_off_for_the_run(
 
     typed = _typed(monkeypatch, raises=BackendError("HTTP 503"))
     config = parse_config(TWO_RUNGS)
-    chosen = reviewers_for(config, source_map(config))("small")
+    chosen = reviewers_for(config, unit_map(config))("small")
     assert isinstance(chosen, Reviewer) and chosen.decide is not None
 
     for _ in range(2):
@@ -686,7 +686,7 @@ def test_a_picked_reviewer_on_a_sleeping_card_is_not_woken(
 
     monkeypatch.setattr(drive, "wake_for_config", lambda config: Waker())
 
-    def asleep(source_map, rung, state, questions, **kwargs):  # type: ignore[no-untyped-def]
+    def asleep(unit_map, rung, state, questions, **kwargs):  # type: ignore[no-untyped-def]
         raise RefusedConnectionError(f"nothing listens for {rung!r}")
 
     monkeypatch.setattr(decision, "classify_rung", asleep)
@@ -731,7 +731,7 @@ def test_a_hosted_rung_is_never_picked_as_the_reviewer(
 
     monkeypatch.setenv("ZETA_TEST_KEY", "invented")
     config = parse_config(LOCAL_THEN_HOSTED)
-    pool = source_map(config)
+    pool = unit_map(config)
     assert pool.get("hosted") is not None, "the hosted rung is not offered"
 
     assert reviewer_rung(config, pool, "small") is None
@@ -764,7 +764,7 @@ def test_a_hosted_unit_named_as_the_verifier_still_reviews(
     monkeypatch.setenv("ZETA_TEST_KEY", "invented")
     named = LOCAL_THEN_HOSTED + "verifier:\n  unit: hosted\n"
     config = parse_config(named)
-    chosen = reviewers_for(config, source_map(config))("small")
+    chosen = reviewers_for(config, unit_map(config))("small")
     assert isinstance(chosen, Reviewer)
     assert chosen.model == "zeta-large"
 

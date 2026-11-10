@@ -23,7 +23,7 @@ import pytest
 from mcgyvr.catalog import catalog
 from mcgyvr.config import Config, parse
 from mcgyvr.escalate import required_policy
-from mcgyvr.local_pool import SourceMap, source_map
+from mcgyvr.ladder_map import UnitMap, unit_map
 from mcgyvr.route import family_of
 from mcgyvr.verify import NoReviewer, Reviewer, reviewers_for
 from tests._paths import SRC
@@ -37,9 +37,9 @@ def keys(monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.setenv("HUB_KEY", "mhu_" + "0" * 16)
 
 
-def configured(verifier: str = "") -> tuple[Config, SourceMap]:
+def configured(verifier: str = "") -> tuple[Config, UnitMap]:
     config = parse(SETUP.format(fanout="idle", escalations=1) + verifier + RELIEF)
-    return config, source_map(config)
+    return config, unit_map(config)
 
 
 def test_a_relief_rung_is_judged_in_the_api_family_under_its_policy() -> None:

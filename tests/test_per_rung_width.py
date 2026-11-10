@@ -22,7 +22,7 @@ from mcgyvr.capacity import Capacity
 from mcgyvr.config import ConfigSchemaError, parse
 from mcgyvr.contract import loads as load_contract
 from mcgyvr.escalate import ascent
-from mcgyvr.local_pool import source_map
+from mcgyvr.ladder_map import unit_map
 from mcgyvr.route import Result, Try, climb, plan
 from mcgyvr.runner import Request
 
@@ -279,7 +279,7 @@ def test_a_rungs_declared_width_is_reached_by_dispatches_to_it(
     backend together are the only assertion the bug could not pass.
     """
     config = parse(RUNG_WIDER_THAN_ITS_SOURCE)
-    pool = source_map(config)
+    pool = unit_map(config)
     capacity = Capacity.of(config, root=tmp_path)
     together = Together(4)
     transport(monkeypatch, together)
@@ -305,7 +305,7 @@ def test_a_dispatch_holds_its_units_slot_for_the_length_of_the_request(
 ) -> None:
     """A unit's width is the bound a dispatch to it is held against."""
     config = parse(NO_TIER_WIDTH)
-    pool = source_map(config)
+    pool = unit_map(config)
     capacity = Capacity.of(config, root=tmp_path)
     seen: list[int] = []
 
@@ -339,7 +339,7 @@ def test_full_fanout_can_see_a_rung_that_is_full_of_its_own_holds(
     knob still saying ``full``.
     """
     config = parse(PEER_RIGS)
-    pool = source_map(config)
+    pool = unit_map(config)
     capacity = Capacity.of(config, root=tmp_path)
     tried: list[str] = []
 
@@ -363,7 +363,7 @@ def test_a_load_read_for_no_rung_is_still_the_sources_own_queue(
 ) -> None:
     """The compatibility half of the load: an unnamed rung reads what it always did."""
     config = parse(PEER_RIGS)
-    pool = source_map(config)
+    pool = unit_map(config)
     capacity = Capacity.of(config, root=tmp_path)
     made = plan(config, pool, load_contract(CONTRACT))
     machine = made.climbable[0].machine
@@ -389,7 +389,7 @@ def test_idle_takes_a_free_narrow_rung_rather_than_reading_it_as_full(
     """
     monkeypatch.setenv("EXAMPLE_API_KEY", "sk-" + "0" * 12)
     config = parse(ONE_RIG_TWO_PROCESSES)
-    pool = source_map(config)
+    pool = unit_map(config)
     capacity = Capacity.of(config, root=tmp_path)
 
     route = ascent(config, pool, load_contract(CONTRACT), capacity=capacity)
@@ -465,7 +465,7 @@ def test_a_rungs_own_slot_covers_its_own_reservation(tmp_path: Path) -> None:
     as two — a two-wide rung would look full with one attempt on it.
     """
     config = parse(ONE_RIG_TWO_PROCESSES)
-    pool = source_map(config)
+    pool = unit_map(config)
     capacity = Capacity.of(config, root=tmp_path)
 
     capacity.reserve("fast")
@@ -486,7 +486,7 @@ def test_a_climb_gives_back_the_reservation_on_the_rung_it_took_it_on(
     why it is asserted rather than watched for.
     """
     config = parse(PEER_RIGS)
-    pool = source_map(config)
+    pool = unit_map(config)
     capacity = Capacity.of(config, root=tmp_path)
 
     def attempt(each: Try) -> Result:

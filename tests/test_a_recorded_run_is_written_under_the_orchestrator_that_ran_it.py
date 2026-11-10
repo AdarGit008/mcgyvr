@@ -116,13 +116,13 @@ def contract(tmp_path: Path) -> Path:
 def _scripted(monkeypatch: pytest.MonkeyPatch, *replies: str) -> list[str]:
     """Answer each dispatch from a script; an unscripted dispatch is a failure."""
     import mcgyvr.drive as drive
-    from mcgyvr.local_pool import Protocol
+    from mcgyvr.ladder_map import Protocol
     from mcgyvr.runner import Completion, StopReason
 
     sent: list[str] = []
     queue = list(replies)
 
-    def fake_dispatch(source_map: Any, rung: str, request: Any, **_: Any) -> Completion:
+    def fake_dispatch(unit_map: Any, rung: str, request: Any, **_: Any) -> Completion:
         if not queue:
             raise AssertionError(f"an unscripted dispatch was made to {rung!r}")
         sent.append(request.prompt)

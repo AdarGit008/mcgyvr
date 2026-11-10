@@ -375,7 +375,7 @@ def test_an_escalation_stopped_by_its_ceiling_does_not_go_on_to_a_relief_rung(
     assert script.tried == [FAST]
 
 
-# --- what `mcgyvr local_pool` shows --------------------------------------------------
+# --- what `mcgyvr ladder show` shows --------------------------------------------------
 
 
 def test_pool_shows_the_relief_rungs_apart_from_the_ladder(
@@ -389,7 +389,7 @@ def test_pool_shows_the_relief_rungs_apart_from_the_ladder(
         SETUP.format(fanout="idle", escalations=1) + RELIEF + SECOND,
     )
 
-    assert main(["local_pool", str(folder)]) == 0
+    assert main(["ladder", "show", str(folder)]) == 0
     out = capsys.readouterr().out
 
     ladder, _, relief = out.partition("Relief rungs")

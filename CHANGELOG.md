@@ -34,6 +34,37 @@ archived outside this repository, under the same paths.
   held equal by test. The protocol schema's `capabilities.runtime` says it is
   informational: the hub does not read it.
 
+- **`mcgyvr local_pool` is now `mcgyvr ladder show`, and SETUP.md opens its
+  words with a glossary.** The verb printed the ladder but was named for a
+  pool, which the hub's pool is not; `mcgyvr local_pool` is refused with the
+  new name (exit 2) and is never sent to a proposer as a prompt. Migration:
+  type `mcgyvr ladder show` (same flags: `PATH`, `--config`, `--probe`,
+  `--probe-timeout`). Its output, the capacity errors, the cool-down reason
+  and the verifier's refusal say unit where they said source (`Probed N
+  unit(s)`, `unit 'x' did not answer`, `unit 'x' failed N dispatches in a
+  row`). SETUP.md's new *Glossary* defines each word once: decomposition,
+  scaffold, fill, draft, vet, proposer, direct, delegate, ladder, rung, top
+  rung, unit, standing session, hitchhike, general and crew pool, rig, host,
+  system, session, writer, family and floor. The prose follows it: the chat a
+  run is filed under is the writer; host is the person who offers slots, rig
+  the machine and system its OS block (the wire keeps `host`); the unit key
+  file is `unit-keys/<address>-<port>.env`; the `tempdir` sandbox's notes and
+  the `sandbox` and `expose` field help say this machine where they said the
+  host; `mcgyvr contract` shows `floor (no model)` or `ladder (a model)` where
+  it said `deterministic tier` or `model tier`; and the header of a generated
+  fleet.yaml/policy.yaml and the notes and refusals `mcgyvr setup` prints say
+  `setup` where they said `init`. For Python callers: `mcgyvr.local_pool` is
+  `mcgyvr.ladder_map` (`PoolError` is `LadderError`; `SourceMap`,
+  `source_map`, `SourceUnavailableError` and `SourceProbe` are `UnitMap`,
+  `unit_map`, `UnitUnavailableError` and `UnitProbe`), the setup wizard's
+  `mcgyvr.propose` is `mcgyvr.ladder_proposal` (`Rung` and `Proposal` are
+  `LadderRung` and `LadderProposal`, apart from the ladder's `Rung` and a
+  contract's `Proposal`), `deliver.digest_of` is `text_sha256` and
+  `repo.index.digest_of` is `bytes_fingerprint` (one name meant two digests),
+  and the jev choice alphabet is `decision.CHOICE_LABELS`, which the decision
+  log now reads instead of a copy. `rig.pooled.PoolError` is a different error
+  and keeps its name.
+
 - **`mcgyvr recommend` asks placement whether a model fits (I-47).** Its own
   arithmetic left out the scratch allowance and the RAM rule placement applies,
   so it could recommend what placement then refused. A checkpoint is now a

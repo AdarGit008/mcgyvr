@@ -127,17 +127,17 @@ def elsewhere(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> Path:
     return setup
 
 
-@pytest.mark.parametrize("command", ["config", "local_pool"])
-def test_config_and_local_pool_read_the_setup_dash_dash_config_names(
-    command: str, elsewhere: Path, capsys: pytest.CaptureFixture[str]
+@pytest.mark.parametrize("command", [("config",), ("ladder", "show")], ids=" ".join)
+def test_config_and_ladder_show_read_the_setup_dash_dash_config_names(
+    command: tuple[str, ...], elsewhere: Path, capsys: pytest.CaptureFixture[str]
 ) -> None:
-    assert main([command, "--config", str(elsewhere)]) == 0
+    assert main([*command, "--config", str(elsewhere)]) == 0
     assert "cheap" in capsys.readouterr().out
 
 
-@pytest.mark.parametrize("command", ["config", "local_pool"])
+@pytest.mark.parametrize("command", [("config",), ("ladder", "show")], ids=" ".join)
 def test_dash_dash_config_wins_over_the_environment(
-    command: str,
+    command: tuple[str, ...],
     elsewhere: Path,
     tmp_path: Path,
     monkeypatch: pytest.MonkeyPatch,
@@ -145,27 +145,27 @@ def test_dash_dash_config_wins_over_the_environment(
 ) -> None:
     monkeypatch.setenv("MCGYVR_CONFIG", str(tmp_path / "nothing-here"))
 
-    assert main([command, "--config", str(elsewhere)]) == 0
+    assert main([*command, "--config", str(elsewhere)]) == 0
     assert "cheap" in capsys.readouterr().out
 
 
-@pytest.mark.parametrize("command", ["config", "local_pool"])
+@pytest.mark.parametrize("command", [("config",), ("ladder", "show")], ids=" ".join)
 def test_the_positional_spelling_still_works(
-    command: str, elsewhere: Path, capsys: pytest.CaptureFixture[str]
+    command: tuple[str, ...], elsewhere: Path, capsys: pytest.CaptureFixture[str]
 ) -> None:
-    assert main([command, str(elsewhere)]) == 0
+    assert main([*command, str(elsewhere)]) == 0
     assert "cheap" in capsys.readouterr().out
 
 
-@pytest.mark.parametrize("command", ["config", "local_pool"])
+@pytest.mark.parametrize("command", [("config",), ("ladder", "show")], ids=" ".join)
 def test_two_different_setups_on_one_line_are_refused(
-    command: str,
+    command: tuple[str, ...],
     elsewhere: Path,
     tmp_path: Path,
     capsys: pytest.CaptureFixture[str],
 ) -> None:
     with pytest.raises(SystemExit) as exited:
-        main([command, str(tmp_path / "other"), "--config", str(elsewhere)])
+        main([*command, str(tmp_path / "other"), "--config", str(elsewhere)])
 
     assert exited.value.code == 2
     assert "names two setups" in capsys.readouterr().err

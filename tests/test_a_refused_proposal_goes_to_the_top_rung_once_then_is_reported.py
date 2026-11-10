@@ -449,7 +449,7 @@ def _top_rung_answers(
     asked: list[tuple[str, str]] = []
     left = iter(replies)
 
-    def fake_dispatch(source_map, rung, request, *, capacity=None):  # type: ignore[no-untyped-def]
+    def fake_dispatch(unit_map, rung, request, *, capacity=None):  # type: ignore[no-untyped-def]
         asked.append((rung, request.prompt))
         return _answer(next(left))
 
@@ -689,7 +689,7 @@ def test_with_no_prose_model_the_top_rung_redoes_a_spent_contract(
     checkout: Path,
 ) -> None:
     """The re-plan needs a prose proposer; with none bound it is the top rung."""
-    from mcgyvr.local_pool import source_map
+    from mcgyvr.ladder_map import unit_map
     from mcgyvr.replan import Spent
 
     config = parse(UNBOUND)
@@ -703,7 +703,7 @@ def test_with_no_prose_model_the_top_rung_redoes_a_spent_contract(
         return (code("report.py", task="Document render."),)
 
     args = argparse.Namespace(budget=None, jobs=1)
-    replan = command._replanner(args, checkout, config, source_map(config), first, top)
+    replan = command._replanner(args, checkout, config, unit_map(config), first, top)
     spent = Contract(
         id="code-spent",
         task_type="code",
@@ -727,14 +727,14 @@ def test_the_top_rung_is_sent_its_own_timeout_and_a_cut_off_reply_names_it(
         OrchestratorReplyCutOffError,
         top_rung_proposer_for,
     )
-    from mcgyvr.local_pool import source_map
+    from mcgyvr.ladder_map import unit_map
     from mcgyvr.runner import StopReason
 
     config = parse(UNBOUND)
-    pool = source_map(config)
+    pool = unit_map(config)
     sent: list[Any] = []
 
-    def cut_off(source_map, rung, request, *, capacity=None):  # type: ignore[no-untyped-def]
+    def cut_off(unit_map, rung, request, *, capacity=None):  # type: ignore[no-untyped-def]
         sent.append((rung, request))
         return _answer("[", StopReason.TRUNCATED)
 

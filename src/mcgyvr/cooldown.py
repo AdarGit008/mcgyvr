@@ -23,7 +23,7 @@ from mcgyvr.availability import (
     AvailabilityVerdict,
     ProbeFn,
 )
-from mcgyvr.local_pool import Endpoint
+from mcgyvr.ladder_map import Endpoint
 
 # Consecutive dispatch failures that arm a cooldown, and the default for
 # ``threshold``. The constructor refuses anything below two: a source dropped
@@ -76,7 +76,7 @@ class Cooldown:
             raise ValueError(f"cooldown_s must be positive, got {cooldown_s}")
         if threshold < 2:
             raise ValueError(
-                f"threshold must be at least 2, got {threshold}: a source dropped on "
+                f"threshold must be at least 2, got {threshold}: a unit dropped on "
                 f"one failure is lost to a single hiccup"
             )
         self._liveness = Availability(timeout_s=timeout_s, probe=probe)
@@ -159,8 +159,8 @@ class Cooldown:
             del self._records[source]
             return None
         return (
-            f"source {source!r} failed {record.failures} dispatches in a row; it is "
+            f"unit {source!r} failed {record.failures} dispatches in a row; it is "
             f"cooling down for another {record.until - now:.0f}s before it is "
             f"offered again. The probe still reports it reachable, so this is a "
-            f"source that answers and does not work"
+            f"unit that answers and does not work"
         )

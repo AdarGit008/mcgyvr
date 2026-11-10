@@ -20,7 +20,7 @@ from typing import Any
 
 import pytest
 
-from mcgyvr.local_pool import Endpoint, Protocol
+from mcgyvr.ladder_map import Endpoint, Protocol
 from mcgyvr.runner import BackendError, Request, runner_for
 
 STATUS = 503

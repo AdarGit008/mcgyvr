@@ -22,7 +22,7 @@ from concurrent.futures import ThreadPoolExecutor
 from dataclasses import dataclass
 
 from mcgyvr.hubwire import bearer
-from mcgyvr.local_pool import Endpoint, PoolError, Protocol
+from mcgyvr.ladder_map import Endpoint, LadderError, Protocol
 from mcgyvr.redact import safe_url
 from mcgyvr.weights import is_model
 
@@ -166,7 +166,7 @@ class Availability:
             if any(is_model(served, model) for served in verdict.models):
                 continue
             not_there[(endpoint.source, model)] = (
-                f"source {endpoint.source!r} is serving "
+                f"unit {endpoint.source!r} is serving "
                 f"{', '.join(verdict.models)} and not {model!r}. The port "
                 f"answers, so a dispatch would be taken — and llama.cpp answers "
                 f"a request naming weights it is not holding from the weights it "
@@ -206,7 +206,7 @@ def probe_endpoint(
 
     try:
         headers = bearer(endpoint.credential())
-    except PoolError as exc:
+    except LadderError as exc:
         # A key that is needed and missing raises here instead of being sent as
         # nothing: the source cannot be dispatched to at all, so the resolution
         # error is the reason and no request is made.
@@ -230,7 +230,7 @@ def probe_endpoint(
         return _verdict(
             endpoint,
             False,
-            f"source {endpoint.source!r} did not answer at "
+            f"unit {endpoint.source!r} did not answer at "
             f"{safe_url(endpoint.base_url)} "
             f"within {timeout_s:g}s ({exc})",
             f"GET {path} raised {type(exc).__name__} within {timeout_s:g}s",
@@ -290,7 +290,7 @@ def _from_status(
         return _verdict(
             endpoint,
             False,
-            f"source {endpoint.source!r} answered HTTP {status}: it is reachable "
+            f"unit {endpoint.source!r} answered HTTP {status}: it is reachable "
             f"but refused the credential ({named}). Every dispatch to it would "
             f"fail the same way",
             f"GET {safe_url(url)} answered {status}",
@@ -300,7 +300,7 @@ def _from_status(
         return _verdict(
             endpoint,
             False,
-            f"source {endpoint.source!r} answered HTTP {status}: it is reachable "
+            f"unit {endpoint.source!r} answered HTTP {status}: it is reachable "
             f"but reports it cannot serve",
             f"GET {safe_url(url)} answered {status}",
             started,

@@ -1,6 +1,6 @@
 """One contract's route through one family's rungs, and the climb that spends it.
 
-:func:`plan` turns a config and a source map into a :class:`Plan`: the family
+:func:`plan` turns a config and a unit map into a :class:`Plan`: the family
 the contract starts on (or the one a caller names) and that family's usable
 rungs as :class:`Step` objects in the order the pool lists them, each carrying
 the attempts it may spend and the :class:`Machine` — one source's place in a
@@ -45,7 +45,7 @@ if TYPE_CHECKING:  # pragma: no cover - typing only
     from mcgyvr.config import Config
     from mcgyvr.contract import Contract
     from mcgyvr.deterministic import ToolStep
-    from mcgyvr.local_pool import Rung, SourceMap
+    from mcgyvr.ladder_map import Rung, UnitMap
     from mcgyvr.notes import FailureNotes
 
 
@@ -497,7 +497,7 @@ def family_of(config: Config, rung: str) -> Family:
     return catalog().family_of(config.units[name])
 
 
-def by_family(config: Config, pool: SourceMap) -> Mapping[Family, tuple[Rung, ...]]:
+def by_family(config: Config, pool: UnitMap) -> Mapping[Family, tuple[Rung, ...]]:
     """The pool's usable rungs, grouped by the family each one is in.
 
     Every family the catalog declares is a key, so a caller asking about one gets
@@ -514,7 +514,7 @@ def by_family(config: Config, pool: SourceMap) -> Mapping[Family, tuple[Rung, ..
     return {family: tuple(rungs) for family, rungs in grouped.items()}
 
 
-def climb_order(config: Config, pool: SourceMap) -> list[tuple[Family, Rung]]:
+def climb_order(config: Config, pool: UnitMap) -> list[tuple[Family, Rung]]:
     """Every usable rung of the pool in climb order, each with its family.
 
     Families come cheapest first (`Family.rank`), and each family's rungs keep
@@ -528,7 +528,7 @@ def climb_order(config: Config, pool: SourceMap) -> list[tuple[Family, Rung]]:
     ]
 
 
-def top_rung(config: Config, pool: SourceMap) -> Rung | None:
+def top_rung(config: Config, pool: UnitMap) -> Rung | None:
     """The top rung: the dearest rung of the ladder this setup runs, or None.
 
     The pool's usable rungs in climb order — families cheapest first, each
@@ -570,7 +570,7 @@ def capped_attempts(family: Family, configured: int, limit: int) -> int:
 
 def plan(
     config: Config,
-    pool: SourceMap,
+    pool: UnitMap,
     contract: Contract,
     *,
     family: Family | None = None,
@@ -701,7 +701,7 @@ def _machines(config: Config, rungs: tuple[Rung, ...]) -> Mapping[str, Machine]:
     return by_rung
 
 
-def _why_empty(config: Config, family: Family, pool: SourceMap) -> str:
+def _why_empty(config: Config, family: Family, pool: UnitMap) -> str:
     """The sentence an empty plan carries for why it has no steps.
 
     Three different absences, said differently because they are fixed

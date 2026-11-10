@@ -14,7 +14,7 @@ import pytest
 
 from mcgyvr.capacity import Capacity
 from mcgyvr.config import parse
-from mcgyvr.local_pool import Protocol, source_map
+from mcgyvr.ladder_map import Protocol, unit_map
 from mcgyvr.runner import Completion, Request, dispatch
 
 RUNG_ID = "0f3c9a1e2b4d4c6f8a0b1c2d3e4f5a6b"
@@ -182,7 +182,7 @@ def caps_sent(monkeypatch: pytest.MonkeyPatch) -> list[tuple[str, int | None]]:
     """Record the rung and the cap of every request the driver dispatches.
 
     The substitution is the seam the whole project is built on:
-    ``mcgyvr.runner.dispatch`` takes a rung name and a source map, so nothing
+    ``mcgyvr.runner.dispatch`` takes a rung name and a unit map, so nothing
     above it knows a socket exists. What is asserted is the number on the
     request, which is the number the backend is actually given.
     """
@@ -192,7 +192,7 @@ def caps_sent(monkeypatch: pytest.MonkeyPatch) -> list[tuple[str, int | None]]:
     seen: list[tuple[str, int | None]] = []
 
     def fake_dispatch(
-        source_map: Any, rung: str, request: Any, *, capacity: Any = None
+        unit_map: Any, rung: str, request: Any, *, capacity: Any = None
     ) -> Completion:
         seen.append((rung, request.max_output_tokens))
         return Completion(
@@ -256,7 +256,7 @@ relief:
         capacity = Capacity.of(config, root=tmp_path / "slots")
         try:
             return dispatch(
-                source_map(config),
+                unit_map(config),
                 RIDE,
                 Request(prompt=PROMPT, max_output_tokens=8),
                 capacity=capacity,
