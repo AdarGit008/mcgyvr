@@ -50,33 +50,33 @@ RELEASE = Release(
     assets=(
         Asset(
             "mcgyvr-wg-v0.1.0-darwin-arm64.tar.gz",
-            5294497,
-            "7f446f355976ae9d1bdb45c01dfcee716f0374466ea3968851a33365b5200b28",
+            5294307,
+            "19fd591e156a945d932596fa3154858ae71fdac54e618e1dcf7d4532e27d1783",
         ),
         Asset(
             "mcgyvr-wg-v0.1.0-darwin-x86_64.tar.gz",
-            5573119,
-            "068f811df409a61e54d2696dd992d25706c613725bc4d49eb3dff7ffe37aa980",
+            5573158,
+            "39c4912f0934a2893476718d2353edc82b6358fa165186ccd2946574d819b89e",
         ),
         Asset(
             "mcgyvr-wg-v0.1.0-windows-x86_64.zip",
-            5679609,
-            "1f024978b2c1af9c45253971ee2cc26a1a4771ae37dcc639e5d259c67e103e78",
+            5679611,
+            "9ce4a1ff02c557b857010bf9e1c7d306626a345830085a7ade24de0ef2d3c029",
         ),
         Asset(
             "mcgyvr-wg-v0.1.0-windows-arm64.zip",
-            5249751,
-            "3fbcb938e012899ccc21474dd92dbcbbbc392cf36bca788c7ec18c01b61f5c73",
+            5249776,
+            "292299177bee7e17be71490216b76f912068c8752b712e541fee07dbc10a08d9",
         ),
         Asset(
             "mcgyvr-wg-v0.1.0-linux-x86_64.tar.gz",
-            5604288,
-            "4447d4561a430d16c055aa3269b17528ebe6d56e639cbefe0de5a14cb51370a1",
+            5604200,
+            "c65c35c0dd20a0f47caf350343bf9c7d25300fe9bbbe80f25e48b75941eaf9bb",
         ),
         Asset(
             "mcgyvr-wg-v0.1.0-linux-arm64.tar.gz",
-            5215185,
-            "b097eb0a446d7db0ca4529d7f50c63395fc9ad0fe89c5fecd8c25ec13818acc2",
+            5215255,
+            "7f14f9b45a315e535524aec72d07313545728cebe4ef58be4c8f137bdef492aa",
         ),
     ),
 )
