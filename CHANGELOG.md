@@ -31,6 +31,21 @@ archived outside this repository, under the same paths.
   held to `hubwire`'s by test. The `hubwire` docstring now lists what is
   shared and what is not.
 
+- **The `mcgyvr.orchestrator` package is split by job: `mcgyvr.repo`,
+  `mcgyvr.decompose` and `mcgyvr.decision_log`.** The package read code, built
+  and cached the repository index, ranked and read files, and turned proposals
+  into contracts; it orchestrated nothing. `mcgyvr.repo` now holds the context
+  layer (`symbols`, `languages/`, `index`, `cache`, `resolve`, `read`,
+  `context`, `references`, and `repo` for attaching a repository);
+  `mcgyvr.decompose` holds the part that takes a proposer (`decompose`,
+  `iterate`, `candidates`, `fields`, `provides`, `baseline`); and the jev
+  shadow log `orchestrator/telemetry.py` is `mcgyvr.decision_log`, so it no
+  longer sits beside `mcgyvr.telemetry` under the same name. Every other
+  module keeps its name, and nothing behaves differently: a pure move and
+  import rewrite, with no compatibility shim, so code outside mcgyvr that
+  imports `mcgyvr.orchestrator` must import from the new paths. The
+  policy.yaml `orchestrator` block, journal keys and messages are unchanged.
+
 - **The two shipped data files that spelled their format version `schema` now
   spell it `schema_version`, the spelling the other four already use.**
   `data/numbers.json` and `data/hardware-classes.json` recorded their version
@@ -40,7 +55,7 @@ archived outside this repository, under the same paths.
   (`mcgyvr.derived`, `mcgyvr.estimate`) read the new key, and the test fixtures
   that write these documents follow. A file and its reader ship in one wheel, so
   nothing reads the old key and no file carries both. The wire's `v`, the
-  user-written link-readings file (`data/links.json`, still `schema`), and every
+  user-written `links.json` in the data folder (still `schema`), and every
   other document's version key are unchanged.
 
 - **A docker llama.cpp or vLLM unit listens on 127.0.0.1 or, behind a key

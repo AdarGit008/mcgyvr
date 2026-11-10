@@ -18,16 +18,16 @@ import pytest
 
 import mcgyvr.delegate as delegate
 from mcgyvr.config import parse
+from mcgyvr.decompose.decompose import Evidence
 from mcgyvr.delegate import (
     OrchestratorReplyCutOffError,
     UnreadableProposalError,
     proposer_for,
 )
 from mcgyvr.local_pool import Protocol, source_map
-from mcgyvr.orchestrator.decompose import Evidence
-from mcgyvr.orchestrator.index import Index, build_index
-from mcgyvr.orchestrator.read import explore
-from mcgyvr.orchestrator.resolve import resolve
+from mcgyvr.repo.index import Index, build_index
+from mcgyvr.repo.read import explore
+from mcgyvr.repo.resolve import resolve
 from mcgyvr.runner import Completion, StopReason
 
 CONFIG = """\

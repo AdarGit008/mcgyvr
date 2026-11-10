@@ -20,6 +20,12 @@ from pathlib import Path
 import pytest
 
 from mcgyvr.config import parse
+from mcgyvr.decompose.decompose import (
+    DepRef,
+    Evidence,
+    Proposal,
+    decompose,
+)
 from mcgyvr.delegate import (
     NO_ORCHESTRATOR_ROLE,
     UnreadableProposalError,
@@ -28,15 +34,9 @@ from mcgyvr.delegate import (
 )
 from mcgyvr.exits import Exit
 from mcgyvr.local_pool import Protocol, source_map
-from mcgyvr.orchestrator.decompose import (
-    DepRef,
-    Evidence,
-    Proposal,
-    decompose,
-)
-from mcgyvr.orchestrator.index import Index, build_index
-from mcgyvr.orchestrator.read import explore
-from mcgyvr.orchestrator.resolve import resolve
+from mcgyvr.repo.index import Index, build_index
+from mcgyvr.repo.read import explore
+from mcgyvr.repo.resolve import resolve
 from mcgyvr.runner import Completion, StopReason
 
 #: A keyless local ladder with no orchestrator block — the ordinary install

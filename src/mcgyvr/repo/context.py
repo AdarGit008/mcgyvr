@@ -16,8 +16,8 @@ from dataclasses import dataclass, field
 from enum import StrEnum
 from pathlib import Path, PurePosixPath
 
-from mcgyvr.orchestrator.index import Index
-from mcgyvr.orchestrator.resolve import (
+from mcgyvr.repo.index import Index
+from mcgyvr.repo.resolve import (
     _DOMINANCE,
     Candidate,
     Resolution,
