@@ -172,17 +172,15 @@ def test_a_rename_that_fails_for_another_reason_is_not_tried_again(
 ) -> None:
     pauses: list[float] = []
     monkeypatch.setattr(time, "sleep", pauses.append)
-    taken = tmp_path / "taken"
-    taken.mkdir()
-    (taken / "inside").write_text("x", encoding="utf-8")
-    source = tmp_path / "source"
-    source.write_text("y", encoding="utf-8")
+    target = tmp_path / "target"
+    target.write_text("kept", encoding="utf-8")
 
-    with pytest.raises(OSError) as raised:
-        atomic.replace(source, taken)
+    # A source that is not there fails the same way on every system.
+    with pytest.raises(FileNotFoundError):
+        atomic.replace(tmp_path / "missing", target)
 
-    assert not isinstance(raised.value, PermissionError)
     assert pauses == []
+    assert target.read_text(encoding="utf-8") == "kept"
 
 
 def test_replace_renames_a_staged_folder_into_place(
