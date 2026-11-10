@@ -81,6 +81,7 @@ from mcgyvr.hubwire import RELAY_MAX_TIMEOUT_S as RELAY_MAX_TIMEOUT_S
 from mcgyvr.hubwire import RELAY_MAX_TOKENS as RELAY_MAX_TOKENS
 from mcgyvr.hubwire import RELAY_MAX_WINDOW as RELAY_MAX_WINDOW
 from mcgyvr.hubwire import RELAY_OUTCOMES as RELAY_OUTCOMES
+from mcgyvr.hubwire import RELAY_STATUS as RELAY_STATUS
 from mcgyvr.hubwire import TICKET as TICKET
 from mcgyvr.hubwire import TOKEN as TOKEN
 from mcgyvr.hubwire import UNIT_ADVERT_INTERVAL_S as UNIT_ADVERT_INTERVAL_S
@@ -985,7 +986,7 @@ def session_status(
         _need(bool(protocol.TAG.fullmatch(error_code)), "error_code: not a code")
         body["error_code"] = error_code
     if progress_pct is not None:
-        _need(0 <= progress_pct <= 100, "progress_pct: not 0 to 100")
+        _need(0 <= progress_pct <= MAX_PCT, "progress_pct: not 0 to 100")
         body["progress_pct"] = progress_pct
     if log_excerpt:
         body["log_excerpt"] = scrub(log_excerpt)
@@ -995,7 +996,8 @@ def session_status(
 def relay_response(request_id: str, *, status: int, content_type: str) -> str:
     """Build a relay_response: the status and content type answered with."""
     _need(bool(protocol.MESSAGE_ID.fullmatch(request_id)), "request_id: not an id")
-    _need(100 <= status <= 599, "status: not an HTTP status")
+    low, high = RELAY_STATUS
+    _need(low <= status <= high, "status: not an HTTP status")
     _need(
         len(content_type) <= MAX_CONTENT_TYPE
         and bool(CONTENT_TYPE.fullmatch(content_type)),

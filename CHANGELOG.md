@@ -22,12 +22,14 @@ archived outside this repository, under the same paths.
   `rig/protocol.py` and `rig/sessionwire.py` and again in the hub. They now
   live in `hubwire` (stdlib only, as before), with `AGENT_ERROR_CODES` (every
   code, the schema's `x-error-codes`), `UDP_VERSION` and
-  `RIDER_SCHEMA_VERSION`; the rig modules name them as the same objects, and
+  `RIDER_SCHEMA_VERSION` and the relayed response's HTTP status range
+  `RELAY_STATUS`; the rig modules name them as the same objects, and
   the hub can import them at its next pin. No value and no behaviour changed
-  (every public name of `rig/protocol.py`, `rig/sessionwire.py` and
+  (every existing public name of `rig/protocol.py`, `rig/sessionwire.py` and
   `rig/udpwire.py` compares equal before and after); `rig/udpwire.py` runs
-  without the package, so it keeps its UDP version, held to `hubwire`'s by
-  test. The `hubwire` docstring now lists what is shared and what is not.
+  without the package, so it keeps its UDP version and relay ticket shape,
+  held to `hubwire`'s by test. The `hubwire` docstring now lists what is
+  shared and what is not.
 
 - **A docker llama.cpp or vLLM unit listens on 127.0.0.1 or, behind a key
   mcgyvr makes, on every interface (`expose: local | lan`).** `mcgyvr emit`

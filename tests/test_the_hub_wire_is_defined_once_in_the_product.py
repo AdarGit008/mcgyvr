@@ -493,14 +493,17 @@ def test_the_channels_versions_and_frame_limits_are_the_schemas(
     envelope = _props(protocol, "Envelope")
     assert envelope["id"]["pattern"] == f"^{hubwire.MESSAGE_ID.pattern}$"
     assert envelope["type"]["pattern"] == f"^{hubwire.TAG.pattern}$"
+    status = _props(protocol, "RelayResponseBody")["status"]
+    assert (status["minimum"], status["maximum"]) == hubwire.RELAY_STATUS
 
 
-def test_the_udp_wire_keeps_the_wires_version() -> None:
+def test_the_udp_wire_keeps_the_wires_version_and_ticket() -> None:
     """``rig/udpwire.py`` runs in the tunnel without the package, so it cannot
-    import the version: its copy is held here."""
+    import the version or the relay ticket's shape: its copies are held here."""
     from mcgyvr.rig import udpwire
 
     assert udpwire.VERSION == hubwire.UDP_VERSION
+    assert udpwire.TICKET.pattern == hubwire.TICKET.pattern
 
 
 def test_the_channels_close_and_error_codes_are_the_schemas(
@@ -574,6 +577,7 @@ _RIG_NAMES = (
             "LOG_EXCERPT_MAX_CHARS",
             "MAX_CONTENT_TYPE",
             "MAX_PCT",
+            "RELAY_STATUS",
             "RELAY_MAX_CHUNK_B64",
             "MAX_STUN_ENDPOINTS",
             "MIN_PROBE_TTL_S",

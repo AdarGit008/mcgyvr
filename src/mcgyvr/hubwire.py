@@ -21,8 +21,9 @@ is here:
   probe's, a tunnel walk's and a port forward's bounds and the defaults the
   schema states for them (``MAX_*``, ``MIN_*``, ``DEFAULT_*``, ``PORT_MAP_*``),
   the roles (:data:`RIG_ROLES`, :data:`RigRole`), session states
-  (:data:`SESSION_STATES`) and relay outcomes (:data:`RELAY_OUTCOMES`), the
-  shapes of its text fields (:data:`MESSAGE_ID`, :data:`TAG`,
+  (:data:`SESSION_STATES`), relay outcomes (:data:`RELAY_OUTCOMES`) and the
+  statuses a relayed response may carry (:data:`RELAY_STATUS`), the shapes of
+  its text fields (:data:`MESSAGE_ID`, :data:`TAG`,
   :data:`MACHINE_ID`, :data:`AGENT_VERSION`, :data:`DIGEST`,
   :data:`SHORT_TAG`, :data:`RUNTIME`, :data:`ENDPOINT_HOST`,
   :data:`WIREGUARD_KEY`, :data:`IPV4`, :data:`IPV4_CIDR`,
@@ -263,6 +264,9 @@ LOG_EXCERPT_MAX_CHARS = 4000
 MAX_CONTENT_TYPE = 128
 #: Highest percentage a report names (loss, progress).
 MAX_PCT = 100
+#: The HTTP statuses a relayed response may answer with: the lowest and the
+#: highest.
+RELAY_STATUS = (100, 599)
 #: STUN-assisted probes: how many STUN endpoints one end may offer, how long
 #: a probe stays open, how many echoes it sends and how far apart, and the
 #: bulk payload and overall deadline used to measure throughput.

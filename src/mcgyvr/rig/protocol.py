@@ -48,7 +48,8 @@ from mcgyvr.hubwire import ErrorCode as ErrorCode
 # paces itself at half, well inside the limit), the error text (a longer one is
 # cut before it is sent, and a received one refused), the models and sessions a
 # hello names, a model's bounds, the envelope's shapes, and the close and error
-# codes. A card is a resource of the wire's too:
+# codes (the agent stops on the refusals it cannot retry and keeps retrying
+# after the rest). A card is a resource of the wire's too:
 
 #: Most cards one hello or one heartbeat may report.
 MAX_CARDS = hubwire.MAX_CARDS
