@@ -315,6 +315,7 @@ def packed(text: bytes) -> bytes:
 #: The modules the native launcher imports, each before any that needs it.
 NATIVE_MODULES = (
     "mcgyvr.hostos",
+    "mcgyvr.atomic",
     "mcgyvr.userdir",
     "mcgyvr.fleet.roots",
     "mcgyvr.serving.rigscan",
@@ -332,7 +333,8 @@ def reader() -> bytes:
 
 
 def fetcher(job: str | None) -> bytes:
-    """The weights fetcher with ``hostos``, ending in a call to its ``main``.
+    """The weights fetcher with ``hostos`` and ``atomic``, ending in a call to
+    its ``main``.
 
     `job` (JSON text) travels inside the program, which a POSIX rig reads on
     stdin; None reads it from stdin instead, for a Windows rig, where the
@@ -341,14 +343,17 @@ def fetcher(job: str | None) -> bytes:
     call = "__import__('sys').stdin.read()" if job is None else repr(job)
     return program(
         "mcgyvr.serving.fetcher",
-        modules=("mcgyvr.hostos",),
+        modules=("mcgyvr.hostos", "mcgyvr.atomic"),
         tail=f"raise SystemExit(main({call}))\n",
     )
 
 
 def lease() -> bytes:
-    """The lease (``leasefile``) with ``hostos``: one operation per run."""
-    return program("mcgyvr.serving.leasefile", modules=("mcgyvr.hostos",))
+    """The lease (``leasefile``) with ``hostos`` and ``atomic``: one operation
+    per run."""
+    return program(
+        "mcgyvr.serving.leasefile", modules=("mcgyvr.hostos", "mcgyvr.atomic")
+    )
 
 
 def native() -> bytes:

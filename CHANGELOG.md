@@ -11,6 +11,29 @@ archived outside this repository, under the same paths.
 
 ### Changed
 
+- **Every kept file is renamed into place by `mcgyvr.atomic`, which retries
+  while Windows holds the target (I-54).** The native launcher's records,
+  specs and settled copy, the rig identity key's no-hard-links fallback, the
+  Python lease's rewrite, the fetcher's verified download, the unpacked
+  llama.cpp build and a standing swap's record each staged a file and renamed
+  it by hand, and only the launcher's records were tried again when Windows
+  refused the rename. They now go through
+  `atomic.write` or, for a staged file or folder built some other way,
+  `atomic.replace`: `os.replace` tried again on PermissionError, 20 times
+  50 ms apart (the launcher's `REPLACE_TRIES`, now `atomic.REPLACE_TRIES`),
+  then the refusal raised. Every `atomic.write` caller gains the retry; a
+  rename that is refused on any system now fails after about a second rather
+  than at once. `atomic.write` takes `mode` for an ordinary file made with a
+  narrower mode (the lease keeps 0644). The shipped lease, fetcher and native
+  launcher carry `mcgyvr.atomic` (standard library and `hostos`, Python 3.9).
+  Modes, fsync and the lease's staging name are as they were; the launcher's
+  and the swap record's staging files are now atomic's
+  `.<name>.<pid>-<thread>.part`, and on Windows the launcher's records and the
+  lease (a free take as well as a rewrite) are written with `\n` line ends
+  instead of `\r\n`. A test holds that no module but `atomic` calls
+  `os.replace` or `Path.replace`, and the macOS and Windows runners replace a
+  file a reader holds open.
+
 - **Two machine-reading designs are said and pinned; nothing behaves
   differently.** First contact with a rig over ssh is the scan's: `mcgyvr scan
   --rig`, `setup` and `recommend` send a rig with no rig file the POSIX reader,

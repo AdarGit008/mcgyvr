@@ -49,7 +49,7 @@ from cryptography.hazmat.primitives.serialization import (
     PublicFormat,
 )
 
-from mcgyvr import hubwire
+from mcgyvr import atomic, hubwire
 from mcgyvr.fleet import roots
 from mcgyvr.rig import credentials
 from mcgyvr.rig.credentials import CredentialsError
@@ -179,7 +179,8 @@ def create() -> Identity:
 
     The key is written to a file of its own and then linked into place, which
     fails when the file is already there; a folder that holds no hard links
-    has the file renamed into place instead, as the token's is.
+    has the file renamed into place instead (:func:`mcgyvr.atomic.replace`),
+    as the token's is.
     """
     private = Ed25519PrivateKey.generate()
     seed = private.private_bytes(Encoding.Raw, PrivateFormat.Raw, NoEncryption())
@@ -200,7 +201,7 @@ def create() -> Identity:
     except OSError as exc:
         if exc.errno not in _NO_LINKS:
             raise
-        os.replace(staging, target)
+        atomic.replace(staging, target)
     finally:
         staging.unlink(missing_ok=True)
     return Identity(private)
