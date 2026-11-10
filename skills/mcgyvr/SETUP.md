@@ -394,7 +394,7 @@ that takes mcgyvr out of that point:
   acceptance commands that judge a change.
 - **repair** (`cleanup.enabled`; off `false`): the gate's own tools fix what they can in a rejected
   change.
-- **reviewer** (`verifier.enabled`; off `false`): a second model, and Jev's typed checks, read the
+- **verifier** (`verifier.enabled`; off `false`): a second model, and Jev's typed checks, read the
   accepted diff.
 - **re-decompose** (`max_redecompositions`; off `0`): a contract whose ladder is spent goes back to
   be re-decomposed.

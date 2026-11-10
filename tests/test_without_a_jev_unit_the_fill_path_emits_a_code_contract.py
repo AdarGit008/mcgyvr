@@ -67,7 +67,7 @@ def test_the_no_jev_collapse_emits_a_code_contract(
 
     monkeypatch.setattr(decision, "_post_json", no_model)
     typed = fill_proposer_for(unit_map(parse(LADDER)))
-    propose = proposer_by_authoring("classifier", typed=typed, prose=prose)
+    propose = proposer_by_authoring("fill", typed=typed, prose=prose)
     assert propose is not None
 
     result = decompose(repo, "document listing", propose=propose)

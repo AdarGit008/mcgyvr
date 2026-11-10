@@ -119,4 +119,4 @@ def test_the_command_reads_the_field_from_the_config(monkeypatch: Any) -> None:
     monkeypatch.setattr(delegate, "proposer_by_authoring", spy)
     config = parse(SETUP + "  authoring: fill\n")
     _proposer_for_delegate(config, unit_map(config))
-    assert seen == ["classifier"]
+    assert seen == ["fill"]

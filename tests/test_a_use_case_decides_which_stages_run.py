@@ -90,7 +90,7 @@ def test_a_config_that_names_no_use_case_is_mcgyvr_code() -> None:
     [
         ("gate:\n  enabled: false\n", "gate"),
         ("cleanup:\n  enabled: false\n", "repair"),
-        ("verifier:\n  enabled: false\n", "reviewer"),
+        ("verifier:\n  enabled: false\n", "verifier"),
         ("max_redecompositions: 0\n", "redecompose"),
         ("max_reproposals: 0\n", "repropose"),
         ("fanout: none\n", "fanout"),

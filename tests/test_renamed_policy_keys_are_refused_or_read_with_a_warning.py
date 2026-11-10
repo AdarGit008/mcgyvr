@@ -34,7 +34,7 @@ def test_an_orchestrator_block_is_refused_naming_proposer() -> None:
 
 def test_max_replans_is_read_as_max_redecompositions_with_a_warning() -> None:
     with pytest.warns(RenamedWarning, match="max_redecompositions"):
-        config = parse(FLEET + "max_redecompositions: 2\n")
+        config = parse(FLEET + "max_replans: 2\n")
 
     assert config.get("max_redecompositions") == 2
 

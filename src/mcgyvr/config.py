@@ -1977,11 +1977,11 @@ SWITCHES: tuple[Switch, ...] = (
         knob=3,
     ),
     Switch(
-        "reviewer",
+        "verifier",
         ("verifier.enabled",),
         "`false`",
         "a second model, and Jev's typed checks, read the accepted diff",
-        stage="reviewer",
+        stage="verifier",
     ),
     Switch(
         "re-decompose",
@@ -2051,7 +2051,7 @@ def stages(config: Config) -> dict[str, bool]:
         "retry_notes": config.get("retry_notes", "climb") != "none",
         "gate": gate,
         "repair": gate and config.get("cleanup.enabled") is not False,
-        "reviewer": config.get("verifier.enabled") is not False,
+        "verifier": config.get("verifier.enabled") is not False,
         "redecompose": int(
             config.get("max_redecompositions", MAX_REDECOMPOSITIONS_DEFAULT) or 0
         )

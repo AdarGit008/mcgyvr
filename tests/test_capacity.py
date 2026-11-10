@@ -515,7 +515,7 @@ def test_the_proposers_endpoint_agrees_with_its_reserved_capacity() -> None:
     so the role's endpoint must carry the served width, not the one slot the
     role is bounded to."""
     pool = unit_map(parse(PROPOSER))
-    role = pool.role("orchestrator")
+    role = pool.role("proposer")
 
     assert role is not None
     assert role.endpoint.max_parallel == 4
