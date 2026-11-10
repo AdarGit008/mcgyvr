@@ -8,8 +8,8 @@ the CONSTRAINTS heading in place of the blank line.
 
 from __future__ import annotations
 
-from mcgyvr.orchestrator.candidates import CandidateSet, FieldCandidate
-from mcgyvr.orchestrator.fields import instructions, render_choice
+from mcgyvr.decompose.candidates import CandidateSet, FieldCandidate
+from mcgyvr.decompose.fields import instructions, render_choice
 
 
 def test_instructions_without_constraints_are_unchanged() -> None:

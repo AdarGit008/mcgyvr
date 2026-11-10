@@ -21,7 +21,7 @@ makes that choice, and the rename resolver uses it too.
 A file with syntax errors yields what parsed around them; a JavaScript file whose
 parse leaves ERROR nodes is re-parsed once with the matching TypeScript grammar
 (``.js``/``.mjs``/``.cjs`` as TS, ``.jsx`` as TSX) so Flow-typed generics still
-yield their declarations (see :mod:`mcgyvr.orchestrator.languages.engine`).
+yield their declarations (see :mod:`mcgyvr.repo.languages.engine`).
 """
 
 from __future__ import annotations
@@ -33,7 +33,7 @@ from tree_sitter_javascript import language as _js_language
 from tree_sitter_typescript import language_tsx as _tsx_language
 from tree_sitter_typescript import language_typescript as _ts_language
 
-from mcgyvr.orchestrator.languages.engine import (
+from mcgyvr.repo.languages.engine import (
     TreeSitterLanguage,
     definition,
     export,
@@ -46,7 +46,7 @@ from mcgyvr.orchestrator.languages.engine import (
     reference,
     walk,
 )
-from mcgyvr.orchestrator.languages.model import Symbol, SymbolKind
+from mcgyvr.repo.languages.model import Symbol, SymbolKind
 
 # One tree-sitter grammar per language distribution, built once at import time.
 _JS = Language(_js_language())

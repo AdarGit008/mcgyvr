@@ -25,7 +25,7 @@ from typing import Any
 import pytest
 
 import mcgyvr.delegate as delegate
-import mcgyvr.orchestrator as orchestrator
+import mcgyvr.repo as repo_layer
 from mcgyvr.cli.commands import delegate as command
 from mcgyvr.delegate_log import (
     KIND_EXIT,
@@ -37,7 +37,7 @@ from mcgyvr.delegate_log import (
     read,
 )
 from mcgyvr.local_pool import Protocol, SourceUnavailableError
-from mcgyvr.orchestrator import IndexBuildError
+from mcgyvr.repo import IndexBuildError
 from mcgyvr.runner import Completion, RunnerError, StopReason
 from tests import livejournal as lj
 from tests.rig_schema import validate
@@ -270,7 +270,7 @@ def test_a_repo_that_cannot_be_indexed_is_repo_index_failed(
     def no_index(root: Path) -> None:
         raise IndexBuildError("git ls-files failed")
 
-    monkeypatch.setattr(orchestrator, "build_index", no_index)
+    monkeypatch.setattr(repo_layer, "build_index", no_index)
     _code, record = _delegate(tmp_path, root, config=_config(tmp_path))
     _ended(record, DelegateKind.REPO_INDEX_FAILED)
 

@@ -8,7 +8,8 @@ first code below the seam" the pool draws.
 
 This file pins that division as an import rule rather than as prose:
 
-* **Nothing below the seam imports ``contract.py`` or ``orchestrator/``**.
+* **Nothing below the seam imports ``contract.py``, ``repo/``, ``decompose/`` or
+  ``decision_log.py``**.
   Below the seam a rung is already resolved to something a machine runs — an
   endpoint to dispatch against, a sandbox to run a command in, the docker
   probe that decides which sandbox mode is available, a serving unit to
@@ -215,10 +216,11 @@ BELOW_THE_SEAM: tuple[str, ...] = (
 
 #: ``mcgyvr.local_pool``'s other half — a caller that sees a ladder of rungs and has
 #: not resolved one to anything that runs. The contract and the exploration
-#: that produces one (contract, orchestrator.*, docgen), the climb through the
-#: ladder (route, escalate, triage, drive, consensus, deterministic, rename, repair,
-#: verify, deliver, and the failure notes a climb carries), what a worker is sent
-#: and what may be read back (worker.*), what judges the change (gate.*,
+#: that produces one (contract, repo.*, decompose.*, decision_log, docgen), the
+#: climb through the ladder (route, escalate, triage, drive, consensus,
+#: deterministic, rename, repair, verify, deliver, and the failure notes a climb
+#: carries), what a worker is sent and what may be read back (worker.*), what
+#: judges the change (gate.*,
 #: scope, and the semantic gate's resolver engine under gate._engine, which is
 #: staged into the sandbox and whose import statements name only itself and the
 #: standard library), the order a batch of contracts runs in (tree, board) and
@@ -230,6 +232,14 @@ ABOVE_THE_SEAM: tuple[str, ...] = (
     "mcgyvr.board",
     "mcgyvr.consensus",
     "mcgyvr.contract",
+    "mcgyvr.decision_log",
+    "mcgyvr.decompose",
+    "mcgyvr.decompose.baseline",
+    "mcgyvr.decompose.candidates",
+    "mcgyvr.decompose.decompose",
+    "mcgyvr.decompose.fields",
+    "mcgyvr.decompose.iterate",
+    "mcgyvr.decompose.provides",
     "mcgyvr.delegate",
     "mcgyvr.delegate_log",
     "mcgyvr.deliver",
@@ -267,34 +277,27 @@ ABOVE_THE_SEAM: tuple[str, ...] = (
     "mcgyvr.gate.typecheck",
     "mcgyvr.ladder_manager",
     "mcgyvr.notes",
-    "mcgyvr.orchestrator",
-    "mcgyvr.orchestrator.baseline",
-    "mcgyvr.orchestrator.cache",
-    "mcgyvr.orchestrator.candidates",
-    "mcgyvr.orchestrator.context",
-    "mcgyvr.orchestrator.decompose",
-    "mcgyvr.orchestrator.fields",
-    "mcgyvr.orchestrator.index",
-    "mcgyvr.orchestrator.iterate",
-    "mcgyvr.orchestrator.languages",
-    "mcgyvr.orchestrator.languages.engine",
-    "mcgyvr.orchestrator.languages.go",
-    "mcgyvr.orchestrator.languages.java",
-    "mcgyvr.orchestrator.languages.javascript",
-    "mcgyvr.orchestrator.languages.model",
-    "mcgyvr.orchestrator.languages.python",
-    "mcgyvr.orchestrator.languages.rust",
-    "mcgyvr.orchestrator.provides",
-    "mcgyvr.orchestrator.read",
-    "mcgyvr.orchestrator.references",
-    "mcgyvr.orchestrator.repo",
-    "mcgyvr.orchestrator.resolve",
-    "mcgyvr.orchestrator.symbols",
-    "mcgyvr.orchestrator.telemetry",
     "mcgyvr.refine",
     "mcgyvr.rename",
     "mcgyvr.repair",
     "mcgyvr.replan",
+    "mcgyvr.repo",
+    "mcgyvr.repo.cache",
+    "mcgyvr.repo.context",
+    "mcgyvr.repo.index",
+    "mcgyvr.repo.languages",
+    "mcgyvr.repo.languages.engine",
+    "mcgyvr.repo.languages.go",
+    "mcgyvr.repo.languages.java",
+    "mcgyvr.repo.languages.javascript",
+    "mcgyvr.repo.languages.model",
+    "mcgyvr.repo.languages.python",
+    "mcgyvr.repo.languages.rust",
+    "mcgyvr.repo.read",
+    "mcgyvr.repo.references",
+    "mcgyvr.repo.repo",
+    "mcgyvr.repo.resolve",
+    "mcgyvr.repo.symbols",
     "mcgyvr.repropose",
     "mcgyvr.result",
     "mcgyvr.route",
@@ -316,7 +319,8 @@ ABOVE_THE_SEAM: tuple[str, ...] = (
 #: The modules both halves import, written down. Each is read from above the seam and
 #: from below it, and each answers one question for the whole project rather than for
 #: one half of it: the package itself, the setup's schema and the two files it reads
-#: (``config.py``), the vocabulary of what may be asked for (``catalog.py``), how a
+#: (``config.py``), the vocabulary of what may be asked for (``catalog.py``), the one
+#: vocabulary of what a credential looks like (``credential_shapes.py``), how a
 #: file is replaced whole (``atomic.py``), the exit codes a caller branches on
 #: (``exits.py``), how git is run against a repository (``gitcmd.py``), what
 #: differs between Linux, macOS and Windows (``hostos.py``), the wire
@@ -335,6 +339,7 @@ SHARED_ACROSS_THE_SEAM: tuple[str, ...] = (
     "mcgyvr.atomic",
     "mcgyvr.catalog",
     "mcgyvr.config",
+    "mcgyvr.credential_shapes",
     "mcgyvr.exits",
     "mcgyvr.gitcmd",
     "mcgyvr.hostos",
@@ -403,7 +408,12 @@ def _crossings(
 
 #: What a module below the seam has already stopped needing: the contract it
 #: was resolved from, and the exploration that produced it.
-NOT_BELOW: tuple[str, ...] = ("mcgyvr.contract", "mcgyvr.orchestrator")
+NOT_BELOW: tuple[str, ...] = (
+    "mcgyvr.contract",
+    "mcgyvr.decision_log",
+    "mcgyvr.decompose",
+    "mcgyvr.repo",
+)
 
 #: What a caller above the seam never needs: the running model-server process.
 NOT_ABOVE: tuple[str, ...] = ("mcgyvr.serving",)
@@ -502,12 +512,12 @@ def test_every_module_is_on_one_side_of_the_seam() -> None:
     )
 
 
-def test_nothing_below_the_seam_imports_the_contract_or_the_orchestrator() -> None:
+def test_nothing_below_the_seam_imports_the_contract_or_the_exploration() -> None:
     """Below the seam a rung is already resolved; it never needs to read a
     contract or explore a repo to decide what to run.
 
     ``mcgyvr.cli`` defers ``from mcgyvr.contract import Contract`` and ``from
-    mcgyvr.orchestrator import ...`` for its `run` and `contract` subcommands,
+    mcgyvr.repo import ...`` for its `run` and `contract` subcommands,
     in the same module that also does the resolving. That is the entrypoint
     dispatching, not a half of mcgyvr forgetting where the seam is, and it is
     exempt by name rather than by the rule failing to look.
@@ -541,16 +551,16 @@ def test_nothing_above_the_seam_imports_serving() -> None:
 
 
 def test_the_above_the_seam_rule_catches_a_module_that_reaches_down() -> None:
-    """The same guard for the same reason. ``mcgyvr.orchestrator.read`` is
+    """The same guard for the same reason. ``mcgyvr.repo.read`` is
     handed a body that defers ``from mcgyvr.serving.run import launch``, and
     the rule must name it — including the submodule, which is why the check
     tests the ``mcgyvr.serving.`` prefix and not equality."""
     offenders = _crossings(
-        ("mcgyvr.orchestrator.read",),
+        ("mcgyvr.repo.read",),
         NOT_ABOVE,
         imports=_synthetic(_ABOVE_REACHING_DOWN),
     )
-    assert offenders == ["mcgyvr.orchestrator.read imports mcgyvr.serving.run"]
+    assert offenders == ["mcgyvr.repo.read imports mcgyvr.serving.run"]
 
 
 def test_a_module_both_halves_import_reaches_into_neither() -> None:
@@ -569,7 +579,7 @@ def test_the_shared_rule_catches_a_module_that_reaches_into_a_half() -> None:
     """``mcgyvr.config`` is handed a body that defers ``from mcgyvr import
     contract``, and the rule must name it.
 
-    That spelling is deliberate. ``orchestrator/decompose.py`` and
+    That spelling is deliberate. ``decompose/decompose.py`` and
     ``cli.py`` both import a module this way and ``docgen.py`` does it
     relatively; a checker that only matched ``import mcgyvr.contract`` would
     report nothing here while the crossing was in the tree.
@@ -696,7 +706,7 @@ def test_the_drive_seam_is_read_only_inside_function_bodies() -> None:
 # --- the orphaned context-budget helpers ---------------------------------
 #
 # budget_for_model and explore_for had no caller under src/, so they are not
-# in orchestrator/read.py, and no test exists only to call them. A function
+# in repo/read.py, and no test exists only to call them. A function
 # whose only callers are its own tests exercises the function, not a decision
 # anything downstream makes.
 #
@@ -708,15 +718,15 @@ def test_the_drive_seam_is_read_only_inside_function_bodies() -> None:
 
 def test_the_orphaned_context_budget_helpers_are_deleted_with_their_tests() -> None:
     """``budget_for_model`` and ``explore_for`` had no caller under ``src/``,
-    so ``orchestrator/read.py`` defines neither."""
-    import mcgyvr.orchestrator.read as read_module
+    so ``repo/read.py`` defines neither."""
+    import mcgyvr.repo.read as read_module
 
     assert not hasattr(read_module, "budget_for_model"), (
-        "orchestrator/read.py defines budget_for_model, which src/ never "
+        "repo/read.py defines budget_for_model, which src/ never "
         "calls; it is deleted, not left orphaned"
     )
     assert not hasattr(read_module, "explore_for"), (
-        "orchestrator/read.py defines explore_for, which src/ never calls; "
+        "repo/read.py defines explore_for, which src/ never calls; "
         "it is deleted, not left orphaned"
     )
 

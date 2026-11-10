@@ -37,8 +37,10 @@ def _state(pool: Pool, session_id: str, state: str) -> None:
     raise AssertionError(f"{session_id} is {pool.sessions.state_of(session_id)}")
 
 
-def _worker(pool: Pool, session_id: str, card: int) -> list[str]:
-    """A worker session on ``card``, ready; its worker's ``docker run``."""
+def _worker(pool: Pool, session_id: str, card: int, **start: Any) -> list[str]:
+    """A worker session on ``card``, ready; its worker's ``docker run``.
+
+    ``start`` adds to the ``worker_start`` body (a ``model``, say)."""
     from mcgyvr.rig import pooled
 
     assert (
@@ -66,6 +68,7 @@ def _worker(pool: Pool, session_id: str, card: int) -> list[str]:
         f"w-{session_id}",
         session_id=session_id,
         cards=[{"card_index": card, "port": 50052 + card}],
+        **start,
     )
     assert ack is not None and ack["type"] == "ack", ack
     _state(pool, session_id, "ready")
