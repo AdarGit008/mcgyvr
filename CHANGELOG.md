@@ -11,6 +11,15 @@ archived outside this repository, under the same paths.
 
 ### Changed
 
+- **A relative `$XDG_CACHE_HOME` is passed over, as a relative
+  `$XDG_STATE_HOME` already was (I-146).** `hostos.user_cache_dir` took any
+  value, so `XDG_CACHE_HOME=cache` put the model index under whatever folder a
+  command ran from; it now honours the variable only when it is absolute (`~`
+  still expanded) and otherwise uses the system's own cache folder. The
+  `weights_dir` docstring no longer says the weights follow the variable (they
+  never did), and SETUP.md's *Folders* says the XDG variables win "when
+  absolute".
+
 - **A hello's `ram_total_mb` is the MiB the reader counted (I-133).** The
   rig's hardware report (`rig/hardware.py`) took the hello's RAM total from the
   memory section's GB figure, which the reader rounds to 0.1 GB, so it could

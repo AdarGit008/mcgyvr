@@ -425,7 +425,7 @@ def _macos_windows_section() -> list[str]:
         f"- config (`${roots.HOME_ENV}`): `{home}` on every system.",
         "",
         *para(
-            "`$XDG_STATE_HOME` and `$XDG_CACHE_HOME` still win when set (the "
+            "`$XDG_STATE_HOME` and `$XDG_CACHE_HOME` still win when absolute (the "
             f"weights follow `${WEIGHTS_DIR_ENV}` alone), and `journal.dir` "
             f"defaults to `{JOURNAL_DIR_DEFAULT}` everywhere. Windows checks no "
             "file owner or mode: a file is as private as its folder, and these "

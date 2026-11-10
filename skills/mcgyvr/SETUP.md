@@ -190,11 +190,11 @@ powershell -NoProfile -ExecutionPolicy RemoteSigned -File mcgyvr\skills\mcgyvr\i
   `%LOCALAPPDATA%\mcgyvr\cache` on Windows.
 - config (`$MCGYVR_HOME`): `~/.mcgyvr` on every system.
 
-`$XDG_STATE_HOME` and `$XDG_CACHE_HOME` still win when set (the weights follow `$MCGYVR_WEIGHTS` alone),
-and `journal.dir` defaults to `~/.local/state/mcgyvr/journal` everywhere. Windows checks no file owner or
-mode: a file is as private as its folder, and these folders are in your own profile. A folder named by
-`$MCGYVR_HOME`, `$MCGYVR_DATA` or an XDG variable keeps whatever ACL it has, so keep the rig token's
-folder (`$MCGYVR_HOME`) inside your profile.
+`$XDG_STATE_HOME` and `$XDG_CACHE_HOME` still win when absolute (the weights follow `$MCGYVR_WEIGHTS`
+alone), and `journal.dir` defaults to `~/.local/state/mcgyvr/journal` everywhere. Windows checks no file
+owner or mode: a file is as private as its folder, and these folders are in your own profile. A folder
+named by `$MCGYVR_HOME`, `$MCGYVR_DATA` or an XDG variable keeps whatever ACL it has, so keep the rig
+token's folder (`$MCGYVR_HOME`) inside your profile.
 
 **Serving, with no Docker.** On a Mac or a Windows machine, `mcgyvr setup` writes `launcher: native` for
 a llama.cpp unit on the machine it runs on. Its first start fetches the llama.cpp build mcgyvr pins

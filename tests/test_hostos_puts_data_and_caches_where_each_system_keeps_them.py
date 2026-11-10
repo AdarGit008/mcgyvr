@@ -2,9 +2,10 @@
 
 Linux keeps today's XDG places; macOS its ``~/Library`` folders; Windows
 ``%LOCALAPPDATA%``. A ``$XDG_STATE_HOME`` or ``$XDG_CACHE_HOME`` the user set
-wins on every system. The config folder stays ``~/.mcgyvr`` everywhere; the
-data folder, the index cache, the weights and the per-user temporary folders
-follow. The home is looked up only when a folder is under it.
+wins on every system when it is absolute; a relative one is passed over. The
+config folder stays ``~/.mcgyvr`` everywhere; the data folder, the index
+cache, the weights and the per-user temporary folders follow. The home is
+looked up only when a folder is under it.
 """
 
 from __future__ import annotations
@@ -79,6 +80,17 @@ def test_a_relative_xdg_state_home_is_passed_over(
     as_system(monkeypatch, "linux")
     monkeypatch.setenv("XDG_STATE_HOME", "relative/state")
     assert hostos.user_data_dir() == home / ".local" / "state" / "mcgyvr"
+
+
+@pytest.mark.parametrize("system", sorted(NATIVE))
+def test_a_relative_xdg_cache_home_is_passed_over_as_the_state_one_is(
+    system: str, home: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """Data and cache keep one rule: a relative XDG value names a different
+    folder from each working directory, so the system's own place is used."""
+    as_system(monkeypatch, system)
+    monkeypatch.setenv("XDG_CACHE_HOME", "relative/cache")
+    assert hostos.user_cache_dir() == _place(NATIVE[system][1], home)
 
 
 @pytest.mark.parametrize("local", [None, "relative\\Local"])
