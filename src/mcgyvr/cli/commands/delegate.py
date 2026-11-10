@@ -42,8 +42,8 @@ from mcgyvr.exits import Exit
 if TYPE_CHECKING:  # pragma: no cover - typing only
     from mcgyvr.board import Board, GitSource
     from mcgyvr.contract import Contract
+    from mcgyvr.decompose.decompose import Decomposition, Proposer
     from mcgyvr.local_pool import SourceMap
-    from mcgyvr.orchestrator.decompose import Decomposition, Proposer
     from mcgyvr.replan import Replanner, Spent
     from mcgyvr.session import Session
     from mcgyvr.tree import Hold
@@ -278,19 +278,14 @@ def _delegate_logged(args: argparse.Namespace, book: _Logbook) -> int:
     """
 
     from mcgyvr.config import ConfigError
+    from mcgyvr.decompose import decompose
     from mcgyvr.delegate import (
         NO_ORCHESTRATOR_ROLE,
         DelegationError,
         UnreadableProposalError,
     )
     from mcgyvr.local_pool import SourceUnavailableError, source_map
-    from mcgyvr.orchestrator import (
-        AttachError,
-        IndexBuildError,
-        attach,
-        build_index,
-        decompose,
-    )
+    from mcgyvr.repo import AttachError, IndexBuildError, attach, build_index
     from mcgyvr.repropose import max_reproposals
     from mcgyvr.runner import RunnerError
 
@@ -459,12 +454,12 @@ def _proposer_for_delegate(
     decision it asks is recorded there with its model.
     """
     from mcgyvr import refine
+    from mcgyvr.decision_log import ShadowSink
     from mcgyvr.delegate import (
         proposer_by_authoring,
         proposer_for,
         refining_proposer_for,
     )
-    from mcgyvr.orchestrator.telemetry import ShadowSink
 
     strategy = config.authoring
     typed = (
@@ -501,10 +496,11 @@ def _replanner(
     """
     from contextlib import nullcontext
 
+    from mcgyvr.decompose import decompose
     from mcgyvr.delegate import proposer_for
     from mcgyvr.deliver import between_deliveries
-    from mcgyvr.orchestrator import build_index, decompose
     from mcgyvr.replan import request_for
+    from mcgyvr.repo import build_index
     from mcgyvr.repropose import max_reproposals
 
     asked = proposer_for(pool) or propose
@@ -939,8 +935,8 @@ def _replanned(
     from mcgyvr.contract import dumps
     from mcgyvr.delegate import DelegationError
     from mcgyvr.local_pool import SourceUnavailableError
-    from mcgyvr.orchestrator import IndexBuildError
     from mcgyvr.replan import Spent, failures_of, max_replans, next_round, stamped
+    from mcgyvr.repo import IndexBuildError
     from mcgyvr.runner import RunnerError
 
     bound = max_replans(config)

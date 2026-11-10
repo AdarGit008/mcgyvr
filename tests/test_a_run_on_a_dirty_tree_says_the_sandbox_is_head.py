@@ -24,7 +24,7 @@ from pathlib import Path
 
 import pytest
 
-from mcgyvr.orchestrator.repo import head_only_note
+from mcgyvr.repo.repo import head_only_note
 
 TARGET = "src/pkg/rows.py"
 

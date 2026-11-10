@@ -21,15 +21,15 @@ from collections import defaultdict
 from collections.abc import Callable
 from dataclasses import dataclass
 
-from mcgyvr.orchestrator.context import VerifiedContext
-from mcgyvr.orchestrator.index import Index, IndexedFile
-from mcgyvr.orchestrator.resolve import (
+from mcgyvr.repo.context import VerifiedContext
+from mcgyvr.repo.index import Index, IndexedFile
+from mcgyvr.repo.resolve import (
     Candidate,
     Resolution,
     _content_tokens,
     _tokenize,
 )
-from mcgyvr.orchestrator.symbols import Symbol, SymbolKind
+from mcgyvr.repo.symbols import Symbol, SymbolKind
 
 # Default ceiling on an exploration's estimated token spend. It only bounds a plan
 # when the caller states nothing better; a caller that knows its real context

@@ -29,14 +29,14 @@ from typing import TYPE_CHECKING, Any
 from mcgyvr import contract as contract_module
 from mcgyvr.catalog import CatalogError, TaskType, catalog
 from mcgyvr.contract import Contract, ContractError
+from mcgyvr.decompose.baseline import BaselineObservation, locate_baseline
+from mcgyvr.decompose.provides import DECLARING, RENAME
 from mcgyvr.gate.adapter import LanguageAdapter
 from mcgyvr.gate.adapters import JavaScriptAdapter, PythonAdapter
-from mcgyvr.orchestrator.baseline import BaselineObservation, locate_baseline
-from mcgyvr.orchestrator.index import Index
-from mcgyvr.orchestrator.provides import DECLARING, RENAME
-from mcgyvr.orchestrator.read import Exploration, estimate_tokens, explore
-from mcgyvr.orchestrator.resolve import Resolution, resolve
-from mcgyvr.orchestrator.symbols import SymbolKind, extract
+from mcgyvr.repo.index import Index
+from mcgyvr.repo.read import Exploration, estimate_tokens, explore
+from mcgyvr.repo.resolve import Resolution, resolve
+from mcgyvr.repo.symbols import SymbolKind, extract
 
 if TYPE_CHECKING:  # pragma: no cover - typing only
     from pathlib import Path
@@ -61,7 +61,7 @@ _DEFAULT_MAX_INPUT_TOKENS = 32768
 #: the schema's own error text (which names the bad key) for `what_to_change`.
 _SCHEMA_ERROR_PREFIX = "the emitted contract does not validate — "
 
-#: A declaring keyword and a stated rename, as `mcgyvr.orchestrator.provides`
+#: A declaring keyword and a stated rename, as `mcgyvr.decompose.provides`
 #: reads them for the dependency tree (`mcgyvr.tree`) too, so both read what a
 #: contract provides the same way.
 _DECLARING = DECLARING

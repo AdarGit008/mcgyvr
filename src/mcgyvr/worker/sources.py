@@ -17,7 +17,7 @@ from __future__ import annotations
 from collections.abc import Sequence
 from pathlib import Path
 
-from mcgyvr.orchestrator.index import DEFAULT_MAX_FILE_BYTES, SkipReason, read_source
+from mcgyvr.repo.index import DEFAULT_MAX_FILE_BYTES, SkipReason, read_source
 from mcgyvr.sandbox.base import holds_a_secret
 from mcgyvr.scope import OutsideTreeError, inside
 
