@@ -24,7 +24,7 @@ import time
 from collections.abc import Iterator, Sequence
 from pathlib import Path
 
-from mcgyvr import hostos
+from mcgyvr import atomic, hostos
 
 #: FNV-1a 64-bit: the offset basis, prime multiplier and the mask that keeps
 FNV_OFFSET = 0xCBF29CE484222325
@@ -232,9 +232,9 @@ class Ledger:
     def _save(self) -> None:
         """Persist the known identities, if there is a ledger path and a boot id.
 
-        The JSON is written to a per-pid temporary file opened with mode 0600, flushed
-        and fsynced, then renamed over the ledger, so a reader sees either the old or
-        the new document. Any OSError leaves the previous ledger untouched.
+        The JSON replaces the ledger whole through :func:`mcgyvr.atomic.write`, at
+        mode 0600 and fsynced, so a reader sees either the old or the new document.
+        Any OSError leaves the previous ledger untouched.
         """
         boot = boot_id()
         if self._saved is None or boot is None:
@@ -244,19 +244,8 @@ class Ledger:
             "boot": boot,
             "files": {str(path): list(i) for path, i in sorted(self._known.items())},
         }
-        partial = self._saved.with_name(f"{self._saved.name}.{os.getpid()}.tmp")
-        try:
-            _remove(partial)
-            descriptor = hostos.open_nofollow(
-                partial, os.O_WRONLY | os.O_CREAT | os.O_EXCL, 0o600
-            )
-            with os.fdopen(descriptor, "w", encoding="ascii") as handle:
-                json.dump(document, handle)
-                handle.flush()
-                os.fsync(handle.fileno())
-            os.replace(partial, self._saved)
-        except OSError:
-            _remove(partial)
+        with contextlib.suppress(OSError):
+            atomic.write(self._saved, json.dumps(document), private=True, fsync=True)
 
     def trusted(self, folder: Path) -> bool:
         """Return True when ``folder`` holds only files whose identity is already known.
