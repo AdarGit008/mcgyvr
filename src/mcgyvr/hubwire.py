@@ -1,12 +1,35 @@
-"""The wire the hub serves a rider, defined once: the product's, the hub's by import.
+"""The hub wire, defined once: the product's, the hub's by import.
 
 The hub serves models to a member's rigs and the product rides them: relief
 rungs (hitchhike), the ladder a rider reports, the units a host advertises,
-the resources a rig lends, the relay that carries a ride, and the ``/v1``
-refusals a rider reads. Every
-value both sides hold for that is here, once, and the hub builds its own types
-from these names rather than writing them again:
+the resources a rig lends, the relay that carries a ride, the ``/v1``
+refusals a rider reads, and the agent channel a rig holds to the hub. Every
+limit, pattern and code list both sides hold for that is defined here, once.
+The product's modules import them (the rig's ``protocol`` and ``sessionwire``
+name them under their own names, as the same objects). The hub reads them
+through its pinned product as it drops its own copies: some it imports
+already (the resource, identity-key and seal values among them), the agent
+channel's it still spells itself, and each value it spells is held to the
+published schemas by the product's tests until it reads it from here. What
+is here:
 
+* the agent channel: its version (:data:`PROTOCOL_VERSION`, and the UDP
+  packets' :data:`UDP_VERSION`), the frame limits (``MAX_MESSAGE_BYTES``,
+  ``MAX_FRAMES_PER_SECOND``, ``MAX_ERROR_TEXT``, ``HEARTBEAT_INTERVAL_S``),
+  the counts a frame may carry (models, sessions, endpoints, features, peers,
+  allowed IPs, devices, RTT samples, STUN endpoints), a model's, a head's, a
+  probe's, a tunnel walk's and a port forward's bounds and the defaults the
+  schema states for them (``MAX_*``, ``MIN_*``, ``DEFAULT_*``, ``PORT_MAP_*``),
+  the roles (:data:`RIG_ROLES`, :data:`RigRole`), session states
+  (:data:`SESSION_STATES`), relay outcomes (:data:`RELAY_OUTCOMES`) and the
+  statuses a relayed response may carry (:data:`RELAY_STATUS`), the shapes of
+  its text fields (:data:`MESSAGE_ID`, :data:`TAG`,
+  :data:`MACHINE_ID`, :data:`AGENT_VERSION`, :data:`DIGEST`,
+  :data:`SHORT_TAG`, :data:`RUNTIME`, :data:`ENDPOINT_HOST`,
+  :data:`WIREGUARD_KEY`, :data:`IPV4`, :data:`IPV4_CIDR`,
+  :data:`CONTENT_TYPE`, :data:`BASE64`, :data:`TOKEN`, :data:`TICKET`), and
+  its codes: :class:`CloseCode`, the channel's :class:`ErrorCode`, a
+  refusal's :class:`SessionCode`, all of them :data:`AGENT_ERROR_CODES`;
 * :data:`RUNG_POSITIONS`, where a relief rung's host model sits against the
   rider's ladder;
 * :data:`MODEL_NAME`, the shape of a model name on the wire, and
@@ -40,7 +63,8 @@ from these names rather than writing them again:
   (:data:`POOL_USE_CASES`, :func:`pool_serves`): a request naming one its
   pool does not serve is refused (:data:`USE_CASE_NOT_SERVED`);
 * the hub's published JSON Schemas (:data:`SCHEMAS`), shipped inside this
-  package and read with :func:`schema_bytes` and :func:`schema`;
+  package and read with :func:`schema_bytes` and :func:`schema`, and the
+  version the rider schema is published at (:data:`RIDER_SCHEMA_VERSION`);
 * what a rig lends, as resources (:class:`Resource`) on a host
   (:class:`Host`), and a heartbeat's reading of each
   (:class:`ResourceReading`): their kinds (:data:`RESOURCE_KINDS`, the card
@@ -75,10 +99,19 @@ from these names rather than writing them again:
   hub tells apart from a router's refusal.
 
 A pattern is held unanchored and matched whole (``fullmatch``); a JSON Schema
-or a pydantic type writes it as ``^<pattern>$``. Nothing here is a validator
-of a whole message: the hub's pydantic models and the product's readers stay
-two, and each value they share is held to the schemas by the product's tests.
-A resource, a reading and a host carry their own rules (``validate()``,
+or a pydantic type writes it as ``^<pattern>$``.
+
+Not here: a validator of a whole message. The hub's pydantic models and the
+product's readers and builders (``mcgyvr.rig.protocol``,
+``mcgyvr.rig.sessionwire``) stay two, each bounded by the values here, and
+the hub renders the schemas from its models (the product's tests hold each
+shared value to them). Nor the upstream path a relay fetches, which is the
+agent's alone. Not yet here, so still spelled on both sides and held by the
+schemas: the feature names an agent lists (``x-features``) and the UDP
+packet formats (``x-udp``); ``mcgyvr.rig.udpwire`` runs in the tunnel
+without this package, so it keeps its own copy of what it needs,
+:data:`UDP_VERSION` among them, held to this one by test. A resource, a
+reading and a host carry their own rules (``validate()``,
 :func:`resources_fit`, :func:`readings_fit`) for both sides to call; their
 values join the schemas once the hub publishes them.
 
@@ -90,6 +123,7 @@ from __future__ import annotations
 
 import base64
 import binascii
+import enum
 import hashlib
 import json
 import re
@@ -97,7 +131,7 @@ from collections.abc import Mapping, Sequence
 from dataclasses import dataclass
 from importlib import resources
 from types import MappingProxyType
-from typing import Any
+from typing import Any, Literal, get_args
 
 #: Where a relief rung's host model sits against the models of the rider's own
 #: ladder, as the hub judges it: shown, never a place on the ladder.
@@ -146,6 +180,234 @@ RELAY_MAX_TIMEOUT_S = 3600
 RELAY_MAX_SEQ = 1 << 31
 #: Most prompt or completion tokens a relayed call may report at its end.
 RELAY_MAX_TOKENS = 1 << 31
+#: Longest base64 text that still decodes to one relay chunk, rounded up to
+#: whole four-character groups.
+RELAY_MAX_CHUNK_B64 = 4 * -(-RELAY_MAX_CHUNK_BYTES // 3)
+#: How a relayed call ends.
+RELAY_OUTCOMES: tuple[str, ...] = (
+    "complete",
+    "error",
+    "cancelled",
+    "timeout",
+    "too_large",
+)
+
+# --- the agent channel -------------------------------------------------------
+# The websocket a rig's agent holds to the hub (the protocol schema): its
+# envelope, the limits and shapes of the frames on it, and its close and error
+# codes. The rig's ``protocol`` and ``sessionwire`` modules name these; the
+# hub's pydantic models state the same bounds (its own copies, until its pin
+# reaches these names).
+
+#: The version an agent and a hub write in ``v`` and the only one they read:
+#: another number is refused as ``unsupported_version``.
+PROTOCOL_VERSION = 1
+#: The version byte of the UDP packets beside the channel (binding, probe and
+#: relay packets; the protocol schema's ``x-udp``). The rig's ``udpwire`` runs
+#: in the tunnel without this package, so it keeps its own copy, held to this
+#: one by the product's tests.
+UDP_VERSION = 1
+#: Largest frame, in bytes of UTF-8, either side reads or writes.
+MAX_MESSAGE_BYTES = 64 * 1024
+#: Frames per second one agent may send over its channel; the hub closes floods.
+MAX_FRAMES_PER_SECOND = 100
+#: Longest error text, in characters.
+MAX_ERROR_TEXT = 500
+#: The seconds a hub may set as the heartbeat interval in an ack, low and high.
+HEARTBEAT_INTERVAL_S = (1, 3600)
+#: Most models a hello may name, and most weight digests it may list.
+MAX_MODELS = 64
+#: Most live session ids a hello may list: the most sessions a rig runs at once.
+MAX_SESSIONS_REPORTED = 4
+#: Upper bound on a model file's size, and on the bytes one of its tensors takes.
+MAX_MODEL_BYTES = 1 << 50
+#: Upper bound on a model's layer count.
+MAX_LAYERS = 4096
+#: Upper bound on a model's embedding and head counts.
+MAX_COUNT = 1 << 20
+#: Upper bound on the key and value cache a model spends per token.
+MAX_KV_BYTES_PER_TOKEN = 1 << 30
+#: Most endpoints one offer or one peer may name.
+MAX_ENDPOINTS = 8
+#: Most features one offer may name.
+MAX_FEATURES = 16
+#: The roles a rig may offer in a session: at most both.
+RigRole = Literal["head", "worker"]
+RIG_ROLES: tuple[str, ...] = get_args(RigRole)
+
+#: Most peers one tunnel or probe may name, allowed IPs one peer may carry,
+#: devices one head may start on, and round-trip samples one report may carry.
+MAX_PEERS = 15
+MAX_ALLOWED_IPS = 4
+MAX_DEVICES = 64
+MAX_RTT_SAMPLES = 32
+#: Largest round trip a report may carry, in microseconds.
+MAX_RTT_US = 60_000_000
+#: A head's context per slot, in tokens (also a model's trained context).
+MIN_CTX = 256
+MAX_CTX = 1 << 20
+#: Largest one device's share in a tensor split.
+MAX_TENSOR_SHARE = 1 << 20
+#: Most layers a head may offload, and what a start gets when it names none.
+MAX_GPU_LAYERS = 4096
+DEFAULT_GPU_LAYERS = 999
+#: The slots a start request gets when it leaves the field out (at most
+#: :data:`MAX_SLOTS`).
+DEFAULT_SLOTS = 1
+#: A tunnel peer's keepalive, in seconds: the most, and the default.
+MAX_KEEPALIVE_S = 600
+DEFAULT_KEEPALIVE_S = 25
+#: Highest port an endpoint may name; ports start at 1.
+MAX_PORT = 65535
+#: Longest log excerpt a session status carries, in characters.
+LOG_EXCERPT_MAX_CHARS = 4000
+#: Longest content type a relayed response names.
+MAX_CONTENT_TYPE = 128
+#: Highest percentage a report names (loss, progress).
+MAX_PCT = 100
+#: The HTTP statuses a relayed response may answer with: the lowest and the
+#: highest.
+RELAY_STATUS = (100, 599)
+#: STUN-assisted probes: how many STUN endpoints one end may offer, how long
+#: a probe stays open, how many echoes it sends and how far apart, and the
+#: bulk payload and overall deadline used to measure throughput.
+MAX_STUN_ENDPOINTS = 2
+MIN_PROBE_TTL_S = 5
+MAX_PROBE_TTL_S = 120
+DEFAULT_PROBE_TTL_S = 30
+MAX_PROBE_COUNT = 20
+DEFAULT_PROBE_COUNT = 5
+MIN_PROBE_INTERVAL_MS = 10
+MAX_PROBE_INTERVAL_MS = 1000
+DEFAULT_PROBE_INTERVAL_MS = 50
+MAX_PROBE_BULK_BYTES = 256 * 1024
+MIN_PROBE_DEADLINE_MS = 100
+MAX_PROBE_DEADLINE_MS = 15_000
+DEFAULT_PROBE_DEADLINE_MS = 5000
+#: A tunnel's walk: seconds per candidate, and in all.
+MAX_ATTEMPT_S = 30
+MAX_CONNECT_TIMEOUT_S = 300
+#: Largest rate a probe reports, in kbit/s (100 Gbit/s: a sanity bound).
+MAX_RATE_KBPS = 100_000_000
+#: The port forward: a block covers every tunnel port a rig may use at once,
+#: its lease and its check, in seconds, and the states a report names.
+PORT_MAP_PORTS = MAX_SESSIONS_REPORTED
+MIN_PORT_MAP_LEASE_S = 120
+MAX_PORT_MAP_LEASE_S = 86_400
+DEFAULT_PORT_MAP_LEASE_S = 3600
+MIN_PORT_CHECK_TTL_S = 5
+MAX_PORT_CHECK_TTL_S = 60
+DEFAULT_PORT_CHECK_TTL_S = 15
+PORT_MAP_STATES: tuple[str, ...] = ("mapped", "failed", "released")
+#: The states a session status may report.
+SESSION_STATES: tuple[str, ...] = (
+    "absent",
+    "preparing",
+    "prepared",
+    "tunnel_up",
+    "starting",
+    "loading",
+    "ready",
+    "failed",
+    "stopped",
+)
+
+#: The shapes the envelope's own fields take: message ids (which also name
+#: sessions, requests and rigs), type tags (which also serve as error codes,
+#: endpoint kinds and feature names), machine ids and agent versions.
+MESSAGE_ID = re.compile(r"[A-Za-z0-9_-]{1,64}")
+TAG = re.compile(r"[a-z][a-z0-9_]{0,63}")
+MACHINE_ID = re.compile(r"[A-Za-z0-9][A-Za-z0-9._:-]{0,127}")
+AGENT_VERSION = re.compile(r"[A-Za-z0-9][A-Za-z0-9.+_-]{0,63}")
+#: The shapes of what an offer names: weight digests, architectures, runtimes
+#: and endpoint hosts.
+DIGEST = re.compile(r"sha256:[0-9a-f]{64}")
+SHORT_TAG = re.compile(r"[A-Za-z0-9][A-Za-z0-9._-]{0,31}")
+RUNTIME = re.compile(r"[A-Za-z0-9][A-Za-z0-9._:/@+-]{0,199}")
+ENDPOINT_HOST = re.compile(r"[A-Za-z0-9][A-Za-z0-9.:-]{0,252}")
+#: A WireGuard public key, an IPv4 address and an IPv4 network, as text.
+WIREGUARD_KEY = re.compile(r"[A-Za-z0-9+/]{42}[AEIMQUYcgkosw048]=")
+IPV4 = re.compile(r"\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3}")
+IPV4_CIDR = re.compile(r"\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3}/\d{1,2}")
+#: A relayed response's content type, and a relay data frame's base64.
+CONTENT_TYPE = re.compile(
+    r"[A-Za-z0-9!#$&^_.+-]+/[A-Za-z0-9!#$&^_.+-]+(; ?[A-Za-z0-9_-]+=[A-Za-z0-9_.-]+)?"
+)
+BASE64 = re.compile(r"[A-Za-z0-9+/]*={0,2}")
+#: 16 random bytes as 32 hex digits: a probe or traversal token, a probe secret.
+TOKEN = re.compile(r"[0-9a-f]{32}")
+#: The ticket a relay grant carries, which binds a tunnel with the relay:
+#: opaque to agents, URL-safe base64.
+TICKET = re.compile(r"[A-Za-z0-9_-]{22,256}")
+
+
+class CloseCode(enum.IntEnum):
+    """The codes a hub closes the agent channel with, as the wire spells them.
+
+    1008 is the websocket's own policy violation, and 4001 onwards are the
+    hub's own reasons. Published as ``x-close-codes``.
+    """
+
+    POLICY = 1008  # the channel broke the websocket's rules, e.g. too many frames
+    REVOKED = 4001  # the hub revoked this rig's token
+    TIMEOUT = 4008  # this agent's heartbeats stopped reaching the hub
+    SUPERSEDED = 4009  # another agent took this rig over with the same token
+
+
+class ErrorCode(enum.StrEnum):
+    """The channel's own error codes, sent in an ``error`` frame by either side.
+
+    An ``error`` frame's code is an open set (any type tag), so this is what
+    the two sides name about the channel itself; a refusal of a session or a
+    relay carries a :class:`SessionCode`. Both together are
+    :data:`AGENT_ERROR_CODES`.
+    """
+
+    BAD_MESSAGE = "bad_message"
+    UNSUPPORTED_VERSION = "unsupported_version"
+    UNSUPPORTED_TYPE = "unsupported_type"
+    EXPECTED_HELLO = "expected_hello"
+    MACHINE_MISMATCH = "machine_mismatch"
+    REVOKED = "revoked"
+    TIMEOUT = "timeout"
+    SUPERSEDED = "superseded"
+    RATE_LIMITED = "rate_limited"
+
+
+class SessionCode:
+    """Codes a refusal carries to say why a rig would not take a request."""
+
+    BUSY = "busy"
+    NOT_CAPABLE = "not_capable"
+    UNKNOWN_SESSION = "unknown_session"
+    MODEL_MISSING = "model_missing"
+    INSUFFICIENT_MEMORY = "insufficient_memory"
+    TUNNEL_FAILED = "tunnel_failed"
+    START_FAILED = "start_failed"
+    NOT_READY = "not_ready"
+    DUPLICATE = "duplicate"
+    UPSTREAM_FAILED = "upstream_failed"
+    TOO_LARGE = "too_large"
+    CANCELLED = "cancelled"
+    MODEL_MISMATCH = "model_mismatch"
+    NO_PATH = "no_path"
+    UNKNOWN_UNIT = "unknown_unit"
+    #: A sealed ride that does not open: sealed to a key this agent no longer
+    #: holds, tampered with, or no chat request once opened.
+    BAD_SEAL = "bad_seal"
+    #: The load stopped moving bytes for long enough that the head gave up.
+    LOAD_STALLED = "load_stalled"
+    #: A path to the peer does exist, but it lost every full-size packet: its
+    #: MTU is too small to carry the tunnel.
+    PATH_TOO_NARROW = "path_too_narrow"
+
+
+#: Every error code the agent channel names, the channel's own first: the
+#: protocol schema's ``x-error-codes`` (which lists them sorted).
+AGENT_ERROR_CODES: tuple[str, ...] = (
+    *(code.value for code in ErrorCode),
+    *(value for name, value in vars(SessionCode).items() if name.isupper()),
+)
 
 #: The birthday-paradox hole punch: one side behind a symmetric (per-destination)
 #: NAT, the other on a stable endpoint (cone NAT, port forward, owner-declared,
@@ -511,6 +773,9 @@ PROTOCOL_SCHEMA = "protocol.schema.json"
 #: The rider REST API's schema, beside the agent channel, with the ``/v1``
 #: error table.
 RIDER_SCHEMA = "rider.schema.json"
+#: The version each schema is published at (its ``$id`` ends ``/v<n>``): the
+#: protocol's is :data:`PROTOCOL_VERSION`.
+RIDER_SCHEMA_VERSION = 1
 #: Every schema shipped here, by file name: the hub's ``schemas/`` names.
 SCHEMAS: tuple[str, ...] = (PROTOCOL_SCHEMA, RIDER_SCHEMA)
 #: The package folder the schemas are shipped in.
