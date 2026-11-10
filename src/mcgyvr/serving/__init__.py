@@ -55,8 +55,9 @@ DEFAULT_UBATCH = 512
 # `http://rig` and `http://rig:8080` name one process and group into one
 # unit instead of two. This is mcgyvr's one default for every engine: it is
 # not keyed by engine, so a portless vLLM unit resolves here too, not to
-# vLLM's own stock 8000. That stock port lives only in the detect sweep's
-# list (`detect.PORT_CONVENTIONS`), which probes servers mcgyvr did not launch.
+# vLLM's own stock 8000. That stock 8000 is recorded among the well-known
+# servers' ports in the detect sweep's list (`detect.PORT_CONVENTIONS`); the
+# setup wizard reuses it there, writing it into the vLLM address it stages.
 DEFAULT_PORT = 8080
 
 # A host's launch spec is written to `compose.<host>.yml`, or to

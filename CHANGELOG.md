@@ -24,11 +24,12 @@ archived outside this repository, under the same paths.
   reads vLLM's stock 8000 from the detect sweep instead of spelling it again.**
   `serving.DEFAULT_PORT` is the port any engine's unit listens on when its
   address carries none, so a portless vLLM unit resolves to 8080, not vLLM's
-  own 8000; that stock port is a probe of servers mcgyvr did not launch and
-  lives only in the detect sweep's list (`detect.PORT_CONVENTIONS`). The
-  wizard's synthetic detection now reads vLLM's port from that list rather than
-  a second literal `8000`. No unit changes the port it is served on — the value
-  is identical, only the duplicate is removed — and `serving.port_of` is
+  own 8000; vLLM's stock 8000 is recorded among the well-known servers' ports
+  in the detect sweep's list (`detect.PORT_CONVENTIONS`). The wizard's synthetic
+  detection now reuses vLLM's port from that list — writing it into the address
+  it stages — rather than spelling a second literal `8000`. No existing unit
+  changes the port it is served on — the value is identical, only the duplicate
+  is removed — and `serving.port_of` is
   unchanged.
 
 - **A docker llama.cpp or vLLM unit listens on 127.0.0.1 or, behind a key
