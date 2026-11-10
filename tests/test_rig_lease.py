@@ -238,8 +238,9 @@ def _refused_untouched(
     assert "stale" not in said, said
     assert onedoor.read_lease(root) == line + "\n", "the holder's lease was touched"
     assert onedoor.docker_log(root) == [], "the holder's daemon was reached"
-    assert all(entry.endswith("bash -s -- lease") for entry in onedoor.ssh_log(root)), (
-        f"the rig was reached beyond its lease: {onedoor.ssh_log(root)}"
+    leased = onedoor.lease_log(root)
+    assert leased and len(onedoor.ssh_log(root)) == len(leased), (
+        f"the rig was reached beyond its lease: {leased} of {onedoor.ssh_log(root)}"
     )
     assert not (tmp_path / "e").exists(), "the step ran on a held rig"
     assert onedoor.written_under_records(root) == [], "a refused run filed"

@@ -216,11 +216,11 @@ powershell -NoProfile -ExecutionPolicy RemoteSigned -File mcgyvr\skills\mcgyvr\i
   `%LOCALAPPDATA%\mcgyvr\cache` on Windows.
 - config (`$MCGYVR_HOME`): `~/.mcgyvr` on every system.
 
-`$XDG_STATE_HOME` and `$XDG_CACHE_HOME` still win when set (the weights follow `$MCGYVR_WEIGHTS` alone),
-and `journal.dir` defaults to `~/.local/state/mcgyvr/journal` everywhere. Windows checks no file owner or
-mode: a file is as private as its folder, and these folders are in your own profile. A folder named by
-`$MCGYVR_HOME`, `$MCGYVR_DATA` or an XDG variable keeps whatever ACL it has, so keep the rig token's
-folder (`$MCGYVR_HOME`) inside your profile.
+`$XDG_STATE_HOME` and `$XDG_CACHE_HOME` still win when absolute (the weights follow `$MCGYVR_WEIGHTS`
+alone), and `journal.dir` defaults to `~/.local/state/mcgyvr/journal` everywhere. Windows checks no file
+owner or mode: a file is as private as its folder, and these folders are in your own profile. A folder
+named by `$MCGYVR_HOME`, `$MCGYVR_DATA` or an XDG variable keeps whatever ACL it has, so keep the rig
+token's folder (`$MCGYVR_HOME`) inside your profile.
 
 **Serving, with no Docker.** On a Mac or a Windows machine, `mcgyvr setup` writes `launcher: native` for
 a llama.cpp unit on the machine it runs on. Its first start fetches the llama.cpp build mcgyvr pins
@@ -566,7 +566,7 @@ Where mcgyvr keeps its own record of what it dispatched. To say what a run belon
 
 | Key | Type | Required | Default | Description |
 | --- | --- | --- | --- | --- |
-| `journal.dir` | text | no | `~/.local/state/mcgyvr/journal` | Where every run journals what it asked, what came back and how it landed: one `<orchestrator>.jsonl` per writer, the prompts and replies content-addressed under `blobs/`, and each run's result file under `results/`. Deterministic runs are here too, with a row naming the program instead of a model. This is mcgyvr's own record, it never lands in the repository a run works on, and nothing on the command line moves it: it is the one place every run is, which is what makes it worth asking questions of. `--record DIR` on either verb adds a second copy for your own use. Read either copy back from DIR directly: one JSONL per writer, prompts and replies under `blobs/`, results under `results/`. |
+| `journal.dir` | text | no | `~/.local/state/mcgyvr/journal` | Where every run journals what it asked, what came back and how it landed: one `<orchestrator>.jsonl` per writer, the prompts and replies content-addressed under `blobs/`, and each run's result file under `results/`. Deterministic runs are here too, with a row naming the program instead of a model. This is mcgyvr's own record, it never lands in the repository a run works on, and nothing on the command line moves it: it is the one place every run is, which is what makes it worth asking questions of. `--record DIR` on either verb adds a second copy for your own use. `mcgyvr usage` reads the journal back: per run and per rung, the attempts, the tokens and time they spent, and the verdicts they came to. Every row carries the layout version it was written under, and `mcgyvr usage` refuses a row of a version it does not read rather than misread it. Either copy can also be read from DIR directly: one JSONL per writer, prompts and replies under `blobs/`, results under `results/`. |
 
 ## `relief`
 

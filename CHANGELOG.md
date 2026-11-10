@@ -11,6 +11,31 @@ archived outside this repository, under the same paths.
 
 ### Changed
 
+- **A Mac's GPU is sized from the Metal working set llama.cpp logged, a
+  reading, once a native server has started on it.** The native supervisor
+  already filed `recommendedMaxWorkingSetSize` from llama-server's start-up
+  log in `native/metal.json` in the data folder, and nothing read it: the
+  machine reader sized the GPU from `iogpu.wired_limit_mb`, else 0.75 of the
+  memory, an estimate. Now the reader (`rigscan.metal_working_set`, which
+  finds the data folder by `fleet.roots.data_home`'s rule) sizes card
+  `apple.0` and its `unified` resource from that file, held to the memory,
+  with `figure: reading`, and `mcgyvr detect` and fit listings take it. The
+  supervisor now files the wired limit in force beside the figure, and the
+  reading is taken only while that limit is the one set: after the limit is
+  changed, or after a reboot that cleared it, the GPU is sized by estimate,
+  as on a first run, until a native server starts again. A file that holds
+  no reading is passed over the same way. `mcgyvr scan` notes why in each
+  case; `mcgyvr detect` and the hub show only `figure: estimate`. Upgrading:
+  a file an older supervisor wrote names no limit and is not taken, and a
+  supervisor still running the older code writes it that way again on every
+  server it restarts, so restart a Mac's native units on this release to
+  size it from the reading. A Mac whose native server has started sizes
+  from the reading, which may be above or below the estimate, so the models
+  that fit it can change. The folder name and file name are spelled once,
+  in `fleet.roots` (`NATIVE_DIR`, `METAL_FILE`); `estimate.usable_unified_mb`
+  (no caller) and `native.metal_working_set` (tests only) are removed, and
+  with them `estimate.UNIFIED_SHARE`, which only that function used.
+
 - **Every kept file is renamed into place by `mcgyvr.atomic`, which retries
   while Windows holds the target (I-54).** The native launcher's records,
   specs and settled copy, the rig identity key's no-hard-links fallback, the
@@ -93,6 +118,60 @@ archived outside this repository, under the same paths.
   unit that names no engine still has none and a stated `engine: llama.cpp`
   stays in the setup identity: no lock digest, rendered unit or SETUP.md line
   changes. A literal that names llama.cpp as a kind of engine stays.
+
+- **The four model-on-disk listers are pinned together by one test (I-138).**
+  The scan (`rigscan._models_on_disk`), the rig agent (`rig/inventory.read`),
+  recommend's discovery (`recommend.discover_command`) and the local-rig
+  emulator (`localrig.run`) list model files by different rules, on purpose:
+  their protocols differ. One test lists an invented tree with all four and
+  states each rule (formats, depth, split parts, hidden names, case), and
+  checks the emulator against the real `find`. Nothing behaves differently.
+
+- **A scan reads /proc/meminfo and the CPU model once (I-141).** The reader
+  parsed /proc/meminfo three times per scan (the memory section, the bandwidth
+  probe's `_spare_gb`, the snapshot) and looked the CPU model up twice (the CPU
+  section, the snapshot's `cpu_model`). The short reading now reads each once
+  and the probe and snapshot take those reads: `rigscan.measure_bandwidth`
+  takes the memory section's available MiB (`spare_mib`, MemAvailable else
+  MemFree) instead of a root to read from, and `_spare_gb` is gone. A scan's
+  output is unchanged on every invented machine (15 scans compared, meminfo and
+  cpuinfo variants among them), and it does fewer reads: meminfo 3 to 1,
+  cpuinfo 2 to 1. Off Linux the probe still takes its small block, as it did.
+
+- **The native supervisor asks `nvidia-smi` through the reader's runner
+  (I-140).** `native.nvidia_driver` and the card-holder read behind
+  `native.held` ran `nvidia-smi` with their own `subprocess.run`, bounded in
+  time only; both now run through `rigscan._run`, still held to
+  `native.PROBE_S` (10 s) and now also to the reader's output bound
+  (`rigscan.BYTES_MAX`), with the tool's process group ended with it. The
+  answers are the same: the driver or None, and holders as `pid,name,<n>MiB`,
+  "none" or "unread".
+
+- **`mcgyvr detect` finds Docker as the reader finds its tools (I-139).**
+  `detect._run` and `detect_docker` looked the program up with `shutil.which`,
+  which on Windows tries the working folder first and everywhere searches a
+  relative PATH entry; they now use `hostos.which_absolute`, PATH's absolute
+  folders only, and run the path that was found. A `docker` reachable only
+  through the working folder or a relative PATH entry now reads as "not on
+  PATH". The `docker info` check itself and the CPU count are unchanged.
+
+- **A relative `$XDG_CACHE_HOME` is passed over, as a relative
+  `$XDG_STATE_HOME` already was (I-146).** `hostos.user_cache_dir` took any
+  value, so `XDG_CACHE_HOME=cache` put the model index under whatever folder a
+  command ran from; it now honours the variable only when it is absolute (`~`
+  still expanded) and otherwise uses the system's own cache folder. The
+  `weights_dir` docstring no longer says the weights follow the variable (they
+  never did), and SETUP.md's *Folders* says the XDG variables win "when
+  absolute".
+
+- **A hello's `ram_total_mb` is the MiB the reader counted (I-133).** The
+  rig's hardware report (`rig/hardware.py`) took the hello's RAM total from the
+  memory section's GB figure, which the reader rounds to 0.1 GB, so it could
+  differ from the host-RAM resource in the same hello by up to ~51 MiB. It now
+  takes the resource's exact `total_mb`; a reading with no host-RAM resource
+  reports RAM unread (0 MiB total), as one with no memory section did. Every
+  rig's hello figure moves by those few MiB. `recommend`'s own GB-to-MiB turn
+  (`recommend._memory_mib`) is left as it is.
 
 - **Two machine-reading designs are said and pinned; nothing behaves
   differently.** First contact with a rig over ssh is the scan's: `mcgyvr scan
@@ -283,6 +362,55 @@ archived outside this repository, under the same paths.
   this. `hubwire.scopes_serving(use_case)` names the scopes whose pool serves
   a use case: the list the setup check's refusal offers, kept in one place for
   the hub's refusal too.
+
+- **The Linux CI and the release live in `.github/workflows/`, the only
+  workflows the repository carries.** `ci.yml` is the full Linux suite
+  (`make check`: lint, typecheck, docs-check and every test, with the pinned
+  prettier and shellcheck installed so their tests cannot skip) plus the
+  import check on Python 3.13 and 3.14; its job `test` is the required check,
+  `ci / test (pull_request)`. `release.yml`
+  builds the distribution once from a `v*` tag, checks the wheel is the tag's
+  version and the notes are the tag's CHANGELOG.md section, publishes a GitHub
+  release with `gh release create`, and uploads the same files to PyPI by
+  trusted publishing (environment `pypi`; no token in the repository or its
+  secrets). `release.yml` and the macOS/Windows job in `platforms.yml` run
+  only on GitHub: a forge that also reads `.github/workflows` skips them
+  instead of half-making a release or queueing for runners it does not have.
+  `tests/test_release.py` reads `.github/workflows`.
+
+- **The WireGuard helper's spec says what the product reads of a release,
+  and only that.** Section 1 of `src/mcgyvr/rig/HELPER-SPEC.md` keeps the
+  repository the product downloads from (`wgpin.REPO`), the tag format, the
+  asset names, the archive layout and the pin rows; how the helper's own
+  releases are cut and checked is no longer in the product. `wgpin.py` points
+  at that section; `serving/release.py` no longer cites a design note the
+  product does not ship, and defines its install order itself.
+
+- **A Linux rig is leased by the one Python lease, as macOS and Windows rigs
+  are; the bash lease scripts are gone.** A Linux rig over ssh was sent five
+  bash scripts on `bash -s -- lease` (read, take a free rig, reclaim a stale
+  lease, stamp, release), and every other rig the Python lease
+  (`mcgyvr.serving.leasefile`), held to the scripts by a twin test. Now every
+  rig over ssh is shipped that Python lease (`shipped.lease`), on the
+  reader's line (`echo <base64> | base64 -d | python3 -I -B - OP '~/.mcgyvr'
+  [held=ID] ['line=LINE']`), and `gatelib._LEASE_SCRIPTS` and
+  `gatelib.LEASE_SHELL` are removed. The lease file (`~/.mcgyvr/lease`, one
+  line), each operation's exit status and the file it leaves are the
+  scripts' own over every lease state, pinned by a table test that keeps
+  every case of the twin test. A Linux rig needs nothing new: its Python 3.9
+  or newer already runs the shipped reader for `mcgyvr scan --rig`, which a
+  serve needs before the lease, and again at gate 2. What differs there:
+  each lease call starts a Python (about a tenth of a second more than bash)
+  and carries the program, `mcgyvr.atomic` with it (about 27 KB), in its
+  command line; its writes go through `atomic.write`, as every other rig's do;
+  `~/.mcgyvr/lease.lock` appears beside the lease and two lease calls on one
+  rig no longer interleave; a lease file that is a symbolic link, or cannot
+  be read, is refused (status 5, and the run is not let onto the rig) where
+  bash followed the link or read it as empty; a rig whose `~/.mcgyvr` (or,
+  with no such folder, whose home) cannot be written answers every lease
+  call with status 4, so the run is refused with "could not be read:
+  Permission denied" where bash read the lease and named its holder; and the
+  read makes `~/.mcgyvr` when it is missing.
 
 - **A docker llama.cpp or vLLM unit listens on 127.0.0.1 or, behind a key
   mcgyvr makes, on every interface (`expose: local | lan`).** `mcgyvr emit`
@@ -483,6 +611,23 @@ archived outside this repository, under the same paths.
   `HEALTH_POLLS` is gone:
   `servelib.wait_for` takes `timeout_s`, and `health_polls` says how many
   polls it buys (I-53).
+
+- **`mcgyvr usage` reads the journal back, and a row of a layout it does not
+  know is refused.** Every run appended rows under `journal.dir`, and nothing a
+  user ran read them: `telemetry.fold` was called only by tests, and the layout
+  `version` stamped on each row was checked by nothing. `mcgyvr usage [JOURNAL]`
+  folds each `<session>.jsonl` in the journal (or one named file) with
+  `telemetry.fold` and prints, per run and per rung, the attempts, how many
+  answered, the input and output tokens the rows reported (`-` when none did),
+  the summed `elapsed_s`, and the verdicts the attempts folded to; corrections
+  that name no attempt are counted apart. With no argument it reads the
+  `journal.dir` of the setup a run here would use (`--config PATH` names
+  another), and an empty or not-yet-made journal says so and exits 0. `fold` now
+  raises `telemetry.JournalVersionError` for a row whose `version` is not
+  `TELEMETRY_VERSION` (`1`) or is missing, naming the file, the line and the
+  version; `usage` prints it and exits 1. Damaged lines are still skipped as
+  before. `config.journal_dir` is the one resolution of `journal.dir` that
+  `direct`, `mcgyvr PROMPT` and `usage` share.
 
 - **A worker rig tells the hub which models its tensor cache holds
   (`hello.weight_cache`), so the hub plans a cheaper load there.** The cache
