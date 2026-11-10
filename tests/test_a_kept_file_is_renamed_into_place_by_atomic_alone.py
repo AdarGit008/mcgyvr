@@ -35,18 +35,33 @@ RENAMES = {
 
 
 def _calls(tree: ast.AST, name: str) -> list[ast.Call]:
-    """``os.<name>(a, b)`` and ``<path>.<name>(a)`` calls in `tree`; a str's
-    ``replace`` takes two arguments, so one argument is a path's."""
+    """The calls in `tree` that rename by `name` (``replace`` or ``rename``).
+
+    ``os.<name>(...)`` however its arguments are given; the bare `name`, or the
+    name it is bound to, after ``from os import <name>``; and
+    ``<path>.<name>(a)`` with one argument and no keyword, which a str's or a
+    datetime's ``replace`` never is. Not seen: ``shutil.move`` and
+    ``os.renames``, which the package does not call.
+    """
+    bound = {
+        alias.asname or alias.name
+        for node in ast.walk(tree)
+        if isinstance(node, ast.ImportFrom) and node.module == "os"
+        for alias in node.names
+        if alias.name == name
+    }
     found = []
     for node in ast.walk(tree):
-        if not isinstance(node, ast.Call) or not isinstance(node.func, ast.Attribute):
+        if not isinstance(node, ast.Call):
             continue
-        if node.func.attr != name or node.keywords:
-            continue
-        owner = node.func.value
-        by_os = isinstance(owner, ast.Name) and owner.id == "os"
-        if by_os or len(node.args) == 1:
+        func = node.func
+        if isinstance(func, ast.Name) and func.id in bound:
             found.append(node)
+        elif isinstance(func, ast.Attribute) and func.attr == name:
+            owner = func.value
+            by_os = isinstance(owner, ast.Name) and owner.id == "os"
+            if by_os or (len(node.args) == 1 and not node.keywords):
+                found.append(node)
     return found
 
 
@@ -80,3 +95,17 @@ def test_each_rename_outside_atomic_is_one_named_here() -> None:
     }
 
     assert renames == RENAMES
+
+
+def test_the_scan_sees_a_rename_however_it_is_spelled() -> None:
+    tree = ast.parse(
+        "import os\n"
+        "from os import replace as swap\n"
+        "os.replace(a, dst=b)\n"
+        "swap(a, b)\n"
+        "staged.replace(target)\n"
+        "text.replace('old', 'new')\n"
+        "stamp.replace(tzinfo=None)\n"
+    )
+
+    assert [call.lineno for call in _calls(tree, "replace")] == [3, 4, 5]
