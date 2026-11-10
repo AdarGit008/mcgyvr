@@ -13,6 +13,8 @@ workers on the other rigs. Promises:
 * A worker rig with no recorded address is refused by name, and so is an
   overlay (100.64.0.0/10) address when the head's rig file records no address
   on that overlay. A head whose ``--rpc`` names other workers is refused.
+* A vLLM unit spanning rigs is refused, locked or not, for the same stated
+  reason: vLLM is split across one machine's cards only.
 * A locked fleet with no unit split across rigs is emitted exactly as before.
 
 Machines, cards, addresses and the model are invented.
@@ -20,6 +22,8 @@ Machines, cards, addresses and the model are invented.
 
 from __future__ import annotations
 
+import json
+import re
 from pathlib import Path
 from typing import Any
 
@@ -33,12 +37,14 @@ from mcgyvr.emit import (
     emit_locked,
     resolved_launch,
 )
-from mcgyvr.serving import ROLE_SERVE, rigfile, spec_name, units_for
+from mcgyvr.serving import ROLE_SERVE, UnitError, rigfile, spec_name, units_for
+from mcgyvr.serving.sharding import VLLM_ONE_MACHINE
 from tests import usermode
 from tests.test_a_unit_split_across_cards_is_launched_as_the_split_it_was_sized import (
     MODEL,
     WINDOW,
     config,
+    scan_rows,
     scans,
 )
 
@@ -205,6 +211,22 @@ def test_a_head_whose_rpc_names_other_workers_is_refused(tmp_path: Path) -> None
 
     with pytest.raises(LockedLaunchError, match=rf"--rpc {LAN_B}:50052.*{moved}"):
         emit_locked(fleet, tmp_path / "locked")
+
+
+def test_a_vllm_unit_across_rigs_is_refused_locked_as_unlocked(tmp_path: Path) -> None:
+    head, _ = unlocked(tmp_path, LAN_B)
+    shards = [{"rig": A, "gpu": 0}, {"rig": B, "gpu": 0, "bind": LAN_B}]
+    fleet = locked(head, shards)
+    fleet["units"]["big"].update(engine="vllm", hf_cache="/cache")
+    with pytest.raises(LockedLaunchError, match=re.escape(VLLM_ONE_MACHINE)):
+        emit_locked(fleet, tmp_path / "locked")
+
+    table = tmp_path / "table.json"
+    table.write_text(json.dumps(scan_rows()), encoding="utf-8")
+    launch = {"shards": shards, "tensor_table_json": str(table)}
+    made = config(tmp_path, launch, engine="vllm", hf_cache="/cache")
+    with pytest.raises(UnitError, match=re.escape(VLLM_ONE_MACHINE)):
+        units_for(made, scans(), specs=(), ctx_per_slot=WINDOW)
 
 
 #: The healthcheck command `small` carries, which `big` waits on.

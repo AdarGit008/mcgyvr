@@ -111,7 +111,7 @@ def test_each_switch_turns_its_own_stage_off_and_no_other(
     assert all(on for name, on in ran.items() if name not in (stage, "repair"))
 
 
-def test_jev_off_takes_the_jev_unit_and_classifier_authoring_out() -> None:
+def test_jev_off_takes_the_jev_unit_out_and_the_scaffold_authors_alone() -> None:
     config = parse(
         FLEET.replace("jev:\n  unit: fast\n", "")
         + "use_case: mcgyvr-code\njev:\n  unit: fast\n  enabled: false\n"
@@ -119,8 +119,9 @@ def test_jev_off_takes_the_jev_unit_and_classifier_authoring_out() -> None:
     ran = stages(config)
 
     assert ran["jev"] is False
-    assert ran["classifier"] is False
-    assert config.authoring == "prose"
+    # The scaffold still proposes (I-30a): classifier authoring, no Jev asked.
+    assert ran["classifier"] is True
+    assert config.authoring == "classifier"
     # Every typed decision is asked as if no Jev unit were bound.
     assert unit_map(config).role_model("jev") is None
 

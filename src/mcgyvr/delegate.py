@@ -9,9 +9,12 @@ declining when a load-bearing answer falls short. ``refining_proposer_for``
 puts the classifier behind ``mcgyvr.refine``, which splits its proposal until
 each is on one file and jev says it cannot be split further.
 ``proposer_by_authoring`` picks between them for the configured strategy.
+``top_rung_proposer_for`` puts the prose prompt on the top rung of the ladder,
+which corrects what vetting refuses and re-plans when no orchestrator model is
+bound.
 
-``NO_ORCHESTRATOR_ROLE`` is what a caller prints when no orchestrator unit is
-bound, so no prompt can be turned into contracts.
+``NO_ORCHESTRATOR_ROLE`` is what a caller prints when prose authoring is chosen
+and no orchestrator unit is bound; ``NO_SETUP`` when there is no config at all.
 """
 
 from __future__ import annotations
@@ -19,7 +22,7 @@ from __future__ import annotations
 import json
 import time
 from collections.abc import Callable, Collection, Mapping, Sequence
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
 from typing import TYPE_CHECKING, Any
 
 from mcgyvr.catalog import TaskType
@@ -63,16 +66,16 @@ from mcgyvr.decompose.fields import (
     render_choice,
     value_by_id,
 )
-from mcgyvr.decompose.iterate import reproposals
 from mcgyvr.delegate_log import DelegateKind, json_type
 from mcgyvr.refine import RefiningProposer
 from mcgyvr.replan import render as render_replan
 from mcgyvr.repropose import render as render_repropose
-from mcgyvr.runner import Completion, Request, dispatch_role
+from mcgyvr.runner import Completion, Request, dispatch, dispatch_role
 from mcgyvr.worker.reply import FENCE_OPEN as _FENCE_OPEN
 
 if TYPE_CHECKING:  # pragma: no cover - typing only
     from mcgyvr.capacity import Capacity
+    from mcgyvr.config import Config
     from mcgyvr.ladder_map import UnitMap
 
 #: The role whose bound unit turns a prompt into contracts: `proposer_for`
@@ -80,13 +83,25 @@ if TYPE_CHECKING:  # pragma: no cover - typing only
 #: questions there. No binding means nothing here can propose.
 ORCHESTRATOR_ROLE = "orchestrator"
 
-#: Printed, with a refusal exit, when no orchestrator unit is bound and so no
-#: prompt can be turned into contracts: the text names the ways forward.
+#: Printed, with a refusal exit, when `orchestrator.authoring: prose` is chosen
+#: and no orchestrator unit is bound, so no model can draft the contracts: the
+#: text names the ways forward, the scaffold among them.
 NO_ORCHESTRATOR_ROLE = (
-    "the orchestrator role is not configured, so a prompt cannot be turned "
-    "into contracts here. Bind `orchestrator.unit` and `orchestrator.model` "
-    "in the config, or author a contract yourself and run it with "
-    "`mcgyvr direct`."
+    "`orchestrator.authoring: prose` is set but the orchestrator role is not "
+    "configured, so no model can draft contracts here. Bind "
+    "`orchestrator.unit` and `orchestrator.model` in the config, drop "
+    "`authoring: prose` to have the scaffold propose with no model, or author "
+    "a contract yourself and run it with `mcgyvr direct`."
+)
+
+#: Printed, with a refusal exit, when no config is found at all (a bare
+#: install): there is no ladder to run a contract on. The scaffold proposes
+#: with no orchestrator model, so a setup is all that is missing.
+NO_SETUP = (
+    "no mcgyvr config was found, so there is no ladder to run contracts on. "
+    "Run `mcgyvr setup` to write one; `mcgyvr PROMPT` then scaffolds the "
+    "contracts and needs no orchestrator model. Or author a contract yourself "
+    "and run it with `mcgyvr direct`."
 )
 
 
@@ -156,10 +171,12 @@ class OrchestratorReplyCutOffError(UnreadableProposalError):
 def build_prompt(evidence: Evidence) -> str:
     """Render the evidence as the prose prompt the orchestrator replies to.
 
-    The request comes first — on a re-plan followed by the spent contract and
-    the failure notes its climb left, as data (`mcgyvr.replan.render`), and on
-    a re-proposal by the refused proposals and their refusals, as data
-    (`mcgyvr.repropose.render`) — then
+    Evidence carrying refused proposals is a fix, which only the top rung is
+    asked for (`top_rung_proposer_for`): the opening asks it to correct them,
+    and nothing else. The request comes first — on a re-plan followed by the
+    spent contract and the failure notes its climb left, as data
+    (`mcgyvr.replan.render`), and on a fix by the refused proposals and their
+    refusals, as data (`mcgyvr.repropose.render`) — then
     the resolution's candidates with each one's
     score and the signals that matched it, then the regions already read —
     labelled with their file, line span, selection reason and the candidate
@@ -172,20 +189,33 @@ def build_prompt(evidence: Evidence) -> str:
     exploration = evidence.exploration
     sections: list[str] = []
 
-    sections.append(
-        "You are the orchestrator. Given a request and the deterministic "
-        "evidence below — a ranked shortlist and the file regions the "
-        "shortlist justified reading — propose the units of work that satisfy "
-        "the request. You name references only; the repository supplies the "
-        "facts. Return the JSON array described at the end and nothing else."
-    )
+    if evidence.refused:
+        sections.append(
+            "You are the top rung of the ladder. The proposals below were made "
+            "for the request and refused when they were checked, each for the "
+            "reason given. Correct each one: the same work, with the refused "
+            "field changed as its what_to_change says, checked against the "
+            "deterministic evidence below. Add no other work. You name "
+            "references only; the repository supplies the facts. Return the "
+            "corrected proposals as the JSON array described at the end and "
+            "nothing else."
+        )
+    else:
+        sections.append(
+            "You are the orchestrator. Given a request and the deterministic "
+            "evidence below — a ranked shortlist and the file regions the "
+            "shortlist justified reading — propose the units of work that "
+            "satisfy the request. You name references only; the repository "
+            "supplies the facts. Return the JSON array described at the end and "
+            "nothing else."
+        )
     sections.append(f"REQUEST:\n{evidence.prompt}")
     if evidence.spent is not None:
         # A re-plan: the request is a spent contract's own work, and what its
         # climb observed is shown as evidence, never as orders.
         sections.append(render_replan(evidence.spent))
     if evidence.refused:
-        # Re-proposing: what vetting refused, and what to change, as data.
+        # A fix: what vetting refused, and what to change, as data.
         sections.append(render_repropose(evidence.refused))
 
     if resolution.candidates:
@@ -562,19 +592,85 @@ def proposer_for(
     if unit_map.role_model(ORCHESTRATOR_ROLE) is None:
         return None
 
-    def propose(evidence: Evidence) -> Sequence[Proposal]:
+    def send(request: Request) -> Completion:
         completion = dispatch_role(
-            unit_map,
-            ORCHESTRATOR_ROLE,
-            # No cap is stated: the runner sends the unit's maximum.
-            Request(prompt=build_prompt(evidence), max_output_tokens=None),
-            capacity=capacity,
+            unit_map, ORCHESTRATOR_ROLE, request, capacity=capacity
         )
         if completion is None:  # The role lists a model but resolves to no unit.
             raise OrchestratorUnavailableError(
                 f"the {ORCHESTRATOR_ROLE!r} role has no unit to dispatch to"
             )
-        cut_off = _cut_off(completion)
+        return completion
+
+    return _drafting(send, asked="orchestrator")
+
+
+@dataclass(frozen=True)
+class TopRungProposer:
+    """The prose proposer on the top rung (`route.top_rung`), named by `rung`.
+
+    It is asked what no proposer of the request answers for itself: a proposal
+    vetting refused, to be corrected (`decompose`'s `fix`), and the re-plan of a
+    spent contract when no `orchestrator` model is bound. The prompt is
+    `build_prompt`'s, which asks for the correction alone when the evidence
+    carries refused proposals.
+    """
+
+    rung: str
+    model: str
+    propose: Proposer
+
+    def __call__(self, evidence: Evidence) -> Sequence[Proposal | Refusal]:
+        return self.propose(evidence)
+
+
+def top_rung_proposer_for(
+    config: Config,
+    unit_map: UnitMap,
+    *,
+    capacity: Capacity | None = None,
+) -> TopRungProposer | None:
+    """Build the prose proposer on the top rung, or None when no rung is usable.
+
+    The prompt is dispatched to the rung (`runner.dispatch`) at the unit's
+    maximum reply and within its own timeout, as the `orchestrator` role is,
+    and the reply is read with `proposals_from_reply`; a reply stopped at a
+    length limit raises `OrchestratorReplyCutOffError`.
+    """
+    from mcgyvr.route import top_rung
+
+    rung = top_rung(config, unit_map)
+    if rung is None:
+        return None
+    name = rung.name
+
+    def send(request: Request) -> Completion:
+        endpoint = unit_map.bind(name)
+        if request.timeout_s is None:
+            request = replace(request, timeout_s=endpoint.request_timeout_s)
+        return dispatch(unit_map, name, request, capacity=capacity)
+
+    return TopRungProposer(
+        rung=name, model=rung.model, propose=_drafting(send, asked="top rung")
+    )
+
+
+def _drafting(send: Callable[[Request], Completion], *, asked: str) -> Proposer:
+    """The prose proposer on whatever `send` dispatches to.
+
+    It renders the evidence with `build_prompt`, sends it with no reply cap
+    stated (the runner sends the unit's maximum), and parses the reply with
+    `proposals_from_reply`; a reply stopped at a length limit is not parsed
+    and raises `OrchestratorReplyCutOffError`, which names `asked` as the one
+    whose reply room to raise.
+    """
+
+    def propose(evidence: Evidence) -> Sequence[Proposal]:
+        # No cap is stated: the runner sends the unit's maximum.
+        completion = send(
+            Request(prompt=build_prompt(evidence), max_output_tokens=None)
+        )
+        cut_off = _cut_off(completion, asked=asked)
         if cut_off is not None:
             raise cut_off
         return proposals_from_reply(completion.text)
@@ -582,8 +678,12 @@ def proposer_for(
     return propose
 
 
-def _cut_off(completion: Completion) -> OrchestratorReplyCutOffError | None:
-    """The error for an orchestrator reply stopped at a length limit, else None.
+def _cut_off(
+    completion: Completion, *, asked: str = "orchestrator"
+) -> OrchestratorReplyCutOffError | None:
+    """The error for a proposer's reply stopped at a length limit, else None.
+
+    `asked` names who was asked — the orchestrator, or the top rung.
 
     It says the reply was cut off and after how many output tokens (and how
     many of them were reasoning) where the backend reported them, names the
@@ -611,9 +711,9 @@ def _cut_off(completion: Completion) -> OrchestratorReplyCutOffError | None:
     )
     basis = f" ({completion.cap_basis})" if completion.cap_basis else ""
     return OrchestratorReplyCutOffError(
-        f"the orchestrator's reply was cut off {where}{reasoning}, so it is "
+        f"the {asked}'s reply was cut off {where}{reasoning}, so it is "
         f"not read as proposals: unit {completion.source!r} {sent}{basis}. "
-        f"Give the orchestrator unit more reply room (raise its "
+        f"Give the {asked} unit more reply room (raise its "
         f"`output_tokens`, or its `window`, which less the prompt bounds the "
         f"reply) or a smaller thinking budget",
         reply=completion.text,
@@ -837,11 +937,9 @@ class ClassifierProposer:
     def __call__(self, evidence: Evidence) -> Sequence[Proposal]:
         """The `Proposer` seam: a decline is `()`, so the prose proposer stands in.
 
-        Evidence carrying refused proposals is a re-proposal: each refused
-        field is asked again (`iterate.reproposals`).
+        A refused proposal is not asked again here: the top rung corrects it
+        (`decompose`'s `fix`).
         """
-        if evidence.refused:
-            return reproposals(self, evidence)
         result = self.propose(evidence)
         return () if isinstance(result, Refusal) else (result,)
 
@@ -987,14 +1085,12 @@ def deterministic_proposer() -> Proposer:
     definition, not the whole file), the request as the task, the reply cap
     that type and target need, and the empty defaults for every optional
     field. No decision is made, so nothing is recorded. With no target or no
-    completable type it proposes nothing, and prose stands in; nor does it
-    on a re-proposal, where nothing it decided can be decided otherwise.
+    completable type it proposes nothing, and prose stands in where an
+    `orchestrator` model is bound; what vetting refuses of it, the top rung
+    corrects (`decompose`'s `fix`).
     """
 
     def propose(evidence: Evidence) -> Sequence[Proposal]:
-        if evidence.refused:
-            # Nothing was decided, so nothing can be decided otherwise.
-            return ()
         if not candidate_targets(evidence) or not completable(evidence.vocabulary):
             return ()
         return (collapse(enumerate_candidates(evidence)),)
@@ -1092,15 +1188,16 @@ def proposer_by_authoring(
 ) -> Proposer | None:
     """Pick the proposer for the configured `strategy`.
 
-    Only "classifier" opts into the typed proposer, and even then only in front
-    of a prose proposer: the typed one answers first and prose stands in when it
-    declines. Every other strategy proposes in prose. None means nothing can
-    propose — no prose proposer, or a typed one with no prose to fall back on.
+    Only "classifier" opts into the typed proposer — Jev's fill, or the
+    scaffold alone when no Jev is opted in — and it needs no prose proposer:
+    where one is bound it stands in when the typed one declines, and where none
+    is the typed one answers alone. Every other strategy proposes in prose.
+    None means nothing can propose: prose was chosen and none is bound.
     """
     if strategy != "classifier" or typed is None:
         return prose
     if prose is None:
-        return None
+        return typed
 
     def propose(evidence: Evidence) -> Sequence[Proposal | Refusal]:
         proposals = typed(evidence)

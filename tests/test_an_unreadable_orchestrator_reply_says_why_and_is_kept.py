@@ -48,6 +48,7 @@ ladder:
 orchestrator:
   unit: planner
   model: planner-model
+  authoring: prose
 """
 
 #: A complete, well-formed proposal array, pretty-printed as a model writes it.
