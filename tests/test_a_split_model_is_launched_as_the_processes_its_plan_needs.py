@@ -2,12 +2,13 @@
 
 Promise: a sizing plan becomes the processes to start -- for llama.cpp one
 server on the head's machine and one ``rpc-server`` worker per card of another
-machine, for vLLM one process per machine -- each with the cards it holds, the
-flags the engine takes for the split, and the environment that pins the card
-order. What a plan says is stated to the engine as the plan says it. A worker
-listens on the one address it was given and never on every interface, and what
-cannot be launched as a split (one card, a split that does not fit, a worker
-with no address) is refused by name instead of started.
+machine, for vLLM one process holding every card of its one machine -- each
+with the cards it holds, the flags the engine takes for the split, and the
+environment that pins the card order. What a plan says is stated to the
+engine as the plan says it. A worker listens on the one address it was given
+and never on every interface, and what cannot be launched as a split (one
+card, a split that does not fit, a worker with no address, a vLLM card on
+another machine) is refused by name instead of started.
 
 The machines are invented, and so are their addresses.
 """
@@ -15,20 +16,19 @@ The machines are invented, and so are their addresses.
 from __future__ import annotations
 
 import ipaddress
+from dataclasses import replace
 
 import pytest
 
-from mcgyvr.serving import ROLE_HEADLESS, ROLE_RPC, ROLE_SERVE, sharding
+from mcgyvr.serving import ROLE_RPC, ROLE_SERVE, sharding
 from mcgyvr.serving.sharding import SPLIT_LAYER, Grid
 from mcgyvr.serving.shardlaunch import LaunchError
 from tests.invented_split_plans import (
-    ADDR_A,
     ADDR_B,
     ADDR_C,
     HOST_A,
     HOST_B,
     HOST_C,
-    MASTER_PORT,
     PORT,
     RPC_PORT,
     THREADS,
@@ -261,67 +261,40 @@ def test_a_tensor_split_on_one_machine_is_one_process_with_no_multi_node_flags()
     assert node.env == {"CUDA_DEVICE_ORDER": "PCI_BUS_ID"}
 
 
-def test_a_grid_over_two_machines_is_one_node_each_and_only_the_first_answers() -> None:
+def test_a_grid_of_four_cards_on_one_machine_is_one_process_told_its_partition() -> (
+    None
+):
     made = vllm_plan(
-        [
-            card(HOST_A, 0, bind=ADDR_A),
-            card(HOST_A, 1),
-            card(HOST_B, 0),
-            card(HOST_B, 1),
-        ],
-        Grid(tensor=2, pipeline=2),
+        [card(HOST_A, gpu) for gpu in range(4)], Grid(tensor=2, pipeline=2)
     )
-    first, second = launch(made)
+    (node,) = launch(made)
 
-    assert (first.host, first.role, first.gpus) == (HOST_A, ROLE_SERVE, (0, 1))
-    assert (second.host, second.role, second.gpus) == (HOST_B, ROLE_HEADLESS, (0, 1))
-    assert first.extra == ()
-    assert second.extra == ("--headless",)
-    for rank, node in enumerate((first, second)):
-        assert node.args["--tensor-parallel-size"] == "2"
-        assert node.args["--pipeline-parallel-size"] == "2"
-        assert node.args["--distributed-executor-backend"] == "mp"
-        assert node.args["--nnodes"] == "2"
-        assert node.args["--node-rank"] == str(rank)
-        assert node.args["--master-addr"] == ADDR_A
-        assert node.args["--master-port"] == str(MASTER_PORT)
-        assert node.port == PORT
-        assert node.shards == tuple(
-            s for s in made.shards if s.target.host == node.host
-        )
-
-
-def test_the_pipelines_layer_counts_are_stated_to_every_node() -> None:
-    made = vllm_plan(
-        [card(HOST_A, 0), card(HOST_A, 1), card(HOST_B, 0), card(HOST_B, 1)],
-        Grid(tensor=2, pipeline=2),
+    assert (node.host, node.role, node.gpus) == (HOST_A, ROLE_SERVE, (0, 1, 2, 3))
+    assert node.extra == ()
+    assert node.args["--tensor-parallel-size"] == "2"
+    assert node.args["--pipeline-parallel-size"] == "2"
+    assert node.shards == made.shards
+    assert node.env["VLLM_PP_LAYER_PARTITION"] == ",".join(
+        str(c) for c in made.layer_counts
     )
-    for node in launch(made):
-        assert node.env["VLLM_PP_LAYER_PARTITION"] == ",".join(
-            str(c) for c in made.layer_counts
-        )
-        assert node.env["CUDA_DEVICE_ORDER"] == "PCI_BUS_ID"
+    assert node.env["CUDA_DEVICE_ORDER"] == "PCI_BUS_ID"
 
 
-def test_the_rendezvous_is_the_head_host_when_no_bind_is_stated() -> None:
-    made = vllm_plan([card(HOST_A, 0), card(HOST_B, 0)], Grid(tensor=1, pipeline=2))
-    first, second = launch(made)
-
-    assert first.args["--master-addr"] == HOST_A
-    assert second.args["--master-addr"] == HOST_A
-    assert second.args["--node-rank"] == "1"
+def test_a_pure_tensor_split_states_no_layer_partition() -> None:
+    made = vllm_plan([card(HOST_A, 0), card(HOST_A, 1)], Grid(tensor=2, pipeline=1))
+    (node,) = launch(made)
+    assert "VLLM_PP_LAYER_PARTITION" not in node.env
 
 
-def test_a_pure_tensor_split_across_machines_states_no_layer_partition() -> None:
-    made = vllm_plan([card(HOST_A, 0), card(HOST_B, 0)], Grid(tensor=2, pipeline=1))
-    for node in launch(made):
-        assert "VLLM_PP_LAYER_PARTITION" not in node.env
-
-
-def test_a_rendezvous_on_the_servers_own_port_is_refused() -> None:
-    made = vllm_plan([card(HOST_A, 0), card(HOST_B, 0)], Grid(tensor=1, pipeline=2))
-    with pytest.raises(LaunchError, match="rendezvous"):
-        launch(made, master_port=PORT)
+def test_a_vllm_plan_with_a_card_on_another_machine_is_not_launched() -> None:
+    # Sizing already refuses such a plan; a plan put together by hand is
+    # refused here too rather than started as one process on the wrong cards.
+    made = vllm_plan([card(HOST_A, 0), card(HOST_A, 1)], Grid(tensor=2, pipeline=1))
+    moved = replace(made.shards[1], target=card(HOST_B, 0))
+    with pytest.raises(
+        LaunchError, match=r"only a llama\.cpp unit is split across machines"
+    ):
+        launch(replace(made, shards=(made.shards[0], moved)))
 
 
 def test_a_vllm_plan_of_one_card_is_not_a_split() -> None:

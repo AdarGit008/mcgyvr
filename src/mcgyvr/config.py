@@ -862,17 +862,22 @@ UNIT_FIELDS: tuple[Field, ...] = (
 "
         "`pipeline_parallel` \
 "
-        "(vLLM); `rpc_port` and `master_port`, the first port of llama.cpp's \
-"
-        "workers and vLLM's rendezvous port, each the engine's own default \
-"
-        "when absent; and `tensor_table_json`, a vLLM unit's `python -m \
+        "(vLLM, whose shards are all on one machine: a vLLM unit naming cards "
+        "of several machines is refused, and only llama.cpp is split across "
+        "machines); `rpc_port`, the first port of llama.cpp's workers, "
+        "llama.cpp's own default when absent; and `tensor_table_json`, a "
+        "vLLM unit's `python -m \
 "
         "mcgyvr.serving.safetensorscan` row. Each card is sized from the \
 "
-        "tensor table. A split left to mcgyvr is tensor across one machine's \
+        "tensor table. A llama.cpp split charges a sliding-window layer's "
+        "cache only its window; a vLLM split charges every layer the whole "
+        "context, an upper bound until a vLLM load shows what vLLM "
+        "allocates for those layers, so a vLLM split may be refused where "
+        "it would fit. A split left to mcgyvr is tensor across one machine's \
 "
-        "cards and pipeline across machines; what crossing between cards \
+        "cards and, for llama.cpp, layer across machines; what crossing "
+        "between cards \
 "
         "costs is reported, as an estimate by link class until your own \
 "

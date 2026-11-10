@@ -233,6 +233,14 @@ archived outside this repository, under the same paths.
   model on the CPU rather than that no hub places one. `pooled.CPU_DEVICE` is the `-dev` value
   (`none`, llama.cpp's "don't offload"), and a cpu head carries no tensor split.
 
+- **The vLLM split's cache figure is documented as an upper bound.** A
+  llama.cpp split charges a sliding-window layer's cache only its window; a
+  vLLM split charges every layer the whole context, so the same checkpoint is
+  sized larger under vLLM and a fit can be refused. The `units.<unit>.launch`
+  reference (SETUP.md) and `sharding._vllm_kv` now say so; no figure changed.
+  What vLLM allocates for a sliding layer is to be measured before any
+  discount is taken.
+
 - **The agent channel's limits, shapes and codes are defined once, in
   `mcgyvr.hubwire`.** The protocol version, frame limits, the counts and
   bounds of every frame (models, sessions, endpoints, features, peers, allowed
@@ -458,8 +466,8 @@ archived outside this repository, under the same paths.
   harness, both handed the key on ssh's stdin with the text they run, never on
   a command line or a file on the rig. `mcgyvr fleet key <unit>` prints the
   key. A `--host` or `LLAMA_ARG_HOST` a unit's launch states renders byte for
-  byte as before; native units refuse `expose: lan`; rpc workers and vLLM
-  headless ranks are unchanged. `mcgyvr emit` names where each keyed unit
+  byte as before; native units refuse `expose: lan`; rpc workers are
+  unchanged. `mcgyvr emit` names where each keyed unit
   listens, and warns about a keyed unit its launch or lock keeps on 127.0.0.1,
   a unit stating `expose: local` whose address names another host, and a
   stated host beyond this machine with no key. Upgrading:
@@ -1302,6 +1310,19 @@ archived outside this repository, under the same paths.
   `code` plan made with a model answering on port 8080 may now name a
   different candidate; one made without one is unchanged.
 
+- **A vLLM unit is no longer split across machines.** The multi-node vLLM
+  launch was planning only: tested with invented rigs, never run live, and a
+  locked `emit` already refused it. A vLLM unit whose `launch.shards` name
+  cards of more than one machine is now refused when it is sized, in the
+  words of that locked refusal (only llama.cpp is split across machines, as a
+  head plus rpc-server workers). Removed with it: the per-machine node launch
+  (`--distributed-executor-backend mp`, `--nnodes`, `--node-rank`,
+  `--master-addr`, `--master-port`, `--headless`), the `headless` process
+  role, `launch.master_port` and its default `VLLM_MASTER_PORT` (29501), and
+  the equal-cards-per-machine check. A vLLM split over one machine's cards
+  (tensor x pipeline, one process) is unchanged, as is every llama.cpp split.
+  Upgrading: a stated `launch.master_port` is now ignored, not checked;
+  delete it.
 - **Sessions, the manager loop and the retired-name shims are gone.** `chat`
   and `agent` are no longer contract task types: `code` is the one shipped
   type, and chat and agent stay as plain use of an endpoint. Removed with

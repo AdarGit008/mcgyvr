@@ -1,14 +1,16 @@
 """A unit split across cards is launched as the split it was sized.
 
 Promise: a unit whose ``launch.shards`` names several cards -- of one machine
-or of several -- becomes the processes that split needs: the one that answers
-at the unit's address, holding its own machine's cards, and on every other
-machine one that lends its cards to it. Every card's free memory is the scan's
-of that card, what each card holds is sized from the model's tensor table, and
-the argv each process carries states the split that was sized, so the engine
-does not split it again. A card the split holds is never shared with another
-unit. A split that cannot be sized, or names a machine nobody scanned, is
-refused by name; a unit that declares no shards is served as it always was.
+or, for llama.cpp, of several -- becomes the processes that split needs: the
+one that answers at the unit's address, holding its own machine's cards, and
+on every other machine one that lends its cards to it. A vLLM unit naming
+cards of several machines is refused, vLLM being split on one machine only.
+Every card's free memory is the scan's of that card, what each card holds is
+sized from the model's tensor table, and the argv each process carries states
+the split that was sized, so the engine does not split it again. A card the
+split holds is never shared with another unit. A split that cannot be sized,
+or names a machine nobody scanned, is refused by name; a unit that declares no
+shards is served as it always was.
 
 Machines, cards and the model are invented.
 """
@@ -25,7 +27,6 @@ from mcgyvr.config import Config, Ladder
 from mcgyvr.config import Unit as UnitConfig
 from mcgyvr.scan import Scan
 from mcgyvr.serving import (
-    ROLE_HEADLESS,
     ROLE_RPC,
     ROLE_SERVE,
     UnitError,
@@ -163,9 +164,7 @@ def test_a_card_the_split_holds_is_never_shared_with_another_unit(
     assert alternate(split, alone)
 
 
-def test_vllm_split_over_two_machines_runs_a_headless_node_on_the_second(
-    tmp_path: Path,
-) -> None:
+def vllm_config(tmp_path: Path, shards: list[dict[str, Any]], **launch: Any) -> Config:
     table = {
         key: value
         for key, value in scan_rows().items()
@@ -173,32 +172,41 @@ def test_vllm_split_over_two_machines_runs_a_headless_node_on_the_second(
     }
     table["file"] = "/cache/example-model-large"
     (tmp_path / "table.json").write_text(json.dumps(table), encoding="utf-8")
+    stated = {
+        "shards": shards,
+        "tensor_table_json": "table.json",
+        "kv_cache_dtype_k": "float16",
+        **launch,
+    }
+    return config(tmp_path, stated, engine="vllm", hf_cache="/cache")
+
+
+def test_vllm_split_over_one_machines_cards_is_one_process_holding_them(
+    tmp_path: Path,
+) -> None:
+    shards = [{"rig": "box-a.example", "gpu": 0}, {"rig": "box-a.example", "gpu": 1}]
+    made = vllm_config(tmp_path, shards)
+    (unit,) = units_for(made, scans(), specs=(), ctx_per_slot=WINDOW)
+    assert unit.role == ROLE_SERVE
+    assert unit.gpus == (0, 1)
+    assert unit.args["--tensor-parallel-size"] == "2"
+    assert unit.args["--pipeline-parallel-size"] == "1"
+    assert "--nnodes" not in unit.args
+    assert unit.extra == ()
+
+
+def test_vllm_split_over_two_machines_is_refused_as_llama_cpp_only(
+    tmp_path: Path,
+) -> None:
     shards = [
         {"rig": "box-a.example", "gpu": 0},
         {"rig": "box-a.example", "gpu": 1},
         {"rig": "box-b.example", "gpu": 0},
         {"rig": "box-b.example", "gpu": 1},
     ]
-    launch = {
-        "shards": shards,
-        "tensor_parallel": 2,
-        "tensor_table_json": "table.json",
-        "kv_cache_dtype_k": "float16",
-    }
-    made = config(tmp_path, launch, engine="vllm", hf_cache="/cache")
-    head, worker = units_for(made, scans(), specs=(), ctx_per_slot=WINDOW)
-    for unit in (head, worker):
-        assert unit.args["--tensor-parallel-size"] == "2"
-        assert unit.args["--pipeline-parallel-size"] == "2"
-        assert unit.args["--nnodes"] == "2"
-        assert unit.args["--distributed-executor-backend"] == "mp"
-        assert "VLLM_PP_LAYER_PARTITION" in unit.env
-    assert head.args["--node-rank"] == "0"
-    assert worker.args["--node-rank"] == "1"
-    assert head.role == ROLE_SERVE
-    assert worker.role == ROLE_HEADLESS
-    assert "--headless" in worker.extra
-    assert "--headless" not in head.extra
+    made = vllm_config(tmp_path, shards, tensor_parallel=2)
+    with pytest.raises(UnitError, match=r"only a llama\.cpp unit is split across"):
+        units_for(made, scans(), specs=(), ctx_per_slot=WINDOW)
 
 
 def test_a_shard_on_a_machine_nobody_scanned_is_refused(tmp_path: Path) -> None:
