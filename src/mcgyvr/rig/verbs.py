@@ -354,7 +354,7 @@ def run_agent(kept: Credentials, config: Path | None = None) -> int:
     refresher = rungs.refresher_for(kept.hub, folder=config)
     if refresher is not None:
         print(
-            f"relief rungs: kept fresh from {kept.hub} with ${rungs.KEY_ENV}",
+            f"relief rungs: kept fresh from {kept.hub} with ${refresher.key_env}",
             file=sys.stderr,
         )
 
@@ -720,12 +720,18 @@ def _say_lent(report: Any) -> None:
 
 def _say_credits(hub: str) -> None:
     """Print the member's balance as the hub answers it, asked with the
-    personal hub key in ``$MCGYVR_HUB_API_KEY``; a note when it is not read."""
+    personal hub key in the variable the setup's ``relief.yaml`` names
+    (``$MCGYVR_HUB_API_KEY`` where it names none); a note when it is not read."""
+    from mcgyvr.config import ConfigError, config_path
     from mcgyvr.rig import agent, rungs
 
-    key = os.environ.get(rungs.KEY_ENV)
+    try:
+        key_env = rungs.key_env(config_path())
+    except (ConfigError, rungs.SyncError):
+        key_env = rungs.KEY_ENV  # no setup to read it from: the default
+    key = os.environ.get(key_env)
     if not key:
-        print(f"credits: set ${rungs.KEY_ENV} to your personal hub key to see them")
+        print(f"credits: set ${key_env} to your personal hub key to see them")
         return
     try:
         balance = rungs.balance(hub, key)

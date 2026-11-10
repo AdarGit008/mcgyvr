@@ -870,6 +870,18 @@ archived outside this repository, under the same paths.
 
 ### Fixed
 
+- **The rig agent and `mcgyvr rig status` read your personal hub key from the
+  variable `mcgyvr rig rungs sync --key-env` was told.** The agent's
+  background refresh and the `rig status` credits read only
+  `$MCGYVR_HUB_API_KEY`, so with a variable of your own the refresh never
+  started, or, with the default set too, rewrote `relief.yaml` with the
+  default name. A sync now records the NAME (never the key) as a top-level
+  `api_key_env` in `relief.yaml`, with or without rungs listed, and both read
+  it back (`rungs.key_env`); each refresh writes the same name back. A
+  `relief.yaml` written before is read by the `api_key_env` its rungs name,
+  else the default. An older mcgyvr refuses a `relief.yaml` with the new key
+  (`unknown key 'api_key_env'`); a `rig rungs sync` with it rewrites the file.
+
 - A relief rung whose host's unit already serves as many rides as it may
   (`503 pool_busy`) is passed over as full, as the other busy answers are,
   instead of failing the dispatch: a sync writes `pool_busy` into each rung's
