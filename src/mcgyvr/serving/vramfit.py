@@ -26,7 +26,8 @@ rather than guessed.
 
 from __future__ import annotations
 
-from typing import Any
+from collections.abc import Iterable, Mapping
+from typing import Any, Literal
 
 #: Bytes one cached element costs, by llama.cpp cache type. f32/f16/bf16 are
 #: their widths; q8_0 spends 34 bytes on a block of 32 elements (a
@@ -111,6 +112,41 @@ def context_per_sequence(n_ctx: int, n_seq_max: int) -> int:
     return _pad(-(-n_ctx // n_seq_max), 256)
 
 
+def cache_bytes_per_token(
+    rows: Iterable[Mapping[str, Any]],
+    *,
+    cache_type_k: str,
+    cache_type_v: str,
+    only: Literal["full", "sliding"] | None = None,
+) -> float:
+    """Bytes one cell of context costs over the caching layers `rows`, at
+    `cache_type_k` and `cache_type_v`: each row's `k_elems` and `v_elems` priced
+    at `CACHE_ELEM_BYTES` an element and summed.
+
+    `only` picks the sliding treatment: None charges every row (the figure the
+    shipped catalog and a rig's hello state, every layer a full-context layer),
+    "full" only the rows that do not slide and "sliding" only those that do --
+    the two sums `kv_bytes` multiplies by its own cell counts, the window being
+    cells and not tokens. A row whose element counts are not integers raises
+    `ValueError`; so does a row whose `is_swa` is unstated when `only` asks
+    which side it falls on."""
+    b_k = CACHE_ELEM_BYTES[cache_type_k]
+    b_v = CACHE_ELEM_BYTES[cache_type_v]
+    total = 0.0
+    for row in rows:
+        k, v = row.get("k_elems"), row.get("v_elems")
+        if type(k) is not int or type(v) is not int:
+            raise ValueError(f"layer {row.get('layer')} states no k/v element counts")
+        if only is not None:
+            swa = row.get("is_swa")
+            if swa is None:
+                raise ValueError(f"layer {row.get('layer')} does not say if it slides")
+            if bool(swa) != (only == "sliding"):
+                continue
+        total += k * b_k + v * b_v
+    return total
+
+
 def kv_bytes(
     geometry: dict[str, Any],
     n_ctx: int,
@@ -175,14 +211,12 @@ def kv_bytes(
             "pass the rows as kv_bytes(layers=...)"
         )
 
-    b_k = CACHE_ELEM_BYTES[cache_type_k]
-    b_v = CACHE_ELEM_BYTES[cache_type_v]
-
-    def width(row: dict[str, Any]) -> float:
-        return float(row["k_elems"]) * b_k + float(row["v_elems"]) * b_v
-
-    full = sum(width(r) for r in rows if not r["is_swa"])
-    swa = sum(width(r) for r in rows if r["is_swa"])
+    full, swa = (
+        cache_bytes_per_token(
+            rows, cache_type_k=cache_type_k, cache_type_v=cache_type_v, only=side
+        )
+        for side in ("full", "sliding")
+    )
 
     # `-c` is a total, not a slot's context. Unified KV shares one cache across
     # the sequences, so `n_ctx` cells are the whole allocation and no per-sequence

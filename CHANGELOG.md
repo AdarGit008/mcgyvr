@@ -11,6 +11,19 @@ archived outside this repository, under the same paths.
 
 ### Changed
 
+- **One function prices a token of cache for the catalog, a rig's hello and the
+  sizer (I-46).** The catalog's `kv_bytes_per_token` (f16, every caching layer),
+  the hello's (q8_0, every caching layer, rounded up) and `vramfit.kv_bytes`
+  (the run's cache types, sliding rows charged their window) were three sums of
+  the same `kv_layers` rows. All three now call
+  `vramfit.cache_bytes_per_token(rows, cache_type_k=, cache_type_v=, only=)`:
+  `only=None` charges every row the full context (the catalog and the hello),
+  `"full"` and `"sliding"` are the two sums `kv_bytes` multiplies by its own
+  cell counts, so the sliding-window discount stays in `kv_bytes`. Every figure
+  is the one it was: the shipped catalog's values and the hello's are
+  unchanged. `knowledge.hub.F16_BYTES` is now `CATALOG_CACHE_TYPE = "f16"` and
+  `rig.inventory._KV_TYPES` is gone (the widths are `vramfit.CACHE_ELEM_BYTES`).
+
 - **A docker llama.cpp or vLLM unit listens on 127.0.0.1 or, behind a key
   mcgyvr makes, on every interface (`expose: local | lan`).** `mcgyvr emit`
   rendered every container's server on every interface with no key
