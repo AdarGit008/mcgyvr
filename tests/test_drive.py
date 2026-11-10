@@ -870,7 +870,7 @@ def test_a_model_contract_with_no_ladder_is_told_where_the_ladder_should_be(
 # --- E5 · the orchestrator id, carried as a field ---------------------------
 
 
-def test_an_attempt_is_recorded_under_the_orchestrator_that_made_it(
+def test_an_attempt_is_recorded_under_the_session_that_made_it(
     repo: Path, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
     """Records carry an orchestrator id, put there by something that carries one.
@@ -912,7 +912,7 @@ def test_an_attempt_is_recorded_under_the_orchestrator_that_made_it(
     assert record["attempt_id"] == "agent-a:impl:local_qwen-7b:1"
 
 
-def test_two_orchestrators_share_one_stream_and_stay_distinguishable(
+def test_two_sessions_share_one_stream_and_stay_distinguishable(
     repo: Path, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
     """The property the field is for, which one recorded row cannot show.
@@ -948,7 +948,7 @@ def test_two_orchestrators_share_one_stream_and_stay_distinguishable(
     assert [r["session"] for r in fold(path=sink)] == ["agent-a", "agent-b"]
 
 
-def test_a_recording_with_no_orchestrator_is_refused(tmp_path: Path) -> None:
+def test_a_recording_with_no_session_is_refused(tmp_path: Path) -> None:
     """An id that may be blank is a field that carries nothing.
 
     Refused at construction rather than at write, because the row is written
@@ -957,7 +957,7 @@ def test_a_recording_with_no_orchestrator_is_refused(tmp_path: Path) -> None:
     """
     from mcgyvr.drive import Recording
 
-    with pytest.raises(ValueError, match="orchestrator id"):
+    with pytest.raises(ValueError, match="session id"):
         Recording(path=tmp_path / "t.jsonl", session="  ")
 
 
