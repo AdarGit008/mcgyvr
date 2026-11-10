@@ -2669,7 +2669,8 @@ def offer(
     runtime, no models and no endpoints, yet still names ``HITCHHIKE_FEATURE``,
     since it may advertise the units it shares. Models are offered only to a
     rig that lends the head role. A native rig names the pinned llama.cpp build
-    as its runtime and drops ``traversal`` (:data:`NATIVE_FEATURES`); a rig
+    as its runtime, any other its image (informational: the hub does not read
+    the runtime), and drops ``traversal`` (:data:`NATIVE_FEATURES`); a rig
     running the pinned build, natively or as its image, names the build's RPC
     protocol. ``port_map`` is named only when the owner allowed the port
     forward on this rig (``Sharing.port_forward``). ``cached`` are the digests of
