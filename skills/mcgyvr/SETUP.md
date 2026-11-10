@@ -35,7 +35,7 @@ probe and a load of every unit, the use case's sample task (for
 `mcgyvr-code`, a one-function bug fix the deterministic gate must pass;
 for `code` and `chat`, one word from each unit) and
 a Jev unit's one typed choice. A green sample is stamped, and on
-`Lock the fleet and name it live? [y/N]` it is locked, promoted and
+`Lock the fleet and name it live? [y/n]` it is locked, promoted and
 named live. A red sample is never locked; its reasons are printed.
 
 When the interactive setup finishes, it offers to put `~/.local/bin`,
@@ -56,7 +56,7 @@ PATH line is left alone.
 A fleet that could not be sampled — its containers not started, or
 every unit hosted — is locked
 approved on no evidence only once you say so: setup says why and what
-that means, and asks `Lock it approved on no evidence? [y/N]`. With
+that means, and asks `Lock it approved on no evidence? [y/n]`. With
 flags, setup binds the servers already answering and starts none, so
 nothing is sampled; `--accept-unsampled` is that acknowledgment, and
 without it nothing is locked. Backends on another machine come in with
@@ -152,6 +152,18 @@ each unit's `unit_id` are not in the tables below: the fleet lock
 keys on them, and the run config drops them when it loads the
 setup. A `fleets` entry takes `layout` and `next`; a `rigs` entry is
 checked only as a block. `examples/fleet.yaml` shows all three.
+
+Who may use a rig is one of `own`, `crew`, `anyone`: a unit's `scope` and the setup's `ride_scope` name it, and so does each rig you add to a hub, with its mode, `lend` or `hitchhike`. A rig in mode `lend` puts its hardware in its audience's pool; one in mode `hitchhike` runs your own units and lets riders the hub matches use their spare slots. The pairs, and what each pool serves:
+
+| audience | mode | pool | use cases |
+|---|---|---|---|
+| `own` | `lend` | own rigs | `mcgyvr-code`, `code`, `chat`, `agent` |
+| `crew` | `lend` | crew pool | `mcgyvr-code`, `code`, `chat`, `agent` |
+| `anyone` | `lend` | general pool (anyone) | `mcgyvr-code`, `code`, `chat`, `agent` |
+| `own` | `hitchhike` | own rigs | `mcgyvr-code`, `code`, `chat`, `agent` |
+| `anyone` | `hitchhike` | hitchhike | `mcgyvr-code`, `code`, `chat`, `agent` |
+
+Under `own` a rig lends to nobody, whatever its mode. A rig whose audience reaches strangers serves someone who is neither you nor a crewmate only once a hub admin has approved you as a host. The hub's old sharing modes are refused with these: `solo` is `own` + `lend`; `crew` is `crew` + `lend`; `pool` is `anyone` + `lend`; `hitchhike` is `anyone` + `hitchhike`.
 
 `mcgyvr local_pool` reads that config back: the usable rungs cheapest-first with
 their family, attempt budget and model; the escalation ceiling and where it

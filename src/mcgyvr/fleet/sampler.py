@@ -403,20 +403,26 @@ def served(unit: Mapping[str, Any]) -> dict[str, int]:
     A vLLM unit's window is read from its models listing's `max_model_len`; a
     llama.cpp unit's window from its props' `n_ctx` and its slots from
     `total_slots`, after the address's `/v1` suffix is dropped. A figure the
-    endpoint does not state, or does not answer at all, is left out.
+    endpoint does not state, or does not answer at all, is left out. The key
+    mcgyvr keeps for the unit's address (`mcgyvr.unitkey.for_address`) is sent
+    to that address alone; a key file that cannot be trusted raises
+    `UnitKeyError`, as it does for a dispatch to the unit.
     """
+    from mcgyvr import unitkey
     from mcgyvr.detect import _get_json, _window_from
 
-    base = str(unit.get("address") or "").rstrip("/").removesuffix("/v1")
+    address = str(unit.get("address") or "")
+    key = unitkey.for_address(address)
+    base = address.rstrip("/").removesuffix("/v1")
     out: dict[str, int] = {}
     if str(unit.get("engine") or DEFAULT_ENGINE) == "vllm":
         window = _window_from(
-            _get_json(f"{base}/v1/models", 5.0), ("data", "max_model_len")
+            _get_json(f"{base}/v1/models", 5.0, key=key), ("data", "max_model_len")
         )
         if window is not None:
             out["window"] = window
         return out
-    props = _get_json(f"{base}/props", 5.0)
+    props = _get_json(f"{base}/props", 5.0, key=key)
     window = _window_from(props, ("default_generation_settings", "n_ctx"))
     slots = _window_from(props, ("total_slots",))
     if window is not None:

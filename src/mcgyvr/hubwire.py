@@ -29,7 +29,9 @@ is here:
   :data:`WIREGUARD_KEY`, :data:`IPV4`, :data:`IPV4_CIDR`,
   :data:`CONTENT_TYPE`, :data:`BASE64`, :data:`TOKEN`, :data:`TICKET`), and
   its codes: :class:`CloseCode`, the channel's :class:`ErrorCode`, a
-  refusal's :class:`SessionCode`, all of them :data:`AGENT_ERROR_CODES`;
+  refusal's :class:`SessionCode`, all of them :data:`AGENT_ERROR_CODES`; and
+  the rule for an IPv4 address a peer of another rig can be at
+  (:func:`is_peer_address`), which a LAN address keeps as well;
 * :data:`RUNG_POSITIONS`, where a relief rung's host model sits against the
   rider's ladder;
 * :data:`MODEL_NAME`, the shape of a model name on the wire, and
@@ -82,6 +84,8 @@ is here:
   :func:`counts_as_lent`);
 * what a member chooses to lend on a rig (:class:`Lending`, carried as
   :data:`LENDING_FIELD`);
+* whether a hub admin has approved this member to host strangers (carried in
+  the ack as :data:`HOSTING_APPROVED_FIELD`);
 * the llama.cpp RPC protocol version a rig speaks (:class:`RpcProto`, carried
   as :data:`RPC_PROTO_FIELD`) and which workers a head may take
   (:func:`rpc_compatible`);
@@ -125,6 +129,7 @@ import base64
 import binascii
 import enum
 import hashlib
+import ipaddress
 import json
 import re
 from collections.abc import Mapping, Sequence
@@ -339,6 +344,22 @@ TOKEN = re.compile(r"[0-9a-f]{32}")
 #: The ticket a relay grant carries, which binds a tunnel with the relay:
 #: opaque to agents, URL-safe base64.
 TICKET = re.compile(r"[A-Za-z0-9_-]{22,256}")
+
+
+def is_peer_address(address: ipaddress.IPv4Address) -> bool:
+    """Whether a peer of another rig can be at this IPv4 address: it is not
+    loopback, link-local, multicast, reserved or unspecified.
+
+    The one rule a rig's endpoints, its tunnel's aim and its probes' pings are
+    held to; a LAN address is one of these that is also private.
+    """
+    return not (
+        address.is_loopback
+        or address.is_link_local
+        or address.is_multicast
+        or address.is_reserved
+        or address.is_unspecified
+    )
 
 
 class CloseCode(enum.IntEnum):
@@ -652,34 +673,112 @@ USE_CASE_CATEGORY: Mapping[str, str] = MappingProxyType(
 #: since no pool serves it. Without the header nothing is checked.
 USE_CASE_HEADER = "x-mcgyvr-use-case"
 
-#: Where the hub serves a request from: a member's own rigs, lent to nobody,
-#: the general pool, a crew's pool, a hitchhike ride, or a ladder a host shares.
-POOL_SOLO = "solo"
-POOL_GENERAL = "general"
-POOL_CREW = "crew"
+#: Where the hub serves a request from. Three pools are named by their audience
+#: (:data:`SCOPE_VALUES`): a member's own rigs, lent to nobody (``own``), a
+#: crew's pool (``crew``) and the general pool, anyone's (``anyone``); beside
+#: them a hitchhike ride and a ladder a host shares. A rig's pool is
+#: :func:`rig_pool` of its audience and its mode (:data:`MODES`).
+POOL_OWN = SCOPE_OWN
+POOL_ANYONE = SCOPE_ANYONE
+POOL_CREW = SCOPE_CREW
 POOL_HITCHHIKE = "hitchhike"
 POOL_SHARED_LADDER = "shared_ladder"
 POOLS: tuple[str, ...] = (
-    POOL_SOLO,
-    POOL_GENERAL,
+    POOL_OWN,
+    POOL_ANYONE,
     POOL_CREW,
     POOL_HITCHHIKE,
     POOL_SHARED_LADDER,
 )
+#: Each pool in words, as screens and messages name it: the general pool is
+#: anyone's, so it is shown with its audience.
+POOL_NAMES: Mapping[str, str] = MappingProxyType(
+    {
+        POOL_OWN: "own rigs",
+        POOL_ANYONE: "general pool (anyone)",
+        POOL_CREW: "crew pool",
+        POOL_HITCHHIKE: "hitchhike",
+        POOL_SHARED_LADDER: "shared ladder",
+    }
+)
 #: The use cases each pool serves. A member's own rigs, the general pool (the
 #: hub holds a ladder for its coders), a crew's pool and a ride serve every use
-#: case; a shared ladder is there for ``mcgyvr-code`` alone. The
-#: hub's sharing modes map onto these: ``solo`` is :data:`POOL_SOLO`, ``pool``
-#: is :data:`POOL_GENERAL`, ``crew`` and ``hitchhike`` are themselves.
+#: case; a shared ladder is there for ``mcgyvr-code`` alone.
 POOL_USE_CASES: Mapping[str, tuple[str, ...]] = MappingProxyType(
     {
-        POOL_SOLO: USE_CASES,
-        POOL_GENERAL: USE_CASES,
+        POOL_OWN: USE_CASES,
+        POOL_ANYONE: USE_CASES,
         POOL_CREW: USE_CASES,
         POOL_HITCHHIKE: USE_CASES,
         POOL_SHARED_LADDER: (MCGYVR_CODE,),
     }
 )
+
+#: How a rig takes part on the hub, beside its audience (who may use it, one of
+#: :data:`SCOPE_VALUES`): ``lend`` puts its hardware in its audience's pool,
+#: where the hub plans what runs; ``hitchhike`` runs its owner's own units and
+#: lets riders the hub matches use their spare slots. Under the ``own``
+#: audience a rig lends to nobody, whatever its mode.
+MODE_LEND = "lend"
+MODE_HITCHHIKE = "hitchhike"
+MODES: tuple[str, ...] = (MODE_LEND, MODE_HITCHHIKE)
+#: The audiences each mode takes: a hitchhike rig is its owner's alone or
+#: takes the riders the hub matches, never a crew's alone.
+MODE_AUDIENCES: Mapping[str, tuple[str, ...]] = MappingProxyType(
+    {MODE_LEND: SCOPE_VALUES, MODE_HITCHHIKE: (SCOPE_OWN, SCOPE_ANYONE)}
+)
+
+
+def rig_pool(audience: str, mode: str) -> str:
+    """The pool a rig of ``audience`` (:data:`SCOPE_VALUES`) and ``mode``
+    (:data:`MODES`) is in: :data:`POOL_OWN` under ``own``, whatever the mode;
+    :data:`POOL_HITCHHIKE` for a hitchhike rig; else its audience's pool.
+
+    Raises ValueError for a pair :data:`MODE_AUDIENCES` does not take.
+    """
+    if audience not in MODE_AUDIENCES.get(mode, ()):
+        raise ValueError(
+            f"a rig of mode {mode!r} takes audience "
+            f"{' or '.join(MODE_AUDIENCES.get(mode, ()))}, not {audience!r}"
+            if mode in MODES
+            else f"{mode!r} is not a mode: {', '.join(MODES)}"
+        )
+    if audience == SCOPE_OWN:
+        return POOL_OWN
+    return POOL_HITCHHIKE if mode == MODE_HITCHHIKE else audience
+
+
+#: The hub's sharing modes before audience and mode were two fields, each with
+#: the audience and mode that replaced it. There is no alias: the hub refuses
+#: an old one with the new spelling.
+RETIRED_SHARING_MODES: Mapping[str, tuple[str, str]] = MappingProxyType(
+    {
+        "solo": (SCOPE_OWN, MODE_LEND),
+        "crew": (SCOPE_CREW, MODE_LEND),
+        "pool": (SCOPE_ANYONE, MODE_LEND),
+        "hitchhike": (SCOPE_ANYONE, MODE_HITCHHIKE),
+    }
+)
+#: Words once used for an audience, each with the audience that replaced it:
+#: the hub's old ``solo`` and ``pool`` (as :data:`RETIRED_SHARING_MODES` maps
+#: them, less their mode) and the general pool's old name, ``general``. There
+#: is no alias: a value naming one is refused with :func:`retired_audience`'s
+#: sentence.
+RETIRED_AUDIENCES: Mapping[str, str] = MappingProxyType(
+    {"solo": SCOPE_OWN, "pool": SCOPE_ANYONE, "general": SCOPE_ANYONE}
+)
+
+
+def retired_audience(value: str) -> str | None:
+    """Why ``value`` is refused when it is an old word for an audience
+    (:data:`RETIRED_AUDIENCES`), naming the one to write; None otherwise."""
+    new = RETIRED_AUDIENCES.get(value)
+    if new is None:
+        return None
+    return (
+        f"`{value}` is no longer an audience: write `{new}` "
+        f"(one of {', '.join(SCOPE_VALUES)})"
+    )
 
 
 def pool_serves(pool: str, use_case: str) -> bool:
@@ -691,10 +790,10 @@ def pool_serves(pool: str, use_case: str) -> bool:
 
 
 #: The pool a request under each scope is served from when its model names no
-#: ride: a member's own rigs are the solo pool, their crews' the crew pool, and
-#: anyone's the general pool.
+#: ride: the pool of the same name (a member's own rigs, their crews' pool, and
+#: the general pool, anyone's).
 SCOPE_POOLS: Mapping[str, str] = MappingProxyType(
-    {SCOPE_OWN: POOL_SOLO, SCOPE_CREW: POOL_CREW, SCOPE_ANYONE: POOL_GENERAL}
+    {SCOPE_OWN: POOL_OWN, SCOPE_CREW: POOL_CREW, SCOPE_ANYONE: POOL_ANYONE}
 )
 
 
@@ -1282,6 +1381,15 @@ class Lending:
             self.ram_mb, LEND_FLOOR_MB[RESOURCE_RAM], RESOURCE_MAX_MB, "ram_mb"
         )
         _lent_or_none(self.cpu_cores, LEND_FLOOR_CORES, MAX_RESOURCE_CORES, "cpu_cores")
+
+
+# --- whether the hub has approved this member to host strangers ------------------
+
+#: The ack field carrying whether a hub admin has approved this member to host
+#: strangers on their rigs (the general pool's ``anyone``, riders on their
+#: units). A bool when the hub says, and left out otherwise: an older hub that
+#: predates the approval sends none, and the agent then says nothing of it.
+HOSTING_APPROVED_FIELD = "hosting_approved"
 
 
 # --- the RPC protocol a split model's workers speak -------------------------------

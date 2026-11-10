@@ -211,6 +211,51 @@ def test_status_says_what_is_kept_and_never_the_secret(
     assert "rig-" in out and "0 cards" in out
 
 
+@pytest.mark.parametrize(
+    ("approved", "line"),
+    [
+        (True, "approved to host"),
+        (False, "waiting for admin approval"),
+        (None, None),
+    ],
+)
+def test_status_says_whether_the_member_may_host_strangers(
+    home: Path,
+    ran: list[Any],
+    monkeypatch: pytest.MonkeyPatch,
+    capsys: pytest.CaptureFixture[str],
+    tmp_path: Path,
+    approved: bool | None,
+    line: str | None,
+) -> None:
+    from mcgyvr.rig import hardware, state
+
+    cli("rig", "join", "https://hub.example.com", "--token", TOKEN)
+    machine = next(m for m in shapes() if not m.cards)
+    document = reading(machine_read_text(machine, tmp_path / "reader"))
+    monkeypatch.setattr(hardware, "read_machine", lambda: document)
+    state.write(
+        state.State(
+            hub="https://hub.example.com",
+            pid=os.getpid(),
+            connected=True,
+            rig_id="r-example",
+            heartbeat_s=15,
+            last_ack_at=1.0,
+            written_at=1.0,
+            hosting_approved=approved,
+        )
+    )
+    capsys.readouterr()
+    assert cli("rig", "status") == 0
+    out = capsys.readouterr().out
+    if line is None:
+        # An older hub said nothing of it, so the rig does not mention it.
+        assert "hosting:" not in out
+    else:
+        assert f"hosting: {line}" in out
+
+
 def test_leave_forgets_the_token_and_says_the_rig_stays_on_the_hub(
     home: Path, ran: list[Any], capsys: pytest.CaptureFixture[str]
 ) -> None:

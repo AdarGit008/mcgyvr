@@ -44,6 +44,11 @@ class State:
     heartbeat_s: int | None
     last_ack_at: float | None
     written_at: float
+    #: Whether a hub admin has approved this member to host strangers, as the
+    #: last ack said; None until the hub says, or when the hub (an older one)
+    #: does not carry it. Defaulted so a state file from before this field still
+    #: reads.
+    hosting_approved: bool | None = None
 
 
 def path() -> Path:
@@ -71,7 +76,8 @@ def read() -> State | None:
     that do not fit :class:`State`, and fields of the wrong shape: `pid`,
     `connected` and `heartbeat_s` are checked by exact type so a bool where an
     int belongs (or the reverse) is refused, the optional fields may be None but
-    otherwise hold their type, and the timestamps may be int or float.
+    otherwise hold their type, and the timestamps may be int or float. A file
+    from before `hosting_approved` has no such key and reads as None for it.
     """
     try:
         data = json.loads(path().read_text(encoding="utf-8"))
@@ -87,6 +93,7 @@ def read() -> State | None:
         and (state.heartbeat_s is None or type(state.heartbeat_s) is int)
         and (state.last_ack_at is None or type(state.last_ack_at) in number)
         and type(state.written_at) in number
+        and (state.hosting_approved is None or type(state.hosting_approved) is bool)
     )
     return state if shaped else None
 
