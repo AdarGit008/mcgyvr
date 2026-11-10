@@ -132,6 +132,23 @@ you through a hub, each read as a unit of `units` under scope `crew`.
 role names a crew unit as it names any unit, and fan-out may use it:
 a crew lends free, so it is no api rung.
 
+A fifth file, `numbers.yaml`, is optional and written by hand,
+not by any command: it holds your own values for the numbers mcgyvr
+sizes and judges a machine with but cannot read off it — decode drift,
+link speeds, host memory. It lives in the config folder (`$MCGYVR_HOME`,
+default `~/.mcgyvr`), and each number is keyed by what every
+machine has — an engine, a unit's tolerance class, or a class of link —
+never by a machine's name, so your value replaces the shipped estimate
+wherever that key applies. A refusal that rests on a number names it and
+spells the exact setting to write; leave the file out and the shipped
+estimates answer.
+
+Each file refuses a key that belongs in the other. `rigs`, `fleets` and
+each unit's `unit_id` are not in the tables below: the fleet lock
+keys on them, and the run config drops them when it loads the
+setup. A `fleets` entry takes `layout` and `next`; a `rigs` entry is
+checked only as a block. `examples/fleet.yaml` shows all three.
+
 Who may use a rig is one of `own`, `crew`, `anyone`: a unit's `scope` and the setup's `ride_scope` name it, and so does each rig you add to a hub, with its mode, `lend` or `hitchhike`. A rig in mode `lend` puts its hardware in its audience's pool; one in mode `hitchhike` runs your own units and lets riders the hub matches use their spare slots. The pairs, and what each pool serves:
 
 | audience | mode | pool | use cases |
@@ -143,12 +160,6 @@ Who may use a rig is one of `own`, `crew`, `anyone`: a unit's `scope` and the se
 | `anyone` | `hitchhike` | hitchhike | `mcgyvr-code`, `code`, `chat`, `agent` |
 
 Under `own` a rig lends to nobody, whatever its mode. A rig whose audience reaches strangers serves someone who is neither you nor a crewmate only once a hub admin has approved you as a host. The hub's old sharing modes are refused with these: `solo` is `own` + `lend`; `crew` is `crew` + `lend`; `pool` is `anyone` + `lend`; `hitchhike` is `anyone` + `hitchhike`.
-
-Each file refuses a key that belongs in the other. `rigs`, `fleets` and
-each unit's `unit_id` are not in the tables below: the fleet lock
-keys on them, and the run config drops them when it loads the
-setup. A `fleets` entry takes `layout` and `next`; a `rigs` entry is
-checked only as a block. `examples/fleet.yaml` shows all three.
 
 `mcgyvr local_pool` reads that config back: the usable rungs cheapest-first with
 their family, attempt budget and model; the escalation ceiling and where it
