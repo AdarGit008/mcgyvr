@@ -877,6 +877,12 @@ archived outside this repository, under the same paths.
   budget through `route.configured_attempts` (was `_configured_attempts`),
   the reader a plan uses, instead of its own copy of the default.
 
+- The Python worker prompt (`prompts/python.md`) no longer tells the model
+  to leave out "everything listed under OUT OF SCOPE": the message a worker
+  is sent has no such section, and the gate already refuses a change outside
+  the contract's scope. The bundle is 1901 bytes after provenance is
+  stripped (was 1972; the ceiling is 2048), and its standing is unchanged.
+
 - A relief rung whose host's unit already serves as many rides as it may
   (`503 pool_busy`) is passed over as full, as the other busy answers are,
   instead of failing the dispatch: a sync writes `pool_busy` into each rung's
