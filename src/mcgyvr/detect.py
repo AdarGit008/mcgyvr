@@ -354,17 +354,18 @@ def _served_window(
 def _unit_key(base_url: str) -> tuple[str | None, str | None]:
     """The key mcgyvr keeps for the unit recorded at base_url
     (`mcgyvr.unitkey.for_address`), and why none is sent when its key file
-    cannot be trusted. The key file is named for one address, so a key is
-    only ever found for, and sent to, the address of its own unit: never to
-    another host or port a sweep tries. Answers (key, None), (None, None)
-    when no key is kept for the address, and (None, why) for a key file that
-    cannot be trusted: the probe then goes without the key, and a unit that
-    asks for one reads as not answering."""
+    cannot be trusted or the data folder it lives in cannot be named. The key
+    file is named for one address, so a key is only ever found for, and sent
+    to, the address of its own unit: never to another host or port a sweep
+    tries. Answers (key, None), (None, None) when no key is kept for the
+    address, and (None, why) when the key cannot be read: the probe then goes
+    without the key, and a unit that asks for one reads as not answering."""
     from mcgyvr import unitkey
+    from mcgyvr.fleet.roots import FolderError
 
     try:
         return unitkey.for_address(base_url), None
-    except unitkey.UnitKeyError as exc:
+    except (unitkey.UnitKeyError, FolderError) as exc:
         return None, str(exc)
 
 

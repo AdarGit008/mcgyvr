@@ -912,9 +912,10 @@ archived outside this repository, under the same paths.
   address (`unitkey.for_address`) as a bearer token, to that address alone:
   the key file is named for one host and port, so a sweep of another host or
   port sends none, and the header is not replayed across a redirect. Setup
-  therefore lists keyed units it used to skip. A key file setup cannot trust
-  is a `Unit key:` note and the unit is asked without it; the sampler raises,
-  as a dispatch to the unit does.
+  therefore lists keyed units it used to skip. A key file setup cannot trust,
+  or a data folder it cannot name (a relative `$MCGYVR_DATA`), is a `Unit key:`
+  note and the unit is asked without the key; the sampler raises, as a
+  dispatch to the unit does.
 
 - Prose says what the code does, with no behaviour change. The host's `rig
   run` and `rig join` print a run's seal key id (there is no `rig up`);

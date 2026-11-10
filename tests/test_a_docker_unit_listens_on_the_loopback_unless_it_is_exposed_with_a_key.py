@@ -655,6 +655,24 @@ def test_a_key_file_setup_cannot_trust_is_noted_and_its_unit_asked_keyless(
     ), found.notes
 
 
+def test_a_data_folder_setup_cannot_name_is_noted_and_detection_goes_on(
+    keyed: KeyedServer, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """A relative `$MCGYVR_DATA` names no folder a key could be read from:
+    setup notes it and asks keyless, as it did before it read keys at all."""
+    monkeypatch.setenv("MCGYVR_DATA", "relative/data")
+    monkeypatch.setattr(detect, "_reading", lambda: {})
+    monkeypatch.setattr(detect, "detect_docker", lambda: (True, "an invented daemon"))
+
+    found = detect.detect((llama_target(keyed.address),))
+
+    assert found.backends == ()
+    assert keyed.seen == [("/v1/models", None)]
+    assert any(
+        note.startswith("Unit key: ") and "$MCGYVR_DATA" in note for note in found.notes
+    ), found.notes
+
+
 def test_the_sampler_reads_a_keyed_units_window_and_slots_with_its_key(
     keyed: KeyedServer,
 ) -> None:
