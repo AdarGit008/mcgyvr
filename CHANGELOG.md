@@ -11,6 +11,22 @@ archived outside this repository, under the same paths.
 
 ### Changed
 
+- **The Linux CI and the release live in `.github/workflows/`, and the
+  repository carries no other forge's workflows.** `ci.yml` is the full Linux
+  suite (`make check`: lint, typecheck, docs-check and every test, on two
+  xdist workers, with the pinned prettier and shellcheck installed so their
+  tests cannot skip) plus the import check on Python 3.13 and 3.14; its job
+  `test` is the required check, `ci / test (pull_request)`. `release.yml`
+  builds the distribution once from a `v*` tag, checks the wheel is the tag's
+  version and the notes are the tag's CHANGELOG.md section, publishes a GitHub
+  release with `gh release create`, and uploads the same files to PyPI by
+  trusted publishing (environment `pypi`; no token in the repository or its
+  secrets). `release.yml` and the macOS/Windows job in `platforms.yml` run
+  only on GitHub: a forge that also reads `.github/workflows` skips them
+  instead of half-making a release or queueing for runners it does not have.
+  `.forgejo/` (its CI, release and branch rule) is gone; `tests/test_release.py`
+  reads `.github/workflows`.
+
 - **A docker llama.cpp or vLLM unit listens on 127.0.0.1 or, behind a key
   mcgyvr makes, on every interface (`expose: local | lan`).** `mcgyvr emit`
   rendered every container's server on every interface with no key
