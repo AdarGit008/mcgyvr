@@ -111,7 +111,12 @@ handed to the server through the compose service's
 a compose file or in `fleet.yaml`. What runs on the rig for a read, a lock's
 sample or `fleet probe` (rig-units.sh, the lock's harness) is handed the key on
 ssh's stdin with its own text, never on a command line or in a file there; a
-rig agent shares a keyed unit only when its own data folder holds the key. llama-server b11960 then asks for it on
+rig agent shares a keyed unit only when its own data folder holds the key.
+Setup's discovery and the fleet sampler send the key only to the address it
+is kept for (`detect._get_json`, never across a redirect), so a sweep of
+another host or port sends none; an `http_proxy` the environment names is
+sent it too, as it is by every mcgyvr client of a unit. llama-server b11960
+then asks for it on
 every path but `/health` and `/v1/health`; vLLM asks for it under `/v1`,
 `/v2` and `/inference` only, so its `/metrics` and the sleep routes stay open
 to whoever reaches the port. The key travels as a bearer token over plain HTTP:
