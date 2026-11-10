@@ -1155,6 +1155,22 @@ archived outside this repository, under the same paths.
   the contract's scope. The bundle is 1901 bytes after provenance is
   stripped (was 1972; the ceiling is 2048), and its standing is unchanged.
 
+- A type error on a line the change added now rejects even when the type
+  checker's re-run on the base tree times out. That re-run only decides the
+  diagnostics elsewhere in the touched files; its timeout used to drop the
+  added-line findings with them, and a change with type errors was accepted
+  with only an environment note. The added-line findings now stand, the
+  off-diff diagnostics are left out, and the note
+  (`python: typecheck base re-run timed out after …`) says the comparison was
+  skipped. A timeout over the change itself is unchanged (I-57).
+
+- The `type_check` contract key and the JavaScript adapter say what a
+  TypeScript type check is: `tsc --noEmit`, run as the contract's acceptance
+  command and read pass or fail by its exit code. Its errors are not
+  attributed to the lines the change added or compared with the base, as the
+  gate's own type check does for Python; no tsc output parser exists. Prose
+  only, no behaviour change (I-56).
+
 - Prose says what the code does, with no behaviour change. The host's `rig
   run` and `rig join` print a run's seal key id (there is no `rig up`);
   SECURITY.md cites `Sharing.image`, `_image` and `rpc_proto=` instead of line
