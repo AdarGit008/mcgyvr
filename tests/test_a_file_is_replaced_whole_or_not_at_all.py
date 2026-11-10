@@ -10,6 +10,7 @@ from __future__ import annotations
 
 import os
 import stat
+import time
 from pathlib import Path
 
 import pytest
@@ -111,3 +112,107 @@ def test_a_link_at_the_staging_path_is_not_followed(tmp_path: Path) -> None:
 
     assert elsewhere.read_text(encoding="utf-8") == "untouched"
     assert target.read_text(encoding="utf-8") == "new"
+
+
+def _refusing_replace(
+    monkeypatch: pytest.MonkeyPatch, refusals: int
+) -> tuple[list[tuple[str, str]], list[float]]:
+    """os.replace refused with PermissionError `refusals` times, as Windows
+    refuses it while a reader holds the target, then let through; the calls
+    and the pauses taken between them, recorded."""
+    calls: list[tuple[str, str]] = []
+    pauses: list[float] = []
+    real = os.replace
+
+    def replace(source: os.PathLike[str], target: os.PathLike[str]) -> None:
+        calls.append((os.fspath(source), os.fspath(target)))
+        if len(calls) <= refusals:
+            raise PermissionError(13, "the target is held open", os.fspath(target))
+        real(source, target)
+
+    monkeypatch.setattr(os, "replace", replace)
+    monkeypatch.setattr(time, "sleep", pauses.append)
+    return calls, pauses
+
+
+def test_a_refused_rename_is_tried_again_until_it_goes_through(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    target = tmp_path / "record.json"
+    target.write_text("old", encoding="utf-8")
+    refusals = atomic.REPLACE_TRIES - 1
+    calls, pauses = _refusing_replace(monkeypatch, refusals)
+
+    atomic.write(target, "new")
+
+    assert target.read_text(encoding="utf-8") == "new"
+    assert len(calls) == atomic.REPLACE_TRIES
+    assert pauses == [atomic.REPLACE_PAUSE_S] * refusals
+    assert [p.name for p in tmp_path.iterdir()] == ["record.json"]
+
+
+def test_a_rename_refused_every_time_raises_and_keeps_the_old_file(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    target = tmp_path / "record.json"
+    target.write_text("old", encoding="utf-8")
+    calls, pauses = _refusing_replace(monkeypatch, atomic.REPLACE_TRIES)
+
+    with pytest.raises(PermissionError):
+        atomic.write(target, "new")
+
+    assert len(calls) == atomic.REPLACE_TRIES
+    assert len(pauses) == atomic.REPLACE_TRIES - 1
+    assert target.read_text(encoding="utf-8") == "old"
+    assert [p.name for p in tmp_path.iterdir()] == ["record.json"]
+
+
+def test_a_rename_that_fails_for_another_reason_is_not_tried_again(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    pauses: list[float] = []
+    monkeypatch.setattr(time, "sleep", pauses.append)
+    taken = tmp_path / "taken"
+    taken.mkdir()
+    (taken / "inside").write_text("x", encoding="utf-8")
+    source = tmp_path / "source"
+    source.write_text("y", encoding="utf-8")
+
+    with pytest.raises(OSError) as raised:
+        atomic.replace(source, taken)
+
+    assert not isinstance(raised.value, PermissionError)
+    assert pauses == []
+
+
+def test_replace_renames_a_staged_folder_into_place(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    calls, _pauses = _refusing_replace(monkeypatch, 1)
+    staged = tmp_path / ".build.part"
+    staged.mkdir()
+    (staged / "file").write_text("x", encoding="utf-8")
+
+    atomic.replace(staged, tmp_path / "build")
+
+    assert (tmp_path / "build" / "file").read_text(encoding="utf-8") == "x"
+    assert len(calls) == 2
+    assert not staged.exists()
+
+
+def test_an_ordinary_file_can_be_made_with_a_narrower_mode(tmp_path: Path) -> None:
+    previous = os.umask(0)
+    try:
+        target = tmp_path / "lease"
+        atomic.write(target, "line\n", mode=0o644)
+    finally:
+        os.umask(previous)
+
+    assert stat.S_IMODE(target.stat().st_mode) == 0o644
+
+
+def test_a_private_file_takes_no_other_mode(tmp_path: Path) -> None:
+    with pytest.raises(ValueError):
+        atomic.write(tmp_path / "x", "x", private=True, mode=0o644)
+
+    assert list(tmp_path.iterdir()) == []
