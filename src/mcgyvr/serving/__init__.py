@@ -1935,7 +1935,7 @@ def _allowance_bytes(
         n_ctx=ctx_per_slot * slots,
         n_seq_max=slots,
         n_ubatch=n_ubatch,
-        backend=gpu.backend if gpu is not None else vramfit.MEASURED_SCRATCH_BACKEND,
+        backend=gpu.backend if gpu is not None else hubwire.MEASURED_SCRATCH_BACKEND,
         unified=gpu is not None and shares_ram(gpu.kind),
     ).total
 

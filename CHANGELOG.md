@@ -11,6 +11,11 @@ archived outside this repository, under the same paths.
 
 ### Changed
 
+- **The scratch readings are read from `hubwire` alone (I-17b).**
+  `vramfit.MEASURED_SCRATCH_MIB` and `vramfit.MEASURED_SCRATCH_BACKEND`, which
+  re-named `hubwire`'s, are gone; `serving` and `sharding` read
+  `hubwire.MEASURED_SCRATCH_MIB` and `hubwire.MEASURED_SCRATCH_BACKEND`.
+
 - **`mcgyvr recommend` asks placement whether a model fits (I-47).** Its own
   arithmetic left out the scratch allowance and the RAM rule placement applies,
   so it could recommend what placement then refused. A checkpoint is now a
