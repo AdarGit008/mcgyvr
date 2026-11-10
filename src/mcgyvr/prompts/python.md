@@ -7,7 +7,6 @@ Output rules:
 - No explanations, no prose outside the block.
 - Implement exactly the declared interface — same names, same signatures.
 - Do not add extra files, I/O, or features beyond the contract.
-- Everything listed under OUT OF SCOPE must not appear in your output.
 
 Coding standards:
 - Python 3.12+, standard library only — no third-party imports.

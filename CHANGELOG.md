@@ -345,6 +345,19 @@ archived outside this repository, under the same paths.
 
 ### Added
 
+- **A rig's hello names each model's quantisation (`quant`), so a hub can plan
+  by the wire's decode rule.** The hub's planner bounded a device's decode
+  speed by its memory bandwidth alone, because the rig never said a model's
+  quantisation and `hubwire.decode_ms_per_gib` needs one. `ModelInfo` now
+  carries `quant`, the quantisation the file's name spells (`Q4_K_M`, `BF16`),
+  read by `knowledge.hub.quant_of`, the reading the product's own decode
+  estimate takes; a name that spells none (a split model's first part among
+  them) sends none. The field is in the hub's published schema
+  (`hubwire_schemas/protocol.schema.json`) as an optional short tag. It is
+  additive: a hub from before it ignores the field (its models read with
+  `extra="ignore"`), and a hub that reads it plans without it for an agent
+  that does not send it.
+
 - **A worker rig tells the hub which models its tensor cache holds
   (`hello.weight_cache`), so the hub plans a cheaper load there.** The cache
   names each file by the FNV-1a hash of one tensor, and the hub names weights
@@ -1051,6 +1064,19 @@ archived outside this repository, under the same paths.
 
 ### Fixed
 
+- The setup reference says what an unset `attempts` entry means: a unit with
+  no entry is tried once on its rung, as it always was, not the contract's
+  `limits.attempts` default of 2, which only caps the number. The one value
+  is `config.UNSET_RUNG_ATTEMPTS`, and `mcgyvr local_pool` now reads a rung's
+  budget through `route.configured_attempts` (was `_configured_attempts`),
+  the reader a plan uses, instead of its own copy of the default.
+
+- The Python worker prompt (`prompts/python.md`) no longer tells the model
+  to leave out "everything listed under OUT OF SCOPE": the message a worker
+  is sent has no such section, and the gate already refuses a change outside
+  the contract's scope. The bundle is 1901 bytes after provenance is
+  stripped (was 1972; the ceiling is 2048), and its standing is unchanged.
+
 - Prose says what the code does, with no behaviour change. The host's `rig
   run` and `rig join` print a run's seal key id (there is no `rig up`);
   SECURITY.md cites `Sharing.image`, `_image` and `rpc_proto=` instead of line
@@ -1084,6 +1110,14 @@ archived outside this repository, under the same paths.
   (`rig crew sync --key-env`); else the default. An older mcgyvr refuses a
   `relief.yaml` with the new key (`unknown key 'api_key_env'`); a
   `rig rungs sync` with it rewrites the file.
+
+- **Two first writes into a home folder that does not exist yet both land.**
+  `rig join` and a service's `rig run` (or two first unit keys) could both
+  find no home folder and both `mkdir` it; the second failed with
+  `FileExistsError` and lost its write, which the identity-key race test
+  caught now and then. `atomic.write_private` and
+  `rig.credentials.write_private` now take the folder the other write just
+  made (still created at 0700) instead of failing on it.
 
 - A relief rung whose host's unit already serves as many rides as it may
   (`503 pool_busy`) is passed over as full, as the other busy answers are,
@@ -1152,6 +1186,18 @@ archived outside this repository, under the same paths.
   section 6 asked for this before the helper's first pin. A Linux rig's
   pooled head, in a container on its tunnel's network, is started and asked
   as before, with no key.
+- **The README says, in one sentence, what the privacy + security program
+  makes true** (`## Privacy`; the hub's README carries the same paragraph):
+  your own and your crew's rigs by default (an account made before crew became
+  the default keeps the scope it had, anyone for most), strangers' rigs only
+  by opt-in and the hub admin's approval, who can read a prompt and its
+  answer, that a ride your client seals is unread by the hub unless the hub
+  swaps the host's key for its own, what the hub keeps (who asked and from
+  what address, which rigs answered, which model, how many tokens and when;
+  never the text), identity-key pinning for current rigs from first contact,
+  port-forward consent on the rig, docker units on their own machine or behind
+  a key, and no network while the gate tests code a host returns.
+  `SECURITY.md` has the detail.
 - **A rig forwards its UDP ports only when its owner allowed it on the rig
   too, and never takes a permanent lease unasked.** The lending settings gain
   `port_forward` and `port_forward_permanent` (`rig-sharing.json`, both off;
