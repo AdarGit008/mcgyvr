@@ -137,15 +137,19 @@ def _moe_spec(spec: ModelSpec, row: Mapping[str, Any] | None) -> ModelSpec:
 
     The row is filed under the file's Hub name; a pick lands the same bytes,
     sha256-checked, under the model id's name (`fetchlist.from_records`), which
-    is the file placement serves, so the row is carried under that name. With no
-    row, or one that does not describe the record's file (its size differs), the
-    spec is an MoE without a geometry, which placement refuses by name, as it
-    refuses a capability table MoE row: an MoE is never sized as dense.
+    is the file placement serves, so the row is carried under that name. That
+    rename takes the row past `ModelSpec`'s scanned-file check; what then holds
+    it to the spec's file is its size, which `ModelSpec` checks against
+    `disk_gb`. With no row, or one whose size does not match (the refusal kept
+    as `geometry_refused`, so placement's refusal says why the row was not
+    taken), the spec is an MoE without a geometry, which placement refuses by
+    name, as it refuses a capability table MoE row: an MoE whose record states
+    its architecture is never sized as dense.
     """
     if row is None:
         return replace(spec, moe=True)
     served = {**row, "file": fetchlist._weights_file_name(spec.name)}
     try:
         return replace(spec, moe=True, geometry=served)
-    except UnitError:
-        return replace(spec, moe=True)
+    except UnitError as exc:
+        return replace(spec, moe=True, geometry_refused=str(exc))

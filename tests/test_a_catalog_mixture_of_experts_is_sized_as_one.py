@@ -223,3 +223,25 @@ def test_an_moe_catalog_row_and_its_capability_table_twin_agree(
         assert unit.fit.ram_gb == alone.fit.ram_gb
         assert unit.args.get("--n-cpu-moe") == alone.args.get("--n-cpu-moe")
     assert alone.args.get("--n-cpu-moe")
+
+
+def test_a_twin_whose_size_the_header_row_disputes_is_refused_saying_why(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """An invented table row naming the shipped mixture by `model_id` but stating
+    a rounded size the header row does not match is not handed that row: it is
+    an MoE with no geometry, and its refusal says a row was found and why it was
+    not taken, rather than only that a geometry is needed."""
+    twin = {
+        **row("invented-mixture:30b", architecture="moe", weights_gb=17.9),
+        "model_id": MIXTURE,
+    }
+    table = load(write_table(tmp_path, table_document(rows=[twin])))
+    monkeypatch.setattr(sizing, "load", lambda: table)
+    spec = {s.name: s for s in sizing._model_specs()}["invented-mixture:30b"]
+    assert spec.moe is True and spec.geometry is None
+    assert "disk_gb says" in spec.geometry_refused
+    with pytest.raises(
+        UnitError, match=r"A header row was found and not taken: .*disk_gb"
+    ):
+        _unit("invented-mixture:30b")

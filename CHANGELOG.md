@@ -34,7 +34,12 @@ archived outside this repository, under the same paths.
   needed 53084 MiB as dense, fits in 11393 MiB. An `moe` record with no header
   row is refused by name, as a capability table MoE row is, rather than sized
   dense; a table MoE row whose `model_id` names a catalog record is sized
-  from that record's row under both its names. `capability.Model` now keeps
+  from that record's row under both its names (no shipped table MoE row
+  names one, so `deepseek-coder-v2:16b` stays refused for want of a
+  geometry), and a row whose size disputes the header's is refused saying
+  so. A cached record of a model the shipped catalog lacks, written before
+  the field, states no architecture and is still sized dense until a Hub
+  read files it again. `capability.Model` now keeps
   the `architecture` it checks (one of the same vocabulary), and setup's
   second raw reader of `capability-table.json` (`_architectures`) is gone.
 
