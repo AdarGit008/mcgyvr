@@ -236,14 +236,16 @@ SANDBOX_FIELDS: tuple[Field, ...] = (
     Field(
         "image_cache_keep",
         "int",
-        "How many task images of one repository the image cache keeps. After "
-        "`mode: docker` builds a repository's image, that repository's cached "
-        "images beyond the newest this many are removed, and it says so on "
-        "stderr; another repository's images are never counted or touched, "
-        "so a run of another repository keeps the image it is about to start, "
-        "and an image a container still uses is left in place. `0` removes "
-        "none. `mcgyvr sandbox --cache` lists what is cached, and "
-        "`mcgyvr sandbox --clear-cache` removes all of it.",
+        "How many task images of one repository the image cache keeps, a "
+        "repository being known by its directory's name. After `mode: docker` "
+        "builds a repository's image, the cached images of that directory name "
+        "beyond the newest this many are removed, and it says so on stderr; "
+        "images of another directory name are never counted or touched, so a "
+        "run of such a repository keeps the image it is about to start, and an "
+        "image a container still uses is left in place. Two checkouts whose "
+        "directories share a name (`~/work/api` and `~/oss/api`) count as one "
+        "repository here. `0` removes none. `mcgyvr sandbox --cache` lists what "
+        "is cached, and `mcgyvr sandbox --clear-cache` removes all of it.",
         default=DEFAULT_MAX_CACHED_IMAGES,
         min_value=0,
     ),

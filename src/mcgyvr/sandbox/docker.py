@@ -420,8 +420,10 @@ class DockerSandbox(Sandbox):
 
         Keeps the `image_cache_keep` newest images labelled with this
         repository's slug, the one just built among them, and never counts or
-        touches another repository's, so a parallel run of another repository
-        keeps the image it is about to start. 0 keeps every image. This is
+        touches another slug's, so a parallel run of a repository with another
+        directory name keeps the image it is about to start; two checkouts
+        whose directories share a name share a slug, and trim each other's
+        images. 0 keeps every image. This is
         housekeeping, not the task: what was removed, and a cache that could
         not be read, are said on stderr, and the task goes on either way.
         """

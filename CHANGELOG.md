@@ -137,8 +137,11 @@ archived outside this repository, under the same paths.
   `DockerSandbox` prunes after each image it builds (a cache hit builds
   nothing and trims nothing), and `prune` takes the repository's slug and
   counts and removes only images labelled with it (`slug_of`, the spelling the
-  tag and the `mcgyvr.repo` label share), so a run of another repository,
-  started in parallel, keeps the image it is about to start. An image docker
+  tag and the `mcgyvr.repo` label share). A repository is known by its
+  directory's name: a run of a repository with another directory name,
+  started in parallel, keeps the image it is about to start, while two
+  checkouts whose directories share a name (`~/work/api` and `~/oss/api`)
+  count as one repository and trim each other's images. An image docker
   refuses to remove because a container still uses it stays; what was removed
   is said on stderr, and a cache docker will not list is said and the task
   goes on. The setting reaches both of a run's sandboxes (`_floor` and

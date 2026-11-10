@@ -481,11 +481,13 @@ def prune(
     """Keep ``repo_slug``'s ``max_images`` newest cached images, remove the rest.
 
     Only images labelled with ``repo_slug`` are counted or removed, so pruning
-    one repository never evicts an image another repository's run is about to
-    start. Returns the tags actually removed; an image docker refuses to remove
-    (one a container still uses, say) is left in place and omitted from the
-    result. A negative bound raises :class:`ImageError`, and a bound of 0
-    removes every image of that repository.
+    one repository never evicts an image a run of a repository with another
+    slug is about to start; the slug is the directory's name
+    (:func:`slug_of`), so two checkouts whose directories share a name are
+    one repository here. Returns the tags actually removed; an image docker
+    refuses to remove (one a container still uses, say) is left in place and
+    omitted from the result. A negative bound raises :class:`ImageError`, and
+    a bound of 0 removes every image of that repository.
     """
     if max_images < 0:
         raise ImageError("max_images cannot be negative")
