@@ -308,15 +308,19 @@ archived outside this repository, under the same paths.
 
 ### Added
 
-- **`serving.start_timeout_s`: how long `serve up` and `serve wake` watch a
-  unit come up.** The door polled each unit 120 times, three seconds apart,
+- **`serving.start_timeout_s`: how long the serving door's `serve up` and
+  `serve wake` watch a unit come up.** The door polled each unit 120 times, three seconds apart,
   and then reported it down, with no way to wait longer for a load that needs
   it, such as a large vLLM unit read off a slow disk. The key states the
   limit in seconds (unset: 360, the same six minutes; at least one poll is
   always made; a negative value is refused when the config is read). The
-  serve step reads it from the config gate 1 read, so a run that wakes a card
-  through the door is bounded by it too, and a config the step can no longer
-  read is refused (exit 2) before anything starts. `HEALTH_POLLS` is gone:
+  serve step reads it from the config gate 1 read, so `mcgyvr serve wake` and
+  a run that wakes a card through the door are bounded by it too. That config
+  is the one `$MCGYVR_CONFIG` names, else the live fleet's, never a `--config`
+  path given to the command that started the door. A config the step can no
+  longer read, or one that is no longer the config gate 1 read (a `mcgyvr
+  fleet use` in between), is refused (exit 2) before anything starts.
+  `HEALTH_POLLS` is gone:
   `servelib.wait_for` takes `timeout_s`, and `health_polls` says how many
   polls it buys (I-53).
 

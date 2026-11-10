@@ -14,23 +14,31 @@ Promises:
   than one.
 * A serve step reads the key from the config gate 1 read, found as gate 1
   found it, and takes the default when gate 1 found none (``RUN_CONFIG=none``);
-  a config it cannot read again is a refusal, not a default.
+  a config it cannot read again, or one found at another path than the one
+  gate 1 exported, is a refusal, not a default.
+* ``serve up`` and ``serve wake`` hand that timeout to every ``wait_for``, and
+  a refusal is exit 2 before anything is started or woken.
 * ``wait_for`` polls a unit that never answers exactly as many times as its
   timeout buys, sleeping ``HEALTH_INTERVAL_S`` between polls.
 
 The rig is the invented one ``test_a_sleeping_unit_does_not_read_as_serving``
-scripts, reached through the same substitution of ``servelib.ssh``.
+scripts, reached through the same substitution of ``servelib.ssh``; the steps
+are driven in-process with the rig calls they make (``up``, ``sleeping``,
+``wait_for``) recorded instead of sent.
 """
 
 from __future__ import annotations
 
+import subprocess
 import time
+import types
 from pathlib import Path
 
 import pytest
 
 from mcgyvr.config import CONFIG_PATH_ENV, ConfigSchemaError, parse
 from mcgyvr.serving import servelib
+from tests._helpers import by_path
 from tests.test_a_sleeping_unit_does_not_read_as_serving import (
     HOST,
     NO_ROUTE,
@@ -94,7 +102,7 @@ def _under(monkeypatch: pytest.MonkeyPatch, setup: Path) -> None:
     """The environment the door hands a step for a run under ``setup``: the
     config named by ``$MCGYVR_CONFIG``, and gate 1's export of its folder."""
     monkeypatch.setenv(CONFIG_PATH_ENV, str(setup))
-    monkeypatch.setenv("RUN_CONFIG", str(setup.parent))
+    monkeypatch.setenv("RUN_CONFIG", str(setup.resolve().parent))
 
 
 def test_a_step_reads_the_timeout_from_the_config_gate_one_named(
@@ -122,6 +130,21 @@ def test_a_config_the_step_cannot_read_again_is_refused(
     assert "serve-wake: REFUSED" in capsys.readouterr().err
 
 
+def test_a_config_found_at_another_path_than_gate_one_exported_is_refused(
+    monkeypatch: pytest.MonkeyPatch,
+    tmp_path: Path,
+    capsys: pytest.CaptureFixture[str],
+) -> None:
+    (tmp_path / "now").mkdir()
+    setup = tmp_path / "now" / "setup.yaml"
+    setup.write_text(_with_serving("  start_timeout_s: 900\n"), encoding="utf-8")
+    _under(monkeypatch, setup)
+    monkeypatch.setenv("RUN_CONFIG", str(tmp_path / "then"))
+
+    assert servelib.start_timeout_s("up") is None
+    assert "serve-up: REFUSED" in capsys.readouterr().err
+
+
 def test_a_unit_that_never_answers_is_polled_as_often_as_its_timeout_buys(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
@@ -135,3 +158,95 @@ def test_a_unit_that_never_answers_is_polled_as_often_as_its_timeout_buys(
     assert row["healthy"] is False
     assert sum(1 for asked in rig.asked if "/v1/models" in asked) == 4
     assert slept == [servelib.HEALTH_INTERVAL_S] * 3
+
+
+#: The serve steps, as the door runs them.
+_STEPS = Path(servelib.__file__).resolve().parent / "gate-scripts"
+
+
+def _step(mode: str) -> types.ModuleType:
+    return by_path(f"serve_{mode}_step", _STEPS / f"serve-{mode}.py")
+
+
+class Steps:
+    """What a serve step asked of the rig: whether it started the stack, and
+    the timeout each ``wait_for`` was handed."""
+
+    def __init__(self) -> None:
+        self.started = 0
+        self.timeouts: list[float] = []
+
+    def up(
+        self, compose_file: Path, units: tuple[servelib.Service, ...] = ()
+    ) -> subprocess.CompletedProcess[str]:
+        self.started += 1
+        return subprocess.CompletedProcess([], 0, "", "")
+
+    def wait_for(
+        self, host: str, service: servelib.Service, *, timeout_s: float = -1.0
+    ) -> dict[str, object]:
+        self.timeouts.append(timeout_s)
+        return {
+            "container": service.container,
+            "port": service.port,
+            "healthy": True,
+            "sleeping": False,
+            "seconds": 0,
+            "models": ["invented-coder"],
+        }
+
+
+@pytest.fixture
+def steps(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> Steps:
+    """Two invented units on one invented host, behind a prologue that passed;
+    every rig call the steps make is recorded instead of sent."""
+    units = (
+        UNIT,
+        servelib.Service(name="svc1", container="mcgyvr-box1-b-8081", port=8081),
+    )
+    compose = tmp_path / "compose.yaml"
+    compose.write_text("services: {}\n", encoding="utf-8")
+    ctx = servelib.ServeContext(
+        host=HOST,
+        compose_file=compose,
+        out=tmp_path / "serve.json",
+        units=units,
+        expected=[u.container for u in units],
+        only=set(),
+    )
+    seen = Steps()
+    monkeypatch.setattr(servelib, "serve_prologue", lambda mode, **_: ctx)
+    monkeypatch.setattr(servelib, "up", seen.up)
+    monkeypatch.setattr(servelib, "wait_for", seen.wait_for)
+    monkeypatch.setattr(servelib, "sleeping", lambda host, port, key=None: False)
+    monkeypatch.setattr(servelib, "write_serve_record", lambda ctx, mode, body: None)
+    return seen
+
+
+@pytest.mark.parametrize("mode", ["up", "wake"])
+def test_a_serve_step_hands_the_stated_timeout_to_every_unit_it_watches(
+    mode: str, steps: Steps, monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+) -> None:
+    setup = tmp_path / "setup.yaml"
+    setup.write_text(_with_serving("  start_timeout_s: 6\n"), encoding="utf-8")
+    _under(monkeypatch, setup)
+
+    assert _step(mode).main() == 0
+    assert steps.timeouts == [6.0, 6.0]
+    assert servelib.health_polls(6.0) == 2
+
+
+@pytest.mark.parametrize("mode", ["up", "wake"])
+def test_a_serve_step_under_a_config_it_cannot_read_again_starts_nothing(
+    mode: str,
+    steps: Steps,
+    monkeypatch: pytest.MonkeyPatch,
+    tmp_path: Path,
+    capsys: pytest.CaptureFixture[str],
+) -> None:
+    _under(monkeypatch, tmp_path / "gone.yaml")
+
+    assert _step(mode).main() == 2
+    assert f"serve-{mode}: REFUSED" in capsys.readouterr().err
+    assert steps.started == 0
+    assert steps.timeouts == []

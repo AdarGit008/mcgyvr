@@ -563,8 +563,10 @@ def start_timeout_s(mode: str) -> float | None:
     absolute, else the live fleet). A run gate 1 found under no config
     (`RUN_CONFIG=none`, or no gate 1 at all) takes `START_TIMEOUT_S_DEFAULT`,
     as does a config that leaves the key unset. A config gate 1 read and this
-    step cannot is refused: `serve-<mode>: REFUSED — ...` on stderr and None,
-    which the step answers with exit 2 before it starts or wakes anything.
+    step cannot is refused, and so is one found at another path than the one
+    gate 1 exported (a `mcgyvr fleet use` between the two): `serve-<mode>:
+    REFUSED — ...` on stderr and None, which the step answers with exit 2
+    before it starts or wakes anything.
     """
     source = os.environ.get("RUN_CONFIG", "none")
     if source == "none":
@@ -575,6 +577,16 @@ def start_timeout_s(mode: str) -> float | None:
         print(
             f"serve-{mode}: REFUSED — the config the run is under, {source}, "
             f"cannot be read again: {exc}",
+            file=sys.stderr,
+        )
+        return None
+    if str(loaded.path) != source:
+        # Gate 1 exports `str(loaded.path)` of the same `configlib.load()`, so
+        # anything else is a config that changed under the run.
+        print(
+            f"serve-{mode}: REFUSED — the run is under the config at {source}, "
+            f"and the config found now is at {loaded.path}; nothing is started "
+            "under a config the run was not made under",
             file=sys.stderr,
         )
         return None

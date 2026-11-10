@@ -486,13 +486,16 @@ SERVING_FIELDS: tuple[Field, ...] = (
     Field(
         "start_timeout_s",
         "float",
-        "How long `mcgyvr serve up` and `serve wake` watch a unit come up "
-        "before they give up on it and report it down, in seconds. The unit is "
-        f"asked for the models it serves every {HEALTH_INTERVAL_S:g} s until it "
-        "lists them and does not read as asleep, and at least once however "
-        "short this is. A run that wakes a card waits for the same door, so it "
-        "is bounded by this too. Raise it for a model whose load takes longer, "
-        "such as a large vLLM unit read off a slow disk.",
+        "How long the serving door's `serve up` and `serve wake` watch a unit "
+        "come up before they give up on it and report it down, in seconds. The "
+        f"unit is asked for the models it serves every {HEALTH_INTERVAL_S:g} s "
+        "until it lists them and does not read as asleep, and at least once "
+        "however short this is. `mcgyvr serve wake` and a run that wakes a card "
+        "go through the same door, so they are bounded by this too. The door "
+        f"reads it from the config `${CONFIG_PATH_ENV}` names, else from the "
+        "live fleet's, never from a `--config` path given to the command that "
+        "started it. Raise it for a model whose load takes longer, such as a "
+        "large vLLM unit read off a slow disk.",
         default=START_TIMEOUT_S_DEFAULT,
         min_value=0.0,
         bind_hint="seconds; e.g. 900 for a load that takes longer than six minutes",
