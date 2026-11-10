@@ -27,7 +27,13 @@ def test_the_reader_takes_the_wire_names_rigscan_imports() -> None:
     assert {"HOST_OS", "HOST_VERSION_MAX", "RESOURCE_NAME_MAX"} <= set(
         wanted["mcgyvr.hubwire"]
     )
-    assert set(wanted["mcgyvr.fleet.roots"]) == {"HOME_DIR", "HOME_ENV"}
+    assert set(wanted["mcgyvr.fleet.roots"]) == {
+        "DATA_ENV",
+        "HOME_DIR",
+        "HOME_ENV",
+        "METAL_FILE",
+        "NATIVE_DIR",
+    }
 
 
 def test_a_constant_ships_as_its_value_alone() -> None:

@@ -24,6 +24,7 @@ from typing import TYPE_CHECKING
 
 import mcgyvr.drive as _drive
 from mcgyvr.capacity import Outcome, SlotUnavailableError
+from mcgyvr.config import BREADTH_TEMPERATURE_DEFAULT
 from mcgyvr.consensus import NoUsableDrawError, Unusable
 from mcgyvr.drive.gate import (
     _cleaned,
@@ -147,9 +148,9 @@ def worker_attempt(
     # The temperature the draws after the first are sampled at, from
     # `breadth.temperature`: `_temperature_of` keeps draw 0 greedy whatever it
     # says, so a rung that draws once sends a greedy request. A config that does
-    # not name the key at all falls back to 0.0 here, which makes every draw
-    # greedy.
-    temperature = float(config.get("breadth.temperature", 0.0))
+    # not name the key at all falls back to the schema's default, so its extra
+    # draws are not copies of draw 0.
+    temperature = float(config.get("breadth.temperature", BREADTH_TEMPERATURE_DEFAULT))
     # Repair answers the gate's rejections, so a gate switched off repairs nothing.
     tidying = bool(config.get("cleanup.enabled", True)) and bool(
         config.get("gate.enabled", True)

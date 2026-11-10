@@ -397,9 +397,9 @@ def test_the_scope_header_is_one_header_and_its_values_are_three() -> None:
 def test_each_scope_is_served_from_one_pool() -> None:
     assert tuple(hubwire.SCOPE_POOLS) == hubwire.SCOPE_VALUES
     assert dict(hubwire.SCOPE_POOLS) == {
-        "own": hubwire.POOL_SOLO,
+        "own": hubwire.POOL_OWN,
         "crew": hubwire.POOL_CREW,
-        "anyone": hubwire.POOL_GENERAL,
+        "anyone": hubwire.POOL_ANYONE,
     }
 
 
@@ -437,8 +437,8 @@ def test_recommend_places_each_use_case_by_the_wires_category() -> None:
 def test_each_use_case_is_recommended_a_category_a_raw_use_case_names() -> None:
     assert tuple(hubwire.USE_CASE_CATEGORY) == hubwire.USE_CASES
     assert hubwire.USE_CASE_CATEGORY[hubwire.MCGYVR_CODE] == hubwire.CODE
-    raw = hubwire.POOL_USE_CASES[hubwire.POOL_GENERAL]
-    assert set(hubwire.USE_CASE_CATEGORY.values()) == set(raw)
+    raw = set(hubwire.USE_CASES) - {hubwire.MCGYVR_CODE}
+    assert set(hubwire.USE_CASE_CATEGORY.values()) == raw
 
 
 def test_every_pool_serves_only_use_cases_and_each_is_served_somewhere() -> None:
@@ -450,8 +450,8 @@ def test_every_pool_serves_only_use_cases_and_each_is_served_somewhere() -> None
 @pytest.mark.parametrize(
     ("pool", "served"),
     [
-        (hubwire.POOL_SOLO, {"mcgyvr-code", "code", "chat", "agent"}),
-        (hubwire.POOL_GENERAL, {"code", "chat", "agent"}),
+        (hubwire.POOL_OWN, {"mcgyvr-code", "code", "chat", "agent"}),
+        (hubwire.POOL_ANYONE, {"mcgyvr-code", "code", "chat", "agent"}),
         (hubwire.POOL_CREW, {"mcgyvr-code", "code", "chat", "agent"}),
         (hubwire.POOL_HITCHHIKE, {"mcgyvr-code", "code", "chat", "agent"}),
         (hubwire.POOL_SHARED_LADDER, {"mcgyvr-code"}),
@@ -462,8 +462,63 @@ def test_a_pool_serves_its_use_cases_and_refuses_the_rest(
 ) -> None:
     for use_case in hubwire.USE_CASES:
         assert hubwire.pool_serves(pool, use_case) is (use_case in served)
-    with pytest.raises(KeyError):
-        hubwire.pool_serves("anyone", hubwire.CHAT)
+    with pytest.raises(KeyError):  # the general pool's old name is no pool
+        hubwire.pool_serves("general", hubwire.CHAT)
+
+
+@pytest.mark.parametrize("use_case", hubwire.USE_CASES)
+@pytest.mark.parametrize("ride", [False, True])
+@pytest.mark.parametrize("scope", hubwire.SCOPE_VALUES)
+def test_every_pool_a_request_is_served_from_serves_every_use_case(
+    scope: str, ride: bool, use_case: str
+) -> None:
+    """What the hub refuses with ``use_case_not_served``: the pool a request is
+    served from (by its scope and model) not serving its use case. A member's
+    own rigs, the general pool, a crew's pool and a ride each serve all four,
+    so no use case is refused under any scope; the model a pool serves plays
+    no part."""
+    model = hubwire.rung_model(FIRST) if ride else "coder-7b"
+    assert hubwire.pool_serves(hubwire.serving_pool(scope, model), use_case)
+
+
+def test_a_use_case_no_pool_serves_is_refused_by_every_pool() -> None:
+    """A header value that is not a use case (``coding``, the name replaced)
+    is refused under any scope: no pool serves it."""
+    assert all(not hubwire.pool_serves(p, "coding") for p in hubwire.POOLS)
+    assert hubwire.scopes_serving("coding") == ()
+
+
+@pytest.mark.parametrize("use_case", hubwire.USE_CASES)
+def test_the_scopes_a_refusal_offers_are_those_whose_pool_serves_the_use_case(
+    use_case: str,
+) -> None:
+    """One list, for the setup check's refusal and the hub's alike."""
+    expected = tuple(
+        s
+        for s in hubwire.SCOPE_VALUES
+        if hubwire.pool_serves(hubwire.SCOPE_POOLS[s], use_case)
+    )
+    assert hubwire.scopes_serving(use_case) == expected == hubwire.SCOPE_VALUES
+
+
+def test_a_scope_whose_pool_stops_serving_a_use_case_is_not_offered(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    narrow = {**hubwire.POOL_USE_CASES, hubwire.POOL_ANYONE: ("code", "chat", "agent")}
+    monkeypatch.setattr(hubwire, "POOL_USE_CASES", narrow)
+
+    assert hubwire.scopes_serving(hubwire.MCGYVR_CODE) == (
+        hubwire.SCOPE_OWN,
+        hubwire.SCOPE_CREW,
+    )
+
+
+def test_a_use_case_refused_is_a_403_beside_out_of_scope_and_not_a_full_rung() -> None:
+    """Asked again under the same scope and model, it is refused again, as a
+    host outside the scope is: not an answer a rung passes over as full."""
+    assert hubwire.USE_CASE_NOT_SERVED == (403, "use_case_not_served")
+    assert hubwire.OUT_OF_SCOPE[0] == hubwire.USE_CASE_NOT_SERVED[0]
+    assert hubwire.USE_CASE_NOT_SERVED not in hubwire.RUNG_BUSY
 
 
 def test_the_use_case_header_sits_beside_the_scope_header() -> None:

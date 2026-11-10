@@ -25,8 +25,8 @@ from typing import NoReturn
 
 import pytest
 
+from mcgyvr.gitcmd import EMPTY_TREE
 from mcgyvr.repo.repo import (
-    _EMPTY_TREE,
     AttachedRepo,
     AttachError,
     _looks_remote,
@@ -173,7 +173,7 @@ def test_unborn_repository_uses_the_empty_tree(tmp_path: Path) -> None:
     repo = init_repo(tmp_path / "repo")  # no commit yet
 
     with attach(str(repo)) as attached:
-        assert attached.revision == _EMPTY_TREE
+        assert attached.revision == EMPTY_TREE
         assert attached.is_unborn is True
 
 

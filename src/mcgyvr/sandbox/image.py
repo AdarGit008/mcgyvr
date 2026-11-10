@@ -43,9 +43,10 @@ IMAGE_LAYOUT = 2
 #: finds populated, so writes land in the volume, not in the host checkout.
 SEEDABLE = tuple(path.removeprefix(f"{WORKSPACE}/") for path in (VENV, NODE_MODULES))
 
-# How many images :func:`prune` keeps when the caller does not say: room for a
-# few repositories on recent dependency sets, and a bound on how large the
-# cache can grow.
+#: How many images of one repository :func:`prune` keeps when the caller does
+#: not say, and the default of `sandbox.image_cache_keep`: room for a few
+#: recent dependency sets of that repository, and a bound on how large its part
+#: of the cache can grow. A task container prunes after each image it builds.
 DEFAULT_MAX_CACHED_IMAGES = 8
 
 # Environment variables that would aim the docker CLI at a daemon other than
@@ -222,7 +223,17 @@ def image_tag(repo: Path, key: str) -> str:
     dependency sets of one repository apart, so a rebuilt set lands on a new tag
     instead of overwriting the image another checkout is still using.
     """
-    return f"mcgyvr/{_slug(repo.resolve().name)}:{key}"
+    return f"mcgyvr/{slug_of(repo)}:{key}"
+
+
+def slug_of(repo: Path) -> str:
+    """The slug of a repository, as its images carry it in :data:`LABEL_REPO`.
+
+    The one spelling :func:`image_tag`, the build's label, :func:`prune` and
+    :func:`clear` agree on, so the images counted as a repository's are the
+    ones built from it.
+    """
+    return _slug(repo.resolve().name)
 
 
 def render_dockerfile(stack: Stack, base_digest_ref: str, setup: Sequence[str]) -> str:
@@ -383,7 +394,7 @@ def _build(
             "--tag",
             tag,
             "--label",
-            f"{LABEL_REPO}={_slug(repo.resolve().name)}",
+            f"{LABEL_REPO}={slug_of(repo)}",
             "--label",
             f"{LABEL_KEY}={key}",
             "--label",
@@ -399,14 +410,21 @@ def _build(
             )
 
 
-def list_cached(runner: DockerRunner = subprocess_runner) -> tuple[CachedImage, ...]:
+def list_cached(
+    runner: DockerRunner = subprocess_runner,
+    *,
+    repo_slug: str | None = None,
+) -> tuple[CachedImage, ...]:
     """List the images this module built, newest first.
 
-    Docker is asked for the ids carrying :data:`LABEL_REPO`, then each id is
-    inspected for its first tag, size, creation time, repo slug and cache key.
-    An image that disappears between the two calls, or reports an unexpected
-    field count, is skipped; an unparseable size becomes 0. A listing that
-    cannot be taken at all raises :class:`ImageError`.
+    Docker is asked for the ids carrying :data:`LABEL_REPO` - with
+    ``repo_slug``, only those whose label is that slug, so a caller after one
+    repository's images pays one inspect per image of that repository, not of
+    the whole cache - then each id is inspected for its first tag, size,
+    creation time, repo slug and cache key. An image that disappears between
+    the two calls, or reports an unexpected field count, is skipped; an
+    unparseable size becomes 0. A listing that cannot be taken at all raises
+    :class:`ImageError`.
     """
     fmt = (
         "{{.ID}}\t{{index .RepoTags 0}}\t{{.Size}}\t{{.Created}}"
@@ -418,7 +436,9 @@ def list_cached(runner: DockerRunner = subprocess_runner) -> tuple[CachedImage, 
             "image",
             "ls",
             "--filter",
-            f"label={LABEL_REPO}",
+            f"label={LABEL_REPO}"
+            if repo_slug is None
+            else f"label={LABEL_REPO}={repo_slug}",
             "--no-trunc",
             "--format",
             "{{.ID}}",
@@ -453,19 +473,26 @@ def list_cached(runner: DockerRunner = subprocess_runner) -> tuple[CachedImage, 
 
 
 def prune(
+    repo_slug: str,
     max_images: int = DEFAULT_MAX_CACHED_IMAGES,
     *,
     runner: DockerRunner = subprocess_runner,
 ) -> tuple[str, ...]:
-    """Keep the ``max_images`` newest cached images and remove the rest.
+    """Keep ``repo_slug``'s ``max_images`` newest cached images, remove the rest.
 
-    Returns the tags actually removed; an image docker refuses to remove is
-    left in place and omitted from the result. A negative bound raises
-    :class:`ImageError`, and a bound of 0 empties the cache.
+    Only images labelled with ``repo_slug`` are counted or removed, so pruning
+    one repository never evicts an image a run of a repository with another
+    slug is about to start; the slug is the directory's name
+    (:func:`slug_of`), so two checkouts whose directories share a name are
+    one repository here. Returns the tags actually removed; an image docker
+    refuses to remove (one a container still uses, say) is left in place and
+    omitted from the result. A negative bound raises :class:`ImageError`, and
+    a bound of 0 removes every image of that repository.
     """
     if max_images < 0:
         raise ImageError("max_images cannot be negative")
-    cached = list_cached(runner)
+    listed = list_cached(runner, repo_slug=repo_slug)
+    cached = [image for image in listed if image.repo == repo_slug]
     doomed = cached[max_images:]
     removed: list[str] = []
     for image in doomed:
@@ -485,7 +512,7 @@ def clear(
     module's labels are ever touched, and returns the tags removed.
     """
     removed: list[str] = []
-    for image in list_cached(runner):
+    for image in list_cached(runner, repo_slug=repo_slug):
         if repo_slug is not None and image.repo != repo_slug:
             continue
         if runner(["image", "rm", image.tag], None).ok:

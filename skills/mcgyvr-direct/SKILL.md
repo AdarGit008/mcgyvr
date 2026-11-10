@@ -135,8 +135,11 @@ another's work names its id in `depends_on`.
 **`type_check`**
 - type: boolean; optional, default `false`
 - description: Whether the project's own type checker must pass on the changed target. A flag rather than
-  a task type: for `task_type: code` it derives the `type_check` evidence, and for every other type it is
-  ignored. Defaults to false.
+  a task type: for `task_type: code` it derives the `type_check` evidence — the checker the repository
+  declares, run as an acceptance command that passes or fails on its exit code — and for every other type
+  it is ignored. For a TypeScript target that command is `tsc --noEmit`, checked pass or fail only: its
+  errors are not attributed to the change or compared with the base, as the gate's own type check does
+  for Python. Defaults to false.
 
 **`depends_on`**
 - type: list of text; optional, default `[]`
@@ -157,11 +160,12 @@ another's work names its id in `depends_on`.
 
 **`start_rung`**
 - type: text; optional, default empty
-- description: The ladder rung this contract's climb starts on, decided ahead of time — what
-  `mcgyvr.triage.triage_ahead` asks the `jev` unit, stored with the contract so every later run starts
-  there without asking again. The rungs below it are skipped, not spent, and escalation goes on upward
-  from it; it wins over the config's `triage`. A rung the ladder does not list, or one this contract's
-  climb does not offer, is refused before anything is dispatched. Not worker-facing. e.g. local_qwen-14b.
+- description: The ladder rung this contract's climb starts on, written into the contract by its author,
+  so every run starts there without asking triage. No mcgyvr command picks it for you
+  (`mcgyvr.triage.triage_ahead` can, from Python, and is wired to no command). The rungs below it are
+  skipped, not spent, and escalation goes on upward from it; it wins over the config's `triage`. A rung
+  the ladder does not list, or one this contract's climb does not offer, is refused before anything is
+  dispatched. Not worker-facing. e.g. local_qwen-14b.
 
 **`rename`**
 - type: block; optional
@@ -600,6 +604,10 @@ A failed attempt already had its retries inside the run, and under
 `mcgyvr direct` a spent ladder is not handed to a proposer: the next
 contract is yours to write. When `outcome` is not `accepted`, read
 `attempts[].findings`: each line is one reason the gate refused.
+One is not the gate's: check `unchanged`, code `identical-to-base`, is
+a reply that handed its target back exactly as HEAD holds it. That draw
+fails before the gate runs and is never repaired, so a climb does not
+settle on a change that delivery would refuse as identical to the base.
 `attempts[].notes` is the same evidence as a record, one per failed
 attempt in climb order: the check, the file and line, the tool's code, and
 the command and its exit where the check ran one. Write a *different*

@@ -41,7 +41,6 @@ HF_CACHE = Path("/srv/hf-cache")
 #: What a launch is asked for, stated where a test does not vary it.
 PORT = 8080
 RPC_PORT = 50052
-MASTER_PORT = 29501
 THREADS = 8
 UBATCH = 512
 
@@ -128,7 +127,6 @@ def launch(made: Plan, **kw: Any) -> tuple[Process, ...]:
         "threads": THREADS,
         "n_ubatch": UBATCH,
         "rpc_port": RPC_PORT,
-        "master_port": MASTER_PORT,
     }
     args.update(kw)
     return processes(made, **args)

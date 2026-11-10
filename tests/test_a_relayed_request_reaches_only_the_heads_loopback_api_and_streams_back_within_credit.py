@@ -142,6 +142,7 @@ def test_a_request_goes_whole_to_the_one_path_on_loopback_and_comes_back_whole(
     assert (method, path, body) == ("POST", "/v1/chat/completions", _body())
     assert headers["content-type"] == "application/json"
     assert headers["host"].startswith("127.0.0.1:")
+    assert "authorization" not in headers  # this head asks no key
     (response,) = made.box.of_type("relay_response")
     assert response["body"] == {
         "request_id": "q1",
@@ -152,6 +153,21 @@ def test_a_request_goes_whole_to_the_one_path_on_loopback_and_comes_back_whole(
     said = capsys.readouterr()
     assert PROMPT not in said.out + said.err
     assert all(PROMPT not in json.dumps(f) for f in made.box.frames)
+
+
+def test_a_keyed_head_is_relayed_to_with_its_key_as_a_bearer_token() -> None:
+    head = Head()
+    built = _relay(head, Heads(None, key="k" * 43))
+    built.heads.port = head.port
+    try:
+        built.request(_body())
+        assert built.ended() == {"request_id": "q1", "outcome": "complete"}
+        ((_, _, _, headers),) = head.seen
+        assert headers["authorization"] == "Bearer " + "k" * 43
+    finally:
+        built.relays.cancel_all()
+        assert head.server is not None
+        head.server.shutdown()
 
 
 def test_no_more_than_the_window_goes_uncredited_and_credit_lets_the_rest_go(

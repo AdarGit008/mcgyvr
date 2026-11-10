@@ -77,8 +77,9 @@ class CapabilityTable:
         footprint plus the headroom is more than the memory available. The
         headroom is an absolute figure, not a share of the card. For a unified
         GPU `vram_gb` is the memory it may use as the machine reader sized it
-        (`mcgyvr detect`, an estimate; `estimate.usable_unified_mb` states the
-        same rule), never the machine's whole memory.
+        (`mcgyvr detect`: the Metal working set a native server logged here, a
+        reading, else an estimate; `serving.rigscan._apple_gpu` states the
+        rule), never the machine's whole memory.
         """
         return [
             m

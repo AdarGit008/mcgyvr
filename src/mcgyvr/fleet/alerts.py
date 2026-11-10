@@ -8,7 +8,7 @@ an ``alert`` flag.
 
 :data:`_JUDGED` names the judged fields and how each one trips: warm decode and
 prefill fall a percentage below a locked figure, card steady and peak rise an
-absolute number of MiB above one, L2 wake and downtime rise a number of seconds
+absolute number of MiB above one, downtime rises a number of seconds
 above one, and the card and load peaks are held to the room a unit declares for
 its card. Restarts are judged apart from that table: any count above zero trips.
 A field judged from a plain approved figure takes only the percentage and room
@@ -20,7 +20,8 @@ can list the pulled combinations and :func:`pulled_units` names the slots a
 live fleet skips. Nothing
 clears a pull on its own: a combination whose lock record holds a later
 ``validated_at`` than its newest alert is no longer pulled, and :func:`rejudge`
-reports what a newly approved table would trip without rewriting the journal.
+reports what a newly approved table would trip without rewriting the journal
+(a test seam: no product command calls it).
 """
 
 from __future__ import annotations
@@ -43,7 +44,6 @@ _JUDGED: dict[str, tuple[str, str]] = {
     "prefill_tok_s": ("down", "pct"),
     "card_steady_mib": ("up", "abs"),
     "card_peak_mib": ("up", "abs"),
-    "l2_wake_s": ("up", "s"),
     "downtime_s": ("up", "s"),
     #: The card a rig reads and the peak a load holds carry no locked figure:
     #: each is held to the ``room_mib`` its unit states, going over it a trip.
@@ -445,7 +445,7 @@ def rejudge(
 
     Every journal row of this combination is run through the rules again and
     reported by unit and field when it trips. Nothing is written and nothing
-    is pulled.
+    is pulled. A test seam: the tests call it, and no product command does.
     """
     found: list[dict[str, Any]] = []
     for row in _rows(journal):

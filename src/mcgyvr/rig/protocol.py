@@ -114,6 +114,10 @@ class Ack:
     #: Why a lending the hub sent was not taken (not the wire's shape), so the
     #: rig lends as its own settings say; None when there was none to refuse.
     lending_unread: str | None = None
+    #: Whether a hub admin has approved this member to host strangers
+    #: (:data:`mcgyvr.hubwire.HOSTING_APPROVED_FIELD`), when the hub says; None
+    #: from an older hub that does not carry it.
+    hosting_approved: bool | None = None
 
 
 @dataclass(frozen=True, kw_only=True)
@@ -143,8 +147,10 @@ class ModelInfo:
     has one. The rest come from the file's header: the architecture, the layer
     and training context counts, the embedding and head counts, the key and
     value cache one token costs, and the bytes the token embedding and output
-    tensors take. A field the header does not give is None and goes unspoken on
-    the wire.
+    tensors take. ``quant`` is the quantisation the file's name spells
+    (``Q4_K_M``, ``BF16``), the one a hub reads the wire's decode rule at
+    (:func:`mcgyvr.hubwire.decode_ms_per_gib`). A field the agent does not know
+    is None and goes unspoken on the wire.
     """
 
     name: str
@@ -162,6 +168,7 @@ class ModelInfo:
     #: own and carries 0 here, while a header that names neither leaves both None.
     embd_bytes: int | None = None
     output_bytes: int | None = None
+    quant: str | None = None
 
 
 @dataclass(frozen=True, kw_only=True)
@@ -268,7 +275,9 @@ def read_ack(envelope: Envelope) -> Ack:
     ``HEARTBEAT_INTERVAL_S``. A lending that does not keep
     :meth:`mcgyvr.hubwire.Lending.validate`'s rules, or leaves a field out, is
     not taken, and the ack says why (``lending_unread``): the rig then lends as
-    its own settings say.
+    its own settings say. ``hosting_approved`` is a boolean when the hub says
+    whether an admin has approved this member to host strangers, and None when
+    the hub (an older one) does not carry it; a value of another type is refused.
     """
     if envelope.re is None:
         raise ProtocolError(
@@ -288,12 +297,20 @@ def read_ack(envelope: Envelope) -> Ack:
             envelope.id,
         )
     lending, unread = _lending(envelope.body.get(hubwire.LENDING_FIELD))
+    approved = envelope.body.get(hubwire.HOSTING_APPROVED_FIELD)
+    if approved is not None and type(approved) is not bool:
+        raise ProtocolError(
+            ErrorCode.BAD_MESSAGE,
+            f"body.{hubwire.HOSTING_APPROVED_FIELD}: not a boolean",
+            envelope.id,
+        )
     return Ack(
         re=envelope.re,
         rig_id=rig_id,
         heartbeat_interval_s=interval,
         lending=lending,
         lending_unread=unread,
+        hosting_approved=approved,
     )
 
 
@@ -422,6 +439,10 @@ def _model_body(model: ModelInfo) -> dict[str, Any]:
         model.arch is None or bool(SHORT_TAG.fullmatch(model.arch)),
         "models.arch: not of its shape",
     )
+    _need(
+        model.quant is None or bool(SHORT_TAG.fullmatch(model.quant)),
+        "models.quant: not of its shape",
+    )
     _bounded(model.n_layers, 1, MAX_LAYERS, "models.n_layers")
     _bounded(model.n_ctx_train, 1, MAX_COUNT, "models.n_ctx_train")
     for field in ("n_embd", "n_head", "n_head_kv"):
@@ -443,6 +464,7 @@ def _model_body(model: ModelInfo) -> dict[str, Any]:
         "kv_bytes_per_token",
         "embd_bytes",
         "output_bytes",
+        "quant",
     ):
         value = getattr(model, field)
         if value is not None:

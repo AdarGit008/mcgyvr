@@ -2,11 +2,17 @@
 """Print one version's CHANGELOG.md section, or refuse to release without it.
 
     python scripts/release/changelog_notes.py v0.2.0 CHANGELOG.md
+    python scripts/release/changelog_notes.py --latest CHANGELOG.md
+
+The second form prints the newest version the changelog has a section for
+(`0.2.0`, no `v`): the version a release rehearsal — `make release`, or the
+release workflow dispatched as a dry run from a branch — stamps when no tag
+names one yet.
 
 The release workflow runs this between the wheel check and publishing the
 release, and its output becomes the release body (written to
-`release-notes.md` and handed to the Forgejo release step). So the notes a
-reader gets from the release are the notes a reader gets from the repository:
+`release-notes.md` and handed to the step that publishes the release). So the
+notes a reader gets from the release are the notes a reader gets from the repository:
 one text, written once, in CHANGELOG.md, rather than a second description of
 the same changes that drifts from the first.
 
@@ -89,13 +95,35 @@ def notes_for(tag: str, changelog: str) -> str:
     )
 
 
+def latest(changelog: str) -> Version:
+    """The newest version ``changelog`` has a section for, or ``NoNotesError``.
+
+    The newest by version and not by position: Keep a Changelog writes the
+    newest first, but a section pasted out of order must not make a rehearsal
+    stamp an older version than the one already released.
+    """
+    found = [v for heading, _ in sections(changelog) if (v := released(heading))]
+    if not found:
+        raise NoNotesError(
+            "the changelog has no released section; write '## [<version>] - <date>' "
+            "in it before rehearsing a release"
+        )
+    return max(found)
+
+
 def main(argv: list[str]) -> int:
     if len(argv) != 2:
-        print(f"usage: {Path(sys.argv[0]).name} TAG CHANGELOG", file=sys.stderr)
+        print(
+            f"usage: {Path(sys.argv[0]).name} TAG|--latest CHANGELOG", file=sys.stderr
+        )
         return 2
     tag, changelog = argv[0], Path(argv[1])
     try:
-        notes = notes_for(tag, changelog.read_text(encoding="utf-8"))
+        text = changelog.read_text(encoding="utf-8")
+        if tag == "--latest":
+            print(latest(text))
+            return 0
+        notes = notes_for(tag, text)
     except NoNotesError as why:
         print(f"REFUSED — {why}", file=sys.stderr)
         return 1

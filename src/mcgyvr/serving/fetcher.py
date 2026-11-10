@@ -27,9 +27,9 @@ import urllib.error
 import urllib.request
 from typing import Any
 
-# This file is shipped to a rig as one program assembled with hostos
+# This file is shipped to a rig as one program assembled with hostos and atomic
 # (mcgyvr.serving.shipped.fetcher).
-from mcgyvr import hostos
+from mcgyvr import atomic, hostos
 from mcgyvr.hostos import WEIGHTS_DIR_ENV as WEIGHTS_DIR_ENV
 
 #: Appended to the final path to name the partially downloaded file; it is
@@ -193,7 +193,7 @@ def fetch_one(
             f"{sha256} the Hub states for {size} bytes; nothing is kept"
         )
         return row
-    os.replace(part, dest)
+    atomic.replace(part, dest)
     row["state"] = RESUMED if carried else FETCHED
     return row
 

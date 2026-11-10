@@ -25,7 +25,7 @@ from typing import TYPE_CHECKING, Any
 
 from mcgyvr import hostos
 from mcgyvr.exits import Exit
-from mcgyvr.hubwire import SCOPE_VALUES
+from mcgyvr.hubwire import SCOPE_VALUES, retired_audience
 
 if TYPE_CHECKING:
     from mcgyvr.rig.credentials import Credentials
@@ -215,6 +215,7 @@ def run_agent(kept: Credentials, config: Path | None = None) -> int:
                     heartbeat_s=status.heartbeat_s,
                     last_ack_at=status.last_ack_at,
                     written_at=time.time(),
+                    hosting_approved=status.hosting_approved,
                 )
             )
         except OSError as exc:
@@ -354,7 +355,7 @@ def run_agent(kept: Credentials, config: Path | None = None) -> int:
     refresher = rungs.refresher_for(kept.hub, folder=config)
     if refresher is not None:
         print(
-            f"relief rungs: kept fresh from {kept.hub} with ${rungs.KEY_ENV}",
+            f"relief rungs: kept fresh from {kept.hub} with ${refresher.key_env}",
             file=sys.stderr,
         )
 
@@ -617,6 +618,7 @@ def _status(args: argparse.Namespace) -> int:
         heard = f"; last ack {_ago(last.last_ack_at)}" if last.last_ack_at else ""
         link = "online" if last.connected else "offline"
         print(f"agent:   {running} (pid {last.pid}), {link} as {rig}{heard}")
+        _say_hosting(last.hosting_approved)
     try:
         report = hardware.read()
     except hardware.HardwareError as exc:
@@ -653,6 +655,19 @@ def _say_identity() -> None:
         print("identity: none yet; the agent makes one when it next runs")
         return
     print(f"identity: {mine.fingerprint} (kept in {identity.path()})")
+
+
+def _say_hosting(approved: bool | None) -> None:
+    """Print whether a hub admin has approved this member to host strangers, as
+    the last ack said. Nothing is printed when the hub has not said (an older
+    hub, or no ack yet): ``approved`` is then None."""
+    if approved is None:
+        return
+    print(
+        "hosting: approved to host"
+        if approved
+        else "hosting: waiting for admin approval"
+    )
 
 
 def _peers(args: argparse.Namespace) -> int:
@@ -720,19 +735,26 @@ def _say_lent(report: Any) -> None:
         print(f"         {line}")
     if not any(resource.kind in CARD_KINDS for resource in lent):
         print(
-            "         memory and cores alone are advertised but not yet placeable: "
-            "no hub starts a head on a CPU yet"
+            "         memory and cores run a whole model on the CPU, no card: "
+            "the hub places a cpu head here when no card in the pool holds the "
+            "model (it earns no standby yet)"
         )
 
 
 def _say_credits(hub: str) -> None:
     """Print the member's balance as the hub answers it, asked with the
-    personal hub key in ``$MCGYVR_HUB_API_KEY``; a note when it is not read."""
+    personal hub key in the variable the setup's syncs name (:func:`rungs.key_env`,
+    ``$MCGYVR_HUB_API_KEY`` where they name none); a note when it is not read."""
+    from mcgyvr.config import ConfigError, config_path
     from mcgyvr.rig import agent, rungs
 
-    key = os.environ.get(rungs.KEY_ENV)
+    try:
+        key_env = rungs.key_env(config_path())
+    except (ConfigError, rungs.SyncError):
+        key_env = rungs.KEY_ENV  # no setup to read it from: the default
+    key = os.environ.get(key_env)
     if not key:
-        print(f"credits: set ${rungs.KEY_ENV} to your personal hub key to see them")
+        print(f"credits: set ${key_env} to your personal hub key to see them")
         return
     try:
         balance = rungs.balance(hub, key)
@@ -761,13 +783,12 @@ def _leave(args: argparse.Namespace) -> int:
 def _hub_sync(args: argparse.Namespace) -> tuple[str, str, str, Path] | int:
     """The hub, the key, its variable's name and the setup folder a sync of
     ``rungs`` or ``crew`` names, or the exit code it refuses with."""
-    import re
-
     from mcgyvr.config import ConfigError, config_path
+    from mcgyvr.fleet.files import is_variable_name
     from mcgyvr.rig import credentials, rungs
 
     key_env: str = args.key_env
-    if not re.fullmatch(r"[A-Za-z_][A-Za-z0-9_]*", key_env):
+    if not is_variable_name(key_env):
         print(
             f"error: {key_env!r} is not a variable's name; --key-env takes the "
             "NAME of the variable holding your personal hub key, never the key",
@@ -946,7 +967,7 @@ def _share(args: argparse.Namespace) -> int:
     from dataclasses import replace
 
     from mcgyvr.hubwire import LEND_FLOOR_CORES, LEND_FLOOR_MB, RESOURCE_RAM
-    from mcgyvr.rig import sharing
+    from mcgyvr.rig import credentials, sharing, state
 
     try:
         kept = sharing.load()
@@ -1033,6 +1054,17 @@ def _share(args: argparse.Namespace) -> int:
     roles = wanted.offered_roles()
     print(f"lending: {'on' if wanted.enabled else 'off'}")
     print(f"roles:   {', '.join(roles) if roles else 'none offered'}")
+    # Serving strangers (the general pool's `anyone`, riders on your units) waits
+    # on a hub admin approving this member once; the agent learns it from the ack
+    # (as of its last connect). Show it only for the hub this machine is joined to
+    # now, so a state file left by a hub since left is not read as the current one.
+    last = state.read()
+    try:
+        joined = credentials.load()
+    except credentials.CredentialsError:
+        joined = None
+    if last is not None and joined is not None and last.hub == joined.hub:
+        _say_hosting(last.hosting_approved)
     if wanted.native_here():
         print("image:   none (launcher native: the pinned llama.cpp build)")
     else:
@@ -1068,6 +1100,15 @@ def _share(args: argparse.Namespace) -> int:
     for note in wanted.notes:
         print(f"note:    {note}")
     return int(Exit.OK)
+
+
+def _audience(value: str) -> str:
+    """An audience as typed, refused with the word to write when it is an old
+    one (`hubwire.retired_audience`); argparse's `choices` checks the rest."""
+    retired = retired_audience(value)
+    if retired is not None:
+        raise argparse.ArgumentTypeError(retired)
+    return value
 
 
 def _sync_parser(
@@ -1185,6 +1226,7 @@ def add_parser(
     )
     rungs_sync.add_argument(
         "--ride-scope",
+        type=_audience,
         choices=SCOPE_VALUES,
         metavar="SCOPE",
         help="set the setup's ride_scope first: whose rigs may read its rides, "

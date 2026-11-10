@@ -490,7 +490,7 @@ def detection(machine: Shape, /, *, reached: Sequence[Shape] = ()) -> Detection:
             return None, None
         return _reader_answer(machine, command[1:]), None
 
-    def get_json(url: str, timeout: float) -> Any | None:
+    def get_json(url: str, timeout: float, key: str | None = None) -> Any | None:
         asked = urllib.parse.urlsplit(url)
         for server in servers:
             if (
@@ -1126,7 +1126,7 @@ def host_scan_document(machine: HostShape, /) -> dict[str, Any]:
     with (
         _host_root(machine) as root,
         _host_tools(machine),
-        mock.patch.object(rigscan, "measure_bandwidth", lambda root="": None),
+        mock.patch.object(rigscan, "measure_bandwidth", lambda spare_mib=None: None),
         tempfile.TemporaryDirectory() as weights,
     ):
         return rigscan.scan(weights, root=root, system=machine.system)
@@ -1140,7 +1140,7 @@ def host_detection(machine: HostShape, /) -> Detection:
     reading = host_reading(machine)
     with (
         mock.patch.object(detect, "_reading", lambda: reading),
-        mock.patch.object(detect, "_get_json", lambda url, timeout: None),
+        mock.patch.object(detect, "_get_json", lambda url, timeout, key=None: None),
         mock.patch.object(
             detect, "detect_docker", lambda: (False, "an invented machine")
         ),

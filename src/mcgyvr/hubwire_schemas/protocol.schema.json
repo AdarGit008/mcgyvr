@@ -6,6 +6,7 @@
           "$ref": "#/$defs/AckBody",
           "default": {
             "heartbeat_interval_s": null,
+            "hosting_approved": null,
             "lending": null,
             "rig_id": null
           }
@@ -56,6 +57,18 @@
           ],
           "default": null,
           "title": "Heartbeat Interval S"
+        },
+        "hosting_approved": {
+          "anyOf": [
+            {
+              "type": "boolean"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Hosting Approved"
         },
         "lending": {
           "anyOf": [
@@ -1215,6 +1228,19 @@
           ],
           "default": null,
           "title": "Output Bytes"
+        },
+        "quant": {
+          "anyOf": [
+            {
+              "pattern": "^[A-Za-z0-9][A-Za-z0-9._-]{0,31}$",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Quant"
         },
         "size_bytes": {
           "maximum": 1125899906842624,

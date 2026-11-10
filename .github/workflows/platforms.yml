@@ -2,12 +2,23 @@ name: platforms
 # macOS and Windows: the CLI imports, the OS seam (mcgyvr.hostos) and the
 # machine reader's tests pass there, on the real system, and setup's PATH offer
 # and the Windows skills installer run. The full suite runs on Linux in
-# .forgejo/workflows/ci.yml; this job is not a required check.
+# ci.yml; this job is not a required check.
 on: [push, pull_request]
 permissions:
   contents: read
 jobs:
+  # The macOS and Windows runners are GitHub's. A forge that also reads
+  # `.github/workflows` and has neither would queue `platforms` for a runner
+  # that never comes; there `on-github` is skipped (its `if:`), and
+  # `platforms`, which needs it, is skipped with it.
+  on-github:
+    if: github.server_url == 'https://github.com'
+    runs-on: ubuntu-latest
+    steps:
+      - name: macOS and Windows runners are here
+        run: echo "$GITHUB_SERVER_URL"
   platforms:
+    needs: on-github
     strategy:
       fail-fast: false
       matrix:
@@ -27,6 +38,12 @@ jobs:
         # bash on both runners, so the test glob expands on Windows too.
         shell: bash
         run: uv run --no-sync pytest tests/test_hostos*.py tests/test_detect.py -q
+      - name: a kept file a reader holds open is still replaced
+        # Windows refuses the rename while the reader holds it; atomic retries.
+        shell: bash
+        run: >-
+          uv run --no-sync pytest -q
+          tests/test_a_file_a_reader_holds_open_is_still_replaced_on_every_system.py
       - name: the programs shipped to a rig run in this system's own shells
         # PowerShell and cmd.exe on Windows, sh with base64 on macOS.
         shell: bash

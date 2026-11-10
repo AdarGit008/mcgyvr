@@ -33,6 +33,12 @@ HOME_DIR = "~/.mcgyvr"
 DATA_ENV = "MCGYVR_DATA"
 DATA_NAME = hostos.APP
 DATA_DIR = f"~/.local/state/{DATA_NAME}"
+#: The data folder's folder of native supervisors (their locks, specs and
+#: records, :mod:`mcgyvr.serving.native`), and the Metal working set a native
+#: server's start-up log stated, filed there and read by the machine reader
+#: (:func:`mcgyvr.serving.rigscan.metal_working_set`).
+NATIVE_DIR = "native"
+METAL_FILE = "metal.json"
 #: The config folder's own folder of promoted fleets, one folder per fleet.
 FLEETS_DIR = "fleets"
 #: The folder a setup or a fleet folder holds its locks in, one JSON file per

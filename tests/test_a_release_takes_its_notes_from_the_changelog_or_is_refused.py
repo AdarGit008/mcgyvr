@@ -18,6 +18,7 @@ from pathlib import Path
 import pytest
 from scripts.release.changelog_notes import (
     NoNotesError,
+    latest,
     main,
     notes_for,
     released,
@@ -137,3 +138,27 @@ def test_the_command_prints_the_notes_and_refuses_loudly(
     assert main(["v9.9.9", str(path)]) == 1
     assert "REFUSED" in capsys.readouterr().err
     assert main(["v9.9.9"]) == 2
+
+
+def test_a_rehearsal_stamps_the_newest_version_with_a_section() -> None:
+    """`--latest` is the version a dry run builds when no tag names one: the
+    newest released section, by version and not by position, never the open
+    `[Unreleased]` and never a prose heading."""
+    assert str(latest(WRITTEN)) == "0.2.0"
+    out_of_order = WRITTEN.replace("## [0.1.0] - 2026-09-06", "## [0.3.0] - 2026-09-06")
+    assert str(latest(out_of_order)) == "0.3.0"
+    with pytest.raises(NoNotesError) as refused:
+        latest("# Changelog\n\n## [Unreleased]\n\n- work\n")
+    assert "no released section" in str(refused.value)
+
+
+def test_the_command_prints_the_newest_version_and_refuses_without_one(
+    tmp_path: Path, capsys: pytest.CaptureFixture[str]
+) -> None:
+    path = tmp_path / "CHANGELOG.md"
+    path.write_text(WRITTEN, encoding="utf-8")
+    assert main(["--latest", str(path)]) == 0
+    assert capsys.readouterr().out == "0.2.0\n"
+    path.write_text("## [Unreleased]\n", encoding="utf-8")
+    assert main(["--latest", str(path)]) == 1
+    assert "REFUSED" in capsys.readouterr().err

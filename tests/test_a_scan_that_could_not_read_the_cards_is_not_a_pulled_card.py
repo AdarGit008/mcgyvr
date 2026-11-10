@@ -52,7 +52,7 @@ def read(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> Read:
     (root / "etc").mkdir()
     (root / "etc" / "machine-id").write_text("ab" * 16 + "\n", encoding="utf-8")
     monkeypatch.setenv("MCGYVR_RIGS", str(tmp_path / "rigs"))
-    monkeypatch.setattr(rigscan, "measure_bandwidth", lambda root="": None)
+    monkeypatch.setattr(rigscan, "measure_bandwidth", lambda spare_mib=None: None)
 
     def install(answer: Answer) -> rigfile.Saved:
         def run(argv: Sequence[str], *, bound: float = 0.0) -> Answer:

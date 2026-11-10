@@ -28,7 +28,10 @@ The supervisor:
   ``"%s: recommendedMaxWorkingSetSize  = %8.2f MB\\n"`` of
   ``max_working_set_size / 1e6``
   (https://github.com/ggml-org/llama.cpp/blob/b11960/ggml/src/ggml-metal/ggml-metal-device.m#L1364),
-  and files it as a reading (:func:`metal_working_set`);
+  and files it as a reading, with the ``iogpu.wired_limit_mb`` in force when
+  it was read, in ``metal.json`` beside the records; the machine reader sizes
+  the Mac's GPU from it while that limit holds
+  (:func:`mcgyvr.serving.rigscan.metal_working_set`);
 - on ``TERM`` stops the server and exits (POSIX). Windows sends a process
   with no console no signal it can catch: :func:`down` ends the supervisor
   with ``TerminateProcess`` there, and its Job Object ends the server.
@@ -77,13 +80,13 @@ from typing import Any
 # modules it imports (mcgyvr.serving.shipped.native): what only the door needs
 # (the compose file's yaml, the config's and the launch spec's names) is
 # imported where it is used.
-from mcgyvr import hostos
+from mcgyvr import atomic, hostos
+from mcgyvr.fleet.roots import METAL_FILE, NATIVE_DIR
 from mcgyvr.hubwire import FIGURE_READING
 from mcgyvr.serving import llamacpp, release, rigscan
 
-#: The folders under the data folder: supervisors' locks, specs and records;
-#: the units' logs.
-STATE = "native"
+#: The folder under the data folder for the units' logs (the supervisors'
+#: folder is :data:`mcgyvr.fleet.roots.NATIVE_DIR`).
 LOGS = "logs"
 #: Where the pinned builds are unpacked, under the mcgyvr home.
 BIN = Path("bin") / "llama.cpp"
@@ -95,10 +98,6 @@ UNIT_NAME = re.compile(r"[A-Za-z0-9][A-Za-z0-9._-]{0,127}")
 START_S = 30.0
 STOP_S = 20.0
 POLL_S = 0.2
-#: How often, and how far apart, a record is renamed into place on Windows
-#: while a reader holds it.
-REPLACE_TRIES = 20
-REPLACE_PAUSE_S = 0.05
 #: How long a server asked to stop is given before it is killed.
 SERVER_GRACE_S = 10.0
 #: How long one health probe waits for its answer.
@@ -121,15 +120,13 @@ METAL_SCAN_BYTES = 4 << 20
 #: How long into a start the Metal line is looked for: it is printed while
 #: the backend initialises, before the model loads.
 METAL_SCAN_S = 120.0
-#: The reading of it, beside the records.
-METAL_FILE = "metal.json"
 #: The states a record says a unit is in.
 RUNNING = "running"
 BACKOFF = "backoff"
 GAVE_UP = "gave_up"
 STOPPED = "stopped"
 FAILED = "failed"
-#: How long ``nvidia-smi`` is given to name its driver.
+#: How long ``nvidia-smi`` is given to name its driver or the card holders.
 PROBE_S = 10.0
 #: Where a shipped launcher leaves the copy its supervisors run, under the
 #: mcgyvr home: one file per program, named by its sha256.
@@ -165,7 +162,7 @@ def state_dir() -> Path:
     """The supervisors' folder: locks, specs, records and the Metal reading."""
     from mcgyvr.fleet.roots import data_home
 
-    return data_home() / STATE
+    return data_home() / NATIVE_DIR
 
 
 def log_path(unit: str) -> Path:
@@ -269,23 +266,18 @@ def nvidia_driver() -> str | None:
     """The NVIDIA driver's version ``nvidia-smi`` reads, or None without one.
 
     The tool is the one the reader runs (:func:`mcgyvr.serving.rigscan.nvidia_smi`),
-    so on Windows it is found by its full path alone, never in the working folder.
+    so on Windows it is found by its full path alone, never in the working folder,
+    and it is run by the reader's runner (``rigscan._run``): held to
+    :data:`PROBE_S` and to the reader's output bound, its process group ended
+    with it.
     """
     smi = rigscan.nvidia_smi()
     if smi is None:
         return None
-    try:
-        done = subprocess.run(
-            [smi, "--query-gpu=driver_version", "--format=csv,noheader"],
-            stdin=subprocess.DEVNULL,
-            capture_output=True,
-            text=True,
-            timeout=PROBE_S,
-            check=False,
-        )
-    except (OSError, subprocess.SubprocessError):
-        return None
-    lines = done.stdout.strip().splitlines() if done.returncode == 0 else []
+    text, _why = rigscan._run(
+        [smi, "--query-gpu=driver_version", "--format=csv,noheader"], bound=PROBE_S
+    )
+    lines = (text or "").strip().splitlines()
     return lines[0].strip() if lines and lines[0].strip() else None
 
 
@@ -743,19 +735,6 @@ def status() -> list[dict[str, Any]]:
     return rows
 
 
-def metal_working_set() -> dict[str, Any] | None:
-    """The last ``recommendedMaxWorkingSetSize`` a native server's log read.
-
-    ``bytes`` is the figure, a reading (``figure``: ``reading``) of this
-    machine's Metal device by llama.cpp, not an estimate.
-    """
-    try:
-        found = json.loads((state_dir() / METAL_FILE).read_text(encoding="utf-8"))
-    except (OSError, ValueError):
-        return None
-    return found if isinstance(found, dict) else None
-
-
 def metal_reading(log: bytes) -> int | None:
     """The working set, in bytes, a Metal start-up log states, or None."""
     match = METAL_LINE.search(log)
@@ -813,28 +792,27 @@ def held() -> dict[str, str]:
 
 
 def _card_holders() -> str:
+    """The compute processes on the NVIDIA cards as ``pid,name,<n>MiB`` joined by
+    ``;``: "none" when there is no ``nvidia-smi`` or it names none, "unread"
+    when it was run and gave no answer (it could not start, ran past
+    :data:`PROBE_S` or the reader's output bound, or exited non-zero). It runs
+    through the reader's runner (``rigscan._run``), whose (None, None) is a tool
+    that is not there and whose (None, why) is one that failed."""
     smi = rigscan.nvidia_smi()
     if smi is None:
         return "none"
-    try:
-        done = subprocess.run(
-            [
-                smi,
-                "--query-compute-apps=pid,used_memory,process_name",
-                "--format=csv,noheader,nounits",
-            ],
-            stdin=subprocess.DEVNULL,
-            capture_output=True,
-            text=True,
-            timeout=PROBE_S,
-            check=False,
-        )
-    except (OSError, subprocess.SubprocessError):
-        return "unread"
-    if done.returncode != 0:
-        return "unread"
+    text, why = rigscan._run(
+        [
+            smi,
+            "--query-compute-apps=pid,used_memory,process_name",
+            "--format=csv,noheader,nounits",
+        ],
+        bound=PROBE_S,
+    )
+    if text is None:
+        return "none" if why is None else "unread"
     rows = []
-    for line in done.stdout.splitlines():
+    for line in text.splitlines():
         fields = [part.strip() for part in line.split(",")]
         if len(fields) >= 3 and fields[0].isdigit():
             name = re.sub(r"[\s,;]+", "_", Path(fields[2]).name) or "unnamed"
@@ -844,21 +822,9 @@ def _card_holders() -> str:
 
 
 def _write_json(path: Path, body: dict[str, Any]) -> None:
-    """Write `body` to `path` whole: a private temporary file renamed over it.
-
-    Windows refuses the rename while a reader holds `path` open, which a
-    record read at the same moment does; the rename is tried again then.
-    """
-    part = path.with_name(f"{path.name}.{os.getpid()}.part")
-    part.write_text(json.dumps(body, indent=2, sort_keys=True) + "\n", encoding="utf-8")
-    hostos.chmod_private(part)
-    for _ in range(REPLACE_TRIES - 1):
-        try:
-            os.replace(part, path)
-            return
-        except PermissionError:
-            time.sleep(REPLACE_PAUSE_S)
-    os.replace(part, path)
+    """Write `body` to `path` whole and private (:func:`mcgyvr.atomic.write`),
+    whose rename is tried again while a reader on Windows holds `path` open."""
+    atomic.write(path, json.dumps(body, indent=2, sort_keys=True) + "\n", private=True)
 
 
 def _now() -> str:
@@ -1025,7 +991,8 @@ def _scan_metal(log_file: Path, offset: int, unit: str, spec: dict[str, Any]) ->
         {
             "bytes": found,
             "figure": FIGURE_READING,
-            "source": "llama-server's Metal start-up log, recommendedMaxWorkingSetSize",
+            "source": rigscan.METAL_SOURCE,
+            "wired_limit_mb": rigscan.metal_wired_limit(),
             "unit": unit,
             "tag": spec.get("tag"),
             "read_at": _now(),
@@ -1101,10 +1068,7 @@ def _settle(program: bytes) -> tuple[str, ...]:
             with contextlib.suppress(OSError):
                 old.unlink()
     if not target.is_file() or target.read_bytes() != program:
-        part = target.with_name(f"{target.name}.{os.getpid()}.part")
-        part.write_bytes(program)
-        hostos.chmod_private(part)
-        os.replace(part, target)
+        atomic.write(target, program, private=True)
     return (sys.executable, "-I", "-B", str(target))
 
 

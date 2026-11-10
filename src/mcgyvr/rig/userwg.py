@@ -10,8 +10,11 @@ llama-server (:mod:`mcgyvr.serving.llamacpp`, fetched and verified by
 the helper and the helper with the agent.
 
 The head listens on the loopback alone (:data:`mcgyvr.serving.llamacpp.LOOPBACK`, the
-native units' rule, held by :func:`mcgyvr.emit.native_block`): the agent
-relays the hub's requests to its API port, and the head reaches each of the
+native units' rule, held by :func:`mcgyvr.emit.native_block`), and since every
+local process reaches the loopback, its API asks a key the session makes
+(:meth:`NativeHost.head_key`), handed to it in its environment, never its argv.
+The agent relays the hub's requests to its API port with that key, and the head
+reaches each of the
 session's rpc devices only through a forward the helper opens on the loopback,
 which accepts a connection only from the head's own process and dials only
 that device, through the tunnel. A native rig lends no worker yet: the helper
@@ -38,7 +41,7 @@ from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any
 
-from mcgyvr import atomic, hostos
+from mcgyvr import atomic, hostos, unitkey
 from mcgyvr.rig import pooled, session, tunnel, udpwire, wghelper, wgpin
 from mcgyvr.rig import sharing as sharing_module
 from mcgyvr.serving import llamacpp, native, rigscan
@@ -465,6 +468,12 @@ class NativeHost:
         """Nothing to open: the helper's netstack listens on nothing it was not
         asked to, and the head's forwards are opened as it starts."""
 
+    def head_key(self) -> str | None:
+        """A new key for one session's head: its API on the loopback is open to
+        every local process, so it answers only a request that carries the key
+        (HELPER-SPEC.md, section 6)."""
+        return unitkey.new_key()
+
     def start_head(self, spec: pooled.HeadSpec) -> None:
         run = self._session(spec.session_id)
         with self._lock:
@@ -472,6 +481,10 @@ class NativeHost:
         if spec.bind != LOOPBACK:
             raise pooled.PoolError(
                 f"a native head binds {LOOPBACK} alone, never {spec.bind}"
+            )
+        if not spec.api_key:
+            raise pooled.PoolError(
+                "a native head is started only with its session's key"
             )
         if run.api_port is None or found is None:
             raise pooled.PoolError("the session prepared no API port or build")
@@ -487,10 +500,13 @@ class NativeHost:
             port=run.api_port,
             rpc=local,
         )
+        # The key goes in the head's environment, never its argv, which any local
+        # user may list; llama-server reads it as its --api-key.
         env = {
             **engine_env(self._env),
             **native.device_env(found.backend, spec.gpus),
             **HEAD_FIXED_ENV,
+            unitkey.LLAMA_ENV: spec.api_key,
         }
         block = head_block(run.head_name, argv, env, spec.gpus)
         pid, start = run.helper.spawn(
