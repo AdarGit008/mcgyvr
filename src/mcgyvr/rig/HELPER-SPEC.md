@@ -11,8 +11,8 @@ verbs.
 
 ## 1. Asset, tag and pin
 
-- Repository: `adar/mcgyvr-wg` on Forgejo, mirrored to GitHub as `AdarGit008/mcgyvr-wg`; the product
-  downloads from the GitHub mirror (`serving.release.DOWNLOAD_URL`).
+- Repository: the helper's GitHub repository, `wgpin.REPO`; the product downloads its release
+  archives from there (`serving.release.DOWNLOAD_URL`) and from nowhere else.
 - Tag: `v<major>.<minor>.<patch>` (the first release is `v0.1.0`). `wgpin.TAG` names it, once.
 - One archive per system and architecture, the names `hubwire.HOST_OS` and `hubwire.HOST_ARCH` spell:
 
@@ -27,19 +27,10 @@ verbs.
   top folder (which `serving.release` drops). Nothing else is required in it.
 - The pin is one `serving.release.Asset(name, bytes, sha256)` row per asset in
   `wgpin.RELEASE.assets`: `bytes` the archive's exact length, `sha256` 64 lowercase hex digits of the
-  archive. Where the digests come from: the helper's own reproducible build (`go build -trimpath`,
-  CGO off, pinned Go toolchain) run by whoever cuts the release, NOT the mirror's API alone (that
-  would check the mirror against itself); the published archives (Forgejo release and the GitHub mirror's
-  `assets[].size` / `assets[].digest`) are then downloaded and must match. Signing the archives
-  (minisign or cosign) is an optional extra, as is Apple/Authenticode code signing.
+  archive. An archive whose length or digest is not the row's is never unpacked.
 - This repository ships with no rows yet: `wgpin.pinned_for(os, arch)` is false everywhere, so no
   rig offers a native session, and `wgpin.helper()` refuses with "no pinned mcgyvr-wg <tag>
   archive for <os> <arch>; a native pooled session needs it, and nothing unpinned is fetched".
-- The helper's own tests cannot use example addresses from the overlay range 100.64/10: the
-  private-word guard both repositories run refuses those literals; compute them, or use RFC 1918
-  ranges.
-- Supply chain for the helper repo: wireguard-go and gVisor netstack pinned in `go.sum`; a
-  `govulncheck` gate in its CI; a bump policy (security advisories within a week, else quarterly).
 
 ## 2. Process
 

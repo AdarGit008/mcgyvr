@@ -8,7 +8,9 @@ archive per system and architecture; this module pins which
 (:func:`asset_name`) and, for each, the length and sha256 it must have
 (:data:`RELEASE`), as :mod:`mcgyvr.serving.llamacpp` pins llama.cpp. The
 archives are fetched, verified and unpacked by :mod:`mcgyvr.serving.release`,
-nothing else, and nothing that is not pinned here is fetched.
+nothing else, and nothing that is not pinned here is fetched. What the pin
+promises the helper's releases (tag, asset names, archive layout) is section 1
+of ``HELPER-SPEC.md`` beside this module.
 
 :data:`RELEASE` holds no archive until the helper's first release: its
 digests are taken from the helper's own reproducible build and checked
@@ -28,8 +30,8 @@ from mcgyvr.serving.release import Release, ReleaseError, install
 
 #: The pinned helper release.
 TAG = "v0.1.0"
-#: Where it is published (the helper's own repository, mirrored where
-#: :data:`mcgyvr.serving.release.DOWNLOAD_URL` reaches it).
+#: Where it is published: the helper's GitHub repository, the one
+#: :data:`mcgyvr.serving.release.DOWNLOAD_URL` reaches (HELPER-SPEC.md, section 1).
 REPO = "AdarGit008/mcgyvr-wg"
 #: The program each archive holds (``.exe`` added on Windows).
 PROGRAM = "mcgyvr-wg"

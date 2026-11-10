@@ -26,6 +26,13 @@ archived outside this repository, under the same paths.
   instead of half-making a release or queueing for runners it does not have.
   `tests/test_release.py` reads `.github/workflows`.
 
+- **The WireGuard helper's spec says what the product reads of a release,
+  and only that.** Section 1 of `src/mcgyvr/rig/HELPER-SPEC.md` keeps the
+  repository the product downloads from (`wgpin.REPO`), the tag format, the
+  asset names, the archive layout and the pin rows; how the helper's own
+  releases are cut and checked is no longer in the product. `wgpin.py` and
+  `serving/release.py` point at that section.
+
 - **A docker llama.cpp or vLLM unit listens on 127.0.0.1 or, behind a key
   mcgyvr makes, on every interface (`expose: local | lan`).** `mcgyvr emit`
   rendered every container's server on every interface with no key

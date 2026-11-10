@@ -2,8 +2,9 @@
 
 A :class:`Release` names a repository, a tag and the archives mcgyvr may take
 from it, each with the size and sha256 committed in this tree. :func:`install`
-makes one folder of the archives it is asked for, in this order (the
-supply-chain order of the pooled-sessions design note, 7.7):
+makes one folder of the archives it is asked for, in this order (the order
+the WireGuard helper's pin relies on, ``mcgyvr/rig/HELPER-SPEC.md`` section 1,
+and llama.cpp's archives take too):
 
 1. each archive is downloaded into a folder only this user may enter, by
    :func:`mcgyvr.serving.fetcher.fetch_one`, which resumes a partial download
