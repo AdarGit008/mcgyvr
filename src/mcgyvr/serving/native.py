@@ -28,7 +28,10 @@ The supervisor:
   ``"%s: recommendedMaxWorkingSetSize  = %8.2f MB\\n"`` of
   ``max_working_set_size / 1e6``
   (https://github.com/ggml-org/llama.cpp/blob/b11960/ggml/src/ggml-metal/ggml-metal-device.m#L1364),
-  and files it as a reading (:func:`metal_working_set`);
+  and files it as a reading, with the ``iogpu.wired_limit_mb`` in force when
+  it was read, in ``metal.json`` beside the records; the machine reader sizes
+  the Mac's GPU from it while that limit holds
+  (:func:`mcgyvr.serving.rigscan.metal_working_set`);
 - on ``TERM`` stops the server and exits (POSIX). Windows sends a process
   with no console no signal it can catch: :func:`down` ends the supervisor
   with ``TerminateProcess`` there, and its Job Object ends the server.
@@ -78,12 +81,12 @@ from typing import Any
 # (the compose file's yaml, the config's and the launch spec's names) is
 # imported where it is used.
 from mcgyvr import atomic, hostos
+from mcgyvr.fleet.roots import METAL_FILE, NATIVE_DIR
 from mcgyvr.hubwire import FIGURE_READING
 from mcgyvr.serving import llamacpp, release, rigscan
 
-#: The folders under the data folder: supervisors' locks, specs and records;
-#: the units' logs.
-STATE = "native"
+#: The folder under the data folder for the units' logs (the supervisors'
+#: folder is :data:`mcgyvr.fleet.roots.NATIVE_DIR`).
 LOGS = "logs"
 #: Where the pinned builds are unpacked, under the mcgyvr home.
 BIN = Path("bin") / "llama.cpp"
@@ -117,8 +120,6 @@ METAL_SCAN_BYTES = 4 << 20
 #: How long into a start the Metal line is looked for: it is printed while
 #: the backend initialises, before the model loads.
 METAL_SCAN_S = 120.0
-#: The reading of it, beside the records.
-METAL_FILE = "metal.json"
 #: The states a record says a unit is in.
 RUNNING = "running"
 BACKOFF = "backoff"
@@ -161,7 +162,7 @@ def state_dir() -> Path:
     """The supervisors' folder: locks, specs, records and the Metal reading."""
     from mcgyvr.fleet.roots import data_home
 
-    return data_home() / STATE
+    return data_home() / NATIVE_DIR
 
 
 def log_path(unit: str) -> Path:
@@ -739,19 +740,6 @@ def status() -> list[dict[str, Any]]:
     return rows
 
 
-def metal_working_set() -> dict[str, Any] | None:
-    """The last ``recommendedMaxWorkingSetSize`` a native server's log read.
-
-    ``bytes`` is the figure, a reading (``figure``: ``reading``) of this
-    machine's Metal device by llama.cpp, not an estimate.
-    """
-    try:
-        found = json.loads((state_dir() / METAL_FILE).read_text(encoding="utf-8"))
-    except (OSError, ValueError):
-        return None
-    return found if isinstance(found, dict) else None
-
-
 def metal_reading(log: bytes) -> int | None:
     """The working set, in bytes, a Metal start-up log states, or None."""
     match = METAL_LINE.search(log)
@@ -1009,7 +997,8 @@ def _scan_metal(log_file: Path, offset: int, unit: str, spec: dict[str, Any]) ->
         {
             "bytes": found,
             "figure": FIGURE_READING,
-            "source": "llama-server's Metal start-up log, recommendedMaxWorkingSetSize",
+            "source": rigscan.METAL_SOURCE,
+            "wired_limit_mb": rigscan.metal_wired_limit(),
             "unit": unit,
             "tag": spec.get("tag"),
             "read_at": _now(),

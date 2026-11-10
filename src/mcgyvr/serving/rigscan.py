@@ -37,8 +37,11 @@ from typing import IO, TYPE_CHECKING, Any
 # This file is shipped to a rig as one program assembled with the modules it
 # imports (mcgyvr.serving.shipped.reader): hostos whole, and the wire's names.
 from mcgyvr import hostos
+from mcgyvr.fleet.roots import DATA_ENV as DATA_ENV
 from mcgyvr.fleet.roots import HOME_DIR as HOME_DIR
 from mcgyvr.fleet.roots import HOME_ENV as HOME_ENV
+from mcgyvr.fleet.roots import METAL_FILE as METAL_FILE
+from mcgyvr.fleet.roots import NATIVE_DIR as NATIVE_DIR
 from mcgyvr.hubwire import (
     FIGURE_ESTIMATE,
     FIGURE_READING,
@@ -120,6 +123,9 @@ SYSCTL_ARM64 = "hw.optional.arm64"
 #: 192 GB logged (https://github.com/ggml-org/llama.cpp/discussions/9784).
 SYSCTL_WIRED_LIMIT = "iogpu.wired_limit_mb"
 UNIFIED_SHARE = 0.75
+#: What sizes the GPU once a native server has started on the Mac, filed by the
+#: native supervisor in NATIVE_DIR/METAL_FILE of the data folder.
+METAL_SOURCE = "llama-server's Metal start-up log, recommendedMaxWorkingSetSize"
 #: vm_stat's free count leaves out speculative pages, so available is free +
 #: speculative + inactive, psutil's "available = inactive + free"
 #: (https://github.com/apple-oss-distributions/system_cmds/blob/main/vm_stat/vm_stat.c,
@@ -1267,13 +1273,55 @@ def _gpu_cores(reading: _Reading, platform_: _Platform, key: str) -> int | None:
     return None
 
 
+def metal_wired_limit() -> int | None:
+    """iogpu.wired_limit_mb as sysctl prints it now (0: the kernel's own), or None
+    when it is unread; asked anew each time, as a user changes it at run time."""
+    return _Platform("darwin", BOUND_S).sysctl_size(SYSCTL_WIRED_LIMIT)[0]
+
+
+def metal_working_set() -> tuple[dict[str, Any] | None, str]:
+    """The Metal working set a native server's start filed here (``bytes``, read
+    under ``wired_limit_mb``), and why a file that is there is not taken; (None,
+    "") when none is: no native server has started here yet."""
+    data = mcgyvr_data()
+    if data is None:
+        return None, f"is not looked for: ${DATA_ENV} names a relative folder"
+    # Named by its place, not its path, which holds the user's home.
+    shown = f"{NATIVE_DIR}/{METAL_FILE} in the data folder"
+    text, why = _read("", os.path.join(data, NATIVE_DIR, METAL_FILE))
+    if text is None:
+        return None, "" if why == "is not there" else f"{shown} {why}"
+    try:
+        found = json.loads(text)
+    except (ValueError, RecursionError):
+        found = None
+    if not isinstance(found, dict):
+        return None, f"{shown} is not a JSON object"
+    size, limit = found.get("bytes"), found.get("wired_limit_mb")
+    sized = is_size(size) and isinstance(size, int) and size >= MIB_BYTES
+    if not sized or found.get("figure") != FIGURE_READING:
+        return None, f"{shown} holds no working set read as a reading"
+    if not is_size(limit):
+        # An older supervisor wrote it, and every server it restarts writes the
+        # same again: only its unit, started anew on this release, files one.
+        return None, (
+            f"{shown} names no {SYSCTL_WIRED_LIMIT} it was read under, so an "
+            "older native supervisor filed it; restart the native units on this "
+            "release to file it anew"
+        )
+    return found, ""
+
+
 def _apple_gpu(
     reading: _Reading, platform_: _Platform, memory_mib: _Mib, notes: list[str]
 ) -> None:
     """Add a Mac's unified-memory GPU as card apple.0.
 
-    Its total is the memory the GPU may wire: iogpu.wired_limit_mb when set, else
-    UNIFIED_SHARE of memory, an estimate either way; its free memory is the
+    Its total is the memory the GPU may wire: the Metal working set a native
+    server's start filed (:func:`metal_working_set`), a reading held to the
+    memory, while the wired limit it was read under is still set; else, as on a
+    first run, iogpu.wired_limit_mb when set, else UNIFIED_SHARE of memory, an
+    estimate either way. Its free memory is the
     machine's available memory held to that total, since the two are one memory.
     Its name is the CPU brand with " GPU", steadier than system_profiler, which
     gives its cores. A Mac that is not Apple silicon has none, and says so.
@@ -1293,14 +1341,35 @@ def _apple_gpu(
         name = reading.name(f"{brand} GPU", f"{key}.name", SYSCTL)
     total, available = memory_mib
     wired, _ = platform_.sysctl_size(SYSCTL_WIRED_LIMIT)
+    filed, unused = metal_working_set()
+    if unused:
+        notes.append(f"GPU: the Metal reading {unused}; the GPU is sized by estimate.")
+    elif filed is not None and filed["wired_limit_mb"] != wired:
+        notes.append(
+            f"GPU: the Metal reading was taken with {SYSCTL_WIRED_LIMIT} at "
+            f"{filed['wired_limit_mb']}, and it is "
+            f"{'unread' if wired is None else wired} now; the GPU is sized by "
+            "estimate until a native server starts again."
+        )
+        filed = None
     usable = used = free = None
     how = f"{SYSCTL} {SYSCTL_WIRED_LIMIT} (estimate)"
+    figure = FIGURE_ESTIMATE
     if total is None:
         reading.note(f"{key}.total", "the machine's memory is unread")
     else:
-        if not wired:
+        if filed is not None:
+            when = filed.get("read_at")
+            if not (isinstance(when, str) and len(when) <= NAME_MAX and is_text(when)):
+                when = "undated"
+            how = f"{METAL_SOURCE} (reading, filed {when})"
+            figure = FIGURE_READING
+            usable = min(filed["bytes"] // MIB_BYTES, total)
+        elif wired:
+            usable = min(wired, total)
+        else:
             how = f"{UNIFIED_SHARE:g} x {SYSCTL_MEMSIZE} (estimate: no wired limit set)"
-        usable = min(wired, total) if wired else int(total * UNIFIED_SHARE)
+            usable = int(total * UNIFIED_SHARE)
         if available is None:
             for field in ("used", "free"):
                 reading.note(
@@ -1317,12 +1386,14 @@ def _apple_gpu(
             **card,
             "kind": RESOURCE_UNIFIED,
             "backend": "metal",
-            "figure": FIGURE_ESTIMATE,
+            "figure": figure,
             "how": how,
             "gpu_cores": _gpu_cores(reading, platform_, key),
         },
     )
     reading.sources.append(SYSCTL)
+    if figure == FIGURE_READING:
+        reading.sources.append(METAL_FILE)
 
 
 def _windows_nvidia_smi() -> str | None:
@@ -1873,6 +1944,17 @@ def mcgyvr_home() -> str | None:
         expanded = os.path.expanduser(named)
         return expanded if os.path.isabs(expanded) else None
     return os.path.expanduser(HOME_DIR)
+
+
+def mcgyvr_data() -> str | None:
+    """mcgyvr's data folder here, by mcgyvr.fleet.roots.data_home's rule:
+    MCGYVR_DATA with ~ expanded, else hostos.user_data_dir; None when MCGYVR_DATA
+    names a relative folder, which the product refuses."""
+    named = os.environ.get(DATA_ENV)
+    if named:
+        expanded = os.path.expanduser(named)
+        return expanded if os.path.isabs(expanded) else None
+    return str(hostos.user_data_dir())
 
 
 def _disk_device(path: str) -> str | None:

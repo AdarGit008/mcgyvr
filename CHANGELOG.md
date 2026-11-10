@@ -11,6 +11,31 @@ archived outside this repository, under the same paths.
 
 ### Changed
 
+- **A Mac's GPU is sized from the Metal working set llama.cpp logged, a
+  reading, once a native server has started on it.** The native supervisor
+  already filed `recommendedMaxWorkingSetSize` from llama-server's start-up
+  log in `native/metal.json` in the data folder, and nothing read it: the
+  machine reader sized the GPU from `iogpu.wired_limit_mb`, else 0.75 of the
+  memory, an estimate. Now the reader (`rigscan.metal_working_set`, which
+  finds the data folder by `fleet.roots.data_home`'s rule) sizes card
+  `apple.0` and its `unified` resource from that file, held to the memory,
+  with `figure: reading`, and `mcgyvr detect` and fit listings take it. The
+  supervisor now files the wired limit in force beside the figure, and the
+  reading is taken only while that limit is the one set: after the limit is
+  changed, or after a reboot that cleared it, the GPU is sized by estimate,
+  as on a first run, until a native server starts again. A file that holds
+  no reading is passed over the same way. `mcgyvr scan` notes why in each
+  case; `mcgyvr detect` and the hub show only `figure: estimate`. Upgrading:
+  a file an older supervisor wrote names no limit and is not taken, and a
+  supervisor still running the older code writes it that way again on every
+  server it restarts, so restart a Mac's native units on this release to
+  size it from the reading. A Mac whose native server has started sizes
+  from the reading, which may be above or below the estimate, so the models
+  that fit it can change. The folder name and file name are spelled once,
+  in `fleet.roots` (`NATIVE_DIR`, `METAL_FILE`); `estimate.usable_unified_mb`
+  (no caller) and `native.metal_working_set` (tests only) are removed, and
+  with them `estimate.UNIFIED_SHARE`, which only that function used.
+
 - **Every kept file is renamed into place by `mcgyvr.atomic`, which retries
   while Windows holds the target (I-54).** The native launcher's records,
   specs and settled copy, the rig identity key's no-hard-links fallback, the
