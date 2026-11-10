@@ -31,6 +31,21 @@ archived outside this repository, under the same paths.
   held to `hubwire`'s by test. The `hubwire` docstring now lists what is
   shared and what is not.
 
+- **The `mcgyvr.orchestrator` package is split by job: `mcgyvr.repo`,
+  `mcgyvr.decompose` and `mcgyvr.decision_log`.** The package read code, built
+  and cached the repository index, ranked and read files, and turned proposals
+  into contracts; it orchestrated nothing. `mcgyvr.repo` now holds the context
+  layer (`symbols`, `languages/`, `index`, `cache`, `resolve`, `read`,
+  `context`, `references`, and `repo` for attaching a repository);
+  `mcgyvr.decompose` holds the part that takes a proposer (`decompose`,
+  `iterate`, `candidates`, `fields`, `provides`, `baseline`); and the jev
+  shadow log `orchestrator/telemetry.py` is `mcgyvr.decision_log`, so it no
+  longer sits beside `mcgyvr.telemetry` under the same name. Every other
+  module keeps its name, and nothing behaves differently: a pure move and
+  import rewrite, with no compatibility shim, so code outside mcgyvr that
+  imports `mcgyvr.orchestrator` must import from the new paths. The
+  policy.yaml `orchestrator` block, journal keys and messages are unchanged.
+
 - **`SETUP.md` now names `numbers.yaml`, the file that overrides mcgyvr's
   shipped estimates.** A user can drop `numbers.yaml` in the config folder
   (`$MCGYVR_HOME`, default `~/.mcgyvr`) to replace the estimates mcgyvr sizes

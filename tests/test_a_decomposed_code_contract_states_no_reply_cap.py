@@ -25,6 +25,12 @@ from mcgyvr.config import parse
 from mcgyvr.contract import dumps as dump_contract
 from mcgyvr.contract import loads as load_contract
 from mcgyvr.decision import Choice, ChoiceAnswer, Decision, Question
+from mcgyvr.decompose.decompose import (
+    Evidence,
+    Proposal,
+    RecordedProposer,
+    decompose,
+)
 from mcgyvr.delegate import (
     ClassifierProposer,
     _reply_format,
@@ -33,13 +39,7 @@ from mcgyvr.delegate import (
     proposer_by_authoring,
 )
 from mcgyvr.local_pool import source_map
-from mcgyvr.orchestrator.decompose import (
-    Evidence,
-    Proposal,
-    RecordedProposer,
-    decompose,
-)
-from mcgyvr.orchestrator.index import Index, build_index
+from mcgyvr.repo.index import Index, build_index
 from tests.livejournal import git
 
 LISTING = "def listing(items):\n    return list(items)\n"

@@ -15,9 +15,9 @@ from pathlib import Path
 
 import pytest
 
-from mcgyvr.orchestrator.references import UnsafeRenameError, resolve
 from mcgyvr.rename import RenameError
 from mcgyvr.rename import apply as rename_apply
+from mcgyvr.repo.references import UnsafeRenameError, resolve
 from tests.renaming import committed, read, untouched
 
 GO = {

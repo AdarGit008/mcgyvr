@@ -20,15 +20,15 @@ from typing import Any
 
 from mcgyvr.catalog import catalog
 from mcgyvr.decision import Choice, ChoiceAnswer, Decision, Question
+from mcgyvr.decompose.decompose import decompose
 from mcgyvr.delegate import ClassifierProposer
 from mcgyvr.gate.preflight import (
     ESTIMATE_RESERVE,
     check_contract_against_rung,
     unit_max,
 )
-from mcgyvr.orchestrator.decompose import decompose
-from mcgyvr.orchestrator.index import Index, build_index
-from mcgyvr.orchestrator.read import estimate_tokens
+from mcgyvr.repo.index import Index, build_index
+from mcgyvr.repo.read import estimate_tokens
 from mcgyvr.worker.prompt import build_prompt
 
 #: A comment line of about 20 estimated tokens.

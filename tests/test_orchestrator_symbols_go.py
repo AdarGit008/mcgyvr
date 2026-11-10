@@ -9,7 +9,7 @@ a package exports, const and var blocks, and a file that stops mid-declaration.
 
 from __future__ import annotations
 
-from mcgyvr.orchestrator.symbols import Symbol, SymbolKind, extract, language_of
+from mcgyvr.repo.symbols import Symbol, SymbolKind, extract, language_of
 
 
 def _of(kind: SymbolKind, source: bytes) -> list[Symbol]:
