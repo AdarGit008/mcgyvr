@@ -11,6 +11,16 @@ archived outside this repository, under the same paths.
 
 ### Changed
 
+- **`mcgyvr recommend` asks placement whether a model fits (I-47).** Its own
+  arithmetic left out the scratch allowance and the RAM rule placement applies,
+  so it could recommend what placement then refused. A checkpoint is now a
+  `ModelSpec` with its header as the geometry and a catalog record one stated
+  by its file and cache, and both go through `serving.fit` at the context and
+  user count recommend plans (`recommend._sized`). A checkpoint whose experts
+  fit beside the card is no longer refused for want of RAM for all of them; a
+  catalog record is held to the 2.0 GB headroom placement gives an unscanned
+  model, so a chat or agent plan's most context is that much smaller.
+  `recommend._slot_bytes` and `_host_ram_bytes` are gone.
 - **One per-card fit law, in `mcgyvr.hubwire`, for the sizer, a split and the
   hub's planner; the flat 768 MiB allowance is gone (I-05, I-23).** What a card
   of a llama.cpp layer split holds beside its tensors was two laws: the

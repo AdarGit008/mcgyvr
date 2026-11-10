@@ -28,7 +28,8 @@ from __future__ import annotations
 
 import json
 from collections.abc import Mapping, Sequence
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
+from pathlib import Path
 from typing import Any
 
 from mcgyvr import availability, decision, estimate
@@ -37,7 +38,7 @@ from mcgyvr.config import DEFAULT_REQUEST_TIMEOUT_S, default_launcher
 from mcgyvr.decision import Choice, ChoiceAnswer
 from mcgyvr.detect import host_system
 from mcgyvr.fleet import lock as fleet_lock
-from mcgyvr.hubwire import FIGURE_ESTIMATE, USE_CASE_CATEGORY, shares_ram
+from mcgyvr.hubwire import BYTES_PER_GIB, FIGURE_ESTIMATE, USE_CASE_CATEGORY
 from mcgyvr.knowledge import geometry as geometry_rows
 from mcgyvr.knowledge import hub
 from mcgyvr.knowledge import store as knowledge_store
@@ -45,7 +46,6 @@ from mcgyvr.knowledge.record import KnowledgeError, ModelRecord
 from mcgyvr.local_pool import Endpoint, Protocol
 from mcgyvr.runner import RunnerError
 from mcgyvr.scan import (
-    BYTES_PER_GB,
     Gpu,
     Reach,
     Scan,
@@ -54,14 +54,22 @@ from mcgyvr.scan import (
     Unreachable,
 )
 from mcgyvr.serving import (
+    DEFAULT_ENGINE,
     DEFAULT_PORT,
     DEFAULT_SPEC_DRAFT_N_MAX,
     DEFAULT_UBATCH,
+    ModelSpec,
+    UnitError,
     _free_vram_bytes,
     _roomiest_gpu,
+    fit,
     gatelib,
     vramfit,
 )
+
+#: The cache type recommend prices a model at: llama.cpp's own default, since the
+#: flags it plans name no `-ctk`/`-ctv`.
+_CACHE_TYPE = "f16"
 
 #: Usage profiles the CLI accepts; only PLACEMENT_PROFILES get a placement.
 PROFILES = (*hub.USE_CASES, "other")
@@ -269,74 +277,57 @@ def _scan_host(host: str) -> Scan:
     return scan_module.scan_over(Reach.ssh(host))
 
 
-def _host_ram_bytes(scan: Scan) -> int | None:
-    """Available host RAM in bytes, or `None` when the scan reported no available
-    memory."""
-    if scan.memory is None or scan.memory.available_gb is None:
-        return None
-    return int(scan.memory.available_gb * BYTES_PER_GB)
+def _sized(scan: Scan, spec: ModelSpec | None, users: int, ctx_per_slot: int) -> bool:
+    """Whether placement would put `spec` on this rig for `users` slots of
+    `ctx_per_slot` each: `serving.fit`, the one fit law, on a llama.cpp unit (the
+    engine recommend's flags are for). The weights are on the rig's disk already
+    or are fetched to wherever there is room, so the disk is not weighed here."""
+    if spec is None or ctx_per_slot < 1 or not scan.gpus:
+        return False
+    sized = fit(
+        replace(scan, disk=None),
+        spec,
+        engine=DEFAULT_ENGINE,
+        width=users,
+        ctx_per_slot=ctx_per_slot,
+    )
+    return sized.fits
 
 
-def _slot_bytes(header: Mapping[str, Any], users: int) -> int | None:
-    """Cache bytes a checkpoint needs for `users` sequences at its full training
-    context.
-
-    The header's `n_ctx_train` is one sequence's context and the cache totals come
-    from `vramfit`: KV bytes over that context across `users` sequences plus the
-    recurrent state for the same count. A header without a positive integer
-    `n_ctx_train`, or a geometry `vramfit` cannot size, yields `None`, which the
-    caller reads as "does not fit".
-    """
-    n_ctx_train = header.get("n_ctx_train")
-    if not isinstance(n_ctx_train, int) or n_ctx_train <= 0:
-        return None
-    geometry = dict(header)
+def _header_spec(header: Mapping[str, Any]) -> ModelSpec | None:
+    """The model a checkpoint's header describes, as placement reads a unit's:
+    its scan as the geometry, its file size as the blob a mapped load holds,
+    priced at llama.cpp's default f16 cache (recommend sets no `-ctk`). None when
+    the header is not a scan placement can read."""
+    name = Path(str(header.get("file") or "")).name.removesuffix(".gguf")
     try:
-        kv = vramfit.kv_bytes(
-            geometry,
-            n_ctx_train,
-            n_seq_max=users,
-            n_ubatch=DEFAULT_UBATCH,
+        return ModelSpec(
+            name=name,
+            vram_gb=0.0,
+            ram_gb=0.0,
+            disk_gb=int(header.get("size_bytes") or 0) / BYTES_PER_GIB,
+            moe=bool(header.get("placeable_blocks")),
+            geometry=dict(header),
+            kv_cache_dtype_k=_CACHE_TYPE,
+            kv_cache_dtype_v=_CACHE_TYPE,
         )
-        rs = vramfit.rs_bytes(geometry, n_seq_max=users)
-    except (KeyError, TypeError, ValueError):
+    except UnitError:
         return None
-    return kv["total"] + rs["total"]
 
 
 def _fits(scan: Scan, header: Mapping[str, Any], users: int) -> bool:
-    """Whether `header`'s weights plus `users` slots of cache fit this rig.
-
-    Weights are charged to the roomiest card's free VRAM: a mixture-of-experts
-    checkpoint whose blocks are placeable counts only its non-expert bytes there
-    and must keep its expert bytes inside the host's available RAM (less what
-    the card holds, when the card is a unified GPU sharing that RAM), while any
-    other checkpoint charges its whole file size. A rig with no free VRAM, a
-    header whose cache cannot be sized, or a missing RAM figure means no fit.
-    """
-    free = _free_vram_bytes(scan)
-    if free <= 0:
+    """Whether a checkpoint fits this rig for `users` sequences at its full
+    training context, as placement would size it (`_sized`): its weights, cache,
+    state and scratch allowance on the roomiest card, an MoE's spilled experts in
+    the host's RAM (less what a unified GPU holds of it). A header without a
+    positive training context, or one placement cannot size, is no fit."""
+    n_ctx_train = header.get("n_ctx_train")
+    if not isinstance(n_ctx_train, int) or n_ctx_train <= 0:
         return False
-    needed = (
-        int(header.get("bytes_nonexpert") or 0)
-        if header.get("placeable_blocks")
-        else int(header.get("size_bytes") or 0)
-    )
-    slots = _slot_bytes(header, users)
-    if slots is None:
+    try:
+        return _sized(scan, _header_spec(header), users, n_ctx_train)
+    except (UnitError, KeyError, TypeError, ValueError):
         return False
-    if needed + slots > free:
-        return False
-    if header.get("placeable_blocks"):
-        expert_bytes = int(header.get("bytes_experts") or 0)
-        ram = _host_ram_bytes(scan)
-        if ram is not None and shares_ram(_roomiest_gpu(scan).kind):
-            # A unified GPU's memory is the host's: what the card holds is not
-            # also there for the experts.
-            ram -= needed + slots
-        if ram is None or expert_bytes > ram:
-            return False
-    return True
 
 
 def _measured(scan: Scan) -> dict[str, Any]:
@@ -564,16 +555,32 @@ def _catalog_slot_bytes(entry: Mapping[str, Any], users: int) -> int | None:
     return cells * users * kv_per_token + recurrent * users
 
 
-def _catalog_fits(scan: Scan, entry: Mapping[str, Any], users: int) -> bool:
-    """Whether a catalog entry's file size plus its cache fits a rig's free VRAM."""
-    free = _free_vram_bytes(scan)
-    if free <= 0:
-        return False
-    size_bytes = int(entry.get("size_bytes") or 0)
+def _catalog_spec(entry: Mapping[str, Any], users: int) -> ModelSpec | None:
+    """The model a catalog record describes, as placement reads a unit stated by
+    its figures alone: its file plus its cache for `users` sequences
+    (`_catalog_slot_bytes`) on the card, None when the record cannot be sized."""
     slots = _catalog_slot_bytes(entry, users)
     if slots is None:
+        return None
+    size_bytes = int(entry.get("size_bytes") or 0)
+    return ModelSpec(
+        name=str(entry.get("model_id") or "catalog-model"),
+        vram_gb=(size_bytes + slots) / BYTES_PER_GIB,
+        ram_gb=0.0,
+        disk_gb=size_bytes / BYTES_PER_GIB,
+        kv_cache_dtype_k=_CACHE_TYPE,
+        kv_cache_dtype_v=_CACHE_TYPE,
+    )
+
+
+def _catalog_fits(scan: Scan, entry: Mapping[str, Any], users: int) -> bool:
+    """Whether placement would put a catalog record on this rig (`_sized`): its
+    file and cache on the roomiest card with the headroom an unscanned model is
+    held to, and its blob in the host's RAM where placement weighs it."""
+    ctx = entry.get("context_length")
+    if not isinstance(ctx, int) or isinstance(ctx, bool) or ctx < users:
         return False
-    return size_bytes + slots <= free
+    return _sized(scan, _catalog_spec(entry, users), users, ctx // users)
 
 
 def _catalog_candidates(
@@ -626,24 +633,28 @@ def _catalog_candidates(
 
 def _most_context(scan: Scan, entry: Mapping[str, Any], users: int) -> int | None:
     """The most context, over `users` sequences, a catalog entry fits on this rig
-    beside its weights and recurrent state, or None when it cannot be sized or
-    fits less than `MIN_CONTEXT_PER_USER` per user.
+    by `_catalog_fits`, or None when it cannot be sized or fits less than
+    `MIN_CONTEXT_PER_USER` per user.
 
     Each user gets the same whole multiple of 256 cells, no more than the
-    entry's own context, so `_catalog_slot_bytes` prices the answer exactly.
-    """
+    entry's own context, so `_catalog_slot_bytes` prices the answer exactly; the
+    fit grows with the context, so the largest that fits is searched for."""
     if _catalog_slot_bytes(entry, users) is None:
         return None
-    room = (
-        _free_vram_bytes(scan)
-        - int(entry.get("size_bytes") or 0)
-        - int(entry.get("recurrent_bytes_per_slot", 0)) * users
-    )
-    per_user = min(
-        room // (int(entry["kv_bytes_per_token"]) * users),
-        int(entry["context_length"]),
-    )
-    per_user -= per_user % 256
+    top = int(entry["context_length"]) // 256
+
+    def fits(per_user_chunks: int) -> bool:
+        context = per_user_chunks * 256 * users
+        return _catalog_fits(scan, {**entry, "context_length": context}, users)
+
+    lo, hi = 0, top  # fits(lo) is taken to hold at 0: the search never returns it
+    while lo < hi:
+        mid = (lo + hi + 1) // 2
+        if fits(mid):
+            lo = mid
+        else:
+            hi = mid - 1
+    per_user = lo * 256
     if per_user < MIN_CONTEXT_PER_USER:
         return None
     return per_user * users

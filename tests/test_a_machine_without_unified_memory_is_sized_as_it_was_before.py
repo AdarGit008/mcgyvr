@@ -159,7 +159,7 @@ BEFORE: dict[str, dict[str, str]] = {
     "windows-card-tool-in-system": {
         "dense-small": "b95ee9d1430c850c",
         "dense-too-big": "0c3a82a19f34ab4c",
-        "moe-spilling": "29dfe1bbbd5f55a2",
+        "moe-spilling": "935be40a36a12c6a",
     },
     "windows-card-tool-in-vendor-folder": {
         "dense-small": "40dd99a1a0355f7c",
