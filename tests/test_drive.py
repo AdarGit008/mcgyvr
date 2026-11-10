@@ -10,7 +10,7 @@ actual diff.
 Nothing here stubs the thing under test. The one thing that is substituted is a
 model, because a test that needed one would not run on a machine with no
 backend — and the seam that lets it be substituted (``dispatch`` takes a rung
-name and a source map) is the same seam the whole project is built on.
+name and a unit map) is the same seam the whole project is built on.
 """
 
 from __future__ import annotations

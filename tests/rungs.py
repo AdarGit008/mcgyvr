@@ -182,7 +182,7 @@ def caps_sent(monkeypatch: pytest.MonkeyPatch) -> list[tuple[str, int | None]]:
     """Record the rung and the cap of every request the driver dispatches.
 
     The substitution is the seam the whole project is built on:
-    ``mcgyvr.runner.dispatch`` takes a rung name and a source map, so nothing
+    ``mcgyvr.runner.dispatch`` takes a rung name and a unit map, so nothing
     above it knows a socket exists. What is asserted is the number on the
     request, which is the number the backend is actually given.
     """

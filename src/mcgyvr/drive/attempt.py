@@ -117,7 +117,7 @@ def worker_attempt(
     """Build the driver that tries one rung: `Try` in, `Judgement` out.
 
     The whole attempt lives in the returned callable, which is why what it needs
-    once is bound here: the ladder's config and source map, the contract, the
+    once is bound here: the ladder's config and unit map, the contract, the
     sandbox the draws are written into and gated in, the language adapters, the
     journal, the cooldown and the reviewer selector. A driver outlives one
     attempt — the climb calls it again, on this rung and on the rungs above — so
@@ -140,7 +140,7 @@ def worker_attempt(
         # `Reviewer`, carrying the `verifier` role's model or no model at all
         # when the role binds none, and that same reviewer answers for every
         # builder. It is how a caller — a test — hands in a function where the
-        # run hands in a configured unit, without a source map able to place the
+        # run hands in a configured unit, without a unit map able to place the
         # reviewer.
         only = Reviewer(model=pool.role_model(VERIFIER_ROLE) or "", ask=reviewer)
         reviewers = lambda builder: only  # noqa: E731
@@ -317,7 +317,7 @@ def worker_attempt(
             window_fraction=window_share,
         )
         # Two journal fields, gathered only when the run records: the endpoint the
-        # row is stamped with, read from the source map rather than from the
+        # row is stamped with, read from the unit map rather than from the
         # completion so a row that never answered still says where it was sent,
         # and the messages exactly as they are about to go on the wire. Neither
         # is used by the dispatch itself.

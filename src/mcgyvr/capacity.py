@@ -816,7 +816,7 @@ class Capacity:
             known = ", ".join(sorted(self._limits)) or "none"
             raise CapacityError(
                 f"no declared capacity for unit {name!r} — this capacity and "
-                f"the source map it is bounding were built from different "
+                f"the unit map it is bounding were built from different "
                 f"configs. Known units: {known}"
             )
         declared = self._declared[name]

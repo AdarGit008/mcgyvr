@@ -1,6 +1,6 @@
 """One contract's route through one family's rungs, and the climb that spends it.
 
-:func:`plan` turns a config and a source map into a :class:`Plan`: the family
+:func:`plan` turns a config and a unit map into a :class:`Plan`: the family
 the contract starts on (or the one a caller names) and that family's usable
 rungs as :class:`Step` objects in the order the pool lists them, each carrying
 the attempts it may spend and the :class:`Machine` — one source's place in a

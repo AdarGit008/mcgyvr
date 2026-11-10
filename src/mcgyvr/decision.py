@@ -387,7 +387,7 @@ def classify_role(
     """Ask the unit bound to `role`, or return None when no unit is bound to it.
 
     An unknown role, or one whose unit could not be built, raises from the
-    source map instead of returning None. When `capacity` is given, the
+    unit map instead of returning None. When `capacity` is given, the
     request is made while holding that endpoint's slot.
     """
     binding = unit_map.role(role)
@@ -414,7 +414,7 @@ def classify_rung(
 ) -> Decision:
     """Ask the rung named `rung`, resolving its endpoint and model from the map.
 
-    An unknown or unavailable rung raises from the source map. The model is the
+    An unknown or unavailable rung raises from the unit map. The model is the
     one the rung is configured with, falling back to the rung name when the map
     holds no rung by that name. When `capacity` is given, the request is made
     while holding that endpoint's slot.
@@ -445,7 +445,7 @@ def classify_for(
     capacity: Capacity | None = None,
     timeout_s: float | None = None,
 ) -> Decision:
-    """Ask for a decision through the source map, naming exactly one of `role`
+    """Ask for a decision through the unit map, naming exactly one of `role`
     and `rung`; naming both or neither raises ValueError.
 
     When a unit is bound to the `jev` role it answers whatever `role` says, so

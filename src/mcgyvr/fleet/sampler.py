@@ -348,7 +348,7 @@ def grounded(answer: str, citation: str, facts: Sequence[str]) -> str | None:
 def complete(setup: Path, unit: str) -> str:
     """Ask one unit of the staged setup for the single word `ready` and answer its text.
 
-    The request is dispatched at the unit through the setup's source map with the
+    The request is dispatched at the unit through the setup's unit map with the
     chat reply cap as its output ceiling, and the reply text is returned as it
     was sent, so a caller can tell an empty answer from an absent one.
     """
@@ -369,7 +369,7 @@ def ground(setup: Path, unit: str) -> str:
 
     The sample's files are rendered as numbered sources, the way a worker is
     shown them, under its task, and the request is dispatched at the unit
-    through the setup's source map stating no output cap, so it is sent the
+    through the setup's unit map stating no output cap, so it is sent the
     unit's maximum: the agent use case is the served model used directly. The
     reply text is returned as it was sent.
     """
