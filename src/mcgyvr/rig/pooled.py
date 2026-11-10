@@ -21,7 +21,7 @@ import ipaddress
 import math
 import re
 from collections.abc import Sequence
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from pathlib import Path
 
 from mcgyvr.rig.sessionwire import WIREGUARD_KEY
@@ -500,7 +500,9 @@ class HeadSpec:
     model file inside it, the settings llama-server is started with, and the rpc
     devices on other rigs it should spread the model over. ``cpus``, the cores
     the owner lends, holds the container to that many and llama-server to that
-    many threads.
+    many threads. ``api_key``, when the session host makes one
+    (:meth:`mcgyvr.rig.session.SessionHost.head_key`), is the key the head's API
+    asks of every request but ``/health``; it is never part of a repr.
     """
 
     session_id: str
@@ -519,6 +521,7 @@ class HeadSpec:
     memory_mb: int
     slots: int = 1  # parallel slots (-np); the context and KV cache scale with it
     cpus: int | None = None  # cores lent: the container's --cpus and the --threads
+    api_key: str | None = field(default=None, repr=False)
 
 
 @dataclass(frozen=True, kw_only=True)
@@ -699,7 +702,11 @@ def head_argv(spec: HeadSpec, owner: Owner) -> list[str]:
     folder read-only, and starts llama-server under GUARD_SCRIPT with the alias,
     slots, context, KV cache type and device split the spec asks for, and with
     fitting off (`HEAD_FIT`), since it states its context and layers itself.
+    A container's head takes no key (its API is published on the tunnel's own
+    network); a spec that carries one is refused rather than started without it.
     """
+    if spec.api_key is not None:
+        raise PoolError("a docker head is started with no API key")
     argv = [
         "run",
         "--detach",

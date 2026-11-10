@@ -15,6 +15,7 @@ for.
 from __future__ import annotations
 
 import base64
+import errno
 import json
 import multiprocessing
 import os
@@ -75,6 +76,22 @@ def test_the_identity_key_is_made_once_and_kept_private_beside_the_token(
     assert again.public_key == made.public_key
     assert hubwire.IDENTITY_KEY.fullmatch(made.public_key)
     assert made.fingerprint == hubwire.identity_fingerprint(made.public_key)
+
+
+def test_a_folder_without_hard_links_has_the_identity_key_renamed_into_place(
+    home: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    def no_links(source: object, target: object) -> None:
+        raise OSError(errno.EPERM, "this folder holds no hard links")
+
+    monkeypatch.setattr(os, "link", no_links)
+    made = identity.create()
+    kept = home / identity.IDENTITY_FILE
+    if sys.platform != "win32":
+        assert stat.S_IMODE(kept.stat().st_mode) == 0o600
+    loaded = identity.load()
+    assert loaded is not None and loaded.public_key == made.public_key
+    assert [p.name for p in kept.parent.iterdir() if p.name.startswith(".")] == []
 
 
 #: How many times two first runs race for the identity key.

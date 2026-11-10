@@ -28,13 +28,16 @@ verbs.
 - The pin is one `serving.release.Asset(name, bytes, sha256)` row per asset in
   `wgpin.RELEASE.assets`: `bytes` the archive's exact length, `sha256` 64 lowercase hex digits of the
   archive. Where the digests come from: the helper's own reproducible build (`go build -trimpath`,
-  CGO off, pinned Go toolchain) run by whoever cuts the release, NOT the mirror's API alone (that
-  would check the mirror against itself); the published archives (Forgejo release and the GitHub mirror's
-  `assets[].size` / `assets[].digest`) are then downloaded and must match. Signing the archives
-  (minisign or cosign) is an optional extra, as is Apple/Authenticode code signing.
-- This repository ships with no rows yet: `wgpin.pinned_for(os, arch)` is false everywhere, so no
-  rig offers a native session, and `wgpin.helper()` refuses with "no pinned mcgyvr-wg <tag>
-  archive for <os> <arch>; a native pooled session needs it, and nothing unpinned is fetched".
+  CGO off, pinned Go toolchain, from a checkout of the tag itself: Go stamps the module version
+  from VCS, so an untagged commit gives other bytes) run by whoever cuts the release, NOT the
+  mirror's API alone (that would check the mirror against itself); the published archives (Forgejo
+  release and the GitHub mirror's `assets[].size` / `assets[].digest`) are then downloaded and must
+  match. Signing the archives (minisign or cosign) is an optional extra, as is Apple/Authenticode
+  code signing.
+- Pinned: `v0.1.0`, all six assets (https://github.com/AdarGit008/mcgyvr-wg/releases/tag/v0.1.0).
+  For a system or architecture with no row, `wgpin.pinned_for(os, arch)` is false, that rig
+  offers no native session, and `wgpin.helper()` refuses with "no pinned mcgyvr-wg <tag> archive
+  for <os> <arch>; a native pooled session needs it, and nothing unpinned is fetched".
 - The helper's own tests cannot use example addresses from the overlay range 100.64/10: the
   private-word guard both repositories run refuses those literals; compute them, or use RFC 1918
   ranges.
@@ -245,7 +248,10 @@ firewall unasked); `up` from `tunnel.TunnelPlan` (mtu `pooled.TUNNEL_MTU`);
 device, then `spawn` of `head` (the pinned llama-server, `--host 127.0.0.1`, `--rpc` naming the
 forwards, an environment of PATH-like variables plus `GGML_*`/`CUDA_*`/`VK_*`/`MTL_*`/`METAL_*`,
 the card variables, and always `GGML_RPC_NO_COMM=1` and `GGML_RPC_NO_RDMA=1`, so the head never asks
-a worker for comm_init's wildcard listener and never negotiates RDMA); `state`/`lease` while it
+a worker for comm_init's wildcard listener and never negotiates RDMA, and `LLAMA_API_KEY`, the key
+this session made for the head's API, which the head asks of every request but `/health`; the key is
+in the `spawn` env only, never in `argv`, and the helper keeps it as it keeps every request field: in
+memory, never on stdout, stderr or a file); `state`/`lease` while it
 runs; `kill` and `teardown` at the end. Every tunable of the session (ports, lease, MTU, probe
 size and count, STUN attempts and wait, keep-alive timing) is passed in; proto 1 fixes only the
 probe's small-ping shape and the teardown grace.
@@ -268,9 +274,14 @@ probe's small-ping shape and the teardown grace.
   `OPEN_WORKER_SCRIPT` per `accept_ports`); a native worker would need the helper to dial a ring
   neighbour through the netstack only, to that neighbour's `dial_ports` alone, and to let a
   neighbour in on the `accept_ports` alone, each with a test, before it may name the feature.
-- A per-session `--api-key` for the head's loopback API needs the agent's relay to send
-  it. It MUST land before the first pin row: a pinned helper makes the native head reachable by
-  any local process on the loopback, and the key is what keeps another local user off it.
+- Done: a per-session key for the head's loopback API (it had to land before the first pin row:
+  a pinned helper makes the native head reachable by any local process on the loopback, and the
+  key is what keeps another local user off it). `userwg.NativeHost.head_key` makes 256 bits per
+  session (`unitkey.new_key`), the head reads it as `LLAMA_API_KEY` (llama-server's `--api-key`),
+  and the agent's health check, warm-up, relayed requests and `/slots` read send it as a bearer
+  token; a native head is not started without one (tests in
+  `test_a_native_heads_api_answers_only_the_key_its_session_made.py`). A Linux pooled head, in a
+  container on its tunnel's network, takes none.
 - `rpc_server::comm_init` (llama.cpp b11960, `ggml/src/ggml-rpc/ggml-rpc.cpp`): with rank 0 it
   calls `create_server("0.0.0.0", request.port)` on a client's command, with the port the client
   chooses and nothing gating it (read at b11960; re-read it at every pin bump). A
