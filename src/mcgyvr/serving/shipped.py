@@ -348,8 +348,11 @@ def fetcher(job: str | None) -> bytes:
 
 
 def lease() -> bytes:
-    """The lease (``leasefile``) with ``hostos``: one operation per run."""
-    return program("mcgyvr.serving.leasefile", modules=("mcgyvr.hostos",))
+    """The lease (``leasefile``) with ``hostos`` and ``atomic``: one operation
+    per run."""
+    return program(
+        "mcgyvr.serving.leasefile", modules=("mcgyvr.hostos", "mcgyvr.atomic")
+    )
 
 
 def native() -> bytes:
