@@ -28,6 +28,38 @@ archived outside this repository, under the same paths.
   `result.DEPRECATED_SESSION_KEY` is gone; `telemetry.READ_VERSIONS` names
   what is read.
 
+- **Setup and the ladder size a shipped-catalog model as `mcgyvr recommend`
+  does, and a mixture of experts as one (I-65, I-65b, I-64).** A catalog
+  record's spec (`cli.sizing._catalog_specs`) was the file plus context x
+  per-token KV for one slot, with no recurrent (state-space) bytes, no
+  256-cell padding, and `moe` always false. It is now built through
+  recommend's catalog-slot law for one user (`recommend._catalog_spec` over
+  `_catalog_slot_bytes`): on the shipped catalog Qwen/Qwen3.5-4B goes from
+  10805.96 to 10856.21 MiB, every other record is unchanged. Catalog records
+  gain an `architecture` (`dense` or `moe`, `knowledge.record.ARCHITECTURES`),
+  which a Hub read takes from the file's header (`record.architecture_of`:
+  expert blocks `--n-cpu-moe` can move, the one law placement's `ModelSpec`
+  and recommend now read too) and every shipped record states;
+  `data/model-catalog.json` is regenerated from the shipped header rows by
+  `make catalog`
+  (`python -m mcgyvr.knowledge.regenerate`, `--check` to compare), which
+  added the field and nothing else. A cached record written before the field
+  keeps the shipped record's. An `moe` record is sized from its file's header
+  row, so its experts spill to the host where the card is short: on an
+  invented 12 GiB card at 4096 context Qwen/Qwen3-30B-A3B was refused and now
+  fits with 17697 MiB of experts in RAM, and DeepSeek-Coder-V2-Lite, which
+  needed 53084 MiB as dense, fits in 11393 MiB. An `moe` record with no header
+  row is refused by name, as a capability table MoE row is, rather than sized
+  dense; a table MoE row whose `model_id` names a catalog record is sized
+  from that record's row under both its names (no shipped table MoE row
+  names one, so `deepseek-coder-v2:16b` stays refused for want of a
+  geometry), and a row whose size disputes the header's is refused saying
+  so. A cached record of a model the shipped catalog lacks, written before
+  the field, states no architecture and is still sized dense until a Hub
+  read files it again. `capability.Model` now keeps
+  the `architecture` it checks (one of the same vocabulary), and setup's
+  second raw reader of `capability-table.json` (`_architectures`) is gone.
+
 - **`mcgyvr local_pool` is now `mcgyvr ladder show`, and SETUP.md opens its
   words with a glossary.** The verb printed the ladder but was named for a
   pool, which the hub's pool is not; `mcgyvr local_pool` is refused with the

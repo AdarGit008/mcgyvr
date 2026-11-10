@@ -23,6 +23,7 @@ from mcgyvr.config import (
     Config,
 )
 from mcgyvr.hubwire import shares_ram
+from mcgyvr.knowledge.record import MOE, architecture_of
 from mcgyvr.ladder_proposal import DEFAULT_HEADROOM_GB
 from mcgyvr.scan import Gpu, Scan, default_weights_dir
 from mcgyvr.serving import vramfit
@@ -208,6 +209,10 @@ class ModelSpec:
     kv_cache_dtype_v: str | None = None
     speculative: str = SPECULATIVE_NONE
     spec_draft_n_max: int = DEFAULT_SPEC_DRAFT_N_MAX
+    #: Why a header row found for this model was not taken as its geometry
+    #: (the refusal that row met), empty when none was found or none refused.
+    #: An MoE without a geometry is refused, and that refusal says this too.
+    geometry_refused: str = field(default="", compare=False)
 
     def __post_init__(self) -> None:
         if self.speculative not in SPECULATIVE_CHOICES:
@@ -253,7 +258,7 @@ class ModelSpec:
                 f"python -m mcgyvr.serving.ggufscan <gguf>"
             )
         object.__setattr__(self, "disk_gb", measured)
-        object.__setattr__(self, "moe", bool(self.geometry.get("placeable_blocks")))
+        object.__setattr__(self, "moe", architecture_of(self.geometry) == MOE)
 
 
 @dataclass(frozen=True)
@@ -1948,6 +1953,11 @@ def _needs_geometry(spec: ModelSpec) -> str:
         f"geometry.json. --n-cpu-moe moves whole blocks, and what each block's "
         f"experts weigh is in the tensor table and nowhere else — not in a "
         f"name, a parameter count or a file size"
+        + (
+            f". A header row was found and not taken: {spec.geometry_refused}"
+            if spec.geometry_refused
+            else ""
+        )
     )
 
 

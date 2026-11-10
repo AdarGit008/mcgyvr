@@ -80,6 +80,7 @@ from mcgyvr.knowledge.record import (
     ModelRecord,
     Number,
     Weights,
+    architecture_of,
     dump_record,
     parse_record,
 )
@@ -488,8 +489,9 @@ def build_record(
     today: date,
 ) -> ModelRecord:
     """The record of one file: its bytes and hash from the model API, its
-    context, KV and recurrent figures from its header, the downloads and likes
-    from the search, each with its source and `today`."""
+    context, KV and recurrent figures and its architecture from its header, the
+    downloads and likes from the search, each number with its source and
+    `today`."""
     at = geometry.locator(repo.id, repo.sha, file.name)
     header = f"{geometry.SOURCE}:{at}"
     if file.sha256 is None:
@@ -518,6 +520,7 @@ def build_record(
         use_cases=tuple(use_cases),
         downloads=Number(one.downloads, "fact", f"hub-search:{searched}", today),
         likes=Number(one.likes, "fact", f"hub-search:{searched}", today),
+        architecture=architecture_of(row),
     )
     # Through the reader the cache is read with, so a record that says less than
     # a record must is refused here, by name.
