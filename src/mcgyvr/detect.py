@@ -77,7 +77,11 @@ class ProbeTarget:
 
 
 # The (kind, port, api) triples every default sweep is built from: the
-# conventional local port of each well-known server.
+# conventional local port of each well-known server. These are the stock
+# ports of servers mcgyvr probes but did not launch (vLLM's own default is
+# 8000); they are not what a unit mcgyvr emits listens on — that is one
+# default for every engine, `serving.DEFAULT_PORT` (8080). The setup wizard
+# reads vLLM's stock port from this list rather than spelling 8000 again.
 # Names here double as kinds for WINDOW_SOURCES lookups, and the order is
 # the order targets are probed and reported in.
 PORT_CONVENTIONS: tuple[tuple[str, int, str], ...] = (

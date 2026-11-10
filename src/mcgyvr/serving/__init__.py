@@ -53,7 +53,10 @@ DEFAULT_UBATCH = 512
 # The port a unit listens on when its address carries none. port_of()
 # falls back to it, and UnitKey, Unit and unit_for all default to it, so
 # `http://rig` and `http://rig:8080` name one process and group into one
-# unit instead of two.
+# unit instead of two. This is mcgyvr's one default for every engine: it is
+# not keyed by engine, so a portless vLLM unit resolves here too, not to
+# vLLM's own stock 8000. That stock port lives only in the detect sweep's
+# list (`detect.PORT_CONVENTIONS`), which probes servers mcgyvr did not launch.
 DEFAULT_PORT = 8080
 
 # A host's launch spec is written to `compose.<host>.yml`, or to
