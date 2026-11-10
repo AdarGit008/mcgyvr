@@ -245,3 +245,5 @@ def test_the_rule_is_the_wires_matrix(where: str) -> None:
 
     assert config.units["pool_coder"].scope == hubwire.SCOPE_ANYONE
     assert hubwire.pool_serves(hubwire.POOL_GENERAL, hubwire.MCGYVR_CODE)
+    if where == "ladder":
+        assert config.ladder.names == ("local", "pool_coder")
