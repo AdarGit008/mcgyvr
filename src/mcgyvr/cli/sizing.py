@@ -84,10 +84,15 @@ def _catalog_specs() -> tuple[ModelSpec, ...]:
     the cache over it, so a model a Hub read filed there is sized as a shipped
     one is.
 
-    Its VRAM is the file's size plus the KV cache a token takes at the whole
-    context the record states, its disk cost the file's size alone. A catalogue
-    that cannot be read is reported as a broken capability table.
+    Each is sized as `mcgyvr recommend` sizes a catalog record for one user
+    (`recommend._catalog_spec`, through the one catalog-slot law
+    `recommend._catalog_slot_bytes`): its VRAM is the file's size plus the KV
+    cache of the record's whole context padded to whole cache cells plus one
+    sequence's recurrent (state-space) bytes, its disk cost the file's size
+    alone. A catalogue that cannot be read, or a record that cannot be sized,
+    is reported as a broken capability table.
     """
+    from mcgyvr import recommend
     from mcgyvr.knowledge import store as knowledge_store
     from mcgyvr.knowledge.record import KnowledgeError
 
@@ -97,18 +102,11 @@ def _catalog_specs() -> tuple[ModelSpec, ...]:
         raise CapabilityTableError(str(exc)) from exc
     specs: list[ModelSpec] = []
     for one in records:
-        size_gib = one.size_bytes.value / (1024**3)
-        kv_gib = one.context_length.value * one.kv_bytes_per_token.value / (1024**3)
-        specs.append(
-            ModelSpec(
-                name=one.model_id,
-                vram_gb=size_gib + kv_gib,
-                ram_gb=0.0,
-                disk_gb=size_gib,
-                moe=False,
-                geometry=None,
-                kv_cache_dtype_k="f16",
-                kv_cache_dtype_v="f16",
+        spec = recommend._catalog_spec(recommend._flat(one), users=1)
+        if spec is None:
+            raise CapabilityTableError(
+                f"{one.model_id} {one.quant}: the record states no context, KV "
+                f"or recurrent figure its cache can be sized from"
             )
-        )
+        specs.append(spec)
     return tuple(specs)
