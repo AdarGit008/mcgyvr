@@ -54,9 +54,6 @@ from mcgyvr.repo.symbols import SymbolKind, extract, language_of
 #: The outcome a held contract's result is written with.
 BLOCKED = "blocked"
 
-#: The outcome a provider's climb reports when its change was accepted.
-ACCEPTED = "accepted"
-
 #: The outcome of a contract whose batch ended without settling it, and left
 #: no result to settle it from.
 ABANDONED = "abandoned"
@@ -660,6 +657,11 @@ class Tree:
 
     def _holds(self, node: _Node, definitions: _Definitions) -> tuple[list[Hold], bool]:
         """What holds `node`, and whether it still waits on anything."""
+        # The word a provider's climb reports when its change was accepted is
+        # the climb's own (`escalate.Outcome`), read here rather than at import
+        # so loading the tree does not load the climb.
+        from mcgyvr.escalate import Outcome
+
         holds: list[Hold] = []
         waiting = False
         for edge in node.edges:
@@ -697,7 +699,7 @@ class Tree:
                 if not spared:
                     reason = (
                         Reason.PROVIDER_NOT_LANDED
-                        if provider.outcome == ACCEPTED
+                        if provider.outcome == Outcome.ACCEPTED
                         else Reason.PROVIDER_FAILED
                     )
                     holds.append(Hold(reason, (named,), needs=edge.needs))

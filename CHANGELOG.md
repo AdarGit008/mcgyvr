@@ -34,6 +34,66 @@ archived outside this repository, under the same paths.
   `os.replace` or `Path.replace`, and the macOS and Windows runners replace a
   file a reader holds open.
 
+- **Fleet alerts no longer list `l2_wake_s` as a judged field.** Nothing wrote
+  it: no read measures a vLLM unit's L2 wake, and no lock approves one with a
+  seconds tolerance, so the entry in `fleet.alerts._JUDGED` could trip only in
+  its own unit test. An `l2_wake_s` row, if one is ever filed, is recorded and
+  not judged, like the cold wake. No rig's alerts change.
+
+- **The run outcome words `accepted` and `error` are spelled once, in
+  `escalate.Outcome`.** `tree.ACCEPTED` and `cli/commands/run.RAISED` repeated
+  them; the tree's provider check and the run's raised-step word and
+  correction row now read `Outcome.ACCEPTED` / `Outcome.ERROR`, imported where
+  they are used so loading the tree or the command line does not load the
+  climb. The tree's `blocked`/`abandoned` and the run's commit words stay
+  where they are: they name other stages on purpose. The words written are
+  unchanged.
+
+- **`deployment`'s two words and its default are written once, in the schema
+  field (`config.DEPLOYMENT_FIELD`).** `mcgyvr setup --deployment` took its
+  choices and the default its help names, `Config.deployment` its unset value,
+  and `mcgyvr init` the deployment it writes when none is asked for, each from
+  its own copy of `hybrid` / `local-only`; they now read the field. Every value
+  agrees with before, so nothing a user sees changes.
+
+- **A misspelled `$MCGYVR_LOCAL_TRANSPORT` is refused, not ignored.** For
+  this machine's rig names, a value that is neither `direct` nor `ssh` (after
+  trimming and lowercasing, so `Direct ` still works) used to fall through to
+  auto-detection, so a user forcing one transport could get the other; it now
+  stops with a `ValueError` naming the variable, the word and the two it
+  takes, as `$MCGYVR_NATIVE_BACKEND` already does. An unset or empty variable
+  still auto-detects, and another rig is still reached over ssh whatever the
+  word says.
+
+- **`breadth.temperature`'s default is one constant,
+  `config.BREADTH_TEMPERATURE_DEFAULT` (0.7).** The schema field reads it,
+  and so does the worker attempt when a config does not name the key, which
+  used to fall back to 0.0 and make every draw after the first a greedy copy
+  of draw 0 (the case the schema refuses at load). A loaded config always
+  carried 0.7, so a user's draws do not change; a hand-built config's draws
+  1..n-1 now sample at 0.7. Draw 0 stays greedy.
+
+- **git's empty-tree id is `gitcmd.EMPTY_TREE`, and a glob step lists its
+  files the one way.** `deliver`, `repo.repo` and `gate.changeset` each kept
+  their own copy of the id; they now import it. A step whose target is a
+  pattern (`drive.exec`) expanded it with its own `git ls-files`, which on a
+  workspace git cannot list ended `mcgyvr run` in a raw `CalledProcessError`
+  traceback; it now uses the repo index's `enumerate_files`, and the run
+  catches the named `IndexBuildError` like any other step failure: it prints
+  `error: cannot enumerate <workspace>: ...`, files the attempt's `error`
+  correction, writes an `error` result and exits 1, with no traceback.
+
+- **"Absent engine means llama.cpp" is decided once, in
+  `config.DEFAULT_ENGINE`.** The default was `serving.DEFAULT_ENGINE` and the
+  bare string in `default_launcher`, emit's unit host, the native launcher
+  check, the lock's and the sampler's unit digests, `fleet.read.engine_of`,
+  `inspect`, the sampler's window read and setup's bootstrap; each now reads
+  the one constant (`serving.DEFAULT_ENGINE` re-exports it) and the `engine`
+  field's doc quotes it. It is not made the field's schema default, so a loaded
+  unit that names no engine still has none and a stated `engine: llama.cpp`
+  stays in the setup identity: no lock digest, rendered unit or SETUP.md line
+  changes. A literal that names llama.cpp as a kind of engine stays.
+
 - **Two machine-reading designs are said and pinned; nothing behaves
   differently.** First contact with a rig over ssh is the scan's: `mcgyvr scan
   --rig`, `setup` and `recommend` send a rig with no rig file the POSIX reader,

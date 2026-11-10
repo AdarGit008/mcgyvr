@@ -94,14 +94,21 @@ def local_transport(host: str) -> bool:
 
     Only for this machine (`LOCAL_RIGS`): always on macOS and Windows, which
     run no sshd unless asked to; on Linux when nothing listens on port 22.
-    `$MCGYVR_LOCAL_TRANSPORT` (`direct` or `ssh`) decides instead. Every other
-    rig is reached over ssh.
+    `$MCGYVR_LOCAL_TRANSPORT` (`direct` or `ssh`) decides instead, and any
+    other word there is refused (`ValueError` naming the two) rather than
+    ignored, so a user forcing a transport never gets the other one. Every
+    other rig is reached over ssh.
     """
     if host not in LOCAL_RIGS:
         return False
     chosen = os.environ.get(LOCAL_TRANSPORT_ENV, "").strip().lower()
     if chosen in (TRANSPORT_DIRECT, TRANSPORT_SSH):
         return chosen == TRANSPORT_DIRECT
+    if chosen:
+        raise ValueError(
+            f"${LOCAL_TRANSPORT_ENV}={chosen!r} names no transport; it is one of "
+            f"{TRANSPORT_DIRECT}, {TRANSPORT_SSH}"
+        )
     if sys.platform in ("darwin", "win32"):
         return True
     return not _sshd_listens()

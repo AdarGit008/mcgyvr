@@ -42,6 +42,7 @@ from mcgyvr.config import (
     CHAT,
     CODE,
     CONFIG_PATH_ENV,
+    DEFAULT_ENGINE,
     DEFAULT_REQUEST_TIMEOUT_S,
     MCGYVR_CODE,
     ROLE_SLEEPER,
@@ -113,7 +114,7 @@ def unit_id(unit: Mapping[str, Any]) -> str:
         "unt-",
         {
             **native,
-            "engine": str(unit.get("engine") or "llama.cpp"),
+            "engine": str(unit.get("engine") or DEFAULT_ENGINE),
             "image": str(unit.get("image") or ""),
             "container": str(unit.get("container") or ""),
             "launch": unit.get("launch") or {},
@@ -408,7 +409,7 @@ def served(unit: Mapping[str, Any]) -> dict[str, int]:
 
     base = str(unit.get("address") or "").rstrip("/").removesuffix("/v1")
     out: dict[str, int] = {}
-    if str(unit.get("engine") or "llama.cpp") == "vllm":
+    if str(unit.get("engine") or DEFAULT_ENGINE) == "vllm":
         window = _window_from(
             _get_json(f"{base}/v1/models", 5.0), ("data", "max_model_len")
         )

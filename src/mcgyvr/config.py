@@ -155,6 +155,12 @@ MAX_REPROPOSALS_DEFAULT = 1
 MAX_SPLITS_PER_FILE_DEFAULT = 3
 MAX_REFINE_FANOUT_DEFAULT = 8
 
+#: The temperature every draw after the first samples at
+#: (`breadth.temperature`); draw 0 stays greedy whatever it says. A reader of a
+#: config that does not name the key (one built by hand) falls back to it too,
+#: so its extra draws are not greedy copies of draw 0.
+BREADTH_TEMPERATURE_DEFAULT = 0.7
+
 #: Which failure-notes records a try is shown (see `mcgyvr.notes.handed_on`):
 #: `climb` every record of the climb, `rung` this rung's previous attempt's,
 #: `none` nothing.
@@ -384,7 +390,7 @@ BREADTH_FIELDS: tuple[Field, ...] = (
         "any unit's effective draws exceed 1: identical draws buy N gate runs "
         "and nothing else. The wire field is the OpenAI-compatible "
         "`temperature`. The journal records the temperature per row.",
-        default=0.7,
+        default=BREADTH_TEMPERATURE_DEFAULT,
         min_value=0.0,
         max_value=2.0,
     ),
@@ -528,6 +534,15 @@ EXPOSES = (EXPOSE_LOCAL, EXPOSE_LAN)
 NATIVE_BY_DEFAULT = (DARWIN, WINDOWS)
 
 
+#: The engine a unit is served by when `units.<unit>.engine` states none: the
+#: one place "absent means llama.cpp" is decided. Every reader of a unit's
+#: engine falls back to it. It is not the `engine` field's schema `default`, so
+#: a loaded unit keeps `engine` unset (None) when its file says nothing, and a
+#: stated `engine: llama.cpp` stays declared in the setup identity, which lock
+#: digests are taken over.
+DEFAULT_ENGINE = "llama.cpp"
+
+
 def default_launcher(*, engine: str | None, system: str) -> str:
     """The launcher `setup` and `recommend` write for a unit.
 
@@ -537,7 +552,7 @@ def default_launcher(*, engine: str | None, system: str) -> str:
     `mcgyvr.serving.gatelib.rig_system`); `docker` otherwise, which is what a
     unit that states no launcher runs as.
     """
-    if (engine or "llama.cpp") == "llama.cpp" and system in NATIVE_BY_DEFAULT:
+    if (engine or DEFAULT_ENGINE) == "llama.cpp" and system in NATIVE_BY_DEFAULT:
         return LAUNCHER_NATIVE
     return LAUNCHER_DOCKER
 
@@ -570,11 +585,10 @@ UNIT_FIELDS: tuple[Field, ...] = (
     Field(
         "engine",
         "enum",
-        "Which server program runs behind this address. Absent means \
-"
-        "llama.cpp.",
+        "Which server program runs behind this address. Absent means "
+        f"{DEFAULT_ENGINE}.",
         choices=("llama.cpp", "vllm"),
-        bind_hint="e.g. vllm -- leave it out for llama.cpp",
+        bind_hint=f"e.g. vllm -- leave it out for {DEFAULT_ENGINE}",
     ),
     Field(
         "image",
@@ -1077,6 +1091,22 @@ VERIFIER_UNIT_FIELDS: tuple[Field, ...] = (
     *(field for field in ROLE_UNIT_FIELDS if field.name != "unit"),
 )
 
+#: The `deployment` key: its choices and default are read from here by
+#: `Config.deployment`, `mcgyvr setup --deployment` and `mcgyvr init`, so the
+#: two words and which one an unset key means are written once.
+DEPLOYMENT_FIELD = Field(
+    "deployment",
+    "enum",
+    "How mcgyvr is run. `hybrid` drives it from an API-tier "
+    "orchestrator in the user's session; scoped work is offloaded to the "
+    "local cheap-to-dear ladder, whose dearest rung is an API model so a "
+    "task always completes. `local-only` makes mcgyvr the backend: "
+    "`mcgyvr-code` provisions a local orchestrator unit, and a raw use case "
+    "(`code`, `chat`, `agent`) is just the ladder serving its model.",
+    choices=("hybrid", "local-only"),
+    default="hybrid",
+)
+
 SCHEMA: tuple[Field, ...] = (
     Field(
         "use_case",
@@ -1092,18 +1122,7 @@ SCHEMA: tuple[Field, ...] = (
         choices=USE_CASES,
         default=MCGYVR_CODE,
     ),
-    Field(
-        "deployment",
-        "enum",
-        "How mcgyvr is run. `hybrid` drives it from an API-tier "
-        "orchestrator in the user's session; scoped work is offloaded to the "
-        "local cheap-to-dear ladder, whose dearest rung is an API model so a "
-        "task always completes. `local-only` makes mcgyvr the backend: "
-        "`mcgyvr-code` provisions a local orchestrator unit, and a raw use case "
-        "(`code`, `chat`, `agent`) is just the ladder serving its model.",
-        choices=("hybrid", "local-only"),
-        default="hybrid",
-    ),
+    DEPLOYMENT_FIELD,
     Field(
         "units",
         "block_map",
@@ -1713,8 +1732,9 @@ class Config:
 
     @property
     def deployment(self) -> str:
-        """`deployment` from the config, `hybrid` when it is not set."""
-        return str(self.get("deployment", "hybrid"))
+        """`deployment` from the config, the schema's default (`hybrid`) when it
+        is not set."""
+        return str(self.get("deployment", DEPLOYMENT_FIELD.default))
 
     @property
     def provisions_local_orchestrator(self) -> bool:
