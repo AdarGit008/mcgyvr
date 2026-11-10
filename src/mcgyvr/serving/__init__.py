@@ -2051,12 +2051,11 @@ def _placement(
                 f"{spec.name}: the cache cannot be sized, so nothing is placed "
                 f"from an invented split: {exc}"
             ) from exc
-        return (
-            int(geometry["bytes_nonexpert"])
-            + head_bytes
-            + kv_total
-            + rs["total"]
-            + _allowance_bytes(geometry, gpu, ctx_per_slot, slots, n_ubatch)
+        return hubwire.card_bytes(
+            weights=int(geometry["bytes_nonexpert"]) + head_bytes,
+            cache=kv_total,
+            state=rs["total"],
+            allowance=_allowance_bytes(geometry, gpu, ctx_per_slot, slots, n_ubatch),
         )
 
     def floor_at(slots: int) -> int | None:

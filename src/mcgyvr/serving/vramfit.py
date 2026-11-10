@@ -31,7 +31,7 @@ rather than guessed.
 from __future__ import annotations
 
 from collections.abc import Iterable, Mapping
-from typing import Any, Literal
+from typing import Any, Literal, TypeGuard
 
 from mcgyvr import hubwire
 from mcgyvr.serving import ggufscan
@@ -72,6 +72,12 @@ SWA_PAD = hubwire.CACHE_PAD_CELLS
 context_per_sequence = hubwire.context_per_sequence
 
 
+def _count(value: object) -> TypeGuard[int | float]:
+    """Whether a row's element count is a number (an int, or a float as a geometry
+    read back from JSON may carry), never a bool."""
+    return isinstance(value, int | float) and not isinstance(value, bool)
+
+
 def cache_bytes_per_token(
     rows: Iterable[Mapping[str, Any]],
     *,
@@ -87,15 +93,21 @@ def cache_bytes_per_token(
     shipped catalog and a rig's hello state, every layer a full-context layer),
     "full" only the rows that do not slide and "sliding" only those that do --
     the two sums `kv_bytes` multiplies by its own cell counts, the window being
-    cells and not tokens. A row whose element counts are not integers raises
-    `ValueError`; so does a row whose `is_swa` is unstated when `only` asks
-    which side it falls on."""
+    cells and not tokens. A cache type with no width, a row whose element
+    counts are not numbers, and a row whose `is_swa` is unstated when `only`
+    asks which side it falls on each raise `ValueError`."""
+    for cache_type in (cache_type_k, cache_type_v):
+        if cache_type not in CACHE_ELEM_BYTES:
+            raise ValueError(
+                f"cache type {cache_type!r} has no width; llama.cpp takes "
+                f"{', '.join(LLAMACPP_CACHE_TYPES)}"
+            )
     b_k = CACHE_ELEM_BYTES[cache_type_k]
     b_v = CACHE_ELEM_BYTES[cache_type_v]
     total = 0.0
     for row in rows:
         k, v = row.get("k_elems"), row.get("v_elems")
-        if type(k) is not int or type(v) is not int:
+        if not _count(k) or not _count(v):
             raise ValueError(f"layer {row.get('layer')} states no k/v element counts")
         if only is not None:
             swa = row.get("is_swa")
@@ -103,7 +115,7 @@ def cache_bytes_per_token(
                 raise ValueError(f"layer {row.get('layer')} does not say if it slides")
             if bool(swa) != (only == "sliding"):
                 continue
-        total += k * b_k + v * b_v
+        total += float(k) * b_k + float(v) * b_v
     return total
 
 

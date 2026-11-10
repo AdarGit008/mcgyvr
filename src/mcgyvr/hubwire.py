@@ -1243,8 +1243,12 @@ PORT_MAP_PERMANENT_ONLY = "permanent_only"
 # --- the per-card fit law ------------------------------------------------------
 #
 # What one card holds of a llama.cpp layer split, defined once for the product's
-# sizer (``mcgyvr.serving.vramfit``, ``sharding``) and the hub's planner, each of
-# which keeps its own search. A card holds its blocks' weights, their caches at
+# sizer (``mcgyvr.serving.vramfit`` prices a scan for it; ``serving`` and
+# ``sharding`` add a card up with :func:`card_bytes`) and the hub's planner (its
+# reserve and buffer from :func:`card_allowance`, its cells from
+# :func:`cache_cells` and :func:`cache_bytes`), each of which keeps its own
+# search. :func:`bytes_on_card` composes them for a caller with a model's
+# per-cell figures in hand. A card holds its blocks' weights, their caches at
 # the run's context and slot count (:func:`cache_bytes`), their recurrent state,
 # and an allowance for what the engine allocates beside them
 # (:func:`card_allowance`); :func:`card_bytes` adds them up. The inputs are

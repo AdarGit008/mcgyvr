@@ -21,6 +21,7 @@ archived outside this repository, under the same paths.
   catalog record is held to the 2.0 GB headroom placement gives an unscanned
   model, so a chat or agent plan's most context is that much smaller.
   `recommend._slot_bytes` and `_host_ram_bytes` are gone.
+
 - **One per-card fit law, in `mcgyvr.hubwire`, for the sizer, a split and the
   hub's planner; the flat 768 MiB allowance is gone (I-05, I-23).** What a card
   of a llama.cpp layer split holds beside its tensors was two laws: the
@@ -44,6 +45,7 @@ archived outside this repository, under the same paths.
   768 MiB below about 128k cells of 3 KiB and more above, so the width search
   can choose fewer slots. `vramfit.SCRATCH_AND_CONTEXT_MIB` and
   `vramfit.allowance_mib` are removed (`vramfit.allowance` replaces the second).
+
 - **A llama.cpp unit's cache type is one llama.cpp takes, priced at its own
   width (I-24).** `vramfit.CACHE_ELEM_BYTES` knew f32, f16, bf16 and q8_0, so a
   unit naming q4_0, q4_1, iq4_nl, q5_0 or q5_1 (all of which llama.cpp takes)
@@ -55,6 +57,7 @@ archived outside this repository, under the same paths.
   (`serving.check_cache_types`). vLLM's names are not checked. Upgrading: a
   llama.cpp unit with such a type, which llama.cpp itself would refuse at
   launch, now stops `mcgyvr` at load instead.
+
 - **One function prices a token of cache for the catalog, a rig's hello and the
   sizer (I-46).** The catalog's `kv_bytes_per_token` (f16, every caching layer),
   the hello's (q8_0, every caching layer, rounded up) and `vramfit.kv_bytes`
