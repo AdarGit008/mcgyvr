@@ -92,7 +92,7 @@ def _product_alone(tmp_path: Path) -> Path:
 #: ``main`` as its command-line entrypoint. A single ``argparse`` parser
 #: dispatches ``detect``, ``pool``, ``scan`` and ``emit`` below the seam and
 #: ``run`` and ``contract`` above it; it imports ``mcgyvr.serving`` at module
-#: level for ``emit`` and defers ``mcgyvr.contract``/``mcgyvr.orchestrator``
+#: level for ``emit`` and defers ``mcgyvr.contract``/``mcgyvr.repo``
 #: for ``run`` and ``contract``. Neither import is a half of mcgyvr forgetting
 #: where the seam is. Written down here rather than left to a rule's silence,
 #: so that what is exempt is a name a reader can find. This is the only
@@ -144,7 +144,7 @@ def _imports_in(source: str, package: str = "mcgyvr") -> set[str]:
     Three spellings reach a module and all three are resolved, because a rule
     that only understands one of them can be walked around by writing another:
     ``import mcgyvr.contract``, ``from mcgyvr.contract import Contract``, ``from
-    mcgyvr import contract`` (``orchestrator/decompose.py``, ``cli.py``) and the
+    mcgyvr import contract`` (``decompose/decompose.py``, ``cli.py``) and the
     relative ``from . import contract`` (``docgen.py``). The last two name a
     module in the *imported names* rather than in the module path, so each name
     is followed only when ``package.name`` is a file in this tree — otherwise
