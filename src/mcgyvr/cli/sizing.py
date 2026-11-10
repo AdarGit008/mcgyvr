@@ -9,7 +9,6 @@ a `ModelSpec` the placement code can weigh.
 
 from __future__ import annotations
 
-import json
 from typing import TYPE_CHECKING
 
 from mcgyvr.capability import (
@@ -17,11 +16,11 @@ from mcgyvr.capability import (
     CapabilityTableError,
     Model,
     load,
-    table_path,
 )
 from mcgyvr.config import (
     Config,
 )
+from mcgyvr.knowledge.record import MOE
 from mcgyvr.serving import (
     ModelSpec,
     UnitError,
@@ -72,9 +71,8 @@ def _model_specs() -> tuple[ModelSpec, ...]:
     row that also answers to a second `model_id` is listed under both names.
     """
     specs: list[ModelSpec] = list(_catalog_specs())
-    architectures = _architectures()
     for model in load().models:
-        moe = architectures.get(model.id) == "moe"
+        moe = model.architecture == MOE
         specs.append(_model_spec(model, moe))
         if model.model_id is not None and model.model_id != model.id:
             specs.append(_model_spec(model, moe, name=model.model_id))
@@ -114,21 +112,3 @@ def _catalog_specs() -> tuple[ModelSpec, ...]:
             )
         )
     return tuple(specs)
-
-
-def _architectures() -> dict[str, str]:
-    """Each capability table row's id mapped to the architecture it declares.
-
-    Rows that declare no architecture are absent from the map, which is what
-    leaves them not-MoE. A table that cannot be read is a `CapabilityTableError`.
-    """
-    path = table_path()
-    try:
-        raw = json.loads(path.read_text(encoding="utf-8"))
-    except (OSError, json.JSONDecodeError) as exc:
-        raise CapabilityTableError(f"cannot read {path}: {exc}") from exc
-    return {
-        str(entry["id"]): str(entry["architecture"])
-        for entry in raw.get("models", [])
-        if entry.get("architecture")
-    }

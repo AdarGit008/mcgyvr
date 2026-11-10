@@ -30,6 +30,15 @@ from typing import Any
 #: states any other version is refused rather than read on a guess.
 SCHEMA_VERSION = 2
 
+#: The shapes a model's weights may take, as the capability table and a record
+#: state them: `dense`, every weight read for every token, or `moe`, a mixture
+#: of experts whose expert blocks `--n-cpu-moe` can move to the host. A model
+#: with a recurrent (state-space) part is still one of these; its state is
+#: priced by `recurrent_bytes_per_slot`, not named here.
+DENSE = "dense"
+MOE = "moe"
+ARCHITECTURES: tuple[str, ...] = (DENSE, MOE)
+
 #: The closed list of kinds a number may claim: a fact stated by the source it
 #: names, an estimate the model card makes about itself, or a reading taken on a
 #: machine.
