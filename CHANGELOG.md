@@ -11,6 +11,12 @@ archived outside this repository, under the same paths.
 
 ### Changed
 
+- **Fleet alerts no longer list `l2_wake_s` as a judged field.** Nothing wrote
+  it: no read measures a vLLM unit's L2 wake, and no lock approves one with a
+  seconds tolerance, so the entry in `fleet.alerts._JUDGED` could trip only in
+  its own unit test. An `l2_wake_s` row, if one is ever filed, is recorded and
+  not judged, like the cold wake. No rig's alerts change.
+
 - **The run outcome words `accepted` and `error` are spelled once, in
   `escalate.Outcome`.** `tree.ACCEPTED` and `cli/commands/run.RAISED` repeated
   them; the tree's provider check and the run's raised-step word and

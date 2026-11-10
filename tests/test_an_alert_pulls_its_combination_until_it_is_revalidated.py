@@ -6,12 +6,13 @@
   - restarts: exactly 0, with no tolerance reaching them;
   - warm decode: downward, against its locked as-run value;
   - llama.cpp card memory, steady and peak: each upward;
-  - L2 wake time: against its locked value;
   - a switch's downtime: against its dev run.
 * **Recorded, never alerted:**
   - swap and major faults, because NVMe use is allowed wherever warm decode
     holds;
-  - cold wake, vLLM RAM and Shmem, until they are measured.
+  - cold wake, L2 wake, vLLM RAM and Shmem, until they are measured: no read
+    measures an L2 wake and no lock approves one, so its row is filed and never
+    judged.
 * Dev fails on an alert. Live warns once, counts repeats, and **pulls the
   combination at once**: its units stop taking work, requests already running
   finish, and its containers stay up to be inspected, so a pull asks for no
@@ -125,21 +126,20 @@ def test_swap_and_major_faults_are_recorded_and_never_alerted(
     assert {"swap_out_pages", "swap_in_pages", "major_faults"} <= filed, filed
 
 
-def test_cold_wake_vllm_ram_and_shmem_are_recorded_until_measured_and_l2_wake_is_judged(
+def test_cold_wake_l2_wake_vllm_ram_and_shmem_are_recorded_until_measured(
     tmp_path: Path,
 ) -> None:
     alerts = _alerts()
     journal = tmp_path / "journal"
     unmeasured = [
         seen("cold_wake_s", 999.0),
+        seen("l2_wake_s", 999.0),
         seen("vllm_ram_gib", 99.0),
         seen("shmem_mib", 99999.0),
     ]
     assert check(alerts, unmeasured, journal) == []
     filed = {row.get("field") for row in rows(journal)}
-    assert {"cold_wake_s", "vllm_ram_gib", "shmem_mib"} <= filed, filed
-    raised = check(alerts, [seen("l2_wake_s", 0.5)], tmp_path / "l2")
-    assert [(a["field"], a["direction"]) for a in raised] == [("l2_wake_s", "up")]
+    assert {"cold_wake_s", "l2_wake_s", "vllm_ram_gib", "shmem_mib"} <= filed, filed
 
 
 def test_a_live_switch_slower_than_its_dev_run_alerts_naming_the_switch(
