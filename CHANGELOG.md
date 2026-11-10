@@ -11,6 +11,14 @@ archived outside this repository, under the same paths.
 
 ### Changed
 
+- **`mcgyvr detect` finds Docker as the reader finds its tools (I-139).**
+  `detect._run` and `detect_docker` looked the program up with `shutil.which`,
+  which on Windows tries the working folder first and everywhere searches a
+  relative PATH entry; they now use `hostos.which_absolute`, PATH's absolute
+  folders only, and run the path that was found. A `docker` reachable only
+  through the working folder or a relative PATH entry now reads as "not on
+  PATH". The `docker info` check itself and the CPU count are unchanged.
+
 - **A relative `$XDG_CACHE_HOME` is passed over, as a relative
   `$XDG_STATE_HOME` already was (I-146).** `hostos.user_cache_dir` took any
   value, so `XDG_CACHE_HOME=cache` put the model index under whatever folder a
