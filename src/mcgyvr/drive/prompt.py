@@ -126,7 +126,6 @@ def dispatch_prompt(
     contract: Contract,
     *,
     capacity: Capacity | None = None,
-    response_schema: dict[str, Any] | None = None,
     timeout_s: float | None = None,
     temperature: float | None = None,
     window_fraction: float | None = None,
@@ -138,7 +137,7 @@ def dispatch_prompt(
     is then the unit's maximum within the room the prompt's measured tokens leave
     (`unit_max`) — never a number the contract states — and the `Request`
     carries the prompt's
-    system and user text, that cap, the cap's basis, the response schema, and the
+    system and user text, that cap, the cap's basis, and the
     timeout and temperature when they are not None — those two fields are omitted
     from the request rather than sent as nulls. `capacity`, when given, is passed
     on to the drive layer's dispatch, which holds it across the call.
@@ -156,7 +155,6 @@ def dispatch_prompt(
         "system": prompt.system,
         "max_output_tokens": cap.tokens,
         "cap_basis": cap.basis,
-        "response_schema": response_schema,
     }
     if timeout_s is not None:
         fields["timeout_s"] = timeout_s

@@ -1536,6 +1536,15 @@ archived outside this repository, under the same paths.
 
 ### Removed
 
+- **A request no longer pins a response schema or offers tools (I-94).**
+  `Request.response_schema` and `Request.tools` go, with the strict
+  `response_format` and the `tools`/`tool_choice` the chat completions path
+  sent for them, `Runner.honours_response_schema` and the note a path without
+  a schema parameter added, `worker.reply.parse_pinned` and its field picker,
+  and `dispatch_prompt`'s `response_schema` argument. No product path set
+  either: a whole-file reply is the fenced block `parse_reply` reads, as
+  before. A tool call a backend returns is still read and counted.
+
 - **Serving and rig paths nothing called are cut (I-75, I-81, I-82, I-103,
   I-143, I-154, I-157).** `session_status` takes no `progress_pct` (no caller
   sent one; the hub's schema keeps its optional field). The capability table

@@ -321,21 +321,18 @@ def test_every_field_the_runner_sends_is_one_the_hub_forwards(
 
     pool = source_map(parse(_SETUP))
     posted = _posted(monkeypatch, runner)
-    tool = {"type": "function", "function": {"name": "f", "parameters": {}}}
     ask = runner.Request(
         prompt="hello",
         system="be brief",
         max_output_tokens=16,
         temperature=0.7,
-        response_schema={"type": "object"},
-        tools=(tool,),
     )
     # The reply is not the point: what was sent is.
     with contextlib.suppress(runner.RunnerError):
         runner.runner_for(pool.bind("local")).generate("coder-7b", ask)
 
     (payload,) = posted
-    assert {"response_format", "tools", "max_tokens", "temperature"} <= set(payload)
+    assert {"max_tokens", "temperature"} <= set(payload)
     assert set(payload) - hubwire.FORWARDED_FIELDS == set()
 
 

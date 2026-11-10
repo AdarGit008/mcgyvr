@@ -25,7 +25,6 @@ import re
 import tempfile
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Any
 
 from mcgyvr.contract import UNIFIED_DIFF as UNIFIED_DIFF
 from mcgyvr.contract import WHOLE_FILE as WHOLE_FILE
@@ -33,10 +32,8 @@ from mcgyvr.gitcmd import run_git
 from mcgyvr.runner import Completion, StopReason
 from mcgyvr.scope import inside
 
-# The JSON field a schema-pinned reply is expected to carry the file text in, and the
-# field assumed when a pinned schema names no single string property. It is also the
-# field of the `{"content": ...}` envelope an unpinned whole-file reply may arrive in,
-# which is unwrapped before its text is judged.
+# The field of the `{"content": ...}` envelope a whole-file reply may arrive in, which
+# is unwrapped before its text is judged.
 _ENVELOPE_FIELD = "content"
 
 #: FENCE_OPEN matches a line that opens a fence: at most three leading spaces, three
@@ -104,8 +101,8 @@ def _carries_no_code(body: str, target: str) -> bool:
     return True
 
 
-def _carried_file(text: str, field: str = _ENVELOPE_FIELD) -> str | None:
-    """The text a JSON envelope carries in `field`, or None when `text` is not a
+def _carried_file(text: str) -> str | None:
+    """The text a JSON envelope carries in `content`, or None when `text` is not a
     JSON object, or that field is missing, blank, or not a string."""
     stripped = text.strip()
     if not stripped.startswith("{"):
@@ -116,40 +113,10 @@ def _carried_file(text: str, field: str = _ENVELOPE_FIELD) -> str | None:
         return None
     if not isinstance(carrier, dict):
         return None
-    carried = carrier.get(field)
+    carried = carrier.get(_ENVELOPE_FIELD)
     if not isinstance(carried, str) or not carried.strip():
         return None
     return carried
-
-
-def _schema_field(schema: dict[str, Any]) -> str:
-    """The property of a pinned schema that holds the file text: the first
-    required string property, else the only string property, else `content`."""
-    properties = schema.get("properties")
-    if not isinstance(properties, dict):
-        return _ENVELOPE_FIELD
-    strings = [
-        name
-        for name, spec in properties.items()
-        if isinstance(name, str) and isinstance(spec, dict) and _is_string_type(spec)
-    ]
-    required = schema.get("required")
-    if isinstance(required, list):
-        for name in required:
-            if isinstance(name, str) and name in strings:
-                return name
-    if len(strings) == 1:
-        return strings[0]
-    return _ENVELOPE_FIELD
-
-
-def _is_string_type(spec: dict[str, Any]) -> bool:
-    """Whether a schema type spec admits a string: `"string"`, or a type list
-    with `"string"` among its entries."""
-    kind = spec.get("type")
-    if isinstance(kind, str):
-        return kind == "string"
-    return isinstance(kind, list) and "string" in kind
 
 
 def _as_file(content: str) -> str:
@@ -574,8 +541,8 @@ def parse_reply(
 ) -> ParsedFile | ReplyError:
     """Parse a reply into the text to write, or a ReplyError saying why not.
 
-    A whole-file reply must be one closed fenced block, which an unpinned reply
-    may itself wrap a JSON envelope around. With no `target`, nothing is judged
+    A whole-file reply must be one closed fenced block, which the reply may
+    itself wrap a JSON envelope around. With no `target`, nothing is judged
     about the content; with one, a block that carries no code for that extension
     is refused as a refusal.
 
@@ -614,60 +581,3 @@ def parse_reply(
     if _carries_no_code(parsed.content, target):
         return _refusal(target)
     return parsed
-
-
-def parse_pinned(
-    text: str,
-    *,
-    response_schema: dict[str, Any] | None,
-    output_schema: str = WHOLE_FILE,
-    stop_reason: StopReason = StopReason.COMPLETE,
-    target: str | None = None,
-) -> ParsedFile | ReplyError:
-    """Parse a reply whose request pinned a response schema.
-
-    The file text is read from the schema's string field, falling back to a single
-    fenced block when the text is not that envelope. A block that cannot be the
-    file on its own terms (no target, or no code for the target) is unwrapped once
-    more in case the block itself is the envelope. No schema at all means
-    `parse_reply`.
-    """
-    if response_schema is None:
-        return parse_reply(
-            text, output_schema=output_schema, stop_reason=stop_reason, target=target
-        )
-
-    unreadable = _unreadable(output_schema, stop_reason)
-    if unreadable is not None:
-        return unreadable
-    if output_schema != WHOLE_FILE:
-        # A pinned schema carries the file text in a field; a diff has no field
-        # of its own to arrive in, so it is never asked for through a pin.
-        return ReplyError(
-            "unsupported-schema",
-            f"a pinned response schema carries a {WHOLE_FILE!r} reply; "
-            f"{output_schema!r} is parsed unpinned, by parse_reply",
-        )
-
-    field = _schema_field(response_schema)
-    info = ""
-    carried = _carried_file(text, field)
-    if carried is None:
-        # Not the envelope at the top level, so the reply may be a plain fenced block,
-        # or a fenced block whose body is the envelope. Either way the fence rules
-        # still hold, so _fenced parses it and a malformed reply keeps its named error.
-        # The block's text is then unwrapped from the field, but only where the block
-        # cannot be the file itself: no target to judge it against, or content that
-        # carries no code for the target.
-        parsed = _fenced(text, output_schema=output_schema, stop_reason=stop_reason)
-        if isinstance(parsed, ReplyError):
-            return parsed
-        info = parsed.info_string
-        carried = parsed.content
-        if target is None or _carries_no_code(carried, target):
-            carried = _carried_file(carried, field) or carried
-
-    content = _as_file(carried)
-    if target is not None and _carries_no_code(content, target):
-        return _refusal(target)
-    return ParsedFile(content=content, info_string=info)
