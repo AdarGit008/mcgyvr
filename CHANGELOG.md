@@ -7,6 +7,9 @@ Paths in older entries are where files were when the entry was written.
 `records/plans/`, `docs/` and the write-ups under `records/` are now
 archived outside this repository, under the same paths.
 
+Released sections are kept as they were written, as history: some of their
+entries name development tooling, flags and records outside this repository.
+
 ## [Unreleased]
 
 ### Changed
@@ -1682,8 +1685,7 @@ archived outside this repository, under the same paths.
 - `launch:` keys `cpu_only` and `vae_decode_gb` are no longer read. Launch is
   free-form, so a stale key is ignored rather than refused.
 - The root `package.json` and lockfile now pin only `prettier` (`eslint`,
-  `@eslint/js`, `typescript` and `typescript-eslint` are dropped); the eslint
-  and prettier configs stay for the lab bench.
+  `@eslint/js`, `typescript` and `typescript-eslint` are dropped).
 - **The `safety_pass` check is gone.** It shelled out to a `safety-classifier`
   binary that no implementation of existed anywhere, so the `agent` setup
   sample, which ran it on its reply, could never pass. Removed: the
