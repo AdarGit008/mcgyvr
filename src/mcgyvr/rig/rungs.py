@@ -57,7 +57,12 @@ from mcgyvr.config import (
     config_path,
     parse,
 )
-from mcgyvr.fleet.files import RELIEF_KEY_ENV, FleetFileError, relief_key_env
+from mcgyvr.fleet.files import (
+    KEY_ENV_FIELD,
+    FleetFileError,
+    crew_key_env,
+    recorded_key_env,
+)
 from mcgyvr.hubwire import (
     LADDER_MAX_RUNGS,
     LADDER_MODEL,
@@ -545,7 +550,7 @@ def render(rides: Rides, key_env: str, scope: str = RIDE_SCOPE) -> str:
     """The ``relief.yaml`` text for one answer.
 
     ``key_env``, the NAME of the variable the key was read from, is recorded
-    beside the rungs (:data:`mcgyvr.fleet.files.RELIEF_KEY_ENV`), so the
+    beside the rungs (:data:`mcgyvr.fleet.files.KEY_ENV_FIELD`), so the
     agent's refresh reads the key where this sync did (:func:`key_env`). Every
     rung becomes a block under ``relief``, keyed by its name and carrying
     its address, model, key variable name, width, position, host, served model,
@@ -581,26 +586,35 @@ def render(rides: Rides, key_env: str, scope: str = RIDE_SCOPE) -> str:
         "# until rig identity signs it, the key is the hub's word (SECURITY.md).\n"
     )
     return header + yaml.safe_dump(
-        {RELIEF_KEY_ENV: key_env, "relief": block}, sort_keys=False
+        {KEY_ENV_FIELD: key_env, "relief": block}, sort_keys=False
     )
 
 
 def key_env(folder: Path) -> str:
     """The NAME of the variable a sync of the setup in ``folder`` reads the
     personal hub key from: the one its ``relief.yaml`` records, as the last
-    ``mcgyvr rig rungs sync`` was told it, else :data:`KEY_ENV`.
+    ``mcgyvr rig rungs sync`` was told it; where it records none, the one its
+    ``crew.yaml`` units name, as ``mcgyvr rig crew sync`` was; else
+    :data:`KEY_ENV`.
 
-    A file that cannot be read, or records something not a variable's name,
-    raises :class:`SyncError`.
+    A file that cannot be read, does not load, or names something not a
+    variable's name raises :class:`SyncError`.
     """
-    path = folder / RELIEF_FILENAME
-    text = _read_text(path)
-    if not text.strip():
-        return KEY_ENV
-    try:
-        return relief_key_env(text) or KEY_ENV
-    except FleetFileError as exc:
-        raise SyncError(f"{path}: {exc}") from exc
+    for filename, read in (
+        (RELIEF_FILENAME, recorded_key_env),
+        (CREW_FILENAME, crew_key_env),
+    ):
+        path = folder / filename
+        text = _read_text(path)
+        if not text.strip():
+            continue
+        try:
+            named = read(text)
+        except FleetFileError as exc:
+            raise SyncError(f"{path}: {exc}") from exc
+        if named is not None:
+            return named
+    return KEY_ENV
 
 
 def _read_text(path: Path) -> str:
@@ -874,7 +888,9 @@ def refresher_for(
     names (:func:`key_env`): that variable must hold a key or nothing is synced
     at all. Each run reads the name and the key again, since a sync by hand may
     have named another variable since, or the key been removed, and writes the
-    name back as it read it. The refresher's ``key_env`` is the name read here.
+    name back as it read it; where the file does not load, the run takes the
+    name read here and the sync rewrites the file, as it always has. The
+    refresher's ``key_env`` is the name read here.
     """
 
     def setup() -> Path:
@@ -893,7 +909,10 @@ def refresher_for(
 
     def once() -> Rides:
         where = setup()
-        name = key_env(where)
+        try:
+            name = key_env(where)
+        except SyncError:
+            name = named  # the sync reads the setup without it and rewrites it
         key = environ.get(name)
         if not key:
             raise SyncError(f"${name} is no longer set")

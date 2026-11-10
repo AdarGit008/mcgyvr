@@ -727,8 +727,8 @@ def _say_lent(report: Any) -> None:
 
 def _say_credits(hub: str) -> None:
     """Print the member's balance as the hub answers it, asked with the
-    personal hub key in the variable the setup's ``relief.yaml`` names
-    (``$MCGYVR_HUB_API_KEY`` where it names none); a note when it is not read."""
+    personal hub key in the variable the setup's syncs name (:func:`rungs.key_env`,
+    ``$MCGYVR_HUB_API_KEY`` where they name none); a note when it is not read."""
     from mcgyvr.config import ConfigError, config_path
     from mcgyvr.rig import agent, rungs
 

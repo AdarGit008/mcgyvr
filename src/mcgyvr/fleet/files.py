@@ -143,7 +143,7 @@ _RELIEF_FILE_KEYS = frozenset({"relief"})
 #: the rider's personal hub key, as `mcgyvr rig rungs sync` was told it
 #: (`--key-env`), so the rig agent's refresh and `mcgyvr rig status` read the
 #: key from the same variable. It is the name, never the key.
-RELIEF_KEY_ENV = "api_key_env"
+KEY_ENV_FIELD = "api_key_env"
 
 #: The one key `crew.yaml` may carry, and the keys each of its units may: what
 #: `mcgyvr rig crew sync` writes. Its units join `units` as they are.
@@ -483,21 +483,21 @@ def load_relief(text: str) -> dict[str, Any]:
 
     The `relief` entry and each unit's block are checked only as blocks of text
     keys and kept as given, since their fields are the schema's. The
-    `RELIEF_KEY_ENV` beside it must be a variable's name and is left out: it is
-    the sync's, read by `relief_key_env`, not the setup's. Any other key raises
+    `KEY_ENV_FIELD` beside it must be a variable's name and is left out: it is
+    the sync's, read by `recorded_key_env`, not the setup's. Any other key raises
     `FleetFileError`; nothing here joins `units` or the ladder.
     """
-    return _relief(_document(_yaml(text), "relief.yaml"))
+    return _rides_block(_document(_yaml(text), "relief.yaml"))
 
 
-def _relief(given: Mapping[str, Any]) -> dict[str, Any]:
+def _rides_block(given: Mapping[str, Any]) -> dict[str, Any]:
     data: dict[str, Any] = {}
     for key, value in given.items():
-        if key == RELIEF_KEY_ENV:
+        if key == KEY_ENV_FIELD:
             _key_env(value, f"relief.yaml: {key}")
             continue
         if key not in _RELIEF_FILE_KEYS:
-            _unknown_key(key, "relief.yaml", _RELIEF_FILE_KEYS | {RELIEF_KEY_ENV})
+            _unknown_key(key, "relief.yaml", _RELIEF_FILE_KEYS | {KEY_ENV_FIELD})
         entries = _document(value, "relief.yaml: relief")
         data[key] = {
             name: _document(block, f"relief.yaml: relief.{name}")
@@ -506,23 +506,38 @@ def _relief(given: Mapping[str, Any]) -> dict[str, Any]:
     return data
 
 
-def relief_key_env(text: str) -> str | None:
+def recorded_key_env(text: str) -> str | None:
     """The variable name `relief.yaml` text records the personal hub key in.
 
-    That is its top-level `RELIEF_KEY_ENV`; in a file written before it was
+    That is its top-level `KEY_ENV_FIELD`; in a file written before it was
     recorded there, the `api_key_env` every relief rung names when they all
     name one. `None` where it records none: no rung, or rungs naming several.
     A name that is not a variable's raises `FleetFileError`, as a file that
     does not load does.
     """
     given = _document(_yaml(text), "relief.yaml")
-    rungs = _relief(given).get("relief", {})
-    if RELIEF_KEY_ENV in given:
-        return str(given[RELIEF_KEY_ENV])
+    rungs = _rides_block(given).get("relief", {})
+    if KEY_ENV_FIELD in given:
+        return str(given[KEY_ENV_FIELD])
+    return _carried_key_env(rungs, "relief.yaml: relief")
+
+
+def crew_key_env(text: str) -> str | None:
+    """The variable name `crew.yaml` text reads the personal hub key from: the
+    `api_key_env` every crew unit names when they all name one, as
+    `mcgyvr rig crew sync` was told it. `None` where they name none or several.
+    A name that is not a variable's raises `FleetFileError`, as a file that
+    does not load does."""
+    return _carried_key_env(load_crew(text).get("crew", {}), "crew.yaml: crew")
+
+
+def _carried_key_env(units: Mapping[str, Any], where: str) -> str | None:
+    """The one `KEY_ENV_FIELD` the blocks in `units` name, each checked as a
+    variable's name; `None` where they name none or several."""
     named = {
-        _key_env(block[RELIEF_KEY_ENV], f"relief.yaml: relief.{name}.{RELIEF_KEY_ENV}")
-        for name, block in rungs.items()
-        if RELIEF_KEY_ENV in block
+        _key_env(block[KEY_ENV_FIELD], f"{where}.{name}.{KEY_ENV_FIELD}")
+        for name, block in units.items()
+        if KEY_ENV_FIELD in block
     }
     return named.pop() if len(named) == 1 else None
 

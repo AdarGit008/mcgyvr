@@ -10,8 +10,10 @@ refresh and ``rig status`` read the name back from there:
   syncs asks with that key and writes the same name back, so a refresh never
   resets it to the default, even with ``MCGYVR_HUB_API_KEY`` set too;
 * a ``relief.yaml`` written before the name was recorded there is read by the
-  ``api_key_env`` its rungs name; with no rung, or no file, the name is the
-  default;
+  ``api_key_env`` its rungs name; with none recorded there, the name the
+  ``crew.yaml`` units carry (``rig crew sync --key-env``); else the default;
+* a ``relief.yaml`` that does not load is rewritten by the next refresh, as it
+  always was, under the name read when the refresher was made;
 * ``rig status`` asks for the credits with the key in the recorded variable.
 
 A recorded name that is not a variable's is refused, as the flag refuses it.
@@ -25,7 +27,7 @@ from pathlib import Path
 
 import pytest
 
-from mcgyvr.fleet.files import FleetFileError, load_relief, relief_key_env
+from mcgyvr.fleet.files import FleetFileError, load_relief, recorded_key_env
 from mcgyvr.rig import rungs
 from tests.rigsyncs import (
     FIRST,
@@ -52,7 +54,7 @@ def hub(setup: Path) -> Iterator[Hub]:
         yield made
 
 
-def _relief(setup: Path) -> str:
+def _rides_file(setup: Path) -> str:
     return (setup / "relief.yaml").read_text(encoding="utf-8")
 
 
@@ -81,10 +83,10 @@ def test_a_sync_records_the_variables_name_beside_the_rungs(
 ) -> None:
     _synced_by_hand_with_the_custom_name(setup, hub, monkeypatch, FIRST)
 
-    assert f"api_key_env: {CUSTOM}\nrelief:\n" in _relief(setup)
-    assert relief_key_env(_relief(setup)) == CUSTOM
+    assert f"api_key_env: {CUSTOM}\nrelief:\n" in _rides_file(setup)
+    assert recorded_key_env(_rides_file(setup)) == CUSTOM
     assert rungs.key_env(setup) == CUSTOM
-    assert KEY not in _relief(setup)
+    assert KEY not in _rides_file(setup)
 
 
 def test_the_name_is_recorded_when_the_hub_lists_no_rung(
@@ -92,7 +94,7 @@ def test_the_name_is_recorded_when_the_hub_lists_no_rung(
 ) -> None:
     _synced_by_hand_with_the_custom_name(setup, hub, monkeypatch)
 
-    assert "relief: {}" in _relief(setup)
+    assert "relief: {}" in _rides_file(setup)
     assert rungs.key_env(setup) == CUSTOM
 
 
@@ -146,7 +148,7 @@ def test_a_refresh_writes_the_recorded_name_back_not_the_default(
 
     assert hub.asked[-1]["authorization"] == f"Bearer {KEY}"
     assert rungs.key_env(setup) == CUSTOM
-    (only,) = load_relief(_relief(setup))["relief"].values()
+    (only,) = load_relief(_rides_file(setup))["relief"].values()
     assert only["api_key_env"] == CUSTOM
 
 
@@ -159,7 +161,7 @@ def test_no_refresher_is_made_when_the_recorded_variable_is_unset(
     assert rungs.refresher_for(hub.address, environ=environ, folder=setup) is None
 
 
-def test_with_no_relief_file_the_refresher_reads_the_default(
+def test_with_no_rides_file_the_refresher_reads_the_default(
     setup: Path, hub: Hub
 ) -> None:
     environ = {"MCGYVR_HUB_API_KEY": KEY}
@@ -170,6 +172,38 @@ def test_with_no_relief_file_the_refresher_reads_the_default(
     hub.answer(hub.listing(FIRST))
     _refresh(made)
     assert hub.asked[-1]["authorization"] == f"Bearer {KEY}"
+    assert rungs.key_env(setup) == rungs.KEY_ENV
+
+
+@pytest.mark.parametrize(
+    "broken", ["relief: [\n", "something_new: 1\nrelief: {}\n"], ids=["yaml", "key"]
+)
+def test_a_refresh_rewrites_a_file_that_does_not_load(
+    setup: Path, hub: Hub, monkeypatch: pytest.MonkeyPatch, broken: str
+) -> None:
+    _synced_by_hand_with_the_custom_name(setup, hub, monkeypatch, FIRST)
+    made = rungs.refresher_for(hub.address, environ={CUSTOM: KEY}, folder=setup)
+    assert made is not None
+    (setup / "relief.yaml").write_text(broken, encoding="utf-8")
+
+    _refresh(made)
+
+    assert len(hub.asked) == 2
+    assert hub.asked[-1]["authorization"] == f"Bearer {KEY}"
+    assert rungs.key_env(setup) == CUSTOM
+
+
+def test_a_refresher_made_beside_a_file_that_does_not_load_still_rewrites_it(
+    setup: Path, hub: Hub
+) -> None:
+    (setup / "relief.yaml").write_text("relief: [\n", encoding="utf-8")
+    hub.answer(hub.listing(FIRST))
+
+    made = rungs.refresher_for(hub.address, environ={rungs.KEY_ENV: KEY}, folder=setup)
+    assert made is not None
+    _refresh(made)
+
+    assert len(hub.asked) == 1
     assert rungs.key_env(setup) == rungs.KEY_ENV
 
 
@@ -202,8 +236,54 @@ def test_an_older_file_naming_no_other_variable_keeps_the_default(
     assert rungs.key_env(tmp_path) == rungs.KEY_ENV
 
 
-def test_with_no_relief_file_the_name_is_the_default(tmp_path: Path) -> None:
+def test_with_no_rides_file_the_name_is_the_default(tmp_path: Path) -> None:
     assert rungs.key_env(tmp_path) == rungs.KEY_ENV
+
+
+# --- a rider who syncs only crew units ---------------------------------------------
+
+
+def _crew(api_key_env: str) -> str:
+    return (
+        "crew:\n"
+        "  crew-coder:\n"
+        "    address: https://hub.example.org/api/v1\n"
+        "    model: coder\n"
+        f"    api_key_env: {api_key_env}\n"
+        "    width: 1\n"
+        "    scope: crew\n"
+    )
+
+
+def test_with_no_name_recorded_the_crew_units_name_is_read(tmp_path: Path) -> None:
+    (tmp_path / "crew.yaml").write_text(_crew(CUSTOM), encoding="utf-8")
+
+    assert rungs.key_env(tmp_path) == CUSTOM
+
+
+def test_the_name_recorded_beside_the_rungs_comes_before_the_crew_units(
+    tmp_path: Path,
+) -> None:
+    (tmp_path / "crew.yaml").write_text(_crew("CREW_ONLY_KEY"), encoding="utf-8")
+    (tmp_path / "relief.yaml").write_text(
+        f"api_key_env: {CUSTOM}\nrelief: {{}}\n", encoding="utf-8"
+    )
+
+    assert rungs.key_env(tmp_path) == CUSTOM
+
+
+def test_status_reads_the_crew_units_name_for_a_rider_with_no_rungs_file(
+    setup: Path, monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
+) -> None:
+    from mcgyvr.rig import verbs
+
+    (setup / "crew.yaml").write_text(_crew(CUSTOM), encoding="utf-8")
+    monkeypatch.delenv("MCGYVR_HUB_API_KEY")
+    capsys.readouterr()
+
+    verbs._say_credits("https://hub.example.org")
+
+    assert f"set ${CUSTOM} to your personal hub key" in capsys.readouterr().out
 
 
 @pytest.mark.parametrize("value", ["'mhu key with spaces'", "1ST", "[A, B]", "''"])
