@@ -2,7 +2,7 @@
 
 D12 was originally two statements. The first — *the context budget is sized from
 the model the context is being assembled for* — is withdrawn. It was ported into
-``mcgyvr.orchestrator.read`` as a second entry point taking a model id, it never
+``mcgyvr.repo.read`` as a second entry point taking a model id, it never
 acquired a caller under ``src/``, and action 18 deleted it: a lever nothing pulls
 is not a behavior mcgyvr has, it is a function its own tests exercise. Whatever a
 budget is eventually derived from, it is derived where a rung is chosen, and the
@@ -30,7 +30,7 @@ failure mode that leaves no trace anywhere else.
 Every deferral is asserted to carry a non-zero cost, because a deferral that
 cannot say what it would have cost gives a caller nothing to decide with, and
 deciding is the entire reason
-:attr:`~mcgyvr.orchestrator.read.Exploration.exhausted` exists.
+:attr:`~mcgyvr.repo.read.Exploration.exhausted` exists.
 
 Nothing here dispatches. No backend is contacted and no token is bought.
 """
@@ -41,9 +41,9 @@ from pathlib import Path
 
 import pytest
 
-from mcgyvr.orchestrator.index import Index, build_index
-from mcgyvr.orchestrator.read import Exploration, explore
-from mcgyvr.orchestrator.resolve import Resolution, resolve
+from mcgyvr.repo.index import Index, build_index
+from mcgyvr.repo.read import Exploration, explore
+from mcgyvr.repo.resolve import Resolution, resolve
 from tests._helpers import git
 
 QUERY = "fetch retry backoff"

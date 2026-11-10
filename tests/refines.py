@@ -22,10 +22,10 @@ from pathlib import Path
 from typing import Any
 
 from mcgyvr.decision import BoolAnswer, Choice, ChoiceAnswer, Decision, Noul, Question
+from mcgyvr.decision_log import ShadowSink
 from mcgyvr.delegate import ClassifierProposer
-from mcgyvr.orchestrator.index import Index, build_index
-from mcgyvr.orchestrator.telemetry import ShadowSink
 from mcgyvr.refine import RefiningProposer
+from mcgyvr.repo.index import Index, build_index
 
 #: The model the scripted jev's decisions are recorded under.
 MODEL = "jev-scripted:1b"

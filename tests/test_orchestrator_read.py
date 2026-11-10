@@ -17,9 +17,9 @@ from pathlib import Path
 
 import pytest
 
-from mcgyvr.orchestrator.index import Index, build_index
-from mcgyvr.orchestrator.read import ExplorationError, explore
-from mcgyvr.orchestrator.resolve import resolve
+from mcgyvr.repo.index import Index, build_index
+from mcgyvr.repo.read import ExplorationError, explore
+from mcgyvr.repo.resolve import resolve
 
 
 def git(repo: Path, *args: str) -> None:

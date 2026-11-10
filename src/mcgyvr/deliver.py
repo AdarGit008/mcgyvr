@@ -45,7 +45,7 @@ from mcgyvr.gate.findings import Finding
 from mcgyvr.gate.runner import Gate, GateResult, InconclusiveRung
 from mcgyvr.gitcmd import run_git
 from mcgyvr.hubwire import SCOPE_OWN
-from mcgyvr.orchestrator.repo import AttachedRepo
+from mcgyvr.repo.repo import AttachedRepo
 from mcgyvr.scope import OutsideTreeError, inside
 
 # git's empty tree: the object every empty tree hashes to, and the only
@@ -569,7 +569,7 @@ class _Call:
 def _root(repo: Path | str | AttachedRepo) -> Path:
     """The root of `repo`, refusing a directory that is not a git repository.
 
-    An :class:`~mcgyvr.orchestrator.repo.AttachedRepo` contributes its `root`; a
+    An :class:`~mcgyvr.repo.repo.AttachedRepo` contributes its `root`; a
     path is taken as given. A root with no ``.git`` entry (a directory, or the file
     a worktree has instead) cannot hold a commit.
     """
