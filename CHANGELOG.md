@@ -11,6 +11,28 @@ archived outside this repository, under the same paths.
 
 ### Changed
 
+- **The policy block `orchestrator` is `proposer`; a decomposition is survey,
+  scaffold, fill or draft, and vet.** policy.yaml's `orchestrator` block is
+  refused, naming `proposer`: rename the block and drop its `type` line (it
+  had one value, `proposer`, which nothing read). `proposer.authoring` is
+  `fill` (the scaffold, filled by Jev when Jev is on; the default under
+  `mcgyvr-code`) or `draft` (a model writes the proposals); `max_replans` is
+  `max_redecompositions`; fleet.yaml's `units.<u>.role` is `sleep`, its values
+  unchanged (`always-on`, `sleeps-until-needed`), and the old key is refused
+  naming `sleep`. Migration: rename the `orchestrator` block and a unit's
+  `role:` before upgrading; `authoring: classifier`/`prose` and `max_replans`
+  are still read, with a warning, for this release only, as is a contract's or
+  result file's `replan:` block, now `lineage:`. The result file's `replanned`
+  is `redecomposed`, the decision log's `orchestrator_*` kinds are
+  `proposer_*`, and `mcgyvr use` lists the stages `fill` and `redecompose`.
+  The help says `mcgyvr PROMPT` decomposes the prompt into contracts, and that
+  the session agent chooses direct or delegate while mcgyvr dispatches. For
+  Python callers: `mcgyvr.replan` is `mcgyvr.redecompose` (`Replanner` is
+  `Redecomposer`, `stamped` is `with_lineage`), and `ORCHESTRATOR_ROLE`,
+  `Orchestrator*Error`, `LocalOrchestrator`, `deterministic_proposer` and
+  `ClassifierProposer` are `PROPOSER_ROLE`, `Proposer*Error`, `LocalProposer`,
+  `scaffold_proposer` and `FillProposer`.
+
 - **Who may use a rig is one vocabulary, `own | crew | anyone`, and how a rig
   takes part is its mode, `lend | hitchhike` (I-04).** The pools the wire
   names by audience now carry the audience's name: `hubwire.POOL_SOLO`
