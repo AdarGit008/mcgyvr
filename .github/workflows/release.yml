@@ -164,20 +164,27 @@ jobs:
         if: always()
         env:
           PUBLISH: ${{ steps.mode.outputs.publish }}
+          STATUS: ${{ job.status }}
         run: |
           {
-            if [ "$PUBLISH" = true ]; then echo "## release $TAG"; else echo "## dry run $TAG — nothing published"; fi
+            if [ "$STATUS" != success ]; then
+              echo "## ${TAG:-$GITHUB_REF_NAME} — refused or failed in build, nothing published"
+            elif [ "$PUBLISH" = true ]; then
+              echo "## release $TAG"
+            else
+              echo "## dry run $TAG — nothing published"
+            fi
             echo
             if [ -n "${SETUPTOOLS_SCM_PRETEND_VERSION:-}" ]; then
               echo "Version stamped from the newest CHANGELOG section (no tag on \`$GITHUB_REF_NAME\`)."
-            else
+            elif [ -n "${TAG:-}" ]; then
               echo "Version read from the tag by hatch-vcs."
             fi
             echo
             echo '```'
             (cd dist 2>/dev/null && sha256sum -- *) || echo "no distribution built"
             echo '```'
-            if [ "$PUBLISH" != true ]; then
+            if [ "$STATUS" = success ] && [ "$PUBLISH" != true ]; then
               echo
               echo "Skipped by the dry run: \`github-release\` (gh release create) and \`pypi\`"
               echo "(trusted publishing; needs the \`pypi\` environment and the PyPI publisher, no stored secret)."

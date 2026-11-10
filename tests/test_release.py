@@ -106,10 +106,13 @@ def _git(where: Path, *args: str) -> None:
     )
 
 
-def _tagged_copy(tmp_path: Path, tag: str) -> Path:
-    """This tree's build inputs, as one commit under ``tag``."""
+def _committed_copy(
+    tmp_path: Path, extra: tuple[str, ...] = (), changelog: str | None = None
+) -> Path:
+    """This tree's build inputs (and ``extra`` entries), as one commit, with
+    ``changelog`` as its CHANGELOG.md when one is given."""
     tree = tmp_path / "tree"
-    for entry in BUILD_INPUTS:
+    for entry in (*BUILD_INPUTS, *extra):
         source, target = REPO / entry, tree / entry
         if source.is_dir():
             shutil.copytree(
@@ -118,9 +121,17 @@ def _tagged_copy(tmp_path: Path, tag: str) -> Path:
         else:
             target.parent.mkdir(parents=True, exist_ok=True)
             shutil.copy2(source, target)
+    if changelog is not None:
+        (tree / "CHANGELOG.md").write_text(changelog, encoding="utf-8")
     _git(tree, "init", "-q")
     _git(tree, "add", "-A")
     _git(tree, "commit", "-qm", "the tree under test")
+    return tree
+
+
+def _tagged_copy(tmp_path: Path, tag: str) -> Path:
+    """This tree's build inputs, as one commit under ``tag``."""
+    tree = _committed_copy(tmp_path)
     _git(tree, "tag", tag)
     return tree
 
@@ -402,23 +413,9 @@ RELEASE_CHANGELOG = """\
 """
 
 
-def _committed_copy(tmp_path: Path) -> Path:
+def _release_tree(tmp_path: Path) -> Path:
     """This tree's build inputs and its Makefile, one commit, no tag."""
-    tree = tmp_path / "tree"
-    for entry in (*BUILD_INPUTS, "Makefile"):
-        source, target = REPO / entry, tree / entry
-        if source.is_dir():
-            shutil.copytree(
-                source, target, ignore=shutil.ignore_patterns("__pycache__")
-            )
-        else:
-            target.parent.mkdir(parents=True, exist_ok=True)
-            shutil.copy2(source, target)
-    (tree / "CHANGELOG.md").write_text(RELEASE_CHANGELOG, encoding="utf-8")
-    _git(tree, "init", "-q")
-    _git(tree, "add", "-A")
-    _git(tree, "commit", "-qm", "the tree under test")
-    return tree
+    return _committed_copy(tmp_path, ("Makefile",), RELEASE_CHANGELOG)
 
 
 def _make_release(tree: Path, tmp_path: Path) -> subprocess.CompletedProcess[str]:
@@ -453,7 +450,7 @@ needs_make = pytest.mark.skipif(
 def test_make_release_runs_the_local_half_and_only_prints_the_tag(
     tmp_path: Path,
 ) -> None:
-    tree = _committed_copy(tmp_path)
+    tree = _release_tree(tmp_path)
     done = _make_release(tree, tmp_path)
     assert done.returncode == 0, done.stderr[-2000:]
     # uv leaves a `.gitignore` in its out-dir; the recipe's globs skip it.
@@ -478,7 +475,7 @@ def test_make_release_runs_the_local_half_and_only_prints_the_tag(
 def test_make_release_refuses_a_version_tagged_elsewhere_and_a_changed_tree(
     tmp_path: Path,
 ) -> None:
-    tree = _committed_copy(tmp_path)
+    tree = _release_tree(tmp_path)
     (tree / "pyproject.toml").write_text(
         (tree / "pyproject.toml").read_text() + "\n", encoding="utf-8"
     )
