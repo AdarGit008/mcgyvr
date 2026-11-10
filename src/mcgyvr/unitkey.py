@@ -12,8 +12,9 @@ into `fleet.yaml`. It carries the key under the name each engine reads it from
 (`ENV_NAMES`), and the server takes it from there.
 
 mcgyvr's own clients of that address read the same file (:func:`for_address`)
-and send the key as a bearer token: a dispatch, a status poll, the door's
-probes and the rig agent's relay. A client elsewhere is given it by
+and send the key as a bearer token: a dispatch, a status poll, setup's
+discovery, the fleet sampler's read, the door's probes and the rig agent's
+relay. Each sends it to that address alone. A client elsewhere is given it by
 `mcgyvr fleet key <unit>`. The file is written and read by
 :func:`mcgyvr.atomic.write_private` and :func:`mcgyvr.atomic.read_private`: at
 0600, never through a link, refused when another user owns it or others may

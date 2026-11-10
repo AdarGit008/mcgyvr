@@ -65,7 +65,10 @@ def stub_run(monkeypatch: pytest.MonkeyPatch, table: dict[str, str | None]) -> N
 def stub_http(monkeypatch: pytest.MonkeyPatch, table: dict[str, Any]) -> None:
     """Replace the HTTP probe with a lookup keyed on the full URL."""
     monkeypatch.setattr(
-        detect_module, "_get_json", lambda url, timeout: table.get(url), raising=True
+        detect_module,
+        "_get_json",
+        lambda url, timeout, key=None: table.get(url),
+        raising=True,
     )
 
 
@@ -244,7 +247,7 @@ def test_every_endpoint_is_probed_concurrently(
     """Wall clock must be one timeout, not one per endpoint."""
     seen: list[str] = []
 
-    def slow(url: str, timeout: float) -> Any:
+    def slow(url: str, timeout: float, key: str | None = None) -> Any:
         seen.append(url)
         return None
 
@@ -259,7 +262,7 @@ def test_a_hanging_endpoint_cannot_hang_detection(
     """urlopen's timeout is the only thing standing between us and a hang."""
     captured: list[float] = []
 
-    def record(url: str, timeout: float) -> Any:
+    def record(url: str, timeout: float, key: str | None = None) -> Any:
         captured.append(timeout)
         return None
 

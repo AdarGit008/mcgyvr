@@ -263,12 +263,16 @@ def _run(command: Sequence[str]) -> str | None:
     return done.stdout if done.returncode == 0 else None
 
 
-def _get_json(url: str, timeout: float) -> Any | None:
+def _get_json(url: str, timeout: float, *, key: str | None = None) -> Any | None:
     """GET url and parse the body as JSON, returning None on any failure:
     connection error, HTTP status error, undecodable or over-nested
-    body."""
+    body. `key`, when given, is sent as a bearer token to url alone: it is
+    not replayed to whatever address a redirect points at."""
+    request = urllib.request.Request(url)
+    if key:
+        request.add_unredirected_header("Authorization", f"Bearer {key}")
     try:
-        with urllib.request.urlopen(url, timeout=timeout) as response:
+        with urllib.request.urlopen(request, timeout=timeout) as response:
             return json.loads(response.read().decode("utf-8"))
     except (OSError, ValueError, http.client.HTTPException, RecursionError):
         return None
@@ -325,10 +329,11 @@ def _window_from(payload: Any, keys: tuple[str, ...]) -> int | None:
 
 
 def _served_window(
-    target: ProbeTarget, listing: Any, timeout: float
+    target: ProbeTarget, listing: Any, timeout: float, key: str | None = None
 ) -> tuple[int | None, str]:
     """Read the advertised context window for target, reusing listing when
-    the source path is /v1/models. Returns (window, suffix), where suffix is
+    the source path is /v1/models and asking the target's own address,
+    with `key`, otherwise. Returns (window, suffix), where suffix is
     "" when nothing was learned and otherwise a clause naming the window and
     the path it came from, to be appended to the probe's `how` text."""
     source = WINDOW_SOURCES.get(target.kind)
@@ -338,7 +343,7 @@ def _served_window(
     payload = (
         listing
         if path == "/v1/models"
-        else _get_json(target.base_url.rstrip("/") + path, timeout)
+        else _get_json(target.base_url.rstrip("/") + path, timeout, key=key)
     )
     window = _window_from(payload, keys)
     if window is None:
@@ -346,17 +351,36 @@ def _served_window(
     return window, f"; serves a {window}-token window (GET {path})"
 
 
+def _unit_key(base_url: str) -> tuple[str | None, str | None]:
+    """The key mcgyvr keeps for the unit recorded at base_url
+    (`mcgyvr.unitkey.for_address`), and why none is sent when its key file
+    cannot be trusted. The key file is named for one address, so a key is
+    only ever found for, and sent to, the address of its own unit: never to
+    another host or port a sweep tries. Answers (key, None), (None, None)
+    when no key is kept for the address, and (None, why) for a key file that
+    cannot be trusted: the probe then goes without the key, and a unit that
+    asks for one reads as not answering."""
+    from mcgyvr import unitkey
+
+    try:
+        return unitkey.for_address(base_url), None
+    except unitkey.UnitKeyError as exc:
+        return None, str(exc)
+
+
 def probe(target: ProbeTarget, timeout: float = PROBE_TIMEOUT_S) -> Backend | None:
     """Ask one target for its model list on /v1/models and describe it as a
-    Backend. Returns None when the request failed or its body did not parse
-    as JSON (a literal null included); an empty model list still counts as
-    answering."""
+    Backend, sending the key mcgyvr keeps for the target's own address when
+    it keeps one (`_unit_key`). Returns None when the request failed or its
+    body did not parse as JSON (a literal null included); an empty model
+    list still counts as answering."""
     path = "/v1/models"
     url = target.base_url.rstrip("/") + path
-    payload = _get_json(url, timeout)
+    key, _ = _unit_key(target.base_url)
+    payload = _get_json(url, timeout, key=key)
     if payload is None:
         return None
-    window, read = _served_window(target, payload, timeout)
+    window, read = _served_window(target, payload, timeout, key)
     return Backend(
         name=target.name,
         base_url=target.base_url,
@@ -534,6 +558,13 @@ def detect(
         provenance[f"backend:{backend.name}"] = backend.how
 
     notes = list(gpu_notes)
+    for target in targets:
+        _, untrusted = _unit_key(target.base_url)
+        if untrusted is not None:
+            notes.append(
+                f"Unit key: {untrusted}. {target.base_url} was asked without "
+                "its key, so a unit there that asks for one is not listed."
+            )
     if not backends:
         tried = ", ".join(t.base_url for t in targets)
         hosts = tuple(dict.fromkeys(t.host for t in targets))

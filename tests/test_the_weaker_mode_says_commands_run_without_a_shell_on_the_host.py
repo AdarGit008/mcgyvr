@@ -52,7 +52,7 @@ def test_detect_with_no_daemon_says_the_commands_run_without_a_shell(
 ) -> None:
     monkeypatch.setattr(detect_module, "_run", lambda cmd: None, raising=True)
     monkeypatch.setattr(
-        detect_module, "_get_json", lambda url, timeout: None, raising=True
+        detect_module, "_get_json", lambda url, timeout, key=None: None, raising=True
     )
     found = detect_module.detect()
     assert found.docker is False

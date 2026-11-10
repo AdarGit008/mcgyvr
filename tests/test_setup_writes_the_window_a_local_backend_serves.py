@@ -31,7 +31,10 @@ MODELS = {"data": [{"id": "small-coder"}]}
 
 def stub_http(monkeypatch: pytest.MonkeyPatch, table: dict[str, Any]) -> None:
     monkeypatch.setattr(
-        detect_module, "_get_json", lambda url, timeout: table.get(url), raising=True
+        detect_module,
+        "_get_json",
+        lambda url, timeout, key=None: table.get(url),
+        raising=True,
     )
 
 
