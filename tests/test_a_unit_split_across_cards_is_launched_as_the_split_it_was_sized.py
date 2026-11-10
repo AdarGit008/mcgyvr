@@ -16,6 +16,7 @@ Machines, cards and the model are invented.
 from __future__ import annotations
 
 import json
+from dataclasses import replace
 from pathlib import Path
 from typing import Any
 
@@ -23,7 +24,7 @@ import pytest
 
 from mcgyvr.config import Config, Ladder
 from mcgyvr.config import Unit as UnitConfig
-from mcgyvr.scan import Scan
+from mcgyvr.scan import Disk, Scan
 from mcgyvr.serving import (
     ROLE_HEADLESS,
     ROLE_RPC,
@@ -239,6 +240,35 @@ def test_a_split_that_fits_no_card_is_refused_as_the_card_being_too_small(
         units_for(
             config(tmp_path, {"shards": shards}), small, specs=(), ctx_per_slot=WINDOW
         )
+
+
+def test_a_split_whose_weights_outgrow_the_head_machines_free_disk_is_refused(
+    tmp_path: Path,
+) -> None:
+    """The split path makes the single-unit disk refusal of its own: the head
+    machine's weights folder must hold the whole model."""
+    shards = [{"rig": "box-a.example", "gpu": 0}, {"rig": "box-a.example", "gpu": 1}]
+    cramped = scans()
+    cramped["box-a.example"] = replace(
+        cramped["box-a.example"], disk=Disk(path=Path("/weights"), free_gb=10.0)
+    )
+    with pytest.raises(UnitError, match=r"GB of disk, 10\.0 GB free at /weights"):
+        units_for(
+            config(tmp_path, {"shards": shards}), cramped, specs=(), ctx_per_slot=WINDOW
+        )
+
+
+def test_a_split_whose_head_machine_has_room_on_disk_is_sized(tmp_path: Path) -> None:
+    """The refusal reads the free disk: the same split with room is sized."""
+    shards = [{"rig": "box-a.example", "gpu": 0}, {"rig": "box-a.example", "gpu": 1}]
+    roomy = scans()
+    roomy["box-a.example"] = replace(
+        roomy["box-a.example"], disk=Disk(path=Path("/weights"), free_gb=500.0)
+    )
+    (unit,) = units_for(
+        config(tmp_path, {"shards": shards}), roomy, specs=(), ctx_per_slot=WINDOW
+    )
+    assert unit.cards == (0, 1)
 
 
 def test_a_vllm_split_without_its_tensor_table_is_told_how_to_read_one(
