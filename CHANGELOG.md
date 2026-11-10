@@ -367,9 +367,9 @@ archived outside this repository, under the same paths.
   SETUP.md's *macOS and Windows* (docgen) names each system's folders, the
   native launcher and its backends, the firewall and quarantine, long paths,
   and the commands that start `mcgyvr rig run` at login (a launchd agent on
-  macOS; on Windows, a Startup-folder line). A
-  failed `mcgyvr serve` names the door's log in this system's data folder, and
-  the door's `--help` names each system's weights folder.
+  macOS; on Windows, a Startup-folder line). A failed `mcgyvr serve` names
+  the door's log in this system's data folder, and the door's `--help` names
+  each system's weights folder.
 
 - **A unit runs natively, with no container: `launcher: native` (#818).** The
   llama.cpp build mcgyvr pins (b11960, `mcgyvr.serving.llamacpp`; the Linux
