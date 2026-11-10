@@ -904,6 +904,15 @@ archived outside this repository, under the same paths.
 
 ### Fixed
 
+- A type error on a line the change added now rejects even when the type
+  checker's re-run on the base tree times out. That re-run only decides the
+  diagnostics elsewhere in the touched files; its timeout used to drop the
+  added-line findings with them, and a change with type errors was accepted
+  with only an environment note. The added-line findings now stand, the
+  off-diff diagnostics are left out, and the note
+  (`python: typecheck base re-run timed out after …`) says the comparison was
+  skipped. A timeout over the change itself is unchanged (I-57).
+
 - The `type_check` contract key and the JavaScript adapter say what a
   TypeScript type check is: `tsc --noEmit`, run as the contract's acceptance
   command and read pass or fail by its exit code. Its errors are not
