@@ -934,6 +934,21 @@ archived outside this repository, under the same paths.
 
 ### Removed
 
+- **Serving and rig paths nothing called are cut (I-75, I-81, I-82, I-103,
+  I-143, I-154, I-157).** `session_status` takes no `progress_pct` (no caller
+  sent one; the hub's schema keeps its optional field). The capability table
+  drops its `backends` block, which was shape-checked and never loaded; a
+  table that still carries it is refused by the key's name, and only the
+  shipped table is ever read. `emit.render_command` (the bare shell line) and
+  `emit.render_compose` go: `mcgyvr emit` writes through `emit_all`, and the
+  tests that called them now read the file `emit_all` writes. `Wake.deviation`
+  (always None), `Wake.predicted_s`, `predicted_wake_s` and the
+  `<host>.wake.json` record that fed only them go: a wake no longer writes it,
+  and one left by an earlier mcgyvr is read by nothing. The tolerance class no
+  longer reads `launch.flags` or `launch.n_cpu_moe`, keys nothing writes and
+  emit never applies: a fleet file that carries them by hand is classed by its
+  `argv` and `speculative` alone. `derived.lookup` goes; `lookup_all` and the
+  named getters remain.
 - **Sessions, the manager loop and the retired-name shims are gone.** `chat`
   and `agent` are no longer contract task types: `code` is the one shipped
   type, and chat and agent stay as plain use of an endpoint. Removed with
@@ -1002,6 +1017,11 @@ archived outside this repository, under the same paths.
 
 ### Fixed
 
+- **The rig's log says why the hub stopped a session or cancelled a relay
+  (I-76).** `session_stop` and `relay_cancel` carry the hub's reason; the
+  agent parsed it and dropped it. `Sessions.stop` and `Relays.cancel` now log
+  it (`session s1: the hub stops it: <reason>`, "no reason given" when the
+  frame has none). No wire change.
 - Prose says what the code does, with no behaviour change. The host's `rig
   run` and `rig join` print a run's seal key id (there is no `rig up`);
   SECURITY.md cites `Sharing.image`, `_image` and `rpc_proto=` instead of line
