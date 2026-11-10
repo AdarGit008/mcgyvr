@@ -3,9 +3,9 @@
 Offload scoped coding work from your agent to a configurable worker ladder.
 
 mcgyvr runs scoped coding work as *contracts* — one target, one task, one way
-to judge it. `mcgyvr "<prompt>"` has the proposer your setup binds plan a prompt
-into contracts; `mcgyvr direct FILE... | DIR` takes contracts you or your session
-model wrote. Either way each contract is vetted, run on a deterministic tool or up
+to judge it. `mcgyvr "<prompt>"` (delegate) decomposes a prompt into contracts
+through the proposer your setup binds; `mcgyvr direct FILE... | DIR` takes
+contracts you or your session model wrote. Either way each contract is vetted, run on a deterministic tool or up
 a ladder of local and API models, in the order its dependency tree allows, and
 only what the deterministic gate accepts is kept, as a change in your working
 tree. It never commits unless told to, and it never writes anything else into

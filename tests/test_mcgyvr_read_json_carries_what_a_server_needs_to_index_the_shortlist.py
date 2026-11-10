@@ -5,7 +5,7 @@ A server that holds no path to the user's repository has a harness run
 is this document: the request, the resolver's shortlist, the regions read,
 and — the part a server cannot get any other way — the whole text of every
 shortlisted and read file, so the server can build the same index the command
-built and run the deterministic decomposer over it.
+built and run vetting over it.
 stdout is the document and nothing else, so a reader parses it whole.
 """
 

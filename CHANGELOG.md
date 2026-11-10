@@ -21,17 +21,21 @@ archived outside this repository, under the same paths.
   unchanged (`always-on`, `sleeps-until-needed`), and the old key is refused
   naming `sleep`. Migration: rename the `orchestrator` block and a unit's
   `role:` before upgrading; `authoring: classifier`/`prose` and `max_replans`
-  are still read, with a warning, for this release only, as is a contract's or
-  result file's `replan:` block, now `lineage:`. The result file's `replanned`
-  is `redecomposed`, the decision log's `orchestrator_*` kinds are
-  `proposer_*`, and `mcgyvr use` lists the stages `fill` and `redecompose`.
-  The help says `mcgyvr PROMPT` decomposes the prompt into contracts, and that
-  the session agent chooses direct or delegate while mcgyvr dispatches. For
-  Python callers: `mcgyvr.replan` is `mcgyvr.redecompose` (`Replanner` is
-  `Redecomposer`, `stamped` is `with_lineage`), and `ORCHESTRATOR_ROLE`,
-  `Orchestrator*Error`, `LocalOrchestrator`, `deterministic_proposer` and
-  `ClassifierProposer` are `PROPOSER_ROLE`, `Proposer*Error`, `LocalProposer`,
-  `scaffold_proposer` and `FillProposer`.
+  are still read, with a warning, for this release only, as is a contract
+  file's `replan:` block, now `lineage:`. The result file's `replanned` is
+  `redecomposed`, the decision log (`--log`) is `mcgyvr.delegate_log/2`, whose
+  `orchestrator_*` kinds are `proposer_*` (and `config_no_orchestrator`
+  `config_no_proposer`); a `/1` log is still read, its old kinds read as the
+  new ones with a warning, for this release only. `mcgyvr use` lists its
+  stages `classifier`, `reviewer` and `replan` as `fill`, `verifier` and
+  `redecompose`. The help says `mcgyvr PROMPT` decomposes the prompt into
+  contracts, and that the session agent chooses direct or delegate while
+  mcgyvr dispatches. For Python callers: `mcgyvr.replan` is
+  `mcgyvr.redecompose` (`Replanner` is `Redecomposer`, `stamped` is
+  `with_lineage`), and `ORCHESTRATOR_ROLE`, `Orchestrator*Error`,
+  `LocalOrchestrator`, `deterministic_proposer` and `ClassifierProposer` are
+  `PROPOSER_ROLE`, `Proposer*Error`, `LocalProposer`, `scaffold_proposer` and
+  `FillProposer`.
 
 - **`relief.yaml` is `hitchhike.yaml`, and nothing says relief rung any
   more.** A rung a hub lends you is a hitchhike rung (slot sharing; the owner:

@@ -72,7 +72,7 @@ HELP: dict[str, tuple[str | None, str]] = {
         "PATH",
         (
             "write how this command ended to PATH as one JSON record "
-            "(mcgyvr.delegate_log/1, schema in mcgyvr.delegate_log), on every "
+            "(mcgyvr.delegate_log/2, schema in mcgyvr.delegate_log), on every "
             "exit once the arguments are read, a crash included: its `kind`, "
             "the exit code, the contracts and refusals, and the facts behind a "
             "failure. For a script that called mcgyvr; stderr is unchanged"

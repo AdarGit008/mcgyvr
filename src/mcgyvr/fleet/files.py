@@ -164,8 +164,15 @@ def _read_renamed(given: dict[str, Any]) -> dict[str, Any]:
             key = new
         out[key] = value
     block = out.get("proposer")
-    if isinstance(block, Mapping) and block.get("authoring") in OLD_AUTHORING:
-        old = str(block["authoring"])
+    authoring = block.get("authoring") if isinstance(block, Mapping) else None
+    # A value that is not text (a list, a mapping) is left to the schema to
+    # refuse: it cannot be an old name, and testing it as a key would raise.
+    if (
+        isinstance(block, Mapping)
+        and isinstance(authoring, str)
+        and (authoring in OLD_AUTHORING)
+    ):
+        old = authoring
         warn_renamed("policy.yaml: proposer.authoring", old, OLD_AUTHORING[old])
         out["proposer"] = {**block, "authoring": OLD_AUTHORING[old]}
     return out

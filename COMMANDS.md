@@ -3,10 +3,10 @@
 # mcgyvr commands
 
 Every verb and flag the `mcgyvr` parser defines, listed from the parser itself; `mcgyvr VERB -h` prints
-the same help. The bare verb, `mcgyvr PROMPT [flags]`, plans a prompt and runs it with `direct`'s flags.
-Where a flag's help says *the usual setup*, that is $MCGYVR_CONFIG, else the live fleet folder under
-$MCGYVR_HOME/fleets (default ~/.mcgyvr/fleets) that $MCGYVR_HOME/live.json (default ~/.mcgyvr/live.json)
-names — a directory holding fleet.yaml and policy.yaml.
+the same help. The bare verb, `mcgyvr PROMPT [flags]` (delegate), decomposes a prompt into contracts and
+runs them with `direct`'s flags. Where a flag's help says *the usual setup*, that is $MCGYVR_CONFIG, else
+the live fleet folder under $MCGYVR_HOME/fleets (default ~/.mcgyvr/fleets) that $MCGYVR_HOME/live.json
+(default ~/.mcgyvr/live.json) names — a directory holding fleet.yaml and policy.yaml.
 
 - `mcgyvr` — Offload scoped coding work to a configurable worker ladder.
   - `--version` — the product version, and the path of the config a run here would use.
@@ -208,7 +208,7 @@ names — a directory holding fleet.yaml and policy.yaml.
     `delivery.commit` says.
   - `--branch NAME` — commit each accepted change onto branch NAME; implies --commit.
   - `--record DIR` — also journal each run under DIR, as a complete second copy.
-  - `--log PATH` — write how this command ended to PATH as one JSON record (mcgyvr.delegate_log/1, schema
+  - `--log PATH` — write how this command ended to PATH as one JSON record (mcgyvr.delegate_log/2, schema
     in mcgyvr.delegate_log), on every exit once the arguments are read, a crash included: its `kind`, the
     exit code, the contracts and refusals, and the facts behind a failure. For a script that called
     mcgyvr; stderr is unchanged.

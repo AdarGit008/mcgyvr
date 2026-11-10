@@ -1123,9 +1123,9 @@ VERIFIER_UNIT_FIELDS: tuple[Field, ...] = (
     Field(
         "unit",
         "str",
-        "Which unit reviews. A unit is the one term. It reviews every rung's "
-        "work except work its own model wrote, because a model does not review "
-        "its own output. That work is reviewed by a fallback: the usable rung "
+        "Which unit verifies. A unit is the one term. It verifies every rung's "
+        "work except work its own model wrote, because a model does not verify "
+        "its own output. That work is verified by a fallback: the usable rung "
         "nearest this unit on the ladder whose model is not the builder's — "
         "the rungs below it first, dearest first, then the rungs above it, "
         "cheapest first. A local rung may always be the fallback; a hosted one "
@@ -1159,7 +1159,7 @@ SCHEMA: tuple[Field, ...] = (
         "enum",
         "Which of the four use cases this install serves. `mcgyvr-code` opts in "
         "to mcgyvr between the model and you: contracts proposed, vetted, run up "
-        "the ladder, gated, repaired, reviewed and re-decomposed, each stage under "
+        "the ladder, gated, repaired, verified and re-decomposed, each stage under "
         "its own switch, every one on by default. `code` (a coding model), "
         "`chat` (a text endpoint) and `agent` (an endpoint with tool-calling) "
         "serve the model raw: no stage runs, and `mcgyvr PROMPT` and `mcgyvr "

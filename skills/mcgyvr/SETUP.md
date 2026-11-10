@@ -358,7 +358,7 @@ delays the head's start; a session stopped meanwhile stops the hashing too.
 `mcgyvr use NAME` switches it (`/mcgyvr-use` is the same, typed in a chat):
 
 - `mcgyvr-code` — mcgyvr between the model and you: contracts proposed,
-  vetted, run up the ladder, gated, repaired, reviewed and re-decomposed,
+  vetted, run up the ladder, gated, repaired, verified and re-decomposed,
   each point under its own switch below, every one on by default but
   delivery (`delivery.commit` stays off). A
   policy that names no use case is `mcgyvr-code`. A batch runs
@@ -490,7 +490,7 @@ locks and waking a card are machinery, not switches.
 
 | Key | Type | Required | Default | Description |
 | --- | --- | --- | --- | --- |
-| `use_case` | one of `mcgyvr-code`, `code`, `chat`, `agent` | no | `mcgyvr-code` | Which of the four use cases this install serves. `mcgyvr-code` opts in to mcgyvr between the model and you: contracts proposed, vetted, run up the ladder, gated, repaired, reviewed and re-decomposed, each stage under its own switch, every one on by default. `code` (a coding model), `chat` (a text endpoint) and `agent` (an endpoint with tool-calling) serve the model raw: no stage runs, and `mcgyvr PROMPT` and `mcgyvr direct` refuse. `mcgyvr use NAME` switches it. Unset is `mcgyvr-code`; `coding` is refused, naming what replaced it. |
+| `use_case` | one of `mcgyvr-code`, `code`, `chat`, `agent` | no | `mcgyvr-code` | Which of the four use cases this install serves. `mcgyvr-code` opts in to mcgyvr between the model and you: contracts proposed, vetted, run up the ladder, gated, repaired, verified and re-decomposed, each stage under its own switch, every one on by default. `code` (a coding model), `chat` (a text endpoint) and `agent` (an endpoint with tool-calling) serve the model raw: no stage runs, and `mcgyvr PROMPT` and `mcgyvr direct` refuse. `mcgyvr use NAME` switches it. Unset is `mcgyvr-code`; `coding` is refused, naming what replaced it. |
 | `deployment` | one of `hybrid`, `local-only` | no | `hybrid` | How mcgyvr is run. `hybrid` drives it from the user's own API-tier session agent; scoped work is offloaded to the local cheap-to-dear ladder, whose dearest rung is an API model so a task always completes. `local-only` makes mcgyvr the backend: `mcgyvr-code` provisions a local proposer unit, and a raw use case (`code`, `chat`, `agent`) is just the ladder serving its model. |
 | `units` | block map | **yes** | — | What runs where, keyed by a name you choose. A unit carries every fact about what it is and can physically do: its address, engine, model, width, window, reply size and timeout. |
 | `ladder` | list of text | **yes** | — | The ordered list of unit names work climbs, cheapest first. A step may name a hitchhike rung, a unit a hub lent you: it is then a step and no longer ridden as a hitchhike. |
@@ -573,7 +573,7 @@ Which unit reads an applied diff in fresh context.
 | Key | Type | Required | Default | Description |
 | --- | --- | --- | --- | --- |
 | `verifier.enabled` | boolean | no | `true` | Model verification of the applied diff, on top of the gate. On unless set to `false`. With no `unit`, the verifier is the next dearer local rung whose model is not the builder's; where there is none, the work is accepted and labelled unverified. A hosted unit reviews only when `unit` names it, or stands in for a hosted `unit` as `unit` says. |
-| `verifier.unit` | text | no | unset | Which unit reviews. A unit is the one term. It reviews every rung's work except work its own model wrote, because a model does not review its own output. That work is reviewed by a fallback: the usable rung nearest this unit on the ladder whose model is not the builder's — the rungs below it first, dearest first, then the rungs above it, cheapest first. A local rung may always be the fallback; a hosted one only when this unit is hosted and the rung is below it on the ladder. The result and the journal name the fallback and say it stood in; with none, the work is accepted and labelled unverified, saying why. To bind it: name one of the units declared under `units`. |
+| `verifier.unit` | text | no | unset | Which unit verifies. A unit is the one term. It verifies every rung's work except work its own model wrote, because a model does not verify its own output. That work is verified by a fallback: the usable rung nearest this unit on the ladder whose model is not the builder's — the rungs below it first, dearest first, then the rungs above it, cheapest first. A local rung may always be the fallback; a hosted one only when this unit is hosted and the rung is below it on the ladder. The result and the journal name the fallback and say it stood in; with none, the work is accepted and labelled unverified, saying why. To bind it: name one of the units declared under `units`. |
 | `verifier.model` | text | no | unset | Model identifier as that unit names it; absent means the unit's own. To bind it: name a model the bound unit serves. |
 
 ## `jev`

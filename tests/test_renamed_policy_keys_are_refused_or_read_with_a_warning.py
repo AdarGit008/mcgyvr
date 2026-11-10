@@ -10,6 +10,7 @@ spelling. A key or value that is read for one release under its old name
 from __future__ import annotations
 
 import textwrap
+from pathlib import Path
 
 import pytest
 
@@ -28,7 +29,7 @@ FLEET = textwrap.dedent(
 
 
 def test_an_orchestrator_block_is_refused_naming_proposer() -> None:
-    with pytest.raises(ConfigSchemaError, match="proposer"):
+    with pytest.raises(ConfigSchemaError, match="`orchestrator` is now `proposer`"):
         parse(FLEET + "orchestrator:\n  unit: agent\n")
 
 
@@ -55,5 +56,39 @@ def test_a_unit_role_is_refused_naming_sleep() -> None:
         "    model: coder-30b\n    role: sleeps-until-needed\n",
     )
 
-    with pytest.raises(ConfigSchemaError, match="sleep"):
+    with pytest.raises(ConfigSchemaError, match="`role` is now `sleep`"):
         parse(text)
+
+
+@pytest.mark.parametrize("value", ["[fill]", "{fill: 1}"])
+def test_an_authoring_that_is_not_text_is_refused_by_the_schema(value: str) -> None:
+    with pytest.raises(ConfigSchemaError, match=r"proposer\.authoring"):
+        parse(FLEET + f"proposer:\n  unit: agent\n  authoring: {value}\n")
+
+
+def test_a_version_1_delegate_log_is_read_with_its_kinds_renamed(
+    tmp_path: Path,
+) -> None:
+    import json
+
+    from mcgyvr.delegate_log import OLD_SCHEMA_ID, DelegateKind, read
+
+    path = tmp_path / "log.json"
+    path.write_text(
+        json.dumps(
+            {
+                "schema": OLD_SCHEMA_ID,
+                "kind": "orchestrator_unavailable",
+                "message": "m",
+                "exit_code": 1,
+                "raw_reply_present": False,
+                "contracts": [],
+                "refusals": [],
+            }
+        )
+    )
+
+    with pytest.warns(RenamedWarning, match="proposer_unavailable"):
+        log = read(path)
+
+    assert log.kind is DelegateKind.PROPOSER_UNAVAILABLE

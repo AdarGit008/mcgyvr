@@ -3,7 +3,7 @@
 `mcgyvr PROMPT` says how it ended in English on stderr, and its exit code folds
 a dozen failures into 1, so a script that called it could only tell them apart
 by matching prose — which broke the first time the prose was reworded. With
-`--log PATH` it writes one `mcgyvr.delegate_log/1` record there on every exit
+`--log PATH` it writes one `mcgyvr.delegate_log/2` record there on every exit
 once its arguments are read: the `kind` (one per exit path), the exit code
 the process returned, the contracts and refusals, and the facts behind a
 failure as data. Each test here drives `mcgyvr.cli.main` down one exit path,

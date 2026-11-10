@@ -1258,7 +1258,7 @@ exit codes (the --log record's `kind` in brackets):
   3  refused: no proposer [config_no_proposer], a raw use case
      [use_case_raw], no contract came of the prompt or passed vetting
      [none_emitted], or a contract was held and never sent [batch_held]
-New kinds may be added under mcgyvr.delegate_log/1; a reader tolerates one it
+New kinds may be added under mcgyvr.delegate_log/2; a reader tolerates one it
 does not know."""
 
 

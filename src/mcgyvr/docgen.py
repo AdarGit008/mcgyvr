@@ -1019,7 +1019,7 @@ def _use_cases_section() -> list[str]:
         "`mcgyvr use NAME` switches it (`/mcgyvr-use` is the same, typed in a chat):",
         "",
         "- `mcgyvr-code` — mcgyvr between the model and you: contracts proposed,",
-        "  vetted, run up the ladder, gated, repaired, reviewed and re-decomposed,",
+        "  vetted, run up the ladder, gated, repaired, verified and re-decomposed,",
         "  each point under its own switch below, every one on by default but",
         "  delivery (`delivery.commit` stays off). A",
         "  policy that names no use case is `mcgyvr-code`. A batch runs",

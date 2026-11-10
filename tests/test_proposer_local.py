@@ -29,7 +29,7 @@ def test_local_only_raw_use_cases_provision_no_local_proposer(
     assert decision == LocalProposer(provision=False)
 
 
-def test_local_only_mcgyvr_code_provisions_an_proposer() -> None:
+def test_local_only_mcgyvr_code_provisions_a_proposer() -> None:
     decision = local_proposer(use_case="mcgyvr-code", local_only=True, users=4)
     assert decision.provision is True
     assert decision.width == 4

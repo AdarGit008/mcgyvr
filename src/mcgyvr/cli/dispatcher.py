@@ -198,8 +198,10 @@ def _not_a_prompt(argv: Sequence[str], commands: frozenset[str]) -> str | None:
     A removed verb is named with what took its place, and one word close to a
     command is taken for a typo of it, so neither is sent to a proposer.
     """
-    if "--proposer" in argv:
-        return "--proposer is gone: name the session with --session ID."
+    # The flag's old name, refused naming the new one (a string literal of
+    # the retired spelling, as the policy-key refusals are).
+    if "--orchestrator" in argv:
+        return "--orchestrator is gone: name the session with --session ID."
     first = argv[0]
     if first in _REMOVED:
         return f"`mcgyvr {first}` is gone: {_REMOVED[first]}."

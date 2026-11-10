@@ -54,6 +54,7 @@ def test_a_retired_orchestrator_tools_is_named_too(setup: Path) -> None:
 
     said = str(refused.value)
     assert "`orchestrator.tools`" in said and "`manager`" not in said, said
+    assert "mcorch" in said, said
 
 
 def test_the_lines_named_are_the_keys_their_blocks_and_their_comments(

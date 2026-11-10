@@ -59,7 +59,7 @@ def test_an_authoring_outside_its_choices_is_refused() -> None:
 
 def test_the_proposer_has_no_type_key() -> None:
     message = refused("type: proposer\n  unit: agent")
-    assert "type" in message
+    assert "proposer: unknown key 'type'" in message, message
 
 
 def test_setup_md_documents_the_authoring_key_as_the_schema_renders_it() -> None:
