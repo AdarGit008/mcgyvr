@@ -64,6 +64,7 @@ from mcgyvr.hubwire import (
 )
 from mcgyvr.hubwire import USE_CASES as USE_CASES
 from mcgyvr.sandbox.base import NETWORKS
+from mcgyvr.sandbox.image import DEFAULT_MAX_CACHED_IMAGES
 from mcgyvr.schema import Dialect, join_path, walk_block
 from mcgyvr.schema import Field as Field
 from mcgyvr.seal import SealKey
@@ -231,6 +232,22 @@ SANDBOX_FIELDS: tuple[Field, ...] = (
         "with `sandbox.image`. A checker the image lacks is skipped and said "
         "so, as an absent checker is on the host.",
         default=(),
+    ),
+    Field(
+        "image_cache_keep",
+        "int",
+        "How many task images of one repository the image cache keeps, a "
+        "repository being known by its directory's name. After `mode: docker` "
+        "builds a repository's image, the cached images of that directory name "
+        "beyond the newest this many are removed, and it says so on stderr; "
+        "images of another directory name are never counted or touched, so a "
+        "run of such a repository keeps the image it is about to start, and an "
+        "image a container still uses is left in place. Two checkouts whose "
+        "directories share a name (`~/work/api` and `~/oss/api`) count as one "
+        "repository here. `0` removes none. `mcgyvr sandbox --cache` lists what "
+        "is cached, and `mcgyvr sandbox --clear-cache` removes all of it.",
+        default=DEFAULT_MAX_CACHED_IMAGES,
+        min_value=0,
     ),
 )
 
