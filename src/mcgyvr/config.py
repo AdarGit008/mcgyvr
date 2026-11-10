@@ -811,7 +811,11 @@ UNIT_FIELDS: tuple[Field, ...] = (
 "
         "mcgyvr.serving.safetensorscan` row. Each card is sized from the \
 "
-        "tensor table. A split left to mcgyvr is tensor across one machine's \
+        "tensor table. A llama.cpp split charges a sliding-window layer's "
+        "cache only its window; a vLLM split charges every layer the whole "
+        "context, an upper bound until a vLLM load shows what vLLM "
+        "allocates for those layers, so a vLLM split may be refused where "
+        "it would fit. A split left to mcgyvr is tensor across one machine's \
 "
         "cards and pipeline across machines; what crossing between cards \
 "

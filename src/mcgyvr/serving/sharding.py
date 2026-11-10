@@ -652,7 +652,12 @@ class _Sizing:
 
 def _vllm_kv(sizing: _Sizing, rows: Sequence[Mapping[str, Any]]) -> int:
     """vLLM's cache, closed form: per-layer key and value elements times the
-    dtype width, the context length and the slot count, rounded up."""
+    dtype width, the context length and the slot count, rounded up.
+
+    Every layer is charged the whole context, sliding-window layers included,
+    where llama.cpp's cache (`vramfit.kv_bytes`) charges those only their
+    window. That is an upper bound until a vLLM load shows what vLLM allocates
+    for a sliding layer; no discount is guessed."""
     width = VLLM_CACHE_ELEM_BYTES.get(sizing.cache_type_k)
     if width is None:
         raise ShardingError(

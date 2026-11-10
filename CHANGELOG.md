@@ -29,6 +29,14 @@ archived outside this repository, under the same paths.
   that `http://LOCALHOST` is `local`: a URL's host is case-insensitive, so it
   names `localhost`.
 
+- **The vLLM split's cache figure is documented as an upper bound.** A
+  llama.cpp split charges a sliding-window layer's cache only its window; a
+  vLLM split charges every layer the whole context, so the same checkpoint is
+  sized larger under vLLM and a fit can be refused. The `units.<unit>.launch`
+  reference (SETUP.md) and `sharding._vllm_kv` now say so; no figure changed.
+  What vLLM allocates for a sliding layer is to be measured before any
+  discount is taken.
+
 - **The agent channel's limits, shapes and codes are defined once, in
   `mcgyvr.hubwire`.** The protocol version, frame limits, the counts and
   bounds of every frame (models, sessions, endpoints, features, peers, allowed
