@@ -226,7 +226,7 @@ archived outside this repository, under the same paths.
   invalid_request` would, unsent, so it never reads as a stale key. Each rung
   `rungs sync` keeps says
   `sealed <kid>` or `in clear`, and a rung that was sealed and comes back
-  keyless is noted, by the sync and by `rig up`'s refresher; `rig up` says its
+  keyless is noted, by the sync and by `rig run`'s refresher; `rig run` says its
   run's key id when it first advertises a unit, and loads no cipher on a rig
   hosting nothing. A rung with no key (an older hub or agent) is asked in
   clear as before, and so is everything that is not a ride. New dependency:
@@ -743,10 +743,9 @@ archived outside this repository, under the same paths.
   (was 0).
 - **The session a run is filed under is named with `--session ID`.** On
   `mcgyvr run` and `mcgyvr delegate`, `--session` replaces `--orchestrator`,
-  which named the session and not the orchestrator role; `--orchestrator` is
-  kept for one release as a deprecated alias that still works and says so on
-  stderr. The result file carries the name as `session`, and still writes it
-  under `orchestrator` too, the same value, for the same release.
+  which named the session and not the orchestrator role. The result file
+  carries the name as `session`, and still writes it under `orchestrator` too,
+  the same value, for one release.
 - **`delegate --run` names its session before the orchestrator is asked.**
   The session is resolved through the same check `mcgyvr run` makes, before
   the config is read: nobody to file the batch under is exit 2 (was 1, after
@@ -889,6 +888,19 @@ archived outside this repository, under the same paths.
 - `mcgyvr.fleet.layout.actions` is gone; nothing but its tests called it.
 
 ### Fixed
+
+- Prose says what the code does, with no behaviour change. The host's verb
+  that prints a run's seal key id is `rig run` (there is no `rig up`);
+  SECURITY.md cites `Sharing.image`, `_image` and `rpc_proto=` instead of line
+  numbers that had moved; `--orchestrator` is not described as a working
+  alias, since the CLI refuses it; README's, docgen's and the Makefile's lists
+  of generated documents name `/mcgyvr-use`; docstrings no longer say delivery
+  gates through `gate_workspace` or that nothing wires the shadow decision
+  sink (`mcgyvr PROMPT --log` does); retired `init` and `mcgyvr run` names in a
+  docstring and a comment are `setup`, `mcgyvr PROMPT` and `mcgyvr direct`; the
+  install script's floor comment states its rule without a version. Two
+  internal helpers nothing called, `symbol_options` and `shipped.b64`, are
+  deleted.
 
 - A relief rung whose host's unit already serves as many rides as it may
   (`503 pool_busy`) is passed over as full, as the other busy answers are,

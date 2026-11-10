@@ -98,7 +98,7 @@ def test_each_rung_a_sync_keeps_says_whether_it_is_asked_sealed_or_in_clear(
     setup: Path, hub: Hub, capsys: pytest.CaptureFixture[str]
 ) -> None:
     """A rung keyed by its host is said ``sealed`` with the start of its key's
-    id, which the host's ``rig up`` prints too; one with no key ``in clear``.
+    id, which the host's ``rig run`` prints too; one with no key ``in clear``.
     A rung asked sealed before that comes back keyless is noted once, so a
     hub, or an older agent, that drops the key does not turn it clear unseen."""
     from mcgyvr import seal

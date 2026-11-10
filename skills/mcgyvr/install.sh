@@ -60,11 +60,9 @@ SETUP_DOC="skills/mcgyvr/SETUP.md"
 # which README.md installs first. This line is the only place to change it.
 CLI_INSTALL="uv tool install mcgyvr"
 
-# The oldest `mcgyvr` this checkout can claim the skill is driving: `v0.5.0`,
-# the release that renames the task types to `code`, `chat`, `agent` and
-# `media`. Every release before it refuses the `task_type: code` the skill
-# teaches. It is raised to the tag being cut whenever a release changes what
-# the skill may write, and never sits below the latest release tag:
+# The oldest `mcgyvr` this checkout can claim the skill is driving. It is
+# raised to the tag being cut whenever a release changes what the skill may
+# write, and never sits below the latest release tag:
 # tests/test_skill_packaging.py fails the suite the day a tag passes it.
 #
 # A floor alone cannot say whether this skill and that CLI agree — a skill
