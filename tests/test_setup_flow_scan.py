@@ -124,7 +124,6 @@ def _setup_namespace(**overrides: object) -> argparse.Namespace:
         "api": [],
         "force": False,
         "priority": None,
-        "profile": None,
         "use_case": None,
         "deployment": None,
         "jev": None,
