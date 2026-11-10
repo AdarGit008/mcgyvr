@@ -6,9 +6,10 @@ stop conditions, the output rule for the declared schema, and the failure notes
 of the climb so far — and leaves out every section the view has nothing to say in.
 :func:`build_prompt` puts the use case's bundle in front as the system message,
 measures the pair with the caller's estimator, and records whether the result
-fits the contract's own `context.max_input_tokens` ceiling. A schema with no
-reply instruction here has no parser downstream either, so it is refused here,
-before dispatch, rather than after an attempt was paid for.
+fits the contract's own `context.max_input_tokens` ceiling. Every schema a
+contract may declare has an output rule here and a parser in
+:mod:`mcgyvr.worker.reply`: the whole file as one fenced block, or a unified diff
+of the target as one, with the bundle's own output rule following suit.
 
 The failure notes are rendered from the records the climb handed on
 (:func:`mcgyvr.notes.handed_on`), never the other way round, by
@@ -34,29 +35,28 @@ from mcgyvr.gate.preflight import PreflightIssue, TokenCount, check_prompt_fits
 from mcgyvr.notes import ClimbNotes
 from mcgyvr.orchestrator.read import estimate_tokens
 from mcgyvr.worker.bundle import Bundle, bundle_for
-from mcgyvr.worker.reply import WHOLE_FILE
+from mcgyvr.worker.reply import UNIFIED_DIFF, WHOLE_FILE
 
-# The output rule stated to the worker, one per schema this module can ask for and
-# the reply parser can read back. A schema missing from this table is refused by
-# build_prompt instead of being rendered as plain prose, because a worker given no
-# output rule and a worker whose reply nothing can parse both spend the attempt
-# for nothing. Each rule names the target it is asked about, so `target` is
-# substituted in only where the text places it.
+# The output rule stated to the worker, one per schema a contract may declare
+# (`mcgyvr.contract.OUTPUT_SCHEMAS`), each one the reply parser reads back. Each
+# rule names the target it is asked about, so `target` is substituted in only
+# where the text places it.
 _REPLY_INSTRUCTIONS: dict[str, str] = {
     WHOLE_FILE: (
         "Reply with the complete new content of {target}, as one fenced code "
         "block and nothing else. Not a diff, not an excerpt, not the changed "
         "lines — the whole file as it should exist after your change."
     ),
+    UNIFIED_DIFF: (
+        "Reply with a unified diff of {target}, as one fenced ```diff block and "
+        "nothing else: a `--- a/{target}` line, a `+++ b/{target}` line, then "
+        "each hunk under its `@@ -start,count +start,count @@` header. Copy "
+        "every context line (starting with a space) and every removed line "
+        "(starting with `-`) exactly as the current content has it; added lines "
+        "start with `+`. Change {target} and no other file; one with no current "
+        "content is created from `--- /dev/null`."
+    ),
 }
-
-
-class UnsupportedSchemaError(ValueError):
-    """Raised when a contract's `output_schema` has no reply instruction here.
-
-    Nothing downstream parses such a schema either, so the refusal is raised
-    while the prompt is being assembled rather than after an attempt.
-    """
 
 
 @dataclass(frozen=True)
@@ -248,22 +248,18 @@ def build_prompt(
 ) -> WorkerPrompt:
     """Assemble the prompt for one attempt at `contract` and measure it.
 
-    The output schema is checked against the reply instructions first, so an
-    unparseable schema costs nothing. The system message is the bundle for the
-    contract's use case and language — chosen by `adapters`, or the language
-    adapters by default — and empty when no bundle applies. The user message comes
+    The system message is the bundle for the contract's use case and language —
+    chosen by `adapters`, or the language adapters by default, its output rule
+    following the contract's `output_schema` — and empty when no bundle applies.
+    The user message comes
     from the contract's worker view, carrying the failure-notes records in
     `retry` that the climb handed this attempt. `estimate` counts the joined
     prompt and `counted_by` labels that count, which decides whether a reserve
     is charged against it.
     """
-    if contract.output_schema not in _REPLY_INSTRUCTIONS:
-        raise UnsupportedSchemaError(
-            f"output_schema {contract.output_schema!r} has no reply instruction "
-            f"and no parser; only {WHOLE_FILE!r} is implemented. Refused before "
-            f"dispatch rather than after it."
-        )
-    bundle = bundle_for(contract.kind.use_case.name, contract.target, adapters)
+    bundle = bundle_for(
+        contract.kind.use_case.name, contract.target, adapters, contract.output_schema
+    )
     system = bundle.text if bundle is not None else ""
     user = render_user_message(contract.worker_view(), retry)
     tokens = estimate(_measured(system, user))

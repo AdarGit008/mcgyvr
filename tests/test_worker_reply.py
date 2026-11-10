@@ -159,15 +159,17 @@ def test_truncation_is_checked_before_the_text_is_parsed() -> None:
     )
 
 
-# --- only whole_file parses ------------------------------------------------
+# --- the schemas that parse ------------------------------------------------
+#
+# `unified_diff` has its own parser, tested in
+# test_a_unified_diff_reply_is_applied_onto_the_content_the_model_was_shown.py.
 
 
-def test_unified_diff_is_refused_rather_than_parsed_as_a_file() -> None:
-    """Parsing a patch as whole-file content applies its +-prefixed body lines
-    as source. Only whole_file is in scope."""
-    error = refused(GOOD, output_schema="unified_diff")
-    assert error.code == "unsupported-schema"
-    assert "unified_diff" in error.message
+def test_a_whole_file_block_is_never_read_as_a_diff() -> None:
+    """Under the default schema a diff-looking block is file content, as it
+    always was: the schema decides how a block is read, never its look."""
+    diff = "```diff\n--- a/x.py\n+++ b/x.py\n@@ -1 +1 @@\n-a = 1\n+a = 2\n```\n"
+    assert parsed(diff).content.startswith("--- a/x.py\n")
 
 
 def test_an_unknown_schema_is_refused() -> None:

@@ -182,6 +182,32 @@ archived outside this repository, under the same paths.
 
 ### Added
 
+- **A contract with `output_schema: unified_diff` runs: the model answers with
+  a diff, and it is applied, gated and delivered as a whole file is.** Such a
+  contract passed `mcgyvr contract` and was then refused when the run built its
+  prompt ("only 'whole_file' is implemented"). Now the user message asks for one
+  fenced ```` ```diff ```` block of the target alone, and the language bundle's
+  first output rule says the same (`worker.bundle.for_reply`; that text is
+  marked unmeasured, the whole-file bundle is sent byte for byte as before).
+  The reply is read strictly (`worker.reply.parse_diff`): the target on both
+  sides, behind `a/`/`b/` or not, at least one hunk, hunk lines only, and
+  `--- /dev/null` only for a target with no content yet. A diff that names another file or a
+  second file, deletes, renames, copies, changes a mode or is binary is refused
+  before anything is applied. `git apply --recount` (through `gitcmd.run_git`)
+  then applies it, all or nothing, onto the content the prompt showed, in a
+  scratch directory git is kept from climbing out of; context must match
+  exactly. The whole resulting file goes to the gate and delivery unchanged, and
+  a result with no code left is a refusal, as it is for a whole file. Every
+  refusal, a context mismatch included, is a named `ReplyError`
+  (`malformed-diff`, `diff-outside-contract`, `diff-many-files`,
+  `diff-not-a-text-edit`, `diff-does-not-apply`), so the draw fails and the next
+  attempt is told why, as for a malformed `whole_file` reply. A
+  `unified_diff` contract written by hand now needs `stop_conditions`, as a
+  `whole_file` one always did. `worker.prompt.UnsupportedSchemaError` is gone:
+  every schema the contract field accepts (`contract.OUTPUT_SCHEMAS`) has an
+  output rule and a parser. `whole_file` contracts are sent and read exactly as
+  before.
+
 - **A ride is sealed end to end, rider to host: the hub carries ciphertext.**
   The host's agent makes an X25519 key each time it starts (`mcgyvr.seal`, in
   memory only) and names it on every unit it advertises (`unit_advert`'s

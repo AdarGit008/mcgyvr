@@ -456,12 +456,17 @@ def worker_attempt(
                 output_schema=contract.output_schema,
                 stop_reason=reply.stop_reason,
                 target=contract.target,
+                # A diff is applied onto the content the prompt showed, so what
+                # comes back is the whole file either schema leaves; a
+                # whole-file reply reads no base.
+                base=sized.target_content,
             )
             if isinstance(parsed, ReplyError):
                 # The reply did not parse as the contract's schema asked — no
-                # fenced block, a refusal, a truncated block: `parse_reply`
-                # refuses it by name and the draw is unusable, which is honest
-                # where a fabricated string would have been gated and ranked.
+                # fenced block, a refusal, a truncated block, a diff that names
+                # another file or does not apply: `parse_reply` refuses it by
+                # name and the draw is unusable, which is honest where a
+                # fabricated string would have been gated and ranked.
                 return Unusable(f"the reply could not be read: {parsed}")
             return parsed.content
 
