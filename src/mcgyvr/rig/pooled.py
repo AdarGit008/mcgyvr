@@ -24,6 +24,7 @@ from collections.abc import Sequence
 from dataclasses import dataclass, field
 from pathlib import Path
 
+from mcgyvr import hubwire
 from mcgyvr.rig.sessionwire import WIREGUARD_KEY
 from mcgyvr.sandbox.image import DockerResult, DockerRunner, subprocess_runner
 
@@ -52,8 +53,12 @@ HEAD_API_PORT = 8080
 #: Where a worker's cache volume and the rig's model folder are mounted.
 CACHE_MOUNT = "/rpc-cache"
 MODELS_MOUNT = "/models"
-#: KV cache type for llama-server: -ctk and -ctv both get this value.
-KV_CACHE_TYPE = "q8_0"
+#: KV cache type for llama-server: -ctk and -ctv both get this value, the one
+#: the hub's planner prices a head's cache at (`hubwire.HEAD_KV_CACHE_TYPE`).
+KV_CACHE_TYPE = hubwire.HEAD_KV_CACHE_TYPE
+#: llama-server's micro-batch for the head (-ub), the one the hub's planner
+#: sizes a head's compute buffer at (`hubwire.HEAD_UBATCH`).
+HEAD_UBATCH = hubwire.HEAD_UBATCH
 #: llama-server's --fit for the head: off, as `mcgyvr.emit.FIT_DEFAULT` is for
 #: an emitted unit. The head states -c and -ngl itself, so fitting would only
 #: dry-run the load and read free memory once; off, a load that does not fit is
@@ -721,11 +726,11 @@ def head_server_args(
     """The llama-server arguments of a session's head, wherever it runs.
 
     The model file as the server sees it, the alias, layers, slots and context,
-    fitting off (`HEAD_FIT`), flash attention and the KV cache type, the address
-    it listens on (`spec.bind`) and `port`, the rpc devices it reaches (`rpc`,
-    host:port each, left out when there are none), and the device list and
-    split. A container head and a native one differ only in `model`, `port` and
-    `rpc`.
+    fitting off (`HEAD_FIT`), flash attention, the KV cache type and the
+    micro-batch (`HEAD_UBATCH`), the address it listens on (`spec.bind`) and
+    `port`, the rpc devices it reaches (`rpc`, host:port each, left out when
+    there are none), and the device list and split. A container head and a
+    native one differ only in `model`, `port` and `rpc`.
     """
     args = [
         "-m",
@@ -748,6 +753,8 @@ def head_server_args(
         KV_CACHE_TYPE,
         "-ctv",
         KV_CACHE_TYPE,
+        "-ub",
+        str(HEAD_UBATCH),
         "--host",
         spec.bind,
         "--port",

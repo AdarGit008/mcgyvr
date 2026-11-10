@@ -1935,6 +1935,24 @@ def bytes_on_card(
     return card_bytes(weights=weights, cache=cache, state=state, allowance=allowance)
 
 
+# --- the head's engine flags ------------------------------------------------------
+#
+# What a session's head runs with that a plan's memory depends on: the product
+# starts every head with these (``mcgyvr.rig.pooled.head_server_args``), and the
+# hub's planner prices a card at them, so neither side assumes the other's.
+
+#: The KV cache type a session's head runs, for keys and values alike
+#: (``-ctk`` and ``-ctv``).
+HEAD_KV_CACHE_TYPE = "q8_0"
+#: Bytes one element of a :data:`HEAD_KV_CACHE_TYPE` cache costs: q8_0 keeps
+#: 32 elements in 34 bytes (a half-precision scale each block). The product's
+#: scanner holds every type's width; a test holds this one to it.
+HEAD_KV_BYTES_PER_ELEMENT = 34 / 32
+#: The micro-batch a session's head runs (``-ub``): the rows its compute
+#: buffer's KQ mask holds, and the batch a sliding-window cache keeps in flight.
+HEAD_UBATCH = 512
+
+
 @dataclass(frozen=True)
 class MeasuredRun:
     """A llama.cpp layer-split load that loaded or was refused, which the fit law's

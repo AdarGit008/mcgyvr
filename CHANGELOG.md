@@ -11,6 +11,14 @@ archived outside this repository, under the same paths.
 
 ### Changed
 
+- **The head is started with a named micro-batch, `-ub 512`, and the hub prices
+  it at the same flags (I-17c).** The head's cache type and micro-batch are
+  `hubwire.HEAD_KV_CACHE_TYPE` (`q8_0`) and `hubwire.HEAD_UBATCH` (512), with
+  `hubwire.HEAD_KV_BYTES_PER_ELEMENT` (34/32) the cache type's width, held by
+  test to the scanner's. `pooled.head_server_args` now passes `-ub 512` to every
+  head, container and native; llama.cpp's own default is 512, so the engine
+  runs the batch it ran before. `pooled.KV_CACHE_TYPE` is the hubwire constant.
+
 - **The scratch readings are read from `hubwire` alone (I-17b).**
   `vramfit.MEASURED_SCRATCH_MIB` and `vramfit.MEASURED_SCRATCH_BACKEND`, which
   re-named `hubwire`'s, are gone; `serving` and `sharding` read
