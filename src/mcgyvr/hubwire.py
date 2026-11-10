@@ -725,8 +725,9 @@ RETIRED_SHARING_MODES: Mapping[str, tuple[str, str]] = MappingProxyType(
         "hitchhike": (SCOPE_ANYONE, MODE_HITCHHIKE),
     }
 )
-#: Words once used for an audience (a sharing mode or a pool's old name), each
-#: with the audience that replaced it. There is no alias: a value naming one is
+#: Words once used for an audience, each with the audience that replaced it:
+#: the hub's old ``solo`` and ``pool`` (as :data:`RETIRED_SHARING_MODES` maps
+#: them, less their mode) and the general pool's old name, ``general``. There is no alias: a value naming one is
 #: refused with :func:`retired_audience`'s sentence.
 RETIRED_AUDIENCES: Mapping[str, str] = MappingProxyType(
     {"solo": SCOPE_OWN, "pool": SCOPE_ANYONE, "general": SCOPE_ANYONE}

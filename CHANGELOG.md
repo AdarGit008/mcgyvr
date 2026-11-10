@@ -24,7 +24,8 @@ archived outside this repository, under the same paths.
   `pool`, `hitchhike`, each as the audience and mode that replace it). A
   unit's `scope`, `ride_scope`, `relief.scope` and `mcgyvr rig rungs sync
   --ride-scope` that write `solo`, `pool` or `general` are refused with the
-  word to write (`own`, `anyone`; `hubwire.retired_audience`), never read as
+  word to write (`own`, `anyone`; `hubwire.RETIRED_AUDIENCES`,
+  `retired_audience`), never read as
   an alias; they were refused before too, without naming it. The generated
   SETUP.md maps each audience and mode to its pool and the use cases it
   serves, and says a host serves strangers only once a hub admin approved it.
