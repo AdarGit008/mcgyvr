@@ -21,6 +21,11 @@ from typing import Any
 
 import yaml
 
+from mcgyvr.credential_shapes import (
+    CREDENTIAL_WORDS,
+    VALUE_SHAPES,
+    whole_value_pattern,
+)
 from mcgyvr.fleet.files import (
     FleetFileError,
     _typename,
@@ -1451,37 +1456,17 @@ SCHEMA: tuple[Field, ...] = (
 # Key names a config may not use, compared lowercased. A key that names a
 # credential is refused wherever it appears, so no setup can be read as holding
 # a secret value, and the refusal says to name the environment variable that
-# holds it (`api_key_env` on a unit) instead.
-_CREDENTIAL_KEYS = frozenset(
-    {
-        "access_key",
-        "api_key",
-        "apikey",
-        "auth",
-        "auth_token",
-        "credential",
-        "credentials",
-        "key",
-        "passwd",
-        "password",
-        "private_key",
-        "secret",
-        "secret_key",
-        "token",
-    }
-)
+# holds it (`api_key_env` on a unit) instead. The words are the one shared
+# vocabulary (`mcgyvr.credential_shapes`); this check's rule is an exact match.
+_CREDENTIAL_KEYS = CREDENTIAL_WORDS
 
-# Values shaped like a credential of a known provider: OpenAI/Anthropic-style
-# `sk-` keys, GitHub tokens, AWS access keys, Slack tokens and Google API keys.
-# A text value matching one is refused wherever it appears, so a key pasted in
-# under a neutral key name is caught too.
-_CREDENTIAL_VALUE_PATTERNS: tuple[re.Pattern[str], ...] = (
-    re.compile(r"^sk-[A-Za-z0-9_\-]{16,}$"),
-    re.compile(r"^(ghp|gho|ghs|ghu|ghr)_[A-Za-z0-9]{20,}$"),
-    re.compile(r"^github_pat_[A-Za-z0-9_]{20,}$"),
-    re.compile(r"^AKIA[0-9A-Z]{16}$"),
-    re.compile(r"^xox[baprs]-[A-Za-z0-9\-]{10,}$"),
-    re.compile(r"^AIza[0-9A-Za-z_\-]{30,}$"),
+# Values shaped like a credential of a known provider, matched whole: the value
+# is refused only when the entire string is the credential. The shapes are the
+# one shared vocabulary (`mcgyvr.credential_shapes`), compiled here for a
+# whole-value match, so a key pasted in under a neutral key name is caught with
+# exactly the shapes the gate's scan uses.
+_CREDENTIAL_VALUE_PATTERNS: tuple[re.Pattern[str], ...] = tuple(
+    whole_value_pattern(shape) for shape in VALUE_SHAPES
 )
 
 _ENV_NAME = re.compile(r"^[A-Za-z_][A-Za-z0-9_]*$")

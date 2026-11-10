@@ -27,17 +27,17 @@ import pytest
 from mcgyvr.catalog import TaskType
 from mcgyvr.config import parse
 from mcgyvr.decision import Answer, Choice, ChoiceAnswer, Decision, Question
+from mcgyvr.decompose.candidates import collapse, enumerate_candidates
+from mcgyvr.decompose.decompose import Evidence, Proposal
 from mcgyvr.delegate import (
     MIN_CONFIDENCE,
     ClassifierProposer,
     classifier_proposer_for,
 )
 from mcgyvr.local_pool import Protocol, source_map
-from mcgyvr.orchestrator.candidates import collapse, enumerate_candidates
-from mcgyvr.orchestrator.decompose import Evidence, Proposal
-from mcgyvr.orchestrator.index import Index, build_index
-from mcgyvr.orchestrator.read import explore
-from mcgyvr.orchestrator.resolve import resolve
+from mcgyvr.repo.index import Index, build_index
+from mcgyvr.repo.read import explore
+from mcgyvr.repo.resolve import resolve
 from mcgyvr.runner import Completion, StopReason
 from tests import ungated
 

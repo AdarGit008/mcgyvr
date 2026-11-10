@@ -22,14 +22,14 @@ from pathlib import Path
 
 import pytest
 
-from mcgyvr.orchestrator.cache import (
+from mcgyvr.repo.cache import (
     CACHE_VERSION,
     build_index_cached,
     cache_path,
     clear,
     prune,
 )
-from mcgyvr.orchestrator.index import build_index
+from mcgyvr.repo.index import build_index
 
 
 def git(repo: Path, *args: str) -> None:
@@ -426,7 +426,7 @@ def test_clear_on_a_repository_with_no_cache_is_quiet(tmp_path: Path) -> None:
 
 
 def test_non_git_directory_still_fails_loud(tmp_path: Path) -> None:
-    from mcgyvr.orchestrator.index import IndexBuildError
+    from mcgyvr.repo.index import IndexBuildError
 
     plain = tmp_path / "plain"
     plain.mkdir()

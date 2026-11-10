@@ -27,7 +27,7 @@ class TokenCount(StrEnum):
     """How a prompt's tokens were counted, so a refusal can say what enforced it."""
 
     ESTIMATE = "estimate"
-    """The model-free proxy, :func:`~mcgyvr.orchestrator.read.estimate_tokens`."""
+    """The model-free proxy, :func:`~mcgyvr.repo.read.estimate_tokens`."""
 
     TOKENIZER = "tokenizer"
     """A real tokenizer's count. Exact, so nothing is reserved against it."""
@@ -204,7 +204,7 @@ def check_contract_fits(
     # scope, so this module's import list carries no orchestrator dependency.
     # The count is model-free on purpose: pre-flight runs before any model is
     # called, so no question here may be answered by spending a request on it.
-    from mcgyvr.orchestrator.read import estimate_tokens
+    from mcgyvr.repo.read import estimate_tokens
 
     estimated = estimate_tokens(prompt)
     does_not_fit = check_prompt_fits(estimated, context_window, LEAST_ROOM)
@@ -366,7 +366,7 @@ def unit_ceiling(rung: ServingWindow, prompt: str) -> UnitCeiling:
     """
     # Imported at use, as in `check_contract_fits`, so the estimator reaches this
     # module only where a ceiling is actually sized.
-    from mcgyvr.orchestrator.read import estimate_tokens
+    from mcgyvr.repo.read import estimate_tokens
 
     return UnitCeiling(
         unit=rung.source,

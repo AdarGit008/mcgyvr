@@ -20,7 +20,7 @@ from mcgyvr.cli.commands import delegate as command
 from mcgyvr.config import load
 from mcgyvr.contract import dumps
 from mcgyvr.contract import load as load_contract
-from mcgyvr.orchestrator.decompose import Decomposition
+from mcgyvr.decompose.decompose import Decomposition
 from mcgyvr.session import Session
 from tests import livejournal as lj
 

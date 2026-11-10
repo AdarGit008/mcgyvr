@@ -18,8 +18,8 @@ from pathlib import Path
 
 import pytest
 
-from mcgyvr.orchestrator.index import IndexBuildError, build_index
-from mcgyvr.orchestrator.symbols import SymbolKind, extract
+from mcgyvr.repo.index import IndexBuildError, build_index
+from mcgyvr.repo.symbols import SymbolKind, extract
 
 
 def git(repo: Path, *args: str) -> None:
