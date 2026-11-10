@@ -793,9 +793,9 @@ def render_setup() -> str:
         ),
         "",
         *_wrap(
-            f"`{COMMANDS_DOC}`, at the root of mcgyvr's repository, lists every verb "
-            "and flag the `mcgyvr` parser defines, rendered from the parser itself; "
-            "`mcgyvr VERB -h` prints the same help.",
+            "`mcgyvr -h` and `mcgyvr VERB -h` print every verb and flag an install "
+            f"takes; `{COMMANDS_DOC}`, at the root of mcgyvr's source repository, "
+            "lists them all on one page, rendered from the same parser.",
             rest="",
         ),
         "",

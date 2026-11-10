@@ -188,8 +188,8 @@ token in `$HF_TOKEN` (`--hf-token-env` names another variable), and `$HF_ENDPOIN
 Hub reads and fetches alike. The `MCGYVR_TEST_*` variables the rig reader notices are for mcgyvr's own
 tests; leave them unset.
 
-`COMMANDS.md`, at the root of mcgyvr's repository, lists every verb and flag the `mcgyvr` parser defines,
-rendered from the parser itself; `mcgyvr VERB -h` prints the same help.
+`mcgyvr -h` and `mcgyvr VERB -h` print every verb and flag an install takes; `COMMANDS.md`, at the root
+of mcgyvr's source repository, lists them all on one page, rendered from the same parser.
 
 ## macOS and Windows
 
