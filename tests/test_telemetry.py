@@ -132,13 +132,11 @@ def test_every_attempt_leaves_exactly_one_record_including_the_one_that_raised(
         lambda: answer,
         path=sink,
         attempt_id="a1",
-        orchestrator="orch-a",
+        session="orch-a",
         rung="local/qwen",
     )
     with pytest.raises(RuntimeError):
-        observe(
-            _boom, path=sink, attempt_id="a2", orchestrator="orch-a", rung="api/big"
-        )
+        observe(_boom, path=sink, attempt_id="a2", session="orch-a", rung="api/big")
 
     assert got is answer, "telemetry swallowed or replaced what the attempt produced"
     stream = _stream(sink)
@@ -160,7 +158,7 @@ def test_a_record_says_which_rung_and_which_model_produced_it(tmp_path: Path) ->
         lambda: _completion(model="qwen2.5-coder:32b"),
         path=sink,
         attempt_id="a1",
-        orchestrator="orch-a",
+        session="orch-a",
         rung="local/big",
     )
 
@@ -189,14 +187,14 @@ def test_a_token_count_the_backend_did_not_report_is_absent_rather_than_zero(
         lambda: _completion(input_tokens=None, output_tokens=None),
         path=sink,
         attempt_id="silent",
-        orchestrator="orch-a",
+        session="orch-a",
         rung="local/qwen",
     )
     observe(
         lambda: _completion(input_tokens=812, output_tokens=96),
         path=sink,
         attempt_id="counted",
-        orchestrator="orch-a",
+        session="orch-a",
         rung="local/qwen",
     )
 
@@ -225,7 +223,7 @@ def test_a_correction_is_appended_and_never_rewrites_the_attempts_own_record(
         lambda: _completion(),
         path=sink,
         attempt_id="a1",
-        orchestrator="orch-a",
+        session="orch-a",
         rung="local/qwen",
     )
     before = sink.read_bytes()
@@ -235,7 +233,7 @@ def test_a_correction_is_appended_and_never_rewrites_the_attempts_own_record(
         attempt_id="a1",
         outcome="merged",
         detail="landed after review",
-        orchestrator="orch-a",
+        session="orch-a",
     )
 
     after = sink.read_bytes()
@@ -265,7 +263,7 @@ def test_folding_is_latest_wins_per_attempt_and_keeps_an_unmatched_correction(
         lambda: _completion(),
         path=sink,
         attempt_id="a1",
-        orchestrator="orch-a",
+        session="orch-a",
         rung="local/qwen",
     )
     correct(
@@ -273,21 +271,21 @@ def test_folding_is_latest_wins_per_attempt_and_keeps_an_unmatched_correction(
         attempt_id="a1",
         outcome="merged",
         detail="landed after review",
-        orchestrator="orch-a",
+        session="orch-a",
     )
     correct(
         path=sink,
         attempt_id="a1",
         outcome="reverted",
         detail="backed out an hour later",
-        orchestrator="orch-a",
+        session="orch-a",
     )
     correct(
         path=sink,
         attempt_id="ghost-1",
         outcome="merged",
         detail="names no attempt",
-        orchestrator="orch-a",
+        session="orch-a",
     )
 
     folded = fold(path=sink)
@@ -318,14 +316,14 @@ def test_a_record_names_the_orchestrator_that_wrote_it(tmp_path: Path) -> None:
         lambda: _completion(),
         path=sink,
         attempt_id="a1",
-        orchestrator="orch-a",
+        session="orch-a",
         rung="local/qwen",
     )
     observe(
         lambda: _completion(),
         path=sink,
         attempt_id="a2",
-        orchestrator="orch-b",
+        session="orch-b",
         rung="local/qwen",
     )
 

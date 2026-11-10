@@ -215,7 +215,7 @@ def test_a_run_fails_on_the_rung_it_was_sent_to_and_does_not_climb(
     contract = load_contract(CONTRACT)
     journal = tmp_path / "journal" / "orch.jsonl"
     journal.parent.mkdir()
-    recording = Recording(path=journal, orchestrator="orch")
+    recording = Recording(path=journal, session="orch")
 
     from mcgyvr.sandbox.tempdir import TempDirSandbox
 

@@ -212,7 +212,7 @@ completion = Completion(
 )
 sink = Path(SINK)
 observe(
-    lambda: completion, path=sink, attempt_id="a:1", orchestrator="a", rung="r",
+    lambda: completion, path=sink, attempt_id="a:1", session="a", rung="r",
     messages=[{"role": "user", "content": "u"}],
 )
 (row,) = fold(path=sink)

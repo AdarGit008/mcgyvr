@@ -68,10 +68,10 @@ def test_the_floor_writes_a_row_the_corpus_can_be_asked_about(
     lj.main(lj.run_args(contract, repo, config))
 
     row = floor_row(ours)
-    assert row["orchestrator"] == "claude-s1"
+    assert row["session"] == "claude-s1"
     assert row["task_type"] == "code"
     assert row["operation"] == "format"
-    assert row["tier"] == "deterministic"
+    assert row["family"] == "deterministic"
     assert "tidy" in str(row["attempt_id"])
 
 

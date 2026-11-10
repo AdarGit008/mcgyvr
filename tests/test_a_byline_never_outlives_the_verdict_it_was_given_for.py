@@ -88,7 +88,7 @@ def test_a_verdict_that_names_no_author_does_not_borrow_the_last_ones(
         attempt_id=ATTEMPT,
         outcome="accepted",
         detail="gate ok",
-        orchestrator="review",
+        session="review",
     )
     _foreign(sink, outcome="reverted", detail=None, applied_by=None)
 
@@ -102,7 +102,7 @@ def test_a_verdict_that_names_no_author_does_not_borrow_the_last_ones(
         f"the superseded correction's words stand beside a newer verdict: {row}"
     )
     # The attempt's own writer is untouched: applying is not running.
-    assert row["orchestrator"] == "agent-a", row
+    assert row["session"] == "agent-a", row
 
 
 def test_a_correction_that_states_no_outcome_repaints_no_standing_verdict(
@@ -116,7 +116,7 @@ def test_a_correction_that_states_no_outcome_repaints_no_standing_verdict(
         attempt_id=ATTEMPT,
         outcome="accepted",
         detail="gate ok",
-        orchestrator="review",
+        session="review",
     )
     _foreign(sink, detail="looked at it again", applied_by="stranger")
 
@@ -188,7 +188,7 @@ def test_a_superseded_verdict_gives_the_row_its_own_words_back(
         attempt_id=ATTEMPT,
         outcome="accepted",
         detail="gate ok",
-        orchestrator="review",
+        session="review",
     )
     _foreign(sink, outcome="reverted")
 

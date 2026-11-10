@@ -394,18 +394,18 @@ def worker_attempt(
                     once,
                     path=recording.path,
                     attempt_id=attempt_id,
-                    orchestrator=recording.orchestrator,
+                    session=recording.session,
                     rung=this.rung.name,
                     model=this.rung.model,
                     messages=messages,
                     endpoint=served_at,
                     task_type=contract.task_type,
                     session_file=recording.session_file,
-                    # The tier a row is filed under is the rung's family, so the
+                    # The family a row is filed under is the rung's, so the
                     # journal reads by what served the work without resolving the
                     # rung back to its unit. `observe` records it beside the
                     # rung, the model and the endpoint.
-                    tier=family.name,
+                    family=family.name,
                     # The temperature actually sent, so a greedy draw and a
                     # sampled one are told apart in the row without replaying the
                     # draw index.

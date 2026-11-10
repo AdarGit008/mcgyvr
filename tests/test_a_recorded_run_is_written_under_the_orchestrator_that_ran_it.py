@@ -186,7 +186,7 @@ def test_record_with_an_orchestrator_writes_that_orchestrators_journal(
         else "no journal dir"
     )
     (row,) = fold(path=sink)
-    assert row["orchestrator"] == "agent-a"
+    assert row["session"] == "agent-a"
     assert row["rung"] == "local_qwen-7b"
     assert row["ok"] is True
     # The writer, the run, then the work: a re-run of the same contract is a

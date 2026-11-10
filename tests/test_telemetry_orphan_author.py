@@ -49,7 +49,7 @@ def test_an_orphan_correction_carries_the_author_it_named(tmp_path: Path) -> Non
         path=sink,
         attempt_id="ghost-1",
         outcome="merged",
-        orchestrator="orch-b",
+        session="orch-b",
     )
 
     orphan = [r for r in _fold()(path=sink) if r.get("attempt_id") == "ghost-1"]

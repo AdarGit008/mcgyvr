@@ -71,7 +71,7 @@ def _record(sink: Path, attempt: Callable[[], Any] = _completion) -> dict[str, A
         attempt,
         path=sink,
         attempt_id="agent-a:impl:local_qwen-7b:1",
-        orchestrator="agent-a",
+        session="agent-a",
         rung="local_qwen-7b",
         messages=[
             {"role": "system", "content": "s"},

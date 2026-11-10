@@ -898,12 +898,12 @@ def test_an_attempt_is_recorded_under_the_orchestrator_that_made_it(
             pool,
             contract,
             sandbox,
-            recording=Recording(path=sink, orchestrator="agent-a"),
+            recording=Recording(path=sink, session="agent-a"),
         )
         attempt(Try(rung=Rung(name="local_qwen-7b", model="m"), attempt=1, of=1))
 
     (record,) = fold(path=sink)
-    assert record["orchestrator"] == "agent-a"
+    assert record["session"] == "agent-a"
     assert record["rung"] == "local_qwen-7b"
     assert record["ok"] is True
     # The orchestrator is part of the id, not only a field beside it: a
@@ -941,11 +941,11 @@ def test_two_orchestrators_share_one_stream_and_stay_distinguishable(
                 pool,
                 contract,
                 sandbox,
-                recording=Recording(path=sink, orchestrator=name),
+                recording=Recording(path=sink, session=name),
             )
             attempt(Try(rung=rung, attempt=1, of=1))
 
-    assert [r["orchestrator"] for r in fold(path=sink)] == ["agent-a", "agent-b"]
+    assert [r["session"] for r in fold(path=sink)] == ["agent-a", "agent-b"]
 
 
 def test_a_recording_with_no_orchestrator_is_refused(tmp_path: Path) -> None:
@@ -958,7 +958,7 @@ def test_a_recording_with_no_orchestrator_is_refused(tmp_path: Path) -> None:
     from mcgyvr.drive import Recording
 
     with pytest.raises(ValueError, match="orchestrator id"):
-        Recording(path=tmp_path / "t.jsonl", orchestrator="  ")
+        Recording(path=tmp_path / "t.jsonl", session="  ")
 
 
 # --- the cooldown lever, wired -------------------------------------------------

@@ -11,6 +11,23 @@ archived outside this repository, under the same paths.
 
 ### Changed
 
+- **Journal rows are layout version 2: the writer is `session` and the catalog
+  family `family`.** An attempt row wrote the chat that drove it as
+  `orchestrator` and its family as `tier`; version 2 writes `session` and
+  `family` (I-38, I-87b), and a correction's `applied_by` is the session too.
+  Migration: none needed. `mcgyvr usage` and every reader read version 1 rows
+  for one release, with `orchestrator` read as `session` and `tier` as
+  `family`. A file holding a row of a version it does not read (a newer
+  mcgyvr's) is named on stderr and left out, and the rest of the directory is
+  still counted; the command exits 1 when it left a file out, where before one
+  such row stopped the whole command. The result file no longer repeats
+  `session` under `orchestrator`. The `journal.dir` help says
+  `<session>.jsonl`. For Python callers: `telemetry.observe` and `correct`
+  take `session=` (was `orchestrator=`) and `observe` takes `family=` (was
+  `tier=`); `drive.record.Recording.orchestrator` is `.session`;
+  `result.DEPRECATED_SESSION_KEY` is gone; `telemetry.READ_VERSIONS` names
+  what is read.
+
 - **Who may use a rig is one vocabulary, `own | crew | anyone`, and how a rig
   takes part is its mode, `lend | hitchhike` (I-04).** The pools the wire
   names by audience now carry the audience's name: `hubwire.POOL_SOLO`

@@ -79,7 +79,7 @@ def test_a_blob_store_that_is_a_file_makes_observe_raise(tmp_path: Path) -> None
             _completion,
             path=sink,
             attempt_id="agent-a:impl:local_qwen-7b:1",
-            orchestrator="agent-a",
+            session="agent-a",
             rung="local_qwen-7b",
             endpoint="http://localhost:11434",
         )
@@ -98,7 +98,7 @@ def test_a_prompt_that_cannot_be_stored_leaves_a_row_too(tmp_path: Path) -> None
             _completion,
             path=sink,
             attempt_id="agent-a:impl:local_qwen-7b:1",
-            orchestrator="agent-a",
+            session="agent-a",
             rung="local_qwen-7b",
             messages=[{"role": "user", "content": "Set VALUE to 1."}],
             endpoint="http://localhost:11434",

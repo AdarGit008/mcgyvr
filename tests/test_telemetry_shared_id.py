@@ -59,14 +59,14 @@ def test_two_attempts_that_share_an_id_both_survive_the_fold(tmp_path: Path) -> 
         lambda: _completion("qwen2.5-coder:7b"),
         path=sink,
         attempt_id="dup",
-        orchestrator="orch-a",
+        session="orch-a",
         rung="local/qwen",
     )
     observe(
         lambda: _completion("qwen2.5-coder:32b"),
         path=sink,
         attempt_id="dup",
-        orchestrator="orch-a",
+        session="orch-a",
         rung="local/qwen",
     )
 

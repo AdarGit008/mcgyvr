@@ -239,7 +239,7 @@ def _run(args: argparse.Namespace) -> int:
     try:
         recording = Recording(
             path=journal_dir / f"{session.name}.jsonl",
-            orchestrator=session.name,
+            session=session.name,
             run=stamp,
             session_file=session.session_file,
             mirrors=mirrors,
@@ -489,12 +489,12 @@ def _floor(
                 work,
                 path=recording.path,
                 attempt_id=attempt_id,
-                orchestrator=recording.orchestrator,
+                session=recording.session,
                 rung=rung,
                 task_type=contract.task_type,
                 operation=contract.operation,
                 session_file=recording.session_file,
-                tier=DETERMINISTIC,
+                family=DETERMINISTIC,
                 mirrors=recording.mirrors,
                 on_copy_error=recording.copy_failed,
             )
@@ -521,7 +521,7 @@ def _floor(
             attempt_id=attempt_id,
             outcome=Outcome.ERROR.value,
             detail=str(exc),
-            orchestrator=recording.orchestrator,
+            session=recording.session,
             mirrors=recording.mirrors,
             on_copy_error=recording.copy_failed,
         )
@@ -881,7 +881,7 @@ def _report_climb(
                         word if step.raised or each == subject else Verdict.FAILED.value
                     ),
                     detail=_correction_detail(step, each, subject),
-                    orchestrator=recording.orchestrator,
+                    session=recording.session,
                     mirrors=recording.mirrors,
                     on_copy_error=recording.copy_failed,
                 )
@@ -1058,7 +1058,7 @@ def _report_run(
             attempt_id=attempt_id,
             outcome=(Verdict.PASSED if result.accepted else Verdict.FAILED).value,
             detail="\n".join(said),
-            orchestrator=recording.orchestrator,
+            session=recording.session,
             mirrors=recording.mirrors,
             on_copy_error=recording.copy_failed,
         )
@@ -1099,7 +1099,7 @@ def _report_run(
                 attempt_id=attempt_id,
                 outcome=NOTHING_TO_CHANGE,
                 detail=detail,
-                orchestrator=recording.orchestrator,
+                session=recording.session,
                 mirrors=recording.mirrors,
                 on_copy_error=recording.copy_failed,
             )
@@ -1263,7 +1263,7 @@ def _commit(
                 attempt_id=attempt_id,
                 outcome=outcome,
                 detail=detail,
-                orchestrator=recording.orchestrator,
+                session=recording.session,
                 mirrors=recording.mirrors,
                 on_copy_error=recording.copy_failed,
             )
