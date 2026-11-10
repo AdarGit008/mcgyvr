@@ -139,7 +139,7 @@ def test_the_doors_health_budget_is_not_a_wake_budget() -> None:
     from mcgyvr.config import field_at
     from mcgyvr.serving.servelib import HEALTH_INTERVAL_S, START_TIMEOUT_S_DEFAULT
 
-    assert START_TIMEOUT_S_DEFAULT * HEALTH_INTERVAL_S > 0, (
+    assert START_TIMEOUT_S_DEFAULT > 0 and HEALTH_INTERVAL_S > 0, (
         "the door's own health budget disappeared along with the wake budget"
     )
     assert field_at("serving.start_timeout_s") is not None

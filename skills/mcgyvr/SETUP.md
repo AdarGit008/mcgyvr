@@ -156,12 +156,13 @@ you read all three:
 can run the work; `mcgyvr capabilities` shows the shipped capability table.
 
 A unit split across machines (`units.launch.shards`) is checked before
-anything starts: a split that cannot be launched is refused when the
-config is read. Once it is up, nothing in mcgyvr watches it. Its head
+anything starts: a split that cannot be launched is refused when
+`mcgyvr emit` or `mcgyvr setup` sizes its units against the rigs. Once
+it is up, nothing in mcgyvr watches it. Its head
 and each worker are services of their own rig's launch spec, each kept
 up by docker's `unless-stopped` restart policy and by whatever starts
 docker when the rig boots (systemd, on most Linux rigs); that is all the
-supervision there is. Nothing starts a worker before its head or ties
+supervision there is. Nothing orders a worker before its head or ties
 their health together, and a worker on another rig is in that rig's
 file, which the head's cannot name. So when a worker stops or its rig
 reboots, the head is not told, and requests to the unit fail or time
