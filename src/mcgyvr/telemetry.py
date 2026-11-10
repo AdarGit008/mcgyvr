@@ -1,7 +1,7 @@
 """A journal of dispatches: one JSON line per attempt, blobs beside it.
 
 ``observe`` wraps a single attempt. Before calling it, it gathers the identity
-of the attempt — condition, endpoint, task type, operation, tier, temperature,
+of the attempt — condition, endpoint, task type, operation, family, temperature,
 session file, prompt digests and the run tags the environment names — and then
 writes the row that says how the attempt went. A row is a flat JSON object
 stamped with its record kind, the layout version, a wall-clock time and the
@@ -46,9 +46,19 @@ type Record = dict[str, Any]
 
 # The layout version stamped on every row. It names the shape of the row, so a
 # reader holding a line can tell which set of fields, and which meanings for
-# them, it was written under. It is also the only version ``_read`` reads: a row
-# stamped with any other, or with none, raises ``JournalVersionError``.
-TELEMETRY_VERSION = 1
+# them, it was written under. Version 2 names the writer `session` and the
+# catalog family `family`; version 1 named them `orchestrator` and `tier`.
+TELEMETRY_VERSION = 2
+
+# The versions ``_read`` reads: this one, and version 1 for one release, its
+# fields renamed on the way in (``_V1_RENAMED``) so every reader sees one
+# layout. A row stamped with any other, or with none, raises
+# ``JournalVersionError``.
+READ_VERSIONS = (1, TELEMETRY_VERSION)
+
+# A version-1 row's field -> its version-2 name. String literals only: the old
+# key is read, never written.
+_V1_RENAMED = {"orchestrator": "session", "tier": "family"}
 
 # The two kinds of row a journal holds: an attempt that dispatched something,
 # and a correction a later stage appended to say how that attempt turned out.
@@ -58,7 +68,7 @@ CORRECTION_KIND = "correction"
 
 # The field a correction's verdict is written under, and the fields on an
 # attempt that a correction may overwrite: the verdict, the free-text detail,
-# and the orchestrator recorded as having applied it. The verdict is also what
+# and the session recorded as having applied it. The verdict is also what
 # makes a correction actionable — ``fold`` applies one only when it carries an
 # ``outcome``, and passes over one that does not, on the grounds that it says
 # nothing about how the attempt went. An applied correction works from the
@@ -116,8 +126,9 @@ class JournalVersionError(ValueError):
         )
         super().__init__(
             f"{path}:{line}: this row {stamped}, and this mcgyvr reads layout "
-            f"version {TELEMETRY_VERSION} only. It was not written by this "
-            f"version of mcgyvr; read it with the version that wrote it."
+            f"versions {' and '.join(map(str, READ_VERSIONS))} only. It was not "
+            f"written by this version of mcgyvr; read it with the version that "
+            f"wrote it."
         )
 
 
@@ -133,14 +144,14 @@ def observe[T](
     *,
     path: Path,
     attempt_id: str,
-    orchestrator: str,
+    session: str,
     rung: str,
     model: str | None = None,
     messages: Sequence[Mapping[str, str]] | None = None,
     endpoint: str | None = None,
     task_type: str | None = None,
     session_file: Path | None = None,
-    tier: str | None = None,
+    family: str | None = None,
     temperature: float | None = None,
     operation: str | None = None,
     mirrors: Sequence[Path] = (),
@@ -183,7 +194,7 @@ def observe[T](
         record = (
             _stamp(ATTEMPT_KIND, attempt_id)
             | {
-                "orchestrator": orchestrator,
+                "session": session,
                 "rung": rung,
                 "ok": False,
                 "elapsed_s": _since(started),
@@ -207,7 +218,7 @@ def observe[T](
             endpoint=endpoint,
             task_type=task_type,
             session_file=session_file,
-            tier=tier,
+            family=family,
             temperature=temperature,
             operation=operation,
         )
@@ -229,7 +240,7 @@ def observe[T](
     record = (
         _stamp(ATTEMPT_KIND, attempt_id)
         | {
-            "orchestrator": orchestrator,
+            "session": session,
             "rung": rung,
             "ok": True,
             # ``elapsed_s`` times the call as a whole, identity work and blob
@@ -356,7 +367,7 @@ def _identity(
     endpoint: str | None,
     task_type: str | None,
     session_file: Path | None,
-    tier: str | None = None,
+    family: str | None = None,
     temperature: float | None = None,
     operation: str | None = None,
 ) -> None:
@@ -377,8 +388,8 @@ def _identity(
         fields["operation"] = operation
     if session_file is not None:
         fields["session_file"] = str(session_file)
-    if tier is not None:
-        fields["tier"] = tier
+    if family is not None:
+        fields["family"] = family
     if temperature is not None:
         fields["temperature"] = temperature
     fields |= _prompt_identity(store, messages)
@@ -530,7 +541,7 @@ def correct(
     path: Path,
     attempt_id: str,
     outcome: str,
-    orchestrator: str,
+    session: str,
     detail: str = "",
     mirrors: Sequence[Path] = (),
     on_copy_error: CopyError | None = None,
@@ -538,14 +549,14 @@ def correct(
     """Append a correction row recording how the named attempt turned out.
 
     ``outcome`` is the verdict ``fold`` lays onto the attempt, ``detail`` the
-    free text that goes with it, and ``orchestrator`` the name recorded as
+    free text that goes with it, and ``session`` the name recorded as
     having applied it. The row is stamped as a correction and appended to the
     same sinks and mirrors an attempt row is.
     """
     record = _stamp(CORRECTION_KIND, attempt_id) | {
         "outcome": outcome,
         "detail": detail,
-        "applied_by": orchestrator,
+        "applied_by": session,
     }
     _append(path, record, mirrors=mirrors, on_copy_error=on_copy_error)
 
@@ -559,9 +570,8 @@ def fold(*, path: Path) -> list[Record]:
     each acts on the values that attempt row itself carried. A correction naming
     an id with no attempt row has nothing to correct and is returned after the
     attempts rather than dropped. A ``path`` that does not exist folds to no
-    records at all, and a row of a layout version other than
-    ``TELEMETRY_VERSION`` raises ``JournalVersionError`` before anything is
-    folded.
+    records at all, and a row of a layout version outside ``READ_VERSIONS``
+    raises ``JournalVersionError`` before anything is folded.
     """
     attempts: list[Record] = []
     corrections: list[tuple[int, Record]] = []
@@ -733,9 +743,11 @@ def _read(path: Path) -> list[Record]:
     Lines that are blank, not decodable UTF-8, not JSON, or not JSON objects are
     skipped, so one damaged line cannot hide the rest of the file. A missing file
     reads as no records at all. A row that does parse is read only when its
-    ``version`` is ``TELEMETRY_VERSION``: one written under another layout, or
-    carrying none, raises ``JournalVersionError`` naming its line, because its
-    fields would otherwise be read under meanings they were not written with.
+    ``version`` is one of ``READ_VERSIONS``: one written under another layout,
+    or carrying none, raises ``JournalVersionError`` naming its line, because its
+    fields would otherwise be read under meanings they were not written with. A
+    version-1 row is read under version 2's field names (``_V1_RENAMED``); its
+    ``version`` stays 1.
     """
     try:
         raw = path.read_bytes()
@@ -754,7 +766,9 @@ def _read(path: Path) -> list[Record]:
             continue
         version = parsed.get("version")
         # `type(...) is int`: JSON `true` loads as a bool, which equals 1.
-        if type(version) is not int or version != TELEMETRY_VERSION:
+        if type(version) is not int or version not in READ_VERSIONS:
             raise JournalVersionError(path, number, version)
+        if version == 1:
+            parsed = {_V1_RENAMED.get(key, key): value for key, value in parsed.items()}
         records.append(parsed)
     return records

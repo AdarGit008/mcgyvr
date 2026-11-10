@@ -54,7 +54,7 @@ def _record(sink: Path) -> dict[str, Any]:
         _completion,
         path=sink,
         attempt_id="agent-a:impl:local_qwen-7b:1",
-        orchestrator="agent-a",
+        session="agent-a",
         rung="local_qwen-7b",
         messages=[
             {"role": "system", "content": SYSTEM},
@@ -77,7 +77,7 @@ def test_a_row_names_the_endpoint_the_model_the_protocol_and_the_condition(
     # Live work is the stock product, never an ablation; the field is what lets
     # a live row and a bench cell be told apart by content rather than by path.
     assert row["condition"] == "stock"
-    assert row["orchestrator"] == "agent-a"
+    assert row["session"] == "agent-a"
     assert row["rung"] == "local_qwen-7b"
     # The system prompt, hashed the way the bench hashes it (sha256 over utf-8).
     assert row["bundle_sha256"] == hashlib.sha256(SYSTEM.encode("utf-8")).hexdigest()

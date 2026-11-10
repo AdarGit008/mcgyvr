@@ -483,37 +483,48 @@ def _usage(args: argparse.Namespace) -> int:
 
     # A journal directory holds one `<session>.jsonl` per writer beside
     # `blobs/` and `results/`; each file is folded on its own, because a
-    # correction names an attempt in the file it was appended to.
+    # correction names an attempt in the file it was appended to. A file this
+    # mcgyvr cannot read (a layout version it does not know, or an I/O error)
+    # is named on stderr and left out, and the rest are still counted; the
+    # command then exits 1 so a script sees the gap.
     files = sorted(where.glob("*.jsonl")) if where.is_dir() else [where]
     rows: list[Record] = []
     orphans = 0
-    try:
-        for path in files:
-            for row in fold(path=path):
-                if row.get("record_kind") == CORRECTION_KIND:
-                    orphans += 1
-                else:
-                    rows.append(row)
-    except JournalVersionError as exc:
-        print(f"error: {exc}", file=sys.stderr)
-        return 1
-    except OSError as exc:
-        print(f"error: the journal at {where} cannot be read ({exc})", file=sys.stderr)
-        return 1
+    skipped: list[str] = []
+    for path in files:
+        try:
+            folded = fold(path=path)
+        except JournalVersionError as exc:
+            skipped.append(str(exc))
+            continue
+        except OSError as exc:
+            skipped.append(f"{path} cannot be read ({exc})")
+            continue
+        for row in folded:
+            if row.get("record_kind") == CORRECTION_KIND:
+                orphans += 1
+            else:
+                rows.append(row)
+    for why in skipped:
+        print(f"error: left out: {why}", file=sys.stderr)
+    status = 1 if skipped else 0
 
     if not rows:
+        if skipped:
+            return status
         written = "" if where.is_file() else " Every run writes its rows here."
         print(f"{where}: no attempt rows yet.{written}")
         if orphans:
             print(f"{orphans} correction(s) name an attempt no row holds.")
-        return 0
+        return status
 
     runs: dict[tuple[str, str], _Tally] = {}
     rungs: dict[str, _Tally] = {}
     for row in rows:
-        # The `orchestrator` field holds the id of the session that wrote the
-        # row, and the attempt id carries the run's stamp after it.
-        session = str(row.get("orchestrator", ""))
+        # The `session` field holds the id of the session that wrote the row
+        # (a version-1 row's `orchestrator`, renamed as it is read), and the
+        # attempt id carries the run's stamp after it.
+        session = str(row.get("session", ""))
         run = run_of(str(row.get("attempt_id", "")), session)
         runs.setdefault((run, session), _Tally()).add(row)
         rungs.setdefault(str(row.get("rung", "")), _Tally()).add(row)
@@ -524,7 +535,8 @@ def _usage(args: argparse.Namespace) -> int:
     run_w = max(len("run"), *(len(run or "-") for run, _ in runs))
     session_w = max(len("session"), *(len(session or "-") for _, session in runs))
     rung_w = max(len("rung"), *(len(rung or "-") for rung in rungs))
-    print(f"{where}: {len(rows)} attempt row(s) in {len(files)} file(s)")
+    read = len(files) - len(skipped)
+    print(f"{where}: {len(rows)} attempt row(s) in {read} file(s)")
     print("\nPer run, oldest first:")
     print(f"  {'run':<{run_w}} {'session':<{session_w}} {_USAGE_COLUMNS}")
     for (run, session), tally in sorted(runs.items()):
@@ -539,7 +551,7 @@ def _usage(args: argparse.Namespace) -> int:
     )
     if orphans:
         print(f"{orphans} correction(s) name an attempt no row holds; not counted.")
-    return 0
+    return status
 
 
 def add_parser(sub: argparse._SubParsersAction[argparse.ArgumentParser]) -> None:

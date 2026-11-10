@@ -58,7 +58,7 @@ def test_a_claude_session_names_the_row_and_its_transcript(
     sink = journal / "claude-f438133f-0000-4c33-92f0-31f43d9dd3b6.jsonl"
     assert sink.is_file(), sorted(p.name for p in journal.iterdir())
     (row,) = fold(path=sink)
-    assert row["orchestrator"] == "claude-f438133f-0000-4c33-92f0-31f43d9dd3b6"
+    assert row["session"] == "claude-f438133f-0000-4c33-92f0-31f43d9dd3b6"
     assert row["session_file"] == str(transcript)
     assert row["task_type"] == "code"
     assert row["attempt_id"].startswith("claude-f438133f-0000-4c33-92f0-31f43d9dd3b6:")
@@ -93,7 +93,7 @@ def test_a_pi_session_names_the_row_and_its_transcript(
     sink = journal / "pi-01a065ec-33df-7279-8af7-a2801bc99751.jsonl"
     assert sink.is_file(), sorted(p.name for p in journal.iterdir())
     (row,) = fold(path=sink)
-    assert row["orchestrator"] == "pi-01a065ec-33df-7279-8af7-a2801bc99751"
+    assert row["session"] == "pi-01a065ec-33df-7279-8af7-a2801bc99751"
     assert row["session_file"] == str(transcript)
 
 
@@ -106,7 +106,7 @@ def test_an_explicit_orchestrator_wins_verbatim_and_claims_no_transcript(
     journal = _run(tmp_path, monkeypatch, "--session", "agent-a")
 
     (row,) = fold(path=journal / "agent-a.jsonl")
-    assert row["orchestrator"] == "agent-a"
+    assert row["session"] == "agent-a"
     assert "session_file" not in row, row
 
 
