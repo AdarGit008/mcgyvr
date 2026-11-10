@@ -22,8 +22,9 @@ archived outside this repository, under the same paths.
   gain an `architecture` (`dense` or `moe`, `knowledge.record.ARCHITECTURES`),
   which a Hub read takes from the file's header (`record.architecture_of`:
   expert blocks `--n-cpu-moe` can move, the one law placement's `ModelSpec`
-  and recommend now read too) and every shipped record states; `data/model-catalog.json` is
-  regenerated from the shipped header rows by `make catalog`
+  and recommend now read too) and every shipped record states;
+  `data/model-catalog.json` is regenerated from the shipped header rows by
+  `make catalog`
   (`python -m mcgyvr.knowledge.regenerate`, `--check` to compare), which
   added the field and nothing else. A cached record written before the field
   keeps the shipped record's. An `moe` record is sized from its file's header
@@ -36,6 +37,37 @@ archived outside this repository, under the same paths.
   from that record's row under both its names. `capability.Model` now keeps
   the `architecture` it checks (one of the same vocabulary), and setup's
   second raw reader of `capability-table.json` (`_architectures`) is gone.
+
+- **`mcgyvr local_pool` is now `mcgyvr ladder show`, and SETUP.md opens its
+  words with a glossary.** The verb printed the ladder but was named for a
+  pool, which the hub's pool is not; `mcgyvr local_pool` is refused with the
+  new name (exit 2) and is never sent to a proposer as a prompt. Migration:
+  type `mcgyvr ladder show` (same flags: `PATH`, `--config`, `--probe`,
+  `--probe-timeout`). Its output, the capacity errors, the cool-down reason
+  and the verifier's refusal say unit where they said source (`Probed N
+  unit(s)`, `unit 'x' did not answer`, `unit 'x' failed N dispatches in a
+  row`). SETUP.md's new *Glossary* defines each word once: decomposition,
+  scaffold, fill, draft, vet, proposer, direct, delegate, ladder, rung, top
+  rung, unit, standing session, hitchhike, general and crew pool, rig, host,
+  system, session, writer, family and floor. The prose follows it: the chat a
+  run is filed under is the writer; host is the person who offers slots, rig
+  the machine and system its OS block (the wire keeps `host`); the unit key
+  file is `unit-keys/<address>-<port>.env`; the `tempdir` sandbox's notes and
+  the `sandbox` and `expose` field help say this machine where they said the
+  host; `mcgyvr contract` shows `floor (no model)` or `ladder (a model)` where
+  it said `deterministic tier` or `model tier`; and the header of a generated
+  fleet.yaml/policy.yaml and the notes and refusals `mcgyvr setup` prints say
+  `setup` where they said `init`. For Python callers: `mcgyvr.local_pool` is
+  `mcgyvr.ladder_map` (`PoolError` is `LadderError`; `SourceMap`,
+  `source_map`, `SourceUnavailableError` and `SourceProbe` are `UnitMap`,
+  `unit_map`, `UnitUnavailableError` and `UnitProbe`), the setup wizard's
+  `mcgyvr.propose` is `mcgyvr.ladder_proposal` (`Rung` and `Proposal` are
+  `LadderRung` and `LadderProposal`, apart from the ladder's `Rung` and a
+  contract's `Proposal`), `deliver.digest_of` is `text_sha256` and
+  `repo.index.digest_of` is `bytes_fingerprint` (one name meant two digests),
+  and the jev choice alphabet is `decision.CHOICE_LABELS`, which the decision
+  log now reads instead of a copy. `rig.pooled.PoolError` is a different error
+  and keeps its name.
 
 - **`mcgyvr recommend` asks placement whether a model fits (I-47).** Its own
   arithmetic left out the scratch allowance and the RAM rule placement applies,
@@ -898,6 +930,33 @@ archived outside this repository, under the same paths.
   nothing is named after a reboot until the folder is checked again, and a
   hello says what the last check saw: the hub learns of a new model at the
   next hello. A rig with nothing recorded sends the same hello as before.
+- **A contract with `output_schema: unified_diff` runs: the model answers with
+  a diff, and it is applied, gated and delivered as a whole file is.** Such a
+  contract passed `mcgyvr contract` and was then refused when the run built its
+  prompt ("only 'whole_file' is implemented"). Now the user message asks for one
+  fenced ```` ```diff ```` block of the target alone, and the language bundle's
+  first output rule says the same (`worker.bundle.for_reply`; that text is
+  marked unmeasured, the whole-file bundle is sent byte for byte as before).
+  The reply is read strictly (`worker.reply.parse_diff`): the target on both
+  sides, behind `a/`/`b/` or not, at least one hunk, hunk lines only, and
+  `--- /dev/null` only for a target with no content yet. A diff that names another file or a
+  second file, deletes, renames, copies, changes a mode or is binary is refused
+  before anything is applied. `git apply --recount` (through `gitcmd.run_git`)
+  then applies it, all or nothing, onto the content the prompt showed, in a
+  scratch directory git is kept from climbing out of; context must match
+  exactly. The whole resulting file goes to the gate and delivery unchanged, and
+  a result with no code left is a refusal, as it is for a whole file; so is a
+  block with no code in it (comments only, or a JSON status), before it is read
+  as a diff, so the model is not told to guess one. Every
+  refusal, a context mismatch included, is a named `ReplyError`
+  (`malformed-diff`, `diff-outside-contract`, `diff-many-files`,
+  `diff-not-a-text-edit`, `diff-does-not-apply`), so the draw fails and the next
+  attempt is told why, as for a malformed `whole_file` reply. A
+  `unified_diff` contract written by hand now needs `stop_conditions`, as a
+  `whole_file` one always did. `worker.prompt.UnsupportedSchemaError` is gone:
+  every schema the contract field accepts (`contract.OUTPUT_SCHEMAS`) has an
+  output rule and a parser. `whole_file` contracts are sent and read exactly as
+  before.
 
 - **The hub says whether a member may host strangers, and the rig prints it.**
   A member's rigs serve strangers (the general pool's `anyone`, riders on their
@@ -1650,6 +1709,29 @@ archived outside this repository, under the same paths.
   modules: import them from `mcgyvr.worker.bundle`, `mcgyvr.worker.prompt`
   and `mcgyvr.worker.reply` directly.
 - `mcgyvr.fleet.layout.actions` is gone; nothing but its tests called it.
+- **`mcgyvr setup --profile` is gone**, as the 0.4.0 deprecation promised: it
+  is now an unknown flag. Use `--priority throughput|quality|cost`.
+- Paths nothing but tests reached are cut (no command, flag or default
+  changes):
+  - per-rung width bounds and the width probe: `mcgyvr.capacity.RungWidth`,
+    `WidthProbe`, `SourceWidthProbe`, `Capacity(rungs=)` and
+    `Capacity.of(probe=)`. Every rung is held on its unit's own bound, as every
+    production capacity already was;
+  - `mcgyvr.gate.check_clean_tree` (a run on a dirty tree already says the
+    sandbox is HEAD);
+  - `mcgyvr.decompose.iterate.iterate`, its `Approver` and
+    `MAX_REFUSAL_RETRIES`: a refused proposal goes to the top rung
+    (`mcgyvr.repropose`), bounded by `max_reproposals`;
+  - `Request.quality_sensitive`, `QualityCaveatError`, `CAVEAT_NOTE` and
+    `quality_safe` in `mcgyvr.runner`; the completion row in the journal no
+    longer carries `quality_safe`, which was always true;
+  - `RecordedProposer` leaves `mcgyvr.decompose` for `tests/recorded_proposer.py`:
+    it is a test double.
+- **Model records carry no leaderboard `scores`.** `BOARDS`, `Board`, `Score`
+  and the `board` source are gone from `mcgyvr.knowledge.record`, and the
+  knowledge document is `schema_version: 3`. A version-2 document (a cache an
+  earlier mcgyvr wrote) still loads, its `scores` skipped unread; an earlier
+  mcgyvr refuses a version-3 cache file and skips it.
 
 ### Fixed
 

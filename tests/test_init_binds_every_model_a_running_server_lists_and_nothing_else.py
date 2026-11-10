@@ -20,7 +20,7 @@ import pytest
 from mcgyvr import detect
 from mcgyvr.config import load as load_config
 from mcgyvr.initialize import initialize, parse_api_unit
-from mcgyvr.propose import binding_name
+from mcgyvr.ladder_proposal import binding_name
 from tests.machine_shapes import Shape, detection, shapes, with_server
 
 #: A hosted unit beside the listed ones, to show it is not counted as either.

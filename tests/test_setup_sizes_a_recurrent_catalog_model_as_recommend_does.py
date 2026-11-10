@@ -23,7 +23,7 @@ from mcgyvr.config import Config, Ladder, Unit
 from mcgyvr.hubwire import CACHE_PAD_CELLS
 from mcgyvr.knowledge import store as knowledge_store
 from mcgyvr.knowledge.record import ModelRecord, Number
-from mcgyvr.propose import DEFAULT_HEADROOM_GB
+from mcgyvr.ladder_proposal import DEFAULT_HEADROOM_GB
 from mcgyvr.scan import Scan
 from mcgyvr.serving import Unit as ServedUnit
 from mcgyvr.serving import UnitError, units_for

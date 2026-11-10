@@ -1,9 +1,9 @@
-"""What a config resolves into: the sources work may be dispatched to.
+"""What a config resolves into: the units work may be dispatched to.
 
-`source_map` reads a `Config` and answers what it can actually use: which
+`unit_map` reads a `Config` and answers what it can actually use: which
 ladder rungs survive the key they name, which are dropped and why, the
 `Endpoint` each name is dispatched at, and which unit each role runs on. A
-`SourceProbe` may be handed in to drop sources that are not answering, or that
+`UnitProbe` may be handed in to drop units that are not answering, or that
 answer while holding weights other than the model their rung names.
 """
 
@@ -22,26 +22,26 @@ from mcgyvr.seal import SealKey
 _ROLES = ("orchestrator", "verifier", "jev")
 
 
-class SourceProbe(TypingProtocol):
+class UnitProbe(TypingProtocol):
     """What a caller may ask about endpoints before any work is dispatched.
 
-    `source_map` asks `unavailable`, and asks `not_serving` only when the probe
+    `unit_map` asks `unavailable`, and asks `not_serving` only when the probe
     has it, so a probe may answer liveness alone.
     """
 
     def unavailable(self, endpoints: Sequence[Endpoint]) -> Mapping[str, str]:
-        """The sources among `endpoints` that are not live, each mapped to why.
+        """The units among `endpoints` that are not live, each mapped to why.
 
-        A source the mapping leaves out is taken as live.
+        A unit the mapping leaves out is taken as live.
         """
         ...
 
-    # `source_map` is the only caller that asks a probe: it is how a caller
+    # `unit_map` is the only caller that asks a probe: it is how a caller
     # that has already looked at the machines says which of them to drop.
     # The second question a probe may answer, `not_serving`, is not declared
     # here because answering it is optional. It takes `(endpoint, model)`
     # pairs and returns why each model is not held, keyed by
-    # `(source, model)`. It is asked because a source can be live and still
+    # `(source, model)`. It is asked because a unit can be live and still
     # hold other weights: llama.cpp answers a request naming weights it is
     # not serving from the weights it is, so such a reply is another
     # model's and nothing in it says so.
@@ -49,16 +49,16 @@ class SourceProbe(TypingProtocol):
     # rungs: a lent rung is reached through a hub, not probed here.
 
 
-class PoolError(Exception):
-    """Base class for what goes wrong resolving or using the source map."""
+class LadderError(Exception):
+    """Base class for what goes wrong resolving or using the unit map."""
 
 
-class UnknownRungError(PoolError):
+class UnknownRungError(LadderError):
     """A name was asked for that the config lists nowhere, as rung or role."""
 
 
-class SourceUnavailableError(PoolError):
-    """A source the config declares cannot be used: it was skipped, or the
+class UnitUnavailableError(LadderError):
+    """A unit the config declares cannot be used: it was skipped, or the
     environment variable holding its key is unset."""
 
 
@@ -110,7 +110,7 @@ class Endpoint:
     #: both are stated the smaller one holds.
     output_ceiling: int | None = None
     #: The reply room of the rung this one stands in for, set on relief
-    #: rungs alone by `source_map`: a lent rung answers as one of yours
+    #: rungs alone by `unit_map`: a lent rung answers as one of yours
     #: would, so its reply cap is held to this ceiling too.
     request_timeout_s: float | None = None
     #: Seconds one dispatched request to this endpoint may take before the
@@ -169,15 +169,15 @@ class Endpoint:
         """The key read from the environment variable `credential_env` names.
 
         `None` when the endpoint names no variable, meaning nothing is sent.
-        Raises `SourceUnavailableError` when the variable is unset or empty:
+        Raises `UnitUnavailableError` when the variable is unset or empty:
         the value is never written into a config file.
         """
         if self.credential_env is None:
             return self._unit_key() if self.own_key else None
         value = os.environ.get(self.credential_env)
         if not value:
-            raise SourceUnavailableError(
-                f"source {self.source!r} needs a credential, but "
+            raise UnitUnavailableError(
+                f"unit {self.source!r} needs a credential, but "
                 f"${self.credential_env} is not set. Export it in your shell or "
                 f"put it in a git-ignored .env; never write the value into the "
                 f"config file."
@@ -189,12 +189,12 @@ class Endpoint:
 
         Read each time it is asked for, so a unit given a key by a later
         `mcgyvr emit` is sent it. A key file that cannot be trusted raises
-        `SourceUnavailableError` naming it, rather than sending no key.
+        `UnitUnavailableError` naming it, rather than sending no key.
         """
         try:
             return unitkey.for_address(self.base_url)
         except unitkey.UnitKeyError as exc:
-            raise SourceUnavailableError(f"source {self.source!r}: {exc}") from exc
+            raise UnitUnavailableError(f"unit {self.source!r}: {exc}") from exc
 
 
 @dataclass(frozen=True)
@@ -210,7 +210,7 @@ class Skipped:
     """A rung the pool will not offer, with the reason it was dropped.
 
     The reason is either structural, the key the unit names being unset, or
-    what a probe said about the source.
+    what a probe said about the unit.
     """
 
     name: str
@@ -228,13 +228,13 @@ class RoleBinding:
     endpoint: Endpoint
 
 
-class SourceMap:
+class UnitMap:
     """A config resolved into what can be dispatched, and what cannot.
 
     `rungs` are the ladder's usable steps in the ladder's own order, `relief`
     the usable lent rungs, and `skipped` and `relief_skipped` the rest with
     their reasons. `bind` turns a rung name into the `Endpoint` to call and
-    `role` a role into its `RoleBinding`. `source_map` builds it.
+    `role` a role into its `RoleBinding`. `unit_map` builds it.
     """
 
     def __init__(
@@ -292,7 +292,7 @@ class SourceMap:
     def bind(self, name: str) -> Endpoint:
         """The endpoint to dispatch at for the rung of that name.
 
-        Raises `SourceUnavailableError` when the rung was skipped, carrying the
+        Raises `UnitUnavailableError` when the rung was skipped, carrying the
         reason, and `UnknownRungError` when no rung or relief rung is named so.
         """
         endpoint = self._endpoints.get(name)
@@ -303,7 +303,7 @@ class SourceMap:
             None,
         )
         if skipped is not None:
-            raise SourceUnavailableError(
+            raise UnitUnavailableError(
                 f"rung {name!r} is not available: {skipped.reason}"
             )
         offered = ", ".join(rung.name for rung in self._rungs) or "none"
@@ -313,7 +313,7 @@ class SourceMap:
         """The binding for a role, or `None` when the config binds none.
 
         The role must be one of `orchestrator`, `verifier` and `jev`. One bound
-        to a unit that was skipped raises `SourceUnavailableError` rather than
+        to a unit that was skipped raises `UnitUnavailableError` rather than
         reading as unbound.
         """
         if role not in _ROLES:
@@ -323,7 +323,7 @@ class SourceMap:
             return binding
         reason = self._role_skips.get(role)
         if reason is not None:
-            raise SourceUnavailableError(f"role {role!r} cannot run: {reason}")
+            raise UnitUnavailableError(f"role {role!r} cannot run: {reason}")
         return None
 
     def role_model(self, role: str) -> str | None:
@@ -335,14 +335,14 @@ class SourceMap:
         return None if binding is None else binding.model
 
 
-def source_map(config: Config, probe: SourceProbe | None = None) -> SourceMap:
-    """Resolve `config` into the `SourceMap` work is dispatched from.
+def unit_map(config: Config, probe: UnitProbe | None = None) -> UnitMap:
+    """Resolve `config` into the `UnitMap` work is dispatched from.
 
     Each ladder unit is checked for the key it names and, when it passes, given
     an endpoint; relief rungs are taken the same way and kept off the ladder.
     Each role bound in the config becomes a `RoleBinding`, its model defaulting
-    to its unit's own. With a `probe`, sources it reports unreachable are
-    dropped, and so are rungs whose source is up but not holding their model.
+    to its unit's own. With a `probe`, units it reports unreachable are
+    dropped, and so are rungs whose unit is up but not holding their model.
     A relief rung ends up with `output_ceiling` set to the reply room of the
     cheapest usable rung, so a lent rung is held to what it stands in for.
     """
@@ -415,7 +415,7 @@ def source_map(config: Config, probe: SourceProbe | None = None) -> SourceMap:
         )
 
     if probe is not None:
-        # One endpoint per source, so each source is asked about once however
+        # One endpoint per unit, so each unit is asked about once however
         # many rungs and roles sit on it. Relief rungs are left out, being
         # another person's machine reached through a hub.
         asking: dict[str, Endpoint] = {}
@@ -433,12 +433,12 @@ def source_map(config: Config, probe: SourceProbe | None = None) -> SourceMap:
                 if reason is not None:
                     role_skips[role] = reason
                     del roles[role]
-        # Then the question a probe need not answer: a source can be up and
+        # Then the question a probe need not answer: a unit can be up and
         # still not hold the model its rung names. llama.cpp answers a
         # request naming weights it is not serving from the weights it is,
         # so such a reply is another model's with nothing saying so.
         # It is looked up with `getattr` rather than declared on the protocol,
-        # so a probe answering only `unavailable` is still a `SourceProbe`;
+        # so a probe answering only `unavailable` is still a `UnitProbe`;
         # one answering this too has its verdict applied to the ladder rungs
         # still standing.
         asks_models = getattr(probe, "not_serving", None)
@@ -463,7 +463,7 @@ def source_map(config: Config, probe: SourceProbe | None = None) -> SourceMap:
         for rung in relief:
             endpoints[rung.name] = replace(endpoints[rung.name], output_ceiling=local)
 
-    return SourceMap(
+    return UnitMap(
         rungs=tuple(usable),
         skipped=tuple(skipped),
         endpoints=endpoints,
@@ -481,7 +481,7 @@ def _drop_unreachable(
     endpoints: dict[str, Endpoint],
     down: Mapping[str, str],
 ) -> tuple[list[Rung], list[Skipped], dict[str, Endpoint]]:
-    """Drop the usable rungs whose source `down` reports unreachable.
+    """Drop the usable rungs whose unit `down` reports unreachable.
 
     The ladder's order is walked, so the kept rungs stay in it. A rung already
     skipped keeps the reason it was skipped for; a rung dropped here is recorded
@@ -515,7 +515,7 @@ def _drop_wrong_model(
     endpoints: dict[str, Endpoint],
     elsewhere: Mapping[tuple[str, str], str],
 ) -> tuple[list[Rung], list[Skipped], dict[str, Endpoint]]:
-    """Drop the usable rungs whose source is up but not serving their model.
+    """Drop the usable rungs whose unit is up but not serving their model.
 
     `elsewhere` is keyed by `(source, model)`, so one endpoint serving several
     rungs loses only the rungs asking for the model it lacks. The ladder's order

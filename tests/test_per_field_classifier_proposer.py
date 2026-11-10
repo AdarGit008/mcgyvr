@@ -54,7 +54,7 @@ from mcgyvr.decompose.candidates import (
 )
 from mcgyvr.decompose.decompose import Evidence, Refusal
 from mcgyvr.delegate import MIN_CONFIDENCE, ClassifierProposer, classifier_proposer_for
-from mcgyvr.local_pool import source_map
+from mcgyvr.ladder_map import unit_map
 from mcgyvr.repo.index import Index, build_index
 from mcgyvr.repo.read import explore
 from mcgyvr.repo.resolve import resolve
@@ -294,7 +294,7 @@ def test_degrades_deterministically_without_jev(
     repo: Index, monkeypatch: pytest.MonkeyPatch
 ) -> None:
     """No jev means no model call: the proposer collapses rank-0 per field."""
-    pool = source_map(parse(LADDER))
+    pool = unit_map(parse(LADDER))
 
     def fail(*args: Any, **kwargs: Any) -> Any:
         raise AssertionError("no model call without a jev unit")

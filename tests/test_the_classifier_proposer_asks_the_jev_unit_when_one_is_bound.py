@@ -21,7 +21,7 @@ import mcgyvr.decision as decision
 from mcgyvr.config import parse
 from mcgyvr.decision import Choice
 from mcgyvr.delegate import ClassifierProposer, classifier_proposer_for
-from mcgyvr.local_pool import source_map
+from mcgyvr.ladder_map import unit_map
 
 ORCH = "http://localhost:18003/v1/chat/completions"
 JUDGE = "http://localhost:18009/v1/chat/completions"
@@ -66,7 +66,7 @@ def _wire(monkeypatch: pytest.MonkeyPatch) -> list[tuple[str, str]]:
 
 
 def _proposer(text: str) -> ClassifierProposer:
-    proposer = classifier_proposer_for(source_map(parse(text)))
+    proposer = classifier_proposer_for(unit_map(parse(text)))
     assert isinstance(proposer, ClassifierProposer)
     return proposer
 
@@ -91,7 +91,7 @@ def test_without_a_jev_unit_the_proposer_degrades_to_rank0(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     sent = _wire(monkeypatch)
-    proposer = classifier_proposer_for(source_map(parse(UNITS + ORCHESTRATOR)))
+    proposer = classifier_proposer_for(unit_map(parse(UNITS + ORCHESTRATOR)))
     assert proposer is not None
     assert not isinstance(proposer, ClassifierProposer)
     assert not hasattr(proposer, "classify")
@@ -99,7 +99,7 @@ def test_without_a_jev_unit_the_proposer_degrades_to_rank0(
 
 
 def test_with_neither_jev_nor_orchestrator_the_proposer_still_degrades() -> None:
-    proposer = classifier_proposer_for(source_map(parse(UNITS)))
+    proposer = classifier_proposer_for(unit_map(parse(UNITS)))
     assert proposer is not None
     assert not isinstance(proposer, ClassifierProposer)
     assert not hasattr(proposer, "classify")

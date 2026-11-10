@@ -24,7 +24,7 @@ from mcgyvr.config import (
 )
 from mcgyvr.hubwire import shares_ram
 from mcgyvr.knowledge.record import MOE, architecture_of
-from mcgyvr.propose import DEFAULT_HEADROOM_GB
+from mcgyvr.ladder_proposal import DEFAULT_HEADROOM_GB
 from mcgyvr.scan import Gpu, Scan, default_weights_dir
 from mcgyvr.serving import vramfit
 

@@ -79,16 +79,21 @@ another's work names its id in `depends_on`.
 **`stop_conditions`**
 - type: list of text; optional, default `[]`
 - description: Explicit triggers on which the worker must stop and report BLOCKED instead of guessing —
-  scope creep, an unknown API, an ambiguous directive. Required when a model writes a `whole_file` reply,
-  the one whose refusal is caught and escalated: guessing is the documented small-model failure mode
-  these exist to prevent. Start from `<task_type> on <target> would require deciding something the
-  contract does not state — report BLOCKED rather than guess`. (worker-facing)
+  scope creep, an unknown API, an ambiguous directive. Required when a model writes the target (a
+  `whole_file` or `unified_diff` reply), whose refusal is caught and escalated: guessing is the
+  documented small-model failure mode these exist to prevent. Start from `<task_type> on <target> would
+  require deciding something the contract does not state — report BLOCKED rather than guess`.
+  (worker-facing)
 
 **`output_schema`**
 - type: one of `whole_file`, `unified_diff`; optional, default `whole_file`
 - description: The shape the worker must reply in, declared so a runner can hand the model format
-  instructions rather than hoping for a convention. `whole_file` is the single-file output protocol.
-  `unified_diff` validates here and is refused before dispatch. (worker-facing)
+  instructions rather than hoping for a convention. `whole_file` is the single-file output protocol: the
+  complete new content of the target as one fenced block. `unified_diff` is one fenced block holding a
+  unified diff of the target alone, applied onto the content the model was shown; a diff that names
+  another file, renames, deletes or is binary, or whose context does not match, is a failed attempt and
+  is retried like an unreadable `whole_file`. Either way the gate and delivery see the whole resulting
+  file. (worker-facing)
 
 **`sources`**
 - type: list of text; optional, default `[]`
@@ -458,8 +463,8 @@ the config's `journal.dir`, in `results/`. The file's keys:
 - `delivery` — where the work went: left uncommitted in the tree (the
   default), the commit, or why it was refused (as `detail`).
   `committed`, `commit`, `branch`, `handoff` are the commit as fields.
-- `target`, `contract`, `task_type`, `session` (the session the run is
-  filed under; also written as `orchestrator`, its old key, for one
+- `target`, `contract`, `task_type`, `session` (the writer: the chat the run
+  is filed under; also written as `orchestrator`, its old key, for one
   release), `run`, `session_file`, `journal`, `exit_code`.
 - `copy_errors` — a `--record DIR` copy that could not be written, and
   why. Empty on almost every run. mcgyvr's own record under `journal`

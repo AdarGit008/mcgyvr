@@ -45,7 +45,7 @@ from mcgyvr.contract import loads as load_contract
 from mcgyvr.gate import ChangeSet, Finding, Gate, GateResult
 from mcgyvr.gate.adapter import ToolFailedError
 from mcgyvr.gate.adapters import PythonAdapter
-from mcgyvr.local_pool import Protocol
+from mcgyvr.ladder_map import Protocol
 from mcgyvr.repair import tidy
 from mcgyvr.runner import Completion, StopReason
 from mcgyvr.sandbox import Sandbox

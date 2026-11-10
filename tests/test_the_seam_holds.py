@@ -1,8 +1,8 @@
 """The seam holds: nothing below it reads a contract, nothing above it starts a server.
 
-``mcgyvr.local_pool``'s module docstring names the two halves — above the seam a
+``mcgyvr.ladder_map``'s module docstring names the two halves — above the seam a
 caller sees a *ladder of rungs*: named steps, cheapest first, each with a model.
-Below it, a rung has already resolved to an :class:`~mcgyvr.local_pool.Endpoint` a
+Below it, a rung has already resolved to an :class:`~mcgyvr.ladder_map.Endpoint` a
 runner can dispatch against. ``mcgyvr.runner``'s module docstring calls it "the
 first code below the seam" the pool draws.
 
@@ -55,7 +55,7 @@ else either module does.
 a single edge, and for the opposite reason. It is not read from both halves; it
 *reaches into* both, and that is not a crossing to be removed. The ``mcgyvr.cli``
 package re-exports ``main`` — its one-line job as the command-line entrypoint —
-and one ``argparse`` parser dispatches ``mcgyvr detect``, ``mcgyvr local_pool``,
+and one ``argparse`` parser dispatches ``mcgyvr detect``, ``mcgyvr ladder show``,
 ``mcgyvr scan`` and ``mcgyvr emit`` below the seam and ``mcgyvr run`` and
 ``mcgyvr contract`` above it, which is the only job an entrypoint has.
 :data:`THE_COMMAND_LINE_ENTRYPOINT` names it once, in the same written-down way,
@@ -86,7 +86,7 @@ from tests.wheels import (
 )
 
 #: ``mcgyvr.runner``'s own words: "the first code below the seam
-#: ``mcgyvr.local_pool`` draws". This is it, and everything else that resolves a
+#: ``mcgyvr.ladder_map`` draws". This is it, and everything else that resolves a
 #: rung to something a machine actually runs: an endpoint to dispatch against
 #: (pool, runner), what is known about a source before dispatching to it
 #: (availability, capacity, cooldown), a sandbox to run a command in
@@ -142,10 +142,10 @@ BELOW_THE_SEAM: tuple[str, ...] = (
     "mcgyvr.knowledge.record",
     "mcgyvr.knowledge.regenerate",
     "mcgyvr.knowledge.store",
-    "mcgyvr.local_pool",
+    "mcgyvr.ladder_map",
     "mcgyvr.policy_line",
     "mcgyvr.pressure",
-    "mcgyvr.propose",
+    "mcgyvr.ladder_proposal",
     "mcgyvr.recommend",
     "mcgyvr.rig",
     "mcgyvr.rig.agent",
@@ -215,7 +215,7 @@ BELOW_THE_SEAM: tuple[str, ...] = (
     "mcgyvr.whole",
 )
 
-#: ``mcgyvr.local_pool``'s other half — a caller that sees a ladder of rungs and has
+#: ``mcgyvr.ladder_map``'s other half — a caller that sees a ladder of rungs and has
 #: not resolved one to anything that runs. The contract and the exploration
 #: that produces one (contract, repo.*, decompose.*, decision_log, docgen), the
 #: climb through the ladder (route, escalate, triage, drive, consensus,
@@ -599,7 +599,7 @@ def test_the_exemption_covers_the_entrypoint_and_the_two_docker_edges() -> None:
 
     The entrypoint is exempt whole: the same synthetic crossing is attributed
     to ``mcgyvr.cli``, which :data:`THE_COMMAND_LINE_ENTRYPOINT` names, and to
-    ``mcgyvr.local_pool``, which nothing names; the first is skipped and the second
+    ``mcgyvr.ladder_map``, which nothing names; the first is skipped and the second
     is caught.
 
     Docker detection is exempt as two edges and not as two modules. Handed the
@@ -614,8 +614,8 @@ def test_the_exemption_covers_the_entrypoint_and_the_two_docker_edges() -> None:
     reader = _synthetic(_BELOW_REACHING_UP)
 
     assert _crossings((THE_COMMAND_LINE_ENTRYPOINT,), NOT_BELOW, imports=reader) == []
-    assert _crossings(("mcgyvr.local_pool",), NOT_BELOW, imports=reader) == [
-        "mcgyvr.local_pool imports mcgyvr.contract"
+    assert _crossings(("mcgyvr.ladder_map",), NOT_BELOW, imports=reader) == [
+        "mcgyvr.ladder_map imports mcgyvr.contract"
     ]
 
     assert _crossings(("mcgyvr.detect",), NOT_BELOW, imports=reader) == [

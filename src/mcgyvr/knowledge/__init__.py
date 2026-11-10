@@ -7,8 +7,8 @@ about itself, or a reading taken on the user's own machine.
 The package holds these modules, among others, and this one only marks the
 package:
 
-- `record` is the schema — `ModelRecord`, `Number`, `Score`, `Weights`, the
-  boards and sources numbers may name — plus `parse_document`/`dump_document`,
+- `record` is the schema — `ModelRecord`, `Number`, `Weights`, the sources
+  numbers may name — plus `parse_document`/`dump_document`,
   which reject any document whose keys, kinds, sources or dates do not fit.
 - `store` merges the catalog shipped in `mcgyvr/data` with the per-machine
   cache, a cached record winning over the shipped one for the same

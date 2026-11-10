@@ -257,7 +257,7 @@ def test_content_on_a_pattern_target_is_rejected() -> None:
 
 def test_a_pattern_target_without_content_is_still_fine() -> None:
     """The rejection is the contradiction, not the pattern — #150 adds no
-    restriction to the deterministic tier, whose tools read files themselves."""
+    restriction to the floor, whose tools read files themselves."""
     pattern = DETERMINISTIC.replace("target: src/pkg/fetch.py", 'target: "src/**"')
     assert loads(pattern).target_content == ""
 
@@ -426,6 +426,26 @@ def test_a_whole_file_contract_without_a_stop_condition_is_handed_the_generic_on
         "code on src/pkg/fetch.py would require deciding something the "
         "contract does not state — report BLOCKED rather than guess"
     ) in message, message
+
+
+def test_a_unified_diff_contract_needs_a_stop_condition_too() -> None:
+    """A diff is applied onto the target as a whole file is written to it, so a
+    guess lands in the target either way: the same refusal, naming the shape."""
+    without = MINIMAL.replace(
+        "stop_conditions:\n  - The retry policy is not stated anywhere in the repo.\n",
+        "output_schema: unified_diff\n",
+    )
+    with pytest.raises(ContractSchemaError) as exc:
+        loads(without)
+    message = str(exc.value)
+    assert message.startswith("stop_conditions:"), message
+    assert "replies with a unified_diff" in message, message
+
+
+def test_a_unified_diff_contract_with_a_stop_condition_loads() -> None:
+    assert loads(MINIMAL + "output_schema: unified_diff\n").output_schema == (
+        "unified_diff"
+    )
 
 
 def test_a_deterministic_task_type_needs_no_stop_conditions() -> None:

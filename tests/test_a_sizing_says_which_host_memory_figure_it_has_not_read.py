@@ -28,7 +28,7 @@ from mcgyvr import derived, serving
 from mcgyvr.cli import main
 from mcgyvr.config import CONFIG_PATH_ENV
 from mcgyvr.exits import Exit
-from mcgyvr.propose import DEFAULT_HEADROOM_GB
+from mcgyvr.ladder_proposal import DEFAULT_HEADROOM_GB
 from mcgyvr.scan import Memory, Scan
 from mcgyvr.serving import (
     MODE_RAM_HEADROOM_GB,

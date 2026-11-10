@@ -22,7 +22,7 @@ from mcgyvr import compose as compose_module
 from mcgyvr.config import load as load_config
 from mcgyvr.decision import Choice, ChoiceAnswer, Decision
 from mcgyvr.initialize import initialize, parse_api_unit
-from mcgyvr.local_pool import Endpoint, Protocol
+from mcgyvr.ladder_map import Endpoint, Protocol
 from tests.machine_shapes import detection, shape, with_server
 
 LOCAL = Endpoint(

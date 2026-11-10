@@ -32,7 +32,7 @@ from mcgyvr.config import parse
 from mcgyvr.contract import loads as load_contract
 from mcgyvr.drive import worker_attempt
 from mcgyvr.escalate import Delivered, escalate
-from mcgyvr.local_pool import source_map
+from mcgyvr.ladder_map import unit_map
 from mcgyvr.route import Verdict
 from mcgyvr.runner import (
     BackendError,
@@ -107,7 +107,7 @@ def ask(address: str, rung: str, tmp_path: Path) -> tuple[Capacity, Any]:
     capacity = Capacity.of(config, root=tmp_path / "slots")
     request = Request(prompt="hello", max_output_tokens=8)
     try:
-        return capacity, dispatch(source_map(config), rung, request, capacity=capacity)
+        return capacity, dispatch(unit_map(config), rung, request, capacity=capacity)
     except Exception as exc:
         return capacity, exc
 
@@ -182,7 +182,7 @@ def test_the_climb_tries_the_next_rung_at_once_and_the_log_says_why(
         answering(*good, asked_other) as other,
     ):
         config = parse(setup(hub, other))
-        pool = source_map(config)
+        pool = unit_map(config)
         contract = load_contract(CONTRACT)
         with TempDirSandbox(repo) as sandbox:
             outcome = escalate(

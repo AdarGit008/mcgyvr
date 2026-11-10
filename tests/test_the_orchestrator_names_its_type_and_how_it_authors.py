@@ -72,11 +72,11 @@ def test_init_writes_the_proposer_type_from_the_schemas_own_default() -> None:
     from mcgyvr.config import ORCHESTRATOR_FIELDS
     from mcgyvr.detect import Detection
     from mcgyvr.initialize import build, render_policy
-    from mcgyvr.propose import Proposal
+    from mcgyvr.ladder_proposal import LadderProposal
 
     default = {field.name: field.default for field in ORCHESTRATOR_FIELDS}["type"]
     assert default == "proposer"
-    written = build(Detection(), Proposal())
+    written = build(Detection(), LadderProposal())
     assert written["orchestrator"]["type"] == default
     assert "type: proposer" in render_policy(written)
 

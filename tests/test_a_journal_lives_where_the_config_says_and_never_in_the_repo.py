@@ -105,9 +105,9 @@ def test_init_writes_the_journal_dir_so_a_user_can_see_and_move_it() -> None:
     from mcgyvr.config import JOURNAL_DIR_DEFAULT
     from mcgyvr.detect import Detection
     from mcgyvr.initialize import build
-    from mcgyvr.propose import Proposal
+    from mcgyvr.ladder_proposal import LadderProposal
 
-    data = build(Detection(), Proposal())
+    data = build(Detection(), LadderProposal())
     assert data["journal"] == {"dir": JOURNAL_DIR_DEFAULT}
     assert JOURNAL_DIR_DEFAULT == "~/.local/state/mcgyvr/journal"
 

@@ -1,8 +1,9 @@
 """Settle which session typed this command, and where its transcript is.
 
-A session is who typed the command: the Claude Code or Pi conversation it was
-run from. A journal row names the session that produced it, and a name is only
-worth writing if a reader can follow it to a transcript. `resolve` takes the
+The session here is the writer: the Claude Code or Pi conversation the command
+was typed from (not a pooled inference run, which `mcgyvr.rig.session` names).
+A journal row names the writer that produced it, and a name is only worth
+writing if a reader can follow it to a transcript. `resolve` takes the
 `--session` value when there is one, and otherwise reads the session the
 command was typed from: Claude Code's `CLAUDE_CODE_SESSION_ID`, or a Pi
 transcript's path in `PI_SESSION_FILE`. Either way the tool's own session id is

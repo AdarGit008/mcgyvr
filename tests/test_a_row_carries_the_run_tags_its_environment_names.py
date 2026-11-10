@@ -38,7 +38,7 @@ import pytest
 
 from mcgyvr import config as configlib
 from mcgyvr import telemetry
-from mcgyvr.local_pool import Protocol
+from mcgyvr.ladder_map import Protocol
 from mcgyvr.runner import Completion, StopReason
 from mcgyvr.telemetry import ATTEMPT_KIND, fold, observe
 from tests import livejournal as lj

@@ -1,13 +1,12 @@
-"""`mcgyvr setup` takes a priority, and reads the old `--profile` with a warning.
+"""`mcgyvr setup` takes a priority, and refuses the old `--profile`.
 
 What init's composed ladder optimises for is one of three things: throughput,
 quality or cost. It used to be free text under `--profile`, free text the
 decision could only guess at.
 
-`--priority throughput|quality|cost` is the option now. `--profile` is still
-read for one release: a known word maps onto that priority, any other text is
-ignored, and either way stderr says it is deprecated and what to type
-instead. When both are given, `--priority` wins.
+`--priority throughput|quality|cost` is the option. `--profile` was deprecated
+in 0.4.0 for removal in the release after next, and is gone: it is now an
+unknown flag, refused before anything is handed to init.
 
 The seam is `cli.initialize`: only the priority it is handed is checked, and
 nothing is detected or written.
@@ -65,44 +64,18 @@ def test_no_priority_is_none_and_says_nothing(
     assert capsys.readouterr().err == ""
 
 
-@pytest.mark.parametrize("word", ["throughput", "Quality", " cost "])
-def test_an_old_profile_naming_a_priority_maps_to_it_and_warns(
-    word: str,
+@pytest.mark.parametrize("flags", [("--profile", "quality"), ("--profile", "x")])
+def test_the_old_profile_is_an_unknown_flag(
+    flags: tuple[str, ...],
     tmp_path: Path,
     handed: list[dict[str, Any]],
     capsys: pytest.CaptureFixture[str],
 ) -> None:
-    code = _run(tmp_path, "--profile", word)
-    err = capsys.readouterr().err
-    want = word.strip().lower()
-    assert code == 0
-    assert [call["priority"] for call in handed] == [want]
-    assert "deprecated" in err
-    assert f"--priority {want}" in err
-
-
-def test_an_old_profile_of_other_text_is_ignored_with_a_warning(
-    tmp_path: Path, handed: list[dict[str, Any]], capsys: pytest.CaptureFixture[str]
-) -> None:
-    code = _run(tmp_path, "--profile", "fast and cheap")
-    err = capsys.readouterr().err
-    assert code == 0
-    assert [call["priority"] for call in handed] == [None]
-    assert "deprecated" in err
-    assert "ignored" in err
-    assert "'fast and cheap'" in err
-    assert "throughput|quality|cost" in err
-
-
-def test_priority_wins_over_the_old_profile_and_says_so(
-    tmp_path: Path, handed: list[dict[str, Any]], capsys: pytest.CaptureFixture[str]
-) -> None:
-    code = _run(tmp_path, "--priority", "cost", "--profile", "quality")
-    err = capsys.readouterr().err
-    assert code == 0
-    assert [call["priority"] for call in handed] == ["cost"]
-    assert "deprecated" in err
-    assert "ignored" in err
+    with pytest.raises(SystemExit) as exited:
+        _run(tmp_path, *flags)
+    assert exited.value.code == 2
+    assert not handed
+    assert "--profile" in capsys.readouterr().err
 
 
 def test_a_priority_outside_the_three_is_refused(

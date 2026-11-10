@@ -129,11 +129,11 @@ def test_every_request_names_its_units_scope_beside_the_use_case(
 ) -> None:
     from mcgyvr import decision, runner
     from mcgyvr.decision import Noul
-    from mcgyvr.local_pool import source_map
+    from mcgyvr.ladder_map import unit_map
 
     monkeypatch.setenv(KEY_ENV, "mhu_" + "k" * 40)
     setup = f"{FLEET}ladder: [local, crew_coder]\nfanout: idle\nuse_case: {use_case}\n"
-    pool = source_map(parse(setup, relief_text=RELIEF))
+    pool = unit_map(parse(setup, relief_text=RELIEF))
     sent: list[tuple[str, dict[str, str]]] = []
     _capture(monkeypatch, runner, sent)
     _capture(monkeypatch, decision, sent)
@@ -157,9 +157,9 @@ def test_every_request_names_its_units_scope_beside_the_use_case(
 
 def test_the_runners_headers_name_the_units_scope() -> None:
     from mcgyvr import runner
-    from mcgyvr.local_pool import source_map
+    from mcgyvr.ladder_map import unit_map
 
-    pool = source_map(parse(_unit("crew")))
+    pool = unit_map(parse(_unit("crew")))
     headers = runner.request_headers(pool.bind("local"))
 
     assert headers[hubwire.SCOPE_HEADER] == hubwire.SCOPE_CREW
