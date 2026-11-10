@@ -1095,7 +1095,7 @@ def render_use_skill() -> str:
         "that are now on or off. Show the user what it printed.",
         "",
         "- `mcgyvr-code` opts in: contracts are proposed, vetted, run up the",
-        "  ladder, gated, repaired, reviewed and re-decomposed, each under its own",
+        "  ladder, gated, repaired, verified and re-decomposed, each under its own",
         "  switch in the policy, every one on by default.",
         "- `code`, `chat` and `agent` serve the model raw: no stage runs, and",
         "  `mcgyvr PROMPT` and `mcgyvr direct` refuse until `mcgyvr use",
