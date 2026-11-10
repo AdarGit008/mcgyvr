@@ -14,7 +14,7 @@ from __future__ import annotations
 import ipaddress
 import socket
 import struct
-from collections.abc import Iterable, Sequence
+from collections.abc import Collection, Iterable, Sequence
 from dataclasses import dataclass
 
 from mcgyvr import hostos
@@ -157,9 +157,20 @@ class TunnelPlan:
                 return peer
         return None
 
-    def peer_nets(self) -> tuple[ipaddress.IPv4Network, ...]:
-        """Every peer's allowed addresses, peer by peer."""
-        return tuple(net for peer in self.peers for net in peer.allowed)
+    def peer_nets(
+        self, port: int | None = None, came_up: Collection[str] = ()
+    ) -> tuple[ipaddress.IPv4Network, ...]:
+        """The allowed addresses of the peers that may reach this rig's `port`,
+        peer by peer: every peer the session needs, and a ring peer only when
+        its walk came up (its rig id in `came_up`) and its ring link names
+        `port` among its ``accept_ports``. With no ring peers, every peer's."""
+        return tuple(
+            net
+            for peer in self.peers
+            if peer.ring is None
+            or (peer.rig_id in came_up and port in peer.ring.accept_ports)
+            for net in peer.allowed
+        )
 
 
 def is_lan(address: ipaddress.IPv4Address) -> bool:

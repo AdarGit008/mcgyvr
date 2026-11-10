@@ -2390,26 +2390,12 @@ class Sessions:
         # A ring peer counts only once its walk found a path: it may dial the
         # ports it is named to accept, and this rig may dial the ports it names.
         came_up = {p.rig_id for p in session.report or () if p.path != "none"}
-        rings = [
-            peer
-            for peer in session.plan.peers
-            if peer.ring is not None and peer.rig_id in came_up
-        ]
-
-        def nets_for(port: int) -> list[str]:
-            assert session.plan is not None
-            return [
-                str(net)
-                for peer in session.plan.peers
-                if peer.ring is None
-                or (peer in rings and port in peer.ring.accept_ports)
-                for net in peer.allowed
-            ]
-
         dials = [
             word
-            for peer in rings
-            if peer.ring is not None and peer.tunnel_host is not None
+            for peer in session.plan.peers
+            if peer.ring is not None
+            and peer.rig_id in came_up
+            and peer.tunnel_host is not None
             for port in peer.ring.dial_ports
             for word in (str(peer.tunnel_host), str(port))
         ]
@@ -2433,7 +2419,8 @@ class Sessions:
                     memory_mb=share.container_mb(),
                 )
             )
-            session.host.open_worker(session.tunnel_name, own, port, nets_for(port))
+            nets = [str(net) for net in session.plan.peer_nets(port, came_up)]
+            session.host.open_worker(session.tunnel_name, own, port, nets)
         if dials:
             session.host.open_ring(session.tunnel_name, own, dials)
         waiting = set(session.workers)
