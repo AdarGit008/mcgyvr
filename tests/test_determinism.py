@@ -45,12 +45,13 @@ from mcgyvr.catalog import catalog
 from mcgyvr.config import parse as parse_config
 from mcgyvr.contract import Contract
 from mcgyvr.contract import loads as load_contract
-from mcgyvr.decompose.decompose import DepRef, Proposal, RecordedProposer, decompose
+from mcgyvr.decompose.decompose import DepRef, Proposal, decompose
 from mcgyvr.escalate import Assurance, Delivered, Judgement, ascent, escalate
 from mcgyvr.ladder_map import Endpoint, Protocol, UnitMap, unit_map
 from mcgyvr.repo.index import build_index
 from mcgyvr.route import Try, Verdict, plan
 from tests._helpers import CONTRACT, git
+from tests.recorded_proposer import RecordedProposer
 
 CONFIG = """\
 units:

@@ -572,79 +572,29 @@ def test_a_hitchhike_rung_beside_a_reserving_orchestrator_reserves_nothing() -> 
         capacity.release(RIDE)
 
 
-# --- and from the machine, when the machine will say -------------------------
+# --- a width a machine confirmed --------------------------------------------
 
 
-class Widths:
-    """A stand-in for the width half of #22's probe: source name -> width or None.
+def widened() -> Capacity:
+    """CONFIG's capacity with `cheap` confirmed at 8 against the declared 3.
 
-    A dict rather than anything that opens a socket, because the seam under test
-    is "what does this module do with an answer" and not "how is the answer
-    fetched". ``None`` — including for a source the table never mentions — is the
-    ollama case: a backend that does not report its parallelism at all, which is
-    an ordinary answer and not a failure.
+    `Capacity.of` asks no machine, so a confirmed width is built directly: the
+    seam under test is what `hold` does with one, not where it came from.
     """
-
-    def __init__(self, widths: dict[str, int | None]) -> None:
-        self._widths = widths
-
-    def width(self, source: str) -> int | None:
-        return self._widths.get(source)
-
-
-def test_a_width_the_rig_reports_beats_the_one_the_config_guessed() -> None:
-    """`init` writes 1 because it cannot know; a rig that says otherwise ends it."""
-    capacity = Capacity.of(parse(CONFIG), probe=Widths({"cheap": 8}))
-
-    assert capacity.limits["cheap"] == 8, "the config declared 3; the rig said 8"
-    assert capacity.total == 11
-    assert capacity.confirmed("cheap") is True
+    config = parse(CONFIG)
+    return Capacity(
+        {"cheap": 8, "strong": 2, "spare": 1},
+        confirmed=["cheap"],
+        declared={"cheap": 3, "strong": 2, "spare": 1},
+        urls={name: unit.address for name, unit in config.units.items()},
+    )
 
 
-def test_a_width_reported_the_same_as_declared_is_still_a_confirmed_one() -> None:
-    """The guess being right is not the same fact as the guess being unchecked."""
-    capacity = Capacity.of(parse(CONFIG), probe=Widths({"strong": 2}))
-
-    assert capacity.limits["strong"] == 2
-    assert capacity.confirmed("strong") is True
-
-
-def test_a_source_that_does_not_report_keeps_its_declaration_and_says_so() -> None:
-    """ollama serves its parallelism from a unit file and exposes no endpoint."""
-    capacity = Capacity.of(parse(CONFIG), probe=Widths({"cheap": None}))
-
-    assert capacity.limits["cheap"] == 3, "the declaration stands"
-    assert capacity.confirmed("cheap") is False
-
-
-def test_a_source_the_probe_never_mentions_is_unconfirmed_not_absent() -> None:
-    """Nobody asked, and the backend does not say: one state of knowledge."""
-    capacity = Capacity.of(parse(CONFIG), probe=Widths({"cheap": 8}))
-
-    assert capacity.limits["spare"] == 1
-    assert capacity.confirmed("spare") is False
-
-
-def test_without_a_probe_no_width_is_confirmed() -> None:
-    """The ordinary case, and the one every other test in this file is in."""
+def test_a_capacity_built_from_a_config_confirms_no_width() -> None:
+    """`of` asks no machine, so every width is the declared one."""
     capacity = Capacity.of(parse(CONFIG))
 
     assert not any(capacity.confirmed(source) for source in capacity.limits)
-
-
-def test_a_declared_width_the_machine_contradicts_is_refused_by_name() -> None:
-    """A single-slot server's invisible queue, made visible the moment the rig
-    can be asked.
-
-    Lowering the bound silently would leave the config still wrong and the
-    operator's evidence for "my rig is slow" still indistinguishable from their
-    evidence for "my config is wrong".
-    """
-    with pytest.raises(CapacityError) as caught:
-        Capacity.of(parse(CONFIG), probe=Widths({"cheap": 1}))
-
-    assert "'cheap' declares 3 but reports 1" in str(caught.value)
-    assert "Two answers to one question" in str(caught.value)
 
 
 def test_asking_whether_an_unbounded_source_was_confirmed_is_refused() -> None:
@@ -672,11 +622,11 @@ def test_an_outcome_reports_failure_rather_than_an_absent_value() -> None:
     assert not Outcome[int](index=0, error=ValueError("x")).ok
 
 
-# --- and dispatching through what the machine reported ----------------------
+# --- and dispatching through a confirmed width ------------------------------
 
 
-def test_a_probed_capacity_dispatches_at_the_width_the_rig_reported() -> None:
-    """The test whose absence let a probe that worked ship unusable.
+def test_a_confirmed_capacity_dispatches_at_the_confirmed_width() -> None:
+    """The test whose absence let a confirmed width ship unusable.
 
     Every earlier test in this section reads the bound and stops there, so all
     of them passed while the first `hold` through a widened source raised: the
@@ -688,7 +638,7 @@ def test_a_probed_capacity_dispatches_at_the_width_the_rig_reported() -> None:
     through a source the config declared three wide.
     """
     config = parse(CONFIG)
-    capacity = Capacity.of(config, probe=Widths({"cheap": 8}))
+    capacity = widened()
     dispatched = unit_map(config).bind("cheap")
     observer = Observer()
     barrier = threading.Barrier(4)
@@ -705,40 +655,21 @@ def test_a_probed_capacity_dispatches_at_the_width_the_rig_reported() -> None:
 
 def test_the_declared_width_stays_readable_beside_the_enforced_one() -> None:
     """Two numbers, both kept, because they answer two different questions."""
-    capacity = Capacity.of(parse(CONFIG), probe=Widths({"cheap": 8}))
+    capacity = widened()
 
     assert capacity.declared("cheap") == 3
     assert capacity.limits["cheap"] == 8
     assert capacity.declared("strong") == capacity.limits["strong"] == 2
 
 
-def test_a_confirmed_source_the_probe_agreed_with_has_one_number_and_not_two() -> None:
-    """Confirmation is a machine answering, never "these two numbers differ".
-
-    `of` confirms a source whenever the probe answered, and a probe reporting
-    exactly the declared width answered — so this source is confirmed and its
-    declaration is also what is enforced. Anyone reading `confirmed` as "the
-    widened-versus-declared distinction applies here" is wrong for every source
-    the probe agreed with, which on a correctly declared fleet is all of them.
-    The widened sources are a subset of the confirmed ones; the way to ask
-    whether a source was widened is to compare the two numbers, as this does.
-    """
-    capacity = Capacity.of(parse(CONFIG), probe=Widths({"strong": 2, "cheap": 8}))
-
-    assert capacity.confirmed("strong") is True, "the rig answered, and agreed"
-    assert capacity.declared("strong") == capacity.limits["strong"] == 2
-    assert capacity.confirmed("cheap") is True, "the rig answered, and widened"
-    assert capacity.declared("cheap") != capacity.limits["cheap"]
-
-
-def test_an_endpoint_from_another_config_is_refused_by_a_probed_capacity() -> None:
+def test_an_endpoint_from_another_config_is_refused_by_a_confirmed_capacity() -> None:
     """The guard is narrowed to the declaration, not deleted.
 
     A second config declaring 5 for the same source is exactly what the check
-    exists to catch, and a probe having widened this capacity to 8 must not
-    make 5 look like a number that fits inside the bound.
+    exists to catch, and a confirmation having widened this capacity to 8 must
+    not make 5 look like a number that fits inside the bound.
     """
-    capacity = Capacity.of(parse(CONFIG), probe=Widths({"cheap": 8}))
+    capacity = widened()
     stale = unit_map(parse(CONFIG.replace("width: 3", "width: 5")))
 
     with pytest.raises(CapacityError) as caught, capacity.hold(stale.bind("cheap")):
@@ -746,7 +677,7 @@ def test_an_endpoint_from_another_config_is_refused_by_a_probed_capacity() -> No
 
     assert "bounded at 3" in str(caught.value)
     assert "width=5" in str(caught.value)
-    assert "probe widened this source to 8" in str(caught.value)
+    assert "confirmation widened this source to 8" in str(caught.value)
 
 
 def test_a_bound_that_differs_from_its_declaration_with_nothing_confirming_it() -> None:
@@ -758,7 +689,7 @@ def test_a_bound_that_differs_from_its_declaration_with_nothing_confirming_it() 
 
 
 def test_a_declaration_above_the_bound_is_refused() -> None:
-    """`of` refuses a narrower report rather than lowering, so this cannot arise."""
+    """A width is only ever widened from its declaration, never narrowed."""
     with pytest.raises(CapacityError) as caught:
         Capacity({"local": 3}, confirmed=["local"], declared={"local": 8})
 

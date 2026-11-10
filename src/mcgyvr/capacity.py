@@ -16,7 +16,6 @@ from __future__ import annotations
 
 import contextvars
 import hashlib
-import inspect
 import os
 import re
 import stat
@@ -27,8 +26,7 @@ from concurrent.futures import FIRST_COMPLETED, Future, ThreadPoolExecutor, wait
 from contextlib import ExitStack, contextmanager, suppress
 from dataclasses import dataclass
 from pathlib import Path
-from typing import TYPE_CHECKING, cast
-from typing import Protocol as TypingProtocol
+from typing import TYPE_CHECKING
 
 from mcgyvr import hostos
 from mcgyvr.userdir import owned_outright, private_dir, user_tempdir
@@ -164,40 +162,6 @@ def _slot_stem(base_url: str, rung: str | None = None) -> str:
     return f"{slug}.{digest}"
 
 
-class SourceWidthProbe(TypingProtocol):
-    """A probe that answers for a whole unit and has nothing to say per rung."""
-
-    def width(self, source: str) -> int | None:
-        """The width this source reports, or `None` where it does not say."""
-        ...
-
-
-class WidthProbe(TypingProtocol):
-    """A probe that can answer per rung as well as per unit."""
-
-    def width(self, source: str, rung: str | None = None) -> int | None:
-        """The width this source, or this rung of it, reports, or `None`."""
-        ...
-
-
-def _reported(
-    probe: WidthProbe | SourceWidthProbe, source: str, rung: str | None
-) -> int | None:
-    """Ask a probe for a width, tolerating one that takes no rung argument.
-
-    With no rung the probe is asked about the source alone. With a rung, a probe
-    whose `width` cannot be called with one is not a failure: it is a probe with
-    no per-rung answer, so the answer is `None` rather than a guess.
-    """
-    if rung is None:
-        return probe.width(source)
-    try:
-        inspect.signature(probe.width).bind(source, rung)
-    except (TypeError, ValueError):
-        return None
-    return cast("WidthProbe", probe).width(source, rung)
-
-
 class CapacityError(Exception):
     """A capacity that cannot be built, or a unit this capacity does not bound."""
 
@@ -206,10 +170,10 @@ class SlotUnavailableError(CapacityError):
     """A slot was still held when the wait ran out; nothing was admitted."""
 
 
-# One width to count against: a unit's name, and the rung it was bounded at
-# where that rung states a width of its own. `None` is the unit's own width,
-# which is also the bound every dispatch that names no rung lands on. Every
-# counter and every set of slot files below is kept per bound.
+# One width to count against: a unit's name, and the rung it was bounded at.
+# A rung states no width of its own, so the rung is always `None` — the unit's
+# own width, which every dispatch lands on. Every counter and every set of slot
+# files below is kept per bound.
 type _Bound = tuple[str, str | None]
 
 
@@ -230,20 +194,6 @@ class _Claims:
         self.parent = parent
         self.taken: dict[_Bound, int] = {}
         self.covering: dict[_Bound, int] = {}
-
-
-@dataclass(frozen=True)
-class RungWidth:
-    """A rung that states its own width, and the unit whose slots it uses.
-
-    `source` is the unit the rung runs on; the rung is dispatched at `limit`
-    rather than at that unit's width. `confirmed` records whether a machine
-    reported the number, rather than the config asserting it.
-    """
-
-    source: str
-    limit: int
-    confirmed: bool = False
 
 
 @dataclass(frozen=True)
@@ -282,7 +232,6 @@ class Capacity:
         lock_dir: Path | None = None,
         confirmed: Iterable[str] = (),
         declared: Mapping[str, int] | None = None,
-        rungs: Mapping[str, RungWidth] | None = None,
         urls: Mapping[str, str] | None = None,
         reserved: Mapping[str, int] | None = None,
         queue_timeout_s: float | None = None,
@@ -376,35 +325,17 @@ class Capacity:
                     f"one measurement."
                 )
             self._declared[source] = width
-        self._rungs = dict(rungs or {})
-        for name, rung in self._rungs.items():
-            if rung.limit < 1:
-                raise CapacityError(
-                    f"unit {name!r} declares width={rung.limit}, which "
-                    f"would admit no dispatch at all. The config schema floors "
-                    f"it at 1; a rung that should not be used belongs out of "
-                    f"the ladder, not at zero capacity."
-                )
-            if rung.source not in self._limits:
-                raise CapacityError(
-                    f"unit {name!r} bounds unit {rung.source!r}, which this "
-                    f"capacity does not bound. A rung's width is a width of the "
-                    f"rig it runs on, so the rig has to be one this capacity "
-                    f"knows."
-                )
         # The address each unit answers at, used to key the slot files. A unit
         # with no entry falls back to its own name, which no address shares.
         self._urls = dict(urls or {})
         # Every bound this capacity counts at: a unit's own, which is its width
         # plus whatever part of that width a role keeps back, because the slots
         # are the served ones while the width the ladder is offered is the
-        # smaller number; and each declared rung's, at the rung's own limit.
+        # smaller number.
         self._bounds: dict[_Bound, int] = {
             (source, None): limit + self._role_reserved.get(source, 0)
             for source, limit in self._limits.items()
         }
-        for name, rung in self._rungs.items():
-            self._bounds[(rung.source, name)] = rung.limit
         # The wait a caller of `hold` gets when it names no timeout of its own:
         # in practice the config's task timeout, so a dispatch may queue for as
         # long as its task may run. `None` here waits without a deadline.
@@ -451,27 +382,23 @@ class Capacity:
         cls,
         config: Config,
         *,
-        probe: WidthProbe | SourceWidthProbe | None = None,
         root: Path | None = None,
         gauge: Gauge | None = None,
         busy: Callable[[str], int | None] | None = None,
     ) -> Capacity:
-        """Build a capacity from a config, and from a machine where one answers.
+        """Build a capacity from a config.
 
         Every unit the ladder names and every hitchhike rung is bounded, whether or not
         a ladder rung reaches it, and each starts from the width the config
         declares. A local orchestrator that mcgyvr provisions itself keeps one
         slot back for the role, so the ladder is offered one fewer than the unit
         serves; where the unit states no width it is served at `users`, one per
-        user it answers. A probe may widen a declaration, and is then recorded as
-        confirming it; a probe reporting less than the declaration is refused,
-        because narrowing the bound would leave the config wrong and the rig only
-        slow.
+        user it answers. The declared width is the bound, and none is confirmed:
+        no machine is asked for its width here.
         """
         limits: dict[str, int] = {}
         declarations: dict[str, int] = {}
         reserved: dict[str, int] = {}
-        confirmed: list[str] = []
         orchestrator_name = config.get("orchestrator.unit")
         # The unit the orchestration role runs on, where the config names one.
         # Looked up in `units` rather than taken on trust, so the role's own
@@ -506,37 +433,16 @@ class Capacity:
                 # it does state is the number it was started with and stands.
                 declared = unit.width or users
             declarations[name] = declared
-            reported = None if probe is None else _reported(probe, name, None)
-            if reported is None:
-                # No probe, or a backend that does not report its parallelism:
-                # the declaration stands as the bound, and is not confirmed.
-                enforced = declared
-            elif reported < declared:
-                raise CapacityError(
-                    f"unit {name!r} declares {declared} but reports "
-                    f"{reported}. Two answers to one question, and this time the "
-                    f"machine gave one of them, so the config is the one that is "
-                    f"wrong. Enforcing the declaration would not make the rig "
-                    f"wider: a backend handed more concurrent requests than it "
-                    f"has slots serializes them rather than refusing, so the "
-                    f"over-declaration would show up as a rig that is merely "
-                    f"slow and never as a config that is merely wrong. Declare "
-                    f"{reported}, or start the backend with {declared} slots."
-                )
-            else:
-                enforced = reported
-                confirmed.append(name)
             if name == role_orchestrator:
-                ladder = max(enforced - 1, 1)
-                reserved[name] = enforced - ladder
+                ladder = max(declared - 1, 1)
+                reserved[name] = declared - ladder
                 limits[name] = ladder
             else:
-                limits[name] = enforced
+                limits[name] = declared
 
         return cls(
             limits,
             lock_dir=root,
-            confirmed=confirmed,
             declared=declarations,
             urls={name: unit.address for name, unit in bounded.items()},
             reserved=reserved,
@@ -556,22 +462,19 @@ class Capacity:
     def _bound(self, source: str, rung: str | None) -> _Bound:
         """The bound a dispatch on this source lands on, without checking it exists.
 
-        A rung that states no width of its own falls back to the unit's own
-        bound, so the same slot files serve it and only the width differs.
+        Every rung lands on its unit's own bound, so the same slot files serve
+        it; a rung states no width of its own.
         """
-        if rung is not None and (source, rung) in self._bounds:
-            return (source, rung)
+        del rung  # a rung shares its unit's bound
         return (source, None)
 
     def limit(self, source: str, rung: str | None = None) -> int:
         """The most this bound admits, or an error naming the units that exist."""
         bound = self._bound(source, rung)
         if bound in self._bounds:
-            # A rung is as wide as its own declaration says. The unit's own
-            # bound reports the width the ladder is offered, which is one
-            # narrower than the served width where a role keeps a slot back.
-            if bound[1] is not None:
-                return self._bounds[bound]
+            # The unit's own bound reports the width the ladder is offered,
+            # which is one narrower than the served width where a role keeps a
+            # slot back.
             return self._limits[bound[0]]
         known = ", ".join(sorted(self._limits)) or "none"
         raise CapacityError(
@@ -601,13 +504,11 @@ class Capacity:
                 f"would claim this capacity knows the unit and merely could "
                 f"not confirm its width. Known units: {known}"
             )
-        bound = self._bound(source, rung)
-        if bound[1] is not None:
-            return self._rungs[bound[1]].confirmed
+        del rung  # a rung's width is its unit's
         return source in self._confirmed
 
     def declared(self, source: str) -> int:
-        """The width the config declared for this unit, before any probe widened it.
+        """The width the config declared for this unit, before any confirmation.
 
         Equal to the enforced width where nothing was declared for the unit and
         nothing was reported either.
@@ -619,18 +520,9 @@ class Capacity:
     def total(self) -> int:
         """The most dispatches this capacity could ever have in flight at once.
 
-        A unit counts at its served width or at the sum of its rungs' widths,
-        whichever is greater, and the two are never added: a rung's slots are its
-        unit's slots, so a maximum of sums is the real ceiling and a sum of
-        maxima is not.
+        Each unit counts at its served width: a rung's slots are its unit's.
         """
-        by_source: dict[str, int] = {}
-        for rung in self._rungs.values():
-            by_source[rung.source] = by_source.get(rung.source, 0) + rung.limit
-        return sum(
-            max(self._bounds[(source, None)], by_source.get(source, 0))
-            for source in self._limits
-        )
+        return sum(self._bounds[(source, None)] for source in self._limits)
 
     def in_flight(self, source: str, rung: str | None = None) -> int:
         """Dispatches this process is holding a slot for on this bound.
@@ -791,9 +683,10 @@ class Capacity:
     ) -> Iterator[None]:
         """Take a slot on this unit for the life of the block.
 
-        The slot is host-wide: a ``flock`` on a file named for the unit's address
-        and, where one is named, the rung, so another mcgyvr process on this
-        machine waits for it too. The wait is bounded by `timeout`, which
+        The slot is host-wide: a ``flock`` on a file named for the unit's address,
+        so another mcgyvr process on this machine waits for it too. A `rung`
+        named here is held to the ladder-facing width, so it cannot spend the
+        slot a role keeps back. The wait is bounded by `timeout`, which
         defaults to this capacity's queue timeout; a wait that runs out raises
         :class:`SlotUnavailableError`. A unit this capacity does not bound, an
         endpoint whose ``max_parallel`` disagrees with the width the config
@@ -833,7 +726,7 @@ class Capacity:
                 )
             else:
                 widened = (
-                    f" (A probe widened this source to {self._limits[name]}, "
+                    f" (A confirmation widened this source to {self._limits[name]}, "
                     f"which is what is enforced; an endpoint still carries the "
                     f"declared number, so {declared} is what it has to agree "
                     f"with.)"
@@ -847,14 +740,14 @@ class Capacity:
             )
         bound = self._bound(name, rung)
         limit = self._bounds[bound]
-        if rung is not None and bound[1] is None:
-            # A rung that states no width of its own lands on the unit's bound,
-            # and takes its width from the ladder-facing number rather than from
-            # the served one: the slot a role keeps back is the role's own
-            # dispatch, so a rung cannot spend it. Its slots are the unit's, so
-            # the width is the only thing the rung narrows.
+        if rung is not None:
+            # A rung lands on the unit's bound, and takes its width from the
+            # ladder-facing number rather than from the served one: the slot a
+            # role keeps back is the role's own dispatch, so a rung cannot spend
+            # it. Its slots are the unit's, so the width is the only thing the
+            # rung narrows.
             limit = self._limits[name]
-        where = f"unit {bound[1]!r} of unit {name!r}" if bound[1] else f"unit {name!r}"
+        where = f"unit {name!r}"
         # The address keys the slot files, so the endpoint's own address is used
         # where one was handed in, and the address this capacity was built with -
         # falling back to the unit's name - where only a name was given.

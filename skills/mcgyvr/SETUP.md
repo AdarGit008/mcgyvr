@@ -98,9 +98,6 @@ What the config is for comes in with these, all optional:
   `chat` and `hybrid` otherwise.
 - `--priority` — compose the ladder for `throughput`, `quality` or
   `cost` instead of the default ladder.
-- `--profile` — deprecated, removed in the release after next: use
-  `--priority`. A word naming a priority maps onto it, other text is
-  ignored, and either way it warns.
 - `--jev UNIT` — dedicate VRAM to a Jev unit, the written unit every
   typed decision asks; it is never slept or woken.
 

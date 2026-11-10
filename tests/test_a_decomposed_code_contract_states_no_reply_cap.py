@@ -28,7 +28,6 @@ from mcgyvr.decision import Choice, ChoiceAnswer, Decision, Question
 from mcgyvr.decompose.decompose import (
     Evidence,
     Proposal,
-    RecordedProposer,
     decompose,
 )
 from mcgyvr.delegate import (
@@ -41,6 +40,7 @@ from mcgyvr.delegate import (
 from mcgyvr.ladder_map import unit_map
 from mcgyvr.repo.index import Index, build_index
 from tests.livejournal import git
+from tests.recorded_proposer import RecordedProposer
 
 LISTING = "def listing(items):\n    return list(items)\n"
 
