@@ -333,7 +333,8 @@ def reader() -> bytes:
 
 
 def fetcher(job: str | None) -> bytes:
-    """The weights fetcher with ``hostos``, ending in a call to its ``main``.
+    """The weights fetcher with ``hostos`` and ``atomic``, ending in a call to
+    its ``main``.
 
     `job` (JSON text) travels inside the program, which a POSIX rig reads on
     stdin; None reads it from stdin instead, for a Windows rig, where the
@@ -342,7 +343,7 @@ def fetcher(job: str | None) -> bytes:
     call = "__import__('sys').stdin.read()" if job is None else repr(job)
     return program(
         "mcgyvr.serving.fetcher",
-        modules=("mcgyvr.hostos",),
+        modules=("mcgyvr.hostos", "mcgyvr.atomic"),
         tail=f"raise SystemExit(main({call}))\n",
     )
 

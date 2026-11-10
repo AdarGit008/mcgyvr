@@ -95,7 +95,7 @@ def write(
         raise
 
 
-def replace(source: Path, target: Path) -> None:
+def replace(source: str | os.PathLike[str], target: str | os.PathLike[str]) -> None:
     """Rename `source` over `target` in one step, as ``os.replace`` does.
 
     A rename refused with PermissionError is tried again, :data:`REPLACE_TRIES`
