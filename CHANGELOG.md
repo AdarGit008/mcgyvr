@@ -125,6 +125,39 @@ archived outside this repository, under the same paths.
   (its standing stays "measured, no effect": #144 measured the text before
   this change, and it is not re-measured).
 
+- **`redact.scrub` drops a bare credential, not only a URL's userinfo.** It
+  stored whole prompts and replies — and failure notes and run tags — cleaned
+  only of the `user:token@` of a URL, so a key a model echoed back (`sk-...`,
+  `ghp_...`, an AWS id, a pasted private key, a `Bearer` token) survived into a
+  journal blob that can be copied elsewhere. `scrub` now also blanks every
+  provider token shape of the one shared vocabulary
+  (`mcgyvr.credential_shapes.VALUE_SHAPES`, folded into one pass), a pasted
+  private key taken whole from its header to its footer, and a `Bearer`
+  authorization token (the last two spelled in `redact`: a Bearer token has no
+  prefix of its own, and the whole-block private-key pass is wider than the
+  gate's line-form header shape; the gate and config loader want neither). The
+  one cleaning entry point is what telemetry, notes and the sandbox already
+  call, so the widening reaches them
+  all: the sandbox's `safe_env` now drops an environment *value* that holds a
+  token (not only a credential-named variable), and `holds_a_secret` now keeps
+  a login rc file out of a workspace when its text carries a token as well as
+  when it carries a `word=` login. `safe_url` stays userinfo-only; text with
+  no credential still comes back unchanged, so the compare-to-detect callers
+  are unaffected (I-62).
+- **A failed session's log excerpt is cleaned of host paths and credentials
+  before it is sent to the other members.** `rig/sessionwire.scrub` only blanked
+  unprintable characters and cut the text to the excerpt cap — it removed no
+  secrets — yet it shared its name with the real cleaner `redact.scrub`. The rig
+  sends this excerpt to every member of a session, so a host path or a key in a
+  container's log reached other users. It is renamed `printable_tail` (its call
+  sites in `sessionwire` and the UPnP error text in `rig/portmap` with it), and
+  `rig/session`'s `_fail` now runs `redact.scrub_paths` and `redact.scrub` on the
+  excerpt before the printable-and-capped shaping, so host paths become
+  `<redacted>` and a token (now that `redact.scrub` carries the token shapes,
+  I-62) is dropped. The protocol schema's `log_excerpt` text now says the rig
+  strips host paths and credentials before sending; the hub renders that text
+  from its own docstring; a hub twin PR carries the identical text and re-pins
+  in the same train (I-63).
 - **A Mac's GPU is sized from the Metal working set llama.cpp logged, a
   reading, once a native server has started on it.** The native supervisor
   already filed `recommendedMaxWorkingSetSize` from llama-server's start-up
