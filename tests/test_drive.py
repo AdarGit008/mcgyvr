@@ -15,6 +15,7 @@ name and a unit map) is the same seam the whole project is built on.
 
 from __future__ import annotations
 
+import dataclasses
 import subprocess
 from collections.abc import Iterator
 from pathlib import Path
@@ -390,11 +391,11 @@ ladder:
 def test_the_units_maximum_reaches_the_request(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    """The request carries the unit's maximum, not the contract's number.
+    """The request carries the unit's maximum, or the contract's smaller number.
 
-    The contract states 1536 and the unit serves a 32768-token window: the
-    request is sent the room that window leaves the prompt, asserted against
-    the preflight's own sizing rather than a literal.
+    The unit serves a 32768-token window: a contract that states no cap is sent
+    the room that window leaves the prompt, asserted against the preflight's own
+    sizing rather than a literal; the same contract stating 1536 is sent 1536.
     """
     import mcgyvr.drive as drive
     from mcgyvr.config import parse as parse_config
@@ -413,8 +414,6 @@ stop_conditions: ["The interface is not stated."]
 acceptance: ["sh -c 'exit 0'"]
 scope:
   allow: ["src/**"]
-limits:
-  max_output_tokens: 1536
 """
     )
     sent: list[Request] = []
@@ -437,13 +436,16 @@ limits:
     prompt = build_prompt(contract)
 
     dispatch_prompt(pool, "local_qwen-7b", prompt, contract)
-
-    (request,) = sent
-    assert (
-        request.max_output_tokens
-        == unit_max(pool.bind("local_qwen-7b"), prompt.measured).tokens
+    capped = dataclasses.replace(
+        contract, limits=dataclasses.replace(contract.limits, max_output_tokens=1536)
     )
-    assert request.max_output_tokens != contract.limits.max_output_tokens
+    dispatch_prompt(pool, "local_qwen-7b", build_prompt(capped), capped)
+
+    request, capped_request = sent
+    room = unit_max(pool.bind("local_qwen-7b"), prompt.measured).tokens
+    assert room is not None and room > 1536
+    assert request.max_output_tokens == room
+    assert capped_request.max_output_tokens == 1536
     assert request.prompt == prompt.user
     assert request.system == prompt.system  # the language bundle travels too
 

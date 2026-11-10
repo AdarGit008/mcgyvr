@@ -241,10 +241,11 @@ Hard ceilings on what one execution of this contract may spend.
 
 **`limits.max_output_tokens`**
 - type: number (min 1); optional, default unset
-- description: Not sent, and not needed: every model request is sent the most its unit can give — the
-  unit's `output_tokens`, clamped to the room its `window` leaves once the prompt is paid for — so no
-  contract caps a reply below what its unit serves. Still read, so a contract that states it loads; it
-  caps nothing. A reply cut off at the unit's maximum is a named failure, never applied to a file.
+- description: The most tokens this contract's reply may take, sent as the request's `max_tokens` when it
+  is below the most the unit can give (the unit's `output_tokens`, clamped to the room its `window`
+  leaves once the prompt is paid for); the smaller of the two is sent. Unset, the reply is sent the
+  unit's maximum. A reply cut off at the cap is a named failure, never applied to a file, so a cap
+  smaller than the file needs fails every attempt.
 
 **`limits.max_window_fraction`**
 - type: decimal number (min 0.0, max 1.0); optional, default unset

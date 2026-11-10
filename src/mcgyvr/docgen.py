@@ -940,6 +940,8 @@ def render_setup() -> str:
         "",
         "`mcgyvr config` prints the resolved config; `mcgyvr detect` shows what",
         "can run the work; `mcgyvr capabilities` shows the shipped capability table.",
+        "`mcgyvr sandbox --cache` lists the task images mcgyvr built, with their",
+        "sizes, and `mcgyvr sandbox --clear-cache` removes them.",
         "",
         *_wrap(
             f"mcgyvr sets `${ENDPOINTS_ENV}` in every task container that has a "

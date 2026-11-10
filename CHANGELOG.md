@@ -7,6 +7,9 @@ Paths in older entries are where files were when the entry was written.
 `records/plans/`, `docs/` and the write-ups under `records/` are now
 archived outside this repository, under the same paths.
 
+Released sections are kept as they were written, as history: some of their
+entries name development tooling, flags and records outside this repository.
+
 ## [Unreleased]
 
 ### Changed
@@ -59,6 +62,57 @@ archived outside this repository, under the same paths.
   read files it again. `capability.Model` now keeps
   the `architecture` it checks (one of the same vocabulary), and setup's
   second raw reader of `capability-table.json` (`_architectures`) is gone.
+
+- **`mcgyvr sandbox --cache` and `--clear-cache` are tested and named in the
+  docs (I-150).** `tests/test_sandbox_cli.py` runs both flags through the real
+  image listing and removal against an invented docker: the listing newest
+  first with sizes and total, an empty cache, a listing that fails (exit 1),
+  removal naming each tag, `--clear-cache` taken before `--cache`, and no
+  daemon. The README's introspection line and the setup skill's `SETUP.md`
+  say what the two flags do. No behaviour changes.
+
+- **The `launcher` field text and the helper spec say a native Mac or Windows
+  rig lends a pooled head only (I-78).** Such a rig starts no pooled rpc
+  worker (`a native rig runs no rpc worker`) until the blockers in
+  `rig/HELPER-SPEC.md` section 6 are closed; the field's text (rendered into
+  `SETUP.md`) and section 6 now say so. No behaviour changes.
+
+- **A promoted fleet and a sample run's stamp are published by one helper,
+  `atomic.publish_dir` (I-111).** Both built their folder in a hidden staging
+  folder beside it, checked that nothing had appeared meanwhile, renamed it
+  into place and removed the staging folder on any failure, written twice. Now
+  `publish_dir(target, files)` does it and raises `atomic.TargetAppearedError`
+  when the folder appeared; promote and stamp say the same refusals
+  as before (`... appeared while it was being built; it is left as it is`,
+  `stamp: ... appeared while the stamp was being written`). The staging
+  folder's prefix is now the target folder's own name. A stamp's
+  `evidence.json` is written as bytes, so on Windows it ends lines in `\n`
+  rather than `\r\n`. `serving/release.py`'s replace of an existing folder
+  stays its own.
+
+- **Every JSON-lines journal appends through one helper, `mcgyvr.jsonl`
+  (I-107).** "Append one line under a lock, end a torn last line first" was
+  copied letter for letter in `telemetry` and `decision_log`; it is now
+  `jsonl.append_line`, with `jsonl.read_lines` the lenient reader both read
+  through (each keeps its own record checks: the dispatch journal still
+  refuses a row of another `version`). The fleet read's alert journal
+  (`fleet.alerts`) and `rig.jsonl` rows (`fleet.read`) appended with a plain
+  `open("a")`; they now take the same lock and end a torn line before their
+  row, at about 15-25 µs more an append (measured 36-41 -> 50-67 µs on a local
+  disk). A sink that stops taking bytes now says `journal sink accepted ...`
+  where it said `telemetry sink accepted ...`.
+
+- **A contract's `limits.max_output_tokens` is sent (I-102).** It was read,
+  shown and never sent: every attempt was sent its unit's maximum. Now an
+  attempt is sent the smaller of the two (`gate.preflight.contract_cap`), the
+  journal's `cap_basis` names the contract's key when its number wins, and a
+  reply cut off at it is the named failure a cut-off reply always was. A
+  contract that states none is sent the unit's maximum, as before. A contract
+  whose cap is below what its file needs now fails every attempt instead of
+  running uncapped. The `mcgyvr contract` preview says `reply at most N tokens
+  (limits.max_output_tokens), or its unit's maximum if smaller` in place of
+  `... is not sent`. The setup's `mcgyvr-code` sample no longer states 1024, so
+  it is still sent its unit's maximum.
 
 - **`mcgyvr local_pool` is now `mcgyvr ladder show`, and SETUP.md opens its
   words with a glossary.** The verb printed the ladder but was named for a
@@ -1616,6 +1670,15 @@ archived outside this repository, under the same paths.
 
 ### Removed
 
+- **A request no longer pins a response schema or offers tools (I-94).**
+  `Request.response_schema` and `Request.tools` go, with the strict
+  `response_format` and the `tools`/`tool_choice` the chat completions path
+  sent for them, `Runner.honours_response_schema` and the note a path without
+  a schema parameter added, `worker.reply.parse_pinned` and its field picker,
+  and `dispatch_prompt`'s `response_schema` argument. No product path set
+  either: a whole-file reply is the fenced block `parse_reply` reads, as
+  before. A tool call a backend returns is still read and counted.
+
 - **Serving and rig paths nothing called are cut (I-75, I-81, I-82, I-103,
   I-143, I-154, I-157).** `session_status` takes no `progress_pct` (no caller
   sent one; the hub's schema keeps its optional field). The capability table
@@ -1710,8 +1773,7 @@ archived outside this repository, under the same paths.
 - `launch:` keys `cpu_only` and `vae_decode_gb` are no longer read. Launch is
   free-form, so a stale key is ignored rather than refused.
 - The root `package.json` and lockfile now pin only `prettier` (`eslint`,
-  `@eslint/js`, `typescript` and `typescript-eslint` are dropped); the eslint
-  and prettier configs stay for the lab bench.
+  `@eslint/js`, `typescript` and `typescript-eslint` are dropped).
 - **The `safety_pass` check is gone.** It shelled out to a `safety-classifier`
   binary that no implementation of existed anywhere, so the `agent` setup
   sample, which ran it on its reply, could never pass. Removed: the

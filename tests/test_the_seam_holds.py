@@ -345,6 +345,7 @@ SHARED_ACROSS_THE_SEAM: tuple[str, ...] = (
     "mcgyvr.gitcmd",
     "mcgyvr.hostos",
     "mcgyvr.hubwire",
+    "mcgyvr.jsonl",
     "mcgyvr.lines",
     "mcgyvr.redact",
     "mcgyvr.schema",

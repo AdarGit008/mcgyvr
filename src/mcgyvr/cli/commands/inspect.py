@@ -358,11 +358,11 @@ def _contract(args: argparse.Namespace) -> int:
     if not contract.is_deterministic:
         output_budget = "reply at its unit's maximum"
         if contract.limits.max_output_tokens is not None:
-            # A stated cap is read and never sent; the preview says so rather
-            # than letting the number pass for the one the reply is given.
-            output_budget += (
-                f" (limits.max_output_tokens: "
-                f"{contract.limits.max_output_tokens} is not sent)"
+            # A stated cap is sent when it is below the unit's maximum, which the
+            # preview cannot know without a rung, so it names both.
+            output_budget = (
+                f"reply at most {contract.limits.max_output_tokens} tokens "
+                f"(limits.max_output_tokens), or its unit's maximum if smaller"
             )
         print(
             f"  limits:  {output_budget}, "
