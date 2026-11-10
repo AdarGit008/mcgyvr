@@ -195,7 +195,7 @@ class Ride:
     @property
     def sealing(self) -> str:
         """How the rung is asked, as a sync says it: ``sealed`` and the start of
-        its key's id, which the host's ``rig up`` prints too, or ``in clear``."""
+        its key's id, which the host's ``rig run`` prints too, or ``in clear``."""
         return "in clear" if self.seal is None else f"sealed {self.seal.kid[:8]}"
 
 
