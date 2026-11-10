@@ -111,8 +111,9 @@ The documented way in is `make`:
 - `make docs` — render and check the config reference (then delete it), and
   regenerate `skills/mcgyvr/SKILL.md` and `SETUP.md`,
   `skills/mcgyvr-direct/SKILL.md`, `references/examples.md` and
-  `references/failure-notes.schema.json` from the CLI's flags and the schemas in
-  `src/mcgyvr/config.py`, `src/mcgyvr/contract.py` and `src/mcgyvr/notes.py`.
+  `references/failure-notes.schema.json`, and `skills/mcgyvr-use/SKILL.md` from
+  the CLI's flags and the schemas in `src/mcgyvr/config.py`,
+  `src/mcgyvr/contract.py` and `src/mcgyvr/notes.py`.
 - `make check` — everything CI runs: lint, typecheck, docs check, and test.
 
 The CLI is `mcgyvr` (`mcgyvr.cli:main`, defined under `src/mcgyvr/cli/`).

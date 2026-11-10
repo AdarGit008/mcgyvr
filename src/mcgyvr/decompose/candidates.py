@@ -139,21 +139,6 @@ def symbols_of(evidence: Evidence, target: str) -> tuple[Symbol, ...]:
     )
 
 
-def symbol_options(symbols: Sequence[Symbol]) -> dict[str, str]:
-    """Render up to 61 symbols as question options, plus one for "no symbol".
-
-    A symbol's detail is its option text, falling back to "symbol", and a name
-    appears once. `_NO_SYMBOL` is added last and means the whole file is the
-    work, so the question never exceeds `_MAX_CHOICE_OPTIONS` options.
-    """
-    options: dict[str, str] = {}
-    for symbol in symbols[: _MAX_CHOICE_OPTIONS - 1]:
-        if symbol.name not in options:
-            options[symbol.name] = symbol.detail or "symbol"
-    options[_NO_SYMBOL] = "no specific symbol — the whole file is the work"
-    return options
-
-
 def kind_for(name: str, vocabulary: Sequence[TaskType]) -> TaskType | None:
     """Find the servable type named `name`, or None when this config cannot serve it."""
     return next((task for task in vocabulary if task.name == name), None)
