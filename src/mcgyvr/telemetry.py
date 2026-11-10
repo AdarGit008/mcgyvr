@@ -15,7 +15,9 @@ into mirror directories; a failed copy is reported to an ``on_copy_error``
 callback when one is given, and raises otherwise.
 
 ``correct`` appends a later stage's verdict on an attempt, and ``fold`` reads a
-file back with those verdicts laid over the attempts they name. Text the journal
+file back with those verdicts laid over the attempts they name; ``mcgyvr usage``
+is the command that prints it. A row stamped with a layout version this module
+does not write is refused rather than read under the wrong meanings. Text the journal
 quotes and did not build itself passes through ``scrub`` first, since a URL
 carrying credentials is what a model endpoint tends to look like."""
 
@@ -44,7 +46,8 @@ type Record = dict[str, Any]
 
 # The layout version stamped on every row. It names the shape of the row, so a
 # reader holding a line can tell which set of fields, and which meanings for
-# them, it was written under.
+# them, it was written under. It is also the only version ``_read`` reads: a row
+# stamped with any other, or with none, raises ``JournalVersionError``.
 TELEMETRY_VERSION = 1
 
 # The two kinds of row a journal holds: an attempt that dispatched something,
@@ -92,6 +95,30 @@ RUN_TAGS_MAX_BYTES = 4096
 RUN_TAGS_MAX_INT = 2**53
 
 type TagValue = str | int | float | bool
+
+
+class JournalVersionError(ValueError):
+    """A journal row stamped with a layout version this reader does not know.
+
+    ``path`` and ``line`` say where the row is, and ``version`` is what its
+    ``version`` field holds — None when it has none. The message names all
+    three and the version this reader does read.
+    """
+
+    def __init__(self, path: Path, line: int, version: object) -> None:
+        self.path = path
+        self.line = line
+        self.version = version
+        stamped = (
+            "carries no layout version"
+            if version is None
+            else f"is written under layout version {json.dumps(version)}"
+        )
+        super().__init__(
+            f"{path}:{line}: this row {stamped}, and this mcgyvr reads layout "
+            f"version {TELEMETRY_VERSION} only. It was not written by this "
+            f"version of mcgyvr; read it with the version that wrote it."
+        )
 
 
 class RunTagsError(ValueError):
@@ -533,7 +560,9 @@ def fold(*, path: Path) -> list[Record]:
     each acts on the values that attempt row itself carried. A correction naming
     an id with no attempt row has nothing to correct and is returned after the
     attempts rather than dropped. A ``path`` that does not exist folds to no
-    records at all.
+    records at all, and a row of a layout version other than
+    ``TELEMETRY_VERSION`` raises ``JournalVersionError`` before anything is
+    folded.
     """
     attempts: list[Record] = []
     corrections: list[tuple[int, Record]] = []
@@ -704,14 +733,17 @@ def _read(path: Path) -> list[Record]:
 
     Lines that are blank, not decodable UTF-8, not JSON, or not JSON objects are
     skipped, so one damaged line cannot hide the rest of the file. A missing file
-    reads as no records at all.
+    reads as no records at all. A row that does parse is read only when its
+    ``version`` is ``TELEMETRY_VERSION``: one written under another layout, or
+    carrying none, raises ``JournalVersionError`` naming its line, because its
+    fields would otherwise be read under meanings they were not written with.
     """
     try:
         raw = path.read_bytes()
     except FileNotFoundError:
         return []
     records: list[Record] = []
-    for line in raw.splitlines():
+    for number, line in enumerate(raw.splitlines(), start=1):
         if not line.strip():
             continue
         try:
@@ -719,6 +751,11 @@ def _read(path: Path) -> list[Record]:
             parsed = json.loads(text)
         except (UnicodeDecodeError, json.JSONDecodeError):
             continue
-        if isinstance(parsed, dict):
-            records.append(parsed)
+        if not isinstance(parsed, dict):
+            continue
+        version = parsed.get("version")
+        # `type(...) is int`: JSON `true` loads as a bool, which equals 1.
+        if type(version) is not int or version != TELEMETRY_VERSION:
+            raise JournalVersionError(path, number, version)
+        records.append(parsed)
     return records

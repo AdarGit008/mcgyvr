@@ -1,11 +1,12 @@
-"""A Mac or Windows rig is leased by the one Python lease, shipped as the reader is.
+"""Every rig over ssh is leased by the one Python lease, shipped as the reader is.
 
-A Windows rig has an interpreter but no bash, so a rig whose rig file records
-macOS or Windows is sent the Python lease (``mcgyvr.serving.leasefile``,
-assembled with ``hostos``): the one this machine runs on itself when it is
-reached without ssh. Taken, read, stamped and released through gatelib against
-a fake rig shell that runs what it is sent, the lease lands in the rig's own
-``~/.mcgyvr/lease`` and nowhere else, and a second take finds it held.
+A rig whose rig file records Linux, macOS or Windows is sent the Python lease
+(``mcgyvr.serving.leasefile``, assembled with ``hostos``): the one this machine
+runs on itself when it is reached without ssh. A Linux rig was sent bash
+scripts before; a Windows rig has no bash. Taken, read, stamped and released
+through gatelib against a fake rig shell that runs what it is sent, the lease
+lands in the rig's own ``~/.mcgyvr/lease`` and nowhere else, and a second take
+finds it held.
 """
 
 from __future__ import annotations
@@ -14,19 +15,24 @@ from pathlib import Path
 
 import pytest
 
-from mcgyvr.config import NATIVE_BY_DEFAULT
 from mcgyvr.serving import gatelib
 from tests.remote_rigs import FakeShell, record_rig
 
 
-@pytest.mark.parametrize("label", ["unified-laptop", "windows-one-card"])
+@pytest.mark.parametrize(
+    ("label", "system"),
+    [
+        ("linux-one-card", "linux"),
+        ("unified-laptop", "darwin"),
+        ("windows-one-card", "windows"),
+    ],
+)
 def test_the_lease_is_taken_stamped_and_released_on_the_rig(
-    monkeypatch: pytest.MonkeyPatch, tmp_path: Path, label: str
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path, label: str, system: str
 ) -> None:
     record_rig(monkeypatch, tmp_path, "box1", label)
-    system = gatelib.recorded_os("box1")
-    assert system in NATIVE_BY_DEFAULT
-    shell = FakeShell(str(system), tmp_path / "rig-home")
+    assert gatelib.recorded_os("box1") == system
+    shell = FakeShell(system, tmp_path / "rig-home")
     monkeypatch.setattr(gatelib, "ssh", shell)
     mine = gatelib.new_lease("up", 4242)
     other = gatelib.new_lease("down", 4343)

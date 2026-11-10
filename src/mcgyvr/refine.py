@@ -63,7 +63,7 @@ from mcgyvr.decompose.candidates import (
     symbols_of,
 )
 from mcgyvr.decompose.decompose import Evidence, Proposal, Refusal
-from mcgyvr.decompose.iterate import Classifier, reproposals
+from mcgyvr.decompose.iterate import Classifier
 from mcgyvr.decompose.provides import declared_names, identifiers, renames
 
 if TYPE_CHECKING:  # pragma: no cover - typing only
@@ -279,14 +279,9 @@ class RefiningProposer:
     def __call__(self, evidence: Evidence) -> Sequence[Proposal | Refusal]:
         """The `Proposer` seam: a decline is `()`, so the prose proposer stands in.
 
-        Evidence carrying refused proposals is a re-proposal: the classifier
-        asks each refused field again (`iterate.reproposals`), and what it
-        answers is refined as a first proposal is.
+        A refused proposal is not asked again here: the top rung corrects it
+        (`decompose`'s `fix`).
         """
-        if evidence.refused:
-            roots = reproposals(self.classifier, evidence)
-            again = self._from_roots(replace(evidence, refused=()), roots)
-            return () if again is None else again
         refined = self.refine(evidence)
         return () if refined is None else refined
 

@@ -12,7 +12,9 @@ and with its tool seam answered from a table.
 from __future__ import annotations
 
 import json
+import os
 import re
+import sys
 import urllib.error
 from typing import Any
 
@@ -295,7 +297,7 @@ def test_models_present_spans_every_reachable_backend(
 def test_docker_absent_from_path_is_false_with_a_reason(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    monkeypatch.setattr("mcgyvr.detect.shutil.which", lambda _: None)
+    monkeypatch.setattr("mcgyvr.detect.hostos.which_absolute", lambda _: None)
     present, how = detect_docker()
     assert present is False
     assert "not on PATH" in how
@@ -305,11 +307,54 @@ def test_docker_installed_but_dead_is_false_with_a_different_reason(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     """A stopped daemon is not the same failure as an uninstalled Docker."""
-    monkeypatch.setattr("mcgyvr.detect.shutil.which", lambda _: "/usr/bin/docker")
+    monkeypatch.setattr(
+        "mcgyvr.detect.hostos.which_absolute", lambda _: "/usr/bin/docker"
+    )
     monkeypatch.setattr(detect_module, "_run", lambda cmd: None, raising=True)
     present, how = detect_docker()
     assert present is False
     assert "daemon did not answer" in how
+
+
+def _tool(folder: Any, name: str, body: str) -> Any:
+    folder.mkdir(exist_ok=True)
+    tool = folder / name
+    tool.write_text(f"#!/bin/sh\n{body}\n", encoding="utf-8")
+    tool.chmod(0o755)
+    return tool
+
+
+@pytest.mark.skipif(sys.platform == "win32", reason="a POSIX shell script tool")
+def test_a_docker_in_the_working_folder_or_a_relative_path_entry_is_never_run(
+    tmp_path: Any, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """detect looks its tools up as the reader does (hostos.which_absolute): a
+    relative PATH entry names a different folder from each working directory,
+    so a ``docker`` left there is not Docker."""
+    planted = tmp_path / "planted"
+    marker = tmp_path / "ran"
+    _tool(planted, "docker", f"touch {marker}; echo 99.0")
+    monkeypatch.chdir(planted)
+    monkeypatch.setenv("PATH", f".{os.pathsep}planted{os.pathsep}{tmp_path / 'none'}")
+    monkeypatch.setattr("mcgyvr.sandbox.image.foreign_daemon", lambda: None)
+    present, how = detect_docker()
+    assert (present, how) == (False, "docker is not on PATH")
+    assert detect_module._run(["docker", "info"]) is None
+    assert not marker.exists()
+
+
+@pytest.mark.skipif(sys.platform == "win32", reason="a POSIX shell script tool")
+def test_a_docker_in_an_absolute_path_folder_is_run_by_that_path(
+    tmp_path: Any, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """The tool that was found is the one that runs: its full path, not the
+    name looked up again."""
+    tool = _tool(tmp_path / "bin", "docker", 'echo "$0"')
+    monkeypatch.setenv("PATH", str(tmp_path / "bin"))
+    monkeypatch.setattr("mcgyvr.sandbox.image.foreign_daemon", lambda: None)
+    present, how = detect_docker()
+    assert present is True
+    assert how == f"docker info reported server {tool}"
 
 
 # --- the real HTTP path ---------------------------------------------------

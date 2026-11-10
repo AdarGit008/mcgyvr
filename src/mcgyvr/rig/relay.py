@@ -72,12 +72,15 @@ class Heads(Protocol):
     """The sessions this rig runs, asked about the heads among them.
 
     ``head_port`` gives the loopback port of a session whose head is ready to take
-    a request, and ``None`` when it is not; ``head_slots`` the slots that head was
+    a request, and ``None`` when it is not; ``head_key`` the key that head's API
+    asks for, ``None`` when it asks none; ``head_slots`` the slots that head was
     asked for; ``state_of`` its state and role, which name the code a refused
     relay ends with.
     """
 
     def head_port(self, session_id: str) -> int | None: ...
+
+    def head_key(self, session_id: str) -> str | None: ...
 
     def head_slots(self, session_id: str) -> int: ...
 
@@ -131,9 +134,10 @@ class Target:
     key: str | None = field(default=None, repr=False)
 
     @classmethod
-    def loopback(cls, port: int, endpoint: str) -> Target:
-        """A head's API on this rig's own loopback, at the path the endpoint names."""
-        return cls("127.0.0.1", port, sessionwire.RELAY_PATHS[endpoint])
+    def loopback(cls, port: int, endpoint: str, key: str | None = None) -> Target:
+        """A head's API on this rig's own loopback, at the path the endpoint names,
+        with the key the head asks for when it asks one."""
+        return cls("127.0.0.1", port, sessionwire.RELAY_PATHS[endpoint], key=key)
 
     @classmethod
     def of_url(cls, url: str) -> Target:
@@ -281,7 +285,9 @@ class Relays:
                 )
             relay = _Relay(
                 asked=asked,
-                target=Target.loopback(port, asked.endpoint),
+                target=Target.loopback(
+                    port, asked.endpoint, self._heads.head_key(asked.session_id)
+                ),
                 credit=asked.window,
                 deadline=self._clock() + asked.timeout_s,
             )

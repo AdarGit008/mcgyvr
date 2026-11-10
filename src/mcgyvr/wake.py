@@ -37,6 +37,7 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import TypeVar
 
+from mcgyvr import atomic
 from mcgyvr.capacity import Capacity, SlotUnavailableError
 from mcgyvr.config import ROLE_SLEEPER, Config
 from mcgyvr.runner import RefusedConnectionError
@@ -272,12 +273,10 @@ def _note_swap(host: str, swap: Swap | None) -> None:
         if swap is None:
             mark.unlink(missing_ok=True)
             return
-        scratch = mark.with_name(f"{mark.name}.{os.getpid()}.tmp")
-        scratch.write_text(
+        atomic.write(
+            mark,
             json.dumps({"sleeper": swap.sleeper, "displaced": list(swap.displaced)}),
-            encoding="utf-8",
         )
-        scratch.replace(mark)
     except OSError:
         return
 

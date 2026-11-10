@@ -248,6 +248,11 @@ class SessionHost(Protocol):
 
     def head_bind(self, hello: pooled.TunnelHello) -> str: ...
 
+    def head_key(self) -> str | None:
+        """A new key for one session's head API, or None for a head that is
+        reached by no other local process (a container's, on its own network)."""
+        ...
+
     def local_device(self, number: int) -> str | None: ...
 
     def start_worker(self, spec: pooled.WorkerSpec) -> None: ...
@@ -404,6 +409,9 @@ class DockerHost:
     def head_bind(self, hello: pooled.TunnelHello) -> str:
         return str(ipaddress.IPv4Interface(hello.address).ip)
 
+    def head_key(self) -> str | None:
+        return None
+
     def local_device(self, number: int) -> str | None:
         return f"CUDA{number}"
 
@@ -489,8 +497,8 @@ class Machine:
     advertised on, ``owner`` the user the containers run as, and ``cache_dir`` the
     tensor cache a head and its workers may mount. The rest is how a session reaches
     its own host: ``free_port`` for the head's API, ``head_health`` and ``warm_up``
-    for the head's health and its warm-up, and ``bind_relay`` for this rig's side of
-    a relay socket.
+    for the head's health and its warm-up (each given the head's key, or None), and
+    ``bind_relay`` for this rig's side of a relay socket.
     """
 
     sharing: Callable[[], sharing_module.Sharing]
@@ -500,8 +508,8 @@ class Machine:
     owner: pooled.Owner
     cache_dir: Path | None
     free_port: Callable[[], int]
-    head_health: Callable[[int], str]
-    warm_up: Callable[[int, int], bool]
+    head_health: Callable[[int, str | None], str]
+    warm_up: Callable[[int, int, str | None], bool]
     bind_relay: Callable[[sessionwire.RelayGrant], int | None]
 
 
@@ -596,15 +604,22 @@ def free_port() -> int:
         return port
 
 
-def head_health(port: int) -> str:
+def _head_headers(key: str | None) -> dict[str, str]:
+    """The header that carries a head's key as a bearer token, when it has one."""
+    return {"Authorization": f"Bearer {key}"} if key else {}
+
+
+def head_health(port: int, key: str | None = None) -> str:
     """Ask the head's ``/health`` on a loopback port for its state.
 
     ``ok`` for a 200, ``loading`` for a 503, and ``down`` for any other answer, a
     refused connection, or a request that took longer than ``HEALTH_TIMEOUT_S``.
+    The key is sent when there is one, though llama-server asks none of
+    ``/health``, so the answer never hangs on that rule.
     """
     connection = http.client.HTTPConnection("127.0.0.1", port, timeout=HEALTH_TIMEOUT_S)
     try:
-        connection.request("GET", "/health")
+        connection.request("GET", "/health", headers=_head_headers(key))
         status = connection.getresponse().status
     except (OSError, http.client.HTTPException):
         return "down"
@@ -615,12 +630,15 @@ def head_health(port: int) -> str:
     return "loading" if status == http.HTTPStatus.SERVICE_UNAVAILABLE else "down"
 
 
-def warm_up(port: int, ctx: int, timeout: float = Timing().warm_s) -> bool:
+def warm_up(
+    port: int, ctx: int, key: str | None = None, timeout: float = Timing().warm_s
+) -> bool:
     """Warm the head at this port with one chat completion of filler words.
 
     The prompt is ``WARM_UP_WORDS`` words or as many as fit in the head's context,
-    and the answer is asked for without streaming; true when the head answered 200,
-    false when it answered anything else or the request could not be made.
+    and the answer is asked for without streaming, with the head's key when it has
+    one; true when the head answered 200, false when it answered anything else or
+    the request could not be made.
     """
     words = max(1, min(WARM_UP_WORDS, ctx // WARM_UP_CONTEXT_SHARE - WARM_UP_TOKENS))
     body = json.dumps(
@@ -637,7 +655,7 @@ def warm_up(port: int, ctx: int, timeout: float = Timing().warm_s) -> bool:
             "POST",
             sessionwire.RELAY_PATHS["chat_completions"],
             body=body,
-            headers={"Content-Type": "application/json"},
+            headers={"Content-Type": "application/json", **_head_headers(key)},
         )
         answer = connection.getresponse()
         answer.read()
@@ -754,6 +772,34 @@ def trim_cache(folder: Path, max_mb: int) -> None:
         with contextlib.suppress(OSError):
             path.unlink()
             total -= size
+
+
+def _cpu_head_unfit(
+    held: inventory.Inventory, asked: sessionwire.HeadStart, memory_mb: int
+) -> str | None:
+    """Why a whole model will not fit the memory lent to a cpu head, or None.
+
+    A cpu head holds the model's weights and its KV cache in the lent RAM, which
+    is the container's hard ``--memory`` cap, so a model whose weights and KV
+    cache for the context asked already pass that cap cannot load. Runtime
+    overhead beyond those is not counted, so a model this says fits may still be
+    tight; one it refuses plainly does not fit.
+    """
+    info = next((m for m in held.models if m.name == asked.model), None)
+    if info is None:
+        return None
+    mib = 1 << 20
+    weights_mb = -(-info.size_bytes // mib)
+    kv_mb = 0
+    if info.kv_bytes_per_token is not None:
+        kv_mb = -(-(asked.slots * asked.ctx * info.kv_bytes_per_token) // mib)
+    need_mb = weights_mb + kv_mb
+    if need_mb > memory_mb:
+        return (
+            f"model: {asked.model} needs {need_mb} MiB of RAM for its weights and "
+            f"{asked.slots}x{asked.ctx} context, more than the {memory_mb} MiB lent"
+        )
+    return None
 
 
 class Sessions:
@@ -884,6 +930,13 @@ class Sessions:
             if found and found.role == "head" and found.state == "ready":
                 return found.api_port
         return None
+
+    def head_key(self, session_id: str) -> str | None:
+        """The key this session's head API asks for, or ``None`` when it asks none
+        or this rig knows no such head."""
+        with self._lock:
+            found = self._sessions.get(session_id)
+            return found.head.api_key if found and found.head else None
 
     def head_slots(self, session_id: str) -> int:
         """The slots this session's head was asked for.
@@ -1274,8 +1327,7 @@ class Sessions:
                     envelope.id, SessionCode.NOT_READY, "the session is being prepared"
                 )
             needs_tunnel = any(
-                not isinstance(device, sessionwire.LocalDevice)
-                for device in asked.devices
+                isinstance(device, sessionwire.RpcDevice) for device in asked.devices
             )
             if session.plan is None and needs_tunnel:
                 return sessionwire.refusal(
@@ -1557,6 +1609,44 @@ class Sessions:
             return sessionwire.refusal(
                 re, SessionCode.MODEL_MISSING, "model: not a model this rig holds"
             )
+        if any(isinstance(d, sessionwire.CpuDevice) for d in asked.devices):
+            # A whole model on the host's cores and memory, no card: the lend
+            # caps the container (`head_limits`), -ngl 0 keeps every layer on the
+            # CPU (`-dev none`), and no tunnel or rpc worker is in play.
+            lent = {resource.kind: resource for resource in share.lent(report)}
+            if hubwire.RESOURCE_RAM not in lent or hubwire.RESOURCE_CPU not in lent:
+                # The decision runs a whole model on *lent* cores and RAM; a rig
+                # that lends neither (a card lender, say) is no cpu head's host,
+                # whatever a hub sends — the agent holds the lend for the owner.
+                return sessionwire.refusal(
+                    re,
+                    SessionCode.NOT_CAPABLE,
+                    "devices: this rig lends no memory and cores",
+                )
+            memory_mb, cpus = share.head_limits(report)
+            unfit = _cpu_head_unfit(held, asked, memory_mb)
+            if unfit is not None:
+                return sessionwire.refusal(re, SessionCode.INSUFFICIENT_MEMORY, unfit)
+            session.rpc = ()
+            session.head_file = held.folder / relative
+            return pooled.HeadSpec(
+                session_id=session.id,
+                image=runtime,
+                binary=share.head_binary,
+                gpus=(),
+                models_dir=held.folder,
+                model=relative,
+                name=asked.model,
+                ctx=asked.ctx,
+                slots=asked.slots,
+                n_gpu_layers=0,
+                devices=(pooled.CPU_DEVICE,),
+                tensor_split=(),
+                rpc=(),
+                bind=session.host.head_bind(session.hello),
+                memory_mb=memory_mb,
+                cpus=cpus,
+            )
         local: list[int] = []
         for device in asked.devices:
             if isinstance(device, sessionwire.LocalDevice):
@@ -1595,6 +1685,8 @@ class Sessions:
                     )
                 names.append(name)
                 continue
+            if not isinstance(device, sessionwire.RpcDevice):
+                continue  # a cpu device heads alone and is handled above
             if (
                 session.plan is None
                 or session.plan.peer_of(device.host) is None
@@ -1628,6 +1720,7 @@ class Sessions:
             bind=session.host.head_bind(session.hello),
             memory_mb=memory_mb,
             cpus=cpus,
+            api_key=session.host.head_key(),
         )
 
     def _hub_lost(self) -> None:
@@ -1849,12 +1942,12 @@ class Sessions:
         session is asked to stop.
         """
         assert session.api_port is not None and session.head is not None
-        port, ctx = session.api_port, session.head.ctx
+        port, ctx, key = session.api_port, session.head.ctx, session.head.api_key
         done = threading.Event()
 
         def run() -> None:
             try:
-                self.machine.warm_up(port, ctx)
+                self.machine.warm_up(port, ctx, key)
             finally:
                 done.set()
 
@@ -2448,7 +2541,8 @@ class Sessions:
                         session.host.logs(name, LOG_LINES),
                     )
                 self._watch(session)
-                if self.machine.head_health(session.api_port) == "ok":
+                key = session.head.api_key if session.head else None
+                if self.machine.head_health(session.api_port, key) == "ok":
                     how = "was done"
                     break
                 self._moving(session)

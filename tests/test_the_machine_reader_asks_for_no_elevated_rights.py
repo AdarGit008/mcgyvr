@@ -48,7 +48,7 @@ def test_the_whole_reading_raises_rights_only_without_a_prompt(
         return None, "refused by the test"
 
     monkeypatch.setattr(rigscan, "_run", run_tool)
-    monkeypatch.setattr(rigscan, "measure_bandwidth", lambda root="": None)
+    monkeypatch.setattr(rigscan, "measure_bandwidth", lambda spare_mib=None: None)
     rigscan.scan(weights_dir=str(tmp_path / "weights"), root=str(tmp_path / "root"))
     raising = [argv for argv in asked if set(argv) & set(ELEVATION)]
     assert raising == [

@@ -233,11 +233,11 @@ def test_kv_heads_that_do_not_divide_over_the_cards_are_refused() -> None:
         vllm(model, cards(6, 6, 6, 6), Grid(tensor=4, pipeline=1))
 
 
-def test_vllm_is_never_asked_to_run_unequal_card_counts_on_two_machines() -> None:
+def test_vllm_is_never_planned_over_the_cards_of_two_machines() -> None:
     model = table()
-    targets = [*cards(6, 6), *cards(6, host="box-b.example")]
-    with pytest.raises(ShardingError, match="same number of cards"):
-        vllm(model, targets, Grid(tensor=1, pipeline=3))
+    targets = [*cards(6, 6), *cards(6, 6, host="box-b.example")]
+    with pytest.raises(ShardingError, match="split across the cards of one machine"):
+        vllm(model, targets, Grid(tensor=2, pipeline=2))
 
 
 def test_a_vllm_cache_dtype_must_be_spelled_to_be_sized() -> None:

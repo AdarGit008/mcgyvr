@@ -66,7 +66,6 @@ from mcgyvr.rig.relay import Target
 from mcgyvr.rig.relay import _page as relay_page
 from mcgyvr.scan import Scan
 from mcgyvr.serving import (
-    ROLE_HEADLESS,
     ROLE_RPC,
     Unit,
     exposure,
@@ -158,18 +157,14 @@ def test_the_compose_file_names_the_key_file_and_never_holds_the_key() -> None:
     assert key not in document
 
 
-def test_a_worker_and_a_headless_rank_are_rendered_as_before_whatever_expose_says() -> (
-    None
-):
+def test_a_worker_is_rendered_as_before_whatever_expose_says() -> None:
     head = llama("lan")
     worker = replace(head, role=ROLE_RPC, args={}, extra=("-H", "10.0.0.2"))
-    rank = replace(vllm("lan"), role=ROLE_HEADLESS)
 
-    for unit in (worker, rank):
-        service = service_of(compose_of(replace(unit, image="example.invalid/x:1")))
-        assert "env_file" not in service
-        assert "LLAMA_ARG_HOST" not in service.get("environment", {})
-        assert "--host" not in service["command"]
+    service = service_of(compose_of(replace(worker, image="example.invalid/x:1")))
+    assert "env_file" not in service
+    assert "LLAMA_ARG_HOST" not in service.get("environment", {})
+    assert "--host" not in service["command"]
 
 
 @pytest.mark.parametrize(

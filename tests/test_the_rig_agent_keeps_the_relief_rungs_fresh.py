@@ -2,7 +2,8 @@
 
 The agent's one periodic tick is its heartbeat. After each heartbeat it is
 sent, it tells ``on_beat``; nothing is told for the hello. When the variable
-holding the rider's personal hub key is set (``MCGYVR_HUB_API_KEY``), the agent
+holding the rider's personal hub key is set (the one ``relief.yaml`` names,
+``MCGYVR_HUB_API_KEY`` where it names none), the agent
 hands that tick a :class:`~mcgyvr.rig.rungs.Refresher`, which syncs the relief
 rungs as ``mcgyvr rig rungs sync`` does:
 

@@ -49,7 +49,7 @@ def _rig(head: Head, slots: int = 1) -> Rig:
 
     head.server = _serve(head)
     box = fakes.Box()
-    relays = relay.Relays(heads=Heads(head.port, slots), send=box.put)
+    relays = relay.Relays(heads=Heads(head.port, slots, key=head.key), send=box.put)
     dispatcher = commands.Dispatcher()
     relay.register(dispatcher, relays)
     return Rig(head, box, relays, dispatcher)
@@ -86,6 +86,23 @@ def test_an_answer_not_streamed_cancelled_while_the_head_works_says_it_too(
     assert rig.head.seen("hung up")
     assert rig.head.events == ["GET /slots", "hung up"]
     assert not rig.box.of_type("relay_response")
+
+
+def test_a_keyed_heads_page_is_read_with_its_key() -> None:
+    # a native head asks its session's key of every request, its page too
+    built = _rig(Head(key="k" * 43))
+    try:
+        built.ask()
+        built.answering()
+        built.cancel()
+        assert built.ended() == MADE
+        assert built.head.seen("hung up")
+        assert built.head.events == ["GET /slots", "hung up"]
+    finally:
+        built.head.page_free.set()
+        built.relays.cancel_all()
+        assert built.head.server is not None
+        built.head.server.shutdown()
 
 
 @pytest.mark.parametrize("why", PAGES)
