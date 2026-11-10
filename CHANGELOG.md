@@ -870,6 +870,12 @@ archived outside this repository, under the same paths.
 
 ### Fixed
 
+- The rig agent no longer lists `backend_select` among its features. It read a
+  worker card's `backend` (`cuda_notc`, `rocm`, ...) and started the worker
+  exactly as without one, so the claim was not true. A hub that sees no
+  `backend_select` names only the backends every fork speaks (`cuda_notc` as
+  `cuda`, `openvino` and `sycl` as `vulkan`); what a worker runs is unchanged.
+
 - A relief rung whose host's unit already serves as many rides as it may
   (`503 pool_busy`) is passed over as full, as the other busy answers are,
   instead of failing the dispatch: a sync writes `pool_busy` into each rung's
