@@ -717,3 +717,39 @@ def test_with_no_orchestrator_model_the_top_rung_re_plans_a_spent_contract(
 
     assert asked == ["re-plan"]
     assert [c.target for c in dec.contracts] == ["report.py"]
+
+
+def test_the_top_rung_is_sent_its_own_timeout_and_a_cut_off_reply_names_it(
+    index: Index, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """The real send path: the unit's own timeout, and a cut-off says who."""
+    from mcgyvr.delegate import (
+        OrchestratorReplyCutOffError,
+        top_rung_proposer_for,
+    )
+    from mcgyvr.local_pool import source_map
+    from mcgyvr.runner import StopReason
+
+    config = parse(UNBOUND)
+    pool = source_map(config)
+    sent: list[Any] = []
+
+    def cut_off(source_map, rung, request, *, capacity=None):  # type: ignore[no-untyped-def]
+        sent.append((rung, request))
+        return _answer("[", StopReason.TRUNCATED)
+
+    monkeypatch.setattr("mcgyvr.delegate.dispatch", cut_off)
+    fixer = top_rung_proposer_for(config, pool)
+    assert fixer is not None
+    assert (fixer.rung, fixer.model) == ("planner", "planner-model")
+    from mcgyvr.decompose.decompose import _evidence
+
+    evidence = _evidence(index, "document listing")
+
+    with pytest.raises(OrchestratorReplyCutOffError, match="the top rung's reply"):
+        fixer(evidence)
+
+    ((rung, request),) = sent
+    assert rung == "planner"
+    assert request.timeout_s == pool.bind("planner").request_timeout_s
+    assert request.max_output_tokens is None
