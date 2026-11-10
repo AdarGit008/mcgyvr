@@ -128,18 +128,21 @@ def test_a_wake_has_no_budget_of_its_own() -> None:
 
 
 def test_the_doors_health_budget_is_not_a_wake_budget() -> None:
-    """The door polls a unit into health; that poll is not a configured budget.
+    """The door polls a unit into health; that poll is not a wake budget.
 
-    ``HEALTH_POLLS`` and ``HEALTH_INTERVAL_S`` describe what ``serve up`` does.
-    Keeping the door's own budget while dropping ``budgets.wake_timeout_s`` is
-    the point: the config holds no wake budget.
+    ``serving.start_timeout_s`` (polled every ``HEALTH_INTERVAL_S``) is how long
+    ``serve up`` and ``serve wake`` watch a unit come up: a setting of the
+    serving door, under ``serving``. Keeping the door's own budget while
+    dropping ``budgets.wake_timeout_s`` is the point: the config holds no wake
+    budget among its budgets.
     """
     from mcgyvr.config import field_at
-    from mcgyvr.serving.servelib import HEALTH_INTERVAL_S, HEALTH_POLLS
+    from mcgyvr.serving.servelib import HEALTH_INTERVAL_S, START_TIMEOUT_S_DEFAULT
 
-    assert HEALTH_POLLS * HEALTH_INTERVAL_S > 0, (
+    assert START_TIMEOUT_S_DEFAULT * HEALTH_INTERVAL_S > 0, (
         "the door's own health budget disappeared along with the wake budget"
     )
+    assert field_at("serving.start_timeout_s") is not None
     assert field_at("budgets.wake_timeout_s") is None, (
         "budgets.wake_timeout_s is a schema key beside the door's health budget"
     )
