@@ -29,10 +29,34 @@ from __future__ import annotations
 from collections.abc import Iterable, Mapping
 from typing import Any, Literal
 
-#: Bytes one cached element costs, by llama.cpp cache type. f32/f16/bf16 are
-#: their widths; q8_0 spends 34 bytes on a block of 32 elements (a
-#: half-precision scale and offset each), so it is 17/32 of an f16 cache.
-CACHE_ELEM_BYTES = {"f32": 4.0, "f16": 2.0, "bf16": 2.0, "q8_0": 34.0 / 32.0}
+from mcgyvr.serving import ggufscan
+
+#: The cache types llama.cpp accepts for `-ctk`/`-ctv`, by the names it reads
+#: them by: `kv_cache_types` in llama.cpp's common/arg.cpp (F32, F16, BF16, Q8_0,
+#: Q4_0, Q4_1, IQ4_NL, Q5_0, Q5_1). The scanner's type table also holds weight
+#: types the engine refuses as a cache type, so the widths below are that table
+#: filtered to these names.
+LLAMACPP_CACHE_TYPES: tuple[str, ...] = (
+    "f32",
+    "f16",
+    "bf16",
+    "q8_0",
+    "q4_0",
+    "q4_1",
+    "iq4_nl",
+    "q5_0",
+    "q5_1",
+)
+
+_GGML_TYPE_ID = {name.lower(): type_id for type_id, name in ggufscan.NAME.items()}
+
+#: Bytes one cached element costs, by llama.cpp cache type: the scanner's block
+#: bytes over its block elements (`ggufscan.T`), so f16 is 2 and q8_0, 34 bytes a
+#: block of 32 elements (a half-precision scale each), 17/32 of an f16 cache.
+CACHE_ELEM_BYTES = {
+    name: ggufscan.T[_GGML_TYPE_ID[name]][1] / ggufscan.T[_GGML_TYPE_ID[name]][0]
+    for name in LLAMACPP_CACHE_TYPES
+}
 
 #: The allowance, in MiB, that `allowance_mib` returns when it has no reading
 #: for the architecture it was asked about, or none for the ubatch: what the

@@ -629,7 +629,26 @@ def _require_cache_types(engine: str, spec: ModelSpec) -> tuple[str, str]:
             f"the unit that serves it"
         )
     assert kv_k is not None and kv_v is not None
+    check_cache_types(spec.name, engine, kv_k, kv_v)
     return kv_k, kv_v
+
+
+def check_cache_types(
+    name: str, engine: str, cache_type_k: str | None, cache_type_v: str | None
+) -> None:
+    """Refuse a llama.cpp cache type the engine does not accept, naming the ones it
+    does (`vramfit.LLAMACPP_CACHE_TYPES`): the cache is priced at that type's width
+    and launched as `-ctk`/`-ctv`, so a name with no width is no cache at all. A
+    type left unstated is not checked here; other engines name their own."""
+    if engine != DEFAULT_ENGINE:
+        return
+    for flag, stated in (("k", cache_type_k), ("v", cache_type_v)):
+        if stated is not None and stated not in vramfit.CACHE_ELEM_BYTES:
+            raise UnitError(
+                f"{name}: kv_cache_dtype_{flag} is {stated!r}, which llama.cpp "
+                f"does not take as a cache type (-ct{flag}); it takes "
+                f"{', '.join(vramfit.LLAMACPP_CACHE_TYPES)}"
+            )
 
 
 def _engine_not_wired(name: str, engine: str) -> str:
@@ -1657,6 +1676,12 @@ def declared_models(config: Config) -> dict[str, ModelSpec]:
             if not where.is_absolute() and config.path is not None:
                 where = config.path / where
             geometry = load_geometry(where, name=name)
+        check_cache_types(
+            name,
+            unit.engine or DEFAULT_ENGINE,
+            block.get("kv_cache_dtype_k"),
+            block.get("kv_cache_dtype_v"),
+        )
         specs[name] = ModelSpec(
             name=name,
             vram_gb=block.get("vram_gb") or 0.0,

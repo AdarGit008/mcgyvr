@@ -11,6 +11,17 @@ archived outside this repository, under the same paths.
 
 ### Changed
 
+- **A llama.cpp unit's cache type is one llama.cpp takes, priced at its own
+  width (I-24).** `vramfit.CACHE_ELEM_BYTES` knew f32, f16, bf16 and q8_0, so a
+  unit naming q4_0, q4_1, iq4_nl, q5_0 or q5_1 (all of which llama.cpp takes)
+  failed with a bare `KeyError` once it was sized. The widths are now the
+  scanner's type table (`ggufscan.T`) filtered to the nine types llama.cpp's
+  `kv_cache_types` lists (`vramfit.LLAMACPP_CACHE_TYPES`), and a llama.cpp unit
+  naming any other (`auto`, `q4_k`, an upper-case spelling) is refused when its
+  launch block is read, naming the ones it takes
+  (`serving.check_cache_types`). vLLM's names are not checked. Upgrading: a
+  llama.cpp unit with such a type, which llama.cpp itself would refuse at
+  launch, now stops `mcgyvr` at load instead.
 - **One function prices a token of cache for the catalog, a rig's hello and the
   sizer (I-46).** The catalog's `kv_bytes_per_token` (f16, every caching layer),
   the hello's (q8_0, every caching layer, rounded up) and `vramfit.kv_bytes`
