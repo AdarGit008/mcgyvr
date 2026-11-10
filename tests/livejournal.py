@@ -4,7 +4,7 @@ Every test of ``mcgyvr direct``'s journal drives ``mcgyvr.cli.main`` — the rea
 entry point — with ``drive.dispatch`` scripted so no endpoint is reached and
 everything between the flag and the row (config, route, sandbox, prompt, parse,
 gate) is real. The helpers here are the ones
-``tests/test_a_recorded_run_is_written_under_the_orchestrator_that_ran_it.py``
+``tests/test_a_recorded_run_is_written_under_the_session_that_ran_it.py``
 wrote for itself, lifted so that the tests of *who* ran, *where* the journal
 went and *how* the work landed do not carry four private copies each.
 
