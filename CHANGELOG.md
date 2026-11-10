@@ -54,9 +54,11 @@ archived outside this repository, under the same paths.
   files the one way.** `deliver`, `repo.repo` and `gate.changeset` each kept
   their own copy of the id; they now import it. A step whose target is a
   pattern (`drive.exec`) expanded it with its own `git ls-files`, which on a
-  workspace git cannot list ended in a raw `CalledProcessError` traceback; it
-  now uses the repo index's `enumerate_files`, so the same failure is the
-  named `IndexBuildError` ("cannot enumerate <workspace>: ...").
+  workspace git cannot list ended `mcgyvr run` in a raw `CalledProcessError`
+  traceback; it now uses the repo index's `enumerate_files`, and the run
+  catches the named `IndexBuildError` like any other step failure: it prints
+  `error: cannot enumerate <workspace>: ...`, files the attempt's `error`
+  correction, writes an `error` result and exits 1, with no traceback.
 
 - **"Absent engine means llama.cpp" is decided once, in
   `config.DEFAULT_ENGINE`.** The default was `serving.DEFAULT_ENGINE` and the

@@ -392,6 +392,7 @@ def _floor(
         task_ceiling,
     )
     from mcgyvr.escalate import Outcome
+    from mcgyvr.repo.index import IndexBuildError
     from mcgyvr.sandbox.base import SandboxError, open_sandbox
     from mcgyvr.telemetry import correct, observe
 
@@ -509,12 +510,13 @@ def _floor(
                 attempt_id=attempt_id,
                 performed="\n".join(performed),
             )
-    except (FloorStoppedError, DriveError, SandboxError) as exc:
-        # A step that stopped, or a drive or sandbox failure, leaves an attempt
-        # row with no verdict. Record the raise against the attempt id already
-        # written, so the journal says why no verdict arrived, and then turn it
-        # into an error result: the reason reaches stderr and the result file, and
-        # the run exits 1.
+    except (FloorStoppedError, DriveError, SandboxError, IndexBuildError) as exc:
+        # A step that stopped, a drive or sandbox failure, or a glob target the
+        # workspace's git could not list, leaves an attempt row with no verdict.
+        # Record the raise against the attempt id already written, so the
+        # journal says why no verdict arrived, and then turn it into an error
+        # result: the reason reaches stderr and the result file, and the run
+        # exits 1.
         correct(
             path=recording.path,
             attempt_id=attempt_id,

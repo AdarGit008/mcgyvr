@@ -16,6 +16,7 @@ name and a source map) is the same seam the whole project is built on.
 from __future__ import annotations
 
 import subprocess
+from collections.abc import Iterator
 from pathlib import Path
 
 import pytest
@@ -241,6 +242,61 @@ def test_a_pattern_over_a_workspace_git_cannot_list_is_refused_by_name(
 
     with pytest.raises(IndexBuildError, match="cannot enumerate"):
         run_tool_step(step, sandbox)
+
+
+def test_a_run_whose_glob_cannot_be_listed_says_why_and_writes_an_error(
+    tmp_path: Path,
+    home: Path,
+    monkeypatch: pytest.MonkeyPatch,
+    capsys: pytest.CaptureFixture[str],
+) -> None:
+    """Through `mcgyvr direct` on the floor, a glob target git cannot list is
+    reported, not raised: the run prints the named refusal on stderr, writes an
+    `error` result and exits 1, with no traceback."""
+    import json
+
+    import mcgyvr.repo.index as index
+    from mcgyvr.repo import IndexBuildError
+    from tests import livejournal as lj
+
+    repo = lj.make_repo(tmp_path / "repo")
+    listed = index.enumerate_files
+
+    def unlistable(root: Path) -> Iterator[str]:
+        # The user's repo still lists (the run indexes it first); only the
+        # sandbox's workspace, which the glob is expanded in, cannot.
+        if Path(root).resolve() == repo.resolve():
+            yield from listed(root)
+            return
+        raise IndexBuildError(f"cannot enumerate {root}: not a git repository")
+
+    monkeypatch.setattr(index, "enumerate_files", unlistable)
+    contract = lj.make_contract(
+        tmp_path / "tidy.yaml",
+        FORMAT_CONTRACT.replace("target: src/pkg/messy.py", "target: src/**/*.py"),
+    )
+    result = lj.result_of(contract)
+
+    code = lj.main(
+        [
+            "direct",
+            str(contract),
+            "--repo",
+            str(repo),
+            "--sandbox",
+            "tempdir",
+            "--result",
+            str(result),
+        ]
+    )
+
+    err = capsys.readouterr().err
+    assert code == 1, err
+    assert "error: cannot enumerate" in err, err
+    assert "Traceback" not in err, err
+    written = json.loads(result.read_text(encoding="utf-8"))
+    assert written["outcome"] == "error", written
+    assert "cannot enumerate" in written["detail"], written
 
 
 # --- the floor's product is judged by the same gate --------------------------
