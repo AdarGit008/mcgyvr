@@ -650,7 +650,7 @@ class ClassifierProposer:
     reply cap is asked for or stated: the work is sent its unit's maximum.
     Each decision is appended to `sink`, when one is wired.
 
-    For the W6 retry loop, a decline returns a `Refusal` field/directive as
+    For the re-ask (`iterate.reask`), a decline returns a `Refusal` field/directive as
     follows: no targets or no vocabulary → `target`/`task_type`; `task_type`
     below the confidence floor or not servable → `task_type`; `target` below
     the confidence floor → `target`. `__call__` still returns `()` for any

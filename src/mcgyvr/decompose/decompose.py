@@ -150,7 +150,7 @@ class Evidence:
     ceiling: int = _DEFAULT_MAX_INPUT_TOKENS
     """The ceiling on a contract's worker view this decomposition holds to.
 
-    `decompose`'s and `iterate`'s `max_input_tokens`."""
+    `decompose`'s `max_input_tokens`."""
     spent: Spent | None = None
     """The contract this decomposition re-plans, with its failure notes.
 
@@ -500,7 +500,7 @@ def _evidence(
 ) -> Evidence:
     """The deterministic pass a proposer is handed: resolve, read, catalog, baseline.
 
-    `adapters` is accepted for the shared call shape with `decompose`/`iterate`;
+    `adapters` is accepted for the shared call shape with `decompose`;
     the evidence itself needs none — the baseline is located from the index's
     root and the vocabulary from the catalog. `ceiling` is the worker-view
     ceiling the caller holds the contracts to, and `spent` the contract being
