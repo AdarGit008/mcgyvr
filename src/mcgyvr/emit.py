@@ -1,10 +1,8 @@
 """Render serving units into launch artifacts, and compare them with disk.
 
-A unit is rendered two ways that must agree: a compose document under
-``services:`` -- written by `emit_all`, compared by `check_all`, named by
-`spec_name` -- and a bare command line (`render_command`) for an operator
-who starts the process by hand. Nothing here starts anything: emitting is
-writing a file, and the rig's operator runs it.
+A unit is rendered as a compose document under ``services:`` -- written by
+`emit_all`, compared by `check_all`, named by `spec_name`. Nothing here starts
+anything: emitting is writing a file, and the rig's operator runs it.
 
 A second family renders a ``fleet.yaml`` whose units state their own
 launch -- image, container, argv, env, a "locked" unit: `emit_locked`
@@ -25,7 +23,6 @@ from __future__ import annotations
 import difflib
 import ipaddress
 import re
-import shlex
 from collections.abc import Iterable, Mapping
 from dataclasses import dataclass, replace
 from pathlib import Path
@@ -75,9 +72,6 @@ from mcgyvr.serving.shardlaunch import (
     rpc_workers,
 )
 
-# The shell command that starts each engine's own server; `_command`
-# refuses any other engine rather than inventing a command line.
-ENGINE_COMMANDS = {"llama.cpp": ("llama-server",), "vllm": ("vllm", "serve")}
 # The flags llama.cpp spells a served model's name with. `argv` adds
 # `--alias` only for a serve unit of that engine that carries none already.
 ALIAS_FLAGS = ("--alias", "-a")
@@ -189,9 +183,9 @@ def argv(unit: Unit, *, sleep_mode: bool = False) -> tuple[str, ...]:
         and not _states_fit((*flags, *unit.extra), unit.env)
     ):
         flags[FIT_FLAGS[0]] = FIT_DEFAULT
-    # The order is fixed so `render_command` and the compose `command` carry
-    # one argv: positional model, flags sorted by name, sleep flag, then the
-    # unit's own `extra` tokens untouched. Sorting the flags is what lets one
+    # The order is fixed so the compose `command` is one argv: positional
+    # model, flags sorted by name, sleep flag, then the unit's own `extra`
+    # tokens untouched. Sorting the flags is what lets one
     # unit render the same bytes twice; `extra` keeps its order because it is
     # the operator's text, not ours.
     lead = (unit.model,) if unit.engine == "vllm" else ()
@@ -211,17 +205,6 @@ def argv(unit: Unit, *, sleep_mode: bool = False) -> tuple[str, ...]:
                 "compose file and the bare command cannot spell the same way"
             )
     return parts
-
-
-def render_command(unit: Unit, *, sleep_mode: bool = False) -> str:
-    """The unit's process as one shell command line, quoted for a shell.
-
-    The sleep-mode env assignment leads when it applies to a vLLM unit,
-    then the engine's command, then `argv` -- the same parts the compose
-    `command` carries, so the two renderings stay one configuration.
-    """
-    routes = (f"{VLLM_DEV_ROUTES}=1",) if sleep_mode and unit.engine == "vllm" else ()
-    return shlex.join((*routes, *_command(unit), *argv(unit, sleep_mode=sleep_mode)))
 
 
 def render_compose(unit: Unit | None, *, sleep_mode: bool = False) -> str:
@@ -548,9 +531,7 @@ def _service(unit: Unit, *, sleep_mode: bool = False) -> dict[str, object]:
         # `network_mode: host` is how the served port becomes the host's own:
         # the port is bound by `--port` inside `argv(unit)` above rather than
         # published by a `ports:` mapping, and the box's own address is what a
-        # client states. No `entrypoint` is set, so the image runs that argv --
-        # the same list `render_command` joins into a shell line, one
-        # configuration in two spellings.
+        # client states. No `entrypoint` is set, so the image runs that argv.
         "network_mode": "host",
         # `LLAMA_ARG_HOST` is where the server listens, under host networking
         # on the box's own interfaces: 127.0.0.1 for a unit of `expose: local`,
@@ -878,18 +859,6 @@ def _vllm_service(unit: Unit, *, sleep_mode: bool = False) -> dict[str, object]:
         "deploy": _reservation(*unit.cards),
     }
     return _keyed(service, unit)
-
-
-def _command(unit: Unit) -> tuple[str, ...]:
-    _check_role(unit)
-    if unit.role == ROLE_RPC:
-        return RPC_COMMAND
-    command = ENGINE_COMMANDS.get(unit.engine)
-    if command is None:
-        raise EmitError(
-            f"{unit.key.slug}: no command line is known for engine {unit.engine!r}"
-        )
-    return command
 
 
 def _check_role(unit: Unit) -> None:

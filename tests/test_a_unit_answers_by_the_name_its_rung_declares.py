@@ -24,7 +24,7 @@ from pathlib import Path
 import pytest
 import yaml
 
-from mcgyvr.emit import argv, render_command, render_compose
+from mcgyvr.emit import argv, render_compose
 from mcgyvr.runner import Completion
 from mcgyvr.scan import Scan
 from mcgyvr.serving import ROLE_RPC, ModelSpec, Unit, unit_for
@@ -69,12 +69,11 @@ def test_the_emitted_server_answers_by_the_units_model_name() -> None:
     assert alias_of(argv(unit())) == [MODEL]
 
 
-def test_the_compose_file_and_the_bare_command_carry_the_same_alias() -> None:
+def test_the_compose_file_carries_the_alias() -> None:
     emitted = unit()
     service = next(iter(yaml.safe_load(render_compose(emitted))["services"].values()))
 
     assert alias_of(service["command"]) == [MODEL]
-    assert alias_of(render_command(emitted).split()) == [MODEL]
 
 
 def test_a_model_named_as_a_file_is_aliased_as_declared_and_not_doubled() -> None:

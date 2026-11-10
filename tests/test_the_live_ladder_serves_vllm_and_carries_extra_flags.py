@@ -11,8 +11,8 @@ here:
   the weights directory, and the engine sizes its own cache from
   ``--gpu-memory-utilization`` — which the operator states, because that
   number is measured and never inherited;
-* a model may carry ``serve_args``, appended verbatim to the argv, and both
-  renderings carry them the same way;
+* a model may carry ``serve_args``, appended verbatim to the argv, and the
+  compose file carries them so;
 * a source may pin its ``image``, because box1's rows are only valid against a
   stated build and the engine's default
   tag floats;
@@ -25,12 +25,10 @@ here:
 
 from __future__ import annotations
 
-import shlex
-
 import pytest
 
 from mcgyvr.config import parse
-from mcgyvr.emit import EmitError, argv, render_command, render_compose
+from mcgyvr.emit import EmitError, argv, render_compose
 from mcgyvr.serving import (
     ModelSpec,
     UnitError,
@@ -88,20 +86,6 @@ def test_a_vllm_unit_states_the_model_first_and_the_engines_own_flags() -> None:
     assert "-ngl" not in flags and "-c" not in flags and "--model" not in flags
 
 
-def test_a_vllm_unit_renders_a_bare_vllm_serve_command() -> None:
-    unit = unit_for(
-        rig("box2"),
-        SEVEN_B_SPEC,
-        engine="vllm",
-        width=8,
-        port=8002,
-        ctx_per_slot=WINDOW,
-    )
-    command = shlex.split(render_command(unit))
-    assert command[:3] == ["vllm", "serve", SEVEN_B]
-    assert command[3:] == list(argv(unit)[1:])
-
-
 def test_a_vllm_unit_without_an_hf_cache_is_refused_by_name() -> None:
     spec = ModelSpec(
         name=SEVEN_B,
@@ -142,7 +126,6 @@ def test_serve_args_reach_both_renderings_verbatim() -> None:
     )
     parts = argv(unit)
     assert parts[-2:] == THINKING_OFF
-    assert shlex.split(render_command(unit))[1:] == list(parts)
     assert service_of(render_compose(unit))["command"] == list(parts)
 
 

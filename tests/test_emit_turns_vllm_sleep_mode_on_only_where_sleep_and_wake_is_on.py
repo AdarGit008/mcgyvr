@@ -17,7 +17,6 @@ never changed.
 
 from __future__ import annotations
 
-import shlex
 from pathlib import Path
 
 import pytest
@@ -28,7 +27,6 @@ from mcgyvr.emit import (
     argv,
     check_all,
     emit_all,
-    render_command,
     render_compose,
     sleep_mode,
 )
@@ -90,16 +88,6 @@ def test_a_llamacpp_unit_has_no_sleep_mode_to_turn_on() -> None:
     unit = llama_unit()
 
     assert render_compose(unit, sleep_mode=True) == render_compose(unit)
-
-
-def test_the_bare_command_carries_the_same_flag_and_variable() -> None:
-    unit = vllm_unit()
-    words = shlex.split(render_command(unit, sleep_mode=True))
-
-    assert words[0] == f"{DEV_MODE}=1"
-    assert words[-len(argv(unit, sleep_mode=True)) :] == list(
-        argv(unit, sleep_mode=True)
-    )
 
 
 def test_a_file_written_with_sleep_mode_drifts_from_one_without_it(

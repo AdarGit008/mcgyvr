@@ -1,4 +1,4 @@
-"""Each process of a split model renders as a compose service and as a command.
+"""Each process of a split model renders as a compose service.
 
 Promise: a process that holds several cards reserves every one of them; a
 worker that lends a card runs ``rpc-server`` with no model and no weights
@@ -6,22 +6,20 @@ mount; a vLLM node that answers nothing renders like any vLLM unit with its
 ``--headless``; what an engine reads beside its argv is the service's
 environment, and a clash with what the file already sets is refused by name.
 A launch that needs an image built with RPC support is refused, naming the
-unit, until the unit states one. The compose service and the bare command say
-the same thing, as they do for any other unit.
+unit, until the unit states one.
 
 The machines are invented, and so are their addresses.
 """
 
 from __future__ import annotations
 
-import shlex
 from dataclasses import replace
 from typing import Any
 
 import pytest
 import yaml
 
-from mcgyvr.emit import EmitError, render_command, render_compose
+from mcgyvr.emit import EmitError, render_compose
 from mcgyvr.serving import (
     ROLE_HEADLESS,
     ROLE_RPC,
@@ -251,26 +249,3 @@ def test_a_role_the_engine_has_no_process_for_is_refused() -> None:
     wrong = replace(head, role=ROLE_HEADLESS)
     with pytest.raises(EmitError, match=wrong.key.slug):
         render_compose(wrong)
-
-
-# Two renderings, one argv.
-
-
-def test_the_bare_command_of_each_process_is_its_binary_and_the_compose_argv() -> None:
-    for unit in llama_units():
-        service = service_of(unit)
-        binary = service.get("entrypoint", ["llama-server"])
-        assert render_command(unit) == shlex.join([*binary, *service["command"]])
-    for unit in vllm_units():
-        service = service_of(unit)
-        assert render_command(unit) == shlex.join(
-            ["vllm", "serve", *service["command"]]
-        )
-
-
-def test_the_bare_command_of_a_worker_is_rpc_server_without_needing_an_image() -> None:
-    worker = llama_units(image=None)[1]
-    command = shlex.split(render_command(worker))
-    assert command[0] == "rpc-server"
-    assert "--model" not in command
-    assert command[command.index("--port") + 1] == str(worker.port)
