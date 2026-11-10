@@ -11,8 +11,8 @@ archived outside this repository, under the same paths.
 
 ### Changed
 
-- **The Linux CI and the release live in `.github/workflows/`, and the
-  repository carries no other forge's workflows.** `ci.yml` is the full Linux
+- **The Linux CI and the release live in `.github/workflows/`, the only
+  workflows the repository carries.** `ci.yml` is the full Linux
   suite (`make check`: lint, typecheck, docs-check and every test, on two
   xdist workers, with the pinned prettier and shellcheck installed so their
   tests cannot skip) plus the import check on Python 3.13 and 3.14; its job
@@ -24,8 +24,7 @@ archived outside this repository, under the same paths.
   secrets). `release.yml` and the macOS/Windows job in `platforms.yml` run
   only on GitHub: a forge that also reads `.github/workflows` skips them
   instead of half-making a release or queueing for runners it does not have.
-  `.forgejo/` (its CI, release and branch rule) is gone; `tests/test_release.py`
-  reads `.github/workflows`.
+  `tests/test_release.py` reads `.github/workflows`.
 
 - **A docker llama.cpp or vLLM unit listens on 127.0.0.1 or, behind a key
   mcgyvr makes, on every interface (`expose: local | lan`).** `mcgyvr emit`
