@@ -35,7 +35,7 @@ from tests import livejournal as lj
 #: is the shape that shipped the circular advice.
 COMMANDS: list[tuple[str, list[str], list[str]]] = [
     ("config", ["config"], ["config", "{path}"]),
-    ("local_pool", ["local_pool"], ["local_pool", "{path}"]),
+    ("ladder show", ["ladder", "show"], ["ladder", "show", "{path}"]),
     ("catalog", ["catalog", "--against"], ["catalog", "--against", "{path}"]),
     # `emit` also requires the window the run serves, which is not a config
     # question: the run declares it (test_one_context_number.py).

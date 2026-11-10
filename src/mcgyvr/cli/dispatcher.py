@@ -64,6 +64,7 @@ _REMOVED = {
     "run": "`mcgyvr direct FILE...` runs contracts you wrote",
     "delegate": "`mcgyvr PROMPT` plans a prompt and runs it, and with "
     "`--output DIR` writes the contracts alone",
+    "local_pool": "`mcgyvr ladder show` shows the ladder a setup resolves to",
 }
 
 #: The top-level epilog: the bare verb, which is not a subcommand.

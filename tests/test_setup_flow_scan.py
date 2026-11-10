@@ -38,17 +38,19 @@ def _api(model: str) -> str:
     )
 
 
-# --- Fix 1: `local_pool` is the renamed `pool` command ----------------------
+# --- Fix 1: `ladder show` is the renamed `pool` command, `local_pool` is gone ---
 
 
-def test_local_pool_exists_and_init_is_gone() -> None:
+def test_ladder_show_exists_and_init_and_local_pool_are_gone() -> None:
     parser = cli.build_parser()
     sub = next(
         action
         for action in parser._actions
         if isinstance(action, argparse._SubParsersAction)
     )
-    assert "local_pool" in sub.choices
+    assert "ladder" in sub.choices
+    assert sub.choices["ladder"].parse_args(["show"]).func.__name__ == "_ladder_show"
+    assert "local_pool" not in sub.choices
     assert "init" not in sub.choices
     assert "setup" in sub.choices
 

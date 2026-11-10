@@ -41,7 +41,7 @@ if TYPE_CHECKING:  # pragma: no cover - typing only
     from mcgyvr.capacity import Capacity
     from mcgyvr.config import Config
     from mcgyvr.contract import Contract
-    from mcgyvr.local_pool import SourceMap
+    from mcgyvr.ladder_map import UnitMap
 
 #: The name the question is asked under, which the prompt shows the model.
 QUESTION = "start"
@@ -83,7 +83,7 @@ class Triage:
 
 def triage_for(
     config: Config,
-    pool: SourceMap,
+    pool: UnitMap,
     contract: Contract,
     rungs: Sequence[str],
     *,
@@ -103,7 +103,7 @@ def triage_for(
 
 
 def stated(
-    config: Config, pool: SourceMap, contract: Contract, rungs: Sequence[str]
+    config: Config, pool: UnitMap, contract: Contract, rungs: Sequence[str]
 ) -> Triage:
     """The record of the rung the contract states as its `start_rung`.
 
@@ -134,7 +134,7 @@ def stated(
 
 def ask(
     config: Config,
-    pool: SourceMap,
+    pool: UnitMap,
     contract: Contract,
     rungs: Sequence[str],
     *,
@@ -190,7 +190,7 @@ def ask(
 
 def triage_ahead(
     config: Config,
-    pool: SourceMap,
+    pool: UnitMap,
     contracts: Iterable[Contract],
     *,
     capacity: Capacity | None = None,

@@ -80,12 +80,12 @@ def test_every_row_before_the_raise_is_corrected_and_listed(
     capsys: pytest.CaptureFixture[str],
 ) -> None:
     import mcgyvr.drive as drive
-    from mcgyvr.local_pool import Protocol
+    from mcgyvr.ladder_map import Protocol
     from mcgyvr.runner import Completion, RunnerError, StopReason
 
     answers: list[str | None] = [lj.BAD_REPLY, lj.BAD_REPLY, None]
 
-    def dies_on_the_third(source_map: Any, rung: str, request: Any, **_: Any) -> Any:
+    def dies_on_the_third(unit_map: Any, rung: str, request: Any, **_: Any) -> Any:
         reply = answers.pop(0)
         if reply is None:
             raise RunnerError("connection refused")

@@ -12,7 +12,7 @@ from mcgyvr.escalate import (
     Assurance,
     Judgement,
 )
-from mcgyvr.local_pool import SourceMap, source_map
+from mcgyvr.ladder_map import UnitMap, unit_map
 from mcgyvr.route import Try, Verdict
 from tests.rungs import RIDE
 
@@ -72,9 +72,9 @@ relief:
 
 def mapped(
     fanout: str = "idle", *, relief: str = RELIEF, escalations: int = 1
-) -> tuple[Config, SourceMap]:
+) -> tuple[Config, UnitMap]:
     config = parse(SETUP.format(fanout=fanout, escalations=escalations) + relief)
-    return config, source_map(config)
+    return config, unit_map(config)
 
 
 def contract() -> Contract:

@@ -46,7 +46,7 @@ if TYPE_CHECKING:  # pragma: no cover - typing only
     from mcgyvr.config import Config
     from mcgyvr.contract import Contract
     from mcgyvr.gate import GateResult
-    from mcgyvr.local_pool import Rung, SourceMap
+    from mcgyvr.ladder_map import Rung, UnitMap
 
 #: The role a `verifier:` unit is bound under. The typed verdict, the typed JEV
 #: checks and the prose dispatch all ask for it by this name, so a config that
@@ -605,7 +605,7 @@ def _typed_verdict(
 
 
 def decider_for(
-    source_map: SourceMap,
+    unit_map: UnitMap,
     *,
     timeout_s: float | None = None,
     capacity: Capacity | None = None,
@@ -616,12 +616,12 @@ def decider_for(
     `classify_for`, so the answer is read from next-token probabilities rather
     than from prose.
     """
-    if source_map.role_model(VERIFIER_ROLE) is None:
+    if unit_map.role_model(VERIFIER_ROLE) is None:
         return None
 
     def decide(state: Any) -> Decision:
         return classify_for(
-            source_map,
+            unit_map,
             state,
             {VERDICT_KEY: VERDICT_QUESTION},
             role=VERIFIER_ROLE,
@@ -633,7 +633,7 @@ def decider_for(
 
 
 def reviewer_for(
-    source_map: SourceMap,
+    unit_map: UnitMap,
     *,
     capacity: Capacity | None = None,
 ) -> Ask | None:
@@ -647,19 +647,19 @@ def reviewer_for(
     # A role with no model returns None instead of raising, so the caller can say
     # "the role has no model to ask" once, where the reviewer is chosen, rather
     # than at the first change that needs reviewing.
-    if source_map.role_model(VERIFIER_ROLE) is None:
+    if unit_map.role_model(VERIFIER_ROLE) is None:
         return None
 
     def ask(prompt: str) -> str:
         completion = dispatch_role(
-            source_map,
+            unit_map,
             VERIFIER_ROLE,
             Request(prompt=prompt, max_output_tokens=None),
             capacity=capacity,
         )
         if completion is None:  # unreachable once the role has a model
             raise ReviewerUnavailableError(
-                f"the {VERIFIER_ROLE!r} role has no source to dispatch to"
+                f"the {VERIFIER_ROLE!r} role has no unit to dispatch to"
             )
         return _review_text(completion, f"the {VERIFIER_ROLE!r} role")
 
@@ -729,16 +729,16 @@ class NoReviewer:
 type Reviewers = Callable[[str], Reviewer | NoReviewer]
 
 
-def _climb(config: Config, source_map: SourceMap) -> list[tuple[str, Rung]]:
+def _climb(config: Config, unit_map: UnitMap) -> list[tuple[str, Rung]]:
     """Every rung of the ladder in climb order, tagged with its family name.
 
     Families come cheapest first (`Family.rank`), and each family's rungs keep
     the order they are mapped in (`route.climb_order`).
     """
-    return [(family.name, rung) for family, rung in climb_order(config, source_map)]
+    return [(family.name, rung) for family, rung in climb_order(config, unit_map)]
 
 
-def reviewer_rung(config: Config, source_map: SourceMap, builder: str) -> str | None:
+def reviewer_rung(config: Config, unit_map: UnitMap, builder: str) -> str | None:
     """The rung that reviews work built on `builder`, or None if there is none.
 
     The first rung above `builder` on the climb that is in the local family,
@@ -751,7 +751,7 @@ def reviewer_rung(config: Config, source_map: SourceMap, builder: str) -> str | 
     """
     from mcgyvr.wake import known_down
 
-    climb = _climb(config, source_map)
+    climb = _climb(config, unit_map)
     names = [rung.name for _, rung in climb]
     if builder not in names:
         return None
@@ -767,7 +767,7 @@ def reviewer_rung(config: Config, source_map: SourceMap, builder: str) -> str | 
 
 
 def stand_in_rung(
-    config: Config, source_map: SourceMap, builder: str, unit: str
+    config: Config, unit_map: UnitMap, builder: str, unit: str
 ) -> str | None:
     """A rung that may review in place of `unit` when the unit built the change.
 
@@ -781,10 +781,10 @@ def stand_in_rung(
     """
     from mcgyvr.wake import known_down
 
-    built = source_map.get(builder)
+    built = unit_map.get(builder)
     if built is None:
         return None
-    climb = _climb(config, source_map)
+    climb = _climb(config, unit_map)
     names = [rung.name for _, rung in climb]
     anchor = unit if unit in names else builder
     if anchor not in names:
@@ -807,7 +807,7 @@ def stand_in_rung(
 
 def reviewers_for(
     config: Config,
-    source_map: SourceMap,
+    unit_map: UnitMap,
     *,
     capacity: Capacity | None = None,
     timeout_s: float | None = None,
@@ -832,11 +832,11 @@ def reviewers_for(
     unit = config.get("verifier.unit")
     picked: dict[tuple[str, str | None], Reviewer | NoReviewer] = {}
     if unit is not None:
-        model = source_map.role_model(VERIFIER_ROLE)
-        ask = reviewer_for(source_map, capacity=capacity)
-        decide = decider_for(source_map, timeout_s=timeout_s, capacity=capacity)
+        model = unit_map.role_model(VERIFIER_ROLE)
+        ask = reviewer_for(unit_map, capacity=capacity)
+        decide = decider_for(unit_map, timeout_s=timeout_s, capacity=capacity)
         jev = jev_check_for(
-            source_map, VERIFIER_ROLE, timeout_s=timeout_s, capacity=capacity
+            unit_map, VERIFIER_ROLE, timeout_s=timeout_s, capacity=capacity
         )
         if model is None or ask is None:
             unbound = NoReviewer(
@@ -855,15 +855,15 @@ def reviewers_for(
         )
 
         def named_or_stand_in(builder: str) -> Reviewer | NoReviewer:
-            built = source_map.get(builder)
+            built = unit_map.get(builder)
             down = known_down(config, str(unit))
             if down is None and (built is None or not _same_model(built.model, model)):
                 return named
-            key = (builder, stand_in_rung(config, source_map, builder, str(unit)))
+            key = (builder, stand_in_rung(config, unit_map, builder, str(unit)))
             if key not in picked:
                 picked[key] = _standing_in(
                     config,
-                    source_map,
+                    unit_map,
                     builder,
                     str(unit),
                     model,
@@ -876,10 +876,10 @@ def reviewers_for(
         return named_or_stand_in
 
     def pick(builder: str) -> Reviewer | NoReviewer:
-        key = (builder, reviewer_rung(config, source_map, builder))
+        key = (builder, reviewer_rung(config, unit_map, builder))
         if key not in picked:
             picked[key] = _on_rung(
-                config, source_map, builder, capacity=capacity, timeout_s=timeout_s
+                config, unit_map, builder, capacity=capacity, timeout_s=timeout_s
             )
         return picked[key]
 
@@ -898,7 +898,7 @@ def _same_model(builder: str, reviewer: str) -> bool:
 
 def _standing_in(
     config: Config,
-    source_map: SourceMap,
+    unit_map: UnitMap,
     builder: str,
     unit: str,
     model: str,
@@ -931,8 +931,8 @@ def _standing_in(
             f"a fallback for `verifier.unit` {unit!r}, whose model {model!r} "
             f"wrote this change"
         )
-    rung = stand_in_rung(config, source_map, builder, unit)
-    offered = source_map.get(rung) if rung is not None else None
+    rung = stand_in_rung(config, unit_map, builder, unit)
+    offered = unit_map.get(rung) if rung is not None else None
     if rung is None or offered is None:
         return NoReviewer(
             f"{why}; no other unit was available to review it instead — a "
@@ -940,7 +940,7 @@ def _standing_in(
             f"or hosted and below a hosted `verifier.unit` on the ladder"
         )
     return _askable(
-        source_map,
+        unit_map,
         rung,
         offered.model,
         capacity=capacity,
@@ -951,7 +951,7 @@ def _standing_in(
 
 def _on_rung(
     config: Config,
-    source_map: SourceMap,
+    unit_map: UnitMap,
     builder: str,
     *,
     capacity: Capacity | None,
@@ -963,8 +963,8 @@ def _on_rung(
     explaining that nothing above the builder in the local family serves another
     model and that only `verifier.unit` can bring in a hosted reviewer.
     """
-    rung = reviewer_rung(config, source_map, builder)
-    offered = source_map.get(rung) if rung is not None else None
+    rung = reviewer_rung(config, unit_map, builder)
+    offered = unit_map.get(rung) if rung is not None else None
     if rung is None or offered is None:
         return NoReviewer(
             f"no local rung dearer than {builder!r} serves a model other than "
@@ -972,12 +972,12 @@ def _on_rung(
             f"rung reviews only when `verifier.unit` names it"
         )
     return _askable(
-        source_map, rung, offered.model, capacity=capacity, timeout_s=timeout_s
+        unit_map, rung, offered.model, capacity=capacity, timeout_s=timeout_s
     )
 
 
 def _askable(
-    source_map: SourceMap,
+    unit_map: UnitMap,
     rung: str,
     model: str,
     *,
@@ -997,7 +997,7 @@ def _askable(
 
     def ask(prompt: str) -> str:
         completion = dispatch(
-            source_map,
+            unit_map,
             rung,
             Request(prompt=prompt, max_output_tokens=None),
             capacity=capacity,
@@ -1008,7 +1008,7 @@ def _askable(
         # One place to dispatch typed questions to this rung: the verdict and the
         # JEV checks differ only in which questions they put to it.
         return classify_for(
-            source_map,
+            unit_map,
             state,
             questions,
             rung=rung,

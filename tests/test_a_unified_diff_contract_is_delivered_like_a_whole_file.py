@@ -26,7 +26,7 @@ from mcgyvr.config import parse as parse_config
 from mcgyvr.contract import loads as load_contract
 from mcgyvr.drive import worker_attempt
 from mcgyvr.escalate import Delivered, escalate
-from mcgyvr.local_pool import source_map
+from mcgyvr.ladder_map import unit_map
 from mcgyvr.sandbox.tempdir import TempDirSandbox
 from tests.drives import LADDER, _driven
 
@@ -74,7 +74,7 @@ def _climb(
     repo: Path, monkeypatch: pytest.MonkeyPatch, schema: str, *replies: str
 ) -> tuple[Delivered, list[str]]:
     config = parse_config(LADDER)
-    pool = source_map(config)
+    pool = unit_map(config)
     contract = load_contract(CONTRACT.format(schema=schema))
     sent = _driven(monkeypatch, *replies)
     with TempDirSandbox(repo) as sandbox:

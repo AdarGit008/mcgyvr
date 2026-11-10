@@ -30,8 +30,8 @@ from mcgyvr.deliver import deliver
 from mcgyvr.deterministic import tool_steps
 from mcgyvr.escalate import Assurance, Delivered, Judgement, ascent, escalate
 from mcgyvr.gate import ChangeSet, Gate, GateResult
+from mcgyvr.ladder_map import unit_map
 from mcgyvr.lines import parser_lines
-from mcgyvr.local_pool import source_map
 from mcgyvr.repair import _insert_imports, repair, tidy
 from mcgyvr.route import Verdict
 
@@ -135,7 +135,7 @@ def test_b1_a_deterministic_floor_with_a_tool_bound_reaches_a_verdict() -> None:
     than entered.
     """
     config = parse(KEYLESS)
-    pool = source_map(config)
+    pool = unit_map(config)
     contract = load_contract(FORMAT_CONTRACT)
 
     route = ascent(config, pool, contract)
@@ -299,7 +299,7 @@ def test_b9_the_surrogate_convention_round_trips_through_a_delivery(
     the same string it was handed; otherwise every verdict would look
     substituted at the commit point.
     """
-    from mcgyvr.deliver import digest_of
+    from mcgyvr.deliver import text_sha256
 
     target = "src/pkg/fixture.txt"
     repo = make_repo(tmp_path / "repo", {target: "fixture\n"})
@@ -314,7 +314,7 @@ def test_b9_the_surrogate_convention_round_trips_through_a_delivery(
     )
     assert result.committed, result.reason
     back = (repo / target).read_bytes().decode("utf-8", "surrogateescape")
-    assert digest_of(back) == digest_of(content), (
+    assert text_sha256(back) == text_sha256(content), (
         "content written and read back does not answer for its own digest"
     )
 
@@ -409,7 +409,7 @@ ladder:
 - api_big
 """
     )
-    route = ascent(config, source_map(config), load_contract(FORMAT_CONTRACT))
+    route = ascent(config, unit_map(config), load_contract(FORMAT_CONTRACT))
 
     assert len(route) == 0, "the premise did not hold: something is climbable"
     assert not route, (
@@ -440,7 +440,7 @@ def test_pattern_a_consensus_reports_content_it_cannot_write_as_its_own_error(
 def test_the_printed_ceiling_is_the_one_that_is_enforced(
     tmp_path: Path, capsys: pytest.CaptureFixture[str]
 ) -> None:
-    """``mcgyvr local_pool`` prints the attempts a task may spend under a
+    """``mcgyvr ladder show`` prints the attempts a task may spend under a
     contract that states no limit, which is what the climb enforces: each
     rung's configured attempts capped by the default ``limits.attempts``."""
     text = """\
@@ -464,17 +464,17 @@ attempts:
 """
     path = tmp_path / "mcgyvr.yaml"
     path.write_text(text, encoding="utf-8")
-    assert main(["local_pool", str(path)]) == 0
+    assert main(["ladder", "show", str(path)]) == 0
     out = capsys.readouterr().out
     found = re.search(r"at most (\d+) attempt\(s\) per task", out)
     assert found, out
     printed = int(found.group(1))
 
     config = parse(text)
-    enforced = ascent(config, source_map(config), work_contract("src/pkg/fetch.py"))
+    enforced = ascent(config, unit_map(config), work_contract("src/pkg/fetch.py"))
 
     assert printed == enforced.budget, (
-        f"`mcgyvr local_pool` prints {printed} attempt(s) per task and the climb "
+        f"`mcgyvr ladder show` prints {printed} attempt(s) per task and the climb "
         f"enforces {enforced.budget}"
     )
 

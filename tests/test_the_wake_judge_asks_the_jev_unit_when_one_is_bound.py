@@ -17,7 +17,7 @@ import pytest
 import mcgyvr.decision as decision
 from mcgyvr import wake_judge
 from mcgyvr.config import parse
-from mcgyvr.local_pool import source_map
+from mcgyvr.ladder_map import unit_map
 
 FAST = "http://localhost:18001/v1/chat/completions"
 JUDGE = "http://localhost:18009/v1/chat/completions"
@@ -66,7 +66,7 @@ def test_the_wake_judges_judgment_asks_the_jev_unit_when_one_is_bound(
     monkeypatch: pytest.MonkeyPatch, jev: str, expected: tuple[str, str]
 ) -> None:
     sent = _wire(monkeypatch)
-    pool = source_map(parse(UNITS + jev))
+    pool = unit_map(parse(UNITS + jev))
     difficulty = wake_judge.judge(pool, "fast", {"task": "x"}, timeout_s=5.0)
     assert difficulty.wake is True
     assert sent == [expected]

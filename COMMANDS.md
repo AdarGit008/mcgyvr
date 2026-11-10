@@ -15,11 +15,12 @@ names — a directory holding fleet.yaml and policy.yaml.
     GPU, the memory it may use, as `mcgyvr detect` states it (an estimate).
 - `mcgyvr config [PATH]` — validate the configuration file and show what it resolves to.
   - `--config PATH` — config to read (default: the usual setup).
-- `mcgyvr local_pool [PATH]` — show the ladder as it resolves against the declared sources.
+- `mcgyvr ladder` — read the ladder a setup resolves to.
+- `mcgyvr ladder show [PATH]` — show the ladder as it resolves against the declared units.
   - `--config PATH` — config to read (default: the usual setup).
-  - `--probe` — also ask each source whether it is answering, and drop the rungs of any that is not (off
-    by default: resolving a ladder should not require a network).
-  - `--probe-timeout SECONDS` — how long a source has to answer a probe (default: 2).
+  - `--probe` — also ask each unit whether it is answering, and drop the rungs of any that is not (off by
+    default: resolving a ladder should not require a network).
+  - `--probe-timeout SECONDS` — how long a unit has to answer a probe (default: 2).
 - `mcgyvr catalog [NAME]` — show the task types mcgyvr can be asked for, and what each guarantees.
   - `--against CONFIG` — resolve against a configured ladder and name the types it cannot start (default
     config: the usual setup).

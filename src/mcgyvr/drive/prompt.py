@@ -35,7 +35,7 @@ if TYPE_CHECKING:  # pragma: no cover - typing only
     from mcgyvr.capacity import Capacity
     from mcgyvr.config import Config
     from mcgyvr.contract import Contract
-    from mcgyvr.local_pool import SourceMap
+    from mcgyvr.ladder_map import UnitMap
     from mcgyvr.sandbox.base import Sandbox
     from mcgyvr.worker.prompt import WorkerPrompt
 
@@ -83,7 +83,7 @@ def refuse_unsendable(
 
 def refuse_unsendable_climb(
     config: Config,
-    pool: SourceMap,
+    pool: UnitMap,
     contract: Contract,
     prompt: WorkerPrompt,
     *,
@@ -120,7 +120,7 @@ def refuse_unsendable_climb(
 
 
 def dispatch_prompt(
-    source_map: SourceMap,
+    unit_map: UnitMap,
     rung: str,
     prompt: WorkerPrompt,
     contract: Contract,
@@ -143,7 +143,7 @@ def dispatch_prompt(
     from the request rather than sent as nulls. `capacity`, when given, is passed
     on to the drive layer's dispatch, which holds it across the call.
     """
-    endpoint = source_map.bind(rung)
+    endpoint = unit_map.bind(rung)
     refuse_unsendable(rung, endpoint, prompt, contract, window_fraction=window_fraction)
     # Every refusal happens here, before the runner is touched: a contract the
     # rung cannot take costs nothing.
@@ -163,7 +163,7 @@ def dispatch_prompt(
     if temperature is not None:
         fields["temperature"] = temperature
     request = Request(**fields)
-    return _drive.dispatch(source_map, rung, request, capacity=capacity)
+    return _drive.dispatch(unit_map, rung, request, capacity=capacity)
 
 
 def _base_content(sandbox: Sandbox, contract: Contract) -> str:

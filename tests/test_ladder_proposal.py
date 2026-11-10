@@ -16,9 +16,9 @@ import inspect
 import pytest
 
 from mcgyvr import detect
-from mcgyvr import propose as propose_module
+from mcgyvr import ladder_proposal as propose_module
 from mcgyvr.initialize import _sources_for
-from mcgyvr.propose import (
+from mcgyvr.ladder_proposal import (
     API,
     NO_BACKEND_NOTE,
     AvailableSource,

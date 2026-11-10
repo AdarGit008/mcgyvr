@@ -297,7 +297,7 @@ def render_reference() -> str:
 
 # SETUP.md alone: the constants its prose and its notes are built from.
 
-#: The three keys SETUP.md lists as the levers, whose effect `mcgyvr local_pool`
+#: The three keys SETUP.md lists as the levers, whose effect `mcgyvr ladder show`
 #: prints. Each bullet's text is the key's own schema doc, so the list cannot
 #: drift from the field it describes; a name here that `SCHEMA` does not declare
 #: raises `KeyError` at render time instead of printing a bullet with nothing
@@ -406,6 +406,128 @@ def _port_forward_section() -> list[str]:
         *_wrap(digest, rest=""),
         "",
     ]
+
+
+#: The words mcgyvr's help, docs and output use, each for one thing, in the
+#: order a request meets them: how a prompt becomes contracts, where they run,
+#: what the hub shares, and who and what is named.
+GLOSSARY: tuple[tuple[str, str], ...] = (
+    (
+        "decomposition",
+        "the whole step that turns a prompt into contracts (`decompose`): a "
+        "survey of the repository, then scaffold, then fill or draft, then vet.",
+    ),
+    (
+        "scaffold",
+        "the candidates mcgyvr builds from the survey for each field of a "
+        "contract, with no model asked; the first of each set is the default.",
+    ),
+    (
+        "fill",
+        "Jev picks each field of the scaffold from its fixed candidates "
+        "(`authoring: classifier` in today's policy.yaml).",
+    ),
+    (
+        "draft",
+        "a model writes the proposals freely, as JSON (`authoring: prose` in "
+        "today's policy.yaml).",
+    ),
+    (
+        "vet",
+        "the deterministic checks every proposal and every hand-written "
+        "contract passes before anything runs; a proposal vetting refuses goes "
+        "back to the proposer (`max_reproposals`).",
+    ),
+    (
+        "proposer",
+        "the propose stage, fill or draft as `authoring` picks; policy.yaml "
+        "binds its model in the block spelled `orchestrator` today.",
+    ),
+    (
+        "direct",
+        "you, or the session agent, write the contracts; `mcgyvr direct "
+        "FILE...` (`/mcgyvr-direct`) vets and runs them, and a spent contract "
+        "comes back to its author.",
+    ),
+    (
+        "delegate",
+        "you hand mcgyvr the prompt: `mcgyvr PROMPT` (`/mcgyvr`) decomposes it "
+        "into contracts and runs them. The session agent chooses direct or "
+        "delegate; mcgyvr dispatches either way.",
+    ),
+    (
+        "ladder",
+        "the rungs a task climbs, in the order policy.yaml's `ladder` lists "
+        "them; `mcgyvr ladder show` prints it as it resolves.",
+    ),
+    ("rung", "one step of the ladder: a unit, and the model sent to it."),
+    ("top rung", "the dearest rung of the ladder, the last a climb tries."),
+    (
+        "unit",
+        "one configured model server, an entry of fleet.yaml's `units`: where "
+        "it answers, the model it serves and how many requests at once.",
+    ),
+    (
+        "standing session",
+        "on the hub, a session the hub itself keeps running on a lent rig, "
+        "serving one model to the general pool or a crew pool.",
+    ),
+    (
+        "hitchhike",
+        "slot sharing: a host offers open slots of their own units, and a "
+        "rider's task takes one only when the rider's own rung is full "
+        "(`fanout: idle`), never as a step to climb. A host can read the "
+        "prompts sent to it.",
+    ),
+    (
+        "general pool",
+        "the hub's shared pool: models an admin curates, run as standing "
+        "sessions on rigs lent to it, for any member.",
+    ),
+    (
+        "crew pool",
+        "the same, invite only: one crew's owner curates its models, its rigs "
+        "are lent to that crew, and only its members are served.",
+    ),
+    ("rig", "a machine: one mcgyvr serves from, or one lent to a hub (`mcgyvr rig`)."),
+    (
+        "host",
+        "the person who offers slots to hitchhikers. The wire keeps its own "
+        "`host` fields (a rig's system, a lending member); the docs say rig "
+        "for the machine and system for its OS. Host memory and host cores "
+        "are a machine's own RAM and CPU, as against a card's.",
+    ),
+    ("system", "a rig's operating system block: OS, architecture and version."),
+    (
+        "session",
+        "two layers: the writer's chat (`--session`, the journal file a run is "
+        "filed in), and a pooled inference run across rigs (`mcgyvr rig`, the "
+        "hub).",
+    ),
+    (
+        "writer",
+        "the Claude Code or Pi chat a command was typed from; a run, its result "
+        "and its journal rows are filed under it.",
+    ),
+    (
+        "family",
+        "the catalog kind a rung is served from: `deterministic` (tools), "
+        "`local` or `api`, cheapest first.",
+    ),
+    (
+        "floor",
+        "the no-model path, the `deterministic` family: a tool makes the "
+        "change, in one attempt, and no tokens are spent.",
+    ),
+)
+
+
+def _glossary_section() -> list[str]:
+    """SETUP.md's *Glossary*: one meaning per word, as `GLOSSARY` states it."""
+    lines = ["## Glossary", ""]
+    for term, meaning in GLOSSARY:
+        lines += _wrap(f"- **{term}** — {meaning}")
+    return [*lines, ""]
 
 
 def _macos_windows_section() -> list[str]:
@@ -636,7 +758,7 @@ def render_setup() -> str:
         "",
         "```",
         "mcgyvr setup",
-        "mcgyvr local_pool",
+        "mcgyvr ladder show",
         "```",
         "",
         "`mcgyvr setup` reads each rig once and stages a setup bound to what it",
@@ -744,7 +866,7 @@ def render_setup() -> str:
         "otherwise from the use case's candidates on the Hugging Face Hub",
         "(ranked by downloads; the cache of an earlier read, then the shipped",
         "model catalog, when the Hub cannot be asked), says which answered,",
-        "and names the host it goes on. `chat` and `agent` plan one unit: the",
+        "and names the rig it goes on. `chat` and `agent` plan one unit: the",
         "biggest model that fits, at the most context that fits and at least",
         "8192 per user. The placement says how fast its model decodes: the",
         "speed the live fleet measured for it there (a `reading`), else an",
@@ -799,7 +921,7 @@ def render_setup() -> str:
         "",
         *_audience_lines(),
         "",
-        "`mcgyvr local_pool` reads that config back: the usable rungs "
+        "`mcgyvr ladder show` reads that config back: the usable rungs "
         "cheapest-first with",
         "their family, attempt budget and model; the escalation ceiling and where it",
         "came from; every skipped rung with the reason it was skipped; and the",
@@ -807,7 +929,7 @@ def render_setup() -> str:
         "is answering — off by default, because resolving a ladder should not need",
         "a network. Run it whenever a run picks a rung you did not expect.",
         "",
-        "Three keys across the two files are the levers, and `mcgyvr local_pool` "
+        "Three keys across the two files are the levers, and `mcgyvr ladder show` "
         "is how",
         "you read all three:",
         "",
@@ -864,6 +986,7 @@ def render_setup() -> str:
         *_macos_windows_section(),
         *_port_forward_section(),
         *_use_cases_section(),
+        *_glossary_section(),
         "## Value types",
         "",
         "| Type | Accepted |",
@@ -893,7 +1016,7 @@ def _use_cases_section() -> list[str]:
         "## Use cases and switches",
         "",
         "`use_case` in the policy says what this install serves, and",
-        "`mcgyvr use NAME` switches it (`/mcgyvr-use` is the same for a session):",
+        "`mcgyvr use NAME` switches it (`/mcgyvr-use` is the same, typed in a chat):",
         "",
         "- `mcgyvr-code` — mcgyvr between the model and you: contracts proposed,",
         "  vetted, run up the ladder, gated, repaired, reviewed and re-planned,",
@@ -1362,8 +1485,8 @@ _RESULT_KEYS: tuple[str, ...] = (
     "- `delivery` — where the work went: left uncommitted in the tree (the",
     "  default), the commit, or why it was refused (as `detail`).",
     "  `committed`, `commit`, `branch`, `handoff` are the commit as fields.",
-    "- `target`, `contract`, `task_type`, `session` (the session the run is",
-    "  filed under; also written as `orchestrator`, its old key, for one",
+    "- `target`, `contract`, `task_type`, `session` (the writer: the chat the run",
+    "  is filed under; also written as `orchestrator`, its old key, for one",
     "  release), `run`, `session_file`, `journal`, `exit_code`.",
     "- `copy_errors` — a `--record DIR` copy that could not be written, and",
     "  why. Empty on almost every run. mcgyvr's own record under `journal`",

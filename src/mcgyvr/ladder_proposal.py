@@ -5,7 +5,7 @@ rung whose unit name `binding_name` derives from the id, provided the id is
 printable and that name is still free. Ids that cannot be bound are kept as
 `Rejection`s with the sentence explaining why, and the same sentences go into
 `notes`, which also carry any closing advice. Nothing here dispatches a request
-or writes config: a `Proposal` is data for whoever builds the ladder.
+or writes config: a `LadderProposal` is data for whoever builds the ladder.
 """
 
 from __future__ import annotations
@@ -64,7 +64,7 @@ class AvailableSource:
 
 
 @dataclass(frozen=True)
-class Rung:
+class LadderRung:
     """One step of the proposed ladder.
 
     The unit `name` it binds, the `model` id sent to that unit, the `source`
@@ -84,7 +84,7 @@ class Rung:
 class Rejection:
     """A model id left out of the ladder, with the sentence saying why.
 
-    `Proposal.why` finds one by model id, and the same sentence is usually in
+    `LadderProposal.why` finds one by model id, and the same sentence is usually in
     the proposal's notes as well.
     """
 
@@ -93,8 +93,8 @@ class Rejection:
 
 
 @dataclass(frozen=True)
-class Proposal:
-    rungs: tuple[Rung, ...] = ()
+class LadderProposal:
+    rungs: tuple[LadderRung, ...] = ()
     rejected: tuple[Rejection, ...] = ()
     notes: tuple[str, ...] = ()
 
@@ -129,7 +129,7 @@ def binding_name(model_id: str, *, locality: str = LOCAL) -> str:
     return f"{locality}_{segment}"
 
 
-def _second_listing(model: str, source: AvailableSource, first: Rung) -> str:
+def _second_listing(model: str, source: AvailableSource, first: LadderRung) -> str:
     """The rejection reason for a model whose binding name is already taken.
 
     `first` is the rung that holds the name; the sentence names both models and
@@ -157,7 +157,7 @@ def _unwritable(model: str, source: AvailableSource) -> str:
     )
 
 
-def propose(*, sources: Sequence[AvailableSource]) -> Proposal:
+def propose(*, sources: Sequence[AvailableSource]) -> LadderProposal:
     """Bind each listed model to a rung, or reject it with a reason.
 
     Sources and their models are visited in the order given, and the first
@@ -169,8 +169,8 @@ def propose(*, sources: Sequence[AvailableSource]) -> Proposal:
     rejection notes, and with no sources at all it carries `NO_BACKEND_NOTE`.
     A non-empty proposal ends with the note from `_concurrency_note`.
     """
-    rungs: list[Rung] = []
-    taken: dict[str, Rung] = {}
+    rungs: list[LadderRung] = []
+    taken: dict[str, LadderRung] = {}
     rejected: list[Rejection] = []
     notes: list[str] = []
     for source in sources:
@@ -187,7 +187,7 @@ def propose(*, sources: Sequence[AvailableSource]) -> Proposal:
                 rejected.append(Rejection(model, reason))
                 notes.append(reason)
                 continue
-            rung = Rung(
+            rung = LadderRung(
                 name=name,
                 model=model,
                 source=source.name,
@@ -200,12 +200,14 @@ def propose(*, sources: Sequence[AvailableSource]) -> Proposal:
     if not rungs:
         if not sources:
             notes.append(NO_BACKEND_NOTE)
-        return Proposal(rejected=tuple(rejected), notes=tuple(notes))
+        return LadderProposal(rejected=tuple(rejected), notes=tuple(notes))
     notes.append(_concurrency_note(rungs))
-    return Proposal(rungs=tuple(rungs), rejected=tuple(rejected), notes=tuple(notes))
+    return LadderProposal(
+        rungs=tuple(rungs), rejected=tuple(rejected), notes=tuple(notes)
+    )
 
 
-def _concurrency_note(rungs: Sequence[Rung]) -> str:
+def _concurrency_note(rungs: Sequence[LadderRung]) -> str:
     """The closing note of a non-empty proposal.
 
     It names the distinct sources the rungs come from, sorted, so the reader
@@ -217,7 +219,7 @@ def _concurrency_note(rungs: Sequence[Rung]) -> str:
     sources = sorted({rung.source for rung in rungs})
     named = ", ".join(sources)
     return (
-        f"Concurrency is written twice and only one of them is here. `init` "
+        f"Concurrency is written twice and only one of them is here. `setup` "
         f"writes width: 1 for every unit on {named}, which is always honest; "
         f"raising it only helps if that backend was started with its "
         f"parallel-slot setting enabled. Same-model concurrency scales only "

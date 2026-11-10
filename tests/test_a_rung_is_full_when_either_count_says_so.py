@@ -26,7 +26,7 @@ import pytest
 from mcgyvr.capacity import Capacity
 from mcgyvr.config import Config, parse
 from mcgyvr.escalate import ascent
-from mcgyvr.local_pool import SourceMap, source_map
+from mcgyvr.ladder_map import UnitMap, unit_map
 
 FAST = "local_fast"
 
@@ -158,12 +158,12 @@ def test_only_the_server_count_sees_independent_clients(tmp_path: Path) -> None:
 # --- the climb's idle spill asks the same question -------------------------------
 
 
-def idle_ladder(monkeypatch: pytest.MonkeyPatch) -> tuple[Config, SourceMap]:
+def idle_ladder(monkeypatch: pytest.MonkeyPatch) -> tuple[Config, UnitMap]:
     from tests.drives import CLIMBED_LADDER as LADDER
 
     monkeypatch.setenv("EXAMPLE_API_KEY", "sk-" + "0" * 12)
     config = parse(LADDER.format(fanout="fanout: idle\n"))
-    return config, source_map(config)
+    return config, unit_map(config)
 
 
 def next_free(

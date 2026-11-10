@@ -39,7 +39,7 @@ from collections.abc import Mapping, Sequence
 
 from mcgyvr.availability import Availability, AvailabilityVerdict
 from mcgyvr.config import parse
-from mcgyvr.local_pool import Endpoint, source_map
+from mcgyvr.ladder_map import Endpoint, unit_map
 
 RESIDENT = "qwen3.6-35b-a3b"
 SLEEPING = "deepseek-coder-v2-16b"
@@ -82,7 +82,7 @@ def answering(models: tuple[str, ...] | None) -> Availability:
 
 
 def rungs_of(probe: Availability) -> tuple[Sequence[str], Mapping[str, str]]:
-    resolved = source_map(parse(LADDER), probe=probe)
+    resolved = unit_map(parse(LADDER), probe=probe)
     return (
         [rung.name for rung in resolved.rungs],
         {skip.name: skip.reason for skip in resolved.skipped},
@@ -152,6 +152,6 @@ def test_the_model_check_adds_no_second_request() -> None:
             models=(RESIDENT,),
         )
 
-    source_map(parse(LADDER), probe=Availability(probe=probe))
+    unit_map(parse(LADDER), probe=Availability(probe=probe))
 
     assert sorted(asked) == ["local_big", "local_lite"], asked
