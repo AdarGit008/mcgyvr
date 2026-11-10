@@ -8,13 +8,14 @@ without the userinfo, so an address can still name its host in a message.
 exception's message, an environment value — where the URL is a fragment of a
 larger string and there is nothing to parse. The second is a bare token a model
 may echo into that same text: every provider shape of the one shared credential
-vocabulary (``credential_shapes.VALUE_SHAPES`` — ``sk-``, ``ghp_``, an AWS id, a
-private-key header and the rest), and a ``Bearer`` authorization token, which
-carries no prefix of its own and so is spelled here rather than in the shared
-module. ``scrub`` blanks each with ``REDACTED`` too, so a key a model quoted
-back does not survive into a journal blob, a failure note or a command's
-environment. ``safe_url`` stays userinfo-only; a bare token is free text's
-concern, not a parsed URL's.
+vocabulary (``credential_shapes.VALUE_SHAPES`` — ``sk-``, ``ghp_``, an AWS id
+and the rest), a pasted private key taken whole from its header to its footer,
+and a ``Bearer`` authorization token, which carries no prefix of its own and so
+is spelled here rather than in the shared module. ``scrub`` blanks each with
+``REDACTED`` too, so a key a model quoted back — its body as well as its header —
+does not survive into a journal blob, a failure note or a command's environment.
+``safe_url`` stays userinfo-only; a bare token is free text's concern, not a
+parsed URL's.
 
 ``safe_url`` does not alter a URL with no userinfo, and ``scrub`` does not alter
 text that holds no credential at all, so a caller can compare the result with
@@ -73,39 +74,59 @@ def safe_url(url: str) -> str:
 #: a sentence, a log line or a JSON string and there is nothing to parse around.
 _URL_WITH_USERINFO = re.compile(r"\b([a-zA-Z][a-zA-Z0-9+.-]*://)([^\s/@]+)@")
 
-#: A ``Bearer`` authorization token in free text: the scheme word, then the
-#: token's base64url/JWT run (``.`` and ``~+/=-`` among its characters). Unlike
-#: the provider shapes, a Bearer token has no prefix of its own — only this
-#: header word marks it — so it is not in the shared vocabulary (the gate and
-#: the config loader do not want it) and is spelled here, redact's alone. The
-#: word is kept and only the token blanked, so ``Bearer <redacted>`` still reads
-#: as an authorization header.
-_BEARER = re.compile(r"\bBearer\s+[A-Za-z0-9._~+/=-]+")
+#: A ``Bearer`` authorization token in free text: the scheme word, a run of
+#: spaces or tabs — never a newline, so a match cannot swallow the next line —
+#: then the token's base64url/JWT run (``.`` and ``~+/=-`` among its characters).
+#: The HTTP auth scheme is case-insensitive (``curl`` examples often lower-case
+#: it), so the match is too. Unlike the provider shapes a Bearer token has no
+#: prefix of its own — only this word marks it — so it is not in the shared
+#: vocabulary (the gate and the config loader do not want it) and is spelled
+#: here, redact's alone. The word and its spacing are captured and kept, only
+#: the token blanked, so ``Bearer <redacted>`` still reads as a header.
+_BEARER = re.compile(r"\b(Bearer)([ \t]+)[A-Za-z0-9._~+/=-]+", re.IGNORECASE)
 
-#: Every provider credential shape of the one shared vocabulary
-#: (:data:`credential_shapes.VALUE_SHAPES`), each compiled for a search anywhere
-#: in a line — the same anchoring the gate's scan uses — so a token a model
-#: quoted into free text is found wherever it sits. The shapes are defined once
-#: in that module; this is only where ``scrub`` reaches for them.
-_TOKEN_SCANS: tuple[re.Pattern[str], ...] = tuple(scan_pattern(s) for s in VALUE_SHAPES)
+#: A pasted private key, header to footer. ``scan_pattern`` is the gate's
+#: single-line form and matches the ``-----BEGIN ... -----`` header alone, which
+#: would leave the base64 body in the text; this block pass takes the header
+#: through the matching ``-----END ... -----`` line, or to the end of the text
+#: when the footer was cut, so no key material survives. The header spelling is
+#: the one shared shape (reused, not re-written); the footer and the
+#: end-of-text fallback are redact's own.
+_PRIVATE_KEY_HEADER = next(s.body for s in VALUE_SHAPES if s.code == "private-key")
+_PRIVATE_KEY_BLOCK = re.compile(
+    _PRIVATE_KEY_HEADER
+    + r"[\s\S]*?(?:-----END (?:RSA |EC |DSA |OPENSSH |PGP )?PRIVATE KEY-----|\Z)"
+)
+
+#: Every other provider credential shape of the one shared vocabulary
+#: (:data:`credential_shapes.VALUE_SHAPES`, the private-key header left out since
+#: the block pass above covers it), folded into one alternation compiled once —
+#: a single search over the text instead of one per shape, which roughly halves
+#: the cost on a large blob. Each shape keeps the gate's anchoring
+#: (``scan_pattern``: ``\b`` around a word-bounded token), reused here, not
+#: re-spelled; the shapes carry no capture groups, so the alternation is flat.
+_TOKEN_ALTERNATION = re.compile(
+    "|".join(scan_pattern(s).pattern for s in VALUE_SHAPES if s.code != "private-key")
+)
 
 
 def scrub(text: str) -> str:
     """``text`` with every credential in it replaced by ``REDACTED``.
 
-    Three passes, each by pattern because the credential is a fragment of a
-    larger string: the userinfo of every URL, then a ``Bearer`` token (its word
-    kept, its value blanked), then every provider token shape of the shared
-    vocabulary (``sk-``, ``ghp_``, an AWS id, a private-key header and the
-    rest). Everything else — the rest of each URL, the text around a token — is
-    passed through, so the string keeps its shape and stays readable. Text that
-    holds no credential comes back unchanged, which is how callers test for one:
-    a value this had to alter is a value holding a secret.
+    By pattern, because the credential is a fragment of a larger string: the
+    userinfo of every URL; a ``Bearer`` token (its word and spacing kept, its
+    value blanked); a pasted private key from header to footer; then every
+    provider token shape of the shared vocabulary (``sk-``, ``ghp_``, an AWS id
+    and the rest) in one folded pass. Everything else — the rest of each URL,
+    the text around a token — is passed through, so the string keeps its shape
+    and stays readable. Text that holds no credential comes back unchanged,
+    which is how callers test for one: a value this had to alter is a value
+    holding a secret.
     """
     cleaned = _URL_WITH_USERINFO.sub(rf"\1{REDACTED}@", text)
-    cleaned = _BEARER.sub(f"Bearer {REDACTED}", cleaned)
-    for scan in _TOKEN_SCANS:
-        cleaned = scan.sub(REDACTED, cleaned)
+    cleaned = _BEARER.sub(rf"\1\2{REDACTED}", cleaned)
+    cleaned = _PRIVATE_KEY_BLOCK.sub(REDACTED, cleaned)
+    cleaned = _TOKEN_ALTERNATION.sub(REDACTED, cleaned)
     return cleaned
 
 

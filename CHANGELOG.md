@@ -14,12 +14,14 @@ archived outside this repository, under the same paths.
 - **`redact.scrub` drops a bare credential, not only a URL's userinfo.** It
   stored whole prompts and replies — and failure notes and run tags — cleaned
   only of the `user:token@` of a URL, so a key a model echoed back (`sk-...`,
-  `ghp_...`, an AWS id, a private-key header, a `Bearer` token) survived into a
+  `ghp_...`, an AWS id, a pasted private key, a `Bearer` token) survived into a
   journal blob that can be copied elsewhere. `scrub` now also blanks every
   provider token shape of the one shared vocabulary
-  (`mcgyvr.credential_shapes.VALUE_SHAPES`) and a `Bearer` authorization token
-  (spelled in `redact`, since it has no prefix of its own and the gate and
-  config loader do not want it). The one cleaning entry point is what
+  (`mcgyvr.credential_shapes.VALUE_SHAPES`, folded into one pass), a pasted
+  private key taken whole from its header to its footer, and a `Bearer`
+  authorization token (the last two spelled in `redact`: a Bearer token has no
+  prefix of its own, and the whole-block private-key pass is wider than the
+  gate's line-form header shape; the gate and config loader want neither). The one cleaning entry point is what
   telemetry, notes and the sandbox already call, so the widening reaches them
   all: the sandbox's `safe_env` now drops an environment *value* that holds a
   token (not only a credential-named variable), and `holds_a_secret` now keeps
