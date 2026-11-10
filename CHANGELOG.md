@@ -11,6 +11,28 @@ archived outside this repository, under the same paths.
 
 ### Changed
 
+- **A Mac's GPU is sized from the Metal working set llama.cpp logged, a
+  reading, once a native server has started on it.** The native supervisor
+  already filed `recommendedMaxWorkingSetSize` from llama-server's start-up
+  log in `native/metal.json` in the data folder, and nothing read it: the
+  machine reader sized the GPU from `iogpu.wired_limit_mb`, else 0.75 of the
+  memory, an estimate. Now the reader (`rigscan.metal_working_set`, which
+  finds the data folder by `fleet.roots.data_home`'s rule) sizes card
+  `apple.0` and its `unified` resource from that file, held to the memory,
+  with `figure: reading`, and `mcgyvr detect` and fit listings take it. The
+  supervisor now files the wired limit in force beside the figure, and the
+  reading is taken only while that limit is the one set: after the limit is
+  changed, after a restart that cleared it, or from a file an older
+  supervisor wrote (which names no limit), the GPU is sized by estimate, as
+  on a first run, with a note saying why, until a native server starts
+  again. A file that holds no reading is noted and passed over. Upgrading: a
+  Mac whose native server has started sizes from the reading, which may be
+  above or below the estimate, so the models that fit it can change. The
+  folder name and file name are spelled once, in `fleet.roots`
+  (`NATIVE_DIR`, `METAL_FILE`); `estimate.usable_unified_mb` (no caller) and
+  `native.metal_working_set` (tests only) are removed, and with them
+  `estimate.UNIFIED_SHARE`, which only that function used.
+
 - **A docker llama.cpp or vLLM unit listens on 127.0.0.1 or, behind a key
   mcgyvr makes, on every interface (`expose: local | lan`).** `mcgyvr emit`
   rendered every container's server on every interface with no key
