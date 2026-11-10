@@ -207,10 +207,17 @@ against its pinned sha256, and keeps the server up with mcgyvr's own supervisor.
 Apple silicon; on Windows `cuda` where `nvidia-smi.exe` reads a driver a pinned CUDA build runs (found by
 full path only: an absolute folder on PATH, `System32` or the NVIDIA `NVSMI` folder, never by bare name),
 else `vulkan` where a Vulkan loader is installed, else `cpu`; `$MCGYVR_NATIVE_BACKEND` names one instead.
-vLLM units run only on Linux, in containers, and remote rigs are Linux machines read over ssh. This
-machine is reached without ssh: always on macOS and Windows, and on Linux when no sshd answers on port 22
-(`$MCGYVR_LOCAL_TRANSPORT`, `direct` or `ssh`, decides instead). A native unit has no sleep route, so
-`mcgyvr serve sleep` and `wake` refuse it.
+vLLM units run only on Linux, in containers. This machine is reached without ssh: always on macOS and
+Windows, and on Linux when no sshd answers on port 22 (`$MCGYVR_LOCAL_TRANSPORT`, `direct` or `ssh`,
+decides instead). A native unit has no sleep route, so `mcgyvr serve sleep` and `wake` refuse it.
+
+**A rig over ssh.** Every other rig is read over ssh. `mcgyvr scan --rig RIG`, `setup` and `recommend`
+read a rig with no rig file yet by sending it the POSIX reader; a rig whose shell cannot run it and
+answers PowerShell is a Windows rig, and is sent the Windows reader instead. The rig file `mcgyvr scan
+--rig RIG` writes then records the system. The door asks no such question. A serve or a read through the
+door refuses a rig with no rig file before it reads the rig, and ships what that file records; the door's
+link timer needs no rig file and is sent the POSIX line, to any rig. So scan a rig once before the door
+serves on it, a Windows rig above all.
 
 **Firewall and quarantine.** A native server listens on 127.0.0.1 alone (a unit stating another address
 is refused) and takes no connection from the network, so neither the macOS nor the Windows firewall is
