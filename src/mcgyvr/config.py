@@ -167,8 +167,8 @@ SANDBOX_FIELDS: tuple[Field, ...] = (
         "no Docker daemon answering, the task is refused unless "
         "`allow_fallback` is on. `tempdir` is the explicitly weaker mode for "
         "installs without Docker: a contract's acceptance commands run without "
-        "a shell, but each runs whatever program it names, on the host, with "
-        "only the host's process, network and resource isolation.",
+        "a shell, but each runs whatever program it names, on this machine, "
+        "with only its own process, network and resource isolation.",
         default="docker",
         choices=("docker", "tempdir"),
     ),
@@ -189,7 +189,7 @@ SANDBOX_FIELDS: tuple[Field, ...] = (
         "configured worker endpoints — and anything else this machine can "
         "reach. `none` gives the container no network at all, so a contract "
         "whose commands download anything fails. `none` needs `mode: docker`: "
-        "the `tempdir` sandbox runs on this host, where the network cannot be "
+        "the `tempdir` sandbox runs on this machine, where the network cannot be "
         "taken away, and is refused under it. It is the network your own "
         "rungs' code runs on: code from a rung that is not yours always runs "
         "with none (see `lent_code_on_host`).",
@@ -201,7 +201,7 @@ SANDBOX_FIELDS: tuple[Field, ...] = (
         "str_list",
         "Repositories, by path, where code a rung that is not yours returned "
         "(a relief rung, or a unit of scope `crew` or `anyone`) may run in the "
-        "`tempdir` sandbox, on this host. In `mode: docker` such code always "
+        "`tempdir` sandbox, on this machine. In `mode: docker` such code always "
         "runs in a second container with no network, whatever `network` says, "
         "started again before each such try, and your own rungs' code in the "
         "task's own container. In the "
@@ -230,7 +230,7 @@ SANDBOX_FIELDS: tuple[Field, ...] = (
         "lockfile's version where it pins one; pyright, or a checker the "
         "repository does not configure, is yours to put on the image, here or "
         "with `sandbox.image`. A checker the image lacks is skipped and said "
-        "so, as an absent checker is on the host.",
+        "so, as an absent checker is on this machine.",
         default=(),
     ),
     Field(
@@ -617,7 +617,7 @@ UNIT_FIELDS: tuple[Field, ...] = (
         "alone, and a pooled rpc worker on its tunnel address. Absent means "
         "`local` for a unit whose address names this machine (localhost, "
         "127.0.0.1, ::1) or that runs native, and `lan` for one whose address "
-        "names another host, which is the only way that address reaches it.",
+        "names another machine, which is the only way that address reaches it.",
         choices=EXPOSES,
         bind_hint="e.g. local -- leave it out to follow the unit's address",
     ),

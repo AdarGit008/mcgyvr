@@ -659,7 +659,7 @@ def reviewer_for(
         )
         if completion is None:  # unreachable once the role has a model
             raise ReviewerUnavailableError(
-                f"the {VERIFIER_ROLE!r} role has no source to dispatch to"
+                f"the {VERIFIER_ROLE!r} role has no unit to dispatch to"
             )
         return _review_text(completion, f"the {VERIFIER_ROLE!r} role")
 
