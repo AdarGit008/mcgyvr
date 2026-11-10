@@ -4,7 +4,7 @@ A llama.cpp unit asks to draft with the GGUF's own head in
 any of three ways, and each is judged as ``mtp``, whether or not experts are
 on the CPU beside it:
 
-* ``--spec-type draft-mtp``, two words, in its ``argv`` or among its ``flags``;
+* ``--spec-type draft-mtp``, two words, in its ``argv``;
 * ``--spec-type=draft-mtp``, one word, which llama-server reads the same;
 * ``speculative: mtp`` in its ``launch`` block (``units.launch`` in
   :mod:`mcgyvr.config`), which :mod:`mcgyvr.serving` renders as the two words
@@ -42,14 +42,14 @@ def test_the_one_word_form_in_the_argv_is_mtp(offload: list[str]) -> None:
     assert tolerance_class(unit) == CLASS_MTP
 
 
-def test_the_one_word_form_among_the_flags_is_mtp() -> None:
-    unit = _llamacpp(flags=["--cpu-moe", "--spec-type=draft-mtp"])
-    assert tolerance_class(unit) == CLASS_MTP
-
-
 @pytest.mark.parametrize(
     "beside",
-    [{}, {"n_cpu_moe": 6}, {"flags": ["--cpu-moe"]}, {"spec_draft_n_max": 3}],
+    [
+        {},
+        {"argv": [*BASE, *OFFLOAD]},
+        {"argv": [*BASE, "--cpu-moe"]},
+        {"spec_draft_n_max": 3},
+    ],
     ids=["alone", "n_cpu_moe", "cpu_moe_flag", "draft_width"],
 )
 def test_speculative_mtp_in_the_launch_block_is_mtp(beside: dict[str, Any]) -> None:
@@ -64,7 +64,7 @@ def test_speculative_mtp_in_the_launch_block_is_mtp(beside: dict[str, Any]) -> N
         ({"argv": [*BASE, *OFFLOAD, "--spec-type=draft-model"]}, CLASS_CPU_EXPERTS),
         ({"argv": [*BASE, "--spec-type="]}, CLASS_LLAMACPP),
         ({"speculative": "none"}, CLASS_LLAMACPP),
-        ({"speculative": "none", "n_cpu_moe": 6}, CLASS_CPU_EXPERTS),
+        ({"speculative": "none", "argv": [*BASE, *OFFLOAD]}, CLASS_CPU_EXPERTS),
     ],
 )
 def test_any_other_request_is_judged_as_before(

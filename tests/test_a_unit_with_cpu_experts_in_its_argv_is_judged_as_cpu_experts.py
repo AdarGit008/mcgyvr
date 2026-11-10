@@ -2,17 +2,15 @@
 
 A locked unit's launch is ``launch.argv`` / ``env`` / ``volumes``, verbatim
 (``emit`` refuses an argv that is not a list of strings). A unit that holds
-``--n-cpu-moe``, ``19`` in its argv and has no ``n_cpu_moe`` or ``flags`` would
-be judged at llama.cpp's percents, not CPU-experts', by a
-:func:`mcgyvr.fleet.tolerance.tolerance_class` that read only those two fields,
-and pulled on a reading inside its class.
+``--n-cpu-moe``, ``19`` in its argv would be judged at llama.cpp's percents,
+not CPU-experts', by a :func:`mcgyvr.fleet.tolerance.tolerance_class` that did
+not read the argv, and pulled on a reading inside its class.
 
 * ``--cpu-moe``, or ``--n-cpu-moe`` followed by a positive integer, in the argv
   is ``cpu_experts``.
 * ``--n-cpu-moe 0`` stays ``llamacpp``.
 * A value after ``--n-cpu-moe`` that is missing or not an integer does not
-  count, as a non-positive or non-int ``n_cpu_moe`` does not. It is
-  ``llamacpp``, never a crash.
+  count. It is ``llamacpp``, never a crash.
 * The probe's judge and the lock's NVMe check read that one class. Each judged
   field then has its own percent for it: prefill is 1% for both llama.cpp
   classes, so the class shows in decode's 1% against 48%.
@@ -28,9 +26,8 @@ import pytest
 
 from tests import liveprobes as probed
 
-#: ``box1_deepseek`` in b-small's shape — ``--n-cpu-moe 19`` in its argv, no
-#: ``n_cpu_moe`` or ``flags`` — with the probe tests' unit id so it fits their
-#: lock.
+#: ``box1_deepseek`` in the probe fleet's shape — ``--n-cpu-moe 19`` in its argv —
+#: with the probe tests' unit id so it fits their lock.
 BOX1_DEEPSEEK: dict[str, Any] = {
     "rig": "box1",
     "address": "http://box1:8080",
