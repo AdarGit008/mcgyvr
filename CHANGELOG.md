@@ -904,6 +904,18 @@ archived outside this repository, under the same paths.
 
 ### Fixed
 
+- **Setup's discovery and the fleet sampler send a keyed unit its own key.**
+  Both asked a unit's `/v1/models` (and `/props`, `/api/v0/models`, `/info`)
+  with no key, so a unit behind `expose: lan` answered 401: setup did not list
+  it, and the sampler read no window or slots from it. Now `detect.probe`, its
+  window read and `fleet.sampler.served` send the key mcgyvr keeps for that
+  address (`unitkey.for_address`) as a bearer token, to that address alone:
+  the key file is named for one host and port, so a sweep of another host or
+  port sends none, and the header is not replayed across a redirect. Setup
+  therefore lists keyed units it used to skip. A key file setup cannot trust
+  is a `Unit key:` note and the unit is asked without it; the sampler raises,
+  as a dispatch to the unit does.
+
 - Prose says what the code does, with no behaviour change. The host's `rig
   run` and `rig join` print a run's seal key id (there is no `rig up`);
   SECURITY.md cites `Sharing.image`, `_image` and `rpc_proto=` instead of line
