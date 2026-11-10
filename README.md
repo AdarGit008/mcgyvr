@@ -116,7 +116,7 @@ live, probes the live one against its lock, and lists pulled combinations.
   the run reports. A request in words goes to `mcgyvr "<prompt>" --session ID`,
   which plans the contracts and runs them.
 
-Read-only introspection: `mcgyvr config`, `mcgyvr local_pool`,
+Read-only introspection: `mcgyvr config`, `mcgyvr ladder show`,
 `mcgyvr catalog`, `mcgyvr sandbox`, `mcgyvr capabilities` and `mcgyvr usage`
 (what the journal's runs spent and came to). `mcgyvr sandbox --cache` lists the
 task images mcgyvr built, and `--clear-cache` removes them.
@@ -145,7 +145,7 @@ cheapest-first until a rung passes the gate or a ceiling stops it.
   and `policy.yaml` (the ladder and policy settings), locks a sampled fleet
   and promotes it to `~/.mcgyvr/fleets/`, with `~/.mcgyvr/live.json` naming
   the live one.
-- **Ladder** — `src/mcgyvr/local_pool.py` resolves a setup into the dispatch
+- **Ladder** — `src/mcgyvr/ladder_map.py` resolves a setup into the dispatch
   endpoints work may actually use. `src/mcgyvr/rig/` is the optional
   hub-agent protocol, not part of setup.
 

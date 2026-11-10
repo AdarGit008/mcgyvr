@@ -68,7 +68,7 @@ PACE_COUNTERS: dict[str, tuple[str, str]] = {
 #: does answer carries no prompt token count.
 NO_PACE_COUNTER = (
     "none: llama-server answers /metrics 501 unless started with --metrics "
-    "(src/mcgyvr/pool.py), and this unit's launch has no --metrics; the slot "
+    "(src/mcgyvr/fleet/harness.py), and this unit's launch has no --metrics; the slot "
     "JSON build 10644 logs (/slots) carries id, n_ctx, speculative and "
     "is_processing, and no prompt token count"
 )

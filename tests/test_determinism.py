@@ -47,7 +47,7 @@ from mcgyvr.contract import Contract
 from mcgyvr.contract import loads as load_contract
 from mcgyvr.decompose.decompose import DepRef, Proposal, decompose
 from mcgyvr.escalate import Assurance, Delivered, Judgement, ascent, escalate
-from mcgyvr.local_pool import Endpoint, Protocol, SourceMap, source_map
+from mcgyvr.ladder_map import Endpoint, Protocol, UnitMap, unit_map
 from mcgyvr.repo.index import build_index
 from mcgyvr.route import Try, Verdict, plan
 from tests._helpers import CONTRACT, git
@@ -184,14 +184,14 @@ def test_the_same_work_in_two_different_repositories_gets_the_same_contract_id(
 
 
 @pytest.fixture
-def routing_inputs() -> tuple[Any, SourceMap, Contract]:
+def routing_inputs() -> tuple[Any, UnitMap, Contract]:
     """Config, pool and contract, all built before any guard is installed."""
     config = parse_config(CONFIG)
-    return config, source_map(config), load_contract(CONTRACT)
+    return config, unit_map(config), load_contract(CONTRACT)
 
 
 def test_planning_and_ascent_spend_nothing_and_answer_the_same_twice(
-    routing_inputs: tuple[Any, SourceMap, Contract], monkeypatch: pytest.MonkeyPatch
+    routing_inputs: tuple[Any, UnitMap, Contract], monkeypatch: pytest.MonkeyPatch
 ) -> None:
     """A plan can be looked at for free, and looking twice shows the same thing.
 

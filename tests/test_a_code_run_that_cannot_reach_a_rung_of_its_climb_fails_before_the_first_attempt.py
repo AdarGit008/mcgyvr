@@ -24,7 +24,7 @@ import pytest
 
 from mcgyvr.config import parse as parse_config
 from mcgyvr.contract import loads as load_contract
-from mcgyvr.local_pool import source_map
+from mcgyvr.ladder_map import unit_map
 
 #: A cheap unit with a wide window, and a dearer hosted one that states its
 #: reply room, or states nothing and so has no maximum to send.
@@ -71,13 +71,13 @@ def repo(tmp_path: Path) -> Path:
 def _sent(monkeypatch: pytest.MonkeyPatch, text: str) -> list[str]:
     """Record every rung a request reaches, answering each with ``text``."""
     from mcgyvr import drive
-    from mcgyvr.local_pool import Protocol
+    from mcgyvr.ladder_map import Protocol
     from mcgyvr.runner import Completion, StopReason
 
     seen: list[str] = []
 
     def fake_dispatch(
-        source_map: Any, rung: str, request: Any, *, capacity: Any = None
+        unit_map: Any, rung: str, request: Any, *, capacity: Any = None
     ) -> Completion:
         seen.append(rung)
         return Completion(
@@ -101,7 +101,7 @@ def _run(repo: Path, room: str) -> Any:
     from mcgyvr.sandbox.tempdir import TempDirSandbox
 
     config = parse_config(LADDER.format(room=room))
-    pool = source_map(config)
+    pool = unit_map(config)
     contract = load_contract(CONTRACT)
     with TempDirSandbox(repo) as sandbox:
         return escalate(

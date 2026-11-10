@@ -58,9 +58,9 @@ def _built() -> dict[str, Any]:
 
 
 def _proposal() -> Any:
-    from mcgyvr.propose import Proposal
+    from mcgyvr.ladder_proposal import LadderProposal
 
-    return Proposal()
+    return LadderProposal()
 
 
 def test_init_writes_the_cleanup_default_the_owner_set() -> None:

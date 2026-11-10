@@ -80,7 +80,7 @@ class Rig:
         return 0
 
     def completion(self, rung: str, text: str, request: Any) -> Any:
-        from mcgyvr.local_pool import Protocol
+        from mcgyvr.ladder_map import Protocol
         from mcgyvr.runner import Completion, StopReason
 
         return Completion(
@@ -94,7 +94,7 @@ class Rig:
             latency_s=0.0,
         )
 
-    def build(self, source_map: Any, rung: str, request: Any, **_: Any) -> Any:
+    def build(self, unit_map: Any, rung: str, request: Any, **_: Any) -> Any:
         from mcgyvr.runner import RefusedConnectionError
 
         self.events.append(f"build {rung}")
@@ -129,11 +129,11 @@ def _climb(tmp_path: Path, config: Config, **kwargs: Any) -> Any:
     from mcgyvr.contract import loads
     from mcgyvr.drive import worker_attempt
     from mcgyvr.escalate import escalate
-    from mcgyvr.local_pool import source_map
+    from mcgyvr.ladder_map import unit_map
     from mcgyvr.pressure import Gauge
     from mcgyvr.sandbox.tempdir import TempDirSandbox
 
-    pool = source_map(config)
+    pool = unit_map(config)
     contract = loads(SHARE_CONTRACT)
     capacity = Capacity.of(config, gauge=Gauge())
     reviewers = kwargs.pop("reviewers", None)
@@ -177,14 +177,14 @@ def test_the_wake_judgment_is_not_asked_of_a_rung_the_swap_put_down(
     monkeypatch: pytest.MonkeyPatch,
     capsys: pytest.CaptureFixture[str],
 ) -> None:
-    from mcgyvr.local_pool import source_map
+    from mcgyvr.ladder_map import unit_map
     from mcgyvr.wake_judge import hook_for
 
     monkeypatch.setenv("SWAP_TEST_KEY", "x")
     config, rig = _rig(tmp_path, monkeypatch, _with_api(tmp_path / "specs"), set())
     _judged(monkeypatch, rig)
 
-    _climb(tmp_path, config, wake_hook=hook_for(config, source_map(config)))
+    _climb(tmp_path, config, wake_hook=hook_for(config, unit_map(config)))
 
     assert f"door up {RAM}" in rig.events, "the climb swapped the sleeper in"
     assert not [e for e in rig.events if e.startswith("judge")], rig.events
@@ -196,7 +196,7 @@ def test_a_judge_that_does_not_answer_is_a_wake_judge_error(
     tmp_path: Path, home: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
     from mcgyvr import decision
-    from mcgyvr.local_pool import source_map
+    from mcgyvr.ladder_map import unit_map
     from mcgyvr.runner import RefusedConnectionError
     from mcgyvr.wake_judge import WakeJudgeError, judge
 
@@ -208,7 +208,7 @@ def test_a_judge_that_does_not_answer_is_a_wake_judge_error(
     monkeypatch.setattr(decision, "classify_for", refused)
 
     with pytest.raises(WakeJudgeError, match=f"{FAST_S!r}, which did not answer"):
-        judge(source_map(config), FAST_S, {})
+        judge(unit_map(config), FAST_S, {})
 
 
 def _reviews(monkeypatch: pytest.MonkeyPatch, rig: Rig) -> None:
@@ -216,13 +216,13 @@ def _reviews(monkeypatch: pytest.MonkeyPatch, rig: Rig) -> None:
     from mcgyvr import verify
     from mcgyvr.runner import RefusedConnectionError
 
-    def review(source_map: Any, rung: str, request: Any, **_: Any) -> Any:
+    def review(unit_map: Any, rung: str, request: Any, **_: Any) -> Any:
         rig.events.append(f"review {rung}")
         if rung in PORT and rung not in rig.up:
             raise RefusedConnectionError(f"{rung} is down")
         return rig.completion(rung, "looks fine", request)
 
-    def classify(source_map: Any, state: Any, questions: Any, **kwargs: Any) -> Any:
+    def classify(unit_map: Any, state: Any, questions: Any, **kwargs: Any) -> Any:
         rung = kwargs.get("rung") or FAST_S
         rig.events.append(f"review {rung}")
         if rung in PORT and rung not in rig.up:
@@ -259,13 +259,13 @@ def test_a_reviewer_the_swap_put_down_is_never_started_beside_the_sleeper(
 def test_a_sleeping_reviewer_is_passed_over_and_never_woken(
     tmp_path: Path, home: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
-    from mcgyvr.local_pool import source_map
+    from mcgyvr.ladder_map import unit_map
     from mcgyvr.verify import reviewer_rung
 
     config, rig = _rig(tmp_path, monkeypatch, ladder_text(tmp_path / "specs"), {FAST_M})
     _reviews(monkeypatch, rig)
 
-    assert reviewer_rung(config, source_map(config), FAST_M) is None, (
+    assert reviewer_rung(config, unit_map(config), FAST_M) is None, (
         f"{RAM} sleeps until needed, so it is not the reviewer"
     )
     _climb(tmp_path, config, reviewers=_reviewers)

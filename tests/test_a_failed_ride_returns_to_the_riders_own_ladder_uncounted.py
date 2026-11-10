@@ -23,7 +23,7 @@ import pytest
 
 from mcgyvr.config import parse
 from mcgyvr.escalate import Delivered, Judgement, escalate
-from mcgyvr.local_pool import source_map
+from mcgyvr.ladder_map import unit_map
 from mcgyvr.route import Try, Verdict
 from tests.relieftakes import (
     API,
@@ -63,7 +63,7 @@ def ride_then_own(
     )
     cap = capacity_of(config, tmp_path)
     cap.reserve(FAST)
-    done = escalate(config, source_map(config), contract(), script, capacity=cap)
+    done = escalate(config, unit_map(config), contract(), script, capacity=cap)
     assert isinstance(done, Delivered), done
     return done
 

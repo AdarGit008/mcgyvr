@@ -315,7 +315,7 @@ def setup_of(config: Config) -> Setup:
     holding a unit takes a slot from that capacity with no wait.
     """
     from mcgyvr.capacity import Capacity
-    from mcgyvr.local_pool import source_map
+    from mcgyvr.ladder_map import unit_map
     from mcgyvr.pressure import server_counts
 
     units, notes = shared_units(config)
@@ -323,7 +323,7 @@ def setup_of(config: Config) -> Setup:
     notes += unkeyed
     if not units:
         return Setup(notes=notes)
-    capacity = Capacity.of(config, busy=server_counts(source_map(config)))
+    capacity = Capacity.of(config, busy=server_counts(unit_map(config)))
     return Setup(
         units=units,
         notes=notes,

@@ -79,7 +79,7 @@ from mcgyvr.contract import Contract
 from mcgyvr.contract import loads as load_contract
 from mcgyvr.deterministic import ToolStep
 from mcgyvr.escalate import Assurance, Judgement, Outcome, escalate
-from mcgyvr.local_pool import Endpoint, Rung, SourceMap, source_map
+from mcgyvr.ladder_map import Endpoint, Rung, UnitMap, unit_map
 from mcgyvr.route import (
     Accepted,
     Attempted,
@@ -300,9 +300,9 @@ def lock_dir(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
     )
 
 
-def mapped(text: str) -> tuple[Config, SourceMap]:
+def mapped(text: str) -> tuple[Config, UnitMap]:
     config = parse(text)
-    return config, source_map(config)
+    return config, unit_map(config)
 
 
 def with_fanout(text: str, mode: str) -> str:
@@ -387,7 +387,7 @@ class Judging(Recorder):
 
 
 class DownProbe:
-    """A :class:`~mcgyvr.local_pool.SourceProbe` that says the named sources are down.
+    """A :class:`~mcgyvr.ladder_map.UnitProbe` that says the named sources are down.
 
     The structural type is the whole of #22's surface as the pool sees it, so a
     test can supply one without a network — which is what lets "skipped because
@@ -406,7 +406,7 @@ class DownProbe:
 
 
 @contextmanager
-def occupied(capacity: Capacity, pool: SourceMap, *rungs: str) -> Iterator[None]:
+def occupied(capacity: Capacity, pool: UnitMap, *rungs: str) -> Iterator[None]:
     """Hold one slot of each rung named, for the body of the block.
 
     A rung named twice has two of its slots held, which is the only way a
@@ -550,9 +550,9 @@ def test_an_unset_rung_is_planned_and_printed_from_one_named_default(
     capsys: pytest.CaptureFixture[str],
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    """``plan`` and ``mcgyvr local_pool`` read an unset budget through one reader.
+    """``plan`` and ``mcgyvr ladder show`` read an unset budget through one reader.
 
-    The number is moved here only to show both follow it: were ``local_pool``
+    The number is moved here only to show both follow it: were ``ladder show``
     to keep its own copy of the default, it would still print one attempt.
     """
     monkeypatch.setattr("mcgyvr.route.UNSET_RUNG_ATTEMPTS", 3)
@@ -562,7 +562,7 @@ def test_an_unset_rung_is_planned_and_printed_from_one_named_default(
     monkeypatch.setenv(CONFIG_PATH_ENV, str(path))
 
     assert [step.attempts for step in plan(config, pool, contract()).steps] == [3]
-    assert main(["local_pool"]) == 0
+    assert main(["ladder", "show"]) == 0
     out = capsys.readouterr().out
     assert any(
         "local_qwen-7b" in line and "3 attempts" in line for line in out.splitlines()
@@ -676,7 +676,7 @@ def test_an_empty_family_quotes_its_own_skipped_rungs_and_not_anothers() -> None
     the family they asked about.
     """
     config = parse(MIXED)  # $EXAMPLE_API_KEY is unset, so api_big is skipped
-    pool = source_map(config, probe=DownProbe({"local_qwen-7b", "local_qwen-14b"}))
+    pool = unit_map(config, probe=DownProbe({"local_qwen-7b", "local_qwen-14b"}))
 
     local = plan(config, pool, contract(), family=LOCAL)
     api = plan(config, pool, contract(), family=API)
@@ -1646,7 +1646,7 @@ def test_the_pool_command_shows_the_family_and_budget_of_every_rung(
 ) -> None:
     """Routing that cannot be read cannot be checked.
 
-    ``mcgyvr local_pool`` already answered "what can run"; a rung's family is how dear
+    ``mcgyvr ladder show`` already answered "what can run"; a rung's family is how dear
     it is to ask and its budget is how many times it will be asked, and both are
     decided before anything is spent. Printing them keeps the two numbers a
     reader can act on next to the ladder they belong to — and a family is a cost
@@ -1656,7 +1656,7 @@ def test_the_pool_command_shows_the_family_and_budget_of_every_rung(
     path.write_text(with_attempts(MIXED, "local_qwen-14b", 3), encoding="utf-8")
     monkeypatch.setenv(CONFIG_PATH_ENV, str(path))
 
-    assert main(["local_pool"]) == 0
+    assert main(["ladder", "show"]) == 0
 
     lines = capsys.readouterr().out.splitlines()
     assert any(

@@ -180,8 +180,8 @@ SANDBOX_FIELDS: tuple[Field, ...] = (
         "no Docker daemon answering, the task is refused unless "
         "`allow_fallback` is on. `tempdir` is the explicitly weaker mode for "
         "installs without Docker: a contract's acceptance commands run without "
-        "a shell, but each runs whatever program it names, on the host, with "
-        "only the host's process, network and resource isolation.",
+        "a shell, but each runs whatever program it names, on this machine, "
+        "with only its own process, network and resource isolation.",
         default="docker",
         choices=("docker", "tempdir"),
     ),
@@ -202,7 +202,7 @@ SANDBOX_FIELDS: tuple[Field, ...] = (
         "configured worker endpoints — and anything else this machine can "
         "reach. `none` gives the container no network at all, so a contract "
         "whose commands download anything fails. `none` needs `mode: docker`: "
-        "the `tempdir` sandbox runs on this host, where the network cannot be "
+        "the `tempdir` sandbox runs on this machine, where the network cannot be "
         "taken away, and is refused under it. It is the network your own "
         "rungs' code runs on: code from a rung that is not yours always runs "
         "with none (see `lent_code_on_host`).",
@@ -214,7 +214,7 @@ SANDBOX_FIELDS: tuple[Field, ...] = (
         "str_list",
         "Repositories, by path, where code a rung that is not yours returned "
         "(a relief rung, or a unit of scope `crew` or `anyone`) may run in the "
-        "`tempdir` sandbox, on this host. In `mode: docker` such code always "
+        "`tempdir` sandbox, on this machine. In `mode: docker` such code always "
         "runs in a second container with no network, whatever `network` says, "
         "started again before each such try, and your own rungs' code in the "
         "task's own container. In the "
@@ -243,7 +243,7 @@ SANDBOX_FIELDS: tuple[Field, ...] = (
         "lockfile's version where it pins one; pyright, or a checker the "
         "repository does not configure, is yours to put on the image, here or "
         "with `sandbox.image`. A checker the image lacks is skipped and said "
-        "so, as an absent checker is on the host.",
+        "so, as an absent checker is on this machine.",
         default=(),
     ),
     Field(
@@ -654,7 +654,7 @@ UNIT_FIELDS: tuple[Field, ...] = (
         "127.0.0.1. `lan`: every machine that reaches this one, on every "
         "interface, and only with the API key mcgyvr makes for the unit the "
         "first time `mcgyvr emit` writes it: kept at mode 0600 in "
-        "`unit-keys/<host>-<port>.env` in the data folder, handed to the server "
+        "`unit-keys/<address>-<port>.env` in the data folder, handed to the server "
         "through its compose file's `env_file` (never written into the compose "
         "file or `fleet.yaml`) and sent by mcgyvr's own requests to the unit; "
         "`mcgyvr fleet key <unit>` prints it for a client of your own. A `--host` "
@@ -663,7 +663,7 @@ UNIT_FIELDS: tuple[Field, ...] = (
         "alone, and a pooled rpc worker on its tunnel address. Absent means "
         "`local` for a unit whose address names this machine (localhost, "
         "127.0.0.1, ::1) or that runs native, and `lan` for one whose address "
-        "names another host, which is the only way that address reaches it.",
+        "names another machine, which is the only way that address reaches it.",
         choices=EXPOSES,
         bind_hint="e.g. local -- leave it out to follow the unit's address",
     ),
@@ -1292,7 +1292,7 @@ SCHEMA: tuple[Field, ...] = (
         "`breadth.draws` for the units named; a unit with no entry draws the "
         "breadth. Spelled the way `attempts` is because it is the same kind of "
         "per-unit routing decision, and it is policy rather than a unit fact, "
-        "which is why it is not under `units`. `mcgyvr local_pool` prints the "
+        "which is why it is not under `units`. `mcgyvr ladder show` prints the "
         "effective number where it exceeds one.",
         default=None,
         min_value=1,
@@ -2401,7 +2401,7 @@ def _refuse_userinfo(name: str, base_url: str, block: str = "units") -> None:
 
     `name` and `block` say which address it is. The userinfo is refused
     because a URL is quoted in error messages, probe verdicts and
-    `mcgyvr local_pool`, so a key written there reaches logs and terminals
+    `mcgyvr ladder show`, so a key written there reaches logs and terminals
     that a key in the environment never does.
     """
     userinfo = urllib.parse.urlsplit(base_url).netloc.rpartition("@")[0]
@@ -2410,7 +2410,7 @@ def _refuse_userinfo(name: str, base_url: str, block: str = "units") -> None:
     raise ConfigSchemaError(
         f"{block}.{name}.address: carries credentials in the URL "
         f"({userinfo.split(':')[0]}:...@). A URL is quoted in error messages, "
-        f"probe verdicts and `mcgyvr local_pool`, so a key written here reaches "
+        f"probe verdicts and `mcgyvr ladder show`, so a key written here reaches "
         f"logs and terminals that a key in the environment never does. Remove "
         f"the `user:password@` part and name the variable holding it with "
         f"`api_key_env`."

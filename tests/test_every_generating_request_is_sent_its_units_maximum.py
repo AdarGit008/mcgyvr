@@ -36,7 +36,7 @@ from mcgyvr.gate.preflight import (
     unit_ceiling,
     unit_max,
 )
-from mcgyvr.local_pool import source_map
+from mcgyvr.ladder_map import unit_map
 from mcgyvr.repo.read import estimate_tokens
 from tests.rungs import caps_sent
 
@@ -90,7 +90,7 @@ def sent(
 
     seen = caps_sent(monkeypatch)
     work = contract(cap)
-    dispatch_prompt(source_map(parse_config(setup)), name, build_prompt(work), work)
+    dispatch_prompt(unit_map(parse_config(setup)), name, build_prompt(work), work)
     return seen
 
 
@@ -105,19 +105,17 @@ def measured(cap: int | None = None) -> str:
 
 def test_the_ceiling_is_the_window_less_the_prompt_as_charged() -> None:
     prompt = "x" * 4000
-    ceiling = unit_ceiling(
-        source_map(parse_config(WINDOWED)).bind("local_coder"), prompt
-    )
+    ceiling = unit_ceiling(unit_map(parse_config(WINDOWED)).bind("local_coder"), prompt)
     assert ceiling.tokens == 4096 - charged(prompt)
 
 
 def test_the_ceiling_is_output_tokens_where_no_window_is_known() -> None:
-    ceiling = unit_ceiling(source_map(parse_config(HOSTED)).bind("api_coder"), "x")
+    ceiling = unit_ceiling(unit_map(parse_config(HOSTED)).bind("api_coder"), "x")
     assert ceiling.tokens == 32768
 
 
 def test_the_ceiling_is_the_smaller_where_both_are_known() -> None:
-    rung = source_map(parse_config(BOTH)).bind("local_coder")
+    rung = unit_map(parse_config(BOTH)).bind("local_coder")
     assert unit_ceiling(rung, "x").tokens == 1024
     prompt = "x" * 12000
     assert unit_ceiling(rung, prompt).tokens == 4096 - charged(prompt)
@@ -125,7 +123,7 @@ def test_the_ceiling_is_the_smaller_where_both_are_known() -> None:
 
 def test_the_ceiling_is_unknown_where_neither_is() -> None:
     assert (
-        unit_ceiling(source_map(parse_config(BARE)).bind("local_bare"), "x").tokens
+        unit_ceiling(unit_map(parse_config(BARE)).bind("local_bare"), "x").tokens
         is None
     )
 
@@ -173,20 +171,20 @@ def test_a_contracts_cap_says_where_its_number_came_from() -> None:
     own when the unit gives less; a unit stating neither sends the contract's."""
     from mcgyvr.gate.preflight import contract_cap
 
-    rung = source_map(parse_config(HOSTED)).bind("api_coder")
+    rung = unit_map(parse_config(HOSTED)).bind("api_coder")
     small = contract_cap(rung, measured(16), contract(16))
     assert small.tokens == 16
     assert "limits.max_output_tokens (16)" in small.basis
     large = contract_cap(rung, measured(40000), contract(40000))
     assert large == unit_max(rung, measured(40000))
-    bare = source_map(parse_config(BARE)).bind("local_bare")
+    bare = unit_map(parse_config(BARE)).bind("local_bare")
     assert contract_cap(bare, measured(16), contract(16)).tokens == 16
     assert contract_cap(bare, measured(), contract()).tokens is None
 
 
 @pytest.mark.parametrize("size", [0, 2000, 8000, 12000])
 def test_prompt_and_cap_never_outgrow_the_window(size: int) -> None:
-    rung = source_map(parse_config(BOTH)).bind("local_coder")
+    rung = unit_map(parse_config(BOTH)).bind("local_coder")
     prompt = "x" * size
     cap = unit_max(rung, prompt).tokens
     assert cap is not None and cap >= 1
@@ -195,7 +193,7 @@ def test_prompt_and_cap_never_outgrow_the_window(size: int) -> None:
 
 
 def test_a_prompt_that_leaves_no_room_is_refused_before_it_is_sent() -> None:
-    rung = source_map(parse_config(WINDOWED)).bind("local_coder")
+    rung = unit_map(parse_config(WINDOWED)).bind("local_coder")
     issue = check_contract_against_rung(contract(), "x" * 13000, rung=rung)
     assert issue is not None and issue.reason == "prompt-too-large", issue
     assert unit_max(rung, "x" * 13000).tokens is None
@@ -214,7 +212,7 @@ def test_a_unit_with_no_ceiling_fails_loud_naming_both_keys(
 
 
 def test_the_cap_travels_with_the_sentence_that_explains_it() -> None:
-    rung = source_map(parse_config(BOTH)).bind("local_coder")
+    rung = unit_map(parse_config(BOTH)).bind("local_coder")
     cap = unit_max(rung, "x")
     assert cap.tokens == 1024
     assert "'local_coder'" in cap.basis and "`output_tokens` is 1024" in cap.basis
@@ -243,7 +241,7 @@ def _wire(monkeypatch: pytest.MonkeyPatch) -> list[dict[str, Any]]:
 def test_a_role_request_that_states_no_cap_is_sent_the_units_maximum(
     role: str, monkeypatch: pytest.MonkeyPatch
 ) -> None:
-    pool = source_map(parse_config(BOTH + f"{role}:\n  unit: local_coder\n"))
+    pool = unit_map(parse_config(BOTH + f"{role}:\n  unit: local_coder\n"))
     posted = _wire(monkeypatch)
 
     answer = runner.dispatch_role(
@@ -267,7 +265,7 @@ def test_the_decomposer_and_the_reviewer_are_sent_the_units_maximum(
         WINDOWED
         + "orchestrator:\n  unit: local_coder\nverifier:\n  unit: local_coder\n"
     )
-    pool = source_map(parse_config(setup))
+    pool = unit_map(parse_config(setup))
     posted = _wire(monkeypatch)
     monkeypatch.setattr("mcgyvr.delegate.build_prompt", lambda evidence: "propose")
 
@@ -286,7 +284,7 @@ def test_the_decomposer_and_the_reviewer_are_sent_the_units_maximum(
 def test_a_request_that_states_its_own_cap_keeps_it(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    pool = source_map(parse_config(BOTH))
+    pool = unit_map(parse_config(BOTH))
     posted = _wire(monkeypatch)
     runner.dispatch(
         pool, "local_coder", runner.Request(prompt="ready?", max_output_tokens=8)
@@ -297,7 +295,7 @@ def test_a_request_that_states_its_own_cap_keeps_it(
 def test_a_unit_stating_no_ceiling_leaves_a_role_request_uncapped(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    pool = source_map(parse_config(BARE + "verifier:\n  unit: local_bare\n"))
+    pool = unit_map(parse_config(BARE + "verifier:\n  unit: local_bare\n"))
     posted = _wire(monkeypatch)
     runner.dispatch_role(
         pool, "verifier", runner.Request(prompt="hello", max_output_tokens=None)
@@ -306,7 +304,7 @@ def test_a_unit_stating_no_ceiling_leaves_a_role_request_uncapped(
 
 
 def test_the_count_covers_the_system_prompt_and_the_turns() -> None:
-    rung = source_map(parse_config(WINDOWED)).bind("local_coder")
+    rung = unit_map(parse_config(WINDOWED)).bind("local_coder")
     bare = runner.at_unit_max(rung, runner.Request(prompt="q", max_output_tokens=None))
     padded = runner.at_unit_max(
         rung,

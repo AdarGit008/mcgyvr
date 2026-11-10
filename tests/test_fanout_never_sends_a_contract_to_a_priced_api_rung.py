@@ -23,7 +23,7 @@ import pytest
 from mcgyvr.catalog import catalog
 from mcgyvr.config import parse
 from mcgyvr.escalate import Delivered, ascent, escalate
-from mcgyvr.local_pool import source_map
+from mcgyvr.ladder_map import unit_map
 from mcgyvr.route import Verdict
 from tests.relieftakes import (
     API,
@@ -185,7 +185,7 @@ def test_escalation_takes_the_api_rungs_in_ladder_order_however_busy(
 ) -> None:
     """Fan-out does not pass a busy cheap api rung over for a dearer free one."""
     config = parse(TWO_PRICED.format(fanout=fanout))
-    pool = source_map(config)
+    pool = unit_map(config)
     cap = capacity_of(config, tmp_path)
     cap.reserve(SMALL)
     script = Script(**{SMALL: Verdict.FAILED, API: Verdict.PASSED})

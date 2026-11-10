@@ -23,7 +23,7 @@ from mcgyvr.config import parse as parse_config
 from mcgyvr.contract import Contract
 from mcgyvr.contract import loads as load_contract
 from mcgyvr.gate.preflight import unit_max
-from mcgyvr.local_pool import SourceMap, source_map
+from mcgyvr.ladder_map import UnitMap, unit_map
 from tests.rungs import RIDE, RUNG_ID, UNCAPPED_CONTRACT, caps_sent
 from tests.rungs import ROOM_CONTRACT as CONTRACT
 
@@ -35,7 +35,7 @@ def key(monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.setenv("HUB_KEY", "mhu_" + "1" * 16)
 
 
-def pool(local: int | None, *, second: int | None = None) -> SourceMap:
+def pool(local: int | None, *, second: int | None = None) -> UnitMap:
     """A ladder of one local unit (and a dearer second), with one relief rung."""
 
     def room(tokens: int | None) -> str:
@@ -60,7 +60,7 @@ def pool(local: int | None, *, second: int | None = None) -> SourceMap:
         "    position: within\n"
         "    served_model: qwen2.5-coder-7b\n"
     )
-    return source_map(parse_config(text))
+    return unit_map(parse_config(text))
 
 
 def contract(cap: int | None) -> Contract:
@@ -73,7 +73,7 @@ def contract(cap: int | None) -> Contract:
     )
 
 
-def cap(contract_: Contract, rung: str, pool_: SourceMap) -> int | None:
+def cap(contract_: Contract, rung: str, pool_: UnitMap) -> int | None:
     from mcgyvr.worker.prompt import build_prompt
 
     return unit_max(pool_.bind(rung), build_prompt(contract_).measured).tokens

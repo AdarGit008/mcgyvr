@@ -19,7 +19,7 @@ import pytest
 from mcgyvr.config import field_at
 from mcgyvr.config import parse as parse_config
 from mcgyvr.initialize import initialize, parse_api_unit
-from mcgyvr.local_pool import source_map
+from mcgyvr.ladder_map import unit_map
 from mcgyvr.verify import NoReviewer, reviewers_for
 from tests.machine_shapes import detection, shape
 
@@ -55,7 +55,7 @@ def _hosted_key(monkeypatch: pytest.MonkeyPatch) -> None:
 
 def test_the_no_stand_in_reason_names_the_ladder_not_the_price() -> None:
     config = parse_config(HOSTED_PAIR_LOWER_REVIEWS)
-    chosen = reviewers_for(config, source_map(config))("flash")
+    chosen = reviewers_for(config, unit_map(config))("flash")
 
     assert isinstance(chosen, NoReviewer), chosen
     assert "below a hosted `verifier.unit` on the ladder" in chosen.reason, (

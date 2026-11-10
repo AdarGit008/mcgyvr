@@ -1,6 +1,6 @@
 """``mcgyvr config`` lists the ladder in ladder order, and its header says so.
 
-The same claim ``local_pool`` made: the header read "cheapest first", which is
+The same claim ``ladder show`` made: the header read "cheapest first", which is
 only how a ladder is usually written. A policy that names the dear rung first,
 ``[pro, flash]``, was printed pro first under a header claiming the opposite.
 """

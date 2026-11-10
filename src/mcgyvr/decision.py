@@ -9,7 +9,7 @@ resulting distribution over the label tokens into a ChoiceAnswer, BoolAnswer
 or ScoreAnswer. A caller therefore gets a value together with the probability
 of every option and a confidence, instead of a string to parse.
 
-classify_role and classify_rung resolve an endpoint out of a SourceMap, and
+classify_role and classify_rung resolve an endpoint out of a UnitMap, and
 classify_for chooses between the two, preferring the jev role when a unit is
 bound to it.
 """
@@ -23,7 +23,7 @@ from dataclasses import dataclass
 from typing import TYPE_CHECKING, Any
 
 from mcgyvr import whole
-from mcgyvr.local_pool import Endpoint, PoolError, SourceMap
+from mcgyvr.ladder_map import Endpoint, LadderError, UnitMap
 from mcgyvr.runner import (
     SERVER_SAMPLED,
     _post_json,
@@ -39,7 +39,7 @@ if TYPE_CHECKING:  # pragma: no cover - typing only
 #: Labels a Choice reply may use, in order: upper case letters, then lower
 #: case ones, then digits. A Choice with more options than there are labels
 #: has no single-token label per option, which labels_for refuses.
-_CHOICE_LABELS = tuple("ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789")
+CHOICE_LABELS = tuple("ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789")
 
 #: Labels a Noul reply may use, in order: index 0 is Yes, index 1 is No.
 _YES_LABELS = ("Yes", "No")
@@ -56,7 +56,7 @@ class DecisionError(Exception):
     """The reply cannot be read as a decision, so no answer can be taken from it."""
 
 
-class UnboundRoleError(PoolError):
+class UnboundRoleError(LadderError):
     """A decision was asked of a role that has no unit bound to answer it."""
 
 
@@ -147,13 +147,13 @@ def labels_for(question: Question) -> tuple[str, ...]:
                 "single-token label to read."
             )
         return tuple("0123456789"[: len(question.levels)])
-    if not 1 <= len(question.options) <= len(_CHOICE_LABELS):
+    if not 1 <= len(question.options) <= len(CHOICE_LABELS):
         raise ValueError(
-            f"a Choice holds 1 to {len(_CHOICE_LABELS)} options, got "
+            f"a Choice holds 1 to {len(CHOICE_LABELS)} options, got "
             f"{len(question.options)}. More options have no single-token "
             "label to read."
         )
-    return _CHOICE_LABELS[: len(question.options)]
+    return CHOICE_LABELS[: len(question.options)]
 
 
 # The text of a question: the state it is about, then the question and the
@@ -376,7 +376,7 @@ def classify(
 
 
 def classify_role(
-    source_map: SourceMap,
+    unit_map: UnitMap,
     role: str,
     state: Any,
     questions: Mapping[str, Question],
@@ -387,10 +387,10 @@ def classify_role(
     """Ask the unit bound to `role`, or return None when no unit is bound to it.
 
     An unknown role, or one whose unit could not be built, raises from the
-    source map instead of returning None. When `capacity` is given, the
+    unit map instead of returning None. When `capacity` is given, the
     request is made while holding that endpoint's slot.
     """
-    binding = source_map.role(role)
+    binding = unit_map.role(role)
     if binding is None:
         return None
     if capacity is None:
@@ -404,7 +404,7 @@ def classify_role(
 
 
 def classify_rung(
-    source_map: SourceMap,
+    unit_map: UnitMap,
     rung: str,
     state: Any,
     questions: Mapping[str, Question],
@@ -414,13 +414,13 @@ def classify_rung(
 ) -> Decision:
     """Ask the rung named `rung`, resolving its endpoint and model from the map.
 
-    An unknown or unavailable rung raises from the source map. The model is the
+    An unknown or unavailable rung raises from the unit map. The model is the
     one the rung is configured with, falling back to the rung name when the map
     holds no rung by that name. When `capacity` is given, the request is made
     while holding that endpoint's slot.
     """
-    endpoint = source_map.bind(rung)
-    offered = source_map.get(rung)
+    endpoint = unit_map.bind(rung)
+    offered = unit_map.get(rung)
     model = offered.model if offered is not None else rung
     if capacity is None:
         return classify(endpoint, model, state, questions, timeout_s=timeout_s)
@@ -428,15 +428,15 @@ def classify_rung(
         return classify(endpoint, model, state, questions, timeout_s=timeout_s)
 
 
-def jev_bound(source_map: SourceMap) -> bool:
+def jev_bound(unit_map: UnitMap) -> bool:
     """Whether a unit is bound to the jev role, which is what makes classify_for
     send it the decisions rather than the role its caller names.
     """
-    return source_map.role_model(JEV_ROLE) is not None
+    return unit_map.role_model(JEV_ROLE) is not None
 
 
 def classify_for(
-    source_map: SourceMap,
+    unit_map: UnitMap,
     state: Any,
     questions: Mapping[str, Question],
     *,
@@ -445,7 +445,7 @@ def classify_for(
     capacity: Capacity | None = None,
     timeout_s: float | None = None,
 ) -> Decision:
-    """Ask for a decision through the source map, naming exactly one of `role`
+    """Ask for a decision through the unit map, naming exactly one of `role`
     and `rung`; naming both or neither raises ValueError.
 
     When a unit is bound to the `jev` role it answers whatever `role` says, so
@@ -459,14 +459,14 @@ def classify_for(
             "classify_for falls back to a role or a rung: name exactly one, "
             f"not role={role!r} and rung={rung!r}"
         )
-    asked = JEV_ROLE if jev_bound(source_map) else role
+    asked = JEV_ROLE if jev_bound(unit_map) else role
     if asked is None:
         assert rung is not None  # the check above guarantees the rung was named
         return classify_rung(
-            source_map, rung, state, questions, capacity=capacity, timeout_s=timeout_s
+            unit_map, rung, state, questions, capacity=capacity, timeout_s=timeout_s
         )
     decision = classify_role(
-        source_map, asked, state, questions, capacity=capacity, timeout_s=timeout_s
+        unit_map, asked, state, questions, capacity=capacity, timeout_s=timeout_s
     )
     if decision is None:
         raise UnboundRoleError(

@@ -74,6 +74,6 @@ def test_a_deterministic_operation_shows_no_cap_and_no_attempts(
     path = lj.make_contract(tmp_path / "format.yaml", FORMAT)
     assert lj.main(["contract", str(path)]) == 0
     out = capsys.readouterr().out
-    assert "deterministic tier" in out, out
+    assert "floor (no model)" in out, out
     assert "output tokens" not in out, out
     assert "attempt" not in out, out

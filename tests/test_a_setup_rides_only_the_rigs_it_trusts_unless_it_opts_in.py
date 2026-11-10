@@ -118,12 +118,12 @@ def test_every_ride_names_the_setups_ride_scope(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     from mcgyvr import runner
-    from mcgyvr.local_pool import source_map
+    from mcgyvr.ladder_map import unit_map
 
     monkeypatch.setenv("MCGYVR_HUB_API_KEY", "mhu_" + "k" * 40)
     setup = f"{FLEET}ladder: [local]\nfanout: idle\n"
     for policy, sent in (("", "crew"), ("ride_scope: own\n", "own")):
-        pool = source_map(parse(setup + policy, relief_text=_relief("anyone")))
+        pool = unit_map(parse(setup + policy, relief_text=_relief("anyone")))
         (ride,) = pool.relief
         headers = runner.request_headers(pool.bind(ride.name))
         assert headers[hubwire.SCOPE_HEADER] == sent
@@ -133,7 +133,7 @@ def test_every_ride_names_the_setups_ride_scope(
 
 
 def test_a_private_setup_rides_no_relief_rung_it_keeps() -> None:
-    from mcgyvr.local_pool import source_map
+    from mcgyvr.ladder_map import unit_map
 
     config = parse(
         f"{FLEET}ladder: [local]\nfanout: idle\nprivate: true\n",
@@ -142,7 +142,7 @@ def test_a_private_setup_rides_no_relief_rung_it_keeps() -> None:
 
     assert config.private is True
     assert config.relief == {}
-    assert source_map(config).relief == ()
+    assert unit_map(config).relief == ()
 
 
 @pytest.mark.parametrize(
@@ -372,7 +372,7 @@ def test_a_relief_rung_refused_as_out_of_scope_is_full_asked_once_and_said(
     tmp_path: Path, capsys: pytest.CaptureFixture[str]
 ) -> None:
     from mcgyvr.capacity import Capacity, SlotUnavailableError
-    from mcgyvr.local_pool import source_map
+    from mcgyvr.ladder_map import unit_map
     from mcgyvr.runner import ReliefUnavailableError, Request, RunnerError, dispatch
     from tests.rungs import answering_unplaced, error
 
@@ -385,7 +385,7 @@ def test_a_relief_rung_refused_as_out_of_scope_is_full_asked_once_and_said(
         for _ in range(2):
             try:
                 dispatch(
-                    source_map(config),
+                    unit_map(config),
                     RIDE,
                     Request(prompt="hello", max_output_tokens=8),
                     capacity=capacity,
@@ -411,7 +411,7 @@ def test_a_relief_rung_refused_as_out_of_scope_is_full_asked_once_and_said(
 @pytest.mark.usefixtures("hub_key")
 def test_a_unit_refused_as_out_of_scope_is_still_its_error(tmp_path: Path) -> None:
     from mcgyvr.capacity import Capacity
-    from mcgyvr.local_pool import source_map
+    from mcgyvr.ladder_map import unit_map
     from mcgyvr.runner import BackendError, Request, dispatch
     from tests.rungs import answering_unplaced, error
 
@@ -421,7 +421,7 @@ def test_a_unit_refused_as_out_of_scope_is_still_its_error(tmp_path: Path) -> No
         capacity = Capacity.of(config, root=tmp_path / "slots")
         with pytest.raises(BackendError) as raised:
             dispatch(
-                source_map(config),
+                unit_map(config),
                 "api_big",
                 Request(prompt="hello", max_output_tokens=8),
                 capacity=capacity,
@@ -440,7 +440,7 @@ def test_a_ladder_step_on_a_refused_relief_rung_climbs_to_the_next(
     a full rung declines, as the driver turns one (drive/attempt.py)."""
     from mcgyvr.capacity import Capacity, SlotUnavailableError
     from mcgyvr.escalate import Delivered, Judgement, escalate
-    from mcgyvr.local_pool import source_map
+    from mcgyvr.ladder_map import unit_map
     from mcgyvr.route import Try, Verdict
     from mcgyvr.runner import Request, dispatch
     from tests.relieftakes import Script, contract
@@ -450,7 +450,7 @@ def test_a_ladder_step_on_a_refused_relief_rung_climbs_to_the_next(
     with answering_unplaced(*error(*OUT_OF_SCOPE), asked_hub) as hub:
         config = parse(_refusing_hub_setup(hub, "http://api.invalid/v1"))
         assert config.units[RIDE].scope == hubwire.SCOPE_CREW
-        pool = source_map(config)
+        pool = unit_map(config)
         capacity = Capacity.of(config, root=tmp_path / "slots")
 
         class Riding(Script):

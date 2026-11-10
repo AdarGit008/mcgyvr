@@ -187,11 +187,11 @@ def test_uninstall_removes_both_and_is_idempotent(tmp_path: Path) -> None:
 @pytest.mark.parametrize("name", NAMES)
 def test_skill_body_no_longer_documents_first_run_onboarding(name: str) -> None:
     # An agent handing work over does not read `mcgyvr setup` or
-    # `mcgyvr local_pool` here — that onboarding path is SETUP.md, beside the
+    # `mcgyvr ladder show` here — that onboarding path is SETUP.md, beside the
     # skills it is not part of.
     body = _body(REPO / "skills" / name / "SKILL.md")
     assert "mcgyvr setup" not in body
-    assert "mcgyvr local_pool" not in body
+    assert "mcgyvr ladder show" not in body
 
 
 @pytest.mark.parametrize("name", NAMES)
@@ -221,7 +221,7 @@ def test_cli_exposes_the_onboarding_verbs(
         main(["--help"])
     assert exc.value.code == 0
     help_text = capsys.readouterr().out
-    for verb in ("setup", "local_pool", "config", "detect", "capabilities", "catalog"):
+    for verb in ("setup", "ladder", "config", "detect", "capabilities", "catalog"):
         assert verb in help_text
 
 
