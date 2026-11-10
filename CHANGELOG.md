@@ -276,6 +276,15 @@ archived outside this repository, under the same paths.
 
 ### Added
 
+- **The README says which NVIDIA cards each pinned engine runs on (I-124).**
+  A new *GPUs and engines* section gives the lowest compute capability of the
+  llama.cpp `b11960` container and native archives (5.0 on CUDA 12, 7.5 on
+  CUDA 13) and of the vLLM `v0.26.0` image (7.5), says that CUDA 13 drops every
+  card below 7.5, and names `MCGYVR_NATIVE_BACKEND` for an older card whose
+  driver would get the CUDA 13 native build. It replaces the
+  `docs/GPU-SUPPORT.md` that never reached main (`archive/gpu-support-on-main-pin`);
+  the engines mcgyvr does not pin are left out, and every floor was read again
+  from the pinned builds.
 - **A worker rig tells the hub which models its tensor cache holds
   (`hello.weight_cache`), so the hub plans a cheaper load there.** The cache
   names each file by the FNV-1a hash of one tensor, and the hub names weights
