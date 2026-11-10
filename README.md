@@ -58,6 +58,34 @@ than the skills can drive. On a Mac or a Windows machine, setup runs llama.cpp
 natively, with no Docker; `skills/mcgyvr/SETUP.md`, *macOS and Windows*, says
 what else differs there.
 
+## GPUs and engines
+
+mcgyvr pins one build of each local engine, and each build runs on NVIDIA
+cards from a floor up. Read your card's compute capability (cc) first:
+
+```sh
+nvidia-smi --query-gpu=name,compute_cap,driver_version --format=csv
+```
+
+| Engine and build                                      | CUDA       | Lowest cc |
+|-------------------------------------------------------|------------|-----------|
+| llama.cpp `b11960` container (`server-cuda-b11960`)   | 12.8       | 5.0       |
+| llama.cpp `b11960` native, CUDA 12 archives           | 12.8, 12.4 | 5.0       |
+| llama.cpp `b11960` native, CUDA 13 archives           | 13.4       | 7.5       |
+| vLLM `v0.26.0` container (`vllm/vllm-openai:v0.26.0`) | 13.0       | 7.5       |
+
+- The CUDA toolkit sets the floor along with the engine: CUDA 13 dropped every
+  card below cc 7.5 (Maxwell, Pascal, Volta), so a CUDA 13 build of any
+  engine does not run on them. The CUDA 12 llama.cpp builds reach cc 5.0, 6.1
+  and 7.0 through PTX only (no compiled kernels for those cards).
+- A native llama.cpp unit takes the newest CUDA build your driver runs
+  (driver 580 or newer: CUDA 13; 525 or newer: CUDA 12). It does not read the
+  card's cc, so on a card below cc 7.5 with driver 580 or newer, name the
+  backend yourself: `MCGYVR_NATIVE_BACKEND=vulkan` (or `cpu`).
+- vLLM needs cc 7.5 or newer; on an older card, serve with llama.cpp.
+- A Mac runs llama.cpp on Metal, with no CUDA floor.
+- Floors belong to a build: re-read them when a pin moves.
+
 ## First run: `mcgyvr setup`
 
 `mcgyvr setup` reads this machine's hardware (and any rig named with `--host`,

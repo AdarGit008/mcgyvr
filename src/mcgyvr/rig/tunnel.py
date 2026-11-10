@@ -17,7 +17,7 @@ import struct
 from collections.abc import Iterable, Sequence
 from dataclasses import dataclass
 
-from mcgyvr import hostos
+from mcgyvr import hostos, hubwire
 from mcgyvr.rig import protocol, sessionwire
 from mcgyvr.scan import BRIDGE_PREFIXES
 
@@ -160,14 +160,8 @@ class TunnelPlan:
 
 def is_lan(address: ipaddress.IPv4Address) -> bool:
     """Whether a private address is one a peer on this LAN could be reached at:
-    not loopback, link-local, multicast, reserved or unspecified."""
-    return address.is_private and not (
-        address.is_loopback
-        or address.is_link_local
-        or address.is_multicast
-        or address.is_reserved
-        or address.is_unspecified
-    )
+    private, and one a peer can be at (:func:`mcgyvr.hubwire.is_peer_address`)."""
+    return address.is_private and hubwire.is_peer_address(address)
 
 
 def read_interfaces() -> tuple[tuple[str, ipaddress.IPv4Interface], ...]:
@@ -224,16 +218,11 @@ def may_aim_at(
     network: ipaddress.IPv4Network | None,
     own: Sequence[ipaddress.IPv4Interface],
 ) -> bool:
-    """Whether this rig may aim a tunnel at an address: not one no peer is
-    reached at (loopback, link-local, multicast, reserved, unspecified), not
-    one inside the tunnel's own network, and not one this machine already has."""
-    return not (
-        host.is_loopback
-        or host.is_link_local
-        or host.is_multicast
-        or host.is_reserved
-        or host.is_unspecified
-        or (network is not None and host in network)
+    """Whether this rig may aim a tunnel at an address: one a peer can be at
+    (:func:`mcgyvr.hubwire.is_peer_address`), not one inside the tunnel's own
+    network, and not one this machine already has."""
+    return hubwire.is_peer_address(host) and not (
+        (network is not None and host in network)
         or any(host == mine.ip for mine in own)
     )
 
