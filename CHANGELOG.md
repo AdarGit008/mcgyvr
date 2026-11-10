@@ -11,6 +11,83 @@ archived outside this repository, under the same paths.
 
 ### Changed
 
+- **The agent channel's limits, shapes and codes are defined once, in
+  `mcgyvr.hubwire`.** The protocol version, frame limits, the counts and
+  bounds of every frame (models, sessions, endpoints, features, peers, allowed
+  IPs, devices, RTT samples, probe, tunnel and port-forward bounds and their
+  schema defaults), the roles, session states and relay outcomes, the text
+  shapes (message id, tag, machine id, agent version, digest, short tag,
+  runtime, endpoint host, WireGuard key, IPv4, content type, base64, token,
+  ticket) and the close, error and session codes were written in
+  `rig/protocol.py` and `rig/sessionwire.py` and again in the hub. They now
+  live in `hubwire` (stdlib only, as before), with `AGENT_ERROR_CODES` (every
+  code, the schema's `x-error-codes`), `UDP_VERSION` and
+  `RIDER_SCHEMA_VERSION` and the relayed response's HTTP status range
+  `RELAY_STATUS`; the rig modules name them as the same objects, and
+  the hub can import them at its next pin. No value and no behaviour changed
+  (every existing public name of `rig/protocol.py`, `rig/sessionwire.py` and
+  `rig/udpwire.py` compares equal before and after); `rig/udpwire.py` runs
+  without the package, so it keeps its UDP version and relay ticket shape,
+  held to `hubwire`'s by test. The `hubwire` docstring now lists what is
+  shared and what is not.
+- **The `mcgyvr.orchestrator` package is split by job: `mcgyvr.repo`,
+  `mcgyvr.decompose` and `mcgyvr.decision_log`.** The package read code, built
+  and cached the repository index, ranked and read files, and turned proposals
+  into contracts; it orchestrated nothing. `mcgyvr.repo` now holds the context
+  layer (`symbols`, `languages/`, `index`, `cache`, `resolve`, `read`,
+  `context`, `references`, and `repo` for attaching a repository);
+  `mcgyvr.decompose` holds the part that takes a proposer (`decompose`,
+  `iterate`, `candidates`, `fields`, `provides`, `baseline`); and the jev
+  shadow log `orchestrator/telemetry.py` is `mcgyvr.decision_log`, so it no
+  longer sits beside `mcgyvr.telemetry` under the same name. Every other
+  module keeps its name, and nothing behaves differently: a pure move and
+  import rewrite, with no compatibility shim, so code outside mcgyvr that
+  imports `mcgyvr.orchestrator` must import from the new paths. The
+  policy.yaml `orchestrator` block, journal keys and messages are unchanged.
+- **`SETUP.md` now names `numbers.yaml`, the file that overrides mcgyvr's
+  shipped estimates.** A user can drop `numbers.yaml` in the config folder
+  (`$MCGYVR_HOME`, default `~/.mcgyvr`) to replace the estimates mcgyvr sizes
+  and judges a machine with but cannot read off it — decode drift, link speeds,
+  host memory — each keyed by an engine, a unit's tolerance class, or a class of
+  link, and a refusal already invites it, but the setup document never named the
+  file. `docgen.render_setup` adds a paragraph for it, so `make docs`
+  regenerates `skills/mcgyvr/SETUP.md` with it. Docs only; no code path changes.
+
+- **mcgyvr keeps one default port, 8080, for every engine, and the setup wizard
+  reads vLLM's stock 8000 from the detect sweep instead of spelling it again.**
+  `serving.DEFAULT_PORT` is the port any engine's unit listens on when its
+  address carries none, so a portless vLLM unit resolves to 8080, not vLLM's
+  own 8000; vLLM's stock 8000 is recorded among the well-known servers' ports
+  in the detect sweep's list (`detect.PORT_CONVENTIONS`). The wizard's synthetic
+  detection now reuses vLLM's port from that list — writing it into the address
+  it stages — rather than spelling a second literal `8000`. No existing unit
+  changes the port it is served on — the value is identical, only the duplicate
+  is removed — and `serving.port_of` is
+  unchanged.
+
+- **One shared vocabulary for what a credential looks like, by value shape and
+  by name (`mcgyvr.credential_shapes`).** Four checks decided what a credential
+  is, each from its own list — the gate's secret scan (`mcgyvr.gate.secrets`),
+  the config loader's refusal of a pasted key (`mcgyvr.config`), the sandbox's
+  environment filter and its rc-file check (`mcgyvr.sandbox.base`) — and the
+  lists disagreed, so a key could pass one check and be refused by the next (a
+  GitHub token had to be exactly 36 characters in the gate and 20-or-more in the
+  config loader; an `sk-proj-...` key whose hyphens stopped the gate's
+  `[A-Za-z0-9]{20,}` run was refused only by the config loader). The value
+  shapes and the name words now live in one module; each check keeps its own
+  anchoring (the scan looks anywhere in a line, the config loader matches the
+  whole value) and its own name rule (an exact key, a word inside a variable
+  name, a word followed by `=`). The merged shapes are the widest of the old
+  lists — the smaller length floor, the wider character class — so no key any
+  check refused before is let through now, and three checks grew stricter: the
+  config loader also refuses Stripe-shaped values, a pasted private-key block and
+  the key `session`; the gate's `sk-` scan catches `sk-proj-...`; the sandbox env
+  and rc-file checks recognise the full vocabulary (`auth` is no longer fenced
+  to `_auth`, and an rc login line keyed by `key`/`apikey`/`credential`/`session`
+  now counts, so a `.npmrc`/`.pypirc`/`.yarnrc` holding one is kept out of a
+  sandbox and a run naming it under `sources:` is refused). The gate's own
+  `hardcoded-credential` assignment rule keeps its separate word list.
+  `mcgyvr.redact`, which only strips URL userinfo, is unchanged.
 - **A docker llama.cpp or vLLM unit listens on 127.0.0.1 or, behind a key
   mcgyvr makes, on every interface (`expose: local | lan`).** `mcgyvr emit`
   rendered every container's server on every interface with no key
@@ -182,6 +259,21 @@ archived outside this repository, under the same paths.
 
 ### Added
 
+- **A worker rig tells the hub which models its tensor cache holds
+  (`hello.weight_cache`), so the hub plans a cheaper load there.** The cache
+  names each file by the FNV-1a hash of one tensor, and the hub names weights
+  by the sha256 of the model file, so the agent now keeps a record beside the
+  cache folder (`<folder>.models.json`, mode 0600, `tensorcache.Record`): when
+  a worker session that `worker_start.model.digest` named gives the cache back,
+  each file it stored is recorded under that digest. A hello names a digest
+  while the ledger vouches for every file recorded under it (a model one of
+  whose files a trim or a check removed is forgotten), at most `MAX_MODELS`,
+  the newest, and only from a rig that lends the worker role with its cache
+  shared. A file stored by a session that named no digest is never reported,
+  nothing is named after a reboot until the folder is checked again, and a
+  hello says what the last check saw: the hub learns of a new model at the
+  next hello. A rig with nothing recorded sends the same hello as before.
+
 - **A ride is sealed end to end, rider to host: the hub carries ciphertext.**
   The host's agent makes an X25519 key each time it starts (`mcgyvr.seal`, in
   memory only) and names it on every unit it advertises (`unit_advert`'s
@@ -206,7 +298,7 @@ archived outside this repository, under the same paths.
   invalid_request` would, unsent, so it never reads as a stale key. Each rung
   `rungs sync` keeps says
   `sealed <kid>` or `in clear`, and a rung that was sealed and comes back
-  keyless is noted, by the sync and by `rig up`'s refresher; `rig up` says its
+  keyless is noted, by the sync and by `rig run`'s refresher; `rig run` says its
   run's key id when it first advertises a unit, and loads no cipher on a rig
   hosting nothing. A rung with no key (an older hub or agent) is asked in
   clear as before, and so is everything that is not a ride. New dependency:
@@ -727,10 +819,9 @@ archived outside this repository, under the same paths.
   (was 0).
 - **The session a run is filed under is named with `--session ID`.** On
   `mcgyvr run` and `mcgyvr delegate`, `--session` replaces `--orchestrator`,
-  which named the session and not the orchestrator role; `--orchestrator` is
-  kept for one release as a deprecated alias that still works and says so on
-  stderr. The result file carries the name as `session`, and still writes it
-  under `orchestrator` too, the same value, for the same release.
+  which named the session and not the orchestrator role. The result file
+  carries the name as `session`, and still writes it under `orchestrator` too,
+  the same value, for one release.
 - **`delegate --run` names its session before the orchestrator is asked.**
   The session is resolved through the same check `mcgyvr run` makes, before
   the config is read: nobody to file the batch under is exit 2 (was 1, after
@@ -873,6 +964,25 @@ archived outside this repository, under the same paths.
 - `mcgyvr.fleet.layout.actions` is gone; nothing but its tests called it.
 
 ### Fixed
+
+- Prose says what the code does, with no behaviour change. The host's `rig
+  run` and `rig join` print a run's seal key id (there is no `rig up`);
+  SECURITY.md cites `Sharing.image`, `_image` and `rpc_proto=` instead of line
+  numbers that had moved; `--orchestrator` is not described as a working
+  alias, since the CLI refuses it; README's, docgen's and the Makefile's lists
+  of generated documents name `/mcgyvr-use`; docstrings no longer say delivery
+  gates through `gate_workspace` or that nothing wires the shadow decision
+  sink (`mcgyvr PROMPT --log` does); retired `init` and `mcgyvr run` names in a
+  docstring and a comment are `setup`, `mcgyvr PROMPT` and `mcgyvr direct`; the
+  install script's floor comment states its rule without a version. Two
+  internal helpers nothing called, `symbol_options` and `shipped.b64`, are
+  deleted.
+
+- The rig agent no longer lists `backend_select` among its features. It read a
+  worker card's `backend` (`cuda_notc`, `rocm`, ...) and started the worker
+  exactly as without one, so the claim was not true. A hub that sees no
+  `backend_select` names only the backends every fork speaks (`cuda_notc` as
+  `cuda`, `openvino` and `sycl` as `vulkan`); what a worker runs is unchanged.
 
 - A relief rung whose host's unit already serves as many rides as it may
   (`503 pool_busy`) is passed over as full, as the other busy answers are,

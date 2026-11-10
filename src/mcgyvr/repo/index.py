@@ -18,7 +18,7 @@ from dataclasses import dataclass
 from enum import StrEnum
 from pathlib import Path
 
-from mcgyvr.orchestrator.symbols import Symbol, SymbolKind, extract, language_of
+from mcgyvr.repo.symbols import Symbol, SymbolKind, extract, language_of
 
 # Files above this many bytes are skipped and counted as LARGE, so that large
 # generated or vendored blobs never reach the line and symbol extraction steps.

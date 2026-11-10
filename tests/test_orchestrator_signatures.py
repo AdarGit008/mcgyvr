@@ -17,9 +17,9 @@ from __future__ import annotations
 import subprocess
 from pathlib import Path
 
-from mcgyvr.orchestrator.cache import build_index_cached
-from mcgyvr.orchestrator.index import build_index
-from mcgyvr.orchestrator.symbols import Symbol, SymbolKind, extract
+from mcgyvr.repo.cache import build_index_cached
+from mcgyvr.repo.index import build_index
+from mcgyvr.repo.symbols import Symbol, SymbolKind, extract
 
 
 def git(repo: Path, *args: str) -> None:

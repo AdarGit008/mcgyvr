@@ -20,10 +20,10 @@ import pytest
 
 from mcgyvr.catalog import catalog
 from mcgyvr.decision import Choice, ChoiceAnswer, Decision, Question
+from mcgyvr.decompose.candidates import directive
+from mcgyvr.decompose.decompose import decompose
 from mcgyvr.delegate import ClassifierProposer
-from mcgyvr.orchestrator.candidates import directive
-from mcgyvr.orchestrator.decompose import decompose
-from mcgyvr.orchestrator.index import Index, build_index
+from mcgyvr.repo.index import Index, build_index
 
 REQUEST = (
     "Implement chunk in chunk.py: split a list into groups of at most size elements"
