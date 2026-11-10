@@ -13,9 +13,9 @@ from collections.abc import Sequence
 from typing import Any
 
 from mcgyvr.config import parse
+from mcgyvr.decompose.decompose import Evidence, Proposal
 from mcgyvr.delegate import proposer_by_authoring
 from mcgyvr.local_pool import source_map
-from mcgyvr.orchestrator.decompose import Evidence, Proposal
 
 SETUP = """\
 units:

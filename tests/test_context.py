@@ -40,13 +40,13 @@ from pathlib import Path
 
 import pytest
 
-from mcgyvr.orchestrator.decompose import (
+from mcgyvr.decompose.decompose import (
     DepRef,
     Proposal,
     RecordedProposer,
     decompose,
 )
-from mcgyvr.orchestrator.index import Index, build_index
+from mcgyvr.repo.index import Index, build_index
 from mcgyvr.worker.prompt import build_prompt
 
 BODY_MARKER = "MARKER_ONLY_IN_THE_DEPENDENCY_BODY"
