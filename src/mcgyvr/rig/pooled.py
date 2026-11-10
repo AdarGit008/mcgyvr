@@ -21,7 +21,7 @@ import ipaddress
 import math
 import re
 from collections.abc import Sequence
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from pathlib import Path
 
 from mcgyvr.rig.sessionwire import WIREGUARD_KEY
@@ -59,6 +59,12 @@ KV_CACHE_TYPE = "q8_0"
 #: dry-run the load and read free memory once; off, a load that does not fit is
 #: a clean exit. The rig side does not import the emit stack, hence the copy.
 HEAD_FIT = "off"
+#: llama-server's `-dev` value for a head that runs a whole model on the host's
+#: cores and memory (a `cpu` head): "none", which llama.cpp reads as "don't
+#: offload" (`-dev, --device <..>`, "none = don't offload"), so every layer
+#: stays on the CPU. Such a head carries no tensor split (`-ts`), as there is
+#: one device to spread over.
+CPU_DEVICE = "none"
 #: Touched by Pool.renew_lease; the entrypoint exits once its mtime lags by lease_s.
 LEASE_FILE = "/run/mcgyvr/lease"
 #: Where the detached STUN keep-alive writes its pid, so the next TUNNEL_SCRIPT can
@@ -467,7 +473,9 @@ class HeadSpec:
     model file inside it, the settings llama-server is started with, and the rpc
     devices on other rigs it should spread the model over. ``cpus``, the cores
     the owner lends, holds the container to that many and llama-server to that
-    many threads.
+    many threads. ``api_key``, when the session host makes one
+    (:meth:`mcgyvr.rig.session.SessionHost.head_key`), is the key the head's API
+    asks of every request but ``/health``; it is never part of a repr.
     """
 
     session_id: str
@@ -479,13 +487,14 @@ class HeadSpec:
     name: str  # the alias llama-server serves it under (--alias)
     ctx: int  # context per slot; the -c argument is slots * ctx
     n_gpu_layers: int
-    devices: tuple[str, ...]  # -dev list: CUDA<n> local cards, RPC<n> remote ones
+    devices: tuple[str, ...]  # -dev list: CUDA<n> cards, RPC<n> ends, or CPU_DEVICE
     tensor_split: tuple[int, ...]
     rpc: tuple[str, ...]  # host:port of each remote rpc device, joined for --rpc
     bind: str  # address llama-server listens on (--host): this rig's tunnel address
     memory_mb: int
     slots: int = 1  # parallel slots (-np); the context and KV cache scale with it
     cpus: int | None = None  # cores lent: the container's --cpus and the --threads
+    api_key: str | None = field(default=None, repr=False)
 
 
 @dataclass(frozen=True, kw_only=True)
@@ -666,7 +675,11 @@ def head_argv(spec: HeadSpec, owner: Owner) -> list[str]:
     folder read-only, and starts llama-server under GUARD_SCRIPT with the alias,
     slots, context, KV cache type and device split the spec asks for, and with
     fitting off (`HEAD_FIT`), since it states its context and layers itself.
+    A container's head takes no key (its API is published on the tunnel's own
+    network); a spec that carries one is refused rather than started without it.
     """
+    if spec.api_key is not None:
+        raise PoolError("a docker head is started with no API key")
     argv = [
         "run",
         "--detach",
@@ -744,12 +757,10 @@ def head_server_args(
         args += ["--threads", str(spec.cpus)]
     if rpc:
         args += ["--rpc", ",".join(rpc)]
-    args += [
-        "-dev",
-        ",".join(spec.devices),
-        "-ts",
-        ",".join(str(share) for share in spec.tensor_split),
-    ]
+    args += ["-dev", ",".join(spec.devices)]
+    # A cpu head runs on `-dev none` with one device and no split to state.
+    if spec.tensor_split:
+        args += ["-ts", ",".join(str(share) for share in spec.tensor_split)]
     return args
 
 

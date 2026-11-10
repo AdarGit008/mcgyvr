@@ -13,6 +13,12 @@ import subprocess
 from collections.abc import Callable, Mapping
 from pathlib import Path
 
+#: The object id of git's empty tree: the object every empty tree hashes to,
+#: and the only tree-ish a repository with no commit yet can be compared or
+#: diffed against. Where `git rev-parse HEAD^{commit}` fails (an unborn HEAD),
+#: a caller stands it in for the base, so every file reads as added.
+EMPTY_TREE = "4b825dc642cb6eb9a060e54bf8d69288fbee4904"
+
 
 def run_git(
     root: Path,

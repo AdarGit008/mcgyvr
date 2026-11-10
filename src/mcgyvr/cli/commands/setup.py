@@ -32,6 +32,8 @@ from mcgyvr.capability import (
 from mcgyvr.config import (
     API_OUTPUT_TOKENS,
     CONFIG_PATH_ENV,
+    DEFAULT_ENGINE,
+    DEPLOYMENT_FIELD,
     FLEET_FILENAME,
     MCGYVR_CODE,
     NATIVE_BY_DEFAULT,
@@ -908,7 +910,7 @@ def _setup_synthetic_detection(
                 f"{rig}: its placement is a local checkpoint, and the wizard "
                 "does not bootstrap from a local store yet"
             )
-        engine = str(placement.get("engine") or "llama.cpp")
+        engine = str(placement.get("engine") or DEFAULT_ENGINE)
         kind = "vllm" if engine == "vllm" else "llama-server"
         port = stock_ports["vllm"] if engine == "vllm" else DEFAULT_PORT
         name = f"{rig}_{kind}" if len(plans) > 1 else kind
@@ -1795,12 +1797,12 @@ def add_parser(sub: argparse._SubParsersAction[argparse.ArgumentParser]) -> None
     setup.add_argument(
         "--deployment",
         default=None,
-        choices=("hybrid", "local-only"),
+        choices=DEPLOYMENT_FIELD.choices,
         metavar="MODEL",
         help=(
             "how mcgyvr is run: hybrid (an API-tier orchestrator drives it) or "
             "local-only (mcgyvr is the backend and provisions a local "
-            "orchestrator for mcgyvr-code); default: hybrid"
+            f"orchestrator for mcgyvr-code); default: {DEPLOYMENT_FIELD.default}"
         ),
     )
     setup.add_argument(

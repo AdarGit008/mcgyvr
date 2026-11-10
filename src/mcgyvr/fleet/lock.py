@@ -32,7 +32,13 @@ from typing import Any
 
 import yaml
 
-from mcgyvr.config import FLEET_FILENAME, POLICY_FILENAME, ConfigError, parse
+from mcgyvr.config import (
+    DEFAULT_ENGINE,
+    FLEET_FILENAME,
+    POLICY_FILENAME,
+    ConfigError,
+    parse,
+)
 from mcgyvr.fleet import ids
 from mcgyvr.fleet.admit import layout_ids
 from mcgyvr.fleet.files import FleetFileError, load_fleet, load_policy
@@ -778,7 +784,7 @@ def _unit_id(unit: Mapping[str, Any]) -> str:
     return ids.digest(
         "unt-",
         {
-            "engine": engine if isinstance(engine, str) and engine else "llama.cpp",
+            "engine": engine if isinstance(engine, str) and engine else DEFAULT_ENGINE,
             "address": str(unit.get("address") or ""),
             "model": str(unit.get("model") or ""),
         },

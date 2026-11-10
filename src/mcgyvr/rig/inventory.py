@@ -17,6 +17,7 @@ from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any
 
+from mcgyvr.knowledge import hub
 from mcgyvr.rig import pooled, protocol
 from mcgyvr.serving import ggufscan
 
@@ -104,11 +105,16 @@ def describe(name: str, size: int, row: Mapping[str, Any]) -> protocol.ModelInfo
     Every header field is kept only if the protocol would carry it: ``arch`` must
     be a short tag, the counts must be positive and within their limits, and the
     KV bytes per token are taken at the KV cache type the pool runs heads with.
-    A row carrying "error" is a header that did not read and gives the name and
-    size alone.
+    The quantisation is the one the file's name spells, read as the product's
+    own decode estimate reads it (:func:`mcgyvr.knowledge.hub.quant_of`), and
+    kept only if it is a short tag. A row carrying "error" is a header that did
+    not read and gives the name, size and quantisation alone.
     """
+    quant = hub.quant_of(name)
+    if quant is not None and not protocol.SHORT_TAG.fullmatch(quant):
+        quant = None
     if "error" in row:
-        return protocol.ModelInfo(name=name, size_bytes=size)
+        return protocol.ModelInfo(name=name, size_bytes=size, quant=quant)
     arch = row.get("arch")
     embd_bytes, output_bytes = tensor_bytes(row)
     return protocol.ModelInfo(
@@ -124,6 +130,7 @@ def describe(name: str, size: int, row: Mapping[str, Any]) -> protocol.ModelInfo
         kv_bytes_per_token=kv_bytes_per_token(row, pooled.KV_CACHE_TYPE),
         embd_bytes=embd_bytes,
         output_bytes=output_bytes,
+        quant=quant,
     )
 
 

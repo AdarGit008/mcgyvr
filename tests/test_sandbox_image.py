@@ -253,9 +253,19 @@ def test_list_cached_reads_back_sizes_newest_first() -> None:
 
 def test_prune_evicts_the_oldest_beyond_the_bound() -> None:
     runner = _CacheRunner(_cache(5))
-    removed = prune(2, runner=runner)
+    removed = prune("repo", 2, runner=runner)
     # Keep the 2 newest (key4, key3); evict the 3 oldest.
     assert set(removed) == {"mcgyvr/repo:key2", "mcgyvr/repo:key1", "mcgyvr/repo:key0"}
+
+
+def test_prune_counts_and_evicts_only_the_named_repository() -> None:
+    other = [("idz", "mcgyvr/other:k", "other", 10, "2026-08-00")]
+    runner = _CacheRunner([*other, *_cache(3)])
+    # "other" holds the oldest image of all, and a bound of 1 over the whole
+    # cache would take it; counted per repository it is never touched.
+    removed = prune("repo", 1, runner=runner)
+    assert set(removed) == {"mcgyvr/repo:key1", "mcgyvr/repo:key0"}
+    assert ["image", "rm", "mcgyvr/other:k"] not in runner.calls
 
 
 def test_clear_scopes_to_one_repo_when_asked() -> None:

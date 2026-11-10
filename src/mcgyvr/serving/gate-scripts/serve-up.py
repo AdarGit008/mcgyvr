@@ -7,12 +7,15 @@
 The step descends from the door and acts on the compose file the door read:
 `servelib.serve_prologue` reads that file again and refuses a file that no
 longer names the containers the door took from it, since nothing is started
-from a file that changed under the run. A refusal is exit 2.
+from a file that changed under the run, and a config the run is under that
+cannot be read again is refused too (`servelib.start_timeout_s`). A refusal
+is exit 2.
 
 `--unit` narrows the step to the containers it names, and those are started
 without their compose neighbours, so a sleeper written under a profile comes
 up without the partners it swaps with; a whole step starts everything the
 file starts by default. Each selected unit is then polled until it serves,
+for at most `serving.start_timeout_s` (six minutes unset),
 and one line per unit states whether it is up, asleep, asleep with an
 unreadable probe, or not answering. The step exits 1 when `docker compose
 up` failed or any unit did not come up healthy, and 0 otherwise.
@@ -32,6 +35,9 @@ def main() -> int:
     )
     if ctx is None:
         return 2
+    timeout_s = servelib.start_timeout_s("up")
+    if timeout_s is None:
+        return 2
 
     only = ctx.only
     # `--unit` selects the containers it names; a whole step selects the units
@@ -49,7 +55,9 @@ def main() -> int:
             f"{started.stderr.strip()[:800]}",
             file=sys.stderr,
         )
-    rows = [servelib.wait_for(ctx.host, service) for service in units]
+    rows = [
+        servelib.wait_for(ctx.host, service, timeout_s=timeout_s) for service in units
+    ]
     for row in rows:
         # The row is read in one order: a unit that listed its models and does
         # not read as asleep is up, and only the rest have their sleep answer

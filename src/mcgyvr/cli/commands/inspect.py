@@ -22,6 +22,7 @@ from mcgyvr.capability import (
     load,
 )
 from mcgyvr.config import (
+    DEFAULT_ENGINE,
     ConfigError,
 )
 from mcgyvr.config import load as load_config
@@ -72,7 +73,7 @@ def _config(args: argparse.Namespace) -> int:
         credential = (
             f"key from ${unit.api_key_env}" if unit.api_key_env else "no credential"
         )
-        engine = unit.engine or "llama.cpp"
+        engine = unit.engine or DEFAULT_ENGINE
         print(
             f"  {unit.name:<16} {engine:<9} {unit.address:<32} "
             f"x{unit.width or 1}  ({credential})"
@@ -95,7 +96,12 @@ def _local_pool(args: argparse.Namespace) -> int:
     from mcgyvr.decision import JEV_ROLE
     from mcgyvr.escalate import Ceiling
     from mcgyvr.local_pool import SourceUnavailableError, source_map
-    from mcgyvr.route import capped_attempts, draws_for, family_of
+    from mcgyvr.route import (
+        capped_attempts,
+        configured_attempts,
+        draws_for,
+        family_of,
+    )
 
     try:
         config = load_config(Path(args.path) if args.path else None)
@@ -117,8 +123,9 @@ def _local_pool(args: argparse.Namespace) -> int:
     # The header counts the usable ladder rungs; each row states the rung's
     # name, the catalog family it is served from (`api` when its unit names
     # `api_key_env`, `local` otherwise), its attempt budget — `attempts.<rung>`,
-    # or 1 when that is unstated — with its `draws` count when that is above
-    # one, and the model its unit names.
+    # or `UNSET_RUNG_ATTEMPTS` when that is unstated, read by `plan`'s own
+    # reader — with its `draws` count when that is above one, and the model its
+    # unit names.
     # The order is the ladder's own, because that is the order escalation
     # climbs; a unit the ladder does not name is not a rung and is not printed.
     # Everything left out is stated below: the ceiling, the skipped rungs, the
@@ -129,7 +136,7 @@ def _local_pool(args: argparse.Namespace) -> int:
     # ceiling printed is the one a contract that states no limit runs under.
     ladder_budget = 0
     for rung in pool.rungs:
-        budget = int((config.get("attempts") or {}).get(rung.name, 1))
+        budget = configured_attempts(config, rung.name)
         family = family_of(config, rung.name)
         ladder_budget += capped_attempts(family, budget, DEFAULT_ATTEMPTS)
         tries = "1 attempt" if budget == 1 else f"{budget} attempts"

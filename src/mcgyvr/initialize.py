@@ -35,6 +35,7 @@ from mcgyvr.config import (
     BREADTH_FIELDS,
     CLEANUP_FIELDS,
     DELIVERY_FIELDS,
+    DEPLOYMENT_FIELD,
     FLEET_FILENAME,
     GATE_FIELDS,
     JEV_FIELDS,
@@ -561,7 +562,7 @@ def _deployment_default(use_case: str) -> str:
     """The deployment written when none was asked for: `hybrid`, printed without
     consulting the use case. `local-only` is written only when `--deployment`
     names it."""
-    return "hybrid"
+    return str(DEPLOYMENT_FIELD.default)
 
 
 def _rig_name(backend: Any, fallback: str) -> str:

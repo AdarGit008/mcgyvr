@@ -391,6 +391,8 @@ def _floor(
         run_tool_step,
         task_ceiling,
     )
+    from mcgyvr.escalate import Outcome
+    from mcgyvr.repo.index import IndexBuildError
     from mcgyvr.sandbox.base import SandboxError, open_sandbox
     from mcgyvr.telemetry import correct, observe
 
@@ -508,16 +510,17 @@ def _floor(
                 attempt_id=attempt_id,
                 performed="\n".join(performed),
             )
-    except (FloorStoppedError, DriveError, SandboxError) as exc:
-        # A step that stopped, or a drive or sandbox failure, leaves an attempt
-        # row with no verdict. Record the raise against the attempt id already
-        # written, so the journal says why no verdict arrived, and then turn it
-        # into an error result: the reason reaches stderr and the result file, and
-        # the run exits 1.
+    except (FloorStoppedError, DriveError, SandboxError, IndexBuildError) as exc:
+        # A step that stopped, a drive or sandbox failure, or a glob target the
+        # workspace's git could not list, leaves an attempt row with no verdict.
+        # Record the raise against the attempt id already written, so the
+        # journal says why no verdict arrived, and then turn it into an error
+        # result: the reason reaches stderr and the result file, and the run
+        # exits 1.
         correct(
             path=recording.path,
             attempt_id=attempt_id,
-            outcome=RAISED,
+            outcome=Outcome.ERROR.value,
             detail=str(exc),
             orchestrator=recording.orchestrator,
             mirrors=recording.mirrors,
@@ -854,7 +857,7 @@ def _report_climb(
             )
         print(f"  triage: {said}")
     for step in outcome.history:
-        word = RAISED if step.raised else step.verdict.value
+        word = Outcome.ERROR.value if step.raised else step.verdict.value
         print(f"  {step.rung} #{step.attempt}: {word} — {step.detail}")
         for finding in step.findings:
             print(f"    ✗ {finding}")
@@ -1170,9 +1173,6 @@ DELIVERY_REFUSED = "delivery_refused"
 
 
 NOTHING_TO_CHANGE = "nothing_to_change"
-
-
-RAISED = "error"
 
 
 DETERMINISTIC = "deterministic"
