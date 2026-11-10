@@ -20,7 +20,6 @@ from mcgyvr.decompose.decompose import (
     Evidence,
     Proposal,
     Proposer,
-    RecordedProposer,
     Refusal,
     decompose,
 )
@@ -31,7 +30,6 @@ __all__ = [
     "Evidence",
     "Proposal",
     "Proposer",
-    "RecordedProposer",
     "Refusal",
     "decompose",
 ]
