@@ -46,7 +46,8 @@ is here:
   relief rung's model (:func:`rung_model`, :func:`rung_offer`);
 * the ladder a rider reports (``LADDER_*``);
 * the units a host advertises (:data:`MAX_SLOTS`, :data:`MAX_UNITS`,
-  ``UNIT_ADVERT_*``) and the rule a ride cap keeps (:func:`rider_cap_fits`);
+  ``UNIT_ADVERT_*``), the rule a ride cap keeps (:func:`rider_cap_fits`), and
+  the setup keys of a unit's numbers (:data:`UNIT_SETUP_NAMES`);
 * the relay's limits (``RELAY_MAX_*``);
 * the ``/v1`` error codes with their one HTTP status each
   (:data:`API_ERROR_STATUS`), and the pairs the product reads off them
@@ -1005,6 +1006,19 @@ def rung_offer(model: str) -> str | None:
         return None
     offer = model[len(RUNG_PREFIX) :]
     return offer if OFFER_ID.fullmatch(offer) else None
+
+
+#: A unit's numbers by their wire names (``unit_advert``), each with the key a
+#: setup states it in and what it is. The wire keeps its own names, as it only grows
+#: (``v`` = 1): ``mcgyvr.rig.hitchhike`` translates, and a hub stores a unit's
+#: ``slots`` as its ``width`` again. SETUP.md renders this table.
+UNIT_SETUP_NAMES: Mapping[str, tuple[str, str]] = MappingProxyType(
+    {
+        "slots": ("units.width", "requests the unit serves at once"),
+        "ctx": ("units.window", "the context of one slot, in tokens"),
+        "rider_cap": ("rider_slots", "the most rides it takes at once"),
+    }
+)
 
 
 def rider_cap_fits(rider_cap: int, slots: int) -> bool:

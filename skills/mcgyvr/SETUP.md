@@ -352,6 +352,15 @@ then hashes its own file of that model before it starts anything, renewing the s
 chunks, and a file whose digest is another fails the session as `model_missing`. Hashing a large model
 delays the head's start; a session stopped meanwhile stops the hashing too.
 
+**A unit's numbers on the wire.** A rig that shares a unit with riders advertises its numbers to the hub
+under the wire's names, not the setup's; the hub shows the wire's:
+
+| Setup | Wire | What it is |
+| --- | --- | --- |
+| `units.width` | `slots` | requests the unit serves at once |
+| `units.window` | `ctx` | the context of one slot, in tokens |
+| `rider_slots` | `rider_cap` | the most rides it takes at once |
+
 ## Use cases and switches
 
 `use_case` in the policy says what this install serves, and

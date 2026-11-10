@@ -398,12 +398,24 @@ def _port_forward_section() -> list[str]:
         f"`{hubwire.SessionCode.MODEL_MISSING}`. Hashing a large model delays the "
         "head's start; a session stopped meanwhile stops the hashing too."
     )
+    names = (
+        "**A unit's numbers on the wire.** A rig that shares a unit with riders "
+        "advertises its numbers to the hub under the wire's names, not the "
+        "setup's; the hub shows the wire's:"
+    )
+    table = ["| Setup | Wire | What it is |", "| --- | --- | --- |"]
+    for wire, (setup, meaning) in hubwire.UNIT_SETUP_NAMES.items():
+        table.append(f"| `{setup}` | `{wire}` | {meaning} |")
     return [
         "## Lending to a hub: the port forward",
         "",
         *_wrap(text, rest=""),
         "",
         *_wrap(digest, rest=""),
+        "",
+        *_wrap(names, rest=""),
+        "",
+        *table,
         "",
     ]
 
