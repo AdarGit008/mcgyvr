@@ -2728,9 +2728,14 @@ def ring_image_fault(share: sharing_module.Sharing) -> str | None:
     return None
 
 
-#: The pins found to have an archive here: a yes is kept for the agent's life,
-#: a no is asked again (a driver installed later may change it).
+#: How long a pin found to have no archive here is not asked again: the
+#: asking reads the NVIDIA driver (``nvidia-smi``), and a driver installed
+#: later may change the answer.
+NATIVE_PIN_RETRY_S = 300.0
+#: The pins found to have an archive here (a yes is kept for the agent's life),
+#: and when each pin found to have none was asked.
 _PINS_HERE: set[llamacpp.Pin] = set()
+_PINS_NOT_HERE: dict[llamacpp.Pin, float] = {}
 
 
 def native_pin_here(pin: llamacpp.Pin) -> bool:
@@ -2740,10 +2745,15 @@ def native_pin_here(pin: llamacpp.Pin) -> bool:
 
     if pin in _PINS_HERE:
         return True
+    asked = _PINS_NOT_HERE.get(pin)
+    if asked is not None and time.monotonic() - asked < NATIVE_PIN_RETRY_S:
+        return False
     try:
         native.pick(pin)
     except native.NativeError:
+        _PINS_NOT_HERE[pin] = time.monotonic()
         return False
+    _PINS_NOT_HERE.pop(pin, None)
     _PINS_HERE.add(pin)
     return True
 

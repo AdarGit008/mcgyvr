@@ -735,3 +735,29 @@ def test_once_the_pin_is_filled_an_image_that_pins_its_digest_runs_as_the_ring_b
         RING_HEAD,
         RING_WORKER,
     )
+
+
+def test_a_pin_with_no_archive_here_is_asked_again_only_after_a_while(
+    monkeypatch: pytest.MonkeyPatch, ring: llamacpp.Pin
+) -> None:
+    asked: list[str] = []
+    answers = [False, True]
+
+    def pick(pin: Any = None) -> Any:
+        asked.append("pick")
+        if not answers.pop(0):
+            raise native.NativeError("no build")
+        return None
+
+    now = [1000.0]
+    monkeypatch.setattr(native, "pick", pick)
+    monkeypatch.setattr(time, "monotonic", lambda: now[0])
+    monkeypatch.setattr(session, "_PINS_HERE", set())
+    monkeypatch.setattr(session, "_PINS_NOT_HERE", {})
+    assert not session.native_pin_here(ring)
+    assert not session.native_pin_here(ring)  # kept: not asked again
+    assert asked == ["pick"]
+    now[0] += session.NATIVE_PIN_RETRY_S
+    assert session.native_pin_here(ring)  # asked again, and now a yes
+    assert session.native_pin_here(ring)
+    assert asked == ["pick", "pick"]
