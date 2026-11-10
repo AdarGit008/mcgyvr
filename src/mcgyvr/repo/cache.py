@@ -30,7 +30,7 @@ from pathlib import Path
 from typing import Any
 
 from mcgyvr import atomic, hostos
-from mcgyvr.orchestrator.index import (
+from mcgyvr.repo.index import (
     DEFAULT_MAX_FILE_BYTES,
     FileIndex,
     Index,
@@ -42,7 +42,7 @@ from mcgyvr.orchestrator.index import (
     index_source,
     read_source,
 )
-from mcgyvr.orchestrator.symbols import Symbol, SymbolKind
+from mcgyvr.repo.symbols import Symbol, SymbolKind
 
 # Bumped whenever the persisted format changes: _load compares the "version"
 # recorded inside the file against this number and discards the whole cache on

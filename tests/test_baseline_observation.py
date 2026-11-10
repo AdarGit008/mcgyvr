@@ -14,13 +14,13 @@ from pathlib import Path
 
 import pytest
 
-from mcgyvr.orchestrator.baseline import (
+from mcgyvr.decompose.baseline import (
     BaselineObservation,
     locate_baseline,
     locate_runner,
 )
-from mcgyvr.orchestrator.decompose import Proposal, RecordedProposer, decompose
-from mcgyvr.orchestrator.index import build_index
+from mcgyvr.decompose.decompose import Proposal, RecordedProposer, decompose
+from mcgyvr.repo.index import build_index
 from tests.livejournal import git
 
 

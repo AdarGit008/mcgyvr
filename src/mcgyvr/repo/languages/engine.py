@@ -24,7 +24,7 @@ from dataclasses import dataclass
 
 from tree_sitter import Language, Node, Parser
 
-from mcgyvr.orchestrator.languages.model import Symbol, SymbolKind
+from mcgyvr.repo.languages.model import Symbol, SymbolKind
 
 #: Turns one node into the symbols it contributes, given the file's path.
 Handler = Callable[[str, Node], Iterable[Symbol]]

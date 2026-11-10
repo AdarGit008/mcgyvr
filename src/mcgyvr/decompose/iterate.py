@@ -19,8 +19,7 @@ from collections.abc import Callable, Collection, Mapping, Sequence
 from dataclasses import replace
 from typing import TYPE_CHECKING, Any, Protocol
 
-from mcgyvr.gate.adapter import LanguageAdapter
-from mcgyvr.orchestrator.decompose import (
+from mcgyvr.decompose.decompose import (
     _DEFAULT_MAX_INPUT_TOKENS,
     Decomposition,
     Proposal,
@@ -29,12 +28,13 @@ from mcgyvr.orchestrator.decompose import (
     _evidence,
     emit_one,
 )
-from mcgyvr.orchestrator.fields import FIELD_ORDER
+from mcgyvr.decompose.fields import FIELD_ORDER
+from mcgyvr.gate.adapter import LanguageAdapter
 
 if TYPE_CHECKING:  # pragma: no cover - typing only
     from mcgyvr.config import Config
-    from mcgyvr.orchestrator.decompose import Evidence
-    from mcgyvr.orchestrator.index import Index
+    from mcgyvr.decompose.decompose import Evidence
+    from mcgyvr.repo.index import Index
 
 #: The gate each retry must clear: given the refusal and the attempt index,
 #: return True to re-ask (so an always-False approver leaves the loop inert).

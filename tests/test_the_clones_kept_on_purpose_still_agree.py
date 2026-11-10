@@ -5,7 +5,7 @@
 
 * ``detect._quoted`` and ``fleet.harness._bounded``: the harness is piped to a
   rig as source and must stay standard-library only.
-* ``orchestrator.languages.engine.walk`` and ``gate.adapters.javascript._walk``:
+* ``repo.languages.engine.walk`` and ``gate.adapters.javascript._walk``:
   the adapter importing the orchestrator would be an import cycle.
 
 A fix made to one copy and not the other would leave the two disagreeing
@@ -22,7 +22,7 @@ import pytest
 from mcgyvr import detect
 from mcgyvr.fleet import harness
 from mcgyvr.gate.adapters import javascript
-from mcgyvr.orchestrator.languages import engine
+from mcgyvr.repo.languages import engine
 
 
 def test_both_quoting_bounds_are_the_same_number() -> None:

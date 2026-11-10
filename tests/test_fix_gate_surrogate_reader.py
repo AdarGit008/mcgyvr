@@ -189,7 +189,7 @@ def test_type_checker_locator_reads_an_undecodable_manifest_as_no_declaration(
     and the honest answer to *does it declare a checker* is no."
 
     Worth its own test because the blast radius is not the gate but the
-    *decomposer*: :func:`mcgyvr.orchestrator.decompose._acceptance_for` calls
+    *decomposer*: :func:`mcgyvr.decompose.decompose._acceptance_for` calls
     this to fill a ``type_check`` contract in, and its whole vocabulary is a
     command or a ``Refusal``. One byte in a manifest took the plan down.
     """

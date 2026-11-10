@@ -32,7 +32,7 @@ from typing import TYPE_CHECKING
 
 from mcgyvr.contract import Contract, ContractError, dumps, is_pattern
 from mcgyvr.contract import load as load_contract
-from mcgyvr.orchestrator.decompose import (
+from mcgyvr.decompose.decompose import (
     Decomposition,
     DepRef,
     Evidence,
@@ -43,15 +43,15 @@ from mcgyvr.orchestrator.decompose import (
     _vocabulary,
     emit_one,
 )
-from mcgyvr.orchestrator.provides import declared_names
-from mcgyvr.orchestrator.read import estimate_tokens, explore
-from mcgyvr.orchestrator.resolve import resolve
+from mcgyvr.decompose.provides import declared_names
+from mcgyvr.repo.read import estimate_tokens, explore
+from mcgyvr.repo.resolve import resolve
 from mcgyvr.scope import Scope
 
 if TYPE_CHECKING:  # pragma: no cover - typing only
     from mcgyvr.config import Config
     from mcgyvr.gate.adapter import LanguageAdapter
-    from mcgyvr.orchestrator.index import Index
+    from mcgyvr.repo.index import Index
 
 
 @dataclass(frozen=True)

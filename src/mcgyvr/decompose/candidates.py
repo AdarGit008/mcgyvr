@@ -2,7 +2,7 @@
 
 Each contract field is enumerated as a ranked :class:`CandidateSet` of
 :class:`FieldCandidate` values: one value per rank, with rank 0 the value
-:func:`collapse` folds into a :class:`~mcgyvr.orchestrator.decompose.Proposal`.
+:func:`collapse` folds into a :class:`~mcgyvr.decompose.decompose.Proposal`.
 A :class:`Provenance` tag records whether a template authored the value
 (DETERMINISTIC) or a jev answer chose it (MODEL). The classifier proposer
 builds a plan, promotes its jev answers to rank 0 with :func:`choose`, and
@@ -24,12 +24,12 @@ from typing import Any
 
 from mcgyvr.catalog import TaskType, catalog
 from mcgyvr.contract import generic_stop_condition
-from mcgyvr.orchestrator.decompose import (
+from mcgyvr.decompose.decompose import (
     DepRef,
     Evidence,
     Proposal,
 )
-from mcgyvr.orchestrator.symbols import Symbol, SymbolKind
+from mcgyvr.repo.symbols import Symbol, SymbolKind
 
 #: One typed question carries at most 62 options: the single-token labels read
 #: back are A-Z, a-z and 0-9. Targets are truncated to this, and the symbol

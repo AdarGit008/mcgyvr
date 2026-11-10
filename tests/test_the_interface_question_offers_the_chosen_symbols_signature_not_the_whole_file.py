@@ -19,14 +19,14 @@ import pytest
 
 from mcgyvr.catalog import catalog
 from mcgyvr.decision import Choice, ChoiceAnswer, Decision, Question, labels_for
+from mcgyvr.decompose.decompose import decompose
 from mcgyvr.delegate import ClassifierProposer
-from mcgyvr.orchestrator.decompose import decompose
-from mcgyvr.orchestrator.index import Index, build_index
+from mcgyvr.repo.index import Index, build_index
 
 #: One past the 62 options a typed question can carry.
 DEFINITIONS = 63
 
-#: The text of the symbol question's no-symbol option (orchestrator/fields.py).
+#: The text of the symbol question's no-symbol option (decompose/fields.py).
 NO_SYMBOL = "no specific symbol — the whole file is the work"
 
 

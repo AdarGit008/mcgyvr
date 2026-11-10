@@ -18,7 +18,7 @@ import pytest
 
 from mcgyvr import hostos
 from mcgyvr.fleet import roots
-from mcgyvr.orchestrator import cache
+from mcgyvr.repo import cache
 from mcgyvr.serving import fetcher, rigscan
 from tests.hostos_fakes import as_system
 

@@ -26,7 +26,7 @@ def _say_what_the_sandbox_leaves_out(repo: Path) -> list[str]:
     returned as a one-item list so a caller can keep it on the result; an empty
     list means there was nothing to say.
     """
-    from mcgyvr.orchestrator import head_only_note
+    from mcgyvr.repo import head_only_note
 
     note = head_only_note(repo)
     if note is None:
