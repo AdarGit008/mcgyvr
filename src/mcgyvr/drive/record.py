@@ -85,15 +85,15 @@ class Recording:
         return row if draw == 0 else f"{row}#{draw}"
 
 
-def run_of(attempt_id: str, orchestrator: str) -> str:
+def run_of(attempt_id: str, session: str) -> str:
     """The run stamp ``Recording.attempt_id`` wrote into ``attempt_id``.
 
-    ``orchestrator`` is the row's own field, the id the attempt id starts with;
-    the stamp is the segment after it when that segment is spelled as
-    ``run_stamp`` spells one. An id that does not start with ``orchestrator``,
-    or was written with no run stamp, gives the empty string.
+    ``session`` is the id the row is filed under, which the attempt id starts
+    with; the stamp is the segment after it when that segment is spelled as
+    ``run_stamp`` spells one. An id that does not start with ``session``, or
+    was written with no run stamp, gives the empty string.
     """
-    head = f"{orchestrator}:"
+    head = f"{session}:"
     if not attempt_id.startswith(head):
         return ""
     stamp = attempt_id[len(head) :].split(":", 1)[0]

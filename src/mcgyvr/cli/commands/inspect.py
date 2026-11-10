@@ -1,10 +1,10 @@
 """Read-only commands: what the install, a setup, a contract and the journal hold.
 
 Each handler loads one document — the shipped capability table, a config, the
-task-type catalog, a contract, or the journal — prints what it resolved to, and
-returns a shell exit status: 0 when the document was read, 1 when it was not, with the
-refusal on stderr. Nothing here dispatches work, starts a model, or writes to
-the tree; the handlers resolve and print.
+task-type catalog, a contract, or the journal — prints what it resolved to,
+and returns a shell exit status: 0 when the document was read, 1 when it was
+not, with the refusal on stderr. Nothing here dispatches work, starts a model,
+or writes to the tree; the handlers resolve and print.
 """
 
 from __future__ import annotations
@@ -494,7 +494,8 @@ def _usage(args: argparse.Namespace) -> int:
         return 1
 
     if not rows:
-        print(f"{where}: no attempt rows yet. Every run writes its rows here.")
+        written = "" if where.is_file() else " Every run writes its rows here."
+        print(f"{where}: no attempt rows yet.{written}")
         if orphans:
             print(f"{orphans} correction(s) name an attempt no row holds.")
         return 0

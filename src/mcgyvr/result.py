@@ -188,12 +188,16 @@ def run_stamp(now: datetime | None = None) -> str:
 
 
 def is_run_stamp(text: str) -> bool:
-    """Whether ``text`` is spelled the way ``run_stamp`` spells one."""
+    """Whether ``text`` is spelled exactly the way ``run_stamp`` spells one.
+
+    Parsed and written back, because ``strptime`` alone also takes unpadded
+    fields and short fractions that ``run_stamp`` never writes.
+    """
     try:
-        datetime.strptime(text, RUN_STAMP_FORMAT)
+        parsed = datetime.strptime(text, RUN_STAMP_FORMAT)
     except ValueError:
         return False
-    return True
+    return parsed.strftime(RUN_STAMP_FORMAT) == text
 
 
 def result_path(journal_dir: Path, contract_id: str, stamp: str) -> Path:
