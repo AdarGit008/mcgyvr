@@ -88,6 +88,17 @@ archived outside this repository, under the same paths.
   sandbox and a run naming it under `sources:` is refused). The gate's own
   `hardcoded-credential` assignment rule keeps its separate word list.
   `mcgyvr.redact`, which only strips URL userinfo, is unchanged.
+
+- **A reviewer answers in three words: APPROVE, APPROVE_WITH_NOTES or
+  REFUSE.** The prose review prompt offered four, and two of them, REMEDIATE
+  and ESCALATE, were both read as a plain refusal and nothing acted on the
+  difference. REFUSE replaces both (`verify.ReviewOutcome`), and the prompt
+  every reviewer is shown now lists `APPROVE | APPROVE_WITH_NOTES | REFUSE`.
+  What a refusal does is unchanged. A refusal's detail, which the next attempt
+  is told, now opens `REFUSE:`. For this release a reply that still opens with
+  REMEDIATE or ESCALATE (a model tuned on the old prompt) is read as REFUSE,
+  with a debug note on the `mcgyvr.verify` logger; the next release drops
+  them, and such a reply will then be no verdict at all.
 - **A docker llama.cpp or vLLM unit listens on 127.0.0.1 or, behind a key
   mcgyvr makes, on every interface (`expose: local | lan`).** `mcgyvr emit`
   rendered every container's server on every interface with no key

@@ -903,7 +903,7 @@ def test_a_reviewer_that_refuses_costs_the_attempt_and_tells_the_next_one_why(
     sent = _answers(monkeypatch, _fenced(first), _fenced(second))
     reviewed = _reviews(
         monkeypatch,
-        "REMEDIATE: RETRY is declared and never used by fetch.",
+        "REFUSE: RETRY is declared and never used by fetch.",
         "APPROVE_WITH_NOTES: the budget is now applied at the call site.",
     )
 
