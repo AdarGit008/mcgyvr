@@ -75,6 +75,9 @@ class _Heads:
         found = self.heads.get(session_id)
         return found[0].port if found else None
 
+    def head_key(self, session_id: str) -> str | None:
+        return None
+
     def head_slots(self, session_id: str) -> int:
         found = self.heads.get(session_id)
         return found[1] if found else 1

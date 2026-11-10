@@ -64,6 +64,7 @@ from mcgyvr.hubwire import (
 )
 from mcgyvr.hubwire import USE_CASES as USE_CASES
 from mcgyvr.sandbox.base import NETWORKS
+from mcgyvr.sandbox.image import DEFAULT_MAX_CACHED_IMAGES
 from mcgyvr.schema import Dialect, join_path, walk_block
 from mcgyvr.schema import Field as Field
 from mcgyvr.seal import SealKey
@@ -231,6 +232,22 @@ SANDBOX_FIELDS: tuple[Field, ...] = (
         "with `sandbox.image`. A checker the image lacks is skipped and said "
         "so, as an absent checker is on the host.",
         default=(),
+    ),
+    Field(
+        "image_cache_keep",
+        "int",
+        "How many task images of one repository the image cache keeps, a "
+        "repository being known by its directory's name. After `mode: docker` "
+        "builds a repository's image, the cached images of that directory name "
+        "beyond the newest this many are removed, and it says so on stderr; "
+        "images of another directory name are never counted or touched, so a "
+        "run of such a repository keeps the image it is about to start, and an "
+        "image a container still uses is left in place. Two checkouts whose "
+        "directories share a name (`~/work/api` and `~/oss/api`) count as one "
+        "repository here. `0` removes none. `mcgyvr sandbox --cache` lists what "
+        "is cached, and `mcgyvr sandbox --clear-cache` removes all of it.",
+        default=DEFAULT_MAX_CACHED_IMAGES,
+        min_value=0,
     ),
 )
 
@@ -571,9 +588,9 @@ UNIT_FIELDS: tuple[Field, ...] = (
         "restarts it with a growing pause and gives up after a few crashes: "
         "Metal on a Mac, CUDA where `nvidia-smi` reads a driver it runs, else "
         "Vulkan, else the CPU. A native unit listens on 127.0.0.1 alone, so no "
-        "firewall is expected to ask: on macOS the hub reaches it through the "
-        "rig agent's relay to that local address (Windows has no rig agent "
-        "yet), and a pooled worker binds the tunnel address "
+        "firewall is expected to ask: on macOS and Windows the hub reaches it "
+        "through the rig agent's relay to that local address, and a pooled "
+        "worker binds the tunnel address "
         "only, so a unit stating another `--host` is refused; its "
         "log is "
         "`logs/<container>.log` in the data folder. llama.cpp only. On a Mac "
