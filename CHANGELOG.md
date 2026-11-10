@@ -836,6 +836,15 @@ archived outside this repository, under the same paths.
 
 ### Removed
 
+- **The unused floor fallback is gone: `mcgyvr.deterministic.route`,
+  `Degradation` and `Routed`.** `route` planned a floor contract whose program
+  was missing on the cheapest dearer family and recorded a `degraded` note
+  saying who pays; nothing in mcgyvr called it, only its tests. It is removed
+  with its helpers (`_have`, `_why_missing`, `_cheapest_above`) and the tests
+  that exercised it; the tests that ran the floor's step through `route` now
+  plan it through `mcgyvr.route.plan`, which is the path runs take. Nothing
+  behaves differently: a floor contract with no program bound still stops
+  `mcgyvr run` with exit 1, naming the dearer family it does not climb to.
 - **Sessions, the manager loop and the retired-name shims are gone.** `chat`
   and `agent` are no longer contract task types: `code` is the one shipped
   type, and chat and agent stay as plain use of an endpoint. Removed with
