@@ -72,9 +72,21 @@ def test_the_lines_named_are_the_keys_their_blocks_and_their_comments(
     assert sessions.text[0].startswith("  # The sandbox a `chat` or `agent` run")
 
 
+def _proposer_block(policy: Path) -> None:
+    """What a user does on the rename refusal: `orchestrator:` becomes
+    `proposer:`, and its `type` line, which nothing read, goes."""
+    text = policy.read_text().replace("\norchestrator:\n", "\nproposer:\n")
+    policy.write_text(text.replace("  type: proposer\n", ""))
+
+
 def test_with_the_retired_lines_deleted_the_setup_loads(setup: Path) -> None:
     policy = setup / "policy.yaml"
     policy.write_text(without_retired_lines(policy.read_text()))
+    # Its `orchestrator` block is refused naming `proposer` (renamed, not
+    # retired, so `mcgyvr setup` never offers to delete the binding).
+    with pytest.raises(ConfigSchemaError, match="`orchestrator` is now `proposer`"):
+        load(setup)
+    _proposer_block(policy)
     # A setup from before the cut also says `use_case: coding`, which is refused
     # naming the one command that mends it.
     with pytest.raises(ConfigSchemaError, match="mcgyvr use mcgyvr-code"):
@@ -119,6 +131,7 @@ def test_setup_at_a_terminal_deletes_the_lines_on_a_yes(
 
     (question,) = asked
     assert "policy.yaml" in question
+    _proposer_block(setup / "policy.yaml")
     assert cli.main(["use", "mcgyvr-code", "--config", str(setup)]) == 0
     load(setup)
 
