@@ -133,6 +133,11 @@ DEPENDENTS_CHOICES: tuple[str, ...] = ("hold", "run")
 #: `mcgyvr.replan`); 0 turns re-planning off.
 MAX_REPLANS_DEFAULT = 1
 
+#: How many attempts a unit with no entry under `attempts` gets on its rung:
+#: one, so a failed attempt escalates rather than retries. The contract's
+#: `limits.attempts` caps it and never raises it (see `mcgyvr.route`).
+UNSET_RUNG_ATTEMPTS = 1
+
 #: How many rounds a proposal the decomposer refused is handed back to the
 #: proposer with what to change (see `mcgyvr.repropose`); 0 turns it off.
 MAX_REPROPOSALS_DEFAULT = 1
@@ -1194,7 +1199,10 @@ SCHEMA: tuple[Field, ...] = (
     Field(
         "attempts",
         "int_map",
-        "How many times each unit may be tried before escalation moves on.",
+        "How many times each unit may be tried before escalation moves on. A "
+        f"unit with no entry gets {UNSET_RUNG_ATTEMPTS}, not the contract's "
+        "`limits.attempts` default: that limit caps the number and never raises "
+        "it.",
         default=None,
         min_value=1,
         bind_hint="e.g. `{<unit>: 2}`",

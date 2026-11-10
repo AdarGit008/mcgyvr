@@ -870,6 +870,13 @@ archived outside this repository, under the same paths.
 
 ### Fixed
 
+- The setup reference says what an unset `attempts` entry means: a unit with
+  no entry is tried once on its rung, as it always was, not the contract's
+  `limits.attempts` default of 2, which only caps the number. The one value
+  is `config.UNSET_RUNG_ATTEMPTS`, and `mcgyvr local_pool` now reads a rung's
+  budget through `route.configured_attempts` (was `_configured_attempts`),
+  the reader a plan uses, instead of its own copy of the default.
+
 - A relief rung whose host's unit already serves as many rides as it may
   (`503 pool_busy`) is passed over as full, as the other busy answers are,
   instead of failing the dispatch: a sync writes `pool_busy` into each rung's
