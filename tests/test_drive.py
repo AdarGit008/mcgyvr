@@ -867,18 +867,18 @@ def test_a_model_contract_with_no_ladder_is_told_where_the_ladder_should_be(
     assert str(absent) in capsys.readouterr().err
 
 
-# --- E5 · the orchestrator id, carried as a field ---------------------------
+# --- E5 · the session id, carried as a field --------------------------------
 
 
 def test_an_attempt_is_recorded_under_the_session_that_made_it(
     repo: Path, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
-    """Records carry an orchestrator id, put there by something that carries one.
+    """Records carry a session id, put there by something that carries one.
 
     ``telemetry.observe`` has required the field since it was written and had no
     production caller, so nothing ever put an id in it. The driver does, from a
     value the caller constructs — never from the process, which is the
-    single-orchestrator assumption the field exists to prevent.
+    single-session assumption the field exists to prevent.
     """
     from mcgyvr.config import parse as parse_config
     from mcgyvr.drive import Recording, worker_attempt
@@ -906,7 +906,7 @@ def test_an_attempt_is_recorded_under_the_session_that_made_it(
     assert record["session"] == "agent-a"
     assert record["rung"] == "local_qwen-7b"
     assert record["ok"] is True
-    # The orchestrator is part of the id, not only a field beside it: a
+    # The session is part of the id, not only a field beside it: a
     # correction keys on the id, so a shared id would bind a correction to
     # the wrong attempt's row.
     assert record["attempt_id"] == "agent-a:impl:local_qwen-7b:1"
@@ -917,7 +917,7 @@ def test_two_sessions_share_one_stream_and_stay_distinguishable(
 ) -> None:
     """The property the field is for, which one recorded row cannot show.
 
-    The constraint exists so the v2 queue stays reachable: two orchestrators
+    The constraint exists so the v2 queue stays reachable: two sessions
     behind one stream. A field that is always the same value would satisfy every
     single-row assertion and none of this.
     """

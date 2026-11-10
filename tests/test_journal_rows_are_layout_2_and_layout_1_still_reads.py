@@ -117,3 +117,54 @@ def test_a_file_it_cannot_read_is_named_and_the_rest_still_count(
     assert captured.out.splitlines()[0].endswith("1 attempt row(s) in 1 file(s)")
     assert f"left out: {later}:1:" in captured.err, captured.err
     assert "layout version 99" in captured.err, captured.err
+
+
+def test_a_file_that_cannot_be_opened_is_named_and_the_rest_still_count(
+    tmp_path: Path, capsys: pytest.CaptureFixture[str]
+) -> None:
+    journal = tmp_path / "journal"
+    journal.mkdir()
+    # A directory under a journal file's name: reading it raises an OSError on
+    # every system, which `usage` reports for that file alone.
+    unreadable = journal / "dir.jsonl"
+    unreadable.mkdir()
+    (journal / "old.jsonl").write_text(_v1_row("old", 1) + "\n", encoding="utf-8")
+
+    assert main(["usage", str(journal)]) == 1
+    captured = capsys.readouterr()
+
+    assert captured.out.splitlines()[0].endswith("1 attempt row(s) in 1 file(s)")
+    assert f"left out: {unreadable} cannot be read" in captured.err, captured.err
+
+
+def test_a_session_journal_upgraded_mid_file_folds_both_layouts_together(
+    tmp_path: Path, capsys: pytest.CaptureFixture[str]
+) -> None:
+    """One `<session>.jsonl` written by an older mcgyvr then by this one: its
+    v1 attempt rows and v2 rows fold as one layout, a v2 correction lands on
+    a v1 attempt, and `usage` counts every attempt. The next release drops the
+    version-1 read, and this test is what that drop deliberately breaks."""
+    journal = tmp_path / "journal"
+    journal.mkdir()
+    sink = journal / "sess.jsonl"
+    old_id = f"sess:{RUN}:c1:ruff:1"
+    sink.write_text(_v1_row("sess", 1) + "\n", encoding="utf-8")
+    observe(
+        lambda: "ran",
+        path=sink,
+        attempt_id=f"sess:{RUN}:c1:ruff:2",
+        session="sess",
+        rung="ruff",
+        family="deterministic",
+    )
+    correct(path=sink, attempt_id=old_id, outcome="passed", session="review")
+
+    rows = fold(path=sink)
+
+    assert sorted(row["version"] for row in rows) == [1, 2]
+    (old,) = [row for row in rows if row["attempt_id"] == old_id]
+    assert old["session"] == "sess" and old["family"] == "deterministic"
+    assert (old["outcome"], old["applied_by"]) == ("passed", "review")
+    assert main(["usage", str(journal)]) == 0
+    out = capsys.readouterr().out
+    assert out.splitlines()[0].endswith("2 attempt row(s) in 1 file(s)"), out

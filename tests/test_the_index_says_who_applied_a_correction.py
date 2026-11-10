@@ -1,9 +1,9 @@
 """A folded row says who applied the correction it is carrying.
 
-:func:`mcgyvr.telemetry.correct` requires its ``orchestrator`` and writes it as
+:func:`mcgyvr.telemetry.correct` requires its ``session`` and writes it as
 ``applied_by`` on every correction line, because the one applying a correction
 need not be the one that ran the attempt: the gate that judged, the review that
-rejected and the orchestrator that took the work off the out-queue are three
+rejected and the session that took the work off the out-queue are three
 different writers, and a verdict whose author is unknown is a verdict a reviewer
 cannot weigh. ``tools/live/index.py`` declares an ``applied_by`` column for
 exactly that question.
