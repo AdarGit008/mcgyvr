@@ -83,7 +83,7 @@ def document(rows: list[dict[str, Any]] | None = None) -> dict[str, Any]:
     rows = ROWS if rows is None else rows
     return {
         "_doc": "invented",
-        "schema": estimate.CLASSES_SCHEMA,
+        "schema_version": estimate.CLASSES_SCHEMA,
         "classes": rows,
         "_sources": {
             row["id"]: {"url": f"https://example.com/{row['id']}", "quote": "invented"}

@@ -37,6 +37,7 @@ from enum import StrEnum
 from typing import TYPE_CHECKING
 
 from mcgyvr.catalog import Family, catalog
+from mcgyvr.config import UNSET_RUNG_ATTEMPTS
 from mcgyvr.hubwire import SCOPE_OWN
 
 if TYPE_CHECKING:  # pragma: no cover - typing only
@@ -583,7 +584,7 @@ def plan(
         Step(
             rung=rung,
             attempts=attempts_for(
-                chosen, _configured_attempts(config, rung.name), contract
+                chosen, configured_attempts(config, rung.name), contract
             ),
             machine=machines[rung.name],
         )
@@ -619,13 +620,18 @@ def fanout_of(config: Config) -> Fanout:
         ) from exc
 
 
-def _configured_attempts(config: Config, rung: str) -> int:
+def configured_attempts(config: Config, rung: str) -> int:
+    """How many attempts that rung's unit may spend, before a contract caps it.
+
+    The unit's entry under ``attempts``, or :data:`UNSET_RUNG_ATTEMPTS` when it
+    has none. :func:`capped_attempts` applies the contract's ``limits.attempts``.
+    """
     if config.ladder.get(rung) is None:
         # Only ladder rungs are planned, so a name missing from the ladder here
         # is a step built from something other than the pool.
         raise RouteError(f"no rung named {rung!r} in the ladder")
     attempts = config.get("attempts") or {}
-    return int(attempts.get(rung, 1))
+    return int(attempts.get(rung, UNSET_RUNG_ATTEMPTS))
 
 
 def draws_for(config: Config, rung: str) -> int:

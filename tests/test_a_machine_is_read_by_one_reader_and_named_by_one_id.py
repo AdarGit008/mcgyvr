@@ -76,7 +76,7 @@ def _whole(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> dict[str, Any]:
         return None, None
 
     monkeypatch.setattr(rigscan, "_run", run_tool)
-    monkeypatch.setattr(rigscan, "measure_bandwidth", lambda root="": None)
+    monkeypatch.setattr(rigscan, "measure_bandwidth", lambda spare_mib=None: None)
     root = tmp_path / "root"
     (root / "etc").mkdir(parents=True)
     (root / "etc" / "machine-id").write_text("ab" * 16 + "\n", encoding="utf-8")

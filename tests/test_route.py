@@ -545,6 +545,30 @@ def test_the_default_is_to_escalate_rather_than_retry(key: None) -> None:
     assert [step.attempts for step in steps] == [1, 1]
 
 
+def test_an_unset_rung_is_planned_and_printed_from_one_named_default(
+    tmp_path: Path,
+    capsys: pytest.CaptureFixture[str],
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """``plan`` and ``mcgyvr local_pool`` read an unset budget through one reader.
+
+    The number is moved here only to show both follow it: were ``local_pool``
+    to keep its own copy of the default, it would still print one attempt.
+    """
+    monkeypatch.setattr("mcgyvr.route.UNSET_RUNG_ATTEMPTS", 3)
+    config, pool = mapped(KEYLESS)
+    path = tmp_path / "mcgyvr.yaml"
+    path.write_text(KEYLESS, encoding="utf-8")
+    monkeypatch.setenv(CONFIG_PATH_ENV, str(path))
+
+    assert [step.attempts for step in plan(config, pool, contract()).steps] == [3]
+    assert main(["local_pool"]) == 0
+    out = capsys.readouterr().out
+    assert any(
+        "local_qwen-7b" in line and "3 attempts" in line for line in out.splitlines()
+    ), out
+
+
 def test_a_contract_may_lower_a_rungs_budget_and_so_may_the_config() -> None:
     """The lower of the two applies, whichever one it is."""
     generous, generous_pool = mapped(with_attempts(KEYLESS, "local_qwen-7b", 4))

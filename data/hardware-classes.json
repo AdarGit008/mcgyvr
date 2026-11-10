@@ -1,6 +1,6 @@
 {
   "_doc": "Memory bandwidth of device classes: Apple silicon chips and NVIDIA consumer cards. Each `bandwidth_gbps` is a fact about the class from the vendor's or a reference page (the row's `source` names its entry in `_sources`: the URL, and the words quoted or, for a table row, a `summary` of its cells), never a reading of your machine; for a device matched to the class it is shown as an estimate. `verified: false` marks a row whose source could not be read cleanly, which is still used and is flagged wherever it shows. mcgyvr uses a row only to estimate how fast a model decodes before a unit of it has been measured (`mcgyvr.estimate`); a measured decode speed replaces the estimate. A device that matches no row gets no estimate. Apple rows match the chip name (`Apple M2 Max`), then the GPU core count where a chip has two bandwidths, then the memory size where the row says `match_memory_gb`; NVIDIA rows match the card name without `NVIDIA` and `GeForce` (`RTX 3080`) and then the card's memory in GB (`vram_gb`).",
-  "schema": 1,
+  "schema_version": 1,
   "classes": [
     {
       "id": "apple-m1",

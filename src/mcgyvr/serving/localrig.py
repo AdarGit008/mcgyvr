@@ -19,9 +19,9 @@ making:
   answer and status are those curl gives (22 for an HTTP error under ``-f``,
   7 for no connection);
 - ``find '<dir>' -maxdepth 1 -name '*.gguf' -print``: the folder is listed;
-- ``bash -s ...`` with its script on stdin (the runtime reader, the lease
-  scripts): run by this machine's bash, which macOS and Linux have; Windows
-  has none, and the command is refused there.
+- ``bash -s ...`` with its script on stdin (the runtime reader): run by this
+  machine's bash, which macOS and Linux have; Windows has none, and the
+  command is refused there.
 
 Any other command is refused with status 126 and the reason on stderr, as a
 command a rig would not run. A timeout raises :class:`subprocess.TimeoutExpired`

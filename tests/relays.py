@@ -54,6 +54,9 @@ class Head:
     page_held: bool = False
     page_free: threading.Event = field(default_factory=threading.Event)
     answers_first: bool = True  # its headers go out before it generates
+    # The key it asks of every request, as llama-server's --api-key does: one
+    # without it is answered 401 (and noted), its body unread.
+    key: str | None = None
     chunks: int = 400
     events: list[str] = field(default_factory=list)  # in the order they happen
     lock: threading.Lock = field(default_factory=threading.Lock)
@@ -96,8 +99,21 @@ def _serve(head: Head) -> ThreadingHTTPServer:
         def log_message(self, format: str, *args: Any) -> None:
             pass
 
+        def refused(self) -> bool:
+            if head.key is None or self.headers.get("Authorization") == (
+                f"Bearer {head.key}"
+            ):
+                return False
+            head.note(f"401 {self.command} {self.path}")
+            self.send_response(401)
+            self.send_header("Content-Length", "0")
+            self.end_headers()
+            return True
+
         def do_GET(self) -> None:
             head.note(f"GET {self.path}")
+            if self.refused():
+                return
             if head.page_held:
                 head.page_free.wait()
             self.send_response(head.page_status)
@@ -107,6 +123,8 @@ def _serve(head: Head) -> ThreadingHTTPServer:
             self.wfile.write(head.page)
 
         def do_POST(self) -> None:
+            if self.refused():
+                return
             self.rfile.read(int(self.headers.get("Content-Length", "0")))
             head.asked.release()
             try:
@@ -138,14 +156,18 @@ def _serve(head: Head) -> ThreadingHTTPServer:
 
 
 class Heads:
-    """One ready head, of ``slots`` slots."""
+    """One ready head, of ``slots`` slots, and the key its API asks for."""
 
-    def __init__(self, port: int, slots: int = 1) -> None:
+    def __init__(self, port: int, slots: int = 1, key: str | None = None) -> None:
         self.port = port
         self.slots = slots
+        self.key = key
 
     def head_port(self, session_id: str) -> int | None:
         return self.port if session_id == "s1" else None
+
+    def head_key(self, session_id: str) -> str | None:
+        return self.key if session_id == "s1" else None
 
     def head_slots(self, session_id: str) -> int:
         return self.slots
@@ -325,16 +347,24 @@ def _relay_serve(head: RelayHead) -> ThreadingHTTPServer:
 
 class RelayHeads:
     def __init__(
-        self, port: int | None, state: str = "ready", role: str = "head"
+        self,
+        port: int | None,
+        state: str = "ready",
+        role: str = "head",
+        key: str | None = None,
     ) -> None:
         self.port = port
         self.state = state
         self.role = role
+        self.key = key
 
     def head_port(self, session_id: str) -> int | None:
         if session_id == "s1" and self.state == "ready" and self.role == "head":
             return self.port
         return None
+
+    def head_key(self, session_id: str) -> str | None:
+        return self.key if session_id == "s1" else None
 
     def head_slots(self, session_id: str) -> int:
         return 1
@@ -638,6 +668,9 @@ class Now:
 
 class NoHeads:
     def head_port(self, session_id: str) -> int | None:
+        return None
+
+    def head_key(self, session_id: str) -> str | None:
         return None
 
     def head_slots(self, session_id: str) -> int:

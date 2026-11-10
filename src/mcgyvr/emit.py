@@ -34,7 +34,7 @@ from typing import TYPE_CHECKING, Any, cast
 import yaml
 
 from mcgyvr import unitkey
-from mcgyvr.config import EXPOSE_LAN, LAUNCHER_NATIVE
+from mcgyvr.config import DEFAULT_ENGINE, EXPOSE_LAN, LAUNCHER_NATIVE
 from mcgyvr.fleet.spans import Shard, Span, SpanError, check_spans, spans
 from mcgyvr.serving import (
     CARDS_KEY,
@@ -633,7 +633,7 @@ def locked_listening(block: Mapping[str, Any]) -> str:
     hosts = llamacpp.stated_hosts([str(part) for part in stated or ()])
     if hosts:
         return hosts[-1]
-    engine = str(block.get("engine") or "llama.cpp")
+    engine = str(block.get("engine") or DEFAULT_ENGINE)
     if engine != "vllm" and isinstance(env, Mapping) and HOST_ENV in env:
         return str(env[HOST_ENV])
     return _UNSTATED_HOST.get(engine, LOOPBACK)
@@ -771,7 +771,7 @@ def native_block(
     rules are :func:`mcgyvr.serving.llamacpp.beyond_loopback`'s, the one place
     they live.
     """
-    if (engine or "llama.cpp") != "llama.cpp":
+    if (engine or DEFAULT_ENGINE) != "llama.cpp":
         raise EmitError(
             f"{slug}: launcher native runs the pinned llama.cpp build, "
             f"and {engine} has none; it runs in its container (launcher docker)"
