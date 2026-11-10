@@ -153,7 +153,7 @@
           "const": true,
           "default": true,
           "deprecated": true,
-          "description": "Deprecated, always true: rigs up to 0.5.1 require it and rigs from the next release ignore it. The hub stops sending it in the release after.",
+          "description": "Deprecated, always true: rigs up to 0.5.1 require it, rigs from 0.5.2 ignore it, and the hub no longer sends it from 0.5.3.",
           "title": "Relief",
           "type": "boolean"
         },
