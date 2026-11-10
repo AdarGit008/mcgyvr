@@ -23,8 +23,10 @@ archived outside this repository, under the same paths.
   `hitchhike.*`; a result file's per-attempt `relief` is `hitchhike`; `mcgyvr
   ladder show` lists *Hitchhike rungs*. On the wire, the rider no longer
   requires the hub's constant `relief: true` on each rung, and the published
-  rider schema drops it (a hub keeps sending it one release for rigs before
-  this one). For Python callers: `Config.relief`, `Unit.relief`,
+  rider schema marks it deprecated: a hub keeps sending it this release, from
+  one compat shim, for rigs up to 0.5.1. Deprecated: the hub stops sending it
+  in the next release, and a rig up to 0.5.1 then refuses every rung listing
+  until it is upgraded. For Python callers: `Config.relief`, `Unit.relief`,
   `RELIEF_FILENAME`, `load_relief`, `ReliefUnavailableError` and the rest are
   their `hitchhike` names. Also: hubwire's `ONE_PER_RIG`,
   `SESSION_KEY_CONTEXT`, `HEAD_DEVICE_RPC` and `QUANT_CLASSES`, read nowhere

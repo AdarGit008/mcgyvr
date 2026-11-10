@@ -149,6 +149,14 @@
         "price": {
           "$ref": "#/$defs/PriceOut"
         },
+        "relief": {
+          "const": true,
+          "default": true,
+          "deprecated": true,
+          "description": "Deprecated, always true: rigs up to 0.5.1 require it and rigs from the next release ignore it. The hub stops sending it in the release after.",
+          "title": "Relief",
+          "type": "boolean"
+        },
         "seal": {
           "anyOf": [
             {
