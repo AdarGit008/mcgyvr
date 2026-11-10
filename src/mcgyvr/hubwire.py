@@ -98,6 +98,14 @@ is here:
 * how fast a device decodes by its memory bandwidth
   (:func:`decode_ms_per_gib`, with :data:`DECODE_EFFICIENCY`, and whether a
   device is of the vendor that was fitted on, :func:`fitted_on`);
+* what one card holds of a llama.cpp layer split, the per-card fit law both
+  planners size with, each keeping its own search: the caches' cells
+  (:func:`cache_cells`, :func:`cache_bytes`), the allowance beside them
+  (:func:`card_allowance`: a :data:`MEASURED_SCRATCH_MIB` reading, else the
+  card's context plus :func:`compute_buffer_bytes`), the sum
+  (:func:`card_bytes`, :func:`bytes_on_card`), an MoE spill's host memory
+  (:func:`offloaded_expert_bytes`), and the measured runs both planners are held
+  to (:data:`FIT_CALIBRATION_RUNS`);
 * the ``port_map_report`` ``error`` tags of a forward the rig itself refuses
   (:data:`PORT_MAP_NOT_ALLOWED`, :data:`PORT_MAP_PERMANENT_ONLY`), which the
   hub tells apart from a router's refusal.
@@ -1624,3 +1632,374 @@ PORT_MAP_NOT_ALLOWED = "not_allowed"
 #: leases, which the rig refuses unless its owner allowed a permanent one: a
 #: rule added by hand on the router is the way left.
 PORT_MAP_PERMANENT_ONLY = "permanent_only"
+
+
+# --- the per-card fit law ------------------------------------------------------
+#
+# What one card holds of a llama.cpp layer split, defined once for the product's
+# sizer (``mcgyvr.serving.vramfit`` prices a scan for it; ``serving`` and
+# ``sharding`` add a card up with :func:`card_bytes`) and the hub's planner (its
+# reserve and buffer from :func:`card_allowance`, its cells from
+# :func:`cache_cells` and :func:`cache_bytes`), each of which keeps its own
+# search. :func:`bytes_on_card` composes them for a caller with a model's
+# per-cell figures in hand. A card holds its blocks' weights, their caches at
+# the run's context and slot count (:func:`cache_bytes`), their recurrent state,
+# and an allowance for what the engine allocates beside them
+# (:func:`card_allowance`); :func:`card_bytes` adds them up. The inputs are
+# bytes already priced: the product prices them from a scanned GGUF, the hub
+# from what a rig's hello states, so nothing here reads a file or a cache type.
+
+BYTES_PER_MIB = 1 << 20
+
+#: Cell granule llama.cpp pads a sequence's cache, and the sliding-window
+#: cache, to: a partial chunk of 256 cells costs a whole one.
+CACHE_PAD_CELLS = 256
+
+#: The scratch allowance measured on a rig, in MiB, filed by the architecture the
+#: scan names and the ubatch it was read at: what a load held beyond its weights,
+#: KV cache and recurrent state, from the engine's allocator summary
+#: (``--verbose``, the loader's second pass) cross-checked against ``nvidia-smi``.
+#: That gap carries the CUDA context and the compute buffers together, so a hit
+#: is a card's whole allowance. Each device of a split allocates its own context
+#: and buffers, so a reading is charged per card, on one card or on a split. A
+#: reading is never averaged or carried to another batch: a miss on the arch or
+#: the ubatch is a reading to take, and is charged :func:`card_allowance`'s
+#: context-growing law meanwhile. Two quantisations of one arch share a row.
+#: A reading holds at the context it was read at (:data:`MEASURED_SCRATCH_CELLS`)
+#: and grows beyond it, as the engine's buffers do.
+MEASURED_SCRATCH_MIB: Mapping[str, Mapping[int, float]] = MappingProxyType(
+    {
+        "deepseek2": MappingProxyType({256: 259.5}),
+        "gptoss": MappingProxyType({256: 302.1}),
+        # At 256, the reading taken beside the 512 one on the same placement
+        # (304.57 MiB), which reproduced an earlier 302.7 to 0.6% and, unlike it,
+        # has its context on record.
+        "qwen35moe": MappingProxyType({256: 304.57, 512: 316.57}),
+        "nemotron_h_moe": MappingProxyType({256: 521.2}),
+        # qwen3next's reading is at ubatch 512 (829.0 MiB), not 256 like the
+        # rest, so it is filed under the batch the load actually ran with.
+        "qwen3next": MappingProxyType({512: 829.0}),
+    }
+)
+#: The cells of cache each :data:`MEASURED_SCRATCH_MIB` reading was taken at
+#: (:func:`cache_cells` of the load's ``-c`` and ``-np``): qwen35moe's at
+#: ``-c 16384 -np 2``, qwen3next's at ``-c 8192 -np 2``. A reading whose context
+#: is not on record is filed at none, so all of its context is charged growth:
+#: it is never charged below the law's slope from zero.
+MEASURED_SCRATCH_CELLS: Mapping[str, Mapping[int, int]] = MappingProxyType(
+    {
+        "qwen35moe": MappingProxyType({256: 16384, 512: 16384}),
+        "qwen3next": MappingProxyType({512: 8192}),
+    }
+)
+#: The backend every :data:`MEASURED_SCRATCH_MIB` reading was taken under: a card
+#: of any other is charged the law, never a CUDA reading.
+MEASURED_SCRATCH_BACKEND = BACKEND_CUDA
+
+#: What a discrete card holds beyond the engine's buffers (the CUDA context and
+#: the like): 150-161 MiB at peak on every head card of the layer-split RPC runs
+#: the hub's planner was calibrated on (q8_0 cache, flash attention, ubatch 512).
+CARD_CONTEXT_MIB = 161
+#: The same on a unified device, whose memory is the host's: an ESTIMATE (no
+#: measured run), to be replaced by a reading.
+UNIFIED_CONTEXT_MIB = 512
+#: The compute buffer a device allocates at no context: the dense model's
+#: measured buffers in those runs are 232 MiB plus 4 KiB a token (the MoE's,
+#: 24 MiB plus 3 KiB a token, sit below them).
+COMPUTE_BUFFER_BASE_MIB = 232
+#: Bytes the KQ mask holds per ubatch row and token of context: an f32 cell and
+#: its f16 copy.
+KQ_MASK_BYTES_PER_ROW = 6
+
+
+def _ceil_div(a: int, b: int) -> int:
+    return -(-a // b)
+
+
+def context_per_sequence(n_ctx: int, n_seq_max: int) -> int:
+    """Cells per sequence: `n_ctx` over `n_seq_max`, rounded up to
+    :data:`CACHE_PAD_CELLS`. ``-c`` is the total across sequences: llama.cpp
+    divides it, pads each sequence, and allocates slots x per-sequence cells, so
+    the allocation can exceed the request."""
+    if n_seq_max <= 0:
+        raise ValueError("n_seq_max must be positive")
+    return _ceil_div(_ceil_div(n_ctx, n_seq_max), CACHE_PAD_CELLS) * CACHE_PAD_CELLS
+
+
+def cache_cells(n_ctx: int, n_seq_max: int, *, kv_unified: bool = False) -> int:
+    """The cells a full-attention cache allocates for ``-c n_ctx`` over
+    ``n_seq_max`` sequences: each sequence's padded share, times the sequences;
+    ``n_ctx`` once when the cache is unified across them."""
+    if kv_unified:
+        return n_ctx
+    return context_per_sequence(n_ctx, n_seq_max) * n_seq_max
+
+
+def cache_bytes(
+    full_bytes_per_token: float,
+    n_ctx: int,
+    *,
+    n_seq_max: int = 1,
+    sliding_bytes_per_token: float = 0.0,
+    sliding_window: int | None = None,
+    n_ubatch: int = 512,
+    swa_full: bool = False,
+    kv_unified: bool = False,
+) -> dict[str, int]:
+    """Bytes the caches of some layers take for ``-c n_ctx`` over ``n_seq_max``
+    sequences, from what one cell costs over their full-attention layers and over
+    their sliding ones.
+
+    The full-attention layers are charged :func:`cache_cells`. The sliding ones
+    hold only the window plus one batch in flight, padded to
+    :data:`CACHE_PAD_CELLS` and capped at the per-sequence cells, per sequence
+    (once for all of them when unified); ``swa_full``, or no window, charges
+    them like the others.
+
+    Returns ``total``, ``non_swa`` and ``swa`` in bytes, ``n_ctx_seq`` (the cells
+    per sequence every count is capped at) and ``cells_swa`` (0 when nothing
+    slides)."""
+    if kv_unified:
+        cells, seq_factor = n_ctx, 1
+    else:
+        cells, seq_factor = context_per_sequence(n_ctx, n_seq_max), n_seq_max
+    if swa_full or not sliding_window:
+        cells_swa = cells
+    else:
+        want = int(sliding_window) * (n_seq_max if kv_unified else 1) + n_ubatch
+        cells_swa = min(cells, _ceil_div(want, CACHE_PAD_CELLS) * CACHE_PAD_CELLS)
+    non_swa = int(cells * seq_factor * full_bytes_per_token)
+    swa = int(cells_swa * seq_factor * sliding_bytes_per_token)
+    return {
+        "total": non_swa + swa,
+        "non_swa": non_swa,
+        "swa": swa,
+        "n_ctx_seq": cells,
+        "cells_swa": cells_swa if sliding_bytes_per_token else 0,
+    }
+
+
+def measured_scratch_mib(
+    arch: str | None, *, n_ubatch: int, backend: str | None
+) -> float | None:
+    """The :data:`MEASURED_SCRATCH_MIB` reading for ``arch`` at ``n_ubatch`` on a
+    card of ``backend``, None for any miss (the arch, the batch, or a backend
+    other than :data:`MEASURED_SCRATCH_BACKEND`)."""
+    if backend != MEASURED_SCRATCH_BACKEND or arch is None:
+        return None
+    return MEASURED_SCRATCH_MIB.get(arch, {}).get(n_ubatch)
+
+
+def compute_buffer_bytes(
+    cells: int,
+    *,
+    n_ubatch: int,
+    layer_f16_bytes_per_token: int,
+    base_mib: int = COMPUTE_BUFFER_BASE_MIB,
+) -> int:
+    """The compute buffer a device allocates at ``cells`` of context, rounded up
+    to a MiB: ``base_mib`` plus, per cell, the larger of two buffers that grow
+    with context -- the KQ mask (:data:`KQ_MASK_BYTES_PER_ROW` per ubatch row)
+    and an f16 copy of one layer's K and V (``layer_f16_bytes_per_token``, the
+    widest caching layer's). They are the measured slopes: 3 KiB a token for the
+    MoE (the mask), 4 KiB for the dense model (the K and V copy)."""
+    raw = base_mib * BYTES_PER_MIB + cells * compute_bytes_per_cell(
+        n_ubatch=n_ubatch, layer_f16_bytes_per_token=layer_f16_bytes_per_token
+    )
+    return _ceil_div(raw, BYTES_PER_MIB) * BYTES_PER_MIB
+
+
+def compute_bytes_per_cell(*, n_ubatch: int, layer_f16_bytes_per_token: int) -> int:
+    """What a device's buffers grow by per cell of context: the larger of the KQ
+    mask (:data:`KQ_MASK_BYTES_PER_ROW` per ubatch row) and an f16 copy of the
+    widest caching layer's K and V. :func:`compute_buffer_bytes` charges it from
+    zero cells; a measured reading from the cells it was read at."""
+    return max(KQ_MASK_BYTES_PER_ROW * n_ubatch, layer_f16_bytes_per_token)
+
+
+@dataclass(frozen=True)
+class Allowance:
+    """What a card holds beyond its weights, caches and state: the engine's
+    context (``context_bytes``) and its buffers (``compute_bytes``).
+    ``measured`` says the total is a :data:`MEASURED_SCRATCH_MIB` reading (grown
+    past the cells it was read at), in which case the context is the card's
+    :data:`CARD_CONTEXT_MIB` (or its unified figure) and the buffers whatever of
+    the reading lies beyond it, so a card is never charged less than its
+    context."""
+
+    context_bytes: int
+    compute_bytes: int
+    measured: bool
+
+    @property
+    def total(self) -> int:
+        return self.context_bytes + self.compute_bytes
+
+
+def card_allowance(
+    arch: str | None,
+    *,
+    cells: int,
+    n_ubatch: int,
+    backend: str | None,
+    unified: bool,
+    layer_f16_bytes_per_token: int,
+    context_mib: int | None = None,
+    compute_base_mib: int = COMPUTE_BUFFER_BASE_MIB,
+) -> Allowance:
+    """The allowance one card is charged at ``cells`` of context: the measured
+    reading for ``arch`` at ``n_ubatch`` on that ``backend`` when there is one
+    (:func:`measured_scratch_mib`), grown by :func:`compute_bytes_per_cell` for
+    every cell past those it was read at (:data:`MEASURED_SCRATCH_CELLS`) and
+    never less than the card's context; else the card's context
+    (:data:`CARD_CONTEXT_MIB`, :data:`UNIFIED_CONTEXT_MIB` when ``unified``,
+    ``context_mib`` when a caller names its own) plus
+    :func:`compute_buffer_bytes`. The same on one card or on each of a split."""
+    context = context_mib
+    if context is None:
+        context = UNIFIED_CONTEXT_MIB if unified else CARD_CONTEXT_MIB
+    reading = measured_scratch_mib(arch, n_ubatch=n_ubatch, backend=backend)
+    if reading is not None and arch is not None:
+        read_at = MEASURED_SCRATCH_CELLS.get(arch, {}).get(n_ubatch, 0)
+        growth = max(0, cells - read_at) * compute_bytes_per_cell(
+            n_ubatch=n_ubatch, layer_f16_bytes_per_token=layer_f16_bytes_per_token
+        )
+        total = int(reading * BYTES_PER_MIB) + _ceil_div(growth, BYTES_PER_MIB) * (
+            BYTES_PER_MIB
+        )
+        held = context * BYTES_PER_MIB
+        return Allowance(
+            context_bytes=held, compute_bytes=max(0, total - held), measured=True
+        )
+    return Allowance(
+        context_bytes=context * BYTES_PER_MIB,
+        compute_bytes=compute_buffer_bytes(
+            cells,
+            n_ubatch=n_ubatch,
+            layer_f16_bytes_per_token=layer_f16_bytes_per_token,
+            base_mib=compute_base_mib,
+        ),
+        measured=False,
+    )
+
+
+def card_bytes(*, weights: int, cache: int, state: int, allowance: int) -> int:
+    """What a card holds: its blocks' weights, their caches and recurrent state,
+    and its allowance. A placement fits a card when this is at most its free
+    memory."""
+    return weights + cache + state + allowance
+
+
+def offloaded_expert_bytes(expert_bytes: int, experts_on_card: int) -> int:
+    """The host memory an MoE's spill holds: the expert bytes ``--n-cpu-moe``
+    leaves off the card (before any runtime-resident figure an engine adds)."""
+    return max(0, expert_bytes - experts_on_card)
+
+
+def bytes_on_card(
+    *,
+    weights: int,
+    full_bytes_per_token: float,
+    n_ctx: int,
+    n_seq_max: int,
+    arch: str | None,
+    backend: str | None,
+    unified: bool,
+    layer_f16_bytes_per_token: int,
+    n_ubatch: int = 512,
+    sliding_bytes_per_token: float = 0.0,
+    sliding_window: int | None = None,
+    state: int = 0,
+) -> int:
+    """What one card holds of a model at ``-c n_ctx`` over ``n_seq_max`` slots:
+    ``weights`` of its blocks, their caches (:func:`cache_bytes`, from what one
+    cell costs over those blocks), their ``state``, and the card's
+    :func:`card_allowance` at the cells the cache allocates. The answer a rig
+    gives to "what does this model cost on this card at ctx x slots"."""
+    cache = cache_bytes(
+        full_bytes_per_token,
+        n_ctx,
+        n_seq_max=n_seq_max,
+        sliding_bytes_per_token=sliding_bytes_per_token,
+        sliding_window=sliding_window,
+        n_ubatch=n_ubatch,
+    )["total"]
+    allowance = card_allowance(
+        arch,
+        cells=cache_cells(n_ctx, n_seq_max),
+        n_ubatch=n_ubatch,
+        backend=backend,
+        unified=unified,
+        layer_f16_bytes_per_token=layer_f16_bytes_per_token,
+    ).total
+    return card_bytes(weights=weights, cache=cache, state=state, allowance=allowance)
+
+
+@dataclass(frozen=True)
+class MeasuredRun:
+    """A llama.cpp layer-split load that loaded or was refused, which the fit law's
+    constants were read from and which both planners are held to: a model, as a
+    rig's hello states it (its file, embedding and output tensor bytes, its layer
+    count and its q8_0 cache bytes a token over every layer), the free MiB of the
+    head's cards and of a worker's, the context per slot and the slots."""
+
+    label: str
+    size_bytes: int
+    n_layers: int
+    n_embd: int
+    embd_bytes: int
+    output_bytes: int
+    kv_bytes_per_token: int
+    head_free_mib: tuple[int, ...]
+    worker_free_mib: tuple[int, ...]
+    ctx: int
+    slots: int
+    loaded: bool
+
+
+_DENSE = {
+    "size_bytes": 23_262_157_792,
+    "n_layers": 64,
+    "n_embd": 5120,
+    "embd_bytes": 535_265_280,
+    "output_bytes": 638_668_800,
+    "kv_bytes_per_token": 139_264,
+}
+_MOE = {
+    "size_bytes": 18_556_688_736,
+    "n_layers": 48,
+    "n_embd": 2048,
+    "embd_bytes": 175_030_272,
+    "output_bytes": 255_252_480,
+    "kv_bytes_per_token": 52_224,
+}
+_HEAD = (11909, 11909)
+_WORKER = (5729,)
+
+#: The measured runs: a head of two 12288 MiB cards (11909 MiB free before
+#: launch) alone or with a worker of one 6144 MiB card (5729 MiB free), q8_0
+#: cache, flash attention, ``-sm layer``, ubatch 512; a dense 64-layer Q5_K_M
+#: file and a 48-layer 128-expert MoE Q4_K_M file. One slot each.
+FIT_CALIBRATION_RUNS: tuple[MeasuredRun, ...] = tuple(
+    MeasuredRun(
+        label=f"{label}-{ctx}",
+        **model,
+        head_free_mib=_HEAD,
+        worker_free_mib=worker,
+        ctx=ctx,
+        slots=1,
+        loaded=loaded,
+    )
+    for label, model, worker, ctx, loaded in (
+        ("dense-head", _DENSE, (), 8192, True),
+        ("dense-head", _DENSE, (), 12288, False),
+        ("dense-head", _DENSE, (), 16384, False),
+        ("dense-three", _DENSE, _WORKER, 16384, True),
+        ("dense-three", _DENSE, _WORKER, 32768, True),
+        ("moe-head", _MOE, (), 90112, True),
+        ("moe-head", _MOE, (), 98304, False),
+        ("moe-three", _MOE, _WORKER, 131072, True),
+        ("moe-three", _MOE, _WORKER, 180224, True),
+        ("moe-three", _MOE, _WORKER, 196608, False),
+    )
+)

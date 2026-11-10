@@ -49,7 +49,9 @@ GEOMETRY: dict[str, dict[str, Any]] = json.loads(
 )
 
 #: box1's own rung, and the model both sweeps were run on: a 12.304 GiB blob
-#: that spills 8.950 GiB of experts at the 29 blocks a 6 GiB card leaves it.
+#: that spills 8.438 GiB of experts at the 27 expert blocks a 6 GiB card leaves
+#: it, once the card is charged qwen35moe's measured 316.57 MiB allowance on CUDA
+#: (I-23; at the flat 768 MiB it spilled 8.950 GiB at 29).
 MOE = ModelSpec(
     name="Qwen3.6-35B-A3B-UD-IQ3_XXS",
     vram_gb=0.0,
@@ -58,7 +60,7 @@ MOE = ModelSpec(
     geometry=GEOMETRY["Qwen3.6-35B-A3B-UD-IQ3_XXS.gguf"],
 )
 BLOB_GB = 12.304
-EXPERTS_GB = 8.950
+EXPERTS_GB = 8.438
 
 
 def rig(*, ram_gb: float) -> Scan:
@@ -113,8 +115,8 @@ def test_the_mode_gate_holds_back_half_a_gigabyte() -> None:
 
 def test_the_refusal_gate_still_holds_back_two() -> None:
     """The gate the sweep did *not* move, pinned so that shrinking one number
-    cannot quietly shrink the other. 8.950 GiB of experts on a host with 10.9
-    available is 0.05 GiB short of the margin and refused; 11.1 admits it.
+    cannot quietly shrink the other. 8.438 GiB of experts on a host with 10.39
+    available is 0.05 GiB short of the margin and refused; 10.59 admits it.
 
     Half a gigabyte would have admitted both, and the arm it admits them onto
     is the one that fails at a fraction of decode without erroring.
