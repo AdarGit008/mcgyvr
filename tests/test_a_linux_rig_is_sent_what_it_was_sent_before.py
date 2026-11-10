@@ -2,20 +2,28 @@
 
 Whether its rig file records Linux, or it has no rig file at all (a door run
 reads none then, and asks nothing), a rig over ssh is sent the same commands
-and stdins as it always was: the lease's five bash scripts on ``bash -s --
-lease``, ``rig-units.sh`` whole on ``bash -s``, the shipped reader on the
-``echo <base64> | base64 -d | python3 -I -B -`` line (``--cards`` for the card
-read), the header read and the ``find`` discovery, the fetcher on ``python3 -
-mcgyvr-fetch``, and the health probe's ``curl``. No question is asked of it
-first, and nothing it is sent carries a stdin it did not carry. The programs
-inside the lines (the reader, the fetcher) are the ones this checkout
-assembles (``mcgyvr.serving.shipped``), as a program's bytes always were the
-checkout's; they now refuse a Python older than 3.9 with a sentence, where the
-reader needed 3.11 before and the fetcher alone ran on older ones.
+and stdins as it always was: ``rig-units.sh`` whole on ``bash -s``, the
+shipped reader on the ``echo <base64> | base64 -d | python3 -I -B -`` line
+(``--cards`` for the card read), the header read and the ``find`` discovery,
+the fetcher on ``python3 - mcgyvr-fetch``, and the health probe's ``curl``.
+No question is asked of it first, and nothing it is sent carries a stdin it
+did not carry. The programs inside the lines (the reader, the fetcher) are
+the ones this checkout assembles (``mcgyvr.serving.shipped``), as a program's
+bytes always were the checkout's; they now refuse a Python older than 3.9
+with a sentence, where the reader needed 3.11 before and the fetcher alone
+ran on older ones.
+
+The lease is the one exception: a Linux rig is no longer sent five bash
+scripts on ``bash -s -- lease`` but the one Python lease every other rig is
+sent (``shipped.lease``), on the reader's line with the operation, the lease
+folder and its fields after the ``-``, and no stdin; what each operation
+answers and leaves on the rig is the scripts' own
+(``test_the_one_lease_answers_every_state_as_the_bash_scripts_did``).
 """
 
 from __future__ import annotations
 
+import base64
 import hashlib
 import re
 import subprocess
@@ -24,37 +32,13 @@ from typing import Any, cast
 
 import pytest
 
-from mcgyvr.serving import gatelib, rigread, servelib
+from mcgyvr.serving import gatelib, rigread, servelib, shipped
 from tests.remote_rigs import record_rig
 
 #: The sha256 of rig-units.sh as a Linux rig has always been sent it.
 RIG_UNITS_SHA256 = "9181c7c90cae4b1ba864c37d695d6a0d98c9aad486e1d5b603bf1d28029923c3"
 LINE = "lease_id=0123456789abcdef holder=me@door machine=m pid=1 pid_start=none "
 LINE += "started_at=2026-10-29T00:00:00Z step=up run_id=none"
-#: The five lease scripts, as the rig's bash has always read them.
-SCRIPTS = {
-    "read": "cat ~/.mcgyvr/lease 2>/dev/null || true\n",
-    "take_free": (
-        "mkdir -p ~/.mcgyvr || exit 4\nset -C\n"
-        f"printf '%s\\n' '{LINE}' > ~/.mcgyvr/lease\n"
-    ),
-    "take_stale": (
-        "mkdir -p ~/.mcgyvr || exit 4\nf=~/.mcgyvr/lease\n"
-        "if [ -z 'feedfacefeedface' ]; then grep -qs -- '[^[:space:]]' \"$f\" "
-        "&& exit 3; else grep -qs -- 'lease_id=feedfacefeedface ' \"$f\" || exit 3; "
-        "fi\n"
-        f'printf \'%s\\n\' \'{LINE}\' > "$f.$$" && mv -f "$f.$$" "$f"\n'
-    ),
-    "stamp": (
-        "f=~/.mcgyvr/lease\n"
-        "grep -qs -- 'lease_id=0123456789abcdef ' \"$f\" || exit 3\n"
-        f'printf \'%s\\n\' \'{LINE}\' > "$f.$$" && mv -f "$f.$$" "$f"\n'
-    ),
-    "release": (
-        "f=~/.mcgyvr/lease\n"
-        'grep -qs -- \'lease_id=0123456789abcdef \' "$f" && rm -f "$f"\ntrue\n'
-    ),
-}
 FIELDS = {
     "read": {},
     "take_free": {"line": LINE},
@@ -89,14 +73,26 @@ def host(
     return "box1"
 
 
-@pytest.mark.parametrize("op", sorted(SCRIPTS))
-def test_each_lease_operation_is_its_bash_script(
+#: Each lease operation's arguments after the shipped program's ``-``.
+ARGS = {
+    "read": " read '~/.mcgyvr'",
+    "take_free": f" take_free '~/.mcgyvr' 'line={LINE}'",
+    "take_stale": f" take_stale '~/.mcgyvr' held=feedfacefeedface 'line={LINE}'",
+    "stamp": f" stamp '~/.mcgyvr' held=0123456789abcdef 'line={LINE}'",
+    "release": " release '~/.mcgyvr' held=0123456789abcdef",
+}
+
+
+@pytest.mark.parametrize("op", sorted(FIELDS))
+def test_each_lease_operation_is_the_shipped_python_lease(
     monkeypatch: pytest.MonkeyPatch, host: str, op: str
 ) -> None:
     rig = Rig()
     monkeypatch.setattr(gatelib, "ssh", rig)
     gatelib._lease_op(host, op, **cast(Any, FIELDS[op]))
-    assert rig.calls == [((host, "bash -s -- lease"), {"input": SCRIPTS[op]})]
+    program = shipped.packed(shipped.lease())
+    line = f"echo {base64.b64encode(program).decode()} | base64 -d | python3 -I -B -"
+    assert rig.calls == [((host, line + ARGS[op]), {"input": None})]
 
 
 def test_what_holds_the_rig_is_rig_units_sh_on_bash(

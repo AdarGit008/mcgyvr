@@ -42,7 +42,7 @@ is here:
 * the ``/v1`` error codes with their one HTTP status each
   (:data:`API_ERROR_STATUS`), and the pairs the product reads off them
   (:data:`RUNG_BUSY`, :data:`MODEL_UNPLACED`, :data:`MODEL_NOT_FOUND`,
-  :data:`OUT_OF_SCOPE`);
+  :data:`OUT_OF_SCOPE`, :data:`USE_CASE_NOT_SERVED`);
 * the chat request fields the hub forwards to a unit
   (:data:`FORWARDED_FIELDS`, :data:`CHAT_TEMPLATE_KEYS`);
 * a sealed ride's shapes: the envelope a request carries
@@ -60,7 +60,8 @@ is here:
 * the use cases (:data:`USE_CASES`) with the model category each is
   recommended (:data:`USE_CASE_CATEGORY`), the header a request names its own in
   (:data:`USE_CASE_HEADER`), and which use cases each pool serves
-  (:data:`POOL_USE_CASES`, :func:`pool_serves`): the hub refuses the rest;
+  (:data:`POOL_USE_CASES`, :func:`pool_serves`): a request naming one its
+  pool does not serve is refused (:data:`USE_CASE_NOT_SERVED`);
 * the hub's published JSON Schemas (:data:`SCHEMAS`), shipped inside this
   package and read with :func:`schema_bytes` and :func:`schema`, and the
   version the rider schema is published at (:data:`RIDER_SCHEMA_VERSION`);
@@ -450,6 +451,7 @@ API_ERROR_STATUS: Mapping[str, int] = MappingProxyType(
         "insufficient_credits": 402,
         "not_giving": 403,
         "out_of_scope": 403,
+        "use_case_not_served": 403,
         "signed_out": 403,
         "not_giving_hitchhike": 403,
         "model_not_found": 404,
@@ -503,6 +505,12 @@ POOL_BUSY = api_error("pool_busy")
 #: named (:data:`SCOPE_HEADER`): asked again under the same scope, the same
 #: host is refused again.
 OUT_OF_SCOPE = api_error("out_of_scope")
+#: The hub refused a request because the pool it is served from
+#: (:func:`serving_pool`, by the request's scope and model) does not serve the
+#: use case it names (:data:`USE_CASE_HEADER`, :func:`pool_serves`): asked
+#: again under the same scope and model, it is refused again. A request
+#: naming no use case is not held to it.
+USE_CASE_NOT_SERVED = api_error("use_case_not_served")
 #: The answers that say a relief rung cannot take a request now, sorted: the
 #: hub names no host running the model (404 ``model_not_found``), the host's
 #: machine is away (503 ``hitchhike_host_away``), the hub has not yet matched
@@ -644,7 +652,12 @@ USE_CASE_CATEGORY: Mapping[str, str] = MappingProxyType(
     {MCGYVR_CODE: CODE, CODE: CODE, CHAT: CHAT, AGENT: AGENT}
 )
 #: The request header naming the caller's use case, beside
-#: :data:`SCOPE_HEADER`, so the hub can refuse one its pool does not serve.
+#: :data:`SCOPE_HEADER`. The hub holds a ``/v1`` chat request that sends it to
+#: the pool the request is served from (:func:`serving_pool`, by the scope the
+#: request names, else the member's own setting, and its model) and refuses a
+#: use case that pool does not serve (:func:`pool_serves`; 403
+#: :data:`USE_CASE_NOT_SERVED`), a value not of :data:`USE_CASES` among them,
+#: since no pool serves it. Without the header nothing is checked.
 USE_CASE_HEADER = "x-mcgyvr-use-case"
 
 #: Where the hub serves a request from: a member's own rigs, lent to nobody,
@@ -661,15 +674,15 @@ POOLS: tuple[str, ...] = (
     POOL_HITCHHIKE,
     POOL_SHARED_LADDER,
 )
-#: The use cases each pool serves. A member's own rigs serve every use case;
-#: the general pool serves models raw only; a crew's pool and a ride serve
-#: every use case; a shared ladder is there for ``mcgyvr-code`` alone. The
+#: The use cases each pool serves. A member's own rigs, the general pool (the
+#: hub holds a ladder for its coders), a crew's pool and a ride serve every use
+#: case; a shared ladder is there for ``mcgyvr-code`` alone. The
 #: hub's sharing modes map onto these: ``solo`` is :data:`POOL_SOLO`, ``pool``
 #: is :data:`POOL_GENERAL`, ``crew`` and ``hitchhike`` are themselves.
 POOL_USE_CASES: Mapping[str, tuple[str, ...]] = MappingProxyType(
     {
         POOL_SOLO: USE_CASES,
-        POOL_GENERAL: (CODE, CHAT, AGENT),
+        POOL_GENERAL: USE_CASES,
         POOL_CREW: USE_CASES,
         POOL_HITCHHIKE: USE_CASES,
         POOL_SHARED_LADDER: (MCGYVR_CODE,),
@@ -691,6 +704,14 @@ def pool_serves(pool: str, use_case: str) -> bool:
 SCOPE_POOLS: Mapping[str, str] = MappingProxyType(
     {SCOPE_OWN: POOL_SOLO, SCOPE_CREW: POOL_CREW, SCOPE_ANYONE: POOL_GENERAL}
 )
+
+
+def scopes_serving(use_case: str) -> tuple[str, ...]:
+    """The scopes (of :data:`SCOPE_VALUES`, in order) whose pool serves
+    ``use_case``: what a refusal for a pool that does not serve it offers to
+    ask under instead. Empty for a use case no scope's pool serves.
+    """
+    return tuple(s for s in SCOPE_VALUES if pool_serves(SCOPE_POOLS[s], use_case))
 
 
 def serving_pool(scope: str, model: str) -> str:

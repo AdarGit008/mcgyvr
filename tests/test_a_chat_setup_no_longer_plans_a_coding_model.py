@@ -24,8 +24,6 @@ from typing import Any
 
 import pytest
 
-from mcgyvr import availability
-from mcgyvr.availability import AvailabilityVerdict
 from mcgyvr.cli.commands.setup import _setup_placements
 from mcgyvr.knowledge import store as ks
 from mcgyvr.propose import DEFAULT_HEADROOM_GB
@@ -41,20 +39,6 @@ def _placement(use_case: str, vram_mib: int) -> dict[str, Any]:
     assert plan["candidates_from"] == "shipped"
     placement: dict[str, Any] = dict(plan["placement"])
     return placement
-
-
-@pytest.fixture(autouse=True)
-def _no_decision_model(monkeypatch: pytest.MonkeyPatch) -> None:
-    def not_live(endpoint: Any, timeout_s: float = 2.0) -> AvailabilityVerdict:
-        return AvailabilityVerdict(
-            source="recommend",
-            live=False,
-            reason="stub",
-            how="stub",
-            elapsed_s=0.0,
-        )
-
-    monkeypatch.setattr(availability, "probe_endpoint", not_live)
 
 
 def _cost(one: Any, context: int) -> int:

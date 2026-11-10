@@ -425,7 +425,7 @@ def _macos_windows_section() -> list[str]:
         f"- config (`${roots.HOME_ENV}`): `{home}` on every system.",
         "",
         *para(
-            "`$XDG_STATE_HOME` and `$XDG_CACHE_HOME` still win when set (the "
+            "`$XDG_STATE_HOME` and `$XDG_CACHE_HOME` still win when absolute (the "
             f"weights follow `${WEIGHTS_DIR_ENV}` alone), and `journal.dir` "
             f"defaults to `{JOURNAL_DIR_DEFAULT}` everywhere. Windows checks no "
             "file owner or mode: a file is as private as its folder, and these "
@@ -531,9 +531,8 @@ def _macos_windows_section() -> list[str]:
             f"agent reads (`${HUB_KEY_ENV}`) set in `~/.zshrc` is not seen there."
         ),
         *para(
-            "On Windows, `mcgyvr rig run` does not start yet (its pooled-session "
-            "code imports a module Windows lacks, `fcntl`). When it does, a line "
-            "in your Startup folder starts it at your login with no "
+            "On Windows, a line in your Startup folder starts it at your login "
+            "with no "
             "administrator (a `schtasks /sc onlogon` task runs at any user's "
             "logon and is created from an elevated prompt). From PowerShell, "
             "and `Remove-Item` on the same path to drop it:"
@@ -684,6 +683,10 @@ def render_setup() -> str:
         f"A third file, `{RELIEF_FILENAME}`, holds `relief`: the units other",
         "people lend you through a hub. `mcgyvr rig rungs sync` writes it whole",
         "and nothing else does, so it is neither locked nor edited by hand.",
+        "Beside `relief` it records `api_key_env`: the NAME of the variable the",
+        "sync read your personal hub key from (`--key-env`), which the rig",
+        "agent's refresh and `mcgyvr rig status` read the key from too (where",
+        f"it records none, the one the units of `{CREW_FILENAME}` name).",
         f"A fourth, `{CREW_FILENAME}`, holds `crew`: the units your crews lend",
         f"you through a hub, each read as a unit of `units` under scope "
         f"`{SCOPE_CREW}`.",
@@ -728,6 +731,28 @@ def render_setup() -> str:
         "",
         "`mcgyvr config` prints the resolved config; `mcgyvr detect` shows what",
         "can run the work; `mcgyvr capabilities` shows the shipped capability table.",
+        "",
+        "A unit split across machines (`units.launch.shards`) is checked before",
+        "anything starts: a split that cannot be launched is refused when",
+        "`mcgyvr emit` or `mcgyvr setup` sizes its units against the rigs. Once",
+        "it is up, nothing watches the unit as a whole. Its head and each worker",
+        "are services of their own rig's launch spec, and each is kept up on its",
+        "own. A docker part has docker's `unless-stopped` restart policy and",
+        "whatever starts docker when the rig boots (systemd, on most Linux",
+        "rigs). A part whose unit takes `launcher: native` has",
+        "mcgyvr's own supervisor, which restarts it when it exits, after a",
+        "growing pause, and gives up after five exits running; nothing starts",
+        "that supervisor again when the rig boots, so a native part stays down",
+        "after a reboot until its rig's `serve up` runs again. That is all the",
+        "supervision there is. Nothing orders a worker before its head or ties",
+        "their health together, and a worker on another rig is in that rig's",
+        "file, which the head's cannot name. So when a worker stops or its rig",
+        "reboots, the head is not told, and requests to the unit fail or time",
+        "out until the worker is back. The serving door's `serve down` then",
+        "`serve up` on the head's rig starts the head afresh against its",
+        "workers: `python -m mcgyvr.serving.run serve down --host RIG --compose",
+        "FILE`, then the same with `serve up`, where `FILE` is the launch spec",
+        "`mcgyvr emit` wrote for that rig.",
         "",
         *_macos_windows_section(),
         *_port_forward_section(),
