@@ -757,6 +757,34 @@ def trim_cache(folder: Path, max_mb: int) -> None:
             total -= size
 
 
+def _cpu_head_unfit(
+    held: inventory.Inventory, asked: sessionwire.HeadStart, memory_mb: int
+) -> str | None:
+    """Why a whole model will not fit the memory lent to a cpu head, or None.
+
+    A cpu head holds the model's weights and its KV cache in the lent RAM, which
+    is the container's hard ``--memory`` cap, so a model whose weights and KV
+    cache for the context asked already pass that cap cannot load. Runtime
+    overhead beyond those is not counted, so a model this says fits may still be
+    tight; one it refuses plainly does not fit.
+    """
+    info = next((m for m in held.models if m.name == asked.model), None)
+    if info is None:
+        return None
+    mib = 1 << 20
+    weights_mb = -(-info.size_bytes // mib)
+    kv_mb = 0
+    if info.kv_bytes_per_token is not None:
+        kv_mb = -(-(asked.slots * asked.ctx * info.kv_bytes_per_token) // mib)
+    need_mb = weights_mb + kv_mb
+    if need_mb > memory_mb:
+        return (
+            f"model: {asked.model} needs {need_mb} MiB of RAM for its weights and "
+            f"{asked.slots}x{asked.ctx} context, more than the {memory_mb} MiB lent"
+        )
+    return None
+
+
 class Sessions:
     """The sessions this agent runs, and the handlers the hub's frames reach.
 
@@ -1250,8 +1278,7 @@ class Sessions:
                     envelope.id, SessionCode.NOT_READY, "the session is being prepared"
                 )
             needs_tunnel = any(
-                not isinstance(device, sessionwire.LocalDevice)
-                for device in asked.devices
+                isinstance(device, sessionwire.RpcDevice) for device in asked.devices
             )
             if session.plan is None and needs_tunnel:
                 return sessionwire.refusal(
@@ -1530,6 +1557,34 @@ class Sessions:
             return sessionwire.refusal(
                 re, SessionCode.MODEL_MISSING, "model: not a model this rig holds"
             )
+        if any(isinstance(d, sessionwire.CpuDevice) for d in asked.devices):
+            # A whole model on the host's cores and memory, no card: the lend
+            # caps the container (`head_limits`), -ngl 0 keeps every layer on the
+            # CPU (`-dev none`), and no tunnel or rpc worker is in play.
+            memory_mb, cpus = share.head_limits(report)
+            unfit = _cpu_head_unfit(held, asked, memory_mb)
+            if unfit is not None:
+                return sessionwire.refusal(re, SessionCode.INSUFFICIENT_MEMORY, unfit)
+            session.rpc = ()
+            session.head_file = held.folder / relative
+            return pooled.HeadSpec(
+                session_id=session.id,
+                image=runtime,
+                binary=share.head_binary,
+                gpus=(),
+                models_dir=held.folder,
+                model=relative,
+                name=asked.model,
+                ctx=asked.ctx,
+                slots=asked.slots,
+                n_gpu_layers=0,
+                devices=(pooled.CPU_DEVICE,),
+                tensor_split=(),
+                rpc=(),
+                bind=session.host.head_bind(session.hello),
+                memory_mb=memory_mb,
+                cpus=cpus,
+            )
         local: list[int] = []
         for device in asked.devices:
             if isinstance(device, sessionwire.LocalDevice):
@@ -1568,6 +1623,8 @@ class Sessions:
                     )
                 names.append(name)
                 continue
+            if not isinstance(device, sessionwire.RpcDevice):
+                continue  # a cpu device heads alone and is handled above
             if (
                 session.plan is None
                 or session.plan.peer_of(device.host) is None

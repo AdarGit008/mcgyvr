@@ -419,14 +419,14 @@ def test_the_devices_a_head_start_names_are_the_wires_kinds(
     assert _props(schema, "CpuDevice")["kind"]["const"] == hubwire.HEAD_DEVICE_CPU
 
 
-def test_a_cpu_head_the_wire_names_is_refused_by_an_agent_that_starts_none(
+def test_a_cpu_head_the_wire_names_reads_as_one_cpu_device(
     schema: dict[str, Any],
 ) -> None:
-    """The hub may name the head rig's own cores and memory as a device; this
-    agent starts no cpu head yet, so it says it is not capable of one rather
-    than start a card."""
+    """The hub may name the head rig's own cores and memory as a device; the
+    agent reads it into a single cpu device (a whole model, no card), which the
+    schema allows and read_head_start now accepts rather than refuses."""
     from mcgyvr import hubwire
-    from mcgyvr.rig import protocol as p
+    from mcgyvr.rig import sessionwire as w
 
     body = {
         **_commands()[3]["body"],
@@ -435,10 +435,27 @@ def test_a_cpu_head_the_wire_names_is_refused_by_an_agent_that_starts_none(
     }
     frame = {"type": "head_start", "body": body}
     rig_schema.validate({"v": 1, "id": "c1", **frame}, schema, "#/$defs/HubMessage")
+    asked = _read(frame)
+    assert asked.devices == (w.CpuDevice(),)
+
+
+def test_a_cpu_device_heads_the_whole_model_alone(schema: dict[str, Any]) -> None:
+    """A cpu device beside any other device is refused bad_message: it serves
+    the whole model alone, never beside a card or a pipeline stage."""
+    from mcgyvr import hubwire
+    from mcgyvr.rig import protocol as p
+
+    body = {
+        **_commands()[3]["body"],
+        "devices": [
+            {"kind": hubwire.HEAD_DEVICE_CPU},
+            {"kind": "local", "card_index": 0},
+        ],
+        "tensor_split": [1, 1],
+    }
     with pytest.raises(p.ProtocolError) as refused:
-        _read(frame)
-    assert refused.value.code == "not_capable"
-    assert refused.value.re == "c1"
+        _read({"type": "head_start", "body": body})
+    assert refused.value.code == "bad_message"
 
 
 @pytest.mark.parametrize(
