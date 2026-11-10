@@ -364,7 +364,14 @@ def run_agent(kept: Credentials, config: Path | None = None) -> int:
     def offer() -> protocol.Offer | None:
         share = lending()
         hosts = session.endpoint_hosts(share, tunnel.read_interfaces)
-        return session.offer(share, models(), hosts, sessions.running(), last_report())
+        return session.offer(
+            share,
+            models(),
+            hosts,
+            sessions.running(),
+            last_report(),
+            cached=sessions.weight_cache(),
+        )
 
     def online() -> None:
         sessions.online()

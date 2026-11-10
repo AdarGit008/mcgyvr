@@ -259,6 +259,21 @@ archived outside this repository, under the same paths.
 
 ### Added
 
+- **A worker rig tells the hub which models its tensor cache holds
+  (`hello.weight_cache`), so the hub plans a cheaper load there.** The cache
+  names each file by the FNV-1a hash of one tensor, and the hub names weights
+  by the sha256 of the model file, so the agent now keeps a record beside the
+  cache folder (`<folder>.models.json`, mode 0600, `tensorcache.Record`): when
+  a worker session that `worker_start.model.digest` named gives the cache back,
+  each file it stored is recorded under that digest. A hello names a digest
+  while the ledger vouches for every file recorded under it (a model one of
+  whose files a trim or a check removed is forgotten), at most `MAX_MODELS`,
+  the newest, and only from a rig that lends the worker role with its cache
+  shared. A file stored by a session that named no digest is never reported,
+  nothing is named after a reboot until the folder is checked again, and a
+  hello says what the last check saw: the hub learns of a new model at the
+  next hello. A rig with nothing recorded sends the same hello as before.
+
 - **A ride is sealed end to end, rider to host: the hub carries ciphertext.**
   The host's agent makes an X25519 key each time it starts (`mcgyvr.seal`, in
   memory only) and names it on every unit it advertises (`unit_advert`'s
@@ -958,6 +973,12 @@ archived outside this repository, under the same paths.
   install script's floor comment states its rule without a version. Two
   internal helpers nothing called, `symbol_options` and `shipped.b64`, are
   deleted.
+
+- The rig agent no longer lists `backend_select` among its features. It read a
+  worker card's `backend` (`cuda_notc`, `rocm`, ...) and started the worker
+  exactly as without one, so the claim was not true. A hub that sees no
+  `backend_select` names only the backends every fork speaks (`cuda_notc` as
+  `cuda`, `openvino` and `sycl` as `vulkan`); what a worker runs is unchanged.
 
 - A relief rung whose host's unit already serves as many rides as it may
   (`503 pool_busy`) is passed over as full, as the other busy answers are,
