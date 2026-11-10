@@ -188,7 +188,7 @@ def test_mcgyvr_code_refuses_a_unit_whose_pool_serves_models_raw(where: str) -> 
     said = str(refused.value)
     assert "'pool_coder'" in said
     assert "scope 'anyone'" in said
-    assert f"{hubwire.POOL_GENERAL} pool" in said
+    assert hubwire.POOL_NAMES[hubwire.POOL_ANYONE] in said
     assert "use case 'mcgyvr-code'" in said
 
 
@@ -228,7 +228,7 @@ def test_a_jev_switched_off_is_not_held_to_its_pool() -> None:
 def test_the_rule_is_the_wires_matrix(monkeypatch: pytest.MonkeyPatch) -> None:
     """A general pool that served ``mcgyvr-code`` would be taken: the config
     holds no rule of its own about which scope is allowed."""
-    served = {**hubwire.POOL_USE_CASES, hubwire.POOL_GENERAL: hubwire.USE_CASES}
+    served = {**hubwire.POOL_USE_CASES, hubwire.POOL_ANYONE: hubwire.USE_CASES}
     monkeypatch.setattr(hubwire, "POOL_USE_CASES", served)
 
     assert parse(_setup("ladder", "pool_coder")).ladder.names == ("local", "pool_coder")

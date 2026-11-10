@@ -533,6 +533,44 @@ def _macos_windows_section() -> list[str]:
     ]
 
 
+def _audience_lines() -> list[str]:
+    """Who may use a rig on a hub, in one vocabulary: the audiences a rig, a
+    unit's `scope` and `ride_scope` name, each rig's mode, and the pool each
+    pair puts it in, from `mcgyvr.hubwire`."""
+    audiences = ", ".join(f"`{a}`" for a in hubwire.SCOPE_VALUES)
+    modes = " or ".join(f"`{m}`" for m in hubwire.MODES)
+    lines = [
+        f"Who may use a rig is one of {audiences}: a unit's `scope` and the "
+        "setup's `ride_scope` name it, and so does each rig you add to a hub, "
+        f"with its mode, {modes}. A rig in mode `{hubwire.MODE_LEND}` puts its "
+        "hardware in its audience's pool; one in mode "
+        f"`{hubwire.MODE_HITCHHIKE}` runs your own units and lets riders the "
+        "hub matches use their spare slots. The pairs, and what each pool "
+        "serves:",
+        "",
+        "| audience | mode | pool | use cases |",
+        "|---|---|---|---|",
+    ]
+    for mode in hubwire.MODES:
+        for audience in hubwire.MODE_AUDIENCES[mode]:
+            pool = hubwire.rig_pool(audience, mode)
+            cases = ", ".join(f"`{c}`" for c in hubwire.POOL_USE_CASES[pool])
+            name = hubwire.POOL_NAMES[pool]
+            lines.append(f"| `{audience}` | `{mode}` | {name} | {cases} |")
+    retired = "; ".join(
+        f"`{old}` is `{a}` + `{m}`"
+        for old, (a, m) in hubwire.RETIRED_SHARING_MODES.items()
+    )
+    lines += [
+        "",
+        f"Under `{hubwire.SCOPE_OWN}` a rig lends to nobody, whatever its mode. "
+        "A rig whose audience reaches strangers serves someone who is neither "
+        "you nor a crewmate only once a hub admin has approved you as a host. "
+        f"The hub's old sharing modes are refused with these: {retired}.",
+    ]
+    return lines
+
+
 def render_setup() -> str:
     """Render SETUP.md: how a machine comes to have a config, and what it says.
 
@@ -677,6 +715,8 @@ def render_setup() -> str:
         "`mcgyvr rig crew sync` writes it whole the same way. A ladder step or a",
         "role names a crew unit as it names any unit, and fan-out may use it:",
         "a crew lends free, so it is no api rung.",
+        "",
+        *_audience_lines(),
         "",
         "Each file refuses a key that belongs in the other. `rigs`, `fleets` and",
         "each unit's `unit_id` are not in the tables below: the fleet lock",

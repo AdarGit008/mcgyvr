@@ -132,6 +132,18 @@ you through a hub, each read as a unit of `units` under scope `crew`.
 role names a crew unit as it names any unit, and fan-out may use it:
 a crew lends free, so it is no api rung.
 
+Who may use a rig is one of `own`, `crew`, `anyone`: a unit's `scope` and the setup's `ride_scope` name it, and so does each rig you add to a hub, with its mode, `lend` or `hitchhike`. A rig in mode `lend` puts its hardware in its audience's pool; one in mode `hitchhike` runs your own units and lets riders the hub matches use their spare slots. The pairs, and what each pool serves:
+
+| audience | mode | pool | use cases |
+|---|---|---|---|
+| `own` | `lend` | own rigs | `mcgyvr-code`, `code`, `chat`, `agent` |
+| `crew` | `lend` | crew pool | `mcgyvr-code`, `code`, `chat`, `agent` |
+| `anyone` | `lend` | general pool (anyone) | `code`, `chat`, `agent` |
+| `own` | `hitchhike` | own rigs | `mcgyvr-code`, `code`, `chat`, `agent` |
+| `anyone` | `hitchhike` | hitchhike | `mcgyvr-code`, `code`, `chat`, `agent` |
+
+Under `own` a rig lends to nobody, whatever its mode. A rig whose audience reaches strangers serves someone who is neither you nor a crewmate only once a hub admin has approved you as a host. The hub's old sharing modes are refused with these: `solo` is `own` + `lend`; `crew` is `crew` + `lend`; `pool` is `anyone` + `lend`; `hitchhike` is `anyone` + `hitchhike`.
+
 Each file refuses a key that belongs in the other. `rigs`, `fleets` and
 each unit's `unit_id` are not in the tables below: the fleet lock
 keys on them, and the run config drops them when it loads the
