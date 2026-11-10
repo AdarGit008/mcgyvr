@@ -373,7 +373,7 @@ def test_an_opened_request_at_the_bounds_passes_its_messages_without_extra_keys(
 def test_a_host_key_loads_no_cipher_until_a_unit_is_advertised_or_a_ride_opened() -> (
     None
 ):
-    """``rig up`` makes the run's key on every rig; one hosting nothing never
+    """``rig run`` makes the run's key on every rig; one hosting nothing never
     advertises a unit, so it never loads ``cryptography``."""
     import subprocess
     import sys

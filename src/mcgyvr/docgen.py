@@ -1,16 +1,17 @@
 """Render the documents that are generated from mcgyvr's schemas.
 
 `render_reference` and `render_setup` project the config `SCHEMA` into the
-configuration reference and SETUP.md. Two skills are rendered, and setup is not
-part of either: `render_skill` is /mcgyvr, a prompt handed to `mcgyvr "<prompt>"`
-and nothing about writing a contract; `render_direct_skill` is /mcgyvr-direct,
-contracts someone wrote handed to `mcgyvr direct`, one instruction generated from
-the contract schema, carrying the failure-notes record's fields from
-`mcgyvr.notes`. Both take their flags and exit codes from the CLI's own parser.
-`render_examples` and `render_notes_schema` write /mcgyvr-direct's
+configuration reference and SETUP.md. `render_skill` is /mcgyvr, a prompt
+handed to `mcgyvr "<prompt>"` and nothing about writing a contract;
+`render_direct_skill` is /mcgyvr-direct, contracts someone wrote handed to
+`mcgyvr direct`, one instruction generated from the contract schema, carrying
+the failure-notes record's fields from `mcgyvr.notes`. Setup is not part of
+either, and both take their flags and exit codes from the CLI's own parser.
+`render_use_skill` is /mcgyvr-use, `mcgyvr use NAME` switching the setup's use
+case. `render_examples` and `render_notes_schema` write /mcgyvr-direct's
 `references/`. `main` renders the reference to a temporary file, checks it and
-deletes it, then writes the other five — or, with `--check`, reports the ones
-that are out of date without touching them.
+deletes it, then writes the rest of the generated documents — or, with
+`--check`, reports the ones that are out of date without touching them.
 """
 
 from __future__ import annotations
