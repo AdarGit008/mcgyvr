@@ -8,6 +8,14 @@ inode, size, mtime, ctime) of every file it has verified, saved as JSON beside
 the cache directory. A later check only re-reads files whose stat identity
 changed, and removes anything that is not a regular file named like a digest or
 that does not hash to its own name.
+
+The hub names a model's weights by the sha256 of the model file, which no cache
+name says. So the agent also keeps a :class:`Record` beside the folder, written
+when a worker session that was told its model's digest gives the cache back:
+each cache file that session stored, under that digest. The record is JSON,
+``{"v": 1, "models": {"sha256:<64 hex>": ["<16 hex>", ...]}}``, newest model
+last. A digest is reported to the hub only while the ledger vouches for every
+file under it, and a cache file under no digest is never reported.
 """
 
 from __future__ import annotations
@@ -21,8 +29,9 @@ import subprocess
 import sys
 import threading
 import time
-from collections.abc import Iterator, Sequence
+from collections.abc import Collection, Iterable, Iterator, Sequence
 from pathlib import Path
+from typing import Any
 
 from mcgyvr import atomic, hostos
 
@@ -44,6 +53,8 @@ HASHER_POLL_S = 0.01
 #: Ledger format version, and the largest ledger file this code will read.
 SAVED_VERSION = 1
 MAX_SAVED_BYTES = 64 << 20
+#: Record format version: which model each cache file was stored for.
+RECORD_VERSION = 1
 
 #: Device, inode, size, mtime and ctime in nanoseconds: what a cached hash is
 #: trusted against, rechecked before the file is used.
@@ -163,32 +174,48 @@ def saved_beside(folder: Path) -> Path:
     return folder.with_name(folder.name + ".ledger.json")
 
 
-def _read_saved(saved: Path) -> dict[Path, Identity]:
-    """Return the ``{path: identity}`` pairs recorded in the ledger file ``saved``.
+def _load(saved: Path) -> Any:
+    """Return the JSON document in ``saved``, or None when it does not read.
 
-    {} is returned whenever the ledger cannot be trusted as a whole: when the boot
-    id is unknown, when the file cannot be opened without following a symlink, when
-    it is not a regular file of at most MAX_SAVED_BYTES, when its JSON has the
-    wrong SAVED_VERSION, boot id or shape, or when any key is not an absolute path
-    named like a cache entry with a five-integer identity.
+    None when the file cannot be opened without following a symlink, when it is
+    not a regular file of at most MAX_SAVED_BYTES, or when it is not JSON.
     """
-    boot = boot_id()
-    if boot is None:
-        return {}
     try:
         descriptor = hostos.open_nofollow(
             saved, os.O_RDONLY | hostos.open_flags_nonblock()
         )
     except OSError:
-        return {}
+        return None
     try:
         with os.fdopen(descriptor, "rb") as handle:
             found = os.fstat(handle.fileno())
             if not stat.S_ISREG(found.st_mode) or found.st_size > MAX_SAVED_BYTES:
-                return {}
-            document = json.loads(handle.read(MAX_SAVED_BYTES + 1))
+                return None
+            return json.loads(handle.read(MAX_SAVED_BYTES + 1))
     except (OSError, ValueError, RecursionError):
+        return None
+
+
+def _write(saved: Path, document: object) -> None:
+    """Write ``document`` as JSON to ``saved`` at mode 0600, fsynced, whole or not at
+    all (:func:`mcgyvr.atomic.write`); an OSError leaves the previous file as it was.
+    """
+    with contextlib.suppress(OSError):
+        atomic.write(saved, json.dumps(document), private=True, fsync=True)
+
+
+def _read_saved(saved: Path) -> dict[Path, Identity]:
+    """Return the ``{path: identity}`` pairs recorded in the ledger file ``saved``.
+
+    {} is returned whenever the ledger cannot be trusted as a whole: when the boot
+    id is unknown, when the file does not read (:func:`_load`), when its JSON has
+    the wrong SAVED_VERSION, boot id or shape, or when any key is not an absolute
+    path named like a cache entry with a five-integer identity.
+    """
+    boot = boot_id()
+    if boot is None:
         return {}
+    document = _load(saved)
     if (
         not isinstance(document, dict)
         or document.get("v") != SAVED_VERSION
@@ -230,22 +257,34 @@ class Ledger:
         self._known: dict[Path, Identity] = {} if saved is None else _read_saved(saved)
 
     def _save(self) -> None:
-        """Persist the known identities, if there is a ledger path and a boot id.
-
-        The JSON replaces the ledger whole through :func:`mcgyvr.atomic.write`, at
-        mode 0600 and fsynced, so a reader sees either the old or the new document.
-        Any OSError leaves the previous ledger untouched.
-        """
+        """Persist the known identities (:func:`_write`), if there is a ledger path
+        and a boot id."""
         boot = boot_id()
         if self._saved is None or boot is None:
             return
-        document = {
-            "v": SAVED_VERSION,
-            "boot": boot,
-            "files": {str(path): list(i) for path, i in sorted(self._known.items())},
-        }
-        with contextlib.suppress(OSError):
-            atomic.write(self._saved, json.dumps(document), private=True, fsync=True)
+        _write(
+            self._saved,
+            {
+                "v": SAVED_VERSION,
+                "boot": boot,
+                "files": {
+                    str(path): list(i) for path, i in sorted(self._known.items())
+                },
+            },
+        )
+
+    def names(self) -> frozenset[str]:
+        """The cache names of the files verified so far, as last checked."""
+        return frozenset(path.name for path in self._known)
+
+    def vouched(self, folder: Path) -> frozenset[str]:
+        """The cache names of the files in ``folder`` whose identity is the one
+        verified: what a worker mounting the folder now would find intact."""
+        return frozenset(
+            path.name
+            for path, found in _entries(folder)
+            if self._known.get(path) == _identity(found)
+        )
 
     def trusted(self, folder: Path) -> bool:
         """Return True when ``folder`` holds only files whose identity is already known.
@@ -295,6 +334,89 @@ class Ledger:
             else:
                 _remove(path)
         self._save()
+
+
+def record_beside(folder: Path) -> Path:
+    """Return the record path kept beside ``folder``: ``<folder name>.models.json``."""
+    return folder.with_name(folder.name + ".models.json")
+
+
+def _read_record(saved: Path) -> dict[str, frozenset[str]]:
+    """Return the ``{digest: cache names}`` the record file ``saved`` holds, in order.
+
+    {} whenever the record cannot be trusted as a whole: when the file does not
+    read (:func:`_load`), or when its JSON has the wrong RECORD_VERSION or shape, a
+    key that is not a sha256 digest as the hub writes one, or a name that is not a
+    cache name. Unlike the ledger it outlives a boot: a cache name is its content's
+    hash, so it names the same bytes whenever the ledger vouches for the file.
+    """
+    from mcgyvr.rig import protocol  # not at import: every hasher child loads this
+
+    document = _load(saved)
+    if (
+        not isinstance(document, dict)
+        or document.get("v") != RECORD_VERSION
+        or not isinstance(document.get("models"), dict)
+    ):
+        return {}
+    models: dict[str, frozenset[str]] = {}
+    for digest, names in document["models"].items():
+        if (
+            not protocol.DIGEST.fullmatch(digest)
+            or not isinstance(names, list)
+            or not all(isinstance(n, str) and NAME.fullmatch(n) for n in names)
+        ):
+            return {}
+        models[digest] = frozenset(names)
+    return models
+
+
+class Record:
+    """Which model each cache file was stored for, by the sha256 the hub names it by.
+
+    Kept in memory and, when a record path is given, loaded from that file on
+    construction and written back on every change (:func:`_write`). The models
+    are in the order they last stored a file, newest last.
+    """
+
+    def __init__(self, saved: Path | None = None) -> None:
+        self._saved = saved
+        self._models = {} if saved is None else _read_record(saved)
+
+    def _save(self) -> None:
+        if self._saved is not None:
+            _write(
+                self._saved,
+                {
+                    "v": RECORD_VERSION,
+                    "models": {d: sorted(n) for d, n in self._models.items()},
+                },
+            )
+
+    def stored(self, digest: str, names: Iterable[str]) -> None:
+        """Record ``names`` as cache files stored for the model ``digest``.
+
+        Nothing changes when ``names`` is empty: a session that found every tensor
+        it was sent already cached stored nothing.
+        """
+        added = frozenset(names)
+        if not added:
+            return
+        self._models[digest] = self._models.pop(digest, frozenset()) | added
+        self._save()
+
+    def settle(self, vouched: Collection[str]) -> None:
+        """Forget each model with a file not in ``vouched``: the cache no longer
+        holds all it stored for that model (a trim or a failed check removed one)."""
+        kept = {d: n for d, n in self._models.items() if n <= set(vouched)}
+        if kept != self._models:
+            self._models = kept
+            self._save()
+
+    def digests(self, vouched: Collection[str]) -> tuple[str, ...]:
+        """The models whose every recorded file is in ``vouched``, newest last."""
+        present = set(vouched)
+        return tuple(d for d, names in self._models.items() if names <= present)
 
 
 if __name__ == "__main__":
