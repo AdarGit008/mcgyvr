@@ -904,6 +904,13 @@ archived outside this repository, under the same paths.
 
 ### Fixed
 
+- The `type_check` contract key and the JavaScript adapter say what a
+  TypeScript type check is: `tsc --noEmit`, run as the contract's acceptance
+  command and read pass or fail by its exit code. Its errors are not
+  attributed to the lines the change added or compared with the base, as the
+  gate's own type check does for Python; no tsc output parser exists. Prose
+  only, no behaviour change (I-56).
+
 - Prose says what the code does, with no behaviour change. The host's verb
   that prints a run's seal key id is `rig run` (there is no `rig up`);
   SECURITY.md cites `Sharing.image`, `_image` and `rpc_proto=` instead of line
