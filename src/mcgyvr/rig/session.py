@@ -43,7 +43,7 @@ from functools import cache
 from pathlib import Path
 from typing import Protocol
 
-from mcgyvr import hubwire
+from mcgyvr import hubwire, redact
 from mcgyvr.rig import (
     commands,
     credentials,
@@ -2509,9 +2509,14 @@ class Sessions:
             if session.state not in LIVE:
                 return
             session.error_code = failure.code
-            session.log_excerpt = sessionwire.scrub(
-                f"{failure.message}\n{failure.excerpt}".strip()
+            # The excerpt goes to the other members of the session, so the real
+            # cleaners run first — host paths and credentials must not reach
+            # another user (redact.py's own rule) — and only then the wire's
+            # printable-and-capped shaping.
+            cleaned = redact.scrub_paths(
+                redact.scrub(f"{failure.message}\n{failure.excerpt}".strip())
             )
+            session.log_excerpt = sessionwire.printable_tail(cleaned)
             session.state = "failed"
         self._teardown(session)
         self._say(self._status(session, None))

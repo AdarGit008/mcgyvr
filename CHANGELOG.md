@@ -27,6 +27,19 @@ archived outside this repository, under the same paths.
   when it carries a `word=` login. `safe_url` stays userinfo-only; text with
   no credential still comes back unchanged, so the compare-to-detect callers
   are unaffected (I-62).
+- **A failed session's log excerpt is cleaned of host paths and credentials
+  before it is sent to the other members.** `rig/sessionwire.scrub` only blanked
+  unprintable characters and cut the text to the excerpt cap — it removed no
+  secrets — yet it shared its name with the real cleaner `redact.scrub`. The rig
+  sends this excerpt to every member of a session, so a host path or a key in a
+  container's log reached other users. It is renamed `printable_tail` (its call
+  sites in `sessionwire` and the UPnP error text in `rig/portmap` with it), and
+  `rig/session`'s `_fail` now runs `redact.scrub_paths` and `redact.scrub` on the
+  excerpt before the printable-and-capped shaping, so host paths become
+  `<redacted>` and a token (now that `redact.scrub` carries the token shapes,
+  I-62) is dropped. The protocol schema's `log_excerpt` text now says the rig
+  strips host paths and credentials before sending; the hub renders that text
+  from its own docstring and owes a matching re-render and re-pin (I-63).
 - **The agent channel's limits, shapes and codes are defined once, in
   `mcgyvr.hubwire`.** The protocol version, frame limits, the counts and
   bounds of every frame (models, sessions, endpoints, features, peers, allowed
