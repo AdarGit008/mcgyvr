@@ -44,6 +44,27 @@ archived outside this repository, under the same paths.
   import rewrite, with no compatibility shim, so code outside mcgyvr that
   imports `mcgyvr.orchestrator` must import from the new paths. The
   policy.yaml `orchestrator` block, journal keys and messages are unchanged.
+- **`SETUP.md` now names `numbers.yaml`, the file that overrides mcgyvr's
+  shipped estimates.** A user can drop `numbers.yaml` in the config folder
+  (`$MCGYVR_HOME`, default `~/.mcgyvr`) to replace the estimates mcgyvr sizes
+  and judges a machine with but cannot read off it — decode drift, link speeds,
+  host memory — each keyed by an engine, a unit's tolerance class, or a class of
+  link, and a refusal already invites it, but the setup document never named the
+  file. `docgen.render_setup` adds a paragraph for it, so `make docs`
+  regenerates `skills/mcgyvr/SETUP.md` with it. Docs only; no code path changes.
+
+- **mcgyvr keeps one default port, 8080, for every engine, and the setup wizard
+  reads vLLM's stock 8000 from the detect sweep instead of spelling it again.**
+  `serving.DEFAULT_PORT` is the port any engine's unit listens on when its
+  address carries none, so a portless vLLM unit resolves to 8080, not vLLM's
+  own 8000; vLLM's stock 8000 is recorded among the well-known servers' ports
+  in the detect sweep's list (`detect.PORT_CONVENTIONS`). The wizard's synthetic
+  detection now reuses vLLM's port from that list — writing it into the address
+  it stages — rather than spelling a second literal `8000`. No existing unit
+  changes the port it is served on — the value is identical, only the duplicate
+  is removed — and `serving.port_of` is
+  unchanged.
+
 - **One shared vocabulary for what a credential looks like, by value shape and
   by name (`mcgyvr.credential_shapes`).** Four checks decided what a credential
   is, each from its own list — the gate's secret scan (`mcgyvr.gate.secrets`),
@@ -925,8 +946,8 @@ archived outside this repository, under the same paths.
 
 ### Fixed
 
-- Prose says what the code does, with no behaviour change. The host's verb
-  that prints a run's seal key id is `rig run` (there is no `rig up`);
+- Prose says what the code does, with no behaviour change. The host's `rig
+  run` and `rig join` print a run's seal key id (there is no `rig up`);
   SECURITY.md cites `Sharing.image`, `_image` and `rpc_proto=` instead of line
   numbers that had moved; `--orchestrator` is not described as a working
   alias, since the CLI refuses it; README's, docgen's and the Makefile's lists
