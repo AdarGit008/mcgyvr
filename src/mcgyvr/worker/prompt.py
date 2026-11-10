@@ -32,7 +32,7 @@ from mcgyvr.contract import Contract
 from mcgyvr.gate.adapter import LanguageAdapter
 from mcgyvr.gate.preflight import PreflightIssue, TokenCount, check_prompt_fits
 from mcgyvr.notes import ClimbNotes
-from mcgyvr.orchestrator.read import estimate_tokens
+from mcgyvr.repo.read import estimate_tokens
 from mcgyvr.worker.bundle import Bundle, bundle_for
 from mcgyvr.worker.reply import WHOLE_FILE
 

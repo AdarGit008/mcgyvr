@@ -11,8 +11,8 @@ from __future__ import annotations
 
 from pathlib import Path
 
-from mcgyvr.orchestrator.references import Verdict, resolve
 from mcgyvr.rename import apply as rename_apply
+from mcgyvr.repo.references import Verdict, resolve
 from tests.renaming import committed
 
 SOURCE = 'def fetch_page():\n    pass\n\n\nx = "café"; fetch_page()\n'

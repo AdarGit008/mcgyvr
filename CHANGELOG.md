@@ -31,11 +31,51 @@ archived outside this repository, under the same paths.
   server it restarts, so restart a Mac's native units on this release to
   size it from the reading. A Mac whose native server has started sizes
   from the reading, which may be above or below the estimate, so the models
-  that fit it can change. The
-  folder name and file name are spelled once, in `fleet.roots`
-  (`NATIVE_DIR`, `METAL_FILE`); `estimate.usable_unified_mb` (no caller) and
-  `native.metal_working_set` (tests only) are removed, and with them
-  `estimate.UNIFIED_SHARE`, which only that function used.
+  that fit it can change. The folder name and file name are spelled once,
+  in `fleet.roots` (`NATIVE_DIR`, `METAL_FILE`); `estimate.usable_unified_mb`
+  (no caller) and `native.metal_working_set` (tests only) are removed, and
+  with them `estimate.UNIFIED_SHARE`, which only that function used.
+
+- **Every kept file is renamed into place by `mcgyvr.atomic`, which retries
+  while Windows holds the target (I-54).** The native launcher's records,
+  specs and settled copy, the rig identity key's no-hard-links fallback, the
+  Python lease's rewrite, the fetcher's verified download, the unpacked
+  llama.cpp build and a standing swap's record each staged a file and renamed
+  it by hand, and only the launcher's records were tried again when Windows
+  refused the rename. They now go through
+  `atomic.write` or, for a staged file or folder built some other way,
+  `atomic.replace`: `os.replace` tried again on PermissionError, 20 times
+  50 ms apart (the launcher's `REPLACE_TRIES`, now `atomic.REPLACE_TRIES`),
+  then the refusal raised. Every `atomic.write` caller gains the retry; a
+  rename that is refused on any system now fails after about a second rather
+  than at once. `atomic.write` takes `mode` for an ordinary file made with a
+  narrower mode (the lease keeps 0644). The shipped lease, fetcher and native
+  launcher carry `mcgyvr.atomic` (standard library and `hostos`, Python 3.9).
+  Modes, fsync and the lease's staging name are as they were; the launcher's
+  and the swap record's staging files are now atomic's
+  `.<name>.<pid>-<thread>.part`, and on Windows the launcher's records and the
+  lease (a free take as well as a rewrite) are written with `\n` line ends
+  instead of `\r\n`. A test holds that no module but `atomic` calls
+  `os.replace` or `Path.replace`, and the macOS and Windows runners replace a
+  file a reader holds open.
+
+- **Two machine-reading designs are said and pinned; nothing behaves
+  differently.** First contact with a rig over ssh is the scan's: `mcgyvr scan
+  --rig`, `setup` and `recommend` send a rig with no rig file the POSIX reader,
+  then the Windows one when its shell answers PowerShell, while a serve or a
+  read through the door ships by the rig file alone (`gatelib.shipping_os`)
+  and refuses a rig with no rig file before reading it; the door's `link`
+  timer needs no rig file and ships the POSIX line. SETUP.md's *macOS and
+  Windows* says so (*A rig over ssh*), and drops "remote rigs are Linux
+  machines", which a Windows or Mac rig over ssh no longer is. And this
+  machine's exact names (`gatelib.LOCAL_RIGS`: localhost, 127.0.0.1, ::1, [::1])
+  alone decide a unit's bind and key: the comment there says the list must
+  never grow to the looser match that finds a rig file
+  (`rigfile._names_this_machine`), and tests pin that a unit addressed at
+  127.0.0.2, 0.0.0.0 or `[::]` is `lan` and keyed, that a launch stating
+  127.0.0.2, `LOCALHOST`, 0.0.0.0 or `::` listens beyond this machine, and
+  that `http://LOCALHOST` is `local`: a URL's host is case-insensitive, so it
+  names `localhost`.
 
 - **The agent channel's limits, shapes and codes are defined once, in
   `mcgyvr.hubwire`.** The protocol version, frame limits, the counts and
@@ -56,6 +96,108 @@ archived outside this repository, under the same paths.
   without the package, so it keeps its UDP version and relay ticket shape,
   held to `hubwire`'s by test. The `hubwire` docstring now lists what is
   shared and what is not.
+- **The `mcgyvr.orchestrator` package is split by job: `mcgyvr.repo`,
+  `mcgyvr.decompose` and `mcgyvr.decision_log`.** The package read code, built
+  and cached the repository index, ranked and read files, and turned proposals
+  into contracts; it orchestrated nothing. `mcgyvr.repo` now holds the context
+  layer (`symbols`, `languages/`, `index`, `cache`, `resolve`, `read`,
+  `context`, `references`, and `repo` for attaching a repository);
+  `mcgyvr.decompose` holds the part that takes a proposer (`decompose`,
+  `iterate`, `candidates`, `fields`, `provides`, `baseline`); and the jev
+  shadow log `orchestrator/telemetry.py` is `mcgyvr.decision_log`, so it no
+  longer sits beside `mcgyvr.telemetry` under the same name. Every other
+  module keeps its name, and nothing behaves differently: a pure move and
+  import rewrite, with no compatibility shim, so code outside mcgyvr that
+  imports `mcgyvr.orchestrator` must import from the new paths. The
+  policy.yaml `orchestrator` block, journal keys and messages are unchanged.
+- **`SETUP.md` now names `numbers.yaml`, the file that overrides mcgyvr's
+  shipped estimates.** A user can drop `numbers.yaml` in the config folder
+  (`$MCGYVR_HOME`, default `~/.mcgyvr`) to replace the estimates mcgyvr sizes
+  and judges a machine with but cannot read off it — decode drift, link speeds,
+  host memory — each keyed by an engine, a unit's tolerance class, or a class of
+  link, and a refusal already invites it, but the setup document never named the
+  file. `docgen.render_setup` adds a paragraph for it, so `make docs`
+  regenerates `skills/mcgyvr/SETUP.md` with it. Docs only; no code path changes.
+
+- **mcgyvr keeps one default port, 8080, for every engine, and the setup wizard
+  reads vLLM's stock 8000 from the detect sweep instead of spelling it again.**
+  `serving.DEFAULT_PORT` is the port any engine's unit listens on when its
+  address carries none, so a portless vLLM unit resolves to 8080, not vLLM's
+  own 8000; vLLM's stock 8000 is recorded among the well-known servers' ports
+  in the detect sweep's list (`detect.PORT_CONVENTIONS`). The wizard's synthetic
+  detection now reuses vLLM's port from that list — writing it into the address
+  it stages — rather than spelling a second literal `8000`. No existing unit
+  changes the port it is served on — the value is identical, only the duplicate
+  is removed — and `serving.port_of` is
+  unchanged.
+
+- **One shared vocabulary for what a credential looks like, by value shape and
+  by name (`mcgyvr.credential_shapes`).** Four checks decided what a credential
+  is, each from its own list — the gate's secret scan (`mcgyvr.gate.secrets`),
+  the config loader's refusal of a pasted key (`mcgyvr.config`), the sandbox's
+  environment filter and its rc-file check (`mcgyvr.sandbox.base`) — and the
+  lists disagreed, so a key could pass one check and be refused by the next (a
+  GitHub token had to be exactly 36 characters in the gate and 20-or-more in the
+  config loader; an `sk-proj-...` key whose hyphens stopped the gate's
+  `[A-Za-z0-9]{20,}` run was refused only by the config loader). The value
+  shapes and the name words now live in one module; each check keeps its own
+  anchoring (the scan looks anywhere in a line, the config loader matches the
+  whole value) and its own name rule (an exact key, a word inside a variable
+  name, a word followed by `=`). The merged shapes are the widest of the old
+  lists — the smaller length floor, the wider character class — so no key any
+  check refused before is let through now, and three checks grew stricter: the
+  config loader also refuses Stripe-shaped values, a pasted private-key block and
+  the key `session`; the gate's `sk-` scan catches `sk-proj-...`; the sandbox env
+  and rc-file checks recognise the full vocabulary (`auth` is no longer fenced
+  to `_auth`, and an rc login line keyed by `key`/`apikey`/`credential`/`session`
+  now counts, so a `.npmrc`/`.pypirc`/`.yarnrc` holding one is kept out of a
+  sandbox and a run naming it under `sources:` is refused). The gate's own
+  `hardcoded-credential` assignment rule keeps its separate word list.
+  `mcgyvr.redact`, which only strips URL userinfo, is unchanged.
+
+- **A reviewer answers in three words: APPROVE, APPROVE_WITH_NOTES or
+  REFUSE.** The prose review prompt offered four, and two of them, REMEDIATE
+  and ESCALATE, were both read as a plain refusal and nothing acted on the
+  difference. REFUSE replaces both (`verify.ReviewOutcome`), and the prompt
+  every reviewer is shown now lists `APPROVE | APPROVE_WITH_NOTES | REFUSE`.
+  What a refusal does is unchanged. A refusal's detail, which the next attempt
+  is told, now opens `REFUSE:`. For this release a reply that still opens with
+  REMEDIATE or ESCALATE (a model tuned on the old prompt) is read as REFUSE,
+  with a debug note on the `mcgyvr.verify` logger; the next release drops
+  them, and such a reply will then be no verdict at all.
+
+- **The two shipped data files that spelled their format version `schema` now
+  spell it `schema_version`, the spelling the other four already use.**
+  `data/numbers.json` and `data/hardware-classes.json` recorded their version
+  under `schema`; they now say `schema_version`, matching
+  `data/model-geometry.json`, `data/model-catalog.json`,
+  `data/capability-table.json` and `data/task-catalog.json`. Their readers
+  (`mcgyvr.derived`, `mcgyvr.estimate`) read the new key, and the test fixtures
+  that write these documents follow. A file and its reader ship in one wheel, so
+  nothing reads the old key and no file carries both. The wire's `v`, the
+  user-written `links.json` in the data folder (still `schema`), and every
+  other document's version key are unchanged.
+
+- **A task container's build trims that repository's image cache to its
+  newest `sandbox.image_cache_keep` images (default 8; `0` keeps every one).**
+  `sandbox.image.prune` kept the newest 8 images, but nothing called it, so
+  every dependency set a repository moved to stayed cached. Now
+  `DockerSandbox` prunes after each image it builds (a cache hit builds
+  nothing and trims nothing), and `prune` takes the repository's slug and
+  counts and removes only images labelled with it (`slug_of`, the spelling the
+  tag and the `mcgyvr.repo` label share). A repository is known by its
+  directory's name: a run of a repository with another directory name,
+  started in parallel, keeps the image it is about to start, while two
+  checkouts whose directories share a name (`~/work/api` and `~/oss/api`)
+  count as one repository and trim each other's images. An image docker
+  refuses to remove because a container still uses it stays; what was removed
+  is said on stderr, and a cache docker will not list is said and the task
+  goes on. The setting reaches both of a run's sandboxes (`_floor` and
+  `_climb`) through `cli.sandbox._sandbox_policy` and
+  `open_sandbox(image_cache_keep=)`.
+  Upgrading: a repository with more than 8 cached images loses the oldest on
+  its next build; `mcgyvr sandbox --cache` lists what remains, and
+  `sandbox.image_cache_keep: 0` keeps them all.
 
 - **A docker llama.cpp or vLLM unit listens on 127.0.0.1 or, behind a key
   mcgyvr makes, on every interface (`expose: local | lan`).** `mcgyvr emit`
@@ -228,6 +370,21 @@ archived outside this repository, under the same paths.
 
 ### Added
 
+- **A worker rig tells the hub which models its tensor cache holds
+  (`hello.weight_cache`), so the hub plans a cheaper load there.** The cache
+  names each file by the FNV-1a hash of one tensor, and the hub names weights
+  by the sha256 of the model file, so the agent now keeps a record beside the
+  cache folder (`<folder>.models.json`, mode 0600, `tensorcache.Record`): when
+  a worker session that `worker_start.model.digest` named gives the cache back,
+  each file it stored is recorded under that digest. A hello names a digest
+  while the ledger vouches for every file recorded under it (a model one of
+  whose files a trim or a check removed is forgotten), at most `MAX_MODELS`,
+  the newest, and only from a rig that lends the worker role with its cache
+  shared. A file stored by a session that named no digest is never reported,
+  nothing is named after a reboot until the folder is checked again, and a
+  hello says what the last check saw: the hub learns of a new model at the
+  next hello. A rig with nothing recorded sends the same hello as before.
+
 - **A ride is sealed end to end, rider to host: the hub carries ciphertext.**
   The host's agent makes an X25519 key each time it starts (`mcgyvr.seal`, in
   memory only) and names it on every unit it advertises (`unit_advert`'s
@@ -332,31 +489,35 @@ archived outside this repository, under the same paths.
   unified GPU is not lent yet: a lent card is served by a CUDA worker in a
   container, and it joins lending with native launch. (#809)
 
-- **A Mac or Windows rig is ready to lend a pooled head natively, once its
-  helper is pinned (#823).** `mcgyvr rig share --launcher native --endpoints
-  HOSTS` on macOS or Windows needs no engine image: the rig's sessions run
-  through `mcgyvr-wg`, a userspace WireGuard helper (no TUN device, no admin
+- **A Mac or Windows rig lends a pooled head natively through its pinned
+  helper (#823).** `mcgyvr rig share --launcher native --endpoints HOSTS` on
+  macOS or Windows needs no engine image: the rig's sessions run through
+  `mcgyvr-wg`, a userspace WireGuard helper (no TUN device, no admin
   rights), one per session, whose release mcgyvr pins by tag and sha256
-  (`mcgyvr.rig.wgpin`) and fetches as it fetches llama.cpp. The helper's first
-  release is not pinned yet, so for now such a rig offers no session role
-  (`rig share` says `roles: none offered`). Once it is, the helper holds the
-  session's key and UDP socket and starts the pinned llama-server as its own
-  child on 127.0.0.1 alone, the head reaches each worker only through a
-  forward that accepts the head's own process and dials only that worker
-  through the tunnel, and each process is recorded so a head left behind is
-  ended by the next teardown or sweep. Such a rig offers the head role alone
-  (a worker is refused `not_capable`), names the pinned build as its runtime,
-  and does not list `traversal` yet, so the hub pairs it with rigs on its own
-  LAN. A Mac or Windows machine reads no network interface yet, which is why
-  it names `--endpoints`. On Linux the launcher changes nothing: the session
-  layer reaches its machine through one host, and the docker host asks the
-  daemon exactly what it asked before. A locked native unit whose `role` is
-  `rpc` renders as `ggml-rpc-server` bound to the IPv4 address its `-H`
-  states, one a worker may listen on (`llamacpp.worker_may_listen`), not as
-  a server on the loopback. That rule is now an allow-list, for container
-  fleets too: an rpc worker binds an address of a private network (RFC 1918:
-  10/8, 172.16/12, 192.168/16) or an overlay's (RFC 6598: 100.64/10) and
-  nothing else, so a link-local or documentation-range bind is refused.
+  (`mcgyvr.rig.wgpin`) and fetches as it fetches llama.cpp. Its first
+  release, `v0.1.0`
+  (https://github.com/AdarGit008/mcgyvr-wg/releases/tag/v0.1.0), is pinned
+  for macOS and Windows on arm64 and x86_64 (and for Linux, whose rigs do
+  not run it), so such a rig now offers the head role where it used to say
+  `roles: none offered`; its head's API asks a key of the session's own
+  (Security, below). The helper holds the session's key and UDP socket and
+  starts the pinned llama-server as its own child on 127.0.0.1 alone, the
+  head reaches each worker only through a forward that accepts the head's
+  own process and dials only that worker through the tunnel, and each
+  process is recorded so a head left behind is ended by the next teardown or
+  sweep. Such a rig offers the head role alone (a worker is refused
+  `not_capable`), names the pinned build as its runtime, and does not list
+  `traversal` yet, so the hub pairs it with rigs on its own LAN. A Mac or
+  Windows machine reads no network interface yet, which is why it names
+  `--endpoints`. On Linux the launcher changes nothing: the session layer
+  reaches its machine through one host, and the docker host asks the daemon
+  exactly what it asked before. A locked native unit whose `role` is `rpc`
+  renders as `ggml-rpc-server` bound to the IPv4 address its `-H` states,
+  one a worker may listen on (`llamacpp.worker_may_listen`), not as a server
+  on the loopback. That rule is now an allow-list, for container fleets too:
+  an rpc worker binds an address of a private network (RFC 1918: 10/8,
+  172.16/12, 192.168/16) or an overlay's (RFC 6598: 100.64/10) and nothing
+  else, so a link-local or documentation-range bind is refused.
 - **A rig names the llama.cpp RPC protocol it speaks.** A rig running the
   pinned build, natively or as the pinned image, sends
   `capabilities.rpc_proto` (`hubwire.RPC_PROTO_FIELD`; b11960 speaks 8.0) in
@@ -409,9 +570,9 @@ archived outside this repository, under the same paths.
   SETUP.md's *macOS and Windows* (docgen) names each system's folders, the
   native launcher and its backends, the firewall and quarantine, long paths,
   and the commands that start `mcgyvr rig run` at login (a launchd agent on
-  macOS; on Windows, a Startup-folder line for when `rig run` runs there). A
-  failed `mcgyvr serve` names the door's log in this system's data folder, and
-  the door's `--help` names each system's weights folder.
+  macOS; on Windows, a Startup-folder line). A failed `mcgyvr serve` names
+  the door's log in this system's data folder, and the door's `--help` names
+  each system's weights folder.
 
 - **A unit runs natively, with no container: `launcher: native` (#818).** The
   llama.cpp build mcgyvr pins (b11960, `mcgyvr.serving.llamacpp`; the Linux
@@ -915,8 +1076,8 @@ archived outside this repository, under the same paths.
 
 ### Fixed
 
-- Prose says what the code does, with no behaviour change. The host's verb
-  that prints a run's seal key id is `rig run` (there is no `rig up`);
+- Prose says what the code does, with no behaviour change. The host's `rig
+  run` and `rig join` print a run's seal key id (there is no `rig up`);
   SECURITY.md cites `Sharing.image`, `_image` and `rpc_proto=` instead of line
   numbers that had moved; `--orchestrator` is not described as a working
   alias, since the CLI refuses it; README's, docgen's and the Makefile's lists
@@ -927,6 +1088,27 @@ archived outside this repository, under the same paths.
   install script's floor comment states its rule without a version. Two
   internal helpers nothing called, `symbol_options` and `shipped.b64`, are
   deleted.
+
+- The rig agent no longer lists `backend_select` among its features. It read a
+  worker card's `backend` (`cuda_notc`, `rocm`, ...) and started the worker
+  exactly as without one, so the claim was not true. A hub that sees no
+  `backend_select` names only the backends every fork speaks (`cuda_notc` as
+  `cuda`, `openvino` and `sycl` as `vulkan`); what a worker runs is unchanged.
+
+- **The rig agent and `mcgyvr rig status` read your personal hub key from the
+  variable `mcgyvr rig rungs sync --key-env` was told.** The agent's
+  background refresh and the `rig status` credits read only
+  `$MCGYVR_HUB_API_KEY`, so with a variable of your own the refresh never
+  started, or, with the default set too, rewrote `relief.yaml` with the
+  default name. A sync now records the NAME (never the key) as a top-level
+  `api_key_env` in `relief.yaml`, with or without rungs listed, and both read
+  it back (`rungs.key_env`); each refresh writes the same name back, and a
+  `relief.yaml` that does not load is still rewritten by the next refresh. A
+  `relief.yaml` written before is read by the `api_key_env` its rungs name;
+  with none recorded there, by the one `crew.yaml`'s units name
+  (`rig crew sync --key-env`); else the default. An older mcgyvr refuses a
+  `relief.yaml` with the new key (`unknown key 'api_key_env'`); a
+  `rig rungs sync` with it rewrites the file.
 
 - A relief rung whose host's unit already serves as many rides as it may
   (`503 pool_busy`) is passed over as full, as the other busy answers are,
@@ -984,6 +1166,17 @@ archived outside this repository, under the same paths.
 
 ### Security
 
+- **A Mac or Windows rig's pooled head answers only the key its session
+  made.** A native head listens on 127.0.0.1, which every local process
+  reaches, so each native session makes a key of its own (256 bits,
+  `unitkey.new_key`, as a unit's key is made) and hands it to llama-server as
+  `LLAMA_API_KEY` (its `--api-key`) in the head's environment, never on its
+  command line, and into no record, log or hub frame. The agent's health
+  check, warm-up, relayed requests and `/slots` read send it as a bearer
+  token, and a native head is not started without one. HELPER-SPEC.md
+  section 6 asked for this before the helper's first pin. A Linux rig's
+  pooled head, in a container on its tunnel's network, is started and asked
+  as before, with no key.
 - **A rig forwards its UDP ports only when its owner allowed it on the rig
   too, and never takes a permanent lease unasked.** The lending settings gain
   `port_forward` and `port_forward_permanent` (`rig-sharing.json`, both off;

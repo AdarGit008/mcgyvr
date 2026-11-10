@@ -14,6 +14,7 @@ from typing import Any
 from mcgyvr.config import (
     Config,
 )
+from mcgyvr.sandbox.image import DEFAULT_MAX_CACHED_IMAGES
 
 
 def _say_what_the_sandbox_leaves_out(repo: Path) -> list[str]:
@@ -25,7 +26,7 @@ def _say_what_the_sandbox_leaves_out(repo: Path) -> list[str]:
     returned as a one-item list so a caller can keep it on the result; an empty
     list means there was nothing to say.
     """
-    from mcgyvr.orchestrator import head_only_note
+    from mcgyvr.repo import head_only_note
 
     note = head_only_note(repo)
     if note is None:
@@ -35,17 +36,26 @@ def _say_what_the_sandbox_leaves_out(repo: Path) -> list[str]:
 
 
 def _sandbox_policy(config: Config | None) -> dict[str, Any]:
-    """The `allow_fallback` and `network` a sandbox is opened with.
+    """The `allow_fallback`, `network` and `image_cache_keep` a sandbox is
+    opened with.
 
-    With no config at all both take their defaults: no fallback to the weaker
-    tempdir backend when Docker does not answer, and Docker's `bridge` network.
-    Otherwise they are read from `sandbox.allow_fallback` (default off) and
-    `sandbox.network` (default `bridge`), so the same policy reaches a run that
-    has a setup and one that does not.
+    With no config at all each takes its default: no fallback to the weaker
+    tempdir backend when Docker does not answer, Docker's `bridge` network, and
+    a build that keeps its repository's newest `DEFAULT_MAX_CACHED_IMAGES`
+    images. Otherwise they are read from `sandbox.allow_fallback` (default
+    off), `sandbox.network` (default `bridge`) and `sandbox.image_cache_keep`,
+    so the same policy reaches a run that has a setup and one that does not.
     """
     if config is None:
-        return {"allow_fallback": False, "network": "bridge"}
+        return {
+            "allow_fallback": False,
+            "network": "bridge",
+            "image_cache_keep": DEFAULT_MAX_CACHED_IMAGES,
+        }
     return {
         "allow_fallback": bool(config.get("sandbox.allow_fallback", False)),
         "network": config.get("sandbox.network", "bridge"),
+        "image_cache_keep": int(
+            config.get("sandbox.image_cache_keep", DEFAULT_MAX_CACHED_IMAGES)
+        ),
     }

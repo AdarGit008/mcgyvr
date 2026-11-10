@@ -1,6 +1,6 @@
 """W1 — shadow telemetry for the candidate-set -> jev top-1 decision loop.
 
-:mod:`mcgyvr.orchestrator.telemetry` measures one per-field jev decision: the
+:mod:`mcgyvr.decision_log` measures one per-field jev decision: the
 candidate ids shown, in order; the id jev picked; the enumerator's rank-0 id; and
 how the decision landed (abstained, failed to parse, confidence, latency). A
 ``DecisionRecord`` freezes that one decision, a ``ShadowSink`` appends one JSON
@@ -20,7 +20,7 @@ from datetime import datetime
 from pathlib import Path
 from typing import Any
 
-from mcgyvr.orchestrator.telemetry import (
+from mcgyvr.decision_log import (
     DecisionRecord,
     ShadowSink,
     abstain_rate,

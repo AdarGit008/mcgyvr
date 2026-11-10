@@ -354,7 +354,7 @@ def run_agent(kept: Credentials, config: Path | None = None) -> int:
     refresher = rungs.refresher_for(kept.hub, folder=config)
     if refresher is not None:
         print(
-            f"relief rungs: kept fresh from {kept.hub} with ${rungs.KEY_ENV}",
+            f"relief rungs: kept fresh from {kept.hub} with ${refresher.key_env}",
             file=sys.stderr,
         )
 
@@ -364,7 +364,14 @@ def run_agent(kept: Credentials, config: Path | None = None) -> int:
     def offer() -> protocol.Offer | None:
         share = lending()
         hosts = session.endpoint_hosts(share, tunnel.read_interfaces)
-        return session.offer(share, models(), hosts, sessions.running(), last_report())
+        return session.offer(
+            share,
+            models(),
+            hosts,
+            sessions.running(),
+            last_report(),
+            cached=sessions.weight_cache(),
+        )
 
     def online() -> None:
         sessions.online()
@@ -720,12 +727,18 @@ def _say_lent(report: Any) -> None:
 
 def _say_credits(hub: str) -> None:
     """Print the member's balance as the hub answers it, asked with the
-    personal hub key in ``$MCGYVR_HUB_API_KEY``; a note when it is not read."""
+    personal hub key in the variable the setup's syncs name (:func:`rungs.key_env`,
+    ``$MCGYVR_HUB_API_KEY`` where they name none); a note when it is not read."""
+    from mcgyvr.config import ConfigError, config_path
     from mcgyvr.rig import agent, rungs
 
-    key = os.environ.get(rungs.KEY_ENV)
+    try:
+        key_env = rungs.key_env(config_path())
+    except (ConfigError, rungs.SyncError):
+        key_env = rungs.KEY_ENV  # no setup to read it from: the default
+    key = os.environ.get(key_env)
     if not key:
-        print(f"credits: set ${rungs.KEY_ENV} to your personal hub key to see them")
+        print(f"credits: set ${key_env} to your personal hub key to see them")
         return
     try:
         balance = rungs.balance(hub, key)
@@ -754,13 +767,12 @@ def _leave(args: argparse.Namespace) -> int:
 def _hub_sync(args: argparse.Namespace) -> tuple[str, str, str, Path] | int:
     """The hub, the key, its variable's name and the setup folder a sync of
     ``rungs`` or ``crew`` names, or the exit code it refuses with."""
-    import re
-
     from mcgyvr.config import ConfigError, config_path
+    from mcgyvr.fleet.files import is_variable_name
     from mcgyvr.rig import credentials, rungs
 
     key_env: str = args.key_env
-    if not re.fullmatch(r"[A-Za-z_][A-Za-z0-9_]*", key_env):
+    if not is_variable_name(key_env):
         print(
             f"error: {key_env!r} is not a variable's name; --key-env takes the "
             "NAME of the variable holding your personal hub key, never the key",

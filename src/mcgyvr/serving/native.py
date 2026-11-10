@@ -80,7 +80,7 @@ from typing import Any
 # modules it imports (mcgyvr.serving.shipped.native): what only the door needs
 # (the compose file's yaml, the config's and the launch spec's names) is
 # imported where it is used.
-from mcgyvr import hostos
+from mcgyvr import atomic, hostos
 from mcgyvr.fleet.roots import METAL_FILE, NATIVE_DIR
 from mcgyvr.hubwire import FIGURE_READING
 from mcgyvr.serving import llamacpp, release, rigscan
@@ -98,10 +98,6 @@ UNIT_NAME = re.compile(r"[A-Za-z0-9][A-Za-z0-9._-]{0,127}")
 START_S = 30.0
 STOP_S = 20.0
 POLL_S = 0.2
-#: How often, and how far apart, a record is renamed into place on Windows
-#: while a reader holds it.
-REPLACE_TRIES = 20
-REPLACE_PAUSE_S = 0.05
 #: How long a server asked to stop is given before it is killed.
 SERVER_GRACE_S = 10.0
 #: How long one health probe waits for its answer.
@@ -832,21 +828,9 @@ def _card_holders() -> str:
 
 
 def _write_json(path: Path, body: dict[str, Any]) -> None:
-    """Write `body` to `path` whole: a private temporary file renamed over it.
-
-    Windows refuses the rename while a reader holds `path` open, which a
-    record read at the same moment does; the rename is tried again then.
-    """
-    part = path.with_name(f"{path.name}.{os.getpid()}.part")
-    part.write_text(json.dumps(body, indent=2, sort_keys=True) + "\n", encoding="utf-8")
-    hostos.chmod_private(part)
-    for _ in range(REPLACE_TRIES - 1):
-        try:
-            os.replace(part, path)
-            return
-        except PermissionError:
-            time.sleep(REPLACE_PAUSE_S)
-    os.replace(part, path)
+    """Write `body` to `path` whole and private (:func:`mcgyvr.atomic.write`),
+    whose rename is tried again while a reader on Windows holds `path` open."""
+    atomic.write(path, json.dumps(body, indent=2, sort_keys=True) + "\n", private=True)
 
 
 def _now() -> str:
@@ -1090,10 +1074,7 @@ def _settle(program: bytes) -> tuple[str, ...]:
             with contextlib.suppress(OSError):
                 old.unlink()
     if not target.is_file() or target.read_bytes() != program:
-        part = target.with_name(f"{target.name}.{os.getpid()}.part")
-        part.write_bytes(program)
-        hostos.chmod_private(part)
-        os.replace(part, target)
+        atomic.write(target, program, private=True)
     return (sys.executable, "-I", "-B", str(target))
 
 
