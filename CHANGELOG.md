@@ -241,6 +241,16 @@ archived outside this repository, under the same paths.
   What vLLM allocates for a sliding layer is to be measured before any
   discount is taken.
 
+- **The rule for an address a peer can be at is defined once, in
+  `mcgyvr.hubwire.is_peer_address`.** `rig/tunnel.py` (`is_lan`, `may_aim_at`)
+  and `rig/probe.py` (`reachable`) each spelled the same five checks (not
+  loopback, link-local, multicast, reserved or unspecified). They now read the
+  one predicate: `probe.reachable` is it, `tunnel.is_lan` is it and private,
+  and `may_aim_at` is it outside the tunnel's network and this machine's own
+  addresses. No address is classified differently. Reading interfaces is
+  unchanged and still Linux only; macOS and Windows rigs still name their
+  `endpoints` by hand.
+
 - **The agent channel's limits, shapes and codes are defined once, in
   `mcgyvr.hubwire`.** The protocol version, frame limits, the counts and
   bounds of every frame (models, sessions, endpoints, features, peers, allowed
@@ -1323,6 +1333,16 @@ archived outside this repository, under the same paths.
   (tensor x pipeline, one process) is unchanged, as is every llama.cpp split.
   Upgrading: a stated `launch.master_port` is now ignored, not checked;
   delete it.
+
+- **The unused floor fallback is gone: `mcgyvr.deterministic.route`,
+  `Degradation` and `Routed`.** `route` planned a floor contract whose program
+  was missing on the cheapest dearer family and recorded a `degraded` note
+  saying who pays; nothing in mcgyvr called it, only its tests. It is removed
+  with its helpers (`_have`, `_why_missing`, `_cheapest_above`) and the tests
+  that exercised it; the tests that ran the floor's step through `route` now
+  plan it through `mcgyvr.route.plan`, which is the path runs take. Nothing
+  behaves differently: a floor contract with no program bound still stops
+  `mcgyvr run` with exit 1, naming the dearer family it does not climb to.
 - **Sessions, the manager loop and the retired-name shims are gone.** `chat`
   and `agent` are no longer contract task types: `code` is the one shipped
   type, and chat and agent stay as plain use of an endpoint. Removed with

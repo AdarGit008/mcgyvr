@@ -39,6 +39,7 @@ import time
 from collections.abc import Callable, Sequence
 from dataclasses import dataclass, field
 
+from mcgyvr import hubwire
 from mcgyvr.rig import commands, protocol, sessionwire, udpwire
 from mcgyvr.rig.sessionwire import SessionCode
 
@@ -63,20 +64,11 @@ SLICE_S = 0.05
 RELEASE_WAIT_S = 2.0
 
 
-def reachable(address: ipaddress.IPv4Address) -> bool:
-    """Whether a path to this address can exist: not loopback or the like.
-
-    This is the default address rule. Loopback, link-local, multicast,
-    reserved and unspecified addresses are where no peer of another rig is,
-    so nothing is sent to them unless the caller hands in another rule.
-    """
-    return not (
-        address.is_loopback
-        or address.is_link_local
-        or address.is_multicast
-        or address.is_reserved
-        or address.is_unspecified
-    )
+#: The default address rule: a path can exist only to an address a peer of
+#: another rig can be at (:func:`mcgyvr.hubwire.is_peer_address`), so nothing
+#: is sent to loopback, link-local, multicast, reserved or unspecified
+#: addresses unless the caller hands in another rule.
+reachable = hubwire.is_peer_address
 
 
 @dataclass

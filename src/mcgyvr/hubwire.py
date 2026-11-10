@@ -29,7 +29,9 @@ is here:
   :data:`WIREGUARD_KEY`, :data:`IPV4`, :data:`IPV4_CIDR`,
   :data:`CONTENT_TYPE`, :data:`BASE64`, :data:`TOKEN`, :data:`TICKET`), and
   its codes: :class:`CloseCode`, the channel's :class:`ErrorCode`, a
-  refusal's :class:`SessionCode`, all of them :data:`AGENT_ERROR_CODES`;
+  refusal's :class:`SessionCode`, all of them :data:`AGENT_ERROR_CODES`; and
+  the rule for an IPv4 address a peer of another rig can be at
+  (:func:`is_peer_address`), which a LAN address keeps as well;
 * :data:`RUNG_POSITIONS`, where a relief rung's host model sits against the
   rider's ladder;
 * :data:`MODEL_NAME`, the shape of a model name on the wire, and
@@ -125,6 +127,7 @@ import base64
 import binascii
 import enum
 import hashlib
+import ipaddress
 import json
 import re
 from collections.abc import Mapping, Sequence
@@ -339,6 +342,22 @@ TOKEN = re.compile(r"[0-9a-f]{32}")
 #: The ticket a relay grant carries, which binds a tunnel with the relay:
 #: opaque to agents, URL-safe base64.
 TICKET = re.compile(r"[A-Za-z0-9_-]{22,256}")
+
+
+def is_peer_address(address: ipaddress.IPv4Address) -> bool:
+    """Whether a peer of another rig can be at this IPv4 address: it is not
+    loopback, link-local, multicast, reserved or unspecified.
+
+    The one rule a rig's endpoints, its tunnel's aim and its probes' pings are
+    held to; a LAN address is one of these that is also private.
+    """
+    return not (
+        address.is_loopback
+        or address.is_link_local
+        or address.is_multicast
+        or address.is_reserved
+        or address.is_unspecified
+    )
 
 
 class CloseCode(enum.IntEnum):
