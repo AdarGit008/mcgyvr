@@ -26,7 +26,8 @@ from mcgyvr import capability
 from mcgyvr.capability import CapabilityTableError, load, table_path
 from tests.table_fixture import row, table_document, write_table
 
-#: The keys that held measurements, at the level each one sat at.
+#: The keys that held measurements, at the level each one sat at. The backend
+#: level is gone from the table; its key stays here, so no level declares it.
 MEASUREMENT_KEYS: dict[str, tuple[str, ...]] = {
     "table": ("card_classes", "harness_caveats", "concurrency_findings"),
     "model row": ("throughput_tok_s", "seconds_per_image", "seconds_per_clip"),
@@ -44,11 +45,12 @@ def _keys(node: Any) -> Iterator[str]:
             yield from _keys(value)
 
 
-@pytest.mark.parametrize("level", sorted(MEASUREMENT_KEYS))
+@pytest.mark.parametrize("level", sorted(capability.DECLARED_KEYS))
 def test_no_level_declares_a_measurement(level: str) -> None:
     declared = capability.DECLARED_KEYS[level]
+    measured = {key for keys in MEASUREMENT_KEYS.values() for key in keys}
 
-    assert not declared & set(MEASUREMENT_KEYS[level]), sorted(declared)
+    assert not declared & measured, sorted(declared)
 
 
 def test_the_shipped_table_carries_no_measurement_at_any_depth() -> None:

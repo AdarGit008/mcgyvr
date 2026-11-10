@@ -88,15 +88,12 @@ class CapabilityTable:
 
 
 #: Every key the table may carry, by the level of the document it sits at: the
-#: table, a row of `models`, the `backends` block, and each backend's block.
-#: A level is closed: a key it does not declare is refused by name, and the
-#: refusal lists the keys declared for it. So no figure — a quality score, a
-#: benchmark reading, a reading of a card — enters the table without first
-#: being declared here, where a reviewer reads it. A row states what a model
-#: costs to serve, and these keys are the only terms it can state that in.
-#: The `backends block` level declares only `_doc`, the block's own prose:
-#: what sits under `backends` is a mapping whose keys name servers, not facts,
-#: so that level is open where each backend under it is closed.
+#: table and a row of `models`. A level is closed: a key it does not declare
+#: is refused by name, and the refusal lists the keys declared for it. So no
+#: figure — a quality score, a benchmark reading, a reading of a card — enters
+#: the table without first being declared here, where a reviewer reads it. A
+#: row states what a model costs to serve, and these keys are the only terms it
+#: can state that in.
 #: `active_params_b` and `architecture` are declared and checked but not
 #: carried into `Model`: `architecture` is read from the raw document by the
 #: sizing seam, and `active_params_b` is checked as a number and unread.
@@ -109,7 +106,6 @@ DECLARED_KEYS: Mapping[str, frozenset[str]] = MappingProxyType(
                 "schema_version",
                 "_purpose",
                 "models",
-                "backends",
             }
         ),
         "model row": frozenset(
@@ -128,8 +124,6 @@ DECLARED_KEYS: Mapping[str, frozenset[str]] = MappingProxyType(
                 "notes",
             }
         ),
-        "backends block": frozenset({"_doc"}),
-        "backend": frozenset({"wire_protocol", "strengths", "limits"}),
     }
 )
 
@@ -139,7 +133,7 @@ DECLARED_KEYS: Mapping[str, frozenset[str]] = MappingProxyType(
 CONTAINER_KEYS: Mapping[str, frozenset[str]] = MappingProxyType(
     {
         **{level: frozenset[str]() for level in DECLARED_KEYS},
-        "table": frozenset({"models", "backends"}),
+        "table": frozenset({"models"}),
     }
 )
 
@@ -266,22 +260,10 @@ def _check_row(index: int, value: Any, path: Path) -> None:
 
 
 def _check_shape(raw: Mapping[str, Any], path: Path) -> None:
-    """Check the table's declared keys, every row, and every named backend.
-
-    `backends` is open at its own level: its keys name servers rather than
-    facts, so each value under it is checked as a backend instead.
-    """
+    """Check the table's declared keys and every row."""
     _closed(raw, "table", path, "the table")
     for index, value in enumerate(_entries(raw.get("models", []), path, "models")):
         _check_row(index, value, path)
-    backends = _object(raw.get("backends", {}), path, "backends")
-    _values(backends, "backends block", path, "backends")
-    for name, value in backends.items():
-        if name in DECLARED_KEYS["backends block"]:
-            continue
-        where = f"backends[{name!r}]"
-        backend = _object(value, path, where)
-        _closed(backend, "backend", path, where)
 
 
 def table_path() -> Path:
